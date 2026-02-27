@@ -1,0 +1,60 @@
+{
+  "name": "premiere-pro-mcp",
+  "version": "1.0.0",
+  "description": "MCP server for controlling Adobe Premiere Pro via CEP/ExtendScript — 269 tools for AI-driven video editing",
+  "main": "dist/index.js",
+  "type": "module",
+  "bin": {
+    "premiere-pro-mcp": "dist/index.js"
+  },
+  "files": [
+    "dist/**/*.js",
+    "dist/**/*.d.ts",
+    "cep-plugin",
+    "scripts",
+    "README.md",
+    "LICENSE",
+    "CHANGELOG.md"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "start": "node dist/index.js",
+    "install-cep": "bash scripts/install-cep.sh"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ppmcp/premiere-pro-mcp.git"
+  },
+  "homepage": "https://github.com/ppmcp/premiere-pro-mcp#readme",
+  "bugs": {
+    "url": "https://github.com/ppmcp/premiere-pro-mcp/issues"
+  },
+  "author": "",
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "adobe",
+    "premiere-pro",
+    "video-editing",
+    "ai",
+    "extendscript",
+    "cep",
+    "claude",
+    "windsurf",
+    "cursor",
+    "automation"
+  ],
+  "license": "MIT",
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.12.1",
+    "zod": "^3.23.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "typescript": "^5.7.0"
+  }
+}

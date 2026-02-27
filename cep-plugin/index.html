@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>MCP Bridge</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: #1e1e1e;
+      color: #e0e0e0;
+      padding: 16px;
+      font-size: 13px;
+    }
+    h1 { font-size: 16px; margin-bottom: 12px; color: #fff; }
+    .status-row {
+      display: flex;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+    .status-dot {
+      width: 10px; height: 10px;
+      border-radius: 50%;
+      margin-right: 8px;
+      background: #666;
+    }
+    .status-dot.connected { background: #4caf50; }
+    .status-dot.error { background: #f44336; }
+    .status-dot.waiting { background: #ff9800; }
+    label { display: block; margin: 12px 0 4px; font-weight: 600; }
+    input[type="text"] {
+      width: 100%;
+      padding: 6px 8px;
+      background: #2d2d2d;
+      border: 1px solid #444;
+      color: #e0e0e0;
+      border-radius: 4px;
+      font-size: 12px;
+    }
+    button {
+      margin-top: 8px;
+      padding: 6px 16px;
+      background: #0078d4;
+      color: #fff;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 12px;
+    }
+    button:hover { background: #106ebe; }
+    button.stop { background: #d32f2f; }
+    button.stop:hover { background: #b71c1c; }
+    #log {
+      margin-top: 12px;
+      background: #111;
+      border: 1px solid #333;
+      border-radius: 4px;
+      padding: 8px;
+      max-height: 120px;
+      overflow-y: auto;
+      font-family: "Cascadia Code", "Fira Code", monospace;
+      font-size: 11px;
+      line-height: 1.5;
+    }
+    .log-entry { color: #999; }
+    .log-entry.cmd { color: #4fc3f7; }
+    .log-entry.ok { color: #81c784; }
+    .log-entry.err { color: #ef5350; }
+  </style>
+</head>
+<body>
+  <h1>MCP Bridge (CEP)</h1>
+
+  <div class="status-row">
+    <div class="status-dot" id="statusDot"></div>
+    <span id="statusText">Stopped</span>
+  </div>
+  <div class="status-row">
+    <span>Commands processed: <strong id="cmdCount">0</strong></span>
+  </div>
+
+  <label for="tempDir">Temp Directory</label>
+  <input type="text" id="tempDir" value="">
+
+  <div style="display: flex; gap: 8px;">
+    <button id="btnStart" onclick="startBridge()">Start Bridge</button>
+    <button id="btnStop" class="stop" onclick="stopBridge()" disabled>Stop Bridge</button>
+    <button onclick="saveTempDir()">Save Config</button>
+  </div>
+
+  <div id="log"></div>
+
+  <script src="CSInterface.js"></script>
+  <script src="main.js"></script>
+</body>
+</html>

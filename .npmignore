@@ -1,0 +1,26 @@
+# Source (dist is published, not src)
+src/
+tsconfig.json
+
+# Development
+.github/
+.vscode/
+.idea/
+.windsurf/
+
+# Documentation (README, LICENSE, CHANGELOG included via files field)
+RESEARCH.md
+CONTRIBUTING.md
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Source maps
+*.js.map
+*.d.ts.map
+
+# Misc
+.env
+.env.local
+*.log
