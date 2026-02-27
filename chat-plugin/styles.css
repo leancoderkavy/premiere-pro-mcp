@@ -212,7 +212,7 @@ input[type="range"]::-webkit-slider-thumb {
 
 .msg-bubble {
   padding: 10px 14px; border-radius: var(--radius-lg);
-  font-size: 13px; line-height: 1.55; word-wrap: break-word;
+  font-size: 13px; line-height: 1.55; word-wrap: break-word; overflow-wrap: break-word;
 }
 .msg.user .msg-bubble {
   background: var(--accent); color: white;
@@ -339,7 +339,7 @@ input[type="range"]::-webkit-slider-thumb {
 .modal-body .btn-primary { max-width: none; }
 
 /* Checkbox label */
-.form-group label:has(input[type="checkbox"]) {
+.checkbox-label {
   display: flex; align-items: center; gap: 8px;
   font-size: 13px; color: var(--text-primary); cursor: pointer;
 }

@@ -17,8 +17,8 @@ echo "  Building DMG: $DMG_NAME v$VERSION"
 echo "========================================"
 echo ""
 
-# Clean previous build
-rm -rf "$BUILD_DIR"
+# Clean previous DMG staging (preserve other build artifacts)
+rm -rf "$BUILD_DIR/dmg-staging"
 mkdir -p "$BUILD_DIR/dmg-staging"
 
 STAGING="$BUILD_DIR/dmg-staging"

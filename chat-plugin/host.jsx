@@ -17,7 +17,7 @@ function __jsonStringify(obj) {
   }
   if (obj === null) return "null";
   if (obj === undefined) return "undefined";
-  if (typeof obj === "string") return '"' + obj.replace(/\\/g, "\\\\").replace(/"/g, '\\"').replace(/\n/g, "\\n") + '"';
+  if (typeof obj === "string") return '"' + obj.replace(/\\/g, "\\\\").replace(/"/g, '\\"').replace(/\n/g, "\\n").replace(/\r/g, "\\r").replace(/\t/g, "\\t") + '"';
   if (typeof obj === "number" || typeof obj === "boolean") return String(obj);
   if (obj instanceof Array) {
     var arr = [];

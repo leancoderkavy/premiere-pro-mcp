@@ -4,6 +4,9 @@
 
 var https = require("https");
 
+// Track the current in-flight request so we can abort it
+var _currentRequest = null;
+
 // ---- Provider Configurations ----
 var PROVIDERS = {
   claude: {
@@ -58,7 +61,7 @@ function callClaude(apiKey, model, messages, systemPrompt, options, callback) {
   var body = JSON.stringify({
     model: model,
     max_tokens: options.maxTokens || 4096,
-    temperature: options.temperature || 0.3,
+    temperature: typeof options.temperature === "number" ? options.temperature : 0.3,
     system: systemPrompt,
     messages: messages.map(function (m) {
       return { role: m.role, content: m.content };
@@ -119,18 +122,18 @@ function callGemini(apiKey, model, messages, systemPrompt, options, callback) {
       parts: [{ text: systemPrompt }],
     },
     generationConfig: {
-      temperature: options.temperature || 0.3,
+      temperature: typeof options.temperature === "number" ? options.temperature : 0.3,
       maxOutputTokens: options.maxTokens || 4096,
     },
   });
 
   var reqOptions = {
     hostname: "generativelanguage.googleapis.com",
-    path:
-      "/v1beta/models/" + model + ":generateContent?key=" + apiKey,
+    path: "/v1beta/models/" + model + ":generateContent",
     method: "POST",
     headers: {
       "Content-Type": "application/json",
+      "x-goog-api-key": apiKey,
     },
   };
 
@@ -193,8 +196,23 @@ function validateApiKey(provider, apiKey, model, callback) {
   });
 }
 
+// ---- Abort any in-flight request ----
+function abortCurrentRequest() {
+  if (_currentRequest) {
+    try { _currentRequest.destroy(); } catch (e) {}
+    _currentRequest = null;
+  }
+}
+
 // ---- HTTPS Request Helper (Node.js) ----
 function makeRequest(options, body, callback) {
+  abortCurrentRequest();
+
+  // Set Content-Length for compatibility with proxies/firewalls
+  var bodyBuffer = Buffer.from(body, "utf-8");
+  options.headers = options.headers || {};
+  options.headers["Content-Length"] = bodyBuffer.length;
+
   var req = https.request(options, function (res) {
     var chunks = [];
     res.on("data", function (chunk) {
@@ -226,6 +244,7 @@ function makeRequest(options, body, callback) {
     callback("Request timed out (60s)", null);
   });
 
-  req.write(body);
+  _currentRequest = req;
+  req.write(bodyBuffer);
   req.end();
 }

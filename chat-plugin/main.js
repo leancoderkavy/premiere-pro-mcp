@@ -3,6 +3,9 @@
 
 var cs = new CSInterface();
 
+// ---- Constants ----
+var MAX_HISTORY = 50; // Cap conversation history to prevent token overflow
+
 // ---- State ----
 var state = {
   provider: "claude",
@@ -15,6 +18,8 @@ var state = {
   maxTokens: 4096,
   customSystemPrompt: "",
   projectContext: null,
+  scriptQueue: [],    // Sequential script execution queue
+  scriptRunning: false,
 };
 
 // ---- Provider Selection (Login Screen) ----
@@ -45,10 +50,20 @@ function updateProviderUI() {
 }
 
 function openLink(url) {
-  // CEP can open URLs via cep.util.openURLInDefaultBrowser or Node's child_process
+  // Validate URL to prevent shell injection
+  if (!url || !/^https?:\/\//i.test(url)) {
+    console.warn("[openLink] Blocked non-HTTP URL: " + url);
+    return;
+  }
   try {
     var cp = require("child_process");
-    cp.exec('open "' + url + '"');
+    var os = require("os");
+    var safeUrl = url.replace(/["\\`$!]/g, ""); // strip dangerous chars
+    if (os.platform() === "win32") {
+      cp.exec('start "" "' + safeUrl + '"');
+    } else {
+      cp.exec('open "' + safeUrl + '"');
+    }
   } catch (e) {
     console.log("Could not open URL: " + url);
   }
@@ -157,12 +172,43 @@ function sendMessage() {
   addMessage("user", text);
   state.messages.push({ role: "user", content: text });
 
+  // Trim history to prevent token overflow
+  trimHistory();
+
   sendToAI();
 }
 
 function sendSuggestion(text) {
   document.getElementById("chatInput").value = text;
   sendMessage();
+}
+
+function trimHistory() {
+  // Keep only the last MAX_HISTORY messages to avoid token overflow
+  if (state.messages.length > MAX_HISTORY) {
+    state.messages = state.messages.slice(state.messages.length - MAX_HISTORY);
+  }
+}
+
+function clearChat() {
+  state.messages = [];
+  state.scriptQueue = [];
+  state.scriptRunning = false;
+  var container = document.getElementById("messages");
+  container.innerHTML = "";
+  // Re-add welcome message
+  var welcome = document.createElement("div");
+  welcome.className = "welcome-msg";
+  welcome.innerHTML =
+    '<p><strong>Welcome!</strong> I can help you edit in Premiere Pro. Try:</p>' +
+    '<div class="suggestions">' +
+    '<button class="suggestion" onclick="sendSuggestion(\'What clips are in my timeline?\')">What clips are in my timeline?</button>' +
+    '<button class="suggestion" onclick="sendSuggestion(\'Add a cross dissolve to all cuts\')">Add a cross dissolve to all cuts</button>' +
+    '<button class="suggestion" onclick="sendSuggestion(\'Export the active sequence as H.264\')">Export as H.264</button>' +
+    '</div>';
+  container.appendChild(welcome);
+  document.getElementById("tokenCount").textContent = "";
+  updateStatus("Ready");
 }
 
 function sendToAI() {
@@ -276,17 +322,26 @@ function addMessage(role, content) {
 }
 
 function renderMarkdown(text) {
-  // Simple markdown renderer for chat messages
-  var html = escapeHtml(text);
-
-  // Code blocks with language hint
-  html = html.replace(/```(\w*)\n([\s\S]*?)```/g, function (match, lang, code) {
-    var cls = lang ? ' class="lang-' + lang + '"' : "";
-    return '<pre><code' + cls + ">" + code.trim() + "</code></pre>";
+  // Extract code blocks first to protect them from escaping
+  var codeBlocks = [];
+  var placeholder = "\x00CODE_BLOCK_";
+  var processed = text.replace(/```(\w*)\n([\s\S]*?)```/g, function (match, lang, code) {
+    var idx = codeBlocks.length;
+    codeBlocks.push({ lang: lang, code: code.trim() });
+    return placeholder + idx + "\x00";
   });
 
-  // Inline code
-  html = html.replace(/`([^`]+)`/g, "<code>$1</code>");
+  // Extract inline code
+  var inlineCodes = [];
+  var inlinePlaceholder = "\x00INLINE_CODE_";
+  processed = processed.replace(/`([^`]+)`/g, function (match, code) {
+    var idx = inlineCodes.length;
+    inlineCodes.push(code);
+    return inlinePlaceholder + idx + "\x00";
+  });
+
+  // Now escape HTML on the remaining text
+  var html = escapeHtml(processed);
 
   // Bold
   html = html.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
@@ -296,6 +351,19 @@ function renderMarkdown(text) {
 
   // Line breaks
   html = html.replace(/\n/g, "<br/>");
+
+  // Restore inline code (escaped content)
+  for (var i = 0; i < inlineCodes.length; i++) {
+    html = html.replace(inlinePlaceholder + i + "\x00",
+      "<code>" + escapeHtml(inlineCodes[i]) + "</code>");
+  }
+
+  // Restore code blocks (escaped content)
+  for (var j = 0; j < codeBlocks.length; j++) {
+    var cls = codeBlocks[j].lang ? ' class="lang-' + escapeHtml(codeBlocks[j].lang) + '"' : "";
+    html = html.replace(placeholder + j + "\x00",
+      '<pre><code' + cls + '>' + escapeHtml(codeBlocks[j].code) + '</code></pre>');
+  }
 
   return html;
 }
@@ -339,14 +407,31 @@ function extractAndExecuteScripts(text) {
 
   for (var i = 0; i < scripts.length; i++) {
     if (state.autoExec) {
-      executeExtendScript(scripts[i]);
+      // Queue scripts for sequential execution to avoid race conditions
+      state.scriptQueue.push(scripts[i]);
     } else {
       showScriptPreview(scripts[i]);
     }
   }
+
+  if (state.autoExec && !state.scriptRunning) {
+    runNextScript();
+  }
 }
 
-function executeExtendScript(script) {
+function runNextScript() {
+  if (state.scriptQueue.length === 0) {
+    state.scriptRunning = false;
+    return;
+  }
+  state.scriptRunning = true;
+  var script = state.scriptQueue.shift();
+  executeExtendScript(script, function () {
+    runNextScript();
+  });
+}
+
+function executeExtendScript(script, onComplete) {
   // Wrap in try/catch with helpers
   var wrappedScript =
     "(function() {\n" +
@@ -384,15 +469,15 @@ function executeExtendScript(script) {
           resultContent.className = "script-result success";
           resultContent.textContent = JSON.stringify(parsed.data, null, 2);
 
-          // Feed result back to AI for follow-up
+          // Feed result back to AI as context
           var resultMsg = "[ExtendScript executed successfully. Result: " + JSON.stringify(parsed.data) + "]";
-          state.messages.push({ role: "user", content: resultMsg });
+          state.messages.push({ role: "assistant", content: resultMsg });
         } else {
           resultContent.className = "script-result error";
           resultContent.textContent = "Error: " + (parsed.error || "Unknown error");
 
           var errMsg = "[ExtendScript execution error: " + (parsed.error || "Unknown error") + "]";
-          state.messages.push({ role: "user", content: errMsg });
+          state.messages.push({ role: "assistant", content: errMsg });
         }
       } else {
         resultContent.className = "script-result success";
@@ -414,6 +499,9 @@ function executeExtendScript(script) {
 
     // Refresh context after executing scripts
     refreshContext();
+
+    // Signal completion for sequential queue
+    if (typeof onComplete === "function") onComplete();
   });
 }
 
@@ -565,13 +653,19 @@ function changeApiKey() {
     if (savedSystemPrompt) state.customSystemPrompt = savedSystemPrompt;
     if (savedAutoExec !== null) state.autoExec = savedAutoExec === "true";
 
-    // Auto-login if key is saved
+    // Auto-login if key is saved — validate first
     if (savedKey && savedModel) {
-      state.apiKey = savedKey;
-      state.model = savedModel;
       document.getElementById("apiKeyInput").value = savedKey;
       document.getElementById("modelSelect").value = savedModel;
+      state.apiKey = savedKey;
+      state.model = savedModel;
+      // Show chat immediately, validate in background
       showChatScreen();
+      validateApiKey(state.provider, savedKey, savedModel, function (valid, error) {
+        if (!valid) {
+          addMessage("assistant", "**Warning:** Saved API key may be invalid — " + (error || "connection failed") + ". You can update it in Settings.");
+        }
+      });
       return;
     }
   } catch (e) {}
