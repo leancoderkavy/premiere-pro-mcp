@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>AI Chat — Premiere Pro</title>
+  <link rel="stylesheet" href="styles.css"/>
+</head>
+<body>
+  <!-- ========== LOGIN SCREEN ========== -->
+  <div id="loginScreen" class="screen">
+    <div class="login-container">
+      <div class="logo">
+        <svg width="48" height="48" viewBox="0 0 48 48" fill="none">
+          <rect width="48" height="48" rx="12" fill="#7C3AED"/>
+          <path d="M14 34V14h6.5c2 0 3.6.5 4.8 1.6 1.2 1 1.8 2.5 1.8 4.3 0 1.3-.3 2.4-1 3.3-.7.9-1.6 1.5-2.7 1.8l4.6 9H24l-4.2-8.4H18V34h-4zm4-12.2h2.3c.9 0 1.6-.2 2.1-.7.5-.5.8-1.1.8-1.9s-.3-1.4-.8-1.9c-.5-.5-1.2-.7-2.1-.7H18v5.2z" fill="white"/>
+          <circle cx="36" cy="14" r="6" fill="#22D3EE"/>
+          <path d="M33.5 14l1.5 1.5 3-3" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </div>
+      <h1>Premiere Pro AI Chat</h1>
+      <p class="subtitle">Connect an AI provider to control Premiere Pro with natural language.</p>
+
+      <div class="provider-tabs">
+        <button class="tab active" data-provider="claude" onclick="selectProvider('claude')">
+          <span class="tab-icon">◆</span> Claude
+        </button>
+        <button class="tab" data-provider="gemini" onclick="selectProvider('gemini')">
+          <span class="tab-icon">✦</span> Gemini
+        </button>
+      </div>
+
+      <div class="form-group">
+        <label for="apiKeyInput">API Key</label>
+        <div class="input-row">
+          <input type="password" id="apiKeyInput" placeholder="Enter your API key..." autocomplete="off"/>
+          <button class="icon-btn" onclick="toggleKeyVisibility()" title="Show/hide key">
+            <span id="eyeIcon">👁</span>
+          </button>
+        </div>
+        <p class="hint" id="providerHint">Get a key at <a href="#" id="providerLink" onclick="openLink(this.dataset.url)">console.anthropic.com</a></p>
+      </div>
+
+      <div class="form-group">
+        <label for="modelSelect">Model</label>
+        <select id="modelSelect"></select>
+      </div>
+
+      <button class="btn-primary" id="loginBtn" onclick="login()">Connect & Start Chatting</button>
+
+      <div id="loginError" class="error-msg" style="display:none"></div>
+
+      <div class="login-footer">
+        <p>Your API key is stored locally and never leaves this machine.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========== CHAT SCREEN ========== -->
+  <div id="chatScreen" class="screen" style="display:none">
+    <!-- Header -->
+    <div class="chat-header">
+      <div class="header-left">
+        <div class="header-dot connected"></div>
+        <span class="header-title" id="headerTitle">Claude</span>
+        <span class="header-model" id="headerModel">claude-sonnet-4-20250514</span>
+      </div>
+      <div class="header-right">
+        <button class="icon-btn small" onclick="openSettings()" title="Settings">⚙</button>
+        <button class="icon-btn small" onclick="logout()" title="Disconnect">✕</button>
+      </div>
+    </div>
+
+    <!-- Project Context Banner -->
+    <div class="context-banner" id="contextBanner" style="display:none">
+      <span class="context-icon">🎬</span>
+      <span id="contextText">No project open</span>
+      <button class="icon-btn tiny" onclick="refreshContext()" title="Refresh">↻</button>
+    </div>
+
+    <!-- Messages -->
+    <div class="messages" id="messages">
+      <div class="welcome-msg">
+        <p><strong>Welcome!</strong> I can help you edit in Premiere Pro. Try:</p>
+        <div class="suggestions">
+          <button class="suggestion" onclick="sendSuggestion('What clips are in my timeline?')">What clips are in my timeline?</button>
+          <button class="suggestion" onclick="sendSuggestion('Add a cross dissolve to all cuts')">Add a cross dissolve to all cuts</button>
+          <button class="suggestion" onclick="sendSuggestion('Export the active sequence as H.264')">Export as H.264</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Input -->
+    <div class="input-area">
+      <div class="input-row">
+        <textarea id="chatInput" placeholder="Ask me to edit your project..." rows="1" onkeydown="handleInputKey(event)" oninput="autoResizeInput()"></textarea>
+        <button class="send-btn" id="sendBtn" onclick="sendMessage()" title="Send">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="22" y1="2" x2="11" y2="13"></line>
+            <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+          </svg>
+        </button>
+      </div>
+      <div class="input-footer">
+        <span id="statusText">Ready</span>
+        <span id="tokenCount"></span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========== SETTINGS MODAL ========== -->
+  <div id="settingsModal" class="modal" style="display:none">
+    <div class="modal-backdrop" onclick="closeSettings()"></div>
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>Settings</h2>
+        <button class="icon-btn" onclick="closeSettings()">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label for="settingsModel">Model</label>
+          <select id="settingsModel"></select>
+        </div>
+        <div class="form-group">
+          <label for="settingsTemp">Temperature</label>
+          <input type="range" id="settingsTemp" min="0" max="1" step="0.1" value="0.3"/>
+          <span id="settingsTempVal">0.3</span>
+        </div>
+        <div class="form-group">
+          <label for="settingsMaxTokens">Max Tokens</label>
+          <input type="number" id="settingsMaxTokens" value="4096" min="256" max="32000" step="256"/>
+        </div>
+        <div class="form-group">
+          <label for="settingsSystemPrompt">System Prompt (appended to default)</label>
+          <textarea id="settingsSystemPrompt" rows="4" placeholder="Add custom instructions..."></textarea>
+        </div>
+        <div class="form-group">
+          <label>
+            <input type="checkbox" id="settingsAutoExec" checked/>
+            Auto-execute ExtendScript (uncheck to preview first)
+          </label>
+        </div>
+        <div class="form-group">
+          <label>API Key</label>
+          <button class="btn-secondary" onclick="changeApiKey()">Change API Key</button>
+        </div>
+        <button class="btn-primary" onclick="saveSettings()">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="CSInterface.js"></script>
+  <script src="ai-providers.js"></script>
+  <script src="main.js"></script>
+</body>
+</html>
