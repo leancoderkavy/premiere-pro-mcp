@@ -44,7 +44,7 @@ export function HeroSection() {
           background="rgba(153,153,255,0.15)"
           borderRadius="8px"
           className="h-12 px-8 text-base font-semibold"
-          onClick={() => window.open("https://github.com/ppmcp/premiere-pro-mcp", "_blank")}
+          onClick={() => window.open("https://github.com/leancoderkavy/premiere-pro-mcp", "_blank")}
         >
           <Github className="mr-2 h-5 w-5" />
           View on GitHub

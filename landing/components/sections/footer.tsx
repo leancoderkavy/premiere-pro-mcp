@@ -17,7 +17,7 @@ export function Footer() {
 
           <div className="flex items-center gap-6">
             <a
-              href="https://github.com/ppmcp/premiere-pro-mcp"
+              href="https://github.com/leancoderkavy/premiere-pro-mcp"
               target="_blank"
               rel="noopener noreferrer"
               className="flex items-center gap-2 text-sm text-zinc-400 transition-colors hover:text-white"
