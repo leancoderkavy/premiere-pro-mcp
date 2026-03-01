@@ -8,7 +8,9 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Node.js](https://img.shields.io/badge/Node.js-18%2B-green.svg)](https://nodejs.org)
-[![MCP](https://img.shields.io/badge/MCP-1.12-purple.svg)](https://modelcontextprotocol.io)
+[![MCP](https://img.shields.io/badge/MCP-1.27-purple.svg)](https://modelcontextprotocol.io)
+[![npm](https://img.shields.io/npm/v/premiere-pro-mcp.svg)](https://www.npmjs.com/package/premiere-pro-mcp)
+[![Fly.io](https://img.shields.io/badge/Fly.io-deployed-7C3AED.svg)](https://premiere-pro-mcp.fly.dev)
 [![Premiere Pro](https://img.shields.io/badge/Premiere%20Pro-2020--2025%2B-9999FF.svg)](https://www.adobe.com/products/premiere.html)
 
 </div>
@@ -162,6 +164,7 @@ Add to `.cursor/mcp.json` in your project or global config:
 
 ## Architecture
 
+**Local (stdio):**
 ```
 ┌───────────────┐   stdio (MCP)   ┌──────────────┐   File-based IPC   ┌──────────────┐
 │  AI Client    │ ◄──────────────► │  MCP Server  │ ◄────────────────► │  CEP Plugin  │
@@ -175,6 +178,15 @@ Add to `.cursor/mcp.json` in your project or global config:
                                                                        │  ExtendScript │
                                                                        │  + QE DOM     │
                                                                        └──────────────┘
+```
+
+**Remote (HTTP/SSE — Fly.io):**
+```
+┌───────────────┐  HTTP+SSE (MCP)  ┌─────────────────────┐   File-based IPC   ┌──────────────┐
+│  AI Client    │ ◄───────────────► │  MCP Server         │ ◄────────────────► │  CEP Plugin  │
+│  (any MCP     │                   │  premiere-pro-mcp   │   .jsx / .json     │  (Premiere)  │
+│   client)     │                   │  .fly.dev           │   shared volume    └──────────────┘
+└───────────────┘                   └─────────────────────┘
 ```
 
 1. AI client invokes an MCP tool (e.g., `add_to_timeline`)
@@ -332,12 +344,63 @@ These are automatically available to MCP clients that support resources, giving 
 
 ---
 
+## Remote Deployment (Fly.io)
+
+The server includes an HTTP/SSE transport (`src/http-server.ts`) for remote access via [mcp-remote](https://github.com/geelen/mcp-remote) or any MCP client that supports Streamable HTTP.
+
+A live instance is running at **https://premiere-pro-mcp.fly.dev**.
+
+### Connect via mcp-remote
+
+```json
+{
+  "mcpServers": {
+    "premiere-pro": {
+      "command": "npx",
+      "args": ["mcp-remote", "https://premiere-pro-mcp.fly.dev/mcp"]
+    }
+  }
+}
+```
+
+### Self-host on Fly.io
+
+```bash
+# Clone and deploy your own instance
+git clone https://github.com/ppmcp/premiere-pro-mcp.git
+cd premiere-pro-mcp
+fly apps create your-app-name
+fly deploy --remote-only
+
+# Optional: add bearer token auth
+fly secrets set MCP_AUTH_TOKEN=your-secret-token
+```
+
+Then connect with:
+```json
+{
+  "mcpServers": {
+    "premiere-pro": {
+      "command": "npx",
+      "args": ["mcp-remote", "https://your-app-name.fly.dev/mcp",
+               "--header", "Authorization: Bearer your-secret-token"]
+    }
+  }
+}
+```
+
+> **Note:** The file bridge still requires the CEP plugin to share the same `PREMIERE_TEMP_DIR`. For cloud deployments this means running a sync agent or using `fly proxy` / WireGuard to reach your local machine.
+
+---
+
 ## Environment Variables
 
 | Variable | Description | Default |
-|----------|-------------|---------|
+|----------|-------------|--------|
 | `PREMIERE_TEMP_DIR` | Shared temp directory for MCP ↔ CEP communication | OS temp dir + `/premiere-mcp-bridge` |
 | `PREMIERE_TIMEOUT_MS` | Command timeout in milliseconds | `30000` |
+| `PORT` | HTTP port (HTTP/SSE transport only) | `3000` |
+| `MCP_AUTH_TOKEN` | Bearer token for HTTP transport auth (optional) | unset |
 
 ---
 
@@ -347,6 +410,7 @@ These are automatically available to MCP clients that support resources, giving 
 premiere-pro-mcp/
 ├── src/
 │   ├── index.ts                 # Entry point — stdio transport setup
+│   ├── http-server.ts           # Entry point — HTTP/SSE transport (Fly.io / remote)
 │   ├── server.ts                # MCP server — registers all 269 tools + 2 resources
 │   ├── bridge/
 │   │   ├── file-bridge.ts       # File-based IPC (write .jsx, poll .json)
@@ -390,6 +454,8 @@ premiere-pro-mcp/
 │   └── CSInterface.js           # Adobe CEP interface library
 ├── scripts/
 │   └── install-cep.sh           # CEP plugin installer (symlink + debug mode)
+├── Dockerfile                   # Multi-stage Docker build for Fly.io
+├── fly.toml                     # Fly.io deployment config
 ├── RESEARCH.md                  # API research and implementation status
 ├── CONTRIBUTING.md              # Contribution guidelines
 ├── CHANGELOG.md                 # Version history
