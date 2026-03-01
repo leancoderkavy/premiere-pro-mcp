@@ -20,9 +20,50 @@
  */
 
 import http from "node:http";
+import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { createServer } from "./server.js";
 import { cleanupTempDir, getTempDir } from "./bridge/file-bridge.js";
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const LANDING_DIR = path.resolve(__dirname, "../landing-dist");
+
+const MIME: Record<string, string> = {
+  ".html": "text/html; charset=utf-8",
+  ".js":   "application/javascript; charset=utf-8",
+  ".css":  "text/css; charset=utf-8",
+  ".json": "application/json",
+  ".png":  "image/png",
+  ".svg":  "image/svg+xml",
+  ".ico":  "image/x-icon",
+  ".woff2":"font/woff2",
+  ".woff": "font/woff",
+  ".ttf":  "font/ttf",
+  ".txt":  "text/plain",
+};
+
+function serveLanding(req: http.IncomingMessage, res: http.ServerResponse): boolean {
+  if (!fs.existsSync(LANDING_DIR)) return false;
+
+  let urlPath = req.url?.split("?")[0] ?? "/";
+  if (urlPath === "/" || urlPath === "") urlPath = "/index.html";
+  // Next.js trailingSlash: /about/ -> /about/index.html
+  if (urlPath.endsWith("/")) urlPath += "index.html";
+
+  const filePath = path.join(LANDING_DIR, urlPath);
+  // Security: ensure we stay within LANDING_DIR
+  if (!filePath.startsWith(LANDING_DIR)) return false;
+
+  if (!fs.existsSync(filePath)) return false;
+
+  const ext = path.extname(filePath);
+  const contentType = MIME[ext] ?? "application/octet-stream";
+  res.writeHead(200, { "Content-Type": contentType });
+  fs.createReadStream(filePath).pipe(res);
+  return true;
+}
 
 const PORT = parseInt(process.env.PORT ?? "3000", 10);
 const AUTH_TOKEN = process.env.MCP_AUTH_TOKEN;
@@ -48,8 +89,9 @@ const httpServer = http.createServer(async (req, res) => {
     return;
   }
 
-  // Only handle /mcp endpoint
+  // Only handle /mcp endpoint; everything else goes to the landing page
   if (!req.url?.startsWith("/mcp")) {
+    if (serveLanding(req, res)) return;
     res.writeHead(404);
     res.end("Not found");
     return;
