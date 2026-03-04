@@ -12,6 +12,7 @@ steps:
       - label: ":vitest: Tests"
         command: |
           npm ci
+          npm run build
           npm test
         plugins:
           - docker#v5.11.0:
