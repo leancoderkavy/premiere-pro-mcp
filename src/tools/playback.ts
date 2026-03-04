@@ -5,21 +5,12 @@ export function getPlaybackTools(bridgeOptions: BridgeOptions) {
   return {
     play_timeline: {
       description: "Start playback of the active sequence timeline. Uses QE DOM.",
-      parameters: {
-        type: "object" as const,
-        properties: {
-          speed: {
-            type: "number",
-            description: "Playback speed multiplier (1.0 = normal, 2.0 = 2x, -1.0 = reverse). Default: 1.0",
-          },
-        },
-      },
-      handler: async (args: { speed?: number }) => {
-        const speed = args.speed ?? 1.0;
+      parameters: {},
+      handler: async () => {
         const script = buildToolScript(`
           app.enableQE();
           qe.startPlayback();
-          return __result({ playing: true, speed: ${speed} });
+          return __result({ playing: true });
         `);
         return sendCommand(script, bridgeOptions);
       },

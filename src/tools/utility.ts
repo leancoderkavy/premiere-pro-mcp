@@ -89,46 +89,30 @@ export function getUtilityTools(bridgeOptions: BridgeOptions) {
     },
 
     add_adjustment_layer: {
-      description: "Add an adjustment layer to the timeline at the specified position and track.",
+      description: "Add an adjustment layer to the active sequence via QE DOM. The layer is added at the playhead position on the specified track.",
       parameters: {
         type: "object" as const,
         properties: {
-          start_seconds: {
-            type: "number",
-            description: "Start time in seconds on the timeline",
-          },
-          duration_seconds: {
-            type: "number",
-            description: "Duration in seconds (default: 5)",
-          },
           track_index: {
             type: "number",
             description: "Video track index (default: 0)",
           },
         },
-        required: ["start_seconds"],
       },
-      handler: async (args: { start_seconds: number; duration_seconds?: number; track_index?: number }) => {
-        const duration = args.duration_seconds ?? 5;
+      handler: async (args: { track_index?: number }) => {
         const track = args.track_index ?? 0;
         const script = buildToolScript(`
           var seq = app.project.activeSequence;
           if (!seq) return __error("No active sequence");
 
-          // Create an adjustment layer via QE
           app.enableQE();
           try {
             var qeSeq = qe.project.getActiveSequence();
             qeSeq.addAdjustmentLayer(${track});
 
-            // The adjustment layer gets added at the end of the track or at playhead
-            // We may need to move it
             return __result({
               added: true,
-              startSeconds: ${args.start_seconds},
-              durationSeconds: ${duration},
-              trackIndex: ${track},
-              note: "Adjustment layer added. You may need to move/trim it to the desired position."
+              trackIndex: ${track}
             });
           } catch(e) {
             return __error("Failed to add adjustment layer: " + e.message);

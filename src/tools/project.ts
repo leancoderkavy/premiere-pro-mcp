@@ -322,29 +322,6 @@ export function getProjectTools(bridgeOptions: BridgeOptions) {
       },
     },
 
-    open_in_source_monitor: {
-      description: "Open a project item in the Source Monitor",
-      parameters: {
-        type: "object" as const,
-        properties: {
-          item_id: {
-            type: "string",
-            description: "Node ID or name of the project item to open",
-          },
-        },
-        required: ["item_id"],
-      },
-      handler: async (args: { item_id: string }) => {
-        const script = buildToolScript(`
-          var item = __findProjectItem("${escapeForExtendScript(args.item_id)}");
-          if (!item) return __error("Item not found: ${escapeForExtendScript(args.item_id)}");
-          app.sourceMonitor.openProjectItem(item);
-          return __result({ opened: true, item: item.name });
-        `);
-        return sendCommand(script, bridgeOptions);
-      },
-    },
-
     start_batch_encode: {
       description: "Start encoding all items in the Adobe Media Encoder render queue",
       parameters: {},

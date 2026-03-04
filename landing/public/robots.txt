@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://premiere-pro-mcp.fly.dev/sitemap.xml

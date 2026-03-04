@@ -1,4 +1,4 @@
-import { buildToolScript, buildScript } from "../bridge/script-builder.js";
+import { buildToolScript, buildScript, escapeForExtendScript } from "../bridge/script-builder.js";
 import { sendCommand, sendRawCommand, BridgeOptions } from "../bridge/file-bridge.js";
 
 export function getScriptingTools(bridgeOptions: BridgeOptions) {
@@ -207,8 +207,8 @@ Examples:
       },
       handler: async (args: { node_id: string }) => {
         const script = buildToolScript(`
-          var result = __findClip("${args.node_id}");
-          if (!result) return __error("Clip not found: ${args.node_id}");
+          var result = __findClip("${escapeForExtendScript(args.node_id)}");
+          if (!result) return __error("Clip not found: ${escapeForExtendScript(args.node_id)}");
           
           var clip = result.clip;
           var components = [];

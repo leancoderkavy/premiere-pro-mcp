@@ -229,58 +229,6 @@ export function getExportTools(bridgeOptions: BridgeOptions) {
       },
     },
 
-    detect_scene_edits: {
-      description: "Detect scene edit points in a project item (useful for auto-cutting footage)",
-      parameters: {
-        type: "object" as const,
-        properties: {
-          item_id: {
-            type: "string",
-            description: "Node ID or name of the project item to analyze",
-          },
-        },
-        required: ["item_id"],
-      },
-      handler: async (args: { item_id: string }) => {
-        const script = buildToolScript(`
-          var item = __findProjectItem("${escapeForExtendScript(args.item_id)}");
-          if (!item) return __error("Item not found");
-          
-          // Detect scene edits and add markers
-          item.createSmartBin("SceneDetect", "");
-          
-          return __result({ analyzed: true, item: item.name, info: "Scene edit points detected and marked" });
-        `);
-        return sendCommand(script, bridgeOptions);
-      },
-    },
-
-    create_nested_sequence: {
-      description: "Nest selected clips into a new sequence",
-      parameters: {
-        type: "object" as const,
-        properties: {
-          name: {
-            type: "string",
-            description: "Name for the nested sequence (default: auto-generated)",
-          },
-        },
-      },
-      handler: async (args: { name?: string }) => {
-        const script = buildToolScript(`
-          var seq = app.project.activeSequence;
-          if (!seq) return __error("No active sequence");
-          
-          // Nest the selection
-          var nestedSeq = seq.createSubsequence(false);
-          ${args.name ? `nestedSeq.name = "${escapeForExtendScript(args.name)}";` : ""}
-          
-          return __result({ created: true, name: nestedSeq.name, id: nestedSeq.sequenceID });
-        `);
-        return sendCommand(script, bridgeOptions);
-      },
-    },
-
     create_subclip: {
       description: "Create a subclip from a project item with in/out points",
       parameters: {

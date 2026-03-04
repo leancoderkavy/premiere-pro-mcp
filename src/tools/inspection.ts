@@ -930,9 +930,10 @@ export function getInspectionTools(bridgeOptions: BridgeOptions) {
             var track = seq.audioTracks[t];
             for (var c = 0; c < track.clips.numItems; c++) {
               totalAudioClips++;
+              var aClip = track.clips[c];
               try {
-                if (clip.projectItem) {
-                  var srcName = clip.projectItem.name;
+                if (aClip.projectItem) {
+                  var srcName = aClip.projectItem.name;
                   if (!usedMedia[srcName]) usedMedia[srcName] = 0;
                   usedMedia[srcName]++;
                 }

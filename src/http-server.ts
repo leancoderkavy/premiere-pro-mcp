@@ -42,6 +42,7 @@ const MIME: Record<string, string> = {
   ".woff": "font/woff",
   ".ttf":  "font/ttf",
   ".txt":  "text/plain",
+  ".xml":  "application/xml",
 };
 
 function serveLanding(req: http.IncomingMessage, res: http.ServerResponse): boolean {
