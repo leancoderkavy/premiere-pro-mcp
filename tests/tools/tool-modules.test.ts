@@ -169,12 +169,12 @@ describe("Tool Module Structure", () => {
 });
 
 describe("Total Tool Count", () => {
-  it("all modules together have 269 tools", () => {
+  it("all modules together have 266 tools", () => {
     let total = 0;
     for (const mod of ALL_MODULES) {
       total += Object.keys(mod.getter(bridgeOptions)).length;
     }
-    expect(total).toBe(269);
+    expect(total).toBe(266);
   });
 
   it("there are 28 modules", () => {
@@ -242,20 +242,9 @@ describe("Tool Handler Behavior", () => {
       expect(script).toContain("qe.startPlayback()");
     });
 
-    it("play_timeline uses default speed of 1.0", async () => {
+    it("play_timeline has no speed parameter (QE startPlayback ignores it)", async () => {
       const tools = getPlaybackTools(bridgeOptions);
-      await (tools.play_timeline.handler as any)({});
-
-      const script = mockedSendCommand.mock.calls[0][0];
-      expect(script).toContain("speed: 1");
-    });
-
-    it("play_timeline accepts custom speed", async () => {
-      const tools = getPlaybackTools(bridgeOptions);
-      await (tools.play_timeline.handler as any)({ speed: 2.5 });
-
-      const script = mockedSendCommand.mock.calls[0][0];
-      expect(script).toContain("speed: 2.5");
+      expect(tools.play_timeline.parameters).toEqual({});
     });
 
     it("stop_playback uses QE DOM", async () => {
