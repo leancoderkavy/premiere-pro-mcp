@@ -29,11 +29,19 @@ steps:
 
   - wait
 
-  - label: ":fly: Deploy to Fly.io"
-    command: fly deploy --remote-only
+  - block: ":fly: Deploy to Fly.io"
+    branches: "main"
+
+  - label: ":rocket: Deploy"
+    command: |
+      apk add --no-cache curl
+      curl -L https://fly.io/install.sh | sh
+      export FLYCTL_INSTALL="/root/.fly"
+      export PATH="$FLYCTL_INSTALL/bin:$PATH"
+      fly deploy --remote-only
     branches: "main"
     plugins:
       - docker#v5.11.0:
-          image: "flyio/flyctl:latest"
+          image: "node:20-alpine"
           environment:
             - FLY_API_TOKEN
