@@ -1,0 +1,38 @@
+steps:
+  - group: ":hammer: Build & Test"
+    steps:
+      - label: ":typescript: Type Check"
+        command: |
+          npm ci
+          npx tsc --noEmit
+        plugins:
+          - docker#v5.11.0:
+              image: "node:20-alpine"
+
+      - label: ":vitest: Tests"
+        command: |
+          npm ci
+          npm test
+        plugins:
+          - docker#v5.11.0:
+              image: "node:20-alpine"
+
+      - label: ":nextjs: Landing Page Build"
+        command: |
+          cd landing
+          npm ci
+          npm run build
+        plugins:
+          - docker#v5.11.0:
+              image: "node:20-alpine"
+
+  - wait
+
+  - label: ":fly: Deploy to Fly.io"
+    command: fly deploy --remote-only
+    branches: "main"
+    plugins:
+      - docker#v5.11.0:
+          image: "flyio/flyctl:latest"
+          environment:
+            - FLY_API_TOKEN
