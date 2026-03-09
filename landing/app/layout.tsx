@@ -39,11 +39,20 @@ export const metadata: Metadata = {
     siteName: "Premiere Pro MCP",
     type: "website",
     locale: "en_US",
+    images: [
+      {
+        url: "/og-image.png",
+        width: 1200,
+        height: 630,
+        alt: "Premiere Pro MCP - AI Control for Adobe Premiere Pro",
+      },
+    ],
   },
   twitter: {
     card: "summary_large_image",
     title,
     description,
+    images: ["/og-image.png"],
   },
   robots: {
     index: true,
