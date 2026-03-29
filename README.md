@@ -1,3 +1,5 @@
+> **Note:** This is a temporary fork for a bug fix PR. See the original at [leancoderkavy/premiere-pro-mcp](https://github.com/leancoderkavy/premiere-pro-mcp).
+
 <div align="center">
 
 # Premiere Pro MCP Server

@@ -26,15 +26,10 @@ function CSInterface() {}
  */
 CSInterface.prototype.evalScript = function (script, callback) {
   if (typeof __adobe_cep__ !== "undefined") {
-    var result = __adobe_cep__.evalScript(script);
-    if (callback) {
-      // CSInterface v9+ uses async callback
-      if (typeof result === "undefined" || result === "undefined") {
-        // v9+ path: callback is registered and called asynchronously
-        // The __adobe_cep__.evalScript already handles the callback via internal mechanism
-      }
-      callback(result);
-    }
+    // CEP 9+ requires the callback to be passed directly to __adobe_cep__.evalScript.
+    // Calling it without a callback causes the result to be silently discarded,
+    // making every command return null/undefined.
+    __adobe_cep__.evalScript(script, callback || function () {});
   } else {
     // Running outside CEP (for testing)
     console.warn("[CSInterface] Not running in CEP environment");
