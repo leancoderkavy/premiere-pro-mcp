@@ -9,6 +9,19 @@ var commandCount = 0;
 var tempDir = "";
 var POLL_MS = 200;
 
+// CEP 10+ / some hosts: global `require` is undefined unless --mixed-context is set.
+// Also support `cep_node.require` when Node lives on window.cep_node.
+function __nodeRequire(moduleName) {
+  if (typeof require !== "undefined") {
+    return require(moduleName);
+  }
+  var cn = typeof cep_node !== "undefined" ? cep_node : typeof window !== "undefined" ? window.cep_node : null;
+  if (cn && typeof cn.require === "function") {
+    return cn.require(moduleName);
+  }
+  throw new Error("CEP Node bridge unavailable: cannot load module " + moduleName + ". Add --mixed-context and --enable-nodejs to manifest.xml, restart Premiere, or use a supported CEP runtime.");
+}
+
 // ---- Logging ----
 function log(msg, cls) {
   var el = document.getElementById("log");
@@ -30,9 +43,9 @@ function setStatus(state, text) {
 }
 
 // ---- File I/O via Node.js (CEP has access to Node) ----
-var fs = require("fs");
-var path = require("path");
-var os = require("os");
+var fs = __nodeRequire("fs");
+var path = __nodeRequire("path");
+var os = __nodeRequire("os");
 tempDir = path.join(os.tmpdir(), "premiere-mcp-bridge");
 
 function ensureDir(dir) {
@@ -119,6 +132,15 @@ function processOneCommand(cmdFileName) {
   executeScript(script, function (result) {
     commandCount++;
     document.getElementById("cmdCount").textContent = commandCount;
+
+    // Debug: CEP often receives "" / undefined even when ExtendScript ran OK.
+    log(
+      "evalScript callback: typeof=" +
+        typeof result +
+        " len=" +
+        (result ? String(result).length : 0),
+      "cmd"
+    );
 
     var response;
     try {

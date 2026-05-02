@@ -174,14 +174,19 @@ function __error(msg) {
  * Build a complete ExtendScript by wrapping user code in an IIFE with helpers.
  */
 export function buildScript(code: string): string {
+  // Premiere's evalScript often does not propagate the completion value of a
+  // bare trailing IIFE to the CEP callback (result becomes "" / undefined).
+  // Assign to a var, then end the script with that identifier so the engine's
+  // last evaluated expression is the JSON string from __result/__error.
   return `${HELPERS}
-(function() {
+var __mcpBridgeResult = (function() {
   try {
     ${code}
   } catch(e) {
     return __error(e.toString());
   }
-})();`;
+})();
+__mcpBridgeResult`;
 }
 
 /**
