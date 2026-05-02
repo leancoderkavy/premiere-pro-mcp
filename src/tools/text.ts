@@ -4,17 +4,17 @@ import { sendCommand, BridgeOptions } from "../bridge/file-bridge.js";
 export function getTextTools(bridgeOptions: BridgeOptions) {
   return {
     add_text_overlay: {
-      description: "Add a text overlay (title) to the active sequence",
+      description:
+        "Add a subtitle-style text overlay to the active sequence. " +
+        "Note: Premiere's ExtendScript API does not expose Essential-Graphics title creation, " +
+        "so this routes through the Captions/Subtitle API. Text appears on a caption track at " +
+        "the platform-default subtitle position. For freeform titles, render a PNG and import_media it instead.",
       parameters: {
         type: "object" as const,
         properties: {
           text: {
             type: "string",
             description: "Text content to display",
-          },
-          track_index: {
-            type: "number",
-            description: "Video track index to place the text on (default: topmost track)",
           },
           start_seconds: {
             type: "number",
@@ -24,50 +24,64 @@ export function getTextTools(bridgeOptions: BridgeOptions) {
             type: "number",
             description: "Duration in seconds (default: 5)",
           },
-          font_size: {
-            type: "number",
-            description: "Font size (default: 60)",
+          caption_format: {
+            type: "string",
+            enum: ["subtitle", "608", "708", "teletext"],
+            description: "Caption format (default: subtitle)",
           },
         },
         required: ["text"],
       },
       handler: async (args: {
         text: string;
-        track_index?: number;
         start_seconds?: number;
         duration_seconds?: number;
-        font_size?: number;
+        caption_format?: string;
       }) => {
         const startSeconds = args.start_seconds ?? 0;
         const durationSeconds = args.duration_seconds ?? 5;
+        const formatMap: Record<string, number> = {
+          // Premiere Caption format constants (Sequence.captionFormat)
+          subtitle: 3,
+          "608": 1,
+          "708": 2,
+          teletext: 4,
+        };
+        const formatNum = formatMap[args.caption_format ?? "subtitle"] ?? 3;
 
         const script = buildToolScript(`
           var seq = app.project.activeSequence;
           if (!seq) return __error("No active sequence");
-          
-          var trackIndex = ${args.track_index !== undefined ? args.track_index : "seq.videoTracks.numTracks - 1"};
-          
-          // Create a graphics clip using the captions API approach
-          var project = app.project;
-          
-          // Use QE DOM to insert text
-          app.enableQE();
-          var qeSeq = qe.project.getActiveSequence();
-          
-          // Add a caption track if needed, then add text
-          // Note: Direct text creation requires MOGRT or Graphics workspace
-          // For basic text, we use the Graphics approach
-          var startTicks = __secondsToTicks(${startSeconds}).toString();
-          var endTicks = __secondsToTicks(${startSeconds + durationSeconds}).toString();
-          
-          // Create text via project item
+
+          var startTicks = __secondsToTicks(${startSeconds});
+          var endTicks = __secondsToTicks(${startSeconds + durationSeconds});
           var textContent = "${escapeForExtendScript(args.text)}";
-          project.activeSequence.createCaptionTrack(textContent, startTicks, "Subtitle");
-          
+
+          // createCaptionTrack(captionFormat:Number) -> Track. Reuse first
+          // matching track if it exists; otherwise create one.
+          var captionTrack = null;
+          try {
+            captionTrack = seq.createCaptionTrack(${formatNum});
+          } catch(eCT) {
+            return __error("createCaptionTrack failed: " + eCT.toString());
+          }
+          if (!captionTrack) return __error("Could not create caption track");
+
+          var newCap = null;
+          try {
+            // Modern signature: addCaption(startTime:Time, endTime:Time)
+            newCap = captionTrack.addCaption(startTicks, endTicks);
+            if (newCap) {
+              try { newCap.text = textContent; } catch(eT) {}
+            }
+          } catch(eAdd) {
+            return __error("addCaption failed: " + eAdd.toString());
+          }
+
           return __result({
             added: true,
             text: textContent,
-            trackIndex: trackIndex,
+            captionFormat: ${formatNum},
             startSeconds: ${startSeconds},
             durationSeconds: ${durationSeconds}
           });
