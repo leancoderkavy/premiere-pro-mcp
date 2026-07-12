@@ -13,6 +13,7 @@ import { getMarkerTools } from "../../src/tools/markers.js";
 import { getExportTools } from "../../src/tools/export.js";
 import { getUtilityTools } from "../../src/tools/utility.js";
 import { getTrackTargetingTools } from "../../src/tools/track-targeting.js";
+import { getEffectsTools } from "../../src/tools/effects.js";
 
 const mockedSendCommand = vi.mocked(sendCommand);
 const bridgeOptions: BridgeOptions = { tempDir: "/tmp/test-bridge", timeoutMs: 5000 };
@@ -147,6 +148,44 @@ describe("issue #9 — frame export uses the QE DOM and verifies the file landed
   }
 });
 
+// Defects found while reviewing PR #3 (repair 6 broken tools on Premiere Pro 2026).
+describe("PR #3 follow-ups — color_correct and export_sequence", () => {
+  const effects = getEffectsTools(bridgeOptions);
+  const exportTools = getExportTools(bridgeOptions);
+
+  it("color_correct applies a value of 0 exactly once", async () => {
+    const code = await codeFor(effects.color_correct, { node_id: "clip1", saturation: 0 });
+
+    // saturation: 0 is a valid full desaturate. Guarding on `!changes.saturation`
+    // leaves the guard permanently open for 0, re-firing setValue on every later
+    // Lumetri sub-section that repeats the "Saturation" display name.
+    expect(code).toContain("!taken.saturation");
+    expect(code).toContain("taken.saturation = true");
+    expect(code).not.toContain("!changes.saturation");
+  });
+
+  it("color_correct carries no dead helper", async () => {
+    const code = await codeFor(effects.color_correct, { node_id: "clip1", exposure: 1 });
+    expect(code).not.toContain("trySet");
+  });
+
+  it("color_correct only emits setters for the controls it was given", async () => {
+    const code = await codeFor(effects.color_correct, { node_id: "clip1", exposure: 1.5 });
+
+    expect(code).toContain('name === "Exposure"');
+    expect(code).not.toContain('name === "Saturation"');
+  });
+
+  it("export_sequence finds its default preset without hardcoding a version year", async () => {
+    const code = await codeFor(exportTools.export_sequence, { output_path: "/tmp/out.mp4" });
+
+    expect(code).toContain("__findH264Preset()");
+    // Hardcoded install paths rot the moment Adobe ships the next version.
+    expect(code).not.toContain("Adobe Media Encoder 2025");
+    expect(code).not.toContain("Adobe Media Encoder 2026");
+  });
+});
+
 describe("script-builder helpers used by the fixes are actually defined", () => {
   const exportTools = getExportTools(bridgeOptions);
 
@@ -159,6 +198,7 @@ describe("script-builder helpers used by the fixes are actually defined", () => 
       "function __findStillPreset(",
       "function __collectAllPresets(",
       "function __findProxyPreset(",
+      "function __findH264Preset(",
       "function __adobeAppFolders(",
       "function __collectEprFiles(",
     ]) {

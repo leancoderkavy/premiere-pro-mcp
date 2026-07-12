@@ -203,6 +203,25 @@ function __collectAllPresets() {
   return presets;
 }
 
+// Default export preset. "48323634" is hex for "H264" — the folder name AME uses
+// for the H.264 format bucket on disk.
+function __findH264Preset() {
+  var presets = __collectAllPresets();
+  var candidates = [];
+  for (var i = 0; i < presets.length; i++) {
+    var haystack = (presets[i].name + " " + presets[i].format).toLowerCase();
+    if (haystack.indexOf("h264") !== -1 || haystack.indexOf("h.264") !== -1 || haystack.indexOf("48323634") !== -1) {
+      candidates.push(presets[i]);
+    }
+  }
+  if (!candidates.length) return "";
+
+  for (var j = 0; j < candidates.length; j++) {
+    if (candidates[j].name.toLowerCase().indexOf("match source - high") !== -1) return candidates[j].path;
+  }
+  return candidates[0].path;
+}
+
 function __findProxyPreset() {
   var ppro = __adobeAppFolders("Adobe Premiere Pro");
   for (var i = 0; i < ppro.length; i++) {
