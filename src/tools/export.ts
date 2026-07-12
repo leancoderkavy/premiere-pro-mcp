@@ -35,20 +35,46 @@ export function getExportTools(bridgeOptions: BridgeOptions) {
           
           ${args.preset_path
             ? `var presetPath = "${escapeForExtendScript(args.preset_path)}";`
-            : `// Use default H.264 preset
+            : `// Cross-platform default: locate an H.264 "Match Source" preset
+               // by walking the AME systempresets tree. Falls back to first .epr
+               // found in the H.264 dir (4E49434B_48323634 = "NICK_H264").
                var presetPath = "";
-               // Try common preset locations
-               var presetFile = new File("/Applications/Adobe Media Encoder 2025/MediaIO/systempresets/4028/HDTV 1080p 29.97 High Quality.epr");
-               if (presetFile.exists) presetPath = presetFile.fsName;`
+               var roots = [];
+               if ($.os && $.os.toLowerCase().indexOf("mac") !== -1) {
+                 roots.push("/Applications/Adobe Media Encoder 2026/MediaIO/systempresets");
+                 roots.push("/Applications/Adobe Media Encoder 2025/MediaIO/systempresets");
+                 roots.push("/Applications/Adobe Media Encoder 2024/MediaIO/systempresets");
+               } else {
+                 roots.push("C:\\\\Program Files\\\\Adobe\\\\Adobe Media Encoder 2026\\\\MediaIO\\\\systempresets");
+                 roots.push("C:\\\\Program Files\\\\Adobe\\\\Adobe Media Encoder 2025\\\\MediaIO\\\\systempresets");
+                 roots.push("C:\\\\Program Files\\\\Adobe\\\\Adobe Media Encoder 2024\\\\MediaIO\\\\systempresets");
+               }
+               for (var r = 0; r < roots.length && !presetPath; r++) {
+                 var rootFolder = new Folder(roots[r]);
+                 if (!rootFolder.exists) continue;
+                 var subs = rootFolder.getFiles(function(f){ return f instanceof Folder; });
+                 for (var s = 0; s < subs.length && !presetPath; s++) {
+                   if (subs[s].name.indexOf("48323634") === -1 && subs[s].name.toLowerCase().indexOf("h264") === -1) continue;
+                   var eprs = subs[s].getFiles("*.epr");
+                   var matchFile = null;
+                   for (var k = 0; k < eprs.length; k++) {
+                     var nm = eprs[k].displayName || eprs[k].name;
+                     if (nm.toLowerCase().indexOf("match source - high") !== -1) { matchFile = eprs[k]; break; }
+                   }
+                   if (!matchFile && eprs.length) matchFile = eprs[0];
+                   if (matchFile) presetPath = matchFile.fsName;
+                 }
+               }
+               if (!presetPath) return __error("Could not locate a default H.264 preset. Pass preset_path explicitly.");`
           }
-          
+
           var exportResult = seq.exportAsMediaDirect(
             outputPath,
             presetPath,
             ${args.work_area_only ? "app.encoder.ENCODE_WORKAREA" : "app.encoder.ENCODE_ENTIRE"}
           );
-          
-          return __result({ exported: true, outputPath: outputPath });
+
+          return __result({ exported: true, outputPath: outputPath, presetUsed: presetPath });
         `);
         return sendCommand(script, { ...bridgeOptions, timeoutMs: 120000 }); // 2 min timeout for exports
       },

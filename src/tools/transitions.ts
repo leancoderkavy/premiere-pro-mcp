@@ -38,28 +38,41 @@ export function getTransitionsTools(bridgeOptions: BridgeOptions) {
           app.enableQE();
           var qeSeq = qe.project.getActiveSequence();
           if (!qeSeq) return __error("No active sequence (QE)");
-          
+
           var qeTrack = qeSeq.getVideoTrackAt(${args.track_index});
           if (!qeTrack) return __error("Track not found");
-          
+
           var transitionName = "${escapeForExtendScript(args.transition_name)}";
-          var transitions = qe.project.getVideoTransitionList();
           var transitionQE = null;
-          
-          for (var i = 0; i < transitions.numItems; i++) {
-            if (transitions[i].name === transitionName) {
-              transitionQE = transitions[i];
-              break;
+
+          // Resolution path 1: getVideoTransitionByName (works on PPro 2026 where
+          // getVideoTransitionList() returns an empty list).
+          try {
+            if (qe.project.getVideoTransitionByName) {
+              transitionQE = qe.project.getVideoTransitionByName(transitionName);
             }
+          } catch(e1) {}
+
+          // Resolution path 2: scan getVideoTransitionList (legacy).
+          if (!transitionQE) {
+            try {
+              var transitions = qe.project.getVideoTransitionList();
+              for (var i = 0; i < transitions.numItems; i++) {
+                if (transitions[i].name === transitionName) {
+                  transitionQE = transitions[i];
+                  break;
+                }
+              }
+            } catch(e2) {}
           }
-          
+
           if (!transitionQE) return __error("Transition not found: " + transitionName);
-          
+
           var cutTicks = __secondsToTicks(${args.cut_point_seconds}).toString();
           var durationTicks = __secondsToTicks(${duration}).toString();
-          
+
           qeTrack.addTransition(transitionQE, true, cutTicks, durationTicks, "0", false);
-          
+
           return __result({
             added: true,
             transition: transitionName,
@@ -115,16 +128,18 @@ export function getTransitionsTools(bridgeOptions: BridgeOptions) {
           if (!result) return __error("Clip not found");
           
           var transitionName = "${escapeForExtendScript(args.transition_name)}";
-          var transitions = qe.project.getVideoTransitionList();
           var transitionQE = null;
-          for (var i = 0; i < transitions.numItems; i++) {
-            if (transitions[i].name === transitionName) {
-              transitionQE = transitions[i];
-              break;
-            }
+          try { if (qe.project.getVideoTransitionByName) transitionQE = qe.project.getVideoTransitionByName(transitionName); } catch(e1) {}
+          if (!transitionQE) {
+            try {
+              var transitions = qe.project.getVideoTransitionList();
+              for (var i = 0; i < transitions.numItems; i++) {
+                if (transitions[i].name === transitionName) { transitionQE = transitions[i]; break; }
+              }
+            } catch(e2) {}
           }
           if (!transitionQE) return __error("Transition not found: " + transitionName);
-          
+
           var qeTrack = qeSeq.getVideoTrackAt(result.trackIndex);
           var durationTicks = __secondsToTicks(${duration}).toString();
           var clip = result.clip;
@@ -188,16 +203,18 @@ export function getTransitionsTools(bridgeOptions: BridgeOptions) {
           if (!seq) return __error("No active sequence");
           
           var transitionName = "${escapeForExtendScript(args.transition_name)}";
-          var transitions = qe.project.getVideoTransitionList();
           var transitionQE = null;
-          for (var i = 0; i < transitions.numItems; i++) {
-            if (transitions[i].name === transitionName) {
-              transitionQE = transitions[i];
-              break;
-            }
+          try { if (qe.project.getVideoTransitionByName) transitionQE = qe.project.getVideoTransitionByName(transitionName); } catch(e1) {}
+          if (!transitionQE) {
+            try {
+              var transitions = qe.project.getVideoTransitionList();
+              for (var i = 0; i < transitions.numItems; i++) {
+                if (transitions[i].name === transitionName) { transitionQE = transitions[i]; break; }
+              }
+            } catch(e2) {}
           }
           if (!transitionQE) return __error("Transition not found: " + transitionName);
-          
+
           var track = seq.videoTracks[${trackIndex}];
           var qeTrack = qeSeq.getVideoTrackAt(${trackIndex});
           var durationTicks = __secondsToTicks(${duration}).toString();
@@ -224,15 +241,31 @@ export function getTransitionsTools(bridgeOptions: BridgeOptions) {
     },
 
     list_available_transitions: {
-      description: "List all available video transitions. Uses QE DOM.",
+      description: "List all available video transitions. Uses QE DOM. Returns a hint set on PPro 2026 where the transition registry list is empty even though by-name lookup works.",
       parameters: {},
       handler: async () => {
         const script = buildToolScript(`
           app.enableQE();
-          var transitions = qe.project.getVideoTransitionList();
           var list = [];
-          for (var i = 0; i < transitions.numItems; i++) {
-            list.push({ name: transitions[i].name, index: i });
+          try {
+            var transitions = qe.project.getVideoTransitionList();
+            for (var i = 0; i < transitions.numItems; i++) {
+              list.push({ name: transitions[i].name, index: i });
+            }
+          } catch(e) {}
+
+          // PPro 2026 fallback: the registry list is empty but by-name lookup
+          // resolves these standard transitions. Probe each so callers see
+          // something usable.
+          if (list.length === 0 && qe.project.getVideoTransitionByName) {
+            var names = ["Cross Dissolve","Dip to Black","Dip to White","Film Dissolve","Additive Dissolve","Morph Cut","Push","Slide","Wipe","Iris Round","Iris Box"];
+            for (var n = 0; n < names.length; n++) {
+              try {
+                if (qe.project.getVideoTransitionByName(names[n])) {
+                  list.push({ name: names[n], source: "byName" });
+                }
+              } catch(e2) {}
+            }
           }
           return __result(list);
         `);

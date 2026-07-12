@@ -106,17 +106,56 @@ export function getUtilityTools(bridgeOptions: BridgeOptions) {
           if (!seq) return __error("No active sequence");
 
           app.enableQE();
-          try {
-            var qeSeq = qe.project.getActiveSequence();
-            qeSeq.addAdjustmentLayer(${track});
+          var qeSeq = qe.project.getActiveSequence();
+          if (!qeSeq) return __error("No active QE sequence");
 
-            return __result({
-              added: true,
-              trackIndex: ${track}
-            });
-          } catch(e) {
-            return __error("Failed to add adjustment layer: " + e.message);
+          // Path 1 (legacy, removed in PPro 2026): qeSeq.addAdjustmentLayer(track)
+          try {
+            if (qeSeq.addAdjustmentLayer) {
+              qeSeq.addAdjustmentLayer(${track});
+              return __result({ added: true, trackIndex: ${track}, method: "qeSeq.addAdjustmentLayer" });
+            }
+          } catch(eLegacy) {}
+
+          // Path 2 (PPro 2026): create a project-level adjustment layer matching
+          // the active sequence, then insert into the requested track at the
+          // playhead. qe.project.newAdjustmentLayer() returns a QE project item.
+          try {
+            var adjQE = qe.project.newAdjustmentLayer ? qe.project.newAdjustmentLayer() : null;
+            if (adjQE) {
+              // Find the matching public ProjectItem to insert.
+              var rootChildren = app.project.rootItem.children;
+              var adjItem = null;
+              for (var c = rootChildren.numItems - 1; c >= 0; c--) {
+                var it = rootChildren[c];
+                if (it && it.name && it.name.toLowerCase().indexOf("adjustment") !== -1) {
+                  adjItem = it;
+                  break;
+                }
+              }
+              if (!adjItem) return __error("Adjustment layer item not found in project after creation");
+
+              var qeTrack = qeSeq.getVideoTrackAt(${track});
+              if (!qeTrack) return __error("Video track " + ${track} + " not found");
+
+              var playerTicks;
+              try { playerTicks = seq.getPlayerPosition().ticks.toString(); }
+              catch(eP) { playerTicks = "0"; }
+
+              try {
+                qeTrack.insert(adjItem, playerTicks);
+              } catch(eIns1) {
+                // Older signature: qeTrack.insertClip(item, ticks)
+                try { qeTrack.insertClip(adjItem, playerTicks); }
+                catch(eIns2) { return __error("Failed to insert adjustment layer: " + eIns2.toString()); }
+              }
+              return __result({ added: true, trackIndex: ${track}, method: "qe.project.newAdjustmentLayer + insert" });
+            }
+          } catch(eNew) {
+            return __error("Failed to create adjustment layer: " + eNew.toString());
           }
+
+          return __error("No supported adjustment-layer API found in this Premiere version");
         `);
         return sendCommand(script, bridgeOptions);
       },

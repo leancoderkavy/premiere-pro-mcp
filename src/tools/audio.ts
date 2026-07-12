@@ -69,22 +69,31 @@ export function getAudioTools(bridgeOptions: BridgeOptions) {
         required: ["node_id", "keyframes"],
       },
       handler: async (args: { node_id: string; keyframes: Array<{ time_seconds: number; level_db: number }> }) => {
+        // Premiere stores audio Level as amplitude ratio (0-1+), not dB.
+        // Convert: amp = 10^(dB/20). Clamp very low values to a small epsilon
+        // so AddKey accepts them (a true 0 sometimes silently fails).
         const keyframeCode = args.keyframes
-          .map(
-            (kf) => `
-            var kfTime = __secondsToTicks(${kf.time_seconds}).toString();
-            levelProp.addKeyframe(kfTime);
-            levelProp.setValueAtKey(kfTime, ${kf.level_db});`
-          )
+          .map((kf) => {
+            const amp = Math.max(Math.pow(10, kf.level_db / 20), 0.0000001);
+            return `
+            (function() {
+              var kfTime = __secondsToTicks(${kf.time_seconds});
+              var t = kfTime;
+              if (typeof kfTime === "object" && kfTime.toString) t = kfTime.toString();
+              try { levelProp.addKey(t); } catch(e1) {}
+              try { levelProp.setValueAtKey(t, ${amp}, 1); }
+              catch(e2) { try { levelProp.setValueAtTime(t, ${amp}); } catch(e3) {} }
+            })();`;
+          })
           .join("\n");
 
         const script = buildToolScript(`
           var result = __findClip("${escapeForExtendScript(args.node_id)}");
           if (!result) return __error("Clip not found");
-          
+
           var clip = result.clip;
           var levelProp = null;
-          
+
           for (var i = 0; i < clip.components.numItems; i++) {
             var comp = clip.components[i];
             if (comp.displayName === "Volume" || comp.matchName === "audioVolume") {
@@ -96,12 +105,12 @@ export function getAudioTools(bridgeOptions: BridgeOptions) {
               }
             }
           }
-          
+
           if (!levelProp) return __error("Could not find audio Level property");
-          
-          levelProp.setTimeVarying(true);
+
+          try { levelProp.setTimeVarying(true); } catch(e) {}
           ${keyframeCode}
-          
+
           return __result({ keyframesAdded: ${args.keyframes.length}, clipName: clip.name });
         `);
         return sendCommand(script, bridgeOptions);

@@ -253,29 +253,36 @@ export function getEffectsTools(bridgeOptions: BridgeOptions) {
             }
           }
           
-          // Set Lumetri properties
+          // Set Lumetri properties. Wrap each setValue in try/catch so a single
+          // unsettable property (Lumetri repeats some display names across
+          // sub-sections; not all are writable) does NOT abort the whole script
+          // with "Invalid parameter" and lose every change.
           var changes = {};
+          var errors = {};
+          var trySet = function(name, key, val, taken) {
+            if (taken[key]) return; // first match per logical control wins
+            try { /* lookup target prop has displayName === name */ } catch(e){}
+          };
           for (var i = 0; i < clip.components.numItems; i++) {
             var comp = clip.components[i];
-            if (comp.displayName === "Lumetri Color") {
-              for (var p = 0; p < comp.properties.numItems; p++) {
-                var prop = comp.properties[p];
-                var name = prop.displayName;
-                ${args.exposure !== undefined ? `if (name === "Exposure") { prop.setValue(${args.exposure}, true); changes.exposure = ${args.exposure}; }` : ""}
-                ${args.contrast !== undefined ? `if (name === "Contrast") { prop.setValue(${args.contrast}, true); changes.contrast = ${args.contrast}; }` : ""}
-                ${args.highlights !== undefined ? `if (name === "Highlights") { prop.setValue(${args.highlights}, true); changes.highlights = ${args.highlights}; }` : ""}
-                ${args.shadows !== undefined ? `if (name === "Shadows") { prop.setValue(${args.shadows}, true); changes.shadows = ${args.shadows}; }` : ""}
-                ${args.whites !== undefined ? `if (name === "Whites") { prop.setValue(${args.whites}, true); changes.whites = ${args.whites}; }` : ""}
-                ${args.blacks !== undefined ? `if (name === "Blacks") { prop.setValue(${args.blacks}, true); changes.blacks = ${args.blacks}; }` : ""}
-                ${args.temperature !== undefined ? `if (name === "Temperature") { prop.setValue(${args.temperature}, true); changes.temperature = ${args.temperature}; }` : ""}
-                ${args.tint !== undefined ? `if (name === "Tint") { prop.setValue(${args.tint}, true); changes.tint = ${args.tint}; }` : ""}
-                ${args.saturation !== undefined ? `if (name === "Saturation") { prop.setValue(${args.saturation}, true); changes.saturation = ${args.saturation}; }` : ""}
-              }
-              break;
+            if (comp.displayName !== "Lumetri Color") continue;
+            for (var p = 0; p < comp.properties.numItems; p++) {
+              var prop = comp.properties[p];
+              var name = prop.displayName;
+              ${args.exposure !== undefined ? `if (!changes.exposure && name === "Exposure") { try { prop.setValue(${args.exposure}, true); changes.exposure = ${args.exposure}; } catch(e) { errors.exposure = e.toString(); } }` : ""}
+              ${args.contrast !== undefined ? `if (!changes.contrast && name === "Contrast") { try { prop.setValue(${args.contrast}, true); changes.contrast = ${args.contrast}; } catch(e) { errors.contrast = e.toString(); } }` : ""}
+              ${args.highlights !== undefined ? `if (!changes.highlights && name === "Highlights") { try { prop.setValue(${args.highlights}, true); changes.highlights = ${args.highlights}; } catch(e) { errors.highlights = e.toString(); } }` : ""}
+              ${args.shadows !== undefined ? `if (!changes.shadows && name === "Shadows") { try { prop.setValue(${args.shadows}, true); changes.shadows = ${args.shadows}; } catch(e) { errors.shadows = e.toString(); } }` : ""}
+              ${args.whites !== undefined ? `if (!changes.whites && name === "Whites") { try { prop.setValue(${args.whites}, true); changes.whites = ${args.whites}; } catch(e) { errors.whites = e.toString(); } }` : ""}
+              ${args.blacks !== undefined ? `if (!changes.blacks && name === "Blacks") { try { prop.setValue(${args.blacks}, true); changes.blacks = ${args.blacks}; } catch(e) { errors.blacks = e.toString(); } }` : ""}
+              ${args.temperature !== undefined ? `if (!changes.temperature && name === "Temperature") { try { prop.setValue(${args.temperature}, true); changes.temperature = ${args.temperature}; } catch(e) { errors.temperature = e.toString(); } }` : ""}
+              ${args.tint !== undefined ? `if (!changes.tint && name === "Tint") { try { prop.setValue(${args.tint}, true); changes.tint = ${args.tint}; } catch(e) { errors.tint = e.toString(); } }` : ""}
+              ${args.saturation !== undefined ? `if (!changes.saturation && name === "Saturation") { try { prop.setValue(${args.saturation}, true); changes.saturation = ${args.saturation}; } catch(e) { errors.saturation = e.toString(); } }` : ""}
             }
+            break;
           }
-          
-          return __result({ colorCorrected: true, clipName: clip.name, changes: changes });
+
+          return __result({ colorCorrected: true, clipName: clip.name, changes: changes, errors: errors });
         `);
         return sendCommand(script, bridgeOptions);
       },
