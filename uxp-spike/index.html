@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <script src="index.js"></script>
+    <style>
+      body {
+        font-family: -apple-system, "Segoe UI", sans-serif;
+        font-size: 12px;
+        padding: 12px;
+      }
+      h2 {
+        font-size: 13px;
+        margin: 0 0 4px;
+      }
+      p.sub {
+        margin: 0 0 12px;
+        opacity: 0.7;
+      }
+      .row {
+        display: flex;
+        gap: 6px;
+        align-items: center;
+        margin-bottom: 8px;
+      }
+      .row label {
+        width: 70px;
+        opacity: 0.7;
+      }
+      .row input {
+        flex: 1;
+      }
+      #results {
+        margin-top: 12px;
+      }
+      .probe {
+        border-left: 3px solid #888;
+        padding: 6px 8px;
+        margin-bottom: 6px;
+        background: rgba(127, 127, 127, 0.08);
+      }
+      .probe.pass {
+        border-left-color: #2d9d5c;
+      }
+      .probe.fail {
+        border-left-color: #d0402b;
+      }
+      .probe.run {
+        border-left-color: #d8a13a;
+      }
+      .probe .name {
+        font-weight: 600;
+      }
+      .probe .detail {
+        opacity: 0.75;
+        margin-top: 2px;
+        word-break: break-all;
+        white-space: pre-wrap;
+      }
+      #summary {
+        margin-top: 12px;
+        padding: 8px;
+        background: rgba(127, 127, 127, 0.12);
+        white-space: pre-wrap;
+        word-break: break-all;
+      }
+    </style>
+  </head>
+  <body>
+    <h2>MCP UXP Spike</h2>
+    <p class="sub">
+      Answers two questions: does UXP fix frame capture (issue #9), and can a UXP panel reach a
+      local MCP server without the temp-file bridge?
+    </p>
+
+    <div class="row">
+      <label>Port</label>
+      <input id="port" type="text" value="7777" />
+    </div>
+    <div class="row">
+      <label>Out dir</label>
+      <input id="outdir" type="text" value="/tmp/" />
+    </div>
+
+    <sp-button id="run" variant="cta">Run all probes</sp-button>
+
+    <div id="results"></div>
+    <div id="summary">Not run yet.</div>
+  </body>
+</html>
