@@ -16,12 +16,16 @@
  *   PORT               HTTP port to listen on (default: 3000)
  *   PREMIERE_TEMP_DIR  Shared temp directory for the file bridge
  *   PREMIERE_TIMEOUT_MS Command timeout in ms (default: 30000)
- *   MCP_AUTH_TOKEN     Optional bearer token to require on all requests
+ *   MCP_AUTH_TOKEN     Bearer token required on every /mcp request. REQUIRED — the
+ *                      server refuses to start without it, because this transport
+ *                      binds 0.0.0.0 and can drive Premiere. Set ALLOW_UNAUTHENTICATED=1
+ *                      only for a deliberately public, throwaway instance.
  */
 
 import http from "node:http";
 import fs from "node:fs";
 import path from "node:path";
+import { timingSafeEqual } from "node:crypto";
 import { fileURLToPath } from "node:url";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { createServer } from "./server.js";
@@ -68,6 +72,33 @@ function serveLanding(req: http.IncomingMessage, res: http.ServerResponse): bool
 
 const PORT = parseInt(process.env.PORT ?? "3000", 10);
 const AUTH_TOKEN = process.env.MCP_AUTH_TOKEN;
+const ALLOW_UNAUTHENTICATED = process.env.ALLOW_UNAUTHENTICATED === "1";
+
+// Fail closed. This transport listens on 0.0.0.0 and every /mcp request can drive
+// Premiere, so starting it wide open is almost never what anyone means to do. Refuse
+// unless a token is set, or the operator has explicitly opted into a public instance.
+if (!AUTH_TOKEN && !ALLOW_UNAUTHENTICATED) {
+  console.error(
+    "[premiere-pro-mcp] Refusing to start: MCP_AUTH_TOKEN is not set.\n" +
+      "  This HTTP transport is remotely reachable and can control Premiere.\n" +
+      "  Set MCP_AUTH_TOKEN to a strong secret, or set ALLOW_UNAUTHENTICATED=1 if you\n" +
+      "  genuinely want a public, unauthenticated instance."
+  );
+  process.exit(1);
+}
+
+/** Constant-time bearer check, so token comparison leaks no timing signal. */
+function isAuthorized(req: http.IncomingMessage): boolean {
+  if (!AUTH_TOKEN) return true; // only reachable under ALLOW_UNAUTHENTICATED
+  const header = req.headers["authorization"] ?? "";
+  const provided = header.startsWith("Bearer ") ? header.slice(7) : "";
+
+  const a = Buffer.from(provided);
+  const b = Buffer.from(AUTH_TOKEN);
+  // timingSafeEqual throws on length mismatch, which would itself leak length — so
+  // guard the length check first and only compare equal-length buffers.
+  return a.length === b.length && timingSafeEqual(a, b);
+}
 
 const bridgeOptions = {
   tempDir: process.env.PREMIERE_TEMP_DIR,
@@ -98,15 +129,11 @@ const httpServer = http.createServer(async (req, res) => {
     return;
   }
 
-  // Optional bearer token auth
-  if (AUTH_TOKEN) {
-    const authHeader = req.headers["authorization"] ?? "";
-    const provided = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : "";
-    if (provided !== AUTH_TOKEN) {
-      res.writeHead(401, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ error: "Unauthorized" }));
-      return;
-    }
+  // Bearer token auth (constant-time; required unless ALLOW_UNAUTHENTICATED=1)
+  if (!isAuthorized(req)) {
+    res.writeHead(401, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ error: "Unauthorized" }));
+    return;
   }
 
   const mcpServer = createServer(bridgeOptions);
@@ -137,7 +164,7 @@ httpServer.listen(PORT, "0.0.0.0", () => {
   if (AUTH_TOKEN) {
     console.error(`[premiere-pro-mcp] Auth: Bearer token required`);
   } else {
-    console.error(`[premiere-pro-mcp] Auth: none (set MCP_AUTH_TOKEN to enable)`);
+    console.error(`[premiere-pro-mcp] Auth: DISABLED via ALLOW_UNAUTHENTICATED — anyone can drive this server`);
   }
 });
 

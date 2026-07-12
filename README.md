@@ -476,10 +476,22 @@ All generated scripts use **ES3 syntax** (`var`, manual `for` loops, no arrow fu
 
 ### Security
 
-- Scripts are validated before execution — blocks `eval()`, `new Function()`, `System.callSystem()`
-- 500KB script size limit
-- `send_raw_script` bypasses validation for advanced users (with explicit opt-in)
-- Temp directory created with restricted permissions (mode 700)
+Understand the trust model before deploying this: **any client that can reach the MCP
+server can run ExtendScript inside your Premiere Pro.** `execute_extendscript` and
+`send_raw_script` are arbitrary-code-execution tools by design. Treat access to the server
+the same way you'd treat a shell on the machine running Premiere.
+
+- **Run it locally over stdio** unless you have a specific reason not to. That's the safe default.
+- **The HTTP transport (`http-server`) requires `MCP_AUTH_TOKEN`** and refuses to start
+  without it. It binds `0.0.0.0` and is remotely reachable, so never expose it publicly
+  without a strong token (set `ALLOW_UNAUTHENTICATED=1` only for a throwaway public instance).
+- The bridge temp directory is created private to your user (mode `0700`), and the server
+  refuses to use one owned by another user — relevant on shared machines, where the CEP
+  panel would otherwise execute any `cmd_*.jsx` staged there.
+- There is a 500 KB script size limit, and a small regex check that rejects `eval()`,
+  `new Function()`, and `System.callSystem()` in tool-generated scripts. **This is a guard
+  rail, not a sandbox** — it is trivially bypassable and is not a security boundary. Do not
+  rely on it to contain untrusted input; the real boundary is who can reach the server.
 
 ### QE DOM
 
