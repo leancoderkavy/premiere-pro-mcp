@@ -54,13 +54,13 @@ export function getMarkerTools(bridgeOptions: BridgeOptions) {
         const script = buildToolScript(`
           ${markerTarget}
           
-          var timeTicks = __secondsToTicks(${args.time_seconds}).toString();
-          var marker = markers.createMarker(parseFloat(timeTicks));
-          
+          // createMarker() and the marker.end setter both take seconds, not ticks.
+          var marker = markers.createMarker(${args.time_seconds});
+
           ${args.name ? `marker.name = "${escapeForExtendScript(args.name)}";` : ""}
           ${args.comments ? `marker.comments = "${escapeForExtendScript(args.comments)}";` : ""}
           ${args.color !== undefined ? `marker.setColorByIndex(${args.color});` : ""}
-          ${args.duration_seconds ? `marker.end = __secondsToTicks(${args.time_seconds + args.duration_seconds}).toString();` : ""}
+          ${args.duration_seconds ? `marker.end = ${args.time_seconds + args.duration_seconds};` : ""}
           
           return __result({
             added: true,
@@ -194,8 +194,8 @@ export function getMarkerTools(bridgeOptions: BridgeOptions) {
             list.push({
               name: marker.name,
               comments: marker.comments,
-              startSeconds: __ticksToSeconds(marker.start.ticks),
-              endSeconds: __ticksToSeconds(marker.end.ticks),
+              startSeconds: marker.start.seconds,
+              endSeconds: marker.end.seconds,
               type: marker.type
             });
             marker = markers.getNextMarker(marker);
