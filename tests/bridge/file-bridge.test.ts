@@ -6,6 +6,8 @@ import {
   readFileSync,
   unlinkSync,
   readdirSync,
+  statSync,
+  chmodSync,
 } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
@@ -24,6 +26,8 @@ vi.mock("node:fs", () => ({
   readFileSync: vi.fn(),
   unlinkSync: vi.fn(),
   readdirSync: vi.fn(),
+  statSync: vi.fn(),
+  chmodSync: vi.fn(),
 }));
 
 const mockedExistsSync = vi.mocked(existsSync);
@@ -32,6 +36,13 @@ const mockedWriteFileSync = vi.mocked(writeFileSync);
 const mockedReadFileSync = vi.mocked(readFileSync);
 const mockedUnlinkSync = vi.mocked(unlinkSync);
 const mockedReaddirSync = vi.mocked(readdirSync);
+const mockedStatSync = vi.mocked(statSync);
+const mockedChmodSync = vi.mocked(chmodSync);
+
+// ensureDir on an existing dir stat-checks ownership; default to a dir owned by us
+// with safe perms so the existing tests exercise the happy path.
+const myUid = typeof process.getuid === "function" ? process.getuid() : 0;
+mockedStatSync.mockReturnValue({ uid: myUid, mode: 0o700 } as unknown as ReturnType<typeof statSync>);
 
 describe("getTempDir", () => {
   const originalEnv = process.env.PREMIERE_TEMP_DIR;
@@ -103,6 +114,38 @@ describe("sendCommand", () => {
       recursive: true,
       mode: 0o700,
     });
+  });
+
+  // Security: the bridge temp dir sits at a predictable, world-accessible path, and the
+  // CEP panel executes any cmd_*.jsx it finds there. On shared machines that dir must be
+  // ours and private. See the ensureDir hardening.
+  it("refuses to use an existing temp dir owned by another user", async () => {
+    if (typeof process.getuid !== "function") return; // POSIX-only guard
+    mockedExistsSync.mockReturnValue(true); // dir already exists
+    mockedStatSync.mockReturnValueOnce({
+      uid: process.getuid!() + 1, // someone else owns it
+      mode: 0o700,
+    } as unknown as ReturnType<typeof statSync>);
+
+    await expect(sendCommand("var x = 1;", { tempDir: "/tmp/evil-bridge" })).rejects.toThrow(
+      /owned by uid .* not this user/
+    );
+  });
+
+  it("clamps a group/world-accessible existing temp dir back to 0700", async () => {
+    if (typeof process.getuid !== "function") return;
+    mockedExistsSync.mockImplementation((p) => (String(p).includes("res_") ? true : true));
+    mockedStatSync.mockReturnValueOnce({
+      uid: process.getuid!(),
+      mode: 0o755, // ours, but world-readable
+    } as unknown as ReturnType<typeof statSync>);
+    mockedReadFileSync.mockReturnValue('{"success":true,"data":{}}');
+
+    const promise = sendCommand("var x = 1;", { tempDir: "/tmp/test-bridge" });
+    await vi.advanceTimersByTimeAsync(200);
+    await promise;
+
+    expect(mockedChmodSync).toHaveBeenCalledWith("/tmp/test-bridge", 0o700);
   });
 
   it("writes command file as .jsx", async () => {

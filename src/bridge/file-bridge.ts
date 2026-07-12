@@ -1,4 +1,4 @@
-import { mkdirSync, writeFileSync, readFileSync, unlinkSync, existsSync, readdirSync } from "node:fs";
+import { mkdirSync, writeFileSync, readFileSync, unlinkSync, existsSync, readdirSync, statSync, chmodSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 
@@ -19,9 +19,43 @@ export interface CommandResult {
 
 let commandCounter = 0;
 
+/**
+ * Create the bridge temp dir private to this user, and — critically — refuse to trust
+ * one we didn't create.
+ *
+ * The dir sits at a predictable, world-accessible path (e.g. /tmp/premiere-mcp-bridge)
+ * and the CEP panel executes ANY cmd_*.jsx it finds there, inside Premiere, as the
+ * logged-in user. On a shared machine another user could pre-create that path and drop
+ * command files, or read the res_*.json we write (which contain project data). And
+ * mkdirSync({recursive:true}) is a no-op on an existing dir — it does NOT re-apply the
+ * mode — so "create it 0o700" alone does not protect against a dir that was already there.
+ *
+ * So: if it exists, verify it's ours and lock its permissions down; if it isn't ours,
+ * fail loudly rather than executing whatever an attacker staged in it.
+ */
 function ensureDir(dir: string): void {
   if (!existsSync(dir)) {
     mkdirSync(dir, { recursive: true, mode: 0o700 });
+    return;
+  }
+
+  // POSIX only — Windows doesn't model uid/mode the same way, and its per-user temp
+  // dir isn't world-writable to begin with.
+  if (process.platform === "win32") return;
+
+  const st = statSync(dir);
+  const myUid = typeof process.getuid === "function" ? process.getuid() : undefined;
+  if (myUid !== undefined && st.uid !== myUid) {
+    throw new Error(
+      `Bridge temp dir ${dir} is owned by uid ${st.uid}, not this user (${myUid}). ` +
+        `Refusing to use it — another user may have staged command files. ` +
+        `Set PREMIERE_TEMP_DIR to a path only you control.`
+    );
+  }
+
+  // Clamp to owner-only, in case it was created with looser perms before this fix.
+  if ((st.mode & 0o077) !== 0) {
+    chmodSync(dir, 0o700);
   }
 }
 
