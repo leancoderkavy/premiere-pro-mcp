@@ -4,6 +4,70 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [1.1.2] - 2026-07-11
+
+The headline of this release is that the CEP 12 bridge fix from
+[#1](https://github.com/leancoderkavy/premiere-pro-mcp/pull/1) finally ships to npm. It has been on
+`main` since March but was never published, so everyone who installed with `npm install -g` still
+got a bridge that returned `null` for every tool call. If that was your symptom, upgrading is the
+whole fix.
+
+### Fixed
+
+- **The bridge returns data again on Premiere Pro 2023+ / CEP 12.** The published `CSInterface.js`
+  shim called `__adobe_cep__.evalScript(script)` without forwarding the callback. CEP 9+ is
+  async-only, so every result was silently discarded and every tool answered
+  `{"success":true,"data":null}` while the panel cheerfully logged "Result: OK". The manifest was
+  also missing `--enable-nodejs`, leaving `require("fs")` undefined in the panel.
+  ([#2](https://github.com/leancoderkavy/premiere-pro-mcp/issues/2),
+  [#5](https://github.com/leancoderkavy/premiere-pro-mcp/issues/5),
+  [#8](https://github.com/leancoderkavy/premiere-pro-mcp/issues/8))
+
+- **Markers landed at wildly wrong times.** `createMarker()` takes seconds, but was being handed
+  ticks — a marker requested at 2.0s was placed roughly 508 billion seconds down the timeline,
+  far past the end of any real sequence. `marker.end` had the same bug, and `list_markers` read
+  back nonsense as a result. ([#6](https://github.com/leancoderkavy/premiere-pro-mcp/issues/6))
+
+- **`manage_proxies` and `get_encoder_presets` called ExtendScript methods that do not exist.**
+  `ProjectItem` has no `createProxy()` and `EncoderManager` has no `getFormatList()`, so both threw
+  every time. `manage_proxies` with `action: "create"` now queues a real proxy encode through Media
+  Encoder instead of reporting "Proxy creation started" for work that never happened, and
+  `get_encoder_presets` discovers presets by scanning the `.epr` files Adobe ships on disk, returning
+  each preset's path so it can be passed straight to `export_sequence`.
+  ([#7](https://github.com/leancoderkavy/premiere-pro-mcp/issues/7))
+
+- **`capture_frame`, `export_frame`, and `freeze_frame` threw on every call.** `exportFramePNG`
+  exists only on the QE DOM sequence, not the public DOM one. These tools now go through the QE
+  sequence, and — because QE's return value is unreliable — decide success by checking that a file
+  actually exists on disk, falling back to a one-frame Media Encoder export. They can no longer
+  report success having written nothing.
+  ([#9](https://github.com/leancoderkavy/premiere-pro-mcp/issues/9))
+
+- **Six tools repaired for Premiere Pro 2026** via
+  [#3](https://github.com/leancoderkavy/premiere-pro-mcp/pull/3): `add_audio_keyframes` (used a
+  nonexistent `Property.addKeyframe`, and wrote dB into a property that stores amplitude),
+  `color_correct` (one unsettable Lumetri property aborted the whole script and lost every other
+  change), `add_transition` and friends (`getVideoTransitionList()` returns empty on 2026 even
+  though by-name lookup works), `add_adjustment_layer` (`qeSeq.addAdjustmentLayer` was removed in
+  2026), `export_sequence` (defaulted to a hardcoded macOS-only preset path), and `add_text_overlay`
+  (called `createCaptionTrack` with the wrong signature).
+
+- `manage_proxies` with `action: "toggle"` reported the inverse of the state it had just set.
+
+- The README described this repository as "a temporary fork" of itself — a fork banner that rode in
+  with the [#1](https://github.com/leancoderkavy/premiere-pro-mcp/pull/1) merge.
+
+### Notes
+
+- The frame-export and proxy-create paths are fixed against the documented API and covered by
+  regression tests, but have not yet been live-verified against a running Premiere Pro. If you can
+  test them, reports on
+  [#7](https://github.com/leancoderkavy/premiere-pro-mcp/issues/7) and
+  [#9](https://github.com/leancoderkavy/premiere-pro-mcp/issues/9) are very welcome.
+- Windows users on CEP 12 may additionally need to sign the extension (`ZXPSignCmd -sign`) — see
+  [#2](https://github.com/leancoderkavy/premiere-pro-mcp/issues/2) for details. That is an Adobe
+  signature-verification requirement, not a bug in this package.
+
 ## [1.0.0] - 2025-02-26
 
 ### Added

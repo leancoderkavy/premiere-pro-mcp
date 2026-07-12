@@ -222,6 +222,38 @@ export function getEffectsTools(bridgeOptions: BridgeOptions) {
         tint?: number;
         saturation?: number;
       }) => {
+        // Lumetri repeats display names across sub-sections (Basic Correction, Creative,
+        // HSL Secondary, ...) and not every match is writable, so each setValue is
+        // guarded and the first writable match per control wins.
+        const controls: Array<{ key: string; label: string; value: number }> = (
+          [
+            { key: "exposure", label: "Exposure", value: args.exposure },
+            { key: "contrast", label: "Contrast", value: args.contrast },
+            { key: "highlights", label: "Highlights", value: args.highlights },
+            { key: "shadows", label: "Shadows", value: args.shadows },
+            { key: "whites", label: "Whites", value: args.whites },
+            { key: "blacks", label: "Blacks", value: args.blacks },
+            { key: "temperature", label: "Temperature", value: args.temperature },
+            { key: "tint", label: "Tint", value: args.tint },
+            { key: "saturation", label: "Saturation", value: args.saturation },
+          ] as Array<{ key: string; label: string; value: number | undefined }>
+        ).filter((c): c is { key: string; label: string; value: number } => c.value !== undefined);
+
+        const setters = controls
+          .map(
+            (c) => `
+              if (!taken.${c.key} && name === "${c.label}") {
+                try {
+                  prop.setValue(${c.value}, true);
+                  taken.${c.key} = true;
+                  changes.${c.key} = ${c.value};
+                } catch(e) {
+                  errors.${c.key} = e.toString();
+                }
+              }`
+          )
+          .join("");
+
         // First apply Lumetri Color effect, then set its properties
         const script = buildToolScript(`
           app.enableQE();
@@ -253,31 +285,23 @@ export function getEffectsTools(bridgeOptions: BridgeOptions) {
             }
           }
           
-          // Set Lumetri properties. Wrap each setValue in try/catch so a single
-          // unsettable property (Lumetri repeats some display names across
-          // sub-sections; not all are writable) does NOT abort the whole script
-          // with "Invalid parameter" and lose every change.
+          // A single unsettable property must not abort the script with "Invalid
+          // parameter" and lose every other change, so each write is guarded.
+          // The taken map is a separate set of flags rather than a truthiness check on
+          // changes: 0 is a legitimate value (saturation 0 is a valid full desaturate),
+          // and a falsy check would re-fire it on every later sub-section that repeats
+          // the same display name.
           var changes = {};
           var errors = {};
-          var trySet = function(name, key, val, taken) {
-            if (taken[key]) return; // first match per logical control wins
-            try { /* lookup target prop has displayName === name */ } catch(e){}
-          };
+          var taken = {};
+
           for (var i = 0; i < clip.components.numItems; i++) {
             var comp = clip.components[i];
             if (comp.displayName !== "Lumetri Color") continue;
             for (var p = 0; p < comp.properties.numItems; p++) {
               var prop = comp.properties[p];
               var name = prop.displayName;
-              ${args.exposure !== undefined ? `if (!changes.exposure && name === "Exposure") { try { prop.setValue(${args.exposure}, true); changes.exposure = ${args.exposure}; } catch(e) { errors.exposure = e.toString(); } }` : ""}
-              ${args.contrast !== undefined ? `if (!changes.contrast && name === "Contrast") { try { prop.setValue(${args.contrast}, true); changes.contrast = ${args.contrast}; } catch(e) { errors.contrast = e.toString(); } }` : ""}
-              ${args.highlights !== undefined ? `if (!changes.highlights && name === "Highlights") { try { prop.setValue(${args.highlights}, true); changes.highlights = ${args.highlights}; } catch(e) { errors.highlights = e.toString(); } }` : ""}
-              ${args.shadows !== undefined ? `if (!changes.shadows && name === "Shadows") { try { prop.setValue(${args.shadows}, true); changes.shadows = ${args.shadows}; } catch(e) { errors.shadows = e.toString(); } }` : ""}
-              ${args.whites !== undefined ? `if (!changes.whites && name === "Whites") { try { prop.setValue(${args.whites}, true); changes.whites = ${args.whites}; } catch(e) { errors.whites = e.toString(); } }` : ""}
-              ${args.blacks !== undefined ? `if (!changes.blacks && name === "Blacks") { try { prop.setValue(${args.blacks}, true); changes.blacks = ${args.blacks}; } catch(e) { errors.blacks = e.toString(); } }` : ""}
-              ${args.temperature !== undefined ? `if (!changes.temperature && name === "Temperature") { try { prop.setValue(${args.temperature}, true); changes.temperature = ${args.temperature}; } catch(e) { errors.temperature = e.toString(); } }` : ""}
-              ${args.tint !== undefined ? `if (!changes.tint && name === "Tint") { try { prop.setValue(${args.tint}, true); changes.tint = ${args.tint}; } catch(e) { errors.tint = e.toString(); } }` : ""}
-              ${args.saturation !== undefined ? `if (!changes.saturation && name === "Saturation") { try { prop.setValue(${args.saturation}, true); changes.saturation = ${args.saturation}; } catch(e) { errors.saturation = e.toString(); } }` : ""}
+              ${setters}
             }
             break;
           }

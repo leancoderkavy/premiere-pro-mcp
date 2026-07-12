@@ -190,15 +190,16 @@ export function getUtilityTools(bridgeOptions: BridgeOptions) {
             ? `var timeTicks = __secondsToTicks(${args.time_seconds}).toString();`
             : `var timeTicks = seq.getPlayerPosition().ticks;`}
 
-          // Export frame
-          seq.exportFramePNG(timeTicks, "${escapeForExtendScript(args.output_path)}");
+          var res = __exportStillFrame("${escapeForExtendScript(args.output_path)}", timeTicks);
+          if (!res.ok) return __error(res.error + " [" + res.notes.join("; ") + "]");
 
           // Import back
-          app.project.importFiles(["${escapeForExtendScript(args.output_path)}"], false, app.project.rootItem, false);
+          app.project.importFiles([res.path], false, app.project.rootItem, false);
 
           return __result({
             exported: true,
-            path: "${escapeForExtendScript(args.output_path)}",
+            path: res.path,
+            method: res.method,
             atSeconds: __ticksToSeconds(timeTicks),
             note: "Frame exported and imported. Add to timeline with add_to_timeline."
           });

@@ -931,42 +931,40 @@ export function getTrackTargetingTools(bridgeOptions: BridgeOptions) {
     },
 
     get_encoder_presets: {
-      description: "List available Adobe Media Encoder export presets for a given format.",
+      description:
+        "List available Adobe Media Encoder export presets, with the .epr path of each so it can be " +
+        "passed to export_sequence or encode_project_item. Presets are discovered by scanning the .epr " +
+        "files Adobe ships on disk (Premiere's ExtendScript API exposes no preset enumeration).",
       parameters: {
         type: "object" as const,
         properties: {
           format: {
             type: "string",
-            description: "Format name to list presets for (e.g., 'H.264', 'QuickTime', 'MPEG2'). Leave empty to list formats.",
+            description:
+              "Filter to presets whose name or format bucket matches this (e.g. 'H.264', 'ProRes', 'Proxy'). Omit to list all.",
           },
         },
       },
       handler: async (args: { format?: string }) => {
         const script = buildToolScript(`
-          var encoder = app.encoder;
-          if (!encoder) return __error("Encoder not available");
-
-          try {
-            var formats = encoder.getFormatList();
-            if (!formats) return __error("Could not get format list");
-
-            var result = [];
-            for (var f = 0; f < formats.length; f++) {
-              var formatName = formats[f];
-              ${args.format ? `if (formatName.toLowerCase().indexOf("${escapeForExtendScript(args.format)}".toLowerCase()) === -1) continue;` : ""}
-              var presets = encoder.getPresetList(formatName);
-              var presetNames = [];
-              if (presets) {
-                for (var p = 0; p < presets.length; p++) {
-                  presetNames.push(presets[p]);
-                }
-              }
-              result.push({ format: formatName, presets: presetNames });
-            }
-            return __result(result);
-          } catch(e) {
-            return __error("Encoder preset listing failed: " + e.message);
+          var presets = __collectAllPresets();
+          if (!presets.length) {
+            return __error("No .epr presets found. Is Adobe Media Encoder installed alongside Premiere Pro?");
           }
+
+          ${args.format
+            ? `var needle = "${escapeForExtendScript(args.format)}".toLowerCase();
+               var filtered = [];
+               for (var i = 0; i < presets.length; i++) {
+                 var p = presets[i];
+                 if (p.name.toLowerCase().indexOf(needle) !== -1 || p.format.toLowerCase().indexOf(needle) !== -1) {
+                   filtered.push(p);
+                 }
+               }
+               presets = filtered;`
+            : ""}
+
+          return __result({ count: presets.length, presets: presets });
         `);
         return sendCommand(script, bridgeOptions);
       },

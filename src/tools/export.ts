@@ -35,36 +35,7 @@ export function getExportTools(bridgeOptions: BridgeOptions) {
           
           ${args.preset_path
             ? `var presetPath = "${escapeForExtendScript(args.preset_path)}";`
-            : `// Cross-platform default: locate an H.264 "Match Source" preset
-               // by walking the AME systempresets tree. Falls back to first .epr
-               // found in the H.264 dir (4E49434B_48323634 = "NICK_H264").
-               var presetPath = "";
-               var roots = [];
-               if ($.os && $.os.toLowerCase().indexOf("mac") !== -1) {
-                 roots.push("/Applications/Adobe Media Encoder 2026/MediaIO/systempresets");
-                 roots.push("/Applications/Adobe Media Encoder 2025/MediaIO/systempresets");
-                 roots.push("/Applications/Adobe Media Encoder 2024/MediaIO/systempresets");
-               } else {
-                 roots.push("C:\\\\Program Files\\\\Adobe\\\\Adobe Media Encoder 2026\\\\MediaIO\\\\systempresets");
-                 roots.push("C:\\\\Program Files\\\\Adobe\\\\Adobe Media Encoder 2025\\\\MediaIO\\\\systempresets");
-                 roots.push("C:\\\\Program Files\\\\Adobe\\\\Adobe Media Encoder 2024\\\\MediaIO\\\\systempresets");
-               }
-               for (var r = 0; r < roots.length && !presetPath; r++) {
-                 var rootFolder = new Folder(roots[r]);
-                 if (!rootFolder.exists) continue;
-                 var subs = rootFolder.getFiles(function(f){ return f instanceof Folder; });
-                 for (var s = 0; s < subs.length && !presetPath; s++) {
-                   if (subs[s].name.indexOf("48323634") === -1 && subs[s].name.toLowerCase().indexOf("h264") === -1) continue;
-                   var eprs = subs[s].getFiles("*.epr");
-                   var matchFile = null;
-                   for (var k = 0; k < eprs.length; k++) {
-                     var nm = eprs[k].displayName || eprs[k].name;
-                     if (nm.toLowerCase().indexOf("match source - high") !== -1) { matchFile = eprs[k]; break; }
-                   }
-                   if (!matchFile && eprs.length) matchFile = eprs[0];
-                   if (matchFile) presetPath = matchFile.fsName;
-                 }
-               }
+            : `var presetPath = __findH264Preset();
                if (!presetPath) return __error("Could not locate a default H.264 preset. Pass preset_path explicitly.");`
           }
 
@@ -98,20 +69,17 @@ export function getExportTools(bridgeOptions: BridgeOptions) {
       },
       handler: async (args: { output_path: string; time_seconds?: number }) => {
         const script = buildToolScript(`
-          var seq = app.project.activeSequence;
-          if (!seq) return __error("No active sequence");
-          
-          ${args.time_seconds !== undefined
-            ? `seq.setPlayerPosition(__secondsToTicks(${args.time_seconds}).toString());`
-            : ""
-          }
-          
           var outputPath = "${escapeForExtendScript(args.output_path)}";
-          seq.exportFramePNG(seq.getPlayerPosition().ticks, outputPath);
-          
-          return __result({ exported: true, outputPath: outputPath });
+          var ticks = ${args.time_seconds !== undefined
+            ? `__secondsToTicks(${args.time_seconds}).toString()`
+            : "null"};
+
+          var res = __exportStillFrame(outputPath, ticks);
+          if (!res.ok) return __error(res.error + " [" + res.notes.join("; ") + "]");
+
+          return __result({ exported: true, outputPath: res.path, method: res.method });
         `);
-        return sendCommand(script, bridgeOptions);
+        return sendCommand(script, { ...bridgeOptions, timeoutMs: 60000 });
       },
     },
 
@@ -319,40 +287,32 @@ export function getExportTools(bridgeOptions: BridgeOptions) {
         const escapedPath = escapeForExtendScript(tempPath);
 
         const script = buildToolScript(`
-          var seq = app.project.activeSequence;
-          if (!seq) return __error("No active sequence");
-          
-          ${args.time_seconds !== undefined
-            ? `seq.setPlayerPosition(__secondsToTicks(${args.time_seconds}).toString());`
-            : ""
-          }
-          
           var outputPath = "${escapedPath}";
-          seq.exportFramePNG(seq.getPlayerPosition().ticks, outputPath);
-          
-          return __result({ exported: true, outputPath: outputPath });
+          var ticks = ${args.time_seconds !== undefined
+            ? `__secondsToTicks(${args.time_seconds}).toString()`
+            : "null"};
+
+          var res = __exportStillFrame(outputPath, ticks);
+          if (!res.ok) return __error(res.error + " [" + res.notes.join("; ") + "]");
+
+          return __result({ exported: true, outputPath: res.path, method: res.method });
         `);
 
-        const result = await sendCommand(script, bridgeOptions);
+        const result = await sendCommand(script, { ...bridgeOptions, timeoutMs: 60000 });
         if (!result.success) return result;
 
-        // Read the exported PNG and return as base64 image content
-        // Wait a moment for the file to be written
-        let attempts = 0;
-        while (!existsSync(tempPath) && attempts < 20) {
-          await new Promise(r => setTimeout(r, 100));
-          attempts++;
-        }
+        // __exportStillFrame already proved the file exists, but it may have landed at a
+        // path other than the one we asked for (Media Encoder appends a frame number to
+        // still exports), so read back the path it reports rather than the one we chose.
+        const framePath = (result.data as { outputPath?: string } | undefined)?.outputPath ?? tempPath;
 
-        if (!existsSync(tempPath)) {
-          return { success: false, error: "Frame export completed but file not found at: " + tempPath };
+        if (!existsSync(framePath)) {
+          return { success: false, error: "Frame export reported success but no file exists at: " + framePath };
         }
 
         try {
-          const imageData = readFileSync(tempPath);
-          const base64 = imageData.toString("base64");
-          // Clean up temp file
-          try { unlinkSync(tempPath); } catch {}
+          const base64 = readFileSync(framePath).toString("base64");
+          try { unlinkSync(framePath); } catch {}
           return {
             success: true,
             data: {
@@ -562,7 +522,12 @@ export function getExportTools(bridgeOptions: BridgeOptions) {
     },
 
     manage_proxies: {
-      description: "Create or attach proxies for a project item",
+      description:
+        "Create, attach, or toggle proxies for a project item. " +
+        "Note: 'create' queues a proxy encode in Adobe Media Encoder and returns immediately — " +
+        "AME renders in the background. Once it finishes, call this tool again with action 'attach' " +
+        "and proxy_path set to the output_path you passed here. There is no single-call create-and-attach " +
+        "in Premiere's ExtendScript API.",
       parameters: {
         type: "object" as const,
         properties: {
@@ -577,32 +542,76 @@ export function getExportTools(bridgeOptions: BridgeOptions) {
           },
           proxy_path: {
             type: "string",
-            description: "Path to proxy file (required for 'attach' action)",
+            description: "Path to an existing proxy file (required for 'attach')",
+          },
+          output_path: {
+            type: "string",
+            description: "Full output path for the proxy to be rendered to (required for 'create')",
+          },
+          preset_path: {
+            type: "string",
+            description:
+              "Path to a proxy ingest preset (.epr) for 'create'. " +
+              "If omitted, the first preset found in Premiere's IngestPresets/Proxy folder is used.",
           },
         },
         required: ["item_id", "action"],
       },
-      handler: async (args: { item_id: string; action: string; proxy_path?: string }) => {
+      handler: async (args: {
+        item_id: string;
+        action: string;
+        proxy_path?: string;
+        output_path?: string;
+        preset_path?: string;
+      }) => {
         const script = buildToolScript(`
           var item = __findProjectItem("${escapeForExtendScript(args.item_id)}");
           if (!item) return __error("Item not found");
-          
+
           var action = "${args.action}";
-          
+
           if (action === "create") {
-            item.createProxy("", 0);
-            return __result({ action: "create", item: item.name, status: "Proxy creation started" });
+            ${!args.output_path
+              ? `return __error("output_path is required for the 'create' action");`
+              : `var outputPath = "${escapeForExtendScript(args.output_path)}";
+                 ${args.preset_path
+                   ? `var presetPath = "${escapeForExtendScript(args.preset_path)}";`
+                   : `var presetPath = __findProxyPreset();
+                      if (!presetPath) {
+                        return __error("Could not locate a proxy ingest preset. Pass preset_path explicitly (an .epr under Premiere's Settings/IngestPresets/Proxy folder).");
+                      }`}
+
+                 // ProjectItem has no createProxy(). Proxy generation must go through
+                 // Adobe Media Encoder; the result is attached in a separate step once
+                 // AME has finished writing the file.
+                 app.encoder.launchEncoder();
+                 app.encoder.encodeProjectItem(item, outputPath, presetPath, app.encoder.ENCODE_ENTIRE, 1);
+                 app.encoder.startBatch();
+
+                 return __result({
+                   action: "create",
+                   item: item.name,
+                   queued: true,
+                   outputPath: outputPath,
+                   presetUsed: presetPath,
+                   nextStep: "Wait for Adobe Media Encoder to finish, then call manage_proxies with action 'attach' and proxy_path set to outputPath."
+                 });`
+            }
           } else if (action === "attach") {
             ${args.proxy_path
-              ? `item.attachProxy("${escapeForExtendScript(args.proxy_path)}", 0);
-                 return __result({ action: "attach", item: item.name, proxyPath: "${escapeForExtendScript(args.proxy_path)}" });`
+              ? `var attachPath = "${escapeForExtendScript(args.proxy_path)}";
+                 if (!new File(attachPath).exists) return __error("Proxy file does not exist: " + attachPath);
+                 var attached = item.attachProxy(attachPath, 0);
+                 if (!attached) return __error("attachProxy() failed for: " + attachPath);
+                 return __result({ action: "attach", item: item.name, proxyPath: attachPath, attached: true });`
               : `return __error("proxy_path is required for attach action");`
             }
           } else if (action === "toggle") {
-            app.project.setProxyEnabled(!app.project.isProxyEnabled());
-            return __result({ action: "toggle", proxiesEnabled: !app.project.isProxyEnabled() });
+            var enabled = !app.project.isProxyEnabled();
+            app.project.setProxyEnabled(enabled);
+            return __result({ action: "toggle", proxiesEnabled: enabled });
           }
-          
+
           return __error("Unknown proxy action: " + action);
         `);
         return sendCommand(script, bridgeOptions);
