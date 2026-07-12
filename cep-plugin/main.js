@@ -30,9 +30,24 @@ function setStatus(state, text) {
 }
 
 // ---- File I/O via Node.js (CEP has access to Node) ----
-var fs = require("fs");
-var path = require("path");
-var os = require("os");
+// --enable-nodejs puts `require` in the global scope on most hosts, but on some it
+// lands on cep_node instead. Try both, and fail loudly rather than letting fs come
+// back undefined and surface later as "Cannot read properties of undefined".
+function nodeRequire(moduleName) {
+  if (typeof require !== "undefined") return require(moduleName);
+
+  var cepNode = typeof cep_node !== "undefined" ? cep_node : typeof window !== "undefined" ? window.cep_node : null;
+  if (cepNode && typeof cepNode.require === "function") return cepNode.require(moduleName);
+
+  throw new Error(
+    'Node.js is not available in this CEP panel, so "' + moduleName + '" could not be loaded. ' +
+      "Check that CSXS/manifest.xml has <Parameter>--enable-nodejs</Parameter>, then fully quit and reopen Premiere Pro."
+  );
+}
+
+var fs = nodeRequire("fs");
+var path = nodeRequire("path");
+var os = nodeRequire("os");
 tempDir = path.join(os.tmpdir(), "premiere-mcp-bridge");
 
 function ensureDir(dir) {
@@ -127,10 +142,21 @@ function processOneCommand(cmdFileName) {
         // Check if it's already valid JSON
         var parsed = JSON.parse(result);
         response = JSON.stringify(parsed);
+        log("Result: OK", "ok");
       } else {
-        response = JSON.stringify({ success: true, data: result || null });
+        // An empty result means evalScript gave us nothing back. That is a bridge
+        // failure, not a successful command with no data — reporting it as "OK" is
+        // what made this so hard to diagnose. Say so.
+        response = JSON.stringify({
+          success: false,
+          error:
+            "The bridge received an empty result from evalScript (got " +
+            (typeof result) +
+            "). The script may not have run. If every command does this, the CEP panel is stale — " +
+            "close and reopen it (a reload is not enough), or reinstall the extension.",
+        });
+        log("Result: EMPTY — evalScript returned nothing (see response file)", "err");
       }
-      log("Result: OK", "ok");
     } catch (e) {
       // If result isn't JSON, wrap it
       if (result && result.indexOf("Error") === 0) {
