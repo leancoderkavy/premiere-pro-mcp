@@ -2,6 +2,7 @@
  * Builds ExtendScript strings with helper functions prepended.
  * All generated code must be ES3-compatible (var, no arrow functions, no let/const).
  */
+import { createHash } from "node:crypto";
 
 const HELPERS = `
 // === MCP Bridge Helpers (auto-prepended) ===
@@ -454,11 +455,43 @@ function __error(msg) {
 `;
 
 /**
- * Build a complete ExtendScript by wrapping user code in an IIFE with helpers.
+ * The helpers are NOT inlined into every command. Re-sending ~14KB of helper code
+ * with each evalScript both wastes the 200ms-polling pipe and — observed on
+ * Premiere 26.2.2 — can hit "InternalError: Stack overrun" once the long-lived
+ * ExtendScript engine has degraded, at which point every tool call dies with an
+ * opaque "EvalScript error.". Instead the file bridge writes the helpers to
+ * <tempDir>/helpers_<version>.jsx once, and each command carries only a tiny
+ * bootstrap that $.evalFile's them into the engine if this exact version isn't
+ * loaded yet. Self-healing across engine restarts, and each version of the server
+ * loads its own helpers file, so upgrades can't execute stale helpers.
+ */
+export const HELPERS_VERSION = createHash("md5").update(HELPERS).digest("hex").slice(0, 12);
+
+export function getHelpersSource(): string {
+  return `${HELPERS}
+var __HELPERS_V = "${HELPERS_VERSION}";
+`;
+}
+
+export function helpersFileName(): string {
+  return `helpers_${HELPERS_VERSION}.jsx`;
+}
+
+/**
+ * Build the bootstrap + user-code command script. The helpers file path is only
+ * known to the file bridge, which injects it via buildBootstrap().
+ */
+export function buildBootstrap(helpersPath: string): string {
+  const escaped = helpersPath.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
+  return `if (typeof __HELPERS_V === "undefined" || __HELPERS_V !== "${HELPERS_VERSION}") { $.evalFile("${escaped}"); }`;
+}
+
+/**
+ * Build a complete ExtendScript by wrapping user code in an IIFE.
+ * Helper functions are loaded by the bootstrap the file bridge prepends.
  */
 export function buildScript(code: string): string {
-  return `${HELPERS}
-(function() {
+  return `(function() {
   try {
     ${code}
   } catch(e) {

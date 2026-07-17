@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import { getHelpersSource } from "../../src/bridge/script-builder.js";
 import { BridgeOptions } from "../../src/bridge/file-bridge.js";
 
 // Mock sendCommand and sendRawCommand so tool handlers don't do real I/O
@@ -340,9 +341,8 @@ describe("Tool Handler Behavior", () => {
       const tools = getDiscoveryTools(bridgeOptions);
       await (tools.list_sequence_tracks.handler as any)({});
 
-      const script = mockedSendCommand.mock.calls[0][0];
-      // The user code portion (after helpers) should use activeSequence directly
-      const userCode = script.split("// === End MCP Bridge Helpers ===")[1];
+      // Helpers are no longer inlined — the whole script is user code.
+      const userCode = mockedSendCommand.mock.calls[0][0];
       expect(userCode).toContain("app.project.activeSequence");
       // Should NOT call __findSequence in user code when no sequence_id is provided
       expect(userCode).not.toContain('__findSequence("');
@@ -480,13 +480,17 @@ describe("Script Generation Patterns", () => {
     expect(script).toContain("})();");
   });
 
-  it("scripts include helper functions", async () => {
+  it("scripts do not inline helpers; helpers source defines them", async () => {
     const tools = getDiscoveryTools(bridgeOptions);
     await (tools.get_project_info.handler as any)({});
 
     const script = mockedSendCommand.mock.calls[0][0];
-    expect(script).toContain("function __result(data)");
-    expect(script).toContain("function __error(msg)");
-    expect(script).toContain("TICKS_PER_SECOND");
+    // Inlining ~14KB of helpers per command overflowed the ExtendScript stack
+    // on long-lived engines; commands must stay lean.
+    expect(script).not.toContain("function __jsonStringify(obj)");
+    const helpers = getHelpersSource();
+    expect(helpers).toContain("function __result(data)");
+    expect(helpers).toContain("function __error(msg)");
+    expect(helpers).toContain("TICKS_PER_SECOND");
   });
 });

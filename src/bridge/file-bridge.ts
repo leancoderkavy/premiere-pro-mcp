@@ -1,6 +1,7 @@
 import { mkdirSync, writeFileSync, readFileSync, unlinkSync, existsSync, readdirSync, statSync, chmodSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
+import { getHelpersSource, helpersFileName, buildBootstrap } from "./script-builder.js";
 
 const DEFAULT_TEMP_DIR = join(tmpdir(), "premiere-mcp-bridge");
 const POLL_INTERVAL_MS = 100;
@@ -64,6 +65,18 @@ export function getTempDir(options?: BridgeOptions): string {
 }
 
 /**
+ * Make sure this server version's helpers file exists in the temp dir, and return
+ * the bootstrap line each command must carry so the CEP-side engine loads it once.
+ */
+function ensureHelpers(tempDir: string): string {
+  const helpersPath = join(tempDir, helpersFileName());
+  if (!existsSync(helpersPath)) {
+    writeFileSync(helpersPath, getHelpersSource(), "utf-8");
+  }
+  return buildBootstrap(helpersPath);
+}
+
+/**
  * Send a command (ExtendScript) to the CEP plugin and wait for a response.
  * 
  * Protocol:
@@ -87,8 +100,9 @@ export async function sendCommand(
   // Validate script
   validateScript(script);
 
-  // Write command file
-  writeFileSync(cmdFile, script, "utf-8");
+  // Write command file (bootstrap loads the helpers into the engine if needed)
+  writeFileSync(cmdFile, `${ensureHelpers(tempDir)}
+${script}`, "utf-8");
 
   // Poll for response
   const result = await pollForResponse(resFile, busyFile, timeoutMs);
@@ -142,7 +156,8 @@ export async function sendRawCommand(
   const busyFile = join(tempDir, `busy_${id}.json`);
 
   validateScript(script, true);
-  writeFileSync(cmdFile, script, "utf-8");
+  writeFileSync(cmdFile, `${ensureHelpers(tempDir)}
+${script}`, "utf-8");
   const result = await pollForResponse(resFile, busyFile, timeoutMs);
   safeUnlink(cmdFile);
   safeUnlink(resFile);

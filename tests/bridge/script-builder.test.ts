@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { buildScript, escapeForExtendScript, buildToolScript } from "../../src/bridge/script-builder.js";
+import { buildScript, escapeForExtendScript, buildToolScript, getHelpersSource, buildBootstrap, helpersFileName, HELPERS_VERSION } from "../../src/bridge/script-builder.js";
 
 describe("buildScript", () => {
   it("wraps code in an IIFE with try/catch", () => {
@@ -11,8 +11,8 @@ describe("buildScript", () => {
     expect(result).toContain("})();");
   });
 
-  it("prepends helper functions", () => {
-    const result = buildScript("return __result({});");
+  it("defines helper functions in the helpers source", () => {
+    const result = getHelpersSource();
     expect(result).toContain("var TICKS_PER_SECOND = 254016000000;");
     expect(result).toContain("function __ticksToSeconds(ticks)");
     expect(result).toContain("function __secondsToTicks(seconds)");
@@ -104,23 +104,26 @@ describe("escapeForExtendScript", () => {
 });
 
 describe("generated script structure", () => {
-  it("helpers appear before the IIFE", () => {
-    const result = buildScript("return __result({});");
-    const helpersEnd = result.indexOf("// === End MCP Bridge Helpers ===");
-    const iifeStart = result.indexOf("(function() {");
-    expect(helpersEnd).toBeLessThan(iifeStart);
-    expect(helpersEnd).toBeGreaterThan(-1);
-    expect(iifeStart).toBeGreaterThan(-1);
+  it("bootstrap loads this exact helpers version via $.evalFile", () => {
+    const bootstrap = buildBootstrap("/tmp/x/" + helpersFileName());
+    expect(bootstrap).toContain(`__HELPERS_V !== "${HELPERS_VERSION}"`);
+    expect(bootstrap).toContain(`$.evalFile("/tmp/x/helpers_${HELPERS_VERSION}.jsx")`);
+    expect(getHelpersSource()).toContain(`var __HELPERS_V = "${HELPERS_VERSION}";`);
+  });
+
+  it("bootstrap escapes quotes and backslashes in the helpers path", () => {
+    const bootstrap = buildBootstrap('C:\\temp\\he"rs.jsx');
+    expect(bootstrap).toContain('$.evalFile("C:\\\\temp\\\\he\\"rs.jsx")');
   });
 
   it("__findProjectItem recursively searches bins", () => {
-    const result = buildScript("");
+    const result = getHelpersSource();
     expect(result).toContain("if (item.type === 2)");
     expect(result).toContain("var found = __findProjectItem(nodeIdOrName, item);");
   });
 
   it("__findClip searches both video and audio tracks", () => {
-    const result = buildScript("");
+    const result = getHelpersSource();
     expect(result).toContain("seq.videoTracks.numTracks");
     expect(result).toContain("seq.audioTracks.numTracks");
     expect(result).toContain('trackType: "video"');
@@ -128,7 +131,7 @@ describe("generated script structure", () => {
   });
 
   it("__jsonStringify handles all types", () => {
-    const result = buildScript("");
+    const result = getHelpersSource();
     expect(result).toContain('if (obj === null) return "null"');
     expect(result).toContain('if (typeof obj === "string")');
     expect(result).toContain('if (typeof obj === "number"');
