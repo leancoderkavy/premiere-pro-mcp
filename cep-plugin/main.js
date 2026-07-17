@@ -65,7 +65,7 @@ function listCommandFiles() {
     if (!fs.existsSync(tempDir)) return [];
     var files = fs.readdirSync(tempDir);
     return files
-      .filter(function (f) { return f.indexOf("cmd_") === 0 && f.indexOf(".jsx") > 0; })
+      .filter(function (f) { return f.indexOf("cmd_") === 0 && f.slice(-4) === ".jsx"; })
       .sort(); // process in order
   } catch (e) {
     return [];
@@ -113,12 +113,24 @@ function processCommands() {
   }
 }
 
+// Both the visible panel and the headless auto-start instance run this file.
+// A rename is atomic on the same volume, so whichever engine renames first owns
+// the command; the loser's rename throws and it skips the file.
+var ENGINE_ID = Math.random().toString(36).slice(2, 8);
+
 function processOneCommand(cmdFileName) {
   var cmdFilePath = path.join(tempDir, cmdFileName);
-  var script = readFile(cmdFilePath);
+  var claimPath = cmdFilePath + "." + ENGINE_ID + ".claimed";
+  try {
+    fs.renameSync(cmdFilePath, claimPath);
+  } catch (e) {
+    return; // another engine claimed this command
+  }
+
+  var script = readFile(claimPath);
+  deleteFile(claimPath);
   if (!script) {
     log("Failed to read: " + cmdFileName, "err");
-    deleteFile(cmdFilePath);
     return;
   }
 
@@ -128,10 +140,18 @@ function processOneCommand(cmdFileName) {
 
   log("Executing: " + cmdFileName + " (" + script.length + " chars)", "cmd");
 
-  // Delete the command file immediately to avoid re-processing
-  deleteFile(cmdFilePath);
+  // While evalScript is in flight, heartbeat a busy file so the MCP server can
+  // tell "script still running (modal dialog?)" apart from "plugin not running".
+  // Only starts after 2s, so fast commands never touch the extra file.
+  var busyFilePath = path.join(tempDir, "busy_" + id + ".json");
+  var startedAt = new Date().getTime();
+  var busyTimer = setInterval(function () {
+    writeFile(busyFilePath, '{"id":"' + id + '","elapsedMs":' + (new Date().getTime() - startedAt) + "}");
+  }, 2000);
 
   executeScript(script, function (result) {
+    clearInterval(busyTimer);
+    deleteFile(busyFilePath);
     commandCount++;
     document.getElementById("cmdCount").textContent = commandCount;
 

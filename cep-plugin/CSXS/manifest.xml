@@ -1,7 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<ExtensionManifest Version="7.0" ExtensionBundleId="com.mcp.premiere.bridge" ExtensionBundleVersion="1.0.0" ExtensionBundleName="MCP Bridge">
+<ExtensionManifest Version="7.0" ExtensionBundleId="com.mcp.premiere.bridge" ExtensionBundleVersion="1.0.1" ExtensionBundleName="MCP Bridge">
   <ExtensionList>
-    <Extension Id="com.mcp.premiere.bridge.panel" Version="1.0.0"/>
+    <Extension Id="com.mcp.premiere.bridge.panel" Version="1.0.1"/>
+    <Extension Id="com.mcp.premiere.bridge.headless" Version="1.0.1"/>
   </ExtensionList>
   <ExecutionEnvironment>
     <HostList>
@@ -40,6 +41,35 @@
               <Height>200</Height>
               <Width>300</Width>
             </MinSize>
+          </Geometry>
+          <Icons/>
+        </UI>
+      </DispatchInfo>
+    </Extension>
+    <Extension Id="com.mcp.premiere.bridge.headless">
+      <DispatchInfo>
+        <Resources>
+          <MainPath>./index.html</MainPath>
+          <ScriptPath>./host.jsx</ScriptPath>
+          <CEFCommandLine>
+            <Parameter>--allow-file-access-from-files</Parameter>
+            <Parameter>--enable-nodejs</Parameter>
+          </CEFCommandLine>
+        </Resources>
+        <Lifecycle>
+          <AutoVisible>false</AutoVisible>
+          <StartOn>
+            <Event>com.adobe.csxs.events.ApplicationActivate</Event>
+            <Event>applicationActivate</Event>
+          </StartOn>
+        </Lifecycle>
+        <UI>
+          <Type>Custom</Type>
+          <Geometry>
+            <Size>
+              <Height>1</Height>
+              <Width>1</Width>
+            </Size>
           </Geometry>
           <Icons/>
         </UI>

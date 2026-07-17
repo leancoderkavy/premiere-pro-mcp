@@ -82,6 +82,7 @@ export async function sendCommand(
   const id = `${Date.now()}_${++commandCounter}`;
   const cmdFile = join(tempDir, `cmd_${id}.jsx`);
   const resFile = join(tempDir, `res_${id}.json`);
+  const busyFile = join(tempDir, `busy_${id}.json`);
 
   // Validate script
   validateScript(script);
@@ -90,11 +91,12 @@ export async function sendCommand(
   writeFileSync(cmdFile, script, "utf-8");
 
   // Poll for response
-  const result = await pollForResponse(resFile, timeoutMs);
+  const result = await pollForResponse(resFile, busyFile, timeoutMs);
 
   // Cleanup
   safeUnlink(cmdFile);
   safeUnlink(resFile);
+  safeUnlink(busyFile);
 
   return result;
 }
@@ -137,23 +139,43 @@ export async function sendRawCommand(
   const id = `${Date.now()}_${++commandCounter}`;
   const cmdFile = join(tempDir, `cmd_${id}.jsx`);
   const resFile = join(tempDir, `res_${id}.json`);
+  const busyFile = join(tempDir, `busy_${id}.json`);
 
   validateScript(script, true);
   writeFileSync(cmdFile, script, "utf-8");
-  const result = await pollForResponse(resFile, timeoutMs);
+  const result = await pollForResponse(resFile, busyFile, timeoutMs);
   safeUnlink(cmdFile);
   safeUnlink(resFile);
+  safeUnlink(busyFile);
 
   return result;
 }
 
 async function pollForResponse(
   resFile: string,
+  busyFile: string,
   timeoutMs: number
 ): Promise<CommandResult> {
   const start = Date.now();
+  // The CEP plugin writes busy_<id>.json every ~2s while evalScript is in flight.
+  // A fresh busy file past the deadline means Premiere accepted the script but hasn't
+  // returned — nearly always a modal dialog blocking the scripting engine, or a
+  // genuinely long operation — so we keep waiting up to a hard cap instead of
+  // misreporting "is the plugin running?".
+  const hardCapMs = Math.max(timeoutMs * 4, 120_000);
+  let sawBusy = false;
 
-  return new Promise((resolve, reject) => {
+  const busyIsFresh = (): boolean => {
+    try {
+      if (!existsSync(busyFile)) return false;
+      sawBusy = true;
+      return Date.now() - statSync(busyFile).mtimeMs < 6_000;
+    } catch {
+      return false;
+    }
+  };
+
+  return new Promise((resolve) => {
     const check = () => {
       if (existsSync(resFile)) {
         try {
@@ -169,10 +191,21 @@ async function pollForResponse(
         return;
       }
 
-      if (Date.now() - start > timeoutMs) {
+      const elapsed = Date.now() - start;
+      if (elapsed > timeoutMs) {
+        const stillBusy = busyIsFresh();
+        if (stillBusy && elapsed <= hardCapMs) {
+          setTimeout(check, POLL_INTERVAL_MS);
+          return;
+        }
         resolve({
           success: false,
-          error: `Command timed out after ${timeoutMs}ms. Is the CEP plugin running in Premiere Pro?`,
+          error: sawBusy
+            ? `Premiere accepted the script but did not finish within ${elapsed}ms. ` +
+              `A modal dialog inside Premiere Pro is likely blocking the scripting engine — ` +
+              `check the Premiere window and dismiss any open dialog. ` +
+              `(The result, if any, will be discarded.)`
+            : `Command timed out after ${timeoutMs}ms. Is the CEP plugin running in Premiere Pro?`,
         });
         return;
       }
@@ -204,7 +237,7 @@ export function cleanupTempDir(options?: BridgeOptions): void {
   try {
     const files = readdirSync(tempDir);
     for (const file of files) {
-      if (file.startsWith("cmd_") || file.startsWith("res_")) {
+      if (file.startsWith("cmd_") || file.startsWith("res_") || file.startsWith("busy_")) {
         safeUnlink(join(tempDir, file));
       }
     }

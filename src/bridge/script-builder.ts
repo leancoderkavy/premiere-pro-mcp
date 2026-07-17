@@ -6,6 +6,32 @@
 const HELPERS = `
 // === MCP Bridge Helpers (auto-prepended) ===
 
+// ExtendScript (ES3) has no native JSON object. Tool scripts use __jsonStringify
+// directly, but LLM-authored code via execute_extendscript reaches for
+// JSON.stringify reflexively — give it a global. Parse is intentionally omitted:
+// implementing it needs eval, which the command validator blocks.
+if (typeof JSON === "undefined") {
+  JSON = {};
+}
+if (typeof JSON.stringify === "undefined") {
+  JSON.stringify = function (obj) { return __jsonStringify(obj); };
+}
+
+// Premiere's createNewSequence(name, id) expects a UUID-shaped id; anything else
+// can fall back to interactive UI (a modal New Sequence dialog) and wedge the bridge.
+function __uuid() {
+  var hex = "0123456789abcdef";
+  var s = "";
+  for (var i = 0; i < 36; i++) {
+    if (i === 8 || i === 13 || i === 18 || i === 23) { s += "-"; continue; }
+    if (i === 14) { s += "4"; continue; }
+    var r = Math.floor(Math.random() * 16);
+    if (i === 19) { r = (r & 3) | 8; }
+    s += hex.charAt(r);
+  }
+  return s;
+}
+
 var TICKS_PER_SECOND = 254016000000;
 
 function __ticksToSeconds(ticks) {

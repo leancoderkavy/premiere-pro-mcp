@@ -20,14 +20,26 @@ export function getSequenceTools(bridgeOptions: BridgeOptions) {
         required: ["name"],
       },
       handler: async (args: { name: string; preset_path?: string }) => {
+        // app.project.createNewSequenceFromPreset does not exist in Premiere Pro
+        // (verified missing in 26.x) — preset-based creation goes through the QE DOM.
+        // The no-preset form MUST pass a UUID second argument: the one-arg call throws
+        // "Not Enough Parameters", and a non-UUID id can pop the modal New Sequence
+        // dialog, which blocks the entire scripting engine until dismissed by hand.
         const presetCode = args.preset_path
-          ? `app.project.createNewSequenceFromPreset("${escapeForExtendScript(args.name)}", "${escapeForExtendScript(args.preset_path)}");`
-          : `app.project.createNewSequence("${escapeForExtendScript(args.name)}");`;
+          ? `
+          app.enableQE();
+          qe.project.newSequence("${escapeForExtendScript(args.name)}", "${escapeForExtendScript(args.preset_path)}");
+          var seq = app.project.activeSequence;
+          if (!seq || seq.name !== "${escapeForExtendScript(args.name)}") {
+            return __error("Failed to create sequence from preset: ${escapeForExtendScript(args.preset_path)}");
+          }`
+          : `
+          var seq = app.project.createNewSequence("${escapeForExtendScript(args.name)}", __uuid());
+          if (!seq) seq = app.project.activeSequence;
+          if (!seq) return __error("Failed to create sequence");`;
 
         const script = buildToolScript(`
           ${presetCode}
-          var seq = app.project.activeSequence;
-          if (!seq) return __error("Failed to create sequence");
           return __result({ created: true, name: seq.name, id: seq.sequenceID });
         `);
         return sendCommand(script, bridgeOptions);
@@ -285,10 +297,14 @@ export function getSequenceTools(bridgeOptions: BridgeOptions) {
         required: ["name", "preset_path"],
       },
       handler: async (args: { name: string; preset_path: string }) => {
+        // createNewSequenceFromPreset is not a real API (missing in 26.x) — use QE.
         const script = buildToolScript(`
-          app.project.createNewSequenceFromPreset("${escapeForExtendScript(args.name)}", "${escapeForExtendScript(args.preset_path)}");
+          app.enableQE();
+          qe.project.newSequence("${escapeForExtendScript(args.name)}", "${escapeForExtendScript(args.preset_path)}");
           var seq = app.project.activeSequence;
-          if (!seq) return __error("Failed to create sequence from preset");
+          if (!seq || seq.name !== "${escapeForExtendScript(args.name)}") {
+            return __error("Failed to create sequence from preset: ${escapeForExtendScript(args.preset_path)}");
+          }
           return __result({ created: true, name: seq.name, id: seq.sequenceID });
         `);
         return sendCommand(script, bridgeOptions);
