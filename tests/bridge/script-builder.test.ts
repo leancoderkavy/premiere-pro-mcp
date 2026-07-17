@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { buildScript, escapeForExtendScript, buildToolScript, getHelpersSource, buildBootstrap, helpersFileName, HELPERS_VERSION } from "../../src/bridge/script-builder.js";
+import { runInNewContext } from "node:vm";
 
 describe("buildScript", () => {
   it("wraps code in an IIFE with try/catch", () => {
@@ -137,5 +138,29 @@ describe("generated script structure", () => {
     expect(result).toContain('if (typeof obj === "number"');
     expect(result).toContain("if (obj instanceof Array)");
     expect(result).toContain('if (typeof obj === "object")');
+  });
+});
+
+describe("helpers execute correctly in an ES3-like engine", () => {
+  it("__result works when JSON is undefined (polyfill must not recurse into itself)", () => {
+    // Regression: __jsonStringify once delegated to JSON.stringify while the JSON
+    // polyfill delegated back to __jsonStringify — infinite mutual recursion that
+    // stack-overran the shared ExtendScript engine on every tool response.
+    const sandbox: Record<string, unknown> = { JSON: undefined };
+    const out = runInNewContext(
+      getHelpersSource() + '\n__result({ connected: true, nested: { n: 1, arr: [1, "a", false, null] } });',
+      sandbox
+    );
+    expect(out).toBe('{"success":true,"data":{"connected":true,"nested":{"n":1,"arr":[1,"a",false,null]}}}');
+  });
+
+  it("a stale wrapper from an older helpers version gets replaced", () => {
+    // Simulate a polluted long-lived engine: JSON.stringify is our old-style wrapper.
+    const stale = { stringify: function badWrapper(o: unknown) { return "__jsonStringify" + String(o); } };
+    const sandbox: Record<string, unknown> = { JSON: stale };
+    runInNewContext(getHelpersSource(), sandbox);
+    const json = sandbox.JSON as { stringify: (o: unknown) => string; __mcpPolyfill?: boolean };
+    expect(json.__mcpPolyfill).toBe(true);
+    expect(json.stringify({ ok: 1 })).toBe('{"ok":1}');
   });
 });

@@ -11,10 +11,15 @@ const HELPERS = `
 // directly, but LLM-authored code via execute_extendscript reaches for
 // JSON.stringify reflexively — give it a global. Parse is intentionally omitted:
 // implementing it needs eval, which the command validator blocks.
+// The engine is shared and long-lived, so also REPLACE our own earlier wrapper if
+// one is already installed (detected via the __mcpPolyfill flag or its source) —
+// a stale wrapper closing over an older __jsonStringify caused recursion bugs.
+// A real json2-style implementation loaded by another extension is left alone.
 if (typeof JSON === "undefined") {
   JSON = {};
 }
-if (typeof JSON.stringify === "undefined") {
+if (!JSON.stringify || JSON.__mcpPolyfill === true || String(JSON.stringify).indexOf("__jsonStringify") !== -1) {
+  JSON.__mcpPolyfill = true;
   JSON.stringify = function (obj) { return __jsonStringify(obj); };
 }
 
@@ -415,11 +420,10 @@ function __exportStillFrame(outputPath, ticks) {
 }
 
 function __jsonStringify(obj) {
-  // ES3-compatible JSON stringify
-  if (typeof JSON !== "undefined" && JSON.stringify) {
-    return JSON.stringify(obj);
-  }
-  // Fallback for very old ExtendScript
+  // ES3-compatible JSON stringify. Never delegate to JSON.stringify here: the
+  // global JSON polyfill above is a wrapper around THIS function, so delegating
+  // creates infinite mutual recursion ("InternalError: Stack overrun") that took
+  // down every __result call in the shared engine.
   if (obj === null) return "null";
   if (obj === undefined) return "undefined";
   if (typeof obj === "string") return '"' + obj.replace(/\\\\/g, "\\\\\\\\").replace(/"/g, '\\\\"').replace(/\\n/g, "\\\\n") + '"';
