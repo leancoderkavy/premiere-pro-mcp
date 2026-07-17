@@ -1,5 +1,70 @@
 import { buildToolScript, escapeForExtendScript } from "../bridge/script-builder.js";
 import { sendCommand, BridgeOptions } from "../bridge/file-bridge.js";
+import { existsSync, readdirSync, statSync } from "node:fs";
+import { join } from "node:path";
+
+/**
+ * Find a default .sqpreset on this machine for create_sequence without preset_path.
+ *
+ * Every sequence-creation route that lets Premiere pick settings interactively is
+ * unusable from scripting: app.project.createNewSequence(name, id) opens the modal
+ * New Sequence dialog in Premiere 26 (verified on 26.2.2 — even with a UUID id),
+ * which freezes the shared ExtendScript engine until a human dismisses it. So the
+ * no-preset path must still resolve to a concrete preset file.
+ */
+let cachedDefaultPreset: string | null | undefined;
+export function findDefaultSequencePreset(): string | null {
+  if (cachedDefaultPreset !== undefined) return cachedDefaultPreset;
+
+  if (process.env.PREMIERE_DEFAULT_SEQUENCE_PRESET && existsSync(process.env.PREMIERE_DEFAULT_SEQUENCE_PRESET)) {
+    return (cachedDefaultPreset = process.env.PREMIERE_DEFAULT_SEQUENCE_PRESET);
+  }
+
+  const roots: string[] = [];
+  const appDirs =
+    process.platform === "darwin"
+      ? { base: "/Applications", match: /^Adobe Premiere Pro/ }
+      : { base: "C:\\Program Files\\Adobe", match: /^Adobe Premiere Pro/ };
+  try {
+    for (const dir of readdirSync(appDirs.base)) {
+      if (!appDirs.match.test(dir)) continue;
+      const appRoot = join(appDirs.base, dir);
+      if (process.platform === "darwin") {
+        for (const inner of readdirSync(appRoot)) {
+          if (inner.endsWith(".app")) roots.push(join(appRoot, inner, "Contents", "Settings", "SequencePresets"));
+        }
+      } else {
+        roots.push(join(appRoot, "Settings", "SequencePresets"));
+      }
+    }
+  } catch {
+    /* fall through */
+  }
+
+  const found: string[] = [];
+  const walk = (dir: string, depth: number) => {
+    if (depth > 3 || !existsSync(dir)) return;
+    for (const entry of readdirSync(dir)) {
+      const p = join(dir, entry);
+      try {
+        if (statSync(p).isDirectory()) walk(p, depth + 1);
+        else if (entry.endsWith(".sqpreset")) found.push(p);
+      } catch {
+        /* skip unreadable */
+      }
+    }
+  };
+  for (const root of roots.sort().reverse()) walk(root, 0); // newest app version first
+
+  // Prefer a plain HD/UHD progressive preset; otherwise take anything.
+  const preferred =
+    found.find((p) => /UHD \(4K\) 2160p 25 fps\.sqpreset$/.test(p)) ||
+    found.find((p) => /2160p 25|1080p 25/.test(p)) ||
+    found.find((p) => /2160p|1080p/.test(p)) ||
+    found[0] ||
+    null;
+  return (cachedDefaultPreset = preferred);
+}
 
 export function getSequenceTools(bridgeOptions: BridgeOptions) {
   return {
@@ -14,33 +79,35 @@ export function getSequenceTools(bridgeOptions: BridgeOptions) {
           },
           preset_path: {
             type: "string",
-            description: "Optional path to a sequence preset file (.sqpreset). Uses default if omitted.",
+            description:
+              "Optional path to a sequence preset file (.sqpreset). If omitted, a default preset is discovered from the Premiere installation (override with PREMIERE_DEFAULT_SEQUENCE_PRESET).",
           },
         },
         required: ["name"],
       },
       handler: async (args: { name: string; preset_path?: string }) => {
         // app.project.createNewSequenceFromPreset does not exist in Premiere Pro
-        // (verified missing in 26.x) — preset-based creation goes through the QE DOM.
-        // The no-preset form MUST pass a UUID second argument: the one-arg call throws
-        // "Not Enough Parameters", and a non-UUID id can pop the modal New Sequence
-        // dialog, which blocks the entire scripting engine until dismissed by hand.
-        const presetCode = args.preset_path
-          ? `
-          app.enableQE();
-          qe.project.newSequence("${escapeForExtendScript(args.name)}", "${escapeForExtendScript(args.preset_path)}");
-          var seq = app.project.activeSequence;
-          if (!seq || seq.name !== "${escapeForExtendScript(args.name)}") {
-            return __error("Failed to create sequence from preset: ${escapeForExtendScript(args.preset_path)}");
-          }`
-          : `
-          var seq = app.project.createNewSequence("${escapeForExtendScript(args.name)}", __uuid());
-          if (!seq) seq = app.project.activeSequence;
-          if (!seq) return __error("Failed to create sequence");`;
+        // (verified missing in 26.x), and createNewSequence(name, id) opens the
+        // modal New Sequence dialog there — every creation goes through the QE DOM
+        // with an explicit preset. See findDefaultSequencePreset().
+        const presetPath = args.preset_path || findDefaultSequencePreset();
+        if (!presetPath) {
+          return {
+            success: false,
+            error:
+              "No sequence preset found. Pass preset_path (an .sqpreset file) or set PREMIERE_DEFAULT_SEQUENCE_PRESET — " +
+              "creating a sequence without a preset opens a modal dialog in Premiere 26+, which would freeze scripting.",
+          };
+        }
 
         const script = buildToolScript(`
-          ${presetCode}
-          return __result({ created: true, name: seq.name, id: seq.sequenceID });
+          app.enableQE();
+          qe.project.newSequence("${escapeForExtendScript(args.name)}", "${escapeForExtendScript(presetPath)}");
+          var seq = app.project.activeSequence;
+          if (!seq || seq.name !== "${escapeForExtendScript(args.name)}") {
+            return __error("Failed to create sequence from preset: ${escapeForExtendScript(presetPath)}");
+          }
+          return __result({ created: true, name: seq.name, id: seq.sequenceID, presetUsed: "${escapeForExtendScript(presetPath)}" });
         `);
         return sendCommand(script, bridgeOptions);
       },
