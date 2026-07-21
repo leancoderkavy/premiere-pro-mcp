@@ -2,9 +2,41 @@
  * Builds ExtendScript strings with helper functions prepended.
  * All generated code must be ES3-compatible (var, no arrow functions, no let/const).
  */
+import { createHash } from "node:crypto";
 
 const HELPERS = `
 // === MCP Bridge Helpers (auto-prepended) ===
+
+// ExtendScript (ES3) has no native JSON object. Tool scripts use __jsonStringify
+// directly, but LLM-authored code via execute_extendscript reaches for
+// JSON.stringify reflexively — give it a global. Parse is intentionally omitted:
+// implementing it needs eval, which the command validator blocks.
+// The engine is shared and long-lived, so also REPLACE our own earlier wrapper if
+// one is already installed (detected via the __mcpPolyfill flag or its source) —
+// a stale wrapper closing over an older __jsonStringify caused recursion bugs.
+// A real json2-style implementation loaded by another extension is left alone.
+if (typeof JSON === "undefined") {
+  JSON = {};
+}
+if (!JSON.stringify || JSON.__mcpPolyfill === true || String(JSON.stringify).indexOf("__jsonStringify") !== -1) {
+  JSON.__mcpPolyfill = true;
+  JSON.stringify = function (obj) { return __jsonStringify(obj); };
+}
+
+// Premiere's createNewSequence(name, id) expects a UUID-shaped id; anything else
+// can fall back to interactive UI (a modal New Sequence dialog) and wedge the bridge.
+function __uuid() {
+  var hex = "0123456789abcdef";
+  var s = "";
+  for (var i = 0; i < 36; i++) {
+    if (i === 8 || i === 13 || i === 18 || i === 23) { s += "-"; continue; }
+    if (i === 14) { s += "4"; continue; }
+    var r = Math.floor(Math.random() * 16);
+    if (i === 19) { r = (r & 3) | 8; }
+    s += hex.charAt(r);
+  }
+  return s;
+}
 
 var TICKS_PER_SECOND = 254016000000;
 
@@ -388,11 +420,10 @@ function __exportStillFrame(outputPath, ticks) {
 }
 
 function __jsonStringify(obj) {
-  // ES3-compatible JSON stringify
-  if (typeof JSON !== "undefined" && JSON.stringify) {
-    return JSON.stringify(obj);
-  }
-  // Fallback for very old ExtendScript
+  // ES3-compatible JSON stringify. Never delegate to JSON.stringify here: the
+  // global JSON polyfill above is a wrapper around THIS function, so delegating
+  // creates infinite mutual recursion ("InternalError: Stack overrun") that took
+  // down every __result call in the shared engine.
   if (obj === null) return "null";
   if (obj === undefined) return "undefined";
   if (typeof obj === "string") return '"' + obj.replace(/\\\\/g, "\\\\\\\\").replace(/"/g, '\\\\"').replace(/\\n/g, "\\\\n") + '"';
@@ -428,11 +459,43 @@ function __error(msg) {
 `;
 
 /**
- * Build a complete ExtendScript by wrapping user code in an IIFE with helpers.
+ * The helpers are NOT inlined into every command. Re-sending ~14KB of helper code
+ * with each evalScript both wastes the 200ms-polling pipe and — observed on
+ * Premiere 26.2.2 — can hit "InternalError: Stack overrun" once the long-lived
+ * ExtendScript engine has degraded, at which point every tool call dies with an
+ * opaque "EvalScript error.". Instead the file bridge writes the helpers to
+ * <tempDir>/helpers_<version>.jsx once, and each command carries only a tiny
+ * bootstrap that $.evalFile's them into the engine if this exact version isn't
+ * loaded yet. Self-healing across engine restarts, and each version of the server
+ * loads its own helpers file, so upgrades can't execute stale helpers.
+ */
+export const HELPERS_VERSION = createHash("md5").update(HELPERS).digest("hex").slice(0, 12);
+
+export function getHelpersSource(): string {
+  return `${HELPERS}
+var __HELPERS_V = "${HELPERS_VERSION}";
+`;
+}
+
+export function helpersFileName(): string {
+  return `helpers_${HELPERS_VERSION}.jsx`;
+}
+
+/**
+ * Build the bootstrap + user-code command script. The helpers file path is only
+ * known to the file bridge, which injects it via buildBootstrap().
+ */
+export function buildBootstrap(helpersPath: string): string {
+  const escaped = helpersPath.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
+  return `if (typeof __HELPERS_V === "undefined" || __HELPERS_V !== "${HELPERS_VERSION}") { $.evalFile("${escaped}"); }`;
+}
+
+/**
+ * Build a complete ExtendScript by wrapping user code in an IIFE.
+ * Helper functions are loaded by the bootstrap the file bridge prepends.
  */
 export function buildScript(code: string): string {
-  return `${HELPERS}
-(function() {
+  return `(function() {
   try {
     ${code}
   } catch(e) {

@@ -161,7 +161,10 @@ describe("sendCommand", () => {
 
     const writeCall = mockedWriteFileSync.mock.calls[0];
     expect(String(writeCall[0])).toMatch(/cmd_.*\.jsx$/);
-    expect(writeCall[1]).toBe("var x = 1;");
+    // command = one-line helpers bootstrap, then the script itself
+    const content = String(writeCall[1]);
+    expect(content.endsWith("\nvar x = 1;")).toBe(true);
+    expect(content).toContain('$.evalFile("/tmp/test-bridge/helpers_');
     expect(writeCall[2]).toBe("utf-8");
   });
 

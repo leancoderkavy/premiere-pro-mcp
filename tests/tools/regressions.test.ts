@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import { getHelpersSource } from "../../src/bridge/script-builder.js";
 import { BridgeOptions } from "../../src/bridge/file-bridge.js";
 
 vi.mock("../../src/bridge/file-bridge.js", () => ({
@@ -189,8 +190,8 @@ describe("PR #3 follow-ups — color_correct and export_sequence", () => {
 describe("script-builder helpers used by the fixes are actually defined", () => {
   const exportTools = getExportTools(bridgeOptions);
 
-  it("prepends every helper the generated scripts call", async () => {
-    const script = await scriptFor(exportTools.export_frame, { output_path: "/tmp/f.png" });
+  it("defines every helper the generated scripts call", async () => {
+    const script = getHelpersSource();
 
     for (const helper of [
       "function __exportStillFrame(",
