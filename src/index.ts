@@ -3,7 +3,7 @@
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { createServer } from "./server.js";
 import { cleanupTempDir, getTempDir } from "./bridge/file-bridge.js";
-import { execSync } from "child_process";
+import { execFileSync } from "child_process";
 import { fileURLToPath } from "url";
 import path from "path";
 
@@ -42,13 +42,24 @@ if (args.includes("--version") || args.includes("-v")) {
 }
 
 if (args.includes("--install-cep")) {
-  const scriptPath = path.join(projectRoot, "scripts", "install-cep.sh");
   console.log("Installing CEP plugin...\n");
+  const isWindows = process.platform === "win32";
+  const scriptPath = path.join(projectRoot, "scripts", isWindows ? "install-cep.ps1" : "install-cep.sh");
   try {
-    execSync(`bash "${scriptPath}"`, { stdio: "inherit", cwd: projectRoot });
+    if (isWindows) {
+      execFileSync(
+        "powershell.exe",
+        ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", scriptPath],
+        { stdio: "inherit", cwd: projectRoot }
+      );
+    } else {
+      execFileSync("bash", [scriptPath], { stdio: "inherit", cwd: projectRoot });
+    }
   } catch {
     console.error("CEP installation failed. Try running manually:");
-    console.error(`  bash "${scriptPath}"`);
+    console.error(isWindows
+      ? `  powershell -ExecutionPolicy Bypass -File "${scriptPath}"`
+      : `  bash "${scriptPath}"`);
     process.exit(1);
   }
   process.exit(0);

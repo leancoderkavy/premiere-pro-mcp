@@ -147,6 +147,18 @@ describe("issue #9 — frame export uses the QE DOM and verifies the file landed
       expect(script).toContain("if (!res.ok) return __error(");
     });
   }
+
+  it("sets and restores the AME one-frame range in seconds", () => {
+    const helpers = getHelpersSource();
+
+    // Sequence.setInPoint/setOutPoint accept seconds. Passing ticks here made
+    // the fallback target an enormous range and prevented a still from landing.
+    expect(helpers).toContain("seq.setInPoint(__ticksToSeconds(startTicks))");
+    expect(helpers).toContain("seq.setOutPoint(__ticksToSeconds(startTicks + frameTicks))");
+    expect(helpers).toContain("seq.setInPoint(__ticksToSeconds(savedIn))");
+    expect(helpers).toContain("seq.setOutPoint(__ticksToSeconds(savedOut))");
+    expect(helpers).not.toContain("seq.setInPoint(String(startTicks))");
+  });
 });
 
 // Defects found while reviewing PR #3 (repair 6 broken tools on Premiere Pro 2026).

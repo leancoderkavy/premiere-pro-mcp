@@ -387,19 +387,22 @@ function __exportStillFrame(outputPath, ticks) {
         savedOut = seq.getOutPointAsTime().ticks;
       } catch (e) {}
 
-      // seq.timebase is ticks-per-frame, so in..in+timebase is exactly one frame.
+      // seq.timebase is ticks-per-frame, but Sequence.setInPoint/setOutPoint take
+      // seconds (unlike setPlayerPosition, which takes ticks). Convert before
+      // setting the one-frame range or Premiere targets an astronomically large
+      // interval and the still export produces no file.
       var frameTicks = parseFloat(seq.timebase);
       var startTicks = parseFloat(atTicks);
-      seq.setInPoint(String(startTicks));
-      seq.setOutPoint(String(startTicks + frameTicks));
+      seq.setInPoint(__ticksToSeconds(startTicks));
+      seq.setOutPoint(__ticksToSeconds(startTicks + frameTicks));
 
       try {
         seq.exportAsMediaDirect(outputPath, preset, app.encoder.ENCODE_IN_TO_OUT);
         notes.push("AME preset: " + preset);
       } finally {
         try {
-          if (savedIn !== null) seq.setInPoint(savedIn);
-          if (savedOut !== null) seq.setOutPoint(savedOut);
+          if (savedIn !== null) seq.setInPoint(__ticksToSeconds(savedIn));
+          if (savedOut !== null) seq.setOutPoint(__ticksToSeconds(savedOut));
         } catch (e) {}
       }
     }

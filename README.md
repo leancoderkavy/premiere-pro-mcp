@@ -62,7 +62,7 @@ premiere-pro-mcp --install-cep
 npm run install-cep
 ```
 
-This symlinks the plugin into Premiere Pro's extensions folder and enables debug mode.
+This installs the plugin into Premiere Pro's per-user extensions folder and enables debug mode.
 
 <details>
 <summary>Manual installation (macOS)</summary>
@@ -83,7 +83,7 @@ done
 <summary>Manual installation (Windows)</summary>
 
 1. Copy the `cep-plugin` folder to `%APPDATA%\Adobe\CEP\extensions\MCPBridgeCEP`
-2. Open Registry Editor and set these DWORD values to `1`:
+2. Open Registry Editor and set these **String (`REG_SZ`)** values to `1` (not DWORD):
    - `HKEY_CURRENT_USER\Software\Adobe\CSXS.12\PlayerDebugMode`
    - (repeat for CSXS.9 through CSXS.14)
 
@@ -510,8 +510,12 @@ Many tools use the undocumented QE DOM (enabled via `app.enableQE()`). These too
 <details>
 <summary><strong>CEP plugin doesn't appear in Premiere Pro</strong></summary>
 
-1. Verify debug mode: `defaults read com.adobe.CSXS.12 PlayerDebugMode` should return `1`
-2. Check the plugin exists: `ls ~/Library/Application\ Support/Adobe/CEP/extensions/MCPBridgeCEP`
+1. Verify debug mode:
+   - macOS: `defaults read com.adobe.CSXS.12 PlayerDebugMode` should return `1`
+   - Windows: `reg query "HKCU\SOFTWARE\Adobe\CSXS.12" /v PlayerDebugMode` should report `REG_SZ    1` (a `REG_DWORD` value is not valid for unsigned CEP discovery)
+2. Check the plugin exists:
+   - macOS: `ls ~/Library/Application\ Support/Adobe/CEP/extensions/MCPBridgeCEP`
+   - Windows: `dir "%APPDATA%\Adobe\CEP\extensions\MCPBridgeCEP"`
 3. Completely restart Premiere Pro (not just close/reopen the project)
 4. Check the CSXS version matches your Premiere Pro version
 
