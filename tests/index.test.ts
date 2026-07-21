@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { execSync } from "child_process";
+import { readFileSync } from "node:fs";
 import { join } from "path";
 
 const BIN = join(process.cwd(), "dist", "index.js");
@@ -31,9 +32,7 @@ describe("CLI flags", () => {
 
   it("--version matches package.json version", () => {
     const version = execSync(`node ${BIN} --version`, { encoding: "utf-8" }).trim();
-    const pkg = JSON.parse(
-      execSync(`cat ${join(process.cwd(), "package.json")}`, { encoding: "utf-8" })
-    );
+    const pkg = JSON.parse(readFileSync(join(process.cwd(), "package.json"), "utf-8"));
     expect(version).toBe(pkg.version);
   });
 });
