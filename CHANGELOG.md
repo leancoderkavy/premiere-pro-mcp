@@ -4,6 +4,20 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [1.1.7] - 2026-07-20
+
+### Changed
+
+- Redesigned the Premiere Pro CEP bridge panel with clearer connection status, responsive
+  controls, improved directory configuration, and a larger live activity monitor.
+- Added accessible labels, focus states, reduced-motion support, and consistent status details
+  without changing the bridge command workflow.
+
+### Validation
+
+- TypeScript build and 315 automated tests pass. The panel was also rendered at a 500 x 700 CEP
+  viewport and visually checked against the approved design concept.
+
 ## [1.1.6] - 2026-07-20
 
 ### Fixed

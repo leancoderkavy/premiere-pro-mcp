@@ -27,6 +27,13 @@ function setStatus(state, text) {
   var dot = document.getElementById("statusDot");
   dot.className = "status-dot " + state;
   document.getElementById("statusText").textContent = text;
+  var detail = document.getElementById("statusDetail");
+  if (detail) {
+    if (state === "connected") detail.textContent = "Premiere Pro link is active";
+    else if (state === "waiting") detail.textContent = "Ready to accept commands";
+    else if (state === "error") detail.textContent = "Bridge needs attention";
+    else detail.textContent = "Waiting for Premiere Pro";
+  }
 }
 
 // ---- File I/O via Node.js (CEP has access to Node) ----
