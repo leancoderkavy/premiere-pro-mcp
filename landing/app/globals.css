@@ -121,8 +121,36 @@
     @apply border-border outline-ring/50;
   }
   body {
-    @apply bg-background text-foreground;
+    @apply bg-black text-white;
+    font-feature-settings: "ss01" 1, "cv02" 1;
   }
+  ::selection {
+    background: rgb(139 124 255 / 35%);
+    color: white;
+  }
+}
+
+.hero-grid {
+  background-image:
+    linear-gradient(rgb(255 255 255 / 0.025) 1px, transparent 1px),
+    linear-gradient(90deg, rgb(255 255 255 / 0.025) 1px, transparent 1px);
+  background-size: 64px 64px;
+  mask-image: linear-gradient(to bottom, black 0%, transparent 78%);
+}
+
+.hero-glow {
+  background: radial-gradient(circle, rgb(139 124 255 / 0.14), transparent 65%);
+  filter: blur(60px);
+}
+
+.accent-text {
+  background: linear-gradient(100deg, #a99cff 10%, #ee78ba 90%);
+  background-clip: text;
+  color: transparent;
+}
+
+section[id] {
+  scroll-margin-top: 5rem;
 }
 
 @keyframes marquee {
@@ -150,5 +178,16 @@
   }
   .animate-gradient {
     animation: gradient 8s linear infinite;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
   }
 }
