@@ -4,6 +4,21 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [Unreleased]
+
+### Added
+
+- Added `get_capabilities` for machine-readable Windows/macOS runtime, CEP/UXP backend,
+  authority-profile, and live-host verification reporting.
+- Added GitHub Actions build, test, and package validation on Windows and macOS with Node 18 and 22.
+
+### Fixed
+
+- Capability profiles now enforce `inspect` and `edit` across the complete tool surface and treat
+  expression evaluation as unsafe scripting instead of allowing unclassified tools through.
+- The npm CLI now copies the CEP plugin on macOS, verifies installation metadata, rejects unsupported
+  host operating systems, and avoids platform-specific `/tmp` configuration in cross-platform examples.
+
 ## [1.2.0] - 2026-07-20
 
 ### Added

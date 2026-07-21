@@ -27,6 +27,7 @@ Usage:
 Environment variables:
   PREMIERE_TEMP_DIR     Shared temp directory (default: OS temp + /premiere-mcp-bridge)
   PREMIERE_TIMEOUT_MS   Command timeout in ms (default: 30000)
+  PREMIERE_MCP_CAPABILITIES  Comma-separated authority profile
 
 More info: https://github.com/ppmcp/premiere-pro-mcp
 `);
@@ -44,6 +45,11 @@ if (args.includes("--version") || args.includes("-v")) {
 if (args.includes("--install-cep")) {
   console.log("Installing CEP plugin...\n");
   const isWindows = process.platform === "win32";
+  const isMacOS = process.platform === "darwin";
+  if (!isWindows && !isMacOS) {
+    console.error(`CEP installation is supported only on Windows and macOS (current platform: ${process.platform}).`);
+    process.exit(1);
+  }
   const scriptPath = path.join(projectRoot, "scripts", isWindows ? "install-cep.ps1" : "install-cep.sh");
   try {
     if (isWindows) {
@@ -53,7 +59,7 @@ if (args.includes("--install-cep")) {
         { stdio: "inherit", cwd: projectRoot }
       );
     } else {
-      execFileSync("bash", [scriptPath], { stdio: "inherit", cwd: projectRoot });
+      execFileSync("bash", [scriptPath, "--copy"], { stdio: "inherit", cwd: projectRoot });
     }
   } catch {
     console.error("CEP installation failed. Try running manually:");

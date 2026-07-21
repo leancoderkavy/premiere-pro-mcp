@@ -13,6 +13,7 @@ describe("CLI flags", () => {
     expect(output).toContain("--install-cep");
     expect(output).toContain("PREMIERE_TEMP_DIR");
     expect(output).toContain("PREMIERE_TIMEOUT_MS");
+    expect(output).toContain("PREMIERE_MCP_CAPABILITIES");
   });
 
   it("-h is an alias for --help", () => {

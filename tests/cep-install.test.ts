@@ -21,4 +21,18 @@ describe("CEP installation metadata", () => {
     expect(readme).not.toContain("set these DWORD values");
     expect(installer).toContain('-PropertyType String -Value "1"');
   });
+
+  it("copies the macOS plugin for npm installs and supports diagnostics", () => {
+    const cli = readFileSync(join(root, "src", "index.ts"), "utf8");
+    const installer = readFileSync(join(root, "scripts", "install-cep.sh"), "utf8");
+    expect(cli).toContain('execFileSync("bash", [scriptPath, "--copy"]');
+    expect(installer).toContain('MODE="${1:-}"');
+    expect(installer).toContain('if [ "$MODE" = "--diagnose" ]');
+    expect(installer).toContain("Installation verified");
+  });
+
+  it("rejects CEP installation on unsupported host operating systems", () => {
+    const cli = readFileSync(join(root, "src", "index.ts"), "utf8");
+    expect(cli).toContain("supported only on Windows and macOS");
+  });
 });

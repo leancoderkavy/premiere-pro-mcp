@@ -1,8 +1,21 @@
 import { buildToolScript } from "../bridge/script-builder.js";
-import { sendCommand, BridgeOptions } from "../bridge/file-bridge.js";
+import { getTempDir, sendCommand, BridgeOptions } from "../bridge/file-bridge.js";
+import { resolveCapabilities, type CapabilityConfig } from "../security/capabilities.js";
+import { buildPlatformCapabilityReport } from "../platform-capabilities.js";
 
-export function getHealthTools(bridgeOptions: BridgeOptions) {
+export function getHealthTools(
+  bridgeOptions: BridgeOptions,
+  capabilities: CapabilityConfig = resolveCapabilities(),
+) {
   return {
+    get_capabilities: {
+      description: "Report Windows/macOS support, Premiere Pro backend coverage, enabled authority, and whether live host verification is still required.",
+      parameters: {},
+      handler: async () => ({
+        success: true,
+        data: buildPlatformCapabilityReport(capabilities, process.platform, getTempDir(bridgeOptions)),
+      }),
+    },
     ping: {
       description: "Health check — verify the CEP plugin is running and connected to Premiere Pro. Call this before other tools to confirm connectivity.",
       parameters: {},

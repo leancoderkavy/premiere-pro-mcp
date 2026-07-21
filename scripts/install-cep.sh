@@ -8,6 +8,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
 PLUGIN_SRC="$PROJECT_DIR/cep-plugin"
 PLUGIN_NAME="MCPBridgeCEP"
+MODE="${1:-}"
 
 # Detect OS
 if [[ "$OSTYPE" == "darwin"* ]]; then
@@ -25,6 +26,30 @@ echo "Source:      $PLUGIN_SRC"
 echo "Destination: $CEP_DIR/$PLUGIN_NAME"
 echo ""
 
+if [ ! -f "$PLUGIN_SRC/CSXS/manifest.xml" ]; then
+  echo "CEP plugin manifest not found at $PLUGIN_SRC" >&2
+  exit 1
+fi
+
+if [ "$MODE" = "--diagnose" ]; then
+  problems=0
+  if [ ! -f "$CEP_DIR/$PLUGIN_NAME/CSXS/manifest.xml" ]; then
+    echo "Plugin manifest is missing from $CEP_DIR/$PLUGIN_NAME" >&2
+    problems=1
+  fi
+  if [[ "$OSTYPE" == "darwin"* ]]; then
+    for version in 9 10 11 12 13 14; do
+      if [ "$(defaults read com.adobe.CSXS.$version PlayerDebugMode 2>/dev/null || true)" != "1" ]; then
+        echo "CSXS.$version PlayerDebugMode is missing or not set to 1" >&2
+        problems=1
+      fi
+    done
+  fi
+  if [ "$problems" -ne 0 ]; then exit 1; fi
+  echo "Installation verified. Restart Premiere Pro, then open Window > Extensions > MCP Bridge."
+  exit 0
+fi
+
 # Create CEP extensions directory if needed
 mkdir -p "$CEP_DIR"
 
@@ -35,12 +60,17 @@ if [ -e "$CEP_DIR/$PLUGIN_NAME" ] || [ -L "$CEP_DIR/$PLUGIN_NAME" ]; then
 fi
 
 # Create symlink (for development) or copy (for production)
-if [ "$1" == "--copy" ]; then
+if [ "$MODE" = "--copy" ]; then
   echo "Copying plugin files..."
   cp -r "$PLUGIN_SRC" "$CEP_DIR/$PLUGIN_NAME"
 else
   echo "Creating symlink (development mode)..."
   ln -s "$PLUGIN_SRC" "$CEP_DIR/$PLUGIN_NAME"
+fi
+
+if [ ! -f "$CEP_DIR/$PLUGIN_NAME/CSXS/manifest.xml" ]; then
+  echo "Installation failed: plugin manifest was not installed" >&2
+  exit 1
 fi
 
 echo ""
