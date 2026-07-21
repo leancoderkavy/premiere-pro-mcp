@@ -35,7 +35,7 @@ const capabilities = [
 
 export function FeaturesSection() {
   return (
-    <section id="features" className="border-y border-zinc-900 bg-[#050506] px-5 py-24 md:py-32">
+    <section id="features" className="reveal-section border-y border-zinc-900 bg-[#050506] px-5 py-24 md:py-32">
       <div className="mx-auto max-w-6xl">
         <div className="max-w-2xl">
           <h2 className="text-balance text-3xl font-bold tracking-tight text-white md:text-5xl">

@@ -45,7 +45,7 @@ export function ConnectSection() {
   const current = clients.find((client) => client.id === active) ?? clients[0]
 
   return (
-    <section id="install" className="bg-black px-5 py-24 md:py-32">
+    <section id="install" className="reveal-section bg-black px-5 py-24 md:py-32">
       <div className="mx-auto max-w-6xl">
         <div className="mx-auto max-w-2xl text-center">
           <h2 className="text-balance text-3xl font-bold tracking-tight text-white md:text-5xl">Get started locally in three steps</h2>

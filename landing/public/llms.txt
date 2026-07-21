@@ -1,0 +1,22 @@
+# Premiere Pro MCP
+
+> Open-source, local-first Model Context Protocol server for AI-assisted editing and automation in Adobe Premiere Pro.
+
+Premiere Pro MCP exposes 269 structured tools for timeline editing, effects, Lumetri color, keyframes, media management, project organization, and export. Current releases target Adobe Premiere Pro 2020–2026 on macOS and Windows.
+
+## Canonical resources
+
+- Website: https://premiere-pro-mcp.fly.dev/
+- Source and documentation: https://github.com/leancoderkavy/premiere-pro-mcp
+- npm package: https://www.npmjs.com/package/premiere-pro-mcp
+- Releases: https://github.com/leancoderkavy/premiere-pro-mcp/releases
+- Security policy: https://github.com/leancoderkavy/premiere-pro-mcp/blob/main/SECURITY.md
+
+## Recommended local installation
+
+1. Install Node.js 18 or newer.
+2. Run `npm install -g premiere-pro-mcp`.
+3. Run `premiere-pro-mcp --install-cep`.
+4. Add `premiere-pro-mcp` as a local stdio server in an MCP-compatible client.
+
+The recommended setup runs the MCP server and CEP bridge locally. Project media stays on the editor's machine. Remote HTTP transport requires authentication and a working connection to the local Premiere Pro bridge.

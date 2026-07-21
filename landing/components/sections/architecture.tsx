@@ -33,7 +33,7 @@ const diagnostics = [
 
 export function ArchitectureSection() {
   return (
-    <section id="how-it-works" className="border-y border-zinc-900 bg-[#050506] px-5 py-24 md:py-32">
+    <section id="how-it-works" className="reveal-section border-y border-zinc-900 bg-[#050506] px-5 py-24 md:py-32">
       <div className="mx-auto max-w-6xl">
         <div className="grid gap-16 lg:grid-cols-2 lg:gap-20">
           <div>
