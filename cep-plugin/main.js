@@ -260,9 +260,10 @@ function saveTempDir() {
   log("MCP Bridge CEP plugin loaded");
   setStatus("waiting", "Ready — click Start Bridge");
 
-  // Auto-start if temp dir exists
-  if (fs.existsSync(tempDir)) {
-    log("Temp directory exists, auto-starting...");
-    setTimeout(startBridge, 500);
-  }
+  // Always auto-start. The headless instance (StartOn ApplicationActivate) has no
+  // one to click Start, and macOS periodically purges the temp dir — so create it
+  // rather than gating auto-start on its existence.
+  ensureDir(tempDir);
+  log("Auto-starting bridge...");
+  setTimeout(startBridge, 500);
 })();
