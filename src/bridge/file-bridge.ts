@@ -1,10 +1,10 @@
-import { mkdirSync, writeFileSync, readFileSync, unlinkSync, existsSync, readdirSync, statSync, chmodSync } from "node:fs";
-import { join } from "node:path";
+import { mkdirSync, writeFileSync, readFileSync, unlinkSync, existsSync, readdirSync, statSync, chmodSync, watch, FSWatcher } from "node:fs";
+import { basename, dirname, join } from "node:path";
 import { tmpdir } from "node:os";
 import { getHelpersSource, helpersFileName, buildBootstrap } from "./script-builder.js";
 
 const DEFAULT_TEMP_DIR = join(tmpdir(), "premiere-mcp-bridge");
-const POLL_INTERVAL_MS = 100;
+const POLL_FALLBACK_MS = 250;
 const DEFAULT_TIMEOUT_MS = 30000;
 
 export interface BridgeOptions {
@@ -191,14 +191,35 @@ async function pollForResponse(
   };
 
   return new Promise((resolve) => {
+    let settled = false;
+    let timer: NodeJS.Timeout | undefined;
+    let watcher: FSWatcher | undefined;
+    let fallbackDelay = 100;
+
+    const finish = (result: CommandResult) => {
+      if (settled) return;
+      settled = true;
+      if (timer) clearTimeout(timer);
+      watcher?.close();
+      resolve(result);
+    };
+
+    const scheduleFallback = () => {
+      if (!settled) {
+        timer = setTimeout(check, fallbackDelay);
+        fallbackDelay = POLL_FALLBACK_MS;
+      }
+    };
+
     const check = () => {
+      if (settled) return;
       if (existsSync(resFile)) {
         try {
           const raw = readFileSync(resFile, "utf-8");
           const result = JSON.parse(raw) as CommandResult;
-          resolve(result);
+          finish(result);
         } catch (e) {
-          resolve({
+          finish({
             success: false,
             error: `Failed to parse response: ${e instanceof Error ? e.message : String(e)}`,
           });
@@ -207,13 +228,13 @@ async function pollForResponse(
       }
 
       const elapsed = Date.now() - start;
-      if (elapsed > timeoutMs) {
+      if (elapsed >= timeoutMs) {
         const stillBusy = busyIsFresh();
         if (stillBusy && elapsed <= hardCapMs) {
-          setTimeout(check, POLL_INTERVAL_MS);
+          scheduleFallback();
           return;
         }
-        resolve({
+        finish({
           success: false,
           error: sawBusy
             ? `Premiere accepted the script but did not finish within ${elapsed}ms. ` +
@@ -225,8 +246,24 @@ async function pollForResponse(
         return;
       }
 
-      setTimeout(check, POLL_INTERVAL_MS);
+      scheduleFallback();
     };
+
+    // Prefer event-driven notification for low response latency without constant stat calls.
+    // fs.watch is not reliable on every network/virtual filesystem, so the slower timer above
+    // remains the correctness fallback and also protects against missed/coalesced events.
+    try {
+      const responseName = basename(resFile);
+      watcher = watch(dirname(resFile), { persistent: false }, (_event, filename) => {
+        if (!filename || filename.toString() === responseName) check();
+      });
+      watcher.on("error", () => {
+        watcher?.close();
+        watcher = undefined;
+      });
+    } catch {
+      watcher = undefined;
+    }
 
     check();
   });

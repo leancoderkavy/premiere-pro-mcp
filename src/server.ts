@@ -103,10 +103,15 @@ interface ToolDef {
   handler: (args: any) => Promise<{ success: boolean; data?: unknown; error?: string }>;
 }
 
+const toolCatalogCache = new Map<string, Record<string, ToolDef>>();
+const schemaCache = new WeakMap<Record<string, unknown>, Record<string, z.ZodTypeAny>>();
+
 /**
  * Convert a JSON Schema-style parameters object to a Zod shape for MCP SDK registration.
  */
 function jsonSchemaToZodShape(params: Record<string, unknown>): Record<string, z.ZodTypeAny> {
+  const cached = schemaCache.get(params);
+  if (cached) return cached;
   const shape: Record<string, z.ZodTypeAny> = {};
   const properties = (params.properties ?? {}) as Record<string, Record<string, unknown>>;
   const required = (params.required ?? []) as string[];
@@ -151,19 +156,23 @@ function jsonSchemaToZodShape(params: Record<string, unknown>): Record<string, z
     shape[key] = zodType;
   }
 
+  schemaCache.set(params, shape);
   return shape;
 }
 
-export function createServer(bridgeOptions: BridgeOptions): McpServer {
-  const server = new McpServer({
-    name: "premiere-pro-mcp",
-    version: "1.2.0",
+function collectTools(
+  bridgeOptions: BridgeOptions,
+  capabilities: ReturnType<typeof resolveCapabilities>,
+): Record<string, ToolDef> {
+  const cacheKey = JSON.stringify({
+    tempDir: bridgeOptions.tempDir ?? process.env.PREMIERE_TEMP_DIR ?? null,
+    timeoutMs: bridgeOptions.timeoutMs ?? process.env.PREMIERE_TIMEOUT_MS ?? null,
+    capabilities: [...capabilities.capabilities].sort(),
   });
+  const cached = toolCatalogCache.get(cacheKey);
+  if (cached) return cached;
 
-  const capabilities = resolveCapabilities();
-
-  // Collect all tools from each module
-  const toolModules: Record<string, ToolDef> = {
+  const tools: Record<string, ToolDef> = {
     ...getDiscoveryTools(bridgeOptions),
     ...getProjectTools(bridgeOptions),
     ...getMediaTools(bridgeOptions),
@@ -194,6 +203,20 @@ export function createServer(bridgeOptions: BridgeOptions): McpServer {
     ...getProjectManagerTools(bridgeOptions),
     ...getEditPlanTools(bridgeOptions, { capabilities }),
   };
+  toolCatalogCache.set(cacheKey, tools);
+  return tools;
+}
+
+export function createServer(bridgeOptions: BridgeOptions): McpServer {
+  const server = new McpServer({
+    name: "premiere-pro-mcp",
+    version: "1.2.0",
+  });
+
+  const capabilities = resolveCapabilities();
+
+  // Collect all tools from each module
+  const toolModules = collectTools(bridgeOptions, capabilities);
 
   // Register each tool with the MCP server
   for (const [name, tool] of Object.entries(toolModules)) {
