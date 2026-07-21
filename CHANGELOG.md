@@ -4,6 +4,17 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [Unreleased]
+
+### Performance
+
+- Prefer event-driven bridge response notification with a conservative polling fallback, reducing
+  idle filesystem checks while preserving compatibility with filesystems where watching is
+  unavailable or unreliable.
+- Cache immutable tool catalogs and converted Zod schemas across stateless HTTP server instances.
+  A local 100-iteration benchmark reduced average repeated server construction from 5.87 ms to
+  2.21 ms (62.4%).
+
 ## [1.2.0] - 2026-07-20
 
 ### Added
