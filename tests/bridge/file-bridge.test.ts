@@ -8,8 +8,9 @@ import {
   readdirSync,
   statSync,
   chmodSync,
+  watch,
 } from "node:fs";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { tmpdir } from "node:os";
 import {
   getTempDir,
@@ -28,6 +29,9 @@ vi.mock("node:fs", () => ({
   readdirSync: vi.fn(),
   statSync: vi.fn(),
   chmodSync: vi.fn(),
+  watch: vi.fn(() => {
+    throw new Error("watch unavailable in unit-test fallback");
+  }),
 }));
 
 const mockedExistsSync = vi.mocked(existsSync);
@@ -38,6 +42,7 @@ const mockedUnlinkSync = vi.mocked(unlinkSync);
 const mockedReaddirSync = vi.mocked(readdirSync);
 const mockedStatSync = vi.mocked(statSync);
 const mockedChmodSync = vi.mocked(chmodSync);
+const mockedWatch = vi.mocked(watch);
 
 // ensureDir on an existing dir stat-checks ownership; default to a dir owned by us
 // with safe perms so the existing tests exercise the happy path.
@@ -180,6 +185,46 @@ describe("sendCommand", () => {
     const result = await promise;
 
     expect(result).toEqual({ success: true, data: { version: "24.0" } });
+  });
+
+  it("attempts event-driven response watching before using the polling fallback", async () => {
+    mockedExistsSync.mockImplementation((path) => String(path).includes("res_"));
+    mockedReadFileSync.mockReturnValue('{"success":true,"data":{}}');
+
+    const promise = sendCommand("test", { tempDir: "/tmp/test-bridge" });
+    await vi.advanceTimersByTimeAsync(100);
+    await promise;
+
+    expect(mockedWatch).toHaveBeenCalledWith(
+      dirname(join("/tmp/test-bridge", "response.json")),
+      { persistent: false },
+      expect.any(Function),
+    );
+  });
+
+  it("resolves immediately when the watcher reports the response file", async () => {
+    let responseExists = false;
+    let onChange: ((event: string, filename: string) => void) | undefined;
+    const fakeWatcher = { on: vi.fn().mockReturnThis(), close: vi.fn() };
+    mockedWatch.mockImplementationOnce(((_path, _options, listener) => {
+      onChange = listener as (event: string, filename: string) => void;
+      return fakeWatcher;
+    }) as typeof watch);
+    mockedExistsSync.mockImplementation((path) =>
+      String(path).includes("res_") ? responseExists : true,
+    );
+    mockedReadFileSync.mockReturnValue('{"success":true,"data":{"eventDriven":true}}');
+
+    const promise = sendCommand("test", { tempDir: "/tmp/test-bridge" });
+    const responsePath = mockedWatch.mock.calls[0]?.[0];
+    expect(responsePath).toBeDefined();
+    responseExists = true;
+    const commandWrite = mockedWriteFileSync.mock.calls.find(([path]) => String(path).includes("cmd_"));
+    const responseName = String(commandWrite?.[0]).replace(/.*[\\/]+cmd_/, "res_").replace(/\.jsx$/, ".json");
+    onChange?.("rename", responseName);
+
+    await expect(promise).resolves.toEqual({ success: true, data: { eventDriven: true } });
+    expect(fakeWatcher.close).toHaveBeenCalled();
   });
 
   it("returns error on JSON parse failure", async () => {

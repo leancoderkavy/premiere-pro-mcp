@@ -19,6 +19,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - The npm CLI now copies the CEP plugin on macOS, verifies installation metadata, rejects unsupported
   host operating systems, and avoids platform-specific `/tmp` configuration in cross-platform examples.
 
+### Performance
+
+- Prefer event-driven bridge response notification with a conservative polling fallback, reducing
+  idle filesystem checks while preserving compatibility with filesystems where watching is
+  unavailable or unreliable.
+- Cache immutable tool catalogs and converted Zod schemas across stateless HTTP server instances.
+  A local 100-iteration benchmark reduced average repeated server construction from 5.87 ms to
+  2.21 ms (62.4%).
+
 ## [1.2.0] - 2026-07-20
 
 ### Added
