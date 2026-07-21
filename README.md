@@ -11,7 +11,7 @@
 [![MCP](https://img.shields.io/badge/MCP-1.27-purple.svg)](https://modelcontextprotocol.io)
 [![npm](https://img.shields.io/npm/v/premiere-pro-mcp.svg)](https://www.npmjs.com/package/premiere-pro-mcp)
 [![Fly.io](https://img.shields.io/badge/Fly.io-deployed-7C3AED.svg)](https://premiere-pro-mcp.fly.dev)
-[![Premiere Pro](https://img.shields.io/badge/Premiere%20Pro-2020--2025%2B-9999FF.svg)](https://www.adobe.com/products/premiere.html)
+[![Premiere Pro](https://img.shields.io/badge/Premiere%20Pro-2020--2026-9999FF.svg)](https://www.adobe.com/products/premiere.html)
 
 </div>
 
@@ -26,6 +26,13 @@ An [MCP (Model Context Protocol)](https://modelcontextprotocol.io) server that l
 ```
 
 The AI handles the entire workflow through 269 tools that cover nearly every ExtendScript and QE DOM API available in Premiere Pro.
+
+### What's new in 1.1.6
+
+- **Premiere Pro 2026 compatibility:** sequence creation now uses an installed `.sqpreset` through the QE DOM, avoiding Premiere's modal **New Sequence** dialog. Pass `preset_path` or set `PREMIERE_DEFAULT_SEQUENCE_PRESET` to override automatic preset discovery.
+- **A more resilient bridge:** the CEP bridge creates its temp directory and starts polling automatically when Premiere activates. In-flight heartbeats now distinguish a Premiere modal-dialog stall from a disconnected bridge.
+- **Faster command dispatch:** versioned ExtendScript helpers are loaded once per engine instead of being embedded in every command.
+- **More reliable setup and export:** Windows uses a native PowerShell CEP installer with the required `REG_SZ` debug values, and frame export correctly converts ticks to seconds before falling back through Adobe Media Encoder.
 
 ---
 
@@ -152,13 +159,12 @@ Add to `.cursor/mcp.json` in your project or global config:
 
 </details>
 
-### 4. Start the bridge in Premiere Pro
+### 4. Verify the bridge in Premiere Pro
 
 1. Open (or restart) Premiere Pro
-2. Go to **Window > Extensions > MCP Bridge**
-3. Set the **Temp Directory** to match your MCP client config (e.g., `/tmp/premiere-mcp-bridge`)
-4. Click **Start Bridge** — you should see a green "Running" status
-5. Ask your AI assistant: *"What's my current Premiere Pro project?"*
+2. The bridge starts automatically using the default temp directory (or its previously saved setting)
+3. Optionally go to **Window > Extensions > MCP Bridge** to confirm the green "Running" status or change the **Temp Directory** to match your MCP client config
+4. Ask your AI assistant: *"What's my current Premiere Pro project?"*
 
 ---
 
@@ -304,7 +310,7 @@ The file-based IPC bridge is simple, reliable, and works across macOS and Window
 
 | Tool | Description |
 |------|-------------|
-| `create_sequence` / `create_sequence_from_preset` | Create sequences |
+| `create_sequence` / `create_sequence_from_preset` | Create sequences from `.sqpreset` files without opening Premiere's modal dialog |
 | `duplicate_sequence` / `delete_sequence` | Manage sequences |
 | `auto_reframe_sequence` | Auto-reframe for social media |
 | `attach_custom_property` | FCP XML custom properties |
@@ -370,10 +376,9 @@ A live instance is running at **https://premiere-pro-mcp.fly.dev**.
 git clone https://github.com/ppmcp/premiere-pro-mcp.git
 cd premiere-pro-mcp
 fly apps create your-app-name
-fly deploy --remote-only
-
-# Optional: add bearer token auth
+# Required: add bearer token auth
 fly secrets set MCP_AUTH_TOKEN=your-secret-token
+fly deploy --remote-only
 ```
 
 Then connect with:
@@ -399,8 +404,10 @@ Then connect with:
 |----------|-------------|--------|
 | `PREMIERE_TEMP_DIR` | Shared temp directory for MCP ↔ CEP communication | OS temp dir + `/premiere-mcp-bridge` |
 | `PREMIERE_TIMEOUT_MS` | Command timeout in milliseconds | `30000` |
+| `PREMIERE_DEFAULT_SEQUENCE_PRESET` | Override the auto-discovered `.sqpreset` used by `create_sequence` | auto-discovered |
 | `PORT` | HTTP port (HTTP/SSE transport only) | `3000` |
-| `MCP_AUTH_TOKEN` | Bearer token for HTTP transport auth (optional) | unset |
+| `MCP_AUTH_TOKEN` | Bearer token required by the HTTP transport | unset |
+| `ALLOW_UNAUTHENTICATED` | Set to `1` to run HTTP without auth (unsafe; throwaway instances only) | unset |
 
 ---
 
@@ -453,7 +460,8 @@ premiere-pro-mcp/
 │   ├── host.jsx                 # ExtendScript entry point
 │   └── CSInterface.js           # Adobe CEP interface library
 ├── scripts/
-│   └── install-cep.sh           # CEP plugin installer (symlink + debug mode)
+│   ├── install-cep.sh           # macOS CEP installer (symlink + debug mode)
+│   └── install-cep.ps1          # Windows CEP installer (copy + REG_SZ debug mode)
 ├── Dockerfile                   # Multi-stage Docker build for Fly.io
 ├── fly.toml                     # Fly.io deployment config
 ├── RESEARCH.md                  # API research and implementation status
@@ -468,11 +476,11 @@ premiere-pro-mcp/
 
 ### Why CEP instead of UXP?
 
-CEP (Common Extensibility Platform) provides full ExtendScript access in Premiere Pro, including the undocumented **QE DOM** — which is the only way to apply effects by name, perform ripple deletes, and do advanced trim operations. UXP in Premiere Pro is still maturing and lacks equivalent API coverage. CEP works across **Premiere Pro 2020–2025+**.
+CEP (Common Extensibility Platform) provides full ExtendScript access in Premiere Pro, including the undocumented **QE DOM** — which is the only way to apply effects by name, perform ripple deletes, and do advanced trim operations. UXP in Premiere Pro is still maturing and lacks equivalent API coverage. CEP works across **Premiere Pro 2020–2026**.
 
 ### ExtendScript Compatibility
 
-All generated scripts use **ES3 syntax** (`var`, manual `for` loops, no arrow functions, no `let`/`const`) since ExtendScript is based on ECMAScript 3. The `buildToolScript()` function prepends a library of helper functions to every script.
+All generated scripts use **ES3 syntax** (`var`, manual `for` loops, no arrow functions, no `let`/`const`) since ExtendScript is based on ECMAScript 3. The bridge writes a versioned helper library to the shared temp directory and loads it once per ExtendScript engine via `$.evalFile`; each command then sends only its tool-specific script.
 
 ### Security
 
@@ -524,9 +532,9 @@ Many tools use the undocumented QE DOM (enabled via `app.enableQE()`). These too
 <details>
 <summary><strong>Commands timeout or hang</strong></summary>
 
-1. Verify the CEP panel shows "Running" with a green dot
+1. Open the CEP panel and verify it shows "Running" with a green dot (the bridge normally starts automatically)
 2. Ensure temp directories match between MCP client config and CEP panel
-3. Check if Premiere Pro is busy (rendering, modal dialog open)
+3. Read the timeout error: if it reports an in-flight heartbeat, dismiss any open Premiere modal dialog; without a heartbeat, verify the bridge is running and using the same temp directory
 4. Increase timeout: set `PREMIERE_TIMEOUT_MS` to `60000` or higher
 5. Try `ping` tool to test basic connectivity
 
