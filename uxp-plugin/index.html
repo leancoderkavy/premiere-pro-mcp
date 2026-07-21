@@ -1,0 +1,10 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><style>
+body{font:12px system-ui;margin:14px;color:#ddd;background:#242424}button,input{margin:4px;padding:6px}button{background:#5b5bd6;color:white;border:0;border-radius:3px}pre{white-space:pre-wrap;background:#181818;padding:10px}label{display:block}
+</style></head><body>
+<h3>Premiere Pro MCP Bridge</h3>
+<label>Bridge URL <input id="bridge-url" value="ws://127.0.0.1:7777/uxp"></label>
+<button id="connect">Connect</button><button id="refresh">Refresh state</button>
+<pre id="status">Starting…</pre>
+<script src="protocol.cjs"></script><script src="index.cjs"></script>
+</body></html>

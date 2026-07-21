@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<ExtensionManifest Version="7.0" ExtensionBundleId="com.mcp.premiere.bridge" ExtensionBundleVersion="1.1.7" ExtensionBundleName="MCP Bridge">
+<ExtensionManifest Version="7.0" ExtensionBundleId="com.mcp.premiere.bridge" ExtensionBundleVersion="1.2.0" ExtensionBundleName="MCP Bridge">
   <ExtensionList>
-    <Extension Id="com.mcp.premiere.bridge.panel" Version="1.1.7"/>
-    <Extension Id="com.mcp.premiere.bridge.headless" Version="1.1.7"/>
+    <Extension Id="com.mcp.premiere.bridge.panel" Version="1.2.0"/>
+    <Extension Id="com.mcp.premiere.bridge.headless" Version="1.2.0"/>
   </ExtensionList>
   <ExecutionEnvironment>
     <HostList>

@@ -4,7 +4,7 @@
 
 **Give AI full control over Adobe Premiere Pro.**
 
-269 tools across 28 modules — the most comprehensive MCP server for video editing.
+268 tools across 29 modules, 3 resources, and 4 guided workflows.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Node.js](https://img.shields.io/badge/Node.js-18%2B-green.svg)](https://nodejs.org)
@@ -25,14 +25,14 @@ An [MCP (Model Context Protocol)](https://modelcontextprotocol.io) server that l
 "Add the B-roll clips to V2, apply a cross dissolve between each, color correct them to match the A-roll, and export a 1080p ProRes."
 ```
 
-The AI handles the entire workflow through 269 tools that cover nearly every ExtendScript and QE DOM API available in Premiere Pro.
+The AI handles the entire workflow through 268 tools spanning the supported ExtendScript, QE DOM, and safe edit-planning surfaces.
 
-### What's new in 1.1.6
+### What's new in 1.2.0
 
-- **Premiere Pro 2026 compatibility:** sequence creation now uses an installed `.sqpreset` through the QE DOM, avoiding Premiere's modal **New Sequence** dialog. Pass `preset_path` or set `PREMIERE_DEFAULT_SEQUENCE_PRESET` to override automatic preset discovery.
-- **A more resilient bridge:** the CEP bridge creates its temp directory and starts polling automatically when Premiere activates. In-flight heartbeats now distinguish a Premiere modal-dialog stall from a disconnected bridge.
-- **Faster command dispatch:** versioned ExtendScript helpers are loaded once per engine instead of being embedded in every command.
-- **More reliable setup and export:** Windows uses a native PowerShell CEP installer with the required `REG_SZ` debug values, and frame export correctly converts ticks to seconds before falling back through Adobe Media Encoder.
+- **Safe edit plans:** preview compound insert/remove operations, bind approval to a SHA-256 plan token, then apply the validated plan in one bridge command.
+- **Capability profiles:** unsafe scripting is disabled by default and requires explicit `unsafe-script` authority.
+- **Modern MCP responses:** tools expose safety annotations and structured results; four workflow prompts and a machine-readable workflow resource guide common edits.
+- **UXP bridge preview:** a packaged Premiere 25.6+ panel adds capability discovery, state events, reconnecting WebSocket transport, and supported frame export with file verification. Live host verification is still required.
 
 ---
 
@@ -205,7 +205,7 @@ The file-based IPC bridge is simple, reliable, and works across macOS and Window
 
 ---
 
-## Tools (269)
+## Tools (268)
 
 ### Discovery & Inspection (10 + 10)
 
@@ -339,12 +339,13 @@ Track targeting, batch operations, markers, audio levels, motion/transform, meta
 
 ## MCP Resources
 
-The server exposes two LLM context resources:
+The server exposes three LLM context resources and four workflow prompts:
 
 | Resource URI | Description |
 |-------------|-------------|
 | `config://premiere-instructions` | Best practices: workflow order, timeline rules, effect tips, error handling |
 | `config://extendscript-reference` | Complete ExtendScript API reference for writing custom scripts |
+| `config://premiere-workflows` | Machine-readable catalog for rough cuts, dialogue cleanup, captions, and delivery |
 
 These are automatically available to MCP clients that support resources, giving the AI deep context about how to drive Premiere Pro effectively.
 
@@ -405,6 +406,7 @@ Then connect with:
 | `PREMIERE_TEMP_DIR` | Shared temp directory for MCP ↔ CEP communication | OS temp dir + `/premiere-mcp-bridge` |
 | `PREMIERE_TIMEOUT_MS` | Command timeout in milliseconds | `30000` |
 | `PREMIERE_DEFAULT_SEQUENCE_PRESET` | Override the auto-discovered `.sqpreset` used by `create_sequence` | auto-discovered |
+| `PREMIERE_MCP_CAPABILITIES` | Comma-separated authority profile; add `unsafe-script` only when raw scripting is required | `inspect,edit,export,filesystem` |
 | `PORT` | HTTP port (HTTP/SSE transport only) | `3000` |
 | `MCP_AUTH_TOKEN` | Bearer token required by the HTTP transport | unset |
 | `ALLOW_UNAUTHENTICATED` | Set to `1` to run HTTP without auth (unsafe; throwaway instances only) | unset |
@@ -418,7 +420,7 @@ premiere-pro-mcp/
 ├── src/
 │   ├── index.ts                 # Entry point — stdio transport setup
 │   ├── http-server.ts           # Entry point — HTTP/SSE transport (Fly.io / remote)
-│   ├── server.ts                # MCP server — registers all 269 tools + 2 resources
+│   ├── server.ts                # MCP server — registers 268 tools + 3 resources + 4 prompts
 │   ├── bridge/
 │   │   ├── file-bridge.ts       # File-based IPC (write .jsx, poll .json)
 │   │   └── script-builder.ts    # ExtendScript generator with ES3 helpers
@@ -474,9 +476,9 @@ premiere-pro-mcp/
 
 ## Technical Details
 
-### Why CEP instead of UXP?
+### CEP and UXP backends
 
-CEP (Common Extensibility Platform) provides full ExtendScript access in Premiere Pro, including the undocumented **QE DOM** — which is the only way to apply effects by name, perform ripple deletes, and do advanced trim operations. UXP in Premiere Pro is still maturing and lacks equivalent API coverage. CEP works across **Premiere Pro 2020–2026**.
+CEP remains the production backend because it provides broad ExtendScript access and the undocumented **QE DOM** used for effects, ripple deletes, and advanced trims across Premiere Pro 2020–2026. The packaged `uxp-plugin` is a Premiere 25.6+ preview backend for supported frame export, capability discovery, and state events. It does not silently retry failed UXP mutations through CEP.
 
 ### ExtendScript Compatibility
 
@@ -485,9 +487,9 @@ All generated scripts use **ES3 syntax** (`var`, manual `for` loops, no arrow fu
 ### Security
 
 Understand the trust model before deploying this: **any client that can reach the MCP
-server can run ExtendScript inside your Premiere Pro.** `execute_extendscript` and
-`send_raw_script` are arbitrary-code-execution tools by design. Treat access to the server
-the same way you'd treat a shell on the machine running Premiere.
+server can control Premiere Pro.** `execute_extendscript` and `send_raw_script` are
+arbitrary-code-execution tools by design and are disabled by default. Enable them only by setting
+`PREMIERE_MCP_CAPABILITIES=inspect,edit,export,filesystem,unsafe-script`.
 
 - **Run it locally over stdio** unless you have a specific reason not to. That's the safe default.
 - **The HTTP transport (`http-server`) requires `MCP_AUTH_TOKEN`** and refuses to start

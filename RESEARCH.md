@@ -13,28 +13,32 @@
 
 ## Current Repository Snapshot (2026-07-20)
 
-- **Release candidate:** `1.1.7` is merged into `main`; `package.json`, `package-lock.json`, and
+- **Release candidate:** `1.2.0` is integrated on `main`; `package.json`, `package-lock.json`, and
   both CEP extension entries in `cep-plugin/CSXS/manifest.xml` are version-aligned.
 - **npm status:** `1.1.7` is not yet published. The registry publish was attempted after the GitHub
   push and stopped at npm's required one-time-password challenge; the package remains at `1.1.6`
   on npm until an authenticated publish completes.
-- **MCP surface:** 269 tools across 28 modules, plus the `config://premiere-instructions` and
-  `config://extendscript-reference` resources.
+- **MCP surface:** 268 runtime-registered tools across 29 modules, 3 resources, and 4 prompts.
+  Capability profiles fail closed for raw scripting, and compound edit plans support preview-bound
+  confirmation and correlated audit events.
+- **UXP preview:** `uxp-plugin/` provides a versioned WebSocket protocol, capability discovery,
+  state events, and verified frame export. Live Premiere and OS-specific loopback validation remain
+  required before it can replace CEP in production.
 - **CEP bridge:** The operational workflow is unchanged, but the visible panel now has a compact
   Premiere-oriented dark interface, clearer connection state, responsive controls, an improved
   bridge-directory field, and a larger live activity monitor. Accessibility work includes labels,
   focus states, live regions, and reduced-motion handling.
 - **Website:** The redesigned landing page and its SEO metadata, manifest, dynamic `robots.txt`,
   and dynamic sitemap are merged into `main`.
-- **Validation:** The root TypeScript build and all 315 automated tests pass. Landing-page lint
+- **Validation:** The root TypeScript build and all 333 automated tests pass. Landing-page lint
   passes, and Next.js compiles and generates all seven static pages. On this OneDrive checkout,
   the final export cleanup repeatedly reports `EBUSY` while removing `landing/out`; this is an
   environment/filesystem lock after page generation, not a source compilation failure.
 
 ### Release completion gate
 
-Publish `premiere-pro-mcp@1.1.7` from `main` with a current npm authenticator OTP, then verify both
-`npm view premiere-pro-mcp version` and the `latest` dist-tag resolve to `1.1.7`.
+Publish `premiere-pro-mcp@1.2.0` from `main` with a current npm authenticator OTP, then verify both
+`npm view premiere-pro-mcp version` and the `latest` dist-tag resolve to `1.2.0`.
 
 ---
 
@@ -328,7 +332,7 @@ Publish `premiere-pro-mcp@1.1.7` from `main` with a current npm authenticator OT
 
 ## Implementation Status — Priority List
 
-**Total tools: 269 across 28 modules** (up from 228 across 23 modules)
+**Total runtime-registered tools: 268 across 29 modules** (including safe edit plans)
 
 ### P0 — Critical ✅ ALL IMPLEMENTED
 1. ~~**`create_project`**~~ — ❌ Intentionally skipped (requires UXP, not available via ExtendScript CEP)
@@ -436,4 +440,5 @@ Their MCP server includes a **resource** (`config://get_instructions`) that give
 
 This recommendation is implemented. Our server exposes `config://premiere-instructions` for editing
 workflow guidance and `config://extendscript-reference` for the scripting surface. Both resources are
-registered alongside the 269 tools in `src/server.ts`.
+registered alongside the tool catalog in `src/server.ts`; version 1.2.0 also registers
+`config://premiere-workflows` and four guided prompts.

@@ -28,7 +28,11 @@ import { getWorkspaceTools } from "./tools/workspace.js";
 import { getCaptionTools } from "./tools/captions.js";
 import { getPlaybackTools } from "./tools/playback.js";
 import { getProjectManagerTools } from "./tools/project-manager.js";
+import { getEditPlanTools } from "./tools/edit-plans.js";
+import { guardToolHandler, resolveCapabilities } from "./security/index.js";
 import { EXTENDSCRIPT_REFERENCE } from "./resources/extendscript-reference.js";
+import { WORKFLOW_PROMPTS, WORKFLOW_RESOURCE } from "./workflows/catalog.js";
+import { annotationsForTool, structuredToolResult } from "./workflows/tool-metadata.js";
 import { z } from "zod";
 
 const PREMIERE_INSTRUCTIONS = `You are controlling Adobe Premiere Pro through MCP tools. Follow these best practices:
@@ -153,8 +157,10 @@ function jsonSchemaToZodShape(params: Record<string, unknown>): Record<string, z
 export function createServer(bridgeOptions: BridgeOptions): McpServer {
   const server = new McpServer({
     name: "premiere-pro-mcp",
-    version: "1.0.0",
+    version: "1.2.0",
   });
+
+  const capabilities = resolveCapabilities();
 
   // Collect all tools from each module
   const toolModules: Record<string, ToolDef> = {
@@ -186,24 +192,28 @@ export function createServer(bridgeOptions: BridgeOptions): McpServer {
     ...getCaptionTools(bridgeOptions),
     ...getPlaybackTools(bridgeOptions),
     ...getProjectManagerTools(bridgeOptions),
+    ...getEditPlanTools(bridgeOptions, { capabilities }),
   };
 
   // Register each tool with the MCP server
   for (const [name, tool] of Object.entries(toolModules)) {
     const zodShape = jsonSchemaToZodShape(tool.parameters);
+    const guardedHandler = guardToolHandler(name, tool.handler, capabilities);
 
     server.tool(
       name,
       tool.description,
       zodShape,
+      annotationsForTool(name),
       async (args: Record<string, unknown>) => {
         try {
-          const result = await tool.handler(args);
+          const result = await guardedHandler(args);
           if (result.success) {
             // Special handling for capture_frame: return image content block
             const data = result.data as Record<string, unknown> | undefined;
             if (data && data.mimeType === "image/png" && typeof data.base64 === "string") {
               return {
+                structuredContent: structuredToolResult(name, true, { mimeType: data.mimeType }),
                 content: [
                   {
                     type: "image" as const,
@@ -218,6 +228,7 @@ export function createServer(bridgeOptions: BridgeOptions): McpServer {
               };
             }
             return {
+              structuredContent: structuredToolResult(name, true, result.data),
               content: [
                 {
                   type: "text" as const,
@@ -227,6 +238,7 @@ export function createServer(bridgeOptions: BridgeOptions): McpServer {
             };
           } else {
             return {
+              structuredContent: structuredToolResult(name, false, undefined, result.error),
               content: [
                 {
                   type: "text" as const,
@@ -238,6 +250,7 @@ export function createServer(bridgeOptions: BridgeOptions): McpServer {
           }
         } catch (err) {
           return {
+            structuredContent: structuredToolResult(name, false, undefined, err instanceof Error ? err.message : String(err)),
             content: [
               {
                 type: "text" as const,
@@ -269,6 +282,26 @@ export function createServer(bridgeOptions: BridgeOptions): McpServer {
     })
   );
 
+  server.resource(
+    "premiere-workflows",
+    "config://premiere-workflows",
+    {
+      description: "High-level, safety-oriented Premiere Pro workflow catalog",
+      mimeType: "application/json",
+    },
+    async (uri) => ({
+      contents: [{ uri: uri.href, mimeType: "application/json", text: WORKFLOW_RESOURCE }],
+    })
+  );
+
+  for (const prompt of WORKFLOW_PROMPTS) {
+    server.registerPrompt(
+      prompt.name,
+      { title: prompt.title, description: prompt.description, argsSchema: prompt.argsSchema },
+      prompt.render,
+    );
+  }
+
   // Register ExtendScript API reference resource
   server.resource(
     "extendscript-reference",
@@ -288,7 +321,7 @@ export function createServer(bridgeOptions: BridgeOptions): McpServer {
   );
 
   const toolCount = Object.keys(toolModules).length;
-  console.error(`[premiere-pro-mcp] Registered ${toolCount} tools + 2 resources`);
+  console.error(`[premiere-pro-mcp] Registered ${toolCount} tools + 3 resources + ${WORKFLOW_PROMPTS.length} prompts`);
 
   return server;
 }

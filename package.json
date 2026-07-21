@@ -1,7 +1,7 @@
 {
   "name": "premiere-pro-mcp",
-  "version": "1.1.7",
-  "description": "MCP server for controlling Adobe Premiere Pro via CEP/ExtendScript — 269 tools for AI-driven video editing",
+  "version": "1.2.0",
+  "description": "MCP server for controlling Adobe Premiere Pro via CEP and UXP — safe, structured AI-driven video editing",
   "main": "dist/index.js",
   "type": "module",
   "bin": {
@@ -11,6 +11,7 @@
     "dist/**/*.js",
     "dist/**/*.d.ts",
     "cep-plugin",
+    "uxp-plugin",
     "scripts",
     "README.md",
     "LICENSE",

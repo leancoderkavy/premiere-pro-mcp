@@ -4,6 +4,24 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [1.2.0] - 2026-07-20
+
+### Added
+
+- Added preview/apply edit plans with strict operation validation, SHA-256 confirmation binding,
+  operation IDs, and structured audit events.
+- Added capability profiles. Raw ExtendScript tools now require explicit `unsafe-script` authority.
+- Added structured MCP tool results, safety annotations, four guided workflow prompts, and the
+  `config://premiere-workflows` resource.
+- Added a packaged Premiere 25.6+ UXP bridge preview with capability discovery, state-change
+  events, reconnecting WebSocket transport, and supported frame export with file verification.
+
+### Validation
+
+- TypeScript build passes, all 333 automated tests pass in a single-worker run, and the npm dry-run
+  package contains both CEP and UXP bundles. Live Premiere verification of the UXP host API and
+  loopback transport remains outstanding.
+
 ## [1.1.7] - 2026-07-20
 
 ### Changed
