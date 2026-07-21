@@ -11,6 +11,33 @@
 
 ---
 
+## Current Repository Snapshot (2026-07-20)
+
+- **Release candidate:** `1.1.7` is merged into `main`; `package.json`, `package-lock.json`, and
+  both CEP extension entries in `cep-plugin/CSXS/manifest.xml` are version-aligned.
+- **npm status:** `1.1.7` is not yet published. The registry publish was attempted after the GitHub
+  push and stopped at npm's required one-time-password challenge; the package remains at `1.1.6`
+  on npm until an authenticated publish completes.
+- **MCP surface:** 269 tools across 28 modules, plus the `config://premiere-instructions` and
+  `config://extendscript-reference` resources.
+- **CEP bridge:** The operational workflow is unchanged, but the visible panel now has a compact
+  Premiere-oriented dark interface, clearer connection state, responsive controls, an improved
+  bridge-directory field, and a larger live activity monitor. Accessibility work includes labels,
+  focus states, live regions, and reduced-motion handling.
+- **Website:** The redesigned landing page and its SEO metadata, manifest, dynamic `robots.txt`,
+  and dynamic sitemap are merged into `main`.
+- **Validation:** The root TypeScript build and all 315 automated tests pass. Landing-page lint
+  passes, and Next.js compiles and generates all seven static pages. On this OneDrive checkout,
+  the final export cleanup repeatedly reports `EBUSY` while removing `landing/out`; this is an
+  environment/filesystem lock after page generation, not a source compilation failure.
+
+### Release completion gate
+
+Publish `premiere-pro-mcp@1.1.7` from `main` with a current npm authenticator OTP, then verify both
+`npm view premiere-pro-mcp version` and the `latest` dist-tag resolve to `1.1.7`.
+
+---
+
 ## Complete API Surface (ExtendScript + QE DOM)
 
 ### Application Object (`app`)
@@ -407,4 +434,6 @@ Their MCP server includes a **resource** (`config://get_instructions`) that give
 - "Images have default 5-second duration"
 - "First clip determines sequence resolution"
 
-We should add a similar resource to our server.
+This recommendation is implemented. Our server exposes `config://premiere-instructions` for editing
+workflow guidance and `config://extendscript-reference` for the scripting surface. Both resources are
+registered alongside the 269 tools in `src/server.ts`.
