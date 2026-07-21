@@ -1,98 +1,99 @@
-import { BorderBeam } from "@/components/ui/border-beam"
+import { AlertTriangle, ArrowDown, CheckCircle2, FileCode2, PlugZap, TerminalSquare } from "lucide-react"
 
-const steps = [
+const bridgeSteps = [
   {
-    n: "01",
-    title: "AI invokes a tool",
-    desc: 'Claude (or any MCP client) calls e.g. "add_to_timeline" with parameters.',
-    color: "#9999ff",
+    icon: TerminalSquare,
+    title: "Your AI calls a tool",
+    description: "Claude, Cursor, Windsurf, or another MCP client sends a structured request to the local server.",
   },
   {
-    n: "02",
-    title: "ExtendScript is generated",
-    desc: "The MCP server builds ES3-compatible ExtendScript with helper functions prepended.",
-    color: "#ff6699",
+    icon: FileCode2,
+    title: "The bridge runs it in Premiere",
+    description: "A versioned helper library and small ES3 script pass through a private shared temp directory.",
   },
   {
-    n: "03",
-    title: "Script written to temp dir",
-    desc: "A .jsx command file is dropped into the shared temp directory (configurable via PREMIERE_TEMP_DIR).",
-    color: "#ffaa40",
+    icon: PlugZap,
+    title: "Premiere returns a result",
+    description: "The CEP bridge executes the command and sends structured data, confirmation, or diagnostics back to the client.",
+  },
+]
+
+const diagnostics = [
+  {
+    icon: CheckCircle2,
+    title: "Automatic bridge startup",
+    description: "The CEP bridge creates its temp directory and starts polling when Premiere activates.",
   },
   {
-    n: "04",
-    title: "CEP plugin executes it",
-    desc: "The Premiere Pro panel polls for new .jsx files and runs them via CSInterface.evalScript().",
-    color: "#40ffaa",
-  },
-  {
-    n: "05",
-    title: "Result returned as JSON",
-    desc: "The CEP plugin writes a .json response; the MCP server polls for it and returns it to the AI.",
-    color: "#40aaff",
+    icon: AlertTriangle,
+    title: "Modal-stall diagnostics",
+    description: "In-flight heartbeats help distinguish an open Premiere dialog from a disconnected bridge.",
   },
 ]
 
 export function ArchitectureSection() {
   return (
-    <section className="bg-zinc-950 px-4 py-24">
-      <div className="mx-auto max-w-5xl">
-        <div className="mb-16 text-center">
-          <p className="text-sm font-semibold uppercase tracking-widest text-zinc-500">How it works</p>
-          <h2 className="mt-2 text-3xl font-bold text-white md:text-4xl">File-bridge architecture</h2>
-          <p className="mt-4 mx-auto max-w-xl text-zinc-400">
-            No network daemons, no native extensions. A battle-tested temp-directory IPC pattern that works reliably on macOS and Windows.
-          </p>
-        </div>
-
-        {/* Flow diagram */}
-        <div className="mb-16 overflow-hidden rounded-xl border border-zinc-800 bg-black p-6 font-mono text-sm">
-          <BorderBeam colorFrom="#9999ff" colorTo="#ff6699" duration={12} />
-          <div className="space-y-0 text-zinc-400 leading-relaxed">
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="rounded bg-zinc-900 px-2 py-1 text-purple-400">AI Client</span>
-              <span className="text-zinc-600">─── MCP (stdio / HTTP+SSE) ──▶</span>
-              <span className="rounded bg-zinc-900 px-2 py-1 text-blue-400">MCP Server</span>
-              <span className="text-zinc-600">─── .jsx file ──▶</span>
-              <span className="rounded bg-zinc-900 px-2 py-1 text-pink-400">Temp Dir</span>
-            </div>
-            <div className="pl-8 text-zinc-600">▲ JSON result &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;▼ .jsx picked up</div>
-            <div className="flex flex-wrap items-center gap-2 pl-8">
-              <span className="rounded bg-zinc-900 px-2 py-1 text-green-400">Premiere Pro</span>
-              <span className="text-zinc-600">◀─── evalScript() ───</span>
-              <span className="rounded bg-zinc-900 px-2 py-1 text-orange-400">CEP Plugin</span>
-              <span className="text-zinc-600">─── .json result ──▶</span>
-              <span className="rounded bg-zinc-900 px-2 py-1 text-pink-400">Temp Dir</span>
+    <section id="how-it-works" className="border-y border-zinc-900 bg-[#050506] px-5 py-24 md:py-32">
+      <div className="mx-auto max-w-6xl">
+        <div className="grid gap-16 lg:grid-cols-2 lg:gap-20">
+          <div>
+            <h2 className="text-3xl font-bold tracking-tight text-white md:text-4xl">How the bridge <span className="text-purple-400">works</span></h2>
+            <p className="mt-4 max-w-xl text-base leading-7 text-zinc-400">
+              A local-first file bridge keeps the control path inspectable and avoids exposing your project media to the MCP server.
+            </p>
+            <div className="mt-10">
+              {bridgeSteps.map((step, index) => (
+                <div key={step.title} className="relative flex gap-5 pb-9 last:pb-0">
+                  {index < bridgeSteps.length - 1 && <span className="absolute left-[19px] top-10 h-[calc(100%-2rem)] w-px bg-zinc-800" aria-hidden="true" />}
+                  <span className="relative z-10 grid h-10 w-10 shrink-0 place-items-center rounded-md border border-zinc-800 bg-zinc-950 text-purple-400">
+                    <step.icon className="h-5 w-5" strokeWidth={1.6} />
+                  </span>
+                  <div>
+                    <h3 className="text-base font-semibold text-zinc-100">{step.title}</h3>
+                    <p className="mt-2 text-sm leading-6 text-zinc-500">{step.description}</p>
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
-        </div>
 
-        {/* Steps */}
-        <div className="grid gap-4 md:grid-cols-5">
-          {steps.map((s) => (
-            <div key={s.n} className="relative overflow-hidden rounded-xl border border-zinc-800 bg-black p-5">
-              <div className="mb-3 text-3xl font-black" style={{ color: s.color }}>{s.n}</div>
-              <h3 className="mb-2 text-sm font-semibold text-white">{s.title}</h3>
-              <p className="text-xs leading-relaxed text-zinc-500">{s.desc}</p>
+          <div>
+            <h2 className="text-3xl font-bold tracking-tight text-white md:text-4xl">Compatibility &amp; <span className="text-purple-400">diagnostics</span></h2>
+            <p className="mt-4 max-w-xl text-base leading-7 text-zinc-400">
+              Current releases target Premiere Pro 2020–2026 on macOS and Windows, with clearer failure states for the issues users hit most often.
+            </p>
+            <div className="mt-10 space-y-4">
+              {diagnostics.map((item) => (
+                <article key={item.title} className="flex gap-4 rounded-xl border border-zinc-800 bg-zinc-950 p-5">
+                  <item.icon className="mt-0.5 h-6 w-6 shrink-0 text-purple-300" strokeWidth={1.5} />
+                  <div>
+                    <h3 className="text-base font-semibold text-zinc-100">{item.title}</h3>
+                    <p className="mt-2 text-sm leading-6 text-zinc-500">{item.description}</p>
+                  </div>
+                </article>
+              ))}
             </div>
-          ))}
-        </div>
-
-        {/* Remote note */}
-        <div className="mt-8 rounded-xl border border-purple-900/50 bg-purple-950/20 p-6">
-          <div className="flex items-start gap-3">
-            <div className="mt-0.5 h-2 w-2 rounded-full bg-purple-400 shrink-0 mt-1" />
-            <div>
-              <p className="text-sm font-semibold text-purple-300">Remote mode available</p>
-              <p className="mt-1 text-sm text-zinc-400">
-                The server also ships an <span className="text-white font-mono text-xs">HTTP/SSE transport</span> deployed at{" "}
-                <a href="https://premiere-pro-mcp.fly.dev" target="_blank" rel="noopener noreferrer" className="text-purple-400 underline hover:text-purple-300">
-                  premiere-pro-mcp.fly.dev
-                </a>
-                . Connect any MCP client via <span className="font-mono text-xs text-white">mcp-remote</span> — the MCP endpoint and CEP plugin still communicate through the shared temp directory.
+            <div className="mt-6 rounded-xl border border-amber-500/20 bg-amber-500/[0.04] p-5">
+              <p className="text-sm leading-6 text-zinc-400">
+                <span className="font-semibold text-amber-200">Know the boundary:</span> Premiere’s undocumented QE DOM is powerful but imperfect. Frame export and Media Encoder queue status have API limitations; the server reports diagnostics instead of claiming success without a file.
               </p>
             </div>
           </div>
+        </div>
+
+        <div className="mt-16 flex flex-col gap-4 rounded-xl border border-zinc-800 bg-black px-5 py-5 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <p className="text-sm font-medium text-zinc-200">Need the full tool list, schemas, or troubleshooting guide?</p>
+            <p className="mt-1 text-sm text-zinc-500">The README documents every setup path and known security boundary.</p>
+          </div>
+          <a
+            href="https://github.com/leancoderkavy/premiere-pro-mcp#readme"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex shrink-0 items-center gap-2 text-sm font-semibold text-purple-300 transition-colors hover:text-purple-200"
+          >
+            Read the documentation <ArrowDown className="h-4 w-4 -rotate-90" />
+          </a>
         </div>
       </div>
     </section>

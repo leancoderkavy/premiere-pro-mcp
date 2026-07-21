@@ -1,103 +1,111 @@
-"use client"
+import { ArrowRight, Github, Monitor, Package, ShieldCheck, Sparkles } from "lucide-react"
 
-import { Particles } from "@/components/ui/particles"
-import { AnimatedGradientText } from "@/components/ui/animated-gradient-text"
-import { ShimmerButton } from "@/components/ui/shimmer-button"
-import { BorderBeam } from "@/components/ui/border-beam"
-import { Github, Package, Zap } from "lucide-react"
+const navItems = [
+  { label: "Features", href: "#features" },
+  { label: "How it works", href: "#how-it-works" },
+  { label: "Install", href: "#install" },
+]
+
+const proofItems = [
+  { icon: Sparkles, title: "Premiere Pro", detail: "2020–2026" },
+  { icon: Monitor, title: "macOS + Windows", detail: "Apple Silicon + Intel" },
+  { icon: ShieldCheck, title: "Local-first", detail: "Your media stays local" },
+  { icon: Github, title: "MIT licensed", detail: "Open source" },
+]
 
 export function HeroSection() {
   return (
-    <section className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden px-4 text-center">
-      <Particles
-        className="absolute inset-0 z-0"
-        quantity={120}
-        color="#ffffff"
-        staticity={30}
-      />
-
-      {/* Badge */}
-      <div className="relative z-10 mb-6">
-        <AnimatedGradientText>
-          <Zap className="mr-2 inline h-4 w-4" />
-          269 tools &mdash; the most complete MCP server for video editing
-        </AnimatedGradientText>
-      </div>
-
-      {/* Headline */}
-      <h1 className="relative z-10 mb-6 max-w-4xl text-5xl font-bold leading-tight tracking-tight text-white md:text-7xl">
-        Give AI full control over{" "}
-        <span className="bg-gradient-to-r from-[#9999FF] via-[#c4c4ff] to-[#9999FF] bg-clip-text text-transparent">
-          Adobe Premiere Pro
-        </span>
-      </h1>
-
-      <p className="relative z-10 mb-10 max-w-2xl text-lg text-zinc-400 md:text-xl">
-        An MCP server that lets Claude, Windsurf, Cursor, and any MCP‑compatible AI
-        directly edit timelines, apply effects, manage keyframes, and export — via 28 tool modules.
-      </p>
-
-      {/* CTA buttons */}
-      <div className="relative z-10 flex flex-wrap items-center justify-center gap-4">
-        <ShimmerButton
-          shimmerColor="#9999ff"
-          background="rgba(153,153,255,0.15)"
-          borderRadius="8px"
-          className="h-12 px-8 text-base font-semibold"
-          onClick={() => window.open("https://github.com/leancoderkavy/premiere-pro-mcp", "_blank")}
-        >
-          <Github className="mr-2 h-5 w-5" />
-          View on GitHub
-        </ShimmerButton>
-
-        <a
-          href="https://www.npmjs.com/package/premiere-pro-mcp"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="flex h-12 items-center gap-2 rounded-lg border border-zinc-700 px-8 text-base font-semibold text-zinc-300 transition-colors hover:border-zinc-500 hover:text-white"
-        >
-          <Package className="h-5 w-5" />
-          npm install
-        </a>
-      </div>
-
-      {/* Terminal preview card */}
-      <div className="relative z-10 mt-16 w-full max-w-2xl">
-        <div className="relative overflow-hidden rounded-xl border border-zinc-800 bg-zinc-950 shadow-2xl shadow-purple-500/10">
-          <BorderBeam colorFrom="#9999ff" colorTo="#ff6699" duration={8} />
-          <div className="flex items-center gap-2 border-b border-zinc-800 px-4 py-3">
-            <div className="h-3 w-3 rounded-full bg-red-500/80" />
-            <div className="h-3 w-3 rounded-full bg-yellow-500/80" />
-            <div className="h-3 w-3 rounded-full bg-green-500/80" />
-            <span className="ml-2 text-xs text-zinc-500">premiere-pro-mcp</span>
+    <>
+      <header className="fixed inset-x-0 top-0 z-50 border-b border-white/10 bg-black/85 backdrop-blur-xl">
+        <nav className="mx-auto flex h-16 max-w-6xl items-center justify-between px-5" aria-label="Primary navigation">
+          <a href="#top" className="flex items-center gap-3 text-sm font-semibold text-white">
+            <span className="grid h-8 w-8 place-items-center rounded-md border border-purple-400/30 bg-purple-500/15 font-mono text-sm text-purple-200">
+              Pr
+            </span>
+            <span>premiere-pro-mcp</span>
+          </a>
+          <div className="hidden items-center gap-7 md:flex">
+            {navItems.map((item) => (
+              <a key={item.href} href={item.href} className="text-sm text-zinc-400 transition-colors hover:text-white">
+                {item.label}
+              </a>
+            ))}
+            <a
+              href="https://github.com/leancoderkavy/premiere-pro-mcp"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 rounded-md border border-zinc-700 px-3 py-2 text-sm font-medium text-zinc-200 transition-colors hover:border-zinc-500 hover:bg-zinc-900"
+            >
+              GitHub <ArrowRight className="h-3.5 w-3.5" />
+            </a>
           </div>
-          <pre className="overflow-x-auto p-6 text-left text-sm leading-relaxed">
-            <code>
-              <span className="text-zinc-500">$ </span>
-              <span className="text-green-400">npm install -g premiere-pro-mcp</span>
-              {"\n"}
-              <span className="text-zinc-500">$ </span>
-              <span className="text-green-400">premiere-pro-mcp --install-cep</span>
-              {"\n\n"}
-              <span className="text-zinc-400"># AI prompt:</span>
-              {"\n"}
-              <span className="text-white">"Add the B-roll to V2, cross dissolve between clips,</span>
-              {"\n"}
-              <span className="text-white"> color correct to match A-roll, export 1080p ProRes."</span>
-              {"\n\n"}
-              <span className="text-zinc-500">[premiere-pro-mcp] </span>
-              <span className="text-purple-400">Registered 269 tools + 2 resources ✓</span>
-            </code>
-          </pre>
-        </div>
-      </div>
+        </nav>
+      </header>
 
-      {/* Scroll indicator */}
-      <div className="absolute bottom-8 left-1/2 z-10 -translate-x-1/2 animate-bounce">
-        <div className="h-8 w-5 rounded-full border-2 border-zinc-600 flex items-start justify-center pt-1">
-          <div className="h-2 w-0.5 rounded-full bg-zinc-400 animate-pulse" />
+      <section id="top" className="relative overflow-hidden px-5 pb-20 pt-36 md:pb-28 md:pt-44">
+        <div className="hero-grid absolute inset-0" aria-hidden="true" />
+        <div className="hero-glow absolute left-1/2 top-0 h-[36rem] w-[52rem] -translate-x-1/2" aria-hidden="true" />
+
+        <div className="relative mx-auto max-w-6xl">
+          <div className="mx-auto max-w-4xl text-center">
+            <h1 className="text-balance text-5xl font-bold leading-[1.02] tracking-[-0.045em] text-white sm:text-6xl md:text-7xl">
+              Control Adobe Premiere Pro with <span className="accent-text">AI</span>
+            </h1>
+            <p className="mx-auto mt-7 max-w-2xl text-balance text-lg leading-8 text-zinc-400 md:text-xl">
+              An open-source MCP server with 269 tools for timeline editing, effects, color, keyframes, media management, and export.
+            </p>
+            <div className="mt-9 flex flex-col items-center justify-center gap-3 sm:flex-row">
+              <a
+                href="#install"
+                className="inline-flex h-12 items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-[#8b7cff] to-[#ef76b9] px-6 text-sm font-semibold text-white shadow-[0_12px_40px_rgba(139,124,255,0.22)] transition-transform hover:-translate-y-0.5"
+              >
+                <Package className="h-4 w-4" /> Install from npm
+              </a>
+              <a
+                href="https://github.com/leancoderkavy/premiere-pro-mcp"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex h-12 items-center justify-center gap-2 rounded-lg border border-zinc-700 bg-zinc-950/80 px-6 text-sm font-semibold text-zinc-100 transition-colors hover:border-zinc-500 hover:bg-zinc-900"
+              >
+                <Github className="h-4 w-4" /> View on GitHub
+              </a>
+            </div>
+          </div>
+
+          <div className="mx-auto mt-14 max-w-3xl overflow-hidden rounded-xl border border-zinc-800 bg-[#08080a] shadow-[0_28px_90px_rgba(0,0,0,0.55)]">
+            <div className="flex items-center border-b border-zinc-800 px-4 py-3">
+              <div className="flex gap-2" aria-hidden="true">
+                <span className="h-2.5 w-2.5 rounded-full bg-red-500" />
+                <span className="h-2.5 w-2.5 rounded-full bg-amber-400" />
+                <span className="h-2.5 w-2.5 rounded-full bg-emerald-500" />
+              </div>
+              <span className="ml-4 font-mono text-xs text-zinc-500">premiere-pro-mcp</span>
+              <span className="ml-auto h-5 w-10 bg-gradient-to-r from-[#8b7cff] to-[#ef76b9]" aria-hidden="true" />
+            </div>
+            <pre className="overflow-x-auto p-5 font-mono text-[13px] leading-7 sm:p-7 sm:text-sm">
+              <code>
+                <span className="text-zinc-600">$ </span><span className="text-emerald-400">npm install -g premiere-pro-mcp</span>{"\n"}
+                <span className="text-zinc-600">$ </span><span className="text-emerald-400">premiere-pro-mcp --install-cep</span>{"\n\n"}
+                <span className="text-zinc-500"># Ask your MCP client</span>{"\n"}
+                <span className="text-zinc-100">“Add B-roll to V2, match the grade, then export 1080p ProRes.”</span>{"\n\n"}
+                <span className="text-purple-300">✓ 269 tools registered · bridge ready</span>
+              </code>
+            </pre>
+          </div>
+
+          <div className="mt-8 grid overflow-hidden rounded-xl border border-zinc-800 bg-zinc-950/75 sm:grid-cols-2 lg:grid-cols-4">
+            {proofItems.map((item) => (
+              <div key={item.title} className="flex items-center gap-3 border-b border-zinc-800 px-5 py-4 last:border-b-0 sm:even:border-l lg:border-b-0 lg:border-l first:lg:border-l-0">
+                <item.icon className="h-5 w-5 shrink-0 text-purple-400" strokeWidth={1.7} />
+                <div>
+                  <p className="text-sm font-semibold text-zinc-100">{item.title}</p>
+                  <p className="mt-0.5 text-xs text-zinc-500">{item.detail}</p>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
-      </div>
-    </section>
+      </section>
+    </>
   )
 }

@@ -1,210 +1,116 @@
 "use client"
 
 import { useState } from "react"
-import { BorderBeam } from "@/components/ui/border-beam"
-import { Check, Copy, Bot, Keyboard, Wind, Plug } from "lucide-react"
-
-const MCP_URL = "https://premiere-pro-mcp.fly.dev/mcp"
+import { Check, Copy } from "lucide-react"
 
 const clients = [
-  {
-    id: "claude",
-    name: "Claude Desktop",
-    icon: Bot,
-    file: "claude_desktop_config.json",
-    path: "~/Library/Application Support/Claude/",
-    config: `{
-  "mcpServers": {
-    "premiere-pro": {
-      "command": "npx",
-      "args": [
-        "mcp-remote",
-        "${MCP_URL}"
-      ]
-    }
-  }
-}`,
-  },
-  {
-    id: "cursor",
-    name: "Cursor",
-    icon: Keyboard,
-    file: ".cursor/mcp.json",
-    path: "project root or ~/.cursor/",
-    config: `{
-  "mcpServers": {
-    "premiere-pro": {
-      "command": "npx",
-      "args": [
-        "mcp-remote",
-        "${MCP_URL}"
-      ]
-    }
-  }
-}`,
-  },
-  {
-    id: "windsurf",
-    name: "Windsurf",
-    icon: Wind,
-    file: "~/.codeium/windsurf/mcp_config.json",
-    path: "~/.codeium/windsurf/",
-    config: `{
-  "mcpServers": {
-    "premiere-pro": {
-      "command": "npx",
-      "args": [
-        "mcp-remote",
-        "${MCP_URL}"
-      ]
-    }
-  }
-}`,
-  },
-  {
-    id: "generic",
-    name: "Any MCP Client",
-    icon: Plug,
-    file: "mcp config",
-    path: "check your client's docs",
-    config: `{
-  "mcpServers": {
-    "premiere-pro": {
-      "command": "npx",
-      "args": [
-        "mcp-remote",
-        "${MCP_URL}"
-      ]
-    }
-  }
-}`,
-  },
+  { id: "claude", name: "Claude Desktop", file: "claude_desktop_config.json", path: "Claude application support folder" },
+  { id: "cursor", name: "Cursor", file: ".cursor/mcp.json", path: "Project root or global Cursor config" },
+  { id: "windsurf", name: "Windsurf", file: "mcp_config.json", path: "Windsurf user config folder" },
+  { id: "generic", name: "Any MCP client", file: "MCP configuration", path: "See your client’s MCP documentation" },
 ]
 
-function CopyButton({ text }: { text: string }) {
+const config = `{
+  "mcpServers": {
+    "premiere-pro": {
+      "command": "premiere-pro-mcp"
+    }
+  }
+}`
+
+function CopyButton({ text, label }: { text: string; label: string }) {
   const [copied, setCopied] = useState(false)
-  const copy = async () => {
+
+  async function copy() {
     await navigator.clipboard.writeText(text)
     setCopied(true)
-    setTimeout(() => setCopied(false), 2000)
+    window.setTimeout(() => setCopied(false), 1800)
   }
+
   return (
     <button
+      type="button"
       onClick={copy}
-      className="flex items-center gap-1.5 rounded-md border border-zinc-700 bg-zinc-800 px-2.5 py-1.5 text-xs text-zinc-400 transition-colors hover:border-zinc-500 hover:text-white"
+      className="inline-flex items-center gap-2 rounded-md border border-zinc-700 bg-zinc-900 px-3 py-2 text-xs font-medium text-zinc-300 transition-colors hover:border-zinc-500 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-400"
+      aria-label={label}
     >
-      {copied ? <Check className="h-3.5 w-3.5 text-green-400" /> : <Copy className="h-3.5 w-3.5" />}
-      {copied ? "Copied!" : "Copy"}
+      {copied ? <Check className="h-3.5 w-3.5 text-emerald-400" /> : <Copy className="h-3.5 w-3.5" />}
+      {copied ? "Copied" : "Copy"}
     </button>
   )
 }
 
 export function ConnectSection() {
-  const [active, setActive] = useState("claude")
-  const current = clients.find((c) => c.id === active)!
+  const [active, setActive] = useState(clients[0].id)
+  const current = clients.find((client) => client.id === active) ?? clients[0]
 
   return (
-    <section className="bg-zinc-950 px-4 py-24">
-      <div className="mx-auto max-w-5xl">
-        {/* Header */}
-        <div className="mb-4 text-center">
-          <span className="inline-flex items-center gap-2 rounded-full border border-green-500/30 bg-green-500/10 px-3 py-1 text-xs font-semibold text-green-400">
-            <span className="h-1.5 w-1.5 rounded-full bg-green-400 animate-pulse" />
-            Live at premiere-pro-mcp.fly.dev
-          </span>
-        </div>
-        <div className="mb-16 text-center">
-          <h2 className="text-3xl font-bold text-white md:text-4xl">
-            Connect your LLM in 60 seconds
-          </h2>
-          <p className="mt-4 mx-auto max-w-xl text-zinc-400">
-            No local install required. Point any MCP-compatible AI client at our hosted endpoint and start editing Premiere Pro with AI immediately.
+    <section id="install" className="bg-black px-5 py-24 md:py-32">
+      <div className="mx-auto max-w-6xl">
+        <div className="mx-auto max-w-2xl text-center">
+          <h2 className="text-balance text-3xl font-bold tracking-tight text-white md:text-5xl">Get started locally in three steps</h2>
+          <p className="mt-5 text-lg leading-8 text-zinc-400">
+            The local stdio setup is the simplest and safest path. Premiere, the CEP bridge, and your MCP client stay on the same machine.
           </p>
         </div>
 
-        {/* Steps */}
-        <div className="mb-12 grid gap-4 md:grid-cols-3">
+        <ol className="relative mt-16 grid gap-8 md:grid-cols-3">
+          <div className="absolute left-[16.5%] right-[16.5%] top-5 hidden h-px bg-zinc-800 md:block" aria-hidden="true" />
           {[
-            { n: "1", title: "Install mcp-remote", desc: "One-time prerequisite — a tiny proxy that bridges HTTP/SSE to stdio.", cmd: "npm install -g mcp-remote" },
-            { n: "2", title: "Add config to your client", desc: "Paste the JSON snippet below into your AI client's MCP config file.", cmd: null },
-            { n: "3", title: "Install the CEP panel", desc: "Run once on the machine with Premiere Pro to enable the file bridge.", cmd: "premiere-pro-mcp --install-cep" },
+            { number: "1", title: "Install the server", command: "npm install -g premiere-pro-mcp", note: "Requires Node.js 18 or newer." },
+            { number: "2", title: "Install the CEP bridge", command: "premiere-pro-mcp --install-cep", note: "Uses the native macOS or Windows installer." },
+            { number: "3", title: "Configure your MCP client", command: "premiere-pro-mcp", note: "Restart Premiere and your MCP client once." },
           ].map((step) => (
-            <div key={step.n} className="relative overflow-hidden rounded-xl border border-zinc-800 bg-black p-5">
-              <div className="mb-3 flex items-center gap-3">
-                <span className="flex h-7 w-7 items-center justify-center rounded-full bg-purple-600 text-xs font-bold text-white">
-                  {step.n}
-                </span>
-                <h3 className="text-sm font-semibold text-white">{step.title}</h3>
+            <li key={step.number} className="relative text-center">
+              <span className="relative z-10 mx-auto grid h-10 w-10 place-items-center rounded-full border border-purple-300/40 bg-purple-500/20 text-sm font-bold text-purple-100 shadow-[0_0_28px_rgba(168,85,247,0.18)]">
+                {step.number}
+              </span>
+              <h3 className="mt-6 text-base font-semibold text-white">{step.title}</h3>
+              <div className="mt-4 flex items-center justify-between gap-3 rounded-lg border border-zinc-800 bg-zinc-950 px-4 py-3 text-left">
+                <code className="min-w-0 overflow-x-auto whitespace-nowrap font-mono text-xs text-emerald-400">{step.command}</code>
+                <CopyButton text={step.command} label={`Copy ${step.title} command`} />
               </div>
-              <p className="mb-3 text-xs leading-relaxed text-zinc-500">{step.desc}</p>
-              {step.cmd && (
-                <code className="block rounded bg-zinc-900 px-3 py-2 text-xs text-green-400">
-                  $ {step.cmd}
-                </code>
-              )}
-            </div>
+              <p className="mt-3 text-sm text-zinc-500">{step.note}</p>
+            </li>
           ))}
-        </div>
+        </ol>
 
-        {/* Client picker + config */}
-        <div className="relative overflow-hidden rounded-2xl border border-zinc-800 bg-black">
-          <BorderBeam colorFrom="#9999ff" colorTo="#ff6699" duration={10} />
-
-          {/* Tab bar */}
-          <div className="flex flex-wrap gap-1 border-b border-zinc-800 p-3">
-            {clients.map((c) => (
-              <button
-                key={c.id}
-                onClick={() => setActive(c.id)}
-                className={`flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
-                  active === c.id
-                    ? "bg-purple-600 text-white"
-                    : "text-zinc-400 hover:bg-zinc-800 hover:text-white"
-                }`}
-              >
-                <c.icon className="h-4 w-4" />
-                {c.name}
-              </button>
-            ))}
+        <div className="mt-16 overflow-hidden rounded-xl border border-zinc-800 bg-[#08080a]">
+          <div className="border-b border-zinc-800 px-5 py-4">
+            <p className="text-sm font-semibold text-white">Choose your MCP client</p>
+            <p className="mt-1 text-xs text-zinc-500">The same local server command works across supported clients.</p>
           </div>
-
-          {/* Config body */}
-          <div className="p-6">
-            <div className="mb-4 flex items-center justify-between">
-              <div>
-                <p className="text-sm font-semibold text-white">
-                  Add to <code className="rounded bg-zinc-800 px-1.5 py-0.5 text-xs text-purple-300">{current.file}</code>
-                </p>
-                <p className="mt-1 text-xs text-zinc-500">Path: {current.path}</p>
-              </div>
-              <CopyButton text={current.config} />
+          <div className="grid lg:grid-cols-[15rem_1fr]">
+            <div className="flex overflow-x-auto border-b border-zinc-800 p-3 lg:flex-col lg:border-b-0 lg:border-r">
+              {clients.map((client) => (
+                <button
+                  key={client.id}
+                  type="button"
+                  onClick={() => setActive(client.id)}
+                  aria-pressed={active === client.id}
+                  className={`whitespace-nowrap rounded-md px-3 py-2.5 text-left text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-400 ${
+                    active === client.id ? "bg-purple-500/15 text-purple-200" : "text-zinc-500 hover:bg-zinc-900 hover:text-zinc-200"
+                  }`}
+                >
+                  {client.name}
+                </button>
+              ))}
             </div>
-            <pre className="overflow-x-auto rounded-lg bg-zinc-950 p-5 text-sm leading-relaxed text-zinc-300 border border-zinc-800">
-              <code>{current.config}</code>
-            </pre>
-
-            {/* Endpoint pill */}
-            <div className="mt-4 flex items-center justify-between rounded-lg border border-zinc-800 bg-zinc-950 px-4 py-3">
-              <div className="flex items-center gap-2">
-                <span className="h-2 w-2 rounded-full bg-green-400 animate-pulse" />
-                <span className="text-xs text-zinc-400">MCP endpoint</span>
+            <div className="min-w-0 p-5 sm:p-7">
+              <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+                <div>
+                  <p className="text-sm font-medium text-zinc-200">Add this server to <code className="text-purple-300">{current.file}</code></p>
+                  <p className="mt-1 text-xs text-zinc-500">{current.path}</p>
+                </div>
+                <CopyButton text={config} label={`Copy ${current.name} configuration`} />
               </div>
-              <div className="flex items-center gap-2">
-                <code className="text-xs text-purple-300">{MCP_URL}</code>
-                <CopyButton text={MCP_URL} />
-              </div>
+              <pre className="overflow-x-auto rounded-lg border border-zinc-800 bg-black p-5 font-mono text-sm leading-7 text-zinc-300"><code>{config}</code></pre>
+              <p className="mt-4 text-sm leading-6 text-zinc-500">
+                The bridge starts automatically when Premiere launches. Open <span className="text-zinc-300">Window → Extensions → MCP Bridge</span> only to verify status or change the shared temp directory.
+              </p>
             </div>
           </div>
         </div>
-
-        {/* Prerequisite note */}
-        <p className="mt-6 text-center text-sm text-zinc-600">
-          Requires <span className="text-zinc-400">Node.js 18+</span> and the{" "}
-          <a href="https://github.com/leancoderkavy/premiere-pro-mcp#cep-plugin" target="_blank" rel="noopener noreferrer" className="text-purple-500 hover:text-purple-400 underline">
-            CEP panel
-          </a>{" "}
-          installed on the machine running Premiere Pro.
-        </p>
       </div>
     </section>
   )

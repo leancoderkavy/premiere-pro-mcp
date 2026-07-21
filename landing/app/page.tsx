@@ -1,21 +1,44 @@
 import { HeroSection } from "@/components/sections/hero"
 import { FeaturesSection } from "@/components/sections/features"
-import { ToolsMarquee } from "@/components/sections/tools-marquee"
 import { ConnectSection } from "@/components/sections/connect"
 import { ArchitectureSection } from "@/components/sections/architecture"
-import { InstallSection } from "@/components/sections/install"
 import { Footer } from "@/components/sections/footer"
+
+const softwareApplicationSchema = {
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  name: "Premiere Pro MCP",
+  applicationCategory: "DeveloperApplication",
+  operatingSystem: "macOS, Windows",
+  softwareVersion: "1.1.6",
+  description:
+    "Open-source Model Context Protocol server for AI-assisted editing and automation in Adobe Premiere Pro.",
+  url: "https://premiere-pro-mcp.fly.dev/",
+  downloadUrl: "https://www.npmjs.com/package/premiere-pro-mcp",
+  codeRepository: "https://github.com/leancoderkavy/premiere-pro-mcp",
+  license: "https://opensource.org/license/mit",
+  isAccessibleForFree: true,
+  offers: {
+    "@type": "Offer",
+    price: "0",
+    priceCurrency: "USD",
+  },
+}
 
 export default function Home() {
   return (
-    <main className="min-h-screen bg-black text-white overflow-x-hidden">
-      <HeroSection />
-      <ToolsMarquee />
-      <FeaturesSection />
-      <ConnectSection />
-      <ArchitectureSection />
-      <InstallSection />
-      <Footer />
-    </main>
+    <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(softwareApplicationSchema) }}
+      />
+      <main className="min-h-screen overflow-x-hidden bg-black text-white">
+        <HeroSection />
+        <FeaturesSection />
+        <ConnectSection />
+        <ArchitectureSection />
+        <Footer />
+      </main>
+    </>
   )
 }
