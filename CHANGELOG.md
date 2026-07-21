@@ -4,6 +4,28 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [1.1.6] - 2026-07-20
+
+### Fixed
+
+- **Frame capture's Media Encoder fallback now exports exactly one frame.** The fallback passed
+  tick values to sequence in/out methods that require seconds, producing an invalid export range
+  when the undocumented QE frame-export method wrote no file. The range and its saved state are
+  now converted to seconds. ([#9](https://github.com/leancoderkavy/premiere-pro-mcp/issues/9))
+
+- **Windows CEP installation now enables unsigned-extension discovery correctly.** The CLI uses a
+  native PowerShell installer on Windows and creates `PlayerDebugMode` as the `REG_SZ` value Adobe
+  requires. Previous instructions incorrectly specified a DWORD, and the Bash installer never
+  enabled Windows debug mode. ([#14](https://github.com/leancoderkavy/premiere-pro-mcp/issues/14))
+
+- CEP bundle and extension versions now match the npm package version, with regression coverage to
+  prevent future drift.
+
+### Validation
+
+- TypeScript build and 315 automated tests pass. The corrected Premiere runtime paths still require
+  live confirmation on a machine with Premiere Pro installed.
+
 ## [1.1.2] - 2026-07-11
 
 The headline of this release is that the CEP 12 bridge fix from
