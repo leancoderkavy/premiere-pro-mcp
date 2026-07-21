@@ -1,3 +1,5 @@
+import { randomUUID } from "node:crypto";
+
 export const CAPABILITIES = ["inspect", "edit", "export", "filesystem", "unsafe-script"] as const;
 
 export type Capability = (typeof CAPABILITIES)[number];
@@ -72,7 +74,7 @@ export function guardToolHandler<TArgs, TResult>(
   toolName: string,
   handler: (args: TArgs) => Promise<TResult>,
   config: CapabilityConfig = resolveCapabilities(),
-  createOperationId: () => string = () => crypto.randomUUID(),
+  createOperationId: () => string = randomUUID,
 ): (args: TArgs) => Promise<TResult> {
   const required = capabilityForTool(toolName);
   return async (args: TArgs) => {
