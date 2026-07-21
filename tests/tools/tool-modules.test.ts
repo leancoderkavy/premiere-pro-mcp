@@ -84,7 +84,7 @@ const ALL_MODULES: Array<{
   { name: "source-monitor", getter: getSourceMonitorTools, minTools: 5 },
   { name: "track-targeting", getter: getTrackTargetingTools, minTools: 20 },
   { name: "utility", getter: getUtilityTools, minTools: 15 },
-  { name: "health", getter: getHealthTools, minTools: 1 },
+  { name: "health", getter: getHealthTools, minTools: 2 },
   { name: "workspace", getter: getWorkspaceTools, minTools: 2 },
   { name: "captions", getter: getCaptionTools, minTools: 1 },
   { name: "playback", getter: getPlaybackTools, minTools: 3 },
@@ -170,12 +170,12 @@ describe("Tool Module Structure", () => {
 });
 
 describe("Total Tool Count", () => {
-  it("all modules together have 266 tools", () => {
+  it("all modules together have 267 tools", () => {
     let total = 0;
     for (const mod of ALL_MODULES) {
       total += Object.keys(mod.getter(bridgeOptions)).length;
     }
-    expect(total).toBe(266);
+    expect(total).toBe(267);
   });
 
   it("there are 28 modules", () => {
@@ -210,6 +210,17 @@ describe("Tool Handler Behavior", () => {
       expect(script).toContain("app.project");
       expect(script).toContain("__result");
       expect(script).toContain("connected: true");
+    });
+  });
+
+  describe("health.get_capabilities", () => {
+    it("reports platform support without requiring Premiere to be running", async () => {
+      const tools = getHealthTools(bridgeOptions);
+      const result = await tools.get_capabilities.handler();
+      expect(result.success).toBe(true);
+      expect(result.data.backends.cep.platforms).toEqual(["macOS", "Windows"]);
+      expect(result.data.premiere.hostVerificationRequired).toBe(true);
+      expect(mockedSendCommand).not.toHaveBeenCalled();
     });
   });
 

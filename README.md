@@ -4,7 +4,7 @@
 
 **Give AI full control over Adobe Premiere Pro.**
 
-268 tools across 29 modules, 3 resources, and 4 guided workflows.
+269 tools across 29 modules, 3 resources, and 4 guided workflows.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Node.js](https://img.shields.io/badge/Node.js-18%2B-green.svg)](https://nodejs.org)
@@ -25,7 +25,7 @@ An [MCP (Model Context Protocol)](https://modelcontextprotocol.io) server that l
 "Add the B-roll clips to V2, apply a cross dissolve between each, color correct them to match the A-roll, and export a 1080p ProRes."
 ```
 
-The AI handles the entire workflow through 268 tools spanning the supported ExtendScript, QE DOM, and safe edit-planning surfaces.
+The AI handles the entire workflow through 269 tools spanning the supported ExtendScript, QE DOM, and safe edit-planning surfaces.
 
 ### What's new in 1.2.0
 
@@ -108,10 +108,7 @@ Edit `~/Library/Application Support/Claude/claude_desktop_config.json` (macOS) o
   "mcpServers": {
     "premiere-pro": {
       "command": "node",
-      "args": ["/absolute/path/to/premiere-pro-mcp/dist/index.js"],
-      "env": {
-        "PREMIERE_TEMP_DIR": "/tmp/premiere-mcp-bridge"
-      }
+      "args": ["/absolute/path/to/premiere-pro-mcp/dist/index.js"]
     }
   }
 }
@@ -128,10 +125,7 @@ Add to your MCP server configuration:
 {
   "premiere-pro": {
     "command": "node",
-    "args": ["/absolute/path/to/premiere-pro-mcp/dist/index.js"],
-    "env": {
-      "PREMIERE_TEMP_DIR": "/tmp/premiere-mcp-bridge"
-    }
+    "args": ["/absolute/path/to/premiere-pro-mcp/dist/index.js"]
   }
 }
 ```
@@ -148,10 +142,7 @@ Add to `.cursor/mcp.json` in your project or global config:
   "mcpServers": {
     "premiere-pro": {
       "command": "node",
-      "args": ["/absolute/path/to/premiere-pro-mcp/dist/index.js"],
-      "env": {
-        "PREMIERE_TEMP_DIR": "/tmp/premiere-mcp-bridge"
-      }
+      "args": ["/absolute/path/to/premiere-pro-mcp/dist/index.js"]
     }
   }
 }
@@ -165,6 +156,19 @@ Add to `.cursor/mcp.json` in your project or global config:
 2. The bridge starts automatically using the default temp directory (or its previously saved setting)
 3. Optionally go to **Window > Extensions > MCP Bridge** to confirm the green "Running" status or change the **Temp Directory** to match your MCP client config
 4. Ask your AI assistant: *"What's my current Premiere Pro project?"*
+
+The default bridge directory is derived from the operating system on both sides, so most local setups should not set `PREMIERE_TEMP_DIR`. If you override it, use the same absolute path in the MCP server and CEP panel; Windows and macOS paths are not interchangeable.
+
+### Windows and macOS capability coverage
+
+| Surface | Windows | macOS | Verification boundary |
+|---|---|---|---|
+| CEP production bridge | Premiere Pro 2020–2026 | Premiere Pro 2020–2026 | Run `get_capabilities`, then `ping` with Premiere open |
+| UXP preview bridge | Premiere Pro 25.6+ | Premiere Pro 25.6+ | Live loopback WebSocket and host API verification required |
+| npm CEP installer | Copies plugin and verifies `REG_SZ` debug keys | Copies plugin and verifies the installed manifest/debug settings | Restart Premiere after installation |
+| CI build and unit tests | Node 18 and 22 | Node 18 and 22 | GitHub-hosted OS runners; no Adobe host is available in CI |
+
+`get_capabilities` reports the current operating system, temp directory, CEP/UXP coverage, enabled authority profile, and any live-host verification still required. It does not claim a Premiere operation succeeded; use `ping` and inspect each tool result for runtime evidence.
 
 ---
 
