@@ -10,7 +10,7 @@ const softwareApplicationSchema = {
   name: "Premiere Pro MCP",
   applicationCategory: "DeveloperApplication",
   operatingSystem: "macOS, Windows",
-  softwareVersion: "1.1.6",
+  softwareVersion: "1.1.7",
   description:
     "Open-source Model Context Protocol server for AI-assisted editing and automation in Adobe Premiere Pro.",
   url: "https://premiere-pro-mcp.fly.dev/",

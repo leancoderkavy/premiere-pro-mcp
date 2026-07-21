@@ -24,7 +24,7 @@ export function Footer() {
             <p className="text-xs font-semibold uppercase tracking-[0.16em] text-zinc-600">Resources</p>
             <div className="mt-4 flex flex-col gap-3 text-sm text-zinc-400">
               <a href="https://github.com/leancoderkavy/premiere-pro-mcp" target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 hover:text-white"><Github className="h-4 w-4" /> GitHub</a>
-              <a href="https://www.npmjs.com/package/premiere-pro-mcp" target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 hover:text-white"><Package className="h-4 w-4" /> npm v1.1.6</a>
+              <a href="https://www.npmjs.com/package/premiere-pro-mcp" target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 hover:text-white"><Package className="h-4 w-4" /> npm package</a>
               <a href="https://github.com/leancoderkavy/premiere-pro-mcp/blob/main/SECURITY.md" target="_blank" rel="noopener noreferrer" className="hover:text-white">Security</a>
             </div>
           </div>

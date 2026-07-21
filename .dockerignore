@@ -1,0 +1,9 @@
+.git
+.github
+node_modules
+dist
+coverage
+landing/node_modules
+landing/.next
+landing/out
+*.log
