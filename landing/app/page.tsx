@@ -10,24 +10,28 @@ const structuredData = {
   "@graph": [
     {
       "@type": "WebSite",
-      "@id": "https://premiere-pro-mcp.fly.dev/#website",
+      "@id": "https://premiere-pro-mcp.com/#website",
       name: "Premiere Pro MCP",
-      url: "https://premiere-pro-mcp.fly.dev/",
+      url: "https://premiere-pro-mcp.com/",
       description: "Open-source AI control and automation for Adobe Premiere Pro through the Model Context Protocol.",
       inLanguage: "en-US",
     },
     {
       "@type": "SoftwareApplication",
-      "@id": "https://premiere-pro-mcp.fly.dev/#software",
+      "@id": "https://premiere-pro-mcp.com/#software",
       name: "Premiere Pro MCP",
       applicationCategory: "DeveloperApplication",
       operatingSystem: "macOS, Windows",
-      softwareVersion: "1.2.0",
+      softwareVersion: "1.2.1",
       description:
         "Open-source Model Context Protocol server with 269 tools for AI-assisted editing and automation in Adobe Premiere Pro.",
-      url: "https://premiere-pro-mcp.fly.dev/",
+      url: "https://premiere-pro-mcp.com/",
       downloadUrl: "https://www.npmjs.com/package/premiere-pro-mcp",
       codeRepository: "https://github.com/leancoderkavy/premiere-pro-mcp",
+      sameAs: [
+        "https://github.com/leancoderkavy/premiere-pro-mcp",
+        "https://www.npmjs.com/package/premiere-pro-mcp",
+      ],
       releaseNotes: "https://github.com/leancoderkavy/premiere-pro-mcp/releases",
       softwareRequirements: "Node.js 18 or newer and Adobe Premiere Pro 2020–2026",
       featureList: [
@@ -48,7 +52,7 @@ const structuredData = {
     },
     {
       "@type": "FAQPage",
-      "@id": "https://premiere-pro-mcp.fly.dev/#faq",
+      "@id": "https://premiere-pro-mcp.com/#faq",
       mainEntity: faqItems.map((item) => ({
         "@type": "Question",
         name: item.question,

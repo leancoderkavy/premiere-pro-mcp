@@ -1,7 +1,7 @@
 {
   "name": "premiere-pro-mcp",
   "version": "1.2.1",
-  "description": "MCP server for controlling Adobe Premiere Pro via CEP and UXP — safe, structured AI-driven video editing",
+  "description": "Open-source MCP server with 269 tools for AI-assisted Adobe Premiere Pro editing, automation, effects, media management, and export.",
   "main": "dist/index.js",
   "type": "module",
   "bin": {
@@ -29,13 +29,13 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/ppmcp/premiere-pro-mcp.git"
+    "url": "git+https://github.com/leancoderkavy/premiere-pro-mcp.git"
   },
-  "homepage": "https://github.com/ppmcp/premiere-pro-mcp#readme",
+  "homepage": "https://premiere-pro-mcp.com/",
   "bugs": {
-    "url": "https://github.com/ppmcp/premiere-pro-mcp/issues"
+    "url": "https://github.com/leancoderkavy/premiere-pro-mcp/issues"
   },
-  "author": "",
+  "author": "Premiere Pro MCP contributors",
   "keywords": [
     "mcp",
     "model-context-protocol",
@@ -48,7 +48,10 @@
     "claude",
     "windsurf",
     "cursor",
-    "automation"
+    "automation",
+    "ai-video-editing",
+    "premiere-automation",
+    "claude-desktop"
   ],
   "license": "MIT",
   "engines": {

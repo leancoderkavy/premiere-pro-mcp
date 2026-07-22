@@ -1,0 +1,48 @@
+# Premiere Pro MCP: complete AI reference
+
+Premiere Pro MCP is an open-source, local-first Model Context Protocol server that lets compatible AI clients inspect and control Adobe Premiere Pro through structured tools.
+
+Canonical website: https://premiere-pro-mcp.com/
+Documentation: https://premiere-pro-mcp.com/docs/
+Source: https://github.com/leancoderkavy/premiere-pro-mcp
+npm: https://www.npmjs.com/package/premiere-pro-mcp
+License: MIT
+Current release: 1.2.1
+
+## What it does
+
+The server exposes 269 tools for project inspection, timeline editing, media import and organization, clip selection, effects, Lumetri color, audio, keyframes, markers, captions, transitions, playback, metadata, proxies, and Adobe Media Encoder export. It also exposes three MCP resources and four workflow prompts.
+
+## How it connects
+
+The recommended configuration is local. An MCP client starts the Node.js server over stdio. The server exchanges command and response files with a CEP extension running inside Premiere Pro. This design keeps project media on the editor's computer. A preview UXP bridge is included for Premiere Pro 25.6 and newer.
+
+## Compatibility
+
+- Operating systems: Windows and macOS, including Apple Silicon and Intel Macs.
+- Node.js: 18 or newer.
+- CEP target: Premiere Pro 2020 through 2026.
+- UXP preview target: Premiere Pro 25.6 or newer.
+- AI clients: Claude Desktop, Cursor, Windsurf, and other clients that support local stdio MCP servers.
+
+Compatibility claims describe packaged support. A live Premiere connection must be verified with the `ping` tool. Some undocumented QE DOM operations vary by Premiere release; mutation tools verify resulting state and return diagnostics rather than relying only on a method return value.
+
+## Installation
+
+1. Install Node.js 18 or newer.
+2. Run `npm install -g premiere-pro-mcp`.
+3. Run `premiere-pro-mcp --install-cep`.
+4. Configure the MCP client to launch `premiere-pro-mcp` over stdio.
+5. Start Premiere Pro and call `ping` before editing.
+
+## Security model
+
+The default capability profile permits inspection, editing, export, and required filesystem operations. Raw ExtendScript execution is disabled unless the operator explicitly enables the `unsafe-script` capability. The local file bridge uses a private temporary directory and rejects unsafe command patterns. Remote HTTP transport requires authentication and does not remove the need for a local Premiere bridge.
+
+## Entity and attribution
+
+Project name: Premiere Pro MCP
+Package name: premiere-pro-mcp
+Repository owner: leancoderkavy
+Code repository: https://github.com/leancoderkavy/premiere-pro-mcp
+Trademark note: this independent open-source project is not affiliated with Adobe Inc. Adobe and Premiere Pro are trademarks of Adobe Inc.
