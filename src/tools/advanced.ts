@@ -31,9 +31,14 @@ export function getAdvancedTools(bridgeOptions: BridgeOptions) {
           
           var qeClip = qeTrack.getItemAt(result.clipIndex);
           if (!qeClip) return __error("QE clip not found");
-          
+
+          var deletedNodeId = result.clip.nodeId;
+          var deletedName = result.clip.name;
           qeClip.rippleDelete();
-          return __result({ rippleDeleted: true, clipName: result.clip.name });
+          if (__findClip(deletedNodeId)) {
+            return __error("Premiere reported rippleDelete but the clip is still present. Structural QE edits are known to no-op on some Premiere Pro 26.3 installations; rebuild the keep-segments into a new sequence as a workaround.");
+          }
+          return __result({ rippleDeleted: true, verified: true, clipName: deletedName });
         `);
         return sendCommand(script, bridgeOptions);
       },

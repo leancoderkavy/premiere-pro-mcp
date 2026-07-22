@@ -202,11 +202,17 @@ export function getTimelineTools(bridgeOptions: BridgeOptions) {
           
           var track = ${trackType === "video" ? `seq.getVideoTrackAt(${trackIndex})` : `seq.getAudioTrackAt(${trackIndex})`};
           if (!track) return __error("Track not found");
-          
+
+          var domTrack = ${trackType === "video" ? `app.project.activeSequence.videoTracks[${trackIndex}]` : `app.project.activeSequence.audioTracks[${trackIndex}]`};
+          var clipCountBefore = domTrack.clips.numItems;
           var timeTicks = __secondsToTicks(${args.time_seconds}).toString();
           track.razor(timeTicks);
-          
-          return __result({ split: true, atSeconds: ${args.time_seconds}, trackIndex: ${trackIndex}, trackType: "${trackType}" });
+
+          var clipCountAfter = domTrack.clips.numItems;
+          if (clipCountAfter <= clipCountBefore) {
+            return __error("Premiere reported razor but the track clip count did not change. Structural QE edits are known to no-op on some Premiere Pro 26.3 installations.");
+          }
+          return __result({ split: true, verified: true, atSeconds: ${args.time_seconds}, trackIndex: ${trackIndex}, trackType: "${trackType}" });
         `);
         return sendCommand(script, bridgeOptions);
       },

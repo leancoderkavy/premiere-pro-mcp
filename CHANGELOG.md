@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [1.2.1] - 2026-07-21
+
 ### Added
 
 - Added `get_capabilities` for machine-readable Windows/macOS runtime, CEP/UXP backend,
@@ -14,6 +16,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- Audio-level writes now convert dB to Premiere's amplitude value and verify the applied value.
+- Audio keyframes now use Premiere `Time` objects and verify each written value.
+- Ripple delete, razor, and native transition tools now verify host state and return actionable
+  errors instead of false success on affected Premiere Pro 26.3 installations. ([#21](https://github.com/leancoderkavy/premiere-pro-mcp/issues/21))
 - Capability profiles now enforce `inspect` and `edit` across the complete tool surface and treat
   expression evaluation as unsafe scripting instead of allowing unclassified tools through.
 - The npm CLI now copies the CEP plugin on macOS, verifies installation metadata, rejects unsupported
