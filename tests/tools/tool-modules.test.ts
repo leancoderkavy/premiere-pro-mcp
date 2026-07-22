@@ -277,6 +277,54 @@ describe("Tool Handler Behavior", () => {
     });
   });
 
+  describe("verified Premiere mutations", () => {
+    it("converts audio dB to amplitude and verifies the readback", async () => {
+      const tools = getAudioTools(bridgeOptions);
+      await (tools.adjust_audio_levels.handler as any)({ node_id: "clip-1", level_db: -6 });
+      const script = mockedSendCommand.mock.calls[0][0];
+      expect(script).toContain("requestedAmplitude");
+      expect(script).toContain("levelProp.getValue()");
+      expect(script).toContain("Premiere did not apply the requested audio level");
+      expect(script).toContain("0.501187");
+    });
+
+    it("uses Time objects and verifies audio keyframe values", async () => {
+      const tools = getAudioTools(bridgeOptions);
+      await (tools.add_audio_keyframes.handler as any)({
+        node_id: "clip-1",
+        keyframes: [{ time_seconds: 1.5, level_db: -12 }],
+      });
+      const script = mockedSendCommand.mock.calls[0][0];
+      expect(script).toContain("new Time()");
+      expect(script).toContain("getValueAtTime(t)");
+      expect(script).toContain("verificationErrors");
+    });
+
+    it("verifies ripple delete and razor postconditions", async () => {
+      await (getAdvancedTools(bridgeOptions).ripple_delete.handler as any)({ node_id: "clip-1" });
+      let script = mockedSendCommand.mock.calls[0][0];
+      expect(script).toContain("if (__findClip(deletedNodeId))");
+
+      vi.clearAllMocks();
+      await (getTimelineTools(bridgeOptions).split_clip.handler as any)({ time_seconds: 2 });
+      script = mockedSendCommand.mock.calls[0][0];
+      expect(script).toContain("clipCountAfter <= clipCountBefore");
+    });
+
+    it("checks transition API availability and verifies track state", async () => {
+      const tools = getTransitionsTools(bridgeOptions);
+      await (tools.add_transition.handler as any)({
+        transition_name: "Cross Dissolve",
+        track_index: 0,
+        cut_point_seconds: 2,
+      });
+      const script = mockedSendCommand.mock.calls[0][0];
+      expect(script).toContain('typeof qeTrack.addTransition !== "function"');
+      expect(script).toContain("transitionCountBefore");
+      expect(script).toContain("domTrack.transitions.numItems <= transitionCountBefore");
+    });
+  });
+
   describe("discovery tools", () => {
     it("get_project_info generates correct script", async () => {
       const tools = getDiscoveryTools(bridgeOptions);

@@ -20,6 +20,7 @@ export function getAudioTools(bridgeOptions: BridgeOptions) {
         required: ["node_id", "level_db"],
       },
       handler: async (args: { node_id: string; level_db: number }) => {
+        const amplitude = Math.pow(10, args.level_db / 20);
         const script = buildToolScript(`
           var result = __findClip("${escapeForExtendScript(args.node_id)}");
           if (!result) return __error("Clip not found");
@@ -31,8 +32,14 @@ export function getAudioTools(bridgeOptions: BridgeOptions) {
             if (comp.displayName === "Volume" || comp.matchName === "audioVolume") {
               for (var p = 0; p < comp.properties.numItems; p++) {
                 if (comp.properties[p].displayName === "Level") {
-                  comp.properties[p].setValue(${args.level_db}, true);
-                  return __result({ adjusted: true, clipName: clip.name, levelDb: ${args.level_db} });
+                  var levelProp = comp.properties[p];
+                  var requestedAmplitude = ${amplitude};
+                  var writeResult = levelProp.setValue(requestedAmplitude, true);
+                  var appliedAmplitude = Number(levelProp.getValue());
+                  if (isNaN(appliedAmplitude) || Math.abs(appliedAmplitude - requestedAmplitude) > 0.0001) {
+                    return __error("Premiere did not apply the requested audio level (requested " + requestedAmplitude + ", read back " + appliedAmplitude + "). Effect-property writes are known to no-op on some Premiere Pro 26.3 installations.");
+                  }
+                  return __result({ adjusted: true, verified: true, clipName: clip.name, levelDb: ${args.level_db}, amplitude: appliedAmplitude, writeResult: writeResult });
                 }
               }
             }
@@ -77,12 +84,17 @@ export function getAudioTools(bridgeOptions: BridgeOptions) {
             const amp = Math.max(Math.pow(10, kf.level_db / 20), 0.0000001);
             return `
             (function() {
-              var kfTime = __secondsToTicks(${kf.time_seconds});
-              var t = kfTime;
-              if (typeof kfTime === "object" && kfTime.toString) t = kfTime.toString();
+              var t = new Time();
+              t.ticks = __secondsToTicks(${kf.time_seconds}).toString();
+              var wrote = false;
               try { levelProp.addKey(t); } catch(e1) {}
-              try { levelProp.setValueAtKey(t, ${amp}, 1); }
-              catch(e2) { try { levelProp.setValueAtTime(t, ${amp}); } catch(e3) {} }
+              try { levelProp.setValueAtKey(t, ${amp}, 1); wrote = true; }
+              catch(e2) { try { levelProp.setValueAtTime(t, ${amp}, 1); wrote = true; } catch(e3) {} }
+              var readBack = NaN;
+              try { readBack = Number(levelProp.getValueAtTime(t)); } catch(e4) {}
+              if (!wrote || isNaN(readBack) || Math.abs(readBack - ${amp}) > 0.0001) {
+                verificationErrors.push("${kf.time_seconds}s requested ${amp}, read back " + readBack);
+              }
             })();`;
           })
           .join("\n");
@@ -108,10 +120,14 @@ export function getAudioTools(bridgeOptions: BridgeOptions) {
 
           if (!levelProp) return __error("Could not find audio Level property");
 
+          var verificationErrors = [];
           try { levelProp.setTimeVarying(true); } catch(e) {}
           ${keyframeCode}
 
-          return __result({ keyframesAdded: ${args.keyframes.length}, clipName: clip.name });
+          if (verificationErrors.length) {
+            return __error("Premiere did not apply one or more audio keyframes: " + verificationErrors.join("; ") + ". Effect-property writes are known to no-op on some Premiere Pro 26.3 installations.");
+          }
+          return __result({ keyframesAdded: ${args.keyframes.length}, verified: true, clipName: clip.name });
         `);
         return sendCommand(script, bridgeOptions);
       },

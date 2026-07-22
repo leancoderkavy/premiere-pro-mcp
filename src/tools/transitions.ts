@@ -71,10 +71,20 @@ export function getTransitionsTools(bridgeOptions: BridgeOptions) {
           var cutTicks = __secondsToTicks(${args.cut_point_seconds}).toString();
           var durationTicks = __secondsToTicks(${duration}).toString();
 
+          if (typeof qeTrack.addTransition !== "function") {
+            return __error("This Premiere build does not expose qeTrack.addTransition; native transition writes are unavailable (confirmed on Premiere Pro 26.3). Use an overlay clip where possible.");
+          }
+          var domTrack = app.project.activeSequence.videoTracks[${args.track_index}];
+          var transitionCountBefore = domTrack.transitions.numItems;
           qeTrack.addTransition(transitionQE, true, cutTicks, durationTicks, "0", false);
+
+          if (domTrack.transitions.numItems <= transitionCountBefore) {
+            return __error("Premiere accepted addTransition but no transition appeared on the track.");
+          }
 
           return __result({
             added: true,
+            verified: true,
             transition: transitionName,
             trackIndex: ${args.track_index},
             atSeconds: ${args.cut_point_seconds},
@@ -141,6 +151,11 @@ export function getTransitionsTools(bridgeOptions: BridgeOptions) {
           if (!transitionQE) return __error("Transition not found: " + transitionName);
 
           var qeTrack = qeSeq.getVideoTrackAt(result.trackIndex);
+          if (!qeTrack || typeof qeTrack.addTransition !== "function") {
+            return __error("This Premiere build does not expose qeTrack.addTransition; native transition writes are unavailable (confirmed on Premiere Pro 26.3). Use an overlay clip where possible.");
+          }
+          var domTrack = app.project.activeSequence.videoTracks[result.trackIndex];
+          var transitionCountBefore = domTrack.transitions.numItems;
           var durationTicks = __secondsToTicks(${duration}).toString();
           var clip = result.clip;
           var position = "${position}";
@@ -153,9 +168,14 @@ export function getTransitionsTools(bridgeOptions: BridgeOptions) {
             var endTicks = clip.end.ticks;
             qeTrack.addTransition(transitionQE, true, endTicks, durationTicks, "0", false);
           }
+
+          if (domTrack.transitions.numItems <= transitionCountBefore) {
+            return __error("Premiere accepted addTransition but no transition appeared on the track.");
+          }
           
           return __result({
             added: true,
+            verified: true,
             transition: transitionName,
             clipName: clip.name,
             position: position,
@@ -217,7 +237,11 @@ export function getTransitionsTools(bridgeOptions: BridgeOptions) {
 
           var track = seq.videoTracks[${trackIndex}];
           var qeTrack = qeSeq.getVideoTrackAt(${trackIndex});
+          if (!qeTrack || typeof qeTrack.addTransition !== "function") {
+            return __error("This Premiere build does not expose qeTrack.addTransition; native transition writes are unavailable (confirmed on Premiere Pro 26.3). Use overlay clips where possible.");
+          }
           var durationTicks = __secondsToTicks(${duration}).toString();
+          var transitionCountBefore = track.transitions.numItems;
           var count = 0;
           
           // Add transition at each cut point (between consecutive clips)
@@ -228,9 +252,16 @@ export function getTransitionsTools(bridgeOptions: BridgeOptions) {
               count++;
             } catch(e) {}
           }
+
+          var transitionCountAfter = track.transitions.numItems;
+          var verifiedCount = transitionCountAfter - transitionCountBefore;
+          if (verifiedCount !== count) {
+            return __error("Premiere reported " + count + " transition writes but only " + verifiedCount + " appeared on the track.");
+          }
           
           return __result({
-            added: count,
+            added: verifiedCount,
+            verified: true,
             transition: transitionName,
             trackIndex: ${trackIndex},
             durationSeconds: ${duration}

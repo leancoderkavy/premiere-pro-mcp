@@ -27,7 +27,12 @@ An [MCP (Model Context Protocol)](https://modelcontextprotocol.io) server that l
 
 The AI handles the entire workflow through 269 tools spanning the supported ExtendScript, QE DOM, and safe edit-planning surfaces.
 
-### What's new in 1.2.0
+### What's new in 1.2.1
+
+- Mutation tools now verify Premiere state, audio dB is converted to amplitude correctly, and
+  affected Premiere Pro 26.3 hosts return actionable errors instead of false success.
+
+### Added in 1.2.0
 
 - **Safe edit plans:** preview compound insert/remove operations, bind approval to a SHA-256 plan token, then apply the validated plan in one bridge command.
 - **Capability profiles:** unsafe scripting is disabled by default and requires explicit `unsafe-script` authority.
@@ -251,6 +256,14 @@ The file-based IPC bridge is simple, reliable, and works across macOS and Window
 | `split_clip` / `trim_clip` / `move_clip` | Basic edits |
 | `set_clip_properties` | Opacity, scale, rotation, position |
 | `link_selection` / `unlink_selection` | Link/unlink A/V |
+
+> **Premiere Pro 26.3 compatibility:** some installations silently ignore QE structural edits
+> (`ripple_delete`, razor/split) and existing effect-parameter writes. These tools now verify
+> the resulting sequence state and return an error instead of a false success. For structural
+> edits, rebuild the wanted source ranges into a new sequence with `create_sequence` and
+> `add_to_timeline`. Native transitions are unavailable when the host does not expose
+> `qeTrack.addTransition`; overlay clips remain a workaround for transitions that do not need
+> to blend adjacent source frames. See [issue #21](https://github.com/leancoderkavy/premiere-pro-mcp/issues/21).
 
 ### Effects & Color (8)
 
