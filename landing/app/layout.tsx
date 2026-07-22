@@ -12,10 +12,10 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
-const siteUrl = "https://premiere-pro-mcp.fly.dev";
-const title = "Premiere Pro MCP | Control Adobe Premiere Pro with AI";
+const siteUrl = "https://premiere-pro-mcp.com";
+const title = "Premiere Pro MCP Server – AI Video Editing Tools";
 const description =
-  "Open-source MCP server with 269 tools for AI-assisted timeline editing, effects, color, keyframes, media management, and export in Adobe Premiere Pro.";
+  "Connect AI assistants to Adobe Premiere Pro with 269 local-first MCP tools for timeline editing, effects, color, media management, automation, and export.";
 
 export const metadata: Metadata = {
   title: {
@@ -37,9 +37,13 @@ export const metadata: Metadata = {
     "Premiere Pro extension",
     "Premiere Pro scripting",
     "Claude MCP server",
+    "Premiere Pro MCP server",
+    "Cursor Premiere Pro integration",
+    "Claude Premiere Pro integration",
+    "AI video editor tools",
     "video editing automation",
   ],
-  authors: [{ name: "Premiere Pro MCP" }],
+  authors: [{ name: "Premiere Pro MCP contributors", url: "https://github.com/leancoderkavy/premiere-pro-mcp/graphs/contributors" }],
   openGraph: {
     title,
     description,
@@ -74,7 +78,7 @@ export const metadata: Metadata = {
     },
   },
   alternates: {
-    canonical: siteUrl,
+    canonical: "/",
   },
 };
 

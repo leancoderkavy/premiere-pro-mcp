@@ -5,6 +5,7 @@ const navItems = [
   { label: "How it works", href: "#how-it-works" },
   { label: "Install", href: "#install" },
   { label: "FAQ", href: "#faq" },
+  { label: "Docs", href: "/docs/" },
 ]
 
 const proofItems = [

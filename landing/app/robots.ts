@@ -16,7 +16,7 @@ export default function robots(): MetadataRoute.Robots {
         disallow: ["/mcp", "/health"],
       },
     ],
-    sitemap: "https://premiere-pro-mcp.fly.dev/sitemap.xml",
-    host: "https://premiere-pro-mcp.fly.dev",
+    sitemap: "https://premiere-pro-mcp.com/sitemap.xml",
+    host: "https://premiere-pro-mcp.com",
   }
 }

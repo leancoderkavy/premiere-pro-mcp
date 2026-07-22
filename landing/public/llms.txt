@@ -6,7 +6,8 @@ Premiere Pro MCP exposes 269 structured tools for timeline editing, effects, Lum
 
 ## Canonical resources
 
-- Website: https://premiere-pro-mcp.fly.dev/
+- Website: https://premiere-pro-mcp.com/
+- Documentation: https://premiere-pro-mcp.com/docs/
 - Source and documentation: https://github.com/leancoderkavy/premiere-pro-mcp
 - npm package: https://www.npmjs.com/package/premiere-pro-mcp
 - Releases: https://github.com/leancoderkavy/premiere-pro-mcp/releases
@@ -20,3 +21,14 @@ Premiere Pro MCP exposes 269 structured tools for timeline editing, effects, Lum
 4. Add `premiere-pro-mcp` as a local stdio server in an MCP-compatible client.
 
 The recommended setup runs the MCP server and CEP bridge locally. Project media stays on the editor's machine. Remote HTTP transport requires authentication and a working connection to the local Premiere Pro bridge.
+
+## Verified facts
+
+- Current project release: 1.2.1.
+- Tool surface: 269 structured MCP tools, 3 resources, and 4 prompts.
+- Supported desktop platforms: Windows and macOS.
+- Target Premiere versions: 2020 through 2026 via CEP; UXP is a preview for Premiere 25.6 and newer.
+- License: MIT.
+- The project is independent and is not affiliated with Adobe Inc.
+
+For detailed capability categories, setup examples, security boundaries, and compatibility notes, read https://premiere-pro-mcp.com/llms-full.txt.
