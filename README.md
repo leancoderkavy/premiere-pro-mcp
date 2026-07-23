@@ -8,7 +8,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Node.js](https://img.shields.io/badge/Node.js-18%2B-green.svg)](https://nodejs.org)
-[![MCP](https://img.shields.io/badge/MCP-1.27-purple.svg)](https://modelcontextprotocol.io)
+[![MCP](https://img.shields.io/badge/MCP-1.29-purple.svg)](https://modelcontextprotocol.io)
 [![npm](https://img.shields.io/npm/v/premiere-pro-mcp.svg)](https://www.npmjs.com/package/premiere-pro-mcp)
 [![Fly.io](https://img.shields.io/badge/Fly.io-deployed-7C3AED.svg)](https://premiere-pro-mcp.fly.dev)
 [![Premiere Pro](https://img.shields.io/badge/Premiere%20Pro-2020--2026-9999FF.svg)](https://www.adobe.com/products/premiere.html)
@@ -19,9 +19,9 @@
 
 ## What is this?
 
-An [MCP (Model Context Protocol)](https://modelcontextprotocol.io) server that lets AI assistants like **Claude**, **Windsurf**, **Cursor**, or any MCP-compatible client directly control Adobe Premiere Pro — importing media, editing timelines, applying effects, managing keyframes, exporting, and more.
+An [MCP (Model Context Protocol)](https://modelcontextprotocol.io) server that lets AI assistants like **Claude**, **Windsurf**, **Cursor**, **GitHub Copilot**, or any MCP-compatible client directly control Adobe Premiere Pro — importing media, editing timelines, applying effects, managing keyframes, exporting, and more.
 
-```
+```text
 "Add the B-roll clips to V2, apply a cross dissolve between each, color correct them to match the A-roll, and export a 1080p ProRes."
 ```
 
@@ -54,7 +54,7 @@ npm install -g premiere-pro-mcp
 **Option B — Clone from source:**
 
 ```bash
-git clone https://github.com/ppmcp/premiere-pro-mcp.git
+git clone https://github.com/leancoderkavy/premiere-pro-mcp.git
 cd premiere-pro-mcp
 npm install
 npm run build
@@ -155,6 +155,24 @@ Add to `.cursor/mcp.json` in your project or global config:
 
 </details>
 
+<details>
+<summary><strong>GitHub Copilot (VS Code)</strong></summary>
+
+Add to your VS Code MCP server configuration:
+
+```json
+{
+  "mcpServers": {
+    "premiere-pro": {
+      "command": "node",
+      "args": ["/absolute/path/to/premiere-pro-mcp/dist/index.js"]
+    }
+  }
+}
+```
+
+</details>
+
 ### 4. Verify the bridge in Premiere Pro
 
 1. Open (or restart) Premiere Pro
@@ -167,7 +185,7 @@ The default bridge directory is derived from the operating system on both sides,
 ### Windows and macOS capability coverage
 
 | Surface | Windows | macOS | Verification boundary |
-|---|---|---|---|
+| :------ | :------ | :---- | :-------------------- |
 | CEP production bridge | Premiere Pro 2020–2026 | Premiere Pro 2020–2026 | Run `get_capabilities`, then `ping` with Premiere open |
 | UXP preview bridge | Premiere Pro 25.6+ | Premiere Pro 25.6+ | Live loopback WebSocket and host API verification required |
 | npm CEP installer | Copies plugin and verifies `REG_SZ` debug keys | Copies plugin and verifies the installed manifest/debug settings | Restart Premiere after installation |
@@ -180,28 +198,31 @@ The default bridge directory is derived from the operating system on both sides,
 ## Architecture
 
 **Local (stdio):**
-```
-┌───────────────┐   stdio (MCP)   ┌──────────────┐   File-based IPC   ┌──────────────┐
-│  AI Client    │ ◄──────────────► │  MCP Server  │ ◄────────────────► │  CEP Plugin  │
+
+```text
+┌───────────────┐   stdio (MCP)    ┌──────────────┐   File-based IPC   ┌───────────────┐
+│  AI Client    │ ◄──────────────► │  MCP Server  │ ◄────────────────► │  CEP Plugin   │
 │  (Claude,     │                  │  (Node.js /  │   .jsx commands    │  (runs inside │
-│   Windsurf,   │                  │   TypeScript) │   .json responses  │   Premiere)   │
-│   Cursor)     │                  └──────────────┘                    └──────┬────────┘
+│   Windsurf,   │                  │  TypeScript) │   .json responses  │  Premiere)    │
+│   Cursor,     │                  └──────────────┘                    └──────┬────────┘
+│   Copilot)    │                                                             │
 └───────────────┘                                                             │ evalScript()
                                                                               ▼
-                                                                       ┌──────────────┐
+                                                                       ┌───────────────┐
                                                                        │  Premiere Pro │
                                                                        │  ExtendScript │
                                                                        │  + QE DOM     │
-                                                                       └──────────────┘
+                                                                       └───────────────┘
 ```
 
 **Remote (HTTP/SSE — Fly.io):**
-```
+
+```text
 ┌───────────────┐  HTTP+SSE (MCP)  ┌─────────────────────┐   File-based IPC   ┌──────────────┐
-│  AI Client    │ ◄───────────────► │  MCP Server         │ ◄────────────────► │  CEP Plugin  │
-│  (any MCP     │                   │  premiere-pro-mcp   │   .jsx / .json     │  (Premiere)  │
-│   client)     │                   │  .fly.dev           │   shared volume    └──────────────┘
-└───────────────┘                   └─────────────────────┘
+│  AI Client    │ ◄──────────────► │  MCP Server         │ ◄────────────────► │  CEP Plugin  │
+│  (any MCP     │                  │  premiere-pro-mcp   │   .jsx / .json     │  (Premiere)  │
+│   client)     │                  │  .fly.dev           │   shared volume    └──────────────┘
+└───────────────┘                  └─────────────────────┘
 ```
 
 1. AI client invokes an MCP tool (e.g., `add_to_timeline`)
@@ -214,12 +235,12 @@ The file-based IPC bridge is simple, reliable, and works across macOS and Window
 
 ---
 
-## Tools (268)
+## Tools (269)
 
 ### Discovery & Inspection (10 + 10)
 
 | Tool | Description |
-|------|-------------|
+| :--- | :---------- |
 | `get_project_info` | Current project name, path, sequences, items |
 | `get_active_sequence` | Detailed active sequence with all clips |
 | `list_project_items` | All items in the project panel |
@@ -234,7 +255,7 @@ The file-based IPC bridge is simple, reliable, and works across macOS and Window
 ### Project Management (26)
 
 | Tool | Description |
-|------|-------------|
+| :--- | :---------- |
 | `save_project` / `save_project_as` / `open_project` | File operations |
 | `create_project` / `close_project` | Project lifecycle |
 | `import_media` / `import_folder` / `import_ae_comps` | Import media and AE comps |
@@ -247,7 +268,7 @@ The file-based IPC bridge is simple, reliable, and works across macOS and Window
 ### Timeline & Editing (10 + 27 advanced)
 
 | Tool | Description |
-|------|-------------|
+| :--- | :---------- |
 | `add_to_timeline` / `overwrite_clip` | Insert and overwrite edits |
 | `ripple_delete` | Remove clip and close gap (QE) |
 | `roll_edit` / `slide_edit` / `slip_edit` | Professional trim modes (QE) |
@@ -268,7 +289,7 @@ The file-based IPC bridge is simple, reliable, and works across macOS and Window
 ### Effects & Color (8)
 
 | Tool | Description |
-|------|-------------|
+| :--- | :---------- |
 | `apply_effect` / `apply_audio_effect` | Apply by name (QE) |
 | `remove_effect` / `remove_all_effects` | Remove effects |
 | `color_correct` | Lumetri: exposure, contrast, temperature, etc. |
@@ -278,7 +299,7 @@ The file-based IPC bridge is simple, reliable, and works across macOS and Window
 ### Keyframes (8)
 
 | Tool | Description |
-|------|-------------|
+| :--- | :---------- |
 | `add_keyframe` / `get_keyframes` | Create and read keyframes |
 | `remove_keyframe` / `remove_keyframe_range` | Delete keyframes |
 | `set_keyframe_interpolation` | Linear / Hold / Bezier |
@@ -288,7 +309,7 @@ The file-based IPC bridge is simple, reliable, and works across macOS and Window
 ### Export & Encoding (14)
 
 | Tool | Description |
-|------|-------------|
+| :--- | :---------- |
 | `export_sequence` | Export via Adobe Media Encoder |
 | `capture_frame` | Export frame as PNG, return as base64 image |
 | `export_as_fcp_xml` / `export_aaf` / `export_omf` | Interchange formats |
@@ -298,7 +319,7 @@ The file-based IPC bridge is simple, reliable, and works across macOS and Window
 ### Source Monitor & Playback (7 + 4)
 
 | Tool | Description |
-|------|-------------|
+| :--- | :---------- |
 | `open_in_source` / `close_source_monitor` | Source monitor control |
 | `insert_from_source` / `overwrite_from_source` | 3-point editing |
 | `play_timeline` / `stop_playback` | Playback control (QE) |
@@ -307,7 +328,7 @@ The file-based IPC bridge is simple, reliable, and works across macOS and Window
 ### Selection & Clipboard (7 + 6)
 
 | Tool | Description |
-|------|-------------|
+| :--- | :---------- |
 | `select_clips_by_name` / `select_clips_in_range` | Smart selection |
 | `copy_effects_between_clips` | Copy effects via QE |
 | `batch_apply_effect` | Apply effect to multiple clips |
@@ -316,7 +337,7 @@ The file-based IPC bridge is simple, reliable, and works across macOS and Window
 ### Media Properties (16)
 
 | Tool | Description |
-|------|-------------|
+| :--- | :---------- |
 | `set_offline` / `has_proxy` / `detach_proxy` | Offline/proxy management |
 | `set_override_frame_rate` | Override FPS |
 | `set_scale_to_frame_size` | Auto-scale to sequence frame |
@@ -326,7 +347,7 @@ The file-based IPC bridge is simple, reliable, and works across macOS and Window
 ### Sequence Management (11)
 
 | Tool | Description |
-|------|-------------|
+| :--- | :---------- |
 | `create_sequence` / `create_sequence_from_preset` | Create sequences from `.sqpreset` files without opening Premiere's modal dialog |
 | `duplicate_sequence` / `delete_sequence` | Manage sequences |
 | `auto_reframe_sequence` | Auto-reframe for social media |
@@ -336,14 +357,14 @@ The file-based IPC bridge is simple, reliable, and works across macOS and Window
 ### Workspace & Captions (2 + 1)
 
 | Tool | Description |
-|------|-------------|
+| :--- | :---------- |
 | `get_workspaces` / `set_workspace` | Switch workspace layouts |
 | `create_caption_track` | Create caption/subtitle tracks |
 
 ### Scripting (6)
 
 | Tool | Description |
-|------|-------------|
+| :--- | :----------- |
 | `execute_extendscript` | Run arbitrary ExtendScript (ES3) |
 | `evaluate_expression` | Quick one-line eval |
 | `send_raw_script` | Bypass security validation (advanced) |
@@ -359,7 +380,7 @@ Track targeting, batch operations, markers, audio levels, motion/transform, meta
 The server exposes three LLM context resources and four workflow prompts:
 
 | Resource URI | Description |
-|-------------|-------------|
+| :----------- | :---------- |
 | `config://premiere-instructions` | Best practices: workflow order, timeline rules, effect tips, error handling |
 | `config://extendscript-reference` | Complete ExtendScript API reference for writing custom scripts |
 | `config://premiere-workflows` | Machine-readable catalog for rough cuts, dialogue cleanup, captions, and delivery |
@@ -391,7 +412,7 @@ A live instance is running at **https://premiere-pro-mcp.fly.dev**.
 
 ```bash
 # Clone and deploy your own instance
-git clone https://github.com/ppmcp/premiere-pro-mcp.git
+git clone https://github.com/leancoderkavy/premiere-pro-mcp.git
 cd premiere-pro-mcp
 fly apps create your-app-name
 # Required: add bearer token auth
@@ -400,6 +421,7 @@ fly deploy --remote-only
 ```
 
 Then connect with:
+
 ```json
 {
   "mcpServers": {
@@ -419,11 +441,12 @@ Then connect with:
 ## Environment Variables
 
 | Variable | Description | Default |
-|----------|-------------|--------|
+| :------- | :---------- | :------ |
 | `PREMIERE_TEMP_DIR` | Shared temp directory for MCP ↔ CEP communication | OS temp dir + `/premiere-mcp-bridge` |
 | `PREMIERE_TIMEOUT_MS` | Command timeout in milliseconds | `30000` |
 | `PREMIERE_DEFAULT_SEQUENCE_PRESET` | Override the auto-discovered `.sqpreset` used by `create_sequence` | auto-discovered |
 | `PREMIERE_MCP_CAPABILITIES` | Comma-separated authority profile; add `unsafe-script` only when raw scripting is required | `inspect,edit,export,filesystem` |
+| `PREMIERE_MCP_DEBUG` | Set to `1` (or `true`) to emit verbose server diagnostics to stderr | unset |
 | `PORT` | HTTP port (HTTP/SSE transport only) | `3000` |
 | `MCP_AUTH_TOKEN` | Bearer token required by the HTTP transport | unset |
 | `ALLOW_UNAUTHENTICATED` | Set to `1` to run HTTP without auth (unsafe; throwaway instances only) | unset |
@@ -432,16 +455,16 @@ Then connect with:
 
 ## Project Structure
 
-```
+```text
 premiere-pro-mcp/
 ├── src/
 │   ├── index.ts                 # Entry point — stdio transport setup
 │   ├── http-server.ts           # Entry point — HTTP/SSE transport (Fly.io / remote)
-│   ├── server.ts                # MCP server — registers 268 tools + 3 resources + 4 prompts
+│   ├── server.ts                # MCP server — registers 269 tools + 3 resources + 4 prompts
 │   ├── bridge/
 │   │   ├── file-bridge.ts       # File-based IPC (write .jsx, poll .json)
 │   │   └── script-builder.ts    # ExtendScript generator with ES3 helpers
-│   ├── tools/                   # 28 tool modules
+│   ├── tools/                   # 29 tool modules
 │   │   ├── discovery.ts         # Project discovery and queries
 │   │   ├── project.ts           # Project management and import
 │   │   ├── media.ts             # Media and proxy management

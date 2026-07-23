@@ -6,6 +6,23 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Changed
+
+- Upgraded toolchain dependencies to TypeScript 7, Vitest 4, Zod 4, `@types/node` 26, and
+  `@modelcontextprotocol/sdk` 1.29 in `package.json` and synchronized `package-lock.json`.
+
+### Fixed
+
+- Added `"types": ["node"]` to `tsconfig.json` so TypeScript 7 resolves Node built-in module
+  imports and globals during compilation.
+- Updated JSON-schema conversion in `src/server.ts` for Zod 4's `z.record(keyType, valueType)`
+  signature when handling open object maps.
+
+### Validation
+
+- `npm run build` passes with TypeScript 7.
+- `npm test` passes with Vitest 4 (12 files, 346 tests).
+
 ## [1.2.1] - 2026-07-21
 
 ### Added

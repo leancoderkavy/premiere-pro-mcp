@@ -8,16 +8,16 @@ Thanks for your interest in contributing! This guide covers how to get set up an
 
 - Node.js 18+
 - Adobe Premiere Pro 2020+ (for testing)
-- An MCP-compatible client (Claude Desktop, Windsurf, Cursor, etc.)
+- An MCP-compatible client (Claude Desktop, Windsurf, Cursor, GitHub Copilot, etc.)
 
 ### Getting started
 
 ```bash
-git clone https://github.com/ppmcp/premiere-pro-mcp.git
+git clone https://github.com/leancoderkavy/premiere-pro-mcp.git
 cd premiere-pro-mcp
 npm install
 npm run dev          # Watch mode — recompiles on changes
-npm run install-cep  # Symlink CEP plugin into Premiere Pro
+npm run install-cep  # Install CEP plugin into Premiere Pro
 ```
 
 After making changes, restart your MCP client to pick up the new tools.
@@ -31,7 +31,7 @@ src/
 ├── bridge/
 │   ├── file-bridge.ts    # File-based IPC (.jsx → .json)
 │   └── script-builder.ts # Generates ES3 ExtendScript with helpers
-└── tools/                # 28 tool modules
+└── tools/                # 29 tool modules
 ```
 
 ### How tools work
@@ -134,7 +134,7 @@ When filing an issue, please include:
 
 - Premiere Pro version
 - OS (macOS/Windows)
-- MCP client (Claude Desktop, Windsurf, Cursor, etc.)
+- MCP client (Claude Desktop, Windsurf, Cursor, GitHub Copilot, etc.)
 - The tool name and parameters you used
 - The error message or unexpected behavior
 - Whether the CEP panel shows "Running"
