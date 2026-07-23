@@ -25,7 +25,9 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
-    "install-cep": "node dist/index.js --install-cep"
+    "install-cep": "node dist/index.js --install-cep",
+    "publish:npm": "node scripts/publish-npm.mjs",
+    "publish:npm:dry-run": "node scripts/publish-npm.mjs --dry-run"
   },
   "repository": {
     "type": "git",

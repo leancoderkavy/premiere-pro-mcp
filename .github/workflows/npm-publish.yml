@@ -1,0 +1,49 @@
+name: Publish npm
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: npm dist-tag to publish
+        required: true
+        default: latest
+      skip_tests:
+        description: Skip tests after build
+        required: true
+        default: "false"
+        type: choice
+        options:
+          - "false"
+          - "true"
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    name: Publish package
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          registry-url: https://registry.npmjs.org/
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - if: ${{ inputs.skip_tests != 'true' }}
+        run: npm test
+      - run: npm pack --dry-run
+      - name: Fail if version is already published
+        shell: bash
+        run: |
+          VERSION="$(node -p "require('./package.json').version")"
+          if npm view "premiere-pro-mcp@${VERSION}" version >/dev/null 2>&1; then
+            echo "premiere-pro-mcp@${VERSION} is already published."
+            exit 1
+          fi
+      - name: Publish to npm
+        run: npm publish --access public --tag "${{ inputs.tag }}"
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

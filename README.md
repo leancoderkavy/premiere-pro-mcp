@@ -31,6 +31,8 @@ The AI handles the entire workflow through 269 tools spanning the supported Exte
 
 - Mutation tools now verify Premiere state, audio dB is converted to amplitude correctly, and
   affected Premiere Pro 26.3 hosts return actionable errors instead of false success.
+- npm publishing now has a guided local helper and a GitHub Actions workflow so releases can be
+  published without repeating manual auth and validation steps.
 
 ### Added in 1.2.0
 
@@ -75,6 +77,33 @@ npm run install-cep
 ```
 
 This installs the plugin into Premiere Pro's per-user extensions folder and enables debug mode.
+
+---
+
+## Publishing to npm
+
+The easiest repeatable path is the GitHub Actions workflow:
+
+1. Create an npm automation token with publish access for `premiere-pro-mcp`.
+2. Add it to this repository as the `NPM_TOKEN` GitHub Actions secret.
+3. Open **Actions -> Publish npm -> Run workflow** and keep the default `latest` tag.
+
+The workflow installs dependencies, builds, runs tests, verifies the packed files, refuses to
+republish an existing version, then publishes to npm with the token.
+
+For local publishing, use the guided helper:
+
+```bash
+npm run publish:npm
+```
+
+Useful local variants:
+
+```bash
+npm run publish:npm:dry-run
+NPM_OTP=123456 npm run publish:npm
+NPM_TOKEN=npm_xxx npm run publish:npm
+```
 
 <details>
 <summary>Manual installation (macOS)</summary>

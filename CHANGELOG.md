@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+
+- Added `npm run publish:npm`, `npm run publish:npm:dry-run`, and a manual GitHub Actions npm
+  publish workflow that validates builds, tests, packed files, duplicate versions, and token-based
+  publishing before pushing a release to the registry.
+
 ## [1.2.1] - 2026-07-21
 
 ### Added
