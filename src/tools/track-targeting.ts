@@ -1,10 +1,14 @@
-import { buildToolScript, escapeForExtendScript } from "../bridge/script-builder.js";
+import {
+  buildToolScript,
+  escapeForExtendScript,
+} from "../bridge/script-builder.js";
 import { sendCommand, BridgeOptions } from "../bridge/file-bridge.js";
 
 export function getTrackTargetingTools(bridgeOptions: BridgeOptions) {
   return {
     set_target_track: {
-      description: "Set a track as targeted (active for insert/overwrite edits). Only one video and one audio track can be targeted at a time.",
+      description:
+        "Set a track as targeted (active for insert/overwrite edits). Only one video and one audio track can be targeted at a time.",
       parameters: {
         type: "object" as const,
         properties: {
@@ -19,12 +23,17 @@ export function getTrackTargetingTools(bridgeOptions: BridgeOptions) {
           },
           targeted: {
             type: "boolean",
-            description: "Whether to target (true) or untarget (false) the track",
+            description:
+              "Whether to target (true) or untarget (false) the track",
           },
         },
         required: ["track_type", "track_index", "targeted"],
       },
-      handler: async (args: { track_type: string; track_index: number; targeted: boolean }) => {
+      handler: async (args: {
+        track_type: string;
+        track_index: number;
+        targeted: boolean;
+      }) => {
         const script = buildToolScript(`
           var seq = app.project.activeSequence;
           if (!seq) return __error("No active sequence");
@@ -79,13 +88,15 @@ export function getTrackTargetingTools(bridgeOptions: BridgeOptions) {
     },
 
     set_all_tracks_targeted: {
-      description: "Set all tracks targeted or untargeted. Useful before insert/overwrite edits.",
+      description:
+        "Set all tracks targeted or untargeted. Useful before insert/overwrite edits.",
       parameters: {
         type: "object" as const,
         properties: {
           targeted: {
             type: "boolean",
-            description: "Whether to target (true) or untarget (false) all tracks",
+            description:
+              "Whether to target (true) or untarget (false) all tracks",
           },
           track_type: {
             type: "string",
@@ -140,7 +151,11 @@ export function getTrackTargetingTools(bridgeOptions: BridgeOptions) {
         },
         required: ["track_type", "track_index", "name"],
       },
-      handler: async (args: { track_type: string; track_index: number; name: string }) => {
+      handler: async (args: {
+        track_type: string;
+        track_index: number;
+        name: string;
+      }) => {
         const script = buildToolScript(`
           var seq = app.project.activeSequence;
           if (!seq) return __error("No active sequence");
@@ -159,7 +174,8 @@ export function getTrackTargetingTools(bridgeOptions: BridgeOptions) {
     },
 
     get_track_info: {
-      description: "Get detailed information about a specific track: name, clip count, muted, locked, targeted, and list of all clips.",
+      description:
+        "Get detailed information about a specific track: name, clip count, muted, locked, targeted, and list of all clips.",
       parameters: {
         type: "object" as const,
         properties: {
@@ -228,13 +244,15 @@ export function getTrackTargetingTools(bridgeOptions: BridgeOptions) {
     },
 
     razor_all_tracks: {
-      description: "Razor (split) all clips at the playhead position across all tracks, or at a specific time.",
+      description:
+        "Razor (split) all clips at the playhead position across all tracks, or at a specific time.",
       parameters: {
         type: "object" as const,
         properties: {
           time_seconds: {
             type: "number",
-            description: "Time to razor at in seconds (uses playhead position if omitted)",
+            description:
+              "Time to razor at in seconds (uses playhead position if omitted)",
           },
           track_type: {
             type: "string",
@@ -251,9 +269,11 @@ export function getTrackTargetingTools(bridgeOptions: BridgeOptions) {
           if (!seq) return __error("No active sequence");
 
           var qeSeq = qe.project.getActiveSequence();
-          ${args.time_seconds !== undefined
-            ? `var ticks = __secondsToTicks(${args.time_seconds}).toString();`
-            : `var ticks = seq.getPlayerPosition().ticks;`}
+          ${
+            args.time_seconds !== undefined
+              ? `var ticks = __secondsToTicks(${args.time_seconds}).toString();`
+              : `var ticks = seq.getPlayerPosition().ticks;`
+          }
 
           var razored = 0;
           if ("${trackType}" !== "audio") {
@@ -280,7 +300,8 @@ export function getTrackTargetingTools(bridgeOptions: BridgeOptions) {
     },
 
     set_clip_start_time: {
-      description: "Set the start time (timecode offset) of a project item. This shifts where timecode begins for the source media.",
+      description:
+        "Set the start time (timecode offset) of a project item. This shifts where timecode begins for the source media.",
       parameters: {
         type: "object" as const,
         properties: {
@@ -311,7 +332,8 @@ export function getTrackTargetingTools(bridgeOptions: BridgeOptions) {
     },
 
     clear_item_in_out: {
-      description: "Clear in and/or out points on a project item (reset to full duration).",
+      description:
+        "Clear in and/or out points on a project item (reset to full duration).",
       parameters: {
         type: "object" as const,
         properties: {
@@ -330,7 +352,11 @@ export function getTrackTargetingTools(bridgeOptions: BridgeOptions) {
         },
         required: ["item_id"],
       },
-      handler: async (args: { item_id: string; clear_in?: boolean; clear_out?: boolean }) => {
+      handler: async (args: {
+        item_id: string;
+        clear_in?: boolean;
+        clear_out?: boolean;
+      }) => {
         const clearIn = args.clear_in !== false;
         const clearOut = args.clear_out !== false;
         const script = buildToolScript(`
@@ -347,7 +373,8 @@ export function getTrackTargetingTools(bridgeOptions: BridgeOptions) {
     },
 
     set_item_in_out: {
-      description: "Set in and/or out points on a project item in the project panel (marks source range for editing).",
+      description:
+        "Set in and/or out points on a project item in the project panel (marks source range for editing).",
       parameters: {
         type: "object" as const,
         properties: {
@@ -370,23 +397,36 @@ export function getTrackTargetingTools(bridgeOptions: BridgeOptions) {
         },
         required: ["item_id"],
       },
-      handler: async (args: { item_id: string; in_seconds?: number; out_seconds?: number; media_type?: number }) => {
+      handler: async (args: {
+        item_id: string;
+        in_seconds?: number;
+        out_seconds?: number;
+        media_type?: number;
+      }) => {
         const mediaType = args.media_type ?? 4;
         const script = buildToolScript(`
           var item = __findProjectItem("${escapeForExtendScript(args.item_id)}");
           if (!item) return __error("Item not found");
 
-          ${args.in_seconds !== undefined ? `
+          ${
+            args.in_seconds !== undefined
+              ? `
           var inTime = new Time();
           inTime.seconds = ${args.in_seconds};
           item.setInPoint(inTime.ticks, ${mediaType});
-          ` : ""}
+          `
+              : ""
+          }
 
-          ${args.out_seconds !== undefined ? `
+          ${
+            args.out_seconds !== undefined
+              ? `
           var outTime = new Time();
           outTime.seconds = ${args.out_seconds};
           item.setOutPoint(outTime.ticks, ${mediaType});
-          ` : ""}
+          `
+              : ""
+          }
 
           return __result({ item: item.name, inSet: ${args.in_seconds !== undefined}, outSet: ${args.out_seconds !== undefined} });
         `);
@@ -401,22 +441,31 @@ export function getTrackTargetingTools(bridgeOptions: BridgeOptions) {
         properties: {
           first_file_path: {
             type: "string",
-            description: "Full path to the first image in the sequence (e.g., /path/to/frame_001.png)",
+            description:
+              "Full path to the first image in the sequence (e.g., /path/to/frame_001.png)",
           },
           target_bin: {
             type: "string",
-            description: "Target bin name to import into (optional, imports to root if omitted)",
+            description:
+              "Target bin name to import into (optional, imports to root if omitted)",
           },
         },
         required: ["first_file_path"],
       },
-      handler: async (args: { first_file_path: string; target_bin?: string }) => {
+      handler: async (args: {
+        first_file_path: string;
+        target_bin?: string;
+      }) => {
         const script = buildToolScript(`
           var targetBin = app.project.rootItem;
-          ${args.target_bin ? `
+          ${
+            args.target_bin
+              ? `
           var found = __findProjectItem("${escapeForExtendScript(args.target_bin)}");
           if (found && found.type === 2) targetBin = found;
-          ` : ""}
+          `
+              : ""
+          }
 
           app.project.importFiles(["${escapeForExtendScript(args.first_file_path)}"], true, targetBin, true);
 
@@ -427,7 +476,8 @@ export function getTrackTargetingTools(bridgeOptions: BridgeOptions) {
     },
 
     set_clip_position: {
-      description: "Set the Position property on a video clip's Motion effect. Values are in pixels.",
+      description:
+        "Set the Position property on a video clip's Motion effect. Values are in pixels.",
       parameters: {
         type: "object" as const,
         properties: {
@@ -483,7 +533,8 @@ export function getTrackTargetingTools(bridgeOptions: BridgeOptions) {
           },
           scale: {
             type: "number",
-            description: "Scale value (100 = original size, 200 = 2x, 50 = half)",
+            description:
+              "Scale value (100 = original size, 200 = 2x, 50 = half)",
           },
         },
         required: ["node_id", "scale"],
@@ -525,7 +576,8 @@ export function getTrackTargetingTools(bridgeOptions: BridgeOptions) {
           },
           degrees: {
             type: "number",
-            description: "Rotation in degrees (0-360, can exceed for multiple rotations)",
+            description:
+              "Rotation in degrees (0-360, can exceed for multiple rotations)",
           },
         },
         required: ["node_id", "degrees"],
@@ -557,7 +609,8 @@ export function getTrackTargetingTools(bridgeOptions: BridgeOptions) {
     },
 
     set_clip_anchor_point: {
-      description: "Set the Anchor Point property on a video clip's Motion effect.",
+      description:
+        "Set the Anchor Point property on a video clip's Motion effect.",
       parameters: {
         type: "object" as const,
         properties: {
@@ -655,7 +708,8 @@ export function getTrackTargetingTools(bridgeOptions: BridgeOptions) {
           },
           volume_db: {
             type: "number",
-            description: "Volume in dB (0 = unity, negative = quieter, positive = louder)",
+            description:
+              "Volume in dB (0 = unity, negative = quieter, positive = louder)",
           },
         },
         required: ["node_id", "volume_db"],
@@ -697,7 +751,8 @@ export function getTrackTargetingTools(bridgeOptions: BridgeOptions) {
           },
           pan: {
             type: "number",
-            description: "Pan value (-100 = full left, 0 = center, 100 = full right)",
+            description:
+              "Pan value (-100 = full left, 0 = center, 100 = full right)",
           },
         },
         required: ["node_id", "pan"],
@@ -729,13 +784,15 @@ export function getTrackTargetingTools(bridgeOptions: BridgeOptions) {
     },
 
     batch_rename_clips: {
-      description: "Rename multiple clips on the timeline using a pattern. Supports sequential numbering.",
+      description:
+        "Rename multiple clips on the timeline using a pattern. Supports sequential numbering.",
       parameters: {
         type: "object" as const,
         properties: {
           pattern: {
             type: "string",
-            description: "Name pattern. Use {n} for sequential number, {name} for original name (e.g., 'Scene_{n}', '{name}_v2')",
+            description:
+              "Name pattern. Use {n} for sequential number, {name} for original name (e.g., 'Scene_{n}', '{name}_v2')",
           },
           track_type: {
             type: "string",
@@ -748,7 +805,8 @@ export function getTrackTargetingTools(bridgeOptions: BridgeOptions) {
           },
           selected_only: {
             type: "boolean",
-            description: "Only rename selected clips (default: false, renames all on track)",
+            description:
+              "Only rename selected clips (default: false, renames all on track)",
           },
           start_number: {
             type: "number",
@@ -757,7 +815,13 @@ export function getTrackTargetingTools(bridgeOptions: BridgeOptions) {
         },
         required: ["pattern", "track_type", "track_index"],
       },
-      handler: async (args: { pattern: string; track_type: string; track_index: number; selected_only?: boolean; start_number?: number }) => {
+      handler: async (args: {
+        pattern: string;
+        track_type: string;
+        track_index: number;
+        selected_only?: boolean;
+        start_number?: number;
+      }) => {
         const startNum = args.start_number ?? 1;
         const script = buildToolScript(`
           app.enableQE();
@@ -768,9 +832,11 @@ export function getTrackTargetingTools(bridgeOptions: BridgeOptions) {
           if (${args.track_index} >= tracks.numTracks) return __error("Track index out of range");
 
           var qeSeq = qe.project.getActiveSequence();
-          var qeTrack = ${args.track_type === "video"
-            ? `qeSeq.getVideoTrackAt(${args.track_index})`
-            : `qeSeq.getAudioTrackAt(${args.track_index})`};
+          var qeTrack = ${
+            args.track_type === "video"
+              ? `qeSeq.getVideoTrackAt(${args.track_index})`
+              : `qeSeq.getAudioTrackAt(${args.track_index})`
+          };
 
           var track = tracks[${args.track_index}];
           var renamed = 0;
@@ -797,7 +863,8 @@ export function getTrackTargetingTools(bridgeOptions: BridgeOptions) {
     },
 
     batch_enable_disable: {
-      description: "Enable or disable multiple clips at once (selected, track, or all).",
+      description:
+        "Enable or disable multiple clips at once (selected, track, or all).",
       parameters: {
         type: "object" as const,
         properties: {
@@ -822,7 +889,12 @@ export function getTrackTargetingTools(bridgeOptions: BridgeOptions) {
         },
         required: ["enabled", "target"],
       },
-      handler: async (args: { enabled: boolean; target: string; track_type?: string; track_index?: number }) => {
+      handler: async (args: {
+        enabled: boolean;
+        target: string;
+        track_type?: string;
+        track_index?: number;
+      }) => {
         const script = buildToolScript(`
           var seq = app.project.activeSequence;
           if (!seq) return __error("No active sequence");
@@ -862,7 +934,8 @@ export function getTrackTargetingTools(bridgeOptions: BridgeOptions) {
         properties: {
           ripple: {
             type: "boolean",
-            description: "If true, close the gap after removing (ripple delete). Default: false",
+            description:
+              "If true, close the gap after removing (ripple delete). Default: false",
           },
         },
       },
@@ -952,8 +1025,9 @@ export function getTrackTargetingTools(bridgeOptions: BridgeOptions) {
             return __error("No .epr presets found. Is Adobe Media Encoder installed alongside Premiere Pro?");
           }
 
-          ${args.format
-            ? `var needle = "${escapeForExtendScript(args.format)}".toLowerCase();
+          ${
+            args.format
+              ? `var needle = "${escapeForExtendScript(args.format)}".toLowerCase();
                var filtered = [];
                for (var i = 0; i < presets.length; i++) {
                  var p = presets[i];
@@ -962,7 +1036,8 @@ export function getTrackTargetingTools(bridgeOptions: BridgeOptions) {
                  }
                }
                presets = filtered;`
-            : ""}
+              : ""
+          }
 
           return __result({ count: presets.length, presets: presets });
         `);
@@ -971,7 +1046,8 @@ export function getTrackTargetingTools(bridgeOptions: BridgeOptions) {
     },
 
     get_qe_clip_info: {
-      description: "Get QE DOM information about a clip, including properties not available through the standard API.",
+      description:
+        "Get QE DOM information about a clip, including properties not available through the standard API.",
       parameters: {
         type: "object" as const,
         properties: {
@@ -991,15 +1067,21 @@ export function getTrackTargetingTools(bridgeOptions: BridgeOptions) {
         },
         required: ["track_type", "track_index", "clip_index"],
       },
-      handler: async (args: { track_type: string; track_index: number; clip_index: number }) => {
+      handler: async (args: {
+        track_type: string;
+        track_index: number;
+        clip_index: number;
+      }) => {
         const script = buildToolScript(`
           app.enableQE();
           var qeSeq = qe.project.getActiveSequence();
           if (!qeSeq) return __error("No active sequence");
 
-          var qeTrack = ${args.track_type === "video"
-            ? `qeSeq.getVideoTrackAt(${args.track_index})`
-            : `qeSeq.getAudioTrackAt(${args.track_index})`};
+          var qeTrack = ${
+            args.track_type === "video"
+              ? `qeSeq.getVideoTrackAt(${args.track_index})`
+              : `qeSeq.getAudioTrackAt(${args.track_index})`
+          };
           if (!qeTrack) return __error("Track not found");
 
           var qeClip = qeTrack.getItemAt(${args.clip_index});
@@ -1087,7 +1169,8 @@ export function getTrackTargetingTools(bridgeOptions: BridgeOptions) {
     },
 
     set_poster_frame: {
-      description: "Set the poster frame (thumbnail) for a project item at a specific time.",
+      description:
+        "Set the poster frame (thumbnail) for a project item at a specific time.",
       parameters: {
         type: "object" as const,
         properties: {
@@ -1145,6 +1228,7 @@ export function getTrackTargetingTools(bridgeOptions: BridgeOptions) {
         properties: {
           item_ids: {
             type: "array",
+            items: { type: "string" },
             description: "Array of node IDs or names of items to move",
           },
           target_bin: {
@@ -1179,7 +1263,8 @@ export function getTrackTargetingTools(bridgeOptions: BridgeOptions) {
     },
 
     set_anti_alias_quality: {
-      description: "Set the anti-alias quality on a clip's Motion effect (useful for scaled/rotated clips).",
+      description:
+        "Set the anti-alias quality on a clip's Motion effect (useful for scaled/rotated clips).",
       parameters: {
         type: "object" as const,
         properties: {
@@ -1222,7 +1307,8 @@ export function getTrackTargetingTools(bridgeOptions: BridgeOptions) {
     },
 
     set_uniform_scale: {
-      description: "Toggle uniform scale on a clip's Motion effect. When enabled, Scale Width and Scale Height are linked.",
+      description:
+        "Toggle uniform scale on a clip's Motion effect. When enabled, Scale Width and Scale Height are linked.",
       parameters: {
         type: "object" as const,
         properties: {
@@ -1232,7 +1318,8 @@ export function getTrackTargetingTools(bridgeOptions: BridgeOptions) {
           },
           uniform: {
             type: "boolean",
-            description: "true for uniform (linked), false for non-uniform (independent width/height)",
+            description:
+              "true for uniform (linked), false for non-uniform (independent width/height)",
           },
         },
         required: ["node_id", "uniform"],
@@ -1264,7 +1351,8 @@ export function getTrackTargetingTools(bridgeOptions: BridgeOptions) {
     },
 
     set_scale_width_height: {
-      description: "Set independent Scale Width and Scale Height on a clip (requires Uniform Scale to be OFF).",
+      description:
+        "Set independent Scale Width and Scale Height on a clip (requires Uniform Scale to be OFF).",
       parameters: {
         type: "object" as const,
         properties: {
@@ -1283,7 +1371,11 @@ export function getTrackTargetingTools(bridgeOptions: BridgeOptions) {
         },
         required: ["node_id", "scale_width", "scale_height"],
       },
-      handler: async (args: { node_id: string; scale_width: number; scale_height: number }) => {
+      handler: async (args: {
+        node_id: string;
+        scale_width: number;
+        scale_height: number;
+      }) => {
         const script = buildToolScript(`
           var result = __findClip("${escapeForExtendScript(args.node_id)}");
           if (!result) return __error("Clip not found");
