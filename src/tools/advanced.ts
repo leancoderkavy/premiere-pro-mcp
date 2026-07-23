@@ -1,10 +1,14 @@
-import { buildToolScript, escapeForExtendScript } from "../bridge/script-builder.js";
+import {
+  buildToolScript,
+  escapeForExtendScript,
+} from "../bridge/script-builder.js";
 import { sendCommand, BridgeOptions } from "../bridge/file-bridge.js";
 
 export function getAdvancedTools(bridgeOptions: BridgeOptions) {
   return {
     ripple_delete: {
-      description: "Ripple delete a clip (removes clip and closes the gap). Uses QE DOM.",
+      description:
+        "Ripple delete a clip (removes clip and closes the gap). Uses QE DOM.",
       parameters: {
         type: "object" as const,
         properties: {
@@ -45,7 +49,8 @@ export function getAdvancedTools(bridgeOptions: BridgeOptions) {
     },
 
     roll_edit: {
-      description: "Perform a roll edit on a clip (adjusts the edit point between two adjacent clips). Uses QE DOM.",
+      description:
+        "Perform a roll edit on a clip (adjusts the edit point between two adjacent clips). Uses QE DOM.",
       parameters: {
         type: "object" as const,
         properties: {
@@ -55,7 +60,8 @@ export function getAdvancedTools(bridgeOptions: BridgeOptions) {
           },
           offset_seconds: {
             type: "number",
-            description: "Offset in seconds (positive = roll right, negative = roll left)",
+            description:
+              "Offset in seconds (positive = roll right, negative = roll left)",
           },
         },
         required: ["node_id", "offset_seconds"],
@@ -84,7 +90,8 @@ export function getAdvancedTools(bridgeOptions: BridgeOptions) {
     },
 
     slide_edit: {
-      description: "Perform a slide edit on a clip (moves clip without changing its duration, adjusting adjacent clips). Uses QE DOM.",
+      description:
+        "Perform a slide edit on a clip (moves clip without changing its duration, adjusting adjacent clips). Uses QE DOM.",
       parameters: {
         type: "object" as const,
         properties: {
@@ -94,7 +101,8 @@ export function getAdvancedTools(bridgeOptions: BridgeOptions) {
           },
           offset_seconds: {
             type: "number",
-            description: "Offset in seconds (positive = slide right, negative = slide left)",
+            description:
+              "Offset in seconds (positive = slide right, negative = slide left)",
           },
         },
         required: ["node_id", "offset_seconds"],
@@ -123,7 +131,8 @@ export function getAdvancedTools(bridgeOptions: BridgeOptions) {
     },
 
     slip_edit: {
-      description: "Perform a slip edit on a clip (changes source in/out points without moving clip on timeline). Uses QE DOM.",
+      description:
+        "Perform a slip edit on a clip (changes source in/out points without moving clip on timeline). Uses QE DOM.",
       parameters: {
         type: "object" as const,
         properties: {
@@ -133,7 +142,8 @@ export function getAdvancedTools(bridgeOptions: BridgeOptions) {
           },
           offset_seconds: {
             type: "number",
-            description: "Offset in seconds (positive = slip forward in source, negative = slip backward)",
+            description:
+              "Offset in seconds (positive = slip forward in source, negative = slip backward)",
           },
         },
         required: ["node_id", "offset_seconds"],
@@ -177,7 +187,10 @@ export function getAdvancedTools(bridgeOptions: BridgeOptions) {
         },
         required: ["node_id", "target_track_index"],
       },
-      handler: async (args: { node_id: string; target_track_index: number }) => {
+      handler: async (args: {
+        node_id: string;
+        target_track_index: number;
+      }) => {
         const script = buildToolScript(`
           app.enableQE();
           var qeSeq = qe.project.getActiveSequence();
@@ -234,7 +247,8 @@ export function getAdvancedTools(bridgeOptions: BridgeOptions) {
     },
 
     set_clip_speed_qe: {
-      description: "Set clip playback speed using QE DOM (more reliable than ExtendScript). Supports reverse.",
+      description:
+        "Set clip playback speed using QE DOM (more reliable than ExtendScript). Supports reverse.",
       parameters: {
         type: "object" as const,
         properties: {
@@ -244,7 +258,8 @@ export function getAdvancedTools(bridgeOptions: BridgeOptions) {
           },
           speed_percent: {
             type: "number",
-            description: "Speed as percentage (100 = normal, 200 = 2x, 50 = half speed)",
+            description:
+              "Speed as percentage (100 = normal, 200 = 2x, 50 = half speed)",
           },
           reverse: {
             type: "boolean",
@@ -253,7 +268,11 @@ export function getAdvancedTools(bridgeOptions: BridgeOptions) {
         },
         required: ["node_id", "speed_percent"],
       },
-      handler: async (args: { node_id: string; speed_percent: number; reverse?: boolean }) => {
+      handler: async (args: {
+        node_id: string;
+        speed_percent: number;
+        reverse?: boolean;
+      }) => {
         const script = buildToolScript(`
           app.enableQE();
           var qeSeq = qe.project.getActiveSequence();
@@ -360,7 +379,8 @@ export function getAdvancedTools(bridgeOptions: BridgeOptions) {
     },
 
     set_time_interpolation: {
-      description: "Set time interpolation type for a clip (Frame Sampling, Frame Blending, Optical Flow). Uses QE DOM.",
+      description:
+        "Set time interpolation type for a clip (Frame Sampling, Frame Blending, Optical Flow). Uses QE DOM.",
       parameters: {
         type: "object" as const,
         properties: {
@@ -370,12 +390,16 @@ export function getAdvancedTools(bridgeOptions: BridgeOptions) {
           },
           interpolation_type: {
             type: "number",
-            description: "0 = Frame Sampling, 1 = Frame Blending, 2 = Optical Flow",
+            description:
+              "0 = Frame Sampling, 1 = Frame Blending, 2 = Optical Flow",
           },
         },
         required: ["node_id", "interpolation_type"],
       },
-      handler: async (args: { node_id: string; interpolation_type: number }) => {
+      handler: async (args: {
+        node_id: string;
+        interpolation_type: number;
+      }) => {
         const script = buildToolScript(`
           app.enableQE();
           var qeSeq = qe.project.getActiveSequence();
@@ -503,7 +527,8 @@ export function getAdvancedTools(bridgeOptions: BridgeOptions) {
     },
 
     link_selection: {
-      description: "Link the currently selected video and audio clips in the active sequence",
+      description:
+        "Link the currently selected video and audio clips in the active sequence",
       parameters: {},
       handler: async () => {
         const script = buildToolScript(`
@@ -517,7 +542,8 @@ export function getAdvancedTools(bridgeOptions: BridgeOptions) {
     },
 
     unlink_selection: {
-      description: "Unlink the currently selected video and audio clips in the active sequence",
+      description:
+        "Unlink the currently selected video and audio clips in the active sequence",
       parameters: {},
       handler: async () => {
         const script = buildToolScript(`
@@ -531,7 +557,8 @@ export function getAdvancedTools(bridgeOptions: BridgeOptions) {
     },
 
     overwrite_clip: {
-      description: "Overwrite a project item onto the timeline (replaces existing clips at the insertion point)",
+      description:
+        "Overwrite a project item onto the timeline (replaces existing clips at the insertion point)",
       parameters: {
         type: "object" as const,
         properties: {
@@ -554,7 +581,12 @@ export function getAdvancedTools(bridgeOptions: BridgeOptions) {
         },
         required: ["item_id"],
       },
-      handler: async (args: { item_id: string; start_seconds?: number; track_index?: number; audio_track_index?: number }) => {
+      handler: async (args: {
+        item_id: string;
+        start_seconds?: number;
+        track_index?: number;
+        audio_track_index?: number;
+      }) => {
         const startSeconds = args.start_seconds ?? 0;
         const trackIndex = args.track_index ?? 0;
         const audioTrackIndex = args.audio_track_index ?? 0;
@@ -581,7 +613,8 @@ export function getAdvancedTools(bridgeOptions: BridgeOptions) {
     },
 
     create_sequence_from_clips: {
-      description: "Create a new sequence by automatically placing project items in order",
+      description:
+        "Create a new sequence by automatically placing project items in order",
       parameters: {
         type: "object" as const,
         properties: {
@@ -591,14 +624,19 @@ export function getAdvancedTools(bridgeOptions: BridgeOptions) {
           },
           item_ids: {
             type: "array",
-            description: "Array of project item names or node IDs to include in order",
+            items: { type: "string" },
+            description:
+              "Array of project item names or node IDs to include in order",
           },
         },
         required: ["name", "item_ids"],
       },
       handler: async (args: { name: string; item_ids: string[] }) => {
         const itemLookups = args.item_ids
-          .map((id, i) => `var item${i} = __findProjectItem("${escapeForExtendScript(id)}"); if (!item${i}) return __error("Item not found: ${escapeForExtendScript(id)}"); items.push(item${i});`)
+          .map(
+            (id, i) =>
+              `var item${i} = __findProjectItem("${escapeForExtendScript(id)}"); if (!item${i}) return __error("Item not found: ${escapeForExtendScript(id)}"); items.push(item${i});`,
+          )
           .join("\n          ");
 
         const script = buildToolScript(`
@@ -620,7 +658,8 @@ export function getAdvancedTools(bridgeOptions: BridgeOptions) {
         properties: {
           sequence_id: {
             type: "string",
-            description: "Sequence name or ID. Uses active sequence if omitted.",
+            description:
+              "Sequence name or ID. Uses active sequence if omitted.",
           },
         },
       },
@@ -640,13 +679,15 @@ export function getAdvancedTools(bridgeOptions: BridgeOptions) {
     },
 
     export_as_project: {
-      description: "Export a sequence as a standalone Premiere Pro project file",
+      description:
+        "Export a sequence as a standalone Premiere Pro project file",
       parameters: {
         type: "object" as const,
         properties: {
           sequence_id: {
             type: "string",
-            description: "Sequence name or ID. Uses active sequence if omitted.",
+            description:
+              "Sequence name or ID. Uses active sequence if omitted.",
           },
           output_path: {
             type: "string",
@@ -676,7 +717,8 @@ export function getAdvancedTools(bridgeOptions: BridgeOptions) {
         properties: {
           sequence_id: {
             type: "string",
-            description: "Sequence name or ID. Uses active sequence if omitted.",
+            description:
+              "Sequence name or ID. Uses active sequence if omitted.",
           },
           start_seconds: {
             type: "number",
@@ -685,7 +727,10 @@ export function getAdvancedTools(bridgeOptions: BridgeOptions) {
         },
         required: ["start_seconds"],
       },
-      handler: async (args: { sequence_id?: string; start_seconds: number }) => {
+      handler: async (args: {
+        sequence_id?: string;
+        start_seconds: number;
+      }) => {
         const seqLookup = args.sequence_id
           ? `var seq = __findSequence("${escapeForExtendScript(args.sequence_id)}"); if (!seq) return __error("Sequence not found");`
           : `var seq = app.project.activeSequence; if (!seq) return __error("No active sequence");`;
@@ -701,7 +746,8 @@ export function getAdvancedTools(bridgeOptions: BridgeOptions) {
     },
 
     scene_edit_detection: {
-      description: "Perform scene edit detection on the selected clips in the active sequence",
+      description:
+        "Perform scene edit detection on the selected clips in the active sequence",
       parameters: {},
       handler: async () => {
         const script = buildToolScript(`
@@ -715,13 +761,15 @@ export function getAdvancedTools(bridgeOptions: BridgeOptions) {
     },
 
     delete_preview_files: {
-      description: "Delete all preview/render cache files for the project. Uses QE DOM.",
+      description:
+        "Delete all preview/render cache files for the project. Uses QE DOM.",
       parameters: {
         type: "object" as const,
         properties: {
           media_type: {
             type: "string",
-            description: "Type of preview files to delete: 'video', 'audio', or 'all' (default: 'all')",
+            description:
+              "Type of preview files to delete: 'video', 'audio', or 'all' (default: 'all')",
           },
         },
       },
@@ -743,7 +791,8 @@ export function getAdvancedTools(bridgeOptions: BridgeOptions) {
     },
 
     add_tracks: {
-      description: "Add video and/or audio tracks to the active sequence. Uses QE DOM.",
+      description:
+        "Add video and/or audio tracks to the active sequence. Uses QE DOM.",
       parameters: {
         type: "object" as const,
         properties: {
@@ -753,7 +802,8 @@ export function getAdvancedTools(bridgeOptions: BridgeOptions) {
           },
           audio_tracks: {
             type: "number",
-            description: "Number of standard stereo audio tracks to add (default: 0)",
+            description:
+              "Number of standard stereo audio tracks to add (default: 0)",
           },
           audio_mono_tracks: {
             type: "number",
@@ -795,7 +845,8 @@ export function getAdvancedTools(bridgeOptions: BridgeOptions) {
     },
 
     set_color_value: {
-      description: "Set a color value on an effect property (e.g., tint color, fill color)",
+      description:
+        "Set a color value on an effect property (e.g., tint color, fill color)",
       parameters: {
         type: "object" as const,
         properties: {
@@ -828,7 +879,15 @@ export function getAdvancedTools(bridgeOptions: BridgeOptions) {
             description: "Blue (0-255)",
           },
         },
-        required: ["node_id", "component_name", "property_name", "alpha", "red", "green", "blue"],
+        required: [
+          "node_id",
+          "component_name",
+          "property_name",
+          "alpha",
+          "red",
+          "green",
+          "blue",
+        ],
       },
       handler: async (args: {
         node_id: string;
@@ -901,7 +960,8 @@ export function getAdvancedTools(bridgeOptions: BridgeOptions) {
     },
 
     get_linked_items: {
-      description: "Get all clips in the sequence that are linked to the same source as a given clip",
+      description:
+        "Get all clips in the sequence that are linked to the same source as a given clip",
       parameters: {
         type: "object" as const,
         properties: {
@@ -936,7 +996,8 @@ export function getAdvancedTools(bridgeOptions: BridgeOptions) {
     },
 
     get_mogrt_component: {
-      description: "Get MOGRT (Motion Graphics Template) component parameters from a clip",
+      description:
+        "Get MOGRT (Motion Graphics Template) component parameters from a clip",
       parameters: {
         type: "object" as const,
         properties: {

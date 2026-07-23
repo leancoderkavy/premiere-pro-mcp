@@ -1,4 +1,7 @@
-import { buildToolScript, escapeForExtendScript } from "../bridge/script-builder.js";
+import {
+  buildToolScript,
+  escapeForExtendScript,
+} from "../bridge/script-builder.js";
 import { sendCommand, BridgeOptions } from "../bridge/file-bridge.js";
 
 export function getProjectTools(bridgeOptions: BridgeOptions) {
@@ -24,7 +27,8 @@ export function getProjectTools(bridgeOptions: BridgeOptions) {
         properties: {
           path: {
             type: "string",
-            description: "Full file path to save the project to (e.g., '/Users/me/projects/MyProject.prproj')",
+            description:
+              "Full file path to save the project to (e.g., '/Users/me/projects/MyProject.prproj')",
           },
         },
         required: ["path"],
@@ -178,7 +182,9 @@ export function getProjectTools(bridgeOptions: BridgeOptions) {
           },
           comp_names: {
             type: "array",
-            description: "Array of composition names to import. If omitted, imports all comps.",
+            items: { type: "string" },
+            description:
+              "Array of composition names to import. If omitted, imports all comps.",
           },
           target_bin: {
             type: "string",
@@ -187,13 +193,19 @@ export function getProjectTools(bridgeOptions: BridgeOptions) {
         },
         required: ["ae_project_path"],
       },
-      handler: async (args: { ae_project_path: string; comp_names?: string[]; target_bin?: string }) => {
+      handler: async (args: {
+        ae_project_path: string;
+        comp_names?: string[];
+        target_bin?: string;
+      }) => {
         const binLookup = args.target_bin
           ? `var targetBin = __findProjectItem("${escapeForExtendScript(args.target_bin)}"); if (!targetBin) return __error("Bin not found");`
           : `var targetBin = app.project.rootItem;`;
 
         if (args.comp_names && args.comp_names.length > 0) {
-          const comps = args.comp_names.map(c => `"${escapeForExtendScript(c)}"`).join(", ");
+          const comps = args.comp_names
+            .map((c) => `"${escapeForExtendScript(c)}"`)
+            .join(", ");
           const script = buildToolScript(`
             ${binLookup}
             app.project.importAEComps("${escapeForExtendScript(args.ae_project_path)}", [${comps}], targetBin);
@@ -291,7 +303,8 @@ export function getProjectTools(bridgeOptions: BridgeOptions) {
     },
 
     find_items_by_media_path: {
-      description: "Find project items whose media path contains the given search string",
+      description:
+        "Find project items whose media path contains the given search string",
       parameters: {
         type: "object" as const,
         properties: {
@@ -323,7 +336,8 @@ export function getProjectTools(bridgeOptions: BridgeOptions) {
     },
 
     start_batch_encode: {
-      description: "Start encoding all items in the Adobe Media Encoder render queue",
+      description:
+        "Start encoding all items in the Adobe Media Encoder render queue",
       parameters: {},
       handler: async () => {
         const script = buildToolScript(`
@@ -335,7 +349,8 @@ export function getProjectTools(bridgeOptions: BridgeOptions) {
     },
 
     add_custom_metadata_field: {
-      description: "Add a custom metadata field to the project's metadata schema",
+      description:
+        "Add a custom metadata field to the project's metadata schema",
       parameters: {
         type: "object" as const,
         properties: {
@@ -349,12 +364,17 @@ export function getProjectTools(bridgeOptions: BridgeOptions) {
           },
           field_type: {
             type: "number",
-            description: "Type of the field: 0 = Integer, 1 = Real, 2 = String, 3 = Boolean",
+            description:
+              "Type of the field: 0 = Integer, 1 = Real, 2 = String, 3 = Boolean",
           },
         },
         required: ["field_name", "field_label", "field_type"],
       },
-      handler: async (args: { field_name: string; field_label: string; field_type: number }) => {
+      handler: async (args: {
+        field_name: string;
+        field_label: string;
+        field_type: number;
+      }) => {
         const script = buildToolScript(`
           app.project.addPropertyToProjectMetadataSchema("${escapeForExtendScript(args.field_name)}", "${escapeForExtendScript(args.field_label)}", ${args.field_type});
           return __result({ added: true, name: "${escapeForExtendScript(args.field_name)}", label: "${escapeForExtendScript(args.field_label)}" });
@@ -373,14 +393,21 @@ export function getProjectTools(bridgeOptions: BridgeOptions) {
           },
           sequence_ids: {
             type: "array",
-            description: "Array of sequence IDs to import from the source project. If omitted, all sequences are imported.",
+            items: { type: "string" },
+            description:
+              "Array of sequence IDs to import from the source project. If omitted, all sequences are imported.",
           },
         },
         required: ["project_path"],
       },
-      handler: async (args: { project_path: string; sequence_ids?: string[] }) => {
+      handler: async (args: {
+        project_path: string;
+        sequence_ids?: string[];
+      }) => {
         if (args.sequence_ids && args.sequence_ids.length > 0) {
-          const ids = args.sequence_ids.map(id => `"${escapeForExtendScript(id)}"`).join(", ");
+          const ids = args.sequence_ids
+            .map((id) => `"${escapeForExtendScript(id)}"`)
+            .join(", ");
           const script = buildToolScript(`
             app.project.importSequences("${escapeForExtendScript(args.project_path)}", [${ids}]);
             return __result({ imported: true, sequenceIds: [${ids}] });
@@ -397,7 +424,8 @@ export function getProjectTools(bridgeOptions: BridgeOptions) {
     },
 
     create_bars_and_tone: {
-      description: "Create a Bars and Tone synthetic media item in the project (useful for leader/calibration)",
+      description:
+        "Create a Bars and Tone synthetic media item in the project (useful for leader/calibration)",
       parameters: {
         type: "object" as const,
         properties: {
@@ -411,15 +439,22 @@ export function getProjectTools(bridgeOptions: BridgeOptions) {
           },
           timebase: {
             type: "string",
-            description: "Timebase as ticks-per-second string (default uses sequence timebase)",
+            description:
+              "Timebase as ticks-per-second string (default uses sequence timebase)",
           },
           name: {
             type: "string",
-            description: "Name for the bars and tone item (default: 'Bars and Tone')",
+            description:
+              "Name for the bars and tone item (default: 'Bars and Tone')",
           },
         },
       },
-      handler: async (args: { width?: number; height?: number; timebase?: string; name?: string }) => {
+      handler: async (args: {
+        width?: number;
+        height?: number;
+        timebase?: string;
+        name?: string;
+      }) => {
         const w = args.width ?? 1920;
         const h = args.height ?? 1080;
         const name = args.name ?? "Bars and Tone";
@@ -476,7 +511,8 @@ export function getProjectTools(bridgeOptions: BridgeOptions) {
     },
 
     get_insertion_bin: {
-      description: "Get the current target bin for new imports (the bin that is currently focused in the Project panel)",
+      description:
+        "Get the current target bin for new imports (the bin that is currently focused in the Project panel)",
       parameters: {},
       handler: async () => {
         const script = buildToolScript(`
@@ -489,7 +525,8 @@ export function getProjectTools(bridgeOptions: BridgeOptions) {
     },
 
     get_project_panel_metadata: {
-      description: "Get the current project panel metadata/column configuration as XML",
+      description:
+        "Get the current project panel metadata/column configuration as XML",
       parameters: {},
       handler: async () => {
         const script = buildToolScript(`
@@ -502,13 +539,15 @@ export function getProjectTools(bridgeOptions: BridgeOptions) {
     },
 
     set_project_panel_metadata: {
-      description: "Set the project panel metadata/column configuration from XML",
+      description:
+        "Set the project panel metadata/column configuration from XML",
       parameters: {
         type: "object" as const,
         properties: {
           metadata_xml: {
             type: "string",
-            description: "XML string containing the project panel metadata configuration",
+            description:
+              "XML string containing the project panel metadata configuration",
           },
         },
         required: ["metadata_xml"],
@@ -523,7 +562,8 @@ export function getProjectTools(bridgeOptions: BridgeOptions) {
     },
 
     get_graphics_white_luminance: {
-      description: "Get the graphics white luminance value (HDR setting) for the project",
+      description:
+        "Get the graphics white luminance value (HDR setting) for the project",
       parameters: {},
       handler: async () => {
         const script = buildToolScript(`
@@ -535,7 +575,8 @@ export function getProjectTools(bridgeOptions: BridgeOptions) {
     },
 
     set_graphics_white_luminance: {
-      description: "Set the graphics white luminance value (HDR setting) for the project",
+      description:
+        "Set the graphics white luminance value (HDR setting) for the project",
       parameters: {
         type: "object" as const,
         properties: {
@@ -562,7 +603,8 @@ export function getProjectTools(bridgeOptions: BridgeOptions) {
         properties: {
           scratch_disk_type: {
             type: "string",
-            description: "Type: 'capturedVideo', 'capturedAudio', 'videoPreview', 'audioPreview', 'autoSave', 'ccLibraries'",
+            description:
+              "Type: 'capturedVideo', 'capturedAudio', 'videoPreview', 'audioPreview', 'autoSave', 'ccLibraries'",
           },
           path: {
             type: "string",

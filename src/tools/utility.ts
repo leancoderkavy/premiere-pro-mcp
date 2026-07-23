@@ -1,10 +1,14 @@
-import { buildToolScript, escapeForExtendScript } from "../bridge/script-builder.js";
+import {
+  buildToolScript,
+  escapeForExtendScript,
+} from "../bridge/script-builder.js";
 import { sendCommand, BridgeOptions } from "../bridge/file-bridge.js";
 
 export function getUtilityTools(bridgeOptions: BridgeOptions) {
   return {
     delete_project_item: {
-      description: "Delete a project item (clip, bin, etc.) from the project panel. This removes it from the project but does not affect timeline instances.",
+      description:
+        "Delete a project item (clip, bin, etc.) from the project panel. This removes it from the project but does not affect timeline instances.",
       parameters: {
         type: "object" as const,
         properties: {
@@ -29,12 +33,14 @@ export function getUtilityTools(bridgeOptions: BridgeOptions) {
     },
 
     delete_multiple_project_items: {
-      description: "Delete multiple project items at once from the project panel.",
+      description:
+        "Delete multiple project items at once from the project panel.",
       parameters: {
         type: "object" as const,
         properties: {
           item_ids: {
             type: "array",
+            items: { type: "string" },
             description: "Array of node IDs or names of items to delete",
           },
         },
@@ -89,7 +95,8 @@ export function getUtilityTools(bridgeOptions: BridgeOptions) {
     },
 
     add_adjustment_layer: {
-      description: "Add an adjustment layer to the active sequence via QE DOM. The layer is added at the playhead position on the specified track.",
+      description:
+        "Add an adjustment layer to the active sequence via QE DOM. The layer is added at the playhead position on the specified track.",
       parameters: {
         type: "object" as const,
         properties: {
@@ -162,33 +169,43 @@ export function getUtilityTools(bridgeOptions: BridgeOptions) {
     },
 
     freeze_frame: {
-      description: "Create a freeze frame from a clip at a specific time. Exports the frame and imports it back as a still image.",
+      description:
+        "Create a freeze frame from a clip at a specific time. Exports the frame and imports it back as a still image.",
       parameters: {
         type: "object" as const,
         properties: {
           time_seconds: {
             type: "number",
-            description: "Time in the sequence to freeze (in seconds). Uses playhead if omitted.",
+            description:
+              "Time in the sequence to freeze (in seconds). Uses playhead if omitted.",
           },
           output_path: {
             type: "string",
-            description: "Full path for the exported frame (e.g., /path/to/freeze.png)",
+            description:
+              "Full path for the exported frame (e.g., /path/to/freeze.png)",
           },
           duration_seconds: {
             type: "number",
-            description: "Duration of the freeze frame on the timeline (default: 2)",
+            description:
+              "Duration of the freeze frame on the timeline (default: 2)",
           },
         },
         required: ["output_path"],
       },
-      handler: async (args: { time_seconds?: number; output_path: string; duration_seconds?: number }) => {
+      handler: async (args: {
+        time_seconds?: number;
+        output_path: string;
+        duration_seconds?: number;
+      }) => {
         const script = buildToolScript(`
           var seq = app.project.activeSequence;
           if (!seq) return __error("No active sequence");
 
-          ${args.time_seconds !== undefined
-            ? `var timeTicks = __secondsToTicks(${args.time_seconds}).toString();`
-            : `var timeTicks = seq.getPlayerPosition().ticks;`}
+          ${
+            args.time_seconds !== undefined
+              ? `var timeTicks = __secondsToTicks(${args.time_seconds}).toString();`
+              : `var timeTicks = seq.getPlayerPosition().ticks;`
+          }
 
           var res = __exportStillFrame("${escapeForExtendScript(args.output_path)}", timeTicks);
           if (!res.ok) return __error(res.error + " [" + res.notes.join("; ") + "]");
@@ -215,7 +232,8 @@ export function getUtilityTools(bridgeOptions: BridgeOptions) {
         properties: {
           frame_rate: {
             type: "number",
-            description: "New frame rate (e.g., 23.976, 24, 25, 29.97, 30, 50, 59.94, 60)",
+            description:
+              "New frame rate (e.g., 23.976, 24, 25, 29.97, 30, 50, 59.94, 60)",
           },
         },
         required: ["frame_rate"],
@@ -272,7 +290,8 @@ export function getUtilityTools(bridgeOptions: BridgeOptions) {
     },
 
     set_sequence_audio_settings: {
-      description: "Change audio settings of the active sequence (sample rate, channel type).",
+      description:
+        "Change audio settings of the active sequence (sample rate, channel type).",
       parameters: {
         type: "object" as const,
         properties: {
@@ -282,11 +301,15 @@ export function getUtilityTools(bridgeOptions: BridgeOptions) {
           },
           channel_type: {
             type: "number",
-            description: "Channel type: 0=Mono, 1=Stereo, 2=5.1, 3=Multichannel",
+            description:
+              "Channel type: 0=Mono, 1=Stereo, 2=5.1, 3=Multichannel",
           },
         },
       },
-      handler: async (args: { sample_rate?: number; channel_type?: number }) => {
+      handler: async (args: {
+        sample_rate?: number;
+        channel_type?: number;
+      }) => {
         const script = buildToolScript(`
           var seq = app.project.activeSequence;
           if (!seq) return __error("No active sequence");
@@ -311,7 +334,8 @@ export function getUtilityTools(bridgeOptions: BridgeOptions) {
         properties: {
           ratio: {
             type: "number",
-            description: "Pixel aspect ratio (1.0 for square pixels, 1.4222 for 16:9 DV, etc.)",
+            description:
+              "Pixel aspect ratio (1.0 for square pixels, 1.4222 for 16:9 DV, etc.)",
           },
         },
         required: ["ratio"],
@@ -340,7 +364,8 @@ export function getUtilityTools(bridgeOptions: BridgeOptions) {
         properties: {
           field_type: {
             type: "number",
-            description: "0=No Fields (Progressive), 1=Upper Field First, 2=Lower Field First",
+            description:
+              "0=No Fields (Progressive), 1=Upper Field First, 2=Lower Field First",
           },
         },
         required: ["field_type"],
@@ -363,7 +388,8 @@ export function getUtilityTools(bridgeOptions: BridgeOptions) {
     },
 
     get_all_project_paths: {
-      description: "Get all unique media file paths used in the project. Useful for asset management and archiving.",
+      description:
+        "Get all unique media file paths used in the project. Useful for asset management and archiving.",
       parameters: {},
       handler: async () => {
         const script = buildToolScript(`
@@ -399,7 +425,8 @@ export function getUtilityTools(bridgeOptions: BridgeOptions) {
     },
 
     get_unused_media: {
-      description: "Find all project items that are NOT used in any sequence. Useful for cleaning up projects.",
+      description:
+        "Find all project items that are NOT used in any sequence. Useful for cleaning up projects.",
       parameters: {},
       handler: async () => {
         const script = buildToolScript(`
@@ -449,7 +476,8 @@ export function getUtilityTools(bridgeOptions: BridgeOptions) {
     },
 
     get_duplicate_media: {
-      description: "Find project items that reference the same source media file. Useful for consolidation.",
+      description:
+        "Find project items that reference the same source media file. Useful for consolidation.",
       parameters: {},
       handler: async () => {
         const script = buildToolScript(`
@@ -483,7 +511,8 @@ export function getUtilityTools(bridgeOptions: BridgeOptions) {
     },
 
     lift_selection: {
-      description: "Lift (remove without closing gap) the content between sequence in/out points or selected clips.",
+      description:
+        "Lift (remove without closing gap) the content between sequence in/out points or selected clips.",
       parameters: {},
       handler: async () => {
         const script = buildToolScript(`
@@ -504,7 +533,8 @@ export function getUtilityTools(bridgeOptions: BridgeOptions) {
     },
 
     extract_selection: {
-      description: "Extract (remove and close gap) the content between sequence in/out points.",
+      description:
+        "Extract (remove and close gap) the content between sequence in/out points.",
       parameters: {},
       handler: async () => {
         const script = buildToolScript(`
@@ -525,7 +555,8 @@ export function getUtilityTools(bridgeOptions: BridgeOptions) {
     },
 
     get_clip_links: {
-      description: "Get information about linked clips (audio/video linked together) for a given clip.",
+      description:
+        "Get information about linked clips (audio/video linked together) for a given clip.",
       parameters: {
         type: "object" as const,
         properties: {
@@ -593,18 +624,26 @@ export function getUtilityTools(bridgeOptions: BridgeOptions) {
     },
 
     get_sequence_markers_by_type: {
-      description: "Get all markers of a specific type (comment, chapter, web link, etc.) from a sequence.",
+      description:
+        "Get all markers of a specific type (comment, chapter, web link, etc.) from a sequence.",
       parameters: {
         type: "object" as const,
         properties: {
           marker_type: {
             type: "string",
-            enum: ["Comment", "Chapter", "Segmentation", "WebLink", "FlashCuePoint"],
+            enum: [
+              "Comment",
+              "Chapter",
+              "Segmentation",
+              "WebLink",
+              "FlashCuePoint",
+            ],
             description: "Type of marker to filter",
           },
           sequence_id: {
             type: "string",
-            description: "Sequence name or ID. Uses active sequence if omitted.",
+            description:
+              "Sequence name or ID. Uses active sequence if omitted.",
           },
         },
         required: ["marker_type"],
@@ -639,7 +678,8 @@ export function getUtilityTools(bridgeOptions: BridgeOptions) {
     },
 
     get_clip_markers: {
-      description: "Get all markers on a specific project item (source clip markers, not sequence markers).",
+      description:
+        "Get all markers on a specific project item (source clip markers, not sequence markers).",
       parameters: {
         type: "object" as const,
         properties: {
@@ -701,7 +741,8 @@ export function getUtilityTools(bridgeOptions: BridgeOptions) {
           },
           duration_seconds: {
             type: "number",
-            description: "Duration of the marker in seconds (0 for point marker)",
+            description:
+              "Duration of the marker in seconds (0 for point marker)",
           },
           type: {
             type: "string",
@@ -734,11 +775,15 @@ export function getUtilityTools(bridgeOptions: BridgeOptions) {
           ${args.name ? `marker.name = "${escapeForExtendScript(args.name)}";` : ""}
           ${args.comments ? `marker.comments = "${escapeForExtendScript(args.comments)}";` : ""}
           ${args.type ? `marker.type = "${escapeForExtendScript(args.type)}";` : ""}
-          ${args.duration_seconds !== undefined ? `
+          ${
+            args.duration_seconds !== undefined
+              ? `
           var endTime = new Time();
           endTime.seconds = ${args.time_seconds + args.duration_seconds};
           marker.end = endTime;
-          ` : ""}
+          `
+              : ""
+          }
           ${args.color_index !== undefined ? `marker.setColorByIndex(${args.color_index});` : ""}
 
           return __result({ added: true, item: item.name, timeSeconds: ${args.time_seconds} });
@@ -754,7 +799,8 @@ export function getUtilityTools(bridgeOptions: BridgeOptions) {
         properties: {
           video_display_format: {
             type: "number",
-            description: "Video: 0=24 Timecode, 1=25 Timecode, 2=29.97 Drop-frame, 3=29.97 Non-drop-frame, 4=30 Timecode, 5=50 Timecode, 6=59.94 Drop-frame, 7=59.94 Non-drop-frame, 8=60 Timecode, 9=Frames, 10=Feet+Frames 16mm, 11=Feet+Frames 35mm",
+            description:
+              "Video: 0=24 Timecode, 1=25 Timecode, 2=29.97 Drop-frame, 3=29.97 Non-drop-frame, 4=30 Timecode, 5=50 Timecode, 6=59.94 Drop-frame, 7=59.94 Non-drop-frame, 8=60 Timecode, 9=Frames, 10=Feet+Frames 16mm, 11=Feet+Frames 35mm",
           },
           audio_display_format: {
             type: "number",
@@ -762,7 +808,10 @@ export function getUtilityTools(bridgeOptions: BridgeOptions) {
           },
         },
       },
-      handler: async (args: { video_display_format?: number; audio_display_format?: number }) => {
+      handler: async (args: {
+        video_display_format?: number;
+        audio_display_format?: number;
+      }) => {
         const script = buildToolScript(`
           var seq = app.project.activeSequence;
           if (!seq) return __error("No active sequence");
@@ -781,7 +830,8 @@ export function getUtilityTools(bridgeOptions: BridgeOptions) {
     },
 
     get_clip_at_playhead: {
-      description: "Get all clips at the current playhead position across all tracks.",
+      description:
+        "Get all clips at the current playhead position across all tracks.",
       parameters: {
         type: "object" as const,
         properties: {
@@ -839,7 +889,8 @@ export function getUtilityTools(bridgeOptions: BridgeOptions) {
     },
 
     get_next_edit_point: {
-      description: "Find the next or previous edit point (clip boundary) from the playhead position.",
+      description:
+        "Find the next or previous edit point (clip boundary) from the playhead position.",
       parameters: {
         type: "object" as const,
         properties: {
@@ -972,7 +1023,8 @@ export function getUtilityTools(bridgeOptions: BridgeOptions) {
     },
 
     set_project_scratch_disk: {
-      description: "Set the project's scratch disk paths for captured video, audio, and previews.",
+      description:
+        "Set the project's scratch disk paths for captured video, audio, and previews.",
       parameters: {
         type: "object" as const,
         properties: {
@@ -994,20 +1046,41 @@ export function getUtilityTools(bridgeOptions: BridgeOptions) {
           },
         },
       },
-      handler: async (args: { captured_video?: string; captured_audio?: string; video_previews?: string; audio_previews?: string }) => {
+      handler: async (args: {
+        captured_video?: string;
+        captured_audio?: string;
+        video_previews?: string;
+        audio_previews?: string;
+      }) => {
         const script = buildToolScript(`
           var project = app.project;
           if (!project) return __error("No project open");
 
           var set = {};
-          ${args.captured_video ? `
-          try { project.setScratchDiskPath("${escapeForExtendScript(args.captured_video)}", 0); set.capturedVideo = "${escapeForExtendScript(args.captured_video)}"; } catch(e) {}` : ""}
-          ${args.captured_audio ? `
-          try { project.setScratchDiskPath("${escapeForExtendScript(args.captured_audio)}", 1); set.capturedAudio = "${escapeForExtendScript(args.captured_audio)}"; } catch(e) {}` : ""}
-          ${args.video_previews ? `
-          try { project.setScratchDiskPath("${escapeForExtendScript(args.video_previews)}", 2); set.videoPreviews = "${escapeForExtendScript(args.video_previews)}"; } catch(e) {}` : ""}
-          ${args.audio_previews ? `
-          try { project.setScratchDiskPath("${escapeForExtendScript(args.audio_previews)}", 3); set.audioPreviews = "${escapeForExtendScript(args.audio_previews)}"; } catch(e) {}` : ""}
+          ${
+            args.captured_video
+              ? `
+          try { project.setScratchDiskPath("${escapeForExtendScript(args.captured_video)}", 0); set.capturedVideo = "${escapeForExtendScript(args.captured_video)}"; } catch(e) {}`
+              : ""
+          }
+          ${
+            args.captured_audio
+              ? `
+          try { project.setScratchDiskPath("${escapeForExtendScript(args.captured_audio)}", 1); set.capturedAudio = "${escapeForExtendScript(args.captured_audio)}"; } catch(e) {}`
+              : ""
+          }
+          ${
+            args.video_previews
+              ? `
+          try { project.setScratchDiskPath("${escapeForExtendScript(args.video_previews)}", 2); set.videoPreviews = "${escapeForExtendScript(args.video_previews)}"; } catch(e) {}`
+              : ""
+          }
+          ${
+            args.audio_previews
+              ? `
+          try { project.setScratchDiskPath("${escapeForExtendScript(args.audio_previews)}", 3); set.audioPreviews = "${escapeForExtendScript(args.audio_previews)}"; } catch(e) {}`
+              : ""
+          }
 
           return __result(set);
         `);
@@ -1036,7 +1109,8 @@ export function getUtilityTools(bridgeOptions: BridgeOptions) {
     },
 
     nest_clips: {
-      description: "Nest selected clips into a nested sequence. Select the clips first, then call this tool.",
+      description:
+        "Nest selected clips into a nested sequence. Select the clips first, then call this tool.",
       parameters: {
         type: "object" as const,
         properties: {
@@ -1091,7 +1165,8 @@ export function getUtilityTools(bridgeOptions: BridgeOptions) {
     },
 
     get_total_clip_count: {
-      description: "Get the total number of clips across all tracks in the active sequence.",
+      description:
+        "Get the total number of clips across all tracks in the active sequence.",
       parameters: {},
       handler: async () => {
         const script = buildToolScript(`
@@ -1109,7 +1184,8 @@ export function getUtilityTools(bridgeOptions: BridgeOptions) {
     },
 
     match_frame: {
-      description: "Get source media info for the frame at the current playhead on a specific track. Useful for match frame operations.",
+      description:
+        "Get source media info for the frame at the current playhead on a specific track. Useful for match frame operations.",
       parameters: {
         type: "object" as const,
         properties: {

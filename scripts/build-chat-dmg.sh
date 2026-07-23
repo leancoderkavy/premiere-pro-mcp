@@ -138,8 +138,8 @@ REQUIREMENTS
 SUPPORT
 =======
 
-GitHub: https://github.com/ppmcp/premiere-pro-mcp
-Issues: https://github.com/ppmcp/premiere-pro-mcp/issues
+GitHub: https://github.com/leancoderkavy/premiere-pro-mcp
+Issues: https://github.com/leancoderkavy/premiere-pro-mcp/issues
 README_EOF
 
 echo "✓ README created"
