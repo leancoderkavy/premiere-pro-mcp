@@ -82,14 +82,16 @@ This installs the plugin into Premiere Pro's per-user extensions folder and enab
 
 ## Publishing to npm
 
-The easiest repeatable path is the GitHub Actions workflow:
+The easiest repeatable path is the token-free GitHub Actions workflow:
 
-1. Create an npm automation token with publish access for `premiere-pro-mcp`.
-2. Add it to this repository as the `NPM_TOKEN` GitHub Actions secret.
+1. In the npm package settings, configure GitHub Actions as the trusted publisher for
+   `leancoderkavy/premiere-pro-mcp` and workflow file `npm-publish.yml`.
+2. Allow the `npm publish` action.
 3. Open **Actions -> Publish npm -> Run workflow** and keep the default `latest` tag.
 
 The workflow installs dependencies, builds, runs tests, verifies the packed files, refuses to
-republish an existing version, then publishes to npm with the token.
+republish an existing version, then publishes through short-lived OIDC credentials with automatic
+provenance. No npm token or recurring OTP is required.
 
 For local publishing, use the guided helper:
 

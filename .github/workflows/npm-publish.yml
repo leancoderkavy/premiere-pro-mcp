@@ -18,18 +18,20 @@ on:
 
 permissions:
   contents: read
+  id-token: write
 
 jobs:
   publish:
     name: Publish package
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
         with:
-          node-version: 22
+          node-version: 24
           registry-url: https://registry.npmjs.org/
-          cache: npm
+          package-manager-cache: false
+      - run: npm install --global npm@latest
       - run: npm ci
       - run: npm run build
       - if: ${{ inputs.skip_tests != 'true' }}
@@ -45,5 +47,3 @@ jobs:
           fi
       - name: Publish to npm
         run: npm publish --access public --tag "${{ inputs.tag }}"
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
