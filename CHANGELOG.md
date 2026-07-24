@@ -6,6 +6,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [1.2.3] - 2026-07-23
+
+### Changed
+
+- Improved npm and GitHub discovery metadata, added explicit TypeScript and public-registry package
+  configuration, and added automated dependency update configuration.
+
 ## [1.2.2] - 2026-07-23
 
 ### Fixed

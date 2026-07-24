@@ -27,8 +27,10 @@ An [MCP (Model Context Protocol)](https://modelcontextprotocol.io) server that l
 
 The AI handles the entire workflow through 269 tools spanning the supported ExtendScript, QE DOM, and safe edit-planning surfaces.
 
-### What's new in 1.2.2
+### What's new in 1.2.3
 
+- npm and GitHub metadata now target Adobe Premiere Pro MCP, AI video editing, automation, and
+  Model Context Protocol discovery terms with explicit TypeScript and public-registry metadata.
 - npm repository, homepage, issue, and clone links now point to the maintained project.
 - Mutation tools now verify Premiere state, audio dB is converted to amplitude correctly, and
   affected Premiere Pro 26.3 hosts return actionable errors instead of false success.

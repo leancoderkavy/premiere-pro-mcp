@@ -1,8 +1,9 @@
 {
   "name": "premiere-pro-mcp",
-  "version": "1.2.2",
-  "description": "Open-source MCP server with 269 tools for AI-assisted Adobe Premiere Pro editing, automation, effects, media management, and export.",
+  "version": "1.2.3",
+  "description": "Adobe Premiere Pro MCP server with 269 AI video editing tools for timeline automation, effects, media management, and export.",
   "main": "dist/index.js",
+  "types": "./dist/index.d.ts",
   "type": "module",
   "bin": {
     "premiere-pro-mcp": "dist/index.js"
@@ -53,9 +54,21 @@
     "automation",
     "ai-video-editing",
     "premiere-automation",
-    "claude-desktop"
+    "claude-desktop",
+    "adobe-premiere-pro",
+    "video-editing-automation",
+    "ai-video-editor",
+    "mcp-server",
+    "mcp-tools",
+    "creative-cloud",
+    "premiere-pro-plugin",
+    "claude-code"
   ],
   "license": "MIT",
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
+  },
   "engines": {
     "node": ">=18.0.0"
   },
