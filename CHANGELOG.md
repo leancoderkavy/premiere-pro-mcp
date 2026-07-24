@@ -6,6 +6,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [1.2.2] - 2026-07-23
+
+### Fixed
+
+- Corrected obsolete repository links in the npm README and republished package metadata so the
+  repository, homepage, and issue links point to the maintained project.
+
 ### Added
 
 - Added `npm run publish:npm`, `npm run publish:npm:dry-run`, and a manual GitHub Actions npm

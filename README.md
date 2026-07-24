@@ -27,8 +27,9 @@ An [MCP (Model Context Protocol)](https://modelcontextprotocol.io) server that l
 
 The AI handles the entire workflow through 269 tools spanning the supported ExtendScript, QE DOM, and safe edit-planning surfaces.
 
-### What's new in 1.2.1
+### What's new in 1.2.2
 
+- npm repository, homepage, issue, and clone links now point to the maintained project.
 - Mutation tools now verify Premiere state, audio dB is converted to amplitude correctly, and
   affected Premiere Pro 26.3 hosts return actionable errors instead of false success.
 - npm publishing now has a guided local helper and a GitHub Actions workflow so releases can be
@@ -56,7 +57,7 @@ npm install -g premiere-pro-mcp
 **Option B — Clone from source:**
 
 ```bash
-git clone https://github.com/ppmcp/premiere-pro-mcp.git
+git clone https://github.com/leancoderkavy/premiere-pro-mcp.git
 cd premiere-pro-mcp
 npm install
 npm run build
@@ -422,7 +423,7 @@ A live instance is running at **https://premiere-pro-mcp.fly.dev**.
 
 ```bash
 # Clone and deploy your own instance
-git clone https://github.com/ppmcp/premiere-pro-mcp.git
+git clone https://github.com/leancoderkavy/premiere-pro-mcp.git
 cd premiere-pro-mcp
 fly apps create your-app-name
 # Required: add bearer token auth

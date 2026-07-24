@@ -2,7 +2,7 @@
   "manifestVersion": 5,
   "id": "com.ppmcp.premiere.uxp",
   "name": "Premiere Pro MCP Bridge",
-  "version": "1.2.1",
+  "version": "1.2.2",
   "main": "index.html",
   "host": { "app": "premierepro", "minVersion": "25.6.0" },
   "entrypoints": [
