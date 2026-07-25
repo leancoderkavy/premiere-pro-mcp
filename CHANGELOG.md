@@ -6,6 +6,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [1.3.1] - 2026-07-25
+
+### Fixed
+
+- Fixed `set_sequence_frame_rate` to convert frames per second into Premiere's required
+  ticks-per-frame `Time` value and verify the applied setting instead of assigning a numeric frame
+  period that could corrupt the sequence timebase. ([#37](https://github.com/leancoderkavy/premiere-pro-mcp/issues/37))
+
 ## [1.3.0] - 2026-07-25
 
 ### Added

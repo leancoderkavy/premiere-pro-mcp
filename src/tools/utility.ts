@@ -232,6 +232,8 @@ export function getUtilityTools(bridgeOptions: BridgeOptions) {
         properties: {
           frame_rate: {
             type: "number",
+            minimum: 1,
+            maximum: 240,
             description:
               "New frame rate (e.g., 23.976, 24, 25, 29.97, 30, 50, 59.94, 60)",
           },
@@ -239,6 +241,12 @@ export function getUtilityTools(bridgeOptions: BridgeOptions) {
         required: ["frame_rate"],
       },
       handler: async (args: { frame_rate: number }) => {
+        if (!Number.isFinite(args.frame_rate) || args.frame_rate < 1 || args.frame_rate > 240) {
+          return {
+            success: false,
+            error: "frame_rate must be a finite value between 1 and 240 fps",
+          };
+        }
         const script = buildToolScript(`
           var seq = app.project.activeSequence;
           if (!seq) return __error("No active sequence");
@@ -246,10 +254,30 @@ export function getUtilityTools(bridgeOptions: BridgeOptions) {
           var settings = seq.getSettings();
           if (!settings) return __error("Could not get sequence settings");
 
-          settings.videoFrameRate = ${args.frame_rate};
+          var requestedFps = ${args.frame_rate};
+          var requestedTicks = Math.round(TICKS_PER_SECOND / requestedFps);
+          var frameDuration = new Time();
+          frameDuration.ticks = requestedTicks.toString();
+          settings.videoFrameRate = frameDuration;
           seq.setSettings(settings);
 
-          return __result({ frameRate: ${args.frame_rate}, sequence: seq.name });
+          var applied = seq.getSettings();
+          if (!applied || !applied.videoFrameRate) {
+            return __error("Premiere did not return the updated sequence frame rate");
+          }
+          var appliedTicks = parseFloat(applied.videoFrameRate.ticks);
+          if (!isFinite(appliedTicks) || Math.abs(appliedTicks - requestedTicks) > 1) {
+            return __error(
+              "Premiere did not apply the requested frame rate: expected " +
+              requestedTicks + " ticks/frame, got " + appliedTicks
+            );
+          }
+
+          return __result({
+            frameRate: requestedFps,
+            ticksPerFrame: requestedTicks.toString(),
+            sequence: seq.name
+          });
         `);
         return sendCommand(script, bridgeOptions);
       },

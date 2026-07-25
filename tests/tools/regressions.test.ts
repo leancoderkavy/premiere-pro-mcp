@@ -219,3 +219,27 @@ describe("script-builder helpers used by the fixes are actually defined", () => 
     }
   });
 });
+
+// https://github.com/leancoderkavy/premiere-pro-mcp/issues/37
+describe("issue #37 — sequence frame rate uses ticks per frame", () => {
+  const utility = getUtilityTools(bridgeOptions);
+
+  it("converts fps to a Time duration and verifies the applied ticks", async () => {
+    const script = await scriptFor(utility.set_sequence_frame_rate, { frame_rate: 30 });
+
+    expect(script).toContain("TICKS_PER_SECOND / requestedFps");
+    expect(script).toContain("var frameDuration = new Time()");
+    expect(script).toContain("frameDuration.ticks = requestedTicks.toString()");
+    expect(script).toContain("settings.videoFrameRate = frameDuration");
+    expect(script).toContain("Math.abs(appliedTicks - requestedTicks) > 1");
+    expect(script).not.toContain("settings.videoFrameRate = 30");
+  });
+
+  it("rejects invalid frame rates before sending a Premiere command", async () => {
+    mockedSendCommand.mockClear();
+    const result = await utility.set_sequence_frame_rate.handler({ frame_rate: 0 });
+
+    expect(result).toMatchObject({ success: false });
+    expect(mockedSendCommand).not.toHaveBeenCalled();
+  });
+});
