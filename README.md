@@ -27,10 +27,12 @@ An [MCP (Model Context Protocol)](https://modelcontextprotocol.io) server that l
 
 The AI handles the entire workflow through 269 tools spanning the supported ExtendScript, QE DOM, and safe edit-planning surfaces.
 
-### What's new in 1.3.0
+### What's new in 1.3.1
 
 - Windows npm releases now include a verified, signed CEP ZXP and install it automatically, covering
   hosts that reject the raw development bundle even when `PlayerDebugMode` is enabled.
+- `set_sequence_frame_rate` now converts frames per second to Premiere ticks per frame and verifies
+  the applied setting instead of assigning a numeric frame period.
 - `premiere-pro-mcp --diagnose-cep` checks the installed manifest, debug-key types, and recent
   Premiere signature failures.
 - TypeScript 7, Vitest 4, Zod 4, MCP SDK 1.29, Next.js 16.2, and patched transitive dependencies
