@@ -22,7 +22,11 @@ const ALL_TYPES_TOOL = {
         str_param: { type: "string", description: "A string" },
         num_param: { type: "number", description: "A number" },
         bool_param: { type: "boolean", description: "A boolean" },
-        arr_param: { type: "array", description: "An array" },
+        arr_param: {
+          type: "array",
+          items: { type: "string" },
+          description: "An array",
+        },
         obj_param: { type: "object", description: "An object" },
         enum_param: {
           type: "string",
@@ -60,7 +64,9 @@ vi.mock("../src/tools/media.js", () => ({ getMediaTools: () => ({}) }));
 vi.mock("../src/tools/sequence.js", () => ({ getSequenceTools: () => ({}) }));
 vi.mock("../src/tools/timeline.js", () => ({ getTimelineTools: () => ({}) }));
 vi.mock("../src/tools/effects.js", () => ({ getEffectsTools: () => ({}) }));
-vi.mock("../src/tools/transitions.js", () => ({ getTransitionsTools: () => ({}) }));
+vi.mock("../src/tools/transitions.js", () => ({
+  getTransitionsTools: () => ({}),
+}));
 vi.mock("../src/tools/audio.js", () => ({ getAudioTools: () => ({}) }));
 vi.mock("../src/tools/text.js", () => ({ getTextTools: () => ({}) }));
 vi.mock("../src/tools/markers.js", () => ({ getMarkerTools: () => ({}) }));
@@ -71,17 +77,25 @@ vi.mock("../src/tools/export.js", () => ({ getExportTools: () => ({}) }));
 vi.mock("../src/tools/advanced.js", () => ({ getAdvancedTools: () => ({}) }));
 vi.mock("../src/tools/keyframes.js", () => ({ getKeyframeTools: () => ({}) }));
 vi.mock("../src/tools/scripting.js", () => ({ getScriptingTools: () => ({}) }));
-vi.mock("../src/tools/inspection.js", () => ({ getInspectionTools: () => ({}) }));
+vi.mock("../src/tools/inspection.js", () => ({
+  getInspectionTools: () => ({}),
+}));
 vi.mock("../src/tools/selection.js", () => ({ getSelectionTools: () => ({}) }));
 vi.mock("../src/tools/clipboard.js", () => ({ getClipboardTools: () => ({}) }));
-vi.mock("../src/tools/source-monitor.js", () => ({ getSourceMonitorTools: () => ({}) }));
-vi.mock("../src/tools/track-targeting.js", () => ({ getTrackTargetingTools: () => ({}) }));
+vi.mock("../src/tools/source-monitor.js", () => ({
+  getSourceMonitorTools: () => ({}),
+}));
+vi.mock("../src/tools/track-targeting.js", () => ({
+  getTrackTargetingTools: () => ({}),
+}));
 vi.mock("../src/tools/utility.js", () => ({ getUtilityTools: () => ({}) }));
 vi.mock("../src/tools/health.js", () => ({ getHealthTools: () => ({}) }));
 vi.mock("../src/tools/workspace.js", () => ({ getWorkspaceTools: () => ({}) }));
 vi.mock("../src/tools/captions.js", () => ({ getCaptionTools: () => ({}) }));
 vi.mock("../src/tools/playback.js", () => ({ getPlaybackTools: () => ({}) }));
-vi.mock("../src/tools/project-manager.js", () => ({ getProjectManagerTools: () => ({}) }));
+vi.mock("../src/tools/project-manager.js", () => ({
+  getProjectManagerTools: () => ({}),
+}));
 vi.mock("../src/resources/extendscript-reference.js", () => ({
   EXTENDSCRIPT_REFERENCE: "mock",
 }));
@@ -139,7 +153,7 @@ describe("Server tool registration callback", () => {
   it("returns text content on successful tool call", async () => {
     // The server wraps tool handlers in a callback that formats results.
     // We test this by verifying the server creates successfully.
-    // (The actual MCP protocol callback is internal to the SDK, 
+    // (The actual MCP protocol callback is internal to the SDK,
     //  but we validated handler return values in tool-modules.test.ts)
     const server = createServer({});
     expect(server).toBeDefined();

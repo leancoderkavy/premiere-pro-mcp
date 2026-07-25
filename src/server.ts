@@ -32,7 +32,10 @@ import { getEditPlanTools } from "./tools/edit-plans.js";
 import { guardToolHandler, resolveCapabilities } from "./security/index.js";
 import { EXTENDSCRIPT_REFERENCE } from "./resources/extendscript-reference.js";
 import { WORKFLOW_PROMPTS, WORKFLOW_RESOURCE } from "./workflows/catalog.js";
-import { annotationsForTool, structuredToolResult } from "./workflows/tool-metadata.js";
+import {
+  annotationsForTool,
+  structuredToolResult,
+} from "./workflows/tool-metadata.js";
 import { z } from "zod";
 
 const PREMIERE_INSTRUCTIONS = `You are controlling Adobe Premiere Pro through MCP tools. Follow these best practices:
@@ -100,50 +103,101 @@ CUSTOM SCRIPTING:
 interface ToolDef {
   description: string;
   parameters: Record<string, unknown>;
-  handler: (args: any) => Promise<{ success: boolean; data?: unknown; error?: string }>;
+  handler: (
+    args: any,
+  ) => Promise<{ success: boolean; data?: unknown; error?: string }>;
 }
 
 const toolCatalogCache = new Map<string, Record<string, ToolDef>>();
-const schemaCache = new WeakMap<Record<string, unknown>, Record<string, z.ZodTypeAny>>();
+const schemaCache = new WeakMap<
+  Record<string, unknown>,
+  Record<string, z.ZodTypeAny>
+>();
+const debugEnabled = /^(1|true|yes|on|debug)$/i.test(
+  process.env.PREMIERE_MCP_DEBUG ?? "",
+);
+
+function debugLog(message: string): void {
+  if (debugEnabled) {
+    console.error(`[premiere-pro-mcp] ${message}`);
+  }
+}
+
+function jsonSchemaPropToZod(prop: Record<string, unknown>): z.ZodTypeAny {
+  const propType = prop.type as string | undefined;
+
+  if (propType === "string") {
+    if (prop.enum && Array.isArray(prop.enum) && prop.enum.length > 0) {
+      const enumValues = prop.enum as [string, ...string[]];
+      return z.enum(enumValues);
+    }
+    return z.string();
+  }
+
+  if (propType === "number") {
+    return z.number();
+  }
+
+  if (propType === "boolean") {
+    return z.boolean();
+  }
+
+  if (propType === "array") {
+    const itemSchema = (prop.items ?? {}) as Record<string, unknown>;
+    // Use unknown as a safe fallback while still emitting a concrete items schema.
+    const itemZod =
+      Object.keys(itemSchema).length > 0
+        ? jsonSchemaPropToZod(itemSchema)
+        : z.unknown();
+    return z.array(itemZod);
+  }
+
+  if (propType === "object") {
+    const nestedProperties = (prop.properties ?? {}) as Record<
+      string,
+      Record<string, unknown>
+    >;
+    const nestedRequired = new Set((prop.required ?? []) as string[]);
+
+    if (Object.keys(nestedProperties).length === 0) {
+      return z.record(z.string(), z.unknown());
+    }
+
+    const nestedShape: Record<string, z.ZodTypeAny> = {};
+    for (const [nestedKey, nestedProp] of Object.entries(nestedProperties)) {
+      let nestedZod = jsonSchemaPropToZod(nestedProp);
+      if (nestedProp.description) {
+        nestedZod = nestedZod.describe(nestedProp.description as string);
+      }
+      if (!nestedRequired.has(nestedKey)) {
+        nestedZod = nestedZod.optional();
+      }
+      nestedShape[nestedKey] = nestedZod;
+    }
+
+    return z.object(nestedShape).passthrough();
+  }
+
+  return z.unknown();
+}
 
 /**
  * Convert a JSON Schema-style parameters object to a Zod shape for MCP SDK registration.
  */
-function jsonSchemaToZodShape(params: Record<string, unknown>): Record<string, z.ZodTypeAny> {
+function jsonSchemaToZodShape(
+  params: Record<string, unknown>,
+): Record<string, z.ZodTypeAny> {
   const cached = schemaCache.get(params);
   if (cached) return cached;
   const shape: Record<string, z.ZodTypeAny> = {};
-  const properties = (params.properties ?? {}) as Record<string, Record<string, unknown>>;
+  const properties = (params.properties ?? {}) as Record<
+    string,
+    Record<string, unknown>
+  >;
   const required = (params.required ?? []) as string[];
 
   for (const [key, prop] of Object.entries(properties)) {
-    let zodType: z.ZodTypeAny;
-    const propType = prop.type as string;
-
-    switch (propType) {
-      case "string":
-        if (prop.enum) {
-          const enumValues = prop.enum as [string, ...string[]];
-          zodType = z.enum(enumValues);
-        } else {
-          zodType = z.string();
-        }
-        break;
-      case "number":
-        zodType = z.number();
-        break;
-      case "boolean":
-        zodType = z.boolean();
-        break;
-      case "array":
-        zodType = z.array(z.any());
-        break;
-      case "object":
-        zodType = z.record(z.any());
-        break;
-      default:
-        zodType = z.any();
-    }
+    let zodType = jsonSchemaPropToZod(prop);
 
     if (prop.description) {
       zodType = zodType.describe(prop.description as string);
@@ -166,7 +220,8 @@ function collectTools(
 ): Record<string, ToolDef> {
   const cacheKey = JSON.stringify({
     tempDir: bridgeOptions.tempDir ?? process.env.PREMIERE_TEMP_DIR ?? null,
-    timeoutMs: bridgeOptions.timeoutMs ?? process.env.PREMIERE_TIMEOUT_MS ?? null,
+    timeoutMs:
+      bridgeOptions.timeoutMs ?? process.env.PREMIERE_TIMEOUT_MS ?? null,
     capabilities: [...capabilities.capabilities].sort(),
   });
   const cached = toolCatalogCache.get(cacheKey);
@@ -234,9 +289,15 @@ export function createServer(bridgeOptions: BridgeOptions): McpServer {
           if (result.success) {
             // Special handling for capture_frame: return image content block
             const data = result.data as Record<string, unknown> | undefined;
-            if (data && data.mimeType === "image/png" && typeof data.base64 === "string") {
+            if (
+              data &&
+              data.mimeType === "image/png" &&
+              typeof data.base64 === "string"
+            ) {
               return {
-                structuredContent: structuredToolResult(name, true, { mimeType: data.mimeType }),
+                structuredContent: structuredToolResult(name, true, {
+                  mimeType: data.mimeType,
+                }),
                 content: [
                   {
                     type: "image" as const,
@@ -261,7 +322,12 @@ export function createServer(bridgeOptions: BridgeOptions): McpServer {
             };
           } else {
             return {
-              structuredContent: structuredToolResult(name, false, undefined, result.error),
+              structuredContent: structuredToolResult(
+                name,
+                false,
+                undefined,
+                result.error,
+              ),
               content: [
                 {
                   type: "text" as const,
@@ -273,7 +339,12 @@ export function createServer(bridgeOptions: BridgeOptions): McpServer {
           }
         } catch (err) {
           return {
-            structuredContent: structuredToolResult(name, false, undefined, err instanceof Error ? err.message : String(err)),
+            structuredContent: structuredToolResult(
+              name,
+              false,
+              undefined,
+              err instanceof Error ? err.message : String(err),
+            ),
             content: [
               {
                 type: "text" as const,
@@ -283,7 +354,7 @@ export function createServer(bridgeOptions: BridgeOptions): McpServer {
             isError: true,
           };
         }
-      }
+      },
     );
   }
 
@@ -292,7 +363,8 @@ export function createServer(bridgeOptions: BridgeOptions): McpServer {
     "premiere-instructions",
     "config://premiere-instructions",
     {
-      description: "Instructions and best practices for using Premiere Pro via MCP tools",
+      description:
+        "Instructions and best practices for using Premiere Pro via MCP tools",
       mimeType: "text/plain",
     },
     async (uri) => ({
@@ -302,7 +374,7 @@ export function createServer(bridgeOptions: BridgeOptions): McpServer {
           text: PREMIERE_INSTRUCTIONS,
         },
       ],
-    })
+    }),
   );
 
   server.resource(
@@ -313,14 +385,24 @@ export function createServer(bridgeOptions: BridgeOptions): McpServer {
       mimeType: "application/json",
     },
     async (uri) => ({
-      contents: [{ uri: uri.href, mimeType: "application/json", text: WORKFLOW_RESOURCE }],
-    })
+      contents: [
+        {
+          uri: uri.href,
+          mimeType: "application/json",
+          text: WORKFLOW_RESOURCE,
+        },
+      ],
+    }),
   );
 
   for (const prompt of WORKFLOW_PROMPTS) {
     server.registerPrompt(
       prompt.name,
-      { title: prompt.title, description: prompt.description, argsSchema: prompt.argsSchema },
+      {
+        title: prompt.title,
+        description: prompt.description,
+        argsSchema: prompt.argsSchema,
+      },
       prompt.render,
     );
   }
@@ -330,7 +412,8 @@ export function createServer(bridgeOptions: BridgeOptions): McpServer {
     "extendscript-reference",
     "config://extendscript-reference",
     {
-      description: "Complete Premiere Pro ExtendScript API reference for writing custom scripts via execute_extendscript",
+      description:
+        "Complete Premiere Pro ExtendScript API reference for writing custom scripts via execute_extendscript",
       mimeType: "text/plain",
     },
     async (uri) => ({
@@ -340,11 +423,13 @@ export function createServer(bridgeOptions: BridgeOptions): McpServer {
           text: EXTENDSCRIPT_REFERENCE,
         },
       ],
-    })
+    }),
   );
 
   const toolCount = Object.keys(toolModules).length;
-  console.error(`[premiere-pro-mcp] Registered ${toolCount} tools + 3 resources + ${WORKFLOW_PROMPTS.length} prompts`);
+  debugLog(
+    `Registered ${toolCount} tools + 3 resources + ${WORKFLOW_PROMPTS.length} prompts`,
+  );
 
   return server;
 }

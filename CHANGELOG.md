@@ -6,6 +6,29 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [1.3.0] - 2026-07-25
+
+### Added
+
+- Added a Windows release workflow that builds and verifies a signed CEP ZXP with Adobe's pinned
+  `ZXPSignCmd`, includes it in the npm package, and installs it ahead of the unsigned development
+  bundle.
+- Added `--diagnose-cep` to verify installation metadata, debug-key types, and recent Premiere
+  signature failures.
+
+### Changed
+
+- Upgraded the toolchain to TypeScript 7, Vitest 4, Zod 4, `@types/node` 26, and
+  `@modelcontextprotocol/sdk` 1.29.
+- Updated the landing app to Next.js 16.2.12 and patched production transitive dependencies.
+- Raised the supported Node.js floor to 20.19 and expanded CI through Node.js 24.
+
+### Fixed
+
+- Added explicit Node types for TypeScript 7 and updated Zod 4 JSON-schema conversion.
+- Fixed Windows installations that require a signed CEP extension instead of the debug-mode raw
+  folder used by development builds. ([#36](https://github.com/leancoderkavy/premiere-pro-mcp/issues/36))
+
 ## [1.2.3] - 2026-07-23
 
 ### Changed
