@@ -4,6 +4,8 @@ node_modules/
 # Build output
 dist/
 build/
+artifacts/
+.rnd
 
 # Source maps
 *.js.map

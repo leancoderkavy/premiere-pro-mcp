@@ -10,6 +10,15 @@ import path from "path";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const projectRoot = path.resolve(__dirname, "..");
+const debugEnabled = /^(1|true|yes|on|debug)$/i.test(
+  process.env.PREMIERE_MCP_DEBUG ?? "",
+);
+
+function debugLog(message: string): void {
+  if (debugEnabled) {
+    console.error(`[premiere-pro-mcp] ${message}`);
+  }
+}
 
 // Handle CLI flags
 const args = process.argv.slice(2);
@@ -21,6 +30,7 @@ premiere-pro-mcp — MCP server for Adobe Premiere Pro (269 tools)
 Usage:
   premiere-pro-mcp              Start the MCP server (stdio transport)
   premiere-pro-mcp --install-cep   Install the CEP plugin into Premiere Pro
+  premiere-pro-mcp --diagnose-cep  Check the CEP install, debug keys, and Premiere signature logs
   premiere-pro-mcp --help          Show this help message
   premiere-pro-mcp --version       Show version
 
@@ -28,44 +38,59 @@ Environment variables:
   PREMIERE_TEMP_DIR     Shared temp directory (default: OS temp + /premiere-mcp-bridge)
   PREMIERE_TIMEOUT_MS   Command timeout in ms (default: 30000)
   PREMIERE_MCP_CAPABILITIES  Comma-separated authority profile
+  PREMIERE_MCP_DEBUG    Set to 1/true to enable verbose stderr diagnostics
 
-More info: https://github.com/ppmcp/premiere-pro-mcp
+More info: https://github.com/leancoderkavy/premiere-pro-mcp
 `);
   process.exit(0);
 }
 
 if (args.includes("--version") || args.includes("-v")) {
   const pkg = await import("../package.json", { with: { type: "json" } }).catch(
-    () => ({ default: { version: "unknown" } })
+    () => ({ default: { version: "unknown" } }),
   );
   console.log(pkg.default.version);
   process.exit(0);
 }
 
-if (args.includes("--install-cep")) {
-  console.log("Installing CEP plugin...\n");
+if (args.includes("--install-cep") || args.includes("--diagnose-cep")) {
+  const diagnose = args.includes("--diagnose-cep");
+  console.log(diagnose ? "Diagnosing CEP plugin...\n" : "Installing CEP plugin...\n");
   const isWindows = process.platform === "win32";
   const isMacOS = process.platform === "darwin";
   if (!isWindows && !isMacOS) {
-    console.error(`CEP installation is supported only on Windows and macOS (current platform: ${process.platform}).`);
+    console.error(
+      `CEP installation is supported only on Windows and macOS (current platform: ${process.platform}).`,
+    );
     process.exit(1);
   }
-  const scriptPath = path.join(projectRoot, "scripts", isWindows ? "install-cep.ps1" : "install-cep.sh");
+  const scriptPath = path.join(
+    projectRoot,
+    "scripts",
+    isWindows ? "install-cep.ps1" : "install-cep.sh",
+  );
   try {
     if (isWindows) {
+      const powershellArgs = ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", scriptPath];
+      if (diagnose) powershellArgs.push("-Diagnose");
       execFileSync(
         "powershell.exe",
-        ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", scriptPath],
-        { stdio: "inherit", cwd: projectRoot }
+        powershellArgs,
+        { stdio: "inherit", cwd: projectRoot },
       );
     } else {
-      execFileSync("bash", [scriptPath, "--copy"], { stdio: "inherit", cwd: projectRoot });
+      execFileSync("bash", [scriptPath, diagnose ? "--diagnose" : "--copy"], {
+        stdio: "inherit",
+        cwd: projectRoot,
+      });
     }
   } catch {
-    console.error("CEP installation failed. Try running manually:");
-    console.error(isWindows
-      ? `  powershell -ExecutionPolicy Bypass -File "${scriptPath}"`
-      : `  bash "${scriptPath}"`);
+    console.error(`CEP ${diagnose ? "diagnostics" : "installation"} failed. Try running manually:`);
+    console.error(
+      isWindows
+        ? `  powershell -ExecutionPolicy Bypass -File "${scriptPath}"${diagnose ? " -Diagnose" : ""}`
+        : `  bash "${scriptPath}" ${diagnose ? "--diagnose" : "--copy"}`,
+    );
     process.exit(1);
   }
   process.exit(0);
@@ -80,8 +105,8 @@ async function main() {
   };
 
   const tempDir = getTempDir(bridgeOptions);
-  console.error(`[premiere-pro-mcp] Starting MCP server...`);
-  console.error(`[premiere-pro-mcp] Temp directory: ${tempDir}`);
+  debugLog("Starting MCP server...");
+  debugLog(`Temp directory: ${tempDir}`);
 
   // Clean up any stale files from previous sessions
   cleanupTempDir(bridgeOptions);
@@ -90,7 +115,7 @@ async function main() {
   const transport = new StdioServerTransport();
 
   await server.connect(transport);
-  console.error(`[premiere-pro-mcp] Server connected and ready`);
+  debugLog("Server connected and ready");
 }
 
 main().catch((err) => {

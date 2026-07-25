@@ -6,6 +6,7 @@ $ErrorActionPreference = "Stop"
 
 $projectDir = Split-Path -Parent $PSScriptRoot
 $pluginSource = Join-Path $projectDir "cep-plugin"
+$signedPackage = Join-Path $projectDir "artifacts\MCPBridgeCEP.zxp"
 $cepRoot = Join-Path $env:APPDATA "Adobe\CEP\extensions"
 $pluginDestination = Join-Path $cepRoot "MCPBridgeCEP"
 $resolvedCepRoot = [System.IO.Path]::GetFullPath($cepRoot).TrimEnd([System.IO.Path]::DirectorySeparatorChar)
@@ -29,7 +30,23 @@ if (-not $Diagnose) {
   if (Test-Path -LiteralPath $pluginDestination) {
     Remove-Item -LiteralPath $resolvedDestination -Recurse -Force
   }
-  Copy-Item -LiteralPath $pluginSource -Destination $pluginDestination -Recurse
+  if (Test-Path -LiteralPath $signedPackage) {
+    $temporaryZip = Join-Path ([System.IO.Path]::GetTempPath()) ("MCPBridgeCEP-" + [guid]::NewGuid().ToString("N") + ".zip")
+    try {
+      Copy-Item -LiteralPath $signedPackage -Destination $temporaryZip
+      Expand-Archive -LiteralPath $temporaryZip -DestinationPath $pluginDestination
+      Write-Host "Installed signed CEP package: $signedPackage"
+    }
+    finally {
+      if (Test-Path -LiteralPath $temporaryZip) {
+        Remove-Item -LiteralPath $temporaryZip -Force
+      }
+    }
+  }
+  else {
+    Copy-Item -LiteralPath $pluginSource -Destination $pluginDestination -Recurse
+    Write-Warning "No signed CEP package is present; installed the development bundle and enabled PlayerDebugMode."
+  }
 
   # Adobe requires PlayerDebugMode to be a String value. A DWORD that happens
   # to contain 1 is ignored by CEP and the unsigned extension is not discovered.
@@ -59,10 +76,24 @@ foreach ($version in 9..14) {
   }
 }
 
+$signatureFailures = Get-ChildItem -Path $env:TEMP -Filter "CEP*-PPRO.log" -File -ErrorAction SilentlyContinue |
+  Sort-Object LastWriteTime -Descending |
+  Select-Object -First 5 |
+  Select-String -Pattern "Signature verification failed for extension com\.mcp\.premiere\.bridge" -ErrorAction SilentlyContinue
+if ($signatureFailures) {
+  $latestFailure = $signatureFailures | Select-Object -First 1
+  $problems += "Premiere logged a signature failure in $($latestFailure.Path). Reinstall from a release containing artifacts\MCPBridgeCEP.zxp, fully quit Premiere, and relaunch it."
+}
+
 if ($problems.Count -gt 0) {
   Write-Error ($problems -join [Environment]::NewLine)
   exit 1
 }
 
 Write-Host ""
-Write-Host "Installation verified. Restart Premiere Pro, then open Window > Extensions > MCP Bridge."
+if ($Diagnose) {
+  Write-Host "CEP diagnostics passed."
+}
+else {
+  Write-Host "Installation verified. Restart Premiere Pro, then open Window > Extensions > MCP Bridge."
+}
