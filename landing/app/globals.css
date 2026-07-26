@@ -143,6 +143,19 @@
   filter: blur(60px);
 }
 
+.hero-depth-scene {
+  mask-image: linear-gradient(to bottom, black 0%, black 58%, transparent 88%);
+  opacity: 0;
+  animation: scene-reveal 1.4s 350ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+.hero-depth-vignette {
+  background:
+    radial-gradient(circle at 50% 24%, transparent 0%, rgb(0 0 0 / 0.2) 43%, rgb(0 0 0 / 0.76) 82%),
+    linear-gradient(to bottom, rgb(0 0 0 / 0.18), transparent 38%, rgb(0 0 0 / 0.45));
+  pointer-events: none;
+}
+
 .accent-text {
   background: linear-gradient(100deg, #a99cff 10%, #ee78ba 90%);
   background-clip: text;
@@ -190,6 +203,17 @@ section[id] {
   50% { box-shadow: 0 0 0 5px rgb(16 185 129 / 0.12); }
 }
 
+@keyframes scene-reveal {
+  from {
+    opacity: 0;
+    transform: scale(1.04);
+  }
+  to {
+    opacity: 0.48;
+    transform: scale(1);
+  }
+}
+
 .hero-enter {
   opacity: 0;
   animation: hero-enter 700ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
@@ -223,6 +247,15 @@ section[id] {
     animation: hero-enter linear both;
     animation-timeline: view();
     animation-range: entry 8% cover 24%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero-enter,
+  .terminal-float,
+  .status-pulse {
+    animation: none;
+    opacity: 1;
   }
 }
 
