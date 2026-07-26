@@ -58,7 +58,7 @@ export function FaqSection() {
                   +
                 </span>
               </summary>
-              <p className="max-w-2xl pt-4 text-sm leading-7 text-zinc-500">{item.answer}</p>
+              <p className="max-w-2xl pt-4 text-sm leading-7 text-zinc-400">{item.answer}</p>
             </details>
           ))}
         </div>

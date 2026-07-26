@@ -3,7 +3,7 @@ import Link from "next/link"
 
 export const metadata: Metadata = {
   title: "Premiere Pro MCP Setup, Tools, Compatibility & Security",
-  description: "Install Premiere Pro MCP, connect Claude, Cursor, or Windsurf, explore 269 AI video editing tools, and understand Windows, macOS, CEP, UXP, and security support.",
+  description: "Install Premiere Pro MCP, connect Claude, Cursor, or Windsurf, explore 278 AI video editing tools, and understand Windows, macOS, CEP, UXP, and security support.",
   alternates: { canonical: "/docs/" },
   openGraph: {
     title: "Premiere Pro MCP Documentation",
@@ -19,7 +19,7 @@ const categories = [
   ["Media and projects", "Import footage, organize bins, create sequences, inspect metadata, manage proxies, and save projects."],
   ["Audio and captions", "Adjust verified audio levels, automate keyframes, mute tracks, create captions, and inspect audio state."],
   ["Export", "Discover Adobe Media Encoder presets, export sequences and project items, and verify frame output on disk."],
-  ["Inspection and workflows", "Use 269 tools, three resources, four prompts, edit-plan previews, capability profiles, and audit events."],
+  ["Inspection and workflows", "Use 278 tools, three resources, four prompts, edit-plan previews, capability profiles, and audit events."],
 ]
 
 const structuredData = {
@@ -75,7 +75,7 @@ export default function DocsPage() {
           <p className="font-mono text-sm text-purple-300">PREMIERE PRO MCP DOCUMENTATION</p>
           <h1 className="mt-4 text-balance text-4xl font-bold tracking-tight sm:text-6xl">AI editing tools for Adobe Premiere Pro</h1>
           <p className="mt-6 max-w-3xl text-lg leading-8 text-zinc-400">
-            Premiere Pro MCP is an open-source, local-first Model Context Protocol server that connects AI assistants to Adobe Premiere Pro through 269 structured editing, inspection, automation, and export tools.
+            Premiere Pro MCP is an open-source, local-first Model Context Protocol server that connects AI assistants to Adobe Premiere Pro through 278 structured editing, inspection, automation, and export tools.
           </p>
         </header>
 

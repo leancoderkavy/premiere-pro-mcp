@@ -65,7 +65,7 @@ export function ToolsMarquee() {
   return (
     <section className="relative overflow-hidden bg-black py-20">
       <div className="mb-12 text-center">
-        <p className="text-sm font-semibold uppercase tracking-widest text-zinc-500">269 tools across 28 modules</p>
+        <p className="text-sm font-semibold uppercase tracking-widest text-zinc-500">278 tools across 28 modules</p>
         <h2 className="mt-2 text-3xl font-bold text-white md:text-4xl">Everything the AI needs to edit</h2>
       </div>
 

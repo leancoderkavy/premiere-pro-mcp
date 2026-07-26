@@ -5,6 +5,7 @@ import { ArchitectureSection } from "@/components/sections/architecture"
 import { Footer } from "@/components/sections/footer"
 import { FaqSection, faqItems } from "@/components/sections/faq"
 import { DemoVideoSection } from "@/components/sections/demo-video"
+import { FinalCtaSection } from "@/components/sections/final-cta"
 
 const structuredData = {
   "@context": "https://schema.org",
@@ -42,7 +43,7 @@ const structuredData = {
       operatingSystem: "macOS, Windows",
       softwareVersion: "1.4.0",
       description:
-        "Open-source Model Context Protocol server with 269 tools for AI-assisted editing and automation in Adobe Premiere Pro.",
+        "Open-source Model Context Protocol server with 278 tools for AI-assisted editing and automation in Adobe Premiere Pro.",
       url: "https://premiere-pro-mcp.com/",
       downloadUrl: "https://www.npmjs.com/package/premiere-pro-mcp",
       codeRepository: "https://github.com/leancoderkavy/premiere-pro-mcp",
@@ -101,6 +102,7 @@ export default function Home() {
         <ConnectSection />
         <ArchitectureSection />
         <FaqSection />
+        <FinalCtaSection />
         <Footer />
       </main>
     </>

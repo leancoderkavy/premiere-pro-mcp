@@ -51,7 +51,7 @@ export function FeaturesSection() {
             <article key={capability.title} className="group border-t border-zinc-800 pt-6">
               <capability.icon className="h-6 w-6 text-purple-400 transition-transform group-hover:-translate-y-0.5" strokeWidth={1.6} />
               <h3 className="mt-6 text-lg font-semibold text-zinc-100">{capability.title}</h3>
-              <p className="mt-3 text-sm leading-7 text-zinc-500">{capability.description}</p>
+              <p className="mt-3 text-sm leading-7 text-zinc-400">{capability.description}</p>
             </article>
           ))}
         </div>

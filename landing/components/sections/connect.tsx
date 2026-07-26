@@ -52,12 +52,13 @@ export function ConnectSection() {
           <p className="mt-5 text-lg leading-8 text-zinc-400">
             The local stdio setup is the simplest and safest path. Premiere, the CEP bridge, and your MCP client stay on the same machine.
           </p>
+          <p className="mt-3 text-sm font-medium text-purple-200">Free · local-first · three setup steps</p>
         </div>
 
         <ol className="relative mt-16 grid gap-8 md:grid-cols-3">
           <div className="absolute left-[16.5%] right-[16.5%] top-5 hidden h-px bg-zinc-800 md:block" aria-hidden="true" />
           {[
-            { number: "1", title: "Install the server", command: "npm install -g premiere-pro-mcp", note: "Requires Node.js 18 or newer." },
+            { number: "1", title: "Install the server", command: "npm install -g premiere-pro-mcp", note: "Requires Node.js 20.19 or newer." },
             { number: "2", title: "Install the CEP bridge", command: "premiere-pro-mcp --install-cep", note: "Uses the native macOS or Windows installer." },
             { number: "3", title: "Configure your MCP client", command: "premiere-pro-mcp", note: "Restart Premiere and your MCP client once." },
           ].map((step) => (
@@ -70,7 +71,7 @@ export function ConnectSection() {
                 <code className="min-w-0 overflow-x-auto whitespace-nowrap font-mono text-xs text-emerald-400">{step.command}</code>
                 <CopyButton text={step.command} label={`Copy ${step.title} command`} />
               </div>
-              <p className="mt-3 text-sm text-zinc-500">{step.note}</p>
+              <p className="mt-3 text-sm text-zinc-400">{step.note}</p>
             </li>
           ))}
         </ol>
@@ -78,7 +79,7 @@ export function ConnectSection() {
         <div className="mt-16 overflow-hidden rounded-xl border border-zinc-800 bg-[#08080a]">
           <div className="border-b border-zinc-800 px-5 py-4">
             <p className="text-sm font-semibold text-white">Choose your MCP client</p>
-            <p className="mt-1 text-xs text-zinc-500">The same local server command works across supported clients.</p>
+            <p className="mt-1 text-xs text-zinc-400">The same local server command works across supported clients.</p>
           </div>
           <div className="grid lg:grid-cols-[15rem_1fr]">
             <div className="flex overflow-x-auto border-b border-zinc-800 p-3 lg:flex-col lg:border-b-0 lg:border-r">
@@ -89,7 +90,7 @@ export function ConnectSection() {
                   onClick={() => setActive(client.id)}
                   aria-pressed={active === client.id}
                   className={`whitespace-nowrap rounded-md px-3 py-2.5 text-left text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-400 ${
-                    active === client.id ? "bg-purple-500/15 text-purple-200" : "text-zinc-500 hover:bg-zinc-900 hover:text-zinc-200"
+                    active === client.id ? "bg-purple-500/15 text-purple-200" : "text-zinc-400 hover:bg-zinc-900 hover:text-zinc-200"
                   }`}
                 >
                   {client.name}
@@ -100,12 +101,12 @@ export function ConnectSection() {
               <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
                 <div>
                   <p className="text-sm font-medium text-zinc-200">Add this server to <code className="text-purple-300">{current.file}</code></p>
-                  <p className="mt-1 text-xs text-zinc-500">{current.path}</p>
+                  <p className="mt-1 text-xs text-zinc-400">{current.path}</p>
                 </div>
                 <CopyButton text={config} label={`Copy ${current.name} configuration`} />
               </div>
               <pre className="overflow-x-auto rounded-lg border border-zinc-800 bg-black p-5 font-mono text-sm leading-7 text-zinc-300"><code>{config}</code></pre>
-              <p className="mt-4 text-sm leading-6 text-zinc-500">
+              <p className="mt-4 text-sm leading-6 text-zinc-400">
                 The bridge starts automatically when Premiere launches. Open <span className="text-zinc-300">Window → Extensions → MCP Bridge</span> only to verify status or change the shared temp directory.
               </p>
             </div>

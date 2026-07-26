@@ -11,7 +11,7 @@ Current release: 1.4.0
 
 ## What it does
 
-The server exposes 269 tools for project inspection, timeline editing, media import and organization, clip selection, effects, Lumetri color, audio, keyframes, markers, captions, transitions, playback, metadata, proxies, and Adobe Media Encoder export. It also exposes three MCP resources and four workflow prompts.
+The server exposes 278 tools for project inspection, timeline editing, media import and organization, clip selection, effects, Lumetri color, audio, keyframes, markers, captions, transitions, playback, metadata, proxies, and Adobe Media Encoder export. It also exposes three MCP resources and four workflow prompts.
 
 ## How it connects
 
@@ -29,7 +29,7 @@ Compatibility claims describe packaged support. A live Premiere connection must 
 
 ## Installation
 
-1. Install Node.js 18 or newer.
+1. Install Node.js 20.19 or newer.
 2. Run `npm install -g premiere-pro-mcp`.
 3. Run `premiere-pro-mcp --install-cep`.
 4. Configure the MCP client to launch `premiere-pro-mcp` over stdio.
