@@ -3,10 +3,12 @@ import { getTempDir, sendCommand, BridgeOptions } from "../bridge/file-bridge.js
 import { resolveCapabilities, type CapabilityConfig } from "../security/capabilities.js";
 import { buildPlatformCapabilityReport } from "../platform-capabilities.js";
 import { buildAdvancedFeatureSupport, type AdvancedFeatureBackend } from "../advanced-feature-support.js";
+import type { CatalogToolDefinition } from "../tool-capability-report.js";
 
 export function getHealthTools(
   bridgeOptions: BridgeOptions,
   capabilities: CapabilityConfig = resolveCapabilities(),
+  getToolCatalog: () => Record<string, CatalogToolDefinition> = () => ({}),
 ) {
   return {
     get_advanced_feature_support: {
@@ -66,7 +68,12 @@ export function getHealthTools(
       parameters: {},
       handler: async () => ({
         success: true,
-        data: buildPlatformCapabilityReport(capabilities, process.platform, getTempDir(bridgeOptions)),
+        data: buildPlatformCapabilityReport(
+          capabilities,
+          process.platform,
+          getTempDir(bridgeOptions),
+          getToolCatalog(),
+        ),
       }),
     },
     ping: {
