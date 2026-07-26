@@ -29,6 +29,8 @@ import { getCaptionTools } from "./tools/captions.js";
 import { getPlaybackTools } from "./tools/playback.js";
 import { getProjectManagerTools } from "./tools/project-manager.js";
 import { getEditPlanTools } from "./tools/edit-plans.js";
+import { getUxpTools } from "./tools/uxp.js";
+import type { UxpWebSocketBridge } from "./bridge/uxp-websocket-bridge.js";
 import { guardToolHandler, resolveCapabilities } from "./security/index.js";
 import { EXTENDSCRIPT_REFERENCE } from "./resources/extendscript-reference.js";
 import { WORKFLOW_PROMPTS, WORKFLOW_RESOURCE } from "./workflows/catalog.js";
@@ -217,6 +219,7 @@ function jsonSchemaToZodShape(
 function collectTools(
   bridgeOptions: BridgeOptions,
   capabilities: ReturnType<typeof resolveCapabilities>,
+  uxpBridge?: UxpWebSocketBridge,
 ): Record<string, ToolDef> {
   const cacheKey = JSON.stringify({
     tempDir: bridgeOptions.tempDir ?? process.env.PREMIERE_TEMP_DIR ?? null,
@@ -224,7 +227,7 @@ function collectTools(
       bridgeOptions.timeoutMs ?? process.env.PREMIERE_TIMEOUT_MS ?? null,
     capabilities: [...capabilities.capabilities].sort(),
   });
-  const cached = toolCatalogCache.get(cacheKey);
+  const cached = uxpBridge ? undefined : toolCatalogCache.get(cacheKey);
   if (cached) return cached;
 
   const tools: Record<string, ToolDef> = {
@@ -257,12 +260,20 @@ function collectTools(
     ...getPlaybackTools(bridgeOptions),
     ...getProjectManagerTools(bridgeOptions),
     ...getEditPlanTools(bridgeOptions, { capabilities }),
+    ...(uxpBridge ? getUxpTools(uxpBridge) : {}),
   };
-  toolCatalogCache.set(cacheKey, tools);
+  if (!uxpBridge) toolCatalogCache.set(cacheKey, tools);
   return tools;
 }
 
-export function createServer(bridgeOptions: BridgeOptions): McpServer {
+export interface ServerOptions {
+  uxpBridge?: UxpWebSocketBridge;
+}
+
+export function createServer(
+  bridgeOptions: BridgeOptions,
+  serverOptions: ServerOptions = {},
+): McpServer {
   const server = new McpServer({
     name: "premiere-pro-mcp",
     version: "1.2.0",
@@ -271,7 +282,11 @@ export function createServer(bridgeOptions: BridgeOptions): McpServer {
   const capabilities = resolveCapabilities();
 
   // Collect all tools from each module
-  const toolModules = collectTools(bridgeOptions, capabilities);
+  const toolModules = collectTools(
+    bridgeOptions,
+    capabilities,
+    serverOptions.uxpBridge,
+  );
 
   // Register each tool with the MCP server
   for (const [name, tool] of Object.entries(toolModules)) {

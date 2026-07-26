@@ -79,7 +79,16 @@ async function dispatch(raw) {
 function connect() {
   if (reconnectTimer) clearTimeout(reconnectTimer);
   if (socket) try { socket.close(); } catch (_) {}
-  const url = document.getElementById("bridge-url").value;
+  const configuredUrl = document.getElementById("bridge-url").value;
+  const token = document.getElementById("bridge-token").value;
+  let url;
+  try {
+    url = new URL(configuredUrl);
+    if (token) url.searchParams.set("token", token);
+    url = url.toString();
+  } catch (_) {
+    return scheduleReconnect("Invalid bridge URL");
+  }
   setStatus("Connecting to " + url);
   try { socket = new WebSocket(url); } catch (e) { return scheduleReconnect(e.message); }
   socket.onopen = async () => { setStatus("Connected"); send(Protocol.envelope("hello", await capabilities())); publishState("connected"); };

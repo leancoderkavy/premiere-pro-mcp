@@ -228,6 +228,18 @@ The default bridge directory is derived from the operating system on both sides,
 
 `get_capabilities` reports the current operating system, temp directory, CEP/UXP coverage, enabled authority profile, and any live-host verification still required. It does not claim a Premiere operation succeeded; use `ping` and inspect each tool result for runtime evidence.
 
+### Authenticated UXP connection
+
+The MCP server can accept a local UXP panel connection and invoke the UXP commands that are currently implemented:
+
+```bash
+PREMIERE_UXP_TOKEN="replace-with-a-long-random-secret" premiere-pro-mcp
+```
+
+Enter the same token in the UXP panel. The listener binds only to `127.0.0.1:7777`, authenticates the WebSocket upgrade, requires a versioned capability handshake, correlates concurrent requests, and fails pending work on timeout or disconnect. Set `PREMIERE_UXP_PORT` to use another loopback port.
+
+When enabled, MCP discovery includes `get_uxp_capabilities`, `get_uxp_state`, and `export_frame_uxp`. A failed UXP command is never silently retried through CEP because the first operation may have partially succeeded.
+
 ---
 
 ## Architecture
