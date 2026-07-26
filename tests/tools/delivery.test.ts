@@ -2,7 +2,12 @@ import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { inspectExportPresetFile, verifyDeliveryFile } from "../../src/tools/export.js";
+import {
+  deliveryFileChangedDuringHash,
+  getExportTools,
+  inspectExportPresetFile,
+  verifyDeliveryFile,
+} from "../../src/tools/export.js";
 
 const temporaryDirectories: string[] = [];
 
@@ -48,6 +53,32 @@ describe("delivery file verification", () => {
       matchesExpectedChecksum: false,
       matchesExpectedSize: false,
       valid: false,
+    });
+  });
+
+  it("detects a file replacement or write during hashing", () => {
+    const snapshot = { dev: 1, ino: 2, size: 100, mtimeMs: 500 };
+    expect(deliveryFileChangedDuringHash(snapshot, snapshot)).toBe(false);
+    expect(deliveryFileChangedDuringHash(snapshot, { ...snapshot, size: 101 })).toBe(true);
+    expect(deliveryFileChangedDuringHash(snapshot, { ...snapshot, mtimeMs: 501 })).toBe(true);
+    expect(deliveryFileChangedDuringHash(snapshot, { ...snapshot, ino: 3 })).toBe(true);
+  });
+
+  it("returns mismatch details through the MCP tool as a completed verification", async () => {
+    const path = temporaryFile("delivery.mp4", "video");
+    const result = await getExportTools({}).verify_delivery_file.handler({
+      output_path: path,
+      expected_checksum: "0".repeat(64),
+      expected_size_bytes: 99,
+    });
+    expect(result).toMatchObject({
+      success: true,
+      data: {
+        path,
+        valid: false,
+        matchesExpectedChecksum: false,
+        matchesExpectedSize: false,
+      },
     });
   });
 
