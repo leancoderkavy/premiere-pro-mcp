@@ -4,7 +4,7 @@
 
 **Give AI full control over Adobe Premiere Pro.**
 
-277 tools across 31 modules, 3 resources, and 4 guided workflows.
+278 tools across 31 modules, 3 resources, and 4 guided workflows.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Node.js](https://img.shields.io/badge/Node.js-20.19%2B-green.svg)](https://nodejs.org)
@@ -25,7 +25,7 @@ An [MCP (Model Context Protocol)](https://modelcontextprotocol.io) server that l
 "Add the B-roll clips to V2, apply a cross dissolve between each, color correct them to match the A-roll, and export a 1080p ProRes."
 ```
 
-The AI handles the entire workflow through 277 tools spanning the supported ExtendScript, QE DOM, and safe edit-planning surfaces.
+The AI handles the entire workflow through 278 tools spanning the supported ExtendScript, QE DOM, and safe edit-planning surfaces.
 
 ### What's new in 1.3.1
 
@@ -228,6 +228,14 @@ The default bridge directory is derived from the operating system on both sides,
 
 `get_capabilities` reports the current operating system, temp directory, CEP/UXP coverage, enabled authority profile, and any live-host verification still required. It does not claim a Premiere operation succeeded; use `ping` and inspect each tool result for runtime evidence.
 
+### Collaboration and AI feature boundaries
+
+`get_advanced_feature_support` returns a machine-readable matrix for Productions,
+Team Projects, Frame.io, Media Intelligence, Generative Extend, Object Mask,
+caption translation, Speech-to-Text, Enhance Speech, and Remix. It distinguishes
+documented APIs from entitlements, network prerequisites, separate service APIs,
+and user-assisted operations without using menu automation or private APIs.
+
 ### Authenticated UXP connection
 
 The MCP server can accept a local UXP panel connection and invoke the UXP commands that are currently implemented:
@@ -282,7 +290,7 @@ The file-based IPC bridge is simple, reliable, and works across macOS and Window
 
 ---
 
-## Tools (277)
+## Tools (278)
 
 ### Discovery & Inspection (10 + 10)
 
@@ -298,6 +306,7 @@ The file-based IPC bridge is simple, reliable, and works across macOS and Window
 | `search_project_items` | Filter by name, extension, offline status, color label |
 | `get_premiere_state` | Full snapshot: project, sequence, playhead, selection |
 | `inspect_dom_object` | Explore any Premiere Pro DOM object interactively |
+| `get_advanced_feature_support` | Collaboration/AI API support, prerequisites, entitlements, and user-assisted boundaries |
 
 ### Project Management (26)
 
@@ -514,7 +523,7 @@ premiere-pro-mcp/
 ├── src/
 │   ├── index.ts                 # Entry point — stdio transport setup
 │   ├── http-server.ts           # Entry point — HTTP/SSE transport (Fly.io / remote)
-│   ├── server.ts                # MCP server — registers 277 tools + 3 resources + 4 prompts
+│   ├── server.ts                # MCP server — registers 278 tools + 3 resources + 4 prompts
 │   ├── bridge/
 │   │   ├── file-bridge.ts       # File-based IPC (write .jsx, poll .json)
 │   │   └── script-builder.ts    # ExtendScript generator with ES3 helpers
