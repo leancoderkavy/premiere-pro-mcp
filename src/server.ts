@@ -29,6 +29,7 @@ import { getCaptionTools } from "./tools/captions.js";
 import { getPlaybackTools } from "./tools/playback.js";
 import { getProjectManagerTools } from "./tools/project-manager.js";
 import { getEditPlanTools } from "./tools/edit-plans.js";
+import { getAvSettingsTools } from "./tools/av-settings.js";
 import { guardToolHandler, resolveCapabilities } from "./security/index.js";
 import { EXTENDSCRIPT_REFERENCE } from "./resources/extendscript-reference.js";
 import { WORKFLOW_PROMPTS, WORKFLOW_RESOURCE } from "./workflows/catalog.js";
@@ -251,13 +252,17 @@ function collectTools(
     ...getSourceMonitorTools(bridgeOptions),
     ...getTrackTargetingTools(bridgeOptions),
     ...getUtilityTools(bridgeOptions),
-    ...getHealthTools(bridgeOptions, capabilities),
     ...getWorkspaceTools(bridgeOptions),
     ...getCaptionTools(bridgeOptions),
     ...getPlaybackTools(bridgeOptions),
     ...getProjectManagerTools(bridgeOptions),
     ...getEditPlanTools(bridgeOptions, { capabilities }),
+    ...getAvSettingsTools(bridgeOptions),
   };
+  Object.assign(
+    tools,
+    getHealthTools(bridgeOptions, capabilities, () => tools),
+  );
   toolCatalogCache.set(cacheKey, tools);
   return tools;
 }
