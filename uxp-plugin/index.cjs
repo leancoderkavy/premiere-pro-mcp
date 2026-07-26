@@ -3,6 +3,8 @@ const { entrypoints } = require("uxp");
 const ppro = require("premierepro");
 const fs = require("fs");
 const Protocol = globalThis.PremiereMcpProtocol;
+const Commands = globalThis.PremiereMcpCommands;
+const commandRegistry = Commands.createCommandRegistry({ ppro, fs, Protocol });
 let socket = null;
 let reconnectTimer = null;
 let lastState = "";
@@ -15,64 +17,17 @@ document.addEventListener("DOMContentLoaded", () => {
   setInterval(() => publishState("poll"), 1000);
 });
 
-async function capabilities() {
-  let project = null, sequence = null;
-  try { project = await ppro.Project.getActiveProject(); sequence = project && await project.getActiveSequence(); } catch (_) {}
-  return {
-    backend: "uxp", protocolVersion: Protocol.PROTOCOL_VERSION,
-    hostMinVersion: "25.6.0", activeProject: !!project, activeSequence: !!sequence,
-    commands: {
-      "capabilities.get": { supported: true, readOnly: true },
-      "state.get": { supported: true, readOnly: true },
-      "frame.export": { supported: !!(ppro.Exporter && ppro.Exporter.exportSequenceFrame), destructive: false }
-    },
-    fallback: { backend: "cep", reason: "Use CEP/QE only when a command is absent or reports unsupported; never silently retry a failed UXP mutation." }
-  };
-}
-
-async function stateSnapshot() {
-  const project = await ppro.Project.getActiveProject();
-  const sequence = project && await project.getActiveSequence();
-  const position = sequence && await sequence.getPlayerPosition();
-  return { projectOpen: !!project, sequenceOpen: !!sequence, playheadSeconds: position ? position.seconds : null };
-}
-
-async function exportFrame(args) {
-  const project = await ppro.Project.getActiveProject();
-  if (!project) throw new Error("No active project");
-  const sequence = await project.getActiveSequence();
-  if (!sequence) throw new Error("No active sequence");
-  if (!args.outputDirectory) throw new Error("outputDirectory is required");
-  const filename = Protocol.safeFilename(args.filename);
-  const position = args.seconds == null ? await sequence.getPlayerPosition() : await tickTime(args.seconds);
-  const size = await sequence.getFrameSize();
-  const width = positiveInt(args.width, size.width), height = positiveInt(args.height, size.height);
-  const returned = await ppro.Exporter.exportSequenceFrame(sequence, position, filename, args.outputDirectory, width, height);
-  const path = Protocol.joinPath(args.outputDirectory, filename);
-  let exists = false;
-  try { await fs.lstat(path); exists = true; } catch (_) {}
-  if (!exists) throw new Error("Exporter returned " + JSON.stringify(returned) + " but no frame exists at " + path);
-  return { path, width, height, seconds: position.seconds, exporterResult: returned };
-}
-
-async function tickTime(seconds) {
-  if (ppro.TickTime && typeof ppro.TickTime.createWithSeconds === "function") return ppro.TickTime.createWithSeconds(Number(seconds));
-  throw new Error("This Premiere build cannot create TickTime; omit seconds to capture the playhead");
-}
-function positiveInt(value, fallback) { const n = Number(value == null ? fallback : value); if (!Number.isFinite(n) || n <= 0) throw new Error("frame dimensions must be positive"); return Math.round(n); }
+async function capabilities() { return commandRegistry.capabilities(); }
+async function stateSnapshot() { return commandRegistry.stateSnapshot(); }
 
 async function dispatch(raw) {
   let cmd;
   try {
     cmd = Protocol.parseCommand(raw);
-    let result;
-    if (cmd.command === "capabilities.get") result = await capabilities();
-    else if (cmd.command === "state.get") result = await stateSnapshot();
-    else if (cmd.command === "frame.export") result = await exportFrame(cmd.args);
-    else throw new Error("Unsupported UXP command: " + cmd.command);
+    const result = await commandRegistry.dispatch(cmd.command, cmd.args);
     send(Protocol.envelope("result", { ok: true, result }, cmd.requestId));
   } catch (error) {
-    send(Protocol.envelope("result", { ok: false, error: { code: "UXP_COMMAND_FAILED", message: error.message || String(error) } }, cmd && cmd.requestId));
+    send(Protocol.envelope("result", { ok: false, error: { code: error.code || "UXP_COMMAND_FAILED", message: error.message || String(error) } }, cmd && cmd.requestId));
   }
 }
 
