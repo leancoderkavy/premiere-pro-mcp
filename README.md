@@ -236,6 +236,17 @@ caption translation, Speech-to-Text, Enhance Speech, and Remix. It distinguishes
 documented APIs from entitlements, network prerequisites, separate service APIs,
 and user-assisted operations without using menu automation or private APIs.
 
+The report tool itself is local: it does not contact Premiere and is callable
+through the current MCP server. Each feature entry separately reports whether
+its operations are callable through the production CEP transport. Productions
+reports only static backend/version eligibility until a UXP host performs live
+capability negotiation.
+
+- Productions exposes documented read-only state through UXP.
+- Frame.io needs a separately authenticated Frame.io API integration.
+- Transcript JSON import/export is documented in UXP; starting Speech-to-Text is not.
+- Remaining AI operations are user-assisted or unsupported by documented public APIs.
+
 ### Authenticated UXP connection
 
 The MCP server can accept a local UXP panel connection and invoke the UXP commands that are currently implemented:

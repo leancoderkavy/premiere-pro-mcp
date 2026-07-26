@@ -10,18 +10,32 @@ describe("advanced collaboration and AI feature support", () => {
       publicApisOnly: true,
       uiAutomation: false,
       privateApis: false,
-      callableThroughCurrentMcpTransport: false,
+      reportTool: {
+        transport: "local",
+        callableThroughCurrentMcpTransport: true,
+        contactsPremiereHost: false,
+      },
+      featureOperations: {
+        currentMcpTransport: "cep",
+        uxpOperationsRoutedByCurrentMcpTransport: false,
+        liveHostCapabilityNegotiationRequired: true,
+      },
     });
     expect(report.features.productions).toMatchObject({
       status: "uxp-read-only",
-      availableInRequestedContext: false,
+      staticEligibility: {
+        backendEligible: false,
+        eligible: false,
+      },
+      liveHostVerificationRequired: true,
+      callableThroughCurrentMcpTransport: false,
     });
   });
 
   it("marks documented Productions inspection available only for eligible UXP hosts", () => {
-    expect(buildAdvancedFeatureSupport({ backend: "uxp", premiereVersion: "25.6.0" }).features.productions.availableInRequestedContext).toBe(true);
-    expect(buildAdvancedFeatureSupport({ backend: "uxp", premiereVersion: "25.5.9" }).features.productions.availableInRequestedContext).toBe(false);
-    expect(buildAdvancedFeatureSupport({ backend: "uxp" }).features.productions.availableInRequestedContext).toBeNull();
+    expect(buildAdvancedFeatureSupport({ backend: "uxp", premiereVersion: "25.6.0" }).features.productions.staticEligibility.eligible).toBe(true);
+    expect(buildAdvancedFeatureSupport({ backend: "uxp", premiereVersion: "25.5.9" }).features.productions.staticEligibility.eligible).toBe(false);
+    expect(buildAdvancedFeatureSupport({ backend: "uxp" }).features.productions.staticEligibility.eligible).toBeNull();
   });
 
   it("keeps entitlements separate from API availability", () => {
@@ -35,12 +49,12 @@ describe("advanced collaboration and AI feature support", () => {
     expect(report.features.frameIo).toMatchObject({
       status: "external-api-required",
       entitlementSatisfied: true,
-      availableInRequestedContext: false,
+      callableThroughCurrentMcpTransport: false,
     });
     expect(report.features.generativeExtend).toMatchObject({
       status: "user-assisted",
       entitlementSatisfied: true,
-      availableInRequestedContext: false,
+      callableThroughCurrentMcpTransport: false,
     });
   });
 
