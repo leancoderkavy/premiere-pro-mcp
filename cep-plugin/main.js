@@ -55,7 +55,9 @@ function nodeRequire(moduleName) {
 var fs = nodeRequire("fs");
 var path = nodeRequire("path");
 var os = nodeRequire("os");
+var https = nodeRequire("https");
 tempDir = path.join(os.tmpdir(), "premiere-mcp-bridge");
+var latestUpdate = null;
 
 function ensureDir(dir) {
   try {
@@ -250,6 +252,124 @@ function saveTempDir() {
   } catch (e) {}
 }
 
+// ---- Connector Updates ----
+function setUpdateUI(title, detail, buttonText, disabled) {
+  document.getElementById("updateTitle").textContent = title;
+  document.getElementById("updateDetail").textContent = detail;
+  var button = document.getElementById("btnUpdate");
+  button.textContent = buttonText;
+  button.disabled = !!disabled;
+}
+
+function checkForUpdates() {
+  latestUpdate = null;
+  setUpdateUI(
+    "Version " + MCPBridgeUpdater.CURRENT_VERSION,
+    "Checking for updates…",
+    "Checking…",
+    true
+  );
+
+  var request = https.get(
+    MCPBridgeUpdater.LATEST_RELEASE_API,
+    {
+      headers: {
+        Accept: "application/vnd.github+json",
+        "User-Agent": "premiere-pro-mcp-connector/" + MCPBridgeUpdater.CURRENT_VERSION,
+      },
+    },
+    function (response) {
+      var body = "";
+      response.setEncoding("utf8");
+      response.on("data", function (chunk) {
+        if (body.length < 1024 * 1024) body += chunk;
+      });
+      response.on("end", function () {
+        if (response.statusCode !== 200) {
+          showUpdateCheckError("Could not check GitHub (HTTP " + response.statusCode + ").");
+          return;
+        }
+        try {
+          var release = JSON.parse(body);
+          var latestVersion = MCPBridgeUpdater.normalizeVersion(
+            release.tag_name || release.name
+          );
+          if (!latestVersion) throw new Error("Release has no version");
+
+          if (
+            MCPBridgeUpdater.compareVersions(
+              latestVersion,
+              MCPBridgeUpdater.CURRENT_VERSION
+            ) > 0
+          ) {
+            latestUpdate = {
+              version: latestVersion,
+              url: MCPBridgeUpdater.chooseDownloadUrl(release),
+            };
+            setUpdateUI(
+              "Version " + latestVersion + " is available",
+              "Download it, then close Premiere and run the installer.",
+              "Download update",
+              false
+            );
+          } else {
+            setUpdateUI(
+              "Version " + MCPBridgeUpdater.CURRENT_VERSION,
+              "You have the latest connector.",
+              "Check again",
+              false
+            );
+          }
+        } catch (e) {
+          showUpdateCheckError("GitHub returned an unreadable release.");
+        }
+      });
+    }
+  );
+  request.setTimeout(10000, function () {
+    request.destroy(new Error("Update check timed out"));
+  });
+  request.on("error", function () {
+    showUpdateCheckError("Unable to check while offline.");
+  });
+}
+
+function showUpdateCheckError(message) {
+  setUpdateUI(
+    "Version " + MCPBridgeUpdater.CURRENT_VERSION,
+    message,
+    "Check again",
+    false
+  );
+}
+
+function handleUpdateClick() {
+  if (!latestUpdate) {
+    checkForUpdates();
+    return;
+  }
+  if (!MCPBridgeUpdater.isTrustedDownloadUrl(latestUpdate.url)) {
+    showUpdateCheckError("The update link was not trusted.");
+    return;
+  }
+  try {
+    var childProcess = nodeRequire("child_process");
+    var command =
+      os.platform() === "win32"
+        ? ["cmd.exe", ["/d", "/s", "/c", "start", "", latestUpdate.url]]
+        : ["open", [latestUpdate.url]];
+    var child = childProcess.spawn(command[0], command[1], {
+      detached: true,
+      stdio: "ignore",
+    });
+    child.unref();
+    document.getElementById("updateDetail").textContent =
+      "Download opened. Close Premiere before installing.";
+  } catch (e) {
+    showUpdateCheckError("Could not open the download. Try again.");
+  }
+}
+
 // ---- Init ----
 (function init() {
   // Set the default temp dir in the input field
@@ -273,4 +393,5 @@ function saveTempDir() {
   ensureDir(tempDir);
   log("Auto-starting bridge...");
   setTimeout(startBridge, 500);
+  setTimeout(checkForUpdates, 1200);
 })();
