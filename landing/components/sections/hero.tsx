@@ -1,5 +1,6 @@
 import { Github, Monitor, Package, ShieldCheck, Sparkles } from "lucide-react"
 import { EditingTimeline } from "@/components/sections/editing-timeline"
+import { HeroDepthLoader } from "@/components/sections/hero-depth-loader"
 import { MobileNav } from "@/components/sections/mobile-nav"
 
 const navItems = [
@@ -56,6 +57,8 @@ export function HeroSection() {
       <section id="top" className="relative overflow-hidden px-5 pb-16 pt-28 md:pb-28 md:pt-44">
         <div className="hero-grid absolute inset-0" aria-hidden="true" />
         <div className="hero-glow absolute left-1/2 top-0 h-[36rem] w-[52rem] -translate-x-1/2" aria-hidden="true" />
+        <HeroDepthLoader />
+        <div className="hero-depth-vignette absolute inset-0" aria-hidden="true" />
 
         <div className="relative mx-auto max-w-6xl">
           <div className="mx-auto max-w-4xl text-center">
