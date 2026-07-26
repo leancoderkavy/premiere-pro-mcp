@@ -64,7 +64,7 @@ describe("modern MCP surface", () => {
       const tools = await client.listTools();
       expect(tools.tools.find((tool) => tool.name === "get_project_info")?.annotations?.readOnlyHint).toBe(true);
       expect(tools.tools.map((tool) => tool.name)).toContain("get_capabilities");
-      expect(tools.tools).toHaveLength(277);
+      expect(tools.tools).toHaveLength(278);
 
       const capabilities = await client.callTool({
         name: "get_capabilities",

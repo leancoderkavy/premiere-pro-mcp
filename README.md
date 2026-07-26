@@ -4,7 +4,7 @@
 
 **Give AI full control over Adobe Premiere Pro.**
 
-277 tools across 31 modules, 3 resources, and 4 guided workflows.
+278 tools across 31 modules, 3 resources, and 4 guided workflows.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Node.js](https://img.shields.io/badge/Node.js-20.19%2B-green.svg)](https://nodejs.org)
@@ -25,7 +25,7 @@ An [MCP (Model Context Protocol)](https://modelcontextprotocol.io) server that l
 "Add the B-roll clips to V2, apply a cross dissolve between each, color correct them to match the A-roll, and export a 1080p ProRes."
 ```
 
-The AI handles the entire workflow through 277 tools spanning the supported ExtendScript, QE DOM, and safe edit-planning surfaces.
+The AI handles the entire workflow through 278 tools spanning the supported ExtendScript, QE DOM, and safe edit-planning surfaces.
 
 ### What's new in 1.3.1
 
@@ -291,6 +291,31 @@ QE-backed tools are reported as `experimental` because QE is undocumented and ca
 
 Tools with mixed execution boundaries can provide explicit operational metadata at registration. This is used for local file verification, static feature-support reports, and hybrid local-plus-Premiere validation so the capability catalog does not infer a host dependency from naming alone.
 
+### Collaboration and AI feature boundaries
+
+`get_advanced_feature_support` returns a machine-readable matrix for Productions,
+Team Projects, Frame.io, Media Intelligence, Generative Extend, Object Mask,
+caption translation, Speech-to-Text, Enhance Speech, and Remix. Pass an optional
+Premiere version, intended backend, confirmed entitlements, and network state to
+evaluate prerequisites without conflating them with API availability.
+
+The report tool itself is local: it does not contact Premiere and is callable
+through the current MCP server. Each feature entry separately reports whether
+its operations are callable through the production CEP transport. Productions
+reports only static backend/version eligibility until a UXP host performs live
+capability negotiation.
+
+- Productions exposes documented read-only state through UXP, but the production
+  MCP transport is still CEP.
+- Frame.io needs a separately authenticated Frame.io API integration; an account
+  entitlement alone does not make it callable through Premiere's DOM.
+- Transcript JSON import/export is documented in UXP. Starting Speech-to-Text is not.
+- The remaining AI operations are user-assisted or unsupported by documented
+  public APIs. The tool explains what can be inspected after a user completes
+  the operation and where artifact provenance cannot be established safely.
+- The server never uses menu automation, private APIs, clip-name heuristics, or
+  duration changes as proof that an AI operation occurred.
+
 ---
 
 ## Architecture
@@ -333,7 +358,7 @@ The file-based IPC bridge is simple, reliable, and works across macOS and Window
 
 ---
 
-## Tools (271)
+## Tools (278)
 
 ### Discovery & Inspection (10 + 10)
 
@@ -349,6 +374,7 @@ The file-based IPC bridge is simple, reliable, and works across macOS and Window
 | `search_project_items` | Filter by name, extension, offline status, color label |
 | `get_premiere_state` | Full snapshot: project, sequence, playhead, selection |
 | `inspect_dom_object` | Explore any Premiere Pro DOM object interactively |
+| `get_advanced_feature_support` | Collaboration/AI API support, prerequisites, entitlements, and user-assisted boundaries |
 
 ### Project Management (26)
 
@@ -565,7 +591,7 @@ premiere-pro-mcp/
 ├── src/
 │   ├── index.ts                 # Entry point — stdio transport setup
 │   ├── http-server.ts           # Entry point — HTTP/SSE transport (Fly.io / remote)
-│   ├── server.ts                # MCP server — registers 277 tools + 3 resources + 4 prompts
+│   ├── server.ts                # MCP server — registers 278 tools + 3 resources + 4 prompts
 │   ├── bridge/
 │   │   ├── file-bridge.ts       # File-based IPC (write .jsx, poll .json)
 │   │   └── script-builder.ts    # ExtendScript generator with ES3 helpers
