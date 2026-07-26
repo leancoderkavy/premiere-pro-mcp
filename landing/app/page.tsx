@@ -9,12 +9,29 @@ const structuredData = {
   "@context": "https://schema.org",
   "@graph": [
     {
+      "@type": "Organization",
+      "@id": "https://premiere-pro-mcp.com/#organization",
+      name: "Premiere Pro MCP contributors",
+      url: "https://premiere-pro-mcp.com/",
+      logo: {
+        "@type": "ImageObject",
+        url: "https://premiere-pro-mcp.com/og-image.png",
+        width: 1200,
+        height: 630,
+      },
+      sameAs: [
+        "https://github.com/leancoderkavy/premiere-pro-mcp",
+        "https://www.npmjs.com/package/premiere-pro-mcp",
+      ],
+    },
+    {
       "@type": "WebSite",
       "@id": "https://premiere-pro-mcp.com/#website",
       name: "Premiere Pro MCP",
       url: "https://premiere-pro-mcp.com/",
       description: "Open-source AI control and automation for Adobe Premiere Pro through the Model Context Protocol.",
       inLanguage: "en-US",
+      publisher: { "@id": "https://premiere-pro-mcp.com/#organization" },
     },
     {
       "@type": "SoftwareApplication",
@@ -22,7 +39,7 @@ const structuredData = {
       name: "Premiere Pro MCP",
       applicationCategory: "DeveloperApplication",
       operatingSystem: "macOS, Windows",
-      softwareVersion: "1.2.1",
+      softwareVersion: "1.3.1",
       description:
         "Open-source Model Context Protocol server with 269 tools for AI-assisted editing and automation in Adobe Premiere Pro.",
       url: "https://premiere-pro-mcp.com/",
@@ -33,7 +50,11 @@ const structuredData = {
         "https://www.npmjs.com/package/premiere-pro-mcp",
       ],
       releaseNotes: "https://github.com/leancoderkavy/premiere-pro-mcp/releases",
-      softwareRequirements: "Node.js 18 or newer and Adobe Premiere Pro 2020–2026",
+      softwareRequirements: "Node.js 20.19 or newer and Adobe Premiere Pro 2020–2026",
+      author: { "@id": "https://premiere-pro-mcp.com/#organization" },
+      publisher: { "@id": "https://premiere-pro-mcp.com/#organization" },
+      image: "https://premiere-pro-mcp.com/og-image.png",
+      dateModified: "2026-07-26",
       featureList: [
         "Timeline editing",
         "Effects and Lumetri color control",
