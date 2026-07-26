@@ -43,13 +43,34 @@ export function buildAdvancedFeatureSupport(context: AdvancedFeatureContext = {}
       publicApisOnly: true,
       uiAutomation: false,
       privateApis: false,
-      callableThroughCurrentMcpTransport: false,
-      note: "The production MCP transport is CEP. UXP-only entries require the separate UXP bridge and live capability negotiation.",
+      reportTool: {
+        transport: "local",
+        callableThroughCurrentMcpTransport: true,
+        contactsPremiereHost: false,
+        note: "This report is computed locally from documented support metadata and caller-supplied context.",
+      },
+      featureOperations: {
+        currentMcpTransport: "cep",
+        uxpOperationsRoutedByCurrentMcpTransport: false,
+        liveHostCapabilityNegotiationRequired: true,
+        note: "UXP-only feature operations require the separate UXP bridge and live capability negotiation.",
+      },
     },
     features: {
       productions: {
         status: "uxp-read-only" as AdvancedFeatureStatus,
-        availableInRequestedContext: backend === "uxp" ? productionsVersionEligible : false,
+        staticEligibility: {
+          backendEligible: backend === "uxp",
+          versionEligible: productionsVersionEligible,
+          eligible:
+            backend === "uxp" && productionsVersionEligible === true
+              ? true
+              : backend !== "uxp" || productionsVersionEligible === false
+                ? false
+                : null,
+        },
+        liveHostVerificationRequired: true,
+        callableThroughCurrentMcpTransport: false,
         minPremiereVersion: "25.6.0",
         entitlement: "local-project-feature",
         documentedSurface: [
@@ -63,7 +84,7 @@ export function buildAdvancedFeatureSupport(context: AdvancedFeatureContext = {}
       },
       teamProjects: {
         status: "unsupported-public-api" as AdvancedFeatureStatus,
-        availableInRequestedContext: false,
+        callableThroughCurrentMcpTransport: false,
         entitlement: "Creative Cloud Team Projects entitlement",
         supportedOperations: [],
         unsupportedOperations: ["create", "share", "sync", "publish changes", "resolve conflicts"],
@@ -72,7 +93,7 @@ export function buildAdvancedFeatureSupport(context: AdvancedFeatureContext = {}
       },
       frameIo: {
         status: "external-api-required" as AdvancedFeatureStatus,
-        availableInRequestedContext: false,
+        callableThroughCurrentMcpTransport: false,
         entitlementSatisfied: context.frameIoEntitled ?? null,
         prerequisites: ["Frame.io account and project access", "Frame.io API integration", "network access"],
         networkSatisfied: context.networkAvailable ?? null,
@@ -83,7 +104,7 @@ export function buildAdvancedFeatureSupport(context: AdvancedFeatureContext = {}
       },
       mediaIntelligence: {
         status: "user-assisted" as AdvancedFeatureStatus,
-        availableInRequestedContext: false,
+        callableThroughCurrentMcpTransport: false,
         entitlement: "Premiere feature availability varies by build and locale",
         supportedOperations: [],
         unsupportedOperations: ["run semantic media analysis", "query Premiere's Media Intelligence index"],
@@ -92,7 +113,7 @@ export function buildAdvancedFeatureSupport(context: AdvancedFeatureContext = {}
       },
       generativeExtend: {
         status: "user-assisted" as AdvancedFeatureStatus,
-        availableInRequestedContext: false,
+        callableThroughCurrentMcpTransport: false,
         entitlementSatisfied: context.generativeAiEntitled ?? null,
         prerequisites: ["eligible Premiere build", "Adobe generative AI entitlement", "network access"],
         networkSatisfied: context.networkAvailable ?? null,
@@ -103,7 +124,7 @@ export function buildAdvancedFeatureSupport(context: AdvancedFeatureContext = {}
       },
       objectMask: {
         status: "user-assisted" as AdvancedFeatureStatus,
-        availableInRequestedContext: false,
+        callableThroughCurrentMcpTransport: false,
         supportedOperations: ["inspect ordinary effect components after a mask is created"],
         unsupportedOperations: ["invoke object selection", "run tracking", "identify an Object Mask artifact reliably"],
         userAssistedWorkflow: "Create and track the mask in Premiere, then use generic effect/property inspection where exposed.",
@@ -111,7 +132,7 @@ export function buildAdvancedFeatureSupport(context: AdvancedFeatureContext = {}
       },
       captionTranslation: {
         status: "user-assisted" as AdvancedFeatureStatus,
-        availableInRequestedContext: false,
+        callableThroughCurrentMcpTransport: false,
         prerequisites: ["supported source/target language", "network access and service availability"],
         networkSatisfied: context.networkAvailable ?? null,
         supportedOperations: ["inspect resulting caption tracks through documented caption-track APIs"],
@@ -121,7 +142,7 @@ export function buildAdvancedFeatureSupport(context: AdvancedFeatureContext = {}
       },
       speechToText: {
         status: "user-assisted" as AdvancedFeatureStatus,
-        availableInRequestedContext: false,
+        callableThroughCurrentMcpTransport: false,
         minPremiereVersionForTranscriptIO: "25.6.0",
         supportedOperations: ["UXP transcript JSON import", "UXP transcript JSON export"],
         unsupportedOperations: ["start Speech-to-Text transcription", "monitor transcription progress"],
@@ -131,7 +152,7 @@ export function buildAdvancedFeatureSupport(context: AdvancedFeatureContext = {}
       },
       enhanceSpeech: {
         status: "unsupported-public-api" as AdvancedFeatureStatus,
-        availableInRequestedContext: false,
+        callableThroughCurrentMcpTransport: false,
         supportedOperations: ["inspect generic audio effects if Premiere represents the result there"],
         unsupportedOperations: ["invoke Enhance Speech", "set mix amount", "inspect analysis progress"],
         userAssistedWorkflow: "Apply Enhance Speech in Premiere, then verify playback and generic audio state manually.",
@@ -139,7 +160,7 @@ export function buildAdvancedFeatureSupport(context: AdvancedFeatureContext = {}
       },
       remix: {
         status: "unsupported-public-api" as AdvancedFeatureStatus,
-        availableInRequestedContext: false,
+        callableThroughCurrentMcpTransport: false,
         supportedOperations: ["inspect the resulting timeline clip duration after the user applies Remix"],
         unsupportedOperations: ["invoke Remix", "set target duration through a dedicated API", "inspect analysis state"],
         userAssistedWorkflow: "Apply Remix in Premiere, then inspect the resulting clip duration with timeline tools.",

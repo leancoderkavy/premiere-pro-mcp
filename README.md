@@ -236,6 +236,12 @@ caption translation, Speech-to-Text, Enhance Speech, and Remix. Pass an optional
 Premiere version, intended backend, confirmed entitlements, and network state to
 evaluate prerequisites without conflating them with API availability.
 
+The report tool itself is local: it does not contact Premiere and is callable
+through the current MCP server. Each feature entry separately reports whether
+its operations are callable through the production CEP transport. Productions
+reports only static backend/version eligibility until a UXP host performs live
+capability negotiation.
+
 - Productions exposes documented read-only state through UXP, but the production
   MCP transport is still CEP.
 - Frame.io needs a separately authenticated Frame.io API integration; an account
