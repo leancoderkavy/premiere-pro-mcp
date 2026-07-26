@@ -297,7 +297,10 @@ Tools with mixed execution boundaries can provide explicit operational metadata 
 Team Projects, Frame.io, Media Intelligence, Generative Extend, Object Mask,
 caption translation, Speech-to-Text, Enhance Speech, and Remix. Pass an optional
 Premiere version, intended backend, confirmed entitlements, and network state to
-evaluate prerequisites without conflating them with API availability.
+evaluate prerequisites without conflating them with API availability. It
+distinguishes documented APIs from entitlements, network prerequisites, separate
+service APIs, and user-assisted operations without using menu automation or
+private APIs.
 
 The report tool itself is local: it does not contact Premiere and is callable
 through the current MCP server. Each feature entry separately reports whether
@@ -607,7 +610,7 @@ premiere-pro-mcp/
 │   ├── bridge/
 │   │   ├── file-bridge.ts       # File-based IPC (write .jsx, poll .json)
 │   │   └── script-builder.ts    # ExtendScript generator with ES3 helpers
-│   ├── tools/                   # 30 tool modules
+│   ├── tools/                   # 31 tool modules
 │   │   ├── discovery.ts         # Project discovery and queries
 │   │   ├── recovery.ts          # Read-only autosave discovery and private bridge telemetry
 │   │   ├── project.ts           # Project management and import

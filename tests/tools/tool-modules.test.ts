@@ -76,7 +76,7 @@ const ALL_MODULES: Array<{
   { name: "tracks", getter: getTrackTools, minTools: 3 },
   { name: "playhead", getter: getPlayheadTools, minTools: 4 },
   { name: "metadata", getter: getMetadataTools, minTools: 6 },
-  { name: "export", getter: getExportTools, minTools: 8 },
+  { name: "export", getter: getExportTools, minTools: 10 },
   { name: "advanced", getter: getAdvancedTools, minTools: 20 },
   { name: "keyframes", getter: getKeyframeTools, minTools: 5 },
   { name: "scripting", getter: getScriptingTools, minTools: 3 },
