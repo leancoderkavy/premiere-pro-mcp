@@ -239,6 +239,36 @@ The plugin source lives in [`plugins/premiere-pro`](plugins/premiere-pro), and t
 repository marketplace manifest lives in
 [`.agents/plugins/marketplace.json`](.agents/plugins/marketplace.json).
 
+### Claude
+
+For Claude Code, add this repository as a marketplace and install the plugin:
+
+```text
+/plugin marketplace add leancoderkavy/premiere-pro-mcp
+/plugin install premiere-pro@premiere-pro-mcp
+```
+
+Then install the Premiere bridge and start a new Claude Code session:
+
+```bash
+npx -y premiere-pro-mcp@1.3.1 --install-cep
+```
+
+The Claude Code package lives in
+[`claude-plugins/premiere-pro`](claude-plugins/premiere-pro), with its marketplace
+at [`.claude-plugin/marketplace.json`](.claude-plugin/marketplace.json).
+
+Claude Desktop uses the self-contained MCP Bundle format, formerly called Desktop
+Extensions. Build both the current `.mcpb` artifact and a legacy `.dxt` copy with:
+
+```bash
+npm run build:claude
+```
+
+Install the resulting file from `artifacts/` through **Settings > Extensions >
+Advanced settings > Install Extension**. The Premiere CEP bridge must still be
+installed separately.
+
 ### Windows and macOS capability coverage
 
 | Surface | Windows | macOS | Verification boundary |
