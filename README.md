@@ -4,7 +4,7 @@
 
 **Give AI full control over Adobe Premiere Pro.**
 
-269 tools across 29 modules, 3 resources, and 4 guided workflows.
+278 tools across 31 modules, 3 resources, and 4 guided workflows.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Node.js](https://img.shields.io/badge/Node.js-20.19%2B-green.svg)](https://nodejs.org)
@@ -25,7 +25,7 @@ An [MCP (Model Context Protocol)](https://modelcontextprotocol.io) server that l
 "Add the B-roll clips to V2, apply a cross dissolve between each, color correct them to match the A-roll, and export a 1080p ProRes."
 ```
 
-The AI handles the entire workflow through 269 tools spanning the supported ExtendScript, QE DOM, and safe edit-planning surfaces.
+The AI handles the entire workflow through 278 tools spanning the supported ExtendScript, QE DOM, and safe edit-planning surfaces.
 
 ### What's new in 1.3.1
 
@@ -43,7 +43,7 @@ The AI handles the entire workflow through 269 tools spanning the supported Exte
 - **Safe edit plans:** preview compound insert/remove operations, bind approval to a SHA-256 plan token, then apply the validated plan in one bridge command.
 - **Capability profiles:** unsafe scripting is disabled by default and requires explicit `unsafe-script` authority.
 - **Modern MCP responses:** tools expose safety annotations and structured results; four workflow prompts and a machine-readable workflow resource guide common edits.
-- **UXP bridge preview:** a packaged Premiere 25.6+ panel adds capability discovery, state events, reconnecting WebSocket transport, and supported frame export with file verification. Live host verification is still required.
+- **UXP bridge preview:** a packaged Premiere 25.6+ panel adds capability discovery, event-driven state notifications with a deduplicated polling fallback, correlated operation lifecycle events, reconnecting WebSocket transport, and supported frame export with file verification. Cancellation is cooperative before non-cancellable host calls; no atomic rollback is claimed. Live host verification is still required.
 
 ---
 
@@ -217,6 +217,58 @@ Add to your VS Code MCP server configuration:
 
 The default bridge directory is derived from the operating system on both sides, so most local setups should not set `PREMIERE_TEMP_DIR`. If you override it, use the same absolute path in the MCP server and CEP panel; Windows and macOS paths are not interchangeable.
 
+### Codex plugin
+
+This repository includes an installable Codex plugin that bundles the local MCP
+server with a safety-oriented Premiere editing skill.
+
+From a clone of this repository:
+
+```bash
+codex plugin marketplace add .
+codex plugin add premiere-pro@premiere-pro-mcp
+npx -y premiere-pro-mcp@1.3.1 --install-cep
+```
+
+Restart Premiere Pro and start a new Codex session after installation. The plugin
+launches `premiere-pro-mcp@1.3.1` through `npx`; the separate CEP installation is
+required because the MCP server communicates with the running Premiere host through
+the local bridge.
+
+The plugin source lives in [`plugins/premiere-pro`](plugins/premiere-pro), and the
+repository marketplace manifest lives in
+[`.agents/plugins/marketplace.json`](.agents/plugins/marketplace.json).
+
+### Claude
+
+For Claude Code, add this repository as a marketplace and install the plugin:
+
+```text
+/plugin marketplace add leancoderkavy/premiere-pro-mcp
+/plugin install premiere-pro@premiere-pro-mcp
+```
+
+Then install the Premiere bridge and start a new Claude Code session:
+
+```bash
+npx -y premiere-pro-mcp@1.3.1 --install-cep
+```
+
+The Claude Code package lives in
+[`claude-plugins/premiere-pro`](claude-plugins/premiere-pro), with its marketplace
+at [`.claude-plugin/marketplace.json`](.claude-plugin/marketplace.json).
+
+Claude Desktop uses the self-contained MCP Bundle format, formerly called Desktop
+Extensions. Build both the current `.mcpb` artifact and a legacy `.dxt` copy with:
+
+```bash
+npm run build:claude
+```
+
+Install the resulting file from `artifacts/` through **Settings > Extensions >
+Advanced settings > Install Extension**. The Premiere CEP bridge must still be
+installed separately.
+
 ### Windows and macOS capability coverage
 
 | Surface | Windows | macOS | Verification boundary |
@@ -226,7 +278,43 @@ The default bridge directory is derived from the operating system on both sides,
 | npm CEP installer | Copies plugin and verifies `REG_SZ` debug keys | Copies plugin and verifies the installed manifest/debug settings | Restart Premiere after installation |
 | CI build and unit tests | Node 18 and 22 | Node 18 and 22 | GitHub-hosted OS runners; no Adobe host is available in CI |
 
-`get_capabilities` reports the current operating system, temp directory, CEP/UXP coverage, enabled authority profile, and any live-host verification still required. It does not claim a Premiere operation succeeded; use `ping` and inspect each tool result for runtime evidence.
+`get_capabilities` reports the current operating system, temp directory, CEP/UXP coverage, enabled authority profile, and any live-host verification still required. It also includes a `tools` catalog generated from the tools actually registered by the server. Every entry identifies:
+
+- the execution backend (`local`, CEP/ExtendScript, QE, or orchestrator);
+- static support status (`supported`, `limited`, `experimental`, or `unsupported`);
+- the minimum Premiere version known to the server;
+- the required authority and whether the current profile enables it;
+- the verification boundary and whether a live Premiere host is required; and
+- relevant operational notes.
+
+QE-backed tools are reported as `experimental` because QE is undocumented and can vary between Premiere builds. Authority availability is reported separately from implementation support, so disabling `edit`, for example, does not incorrectly label editing tools as unsupported. Static metadata never claims that a Premiere operation succeeded; use `ping` and inspect each tool result for runtime evidence.
+
+Tools with mixed execution boundaries can provide explicit operational metadata at registration. This is used for local file verification, static feature-support reports, and hybrid local-plus-Premiere validation so the capability catalog does not infer a host dependency from naming alone.
+
+### Collaboration and AI feature boundaries
+
+`get_advanced_feature_support` returns a machine-readable matrix for Productions,
+Team Projects, Frame.io, Media Intelligence, Generative Extend, Object Mask,
+caption translation, Speech-to-Text, Enhance Speech, and Remix. Pass an optional
+Premiere version, intended backend, confirmed entitlements, and network state to
+evaluate prerequisites without conflating them with API availability.
+
+The report tool itself is local: it does not contact Premiere and is callable
+through the current MCP server. Each feature entry separately reports whether
+its operations are callable through the production CEP transport. Productions
+reports only static backend/version eligibility until a UXP host performs live
+capability negotiation.
+
+- Productions exposes documented read-only state through UXP, but the production
+  MCP transport is still CEP.
+- Frame.io needs a separately authenticated Frame.io API integration; an account
+  entitlement alone does not make it callable through Premiere's DOM.
+- Transcript JSON import/export is documented in UXP. Starting Speech-to-Text is not.
+- The remaining AI operations are user-assisted or unsupported by documented
+  public APIs. The tool explains what can be inspected after a user completes
+  the operation and where artifact provenance cannot be established safely.
+- The server never uses menu automation, private APIs, clip-name heuristics, or
+  duration changes as proof that an AI operation occurred.
 
 ### Authenticated UXP connection
 
@@ -282,7 +370,7 @@ The file-based IPC bridge is simple, reliable, and works across macOS and Window
 
 ---
 
-## Tools (269)
+## Tools (278)
 
 ### Discovery & Inspection (10 + 10)
 
@@ -298,6 +386,7 @@ The file-based IPC bridge is simple, reliable, and works across macOS and Window
 | `search_project_items` | Filter by name, extension, offline status, color label |
 | `get_premiere_state` | Full snapshot: project, sequence, playhead, selection |
 | `inspect_dom_object` | Explore any Premiere Pro DOM object interactively |
+| `get_advanced_feature_support` | Collaboration/AI API support, prerequisites, entitlements, and user-assisted boundaries |
 
 ### Project Management (26)
 
@@ -353,15 +442,22 @@ The file-based IPC bridge is simple, reliable, and works across macOS and Window
 | `get_value_at_time` | Query interpolated value at any time |
 | `set_color_value` | Set color properties on effects |
 
-### Export & Encoding (14)
+### Export & Encoding (16)
 
 | Tool | Description |
 | :--- | :---------- |
 | `export_sequence` | Export via Adobe Media Encoder |
+| `validate_export_preset` | Validate an `.epr` file and resolve its output extension in Premiere |
+| `verify_delivery_file` | Verify output size and calculate SHA-256/SHA-512 checksums |
 | `capture_frame` | Export frame as PNG, return as base64 image |
 | `export_as_fcp_xml` / `export_aaf` / `export_omf` | Interchange formats |
 | `encode_project_item` / `encode_file` | Direct encoding |
 | `start_batch_encode` | Start render queue |
+
+Premiere's documented automation surfaces do not currently expose OTIO or EDL
+interchange, Render and Replace, cloud publishing, or Content Credentials export
+configuration. `get_capabilities` reports these delivery gaps explicitly rather
+than presenting UI-only operations as available tools.
 
 ### Source Monitor & Playback (7 + 4)
 
@@ -507,12 +603,13 @@ premiere-pro-mcp/
 ├── src/
 │   ├── index.ts                 # Entry point — stdio transport setup
 │   ├── http-server.ts           # Entry point — HTTP/SSE transport (Fly.io / remote)
-│   ├── server.ts                # MCP server — registers 269 tools + 3 resources + 4 prompts
+│   ├── server.ts                # MCP server — registers 278 tools + 3 resources + 4 prompts
 │   ├── bridge/
 │   │   ├── file-bridge.ts       # File-based IPC (write .jsx, poll .json)
 │   │   └── script-builder.ts    # ExtendScript generator with ES3 helpers
-│   ├── tools/                   # 29 tool modules
+│   ├── tools/                   # 30 tool modules
 │   │   ├── discovery.ts         # Project discovery and queries
+│   │   ├── recovery.ts          # Read-only autosave discovery and private bridge telemetry
 │   │   ├── project.ts           # Project management and import
 │   │   ├── media.ts             # Media and proxy management
 │   │   ├── sequence.ts          # Sequence creation and settings
@@ -520,6 +617,7 @@ premiere-pro-mcp/
 │   │   ├── effects.ts           # Effect application and color correction
 │   │   ├── transitions.ts       # Transition management (QE DOM)
 │   │   ├── audio.ts             # Audio levels and keyframes
+│   │   ├── av-settings.ts       # Documented AV inspection, mapping, and capability boundaries
 │   │   ├── text.ts              # Text overlays and MOGRTs
 │   │   ├── markers.ts           # Sequence and clip markers
 │   │   ├── tracks.ts            # Track add/delete/lock/visibility

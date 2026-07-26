@@ -29,6 +29,8 @@ import { getCaptionTools } from "./tools/captions.js";
 import { getPlaybackTools } from "./tools/playback.js";
 import { getProjectManagerTools } from "./tools/project-manager.js";
 import { getEditPlanTools } from "./tools/edit-plans.js";
+import { getAvSettingsTools } from "./tools/av-settings.js";
+import { getRecoveryTools } from "./tools/recovery.js";
 import { getUxpTools } from "./tools/uxp.js";
 import type { UxpWebSocketBridge } from "./bridge/uxp-websocket-bridge.js";
 import { guardToolHandler, resolveCapabilities } from "./security/index.js";
@@ -254,14 +256,19 @@ function collectTools(
     ...getSourceMonitorTools(bridgeOptions),
     ...getTrackTargetingTools(bridgeOptions),
     ...getUtilityTools(bridgeOptions),
-    ...getHealthTools(bridgeOptions, capabilities),
     ...getWorkspaceTools(bridgeOptions),
     ...getCaptionTools(bridgeOptions),
     ...getPlaybackTools(bridgeOptions),
     ...getProjectManagerTools(bridgeOptions),
     ...getEditPlanTools(bridgeOptions, { capabilities }),
+    ...getAvSettingsTools(bridgeOptions),
+    ...getRecoveryTools(bridgeOptions),
     ...(uxpBridge ? getUxpTools(uxpBridge) : {}),
   };
+  Object.assign(
+    tools,
+    getHealthTools(bridgeOptions, capabilities, () => tools),
+  );
   if (!uxpBridge) toolCatalogCache.set(cacheKey, tools);
   return tools;
 }

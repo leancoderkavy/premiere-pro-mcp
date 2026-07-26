@@ -22,9 +22,50 @@ const categories = [
   ["Inspection and workflows", "Use 269 tools, three resources, four prompts, edit-plan previews, capability profiles, and audit events."],
 ]
 
+const structuredData = {
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "TechArticle",
+      "@id": "https://premiere-pro-mcp.com/docs/#article",
+      headline: "Premiere Pro MCP setup, tools, compatibility, and security",
+      description:
+        "Installation and technical reference for connecting AI assistants to Adobe Premiere Pro with Premiere Pro MCP.",
+      url: "https://premiere-pro-mcp.com/docs/",
+      dateModified: "2026-07-26",
+      inLanguage: "en-US",
+      about: { "@id": "https://premiere-pro-mcp.com/#software" },
+      isPartOf: { "@id": "https://premiere-pro-mcp.com/#website" },
+    },
+    {
+      "@type": "BreadcrumbList",
+      "@id": "https://premiere-pro-mcp.com/docs/#breadcrumb",
+      itemListElement: [
+        {
+          "@type": "ListItem",
+          position: 1,
+          name: "Premiere Pro MCP",
+          item: "https://premiere-pro-mcp.com/",
+        },
+        {
+          "@type": "ListItem",
+          position: 2,
+          name: "Documentation",
+          item: "https://premiere-pro-mcp.com/docs/",
+        },
+      ],
+    },
+  ],
+}
+
 export default function DocsPage() {
   return (
-    <main className="min-h-screen bg-black px-5 py-16 text-zinc-100">
+    <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }}
+      />
+      <main className="min-h-screen bg-black px-5 py-16 text-zinc-100">
       <article className="mx-auto max-w-4xl">
         <nav aria-label="Breadcrumb" className="text-sm text-zinc-500">
           <Link href="/" className="hover:text-purple-300">Premiere Pro MCP</Link> <span aria-hidden="true">/</span> Documentation
@@ -41,7 +82,7 @@ export default function DocsPage() {
         <section className="py-12" aria-labelledby="install-heading">
           <h2 id="install-heading" className="text-3xl font-semibold">How to install Premiere Pro MCP</h2>
           <ol className="mt-6 list-decimal space-y-3 pl-6 leading-7 text-zinc-300">
-            <li>Install Node.js 18 or newer on Windows or macOS.</li>
+            <li>Install Node.js 20.19 or newer on Windows or macOS.</li>
             <li>Run <code className="rounded bg-zinc-900 px-2 py-1 text-purple-200">npm install -g premiere-pro-mcp</code>.</li>
             <li>Run <code className="rounded bg-zinc-900 px-2 py-1 text-purple-200">premiere-pro-mcp --install-cep</code>.</li>
             <li>Configure Claude Desktop, Cursor, Windsurf, or another MCP client to launch <code className="rounded bg-zinc-900 px-2 py-1 text-purple-200">premiere-pro-mcp</code>.</li>
@@ -85,6 +126,7 @@ export default function DocsPage() {
           </ul>
         </section>
       </article>
-    </main>
+      </main>
+    </>
   )
 }
