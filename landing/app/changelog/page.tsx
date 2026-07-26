@@ -256,13 +256,13 @@ export default function ChangelogPage() {
               Docs
             </Link>
             <a
-              href="https://github.com/leancoderkavy/premiere-pro-mcp/releases"
+              href="https://github.com/leancoderkavy/premiere-pro-mcp"
               target="_blank"
               rel="noopener noreferrer"
               className="inline-flex items-center gap-2 text-zinc-300 hover:text-white"
             >
               <Github className="h-4 w-4" />
-              Releases
+              GitHub
             </a>
           </div>
         </nav>
