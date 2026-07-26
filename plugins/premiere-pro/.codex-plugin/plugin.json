@@ -1,0 +1,30 @@
+{
+  "name": "premiere-pro",
+  "version": "1.3.1",
+  "description": "Plan, execute, verify, and export video edits in Adobe Premiere Pro through the Premiere Pro MCP server.",
+  "author": {
+    "name": "Premiere Pro MCP contributors",
+    "url": "https://github.com/leancoderkavy/premiere-pro-mcp"
+  },
+  "homepage": "https://premiere-pro-mcp.com/",
+  "repository": "https://github.com/leancoderkavy/premiere-pro-mcp",
+  "license": "MIT",
+  "keywords": ["premiere-pro", "video-editing", "mcp", "timeline", "captions", "export"],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Premiere Pro MCP",
+    "shortDescription": "Edit, inspect, and export Premiere Pro projects",
+    "longDescription": "Control an open Adobe Premiere Pro project with safety-oriented workflows for rough cuts, timeline changes, dialogue cleanup, captions, project inspection, and delivery exports. The plugin connects Codex to the local Premiere Pro MCP server and its CEP bridge.",
+    "developerName": "Premiere Pro MCP contributors",
+    "category": "Creativity",
+    "capabilities": ["Interactive", "Read", "Write"],
+    "websiteURL": "https://premiere-pro-mcp.com/",
+    "defaultPrompt": [
+      "Inspect my open Premiere project and summarize its current edit",
+      "Build a rough cut from the selected media",
+      "Verify this sequence and export the final deliverable"
+    ],
+    "brandColor": "#9999FF"
+  },
+  "mcpServers": "./.mcp.json"
+}

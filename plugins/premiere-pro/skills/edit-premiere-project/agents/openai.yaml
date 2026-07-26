@@ -1,0 +1,4 @@
+interface:
+  display_name: "Edit in Premiere Pro"
+  short_description: "Plan, edit, verify, and export Premiere projects"
+  default_prompt: "Use $edit-premiere-project to inspect my open Premiere project and make the requested edit safely."
