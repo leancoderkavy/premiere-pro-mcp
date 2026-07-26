@@ -48,7 +48,6 @@ import { getPlaybackTools } from "../../src/tools/playback.js";
 import { getProjectManagerTools } from "../../src/tools/project-manager.js";
 import { getRecoveryTools } from "../../src/tools/recovery.js";
 import { getAvSettingsTools } from "../../src/tools/av-settings.js";
-import { getRecoveryTools } from "../../src/tools/recovery.js";
 
 interface ToolDef {
   description: string;
@@ -94,7 +93,6 @@ const ALL_MODULES: Array<{
   { name: "project-manager", getter: getProjectManagerTools, minTools: 1 },
   { name: "recovery", getter: getRecoveryTools, minTools: 2 },
   { name: "av-settings", getter: getAvSettingsTools, minTools: 4 },
-  { name: "recovery", getter: getRecoveryTools, minTools: 2 },
 ];
 
 describe("Tool Module Structure", () => {
