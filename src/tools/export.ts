@@ -1,11 +1,193 @@
 import { buildToolScript, escapeForExtendScript } from "../bridge/script-builder.js";
 import { sendCommand, BridgeOptions } from "../bridge/file-bridge.js";
-import { readFileSync, unlinkSync, existsSync } from "node:fs";
-import { join } from "node:path";
+import { createReadStream, readFileSync, unlinkSync, existsSync, statSync } from "node:fs";
+import { createHash } from "node:crypto";
+import { extname, join, resolve } from "node:path";
 import { tmpdir } from "node:os";
+
+export type DeliveryChecksumAlgorithm = "sha256" | "sha512";
+
+export interface DeliveryFileVerification {
+  path: string;
+  exists: true;
+  regularFile: true;
+  sizeBytes: number;
+  modifiedAt: string;
+  checksum: {
+    algorithm: DeliveryChecksumAlgorithm;
+    value: string;
+  };
+  matchesExpectedChecksum?: boolean;
+  matchesExpectedSize?: boolean;
+  valid: boolean;
+}
+
+export async function verifyDeliveryFile(
+  outputPath: string,
+  options: {
+    algorithm?: DeliveryChecksumAlgorithm;
+    expectedChecksum?: string;
+    expectedSizeBytes?: number;
+    minimumSizeBytes?: number;
+  } = {},
+): Promise<DeliveryFileVerification> {
+  const path = resolve(outputPath);
+  if (!existsSync(path)) throw new Error(`Delivery file does not exist: ${path}`);
+  const stats = statSync(path);
+  if (!stats.isFile()) throw new Error(`Delivery path is not a regular file: ${path}`);
+
+  const minimumSizeBytes = options.minimumSizeBytes ?? 1;
+  if (!Number.isSafeInteger(minimumSizeBytes) || minimumSizeBytes < 0) {
+    throw new Error("minimum_size_bytes must be a non-negative integer");
+  }
+  if (stats.size < minimumSizeBytes) {
+    throw new Error(`Delivery file is ${stats.size} bytes; expected at least ${minimumSizeBytes}`);
+  }
+
+  const algorithm = options.algorithm ?? "sha256";
+  if (algorithm !== "sha256" && algorithm !== "sha512") {
+    throw new Error("checksum_algorithm must be 'sha256' or 'sha512'");
+  }
+  const hash = createHash(algorithm);
+  await new Promise<void>((resolveHash, rejectHash) => {
+    const stream = createReadStream(path);
+    stream.on("data", (chunk) => hash.update(chunk));
+    stream.on("error", rejectHash);
+    stream.on("end", resolveHash);
+  });
+  const checksum = hash.digest("hex");
+
+  const expectedChecksum = options.expectedChecksum?.trim().toLowerCase();
+  const expectedLength = algorithm === "sha256" ? 64 : 128;
+  if (expectedChecksum !== undefined && !new RegExp(`^[a-f0-9]{${expectedLength}}$`).test(expectedChecksum)) {
+    throw new Error(`expected_checksum must be a ${expectedLength}-character hexadecimal ${algorithm} digest`);
+  }
+  const expectedSize = options.expectedSizeBytes;
+  if (expectedSize !== undefined && (!Number.isSafeInteger(expectedSize) || expectedSize < 0)) {
+    throw new Error("expected_size_bytes must be a non-negative integer");
+  }
+  const matchesExpectedChecksum = expectedChecksum === undefined ? undefined : checksum === expectedChecksum;
+  const matchesExpectedSize = expectedSize === undefined ? undefined : stats.size === expectedSize;
+
+  return {
+    path,
+    exists: true,
+    regularFile: true,
+    sizeBytes: stats.size,
+    modifiedAt: stats.mtime.toISOString(),
+    checksum: { algorithm, value: checksum },
+    ...(matchesExpectedChecksum === undefined ? {} : { matchesExpectedChecksum }),
+    ...(matchesExpectedSize === undefined ? {} : { matchesExpectedSize }),
+    valid: matchesExpectedChecksum !== false && matchesExpectedSize !== false,
+  };
+}
+
+export function inspectExportPresetFile(presetPath: string) {
+  const path = resolve(presetPath);
+  if (extname(path).toLowerCase() !== ".epr") throw new Error("Export preset must use the .epr extension");
+  if (!existsSync(path)) throw new Error(`Export preset does not exist: ${path}`);
+  const stats = statSync(path);
+  if (!stats.isFile()) throw new Error(`Export preset path is not a regular file: ${path}`);
+  if (stats.size === 0) throw new Error(`Export preset is empty: ${path}`);
+  return { path, exists: true as const, regularFile: true as const, sizeBytes: stats.size, modifiedAt: stats.mtime.toISOString() };
+}
 
 export function getExportTools(bridgeOptions: BridgeOptions) {
   return {
+    validate_export_preset: {
+      description:
+        "Validate that an Adobe Media Encoder .epr preset exists and ask the active Premiere sequence which output extension it produces",
+      parameters: {
+        type: "object" as const,
+        properties: {
+          preset_path: {
+            type: "string",
+            description: "Full path to an Adobe Media Encoder export preset (.epr)",
+          },
+        },
+        required: ["preset_path"],
+      },
+      handler: async (args: { preset_path: string }) => {
+        let file;
+        try {
+          file = inspectExportPresetFile(args.preset_path);
+        } catch (error) {
+          return { success: false, error: error instanceof Error ? error.message : String(error) };
+        }
+        const script = buildToolScript(`
+          var seq = app.project.activeSequence;
+          if (!seq) return __error("No active sequence");
+          var presetPath = "${escapeForExtendScript(file.path)}";
+          var extension = seq.getExportFileExtension(presetPath);
+          if (!extension) return __error("Premiere could not resolve an output extension for this preset");
+          return __result({ presetPath: presetPath, outputExtension: extension });
+        `);
+        const result = await sendCommand(script, bridgeOptions);
+        if (!result.success) return result;
+        return {
+          success: true,
+          data: {
+            ...file,
+            ...((result.data ?? {}) as Record<string, unknown>),
+            hostValidated: true,
+          },
+        };
+      },
+    },
+
+    verify_delivery_file: {
+      description:
+        "Verify that an exported delivery is a non-empty regular file and calculate a SHA-256 or SHA-512 checksum; optionally compare expected size and checksum",
+      parameters: {
+        type: "object" as const,
+        properties: {
+          output_path: {
+            type: "string",
+            description: "Full path to the exported delivery file",
+          },
+          checksum_algorithm: {
+            type: "string",
+            enum: ["sha256", "sha512"],
+            description: "Checksum algorithm (default: sha256)",
+          },
+          expected_checksum: {
+            type: "string",
+            description: "Optional expected hexadecimal checksum to compare",
+          },
+          expected_size_bytes: {
+            type: "number",
+            description: "Optional exact expected file size in bytes",
+          },
+          minimum_size_bytes: {
+            type: "number",
+            description: "Minimum acceptable file size in bytes (default: 1)",
+          },
+        },
+        required: ["output_path"],
+      },
+      handler: async (args: {
+        output_path: string;
+        checksum_algorithm?: DeliveryChecksumAlgorithm;
+        expected_checksum?: string;
+        expected_size_bytes?: number;
+        minimum_size_bytes?: number;
+      }) => {
+        try {
+          const verification = await verifyDeliveryFile(args.output_path, {
+            algorithm: args.checksum_algorithm,
+            expectedChecksum: args.expected_checksum,
+            expectedSizeBytes: args.expected_size_bytes,
+            minimumSizeBytes: args.minimum_size_bytes,
+          });
+          return verification.valid
+            ? { success: true, data: verification }
+            : { success: false, error: "Delivery file did not match the expected checksum or size", data: verification };
+        } catch (error) {
+          return { success: false, error: error instanceof Error ? error.message : String(error) };
+        }
+      },
+    },
+
     export_sequence: {
       description: "Export the active sequence using Adobe Media Encoder",
       parameters: {

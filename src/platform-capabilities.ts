@@ -42,6 +42,18 @@ export function buildPlatformCapabilityReport(
         premiereVersions: "2020–2026",
         transport: "local file bridge",
         capabilities: ALL_CAPABILITIES,
+        delivery: {
+          interchange: ["FCP XML export", "AAF export", "OMF export"],
+          presetValidation: true,
+          postExportChecksum: ["sha256", "sha512"],
+          unsupported: {
+            otio: "No documented Premiere ExtendScript or UXP OTIO import/export API.",
+            edl: "No documented Premiere ExtendScript or UXP EDL import/export API.",
+            cloudPublish: "No documented Premiere automation API for publishing to cloud destinations.",
+            contentCredentials: "No documented Premiere automation API for configuring Content Credentials.",
+            renderAndReplace: "No documented Premiere ExtendScript or UXP Render and Replace API.",
+          },
+        },
       },
       uxp: {
         status: "preview",
