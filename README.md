@@ -43,7 +43,7 @@ The AI handles the entire workflow through 273 tools spanning the supported Exte
 - **Safe edit plans:** preview compound insert/remove operations, bind approval to a SHA-256 plan token, then apply the validated plan in one bridge command.
 - **Capability profiles:** unsafe scripting is disabled by default and requires explicit `unsafe-script` authority.
 - **Modern MCP responses:** tools expose safety annotations and structured results; four workflow prompts and a machine-readable workflow resource guide common edits.
-- **UXP bridge preview:** a packaged Premiere 25.6+ panel adds capability discovery, state events, reconnecting WebSocket transport, and supported frame export with file verification. Live host verification is still required.
+- **UXP bridge preview:** a packaged Premiere 25.6+ panel adds capability discovery, event-driven state notifications with a deduplicated polling fallback, correlated operation lifecycle events, reconnecting WebSocket transport, and supported frame export with file verification. Cancellation is cooperative before non-cancellable host calls; no atomic rollback is claimed. Live host verification is still required.
 
 ---
 
@@ -217,6 +217,58 @@ Add to your VS Code MCP server configuration:
 
 The default bridge directory is derived from the operating system on both sides, so most local setups should not set `PREMIERE_TEMP_DIR`. If you override it, use the same absolute path in the MCP server and CEP panel; Windows and macOS paths are not interchangeable.
 
+### Codex plugin
+
+This repository includes an installable Codex plugin that bundles the local MCP
+server with a safety-oriented Premiere editing skill.
+
+From a clone of this repository:
+
+```bash
+codex plugin marketplace add .
+codex plugin add premiere-pro@premiere-pro-mcp
+npx -y premiere-pro-mcp@1.3.1 --install-cep
+```
+
+Restart Premiere Pro and start a new Codex session after installation. The plugin
+launches `premiere-pro-mcp@1.3.1` through `npx`; the separate CEP installation is
+required because the MCP server communicates with the running Premiere host through
+the local bridge.
+
+The plugin source lives in [`plugins/premiere-pro`](plugins/premiere-pro), and the
+repository marketplace manifest lives in
+[`.agents/plugins/marketplace.json`](.agents/plugins/marketplace.json).
+
+### Claude
+
+For Claude Code, add this repository as a marketplace and install the plugin:
+
+```text
+/plugin marketplace add leancoderkavy/premiere-pro-mcp
+/plugin install premiere-pro@premiere-pro-mcp
+```
+
+Then install the Premiere bridge and start a new Claude Code session:
+
+```bash
+npx -y premiere-pro-mcp@1.3.1 --install-cep
+```
+
+The Claude Code package lives in
+[`claude-plugins/premiere-pro`](claude-plugins/premiere-pro), with its marketplace
+at [`.claude-plugin/marketplace.json`](.claude-plugin/marketplace.json).
+
+Claude Desktop uses the self-contained MCP Bundle format, formerly called Desktop
+Extensions. Build both the current `.mcpb` artifact and a legacy `.dxt` copy with:
+
+```bash
+npm run build:claude
+```
+
+Install the resulting file from `artifacts/` through **Settings > Extensions >
+Advanced settings > Install Extension**. The Premiere CEP bridge must still be
+installed separately.
+
 ### Windows and macOS capability coverage
 
 | Surface | Windows | macOS | Verification boundary |
@@ -226,7 +278,18 @@ The default bridge directory is derived from the operating system on both sides,
 | npm CEP installer | Copies plugin and verifies `REG_SZ` debug keys | Copies plugin and verifies the installed manifest/debug settings | Restart Premiere after installation |
 | CI build and unit tests | Node 18 and 22 | Node 18 and 22 | GitHub-hosted OS runners; no Adobe host is available in CI |
 
-`get_capabilities` reports the current operating system, temp directory, CEP/UXP coverage, enabled authority profile, and any live-host verification still required. It does not claim a Premiere operation succeeded; use `ping` and inspect each tool result for runtime evidence.
+`get_capabilities` reports the current operating system, temp directory, CEP/UXP coverage, enabled authority profile, and any live-host verification still required. It also includes a `tools` catalog generated from the tools actually registered by the server. Every entry identifies:
+
+- the execution backend (`local`, CEP/ExtendScript, QE, or orchestrator);
+- static support status (`supported`, `limited`, `experimental`, or `unsupported`);
+- the minimum Premiere version known to the server;
+- the required authority and whether the current profile enables it;
+- the verification boundary and whether a live Premiere host is required; and
+- relevant operational notes.
+
+QE-backed tools are reported as `experimental` because QE is undocumented and can vary between Premiere builds. Authority availability is reported separately from implementation support, so disabling `edit`, for example, does not incorrectly label editing tools as unsupported. Static metadata never claims that a Premiere operation succeeded; use `ping` and inspect each tool result for runtime evidence.
+
+Tools with mixed execution boundaries can provide explicit operational metadata at registration. This is used for local file verification, static feature-support reports, and hybrid local-plus-Premiere validation so the capability catalog does not infer a host dependency from naming alone.
 
 ---
 

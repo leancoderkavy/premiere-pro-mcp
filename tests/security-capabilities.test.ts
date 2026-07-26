@@ -1,6 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
 import { capabilityForTool, guardToolHandler, resolveCapabilities } from "../src/security/capabilities.js";
 import { buildPlatformCapabilityReport } from "../src/platform-capabilities.js";
+import {
+  buildToolCapabilityReport,
+  deriveToolOperationalCapability,
+} from "../src/tool-capability-report.js";
 
 describe("capability profiles", () => {
   it("fails closed for unsafe scripting by default", async () => {
@@ -54,6 +58,9 @@ describe("capability profiles", () => {
     expect(report.runtime).toMatchObject({ platform, platformName: name, supported: true });
     expect(report.backends.cep.platforms).toEqual(["macOS", "Windows"]);
     expect(report.backends.uxp.hostVerificationRequired).toBe(true);
+    expect(report.backends.uxp.commands).toContain("operation.cancel");
+    expect(report.backends.uxp.events).toContain("premiere.state.changed");
+    expect(report.backends.uxp.operationSemantics.atomicRollback).toBe(false);
     expect(report.authority.disabled).toContain("unsafe-script");
   });
 
@@ -61,5 +68,138 @@ describe("capability profiles", () => {
     const report = buildPlatformCapabilityReport(resolveCapabilities(undefined), "linux");
     expect(report.runtime.supported).toBe(false);
     expect(report.premiere.hostVerificationRequired).toBe(true);
+  });
+
+  it("derives tool operational metadata from catalog definitions and authority", () => {
+    const capabilities = resolveCapabilities("inspect");
+    const qeTool = deriveToolOperationalCapability(
+      "ripple_delete",
+      { description: "Ripple delete a clip. Uses QE DOM." },
+      capabilities,
+    );
+    expect(qeTool).toMatchObject({
+      backend: "CEP/ExtendScript + QE",
+      backends: ["cep", "extendscript", "qe"],
+      status: "experimental",
+      minimumPremiereVersion: "2020 (QE availability varies by build)",
+      authority: { required: "edit", enabled: false },
+      verificationBoundary: "bridge_response",
+      hostVerificationRequired: true,
+    });
+    expect(qeTool.notes).toContain(
+      "Disabled by the current 'environment' authority profile.",
+    );
+  });
+
+  it("reports local discovery separately from live-host verification", () => {
+    const tool = deriveToolOperationalCapability(
+      "get_capabilities",
+      { description: "Report static capabilities." },
+      resolveCapabilities(undefined),
+    );
+    expect(tool).toMatchObject({
+      backend: "local",
+      backends: ["local"],
+      status: "supported",
+      minimumPremiereVersion: null,
+      verificationBoundary: "static_metadata_only",
+      hostVerificationRequired: false,
+    });
+  });
+
+  it("builds a deterministic summary from the registered catalog", () => {
+    const report = buildToolCapabilityReport(
+      {
+        trim_clip: { description: "Trim a clip." },
+        get_project_info: { description: "Read the project." },
+        add_transition: { description: "Add a transition. Uses QE DOM." },
+      },
+      resolveCapabilities("inspect,edit"),
+    );
+    expect(report.generatedFrom).toBe("registered-tool-catalog");
+    expect(report.total).toBe(3);
+    expect(report.byStatus).toEqual({
+      supported: 2,
+      limited: 0,
+      experimental: 1,
+      unsupported: 0,
+    });
+    expect(report.tools.map((tool) => tool.name)).toEqual([
+      "add_transition",
+      "get_project_info",
+      "trim_clip",
+    ]);
+  });
+
+  it.each([
+    [
+      "verify_delivery_file",
+      "Verify a delivery file and calculate its checksum.",
+      {
+        backend: "local",
+        backends: ["local"],
+        authority: { required: "filesystem", enabled: true },
+        verificationBoundary: "local_filesystem",
+        hostVerificationRequired: false,
+        minimumPremiereVersion: null,
+      },
+    ],
+    [
+      "get_advanced_feature_support",
+      "Report collaboration and AI feature support.",
+      {
+        backend: "local",
+        backends: ["local"],
+        authority: { required: "inspect", enabled: true },
+        verificationBoundary: "static_metadata_only",
+        hostVerificationRequired: false,
+        minimumPremiereVersion: null,
+      },
+    ],
+    [
+      "validate_export_preset",
+      "Validate an export preset and resolve its output extension.",
+      {
+        backend: "local + CEP/ExtendScript",
+        backends: ["local", "cep", "extendscript"],
+        authority: { required: "export", enabled: true },
+        verificationBoundary: "local_and_host_response",
+        hostVerificationRequired: true,
+        minimumPremiereVersion: "2020",
+      },
+    ],
+  ])("reports QA-forward boundaries for %s", (name, description, expected) => {
+    const tool = deriveToolOperationalCapability(
+      name,
+      { description },
+      resolveCapabilities("inspect,export,filesystem"),
+    );
+    expect(tool).toMatchObject({ name, status: "supported", ...expected });
+  });
+
+  it("lets registration metadata override catalog defaults", () => {
+    const tool = deriveToolOperationalCapability(
+      "verify_delivery_file",
+      {
+        description: "Future host-backed delivery verification.",
+        operationalCapability: {
+          backend: "local + CEP/ExtendScript",
+          backends: ["local", "cep", "extendscript"],
+          minimumPremiereVersion: "26.0",
+          hostVerificationRequired: true,
+          verificationBoundary: "local_and_host_response",
+          notes: ["Explicit registration metadata."],
+        },
+      },
+      resolveCapabilities("filesystem"),
+    );
+    expect(tool).toMatchObject({
+      backend: "local + CEP/ExtendScript",
+      backends: ["local", "cep", "extendscript"],
+      minimumPremiereVersion: "26.0",
+      hostVerificationRequired: true,
+      verificationBoundary: "local_and_host_response",
+      notes: ["Explicit registration metadata."],
+    });
   });
 });
