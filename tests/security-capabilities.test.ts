@@ -132,4 +132,76 @@ describe("capability profiles", () => {
       "trim_clip",
     ]);
   });
+
+  it.each([
+    [
+      "verify_delivery_file",
+      "Verify a delivery file and calculate its checksum.",
+      {
+        backend: "local",
+        backends: ["local"],
+        authority: { required: "filesystem", enabled: true },
+        verificationBoundary: "local_filesystem",
+        hostVerificationRequired: false,
+        minimumPremiereVersion: null,
+      },
+    ],
+    [
+      "get_advanced_feature_support",
+      "Report collaboration and AI feature support.",
+      {
+        backend: "local",
+        backends: ["local"],
+        authority: { required: "inspect", enabled: true },
+        verificationBoundary: "static_metadata_only",
+        hostVerificationRequired: false,
+        minimumPremiereVersion: null,
+      },
+    ],
+    [
+      "validate_export_preset",
+      "Validate an export preset and resolve its output extension.",
+      {
+        backend: "local + CEP/ExtendScript",
+        backends: ["local", "cep", "extendscript"],
+        authority: { required: "export", enabled: true },
+        verificationBoundary: "local_and_host_response",
+        hostVerificationRequired: true,
+        minimumPremiereVersion: "2020",
+      },
+    ],
+  ])("reports QA-forward boundaries for %s", (name, description, expected) => {
+    const tool = deriveToolOperationalCapability(
+      name,
+      { description },
+      resolveCapabilities("inspect,export,filesystem"),
+    );
+    expect(tool).toMatchObject({ name, status: "supported", ...expected });
+  });
+
+  it("lets registration metadata override catalog defaults", () => {
+    const tool = deriveToolOperationalCapability(
+      "verify_delivery_file",
+      {
+        description: "Future host-backed delivery verification.",
+        operationalCapability: {
+          backend: "local + CEP/ExtendScript",
+          backends: ["local", "cep", "extendscript"],
+          minimumPremiereVersion: "26.0",
+          hostVerificationRequired: true,
+          verificationBoundary: "local_and_host_response",
+          notes: ["Explicit registration metadata."],
+        },
+      },
+      resolveCapabilities("filesystem"),
+    );
+    expect(tool).toMatchObject({
+      backend: "local + CEP/ExtendScript",
+      backends: ["local", "cep", "extendscript"],
+      minimumPremiereVersion: "26.0",
+      hostVerificationRequired: true,
+      verificationBoundary: "local_and_host_response",
+      notes: ["Explicit registration metadata."],
+    });
+  });
 });

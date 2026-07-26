@@ -8,6 +8,8 @@ export type ToolBackend = "local" | "cep" | "extendscript" | "qe" | "orchestrato
 export type ToolSupportStatus = "supported" | "limited" | "experimental" | "unsupported";
 export type VerificationBoundary =
   | "static_metadata_only"
+  | "local_filesystem"
+  | "local_and_host_response"
   | "host_response"
   | "bridge_response"
   | "output_and_host_response"
@@ -15,11 +17,30 @@ export type VerificationBoundary =
 
 export interface CatalogToolDefinition {
   description: string;
+  operationalCapability?: ToolOperationalOverride;
+}
+
+export type ToolBackendLabel =
+  | "local"
+  | "CEP/ExtendScript"
+  | "CEP/ExtendScript + QE"
+  | "local + CEP/ExtendScript"
+  | "orchestrator";
+
+export interface ToolOperationalOverride {
+  backend?: ToolBackendLabel;
+  backends?: ToolBackend[];
+  status?: ToolSupportStatus;
+  minimumPremiereVersion?: string | null;
+  authority?: Capability;
+  verificationBoundary?: VerificationBoundary;
+  hostVerificationRequired?: boolean;
+  notes?: string[];
 }
 
 export interface ToolOperationalCapability {
   name: string;
-  backend: "local" | "CEP/ExtendScript" | "CEP/ExtendScript + QE" | "orchestrator";
+  backend: ToolBackendLabel;
   backends: ToolBackend[];
   status: ToolSupportStatus;
   minimumPremiereVersion: string | null;
@@ -34,6 +55,53 @@ export interface ToolOperationalCapability {
 
 const LOCAL_TOOLS = new Set(["get_capabilities", "preview_edit_plan"]);
 const ORCHESTRATOR_TOOLS = new Set(["apply_edit_plan"]);
+
+/**
+ * Forward-compatible exceptions for tools whose implementation crosses a
+ * boundary that cannot be inferred from its name or description. Tool
+ * definitions may carry the same `operationalCapability` metadata directly;
+ * registration metadata wins over these catalog defaults.
+ */
+export const TOOL_OPERATIONAL_OVERRIDES: Readonly<
+  Record<string, ToolOperationalOverride>
+> = {
+  verify_delivery_file: {
+    backend: "local",
+    backends: ["local"],
+    status: "supported",
+    minimumPremiereVersion: null,
+    authority: "filesystem",
+    verificationBoundary: "local_filesystem",
+    hostVerificationRequired: false,
+    notes: [
+      "Reads and hashes a local delivery file; it does not contact Premiere Pro.",
+    ],
+  },
+  get_advanced_feature_support: {
+    backend: "local",
+    backends: ["local"],
+    status: "supported",
+    minimumPremiereVersion: null,
+    authority: "inspect",
+    verificationBoundary: "static_metadata_only",
+    hostVerificationRequired: false,
+    notes: [
+      "Evaluates documented feature prerequisites locally; it does not prove host availability or entitlement.",
+    ],
+  },
+  validate_export_preset: {
+    backend: "local + CEP/ExtendScript",
+    backends: ["local", "cep", "extendscript"],
+    status: "supported",
+    minimumPremiereVersion: "2020",
+    authority: "export",
+    verificationBoundary: "local_and_host_response",
+    hostVerificationRequired: true,
+    notes: [
+      "Checks the preset file locally, then asks the active Premiere sequence to resolve its output extension.",
+    ],
+  },
+};
 
 function minimumVersion(description: string, usesQe: boolean): string {
   const explicit = description.match(
@@ -70,26 +138,32 @@ export function deriveToolOperationalCapability(
   definition: CatalogToolDefinition,
   capabilities: CapabilityConfig,
 ): ToolOperationalCapability {
-  const authority = capabilityForTool(name);
-  const local = LOCAL_TOOLS.has(name);
+  const override = {
+    ...(TOOL_OPERATIONAL_OVERRIDES[name] ?? {}),
+    ...(definition.operationalCapability ?? {}),
+  };
+  const authority = override.authority ?? capabilityForTool(name);
+  const local = override.backends?.length === 1 && override.backends[0] === "local"
+    ? true
+    : LOCAL_TOOLS.has(name);
   const orchestrator = ORCHESTRATOR_TOOLS.has(name);
   const usesQe = /\bQE(?:\s+DOM)?\b/i.test(definition.description);
-  const backends: ToolBackend[] = local
+  const backends: ToolBackend[] = override.backends ?? (local
     ? ["local"]
     : orchestrator
       ? ["orchestrator", "cep", "extendscript"]
       : usesQe
         ? ["cep", "extendscript", "qe"]
-        : ["cep", "extendscript"];
+        : ["cep", "extendscript"]);
 
-  const notes: string[] = [];
-  if (local) {
+  const notes: string[] = [...(override.notes ?? [])];
+  if (override.notes === undefined && local) {
     notes.push("Computed locally; does not prove that Premiere Pro is connected.");
-  } else if (orchestrator) {
+  } else if (override.notes === undefined && orchestrator) {
     notes.push("Coordinates registered tools and revalidates the preview before applying edits.");
-  } else if (usesQe) {
+  } else if (override.notes === undefined && usesQe) {
     notes.push("Uses Adobe's undocumented QE DOM; behavior can vary between Premiere Pro builds.");
-  } else {
+  } else if (override.notes === undefined) {
     notes.push("Runs through the production CEP file bridge using ExtendScript.");
   }
   if (!capabilities.capabilities.has(authority)) {
@@ -98,22 +172,27 @@ export function deriveToolOperationalCapability(
 
   return {
     name,
-    backend: local
+    backend: override.backend ?? (local
       ? "local"
       : orchestrator
         ? "orchestrator"
         : usesQe
           ? "CEP/ExtendScript + QE"
-          : "CEP/ExtendScript",
+          : "CEP/ExtendScript"),
     backends,
-    status: usesQe ? "experimental" : orchestrator ? "limited" : "supported",
-    minimumPremiereVersion: local ? null : minimumVersion(definition.description, usesQe),
+    status: override.status ?? (
+      usesQe ? "experimental" : orchestrator ? "limited" : "supported"
+    ),
+    minimumPremiereVersion: override.minimumPremiereVersion !== undefined
+      ? override.minimumPremiereVersion
+      : local ? null : minimumVersion(definition.description, usesQe),
     authority: {
       required: authority,
       enabled: capabilities.capabilities.has(authority),
     },
-    verificationBoundary: verificationBoundaryFor(name, authority, local),
-    hostVerificationRequired: !local,
+    verificationBoundary: override.verificationBoundary
+      ?? verificationBoundaryFor(name, authority, local),
+    hostVerificationRequired: override.hostVerificationRequired ?? !local,
     notes,
   };
 }
