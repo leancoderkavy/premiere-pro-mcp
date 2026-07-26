@@ -43,7 +43,7 @@ The AI handles the entire workflow through 269 tools spanning the supported Exte
 - **Safe edit plans:** preview compound insert/remove operations, bind approval to a SHA-256 plan token, then apply the validated plan in one bridge command.
 - **Capability profiles:** unsafe scripting is disabled by default and requires explicit `unsafe-script` authority.
 - **Modern MCP responses:** tools expose safety annotations and structured results; four workflow prompts and a machine-readable workflow resource guide common edits.
-- **UXP bridge preview:** a packaged Premiere 25.6+ panel adds capability discovery, state events, reconnecting WebSocket transport, and supported frame export with file verification. Live host verification is still required.
+- **UXP bridge preview:** a packaged Premiere 25.6+ panel adds capability discovery, event-driven state notifications with a deduplicated polling fallback, correlated operation lifecycle events, reconnecting WebSocket transport, and supported frame export with file verification. Cancellation is cooperative before non-cancellable host calls; no atomic rollback is claimed. Live host verification is still required.
 
 ---
 
