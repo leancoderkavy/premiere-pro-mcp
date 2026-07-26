@@ -55,3 +55,74 @@ describe("Codex plugin package", () => {
     expect(skill).not.toContain("TODO");
   });
 });
+
+describe("Claude distributions", () => {
+  it("keeps Claude Code metadata aligned with the npm package", () => {
+    const pkg = readJson("package.json");
+    const marketplace = readJson(".claude-plugin/marketplace.json");
+    const plugin = readJson(
+      "claude-plugins/premiere-pro/.claude-plugin/plugin.json",
+    );
+    const mcp = readJson("claude-plugins/premiere-pro/.mcp.json");
+
+    expect(marketplace.name).toBe("premiere-pro-mcp");
+    expect(marketplace.plugins[0]).toMatchObject({
+      name: "premiere-pro",
+      source: "./claude-plugins/premiere-pro",
+      version: pkg.version,
+    });
+    expect(plugin.version).toBe(pkg.version);
+    expect(plugin.mcpServers).toBe("./.mcp.json");
+    expect(mcp.mcpServers["premiere-pro"].args).toContain(
+      `premiere-pro-mcp@${pkg.version}`,
+    );
+  });
+
+  it("keeps the Claude and Codex editing skills identical", () => {
+    const codexSkill = readFileSync(
+      join(
+        root,
+        "plugins",
+        "premiere-pro",
+        "skills",
+        "edit-premiere-project",
+        "SKILL.md",
+      ),
+      "utf8",
+    );
+    const claudeSkill = readFileSync(
+      join(
+        root,
+        "claude-plugins",
+        "premiere-pro",
+        "skills",
+        "edit-premiere-project",
+        "SKILL.md",
+      ),
+      "utf8",
+    );
+
+    expect(claudeSkill).toBe(codexSkill);
+  });
+
+  it("defines a self-contained Claude Desktop MCP bundle", () => {
+    const pkg = readJson("package.json");
+    const manifest = readJson("claude-desktop/manifest.json");
+
+    expect(manifest).toMatchObject({
+      manifest_version: "0.3",
+      name: "premiere-pro-mcp",
+      version: pkg.version,
+      server: {
+        type: "node",
+        entry_point: "server/dist/index.js",
+      },
+      compatibility: {
+        platforms: ["darwin", "win32"],
+      },
+    });
+    expect(manifest.server.mcp_config.args).toContain(
+      "${__dirname}/server/dist/index.js",
+    );
+  });
+});
