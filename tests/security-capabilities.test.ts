@@ -54,6 +54,9 @@ describe("capability profiles", () => {
     expect(report.runtime).toMatchObject({ platform, platformName: name, supported: true });
     expect(report.backends.cep.platforms).toEqual(["macOS", "Windows"]);
     expect(report.backends.uxp.hostVerificationRequired).toBe(true);
+    expect(report.backends.uxp.commands).toContain("operation.cancel");
+    expect(report.backends.uxp.events).toContain("premiere.state.changed");
+    expect(report.backends.uxp.operationSemantics.atomicRollback).toBe(false);
     expect(report.authority.disabled).toContain("unsafe-script");
   });
 
