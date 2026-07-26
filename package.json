@@ -1,7 +1,7 @@
 {
   "name": "premiere-pro-mcp",
   "version": "1.3.1",
-  "description": "Adobe Premiere Pro MCP server with 269 AI video editing tools for timeline automation, effects, media management, and export.",
+  "description": "Adobe Premiere Pro MCP server with 271 AI video editing tools for timeline automation, effects, media management, and export.",
   "main": "dist/index.js",
   "types": "./dist/index.d.ts",
   "type": "module",
@@ -21,6 +21,7 @@
   ],
   "scripts": {
     "build": "tsc",
+    "build:claude": "npm run build && node scripts/build-claude-desktop.mjs",
     "dev": "tsc --watch",
     "start": "node dist/index.js",
     "start:http": "node dist/http-server.js",
