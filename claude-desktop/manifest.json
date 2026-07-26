@@ -1,0 +1,37 @@
+{
+  "manifest_version": "0.3",
+  "name": "premiere-pro-mcp",
+  "display_name": "Premiere Pro MCP",
+  "version": "1.3.1",
+  "description": "Control a local Adobe Premiere Pro project through MCP.",
+  "long_description": "Inspect projects, assemble and modify timelines, manage media, effects, audio and captions, and export deliverables through a local bridge to Adobe Premiere Pro.",
+  "author": {
+    "name": "Premiere Pro MCP contributors",
+    "url": "https://github.com/leancoderkavy/premiere-pro-mcp"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/leancoderkavy/premiere-pro-mcp.git"
+  },
+  "homepage": "https://premiere-pro-mcp.com/",
+  "documentation": "https://premiere-pro-mcp.com/docs/",
+  "support": "https://github.com/leancoderkavy/premiere-pro-mcp/issues",
+  "server": {
+    "type": "node",
+    "entry_point": "server/dist/index.js",
+    "mcp_config": {
+      "command": "node",
+      "args": ["${__dirname}/server/dist/index.js"]
+    }
+  },
+  "tools_generated": true,
+  "prompts_generated": true,
+  "keywords": ["premiere-pro", "video-editing", "timeline", "captions", "export"],
+  "license": "MIT",
+  "compatibility": {
+    "platforms": ["darwin", "win32"],
+    "runtimes": {
+      "node": ">=20.19.0"
+    }
+  }
+}
