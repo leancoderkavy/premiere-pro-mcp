@@ -1,4 +1,4 @@
-import { ArrowRight, Github, Monitor, Package, ShieldCheck, Sparkles } from "lucide-react"
+import { Github, Monitor, Package, ShieldCheck, Sparkles } from "lucide-react"
 
 const navItems = [
   { label: "Demo", href: "#demo" },
@@ -28,19 +28,23 @@ export function HeroSection() {
             </span>
             <span>premiere-pro-mcp</span>
           </a>
-          <div className="hidden items-center gap-5 lg:flex">
-            {navItems.map((item) => (
-              <a key={item.href} href={item.href} className="text-sm text-zinc-400 transition-colors hover:text-white">
-                {item.label}
-              </a>
-            ))}
+          <div className="flex items-center gap-5">
+            <div className="hidden items-center gap-5 lg:flex">
+              {navItems.map((item) => (
+                <a key={item.href} href={item.href} className="text-sm text-zinc-400 transition-colors hover:text-white">
+                  {item.label}
+                </a>
+              ))}
+            </div>
             <a
               href="https://github.com/leancoderkavy/premiere-pro-mcp"
               target="_blank"
               rel="noopener noreferrer"
+              aria-label="premiere-pro-mcp on GitHub"
               className="inline-flex items-center gap-2 rounded-md border border-zinc-700 px-3 py-2 text-sm font-medium text-zinc-200 transition-colors hover:border-zinc-500 hover:bg-zinc-900"
             >
-              GitHub <ArrowRight className="h-3.5 w-3.5" />
+              <Github className="h-4 w-4" />
+              <span className="hidden sm:inline">GitHub</span>
             </a>
           </div>
         </nav>
