@@ -3,6 +3,8 @@ const { entrypoints } = require("uxp");
 const ppro = require("premierepro");
 const fs = require("fs");
 const Protocol = globalThis.PremiereMcpProtocol;
+const Commands = globalThis.PremiereMcpCommands;
+const commandRegistry = Commands.createCommandRegistry({ ppro, fs, Protocol });
 let socket = null;
 let reconnectTimer = null;
 let lastState = "";
@@ -29,24 +31,14 @@ document.addEventListener("DOMContentLoaded", () => {
 });
 
 async function capabilities() {
-  let project = null, sequence = null;
-  try { project = await ppro.Project.getActiveProject(); sequence = project && await project.getActiveSequence(); } catch (_) {}
-  return {
-    backend: "uxp", protocolVersion: Protocol.PROTOCOL_VERSION,
-    hostMinVersion: "25.6.0", activeProject: !!project, activeSequence: !!sequence,
-    commands: {
-      "capabilities.get": { supported: true, readOnly: true, cancellable: false },
-      "state.get": { supported: true, readOnly: true, cancellable: false },
-      "operation.cancel": { supported: true, readOnly: false, scope: "preflight only" },
-      "frame.export": {
-        supported: !!(ppro.Exporter && ppro.Exporter.exportSequenceFrame),
-        destructive: false,
-        cancellable: "preflight only",
-        verification: "output file existence",
-        undoable: false,
-        atomic: false
-      }
-    },
+  const value = await commandRegistry.capabilities();
+  value.commands["capabilities.get"].cancellable = false;
+  value.commands["state.get"].cancellable = false;
+  value.commands["operation.cancel"] = { supported: true, readOnly: false, scope: "preflight only" };
+  if (value.commands["frame.export"]) Object.assign(value.commands["frame.export"], {
+    cancellable: "preflight only", verification: "output file existence", undoable: false, atomic: false
+  });
+  Object.assign(value, {
     events: {
       host: supportedHostEvents(),
       stateNotifications: true,
@@ -59,7 +51,8 @@ async function capabilities() {
       cancellation: "Cooperative before a non-cancellable Premiere host call; no interruption is claimed after that boundary."
     },
     fallback: { backend: "cep", reason: "Use CEP/QE only when a command is absent or reports unsupported; never silently retry a failed UXP mutation." }
-  };
+  });
+  return value;
 }
 
 async function stateSnapshot() {
@@ -132,18 +125,35 @@ async function dispatch(raw) {
     if (cmd.command === "capabilities.get") result = await capabilities();
     else if (cmd.command === "state.get") result = await stateSnapshot();
     else if (cmd.command === "frame.export") result = await exportFrame(cmd.args, operation);
-    else throw new Error("Unsupported UXP command: " + cmd.command);
+    else {
+      assertNotCancelled(operation);
+      operation.phase = "host_call";
+      result = await commandRegistry.dispatch(cmd.command, cmd.args);
+    }
     publishOperation("completed", operation, { phase: "complete", progress: 1 });
     send(Protocol.envelope("result", {
       ok: true,
       result,
       operation: result && result.operation
         ? result.operation
-        : Protocol.operationSemantics({
-          mutatesProject: false,
-          verificationStatus: "verified",
-          verificationBoundary: "host_snapshot"
-        })
+        : Protocol.operationSemantics(
+          cmd.command.indexOf("transition.video.") === 0 && cmd.command !== "transition.video.list"
+            ? {
+                mutatesProject: true,
+                verificationStatus: "verified",
+                verificationBoundary: "project_executeTransaction_return",
+                verificationEvidence: [{ type: "transaction", accepted: true }],
+                undoSupported: true,
+                undoLabel: cmd.command === "transition.video.add" ? "Add video transition" : "Remove video transition",
+                transactionActionGroup: true,
+                cancellationSupported: true
+              }
+            : {
+                mutatesProject: false,
+                verificationStatus: "verified",
+                verificationBoundary: "host_snapshot"
+              }
+        )
     }, cmd.requestId));
   } catch (error) {
     const cancelled = error && error.code === "UXP_OPERATION_CANCELLED";

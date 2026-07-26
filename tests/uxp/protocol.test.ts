@@ -13,6 +13,16 @@ describe("UXP bridge protocol", () => {
     expect(protocol.parseCommand('{"type":"command","command":"state.get"}')).toEqual({ requestId: null, command: "state.get", args: {} });
   });
   it("rejects malformed commands", () => expect(() => protocol.parseCommand({ type: "event" })).toThrow("Invalid UXP bridge command"));
+  it("rejects invalid protocol versions and argument shapes", () => {
+    expect(() => protocol.parseCommand({ protocolVersion: 2, type: "command", command: "state.get" })).toThrow("Unsupported UXP protocol version");
+    expect(() => protocol.parseCommand({ type: "command", command: "state.get", args: [] })).toThrow("args must be an object");
+    expect(() => protocol.parseCommand({ type: "command", command: "../state" })).toThrow("Invalid UXP bridge command");
+  });
+  it("bounds request identifiers and command size", () => {
+    expect(() => protocol.parseCommand({ type: "command", requestId: "", command: "state.get" })).toThrow("requestId");
+    const oversized = JSON.stringify({ type: "command", command: "state.get", padding: "x".repeat(protocol.MAX_COMMAND_BYTES) });
+    expect(() => protocol.parseCommand(oversized)).toThrow("64 KiB");
+  });
   it("prevents filename path traversal", () => {
     expect(protocol.safeFilename("shot-01.png")).toBe("shot-01.png");
     expect(() => protocol.safeFilename("../shot.png")).toThrow();
