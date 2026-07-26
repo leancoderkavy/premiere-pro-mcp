@@ -26,7 +26,9 @@ function log(msg, cls) {
 function setStatus(state, text) {
   var dot = document.getElementById("statusDot");
   dot.className = "status-dot " + state;
-  document.getElementById("statusText").textContent = text;
+  var statusText = document.getElementById("statusText");
+  statusText.textContent = text;
+  statusText.setAttribute("data-state", state || "stopped");
   var detail = document.getElementById("statusDetail");
   if (detail) {
     if (state === "connected") detail.textContent = "Premiere Pro link is active";
@@ -204,6 +206,7 @@ function startBridge() {
   tempDir = document.getElementById("tempDir").value.trim();
   if (!tempDir) {
     log("Please set a temp directory", "err");
+    document.getElementById("tempDir").focus();
     return;
   }
 
