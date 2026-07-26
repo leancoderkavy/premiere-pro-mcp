@@ -6,6 +6,7 @@ import { cleanupTempDir, getTempDir } from "./bridge/file-bridge.js";
 import { execFileSync } from "child_process";
 import { fileURLToPath } from "url";
 import path from "path";
+import { UxpWebSocketBridge } from "./bridge/uxp-websocket-bridge.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -25,7 +26,7 @@ const args = process.argv.slice(2);
 
 if (args.includes("--help") || args.includes("-h")) {
   console.log(`
-premiere-pro-mcp — MCP server for Adobe Premiere Pro (269 tools)
+premiere-pro-mcp — MCP server for Adobe Premiere Pro (278 tools)
 
 Usage:
   premiere-pro-mcp              Start the MCP server (stdio transport)
@@ -39,6 +40,8 @@ Environment variables:
   PREMIERE_TIMEOUT_MS   Command timeout in ms (default: 30000)
   PREMIERE_MCP_CAPABILITIES  Comma-separated authority profile
   PREMIERE_MCP_DEBUG    Set to 1/true to enable verbose stderr diagnostics
+  PREMIERE_UXP_TOKEN    Enable the authenticated local UXP bridge (minimum 16 characters)
+  PREMIERE_UXP_PORT     UXP loopback WebSocket port (default: 7777)
 
 More info: https://github.com/leancoderkavy/premiere-pro-mcp
 `);
@@ -111,11 +114,31 @@ async function main() {
   // Clean up any stale files from previous sessions
   cleanupTempDir(bridgeOptions);
 
-  const server = createServer(bridgeOptions);
+  let uxpBridge: UxpWebSocketBridge | undefined;
+  if (process.env.PREMIERE_UXP_TOKEN) {
+    uxpBridge = new UxpWebSocketBridge({
+      token: process.env.PREMIERE_UXP_TOKEN,
+      port: process.env.PREMIERE_UXP_PORT
+        ? parseInt(process.env.PREMIERE_UXP_PORT, 10)
+        : undefined,
+    });
+    await uxpBridge.start();
+    const address = uxpBridge.address();
+    debugLog(`UXP bridge listening on ws://${address.host}:${address.port}${address.path}`);
+  }
+
+  const server = createServer(bridgeOptions, { uxpBridge });
   const transport = new StdioServerTransport();
 
   await server.connect(transport);
   debugLog("Server connected and ready");
+
+  const shutdown = async () => {
+    if (uxpBridge) await uxpBridge.stop();
+    await server.close();
+  };
+  process.once("SIGINT", () => void shutdown().finally(() => process.exit(0)));
+  process.once("SIGTERM", () => void shutdown().finally(() => process.exit(0)));
 }
 
 main().catch((err) => {

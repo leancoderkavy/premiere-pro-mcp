@@ -1,0 +1,36 @@
+name: Build Claude Desktop bundle
+
+on:
+  workflow_dispatch:
+  release:
+    types: [published]
+
+permissions:
+  contents: write
+
+jobs:
+  bundle:
+    name: Build MCPB and legacy DXT
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          package-manager-cache: false
+      - run: npm ci
+      - run: npm run build:claude
+      - uses: actions/upload-artifact@v6
+        with:
+          name: premiere-pro-mcp-claude-desktop
+          path: |
+            artifacts/*.mcpb
+            artifacts/*.dxt
+          if-no-files-found: error
+      - name: Attach bundles to release
+        if: ${{ github.event_name == 'release' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: >-
+          gh release upload "${{ github.event.release.tag_name }}"
+          artifacts/*.mcpb artifacts/*.dxt --clobber
