@@ -117,6 +117,10 @@ button { -webkit-appearance: none; }
 .section-label { display: block; margin-bottom: 4px; color: var(--text-muted); font-size: 9px; font-weight: 650; letter-spacing: .09em; text-transform: uppercase; }
 .status-copy { min-width: 0; }
 .status-copy strong { display: block; overflow: hidden; color: var(--text); font-size: 14px; font-weight: 650; line-height: 1.3; text-overflow: ellipsis; white-space: nowrap; }
+.status-copy strong::before { content: "■ "; color: var(--text-muted); }
+.status-copy strong[data-state="connected"]::before { content: "✓ "; color: var(--green); }
+.status-copy strong[data-state="waiting"]::before { content: "… "; color: var(--amber); }
+.status-copy strong[data-state="error"]::before { content: "! "; color: var(--red); }
 .status-copy #statusDetail { display: block; overflow: hidden; margin-top: 3px; color: var(--text-secondary); font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
 
 .command-stat { padding-left: 14px; text-align: right; }
@@ -211,7 +215,7 @@ button { -webkit-appearance: none; }
 
 .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
 
-button:focus-visible { outline: 1px solid var(--violet); outline-offset: 2px; }
+button:focus-visible, input:focus-visible, #log:focus-visible { outline: 2px solid var(--violet-hover); outline-offset: 2px; }
 
 @media (max-width: 330px) {
   .panel-shell { padding-right: 10px; padding-left: 10px; }
@@ -224,4 +228,10 @@ button:focus-visible { outline: 1px solid var(--violet); outline-offset: 2px; }
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; }
+}
+
+@media (forced-colors: active) {
+  .status-dot, .auto-start > span, .activity-state > span { forced-color-adjust: none; border: 1px solid CanvasText; }
+  .button, .path-field input, #log, .status-panel { border-color: CanvasText; }
+  .status-copy strong::before { color: CanvasText !important; }
 }

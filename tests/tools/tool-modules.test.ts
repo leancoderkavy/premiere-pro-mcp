@@ -47,6 +47,7 @@ import { getCaptionTools } from "../../src/tools/captions.js";
 import { getPlaybackTools } from "../../src/tools/playback.js";
 import { getProjectManagerTools } from "../../src/tools/project-manager.js";
 import { getAvSettingsTools } from "../../src/tools/av-settings.js";
+import { getRecoveryTools } from "../../src/tools/recovery.js";
 
 interface ToolDef {
   description: string;
@@ -91,6 +92,7 @@ const ALL_MODULES: Array<{
   { name: "playback", getter: getPlaybackTools, minTools: 3 },
   { name: "project-manager", getter: getProjectManagerTools, minTools: 1 },
   { name: "av-settings", getter: getAvSettingsTools, minTools: 4 },
+  { name: "recovery", getter: getRecoveryTools, minTools: 2 },
 ];
 
 describe("Tool Module Structure", () => {
@@ -172,16 +174,16 @@ describe("Tool Module Structure", () => {
 });
 
 describe("Total Tool Count", () => {
-  it("all modules together have 273 tools", () => {
+  it("all modules together have 275 tools", () => {
     let total = 0;
     for (const mod of ALL_MODULES) {
       total += Object.keys(mod.getter(bridgeOptions)).length;
     }
-    expect(total).toBe(273);
+    expect(total).toBe(275);
   });
 
-  it("there are 29 modules", () => {
-    expect(ALL_MODULES.length).toBe(29);
+  it("there are 30 modules", () => {
+    expect(ALL_MODULES.length).toBe(30);
   });
 });
 

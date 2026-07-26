@@ -4,7 +4,7 @@
 
 **Give AI full control over Adobe Premiere Pro.**
 
-275 tools across 30 modules, 3 resources, and 4 guided workflows.
+277 tools across 31 modules, 3 resources, and 4 guided workflows.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Node.js](https://img.shields.io/badge/Node.js-20.19%2B-green.svg)](https://nodejs.org)
@@ -25,7 +25,7 @@ An [MCP (Model Context Protocol)](https://modelcontextprotocol.io) server that l
 "Add the B-roll clips to V2, apply a cross dissolve between each, color correct them to match the A-roll, and export a 1080p ProRes."
 ```
 
-The AI handles the entire workflow through 275 tools spanning the supported ExtendScript, QE DOM, and safe edit-planning surfaces.
+The AI handles the entire workflow through 277 tools spanning the supported ExtendScript, QE DOM, and safe edit-planning surfaces.
 
 ### What's new in 1.3.1
 
@@ -282,7 +282,7 @@ The file-based IPC bridge is simple, reliable, and works across macOS and Window
 
 ---
 
-## Tools (275)
+## Tools (277)
 
 ### Discovery & Inspection (10 + 10)
 
@@ -514,12 +514,13 @@ premiere-pro-mcp/
 ├── src/
 │   ├── index.ts                 # Entry point — stdio transport setup
 │   ├── http-server.ts           # Entry point — HTTP/SSE transport (Fly.io / remote)
-│   ├── server.ts                # MCP server — registers 275 tools + 3 resources + 4 prompts
+│   ├── server.ts                # MCP server — registers 277 tools + 3 resources + 4 prompts
 │   ├── bridge/
 │   │   ├── file-bridge.ts       # File-based IPC (write .jsx, poll .json)
 │   │   └── script-builder.ts    # ExtendScript generator with ES3 helpers
-│   ├── tools/                   # 30 tool modules
+│   ├── tools/                   # 31 tool modules
 │   │   ├── discovery.ts         # Project discovery and queries
+│   │   ├── recovery.ts          # Read-only autosave discovery and private bridge telemetry
 │   │   ├── project.ts           # Project management and import
 │   │   ├── media.ts             # Media and proxy management
 │   │   ├── sequence.ts          # Sequence creation and settings
