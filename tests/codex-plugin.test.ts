@@ -1,0 +1,57 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+import { describe, expect, it } from "vitest";
+
+const root = process.cwd();
+const readJson = (path: string) =>
+  JSON.parse(readFileSync(join(root, path), "utf8"));
+
+describe("Codex plugin package", () => {
+  it("keeps the plugin and MCP package versions aligned", () => {
+    const pkg = readJson("package.json");
+    const plugin = readJson("plugins/premiere-pro/.codex-plugin/plugin.json");
+    const mcp = readJson("plugins/premiere-pro/.mcp.json");
+
+    expect(plugin.name).toBe("premiere-pro");
+    expect(plugin.version).toBe(pkg.version);
+    expect(plugin.skills).toBe("./skills/");
+    expect(plugin.mcpServers).toBe("./.mcp.json");
+    expect(mcp.mcpServers["premiere-pro"].args).toContain(
+      `premiere-pro-mcp@${pkg.version}`,
+    );
+  });
+
+  it("publishes the plugin through the repository marketplace", () => {
+    const marketplace = readJson(".agents/plugins/marketplace.json");
+    const entry = marketplace.plugins.find(
+      (plugin: { name: string }) => plugin.name === "premiere-pro",
+    );
+
+    expect(marketplace.name).toBe("premiere-pro-mcp");
+    expect(entry).toMatchObject({
+      source: { source: "local", path: "./plugins/premiere-pro" },
+      policy: { installation: "AVAILABLE", authentication: "ON_INSTALL" },
+      category: "Creativity",
+    });
+  });
+
+  it("ships a complete Premiere editing skill without placeholders", () => {
+    const skill = readFileSync(
+      join(
+        root,
+        "plugins",
+        "premiere-pro",
+        "skills",
+        "edit-premiere-project",
+        "SKILL.md",
+      ),
+      "utf8",
+    );
+
+    expect(skill).toContain("name: edit-premiere-project");
+    expect(skill).toContain("Call `ping`");
+    expect(skill).toContain("preview_edit_plan");
+    expect(skill).toContain("export_sequence");
+    expect(skill).not.toContain("TODO");
+  });
+});
