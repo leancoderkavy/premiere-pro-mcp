@@ -22,6 +22,18 @@ export interface DeliveryFileVerification {
   valid: boolean;
 }
 
+export function deliveryFileChangedDuringHash(
+  before: { dev: number; ino: number; size: number; mtimeMs: number },
+  after: { dev: number; ino: number; size: number; mtimeMs: number },
+): boolean {
+  return (
+    before.dev !== after.dev ||
+    before.ino !== after.ino ||
+    before.size !== after.size ||
+    before.mtimeMs !== after.mtimeMs
+  );
+}
+
 export async function verifyDeliveryFile(
   outputPath: string,
   options: {
@@ -56,6 +68,10 @@ export async function verifyDeliveryFile(
     stream.on("end", resolveHash);
   });
   const checksum = hash.digest("hex");
+  const finalStats = statSync(path);
+  if (!finalStats.isFile() || deliveryFileChangedDuringHash(stats, finalStats)) {
+    throw new Error(`Delivery file changed while its checksum was being calculated: ${path}`);
+  }
 
   const expectedChecksum = options.expectedChecksum?.trim().toLowerCase();
   const expectedLength = algorithm === "sha256" ? 64 : 128;
@@ -179,9 +195,7 @@ export function getExportTools(bridgeOptions: BridgeOptions) {
             expectedSizeBytes: args.expected_size_bytes,
             minimumSizeBytes: args.minimum_size_bytes,
           });
-          return verification.valid
-            ? { success: true, data: verification }
-            : { success: false, error: "Delivery file did not match the expected checksum or size", data: verification };
+          return { success: true, data: verification };
         } catch (error) {
           return { success: false, error: error instanceof Error ? error.message : String(error) };
         }
