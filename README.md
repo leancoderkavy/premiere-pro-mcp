@@ -226,7 +226,16 @@ The default bridge directory is derived from the operating system on both sides,
 | npm CEP installer | Copies plugin and verifies `REG_SZ` debug keys | Copies plugin and verifies the installed manifest/debug settings | Restart Premiere after installation |
 | CI build and unit tests | Node 18 and 22 | Node 18 and 22 | GitHub-hosted OS runners; no Adobe host is available in CI |
 
-`get_capabilities` reports the current operating system, temp directory, CEP/UXP coverage, enabled authority profile, and any live-host verification still required. It does not claim a Premiere operation succeeded; use `ping` and inspect each tool result for runtime evidence.
+`get_capabilities` reports the current operating system, temp directory, CEP/UXP coverage, enabled authority profile, and any live-host verification still required. It also includes a `tools` catalog generated from the tools actually registered by the server. Every entry identifies:
+
+- the execution backend (`local`, CEP/ExtendScript, QE, or orchestrator);
+- static support status (`supported`, `limited`, `experimental`, or `unsupported`);
+- the minimum Premiere version known to the server;
+- the required authority and whether the current profile enables it;
+- the verification boundary and whether a live Premiere host is required; and
+- relevant operational notes.
+
+QE-backed tools are reported as `experimental` because QE is undocumented and can vary between Premiere builds. Authority availability is reported separately from implementation support, so disabling `edit`, for example, does not incorrectly label editing tools as unsupported. Static metadata never claims that a Premiere operation succeeded; use `ping` and inspect each tool result for runtime evidence.
 
 ---
 

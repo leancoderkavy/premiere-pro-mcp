@@ -1,6 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
 import { capabilityForTool, guardToolHandler, resolveCapabilities } from "../src/security/capabilities.js";
 import { buildPlatformCapabilityReport } from "../src/platform-capabilities.js";
+import {
+  buildToolCapabilityReport,
+  deriveToolOperationalCapability,
+} from "../src/tool-capability-report.js";
 
 describe("capability profiles", () => {
   it("fails closed for unsafe scripting by default", async () => {
@@ -61,5 +65,66 @@ describe("capability profiles", () => {
     const report = buildPlatformCapabilityReport(resolveCapabilities(undefined), "linux");
     expect(report.runtime.supported).toBe(false);
     expect(report.premiere.hostVerificationRequired).toBe(true);
+  });
+
+  it("derives tool operational metadata from catalog definitions and authority", () => {
+    const capabilities = resolveCapabilities("inspect");
+    const qeTool = deriveToolOperationalCapability(
+      "ripple_delete",
+      { description: "Ripple delete a clip. Uses QE DOM." },
+      capabilities,
+    );
+    expect(qeTool).toMatchObject({
+      backend: "CEP/ExtendScript + QE",
+      backends: ["cep", "extendscript", "qe"],
+      status: "experimental",
+      minimumPremiereVersion: "2020 (QE availability varies by build)",
+      authority: { required: "edit", enabled: false },
+      verificationBoundary: "bridge_response",
+      hostVerificationRequired: true,
+    });
+    expect(qeTool.notes).toContain(
+      "Disabled by the current 'environment' authority profile.",
+    );
+  });
+
+  it("reports local discovery separately from live-host verification", () => {
+    const tool = deriveToolOperationalCapability(
+      "get_capabilities",
+      { description: "Report static capabilities." },
+      resolveCapabilities(undefined),
+    );
+    expect(tool).toMatchObject({
+      backend: "local",
+      backends: ["local"],
+      status: "supported",
+      minimumPremiereVersion: null,
+      verificationBoundary: "static_metadata_only",
+      hostVerificationRequired: false,
+    });
+  });
+
+  it("builds a deterministic summary from the registered catalog", () => {
+    const report = buildToolCapabilityReport(
+      {
+        trim_clip: { description: "Trim a clip." },
+        get_project_info: { description: "Read the project." },
+        add_transition: { description: "Add a transition. Uses QE DOM." },
+      },
+      resolveCapabilities("inspect,edit"),
+    );
+    expect(report.generatedFrom).toBe("registered-tool-catalog");
+    expect(report.total).toBe(3);
+    expect(report.byStatus).toEqual({
+      supported: 2,
+      limited: 0,
+      experimental: 1,
+      unsupported: 0,
+    });
+    expect(report.tools.map((tool) => tool.name)).toEqual([
+      "add_transition",
+      "get_project_info",
+      "trim_clip",
+    ]);
   });
 });
