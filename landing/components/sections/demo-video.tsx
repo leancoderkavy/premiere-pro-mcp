@@ -12,13 +12,13 @@ export function DemoVideoSection() {
       <div className="mx-auto max-w-6xl">
         <div className="grid items-end gap-8 md:grid-cols-[1fr_auto]">
           <div className="max-w-3xl">
-            <p className="font-mono text-xs font-semibold uppercase tracking-[0.18em] text-purple-300">One request. A finished sequence.</p>
+            <p className="font-mono text-xs font-semibold uppercase tracking-[0.18em] text-purple-300">Request → tools → verified result</p>
             <h2 className="mt-4 text-balance text-4xl font-bold tracking-[-0.035em] text-white md:text-6xl">
-              See the edit happen.
+              From prompt to verified edit.
             </h2>
           </div>
           <p className="max-w-sm text-sm leading-7 text-zinc-400 md:text-right">
-            The AI chooses structured tools. Premiere executes every change locally. You keep control of the project.
+            Follow one request through structured tool calls, local Premiere execution, and an explicit delivery result.
           </p>
         </div>
 
@@ -37,6 +37,9 @@ export function DemoVideoSection() {
             <source src="/premiere-pro-mcp-demo.mp4" type="video/mp4" />
             Your browser does not support embedded video. The demo shows an AI request becoming a structured Premiere Pro edit.
           </video>
+          <span className="pointer-events-none absolute right-[3%] top-[4%] rounded bg-[#09090d] px-2 py-1 font-mono text-[9px] text-zinc-400 sm:text-[11px]">
+            LOCAL BRIDGE · 278 TOOLS
+          </span>
           <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-purple-300/60 to-transparent" aria-hidden="true" />
         </div>
 

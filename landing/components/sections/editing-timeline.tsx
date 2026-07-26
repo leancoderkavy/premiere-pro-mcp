@@ -27,7 +27,7 @@ export function EditingTimeline() {
 
   return (
     <div
-      className="hero-enter hero-enter-4 mx-auto mt-14 max-w-4xl overflow-hidden rounded-xl border border-zinc-800 bg-[#08080a] shadow-[0_28px_90px_rgba(0,0,0,0.55)]"
+      className="hero-enter hero-enter-4 mx-auto mt-10 max-w-4xl overflow-hidden rounded-xl border border-zinc-800 bg-[#08080a] shadow-[0_28px_90px_rgba(0,0,0,0.55)] md:mt-14"
       aria-label="Animated Premiere Pro editing workflow"
     >
       <div className="flex h-11 items-center border-b border-zinc-800 bg-[#111114] px-4">
@@ -48,22 +48,22 @@ export function EditingTimeline() {
       </div>
 
       <div className="grid md:grid-cols-[0.72fr_1.28fr]">
-        <div className="relative min-h-48 overflow-hidden border-b border-zinc-800 bg-[#050506] p-5 md:min-h-72 md:border-b-0 md:border-r">
+        <div className="relative min-h-44 overflow-hidden bg-[#050506] p-4 md:min-h-72 md:border-r md:p-5">
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_60%_28%,rgba(139,124,255,0.16),transparent_43%)]" />
           <div className="relative flex h-full flex-col">
-            <div className="flex items-center justify-between font-mono text-[10px] uppercase tracking-[0.16em] text-zinc-600">
+            <div className="flex items-center justify-between font-mono text-[11px] uppercase tracking-[0.16em] text-zinc-500">
               <span>Program</span>
               <span>00:00:08:12</span>
             </div>
 
-            <div className="my-auto py-6">
+            <div className="my-auto py-4 md:py-6">
               <motion.div
                 initial={reduceMotion ? false : { opacity: 0, y: 12 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.65, delay: 0.22 }}
                 className="mx-auto max-w-[15rem]"
               >
-                <p className="text-balance text-center text-2xl font-semibold leading-tight tracking-[-0.03em] text-white">
+                <p className="text-balance text-center text-xl font-semibold leading-tight tracking-[-0.03em] text-white md:text-2xl">
                   Cut the busywork.
                   <span className="block text-purple-300">Keep the creative call.</span>
                 </p>
@@ -71,7 +71,7 @@ export function EditingTimeline() {
               </motion.div>
             </div>
 
-            <div className="flex items-center justify-center gap-4 text-zinc-600">
+            <div className="hidden items-center justify-center gap-4 text-zinc-500 md:flex">
               <span className="font-mono text-[10px]">1/2</span>
               <motion.span
                 className="grid h-7 w-7 place-items-center rounded-full bg-zinc-800 text-zinc-200"
@@ -84,7 +84,7 @@ export function EditingTimeline() {
           </div>
         </div>
 
-        <div className="min-w-0 bg-[#0b0b0e]">
+        <div className="hidden min-w-0 bg-[#0b0b0e] md:block">
           <div className="flex h-10 items-center justify-between border-b border-zinc-800 px-3">
             <div className="flex items-center gap-2 text-[10px] text-zinc-500">
               <Layers3 className="h-3.5 w-3.5 text-purple-400" />
