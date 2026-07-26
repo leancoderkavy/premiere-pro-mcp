@@ -102,7 +102,10 @@ async function findProjectItem(project, args) {
     for (let i = 0; i < children.length; i += 1) {
       const item = children[i];
       const itemId = typeof item.getId === "function" ? String(item.getId()) : "";
-      if ((wantedId && itemId === wantedId) || (!wantedId && wantedName && item.name === wantedName)) return castClipProjectItem(item);
+      const candidate = TranscriptSupport.matchingClipCandidate(
+        item, itemId, wantedId, wantedName, castClipProjectItem
+      );
+      if (candidate.clip) return candidate.clip;
       try {
         const childFolder = ppro.FolderItem.cast(item);
         if (childFolder) queue.push(childFolder);
@@ -142,12 +145,10 @@ async function hasTranscript(args) {
   if (typeof ppro.Transcript.hasTranscript === "function") {
     return { projectItemId: context.projectItemId, projectItemName: context.projectItemName, hasTranscript: !!ppro.Transcript.hasTranscript(context.clip), method: "native" };
   }
-  try {
-    const json = await ppro.Transcript.exportToJSON(context.clip);
-    return { projectItemId: context.projectItemId, projectItemName: context.projectItemName, hasTranscript: typeof json === "string" && json.length > 0, method: "export-probe" };
-  } catch (_) {
-    return { projectItemId: context.projectItemId, projectItemName: context.projectItemName, hasTranscript: false, method: "export-probe" };
-  }
+  const present = await TranscriptSupport.probeTranscriptExport(function () {
+    return ppro.Transcript.exportToJSON(context.clip);
+  });
+  return { projectItemId: context.projectItemId, projectItemName: context.projectItemName, hasTranscript: present, method: "export-probe" };
 }
 
 async function importTranscript(args) {

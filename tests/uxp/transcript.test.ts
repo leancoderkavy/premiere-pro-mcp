@@ -40,4 +40,29 @@ describe("UXP transcript helpers", () => {
     expect(transcript.versionAtLeast("26.3", "25.6.0")).toBe(true);
     expect(transcript.versionAtLeast("25.5.9", "25.6.0")).toBe(false);
   });
+
+  it("continues past a same-name non-clip but fails an exact non-clip ID", () => {
+    const folder = { name: "Interview" };
+    const clip = { name: "Interview", kind: "clip" };
+    const cast = (item: typeof folder | typeof clip) => {
+      if (!("kind" in item)) throw new Error("not a clip");
+      return item;
+    };
+    expect(transcript.matchingClipCandidate(folder, "folder-1", "", "Interview", cast)).toEqual({
+      matched: true,
+      clip: null,
+    });
+    expect(transcript.matchingClipCandidate(clip, "clip-1", "", "Interview", cast).clip).toBe(clip);
+    expect(() => transcript.matchingClipCandidate(folder, "folder-1", "folder-1", "", cast)).toThrow("not a clip");
+  });
+
+  it("propagates export-probe failures instead of reporting transcript absence", async () => {
+    await expect(transcript.probeTranscriptExport(async () => "")).resolves.toBe(false);
+    await expect(transcript.probeTranscriptExport(async () => '{"segments":[]}')).resolves.toBe(true);
+    await expect(
+      transcript.probeTranscriptExport(async () => {
+        throw new Error("offline media");
+      }),
+    ).rejects.toThrow("offline media");
+  });
 });

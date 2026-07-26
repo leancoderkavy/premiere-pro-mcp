@@ -66,5 +66,30 @@
     }
     return true;
   }
-  return { MAX_TRANSCRIPT_JSON_BYTES, parseTranscriptJSON, searchTranscriptJSON, versionAtLeast };
+
+  function matchingClipCandidate(item, itemId, wantedId, wantedName, cast) {
+    const idMatch = !!wantedId && itemId === wantedId;
+    const nameMatch = !wantedId && !!wantedName && item && item.name === wantedName;
+    if (!idMatch && !nameMatch) return { matched: false, clip: null };
+    try {
+      return { matched: true, clip: cast(item) };
+    } catch (error) {
+      if (idMatch) throw error;
+      return { matched: true, clip: null };
+    }
+  }
+
+  async function probeTranscriptExport(exportTranscript) {
+    const json = await exportTranscript();
+    return typeof json === "string" && json.length > 0;
+  }
+
+  return {
+    MAX_TRANSCRIPT_JSON_BYTES,
+    parseTranscriptJSON,
+    searchTranscriptJSON,
+    versionAtLeast,
+    matchingClipCandidate,
+    probeTranscriptExport
+  };
 });
