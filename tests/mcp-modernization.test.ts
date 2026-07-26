@@ -64,7 +64,18 @@ describe("modern MCP surface", () => {
       const tools = await client.listTools();
       expect(tools.tools.find((tool) => tool.name === "get_project_info")?.annotations?.readOnlyHint).toBe(true);
       expect(tools.tools.map((tool) => tool.name)).toContain("get_capabilities");
-      expect(tools.tools).toHaveLength(270);
+      expect(tools.tools).toHaveLength(278);
+
+      const capabilities = await client.callTool({
+        name: "get_capabilities",
+        arguments: {},
+      });
+      const capabilityData = (capabilities.structuredContent as any).data;
+      expect(capabilityData.tools.generatedFrom).toBe("registered-tool-catalog");
+      expect(capabilityData.tools.total).toBe(tools.tools.length);
+      expect(capabilityData.tools.tools.map((tool: any) => tool.name)).toEqual(
+        expect.arrayContaining(tools.tools.map((tool) => tool.name)),
+      );
     } finally {
       await client.close();
       await server.close();

@@ -46,6 +46,8 @@ import { getWorkspaceTools } from "../../src/tools/workspace.js";
 import { getCaptionTools } from "../../src/tools/captions.js";
 import { getPlaybackTools } from "../../src/tools/playback.js";
 import { getProjectManagerTools } from "../../src/tools/project-manager.js";
+import { getRecoveryTools } from "../../src/tools/recovery.js";
+import { getAvSettingsTools } from "../../src/tools/av-settings.js";
 
 interface ToolDef {
   description: string;
@@ -89,6 +91,8 @@ const ALL_MODULES: Array<{
   { name: "captions", getter: getCaptionTools, minTools: 1 },
   { name: "playback", getter: getPlaybackTools, minTools: 3 },
   { name: "project-manager", getter: getProjectManagerTools, minTools: 1 },
+  { name: "recovery", getter: getRecoveryTools, minTools: 2 },
+  { name: "av-settings", getter: getAvSettingsTools, minTools: 4 },
 ];
 
 describe("Tool Module Structure", () => {
@@ -170,16 +174,16 @@ describe("Tool Module Structure", () => {
 });
 
 describe("Total Tool Count", () => {
-  it("all modules together have 268 tools", () => {
+  it("all modules together have 276 tools", () => {
     let total = 0;
     for (const mod of ALL_MODULES) {
       total += Object.keys(mod.getter(bridgeOptions)).length;
     }
-    expect(total).toBe(268);
+    expect(total).toBe(276);
   });
 
-  it("there are 28 modules", () => {
-    expect(ALL_MODULES.length).toBe(28);
+  it("there are 30 modules", () => {
+    expect(ALL_MODULES.length).toBe(30);
   });
 });
 
@@ -221,6 +225,28 @@ describe("Tool Handler Behavior", () => {
       expect(result.data.backends.cep.platforms).toEqual(["macOS", "Windows"]);
       expect(result.data.premiere.hostVerificationRequired).toBe(true);
       expect(mockedSendCommand).not.toHaveBeenCalled();
+    });
+
+    it("includes per-tool operational metadata from the supplied catalog", async () => {
+      const tools = getHealthTools(
+        bridgeOptions,
+        undefined,
+        () => ({
+          get_capabilities: { description: "Report capabilities." },
+          ripple_delete: { description: "Ripple delete. Uses QE DOM." },
+        }),
+      );
+      const result = await tools.get_capabilities.handler();
+      expect(result.data.tools.total).toBe(2);
+      expect(result.data.tools.tools).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            name: "ripple_delete",
+            status: "experimental",
+            backend: "CEP/ExtendScript + QE",
+          }),
+        ]),
+      );
     });
   });
 
