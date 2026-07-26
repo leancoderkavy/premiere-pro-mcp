@@ -322,7 +322,7 @@ function connect() {
   } catch (_) {
     return scheduleReconnect("Invalid bridge URL");
   }
-  setStatus("Connecting to " + url);
+  setStatus("Connecting to " + configuredUrl);
   try { socket = new WebSocket(url); } catch (e) { return scheduleReconnect(e.message); }
   socket.onopen = async () => { setStatus("Connected"); send(Protocol.envelope("hello", await capabilities())); publishState("connected"); };
   socket.onmessage = (event) => dispatch(event.data);

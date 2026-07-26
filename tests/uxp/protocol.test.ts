@@ -14,7 +14,7 @@ describe("UXP bridge protocol", () => {
   });
   it("rejects malformed commands", () => expect(() => protocol.parseCommand({ type: "event" })).toThrow("Invalid UXP bridge command"));
   it("rejects invalid protocol versions and argument shapes", () => {
-    expect(() => protocol.parseCommand({ protocolVersion: 2, type: "command", command: "state.get" })).toThrow("Unsupported UXP protocol version");
+    expect(() => protocol.parseCommand({ protocolVersion: 1, type: "command", command: "state.get" })).toThrow("Unsupported UXP protocol version");
     expect(() => protocol.parseCommand({ type: "command", command: "state.get", args: [] })).toThrow("args must be an object");
     expect(() => protocol.parseCommand({ type: "command", command: "../state" })).toThrow("Invalid UXP bridge command");
   });
