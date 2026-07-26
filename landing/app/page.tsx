@@ -4,6 +4,7 @@ import { ConnectSection } from "@/components/sections/connect"
 import { ArchitectureSection } from "@/components/sections/architecture"
 import { Footer } from "@/components/sections/footer"
 import { FaqSection, faqItems } from "@/components/sections/faq"
+import { DemoVideoSection } from "@/components/sections/demo-video"
 
 const structuredData = {
   "@context": "https://schema.org",
@@ -95,6 +96,7 @@ export default function Home() {
       />
       <main className="min-h-screen overflow-x-hidden bg-black text-white">
         <HeroSection />
+        <DemoVideoSection />
         <FeaturesSection />
         <ConnectSection />
         <ArchitectureSection />

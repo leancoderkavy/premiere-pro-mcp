@@ -15,6 +15,7 @@ export function Footer() {
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.16em] text-zinc-600">Product</p>
             <div className="mt-4 flex flex-col gap-3 text-sm text-zinc-400">
+              <a href="#demo" className="hover:text-white">Demo</a>
               <a href="#features" className="hover:text-white">Features</a>
               <a href="#how-it-works" className="hover:text-white">How it works</a>
               <a href="#install" className="hover:text-white">Install</a>

@@ -1,6 +1,7 @@
 import { ArrowRight, Github, Monitor, Package, ShieldCheck, Sparkles } from "lucide-react"
 
 const navItems = [
+  { label: "Demo", href: "#demo" },
   { label: "Features", href: "#features" },
   { label: "How it works", href: "#how-it-works" },
   { label: "Install", href: "#install" },
