@@ -1,4 +1,5 @@
 import { Github, Monitor, Package, ShieldCheck, Sparkles } from "lucide-react"
+import { EditingTimeline } from "@/components/sections/editing-timeline"
 
 const navItems = [
   { label: "Demo", href: "#demo" },
@@ -80,26 +81,7 @@ export function HeroSection() {
             </div>
           </div>
 
-          <div className="hero-enter hero-enter-4 terminal-float mx-auto mt-14 max-w-3xl overflow-hidden rounded-xl border border-zinc-800 bg-[#08080a] shadow-[0_28px_90px_rgba(0,0,0,0.55)]">
-            <div className="flex items-center border-b border-zinc-800 px-4 py-3">
-              <div className="flex gap-2" aria-hidden="true">
-                <span className="h-2.5 w-2.5 rounded-full bg-red-500" />
-                <span className="h-2.5 w-2.5 rounded-full bg-amber-400" />
-                <span className="status-pulse h-2.5 w-2.5 rounded-full bg-emerald-500" />
-              </div>
-              <span className="ml-4 font-mono text-xs text-zinc-500">premiere-pro-mcp</span>
-              <span className="ml-auto h-5 w-10 bg-gradient-to-r from-[#8b7cff] to-[#ef76b9]" aria-hidden="true" />
-            </div>
-            <pre className="overflow-x-auto p-5 font-mono text-[13px] leading-7 sm:p-7 sm:text-sm">
-              <code>
-                <span className="text-zinc-600">$ </span><span className="text-emerald-400">npm install -g premiere-pro-mcp</span>{"\n"}
-                <span className="text-zinc-600">$ </span><span className="text-emerald-400">premiere-pro-mcp --install-cep</span>{"\n\n"}
-                <span className="text-zinc-500"># Ask your MCP client</span>{"\n"}
-                <span className="text-zinc-100">“Add B-roll to V2, match the grade, then export 1080p ProRes.”</span>{"\n\n"}
-                <span className="text-purple-300">✓ 269 tools registered · bridge ready</span>
-              </code>
-            </pre>
-          </div>
+          <EditingTimeline />
 
           <div className="hero-enter hero-enter-5 mt-8 grid overflow-hidden rounded-xl border border-zinc-800 bg-zinc-950/75 sm:grid-cols-2 lg:grid-cols-4">
             {proofItems.map((item) => (
