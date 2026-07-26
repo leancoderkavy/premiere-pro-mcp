@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import Script from "next/script";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -16,6 +17,8 @@ const siteUrl = "https://premiere-pro-mcp.com";
 const title = "Premiere Pro MCP Server – AI Video Editing Tools";
 const description =
   "Connect AI assistants to Adobe Premiere Pro with 269 local-first MCP tools for timeline editing, effects, color, media management, automation, and export.";
+const googleAnalyticsId =
+  process.env.NEXT_PUBLIC_GOOGLE_ANALYTICS_ID ?? "G-XSH74T16E4";
 
 export const metadata: Metadata = {
   title: {
@@ -28,6 +31,9 @@ export const metadata: Metadata = {
   category: "developer tools",
   creator: "Premiere Pro MCP contributors",
   publisher: "Premiere Pro MCP",
+  verification: {
+    google: "DYKtInlwQzKguGVKyDbZY55-7gKySyg3N9yl9fERiho",
+  },
   keywords: [
     "Premiere Pro MCP",
     "Adobe Premiere Pro AI",
@@ -93,6 +99,25 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
         {children}
+        {googleAnalyticsId ? (
+          <>
+            <Script
+              src={`https://www.googletagmanager.com/gtag/js?id=${googleAnalyticsId}`}
+              strategy="afterInteractive"
+            />
+            <Script id="google-analytics" strategy="afterInteractive">
+              {`
+                window.dataLayer = window.dataLayer || [];
+                function gtag(){dataLayer.push(arguments);}
+                gtag('js', new Date());
+                gtag('config', '${googleAnalyticsId}', {
+                  anonymize_ip: true,
+                  send_page_view: true
+                });
+              `}
+            </Script>
+          </>
+        ) : null}
       </body>
     </html>
   );
