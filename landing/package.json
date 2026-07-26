@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
+    "render:demo-video": "node scripts/render-demo-video.mjs",
     "start": "next start",
     "lint": "eslint"
   },

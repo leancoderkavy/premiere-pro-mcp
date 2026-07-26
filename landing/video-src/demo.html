@@ -1,0 +1,190 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=1280, initial-scale=1" />
+    <title>Premiere Pro MCP product demo</title>
+    <style>
+      * { box-sizing: border-box; }
+      html, body { margin: 0; width: 1280px; height: 720px; overflow: hidden; background: #060608; }
+      body {
+        color: #f5f3ff;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        background:
+          radial-gradient(circle at 78% 12%, rgba(139,124,255,.18), transparent 34%),
+          linear-gradient(135deg, #050507 0%, #0b0910 55%, #060608 100%);
+      }
+      .frame { width: 1280px; height: 720px; padding: 34px 42px; position: relative; }
+      .topbar { height: 48px; display: flex; align-items: center; gap: 13px; }
+      .mark {
+        width: 34px; height: 34px; display: grid; place-items: center; border-radius: 8px;
+        border: 1px solid rgba(168,151,255,.42); background: rgba(139,124,255,.15);
+        color: #d9d0ff; font: 700 13px ui-monospace, monospace;
+      }
+      .brand { font-weight: 650; font-size: 15px; letter-spacing: -.01em; }
+      .tag { margin-left: auto; color: #898590; font: 12px ui-monospace, monospace; }
+      .workspace {
+        height: 590px; margin-top: 14px; display: grid; grid-template-columns: 350px 1fr;
+        overflow: hidden; border: 1px solid #29262e; border-radius: 17px;
+        background: rgba(8,8,11,.94); box-shadow: 0 38px 90px rgba(0,0,0,.46);
+      }
+      .assistant { border-right: 1px solid #29262e; padding: 24px 22px; position: relative; }
+      .eyebrow { color: #807a87; font: 700 10px ui-monospace, monospace; letter-spacing: .15em; }
+      .prompt {
+        margin-top: 18px; padding: 16px; border: 1px solid #302d36; border-radius: 12px;
+        background: #111014; font-size: 17px; line-height: 1.45; letter-spacing: -.015em;
+      }
+      .cursor { display: inline-block; width: 2px; height: 18px; margin-left: 2px; vertical-align: -3px; background: #b5a7ff; }
+      .tools { margin-top: 24px; display: grid; gap: 9px; }
+      .tool {
+        display: flex; align-items: center; gap: 10px; padding: 11px 12px; border-radius: 9px;
+        color: #8d8992; font: 12px ui-monospace, monospace; border: 1px solid transparent;
+        opacity: .32; transform: translateY(8px);
+      }
+      .tool.active { color: #eeeaff; border-color: rgba(139,124,255,.3); background: rgba(139,124,255,.09); }
+      .dot { width: 6px; height: 6px; border-radius: 50%; background: #756b82; }
+      .tool.done .dot { background: #52d49a; box-shadow: 0 0 14px rgba(82,212,154,.5); }
+      .result {
+        position: absolute; left: 22px; right: 22px; bottom: 24px; padding: 13px 14px;
+        display: flex; align-items: center; gap: 10px; border-radius: 10px;
+        border: 1px solid rgba(82,212,154,.25); background: rgba(82,212,154,.07);
+        color: #bdf4d7; font-size: 12px; opacity: 0; transform: translateY(8px);
+      }
+      .editor { display: grid; grid-template-rows: 340px 1fr; min-width: 0; }
+      .monitor { position: relative; overflow: hidden; border-bottom: 1px solid #29262e; }
+      .monitor::after {
+        content: ""; position: absolute; inset: 0;
+        background: linear-gradient(115deg, transparent 28%, rgba(255,255,255,.035) 50%, transparent 72%);
+      }
+      .scene { position: absolute; inset: 0; display: grid; place-items: center; background: #111016; }
+      .scene-grid {
+        position: absolute; inset: 0; opacity: .22;
+        background-image: linear-gradient(rgba(255,255,255,.06) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.06) 1px, transparent 1px);
+        background-size: 48px 48px;
+      }
+      .subject {
+        width: 270px; height: 180px; border-radius: 36px 36px 14px 14px; position: relative;
+        background: linear-gradient(145deg, #6f668b, #302b41 68%);
+        box-shadow: 0 34px 70px rgba(0,0,0,.45); transform: scale(.92);
+      }
+      .subject::before {
+        content: ""; position: absolute; width: 76px; height: 76px; border-radius: 50%;
+        left: 97px; top: -50px; background: linear-gradient(145deg, #afa7c7, #5d566f);
+      }
+      .subject::after {
+        content: ""; position: absolute; width: 140px; height: 18px; border-radius: 50%;
+        left: 65px; bottom: -36px; background: rgba(0,0,0,.46); filter: blur(12px);
+      }
+      .grade { position: absolute; inset: 0; background: radial-gradient(circle at 50% 48%, rgba(242,135,194,.14), rgba(95,69,180,.18) 44%, transparent 72%); opacity: 0; }
+      .lower-third {
+        position: absolute; left: 44px; bottom: 34px; padding: 13px 20px 14px;
+        border-left: 3px solid #aa9cff; background: rgba(8,8,12,.78); backdrop-filter: blur(8px);
+        transform: translateX(-28px); opacity: 0;
+      }
+      .lower-third b { display: block; font-size: 18px; letter-spacing: -.02em; }
+      .lower-third span { display: block; margin-top: 3px; color: #a6a1ac; font-size: 11px; }
+      .monitor-label { position: absolute; top: 16px; left: 18px; color: #74707b; font: 10px ui-monospace, monospace; letter-spacing: .12em; }
+      .timeline { position: relative; padding: 14px 18px 18px; background: #09090c; }
+      .ruler { height: 24px; margin-left: 56px; display: flex; justify-content: space-between; color: #625e68; font: 9px ui-monospace, monospace; }
+      .tracks { display: grid; gap: 8px; }
+      .track { height: 52px; display: grid; grid-template-columns: 48px 1fr; gap: 8px; }
+      .track-name { display: flex; align-items: center; color: #77727e; font: 10px ui-monospace, monospace; }
+      .lane { position: relative; border-radius: 5px; background: #121116; overflow: hidden; }
+      .clip {
+        position: absolute; top: 5px; bottom: 5px; border-radius: 5px; padding: 9px 11px;
+        overflow: hidden; white-space: nowrap; font: 10px ui-monospace, monospace;
+      }
+      .clip-a { left: 0; width: 36%; color: #d9d1ff; background: #41356c; border: 1px solid #6e5aac; }
+      .clip-b { left: 37%; width: 29%; color: #d7f4ff; background: #214a60; border: 1px solid #31728f; }
+      .clip-c { left: 67%; width: 33%; color: #ffd5eb; background: #603149; border: 1px solid #98496e; }
+      .clip-v2 { left: 18%; width: 0; color: #e8dcff; background: #50347b; border: 1px solid #875ec5; opacity: 0; }
+      .wave { inset: 15px 0 0; position: absolute; opacity: .48; background: repeating-linear-gradient(90deg, transparent 0 3px, rgba(104,221,179,.65) 3px 4px); clip-path: polygon(0 48%, 3% 32%, 6% 65%, 9% 40%, 12% 58%, 15% 25%, 18% 72%, 22% 37%, 26% 62%, 30% 45%, 34% 55%, 38% 28%, 42% 74%, 46% 39%, 50% 61%, 54% 31%, 58% 70%, 62% 43%, 66% 58%, 70% 35%, 74% 66%, 78% 40%, 82% 59%, 86% 27%, 90% 72%, 94% 38%, 100% 52%, 100% 58%, 0 58%); }
+      .playhead { position: absolute; top: 35px; bottom: 15px; left: 74px; width: 1px; background: #ef77b8; z-index: 5; }
+      .playhead::before { content: ""; position: absolute; left: -4px; top: -4px; width: 9px; height: 8px; border-radius: 2px 2px 5px 5px; background: #ef77b8; }
+      .caption {
+        position: absolute; right: 26px; top: 21px; z-index: 3; padding: 7px 10px;
+        border: 1px solid rgba(255,255,255,.12); border-radius: 99px; background: rgba(0,0,0,.46);
+        color: #aaa5af; font: 10px ui-monospace, monospace;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="frame">
+      <div class="topbar">
+        <div class="mark">Pr</div>
+        <div class="brand">premiere-pro-mcp</div>
+        <div class="tag">LOCAL BRIDGE · 269 TOOLS</div>
+      </div>
+      <div class="workspace">
+        <aside class="assistant">
+          <div class="eyebrow">AI EDIT REQUEST</div>
+          <div class="prompt"><span id="typed"></span><span class="cursor" id="cursor"></span></div>
+          <div class="tools">
+            <div class="tool" id="tool1"><span class="dot"></span>insert_clip · V2</div>
+            <div class="tool" id="tool2"><span class="dot"></span>apply_lumetri</div>
+            <div class="tool" id="tool3"><span class="dot"></span>create_text_layer</div>
+            <div class="tool" id="tool4"><span class="dot"></span>export_sequence</div>
+          </div>
+          <div class="result" id="result"><span>✓</span> Edit complete · ProRes queued</div>
+        </aside>
+        <section class="editor">
+          <div class="monitor">
+            <div class="scene"><div class="scene-grid"></div><div class="subject" id="subject"></div><div class="grade" id="grade"></div></div>
+            <div class="monitor-label">PROGRAM · BRAND FILM</div>
+            <div class="caption" id="caption">00:00:00:00</div>
+            <div class="lower-third" id="lower"><b>Build at the speed of thought.</b><span>Edited with Premiere Pro MCP</span></div>
+          </div>
+          <div class="timeline">
+            <div class="ruler"><span>00:00</span><span>00:03</span><span>00:06</span><span>00:09</span><span>00:12</span></div>
+            <div class="tracks">
+              <div class="track"><div class="track-name">V2</div><div class="lane"><div class="clip clip-v2" id="broll">B-ROLL · city-night.mov</div></div></div>
+              <div class="track"><div class="track-name">V1</div><div class="lane"><div class="clip clip-a">A001 · interview</div><div class="clip clip-b">A002 · detail</div><div class="clip clip-c">A003 · close</div></div></div>
+              <div class="track"><div class="track-name">A1</div><div class="lane"><div class="wave"></div></div></div>
+            </div>
+            <div class="playhead" id="playhead"></div>
+          </div>
+        </section>
+      </div>
+    </div>
+    <script>
+      const params = new URLSearchParams(location.search);
+      const frame = Number(params.get("frame") || 0);
+      const total = Number(params.get("total") || 120);
+      const p = Math.max(0, Math.min(1, frame / (total - 1)));
+      const clamp = (v, a, b) => Math.max(0, Math.min(1, (v - a) / (b - a)));
+      const ease = (v) => 1 - Math.pow(1 - v, 3);
+      const prompt = "Add B-roll to V2, match the grade, add a lower third, then export ProRes.";
+      const typedP = ease(clamp(p, .03, .25));
+      document.querySelector("#typed").textContent = prompt.slice(0, Math.floor(prompt.length * typedP));
+      document.querySelector("#cursor").style.opacity = p < .28 && frame % 10 < 6 ? 1 : 0;
+      const starts = [.28, .42, .57, .72];
+      starts.forEach((start, i) => {
+        const el = document.querySelector(`#tool${i + 1}`);
+        const reveal = ease(clamp(p, start - .03, start + .03));
+        el.style.opacity = .32 + reveal * .68;
+        el.style.transform = `translateY(${8 * (1 - reveal)}px)`;
+        if (p >= start) el.classList.add("active");
+        if (p >= start + .1) el.classList.add("done");
+      });
+      const brollP = ease(clamp(p, .29, .42));
+      const broll = document.querySelector("#broll");
+      broll.style.width = `${31 * brollP}%`;
+      broll.style.opacity = brollP;
+      const gradeP = ease(clamp(p, .43, .56));
+      document.querySelector("#grade").style.opacity = gradeP;
+      document.querySelector("#subject").style.transform = `scale(${.92 + .045 * gradeP})`;
+      const lowerP = ease(clamp(p, .58, .68));
+      const lower = document.querySelector("#lower");
+      lower.style.opacity = lowerP;
+      lower.style.transform = `translateX(${-28 * (1 - lowerP)}px)`;
+      const resultP = ease(clamp(p, .82, .9));
+      const result = document.querySelector("#result");
+      result.style.opacity = resultP;
+      result.style.transform = `translateY(${8 * (1 - resultP)}px)`;
+      document.querySelector("#playhead").style.left = `${74 + 742 * p}px`;
+      const seconds = Math.floor(p * 12);
+      const frames = Math.floor((p * 12 - seconds) * 24);
+      document.querySelector("#caption").textContent = `00:00:${String(seconds).padStart(2,"0")}:${String(frames).padStart(2,"0")}`;
+    </script>
+  </body>
+</html>
