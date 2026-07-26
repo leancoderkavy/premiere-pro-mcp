@@ -252,7 +252,6 @@ function collectTools(
     ...getSourceMonitorTools(bridgeOptions),
     ...getTrackTargetingTools(bridgeOptions),
     ...getUtilityTools(bridgeOptions),
-    ...getHealthTools(bridgeOptions, capabilities),
     ...getWorkspaceTools(bridgeOptions),
     ...getCaptionTools(bridgeOptions),
     ...getPlaybackTools(bridgeOptions),
@@ -260,6 +259,10 @@ function collectTools(
     ...getEditPlanTools(bridgeOptions, { capabilities }),
     ...getAvSettingsTools(bridgeOptions),
   };
+  Object.assign(
+    tools,
+    getHealthTools(bridgeOptions, capabilities, () => tools),
+  );
   toolCatalogCache.set(cacheKey, tools);
   return tools;
 }

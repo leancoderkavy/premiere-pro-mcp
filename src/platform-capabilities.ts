@@ -1,6 +1,10 @@
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { Capability, CapabilityConfig } from "./security/capabilities.js";
+import {
+  buildToolCapabilityReport,
+  type CatalogToolDefinition,
+} from "./tool-capability-report.js";
 
 export const SUPPORTED_HOST_PLATFORMS = ["darwin", "win32"] as const;
 const ALL_CAPABILITIES: Capability[] = ["inspect", "edit", "export", "filesystem", "unsafe-script"];
@@ -17,6 +21,7 @@ export function buildPlatformCapabilityReport(
   capabilities: CapabilityConfig,
   platform: NodeJS.Platform = process.platform,
   tempDirectory: string = join(tmpdir(), "premiere-mcp-bridge"),
+  toolCatalog: Record<string, CatalogToolDefinition> = {},
 ) {
   const supported = SUPPORTED_HOST_PLATFORMS.includes(platform as SupportedHostPlatform);
   return {
@@ -42,13 +47,56 @@ export function buildPlatformCapabilityReport(
         premiereVersions: "2020–2026",
         transport: "local file bridge",
         capabilities: ALL_CAPABILITIES,
+        delivery: {
+          interchange: ["FCP XML export", "AAF export", "OMF export"],
+          presetValidation: true,
+          postExportChecksum: ["sha256", "sha512"],
+          unsupported: {
+            otio: "No documented Premiere ExtendScript or UXP OTIO import/export API.",
+            edl: "No documented Premiere ExtendScript or UXP EDL import/export API.",
+            cloudPublish: "No documented Premiere automation API for publishing to cloud destinations.",
+            contentCredentials: "No documented Premiere automation API for configuring Content Credentials.",
+            renderAndReplace: "No documented Premiere ExtendScript or UXP Render and Replace API.",
+          },
+        },
       },
       uxp: {
         status: "preview",
         platforms: ["macOS", "Windows"],
         premiereVersions: "25.6+",
         transport: "loopback WebSocket",
-        commands: ["capabilities.get", "state.get", "frame.export"],
+        commands: [
+          "capabilities.get",
+          "state.get",
+          "operation.cancel",
+          "frame.export",
+          "transition.video.list",
+          "transition.video.add",
+          "transition.video.remove",
+          "transcript.export",
+          "transcript.search",
+          "transcript.has",
+          "transcript.import",
+          "captions.inspect",
+        ],
+        unsupportedCommands: {
+          "captions.create": "No documented Premiere UXP caption creation API.",
+          "captions.update": "No documented Premiere UXP caption text/timing mutation API.",
+          "captions.delete": "No documented Premiere UXP caption deletion API.",
+        },
+        events: [
+          "premiere.state.changed",
+          "premiere.operation.started",
+          "premiere.operation.progress",
+          "premiere.operation.completed",
+          "premiere.operation.failed",
+          "premiere.operation.cancelled",
+        ],
+        operationSemantics: {
+          cancellation: "cooperative preflight only",
+          atomicRollback: false,
+          undo: "only action-based mutations executed through Project.executeTransaction",
+        },
         hostVerificationRequired: true,
       },
     },
@@ -57,5 +105,6 @@ export function buildPlatformCapabilityReport(
       enabled: [...capabilities.capabilities].sort(),
       disabled: ALL_CAPABILITIES.filter((capability) => !capabilities.capabilities.has(capability)),
     },
+    tools: buildToolCapabilityReport(toolCatalog, capabilities),
   };
 }

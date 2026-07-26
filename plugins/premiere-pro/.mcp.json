@@ -1,0 +1,10 @@
+{
+  "mcpServers": {
+    "premiere-pro": {
+      "title": "Premiere Pro MCP",
+      "description": "Inspect and edit a local Adobe Premiere Pro project through the Premiere Pro MCP bridge.",
+      "command": "npx",
+      "args": ["-y", "premiere-pro-mcp@1.3.1"]
+    }
+  }
+}
