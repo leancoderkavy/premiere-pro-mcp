@@ -6,6 +6,23 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [1.4.0] - 2026-07-26
+
+### Added
+
+- Added in-panel connector update discovery and trusted downloads from GitHub Releases.
+- Added authenticated MCP-to-UXP WebSocket transport, transcript and caption inspection, event-driven
+  state reporting, operation semantics, and supported video-transition workflows.
+- Added recovery diagnostics, export verification, AV inspection, capability reporting, and
+  collaboration/AI feature eligibility discovery.
+- Added installable Codex, Claude Code, and Claude Desktop distributions.
+
+### Changed
+
+- Expanded the MCP surface to 278 tools and aligned documentation, plugin metadata, and distribution
+  manifests with the new release.
+- Added automated signed CEP connector assets and Claude Desktop bundles to GitHub releases.
+
 ## [1.3.1] - 2026-07-25
 
 ### Fixed
