@@ -1,6 +1,10 @@
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { Capability, CapabilityConfig } from "./security/capabilities.js";
+import {
+  buildToolCapabilityReport,
+  type CatalogToolDefinition,
+} from "./tool-capability-report.js";
 
 export const SUPPORTED_HOST_PLATFORMS = ["darwin", "win32"] as const;
 const ALL_CAPABILITIES: Capability[] = ["inspect", "edit", "export", "filesystem", "unsafe-script"];
@@ -17,6 +21,7 @@ export function buildPlatformCapabilityReport(
   capabilities: CapabilityConfig,
   platform: NodeJS.Platform = process.platform,
   tempDirectory: string = join(tmpdir(), "premiere-mcp-bridge"),
+  toolCatalog: Record<string, CatalogToolDefinition> = {},
 ) {
   const supported = SUPPORTED_HOST_PLATFORMS.includes(platform as SupportedHostPlatform);
   return {
@@ -100,5 +105,6 @@ export function buildPlatformCapabilityReport(
       enabled: [...capabilities.capabilities].sort(),
       disabled: ALL_CAPABILITIES.filter((capability) => !capabilities.capabilities.has(capability)),
     },
+    tools: buildToolCapabilityReport(toolCatalog, capabilities),
   };
 }

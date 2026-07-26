@@ -226,6 +226,28 @@ describe("Tool Handler Behavior", () => {
       expect(result.data.premiere.hostVerificationRequired).toBe(true);
       expect(mockedSendCommand).not.toHaveBeenCalled();
     });
+
+    it("includes per-tool operational metadata from the supplied catalog", async () => {
+      const tools = getHealthTools(
+        bridgeOptions,
+        undefined,
+        () => ({
+          get_capabilities: { description: "Report capabilities." },
+          ripple_delete: { description: "Ripple delete. Uses QE DOM." },
+        }),
+      );
+      const result = await tools.get_capabilities.handler();
+      expect(result.data.tools.total).toBe(2);
+      expect(result.data.tools.tools).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            name: "ripple_delete",
+            status: "experimental",
+            backend: "CEP/ExtendScript + QE",
+          }),
+        ]),
+      );
+    });
   });
 
   describe("workspace tools", () => {

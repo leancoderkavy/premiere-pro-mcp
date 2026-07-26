@@ -256,7 +256,6 @@ function collectTools(
     ...getSourceMonitorTools(bridgeOptions),
     ...getTrackTargetingTools(bridgeOptions),
     ...getUtilityTools(bridgeOptions),
-    ...getHealthTools(bridgeOptions, capabilities),
     ...getWorkspaceTools(bridgeOptions),
     ...getCaptionTools(bridgeOptions),
     ...getPlaybackTools(bridgeOptions),
@@ -266,6 +265,10 @@ function collectTools(
     ...getRecoveryTools(bridgeOptions),
     ...(uxpBridge ? getUxpTools(uxpBridge) : {}),
   };
+  Object.assign(
+    tools,
+    getHealthTools(bridgeOptions, capabilities, () => tools),
+  );
   if (!uxpBridge) toolCatalogCache.set(cacheKey, tools);
   return tools;
 }
