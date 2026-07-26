@@ -21,6 +21,7 @@
   ],
   "scripts": {
     "build": "tsc",
+    "build:claude": "npm run build && node scripts/build-claude-desktop.mjs",
     "dev": "tsc --watch",
     "start": "node dist/index.js",
     "start:http": "node dist/http-server.js",
