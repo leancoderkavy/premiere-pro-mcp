@@ -4,6 +4,14 @@ Production-oriented UXP transport for Premiere Pro 25.6+. Set `PREMIERE_UXP_TOKE
 
 The bridge sends a versioned `hello`, subscribes to Premiere's documented global project and sequence events, emits `premiere.state.changed` notifications, and accepts `capabilities.get`, `state.get`, `frame.export`, and `operation.cancel` commands. A five-second deduplicated poll remains as a fallback for state such as playhead movement that has no matching documented event.
 
+It also exposes documented Premiere 25.6+ video-transition and transcript workflows:
+
+- `transition.video.list`, `transition.video.add`, and `transition.video.remove`
+- `transcript.export`, `transcript.search`, `transcript.has`, and undoable `transcript.import`
+- read-only `captions.inspect`
+
+Transition names must come from `transition.video.list`. Transcript targets can be selected in the Project panel or addressed by project-item ID/name. Caption creation, text/timing mutation, and deletion remain explicitly unsupported because Premiere does not document those UXP APIs.
+
 `frame.export` uses Adobe's supported `Exporter.exportSequenceFrame()` and verifies the file exists before reporting success. Example:
 
 ```json
