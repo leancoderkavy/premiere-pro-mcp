@@ -6,13 +6,26 @@ const Protocol = globalThis.PremiereMcpProtocol;
 let socket = null;
 let reconnectTimer = null;
 let lastState = "";
+let stateRevision = 0;
+let fallbackPollTimer = null;
+const operationTracker = Protocol.createOperationTracker();
+const eventSubscriptions = [];
 
-entrypoints.setup({ panels: { mcpBridgePanel: { create() {}, show() { publishState("panel.show"); } } } });
+entrypoints.setup({
+  panels: {
+    mcpBridgePanel: {
+      create() { subscribeHostEvents(); },
+      show() { publishState("panel.show"); },
+      destroy() { unsubscribeHostEvents(); stopFallbackPolling(); disconnect(); }
+    }
+  }
+});
 document.addEventListener("DOMContentLoaded", () => {
   document.getElementById("connect").addEventListener("click", connect);
   document.getElementById("refresh").addEventListener("click", () => publishState("manual"));
+  subscribeHostEvents();
   connect();
-  setInterval(() => publishState("poll"), 1000);
+  startFallbackPolling();
 });
 
 async function capabilities() {
@@ -22,9 +35,28 @@ async function capabilities() {
     backend: "uxp", protocolVersion: Protocol.PROTOCOL_VERSION,
     hostMinVersion: "25.6.0", activeProject: !!project, activeSequence: !!sequence,
     commands: {
-      "capabilities.get": { supported: true, readOnly: true },
-      "state.get": { supported: true, readOnly: true },
-      "frame.export": { supported: !!(ppro.Exporter && ppro.Exporter.exportSequenceFrame), destructive: false }
+      "capabilities.get": { supported: true, readOnly: true, cancellable: false },
+      "state.get": { supported: true, readOnly: true, cancellable: false },
+      "operation.cancel": { supported: true, readOnly: false, scope: "preflight only" },
+      "frame.export": {
+        supported: !!(ppro.Exporter && ppro.Exporter.exportSequenceFrame),
+        destructive: false,
+        cancellable: "preflight only",
+        verification: "output file existence",
+        undoable: false,
+        atomic: false
+      }
+    },
+    events: {
+      host: supportedHostEvents(),
+      stateNotifications: true,
+      fallbackPolling: { enabled: true, intervalMs: 5000 },
+      operationLifecycle: ["started", "progress", "completed", "failed", "cancelled"]
+    },
+    operationSemantics: {
+      mutations: "Only action-based commands executed by Project.executeTransaction may claim an undo boundary.",
+      rollback: "No atomic rollback is claimed. Callers must inspect result verification metadata.",
+      cancellation: "Cooperative before a non-cancellable Premiere host call; no interruption is claimed after that boundary."
     },
     fallback: { backend: "cep", reason: "Use CEP/QE only when a command is absent or reports unsupported; never silently retry a failed UXP mutation." }
   };
@@ -34,10 +66,19 @@ async function stateSnapshot() {
   const project = await ppro.Project.getActiveProject();
   const sequence = project && await project.getActiveSequence();
   const position = sequence && await sequence.getPlayerPosition();
-  return { projectOpen: !!project, sequenceOpen: !!sequence, playheadSeconds: position ? position.seconds : null };
+  return {
+    revision: stateRevision,
+    projectOpen: !!project,
+    project: project ? { id: project.guid || null, name: project.name || null, path: project.path || null } : null,
+    sequenceOpen: !!sequence,
+    sequence: sequence ? { id: sequence.guid || null, name: sequence.name || null } : null,
+    playheadSeconds: position ? position.seconds : null
+  };
 }
 
-async function exportFrame(args) {
+async function exportFrame(args, operation) {
+  assertNotCancelled(operation);
+  publishOperation("progress", operation, { phase: "preflight", progress: 0.1 });
   const project = await ppro.Project.getActiveProject();
   if (!project) throw new Error("No active project");
   const sequence = await project.getActiveSequence();
@@ -47,12 +88,26 @@ async function exportFrame(args) {
   const position = args.seconds == null ? await sequence.getPlayerPosition() : await tickTime(args.seconds);
   const size = await sequence.getFrameSize();
   const width = positiveInt(args.width, size.width), height = positiveInt(args.height, size.height);
+  assertNotCancelled(operation);
+  operation.phase = "host_call";
+  publishOperation("progress", operation, { phase: "host_call", progress: 0.4, cancellable: false });
   const returned = await ppro.Exporter.exportSequenceFrame(sequence, position, filename, args.outputDirectory, width, height);
   const path = Protocol.joinPath(args.outputDirectory, filename);
+  operation.phase = "verification";
+  publishOperation("progress", operation, { phase: "verification", progress: 0.8, cancellable: false });
   let exists = false;
   try { await fs.lstat(path); exists = true; } catch (_) {}
   if (!exists) throw new Error("Exporter returned " + JSON.stringify(returned) + " but no frame exists at " + path);
-  return { path, width, height, seconds: position.seconds, exporterResult: returned };
+  return {
+    path, width, height, seconds: position.seconds, exporterResult: returned,
+    operation: Protocol.operationSemantics({
+      mutatesProject: false,
+      verificationStatus: "verified",
+      verificationBoundary: "output_file_exists",
+      verificationEvidence: [{ type: "filesystem", path }],
+      cancellationSupported: true
+    })
+  };
 }
 
 async function tickTime(seconds) {
@@ -63,22 +118,54 @@ function positiveInt(value, fallback) { const n = Number(value == null ? fallbac
 
 async function dispatch(raw) {
   let cmd;
+  let operation;
   try {
     cmd = Protocol.parseCommand(raw);
+    if (cmd.command === "operation.cancel") {
+      const result = operationTracker.requestCancel(cmd.args.requestId);
+      send(Protocol.envelope("result", { ok: true, result }, cmd.requestId));
+      return;
+    }
+    operation = operationTracker.begin(cmd.requestId, cmd.command);
+    publishOperation("started", operation, { phase: "preflight", progress: 0 });
     let result;
     if (cmd.command === "capabilities.get") result = await capabilities();
     else if (cmd.command === "state.get") result = await stateSnapshot();
-    else if (cmd.command === "frame.export") result = await exportFrame(cmd.args);
+    else if (cmd.command === "frame.export") result = await exportFrame(cmd.args, operation);
     else throw new Error("Unsupported UXP command: " + cmd.command);
-    send(Protocol.envelope("result", { ok: true, result }, cmd.requestId));
+    publishOperation("completed", operation, { phase: "complete", progress: 1 });
+    send(Protocol.envelope("result", {
+      ok: true,
+      result,
+      operation: result && result.operation
+        ? result.operation
+        : Protocol.operationSemantics({
+          mutatesProject: false,
+          verificationStatus: "verified",
+          verificationBoundary: "host_snapshot"
+        })
+    }, cmd.requestId));
   } catch (error) {
-    send(Protocol.envelope("result", { ok: false, error: { code: "UXP_COMMAND_FAILED", message: error.message || String(error) } }, cmd && cmd.requestId));
+    const cancelled = error && error.code === "UXP_OPERATION_CANCELLED";
+    if (operation) publishOperation(cancelled ? "cancelled" : "failed", operation, {
+      phase: operation.phase, progress: null, error: error.message || String(error)
+    });
+    send(Protocol.envelope("result", {
+      ok: false,
+      error: {
+        code: cancelled ? "UXP_OPERATION_CANCELLED" : "UXP_COMMAND_FAILED",
+        message: error.message || String(error),
+        operation: Protocol.operationSemantics({ cancellationSupported: true })
+      }
+    }, cmd && cmd.requestId));
+  } finally {
+    if (operation) operationTracker.finish(operation);
   }
 }
 
 function connect() {
   if (reconnectTimer) clearTimeout(reconnectTimer);
-  if (socket) try { socket.close(); } catch (_) {}
+  if (socket) try { socket.onclose = null; socket.close(); } catch (_) {}
   const configuredUrl = document.getElementById("bridge-url").value;
   const token = document.getElementById("bridge-token").value;
   let url;
@@ -98,7 +185,67 @@ function connect() {
 }
 function scheduleReconnect(message) { setStatus(message + "; retrying in 2s"); reconnectTimer = setTimeout(connect, 2000); }
 function send(value) { if (socket && socket.readyState === WebSocket.OPEN) socket.send(JSON.stringify(value)); }
-async function publishState(reason) {
-  try { const state = await stateSnapshot(); const encoded = JSON.stringify(state); if (reason !== "poll" || encoded !== lastState) { lastState = encoded; send(Protocol.envelope("event", { name: "premiere.state.changed", reason, state })); } } catch (e) { setStatus(e.message); }
+function disconnect() {
+  if (reconnectTimer) clearTimeout(reconnectTimer);
+  reconnectTimer = null;
+  if (socket) try { socket.onclose = null; socket.close(); } catch (_) {}
+  socket = null;
+}
+function publishOperation(name, operation, detail) {
+  send(Protocol.operationEvent(name, operation, detail));
+}
+function assertNotCancelled(operation) {
+  if (!operation || !operation.cancelRequested) return;
+  const error = new Error("Operation cancelled before the Premiere host call");
+  error.code = "UXP_OPERATION_CANCELLED";
+  throw error;
+}
+function supportedHostEvents() {
+  const constants = ppro.Constants || {};
+  const project = constants.ProjectEvent || {};
+  const sequence = constants.SequenceEvent || {};
+  return [
+    project.OPENED, project.CLOSED, project.DIRTY, project.ACTIVATED,
+    project.PROJECT_ITEM_SELECTION_CHANGED,
+    sequence.ACTIVATED, sequence.CLOSED, sequence.SELECTION_CHANGED
+  ].filter((eventName) => eventName !== undefined && eventName !== null);
+}
+function subscribeHostEvents() {
+  if (!ppro.EventManager || eventSubscriptions.length) return;
+  supportedHostEvents().forEach((eventName) => {
+    const handler = () => publishState("host-event", eventName);
+    ppro.EventManager.addGlobalEventListener(eventName, handler, false);
+    eventSubscriptions.push({ eventName, handler });
+  });
+}
+function unsubscribeHostEvents() {
+  if (!ppro.EventManager) return;
+  eventSubscriptions.splice(0).forEach(({ eventName, handler }) => {
+    try { ppro.EventManager.removeGlobalEventListener(eventName, handler, false); } catch (_) {}
+  });
+}
+function startFallbackPolling() {
+  if (!fallbackPollTimer) fallbackPollTimer = setInterval(() => publishState("fallback-poll"), 5000);
+}
+function stopFallbackPolling() {
+  if (fallbackPollTimer) clearInterval(fallbackPollTimer);
+  fallbackPollTimer = null;
+}
+async function publishState(reason, hostEvent) {
+  try {
+    stateRevision += 1;
+    const state = await stateSnapshot();
+    const comparable = Object.assign({}, state, { revision: 0 });
+    const encoded = JSON.stringify(comparable);
+    if (reason !== "fallback-poll" || encoded !== lastState) {
+      lastState = encoded;
+      send(Protocol.envelope("event", {
+        name: "premiere.state.changed",
+        reason,
+        hostEvent: hostEvent || null,
+        state
+      }));
+    }
+  } catch (e) { setStatus(e.message); }
 }
 function setStatus(value) { const el = document.getElementById("status"); if (el) el.textContent = value; }
