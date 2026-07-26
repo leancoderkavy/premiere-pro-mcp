@@ -217,6 +217,28 @@ Add to your VS Code MCP server configuration:
 
 The default bridge directory is derived from the operating system on both sides, so most local setups should not set `PREMIERE_TEMP_DIR`. If you override it, use the same absolute path in the MCP server and CEP panel; Windows and macOS paths are not interchangeable.
 
+### Codex plugin
+
+This repository includes an installable Codex plugin that bundles the local MCP
+server with a safety-oriented Premiere editing skill.
+
+From a clone of this repository:
+
+```bash
+codex plugin marketplace add .
+codex plugin add premiere-pro@premiere-pro-mcp
+npx -y premiere-pro-mcp@1.3.1 --install-cep
+```
+
+Restart Premiere Pro and start a new Codex session after installation. The plugin
+launches `premiere-pro-mcp@1.3.1` through `npx`; the separate CEP installation is
+required because the MCP server communicates with the running Premiere host through
+the local bridge.
+
+The plugin source lives in [`plugins/premiere-pro`](plugins/premiere-pro), and the
+repository marketplace manifest lives in
+[`.agents/plugins/marketplace.json`](.agents/plugins/marketplace.json).
+
 ### Windows and macOS capability coverage
 
 | Surface | Windows | macOS | Verification boundary |
