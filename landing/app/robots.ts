@@ -11,7 +11,13 @@ export default function robots(): MetadataRoute.Robots {
         disallow: ["/mcp", "/health"],
       },
       {
-        userAgent: "OAI-SearchBot",
+        userAgent: [
+          "OAI-SearchBot",
+          "ChatGPT-User",
+          "ClaudeBot",
+          "Claude-SearchBot",
+          "PerplexityBot",
+        ],
         allow: "/",
         disallow: ["/mcp", "/health"],
       },
