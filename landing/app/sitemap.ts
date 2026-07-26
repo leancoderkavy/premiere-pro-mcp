@@ -18,5 +18,11 @@ export default function sitemap(): MetadataRoute.Sitemap {
       changeFrequency: "weekly",
       priority: 0.8,
     },
+    {
+      url: "https://premiere-pro-mcp.com/changelog/",
+      lastModified,
+      changeFrequency: "monthly",
+      priority: 0.7,
+    },
   ]
 }

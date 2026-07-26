@@ -7,6 +7,7 @@ const navItems = [
   { label: "Install", href: "#install" },
   { label: "FAQ", href: "#faq" },
   { label: "Docs", href: "/docs/" },
+  { label: "Changelog", href: "/changelog/" },
 ]
 
 const proofItems = [
@@ -27,7 +28,7 @@ export function HeroSection() {
             </span>
             <span>premiere-pro-mcp</span>
           </a>
-          <div className="hidden items-center gap-7 md:flex">
+          <div className="hidden items-center gap-5 lg:flex">
             {navItems.map((item) => (
               <a key={item.href} href={item.href} className="text-sm text-zinc-400 transition-colors hover:text-white">
                 {item.label}
