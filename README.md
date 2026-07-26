@@ -4,7 +4,7 @@
 
 **Give AI full control over Adobe Premiere Pro.**
 
-269 tools across 29 modules, 3 resources, and 4 guided workflows.
+271 tools across 29 modules, 3 resources, and 4 guided workflows.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Node.js](https://img.shields.io/badge/Node.js-20.19%2B-green.svg)](https://nodejs.org)
@@ -25,7 +25,7 @@ An [MCP (Model Context Protocol)](https://modelcontextprotocol.io) server that l
 "Add the B-roll clips to V2, apply a cross dissolve between each, color correct them to match the A-roll, and export a 1080p ProRes."
 ```
 
-The AI handles the entire workflow through 269 tools spanning the supported ExtendScript, QE DOM, and safe edit-planning surfaces.
+The AI handles the entire workflow through 271 tools spanning the supported ExtendScript, QE DOM, and safe edit-planning surfaces.
 
 ### What's new in 1.3.1
 
@@ -270,7 +270,7 @@ The file-based IPC bridge is simple, reliable, and works across macOS and Window
 
 ---
 
-## Tools (269)
+## Tools (271)
 
 ### Discovery & Inspection (10 + 10)
 
@@ -341,15 +341,22 @@ The file-based IPC bridge is simple, reliable, and works across macOS and Window
 | `get_value_at_time` | Query interpolated value at any time |
 | `set_color_value` | Set color properties on effects |
 
-### Export & Encoding (14)
+### Export & Encoding (16)
 
 | Tool | Description |
 | :--- | :---------- |
 | `export_sequence` | Export via Adobe Media Encoder |
+| `validate_export_preset` | Validate an `.epr` file and resolve its output extension in Premiere |
+| `verify_delivery_file` | Verify output size and calculate SHA-256/SHA-512 checksums |
 | `capture_frame` | Export frame as PNG, return as base64 image |
 | `export_as_fcp_xml` / `export_aaf` / `export_omf` | Interchange formats |
 | `encode_project_item` / `encode_file` | Direct encoding |
 | `start_batch_encode` | Start render queue |
+
+Premiere's documented automation surfaces do not currently expose OTIO or EDL
+interchange, Render and Replace, cloud publishing, or Content Credentials export
+configuration. `get_capabilities` reports these delivery gaps explicitly rather
+than presenting UI-only operations as available tools.
 
 ### Source Monitor & Playback (7 + 4)
 
@@ -495,7 +502,7 @@ premiere-pro-mcp/
 ├── src/
 │   ├── index.ts                 # Entry point — stdio transport setup
 │   ├── http-server.ts           # Entry point — HTTP/SSE transport (Fly.io / remote)
-│   ├── server.ts                # MCP server — registers 269 tools + 3 resources + 4 prompts
+│   ├── server.ts                # MCP server — registers 271 tools + 3 resources + 4 prompts
 │   ├── bridge/
 │   │   ├── file-bridge.ts       # File-based IPC (write .jsx, poll .json)
 │   │   └── script-builder.ts    # ExtendScript generator with ES3 helpers

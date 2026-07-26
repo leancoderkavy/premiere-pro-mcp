@@ -25,6 +25,8 @@ describe("capability profiles", () => {
     expect(capabilityForTool("evaluate_expression")).toBe("unsafe-script");
     expect(capabilityForTool("export_sequence")).toBe("export");
     expect(capabilityForTool("capture_frame")).toBe("export");
+    expect(capabilityForTool("validate_export_preset")).toBe("export");
+    expect(capabilityForTool("verify_delivery_file")).toBe("filesystem");
     expect(capabilityForTool("import_media")).toBe("filesystem");
     expect(capabilityForTool("get_project_info")).toBe("inspect");
     expect(capabilityForTool("ping")).toBe("inspect");
