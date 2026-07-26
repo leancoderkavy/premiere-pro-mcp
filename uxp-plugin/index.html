@@ -4,7 +4,8 @@ body{font:12px system-ui;margin:14px;color:#ddd;background:#242424}button,input{
 </style></head><body>
 <h3>Premiere Pro MCP Bridge</h3>
 <label for="bridge-url">Bridge URL</label><input id="bridge-url" value="ws://127.0.0.1:7777/uxp" spellcheck="false" autocomplete="off">
+<label for="bridge-token">Bridge token</label><input id="bridge-token" type="password" autocomplete="off">
 <button id="connect" aria-controls="status">Connect</button><button id="refresh" aria-controls="status">Refresh state</button>
 <pre id="status" role="status" aria-live="polite" aria-atomic="true" tabindex="0">Starting…</pre>
-<script src="protocol.cjs"></script><script src="commands.cjs"></script><script src="transcript.cjs"></script><script src="index.cjs"></script>
+<script src="protocol.cjs"></script><script src="transcript.cjs"></script><script src="commands.cjs"></script><script src="index.cjs"></script>
 </body></html>
