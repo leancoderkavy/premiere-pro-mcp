@@ -17,7 +17,7 @@
       <div class="auto-start"><span></span>Auto-start</div>
     </header>
 
-    <section class="status-panel" aria-live="polite">
+    <section class="status-panel" role="status" aria-live="polite" aria-atomic="true">
       <div class="status-indicator" aria-hidden="true">
         <div class="status-ring"><div class="status-dot connected" id="statusDot"></div></div>
       </div>
@@ -46,17 +46,17 @@
       <label class="sr-only" for="tempDir">Temporary bridge directory</label>
       <div class="path-field">
         <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M2.5 5.5h5l1.5 2h8.5v8h-15v-10Z"/></svg>
-        <input type="text" id="tempDir" value="" spellcheck="false">
+        <input type="text" id="tempDir" value="" spellcheck="false" autocomplete="off" aria-describedby="tempDirHelp">
       </div>
-      <p class="field-help">Commands and responses are exchanged through this local folder.</p>
+      <p class="field-help" id="tempDirHelp">Commands and responses are exchanged through this local folder.</p>
     </section>
 
     <div class="action-row">
-      <button id="btnStart" class="button button-primary" onclick="startBridge()" type="button">
+      <button id="btnStart" class="button button-primary" onclick="startBridge()" type="button" aria-controls="log">
         <svg viewBox="0 0 20 20" aria-hidden="true"><path class="fill-icon" d="m7 5 8 5-8 5V5Z"/></svg>
         Start Bridge
       </button>
-      <button id="btnStop" class="button button-stop" onclick="stopBridge()" type="button" disabled>
+      <button id="btnStop" class="button button-stop" onclick="stopBridge()" type="button" aria-controls="log" disabled>
         <svg viewBox="0 0 20 20" aria-hidden="true"><rect class="fill-icon" x="6" y="6" width="8" height="8" rx="1"/></svg>
         Stop
       </button>
@@ -70,7 +70,7 @@
         </div>
         <span class="activity-state"><span></span>Listening</span>
       </div>
-      <div id="log" role="log" aria-live="polite"></div>
+      <div id="log" role="log" aria-live="polite" aria-relevant="additions" tabindex="0" aria-label="Bridge activity log"></div>
     </section>
   </main>
 

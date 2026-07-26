@@ -1,10 +1,10 @@
 <!doctype html>
-<html><head><meta charset="utf-8"><style>
-body{font:12px system-ui;margin:14px;color:#ddd;background:#242424}button,input{margin:4px;padding:6px}button{background:#5b5bd6;color:white;border:0;border-radius:3px}pre{white-space:pre-wrap;background:#181818;padding:10px}label{display:block}
+<html lang="en"><head><meta charset="utf-8"><style>
+body{font:12px system-ui;margin:14px;color:#ddd;background:#242424}button,input{margin:4px;padding:6px}button{background:#5b5bd6;color:white;border:1px solid transparent;border-radius:3px}pre{white-space:pre-wrap;background:#181818;padding:10px}label{display:block}button:focus-visible,input:focus-visible{outline:2px solid #c7b8ff;outline-offset:2px}@media(forced-colors:active){button,input,pre{border:1px solid CanvasText}}
 </style></head><body>
 <h3>Premiere Pro MCP Bridge</h3>
-<label>Bridge URL <input id="bridge-url" value="ws://127.0.0.1:7777/uxp"></label>
-<button id="connect">Connect</button><button id="refresh">Refresh state</button>
-<pre id="status">Starting…</pre>
+<label for="bridge-url">Bridge URL</label><input id="bridge-url" value="ws://127.0.0.1:7777/uxp" spellcheck="false" autocomplete="off">
+<button id="connect" aria-controls="status">Connect</button><button id="refresh" aria-controls="status">Refresh state</button>
+<pre id="status" role="status" aria-live="polite" aria-atomic="true" tabindex="0">Starting…</pre>
 <script src="protocol.cjs"></script><script src="commands.cjs"></script><script src="transcript.cjs"></script><script src="index.cjs"></script>
 </body></html>

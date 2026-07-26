@@ -29,6 +29,7 @@ import { getCaptionTools } from "./tools/captions.js";
 import { getPlaybackTools } from "./tools/playback.js";
 import { getProjectManagerTools } from "./tools/project-manager.js";
 import { getEditPlanTools } from "./tools/edit-plans.js";
+import { getRecoveryTools } from "./tools/recovery.js";
 import { getAvSettingsTools } from "./tools/av-settings.js";
 import { guardToolHandler, resolveCapabilities } from "./security/index.js";
 import { EXTENDSCRIPT_REFERENCE } from "./resources/extendscript-reference.js";
@@ -257,6 +258,7 @@ function collectTools(
     ...getPlaybackTools(bridgeOptions),
     ...getProjectManagerTools(bridgeOptions),
     ...getEditPlanTools(bridgeOptions, { capabilities }),
+    ...getRecoveryTools(bridgeOptions),
     ...getAvSettingsTools(bridgeOptions),
   };
   Object.assign(
