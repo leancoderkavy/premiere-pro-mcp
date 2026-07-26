@@ -4,6 +4,8 @@ const ppro = require("premierepro");
 const fs = require("fs");
 const Protocol = globalThis.PremiereMcpProtocol;
 const TranscriptSupport = globalThis.PremiereMcpTranscript;
+const Commands = globalThis.PremiereMcpCommands;
+const commandRegistry = Commands.createCommandRegistry({ ppro, fs, Protocol });
 let socket = null;
 let reconnectTimer = null;
 let lastState = "";
@@ -17,19 +19,15 @@ document.addEventListener("DOMContentLoaded", () => {
 });
 
 async function capabilities() {
+  const base = await commandRegistry.capabilities();
   let project = null, sequence = null;
   try { project = await ppro.Project.getActiveProject(); sequence = project && await project.getActiveSequence(); } catch (_) {}
   const supportedHost = TranscriptSupport.versionAtLeast(host && host.version, "25.6.0");
   const transcriptApi = supportedHost && !!(ppro.Transcript && ppro.Transcript.exportToJSON && ppro.Transcript.importFromJSON);
   const transcriptImportApi = transcriptApi && typeof ppro.Transcript.createImportTextSegmentsAction === "function";
   const captionInspectionApi = supportedHost;
-  return {
-    backend: "uxp", protocolVersion: Protocol.PROTOCOL_VERSION,
-    hostVersion: host && host.version || null, hostMinVersion: "25.6.0", activeProject: !!project, activeSequence: !!sequence,
-    commands: {
-      "capabilities.get": { supported: true, readOnly: true },
-      "state.get": { supported: true, readOnly: true },
-      "frame.export": { supported: !!(ppro.Exporter && ppro.Exporter.exportSequenceFrame), destructive: false },
+  base.hostVersion = host && host.version || null;
+  Object.assign(base.commands, {
       "transcript.export": { supported: transcriptApi, readOnly: true, minVersion: "25.6.0" },
       "transcript.search": { supported: transcriptApi, readOnly: true, minVersion: "25.6.0" },
       "transcript.import": { supported: transcriptImportApi, destructive: true, undoable: true, minVersion: "25.6.0" },
@@ -42,9 +40,8 @@ async function capabilities() {
       "captions.create": { supported: false, reason: "No documented Premiere UXP caption creation API." },
       "captions.update": { supported: false, reason: "No documented Premiere UXP caption text/timing mutation API." },
       "captions.delete": { supported: false, reason: "No documented Premiere UXP caption deletion API." }
-    },
-    fallback: { backend: "cep", reason: "Use CEP/QE only when a command is absent or reports unsupported; never silently retry a failed UXP mutation." }
-  };
+  });
+  return base;
 }
 
 function castClipProjectItem(item) {
@@ -156,54 +153,22 @@ async function inspectCaptions() {
   return { sequenceId: String(sequence.guid), sequenceName: sequence.name, trackCount: count, tracks };
 }
 
-async function stateSnapshot() {
-  const project = await ppro.Project.getActiveProject();
-  const sequence = project && await project.getActiveSequence();
-  const position = sequence && await sequence.getPlayerPosition();
-  return { projectOpen: !!project, sequenceOpen: !!sequence, playheadSeconds: position ? position.seconds : null };
-}
-
-async function exportFrame(args) {
-  const project = await ppro.Project.getActiveProject();
-  if (!project) throw new Error("No active project");
-  const sequence = await project.getActiveSequence();
-  if (!sequence) throw new Error("No active sequence");
-  if (!args.outputDirectory) throw new Error("outputDirectory is required");
-  const filename = Protocol.safeFilename(args.filename);
-  const position = args.seconds == null ? await sequence.getPlayerPosition() : await tickTime(args.seconds);
-  const size = await sequence.getFrameSize();
-  const width = positiveInt(args.width, size.width), height = positiveInt(args.height, size.height);
-  const returned = await ppro.Exporter.exportSequenceFrame(sequence, position, filename, args.outputDirectory, width, height);
-  const path = Protocol.joinPath(args.outputDirectory, filename);
-  let exists = false;
-  try { await fs.lstat(path); exists = true; } catch (_) {}
-  if (!exists) throw new Error("Exporter returned " + JSON.stringify(returned) + " but no frame exists at " + path);
-  return { path, width, height, seconds: position.seconds, exporterResult: returned };
-}
-
-async function tickTime(seconds) {
-  if (ppro.TickTime && typeof ppro.TickTime.createWithSeconds === "function") return ppro.TickTime.createWithSeconds(Number(seconds));
-  throw new Error("This Premiere build cannot create TickTime; omit seconds to capture the playhead");
-}
-function positiveInt(value, fallback) { const n = Number(value == null ? fallback : value); if (!Number.isFinite(n) || n <= 0) throw new Error("frame dimensions must be positive"); return Math.round(n); }
+async function stateSnapshot() { return commandRegistry.stateSnapshot(); }
 
 async function dispatch(raw) {
   let cmd;
   try {
     cmd = Protocol.parseCommand(raw);
     let result;
-    if (cmd.command === "capabilities.get") result = await capabilities();
-    else if (cmd.command === "state.get") result = await stateSnapshot();
-    else if (cmd.command === "frame.export") result = await exportFrame(cmd.args);
-    else if (cmd.command === "transcript.export") result = await exportTranscript(cmd.args);
+    if (cmd.command === "transcript.export") result = await exportTranscript(cmd.args);
     else if (cmd.command === "transcript.search") result = await searchTranscript(cmd.args);
     else if (cmd.command === "transcript.has") result = await hasTranscript(cmd.args);
     else if (cmd.command === "transcript.import") result = await importTranscript(cmd.args);
     else if (cmd.command === "captions.inspect") result = await inspectCaptions();
-    else throw new Error("Unsupported UXP command: " + cmd.command);
+    else result = await commandRegistry.dispatch(cmd.command, cmd.args);
     send(Protocol.envelope("result", { ok: true, result }, cmd.requestId));
   } catch (error) {
-    send(Protocol.envelope("result", { ok: false, error: { code: "UXP_COMMAND_FAILED", message: error.message || String(error) } }, cmd && cmd.requestId));
+    send(Protocol.envelope("result", { ok: false, error: { code: error.code || "UXP_COMMAND_FAILED", message: error.message || String(error) } }, cmd && cmd.requestId));
   }
 }
 
