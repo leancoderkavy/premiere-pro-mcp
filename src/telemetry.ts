@@ -62,7 +62,9 @@ export function getTelemetry(): Telemetry {
     `server-${randomUUID()}`;
   const client = new PostHog(apiKey, {
     host,
-    flushAt: 20,
+    // MCP servers may be idle for long stretches. Flush each bounded operational
+    // event promptly so a low-volume deployment remains observable.
+    flushAt: 1,
     flushInterval: 10_000,
   });
 
