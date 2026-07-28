@@ -3,6 +3,7 @@
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { createServer } from "./server.js";
 import { cleanupTempDir, getTempDir } from "./bridge/file-bridge.js";
+import { getTelemetry } from "./telemetry.js";
 import { execFileSync } from "child_process";
 import { fileURLToPath } from "url";
 import path from "path";
@@ -100,6 +101,8 @@ if (args.includes("--install-cep") || args.includes("--diagnose-cep")) {
 }
 
 async function main() {
+  process.env.PREMIERE_MCP_TRANSPORT = "stdio";
+  const telemetry = getTelemetry();
   const bridgeOptions = {
     tempDir: process.env.PREMIERE_TEMP_DIR,
     timeoutMs: process.env.PREMIERE_TIMEOUT_MS
@@ -127,7 +130,7 @@ async function main() {
     debugLog(`UXP bridge listening on ws://${address.host}:${address.port}${address.path}`);
   }
 
-  const server = createServer(bridgeOptions, { uxpBridge });
+  const server = createServer(bridgeOptions, { uxpBridge, telemetry });
   const transport = new StdioServerTransport();
 
   await server.connect(transport);
@@ -136,6 +139,7 @@ async function main() {
   const shutdown = async () => {
     if (uxpBridge) await uxpBridge.stop();
     await server.close();
+    await telemetry.shutdown();
   };
   process.once("SIGINT", () => void shutdown().finally(() => process.exit(0)));
   process.once("SIGTERM", () => void shutdown().finally(() => process.exit(0)));

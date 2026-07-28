@@ -85,10 +85,10 @@ export function InstallSection() {
         {/* npm badge row */}
         <div className="mt-16 flex flex-wrap items-center justify-center gap-4">
           {[
-            { label: "npm", href: "https://www.npmjs.com/package/premiere-pro-mcp", badge: "v1.1.0" },
+            { label: "npm", href: "https://www.npmjs.com/package/premiere-pro-mcp", badge: "latest" },
             { label: "GitHub", href: "https://github.com/leancoderkavy/premiere-pro-mcp", badge: "MIT" },
             { label: "MCP", href: "https://modelcontextprotocol.io", badge: "1.27" },
-            { label: "Node.js", href: "https://nodejs.org", badge: "18+" },
+            { label: "Node.js", href: "https://nodejs.org", badge: "20.19+" },
           ].map((b) => (
             <a
               key={b.label}

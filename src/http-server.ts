@@ -30,6 +30,7 @@ import { fileURLToPath } from "node:url";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { createServer } from "./server.js";
 import { cleanupTempDir, getTempDir } from "./bridge/file-bridge.js";
+import { getTelemetry } from "./telemetry.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const LANDING_DIR = path.resolve(__dirname, "../landing-dist");
@@ -107,6 +108,8 @@ const bridgeOptions = {
     ? parseInt(process.env.PREMIERE_TIMEOUT_MS, 10)
     : undefined,
 };
+process.env.PREMIERE_MCP_TRANSPORT = "http";
+const telemetry = getTelemetry();
 
 const tempDir = getTempDir(bridgeOptions);
 console.error(`[premiere-pro-mcp] Starting HTTP server on port ${PORT}...`);
@@ -132,12 +135,21 @@ const httpServer = http.createServer(async (req, res) => {
 
   // Bearer token auth (constant-time; required unless ALLOW_UNAUTHENTICATED=1)
   if (!isAuthorized(req)) {
+    telemetry.capture("mcp_connection_attempt", {
+      outcome: "unauthorized",
+      method: req.method ?? "unknown",
+    });
     res.writeHead(401, { "Content-Type": "application/json" });
     res.end(JSON.stringify({ error: "Unauthorized" }));
     return;
   }
 
-  const mcpServer = createServer(bridgeOptions);
+  const requestStartedAt = Date.now();
+  telemetry.capture("mcp_connection_attempt", {
+    outcome: "authorized",
+    method: req.method ?? "unknown",
+  });
+  const mcpServer = createServer(bridgeOptions, { telemetry });
   const transport = new StreamableHTTPServerTransport({
     sessionIdGenerator: undefined, // stateless
   });
@@ -150,7 +162,20 @@ const httpServer = http.createServer(async (req, res) => {
   try {
     await mcpServer.connect(transport);
     await transport.handleRequest(req, res);
+    telemetry.capture("mcp_request", {
+      outcome: res.statusCode >= 400 ? "failed" : "succeeded",
+      method: req.method ?? "unknown",
+      status_code: res.statusCode,
+      duration_ms: Date.now() - requestStartedAt,
+    });
   } catch (err) {
+    telemetry.capture("mcp_request", {
+      outcome: "failed",
+      method: req.method ?? "unknown",
+      status_code: 500,
+      duration_ms: Date.now() - requestStartedAt,
+      error_type: err instanceof Error ? err.name : "UnknownError",
+    });
     console.error("[premiere-pro-mcp] Request error:", err);
     if (!res.headersSent) {
       res.writeHead(500, { "Content-Type": "application/json" });
@@ -169,12 +194,12 @@ httpServer.listen(PORT, "0.0.0.0", () => {
   }
 });
 
-process.on("SIGTERM", () => {
-  console.error("[premiere-pro-mcp] SIGTERM received, shutting down...");
-  httpServer.close(() => process.exit(0));
-});
+async function shutdown(signal: string) {
+  console.error(`[premiere-pro-mcp] ${signal} received, shutting down...`);
+  httpServer.close();
+  await telemetry.shutdown();
+  process.exit(0);
+}
 
-process.on("SIGINT", () => {
-  console.error("[premiere-pro-mcp] SIGINT received, shutting down...");
-  httpServer.close(() => process.exit(0));
-});
+process.on("SIGTERM", () => void shutdown("SIGTERM"));
+process.on("SIGINT", () => void shutdown("SIGINT"));

@@ -49,6 +49,11 @@ The AI handles the entire workflow through 278 tools spanning the supported Exte
 
 ## Quick Start
 
+### Before you begin
+
+- Node.js **20.19 or newer** on Windows or macOS.
+- Adobe Premiere Pro **2020–2026**. Keep Premiere, the CEP bridge, and your MCP client on the same computer for the recommended local setup.
+
 ### 1. Install
 
 **Option A — npm (recommended):**
@@ -138,6 +143,20 @@ done
 
 ### 3. Configure your MCP client
 
+If you installed from npm, configure the client to run the global command:
+
+```json
+{
+  "mcpServers": {
+    "premiere-pro": {
+      "command": "premiere-pro-mcp"
+    }
+  }
+}
+```
+
+If you cloned the repository instead, use the source-build configuration shown below for your client.
+
 <details>
 <summary><strong>Claude Desktop</strong></summary>
 
@@ -213,7 +232,8 @@ Add to your VS Code MCP server configuration:
 1. Open (or restart) Premiere Pro
 2. The bridge starts automatically using the default temp directory (or its previously saved setting)
 3. Optionally go to **Window > Extensions > MCP Bridge** to confirm the green "Running" status or change the **Temp Directory** to match your MCP client config
-4. Ask your AI assistant: *"What's my current Premiere Pro project?"*
+4. Ask your AI assistant to run `get_capabilities`, then `ping`, with Premiere open.
+5. For a safe first request, ask: *"What is my current Premiere Pro project and active sequence? Do not make changes."*
 
 The default bridge directory is derived from the operating system on both sides, so most local setups should not set `PREMIERE_TEMP_DIR`. If you override it, use the same absolute path in the MCP server and CEP panel; Windows and macOS paths are not interchangeable.
 
@@ -276,7 +296,7 @@ installed separately.
 | CEP production bridge | Premiere Pro 2020–2026 | Premiere Pro 2020–2026 | Run `get_capabilities`, then `ping` with Premiere open |
 | UXP preview bridge | Premiere Pro 25.6+ | Premiere Pro 25.6+ | Live loopback WebSocket and host API verification required |
 | npm CEP installer | Copies plugin and verifies `REG_SZ` debug keys | Copies plugin and verifies the installed manifest/debug settings | Restart Premiere after installation |
-| CI build and unit tests | Node 18 and 22 | Node 18 and 22 | GitHub-hosted OS runners; no Adobe host is available in CI |
+| CI build and unit tests | Node 20, 22, and 24 | Node 20, 22, and 24 | GitHub-hosted OS runners; no Adobe host is available in CI |
 
 `get_capabilities` reports the current operating system, temp directory, CEP/UXP coverage, enabled authority profile, and any live-host verification still required. It also includes a `tools` catalog generated from the tools actually registered by the server. Every entry identifies:
 
@@ -596,6 +616,16 @@ Then connect with:
 | `PORT` | HTTP port (HTTP/SSE transport only) | `3000` |
 | `MCP_AUTH_TOKEN` | Bearer token required by the HTTP transport | unset |
 | `ALLOW_UNAUTHENTICATED` | Set to `1` to run HTTP without auth (unsafe; throwaway instances only) | unset |
+| `POSTHOG_API_KEY` | PostHog project token; enables privacy-safe MCP usage telemetry | unset |
+| `POSTHOG_HOST` | PostHog ingestion host | `https://us.i.posthog.com` |
+| `POSTHOG_ENVIRONMENT` | Environment property attached to telemetry events | `production` |
+| `POSTHOG_DISTINCT_ID` | Optional stable anonymous server identifier | Fly machine ID or random boot ID |
+
+When PostHog is enabled, the server records `mcp_connection_attempt`,
+`mcp_request`, and `mcp_tool_call`. Events contain operational fields such as
+method, tool name, outcome, status code, and duration. Authentication tokens,
+IP addresses, MCP arguments, project paths, media names, and tool results are
+never sent. Person profiles are disabled for these events.
 
 ---
 

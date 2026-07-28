@@ -59,8 +59,8 @@ export function ConnectSection() {
           <div className="absolute left-[16.5%] right-[16.5%] top-5 hidden h-px bg-zinc-800 md:block" aria-hidden="true" />
           {[
             { number: "1", title: "Install the server", command: "npm install -g premiere-pro-mcp", note: "Requires Node.js 20.19 or newer." },
-            { number: "2", title: "Install the CEP bridge", command: "premiere-pro-mcp --install-cep", note: "Uses the native macOS or Windows installer." },
-            { number: "3", title: "Configure your MCP client", command: "premiere-pro-mcp", note: "Restart Premiere and your MCP client once." },
+            { number: "2", title: "Install the CEP bridge", command: "premiere-pro-mcp --install-cep", note: "Then restart Premiere Pro completely." },
+            { number: "3", title: "Configure your MCP client", command: "premiere-pro-mcp", note: "Restart your MCP client after saving its configuration." },
           ].map((step) => (
             <li key={step.number} className="relative text-center">
               <span className="relative z-10 mx-auto grid h-10 w-10 place-items-center rounded-full border border-purple-300/40 bg-purple-500/20 text-sm font-bold text-purple-100 shadow-[0_0_28px_rgba(168,85,247,0.18)]">
@@ -106,8 +106,8 @@ export function ConnectSection() {
                 <CopyButton text={config} label={`Copy ${current.name} configuration`} />
               </div>
               <pre className="overflow-x-auto rounded-lg border border-zinc-800 bg-black p-5 font-mono text-sm leading-7 text-zinc-300"><code>{config}</code></pre>
-              <p className="mt-4 text-sm leading-6 text-zinc-400">
-                The bridge starts automatically when Premiere launches. Open <span className="text-zinc-300">Window → Extensions → MCP Bridge</span> only to verify status or change the shared temp directory.
+              <p className="mt-4 text-sm leading-6 text-zinc-500">
+                With Premiere open, ask the client to run <code className="text-purple-300">get_capabilities</code> and then <code className="text-purple-300">ping</code>. Open <span className="text-zinc-300">Window → Extensions → MCP Bridge</span> only to verify status or change the shared temp directory.
               </p>
             </div>
           </div>

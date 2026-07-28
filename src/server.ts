@@ -40,6 +40,7 @@ import {
   annotationsForTool,
   structuredToolResult,
 } from "./workflows/tool-metadata.js";
+import { getTelemetry, type Telemetry } from "./telemetry.js";
 import { z } from "zod";
 
 const PREMIERE_INSTRUCTIONS = `You are controlling Adobe Premiere Pro through MCP tools. Follow these best practices:
@@ -275,6 +276,7 @@ function collectTools(
 
 export interface ServerOptions {
   uxpBridge?: UxpWebSocketBridge;
+  telemetry?: Telemetry;
 }
 
 export function createServer(
@@ -287,6 +289,7 @@ export function createServer(
   });
 
   const capabilities = resolveCapabilities();
+  const telemetry = serverOptions.telemetry ?? getTelemetry();
 
   // Collect all tools from each module
   const toolModules = collectTools(
@@ -306,8 +309,14 @@ export function createServer(
       zodShape,
       annotationsForTool(name),
       async (args: Record<string, unknown>) => {
+        const startedAt = Date.now();
         try {
           const result = await guardedHandler(args);
+          telemetry.capture("mcp_tool_call", {
+            tool: name,
+            outcome: result.success ? "succeeded" : "failed",
+            duration_ms: Date.now() - startedAt,
+          });
           if (result.success) {
             // Special handling for capture_frame: return image content block
             const data = result.data as Record<string, unknown> | undefined;
@@ -360,6 +369,12 @@ export function createServer(
             };
           }
         } catch (err) {
+          telemetry.capture("mcp_tool_call", {
+            tool: name,
+            outcome: "failed",
+            duration_ms: Date.now() - startedAt,
+            error_type: err instanceof Error ? err.name : "UnknownError",
+          });
           return {
             structuredContent: structuredToolResult(
               name,

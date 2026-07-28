@@ -69,7 +69,7 @@ export function HeroSection() {
               Control Adobe Premiere Pro with <span className="accent-text">AI</span>
             </h1>
             <p className="hero-enter hero-enter-2 mx-auto mt-7 max-w-2xl text-balance text-lg leading-8 text-zinc-400 md:text-xl">
-              Connect Claude, Cursor, Windsurf, or another MCP client to 278 structured tools for editing, color, media, and export.
+              Inspect projects, plan edits, automate repeatable timeline work, and export from your AI client—while Premiere and your media stay on your computer.
             </p>
             <div className="hero-enter hero-enter-3 mt-9 flex flex-col items-center justify-center gap-3 sm:flex-row">
               <a

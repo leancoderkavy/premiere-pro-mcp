@@ -4,6 +4,7 @@ import { annotationsForTool, structuredToolResult } from "../src/workflows/tool-
 import { createServer } from "../src/server.js";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
+import type { Telemetry, TelemetryProperties } from "../src/telemetry.js";
 
 describe("modern MCP surface", () => {
   it("publishes focused workflow prompts with inspection and verification guidance", () => {
@@ -76,6 +77,40 @@ describe("modern MCP surface", () => {
       expect(capabilityData.tools.tools.map((tool: any) => tool.name)).toEqual(
         expect.arrayContaining(tools.tools.map((tool) => tool.name)),
       );
+    } finally {
+      await client.close();
+      await server.close();
+    }
+  });
+
+  it("records bounded tool usage without arguments or result content", async () => {
+    const events: Array<{ event: string; properties?: TelemetryProperties }> = [];
+    const telemetry: Telemetry = {
+      enabled: true,
+      capture: (event, properties) => events.push({ event, properties }),
+      shutdown: async () => {},
+    };
+    const server = createServer({ timeoutMs: 50 }, telemetry);
+    const client = new Client({ name: "telemetry-test", version: "1.0.0" });
+    const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
+
+    await Promise.all([server.connect(serverTransport), client.connect(clientTransport)]);
+    try {
+      await client.callTool({
+        name: "get_capabilities",
+        arguments: {},
+      });
+
+      expect(events).toHaveLength(1);
+      expect(events[0]).toMatchObject({
+        event: "mcp_tool_call",
+        properties: {
+          tool: "get_capabilities",
+          outcome: "succeeded",
+        },
+      });
+      expect(events[0].properties).not.toHaveProperty("arguments");
+      expect(events[0].properties).not.toHaveProperty("result");
     } finally {
       await client.close();
       await server.close();

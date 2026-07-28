@@ -86,7 +86,7 @@ export default function DocsPage() {
             <li>Run <code className="rounded bg-zinc-900 px-2 py-1 text-purple-200">npm install -g premiere-pro-mcp</code>.</li>
             <li>Run <code className="rounded bg-zinc-900 px-2 py-1 text-purple-200">premiere-pro-mcp --install-cep</code>.</li>
             <li>Configure Claude Desktop, Cursor, Windsurf, or another MCP client to launch <code className="rounded bg-zinc-900 px-2 py-1 text-purple-200">premiere-pro-mcp</code>.</li>
-            <li>Open Premiere Pro and call <code className="rounded bg-zinc-900 px-2 py-1 text-purple-200">ping</code> to verify the live bridge.</li>
+            <li>Open Premiere Pro, call <code className="rounded bg-zinc-900 px-2 py-1 text-purple-200">get_capabilities</code>, then call <code className="rounded bg-zinc-900 px-2 py-1 text-purple-200">ping</code> to verify the live bridge.</li>
           </ol>
         </section>
 
