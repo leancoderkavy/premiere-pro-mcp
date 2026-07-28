@@ -2,6 +2,8 @@
 
 # Premiere Pro MCP Server
 
+[![MCP Toplist](https://mcptoplist.com/badge/glama%2Fleancoderkavy%2Fpremiere-pro-mcp.svg)](https://mcptoplist.com/server/glama%2Fleancoderkavy%2Fpremiere-pro-mcp)
+
 **Give AI full control over Adobe Premiere Pro.**
 
 278 tools across 31 modules, 3 resources, and 4 guided workflows.
