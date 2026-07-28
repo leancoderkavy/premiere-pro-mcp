@@ -90,7 +90,7 @@ describe("modern MCP surface", () => {
       capture: (event, properties) => events.push({ event, properties }),
       shutdown: async () => {},
     };
-    const server = createServer({ timeoutMs: 50 }, telemetry);
+    const server = createServer({ timeoutMs: 50 }, { telemetry });
     const client = new Client({ name: "telemetry-test", version: "1.0.0" });
     const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
 
