@@ -95,10 +95,10 @@ function login() {
     state.apiKey = apiKey;
     state.model = model;
 
-    // Persist credentials
+    // Persist non-sensitive preferences only. Keep the API key in memory for
+    // this panel session so it is not exposed through browser storage.
     try {
       localStorage.setItem("ai_chat_provider", state.provider);
-      localStorage.setItem("ai_chat_api_key", apiKey);
       localStorage.setItem("ai_chat_model", model);
     } catch (e) {}
 
@@ -636,8 +636,9 @@ function changeApiKey() {
 
   // Restore saved settings
   try {
+    // Remove keys persisted by older releases.
+    localStorage.removeItem("ai_chat_api_key");
     var savedProvider = localStorage.getItem("ai_chat_provider");
-    var savedKey = localStorage.getItem("ai_chat_api_key");
     var savedModel = localStorage.getItem("ai_chat_model");
     var savedTemp = localStorage.getItem("ai_chat_temperature");
     var savedMaxTokens = localStorage.getItem("ai_chat_max_tokens");
@@ -653,21 +654,7 @@ function changeApiKey() {
     if (savedSystemPrompt) state.customSystemPrompt = savedSystemPrompt;
     if (savedAutoExec !== null) state.autoExec = savedAutoExec === "true";
 
-    // Auto-login if key is saved — validate first
-    if (savedKey && savedModel) {
-      document.getElementById("apiKeyInput").value = savedKey;
-      document.getElementById("modelSelect").value = savedModel;
-      state.apiKey = savedKey;
-      state.model = savedModel;
-      // Show chat immediately, validate in background
-      showChatScreen();
-      validateApiKey(state.provider, savedKey, savedModel, function (valid, error) {
-        if (!valid) {
-          addMessage("assistant", "**Warning:** Saved API key may be invalid — " + (error || "connection failed") + ". You can update it in Settings.");
-        }
-      });
-      return;
-    }
+    if (savedModel) document.getElementById("modelSelect").value = savedModel;
   } catch (e) {}
 
   showLoginScreen();

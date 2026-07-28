@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { execSync } from "child_process";
+import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { join } from "path";
 
@@ -7,7 +7,7 @@ const BIN = join(process.cwd(), "dist", "index.js");
 
 describe("CLI flags", () => {
   it("--help prints usage and exits 0", () => {
-    const output = execSync(`node ${BIN} --help`, { encoding: "utf-8" });
+    const output = execFileSync(process.execPath, [BIN, "--help"], { encoding: "utf-8" });
     expect(output).toContain("premiere-pro-mcp");
     expect(output).toContain("Usage:");
     expect(output).toContain("--install-cep");
@@ -18,22 +18,22 @@ describe("CLI flags", () => {
   });
 
   it("-h is an alias for --help", () => {
-    const output = execSync(`node ${BIN} -h`, { encoding: "utf-8" });
+    const output = execFileSync(process.execPath, [BIN, "-h"], { encoding: "utf-8" });
     expect(output).toContain("Usage:");
   });
 
   it("--version prints a semver version and exits 0", () => {
-    const output = execSync(`node ${BIN} --version`, { encoding: "utf-8" }).trim();
+    const output = execFileSync(process.execPath, [BIN, "--version"], { encoding: "utf-8" }).trim();
     expect(output).toMatch(/^\d+\.\d+\.\d+$/);
   });
 
   it("-v is an alias for --version", () => {
-    const output = execSync(`node ${BIN} -v`, { encoding: "utf-8" }).trim();
+    const output = execFileSync(process.execPath, [BIN, "-v"], { encoding: "utf-8" }).trim();
     expect(output).toMatch(/^\d+\.\d+\.\d+$/);
   });
 
   it("--version matches package.json version", () => {
-    const version = execSync(`node ${BIN} --version`, { encoding: "utf-8" }).trim();
+    const version = execFileSync(process.execPath, [BIN, "--version"], { encoding: "utf-8" }).trim();
     const pkg = JSON.parse(readFileSync(join(process.cwd(), "package.json"), "utf-8"));
     expect(version).toBe(pkg.version);
   });

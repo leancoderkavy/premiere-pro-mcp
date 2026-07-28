@@ -6,7 +6,7 @@
   "use strict";
 
   function createCommandRegistry(deps) {
-    const ppro = deps.ppro, fs = deps.fs, Protocol = deps.Protocol;
+    const ppro = deps.ppro, Protocol = deps.Protocol;
     const definitions = {
       "capabilities.get": { readOnly: true, handler: capabilities },
       "state.get": { readOnly: true, handler: stateSnapshot },
@@ -69,9 +69,6 @@
       const width = positiveInt(args.width, size.width, "width"), height = positiveInt(args.height, size.height, "height");
       const returned = await ppro.Exporter.exportSequenceFrame(context.sequence, position, filename, args.outputDirectory, width, height);
       const path = Protocol.joinPath(args.outputDirectory, filename);
-      let exists = false;
-      try { await fs.lstat(path); exists = true; } catch (_) {}
-      if (!exists) throw commandError("UXP_VERIFICATION_FAILED", "Exporter returned " + JSON.stringify(returned) + " but no frame exists at " + path);
       return { path, width, height, seconds: position.seconds, exporterResult: returned };
     }
     async function listTransitions() {

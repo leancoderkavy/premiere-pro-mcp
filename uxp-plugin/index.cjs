@@ -1,11 +1,10 @@
 "use strict";
 const { entrypoints, host } = require("uxp");
 const ppro = require("premierepro");
-const fs = require("fs");
 const Protocol = globalThis.PremiereMcpProtocol;
 const TranscriptSupport = globalThis.PremiereMcpTranscript;
 const Commands = globalThis.PremiereMcpCommands;
-const commandRegistry = Commands.createCommandRegistry({ ppro, fs, Protocol });
+const commandRegistry = Commands.createCommandRegistry({ ppro, Protocol });
 let socket = null;
 let reconnectTimer = null;
 let lastState = "";
@@ -37,7 +36,7 @@ async function capabilities() {
   value.commands["state.get"].cancellable = false;
   value.commands["operation.cancel"] = { supported: true, readOnly: false, scope: "preflight only" };
   if (value.commands["frame.export"]) Object.assign(value.commands["frame.export"], {
-    cancellable: "preflight only", verification: "output file existence", undoable: false, atomic: false
+    cancellable: "preflight only", verification: "exporter return value", undoable: false, atomic: false
   });
   const supportedHost = TranscriptSupport.versionAtLeast(host && host.version, "25.6.0");
   const transcriptApi = supportedHost && !!(ppro.Transcript && ppro.Transcript.exportToJSON && ppro.Transcript.importFromJSON);
@@ -213,18 +212,13 @@ async function exportFrame(args, operation) {
   publishOperation("progress", operation, { phase: "host_call", progress: 0.4, cancellable: false });
   const returned = await ppro.Exporter.exportSequenceFrame(sequence, position, filename, args.outputDirectory, width, height);
   const path = Protocol.joinPath(args.outputDirectory, filename);
-  operation.phase = "verification";
-  publishOperation("progress", operation, { phase: "verification", progress: 0.8, cancellable: false });
-  let exists = false;
-  try { await fs.lstat(path); exists = true; } catch (_) {}
-  if (!exists) throw new Error("Exporter returned " + JSON.stringify(returned) + " but no frame exists at " + path);
   return {
     path, width, height, seconds: position.seconds, exporterResult: returned,
     operation: Protocol.operationSemantics({
       mutatesProject: false,
-      verificationStatus: "verified",
-      verificationBoundary: "output_file_exists",
-      verificationEvidence: [{ type: "filesystem", path }],
+      verificationStatus: "not_verified",
+      verificationBoundary: "exporter_return_value",
+      verificationEvidence: [{ type: "host_return", value: returned }],
       cancellationSupported: true
     })
   };
