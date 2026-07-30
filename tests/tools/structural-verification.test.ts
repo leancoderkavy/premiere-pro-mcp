@@ -7,11 +7,13 @@ vi.mock("../../src/bridge/file-bridge.js", () => ({
 import { sendCommand } from "../../src/bridge/file-bridge.js";
 import { getTimelineTools } from "../../src/tools/timeline.js";
 import { getTrackTargetingTools } from "../../src/tools/track-targeting.js";
+import { getAdvancedTools } from "../../src/tools/advanced.js";
 
 const mockedSendCommand = vi.mocked(sendCommand);
 const bridgeOptions = { tempDir: "/tmp/test", timeoutMs: 1000 };
 const timeline = getTimelineTools(bridgeOptions);
 const trackTargeting = getTrackTargetingTools(bridgeOptions);
+const advanced = getAdvancedTools(bridgeOptions);
 
 beforeEach(() => vi.clearAllMocks());
 
@@ -146,5 +148,61 @@ describe("razor_all_tracks verification", () => {
     const script = mockedSendCommand.mock.calls[0][0];
     expect(script).toContain("failures.push");
     expect(script).toContain("failures: failures");
+  });
+});
+
+describe("move_clip_to_track verification", () => {
+  it("matches the QE clip by start time instead of the DOM clip index", async () => {
+    // getItemAt(result.clipIndex) returns an "Empty" gap on any track with a
+    // leading gap, which is what made this fail with a misleading error.
+    await advanced.move_clip_to_track.handler({
+      node_id: "abc",
+      target_track_index: 1,
+    });
+    const script = mockedSendCommand.mock.calls[0][0];
+    expect(script).not.toContain("getItemAt(result.clipIndex)");
+    expect(script).toContain('String(cand.type) !== "Clip"');
+    expect(script).toContain("Math.abs(parseFloat(cand.start.ticks) - wantStart) < 1");
+  });
+
+  it("rejects an out-of-range target track", async () => {
+    await advanced.move_clip_to_track.handler({
+      node_id: "abc",
+      target_track_index: 99,
+    });
+    const script = mockedSendCommand.mock.calls[0][0];
+    expect(script).toContain("is out of range");
+    expect(script).toContain("targetTracks.numTracks");
+  });
+
+  it("short-circuits when the clip is already on the requested track", async () => {
+    await advanced.move_clip_to_track.handler({
+      node_id: "abc",
+      target_track_index: 1,
+    });
+    const script = mockedSendCommand.mock.calls[0][0];
+    expect(script).toContain("alreadyOnTrack: true");
+  });
+
+  it("confirms against the DOM rather than trusting the QE call", async () => {
+    await advanced.move_clip_to_track.handler({
+      node_id: "abc",
+      target_track_index: 1,
+    });
+    const script = mockedSendCommand.mock.calls[0][0];
+    expect(script).toContain('var after = __findClip("abc")');
+    expect(script).toContain("after.trackIndex !== 1");
+    expect(script).toContain("verified: true");
+  });
+
+  it("explains the QE rejection instead of surfacing a raw parameter error", async () => {
+    await advanced.move_clip_to_track.handler({
+      node_id: "abc",
+      target_track_index: 1,
+    });
+    const script = mockedSendCommand.mock.calls[0][0];
+    expect(script).toContain("catch (moveErr)");
+    expect(script).toContain("The clip was left untouched");
+    expect(script).toContain("overwriteClip");
   });
 });
