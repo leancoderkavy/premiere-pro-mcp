@@ -74,7 +74,7 @@ describe("UXP MCP tools", () => {
           "export_frame_uxp",
         ]),
       );
-      expect(tools.tools).toHaveLength(281);
+      expect(tools.tools).toHaveLength(282);
     } finally {
       await client.close();
       await server.close();
