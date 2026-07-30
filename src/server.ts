@@ -42,6 +42,25 @@ import {
 } from "./workflows/tool-metadata.js";
 import { getTelemetry, type Telemetry } from "./telemetry.js";
 import { z } from "zod";
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+import path from "node:path";
+
+/**
+ * Read the version from package.json rather than hardcoding it. A literal here
+ * silently drifts from the published package every release, which makes the
+ * version reported over MCP useless for triaging bug reports.
+ */
+export const SERVER_VERSION = ((): string => {
+  try {
+    const here = path.dirname(fileURLToPath(import.meta.url));
+    const raw = readFileSync(path.resolve(here, "../package.json"), "utf8");
+    const version: unknown = JSON.parse(raw).version;
+    return typeof version === "string" && version ? version : "unknown";
+  } catch {
+    return "unknown";
+  }
+})();
 
 const PREMIERE_INSTRUCTIONS = `You are controlling Adobe Premiere Pro through MCP tools. Follow these best practices:
 
@@ -285,7 +304,7 @@ export function createServer(
 ): McpServer {
   const server = new McpServer({
     name: "premiere-pro-mcp",
-    version: "1.2.0",
+    version: SERVER_VERSION,
   });
 
   const capabilities = resolveCapabilities();

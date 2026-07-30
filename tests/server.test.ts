@@ -1,5 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { createServer } from "../src/server.js";
+import { createServer, SERVER_VERSION } from "../src/server.js";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { z } from "zod";
 
 // Mock all tool modules to return simple tool definitions
@@ -103,5 +105,18 @@ describe("jsonSchemaToZodShape (tested via createServer)", () => {
   it("handles tools with no parameters", () => {
     // Many tools (health ping, etc.) have empty parameters.
     expect(() => createServer({})).not.toThrow();
+  });
+});
+
+describe("SERVER_VERSION", () => {
+  it("matches the version in package.json", () => {
+    const pkg = JSON.parse(
+      readFileSync(join(process.cwd(), "package.json"), "utf-8"),
+    );
+    expect(SERVER_VERSION).toBe(pkg.version);
+  });
+
+  it("is a concrete semver, never the 'unknown' fallback", () => {
+    expect(SERVER_VERSION).toMatch(/^\d+\.\d+\.\d+/);
   });
 });
