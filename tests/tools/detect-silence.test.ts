@@ -1,4 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 
 vi.mock("../../src/bridge/file-bridge.js", () => ({
   sendCommand: vi.fn().mockResolvedValue({ success: true, data: {} }),
@@ -167,5 +169,19 @@ describe("detect_silence argument handling", () => {
     expect(mockedSendCommand.mock.calls[0][0]).toContain("getMediaPath");
     expect(result.success).toBe(false);
     expect(result.error).toContain("missing-clip");
+  });
+});
+
+describe("detect_silence distribution prerequisites", () => {
+  it("installs ffmpeg in the production container", () => {
+    const dockerfile = readFileSync(join(process.cwd(), "Dockerfile"), "utf8");
+    expect(dockerfile).toMatch(/apk add --no-cache ffmpeg/);
+  });
+
+  it("documents the local ffmpeg prerequisite", () => {
+    const readme = readFileSync(join(process.cwd(), "README.md"), "utf8");
+    expect(readme).toContain("`detect_silence`");
+    expect(readme).toContain("winget install Gyan.FFmpeg");
+    expect(readme).toContain("brew install ffmpeg");
   });
 });

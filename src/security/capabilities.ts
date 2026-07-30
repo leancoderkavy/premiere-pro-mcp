@@ -73,6 +73,29 @@ export function capabilityForTool(toolName: string): Capability {
   return "edit";
 }
 
+/**
+ * Tools that stay advertised under every profile, because they are how an
+ * operator diagnoses a profile that is too narrow: get_capabilities reports the
+ * active authority, and ping proves the bridge is alive. Withholding them makes
+ * a misconfigured server look broken with no supported way to ask why.
+ */
+export const ALWAYS_LISTED_TOOL_NAMES = new Set(["ping", "get_capabilities"]);
+
+/**
+ * Whether a tool should appear in tools/list under the given profile.
+ *
+ * This is an advertising decision, not an enforcement one — guardToolHandler
+ * remains the authority check at call time. Keeping the two separate means a
+ * listing bug can never widen what a profile is actually allowed to do.
+ */
+export function isToolPermitted(
+  toolName: string,
+  config: CapabilityConfig,
+): boolean {
+  if (ALWAYS_LISTED_TOOL_NAMES.has(toolName)) return true;
+  return config.capabilities.has(capabilityForTool(toolName));
+}
+
 export function guardToolHandler<TArgs, TResult>(
   toolName: string,
   handler: (args: TArgs) => Promise<TResult>,

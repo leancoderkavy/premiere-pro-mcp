@@ -65,7 +65,11 @@ describe("modern MCP surface", () => {
       const tools = await client.listTools();
       expect(tools.tools.find((tool) => tool.name === "get_project_info")?.annotations?.readOnlyHint).toBe(true);
       expect(tools.tools.map((tool) => tool.name)).toContain("get_capabilities");
-      expect(tools.tools).toHaveLength(279);
+      // The default profile grants inspect/edit/export/filesystem but not
+      // unsafe-script, so the two scripting tools are not advertised.
+      expect(tools.tools.map((tool) => tool.name)).not.toContain("execute_extendscript");
+      expect(tools.tools.map((tool) => tool.name)).not.toContain("evaluate_expression");
+      expect(tools.tools).toHaveLength(277);
 
       const capabilities = await client.callTool({
         name: "get_capabilities",
@@ -73,10 +77,17 @@ describe("modern MCP surface", () => {
       });
       const capabilityData = (capabilities.structuredContent as any).data;
       expect(capabilityData.tools.generatedFrom).toBe("registered-tool-catalog");
-      expect(capabilityData.tools.total).toBe(tools.tools.length);
+      // The catalog intentionally reports every tool that exists — including
+      // ones this profile disables, each flagged with its authority state — so
+      // it is a superset of what tools/list advertises.
+      expect(capabilityData.tools.total).toBeGreaterThanOrEqual(tools.tools.length);
       expect(capabilityData.tools.tools.map((tool: any) => tool.name)).toEqual(
         expect.arrayContaining(tools.tools.map((tool) => tool.name)),
       );
+      expect(
+        capabilityData.tools.tools.find((tool: any) => tool.name === "execute_extendscript")
+          ?.authority,
+      ).toMatchObject({ required: "unsafe-script", enabled: false });
     } finally {
       await client.close();
       await server.close();
