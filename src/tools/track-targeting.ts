@@ -325,8 +325,8 @@ export function getTrackTargetingTools(bridgeOptions: BridgeOptions) {
 
           // Previously this counted attempts, so it reported one "razor" per
           // track even when every call silently did nothing.
-          if (eligible > 0 && razored === 0) {
-            return __error("Premiere reported razor on " + eligible + " track(s) with a clip spanning the cut point, but no track's clip count changed" + (failures.length ? " (" + failures.join("; ") + ")" : "") + ". Structural QE edits are known to no-op on some Premiere Pro 26.x installations (confirmed on 26.2.2).");
+          if (eligible > 0 && razored < eligible) {
+            return __error("Premiere razored only " + razored + " of " + eligible + " eligible track(s)" + (failures.length ? " (" + failures.join("; ") + ")" : "") + ". The operation was only partially applied, so it is not reported as verified. Structural QE edits are known to no-op on some Premiere Pro 26.x installations (confirmed on 26.2.2).");
           }
 
           return __result({

@@ -136,10 +136,11 @@ describe("razor_all_tracks verification", () => {
     expect(script).toContain("if (wasEligible) eligible++");
   });
 
-  it("errors only when eligible tracks existed and nothing split", async () => {
+  it("errors when any eligible track did not split", async () => {
     await trackTargeting.razor_all_tracks.handler({ time_seconds: 7 });
     const script = mockedSendCommand.mock.calls[0][0];
-    expect(script).toContain("eligible > 0 && razored === 0");
+    expect(script).toContain("eligible > 0 && razored < eligible");
+    expect(script).toContain("only partially applied");
     expect(script).toContain("no-op on some Premiere Pro 26.x");
   });
 
