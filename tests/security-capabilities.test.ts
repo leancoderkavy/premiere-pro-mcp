@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { capabilityForTool, guardToolHandler, resolveCapabilities } from "../src/security/capabilities.js";
+import { capabilityForTool, guardToolHandler, isToolPermitted, resolveCapabilities } from "../src/security/capabilities.js";
 import { buildPlatformCapabilityReport } from "../src/platform-capabilities.js";
 import {
   buildToolCapabilityReport,
@@ -203,5 +203,50 @@ describe("capability profiles", () => {
       verificationBoundary: "local_and_host_response",
       notes: ["Explicit registration metadata."],
     });
+  });
+});
+
+describe("isToolPermitted", () => {
+  it("withholds unsafe-script tools under the default profile", () => {
+    const config = resolveCapabilities(undefined);
+    expect(isToolPermitted("execute_extendscript", config)).toBe(false);
+    expect(isToolPermitted("evaluate_expression", config)).toBe(false);
+    expect(isToolPermitted("send_raw_script", config)).toBe(false);
+  });
+
+  it("permits unsafe-script tools once the authority is named", () => {
+    const config = resolveCapabilities("inspect,edit,export,filesystem,unsafe-script");
+    expect(isToolPermitted("execute_extendscript", config)).toBe(true);
+    expect(isToolPermitted("evaluate_expression", config)).toBe(true);
+  });
+
+  it("permits ordinary edit tools under the default profile", () => {
+    const config = resolveCapabilities(undefined);
+    expect(isToolPermitted("trim_clip", config)).toBe(true);
+    expect(isToolPermitted("get_project_info", config)).toBe(true);
+    expect(isToolPermitted("export_sequence", config)).toBe(true);
+  });
+
+  it("withholds edit and export tools under an inspect-only profile", () => {
+    const config = resolveCapabilities("inspect");
+    expect(isToolPermitted("trim_clip", config)).toBe(false);
+    expect(isToolPermitted("export_sequence", config)).toBe(false);
+    expect(isToolPermitted("import_media", config)).toBe(false);
+    expect(isToolPermitted("get_project_info", config)).toBe(true);
+  });
+
+  it("always advertises the diagnostic tools, even under a profile that excludes inspect", () => {
+    // Without this, a too-narrow profile leaves no supported way to ask the
+    // server which authority it actually has.
+    const config = resolveCapabilities("export");
+    expect(isToolPermitted("get_capabilities", config)).toBe(true);
+    expect(isToolPermitted("ping", config)).toBe(true);
+    expect(isToolPermitted("get_project_info", config)).toBe(false);
+  });
+
+  it("agrees with capabilityForTool for every capability in the profile", () => {
+    const config = resolveCapabilities("edit");
+    expect(capabilityForTool("trim_clip")).toBe("edit");
+    expect(isToolPermitted("trim_clip", config)).toBe(true);
   });
 });
