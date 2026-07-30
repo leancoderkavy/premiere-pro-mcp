@@ -33,7 +33,11 @@ import { getAvSettingsTools } from "./tools/av-settings.js";
 import { getRecoveryTools } from "./tools/recovery.js";
 import { getUxpTools } from "./tools/uxp.js";
 import type { UxpWebSocketBridge } from "./bridge/uxp-websocket-bridge.js";
-import { guardToolHandler, resolveCapabilities } from "./security/index.js";
+import {
+  guardToolHandler,
+  isToolPermitted,
+  resolveCapabilities,
+} from "./security/index.js";
 import { EXTENDSCRIPT_REFERENCE } from "./resources/extendscript-reference.js";
 import { WORKFLOW_PROMPTS, WORKFLOW_RESOURCE } from "./workflows/catalog.js";
 import {
@@ -318,7 +322,17 @@ export function createServer(
   );
 
   // Register each tool with the MCP server
+  let withheld = 0;
   for (const [name, tool] of Object.entries(toolModules)) {
+    // Don't advertise tools the active authority profile will always refuse.
+    // guardToolHandler still rejects them at call time, but listing an
+    // unusable tool spends client context and invites the model to attempt a
+    // call that cannot succeed.
+    if (!isToolPermitted(name, capabilities)) {
+      withheld++;
+      continue;
+    }
+
     const zodShape = jsonSchemaToZodShape(tool.parameters);
     const guardedHandler = guardToolHandler(name, tool.handler, capabilities);
 
@@ -411,6 +425,14 @@ export function createServer(
           };
         }
       },
+    );
+  }
+
+  if (withheld > 0) {
+    debugLog(
+      `Withheld ${withheld} tool(s) from tools/list — not permitted by the ` +
+        `active capability profile (${[...capabilities.capabilities].sort().join(", ")}). ` +
+        `Call get_capabilities to see the enabled authority.`,
     );
   }
 

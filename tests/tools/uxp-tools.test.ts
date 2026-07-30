@@ -74,7 +74,9 @@ describe("UXP MCP tools", () => {
           "export_frame_uxp",
         ]),
       );
-      expect(tools.tools).toHaveLength(281);
+      // 281 collected minus the 2 unsafe-script tools the default profile
+      // withholds from tools/list.
+      expect(tools.tools).toHaveLength(279);
     } finally {
       await client.close();
       await server.close();
