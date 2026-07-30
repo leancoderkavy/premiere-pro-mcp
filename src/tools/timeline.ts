@@ -103,27 +103,81 @@ export function getTimelineTools(bridgeOptions: BridgeOptions) {
         required: ["node_id", "new_start_seconds"],
       },
       handler: async (args: { node_id: string; new_start_seconds: number; new_track_index?: number }) => {
+        const nodeId = escapeForExtendScript(args.node_id);
         const script = buildToolScript(`
-          var result = __findClip("${escapeForExtendScript(args.node_id)}");
-          if (!result) return __error("Clip not found: ${escapeForExtendScript(args.node_id)}");
-          
+          var result = __findClip("${nodeId}");
+          if (!result) return __error("Clip not found: ${nodeId}");
+
           var clip = result.clip;
-          var newStartTicks = __secondsToTicks(${args.new_start_seconds}).toString();
-          clip.start = newStartTicks;
-          
-          ${args.new_track_index !== undefined ? `
-          // Move to different track if specified
+          var clipName = clip.name;
+
+          // Premiere snaps clip positions to frame boundaries, so verification
+          // allows one frame of drift. seq.timebase is ticks-per-frame; fall
+          // back to 24fps if it cannot be read so we never compare against NaN.
           var seq = app.project.activeSequence;
+          var frameTicks = seq && seq.timebase ? parseFloat(seq.timebase) : NaN;
+          if (!frameTicks || isNaN(frameTicks)) frameTicks = TICKS_PER_SECOND / 24;
+          var tolerance = __ticksToSeconds(frameTicks);
+
+          ${args.new_track_index !== undefined ? `
+          // The track change is attempted before the start time is written, so
+          // a failure here leaves the clip completely untouched rather than
+          // repositioned-but-not-moved.
           var targetTracks = result.trackType === "video" ? seq.videoTracks : seq.audioTracks;
-          if (${args.new_track_index} < targetTracks.numTracks) {
-            clip.moveToTrack(targetTracks[${args.new_track_index}]);
+          if (${args.new_track_index} >= targetTracks.numTracks) {
+            return __error("Track index ${args.new_track_index} is out of range: the sequence has " + targetTracks.numTracks + " " + result.trackType + " track(s).");
+          }
+
+          // TrackItem has no DOM moveToTrack; only the QE clip exposes one.
+          app.enableQE();
+          var qeSeq = qe.project.getActiveSequence();
+          if (!qeSeq) return __error("No active sequence (QE); cannot change track.");
+          var qeTrack = result.trackType === "video"
+            ? qeSeq.getVideoTrackAt(result.trackIndex)
+            : qeSeq.getAudioTrackAt(result.trackIndex);
+          if (!qeTrack) return __error("QE track not found; cannot change track.");
+
+          // QE item indices count gaps ("Empty" items) alongside clips, so the
+          // DOM clip index does not map onto getItemAt. Match on start time.
+          var qeClip = null;
+          var wantStart = parseFloat(clip.start.ticks);
+          for (var qi = 0; qi < qeTrack.numItems; qi++) {
+            var cand = qeTrack.getItemAt(qi);
+            if (!cand || String(cand.type) !== "Clip") continue;
+            if (Math.abs(parseFloat(cand.start.ticks) - wantStart) < 1) { qeClip = cand; break; }
+          }
+          if (!qeClip) return __error("Could not locate the clip among the QE track's items; cannot change track.");
+
+          try {
+            qeClip.moveToTrack(${args.new_track_index});
+          } catch (moveErr) {
+            return __error("Could not move the clip to track ${args.new_track_index}: the QE moveToTrack API rejected the call (" + moveErr.toString() + "). This is a known QE limitation on Premiere Pro 26.x (confirmed on 26.2.2). The clip was left untouched — call move_clip without new_track_index to reposition it in time.");
           }
           ` : ""}
-          
+
+          clip.start = __secondsToTicks(${args.new_start_seconds}).toString();
+
+          // Re-find the clip rather than trusting the original reference, which
+          // can go stale once the clip changes track.
+          var after = __findClip("${nodeId}");
+          if (!after) return __error("Clip ${nodeId} could not be found after the move; the timeline may be in an unexpected state.");
+
+          var actualStart = __ticksToSeconds(after.clip.start.ticks);
+          if (Math.abs(actualStart - ${args.new_start_seconds}) > tolerance) {
+            return __error("Premiere did not move the clip: requested start ${args.new_start_seconds}s, read back " + actualStart + "s. Structural clip edits are known to no-op on some Premiere Pro 26.x installations (confirmed on 26.2.2).");
+          }
+          ${args.new_track_index !== undefined ? `
+          if (after.trackIndex !== ${args.new_track_index}) {
+            return __error("Premiere did not move the clip to track ${args.new_track_index}; it is still on track " + after.trackIndex + ". Structural clip edits are known to no-op on some Premiere Pro 26.x installations (confirmed on 26.2.2).");
+          }
+          ` : ""}
+
           return __result({
             moved: true,
-            clipName: clip.name,
-            newStart: ${args.new_start_seconds}
+            verified: true,
+            clipName: clipName,
+            newStart: actualStart,
+            trackIndex: after.trackIndex
           });
         `);
         return sendCommand(script, bridgeOptions);
@@ -151,19 +205,57 @@ export function getTimelineTools(bridgeOptions: BridgeOptions) {
         required: ["node_id"],
       },
       handler: async (args: { node_id: string; new_in_seconds?: number; new_out_seconds?: number }) => {
+        // Both edit points are optional in the schema, so a call carrying only
+        // node_id would previously set nothing and still report trimmed: true.
+        if (args.new_in_seconds === undefined && args.new_out_seconds === undefined) {
+          return {
+            success: false,
+            error:
+              "trim_clip requires new_in_seconds, new_out_seconds, or both — a call with neither would report success without changing the clip.",
+          };
+        }
+
         const script = buildToolScript(`
           var result = __findClip("${escapeForExtendScript(args.node_id)}");
           if (!result) return __error("Clip not found: ${escapeForExtendScript(args.node_id)}");
-          
+
           var clip = result.clip;
+
+          // Premiere snaps in/out points to frame boundaries, so verification
+          // allows one frame of drift from the requested value. seq.timebase is
+          // ticks-per-frame; fall back to 24fps if it cannot be read so we never
+          // compare against NaN.
+          var seq = app.project.activeSequence;
+          var frameTicks = seq && seq.timebase ? parseFloat(seq.timebase) : NaN;
+          if (!frameTicks || isNaN(frameTicks)) frameTicks = TICKS_PER_SECOND / 24;
+          var tolerance = __ticksToSeconds(frameTicks);
+
           ${args.new_in_seconds !== undefined ? `clip.inPoint = __secondsToTicks(${args.new_in_seconds}).toString();` : ""}
           ${args.new_out_seconds !== undefined ? `clip.outPoint = __secondsToTicks(${args.new_out_seconds}).toString();` : ""}
-          
+
+          var actualIn = __ticksToSeconds(clip.inPoint.ticks);
+          var actualOut = __ticksToSeconds(clip.outPoint.ticks);
+
+          var drift = [];
+          ${args.new_in_seconds !== undefined ? `
+          if (Math.abs(actualIn - ${args.new_in_seconds}) > tolerance) {
+            drift.push("inPoint requested ${args.new_in_seconds}s, read back " + actualIn + "s");
+          }` : ""}
+          ${args.new_out_seconds !== undefined ? `
+          if (Math.abs(actualOut - ${args.new_out_seconds}) > tolerance) {
+            drift.push("outPoint requested ${args.new_out_seconds}s, read back " + actualOut + "s");
+          }` : ""}
+
+          if (drift.length) {
+            return __error("Premiere did not apply the requested trim: " + drift.join("; ") + ". Structural clip edits are known to no-op on some Premiere Pro 26.x installations (confirmed on 26.2.2).");
+          }
+
           return __result({
             trimmed: true,
+            verified: true,
             clipName: clip.name,
-            inPoint: __ticksToSeconds(clip.inPoint.ticks),
-            outPoint: __ticksToSeconds(clip.outPoint.ticks)
+            inPoint: actualIn,
+            outPoint: actualOut
           });
         `);
         return sendCommand(script, bridgeOptions);
@@ -210,7 +302,7 @@ export function getTimelineTools(bridgeOptions: BridgeOptions) {
 
           var clipCountAfter = domTrack.clips.numItems;
           if (clipCountAfter <= clipCountBefore) {
-            return __error("Premiere reported razor but the track clip count did not change. Structural QE edits are known to no-op on some Premiere Pro 26.3 installations.");
+            return __error("Premiere reported razor but the track clip count did not change. Structural QE edits are known to no-op on some Premiere Pro 26.x installations (confirmed on 26.2.2).");
           }
           return __result({ split: true, verified: true, atSeconds: ${args.time_seconds}, trackIndex: ${trackIndex}, trackType: "${trackType}" });
         `);

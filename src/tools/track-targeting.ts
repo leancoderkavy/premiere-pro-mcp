@@ -275,25 +275,67 @@ export function getTrackTargetingTools(bridgeOptions: BridgeOptions) {
               : `var ticks = seq.getPlayerPosition().ticks;`
           }
 
+          // A razor only has to produce a new clip on tracks where some clip
+          // strictly spans the cut point. Tracks that are empty there are a
+          // legitimate no-op, so they must not count as failures.
+          function __spansPoint(domTrack, tickValue) {
+            var v = parseFloat(tickValue);
+            for (var c = 0; c < domTrack.clips.numItems; c++) {
+              var s = parseFloat(domTrack.clips[c].start.ticks);
+              var e = parseFloat(domTrack.clips[c].end.ticks);
+              if (v > s && v < e) return true;
+            }
+            return false;
+          }
+
           var razored = 0;
+          var eligible = 0;
+          var failures = [];
+
           if ("${trackType}" !== "audio") {
             for (var t = 0; t < seq.videoTracks.numTracks; t++) {
+              var domTrack = seq.videoTracks[t];
+              var wasEligible = __spansPoint(domTrack, ticks);
+              if (wasEligible) eligible++;
+              var before = domTrack.clips.numItems;
               try {
                 qeSeq.getVideoTrackAt(t).razor(ticks);
-                razored++;
-              } catch(e) {}
+              } catch(e) {
+                if (wasEligible) failures.push("V" + (t + 1) + ": " + e.toString());
+                continue;
+              }
+              if (domTrack.clips.numItems > before) razored++;
             }
           }
           if ("${trackType}" !== "video") {
             for (var t = 0; t < seq.audioTracks.numTracks; t++) {
+              var domTrack = seq.audioTracks[t];
+              var wasEligible = __spansPoint(domTrack, ticks);
+              if (wasEligible) eligible++;
+              var before = domTrack.clips.numItems;
               try {
                 qeSeq.getAudioTrackAt(t).razor(ticks);
-                razored++;
-              } catch(e) {}
+              } catch(e) {
+                if (wasEligible) failures.push("A" + (t + 1) + ": " + e.toString());
+                continue;
+              }
+              if (domTrack.clips.numItems > before) razored++;
             }
           }
 
-          return __result({ razored: razored, atSeconds: __ticksToSeconds(ticks) });
+          // Previously this counted attempts, so it reported one "razor" per
+          // track even when every call silently did nothing.
+          if (eligible > 0 && razored === 0) {
+            return __error("Premiere reported razor on " + eligible + " track(s) with a clip spanning the cut point, but no track's clip count changed" + (failures.length ? " (" + failures.join("; ") + ")" : "") + ". Structural QE edits are known to no-op on some Premiere Pro 26.x installations (confirmed on 26.2.2).");
+          }
+
+          return __result({
+            razored: razored,
+            eligibleTracks: eligible,
+            verified: true,
+            failures: failures,
+            atSeconds: __ticksToSeconds(ticks)
+          });
         `);
         return sendCommand(script, bridgeOptions);
       },
