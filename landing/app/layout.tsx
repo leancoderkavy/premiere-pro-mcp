@@ -16,7 +16,7 @@ const geistMono = Geist_Mono({
 const siteUrl = "https://premiere-pro-mcp.com";
 const title = "Premiere Pro MCP Server – AI Video Editing Tools";
 const description =
-  "Connect AI assistants to Adobe Premiere Pro with 278 local-first MCP tools for timeline editing, effects, color, media management, automation, and export.";
+  "Connect AI assistants to Adobe Premiere Pro with 279 local-first MCP tools for timeline editing, effects, color, media management, automation, and export.";
 const googleAnalyticsId =
   process.env.NEXT_PUBLIC_GOOGLE_ANALYTICS_ID ?? "G-XSH74T16E4";
 

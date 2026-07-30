@@ -43,7 +43,7 @@ const structuredData = {
       operatingSystem: "macOS, Windows",
       softwareVersion: "1.4.0",
       description:
-        "Open-source Model Context Protocol server with 278 tools for AI-assisted editing and automation in Adobe Premiere Pro.",
+        "Open-source Model Context Protocol server with 279 tools for AI-assisted editing and automation in Adobe Premiere Pro.",
       url: "https://premiere-pro-mcp.com/",
       downloadUrl: "https://www.npmjs.com/package/premiere-pro-mcp",
       codeRepository: "https://github.com/leancoderkavy/premiere-pro-mcp",
