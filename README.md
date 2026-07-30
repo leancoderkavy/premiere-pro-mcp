@@ -300,7 +300,7 @@ installed separately.
 | npm CEP installer | Copies plugin and verifies `REG_SZ` debug keys | Copies plugin and verifies the installed manifest/debug settings | Restart Premiere after installation |
 | CI build and unit tests | Node 20, 22, and 24 | Node 20, 22, and 24 | GitHub-hosted OS runners; no Adobe host is available in CI |
 
-`get_capabilities` reports the current operating system, temp directory, CEP/UXP coverage, enabled authority profile, and any live-host verification still required. It also includes a `tools` catalog generated from the tools actually registered by the server. Every entry identifies:
+`get_capabilities` reports the current operating system, temp directory, CEP/UXP coverage, enabled authority profile, and any live-host verification still required. It also includes the full `tools` catalog generated from the tools registered by the server, including tools disabled by the active profile. Every entry identifies:
 
 - the execution backend (`local`, CEP/ExtendScript, QE, or orchestrator);
 - static support status (`supported`, `limited`, `experimental`, or `unsupported`);
@@ -310,6 +310,18 @@ installed separately.
 - relevant operational notes.
 
 QE-backed tools are reported as `experimental` because QE is undocumented and can vary between Premiere builds. Authority availability is reported separately from implementation support, so disabling `edit`, for example, does not incorrectly label editing tools as unsupported. Static metadata never claims that a Premiere operation succeeded; use `ping` and inspect each tool result for runtime evidence.
+
+MCP `tools/list` is filtered to the active authority profile. The default
+`inspect,edit,export,filesystem` profile advertises 276 of the 278 registered
+tools and omits `execute_extendscript` and `evaluate_expression`, which require
+explicit `unsafe-script` authority. `ping` and `get_capabilities` remain visible
+under every profile so a restricted or misconfigured server can still explain
+its state. The call-time capability guard remains authoritative even if listing
+metadata is wrong.
+
+The MCP handshake reads `serverInfo.version` from the installed `package.json`,
+so clients receive the package version that is actually running rather than a
+separately maintained literal.
 
 Tools with mixed execution boundaries can provide explicit operational metadata at registration. This is used for local file verification, static feature-support reports, and hybrid local-plus-Premiere validation so the capability catalog does not infer a host dependency from naming alone.
 
@@ -395,7 +407,7 @@ The file-based IPC bridge is simple, reliable, and works across macOS and Window
 
 ---
 
-## Tools (278)
+## Tools (278 total; 276 under the default profile)
 
 ### Discovery & Inspection (10 + 10)
 
@@ -529,13 +541,12 @@ than presenting UI-only operations as available tools.
 | `get_workspaces` / `set_workspace` | Switch workspace layouts |
 | `create_caption_track` | Create caption/subtitle tracks |
 
-### Scripting (6)
+### Scripting (2)
 
 | Tool | Description |
 | :--- | :----------- |
-| `execute_extendscript` | Run arbitrary ExtendScript (ES3) |
-| `evaluate_expression` | Quick one-line eval |
-| `send_raw_script` | Bypass security validation (advanced) |
+| `execute_extendscript` | Run arbitrary ExtendScript (ES3); requires explicit `unsafe-script` authority |
+| `evaluate_expression` | Evaluate a one-line expression; requires explicit `unsafe-script` authority |
 
 ### ...and 100+ more
 
@@ -638,7 +649,7 @@ premiere-pro-mcp/
 ├── src/
 │   ├── index.ts                 # Entry point — stdio transport setup
 │   ├── http-server.ts           # Entry point — HTTP/SSE transport (Fly.io / remote)
-│   ├── server.ts                # MCP server — registers 278 tools + 3 resources + 4 prompts
+│   ├── server.ts                # MCP server — registers 278 tools, filtered by authority profile
 │   ├── bridge/
 │   │   ├── file-bridge.ts       # File-based IPC (write .jsx, poll .json)
 │   │   └── script-builder.ts    # ExtendScript generator with ES3 helpers
@@ -707,8 +718,9 @@ All generated scripts use **ES3 syntax** (`var`, manual `for` loops, no arrow fu
 ### Security
 
 Understand the trust model before deploying this: **any client that can reach the MCP
-server can control Premiere Pro.** `execute_extendscript` and `send_raw_script` are
-arbitrary-code-execution tools by design and are disabled by default. Enable them only by setting
+server can control Premiere Pro.** `execute_extendscript` and `evaluate_expression` are
+arbitrary-code-execution tools by design and are omitted from discovery and denied at call time
+by default. Enable them only by setting
 `PREMIERE_MCP_CAPABILITIES=inspect,edit,export,filesystem,unsafe-script`.
 
 - **Run it locally over stdio** unless you have a specific reason not to. That's the safe default.
