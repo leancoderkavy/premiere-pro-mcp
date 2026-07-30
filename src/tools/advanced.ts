@@ -191,22 +191,61 @@ export function getAdvancedTools(bridgeOptions: BridgeOptions) {
         node_id: string;
         target_track_index: number;
       }) => {
+        const nodeId = escapeForExtendScript(args.node_id);
         const script = buildToolScript(`
           app.enableQE();
           var qeSeq = qe.project.getActiveSequence();
           if (!qeSeq) return __error("No active sequence (QE)");
-          
-          var result = __findClip("${escapeForExtendScript(args.node_id)}");
-          if (!result) return __error("Clip not found");
-          
+
+          var result = __findClip("${nodeId}");
+          if (!result) return __error("Clip not found: ${nodeId}");
+
+          var seq = app.project.activeSequence;
+          var targetTracks = result.trackType === "video" ? seq.videoTracks : seq.audioTracks;
+          if (${args.target_track_index} >= targetTracks.numTracks) {
+            return __error("Target track index ${args.target_track_index} is out of range: the sequence has " + targetTracks.numTracks + " " + result.trackType + " track(s).");
+          }
+          if (result.trackIndex === ${args.target_track_index}) {
+            return __result({ moved: false, verified: true, alreadyOnTrack: true, clipName: result.clip.name, trackIndex: result.trackIndex });
+          }
+
           var qeTrack = result.trackType === "video"
             ? qeSeq.getVideoTrackAt(result.trackIndex)
             : qeSeq.getAudioTrackAt(result.trackIndex);
-          var qeClip = qeTrack.getItemAt(result.clipIndex);
-          if (!qeClip) return __error("QE clip not found");
-          
-          qeClip.moveToTrack(${args.target_track_index});
-          return __result({ moved: true, clipName: result.clip.name, newTrackIndex: ${args.target_track_index} });
+          if (!qeTrack) return __error("QE track not found");
+
+          // QE item indices count gaps ("Empty" items) alongside clips, so the
+          // DOM clip index does not map onto getItemAt -- on a track with a
+          // leading gap it returns the gap, and calling moveToTrack on that
+          // fails with a misleading parameter error. Match on start time.
+          var qeClip = null;
+          var wantStart = parseFloat(result.clip.start.ticks);
+          for (var qi = 0; qi < qeTrack.numItems; qi++) {
+            var cand = qeTrack.getItemAt(qi);
+            if (!cand || String(cand.type) !== "Clip") continue;
+            if (Math.abs(parseFloat(cand.start.ticks) - wantStart) < 1) { qeClip = cand; break; }
+          }
+          if (!qeClip) return __error("Could not locate the clip among the QE track's items; cannot change track.");
+
+          try {
+            qeClip.moveToTrack(${args.target_track_index});
+          } catch (moveErr) {
+            return __error("Could not move the clip to track ${args.target_track_index}: the QE moveToTrack API rejected the call (" + moveErr.toString() + "). It takes three parameters whose types are undocumented, and no combination tried was accepted on Premiere Pro 26.2.2. The clip was left untouched. Reconstructing the move with Track.overwriteClip would mint a new node ID and drop applied effects and keyframes, so it is not done automatically -- move the clip manually if you need it on another track.");
+          }
+
+          // QE reports nothing useful on success, so confirm against the DOM.
+          var after = __findClip("${nodeId}");
+          if (!after) return __error("Clip ${nodeId} could not be found after the track move; the timeline may be in an unexpected state.");
+          if (after.trackIndex !== ${args.target_track_index}) {
+            return __error("Premiere accepted the moveToTrack call but the clip is still on track " + after.trackIndex + " rather than ${args.target_track_index}. Structural QE edits are known to no-op on some Premiere Pro 26.x installations (confirmed on 26.2.2).");
+          }
+
+          return __result({
+            moved: true,
+            verified: true,
+            clipName: after.clip.name,
+            newTrackIndex: after.trackIndex
+          });
         `);
         return sendCommand(script, bridgeOptions);
       },
