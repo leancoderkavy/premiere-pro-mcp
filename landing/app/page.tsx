@@ -41,7 +41,7 @@ const structuredData = {
       name: "Premiere Pro MCP",
       applicationCategory: "DeveloperApplication",
       operatingSystem: "macOS, Windows",
-      softwareVersion: "1.4.0",
+      softwareVersion: "1.5.0",
       description:
         "Open-source Model Context Protocol server with 279 tools for AI-assisted editing and automation in Adobe Premiere Pro.",
       url: "https://premiere-pro-mcp.com/",
@@ -56,7 +56,7 @@ const structuredData = {
       author: { "@id": "https://premiere-pro-mcp.com/#organization" },
       publisher: { "@id": "https://premiere-pro-mcp.com/#organization" },
       image: "https://premiere-pro-mcp.com/og-image.png",
-      dateModified: "2026-07-26",
+      dateModified: "2026-07-30",
       featureList: [
         "Timeline editing",
         "Effects and Lumetri color control",

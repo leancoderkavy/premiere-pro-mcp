@@ -14,7 +14,7 @@ const navItems = [
 ]
 
 const proofItems = [
-  { icon: Sparkles, title: "v1.4.0", detail: "Current release" },
+  { icon: Sparkles, title: "v1.5.0", detail: "Current release" },
   { icon: Monitor, title: "macOS + Windows", detail: "Apple Silicon + Intel" },
   { icon: ShieldCheck, title: "Local-first", detail: "Your media stays local" },
   { icon: Github, title: "MIT licensed", detail: "Open source" },

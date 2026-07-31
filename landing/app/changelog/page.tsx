@@ -4,6 +4,34 @@ import { ArrowLeft, ArrowUpRight, Github, Package } from "lucide-react"
 
 const releases = [
   {
+    version: "1.5.0",
+    date: "2026-07-30",
+    label: "Verified structural edits and silence detection",
+    groups: [
+      {
+        title: "Added",
+        items: [
+          "Local source-media silence detection powered by FFmpeg, with Docker and installation guidance.",
+          "Anonymous, opt-out usage telemetry and an expanded editorial product experience.",
+        ],
+      },
+      {
+        title: "Changed",
+        items: [
+          "Expanded the surface to 279 tools while advertising only tools permitted by the active capability profile.",
+          "Documented remote media-path constraints and the 277 tools available under the default profile.",
+        ],
+      },
+      {
+        title: "Fixed",
+        items: [
+          "Structural timeline operations now verify applied edits instead of reporting unverified success.",
+          "Server metadata now reads the package version, and HTTP and filesystem CodeQL findings are resolved.",
+        ],
+      },
+    ],
+  },
+  {
     version: "1.4.0",
     date: "2026-07-26",
     label: "Transport, diagnostics, and distributions",
@@ -292,8 +320,8 @@ export default function ChangelogPage() {
             </div>
             <div className="border-l border-purple-400/40 pl-5">
               <p className="text-xs uppercase tracking-[0.18em] text-zinc-600">Latest release</p>
-              <p className="mt-2 font-mono text-2xl text-white">v1.4.0</p>
-              <p className="mt-1 text-sm text-zinc-500">July 26, 2026</p>
+              <p className="mt-2 font-mono text-2xl text-white">v1.5.0</p>
+              <p className="mt-1 text-sm text-zinc-500">July 30, 2026</p>
             </div>
           </div>
         </div>

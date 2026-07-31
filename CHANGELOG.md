@@ -6,6 +6,30 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [1.5.0] - 2026-07-30
+
+### Added
+
+- Added `detect_silence` for finding dead air in local source media with FFmpeg, including
+  Docker support and clear local-install guidance.
+- Added anonymous, opt-out PostHog usage telemetry with prompt flushing for low-volume servers.
+- Added an immersive editorial landing-page experience, product demo video, changelog page, and
+  a 30-day launch plan.
+
+### Changed
+
+- Expanded the MCP surface to 279 tools and limited advertised tools to those allowed by the
+  active capability profile.
+- Documented capability-filtered discovery, remote media-path constraints, and the difference
+  between the 279 registered tools and the 277 tools available to the default profile.
+
+### Fixed
+
+- Structural timeline tools now verify razor, ripple-delete, transition, and track-targeting
+  mutations instead of reporting success when Premiere applied only part or none of an edit.
+- Server metadata now reports the package version rather than a stale hard-coded value.
+- Resolved CodeQL findings in HTTP authentication and filesystem-path handling.
+
 ## [1.4.0] - 2026-07-26
 
 ### Added
