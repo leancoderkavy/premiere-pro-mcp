@@ -1,0 +1,51 @@
+name: Build Premiere UXP CCX
+
+on:
+  workflow_dispatch:
+    inputs:
+      distribution_channel:
+        description: Distribution channel for the generated CCX
+        required: true
+        default: direct
+        type: choice
+        options:
+          - direct
+          - marketplace
+      marketplace_plugin_id:
+        description: Adobe Developer Distribution plugin ID (required only for marketplace)
+        required: false
+        type: string
+  release:
+    types: [published]
+
+permissions:
+  contents: write
+
+jobs:
+  package:
+    name: Validate and package UXP CCX
+    runs-on: ubuntu-latest
+    env:
+      UXP_DISTRIBUTION_CHANNEL: ${{ inputs.distribution_channel || 'direct' }}
+      UXP_MARKETPLACE_PLUGIN_ID: ${{ inputs.marketplace_plugin_id }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          package-manager-cache: false
+      - run: npm ci
+      - run: node scripts/validate-distribution.mjs --uxp
+      - run: node scripts/build-uxp-ccx.mjs
+      - uses: actions/upload-artifact@v7
+        with:
+          name: premiere-pro-mcp-uxp-${{ inputs.distribution_channel || 'direct' }}
+          path: artifacts/*.ccx
+          if-no-files-found: error
+      - name: Attach direct CCX to release
+        if: ${{ github.event_name == 'release' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: >-
+          gh release upload "${{ github.event.release.tag_name }}"
+          artifacts/*-direct.ccx --clobber

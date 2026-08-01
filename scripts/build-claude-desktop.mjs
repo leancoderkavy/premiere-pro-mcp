@@ -5,6 +5,7 @@ import { existsSync } from "node:fs";
 import { spawn } from "node:child_process";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { validateClaudeSource, validateClaudeStage } from "./validate-distribution.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const stage = path.join(root, "build", "claude-desktop");
@@ -39,6 +40,14 @@ function runNpm(args, cwd) {
     : run("npm", args, cwd);
 }
 
+function runMcpb(args) {
+  return runNpm(
+    ["exec", "--yes", "@anthropic-ai/mcpb@2.1.2", "--", ...args],
+    root,
+  );
+}
+
+await validateClaudeSource();
 await rm(stage, { recursive: true, force: true });
 await mkdir(path.join(stage, "server"), { recursive: true });
 await mkdir(artifacts, { recursive: true });
@@ -54,10 +63,13 @@ await writeFile(
   path.join(stage, "package.json"),
   `${JSON.stringify(
     {
-      name: `${packageJson.name}-claude-desktop`,
+      // Keep this aligned with package-lock.json and manifest.json so npm ci and
+      // MCPB validation both describe the same bundled server identity.
+      name: packageJson.name,
       version: packageJson.version,
       private: true,
       type: packageJson.type,
+      engines: packageJson.engines,
       dependencies: packageJson.dependencies,
       overrides: packageJson.overrides,
     },
@@ -67,21 +79,14 @@ await writeFile(
 );
 
 await runNpm(["ci", "--omit=dev", "--ignore-scripts"], stage);
+await validateClaudeStage(stage);
+await runMcpb(["validate", path.join(stage, "manifest.json")]);
 
 const mcpbPath = path.join(
   artifacts,
   `premiere-pro-mcp-${packageJson.version}.mcpb`,
 );
-const dxtPath = path.join(
-  artifacts,
-  `premiere-pro-mcp-${packageJson.version}.dxt`,
-);
-
-await runNpm(
-  ["exec", "--yes", "@anthropic-ai/mcpb@2.1.2", "pack", stage, mcpbPath],
-  root,
-);
-await copyFile(mcpbPath, dxtPath);
+await runMcpb(["pack", stage, mcpbPath]);
+await runMcpb(["info", mcpbPath]);
 
 console.log(`Built ${path.relative(root, mcpbPath)}`);
-console.log(`Built ${path.relative(root, dxtPath)} (legacy extension)`);

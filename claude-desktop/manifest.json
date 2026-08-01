@@ -1,5 +1,6 @@
 {
-  "manifest_version": "0.3",
+  "$schema": "https://raw.githubusercontent.com/modelcontextprotocol/mcpb/main/schemas/mcpb-manifest-v0.4.schema.json",
+  "manifest_version": "0.4",
   "name": "premiere-pro-mcp",
   "display_name": "Premiere Pro MCP",
   "version": "1.8.0",
