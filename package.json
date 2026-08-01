@@ -11,6 +11,7 @@
   "files": [
     "dist/**/*.js",
     "dist/**/*.d.ts",
+    "dist/resources/adobe-uxp-coverage.json",
     "cep-plugin",
     "artifacts/MCPBridgeCEP.zxp",
     "uxp-plugin",
@@ -20,8 +21,9 @@
     "CHANGELOG.md"
   ],
   "scripts": {
-    "build": "tsc",
+    "build": "tsc && node scripts/copy-adobe-uxp-coverage.mjs",
     "build:claude": "npm run build && node scripts/build-claude-desktop.mjs",
+    "check": "npm run lint && npm run build && npm test",
     "dev": "tsc --watch",
     "start": "node dist/index.js",
     "start:http": "node dist/http-server.js",
@@ -29,6 +31,7 @@
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "install-cep": "node dist/index.js --install-cep",
+    "lint": "eslint uxp-plugin --ext .cjs --max-warnings 0",
     "publish:npm": "node scripts/publish-npm.mjs",
     "publish:npm:dry-run": "node scripts/publish-npm.mjs --dry-run"
   },
@@ -81,9 +84,13 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
+    "@adobe/eslint-plugin-premierepro": "26.3.0",
+    "@adobe/premierepro": "26.3.0",
     "@types/node": "^26.1.2",
     "@types/ws": "^8.18.1",
-    "typescript": "^7.0.2",
+    "@typescript-eslint/parser": "^8.65.0",
+    "eslint": "^9.39.3",
+    "typescript": "^5.9.3",
     "vitest": "^4.1.10"
   },
   "overrides": {
