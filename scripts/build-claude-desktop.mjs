@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 import { cp, copyFile, mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import { existsSync } from "node:fs";
 import { spawn } from "node:child_process";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -21,6 +22,22 @@ const run = (command, args, cwd) =>
       else reject(new Error(`${command} exited with code ${code}`));
     });
   });
+
+function runNpm(args, cwd) {
+  // On Windows, spawn("npm", ...) can fail because npm is exposed as npm.cmd
+  // rather than an executable. Running npm's bundled CLI through this Node
+  // process works on every supported platform and keeps shell execution off.
+  const npmCli = path.join(
+    path.dirname(process.execPath),
+    "node_modules",
+    "npm",
+    "bin",
+    "npm-cli.js",
+  );
+  return existsSync(npmCli)
+    ? run(process.execPath, [npmCli, ...args], cwd)
+    : run("npm", args, cwd);
+}
 
 await rm(stage, { recursive: true, force: true });
 await mkdir(path.join(stage, "server"), { recursive: true });
@@ -49,7 +66,7 @@ await writeFile(
   )}\n`,
 );
 
-await run("npm", ["ci", "--omit=dev", "--ignore-scripts"], stage);
+await runNpm(["ci", "--omit=dev", "--ignore-scripts"], stage);
 
 const mcpbPath = path.join(
   artifacts,
@@ -60,9 +77,8 @@ const dxtPath = path.join(
   `premiere-pro-mcp-${packageJson.version}.dxt`,
 );
 
-await run(
-  "npx",
-  ["-y", "@anthropic-ai/mcpb@2.1.2", "pack", stage, mcpbPath],
+await runNpm(
+  ["exec", "--yes", "@anthropic-ai/mcpb@2.1.2", "pack", stage, mcpbPath],
   root,
 );
 await copyFile(mcpbPath, dxtPath);

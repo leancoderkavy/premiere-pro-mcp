@@ -4,6 +4,27 @@ import { ArrowLeft, ArrowUpRight, Github, Package } from "lucide-react"
 
 const releases = [
   {
+    version: "1.6.0",
+    date: "2026-07-31",
+    label: "Capability-aware UXP workflows and verified project creation",
+    groups: [
+      {
+        title: "Added",
+        items: [
+          "Capability-aware UXP workflows for project inspection and saves, preset sequences, OTIO/FCP XML interchange, transcript languages, Object Mask detection, and Adobe Media Encoder controls.",
+          "Operation-ID replay protection and explicit verification outcomes for supported UXP mutations.",
+        ],
+      },
+      {
+        title: "Fixed",
+        items: [
+          "Project creation now verifies that Premiere opened the requested project before reporting success.",
+          "Updated package, panel, client-plugin, and landing metadata for v1.6.0.",
+        ],
+      },
+    ],
+  },
+  {
     version: "1.5.0",
     date: "2026-07-30",
     label: "Verified structural edits and silence detection",
@@ -320,8 +341,8 @@ export default function ChangelogPage() {
             </div>
             <div className="border-l border-purple-400/40 pl-5">
               <p className="text-xs uppercase tracking-[0.18em] text-zinc-600">Latest release</p>
-              <p className="mt-2 font-mono text-2xl text-white">v1.5.0</p>
-              <p className="mt-1 text-sm text-zinc-500">July 30, 2026</p>
+              <p className="mt-2 font-mono text-2xl text-white">v1.6.0</p>
+              <p className="mt-1 text-sm text-zinc-500">July 31, 2026</p>
             </div>
           </div>
         </div>

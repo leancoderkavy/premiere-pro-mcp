@@ -1,6 +1,6 @@
 {
   "name": "premiere-pro",
-  "version": "1.5.0",
+  "version": "1.6.0",
   "description": "Plan, execute, verify, and export video edits in Adobe Premiere Pro through the Premiere Pro MCP server.",
   "author": {
     "name": "Premiere Pro MCP contributors",
