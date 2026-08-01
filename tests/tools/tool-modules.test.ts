@@ -217,6 +217,37 @@ describe("Tool Handler Behavior", () => {
     });
   });
 
+  describe("project.create_project", () => {
+    it("rejects a directory path without invoking Premiere", async () => {
+      const tools = getProjectTools(bridgeOptions);
+
+      const result = await (tools.create_project.handler as any)({
+        path: "/tmp/film-test",
+      });
+
+      expect(result).toEqual({
+        success: false,
+        error:
+          "create_project path must be a full .prproj file path; Premiere cannot create a project from a directory path.",
+      });
+      expect(mockedSendCommand).not.toHaveBeenCalled();
+    });
+
+    it("verifies the active project path after creating a project", async () => {
+      const tools = getProjectTools(bridgeOptions);
+
+      await (tools.create_project.handler as any)({
+        path: "/tmp/Film Test.prproj",
+      });
+
+      const script = mockedSendCommand.mock.calls[0][0];
+      expect(script).toContain('var requestedPath = "/tmp/Film Test.prproj"');
+      expect(script).toContain("var beforePath = app.project");
+      expect(script).toContain("var actualPath = project ? String(project.path || \"\") : \"\"");
+      expect(script).toContain("__normalizedProjectPath(actualPath) !== __normalizedProjectPath(requestedPath)");
+    });
+  });
+
   describe("health.get_capabilities", () => {
     it("reports platform support without requiring Premiere to be running", async () => {
       const tools = getHealthTools(bridgeOptions);

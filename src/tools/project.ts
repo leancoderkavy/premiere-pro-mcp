@@ -133,15 +133,38 @@ export function getProjectTools(bridgeOptions: BridgeOptions) {
             type: "string",
             description: "Full file path for the new .prproj file",
           },
-        },
-        required: ["path"],
+      },
+      required: ["path"],
       },
       handler: async (args: { path: string }) => {
+        const requestedPath = args.path.trim();
+        if (!/\.prproj$/i.test(requestedPath)) {
+          return {
+            success: false,
+            error:
+              "create_project path must be a full .prproj file path; Premiere cannot create a project from a directory path.",
+          };
+        }
         const script = buildToolScript(`
-          app.newProject("${escapeForExtendScript(args.path)}");
+          var requestedPath = "${escapeForExtendScript(requestedPath)}";
+          function __normalizedProjectPath(path) {
+            return String(path || "").replace(/\\\\/g, "/").toLowerCase();
+          }
+          var beforePath = app.project ? String(app.project.path || "") : "";
+          if (__normalizedProjectPath(beforePath) === __normalizedProjectPath(requestedPath)) {
+            return __error("A project is already open at " + requestedPath + "; choose a new .prproj file path instead.");
+          }
+          app.newProject(requestedPath);
           var project = app.project;
-          if (!project) return __error("Failed to create project");
-          return __result({ created: true, name: project.name, path: project.path });
+          var actualPath = project ? String(project.path || "") : "";
+          if (!project || !actualPath || __normalizedProjectPath(actualPath) !== __normalizedProjectPath(requestedPath)) {
+            return __error(
+              "Premiere did not create a project at " + requestedPath +
+              "; the active project is still " + (actualPath || beforePath || "unavailable") +
+              ". Check that the path is a new .prproj file and its parent directory exists."
+            );
+          }
+          return __result({ created: true, name: project.name, path: actualPath });
         `);
         return sendCommand(script, bridgeOptions);
       },
