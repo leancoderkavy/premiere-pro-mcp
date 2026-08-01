@@ -20,7 +20,7 @@ Closes #
 |-----------|--------|-------------|
 | | | |
 
-**Total tool count after this PR:** (update if changed from 279)
+**Total tool count after this PR:** (update `release-metadata.json` when changed)
 
 ## Checklist
 
