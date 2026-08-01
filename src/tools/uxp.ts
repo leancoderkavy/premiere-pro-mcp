@@ -113,6 +113,173 @@ export function getUxpTools(bridge: UxpWebSocketBridge) {
           ...(args.operation_id ? { operationId: args.operation_id } : {}),
         }),
     },
+    rename_track_uxp: {
+      description: "Rename an audio, video, or caption track through Premiere 26.3+ UXP in an undoable transaction with name readback verification.",
+      parameters: {
+        type: "object" as const,
+        properties: {
+          track_type: { type: "string", enum: ["audio", "video", "caption"], description: "Track family to rename." },
+          track_index: { type: "integer", minimum: 0, description: "Zero-based index within the selected track family." },
+          name: { type: "string", minLength: 1, maxLength: 255, description: "New track name." },
+          operation_id: operationId,
+        },
+        required: ["track_type", "track_index", "name"],
+      },
+      handler: async (args: { track_type: "audio" | "video" | "caption"; track_index: number; name: string; operation_id?: string }) =>
+        invoke(bridge, "track.rename", {
+          trackType: args.track_type, trackIndex: args.track_index, name: args.name,
+          ...(args.operation_id ? { operationId: args.operation_id } : {}),
+        }),
+    },
+    create_subclip_uxp: {
+      description: "Create and verify a Premiere 26.3+ subclip in an undoable transaction. Prefer project_item_id; a name must resolve to exactly one media clip.",
+      parameters: {
+        type: "object" as const,
+        properties: {
+          project_item_id: { type: "string", maxLength: 512, description: "Stable source project-item ID. Omit with project_item_name to use exactly one Project panel selection." },
+          project_item_name: { type: "string", maxLength: 255, description: "Unique source media-clip name. Not allowed together with project_item_id." },
+          name: { type: "string", minLength: 1, maxLength: 255, description: "New subclip name." },
+          start_seconds: { type: "number", minimum: 0, description: "Subclip in-point in seconds." },
+          end_seconds: { type: "number", exclusiveMinimum: 0, description: "Subclip out-point in seconds; must be greater than start_seconds." },
+          hard_boundaries: { type: "boolean", description: "Prevent trimming beyond the subclip boundaries; defaults to false." },
+          take_video: { type: "boolean", description: "Include video; defaults to true." },
+          take_audio: { type: "boolean", description: "Include audio; defaults to true." },
+          operation_id: operationId,
+        },
+        required: ["name", "start_seconds", "end_seconds"],
+      },
+      handler: async (args: {
+        project_item_id?: string;
+        project_item_name?: string;
+        name: string;
+        start_seconds: number;
+        end_seconds: number;
+        hard_boundaries?: boolean;
+        take_video?: boolean;
+        take_audio?: boolean;
+        operation_id?: string;
+      }) => invoke(bridge, "subclip.create", {
+        ...(args.project_item_id ? { projectItemId: args.project_item_id } : {}),
+        ...(args.project_item_name ? { projectItemName: args.project_item_name } : {}),
+        name: args.name, startSeconds: args.start_seconds, endSeconds: args.end_seconds,
+        ...(args.hard_boundaries === undefined ? {} : { hasHardBoundaries: args.hard_boundaries }),
+        ...(args.take_video === undefined ? {} : { takeVideo: args.take_video }),
+        ...(args.take_audio === undefined ? {} : { takeAudio: args.take_audio }),
+        ...(args.operation_id ? { operationId: args.operation_id } : {}),
+      }),
+    },
+    list_markers_uxp: {
+      description: "List Premiere markers with stable 26.3+ GUIDs from the active sequence or one source media clip.",
+      parameters: {
+        type: "object" as const,
+        properties: {
+          scope: { type: "string", enum: ["sequence", "project_item"], description: "Marker owner; defaults to sequence." },
+          project_item_id: { type: "string", maxLength: 512, description: "Source project-item ID when scope is project_item." },
+          project_item_name: { type: "string", maxLength: 255, description: "Unique source clip name when scope is project_item." },
+          filters: { type: "array", maxItems: 16, items: { type: "string", minLength: 1, maxLength: 64 }, description: "Optional documented marker-type filters." },
+        },
+      },
+      handler: async (args: { scope?: "sequence" | "project_item"; project_item_id?: string; project_item_name?: string; filters?: string[] }) =>
+        invoke(bridge, "marker.list", {
+          ...(args.scope ? { scope: args.scope === "project_item" ? "projectItem" : "sequence" } : {}),
+          ...(args.project_item_id ? { projectItemId: args.project_item_id } : {}),
+          ...(args.project_item_name ? { projectItemName: args.project_item_name } : {}),
+          ...(args.filters ? { filters: args.filters } : {}),
+        }),
+    },
+    set_source_monitor_position_uxp: {
+      description: "Set and read back the Source Monitor position using Premiere 26.3+ UXP.",
+      parameters: {
+        type: "object" as const,
+        properties: {
+          seconds: { type: "number", minimum: 0, description: "Source Monitor position in seconds." },
+          operation_id: operationId,
+        },
+        required: ["seconds"],
+      },
+      handler: async (args: { seconds: number; operation_id?: string }) => invoke(bridge, "sourceMonitor.position.set", {
+        seconds: args.seconds,
+        ...(args.operation_id ? { operationId: args.operation_id } : {}),
+      }),
+    },
+    has_transcript_uxp: {
+      description: "Check whether a source media clip has a transcript, preferring Premiere 26.3's documented native API when available.",
+      parameters: {
+        type: "object" as const,
+        properties: {
+          project_item_id: { type: "string", maxLength: 512, description: "Source project-item ID. Omit with project_item_name to use exactly one Project panel selection." },
+          project_item_name: { type: "string", maxLength: 255, description: "Unique source media-clip name. Not allowed together with project_item_id." },
+        },
+      },
+      handler: async (args: { project_item_id?: string; project_item_name?: string }) => invoke(bridge, "transcript.has", {
+        ...(args.project_item_id ? { projectItemId: args.project_item_id } : {}),
+        ...(args.project_item_name ? { projectItemName: args.project_item_name } : {}),
+      }),
+    },
+    export_aaf_uxp: {
+      description: "Export the active sequence as AAF through Premiere 26.3+ UXP with bounded, typed AAF options. Premiere confirms the request, but arbitrary native output paths cannot be statted by the panel.",
+      parameters: {
+        type: "object" as const,
+        properties: {
+          output_file_path: { type: "string", minLength: 1, maxLength: 4096, description: "Absolute AAF output path." },
+          options: {
+            type: "object",
+            additionalProperties: false,
+            properties: {
+              mixdown_video: { type: "boolean" },
+              explode_to_mono: { type: "boolean" },
+              sample_rate: { type: "integer", enum: [32000, 44100, 48000, 88200, 96000] },
+              bits_per_sample: { type: "integer", enum: [16, 24, 32] },
+              embed_audio: { type: "boolean" },
+              audio_file_format: { type: "string", enum: ["aiff", "wav"] },
+              trim_sources: { type: "boolean" },
+              handle_frames: { type: "integer", minimum: 0, maximum: 10000 },
+              video_mixdown_preset_path: { type: "string", minLength: 1, maxLength: 4096 },
+              render_audio_effects: { type: "boolean" },
+              interleave_without_effects: { type: "boolean" },
+              preserve_parent_folder: { type: "boolean" },
+            },
+          },
+          operation_id: operationId,
+        },
+        required: ["output_file_path"],
+      },
+      handler: async (args: {
+        output_file_path: string;
+        options?: {
+          mixdown_video?: boolean;
+          explode_to_mono?: boolean;
+          sample_rate?: 32000 | 44100 | 48000 | 88200 | 96000;
+          bits_per_sample?: 16 | 24 | 32;
+          embed_audio?: boolean;
+          audio_file_format?: "aiff" | "wav";
+          trim_sources?: boolean;
+          handle_frames?: number;
+          video_mixdown_preset_path?: string;
+          render_audio_effects?: boolean;
+          interleave_without_effects?: boolean;
+          preserve_parent_folder?: boolean;
+        };
+        operation_id?: string;
+      }) => invoke(bridge, "interchange.aaf.export", {
+        outputFilePath: args.output_file_path,
+        ...(args.options ? { options: {
+          ...(args.options.mixdown_video === undefined ? {} : { mixdownVideo: args.options.mixdown_video }),
+          ...(args.options.explode_to_mono === undefined ? {} : { explodeToMono: args.options.explode_to_mono }),
+          ...(args.options.sample_rate === undefined ? {} : { sampleRate: args.options.sample_rate }),
+          ...(args.options.bits_per_sample === undefined ? {} : { bitsPerSample: args.options.bits_per_sample }),
+          ...(args.options.embed_audio === undefined ? {} : { embedAudio: args.options.embed_audio }),
+          ...(args.options.audio_file_format === undefined ? {} : { audioFileFormat: args.options.audio_file_format }),
+          ...(args.options.trim_sources === undefined ? {} : { trimSources: args.options.trim_sources }),
+          ...(args.options.handle_frames === undefined ? {} : { handleFrames: args.options.handle_frames }),
+          ...(args.options.video_mixdown_preset_path === undefined ? {} : { videoMixdownPresetPath: args.options.video_mixdown_preset_path }),
+          ...(args.options.render_audio_effects === undefined ? {} : { renderAudioEffects: args.options.render_audio_effects }),
+          ...(args.options.interleave_without_effects === undefined ? {} : { interleaveWithoutEffects: args.options.interleave_without_effects }),
+          ...(args.options.preserve_parent_folder === undefined ? {} : { preserveParentFolder: args.options.preserve_parent_folder }),
+        } } : {}),
+        ...(args.operation_id ? { operationId: args.operation_id } : {}),
+      }),
+    },
     export_frame_uxp: {
       description: "Export a sequence frame through Premiere's supported UXP Exporter and verify the output file in the host panel.",
       parameters: {

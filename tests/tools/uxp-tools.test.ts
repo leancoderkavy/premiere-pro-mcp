@@ -100,12 +100,18 @@ describe("UXP MCP tools", () => {
           "get_transcript_languages_uxp",
           "detect_object_masks_uxp",
           "configure_encoder_uxp",
+          "rename_track_uxp",
+          "create_subclip_uxp",
+          "list_markers_uxp",
+          "set_source_monitor_position_uxp",
+          "has_transcript_uxp",
+          "export_aaf_uxp",
           "export_frame_uxp",
         ]),
       );
-      // 282 collected minus the 2 unsafe-script tools the default profile
-      // withholds from tools/list.
-      expect(tools.tools).toHaveLength(287);
+      // The default profile excludes two unsafe-script tools. Six documented
+      // Premiere 26.3 UXP tools raise the connected adapter surface to 293.
+      expect(tools.tools).toHaveLength(293);
     } finally {
       await client.close();
       await server.close();

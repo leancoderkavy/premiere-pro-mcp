@@ -39,15 +39,19 @@ async function capabilities() {
     cancellable: "preflight only", verification: "exporter return value", undoable: false, atomic: false
   });
   const supportedHost = TranscriptSupport.versionAtLeast(host && host.version, "25.6.0");
-  const transcriptApi = supportedHost && !!(ppro.Transcript && ppro.Transcript.exportToJSON && ppro.Transcript.importFromJSON);
-  const transcriptImportApi = transcriptApi && typeof ppro.Transcript.createImportTextSegmentsAction === "function";
+  const transcriptExportApi = supportedHost && !!(ppro.Transcript && ppro.Transcript.exportToJSON && ppro.Transcript.importFromJSON);
+  const transcriptNativeHasApi = supportedHost && !!(ppro.Transcript && typeof ppro.Transcript.hasTranscript === "function");
+  const transcriptHasApi = transcriptNativeHasApi || !!(supportedHost && ppro.Transcript && typeof ppro.Transcript.exportToJSON === "function");
+  const transcriptImportApi = transcriptExportApi && typeof ppro.Transcript.createImportTextSegmentsAction === "function";
   Object.assign(value.commands, {
-    "transcript.export": { supported: transcriptApi, readOnly: true, minVersion: "25.6.0" },
-    "transcript.search": { supported: transcriptApi, readOnly: true, minVersion: "25.6.0" },
+    "transcript.export": { supported: transcriptExportApi, readOnly: true, minVersion: "25.6.0" },
+    "transcript.search": { supported: transcriptExportApi, readOnly: true, minVersion: "25.6.0" },
     "transcript.import": { supported: transcriptImportApi, destructive: true, undoable: true, minVersion: "25.6.0" },
     "transcript.has": {
-      supported: transcriptApi, readOnly: true, minVersion: "25.6.0",
-      nativeCheckMinVersion: "26.3.0", nativeCheck: typeof ppro.Transcript.hasTranscript === "function"
+      supported: transcriptHasApi, readOnly: true, minVersion: transcriptNativeHasApi ? "26.3.0" : "25.6.0",
+      nativeCheckMinVersion: "26.3.0", nativeCheck: transcriptNativeHasApi,
+      fallback: transcriptNativeHasApi ? null : transcriptHasApi ? "export-probe" : null,
+      fallbackMinVersion: transcriptHasApi ? "25.6.0" : null
     },
     "captions.inspect": { supported: supportedHost, readOnly: true, minVersion: "25.6.0" },
     "captions.create": { supported: false, reason: "No documented Premiere UXP caption creation API." },
@@ -140,10 +144,16 @@ async function searchTranscript(args) {
 }
 
 async function hasTranscript(args) {
-  const context = await transcriptContext(args);
+  const project = await ppro.Project.getActiveProject();
+  if (!project) throw new Error("No active project");
+  if (!ppro.Transcript) throw new Error("Transcript APIs require Premiere Pro 25.6 or newer");
+  const clip = await findProjectItem(project, args || {});
+  const projectItem = ppro.ProjectItem.cast(clip);
+  const context = { projectItemId: String(projectItem.getId()), projectItemName: clip.name, clip };
   if (typeof ppro.Transcript.hasTranscript === "function") {
     return { projectItemId: context.projectItemId, projectItemName: context.projectItemName, hasTranscript: !!ppro.Transcript.hasTranscript(context.clip), method: "native" };
   }
+  if (typeof ppro.Transcript.exportToJSON !== "function") throw new Error("This Premiere build cannot check transcripts");
   const present = await TranscriptSupport.probeTranscriptExport(function () {
     return ppro.Transcript.exportToJSON(context.clip);
   });
