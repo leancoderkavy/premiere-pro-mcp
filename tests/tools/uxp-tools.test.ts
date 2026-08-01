@@ -44,6 +44,28 @@ describe("UXP MCP tools", () => {
     expect(bridge.request).not.toHaveBeenCalled();
   });
 
+  it("maps verified project and interchange workflows to versioned UXP commands", async () => {
+    const request = vi.fn().mockResolvedValue({ outcome: "verified" });
+    const bridge = { request, getState: vi.fn() } as unknown as UxpWebSocketBridge;
+    const tools = getUxpTools(bridge);
+    await tools.create_sequence_with_preset_uxp.handler({
+      name: "Delivery",
+      preset_path: "/presets/hd.sqpreset",
+      operation_id: "sequence-1",
+    });
+    await tools.export_interchange_uxp.handler({
+      format: "otio",
+      output_file_path: "/exports/edit.otio",
+      operation_id: "export-1",
+    });
+    expect(request).toHaveBeenNthCalledWith(1, "sequence.createPreset", {
+      name: "Delivery", presetPath: "/presets/hd.sqpreset", operationId: "sequence-1",
+    });
+    expect(request).toHaveBeenNthCalledWith(2, "interchange.export", {
+      format: "otio", outputFilePath: "/exports/edit.otio", operationId: "export-1",
+    });
+  });
+
   it("returns transport errors through the normal tool envelope", async () => {
     const bridge = {
       request: vi.fn().mockRejectedValue(new Error("UXP bridge is not connected")),
@@ -71,12 +93,19 @@ describe("UXP MCP tools", () => {
         expect.arrayContaining([
           "get_uxp_capabilities",
           "get_uxp_state",
+          "inspect_project_uxp",
+          "save_project_uxp",
+          "create_sequence_with_preset_uxp",
+          "export_interchange_uxp",
+          "get_transcript_languages_uxp",
+          "detect_object_masks_uxp",
+          "configure_encoder_uxp",
           "export_frame_uxp",
         ]),
       );
       // 282 collected minus the 2 unsafe-script tools the default profile
       // withholds from tools/list.
-      expect(tools.tools).toHaveLength(280);
+      expect(tools.tools).toHaveLength(287);
     } finally {
       await client.close();
       await server.close();

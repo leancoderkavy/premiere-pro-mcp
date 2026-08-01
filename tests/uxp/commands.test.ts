@@ -11,12 +11,20 @@ function host(options: { transitions?: boolean; commit?: boolean } = {}) {
   const clip = { createAddVideoTransitionAction: add, createRemoveVideoTransitionAction: remove };
   const track = { getTrackItems: vi.fn(async () => [clip]) };
   const sequence = {
+    guid: "sequence-1",
+    name: "Timeline",
     getVideoTrackCount: vi.fn(async () => 1),
     getVideoTrack: vi.fn(async () => track),
     getPlayerPosition: vi.fn(async () => ({ seconds: 3 }))
   };
   const project = {
+    guid: "project-1",
+    name: "Example",
+    path: "/projects/example.prproj",
     getActiveSequence: vi.fn(async () => sequence),
+    getSequences: vi.fn(async () => [sequence]),
+    save: vi.fn(async () => true),
+    createSequenceWithPresetPath: vi.fn(async (name: string) => ({ guid: "sequence-2", name })),
     lockedAccess: vi.fn((callback: () => void) => callback()),
     executeTransaction: vi.fn((callback: (compound: unknown) => void) => {
       callback({ addAction });
@@ -40,6 +48,18 @@ function host(options: { transitions?: boolean; commit?: boolean } = {}) {
     Project: { getActiveProject: vi.fn(async () => project) },
     TickTime: { createWithSeconds: vi.fn((seconds: number) => ({ seconds })) },
     Constants: { TrackItemType: { CLIP: 1 }, TransitionPosition: { START: 0, END: 1 } },
+    ProjectConverter: {
+      exportAsOpenTimelineIO: vi.fn(async () => true),
+      exportAsFinalCutProXML: vi.fn(async () => true),
+    },
+    Transcript: { querySupportedLanguages: vi.fn(async () => [{ languageCode: "en-US" }]) },
+    ObjectMaskUtils: { hasObjectMask: vi.fn(() => true) },
+    EncoderManager: {
+      launchEncoder: vi.fn(async () => true),
+      setEmbeddedXMPEnabled: vi.fn(async () => true),
+      setSidecarXMPEnabled: vi.fn(async () => true),
+      startBatchEncode: vi.fn(async () => true),
+    },
     ...transitionApis
   };
   return { registry: Commands.createCommandRegistry({ ppro, fs: {}, Protocol }), ppro, project, sequence, track, clip, add, remove, addAction, optionValues };
@@ -56,6 +76,41 @@ describe("UXP command registry", () => {
   it("lists installed video transition match names", async () => {
     await expect(host().registry.dispatch("transition.video.list", {})).resolves.toEqual({
       matchNames: ["CrossDissolve", "DipToBlack"], count: 2
+    });
+  });
+
+  it("returns a stable compact project snapshot", async () => {
+    await expect(host().registry.dispatch("project.snapshot", {})).resolves.toMatchObject({
+      revision: expect.stringMatching(/^uxp-/),
+      project: { guid: "project-1", name: "Example" },
+      activeSequenceGuid: "sequence-1",
+      sequences: [{ guid: "sequence-1", name: "Timeline" }],
+    });
+  });
+
+  it("deduplicates completed mutations by operation id", async () => {
+    const value = host();
+    const args = { operationId: "save-123" };
+    await expect(value.registry.dispatch("project.save", args)).resolves.toMatchObject({
+      saved: true, outcome: "verified", operationId: "save-123",
+    });
+    await expect(value.registry.dispatch("project.save", args)).resolves.toMatchObject({
+      saved: true, replayed: true,
+    });
+    expect(value.project.save).toHaveBeenCalledOnce();
+  });
+
+  it("exports supported interchange formats and configures AME", async () => {
+    const value = host();
+    await expect(value.registry.dispatch("interchange.export", {
+      format: "otio", outputFilePath: "/tmp/edit.otio",
+    })).resolves.toMatchObject({ exported: true, format: "otio", outcome: "verified" });
+    await expect(value.registry.dispatch("encoder.configure", {
+      launch: true, embeddedXmp: true, startBatch: true,
+    })).resolves.toMatchObject({
+      configured: true,
+      outcome: "committed_unverified",
+      performed: ["launch", "embeddedXmp", "startBatch"],
     });
   });
 

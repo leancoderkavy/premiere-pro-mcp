@@ -368,6 +368,13 @@ Enter the same token in the UXP panel. The listener binds only to `127.0.0.1:777
 
 When enabled, MCP discovery includes `get_uxp_capabilities`, `get_uxp_state`, and `export_frame_uxp`. A failed UXP command is never silently retried through CEP because the first operation may have partially succeeded.
 
+Premiere 26.2-26.3 hosts also expose documented UXP workflows for revisioned project
+inspection, verified project saves, preset-based sequence creation, OTIO/FCP XML
+interchange, transcript-language discovery, Object Mask detection, and Adobe Media
+Encoder control. Mutations accept optional idempotency keys and return explicit
+verification outcomes. See [the UXP capability foundation](docs/uxp-capability-foundation.md)
+for the command matrix and live-host validation boundary.
+
 ---
 
 ## Architecture
