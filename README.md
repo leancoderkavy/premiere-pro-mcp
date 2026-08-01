@@ -6,7 +6,7 @@
 
 **Give AI full control over Adobe Premiere Pro.**
 
-279 tools across 31 modules, 3 resources, and 4 guided workflows.
+279 core tools across 31 modules, 3 resources, and 4 guided workflows. A connected UXP host adds 10 capability-gated tools.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Node.js](https://img.shields.io/badge/Node.js-20.19%2B-green.svg)](https://nodejs.org)
@@ -27,18 +27,14 @@ An [MCP (Model Context Protocol)](https://modelcontextprotocol.io) server that l
 "Add the B-roll clips to V2, apply a cross dissolve between each, color correct them to match the A-roll, and export a 1080p ProRes."
 ```
 
-The AI handles the entire workflow through 279 tools spanning the supported ExtendScript, QE DOM, local media analysis, and safe edit-planning surfaces.
+The AI handles the entire workflow through 279 core tools spanning the supported ExtendScript, QE DOM, local media analysis, and safe edit-planning surfaces. A compatible, authenticated UXP panel adds 10 documented, capability-gated workflows without replacing the production CEP bridge.
 
-### What's new in 1.3.1
+### What's new in 1.6.0
 
-- Windows npm releases now include a verified, signed CEP ZXP and install it automatically, covering
-  hosts that reject the raw development bundle even when `PlayerDebugMode` is enabled.
-- `set_sequence_frame_rate` now converts frames per second to Premiere ticks per frame and verifies
-  the applied setting instead of assigning a numeric frame period.
-- `premiere-pro-mcp --diagnose-cep` checks the installed manifest, debug-key types, and recent
-  Premiere signature failures.
-- TypeScript 7, Vitest 4, Zod 4, MCP SDK 1.29, Next.js 16.2, and patched transitive dependencies
-  modernize the toolchain and remove production audit findings.
+- **Capability-aware UXP foundation:** compatible Premiere 25.6-26.3 hosts can expose revisioned project inspection, verified saves, preset sequence creation, OTIO/FCP XML interchange, transcript-language discovery, Object Mask detection, and Adobe Media Encoder controls.
+- **Retry-safe UXP mutations:** optional operation IDs prevent a client retry from repeating a completed command in the same panel session, while each command reports `verified` or `committed_unverified` evidence honestly.
+- **Safe project creation:** `create_project` rejects directory paths and verifies Premiere opened the requested `.prproj` before reporting success.
+- **Current distribution metadata:** the CEP/UXP panels, Codex and Claude plugins, landing page, and npm package now all identify v1.6.0.
 
 ### Added in 1.2.0
 
@@ -252,11 +248,11 @@ From a clone of this repository:
 ```bash
 codex plugin marketplace add .
 codex plugin add premiere-pro@premiere-pro-mcp
-npx -y premiere-pro-mcp@1.3.1 --install-cep
+npx -y premiere-pro-mcp@1.6.0 --install-cep
 ```
 
 Restart Premiere Pro and start a new Codex session after installation. The plugin
-launches `premiere-pro-mcp@1.3.1` through `npx`; the separate CEP installation is
+launches `premiere-pro-mcp@1.6.0` through `npx`; the separate CEP installation is
 required because the MCP server communicates with the running Premiere host through
 the local bridge.
 
@@ -276,7 +272,7 @@ For Claude Code, add this repository as a marketplace and install the plugin:
 Then install the Premiere bridge and start a new Claude Code session:
 
 ```bash
-npx -y premiere-pro-mcp@1.3.1 --install-cep
+npx -y premiere-pro-mcp@1.6.0 --install-cep
 ```
 
 The Claude Code package lives in
@@ -366,7 +362,7 @@ PREMIERE_UXP_TOKEN="replace-with-a-long-random-secret" premiere-pro-mcp
 
 Enter the same token in the UXP panel. The listener binds only to `127.0.0.1:7777`, authenticates the WebSocket upgrade, requires a versioned capability handshake, correlates concurrent requests, and fails pending work on timeout or disconnect. Set `PREMIERE_UXP_PORT` to use another loopback port.
 
-When enabled, MCP discovery includes `get_uxp_capabilities`, `get_uxp_state`, and `export_frame_uxp`. A failed UXP command is never silently retried through CEP because the first operation may have partially succeeded.
+When enabled, MCP discovery includes `get_uxp_capabilities`, `get_uxp_state`, `inspect_project_uxp`, `save_project_uxp`, `create_sequence_with_preset_uxp`, `export_interchange_uxp`, `get_transcript_languages_uxp`, `detect_object_masks_uxp`, `configure_encoder_uxp`, and `export_frame_uxp`. Commands are advertised only while the authenticated local UXP bridge is connected; the host capability handshake remains the authority for support in the running Premiere build. A failed UXP command is never silently retried through CEP because the first operation may have partially succeeded.
 
 Premiere 26.2-26.3 hosts also expose documented UXP workflows for revisioned project
 inspection, verified project saves, preset-based sequence creation, OTIO/FCP XML
@@ -417,7 +413,7 @@ The file-based IPC bridge is simple, reliable, and works across macOS and Window
 
 ---
 
-## Tools (279 total; 277 under the default profile)
+## Tools (279 core total; 277 under the default profile; 287 with a connected UXP bridge)
 
 ### Discovery & Inspection (10 + 10)
 

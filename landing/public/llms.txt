@@ -2,7 +2,7 @@
 
 > Open-source, local-first Model Context Protocol server for AI-assisted editing and automation in Adobe Premiere Pro.
 
-Premiere Pro MCP exposes 279 structured tools for timeline editing, effects, Lumetri color, keyframes, media management, silence detection, project organization, and export. Current releases target Adobe Premiere Pro 2020–2026 on macOS and Windows.
+Premiere Pro MCP exposes 279 core structured tools for timeline editing, effects, Lumetri color, keyframes, media management, silence detection, project organization, and export. An authenticated compatible UXP host adds 10 capability-gated tools. Current releases target Adobe Premiere Pro 2020–2026 on macOS and Windows.
 
 ## Canonical resources
 
@@ -24,8 +24,8 @@ The recommended setup runs the MCP server and CEP bridge locally. Project media 
 
 ## Verified facts
 
-- Current project release: 1.5.0.
-- Tool surface: 279 structured MCP tools, 3 resources, and 4 prompts.
+- Current project release: 1.6.0.
+- Tool surface: 279 core structured MCP tools, 3 resources, and 4 prompts; 10 additional UXP tools appear while an authenticated panel is connected.
 - Supported desktop platforms: Windows and macOS.
 - Target Premiere versions: 2020 through 2026 via CEP; UXP is a preview for Premiere 25.6 and newer.
 - License: MIT.

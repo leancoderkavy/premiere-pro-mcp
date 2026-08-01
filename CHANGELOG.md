@@ -6,6 +6,30 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [1.6.0] - 2026-07-31
+
+### Added
+
+- Added a capability-aware UXP foundation for revisioned project inspection, verified saves,
+  preset-based sequence creation, OTIO/FCP XML interchange, transcript-language discovery,
+  Object Mask detection, and Adobe Media Encoder controls on compatible Premiere hosts.
+- Added explicit UXP operation outcomes and bounded operation-ID replay protection so a client retry
+  does not repeat a completed command within the same panel session.
+
+### Changed
+
+- Documented the 10 UXP MCP tools that become available when an authenticated local panel is
+  connected, including their host-version and live-verification boundaries.
+- Updated the MCP SDK and Node type dependencies and GitHub Actions artifact actions.
+
+### Fixed
+
+- `create_project` now rejects directory paths and verifies that Premiere switched to the exact
+  requested `.prproj` path before reporting success, preventing edits from continuing in a
+  previously open project after a failed creation attempt.
+- Claude Desktop bundle packaging now invokes npm through the active Node executable so the
+  release build works on Windows where `npm` is exposed as a command shim.
+
 ## [1.5.0] - 2026-07-30
 
 ### Added
