@@ -8,6 +8,7 @@ RUN npm ci
 
 COPY tsconfig.json ./
 COPY src/ ./src/
+COPY scripts/copy-adobe-uxp-coverage.mjs ./scripts/copy-adobe-uxp-coverage.mjs
 
 RUN npm run build
 
