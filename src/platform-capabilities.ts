@@ -1,3 +1,4 @@
+import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { Capability, CapabilityConfig } from "./security/capabilities.js";
@@ -8,8 +9,200 @@ import {
 
 export const SUPPORTED_HOST_PLATFORMS = ["darwin", "win32"] as const;
 const ALL_CAPABILITIES: Capability[] = ["inspect", "edit", "export", "filesystem", "unsafe-script"];
+const require = createRequire(import.meta.url);
+const adobeUxpCoverage: unknown = require("./resources/adobe-uxp-coverage.json");
 
 export type SupportedHostPlatform = (typeof SUPPORTED_HOST_PLATFORMS)[number];
+export type AdobeUxpCoverageAvailability = "current" | "planned";
+export type AdobeUxpCoverageImplementationStatus = "implemented" | "planned";
+export type AdobeUxpCoverageVerificationStatus =
+  | "automated_contract_verified"
+  | "committed_unverified"
+  | "not_started";
+export type AdobeUxpCoverageLiveHostVerificationStatus = "not_run" | "verified";
+
+export interface AdobeUxpCoverageEntry {
+  id: string;
+  adobeApi: string[];
+  documentationUrls: string[];
+  minimumPremiereVersion: string;
+  backend: "uxp";
+  uxpCommand: string | null;
+  mcpTools: string[];
+  availability: AdobeUxpCoverageAvailability;
+  implementationStatus: AdobeUxpCoverageImplementationStatus;
+  verificationStatus: AdobeUxpCoverageVerificationStatus;
+  liveHostVerificationStatus: AdobeUxpCoverageLiveHostVerificationStatus;
+  mutatesProject: boolean;
+  undoable: boolean;
+  idempotency: "operation_id" | "operation_id_when_supported" | "not_applicable";
+  verificationBoundary: string;
+}
+
+export interface AdobeUxpCoverageManifest {
+  schemaVersion: 1;
+  source: {
+    apiPackage: "@adobe/premierepro";
+    apiVersion: string;
+    changelogUrl: string;
+  };
+  entries: AdobeUxpCoverageEntry[];
+}
+
+export interface AdobeUxpCoverageReport extends AdobeUxpCoverageManifest {
+  summary: {
+    total: number;
+    current: number;
+    planned: number;
+    implemented: number;
+    committedUnverified: number;
+    automatedContractVerified: number;
+    liveHostVerified: number;
+  };
+}
+
+function asRecord(value: unknown, label: string): Record<string, unknown> {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    throw new Error(`${label} must be an object`);
+  }
+  return value as Record<string, unknown>;
+}
+
+function stringArray(value: unknown, label: string): string[] {
+  if (!Array.isArray(value) || value.length === 0 || value.some((item) => typeof item !== "string" || !item)) {
+    throw new Error(`${label} must be a non-empty string array`);
+  }
+  return value;
+}
+
+function stringValue(value: unknown, label: string): string {
+  if (typeof value !== "string" || !value) throw new Error(`${label} must be a non-empty string`);
+  return value;
+}
+
+function validateDocumentationUrl(value: string, label: string): void {
+  let url: URL;
+  try {
+    url = new URL(value);
+  } catch {
+    throw new Error(`${label} must be a valid URL`);
+  }
+  if (url.protocol !== "https:" || url.hostname !== "developer.adobe.com" || !url.pathname.startsWith("/premiere-pro/uxp/")) {
+    throw new Error(`${label} must point to the official Premiere Pro UXP documentation`);
+  }
+}
+
+function validateAdobeUxpCoverageManifest(value: unknown): AdobeUxpCoverageManifest {
+  const manifest = asRecord(value, "Adobe UXP coverage manifest");
+  if (manifest.schemaVersion !== 1) throw new Error("Adobe UXP coverage manifest schemaVersion must be 1");
+
+  const source = asRecord(manifest.source, "Adobe UXP coverage manifest source");
+  if (source.apiPackage !== "@adobe/premierepro") {
+    throw new Error("Adobe UXP coverage manifest must identify @adobe/premierepro as its source package");
+  }
+  const apiVersion = stringValue(source.apiVersion, "Adobe UXP coverage manifest source.apiVersion");
+  const changelogUrl = stringValue(source.changelogUrl, "Adobe UXP coverage manifest source.changelogUrl");
+  validateDocumentationUrl(changelogUrl, "Adobe UXP coverage manifest source.changelogUrl");
+
+  if (!Array.isArray(manifest.entries) || manifest.entries.length === 0) {
+    throw new Error("Adobe UXP coverage manifest entries must be a non-empty array");
+  }
+  const ids = new Set<string>();
+  const entries = manifest.entries.map((rawEntry, index): AdobeUxpCoverageEntry => {
+    const label = `Adobe UXP coverage manifest entry ${index}`;
+    const entry = asRecord(rawEntry, label);
+    const id = stringValue(entry.id, `${label}.id`);
+    if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(id) || ids.has(id)) {
+      throw new Error(`${label}.id must be a unique kebab-case identifier`);
+    }
+    ids.add(id);
+    const documentationUrls = stringArray(entry.documentationUrls, `${label}.documentationUrls`);
+    documentationUrls.forEach((url) => validateDocumentationUrl(url, `${label}.documentationUrls`));
+    const availability = entry.availability;
+    if (availability !== "current" && availability !== "planned") {
+      throw new Error(`${label}.availability must be current or planned`);
+    }
+    const implementationStatus = entry.implementationStatus;
+    if (implementationStatus !== "implemented" && implementationStatus !== "planned") {
+      throw new Error(`${label}.implementationStatus must be implemented or planned`);
+    }
+    const verificationStatus = entry.verificationStatus;
+    if (
+      verificationStatus !== "automated_contract_verified"
+      && verificationStatus !== "committed_unverified"
+      && verificationStatus !== "not_started"
+    ) {
+      throw new Error(`${label}.verificationStatus is not supported`);
+    }
+    const liveHostVerificationStatus = entry.liveHostVerificationStatus;
+    if (liveHostVerificationStatus !== "not_run" && liveHostVerificationStatus !== "verified") {
+      throw new Error(`${label}.liveHostVerificationStatus is not supported`);
+    }
+    const idempotency = entry.idempotency;
+    if (idempotency !== "operation_id" && idempotency !== "operation_id_when_supported" && idempotency !== "not_applicable") {
+      throw new Error(`${label}.idempotency is not supported`);
+    }
+    if (entry.backend !== "uxp") throw new Error(`${label}.backend must be uxp`);
+    if (entry.uxpCommand !== null && typeof entry.uxpCommand !== "string") {
+      throw new Error(`${label}.uxpCommand must be a string or null`);
+    }
+    if (typeof entry.mutatesProject !== "boolean" || typeof entry.undoable !== "boolean") {
+      throw new Error(`${label} mutation metadata must be boolean`);
+    }
+    return {
+      id,
+      adobeApi: stringArray(entry.adobeApi, `${label}.adobeApi`),
+      documentationUrls,
+      minimumPremiereVersion: stringValue(entry.minimumPremiereVersion, `${label}.minimumPremiereVersion`),
+      backend: "uxp",
+      uxpCommand: entry.uxpCommand,
+      mcpTools: stringArray(entry.mcpTools, `${label}.mcpTools`),
+      availability,
+      implementationStatus,
+      verificationStatus,
+      liveHostVerificationStatus,
+      mutatesProject: entry.mutatesProject,
+      undoable: entry.undoable,
+      idempotency,
+      verificationBoundary: stringValue(entry.verificationBoundary, `${label}.verificationBoundary`),
+    };
+  });
+
+  return {
+    schemaVersion: 1,
+    source: {
+      apiPackage: "@adobe/premierepro",
+      apiVersion,
+      changelogUrl,
+    },
+    entries,
+  };
+}
+
+export const ADOBE_UXP_COVERAGE_MANIFEST = validateAdobeUxpCoverageManifest(adobeUxpCoverage);
+
+export function buildAdobeUxpCoverageReport(): AdobeUxpCoverageReport {
+  const entries = ADOBE_UXP_COVERAGE_MANIFEST.entries.map((entry) => ({
+    ...entry,
+    adobeApi: [...entry.adobeApi],
+    documentationUrls: [...entry.documentationUrls],
+    mcpTools: [...entry.mcpTools],
+  }));
+  return {
+    schemaVersion: ADOBE_UXP_COVERAGE_MANIFEST.schemaVersion,
+    source: { ...ADOBE_UXP_COVERAGE_MANIFEST.source },
+    entries,
+    summary: {
+      total: entries.length,
+      current: entries.filter((entry) => entry.availability === "current").length,
+      planned: entries.filter((entry) => entry.availability === "planned").length,
+      implemented: entries.filter((entry) => entry.implementationStatus === "implemented").length,
+      committedUnverified: entries.filter((entry) => entry.verificationStatus === "committed_unverified").length,
+      automatedContractVerified: entries.filter((entry) => entry.verificationStatus === "automated_contract_verified").length,
+      liveHostVerified: entries.filter((entry) => entry.liveHostVerificationStatus === "verified").length,
+    },
+  };
+}
 
 export function platformName(platform: NodeJS.Platform): string {
   if (platform === "darwin") return "macOS";
@@ -65,6 +258,7 @@ export function buildPlatformCapabilityReport(
         platforms: ["macOS", "Windows"],
         premiereVersions: "25.6+",
         transport: "loopback WebSocket",
+        apiCoverage: buildAdobeUxpCoverageReport(),
         commands: [
           "capabilities.get",
           "state.get",

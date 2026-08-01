@@ -6,7 +6,7 @@
 
 **Give AI full control over Adobe Premiere Pro.**
 
-279 core tools across 31 modules, 3 resources, and 4 guided workflows. A connected UXP host adds 10 capability-gated tools.
+279 core tools across 31 modules, 3 resources, and 4 guided workflows. A connected UXP host adds 16 capability-gated tools.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Node.js](https://img.shields.io/badge/Node.js-20.19%2B-green.svg)](https://nodejs.org)
@@ -27,7 +27,7 @@ An [MCP (Model Context Protocol)](https://modelcontextprotocol.io) server that l
 "Add the B-roll clips to V2, apply a cross dissolve between each, color correct them to match the A-roll, and export a 1080p ProRes."
 ```
 
-The AI handles the entire workflow through 279 core tools spanning the supported ExtendScript, QE DOM, local media analysis, and safe edit-planning surfaces. A compatible, authenticated UXP panel adds 10 documented, capability-gated workflows without replacing the production CEP bridge.
+The AI handles the entire workflow through 279 core tools spanning the supported ExtendScript, QE DOM, local media analysis, and safe edit-planning surfaces. A compatible, authenticated UXP panel adds 16 documented, capability-gated workflows without replacing the production CEP bridge.
 
 ### What's new in 1.6.0
 
@@ -35,6 +35,12 @@ The AI handles the entire workflow through 279 core tools spanning the supported
 - **Retry-safe UXP mutations:** optional operation IDs prevent a client retry from repeating a completed command in the same panel session, while each command reports `verified` or `committed_unverified` evidence honestly.
 - **Safe project creation:** `create_project` rejects directory paths and verifies Premiere opened the requested `.prproj` before reporting success.
 - **Current distribution metadata:** the CEP/UXP panels, Codex and Claude plugins, landing page, and npm package now all identify v1.6.0.
+
+### Adobe UXP 26.3 coverage (unreleased)
+
+- **Six documented workflows:** compatible 26.3+ hosts can expose UXP track renaming, subclip creation, stable marker IDs, Source Monitor seeking, transcript presence checks, and AAF export.
+- **Capability first:** a tool is discoverable only with the authenticated local panel; the panel's live `capabilities.get` response—not package metadata—decides whether the current host supports it.
+- **Evidence boundary:** automated tests validate schemas, routing, capability declarations, transactions, and result envelopes. They do not verify a specific Premiere installation. See [Adobe UXP 26.3 coverage](docs/adobe-uxp-26.3-coverage.md) for the exact host gate and the stable-versus-beta policy.
 
 ### Added in 1.2.0
 
@@ -362,14 +368,17 @@ PREMIERE_UXP_TOKEN="replace-with-a-long-random-secret" premiere-pro-mcp
 
 Enter the same token in the UXP panel. The listener binds only to `127.0.0.1:7777`, authenticates the WebSocket upgrade, requires a versioned capability handshake, correlates concurrent requests, and fails pending work on timeout or disconnect. Set `PREMIERE_UXP_PORT` to use another loopback port.
 
-When enabled, MCP discovery includes `get_uxp_capabilities`, `get_uxp_state`, `inspect_project_uxp`, `save_project_uxp`, `create_sequence_with_preset_uxp`, `export_interchange_uxp`, `get_transcript_languages_uxp`, `detect_object_masks_uxp`, `configure_encoder_uxp`, and `export_frame_uxp`. Commands are advertised only while the authenticated local UXP bridge is connected; the host capability handshake remains the authority for support in the running Premiere build. A failed UXP command is never silently retried through CEP because the first operation may have partially succeeded.
+When enabled, MCP discovery includes `get_uxp_capabilities`, `get_uxp_state`, `inspect_project_uxp`, `save_project_uxp`, `create_sequence_with_preset_uxp`, `export_interchange_uxp`, `get_transcript_languages_uxp`, `detect_object_masks_uxp`, `configure_encoder_uxp`, `export_frame_uxp`, `rename_track_uxp`, `create_subclip_uxp`, `list_markers_uxp`, `set_source_monitor_position_uxp`, `has_transcript_uxp`, and `export_aaf_uxp`. Commands are advertised only while the authenticated local UXP bridge is connected; the host capability handshake remains the authority for support in the running Premiere build. A failed UXP command is never silently retried through CEP because the first operation may have partially succeeded.
 
 Premiere 26.2-26.3 hosts also expose documented UXP workflows for revisioned project
 inspection, verified project saves, preset-based sequence creation, OTIO/FCP XML
-interchange, transcript-language discovery, Object Mask detection, and Adobe Media
-Encoder control. Mutations accept optional idempotency keys and return explicit
-verification outcomes. See [the UXP capability foundation](docs/uxp-capability-foundation.md)
-for the command matrix and live-host validation boundary.
+interchange, transcript-language discovery, Object Mask detection, Adobe Media
+Encoder control, track renaming, subclip creation, stable marker inspection,
+Source Monitor positioning, and clip transcript detection. Mutations accept optional
+idempotency keys and return explicit verification outcomes. See [the Adobe UXP 26.3
+coverage matrix](docs/adobe-uxp-26.3-coverage.md) and [the UXP capability
+foundation](docs/uxp-capability-foundation.md) for the command matrix and live-host
+validation boundary.
 
 ---
 
@@ -413,7 +422,7 @@ The file-based IPC bridge is simple, reliable, and works across macOS and Window
 
 ---
 
-## Tools (279 core total; 277 under the default profile; 287 with a connected UXP bridge)
+## Tools (279 core total; 277 under the default profile; 293 with a connected UXP bridge)
 
 ### Discovery & Inspection (10 + 10)
 
