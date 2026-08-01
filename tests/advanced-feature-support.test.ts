@@ -58,10 +58,15 @@ describe("advanced collaboration and AI feature support", () => {
     });
   });
 
-  it("documents artifact detection boundaries instead of inferring provenance", () => {
+  it("documents artifact detection boundaries without overstating provenance", () => {
     const features = buildAdvancedFeatureSupport().features;
     expect(features.generativeExtend.detection).toContain("No documented flag");
-    expect(features.objectMask.detection).toContain("No documented stable");
+    expect(features.objectMask).toMatchObject({
+      status: "partial",
+      callableThroughCurrentMcpTransport: true,
+    });
+    expect(features.objectMask.detection).toContain("ObjectMaskUtils.hasObjectMask");
+    expect(features.objectMask.unsupportedOperations).toContain("create an Object Mask");
     expect(features.captionTranslation.detection).toContain("No documented metadata");
     expect(features.remix.detection).toContain("not proof");
   });
