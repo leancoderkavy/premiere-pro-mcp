@@ -6,6 +6,25 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+
+- Added six capability-gated Premiere 26.3+ UXP tools: `rename_track_uxp`,
+  `create_subclip_uxp`, `list_markers_uxp`, `set_source_monitor_position_uxp`,
+  `has_transcript_uxp`, and `export_aaf_uxp`.
+- Added Adobe 26.3 coverage documentation and contract tests for the public MCP
+  schemas, protocol commands, and live-host verification gate.
+
+### Changed
+
+- Documented the stable 26.3 baseline separately from Adobe's 26.5 beta type
+  declarations. Beta-only APIs are not advertised as supported.
+
+### Validation
+
+- Automated contract tests validate catalog exposure, argument translation, host
+  capability probes, and result envelopes. A real Premiere 26.3+ host still must
+  validate each mutation and export before it can be called live-host verified.
+
 ## [1.6.0] - 2026-07-31
 
 ### Added
