@@ -1,4 +1,5 @@
 import { ArrowUpRight } from "lucide-react"
+import { product } from "@/lib/product"
 
 export const faqItems = [
   {
@@ -9,22 +10,22 @@ export const faqItems = [
   {
     question: "Which Premiere Pro versions and operating systems are supported?",
     answer:
-      "Current releases target Adobe Premiere Pro 2020 through 2026 on macOS and Windows, including Apple Silicon and Intel Macs.",
+      `The signed CEP connector is the default route for Adobe Premiere Pro ${product.premiereCompatibility} on macOS and Windows, including Apple Silicon and Intel Macs. The UXP bridge adds capability-gated workflows on compatible Premiere ${product.uxpMinimumVersion}+ hosts; it is not the default installer.`,
   },
   {
     question: "Does Premiere Pro MCP upload my footage?",
     answer:
-      "The recommended setup is local-first. Premiere Pro, the CEP bridge, and the MCP server run on your machine, and the bridge exchanges commands and structured results rather than uploading your project media.",
+      "The recommended setup is local-first. Premiere Pro, the connector, and the MCP server run on your machine, and the bridge exchanges commands and structured results rather than automatically uploading project media. Your AI assistant’s separate privacy settings still apply.",
   },
   {
     question: "Which AI clients can connect to it?",
     answer:
-      "It works with MCP-compatible clients such as Claude Desktop, Cursor, Windsurf, and other clients that can launch a local stdio MCP server.",
+      "Claude Desktop has a released self-contained bundle and is the recommended starting point. Cursor, VS Code / Copilot, Windsurf, and other MCP-compatible clients can use the local server route. A native one-click installer for every client is not currently shipped.",
   },
   {
     question: "Can I use the MCP server remotely?",
     answer:
-      "A remote HTTP transport is available, but it requires authentication and a working connection back to the local Premiere Pro bridge. For most editors, the local stdio setup is simpler and safer.",
+      "A remote HTTP transport is available, but it requires authentication and a working connection back to the local Premiere Pro bridge. For most editors, the local setup is simpler and safer.",
   },
 ]
 

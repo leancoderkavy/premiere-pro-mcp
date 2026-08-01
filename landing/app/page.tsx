@@ -6,6 +6,7 @@ import { Footer } from "@/components/sections/footer"
 import { FaqSection, faqItems } from "@/components/sections/faq"
 import { DemoVideoSection } from "@/components/sections/demo-video"
 import { FinalCtaSection } from "@/components/sections/final-cta"
+import { product } from "@/lib/product"
 
 const structuredData = {
   "@context": "https://schema.org",
@@ -41,9 +42,9 @@ const structuredData = {
       name: "Premiere Pro MCP",
       applicationCategory: "DeveloperApplication",
       operatingSystem: "macOS, Windows",
-      softwareVersion: "1.8.0",
+      softwareVersion: product.version,
       description:
-        "Open-source Model Context Protocol server with 279 tools for AI-assisted editing and automation in Adobe Premiere Pro.",
+        `Open-source Model Context Protocol server with ${product.coreToolCount} tools for AI-assisted editing and automation in Adobe Premiere Pro.`,
       url: "https://premiere-pro-mcp.com/",
       downloadUrl: "https://www.npmjs.com/package/premiere-pro-mcp",
       codeRepository: "https://github.com/leancoderkavy/premiere-pro-mcp",
@@ -52,7 +53,7 @@ const structuredData = {
         "https://www.npmjs.com/package/premiere-pro-mcp",
       ],
       releaseNotes: "https://github.com/leancoderkavy/premiere-pro-mcp/releases",
-      softwareRequirements: "Node.js 20.19 or newer and Adobe Premiere Pro 2020–2026",
+      softwareRequirements: `Node.js ${product.nodeVersion} or newer and Adobe Premiere Pro ${product.premiereCompatibility}`,
       author: { "@id": "https://premiere-pro-mcp.com/#organization" },
       publisher: { "@id": "https://premiere-pro-mcp.com/#organization" },
       image: "https://premiere-pro-mcp.com/og-image.png",
@@ -95,7 +96,7 @@ export default function Home() {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }}
       />
-      <main className="min-h-screen overflow-x-hidden bg-black text-white">
+      <main id="main-content" className="min-h-screen overflow-x-hidden bg-black text-white">
         <HeroSection />
         <DemoVideoSection />
         <FeaturesSection />

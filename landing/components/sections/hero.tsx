@@ -2,6 +2,7 @@ import { Github, Monitor, Package, ShieldCheck, Sparkles } from "lucide-react"
 import { EditingTimeline } from "@/components/sections/editing-timeline"
 import { HeroDepthLoader } from "@/components/sections/hero-depth-loader"
 import { MobileNav } from "@/components/sections/mobile-nav"
+import { product } from "@/lib/product"
 
 const navItems = [
   { label: "Demo", href: "#demo" },
@@ -14,7 +15,7 @@ const navItems = [
 ]
 
 const proofItems = [
-  { icon: Sparkles, title: "v1.8.0", detail: "Current release" },
+  { icon: Sparkles, title: `v${product.version}`, detail: "Current release" },
   { icon: Monitor, title: "macOS + Windows", detail: "Apple Silicon + Intel" },
   { icon: ShieldCheck, title: "Local-first", detail: "Your media stays local" },
   { icon: Github, title: "MIT licensed", detail: "Open source" },
@@ -76,7 +77,7 @@ export function HeroSection() {
                 href="#install"
                 className="inline-flex h-12 items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-[#8b7cff] to-[#ef76b9] px-6 text-sm font-semibold text-white shadow-[0_12px_40px_rgba(139,124,255,0.22)] transition-transform hover:-translate-y-0.5"
               >
-                <Package className="h-4 w-4" /> Start local setup
+                <Package className="h-4 w-4" /> Choose your assistant
               </a>
               <a
                 href="https://github.com/leancoderkavy/premiere-pro-mcp"
@@ -88,7 +89,7 @@ export function HeroSection() {
               </a>
             </div>
             <p className="hero-enter hero-enter-3 mt-4 text-sm text-zinc-500">
-              Free and MIT licensed · runs locally · three setup steps
+              Free and MIT licensed · runs locally · guided first check
             </p>
           </div>
 

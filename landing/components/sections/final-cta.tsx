@@ -1,4 +1,5 @@
 import { ArrowRight, Github, ShieldCheck } from "lucide-react"
+import { product } from "@/lib/product"
 
 export function FinalCtaSection() {
   return (
@@ -10,17 +11,17 @@ export function FinalCtaSection() {
               Free · open source · local-first
             </p>
             <h2 className="mt-4 text-balance text-4xl font-bold tracking-[-0.04em] text-white md:text-6xl">
-              Automate your first Premiere edit locally.
+              Start with a safe Premiere check.
             </h2>
             <p className="mt-5 max-w-2xl text-lg leading-8 text-zinc-400">
-              Connect your MCP client, run a verified edit, and keep every project file on your machine.
+              Connect your assistant, safely verify the Premiere connection without changes, then preview your first edit.
             </p>
           </div>
           <a
             href="#install"
             className="inline-flex h-12 items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-[#8b7cff] to-[#ef76b9] px-6 text-sm font-semibold text-white shadow-[0_12px_40px_rgba(139,124,255,0.2)] transition-transform hover:-translate-y-0.5"
           >
-            Start local setup
+            Choose your assistant
             <ArrowRight className="h-4 w-4" />
           </a>
         </div>
@@ -38,7 +39,7 @@ export function FinalCtaSection() {
             <Github className="h-4 w-4" />
             MIT licensed on GitHub
           </a>
-          <span>Premiere Pro 2020–2026 · macOS and Windows</span>
+          <span>Premiere Pro {product.premiereCompatibility} · macOS and Windows</span>
         </div>
       </div>
     </section>
