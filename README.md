@@ -58,7 +58,24 @@ The AI handles the entire workflow through 280 core tools spanning the supported
 
 ## Quick Start
 
-### Before you begin
+### Easiest supported path: Claude Desktop
+
+1. Download the current [Claude Desktop bundle (`.mcpb`)](https://github.com/leancoderkavy/premiere-pro-mcp/releases/download/v1.7.0/premiere-pro-mcp-1.7.0.mcpb).
+2. In Claude Desktop, open **Settings > Extensions > Advanced settings > Install Extension**, select the downloaded bundle, and restart Claude Desktop.
+3. Download the separate [signed Premiere connector (`.zxp`)](https://github.com/leancoderkavy/premiere-pro-mcp/releases/download/v1.7.0/MCPBridgeCEP.zxp). Open it with your trusted ZXP installer. If your computer has no ZXP installer, use the npm connector installer in **Advanced setup** below.
+4. Restart Premiere, open a project, then open **Window > Extensions > MCP Bridge**.
+5. In Claude, enter: `Safely check my Premiere connection with verify_premiere_connection. Make no changes.`
+
+The Claude bundle contains the local MCP server, so this route does not require Node.js. The Premiere connector is a separate required install. The first prompt is read-only and reports whether the server is installed, configured, connected, and live-verified.
+
+### Other AI assistants
+
+Cursor, VS Code/Copilot, Windsurf, and other MCP clients do not currently have a project-provided one-click installer. Use their MCP settings with the advanced npm route below. Keep the assistant, server, connector, and Premiere on the same computer.
+
+<details>
+<summary><strong>Advanced setup: npm or source</strong></summary>
+
+#### Before you begin
 
 - Node.js **20.19 or newer** on Windows or macOS.
 - Adobe Premiere Pro **2020–2026**. Keep Premiere, the CEP bridge, and your MCP client on the same computer for the recommended local setup.
@@ -66,9 +83,9 @@ The AI handles the entire workflow through 280 core tools spanning the supported
   (`brew install ffmpeg` on macOS or `winget install Gyan.FFmpeg` on Windows).
   The production Docker image already includes it.
 
-### 1. Install
+#### 1. Install
 
-**Option A — npm (recommended):**
+**Option A — npm:**
 
 ```bash
 npm install -g premiere-pro-mcp
@@ -83,7 +100,7 @@ npm install
 npm run build
 ```
 
-### 2. Install the CEP plugin
+#### 2. Install the CEP plugin
 
 **If installed via npm:**
 
@@ -98,6 +115,16 @@ npm run install-cep
 ```
 
 This installs the plugin into Premiere Pro's per-user extensions folder and enables debug mode.
+
+#### 3. Check the setup
+
+```bash
+premiere-pro-mcp --doctor
+```
+
+Then ask your MCP client to run `verify_premiere_connection`. The check is read-only.
+
+</details>
 
 ---
 
@@ -290,8 +317,8 @@ The Claude Code package lives in
 [`claude-plugins/premiere-pro`](claude-plugins/premiere-pro), with its marketplace
 at [`.claude-plugin/marketplace.json`](.claude-plugin/marketplace.json).
 
-Claude Desktop uses the self-contained MCP Bundle format, formerly called Desktop
-Extensions. Build both the current `.mcpb` artifact and a legacy `.dxt` copy with:
+Claude Desktop uses the self-contained MCP Bundle (`.mcpb`) format. Build and
+validate the current bundle with:
 
 ```bash
 npm run build:claude

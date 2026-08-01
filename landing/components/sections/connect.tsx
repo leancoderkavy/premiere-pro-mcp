@@ -187,7 +187,7 @@ export function ConnectSection() {
               <li className="border-t border-purple-400/35 pt-5">
                 <span className="font-mono text-sm text-purple-300">01</span>
                 <h4 className="mt-4 text-base font-semibold text-zinc-100">Install the Premiere connector</h4>
-                <p className="mt-2 text-sm leading-6 text-zinc-400">This separate connector is what lets your assistant talk to Premiere. The current signed connector uses CEP.</p>
+                <p className="mt-2 text-sm leading-6 text-zinc-400">This separate CEP connector is what lets your assistant talk to Premiere. Open the download with a trusted ZXP installer; if your computer has none, use the npm installer under Advanced setup.</p>
                 <a
                   href={product.downloads.signedCepConnector}
                   target="_blank"
@@ -195,7 +195,7 @@ export function ConnectSection() {
                   onClick={() => trackOnboardingEvent("onboarding_download_started", { route: "cep_connector" })}
                   className="mt-4 inline-flex min-h-11 items-center gap-2 text-sm font-semibold text-purple-200 transition-colors hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-300 focus-visible:ring-offset-2 focus-visible:ring-offset-black"
                 >
-                  <Download className="h-4 w-4" aria-hidden="true" /> Download signed connector <ArrowUpRight className="h-4 w-4" aria-hidden="true" />
+                  <Download className="h-4 w-4" aria-hidden="true" /> Download connector package <ArrowUpRight className="h-4 w-4" aria-hidden="true" />
                 </a>
               </li>
               <li className="border-t border-zinc-800 pt-5">
