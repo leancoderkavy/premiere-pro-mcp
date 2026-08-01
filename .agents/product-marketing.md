@@ -22,7 +22,7 @@ Use outcome-led, evidence-bounded language:
 - Keep the recommended Premiere, MCP server, CEP bridge, and media on the same computer.
 - Verify a real host connection with `get_capabilities` and `ping`; packaged compatibility is not proof that every operation works on every Premiere release.
 
-Do not lead with the tool count alone. The 269-tool surface is supporting proof after the visitor understands the first useful outcome.
+Do not lead with the tool count alone. The 279-tool surface is supporting proof after the visitor understands the first useful outcome.
 
 ## Proof and constraints
 
