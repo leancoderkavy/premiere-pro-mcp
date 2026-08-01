@@ -55,7 +55,12 @@ export function requireCapability(
 
 export const UNSAFE_TOOL_NAMES = new Set(["execute_extendscript", "send_raw_script", "evaluate_expression"]);
 
-const INSPECT_TOOL_NAMES = new Set(["ping", "get_capabilities", "preview_edit_plan"]);
+const INSPECT_TOOL_NAMES = new Set([
+  "ping",
+  "get_capabilities",
+  "preview_edit_plan",
+  "preview_transcript_edit_uxp",
+]);
 // detect_silence reads a media file from disk and shells out to ffmpeg. It
 // changes nothing in Premiere, so classifying it as "edit" would overstate what
 // it does; filesystem is the authority it actually needs.

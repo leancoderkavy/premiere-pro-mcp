@@ -33,6 +33,7 @@ describe("capability profiles", () => {
     expect(capabilityForTool("verify_delivery_file")).toBe("filesystem");
     expect(capabilityForTool("import_media")).toBe("filesystem");
     expect(capabilityForTool("get_project_info")).toBe("inspect");
+    expect(capabilityForTool("preview_transcript_edit_uxp")).toBe("inspect");
     expect(capabilityForTool("ping")).toBe("inspect");
     expect(capabilityForTool("trim_clip")).toBe("edit");
   });
