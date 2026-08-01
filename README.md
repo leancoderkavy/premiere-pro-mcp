@@ -1,6 +1,6 @@
 <div align="center">
 
-# Premiere Pro MCP Server
+# Premiere Pro MCP
 
 [![MCP Toplist](https://mcptoplist.com/badge/glama%2Fleancoderkavy%2Fpremiere-pro-mcp.svg)](https://mcptoplist.com/server/glama%2Fleancoderkavy%2Fpremiere-pro-mcp)
 
