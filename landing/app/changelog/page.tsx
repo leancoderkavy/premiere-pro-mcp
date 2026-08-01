@@ -4,6 +4,27 @@ import { ArrowLeft, ArrowUpRight, Github, Package } from "lucide-react"
 
 const releases = [
   {
+    version: "1.7.0",
+    date: "2026-08-01",
+    label: "Adobe Premiere Pro 26.3 UXP API coverage",
+    groups: [
+      {
+        title: "Added",
+        items: [
+          "Six capability-gated UXP tools for track rename, subclip creation, stable marker IDs, Source Monitor positioning, transcript detection, and AAF export.",
+          "Adobe 26.3 declarations, lint rules, coverage metadata, and contract tests for the supported API surface.",
+        ],
+      },
+      {
+        title: "Changed",
+        items: [
+          "Expanded the connected UXP surface from 10 to 16 tools while preserving explicit host capability and verification boundaries.",
+          "Separated the stable Adobe 26.3 baseline from beta-only 26.5 declarations.",
+        ],
+      },
+    ],
+  },
+  {
     version: "1.6.0",
     date: "2026-07-31",
     label: "Capability-aware UXP workflows and verified project creation",
@@ -341,7 +362,7 @@ export default function ChangelogPage() {
             </div>
             <div className="border-l border-purple-400/40 pl-5">
               <p className="text-xs uppercase tracking-[0.18em] text-zinc-600">Latest release</p>
-              <p className="mt-2 font-mono text-2xl text-white">v1.6.0</p>
+              <p className="mt-2 font-mono text-2xl text-white">v1.7.0</p>
               <p className="mt-1 text-sm text-zinc-500">July 31, 2026</p>
             </div>
           </div>

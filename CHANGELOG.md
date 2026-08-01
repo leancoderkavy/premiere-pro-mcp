@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [1.7.0] - 2026-08-01
+
 ### Added
 
 - Added six capability-gated Premiere 26.3+ UXP tools: `rename_track_uxp`,
