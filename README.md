@@ -29,18 +29,12 @@ An [MCP (Model Context Protocol)](https://modelcontextprotocol.io) server that l
 
 The AI handles the entire workflow through 279 core tools spanning the supported ExtendScript, QE DOM, local media analysis, and safe edit-planning surfaces. A compatible, authenticated UXP panel adds 16 documented, capability-gated workflows without replacing the production CEP bridge.
 
-### What's new in 1.6.0
-
-- **Capability-aware UXP foundation:** compatible Premiere 25.6-26.3 hosts can expose revisioned project inspection, verified saves, preset sequence creation, OTIO/FCP XML interchange, transcript-language discovery, Object Mask detection, and Adobe Media Encoder controls.
-- **Retry-safe UXP mutations:** optional operation IDs prevent a client retry from repeating a completed command in the same panel session, while each command reports `verified` or `committed_unverified` evidence honestly.
-- **Safe project creation:** `create_project` rejects directory paths and verifies Premiere opened the requested `.prproj` before reporting success.
-- **Current distribution metadata:** the CEP/UXP panels, Codex and Claude plugins, landing page, and npm package now all identify v1.6.0.
-
-### Adobe UXP 26.3 coverage (unreleased)
+### What's new in 1.7.0
 
 - **Six documented workflows:** compatible 26.3+ hosts can expose UXP track renaming, subclip creation, stable marker IDs, Source Monitor seeking, transcript presence checks, and AAF export.
 - **Capability first:** a tool is discoverable only with the authenticated local panel; the panel's live `capabilities.get` response—not package metadata—decides whether the current host supports it.
 - **Evidence boundary:** automated tests validate schemas, routing, capability declarations, transactions, and result envelopes. They do not verify a specific Premiere installation. See [Adobe UXP 26.3 coverage](docs/adobe-uxp-26.3-coverage.md) for the exact host gate and the stable-versus-beta policy.
+- **Adobe-aligned validation:** the official Premiere 26.3 declarations and ESLint rules now enforce supported signatures and lock/transaction boundaries in CI.
 
 ### Added in 1.2.0
 
@@ -254,11 +248,11 @@ From a clone of this repository:
 ```bash
 codex plugin marketplace add .
 codex plugin add premiere-pro@premiere-pro-mcp
-npx -y premiere-pro-mcp@1.6.0 --install-cep
+npx -y premiere-pro-mcp@1.7.0 --install-cep
 ```
 
 Restart Premiere Pro and start a new Codex session after installation. The plugin
-launches `premiere-pro-mcp@1.6.0` through `npx`; the separate CEP installation is
+launches `premiere-pro-mcp@1.7.0` through `npx`; the separate CEP installation is
 required because the MCP server communicates with the running Premiere host through
 the local bridge.
 
@@ -278,7 +272,7 @@ For Claude Code, add this repository as a marketplace and install the plugin:
 Then install the Premiere bridge and start a new Claude Code session:
 
 ```bash
-npx -y premiere-pro-mcp@1.6.0 --install-cep
+npx -y premiere-pro-mcp@1.7.0 --install-cep
 ```
 
 The Claude Code package lives in
