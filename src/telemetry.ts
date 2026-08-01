@@ -12,6 +12,33 @@ export interface Telemetry {
   shutdown(): Promise<void>;
 }
 
+/**
+ * Activation events have a deliberately smaller contract than operational tool
+ * telemetry. Keep this list bounded: these events must remain useful without
+ * ever receiving prompts, paths, project/media names, arguments, results,
+ * tokens, IP addresses, or person profiles.
+ */
+export type ActivationEventName =
+  | "premiere_mcp_activation_check_started"
+  | "premiere_mcp_activation_check_finished";
+
+export type ActivationOutcome = "ready" | "needs_attention";
+
+export function captureActivationEvent(
+  telemetry: Telemetry,
+  event: ActivationEventName,
+  properties: {
+    backend: "cep" | "uxp";
+    outcome?: ActivationOutcome;
+  },
+): void {
+  telemetry.capture(event, {
+    activation_stage: "first_run",
+    backend: properties.backend,
+    ...(properties.outcome ? { outcome: properties.outcome } : {}),
+  });
+}
+
 class PostHogTelemetry implements Telemetry {
   readonly enabled = true;
 

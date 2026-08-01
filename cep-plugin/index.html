@@ -19,17 +19,33 @@
 
     <section class="status-panel" role="status" aria-live="polite" aria-atomic="true">
       <div class="status-indicator" aria-hidden="true">
-        <div class="status-ring"><div class="status-dot connected" id="statusDot"></div></div>
+        <div class="status-ring"><div class="status-dot waiting" id="statusDot"></div></div>
       </div>
       <div class="status-copy">
         <span class="section-label">Bridge status</span>
-        <strong id="statusText">Connected</strong>
-        <span id="statusDetail">Premiere Pro link is active</span>
+        <strong id="statusText">Starting connector…</strong>
+        <span id="statusDetail">Checking Premiere Pro</span>
       </div>
       <div class="command-stat">
         <strong id="cmdCount">0</strong>
         <span>commands</span>
       </div>
+    </section>
+
+    <section class="connection-center" aria-labelledby="connectionCenterTitle">
+      <div class="section-heading">
+        <div>
+          <span class="section-label">Connection Center</span>
+          <h2 id="connectionCenterTitle">Ready-to-edit check</h2>
+        </div>
+        <button class="save-link" type="button" onclick="refreshConnectionCenter()" aria-controls="connectionChecks">Refresh</button>
+      </div>
+      <p class="connection-intro">This panel only checks Premiere. In your AI assistant, run <strong>Verify Premiere connection</strong> for the complete safe check.</p>
+      <ul class="connection-checks" id="connectionChecks">
+        <li id="checkConnector" data-state="waiting"><span class="check-dot" aria-hidden="true"></span><span><strong>Connector</strong><small>Starting…</small></span></li>
+        <li id="checkProject" data-state="waiting"><span class="check-dot" aria-hidden="true"></span><span><strong>Project</strong><small>Checking…</small></span></li>
+        <li id="checkSequence" data-state="waiting"><span class="check-dot" aria-hidden="true"></span><span><strong>Active sequence</strong><small>Checking…</small></span></li>
+      </ul>
     </section>
 
     <section class="config-section">

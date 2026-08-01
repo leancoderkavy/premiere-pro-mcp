@@ -246,6 +246,8 @@ function collectTools(
   bridgeOptions: BridgeOptions,
   capabilities: ReturnType<typeof resolveCapabilities>,
   uxpBridge?: UxpWebSocketBridge,
+  telemetry?: Telemetry,
+  cacheable = false,
 ): Record<string, ToolDef> {
   const cacheKey = JSON.stringify({
     tempDir: bridgeOptions.tempDir ?? process.env.PREMIERE_TEMP_DIR ?? null,
@@ -253,7 +255,10 @@ function collectTools(
       bridgeOptions.timeoutMs ?? process.env.PREMIERE_TIMEOUT_MS ?? null,
     capabilities: [...capabilities.capabilities].sort(),
   });
-  const cached = uxpBridge ? undefined : toolCatalogCache.get(cacheKey);
+  // Health tools close over the telemetry sink and UXP adapter. The default
+  // sink is a singleton and may be cached; a caller-supplied sink or UXP bridge
+  // must remain instance-specific.
+  const cached = !uxpBridge && cacheable ? toolCatalogCache.get(cacheKey) : undefined;
   if (cached) return cached;
 
   const tools: Record<string, ToolDef> = {
@@ -291,9 +296,12 @@ function collectTools(
   };
   Object.assign(
     tools,
-    getHealthTools(bridgeOptions, capabilities, () => tools),
+    getHealthTools(bridgeOptions, capabilities, () => tools, {
+      telemetry,
+      uxpBridge,
+    }),
   );
-  if (!uxpBridge) toolCatalogCache.set(cacheKey, tools);
+  if (!uxpBridge && cacheable) toolCatalogCache.set(cacheKey, tools);
   return tools;
 }
 
@@ -319,6 +327,8 @@ export function createServer(
     bridgeOptions,
     capabilities,
     serverOptions.uxpBridge,
+    telemetry,
+    !serverOptions.telemetry,
   );
 
   // Register each tool with the MCP server

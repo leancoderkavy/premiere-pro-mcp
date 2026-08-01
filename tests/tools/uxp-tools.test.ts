@@ -113,8 +113,9 @@ describe("UXP MCP tools", () => {
         ]),
       );
       // The default profile excludes two unsafe-script tools. The native
-      // transcript workflow adds three read-only UXP tools to the catalog.
-      expect(tools.tools).toHaveLength(296);
+      // transcript workflow and documented Premiere 26.3 tools add nineteen
+      // UXP tools; connection verification adds one default-profile core tool.
+      expect(tools.tools).toHaveLength(297);
     } finally {
       await client.close();
       await server.close();
