@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <UseWindowsForms>true</UseWindowsForms>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <AssemblyName>PremiereConnectorInstaller</AssemblyName>
+    <RootNamespace>PremiereConnectorInstaller</RootNamespace>
+    <PublishSingleFile>true</PublishSingleFile>
+    <SelfContained>true</SelfContained>
+    <InvariantGlobalization>true</InvariantGlobalization>
+  </PropertyGroup>
+
+  <ItemGroup Condition="'$(ConnectorPackage)' != ''">
+    <EmbeddedResource Include="$(ConnectorPackage)" LogicalName="MCPBridgeCEP.zxp" />
+  </ItemGroup>
+
+  <Target Name="RequireConnectorPackage" BeforeTargets="BeforeBuild">
+    <Error Condition="'$(ConnectorPackage)' == ''" Text="ConnectorPackage must point to a verified MCPBridgeCEP.zxp." />
+    <Error Condition="!Exists('$(ConnectorPackage)')" Text="ConnectorPackage does not exist: $(ConnectorPackage)" />
+  </Target>
+</Project>

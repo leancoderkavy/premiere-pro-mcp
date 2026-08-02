@@ -1,6 +1,6 @@
 # Premiere Pro MCP UXP bridge
 
-Production-oriented UXP transport for Premiere Pro 25.6+. Set `PREMIERE_UXP_TOKEN` to a secret of at least 16 characters before starting the MCP server. Side-load `manifest.json` with UXP Developer Tool, open **Window → UXP Plugins → MCP Bridge**, enter the same secret in **Bridge token**, then connect to the MCP-side WebSocket endpoint (default `ws://127.0.0.1:7777/uxp`).
+Production-oriented UXP transport for Premiere Pro 25.6+. Set `PREMIERE_UXP_TOKEN` to a secret of at least 16 characters before starting the MCP server. Side-load `manifest.json` with UXP Developer Tool during development, open **Window → UXP Plugins → MCP Bridge**, enter the same secret in **Bridge token**, then connect to the MCP-side WebSocket endpoint (default `ws://127.0.0.1:7777/uxp`). For end-user direct distribution, use the `.ccx` workflow in [DISTRIBUTION.md](./DISTRIBUTION.md) instead of asking users to load a development folder.
 
 The bridge sends a versioned `hello`, subscribes to Premiere's documented global project and sequence events, emits `premiere.state.changed` notifications, and accepts only commands that its runtime capability probe declares supported. A five-second deduplicated poll remains as a fallback for state such as playhead movement that has no matching documented event.
 

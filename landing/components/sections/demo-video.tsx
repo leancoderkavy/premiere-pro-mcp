@@ -1,4 +1,5 @@
 import { Clapperboard, Film, WandSparkles } from "lucide-react"
+import { product } from "@/lib/product"
 
 const outcomes = [
   { icon: Film, label: "Timeline", detail: "B-roll inserted on V2" },
@@ -38,7 +39,7 @@ export function DemoVideoSection() {
             Your browser does not support embedded video. The demo shows an AI request becoming a structured Premiere Pro edit.
           </video>
           <span className="pointer-events-none absolute right-[3%] top-[4%] rounded bg-[#09090d] px-2 py-1 font-mono text-[9px] text-zinc-400 sm:text-[11px]">
-            LOCAL BRIDGE · 279 TOOLS
+            LOCAL BRIDGE · {product.coreToolCount} TOOLS
           </span>
           <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-purple-300/60 to-transparent" aria-hidden="true" />
         </div>

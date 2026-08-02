@@ -37,4 +37,33 @@ describe("CLI flags", () => {
     const pkg = JSON.parse(readFileSync(join(process.cwd(), "package.json"), "utf-8"));
     expect(version).toBe(pkg.version);
   });
+
+  it("--doctor --json emits a privacy-safe machine-readable readiness report", () => {
+    const output = execFileSync(process.execPath, [BIN, "--doctor", "--json"], {
+      encoding: "utf-8",
+      env: {
+        ...process.env,
+        PREMIERE_UXP_TOKEN: "cli-test-token-that-must-not-appear",
+        POSTHOG_API_KEY: "cli-test-key-that-must-not-appear",
+      },
+    });
+    const report = JSON.parse(output);
+
+    expect(report.schemaVersion).toBe("premiere-pro-mcp.doctor.v1");
+    expect(report.components).toEqual(expect.arrayContaining([
+      expect.objectContaining({ boundary: "installed" }),
+      expect.objectContaining({ boundary: "live_verified", state: "not_checked" }),
+    ]));
+    expect(output).not.toContain("cli-test-token-that-must-not-appear");
+    expect(output).not.toContain("cli-test-key-that-must-not-appear");
+  });
+
+  it("--support-bundle emits a status snapshot rather than logs or configuration", () => {
+    const output = execFileSync(process.execPath, [BIN, "--support-bundle"], { encoding: "utf-8" });
+    const bundle = JSON.parse(output);
+
+    expect(bundle.schemaVersion).toBe("premiere-pro-mcp.support-bundle.v1");
+    expect(bundle.doctor.schemaVersion).toBe("premiere-pro-mcp.doctor.v1");
+    expect(JSON.stringify(bundle)).not.toMatch(/"(?:projectName|mediaName|outputDirectory|arguments|results)"\s*:/);
+  });
 });

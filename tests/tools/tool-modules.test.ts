@@ -48,6 +48,7 @@ import { getPlaybackTools } from "../../src/tools/playback.js";
 import { getProjectManagerTools } from "../../src/tools/project-manager.js";
 import { getRecoveryTools } from "../../src/tools/recovery.js";
 import { getAvSettingsTools } from "../../src/tools/av-settings.js";
+import type { Telemetry, TelemetryProperties } from "../../src/telemetry.js";
 
 interface ToolDef {
   description: string;
@@ -179,7 +180,7 @@ describe("Total Tool Count", () => {
     for (const mod of ALL_MODULES) {
       total += Object.keys(mod.getter(bridgeOptions)).length;
     }
-    expect(total).toBe(277);
+    expect(total).toBe(278);
   });
 
   it("there are 30 modules", () => {
@@ -214,6 +215,53 @@ describe("Tool Handler Behavior", () => {
       expect(script).toContain("app.project");
       expect(script).toContain("__result");
       expect(script).toContain("connected: true");
+    });
+  });
+
+  describe("health.verify_premiere_connection", () => {
+    it("uses a read-only boolean check and emits bounded activation events", async () => {
+      const events: Array<{ event: string; properties?: TelemetryProperties }> = [];
+      const telemetry: Telemetry = {
+        enabled: true,
+        capture: (event, properties) => events.push({ event, properties }),
+        shutdown: async () => {},
+      };
+      mockedSendCommand.mockResolvedValue({
+        success: true,
+        data: { projectOpen: true, sequenceOpen: true },
+      });
+
+      const tools = getHealthTools(bridgeOptions, undefined, undefined, { telemetry });
+      const result = await (tools.verify_premiere_connection.handler as any)({});
+      const script = String(mockedSendCommand.mock.calls[0][0]);
+
+      expect(result).toMatchObject({
+        success: true,
+        data: { overall: "ready", safeCheck: { readOnly: true, mutatesProject: false } },
+      });
+      expect(script).toContain("projectOpen");
+      expect(script).toContain("sequenceOpen");
+      expect(script).not.toContain("projectName");
+      expect(script).not.toContain("project.path");
+      expect(events).toEqual([
+        expect.objectContaining({
+          event: "premiere_mcp_activation_check_started",
+          properties: { activation_stage: "first_run", backend: "cep" },
+        }),
+        expect.objectContaining({
+          event: "premiere_mcp_activation_check_finished",
+          properties: { activation_stage: "first_run", backend: "cep", outcome: "ready" },
+        }),
+      ]);
+      expect(JSON.stringify(events)).not.toMatch(/prompt|path|token|project|media|argument|result|profile/i);
+    });
+
+    it("does not fall back from an unavailable UXP check to CEP", async () => {
+      const tools = getHealthTools(bridgeOptions);
+      const result = await (tools.verify_premiere_connection.handler as any)({ backend: "uxp" });
+
+      expect(result).toMatchObject({ success: true, data: { backend: "uxp", overall: "needs_attention" } });
+      expect(mockedSendCommand).not.toHaveBeenCalled();
     });
   });
 

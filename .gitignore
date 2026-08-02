@@ -5,6 +5,8 @@ node_modules/
 dist/
 build/
 artifacts/
+installer/**/bin/
+installer/**/obj/
 .rnd
 
 # Source maps

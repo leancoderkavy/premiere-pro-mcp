@@ -8,6 +8,11 @@ import { execFileSync } from "child_process";
 import { fileURLToPath } from "url";
 import path from "path";
 import { UxpWebSocketBridge } from "./bridge/uxp-websocket-bridge.js";
+import {
+  collectLocalDoctor,
+  createSupportBundle,
+  renderDoctorHuman,
+} from "./diagnostics.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -27,12 +32,15 @@ const args = process.argv.slice(2);
 
 if (args.includes("--help") || args.includes("-h")) {
   console.log(`
-premiere-pro-mcp — MCP server for Adobe Premiere Pro (279 tools)
+premiere-pro-mcp — MCP server for Adobe Premiere Pro (280 tools)
 
 Usage:
   premiere-pro-mcp              Start the MCP server (stdio transport)
   premiere-pro-mcp --install-cep   Install the CEP plugin into Premiere Pro
   premiere-pro-mcp --diagnose-cep  Check the CEP install, debug keys, and Premiere signature logs
+  premiere-pro-mcp --doctor        Check local install/configuration without reading a project
+  premiere-pro-mcp --doctor --json Print the same local check as machine-readable JSON
+  premiere-pro-mcp --support-bundle  Print a privacy-safe, machine-readable support bundle
   premiere-pro-mcp --help          Show this help message
   premiere-pro-mcp --version       Show version
 
@@ -54,6 +62,24 @@ if (args.includes("--version") || args.includes("-v")) {
     () => ({ default: { version: "unknown" } }),
   );
   console.log(pkg.default.version);
+  process.exit(0);
+}
+
+if (args.includes("--doctor") || args.includes("--support-bundle")) {
+  const pkg = await import("../package.json", { with: { type: "json" } }).catch(
+    () => ({ default: { version: "unknown" } }),
+  );
+  if (args.includes("--support-bundle")) {
+    // A support bundle is JSON by default so it can be attached to an issue or
+    // support request without copying terminal output. It is a status snapshot,
+    // never a project/log/configuration dump.
+    console.log(JSON.stringify(createSupportBundle({ version: pkg.default.version }), null, 2));
+  } else {
+    const report = collectLocalDoctor();
+    console.log(args.includes("--json")
+      ? JSON.stringify(report, null, 2)
+      : renderDoctorHuman(report));
+  }
   process.exit(0);
 }
 

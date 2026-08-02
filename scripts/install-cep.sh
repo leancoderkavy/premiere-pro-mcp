@@ -20,7 +20,7 @@ else
   exit 1
 fi
 
-echo "=== MCP Bridge CEP Plugin Installer ==="
+echo "=== Premiere MCP Connector ==="
 echo ""
 echo "Source:      $PLUGIN_SRC"
 echo "Destination: $CEP_DIR/$PLUGIN_NAME"
@@ -45,8 +45,14 @@ if [ "$MODE" = "--diagnose" ]; then
       fi
     done
   fi
-  if [ "$problems" -ne 0 ]; then exit 1; fi
-  echo "Installation verified. Restart Premiere Pro, then open Window > Extensions > MCP Bridge."
+  if [ "$problems" -ne 0 ]; then
+    echo ""
+    echo "Next steps: fully quit Premiere Pro, run the Connector installer again, then reopen Premiere and choose Window > Extensions > MCP Bridge." >&2
+    exit 1
+  fi
+  echo "Installation verified: Connector files are present."
+  echo "This check cannot confirm that Premiere Pro is currently open or connected."
+  echo "Next: Open Premiere Pro and ask your AI assistant to run 'Verify Premiere connection'."
   exit 0
 fi
 
@@ -85,12 +91,14 @@ if [[ "$OSTYPE" == "darwin"* ]]; then
 fi
 
 echo ""
-echo "✓ Installation complete!"
+echo "✓ Connector installed"
 echo ""
 echo "Next steps:"
-echo "  1. Restart Premiere Pro"
+echo "  1. Fully restart Premiere Pro"
 echo "  2. Go to Window > Extensions > MCP Bridge"
-echo "  3. Set the temp directory and click 'Start Bridge'"
-echo "  4. Configure your MCP client (e.g., Claude Desktop) to use:"
+echo "  3. Check that the Connector says it is running"
+echo "  4. Ask your AI assistant to run 'Verify Premiere connection'"
+echo ""
+echo "Advanced configuration (only if your AI assistant did not install it for you):"
 echo "     node $PROJECT_DIR/dist/index.js"
 echo ""

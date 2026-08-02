@@ -1,4 +1,5 @@
 import { AlertTriangle, ArrowDown, CheckCircle2, FileCode2, PlugZap, TerminalSquare } from "lucide-react"
+import { product } from "@/lib/product"
 
 const bridgeSteps = [
   {
@@ -60,7 +61,7 @@ export function ArchitectureSection() {
           <div>
             <h2 className="text-3xl font-bold tracking-tight text-white md:text-4xl">Compatibility &amp; <span className="text-purple-400">diagnostics</span></h2>
             <p className="mt-4 max-w-xl text-base leading-7 text-zinc-400">
-              Current releases target Premiere Pro 2020–2026 on macOS and Windows, with clearer failure states for the issues users hit most often.
+              The signed CEP connector is the default route for Premiere Pro {product.premiereCompatibility} on macOS and Windows. A modern UXP bridge adds capability-gated workflows on compatible newer hosts.
             </p>
             <div className="mt-10 space-y-4">
               {diagnostics.map((item) => (
@@ -75,7 +76,7 @@ export function ArchitectureSection() {
             </div>
             <div className="mt-6 rounded-xl border border-amber-500/20 bg-amber-500/[0.04] p-5">
               <p className="text-sm leading-6 text-zinc-400">
-                <span className="font-semibold text-amber-200">Know the boundary:</span> Premiere’s undocumented QE DOM is powerful but imperfect. Frame export and Media Encoder queue status have API limitations; the server reports diagnostics instead of claiming success without a file.
+                <span className="font-semibold text-amber-200">Know the boundary:</span> UXP is capability-gated for compatible newer Premiere workflows; it is not yet the default installer or a replacement for CEP. Premiere’s undocumented QE DOM is powerful but imperfect, so results should be verified before you rely on them.
               </p>
             </div>
           </div>

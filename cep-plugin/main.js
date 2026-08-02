@@ -32,10 +32,45 @@ function setStatus(state, text) {
   var detail = document.getElementById("statusDetail");
   if (detail) {
     if (state === "connected") detail.textContent = "Premiere Pro link is active";
-    else if (state === "waiting") detail.textContent = "Ready to accept commands";
+    else if (state === "waiting") detail.textContent = "Ready for an AI assistant connection";
     else if (state === "error") detail.textContent = "Bridge needs attention";
     else detail.textContent = "Waiting for Premiere Pro";
   }
+}
+
+function setConnectionCheck(id, state, detail) {
+  var el = document.getElementById(id);
+  if (!el) return;
+  el.setAttribute("data-state", state);
+  var text = el.getElementsByTagName("small")[0];
+  if (text) text.textContent = detail;
+}
+
+// This reads only boolean Premiere state. Do not put project names, paths, or
+// media information in the panel: the MCP safe-check uses the same boundary.
+function refreshConnectionCenter() {
+  if (!bridgeRunning) {
+    setConnectionCheck("checkConnector", "waiting", "Start the connector first");
+    setConnectionCheck("checkProject", "waiting", "Waiting for the connector");
+    setConnectionCheck("checkSequence", "waiting", "Waiting for the connector");
+    return;
+  }
+  setConnectionCheck("checkConnector", "ready", "Running in Premiere Pro");
+  setConnectionCheck("checkProject", "waiting", "Checking…");
+  setConnectionCheck("checkSequence", "waiting", "Checking…");
+  cs.evalScript(
+    '(function(){var p=app&&app.project;return JSON.stringify({projectOpen:!!(p&&typeof p.name!=="undefined"),sequenceOpen:!!(p&&p.activeSequence)});}())',
+    function (raw) {
+      try {
+        var state = JSON.parse(raw || "{}");
+        setConnectionCheck("checkProject", state.projectOpen ? "ready" : "needs-attention", state.projectOpen ? "Project open" : "Open a project in Premiere Pro");
+        setConnectionCheck("checkSequence", state.sequenceOpen ? "ready" : "needs-attention", state.sequenceOpen ? "Active sequence open" : "Open a sequence in Premiere Pro");
+      } catch (e) {
+        setConnectionCheck("checkProject", "needs-attention", "Could not read Premiere state");
+        setConnectionCheck("checkSequence", "needs-attention", "Could not read Premiere state");
+      }
+    }
+  );
 }
 
 // ---- File I/O via Node.js (CEP has access to Node) ----
@@ -214,20 +249,13 @@ function startBridge() {
 
   ensureDir(tempDir);
   bridgeRunning = true;
-  setStatus("connected", "Running — polling " + tempDir);
-  log("Bridge started. Temp dir: " + tempDir);
+  setStatus("waiting", "Connector running");
+  log("Connector started and ready for safe checks.", "ok");
 
   document.getElementById("btnStart").disabled = true;
   document.getElementById("btnStop").disabled = false;
 
-  // Verify Premiere Pro connection
-  cs.evalScript("app.version", function (version) {
-    if (version && version !== "undefined") {
-      log("Premiere Pro: " + version, "ok");
-    } else {
-      log("Warning: Could not detect Premiere Pro version", "err");
-    }
-  });
+  refreshConnectionCenter();
 
   pollInterval = setInterval(function () {
     if (bridgeRunning) processCommands();
@@ -240,6 +268,7 @@ function stopBridge() {
   pollInterval = null;
 
   setStatus("", "Stopped");
+  refreshConnectionCenter();
   log("Bridge stopped");
 
   document.getElementById("btnStart").disabled = false;

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import Script from "next/script";
 import "./globals.css";
+import { product } from "@/lib/product";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -16,7 +17,7 @@ const geistMono = Geist_Mono({
 const siteUrl = "https://premiere-pro-mcp.com";
 const title = "Premiere Pro MCP Server – AI Video Editing Tools";
 const description =
-  "Connect AI assistants to Adobe Premiere Pro with 279 local-first MCP tools for timeline editing, effects, color, media management, automation, and export.";
+  `Connect AI assistants to Adobe Premiere Pro with ${product.coreToolCount} local-first MCP tools for timeline editing, effects, color, media management, automation, and export.`;
 const googleAnalyticsId =
   process.env.NEXT_PUBLIC_GOOGLE_ANALYTICS_ID ?? "G-XSH74T16E4";
 
@@ -98,6 +99,7 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
+        <a className="skip-link" href="#main-content">Skip to main content</a>
         {children}
         {googleAnalyticsId ? (
           <>

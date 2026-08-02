@@ -197,6 +197,27 @@ button { -webkit-appearance: none; }
   border-radius: var(--radius);
   background: var(--surface);
 }
+
+.connection-center {
+  margin: 0 0 14px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+.connection-center .section-heading { margin-bottom: 8px; }
+.connection-center h2 { font-size: 12px; }
+.connection-intro { margin: 0 0 10px; color: var(--text-muted); font-size: 9px; line-height: 1.45; }
+.connection-intro strong { color: var(--text-secondary); font-weight: 600; }
+.connection-checks { display: grid; gap: 6px; padding: 0; margin: 0; list-style: none; }
+.connection-checks li { display: flex; align-items: center; gap: 8px; min-height: 34px; padding: 6px 8px; border: 1px solid var(--border); border-radius: 5px; background: var(--surface-deep); }
+.connection-checks li > span:last-child { min-width: 0; }
+.connection-checks strong, .connection-checks small { display: block; }
+.connection-checks strong { color: var(--text-secondary); font-size: 10px; font-weight: 600; }
+.connection-checks small { margin-top: 2px; color: var(--text-muted); font-size: 9px; }
+.check-dot { width: 7px; height: 7px; flex: 0 0 auto; border-radius: 50%; background: var(--text-muted); }
+.connection-checks li[data-state="ready"] .check-dot { background: var(--green); box-shadow: 0 0 0 3px var(--green-soft); }
+.connection-checks li[data-state="needs-attention"] .check-dot { background: var(--amber); }
 .update-copy { min-width: 0; flex: 1; }
 .update-copy strong, .update-copy > span:last-child { display: block; }
 .update-copy strong { font-size: 11px; font-weight: 600; }

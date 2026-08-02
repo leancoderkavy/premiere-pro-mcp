@@ -1,6 +1,7 @@
 import type { Metadata } from "next"
 import Link from "next/link"
 import { ArrowLeft, ArrowUpRight, Github, Package } from "lucide-react"
+import { product } from "@/lib/product"
 
 const releases = [
   {
@@ -325,7 +326,7 @@ const structuredData = {
 
 export default function ChangelogPage() {
   return (
-    <main className="min-h-screen bg-black text-zinc-100">
+    <main id="main-content" className="min-h-screen bg-black text-zinc-100">
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }}
@@ -383,7 +384,7 @@ export default function ChangelogPage() {
             </div>
             <div className="border-l border-purple-400/40 pl-5">
               <p className="text-xs uppercase tracking-[0.18em] text-zinc-600">Latest release</p>
-              <p className="mt-2 font-mono text-2xl text-white">v1.8.0</p>
+              <p className="mt-2 font-mono text-2xl text-white">v{product.version}</p>
               <p className="mt-1 text-sm text-zinc-500">August 1, 2026</p>
             </div>
           </div>

@@ -110,7 +110,7 @@ describe("Claude distributions", () => {
     const manifest = readJson("claude-desktop/manifest.json");
 
     expect(manifest).toMatchObject({
-      manifest_version: "0.3",
+      manifest_version: "0.4",
       name: "premiere-pro-mcp",
       version: pkg.version,
       server: {

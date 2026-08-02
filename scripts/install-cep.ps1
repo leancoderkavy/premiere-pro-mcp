@@ -16,9 +16,12 @@ if (-not $resolvedDestination.StartsWith($resolvedCepRoot + [System.IO.Path]::Di
   throw "Refusing to install outside the CEP extensions directory: $resolvedDestination"
 }
 
-Write-Host "=== MCP Bridge CEP Plugin Installer ==="
+Write-Host "=== Premiere MCP Connector ==="
 Write-Host "Source:      $pluginSource"
 Write-Host "Destination: $pluginDestination"
+if ($Diagnose) {
+  Write-Host "Mode:        Check only (no files or settings will be changed)"
+}
 
 if (-not (Test-Path -LiteralPath (Join-Path $pluginSource "CSXS\manifest.xml"))) {
   throw "CEP plugin manifest not found at $pluginSource"
@@ -86,14 +89,22 @@ if ($signatureFailures) {
 }
 
 if ($problems.Count -gt 0) {
-  Write-Error ($problems -join [Environment]::NewLine)
+  Write-Error ("The Premiere Connector needs attention:`n" + ($problems -join [Environment]::NewLine))
+  Write-Host ""
+  Write-Host "Next steps:"
+  Write-Host "  1. Fully quit Premiere Pro."
+  Write-Host "  2. Run the Connector installer again."
+  Write-Host "  3. Reopen Premiere Pro, then choose Window > Extensions > MCP Bridge."
   exit 1
 }
 
 Write-Host ""
 if ($Diagnose) {
-  Write-Host "CEP diagnostics passed."
+  Write-Host "Connector installation looks ready."
+  Write-Host "This check cannot confirm that Premiere Pro is currently open or connected."
+  Write-Host "Next: Open Premiere Pro and ask your AI assistant to run 'Verify Premiere connection'."
 }
 else {
-  Write-Host "Installation verified. Restart Premiere Pro, then open Window > Extensions > MCP Bridge."
+  Write-Host "Connector installed. Fully restart Premiere Pro, then open Window > Extensions > MCP Bridge."
+  Write-Host "After that, ask your AI assistant to run 'Verify Premiere connection' before editing."
 }

@@ -1,5 +1,6 @@
 import { Marquee } from "@/components/ui/marquee"
 import { cn } from "@/lib/utils"
+import { product } from "@/lib/product"
 
 const tools = [
   { name: "add_to_timeline", category: "Timeline" },
@@ -65,7 +66,7 @@ export function ToolsMarquee() {
   return (
     <section className="relative overflow-hidden bg-black py-20">
       <div className="mb-12 text-center">
-        <p className="text-sm font-semibold uppercase tracking-widest text-zinc-500">279 core tools across 31 modules</p>
+        <p className="text-sm font-semibold uppercase tracking-widest text-zinc-500">{product.coreToolCount} core tools across 31 modules</p>
         <h2 className="mt-2 text-3xl font-bold text-white md:text-4xl">Everything the AI needs to edit</h2>
       </div>
 

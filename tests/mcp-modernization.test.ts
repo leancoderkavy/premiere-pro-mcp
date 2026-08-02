@@ -69,7 +69,7 @@ describe("modern MCP surface", () => {
       // unsafe-script, so the two scripting tools are not advertised.
       expect(tools.tools.map((tool) => tool.name)).not.toContain("execute_extendscript");
       expect(tools.tools.map((tool) => tool.name)).not.toContain("evaluate_expression");
-      expect(tools.tools).toHaveLength(277);
+      expect(tools.tools).toHaveLength(278);
 
       const capabilities = await client.callTool({
         name: "get_capabilities",
