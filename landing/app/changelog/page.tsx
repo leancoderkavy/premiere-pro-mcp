@@ -5,6 +5,20 @@ import { product } from "@/lib/product"
 
 const releases = [
   {
+    version: "1.9.1",
+    date: "2026-08-02",
+    label: "Production HTTP security headers",
+    groups: [
+      {
+        title: "Security",
+        items: [
+          "Added CSP, HSTS, MIME sniffing protection, frame denial, bounded permissions, and explicit referrer and cross-origin policies to every HTTP response.",
+          "Restricted browser network destinations to the application and configured analytics endpoints.",
+        ],
+      },
+    ],
+  },
+  {
     version: "1.9.0",
     date: "2026-08-02",
     label: "Nontechnical onboarding and safe connection recovery",
