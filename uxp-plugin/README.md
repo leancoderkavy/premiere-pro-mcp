@@ -12,6 +12,13 @@ It also exposes documented Premiere 25.6+ video-transition and transcript workfl
 
 Transition names must come from `transition.video.list`. Transcript targets can be selected in the Project panel or addressed by project-item ID/name. Caption creation, text/timing mutation, and deletion remain explicitly unsupported because Premiere does not document those UXP APIs.
 
+The MCP adapter exposes `transcript.export` as `get_clip_transcript_uxp` and adds a
+SHA-256 revision to the result. `search_clip_transcript_uxp` maps to the existing
+read-only search command. `preview_transcript_edit_uxp` re-exports the transcript,
+rejects stale revisions, validates and merges selected source-time deletion ranges,
+and returns a confirmation token. It never changes the transcript or timeline;
+automatic transcript-to-timeline application remains a live-host validation gate.
+
 ## Premiere 26.3 commands
 
 The following commands use APIs Adobe introduced in Premiere 26.3. They are

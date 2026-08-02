@@ -1,4 +1,5 @@
 import type { UxpWebSocketBridge } from "../bridge/uxp-websocket-bridge.js";
+import { previewTranscriptEdit, transcriptRevision } from "./transcript-edits.js";
 
 function invoke(
   bridge: UxpWebSocketBridge,
@@ -83,6 +84,92 @@ export function getUxpTools(bridge: UxpWebSocketBridge) {
       description: "List transcription languages supported by the connected Premiere 26.3+ host.",
       parameters: {},
       handler: async () => invoke(bridge, "transcript.languages"),
+    },
+    get_clip_transcript_uxp: {
+      description: "Export Premiere's native transcript JSON for one source media clip. Returns a revision hash that must be used when previewing transcript edits. This is read-only and does not run Speech-to-Text.",
+      parameters: {
+        type: "object" as const,
+        properties: {
+          project_item_id: { type: "string", maxLength: 512, description: "Source project-item ID. Omit with project_item_name to use exactly one Project panel selection." },
+          project_item_name: { type: "string", maxLength: 255, description: "Unique source media-clip name. Not allowed together with project_item_id." },
+        },
+      },
+      handler: async (args: { project_item_id?: string; project_item_name?: string }) => {
+        try {
+          const result = await bridge.request("transcript.export", {
+            ...(args.project_item_id ? { projectItemId: args.project_item_id } : {}),
+            ...(args.project_item_name ? { projectItemName: args.project_item_name } : {}),
+          }) as { json?: unknown };
+          if (typeof result?.json !== "string" || !result.json) throw new Error("Premiere returned an empty transcript");
+          return { success: true, data: { backend: "uxp", result: { ...result, transcriptRevision: transcriptRevision(result.json) } } };
+        } catch (error) {
+          return { success: false, error: error instanceof Error ? error.message : String(error) };
+        }
+      },
+    },
+    search_clip_transcript_uxp: {
+      description: "Search Premiere's native transcript JSON without modifying the clip or timeline.",
+      parameters: {
+        type: "object" as const,
+        properties: {
+          project_item_id: { type: "string", maxLength: 512, description: "Source project-item ID." },
+          project_item_name: { type: "string", maxLength: 255, description: "Unique source media-clip name." },
+          query: { type: "string", minLength: 1, maxLength: 1000, description: "Transcript text to find." },
+          case_sensitive: { type: "boolean", description: "Use case-sensitive matching; defaults to false." },
+          max_results: { type: "integer", minimum: 1, maximum: 500, description: "Maximum matches; defaults to 50." },
+        },
+        required: ["query"],
+      },
+      handler: async (args: { project_item_id?: string; project_item_name?: string; query: string; case_sensitive?: boolean; max_results?: number }) =>
+        invoke(bridge, "transcript.search", {
+          ...(args.project_item_id ? { projectItemId: args.project_item_id } : {}),
+          ...(args.project_item_name ? { projectItemName: args.project_item_name } : {}),
+          query: args.query,
+          ...(args.case_sensitive === undefined ? {} : { caseSensitive: args.case_sensitive }),
+          ...(args.max_results === undefined ? {} : { maxResults: args.max_results }),
+        }),
+    },
+    preview_transcript_edit_uxp: {
+      description: "Validate and merge source-time ranges selected from Premiere's native transcript. Returns a confirmation token and never changes the timeline. Automatic timeline application remains withheld until the source-to-sequence mapping is live-host verified.",
+      parameters: {
+        type: "object" as const,
+        properties: {
+          project_item_id: { type: "string", maxLength: 512, description: "Source project-item ID used for the transcript export." },
+          project_item_name: { type: "string", maxLength: 255, description: "Unique source media-clip name." },
+          transcript_revision: { type: "string", pattern: "^sha256:[a-f0-9]{64}$", description: "Revision returned by get_clip_transcript_uxp." },
+          deletions: {
+            type: "array", minItems: 1, maxItems: 100,
+            items: {
+              type: "object", additionalProperties: false,
+              properties: {
+                start_seconds: { type: "number", minimum: 0 },
+                end_seconds: { type: "number", exclusiveMinimum: 0 },
+              },
+              required: ["start_seconds", "end_seconds"],
+            },
+            description: "Source-media time ranges corresponding to transcript words or segments to remove.",
+          },
+          handle_seconds: { type: "number", minimum: 0, maximum: 10, description: "Optional context added to both sides before overlapping ranges are merged." },
+        },
+        required: ["transcript_revision", "deletions"],
+      },
+      handler: async (args: { project_item_id?: string; project_item_name?: string; transcript_revision: string; deletions: unknown; handle_seconds?: number }) => {
+        try {
+          const exported = await bridge.request("transcript.export", {
+            ...(args.project_item_id ? { projectItemId: args.project_item_id } : {}),
+            ...(args.project_item_name ? { projectItemName: args.project_item_name } : {}),
+          }) as { json?: unknown; projectItemId?: unknown; projectItemName?: unknown };
+          if (typeof exported?.json !== "string") throw new Error("Premiere returned an empty transcript");
+          const preview = previewTranscriptEdit(exported.json, args.transcript_revision, args.deletions, args.handle_seconds);
+          return { success: true, data: { backend: "uxp", result: {
+            projectItemId: exported.projectItemId,
+            projectItemName: exported.projectItemName,
+            ...preview,
+          } } };
+        } catch (error) {
+          return { success: false, error: error instanceof Error ? error.message : String(error) };
+        }
+      },
     },
     detect_object_masks_uxp: {
       description: "Detect whether the active project or sequence contains an Object Mask using Premiere 26.3+.",
