@@ -6,6 +6,27 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [1.8.0] - 2026-08-01
+
+### Added
+
+- Added three read-only, capability-gated UXP transcript tools: native transcript
+  export, native transcript search, and revision-locked transcript edit previews.
+- Added a deterministic SHA-256 transcript revision and confirmation token so a
+  proposed edit cannot be confused with a regenerated transcript.
+
+### Changed
+
+- Expanded the connected UXP surface from 16 to 19 tools while keeping automatic
+  transcript-to-timeline application unavailable pending real-host validation.
+- Added repository Copilot instructions and a deterministic Node 24 setup workflow.
+
+### Validation
+
+- Automated tests cover transcript range validation, revision locking, capability
+  registration, and the MCP catalog. A real Premiere 25.6 or 26.3 host still must
+  validate transcript semantics before any apply operation is introduced.
+
 ## [1.7.0] - 2026-08-01
 
 ### Added

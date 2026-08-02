@@ -41,7 +41,7 @@ const structuredData = {
       name: "Premiere Pro MCP",
       applicationCategory: "DeveloperApplication",
       operatingSystem: "macOS, Windows",
-      softwareVersion: "1.7.0",
+      softwareVersion: "1.8.0",
       description:
         "Open-source Model Context Protocol server with 279 tools for AI-assisted editing and automation in Adobe Premiere Pro.",
       url: "https://premiere-pro-mcp.com/",

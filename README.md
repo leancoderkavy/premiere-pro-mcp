@@ -29,7 +29,18 @@ An [MCP (Model Context Protocol)](https://modelcontextprotocol.io) server that l
 
 The AI handles the entire workflow through 279 core tools spanning the supported ExtendScript, QE DOM, local media analysis, and safe edit-planning surfaces. A compatible, authenticated UXP panel adds 19 documented, capability-gated workflows without replacing the production CEP bridge.
 
-### What's new in 1.7.0
+### What's new in 1.8.0
+
+- **Native transcript planning:** compatible UXP hosts can export and search the
+  transcript Premiere generated for a clip, then preview a revision-locked set of
+  source-time deletion ranges.
+- **No false edit promise:** previews return a deterministic confirmation token and
+  never modify a clip or timeline. Automated application remains withheld until the
+  documented source-to-sequence reconstruction path passes real-host validation.
+- **19 connected UXP tools:** the capability-gated UXP surface grows from 16 to 19
+  without changing the 279 core-tool surface.
+
+### Previous release: 1.7.0
 
 - **Six documented workflows:** compatible 26.3+ hosts can expose UXP track renaming, subclip creation, stable marker IDs, Source Monitor seeking, transcript presence checks, and AAF export.
 - **Capability first:** a tool is discoverable only with the authenticated local panel; the panel's live `capabilities.get` response—not package metadata—decides whether the current host supports it.
@@ -248,11 +259,11 @@ From a clone of this repository:
 ```bash
 codex plugin marketplace add .
 codex plugin add premiere-pro@premiere-pro-mcp
-npx -y premiere-pro-mcp@1.7.0 --install-cep
+npx -y premiere-pro-mcp@1.8.0 --install-cep
 ```
 
 Restart Premiere Pro and start a new Codex session after installation. The plugin
-launches `premiere-pro-mcp@1.7.0` through `npx`; the separate CEP installation is
+launches `premiere-pro-mcp@1.8.0` through `npx`; the separate CEP installation is
 required because the MCP server communicates with the running Premiere host through
 the local bridge.
 
@@ -272,7 +283,7 @@ For Claude Code, add this repository as a marketplace and install the plugin:
 Then install the Premiere bridge and start a new Claude Code session:
 
 ```bash
-npx -y premiere-pro-mcp@1.7.0 --install-cep
+npx -y premiere-pro-mcp@1.8.0 --install-cep
 ```
 
 The Claude Code package lives in

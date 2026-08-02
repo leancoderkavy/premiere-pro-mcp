@@ -4,6 +4,27 @@ import { ArrowLeft, ArrowUpRight, Github, Package } from "lucide-react"
 
 const releases = [
   {
+    version: "1.8.0",
+    date: "2026-08-01",
+    label: "Native transcript edit planning",
+    groups: [
+      {
+        title: "Added",
+        items: [
+          "Three read-only, capability-gated UXP tools for native transcript export, native transcript search, and revision-locked edit previews.",
+          "Deterministic transcript revisions and confirmation tokens so edit plans cannot be applied to a regenerated transcript.",
+        ],
+      },
+      {
+        title: "Changed",
+        items: [
+          "Expanded the connected UXP surface from 16 to 19 tools without changing the 279 core-tool surface.",
+          "Automatic transcript-to-timeline application remains unavailable until a real Premiere host validates documented source-to-sequence reconstruction.",
+        ],
+      },
+    ],
+  },
+  {
     version: "1.7.0",
     date: "2026-08-01",
     label: "Adobe Premiere Pro 26.3 UXP API coverage",
@@ -362,8 +383,8 @@ export default function ChangelogPage() {
             </div>
             <div className="border-l border-purple-400/40 pl-5">
               <p className="text-xs uppercase tracking-[0.18em] text-zinc-600">Latest release</p>
-              <p className="mt-2 font-mono text-2xl text-white">v1.7.0</p>
-              <p className="mt-1 text-sm text-zinc-500">July 31, 2026</p>
+              <p className="mt-2 font-mono text-2xl text-white">v1.8.0</p>
+              <p className="mt-1 text-sm text-zinc-500">August 1, 2026</p>
             </div>
           </div>
         </div>
