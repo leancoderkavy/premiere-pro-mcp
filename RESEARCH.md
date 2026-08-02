@@ -11,7 +11,11 @@
 
 ---
 
-## Current Repository Snapshot (2026-07-20)
+## Historical Repository Snapshot (2026-07-20)
+
+This is a dated research snapshot, not the source of truth for current releases or
+tool counts. Use `README.md` and `CHANGELOG.md` for current product and release
+information.
 
 - **Release candidate:** `1.2.0` is integrated on `main`; `package.json`, `package-lock.json`, and
   both CEP extension entries in `cep-plugin/CSXS/manifest.xml` are version-aligned.
