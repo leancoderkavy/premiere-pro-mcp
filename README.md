@@ -60,9 +60,9 @@ The AI handles the entire workflow through 280 core tools spanning the supported
 
 ### Easiest supported path: Claude Desktop
 
-1. Download the current [Claude Desktop bundle (`.mcpb`)](https://github.com/leancoderkavy/premiere-pro-mcp/releases/download/v1.7.0/premiere-pro-mcp-1.7.0.mcpb).
+1. Download the current [Claude Desktop bundle (`.mcpb`)](https://github.com/leancoderkavy/premiere-pro-mcp/releases/download/v1.8.0/premiere-pro-mcp-1.8.0.mcpb).
 2. In Claude Desktop, open **Settings > Extensions > Advanced settings > Install Extension**, select the downloaded bundle, and restart Claude Desktop.
-3. Download the separate [signed Premiere connector (`.zxp`)](https://github.com/leancoderkavy/premiere-pro-mcp/releases/download/v1.7.0/MCPBridgeCEP.zxp). Open it with your trusted ZXP installer. If your computer has no ZXP installer, use the npm connector installer in **Advanced setup** below.
+3. Download the separate [signed Premiere connector (`.zxp`)](https://github.com/leancoderkavy/premiere-pro-mcp/releases/download/v1.8.0/MCPBridgeCEP.zxp). Open it with your trusted ZXP installer. If your computer has no ZXP installer, use the npm connector installer in **Advanced setup** below.
 4. Restart Premiere, open a project, then open **Window > Extensions > MCP Bridge**.
 5. In Claude, enter: `Safely check my Premiere connection with verify_premiere_connection. Make no changes.`
 

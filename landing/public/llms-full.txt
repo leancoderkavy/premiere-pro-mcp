@@ -11,7 +11,7 @@ Current release: 1.8.0
 
 ## What it does
 
-The server registers 280 core tools for project inspection, timeline editing, media import and organization, clip selection, effects, Lumetri color, audio, silence detection, keyframes, markers, captions, transitions, playback, metadata, proxies, connection verification, and Adobe Media Encoder export. The default profile exposes 278. An authenticated compatible UXP panel adds 16 capability-gated tools for 294 connected tools. It also exposes three MCP resources and four workflow prompts.
+The server registers 280 core tools for project inspection, timeline editing, media import and organization, clip selection, effects, Lumetri color, audio, silence detection, keyframes, markers, captions, transitions, playback, metadata, proxies, connection verification, and Adobe Media Encoder export. The default profile exposes 278. An authenticated compatible UXP panel adds 19 capability-gated tools for 297 connected tools. It also exposes three MCP resources and four workflow prompts.
 
 ## How it connects
 

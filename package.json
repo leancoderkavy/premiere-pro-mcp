@@ -23,6 +23,7 @@
   "scripts": {
     "build": "tsc && node scripts/copy-adobe-uxp-coverage.mjs",
     "build:claude": "npm run build && node scripts/build-claude-desktop.mjs",
+    "build:connector:windows": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build-connector-installer.ps1",
     "check": "npm run lint && npm run build && npm test",
     "check:release-metadata": "vitest run tests/release-metadata.test.ts",
     "dev": "tsc --watch",

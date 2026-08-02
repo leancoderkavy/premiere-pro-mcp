@@ -1,0 +1,86 @@
+name: Connector installers
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      require_production_signing:
+        description: Fail unless platform signing identities are configured
+        required: true
+        default: true
+        type: boolean
+
+permissions:
+  contents: read
+
+jobs:
+  connector-package:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Build and verify CEP connector
+        shell: pwsh
+        run: ./scripts/build-signed-cep.ps1
+      - uses: actions/upload-artifact@v7
+        with:
+          name: connector-package
+          path: artifacts/MCPBridgeCEP.zxp
+          if-no-files-found: error
+
+  windows-installer:
+    needs: connector-package
+    runs-on: windows-latest
+    env:
+      WINDOWS_SIGNING_PFX_BASE64: ${{ secrets.WINDOWS_SIGNING_PFX_BASE64 }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: 8.0.x
+      - uses: actions/download-artifact@v8
+        with:
+          name: connector-package
+          path: artifacts
+      - name: Restore Windows signing certificate
+        if: ${{ env.WINDOWS_SIGNING_PFX_BASE64 != '' }}
+        shell: pwsh
+        run: '[IO.File]::WriteAllBytes("$env:RUNNER_TEMP\windows-signing.pfx", [Convert]::FromBase64String($env:WINDOWS_SIGNING_PFX_BASE64))'
+      - name: Build Windows installer
+        shell: pwsh
+        env:
+          SIGNING_PASSWORD: ${{ secrets.WINDOWS_SIGNING_PFX_PASSWORD }}
+        run: |
+          $params = @{}
+          if (Test-Path "$env:RUNNER_TEMP\windows-signing.pfx") {
+            $params.SigningCertificatePath = "$env:RUNNER_TEMP\windows-signing.pfx"
+            $params.SigningCertificatePassword = $env:SIGNING_PASSWORD
+          }
+          if ('${{ inputs.require_production_signing }}' -eq 'true') { $params.RequireSigning = $true }
+          ./scripts/build-connector-installer.ps1 @params
+      - uses: actions/upload-artifact@v7
+        with:
+          name: connector-installer-windows
+          path: artifacts/connector-installers/*.exe
+          if-no-files-found: error
+
+  macos-installer:
+    needs: connector-package
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/download-artifact@v8
+        with:
+          name: connector-package
+          path: artifacts
+      - name: Build macOS installer preview
+        shell: bash
+        env:
+          REQUIRE_SIGNING: ${{ inputs.require_production_signing || 'false' }}
+        run: ./scripts/build-connector-installer.sh
+      - uses: actions/upload-artifact@v7
+        with:
+          name: connector-installer-macos
+          path: artifacts/connector-installers/*.pkg
+          if-no-files-found: error
