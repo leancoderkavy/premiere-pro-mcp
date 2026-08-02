@@ -6,7 +6,7 @@
 
 **Give AI full control over Adobe Premiere Pro.**
 
-279 core tools across 31 modules, 3 resources, and 4 guided workflows. A connected UXP host adds 16 capability-gated tools.
+279 core tools across 31 modules, 3 resources, and 4 guided workflows. A connected UXP host adds 19 capability-gated tools.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Node.js](https://img.shields.io/badge/Node.js-20.19%2B-green.svg)](https://nodejs.org)
@@ -27,7 +27,7 @@ An [MCP (Model Context Protocol)](https://modelcontextprotocol.io) server that l
 "Add the B-roll clips to V2, apply a cross dissolve between each, color correct them to match the A-roll, and export a 1080p ProRes."
 ```
 
-The AI handles the entire workflow through 279 core tools spanning the supported ExtendScript, QE DOM, local media analysis, and safe edit-planning surfaces. A compatible, authenticated UXP panel adds 16 documented, capability-gated workflows without replacing the production CEP bridge.
+The AI handles the entire workflow through 279 core tools spanning the supported ExtendScript, QE DOM, local media analysis, and safe edit-planning surfaces. A compatible, authenticated UXP panel adds 19 documented, capability-gated workflows without replacing the production CEP bridge.
 
 ### What's new in 1.7.0
 
@@ -362,7 +362,17 @@ PREMIERE_UXP_TOKEN="replace-with-a-long-random-secret" premiere-pro-mcp
 
 Enter the same token in the UXP panel. The listener binds only to `127.0.0.1:7777`, authenticates the WebSocket upgrade, requires a versioned capability handshake, correlates concurrent requests, and fails pending work on timeout or disconnect. Set `PREMIERE_UXP_PORT` to use another loopback port.
 
-When enabled, MCP discovery includes `get_uxp_capabilities`, `get_uxp_state`, `inspect_project_uxp`, `save_project_uxp`, `create_sequence_with_preset_uxp`, `export_interchange_uxp`, `get_transcript_languages_uxp`, `detect_object_masks_uxp`, `configure_encoder_uxp`, `export_frame_uxp`, `rename_track_uxp`, `create_subclip_uxp`, `list_markers_uxp`, `set_source_monitor_position_uxp`, `has_transcript_uxp`, and `export_aaf_uxp`. Commands are advertised only while the authenticated local UXP bridge is connected; the host capability handshake remains the authority for support in the running Premiere build. A failed UXP command is never silently retried through CEP because the first operation may have partially succeeded.
+When enabled, MCP discovery includes `get_uxp_capabilities`, `get_uxp_state`, `inspect_project_uxp`, `save_project_uxp`, `create_sequence_with_preset_uxp`, `export_interchange_uxp`, `get_transcript_languages_uxp`, `get_clip_transcript_uxp`, `search_clip_transcript_uxp`, `preview_transcript_edit_uxp`, `detect_object_masks_uxp`, `configure_encoder_uxp`, `export_frame_uxp`, `rename_track_uxp`, `create_subclip_uxp`, `list_markers_uxp`, `set_source_monitor_position_uxp`, `has_transcript_uxp`, and `export_aaf_uxp`. Commands are advertised only while the authenticated local UXP bridge is connected; the host capability handshake remains the authority for support in the running Premiere build. A failed UXP command is never silently retried through CEP because the first operation may have partially succeeded.
+
+Native transcript editing starts with a read-only, revision-locked planning flow. Use
+`get_clip_transcript_uxp` to export the transcript Premiere generated for a source
+clip, select source-time ranges from that JSON, and pass its SHA-256 revision to
+`preview_transcript_edit_uxp`. The preview sorts and merges ranges and returns a
+confirmation token without changing the timeline. Premiere does not expose a
+documented operation that directly turns deleted transcript text into timeline cuts,
+so automatic application remains withheld until the source-to-sequence mapping and
+documented reconstruction path pass live-host validation. `search_clip_transcript_uxp`
+provides read-only discovery without substituting an external transcription engine.
 
 Premiere 26.2-26.3 hosts also expose documented UXP workflows for revisioned project
 inspection, verified project saves, preset-based sequence creation, OTIO/FCP XML
@@ -416,7 +426,7 @@ The file-based IPC bridge is simple, reliable, and works across macOS and Window
 
 ---
 
-## Tools (279 core total; 277 under the default profile; 293 with a connected UXP bridge)
+## Tools (279 core total; 277 under the default profile; 296 with a connected UXP bridge)
 
 ### Discovery & Inspection (10 + 10)
 
@@ -659,7 +669,7 @@ premiere-pro-mcp/
 ├── src/
 │   ├── index.ts                 # Entry point — stdio transport setup
 │   ├── http-server.ts           # Entry point — HTTP/SSE transport (Fly.io / remote)
-│   ├── server.ts                # MCP server — registers 279 tools, filtered by authority profile
+│   ├── server.ts                # MCP server — registers 279 core tools, filtered by authority profile
 │   ├── bridge/
 │   │   ├── file-bridge.ts       # File-based IPC (write .jsx, poll .json)
 │   │   └── script-builder.ts    # ExtendScript generator with ES3 helpers
