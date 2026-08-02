@@ -6,6 +6,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [1.9.1] - 2026-08-02
+
+### Security
+
+- Added a production HTTP header baseline for the landing site, health route,
+  and remote MCP responses: CSP, HSTS, MIME sniffing protection, frame denial,
+  referrer and permissions policies, and cross-origin opener isolation.
+- Restricted the browser connection policy to the application, configured
+  analytics endpoints, and the bounded PostHog host.
+
 ## [1.9.0] - 2026-08-02
 
 ### Added
