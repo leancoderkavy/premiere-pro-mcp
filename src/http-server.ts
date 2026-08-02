@@ -31,6 +31,7 @@ import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/
 import { createServer } from "./server.js";
 import { cleanupTempDir, getTempDir } from "./bridge/file-bridge.js";
 import { getTelemetry } from "./telemetry.js";
+import { applyHttpSecurityHeaders } from "./http-security.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const LANDING_DIR = path.resolve(__dirname, "../landing-dist");
@@ -118,6 +119,8 @@ cleanupTempDir(bridgeOptions);
 
 // Each request gets its own transport+server instance (stateless per-request model)
 const httpServer = http.createServer(async (req, res) => {
+  applyHttpSecurityHeaders(res);
+
   // Health check
   if (req.method === "GET" && req.url === "/health") {
     res.writeHead(200, { "Content-Type": "application/json" });
