@@ -6,6 +6,33 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [1.9.0] - 2026-08-02
+
+### Added
+
+- Added a read-only `verify_premiere_connection` tool, human-readable `--doctor`
+  diagnostics, and a privacy-sanitized `--support-bundle` for guided recovery.
+- Added an accessible in-panel Connection Center and native Windows/macOS CEP
+  installer pipelines that require trusted platform signing for production use.
+- Added deterministic direct and Marketplace-channel UXP CCX packaging with
+  explicit Adobe identity and live-host verification gates.
+
+### Changed
+
+- Reworked onboarding around the AI assistant an editor already uses, with the
+  Claude Desktop MCPB route first and npm/JSON configuration under Advanced.
+- Upgraded the Claude Desktop bundle manifest to MCPB v0.4 and stopped emitting
+  an unsupported `.dxt` copy of the same bytes.
+- Registered 280 core tools, exposed 278 under the default profile, and exposed
+  297 tools when the 19 capability-gated UXP tools are connected.
+
+### Validation
+
+- Automated checks cover distribution schemas, deterministic CCX packaging,
+  support-bundle privacy, installer path containment, production signing gates,
+  and connection evidence states. Real Premiere host verification and external
+  Adobe/Anthropic approvals remain separate release gates.
+
 ## [1.8.0] - 2026-08-01
 
 ### Added

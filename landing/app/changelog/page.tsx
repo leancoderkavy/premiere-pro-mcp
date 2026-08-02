@@ -5,6 +5,27 @@ import { product } from "@/lib/product"
 
 const releases = [
   {
+    version: "1.9.0",
+    date: "2026-08-02",
+    label: "Nontechnical onboarding and safe connection recovery",
+    groups: [
+      {
+        title: "Added",
+        items: [
+          "Read-only connection verification, human-readable doctor diagnostics, sanitized support bundles, and an accessible in-panel Connection Center.",
+          "Deterministic UXP CCX distribution plus native Windows and macOS CEP installer pipelines with fail-closed production signing gates.",
+        ],
+      },
+      {
+        title: "Changed",
+        items: [
+          "Reworked setup around the editor's AI assistant, with Claude Desktop first and npm or manual JSON configuration under Advanced.",
+          "Aligned the catalog at 280 registered tools, 278 under the default profile, and 297 with the 19 capability-gated UXP tools connected.",
+        ],
+      },
+    ],
+  },
+  {
     version: "1.8.0",
     date: "2026-08-01",
     label: "Native transcript edit planning",
@@ -385,7 +406,7 @@ export default function ChangelogPage() {
             <div className="border-l border-purple-400/40 pl-5">
               <p className="text-xs uppercase tracking-[0.18em] text-zinc-600">Latest release</p>
               <p className="mt-2 font-mono text-2xl text-white">v{product.version}</p>
-              <p className="mt-1 text-sm text-zinc-500">August 1, 2026</p>
+              <p className="mt-1 text-sm text-zinc-500">August 2, 2026</p>
             </div>
           </div>
         </div>
