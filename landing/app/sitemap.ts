@@ -2,7 +2,7 @@ import type { MetadataRoute } from "next"
 
 export const dynamic = "force-static"
 
-const lastModified = new Date("2026-07-26")
+const lastModified = new Date("2026-08-04")
 
 export default function sitemap(): MetadataRoute.Sitemap {
   return [
@@ -23,6 +23,12 @@ export default function sitemap(): MetadataRoute.Sitemap {
       lastModified,
       changeFrequency: "monthly",
       priority: 0.7,
+    },
+    {
+      url: "https://premiere-pro-mcp.com/privacy/",
+      lastModified,
+      changeFrequency: "yearly",
+      priority: 0.5,
     },
   ]
 }
