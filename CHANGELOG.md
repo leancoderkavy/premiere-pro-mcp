@@ -6,6 +6,21 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [1.9.2] - 2026-08-04
+
+### Fixed
+
+- Changed the CEP Premiere host declaration to a minimum-only supported version
+  so Adobe Developer Distribution does not reject the signed ZXP for claiming
+  an unsupported future maximum.
+- Updated transitive URL, HTTP middleware, and IP-address parsing dependencies
+  to patched versions after newly disclosed security advisories.
+
+### Added
+
+- Added a public privacy policy covering local media processing, optional MCP
+  operational telemetry, website analytics, retention, and user choices.
+
 ## [1.9.1] - 2026-08-02
 
 ### Security

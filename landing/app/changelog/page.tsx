@@ -5,6 +5,25 @@ import { product } from "@/lib/product"
 
 const releases = [
   {
+    version: "1.9.2",
+    date: "2026-08-04",
+    label: "Adobe Marketplace compatibility and privacy disclosure",
+    groups: [
+      {
+        title: "Fixed",
+        items: [
+          "Changed the CEP Premiere host declaration to a minimum-only supported version for Adobe Developer Distribution compatibility.",
+        ],
+      },
+      {
+        title: "Added",
+        items: [
+          "Published a clear privacy policy for local media processing, optional MCP operational telemetry, website analytics, retention, and user choices.",
+        ],
+      },
+    ],
+  },
+  {
     version: "1.9.1",
     date: "2026-08-02",
     label: "Production HTTP security headers",

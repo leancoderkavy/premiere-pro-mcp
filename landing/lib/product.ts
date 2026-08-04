@@ -1,6 +1,6 @@
 export const product = {
   name: "Premiere Pro MCP",
-  version: "1.9.1",
+  version: "1.9.2",
   coreToolCount: 280,
   defaultProfileToolCount: 278,
   connectedUxpToolCount: 297,
@@ -9,10 +9,10 @@ export const product = {
   uxpMinimumVersion: "25.6",
   downloads: {
     claudeBundle:
-      "https://github.com/leancoderkavy/premiere-pro-mcp/releases/download/v1.9.1/premiere-pro-mcp-1.9.1.mcpb",
+      "https://github.com/leancoderkavy/premiere-pro-mcp/releases/download/v1.9.2/premiere-pro-mcp-1.9.2.mcpb",
     signedCepConnector:
-      "https://github.com/leancoderkavy/premiere-pro-mcp/releases/download/v1.9.1/MCPBridgeCEP.zxp",
-    releaseNotes: "https://github.com/leancoderkavy/premiere-pro-mcp/releases/tag/v1.9.1",
+      "https://github.com/leancoderkavy/premiere-pro-mcp/releases/download/v1.9.2/MCPBridgeCEP.zxp",
+    releaseNotes: "https://github.com/leancoderkavy/premiere-pro-mcp/releases/tag/v1.9.2",
   },
   links: {
     repository: "https://github.com/leancoderkavy/premiere-pro-mcp",

@@ -30,6 +30,7 @@ export function Footer() {
               <a href="https://github.com/leancoderkavy/premiere-pro-mcp" target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 hover:text-white"><Github className="h-4 w-4" /> GitHub</a>
               <a href="https://www.npmjs.com/package/premiere-pro-mcp" target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 hover:text-white"><Package className="h-4 w-4" /> npm package</a>
               <a href="https://github.com/leancoderkavy/premiere-pro-mcp/blob/main/SECURITY.md" target="_blank" rel="noopener noreferrer" className="hover:text-white">Security</a>
+              <a href="/privacy/" className="hover:text-white">Privacy</a>
             </div>
           </div>
         </div>

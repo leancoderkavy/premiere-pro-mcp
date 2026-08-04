@@ -15,6 +15,13 @@ describe("CEP installation metadata", () => {
     expect(updater).toContain(`CURRENT_VERSION = "${pkg.version}"`);
   });
 
+  it("declares Premiere compatibility with a Marketplace-safe minimum only", () => {
+    const manifest = readFileSync(join(root, "cep-plugin", "CSXS", "manifest.xml"), "utf8");
+
+    expect(manifest).toContain('<Host Name="PPRO" Version="14.0"/>');
+    expect(manifest).not.toMatch(/<Host Name="PPRO" Version="[[(]/);
+  });
+
   it("documents the Windows unsigned-extension value as REG_SZ", () => {
     const readme = readFileSync(join(root, "README.md"), "utf8");
     const installer = readFileSync(join(root, "scripts", "install-cep.ps1"), "utf8");
