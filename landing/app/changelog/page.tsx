@@ -5,6 +5,32 @@ import { product } from "@/lib/product"
 
 const releases = [
   {
+    version: "1.9.3",
+    date: "2026-08-12",
+    label: "Focused release overview and repository assets",
+    groups: [
+      {
+        title: "Added",
+        items: [
+          "Added the Premiere Pro MCP cinematic intro video to the landing assets.",
+          "Added the dated security best-practices audit report for repository reference.",
+        ],
+      },
+      {
+        title: "Changed",
+        items: [
+          "Simplified the README release overview to show only the latest release and link to the complete release notes.",
+        ],
+      },
+      {
+        title: "Security",
+        items: [
+          "Updated the landing build's transitive nanoid dependency to a patched version.",
+        ],
+      },
+    ],
+  },
+  {
     version: "1.9.2",
     date: "2026-08-04",
     label: "Adobe Marketplace compatibility and privacy disclosure",

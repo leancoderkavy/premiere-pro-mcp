@@ -7,7 +7,7 @@ Documentation: https://premiere-pro-mcp.com/docs/
 Source: https://github.com/leancoderkavy/premiere-pro-mcp
 npm: https://www.npmjs.com/package/premiere-pro-mcp
 License: MIT
-Current release: 1.9.2
+Current release: 1.9.3
 
 ## What it does
 

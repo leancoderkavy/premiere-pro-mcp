@@ -6,6 +6,22 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [1.9.3] - 2026-08-12
+
+### Added
+
+- Added the Premiere Pro MCP cinematic intro video to the landing assets.
+- Added the dated security best-practices audit report for repository reference.
+
+### Changed
+
+- Simplified the README release overview to show only the latest release and link
+  to the complete GitHub release notes.
+
+### Security
+
+- Updated the landing build's transitive `nanoid` dependency to a patched version.
+
 ## [1.9.2] - 2026-08-04
 
 ### Fixed

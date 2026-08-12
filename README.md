@@ -29,56 +29,18 @@ An [MCP (Model Context Protocol)](https://modelcontextprotocol.io) server that l
 
 The AI handles the entire workflow through 280 core tools spanning the supported ExtendScript, QE DOM, local media analysis, safe edit-planning, and connection-verification surfaces. A compatible, authenticated UXP panel adds 19 documented, capability-gated workflows without replacing the production CEP bridge.
 
-### What's new in 1.9.2
+### Latest release: 1.9.3
 
-- **Adobe Marketplace compatibility:** the signed CEP connector now declares a
-  minimum supported Premiere version without an artificial future maximum.
-- **Clear privacy disclosure:** the public site now documents local processing,
-  optional operational telemetry, site analytics, retention, and user choices.
+- **Focused release overview:** the README now shows only the current release instead of carrying
+  an expanding history of older release summaries.
+- **New media asset:** the landing package includes the Premiere Pro MCP cinematic intro video.
+- **Security reference:** the repository includes the dated security audit report and its explicit
+  verification boundaries.
+- **Patched dependency:** the landing build now resolves the transitive `nanoid` dependency to a
+  version that addresses the latest high-severity advisory.
 
-### Previous release: 1.9.1
-
-- **Production browser hardening:** every HTTP response includes CSP, HSTS,
-  MIME sniffing protection, frame denial, bounded permissions, and explicit
-  referrer and cross-origin policies.
-
-### Earlier release: 1.9.0
-
-- **Assistant-first setup:** Claude Desktop users start with a validated MCPB
-  bundle, while npm and manual JSON configuration stay under Advanced setup.
-- **Safe connection help:** `verify_premiere_connection`, `--doctor`, the CEP
-  Connection Center, and sanitized support bundles explain exactly what is
-  installed, configured, connected, and live-verified.
-- **Distribution foundations:** MCPB v0.4, deterministic direct/Marketplace CCX
-  packaging, and native Windows/macOS CEP installer pipelines make the supported
-  routes easier to package without overstating signing or Marketplace approval.
-- **Canonical tool surface:** 280 registered tools, 278 in the default profile,
-  and 297 while the 19 capability-gated UXP tools are connected.
-
-### Previous release: 1.8.0
-
-- **Native transcript planning:** compatible UXP hosts can export and search the
-  transcript Premiere generated for a clip, then preview a revision-locked set of
-  source-time deletion ranges.
-- **No false edit promise:** previews return a deterministic confirmation token and
-  never modify a clip or timeline. Automated application remains withheld until the
-  documented source-to-sequence reconstruction path passes real-host validation.
-- **19 connected UXP tools:** the capability-gated UXP surface grows from 16 to 19
-  without changing the 279 core-tool surface.
-
-### Earlier release: 1.7.0
-
-- **Six documented workflows:** compatible 26.3+ hosts can expose UXP track renaming, subclip creation, stable marker IDs, Source Monitor seeking, transcript presence checks, and AAF export.
-- **Capability first:** a tool is discoverable only with the authenticated local panel; the panel's live `capabilities.get` response—not package metadata—decides whether the current host supports it.
-- **Evidence boundary:** automated tests validate schemas, routing, capability declarations, transactions, and result envelopes. They do not verify a specific Premiere installation. See [Adobe UXP 26.3 coverage](docs/adobe-uxp-26.3-coverage.md) for the exact host gate and the stable-versus-beta policy.
-- **Adobe-aligned validation:** the official Premiere 26.3 declarations and ESLint rules now enforce supported signatures and lock/transaction boundaries in CI.
-
-### Added in 1.2.0
-
-- **Safe edit plans:** preview compound insert/remove operations, bind approval to a SHA-256 plan token, then apply the validated plan in one bridge command.
-- **Capability profiles:** unsafe scripting is disabled by default and requires explicit `unsafe-script` authority.
-- **Modern MCP responses:** tools expose safety annotations and structured results; four workflow prompts and a machine-readable workflow resource guide common edits.
-- **UXP bridge preview:** a packaged Premiere 25.6+ panel adds capability discovery, event-driven state notifications with a deduplicated polling fallback, correlated operation lifecycle events, reconnecting WebSocket transport, and supported frame export with file verification. Cancellation is cooperative before non-cancellable host calls; no atomic rollback is claimed. Live host verification is still required.
+See the [v1.9.3 release notes](https://github.com/leancoderkavy/premiere-pro-mcp/releases/tag/v1.9.3)
+for complete details. Live installation in Premiere Pro still requires host verification.
 
 ---
 
@@ -86,9 +48,9 @@ The AI handles the entire workflow through 280 core tools spanning the supported
 
 ### Easiest supported path: Claude Desktop
 
-1. Download the current [Claude Desktop bundle (`.mcpb`)](https://github.com/leancoderkavy/premiere-pro-mcp/releases/download/v1.9.2/premiere-pro-mcp-1.9.2.mcpb).
+1. Download the current [Claude Desktop bundle (`.mcpb`)](https://github.com/leancoderkavy/premiere-pro-mcp/releases/download/v1.9.3/premiere-pro-mcp-1.9.3.mcpb).
 2. In Claude Desktop, open **Settings > Extensions > Advanced settings > Install Extension**, select the downloaded bundle, and restart Claude Desktop.
-3. Download the separate [signed Premiere connector (`.zxp`)](https://github.com/leancoderkavy/premiere-pro-mcp/releases/download/v1.9.2/MCPBridgeCEP.zxp). Open it with your trusted ZXP installer. If your computer has no ZXP installer, use the npm connector installer in **Advanced setup** below.
+3. Download the separate [signed Premiere connector (`.zxp`)](https://github.com/leancoderkavy/premiere-pro-mcp/releases/download/v1.9.3/MCPBridgeCEP.zxp). Open it with your trusted ZXP installer. If your computer has no ZXP installer, use the npm connector installer in **Advanced setup** below.
 4. Restart Premiere, open a project, then open **Window > Extensions > MCP Bridge**.
 5. In Claude, enter: `Safely check my Premiere connection with verify_premiere_connection. Make no changes.`
 
@@ -312,11 +274,11 @@ From a clone of this repository:
 ```bash
 codex plugin marketplace add .
 codex plugin add premiere-pro@premiere-pro-mcp
-npx -y premiere-pro-mcp@1.9.2 --install-cep
+npx -y premiere-pro-mcp@1.9.3 --install-cep
 ```
 
 Restart Premiere Pro and start a new Codex session after installation. The plugin
-launches `premiere-pro-mcp@1.9.2` through `npx`; the separate CEP installation is
+launches `premiere-pro-mcp@1.9.3` through `npx`; the separate CEP installation is
 required because the MCP server communicates with the running Premiere host through
 the local bridge.
 
@@ -336,7 +298,7 @@ For Claude Code, add this repository as a marketplace and install the plugin:
 Then install the Premiere bridge and start a new Claude Code session:
 
 ```bash
-npx -y premiere-pro-mcp@1.9.2 --install-cep
+npx -y premiere-pro-mcp@1.9.3 --install-cep
 ```
 
 The Claude Code package lives in
