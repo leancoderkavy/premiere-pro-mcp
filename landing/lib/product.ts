@@ -1,6 +1,7 @@
 export const product = {
   name: "Premiere Pro MCP",
   version: "1.9.3",
+  releaseDate: "2026-08-12",
   coreToolCount: 280,
   defaultProfileToolCount: 278,
   connectedUxpToolCount: 297,
