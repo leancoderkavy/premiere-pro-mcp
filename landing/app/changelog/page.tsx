@@ -5,6 +5,32 @@ import { product } from "@/lib/product"
 
 const releases = [
   {
+    version: "1.9.3",
+    date: "2026-08-12",
+    label: "Focused release overview and repository assets",
+    groups: [
+      {
+        title: "Added",
+        items: [
+          "Added the Premiere Pro MCP cinematic intro video to the landing assets.",
+          "Added the dated security best-practices audit report for repository reference.",
+        ],
+      },
+      {
+        title: "Changed",
+        items: [
+          "Simplified the README release overview to show only the latest release and link to the complete release notes.",
+        ],
+      },
+      {
+        title: "Security",
+        items: [
+          "Updated the landing build's transitive nanoid dependency to a patched version.",
+        ],
+      },
+    ],
+  },
+  {
     version: "1.9.2",
     date: "2026-08-04",
     label: "Adobe Marketplace compatibility and privacy disclosure",
@@ -354,7 +380,7 @@ const structuredData = {
       name: "premiere-pro-mcp changelog",
       description:
         "Release notes for premiere-pro-mcp, including new tools, connector improvements, fixes, and compatibility updates.",
-      dateModified: "2026-07-26",
+      dateModified: product.releaseDate,
       isPartOf: { "@id": "https://premiere-pro-mcp.com/#website" },
       about: { "@id": "https://premiere-pro-mcp.com/#software" },
     },
@@ -439,7 +465,12 @@ export default function ChangelogPage() {
             <div className="border-l border-purple-400/40 pl-5">
               <p className="text-xs uppercase tracking-[0.18em] text-zinc-600">Latest release</p>
               <p className="mt-2 font-mono text-2xl text-white">v{product.version}</p>
-              <p className="mt-1 text-sm text-zinc-500">August 2, 2026</p>
+              <time className="mt-1 block text-sm text-zinc-500" dateTime={product.releaseDate}>
+                {new Intl.DateTimeFormat("en-US", {
+                  dateStyle: "long",
+                  timeZone: "UTC",
+                }).format(new Date(`${product.releaseDate}T00:00:00Z`))}
+              </time>
             </div>
           </div>
         </div>

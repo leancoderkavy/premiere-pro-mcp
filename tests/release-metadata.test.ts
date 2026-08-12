@@ -29,6 +29,7 @@ describe("canonical release metadata", () => {
     const readme = read("README.md");
     const llms = read("landing/public/llms.txt");
     const llmsFull = read("landing/public/llms-full.txt");
+    const landingProduct = read("landing/lib/product.ts");
 
     expect(readme).toContain(`${release.coreTools} core tools`);
     expect(readme).toContain(
@@ -45,6 +46,14 @@ describe("canonical release metadata", () => {
     expect(llmsFull).toContain(
       `${release.uxpAdditionalTools} capability-gated tools`,
     );
+    expect(landingProduct).toContain(`version: "${release.version}"`);
+    expect(landingProduct).toContain(
+      `/releases/download/v${release.version}/premiere-pro-mcp-${release.version}.mcpb`,
+    );
+    expect(landingProduct).toContain(
+      `/releases/download/v${release.version}/MCPBridgeCEP.zxp`,
+    );
+    expect(landingProduct).toContain(`/releases/tag/v${release.version}`);
   });
 
   it("keeps computed tool-count relationships explicit", () => {
