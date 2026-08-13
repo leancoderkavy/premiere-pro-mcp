@@ -850,6 +850,10 @@ npm version, fully quit every Premiere process, run `premiere-pro-mcp --install-
 
 Contributions are welcome! See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 
+The evidence-backed [next improvement pull-request roadmap](docs/next-improvement-pr-roadmap.md)
+breaks the proposed feature, protocol, reliability, and performance work into ten
+reviewable changes with explicit dependencies and live-host acceptance gates.
+
 ---
 
 ## License
