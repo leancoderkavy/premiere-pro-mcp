@@ -145,8 +145,18 @@ describe("advanced stable UXP workflow MCP catalog", () => {
   it("rejects unknown public actions without contacting Premiere", async () => {
     const request = vi.fn();
     const bridge = { request, getState: vi.fn() } as unknown as UxpWebSocketBridge;
-    const result = await getUxpTools(bridge).manage_markers_uxp.handler({ action: "destroy_everything" });
-    expect(result).toEqual({ success: false, error: "Unsupported workflow action: destroy_everything" });
+    const tools = getUxpTools(bridge);
+    const results = await Promise.all([
+      tools.inspect_project_selection_uxp.handler({ action: "destroy_everything" }),
+      tools.manage_markers_uxp.handler({ action: "destroy_everything" }),
+      tools.organize_project_items_uxp.handler({ action: "destroy_everything" }),
+      tools.transform_track_item_uxp.handler({ action: "destroy_everything" }),
+    ]);
+
+    expect(results).toEqual(Array.from({ length: 4 }, () => ({
+      success: false,
+      error: "Unsupported workflow action: destroy_everything",
+    })));
     expect(request).not.toHaveBeenCalled();
   });
 
