@@ -1,0 +1,389 @@
+import { createRequire } from "node:module";
+import { describe, expect, it, vi } from "vitest";
+
+const require = createRequire(import.meta.url);
+const Commands = require("../../uxp-plugin/commands.cjs");
+const Protocol = require("../../uxp-plugin/protocol.cjs");
+
+type MutableItem = {
+  id: string;
+  name: string;
+  isFolder?: boolean;
+  isClip?: boolean;
+  type?: number;
+  parent?: MutableItem | null;
+  children?: MutableItem[];
+  color?: number;
+  getId: ReturnType<typeof vi.fn>;
+  getItems?: ReturnType<typeof vi.fn>;
+  getParentBin: ReturnType<typeof vi.fn>;
+  getColorLabelIndex: ReturnType<typeof vi.fn>;
+  createSetNameAction: ReturnType<typeof vi.fn>;
+  createSetColorLabelAction: ReturnType<typeof vi.fn>;
+  createBinAction?: ReturnType<typeof vi.fn>;
+  createSmartBinAction?: ReturnType<typeof vi.fn>;
+  createMoveItemAction?: ReturnType<typeof vi.fn>;
+  createRemoveItemAction?: ReturnType<typeof vi.fn>;
+};
+
+function advancedHost() {
+  let nextItem = 1;
+  const makeItem = (id: string, name: string, options: Partial<MutableItem> = {}): MutableItem => {
+    const item = {
+      id, name, color: 0, type: options.isFolder ? 2 : 1, parent: null,
+      children: options.isFolder ? [] : undefined,
+      ...options,
+    } as MutableItem;
+    item.getId = vi.fn(async () => item.id);
+    item.getItems = options.isFolder ? vi.fn(async () => item.children || []) : undefined;
+    item.getParentBin = vi.fn(async () => item.parent);
+    item.getColorLabelIndex = vi.fn(async () => item.color);
+    item.createSetNameAction = vi.fn((name: string) => ({ apply: () => { item.name = name; } }));
+    item.createSetColorLabelAction = vi.fn((color: number) => ({ apply: () => { item.color = color; } }));
+    if (options.isFolder) {
+      item.createBinAction = vi.fn((name: string) => ({ apply: () => {
+        const created = makeItem(`created-bin-${nextItem++}`, name, { isFolder: true, parent: item });
+        item.children?.push(created);
+      } }));
+      item.createSmartBinAction = vi.fn((name: string) => ({ apply: () => {
+        const created = makeItem(`smart-bin-${nextItem++}`, name, { isFolder: true, parent: item });
+        item.children?.push(created);
+      } }));
+      item.createMoveItemAction = vi.fn((child: MutableItem, destination: MutableItem) => ({ apply: () => {
+        if (child.parent?.children) child.parent.children = child.parent.children.filter((value) => value !== child);
+        destination.children?.push(child);
+        child.parent = destination;
+      } }));
+      item.createRemoveItemAction = vi.fn((child: MutableItem) => ({ apply: () => {
+        item.children = item.children?.filter((value) => value !== child);
+      } }));
+    }
+    return item;
+  };
+
+  const root = makeItem("root", "Root", { isFolder: true });
+  const bin = makeItem("bin-1", "Rushes", { isFolder: true, parent: root });
+  const clip = makeItem("clip-1", "Interview.mov", { isClip: true, parent: bin });
+  root.children?.push(bin);
+  bin.children?.push(clip);
+
+  let markerCounter = 2;
+  const makeMarker = (guid: string, name: string, startSeconds = 1) => {
+    const state = { name, type: "Comment", comments: "", color: 0, start: startSeconds, duration: 0 };
+    return {
+      guid,
+      getName: vi.fn(async () => state.name),
+      getType: vi.fn(async () => state.type),
+      getComments: vi.fn(async () => state.comments),
+      getColorIndex: vi.fn(async () => state.color),
+      getStart: vi.fn(async () => ({ seconds: state.start })),
+      getDuration: vi.fn(async () => ({ seconds: state.duration })),
+      createSetNameAction: vi.fn((value: string) => ({ apply: () => { state.name = value; } })),
+      createSetTypeAction: vi.fn((value: string) => ({ apply: () => { state.type = value; } })),
+      createSetCommentsAction: vi.fn((value: string) => ({ apply: () => { state.comments = value; } })),
+      createSetDurationAction: vi.fn((value: { seconds: number }) => ({ apply: () => { state.duration = value.seconds; } })),
+      createSetColorByIndexAction: vi.fn((value: number) => ({ apply: () => { state.color = value; } })),
+      state,
+    };
+  };
+  const markerValues = [makeMarker("marker-1", "Beat")];
+  const markers = {
+    getMarkers: vi.fn(() => markerValues),
+    createAddMarkerAction: vi.fn((name: string, type: string, start: { seconds: number }, duration: { seconds: number }, comments: string) => ({ apply: () => {
+      const marker = makeMarker(`marker-${markerCounter++}`, name, start.seconds);
+      marker.state.type = type;
+      marker.state.duration = duration.seconds;
+      marker.state.comments = comments;
+      markerValues.push(marker);
+    } })),
+    createMoveMarkerAction: vi.fn((marker: ReturnType<typeof makeMarker>, time: { seconds: number }) => ({ apply: () => { marker.state.start = time.seconds; } })),
+    createRemoveMarkerAction: vi.fn((marker: ReturnType<typeof makeMarker>) => ({ apply: () => markerValues.splice(markerValues.indexOf(marker), 1) })),
+  };
+
+  const parameterState = { value: 50, varying: false, keyframes: [] as number[] };
+  const parameter = {
+    displayName: "Opacity",
+    areKeyframesSupported: vi.fn(async () => true),
+    isTimeVarying: vi.fn(() => parameterState.varying),
+    getKeyframeListAsTickTimes: vi.fn(() => parameterState.keyframes.map((seconds) => ({ seconds }))),
+    getStartValue: vi.fn(async () => ({ value: parameterState.value })),
+    getValueAtTime: vi.fn(async () => parameterState.value),
+    createKeyframe: vi.fn((value: number) => ({ value, position: null as { seconds: number } | null })),
+    createSetValueAction: vi.fn((keyframe: { value: number }) => ({ apply: () => { parameterState.value = keyframe.value; } })),
+    createSetTimeVaryingAction: vi.fn((value: boolean) => ({ apply: () => { parameterState.varying = value; } })),
+    createAddKeyframeAction: vi.fn((keyframe: { position: { seconds: number } }) => ({ apply: () => parameterState.keyframes.push(keyframe.position.seconds) })),
+    createRemoveKeyframeAction: vi.fn((time: { seconds: number }) => ({ apply: () => { parameterState.keyframes = parameterState.keyframes.filter((value) => value !== time.seconds); } })),
+    createRemoveKeyframeRangeAction: vi.fn((start: { seconds: number }, end: { seconds: number }) => ({ apply: () => { parameterState.keyframes = parameterState.keyframes.filter((value) => value < start.seconds || value > end.seconds); } })),
+    createSetInterpolationAtKeyframeAction: vi.fn(() => ({ apply: () => undefined })),
+  };
+  const component = {
+    getMatchName: vi.fn(async () => "ADBE Opacity"),
+    getDisplayName: vi.fn(async () => "Opacity"),
+    getParamCount: vi.fn(() => 1),
+    getParam: vi.fn(() => parameter),
+  };
+  const chain = { getComponentCount: vi.fn(() => 1), getComponentAtIndex: vi.fn(() => component) };
+
+  const trackState = { name: "Interview V", start: 10, end: 20, inPoint: 0, outPoint: 10, disabled: false };
+  const trackItem = {
+    getComponentChain: vi.fn(async () => chain),
+    getName: vi.fn(async () => trackState.name),
+    getStartTime: vi.fn(async () => ({ seconds: trackState.start })),
+    getEndTime: vi.fn(async () => ({ seconds: trackState.end })),
+    getInPoint: vi.fn(async () => ({ seconds: trackState.inPoint })),
+    getOutPoint: vi.fn(async () => ({ seconds: trackState.outPoint })),
+    getDuration: vi.fn(async () => ({ seconds: trackState.end - trackState.start })),
+    getSpeed: vi.fn(async () => 1),
+    isSpeedReversed: vi.fn(async () => false),
+    isAdjustmentLayer: vi.fn(async () => false),
+    isDisabled: vi.fn(async () => trackState.disabled),
+    createMoveAction: vi.fn((time: { seconds: number }) => ({ apply: () => { trackState.start += time.seconds; trackState.end += time.seconds; } })),
+    createSetStartAction: vi.fn((time: { seconds: number }) => ({ apply: () => { trackState.start = time.seconds; } })),
+    createSetEndAction: vi.fn((time: { seconds: number }) => ({ apply: () => { trackState.end = time.seconds; } })),
+    createSetInPointAction: vi.fn((time: { seconds: number }) => ({ apply: () => { trackState.inPoint = time.seconds; } })),
+    createSetOutPointAction: vi.fn((time: { seconds: number }) => ({ apply: () => { trackState.outPoint = time.seconds; } })),
+    createSetDisabledAction: vi.fn((value: boolean) => ({ apply: () => { trackState.disabled = value; } })),
+    createSetNameAction: vi.fn((value: string) => ({ apply: () => { trackState.name = value; } })),
+  };
+
+  const settingsState = {
+    maximumBitDepth: false, maxRenderQuality: false, compositeInLinearColor: false,
+    audioSampleRate: 48000, videoFrameRate: 23.976, videoFieldType: 0,
+    videoPixelAspectRatio: "square", editingMode: "custom", previewFileFormat: "mpeg",
+    previewCodec: "i-frame", videoWidth: 1280, videoHeight: 720,
+  };
+  const settings = {
+    getMaximumBitDepth: vi.fn(async () => settingsState.maximumBitDepth),
+    getMaxRenderQuality: vi.fn(async () => settingsState.maxRenderQuality),
+    getCompositeInLinearColor: vi.fn(async () => settingsState.compositeInLinearColor),
+    getAudioChannelCount: vi.fn(async () => 2),
+    getAudioChannelType: vi.fn(async () => 1),
+    getAudioSampleRate: vi.fn(async () => ({ value: settingsState.audioSampleRate })),
+    getVideoFrameRate: vi.fn(() => ({ value: settingsState.videoFrameRate })),
+    getVideoFieldType: vi.fn(async () => settingsState.videoFieldType),
+    getVideoPixelAspectRatio: vi.fn(async () => settingsState.videoPixelAspectRatio),
+    getEditingMode: vi.fn(async () => settingsState.editingMode),
+    getPreviewFileFormat: vi.fn(async () => settingsState.previewFileFormat),
+    getPreviewCodec: vi.fn(async () => settingsState.previewCodec),
+    getVideoFrameRect: vi.fn(async () => ({ width: settingsState.videoWidth, height: settingsState.videoHeight })),
+    getPreviewFrameRect: vi.fn(async () => ({ width: 640, height: 360 })),
+    setMaximumBitDepth: vi.fn(async (value: boolean) => { settingsState.maximumBitDepth = value; return true; }),
+    setMaxRenderQuality: vi.fn(async (value: boolean) => { settingsState.maxRenderQuality = value; return true; }),
+    setCompositeInLinearColor: vi.fn(async (value: boolean) => { settingsState.compositeInLinearColor = value; return true; }),
+    setAudioSampleRate: vi.fn(async (value: { value: number }) => { settingsState.audioSampleRate = value.value; return true; }),
+    setVideoFrameRate: vi.fn((value: { value: number }) => { settingsState.videoFrameRate = value.value; return true; }),
+    setVideoFieldType: vi.fn(async (value: number) => { settingsState.videoFieldType = value; return true; }),
+    setVideoPixelAspectRatio: vi.fn(async (value: string) => { settingsState.videoPixelAspectRatio = value; return true; }),
+    setEditingMode: vi.fn(async (value: string) => { settingsState.editingMode = value; return true; }),
+    setPreviewFileFormat: vi.fn(async (value: string) => { settingsState.previewFileFormat = value; return true; }),
+    setPreviewCodec: vi.fn(async (value: string) => { settingsState.previewCodec = value; return true; }),
+    setVideoFrameRect: vi.fn(async (value: { width: number; height: number }) => { settingsState.videoWidth = value.width; settingsState.videoHeight = value.height; return true; }),
+  };
+
+  const selection = { getTrackItems: vi.fn(async () => [trackItem]) };
+  const sequence = {
+    guid: "sequence-1", name: "Assembly",
+    getSelection: vi.fn(async () => selection),
+    getVideoTrackCount: vi.fn(async () => 1),
+    getVideoTrack: vi.fn(async () => ({ getTrackItems: vi.fn(async () => [trackItem]) })),
+    getAudioTrackCount: vi.fn(async () => 1),
+    getAudioTrack: vi.fn(async () => ({ getTrackItems: vi.fn(async () => [trackItem]) })),
+    getSettings: vi.fn(async () => settings),
+    createSetSettingsAction: vi.fn(() => ({ apply: () => undefined })),
+    createCloneAction: vi.fn(() => ({ apply: () => sequences.push({ guid: "sequence-2", name: "Assembly Copy" }) })),
+    createSubsequence: vi.fn(async () => ({ guid: "sequence-3", name: "Assembly Subsequence" })),
+  };
+  const sequences: Array<{ guid: string; name: string }> = [sequence];
+
+  const addAction = vi.fn((action: { apply?: () => void }) => { action.apply?.(); return true; });
+  const project = {
+    guid: "project-1", name: "Documentary",
+    getActiveSequence: vi.fn(async () => sequence),
+    getSequences: vi.fn(async () => sequences),
+    getRootItem: vi.fn(async () => root),
+    lockedAccess: vi.fn((callback: () => void) => callback()),
+    executeTransaction: vi.fn((callback: (compound: { addAction: typeof addAction }) => void) => { callback({ addAction }); return true; }),
+    importFiles: vi.fn(async (paths: string[], _suppress: boolean, target?: MutableItem) => {
+      const parent = target || root;
+      for (const path of paths) parent.children?.push(makeItem(`import-${nextItem++}`, path.split("/").at(-1) || path, { isClip: true, parent }));
+      return true;
+    }),
+    importSequences: vi.fn(async () => true),
+    importAEComps: vi.fn(async () => true),
+    importAllAEComps: vi.fn(async () => true),
+    createSequenceFromMedia: vi.fn(async (name: string) => ({ guid: "sequence-created", name })),
+    setActiveSequence: vi.fn(async () => true),
+    openSequence: vi.fn(async () => true),
+    closeSequence: vi.fn(async () => true),
+    deleteSequence: vi.fn(async (target: { guid: string }) => { const index = sequences.indexOf(target); if (index >= 0) sequences.splice(index, 1); return true; }),
+  };
+
+  const editor = {
+    createInsertProjectItemAction: vi.fn(() => ({ apply: () => undefined })),
+    createOverwriteItemAction: vi.fn(() => ({ apply: () => undefined })),
+    createCloneTrackItemAction: vi.fn(() => ({ apply: () => undefined })),
+    createRemoveItemsAction: vi.fn(() => ({ apply: () => undefined })),
+    insertMogrtFromPath: vi.fn(() => [trackItem]),
+    insertMogrtFromLibrary: vi.fn(() => [trackItem]),
+  };
+  const manager = {
+    isAMEInstalled: true,
+    exportSequence: vi.fn(async () => true),
+    encodeProjectItem: vi.fn(async () => true),
+    encodeFile: vi.fn(async () => true),
+  };
+  const ppro = {
+    Project: { getActiveProject: vi.fn(async () => project) },
+    ProjectUtils: {
+      getSelection: vi.fn(async () => ({ getItems: vi.fn(async () => [clip]) })),
+      getProjectViewIds: vi.fn(async () => ["view-1"]),
+      getProjectFromViewId: vi.fn(async () => project),
+      getSelectionFromViewId: vi.fn(async () => ({ getItems: vi.fn(async () => [clip]) })),
+    },
+    Markers: { getMarkers: vi.fn(async () => markers) },
+    Marker: { MARKER_TYPE_COMMENT: "Comment" },
+    FolderItem: { cast: vi.fn((item: MutableItem) => { if (!item.isFolder) throw new Error("not folder"); return item; }) },
+    ClipProjectItem: { cast: vi.fn((item: MutableItem) => { if (!item.isClip) throw new Error("not clip"); return item; }) },
+    TickTime: { createWithSeconds: vi.fn((seconds: number) => ({ seconds })) },
+    FrameRate: { createWithValue: vi.fn((value: number) => ({ value })) },
+    RectF: vi.fn(() => ({ width: 0, height: 0 })),
+    Guid: { fromString: vi.fn((value: string) => value) },
+    Constants: {
+      TrackItemType: { CLIP: 1 }, MediaType: { ANY: 0, VIDEO: 1, AUDIO: 2 },
+      InterpolationMode: { LINEAR: 1, HOLD: 2, BEZIER: 3, TIME: 4 },
+      ExportType: { QUEUE_TO_AME: "ame", QUEUE_TO_APP: "app", IMMEDIATELY: "now" },
+    },
+    SequenceEditor: { getEditor: vi.fn(() => editor) },
+    EncoderManager: {
+      getManager: vi.fn(() => manager),
+      getExportFileExtension: vi.fn(async () => "mp4"),
+      EXPORT_QUEUE_TO_AME: "ame", EXPORT_QUEUE_TO_APP: "app", EXPORT_IMMEDIATELY: "now",
+    },
+    Utils: { isAEInstalled: vi.fn(async () => true) },
+  };
+  const workspace = {
+    status: vi.fn(() => ({ configured: true, accessMode: "request", rootName: "Approved", persistent: true, pathDisclosure: "redacted" })),
+    assertPathAllowed: vi.fn((path: string) => path.replace(/\\/g, "/")),
+  };
+  return {
+    registry: Commands.createCommandRegistry({ ppro, Protocol, workspace }),
+    project, ppro, workspace, markers, markerValues, root, bin, clip,
+    settingsState, parameterState, trackState, editor, manager,
+  };
+}
+
+describe("advanced stable Premiere UXP workflows", () => {
+  it("advertises all ten groups from runtime probes and labels filesystem boundaries", async () => {
+    const value = advancedHost();
+    const capabilities = await value.registry.capabilities();
+    expect(Object.keys(capabilities.commands)).toEqual(expect.arrayContaining([
+      "projectSelection.views", "projectSelection.inspect", "markers.inspect", "markers.add",
+      "bins.inspect", "bins.create", "sequenceSettings.get", "sequenceSettings.update",
+      "project.import", "parameters.inspect", "parameters.keyframeAdd", "trackItem.inspect",
+      "trackItem.update", "timeline.insert", "timeline.mogrtPath", "sequences.inspect",
+      "sequences.clone", "encoder.preflight", "encoder.sequence", "encoder.file",
+    ]));
+    expect(capabilities.commands["projectSelection.inspect"]).toMatchObject({ supported: true, readOnly: true });
+    expect(capabilities.commands["markers.add"]).toMatchObject({ supported: true, destructive: true, undoable: true });
+    expect(capabilities.commands["project.import"]).toMatchObject({ supported: true, workspaceRequired: true, undoable: false });
+    expect(capabilities.commands["encoder.sequence"]).toMatchObject({ supported: true, workspaceRequired: true, undoable: false });
+  });
+
+  it("uses Project-view selection and completes marker/bin actions with identity and field readback", async () => {
+    const value = advancedHost();
+    await expect(value.registry.dispatch("projectSelection.views", {})).resolves.toMatchObject({
+      count: 1, views: [{ viewId: "view-1", projectId: "project-1", projectName: "Documentary" }],
+    });
+    await expect(value.registry.dispatch("projectSelection.inspect", { viewId: "view-1" })).resolves.toMatchObject({
+      count: 1, items: [{ id: "clip-1", name: "Interview.mov" }], resolver: "project_view_selection",
+    });
+    await expect(value.registry.dispatch("markers.add", {
+      name: "Turn", startSeconds: 3, comments: "Cut here", operationId: "marker-add",
+    })).resolves.toMatchObject({ added: true, outcome: "verified", marker: { name: "Turn", startSeconds: 3 } });
+    await expect(value.registry.dispatch("markers.update", {
+      markerGuid: "marker-1", expectedName: "Beat", name: "Beat updated",
+      startSeconds: 2, colorIndex: 4, operationId: "marker-update",
+    })).resolves.toMatchObject({
+      updated: true, outcome: "verified",
+      marker: { guid: "marker-1", name: "Beat updated", startSeconds: 2, colorIndex: 4 },
+    });
+    await expect(value.registry.dispatch("bins.create", {
+      parentBinId: "bin-1", name: "Selects", operationId: "bin-create",
+    })).resolves.toMatchObject({ created: true, outcome: "verified", item: { name: "Selects" } });
+  });
+
+  it("updates sequence settings, imports workspace media, and automates a typed effect parameter", async () => {
+    const value = advancedHost();
+    await expect(value.registry.dispatch("sequenceSettings.update", {
+      updates: { maximumBitDepth: true, videoFrameRate: 24, videoWidth: 1920, videoHeight: 1080 },
+      operationId: "settings-update",
+    })).resolves.toMatchObject({
+      updated: true, outcome: "verified",
+      after: { maximumBitDepth: true, videoFrameRate: 24, videoFrame: { width: 1920, height: 1080 } },
+    });
+    await expect(value.registry.dispatch("project.import", {
+      mode: "files", paths: ["D:/Approved/broll.mov"], targetBinId: "bin-1",
+    })).rejects.toMatchObject({ code: "UXP_CONFIRMATION_REQUIRED" });
+    await expect(value.registry.dispatch("project.import", {
+      mode: "files", paths: ["D:/Approved/broll.mov"], targetBinId: "bin-1",
+      confirmNonUndoable: true, operationId: "import-files",
+    })).resolves.toMatchObject({
+      imported: true, outcome: "verified", requested: 1, addedItemIds: [expect.stringMatching(/^import-/)],
+    });
+    await expect(value.registry.dispatch("parameters.set", {
+      mediaType: "video", trackIndex: 0, clipIndex: 0, componentIndex: 0, paramIndex: 0,
+      expectedComponentId: "ADBE Opacity", expectedParamName: "Opacity", value: 80,
+      operationId: "parameter-set",
+    })).resolves.toMatchObject({ updated: true, outcome: "verified", after: { value: 80 } });
+    expect(value.workspace.assertPathAllowed).toHaveBeenCalledWith("D:/Approved/broll.mov", {
+      label: "paths[0]", kind: "file",
+    });
+  });
+
+  it("verifies relative track moves while keeping SequenceEditor transaction limits explicit", async () => {
+    const value = advancedHost();
+    await expect(value.registry.dispatch("trackItem.update", {
+      mediaType: "video", trackIndex: 0, clipIndex: 0, moveBySeconds: 2,
+      disabled: true, operationId: "track-move",
+    })).resolves.toMatchObject({
+      updated: true, outcome: "verified",
+      before: { startSeconds: 10, endSeconds: 20, disabled: false },
+      after: { startSeconds: 12, endSeconds: 22, disabled: true },
+    });
+    await expect(value.registry.dispatch("timeline.insert", {
+      projectItemId: "clip-1", timeSeconds: 5, videoTrackIndex: 0, audioTrackIndex: 0,
+      operationId: "timeline-insert",
+    })).resolves.toMatchObject({
+      inserted: true, outcome: "committed_unverified", verified: false,
+      verificationBoundary: "sequence_editor_transaction",
+      operation: { mutatesProject: true, undo: { supported: true } },
+    });
+    expect(value.project.executeTransaction).toHaveBeenCalledTimes(2);
+  });
+
+  it("clones sequences with identity readback and gates AME writes on explicit confirmation", async () => {
+    const value = advancedHost();
+    await expect(value.registry.dispatch("sequences.clone", {
+      sequenceId: "sequence-1", operationId: "sequence-clone",
+    })).resolves.toMatchObject({
+      cloned: true, outcome: "verified", source: { id: "sequence-1" },
+      sequence: { id: "sequence-2", name: "Assembly Copy" },
+    });
+    await expect(value.registry.dispatch("encoder.sequence", {
+      sequenceId: "sequence-1", exportType: "queueToAme",
+      outputFile: "D:/Approved/output.mp4", presetFile: "D:/Approved/h264.epr",
+    })).rejects.toMatchObject({ code: "UXP_CONFIRMATION_REQUIRED" });
+    await expect(value.registry.dispatch("encoder.sequence", {
+      sequenceId: "sequence-1", exportType: "queueToAme",
+      outputFile: "D:/Approved/output.mp4", presetFile: "D:/Approved/h264.epr",
+      confirmExternalWrite: true, operationId: "encode-sequence",
+    })).resolves.toMatchObject({
+      queued: true, kind: "sequence", outcome: "committed_unverified", verified: false,
+      verificationBoundary: "encoder_host_return",
+    });
+    expect(value.manager.exportSequence).toHaveBeenCalledWith(
+      expect.objectContaining({ guid: "sequence-1" }), "ame",
+      "D:/Approved/output.mp4", "D:/Approved/h264.epr", true,
+    );
+  });
+});

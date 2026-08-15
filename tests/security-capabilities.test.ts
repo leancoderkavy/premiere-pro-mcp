@@ -35,6 +35,11 @@ describe("capability profiles", () => {
     expect(capabilityForTool("manage_proxy_ingest_uxp")).toBe("filesystem");
     expect(capabilityForTool("audition_source_monitor_uxp")).toBe("filesystem");
     expect(capabilityForTool("relink_offline_media_uxp")).toBe("filesystem");
+    expect(capabilityForTool("import_project_media_uxp")).toBe("filesystem");
+    expect(capabilityForTool("edit_timeline_uxp")).toBe("filesystem");
+    expect(capabilityForTool("encode_media_uxp")).toBe("export");
+    expect(capabilityForTool("inspect_project_selection_uxp")).toBe("inspect");
+    expect(capabilityForTool("manage_markers_uxp")).toBe("edit");
     expect(capabilityForTool("get_project_info")).toBe("inspect");
     expect(capabilityForTool("preview_transcript_edit_uxp")).toBe("inspect");
     expect(capabilityForTool("ping")).toBe("inspect");

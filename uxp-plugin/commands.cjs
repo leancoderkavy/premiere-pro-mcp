@@ -33,6 +33,11 @@
     if (workflowApi && typeof workflowApi.createWorkflowDefinitions === "function") {
       Object.assign(definitions, workflowApi.createWorkflowDefinitions({ ppro, Protocol, workspace }));
     }
+    let advancedWorkflowApi = deps.AdvancedWorkflows || (typeof globalThis !== "undefined" && globalThis.PremiereMcpAdvancedWorkflows);
+    if (!advancedWorkflowApi && typeof require === "function") advancedWorkflowApi = require("./advanced-workflows.cjs");
+    if (advancedWorkflowApi && typeof advancedWorkflowApi.createAdvancedWorkflowDefinitions === "function") {
+      Object.assign(definitions, advancedWorkflowApi.createAdvancedWorkflowDefinitions({ ppro, Protocol, workspace }));
+    }
 
     async function dispatch(command, args) {
       const definition = definitions[command];

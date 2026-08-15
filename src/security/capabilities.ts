@@ -71,6 +71,7 @@ const FILESYSTEM_TOOL_NAMES = new Set([
   "detect_silence",
   "manage_proxy_ingest_uxp",
   "audition_source_monitor_uxp",
+  "edit_timeline_uxp",
 ]);
 
 /** A conservative classification for centralized server registration. */
