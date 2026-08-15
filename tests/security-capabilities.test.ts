@@ -80,6 +80,45 @@ describe("capability profiles", () => {
   });
 
   it.each([
+    ["manage_clip_effects_uxp", "catalog"],
+    ["batch_selected_clips_uxp", "inspect"],
+    ["manage_proxy_ingest_uxp", "inspect_proxy"],
+    ["manage_metadata_uxp", "get"],
+    ["manage_color_conformance_uxp", "preflight"],
+    ["audition_source_monitor_uxp", "state"],
+    ["preflight_production_storage_uxp", "preflight"],
+    ["inspect_project_selection_uxp", "views"],
+    ["manage_markers_uxp", "inspect"],
+    ["organize_project_items_uxp", "inspect_bin"],
+    ["manage_sequence_settings_uxp", "get"],
+    ["automate_effect_parameters_uxp", "inspect"],
+    ["transform_track_item_uxp", "inspect"],
+    ["manage_sequences_uxp", "inspect"],
+    ["encode_media_uxp", "preflight"],
+  ])("keeps %s:%s available to inspect-only profiles", (toolName, action) => {
+    expect(capabilitiesForToolInvocation(toolName, { action })).toEqual(["inspect"]);
+    expect(isToolPermitted(toolName, resolveCapabilities("inspect"))).toBe(true);
+  });
+
+  it.each([
+    ["manage_clip_effects_uxp", "add", ["edit"]],
+    ["batch_selected_clips_uxp", "remove_effect", ["edit"]],
+    ["manage_metadata_uxp", "update", ["edit"]],
+    ["manage_color_conformance_uxp", "update", ["edit"]],
+    ["preflight_production_storage_uxp", "configure_project", ["edit"]],
+    ["manage_markers_uxp", "remove", ["edit"]],
+    ["organize_project_items_uxp", "move", ["edit"]],
+    ["manage_sequence_settings_uxp", "update", ["edit"]],
+    ["import_project_media_uxp", "files", ["edit", "filesystem"]],
+    ["automate_effect_parameters_uxp", "add_keyframe", ["edit"]],
+    ["transform_track_item_uxp", "update", ["edit"]],
+    ["manage_sequences_uxp", "delete", ["edit"]],
+    ["encode_media_uxp", "sequence", ["export", "filesystem"]],
+  ] as const)("requires exact mutation authority for %s:%s", (toolName, action, required) => {
+    expect(capabilitiesForToolInvocation(toolName, { action })).toEqual(required);
+  });
+
+  it.each([
     ["darwin", "macOS"],
     ["win32", "Windows"],
   ] as const)("reports static compatibility for %s", (platform, name) => {

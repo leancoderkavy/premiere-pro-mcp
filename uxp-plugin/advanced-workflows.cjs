@@ -51,7 +51,7 @@
       "sequences.subsequence": { destructive: true, undoable: false, targetCapabilityProbe: true, minHostVersion: "25.6.0", probe: canUseSequences, handler: createSubsequence },
       "sequences.activate": { idempotent: true, targetCapabilityProbe: true, minHostVersion: "25.6.0", probe: canUseSequences, handler: activateSequence },
       "sequences.open": { idempotent: true, targetCapabilityProbe: true, minHostVersion: "25.6.0", probe: canUseSequences, handler: openSequence },
-      "sequences.close": { idempotent: true, targetCapabilityProbe: true, minHostVersion: "26.2.0", probe: canUseSequences, handler: closeSequence },
+      "sequences.close": { idempotent: true, targetCapabilityProbe: true, minHostVersion: "26.2.0", probe: canCloseSequence, handler: closeSequence },
       "sequences.delete": { destructive: true, undoable: false, targetCapabilityProbe: true, minHostVersion: "25.6.0", probe: canUseSequences, handler: deleteSequence },
       "encoder.preflight": { readOnly: true, conditionalWorkspace: true, minHostVersion: "25.6.0", probe: canUseEncoder, handler: encoderPreflight },
       "encoder.sequence": { destructive: true, undoable: false, requiresWorkspace: true, minHostVersion: "25.6.0", probe: canUseEncoder, handler: encodeSequence },
@@ -200,9 +200,14 @@
       return { id: guidString(sequence && sequence.guid), name: String(sequence && sequence.name || "") };
     }
 
-    async function listSequences(project) {
+    async function boundedSequences(project) {
       const values = typeof project.getSequences === "function" ? Array.from(await project.getSequences() || []) : [];
       if (values.length > MAX_SEQUENCES) throw commandError("UXP_PROJECT_TOO_LARGE", "Sequence lookup exceeds " + MAX_SEQUENCES + " entries");
+      return values;
+    }
+
+    async function listSequences(project) {
+      const values = await boundedSequences(project);
       const result = [];
       for (const sequence of values) result.push(await sequenceSnapshot(sequence));
       return result;
@@ -214,8 +219,8 @@
         if (!active) throw commandError("UXP_NO_ACTIVE_SEQUENCE", "No active sequence");
         return active;
       }
-      const wanted = boundedString(sequenceId, "sequenceId", 128), sequences = await project.getSequences();
-      for (const sequence of Array.from(sequences || [])) if (guidString(sequence.guid) === wanted) return sequence;
+      const wanted = boundedString(sequenceId, "sequenceId", 128), sequences = await boundedSequences(project);
+      for (const sequence of sequences) if (guidString(sequence.guid) === wanted) return sequence;
       throw commandError("UXP_TARGET_NOT_FOUND", "sequenceId was not found");
     }
 
@@ -774,7 +779,8 @@
       assertObject(args); assertOnlyKeys(args, ["sequenceId", "operationId"]);
       const project = await activeProject(false), sequence = await resolveSequence(project, args.sequenceId), accepted = await project[method](sequence);
       if (!accepted) throw commandError("UXP_HOST_REJECTED", "Premiere rejected sequence " + action);
-      return { [action + "d"]: true, outcome: "committed_unverified", verified: false, sequence: await sequenceSnapshot(sequence), verificationBoundary: "host_return",
+      const resultField = { activate: "activated", open: "opened", close: "closed" }[action];
+      return { [resultField]: true, outcome: "committed_unverified", verified: false, sequence: await sequenceSnapshot(sequence), verificationBoundary: "host_return",
         operation: operationSemantics({ mutatesProject: false, verificationStatus: "not_verified", verificationBoundary: "host_return", verificationEvidence: [{ type: "host_return", accepted: true }] }) };
     }
 
@@ -936,6 +942,11 @@
     function canUseMogrtPath() { return canUseSequenceEditor(); }
     function canUseMogrtLibrary() { return canUseSequenceEditor(); }
     function canUseSequences() { return canInspectProject(); }
+    async function canCloseSequence() {
+      if (!canInspectProject()) return false;
+      const project = await ppro.Project.getActiveProject();
+      return !!project && typeof project.closeSequence === "function";
+    }
     function canUseEncoder() { return !!(ppro.EncoderManager && typeof ppro.EncoderManager.getManager === "function"); }
 
     return definitions;

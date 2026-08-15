@@ -383,12 +383,17 @@ describe("advanced stable Premiere UXP workflows", () => {
       .rejects.toMatchObject({ code: "UXP_PROJECT_TOO_LARGE" });
   });
 
-  it("keeps direct sequence actions unverified and probes every import method", async () => {
+  it("keeps direct sequence actions unverified with stable result keys and probes host methods", async () => {
     const value = advancedHost();
-    for (const command of ["sequences.activate", "sequences.open", "sequences.close"]) {
+    for (const [command, resultField] of [
+      ["sequences.activate", "activated"],
+      ["sequences.open", "opened"],
+      ["sequences.close", "closed"],
+    ]) {
       await expect(value.registry.dispatch(command, { sequenceId: "sequence-1" }))
-        .resolves.toMatchObject({ outcome: "committed_unverified", verified: false, verificationBoundary: "host_return" });
+        .resolves.toMatchObject({ [resultField]: true, outcome: "committed_unverified", verified: false, verificationBoundary: "host_return" });
     }
+    await expect(value.registry.dispatch("sequences.open", { sequenceId: "sequence-1" })).resolves.not.toHaveProperty("opend");
     await expect(value.registry.dispatch("sequenceSettings.update", {
       updates: { videoFrameRate: 241 },
     })).rejects.toMatchObject({ code: "UXP_INVALID_ARGUMENT" });
@@ -397,6 +402,28 @@ describe("advanced stable Premiere UXP workflows", () => {
     await expect(value.registry.capabilities()).resolves.toMatchObject({
       commands: { "project.import": { supported: false } },
     });
+
+    const missingClose = advancedHost();
+    Reflect.deleteProperty(missingClose.project, "closeSequence");
+    await expect(missingClose.registry.capabilities()).resolves.toMatchObject({
+      commands: {
+        "sequences.activate": { supported: true },
+        "sequences.open": { supported: true },
+        "sequences.close": { supported: false },
+      },
+    });
+  });
+
+  it("bounds ID-targeted sequence lookup before invoking the host mutation", async () => {
+    const value = advancedHost();
+    value.project.getSequences.mockResolvedValue(Array.from({ length: 1025 }, (_, index) => ({
+      guid: `sequence-${index}`,
+      name: `Sequence ${index}`,
+    })));
+
+    await expect(value.registry.dispatch("sequences.close", { sequenceId: "sequence-1024" }))
+      .rejects.toMatchObject({ code: "UXP_PROJECT_TOO_LARGE" });
+    expect(value.project.closeSequence).not.toHaveBeenCalled();
   });
 
   it("clones sequences with identity readback and gates AME writes on explicit confirmation", async () => {
