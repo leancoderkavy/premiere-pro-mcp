@@ -123,7 +123,7 @@ describe("stdio CLI entry point", () => {
   });
 
   it("rejects CEP installation on unsupported platforms", async () => {
-    if (process.platform === "win32" || process.platform === "darwin") return;
+    vi.spyOn(process, "platform", "get").mockReturnValue("linux");
     const error = vi.spyOn(console, "error").mockImplementation(() => {});
     const { promise, exit } = await importCli(["--install-cep"]);
     await expect(promise).rejects.toThrow("EXIT:1");
@@ -153,6 +153,19 @@ describe("stdio CLI entry point", () => {
     expect(error).toHaveBeenCalledWith(expect.stringContaining("UXP bridge listening"));
   });
 
+  it("reports a fatal stdio startup failure", async () => {
+    process.argv = [process.execPath, "index.js"];
+    mocks.connect.mockRejectedValueOnce(new Error("connect failed"));
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    const exit = vi.spyOn(process, "exit").mockImplementation((() => undefined) as never);
+    await import("../src/index.js");
+    await vi.waitFor(() => expect(error).toHaveBeenCalledWith(
+      "[premiere-pro-mcp] Fatal error:",
+      expect.objectContaining({ message: "connect failed" }),
+    ));
+    expect(exit).toHaveBeenCalledWith(1);
+  });
+
   it("runs and diagnoses the Windows CEP installer", async () => {
     vi.spyOn(process, "platform", "get").mockReturnValue("win32");
     const log = vi.spyOn(console, "log").mockImplementation(() => {});
@@ -169,6 +182,19 @@ describe("stdio CLI entry point", () => {
     loaded = await importCli(["--diagnose-cep"]);
     await expect(loaded.promise).rejects.toThrow("EXIT:0");
     expect(mocks.execFileSync.mock.calls[0][1]).toContain("-Diagnose");
+  });
+
+  it("runs the macOS CEP diagnostic script", async () => {
+    vi.spyOn(process, "platform", "get").mockReturnValue("darwin");
+    vi.spyOn(console, "log").mockImplementation(() => {});
+    const loaded = await importCli(["--diagnose-cep"]);
+    await expect(loaded.promise).rejects.toThrow("EXIT:0");
+    expect(mocks.execFileSync).toHaveBeenCalledWith(
+      "bash",
+      [expect.stringMatching(/install-cep\.sh$/), "--diagnose"],
+      expect.objectContaining({ stdio: "inherit" }),
+    );
+    expect(loaded.exit).toHaveBeenCalledWith(0);
   });
 
   it("reports a failed CEP installer command", async () => {
