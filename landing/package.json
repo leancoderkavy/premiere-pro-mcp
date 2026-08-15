@@ -39,7 +39,7 @@
   },
   "overrides": {
     "@hono/node-server": "^2.0.11",
-    "brace-expansion": "1.1.17",
+    "brace-expansion": "1.1.18",
     "nanoid": "3.3.18",
     "postcss": "^8.5.23",
     "sharp": "^0.35.3"
