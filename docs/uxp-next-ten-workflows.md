@@ -119,7 +119,8 @@ depth, maximum render quality, linear-color compositing, audio/video rates, fiel
 type, pixel aspect ratio, editing/preview identifiers, and video dimensions. Only
 named fields are changed and all named fields must match readback for `verified`.
 Adobe marks video-frame-rate get/set as 26.2; the other profiled settings date to
-25.6, so callers must honor the command capability metadata for the connected host.
+25.6. Because the consolidated get/update contract includes those frame-rate fields,
+both commands advertise a 26.2 minimum.
 
 ### `import_project_media_uxp`
 
@@ -145,8 +146,8 @@ timeline start/end fields.
 Insert, overwrite, clone selection, and remove selection use documented
 `SequenceEditor` actions. Path/library MOGRT insertion uses Adobe's documented
 direct methods and reports the number of returned track items. Transaction-only
-edits remain `committed_unverified` until a stable returned-item identity or exact
-post-selection mapping is available.
+edits and direct MOGRT calls remain `committed_unverified` until a stable returned-item
+identity or exact post-selection mapping is available.
 
 ### `manage_sequences_uxp`
 
@@ -154,6 +155,8 @@ The tool inspects all project sequences, creates from selected media IDs, clones
 derives a subsequence, activates, opens, closes, or deletes. Direct create,
 subsequence, and delete calls require `confirm_non_undoable: true`; deletion also
 supports `expected_name` as a stale-target guard.
+Returned objects from direct create/subsequence calls are acceptance evidence only;
+those operations remain `committed_unverified` without an independent project readback.
 Adobe introduced `Project.closeSequence` in 26.2; the other lifecycle calls in this
 tool date to 25.6 and remain individually capability gated.
 

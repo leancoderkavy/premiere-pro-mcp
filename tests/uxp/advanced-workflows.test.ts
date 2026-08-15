@@ -246,7 +246,7 @@ function advancedHost() {
     ClipProjectItem: { cast: vi.fn((item: MutableItem) => { if (!item.isClip) throw new Error("not clip"); return item; }) },
     TickTime: { createWithSeconds: vi.fn((seconds: number) => ({ seconds })) },
     FrameRate: { createWithValue: vi.fn((value: number) => ({ value })) },
-    RectF: vi.fn(() => ({ width: 0, height: 0 })),
+    RectF: class RectF { width = 0; height = 0; },
     Guid: { fromString: vi.fn((value: string) => value) },
     Constants: {
       TrackItemType: { CLIP: 1 }, MediaType: { ANY: 0, VIDEO: 1, AUDIO: 2 },
@@ -262,7 +262,7 @@ function advancedHost() {
     Utils: { isAEInstalled: vi.fn(async () => true) },
   };
   const workspace = {
-    status: vi.fn(() => ({ configured: true, accessMode: "request", rootName: "Approved", persistent: true, pathDisclosure: "redacted" })),
+    status: vi.fn(() => ({ configured: true, accessMode: "request", rootName: "Approved", persistent: true, pathDisclosure: "redacted", canonicalPathValidation: "available" })),
     assertPathAllowed: vi.fn((path: string) => path.replace(/\\/g, "/")),
   };
   return {
@@ -359,6 +359,13 @@ describe("advanced stable Premiere UXP workflows", () => {
       verificationBoundary: "sequence_editor_transaction",
       operation: { mutatesProject: true, undo: { supported: true } },
     });
+    await expect(value.registry.dispatch("timeline.mogrtLibrary", {
+      libraryName: "Brand", elementName: "Lower Third", timeSeconds: 5,
+      videoTrackIndex: 0, audioTrackIndex: 0, confirmNonUndoable: true,
+    })).resolves.toMatchObject({
+      inserted: 1, source: "library", outcome: "committed_unverified", verified: false,
+      verificationBoundary: "sequence_editor_host_return",
+    });
     expect(value.project.executeTransaction).toHaveBeenCalledTimes(2);
   });
 
@@ -412,6 +419,19 @@ describe("advanced stable Premiere UXP workflows", () => {
         "sequences.close": { supported: false },
       },
     });
+
+    await expect(value.registry.dispatch("sequences.createFromMedia", {
+      name: "New Assembly", projectItemIds: ["clip-1"], confirmNonUndoable: true,
+    })).resolves.toMatchObject({
+      created: true, outcome: "committed_unverified", verified: false,
+      verificationBoundary: "create_sequence_host_return",
+    });
+    await expect(value.registry.dispatch("sequences.subsequence", {
+      sequenceId: "sequence-1", confirmNonUndoable: true,
+    })).resolves.toMatchObject({
+      created: true, outcome: "committed_unverified", verified: false,
+      verificationBoundary: "create_subsequence_host_return",
+    });
   });
 
   it("bounds ID-targeted sequence lookup before invoking the host mutation", async () => {
@@ -424,6 +444,10 @@ describe("advanced stable Premiere UXP workflows", () => {
     await expect(value.registry.dispatch("sequences.close", { sequenceId: "sequence-1024" }))
       .rejects.toMatchObject({ code: "UXP_PROJECT_TOO_LARGE" });
     expect(value.project.closeSequence).not.toHaveBeenCalled();
+
+    await expect(value.registry.dispatch("sequences.delete", { confirmNonUndoable: true }))
+      .rejects.toMatchObject({ code: "UXP_PROJECT_TOO_LARGE" });
+    expect(value.project.deleteSequence).not.toHaveBeenCalled();
   });
 
   it("clones sequences with identity readback and gates AME writes on explicit confirmation", async () => {
@@ -450,5 +474,11 @@ describe("advanced stable Premiere UXP workflows", () => {
       expect.objectContaining({ guid: "sequence-1" }), "ame",
       "D:/Approved/output.mp4", "D:/Approved/h264.epr", true,
     );
+
+    const noProject = advancedHost();
+    noProject.ppro.Project.getActiveProject.mockResolvedValue(null);
+    await expect(noProject.registry.dispatch("encoder.preflight", {})).resolves.toEqual({
+      ameInstalled: true, extension: null, sequenceId: null,
+    });
   });
 });

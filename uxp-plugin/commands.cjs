@@ -71,7 +71,7 @@
       const commands = {};
       for (const name of Object.keys(definitions)) {
         const definition = definitions[name], apiSupported = !definition.probe || await definition.probe();
-        const pathValidationSupported = !definition.requiresWorkspace || workspaceState.canonicalPathValidation !== "unavailable";
+        const pathValidationSupported = !definition.requiresWorkspace || workspaceState.canonicalPathValidation === "available";
         const supported = apiSupported && pathValidationSupported;
         commands[name] = {
           supported, backend: "uxp", documented: true,

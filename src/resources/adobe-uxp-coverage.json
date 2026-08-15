@@ -827,7 +827,7 @@
       "mutatesProject": true,
       "undoable": true,
       "idempotency": "operation_id",
-      "verificationBoundary": "transaction_commit_or_returned_items"
+      "verificationBoundary": "transaction_commit_or_host_returned_items"
     },
     {
       "id": "sequence-lifecycle-derivatives",
@@ -855,7 +855,7 @@
       "mutatesProject": true,
       "undoable": true,
       "idempotency": "operation_id",
-      "verificationBoundary": "sequence_identity_or_absence_readback"
+      "verificationBoundary": "sequence_identity_readback_or_host_return_or_absence_readback"
     },
     {
       "id": "ame-encode-controller",

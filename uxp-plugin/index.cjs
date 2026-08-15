@@ -273,8 +273,7 @@ async function dispatch(raw) {
       operation.phase = "host_call";
       result = await commandRegistry.dispatch(cmd.command, cmd.args);
     }
-    publishOperation("completed", operation, { phase: "complete", progress: 1 });
-    send(Protocol.envelope("result", {
+    const response = Protocol.envelope("result", {
       ok: true,
       result,
       operation: result && result.operation
@@ -301,7 +300,13 @@ async function dispatch(raw) {
                 verificationBoundary: "host_snapshot"
               }
         )
-    }, cmd.requestId));
+    }, cmd.requestId);
+    // Validate the exact response before emitting a terminal success event. If
+    // serialization rejects an oversized result, the catch path emits only
+    // `failed`, never both `completed` and `failed` for one operation.
+    Protocol.serializeEnvelope(response);
+    publishOperation("completed", operation, { phase: "complete", progress: 1 });
+    send(response);
   } catch (error) {
     const cancelled = error && error.code === "UXP_OPERATION_CANCELLED";
     const errorCode = cancelled

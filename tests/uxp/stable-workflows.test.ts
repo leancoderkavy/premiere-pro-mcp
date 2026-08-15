@@ -171,7 +171,7 @@ function stableHost() {
     PRProduction: { getActiveProduction: vi.fn(() => ({ getScratchDiskSettings: vi.fn(async () => scratchSettings) })) },
   };
   const workspace = {
-    status: vi.fn(() => ({ configured: true, accessMode: "request", rootName: "Approved", persistent: true, pathDisclosure: "redacted" })),
+    status: vi.fn(() => ({ configured: true, accessMode: "request", rootName: "Approved", persistent: true, pathDisclosure: "redacted", canonicalPathValidation: "available" })),
     assertPathAllowed: vi.fn((path: string) => path.replace(/\\/g, "/")),
   };
   return {

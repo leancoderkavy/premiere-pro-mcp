@@ -28,8 +28,8 @@
       "bins.move": { destructive: true, undoable: true, targetCapabilityProbe: true, minHostVersion: "25.6.0", probe: canUseBins, handler: moveProjectItem },
       "bins.color": { destructive: true, undoable: true, targetCapabilityProbe: true, minHostVersion: "25.6.0", probe: canUseBins, handler: colorProjectItem },
       "bins.remove": { destructive: true, undoable: true, targetCapabilityProbe: true, minHostVersion: "25.6.0", probe: canUseBins, handler: removeProjectItem },
-      "sequenceSettings.get": { readOnly: true, targetCapabilityProbe: true, minHostVersion: "25.6.0", probe: canUseSequenceSettings, handler: getSequenceSettings },
-      "sequenceSettings.update": { destructive: true, undoable: true, targetCapabilityProbe: true, minHostVersion: "25.6.0", probe: canUseSequenceSettings, handler: updateSequenceSettings },
+      "sequenceSettings.get": { readOnly: true, targetCapabilityProbe: true, minHostVersion: "26.2.0", probe: canUseSequenceSettings, handler: getSequenceSettings },
+      "sequenceSettings.update": { destructive: true, undoable: true, targetCapabilityProbe: true, minHostVersion: "26.2.0", probe: canUseSequenceSettings, handler: updateSequenceSettings },
       "project.import": { destructive: true, undoable: false, requiresWorkspace: true, minHostVersion: "25.6.0", probe: canImportProjectMedia, handler: importProjectMedia },
       "parameters.inspect": { readOnly: true, targetCapabilityProbe: true, minHostVersion: "25.6.0", probe: canUseParameters, handler: inspectParameter },
       "parameters.set": { destructive: true, undoable: true, targetCapabilityProbe: true, minHostVersion: "25.6.0", probe: canUseParameters, handler: setParameterValue },
@@ -474,7 +474,10 @@
         if (typeof settings.setAudioSampleRate !== "function" || await settings.setAudioSampleRate(createFrameRate(updates.audioSampleRate)) === false) throw commandError("UXP_ACTION_REJECTED", "Premiere rejected audioSampleRate");
       }
       if (updates.videoWidth !== undefined || updates.videoHeight !== undefined) {
-        const rect = ppro.RectF(), current = before.videoFrame || {};
+        if (typeof ppro.RectF !== "function" || typeof settings.setVideoFrameRect !== "function") {
+          throw commandError("UXP_COMMAND_UNAVAILABLE", "Premiere does not expose video frame rectangle updates");
+        }
+        const rect = new ppro.RectF(), current = before.videoFrame || {};
         rect.width = updates.videoWidth === undefined ? current.width : updates.videoWidth;
         rect.height = updates.videoHeight === undefined ? current.height : updates.videoHeight;
         if (await settings.setVideoFrameRect(rect) === false) throw commandError("UXP_ACTION_REJECTED", "Premiere rejected video frame dimensions");
@@ -727,14 +730,14 @@
       assertObject(args); assertOnlyKeys(args, ["filePath", "timeSeconds", "videoTrackIndex", "audioTrackIndex", "confirmNonUndoable", "operationId"]);
       requireConfirmation(args.confirmNonUndoable, "MOGRT insertion is a direct SequenceEditor call without an Action boundary");
       const context = await editorContext(false), path = await allowedPath(args.filePath, "filePath", "file"), values = Array.from(await context.editor.insertMogrtFromPath(path, tick(finiteNumber(args.timeSeconds, "timeSeconds", 0, 86400), "timeSeconds"), nonNegativeInt(args.videoTrackIndex, "videoTrackIndex"), nonNegativeInt(args.audioTrackIndex, "audioTrackIndex")) || []);
-      return directMutationResult(values.length > 0, { inserted: values.length, source: "path" }, "sequence_editor_returned_items");
+      return directMutationResult(false, { inserted: values.length, source: "path" }, "sequence_editor_host_return");
     }
 
     async function insertMogrtLibrary(args) {
       assertObject(args); assertOnlyKeys(args, ["libraryName", "elementName", "timeSeconds", "videoTrackIndex", "audioTrackIndex", "confirmNonUndoable", "operationId"]);
       requireConfirmation(args.confirmNonUndoable, "MOGRT insertion is a direct SequenceEditor call without an Action boundary");
       const context = await editorContext(false), values = Array.from(await context.editor.insertMogrtFromLibrary(boundedString(args.libraryName, "libraryName", 255), boundedString(args.elementName, "elementName", 255), tick(finiteNumber(args.timeSeconds, "timeSeconds", 0, 86400), "timeSeconds"), nonNegativeInt(args.videoTrackIndex, "videoTrackIndex"), nonNegativeInt(args.audioTrackIndex, "audioTrackIndex")) || []);
-      return directMutationResult(values.length > 0, { inserted: values.length, source: "library" }, "sequence_editor_returned_items");
+      return directMutationResult(false, { inserted: values.length, source: "library" }, "sequence_editor_host_return");
     }
 
     async function inspectSequences(args) {
@@ -750,7 +753,7 @@
       for (const id of ids) clips.push(asClip(await findProjectItem(project, id), "projectItemId"));
       const target = args.targetBinId ? await resolveFolder(project, args.targetBinId, "targetBinId") : undefined, sequence = await project.createSequenceFromMedia(boundedString(args.name, "name", 255), clips, target);
       if (!sequence) throw commandError("UXP_HOST_REJECTED", "Premiere did not create a sequence");
-      return directMutationResult(true, { created: true, sequence: await sequenceSnapshot(sequence) }, "created_sequence_identity");
+      return directMutationResult(false, { created: true, sequence: await sequenceSnapshot(sequence) }, "create_sequence_host_return");
     }
 
     async function cloneSequence(args) {
@@ -768,7 +771,7 @@
       requireConfirmation(args.confirmNonUndoable, "Creating a subsequence is a direct Sequence call without an Action boundary");
       const project = await activeProject(false), sequence = await resolveSequence(project, args.sequenceId), created = await sequence.createSubsequence(optionalBoolean(args.ignoreTrackTargeting, false, "ignoreTrackTargeting"));
       if (!created) throw commandError("UXP_HOST_REJECTED", "Premiere did not create a subsequence");
-      return directMutationResult(true, { created: true, sequence: await sequenceSnapshot(created) }, "created_sequence_identity");
+      return directMutationResult(false, { created: true, sequence: await sequenceSnapshot(created) }, "create_subsequence_host_return");
     }
 
     async function activateSequence(args) { return sequenceDirectAction(args, "activate", "setActiveSequence"); }
@@ -787,7 +790,9 @@
     async function deleteSequence(args) {
       assertObject(args); assertOnlyKeys(args, ["sequenceId", "expectedName", "confirmNonUndoable", "operationId"]);
       requireConfirmation(args.confirmNonUndoable, "Deleting a sequence is not exposed as an undoable Action");
-      const project = await activeProject(false), sequence = await resolveSequence(project, args.sequenceId), snapshot = await sequenceSnapshot(sequence);
+      const project = await activeProject(false);
+      await listSequences(project);
+      const sequence = await resolveSequence(project, args.sequenceId), snapshot = await sequenceSnapshot(sequence);
       assertExpected(snapshot.name, args.expectedName, "UXP_STALE_SEQUENCE", "Sequence name");
       if (!await project.deleteSequence(sequence)) throw commandError("UXP_HOST_REJECTED", "Premiere rejected sequence deletion");
       const remaining = await listSequences(project), verified = !remaining.some((value) => value.id === snapshot.id);
@@ -803,9 +808,10 @@
 
     async function encoderPreflight(args) {
       assertObject(args); assertOnlyKeys(args, ["sequenceId", "presetFile"]);
-      const project = await activeProject(false), manager = encoderManager();
+      const manager = encoderManager();
       let extension = null;
       if (args.presetFile != null) {
+        const project = await activeProject(false);
         const sequence = await resolveSequence(project, args.sequenceId), preset = await allowedPath(args.presetFile, "presetFile", "file");
         extension = await ppro.EncoderManager.getExportFileExtension(sequence, preset);
       }

@@ -1,4 +1,5 @@
 import { createRequire } from "node:module";
+import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 const require = createRequire(import.meta.url);
 const protocol = require("../../uxp-plugin/protocol.cjs");
@@ -31,6 +32,14 @@ describe("UXP bridge protocol", () => {
     })).toThrow("1 MiB");
     expect(protocol.serializeEnvelope(protocol.envelope("result", { ok: true, result: { value: "small" } }, "r1")))
       .toContain('"type":"result"');
+  });
+  it("pre-serializes a success result before publishing its completed event", () => {
+    const panel = readFileSync(new URL("../../uxp-plugin/index.cjs", import.meta.url), "utf8");
+    const dispatchStart = panel.indexOf("async function dispatch(raw)");
+    const validation = panel.indexOf("Protocol.serializeEnvelope(response);", dispatchStart);
+    const completion = panel.indexOf('publishOperation("completed"', dispatchStart);
+    expect(validation).toBeGreaterThan(dispatchStart);
+    expect(completion).toBeGreaterThan(validation);
   });
   it("prevents filename path traversal", () => {
     expect(protocol.safeFilename("shot-01.png")).toBe("shot-01.png");
