@@ -1,0 +1,77 @@
+name: Connection or setup problem
+description: Report a sanitized installation, connector, or live-connection failure.
+title: "[Connection]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Do not attach footage, project files, private prompts, tokens, or full local paths. Run `premiere-pro-mcp --doctor` and the read-only `verify_premiere_connection` prompt first.
+  - type: dropdown
+    id: operating-system
+    attributes:
+      label: Operating system
+      options:
+        - Windows
+        - macOS Apple Silicon
+        - macOS Intel
+        - Other or unsupported
+    validations:
+      required: true
+  - type: input
+    id: premiere-version
+    attributes:
+      label: Premiere Pro version
+      placeholder: 26.3.0
+    validations:
+      required: true
+  - type: dropdown
+    id: client
+    attributes:
+      label: AI client
+      options:
+        - Claude Desktop
+        - Claude Code
+        - Codex
+        - Cursor
+        - VS Code / Copilot
+        - Windsurf
+        - Another MCP client
+    validations:
+      required: true
+  - type: dropdown
+    id: route
+    attributes:
+      label: Installation route
+      options:
+        - Claude Desktop bundle plus CEP connector
+        - npm package plus CEP connector
+        - Source build plus CEP connector
+        - UXP preview bridge
+        - Remote HTTP transport
+        - Not sure
+    validations:
+      required: true
+  - type: textarea
+    id: state
+    attributes:
+      label: Sanitized connection state
+      description: Share component status and error codes, but remove usernames, paths, media, project names, prompts, and tokens.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: Describe the shortest clean sequence that reproduces the failure.
+    validations:
+      required: true
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Safety checks
+      options:
+        - label: I removed footage, project files, private prompts, tokens, and full local paths.
+          required: true
+        - label: I restarted Premiere and my AI client, opened a project, and ran the read-only connection check.
+          required: true

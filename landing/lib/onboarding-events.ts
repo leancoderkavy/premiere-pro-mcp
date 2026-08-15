@@ -4,6 +4,8 @@ export type OnboardingEvent =
   | "onboarding_safe_prompt_copied"
   | "onboarding_advanced_opened"
   | "onboarding_recovery_opened"
+  | "marketing_cta_clicked"
+  | "marketing_demo_played"
 
 type OnboardingEventParameters = Record<string, string>
 

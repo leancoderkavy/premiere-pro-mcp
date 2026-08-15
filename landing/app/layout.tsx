@@ -60,9 +60,9 @@ export const metadata: Metadata = {
     locale: "en_US",
     images: [
       {
-        url: "/og-image.png",
-        width: 1200,
-        height: 630,
+        url: "/marketing/premiere-pro-mcp-social-square-v1.png",
+        width: 1254,
+        height: 1254,
         alt: "Premiere Pro MCP — control Adobe Premiere Pro with AI",
       },
     ],
@@ -71,7 +71,11 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title,
     description,
-    images: ["/og-image.png"],
+    images: ["/marketing/premiere-pro-mcp-social-square-v1.png"],
+  },
+  icons: {
+    icon: "/marketing/premiere-pro-mcp-mark-v1.png",
+    apple: "/marketing/premiere-pro-mcp-mark-v1.png",
   },
   robots: {
     index: true,

@@ -1,4 +1,5 @@
 import { Github, Package } from "lucide-react"
+import Image from "next/image"
 
 export function Footer() {
   return (
@@ -7,10 +8,16 @@ export function Footer() {
         <div className="grid gap-10 border-b border-zinc-900 pb-10 md:grid-cols-[1fr_auto_auto] md:gap-16">
           <div className="max-w-sm">
             <div className="flex items-center gap-3">
-              <span className="grid h-8 w-8 place-items-center rounded-md border border-purple-400/30 bg-purple-500/15 font-mono text-sm text-purple-200">Pr</span>
+              <Image
+                src="/marketing/premiere-pro-mcp-mark-v1.png"
+                alt=""
+                width={32}
+                height={32}
+                className="h-8 w-8 object-contain"
+              />
               <span className="text-sm font-semibold text-white">premiere-pro-mcp</span>
             </div>
-            <p className="mt-4 text-sm leading-6 text-zinc-500">Open-source, local-first AI control for Adobe Premiere Pro.</p>
+            <p className="mt-4 text-sm leading-6 text-zinc-500">Open-source, local-first structured AI control for supported Adobe Premiere Pro workflows.</p>
           </div>
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.16em] text-zinc-600">Product</p>
