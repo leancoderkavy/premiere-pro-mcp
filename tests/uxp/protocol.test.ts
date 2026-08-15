@@ -1,4 +1,5 @@
 import { createRequire } from "node:module";
+import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 const require = createRequire(import.meta.url);
 const protocol = require("../../uxp-plugin/protocol.cjs");
@@ -22,6 +23,23 @@ describe("UXP bridge protocol", () => {
     expect(() => protocol.parseCommand({ type: "command", requestId: "", command: "state.get" })).toThrow("requestId");
     const oversized = JSON.stringify({ type: "command", command: "state.get", padding: "x".repeat(protocol.MAX_COMMAND_BYTES) });
     expect(() => protocol.parseCommand(oversized)).toThrow("64 KiB");
+  });
+  it("bounds complete result envelopes by UTF-8 bytes", () => {
+    expect(protocol.utf8ByteLength("aé😀")).toBe(7);
+    expect(() => protocol.assertResultSize({
+      projectMetadata: "😀".repeat(170_000),
+      xmpMetadata: "😀".repeat(170_000),
+    })).toThrow("1 MiB");
+    expect(protocol.serializeEnvelope(protocol.envelope("result", { ok: true, result: { value: "small" } }, "r1")))
+      .toContain('"type":"result"');
+  });
+  it("pre-serializes a success result before publishing its completed event", () => {
+    const panel = readFileSync(new URL("../../uxp-plugin/index.cjs", import.meta.url), "utf8");
+    const dispatchStart = panel.indexOf("async function dispatch(raw)");
+    const validation = panel.indexOf("Protocol.serializeEnvelope(response);", dispatchStart);
+    const completion = panel.indexOf('publishOperation("completed"', dispatchStart);
+    expect(validation).toBeGreaterThan(dispatchStart);
+    expect(completion).toBeGreaterThan(validation);
   });
   it("prevents filename path traversal", () => {
     expect(protocol.safeFilename("shot-01.png")).toBe("shot-01.png");

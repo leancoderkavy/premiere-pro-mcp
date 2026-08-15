@@ -74,8 +74,8 @@ function invalidAction(value: unknown) {
 }
 
 const projectItemProperties = {
-  project_item_id: { type: "string", maxLength: 512, description: "Stable project-item ID. Omit with project_item_name to use exactly one Project panel selection." },
-  project_item_name: { type: "string", maxLength: 255, description: "Unique media-clip name. Not allowed together with project_item_id." },
+  project_item_id: { type: "string", minLength: 1, maxLength: 512, description: "Stable project-item ID. Omit with project_item_name to use exactly one Project panel selection." },
+  project_item_name: { type: "string", minLength: 1, maxLength: 255, description: "Unique media-clip name. Not allowed together with project_item_id." },
 };
 
 const operationId = {
@@ -347,7 +347,8 @@ export function getUxpWorkflowTools(bridge: UxpWebSocketBridge) {
       handler: async (args: WorkflowArgs) => {
         if (args.action === "preflight") return invoke(bridge, "storage.preflight");
         if (args.action !== "configure_project") return invalidAction(args.action);
-        if (!args.folder_types?.length || args.destination === undefined) {
+        if (!args.folder_types?.length ||
+          (args.destination !== "same_as_project" && args.destination !== "my_documents")) {
           return { success: false, error: "configure_project requires folder_types and destination" };
         }
         const typeMap: Record<string, string> = {

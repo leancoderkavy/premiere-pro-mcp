@@ -25,7 +25,8 @@ function storageFixture() {
     createPersistentToken: vi.fn(async () => "persistent-capability-token"),
     getEntryForPersistentToken: vi.fn(async () => root),
   };
-  return { fs, files };
+  const resolveCanonicalPath = vi.fn(async (value: string) => value);
+  return { fs, files, resolveCanonicalPath };
 }
 
 describe("least-privilege UXP workspace broker", () => {
@@ -44,6 +45,8 @@ describe("least-privilege UXP workspace broker", () => {
     expect(() => Workspace.parseAbsolutePath("D:/../Windows/system.ini", "path")).toThrow("escapes");
     expect(() => Workspace.parseAbsolutePath("D:/Projects/Film/NUL", "path")).toThrow("Windows-ambiguous");
     expect(() => Workspace.parseAbsolutePath("D:/Projects/Film/clip.mov:stream", "path")).toThrow("Windows-ambiguous");
+    expect(Workspace.parseAbsolutePath("/Volumes/Film/ clip .mov ", "path").normalized)
+      .toBe("/Volumes/Film/ clip .mov ");
   });
 
   it("accepts only the manifest's exact loopback WebSocket endpoint", () => {
@@ -57,26 +60,38 @@ describe("least-privilege UXP workspace broker", () => {
 
   it("persists only the opaque token and never discloses the native root", async () => {
     const fixture = storageFixture();
-    const broker = Workspace.createWorkspaceBroker({ fs: fixture.fs });
+    const broker = Workspace.createWorkspaceBroker({ fs: fixture.fs, resolveCanonicalPath: fixture.resolveCanonicalPath });
     await expect(broker.requestRoot()).resolves.toEqual({
       configured: true,
       accessMode: "request",
       rootName: "Approved Media",
       persistent: true,
       pathDisclosure: "redacted",
+      canonicalPathValidation: "available",
     });
     expect(JSON.parse(fixture.files.get("workspace-access.json") ?? "{}")).toEqual({
       schemaVersion: 1,
       persistentToken: "persistent-capability-token",
     });
-    expect(broker.assertPathAllowed("D:\\Projects\\Film\\exports\\edit.aaf", { label: "output", kind: "file" }))
-      .toBe("D:/Projects/Film/exports/edit.aaf");
-    try {
-      broker.assertPathAllowed("D:\\Projects\\Other\\edit.aaf", { label: "output", kind: "file" });
-      throw new Error("expected containment rejection");
-    } catch (error) {
-      expect(error).toMatchObject({ code: "UXP_PATH_OUTSIDE_WORKSPACE" });
-    }
+    await expect(broker.assertPathAllowed("D:\\Projects\\Film\\exports\\edit.aaf", { label: "output", kind: "file" }))
+      .resolves.toBe("D:/Projects/Film/exports/edit.aaf");
+    await expect(broker.assertPathAllowed("D:\\Projects\\Other\\edit.aaf", { label: "output", kind: "file" }))
+      .rejects.toMatchObject({ code: "UXP_PATH_OUTSIDE_WORKSPACE" });
+  });
+
+  it("rejects canonical link targets outside the approved workspace and fails closed without a resolver", async () => {
+    const fixture = storageFixture();
+    fixture.resolveCanonicalPath.mockImplementation(async (value: string) =>
+      value.includes("linked") ? "D:/Secrets/outside.mov" : value);
+    const broker = Workspace.createWorkspaceBroker({ fs: fixture.fs, resolveCanonicalPath: fixture.resolveCanonicalPath });
+    await broker.requestRoot();
+    await expect(broker.assertPathAllowed("D:/Projects/Film/linked/outside.mov", { label: "media", kind: "file" }))
+      .rejects.toMatchObject({ code: "UXP_PATH_OUTSIDE_WORKSPACE" });
+
+    const unavailable = Workspace.createWorkspaceBroker({ fs: fixture.fs });
+    await unavailable.requestRoot();
+    await expect(unavailable.assertPathAllowed("D:/Projects/Film/media.mov", { label: "media", kind: "file" }))
+      .rejects.toMatchObject({ code: "UXP_CANONICAL_PATH_UNAVAILABLE" });
   });
 
   it("restores and revokes a persisted folder capability", async () => {

@@ -17,7 +17,10 @@
     if (typeof value !== "string" || !value.trim() || value.length > 4096 || value.indexOf("\0") !== -1) {
       throw workspaceError("UXP_INVALID_ARGUMENT", label + " must be a non-empty absolute path of at most 4096 characters");
     }
-    const original = value.trim();
+    // Trimming is only valid for the blank-value check above. Leading and
+    // trailing spaces are legal POSIX filename characters and must survive
+    // normalization unchanged.
+    const original = value;
     const windowsInput = /^[A-Za-z]:[\\/]/.test(original) || /^\\\\/.test(original);
     const slashed = windowsInput ? original.replace(/\\/g, "/") : original;
     const drive = /^([A-Za-z]):\/(.*)$/.exec(slashed);
@@ -73,6 +76,7 @@
 
   function createWorkspaceBroker(deps) {
     const fs = deps && deps.fs;
+    const resolveCanonicalPath = deps && deps.resolveCanonicalPath;
     let rootEntry = null;
     let persistentToken = null;
     let initialized = false;
@@ -170,11 +174,12 @@
         accessMode: "request",
         rootName: rootEntry && typeof rootEntry.name === "string" ? rootEntry.name : null,
         persistent: !!persistentToken,
-        pathDisclosure: "redacted"
+        pathDisclosure: "redacted",
+        canonicalPathValidation: typeof resolveCanonicalPath === "function" ? "available" : "unavailable"
       };
     }
 
-    function assertPathAllowed(value, options) {
+    async function assertPathAllowed(value, options) {
       const label = options && options.label || "path";
       const kind = options && options.kind || "file";
       const rootPath = nativePathFor(rootEntry);
@@ -185,7 +190,27 @@
       if (!isContained(rootPath, candidate.normalized, kind === "directory")) {
         throw workspaceError("UXP_PATH_OUTSIDE_WORKSPACE", label + " must stay inside the approved workspace folder");
       }
-      return candidate.normalized;
+      // A lexical prefix check cannot detect symlinks, Windows junctions, or
+      // other reparse points. Adobe's request-scoped UXP filesystem API does
+      // not expose a documented realpath/link-inspection primitive, so raw
+      // native paths must fail closed unless the embedding host supplies one.
+      if (typeof resolveCanonicalPath !== "function") {
+        throw workspaceError("UXP_CANONICAL_PATH_UNAVAILABLE", "This UXP host cannot prove that " + label + " stays inside the approved workspace after resolving filesystem links");
+      }
+      let canonicalRootValue, canonicalCandidateValue;
+      try {
+        canonicalRootValue = await resolveCanonicalPath(rootPath, { label: "workspace root", kind: "directory" });
+        canonicalCandidateValue = await resolveCanonicalPath(candidate.normalized, { label, kind });
+      } catch (error) {
+        if (error && /^UXP_[A-Z0-9_]+$/.test(error.code || "")) throw error;
+        throw workspaceError("UXP_CANONICAL_PATH_UNAVAILABLE", "This UXP host could not resolve " + label + " to a canonical filesystem path");
+      }
+      const canonicalRoot = parseAbsolutePath(canonicalRootValue, "workspace root");
+      const canonicalCandidate = parseAbsolutePath(canonicalCandidateValue, label);
+      if (!isContained(canonicalRoot.normalized, canonicalCandidate.normalized, kind === "directory")) {
+        throw workspaceError("UXP_PATH_OUTSIDE_WORKSPACE", label + " resolves outside the approved workspace folder");
+      }
+      return canonicalCandidate.normalized;
     }
 
     return { initialize, requestRoot, revoke, status, assertPathAllowed };

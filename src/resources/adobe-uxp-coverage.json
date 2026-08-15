@@ -622,6 +622,264 @@
       "undoable": false,
       "idempotency": "not_applicable",
       "verificationBoundary": "workspace_capability_state"
+    },
+    {
+      "id": "project-view-selection-resolver",
+      "adobeApi": [
+        "ProjectUtils.getProjectViewIds",
+        "ProjectUtils.getProjectFromViewId",
+        "ProjectUtils.getSelection",
+        "ProjectUtils.getSelectionFromViewId"
+      ],
+      "documentationUrls": [
+        "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/projectutils/"
+      ],
+      "minimumPremiereVersion": "25.6.0",
+      "backend": "uxp",
+      "uxpCommand": "projectSelection.inspect",
+      "mcpTools": ["inspect_project_selection_uxp"],
+      "availability": "current",
+      "implementationStatus": "implemented",
+      "verificationStatus": "automated_contract_verified",
+      "liveHostVerificationStatus": "not_run",
+      "mutatesProject": false,
+      "undoable": false,
+      "idempotency": "not_applicable",
+      "verificationBoundary": "project_view_selection_snapshot"
+    },
+    {
+      "id": "native-marker-crud",
+      "adobeApi": [
+        "Markers.getMarkers",
+        "Markers.createAddMarkerAction",
+        "Markers.createMoveMarkerAction",
+        "Markers.createRemoveMarkerAction",
+        "Marker.createSetNameAction",
+        "Marker.guid"
+      ],
+      "documentationUrls": [
+        "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/markers/",
+        "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/marker/"
+      ],
+      "minimumPremiereVersion": "26.3.0",
+      "backend": "uxp",
+      "uxpCommand": "markers.update",
+      "mcpTools": ["manage_markers_uxp"],
+      "availability": "current",
+      "implementationStatus": "implemented",
+      "verificationStatus": "automated_contract_verified",
+      "liveHostVerificationStatus": "not_run",
+      "mutatesProject": true,
+      "undoable": true,
+      "idempotency": "operation_id",
+      "verificationBoundary": "marker_guid_and_field_readback"
+    },
+    {
+      "id": "transactional-bin-organizer",
+      "adobeApi": [
+        "FolderItem.createBinAction",
+        "FolderItem.createSmartBinAction",
+        "FolderItem.createMoveItemAction",
+        "FolderItem.createRemoveItemAction",
+        "ProjectItem.createSetColorLabelAction"
+      ],
+      "documentationUrls": [
+        "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/folderitem/",
+        "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/projectitem/"
+      ],
+      "minimumPremiereVersion": "25.6.0",
+      "backend": "uxp",
+      "uxpCommand": "bins.create",
+      "mcpTools": ["organize_project_items_uxp"],
+      "availability": "current",
+      "implementationStatus": "implemented",
+      "verificationStatus": "automated_contract_verified",
+      "liveHostVerificationStatus": "not_run",
+      "mutatesProject": true,
+      "undoable": true,
+      "idempotency": "operation_id",
+      "verificationBoundary": "project_item_identity_and_field_readback"
+    },
+    {
+      "id": "sequence-settings-profiles",
+      "adobeApi": [
+        "Sequence.getSettings",
+        "Sequence.createSetSettingsAction",
+        "SequenceSettings.setVideoFrameRate",
+        "SequenceSettings.setVideoFrameRect",
+        "SequenceSettings.setMaximumBitDepth"
+      ],
+      "documentationUrls": [
+        "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/sequence/",
+        "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/sequencesettings/"
+      ],
+      "minimumPremiereVersion": "26.2.0",
+      "backend": "uxp",
+      "uxpCommand": "sequenceSettings.update",
+      "mcpTools": ["manage_sequence_settings_uxp"],
+      "availability": "current",
+      "implementationStatus": "implemented",
+      "verificationStatus": "automated_contract_verified",
+      "liveHostVerificationStatus": "not_run",
+      "mutatesProject": true,
+      "undoable": true,
+      "idempotency": "operation_id",
+      "verificationBoundary": "sequence_settings_readback"
+    },
+    {
+      "id": "workspace-gated-project-import",
+      "adobeApi": [
+        "Project.importFiles",
+        "Project.importSequences",
+        "Project.importAEComps",
+        "Project.importAllAEComps"
+      ],
+      "documentationUrls": [
+        "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/project/"
+      ],
+      "minimumPremiereVersion": "25.6.0",
+      "backend": "uxp",
+      "uxpCommand": "project.import",
+      "mcpTools": ["import_project_media_uxp"],
+      "availability": "current",
+      "implementationStatus": "implemented",
+      "verificationStatus": "automated_contract_verified",
+      "liveHostVerificationStatus": "not_run",
+      "mutatesProject": true,
+      "undoable": false,
+      "idempotency": "operation_id",
+      "verificationBoundary": "import_post_state_readback"
+    },
+    {
+      "id": "typed-parameter-keyframe-automation",
+      "adobeApi": [
+        "Component.getParam",
+        "ComponentParam.createKeyframe",
+        "ComponentParam.createSetValueAction",
+        "ComponentParam.createAddKeyframeAction",
+        "ComponentParam.createRemoveKeyframeRangeAction",
+        "ComponentParam.createSetInterpolationAtKeyframeAction"
+      ],
+      "documentationUrls": [
+        "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/component/",
+        "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/componentparam/"
+      ],
+      "minimumPremiereVersion": "25.6.0",
+      "backend": "uxp",
+      "uxpCommand": "parameters.keyframeAdd",
+      "mcpTools": ["automate_effect_parameters_uxp"],
+      "availability": "current",
+      "implementationStatus": "implemented",
+      "verificationStatus": "automated_contract_verified",
+      "liveHostVerificationStatus": "not_run",
+      "mutatesProject": true,
+      "undoable": true,
+      "idempotency": "operation_id",
+      "verificationBoundary": "parameter_value_or_keyframe_readback"
+    },
+    {
+      "id": "track-item-transformations",
+      "adobeApi": [
+        "VideoClipTrackItem.createMoveAction",
+        "VideoClipTrackItem.createSetStartAction",
+        "VideoClipTrackItem.createSetEndAction",
+        "AudioClipTrackItem.createSetInPointAction",
+        "AudioClipTrackItem.createSetDisabledAction"
+      ],
+      "documentationUrls": [
+        "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/videocliptrackitem/",
+        "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/audiocliptrackitem/"
+      ],
+      "minimumPremiereVersion": "25.6.0",
+      "backend": "uxp",
+      "uxpCommand": "trackItem.update",
+      "mcpTools": ["transform_track_item_uxp"],
+      "availability": "current",
+      "implementationStatus": "implemented",
+      "verificationStatus": "automated_contract_verified",
+      "liveHostVerificationStatus": "not_run",
+      "mutatesProject": true,
+      "undoable": true,
+      "idempotency": "operation_id",
+      "verificationBoundary": "track_item_readback"
+    },
+    {
+      "id": "sequence-editor-timeline-layer",
+      "adobeApi": [
+        "SequenceEditor.createInsertProjectItemAction",
+        "SequenceEditor.createOverwriteItemAction",
+        "SequenceEditor.createCloneTrackItemAction",
+        "SequenceEditor.createRemoveItemsAction",
+        "SequenceEditor.insertMogrtFromPath",
+        "SequenceEditor.insertMogrtFromLibrary"
+      ],
+      "documentationUrls": [
+        "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/sequenceeditor/"
+      ],
+      "minimumPremiereVersion": "25.6.0",
+      "backend": "uxp",
+      "uxpCommand": "timeline.insert",
+      "mcpTools": ["edit_timeline_uxp"],
+      "availability": "current",
+      "implementationStatus": "implemented",
+      "verificationStatus": "automated_contract_verified",
+      "liveHostVerificationStatus": "not_run",
+      "mutatesProject": true,
+      "undoable": true,
+      "idempotency": "operation_id",
+      "verificationBoundary": "transaction_commit_or_host_returned_items"
+    },
+    {
+      "id": "sequence-lifecycle-derivatives",
+      "adobeApi": [
+        "Project.createSequenceFromMedia",
+        "Sequence.createCloneAction",
+        "Sequence.createSubsequence",
+        "Project.setActiveSequence",
+        "Project.openSequence",
+        "Project.closeSequence",
+        "Project.deleteSequence"
+      ],
+      "documentationUrls": [
+        "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/project/",
+        "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/sequence/"
+      ],
+      "minimumPremiereVersion": "26.2.0",
+      "backend": "uxp",
+      "uxpCommand": "sequences.clone",
+      "mcpTools": ["manage_sequences_uxp"],
+      "availability": "current",
+      "implementationStatus": "implemented",
+      "verificationStatus": "automated_contract_verified",
+      "liveHostVerificationStatus": "not_run",
+      "mutatesProject": true,
+      "undoable": true,
+      "idempotency": "operation_id",
+      "verificationBoundary": "sequence_identity_readback_or_host_return_or_absence_readback"
+    },
+    {
+      "id": "ame-encode-controller",
+      "adobeApi": [
+        "EncoderManager.getExportFileExtension",
+        "EncoderManager.exportSequence",
+        "EncoderManager.encodeProjectItem",
+        "EncoderManager.encodeFile"
+      ],
+      "documentationUrls": [
+        "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/encodermanager/"
+      ],
+      "minimumPremiereVersion": "25.6.0",
+      "backend": "uxp",
+      "uxpCommand": "encoder.sequence",
+      "mcpTools": ["encode_media_uxp"],
+      "availability": "current",
+      "implementationStatus": "implemented",
+      "verificationStatus": "automated_contract_verified",
+      "liveHostVerificationStatus": "not_run",
+      "mutatesProject": false,
+      "undoable": false,
+      "idempotency": "operation_id",
+      "verificationBoundary": "encoder_host_acceptance_only"
     }
   ]
 }

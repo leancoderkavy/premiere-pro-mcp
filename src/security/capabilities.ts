@@ -69,9 +69,113 @@ const FILESYSTEM_TOOL_NAMES = new Set([
   "set_scratch_disk_path",
   "verify_delivery_file",
   "detect_silence",
-  "manage_proxy_ingest_uxp",
-  "audition_source_monitor_uxp",
 ]);
+
+const ACTION_CAPABILITIES: Readonly<Record<string, Readonly<Record<string, readonly Capability[]>>>> = {
+  manage_clip_effects_uxp: {
+    catalog: ["inspect"],
+    inspect: ["inspect"],
+    add: ["edit"],
+    remove: ["edit"],
+  },
+  batch_selected_clips_uxp: {
+    inspect: ["inspect"],
+    add_effect: ["edit"],
+    remove_effect: ["edit"],
+  },
+  manage_proxy_ingest_uxp: {
+    inspect_proxy: ["inspect"],
+    attach_proxy: ["edit", "filesystem"],
+    get_ingest: ["inspect"],
+    set_ingest: ["edit"],
+  },
+  manage_metadata_uxp: {
+    get: ["inspect"],
+    update: ["edit"],
+  },
+  manage_color_conformance_uxp: {
+    preflight: ["inspect"],
+    update: ["edit"],
+  },
+  audition_source_monitor_uxp: {
+    state: ["inspect"],
+    open_project_item: ["edit"],
+    open_file: ["edit", "filesystem"],
+    set_position: ["edit"],
+    play: ["edit"],
+    close: ["edit"],
+    close_all: ["edit"],
+  },
+  preflight_production_storage_uxp: {
+    preflight: ["inspect"],
+    configure_project: ["edit"],
+  },
+  inspect_project_selection_uxp: {
+    views: ["inspect"],
+    selection: ["inspect"],
+  },
+  manage_markers_uxp: {
+    inspect: ["inspect"],
+    add: ["edit"],
+    update: ["edit"],
+    remove: ["edit"],
+  },
+  organize_project_items_uxp: {
+    inspect_bin: ["inspect"],
+    create_bin: ["edit"],
+    create_smart_bin: ["edit"],
+    rename: ["edit"],
+    move: ["edit"],
+    set_color: ["edit"],
+    remove: ["edit"],
+  },
+  manage_sequence_settings_uxp: {
+    get: ["inspect"],
+    update: ["edit"],
+  },
+  import_project_media_uxp: {
+    files: ["edit", "filesystem"],
+    sequences: ["edit", "filesystem"],
+    ae_comps: ["edit", "filesystem"],
+    all_ae_comps: ["edit", "filesystem"],
+  },
+  automate_effect_parameters_uxp: {
+    inspect: ["inspect"],
+    set_value: ["edit"],
+    add_keyframe: ["edit"],
+    remove_keyframe: ["edit"],
+    remove_keyframe_range: ["edit"],
+    set_interpolation: ["edit"],
+  },
+  transform_track_item_uxp: {
+    inspect: ["inspect"],
+    update: ["edit"],
+  },
+  edit_timeline_uxp: {
+    insert: ["edit"],
+    overwrite: ["edit"],
+    clone_selection: ["edit"],
+    remove_selection: ["edit"],
+    insert_mogrt_path: ["edit", "filesystem"],
+    insert_mogrt_library: ["edit"],
+  },
+  manage_sequences_uxp: {
+    inspect: ["inspect"],
+    create_from_media: ["edit"],
+    clone: ["edit"],
+    subsequence: ["edit"],
+    activate: ["edit"],
+    open: ["edit"],
+    close: ["edit"],
+    delete: ["edit"],
+  },
+  encode_media_uxp: {
+    preflight: ["inspect"],
+    sequence: ["export", "filesystem"],
+    project_item: ["export", "filesystem"],
+    file: ["export", "filesystem"],
+  },
+};
 
 /** A conservative classification for centralized server registration. */
 export function capabilityForTool(toolName: string): Capability {
@@ -83,6 +187,23 @@ export function capabilityForTool(toolName: string): Capability {
   // Every remaining registered tool changes Premiere state. Defaulting to edit
   // keeps new tools fail-closed instead of silently bypassing the authority profile.
   return "edit";
+}
+
+/** Resolve authority at the action level for consolidated multi-action tools. */
+export function capabilitiesForToolInvocation(toolName: string, args: unknown): readonly Capability[] {
+  const actionMap = ACTION_CAPABILITIES[toolName];
+  if (!actionMap) return [capabilityForTool(toolName)];
+  const input = args && typeof args === "object" && !Array.isArray(args)
+    ? args as Record<string, unknown>
+    : undefined;
+  const action = input?.action;
+  const required = typeof action === "string" ? actionMap[action] : undefined;
+  if (toolName === "encode_media_uxp" && action === "preflight" && typeof input?.preset_file === "string") {
+    return ["inspect", "filesystem"];
+  }
+  return required
+    ? required
+    : [capabilityForTool(toolName)];
 }
 
 /**
@@ -105,6 +226,10 @@ export function isToolPermitted(
   config: CapabilityConfig,
 ): boolean {
   if (ALWAYS_LISTED_TOOL_NAMES.has(toolName)) return true;
+  const actionMap = ACTION_CAPABILITIES[toolName];
+  if (actionMap) {
+    return Object.values(actionMap).some((required) => required.every((capability) => config.capabilities.has(capability)));
+  }
   return config.capabilities.has(capabilityForTool(toolName));
 }
 
@@ -114,9 +239,11 @@ export function guardToolHandler<TArgs, TResult>(
   config: CapabilityConfig = resolveCapabilities(),
   createOperationId: () => string = randomUUID,
 ): (args: TArgs) => Promise<TResult> {
-  const required = capabilityForTool(toolName);
   return async (args: TArgs) => {
-    requireCapability(config, required, createOperationId());
+    const operationId = createOperationId();
+    for (const required of capabilitiesForToolInvocation(toolName, args)) {
+      requireCapability(config, required, operationId);
+    }
     return handler(args);
   };
 }

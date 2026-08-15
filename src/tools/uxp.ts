@@ -1,5 +1,6 @@
 import type { UxpWebSocketBridge } from "../bridge/uxp-websocket-bridge.js";
 import { previewTranscriptEdit, transcriptRevision } from "./transcript-edits.js";
+import { getUxpAdvancedWorkflowTools } from "./uxp-advanced-workflows.js";
 import { getUxpWorkflowTools } from "./uxp-workflows.js";
 
 function invoke(
@@ -21,6 +22,7 @@ export function getUxpTools(bridge: UxpWebSocketBridge) {
     description: "Optional idempotency key (1-128 letters, numbers, dot, underscore, colon, or dash).",
   };
   return {
+    ...getUxpAdvancedWorkflowTools(bridge),
     ...getUxpWorkflowTools(bridge),
     get_uxp_capabilities: {
       description: "Report the authenticated local UXP bridge connection and the capabilities advertised by the connected Premiere host.",

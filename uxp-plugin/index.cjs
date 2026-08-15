@@ -219,7 +219,7 @@ async function exportFrame(args, operation) {
   const sequence = await project.getActiveSequence();
   if (!sequence) throw new Error("No active sequence");
   if (!args.outputDirectory) throw new Error("outputDirectory is required");
-  const outputDirectory = workspaceBroker.assertPathAllowed(args.outputDirectory, { label: "outputDirectory", kind: "directory" });
+  const outputDirectory = await workspaceBroker.assertPathAllowed(args.outputDirectory, { label: "outputDirectory", kind: "directory" });
   const filename = Protocol.safeFilename(args.filename);
   const position = args.seconds == null ? await sequence.getPlayerPosition() : await tickTime(args.seconds);
   const size = await sequence.getFrameSize();
@@ -273,8 +273,7 @@ async function dispatch(raw) {
       operation.phase = "host_call";
       result = await commandRegistry.dispatch(cmd.command, cmd.args);
     }
-    publishOperation("completed", operation, { phase: "complete", progress: 1 });
-    send(Protocol.envelope("result", {
+    const response = Protocol.envelope("result", {
       ok: true,
       result,
       operation: result && result.operation
@@ -301,7 +300,13 @@ async function dispatch(raw) {
                 verificationBoundary: "host_snapshot"
               }
         )
-    }, cmd.requestId));
+    }, cmd.requestId);
+    // Validate the exact response before emitting a terminal success event. If
+    // serialization rejects an oversized result, the catch path emits only
+    // `failed`, never both `completed` and `failed` for one operation.
+    Protocol.serializeEnvelope(response);
+    publishOperation("completed", operation, { phase: "complete", progress: 1 });
+    send(response);
   } catch (error) {
     const cancelled = error && error.code === "UXP_OPERATION_CANCELLED";
     const errorCode = cancelled
@@ -346,7 +351,7 @@ function connect() {
   socket.onclose = () => scheduleReconnect("Disconnected");
 }
 function scheduleReconnect(message) { setStatus(message + "; retrying in 2s"); reconnectTimer = setTimeout(connect, 2000); }
-function send(value) { if (socket && socket.readyState === WebSocket.OPEN) socket.send(JSON.stringify(value)); }
+function send(value) { if (socket && socket.readyState === WebSocket.OPEN) socket.send(Protocol.serializeEnvelope(value)); }
 function disconnect() {
   if (reconnectTimer) clearTimeout(reconnectTimer);
   reconnectTimer = null;
@@ -436,6 +441,6 @@ async function revokeWorkspace() {
 function renderWorkspaceStatus() {
   const element = document.getElementById("workspace-status"), value = workspaceBroker.status();
   if (element) element.textContent = value.configured
-    ? "Approved folder: " + value.rootName + "\nPersistent access: yes\nNative path: redacted"
+    ? "Approved folder: " + value.rootName + "\nPersistent access: yes\nNative path: redacted\nCanonical path validation: " + value.canonicalPathValidation
     : "No approved workspace folder";
 }

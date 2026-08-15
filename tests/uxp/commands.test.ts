@@ -76,6 +76,27 @@ describe("UXP command registry", () => {
     expect(unavailable.commands["transition.video.add"]).toMatchObject({ supported: false, reason: expect.any(String) });
   });
 
+  it("requires an explicit available canonical-path state for path command discovery", async () => {
+    const value = host();
+    const missingState = Commands.createCommandRegistry({
+      ppro: value.ppro,
+      Protocol,
+      workspace: { status: () => ({ configured: true }), assertPathAllowed: (path: string) => path },
+    });
+    await expect(missingState.capabilities()).resolves.toMatchObject({
+      commands: { "sequence.createPreset": { supported: false, workspaceRequired: true } },
+    });
+
+    const availableState = Commands.createCommandRegistry({
+      ppro: value.ppro,
+      Protocol,
+      workspace: { status: () => ({ configured: true, canonicalPathValidation: "available" }), assertPathAllowed: (path: string) => path },
+    });
+    await expect(availableState.capabilities()).resolves.toMatchObject({
+      commands: { "sequence.createPreset": { supported: true, workspaceRequired: true } },
+    });
+  });
+
   it("lists installed video transition match names", async () => {
     await expect(host().registry.dispatch("transition.video.list", {})).resolves.toEqual({
       matchNames: ["CrossDissolve", "DipToBlack"], count: 2

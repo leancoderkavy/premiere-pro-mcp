@@ -171,7 +171,7 @@ function stableHost() {
     PRProduction: { getActiveProduction: vi.fn(() => ({ getScratchDiskSettings: vi.fn(async () => scratchSettings) })) },
   };
   const workspace = {
-    status: vi.fn(() => ({ configured: true, accessMode: "request", rootName: "Approved", persistent: true, pathDisclosure: "redacted" })),
+    status: vi.fn(() => ({ configured: true, accessMode: "request", rootName: "Approved", persistent: true, pathDisclosure: "redacted", canonicalPathValidation: "available" })),
     assertPathAllowed: vi.fn((path: string) => path.replace(/\\/g, "/")),
   };
   return {
@@ -197,6 +197,27 @@ describe("stable Premiere UXP workflow expansion", () => {
       supported: true, undoable: false, workspaceRequired: true, targetCapabilityProbe: "invocation",
     });
     expect(capabilities.workspace).toMatchObject({ configured: true, pathDisclosure: "redacted" });
+  });
+
+  it("probes Source Monitor state, play, and close commands independently", async () => {
+    const missingPlay = stableHost();
+    Reflect.deleteProperty(missingPlay.ppro.SourceMonitor, "play");
+    const withoutPlay = await missingPlay.registry.capabilities();
+    expect(withoutPlay.commands["sourceMonitor.state"]).toMatchObject({ supported: true });
+    expect(withoutPlay.commands["sourceMonitor.play"]).toMatchObject({ supported: false });
+    expect(withoutPlay.commands["sourceMonitor.close"]).toMatchObject({ supported: true });
+
+    const missingCloseClip = stableHost();
+    Reflect.deleteProperty(missingCloseClip.ppro.SourceMonitor, "closeClip");
+    const withoutCloseClip = await missingCloseClip.registry.capabilities();
+    expect(withoutCloseClip.commands["sourceMonitor.state"]).toMatchObject({ supported: true });
+    expect(withoutCloseClip.commands["sourceMonitor.play"]).toMatchObject({ supported: true });
+    expect(withoutCloseClip.commands["sourceMonitor.close"]).toMatchObject({ supported: false });
+
+    const missingCloseAll = stableHost();
+    Reflect.deleteProperty(missingCloseAll.ppro.SourceMonitor, "closeAllClips");
+    const withoutCloseAll = await missingCloseAll.registry.capabilities();
+    expect(withoutCloseAll.commands["sourceMonitor.close"]).toMatchObject({ supported: false });
   });
 
   it("runs native effect and selection batches as verified action transactions", async () => {

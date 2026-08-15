@@ -44,7 +44,11 @@ function registryWithAdobe26_3Apis() {
     ProjectConverter: { exportAAF: vi.fn(async () => true) },
     AAFExportOptions: vi.fn(() => ({})),
   };
-  return Commands.createCommandRegistry({ ppro, fs: {}, Protocol });
+  const workspace = {
+    status: vi.fn(() => ({ canonicalPathValidation: "available" })),
+    assertPathAllowed: vi.fn(async (path: string) => path),
+  };
+  return Commands.createCommandRegistry({ ppro, Protocol, workspace });
 }
 
 describe("Adobe Premiere 26.3 UXP capability catalog", () => {

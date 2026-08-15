@@ -41,6 +41,12 @@ describe("stable UXP workflow MCP catalog", () => {
       required: ["new_path", "confirm_non_undoable"],
       properties: { new_path: { maxLength: 4096 }, confirm_non_undoable: { type: "boolean" } },
     });
+    expect(tools.manage_proxy_ingest_uxp.parameters).toMatchObject({
+      properties: {
+        project_item_id: { minLength: 1, maxLength: 512 },
+        project_item_name: { minLength: 1, maxLength: 255 },
+      },
+    });
   });
 
   it("rejects incomplete storage configuration and preserves explicit empty selectors", async () => {
@@ -112,4 +118,57 @@ describe("stable UXP workflow MCP catalog", () => {
     });
     expect(request).toHaveBeenNthCalledWith(10, "workspace.status", {});
   });
+
+  it("rejects unsupported dispatcher actions before bridge access", async () => {
+    const request = vi.fn();
+    const bridge = { request, getState: vi.fn() } as unknown as UxpWebSocketBridge;
+    const tools = getUxpTools(bridge);
+
+    const results = await Promise.all([
+      tools.manage_clip_effects_uxp.handler({ action: "unsupported" }),
+      tools.batch_selected_clips_uxp.handler({ action: "unsupported" }),
+      tools.manage_proxy_ingest_uxp.handler({ action: "unsupported" }),
+      tools.manage_metadata_uxp.handler({ action: "unsupported" }),
+      tools.manage_color_conformance_uxp.handler({ action: "unsupported" }),
+      tools.audition_source_monitor_uxp.handler({ action: "unsupported" }),
+    ]);
+
+    expect(results).toEqual(Array.from({ length: 6 }, () => ({
+      success: false,
+      error: "Unsupported workflow action: unsupported",
+    })));
+    expect(request).not.toHaveBeenCalled();
+  });
+
+  it("normalizes bridge failures and forwards optional proxy controls", async () => {
+    const request = vi.fn()
+      .mockRejectedValueOnce(new Error("host disconnected"))
+      .mockResolvedValueOnce({ outcome: "verified" });
+    const bridge = { request, getState: vi.fn() } as unknown as UxpWebSocketBridge;
+    const tools = getUxpTools(bridge);
+
+    await expect(tools.manage_clip_effects_uxp.handler({ action: "catalog" })).resolves.toEqual({
+      success: false,
+      error: "host disconnected",
+    });
+    await tools.manage_proxy_ingest_uxp.handler({
+      action: "attach_proxy",
+      project_item_name: "Interview A",
+      media_path: "D:/Approved/Interview A Proxy.mov",
+      is_high_resolution: false,
+      make_alternate_link_in_team_projects: true,
+      replace_existing_proxy: true,
+      confirm_non_undoable: true,
+    });
+
+    expect(request).toHaveBeenNthCalledWith(2, "proxy.attach", {
+      projectItemName: "Interview A",
+      mediaPath: "D:/Approved/Interview A Proxy.mov",
+      isHiRes: false,
+      makeAlternateLinkInTeamProjects: true,
+      replaceExistingProxy: true,
+      confirmNonUndoable: true,
+    });
+  });
+
 });

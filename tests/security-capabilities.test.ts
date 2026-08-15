@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { capabilityForTool, guardToolHandler, isToolPermitted, resolveCapabilities } from "../src/security/capabilities.js";
+import { capabilitiesForToolInvocation, capabilityForTool, guardToolHandler, isToolPermitted, resolveCapabilities } from "../src/security/capabilities.js";
 import { buildPlatformCapabilityReport } from "../src/platform-capabilities.js";
 import {
   buildToolCapabilityReport,
@@ -32,9 +32,14 @@ describe("capability profiles", () => {
     expect(capabilityForTool("validate_export_preset")).toBe("export");
     expect(capabilityForTool("verify_delivery_file")).toBe("filesystem");
     expect(capabilityForTool("import_media")).toBe("filesystem");
-    expect(capabilityForTool("manage_proxy_ingest_uxp")).toBe("filesystem");
-    expect(capabilityForTool("audition_source_monitor_uxp")).toBe("filesystem");
+    expect(capabilityForTool("manage_proxy_ingest_uxp")).toBe("edit");
+    expect(capabilityForTool("audition_source_monitor_uxp")).toBe("edit");
     expect(capabilityForTool("relink_offline_media_uxp")).toBe("filesystem");
+    expect(capabilityForTool("import_project_media_uxp")).toBe("filesystem");
+    expect(capabilityForTool("edit_timeline_uxp")).toBe("edit");
+    expect(capabilityForTool("encode_media_uxp")).toBe("export");
+    expect(capabilityForTool("inspect_project_selection_uxp")).toBe("inspect");
+    expect(capabilityForTool("manage_markers_uxp")).toBe("edit");
     expect(capabilityForTool("get_project_info")).toBe("inspect");
     expect(capabilityForTool("preview_transcript_edit_uxp")).toBe("inspect");
     expect(capabilityForTool("ping")).toBe("inspect");
@@ -50,6 +55,84 @@ describe("capability profiles", () => {
       guardToolHandler("trim_clip", handler, resolveCapabilities("inspect"), () => "edit-1")({}),
     ).rejects.toMatchObject({ code: "CAPABILITY_DENIED", capability: "edit" });
     expect(handler).not.toHaveBeenCalled();
+  });
+
+  it("enforces every capability required by consolidated UXP actions", async () => {
+    const handler = vi.fn(async () => "ok");
+    expect(capabilitiesForToolInvocation("manage_proxy_ingest_uxp", { action: "attach_proxy" }))
+      .toEqual(["edit", "filesystem"]);
+    expect(capabilitiesForToolInvocation("manage_proxy_ingest_uxp", { action: "inspect_proxy" }))
+      .toEqual(["inspect"]);
+
+    await expect(
+      guardToolHandler("manage_proxy_ingest_uxp", handler, resolveCapabilities("filesystem"), () => "proxy-edit")({ action: "set_ingest" }),
+    ).rejects.toMatchObject({ code: "CAPABILITY_DENIED", capability: "edit", operationId: "proxy-edit" });
+    await expect(
+      guardToolHandler("manage_proxy_ingest_uxp", handler, resolveCapabilities("edit"), () => "proxy-file")({ action: "attach_proxy" }),
+    ).rejects.toMatchObject({ code: "CAPABILITY_DENIED", capability: "filesystem", operationId: "proxy-file" });
+    await expect(
+      guardToolHandler("audition_source_monitor_uxp", handler, resolveCapabilities("filesystem"), () => "monitor-edit")({ action: "play" }),
+    ).rejects.toMatchObject({ code: "CAPABILITY_DENIED", capability: "edit" });
+    await expect(
+      guardToolHandler("edit_timeline_uxp", handler, resolveCapabilities("filesystem"), () => "timeline-edit")({ action: "insert" }),
+    ).rejects.toMatchObject({ code: "CAPABILITY_DENIED", capability: "edit" });
+    expect(handler).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ["manage_clip_effects_uxp", "catalog"],
+    ["batch_selected_clips_uxp", "inspect"],
+    ["manage_proxy_ingest_uxp", "inspect_proxy"],
+    ["manage_metadata_uxp", "get"],
+    ["manage_color_conformance_uxp", "preflight"],
+    ["audition_source_monitor_uxp", "state"],
+    ["preflight_production_storage_uxp", "preflight"],
+    ["inspect_project_selection_uxp", "views"],
+    ["manage_markers_uxp", "inspect"],
+    ["organize_project_items_uxp", "inspect_bin"],
+    ["manage_sequence_settings_uxp", "get"],
+    ["automate_effect_parameters_uxp", "inspect"],
+    ["transform_track_item_uxp", "inspect"],
+    ["manage_sequences_uxp", "inspect"],
+    ["encode_media_uxp", "preflight"],
+  ])("keeps %s:%s available to inspect-only profiles", (toolName, action) => {
+    expect(capabilitiesForToolInvocation(toolName, { action })).toEqual(["inspect"]);
+    expect(isToolPermitted(toolName, resolveCapabilities("inspect"))).toBe(true);
+  });
+
+  it.each([
+    ["manage_clip_effects_uxp", "add", ["edit"]],
+    ["batch_selected_clips_uxp", "remove_effect", ["edit"]],
+    ["manage_metadata_uxp", "update", ["edit"]],
+    ["manage_color_conformance_uxp", "update", ["edit"]],
+    ["preflight_production_storage_uxp", "configure_project", ["edit"]],
+    ["manage_markers_uxp", "remove", ["edit"]],
+    ["organize_project_items_uxp", "move", ["edit"]],
+    ["manage_sequence_settings_uxp", "update", ["edit"]],
+    ["import_project_media_uxp", "files", ["edit", "filesystem"]],
+    ["automate_effect_parameters_uxp", "add_keyframe", ["edit"]],
+    ["transform_track_item_uxp", "update", ["edit"]],
+    ["manage_sequences_uxp", "delete", ["edit"]],
+    ["encode_media_uxp", "sequence", ["export", "filesystem"]],
+  ] as const)("requires exact mutation authority for %s:%s", (toolName, action, required) => {
+    expect(capabilitiesForToolInvocation(toolName, { action })).toEqual(required);
+  });
+
+  it("requires filesystem authority only for preset-based encoder preflight", async () => {
+    expect(capabilitiesForToolInvocation("encode_media_uxp", { action: "preflight" }))
+      .toEqual(["inspect"]);
+    expect(capabilitiesForToolInvocation("encode_media_uxp", { action: "preflight", preset_file: "D:/Approved/h264.epr" }))
+      .toEqual(["inspect", "filesystem"]);
+
+    const handler = vi.fn(async () => "ok");
+    await expect(
+      guardToolHandler("encode_media_uxp", handler, resolveCapabilities("inspect"), () => "preset-preflight")({
+        action: "preflight", preset_file: "D:/Approved/h264.epr",
+      }),
+    ).rejects.toMatchObject({ code: "CAPABILITY_DENIED", capability: "filesystem", operationId: "preset-preflight" });
+    await expect(
+      guardToolHandler("encode_media_uxp", handler, resolveCapabilities("inspect"))({ action: "preflight" }),
+    ).resolves.toBe("ok");
   });
 
   it.each([
@@ -237,6 +320,9 @@ describe("isToolPermitted", () => {
     expect(isToolPermitted("export_sequence", config)).toBe(false);
     expect(isToolPermitted("import_media", config)).toBe(false);
     expect(isToolPermitted("get_project_info", config)).toBe(true);
+    expect(isToolPermitted("manage_proxy_ingest_uxp", config)).toBe(true);
+    expect(isToolPermitted("audition_source_monitor_uxp", config)).toBe(true);
+    expect(isToolPermitted("edit_timeline_uxp", config)).toBe(false);
   });
 
   it("always advertises the diagnostic tools, even under a profile that excludes inspect", () => {
