@@ -11,6 +11,7 @@
   const MAX_KEYFRAMES = 256;
   const MAX_MARKERS = 2048;
   const MAX_SEQUENCES = 1024;
+  const MAX_BIN_CHILDREN = 1024;
 
   function createAdvancedWorkflowDefinitions(deps) {
     const ppro = deps.ppro, Protocol = deps.Protocol, workspace = deps.workspace;
@@ -305,6 +306,7 @@
       const markerType = args.markerType == null ? String(ppro.Marker && ppro.Marker.MARKER_TYPE_COMMENT || "Comment") : boundedString(args.markerType, "markerType", 128);
       const start = tick(finiteNumber(args.startSeconds == null ? 0 : args.startSeconds, "startSeconds", 0, 86400), "startSeconds"), duration = tick(finiteNumber(args.durationSeconds == null ? 0 : args.durationSeconds, "durationSeconds", 0, 86400), "durationSeconds");
       const comments = args.comments == null ? "" : boundedStringAllowEmpty(args.comments, "comments", 4000), before = await markerList(context.collection);
+      assertAppendCapacity(before, MAX_MARKERS, "Marker creation");
       context.project.lockedAccess(() => {
         commitActions(context.project, "Add marker", [context.collection.createAddMarkerAction(name, markerType, start, duration, comments)]);
       });
@@ -347,7 +349,7 @@
 
     async function binChildren(folder) {
       const children = Array.from(await folder.getItems() || []);
-      if (children.length > 1024) throw commandError("UXP_BIN_TOO_LARGE", "Bin inspection exceeds 1024 immediate children");
+      if (children.length > MAX_BIN_CHILDREN) throw commandError("UXP_BIN_TOO_LARGE", "Bin inspection exceeds " + MAX_BIN_CHILDREN + " immediate children");
       const values = [];
       for (const child of children) values.push(await projectItemSnapshot(child));
       return values;
@@ -363,6 +365,7 @@
       assertObject(args); assertOnlyKeys(args, ["parentBinId", "name", "makeUnique", "operationId"]);
       const project = await activeProject(true), folder = await resolveFolder(project, args.parentBinId, "parentBinId"), name = boundedString(args.name, "name", 255), before = await binChildren(folder);
       const makeUnique = optionalBoolean(args.makeUnique, true, "makeUnique");
+      assertAppendCapacity(before, MAX_BIN_CHILDREN, "Project-bin creation");
       project.lockedAccess(() => {
         commitActions(project, "Create project bin", [folder.createBinAction(name, makeUnique)]);
       });
@@ -373,6 +376,7 @@
     async function createSmartBin(args) {
       assertObject(args); assertOnlyKeys(args, ["parentBinId", "name", "searchQuery", "operationId"]);
       const project = await activeProject(true), folder = await resolveFolder(project, args.parentBinId, "parentBinId"), name = boundedString(args.name, "name", 255), query = boundedString(args.searchQuery, "searchQuery", 4000), before = await binChildren(folder);
+      assertAppendCapacity(before, MAX_BIN_CHILDREN, "Smart-bin creation");
       project.lockedAccess(() => {
         commitActions(project, "Create smart bin", [folder.createSmartBinAction(name, query)]);
       });
@@ -759,6 +763,7 @@
     async function cloneSequence(args) {
       assertObject(args); assertOnlyKeys(args, ["sequenceId", "operationId"]);
       const project = await activeProject(true), sequence = await resolveSequence(project, args.sequenceId), before = await listSequences(project);
+      assertAppendCapacity(before, MAX_SEQUENCES, "Sequence cloning");
       project.lockedAccess(() => {
         commitActions(project, "Clone sequence", [sequence.createCloneAction()]);
       });
@@ -891,6 +896,12 @@
       const values = Array.from(collection.getMarkers() || []);
       if (values.length > MAX_MARKERS) throw commandError("UXP_PROJECT_TOO_LARGE", "Marker lookup exceeds " + MAX_MARKERS + " entries");
       return values;
+    }
+
+    function assertAppendCapacity(values, maximum, operation) {
+      if (values.length >= maximum) {
+        throw commandError("UXP_PROJECT_TOO_LARGE", operation + " requires readback capacity below " + maximum + " entries");
+      }
     }
 
     function validateSettingsUpdates(value) {
