@@ -149,4 +149,41 @@ describe("advanced stable UXP workflow MCP catalog", () => {
     expect(result).toEqual({ success: false, error: "Unsupported workflow action: destroy_everything" });
     expect(request).not.toHaveBeenCalled();
   });
+
+  it("normalizes Error and non-Error bridge rejections", async () => {
+    const request = vi.fn()
+      .mockRejectedValueOnce(new Error("Premiere unavailable"))
+      .mockRejectedValueOnce("transport closed");
+    const bridge = { request, getState: vi.fn() } as unknown as UxpWebSocketBridge;
+    const tools = getUxpTools(bridge);
+
+    await expect(tools.inspect_project_selection_uxp.handler({ action: "views" })).resolves.toEqual({
+      success: false,
+      error: "Premiere unavailable",
+    });
+    await expect(tools.manage_sequence_settings_uxp.handler({ action: "get" })).resolves.toEqual({
+      success: false,
+      error: "transport closed",
+    });
+  });
+
+  it("rejects missing actions in mapped dispatchers before bridge access", async () => {
+    const request = vi.fn();
+    const bridge = { request, getState: vi.fn() } as unknown as UxpWebSocketBridge;
+    const tools = getUxpTools(bridge);
+
+    const results = await Promise.all([
+      tools.import_project_media_uxp.handler({ confirm_non_undoable: true }),
+      tools.automate_effect_parameters_uxp.handler({}),
+      tools.edit_timeline_uxp.handler({}),
+      tools.manage_sequences_uxp.handler({}),
+      tools.encode_media_uxp.handler({}),
+    ]);
+
+    expect(results).toEqual(Array.from({ length: 5 }, () => ({
+      success: false,
+      error: "Unsupported workflow action: undefined",
+    })));
+    expect(request).not.toHaveBeenCalled();
+  });
 });
