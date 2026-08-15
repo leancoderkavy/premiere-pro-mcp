@@ -366,6 +366,262 @@
       "undoable": false,
       "idempotency": "operation_id",
       "verificationBoundary": "host_return"
+    },
+    {
+      "id": "native-effects-pipeline",
+      "adobeApi": [
+        "VideoClipTrackItem.getComponentChain",
+        "VideoComponentChain.createAppendComponentAction",
+        "AudioClipTrackItem.getComponentChain",
+        "AudioComponentChain.createAppendComponentAction",
+        "VideoFilterFactory",
+        "AudioFilterFactory"
+      ],
+      "documentationUrls": [
+        "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/videocomponentchain/",
+        "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/audiocomponentchain/",
+        "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/videofilterfactory/",
+        "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/audiofilterfactory/"
+      ],
+      "minimumPremiereVersion": "25.6.0",
+      "backend": "uxp",
+      "uxpCommand": "effects.chain.add",
+      "mcpTools": ["manage_clip_effects_uxp"],
+      "availability": "current",
+      "implementationStatus": "implemented",
+      "verificationStatus": "automated_contract_verified",
+      "liveHostVerificationStatus": "not_run",
+      "mutatesProject": true,
+      "undoable": true,
+      "idempotency": "operation_id",
+      "verificationBoundary": "effect_chain_count_readback"
+    },
+    {
+      "id": "selection-compound-effect-batch",
+      "adobeApi": [
+        "Sequence.getSelection",
+        "TrackItemSelection.getTrackItems",
+        "Project.executeTransaction"
+      ],
+      "documentationUrls": [
+        "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/trackitemselection/",
+        "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/project/"
+      ],
+      "minimumPremiereVersion": "25.6.0",
+      "backend": "uxp",
+      "uxpCommand": "effects.selection.add",
+      "mcpTools": ["batch_selected_clips_uxp"],
+      "availability": "current",
+      "implementationStatus": "implemented",
+      "verificationStatus": "automated_contract_verified",
+      "liveHostVerificationStatus": "not_run",
+      "mutatesProject": true,
+      "undoable": true,
+      "idempotency": "operation_id",
+      "verificationBoundary": "selected_effect_chain_count_readback"
+    },
+    {
+      "id": "native-scene-edit-detection",
+      "adobeApi": [
+        "SequenceUtils.performSceneEditDetectionOnSelection",
+        "SequenceUtils.SEQUENCE_OPERATION_APPLYCUT",
+        "SequenceUtils.SEQUENCE_OPERATION_CREATEMARKER",
+        "SequenceUtils.SEQUENCE_OPERATION_CREATESUBCLIP"
+      ],
+      "documentationUrls": [
+        "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/sequenceutils/"
+      ],
+      "minimumPremiereVersion": "25.6.0",
+      "backend": "uxp",
+      "uxpCommand": "sceneEdit.detect",
+      "mcpTools": ["detect_scene_edits_uxp"],
+      "availability": "current",
+      "implementationStatus": "implemented",
+      "verificationStatus": "automated_contract_verified",
+      "liveHostVerificationStatus": "not_run",
+      "mutatesProject": true,
+      "undoable": false,
+      "idempotency": "operation_id",
+      "verificationBoundary": "sequence_utils_host_return"
+    },
+    {
+      "id": "proxy-ingest-controller",
+      "adobeApi": [
+        "ClipProjectItem.attachProxy",
+        "ClipProjectItem.hasProxy",
+        "ProjectSettings.getIngestSettings",
+        "ProjectSettings.createSetIngestSettingsAction",
+        "IngestSettings.setIngestEnabled"
+      ],
+      "documentationUrls": [
+        "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/clipprojectitem/",
+        "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/projectsettings/",
+        "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/ingestsettings/"
+      ],
+      "minimumPremiereVersion": "25.6.0",
+      "backend": "uxp",
+      "uxpCommand": "proxy.attach",
+      "mcpTools": ["manage_proxy_ingest_uxp"],
+      "availability": "current",
+      "implementationStatus": "implemented",
+      "verificationStatus": "automated_contract_verified",
+      "liveHostVerificationStatus": "not_run",
+      "mutatesProject": true,
+      "undoable": false,
+      "idempotency": "operation_id",
+      "verificationBoundary": "proxy_or_ingest_readback"
+    },
+    {
+      "id": "offline-media-relink-repair",
+      "adobeApi": [
+        "ClipProjectItem.canChangeMediaPath",
+        "ClipProjectItem.isOffline",
+        "ClipProjectItem.changeMediaFilePath",
+        "ClipProjectItem.refreshMedia"
+      ],
+      "documentationUrls": [
+        "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/clipprojectitem/"
+      ],
+      "minimumPremiereVersion": "25.6.0",
+      "backend": "uxp",
+      "uxpCommand": "media.relink",
+      "mcpTools": ["relink_offline_media_uxp"],
+      "availability": "current",
+      "implementationStatus": "implemented",
+      "verificationStatus": "automated_contract_verified",
+      "liveHostVerificationStatus": "not_run",
+      "mutatesProject": true,
+      "undoable": false,
+      "idempotency": "operation_id",
+      "verificationBoundary": "media_path_and_online_readback"
+    },
+    {
+      "id": "transactional-metadata-xmp",
+      "adobeApi": [
+        "Metadata.getProjectMetadata",
+        "Metadata.getXMPMetadata",
+        "Metadata.createSetProjectMetadataAction",
+        "Metadata.createSetXMPMetadataAction"
+      ],
+      "documentationUrls": [
+        "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/metadata/"
+      ],
+      "minimumPremiereVersion": "25.6.0",
+      "backend": "uxp",
+      "uxpCommand": "metadata.update",
+      "mcpTools": ["manage_metadata_uxp"],
+      "availability": "current",
+      "implementationStatus": "implemented",
+      "verificationStatus": "automated_contract_verified",
+      "liveHostVerificationStatus": "not_run",
+      "mutatesProject": true,
+      "undoable": true,
+      "idempotency": "operation_id",
+      "verificationBoundary": "metadata_readback"
+    },
+    {
+      "id": "color-footage-conformance",
+      "adobeApi": [
+        "Project.getColorSettings",
+        "ProjectColorSettings.getGraphicsWhiteLuminance",
+        "ClipProjectItem.getFootageInterpretation",
+        "ClipProjectItem.createSetFootageInterpretationAction",
+        "ClipProjectItem.createSetInputLUTIDAction"
+      ],
+      "documentationUrls": [
+        "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/projectcolorsettings/",
+        "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/footageinterpretation/",
+        "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/clipprojectitem/"
+      ],
+      "minimumPremiereVersion": "25.6.0",
+      "backend": "uxp",
+      "uxpCommand": "footage.conform",
+      "mcpTools": ["manage_color_conformance_uxp"],
+      "availability": "current",
+      "implementationStatus": "implemented",
+      "verificationStatus": "automated_contract_verified",
+      "liveHostVerificationStatus": "not_run",
+      "mutatesProject": true,
+      "undoable": true,
+      "idempotency": "operation_id",
+      "verificationBoundary": "footage_interpretation_readback"
+    },
+    {
+      "id": "source-monitor-audition",
+      "adobeApi": [
+        "SourceMonitor.openProjectItem",
+        "SourceMonitor.openFilePath",
+        "SourceMonitor.getProjectItem",
+        "SourceMonitor.getPosition",
+        "SourceMonitor.setPosition",
+        "SourceMonitor.play",
+        "SourceMonitor.closeClip",
+        "SourceMonitor.closeAllClips"
+      ],
+      "documentationUrls": [
+        "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/sourcemonitor/"
+      ],
+      "minimumPremiereVersion": "25.6.0",
+      "backend": "uxp",
+      "uxpCommand": "sourceMonitor.open",
+      "mcpTools": ["audition_source_monitor_uxp"],
+      "availability": "current",
+      "implementationStatus": "implemented",
+      "verificationStatus": "automated_contract_verified",
+      "liveHostVerificationStatus": "not_run",
+      "mutatesProject": false,
+      "undoable": false,
+      "idempotency": "operation_id_when_supported",
+      "verificationBoundary": "source_monitor_state_readback"
+    },
+    {
+      "id": "productions-storage-preflight",
+      "adobeApi": [
+        "PRProduction.getActiveProduction",
+        "PRProduction.getScratchDiskSettings",
+        "ProjectSettings.getScratchDiskSettings",
+        "ProjectSettings.createSetScratchDiskSettingsAction"
+      ],
+      "documentationUrls": [
+        "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/prproduction/",
+        "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/projectsettings/",
+        "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/scratchdisksettings/"
+      ],
+      "minimumPremiereVersion": "26.2.0",
+      "backend": "uxp",
+      "uxpCommand": "storage.preflight",
+      "mcpTools": ["preflight_production_storage_uxp"],
+      "availability": "current",
+      "implementationStatus": "implemented",
+      "verificationStatus": "automated_contract_verified",
+      "liveHostVerificationStatus": "not_run",
+      "mutatesProject": true,
+      "undoable": true,
+      "idempotency": "operation_id_when_supported",
+      "verificationBoundary": "scratch_disk_settings_readback"
+    },
+    {
+      "id": "least-privilege-uxp-workspace",
+      "adobeApi": [
+        "storage.localFileSystem.getFolder",
+        "storage.localFileSystem.createPersistentToken",
+        "storage.localFileSystem.getEntryForPersistentToken"
+      ],
+      "documentationUrls": [
+        "https://developer.adobe.com/premiere-pro/uxp/resources/recipes/filesystem-operations/"
+      ],
+      "minimumPremiereVersion": "25.6.0",
+      "backend": "uxp",
+      "uxpCommand": "workspace.status",
+      "mcpTools": ["get_uxp_workspace_access"],
+      "availability": "current",
+      "implementationStatus": "implemented",
+      "verificationStatus": "automated_contract_verified",
+      "liveHostVerificationStatus": "not_run",
+      "mutatesProject": false,
+      "undoable": false,
+      "idempotency": "not_applicable",
+      "verificationBoundary": "workspace_capability_state"
     }
   ]
 }

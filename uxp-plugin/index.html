@@ -1,11 +1,15 @@
 <!doctype html>
-<html lang="en"><head><meta charset="utf-8"><style>
-body{font:12px system-ui;margin:14px;color:#ddd;background:#242424}button,input{margin:4px;padding:6px}button{background:#5b5bd6;color:white;border:1px solid transparent;border-radius:3px}pre{white-space:pre-wrap;background:#181818;padding:10px}label{display:block}button:focus-visible,input:focus-visible{outline:2px solid #c7b8ff;outline-offset:2px}@media(forced-colors:active){button,input,pre{border:1px solid CanvasText}}
-</style></head><body>
+<html lang="en"><head><meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; connect-src ws://127.0.0.1:* ws://localhost:*; object-src 'none'; base-uri 'none'">
+<link rel="stylesheet" href="styles.css"></head><body>
 <h3>Premiere Pro MCP Bridge</h3>
 <label for="bridge-url">Bridge URL</label><input id="bridge-url" value="ws://127.0.0.1:7777/uxp" spellcheck="false" autocomplete="off">
 <label for="bridge-token">Bridge token</label><input id="bridge-token" type="password" autocomplete="off">
 <button id="connect" aria-controls="status">Connect</button><button id="refresh" aria-controls="status">Refresh state</button>
+<h4>Approved workspace</h4>
+<p class="help">File-based UXP workflows are limited to one folder you choose. The bridge never returns its native path.</p>
+<button id="choose-workspace" aria-controls="workspace-status">Choose folder</button><button id="revoke-workspace" aria-controls="workspace-status">Revoke access</button>
+<pre id="workspace-status" role="status" aria-live="polite" aria-atomic="true">Loading workspace access…</pre>
 <pre id="status" role="status" aria-live="polite" aria-atomic="true" tabindex="0">Starting…</pre>
-<script src="protocol.cjs"></script><script src="transcript.cjs"></script><script src="commands.cjs"></script><script src="index.cjs"></script>
+<script src="protocol.cjs"></script><script src="transcript.cjs"></script><script src="workspace.cjs"></script><script src="workflows.cjs"></script><script src="commands.cjs"></script><script src="index.cjs"></script>
 </body></html>

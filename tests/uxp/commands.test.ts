@@ -69,6 +69,9 @@ describe("UXP command registry", () => {
   it("reports support per command from the runtime API surface", async () => {
     const available = await host().registry.capabilities();
     expect(available.commands["transition.video.add"]).toMatchObject({ supported: true, destructive: true, undoable: true, minHostVersion: "25.6.0" });
+    for (const command of ["sequence.createPreset", "interchange.export", "interchange.aaf.export", "frame.export"]) {
+      expect(available.commands[command]).toMatchObject({ workspaceRequired: true });
+    }
     const unavailable = await host({ transitions: false }).registry.capabilities();
     expect(unavailable.commands["transition.video.add"]).toMatchObject({ supported: false, reason: expect.any(String) });
   });

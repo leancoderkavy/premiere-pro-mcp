@@ -32,6 +32,9 @@ describe("capability profiles", () => {
     expect(capabilityForTool("validate_export_preset")).toBe("export");
     expect(capabilityForTool("verify_delivery_file")).toBe("filesystem");
     expect(capabilityForTool("import_media")).toBe("filesystem");
+    expect(capabilityForTool("manage_proxy_ingest_uxp")).toBe("filesystem");
+    expect(capabilityForTool("audition_source_monitor_uxp")).toBe("filesystem");
+    expect(capabilityForTool("relink_offline_media_uxp")).toBe("filesystem");
     expect(capabilityForTool("get_project_info")).toBe("inspect");
     expect(capabilityForTool("preview_transcript_edit_uxp")).toBe("inspect");
     expect(capabilityForTool("ping")).toBe("inspect");

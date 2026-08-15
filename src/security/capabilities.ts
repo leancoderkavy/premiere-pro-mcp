@@ -64,7 +64,14 @@ const INSPECT_TOOL_NAMES = new Set([
 // detect_silence reads a media file from disk and shells out to ffmpeg. It
 // changes nothing in Premiere, so classifying it as "edit" would overstate what
 // it does; filesystem is the authority it actually needs.
-const FILESYSTEM_TOOL_NAMES = new Set(["apply_lut", "set_scratch_disk_path", "verify_delivery_file", "detect_silence"]);
+const FILESYSTEM_TOOL_NAMES = new Set([
+  "apply_lut",
+  "set_scratch_disk_path",
+  "verify_delivery_file",
+  "detect_silence",
+  "manage_proxy_ingest_uxp",
+  "audition_source_monitor_uxp",
+]);
 
 /** A conservative classification for centralized server registration. */
 export function capabilityForTool(toolName: string): Capability {

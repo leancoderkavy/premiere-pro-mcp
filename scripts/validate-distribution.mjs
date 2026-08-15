@@ -125,8 +125,8 @@ export function validateUxpManifest(manifest, packageJson, { expectedId } = {}) 
     "UXP package must include the MCP Bridge panel entry point",
   );
   assert(
-    manifest.requiredPermissions?.localFileSystem === "fullAccess",
-    "UXP package must explicitly declare its required local file access",
+    manifest.requiredPermissions?.localFileSystem === "request",
+    "UXP package must use operator-requested local file access",
   );
   const domains = manifest.requiredPermissions?.network?.domains;
   assert(Array.isArray(domains) && domains.length > 0, "UXP package must declare its loopback network access");

@@ -6,16 +6,16 @@
   "use strict";
 
   function createCommandRegistry(deps) {
-    const ppro = deps.ppro, Protocol = deps.Protocol;
+    const ppro = deps.ppro, Protocol = deps.Protocol, workspace = deps.workspace;
     const completedOperations = new Map();
     const definitions = {
       "capabilities.get": { readOnly: true, handler: capabilities },
       "state.get": { readOnly: true, handler: stateSnapshot },
       "project.snapshot": { readOnly: true, minHostVersion: "25.6.0", probe: canInspectProject, handler: projectSnapshot },
       "project.save": { idempotent: true, minHostVersion: "25.6.0", probe: canSaveProject, handler: saveProject },
-      "sequence.createPreset": { destructive: true, undoable: false, minHostVersion: "26.3.0", probe: canCreatePresetSequence, handler: createPresetSequence },
-      "interchange.export": { minHostVersion: "26.2.0", probe: canExportInterchange, handler: exportInterchange },
-      "interchange.aaf.export": { destructive: true, undoable: false, idempotent: true, minHostVersion: "26.3.0", probe: canExportAaf, handler: exportAaf },
+      "sequence.createPreset": { destructive: true, undoable: false, requiresWorkspace: true, minHostVersion: "26.3.0", probe: canCreatePresetSequence, handler: createPresetSequence },
+      "interchange.export": { requiresWorkspace: true, minHostVersion: "26.2.0", probe: canExportInterchange, handler: exportInterchange },
+      "interchange.aaf.export": { destructive: true, undoable: false, idempotent: true, requiresWorkspace: true, minHostVersion: "26.3.0", probe: canExportAaf, handler: exportAaf },
       "track.rename": { destructive: true, undoable: true, idempotent: true, minHostVersion: "26.3.0", probe: canRenameTracks, handler: renameTrack },
       "subclip.create": { destructive: true, undoable: true, minHostVersion: "26.3.0", probe: canCreateSubclips, handler: createSubclip },
       "marker.list": { readOnly: true, minHostVersion: "26.3.0", probe: canListMarkers, handler: listMarkers },
@@ -23,11 +23,16 @@
       "transcript.languages": { readOnly: true, minHostVersion: "26.3.0", probe: canQueryTranscriptLanguages, handler: transcriptLanguages },
       "objectMask.has": { readOnly: true, minHostVersion: "26.3.0", probe: canInspectObjectMasks, handler: hasObjectMask },
       "encoder.configure": { minHostVersion: "26.3.0", probe: canConfigureEncoder, handler: configureEncoder },
-      "frame.export": { minHostVersion: "25.6.0", probe: canExportFrame, handler: exportFrame },
+      "frame.export": { requiresWorkspace: true, minHostVersion: "25.6.0", probe: canExportFrame, handler: exportFrame },
       "transition.video.list": { readOnly: true, minHostVersion: "25.6.0", probe: canListTransitions, handler: listTransitions },
       "transition.video.add": { destructive: true, undoable: true, minHostVersion: "25.6.0", probe: canMutateTransitions, handler: addTransition },
       "transition.video.remove": { destructive: true, undoable: true, minHostVersion: "25.6.0", probe: canMutateTransitions, handler: removeTransition }
     };
+    let workflowApi = deps.Workflows || (typeof globalThis !== "undefined" && globalThis.PremiereMcpWorkflows);
+    if (!workflowApi && typeof require === "function") workflowApi = require("./workflows.cjs");
+    if (workflowApi && typeof workflowApi.createWorkflowDefinitions === "function") {
+      Object.assign(definitions, workflowApi.createWorkflowDefinitions({ ppro, Protocol, workspace }));
+    }
 
     async function dispatch(command, args) {
       const definition = definitions[command];
@@ -63,11 +68,16 @@
           undoable: !!definition.undoable, idempotent: !!definition.idempotent
         };
         if (definition.minHostVersion) commands[name].minHostVersion = definition.minHostVersion;
+        if (definition.requiresWorkspace) commands[name].workspaceRequired = true;
+        if (definition.targetCapabilityProbe) commands[name].targetCapabilityProbe = "invocation";
         if (!supported) commands[name].reason = "Required Premiere UXP API is unavailable in this host";
       }
+      const workspaceState = workspace && typeof workspace.status === "function" ? workspace.status() : {
+        configured: false, accessMode: "unavailable", rootName: null, persistent: false, pathDisclosure: "redacted"
+      };
       return {
         backend: "uxp", protocolVersion: Protocol.PROTOCOL_VERSION, hostMinVersion: "25.6.0",
-        activeProject: !!project, activeSequence: !!sequence, commands,
+        activeProject: !!project, activeSequence: !!sequence, workspace: workspaceState, commands,
         fallback: { backend: "cep", reason: "Use CEP/QE only when a command is absent or reports unsupported; never silently retry a failed UXP mutation." }
       };
     }
@@ -101,7 +111,7 @@
     }
     async function createPresetSequence(args) {
       assertOnlyKeys(args, ["name", "presetPath", "operationId"]);
-      const name = requiredString(args.name, "name"), presetPath = requiredString(args.presetPath, "presetPath");
+      const name = requiredString(args.name, "name"), presetPath = allowedPath(args.presetPath, "presetPath", "file");
       const project = await ppro.Project.getActiveProject();
       if (!project) throw commandError("UXP_NO_ACTIVE_PROJECT", "No active project");
       const sequence = await project.createSequenceWithPresetPath(name, presetPath);
@@ -112,7 +122,7 @@
     }
     async function exportInterchange(args) {
       assertOnlyKeys(args, ["format", "outputFilePath", "suppressUI", "operationId"]);
-      const format = requiredString(args.format, "format"), outputFilePath = requiredString(args.outputFilePath, "outputFilePath");
+      const format = requiredString(args.format, "format"), outputFilePath = allowedPath(args.outputFilePath, "outputFilePath", "file");
       if (format !== "otio" && format !== "fcpxml") throw commandError("UXP_INVALID_ARGUMENT", "format must be otio or fcpxml");
       const context = await activeContext(false);
       const method = format === "otio" ? "exportAsOpenTimelineIO" : "exportAsFinalCutProXML";
@@ -122,6 +132,10 @@
     }
     async function exportAaf(args) {
       const input = validateAafArgs(args);
+      input.outputFilePath = allowedPath(input.outputFilePath, "outputFilePath", "file");
+      if (input.options.videoMixdownPresetPath != null) {
+        input.options.videoMixdownPresetPath = allowedPath(input.options.videoMixdownPresetPath, "videoMixdownPresetPath", "file");
+      }
       const context = await activeContext(false);
       const options = buildAafExportOptions(ppro, input.options);
       const exported = await ppro.ProjectConverter.exportAAF(context.sequence, input.outputFilePath, options);
@@ -279,12 +293,13 @@
     async function exportFrame(args) {
       const context = await activeContext(false);
       if (!args.outputDirectory) throw commandError("UXP_INVALID_ARGUMENT", "outputDirectory is required");
+      const outputDirectory = allowedPath(args.outputDirectory, "outputDirectory", "directory");
       const filename = Protocol.safeFilename(args.filename);
       const position = args.seconds == null ? await context.sequence.getPlayerPosition() : await tickTime(args.seconds, "seconds");
       const size = await context.sequence.getFrameSize();
       const width = positiveInt(args.width, size.width, "width"), height = positiveInt(args.height, size.height, "height");
-      const returned = await ppro.Exporter.exportSequenceFrame(context.sequence, position, filename, args.outputDirectory, width, height);
-      const path = Protocol.joinPath(args.outputDirectory, filename);
+      const returned = await ppro.Exporter.exportSequenceFrame(context.sequence, position, filename, outputDirectory, width, height);
+      const path = Protocol.joinPath(outputDirectory, filename);
       return { path, width, height, seconds: position.seconds, exporterResult: returned };
     }
     async function listTransitions() {
@@ -464,6 +479,12 @@
     }
     function operationSemantics(options) {
       return Protocol && typeof Protocol.operationSemantics === "function" ? Protocol.operationSemantics(options) : undefined;
+    }
+    function allowedPath(value, label, kind) {
+      const path = requiredString(value, label);
+      return workspace && typeof workspace.assertPathAllowed === "function"
+        ? workspace.assertPathAllowed(path, { label, kind })
+        : path;
     }
     function canExportFrame() { return !!(ppro.Exporter && typeof ppro.Exporter.exportSequenceFrame === "function"); }
     function canInspectProject() { return !!(ppro.Project && typeof ppro.Project.getActiveProject === "function"); }

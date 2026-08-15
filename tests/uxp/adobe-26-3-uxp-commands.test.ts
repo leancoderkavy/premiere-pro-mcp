@@ -41,6 +41,7 @@ function adobe263Host() {
     setMixdownVideo: vi.fn((value: boolean) => { aafOptionValues.mixdownVideo = value; }),
     setSampleRate: vi.fn((value: number) => { aafOptionValues.sampleRate = value; }),
     setAudioFileFormat: vi.fn((value: number) => { aafOptionValues.audioFileFormat = value; }),
+    setVideoMixdownPresetPath: vi.fn((value: string) => { aafOptionValues.videoMixdownPresetPath = value; }),
   };
   const ppro = {
     Project: { getActiveProject: vi.fn(async () => project) },
@@ -57,8 +58,12 @@ function adobe263Host() {
     Constants: { AAFExportAudioFormat: { AIFF: 0, WAV: 1 } },
     ProjectConverter: { exportAAF: vi.fn(async () => true) },
   };
+  const workspace = {
+    status: vi.fn(() => ({ configured: true })),
+    assertPathAllowed: vi.fn((path: string) => path),
+  };
   return {
-    registry: Commands.createCommandRegistry({ ppro, Protocol }), ppro, project, source, audioTrack, marker, aafOptionValues,
+    registry: Commands.createCommandRegistry({ ppro, Protocol, workspace }), ppro, project, source, audioTrack, marker, aafOptionValues, workspace,
   };
 }
 
@@ -90,9 +95,11 @@ describe("Adobe Premiere Pro 26.3 UXP commands", () => {
     });
     await expect(value.registry.dispatch("interchange.aaf.export", {
       outputFilePath: "/exports/edit.aaf",
-      options: { mixdownVideo: true, sampleRate: 48000, audioFileFormat: "wav" },
+      options: { mixdownVideo: true, sampleRate: 48000, audioFileFormat: "wav", videoMixdownPresetPath: "/presets/prores.epr" },
     })).resolves.toMatchObject({ exported: true, format: "aaf", outcome: "committed_unverified", outputVerified: false });
-    expect(value.aafOptionValues).toEqual({ mixdownVideo: true, sampleRate: 48000, audioFileFormat: 1 });
+    expect(value.aafOptionValues).toEqual({ mixdownVideo: true, sampleRate: 48000, audioFileFormat: 1, videoMixdownPresetPath: "/presets/prores.epr" });
+    expect(value.workspace.assertPathAllowed).toHaveBeenNthCalledWith(1, "/exports/edit.aaf", { label: "outputFilePath", kind: "file" });
+    expect(value.workspace.assertPathAllowed).toHaveBeenNthCalledWith(2, "/presets/prores.epr", { label: "videoMixdownPresetPath", kind: "file" });
   });
 
   it("rejects unsafe subclip ranges and unbounded AAF options before invoking the host", async () => {
