@@ -118,6 +118,23 @@ describe("capability profiles", () => {
     expect(capabilitiesForToolInvocation(toolName, { action })).toEqual(required);
   });
 
+  it("requires filesystem authority only for preset-based encoder preflight", async () => {
+    expect(capabilitiesForToolInvocation("encode_media_uxp", { action: "preflight" }))
+      .toEqual(["inspect"]);
+    expect(capabilitiesForToolInvocation("encode_media_uxp", { action: "preflight", preset_file: "D:/Approved/h264.epr" }))
+      .toEqual(["inspect", "filesystem"]);
+
+    const handler = vi.fn(async () => "ok");
+    await expect(
+      guardToolHandler("encode_media_uxp", handler, resolveCapabilities("inspect"), () => "preset-preflight")({
+        action: "preflight", preset_file: "D:/Approved/h264.epr",
+      }),
+    ).rejects.toMatchObject({ code: "CAPABILITY_DENIED", capability: "filesystem", operationId: "preset-preflight" });
+    await expect(
+      guardToolHandler("encode_media_uxp", handler, resolveCapabilities("inspect"))({ action: "preflight" }),
+    ).resolves.toBe("ok");
+  });
+
   it.each([
     ["darwin", "macOS"],
     ["win32", "Windows"],

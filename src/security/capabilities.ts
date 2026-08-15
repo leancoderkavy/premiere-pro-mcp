@@ -193,11 +193,16 @@ export function capabilityForTool(toolName: string): Capability {
 export function capabilitiesForToolInvocation(toolName: string, args: unknown): readonly Capability[] {
   const actionMap = ACTION_CAPABILITIES[toolName];
   if (!actionMap) return [capabilityForTool(toolName)];
-  const action = args && typeof args === "object" && !Array.isArray(args)
-    ? (args as Record<string, unknown>).action
+  const input = args && typeof args === "object" && !Array.isArray(args)
+    ? args as Record<string, unknown>
     : undefined;
-  return typeof action === "string" && actionMap[action]
-    ? actionMap[action]
+  const action = input?.action;
+  const required = typeof action === "string" ? actionMap[action] : undefined;
+  if (toolName === "encode_media_uxp" && action === "preflight" && typeof input?.preset_file === "string") {
+    return ["inspect", "filesystem"];
+  }
+  return required
+    ? required
     : [capabilityForTool(toolName)];
 }
 
