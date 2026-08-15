@@ -11,6 +11,9 @@ const mocks = vi.hoisted(() => ({
   closeMcp: vi.fn(async () => {}),
   handleRequest: vi.fn(async (_req: any, res: any) => { res.statusCode = 204; }),
   closeTransport: vi.fn(async () => {}),
+  uxpStart: vi.fn(async () => {}),
+  uxpStop: vi.fn(async () => {}),
+  execFileSync: vi.fn(),
 }));
 
 vi.mock("node:http", () => ({
@@ -42,6 +45,14 @@ vi.mock("@modelcontextprotocol/sdk/server/stdio.js", () => ({
   StdioServerTransport: class {},
 }));
 vi.mock("../src/http-security.js", () => ({ applyHttpSecurityHeaders: vi.fn() }));
+vi.mock("../src/bridge/uxp-websocket-bridge.js", () => ({
+  UxpWebSocketBridge: class {
+    start = mocks.uxpStart;
+    stop = mocks.uxpStop;
+    address() { return { host: "127.0.0.1", port: 7788, path: "/premiere-uxp" }; }
+  },
+}));
+vi.mock("node:child_process", () => ({ execFileSync: mocks.execFileSync }));
 
 const originalArgv = process.argv;
 const env = { ...process.env };
@@ -97,6 +108,20 @@ describe("stdio CLI entry point", () => {
     expect(JSON.parse(String(log.mock.calls[0][0]))).toMatchObject({ schemaVersion: "premiere-pro-mcp.doctor.v1" });
   });
 
+  it("prints human doctor and privacy-safe support bundle output", async () => {
+    const log = vi.spyOn(console, "log").mockImplementation(() => {});
+    let loaded = await importCli(["--doctor"]);
+    await expect(loaded.promise).rejects.toThrow("EXIT:0");
+    expect(log).toHaveBeenCalledWith(expect.stringContaining("Premiere MCP local check"));
+    vi.resetModules();
+    log.mockClear();
+    loaded = await importCli(["--support-bundle"]);
+    await expect(loaded.promise).rejects.toThrow("EXIT:0");
+    expect(JSON.parse(String(log.mock.calls[0][0]))).toMatchObject({
+      schemaVersion: "premiere-pro-mcp.support-bundle.v1",
+    });
+  });
+
   it("rejects CEP installation on unsupported platforms", async () => {
     if (process.platform === "win32" || process.platform === "darwin") return;
     const error = vi.spyOn(console, "error").mockImplementation(() => {});
@@ -115,6 +140,44 @@ describe("stdio CLI entry point", () => {
     await vi.waitFor(() => expect(mocks.connect).toHaveBeenCalledOnce());
     expect(mocks.cleanup).toHaveBeenCalledWith({ tempDir: "C:\\custom-temp", timeoutMs: 4321 });
     expect(process.env.PREMIERE_MCP_TRANSPORT).toBe("stdio");
+  });
+
+  it("starts the authenticated UXP bridge and emits debug readiness details", async () => {
+    process.argv = [process.execPath, "index.js"];
+    process.env.PREMIERE_UXP_TOKEN = "a-secure-token-with-length";
+    process.env.PREMIERE_UXP_PORT = "7788";
+    process.env.PREMIERE_MCP_DEBUG = "true";
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    await import("../src/index.js");
+    await vi.waitFor(() => expect(mocks.uxpStart).toHaveBeenCalledOnce());
+    expect(error).toHaveBeenCalledWith(expect.stringContaining("UXP bridge listening"));
+  });
+
+  it("runs and diagnoses the Windows CEP installer", async () => {
+    vi.spyOn(process, "platform", "get").mockReturnValue("win32");
+    const log = vi.spyOn(console, "log").mockImplementation(() => {});
+    let loaded = await importCli(["--install-cep"]);
+    await expect(loaded.promise).rejects.toThrow("EXIT:0");
+    expect(mocks.execFileSync).toHaveBeenCalledWith(
+      "powershell.exe",
+      expect.arrayContaining(["-File"]),
+      expect.objectContaining({ stdio: "inherit" }),
+    );
+    vi.resetModules();
+    mocks.execFileSync.mockClear();
+    log.mockClear();
+    loaded = await importCli(["--diagnose-cep"]);
+    await expect(loaded.promise).rejects.toThrow("EXIT:0");
+    expect(mocks.execFileSync.mock.calls[0][1]).toContain("-Diagnose");
+  });
+
+  it("reports a failed CEP installer command", async () => {
+    vi.spyOn(process, "platform", "get").mockReturnValue("win32");
+    mocks.execFileSync.mockImplementationOnce(() => { throw new Error("installer failed"); });
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    const loaded = await importCli(["--install-cep"]);
+    await expect(loaded.promise).rejects.toThrow("EXIT:1");
+    expect(error).toHaveBeenCalledWith(expect.stringContaining("installation failed"));
   });
 });
 
