@@ -15,7 +15,7 @@ export default defineConfig({
       reportsDirectory: "coverage",
       thresholds: {
         statements: 91,
-        branches: 80,
+        branches: 90,
         functions: 94,
         // Windows-only platform branches produce a slightly lower line result in CI.
         lines: 93,

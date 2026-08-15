@@ -12,6 +12,23 @@ import { getAudioTools } from "../../src/tools/audio.js";
 import { getExportTools } from "../../src/tools/export.js";
 import { getHealthTools } from "../../src/tools/health.js";
 import { getInspectionTools } from "../../src/tools/inspection.js";
+import { getClipboardTools } from "../../src/tools/clipboard.js";
+import { getCaptionTools } from "../../src/tools/captions.js";
+import { getDiscoveryTools } from "../../src/tools/discovery.js";
+import { getEffectsTools } from "../../src/tools/effects.js";
+import { getMarkerTools } from "../../src/tools/markers.js";
+import { getMediaTools } from "../../src/tools/media.js";
+import { getMetadataTools } from "../../src/tools/metadata.js";
+import { getProjectManagerTools } from "../../src/tools/project-manager.js";
+import { getProjectTools } from "../../src/tools/project.js";
+import { getRecoveryTools } from "../../src/tools/recovery.js";
+import { getScriptingTools } from "../../src/tools/scripting.js";
+import { getSelectionTools } from "../../src/tools/selection.js";
+import { getSequenceTools } from "../../src/tools/sequence.js";
+import { getSourceMonitorTools } from "../../src/tools/source-monitor.js";
+import { getTextTools } from "../../src/tools/text.js";
+import { getTimelineTools } from "../../src/tools/timeline.js";
+import { getTrackTools } from "../../src/tools/tracks.js";
 import { getTrackTargetingTools } from "../../src/tools/track-targeting.js";
 import { getUtilityTools } from "../../src/tools/utility.js";
 
@@ -83,8 +100,25 @@ const modules: Array<[string, () => Record<string, Tool>, Set<string>?]> = [
   ["advanced", () => getAdvancedTools(bridgeOptions) as Record<string, Tool>],
   ["audio", () => getAudioTools(bridgeOptions) as Record<string, Tool>, new Set(["detect_silence"])],
   ["export", () => getExportTools(bridgeOptions) as Record<string, Tool>, new Set(["validate_export_preset", "verify_delivery_file"])],
+  ["clipboard", () => getClipboardTools(bridgeOptions) as Record<string, Tool>],
+  ["captions", () => getCaptionTools(bridgeOptions) as Record<string, Tool>],
+  ["discovery", () => getDiscoveryTools(bridgeOptions) as Record<string, Tool>],
+  ["effects", () => getEffectsTools(bridgeOptions) as Record<string, Tool>],
   ["inspection", () => getInspectionTools(bridgeOptions) as Record<string, Tool>],
+  ["markers", () => getMarkerTools(bridgeOptions) as Record<string, Tool>],
+  ["media", () => getMediaTools(bridgeOptions) as Record<string, Tool>],
+  ["metadata", () => getMetadataTools(bridgeOptions) as Record<string, Tool>],
+  ["project-manager", () => getProjectManagerTools(bridgeOptions) as Record<string, Tool>],
+  ["project", () => getProjectTools(bridgeOptions) as Record<string, Tool>],
+  ["recovery", () => getRecoveryTools(bridgeOptions) as Record<string, Tool>, new Set(["get_bridge_telemetry"])],
+  ["scripting", () => getScriptingTools(bridgeOptions) as Record<string, Tool>],
+  ["selection", () => getSelectionTools(bridgeOptions) as Record<string, Tool>],
+  ["sequence", () => getSequenceTools(bridgeOptions) as Record<string, Tool>],
+  ["source-monitor", () => getSourceMonitorTools(bridgeOptions) as Record<string, Tool>],
+  ["text", () => getTextTools(bridgeOptions) as Record<string, Tool>],
+  ["timeline", () => getTimelineTools(bridgeOptions) as Record<string, Tool>],
   ["track-targeting", () => getTrackTargetingTools(bridgeOptions) as Record<string, Tool>],
+  ["tracks", () => getTrackTools(bridgeOptions) as Record<string, Tool>],
   ["utility", () => getUtilityTools(bridgeOptions) as Record<string, Tool>],
 ];
 
@@ -107,8 +141,11 @@ describe("large tool handler coverage", () => {
           const result = await tool.handler(argsFor(tool.parameters, includeOptional));
 
           expect(result).toBeDefined();
-          expect(mockedSendCommand.mock.calls.length + mockedSendRawCommand.mock.calls.length)
-            .toBeGreaterThan(commandCount);
+          const nextCommandCount = mockedSendCommand.mock.calls.length + mockedSendRawCommand.mock.calls.length;
+          if (nextCommandCount === commandCount) {
+            expect(result).toMatchObject({ success: false });
+            return;
+          }
           const script = mockedSendCommand.mock.calls.at(-1)?.[0]
             ?? mockedSendRawCommand.mock.calls.at(-1)?.[0];
           expect(script).toEqual(expect.any(String));
@@ -148,6 +185,14 @@ describe("large tool handler coverage", () => {
       error: "frame_rate must be a finite value between 1 and 240 fps",
     });
     expect(mockedSendCommand).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ["smoothness only", { node_id: "coverage-node", smoothness: 25 }],
+    ["method only", { node_id: "coverage-node", method: "Subspace Warp" }],
+  ])("stabilizes with %s", async (_label, args) => {
+    await getEffectsTools(bridgeOptions).stabilize_clip.handler(args);
+    expect(mockedSendCommand).toHaveBeenCalledWith(expect.stringContaining("Warp Stabilizer"), bridgeOptions);
   });
 
   describe("health diagnostic failure branches", () => {

@@ -14,6 +14,8 @@ const mocks = vi.hoisted(() => ({
   uxpStart: vi.fn(async () => {}),
   uxpStop: vi.fn(async () => {}),
   execFileSync: vi.fn(),
+  fsExists: vi.fn(() => false),
+  pipe: vi.fn(),
 }));
 
 vi.mock("node:http", () => ({
@@ -53,20 +55,41 @@ vi.mock("../src/bridge/uxp-websocket-bridge.js", () => ({
   },
 }));
 vi.mock("node:child_process", () => ({ execFileSync: mocks.execFileSync }));
+vi.mock("node:fs", async (original) => {
+  const actual = await original<typeof import("node:fs")>();
+  return {
+    ...actual,
+    default: {
+      ...actual,
+      existsSync: mocks.fsExists,
+      createReadStream: vi.fn(() => ({ pipe: mocks.pipe })),
+    },
+  };
+});
 
 const originalArgv = process.argv;
 const env = { ...process.env };
+const originalSignalListeners = {
+  SIGINT: new Set(process.listeners("SIGINT")),
+  SIGTERM: new Set(process.listeners("SIGTERM")),
+};
 
 beforeEach(() => {
   vi.resetModules();
   vi.clearAllMocks();
   mocks.requestHandler = undefined;
+  mocks.fsExists.mockReturnValue(false);
   process.env = { ...env };
 });
 afterEach(() => {
   process.argv = originalArgv;
   process.env = { ...env };
   vi.restoreAllMocks();
+  for (const signal of ["SIGINT", "SIGTERM"] as const) {
+    for (const listener of process.listeners(signal)) {
+      if (!originalSignalListeners[signal].has(listener)) process.removeListener(signal, listener);
+    }
+  }
 });
 
 function response() {
@@ -228,6 +251,36 @@ describe("HTTP entry point", () => {
     expect(mocks.capture).toHaveBeenCalledWith("mcp_connection_attempt", expect.objectContaining({ outcome: "unauthorized" }));
   });
 
+  it("rejects malformed and incorrect bearer credentials", async () => {
+    const handler = await loadHttp();
+    for (const authorization of ["Basic strong-test-token", "Bearer short", "Bearer xxxxxxxxxxxxxxxxx"]) {
+      const denied = response();
+      await handler({ method: "POST", url: "/mcp", headers: { authorization } }, denied);
+      expect(denied.statusCode).toBe(401);
+    }
+  });
+
+  it("allows an explicitly unauthenticated deployment", async () => {
+    process.env.ALLOW_UNAUTHENTICATED = "1";
+    delete process.env.MCP_AUTH_TOKEN;
+    await import("../src/http-server.js");
+    const res = response();
+    await mocks.requestHandler!({ method: "POST", url: "/mcp", headers: {} }, res);
+    expect(mocks.handleRequest).toHaveBeenCalledOnce();
+  });
+
+  it("refuses to start without authentication or an explicit override", async () => {
+    delete process.env.ALLOW_UNAUTHENTICATED;
+    delete process.env.MCP_AUTH_TOKEN;
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    const exit = vi.spyOn(process, "exit").mockImplementation(((code?: number) => {
+      throw new Error(`EXIT:${code}`);
+    }) as never);
+    await expect(import("../src/http-server.js")).rejects.toThrow("EXIT:1");
+    expect(error).toHaveBeenCalledWith(expect.stringContaining("Refusing to start"));
+    expect(exit).toHaveBeenCalledWith(1);
+  });
+
   it("handles authorized MCP requests and closes request resources", async () => {
     const handler = await loadHttp();
     const res = response();
@@ -248,6 +301,34 @@ describe("HTTP entry point", () => {
     expect(res.statusCode).toBe(500);
     expect(JSON.parse(res.body)).toEqual({ error: "Internal server error" });
     expect(mocks.capture).toHaveBeenCalledWith("mcp_request", expect.objectContaining({ outcome: "failed", error_type: "TypeError" }));
+  });
+
+  it("records an MCP response status failure and preserves an already-started response", async () => {
+    let handler = await loadHttp();
+    mocks.handleRequest.mockImplementationOnce(async (_req, res) => { res.statusCode = 422; });
+    const failedStatus = response();
+    await handler({ method: undefined, url: "/mcp", headers: { authorization: "Bearer strong-test-token" } }, failedStatus);
+    expect(mocks.capture).toHaveBeenCalledWith("mcp_request", expect.objectContaining({
+      outcome: "failed", method: "unknown", status_code: 422,
+    }));
+
+    vi.resetModules();
+    handler = await loadHttp();
+    mocks.handleRequest.mockRejectedValueOnce("non-error failure");
+    const started = response();
+    started.headersSent = true;
+    await handler({ method: "POST", url: "/mcp", headers: { authorization: "Bearer strong-test-token" } }, started);
+    expect(started.writeHead).not.toHaveBeenCalled();
+    expect(mocks.capture).toHaveBeenCalledWith("mcp_request", expect.objectContaining({ error_type: "UnknownError" }));
+  });
+
+  it("serves a landing asset with its MIME type", async () => {
+    mocks.fsExists.mockReturnValue(true);
+    const handler = await loadHttp();
+    const res = response();
+    await handler({ method: "GET", url: "/docs/", headers: {} }, res);
+    expect(res.writeHead).toHaveBeenCalledWith(200, { "Content-Type": "text/html; charset=utf-8" });
+    expect(mocks.pipe).toHaveBeenCalledWith(res);
   });
 
   it("returns 404 when no landing asset matches", async () => {
