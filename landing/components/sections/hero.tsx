@@ -1,7 +1,8 @@
 import { Github, Monitor, Package, ShieldCheck, Sparkles } from "lucide-react"
-import { EditingTimeline } from "@/components/sections/editing-timeline"
+import Image from "next/image"
 import { HeroDepthLoader } from "@/components/sections/hero-depth-loader"
 import { MobileNav } from "@/components/sections/mobile-nav"
+import { TrackedLink } from "@/components/ui/tracked-link"
 import { product } from "@/lib/product"
 
 const navItems = [
@@ -27,9 +28,14 @@ export function HeroSection() {
       <header className="fixed inset-x-0 top-0 z-50 border-b border-white/10 bg-black/85 backdrop-blur-xl">
         <nav className="mx-auto flex h-16 max-w-6xl items-center justify-between px-5" aria-label="Primary navigation">
           <a href="#top" className="flex items-center gap-3 text-sm font-semibold text-white">
-            <span className="grid h-8 w-8 place-items-center rounded-md border border-purple-400/30 bg-purple-500/15 font-mono text-sm text-purple-200">
-              Pr
-            </span>
+            <Image
+              src="/marketing/premiere-pro-mcp-mark-v1.png"
+              alt=""
+              width={32}
+              height={32}
+              className="h-8 w-8 object-contain"
+              priority
+            />
             <span>premiere-pro-mcp</span>
           </a>
           <div className="flex items-center gap-5">
@@ -41,16 +47,18 @@ export function HeroSection() {
               ))}
             </div>
             <MobileNav />
-            <a
+            <TrackedLink
               href="https://github.com/leancoderkavy/premiere-pro-mcp"
               target="_blank"
               rel="noopener noreferrer"
+              trackingLocation="navigation"
+              trackingDestination="github"
               aria-label="premiere-pro-mcp on GitHub"
               className="inline-flex items-center gap-2 rounded-md border border-zinc-700 px-3 py-2 text-sm font-medium text-zinc-200 transition-colors hover:border-zinc-500 hover:bg-zinc-900"
             >
               <Github className="h-4 w-4" />
               <span className="hidden sm:inline">GitHub</span>
-            </a>
+            </TrackedLink>
           </div>
         </nav>
       </header>
@@ -73,27 +81,41 @@ export function HeroSection() {
               Inspect projects, plan edits, automate repeatable timeline work, and export from your AI client—while Premiere and your media stay on your computer.
             </p>
             <div className="hero-enter hero-enter-3 mt-9 flex flex-col items-center justify-center gap-3 sm:flex-row">
-              <a
+              <TrackedLink
                 href="#install"
+                trackingLocation="hero"
+                trackingDestination="install"
                 className="inline-flex h-12 items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-[#8b7cff] to-[#ef76b9] px-6 text-sm font-semibold text-white shadow-[0_12px_40px_rgba(139,124,255,0.22)] transition-transform hover:-translate-y-0.5"
               >
                 <Package className="h-4 w-4" /> Choose your assistant
-              </a>
-              <a
+              </TrackedLink>
+              <TrackedLink
                 href="https://github.com/leancoderkavy/premiere-pro-mcp"
                 target="_blank"
                 rel="noopener noreferrer"
+                trackingLocation="hero"
+                trackingDestination="github"
                 className="inline-flex h-12 items-center justify-center gap-2 rounded-lg border border-zinc-700 bg-zinc-950/80 px-6 text-sm font-semibold text-zinc-100 transition-colors hover:border-zinc-500 hover:bg-zinc-900"
               >
                 <Github className="h-4 w-4" /> View on GitHub
-              </a>
+              </TrackedLink>
             </div>
             <p className="hero-enter hero-enter-3 mt-4 text-sm text-zinc-500">
               Free and MIT licensed · runs locally · guided first check
             </p>
           </div>
 
-          <EditingTimeline />
+          <div className="hero-enter hero-enter-4 relative mx-auto mt-12 max-w-6xl overflow-hidden rounded-xl border border-white/10 bg-[#050506] shadow-[0_28px_90px_rgba(0,0,0,0.55)] md:mt-16">
+            <Image
+              src="/marketing/premiere-pro-mcp-campaign-hero-v1.png"
+              alt="A structured AI request passes through a local protocol bridge into an organized video-editing timeline and verified export."
+              width={1672}
+              height={941}
+              sizes="(max-width: 768px) 100vw, 1152px"
+              className="h-auto w-full"
+              priority
+            />
+          </div>
 
           <div className="hero-enter hero-enter-5 mt-6 flex snap-x overflow-x-auto rounded-xl border border-zinc-800 bg-zinc-950/75 sm:mt-8 sm:grid sm:grid-cols-2 sm:overflow-hidden lg:grid-cols-4">
             {proofItems.map((item) => (

@@ -4,7 +4,7 @@
 
 [![MCP Toplist](https://mcptoplist.com/badge/glama%2Fleancoderkavy%2Fpremiere-pro-mcp.svg)](https://mcptoplist.com/server/glama%2Fleancoderkavy%2Fpremiere-pro-mcp)
 
-**Give AI full control over Adobe Premiere Pro.**
+**Give compatible AI assistants structured control over supported Adobe Premiere Pro workflows.**
 
 280 core tools across 31 modules, 3 resources, and 4 guided workflows. A connected UXP host adds 29 capability-gated tools.
 
@@ -18,6 +18,8 @@
 </div>
 
 ---
+
+![Premiere Pro MCP turns a structured AI request into an organized local editing workflow](landing/public/marketing/premiere-pro-mcp-campaign-hero-v1.png)
 
 ## What is this?
 
@@ -422,6 +424,8 @@ argument, undo, confirmation, and live-host boundaries.
 ---
 
 ## Architecture
+
+![Local-first Premiere Pro MCP workflow from AI assistant through the MCP bridge to a verified Premiere result](landing/public/marketing/premiere-pro-mcp-workflow-v1.png)
 
 **Local (stdio):**
 

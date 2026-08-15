@@ -18,9 +18,9 @@ const structuredData = {
       url: "https://premiere-pro-mcp.com/",
       logo: {
         "@type": "ImageObject",
-        url: "https://premiere-pro-mcp.com/og-image.png",
-        width: 1200,
-        height: 630,
+        url: "https://premiere-pro-mcp.com/marketing/premiere-pro-mcp-mark-v1.png",
+        width: 1254,
+        height: 1254,
       },
       sameAs: [
         "https://github.com/leancoderkavy/premiere-pro-mcp",
@@ -56,7 +56,7 @@ const structuredData = {
       softwareRequirements: `Node.js ${product.nodeVersion} or newer and Adobe Premiere Pro ${product.premiereCompatibility}`,
       author: { "@id": "https://premiere-pro-mcp.com/#organization" },
       publisher: { "@id": "https://premiere-pro-mcp.com/#organization" },
-      image: "https://premiere-pro-mcp.com/og-image.png",
+      image: "https://premiere-pro-mcp.com/marketing/premiere-pro-mcp-social-square-v1.png",
       dateModified: product.releaseDate,
       featureList: [
         "Timeline editing",

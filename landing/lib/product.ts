@@ -4,7 +4,7 @@ export const product = {
   releaseDate: "2026-08-12",
   coreToolCount: 280,
   defaultProfileToolCount: 278,
-  connectedUxpToolCount: 297,
+  connectedUxpToolCount: 307,
   nodeVersion: "20.19",
   premiereCompatibility: "2020–2026",
   uxpMinimumVersion: "25.6",

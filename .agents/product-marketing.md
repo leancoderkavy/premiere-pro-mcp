@@ -1,48 +1,169 @@
 # Product Marketing Context
 
-**Version:** v1
-**Last updated:** 2026-07-27
+**Document version:** v2
+**Last updated:** 2026-08-15
 
-## Product
+## Product Overview
 
-Premiere Pro MCP is an MIT-licensed, local-first Model Context Protocol server for connecting compatible AI clients to Adobe Premiere Pro. It offers structured inspection, editing, automation, and export tools through a local Node.js server and a CEP bridge in Premiere Pro. A UXP bridge is available as a preview for supported capabilities.
+**One-liner:** Premiere Pro MCP gives compatible AI assistants a structured, local-first way to inspect projects, plan edits, automate supported timeline work, and export through Adobe Premiere Pro.
 
-## Audience and job to be done
+**What it does:** A local MCP server connects an AI client to Premiere through the production CEP bridge. It exposes 280 core tools across project inspection, editing, effects, color, audio, media management, diagnostics, and export; an authenticated compatible UXP host adds 29 capability-gated tools for a 307-tool connected surface.
 
-The primary audience is technical video editors, post-production teams, and developers who already use an MCP-capable AI client and want to reduce repetitive Premiere work without moving project media to a hosted editor.
+**Product category:** Premiere Pro automation, MCP server, AI-assisted video-editing infrastructure.
 
-They need a reliable way to inspect a project, plan or carry out repeatable edits, and verify an export from the tools they already use for AI-assisted work.
+**Product type:** Free, MIT-licensed open-source developer and editor tool.
 
-## Positioning
+**Business model:** Free and open source. No paid plan or hosted-media service is currently offered.
 
-Use outcome-led, evidence-bounded language:
+## Target Audience
 
-- Inspect a current project and active sequence before changing anything.
-- Plan repeatable timeline work and automate supported actions from an AI client.
-- Keep the recommended Premiere, MCP server, CEP bridge, and media on the same computer.
-- Verify a real host connection with `get_capabilities` and `ping`; packaged compatibility is not proof that every operation works on every Premiere release.
+**Target companies:** Independent editors, production studios, post-production teams, creative agencies, and developer-led media teams using Premiere Pro.
 
-Do not lead with the tool count alone. The 279-tool surface is supporting proof after the visitor understands the first useful outcome.
+**Decision-makers:** Individual editors, post-production leads, workflow engineers, technical directors, and developer-tool evaluators.
 
-## Proof and constraints
+**Primary use case:** Reduce repetitive Premiere work from an MCP-capable AI client while keeping the recommended control path and project media on the local computer.
 
-- Supported packaged CEP target: Premiere Pro 2020–2026 on Windows and macOS.
-- Node.js requirement: 20.19 or newer.
-- UXP is a preview for Premiere Pro 25.6 and newer.
-- Some QE DOM operations vary by Premiere version; tools should verify resulting state and return diagnostics.
-- Remote access still needs authentication and a working connection to the local Premiere bridge. Local stdio is the recommended setup.
-- The project is independent and is not affiliated with Adobe Inc.
+**Jobs to be done:**
 
-## Measurement
+- Inspect a project and active sequence before changing anything.
+- Preview and carry out supported repeatable editing operations.
+- Export with explicit presets and return observable status or diagnostics.
 
-GitHub traffic, clones, and npm downloads are interest and distribution signals, not verified active users. Measure activation only after the privacy-safe PostHog telemetry is configured with a dedicated project, production secret, and deployed release. Use the funnel: connection attempt → MCP request → successful tool call.
+**Use cases:**
 
-## Customer language
+- Project and sequence inventory
+- Timeline assembly and repeatable clip operations
+- Effects, color, audio, keyframe, marker, caption, and metadata workflows
+- Media organization, proxy, and export workflows
+- Connection diagnostics and capability-aware automation
 
-- "What is my current Premiere project and active sequence? Do not make changes."
-- "Run `get_capabilities`, then `ping`, with Premiere open."
-- "Keep Premiere and project media on the local computer."
+## Personas
+
+| Persona | Cares about | Challenge | Value we promise |
+| --- | --- | --- | --- |
+| Technical editor | Faster repetitive work without surrendering the creative decision | UI macros are brittle and hard to verify | Structured tools, previews, diagnostics, and explicit results |
+| Post-production lead | Repeatability and safe adoption across systems | Host versions and undocumented APIs vary | Capability metadata and evidence-bounded compatibility guidance |
+| Workflow developer | Extensible automation from existing AI clients | Building and maintaining a Premiere bridge is expensive | Open-source MCP, CEP, UXP, and packaging foundations |
+
+## Problems & Pain Points
+
+**Core problem:** Editors spend time on repeatable project inspection, timeline operations, organization, and delivery tasks that are difficult to coordinate through natural-language tools.
+
+**Why alternatives fall short:**
+
+- Visual UI automation guesses at interface state and breaks across layouts.
+- Generic AI video tools often require moving media into a separate hosted workflow.
+- Raw scripts lack guided discovery, capability boundaries, and consistent diagnostics.
+
+**What it costs them:** Repetitive labor, interrupted creative focus, fragile handoffs, and uncertainty about whether an automated operation actually changed the project.
+
+**Emotional tension:** Editors want automation but do not want an assistant silently making destructive or unverifiable changes.
+
+## Competitive Landscape
+
+**Direct:** Other Premiere-focused MCP servers and AI-control bridges — compare installability, supported host surfaces, verification behavior, safety boundaries, and maintenance evidence rather than tool count alone.
+
+**Secondary:** Premiere scripts, panels, macros, and workflow-automation products — often solve narrower tasks or require custom orchestration.
+
+**Indirect:** Manual editing and separate hosted AI editors — familiar or convenient, but do not provide the same local structured control path into an existing Premiere project.
+
+## Differentiation
+
+**Key differentiators:**
+
+- Local-first recommended architecture
+- Broad structured tool surface with capability and authority metadata
+- Read-only connection verification and diagnostic paths
+- Production CEP compatibility plus capability-gated UXP expansion
+- Open-source client bundles, connectors, and release artifacts
+
+**How we do it differently:** The server presents explicit tools and verification boundaries instead of asking an AI to guess at Premiere's interface.
+
+**Why that's better:** Users can inspect support, preview risk, and evaluate returned state or diagnostics before relying on an operation.
+
+**Why customers choose us:** They want AI-assisted Premiere automation that fits existing MCP clients and preserves a local, inspectable workflow.
+
+## Objections
+
+| Objection | Response |
+| --- | --- |
+| “Will it upload my footage?” | The recommended setup keeps Premiere, the bridge, server, and media on the local computer. The chosen AI client's own privacy behavior still applies. |
+| “Will every tool work on my Premiere version?” | No static compatibility claim proves a live operation. Run the read-only connection check, inspect capabilities, preview changes, and verify results. |
+| “Is setup too technical?” | Claude Desktop has a self-contained bundle; the Premiere connector remains a separate install. Other clients currently use guided or advanced setup. |
+
+**Anti-persona:** Anyone seeking unattended destructive editing, guaranteed support across every Premiere build, or a hosted service that uploads and edits media without local Premiere.
+
+## Switching Dynamics
+
+**Push:** Repetitive edits, fragile UI macros, and scattered one-off scripts.
+
+**Pull:** Natural-language orchestration, structured tools, local execution, and explicit diagnostics.
+
+**Habit:** Existing manual workflows are predictable and already understood.
+
+**Anxiety:** Installation friction, project safety, compatibility variation, and uncertainty about whether an operation really succeeded.
+
+## Customer Language
+
+**How they describe the problem:**
+
+- “What is my current Premiere project and active sequence? Do not make changes.”
+- “Add the B-roll clips to V2, apply a cross dissolve, match the grade, and export.”
+
+**How they describe us:**
+
+- “Connect my AI assistant to Premiere Pro.”
+- “Automate repeatable Premiere work while keeping the media local.”
+
+**Words to use:** local-first, structured tools, preview, supported, capability-gated, verified result, read-only check, explicit diagnostics.
+
+**Words to avoid:** autonomous editor, guaranteed, flawless, one-click for every client, live demo when simulated, uploads nothing under every configuration, full control without qualification.
+
+**Glossary:**
+
+| Term | Meaning |
+| --- | --- |
+| MCP server | The local service exposing structured Premiere tools to compatible AI clients |
+| CEP bridge | The production connector used for the default Premiere compatibility path |
+| UXP bridge | A newer capability-gated connection for supported Premiere workflows |
+| Verified result | A returned outcome backed by observable state or diagnostics, not merely an attempted command |
+
+## Brand Voice
+
+**Tone:** Confident, technical, calm, and evidence-aware.
+
+**Style:** Outcome-led plain language first; technical detail and limitations close to the claim they qualify.
+
+**Personality:** Precise, transparent, pragmatic, capable, editor-respecting.
+
+## Proof Points
+
+**Metrics:** 280 registered core tools; 278 exposed by the default authority profile; 29 additional capability-gated tools with an authenticated compatible UXP host; 307 connected tools total; 31 core modules; 3 MCP resources; 4 guided workflows.
+
+**Customers:** No approved customer-logo claims are currently documented.
+
+**Testimonials:** No approved public testimonial is currently documented.
+
+**Value themes:**
+
+| Theme | Proof |
+| --- | --- |
+| Installable | npm package, Claude Desktop bundle, signed CEP connector, and release artifacts |
+| Local-first | Recommended same-computer server, bridge, Premiere, and media architecture |
+| Inspectable | Capability catalog, safe first check, diagnostics, and explicit verification boundaries |
+| Open | MIT license, public source, changelog, security policy, and cross-platform CI |
+
+## Goals
+
+**Business goal:** Increase verified successful local activations and repeat supported tool use—not only page views, stars, clones, or downloads.
+
+**Conversion action:** Complete the assistant and connector installation, run `verify_premiere_connection`, then complete a successful supported tool call.
+
+**Current metrics:** Public discovery and distribution signals exist, but current activation counts must be queried from the production PostHog project before being reported.
 
 ## Changelog
 
-- v1 (2026-07-27): Initial context derived from the current product README, package requirements, compatibility guidance, and existing usage-measurement work.
+*Newest first. One line per revision: what changed and why.*
+
+- v2 (2026-08-15) — Expanded audience, differentiation, objections, brand voice, proof, and activation goals; aligned the current 280-core and 307-connected tool surfaces.
+- v1 (2026-07-27) — Initial context derived from the product README, package requirements, compatibility guidance, and usage-measurement work.
