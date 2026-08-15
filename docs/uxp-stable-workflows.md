@@ -132,8 +132,9 @@ Ingest updates use `ProjectSettings.createSetIngestSettingsAction()`.
 ### `manage_metadata_uxp`
 
 Actions are `get` and `update`. Project metadata requires 1-128 exact
-`updated_fields`. Project and XMP strings are each capped at 350,000 characters so
-the result remains below the bridge's 1 MiB frame limit.
+`updated_fields`. Project and XMP strings are each capped at 350,000 characters,
+and their combined serialized UTF-8 readback is capped at 900,000 bytes so the
+complete response remains below the bridge's 1 MiB frame limit.
 
 ### `manage_color_conformance_uxp`
 

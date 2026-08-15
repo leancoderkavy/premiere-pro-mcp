@@ -18,9 +18,10 @@
       throw workspaceError("UXP_INVALID_ARGUMENT", label + " must be a non-empty absolute path of at most 4096 characters");
     }
     const original = value.trim();
-    const slashed = original.replace(/\\/g, "/");
+    const windowsInput = /^[A-Za-z]:[\\/]/.test(original) || /^\\\\/.test(original);
+    const slashed = windowsInput ? original.replace(/\\/g, "/") : original;
     const drive = /^([A-Za-z]):\/(.*)$/.exec(slashed);
-    const unc = /^\/\/([^/]+)\/([^/]+)(?:\/(.*))?$/.exec(slashed);
+    const unc = windowsInput && /^\/\/([^/]+)\/([^/]+)(?:\/(.*))?$/.exec(slashed);
     const posix = !drive && !unc && slashed.charAt(0) === "/";
     if (!drive && !unc && !posix) {
       throw workspaceError("UXP_INVALID_ARGUMENT", label + " must be absolute");

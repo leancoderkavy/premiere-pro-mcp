@@ -13,9 +13,9 @@
       "state.get": { readOnly: true, handler: stateSnapshot },
       "project.snapshot": { readOnly: true, minHostVersion: "25.6.0", probe: canInspectProject, handler: projectSnapshot },
       "project.save": { idempotent: true, minHostVersion: "25.6.0", probe: canSaveProject, handler: saveProject },
-      "sequence.createPreset": { destructive: true, undoable: false, minHostVersion: "26.3.0", probe: canCreatePresetSequence, handler: createPresetSequence },
-      "interchange.export": { minHostVersion: "26.2.0", probe: canExportInterchange, handler: exportInterchange },
-      "interchange.aaf.export": { destructive: true, undoable: false, idempotent: true, minHostVersion: "26.3.0", probe: canExportAaf, handler: exportAaf },
+      "sequence.createPreset": { destructive: true, undoable: false, requiresWorkspace: true, minHostVersion: "26.3.0", probe: canCreatePresetSequence, handler: createPresetSequence },
+      "interchange.export": { requiresWorkspace: true, minHostVersion: "26.2.0", probe: canExportInterchange, handler: exportInterchange },
+      "interchange.aaf.export": { destructive: true, undoable: false, idempotent: true, requiresWorkspace: true, minHostVersion: "26.3.0", probe: canExportAaf, handler: exportAaf },
       "track.rename": { destructive: true, undoable: true, idempotent: true, minHostVersion: "26.3.0", probe: canRenameTracks, handler: renameTrack },
       "subclip.create": { destructive: true, undoable: true, minHostVersion: "26.3.0", probe: canCreateSubclips, handler: createSubclip },
       "marker.list": { readOnly: true, minHostVersion: "26.3.0", probe: canListMarkers, handler: listMarkers },
@@ -23,7 +23,7 @@
       "transcript.languages": { readOnly: true, minHostVersion: "26.3.0", probe: canQueryTranscriptLanguages, handler: transcriptLanguages },
       "objectMask.has": { readOnly: true, minHostVersion: "26.3.0", probe: canInspectObjectMasks, handler: hasObjectMask },
       "encoder.configure": { minHostVersion: "26.3.0", probe: canConfigureEncoder, handler: configureEncoder },
-      "frame.export": { minHostVersion: "25.6.0", probe: canExportFrame, handler: exportFrame },
+      "frame.export": { requiresWorkspace: true, minHostVersion: "25.6.0", probe: canExportFrame, handler: exportFrame },
       "transition.video.list": { readOnly: true, minHostVersion: "25.6.0", probe: canListTransitions, handler: listTransitions },
       "transition.video.add": { destructive: true, undoable: true, minHostVersion: "25.6.0", probe: canMutateTransitions, handler: addTransition },
       "transition.video.remove": { destructive: true, undoable: true, minHostVersion: "25.6.0", probe: canMutateTransitions, handler: removeTransition }
@@ -133,6 +133,9 @@
     async function exportAaf(args) {
       const input = validateAafArgs(args);
       input.outputFilePath = allowedPath(input.outputFilePath, "outputFilePath", "file");
+      if (input.options.videoMixdownPresetPath != null) {
+        input.options.videoMixdownPresetPath = allowedPath(input.options.videoMixdownPresetPath, "videoMixdownPresetPath", "file");
+      }
       const context = await activeContext(false);
       const options = buildAafExportOptions(ppro, input.options);
       const exported = await ppro.ProjectConverter.exportAAF(context.sequence, input.outputFilePath, options);

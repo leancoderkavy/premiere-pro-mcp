@@ -60,8 +60,8 @@ function invoke(
 
 function target(args: WorkflowArgs): Record<string, unknown> {
   return {
-    ...(args.project_item_id ? { projectItemId: args.project_item_id } : {}),
-    ...(args.project_item_name ? { projectItemName: args.project_item_name } : {}),
+    ...(args.project_item_id !== undefined ? { projectItemId: args.project_item_id } : {}),
+    ...(args.project_item_name !== undefined ? { projectItemName: args.project_item_name } : {}),
   };
 }
 
@@ -236,8 +236,8 @@ export function getUxpWorkflowTools(bridge: UxpWebSocketBridge) {
         properties: {
           action: { type: "string", enum: ["get", "update"] },
           ...projectItemProperties,
-          project_metadata: { type: "string", maxLength: 350000 },
-          xmp_metadata: { type: "string", maxLength: 350000 },
+          project_metadata: { type: "string", maxLength: 350000, description: "Project metadata; combined readback is limited to a 900,000-byte serialized UTF-8 result." },
+          xmp_metadata: { type: "string", maxLength: 350000, description: "XMP metadata; combined readback is limited to a 900,000-byte serialized UTF-8 result." },
           updated_fields: { type: "array", minItems: 1, maxItems: 128, items: { type: "string", minLength: 1, maxLength: 512 } },
           operation_id: operationId,
         },
@@ -347,12 +347,15 @@ export function getUxpWorkflowTools(bridge: UxpWebSocketBridge) {
       handler: async (args: WorkflowArgs) => {
         if (args.action === "preflight") return invoke(bridge, "storage.preflight");
         if (args.action !== "configure_project") return invalidAction(args.action);
+        if (!args.folder_types?.length || args.destination === undefined) {
+          return { success: false, error: "configure_project requires folder_types and destination" };
+        }
         const typeMap: Record<string, string> = {
           capture: "capture", audio_preview: "audioPreview", video_preview: "videoPreview",
           auto_save: "autoSave", cc_libraries: "ccLibraries", capsule_media: "capsuleMedia",
         };
         return invoke(bridge, "scratch.configure", {
-          folderTypes: (args.folder_types ?? []).map((value) => typeMap[value]),
+          folderTypes: args.folder_types.map((value) => typeMap[value]),
           destination: args.destination === "same_as_project" ? "sameAsProject" : "myDocuments",
           ...operation(args),
         });

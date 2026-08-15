@@ -7,6 +7,22 @@
 
   const MAX_SELECTION_ITEMS = 64;
   const MAX_METADATA_CHARS = 350000;
+  const MAX_METADATA_RESULT_BYTES = 900000;
+
+  function utf8ByteLength(value) {
+    let bytes = 0;
+    for (let i = 0; i < value.length; i += 1) {
+      const code = value.charCodeAt(i);
+      if (code < 0x80) bytes += 1;
+      else if (code < 0x800) bytes += 2;
+      else if (code >= 0xD800 && code <= 0xDBFF && i + 1 < value.length &&
+        value.charCodeAt(i + 1) >= 0xDC00 && value.charCodeAt(i + 1) <= 0xDFFF) {
+        bytes += 4;
+        i += 1;
+      } else bytes += 3;
+    }
+    return bytes;
+  }
 
   function createWorkflowDefinitions(deps) {
     const ppro = deps.ppro, Protocol = deps.Protocol, workspace = deps.workspace;
@@ -549,10 +565,12 @@
       const projectItem = castProjectItem(clip);
       const projectMetadata = String(await ppro.Metadata.getProjectMetadata(projectItem) || "");
       const xmpMetadata = String(await ppro.Metadata.getXMPMetadata(projectItem) || "");
-      if (projectMetadata.length > MAX_METADATA_CHARS || xmpMetadata.length > MAX_METADATA_CHARS) {
+      const result = { projectItemId: await projectItemIdentifier(projectItem), name: String(clip.name || ""), projectMetadata, xmpMetadata };
+      if (projectMetadata.length > MAX_METADATA_CHARS || xmpMetadata.length > MAX_METADATA_CHARS ||
+        utf8ByteLength(JSON.stringify(result)) > MAX_METADATA_RESULT_BYTES) {
         throw commandError("UXP_RESULT_TOO_LARGE", "Metadata exceeds the bridge's bounded result size");
       }
-      return { projectItemId: await projectItemIdentifier(projectItem), name: String(clip.name || ""), projectMetadata, xmpMetadata };
+      return result;
     }
 
     async function getMetadata(args) {

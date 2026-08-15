@@ -32,8 +32,8 @@ describe("stable UXP workflow MCP catalog", () => {
     });
     expect(tools.manage_metadata_uxp.parameters).toMatchObject({
       properties: {
-        project_metadata: { maxLength: 350000 },
-        xmp_metadata: { maxLength: 350000 },
+        project_metadata: { maxLength: 350000, description: expect.stringContaining("900,000-byte") },
+        xmp_metadata: { maxLength: 350000, description: expect.stringContaining("900,000-byte") },
         updated_fields: { maxItems: 128 },
       },
     });
@@ -41,6 +41,20 @@ describe("stable UXP workflow MCP catalog", () => {
       required: ["new_path", "confirm_non_undoable"],
       properties: { new_path: { maxLength: 4096 }, confirm_non_undoable: { type: "boolean" } },
     });
+  });
+
+  it("rejects incomplete storage configuration and preserves explicit empty selectors", async () => {
+    const request = vi.fn().mockResolvedValue({ outcome: "verified" });
+    const bridge = { request, getState: vi.fn() } as unknown as UxpWebSocketBridge;
+    const tools = getUxpTools(bridge);
+
+    await expect(tools.preflight_production_storage_uxp.handler({
+      action: "configure_project", folder_types: ["capture"],
+    })).resolves.toMatchObject({ success: false, error: expect.stringContaining("destination") });
+    expect(request).not.toHaveBeenCalled();
+
+    await tools.manage_metadata_uxp.handler({ action: "get", project_item_id: "" });
+    expect(request).toHaveBeenCalledWith("metadata.get", { projectItemId: "" });
   });
 
   it("maps consolidated public actions to exact capability-gated UXP commands", async () => {

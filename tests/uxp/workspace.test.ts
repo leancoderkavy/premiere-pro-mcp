@@ -36,6 +36,11 @@ describe("least-privilege UXP workspace broker", () => {
     });
     expect(Workspace.isContained("D:\\Projects\\Film", "d:/projects/film/clip.mov", false)).toBe(true);
     expect(Workspace.isContained("D:\\Projects\\Film", "D:/Projects/Filmography/clip.mov", false)).toBe(false);
+    expect(Workspace.parseAbsolutePath("/Projects/Film\\Archive/clip.mov", "path")).toMatchObject({
+      normalized: "/Projects/Film\\Archive/clip.mov",
+      kind: "posix",
+    });
+    expect(Workspace.isContained("/Projects/Film\\Archive", "/Projects/Film/Archive/clip.mov", false)).toBe(false);
     expect(() => Workspace.parseAbsolutePath("D:/../Windows/system.ini", "path")).toThrow("escapes");
     expect(() => Workspace.parseAbsolutePath("D:/Projects/Film/NUL", "path")).toThrow("Windows-ambiguous");
     expect(() => Workspace.parseAbsolutePath("D:/Projects/Film/clip.mov:stream", "path")).toThrow("Windows-ambiguous");

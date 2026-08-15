@@ -277,6 +277,14 @@ describe("stable Premiere UXP workflow expansion", () => {
     })).resolves.toMatchObject({ conformed: true, outcome: "verified", after: { frameRate: 24, pixelAspectRatio: 1.2, inputLutId: "lut-guid" } });
   });
 
+  it("rejects metadata whose combined serialized UTF-8 result exceeds the frame budget", async () => {
+    const value = stableHost();
+    value.ppro.Metadata.getProjectMetadata.mockResolvedValueOnce("é".repeat(300000));
+    value.ppro.Metadata.getXMPMetadata.mockResolvedValueOnce("é".repeat(300000));
+    await expect(value.registry.dispatch("metadata.get", { projectItemId: "source-1" }))
+      .rejects.toMatchObject({ code: "UXP_RESULT_TOO_LARGE" });
+  });
+
   it("covers Source Monitor audition and project/Production storage preflight", async () => {
     const value = stableHost();
     await expect(value.registry.dispatch("sourceMonitor.open", { projectItemId: "source-1" })).resolves.toMatchObject({
