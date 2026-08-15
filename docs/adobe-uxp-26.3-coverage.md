@@ -6,6 +6,10 @@ Premiere build has been exercised. The package must interrogate the connected
 panel through `capabilities.get`; package version, static TypeScript declarations,
 and unit tests are insufficient evidence that a particular host supports a command.
 
+The later stable-API expansion is documented separately in the
+[stable UXP workflow matrix](uxp-stable-workflows.md). Its ten coverage entries
+share this pinned 26.3 declaration baseline and the same pending live-host gate.
+
 ## Source and version policy
 
 Adobe's [26.3 changelog](https://developer.adobe.com/premiere-pro/uxp/changelog/)

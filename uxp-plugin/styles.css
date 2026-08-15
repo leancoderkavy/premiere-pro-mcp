@@ -1,0 +1,48 @@
+body {
+  color: #ddd;
+  background: #242424;
+  font: 12px system-ui;
+  margin: 14px;
+}
+
+button,
+input {
+  margin: 4px;
+  padding: 6px;
+}
+
+button {
+  color: white;
+  background: #5b5bd6;
+  border: 1px solid transparent;
+  border-radius: 3px;
+}
+
+pre {
+  white-space: pre-wrap;
+  background: #181818;
+  padding: 10px;
+}
+
+label {
+  display: block;
+}
+
+.help {
+  color: #bbb;
+  line-height: 1.4;
+}
+
+button:focus-visible,
+input:focus-visible {
+  outline: 2px solid #c7b8ff;
+  outline-offset: 2px;
+}
+
+@media (forced-colors: active) {
+  button,
+  input,
+  pre {
+    border: 1px solid CanvasText;
+  }
+}

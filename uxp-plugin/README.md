@@ -2,6 +2,12 @@
 
 Production-oriented UXP transport for Premiere Pro 25.6+. Set `PREMIERE_UXP_TOKEN` to a secret of at least 16 characters before starting the MCP server. Side-load `manifest.json` with UXP Developer Tool during development, open **Window → UXP Plugins → MCP Bridge**, enter the same secret in **Bridge token**, then connect to the MCP-side WebSocket endpoint (default `ws://127.0.0.1:7777/uxp`). For end-user direct distribution, use the `.ccx` workflow in [DISTRIBUTION.md](./DISTRIBUTION.md) instead of asking users to load a development folder.
 
+Before using a path-based command, choose one **Approved workspace** folder in the
+panel. The manifest uses requested filesystem access, and the panel restores only
+Adobe's opaque persistent folder token. Proxy, relink, preset, interchange, AAF,
+frame-export, and Source Monitor file paths must remain inside that folder. The
+token and native root path are never sent to the MCP server.
+
 The bridge sends a versioned `hello`, subscribes to Premiere's documented global project and sequence events, emits `premiere.state.changed` notifications, and accepts only commands that its runtime capability probe declares supported. A five-second deduplicated poll remains as a fallback for state such as playhead movement that has no matching documented event.
 
 It also exposes documented Premiere 25.6+ video-transition and transcript workflows:
@@ -45,6 +51,16 @@ These map to MCP tools `rename_track_uxp`, `create_subclip_uxp`,
 `list_markers_uxp`, `set_source_monitor_position_uxp`, `has_transcript_uxp`, and
 `export_aaf_uxp`. See [the 26.3 coverage matrix](../docs/adobe-uxp-26.3-coverage.md)
 for command arguments, support states, and primary Adobe references.
+
+## Stable workflow commands
+
+The panel also exposes runtime-probed commands for native audio/video component
+chains, compound effect batches over the current timeline selection, scene-edit
+detection, proxy and ingest state, guarded offline relink, transactional project/XMP
+metadata, footage interpretation and LUTs, Source Monitor audition, and
+project/Production scratch-disk preflight. They map to ten consolidated MCP tools;
+see [the stable workflow matrix](../docs/uxp-stable-workflows.md) for exact commands,
+arguments, confirmation requirements, and the pending live-host gate.
 
 `frame.export` uses Adobe's supported `Exporter.exportSequenceFrame()` and verifies the file exists before reporting success. Example:
 
