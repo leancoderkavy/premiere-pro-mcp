@@ -9,7 +9,6 @@ export default defineConfig({
     maxWorkers: 1,
     coverage: {
       provider: "v8",
-      all: true,
       include: ["src/**/*.ts"],
       exclude: ["src/**/*.d.ts", "src/resources/**/*.json"],
       reporter: ["text", "html", "lcov", "json-summary"],
