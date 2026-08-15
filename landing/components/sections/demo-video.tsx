@@ -1,5 +1,9 @@
+"use client"
+
 import { Clapperboard, Film, WandSparkles } from "lucide-react"
+import { useRef } from "react"
 import { product } from "@/lib/product"
+import { trackOnboardingEvent } from "@/lib/onboarding-events"
 
 const outcomes = [
   { icon: Film, label: "Timeline", detail: "B-roll inserted on V2" },
@@ -8,18 +12,20 @@ const outcomes = [
 ]
 
 export function DemoVideoSection() {
+  const hasTrackedPlay = useRef(false)
+
   return (
     <section id="demo" className="reveal-section overflow-hidden border-y border-zinc-900 bg-[#050506] px-5 py-24 md:py-32">
       <div className="mx-auto max-w-6xl">
         <div className="grid items-end gap-8 md:grid-cols-[1fr_auto]">
           <div className="max-w-3xl">
-            <p className="font-mono text-xs font-semibold uppercase tracking-[0.18em] text-purple-300">Request → tools → verified result</p>
+            <p className="font-mono text-xs font-semibold uppercase tracking-[0.18em] text-purple-300">Illustrated product walkthrough</p>
             <h2 className="mt-4 text-balance text-4xl font-bold tracking-[-0.035em] text-white md:text-6xl">
-              From prompt to verified edit.
+              From prompt to an explicit result.
             </h2>
           </div>
           <p className="max-w-sm text-sm leading-7 text-zinc-400 md:text-right">
-            Follow one request through structured tool calls, local Premiere execution, and an explicit delivery result.
+            See the intended request-to-result flow. This animation is not a recording of a live Premiere host session.
           </p>
         </div>
 
@@ -34,6 +40,11 @@ export function DemoVideoSection() {
             preload="metadata"
             poster="/premiere-pro-mcp-demo-poster.png"
             aria-label="Premiere Pro MCP inserts B-roll, applies a color grade and title, then queues a ProRes export"
+            onPlay={() => {
+              if (hasTrackedPlay.current) return
+              hasTrackedPlay.current = true
+              trackOnboardingEvent("marketing_demo_played", { demo: "illustrated_workflow" })
+            }}
           >
             <source src="/premiere-pro-mcp-demo.mp4" type="video/mp4" />
             Your browser does not support embedded video. The demo shows an AI request becoming a structured Premiere Pro edit.

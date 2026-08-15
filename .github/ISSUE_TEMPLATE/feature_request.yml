@@ -1,0 +1,37 @@
+name: Feature request
+description: Propose a Premiere workflow or product improvement with a clear verification boundary.
+title: "[Feature]: "
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Workflow problem
+      description: What repetitive editing or delivery problem should this solve?
+    validations:
+      required: true
+  - type: textarea
+    id: outcome
+    attributes:
+      label: Desired observable outcome
+      description: Describe what the user should be able to verify after the workflow runs.
+    validations:
+      required: true
+  - type: dropdown
+    id: authority
+    attributes:
+      label: Expected authority
+      options:
+        - Inspect only
+        - Edit
+        - Export
+        - Filesystem
+        - Unsafe script
+        - Not sure
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Current workaround
+      description: How is this handled manually or with another supported tool today?

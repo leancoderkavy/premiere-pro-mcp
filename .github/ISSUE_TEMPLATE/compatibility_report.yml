@@ -1,0 +1,42 @@
+name: Compatibility report
+description: Share a successful or failed sanitized host/client compatibility result.
+title: "[Compatibility]: "
+labels: ["documentation"]
+body:
+  - type: input
+    id: platform
+    attributes:
+      label: OS and architecture
+      placeholder: Windows 11 x64 or macOS 15 Apple Silicon
+    validations:
+      required: true
+  - type: input
+    id: versions
+    attributes:
+      label: Premiere Pro and MCP versions
+      placeholder: Premiere 26.3.0, Premiere Pro MCP 1.9.3
+    validations:
+      required: true
+  - type: input
+    id: client
+    attributes:
+      label: MCP client and version
+    validations:
+      required: true
+  - type: dropdown
+    id: connection
+    attributes:
+      label: Connection verification
+      options:
+        - Passed read-only verification and ping
+        - Installed but not live-verified
+        - Failed connection verification
+    validations:
+      required: true
+  - type: textarea
+    id: result
+    attributes:
+      label: Sanitized result
+      description: Describe what was verified and what remains unverified. Do not include local paths or project content.
+    validations:
+      required: true

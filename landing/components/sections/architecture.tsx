@@ -1,4 +1,5 @@
 import { AlertTriangle, ArrowDown, CheckCircle2, FileCode2, PlugZap, TerminalSquare } from "lucide-react"
+import Image from "next/image"
 import { product } from "@/lib/product"
 
 const bridgeSteps = [
@@ -36,6 +37,19 @@ export function ArchitectureSection() {
   return (
     <section id="how-it-works" className="reveal-section border-y border-zinc-900 bg-[#050506] px-5 py-24 md:py-32">
       <div className="mx-auto max-w-6xl">
+        <figure className="mb-16 overflow-hidden rounded-xl border border-white/10 bg-black">
+          <Image
+            src="/marketing/premiere-pro-mcp-workflow-v1.png"
+            alt="Local-first workflow: an AI assistant sends a request through the MCP bridge to Premiere, which returns a verified result."
+            width={1672}
+            height={941}
+            sizes="(max-width: 768px) 100vw, 1152px"
+            className="h-auto w-full"
+          />
+          <figcaption className="border-t border-zinc-800 px-5 py-4 text-sm leading-6 text-zinc-400">
+            The recommended path keeps the assistant, MCP bridge, Premiere, and project media on the same computer. A verified result still depends on a live host connection.
+          </figcaption>
+        </figure>
         <div className="grid gap-16 lg:grid-cols-2 lg:gap-20">
           <div>
             <h2 className="text-3xl font-bold tracking-tight text-white md:text-4xl">How the bridge <span className="text-purple-400">works</span></h2>

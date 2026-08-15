@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Setup documentation
+    url: https://premiere-pro-mcp.com/docs/
+    about: Follow the supported installation, compatibility, and safe connection-check guidance.
+  - name: Security vulnerability
+    url: https://github.com/leancoderkavy/premiere-pro-mcp/security/policy
+    about: Report vulnerabilities privately through the security policy instead of a public issue.
+  - name: Questions and workflow ideas
+    url: https://github.com/leancoderkavy/premiere-pro-mcp/discussions
+    about: Ask usage questions or share a Premiere workflow with the community.
