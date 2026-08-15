@@ -4,6 +4,8 @@ node_modules/
 # Build output
 dist/
 build/
+coverage/
+.coverage-*/
 artifacts/
 installer/**/bin/
 installer/**/obj/

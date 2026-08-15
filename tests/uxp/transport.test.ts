@@ -143,5 +143,52 @@ describe("UXP WebSocket bridge", () => {
       code: "CODE",
       message: "message",
     });
+    expect(() => new UxpWebSocketBridge({ token: TOKEN, path: "uxp" }))
+      .toThrow("must begin with '/'");
+  });
+
+  it("forwards host events and command failures", async () => {
+    const bridge = await createBridge();
+    const client = await connectHost(bridge);
+    const event = once(bridge, "event");
+    client.send(JSON.stringify({ protocolVersion: 1, type: "event", payload: { kind: "projectChanged" } }));
+    await expect(event).resolves.toEqual([{ kind: "projectChanged" }]);
+
+    client.once("message", (data) => {
+      const command = JSON.parse(data.toString());
+      client.send(JSON.stringify({
+        protocolVersion: 1, type: "result", requestId: command.requestId,
+        payload: { ok: false, error: { code: "HOST_BUSY", message: "Dialog open" } },
+      }));
+    });
+    await expect(bridge.request("state.get")).rejects.toMatchObject({ code: "HOST_BUSY", message: "Dialog open" });
+    client.close();
+  });
+
+  it("rejects requests while stopped and rejects work when a host reconnects", async () => {
+    const bridge = await createBridge();
+    await expect(bridge.request("state.get")).rejects.toMatchObject({ code: "UXP_NOT_CONNECTED" });
+    const first = await connectHost(bridge);
+    const pending = bridge.request("state.get");
+    const rejection = expect(pending).rejects.toMatchObject({ code: "UXP_RECONNECTED" });
+    const second = await connectHost(bridge);
+    await rejection;
+    first.on("error", () => {});
+    second.close();
+  });
+
+  it("closes clients that send invalid JSON or an invalid handshake", async () => {
+    const bridge = await createBridge();
+    const invalidJson = new WebSocket(bridgeUrl(bridge));
+    await once(invalidJson, "open");
+    invalidJson.send("{");
+    const [jsonCode] = await once(invalidJson, "close");
+    expect(jsonCode).toBe(1007);
+
+    const invalidHello = new WebSocket(bridgeUrl(bridge));
+    await once(invalidHello, "open");
+    invalidHello.send(JSON.stringify({ protocolVersion: 99, type: "hello", payload: { backend: "uxp", protocolVersion: 99, commands: {} } }));
+    const [helloCode] = await once(invalidHello, "close");
+    expect(helloCode).toBe(1008);
   });
 });
