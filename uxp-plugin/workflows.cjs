@@ -45,7 +45,7 @@
       "color.preflight": { readOnly: true, targetCapabilityProbe: true, minHostVersion: "25.6.0", probe: canInspectColor, handler: colorPreflight },
       "footage.conform": { destructive: true, undoable: true, idempotent: true, targetCapabilityProbe: true, minHostVersion: "25.6.0", probe: canConformFootage, handler: conformFootage },
       "sourceMonitor.state": { readOnly: true, minHostVersion: "25.6.0", probe: canUseSourceMonitor, handler: sourceMonitorState },
-      "sourceMonitor.open": { idempotent: true, requiresWorkspace: true, minHostVersion: "25.6.0", probe: canOpenSourceMonitor, handler: openSourceMonitor },
+      "sourceMonitor.open": { idempotent: true, conditionalWorkspace: true, minHostVersion: "25.6.0", probe: canOpenSourceMonitor, handler: openSourceMonitor },
       "sourceMonitor.play": { minHostVersion: "25.6.0", probe: canUseSourceMonitor, handler: playSourceMonitor },
       "sourceMonitor.close": { idempotent: true, minHostVersion: "25.6.0", probe: canUseSourceMonitor, handler: closeSourceMonitor },
       "storage.preflight": { readOnly: true, minHostVersion: "25.6.0", probe: canUseProjectSettings, handler: storagePreflight },
@@ -464,7 +464,7 @@
       assertOnlyKeys(args, ["projectItemId", "projectItemName", "mediaPath", "isHiRes", "makeAlternateLinkInTeamProjects", "replaceExistingProxy", "confirmNonUndoable", "operationId"]);
       const target = validateProjectItemTarget(args);
       requireConfirmation(args.confirmNonUndoable, "Attaching proxy or high-resolution media is not undoable");
-      const mediaPath = allowedPath(args.mediaPath, "proxy mediaPath", "file");
+      const mediaPath = await allowedPath(args.mediaPath, "proxy mediaPath", "file");
       const isHiRes = optionalBoolean(args.isHiRes, false, "isHiRes");
       const alternate = optionalBoolean(args.makeAlternateLinkInTeamProjects, false, "makeAlternateLinkInTeamProjects");
       const replaceExistingProxy = optionalBoolean(args.replaceExistingProxy, false, "replaceExistingProxy");
@@ -529,7 +529,7 @@
       assertOnlyKeys(args, ["projectItemId", "projectItemName", "newPath", "expectedCurrentPath", "overrideCompatibilityCheck", "requireOffline", "confirmNonUndoable", "operationId"]);
       const target = validateProjectItemTarget(args);
       requireConfirmation(args.confirmNonUndoable, "Changing a clip's media path is not undoable");
-      const newPath = allowedPath(args.newPath, "newPath", "file");
+      const newPath = await allowedPath(args.newPath, "newPath", "file");
       const expectedCurrentPath = args.expectedCurrentPath == null ? null : boundedString(args.expectedCurrentPath, "expectedCurrentPath", 4096);
       const overrideCompatibilityCheck = optionalBoolean(args.overrideCompatibilityCheck, false, "overrideCompatibilityCheck");
       const requireOffline = optionalBoolean(args.requireOffline, true, "requireOffline");
@@ -570,7 +570,7 @@
         utf8ByteLength(JSON.stringify(result)) > MAX_METADATA_RESULT_BYTES) {
         throw commandError("UXP_RESULT_TOO_LARGE", "Metadata exceeds the bridge's bounded result size");
       }
-      return result;
+      return Protocol && typeof Protocol.assertResultSize === "function" ? Protocol.assertResultSize(result) : result;
     }
 
     async function getMetadata(args) {
@@ -699,7 +699,7 @@
       const hasFile = args.filePath != null;
       if (hasFile && (args.projectItemId != null || args.projectItemName != null)) throw commandError("UXP_INVALID_ARGUMENT", "filePath cannot be combined with a project-item selector");
       if (hasFile) {
-        const filePath = allowedPath(args.filePath, "Source Monitor filePath", "file");
+        const filePath = await allowedPath(args.filePath, "Source Monitor filePath", "file");
         const opened = await ppro.SourceMonitor.openFilePath(filePath);
         if (!opened) throw commandError("UXP_VERIFICATION_FAILED", "Premiere did not confirm opening the file in Source Monitor");
         return {
@@ -818,10 +818,10 @@
       return workspace.status();
     }
 
-    function allowedPath(value, label, kind) {
+    async function allowedPath(value, label, kind) {
       const path = boundedString(value, label, 4096);
       return workspace && typeof workspace.assertPathAllowed === "function"
-        ? workspace.assertPathAllowed(path, { label, kind })
+        ? await workspace.assertPathAllowed(path, { label, kind })
         : path;
     }
 

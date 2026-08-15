@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { capabilityForTool, guardToolHandler, isToolPermitted, resolveCapabilities } from "../src/security/capabilities.js";
+import { capabilitiesForToolInvocation, capabilityForTool, guardToolHandler, isToolPermitted, resolveCapabilities } from "../src/security/capabilities.js";
 import { buildPlatformCapabilityReport } from "../src/platform-capabilities.js";
 import {
   buildToolCapabilityReport,
@@ -32,11 +32,11 @@ describe("capability profiles", () => {
     expect(capabilityForTool("validate_export_preset")).toBe("export");
     expect(capabilityForTool("verify_delivery_file")).toBe("filesystem");
     expect(capabilityForTool("import_media")).toBe("filesystem");
-    expect(capabilityForTool("manage_proxy_ingest_uxp")).toBe("filesystem");
-    expect(capabilityForTool("audition_source_monitor_uxp")).toBe("filesystem");
+    expect(capabilityForTool("manage_proxy_ingest_uxp")).toBe("edit");
+    expect(capabilityForTool("audition_source_monitor_uxp")).toBe("edit");
     expect(capabilityForTool("relink_offline_media_uxp")).toBe("filesystem");
     expect(capabilityForTool("import_project_media_uxp")).toBe("filesystem");
-    expect(capabilityForTool("edit_timeline_uxp")).toBe("filesystem");
+    expect(capabilityForTool("edit_timeline_uxp")).toBe("edit");
     expect(capabilityForTool("encode_media_uxp")).toBe("export");
     expect(capabilityForTool("inspect_project_selection_uxp")).toBe("inspect");
     expect(capabilityForTool("manage_markers_uxp")).toBe("edit");
@@ -53,6 +53,28 @@ describe("capability profiles", () => {
     ).rejects.toMatchObject({ code: "CAPABILITY_DENIED", capability: "inspect" });
     await expect(
       guardToolHandler("trim_clip", handler, resolveCapabilities("inspect"), () => "edit-1")({}),
+    ).rejects.toMatchObject({ code: "CAPABILITY_DENIED", capability: "edit" });
+    expect(handler).not.toHaveBeenCalled();
+  });
+
+  it("enforces every capability required by consolidated UXP actions", async () => {
+    const handler = vi.fn(async () => "ok");
+    expect(capabilitiesForToolInvocation("manage_proxy_ingest_uxp", { action: "attach_proxy" }))
+      .toEqual(["edit", "filesystem"]);
+    expect(capabilitiesForToolInvocation("manage_proxy_ingest_uxp", { action: "inspect_proxy" }))
+      .toEqual(["inspect"]);
+
+    await expect(
+      guardToolHandler("manage_proxy_ingest_uxp", handler, resolveCapabilities("filesystem"), () => "proxy-edit")({ action: "set_ingest" }),
+    ).rejects.toMatchObject({ code: "CAPABILITY_DENIED", capability: "edit", operationId: "proxy-edit" });
+    await expect(
+      guardToolHandler("manage_proxy_ingest_uxp", handler, resolveCapabilities("edit"), () => "proxy-file")({ action: "attach_proxy" }),
+    ).rejects.toMatchObject({ code: "CAPABILITY_DENIED", capability: "filesystem", operationId: "proxy-file" });
+    await expect(
+      guardToolHandler("audition_source_monitor_uxp", handler, resolveCapabilities("filesystem"), () => "monitor-edit")({ action: "play" }),
+    ).rejects.toMatchObject({ code: "CAPABILITY_DENIED", capability: "edit" });
+    await expect(
+      guardToolHandler("edit_timeline_uxp", handler, resolveCapabilities("filesystem"), () => "timeline-edit")({ action: "insert" }),
     ).rejects.toMatchObject({ code: "CAPABILITY_DENIED", capability: "edit" });
     expect(handler).not.toHaveBeenCalled();
   });
@@ -242,6 +264,9 @@ describe("isToolPermitted", () => {
     expect(isToolPermitted("export_sequence", config)).toBe(false);
     expect(isToolPermitted("import_media", config)).toBe(false);
     expect(isToolPermitted("get_project_info", config)).toBe(true);
+    expect(isToolPermitted("manage_proxy_ingest_uxp", config)).toBe(true);
+    expect(isToolPermitted("audition_source_monitor_uxp", config)).toBe(true);
+    expect(isToolPermitted("edit_timeline_uxp", config)).toBe(false);
   });
 
   it("always advertises the diagnostic tools, even under a profile that excludes inspect", () => {

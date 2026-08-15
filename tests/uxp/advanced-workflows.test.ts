@@ -328,7 +328,8 @@ describe("advanced stable Premiere UXP workflows", () => {
       mode: "files", paths: ["D:/Approved/broll.mov"], targetBinId: "bin-1",
       confirmNonUndoable: true, operationId: "import-files",
     })).resolves.toMatchObject({
-      imported: true, outcome: "verified", requested: 1, addedItemIds: [expect.stringMatching(/^import-/)],
+      imported: true, outcome: "committed_unverified", verified: false, requested: 1,
+      observedAddedCount: 1, addedItemIds: [expect.stringMatching(/^import-/)],
     });
     await expect(value.registry.dispatch("parameters.set", {
       mediaType: "video", trackIndex: 0, clipIndex: 0, componentIndex: 0, paramIndex: 0,
@@ -359,6 +360,43 @@ describe("advanced stable Premiere UXP workflows", () => {
       operation: { mutatesProject: true, undo: { supported: true } },
     });
     expect(value.project.executeTransaction).toHaveBeenCalledTimes(2);
+  });
+
+  it("uses complete keyframe preflight/readback and reports absent removals as no-ops", async () => {
+    const value = advancedHost();
+    value.parameterState.keyframes = [1, 2, 3];
+    const target = { mediaType: "video", trackIndex: 0, clipIndex: 0, componentIndex: 0, paramIndex: 0 };
+
+    await expect(value.registry.dispatch("parameters.keyframeRemove", { ...target, timeSeconds: 2 }))
+      .resolves.toMatchObject({ removed: true, removalRequested: true, outcome: "verified" });
+    await expect(value.registry.dispatch("parameters.keyframeRemove", { ...target, timeSeconds: 2 }))
+      .resolves.toMatchObject({ removed: false, unchanged: true, outcome: "verified", operation: { mutatesProject: false } });
+
+    value.parameterState.keyframes = [1, 2, 3];
+    await expect(value.registry.dispatch("parameters.keyframeRemoveRange", { ...target, timeSeconds: 1.5, endSeconds: 2.5 }))
+      .resolves.toMatchObject({ removed: true, removalRequested: true, outcome: "verified" });
+    await expect(value.registry.dispatch("parameters.keyframeRemoveRange", { ...target, timeSeconds: 1.5, endSeconds: 2.5 }))
+      .resolves.toMatchObject({ removed: false, unchanged: true, outcome: "verified" });
+
+    value.parameterState.keyframes = Array.from({ length: 257 }, (_, index) => index);
+    await expect(value.registry.dispatch("parameters.keyframeRemove", { ...target, timeSeconds: 1 }))
+      .rejects.toMatchObject({ code: "UXP_PROJECT_TOO_LARGE" });
+  });
+
+  it("keeps direct sequence actions unverified and probes every import method", async () => {
+    const value = advancedHost();
+    for (const command of ["sequences.activate", "sequences.open", "sequences.close"]) {
+      await expect(value.registry.dispatch(command, { sequenceId: "sequence-1" }))
+        .resolves.toMatchObject({ outcome: "committed_unverified", verified: false, verificationBoundary: "host_return" });
+    }
+    await expect(value.registry.dispatch("sequenceSettings.update", {
+      updates: { videoFrameRate: 241 },
+    })).rejects.toMatchObject({ code: "UXP_INVALID_ARGUMENT" });
+
+    delete (value.project as unknown as Record<string, unknown>).importAEComps;
+    await expect(value.registry.capabilities()).resolves.toMatchObject({
+      commands: { "project.import": { supported: false } },
+    });
   });
 
   it("clones sequences with identity readback and gates AME writes on explicit confirmation", async () => {

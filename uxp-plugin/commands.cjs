@@ -64,9 +64,15 @@
     async function capabilities() {
       let project = null, sequence = null;
       try { project = await ppro.Project.getActiveProject(); sequence = project && await project.getActiveSequence(); } catch (_) {}
+      const workspaceState = workspace && typeof workspace.status === "function" ? workspace.status() : {
+        configured: false, accessMode: "unavailable", rootName: null, persistent: false,
+        pathDisclosure: "redacted", canonicalPathValidation: "unavailable"
+      };
       const commands = {};
       for (const name of Object.keys(definitions)) {
-        const definition = definitions[name], supported = !definition.probe || await definition.probe();
+        const definition = definitions[name], apiSupported = !definition.probe || await definition.probe();
+        const pathValidationSupported = !definition.requiresWorkspace || workspaceState.canonicalPathValidation !== "unavailable";
+        const supported = apiSupported && pathValidationSupported;
         commands[name] = {
           supported, backend: "uxp", documented: true,
           readOnly: !!definition.readOnly, destructive: !!definition.destructive,
@@ -74,12 +80,11 @@
         };
         if (definition.minHostVersion) commands[name].minHostVersion = definition.minHostVersion;
         if (definition.requiresWorkspace) commands[name].workspaceRequired = true;
+        if (definition.conditionalWorkspace) commands[name].workspaceRequired = "path_variant_only";
         if (definition.targetCapabilityProbe) commands[name].targetCapabilityProbe = "invocation";
-        if (!supported) commands[name].reason = "Required Premiere UXP API is unavailable in this host";
+        if (!apiSupported) commands[name].reason = "Required Premiere UXP API is unavailable in this host";
+        else if (!pathValidationSupported) commands[name].reason = "This UXP host cannot canonically validate native paths; use the CEP fallback for path-based workflows";
       }
-      const workspaceState = workspace && typeof workspace.status === "function" ? workspace.status() : {
-        configured: false, accessMode: "unavailable", rootName: null, persistent: false, pathDisclosure: "redacted"
-      };
       return {
         backend: "uxp", protocolVersion: Protocol.PROTOCOL_VERSION, hostMinVersion: "25.6.0",
         activeProject: !!project, activeSequence: !!sequence, workspace: workspaceState, commands,
@@ -116,7 +121,7 @@
     }
     async function createPresetSequence(args) {
       assertOnlyKeys(args, ["name", "presetPath", "operationId"]);
-      const name = requiredString(args.name, "name"), presetPath = allowedPath(args.presetPath, "presetPath", "file");
+      const name = requiredString(args.name, "name"), presetPath = await allowedPath(args.presetPath, "presetPath", "file");
       const project = await ppro.Project.getActiveProject();
       if (!project) throw commandError("UXP_NO_ACTIVE_PROJECT", "No active project");
       const sequence = await project.createSequenceWithPresetPath(name, presetPath);
@@ -127,7 +132,7 @@
     }
     async function exportInterchange(args) {
       assertOnlyKeys(args, ["format", "outputFilePath", "suppressUI", "operationId"]);
-      const format = requiredString(args.format, "format"), outputFilePath = allowedPath(args.outputFilePath, "outputFilePath", "file");
+      const format = requiredString(args.format, "format"), outputFilePath = await allowedPath(args.outputFilePath, "outputFilePath", "file");
       if (format !== "otio" && format !== "fcpxml") throw commandError("UXP_INVALID_ARGUMENT", "format must be otio or fcpxml");
       const context = await activeContext(false);
       const method = format === "otio" ? "exportAsOpenTimelineIO" : "exportAsFinalCutProXML";
@@ -137,9 +142,9 @@
     }
     async function exportAaf(args) {
       const input = validateAafArgs(args);
-      input.outputFilePath = allowedPath(input.outputFilePath, "outputFilePath", "file");
+      input.outputFilePath = await allowedPath(input.outputFilePath, "outputFilePath", "file");
       if (input.options.videoMixdownPresetPath != null) {
-        input.options.videoMixdownPresetPath = allowedPath(input.options.videoMixdownPresetPath, "videoMixdownPresetPath", "file");
+        input.options.videoMixdownPresetPath = await allowedPath(input.options.videoMixdownPresetPath, "videoMixdownPresetPath", "file");
       }
       const context = await activeContext(false);
       const options = buildAafExportOptions(ppro, input.options);
@@ -298,7 +303,7 @@
     async function exportFrame(args) {
       const context = await activeContext(false);
       if (!args.outputDirectory) throw commandError("UXP_INVALID_ARGUMENT", "outputDirectory is required");
-      const outputDirectory = allowedPath(args.outputDirectory, "outputDirectory", "directory");
+      const outputDirectory = await allowedPath(args.outputDirectory, "outputDirectory", "directory");
       const filename = Protocol.safeFilename(args.filename);
       const position = args.seconds == null ? await context.sequence.getPlayerPosition() : await tickTime(args.seconds, "seconds");
       const size = await context.sequence.getFrameSize();
@@ -485,10 +490,10 @@
     function operationSemantics(options) {
       return Protocol && typeof Protocol.operationSemantics === "function" ? Protocol.operationSemantics(options) : undefined;
     }
-    function allowedPath(value, label, kind) {
+    async function allowedPath(value, label, kind) {
       const path = requiredString(value, label);
       return workspace && typeof workspace.assertPathAllowed === "function"
-        ? workspace.assertPathAllowed(path, { label, kind })
+        ? await workspace.assertPathAllowed(path, { label, kind })
         : path;
     }
     function canExportFrame() { return !!(ppro.Exporter && typeof ppro.Exporter.exportSequenceFrame === "function"); }

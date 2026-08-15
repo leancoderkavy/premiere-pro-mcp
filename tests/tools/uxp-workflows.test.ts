@@ -41,6 +41,12 @@ describe("stable UXP workflow MCP catalog", () => {
       required: ["new_path", "confirm_non_undoable"],
       properties: { new_path: { maxLength: 4096 }, confirm_non_undoable: { type: "boolean" } },
     });
+    expect(tools.manage_proxy_ingest_uxp.parameters).toMatchObject({
+      properties: {
+        project_item_id: { minLength: 1, maxLength: 512 },
+        project_item_name: { minLength: 1, maxLength: 255 },
+      },
+    });
   });
 
   it("rejects incomplete storage configuration and preserves explicit empty selectors", async () => {
@@ -164,4 +170,5 @@ describe("stable UXP workflow MCP catalog", () => {
       confirmNonUndoable: true,
     });
   });
+
 });

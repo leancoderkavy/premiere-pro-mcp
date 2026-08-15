@@ -69,10 +69,33 @@ const FILESYSTEM_TOOL_NAMES = new Set([
   "set_scratch_disk_path",
   "verify_delivery_file",
   "detect_silence",
-  "manage_proxy_ingest_uxp",
-  "audition_source_monitor_uxp",
-  "edit_timeline_uxp",
 ]);
+
+const ACTION_CAPABILITIES: Readonly<Record<string, Readonly<Record<string, readonly Capability[]>>>> = {
+  manage_proxy_ingest_uxp: {
+    inspect_proxy: ["inspect"],
+    attach_proxy: ["edit", "filesystem"],
+    get_ingest: ["inspect"],
+    set_ingest: ["edit"],
+  },
+  audition_source_monitor_uxp: {
+    state: ["inspect"],
+    open_project_item: ["edit"],
+    open_file: ["edit", "filesystem"],
+    set_position: ["edit"],
+    play: ["edit"],
+    close: ["edit"],
+    close_all: ["edit"],
+  },
+  edit_timeline_uxp: {
+    insert: ["edit"],
+    overwrite: ["edit"],
+    clone_selection: ["edit"],
+    remove_selection: ["edit"],
+    insert_mogrt_path: ["edit", "filesystem"],
+    insert_mogrt_library: ["edit"],
+  },
+};
 
 /** A conservative classification for centralized server registration. */
 export function capabilityForTool(toolName: string): Capability {
@@ -84,6 +107,18 @@ export function capabilityForTool(toolName: string): Capability {
   // Every remaining registered tool changes Premiere state. Defaulting to edit
   // keeps new tools fail-closed instead of silently bypassing the authority profile.
   return "edit";
+}
+
+/** Resolve authority at the action level for consolidated multi-action tools. */
+export function capabilitiesForToolInvocation(toolName: string, args: unknown): readonly Capability[] {
+  const actionMap = ACTION_CAPABILITIES[toolName];
+  if (!actionMap) return [capabilityForTool(toolName)];
+  const action = args && typeof args === "object" && !Array.isArray(args)
+    ? (args as Record<string, unknown>).action
+    : undefined;
+  return typeof action === "string" && actionMap[action]
+    ? actionMap[action]
+    : [capabilityForTool(toolName)];
 }
 
 /**
@@ -106,6 +141,10 @@ export function isToolPermitted(
   config: CapabilityConfig,
 ): boolean {
   if (ALWAYS_LISTED_TOOL_NAMES.has(toolName)) return true;
+  const actionMap = ACTION_CAPABILITIES[toolName];
+  if (actionMap) {
+    return Object.values(actionMap).some((required) => required.every((capability) => config.capabilities.has(capability)));
+  }
   return config.capabilities.has(capabilityForTool(toolName));
 }
 
@@ -115,9 +154,11 @@ export function guardToolHandler<TArgs, TResult>(
   config: CapabilityConfig = resolveCapabilities(),
   createOperationId: () => string = randomUUID,
 ): (args: TArgs) => Promise<TResult> {
-  const required = capabilityForTool(toolName);
   return async (args: TArgs) => {
-    requireCapability(config, required, createOperationId());
+    const operationId = createOperationId();
+    for (const required of capabilitiesForToolInvocation(toolName, args)) {
+      requireCapability(config, required, operationId);
+    }
     return handler(args);
   };
 }

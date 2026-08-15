@@ -23,6 +23,15 @@ describe("UXP bridge protocol", () => {
     const oversized = JSON.stringify({ type: "command", command: "state.get", padding: "x".repeat(protocol.MAX_COMMAND_BYTES) });
     expect(() => protocol.parseCommand(oversized)).toThrow("64 KiB");
   });
+  it("bounds complete result envelopes by UTF-8 bytes", () => {
+    expect(protocol.utf8ByteLength("aé😀")).toBe(7);
+    expect(() => protocol.assertResultSize({
+      projectMetadata: "😀".repeat(170_000),
+      xmpMetadata: "😀".repeat(170_000),
+    })).toThrow("1 MiB");
+    expect(protocol.serializeEnvelope(protocol.envelope("result", { ok: true, result: { value: "small" } }, "r1")))
+      .toContain('"type":"result"');
+  });
   it("prevents filename path traversal", () => {
     expect(protocol.safeFilename("shot-01.png")).toBe("shot-01.png");
     expect(() => protocol.safeFilename("../shot.png")).toThrow();

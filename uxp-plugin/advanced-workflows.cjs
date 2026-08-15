@@ -53,7 +53,7 @@
       "sequences.open": { idempotent: true, targetCapabilityProbe: true, minHostVersion: "25.6.0", probe: canUseSequences, handler: openSequence },
       "sequences.close": { idempotent: true, targetCapabilityProbe: true, minHostVersion: "26.2.0", probe: canUseSequences, handler: closeSequence },
       "sequences.delete": { destructive: true, undoable: false, targetCapabilityProbe: true, minHostVersion: "25.6.0", probe: canUseSequences, handler: deleteSequence },
-      "encoder.preflight": { readOnly: true, requiresWorkspace: true, minHostVersion: "25.6.0", probe: canUseEncoder, handler: encoderPreflight },
+      "encoder.preflight": { readOnly: true, conditionalWorkspace: true, minHostVersion: "25.6.0", probe: canUseEncoder, handler: encoderPreflight },
       "encoder.sequence": { destructive: true, undoable: false, requiresWorkspace: true, minHostVersion: "25.6.0", probe: canUseEncoder, handler: encodeSequence },
       "encoder.projectItem": { destructive: true, undoable: false, targetCapabilityProbe: true, requiresWorkspace: true, minHostVersion: "25.6.0", probe: canUseEncoder, handler: encodeProjectItem },
       "encoder.file": { destructive: true, undoable: false, requiresWorkspace: true, minHostVersion: "25.6.0", probe: canUseEncoder, handler: encodeFile }
@@ -489,14 +489,14 @@
       const beforeItems = await binChildren(readbackFolder), beforeSequences = await listSequences(project);
       let accepted = false, requested = 0;
       if (mode === "files") {
-        const paths = boundedPathArray(args.paths, "paths", 100, "file"); requested = paths.length;
+        const paths = await boundedPathArray(args.paths, "paths", 100, "file"); requested = paths.length;
         accepted = await project.importFiles(paths, optionalBoolean(args.suppressUI, true, "suppressUI"), targetBin, optionalBoolean(args.asNumberedStills, false, "asNumberedStills"));
       } else if (mode === "sequences") {
-        const projectPath = allowedPath(args.projectPath, "projectPath", "file"), ids = args.sequenceIds == null ? undefined : boundedStringArray(args.sequenceIds, "sequenceIds", 64, 128).map((id) => guidFromString(id, "sequenceId"));
+        const projectPath = await allowedPath(args.projectPath, "projectPath", "file"), ids = args.sequenceIds == null ? undefined : boundedStringArray(args.sequenceIds, "sequenceIds", 64, 128).map((id) => guidFromString(id, "sequenceId"));
         requested = ids ? ids.length : 0; accepted = await project.importSequences(projectPath, ids);
       } else {
         if (ppro.Utils && typeof ppro.Utils.isAEInstalled === "function" && !await ppro.Utils.isAEInstalled()) throw commandError("UXP_DEPENDENCY_UNAVAILABLE", "After Effects is not installed");
-        const aepPath = allowedPath(args.aepPath, "aepPath", "file");
+        const aepPath = await allowedPath(args.aepPath, "aepPath", "file");
         if (mode === "aeComps") {
           const names = boundedStringArray(args.compNames, "compNames", 64, 255); requested = names.length; accepted = await project.importAEComps(aepPath, names, targetBin);
         } else { requested = 1; accepted = await project.importAllAEComps(aepPath, targetBin); }
@@ -505,8 +505,12 @@
       const afterItems = await binChildren(readbackFolder), afterSequences = await listSequences(project);
       const addedItemIds = afterItems.filter((item) => !beforeItems.some((old) => old.id === item.id)).map((item) => item.id);
       const addedSequenceIds = afterSequences.filter((item) => !beforeSequences.some((old) => old.id === item.id)).map((item) => item.id);
-      const verified = addedItemIds.length > 0 || addedSequenceIds.length > 0;
-      return directMutationResult(verified, { imported: true, mode, requested, addedItemIds, addedSequenceIds }, "import_post_state_readback");
+      const observedAddedCount = addedItemIds.length + addedSequenceIds.length;
+      // The documented import calls return only acceptance and the bounded
+      // folder/sequence snapshots cannot prove that every requested identity
+      // was imported. Report the commit honestly without treating a partial
+      // positive delta as full verification.
+      return directMutationResult(false, { imported: true, mode, requested, observedAddedCount, addedItemIds, addedSequenceIds }, "import_host_return_and_bounded_post_state");
     }
 
     async function parameterContext(args, mutation) {
@@ -548,6 +552,17 @@
       };
     }
 
+    function completeKeyframeTimes(param) {
+      if (!param || typeof param.getKeyframeListAsTickTimes !== "function") {
+        throw commandError("UXP_COMMAND_UNAVAILABLE", "Premiere cannot enumerate keyframes for safe removal verification");
+      }
+      const rawTimes = Array.from(param.getKeyframeListAsTickTimes() || []);
+      if (rawTimes.length > MAX_KEYFRAMES) {
+        throw commandError("UXP_PROJECT_TOO_LARGE", "Keyframe removal verification exceeds " + MAX_KEYFRAMES + " entries");
+      }
+      return rawTimes.map(tickSeconds);
+    }
+
     async function inspectParameter(args) {
       const context = await parameterContext(args, false);
       return parameterSnapshot(context, args.timeSeconds);
@@ -580,21 +595,27 @@
 
     async function removeParameterKeyframe(args) {
       const context = await parameterContext(args, true), timeSeconds = finiteNumber(args.timeSeconds, "timeSeconds", 0, 86400);
+      const beforeTimes = completeKeyframeTimes(context.param);
+      const existed = beforeTimes.some((seconds) => numbersEqual(seconds, timeSeconds));
+      if (!existed) return verifiedNoopResult({ removed: false, unchanged: true, timeSeconds, after: await parameterSnapshot(context) }, "parameter_keyframe_absence_preflight");
       context.project.lockedAccess(() => {
         commitActions(context.project, "Remove effect keyframe", [context.param.createRemoveKeyframeAction(tick(timeSeconds, "timeSeconds"), true)]);
       });
-      const after = await parameterSnapshot(context), verified = !after.keyframeTimesSeconds.some((seconds) => numbersEqual(seconds, timeSeconds));
-      return mutationResult(verified, { removed: true, timeSeconds, after }, "parameter_keyframe_absence_readback", "Remove effect keyframe");
+      const afterTimes = completeKeyframeTimes(context.param), after = await parameterSnapshot(context), verified = !afterTimes.some((seconds) => numbersEqual(seconds, timeSeconds));
+      return mutationResult(verified, { removed: verified, removalRequested: true, timeSeconds, after }, "complete_parameter_keyframe_absence_readback", "Remove effect keyframe");
     }
 
     async function removeParameterKeyframeRange(args) {
       const context = await parameterContext(args, true), start = finiteNumber(args.timeSeconds, "timeSeconds", 0, 86400), end = finiteNumber(args.endSeconds, "endSeconds", 0, 86400);
       if (end < start) throw commandError("UXP_INVALID_ARGUMENT", "endSeconds must be greater than or equal to timeSeconds");
+      const beforeTimes = completeKeyframeTimes(context.param);
+      const existed = beforeTimes.some((seconds) => seconds != null && seconds >= start && seconds <= end);
+      if (!existed) return verifiedNoopResult({ removed: false, unchanged: true, startSeconds: start, endSeconds: end, after: await parameterSnapshot(context) }, "parameter_keyframe_range_absence_preflight");
       context.project.lockedAccess(() => {
         commitActions(context.project, "Remove effect keyframe range", [context.param.createRemoveKeyframeRangeAction(tick(start), tick(end), true)]);
       });
-      const after = await parameterSnapshot(context), verified = !after.keyframeTimesSeconds.some((seconds) => seconds != null && seconds >= start && seconds <= end);
-      return mutationResult(verified, { removed: true, startSeconds: start, endSeconds: end, after }, "parameter_keyframe_range_readback", "Remove effect keyframe range");
+      const afterTimes = completeKeyframeTimes(context.param), after = await parameterSnapshot(context), verified = !afterTimes.some((seconds) => seconds != null && seconds >= start && seconds <= end);
+      return mutationResult(verified, { removed: verified, removalRequested: true, startSeconds: start, endSeconds: end, after }, "complete_parameter_keyframe_range_readback", "Remove effect keyframe range");
     }
 
     async function setParameterInterpolation(args) {
@@ -700,7 +721,7 @@
     async function insertMogrtPath(args) {
       assertObject(args); assertOnlyKeys(args, ["filePath", "timeSeconds", "videoTrackIndex", "audioTrackIndex", "confirmNonUndoable", "operationId"]);
       requireConfirmation(args.confirmNonUndoable, "MOGRT insertion is a direct SequenceEditor call without an Action boundary");
-      const context = await editorContext(false), path = allowedPath(args.filePath, "filePath", "file"), values = Array.from(await context.editor.insertMogrtFromPath(path, tick(finiteNumber(args.timeSeconds, "timeSeconds", 0, 86400), "timeSeconds"), nonNegativeInt(args.videoTrackIndex, "videoTrackIndex"), nonNegativeInt(args.audioTrackIndex, "audioTrackIndex")) || []);
+      const context = await editorContext(false), path = await allowedPath(args.filePath, "filePath", "file"), values = Array.from(await context.editor.insertMogrtFromPath(path, tick(finiteNumber(args.timeSeconds, "timeSeconds", 0, 86400), "timeSeconds"), nonNegativeInt(args.videoTrackIndex, "videoTrackIndex"), nonNegativeInt(args.audioTrackIndex, "audioTrackIndex")) || []);
       return directMutationResult(values.length > 0, { inserted: values.length, source: "path" }, "sequence_editor_returned_items");
     }
 
@@ -753,7 +774,8 @@
       assertObject(args); assertOnlyKeys(args, ["sequenceId", "operationId"]);
       const project = await activeProject(false), sequence = await resolveSequence(project, args.sequenceId), accepted = await project[method](sequence);
       if (!accepted) throw commandError("UXP_HOST_REJECTED", "Premiere rejected sequence " + action);
-      return { [action + "d"]: true, outcome: "verified", sequence: await sequenceSnapshot(sequence), verificationBoundary: "host_return", operation: operationSemantics({ mutatesProject: false, verificationStatus: "verified", verificationBoundary: "host_return" }) };
+      return { [action + "d"]: true, outcome: "committed_unverified", verified: false, sequence: await sequenceSnapshot(sequence), verificationBoundary: "host_return",
+        operation: operationSemantics({ mutatesProject: false, verificationStatus: "not_verified", verificationBoundary: "host_return", verificationEvidence: [{ type: "host_return", accepted: true }] }) };
     }
 
     async function deleteSequence(args) {
@@ -778,7 +800,7 @@
       const project = await activeProject(false), manager = encoderManager();
       let extension = null;
       if (args.presetFile != null) {
-        const sequence = await resolveSequence(project, args.sequenceId), preset = allowedPath(args.presetFile, "presetFile", "file");
+        const sequence = await resolveSequence(project, args.sequenceId), preset = await allowedPath(args.presetFile, "presetFile", "file");
         extension = await ppro.EncoderManager.getExportFileExtension(sequence, preset);
       }
       return { ameInstalled: manager.isAMEInstalled !== false, extension, sequenceId: args.sequenceId || null };
@@ -796,7 +818,7 @@
     async function encodeSequence(args) {
       assertObject(args); assertOnlyKeys(args, ["sequenceId", "exportType", "outputFile", "presetFile", "exportFull", "confirmExternalWrite", "operationId"]);
       requireExternalWrite(args.confirmExternalWrite);
-      const project = await activeProject(false), sequence = await resolveSequence(project, args.sequenceId), manager = encoderManager(), output = allowedPath(args.outputFile, "outputFile", "file"), preset = allowedPath(args.presetFile, "presetFile", "file");
+      const project = await activeProject(false), sequence = await resolveSequence(project, args.sequenceId), manager = encoderManager(), output = await allowedPath(args.outputFile, "outputFile", "file"), preset = await allowedPath(args.presetFile, "presetFile", "file");
       const accepted = await manager.exportSequence(sequence, exportType(args.exportType), output, preset, optionalBoolean(args.exportFull, true, "exportFull"));
       if (!accepted) throw commandError("UXP_HOST_REJECTED", "Premiere rejected sequence export");
       return externalWriteResult({ queued: true, kind: "sequence", sequence: await sequenceSnapshot(sequence), outputFile: output });
@@ -805,7 +827,7 @@
     async function encodeProjectItem(args) {
       assertObject(args); assertOnlyKeys(args, ["projectItemId", "outputFile", "presetFile", "workArea", "removeUponCompletion", "startQueueImmediately", "confirmExternalWrite", "operationId"]);
       requireExternalWrite(args.confirmExternalWrite);
-      const project = await activeProject(false), clip = asClip(await resolveProjectItem(project, args.projectItemId, true), "projectItemId"), manager = encoderManager(), output = allowedPath(args.outputFile, "outputFile", "file"), preset = allowedPath(args.presetFile, "presetFile", "file");
+      const project = await activeProject(false), clip = asClip(await resolveProjectItem(project, args.projectItemId, true), "projectItemId"), manager = encoderManager(), output = await allowedPath(args.outputFile, "outputFile", "file"), preset = await allowedPath(args.presetFile, "presetFile", "file");
       const accepted = await manager.encodeProjectItem(clip, output, preset, boundedInt(args.workArea == null ? 0 : args.workArea, "workArea", 0, 16), optionalBoolean(args.removeUponCompletion, false, "removeUponCompletion"), optionalBoolean(args.startQueueImmediately, true, "startQueueImmediately"));
       if (!accepted) throw commandError("UXP_HOST_REJECTED", "Premiere rejected project-item encode");
       return externalWriteResult({ queued: true, kind: "projectItem", projectItemId: await projectItemId(clip), outputFile: output });
@@ -814,7 +836,7 @@
     async function encodeFile(args) {
       assertObject(args); assertOnlyKeys(args, ["filePath", "outputFile", "presetFile", "inSeconds", "outSeconds", "workArea", "removeUponCompletion", "startQueueImmediately", "confirmExternalWrite", "operationId"]);
       requireExternalWrite(args.confirmExternalWrite);
-      const manager = encoderManager(), input = allowedPath(args.filePath, "filePath", "file"), output = allowedPath(args.outputFile, "outputFile", "file"), preset = allowedPath(args.presetFile, "presetFile", "file"), start = finiteNumber(args.inSeconds, "inSeconds", 0, 86400), end = finiteNumber(args.outSeconds, "outSeconds", 0, 86400);
+      const manager = encoderManager(), input = await allowedPath(args.filePath, "filePath", "file"), output = await allowedPath(args.outputFile, "outputFile", "file"), preset = await allowedPath(args.presetFile, "presetFile", "file"), start = finiteNumber(args.inSeconds, "inSeconds", 0, 86400), end = finiteNumber(args.outSeconds, "outSeconds", 0, 86400);
       if (end <= start) throw commandError("UXP_INVALID_ARGUMENT", "outSeconds must be greater than inSeconds");
       const accepted = await manager.encodeFile(input, output, preset, tick(start), tick(end), boundedInt(args.workArea == null ? 0 : args.workArea, "workArea", 0, 16), optionalBoolean(args.removeUponCompletion, false, "removeUponCompletion"), optionalBoolean(args.startQueueImmediately, true, "startQueueImmediately"));
       if (!accepted) throw commandError("UXP_HOST_REJECTED", "Premiere rejected file encode");
@@ -828,6 +850,11 @@
         operation: operationSemantics({ mutatesProject: true, verificationStatus: verified ? "verified" : "not_verified", verificationBoundary: boundary, verificationEvidence: [{ type: boundary, verified }], undoSupported: true, undoLabel, transactionActionGroup: true, cancellationSupported: true }) };
     }
 
+    function verifiedNoopResult(values, boundary) {
+      return { ...values, outcome: "verified", verified: true, verificationBoundary: boundary,
+        operation: operationSemantics({ mutatesProject: false, verificationStatus: "verified", verificationBoundary: boundary, verificationEvidence: [{ type: boundary, verified: true }], cancellationSupported: true }) };
+    }
+
     function directMutationResult(verified, values, boundary) {
       return { ...values, outcome: verified ? "verified" : "committed_unverified", verified, verificationBoundary: boundary,
         operation: operationSemantics({ mutatesProject: true, verificationStatus: verified ? "verified" : "not_verified", verificationBoundary: boundary, verificationEvidence: [{ type: boundary, verified }], undoSupported: false, cancellationSupported: true }) };
@@ -838,14 +865,14 @@
         operation: operationSemantics({ mutatesProject: false, externalSideEffect: true, verificationStatus: "not_verified", verificationBoundary: "encoder_host_return", verificationEvidence: [{ type: "host_return", accepted: true }], undoSupported: false, cancellationSupported: true }) };
     }
 
-    function allowedPath(value, label, kind) {
+    async function allowedPath(value, label, kind) {
       const path = boundedString(value, label, 4096);
-      return workspace && typeof workspace.assertPathAllowed === "function" ? workspace.assertPathAllowed(path, { label, kind }) : path;
+      return workspace && typeof workspace.assertPathAllowed === "function" ? await workspace.assertPathAllowed(path, { label, kind }) : path;
     }
 
-    function boundedPathArray(value, name, maximum, kind) {
+    async function boundedPathArray(value, name, maximum, kind) {
       if (!Array.isArray(value) || !value.length || value.length > maximum) throw commandError("UXP_INVALID_ARGUMENT", name + " must contain 1-" + maximum + " paths");
-      return value.map((path, index) => allowedPath(path, name + "[" + index + "]", kind));
+      return Promise.all(value.map((path, index) => allowedPath(path, name + "[" + index + "]", kind)));
     }
 
     function boundedMarkers(collection) {
@@ -861,7 +888,8 @@
       if (!Object.keys(value).length) throw commandError("UXP_INVALID_ARGUMENT", "updates must contain at least one sequence setting");
       const result = {};
       for (const key of ["maximumBitDepth", "maxRenderQuality", "compositeInLinearColor"]) if (value[key] !== undefined) result[key] = requiredBoolean(value[key], key);
-      for (const key of ["audioSampleRate", "videoFrameRate"]) if (value[key] !== undefined) result[key] = finiteNumber(value[key], key, 1, 384000);
+      if (value.audioSampleRate !== undefined) result.audioSampleRate = finiteNumber(value.audioSampleRate, "audioSampleRate", 1, 384000);
+      if (value.videoFrameRate !== undefined) result.videoFrameRate = finiteNumber(value.videoFrameRate, "videoFrameRate", 1, 240);
       if (value.videoFieldType !== undefined) result.videoFieldType = boundedInt(value.videoFieldType, "videoFieldType", 0, 2);
       if (value.videoPixelAspectRatio !== undefined) result.videoPixelAspectRatio = boundedString(value.videoPixelAspectRatio, "videoPixelAspectRatio", 64);
       for (const key of ["editingMode", "previewFileFormat", "previewCodec"]) if (value[key] !== undefined) result[key] = boundedString(value[key], key, 255);
@@ -897,7 +925,11 @@
     function canUseMarkers() { return canInspectProject() && !!(ppro.Markers && typeof ppro.Markers.getMarkers === "function"); }
     function canUseBins() { return canInspectProject() && !!(ppro.FolderItem && typeof ppro.FolderItem.cast === "function"); }
     function canUseSequenceSettings() { return canInspectProject(); }
-    function canImportProjectMedia() { return canInspectProject(); }
+    async function canImportProjectMedia() {
+      if (!canInspectProject()) return false;
+      const project = await ppro.Project.getActiveProject();
+      return !!project && ["importFiles", "importSequences", "importAEComps", "importAllAEComps"].every((method) => typeof project[method] === "function");
+    }
     function canUseParameters() { return canInspectProject() && !!(ppro.Constants && ppro.Constants.TrackItemType); }
     function canUseTrackItems() { return canUseParameters(); }
     function canUseSequenceEditor() { return canInspectProject() && !!(ppro.SequenceEditor && typeof ppro.SequenceEditor.getEditor === "function"); }

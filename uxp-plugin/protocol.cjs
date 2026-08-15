@@ -6,14 +6,54 @@
   "use strict";
   const PROTOCOL_VERSION = 2;
   const MAX_COMMAND_BYTES = 64 * 1024;
+  const MAX_RESULT_BYTES = 1024 * 1024;
   const COMMAND_NAME = /^[a-z][a-z0-9]*(?:\.[a-z][a-z0-9]*)+$/;
   function envelope(type, payload, requestId) {
     const value = { protocolVersion: PROTOCOL_VERSION, type, payload: payload || {}, sentAt: new Date().toISOString() };
     if (requestId) value.requestId = requestId;
     return value;
   }
+  function utf8ByteLength(value) {
+    const text = String(value);
+    let bytes = 0;
+    for (let index = 0; index < text.length; index += 1) {
+      const code = text.charCodeAt(index);
+      if (code < 0x80) bytes += 1;
+      else if (code < 0x800) bytes += 2;
+      else if (code >= 0xd800 && code <= 0xdbff && index + 1 < text.length && text.charCodeAt(index + 1) >= 0xdc00 && text.charCodeAt(index + 1) <= 0xdfff) {
+        bytes += 4;
+        index += 1;
+      } else bytes += 3;
+    }
+    return bytes;
+  }
+  function resultTooLarge() {
+    const error = new Error("UXP bridge result exceeds 1 MiB after UTF-8 serialization");
+    error.code = "UXP_RESULT_TOO_LARGE";
+    return error;
+  }
+  function serializeEnvelope(value) {
+    const encoded = JSON.stringify(value);
+    if (utf8ByteLength(encoded) > MAX_RESULT_BYTES) throw resultTooLarge();
+    return encoded;
+  }
+  function assertResultSize(result) {
+    // Use the longest legal request id and the same fallback operation payload
+    // dispatch adds to read-only command results, so this is conservative for
+    // metadata snapshots before the exact final envelope is serialized.
+    serializeEnvelope(envelope("result", {
+      ok: true,
+      result,
+      operation: operationSemantics({
+        mutatesProject: false,
+        verificationStatus: "verified",
+        verificationBoundary: "host_snapshot"
+      })
+    }, "x".repeat(128)));
+    return result;
+  }
   function parseCommand(raw) {
-    if (typeof raw === "string" && raw.length > MAX_COMMAND_BYTES) throw new Error("UXP bridge command exceeds 64 KiB");
+    if (typeof raw === "string" && utf8ByteLength(raw) > MAX_COMMAND_BYTES) throw new Error("UXP bridge command exceeds 64 KiB");
     const value = typeof raw === "string" ? JSON.parse(raw) : raw;
     if (!isPlainObject(value) || value.type !== "command" || typeof value.command !== "string" || !COMMAND_NAME.test(value.command)) throw new Error("Invalid UXP bridge command");
     if (value.protocolVersion != null && value.protocolVersion !== PROTOCOL_VERSION) throw new Error("Unsupported UXP protocol version: " + value.protocolVersion);
@@ -93,7 +133,11 @@
   return {
     PROTOCOL_VERSION,
     MAX_COMMAND_BYTES,
+    MAX_RESULT_BYTES,
     envelope,
+    utf8ByteLength,
+    serializeEnvelope,
+    assertResultSize,
     parseCommand,
     operationEvent,
     operationSemantics,
