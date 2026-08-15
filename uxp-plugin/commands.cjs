@@ -39,6 +39,15 @@
     if (advancedWorkflowApi && typeof advancedWorkflowApi.createAdvancedWorkflowDefinitions === "function") {
       Object.assign(definitions, advancedWorkflowApi.createAdvancedWorkflowDefinitions({ ppro, Protocol, workspace }));
     }
+    if (typeof deps.transcriptImportHandler === "function") {
+      definitions["transcript.import"] = {
+        destructive: true,
+        undoable: true,
+        minHostVersion: "25.6.0",
+        probe: typeof deps.transcriptImportProbe === "function" ? deps.transcriptImportProbe : null,
+        handler: deps.transcriptImportHandler
+      };
+    }
 
     async function dispatch(command, args) {
       const definition = definitions[command];

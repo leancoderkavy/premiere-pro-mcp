@@ -144,6 +144,58 @@ describe("UXP command registry", () => {
     expect(value.project.save).toHaveBeenCalledOnce();
   });
 
+  it("shares concurrent mutation failures and releases the operation id for retry", async () => {
+    const value = host();
+    let rejectSave: (error: Error) => void = () => undefined;
+    value.project.save
+      .mockReturnValueOnce(new Promise<boolean>((_resolve, reject) => { rejectSave = reject; }))
+      .mockResolvedValueOnce(true);
+    const args = { operationId: "save-retry" };
+
+    const first = value.registry.dispatch("project.save", args);
+    const second = value.registry.dispatch("project.save", args);
+    await vi.waitFor(() => expect(value.project.save).toHaveBeenCalledOnce());
+    rejectSave(new Error("save failed"));
+
+    const failures = await Promise.allSettled([first, second]);
+    expect(failures).toEqual([
+      expect.objectContaining({ status: "rejected", reason: expect.objectContaining({ message: "save failed" }) }),
+      expect.objectContaining({ status: "rejected", reason: expect.objectContaining({ message: "save failed" }) }),
+    ]);
+    await expect(value.registry.dispatch("project.save", args)).resolves.toMatchObject({
+      saved: true, operationId: "save-retry",
+    });
+    expect(value.project.save).toHaveBeenCalledTimes(2);
+  });
+
+  it("applies replay protection to the injected transcript import mutator", async () => {
+    const value = host();
+    const importTranscript = vi.fn(async () => ({ imported: true }));
+    const registry = Commands.createCommandRegistry({
+      ppro: value.ppro,
+      Protocol,
+      transcriptImportHandler: importTranscript,
+      transcriptImportProbe: () => true,
+    });
+    const args = { json: "{}", operationId: "transcript-import" };
+
+    const results = await Promise.all([
+      registry.dispatch("transcript.import", args),
+      registry.dispatch("transcript.import", args),
+    ]);
+    expect(results).toEqual(expect.arrayContaining([
+      expect.objectContaining({ imported: true, operationId: "transcript-import" }),
+      expect.objectContaining({ imported: true, operationId: "transcript-import", replayed: true }),
+    ]));
+    await expect(registry.dispatch("transcript.import", args)).resolves.toMatchObject({
+      imported: true, replayed: true,
+    });
+    expect(importTranscript).toHaveBeenCalledOnce();
+    await expect(registry.capabilities()).resolves.toMatchObject({
+      commands: { "transcript.import": { supported: true, destructive: true, undoable: true } },
+    });
+  });
+
   it("exports supported interchange formats and configures AME", async () => {
     const value = host();
     await expect(value.registry.dispatch("interchange.export", {
