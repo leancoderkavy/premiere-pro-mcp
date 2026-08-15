@@ -25,5 +25,8 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run check
+      - name: Enforce unit test coverage baseline
+        if: matrix.os == 'windows-latest' && matrix.node == 22
+        run: npm run test:coverage
       - name: Verify packaged files
         run: npm pack --dry-run

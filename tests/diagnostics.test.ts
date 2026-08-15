@@ -3,6 +3,7 @@ import {
   buildFirstRunReport,
   collectLocalDoctor,
   createSupportBundle,
+  renderDoctorHuman,
 } from "../src/diagnostics.js";
 
 describe("non-technical diagnostics", () => {
@@ -72,5 +73,50 @@ describe("non-technical diagnostics", () => {
     expect(serialized).not.toContain("another-secret");
     expect(serialized).not.toContain("C:\\Users\\Private");
     expect(serialized).not.toMatch(/"(?:projectName|mediaName|outputDirectory|arguments|results)"\s*:/);
+  });
+
+  it("reports unsupported local layouts and malformed Node versions conservatively", () => {
+    const report = collectLocalDoctor({
+      platform: "linux", nodeVersion: "not-a-version", environment: {},
+      exists: () => { throw new Error("must not inspect an unknown path"); },
+      now: () => new Date("2026-08-02T00:00:00.000Z"),
+    });
+    expect(report.overall).toBe("needs_attention");
+    expect(report.runtime.nodeMajor).toBeNull();
+    expect(report.components).toEqual(expect.arrayContaining([
+      expect.objectContaining({ id: "premiere_connector", state: "needs_attention", repair: expect.any(String) }),
+      expect.objectContaining({ id: "uxp_bridge", state: "not_checked" }),
+    ]));
+    const human = renderDoctorHuman(report);
+    expect(human).toContain("Premiere MCP local check: needs attention");
+    expect(human).toContain("Next: Install the Connector");
+    expect(human).toContain("Not checked: UXP connection");
+  });
+
+  it("describes each reachable but incomplete first-run state", () => {
+    const noProject = buildFirstRunReport("cep", { reachable: true });
+    expect(noProject.overall).toBe("needs_attention");
+    expect(noProject.components.find((item) => item.id === "active_project"))
+      .toMatchObject({ state: "needs_attention", repair: expect.any(String) });
+    expect(noProject.components.find((item) => item.id === "active_sequence"))
+      .toMatchObject({ state: "needs_attention", repair: expect.any(String) });
+
+    const noSequence = buildFirstRunReport("uxp", { reachable: true, projectOpen: true });
+    expect(noSequence.components.find((item) => item.id === "active_project"))
+      .toMatchObject({ state: "ready" });
+    expect(noSequence.components.find((item) => item.id === "active_sequence"))
+      .toMatchObject({ state: "needs_attention" });
+  });
+
+  it("recognizes the macOS connector path and configured UXP without exposing the token", () => {
+    let inspected = "";
+    const report = collectLocalDoctor({
+      platform: "darwin", environment: { HOME: "/Users/example", PREMIERE_UXP_TOKEN: "secret" },
+      exists: (file) => { inspected = file; return true; },
+    });
+    expect(inspected).toContain("Library");
+    expect(report.components.find((item) => item.id === "uxp_bridge")).toMatchObject({ state: "ready" });
+    expect(JSON.stringify(report)).not.toContain("secret");
+    expect(renderDoctorHuman(report)).toContain("Premiere MCP local check: ready");
   });
 });
