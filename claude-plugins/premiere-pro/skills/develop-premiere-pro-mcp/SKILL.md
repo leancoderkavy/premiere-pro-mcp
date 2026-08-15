@@ -63,4 +63,3 @@ Premiere Pro host.
   without direct evidence from that layer.
 - Report what changed, exact checks run, failures or skipped checks, and whether live CEP
   or UXP verification was performed.
-
