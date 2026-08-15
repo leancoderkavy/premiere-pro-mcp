@@ -14,11 +14,11 @@ export default defineConfig({
       reporter: ["text", "html", "lcov", "json-summary"],
       reportsDirectory: "coverage",
       thresholds: {
-        statements: 90,
-        branches: 79,
+        statements: 91,
+        branches: 80,
         functions: 94,
         // Windows-only platform branches produce a slightly lower line result in CI.
-        lines: 92,
+        lines: 93,
       },
     },
   },
