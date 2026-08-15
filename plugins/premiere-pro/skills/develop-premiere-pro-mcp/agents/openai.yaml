@@ -1,0 +1,4 @@
+interface:
+  display_name: "Develop Premiere Pro MCP"
+  short_description: "Build and verify this Premiere MCP safely"
+  default_prompt: "Use $develop-premiere-pro-mcp to implement and verify this repository change safely."
