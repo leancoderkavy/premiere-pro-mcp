@@ -34,6 +34,19 @@ describe("modern MCP surface", () => {
       destructiveHint: true,
     });
     expect(annotationsForTool("execute_extendscript").openWorldHint).toBe(true);
+    for (const name of ["list_bins", "inspect_clip", "find_media", "check_project"]) {
+      expect(annotationsForTool(name)).toMatchObject({ readOnlyHint: true, idempotentHint: true });
+    }
+    for (const name of ["remove_clip", "ripple_delete_clip", "close_project"]) {
+      expect(annotationsForTool(name).destructiveHint).toBe(true);
+    }
+    expect(annotationsForTool("send_raw_script").openWorldHint).toBe(true);
+    expect(annotationsForTool("save_project")).toMatchObject({
+      title: "Save Project",
+      readOnlyHint: false,
+      destructiveHint: false,
+      openWorldHint: false,
+    });
   });
 
   it("builds stable structured result envelopes", () => {
@@ -47,6 +60,13 @@ describe("modern MCP surface", () => {
       tool: "save_project",
       error: "offline",
     });
+    expect(structuredToolResult("ping", true)).toEqual({ ok: true, tool: "ping", data: null });
+    expect(structuredToolResult("ping", false)).toEqual({ ok: false, tool: "ping", error: "Unknown error" });
+  });
+
+  it("renders optional workflow constraints", () => {
+    const rendered = WORKFLOW_PROMPTS[1].render({ goal: "clean dialogue", constraints: "preserve room tone" });
+    expect(rendered.messages[0].content.text).toContain("Constraints: preserve room tone");
   });
 
   it("advertises prompts, resources, and tool annotations over MCP", async () => {
