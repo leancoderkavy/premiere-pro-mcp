@@ -7,7 +7,7 @@
   const PROTOCOL_VERSION = 2;
   const MAX_COMMAND_BYTES = 64 * 1024;
   const MAX_RESULT_BYTES = 1024 * 1024;
-  const COMMAND_NAME = /^[a-z][a-z0-9]*(?:\.[a-z][a-z0-9]*)+$/;
+  const COMMAND_NAME = /^[a-z][A-Za-z0-9]*(?:\.[a-z][A-Za-z0-9]*)+$/;
   function envelope(type, payload, requestId) {
     const value = { protocolVersion: PROTOCOL_VERSION, type, payload: payload || {}, sentAt: new Date().toISOString() };
     if (requestId) value.requestId = requestId;

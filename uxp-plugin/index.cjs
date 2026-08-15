@@ -6,7 +6,13 @@ const TranscriptSupport = globalThis.PremiereMcpTranscript;
 const WorkspaceSupport = globalThis.PremiereMcpWorkspace;
 const Commands = globalThis.PremiereMcpCommands;
 const workspaceBroker = WorkspaceSupport.createWorkspaceBroker({ fs: storage && storage.localFileSystem });
-const commandRegistry = Commands.createCommandRegistry({ ppro, Protocol, workspace: workspaceBroker });
+const commandRegistry = Commands.createCommandRegistry({
+  ppro,
+  Protocol,
+  workspace: workspaceBroker,
+  transcriptImportHandler: importTranscript,
+  transcriptImportProbe: canImportTranscript
+});
 let socket = null;
 let reconnectTimer = null;
 let lastState = "";
@@ -48,11 +54,9 @@ async function capabilities() {
   const transcriptExportApi = supportedHost && !!(ppro.Transcript && ppro.Transcript.exportToJSON && ppro.Transcript.importFromJSON);
   const transcriptNativeHasApi = supportedHost && !!(ppro.Transcript && typeof ppro.Transcript.hasTranscript === "function");
   const transcriptHasApi = transcriptNativeHasApi || !!(supportedHost && ppro.Transcript && typeof ppro.Transcript.exportToJSON === "function");
-  const transcriptImportApi = transcriptExportApi && typeof ppro.Transcript.createImportTextSegmentsAction === "function";
   Object.assign(value.commands, {
     "transcript.export": { supported: transcriptExportApi, readOnly: true, minVersion: "25.6.0" },
     "transcript.search": { supported: transcriptExportApi, readOnly: true, minVersion: "25.6.0" },
-    "transcript.import": { supported: transcriptImportApi, destructive: true, undoable: true, minVersion: "25.6.0" },
     "transcript.has": {
       supported: transcriptHasApi, readOnly: true, minVersion: transcriptNativeHasApi ? "26.3.0" : "25.6.0",
       nativeCheckMinVersion: "26.3.0", nativeCheck: transcriptNativeHasApi,
@@ -166,6 +170,13 @@ async function hasTranscript(args) {
   return { projectItemId: context.projectItemId, projectItemName: context.projectItemName, hasTranscript: present, method: "export-probe" };
 }
 
+function canImportTranscript() {
+  return TranscriptSupport.versionAtLeast(host && host.version, "25.6.0")
+    && !!(ppro.Transcript && typeof ppro.Transcript.exportToJSON === "function")
+    && typeof ppro.Transcript.importFromJSON === "function"
+    && typeof ppro.Transcript.createImportTextSegmentsAction === "function";
+}
+
 async function importTranscript(args) {
   if (!args || typeof args.json !== "string") throw new Error("json is required");
   TranscriptSupport.parseTranscriptJSON(args.json);
@@ -266,7 +277,6 @@ async function dispatch(raw) {
     else if (cmd.command === "transcript.export") result = await exportTranscript(cmd.args);
     else if (cmd.command === "transcript.search") result = await searchTranscript(cmd.args);
     else if (cmd.command === "transcript.has") result = await hasTranscript(cmd.args);
-    else if (cmd.command === "transcript.import") result = await importTranscript(cmd.args);
     else if (cmd.command === "captions.inspect") result = await inspectCaptions();
     else {
       assertNotCancelled(operation);

@@ -268,7 +268,7 @@ function advancedHost() {
   return {
     registry: Commands.createCommandRegistry({ ppro, Protocol, workspace }),
     project, ppro, workspace, markers, markerValues, root, bin, clip,
-    settingsState, parameterState, trackState, editor, manager,
+    sequence, sequences, settingsState, parameterState, trackState, editor, manager,
   };
 }
 
@@ -448,6 +448,86 @@ describe("advanced stable Premiere UXP workflows", () => {
     await expect(value.registry.dispatch("sequences.delete", { confirmNonUndoable: true }))
       .rejects.toMatchObject({ code: "UXP_PROJECT_TOO_LARGE" });
     expect(value.project.deleteSequence).not.toHaveBeenCalled();
+  });
+
+  it("rejects bounded collection additions before starting a host mutation", async () => {
+    const markerValue = advancedHost();
+    markerValue.markers.getMarkers.mockReturnValue(Array.from({ length: 2048 }, () => markerValue.markerValues[0]));
+    await expect(markerValue.registry.dispatch("markers.add", {
+      name: "Over capacity", operationId: "marker-capacity",
+    })).rejects.toMatchObject({ code: "UXP_PROJECT_TOO_LARGE" });
+    expect(markerValue.markers.createAddMarkerAction).not.toHaveBeenCalled();
+    expect(markerValue.project.lockedAccess).not.toHaveBeenCalled();
+
+    const binValue = advancedHost();
+    binValue.bin.children = Array.from({ length: 1024 }, () => binValue.clip);
+    await expect(binValue.registry.dispatch("bins.create", {
+      parentBinId: "bin-1", name: "Over capacity", operationId: "bin-capacity",
+    })).rejects.toMatchObject({ code: "UXP_PROJECT_TOO_LARGE" });
+    expect(binValue.bin.createBinAction).not.toHaveBeenCalled();
+    expect(binValue.project.lockedAccess).not.toHaveBeenCalled();
+
+    const smartBinValue = advancedHost();
+    smartBinValue.bin.children = Array.from({ length: 1024 }, () => smartBinValue.clip);
+    await expect(smartBinValue.registry.dispatch("bins.createSmart", {
+      parentBinId: "bin-1", name: "Over capacity", searchQuery: "label:red",
+      operationId: "smart-bin-capacity",
+    })).rejects.toMatchObject({ code: "UXP_PROJECT_TOO_LARGE" });
+    expect(smartBinValue.bin.createSmartBinAction).not.toHaveBeenCalled();
+    expect(smartBinValue.project.lockedAccess).not.toHaveBeenCalled();
+
+    const sequenceValue = advancedHost();
+    sequenceValue.project.getSequences.mockResolvedValue(Array.from({ length: 1024 }, (_, index) => ({
+      guid: `sequence-${index + 1}`,
+      name: `Sequence ${index + 1}`,
+    })));
+    await expect(sequenceValue.registry.dispatch("sequences.clone", {
+      operationId: "sequence-capacity",
+    })).rejects.toMatchObject({ code: "UXP_PROJECT_TOO_LARGE" });
+    expect(sequenceValue.sequence.createCloneAction).not.toHaveBeenCalled();
+    expect(sequenceValue.project.lockedAccess).not.toHaveBeenCalled();
+  });
+
+  it("serializes distinct append operations against each target capacity", async () => {
+    const markerValue = advancedHost();
+    markerValue.markerValues.push(...Array.from({ length: 2046 }, () => markerValue.markerValues[0]));
+    const markerResults = await Promise.allSettled([
+      markerValue.registry.dispatch("markers.add", { name: "First", operationId: "marker-first" }),
+      markerValue.registry.dispatch("markers.add", { name: "Second", operationId: "marker-second" }),
+    ]);
+    expect(markerResults.map((result) => result.status).sort()).toEqual(["fulfilled", "rejected"]);
+    expect(markerResults.find((result) => result.status === "rejected")).toMatchObject({ reason: { code: "UXP_PROJECT_TOO_LARGE" } });
+    expect(markerValue.markers.createAddMarkerAction).toHaveBeenCalledOnce();
+    expect(markerValue.markerValues).toHaveLength(2048);
+
+    const binValue = advancedHost();
+    binValue.bin.children = Array.from({ length: 1023 }, () => binValue.clip);
+    const binResults = await Promise.allSettled([
+      binValue.registry.dispatch("bins.create", {
+        parentBinId: "bin-1", name: "Regular", operationId: "bin-first",
+      }),
+      binValue.registry.dispatch("bins.createSmart", {
+        parentBinId: "bin-1", name: "Smart", searchQuery: "label:red", operationId: "bin-second",
+      }),
+    ]);
+    expect(binResults.map((result) => result.status).sort()).toEqual(["fulfilled", "rejected"]);
+    expect(binResults.find((result) => result.status === "rejected")).toMatchObject({ reason: { code: "UXP_PROJECT_TOO_LARGE" } });
+    expect((binValue.bin.createBinAction?.mock.calls.length || 0) + (binValue.bin.createSmartBinAction?.mock.calls.length || 0)).toBe(1);
+    expect(binValue.bin.children).toHaveLength(1024);
+
+    const sequenceValue = advancedHost();
+    sequenceValue.sequences.push(...Array.from({ length: 1022 }, (_, index) => ({
+      guid: `existing-sequence-${index}`,
+      name: `Existing Sequence ${index}`,
+    })));
+    const sequenceResults = await Promise.allSettled([
+      sequenceValue.registry.dispatch("sequences.clone", { operationId: "sequence-first" }),
+      sequenceValue.registry.dispatch("sequences.clone", { operationId: "sequence-second" }),
+    ]);
+    expect(sequenceResults.map((result) => result.status).sort()).toEqual(["fulfilled", "rejected"]);
+    expect(sequenceResults.find((result) => result.status === "rejected")).toMatchObject({ reason: { code: "UXP_PROJECT_TOO_LARGE" } });
+    expect(sequenceValue.sequence.createCloneAction).toHaveBeenCalledOnce();
+    expect(sequenceValue.sequences).toHaveLength(1024);
   });
 
   it("clones sequences with identity readback and gates AME writes on explicit confirmation", async () => {

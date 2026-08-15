@@ -11,9 +11,11 @@
   const MAX_KEYFRAMES = 256;
   const MAX_MARKERS = 2048;
   const MAX_SEQUENCES = 1024;
+  const MAX_BIN_CHILDREN = 1024;
 
   function createAdvancedWorkflowDefinitions(deps) {
     const ppro = deps.ppro, Protocol = deps.Protocol, workspace = deps.workspace;
+    const appendLocks = new Map();
     const definitions = {
       "projectSelection.views": { readOnly: true, minHostVersion: "25.6.0", probe: canUseProjectViews, handler: listProjectViews },
       "projectSelection.inspect": { readOnly: true, minHostVersion: "25.6.0", probe: canUseProjectViews, handler: inspectProjectSelection },
@@ -304,12 +306,17 @@
       const context = await markerContext(args, true), name = boundedString(args.name, "name", 255);
       const markerType = args.markerType == null ? String(ppro.Marker && ppro.Marker.MARKER_TYPE_COMMENT || "Comment") : boundedString(args.markerType, "markerType", 128);
       const start = tick(finiteNumber(args.startSeconds == null ? 0 : args.startSeconds, "startSeconds", 0, 86400), "startSeconds"), duration = tick(finiteNumber(args.durationSeconds == null ? 0 : args.durationSeconds, "durationSeconds", 0, 86400), "durationSeconds");
-      const comments = args.comments == null ? "" : boundedStringAllowEmpty(args.comments, "comments", 4000), before = await markerList(context.collection);
-      context.project.lockedAccess(() => {
-        commitActions(context.project, "Add marker", [context.collection.createAddMarkerAction(name, markerType, start, duration, comments)]);
+      const comments = args.comments == null ? "" : boundedStringAllowEmpty(args.comments, "comments", 4000);
+      const ownerId = context.ownerType === "sequence" ? guidString(context.owner && context.owner.guid) : await projectItemId(context.owner);
+      return withAppendLock(appendLockKey(context.project, "markers", context.ownerType + ":" + ownerId), async () => {
+        const before = await markerList(context.collection);
+        assertAppendCapacity(before, MAX_MARKERS, "Marker creation");
+        context.project.lockedAccess(() => {
+          commitActions(context.project, "Add marker", [context.collection.createAddMarkerAction(name, markerType, start, duration, comments)]);
+        });
+        const after = await markerList(context.collection), added = after.filter((value) => !before.some((old) => old.guid === value.guid));
+        return mutationResult(added.length === 1, { added: true, marker: added[0] || null, beforeCount: before.length, afterCount: after.length }, "marker_guid_readback", "Add marker");
       });
-      const after = await markerList(context.collection), added = after.filter((value) => !before.some((old) => old.guid === value.guid));
-      return mutationResult(added.length === 1, { added: true, marker: added[0] || null, beforeCount: before.length, afterCount: after.length }, "marker_guid_readback", "Add marker");
     }
 
     async function updateMarker(args) {
@@ -347,7 +354,7 @@
 
     async function binChildren(folder) {
       const children = Array.from(await folder.getItems() || []);
-      if (children.length > 1024) throw commandError("UXP_BIN_TOO_LARGE", "Bin inspection exceeds 1024 immediate children");
+      if (children.length > MAX_BIN_CHILDREN) throw commandError("UXP_BIN_TOO_LARGE", "Bin inspection exceeds " + MAX_BIN_CHILDREN + " immediate children");
       const values = [];
       for (const child of children) values.push(await projectItemSnapshot(child));
       return values;
@@ -361,23 +368,31 @@
 
     async function createBin(args) {
       assertObject(args); assertOnlyKeys(args, ["parentBinId", "name", "makeUnique", "operationId"]);
-      const project = await activeProject(true), folder = await resolveFolder(project, args.parentBinId, "parentBinId"), name = boundedString(args.name, "name", 255), before = await binChildren(folder);
+      const project = await activeProject(true), folder = await resolveFolder(project, args.parentBinId, "parentBinId"), name = boundedString(args.name, "name", 255);
       const makeUnique = optionalBoolean(args.makeUnique, true, "makeUnique");
-      project.lockedAccess(() => {
-        commitActions(project, "Create project bin", [folder.createBinAction(name, makeUnique)]);
+      return withAppendLock(appendLockKey(project, "bin", await projectItemId(folder)), async () => {
+        const before = await binChildren(folder);
+        assertAppendCapacity(before, MAX_BIN_CHILDREN, "Project-bin creation");
+        project.lockedAccess(() => {
+          commitActions(project, "Create project bin", [folder.createBinAction(name, makeUnique)]);
+        });
+        const after = await binChildren(folder), added = after.filter((value) => !before.some((old) => old.id === value.id));
+        return mutationResult(added.length === 1, { created: true, item: added[0] || null }, "bin_child_id_readback", "Create project bin");
       });
-      const after = await binChildren(folder), added = after.filter((value) => !before.some((old) => old.id === value.id));
-      return mutationResult(added.length === 1, { created: true, item: added[0] || null }, "bin_child_id_readback", "Create project bin");
     }
 
     async function createSmartBin(args) {
       assertObject(args); assertOnlyKeys(args, ["parentBinId", "name", "searchQuery", "operationId"]);
-      const project = await activeProject(true), folder = await resolveFolder(project, args.parentBinId, "parentBinId"), name = boundedString(args.name, "name", 255), query = boundedString(args.searchQuery, "searchQuery", 4000), before = await binChildren(folder);
-      project.lockedAccess(() => {
-        commitActions(project, "Create smart bin", [folder.createSmartBinAction(name, query)]);
+      const project = await activeProject(true), folder = await resolveFolder(project, args.parentBinId, "parentBinId"), name = boundedString(args.name, "name", 255), query = boundedString(args.searchQuery, "searchQuery", 4000);
+      return withAppendLock(appendLockKey(project, "bin", await projectItemId(folder)), async () => {
+        const before = await binChildren(folder);
+        assertAppendCapacity(before, MAX_BIN_CHILDREN, "Smart-bin creation");
+        project.lockedAccess(() => {
+          commitActions(project, "Create smart bin", [folder.createSmartBinAction(name, query)]);
+        });
+        const after = await binChildren(folder), added = after.filter((value) => !before.some((old) => old.id === value.id));
+        return mutationResult(added.length === 1, { created: true, item: added[0] || null }, "bin_child_id_readback", "Create smart bin");
       });
-      const after = await binChildren(folder), added = after.filter((value) => !before.some((old) => old.id === value.id));
-      return mutationResult(added.length === 1, { created: true, item: added[0] || null }, "bin_child_id_readback", "Create smart bin");
     }
 
     async function renameProjectItem(args) {
@@ -758,12 +773,16 @@
 
     async function cloneSequence(args) {
       assertObject(args); assertOnlyKeys(args, ["sequenceId", "operationId"]);
-      const project = await activeProject(true), sequence = await resolveSequence(project, args.sequenceId), before = await listSequences(project);
-      project.lockedAccess(() => {
-        commitActions(project, "Clone sequence", [sequence.createCloneAction()]);
+      const project = await activeProject(true), sequence = await resolveSequence(project, args.sequenceId);
+      return withAppendLock(appendLockKey(project, "sequences", "all"), async () => {
+        const before = await listSequences(project);
+        assertAppendCapacity(before, MAX_SEQUENCES, "Sequence cloning");
+        project.lockedAccess(() => {
+          commitActions(project, "Clone sequence", [sequence.createCloneAction()]);
+        });
+        const after = await listSequences(project), added = after.filter((value) => !before.some((old) => old.id === value.id));
+        return mutationResult(added.length === 1, { cloned: true, source: await sequenceSnapshot(sequence), sequence: added[0] || null }, "sequence_identity_readback", "Clone sequence");
       });
-      const after = await listSequences(project), added = after.filter((value) => !before.some((old) => old.id === value.id));
-      return mutationResult(added.length === 1, { cloned: true, source: await sequenceSnapshot(sequence), sequence: added[0] || null }, "sequence_identity_readback", "Clone sequence");
     }
 
     async function createSubsequence(args) {
@@ -891,6 +910,30 @@
       const values = Array.from(collection.getMarkers() || []);
       if (values.length > MAX_MARKERS) throw commandError("UXP_PROJECT_TOO_LARGE", "Marker lookup exceeds " + MAX_MARKERS + " entries");
       return values;
+    }
+
+    function assertAppendCapacity(values, maximum, operation) {
+      if (values.length >= maximum) {
+        throw commandError("UXP_PROJECT_TOO_LARGE", operation + " requires readback capacity below " + maximum + " entries");
+      }
+    }
+
+    function appendLockKey(project, collectionType, targetId) {
+      return guidString(project && project.guid) + ":" + collectionType + ":" + targetId;
+    }
+
+    async function withAppendLock(key, callback) {
+      const previous = appendLocks.get(key) || Promise.resolve();
+      let release = function () {};
+      const current = new Promise((resolve) => { release = resolve; });
+      appendLocks.set(key, current);
+      await previous;
+      try {
+        return await callback();
+      } finally {
+        release();
+        if (appendLocks.get(key) === current) appendLocks.delete(key);
+      }
     }
 
     function validateSettingsUpdates(value) {
