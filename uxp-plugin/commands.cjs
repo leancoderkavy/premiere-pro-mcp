@@ -8,6 +8,7 @@
   function createCommandRegistry(deps) {
     const ppro = deps.ppro, Protocol = deps.Protocol, workspace = deps.workspace;
     const completedOperations = new Map();
+    const inFlightOperations = new Map();
     const definitions = {
       "capabilities.get": { readOnly: true, handler: capabilities },
       "state.get": { readOnly: true, handler: stateSnapshot },
@@ -49,17 +50,31 @@
       if (!definition.readOnly && operationKey && completedOperations.has(operationKey)) {
         return { ...completedOperations.get(operationKey), replayed: true };
       }
-      const result = await definition.handler(input);
-      const envelope = definition.readOnly ? result : {
-        operationId: operationId || null,
-        outcome: result && result.outcome ? result.outcome : "verified",
-        ...result
+      if (!definition.readOnly && operationKey && inFlightOperations.has(operationKey)) {
+        return { ...await inFlightOperations.get(operationKey), replayed: true };
+      }
+      const execute = async () => {
+        const result = await definition.handler(input);
+        return definition.readOnly ? result : {
+          operationId: operationId || null,
+          outcome: result && result.outcome ? result.outcome : "verified",
+          ...result
+        };
       };
-      if (!definition.readOnly && operationKey) {
+      if (definition.readOnly || !operationKey) return execute();
+
+      // Reserve the idempotency key before the handler starts so concurrent
+      // WebSocket dispatches share one host mutation instead of racing it.
+      const pending = Promise.resolve().then(execute);
+      inFlightOperations.set(operationKey, pending);
+      try {
+        const envelope = await pending;
         completedOperations.set(operationKey, envelope);
         if (completedOperations.size > 256) completedOperations.delete(completedOperations.keys().next().value);
+        return envelope;
+      } finally {
+        if (inFlightOperations.get(operationKey) === pending) inFlightOperations.delete(operationKey);
       }
-      return envelope;
     }
     async function capabilities() {
       let project = null, sequence = null;

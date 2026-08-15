@@ -13,11 +13,24 @@ describe("UXP bridge protocol", () => {
   it("parses commands with safe defaults", () => {
     expect(protocol.parseCommand('{"type":"command","command":"state.get"}')).toEqual({ requestId: null, command: "state.get", args: {} });
   });
+  it.each([
+    "projectSelection.views",
+    "bins.createSmart",
+    "sequenceSettings.update",
+    "parameters.keyframeAdd",
+    "timeline.cloneSelection",
+    "sequences.createFromMedia",
+    "encoder.projectItem",
+  ])("accepts registered lower-camel command segments: %s", (command) => {
+    expect(protocol.parseCommand({ type: "command", command })).toMatchObject({ command });
+  });
   it("rejects malformed commands", () => expect(() => protocol.parseCommand({ type: "event" })).toThrow("Invalid UXP bridge command"));
   it("rejects invalid protocol versions and argument shapes", () => {
     expect(() => protocol.parseCommand({ protocolVersion: 1, type: "command", command: "state.get" })).toThrow("Unsupported UXP protocol version");
     expect(() => protocol.parseCommand({ type: "command", command: "state.get", args: [] })).toThrow("args must be an object");
     expect(() => protocol.parseCommand({ type: "command", command: "../state" })).toThrow("Invalid UXP bridge command");
+    expect(() => protocol.parseCommand({ type: "command", command: "ProjectSelection.views" })).toThrow("Invalid UXP bridge command");
+    expect(() => protocol.parseCommand({ type: "command", command: "project_selection.views" })).toThrow("Invalid UXP bridge command");
   });
   it("bounds request identifiers and command size", () => {
     expect(() => protocol.parseCommand({ type: "command", requestId: "", command: "state.get" })).toThrow("requestId");

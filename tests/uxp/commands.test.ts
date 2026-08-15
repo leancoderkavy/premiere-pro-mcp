@@ -124,6 +124,26 @@ describe("UXP command registry", () => {
     expect(value.project.save).toHaveBeenCalledOnce();
   });
 
+  it("coalesces concurrent mutations with the same operation id", async () => {
+    const value = host();
+    let releaseSave: (saved: boolean) => void = () => undefined;
+    value.project.save.mockReturnValue(new Promise<boolean>((resolve) => { releaseSave = resolve; }));
+    const args = { operationId: "save-concurrent" };
+
+    const first = value.registry.dispatch("project.save", args);
+    const second = value.registry.dispatch("project.save", args);
+    await vi.waitFor(() => expect(value.project.save).toHaveBeenCalledOnce());
+    releaseSave(true);
+
+    const results = await Promise.all([first, second]);
+    expect(results).toEqual(expect.arrayContaining([
+      expect.objectContaining({ saved: true, operationId: "save-concurrent" }),
+      expect.objectContaining({ saved: true, operationId: "save-concurrent", replayed: true }),
+    ]));
+    expect(results.filter((result) => result.replayed === true)).toHaveLength(1);
+    expect(value.project.save).toHaveBeenCalledOnce();
+  });
+
   it("exports supported interchange formats and configures AME", async () => {
     const value = host();
     await expect(value.registry.dispatch("interchange.export", {
