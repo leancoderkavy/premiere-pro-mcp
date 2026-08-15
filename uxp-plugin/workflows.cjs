@@ -44,10 +44,10 @@
       "metadata.update": { destructive: true, undoable: true, idempotent: true, minHostVersion: "25.6.0", probe: canUseMetadata, handler: updateMetadata },
       "color.preflight": { readOnly: true, targetCapabilityProbe: true, minHostVersion: "25.6.0", probe: canInspectColor, handler: colorPreflight },
       "footage.conform": { destructive: true, undoable: true, idempotent: true, targetCapabilityProbe: true, minHostVersion: "25.6.0", probe: canConformFootage, handler: conformFootage },
-      "sourceMonitor.state": { readOnly: true, minHostVersion: "25.6.0", probe: canUseSourceMonitor, handler: sourceMonitorState },
+      "sourceMonitor.state": { readOnly: true, minHostVersion: "25.6.0", probe: canInspectSourceMonitor, handler: sourceMonitorState },
       "sourceMonitor.open": { idempotent: true, conditionalWorkspace: true, minHostVersion: "25.6.0", probe: canOpenSourceMonitor, handler: openSourceMonitor },
-      "sourceMonitor.play": { minHostVersion: "25.6.0", probe: canUseSourceMonitor, handler: playSourceMonitor },
-      "sourceMonitor.close": { idempotent: true, minHostVersion: "25.6.0", probe: canUseSourceMonitor, handler: closeSourceMonitor },
+      "sourceMonitor.play": { minHostVersion: "25.6.0", probe: canPlaySourceMonitor, handler: playSourceMonitor },
+      "sourceMonitor.close": { idempotent: true, minHostVersion: "25.6.0", probe: canCloseSourceMonitor, handler: closeSourceMonitor },
       "storage.preflight": { readOnly: true, minHostVersion: "25.6.0", probe: canUseProjectSettings, handler: storagePreflight },
       "scratch.configure": { destructive: true, undoable: true, idempotent: true, minHostVersion: "25.6.0", probe: canConfigureScratch, handler: configureScratch },
       "workspace.status": { readOnly: true, minHostVersion: "25.6.0", probe: canReportWorkspace, handler: workspaceStatus }
@@ -860,8 +860,17 @@
     function canUseMetadata() { return canUseClipItems() && !!(ppro.Metadata && typeof ppro.Metadata.getProjectMetadata === "function" && typeof ppro.Metadata.getXMPMetadata === "function" && typeof ppro.Metadata.createSetProjectMetadataAction === "function" && typeof ppro.Metadata.createSetXMPMetadataAction === "function"); }
     function canInspectColor() { return canUseClipItems(); }
     function canConformFootage() { return canUseClipItems(); }
-    function canUseSourceMonitor() { return !!(ppro.SourceMonitor && typeof ppro.SourceMonitor.getPosition === "function" && typeof ppro.SourceMonitor.getProjectItem === "function"); }
-    function canOpenSourceMonitor() { return canUseSourceMonitor() && typeof ppro.SourceMonitor.openProjectItem === "function" && typeof ppro.SourceMonitor.openFilePath === "function"; }
+    function canInspectSourceMonitor() {
+      return !!(ppro.SourceMonitor && typeof ppro.SourceMonitor.getPosition === "function" && typeof ppro.SourceMonitor.getProjectItem === "function");
+    }
+    function canOpenSourceMonitor() {
+      return !!(ppro.SourceMonitor && typeof ppro.SourceMonitor.getProjectItem === "function" &&
+        typeof ppro.SourceMonitor.openProjectItem === "function" && typeof ppro.SourceMonitor.openFilePath === "function");
+    }
+    function canPlaySourceMonitor() { return !!(ppro.SourceMonitor && typeof ppro.SourceMonitor.play === "function"); }
+    function canCloseSourceMonitor() {
+      return !!(ppro.SourceMonitor && typeof ppro.SourceMonitor.closeClip === "function" && typeof ppro.SourceMonitor.closeAllClips === "function");
+    }
     function canConfigureScratch() { return canUseProjectSettings() && typeof ppro.ProjectSettings.createSetScratchDiskSettingsAction === "function"; }
     function canReportWorkspace() { return !!(workspace && typeof workspace.status === "function"); }
 
