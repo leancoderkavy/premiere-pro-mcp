@@ -477,6 +477,24 @@ describe("stable Premiere UXP workflow expansion", () => {
     })).resolves.toMatchObject({ count: 1, items: [{ mediaType: "audio" }] });
     expect(replacedDuringPlan.sequence.setSelection).not.toHaveBeenCalled();
     expect(finalSequence.setSelection).toHaveBeenCalledWith(expect.objectContaining({ items: [finalAudioItem] }));
+
+    const switchedDuringFinalPlan = stableHost();
+    const getFinalPlanningSelection = switchedDuringFinalPlan.sequence.getSelection.getMockImplementation();
+    const lateSameGuidSequence = { ...switchedDuringFinalPlan.sequence, setSelection: vi.fn() };
+    let finalPlanningSelectionCalls = 0;
+    switchedDuringFinalPlan.sequence.getSelection.mockImplementation(async () => {
+      finalPlanningSelectionCalls += 1;
+      const selection = await getFinalPlanningSelection?.();
+      if (finalPlanningSelectionCalls === 3) {
+        switchedDuringFinalPlan.project.getActiveSequence.mockResolvedValue(lateSameGuidSequence);
+      }
+      return selection as Awaited<ReturnType<NonNullable<typeof getFinalPlanningSelection>>>;
+    });
+    await expect(switchedDuringFinalPlan.registry.dispatch("selection.update", {
+      mode: "replace", expectedSequenceGuid: "sequence-1", items: [target],
+    })).rejects.toMatchObject({ code: "UXP_STALE_SEQUENCE" });
+    expect(switchedDuringFinalPlan.sequence.setSelection).not.toHaveBeenCalled();
+    expect(lateSameGuidSequence.setSelection).not.toHaveBeenCalled();
   });
 
   it("revalidates same-sequence targets and requires native timeline fingerprints", async () => {

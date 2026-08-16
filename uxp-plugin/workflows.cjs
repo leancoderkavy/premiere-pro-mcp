@@ -400,6 +400,10 @@
           throw commandError("UXP_STALE_SELECTION", "The current timeline selection changed while the update was being prepared; inspect it again before updating it");
         }
       }
+      const finalContext = await activeContext(false), finalSequenceGuid = activeSequenceGuid(finalContext.sequence);
+      if (!finalSequenceGuid || input.expectedSequenceGuid !== finalSequenceGuid || finalContext.sequence !== commitContext.sequence) {
+        throw commandError("UXP_STALE_SEQUENCE", "The active sequence changed; inspect the timeline selection again before updating it");
+      }
       if (desiredItems.length) {
         const selection = createEmptyTrackItemSelection();
         for (const item of desiredItems) {
@@ -407,14 +411,14 @@
             throw commandError("UXP_SELECTION_REJECTED", "Premiere rejected a clip while constructing the timeline selection");
           }
         }
-        const set = await hostBoolean(commitContext.sequence.setSelection(selection));
+        const set = await hostBoolean(finalContext.sequence.setSelection(selection));
         if (!set) throw commandError("UXP_SELECTION_REJECTED", "Premiere did not accept the requested timeline selection");
       } else {
-        const cleared = await hostBoolean(commitContext.sequence.clearSelection());
+        const cleared = await hostBoolean(finalContext.sequence.clearSelection());
         if (!cleared) throw commandError("UXP_SELECTION_REJECTED", "Premiere did not clear the timeline selection");
       }
 
-      const after = await selectionSnapshot(commitContext.sequence);
+      const after = await selectionSnapshot(finalContext.sequence);
       assertClassifiedSelection(after.classified, "Premiere returned an unclassified timeline item after the selection update");
       const expectedKeys = selectionSnapshotKeys(desired.items), actualKeys = selectionSnapshotKeys(after.items);
       if (!sameStringArrays(expectedKeys, actualKeys)) {
