@@ -208,6 +208,7 @@ function stableHost() {
     registry: Commands.createCommandRegistry({ ppro, Protocol, workspace }),
     ppro, project, sequence, components, audioComponents, sourceClip, workspace,
     selectedItems: () => [...selectedItems],
+    selectMany: (count: number) => { selectedItems = Array.from({ length: count }, () => videoItem); },
   };
 }
 
@@ -365,6 +366,64 @@ describe("stable Premiere UXP workflow expansion", () => {
         expectedStartSeconds: 10, expectedEndSeconds: 20,
       }],
     })).resolves.toMatchObject({ count: 1, items: [{ mediaType: "audio" }] });
+  });
+
+  it("clears or replaces a manual selection larger than the mutation limit", async () => {
+    const target = {
+      mediaType: "audio", trackIndex: 0, clipIndex: 0, expectedProjectItemId: "source-1",
+      expectedStartSeconds: 10, expectedEndSeconds: 20,
+    };
+    const cleared = stableHost();
+    cleared.selectMany(65);
+    await expect(cleared.registry.dispatch("selection.update", {
+      mode: "clear", expectedSequenceGuid: "sequence-1",
+    })).resolves.toMatchObject({ changed: true, count: 0, items: [] });
+
+    const replaced = stableHost();
+    replaced.selectMany(65);
+    await expect(replaced.registry.dispatch("selection.update", {
+      mode: "replace", expectedSequenceGuid: "sequence-1", items: [target],
+    })).resolves.toMatchObject({ changed: true, count: 1, items: [{ mediaType: "audio" }] });
+  });
+
+  it("revalidates and uses the active sequence immediately before selection mutation", async () => {
+    const target = {
+      mediaType: "audio", trackIndex: 0, clipIndex: 0, expectedProjectItemId: "source-1",
+      expectedStartSeconds: 10, expectedEndSeconds: 20,
+    };
+    const refreshed = stableHost();
+    const getSelection = refreshed.sequence.getSelection.getMockImplementation();
+    const setSelection = refreshed.sequence.setSelection.getMockImplementation();
+    const refreshedSequence = {
+      ...refreshed.sequence,
+      getSelection: vi.fn(() => getSelection?.()),
+      setSelection: vi.fn((selection: Parameters<typeof refreshed.sequence.setSelection>[0]) => setSelection?.(selection)),
+    };
+    refreshed.sequence.getSelection.mockImplementationOnce(async () => {
+      const selection = await getSelection?.();
+      refreshed.project.getActiveSequence.mockResolvedValue(refreshedSequence);
+      return selection as Awaited<ReturnType<NonNullable<typeof getSelection>>>;
+    });
+    await expect(refreshed.registry.dispatch("selection.update", {
+      mode: "replace", expectedSequenceGuid: "sequence-1", items: [target],
+    })).resolves.toMatchObject({ count: 1, items: [{ mediaType: "audio" }] });
+    expect(refreshed.sequence.setSelection).not.toHaveBeenCalled();
+    expect(refreshedSequence.setSelection).toHaveBeenCalledTimes(1);
+    expect(refreshedSequence.getSelection).toHaveBeenCalledTimes(1);
+
+    const switched = stableHost();
+    const originalSelection = switched.sequence.getSelection.getMockImplementation();
+    const inactiveSequence = { ...switched.sequence, guid: "sequence-2", setSelection: vi.fn() };
+    switched.sequence.getSelection.mockImplementationOnce(async () => {
+      const selection = await originalSelection?.();
+      switched.project.getActiveSequence.mockResolvedValue(inactiveSequence);
+      return selection as Awaited<ReturnType<NonNullable<typeof originalSelection>>>;
+    });
+    await expect(switched.registry.dispatch("selection.update", {
+      mode: "replace", expectedSequenceGuid: "sequence-1", items: [target],
+    })).rejects.toMatchObject({ code: "UXP_STALE_SEQUENCE" });
+    expect(switched.sequence.setSelection).not.toHaveBeenCalled();
+    expect(inactiveSequence.setSelection).not.toHaveBeenCalled();
   });
 
   it("rejects stale, duplicate, oversized, rejected, and mismatched selection updates", async () => {

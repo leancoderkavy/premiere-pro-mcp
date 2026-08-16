@@ -157,13 +157,15 @@
       return items[clipIndex];
     }
 
-    async function currentTrackItems(sequence, requireNonEmpty) {
+    async function currentTrackItems(sequence, requireNonEmpty, enforceLimit) {
       if (typeof sequence.getSelection !== "function") throw commandError("UXP_COMMAND_UNAVAILABLE", "This Premiere build cannot inspect the timeline selection");
       const selection = await sequence.getSelection();
       if (!selection || typeof selection.getTrackItems !== "function") throw commandError("UXP_COMMAND_UNAVAILABLE", "Premiere did not return a track-item selection");
       const items = Array.from(await selection.getTrackItems() || []);
       if (requireNonEmpty && !items.length) throw commandError("UXP_EMPTY_SELECTION", "Select at least one clip in the active sequence");
-      if (items.length > MAX_SELECTION_ITEMS) throw commandError("UXP_SELECTION_TOO_LARGE", "Select at most " + MAX_SELECTION_ITEMS + " clips per compound operation");
+      if (enforceLimit !== false && items.length > MAX_SELECTION_ITEMS) {
+        throw commandError("UXP_SELECTION_TOO_LARGE", "Select at most " + MAX_SELECTION_ITEMS + " clips per compound operation");
+      }
       return { selection, items };
     }
 
@@ -371,12 +373,25 @@
         throw commandError("UXP_STALE_SEQUENCE", "The active sequence changed; inspect the timeline selection again before updating it");
       }
 
-      const before = await selectionSnapshot(context.sequence);
+      const beforeSelection = await currentTrackItems(context.sequence, false, false);
+      let before = null;
       let desiredItems = [];
       if (input.mode !== "clear") {
         const resolved = await resolveSelectionTargets(context.sequence, input.items);
-        if (input.mode === "replace") desiredItems = resolved.map((value) => value.item);
-        else {
+        if (input.mode === "replace") {
+          desiredItems = resolved.map((value) => value.item);
+          if (beforeSelection.items.length <= MAX_SELECTION_ITEMS) {
+            before = await itemSelectionSnapshot(context.sequence, beforeSelection.items);
+            assertClassifiedSelection(before.classified, "The current selection contains an item that cannot be addressed safely");
+          }
+        } else {
+          if (input.mode === "add" && beforeSelection.items.length > MAX_SELECTION_ITEMS) {
+            throw commandError("UXP_SELECTION_TOO_LARGE", "The updated selection would exceed " + MAX_SELECTION_ITEMS + " clips");
+          }
+          if (input.mode === "remove" && beforeSelection.items.length - resolved.length > MAX_SELECTION_ITEMS) {
+            throw commandError("UXP_SELECTION_TOO_LARGE", "The updated selection would exceed " + MAX_SELECTION_ITEMS + " clips");
+          }
+          before = await itemSelectionSnapshot(context.sequence, beforeSelection.items);
           assertClassifiedSelection(before.classified, "The current selection contains an item that cannot be addressed safely");
           desiredItems = before.classified.map((value) => value.item);
           if (input.mode === "add") {
@@ -396,9 +411,16 @@
           }
         }
       }
+      if (desiredItems.length > MAX_SELECTION_ITEMS) {
+        throw commandError("UXP_SELECTION_TOO_LARGE", "The updated selection would exceed " + MAX_SELECTION_ITEMS + " clips");
+      }
 
       const desired = await itemSelectionSnapshot(context.sequence, desiredItems);
       assertClassifiedSelection(desired.classified, "Premiere could not classify a requested timeline item");
+      const mutationContext = await activeContext(false), mutationSequenceGuid = activeSequenceGuid(mutationContext.sequence);
+      if (!mutationSequenceGuid || input.expectedSequenceGuid !== mutationSequenceGuid) {
+        throw commandError("UXP_STALE_SEQUENCE", "The active sequence changed; inspect the timeline selection again before updating it");
+      }
       if (desiredItems.length) {
         const selection = createEmptyTrackItemSelection();
         for (const item of desiredItems) {
@@ -406,22 +428,24 @@
             throw commandError("UXP_SELECTION_REJECTED", "Premiere rejected a clip while constructing the timeline selection");
           }
         }
-        const set = await hostBoolean(context.sequence.setSelection(selection));
+        const set = await hostBoolean(mutationContext.sequence.setSelection(selection));
         if (!set) throw commandError("UXP_SELECTION_REJECTED", "Premiere did not accept the requested timeline selection");
       } else {
-        const cleared = await hostBoolean(context.sequence.clearSelection());
+        const cleared = await hostBoolean(mutationContext.sequence.clearSelection());
         if (!cleared) throw commandError("UXP_SELECTION_REJECTED", "Premiere did not clear the timeline selection");
       }
 
-      const after = await selectionSnapshot(context.sequence);
+      const after = await selectionSnapshot(mutationContext.sequence);
       assertClassifiedSelection(after.classified, "Premiere returned an unclassified timeline item after the selection update");
       const expectedKeys = selectionSnapshotKeys(desired.items), actualKeys = selectionSnapshotKeys(after.items);
       if (!sameStringArrays(expectedKeys, actualKeys)) {
         throw commandError("UXP_VERIFICATION_FAILED", "The timeline selection readback did not match the requested clips");
       }
-      const beforeKeys = selectionSnapshotKeys(before.items);
+      const beforeKeys = before ? selectionSnapshotKeys(before.items) : null;
+      const changed = beforeKeys ? !sameStringArrays(beforeKeys, actualKeys) :
+        input.mode === "clear" ? beforeSelection.items.length > 0 : true;
       return {
-        updated: true, changed: !sameStringArrays(beforeKeys, actualKeys), mode: input.mode,
+        updated: true, changed, mode: input.mode,
         sequenceGuid, count: after.items.length, items: after.items,
         outcome: "verified", verified: "timeline_selection_readback",
         verificationBoundary: "timeline_selection_readback",
