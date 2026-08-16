@@ -6,12 +6,42 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [1.10.0] - 2026-08-16
+
 ### Added
 
-- Added deterministic native UXP timeline-selection and arbitrary target inspection,
-  plus guarded replace/add/remove/clear actions with sequence and clip fingerprints,
-  replay protection, and exact selection readback. Live Premiere verification
-  remains pending.
+- Added 21 consolidated, capability-gated UXP tools across two stable workflow
+  groups, expanding the connected surface from 297 to 318 tools while retaining
+  CEP as the production-compatible bridge.
+- Added native effects, selection batches, deterministic timeline selection,
+  scene detection, proxy and ingest control, offline relinking, transactional
+  metadata, color conformance, Source Monitor audition, Productions storage
+  preflight, and an operator-selected workspace broker.
+- Added project-panel selection, marker CRUD, bin organization, sequence settings,
+  workspace-gated imports, typed parameter and keyframe automation, track-item
+  transforms, SequenceEditor operations, sequence lifecycle controls, and Adobe
+  Media Encoder submission.
+
+### Changed
+
+- Bounded selection, project, marker, sequence, bin, and keyframe inspection so a
+  request cannot accidentally traverse or serialize an unbounded production project.
+- Grouped compatible mutations into Adobe action transactions with stale-state
+  guards, replay protection, and post-commit readback. A failed UXP mutation is
+  returned to the caller and is never silently retried through CEP.
+- Replaced UXP filesystem full access with operator-selected folder access and kept
+  native paths and persistent tokens inside the panel.
+
+### Security
+
+- Updated vulnerable transitive dependencies and refreshed the validated package
+  lockfiles used by the server and landing build.
+
+### Validation
+
+- Automated unit, contract, distribution, and coverage gates exercise the expanded
+  UXP surface. Real Premiere host verification and latency benchmarking remain
+  pending and are not implied by this release.
 
 ## [1.9.3] - 2026-08-12
 
