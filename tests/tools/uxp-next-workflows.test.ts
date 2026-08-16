@@ -65,4 +65,47 @@ describe("next-wave UXP MCP tools", () => {
       operationType: "effectDrop", afterRevision: 9, timeoutMs: 5000,
     });
   });
+
+  it("covers bounded event and readiness fallbacks without hiding bridge errors", async () => {
+    const request = vi.fn().mockResolvedValue({ ok: true });
+    const bridge = { request, getState: vi.fn() } as unknown as UxpWebSocketBridge;
+    const tools = getUxpNextWorkflowTools(bridge);
+
+    await tools.inspect_premiere_events_uxp.handler({ action: "list" });
+    expect(request).toHaveBeenLastCalledWith("events.list", {});
+    await tools.inspect_premiere_events_uxp.handler({
+      action: "list",
+      after_revision: 0,
+      categories: [],
+      event_names: [],
+      limit: 1,
+      timeout_ms: 10,
+    });
+    expect(request).toHaveBeenLastCalledWith("events.list", {
+      afterRevision: 0,
+      categories: [],
+      eventNames: [],
+      limit: 1,
+    });
+    await expect(tools.inspect_premiere_events_uxp.handler({ action: "unsupported" }))
+      .resolves.toEqual({ success: false, error: "Unsupported event action: unsupported" });
+
+    request.mockRejectedValueOnce(new Error("bridge unavailable"));
+    await expect(tools.inspect_premiere_events_uxp.handler({ action: "wait" }))
+      .resolves.toEqual({ success: false, error: "bridge unavailable" });
+    request.mockRejectedValueOnce("plain failure");
+    await expect(tools.inspect_premiere_events_uxp.handler({ action: "wait", timeout_ms: 0 }))
+      .resolves.toEqual({ success: false, error: "plain failure" });
+
+    await tools.wait_for_host_readiness_uxp.handler({ action: "snapshot" });
+    expect(request).toHaveBeenLastCalledWith("readiness.snapshot", {});
+    await tools.wait_for_host_readiness_uxp.handler({ action: "snapshot", sequence_id: "sequence-1" });
+    expect(request).toHaveBeenLastCalledWith("readiness.snapshot", { sequenceId: "sequence-1" });
+    await tools.wait_for_host_readiness_uxp.handler({ action: "analysis" });
+    expect(request).toHaveBeenLastCalledWith("readiness.analysis.wait", {});
+    await tools.wait_for_host_readiness_uxp.handler({ action: "operation" });
+    expect(request).toHaveBeenLastCalledWith("readiness.operation.wait", {});
+    await expect(tools.wait_for_host_readiness_uxp.handler({ action: "unsupported" }))
+      .resolves.toEqual({ success: false, error: "Unsupported readiness action: unsupported" });
+  });
 });
