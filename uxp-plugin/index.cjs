@@ -4,12 +4,15 @@ const ppro = require("premierepro");
 const Protocol = globalThis.PremiereMcpProtocol;
 const TranscriptSupport = globalThis.PremiereMcpTranscript;
 const WorkspaceSupport = globalThis.PremiereMcpWorkspace;
+const EventSupport = globalThis.PremiereMcpEvents;
 const Commands = globalThis.PremiereMcpCommands;
 const workspaceBroker = WorkspaceSupport.createWorkspaceBroker({ fs: storage && storage.localFileSystem });
+const eventJournal = EventSupport.createEventJournal({ capacity: 512 });
 const commandRegistry = Commands.createCommandRegistry({
   ppro,
   Protocol,
   workspace: workspaceBroker,
+  events: eventJournal,
   transcriptImportHandler: importTranscript,
   transcriptImportProbe: canImportTranscript
 });
@@ -26,7 +29,7 @@ entrypoints.setup({
     mcpBridgePanel: {
       create() { subscribeHostEvents(); },
       show() { publishState("panel.show"); },
-      destroy() { unsubscribeHostEvents(); stopFallbackPolling(); disconnect(); }
+      destroy() { unsubscribeHostEvents(); stopFallbackPolling(); eventJournal.close(); disconnect(); }
     }
   }
 });
@@ -71,8 +74,9 @@ async function capabilities() {
   value.hostVersion = host && host.version || null;
   Object.assign(value, {
     events: {
-      host: supportedHostEvents(),
+      host: supportedHostEvents().map((event) => event.name),
       stateNotifications: true,
+      journal: eventJournal.status(),
       fallbackPolling: { enabled: true, intervalMs: 5000 },
       operationLifecycle: ["started", "progress", "completed", "failed", "cancelled"]
     },
@@ -381,18 +385,37 @@ function supportedHostEvents() {
   const constants = ppro.Constants || {};
   const project = constants.ProjectEvent || {};
   const sequence = constants.SequenceEvent || {};
+  const operation = constants.OperationCompleteEvent || {};
+  const encoder = ppro.EncoderManager || {};
   return [
-    project.OPENED, project.CLOSED, project.DIRTY, project.ACTIVATED,
-    project.PROJECT_ITEM_SELECTION_CHANGED,
-    sequence.ACTIVATED, sequence.CLOSED, sequence.SELECTION_CHANGED
-  ].filter((eventName) => eventName !== undefined && eventName !== null);
+    hostEvent("project", "project.opened", project.OPENED, true),
+    hostEvent("project", "project.closed", project.CLOSED, true),
+    hostEvent("project", "project.dirty", project.DIRTY, true),
+    hostEvent("project", "project.activated", project.ACTIVATED, true),
+    hostEvent("project", "project.selection.changed", project.PROJECT_ITEM_SELECTION_CHANGED, true),
+    hostEvent("sequence", "sequence.activated", sequence.ACTIVATED, true),
+    hostEvent("sequence", "sequence.closed", sequence.CLOSED, true),
+    hostEvent("sequence", "sequence.selection.changed", sequence.SELECTION_CHANGED, true),
+    hostEvent("operation", "operation.import.complete", operation.IMPORT_MEDIA_COMPLETE || operation.EVENT_IMPORT_MEDIA_COMPLETE, false),
+    hostEvent("operation", "operation.export.complete", operation.EXPORT_MEDIA_COMPLETE || operation.EVENT_EXPORT_MEDIA_COMPLETE, false),
+    hostEvent("operation", "operation.effect.drop.complete", operation.EFFECT_DROP_COMPLETE || operation.EVENT_EFFECT_DROP_COMPLETE, false),
+    hostEvent("operation", "operation.generative.extend.complete", operation.GENERATIVE_EXTEND_COMPLETE || operation.EVENT_GENERATIVE_EXTEND_COMPLETE, false),
+    hostEvent("encoder", "encoder.queued", encoder.EVENT_RENDER_QUEUE, false),
+    hostEvent("encoder", "encoder.progress", encoder.EVENT_RENDER_PROGRESS, false, "encoder.progress"),
+    hostEvent("encoder", "encoder.complete", encoder.EVENT_RENDER_COMPLETE, false),
+    hostEvent("encoder", "encoder.error", encoder.EVENT_RENDER_ERROR, false),
+    hostEvent("encoder", "encoder.cancelled", encoder.EVENT_RENDER_CANCEL, false)
+  ].filter((event) => event.eventName !== undefined && event.eventName !== null);
+}
+function hostEvent(category, name, eventName, stateInvalidating, coalesceKey) {
+  return { category, name, eventName, stateInvalidating, coalesceKey: coalesceKey || null };
 }
 function subscribeHostEvents() {
   if (!ppro.EventManager || eventSubscriptions.length) return;
-  supportedHostEvents().forEach((eventName) => {
-    const handler = () => publishState("host-event", eventName);
-    ppro.EventManager.addGlobalEventListener(eventName, handler, false);
-    eventSubscriptions.push({ eventName, handler });
+  supportedHostEvents().forEach((definition) => {
+    const handler = (event) => recordHostEvent(definition, event);
+    ppro.EventManager.addGlobalEventListener(definition.eventName, handler, false);
+    eventSubscriptions.push({ eventName: definition.eventName, handler });
   });
 }
 function unsubscribeHostEvents() {
@@ -400,6 +423,21 @@ function unsubscribeHostEvents() {
   eventSubscriptions.splice(0).forEach(({ eventName, handler }) => {
     try { ppro.EventManager.removeGlobalEventListener(eventName, handler, false); } catch (_) {}
   });
+}
+function recordHostEvent(definition, event) {
+  const detail = {};
+  if (event && typeof event === "object") {
+    if (Number.isFinite(Number(event.state))) detail.state = Number(event.state);
+    if (Number.isFinite(Number(event.progress))) detail.progress = Number(event.progress);
+  }
+  const receipt = eventJournal.append({
+    category: definition.category,
+    name: definition.name,
+    detail,
+    coalesceKey: definition.coalesceKey
+  });
+  if (receipt) send(Protocol.envelope("event", { name: "premiere.host.event", receipt }));
+  if (definition.stateInvalidating) publishState("host-event", definition.name);
 }
 function startFallbackPolling() {
   if (!fallbackPollTimer) fallbackPollTimer = setInterval(() => publishState("fallback-poll"), 5000);
