@@ -222,4 +222,23 @@ describe("next-wave UXP MCP tools", () => {
     await expect(tool.handler({ action: "unsupported" }))
       .resolves.toEqual({ success: false, error: "Unsupported project-session action: unsupported" });
   });
+
+  it("covers growing-media status, lease defaults, resume targeting, and rejection", async () => {
+    const request = vi.fn().mockResolvedValue({ ok: true });
+    const bridge = { request, getState: vi.fn() } as unknown as UxpWebSocketBridge;
+    const tool = getUxpNextWorkflowTools(bridge).manage_growing_media_uxp;
+
+    await tool.handler({ action: "status" });
+    expect(request).toHaveBeenLastCalledWith("growing.status", {});
+    await tool.handler({ action: "pause" });
+    expect(request).toHaveBeenLastCalledWith("growing.pause", {});
+    await tool.handler({ action: "resume" });
+    expect(request).toHaveBeenLastCalledWith("growing.resume", {});
+    await tool.handler({ action: "resume", project_id: "project-1", operation_id: "resume-1" });
+    expect(request).toHaveBeenLastCalledWith("growing.resume", {
+      projectId: "project-1", operationId: "resume-1",
+    });
+    await expect(tool.handler({ action: "unsupported" }))
+      .resolves.toEqual({ success: false, error: "Unsupported growing-media action: unsupported" });
+  });
 });
