@@ -140,7 +140,13 @@
       return { project, clip: await resolveClipProjectItem(project, target), target };
     }
 
-    async function trackItemAt(sequence, mediaType, trackIndex, clipIndex) {
+    async function trackItemAt(sequence, mediaType, trackIndex, clipIndex, trackItemsByTrack) {
+      const cacheKey = mediaType + ":" + trackIndex;
+      if (trackItemsByTrack && trackItemsByTrack.has(cacheKey)) {
+        const cachedItems = trackItemsByTrack.get(cacheKey);
+        if (!cachedItems[clipIndex]) throw commandError("UXP_TARGET_NOT_FOUND", "clipIndex " + clipIndex + " is out of range on " + mediaType + " track " + trackIndex);
+        return cachedItems[clipIndex];
+      }
       const title = mediaType === "video" ? "Video" : "Audio";
       const countMethod = "get" + title + "TrackCount", trackMethod = "get" + title + "Track";
       if (typeof sequence[countMethod] !== "function" || typeof sequence[trackMethod] !== "function") {
@@ -153,6 +159,7 @@
         throw commandError("UXP_COMMAND_UNAVAILABLE", "Premiere clip track-item APIs are unavailable");
       }
       const items = Array.from(await track.getTrackItems(itemType.CLIP, false) || []);
+      if (trackItemsByTrack) trackItemsByTrack.set(cacheKey, items);
       if (!items[clipIndex]) throw commandError("UXP_TARGET_NOT_FOUND", "clipIndex " + clipIndex + " is out of range on " + mediaType + " track " + trackIndex);
       return items[clipIndex];
     }
@@ -329,8 +336,9 @@
 
     async function inspectSelectionTargets(args) {
       const inputs = validateSelectionTargetInspectionArgs(args), context = await activeContext(false), items = [];
+      const trackItemsByTrack = new Map();
       for (let index = 0; index < inputs.length; index += 1) {
-        const input = inputs[index], item = await trackItemAt(context.sequence, input.mediaType, input.trackIndex, input.clipIndex);
+        const input = inputs[index], item = await trackItemAt(context.sequence, input.mediaType, input.trackIndex, input.clipIndex, trackItemsByTrack);
         const snapshot = await selectionFingerprintSnapshot({
           item, selectionIndex: index, mediaType: input.mediaType,
           trackIndex: input.trackIndex, clipIndex: input.clipIndex
@@ -489,9 +497,9 @@
     }
 
     async function resolveSelectionTargets(sequence, inputs) {
-      const result = [];
+      const result = [], trackItemsByTrack = new Map();
       for (let index = 0; index < inputs.length; index += 1) {
-        const input = inputs[index], item = await trackItemAt(sequence, input.mediaType, input.trackIndex, input.clipIndex);
+        const input = inputs[index], item = await trackItemAt(sequence, input.mediaType, input.trackIndex, input.clipIndex, trackItemsByTrack);
         const snapshot = await selectionFingerprintSnapshot({
           item, selectionIndex: index, mediaType: input.mediaType,
           trackIndex: input.trackIndex, clipIndex: input.clipIndex

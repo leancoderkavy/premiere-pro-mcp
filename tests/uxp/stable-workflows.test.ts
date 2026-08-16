@@ -379,6 +379,33 @@ describe("stable Premiere UXP workflow expansion", () => {
     })).resolves.toMatchObject({ count: 1, items: [{ mediaType: "audio" }] });
   });
 
+  it("enumerates each target track once per selection resolution", async () => {
+    const value = stableHost();
+    const audioTrack = await value.sequence.getAudioTrack(0);
+    const secondAudioItem = {
+      ...value.audioItem,
+      name: "Interview A 2",
+      getStartTime: vi.fn(async () => ({ seconds: 30 })),
+      getEndTime: vi.fn(async () => ({ seconds: 40 })),
+    };
+    audioTrack.getTrackItems.mockResolvedValue([value.audioItem, secondAudioItem]);
+    audioTrack.getTrackItems.mockClear();
+
+    await expect(value.registry.dispatch("selection.targets.inspect", {
+      items: [
+        { mediaType: "audio", trackIndex: 0, clipIndex: 0 },
+        { mediaType: "audio", trackIndex: 0, clipIndex: 1 },
+      ],
+    })).resolves.toMatchObject({
+      count: 2,
+      items: [
+        { targetIndex: 0, startSeconds: 10, endSeconds: 20 },
+        { targetIndex: 1, startSeconds: 30, endSeconds: 40 },
+      ],
+    });
+    expect(audioTrack.getTrackItems).toHaveBeenCalledTimes(1);
+  });
+
   it("clears or replaces a manual selection larger than the mutation limit", async () => {
     const target = {
       mediaType: "audio", trackIndex: 0, clipIndex: 0, expectedProjectItemId: "source-1",
