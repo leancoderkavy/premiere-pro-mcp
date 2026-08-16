@@ -6,6 +6,23 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Fixed
+
+- `set_clip_volume` passed decibels straight into Premiere's `Volume > Level`
+  property, which is a normalised 0..1 value where 1.0 is +15 dB, not a dB
+  value. Every negative dB clamped to 0 (silence) and every positive dB clamped
+  to 1.0 (+15 dB), and Premiere reports no error either way, so the failure was
+  silent - a whole timeline could be muted with the tool reporting success.
+  Levels are now converted with `10^((dB-15)/20)`.
+
+### Added
+
+- `get_clip_volume` reads a clip's level back in dB, so a level change can be
+  verified rather than assumed.
+- `set_clips_volume` applies a level to every clip on an audio track (or a
+  chosen subset) in one call. Setting levels across an 80-clip sequence
+  previously meant 80 round trips.
+
 ## [1.10.0] - 2026-08-16
 
 ### Added
