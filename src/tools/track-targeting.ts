@@ -4,6 +4,29 @@ import {
 } from "../bridge/script-builder.js";
 import { sendCommand, BridgeOptions } from "../bridge/file-bridge.js";
 
+/**
+ * Premiere's audio `Volume > Level` property is NOT in decibels. It is a
+ * normalised 0..1 value where 1.0 is the maximum boost of +15 dB, so unity
+ * (0 dB) sits at 10^(-15/20) = 0.17782794.
+ *
+ * Passing decibels straight to setValue() silently clamps: any negative dB
+ * becomes 0 (total silence) and any positive dB becomes 1.0 (+15 dB). Both
+ * fail without an error, which makes the mistake very hard to spot - the
+ * timeline just plays wrong.
+ */
+export const PREMIERE_MAX_LEVEL_DB = 15;
+
+export function dbToPremiereLevel(db: number): number {
+  if (!Number.isFinite(db)) return 0;
+  const clamped = Math.min(db, PREMIERE_MAX_LEVEL_DB);
+  return Math.pow(10, (clamped - PREMIERE_MAX_LEVEL_DB) / 20);
+}
+
+export function premiereLevelToDb(level: number): number | null {
+  if (!Number.isFinite(level) || level <= 0) return null; // silence
+  return 20 * Math.log10(level) + PREMIERE_MAX_LEVEL_DB;
+}
+
 export function getTrackTargetingTools(bridgeOptions: BridgeOptions) {
   return {
     set_target_track: {
@@ -757,6 +780,7 @@ export function getTrackTargetingTools(bridgeOptions: BridgeOptions) {
         required: ["node_id", "volume_db"],
       },
       handler: async (args: { node_id: string; volume_db: number }) => {
+        const level = dbToPremiereLevel(args.volume_db);
         const script = buildToolScript(`
           var result = __findClip("${escapeForExtendScript(args.node_id)}");
           if (!result) return __error("Clip not found");
@@ -767,7 +791,8 @@ export function getTrackTargetingTools(bridgeOptions: BridgeOptions) {
             if (clip.components[i].displayName === "Volume") {
               for (var p = 0; p < clip.components[i].properties.numItems; p++) {
                 if (clip.components[i].properties[p].displayName === "Level") {
-                  clip.components[i].properties[p].setValue(${args.volume_db}, true);
+                  // normalised 0..1, NOT dB - see dbToPremiereLevel()
+                  clip.components[i].properties[p].setValue(${level}, true);
                   set = true;
                   break;
                 }
@@ -776,7 +801,119 @@ export function getTrackTargetingTools(bridgeOptions: BridgeOptions) {
             }
           }
           if (!set) return __error("Could not set volume - is this an audio clip?");
-          return __result({ volumeDb: ${args.volume_db}, clip: clip.name });
+          return __result({ volumeDb: ${args.volume_db}, level: ${level}, clip: clip.name });
+        `);
+        return sendCommand(script, bridgeOptions);
+      },
+    },
+
+    get_clip_volume: {
+      description:
+        "Read the volume level of an audio clip, returned in dB. Use this to verify a level actually applied - setValue() clamps silently.",
+      parameters: {
+        type: "object" as const,
+        properties: {
+          node_id: {
+            type: "string",
+            description: "Node ID of the audio clip",
+          },
+        },
+        required: ["node_id"],
+      },
+      handler: async (args: { node_id: string }) => {
+        const script = buildToolScript(`
+          var result = __findClip("${escapeForExtendScript(args.node_id)}");
+          if (!result) return __error("Clip not found");
+
+          var clip = result.clip;
+          var level = null;
+          for (var i = 0; i < clip.components.numItems; i++) {
+            if (clip.components[i].displayName === "Volume") {
+              for (var p = 0; p < clip.components[i].properties.numItems; p++) {
+                if (clip.components[i].properties[p].displayName === "Level") {
+                  level = clip.components[i].properties[p].getValue();
+                  break;
+                }
+              }
+              break;
+            }
+          }
+          if (level === null) return __error("No volume component - is this an audio clip?");
+          var db = (level > 0) ? (20 * (Math.log(level) / Math.LN10) + ${PREMIERE_MAX_LEVEL_DB}) : null;
+          return __result({ clip: clip.name, level: level, volumeDb: db });
+        `);
+        return sendCommand(script, bridgeOptions);
+      },
+    },
+
+    set_clips_volume: {
+      description:
+        "Set the volume (in dB) on every audio clip of a track, or on a list of clip indices. One round trip instead of one call per clip - essential for sequences with dozens of clips.",
+      parameters: {
+        type: "object" as const,
+        properties: {
+          track_index: {
+            type: "number",
+            description: "Audio track index (0-based)",
+          },
+          volume_db: {
+            type: "number",
+            description:
+              "Volume in dB applied to every selected clip (0 = unity, max +15)",
+          },
+          clip_indices: {
+            type: "array",
+            items: { type: "number" },
+            description:
+              "Optional clip indices on that track. Omit to apply to all clips.",
+          },
+        },
+        required: ["track_index", "volume_db"],
+      },
+      handler: async (args: {
+        track_index: number;
+        volume_db: number;
+        clip_indices?: number[];
+      }) => {
+        const level = dbToPremiereLevel(args.volume_db);
+        const only = Array.isArray(args.clip_indices)
+          ? JSON.stringify(args.clip_indices)
+          : "null";
+        const script = buildToolScript(`
+          var seq = app.project.activeSequence;
+          if (!seq) return __error("No active sequence");
+          if (${args.track_index} >= seq.audioTracks.numTracks)
+            return __error("Track index out of range");
+
+          var track = seq.audioTracks[${args.track_index}];
+          var only = ${only};
+          var wanted = {};
+          if (only) { for (var w = 0; w < only.length; w++) wanted[only[w]] = true; }
+
+          var applied = 0, skipped = 0;
+          for (var c = 0; c < track.clips.numItems; c++) {
+            if (only && !wanted[c]) continue;
+            var clip = track.clips[c], set = false;
+            for (var i = 0; i < clip.components.numItems; i++) {
+              if (clip.components[i].displayName !== "Volume") continue;
+              for (var p = 0; p < clip.components[i].properties.numItems; p++) {
+                if (clip.components[i].properties[p].displayName === "Level") {
+                  clip.components[i].properties[p].setValue(${level}, true);
+                  set = true;
+                  break;
+                }
+              }
+              break;
+            }
+            if (set) applied++; else skipped++;
+          }
+          return __result({
+            trackIndex: ${args.track_index},
+            volumeDb: ${args.volume_db},
+            level: ${level},
+            applied: applied,
+            skipped: skipped
+          });
         `);
         return sendCommand(script, bridgeOptions);
       },
