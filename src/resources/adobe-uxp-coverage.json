@@ -1109,6 +1109,43 @@
       "undoable": true,
       "idempotency": "operation_id",
       "verificationBoundary": "per_item_host_return_or_offline_state_readback"
+    },
+    {
+      "id": "caption-aware-track-mute-state",
+      "adobeApi": [
+        "Sequence.getVideoTrackCount",
+        "Sequence.getAudioTrackCount",
+        "Sequence.getCaptionTrackCount",
+        "Sequence.getVideoTrack",
+        "Sequence.getAudioTrack",
+        "Sequence.getCaptionTrack",
+        "VideoTrack.isMuted",
+        "VideoTrack.setMute",
+        "AudioTrack.isMuted",
+        "AudioTrack.setMute",
+        "CaptionTrack.isMuted",
+        "CaptionTrack.setMute",
+        "EventManager.addEventListener"
+      ],
+      "documentationUrls": [
+        "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/sequence/",
+        "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/videotrack/",
+        "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/audiotrack/",
+        "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/captiontrack/",
+        "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/eventmanager/"
+      ],
+      "minimumPremiereVersion": "25.6.0",
+      "backend": "uxp",
+      "uxpCommand": "track.state.set",
+      "mcpTools": ["manage_track_state_uxp"],
+      "availability": "current",
+      "implementationStatus": "implemented",
+      "verificationStatus": "automated_contract_verified",
+      "liveHostVerificationStatus": "not_run",
+      "mutatesProject": true,
+      "undoable": false,
+      "idempotency": "operation_id",
+      "verificationBoundary": "per_track_mute_readback"
     }
   ]
 }

@@ -201,6 +201,22 @@
         minHostVersion: "25.6.0",
         probe: canMaintainMediaHealth,
         handler: findMediaByPath
+      },
+      "track.state.inspect": {
+        readOnly: true,
+        targetCapabilityProbe: true,
+        minHostVersion: "25.6.0",
+        probe: canManageTrackState,
+        handler: inspectTrackState
+      },
+      "track.state.set": {
+        destructive: true,
+        undoable: false,
+        idempotent: true,
+        targetCapabilityProbe: true,
+        minHostVersion: "25.6.0",
+        probe: canManageTrackState,
+        handler: setTrackState
       }
     };
 
@@ -253,6 +269,16 @@
 
     function canMaintainMediaHealth() {
       return !!(ppro && ppro.ClipProjectItem && typeof ppro.ClipProjectItem.cast === "function");
+    }
+
+    async function canManageTrackState() {
+      if (!canInspectReadiness()) return false;
+      try {
+        const project = await ppro.Project.getActiveProject();
+        const sequence = project && await project.getActiveSequence();
+        return !!(sequence && typeof sequence.getVideoTrackCount === "function" &&
+          typeof sequence.getAudioTrackCount === "function" && typeof sequence.getCaptionTrackCount === "function");
+      } catch (_) { return false; }
     }
 
     async function initialize() {
@@ -899,6 +925,123 @@
           ? String(await clip.getOriginatingProjectPath() || "") : null;
       }
       return result;
+    }
+
+    async function inspectTrackState(args) {
+      assertOnlyKeys(args, ["sequenceId", "expectedSequenceId", "mediaType", "trackIndices"]);
+      const project = await activeProject(true), sequence = await resolveSequence(project, args.sequenceId, true);
+      const sequenceId = guidString(sequence.guid);
+      if (args.expectedSequenceId != null && optionalToken(args.expectedSequenceId, "expectedSequenceId") !== sequenceId) {
+        throw commandError("UXP_STALE_TARGET", "The target sequence changed before track inspection");
+      }
+      const mediaType = trackMediaType(args.mediaType, true);
+      if (mediaType === "all" && args.trackIndices != null) {
+        throw commandError("UXP_INVALID_ARGUMENT", "trackIndices require one explicit mediaType");
+      }
+      const mediaTypes = mediaType === "all" ? ["video", "audio", "caption"] : [mediaType];
+      const tracks = [];
+      for (let i = 0; i < mediaTypes.length; i += 1) {
+        const type = mediaTypes[i], indices = await requestedTrackIndices(sequence, type, args.trackIndices, false);
+        for (let j = 0; j < indices.length; j += 1) tracks.push(await trackStateSnapshot(await trackAt(sequence, type, indices[j]), type, indices[j]));
+      }
+      return { sequenceId, count: tracks.length, tracks, verificationBoundary: "track_mute_readback" };
+    }
+
+    async function setTrackState(args) {
+      assertOnlyKeys(args, ["sequenceId", "expectedSequenceId", "mediaType", "trackIndices", "muted", "expectedMuted", "operationId"]);
+      const project = await activeProject(true), sequence = await resolveSequence(project, args.sequenceId, true);
+      const sequenceId = guidString(sequence.guid);
+      if (args.expectedSequenceId != null && optionalToken(args.expectedSequenceId, "expectedSequenceId") !== sequenceId) {
+        throw commandError("UXP_STALE_TARGET", "The target sequence changed before track mutation");
+      }
+      const mediaType = trackMediaType(args.mediaType, false);
+      if (typeof args.muted !== "boolean") throw commandError("UXP_INVALID_ARGUMENT", "muted must be a boolean");
+      const expectedMuted = optionalExpectedBoolean(args.expectedMuted, "expectedMuted");
+      const indices = await requestedTrackIndices(sequence, mediaType, args.trackIndices, true);
+      const targets = [];
+      for (let i = 0; i < indices.length; i += 1) {
+        const track = await trackAt(sequence, mediaType, indices[i]);
+        if (typeof track.setMute !== "function" || typeof track.isMuted !== "function") {
+          throw commandError("UXP_COMMAND_UNAVAILABLE", "A target track cannot report and set mute state");
+        }
+        const beforeMuted = !!(await track.isMuted());
+        if (expectedMuted != null && beforeMuted !== expectedMuted) {
+          throw commandError("UXP_STALE_TARGET", "A target track changed mute state before dispatch");
+        }
+        targets.push({ track, trackIndex: indices[i], beforeMuted });
+      }
+      const tracks = [];
+      for (let i = 0; i < targets.length; i += 1) {
+        const target = targets[i];
+        try {
+          const accepted = !!(await target.track.setMute(args.muted));
+          const afterMuted = !!(await target.track.isMuted());
+          tracks.push({
+            mediaType, trackIndex: target.trackIndex, beforeMuted: target.beforeMuted,
+            requestedMuted: args.muted, accepted, afterMuted,
+            verified: accepted && afterMuted === args.muted
+          });
+        } catch (error) {
+          tracks.push({
+            mediaType, trackIndex: target.trackIndex, beforeMuted: target.beforeMuted,
+            requestedMuted: args.muted, accepted: false, verified: false,
+            error: error && error.message || String(error)
+          });
+        }
+      }
+      const verified = tracks.filter(function (track) { return track.verified; }).length;
+      return {
+        sequenceId,
+        mediaType,
+        requested: tracks.length,
+        updated: verified,
+        failed: tracks.length - verified,
+        tracks,
+        outcome: verified === tracks.length ? "verified" : verified ? "partial" : "failed",
+        undoable: false,
+        verificationBoundary: "per_track_mute_readback"
+      };
+    }
+
+    function trackMediaType(value, allowAll) {
+      const result = value == null ? (allowAll ? "all" : null) : value;
+      if (result === "video" || result === "audio" || result === "caption" || (allowAll && result === "all")) return result;
+      throw commandError("UXP_INVALID_ARGUMENT", "mediaType must be " + (allowAll ? "all, " : "") + "video, audio, or caption");
+    }
+
+    async function requestedTrackIndices(sequence, mediaType, values, required) {
+      const countMethod = { video: "getVideoTrackCount", audio: "getAudioTrackCount", caption: "getCaptionTrackCount" }[mediaType];
+      const count = Number(await sequence[countMethod]());
+      if (!Number.isInteger(count) || count < 0 || count > 1024) throw commandError("UXP_PROJECT_TOO_LARGE", "Track count is invalid or exceeds 1024");
+      if (values == null) {
+        if (required) throw commandError("UXP_INVALID_ARGUMENT", "trackIndices are required for set");
+        if (count > 64) throw commandError("UXP_PROJECT_TOO_LARGE", "Inspecting all tracks exceeds the 64-track response cap");
+        return Array.from({ length: count }, function (_, index) { return index; });
+      }
+      if (!Array.isArray(values) || !values.length || values.length > 64) {
+        throw commandError("UXP_INVALID_ARGUMENT", "trackIndices must contain 1-64 indices");
+      }
+      const indices = values.map(function (value, index) { return integer(value, "trackIndices[" + index + "]", 0, Math.max(0, count - 1)); });
+      if (new Set(indices).size !== indices.length) throw commandError("UXP_INVALID_ARGUMENT", "trackIndices must be unique");
+      return indices;
+    }
+
+    async function trackAt(sequence, mediaType, index) {
+      const method = { video: "getVideoTrack", audio: "getAudioTrack", caption: "getCaptionTrack" }[mediaType];
+      if (typeof sequence[method] !== "function") throw commandError("UXP_COMMAND_UNAVAILABLE", "This sequence cannot access " + mediaType + " tracks");
+      const track = await sequence[method](index);
+      if (!track) throw commandError("UXP_TARGET_NOT_FOUND", "Track index was not found");
+      return track;
+    }
+
+    async function trackStateSnapshot(track, mediaType, requestedIndex) {
+      return {
+        mediaType,
+        trackIndex: typeof track.getIndex === "function" ? Number(await track.getIndex()) : requestedIndex,
+        trackId: track.id == null ? null : Number(track.id),
+        name: String(track.name || ""),
+        muted: typeof track.isMuted === "function" ? !!(await track.isMuted()) : null
+      };
     }
 
     async function resumeLease(reason, explicitProjectId) {

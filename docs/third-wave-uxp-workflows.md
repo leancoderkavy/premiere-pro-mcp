@@ -124,6 +124,20 @@ documented API has no corresponding set-online action; relink remains a separate
 workspace-gated workflow. Automated contracts do not prove filesystem availability
 or proxy health in a real host.
 
+## PR 8 — Caption-aware track mute state
+
+`manage_track_state_uxp` inspects audio, video, and caption tracks and can set mute
+state for up to 64 tracks of one media type. It resolves an explicit sequence GUID,
+checks an expected sequence and expected mute state before the first call, then uses
+Adobe's direct `setMute()` promises serially and reads back every track. Partial
+acceptance is returned per track; no transaction or undo boundary is claimed.
+
+The panel also binds documented audio/video track change, info, and lock events on
+the active sequence, rebinding after project or sequence lifecycle events. Receipts
+contain only media type and track index. Adobe's `EventManager` target contract does
+not include caption tracks, so caption event coverage is not claimed. Real-host tests
+must validate rebind races, track deletion, and mute behavior on Windows and macOS.
+
 ## Primary Adobe references
 
 - [EventManager](https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/eventmanager/)
