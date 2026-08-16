@@ -420,7 +420,7 @@ describe("stable Premiere UXP workflow expansion", () => {
     })).resolves.toMatchObject({ count: 1, items: [{ mediaType: "audio" }] });
     expect(refreshed.sequence.setSelection).not.toHaveBeenCalled();
     expect(refreshedSequence.setSelection).toHaveBeenCalledTimes(1);
-    expect(refreshedSequence.getSelection).toHaveBeenCalledTimes(2);
+    expect(refreshedSequence.getSelection).toHaveBeenCalledTimes(3);
 
     const switched = stableHost();
     const originalSelection = switched.sequence.getSelection.getMockImplementation();
@@ -453,6 +453,30 @@ describe("stable Premiere UXP workflow expansion", () => {
     })).rejects.toMatchObject({ code: "UXP_STALE_SEQUENCE" });
     expect(switchedDuringPlan.sequence.setSelection).not.toHaveBeenCalled();
     expect(lateInactiveSequence.setSelection).not.toHaveBeenCalled();
+
+    const replacedDuringPlan = stableHost();
+    const getReplacedSelection = replacedDuringPlan.sequence.getSelection.getMockImplementation();
+    const setReplacedSelection = replacedDuringPlan.sequence.setSelection.getMockImplementation();
+    const finalAudioItem = { ...replacedDuringPlan.audioItem };
+    const finalSequence = {
+      ...replacedDuringPlan.sequence,
+      getSelection: vi.fn(() => getReplacedSelection?.()),
+      setSelection: vi.fn((selection: Parameters<typeof replacedDuringPlan.sequence.setSelection>[0]) =>
+        setReplacedSelection?.(selection)),
+      getAudioTrack: vi.fn(async () => ({ getTrackItems: vi.fn(async () => [finalAudioItem]) })),
+    };
+    let replacedSelectionCalls = 0;
+    replacedDuringPlan.sequence.getSelection.mockImplementation(async () => {
+      replacedSelectionCalls += 1;
+      const selection = await getReplacedSelection?.();
+      if (replacedSelectionCalls === 2) replacedDuringPlan.project.getActiveSequence.mockResolvedValue(finalSequence as never);
+      return selection as Awaited<ReturnType<NonNullable<typeof getReplacedSelection>>>;
+    });
+    await expect(replacedDuringPlan.registry.dispatch("selection.update", {
+      mode: "replace", expectedSequenceGuid: "sequence-1", items: [target],
+    })).resolves.toMatchObject({ count: 1, items: [{ mediaType: "audio" }] });
+    expect(replacedDuringPlan.sequence.setSelection).not.toHaveBeenCalled();
+    expect(finalSequence.setSelection).toHaveBeenCalledWith(expect.objectContaining({ items: [finalAudioItem] }));
   });
 
   it("revalidates same-sequence targets and requires native timeline fingerprints", async () => {
@@ -504,7 +528,7 @@ describe("stable Premiere UXP workflow expansion", () => {
     let relativeSelectionCalls = 0;
     relative.sequence.getSelection.mockImplementation(async () => {
       relativeSelectionCalls += 1;
-      if (relativeSelectionCalls === 3) relative.selectAudio();
+      if (relativeSelectionCalls === 4) relative.selectAudio();
       return relativeSelection?.() as ReturnType<NonNullable<typeof relativeSelection>>;
     });
     await expect(relative.registry.dispatch("selection.update", {
@@ -536,6 +560,9 @@ describe("stable Premiere UXP workflow expansion", () => {
     })).rejects.toMatchObject({ code: "UXP_INVALID_ARGUMENT" });
     await expect(invalid.registry.dispatch("selection.update", {
       mode: "clear", expectedSequenceGuid: "sequence-1", items: [target],
+    })).rejects.toMatchObject({ code: "UXP_INVALID_ARGUMENT" });
+    await expect(invalid.registry.dispatch("selection.update", {
+      mode: "clear", expectedSequenceGuid: "sequence-1", items: null,
     })).rejects.toMatchObject({ code: "UXP_INVALID_ARGUMENT" });
     await expect(invalid.registry.dispatch("selection.update", {
       mode: "replace", expectedSequenceGuid: "sequence-1",
