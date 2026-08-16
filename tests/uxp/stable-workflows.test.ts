@@ -209,6 +209,7 @@ function stableHost() {
     ppro, project, sequence, videoItem, audioItem, components, audioComponents, sourceClip, workspace,
     selectedItems: () => [...selectedItems],
     selectMany: (count: number) => { selectedItems = Array.from({ length: count }, () => videoItem); },
+    selectAudio: () => { selectedItems = [audioItem]; },
   };
 }
 
@@ -424,6 +425,24 @@ describe("stable Premiere UXP workflow expansion", () => {
     })).rejects.toMatchObject({ code: "UXP_STALE_SEQUENCE" });
     expect(switched.sequence.setSelection).not.toHaveBeenCalled();
     expect(inactiveSequence.setSelection).not.toHaveBeenCalled();
+
+    const switchedDuringPlan = stableHost();
+    const getPlanningSelection = switchedDuringPlan.sequence.getSelection.getMockImplementation();
+    const lateInactiveSequence = { ...switchedDuringPlan.sequence, guid: "sequence-2", setSelection: vi.fn() };
+    let planningSelectionCalls = 0;
+    switchedDuringPlan.sequence.getSelection.mockImplementation(async () => {
+      planningSelectionCalls += 1;
+      const selection = await getPlanningSelection?.();
+      if (planningSelectionCalls === 2) {
+        switchedDuringPlan.project.getActiveSequence.mockResolvedValue(lateInactiveSequence);
+      }
+      return selection as Awaited<ReturnType<NonNullable<typeof getPlanningSelection>>>;
+    });
+    await expect(switchedDuringPlan.registry.dispatch("selection.update", {
+      mode: "replace", expectedSequenceGuid: "sequence-1", items: [target],
+    })).rejects.toMatchObject({ code: "UXP_STALE_SEQUENCE" });
+    expect(switchedDuringPlan.sequence.setSelection).not.toHaveBeenCalled();
+    expect(lateInactiveSequence.setSelection).not.toHaveBeenCalled();
   });
 
   it("revalidates same-sequence targets and requires native timeline fingerprints", async () => {
@@ -455,6 +474,27 @@ describe("stable Premiere UXP workflow expansion", () => {
     await expect(missingId.registry.dispatch("selection.targets.inspect", {
       items: [{ mediaType: "video", trackIndex: 0, clipIndex: 0 }],
     })).rejects.toMatchObject({ code: "UXP_SELECTION_FINGERPRINT_UNAVAILABLE" });
+
+    const currentUnavailable = stableHost();
+    const currentSourceFallback = vi.fn(async () => ({ seconds: 10 }));
+    Object.assign(currentUnavailable.videoItem, { getInPoint: currentSourceFallback });
+    currentUnavailable.videoItem.getStartTime.mockRejectedValueOnce(new Error("timeline time unavailable"));
+    await expect(currentUnavailable.registry.dispatch("selection.inspect", {}))
+      .rejects.toMatchObject({ code: "UXP_SELECTION_FINGERPRINT_UNAVAILABLE" });
+    expect(currentSourceFallback).not.toHaveBeenCalled();
+
+    const relative = stableHost();
+    const relativeSelection = relative.sequence.getSelection.getMockImplementation();
+    let relativeSelectionCalls = 0;
+    relative.sequence.getSelection.mockImplementation(async () => {
+      relativeSelectionCalls += 1;
+      if (relativeSelectionCalls === 3) relative.selectAudio();
+      return relativeSelection?.() as ReturnType<NonNullable<typeof relativeSelection>>;
+    });
+    await expect(relative.registry.dispatch("selection.update", {
+      mode: "add", expectedSequenceGuid: "sequence-1", items: [target],
+    })).rejects.toMatchObject({ code: "UXP_STALE_SELECTION" });
+    expect(relative.sequence.setSelection).not.toHaveBeenCalled();
   });
 
   it("rejects stale, duplicate, oversized, rejected, and mismatched selection updates", async () => {

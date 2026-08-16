@@ -322,7 +322,7 @@
       assertObject(args); assertOnlyKeys(args, []);
       const context = await activeContext(false), selected = await currentTrackItems(context.sequence, false);
       const classified = await classifySelection(context.sequence, selected.items), items = [];
-      for (const value of classified) items.push(await selectionItemSnapshot(value, true));
+      for (const value of classified) items.push(await selectionFingerprintSnapshot(value, true));
       return { sequenceGuid: activeSequenceGuid(context.sequence), count: items.length, items };
     }
 
@@ -343,30 +343,7 @@
       return { sequenceGuid: activeSequenceGuid(context.sequence), count: items.length, items };
     }
 
-    async function selectionItemSnapshot(value, includeComponentCount) {
-      let projectItem = null, startSeconds = null, endSeconds = null, componentCount = null;
-      try {
-        if (typeof value.item.getProjectItem === "function") {
-          const item = await value.item.getProjectItem();
-          projectItem = { id: await projectItemIdentifier(item), name: String(item && item.name || "") };
-        }
-      } catch (_) {}
-      try { startSeconds = tickSeconds(await value.item.getStartTime()); } catch (_) {
-        try { startSeconds = tickSeconds(await value.item.getInPoint()); } catch (_) {}
-      }
-      try { endSeconds = tickSeconds(await value.item.getEndTime()); } catch (_) {
-        try { endSeconds = tickSeconds(await value.item.getOutPoint()); } catch (_) {}
-      }
-      if (includeComponentCount) {
-        try { componentCount = (await componentChain(value.item)).getComponentCount(); } catch (_) {}
-      }
-      return {
-        selectionIndex: value.selectionIndex, mediaType: value.mediaType, trackIndex: value.trackIndex,
-        clipIndex: value.clipIndex, name: String(value.item.name || ""), startSeconds, endSeconds, componentCount, projectItem
-      };
-    }
-
-    async function selectionFingerprintSnapshot(value) {
+    async function selectionFingerprintSnapshot(value, includeComponentCount) {
       const item = value.item;
       if (!item || typeof item.getProjectItem !== "function" ||
         typeof item.getStartTime !== "function" || typeof item.getEndTime !== "function") {
@@ -384,10 +361,14 @@
       if (!projectItemId || startSeconds == null || endSeconds == null) {
         throw commandError("UXP_SELECTION_FINGERPRINT_UNAVAILABLE", "Timeline item " + value.selectionIndex + " returned an incomplete mutation fingerprint");
       }
+      let componentCount = null;
+      if (includeComponentCount) {
+        try { componentCount = (await componentChain(item)).getComponentCount(); } catch (_) {}
+      }
       return {
         selectionIndex: value.selectionIndex, mediaType: value.mediaType, trackIndex: value.trackIndex,
         clipIndex: value.clipIndex, name: String(item.name || ""), startSeconds, endSeconds,
-        componentCount: null, projectItem: { id: projectItemId, name: String(projectItem && projectItem.name || "") }
+        componentCount, projectItem: { id: projectItemId, name: String(projectItem && projectItem.name || "") }
       };
     }
 
@@ -406,6 +387,17 @@
       const plan = await planSelectionUpdate(mutationContext.sequence, input);
       const beforeSelection = plan.beforeSelection, before = plan.before;
       const desiredItems = plan.desiredItems, desired = plan.desired;
+      if (input.mode === "add" || input.mode === "remove") {
+        const currentBase = await selectionSnapshot(mutationContext.sequence, false);
+        const plannedKeys = before ? selectionSnapshotKeys(before.items) : [];
+        if (!before || !sameStringArrays(plannedKeys, selectionSnapshotKeys(currentBase.items))) {
+          throw commandError("UXP_STALE_SELECTION", "The current timeline selection changed while the update was being prepared; inspect it again before updating it");
+        }
+      }
+      const commitContext = await activeContext(false), commitSequenceGuid = activeSequenceGuid(commitContext.sequence);
+      if (!commitSequenceGuid || input.expectedSequenceGuid !== commitSequenceGuid) {
+        throw commandError("UXP_STALE_SEQUENCE", "The active sequence changed; inspect the timeline selection again before updating it");
+      }
       if (desiredItems.length) {
         const selection = createEmptyTrackItemSelection();
         for (const item of desiredItems) {
@@ -413,14 +405,14 @@
             throw commandError("UXP_SELECTION_REJECTED", "Premiere rejected a clip while constructing the timeline selection");
           }
         }
-        const set = await hostBoolean(mutationContext.sequence.setSelection(selection));
+        const set = await hostBoolean(commitContext.sequence.setSelection(selection));
         if (!set) throw commandError("UXP_SELECTION_REJECTED", "Premiere did not accept the requested timeline selection");
       } else {
-        const cleared = await hostBoolean(mutationContext.sequence.clearSelection());
+        const cleared = await hostBoolean(commitContext.sequence.clearSelection());
         if (!cleared) throw commandError("UXP_SELECTION_REJECTED", "Premiere did not clear the timeline selection");
       }
 
-      const after = await selectionSnapshot(mutationContext.sequence);
+      const after = await selectionSnapshot(commitContext.sequence);
       assertClassifiedSelection(after.classified, "Premiere returned an unclassified timeline item after the selection update");
       const expectedKeys = selectionSnapshotKeys(desired.items), actualKeys = selectionSnapshotKeys(after.items);
       if (!sameStringArrays(expectedKeys, actualKeys)) {
@@ -509,8 +501,8 @@
       return result;
     }
 
-    async function selectionSnapshot(sequence) {
-      const selected = await currentTrackItems(sequence, false);
+    async function selectionSnapshot(sequence, enforceLimit) {
+      const selected = await currentTrackItems(sequence, false, enforceLimit);
       return itemSelectionSnapshot(sequence, selected.items);
     }
 
