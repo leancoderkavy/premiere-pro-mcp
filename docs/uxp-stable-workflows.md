@@ -15,7 +15,7 @@ discipline, selection performance, readback evidence, and filesystem authority.
 It does not remove or silently replace the production CEP path. A failed UXP
 mutation is returned to the caller and is never replayed automatically through CEP.
 
-The public MCP surface adds ten consolidated tools. Each maps to smaller protocol
+The public MCP surface adds eleven consolidated tools. Each maps to smaller protocol
 commands so `capabilities.get` can report the exact methods available in the running
 Premiere build.
 
@@ -23,6 +23,7 @@ Premiere build.
 | --- | --- | --- | --- |
 | Native effects pipeline | `manage_clip_effects_uxp` | `effects.catalog`, `effects.chain.get`, `effects.chain.add`, `effects.chain.remove` | Effect catalog allowlist; component-chain count and component readback after an action transaction |
 | Selection compound batch | `batch_selected_clips_uxp` | `selection.inspect`, `effects.selection.add`, `effects.selection.remove` | Preflight all selected items, then commit one action group and read every chain count back |
+| Deterministic timeline selection | `manage_timeline_selection_uxp` | `selection.fingerprints.inspect`, `selection.targets.inspect`, `selection.update` | Current or coordinate-resolved clips return active-sequence GUID and project-item/time fingerprints; mutations check them before one native selection update and exact readback |
 | Scene-edit detection | `detect_scene_edits_uxp` | `sceneEdit.detect` | Adobe host return plus selected-item count; no Undo or detection-count claim |
 | Proxy and ingest controller | `manage_proxy_ingest_uxp` | `proxy.inspect`, `proxy.attach`, `ingest.get`, `ingest.configure` | Proxy path/attachment readback; ingest state readback after transaction |
 | Offline relink repair | `relink_offline_media_uxp` | `media.relink` | Expected old path, offline default, capability check, then media-path and online-state readback |
@@ -38,6 +39,10 @@ Premiere build.
   of traversing the project tree. Classification reads only each selected item's
   reported track and caches repeated track lookups. Batches are capped at 64 clips
   and reject mixed or unclassified media types before creating any action.
+- Selection management resolves every requested video/audio clip before changing
+  host state, caps the resulting set at 64 clips, and rejects changed sequence,
+  project-item, or timeline-time fingerprints. It accepts both the Promise form of
+  `Sequence.setSelection()` in 25.6-26.2 and the synchronous boolean form in 26.3.
 - Effect factories run during preflight. All component-chain actions are created
   synchronously inside `Project.lockedAccess()` and consumed by one
   `Project.executeTransaction()` call.
@@ -116,6 +121,26 @@ Audio additions accept only a display name returned by `AudioFilterFactory`.
 Every selection entry must resolve to the requested media type. Validation and
 component creation complete before the single mutation transaction begins.
 
+### `manage_timeline_selection_uxp`
+
+- `inspect`: return the active sequence GUID and zero to 64 current video/audio
+  selection entries, including track/clip coordinates, project-item ID, and start/end
+  seconds.
+- `inspect_targets`: resolve one to 64 unselected or selected video/audio
+  `selection_targets` by track/clip coordinate and return the same mutation-ready
+  fingerprints without changing selection.
+- `replace`, `add`, and `remove`: require `expected_sequence_guid` plus one to 64
+  `selection_items` copied from a recent `inspect` or `inspect_targets` result.
+- `clear`: require `expected_sequence_guid` and omit `selection_items`.
+
+All mutation targets are resolved and fingerprinted before the single native
+selection call. The command rebuilds the desired selection with
+`TrackItemSelection.createEmptySelection()` and `addItem()`, or calls
+`Sequence.clearSelection()` for an empty result. It then reads the selected set back
+and rejects mismatches. Timeline selection changes are not project mutations and do
+not claim Premiere Undo support; mutation actions still require MCP `edit` authority
+and may use `operation_id` replay protection.
+
 ### `detect_scene_edits_uxp`
 
 `mode` is `apply_cuts`, `create_markers`, or `create_subclips`. The command passes
@@ -157,11 +182,11 @@ claim that UXP exposes an equivalent Production mutation API.
 
 ## Automated evidence
 
-- `tests/uxp/stable-workflows.test.ts` exercises all ten host workflows against a
+- `tests/uxp/stable-workflows.test.ts` exercises all eleven host workflows against a
   deterministic mock Premiere surface, including transaction and readback behavior.
 - `tests/uxp/workspace.test.ts` exercises token persistence, path normalization,
   containment, redaction, restore, and revoke behavior.
-- `tests/tools/uxp-workflows.test.ts` checks the ten public schemas and snake-case to
+- `tests/tools/uxp-workflows.test.ts` checks the eleven public schemas and snake-case to
   protocol argument translation.
 - `tests/adobe-uxp-coverage.test.ts` keeps the official-source coverage manifest
   machine validated.
@@ -176,25 +201,29 @@ Premiere versions and record the host version and artifact hash. At minimum:
 
 1. Add, insert, and remove representative video and audio effects; inspect results
    and verify one Undo removes the whole selection batch.
-2. Run every scene-detection mode on known footage and record created objects.
-3. Attach proxy and high-resolution media, toggle ingest, and validate persistence
+2. Inspect an empty selection, then replace, add, remove, and clear mixed video/audio
+   clip selections. Repeat on 25.6 and 26.3 to cover both `setSelection` return forms,
+   and confirm stale sequence and clip fingerprints fail before changing selection.
+3. Run every scene-detection mode on known footage and record created objects.
+4. Attach proxy and high-resolution media, toggle ingest, and validate persistence
    across save/reopen.
-4. Relink an intentionally offline item with and without compatibility override.
-5. Round-trip representative project metadata and XMP, including Unicode and an
+5. Relink an intentionally offline item with and without compatibility override.
+6. Round-trip representative project metadata and XMP, including Unicode and an
    unchanged-field case; verify Undo.
-6. Conform frame rate, PAR, alpha/field settings, and input LUT; verify both
+7. Conform frame rate, PAR, alpha/field settings, and input LUT; verify both
    readback and Undo.
-7. Open project items and workspace files in Source Monitor, seek, play forward and
+8. Open project items and workspace files in Source Monitor, seek, play forward and
    reverse, and close them.
-8. Exercise project scratch settings both inside and outside a Production and
+9. Exercise project scratch settings both inside and outside a Production and
    verify Undo and saved state.
-9. Revoke the workspace token and confirm every path-based call fails before a host
+10. Revoke the workspace token and confirm every path-based call fails before a host
    mutation; re-grant after restart and confirm restoration.
 
 ## Primary Adobe references
 
 - [Premiere UXP changelog](https://developer.adobe.com/premiere-pro/uxp/changelog/)
 - [Component and effect APIs](https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/videocomponentchain/)
+- [Sequence selection controls](https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/sequence/)
 - [TrackItemSelection](https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/trackitemselection/)
 - [SequenceUtils scene detection](https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/sequenceutils/)
 - [ClipProjectItem proxy, relink, LUT, and footage APIs](https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/clipprojectitem/)

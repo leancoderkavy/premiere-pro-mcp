@@ -48,7 +48,9 @@ describe("UXP tool handler coverage", () => {
 
   for (const [name, tool] of Object.entries(tools)) {
     it.each([["required", false], ["all", true]])(`${name} handles %s arguments`, async (_label, all) => {
-      const result = await tool.handler(argsFor(tool.parameters, all));
+      const args = argsFor(tool.parameters, all);
+      if (name === "manage_timeline_selection_uxp" && all) args.action = "replace";
+      const result = await tool.handler(args);
       expect(result).toBeDefined();
       if (name === "get_uxp_capabilities") expect(getState).toHaveBeenCalled();
       else expect(request).toHaveBeenCalled();

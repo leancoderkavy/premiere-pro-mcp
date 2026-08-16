@@ -6,6 +6,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+
+- Added deterministic native UXP timeline-selection and arbitrary target inspection,
+  plus guarded replace/add/remove/clear actions with sequence and clip fingerprints,
+  replay protection, and exact selection readback. Live Premiere verification
+  remains pending.
+
 ## [1.9.3] - 2026-08-12
 
 ### Added

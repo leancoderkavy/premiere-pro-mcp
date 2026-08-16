@@ -5,6 +5,7 @@ import type { UxpWebSocketBridge } from "../../src/bridge/uxp-websocket-bridge.j
 const WORKFLOW_TOOLS = [
   "manage_clip_effects_uxp",
   "batch_selected_clips_uxp",
+  "manage_timeline_selection_uxp",
   "detect_scene_edits_uxp",
   "manage_proxy_ingest_uxp",
   "relink_offline_media_uxp",
@@ -16,7 +17,7 @@ const WORKFLOW_TOOLS = [
 ] as const;
 
 describe("stable UXP workflow MCP catalog", () => {
-  it("publishes exactly the ten researched workflow entrypoints with bounded schemas", () => {
+  it("publishes the researched workflow entrypoints with bounded schemas", () => {
     const bridge = { request: vi.fn(), getState: vi.fn() } as unknown as UxpWebSocketBridge;
     const tools = getUxpTools(bridge) as Record<string, { parameters: Record<string, unknown> }>;
     expect(Object.keys(tools)).toEqual(expect.arrayContaining(WORKFLOW_TOOLS));
@@ -47,6 +48,82 @@ describe("stable UXP workflow MCP catalog", () => {
         project_item_name: { minLength: 1, maxLength: 255 },
       },
     });
+    expect(tools.manage_timeline_selection_uxp.parameters).toMatchObject({
+      required: ["action"],
+      properties: {
+        action: { enum: ["inspect", "inspect_targets", "replace", "add", "remove", "clear"] },
+        selection_targets: {
+          minItems: 1, maxItems: 64,
+          items: { required: ["media_type", "track_index", "clip_index"] },
+        },
+        expected_sequence_guid: { minLength: 1, maxLength: 512 },
+        selection_items: {
+          minItems: 1, maxItems: 64,
+          items: {
+            additionalProperties: false,
+            required: [
+              "media_type", "track_index", "clip_index", "expected_project_item_id",
+              "expected_start_seconds", "expected_end_seconds",
+            ],
+          },
+        },
+      },
+    });
+  });
+
+  it("maps timeline selection inspection and guarded mutations", async () => {
+    const request = vi.fn().mockResolvedValue({ outcome: "verified" });
+    const bridge = { request, getState: vi.fn() } as unknown as UxpWebSocketBridge;
+    const tools = getUxpTools(bridge);
+
+    await tools.manage_timeline_selection_uxp.handler({ action: "inspect" });
+    await tools.manage_timeline_selection_uxp.handler({
+      action: "inspect_targets",
+      selection_targets: [{ media_type: "audio", track_index: 0, clip_index: 4 }],
+    });
+    await tools.manage_timeline_selection_uxp.handler({
+      action: "replace", expected_sequence_guid: "sequence-1", operation_id: "selection-1",
+      selection_items: [{
+        media_type: "video", track_index: 1, clip_index: 2,
+        expected_project_item_id: "clip-17", expected_start_seconds: 3.25, expected_end_seconds: 7.5,
+      }],
+    });
+    await tools.manage_timeline_selection_uxp.handler({
+      action: "clear", expected_sequence_guid: "sequence-1", operation_id: "selection-2",
+    });
+
+    expect(request).toHaveBeenNthCalledWith(1, "selection.fingerprints.inspect", {});
+    expect(request).toHaveBeenNthCalledWith(2, "selection.targets.inspect", {
+      items: [{ mediaType: "audio", trackIndex: 0, clipIndex: 4 }],
+    });
+    expect(request).toHaveBeenNthCalledWith(3, "selection.update", {
+      mode: "replace", expectedSequenceGuid: "sequence-1", operationId: "selection-1",
+      items: [{
+        mediaType: "video", trackIndex: 1, clipIndex: 2,
+        expectedProjectItemId: "clip-17", expectedStartSeconds: 3.25, expectedEndSeconds: 7.5,
+      }],
+    });
+    expect(request).toHaveBeenNthCalledWith(4, "selection.update", {
+      mode: "clear", expectedSequenceGuid: "sequence-1", operationId: "selection-2",
+    });
+  });
+
+  it("rejects incomplete timeline selection mutations before bridge access", async () => {
+    const request = vi.fn();
+    const bridge = { request, getState: vi.fn() } as unknown as UxpWebSocketBridge;
+    const tools = getUxpTools(bridge);
+
+    await expect(tools.manage_timeline_selection_uxp.handler({ action: "clear" }))
+      .resolves.toMatchObject({ success: false, error: expect.stringContaining("expected_sequence_guid") });
+    await expect(tools.manage_timeline_selection_uxp.handler({ action: "inspect_targets" }))
+      .resolves.toMatchObject({ success: false, error: expect.stringContaining("selection_targets") });
+    await expect(tools.manage_timeline_selection_uxp.handler({
+      action: "replace", expected_sequence_guid: "sequence-1",
+    })).resolves.toMatchObject({ success: false, error: expect.stringContaining("selection_items") });
+    await expect(tools.manage_timeline_selection_uxp.handler({
+      action: "clear", expected_sequence_guid: "sequence-1", selection_items: [],
+    })).resolves.toMatchObject({ success: false, error: expect.stringContaining("omitted") });
+    expect(request).not.toHaveBeenCalled();
   });
 
   it("rejects incomplete storage configuration and preserves explicit empty selectors", async () => {
@@ -127,13 +204,14 @@ describe("stable UXP workflow MCP catalog", () => {
     const results = await Promise.all([
       tools.manage_clip_effects_uxp.handler({ action: "unsupported" }),
       tools.batch_selected_clips_uxp.handler({ action: "unsupported" }),
+      tools.manage_timeline_selection_uxp.handler({ action: "unsupported" }),
       tools.manage_proxy_ingest_uxp.handler({ action: "unsupported" }),
       tools.manage_metadata_uxp.handler({ action: "unsupported" }),
       tools.manage_color_conformance_uxp.handler({ action: "unsupported" }),
       tools.audition_source_monitor_uxp.handler({ action: "unsupported" }),
     ]);
 
-    expect(results).toEqual(Array.from({ length: 6 }, () => ({
+    expect(results).toEqual(Array.from({ length: 7 }, () => ({
       success: false,
       error: "Unsupported workflow action: unsupported",
     })));

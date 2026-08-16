@@ -82,6 +82,8 @@ describe("capability profiles", () => {
   it.each([
     ["manage_clip_effects_uxp", "catalog"],
     ["batch_selected_clips_uxp", "inspect"],
+    ["manage_timeline_selection_uxp", "inspect"],
+    ["manage_timeline_selection_uxp", "inspect_targets"],
     ["manage_proxy_ingest_uxp", "inspect_proxy"],
     ["manage_metadata_uxp", "get"],
     ["manage_color_conformance_uxp", "preflight"],
@@ -103,6 +105,8 @@ describe("capability profiles", () => {
   it.each([
     ["manage_clip_effects_uxp", "add", ["edit"]],
     ["batch_selected_clips_uxp", "remove_effect", ["edit"]],
+    ["manage_timeline_selection_uxp", "replace", ["edit"]],
+    ["manage_timeline_selection_uxp", "clear", ["edit"]],
     ["manage_metadata_uxp", "update", ["edit"]],
     ["manage_color_conformance_uxp", "update", ["edit"]],
     ["preflight_production_storage_uxp", "configure_project", ["edit"]],

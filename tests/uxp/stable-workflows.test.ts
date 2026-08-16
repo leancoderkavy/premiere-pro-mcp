@@ -86,10 +86,34 @@ function stableHost() {
   };
   const videoTrack = { getTrackItems: vi.fn(async () => [videoItem]) };
   const audioTrack = { getTrackItems: vi.fn(async () => [audioItem]) };
-  const selection = { getTrackItems: vi.fn(async () => [videoItem]) };
+  type MockTrackItem = typeof videoItem | typeof audioItem;
+  let selectedItems: MockTrackItem[] = [videoItem];
+  const makeSelection = (initial: MockTrackItem[]) => {
+    const items = [...initial];
+    return {
+      items,
+      addItem: vi.fn((item: MockTrackItem, skipDuplicateCheck = false) => {
+        if (!skipDuplicateCheck && items.includes(item)) return false;
+        items.push(item);
+        return true;
+      }),
+      removeItem: vi.fn((item: MockTrackItem) => {
+        const index = items.indexOf(item);
+        if (index < 0) return false;
+        items.splice(index, 1);
+        return true;
+      }),
+      getTrackItems: vi.fn(async () => [...items]),
+    };
+  };
   const sequence = {
     guid: "sequence-1",
-    getSelection: vi.fn(async () => selection),
+    getSelection: vi.fn(async () => makeSelection(selectedItems)),
+    setSelection: vi.fn((selection: ReturnType<typeof makeSelection>) => {
+      selectedItems = [...selection.items];
+      return true;
+    }),
+    clearSelection: vi.fn(async () => { selectedItems = []; return true; }),
     getVideoTrackCount: vi.fn(async () => 1),
     getVideoTrack: vi.fn(async () => videoTrack),
     getAudioTrackCount: vi.fn(async () => 1),
@@ -125,6 +149,12 @@ function stableHost() {
     ClipProjectItem: { cast: vi.fn((item: { isClip?: boolean }) => { if (!item.isClip) throw new Error("not clip"); return item; }) },
     FolderItem: { cast: vi.fn((item: { isFolder?: boolean }) => { if (!item.isFolder) throw new Error("not folder"); return item; }) },
     ProjectUtils: { getSelection: vi.fn(async () => ({ getItems: vi.fn(async () => [sourceClip]) })) },
+    TrackItemSelection: {
+      createEmptySelection: vi.fn((callback: (selection: ReturnType<typeof makeSelection>) => void) => {
+        callback(makeSelection([]));
+        return true;
+      }),
+    },
     Constants: {
       TrackItemType: { CLIP: 1 },
       ScratchDiskFolderType: { CAPTURE: 0, AUDIO_PREVIEW: 1, VIDEO_PREVIEW: 2, AUTO_SAVE: 3, CCL_LIBRARIES: 4, CAPSULE_MEDIA: 5 },
@@ -176,7 +206,10 @@ function stableHost() {
   };
   return {
     registry: Commands.createCommandRegistry({ ppro, Protocol, workspace }),
-    ppro, project, components, audioComponents, sourceClip, workspace,
+    ppro, project, sequence, videoItem, audioItem, components, audioComponents, sourceClip, workspace,
+    selectedItems: () => [...selectedItems],
+    selectMany: (count: number) => { selectedItems = Array.from({ length: count }, () => videoItem); },
+    selectAudio: () => { selectedItems = [audioItem]; },
   };
 }
 
@@ -185,13 +218,20 @@ describe("stable Premiere UXP workflow expansion", () => {
     const value = stableHost();
     const capabilities = await value.registry.capabilities();
     expect(Object.keys(capabilities.commands)).toEqual(expect.arrayContaining([
-      "effects.catalog", "effects.chain.add", "selection.inspect", "effects.selection.add",
+      "effects.catalog", "effects.chain.add", "selection.inspect", "selection.fingerprints.inspect", "selection.targets.inspect", "selection.update", "effects.selection.add",
       "sceneEdit.detect", "proxy.attach", "ingest.configure", "media.relink",
       "metadata.update", "color.preflight", "footage.conform", "sourceMonitor.open",
       "storage.preflight", "scratch.configure", "workspace.status",
     ]));
     expect(capabilities.commands["effects.selection.add"]).toMatchObject({
       supported: true, documented: true, destructive: true, undoable: true,
+    });
+    expect(capabilities.commands["selection.update"]).toMatchObject({
+      supported: true, documented: true, readOnly: false, destructive: false,
+      undoable: false, idempotent: true, minHostVersion: "25.6.0",
+    });
+    expect(capabilities.commands["selection.targets.inspect"]).toMatchObject({
+      supported: true, documented: true, readOnly: true, targetCapabilityProbe: "invocation",
     });
     expect(capabilities.commands["media.relink"]).toMatchObject({
       supported: true, undoable: false, workspaceRequired: true, targetCapabilityProbe: "invocation",
@@ -220,6 +260,30 @@ describe("stable Premiere UXP workflow expansion", () => {
     expect(withoutCloseAll.commands["sourceMonitor.close"]).toMatchObject({ supported: false });
   });
 
+  it("keeps selection inspection available when mutation APIs are unavailable", async () => {
+    const missingFactory = stableHost();
+    Reflect.deleteProperty(missingFactory.ppro.TrackItemSelection, "createEmptySelection");
+    const withoutFactory = await missingFactory.registry.capabilities();
+    expect(withoutFactory.commands["selection.inspect"]).toMatchObject({ supported: true, readOnly: true });
+    expect(withoutFactory.commands["selection.update"]).toMatchObject({ supported: false, readOnly: false });
+
+    const missingSet = stableHost();
+    Reflect.deleteProperty(missingSet.sequence, "setSelection");
+    const withoutSet = await missingSet.registry.capabilities();
+    expect(withoutSet.commands["selection.inspect"]).toMatchObject({ supported: true });
+    expect(withoutSet.commands["selection.update"]).toMatchObject({ supported: false });
+
+    const noProject = stableHost();
+    noProject.ppro.Project.getActiveProject.mockResolvedValue(null as never);
+    const withoutProject = await noProject.registry.capabilities();
+    expect(withoutProject.commands["selection.update"]).toMatchObject({ supported: true });
+
+    const noSequence = stableHost();
+    noSequence.project.getActiveSequence.mockResolvedValue(null as never);
+    const withoutSequence = await noSequence.registry.capabilities();
+    expect(withoutSequence.commands["selection.update"]).toMatchObject({ supported: true });
+  });
+
   it("runs native effect and selection batches as verified action transactions", async () => {
     const value = stableHost();
     await expect(value.registry.dispatch("effects.catalog", { mediaType: "all" })).resolves.toMatchObject({
@@ -246,6 +310,402 @@ describe("stable Premiere UXP workflow expansion", () => {
     expect(value.project.executeTransaction).toHaveBeenCalledTimes(4);
     expect(value.components).toHaveLength(2);
     expect(value.audioComponents).toHaveLength(2);
+  });
+
+  it("constructs, updates, clears, and replays deterministic timeline selections", async () => {
+    const value = stableHost();
+    const video = {
+      mediaType: "video", trackIndex: 0, clipIndex: 0, expectedProjectItemId: "source-1",
+      expectedStartSeconds: 10, expectedEndSeconds: 20,
+    };
+    const audio = {
+      mediaType: "audio", trackIndex: 0, clipIndex: 0, expectedProjectItemId: "source-1",
+      expectedStartSeconds: 10, expectedEndSeconds: 20,
+    };
+
+    await expect(value.registry.dispatch("selection.fingerprints.inspect", {})).resolves.toMatchObject({
+      sequenceGuid: "sequence-1", count: 1,
+      items: [{ mediaType: "video", projectItem: { id: "source-1" }, startSeconds: 10, endSeconds: 20 }],
+    });
+    await expect(value.registry.dispatch("selection.targets.inspect", {
+      items: [
+        { mediaType: "video", trackIndex: 0, clipIndex: 0 },
+        { mediaType: "audio", trackIndex: 0, clipIndex: 0 },
+      ],
+    })).resolves.toMatchObject({
+      sequenceGuid: "sequence-1", count: 2,
+      items: [
+        { targetIndex: 0, mediaType: "video", projectItem: { id: "source-1" }, startSeconds: 10, endSeconds: 20 },
+        { targetIndex: 1, mediaType: "audio", projectItem: { id: "source-1" }, startSeconds: 10, endSeconds: 20 },
+      ],
+    });
+    await expect(value.registry.dispatch("selection.update", {
+      mode: "replace", expectedSequenceGuid: "sequence-1", items: [video, audio], operationId: "selection-1",
+    })).resolves.toMatchObject({
+      updated: true, changed: true, mode: "replace", count: 2, outcome: "verified",
+      verified: "timeline_selection_readback",
+      operation: { mutatesProject: false, undo: { supported: false } },
+    });
+    await expect(value.registry.dispatch("selection.update", {
+      mode: "replace", expectedSequenceGuid: "sequence-1", items: [video, audio], operationId: "selection-1",
+    })).resolves.toMatchObject({ replayed: true, count: 2 });
+    expect(value.sequence.setSelection).toHaveBeenCalledTimes(1);
+
+    await expect(value.registry.dispatch("selection.update", {
+      mode: "remove", expectedSequenceGuid: "sequence-1", items: [video], operationId: "selection-2",
+    })).resolves.toMatchObject({ count: 1, items: [{ mediaType: "audio" }] });
+    await expect(value.registry.dispatch("selection.update", {
+      mode: "add", expectedSequenceGuid: "sequence-1", items: [video], operationId: "selection-3",
+    })).resolves.toMatchObject({ count: 2 });
+    await expect(value.registry.dispatch("selection.update", {
+      mode: "clear", expectedSequenceGuid: "sequence-1", operationId: "selection-4",
+    })).resolves.toMatchObject({ count: 0, items: [] });
+    await expect(value.registry.dispatch("selection.fingerprints.inspect", {})).resolves.toMatchObject({ count: 0, items: [] });
+    expect(value.selectedItems()).toEqual([]);
+  });
+
+  it("supports the pre-26.3 Promise form of Sequence.setSelection", async () => {
+    const value = stableHost();
+    const implementation = value.sequence.setSelection.getMockImplementation();
+    value.sequence.setSelection.mockImplementation(((selection: unknown) =>
+      Promise.resolve(implementation?.(selection as never))) as never);
+
+    await expect(value.registry.dispatch("selection.update", {
+      mode: "replace", expectedSequenceGuid: "sequence-1", operationId: "selection-async",
+      items: [{
+        mediaType: "audio", trackIndex: 0, clipIndex: 0, expectedProjectItemId: "source-1",
+        expectedStartSeconds: 10, expectedEndSeconds: 20,
+      }],
+    })).resolves.toMatchObject({ count: 1, items: [{ mediaType: "audio" }] });
+  });
+
+  it("enumerates each target track once per selection resolution", async () => {
+    const value = stableHost();
+    const audioTrack = await value.sequence.getAudioTrack(0);
+    const secondAudioItem = {
+      ...value.audioItem,
+      name: "Interview A 2",
+      getStartTime: vi.fn(async () => ({ seconds: 30 })),
+      getEndTime: vi.fn(async () => ({ seconds: 40 })),
+    };
+    audioTrack.getTrackItems.mockResolvedValue([value.audioItem, secondAudioItem]);
+    audioTrack.getTrackItems.mockClear();
+
+    await expect(value.registry.dispatch("selection.targets.inspect", {
+      items: [
+        { mediaType: "audio", trackIndex: 0, clipIndex: 0 },
+        { mediaType: "audio", trackIndex: 0, clipIndex: 1 },
+      ],
+    })).resolves.toMatchObject({
+      count: 2,
+      items: [
+        { targetIndex: 0, startSeconds: 10, endSeconds: 20 },
+        { targetIndex: 1, startSeconds: 30, endSeconds: 40 },
+      ],
+    });
+    expect(audioTrack.getTrackItems).toHaveBeenCalledTimes(1);
+  });
+
+  it("clears or replaces a manual selection larger than the mutation limit", async () => {
+    const target = {
+      mediaType: "audio", trackIndex: 0, clipIndex: 0, expectedProjectItemId: "source-1",
+      expectedStartSeconds: 10, expectedEndSeconds: 20,
+    };
+    const cleared = stableHost();
+    cleared.selectMany(65);
+    await expect(cleared.registry.dispatch("selection.update", {
+      mode: "clear", expectedSequenceGuid: "sequence-1",
+    })).resolves.toMatchObject({ changed: true, count: 0, items: [] });
+
+    const replaced = stableHost();
+    replaced.selectMany(65);
+    await expect(replaced.registry.dispatch("selection.update", {
+      mode: "replace", expectedSequenceGuid: "sequence-1", items: [target],
+    })).resolves.toMatchObject({ changed: true, count: 1, items: [{ mediaType: "audio" }] });
+  });
+
+  it("revalidates and uses the active sequence immediately before selection mutation", async () => {
+    const target = {
+      mediaType: "audio", trackIndex: 0, clipIndex: 0, expectedProjectItemId: "source-1",
+      expectedStartSeconds: 10, expectedEndSeconds: 20,
+    };
+    const refreshed = stableHost();
+    const getSelection = refreshed.sequence.getSelection.getMockImplementation();
+    const setSelection = refreshed.sequence.setSelection.getMockImplementation();
+    const refreshedSequence = {
+      ...refreshed.sequence,
+      getSelection: vi.fn(() => getSelection?.()),
+      setSelection: vi.fn((selection: Parameters<typeof refreshed.sequence.setSelection>[0]) => setSelection?.(selection)),
+    };
+    refreshed.sequence.getSelection.mockImplementationOnce(async () => {
+      const selection = await getSelection?.();
+      refreshed.project.getActiveSequence.mockResolvedValue(refreshedSequence);
+      return selection as Awaited<ReturnType<NonNullable<typeof getSelection>>>;
+    });
+    await expect(refreshed.registry.dispatch("selection.update", {
+      mode: "replace", expectedSequenceGuid: "sequence-1", items: [target],
+    })).resolves.toMatchObject({ count: 1, items: [{ mediaType: "audio" }] });
+    expect(refreshed.sequence.setSelection).not.toHaveBeenCalled();
+    expect(refreshedSequence.setSelection).toHaveBeenCalledTimes(1);
+    expect(refreshedSequence.getSelection).toHaveBeenCalledTimes(4);
+
+    const switched = stableHost();
+    const originalSelection = switched.sequence.getSelection.getMockImplementation();
+    const inactiveSequence = { ...switched.sequence, guid: "sequence-2", setSelection: vi.fn() };
+    switched.sequence.getSelection.mockImplementationOnce(async () => {
+      const selection = await originalSelection?.();
+      switched.project.getActiveSequence.mockResolvedValue(inactiveSequence);
+      return selection as Awaited<ReturnType<NonNullable<typeof originalSelection>>>;
+    });
+    await expect(switched.registry.dispatch("selection.update", {
+      mode: "replace", expectedSequenceGuid: "sequence-1", items: [target],
+    })).rejects.toMatchObject({ code: "UXP_STALE_SEQUENCE" });
+    expect(switched.sequence.setSelection).not.toHaveBeenCalled();
+    expect(inactiveSequence.setSelection).not.toHaveBeenCalled();
+
+    const switchedDuringPlan = stableHost();
+    const getPlanningSelection = switchedDuringPlan.sequence.getSelection.getMockImplementation();
+    const lateInactiveSequence = { ...switchedDuringPlan.sequence, guid: "sequence-2", setSelection: vi.fn() };
+    let planningSelectionCalls = 0;
+    switchedDuringPlan.sequence.getSelection.mockImplementation(async () => {
+      planningSelectionCalls += 1;
+      const selection = await getPlanningSelection?.();
+      if (planningSelectionCalls === 2) {
+        switchedDuringPlan.project.getActiveSequence.mockResolvedValue(lateInactiveSequence);
+      }
+      return selection as Awaited<ReturnType<NonNullable<typeof getPlanningSelection>>>;
+    });
+    await expect(switchedDuringPlan.registry.dispatch("selection.update", {
+      mode: "replace", expectedSequenceGuid: "sequence-1", items: [target],
+    })).rejects.toMatchObject({ code: "UXP_STALE_SEQUENCE" });
+    expect(switchedDuringPlan.sequence.setSelection).not.toHaveBeenCalled();
+    expect(lateInactiveSequence.setSelection).not.toHaveBeenCalled();
+
+    const replacedDuringPlan = stableHost();
+    const getReplacedSelection = replacedDuringPlan.sequence.getSelection.getMockImplementation();
+    const setReplacedSelection = replacedDuringPlan.sequence.setSelection.getMockImplementation();
+    const finalAudioItem = { ...replacedDuringPlan.audioItem };
+    const finalSequence = {
+      ...replacedDuringPlan.sequence,
+      getSelection: vi.fn(() => getReplacedSelection?.()),
+      setSelection: vi.fn((selection: Parameters<typeof replacedDuringPlan.sequence.setSelection>[0]) =>
+        setReplacedSelection?.(selection)),
+      getAudioTrack: vi.fn(async () => ({ getTrackItems: vi.fn(async () => [finalAudioItem]) })),
+    };
+    let replacedSelectionCalls = 0;
+    replacedDuringPlan.sequence.getSelection.mockImplementation(async () => {
+      replacedSelectionCalls += 1;
+      const selection = await getReplacedSelection?.();
+      if (replacedSelectionCalls === 2) replacedDuringPlan.project.getActiveSequence.mockResolvedValue(finalSequence as never);
+      return selection as Awaited<ReturnType<NonNullable<typeof getReplacedSelection>>>;
+    });
+    await expect(replacedDuringPlan.registry.dispatch("selection.update", {
+      mode: "replace", expectedSequenceGuid: "sequence-1", items: [target],
+    })).resolves.toMatchObject({ count: 1, items: [{ mediaType: "audio" }] });
+    expect(replacedDuringPlan.sequence.setSelection).not.toHaveBeenCalled();
+    expect(finalSequence.setSelection).toHaveBeenCalledWith(expect.objectContaining({ items: [finalAudioItem] }));
+
+    const switchedDuringFinalPlan = stableHost();
+    const getFinalPlanningSelection = switchedDuringFinalPlan.sequence.getSelection.getMockImplementation();
+    const setFinalPlanningSelection = switchedDuringFinalPlan.sequence.setSelection.getMockImplementation();
+    const lateSameGuidSequence = {
+      ...switchedDuringFinalPlan.sequence,
+      setSelection: vi.fn((selection: Parameters<typeof switchedDuringFinalPlan.sequence.setSelection>[0]) =>
+        setFinalPlanningSelection?.(selection)),
+    };
+    let finalPlanningSelectionCalls = 0;
+    switchedDuringFinalPlan.sequence.getSelection.mockImplementation(async () => {
+      finalPlanningSelectionCalls += 1;
+      const selection = await getFinalPlanningSelection?.();
+      if (finalPlanningSelectionCalls === 3) {
+        switchedDuringFinalPlan.project.getActiveSequence.mockResolvedValue(lateSameGuidSequence);
+      }
+      return selection as Awaited<ReturnType<NonNullable<typeof getFinalPlanningSelection>>>;
+    });
+    await expect(switchedDuringFinalPlan.registry.dispatch("selection.update", {
+      mode: "replace", expectedSequenceGuid: "sequence-1", items: [target],
+    })).resolves.toMatchObject({ count: 1, items: [{ mediaType: "audio" }] });
+    expect(switchedDuringFinalPlan.sequence.setSelection).not.toHaveBeenCalled();
+    expect(lateSameGuidSequence.setSelection).toHaveBeenCalledTimes(1);
+
+    const movedDuringFinalFetch = stableHost();
+    let activeSequenceCalls = 0;
+    let targetMoved = false;
+    movedDuringFinalFetch.audioItem.getStartTime.mockImplementation(async () => ({ seconds: targetMoved ? 11 : 10 }));
+    movedDuringFinalFetch.project.getActiveSequence.mockImplementation(async () => {
+      activeSequenceCalls += 1;
+      if (activeSequenceCalls === 4) targetMoved = true;
+      return movedDuringFinalFetch.sequence;
+    });
+    await expect(movedDuringFinalFetch.registry.dispatch("selection.update", {
+      mode: "replace", expectedSequenceGuid: "sequence-1", items: [target],
+    })).rejects.toMatchObject({ code: "UXP_STALE_SELECTION_TARGET" });
+    expect(movedDuringFinalFetch.sequence.setSelection).not.toHaveBeenCalled();
+
+    const switchedDuringFinalPlanning = stableHost();
+    const getFinalSelection = switchedDuringFinalPlanning.sequence.getSelection.getMockImplementation();
+    const differentFinalSequence = { ...switchedDuringFinalPlanning.sequence, guid: "sequence-2", setSelection: vi.fn() };
+    let finalSelectionCalls = 0;
+    switchedDuringFinalPlanning.sequence.getSelection.mockImplementation(async () => {
+      finalSelectionCalls += 1;
+      const selection = await getFinalSelection?.();
+      if (finalSelectionCalls === 4) {
+        switchedDuringFinalPlanning.project.getActiveSequence.mockResolvedValue(differentFinalSequence);
+      }
+      return selection as Awaited<ReturnType<NonNullable<typeof getFinalSelection>>>;
+    });
+    await expect(switchedDuringFinalPlanning.registry.dispatch("selection.update", {
+      mode: "replace", expectedSequenceGuid: "sequence-1", items: [target],
+    })).rejects.toMatchObject({ code: "UXP_STALE_SEQUENCE" });
+    expect(switchedDuringFinalPlanning.sequence.setSelection).not.toHaveBeenCalled();
+    expect(differentFinalSequence.setSelection).not.toHaveBeenCalled();
+
+    const changedDuringFinalPlanning = stableHost();
+    const getTargetStart = changedDuringFinalPlanning.audioItem.getStartTime.getMockImplementation();
+    let targetStartCalls = 0;
+    changedDuringFinalPlanning.audioItem.getStartTime.mockImplementation(async () => {
+      targetStartCalls += 1;
+      const start = await getTargetStart?.();
+      if (targetStartCalls === 7) changedDuringFinalPlanning.selectAudio();
+      return start as Awaited<ReturnType<NonNullable<typeof getTargetStart>>>;
+    });
+    await expect(changedDuringFinalPlanning.registry.dispatch("selection.update", {
+      mode: "add", expectedSequenceGuid: "sequence-1", items: [{
+        mediaType: "audio", trackIndex: 0, clipIndex: 0, expectedProjectItemId: "source-1",
+        expectedStartSeconds: 10, expectedEndSeconds: 20,
+      }],
+    })).rejects.toMatchObject({ code: "UXP_STALE_SELECTION" });
+    expect(changedDuringFinalPlanning.sequence.setSelection).not.toHaveBeenCalled();
+  });
+
+  it("revalidates same-sequence targets and requires native timeline fingerprints", async () => {
+    const target = {
+      mediaType: "audio", trackIndex: 0, clipIndex: 0, expectedProjectItemId: "source-1",
+      expectedStartSeconds: 10, expectedEndSeconds: 20,
+    };
+    const changed = stableHost();
+    changed.audioItem.getStartTime
+      .mockResolvedValueOnce({ seconds: 10 })
+      .mockResolvedValueOnce({ seconds: 10 })
+      .mockResolvedValue({ seconds: 11 });
+    await expect(changed.registry.dispatch("selection.update", {
+      mode: "replace", expectedSequenceGuid: "sequence-1", items: [target],
+    })).rejects.toMatchObject({ code: "UXP_STALE_SELECTION_TARGET" });
+    expect(changed.sequence.setSelection).not.toHaveBeenCalled();
+
+    const unavailable = stableHost();
+    const sourceFallback = vi.fn(async () => ({ seconds: 10 }));
+    Object.assign(unavailable.audioItem, { getInPoint: sourceFallback });
+    unavailable.audioItem.getStartTime.mockRejectedValueOnce(new Error("timeline time unavailable"));
+    await expect(unavailable.registry.dispatch("selection.targets.inspect", {
+      items: [{ mediaType: "audio", trackIndex: 0, clipIndex: 0 }],
+    })).rejects.toMatchObject({ code: "UXP_SELECTION_FINGERPRINT_UNAVAILABLE" });
+    expect(sourceFallback).not.toHaveBeenCalled();
+
+    const missingId = stableHost();
+    missingId.sourceClip.getId.mockResolvedValueOnce("");
+    await expect(missingId.registry.dispatch("selection.targets.inspect", {
+      items: [{ mediaType: "video", trackIndex: 0, clipIndex: 0 }],
+    })).rejects.toMatchObject({ code: "UXP_SELECTION_FINGERPRINT_UNAVAILABLE" });
+
+    const currentUnavailable = stableHost();
+    const currentSourceFallback = vi.fn(async () => ({ seconds: 10 }));
+    Object.assign(currentUnavailable.videoItem, { getInPoint: currentSourceFallback });
+    currentUnavailable.videoItem.getStartTime.mockRejectedValue(new Error("timeline time unavailable"));
+    await expect(currentUnavailable.registry.dispatch("selection.fingerprints.inspect", {}))
+      .rejects.toMatchObject({ code: "UXP_SELECTION_FINGERPRINT_UNAVAILABLE" });
+    expect(currentSourceFallback).not.toHaveBeenCalled();
+
+    await expect(currentUnavailable.registry.dispatch("selection.inspect", {})).resolves.toMatchObject({
+      count: 1, items: [{ mediaType: "video", startSeconds: 10 }],
+    });
+    expect(currentSourceFallback).toHaveBeenCalledTimes(1);
+
+    const unclassified = stableHost();
+    unclassified.sequence.getVideoTrack.mockResolvedValue({ getTrackItems: vi.fn(async () => []) } as never);
+    unclassified.sequence.getAudioTrack.mockResolvedValue({ getTrackItems: vi.fn(async () => []) } as never);
+    await expect(unclassified.registry.dispatch("selection.fingerprints.inspect", {}))
+      .rejects.toMatchObject({ code: "UXP_UNCLASSIFIED_SELECTION" });
+    await expect(unclassified.registry.dispatch("selection.inspect", {})).resolves.toMatchObject({
+      count: 1, items: [{ mediaType: "unknown", trackIndex: 0, clipIndex: null }],
+    });
+
+    const relative = stableHost();
+    const relativeSelection = relative.sequence.getSelection.getMockImplementation();
+    let relativeSelectionCalls = 0;
+    relative.sequence.getSelection.mockImplementation(async () => {
+      relativeSelectionCalls += 1;
+      if (relativeSelectionCalls === 4) relative.selectAudio();
+      return relativeSelection?.() as ReturnType<NonNullable<typeof relativeSelection>>;
+    });
+    await expect(relative.registry.dispatch("selection.update", {
+      mode: "add", expectedSequenceGuid: "sequence-1", items: [target],
+    })).rejects.toMatchObject({ code: "UXP_STALE_SELECTION" });
+    expect(relative.sequence.setSelection).not.toHaveBeenCalled();
+  });
+
+  it("rejects stale, duplicate, oversized, rejected, and mismatched selection updates", async () => {
+    const target = {
+      mediaType: "audio", trackIndex: 0, clipIndex: 0, expectedProjectItemId: "source-1",
+      expectedStartSeconds: 10, expectedEndSeconds: 20,
+    };
+    const staleSequence = stableHost();
+    await expect(staleSequence.registry.dispatch("selection.update", {
+      mode: "replace", expectedSequenceGuid: "sequence-old", items: [target],
+    })).rejects.toMatchObject({ code: "UXP_STALE_SEQUENCE" });
+
+    const staleTarget = stableHost();
+    await expect(staleTarget.registry.dispatch("selection.update", {
+      mode: "replace", expectedSequenceGuid: "sequence-1",
+      items: [{ ...target, expectedProjectItemId: "source-old" }],
+    })).rejects.toMatchObject({ code: "UXP_STALE_SELECTION_TARGET" });
+    expect(staleTarget.sequence.setSelection).not.toHaveBeenCalled();
+
+    const invalid = stableHost();
+    await expect(invalid.registry.dispatch("selection.update", {
+      mode: "replace", items: [target],
+    })).rejects.toMatchObject({ code: "UXP_INVALID_ARGUMENT" });
+    await expect(invalid.registry.dispatch("selection.update", {
+      mode: "clear", expectedSequenceGuid: "sequence-1", items: [target],
+    })).rejects.toMatchObject({ code: "UXP_INVALID_ARGUMENT" });
+    await expect(invalid.registry.dispatch("selection.update", {
+      mode: "clear", expectedSequenceGuid: "sequence-1", items: null,
+    })).rejects.toMatchObject({ code: "UXP_INVALID_ARGUMENT" });
+    await expect(invalid.registry.dispatch("selection.update", {
+      mode: "replace", expectedSequenceGuid: "sequence-1",
+      items: [{ ...target, expectedStartSeconds: 21 }],
+    })).rejects.toMatchObject({ code: "UXP_INVALID_ARGUMENT" });
+    await expect(invalid.registry.dispatch("selection.update", {
+      mode: "replace", expectedSequenceGuid: "sequence-1", items: [target, target],
+    })).rejects.toMatchObject({ code: "UXP_INVALID_ARGUMENT" });
+    await expect(invalid.registry.dispatch("selection.targets.inspect", {
+      items: [
+        { mediaType: "video", trackIndex: 0, clipIndex: 0 },
+        { mediaType: "video", trackIndex: 0, clipIndex: 0 },
+      ],
+    })).rejects.toMatchObject({ code: "UXP_INVALID_ARGUMENT" });
+    await expect(invalid.registry.dispatch("selection.update", {
+      mode: "replace", expectedSequenceGuid: "sequence-1",
+      items: Array.from({ length: 65 }, (_, clipIndex) => ({ ...target, clipIndex })),
+    })).rejects.toMatchObject({ code: "UXP_INVALID_ARGUMENT" });
+
+    const rejected = stableHost();
+    rejected.sequence.setSelection.mockReturnValueOnce(false);
+    await expect(rejected.registry.dispatch("selection.update", {
+      mode: "replace", expectedSequenceGuid: "sequence-1", items: [target],
+    })).rejects.toMatchObject({ code: "UXP_SELECTION_REJECTED" });
+
+    const clearRejected = stableHost();
+    clearRejected.sequence.clearSelection.mockResolvedValueOnce(false);
+    await expect(clearRejected.registry.dispatch("selection.update", {
+      mode: "clear", expectedSequenceGuid: "sequence-1",
+    })).rejects.toMatchObject({ code: "UXP_SELECTION_REJECTED" });
+
+    const mismatch = stableHost();
+    mismatch.sequence.setSelection.mockImplementationOnce(() => true);
+    await expect(mismatch.registry.dispatch("selection.update", {
+      mode: "replace", expectedSequenceGuid: "sequence-1", items: [target],
+    })).rejects.toMatchObject({ code: "UXP_VERIFICATION_FAILED" });
   });
 
   it("uses the native selection for all scene-edit modes without claiming undo", async () => {

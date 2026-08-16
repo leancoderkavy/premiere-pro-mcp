@@ -7,7 +7,7 @@ panel through `capabilities.get`; package version, static TypeScript declaration
 and unit tests are insufficient evidence that a particular host supports a command.
 
 The later stable-API expansion is documented separately in the
-[stable UXP workflow matrix](uxp-stable-workflows.md). Its ten coverage entries
+[stable UXP workflow matrix](uxp-stable-workflows.md). Its eleven coverage entries
 share this pinned 26.3 declaration baseline and the same pending live-host gate.
 
 ## Source and version policy

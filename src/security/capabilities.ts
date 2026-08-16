@@ -83,6 +83,14 @@ const ACTION_CAPABILITIES: Readonly<Record<string, Readonly<Record<string, reado
     add_effect: ["edit"],
     remove_effect: ["edit"],
   },
+  manage_timeline_selection_uxp: {
+    inspect: ["inspect"],
+    inspect_targets: ["inspect"],
+    replace: ["edit"],
+    add: ["edit"],
+    remove: ["edit"],
+    clear: ["edit"],
+  },
   manage_proxy_ingest_uxp: {
     inspect_proxy: ["inspect"],
     attach_proxy: ["edit", "filesystem"],
