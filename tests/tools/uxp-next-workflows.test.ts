@@ -370,4 +370,25 @@ describe("next-wave UXP MCP tools", () => {
     await expect(tool.handler({ action: "unsupported" }))
       .resolves.toEqual({ success: false, error: "Unsupported media-health action: unsupported" });
   });
+
+  it("covers track-state inspection, mute defaults, and unsupported actions", async () => {
+    const request = vi.fn().mockResolvedValue({ ok: true });
+    const bridge = { request, getState: vi.fn() } as unknown as UxpWebSocketBridge;
+    const tool = getUxpNextWorkflowTools(bridge).manage_track_state_uxp;
+
+    await tool.handler({ action: "inspect" });
+    expect(request).toHaveBeenLastCalledWith("track.state.inspect", {});
+    await tool.handler({
+      action: "inspect", sequence_id: "sequence-1", expected_sequence_id: "sequence-1",
+      media_type: "all", track_indices: [0, 1],
+    });
+    expect(request).toHaveBeenLastCalledWith("track.state.inspect", {
+      sequenceId: "sequence-1", expectedSequenceId: "sequence-1",
+      mediaType: "all", trackIndices: [0, 1],
+    });
+    await tool.handler({ action: "set_mute" });
+    expect(request).toHaveBeenLastCalledWith("track.state.set", {});
+    await expect(tool.handler({ action: "unsupported" }))
+      .resolves.toEqual({ success: false, error: "Unsupported track-state action: unsupported" });
+  });
 });
