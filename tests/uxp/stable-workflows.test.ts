@@ -447,7 +447,7 @@ describe("stable Premiere UXP workflow expansion", () => {
     })).resolves.toMatchObject({ count: 1, items: [{ mediaType: "audio" }] });
     expect(refreshed.sequence.setSelection).not.toHaveBeenCalled();
     expect(refreshedSequence.setSelection).toHaveBeenCalledTimes(1);
-    expect(refreshedSequence.getSelection).toHaveBeenCalledTimes(3);
+    expect(refreshedSequence.getSelection).toHaveBeenCalledTimes(4);
 
     const switched = stableHost();
     const originalSelection = switched.sequence.getSelection.getMockImplementation();
@@ -527,6 +527,20 @@ describe("stable Premiere UXP workflow expansion", () => {
     })).resolves.toMatchObject({ count: 1, items: [{ mediaType: "audio" }] });
     expect(switchedDuringFinalPlan.sequence.setSelection).not.toHaveBeenCalled();
     expect(lateSameGuidSequence.setSelection).toHaveBeenCalledTimes(1);
+
+    const movedDuringFinalFetch = stableHost();
+    let activeSequenceCalls = 0;
+    let targetMoved = false;
+    movedDuringFinalFetch.audioItem.getStartTime.mockImplementation(async () => ({ seconds: targetMoved ? 11 : 10 }));
+    movedDuringFinalFetch.project.getActiveSequence.mockImplementation(async () => {
+      activeSequenceCalls += 1;
+      if (activeSequenceCalls === 4) targetMoved = true;
+      return movedDuringFinalFetch.sequence;
+    });
+    await expect(movedDuringFinalFetch.registry.dispatch("selection.update", {
+      mode: "replace", expectedSequenceGuid: "sequence-1", items: [target],
+    })).rejects.toMatchObject({ code: "UXP_STALE_SELECTION_TARGET" });
+    expect(movedDuringFinalFetch.sequence.setSelection).not.toHaveBeenCalled();
   });
 
   it("revalidates same-sequence targets and requires native timeline fingerprints", async () => {

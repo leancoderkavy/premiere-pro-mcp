@@ -428,19 +428,27 @@
       if (!commitSequenceGuid || input.expectedSequenceGuid !== commitSequenceGuid) {
         throw commandError("UXP_STALE_SEQUENCE", "The active sequence changed; inspect the timeline selection again before updating it");
       }
-      const plan = await planSelectionUpdate(commitContext.sequence, input);
-      const beforeSelection = plan.beforeSelection, before = plan.before;
-      const desiredItems = plan.desiredItems, desired = plan.desired;
+      const commitPlan = await planSelectionUpdate(commitContext.sequence, input);
       if (input.mode === "add" || input.mode === "remove") {
         const currentBase = await selectionSnapshot(commitContext.sequence, false);
-        const plannedKeys = before ? selectionSnapshotKeys(before.items) : [];
-        if (!before || !sameStringArrays(plannedKeys, selectionSnapshotKeys(currentBase.items))) {
+        const plannedKeys = commitPlan.before ? selectionSnapshotKeys(commitPlan.before.items) : [];
+        if (!commitPlan.before || !sameStringArrays(plannedKeys, selectionSnapshotKeys(currentBase.items))) {
           throw commandError("UXP_STALE_SELECTION", "The current timeline selection changed while the update was being prepared; inspect it again before updating it");
         }
       }
       const finalContext = await activeContext(false), finalSequenceGuid = activeSequenceGuid(finalContext.sequence);
       if (!finalSequenceGuid || input.expectedSequenceGuid !== finalSequenceGuid) {
         throw commandError("UXP_STALE_SEQUENCE", "The active sequence changed; inspect the timeline selection again before updating it");
+      }
+      const plan = await planSelectionUpdate(finalContext.sequence, input);
+      const beforeSelection = plan.beforeSelection, before = plan.before;
+      const desiredItems = plan.desiredItems, desired = plan.desired;
+      if (input.mode === "add" || input.mode === "remove") {
+        const commitKeys = commitPlan.before ? selectionSnapshotKeys(commitPlan.before.items) : [];
+        const finalKeys = before ? selectionSnapshotKeys(before.items) : [];
+        if (!commitPlan.before || !before || !sameStringArrays(commitKeys, finalKeys)) {
+          throw commandError("UXP_STALE_SELECTION", "The current timeline selection changed while the update was being prepared; inspect it again before updating it");
+        }
       }
       if (desiredItems.length) {
         const selection = createEmptyTrackItemSelection();
