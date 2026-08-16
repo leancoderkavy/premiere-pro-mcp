@@ -4,6 +4,7 @@ import { describe, expect, it, vi } from "vitest";
 const require = createRequire(import.meta.url);
 const Commands = require("../../uxp-plugin/commands.cjs");
 const Events = require("../../uxp-plugin/events.cjs");
+const NextWorkflows = require("../../uxp-plugin/next-workflows.cjs");
 const Protocol = require("../../uxp-plugin/protocol.cjs");
 
 function registry() {
@@ -44,5 +45,59 @@ describe("next-wave UXP event workflows", () => {
     const value = registry();
     await expect(value.registry.dispatch("events.wait", { timeoutMs: 60001 })).rejects.toMatchObject({ code: "UXP_INVALID_ARGUMENT" });
     await expect(value.registry.dispatch("events.list", { rawPayload: true })).rejects.toMatchObject({ code: "UXP_INVALID_ARGUMENT" });
+  });
+
+  it("waits adaptively for sequence video-effect analysis readback", async () => {
+    let clock = 0;
+    const sequence = {
+      guid: "sequence-1",
+      isDoneAnalyzingForVideoEffects: vi.fn()
+        .mockResolvedValueOnce(false)
+        .mockResolvedValueOnce(true),
+    };
+    const project = {
+      getActiveSequence: vi.fn(async () => sequence),
+      getSequences: vi.fn(async () => [sequence]),
+    };
+    const definitions = NextWorkflows.createNextWorkflowDefinitions({
+      ppro: { Project: { getActiveProject: vi.fn(async () => project) } },
+      events: Events.createEventJournal({ capacity: 16 }),
+      now: () => clock,
+      sleep: vi.fn(async (milliseconds: number) => { clock += milliseconds; }),
+    });
+
+    await expect(definitions["readiness.analysis.wait"].handler({
+      sequenceId: "sequence-1", expectedSequenceId: "sequence-1",
+      timeoutMs: 1000, pollMinMs: 100, pollMaxMs: 500,
+    })).resolves.toMatchObject({
+      ready: true, timedOut: false, sequenceId: "sequence-1", checks: 2,
+      elapsedMs: 100, verificationBoundary: "sequence_analysis_readback",
+    });
+  });
+
+  it("requires a pre-dispatch revision and classifies operation completion state", async () => {
+    const events = Events.createEventJournal({ capacity: 16 });
+    const definitions = NextWorkflows.createNextWorkflowDefinitions({
+      ppro: {
+        Project: { getActiveProject: vi.fn(async () => null) },
+        Constants: { OperationCompleteState: { SUCCESS: 0, CANCELLED: 1, FAILED: 2 } },
+      },
+      events,
+    });
+    await expect(definitions["readiness.operation.wait"].handler({
+      operationType: "import", timeoutMs: 0,
+    })).rejects.toMatchObject({ code: "UXP_INVALID_ARGUMENT" });
+
+    const before = events.status().latestRevision;
+    events.recordHostEvent({
+      category: "operation", name: "operation.import.complete", detail: { state: 0 },
+    });
+    await expect(definitions["readiness.operation.wait"].handler({
+      operationType: "import", afterRevision: before, timeoutMs: 0,
+    })).resolves.toMatchObject({
+      ready: true, timedOut: false, outcome: "completed",
+      receipt: { name: "operation.import.complete", detail: { state: 0 } },
+      verificationBoundary: "operation_terminal_event_only",
+    });
   });
 });

@@ -19,6 +19,17 @@ describe("next-wave UXP MCP tools", () => {
         timeout_ms: { maximum: 60000 },
       },
     });
+    const readiness = getUxpNextWorkflowTools(bridge).wait_for_host_readiness_uxp;
+    expect(readiness.parameters).toMatchObject({
+      additionalProperties: false,
+      required: ["action"],
+      properties: {
+        action: { enum: ["snapshot", "analysis", "operation"] },
+        operation_type: { enum: ["import", "export", "effect_drop", "generative_extend"] },
+        timeout_ms: { maximum: 60000 },
+        poll_max_ms: { maximum: 5000 },
+      },
+    });
   });
 
   it("maps snake-case event queries to the exact bridge commands", async () => {
@@ -36,5 +47,22 @@ describe("next-wave UXP MCP tools", () => {
       limit: 4,
       timeoutMs: 5000,
     }, { minimumTimeoutMs: 10000 });
+
+    const readiness = getUxpNextWorkflowTools(bridge).wait_for_host_readiness_uxp;
+    await readiness.handler({
+      action: "analysis", sequence_id: "sequence-1", expected_sequence_id: "sequence-1",
+      timeout_ms: 10000, poll_min_ms: 100, poll_max_ms: 1000,
+    });
+    expect(request).toHaveBeenLastCalledWith("readiness.analysis.wait", {
+      sequenceId: "sequence-1", expectedSequenceId: "sequence-1",
+      timeoutMs: 10000, pollMinMs: 100, pollMaxMs: 1000,
+    });
+
+    await readiness.handler({
+      action: "operation", operation_type: "effect_drop", after_revision: 9, timeout_ms: 5000,
+    });
+    expect(request).toHaveBeenLastCalledWith("readiness.operation.wait", {
+      operationType: "effectDrop", afterRevision: 9, timeoutMs: 5000,
+    });
   });
 });
