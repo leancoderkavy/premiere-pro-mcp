@@ -206,7 +206,7 @@ function stableHost() {
   };
   return {
     registry: Commands.createCommandRegistry({ ppro, Protocol, workspace }),
-    ppro, project, sequence, components, audioComponents, sourceClip, workspace,
+    ppro, project, sequence, videoItem, audioItem, components, audioComponents, sourceClip, workspace,
     selectedItems: () => [...selectedItems],
     selectMany: (count: number) => { selectedItems = Array.from({ length: count }, () => videoItem); },
   };
@@ -409,7 +409,7 @@ describe("stable Premiere UXP workflow expansion", () => {
     })).resolves.toMatchObject({ count: 1, items: [{ mediaType: "audio" }] });
     expect(refreshed.sequence.setSelection).not.toHaveBeenCalled();
     expect(refreshedSequence.setSelection).toHaveBeenCalledTimes(1);
-    expect(refreshedSequence.getSelection).toHaveBeenCalledTimes(1);
+    expect(refreshedSequence.getSelection).toHaveBeenCalledTimes(2);
 
     const switched = stableHost();
     const originalSelection = switched.sequence.getSelection.getMockImplementation();
@@ -424,6 +424,37 @@ describe("stable Premiere UXP workflow expansion", () => {
     })).rejects.toMatchObject({ code: "UXP_STALE_SEQUENCE" });
     expect(switched.sequence.setSelection).not.toHaveBeenCalled();
     expect(inactiveSequence.setSelection).not.toHaveBeenCalled();
+  });
+
+  it("revalidates same-sequence targets and requires native timeline fingerprints", async () => {
+    const target = {
+      mediaType: "audio", trackIndex: 0, clipIndex: 0, expectedProjectItemId: "source-1",
+      expectedStartSeconds: 10, expectedEndSeconds: 20,
+    };
+    const changed = stableHost();
+    changed.audioItem.getStartTime
+      .mockResolvedValueOnce({ seconds: 10 })
+      .mockResolvedValueOnce({ seconds: 10 })
+      .mockResolvedValue({ seconds: 11 });
+    await expect(changed.registry.dispatch("selection.update", {
+      mode: "replace", expectedSequenceGuid: "sequence-1", items: [target],
+    })).rejects.toMatchObject({ code: "UXP_STALE_SELECTION_TARGET" });
+    expect(changed.sequence.setSelection).not.toHaveBeenCalled();
+
+    const unavailable = stableHost();
+    const sourceFallback = vi.fn(async () => ({ seconds: 10 }));
+    Object.assign(unavailable.audioItem, { getInPoint: sourceFallback });
+    unavailable.audioItem.getStartTime.mockRejectedValueOnce(new Error("timeline time unavailable"));
+    await expect(unavailable.registry.dispatch("selection.targets.inspect", {
+      items: [{ mediaType: "audio", trackIndex: 0, clipIndex: 0 }],
+    })).rejects.toMatchObject({ code: "UXP_SELECTION_FINGERPRINT_UNAVAILABLE" });
+    expect(sourceFallback).not.toHaveBeenCalled();
+
+    const missingId = stableHost();
+    missingId.sourceClip.getId.mockResolvedValueOnce("");
+    await expect(missingId.registry.dispatch("selection.targets.inspect", {
+      items: [{ mediaType: "video", trackIndex: 0, clipIndex: 0 }],
+    })).rejects.toMatchObject({ code: "UXP_SELECTION_FINGERPRINT_UNAVAILABLE" });
   });
 
   it("rejects stale, duplicate, oversized, rejected, and mismatched selection updates", async () => {

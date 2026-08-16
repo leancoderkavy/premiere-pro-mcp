@@ -330,10 +330,10 @@
       const inputs = validateSelectionTargetInspectionArgs(args), context = await activeContext(false), items = [];
       for (let index = 0; index < inputs.length; index += 1) {
         const input = inputs[index], item = await trackItemAt(context.sequence, input.mediaType, input.trackIndex, input.clipIndex);
-        const snapshot = await selectionItemSnapshot({
+        const snapshot = await selectionFingerprintSnapshot({
           item, selectionIndex: index, mediaType: input.mediaType,
           trackIndex: input.trackIndex, clipIndex: input.clipIndex
-        }, false);
+        });
         items.push({
           targetIndex: index, mediaType: snapshot.mediaType, trackIndex: snapshot.trackIndex,
           clipIndex: snapshot.clipIndex, name: snapshot.name, startSeconds: snapshot.startSeconds,
@@ -366,6 +366,31 @@
       };
     }
 
+    async function selectionFingerprintSnapshot(value) {
+      const item = value.item;
+      if (!item || typeof item.getProjectItem !== "function" ||
+        typeof item.getStartTime !== "function" || typeof item.getEndTime !== "function") {
+        throw commandError("UXP_SELECTION_FINGERPRINT_UNAVAILABLE", "Timeline item " + value.selectionIndex + " does not expose a complete mutation fingerprint");
+      }
+      let projectItem = null, projectItemId = "", startSeconds = null, endSeconds = null;
+      try {
+        projectItem = await item.getProjectItem();
+        projectItemId = await projectItemIdentifier(projectItem);
+        startSeconds = tickSeconds(await item.getStartTime());
+        endSeconds = tickSeconds(await item.getEndTime());
+      } catch (_) {
+        throw commandError("UXP_SELECTION_FINGERPRINT_UNAVAILABLE", "Timeline item " + value.selectionIndex + " could not provide its project item and native timeline times");
+      }
+      if (!projectItemId || startSeconds == null || endSeconds == null) {
+        throw commandError("UXP_SELECTION_FINGERPRINT_UNAVAILABLE", "Timeline item " + value.selectionIndex + " returned an incomplete mutation fingerprint");
+      }
+      return {
+        selectionIndex: value.selectionIndex, mediaType: value.mediaType, trackIndex: value.trackIndex,
+        clipIndex: value.clipIndex, name: String(item.name || ""), startSeconds, endSeconds,
+        componentCount: null, projectItem: { id: projectItemId, name: String(projectItem && projectItem.name || "") }
+      };
+    }
+
     async function updateSelection(args) {
       const input = validateSelectionUpdateArgs(args), context = await activeContext(false);
       const sequenceGuid = activeSequenceGuid(context.sequence);
@@ -373,54 +398,14 @@
         throw commandError("UXP_STALE_SEQUENCE", "The active sequence changed; inspect the timeline selection again before updating it");
       }
 
-      const beforeSelection = await currentTrackItems(context.sequence, false, false);
-      let before = null;
-      let desiredItems = [];
-      if (input.mode !== "clear") {
-        const resolved = await resolveSelectionTargets(context.sequence, input.items);
-        if (input.mode === "replace") {
-          desiredItems = resolved.map((value) => value.item);
-          if (beforeSelection.items.length <= MAX_SELECTION_ITEMS) {
-            before = await itemSelectionSnapshot(context.sequence, beforeSelection.items);
-            assertClassifiedSelection(before.classified, "The current selection contains an item that cannot be addressed safely");
-          }
-        } else {
-          if (input.mode === "add" && beforeSelection.items.length > MAX_SELECTION_ITEMS) {
-            throw commandError("UXP_SELECTION_TOO_LARGE", "The updated selection would exceed " + MAX_SELECTION_ITEMS + " clips");
-          }
-          if (input.mode === "remove" && beforeSelection.items.length - resolved.length > MAX_SELECTION_ITEMS) {
-            throw commandError("UXP_SELECTION_TOO_LARGE", "The updated selection would exceed " + MAX_SELECTION_ITEMS + " clips");
-          }
-          before = await itemSelectionSnapshot(context.sequence, beforeSelection.items);
-          assertClassifiedSelection(before.classified, "The current selection contains an item that cannot be addressed safely");
-          desiredItems = before.classified.map((value) => value.item);
-          if (input.mode === "add") {
-            const existing = new Set(before.classified.map(selectionCoordinateKey));
-            for (const value of resolved) {
-              const coordinate = selectionCoordinateKey(value.snapshot);
-              if (!existing.has(coordinate)) { desiredItems.push(value.item); existing.add(coordinate); }
-            }
-            if (desiredItems.length > MAX_SELECTION_ITEMS) {
-              throw commandError("UXP_SELECTION_TOO_LARGE", "The updated selection would exceed " + MAX_SELECTION_ITEMS + " clips");
-            }
-          } else {
-            const removed = new Set(resolved.map((value) => selectionCoordinateKey(value.snapshot)));
-            desiredItems = before.classified
-              .filter((value) => !removed.has(selectionCoordinateKey(value)))
-              .map((value) => value.item);
-          }
-        }
-      }
-      if (desiredItems.length > MAX_SELECTION_ITEMS) {
-        throw commandError("UXP_SELECTION_TOO_LARGE", "The updated selection would exceed " + MAX_SELECTION_ITEMS + " clips");
-      }
-
-      const desired = await itemSelectionSnapshot(context.sequence, desiredItems);
-      assertClassifiedSelection(desired.classified, "Premiere could not classify a requested timeline item");
+      await planSelectionUpdate(context.sequence, input);
       const mutationContext = await activeContext(false), mutationSequenceGuid = activeSequenceGuid(mutationContext.sequence);
       if (!mutationSequenceGuid || input.expectedSequenceGuid !== mutationSequenceGuid) {
         throw commandError("UXP_STALE_SEQUENCE", "The active sequence changed; inspect the timeline selection again before updating it");
       }
+      const plan = await planSelectionUpdate(mutationContext.sequence, input);
+      const beforeSelection = plan.beforeSelection, before = plan.before;
+      const desiredItems = plan.desiredItems, desired = plan.desired;
       if (desiredItems.length) {
         const selection = createEmptyTrackItemSelection();
         for (const item of desiredItems) {
@@ -457,14 +442,62 @@
       };
     }
 
+    async function planSelectionUpdate(sequence, input) {
+      const beforeSelection = await currentTrackItems(sequence, false, false);
+      let before = null;
+      let desiredItems = [];
+      if (input.mode !== "clear") {
+        const resolved = await resolveSelectionTargets(sequence, input.items);
+        if (input.mode === "replace") {
+          desiredItems = resolved.map((value) => value.item);
+          if (beforeSelection.items.length <= MAX_SELECTION_ITEMS) {
+            before = await itemSelectionSnapshot(sequence, beforeSelection.items);
+            assertClassifiedSelection(before.classified, "The current selection contains an item that cannot be addressed safely");
+          }
+        } else {
+          if (input.mode === "add" && beforeSelection.items.length > MAX_SELECTION_ITEMS) {
+            throw commandError("UXP_SELECTION_TOO_LARGE", "The updated selection would exceed " + MAX_SELECTION_ITEMS + " clips");
+          }
+          if (input.mode === "remove" && beforeSelection.items.length - resolved.length > MAX_SELECTION_ITEMS) {
+            throw commandError("UXP_SELECTION_TOO_LARGE", "The updated selection would exceed " + MAX_SELECTION_ITEMS + " clips");
+          }
+          before = await itemSelectionSnapshot(sequence, beforeSelection.items);
+          assertClassifiedSelection(before.classified, "The current selection contains an item that cannot be addressed safely");
+          desiredItems = before.classified.map((value) => value.item);
+          if (input.mode === "add") {
+            const existing = new Set(before.classified.map(selectionCoordinateKey));
+            for (const value of resolved) {
+              const coordinate = selectionCoordinateKey(value.snapshot);
+              if (!existing.has(coordinate)) { desiredItems.push(value.item); existing.add(coordinate); }
+            }
+            if (desiredItems.length > MAX_SELECTION_ITEMS) {
+              throw commandError("UXP_SELECTION_TOO_LARGE", "The updated selection would exceed " + MAX_SELECTION_ITEMS + " clips");
+            }
+          } else {
+            const removed = new Set(resolved.map((value) => selectionCoordinateKey(value.snapshot)));
+            desiredItems = before.classified
+              .filter((value) => !removed.has(selectionCoordinateKey(value)))
+              .map((value) => value.item);
+          }
+        }
+      }
+      if (desiredItems.length > MAX_SELECTION_ITEMS) {
+        throw commandError("UXP_SELECTION_TOO_LARGE", "The updated selection would exceed " + MAX_SELECTION_ITEMS + " clips");
+      }
+
+      const desired = await itemSelectionSnapshot(sequence, desiredItems);
+      assertClassifiedSelection(desired.classified, "Premiere could not classify a requested timeline item");
+      return { beforeSelection, before, desiredItems, desired };
+    }
+
     async function resolveSelectionTargets(sequence, inputs) {
       const result = [];
       for (let index = 0; index < inputs.length; index += 1) {
         const input = inputs[index], item = await trackItemAt(sequence, input.mediaType, input.trackIndex, input.clipIndex);
-        const snapshot = await selectionItemSnapshot({
+        const snapshot = await selectionFingerprintSnapshot({
           item, selectionIndex: index, mediaType: input.mediaType,
           trackIndex: input.trackIndex, clipIndex: input.clipIndex
-        }, false);
+        });
         const projectItemId = snapshot.projectItem && snapshot.projectItem.id;
         if (projectItemId !== input.expectedProjectItemId ||
           !valuesEqual(snapshot.startSeconds, input.expectedStartSeconds) ||
@@ -483,7 +516,7 @@
 
     async function itemSelectionSnapshot(sequence, selectedItems) {
       const classified = await classifySelection(sequence, selectedItems), items = [];
-      for (const value of classified) items.push(await selectionItemSnapshot(value, false));
+      for (const value of classified) items.push(await selectionFingerprintSnapshot(value));
       return { classified, items };
     }
 
