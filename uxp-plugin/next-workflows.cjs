@@ -217,6 +217,22 @@
         minHostVersion: "25.6.0",
         probe: canManageTrackState,
         handler: setTrackState
+      },
+      "source.clip.inspect": {
+        readOnly: true,
+        targetCapabilityProbe: true,
+        minHostVersion: "25.6.0",
+        probe: canManageSourceClip,
+        handler: inspectSourceClip
+      },
+      "source.clip.update": {
+        destructive: true,
+        undoable: true,
+        idempotent: true,
+        targetCapabilityProbe: true,
+        minHostVersion: "25.6.0",
+        probe: canManageSourceClip,
+        handler: updateSourceClip
       }
     };
 
@@ -279,6 +295,11 @@
         return !!(sequence && typeof sequence.getVideoTrackCount === "function" &&
           typeof sequence.getAudioTrackCount === "function" && typeof sequence.getCaptionTrackCount === "function");
       } catch (_) { return false; }
+    }
+
+    function canManageSourceClip() {
+      return !!(canMaintainMediaHealth() && ppro.TickTime && typeof ppro.TickTime.createWithSeconds === "function" &&
+        ppro.Constants && ppro.Constants.MediaType);
     }
 
     async function initialize() {
@@ -1044,6 +1065,154 @@
       };
     }
 
+    async function inspectSourceClip(args) {
+      assertOnlyKeys(args, ["items"]);
+      const input = validateSourceClipItems(args.items, false);
+      const project = await activeProject(true);
+      const clips = await resolveMediaHealthClips(project, input.map(function (item) { return item.projectItemId; }));
+      const items = [];
+      for (let i = 0; i < input.length; i += 1) items.push(await sourceClipSnapshot(clips[i], input[i].projectItemId, input[i].mediaType));
+      return { count: items.length, items, verificationBoundary: "source_in_out_readback" };
+    }
+
+    async function updateSourceClip(args) {
+      assertOnlyKeys(args, ["items", "operationId"]);
+      const input = validateSourceClipItems(args.items, true);
+      const project = await activeProject(true);
+      const clips = await resolveMediaHealthClips(project, input.map(function (item) { return item.projectItemId; }));
+      const targets = [];
+      for (let i = 0; i < input.length; i += 1) {
+        const before = await sourceClipSnapshot(clips[i], input[i].projectItemId, input[i].mediaType);
+        if (input[i].expectedInSeconds != null && !sameSeconds(before.inSeconds, input[i].expectedInSeconds)) {
+          throw commandError("UXP_STALE_TARGET", "A source in point changed before the transaction");
+        }
+        if (input[i].expectedOutSeconds != null && !sameSeconds(before.outSeconds, input[i].expectedOutSeconds)) {
+          throw commandError("UXP_STALE_TARGET", "A source out point changed before the transaction");
+        }
+        targets.push({ input: input[i], clip: clips[i], before });
+      }
+      let committed = false;
+      project.lockedAccess(function () {
+        const actions = [];
+        for (let i = 0; i < targets.length; i += 1) {
+          const target = targets[i], value = target.input;
+          if (value.clearInOut) {
+            actions.push(target.clip.createClearInOutPointsAction());
+          } else if (value.inSeconds != null && value.outSeconds != null) {
+            actions.push(target.clip.createSetInOutPointsAction(
+              ppro.TickTime.createWithSeconds(value.inSeconds),
+              ppro.TickTime.createWithSeconds(value.outSeconds)
+            ));
+          } else {
+            if (value.inSeconds != null) actions.push(target.clip.createSetInPointAction(ppro.TickTime.createWithSeconds(value.inSeconds)));
+            if (value.outSeconds != null) actions.push(target.clip.createSetOutPointAction(ppro.TickTime.createWithSeconds(value.outSeconds)));
+          }
+          if (value.scaleToFrame) actions.push(target.clip.createSetScaleToFrameSizeAction());
+        }
+        committed = project.executeTransaction(function (compoundAction) {
+          for (let i = 0; i < actions.length; i += 1) {
+            if (!actions[i] || compoundAction.addAction(actions[i]) === false) {
+              throw commandError("UXP_ACTION_REJECTED", "Premiere rejected a source-clip action");
+            }
+          }
+        }, "Update source clip trim and framing");
+      });
+      if (!committed) throw commandError("UXP_VERIFICATION_FAILED", "Premiere did not commit the source-clip transaction");
+      const items = [];
+      let fullyVerified = true;
+      for (let i = 0; i < targets.length; i += 1) {
+        const target = targets[i], after = await sourceClipSnapshot(target.clip, target.input.projectItemId, target.input.mediaType);
+        let trimVerified = true;
+        if (target.input.inSeconds != null) trimVerified = trimVerified && sameSeconds(after.inSeconds, target.input.inSeconds);
+        if (target.input.outSeconds != null) trimVerified = trimVerified && sameSeconds(after.outSeconds, target.input.outSeconds);
+        const clearVerified = target.input.clearInOut ? false : null;
+        const scaleVerified = target.input.scaleToFrame ? false : null;
+        if (!trimVerified) throw commandError("UXP_VERIFICATION_FAILED", "Source in/out readback did not match the requested trim");
+        if (target.input.clearInOut || target.input.scaleToFrame) fullyVerified = false;
+        items.push({
+          projectItemId: target.input.projectItemId,
+          mediaType: target.input.mediaType,
+          before: target.before,
+          after,
+          trimVerified,
+          clearRequested: target.input.clearInOut,
+          clearVerified,
+          scaleToFrameRequested: target.input.scaleToFrame,
+          scaleToFrameVerified: scaleVerified
+        });
+      }
+      return {
+        updated: items.length,
+        items,
+        outcome: fullyVerified ? "verified" : "committed_unverified",
+        verificationBoundary: fullyVerified ? "source_in_out_readback" : "transaction_commit_with_missing_clear_or_scale_getter",
+        undoLabel: "Update source clip trim and framing"
+      };
+    }
+
+    function validateSourceClipItems(value, mutation) {
+      if (!Array.isArray(value) || !value.length || value.length > 64) {
+        throw commandError("UXP_INVALID_ARGUMENT", "items must contain 1-64 source clips");
+      }
+      const ids = new Set();
+      return value.map(function (item, index) {
+        if (!item || typeof item !== "object" || Array.isArray(item)) throw commandError("UXP_INVALID_ARGUMENT", "items[" + index + "] must be an object");
+        const allowed = mutation
+          ? ["projectItemId", "mediaType", "expectedInSeconds", "expectedOutSeconds", "inSeconds", "outSeconds", "clearInOut", "scaleToFrame"]
+          : ["projectItemId", "mediaType"];
+        assertOnlyKeys(item, allowed);
+        const projectItemId = boundedIdentifier(item.projectItemId, "items[" + index + "].projectItemId");
+        if (ids.has(projectItemId)) throw commandError("UXP_INVALID_ARGUMENT", "Each projectItemId may appear only once per transaction");
+        ids.add(projectItemId);
+        const mediaType = item.mediaType == null ? "video" : item.mediaType;
+        if (mediaType !== "video" && mediaType !== "audio") throw commandError("UXP_INVALID_ARGUMENT", "mediaType must be video or audio");
+        const result = { projectItemId, mediaType };
+        if (!mutation) return result;
+        const numberKeys = ["expectedInSeconds", "expectedOutSeconds", "inSeconds", "outSeconds"];
+        for (let i = 0; i < numberKeys.length; i += 1) {
+          const key = numberKeys[i];
+          if (item[key] != null) result[key] = boundedSeconds(item[key], "items[" + index + "]." + key);
+        }
+        result.clearInOut = optionalBoolean(item.clearInOut, false, "items[" + index + "].clearInOut");
+        result.scaleToFrame = optionalBoolean(item.scaleToFrame, false, "items[" + index + "].scaleToFrame");
+        if (item.scaleToFrame === false) throw commandError("UXP_INVALID_ARGUMENT", "scaleToFrame supports only true because Adobe exposes only a set-true action");
+        if (result.clearInOut && (result.inSeconds != null || result.outSeconds != null)) {
+          throw commandError("UXP_INVALID_ARGUMENT", "clearInOut cannot be combined with new in/out points");
+        }
+        if (result.inSeconds != null && result.outSeconds != null && result.outSeconds <= result.inSeconds) {
+          throw commandError("UXP_INVALID_ARGUMENT", "outSeconds must be greater than inSeconds");
+        }
+        if (!result.clearInOut && !result.scaleToFrame && result.inSeconds == null && result.outSeconds == null) {
+          throw commandError("UXP_INVALID_ARGUMENT", "Each update item must request a trim, clear, or scale-to-frame action");
+        }
+        return result;
+      });
+    }
+
+    async function sourceClipSnapshot(clip, projectItemId, mediaType) {
+      if (typeof clip.getInPoint !== "function" || typeof clip.getOutPoint !== "function") {
+        throw commandError("UXP_COMMAND_UNAVAILABLE", "This source clip cannot report in/out points");
+      }
+      const mediaConstants = ppro.Constants && ppro.Constants.MediaType || {};
+      const constant = mediaConstants[mediaType === "video" ? "VIDEO" : "AUDIO"];
+      if (constant == null) throw commandError("UXP_COMMAND_UNAVAILABLE", "Premiere media-type constants are unavailable");
+      return {
+        projectItemId,
+        mediaType,
+        inSeconds: tickSeconds(await clip.getInPoint(constant)),
+        outSeconds: tickSeconds(await clip.getOutPoint(constant))
+      };
+    }
+
+    function tickSeconds(value) {
+      const seconds = value && Number(value.seconds);
+      return Number.isFinite(seconds) ? seconds : null;
+    }
+
+    function sameSeconds(left, right) {
+      return typeof left === "number" && Math.abs(left - right) <= 1e-6;
+    }
+
     async function resumeLease(reason, explicitProjectId) {
       const lease = growingLease || readGrowingLease();
       const projectId = explicitProjectId == null ? lease && lease.projectId : optionalToken(explicitProjectId, "projectId");
@@ -1286,6 +1455,14 @@
       throw commandError("UXP_INVALID_ARGUMENT", name + " must be a non-empty identifier of at most 512 characters");
     }
     return value;
+  }
+
+  function boundedSeconds(value, name) {
+    const number = Number(value);
+    if (!Number.isFinite(number) || number < 0 || number > 86400000) {
+      throw commandError("UXP_INVALID_ARGUMENT", name + " must be between 0 and 86400000 seconds");
+    }
+    return number;
   }
 
   function optionalExpectedBoolean(value, name) {

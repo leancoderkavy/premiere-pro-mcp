@@ -83,6 +83,23 @@ type TrackStateArgs = {
   operation_id?: string;
 };
 
+type SourceClipItem = {
+  project_item_id?: string;
+  media_type?: string;
+  expected_in_seconds?: number;
+  expected_out_seconds?: number;
+  in_seconds?: number;
+  out_seconds?: number;
+  clear_in_out?: boolean;
+  scale_to_frame?: boolean;
+};
+
+type SourceClipArgs = {
+  action?: string;
+  items?: SourceClipItem[];
+  operation_id?: string;
+};
+
 function invoke(
   bridge: UxpWebSocketBridge,
   command: string,
@@ -417,6 +434,53 @@ export function getUxpNextWorkflowTools(bridge: UxpWebSocketBridge) {
           ...(args.operation_id !== undefined ? { operationId: args.operation_id } : {}),
         });
         return { success: false, error: `Unsupported track-state action: ${String(args.action)}` };
+      },
+    },
+    manage_source_clip_uxp: {
+      description: "Inspect or transactionally update source-clip in/out points and request scale-to-frame for up to 64 media items. In/out values are read back; Adobe exposes no getter for clear or scale state, so those requests remain committed-unverified.",
+      parameters: {
+        type: "object" as const,
+        additionalProperties: false,
+        properties: {
+          action: { type: "string", enum: ["inspect", "update"] },
+          items: {
+            type: "array", minItems: 1, maxItems: 64,
+            items: {
+              type: "object", additionalProperties: false,
+              properties: {
+                project_item_id: { type: "string", minLength: 1, maxLength: 512 },
+                media_type: { type: "string", enum: ["video", "audio"] },
+                expected_in_seconds: { type: "number", minimum: 0, maximum: 86400000 },
+                expected_out_seconds: { type: "number", minimum: 0, maximum: 86400000 },
+                in_seconds: { type: "number", minimum: 0, maximum: 86400000 },
+                out_seconds: { type: "number", minimum: 0, maximum: 86400000 },
+                clear_in_out: { type: "boolean" },
+                scale_to_frame: { type: "boolean", enum: [true] },
+              },
+              required: ["project_item_id"],
+            },
+          },
+          operation_id: { type: "string", pattern: "^[A-Za-z0-9._:-]{1,128}$" },
+        },
+        required: ["action", "items"],
+      },
+      handler: async (args: SourceClipArgs) => {
+        const items = args.items?.map((item) => ({
+          ...(item.project_item_id !== undefined ? { projectItemId: item.project_item_id } : {}),
+          ...(item.media_type !== undefined ? { mediaType: item.media_type } : {}),
+          ...(item.expected_in_seconds !== undefined ? { expectedInSeconds: item.expected_in_seconds } : {}),
+          ...(item.expected_out_seconds !== undefined ? { expectedOutSeconds: item.expected_out_seconds } : {}),
+          ...(item.in_seconds !== undefined ? { inSeconds: item.in_seconds } : {}),
+          ...(item.out_seconds !== undefined ? { outSeconds: item.out_seconds } : {}),
+          ...(item.clear_in_out !== undefined ? { clearInOut: item.clear_in_out } : {}),
+          ...(item.scale_to_frame !== undefined ? { scaleToFrame: item.scale_to_frame } : {}),
+        }));
+        if (args.action === "inspect") return invoke(bridge, "source.clip.inspect", { items });
+        if (args.action === "update") return invoke(bridge, "source.clip.update", {
+          items,
+          ...(args.operation_id !== undefined ? { operationId: args.operation_id } : {}),
+        });
+        return { success: false, error: `Unsupported source-clip action: ${String(args.action)}` };
       },
     },
   };

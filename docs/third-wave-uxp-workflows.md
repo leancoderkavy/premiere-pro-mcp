@@ -138,6 +138,21 @@ contain only media type and track index. Adobe's `EventManager` target contract 
 not include caption tracks, so caption event coverage is not claimed. Real-host tests
 must validate rebind races, track deletion, and mute behavior on Windows and macOS.
 
+## PR 9 — Transactional source trim and framing
+
+`manage_source_clip_uxp` inspects and updates source-media in/out points for up to 64
+explicit project-item IDs. Every current and expected time is read before mutation;
+all Adobe actions are then created under `Project.lockedAccess()` and committed in one
+named transaction. Requested in/out values are checked to microsecond tolerance after
+the commit, and duplicate project-item IDs are rejected to avoid conflicting actions.
+
+Adobe exposes only a set-true action for scale-to-frame and no getter for either that
+setting or an unambiguous cleared-in/out sentinel. Those requests are returned as
+`committed_unverified` even though the transaction committed; ordinary in/out sets
+can return `verified` after exact readback. This workflow does not duplicate the
+existing color, frame-rate, or pixel-aspect conformance surfaces. Real-host testing
+remains required for mixed audio/video media and source-monitor behavior.
+
 ## Primary Adobe references
 
 - [EventManager](https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/eventmanager/)
