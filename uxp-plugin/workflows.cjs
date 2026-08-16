@@ -322,6 +322,7 @@
       assertObject(args); assertOnlyKeys(args, []);
       const context = await activeContext(false), selected = await currentTrackItems(context.sequence, false);
       const classified = await classifySelection(context.sequence, selected.items), items = [];
+      assertClassifiedSelection(classified, "The current selection contains an item that cannot be addressed safely");
       for (const value of classified) items.push(await selectionFingerprintSnapshot(value, true));
       return { sequenceGuid: activeSequenceGuid(context.sequence), count: items.length, items };
     }
@@ -1067,9 +1068,11 @@
     async function canManageSelection() {
       if (!canUseSelection() || !ppro.TrackItemSelection || typeof ppro.TrackItemSelection.createEmptySelection !== "function") return false;
       try {
-        const project = await ppro.Project.getActiveProject(), sequence = project && await project.getActiveSequence();
-        return !!(sequence && typeof sequence.getSelection === "function" &&
-          typeof sequence.setSelection === "function" && typeof sequence.clearSelection === "function");
+        const project = await ppro.Project.getActiveProject();
+        if (!project) return true;
+        const sequence = await project.getActiveSequence();
+        return !sequence || typeof sequence.getSelection === "function" &&
+          typeof sequence.setSelection === "function" && typeof sequence.clearSelection === "function";
       } catch (_) { return false; }
     }
     function canUseEffectsSelection() { return canUseEffects() && canUseSelection(); }

@@ -272,6 +272,16 @@ describe("stable Premiere UXP workflow expansion", () => {
     const withoutSet = await missingSet.registry.capabilities();
     expect(withoutSet.commands["selection.inspect"]).toMatchObject({ supported: true });
     expect(withoutSet.commands["selection.update"]).toMatchObject({ supported: false });
+
+    const noProject = stableHost();
+    noProject.ppro.Project.getActiveProject.mockResolvedValue(null as never);
+    const withoutProject = await noProject.registry.capabilities();
+    expect(withoutProject.commands["selection.update"]).toMatchObject({ supported: true });
+
+    const noSequence = stableHost();
+    noSequence.project.getActiveSequence.mockResolvedValue(null as never);
+    const withoutSequence = await noSequence.registry.capabilities();
+    expect(withoutSequence.commands["selection.update"]).toMatchObject({ supported: true });
   });
 
   it("runs native effect and selection batches as verified action transactions", async () => {
@@ -482,6 +492,12 @@ describe("stable Premiere UXP workflow expansion", () => {
     await expect(currentUnavailable.registry.dispatch("selection.inspect", {}))
       .rejects.toMatchObject({ code: "UXP_SELECTION_FINGERPRINT_UNAVAILABLE" });
     expect(currentSourceFallback).not.toHaveBeenCalled();
+
+    const unclassified = stableHost();
+    unclassified.sequence.getVideoTrack.mockResolvedValueOnce({ getTrackItems: vi.fn(async () => []) } as never);
+    unclassified.sequence.getAudioTrack.mockResolvedValueOnce({ getTrackItems: vi.fn(async () => []) } as never);
+    await expect(unclassified.registry.dispatch("selection.inspect", {}))
+      .rejects.toMatchObject({ code: "UXP_UNCLASSIFIED_SELECTION" });
 
     const relative = stableHost();
     const relativeSelection = relative.sequence.getSelection.getMockImplementation();
