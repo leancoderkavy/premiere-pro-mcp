@@ -32,6 +32,8 @@
       "effects.chain.add": { destructive: true, undoable: true, targetCapabilityProbe: true, minHostVersion: "25.6.0", probe: canUseEffects, handler: addEffect },
       "effects.chain.remove": { destructive: true, undoable: true, targetCapabilityProbe: true, minHostVersion: "25.6.0", probe: canUseEffects, handler: removeEffect },
       "selection.inspect": { readOnly: true, minHostVersion: "25.6.0", probe: canUseSelection, handler: inspectSelection },
+      "selection.targets.inspect": { readOnly: true, targetCapabilityProbe: true, minHostVersion: "25.6.0", probe: canUseSelection, handler: inspectSelectionTargets },
+      "selection.update": { idempotent: true, minHostVersion: "25.6.0", probe: canManageSelection, handler: updateSelection },
       "effects.selection.add": { destructive: true, undoable: true, targetCapabilityProbe: true, minHostVersion: "25.6.0", probe: canUseEffectsSelection, handler: addEffectToSelection },
       "effects.selection.remove": { destructive: true, undoable: true, targetCapabilityProbe: true, minHostVersion: "25.6.0", probe: canUseEffectsSelection, handler: removeEffectFromSelection },
       "sceneEdit.detect": { destructive: true, undoable: false, minHostVersion: "25.6.0", probe: canDetectScenes, handler: detectScenes },
@@ -155,14 +157,18 @@
       return items[clipIndex];
     }
 
-    async function selectedTrackItems(sequence) {
+    async function currentTrackItems(sequence, requireNonEmpty) {
       if (typeof sequence.getSelection !== "function") throw commandError("UXP_COMMAND_UNAVAILABLE", "This Premiere build cannot inspect the timeline selection");
       const selection = await sequence.getSelection();
       if (!selection || typeof selection.getTrackItems !== "function") throw commandError("UXP_COMMAND_UNAVAILABLE", "Premiere did not return a track-item selection");
       const items = Array.from(await selection.getTrackItems() || []);
-      if (!items.length) throw commandError("UXP_EMPTY_SELECTION", "Select at least one clip in the active sequence");
+      if (requireNonEmpty && !items.length) throw commandError("UXP_EMPTY_SELECTION", "Select at least one clip in the active sequence");
       if (items.length > MAX_SELECTION_ITEMS) throw commandError("UXP_SELECTION_TOO_LARGE", "Select at most " + MAX_SELECTION_ITEMS + " clips per compound operation");
       return { selection, items };
+    }
+
+    async function selectedTrackItems(sequence) {
+      return currentTrackItems(sequence, true);
     }
 
     async function classifySelection(sequence, selectedItems) {
@@ -312,13 +318,30 @@
 
     async function inspectSelection(args) {
       assertObject(args); assertOnlyKeys(args, []);
-      const context = await activeContext(false), selected = await selectedTrackItems(context.sequence);
+      const context = await activeContext(false), selected = await currentTrackItems(context.sequence, false);
       const classified = await classifySelection(context.sequence, selected.items), items = [];
-      for (const value of classified) items.push(await selectionItemSnapshot(value));
-      return { count: items.length, items };
+      for (const value of classified) items.push(await selectionItemSnapshot(value, true));
+      return { sequenceGuid: activeSequenceGuid(context.sequence), count: items.length, items };
     }
 
-    async function selectionItemSnapshot(value) {
+    async function inspectSelectionTargets(args) {
+      const inputs = validateSelectionTargetInspectionArgs(args), context = await activeContext(false), items = [];
+      for (let index = 0; index < inputs.length; index += 1) {
+        const input = inputs[index], item = await trackItemAt(context.sequence, input.mediaType, input.trackIndex, input.clipIndex);
+        const snapshot = await selectionItemSnapshot({
+          item, selectionIndex: index, mediaType: input.mediaType,
+          trackIndex: input.trackIndex, clipIndex: input.clipIndex
+        }, false);
+        items.push({
+          targetIndex: index, mediaType: snapshot.mediaType, trackIndex: snapshot.trackIndex,
+          clipIndex: snapshot.clipIndex, name: snapshot.name, startSeconds: snapshot.startSeconds,
+          endSeconds: snapshot.endSeconds, projectItem: snapshot.projectItem
+        });
+      }
+      return { sequenceGuid: activeSequenceGuid(context.sequence), count: items.length, items };
+    }
+
+    async function selectionItemSnapshot(value, includeComponentCount) {
       let projectItem = null, startSeconds = null, endSeconds = null, componentCount = null;
       try {
         if (typeof value.item.getProjectItem === "function") {
@@ -332,11 +355,152 @@
       try { endSeconds = tickSeconds(await value.item.getEndTime()); } catch (_) {
         try { endSeconds = tickSeconds(await value.item.getOutPoint()); } catch (_) {}
       }
-      try { componentCount = (await componentChain(value.item)).getComponentCount(); } catch (_) {}
+      if (includeComponentCount) {
+        try { componentCount = (await componentChain(value.item)).getComponentCount(); } catch (_) {}
+      }
       return {
         selectionIndex: value.selectionIndex, mediaType: value.mediaType, trackIndex: value.trackIndex,
         clipIndex: value.clipIndex, name: String(value.item.name || ""), startSeconds, endSeconds, componentCount, projectItem
       };
+    }
+
+    async function updateSelection(args) {
+      const input = validateSelectionUpdateArgs(args), context = await activeContext(false);
+      const sequenceGuid = activeSequenceGuid(context.sequence);
+      if (!sequenceGuid || input.expectedSequenceGuid !== sequenceGuid) {
+        throw commandError("UXP_STALE_SEQUENCE", "The active sequence changed; inspect the timeline selection again before updating it");
+      }
+
+      const before = await selectionSnapshot(context.sequence);
+      let desiredItems = [];
+      if (input.mode !== "clear") {
+        const resolved = await resolveSelectionTargets(context.sequence, input.items);
+        if (input.mode === "replace") desiredItems = resolved.map((value) => value.item);
+        else {
+          assertClassifiedSelection(before.classified, "The current selection contains an item that cannot be addressed safely");
+          desiredItems = before.classified.map((value) => value.item);
+          if (input.mode === "add") {
+            const existing = new Set(before.classified.map(selectionCoordinateKey));
+            for (const value of resolved) {
+              const coordinate = selectionCoordinateKey(value.snapshot);
+              if (!existing.has(coordinate)) { desiredItems.push(value.item); existing.add(coordinate); }
+            }
+            if (desiredItems.length > MAX_SELECTION_ITEMS) {
+              throw commandError("UXP_SELECTION_TOO_LARGE", "The updated selection would exceed " + MAX_SELECTION_ITEMS + " clips");
+            }
+          } else {
+            const removed = new Set(resolved.map((value) => selectionCoordinateKey(value.snapshot)));
+            desiredItems = before.classified
+              .filter((value) => !removed.has(selectionCoordinateKey(value)))
+              .map((value) => value.item);
+          }
+        }
+      }
+
+      const desired = await itemSelectionSnapshot(context.sequence, desiredItems);
+      assertClassifiedSelection(desired.classified, "Premiere could not classify a requested timeline item");
+      if (desiredItems.length) {
+        const selection = createEmptyTrackItemSelection();
+        for (const item of desiredItems) {
+          if (selection.addItem(item, false) !== true) {
+            throw commandError("UXP_SELECTION_REJECTED", "Premiere rejected a clip while constructing the timeline selection");
+          }
+        }
+        const set = await hostBoolean(context.sequence.setSelection(selection));
+        if (!set) throw commandError("UXP_SELECTION_REJECTED", "Premiere did not accept the requested timeline selection");
+      } else {
+        const cleared = await hostBoolean(context.sequence.clearSelection());
+        if (!cleared) throw commandError("UXP_SELECTION_REJECTED", "Premiere did not clear the timeline selection");
+      }
+
+      const after = await selectionSnapshot(context.sequence);
+      assertClassifiedSelection(after.classified, "Premiere returned an unclassified timeline item after the selection update");
+      const expectedKeys = selectionSnapshotKeys(desired.items), actualKeys = selectionSnapshotKeys(after.items);
+      if (!sameStringArrays(expectedKeys, actualKeys)) {
+        throw commandError("UXP_VERIFICATION_FAILED", "The timeline selection readback did not match the requested clips");
+      }
+      const beforeKeys = selectionSnapshotKeys(before.items);
+      return {
+        updated: true, changed: !sameStringArrays(beforeKeys, actualKeys), mode: input.mode,
+        sequenceGuid, count: after.items.length, items: after.items,
+        outcome: "verified", verified: "timeline_selection_readback",
+        verificationBoundary: "timeline_selection_readback",
+        operation: operationSemantics({
+          mutatesProject: false, verificationStatus: "verified", verificationBoundary: "timeline_selection_readback",
+          verificationEvidence: [{ type: "timeline_selection", sequenceGuid, count: after.items.length }],
+          cancellationSupported: true
+        })
+      };
+    }
+
+    async function resolveSelectionTargets(sequence, inputs) {
+      const result = [];
+      for (let index = 0; index < inputs.length; index += 1) {
+        const input = inputs[index], item = await trackItemAt(sequence, input.mediaType, input.trackIndex, input.clipIndex);
+        const snapshot = await selectionItemSnapshot({
+          item, selectionIndex: index, mediaType: input.mediaType,
+          trackIndex: input.trackIndex, clipIndex: input.clipIndex
+        }, false);
+        const projectItemId = snapshot.projectItem && snapshot.projectItem.id;
+        if (projectItemId !== input.expectedProjectItemId ||
+          !valuesEqual(snapshot.startSeconds, input.expectedStartSeconds) ||
+          !valuesEqual(snapshot.endSeconds, input.expectedEndSeconds)) {
+          throw commandError("UXP_STALE_SELECTION_TARGET", "Timeline item " + index + " changed; inspect the selection again before updating it");
+        }
+        result.push({ item, snapshot });
+      }
+      return result;
+    }
+
+    async function selectionSnapshot(sequence) {
+      const selected = await currentTrackItems(sequence, false);
+      return itemSelectionSnapshot(sequence, selected.items);
+    }
+
+    async function itemSelectionSnapshot(sequence, selectedItems) {
+      const classified = await classifySelection(sequence, selectedItems), items = [];
+      for (const value of classified) items.push(await selectionItemSnapshot(value, false));
+      return { classified, items };
+    }
+
+    function assertClassifiedSelection(classified, message) {
+      if (classified.some((value) => value.mediaType !== "video" && value.mediaType !== "audio" ||
+        !Number.isInteger(value.trackIndex) || !Number.isInteger(value.clipIndex))) {
+        throw commandError("UXP_UNCLASSIFIED_SELECTION", message);
+      }
+    }
+
+    function createEmptyTrackItemSelection() {
+      let selection = null;
+      const created = ppro.TrackItemSelection.createEmptySelection((value) => { selection = value; });
+      if (created !== true || !selection || typeof selection.addItem !== "function") {
+        throw commandError("UXP_SELECTION_REJECTED", "Premiere could not create an empty timeline selection");
+      }
+      return selection;
+    }
+
+    async function hostBoolean(value) {
+      const resolved = value && typeof value.then === "function" ? await value : value;
+      return resolved === true;
+    }
+
+    function activeSequenceGuid(sequence) {
+      return sequence && sequence.guid != null ? String(sequence.guid) : "";
+    }
+
+    function selectionSnapshotKeys(items) {
+      return items.map((item) => JSON.stringify([
+        item.mediaType, item.trackIndex, item.clipIndex,
+        item.projectItem && item.projectItem.id || "", item.startSeconds, item.endSeconds
+      ])).sort();
+    }
+
+    function selectionCoordinateKey(item) {
+      return item.mediaType + ":" + item.trackIndex + ":" + item.clipIndex;
+    }
+
+    function sameStringArrays(left, right) {
+      return left.length === right.length && left.every((value, index) => value === right[index]);
     }
 
     async function selectedItemsForEffect(context, mediaType) {
@@ -851,6 +1015,14 @@
     function canUseAudioEffects() { return !!(ppro.AudioFilterFactory && typeof ppro.AudioFilterFactory.createComponentByDisplayName === "function" && typeof ppro.AudioFilterFactory.getDisplayNames === "function"); }
     function canUseEffects() { return canInspectProject() && (canUseVideoEffects() || canUseAudioEffects()); }
     function canUseSelection() { return canInspectProject() && !!(ppro.Constants && ppro.Constants.TrackItemType); }
+    async function canManageSelection() {
+      if (!canUseSelection() || !ppro.TrackItemSelection || typeof ppro.TrackItemSelection.createEmptySelection !== "function") return false;
+      try {
+        const project = await ppro.Project.getActiveProject(), sequence = project && await project.getActiveSequence();
+        return !!(sequence && typeof sequence.getSelection === "function" &&
+          typeof sequence.setSelection === "function" && typeof sequence.clearSelection === "function");
+      } catch (_) { return false; }
+    }
     function canUseEffectsSelection() { return canUseEffects() && canUseSelection(); }
     function canDetectScenes() { return canUseSelection() && !!(ppro.SequenceUtils && typeof ppro.SequenceUtils.performSceneEditDetectionOnSelection === "function"); }
     function canAttachProxy() { return canUseClipItems(); }
@@ -899,6 +1071,65 @@
     target.componentIndex = nonNegativeInt(args.componentIndex, "componentIndex");
     target.expectedEffectId = boundedString(args.expectedEffectId, "expectedEffectId", 256);
     return target;
+  }
+
+  function validateSelectionUpdateArgs(args) {
+    assertObject(args);
+    assertOnlyKeys(args, ["mode", "expectedSequenceGuid", "items", "operationId"]);
+    const mode = enumValue(args.mode, "mode", ["replace", "add", "remove", "clear"]);
+    const expectedSequenceGuid = boundedString(args.expectedSequenceGuid, "expectedSequenceGuid", 512);
+    if (mode === "clear") {
+      if (args.items != null) throw commandError("UXP_INVALID_ARGUMENT", "items must be omitted when mode is clear");
+      return { mode, expectedSequenceGuid, items: [] };
+    }
+    if (!Array.isArray(args.items) || !args.items.length || args.items.length > MAX_SELECTION_ITEMS) {
+      throw commandError("UXP_INVALID_ARGUMENT", "items must contain 1-" + MAX_SELECTION_ITEMS + " timeline targets");
+    }
+    const coordinates = new Set(), items = args.items.map((raw, index) => {
+      assertObject(raw);
+      assertOnlyKeys(raw, [
+        "mediaType", "trackIndex", "clipIndex", "expectedProjectItemId",
+        "expectedStartSeconds", "expectedEndSeconds"
+      ]);
+      const item = {
+        mediaType: enumValue(raw.mediaType, "items[" + index + "].mediaType", ["video", "audio"]),
+        trackIndex: nonNegativeInt(raw.trackIndex, "items[" + index + "].trackIndex"),
+        clipIndex: nonNegativeInt(raw.clipIndex, "items[" + index + "].clipIndex"),
+        expectedProjectItemId: boundedString(raw.expectedProjectItemId, "items[" + index + "].expectedProjectItemId", 512),
+        expectedStartSeconds: finiteNumber(raw.expectedStartSeconds, "items[" + index + "].expectedStartSeconds", 0, Number.MAX_SAFE_INTEGER),
+        expectedEndSeconds: finiteNumber(raw.expectedEndSeconds, "items[" + index + "].expectedEndSeconds", 0, Number.MAX_SAFE_INTEGER)
+      };
+      if (item.expectedEndSeconds < item.expectedStartSeconds) {
+        throw commandError("UXP_INVALID_ARGUMENT", "items[" + index + "].expectedEndSeconds must not be before expectedStartSeconds");
+      }
+      const coordinate = item.mediaType + ":" + item.trackIndex + ":" + item.clipIndex;
+      if (coordinates.has(coordinate)) throw commandError("UXP_INVALID_ARGUMENT", "items must not contain duplicate timeline coordinates");
+      coordinates.add(coordinate);
+      return item;
+    });
+    return { mode, expectedSequenceGuid, items };
+  }
+
+  function validateSelectionTargetInspectionArgs(args) {
+    assertObject(args);
+    assertOnlyKeys(args, ["items"]);
+    if (!Array.isArray(args.items) || !args.items.length || args.items.length > MAX_SELECTION_ITEMS) {
+      throw commandError("UXP_INVALID_ARGUMENT", "items must contain 1-" + MAX_SELECTION_ITEMS + " timeline targets");
+    }
+    const coordinates = new Set();
+    return args.items.map((raw, index) => {
+      assertObject(raw);
+      assertOnlyKeys(raw, ["mediaType", "trackIndex", "clipIndex"]);
+      const item = {
+        mediaType: enumValue(raw.mediaType, "items[" + index + "].mediaType", ["video", "audio"]),
+        trackIndex: nonNegativeInt(raw.trackIndex, "items[" + index + "].trackIndex"),
+        clipIndex: nonNegativeInt(raw.clipIndex, "items[" + index + "].clipIndex")
+      };
+      const coordinate = item.mediaType + ":" + item.trackIndex + ":" + item.clipIndex;
+      if (coordinates.has(coordinate)) throw commandError("UXP_INVALID_ARGUMENT", "items must not contain duplicate timeline coordinates");
+      coordinates.add(coordinate);
+      return item;
+    });
   }
 
   function validateProjectItemTarget(args) {

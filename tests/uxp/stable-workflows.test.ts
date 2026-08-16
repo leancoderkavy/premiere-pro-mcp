@@ -86,10 +86,34 @@ function stableHost() {
   };
   const videoTrack = { getTrackItems: vi.fn(async () => [videoItem]) };
   const audioTrack = { getTrackItems: vi.fn(async () => [audioItem]) };
-  const selection = { getTrackItems: vi.fn(async () => [videoItem]) };
+  type MockTrackItem = typeof videoItem | typeof audioItem;
+  let selectedItems: MockTrackItem[] = [videoItem];
+  const makeSelection = (initial: MockTrackItem[]) => {
+    const items = [...initial];
+    return {
+      items,
+      addItem: vi.fn((item: MockTrackItem, skipDuplicateCheck = false) => {
+        if (!skipDuplicateCheck && items.includes(item)) return false;
+        items.push(item);
+        return true;
+      }),
+      removeItem: vi.fn((item: MockTrackItem) => {
+        const index = items.indexOf(item);
+        if (index < 0) return false;
+        items.splice(index, 1);
+        return true;
+      }),
+      getTrackItems: vi.fn(async () => [...items]),
+    };
+  };
   const sequence = {
     guid: "sequence-1",
-    getSelection: vi.fn(async () => selection),
+    getSelection: vi.fn(async () => makeSelection(selectedItems)),
+    setSelection: vi.fn((selection: ReturnType<typeof makeSelection>) => {
+      selectedItems = [...selection.items];
+      return true;
+    }),
+    clearSelection: vi.fn(async () => { selectedItems = []; return true; }),
     getVideoTrackCount: vi.fn(async () => 1),
     getVideoTrack: vi.fn(async () => videoTrack),
     getAudioTrackCount: vi.fn(async () => 1),
@@ -125,6 +149,12 @@ function stableHost() {
     ClipProjectItem: { cast: vi.fn((item: { isClip?: boolean }) => { if (!item.isClip) throw new Error("not clip"); return item; }) },
     FolderItem: { cast: vi.fn((item: { isFolder?: boolean }) => { if (!item.isFolder) throw new Error("not folder"); return item; }) },
     ProjectUtils: { getSelection: vi.fn(async () => ({ getItems: vi.fn(async () => [sourceClip]) })) },
+    TrackItemSelection: {
+      createEmptySelection: vi.fn((callback: (selection: ReturnType<typeof makeSelection>) => void) => {
+        callback(makeSelection([]));
+        return true;
+      }),
+    },
     Constants: {
       TrackItemType: { CLIP: 1 },
       ScratchDiskFolderType: { CAPTURE: 0, AUDIO_PREVIEW: 1, VIDEO_PREVIEW: 2, AUTO_SAVE: 3, CCL_LIBRARIES: 4, CAPSULE_MEDIA: 5 },
@@ -176,7 +206,8 @@ function stableHost() {
   };
   return {
     registry: Commands.createCommandRegistry({ ppro, Protocol, workspace }),
-    ppro, project, components, audioComponents, sourceClip, workspace,
+    ppro, project, sequence, components, audioComponents, sourceClip, workspace,
+    selectedItems: () => [...selectedItems],
   };
 }
 
@@ -185,13 +216,20 @@ describe("stable Premiere UXP workflow expansion", () => {
     const value = stableHost();
     const capabilities = await value.registry.capabilities();
     expect(Object.keys(capabilities.commands)).toEqual(expect.arrayContaining([
-      "effects.catalog", "effects.chain.add", "selection.inspect", "effects.selection.add",
+      "effects.catalog", "effects.chain.add", "selection.inspect", "selection.targets.inspect", "selection.update", "effects.selection.add",
       "sceneEdit.detect", "proxy.attach", "ingest.configure", "media.relink",
       "metadata.update", "color.preflight", "footage.conform", "sourceMonitor.open",
       "storage.preflight", "scratch.configure", "workspace.status",
     ]));
     expect(capabilities.commands["effects.selection.add"]).toMatchObject({
       supported: true, documented: true, destructive: true, undoable: true,
+    });
+    expect(capabilities.commands["selection.update"]).toMatchObject({
+      supported: true, documented: true, readOnly: false, destructive: false,
+      undoable: false, idempotent: true, minHostVersion: "25.6.0",
+    });
+    expect(capabilities.commands["selection.targets.inspect"]).toMatchObject({
+      supported: true, documented: true, readOnly: true, targetCapabilityProbe: "invocation",
     });
     expect(capabilities.commands["media.relink"]).toMatchObject({
       supported: true, undoable: false, workspaceRequired: true, targetCapabilityProbe: "invocation",
@@ -220,6 +258,20 @@ describe("stable Premiere UXP workflow expansion", () => {
     expect(withoutCloseAll.commands["sourceMonitor.close"]).toMatchObject({ supported: false });
   });
 
+  it("keeps selection inspection available when mutation APIs are unavailable", async () => {
+    const missingFactory = stableHost();
+    Reflect.deleteProperty(missingFactory.ppro.TrackItemSelection, "createEmptySelection");
+    const withoutFactory = await missingFactory.registry.capabilities();
+    expect(withoutFactory.commands["selection.inspect"]).toMatchObject({ supported: true, readOnly: true });
+    expect(withoutFactory.commands["selection.update"]).toMatchObject({ supported: false, readOnly: false });
+
+    const missingSet = stableHost();
+    Reflect.deleteProperty(missingSet.sequence, "setSelection");
+    const withoutSet = await missingSet.registry.capabilities();
+    expect(withoutSet.commands["selection.inspect"]).toMatchObject({ supported: true });
+    expect(withoutSet.commands["selection.update"]).toMatchObject({ supported: false });
+  });
+
   it("runs native effect and selection batches as verified action transactions", async () => {
     const value = stableHost();
     await expect(value.registry.dispatch("effects.catalog", { mediaType: "all" })).resolves.toMatchObject({
@@ -246,6 +298,134 @@ describe("stable Premiere UXP workflow expansion", () => {
     expect(value.project.executeTransaction).toHaveBeenCalledTimes(4);
     expect(value.components).toHaveLength(2);
     expect(value.audioComponents).toHaveLength(2);
+  });
+
+  it("constructs, updates, clears, and replays deterministic timeline selections", async () => {
+    const value = stableHost();
+    const video = {
+      mediaType: "video", trackIndex: 0, clipIndex: 0, expectedProjectItemId: "source-1",
+      expectedStartSeconds: 10, expectedEndSeconds: 20,
+    };
+    const audio = {
+      mediaType: "audio", trackIndex: 0, clipIndex: 0, expectedProjectItemId: "source-1",
+      expectedStartSeconds: 10, expectedEndSeconds: 20,
+    };
+
+    await expect(value.registry.dispatch("selection.inspect", {})).resolves.toMatchObject({
+      sequenceGuid: "sequence-1", count: 1,
+      items: [{ mediaType: "video", projectItem: { id: "source-1" }, startSeconds: 10, endSeconds: 20 }],
+    });
+    await expect(value.registry.dispatch("selection.targets.inspect", {
+      items: [
+        { mediaType: "video", trackIndex: 0, clipIndex: 0 },
+        { mediaType: "audio", trackIndex: 0, clipIndex: 0 },
+      ],
+    })).resolves.toMatchObject({
+      sequenceGuid: "sequence-1", count: 2,
+      items: [
+        { targetIndex: 0, mediaType: "video", projectItem: { id: "source-1" }, startSeconds: 10, endSeconds: 20 },
+        { targetIndex: 1, mediaType: "audio", projectItem: { id: "source-1" }, startSeconds: 10, endSeconds: 20 },
+      ],
+    });
+    await expect(value.registry.dispatch("selection.update", {
+      mode: "replace", expectedSequenceGuid: "sequence-1", items: [video, audio], operationId: "selection-1",
+    })).resolves.toMatchObject({
+      updated: true, changed: true, mode: "replace", count: 2, outcome: "verified",
+      verified: "timeline_selection_readback",
+      operation: { mutatesProject: false, undo: { supported: false } },
+    });
+    await expect(value.registry.dispatch("selection.update", {
+      mode: "replace", expectedSequenceGuid: "sequence-1", items: [video, audio], operationId: "selection-1",
+    })).resolves.toMatchObject({ replayed: true, count: 2 });
+    expect(value.sequence.setSelection).toHaveBeenCalledTimes(1);
+
+    await expect(value.registry.dispatch("selection.update", {
+      mode: "remove", expectedSequenceGuid: "sequence-1", items: [video], operationId: "selection-2",
+    })).resolves.toMatchObject({ count: 1, items: [{ mediaType: "audio" }] });
+    await expect(value.registry.dispatch("selection.update", {
+      mode: "add", expectedSequenceGuid: "sequence-1", items: [video], operationId: "selection-3",
+    })).resolves.toMatchObject({ count: 2 });
+    await expect(value.registry.dispatch("selection.update", {
+      mode: "clear", expectedSequenceGuid: "sequence-1", operationId: "selection-4",
+    })).resolves.toMatchObject({ count: 0, items: [] });
+    await expect(value.registry.dispatch("selection.inspect", {})).resolves.toMatchObject({ count: 0, items: [] });
+    expect(value.selectedItems()).toEqual([]);
+  });
+
+  it("supports the pre-26.3 Promise form of Sequence.setSelection", async () => {
+    const value = stableHost();
+    const implementation = value.sequence.setSelection.getMockImplementation();
+    value.sequence.setSelection.mockImplementation(((selection: unknown) =>
+      Promise.resolve(implementation?.(selection as never))) as never);
+
+    await expect(value.registry.dispatch("selection.update", {
+      mode: "replace", expectedSequenceGuid: "sequence-1", operationId: "selection-async",
+      items: [{
+        mediaType: "audio", trackIndex: 0, clipIndex: 0, expectedProjectItemId: "source-1",
+        expectedStartSeconds: 10, expectedEndSeconds: 20,
+      }],
+    })).resolves.toMatchObject({ count: 1, items: [{ mediaType: "audio" }] });
+  });
+
+  it("rejects stale, duplicate, oversized, rejected, and mismatched selection updates", async () => {
+    const target = {
+      mediaType: "audio", trackIndex: 0, clipIndex: 0, expectedProjectItemId: "source-1",
+      expectedStartSeconds: 10, expectedEndSeconds: 20,
+    };
+    const staleSequence = stableHost();
+    await expect(staleSequence.registry.dispatch("selection.update", {
+      mode: "replace", expectedSequenceGuid: "sequence-old", items: [target],
+    })).rejects.toMatchObject({ code: "UXP_STALE_SEQUENCE" });
+
+    const staleTarget = stableHost();
+    await expect(staleTarget.registry.dispatch("selection.update", {
+      mode: "replace", expectedSequenceGuid: "sequence-1",
+      items: [{ ...target, expectedProjectItemId: "source-old" }],
+    })).rejects.toMatchObject({ code: "UXP_STALE_SELECTION_TARGET" });
+    expect(staleTarget.sequence.setSelection).not.toHaveBeenCalled();
+
+    const invalid = stableHost();
+    await expect(invalid.registry.dispatch("selection.update", {
+      mode: "replace", items: [target],
+    })).rejects.toMatchObject({ code: "UXP_INVALID_ARGUMENT" });
+    await expect(invalid.registry.dispatch("selection.update", {
+      mode: "clear", expectedSequenceGuid: "sequence-1", items: [target],
+    })).rejects.toMatchObject({ code: "UXP_INVALID_ARGUMENT" });
+    await expect(invalid.registry.dispatch("selection.update", {
+      mode: "replace", expectedSequenceGuid: "sequence-1",
+      items: [{ ...target, expectedStartSeconds: 21 }],
+    })).rejects.toMatchObject({ code: "UXP_INVALID_ARGUMENT" });
+    await expect(invalid.registry.dispatch("selection.update", {
+      mode: "replace", expectedSequenceGuid: "sequence-1", items: [target, target],
+    })).rejects.toMatchObject({ code: "UXP_INVALID_ARGUMENT" });
+    await expect(invalid.registry.dispatch("selection.targets.inspect", {
+      items: [
+        { mediaType: "video", trackIndex: 0, clipIndex: 0 },
+        { mediaType: "video", trackIndex: 0, clipIndex: 0 },
+      ],
+    })).rejects.toMatchObject({ code: "UXP_INVALID_ARGUMENT" });
+    await expect(invalid.registry.dispatch("selection.update", {
+      mode: "replace", expectedSequenceGuid: "sequence-1",
+      items: Array.from({ length: 65 }, (_, clipIndex) => ({ ...target, clipIndex })),
+    })).rejects.toMatchObject({ code: "UXP_INVALID_ARGUMENT" });
+
+    const rejected = stableHost();
+    rejected.sequence.setSelection.mockReturnValueOnce(false);
+    await expect(rejected.registry.dispatch("selection.update", {
+      mode: "replace", expectedSequenceGuid: "sequence-1", items: [target],
+    })).rejects.toMatchObject({ code: "UXP_SELECTION_REJECTED" });
+
+    const clearRejected = stableHost();
+    clearRejected.sequence.clearSelection.mockResolvedValueOnce(false);
+    await expect(clearRejected.registry.dispatch("selection.update", {
+      mode: "clear", expectedSequenceGuid: "sequence-1",
+    })).rejects.toMatchObject({ code: "UXP_SELECTION_REJECTED" });
+
+    const mismatch = stableHost();
+    mismatch.sequence.setSelection.mockImplementationOnce(() => true);
+    await expect(mismatch.registry.dispatch("selection.update", {
+      mode: "replace", expectedSequenceGuid: "sequence-1", items: [target],
+    })).rejects.toMatchObject({ code: "UXP_VERIFICATION_FAILED" });
   });
 
   it("uses the native selection for all scene-edit modes without claiming undo", async () => {

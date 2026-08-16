@@ -43,6 +43,24 @@ type WorkflowArgs = {
   folder_types?: string[];
   destination?: string;
   operation_id?: string;
+  expected_sequence_guid?: string;
+  selection_items?: TimelineSelectionItemArgs[];
+  selection_targets?: TimelineSelectionTargetArgs[];
+};
+
+type TimelineSelectionTargetArgs = {
+  media_type?: string;
+  track_index?: number;
+  clip_index?: number;
+};
+
+type TimelineSelectionItemArgs = {
+  media_type?: string;
+  track_index?: number;
+  clip_index?: number;
+  expected_project_item_id?: string;
+  expected_start_seconds?: number;
+  expected_end_seconds?: number;
 };
 
 function invoke(
@@ -148,6 +166,95 @@ export function getUxpWorkflowTools(bridge: UxpWebSocketBridge) {
         if (args.action === "remove_effect") return invoke(bridge, "effects.selection.remove", {
           mediaType: args.media_type, componentIndex: args.component_index, expectedEffectId: args.expected_effect_id, ...operation(args),
         });
+        return invalidAction(args.action);
+      },
+    },
+
+    manage_timeline_selection_uxp: {
+      description: "Inspect, replace, add to, remove from, or clear the active sequence's native UXP clip selection with sequence and clip fingerprint stale-state guards.",
+      parameters: {
+        type: "object" as const,
+        additionalProperties: false,
+        properties: {
+          action: { type: "string", enum: ["inspect", "inspect_targets", "replace", "add", "remove", "clear"] },
+          selection_targets: {
+            type: "array", minItems: 1, maxItems: 64,
+            description: "Required for inspect_targets; returns the project-item and timeline-time fingerprints needed by mutation actions.",
+            items: {
+              type: "object", additionalProperties: false,
+              properties: {
+                media_type: { type: "string", enum: ["video", "audio"] },
+                track_index: { type: "integer", minimum: 0 },
+                clip_index: { type: "integer", minimum: 0 },
+              },
+              required: ["media_type", "track_index", "clip_index"],
+            },
+          },
+          expected_sequence_guid: {
+            type: "string", minLength: 1, maxLength: 512,
+            description: "Required for mutations; copy sequenceGuid from a recent inspect result.",
+          },
+          selection_items: {
+            type: "array", minItems: 1, maxItems: 64,
+            description: "Required for replace/add/remove. Every coordinate must include the project-item and timeline-time fingerprint returned by inspect.",
+            items: {
+              type: "object", additionalProperties: false,
+              properties: {
+                media_type: { type: "string", enum: ["video", "audio"] },
+                track_index: { type: "integer", minimum: 0 },
+                clip_index: { type: "integer", minimum: 0 },
+                expected_project_item_id: { type: "string", minLength: 1, maxLength: 512 },
+                expected_start_seconds: { type: "number", minimum: 0 },
+                expected_end_seconds: { type: "number", minimum: 0 },
+              },
+              required: [
+                "media_type", "track_index", "clip_index", "expected_project_item_id",
+                "expected_start_seconds", "expected_end_seconds",
+              ],
+            },
+          },
+          operation_id: operationId,
+        },
+        required: ["action"],
+      },
+      handler: async (args: WorkflowArgs) => {
+        if (args.action === "inspect") return invoke(bridge, "selection.inspect");
+        if (args.action === "inspect_targets") {
+          if (!args.selection_targets?.length) {
+            return { success: false, error: "inspect_targets requires one or more selection_targets" };
+          }
+          return invoke(bridge, "selection.targets.inspect", {
+            items: args.selection_targets.map((item) => ({
+              mediaType: item.media_type, trackIndex: item.track_index, clipIndex: item.clip_index,
+            })),
+          });
+        }
+        if (["replace", "add", "remove", "clear"].includes(args.action ?? "")) {
+          if (!args.expected_sequence_guid) {
+            return { success: false, error: `${args.action} requires expected_sequence_guid from a recent inspection` };
+          }
+          if (args.action === "clear" && args.selection_items !== undefined) {
+            return { success: false, error: "clear requires selection_items to be omitted" };
+          }
+          if (args.action !== "clear" && !args.selection_items?.length) {
+            return { success: false, error: `${args.action} requires one or more selection_items` };
+          }
+          return invoke(bridge, "selection.update", {
+            mode: args.action,
+            expectedSequenceGuid: args.expected_sequence_guid,
+            ...(args.selection_items === undefined ? {} : {
+              items: args.selection_items.map((item) => ({
+                mediaType: item.media_type,
+                trackIndex: item.track_index,
+                clipIndex: item.clip_index,
+                expectedProjectItemId: item.expected_project_item_id,
+                expectedStartSeconds: item.expected_start_seconds,
+                expectedEndSeconds: item.expected_end_seconds,
+              })),
+            }),
+            ...operation(args),
+          });
+        }
         return invalidAction(args.action);
       },
     },

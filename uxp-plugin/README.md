@@ -55,10 +55,11 @@ for command arguments, support states, and primary Adobe references.
 ## Stable workflow commands
 
 The panel also exposes runtime-probed commands for native audio/video component
-chains, compound effect batches over the current timeline selection, scene-edit
+chains, deterministic timeline selection, compound effect batches over the current
+timeline selection, scene-edit
 detection, proxy and ingest state, guarded offline relink, transactional project/XMP
 metadata, footage interpretation and LUTs, Source Monitor audition, and
-project/Production scratch-disk preflight. They map to ten consolidated MCP tools;
+project/Production scratch-disk preflight. They map to eleven consolidated MCP tools;
 see [the stable workflow matrix](../docs/uxp-stable-workflows.md) for exact commands,
 arguments, confirmation requirements, and the pending live-host gate.
 
