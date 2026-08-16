@@ -187,4 +187,53 @@ describe("next-wave UXP event workflows", () => {
     expect(project.pauseGrowing).toHaveBeenNthCalledWith(2, false);
     expect(storage.removeItem).toHaveBeenCalled();
   });
+
+  it("writes namespaced checkpoints in one transaction and verifies typed readback", async () => {
+    const values = new Map<string, unknown>();
+    const properties = {
+      hasValue: vi.fn((key: string) => values.has(key)),
+      getValue: vi.fn((key: string) => values.get(key)),
+      getValueAsInt: vi.fn((key: string) => values.get(key)),
+      getValueAsFloat: vi.fn((key: string) => values.get(key)),
+      getValueAsBool: vi.fn((key: string) => values.get(key)),
+      createSetValueAction: vi.fn((key: string, value: unknown) => ({ apply: () => values.set(key, value) })),
+      createClearValueAction: vi.fn((key: string) => ({ apply: () => values.delete(key) })),
+    };
+    const project = {
+      guid: "project-1",
+      getActiveSequence: vi.fn(async () => null),
+      lockedAccess: vi.fn((callback: () => void) => callback()),
+      executeTransaction: vi.fn((callback: (compound: { addAction: (action: { apply: () => void }) => boolean }) => void) => {
+        callback({ addAction: (action) => { action.apply(); return true; } });
+        return true;
+      }),
+    };
+    const definitions = NextWorkflows.createNextWorkflowDefinitions({
+      ppro: {
+        Project: { getActiveProject: vi.fn(async () => project) },
+        Properties: {
+          getProperties: vi.fn(async () => properties),
+          PROPERTY_PERSISTENT: 1,
+          PROPERTY_NON_PERSISTENT: 2,
+        },
+      },
+    });
+
+    await expect(definitions["checkpoint.set"].handler({
+      owner: "project", expectedOwnerId: "project-1", name: "render.pass",
+      valueType: "int", value: 3, persistence: "persistent",
+    })).resolves.toMatchObject({
+      owner: "project", ownerId: "project-1", name: "render.pass",
+      keyNamespace: "premiereMcp.", exists: true, valueType: "int", value: 3,
+      persistence: "persistent", outcome: "verified", verificationBoundary: "typed_property_readback",
+    });
+    expect(properties.createSetValueAction).toHaveBeenCalledWith("premiereMcp.render.pass", 3, 1);
+    await expect(definitions["checkpoint.get"].handler({
+      name: "render.pass", valueType: "int",
+    })).resolves.toMatchObject({ exists: true, value: 3 });
+    await expect(definitions["checkpoint.clear"].handler({ name: "render.pass" })).resolves.toMatchObject({
+      cleared: true, exists: false, verificationBoundary: "property_absence_readback",
+    });
+    expect(project.executeTransaction).toHaveBeenCalledTimes(2);
+  });
 });

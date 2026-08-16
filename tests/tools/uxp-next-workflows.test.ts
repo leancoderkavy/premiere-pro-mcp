@@ -52,6 +52,17 @@ describe("next-wave UXP MCP tools", () => {
         confirm_pause: { type: "boolean" },
       },
     });
+    const checkpoints = getUxpNextWorkflowTools(bridge).manage_workflow_checkpoints_uxp;
+    expect(checkpoints.parameters).toMatchObject({
+      additionalProperties: false,
+      required: ["action", "name"],
+      properties: {
+        action: { enum: ["has", "get", "set", "clear"] },
+        owner: { enum: ["project", "sequence"] },
+        value_type: { enum: ["string", "int", "float", "bool"] },
+        persistence: { enum: ["session", "persistent"] },
+      },
+    });
   });
 
   it("maps snake-case event queries to the exact bridge commands", async () => {
@@ -107,6 +118,16 @@ describe("next-wave UXP MCP tools", () => {
     expect(request).toHaveBeenLastCalledWith("growing.pause", {
       projectId: "project-1", expectedPath: "C:/work/source.prproj",
       leaseMs: 30000, confirmPause: true, operationId: "pause-1",
+    });
+
+    const checkpoints = getUxpNextWorkflowTools(bridge).manage_workflow_checkpoints_uxp;
+    await checkpoints.handler({
+      action: "set", owner: "sequence", sequence_id: "sequence-1", expected_owner_id: "sequence-1",
+      name: "render.pass", value_type: "int", value: 3, persistence: "persistent", operation_id: "checkpoint-1",
+    });
+    expect(request).toHaveBeenLastCalledWith("checkpoint.set", {
+      owner: "sequence", sequenceId: "sequence-1", expectedOwnerId: "sequence-1",
+      name: "render.pass", valueType: "int", value: 3, persistence: "persistent", operationId: "checkpoint-1",
     });
   });
 

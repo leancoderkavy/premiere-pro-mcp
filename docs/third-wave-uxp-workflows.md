@@ -94,6 +94,21 @@ labeled panel-local and both pause and resume stop at the host-return boundary. 
 host validation must still exercise growing files, crash recovery, project switching,
 and both operating systems before this can be treated as state readback.
 
+## PR 6 — Transactional workflow checkpoints
+
+`manage_workflow_checkpoints_uxp` stores bounded scalar state on a targeted project
+or sequence through Adobe's `Properties` API. Callers use an unprefixed 96-character
+token; the panel owns the `premiereMcp.` namespace. Values are typed as string,
+32-bit integer, finite float, or boolean, and strings are capped at 8 KiB.
+
+Set and clear actions are created under `Project.lockedAccess()`, committed in one
+`executeTransaction()`, and checked through typed value or absence readback. A stale
+owner GUID guard prevents an active-sequence change from redirecting the write.
+Session persistence is the default. Persistent properties may be shared with cloud
+projects, so the public contract explicitly forbids secrets, native paths,
+transcripts, and media names. Automated contracts do not prove cloud sync behavior
+or cross-version property retention in a real Premiere host.
+
 ## Primary Adobe references
 
 - [EventManager](https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/eventmanager/)
@@ -101,3 +116,4 @@ and both operating systems before this can be treated as state readback.
 - [EncoderManager](https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/encodermanager/)
 - [Project](https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/project/)
 - [ProjectUtils](https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/projectutils/)
+- [Properties](https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/properties/)

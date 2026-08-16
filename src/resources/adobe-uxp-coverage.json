@@ -1047,6 +1047,37 @@
       "undoable": false,
       "idempotency": "operation_id",
       "verificationBoundary": "project_pauseGrowing_host_return_only"
+    },
+    {
+      "id": "transactional-workflow-checkpoints",
+      "adobeApi": [
+        "Properties.getProperties",
+        "Properties.hasValue",
+        "Properties.getValue",
+        "Properties.getValueAsInt",
+        "Properties.getValueAsFloat",
+        "Properties.getValueAsBool",
+        "Properties.createSetValueAction",
+        "Properties.createClearValueAction",
+        "Project.lockedAccess",
+        "Project.executeTransaction"
+      ],
+      "documentationUrls": [
+        "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/properties/",
+        "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/project/"
+      ],
+      "minimumPremiereVersion": "25.6.0",
+      "backend": "uxp",
+      "uxpCommand": "checkpoint.set",
+      "mcpTools": ["manage_workflow_checkpoints_uxp"],
+      "availability": "current",
+      "implementationStatus": "implemented",
+      "verificationStatus": "automated_contract_verified",
+      "liveHostVerificationStatus": "not_run",
+      "mutatesProject": true,
+      "undoable": true,
+      "idempotency": "operation_id",
+      "verificationBoundary": "typed_property_or_absence_readback"
     }
   ]
 }
