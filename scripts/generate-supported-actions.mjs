@@ -169,7 +169,7 @@ async function main() {
   const markdown = await generateSupportedActionsMarkdown();
   if (checkOnly) {
     const current = await readFile(OUTPUT_PATH, "utf8").catch(() => "");
-    if (current !== markdown) {
+    if (current.replaceAll("\r\n", "\n") !== markdown) {
       throw new Error("docs/supported-actions.md is stale. Run npm run docs:supported-actions.");
     }
     process.stdout.write("Supported actions catalog is current.\n");
