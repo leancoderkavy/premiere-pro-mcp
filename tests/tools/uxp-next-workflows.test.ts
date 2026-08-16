@@ -136,4 +136,70 @@ describe("next-wave UXP MCP tools", () => {
     await expect(tools.wait_for_host_readiness_uxp.handler({ action: "unsupported" }))
       .resolves.toEqual({ success: false, error: "Unsupported readiness action: unsupported" });
   });
+
+  it("covers every project-session route and its optional argument mappings", async () => {
+    const request = vi.fn().mockResolvedValue({ ok: true });
+    const bridge = { request, getState: vi.fn() } as unknown as UxpWebSocketBridge;
+    const tool = getUxpNextWorkflowTools(bridge).manage_project_sessions_uxp;
+
+    await tool.handler({ action: "list" });
+    expect(request).toHaveBeenLastCalledWith("project.sessions.list", {});
+    await tool.handler({ action: "list", include_paths: false });
+    expect(request).toHaveBeenLastCalledWith("project.sessions.list", { includePaths: false });
+    await tool.handler({ action: "validate", path: "C:/work/source.prproj" });
+    expect(request).toHaveBeenLastCalledWith("project.sessions.validate", { path: "C:/work/source.prproj" });
+
+    await tool.handler({ action: "create", path: "C:/work/new.prproj" });
+    expect(request).toHaveBeenLastCalledWith("project.sessions.create", { path: "C:/work/new.prproj" });
+    await tool.handler({
+      action: "create", path: "C:/work/new.prproj", confirm_external_write: true,
+      confirm_overwrite: false, operation_id: "create-1",
+    });
+    expect(request).toHaveBeenLastCalledWith("project.sessions.create", {
+      path: "C:/work/new.prproj", confirmExternalWrite: true,
+      confirmOverwrite: false, operationId: "create-1",
+    });
+
+    await tool.handler({ action: "open", path: "C:/work/open.prproj" });
+    expect(request).toHaveBeenLastCalledWith("project.sessions.open", { path: "C:/work/open.prproj" });
+    await tool.handler({
+      action: "open", path: "C:/work/open.prproj", show_dialogs: false,
+      add_to_mru: true, operation_id: "open-1",
+    });
+    expect(request).toHaveBeenLastCalledWith("project.sessions.open", {
+      path: "C:/work/open.prproj", showDialogs: false, addToMru: true, operationId: "open-1",
+    });
+
+    await tool.handler({ action: "save" });
+    expect(request).toHaveBeenLastCalledWith("project.sessions.save", {});
+    await tool.handler({ action: "save_as", path: "C:/work/copy.prproj" });
+    expect(request).toHaveBeenLastCalledWith("project.sessions.saveAs", { path: "C:/work/copy.prproj" });
+    await tool.handler({
+      action: "save_as", project_id: "project-1", expected_path: "C:/work/source.prproj",
+      path: "C:/work/copy.prproj", confirm_external_write: true,
+      confirm_overwrite: true, operation_id: "save-as-1",
+    });
+    expect(request).toHaveBeenLastCalledWith("project.sessions.saveAs", {
+      projectId: "project-1", expectedPath: "C:/work/source.prproj", operationId: "save-as-1",
+      path: "C:/work/copy.prproj", confirmExternalWrite: true, confirmOverwrite: true,
+    });
+
+    await tool.handler({ action: "branch_copies", paths: ["C:/work/branch.prproj"] });
+    expect(request).toHaveBeenLastCalledWith("project.sessions.branchCopies", {
+      paths: ["C:/work/branch.prproj"],
+    });
+    await tool.handler({ action: "close" });
+    expect(request).toHaveBeenLastCalledWith("project.sessions.close", {});
+    await tool.handler({
+      action: "close", project_id: "project-1", expected_path: "C:/work/source.prproj",
+      save_before_close: false, confirm_close: true, confirm_discard_unsaved: true,
+      operation_id: "close-1",
+    });
+    expect(request).toHaveBeenLastCalledWith("project.sessions.close", {
+      projectId: "project-1", expectedPath: "C:/work/source.prproj", operationId: "close-1",
+      saveBeforeClose: false, confirmClose: true, confirmDiscardUnsaved: true,
+    });
+    await expect(tool.handler({ action: "unsupported" }))
+      .resolves.toEqual({ success: false, error: "Unsupported project-session action: unsupported" });
+  });
 });
