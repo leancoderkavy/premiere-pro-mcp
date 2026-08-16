@@ -23,7 +23,7 @@ Premiere build.
 | --- | --- | --- | --- |
 | Native effects pipeline | `manage_clip_effects_uxp` | `effects.catalog`, `effects.chain.get`, `effects.chain.add`, `effects.chain.remove` | Effect catalog allowlist; component-chain count and component readback after an action transaction |
 | Selection compound batch | `batch_selected_clips_uxp` | `selection.inspect`, `effects.selection.add`, `effects.selection.remove` | Preflight all selected items, then commit one action group and read every chain count back |
-| Deterministic timeline selection | `manage_timeline_selection_uxp` | `selection.inspect`, `selection.targets.inspect`, `selection.update` | Current or coordinate-resolved clips return active-sequence GUID and project-item/time fingerprints; mutations check them before one native selection update and exact readback |
+| Deterministic timeline selection | `manage_timeline_selection_uxp` | `selection.fingerprints.inspect`, `selection.targets.inspect`, `selection.update` | Current or coordinate-resolved clips return active-sequence GUID and project-item/time fingerprints; mutations check them before one native selection update and exact readback |
 | Scene-edit detection | `detect_scene_edits_uxp` | `sceneEdit.detect` | Adobe host return plus selected-item count; no Undo or detection-count claim |
 | Proxy and ingest controller | `manage_proxy_ingest_uxp` | `proxy.inspect`, `proxy.attach`, `ingest.get`, `ingest.configure` | Proxy path/attachment readback; ingest state readback after transaction |
 | Offline relink repair | `relink_offline_media_uxp` | `media.relink` | Expected old path, offline default, capability check, then media-path and online-state readback |

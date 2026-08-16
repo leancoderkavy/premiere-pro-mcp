@@ -218,7 +218,7 @@ export function getUxpWorkflowTools(bridge: UxpWebSocketBridge) {
         required: ["action"],
       },
       handler: async (args: WorkflowArgs) => {
-        if (args.action === "inspect") return invoke(bridge, "selection.inspect");
+        if (args.action === "inspect") return invoke(bridge, "selection.fingerprints.inspect");
         if (args.action === "inspect_targets") {
           if (!args.selection_targets?.length) {
             return { success: false, error: "inspect_targets requires one or more selection_targets" };

@@ -32,6 +32,7 @@
       "effects.chain.add": { destructive: true, undoable: true, targetCapabilityProbe: true, minHostVersion: "25.6.0", probe: canUseEffects, handler: addEffect },
       "effects.chain.remove": { destructive: true, undoable: true, targetCapabilityProbe: true, minHostVersion: "25.6.0", probe: canUseEffects, handler: removeEffect },
       "selection.inspect": { readOnly: true, minHostVersion: "25.6.0", probe: canUseSelection, handler: inspectSelection },
+      "selection.fingerprints.inspect": { readOnly: true, minHostVersion: "25.6.0", probe: canUseSelection, handler: inspectSelectionFingerprints },
       "selection.targets.inspect": { readOnly: true, targetCapabilityProbe: true, minHostVersion: "25.6.0", probe: canUseSelection, handler: inspectSelectionTargets },
       "selection.update": { idempotent: true, minHostVersion: "25.6.0", probe: canManageSelection, handler: updateSelection },
       "effects.selection.add": { destructive: true, undoable: true, targetCapabilityProbe: true, minHostVersion: "25.6.0", probe: canUseEffectsSelection, handler: addEffectToSelection },
@@ -327,6 +328,14 @@
 
     async function inspectSelection(args) {
       assertObject(args); assertOnlyKeys(args, []);
+      const context = await activeContext(false), selected = await selectedTrackItems(context.sequence);
+      const classified = await classifySelection(context.sequence, selected.items), items = [];
+      for (const value of classified) items.push(await selectionItemSnapshot(value));
+      return { count: items.length, items };
+    }
+
+    async function inspectSelectionFingerprints(args) {
+      assertObject(args); assertOnlyKeys(args, []);
       const context = await activeContext(false), selected = await currentTrackItems(context.sequence, false);
       const classified = await classifySelection(context.sequence, selected.items), items = [];
       assertClassifiedSelection(classified, "The current selection contains an item that cannot be addressed safely");
@@ -381,6 +390,27 @@
       };
     }
 
+    async function selectionItemSnapshot(value) {
+      let projectItem = null, startSeconds = null, endSeconds = null, componentCount = null;
+      try {
+        if (typeof value.item.getProjectItem === "function") {
+          const item = await value.item.getProjectItem();
+          projectItem = { id: await projectItemIdentifier(item), name: String(item && item.name || "") };
+        }
+      } catch (_) {}
+      try { startSeconds = tickSeconds(await value.item.getStartTime()); } catch (_) {
+        try { startSeconds = tickSeconds(await value.item.getInPoint()); } catch (_) {}
+      }
+      try { endSeconds = tickSeconds(await value.item.getEndTime()); } catch (_) {
+        try { endSeconds = tickSeconds(await value.item.getOutPoint()); } catch (_) {}
+      }
+      try { componentCount = (await componentChain(value.item)).getComponentCount(); } catch (_) {}
+      return {
+        selectionIndex: value.selectionIndex, mediaType: value.mediaType, trackIndex: value.trackIndex,
+        clipIndex: value.clipIndex, name: String(value.item.name || ""), startSeconds, endSeconds, componentCount, projectItem
+      };
+    }
+
     async function updateSelection(args) {
       const input = validateSelectionUpdateArgs(args), context = await activeContext(false);
       const sequenceGuid = activeSequenceGuid(context.sequence);
@@ -409,7 +439,7 @@
         }
       }
       const finalContext = await activeContext(false), finalSequenceGuid = activeSequenceGuid(finalContext.sequence);
-      if (!finalSequenceGuid || input.expectedSequenceGuid !== finalSequenceGuid || finalContext.sequence !== commitContext.sequence) {
+      if (!finalSequenceGuid || input.expectedSequenceGuid !== finalSequenceGuid) {
         throw commandError("UXP_STALE_SEQUENCE", "The active sequence changed; inspect the timeline selection again before updating it");
       }
       if (desiredItems.length) {

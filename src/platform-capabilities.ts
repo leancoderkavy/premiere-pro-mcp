@@ -277,6 +277,7 @@ export function buildPlatformCapabilityReport(
           "effects.chain.add",
           "effects.chain.remove",
           "selection.inspect",
+          "selection.fingerprints.inspect",
           "selection.targets.inspect",
           "selection.update",
           "effects.selection.add",

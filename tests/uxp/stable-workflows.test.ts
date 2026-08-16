@@ -218,7 +218,7 @@ describe("stable Premiere UXP workflow expansion", () => {
     const value = stableHost();
     const capabilities = await value.registry.capabilities();
     expect(Object.keys(capabilities.commands)).toEqual(expect.arrayContaining([
-      "effects.catalog", "effects.chain.add", "selection.inspect", "selection.targets.inspect", "selection.update", "effects.selection.add",
+      "effects.catalog", "effects.chain.add", "selection.inspect", "selection.fingerprints.inspect", "selection.targets.inspect", "selection.update", "effects.selection.add",
       "sceneEdit.detect", "proxy.attach", "ingest.configure", "media.relink",
       "metadata.update", "color.preflight", "footage.conform", "sourceMonitor.open",
       "storage.preflight", "scratch.configure", "workspace.status",
@@ -323,7 +323,7 @@ describe("stable Premiere UXP workflow expansion", () => {
       expectedStartSeconds: 10, expectedEndSeconds: 20,
     };
 
-    await expect(value.registry.dispatch("selection.inspect", {})).resolves.toMatchObject({
+    await expect(value.registry.dispatch("selection.fingerprints.inspect", {})).resolves.toMatchObject({
       sequenceGuid: "sequence-1", count: 1,
       items: [{ mediaType: "video", projectItem: { id: "source-1" }, startSeconds: 10, endSeconds: 20 }],
     });
@@ -360,7 +360,7 @@ describe("stable Premiere UXP workflow expansion", () => {
     await expect(value.registry.dispatch("selection.update", {
       mode: "clear", expectedSequenceGuid: "sequence-1", operationId: "selection-4",
     })).resolves.toMatchObject({ count: 0, items: [] });
-    await expect(value.registry.dispatch("selection.inspect", {})).resolves.toMatchObject({ count: 0, items: [] });
+    await expect(value.registry.dispatch("selection.fingerprints.inspect", {})).resolves.toMatchObject({ count: 0, items: [] });
     expect(value.selectedItems()).toEqual([]);
   });
 
@@ -507,7 +507,12 @@ describe("stable Premiere UXP workflow expansion", () => {
 
     const switchedDuringFinalPlan = stableHost();
     const getFinalPlanningSelection = switchedDuringFinalPlan.sequence.getSelection.getMockImplementation();
-    const lateSameGuidSequence = { ...switchedDuringFinalPlan.sequence, setSelection: vi.fn() };
+    const setFinalPlanningSelection = switchedDuringFinalPlan.sequence.setSelection.getMockImplementation();
+    const lateSameGuidSequence = {
+      ...switchedDuringFinalPlan.sequence,
+      setSelection: vi.fn((selection: Parameters<typeof switchedDuringFinalPlan.sequence.setSelection>[0]) =>
+        setFinalPlanningSelection?.(selection)),
+    };
     let finalPlanningSelectionCalls = 0;
     switchedDuringFinalPlan.sequence.getSelection.mockImplementation(async () => {
       finalPlanningSelectionCalls += 1;
@@ -519,9 +524,9 @@ describe("stable Premiere UXP workflow expansion", () => {
     });
     await expect(switchedDuringFinalPlan.registry.dispatch("selection.update", {
       mode: "replace", expectedSequenceGuid: "sequence-1", items: [target],
-    })).rejects.toMatchObject({ code: "UXP_STALE_SEQUENCE" });
+    })).resolves.toMatchObject({ count: 1, items: [{ mediaType: "audio" }] });
     expect(switchedDuringFinalPlan.sequence.setSelection).not.toHaveBeenCalled();
-    expect(lateSameGuidSequence.setSelection).not.toHaveBeenCalled();
+    expect(lateSameGuidSequence.setSelection).toHaveBeenCalledTimes(1);
   });
 
   it("revalidates same-sequence targets and requires native timeline fingerprints", async () => {
@@ -557,16 +562,24 @@ describe("stable Premiere UXP workflow expansion", () => {
     const currentUnavailable = stableHost();
     const currentSourceFallback = vi.fn(async () => ({ seconds: 10 }));
     Object.assign(currentUnavailable.videoItem, { getInPoint: currentSourceFallback });
-    currentUnavailable.videoItem.getStartTime.mockRejectedValueOnce(new Error("timeline time unavailable"));
-    await expect(currentUnavailable.registry.dispatch("selection.inspect", {}))
+    currentUnavailable.videoItem.getStartTime.mockRejectedValue(new Error("timeline time unavailable"));
+    await expect(currentUnavailable.registry.dispatch("selection.fingerprints.inspect", {}))
       .rejects.toMatchObject({ code: "UXP_SELECTION_FINGERPRINT_UNAVAILABLE" });
     expect(currentSourceFallback).not.toHaveBeenCalled();
 
+    await expect(currentUnavailable.registry.dispatch("selection.inspect", {})).resolves.toMatchObject({
+      count: 1, items: [{ mediaType: "video", startSeconds: 10 }],
+    });
+    expect(currentSourceFallback).toHaveBeenCalledTimes(1);
+
     const unclassified = stableHost();
-    unclassified.sequence.getVideoTrack.mockResolvedValueOnce({ getTrackItems: vi.fn(async () => []) } as never);
-    unclassified.sequence.getAudioTrack.mockResolvedValueOnce({ getTrackItems: vi.fn(async () => []) } as never);
-    await expect(unclassified.registry.dispatch("selection.inspect", {}))
+    unclassified.sequence.getVideoTrack.mockResolvedValue({ getTrackItems: vi.fn(async () => []) } as never);
+    unclassified.sequence.getAudioTrack.mockResolvedValue({ getTrackItems: vi.fn(async () => []) } as never);
+    await expect(unclassified.registry.dispatch("selection.fingerprints.inspect", {}))
       .rejects.toMatchObject({ code: "UXP_UNCLASSIFIED_SELECTION" });
+    await expect(unclassified.registry.dispatch("selection.inspect", {})).resolves.toMatchObject({
+      count: 1, items: [{ mediaType: "unknown", trackIndex: 0, clipIndex: null }],
+    });
 
     const relative = stableHost();
     const relativeSelection = relative.sequence.getSelection.getMockImplementation();

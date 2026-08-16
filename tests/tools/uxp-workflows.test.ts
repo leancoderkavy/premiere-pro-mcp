@@ -92,7 +92,7 @@ describe("stable UXP workflow MCP catalog", () => {
       action: "clear", expected_sequence_guid: "sequence-1", operation_id: "selection-2",
     });
 
-    expect(request).toHaveBeenNthCalledWith(1, "selection.inspect", {});
+    expect(request).toHaveBeenNthCalledWith(1, "selection.fingerprints.inspect", {});
     expect(request).toHaveBeenNthCalledWith(2, "selection.targets.inspect", {
       items: [{ mediaType: "audio", trackIndex: 0, clipIndex: 4 }],
     });
