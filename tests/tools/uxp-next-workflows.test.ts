@@ -313,4 +313,40 @@ describe("next-wave UXP MCP tools", () => {
     await expect(tool.handler({ action: "unsupported", name: "render.pass" }))
       .resolves.toEqual({ success: false, error: "Unsupported checkpoint action: unsupported" });
   });
+
+  it("covers every media-health route with redacted defaults and explicit options", async () => {
+    const request = vi.fn().mockResolvedValue({ ok: true });
+    const bridge = { request, getState: vi.fn() } as unknown as UxpWebSocketBridge;
+    const tool = getUxpNextWorkflowTools(bridge).maintain_media_health_uxp;
+
+    await tool.handler({ action: "inspect" });
+    expect(request).toHaveBeenLastCalledWith("media.health.inspect", {});
+    await tool.handler({ action: "inspect", project_item_ids: ["clip-1"], include_paths: false });
+    expect(request).toHaveBeenLastCalledWith("media.health.inspect", {
+      projectItemIds: ["clip-1"], includePaths: false,
+    });
+    await tool.handler({ action: "refresh" });
+    expect(request).toHaveBeenLastCalledWith("media.health.refresh", {});
+    await tool.handler({
+      action: "refresh", project_item_ids: ["clip-1"], expected_offline: true,
+      operation_id: "refresh-1",
+    });
+    expect(request).toHaveBeenLastCalledWith("media.health.refresh", {
+      projectItemIds: ["clip-1"], expectedOffline: true, operationId: "refresh-1",
+    });
+    await tool.handler({ action: "set_offline" });
+    expect(request).toHaveBeenLastCalledWith("media.health.setOffline", {});
+    await tool.handler({ action: "find_by_media_path" });
+    expect(request).toHaveBeenLastCalledWith("media.health.findByPath", {});
+    await tool.handler({
+      action: "find_by_media_path", project_item_id: "clip-1", match_path: "C:/media/a.mov",
+      ignore_subclips: true, include_paths: true,
+    });
+    expect(request).toHaveBeenLastCalledWith("media.health.findByPath", {
+      projectItemId: "clip-1", matchPath: "C:/media/a.mov",
+      ignoreSubclips: true, includePaths: true,
+    });
+    await expect(tool.handler({ action: "unsupported" }))
+      .resolves.toEqual({ success: false, error: "Unsupported media-health action: unsupported" });
+  });
 });
