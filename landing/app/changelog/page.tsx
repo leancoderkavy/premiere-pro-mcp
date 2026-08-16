@@ -5,6 +5,33 @@ import { product } from "@/lib/product"
 
 const releases = [
   {
+    version: "1.10.0",
+    date: "2026-08-16",
+    label: "Stable, bounded UXP workflow expansion",
+    groups: [
+      {
+        title: "Added",
+        items: [
+          "Added 21 consolidated, capability-gated UXP tools, expanding the connected surface from 297 to 318 tools.",
+          "Added native workflows for effects, selections, scene detection, proxies, relinking, metadata, color, Source Monitor, storage, project organization, keyframes, timeline edits, sequences, and encoding.",
+        ],
+      },
+      {
+        title: "Changed",
+        items: [
+          "Bounded project traversal, grouped compatible Adobe actions into transactions, and added stale-state guards, replay protection, and readback evidence.",
+          "Replaced UXP filesystem full access with an operator-selected workspace while retaining CEP as the production-compatible bridge.",
+        ],
+      },
+      {
+        title: "Validation",
+        items: [
+          "Automated unit, contract, distribution, and coverage gates exercise the expanded surface; real Premiere host verification and latency benchmarking remain pending.",
+        ],
+      },
+    ],
+  },
+  {
     version: "1.9.3",
     date: "2026-08-12",
     label: "Focused release overview and repository assets",

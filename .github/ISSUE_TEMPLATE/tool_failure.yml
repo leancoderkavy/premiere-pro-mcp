@@ -17,7 +17,7 @@ body:
     id: package-version
     attributes:
       label: Premiere Pro MCP version
-      placeholder: 1.9.3
+      placeholder: 1.10.0
     validations:
       required: true
   - type: input
