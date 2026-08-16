@@ -430,7 +430,7 @@ function recordHostEvent(definition, event) {
     if (Number.isFinite(Number(event.state))) detail.state = Number(event.state);
     if (Number.isFinite(Number(event.progress))) detail.progress = Number(event.progress);
   }
-  const receipt = eventJournal.append({
+  const receipt = eventJournal.recordHostEvent({
     category: definition.category,
     name: definition.name,
     detail,

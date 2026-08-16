@@ -37,7 +37,9 @@
     let advancedWorkflowApi = deps.AdvancedWorkflows || (typeof globalThis !== "undefined" && globalThis.PremiereMcpAdvancedWorkflows);
     if (!advancedWorkflowApi && typeof require === "function") advancedWorkflowApi = require("./advanced-workflows.cjs");
     if (advancedWorkflowApi && typeof advancedWorkflowApi.createAdvancedWorkflowDefinitions === "function") {
-      Object.assign(definitions, advancedWorkflowApi.createAdvancedWorkflowDefinitions({ ppro, Protocol, workspace }));
+      Object.assign(definitions, advancedWorkflowApi.createAdvancedWorkflowDefinitions({
+        ppro, Protocol, workspace, events: deps.events
+      }));
     }
     let nextWorkflowApi = deps.NextWorkflows || (typeof globalThis !== "undefined" && globalThis.PremiereMcpNextWorkflows);
     if (!nextWorkflowApi && typeof require === "function") nextWorkflowApi = require("./next-workflows.cjs");

@@ -101,4 +101,40 @@ describe("UXP host event journal", () => {
     journal.close();
     await expect(pending).resolves.toMatchObject({ closed: true, events: [] });
   });
+
+  it("attributes encoder events only while exactly one job is active", async () => {
+    const journal = Events.createEventJournal({ capacity: 16 });
+    const first = journal.beginEncodeJob({ kind: "sequence", operationId: "encode-one" });
+    journal.markEncodeAccepted(first.jobId);
+    journal.recordHostEvent({ category: "encoder", name: "encoder.queued" });
+    journal.recordHostEvent({ category: "encoder", name: "encoder.progress", detail: { progress: 0.5 } });
+
+    expect(journal.listEncodeJobs({ jobId: first.jobId })).toMatchObject({
+      correlation: "single-active-job-only",
+      jobs: [{ jobId: "encode-one", state: "rendering", progress: 0.5, terminal: false }],
+    });
+
+    const terminal = journal.waitForEncodeJob({ jobId: first.jobId, timeoutMs: 1000 });
+    journal.recordHostEvent({ category: "encoder", name: "encoder.complete" });
+    await expect(terminal).resolves.toMatchObject({
+      timedOut: false,
+      job: { state: "completed", terminal: true, terminalReason: "completed" },
+    });
+  });
+
+  it("does not guess job correlation when multiple encodes are active", () => {
+    const journal = Events.createEventJournal({ capacity: 16 });
+    journal.beginEncodeJob({ kind: "sequence", operationId: "encode-one" });
+    journal.beginEncodeJob({ kind: "file", operationId: "encode-two" });
+    const receipt = journal.recordHostEvent({ category: "encoder", name: "encoder.complete" });
+
+    expect(receipt).toMatchObject({ detail: { attributed: false } });
+    expect(journal.listEncodeJobs({})).toMatchObject({
+      unattributedEncoderEvents: 1,
+      jobs: expect.arrayContaining([
+        expect.objectContaining({ jobId: "encode-one", terminal: false }),
+        expect.objectContaining({ jobId: "encode-two", terminal: false }),
+      ]),
+    });
+  });
 });

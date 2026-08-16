@@ -38,7 +38,9 @@ describe("advanced stable UXP workflow MCP catalog", () => {
     });
     expect(tools.encode_media_uxp.parameters).toMatchObject({
       properties: {
-        action: { enum: ["preflight", "sequence", "project_item", "file"] },
+        action: { enum: ["preflight", "jobs", "wait", "sequence", "project_item", "file"] },
+        job_id: { pattern: expect.any(String) },
+        timeout_ms: { maximum: 60000 },
         output_file: { maxLength: 4096 },
         confirm_external_write: { type: "boolean" },
       },
@@ -96,6 +98,9 @@ describe("advanced stable UXP workflow MCP catalog", () => {
       remove_upon_completion: true, start_queue_immediately: false,
       confirm_external_write: true, operation_id: "encode-op",
     });
+    await tools.encode_media_uxp.handler({
+      action: "wait", job_id: "encode-op", timeout_ms: 5000,
+    });
 
     expect(request.mock.calls).toEqual([
       ["projectSelection.inspect", { viewId: "view-1" }],
@@ -139,6 +144,7 @@ describe("advanced stable UXP workflow MCP catalog", () => {
         removeUponCompletion: true, startQueueImmediately: false,
         confirmExternalWrite: true, operationId: "encode-op",
       }],
+      ["encoder.wait", { jobId: "encode-op", timeoutMs: 5000 }],
     ]);
   });
 

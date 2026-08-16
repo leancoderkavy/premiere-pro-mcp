@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 
 const require = createRequire(import.meta.url);
 const Commands = require("../../uxp-plugin/commands.cjs");
+const Events = require("../../uxp-plugin/events.cjs");
 const Protocol = require("../../uxp-plugin/protocol.cjs");
 
 type MutableItem = {
@@ -265,10 +266,11 @@ function advancedHost() {
     status: vi.fn(() => ({ configured: true, accessMode: "request", rootName: "Approved", persistent: true, pathDisclosure: "redacted", canonicalPathValidation: "available" })),
     assertPathAllowed: vi.fn((path: string) => path.replace(/\\/g, "/")),
   };
+  const events = Events.createEventJournal({ capacity: 16 });
   return {
-    registry: Commands.createCommandRegistry({ ppro, Protocol, workspace }),
+    registry: Commands.createCommandRegistry({ ppro, Protocol, workspace, events }),
     project, ppro, workspace, markers, markerValues, root, bin, clip,
-    sequence, sequences, settingsState, parameterState, trackState, editor, manager,
+    sequence, sequences, settingsState, parameterState, trackState, editor, manager, events,
   };
 }
 
@@ -549,11 +551,20 @@ describe("advanced stable Premiere UXP workflows", () => {
     })).resolves.toMatchObject({
       queued: true, kind: "sequence", outcome: "committed_unverified", verified: false,
       verificationBoundary: "encoder_host_return",
+      encodeJob: { jobId: "encode-sequence", state: "accepted", terminal: false },
     });
     expect(value.manager.exportSequence).toHaveBeenCalledWith(
       expect.objectContaining({ guid: "sequence-1" }), "ame",
       "D:/Approved/output.mp4", "D:/Approved/h264.epr", true,
     );
+    value.events.recordHostEvent({ category: "encoder", name: "encoder.queued" });
+    value.events.recordHostEvent({ category: "encoder", name: "encoder.complete" });
+    await expect(value.registry.dispatch("encoder.wait", {
+      jobId: "encode-sequence", timeoutMs: 100,
+    })).resolves.toMatchObject({
+      timedOut: false,
+      job: { state: "completed", terminal: true, verificationBoundary: "encoder_terminal_event_only" },
+    });
 
     const noProject = advancedHost();
     noProject.ppro.Project.getActiveProject.mockResolvedValue(null);
