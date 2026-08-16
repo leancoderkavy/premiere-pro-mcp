@@ -236,4 +236,53 @@ describe("next-wave UXP event workflows", () => {
     });
     expect(project.executeTransaction).toHaveBeenCalledTimes(2);
   });
+
+  it("redacts media paths by default and verifies grouped offline actions", async () => {
+    let offline = false;
+    const clip = {
+      name: "Camera A",
+      getId: vi.fn(async () => "clip-1"),
+      isOffline: vi.fn(async () => offline),
+      canChangeMediaPath: vi.fn(async () => true),
+      canProxy: vi.fn(async () => true),
+      hasProxy: vi.fn(async () => true),
+      isMergedClip: vi.fn(async () => false),
+      isMulticamClip: vi.fn(async () => false),
+      getMediaFilePath: vi.fn(async () => "C:/private/camera.mov"),
+      getProxyPath: vi.fn(async () => "C:/private/proxy.mov"),
+      getOriginatingProjectPath: vi.fn(async () => "C:/private/source.prproj"),
+      createSetOfflineAction: vi.fn(() => ({ apply: () => { offline = true; } })),
+    };
+    const project = {
+      guid: "project-1",
+      lockedAccess: vi.fn((callback: () => void) => callback()),
+      executeTransaction: vi.fn((callback: (compound: { addAction: (action: { apply: () => void }) => boolean }) => void) => {
+        callback({ addAction: (action) => { action.apply(); return true; } });
+        return true;
+      }),
+    };
+    const definitions = NextWorkflows.createNextWorkflowDefinitions({
+      ppro: {
+        Project: { getActiveProject: vi.fn(async () => project) },
+        ProjectUtils: { getSelection: vi.fn(async () => ({ getItems: vi.fn(async () => [clip]) })) },
+        ClipProjectItem: { cast: vi.fn((item: unknown) => item) },
+      },
+    });
+
+    const inspected = await definitions["media.health.inspect"].handler({});
+    expect(inspected).toMatchObject({
+      count: 1, pathDisclosure: "redacted",
+      items: [{ projectItemId: "clip-1", offline: false, hasProxy: true }],
+    });
+    expect(inspected.items[0]).not.toHaveProperty("mediaPath");
+    await expect(definitions["media.health.setOffline"].handler({
+      expectedOffline: false,
+    })).rejects.toMatchObject({ code: "UXP_CONFIRMATION_REQUIRED" });
+    await expect(definitions["media.health.setOffline"].handler({
+      expectedOffline: false, confirmSetOffline: true,
+    })).resolves.toMatchObject({
+      updated: 1, items: [{ projectItemId: "clip-1", offline: true }],
+      outcome: "verified", verificationBoundary: "offline_state_readback",
+    });
+  });
 });

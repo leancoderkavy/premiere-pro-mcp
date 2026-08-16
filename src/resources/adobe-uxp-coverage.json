@@ -1078,6 +1078,37 @@
       "undoable": true,
       "idempotency": "operation_id",
       "verificationBoundary": "typed_property_or_absence_readback"
+    },
+    {
+      "id": "bounded-media-health-maintenance",
+      "adobeApi": [
+        "ClipProjectItem.isOffline",
+        "ClipProjectItem.canChangeMediaPath",
+        "ClipProjectItem.canProxy",
+        "ClipProjectItem.hasProxy",
+        "ClipProjectItem.getProxyPath",
+        "ClipProjectItem.isMergedClip",
+        "ClipProjectItem.isMulticamClip",
+        "ClipProjectItem.getOriginatingProjectPath",
+        "ClipProjectItem.refreshMedia",
+        "ClipProjectItem.createSetOfflineAction",
+        "ClipProjectItem.findItemsMatchingMediaPath"
+      ],
+      "documentationUrls": [
+        "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/clipprojectitem/"
+      ],
+      "minimumPremiereVersion": "25.6.0",
+      "backend": "uxp",
+      "uxpCommand": "media.health.inspect",
+      "mcpTools": ["maintain_media_health_uxp"],
+      "availability": "current",
+      "implementationStatus": "implemented",
+      "verificationStatus": "automated_contract_verified",
+      "liveHostVerificationStatus": "not_run",
+      "mutatesProject": true,
+      "undoable": true,
+      "idempotency": "operation_id",
+      "verificationBoundary": "per_item_host_return_or_offline_state_readback"
     }
   ]
 }

@@ -63,6 +63,17 @@ describe("next-wave UXP MCP tools", () => {
         persistence: { enum: ["session", "persistent"] },
       },
     });
+    const media = getUxpNextWorkflowTools(bridge).maintain_media_health_uxp;
+    expect(media.parameters).toMatchObject({
+      additionalProperties: false,
+      required: ["action"],
+      properties: {
+        action: { enum: ["inspect", "refresh", "set_offline", "find_by_media_path"] },
+        project_item_ids: { maxItems: 64, uniqueItems: true },
+        confirm_set_offline: { type: "boolean" },
+        include_paths: { type: "boolean" },
+      },
+    });
   });
 
   it("maps snake-case event queries to the exact bridge commands", async () => {
@@ -128,6 +139,16 @@ describe("next-wave UXP MCP tools", () => {
     expect(request).toHaveBeenLastCalledWith("checkpoint.set", {
       owner: "sequence", sequenceId: "sequence-1", expectedOwnerId: "sequence-1",
       name: "render.pass", valueType: "int", value: 3, persistence: "persistent", operationId: "checkpoint-1",
+    });
+
+    const media = getUxpNextWorkflowTools(bridge).maintain_media_health_uxp;
+    await media.handler({
+      action: "set_offline", project_item_ids: ["clip-1", "clip-2"],
+      expected_offline: false, confirm_set_offline: true, operation_id: "offline-1",
+    });
+    expect(request).toHaveBeenLastCalledWith("media.health.setOffline", {
+      projectItemIds: ["clip-1", "clip-2"], expectedOffline: false,
+      confirmSetOffline: true, operationId: "offline-1",
     });
   });
 
