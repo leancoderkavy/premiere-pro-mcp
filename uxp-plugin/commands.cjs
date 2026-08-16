@@ -43,7 +43,14 @@
     }
     let nextWorkflowApi = deps.NextWorkflows || (typeof globalThis !== "undefined" && globalThis.PremiereMcpNextWorkflows);
     if (!nextWorkflowApi && typeof require === "function") nextWorkflowApi = require("./next-workflows.cjs");
-    if (nextWorkflowApi && typeof nextWorkflowApi.createNextWorkflowDefinitions === "function") {
+    let nextWorkflowRuntime = null;
+    if (nextWorkflowApi && typeof nextWorkflowApi.createNextWorkflowRuntime === "function") {
+      nextWorkflowRuntime = nextWorkflowApi.createNextWorkflowRuntime({
+        ppro, Protocol, workspace, events: deps.events, storage: deps.storage,
+        now: deps.now, sleep: deps.sleep, setTimer: deps.setTimer, clearTimer: deps.clearTimer
+      });
+      Object.assign(definitions, nextWorkflowRuntime.definitions);
+    } else if (nextWorkflowApi && typeof nextWorkflowApi.createNextWorkflowDefinitions === "function") {
       Object.assign(definitions, nextWorkflowApi.createNextWorkflowDefinitions({
         ppro, Protocol, workspace, events: deps.events
       }));
@@ -575,7 +582,17 @@
       return canListTransitions() && typeof ppro.TransitionFactory.createVideoTransition === "function" &&
         typeof ppro.AddTransitionOptions === "function" && !!(ppro.Constants && ppro.Constants.TrackItemType && ppro.Constants.TransitionPosition);
     }
-    return { definitions, dispatch, capabilities, stateSnapshot };
+    async function initialize() {
+      return nextWorkflowRuntime && typeof nextWorkflowRuntime.initialize === "function"
+        ? nextWorkflowRuntime.initialize()
+        : { initialized: true };
+    }
+    async function dispose() {
+      return nextWorkflowRuntime && typeof nextWorkflowRuntime.dispose === "function"
+        ? nextWorkflowRuntime.dispose()
+        : { disposed: true };
+    }
+    return { definitions, dispatch, capabilities, stateSnapshot, initialize, dispose };
   }
 
   function validateAddArgs(args) {

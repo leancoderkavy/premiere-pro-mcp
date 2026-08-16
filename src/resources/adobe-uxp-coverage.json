@@ -1026,6 +1026,27 @@
       "undoable": false,
       "idempotency": "operation_id",
       "verificationBoundary": "project_path_or_view_absence_readback"
+    },
+    {
+      "id": "lease-based-growing-media-control",
+      "adobeApi": [
+        "Project.pauseGrowing"
+      ],
+      "documentationUrls": [
+        "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/project/"
+      ],
+      "minimumPremiereVersion": "25.6.0",
+      "backend": "uxp",
+      "uxpCommand": "growing.pause",
+      "mcpTools": ["manage_growing_media_uxp"],
+      "availability": "current",
+      "implementationStatus": "implemented",
+      "verificationStatus": "automated_contract_verified",
+      "liveHostVerificationStatus": "not_run",
+      "mutatesProject": false,
+      "undoable": false,
+      "idempotency": "operation_id",
+      "verificationBoundary": "project_pauseGrowing_host_return_only"
     }
   ]
 }

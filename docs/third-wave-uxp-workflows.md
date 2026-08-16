@@ -79,6 +79,21 @@ Automated contracts cover path redaction, GUID targeting, confirmation gates, an
 path readback. They do not replace Windows and macOS host tests for dialog behavior,
 dirty-project prompts, Productions projects, or concurrent Project views.
 
+## PR 5 — Lease-based growing-media control
+
+`manage_growing_media_uxp` wraps `Project.pauseGrowing()` in an explicit pause lease
+rather than exposing an indefinite toggle. A pause requires confirmation, defaults
+to 60 seconds, and cannot exceed ten minutes. The panel records only the project GUID
+and expiration time, schedules an automatic resume, and also attempts a resume when
+the bridge disconnects or the panel is destroyed.
+
+A small persistent recovery marker lets the next panel startup retry a resume after
+an abnormal process exit. The marker is cleared only after Premiere returns success.
+Adobe exposes no getter for the growing-media pause state, so status is clearly
+labeled panel-local and both pause and resume stop at the host-return boundary. Real
+host validation must still exercise growing files, crash recovery, project switching,
+and both operating systems before this can be treated as state readback.
+
 ## Primary Adobe references
 
 - [EventManager](https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/eventmanager/)

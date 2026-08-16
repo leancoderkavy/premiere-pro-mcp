@@ -42,6 +42,16 @@ describe("next-wave UXP MCP tools", () => {
         confirm_discard_unsaved: { type: "boolean" },
       },
     });
+    const growing = getUxpNextWorkflowTools(bridge).manage_growing_media_uxp;
+    expect(growing.parameters).toMatchObject({
+      additionalProperties: false,
+      required: ["action"],
+      properties: {
+        action: { enum: ["status", "pause", "resume"] },
+        lease_ms: { minimum: 1000, maximum: 600000 },
+        confirm_pause: { type: "boolean" },
+      },
+    });
   });
 
   it("maps snake-case event queries to the exact bridge commands", async () => {
@@ -87,6 +97,16 @@ describe("next-wave UXP MCP tools", () => {
       projectId: "project-1", expectedPath: "C:/work/source.prproj", operationId: "branches-1",
       paths: ["C:/work/a.prproj", "C:/work/b.prproj"],
       confirmExternalWrite: true, confirmOverwrite: false,
+    });
+
+    const growing = getUxpNextWorkflowTools(bridge).manage_growing_media_uxp;
+    await growing.handler({
+      action: "pause", project_id: "project-1", expected_path: "C:/work/source.prproj",
+      lease_ms: 30000, confirm_pause: true, operation_id: "pause-1",
+    });
+    expect(request).toHaveBeenLastCalledWith("growing.pause", {
+      projectId: "project-1", expectedPath: "C:/work/source.prproj",
+      leaseMs: 30000, confirmPause: true, operationId: "pause-1",
     });
   });
 

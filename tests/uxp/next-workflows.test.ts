@@ -141,4 +141,50 @@ describe("next-wave UXP event workflows", () => {
       outcome: "verified", verificationBoundary: "project_path_readback",
     });
   });
+
+  it("bounds growing-media pauses with a persisted lease and resumes on disposal", async () => {
+    const values = new Map<string, string>();
+    const storage = {
+      getItem: vi.fn((key: string) => values.get(key) ?? null),
+      setItem: vi.fn((key: string, value: string) => values.set(key, value)),
+      removeItem: vi.fn((key: string) => values.delete(key)),
+    };
+    const project = {
+      guid: "project-1", path: "C:/work/source.prproj",
+      pauseGrowing: vi.fn(async () => true),
+    };
+    const timer = { callback: null as null | (() => void) };
+    const runtime = NextWorkflows.createNextWorkflowRuntime({
+      ppro: {
+        Project: {
+          getActiveProject: vi.fn(async () => project),
+          getProject: vi.fn(() => project),
+        },
+        Guid: { fromString: vi.fn((value: string) => value) },
+      },
+      storage,
+      now: () => 1000,
+      setTimer: vi.fn((callback: () => void) => { timer.callback = callback; return 7; }),
+      clearTimer: vi.fn(),
+    });
+
+    await expect(runtime.definitions["growing.pause"].handler({ leaseMs: 600000 })).rejects.toMatchObject({
+      code: "UXP_CONFIRMATION_REQUIRED",
+    });
+    await expect(runtime.definitions["growing.pause"].handler({
+      leaseMs: 5000, confirmPause: true,
+    })).resolves.toMatchObject({
+      paused: true, projectId: "project-1", leaseMs: 5000,
+      outcome: "committed_unverified", verificationBoundary: "project_pauseGrowing_host_return_only",
+    });
+    expect(storage.setItem).toHaveBeenCalled();
+    expect(timer.callback).toBeTypeOf("function");
+    expect(runtime.definitions["growing.status"].handler({})).toMatchObject({
+      pausedByThisPanel: true, projectId: "project-1", verificationBoundary: "panel_local_lease_only",
+    });
+    await expect(runtime.dispose()).resolves.toMatchObject({ resumed: true, reason: "panel_or_bridge_disconnect" });
+    expect(project.pauseGrowing).toHaveBeenNthCalledWith(1, true);
+    expect(project.pauseGrowing).toHaveBeenNthCalledWith(2, false);
+    expect(storage.removeItem).toHaveBeenCalled();
+  });
 });

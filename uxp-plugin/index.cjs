@@ -13,6 +13,7 @@ const commandRegistry = Commands.createCommandRegistry({
   Protocol,
   workspace: workspaceBroker,
   events: eventJournal,
+  storage: typeof globalThis !== "undefined" ? globalThis.localStorage : null,
   transcriptImportHandler: importTranscript,
   transcriptImportProbe: canImportTranscript
 });
@@ -29,7 +30,7 @@ entrypoints.setup({
     mcpBridgePanel: {
       create() { subscribeHostEvents(); },
       show() { publishState("panel.show"); },
-      destroy() { unsubscribeHostEvents(); stopFallbackPolling(); eventJournal.close(); disconnect(); }
+      destroy() { unsubscribeHostEvents(); stopFallbackPolling(); eventJournal.close(); void commandRegistry.dispose(); disconnect(); }
     }
   }
 });
@@ -39,6 +40,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   document.getElementById("choose-workspace").addEventListener("click", chooseWorkspace);
   document.getElementById("revoke-workspace").addEventListener("click", revokeWorkspace);
   try { await workspaceBroker.initialize(); } catch (error) { setStatus(error.message || String(error)); }
+  try { await commandRegistry.initialize(); } catch (error) { setStatus(error.message || String(error)); }
   renderWorkspaceStatus();
   subscribeHostEvents();
   connect();
@@ -362,7 +364,7 @@ function connect() {
   socket.onopen = async () => { setStatus("Connected"); send(Protocol.envelope("hello", await capabilities())); publishState("connected"); };
   socket.onmessage = (event) => dispatch(event.data);
   socket.onerror = () => setStatus("Bridge connection error");
-  socket.onclose = () => scheduleReconnect("Disconnected");
+  socket.onclose = () => { void commandRegistry.dispose(); scheduleReconnect("Disconnected"); };
 }
 function scheduleReconnect(message) { setStatus(message + "; retrying in 2s"); reconnectTimer = setTimeout(connect, 2000); }
 function send(value) { if (socket && socket.readyState === WebSocket.OPEN) socket.send(Protocol.serializeEnvelope(value)); }

@@ -39,6 +39,15 @@ type ProjectSessionArgs = {
   operation_id?: string;
 };
 
+type GrowingMediaArgs = {
+  action?: string;
+  project_id?: string;
+  expected_path?: string;
+  lease_ms?: number;
+  confirm_pause?: boolean;
+  operation_id?: string;
+};
+
 function invoke(
   bridge: UxpWebSocketBridge,
   command: string,
@@ -217,6 +226,37 @@ export function getUxpNextWorkflowTools(bridge: UxpWebSocketBridge) {
           ...(args.confirm_discard_unsaved !== undefined ? { confirmDiscardUnsaved: args.confirm_discard_unsaved } : {}),
         });
         return { success: false, error: `Unsupported project-session action: ${String(args.action)}` };
+      },
+    },
+    manage_growing_media_uxp: {
+      description: "Inspect, pause under a bounded lease, or resume Premiere growing-media swaps. Pause expires within ten minutes and is resumed on ordinary panel or bridge shutdown; status is panel-local and never claims a host readback.",
+      parameters: {
+        type: "object" as const,
+        additionalProperties: false,
+        properties: {
+          action: { type: "string", enum: ["status", "pause", "resume"] },
+          project_id: { type: "string", pattern: "^[A-Za-z0-9._:-]{1,128}$" },
+          expected_path: { type: "string", minLength: 1, maxLength: 4096 },
+          lease_ms: { type: "integer", minimum: 1000, maximum: 600000 },
+          confirm_pause: { type: "boolean", description: "Must be true for pause." },
+          operation_id: { type: "string", pattern: "^[A-Za-z0-9._:-]{1,128}$" },
+        },
+        required: ["action"],
+      },
+      handler: async (args: GrowingMediaArgs) => {
+        if (args.action === "status") return invoke(bridge, "growing.status");
+        if (args.action === "pause") return invoke(bridge, "growing.pause", {
+          ...(args.project_id !== undefined ? { projectId: args.project_id } : {}),
+          ...(args.expected_path !== undefined ? { expectedPath: args.expected_path } : {}),
+          ...(args.lease_ms !== undefined ? { leaseMs: args.lease_ms } : {}),
+          ...(args.confirm_pause !== undefined ? { confirmPause: args.confirm_pause } : {}),
+          ...(args.operation_id !== undefined ? { operationId: args.operation_id } : {}),
+        });
+        if (args.action === "resume") return invoke(bridge, "growing.resume", {
+          ...(args.project_id !== undefined ? { projectId: args.project_id } : {}),
+          ...(args.operation_id !== undefined ? { operationId: args.operation_id } : {}),
+        });
+        return { success: false, error: `Unsupported growing-media action: ${String(args.action)}` };
       },
     },
   };
