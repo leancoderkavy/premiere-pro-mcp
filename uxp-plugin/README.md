@@ -71,6 +71,18 @@ consolidated MCP tools and 42 capability-probed panel commands. See [the next-te
 workflow matrix](../docs/uxp-next-ten-workflows.md). Automated contract evidence is
 complete; live Premiere verification remains pending.
 
+The third-wave command surface adds bounded event and AME receipts, readiness waits,
+safe multi-project sessions, a growing-media pause lease, workflow checkpoints,
+media-health maintenance, caption-aware track state, and transactional source
+trim/framing. See [the third-wave workflow matrix](../docs/third-wave-uxp-workflows.md)
+for the verification boundary of every operation.
+
+`hybrid-benchmark.cjs` is a dormant developer benchmark. The production manifest
+does not request `enableAddon`, declare an addon, or ship a native binary. A future
+native-acceleration change must first pass the documented Windows x64, macOS x64,
+and macOS arm64 Release evidence gate; see
+[the hybrid benchmark procedure](../docs/uxp-hybrid-benchmark.md).
+
 `frame.export` uses Adobe's supported `Exporter.exportSequenceFrame()` and verifies the file exists before reporting success. Example:
 
 ```json

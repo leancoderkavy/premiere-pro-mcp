@@ -1,0 +1,13 @@
+{
+  "schemaVersion": 1,
+  "workloadId": "weighted-energy-v1",
+  "configuration": {
+    "sampleCount": 30,
+    "warmupCount": 3,
+    "iterations": 4,
+    "inputLength": 131072,
+    "seed": 1337
+  },
+  "memoryMeasurement": "Replace with the identical process peak-working-set collection method used on every target",
+  "runs": []
+}
