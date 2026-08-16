@@ -262,4 +262,34 @@ describe("next-wave UXP MCP tools", () => {
     await expect(tool.handler({ action: "unsupported" }))
       .resolves.toEqual({ success: false, error: "Unsupported growing-media action: unsupported" });
   });
+
+  it("covers checkpoint reads, typed writes, clears, and optional owner targeting", async () => {
+    const request = vi.fn().mockResolvedValue({ ok: true });
+    const bridge = { request, getState: vi.fn() } as unknown as UxpWebSocketBridge;
+    const tool = getUxpNextWorkflowTools(bridge).manage_workflow_checkpoints_uxp;
+
+    await tool.handler({ action: "has", name: "render.pass" });
+    expect(request).toHaveBeenLastCalledWith("checkpoint.has", { name: "render.pass" });
+    await tool.handler({ action: "get", name: "render.pass" });
+    expect(request).toHaveBeenLastCalledWith("checkpoint.get", { name: "render.pass" });
+    await tool.handler({
+      action: "get", owner: "project", sequence_id: "sequence-1",
+      expected_owner_id: "project-1", name: "render.pass", value_type: "int",
+    });
+    expect(request).toHaveBeenLastCalledWith("checkpoint.get", {
+      owner: "project", sequenceId: "sequence-1", expectedOwnerId: "project-1",
+      name: "render.pass", valueType: "int",
+    });
+
+    await tool.handler({ action: "set", name: "render.pass" });
+    expect(request).toHaveBeenLastCalledWith("checkpoint.set", { name: "render.pass" });
+    await tool.handler({ action: "clear", name: "render.pass" });
+    expect(request).toHaveBeenLastCalledWith("checkpoint.clear", { name: "render.pass" });
+    await tool.handler({ action: "clear", name: "render.pass", operation_id: "clear-1" });
+    expect(request).toHaveBeenLastCalledWith("checkpoint.clear", {
+      name: "render.pass", operationId: "clear-1",
+    });
+    await expect(tool.handler({ action: "unsupported", name: "render.pass" }))
+      .resolves.toEqual({ success: false, error: "Unsupported checkpoint action: unsupported" });
+  });
 });
