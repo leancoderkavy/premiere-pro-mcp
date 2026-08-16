@@ -541,6 +541,41 @@ describe("stable Premiere UXP workflow expansion", () => {
       mode: "replace", expectedSequenceGuid: "sequence-1", items: [target],
     })).rejects.toMatchObject({ code: "UXP_STALE_SELECTION_TARGET" });
     expect(movedDuringFinalFetch.sequence.setSelection).not.toHaveBeenCalled();
+
+    const switchedDuringFinalPlanning = stableHost();
+    const getFinalSelection = switchedDuringFinalPlanning.sequence.getSelection.getMockImplementation();
+    const differentFinalSequence = { ...switchedDuringFinalPlanning.sequence, guid: "sequence-2", setSelection: vi.fn() };
+    let finalSelectionCalls = 0;
+    switchedDuringFinalPlanning.sequence.getSelection.mockImplementation(async () => {
+      finalSelectionCalls += 1;
+      const selection = await getFinalSelection?.();
+      if (finalSelectionCalls === 4) {
+        switchedDuringFinalPlanning.project.getActiveSequence.mockResolvedValue(differentFinalSequence);
+      }
+      return selection as Awaited<ReturnType<NonNullable<typeof getFinalSelection>>>;
+    });
+    await expect(switchedDuringFinalPlanning.registry.dispatch("selection.update", {
+      mode: "replace", expectedSequenceGuid: "sequence-1", items: [target],
+    })).rejects.toMatchObject({ code: "UXP_STALE_SEQUENCE" });
+    expect(switchedDuringFinalPlanning.sequence.setSelection).not.toHaveBeenCalled();
+    expect(differentFinalSequence.setSelection).not.toHaveBeenCalled();
+
+    const changedDuringFinalPlanning = stableHost();
+    const getTargetStart = changedDuringFinalPlanning.audioItem.getStartTime.getMockImplementation();
+    let targetStartCalls = 0;
+    changedDuringFinalPlanning.audioItem.getStartTime.mockImplementation(async () => {
+      targetStartCalls += 1;
+      const start = await getTargetStart?.();
+      if (targetStartCalls === 7) changedDuringFinalPlanning.selectAudio();
+      return start as Awaited<ReturnType<NonNullable<typeof getTargetStart>>>;
+    });
+    await expect(changedDuringFinalPlanning.registry.dispatch("selection.update", {
+      mode: "add", expectedSequenceGuid: "sequence-1", items: [{
+        mediaType: "audio", trackIndex: 0, clipIndex: 0, expectedProjectItemId: "source-1",
+        expectedStartSeconds: 10, expectedEndSeconds: 20,
+      }],
+    })).rejects.toMatchObject({ code: "UXP_STALE_SELECTION" });
+    expect(changedDuringFinalPlanning.sequence.setSelection).not.toHaveBeenCalled();
   });
 
   it("revalidates same-sequence targets and requires native timeline fingerprints", async () => {

@@ -446,9 +446,16 @@
       if (input.mode === "add" || input.mode === "remove") {
         const commitKeys = commitPlan.before ? selectionSnapshotKeys(commitPlan.before.items) : [];
         const finalKeys = before ? selectionSnapshotKeys(before.items) : [];
-        if (!commitPlan.before || !before || !sameStringArrays(commitKeys, finalKeys)) {
+        const currentBase = await selectionSnapshot(finalContext.sequence, false);
+        const currentKeys = selectionSnapshotKeys(currentBase.items);
+        if (!commitPlan.before || !before || !sameStringArrays(commitKeys, finalKeys) ||
+          !sameStringArrays(finalKeys, currentKeys)) {
           throw commandError("UXP_STALE_SELECTION", "The current timeline selection changed while the update was being prepared; inspect it again before updating it");
         }
+      }
+      const verifiedContext = await activeContext(false), verifiedSequenceGuid = activeSequenceGuid(verifiedContext.sequence);
+      if (!verifiedSequenceGuid || input.expectedSequenceGuid !== verifiedSequenceGuid) {
+        throw commandError("UXP_STALE_SEQUENCE", "The active sequence changed; inspect the timeline selection again before updating it");
       }
       if (desiredItems.length) {
         const selection = createEmptyTrackItemSelection();
@@ -457,14 +464,14 @@
             throw commandError("UXP_SELECTION_REJECTED", "Premiere rejected a clip while constructing the timeline selection");
           }
         }
-        const set = await hostBoolean(finalContext.sequence.setSelection(selection));
+        const set = await hostBoolean(verifiedContext.sequence.setSelection(selection));
         if (!set) throw commandError("UXP_SELECTION_REJECTED", "Premiere did not accept the requested timeline selection");
       } else {
-        const cleared = await hostBoolean(finalContext.sequence.clearSelection());
+        const cleared = await hostBoolean(verifiedContext.sequence.clearSelection());
         if (!cleared) throw commandError("UXP_SELECTION_REJECTED", "Premiere did not clear the timeline selection");
       }
 
-      const after = await selectionSnapshot(finalContext.sequence);
+      const after = await selectionSnapshot(verifiedContext.sequence);
       assertClassifiedSelection(after.classified, "Premiere returned an unclassified timeline item after the selection update");
       const expectedKeys = selectionSnapshotKeys(desired.items), actualKeys = selectionSnapshotKeys(after.items);
       if (!sameStringArrays(expectedKeys, actualKeys)) {
