@@ -31,6 +31,17 @@ describe("next-wave UXP MCP tools", () => {
         poll_max_ms: { maximum: 5000 },
       },
     });
+    const projects = getUxpNextWorkflowTools(bridge).manage_project_sessions_uxp;
+    expect(projects.parameters).toMatchObject({
+      additionalProperties: false,
+      required: ["action"],
+      properties: {
+        action: { enum: ["list", "validate", "create", "open", "save", "save_as", "branch_copies", "close"] },
+        paths: { maxItems: 16, uniqueItems: true },
+        confirm_external_write: { type: "boolean" },
+        confirm_discard_unsaved: { type: "boolean" },
+      },
+    });
   });
 
   it("maps snake-case event queries to the exact bridge commands", async () => {
@@ -65,6 +76,18 @@ describe("next-wave UXP MCP tools", () => {
     expect(request).toHaveBeenLastCalledWith("readiness.operation.wait", {
       operationType: "effectDrop", afterRevision: 9, timeoutMs: 5000,
     }, { minimumTimeoutMs: 10000 });
+
+    const projects = getUxpNextWorkflowTools(bridge).manage_project_sessions_uxp;
+    await projects.handler({
+      action: "branch_copies", project_id: "project-1", expected_path: "C:/work/source.prproj",
+      paths: ["C:/work/a.prproj", "C:/work/b.prproj"], confirm_external_write: true,
+      confirm_overwrite: false, operation_id: "branches-1",
+    });
+    expect(request).toHaveBeenLastCalledWith("project.sessions.branchCopies", {
+      projectId: "project-1", expectedPath: "C:/work/source.prproj", operationId: "branches-1",
+      paths: ["C:/work/a.prproj", "C:/work/b.prproj"],
+      confirmExternalWrite: true, confirmOverwrite: false,
+    });
   });
 
   it("covers bounded event and readiness fallbacks without hiding bridge errors", async () => {

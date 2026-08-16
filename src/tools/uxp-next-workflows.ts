@@ -22,6 +22,23 @@ type ReadinessArgs = {
   poll_max_ms?: number;
 };
 
+type ProjectSessionArgs = {
+  action?: string;
+  project_id?: string;
+  expected_path?: string;
+  path?: string;
+  paths?: string[];
+  include_paths?: boolean;
+  show_dialogs?: boolean;
+  add_to_mru?: boolean;
+  save_before_close?: boolean;
+  confirm_external_write?: boolean;
+  confirm_overwrite?: boolean;
+  confirm_close?: boolean;
+  confirm_discard_unsaved?: boolean;
+  operation_id?: string;
+};
+
 function invoke(
   bridge: UxpWebSocketBridge,
   command: string,
@@ -129,6 +146,77 @@ export function getUxpNextWorkflowTools(bridge: UxpWebSocketBridge) {
           }, args.timeout_ms ?? 30_000);
         }
         return { success: false, error: `Unsupported readiness action: ${String(args.action)}` };
+      },
+    },
+    manage_project_sessions_uxp: {
+      description: "List or explicitly create, open, save, branch, and close Premiere project sessions. Path writes stay inside the approved UXP workspace; Save As handle changes are read back and branch copies reopen the source after every copy.",
+      parameters: {
+        type: "object" as const,
+        additionalProperties: false,
+        properties: {
+          action: {
+            type: "string",
+            enum: ["list", "validate", "create", "open", "save", "save_as", "branch_copies", "close"],
+          },
+          project_id: { type: "string", pattern: "^[A-Za-z0-9._:-]{1,128}$" },
+          expected_path: { type: "string", minLength: 1, maxLength: 4096 },
+          path: { type: "string", minLength: 1, maxLength: 4096 },
+          paths: {
+            type: "array", minItems: 1, maxItems: 16, uniqueItems: true,
+            items: { type: "string", minLength: 1, maxLength: 4096 },
+          },
+          include_paths: { type: "boolean", description: "List project paths only when explicitly requested; defaults to redacted." },
+          show_dialogs: { type: "boolean", description: "For open only; defaults to false." },
+          add_to_mru: { type: "boolean", description: "For open only; defaults to false." },
+          save_before_close: { type: "boolean", description: "For close only; defaults to true." },
+          confirm_external_write: { type: "boolean" },
+          confirm_overwrite: { type: "boolean" },
+          confirm_close: { type: "boolean" },
+          confirm_discard_unsaved: { type: "boolean" },
+          operation_id: { type: "string", pattern: "^[A-Za-z0-9._:-]{1,128}$" },
+        },
+        required: ["action"],
+      },
+      handler: async (args: ProjectSessionArgs) => {
+        const common = {
+          ...(args.project_id !== undefined ? { projectId: args.project_id } : {}),
+          ...(args.expected_path !== undefined ? { expectedPath: args.expected_path } : {}),
+          ...(args.operation_id !== undefined ? { operationId: args.operation_id } : {}),
+        };
+        if (args.action === "list") return invoke(bridge, "project.sessions.list", {
+          ...(args.include_paths !== undefined ? { includePaths: args.include_paths } : {}),
+        });
+        if (args.action === "validate") return invoke(bridge, "project.sessions.validate", { path: args.path });
+        if (args.action === "create") return invoke(bridge, "project.sessions.create", {
+          path: args.path,
+          ...(args.confirm_external_write !== undefined ? { confirmExternalWrite: args.confirm_external_write } : {}),
+          ...(args.confirm_overwrite !== undefined ? { confirmOverwrite: args.confirm_overwrite } : {}),
+          ...(args.operation_id !== undefined ? { operationId: args.operation_id } : {}),
+        });
+        if (args.action === "open") return invoke(bridge, "project.sessions.open", {
+          path: args.path,
+          ...(args.show_dialogs !== undefined ? { showDialogs: args.show_dialogs } : {}),
+          ...(args.add_to_mru !== undefined ? { addToMru: args.add_to_mru } : {}),
+          ...(args.operation_id !== undefined ? { operationId: args.operation_id } : {}),
+        });
+        if (args.action === "save") return invoke(bridge, "project.sessions.save", common);
+        if (args.action === "save_as") return invoke(bridge, "project.sessions.saveAs", {
+          ...common, path: args.path,
+          ...(args.confirm_external_write !== undefined ? { confirmExternalWrite: args.confirm_external_write } : {}),
+          ...(args.confirm_overwrite !== undefined ? { confirmOverwrite: args.confirm_overwrite } : {}),
+        });
+        if (args.action === "branch_copies") return invoke(bridge, "project.sessions.branchCopies", {
+          ...common, paths: args.paths,
+          ...(args.confirm_external_write !== undefined ? { confirmExternalWrite: args.confirm_external_write } : {}),
+          ...(args.confirm_overwrite !== undefined ? { confirmOverwrite: args.confirm_overwrite } : {}),
+        });
+        if (args.action === "close") return invoke(bridge, "project.sessions.close", {
+          ...common,
+          ...(args.save_before_close !== undefined ? { saveBeforeClose: args.save_before_close } : {}),
+          ...(args.confirm_close !== undefined ? { confirmClose: args.confirm_close } : {}),
+          ...(args.confirm_discard_unsaved !== undefined ? { confirmDiscardUnsaved: args.confirm_discard_unsaved } : {}),
+        });
+        return { success: false, error: `Unsupported project-session action: ${String(args.action)}` };
       },
     },
   };

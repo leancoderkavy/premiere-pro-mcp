@@ -60,8 +60,29 @@ timeout returns a pending result and never retries the original operation. Analy
 waits cap at 60 seconds and back off from a minimum 100 ms interval to a maximum
 configured interval.
 
+## PR 4 — Safe multi-project sessions and branch copies
+
+`manage_project_sessions_uxp` targets open projects by documented GUID instead of
+assuming that the active Project view is the intended project. Listing is capped at
+64 views, deduplicates projects, and redacts paths unless the caller explicitly asks
+for them. Create, open, Save As, and branch destinations must pass the approved UXP
+workspace's canonical-path check.
+
+Every external write requires explicit confirmation. Existing Premiere project
+destinations require a separate overwrite confirmation. Because Adobe documents that
+`Project.saveAs()` retargets the current project handle, `branch_copies` saves one
+copy at a time, verifies the new path, closes that saved view, and reopens the source
+before continuing. Closing defaults to a confirmed save; discarding changes requires
+an additional confirmation and is never inferred from a missing option.
+
+Automated contracts cover path redaction, GUID targeting, confirmation gates, and
+path readback. They do not replace Windows and macOS host tests for dialog behavior,
+dirty-project prompts, Productions projects, or concurrent Project views.
+
 ## Primary Adobe references
 
 - [EventManager](https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/eventmanager/)
 - [Premiere UXP constants](https://developer.adobe.com/premiere-pro/uxp/ppro-reference/constants/)
 - [EncoderManager](https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/encodermanager/)
+- [Project](https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/project/)
+- [ProjectUtils](https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/projectutils/)

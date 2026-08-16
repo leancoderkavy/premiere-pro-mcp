@@ -992,6 +992,40 @@
       "undoable": false,
       "idempotency": "not_applicable",
       "verificationBoundary": "sequence_readback_or_operation_terminal_event"
+    },
+    {
+      "id": "multi-project-safe-sessions",
+      "adobeApi": [
+        "ProjectUtils.getProjectViewIds",
+        "ProjectUtils.getProjectFromViewId",
+        "Project.getProject",
+        "Project.isProject",
+        "Project.createProject",
+        "Project.open",
+        "Project.save",
+        "Project.saveAs",
+        "Project.close",
+        "OpenProjectOptions",
+        "CloseProjectOptions"
+      ],
+      "documentationUrls": [
+        "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/project/",
+        "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/projectutils/",
+        "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/openprojectoptions/",
+        "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/closeprojectoptions/"
+      ],
+      "minimumPremiereVersion": "26.2.0",
+      "backend": "uxp",
+      "uxpCommand": "project.sessions.list",
+      "mcpTools": ["manage_project_sessions_uxp"],
+      "availability": "current",
+      "implementationStatus": "implemented",
+      "verificationStatus": "automated_contract_verified",
+      "liveHostVerificationStatus": "not_run",
+      "mutatesProject": true,
+      "undoable": false,
+      "idempotency": "operation_id",
+      "verificationBoundary": "project_path_or_view_absence_readback"
     }
   ]
 }
