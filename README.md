@@ -468,6 +468,12 @@ The file-based IPC bridge is simple, reliable, and works across macOS and Window
 
 ## Tools (282 core total; 280 under the default profile; 328 with a connected UXP bridge)
 
+The [complete supported-actions catalog](docs/supported-actions.md) lists every
+registered core tool, the two tools restricted behind explicit `unsafe-script`
+authority, and all 48 authenticated UXP additions with their current action or mode
+values. It is generated from the same MCP registration surface returned to clients;
+the tables below are a shorter workflow-oriented overview.
+
 ### Discovery & Inspection (10 + 10)
 
 | Tool | Description |
