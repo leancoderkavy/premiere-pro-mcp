@@ -72,6 +72,17 @@ type MediaHealthArgs = {
   operation_id?: string;
 };
 
+type TrackStateArgs = {
+  action?: string;
+  sequence_id?: string;
+  expected_sequence_id?: string;
+  media_type?: string;
+  track_indices?: number[];
+  muted?: boolean;
+  expected_muted?: boolean;
+  operation_id?: string;
+};
+
 function invoke(
   bridge: UxpWebSocketBridge,
   command: string,
@@ -369,6 +380,43 @@ export function getUxpNextWorkflowTools(bridge: UxpWebSocketBridge) {
           ...(args.include_paths !== undefined ? { includePaths: args.include_paths } : {}),
         });
         return { success: false, error: `Unsupported media-health action: ${String(args.action)}` };
+      },
+    },
+    manage_track_state_uxp: {
+      description: "Inspect audio, video, and caption track mute state or set one media type serially with stale-state preflight and per-track readback. Adobe exposes this as direct promises, so no undo transaction is claimed.",
+      parameters: {
+        type: "object" as const,
+        additionalProperties: false,
+        properties: {
+          action: { type: "string", enum: ["inspect", "set_mute"] },
+          sequence_id: { type: "string", pattern: "^[A-Za-z0-9._:-]{1,128}$" },
+          expected_sequence_id: { type: "string", pattern: "^[A-Za-z0-9._:-]{1,128}$" },
+          media_type: { type: "string", enum: ["all", "video", "audio", "caption"] },
+          track_indices: {
+            type: "array", minItems: 1, maxItems: 64, uniqueItems: true,
+            items: { type: "integer", minimum: 0, maximum: 1023 },
+          },
+          muted: { type: "boolean" },
+          expected_muted: { type: "boolean" },
+          operation_id: { type: "string", pattern: "^[A-Za-z0-9._:-]{1,128}$" },
+        },
+        required: ["action"],
+      },
+      handler: async (args: TrackStateArgs) => {
+        const common = {
+          ...(args.sequence_id !== undefined ? { sequenceId: args.sequence_id } : {}),
+          ...(args.expected_sequence_id !== undefined ? { expectedSequenceId: args.expected_sequence_id } : {}),
+          ...(args.media_type !== undefined ? { mediaType: args.media_type } : {}),
+          ...(args.track_indices !== undefined ? { trackIndices: args.track_indices } : {}),
+        };
+        if (args.action === "inspect") return invoke(bridge, "track.state.inspect", common);
+        if (args.action === "set_mute") return invoke(bridge, "track.state.set", {
+          ...common,
+          ...(args.muted !== undefined ? { muted: args.muted } : {}),
+          ...(args.expected_muted !== undefined ? { expectedMuted: args.expected_muted } : {}),
+          ...(args.operation_id !== undefined ? { operationId: args.operation_id } : {}),
+        });
+        return { success: false, error: `Unsupported track-state action: ${String(args.action)}` };
       },
     },
   };

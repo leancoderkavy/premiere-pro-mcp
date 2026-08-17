@@ -285,4 +285,42 @@ describe("next-wave UXP event workflows", () => {
       outcome: "verified", verificationBoundary: "offline_state_readback",
     });
   });
+
+  it("sets caption-track mute state through direct host promises and reads it back", async () => {
+    let muted = false;
+    const captionTrack = {
+      id: 9, name: "English",
+      getIndex: vi.fn(async () => 0),
+      isMuted: vi.fn(async () => muted),
+      setMute: vi.fn(async (value: boolean) => { muted = value; return true; }),
+    };
+    const sequence = {
+      guid: "sequence-1",
+      getVideoTrackCount: vi.fn(async () => 0),
+      getAudioTrackCount: vi.fn(async () => 0),
+      getCaptionTrackCount: vi.fn(async () => 1),
+      getCaptionTrack: vi.fn(async () => captionTrack),
+    };
+    const project = {
+      getActiveSequence: vi.fn(async () => sequence),
+      getSequences: vi.fn(async () => [sequence]),
+    };
+    const definitions = NextWorkflows.createNextWorkflowDefinitions({
+      ppro: { Project: { getActiveProject: vi.fn(async () => project) } },
+    });
+
+    await expect(definitions["track.state.set"].handler({
+      sequenceId: "sequence-1", expectedSequenceId: "sequence-1",
+      mediaType: "caption", trackIndices: [0], muted: true, expectedMuted: false,
+    })).resolves.toMatchObject({
+      sequenceId: "sequence-1", mediaType: "caption", requested: 1, updated: 1, failed: 0,
+      tracks: [{ mediaType: "caption", trackIndex: 0, beforeMuted: false, afterMuted: true, verified: true }],
+      outcome: "verified", undoable: false, verificationBoundary: "per_track_mute_readback",
+    });
+    await expect(definitions["track.state.inspect"].handler({
+      sequenceId: "sequence-1", mediaType: "all",
+    })).resolves.toMatchObject({
+      count: 1, tracks: [{ mediaType: "caption", trackIndex: 0, muted: true }],
+    });
+  });
 });

@@ -116,7 +116,7 @@ describe("UXP MCP tools", () => {
       // transcript workflow and documented Premiere 26.3 tools add nineteen,
       // and the two stable workflow expansions add twenty-one consolidated UXP tools;
       // connection verification adds one default-profile core tool.
-      expect(tools.tools).toHaveLength(326);
+      expect(tools.tools).toHaveLength(327);
     } finally {
       await client.close();
       await server.close();

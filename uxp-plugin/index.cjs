@@ -24,6 +24,8 @@ let stateRevision = 0;
 let fallbackPollTimer = null;
 const operationTracker = Protocol.createOperationTracker();
 const eventSubscriptions = [];
+const targetEventSubscriptions = [];
+let targetSubscriptionGeneration = 0;
 
 entrypoints.setup({
   panels: {
@@ -413,15 +415,19 @@ function hostEvent(category, name, eventName, stateInvalidating, coalesceKey) {
   return { category, name, eventName, stateInvalidating, coalesceKey: coalesceKey || null };
 }
 function subscribeHostEvents() {
-  if (!ppro.EventManager || eventSubscriptions.length) return;
-  supportedHostEvents().forEach((definition) => {
-    const handler = (event) => recordHostEvent(definition, event);
-    ppro.EventManager.addGlobalEventListener(definition.eventName, handler, false);
-    eventSubscriptions.push({ eventName: definition.eventName, handler });
-  });
+  if (!ppro.EventManager) return;
+  if (!eventSubscriptions.length) {
+    supportedHostEvents().forEach((definition) => {
+      const handler = (event) => recordHostEvent(definition, event);
+      ppro.EventManager.addGlobalEventListener(definition.eventName, handler, false);
+      eventSubscriptions.push({ eventName: definition.eventName, handler });
+    });
+  }
+  void rebindTrackEvents();
 }
 function unsubscribeHostEvents() {
   if (!ppro.EventManager) return;
+  unsubscribeTrackEvents();
   eventSubscriptions.splice(0).forEach(({ eventName, handler }) => {
     try { ppro.EventManager.removeGlobalEventListener(eventName, handler, false); } catch (_) {}
   });
@@ -440,6 +446,60 @@ function recordHostEvent(definition, event) {
   });
   if (receipt) send(Protocol.envelope("event", { name: "premiere.host.event", receipt }));
   if (definition.stateInvalidating) publishState("host-event", definition.name);
+  if (definition.name === "project.opened" || definition.name === "project.closed" ||
+    definition.name === "project.activated" || definition.name === "sequence.activated" ||
+    definition.name === "sequence.closed") void rebindTrackEvents();
+}
+async function rebindTrackEvents() {
+  if (!ppro.EventManager || typeof ppro.EventManager.addEventListener !== "function") return;
+  const generation = ++targetSubscriptionGeneration;
+  unsubscribeTrackEvents(false);
+  try {
+    const project = await ppro.Project.getActiveProject();
+    const sequence = project && await project.getActiveSequence();
+    if (!sequence || generation !== targetSubscriptionGeneration) return;
+    const definitions = [
+      { mediaType: "video", countMethod: "getVideoTrackCount", getMethod: "getVideoTrack", api: ppro.VideoTrack },
+      { mediaType: "audio", countMethod: "getAudioTrackCount", getMethod: "getAudioTrack", api: ppro.AudioTrack }
+    ];
+    for (let d = 0; d < definitions.length; d += 1) {
+      const definition = definitions[d];
+      if (typeof sequence[definition.countMethod] !== "function" || typeof sequence[definition.getMethod] !== "function") continue;
+      const count = Math.min(256, Math.max(0, Number(await sequence[definition.countMethod]()) || 0));
+      for (let index = 0; index < count; index += 1) {
+        if (generation !== targetSubscriptionGeneration) return;
+        const track = await sequence[definition.getMethod](index);
+        if (generation !== targetSubscriptionGeneration) return;
+        if (!track) continue;
+        const eventKinds = [
+          ["changed", definition.api && definition.api.EVENT_TRACK_CHANGED],
+          ["info_changed", definition.api && definition.api.EVENT_TRACK_INFO_CHANGED],
+          ["lock_changed", definition.api && definition.api.EVENT_TRACK_LOCK_CHANGED]
+        ];
+        for (let e = 0; e < eventKinds.length; e += 1) {
+          const kind = eventKinds[e][0], eventName = eventKinds[e][1];
+          if (eventName == null) continue;
+          const handler = () => recordTrackEvent(definition.mediaType, index, kind);
+          ppro.EventManager.addEventListener(track, eventName, handler, false);
+          targetEventSubscriptions.push({ target: track, eventName, handler });
+        }
+      }
+    }
+  } catch (_) {}
+}
+function unsubscribeTrackEvents(incrementGeneration = true) {
+  if (incrementGeneration) targetSubscriptionGeneration += 1;
+  targetEventSubscriptions.splice(0).forEach(({ target, eventName, handler }) => {
+    try { ppro.EventManager.removeEventListener(target, eventName, handler); } catch (_) {}
+  });
+}
+function recordTrackEvent(mediaType, trackIndex, eventKind) {
+  const receipt = eventJournal.recordHostEvent({
+    category: "track",
+    name: "track." + mediaType + "." + eventKind,
+    detail: { mediaType, trackIndex, eventKind }
+  });
+  if (receipt) send(Protocol.envelope("event", { name: "premiere.host.event", receipt }));
 }
 function startFallbackPolling() {
   if (!fallbackPollTimer) fallbackPollTimer = setInterval(() => publishState("fallback-poll"), 5000);

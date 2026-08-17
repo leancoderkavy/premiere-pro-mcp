@@ -74,6 +74,17 @@ describe("next-wave UXP MCP tools", () => {
         include_paths: { type: "boolean" },
       },
     });
+    const tracks = getUxpNextWorkflowTools(bridge).manage_track_state_uxp;
+    expect(tracks.parameters).toMatchObject({
+      additionalProperties: false,
+      required: ["action"],
+      properties: {
+        action: { enum: ["inspect", "set_mute"] },
+        media_type: { enum: ["all", "video", "audio", "caption"] },
+        track_indices: { maxItems: 64, uniqueItems: true },
+        muted: { type: "boolean" },
+      },
+    });
   });
 
   it("maps snake-case event queries to the exact bridge commands", async () => {
@@ -149,6 +160,16 @@ describe("next-wave UXP MCP tools", () => {
     expect(request).toHaveBeenLastCalledWith("media.health.setOffline", {
       projectItemIds: ["clip-1", "clip-2"], expectedOffline: false,
       confirmSetOffline: true, operationId: "offline-1",
+    });
+
+    const tracks = getUxpNextWorkflowTools(bridge).manage_track_state_uxp;
+    await tracks.handler({
+      action: "set_mute", sequence_id: "sequence-1", expected_sequence_id: "sequence-1",
+      media_type: "caption", track_indices: [0], muted: true, expected_muted: false, operation_id: "mute-1",
+    });
+    expect(request).toHaveBeenLastCalledWith("track.state.set", {
+      sequenceId: "sequence-1", expectedSequenceId: "sequence-1",
+      mediaType: "caption", trackIndices: [0], muted: true, expectedMuted: false, operationId: "mute-1",
     });
   });
 
@@ -348,5 +369,26 @@ describe("next-wave UXP MCP tools", () => {
     });
     await expect(tool.handler({ action: "unsupported" }))
       .resolves.toEqual({ success: false, error: "Unsupported media-health action: unsupported" });
+  });
+
+  it("covers track-state inspection, mute defaults, and unsupported actions", async () => {
+    const request = vi.fn().mockResolvedValue({ ok: true });
+    const bridge = { request, getState: vi.fn() } as unknown as UxpWebSocketBridge;
+    const tool = getUxpNextWorkflowTools(bridge).manage_track_state_uxp;
+
+    await tool.handler({ action: "inspect" });
+    expect(request).toHaveBeenLastCalledWith("track.state.inspect", {});
+    await tool.handler({
+      action: "inspect", sequence_id: "sequence-1", expected_sequence_id: "sequence-1",
+      media_type: "all", track_indices: [0, 1],
+    });
+    expect(request).toHaveBeenLastCalledWith("track.state.inspect", {
+      sequenceId: "sequence-1", expectedSequenceId: "sequence-1",
+      mediaType: "all", trackIndices: [0, 1],
+    });
+    await tool.handler({ action: "set_mute" });
+    expect(request).toHaveBeenLastCalledWith("track.state.set", {});
+    await expect(tool.handler({ action: "unsupported" }))
+      .resolves.toEqual({ success: false, error: "Unsupported track-state action: unsupported" });
   });
 });
