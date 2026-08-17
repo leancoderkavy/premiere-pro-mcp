@@ -19,6 +19,11 @@ export interface UxpCapability {
   [key: string]: unknown;
 }
 
+export interface UxpRequestOptions {
+  /** Do not let the bridge timeout before a bounded host-side wait can settle. */
+  minimumTimeoutMs?: number;
+}
+
 export interface UxpHello {
   backend: "uxp";
   protocolVersion: number;
@@ -159,7 +164,11 @@ export class UxpWebSocketBridge extends EventEmitter {
     };
   }
 
-  async request(command: string, args: Record<string, unknown> = {}): Promise<unknown> {
+  async request(
+    command: string,
+    args: Record<string, unknown> = {},
+    requestOptions: UxpRequestOptions = {},
+  ): Promise<unknown> {
     const socket = this.socket;
     const hello = this.hello;
     if (!socket || socket.readyState !== WebSocket.OPEN || !hello) {
@@ -172,12 +181,17 @@ export class UxpWebSocketBridge extends EventEmitter {
       );
     }
 
+    const minimumTimeoutMs = requestOptions.minimumTimeoutMs ?? 0;
+    if (!Number.isInteger(minimumTimeoutMs) || minimumTimeoutMs < 0) {
+      throw new Error("UXP minimum request timeout must be a non-negative integer");
+    }
+    const requestTimeoutMs = Math.max(this.options.requestTimeoutMs, minimumTimeoutMs);
     const requestId = randomUUID();
     return new Promise((resolve, reject) => {
       const timer = setTimeout(() => {
         this.pending.delete(requestId);
         reject(new UxpBridgeError("UXP_TIMEOUT", `UXP command '${command}' timed out`));
-      }, this.options.requestTimeoutMs);
+      }, requestTimeoutMs);
       this.pending.set(requestId, { command, resolve, reject, timer });
       socket.send(JSON.stringify({
         protocolVersion: hello.protocolVersion,

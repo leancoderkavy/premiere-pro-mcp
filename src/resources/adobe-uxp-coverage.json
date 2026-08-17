@@ -911,6 +911,34 @@
       "undoable": false,
       "idempotency": "operation_id",
       "verificationBoundary": "encoder_host_acceptance_only"
+    },
+    {
+      "id": "bounded-host-event-journal",
+      "adobeApi": [
+        "EventManager.addGlobalEventListener",
+        "EventManager.removeGlobalEventListener",
+        "Constants.ProjectEvent",
+        "Constants.SequenceEvent",
+        "Constants.OperationCompleteEvent",
+        "EncoderManager.EVENT_RENDER_PROGRESS"
+      ],
+      "documentationUrls": [
+        "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/eventmanager/",
+        "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/constants/",
+        "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/encodermanager/"
+      ],
+      "minimumPremiereVersion": "25.6.0",
+      "backend": "uxp",
+      "uxpCommand": "events.list",
+      "mcpTools": ["inspect_premiere_events_uxp"],
+      "availability": "current",
+      "implementationStatus": "implemented",
+      "verificationStatus": "automated_contract_verified",
+      "liveHostVerificationStatus": "not_run",
+      "mutatesProject": false,
+      "undoable": false,
+      "idempotency": "not_applicable",
+      "verificationBoundary": "bounded_redacted_host_event_receipt"
     }
   ]
 }

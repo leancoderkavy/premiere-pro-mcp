@@ -39,6 +39,13 @@
     if (advancedWorkflowApi && typeof advancedWorkflowApi.createAdvancedWorkflowDefinitions === "function") {
       Object.assign(definitions, advancedWorkflowApi.createAdvancedWorkflowDefinitions({ ppro, Protocol, workspace }));
     }
+    let nextWorkflowApi = deps.NextWorkflows || (typeof globalThis !== "undefined" && globalThis.PremiereMcpNextWorkflows);
+    if (!nextWorkflowApi && typeof require === "function") nextWorkflowApi = require("./next-workflows.cjs");
+    if (nextWorkflowApi && typeof nextWorkflowApi.createNextWorkflowDefinitions === "function") {
+      Object.assign(definitions, nextWorkflowApi.createNextWorkflowDefinitions({
+        ppro, Protocol, workspace, events: deps.events
+      }));
+    }
     if (typeof deps.transcriptImportHandler === "function") {
       definitions["transcript.import"] = {
         destructive: true,
