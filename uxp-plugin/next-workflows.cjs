@@ -168,6 +168,39 @@
         minHostVersion: "25.6.0",
         probe: canUseWorkflowCheckpoints,
         handler: clearWorkflowCheckpoint
+      },
+      "media.health.inspect": {
+        readOnly: true,
+        targetCapabilityProbe: true,
+        minHostVersion: "25.6.0",
+        probe: canMaintainMediaHealth,
+        handler: inspectMediaHealth
+      },
+      "media.health.refresh": {
+        destructive: true,
+        undoable: false,
+        idempotent: true,
+        targetCapabilityProbe: true,
+        minHostVersion: "25.6.0",
+        probe: canMaintainMediaHealth,
+        handler: refreshMediaHealth
+      },
+      "media.health.setOffline": {
+        destructive: true,
+        undoable: true,
+        idempotent: true,
+        targetCapabilityProbe: true,
+        minHostVersion: "25.6.0",
+        probe: canMaintainMediaHealth,
+        handler: setMediaOffline
+      },
+      "media.health.findByPath": {
+        readOnly: true,
+        requiresWorkspace: true,
+        targetCapabilityProbe: true,
+        minHostVersion: "25.6.0",
+        probe: canMaintainMediaHealth,
+        handler: findMediaByPath
       }
     };
 
@@ -216,6 +249,10 @@
 
     function canUseWorkflowCheckpoints() {
       return !!(ppro && ppro.Properties && typeof ppro.Properties.getProperties === "function");
+    }
+
+    function canMaintainMediaHealth() {
+      return !!(ppro && ppro.ClipProjectItem && typeof ppro.ClipProjectItem.cast === "function");
     }
 
     async function initialize() {
@@ -659,6 +696,211 @@
       };
     }
 
+    async function inspectMediaHealth(args) {
+      assertOnlyKeys(args, ["projectItemIds", "includePaths"]);
+      const project = await activeProject(true);
+      const clips = await resolveMediaHealthClips(project, args.projectItemIds);
+      const includePaths = optionalBoolean(args.includePaths, false, "includePaths");
+      const items = [];
+      for (let i = 0; i < clips.length; i += 1) items.push(await mediaHealthSnapshot(clips[i], includePaths));
+      return { count: items.length, items, pathDisclosure: includePaths ? "requested" : "redacted" };
+    }
+
+    async function refreshMediaHealth(args) {
+      assertOnlyKeys(args, ["projectItemIds", "expectedOffline", "operationId"]);
+      const project = await activeProject(true);
+      const clips = await resolveMediaHealthClips(project, args.projectItemIds);
+      const expectedOffline = optionalExpectedBoolean(args.expectedOffline, "expectedOffline");
+      const preflight = [];
+      for (let i = 0; i < clips.length; i += 1) {
+        const offline = !!(await clips[i].isOffline());
+        if (expectedOffline != null && offline !== expectedOffline) {
+          throw commandError("UXP_STALE_TARGET", "A media item changed offline state before refresh");
+        }
+        preflight.push({ clip: clips[i], projectItemId: await clipProjectItemId(clips[i]), beforeOffline: offline });
+      }
+      const items = [];
+      for (let i = 0; i < preflight.length; i += 1) {
+        const target = preflight[i];
+        try {
+          const accepted = !!(await target.clip.refreshMedia());
+          items.push({
+            projectItemId: target.projectItemId,
+            accepted,
+            beforeOffline: target.beforeOffline,
+            afterOffline: !!(await target.clip.isOffline()),
+            verificationBoundary: "refreshMedia_return_and_offline_readback"
+          });
+        } catch (error) {
+          items.push({ projectItemId: target.projectItemId, accepted: false, error: error && error.message || String(error) });
+        }
+      }
+      const refreshed = items.filter(function (item) { return item.accepted; }).length;
+      return {
+        requested: items.length,
+        refreshed,
+        failed: items.length - refreshed,
+        items,
+        outcome: refreshed === items.length ? "verified" : refreshed ? "partial" : "failed",
+        verificationBoundary: "per_item_refresh_return_and_offline_readback"
+      };
+    }
+
+    async function setMediaOffline(args) {
+      assertOnlyKeys(args, ["projectItemIds", "expectedOffline", "confirmSetOffline", "operationId"]);
+      requireConfirmation(args.confirmSetOffline, "confirmSetOffline", "Setting source media offline changes every selected clip reference");
+      const project = await activeProject(true);
+      const clips = await resolveMediaHealthClips(project, args.projectItemIds);
+      const expectedOffline = optionalExpectedBoolean(args.expectedOffline, "expectedOffline");
+      const targets = [];
+      for (let i = 0; i < clips.length; i += 1) {
+        const offline = !!(await clips[i].isOffline());
+        if (expectedOffline != null && offline !== expectedOffline) {
+          throw commandError("UXP_STALE_TARGET", "A media item changed offline state before the transaction");
+        }
+        targets.push({ clip: clips[i], projectItemId: await clipProjectItemId(clips[i]) });
+      }
+      let committed = false;
+      project.lockedAccess(function () {
+        const actions = targets.map(function (target) { return target.clip.createSetOfflineAction(); });
+        committed = project.executeTransaction(function (compoundAction) {
+          for (let i = 0; i < actions.length; i += 1) {
+            if (!actions[i] || compoundAction.addAction(actions[i]) === false) {
+              throw commandError("UXP_ACTION_REJECTED", "Premiere rejected a set-offline action");
+            }
+          }
+        }, "Set source media offline");
+      });
+      if (!committed) throw commandError("UXP_VERIFICATION_FAILED", "Premiere did not commit the set-offline transaction");
+      const items = [];
+      for (let i = 0; i < targets.length; i += 1) {
+        const offline = !!(await targets[i].clip.isOffline());
+        if (!offline) throw commandError("UXP_VERIFICATION_FAILED", "A media item remained online after the transaction");
+        items.push({ projectItemId: targets[i].projectItemId, offline: true });
+      }
+      return {
+        updated: items.length,
+        items,
+        outcome: "verified",
+        verificationBoundary: "offline_state_readback",
+        undoLabel: "Set source media offline"
+      };
+    }
+
+    async function findMediaByPath(args) {
+      assertOnlyKeys(args, ["projectItemId", "matchPath", "ignoreSubclips", "includePaths"]);
+      const project = await activeProject(true);
+      const clips = await resolveMediaHealthClips(project, args.projectItemId == null ? null : [args.projectItemId]);
+      if (clips.length !== 1) throw commandError("UXP_INVALID_ARGUMENT", "find_by_media_path requires exactly one seed media item");
+      const matchPath = await allowedWorkspacePath(args.matchPath, "matchPath");
+      if (typeof clips[0].findItemsMatchingMediaPath !== "function") {
+        throw commandError("UXP_COMMAND_UNAVAILABLE", "This media item cannot search project media paths");
+      }
+      const matches = Array.from(await clips[0].findItemsMatchingMediaPath(
+        matchPath, optionalBoolean(args.ignoreSubclips, true, "ignoreSubclips")
+      ) || []);
+      if (matches.length > 512) throw commandError("UXP_PROJECT_TOO_LARGE", "Media-path search exceeded the 512-result safety cap");
+      const includePaths = optionalBoolean(args.includePaths, false, "includePaths");
+      const items = [];
+      for (let i = 0; i < matches.length; i += 1) {
+        const clip = castMediaClip(matches[i]);
+        const snapshot = await mediaHealthSnapshot(clip, includePaths);
+        items.push(snapshot);
+      }
+      return {
+        count: items.length,
+        items,
+        matchPath: includePaths ? matchPath : null,
+        pathDisclosure: includePaths ? "requested" : "redacted"
+      };
+    }
+
+    async function resolveMediaHealthClips(project, projectItemIds) {
+      if (projectItemIds == null) {
+        if (!ppro.ProjectUtils || typeof ppro.ProjectUtils.getSelection !== "function") {
+          throw commandError("UXP_INVALID_ARGUMENT", "projectItemIds are required because Project-panel selection is unavailable");
+        }
+        const selection = await ppro.ProjectUtils.getSelection(project);
+        const selected = selection && Array.from(await selection.getItems() || []);
+        if (!selected || !selected.length || selected.length > 64) {
+          throw commandError("UXP_INVALID_ARGUMENT", "Select 1-64 media items or pass projectItemIds");
+        }
+        return selected.map(castMediaClip);
+      }
+      if (!Array.isArray(projectItemIds) || !projectItemIds.length || projectItemIds.length > 64) {
+        throw commandError("UXP_INVALID_ARGUMENT", "projectItemIds must contain 1-64 identifiers");
+      }
+      const wanted = projectItemIds.map(function (value, index) { return boundedIdentifier(value, "projectItemIds[" + index + "]"); });
+      if (new Set(wanted).size !== wanted.length) throw commandError("UXP_INVALID_ARGUMENT", "projectItemIds must be unique");
+      const found = new Map(), queue = [await project.getRootItem()];
+      let visited = 0;
+      while (queue.length && found.size < wanted.length) {
+        const folder = queue.shift();
+        if (!folder || typeof folder.getItems !== "function") continue;
+        const children = Array.from(await folder.getItems() || []);
+        for (let i = 0; i < children.length; i += 1) {
+          visited += 1;
+          if (visited > 10000) throw commandError("UXP_PROJECT_TOO_LARGE", "Project-item lookup exceeded 10000 entries");
+          const item = children[i], id = await projectItemId(item);
+          if (wanted.indexOf(id) !== -1) found.set(id, castMediaClip(item));
+          const childFolder = castFolder(item);
+          if (childFolder) queue.push(childFolder);
+        }
+      }
+      const missing = wanted.filter(function (id) { return !found.has(id); });
+      if (missing.length) throw commandError("UXP_TARGET_NOT_FOUND", "One or more projectItemIds were not found as media clips");
+      return wanted.map(function (id) { return found.get(id); });
+    }
+
+    function castMediaClip(item) {
+      try {
+        const clip = ppro.ClipProjectItem.cast(item);
+        if (clip) return clip;
+      } catch (_) {}
+      throw commandError("UXP_TARGET_NOT_FOUND", "A selected project item is not a media clip");
+    }
+
+    function castFolder(item) {
+      if (!ppro.FolderItem || typeof ppro.FolderItem.cast !== "function") return null;
+      try { return ppro.FolderItem.cast(item) || null; } catch (_) { return null; }
+    }
+
+    async function projectItemId(item) {
+      let value = item;
+      if (ppro.ProjectItem && typeof ppro.ProjectItem.cast === "function") {
+        try { value = ppro.ProjectItem.cast(item) || item; } catch (_) {}
+      }
+      if (!value || typeof value.getId !== "function") return "";
+      return String(await value.getId() || "");
+    }
+
+    function clipProjectItemId(clip) {
+      return projectItemId(clip);
+    }
+
+    async function mediaHealthSnapshot(clip, includePaths) {
+      const id = await clipProjectItemId(clip);
+      const offline = typeof clip.isOffline === "function" ? !!(await clip.isOffline()) : null;
+      const hasProxy = typeof clip.hasProxy === "function" ? !!(await clip.hasProxy()) : null;
+      const result = {
+        projectItemId: id,
+        name: String(clip.name || ""),
+        offline,
+        canChangeMediaPath: typeof clip.canChangeMediaPath === "function" ? !!(await clip.canChangeMediaPath()) : null,
+        canProxy: typeof clip.canProxy === "function" ? !!(await clip.canProxy()) : null,
+        hasProxy,
+        mergedClip: typeof clip.isMergedClip === "function" ? !!(await clip.isMergedClip()) : null,
+        multicamClip: typeof clip.isMulticamClip === "function" ? !!(await clip.isMulticamClip()) : null
+      };
+      if (includePaths) {
+        result.mediaPath = typeof clip.getMediaFilePath === "function" ? String(await clip.getMediaFilePath() || "") : null;
+        result.proxyPath = hasProxy && typeof clip.getProxyPath === "function" ? String(await clip.getProxyPath() || "") : null;
+        result.originatingProjectPath = typeof clip.getOriginatingProjectPath === "function"
+          ? String(await clip.getOriginatingProjectPath() || "") : null;
+      }
+      return result;
+    }
+
     async function resumeLease(reason, explicitProjectId) {
       const lease = growingLease || readGrowingLease();
       const projectId = explicitProjectId == null ? lease && lease.projectId : optionalToken(explicitProjectId, "projectId");
@@ -893,6 +1135,19 @@
     if (typeof value !== "string" || !value.trim() || value.length > 4096 || value.indexOf("\0") !== -1) {
       throw commandError("UXP_INVALID_ARGUMENT", name + " must be a non-empty absolute path of at most 4096 characters");
     }
+    return value;
+  }
+
+  function boundedIdentifier(value, name) {
+    if (typeof value !== "string" || !value || value.length > 512 || value.indexOf("\0") !== -1) {
+      throw commandError("UXP_INVALID_ARGUMENT", name + " must be a non-empty identifier of at most 512 characters");
+    }
+    return value;
+  }
+
+  function optionalExpectedBoolean(value, name) {
+    if (value == null) return null;
+    if (typeof value !== "boolean") throw commandError("UXP_INVALID_ARGUMENT", name + " must be a boolean");
     return value;
   }
 

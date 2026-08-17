@@ -60,6 +60,18 @@ type CheckpointArgs = {
   operation_id?: string;
 };
 
+type MediaHealthArgs = {
+  action?: string;
+  project_item_ids?: string[];
+  project_item_id?: string;
+  expected_offline?: boolean;
+  confirm_set_offline?: boolean;
+  match_path?: string;
+  ignore_subclips?: boolean;
+  include_paths?: boolean;
+  operation_id?: string;
+};
+
 function invoke(
   bridge: UxpWebSocketBridge,
   command: string,
@@ -311,6 +323,52 @@ export function getUxpNextWorkflowTools(bridge: UxpWebSocketBridge) {
           ...common, ...(args.operation_id !== undefined ? { operationId: args.operation_id } : {}),
         });
         return { success: false, error: `Unsupported checkpoint action: ${String(args.action)}` };
+      },
+    },
+    maintain_media_health_uxp: {
+      description: "Inspect up to 64 source media items, refresh them serially, transactionally set them offline, or find project items matching an approved media path. Native paths are redacted unless explicitly requested.",
+      parameters: {
+        type: "object" as const,
+        additionalProperties: false,
+        properties: {
+          action: { type: "string", enum: ["inspect", "refresh", "set_offline", "find_by_media_path"] },
+          project_item_ids: {
+            type: "array", minItems: 1, maxItems: 64, uniqueItems: true,
+            items: { type: "string", minLength: 1, maxLength: 512 },
+          },
+          project_item_id: { type: "string", minLength: 1, maxLength: 512 },
+          expected_offline: { type: "boolean" },
+          confirm_set_offline: { type: "boolean" },
+          match_path: { type: "string", minLength: 1, maxLength: 4096 },
+          ignore_subclips: { type: "boolean" },
+          include_paths: { type: "boolean", description: "Explicitly include media/proxy/origin paths; defaults to redacted." },
+          operation_id: { type: "string", pattern: "^[A-Za-z0-9._:-]{1,128}$" },
+        },
+        required: ["action"],
+      },
+      handler: async (args: MediaHealthArgs) => {
+        if (args.action === "inspect") return invoke(bridge, "media.health.inspect", {
+          ...(args.project_item_ids !== undefined ? { projectItemIds: args.project_item_ids } : {}),
+          ...(args.include_paths !== undefined ? { includePaths: args.include_paths } : {}),
+        });
+        if (args.action === "refresh") return invoke(bridge, "media.health.refresh", {
+          ...(args.project_item_ids !== undefined ? { projectItemIds: args.project_item_ids } : {}),
+          ...(args.expected_offline !== undefined ? { expectedOffline: args.expected_offline } : {}),
+          ...(args.operation_id !== undefined ? { operationId: args.operation_id } : {}),
+        });
+        if (args.action === "set_offline") return invoke(bridge, "media.health.setOffline", {
+          ...(args.project_item_ids !== undefined ? { projectItemIds: args.project_item_ids } : {}),
+          ...(args.expected_offline !== undefined ? { expectedOffline: args.expected_offline } : {}),
+          ...(args.confirm_set_offline !== undefined ? { confirmSetOffline: args.confirm_set_offline } : {}),
+          ...(args.operation_id !== undefined ? { operationId: args.operation_id } : {}),
+        });
+        if (args.action === "find_by_media_path") return invoke(bridge, "media.health.findByPath", {
+          ...(args.project_item_id !== undefined ? { projectItemId: args.project_item_id } : {}),
+          ...(args.match_path !== undefined ? { matchPath: args.match_path } : {}),
+          ...(args.ignore_subclips !== undefined ? { ignoreSubclips: args.ignore_subclips } : {}),
+          ...(args.include_paths !== undefined ? { includePaths: args.include_paths } : {}),
+        });
+        return { success: false, error: `Unsupported media-health action: ${String(args.action)}` };
       },
     },
   };

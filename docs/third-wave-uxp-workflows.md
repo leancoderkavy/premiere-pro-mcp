@@ -109,6 +109,21 @@ projects, so the public contract explicitly forbids secrets, native paths,
 transcripts, and media names. Automated contracts do not prove cloud sync behavior
 or cross-version property retention in a real Premiere host.
 
+## PR 7 — Bounded media-health maintenance
+
+`maintain_media_health_uxp` inspects 1-64 selected or explicitly identified media
+items for offline, relink, proxy, merged-clip, and multicam capabilities. Media,
+proxy, and originating-project paths remain absent unless the caller explicitly asks
+for them. Project traversal is capped at 10,000 items and path-match results at 512.
+
+Refresh calls run serially and return per-item acceptance plus offline-state
+readback, so a partial batch is visible instead of being reported atomically. Setting
+media offline requires confirmation, preflights every expected state, groups Adobe's
+actions into one transaction, and verifies every item is offline afterward. The
+documented API has no corresponding set-online action; relink remains a separate,
+workspace-gated workflow. Automated contracts do not prove filesystem availability
+or proxy health in a real host.
+
 ## Primary Adobe references
 
 - [EventManager](https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/eventmanager/)
@@ -117,3 +132,4 @@ or cross-version property retention in a real Premiere host.
 - [Project](https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/project/)
 - [ProjectUtils](https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/projectutils/)
 - [Properties](https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/properties/)
+- [ClipProjectItem](https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/clipprojectitem/)
