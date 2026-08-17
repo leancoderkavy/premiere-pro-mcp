@@ -11,6 +11,12 @@ describe("canonical release metadata", () => {
 
   it("aligns every distributable manifest with the canonical version", () => {
     expect(readJson("package.json").version).toBe(release.version);
+    expect(readJson("package.json").description).toContain(
+      `${release.coreTools} core AI video editing tools`,
+    );
+    const packageLock = readJson("package-lock.json");
+    expect(packageLock.version).toBe(release.version);
+    expect(packageLock.packages[""].version).toBe(release.version);
     expect(readJson("claude-desktop/manifest.json").version).toBe(release.version);
     expect(readJson("uxp-plugin/manifest.json").version).toBe(release.version);
     expect(readJson("plugins/premiere-pro/.codex-plugin/plugin.json").version).toBe(
@@ -19,10 +25,24 @@ describe("canonical release metadata", () => {
     expect(
       readJson("claude-plugins/premiere-pro/.claude-plugin/plugin.json").version,
     ).toBe(release.version);
+    expect(readJson(".claude-plugin/marketplace.json").plugins[0].version).toBe(
+      release.version,
+    );
+
+    for (const path of [
+      "plugins/premiere-pro/.mcp.json",
+      "claude-plugins/premiere-pro/.mcp.json",
+    ]) {
+      expect(read(path)).toContain(`premiere-pro-mcp@${release.version}`);
+    }
 
     const cepManifest = read("cep-plugin/CSXS/manifest.xml");
     expect(cepManifest).toContain(`ExtensionBundleVersion="${release.version}"`);
     expect(cepManifest).toContain(`Version="${release.version}"`);
+    expect(read("cep-plugin/updater.cjs")).toContain(
+      `CURRENT_VERSION = "${release.version}"`,
+    );
+    expect(read("cep-plugin/index.html")).toContain(`Version ${release.version}`);
   });
 
   it("aligns public release and capability claims", () => {
@@ -54,6 +74,10 @@ describe("canonical release metadata", () => {
       `/releases/download/v${release.version}/MCPBridgeCEP.zxp`,
     );
     expect(landingProduct).toContain(`/releases/tag/v${release.version}`);
+    expect(readme).toContain(`Latest release: ${release.version}`);
+    expect(read("landing/app/changelog/page.tsx")).toContain(
+      `version: "${release.version}"`,
+    );
   });
 
   it("keeps computed tool-count relationships explicit", () => {

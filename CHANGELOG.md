@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [1.11.0] - 2026-08-16
+
 ### Fixed
 
 - `set_clip_volume` passed decibels straight into Premiere's `Volume > Level`
@@ -22,6 +24,35 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - `set_clips_volume` applies a level to every clip on an audio track (or a
   chosen subset) in one call. Setting levels across an 80-clip sequence
   previously meant 80 round trips.
+- Added eight capability-gated third-wave UXP tools for bounded host events, AME
+  terminal receipts, host readiness, safe multi-project sessions, growing-media
+  leases, transactional checkpoints, media health, caption-aware track state,
+  source-clip trim and framing, and hybrid-acceleration evidence.
+- Added a generated supported-actions catalog covering all 282 core tools, the
+  default profile, resources, prompts, and connected UXP actions with explicit
+  backend and verification boundaries.
+- Added a schema-backed hybrid benchmark evidence template and a fail-closed
+  verifier so accelerated paths cannot be advertised without matching host,
+  dataset, correctness, latency, and provenance evidence.
+
+### Changed
+
+- Expanded the authenticated UXP surface from 40 to 48 capability-gated tools,
+  bringing the connected default profile from 318 to 328 tools while keeping
+  CEP as the production-compatible bridge.
+- Bounded event and readiness history, reported eviction and pending states,
+  and preserved host timeout budgets with a response-delivery buffer.
+- Required explicit confirmation and readback for external project writes,
+  destructive track or source mutations, and pause leases; failed UXP commands
+  are never replayed automatically through CEP.
+
+### Validation
+
+- The merged release tree passes 1,490 automated tests across 53 files with
+  91.26% branch coverage, generated-document checks, landing lint/build, and
+  package-content validation.
+- Real Premiere host validation remains not run; mock and contract evidence does
+  not establish behavior inside a licensed Premiere installation.
 
 ## [1.10.0] - 2026-08-16
 

@@ -1,7 +1,7 @@
 {
   "name": "premiere-pro-mcp",
-  "version": "1.10.0",
-  "description": "Adobe Premiere Pro MCP server with 280 core AI video editing tools and a capability-aware UXP bridge for supported Premiere workflows.",
+  "version": "1.11.0",
+  "description": "Adobe Premiere Pro MCP server with 282 core AI video editing tools and a capability-aware UXP bridge for supported Premiere workflows.",
   "main": "dist/index.js",
   "types": "./dist/index.d.ts",
   "type": "module",
@@ -106,6 +106,7 @@
     "body-parser": "^2.3.0",
     "fast-uri": "^3.1.5",
     "hono": "^4.12.34",
-    "ip-address": "^10.4.0"
+    "ip-address": "^10.4.0",
+    "nanoid": "3.3.18"
   }
 }

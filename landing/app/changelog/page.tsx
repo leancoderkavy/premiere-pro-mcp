@@ -5,6 +5,38 @@ import { product } from "@/lib/product"
 
 const releases = [
   {
+    version: "1.11.0",
+    date: "2026-08-16",
+    label: "Evidence-backed third-wave UXP workflows",
+    groups: [
+      {
+        title: "Added",
+        items: [
+          "Added eight capability-gated UXP tools for host events, readiness, project sessions, growing media, checkpoints, media health, track state, and source trim and framing.",
+          "Added a generated supported-actions catalog and schema-backed hybrid benchmark evidence gate.",
+        ],
+      },
+      {
+        title: "Fixed",
+        items: [
+          "Corrected clip-volume conversion from decibels to Premiere's normalized Level value and added readback and batch controls.",
+        ],
+      },
+      {
+        title: "Changed",
+        items: [
+          "Expanded the connected surface to 328 tools and added bounded history, explicit confirmations, timeout budgets, and post-mutation readback.",
+        ],
+      },
+      {
+        title: "Validation",
+        items: [
+          "Automated tests, coverage, generated-document checks, and package validation pass; real Premiere host verification remains a separate gate.",
+        ],
+      },
+    ],
+  },
+  {
     version: "1.10.0",
     date: "2026-08-16",
     label: "Stable, bounded UXP workflow expansion",
