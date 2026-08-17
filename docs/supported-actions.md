@@ -8,11 +8,11 @@ descriptions, action enums, authority visibility, and counts stay aligned with t
 
 | Surface | Count | Availability |
 | --- | ---: | --- |
-| Registered core actions | 282 | CEP/local server catalog; host and authority checks still apply |
-| Default-profile core actions | 280 | Advertised with `inspect,edit,export,filesystem` |
+| Registered core actions | 285 | CEP/local server catalog; host and authority checks still apply |
+| Default-profile core actions | 283 | Advertised with `inspect,edit,export,filesystem` |
 | Restricted core actions | 2 | Require explicit `unsafe-script` authority |
 | Authenticated UXP additions | 48 | Advertised only while a compatible authenticated UXP panel is connected |
-| Default profile with UXP | 328 | 280 core plus 48 UXP tools |
+| Default profile with UXP | 331 | 283 core plus 48 UXP tools |
 
 ## How to read support
 
@@ -74,6 +74,7 @@ operation” when the tool has no enum-based mode.
 | `create_bars_and_tone` | Default profile | Single operation | Create a Bars and Tone synthetic media item in the project (useful for leader/calibration) |
 | `create_bin` | Default profile | Single operation | Create a new bin (folder) in the project panel |
 | `create_caption_track` | Default profile | Single operation | Create a caption/subtitle track in the active sequence from an imported caption file (e.g., .srt, .vtt) |
+| `create_context_edit_plan` | Default profile | `strategy`: `rough_cut`, `select_ranges`, `review` | Create a non-mutating, evidence-backed edit-plan scaffold from indexed Premiere context. It returns ranked source/time candidates and stale-state guards; the model must review them and use preview_edit_plan before any mutation. |
 | `create_project` | Default profile | Single operation | Create a new Premiere Pro project at the specified path |
 | `create_sequence` | Default profile | Single operation | Create a new sequence in the project |
 | `create_sequence_from_clips` | Default profile | Single operation | Create a new sequence by automatically placing project items in order |
@@ -196,6 +197,7 @@ operation” when the tool has no enum-based mode.
 | `list_sequence_tracks` | Default profile | Single operation | List all tracks (video and audio) in a sequence |
 | `list_sequences` | Default profile | Single operation | List all sequences in the project |
 | `lock_track` | Default profile | Single operation | Lock or unlock a video track |
+| `manage_project_context` | Default profile | `capture`, `enrich`, `status`, `clear` | Capture, enrich, inspect, or clear a durable local Premiere project-context index. Capture stores bounded active-sequence/source metadata; enrich adds transcripts, shots, audio observations, or notes without re-analyzing unchanged sources. Never include secrets or unrelated customer data. |
 | `manage_proxies` | Default profile | `create`, `attach`, `toggle` | Create, attach, or toggle proxies for a project item. Note: 'create' queues a proxy encode in Adobe Media Encoder and returns immediately — AME renders in the background. Once it finishes, call this tool again with action 'attach' and proxy_path set to the output_path you passed here. There is no single-call create-and-attach in Premiere's ExtendScript API. |
 | `match_frame` | Default profile | `track_type`: `video`, `audio` | Get source media info for the frame at the current playhead on a specific track. Useful for match frame operations. |
 | `move_clip` | Default profile | Single operation | Move a clip to a new position on the timeline |
@@ -237,6 +239,7 @@ operation” when the tool has no enum-based mode.
 | `save_project` | Default profile | Single operation | Save the current Premiere Pro project |
 | `save_project_as` | Default profile | Single operation | Save the current project to a new location |
 | `scene_edit_detection` | Default profile | Single operation | Perform scene edit detection on the selected clips in the active sequence |
+| `search_project_context` | Default profile | Single operation | Search a durable Premiere project-context index for relevant sources, timeline placements, transcript passages, shots, audio observations, and notes. Returns bounded evidence with stable IDs and revisions; it never changes Premiere. |
 | `search_project_items` | Default profile | `item_type`: `clip`, `bin`, `all` | Search for project items by name, media file extension, offline status, or color label. Returns matching items with full details. |
 | `select_all_clips` | Default profile | `track_type`: `video`, `audio`, `both` | Select all clips in the active sequence, or all clips on a specific track. |
 | `select_clips_by_color` | Default profile | Single operation | Select all clips whose source project item has a specific color label. |

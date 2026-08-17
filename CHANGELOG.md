@@ -6,6 +6,22 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+
+- Added a durable local project-context engine with active-sequence capture,
+  transcript/shot/audio/note enrichment, bounded retrieval, and non-mutating
+  edit-plan scaffolds. Source-media and timeline revisions are tracked
+  independently so ordinary timeline changes do not repeat expensive source
+  analysis.
+- Added a context-aware rough-cut prompt and `config://premiere-project-context`
+  resource documenting privacy, invalidation, retrieval, and preview requirements.
+
+### Security
+
+- Native media paths are hashed before persistence, credential-like enrichment
+  metadata is discarded, stale source/timeline enrichments are rejected, and
+  context clearing remains an explicit filesystem-authorized action.
+
 ## [1.11.1] - 2026-08-16
 
 ### Fixed

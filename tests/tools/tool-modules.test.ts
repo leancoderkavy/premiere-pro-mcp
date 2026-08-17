@@ -48,6 +48,7 @@ import { getPlaybackTools } from "../../src/tools/playback.js";
 import { getProjectManagerTools } from "../../src/tools/project-manager.js";
 import { getRecoveryTools } from "../../src/tools/recovery.js";
 import { getAvSettingsTools } from "../../src/tools/av-settings.js";
+import { getProjectContextTools } from "../../src/tools/project-context.js";
 import type { Telemetry, TelemetryProperties } from "../../src/telemetry.js";
 
 interface ToolDef {
@@ -94,6 +95,7 @@ const ALL_MODULES: Array<{
   { name: "project-manager", getter: getProjectManagerTools, minTools: 1 },
   { name: "recovery", getter: getRecoveryTools, minTools: 2 },
   { name: "av-settings", getter: getAvSettingsTools, minTools: 4 },
+  { name: "project-context", getter: getProjectContextTools, minTools: 3 },
 ];
 
 describe("Tool Module Structure", () => {
@@ -175,16 +177,16 @@ describe("Tool Module Structure", () => {
 });
 
 describe("Total Tool Count", () => {
-  it("all modules together have 280 tools", () => {
+  it("all modules together have 283 tools", () => {
     let total = 0;
     for (const mod of ALL_MODULES) {
       total += Object.keys(mod.getter(bridgeOptions)).length;
     }
-    expect(total).toBe(280);
+    expect(total).toBe(283);
   });
 
-  it("there are 30 modules", () => {
-    expect(ALL_MODULES.length).toBe(30);
+  it("there are 31 directly enumerated modules", () => {
+    expect(ALL_MODULES.length).toBe(31);
   });
 });
 

@@ -1,16 +1,20 @@
 import type { ToolAnnotations } from "@modelcontextprotocol/sdk/types.js";
 
-const READ_PREFIXES = ["get_", "list_", "inspect_", "find_", "check_"];
+const READ_PREFIXES = ["get_", "list_", "inspect_", "find_", "check_", "search_"];
+const READ_ONLY_TOOLS = new Set(["create_context_edit_plan"]);
 const DESTRUCTIVE_PREFIXES = ["delete_", "remove_", "ripple_delete", "close_"];
+const DESTRUCTIVE_TOOLS = new Set(["manage_project_context"]);
 const OPEN_WORLD_TOOLS = new Set(["execute_extendscript", "send_raw_script"]);
 
 /** Conservative MCP hints. They describe expected behavior, never authorization. */
 export function annotationsForTool(name: string): ToolAnnotations {
-  const readOnly = READ_PREFIXES.some((prefix) => name.startsWith(prefix));
+  const readOnly = READ_ONLY_TOOLS.has(name) || READ_PREFIXES.some((prefix) => name.startsWith(prefix));
   return {
     title: name.split("_").map((part) => part.charAt(0).toUpperCase() + part.slice(1)).join(" "),
     readOnlyHint: readOnly,
-    destructiveHint: !readOnly && DESTRUCTIVE_PREFIXES.some((prefix) => name.startsWith(prefix)),
+    destructiveHint: !readOnly && (
+      DESTRUCTIVE_TOOLS.has(name) || DESTRUCTIVE_PREFIXES.some((prefix) => name.startsWith(prefix))
+    ),
     idempotentHint: readOnly,
     openWorldHint: OPEN_WORLD_TOOLS.has(name),
   };

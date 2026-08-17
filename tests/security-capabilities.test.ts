@@ -42,6 +42,8 @@ describe("capability profiles", () => {
     expect(capabilityForTool("manage_markers_uxp")).toBe("edit");
     expect(capabilityForTool("get_project_info")).toBe("inspect");
     expect(capabilityForTool("preview_transcript_edit_uxp")).toBe("inspect");
+    expect(capabilityForTool("create_context_edit_plan")).toBe("inspect");
+    expect(capabilityForTool("search_project_context")).toBe("inspect");
     expect(capabilityForTool("ping")).toBe("inspect");
     expect(capabilityForTool("trim_clip")).toBe("edit");
   });
@@ -63,6 +65,12 @@ describe("capability profiles", () => {
       .toEqual(["edit", "filesystem"]);
     expect(capabilitiesForToolInvocation("manage_proxy_ingest_uxp", { action: "inspect_proxy" }))
       .toEqual(["inspect"]);
+    expect(capabilitiesForToolInvocation("manage_project_context", { action: "capture" }))
+      .toEqual(["inspect", "filesystem"]);
+    expect(capabilitiesForToolInvocation("manage_project_context", { action: "status" }))
+      .toEqual(["inspect"]);
+    expect(capabilitiesForToolInvocation("manage_project_context", { action: "clear" }))
+      .toEqual(["filesystem"]);
 
     await expect(
       guardToolHandler("manage_proxy_ingest_uxp", handler, resolveCapabilities("filesystem"), () => "proxy-edit")({ action: "set_ingest" }),
