@@ -136,6 +136,38 @@
         minHostVersion: "25.6.0",
         probe: canControlGrowingMedia,
         handler: resumeGrowingMedia
+      },
+      "checkpoint.has": {
+        readOnly: true,
+        targetCapabilityProbe: true,
+        minHostVersion: "25.6.0",
+        probe: canUseWorkflowCheckpoints,
+        handler: hasWorkflowCheckpoint
+      },
+      "checkpoint.get": {
+        readOnly: true,
+        targetCapabilityProbe: true,
+        minHostVersion: "25.6.0",
+        probe: canUseWorkflowCheckpoints,
+        handler: getWorkflowCheckpoint
+      },
+      "checkpoint.set": {
+        destructive: true,
+        undoable: true,
+        idempotent: true,
+        targetCapabilityProbe: true,
+        minHostVersion: "25.6.0",
+        probe: canUseWorkflowCheckpoints,
+        handler: setWorkflowCheckpoint
+      },
+      "checkpoint.clear": {
+        destructive: true,
+        undoable: true,
+        idempotent: true,
+        targetCapabilityProbe: true,
+        minHostVersion: "25.6.0",
+        probe: canUseWorkflowCheckpoints,
+        handler: clearWorkflowCheckpoint
       }
     };
 
@@ -180,6 +212,10 @@
         const project = await ppro.Project.getActiveProject();
         return !!(project && typeof project.pauseGrowing === "function");
       } catch (_) { return false; }
+    }
+
+    function canUseWorkflowCheckpoints() {
+      return !!(ppro && ppro.Properties && typeof ppro.Properties.getProperties === "function");
     }
 
     async function initialize() {
@@ -475,6 +511,152 @@
     async function resumeGrowingMedia(args) {
       assertOnlyKeys(args, ["projectId", "operationId"]);
       return resumeLease("explicit_resume", args.projectId);
+    }
+
+    async function hasWorkflowCheckpoint(args) {
+      assertOnlyKeys(args, ["owner", "sequenceId", "expectedOwnerId", "name"]);
+      const context = await checkpointContext(args);
+      return checkpointReceipt(context, context.properties.hasValue(context.key), null, null);
+    }
+
+    async function getWorkflowCheckpoint(args) {
+      assertOnlyKeys(args, ["owner", "sequenceId", "expectedOwnerId", "name", "valueType"]);
+      const context = await checkpointContext(args);
+      const valueType = checkpointValueType(args.valueType);
+      const exists = !!context.properties.hasValue(context.key);
+      return checkpointReceipt(context, exists, valueType, exists ? readCheckpointValue(context.properties, context.key, valueType) : null);
+    }
+
+    async function setWorkflowCheckpoint(args) {
+      assertOnlyKeys(args, ["owner", "sequenceId", "expectedOwnerId", "name", "valueType", "value", "persistence", "operationId"]);
+      const context = await checkpointContext(args);
+      const valueType = checkpointValueType(args.valueType);
+      const value = checkpointValue(args.value, valueType);
+      const persistence = checkpointPersistence(args.persistence);
+      let committed = false;
+      context.project.lockedAccess(function () {
+        const action = context.properties.createSetValueAction(context.key, value, persistence.value);
+        committed = context.project.executeTransaction(function (compoundAction) {
+          if (!action || compoundAction.addAction(action) === false) {
+            throw commandError("UXP_ACTION_REJECTED", "Premiere rejected the checkpoint set action");
+          }
+        }, "Set Premiere MCP checkpoint");
+      });
+      if (!committed) throw commandError("UXP_VERIFICATION_FAILED", "Premiere did not commit the checkpoint transaction");
+      if (!context.properties.hasValue(context.key)) throw commandError("UXP_VERIFICATION_FAILED", "Checkpoint was absent after the transaction");
+      const readback = readCheckpointValue(context.properties, context.key, valueType);
+      if (!sameCheckpointValue(readback, value, valueType)) throw commandError("UXP_VERIFICATION_FAILED", "Checkpoint readback did not match the requested value");
+      return {
+        ...checkpointReceipt(context, true, valueType, readback),
+        persistence: persistence.name,
+        outcome: "verified",
+        verificationBoundary: "typed_property_readback"
+      };
+    }
+
+    async function clearWorkflowCheckpoint(args) {
+      assertOnlyKeys(args, ["owner", "sequenceId", "expectedOwnerId", "name", "operationId"]);
+      const context = await checkpointContext(args);
+      if (!context.properties.hasValue(context.key)) {
+        return { ...checkpointReceipt(context, false, null, null), cleared: false, outcome: "verified", verificationBoundary: "property_absence_readback" };
+      }
+      let committed = false;
+      context.project.lockedAccess(function () {
+        const action = context.properties.createClearValueAction(context.key);
+        committed = context.project.executeTransaction(function (compoundAction) {
+          if (!action || compoundAction.addAction(action) === false) {
+            throw commandError("UXP_ACTION_REJECTED", "Premiere rejected the checkpoint clear action");
+          }
+        }, "Clear Premiere MCP checkpoint");
+      });
+      if (!committed || context.properties.hasValue(context.key)) {
+        throw commandError("UXP_VERIFICATION_FAILED", "Checkpoint remained after the clear transaction");
+      }
+      return { ...checkpointReceipt(context, false, null, null), cleared: true, outcome: "verified", verificationBoundary: "property_absence_readback" };
+    }
+
+    async function checkpointContext(args) {
+      const owner = args.owner == null ? "project" : args.owner;
+      if (owner !== "project" && owner !== "sequence") throw commandError("UXP_INVALID_ARGUMENT", "owner must be project or sequence");
+      const project = await activeProject(true);
+      const target = owner === "project" ? project : await resolveSequence(project, args.sequenceId, true);
+      const ownerId = guidString(target.guid);
+      if (args.expectedOwnerId != null && optionalToken(args.expectedOwnerId, "expectedOwnerId") !== ownerId) {
+        throw commandError("UXP_STALE_TARGET", "The checkpoint owner changed before dispatch");
+      }
+      const name = checkpointName(args.name);
+      const properties = await ppro.Properties.getProperties(target);
+      if (!properties || typeof properties.hasValue !== "function") {
+        throw commandError("UXP_COMMAND_UNAVAILABLE", "This checkpoint owner does not expose Adobe properties");
+      }
+      return { owner, ownerId, project, target, properties, name, key: "premiereMcp." + name };
+    }
+
+    function checkpointName(value) {
+      if (typeof value !== "string" || !/^[A-Za-z0-9][A-Za-z0-9._-]{0,95}$/.test(value) || value.indexOf("premiereMcp.") === 0) {
+        throw commandError("UXP_INVALID_ARGUMENT", "name must be a 1-96 character unprefixed checkpoint token");
+      }
+      return value;
+    }
+
+    function checkpointValueType(value) {
+      if (value !== "string" && value !== "int" && value !== "float" && value !== "bool") {
+        throw commandError("UXP_INVALID_ARGUMENT", "valueType must be string, int, float, or bool");
+      }
+      return value;
+    }
+
+    function checkpointValue(value, valueType) {
+      if (valueType === "string") {
+        if (typeof value !== "string" || value.length > 8192 || value.indexOf("\0") !== -1) {
+          throw commandError("UXP_INVALID_ARGUMENT", "string checkpoint values must be at most 8192 characters and contain no NUL");
+        }
+        return value;
+      }
+      if (valueType === "bool") {
+        if (typeof value !== "boolean") throw commandError("UXP_INVALID_ARGUMENT", "bool checkpoint values must be boolean");
+        return value;
+      }
+      if (typeof value !== "number" || !Number.isFinite(value)) throw commandError("UXP_INVALID_ARGUMENT", valueType + " checkpoint values must be finite numbers");
+      if (valueType === "int" && (!Number.isSafeInteger(value) || Math.abs(value) > 2147483647)) {
+        throw commandError("UXP_INVALID_ARGUMENT", "int checkpoint values must be 32-bit safe integers");
+      }
+      return value;
+    }
+
+    function checkpointPersistence(value) {
+      const name = value == null ? "session" : value;
+      if (name !== "session" && name !== "persistent") throw commandError("UXP_INVALID_ARGUMENT", "persistence must be session or persistent");
+      const constants = ppro.Constants && ppro.Constants.PropertyType || {};
+      const persistent = ppro.Properties.PROPERTY_PERSISTENT != null ? ppro.Properties.PROPERTY_PERSISTENT : constants.PERSISTENT;
+      const nonPersistent = ppro.Properties.PROPERTY_NON_PERSISTENT != null ? ppro.Properties.PROPERTY_NON_PERSISTENT : constants.NON_PERSISTENT;
+      const flag = name === "persistent" ? persistent : nonPersistent;
+      if (flag == null) throw commandError("UXP_COMMAND_UNAVAILABLE", "This Premiere build does not expose checkpoint persistence constants");
+      return { name, value: flag };
+    }
+
+    function readCheckpointValue(properties, key, valueType) {
+      const readers = { string: "getValue", int: "getValueAsInt", float: "getValueAsFloat", bool: "getValueAsBool" };
+      const reader = readers[valueType];
+      if (typeof properties[reader] !== "function") throw commandError("UXP_COMMAND_UNAVAILABLE", "This checkpoint value type is unavailable");
+      return properties[reader](key);
+    }
+
+    function sameCheckpointValue(left, right, valueType) {
+      if (valueType === "float") return Math.abs(left - right) <= Math.max(1e-9, Math.abs(right) * 1e-9);
+      return left === right;
+    }
+
+    function checkpointReceipt(context, exists, valueType, value) {
+      return {
+        owner: context.owner,
+        ownerId: context.ownerId,
+        name: context.name,
+        keyNamespace: "premiereMcp.",
+        exists: !!exists,
+        valueType: valueType || null,
+        value: exists && valueType ? value : null
+      };
     }
 
     async function resumeLease(reason, explicitProjectId) {

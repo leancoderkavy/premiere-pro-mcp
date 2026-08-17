@@ -48,6 +48,18 @@ type GrowingMediaArgs = {
   operation_id?: string;
 };
 
+type CheckpointArgs = {
+  action?: string;
+  owner?: string;
+  sequence_id?: string;
+  expected_owner_id?: string;
+  name?: string;
+  value_type?: string;
+  value?: string | number | boolean;
+  persistence?: string;
+  operation_id?: string;
+};
+
 function invoke(
   bridge: UxpWebSocketBridge,
   command: string,
@@ -257,6 +269,48 @@ export function getUxpNextWorkflowTools(bridge: UxpWebSocketBridge) {
           ...(args.operation_id !== undefined ? { operationId: args.operation_id } : {}),
         });
         return { success: false, error: `Unsupported growing-media action: ${String(args.action)}` };
+      },
+    },
+    manage_workflow_checkpoints_uxp: {
+      description: "Read or transactionally write small, namespaced workflow checkpoints on the active project or a targeted sequence. Persistent values may sync with cloud projects; never store secrets, native paths, transcripts, or media names.",
+      parameters: {
+        type: "object" as const,
+        additionalProperties: false,
+        properties: {
+          action: { type: "string", enum: ["has", "get", "set", "clear"] },
+          owner: { type: "string", enum: ["project", "sequence"] },
+          sequence_id: { type: "string", pattern: "^[A-Za-z0-9._:-]{1,128}$" },
+          expected_owner_id: { type: "string", pattern: "^[A-Za-z0-9._:-]{1,128}$" },
+          name: { type: "string", pattern: "^[A-Za-z0-9][A-Za-z0-9._-]{0,95}$" },
+          value_type: { type: "string", enum: ["string", "int", "float", "bool"] },
+          value: { type: ["string", "number", "boolean"], maxLength: 8192 },
+          persistence: { type: "string", enum: ["session", "persistent"] },
+          operation_id: { type: "string", pattern: "^[A-Za-z0-9._:-]{1,128}$" },
+        },
+        required: ["action", "name"],
+      },
+      handler: async (args: CheckpointArgs) => {
+        const common = {
+          ...(args.owner !== undefined ? { owner: args.owner } : {}),
+          ...(args.sequence_id !== undefined ? { sequenceId: args.sequence_id } : {}),
+          ...(args.expected_owner_id !== undefined ? { expectedOwnerId: args.expected_owner_id } : {}),
+          name: args.name,
+        };
+        if (args.action === "has") return invoke(bridge, "checkpoint.has", common);
+        if (args.action === "get") return invoke(bridge, "checkpoint.get", {
+          ...common, ...(args.value_type !== undefined ? { valueType: args.value_type } : {}),
+        });
+        if (args.action === "set") return invoke(bridge, "checkpoint.set", {
+          ...common,
+          ...(args.value_type !== undefined ? { valueType: args.value_type } : {}),
+          ...(args.value !== undefined ? { value: args.value } : {}),
+          ...(args.persistence !== undefined ? { persistence: args.persistence } : {}),
+          ...(args.operation_id !== undefined ? { operationId: args.operation_id } : {}),
+        });
+        if (args.action === "clear") return invoke(bridge, "checkpoint.clear", {
+          ...common, ...(args.operation_id !== undefined ? { operationId: args.operation_id } : {}),
+        });
+        return { success: false, error: `Unsupported checkpoint action: ${String(args.action)}` };
       },
     },
   };
