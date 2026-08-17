@@ -323,4 +323,58 @@ describe("next-wave UXP event workflows", () => {
       count: 1, tracks: [{ mediaType: "caption", trackIndex: 0, muted: true }],
     });
   });
+
+  it("commits source trim actions together, verifies time readback, and withholds scale verification", async () => {
+    let inSeconds = 1, outSeconds = 9;
+    const clip = {
+      name: "Camera A",
+      getId: vi.fn(() => "clip-1"),
+      getInPoint: vi.fn(async () => ({ seconds: inSeconds })),
+      getOutPoint: vi.fn(async () => ({ seconds: outSeconds })),
+      createSetInOutPointsAction: vi.fn((inPoint: { seconds: number }, outPoint: { seconds: number }) => ({
+        apply: () => { inSeconds = inPoint.seconds; outSeconds = outPoint.seconds; },
+      })),
+      createSetInPointAction: vi.fn(),
+      createSetOutPointAction: vi.fn(),
+      createClearInOutPointsAction: vi.fn(),
+      createSetScaleToFrameSizeAction: vi.fn(() => ({ apply: () => undefined })),
+    };
+    const root = { getItems: vi.fn(async () => [clip]) };
+    const project = {
+      getRootItem: vi.fn(async () => root),
+      lockedAccess: vi.fn((callback: () => void) => callback()),
+      executeTransaction: vi.fn((callback: (compound: { addAction: (action: { apply: () => void }) => boolean }) => void) => {
+        callback({ addAction: (action) => { action.apply(); return true; } });
+        return true;
+      }),
+    };
+    const definitions = NextWorkflows.createNextWorkflowDefinitions({
+      ppro: {
+        Project: { getActiveProject: vi.fn(async () => project) },
+        ClipProjectItem: { cast: vi.fn((item: unknown) => item) },
+        ProjectItem: { cast: vi.fn((item: unknown) => item) },
+        FolderItem: { cast: vi.fn(() => null) },
+        TickTime: { createWithSeconds: vi.fn((seconds: number) => ({ seconds })) },
+        Constants: { MediaType: { VIDEO: 1, AUDIO: 2 } },
+      },
+    });
+
+    await expect(definitions["source.clip.update"].handler({
+      items: [{
+        projectItemId: "clip-1", mediaType: "video", expectedInSeconds: 1, expectedOutSeconds: 9,
+        inSeconds: 2, outSeconds: 8,
+      }],
+    })).resolves.toMatchObject({
+      updated: 1, outcome: "verified", verificationBoundary: "source_in_out_readback",
+      items: [{ after: { inSeconds: 2, outSeconds: 8 }, trimVerified: true, scaleToFrameRequested: false }],
+    });
+    await expect(definitions["source.clip.update"].handler({
+      items: [{ projectItemId: "clip-1", mediaType: "video", scaleToFrame: true }],
+    })).resolves.toMatchObject({
+      outcome: "committed_unverified",
+      verificationBoundary: "transaction_commit_with_missing_clear_or_scale_getter",
+      items: [{ scaleToFrameRequested: true, scaleToFrameVerified: false }],
+    });
+    expect(project.executeTransaction).toHaveBeenCalledTimes(2);
+  });
 });

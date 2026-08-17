@@ -85,6 +85,25 @@ describe("next-wave UXP MCP tools", () => {
         muted: { type: "boolean" },
       },
     });
+    const source = getUxpNextWorkflowTools(bridge).manage_source_clip_uxp;
+    expect(source.parameters).toMatchObject({
+      additionalProperties: false,
+      required: ["action", "items"],
+      properties: {
+        action: { enum: ["inspect", "update"] },
+        items: {
+          maxItems: 64,
+          items: {
+            additionalProperties: false,
+            required: ["project_item_id"],
+            properties: {
+              media_type: { enum: ["video", "audio"] },
+              scale_to_frame: { enum: [true] },
+            },
+          },
+        },
+      },
+    });
   });
 
   it("maps snake-case event queries to the exact bridge commands", async () => {
@@ -170,6 +189,23 @@ describe("next-wave UXP MCP tools", () => {
     expect(request).toHaveBeenLastCalledWith("track.state.set", {
       sequenceId: "sequence-1", expectedSequenceId: "sequence-1",
       mediaType: "caption", trackIndices: [0], muted: true, expectedMuted: false, operationId: "mute-1",
+    });
+
+    const source = getUxpNextWorkflowTools(bridge).manage_source_clip_uxp;
+    await source.handler({
+      action: "update",
+      items: [{
+        project_item_id: "clip-1", media_type: "video", expected_in_seconds: 1,
+        in_seconds: 2, out_seconds: 8, scale_to_frame: true,
+      }],
+      operation_id: "source-1",
+    });
+    expect(request).toHaveBeenLastCalledWith("source.clip.update", {
+      items: [{
+        projectItemId: "clip-1", mediaType: "video", expectedInSeconds: 1,
+        inSeconds: 2, outSeconds: 8, scaleToFrame: true,
+      }],
+      operationId: "source-1",
     });
   });
 
@@ -390,5 +426,35 @@ describe("next-wave UXP MCP tools", () => {
     expect(request).toHaveBeenLastCalledWith("track.state.set", {});
     await expect(tool.handler({ action: "unsupported" }))
       .resolves.toEqual({ success: false, error: "Unsupported track-state action: unsupported" });
+  });
+
+  it("covers source-clip inspection, complete mappings, absent items, and rejection", async () => {
+    const request = vi.fn().mockResolvedValue({ ok: true });
+    const bridge = { request, getState: vi.fn() } as unknown as UxpWebSocketBridge;
+    const tool = getUxpNextWorkflowTools(bridge).manage_source_clip_uxp;
+
+    await tool.handler({ action: "inspect" });
+    expect(request).toHaveBeenLastCalledWith("source.clip.inspect", { items: undefined });
+    await tool.handler({ action: "inspect", items: [{}] });
+    expect(request).toHaveBeenLastCalledWith("source.clip.inspect", { items: [{}] });
+    await tool.handler({
+      action: "inspect",
+      items: [{
+        project_item_id: "clip-1", media_type: "audio",
+        expected_in_seconds: 1, expected_out_seconds: 10,
+        in_seconds: 2, out_seconds: 9, clear_in_out: false, scale_to_frame: true,
+      }],
+    });
+    expect(request).toHaveBeenLastCalledWith("source.clip.inspect", {
+      items: [{
+        projectItemId: "clip-1", mediaType: "audio",
+        expectedInSeconds: 1, expectedOutSeconds: 10,
+        inSeconds: 2, outSeconds: 9, clearInOut: false, scaleToFrame: true,
+      }],
+    });
+    await tool.handler({ action: "update" });
+    expect(request).toHaveBeenLastCalledWith("source.clip.update", { items: undefined });
+    await expect(tool.handler({ action: "unsupported" }))
+      .resolves.toEqual({ success: false, error: "Unsupported source-clip action: unsupported" });
   });
 });

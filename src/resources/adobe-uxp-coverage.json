@@ -1146,6 +1146,36 @@
       "undoable": false,
       "idempotency": "operation_id",
       "verificationBoundary": "per_track_mute_readback"
+    },
+    {
+      "id": "transactional-source-trim-framing",
+      "adobeApi": [
+        "ClipProjectItem.getInPoint",
+        "ClipProjectItem.getOutPoint",
+        "ClipProjectItem.createSetInPointAction",
+        "ClipProjectItem.createSetOutPointAction",
+        "ClipProjectItem.createSetInOutPointsAction",
+        "ClipProjectItem.createClearInOutPointsAction",
+        "ClipProjectItem.createSetScaleToFrameSizeAction",
+        "Project.lockedAccess",
+        "Project.executeTransaction"
+      ],
+      "documentationUrls": [
+        "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/clipprojectitem/",
+        "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/project/"
+      ],
+      "minimumPremiereVersion": "25.6.0",
+      "backend": "uxp",
+      "uxpCommand": "source.clip.update",
+      "mcpTools": ["manage_source_clip_uxp"],
+      "availability": "current",
+      "implementationStatus": "implemented",
+      "verificationStatus": "automated_contract_verified",
+      "liveHostVerificationStatus": "not_run",
+      "mutatesProject": true,
+      "undoable": true,
+      "idempotency": "operation_id",
+      "verificationBoundary": "source_in_out_readback_or_transaction_commit"
     }
   ]
 }
