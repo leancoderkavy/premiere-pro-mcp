@@ -23,6 +23,7 @@
     const waiters = new Set();
     let revision = 0;
     let dropped = 0;
+    let evictedThroughRevision = 0;
     let closed = false;
 
     function append(input) {
@@ -36,7 +37,8 @@
         entries.push(event);
       }
       while (entries.length > capacity) {
-        entries.shift();
+        const evicted = entries.shift();
+        if (evicted) evictedThroughRevision = Math.max(evictedThroughRevision, evicted.revision);
         dropped += 1;
       }
       settleWaiters();
@@ -46,7 +48,7 @@
     function list(input) {
       const query = normalizeQuery(input);
       const oldestRevision = entries.length ? entries[0].revision : revision + 1;
-      const overflow = query.afterRevision > 0 && query.afterRevision < oldestRevision - 1;
+      const overflow = query.afterRevision > 0 && query.afterRevision < evictedThroughRevision;
       const matching = entries.filter(function (event) {
         return event.revision > query.afterRevision && matches(event, query);
       }).slice(0, query.limit).map(publicEvent);
@@ -63,7 +65,7 @@
     function wait(input) {
       const query = normalizeQuery(input);
       const immediate = list(query);
-      if (immediate.events.length || query.timeoutMs === 0 || closed) {
+      if (immediate.events.length || immediate.overflow || query.timeoutMs === 0 || closed) {
         return Promise.resolve(Object.assign(immediate, { closed }));
       }
       return new Promise(function (resolve) {
@@ -79,7 +81,7 @@
     function settleWaiters() {
       for (const waiter of Array.from(waiters)) {
         const result = list(waiter.query);
-        if (!result.events.length) continue;
+        if (!result.events.length && !result.overflow) continue;
         waiters.delete(waiter);
         if (waiter.timer) clearTimer(waiter.timer);
         waiter.resolve(Object.assign(result, { closed: false }));

@@ -131,6 +131,26 @@ describe("UXP WebSocket bridge", () => {
     await expect(pending).rejects.toMatchObject({ code: "UXP_DISCONNECTED" });
   });
 
+  it("honors a per-request minimum timeout for bounded host waits", async () => {
+    const bridge = await createBridge({ requestTimeoutMs: 20 });
+    const client = await connectHost(bridge);
+    client.once("message", (data) => {
+      const command = JSON.parse(data.toString());
+      setTimeout(() => {
+        client.send(JSON.stringify({
+          protocolVersion: 1,
+          type: "result",
+          requestId: command.requestId,
+          payload: { ok: true, result: { waited: true } },
+        }));
+      }, 40);
+    });
+
+    await expect(bridge.request("state.get", {}, { minimumTimeoutMs: 100 }))
+      .resolves.toEqual({ waited: true });
+    client.close();
+  });
+
   it("rejects invalid configuration without opening a listener", () => {
     expect(() => new UxpWebSocketBridge({ token: "short" })).toThrow(
       "at least 16 characters",

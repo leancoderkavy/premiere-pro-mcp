@@ -12,6 +12,7 @@ describe("next-wave UXP MCP tools", () => {
       required: ["action"],
       properties: {
         action: { enum: ["list", "wait"] },
+        after_revision: { maximum: Number.MAX_SAFE_INTEGER },
         categories: { maxItems: 32 },
         event_names: { maxItems: 32 },
         limit: { maximum: 256 },
@@ -34,6 +35,6 @@ describe("next-wave UXP MCP tools", () => {
       eventNames: ["encoder.complete"],
       limit: 4,
       timeoutMs: 5000,
-    });
+    }, { minimumTimeoutMs: 10000 });
   });
 });

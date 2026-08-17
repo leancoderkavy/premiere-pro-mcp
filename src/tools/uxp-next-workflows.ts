@@ -1,5 +1,7 @@
 import type { UxpWebSocketBridge } from "../bridge/uxp-websocket-bridge.js";
 
+const WAIT_RESPONSE_BUFFER_MS = 5_000;
+
 type EventArgs = {
   action?: string;
   after_revision?: number;
@@ -13,8 +15,12 @@ function invoke(
   bridge: UxpWebSocketBridge,
   command: string,
   args: Record<string, unknown> = {},
+  hostWaitMs?: number,
 ) {
-  return bridge.request(command, args)
+  const request = hostWaitMs === undefined
+    ? bridge.request(command, args)
+    : bridge.request(command, args, { minimumTimeoutMs: hostWaitMs + WAIT_RESPONSE_BUFFER_MS });
+  return request
     .then((result) => ({ success: true, data: { backend: "uxp", result } }))
     .catch((error: unknown) => ({
       success: false,
@@ -41,7 +47,7 @@ export function getUxpNextWorkflowTools(bridge: UxpWebSocketBridge) {
         additionalProperties: false,
         properties: {
           action: { type: "string", enum: ["list", "wait"] },
-          after_revision: { type: "integer", minimum: 0 },
+          after_revision: { type: "integer", minimum: 0, maximum: Number.MAX_SAFE_INTEGER },
           categories: {
             type: "array", maxItems: 32, uniqueItems: true,
             items: { type: "string", pattern: "^[A-Za-z0-9._:-]{1,128}$" },
@@ -60,7 +66,9 @@ export function getUxpNextWorkflowTools(bridge: UxpWebSocketBridge) {
       },
       handler: async (args: EventArgs) => {
         if (args.action === "list") return invoke(bridge, "events.list", eventQuery(args, false));
-        if (args.action === "wait") return invoke(bridge, "events.wait", eventQuery(args, true));
+        if (args.action === "wait") {
+          return invoke(bridge, "events.wait", eventQuery(args, true), args.timeout_ms ?? 0);
+        }
         return { success: false, error: `Unsupported event action: ${String(args.action)}` };
       },
     },

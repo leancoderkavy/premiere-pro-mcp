@@ -39,6 +39,40 @@ describe("UXP host event journal", () => {
       latestRevision: 2,
       events: [{ revision: 2, detail: { progress: 0.8 }, coalesced: 1 }],
     });
+    expect(journal.list({ afterRevision: 1 })).toMatchObject({
+      overflow: false,
+      events: [{ revision: 2, coalesced: 1 }],
+    });
+  });
+
+  it("returns immediately when a filtered cursor has fallen behind evicted history", async () => {
+    const journal = Events.createEventJournal({ capacity: 16 });
+    for (let index = 0; index < 20; index += 1) {
+      journal.append({ category: "project", name: "project.dirty", detail: { state: index } });
+    }
+
+    await expect(journal.wait({
+      afterRevision: 1,
+      categories: ["encoder"],
+      timeoutMs: 60_000,
+    })).resolves.toMatchObject({ overflow: true, timedOut: false, events: [] });
+  });
+
+  it("settles a pending filtered waiter as soon as its cursor history is evicted", async () => {
+    const journal = Events.createEventJournal({ capacity: 16 });
+    for (let index = 0; index < 16; index += 1) {
+      journal.append({ category: "project", name: "project.dirty", detail: { state: index } });
+    }
+    const pending = journal.wait({
+      afterRevision: 1,
+      categories: ["encoder"],
+      timeoutMs: 60_000,
+    });
+
+    journal.append({ category: "project", name: "project.dirty" });
+    journal.append({ category: "project", name: "project.dirty" });
+
+    await expect(pending).resolves.toMatchObject({ overflow: true, timedOut: false, events: [] });
   });
 
   it("waits for a matching receipt and times out cleanly", async () => {
