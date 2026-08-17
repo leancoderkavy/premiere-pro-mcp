@@ -42,6 +42,66 @@
         minHostVersion: "25.6.0",
         probe: canUseEvents,
         handler: waitForOperation
+      },
+      "project.sessions.list": {
+        readOnly: true,
+        minHostVersion: "26.2.0",
+        probe: canListProjectSessions,
+        handler: listProjectSessions
+      },
+      "project.sessions.validate": {
+        readOnly: true,
+        requiresWorkspace: true,
+        minHostVersion: "26.2.0",
+        probe: canManageProjectSessions,
+        handler: validateProjectSession
+      },
+      "project.sessions.create": {
+        destructive: true,
+        undoable: false,
+        requiresWorkspace: true,
+        minHostVersion: "26.2.0",
+        probe: canManageProjectSessions,
+        handler: createProjectSession
+      },
+      "project.sessions.open": {
+        destructive: true,
+        undoable: false,
+        requiresWorkspace: true,
+        minHostVersion: "26.2.0",
+        probe: canManageProjectSessions,
+        handler: openProjectSession
+      },
+      "project.sessions.save": {
+        destructive: true,
+        undoable: false,
+        idempotent: true,
+        minHostVersion: "26.2.0",
+        probe: canManageProjectSessions,
+        handler: saveProjectSession
+      },
+      "project.sessions.saveAs": {
+        destructive: true,
+        undoable: false,
+        requiresWorkspace: true,
+        minHostVersion: "26.2.0",
+        probe: canManageProjectSessions,
+        handler: saveProjectSessionAs
+      },
+      "project.sessions.branchCopies": {
+        destructive: true,
+        undoable: false,
+        requiresWorkspace: true,
+        minHostVersion: "26.2.0",
+        probe: canManageProjectSessions,
+        handler: createProjectBranchCopies
+      },
+      "project.sessions.close": {
+        destructive: true,
+        undoable: false,
+        minHostVersion: "26.2.0",
+        probe: canManageProjectSessions,
+        handler: closeProjectSession
       }
     };
 
@@ -61,6 +121,21 @@
 
     function canInspectReadiness() {
       return !!(ppro && ppro.Project && typeof ppro.Project.getActiveProject === "function");
+    }
+
+    function canListProjectSessions() {
+      return !!(ppro && ppro.ProjectUtils &&
+        typeof ppro.ProjectUtils.getProjectViewIds === "function" &&
+        typeof ppro.ProjectUtils.getProjectFromViewId === "function");
+    }
+
+    function canManageProjectSessions() {
+      return !!(canListProjectSessions() && ppro.Project &&
+        typeof ppro.Project.getActiveProject === "function" &&
+        typeof ppro.Project.getProject === "function" &&
+        typeof ppro.Project.open === "function" &&
+        typeof ppro.Project.createProject === "function" &&
+        typeof ppro.Project.isProject === "function");
     }
 
     async function canWaitForAnalysis() {
@@ -160,6 +235,233 @@
       };
     }
 
+    async function listProjectSessions(args) {
+      assertOnlyKeys(args, ["includePaths"]);
+      const includePaths = optionalBoolean(args.includePaths, false, "includePaths");
+      const projects = await openProjectInventory(includePaths);
+      const active = await ppro.Project.getActiveProject();
+      return {
+        count: projects.length,
+        activeProjectId: active ? guidString(active.guid) : null,
+        projects,
+        pathDisclosure: includePaths ? "requested" : "redacted"
+      };
+    }
+
+    async function validateProjectSession(args) {
+      assertOnlyKeys(args, ["path"]);
+      const path = await allowedWorkspacePath(args.path, "path");
+      return {
+        isProject: !!ppro.Project.isProject(path),
+        pathAccepted: true,
+        pathDisclosure: "caller_supplied_only"
+      };
+    }
+
+    async function createProjectSession(args) {
+      assertOnlyKeys(args, ["path", "confirmExternalWrite", "confirmOverwrite", "operationId"]);
+      requireConfirmation(args.confirmExternalWrite, "confirmExternalWrite", "Creating a project writes a new file");
+      const path = await allowedWorkspacePath(args.path, "path");
+      rejectExistingProject(path, args.confirmOverwrite);
+      const project = await ppro.Project.createProject(path);
+      assertProjectPath(project, path, "created project");
+      return projectMutationReceipt("created", project, path);
+    }
+
+    async function openProjectSession(args) {
+      assertOnlyKeys(args, ["path", "showDialogs", "addToMru", "operationId"]);
+      const path = await allowedWorkspacePath(args.path, "path");
+      if (!ppro.Project.isProject(path)) throw commandError("UXP_TARGET_NOT_FOUND", "The requested path is not an openable Premiere project");
+      const project = await ppro.Project.open(path, openOptions(args));
+      assertProjectPath(project, path, "opened project");
+      return projectMutationReceipt("opened", project, path);
+    }
+
+    async function saveProjectSession(args) {
+      assertOnlyKeys(args, ["projectId", "expectedPath", "operationId"]);
+      const project = await targetProject(args.projectId);
+      if (args.expectedPath != null) assertProjectPath(project, requiredPath(args.expectedPath, "expectedPath"), "target project");
+      if (typeof project.save !== "function" || !await project.save()) {
+        throw commandError("UXP_VERIFICATION_FAILED", "Premiere did not confirm the project save");
+      }
+      return projectMutationReceipt("saved", project, String(project.path || ""));
+    }
+
+    async function saveProjectSessionAs(args) {
+      assertOnlyKeys(args, ["projectId", "expectedPath", "path", "confirmExternalWrite", "confirmOverwrite", "operationId"]);
+      requireConfirmation(args.confirmExternalWrite, "confirmExternalWrite", "Save As writes a new project file and retargets the project handle");
+      const project = await targetProject(args.projectId);
+      if (args.expectedPath != null) assertProjectPath(project, requiredPath(args.expectedPath, "expectedPath"), "target project");
+      const path = await allowedWorkspacePath(args.path, "path");
+      rejectExistingProject(path, args.confirmOverwrite);
+      if (typeof project.saveAs !== "function" || !await project.saveAs(path)) {
+        throw commandError("UXP_VERIFICATION_FAILED", "Premiere did not confirm Save As");
+      }
+      assertProjectPath(project, path, "Save As project");
+      return projectMutationReceipt("saved_as", project, path);
+    }
+
+    async function createProjectBranchCopies(args) {
+      assertOnlyKeys(args, ["projectId", "expectedPath", "paths", "confirmExternalWrite", "confirmOverwrite", "operationId"]);
+      requireConfirmation(args.confirmExternalWrite, "confirmExternalWrite", "Branch copies write, close, and reopen project files");
+      if (!Array.isArray(args.paths) || !args.paths.length || args.paths.length > 16) {
+        throw commandError("UXP_INVALID_ARGUMENT", "paths must contain 1-16 project paths");
+      }
+      let project = await targetProject(args.projectId);
+      const sourcePath = await allowedWorkspacePath(args.expectedPath == null ? project.path : args.expectedPath, "expectedPath");
+      assertProjectPath(project, sourcePath, "source project");
+      const paths = [];
+      for (let i = 0; i < args.paths.length; i += 1) {
+        const path = await allowedWorkspacePath(args.paths[i], "paths[" + i + "]");
+        if (samePath(path, sourcePath) || paths.some(function (item) { return samePath(item, path); })) {
+          throw commandError("UXP_INVALID_ARGUMENT", "Branch paths must be distinct from the source and each other");
+        }
+        rejectExistingProject(path, args.confirmOverwrite);
+        paths.push(path);
+      }
+      const branches = [];
+      for (let i = 0; i < paths.length; i += 1) {
+        const path = paths[i];
+        if (typeof project.saveAs !== "function" || !await project.saveAs(path)) {
+          throw commandError("UXP_PARTIAL_FAILURE", "Premiere stopped while creating branch copy " + (i + 1));
+        }
+        assertProjectPath(project, path, "branch copy");
+        branches.push({ index: i, projectId: guidString(project.guid), path, verified: "project_path_readback" });
+        if (typeof project.close !== "function" || !await project.close(closeOptions({ promptIfDirty: false }))) {
+          throw commandError("UXP_PARTIAL_FAILURE", "Branch copy was saved but its project view could not be closed");
+        }
+        project = await ppro.Project.open(sourcePath, openOptions({ showDialogs: false, addToMru: false }));
+        assertProjectPath(project, sourcePath, "reopened source project");
+      }
+      return {
+        created: branches.length,
+        branches,
+        sourceProjectId: guidString(project.guid),
+        sourceReopened: true,
+        outcome: "verified",
+        verificationBoundary: "project_path_readback_after_each_save_as"
+      };
+    }
+
+    async function closeProjectSession(args) {
+      assertOnlyKeys(args, ["projectId", "expectedPath", "saveBeforeClose", "confirmClose", "confirmDiscardUnsaved", "operationId"]);
+      requireConfirmation(args.confirmClose, "confirmClose", "Closing a project changes the Premiere workspace");
+      const project = await targetProject(args.projectId);
+      if (args.expectedPath != null) assertProjectPath(project, requiredPath(args.expectedPath, "expectedPath"), "target project");
+      const projectId = guidString(project.guid);
+      const saveBeforeClose = optionalBoolean(args.saveBeforeClose, true, "saveBeforeClose");
+      if (saveBeforeClose) {
+        if (typeof project.save !== "function" || !await project.save()) {
+          throw commandError("UXP_VERIFICATION_FAILED", "Premiere did not confirm the pre-close save");
+        }
+      } else {
+        requireConfirmation(args.confirmDiscardUnsaved, "confirmDiscardUnsaved", "Closing without saving may discard project changes");
+      }
+      if (typeof project.close !== "function" || !await project.close(closeOptions({ promptIfDirty: false }))) {
+        throw commandError("UXP_VERIFICATION_FAILED", "Premiere did not confirm the project close");
+      }
+      const remaining = await openProjectInventory(false);
+      if (remaining.some(function (item) { return item.projectId === projectId; })) {
+        throw commandError("UXP_VERIFICATION_FAILED", "The closed project is still present in an open Project view");
+      }
+      return { closed: true, saved: saveBeforeClose, projectId, outcome: "verified", verificationBoundary: "project_view_absence_readback" };
+    }
+
+    async function openProjectInventory(includePaths) {
+      const viewIds = Array.from(await ppro.ProjectUtils.getProjectViewIds() || []);
+      if (viewIds.length > 64) throw commandError("UXP_PROJECT_TOO_LARGE", "Open Project views exceed the 64-view safety cap");
+      const seen = new Set(), projects = [];
+      for (let i = 0; i < viewIds.length; i += 1) {
+        const project = await ppro.ProjectUtils.getProjectFromViewId(viewIds[i]);
+        if (!project) continue;
+        const projectId = guidString(project.guid);
+        if (!projectId || seen.has(projectId)) continue;
+        seen.add(projectId);
+        projects.push({
+          projectId,
+          name: String(project.name || ""),
+          hasPath: !!project.path,
+          ...(includePaths ? { path: String(project.path || "") } : {})
+        });
+      }
+      return projects;
+    }
+
+    async function targetProject(projectId) {
+      if (projectId == null) {
+        const active = await ppro.Project.getActiveProject();
+        if (!active) throw commandError("UXP_NO_ACTIVE_PROJECT", "No active project");
+        return active;
+      }
+      const token = optionalToken(projectId, "projectId");
+      if (!ppro.Guid || typeof ppro.Guid.fromString !== "function") {
+        throw commandError("UXP_COMMAND_UNAVAILABLE", "This Premiere build cannot resolve a project GUID");
+      }
+      let project = null;
+      try { project = ppro.Project.getProject(ppro.Guid.fromString(token)); } catch (_) {}
+      if (!project) throw commandError("UXP_TARGET_NOT_FOUND", "The requested project is not open");
+      return project;
+    }
+
+    async function allowedWorkspacePath(value, label) {
+      const path = requiredPath(value, label);
+      if (!deps.workspace || typeof deps.workspace.assertPathAllowed !== "function") {
+        throw commandError("UXP_WORKSPACE_REQUIRED", "An approved UXP workspace is required");
+      }
+      return deps.workspace.assertPathAllowed(path, { label, kind: "file" });
+    }
+
+    function rejectExistingProject(path, confirmation) {
+      if (ppro.Project.isProject(path) && confirmation !== true) {
+        throw commandError("UXP_CONFIRMATION_REQUIRED", "confirmOverwrite is required when the destination is already a Premiere project");
+      }
+    }
+
+    function projectMutationReceipt(action, project, path) {
+      return {
+        action,
+        projectId: guidString(project.guid),
+        projectName: String(project.name || ""),
+        path,
+        outcome: "verified",
+        verificationBoundary: "project_path_readback"
+      };
+    }
+
+    function assertProjectPath(project, expectedPath, label) {
+      if (!project || !samePath(String(project.path || ""), expectedPath)) {
+        throw commandError("UXP_VERIFICATION_FAILED", "Premiere did not expose the expected " + label + " path");
+      }
+    }
+
+    function samePath(left, right) {
+      const normalize = function (value) { return String(value || "").replace(/\\/g, "/").replace(/\/$/, ""); };
+      const a = normalize(left), b = normalize(right);
+      return /^[A-Za-z]:\//.test(a) || /^\/\//.test(a) ? a.toLowerCase() === b.toLowerCase() : a === b;
+    }
+
+    function openOptions(args) {
+      const value = typeof ppro.OpenProjectOptions === "function" ? ppro.OpenProjectOptions() : undefined;
+      if (!value) return undefined;
+      const showDialogs = optionalBoolean(args.showDialogs, false, "showDialogs");
+      const addToMru = optionalBoolean(args.addToMru, false, "addToMru");
+      if (typeof value.setShowConvertProjectDialog === "function") value.setShowConvertProjectDialog(showDialogs);
+      if (typeof value.setShowLocateFileDialog === "function") value.setShowLocateFileDialog(showDialogs);
+      if (typeof value.setShowWarningDialog === "function") value.setShowWarningDialog(showDialogs);
+      if (typeof value.setAddToMRUList === "function") value.setAddToMRUList(addToMru);
+      return value;
+    }
+
+    function closeOptions(args) {
+      const value = typeof ppro.CloseProjectOptions === "function" ? ppro.CloseProjectOptions() : undefined;
+      if (!value) return undefined;
+      if (typeof value.setPromptIfDirty === "function") value.setPromptIfDirty(!!args.promptIfDirty);
+      if (typeof value.setShowCancelButton === "function") value.setShowCancelButton(true);
+      if (typeof value.setIsAppBeingPreparedToQuit === "function") value.setIsAppBeingPreparedToQuit(false);
+      if (typeof value.setSaveWorkspace === "function") value.setSaveWorkspace(true);
+      return value;
+    }
+
     async function activeProject(required) {
       const project = canInspectReadiness() ? await ppro.Project.getActiveProject() : null;
       if (!project && required) throw commandError("UXP_NO_ACTIVE_PROJECT", "No active project");
@@ -230,6 +532,23 @@
       throw commandError("UXP_INVALID_ARGUMENT", name + " must be a 1-128 character token");
     }
     return value;
+  }
+
+  function requiredPath(value, name) {
+    if (typeof value !== "string" || !value.trim() || value.length > 4096 || value.indexOf("\0") !== -1) {
+      throw commandError("UXP_INVALID_ARGUMENT", name + " must be a non-empty absolute path of at most 4096 characters");
+    }
+    return value;
+  }
+
+  function optionalBoolean(value, fallback, name) {
+    if (value == null) return fallback;
+    if (typeof value !== "boolean") throw commandError("UXP_INVALID_ARGUMENT", name + " must be a boolean");
+    return value;
+  }
+
+  function requireConfirmation(value, name, reason) {
+    if (value !== true) throw commandError("UXP_CONFIRMATION_REQUIRED", name + " must be true. " + reason + ".");
   }
 
   function guidString(value) {

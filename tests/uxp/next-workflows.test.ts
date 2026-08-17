@@ -100,4 +100,45 @@ describe("next-wave UXP event workflows", () => {
       verificationBoundary: "operation_terminal_event_only",
     });
   });
+
+  it("deduplicates project views, redacts paths by default, and verifies Save As retargeting", async () => {
+    const project = {
+      guid: "project-1", name: "Edit", path: "C:/work/source.prproj",
+      saveAs: vi.fn(async (path: string) => { project.path = path; return true; }),
+    };
+    const ppro = {
+      ProjectUtils: {
+        getProjectViewIds: vi.fn(async () => ["view-1", "view-2"]),
+        getProjectFromViewId: vi.fn(async () => project),
+      },
+      Project: {
+        getActiveProject: vi.fn(async () => project),
+        getProject: vi.fn(() => project),
+        open: vi.fn(), createProject: vi.fn(), isProject: vi.fn(() => false),
+      },
+      Guid: { fromString: vi.fn((value: string) => value) },
+    };
+    const definitions = NextWorkflows.createNextWorkflowDefinitions({
+      ppro,
+      events: Events.createEventJournal({ capacity: 16 }),
+      workspace: { assertPathAllowed: vi.fn(async (path: string) => path) },
+    });
+
+    await expect(definitions["project.sessions.list"].handler({})).resolves.toEqual({
+      count: 1,
+      activeProjectId: "project-1",
+      projects: [{ projectId: "project-1", name: "Edit", hasPath: true }],
+      pathDisclosure: "redacted",
+    });
+    await expect(definitions["project.sessions.saveAs"].handler({
+      path: "C:/work/branch.prproj",
+    })).rejects.toMatchObject({ code: "UXP_CONFIRMATION_REQUIRED" });
+    await expect(definitions["project.sessions.saveAs"].handler({
+      path: "C:/work/branch.prproj", expectedPath: "C:/work/source.prproj",
+      confirmExternalWrite: true,
+    })).resolves.toMatchObject({
+      action: "saved_as", projectId: "project-1", path: "C:/work/branch.prproj",
+      outcome: "verified", verificationBoundary: "project_path_readback",
+    });
+  });
 });
