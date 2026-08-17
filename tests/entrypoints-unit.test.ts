@@ -372,9 +372,11 @@ describe("HTTP entry point", () => {
   it("rejects landing paths that escape the static root", async () => {
     mocks.fsExists.mockReturnValue(true);
     const handler = await loadHttp();
-    const res = response();
-    await handler({ method: "GET", url: "/../outside.txt", headers: {} }, res);
-    expect(res.statusCode).toBe(404);
+    for (const url of ["/../outside.txt", "/%2e%2e/outside.txt", "/..\\outside.txt"]) {
+      const res = response();
+      await handler({ method: "GET", url, headers: {} }, res);
+      expect(res.statusCode).toBe(404);
+    }
     expect(mocks.fsCreateReadStream).not.toHaveBeenCalled();
   });
 

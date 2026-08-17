@@ -55,12 +55,25 @@ const MIME: Record<string, string> = {
 function serveLanding(req: http.IncomingMessage, res: http.ServerResponse): boolean {
   if (!fs.existsSync(LANDING_DIR)) return false;
 
-  let urlPath = req.url?.split("?")[0] ?? "/";
-  if (urlPath === "/" || urlPath === "") urlPath = "/index.html";
-  // Next.js trailingSlash: /about/ -> /about/index.html
-  if (urlPath.endsWith("/")) urlPath += "index.html";
+  let urlPath: string;
+  try {
+    urlPath = decodeURIComponent(req.url?.split("?")[0] ?? "/");
+  } catch {
+    return false;
+  }
+  const requestedSegments = urlPath.split("/").filter(Boolean);
+  const safeSegments = requestedSegments.map((segment) => path.basename(segment));
+  if (safeSegments.some((segment, index) => (
+    segment !== requestedSegments[index] ||
+    segment === "." ||
+    segment === ".." ||
+    segment.includes("\\") ||
+    segment.includes("\0")
+  ))) return false;
+  // Next.js trailingSlash exports /about/ as /about/index.html.
+  if (urlPath.endsWith("/") || safeSegments.length === 0) safeSegments.push("index.html");
 
-  let filePath = path.resolve(LANDING_DIR, `.${urlPath}`);
+  let filePath = path.join(LANDING_DIR, ...safeSegments);
   // Security: ensure we stay within LANDING_DIR
   const relativePath = path.relative(LANDING_DIR, filePath);
   if (
