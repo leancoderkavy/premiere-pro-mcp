@@ -32,7 +32,7 @@ const args = process.argv.slice(2);
 
 if (args.includes("--help") || args.includes("-h")) {
   console.log(`
-premiere-pro-mcp — MCP server for Adobe Premiere Pro (280 tools)
+premiere-pro-mcp — MCP server for Adobe Premiere Pro (283 default-profile tools)
 
 Usage:
   premiere-pro-mcp              Start the MCP server (stdio transport)

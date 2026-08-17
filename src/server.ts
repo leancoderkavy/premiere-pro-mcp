@@ -31,6 +31,7 @@ import { getProjectManagerTools } from "./tools/project-manager.js";
 import { getEditPlanTools } from "./tools/edit-plans.js";
 import { getAvSettingsTools } from "./tools/av-settings.js";
 import { getRecoveryTools } from "./tools/recovery.js";
+import { getProjectContextTools } from "./tools/project-context.js";
 import { getUxpTools } from "./tools/uxp.js";
 import type { UxpWebSocketBridge } from "./bridge/uxp-websocket-bridge.js";
 import {
@@ -39,6 +40,7 @@ import {
   resolveCapabilities,
 } from "./security/index.js";
 import { EXTENDSCRIPT_REFERENCE } from "./resources/extendscript-reference.js";
+import { PROJECT_CONTEXT_RESOURCE } from "./context/project-context-resource.js";
 import { WORKFLOW_PROMPTS, WORKFLOW_RESOURCE } from "./workflows/catalog.js";
 import {
   annotationsForTool,
@@ -292,6 +294,7 @@ function collectTools(
     ...getEditPlanTools(bridgeOptions, { capabilities }),
     ...getAvSettingsTools(bridgeOptions),
     ...getRecoveryTools(bridgeOptions),
+    ...getProjectContextTools(bridgeOptions),
     ...(uxpBridge ? getUxpTools(uxpBridge) : {}),
   };
   Object.assign(
@@ -483,6 +486,24 @@ export function createServer(
     }),
   );
 
+  server.resource(
+    "premiere-project-context",
+    "config://premiere-project-context",
+    {
+      description: "Revisioned local project-context indexing and retrieval workflow",
+      mimeType: "application/json",
+    },
+    async (uri) => ({
+      contents: [
+        {
+          uri: uri.href,
+          mimeType: "application/json",
+          text: PROJECT_CONTEXT_RESOURCE,
+        },
+      ],
+    }),
+  );
+
   for (const prompt of WORKFLOW_PROMPTS) {
     server.registerPrompt(
       prompt.name,
@@ -516,7 +537,7 @@ export function createServer(
 
   const toolCount = Object.keys(toolModules).length;
   debugLog(
-    `Registered ${toolCount} tools + 3 resources + ${WORKFLOW_PROMPTS.length} prompts`,
+    `Registered ${toolCount} tools + 4 resources + ${WORKFLOW_PROMPTS.length} prompts`,
   );
 
   return server;

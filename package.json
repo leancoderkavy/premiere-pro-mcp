@@ -1,7 +1,7 @@
 {
   "name": "premiere-pro-mcp",
   "version": "1.11.1",
-  "description": "Adobe Premiere Pro MCP server with 282 core AI video editing tools and a capability-aware UXP bridge for supported Premiere workflows.",
+  "description": "Adobe Premiere Pro MCP server with 285 core AI video editing tools and a capability-aware UXP bridge for supported Premiere workflows.",
   "main": "dist/index.js",
   "types": "./dist/index.d.ts",
   "type": "module",
@@ -17,6 +17,7 @@
     "uxp-plugin",
     "benchmarks/uxp-hybrid",
     "docs/supported-actions.md",
+    "docs/project-context-engine.md",
     "scripts",
     "README.md",
     "LICENSE",

@@ -60,6 +60,7 @@ const INSPECT_TOOL_NAMES = new Set([
   "get_capabilities",
   "preview_edit_plan",
   "preview_transcript_edit_uxp",
+  "create_context_edit_plan",
 ]);
 // detect_silence reads a media file from disk and shells out to ffmpeg. It
 // changes nothing in Premiere, so classifying it as "edit" would overstate what
@@ -72,6 +73,12 @@ const FILESYSTEM_TOOL_NAMES = new Set([
 ]);
 
 const ACTION_CAPABILITIES: Readonly<Record<string, Readonly<Record<string, readonly Capability[]>>>> = {
+  manage_project_context: {
+    capture: ["inspect", "filesystem"],
+    enrich: ["inspect", "filesystem"],
+    status: ["inspect"],
+    clear: ["filesystem"],
+  },
   manage_clip_effects_uxp: {
     catalog: ["inspect"],
     inspect: ["inspect"],
@@ -191,7 +198,7 @@ export function capabilityForTool(toolName: string): Capability {
   if (/^(export_|validate_export_|start_batch_encode|queue_|encode_|capture_frame)/.test(toolName)) return "export";
   if (/^(import_|relink_|create_project|open_project|save_|consolidate_)/.test(toolName)) return "filesystem";
   if (FILESYSTEM_TOOL_NAMES.has(toolName)) return "filesystem";
-  if (INSPECT_TOOL_NAMES.has(toolName) || /^(get_|list_|inspect_|find_|check_)/.test(toolName)) return "inspect";
+  if (INSPECT_TOOL_NAMES.has(toolName) || /^(get_|list_|inspect_|find_|check_|search_)/.test(toolName)) return "inspect";
   // Every remaining registered tool changes Premiere state. Defaulting to edit
   // keeps new tools fail-closed instead of silently bypassing the authority profile.
   return "edit";

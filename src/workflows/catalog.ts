@@ -25,6 +25,12 @@ export const WORKFLOW_CATALOG = [
     summary: "Validate the sequence and destination, export with an explicit preset, then report the produced artifact.",
     recommendedTools: ["get_premiere_state", "get_active_sequence", "export_sequence"],
   },
+  {
+    id: "contextual-rough-cut",
+    title: "Build a context-aware rough cut",
+    summary: "Capture reusable project context, retrieve only evidence relevant to the edit intent, create a revision-guarded plan, then preview before applying.",
+    recommendedTools: ["manage_project_context", "search_project_context", "create_context_edit_plan", "preview_edit_plan", "apply_edit_plan"],
+  },
 ] as const;
 
 export const WORKFLOW_RESOURCE = JSON.stringify(

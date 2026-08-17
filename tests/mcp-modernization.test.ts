@@ -19,7 +19,7 @@ describe("modern MCP surface", () => {
   it("exposes a machine-readable workflow resource", () => {
     const resource = JSON.parse(WORKFLOW_RESOURCE);
     expect(resource.version).toBe(1);
-    expect(resource.workflows).toHaveLength(4);
+    expect(resource.workflows).toHaveLength(5);
     expect(resource.workflows[0].recommendedTools).toContain("get_premiere_state");
   });
 
@@ -34,6 +34,13 @@ describe("modern MCP surface", () => {
       destructiveHint: true,
     });
     expect(annotationsForTool("execute_extendscript").openWorldHint).toBe(true);
+    expect(annotationsForTool("search_project_context")).toMatchObject({ readOnlyHint: true, idempotentHint: true });
+    expect(annotationsForTool("create_context_edit_plan")).toMatchObject({ readOnlyHint: true, idempotentHint: true });
+    expect(annotationsForTool("manage_project_context")).toMatchObject({
+      readOnlyHint: false,
+      destructiveHint: true,
+      idempotentHint: false,
+    });
     for (const name of ["list_bins", "inspect_clip", "find_media", "check_project"]) {
       expect(annotationsForTool(name)).toMatchObject({ readOnlyHint: true, idempotentHint: true });
     }
@@ -81,6 +88,7 @@ describe("modern MCP surface", () => {
 
       const resources = await client.listResources();
       expect(resources.resources.map((resource) => resource.uri)).toContain("config://premiere-workflows");
+      expect(resources.resources.map((resource) => resource.uri)).toContain("config://premiere-project-context");
 
       const tools = await client.listTools();
       expect(tools.tools.find((tool) => tool.name === "get_project_info")?.annotations?.readOnlyHint).toBe(true);
@@ -89,7 +97,12 @@ describe("modern MCP surface", () => {
       // unsafe-script, so the two scripting tools are not advertised.
       expect(tools.tools.map((tool) => tool.name)).not.toContain("execute_extendscript");
       expect(tools.tools.map((tool) => tool.name)).not.toContain("evaluate_expression");
-      expect(tools.tools).toHaveLength(280);
+      expect(tools.tools).toHaveLength(283);
+      expect(tools.tools.map((tool) => tool.name)).toEqual(expect.arrayContaining([
+        "manage_project_context",
+        "search_project_context",
+        "create_context_edit_plan",
+      ]));
 
       const capabilities = await client.callTool({
         name: "get_capabilities",
