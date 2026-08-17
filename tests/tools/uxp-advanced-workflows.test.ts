@@ -101,6 +101,8 @@ describe("advanced stable UXP workflow MCP catalog", () => {
     await tools.encode_media_uxp.handler({
       action: "wait", job_id: "encode-op", timeout_ms: 5000,
     });
+    await tools.encode_media_uxp.handler({ action: "jobs", limit: 3 });
+    await tools.encode_media_uxp.handler({ action: "wait", job_id: "encode-op" });
 
     expect(request.mock.calls).toEqual([
       ["projectSelection.inspect", { viewId: "view-1" }],
@@ -145,6 +147,8 @@ describe("advanced stable UXP workflow MCP catalog", () => {
         confirmExternalWrite: true, operationId: "encode-op",
       }],
       ["encoder.wait", { jobId: "encode-op", timeoutMs: 5000 }, { minimumTimeoutMs: 10000 }],
+      ["encoder.jobs", { limit: 3 }],
+      ["encoder.wait", { jobId: "encode-op" }, { minimumTimeoutMs: 5000 }],
     ]);
   });
 
