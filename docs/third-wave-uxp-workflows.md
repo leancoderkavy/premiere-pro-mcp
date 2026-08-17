@@ -42,6 +42,24 @@ format, and checksum after an attributed terminal event. Live-host validation mu
 exercise overlapping AME and in-app queue jobs before event attribution can be
 described as more than conservative single-job correlation.
 
+## PR 3 — Host readiness gates
+
+`wait_for_host_readiness_uxp` separates three phases that callers previously had to
+approximate with polling:
+
+- `snapshot` captures the current event revision and sequence analysis state before
+  a host operation is dispatched;
+- `analysis` performs bounded, adaptive readback through
+  `Sequence.isDoneAnalyzingForVideoEffects()` with a stale-sequence guard; and
+- `operation` waits after the captured revision for one import, export, effect-drop,
+  or generative-extend completion receipt.
+
+Operation receipts report Adobe's success, cancellation, failure, or unknown state,
+but remain event evidence rather than proof that the intended target changed. A wait
+timeout returns a pending result and never retries the original operation. Analysis
+waits cap at 60 seconds and back off from a minimum 100 ms interval to a maximum
+configured interval.
+
 ## Primary Adobe references
 
 - [EventManager](https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/eventmanager/)

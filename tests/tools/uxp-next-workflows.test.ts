@@ -19,6 +19,18 @@ describe("next-wave UXP MCP tools", () => {
         timeout_ms: { maximum: 60000 },
       },
     });
+    const readiness = getUxpNextWorkflowTools(bridge).wait_for_host_readiness_uxp;
+    expect(readiness.parameters).toMatchObject({
+      additionalProperties: false,
+      required: ["action"],
+      properties: {
+        action: { enum: ["snapshot", "analysis", "operation"] },
+        operation_type: { enum: ["import", "export", "effect_drop", "generative_extend"] },
+        after_revision: { maximum: Number.MAX_SAFE_INTEGER },
+        timeout_ms: { maximum: 60000 },
+        poll_max_ms: { maximum: 5000 },
+      },
+    });
   });
 
   it("maps snake-case event queries to the exact bridge commands", async () => {
@@ -36,5 +48,69 @@ describe("next-wave UXP MCP tools", () => {
       limit: 4,
       timeoutMs: 5000,
     }, { minimumTimeoutMs: 10000 });
+
+    const readiness = getUxpNextWorkflowTools(bridge).wait_for_host_readiness_uxp;
+    await readiness.handler({
+      action: "analysis", sequence_id: "sequence-1", expected_sequence_id: "sequence-1",
+      timeout_ms: 10000, poll_min_ms: 100, poll_max_ms: 1000,
+    });
+    expect(request).toHaveBeenLastCalledWith("readiness.analysis.wait", {
+      sequenceId: "sequence-1", expectedSequenceId: "sequence-1",
+      timeoutMs: 10000, pollMinMs: 100, pollMaxMs: 1000,
+    }, { minimumTimeoutMs: 15000 });
+
+    await readiness.handler({
+      action: "operation", operation_type: "effect_drop", after_revision: 9, timeout_ms: 5000,
+    });
+    expect(request).toHaveBeenLastCalledWith("readiness.operation.wait", {
+      operationType: "effectDrop", afterRevision: 9, timeoutMs: 5000,
+    }, { minimumTimeoutMs: 10000 });
+  });
+
+  it("covers bounded event and readiness fallbacks without hiding bridge errors", async () => {
+    const request = vi.fn().mockResolvedValue({ ok: true });
+    const bridge = { request, getState: vi.fn() } as unknown as UxpWebSocketBridge;
+    const tools = getUxpNextWorkflowTools(bridge);
+
+    await tools.inspect_premiere_events_uxp.handler({ action: "list" });
+    expect(request).toHaveBeenLastCalledWith("events.list", {});
+    await tools.inspect_premiere_events_uxp.handler({
+      action: "list",
+      after_revision: 0,
+      categories: [],
+      event_names: [],
+      limit: 1,
+      timeout_ms: 10,
+    });
+    expect(request).toHaveBeenLastCalledWith("events.list", {
+      afterRevision: 0,
+      categories: [],
+      eventNames: [],
+      limit: 1,
+    });
+    await expect(tools.inspect_premiere_events_uxp.handler({ action: "unsupported" }))
+      .resolves.toEqual({ success: false, error: "Unsupported event action: unsupported" });
+
+    request.mockRejectedValueOnce(new Error("bridge unavailable"));
+    await expect(tools.inspect_premiere_events_uxp.handler({ action: "wait" }))
+      .resolves.toEqual({ success: false, error: "bridge unavailable" });
+    request.mockRejectedValueOnce("plain failure");
+    await expect(tools.inspect_premiere_events_uxp.handler({ action: "wait", timeout_ms: 0 }))
+      .resolves.toEqual({ success: false, error: "plain failure" });
+
+    await tools.wait_for_host_readiness_uxp.handler({ action: "snapshot" });
+    expect(request).toHaveBeenLastCalledWith("readiness.snapshot", {});
+    await tools.wait_for_host_readiness_uxp.handler({ action: "snapshot", sequence_id: "sequence-1" });
+    expect(request).toHaveBeenLastCalledWith("readiness.snapshot", { sequenceId: "sequence-1" });
+    await tools.wait_for_host_readiness_uxp.handler({ action: "analysis" });
+    expect(request).toHaveBeenLastCalledWith(
+      "readiness.analysis.wait", {}, { minimumTimeoutMs: 35000 },
+    );
+    await tools.wait_for_host_readiness_uxp.handler({ action: "operation" });
+    expect(request).toHaveBeenLastCalledWith(
+      "readiness.operation.wait", {}, { minimumTimeoutMs: 35000 },
+    );
+    await expect(tools.wait_for_host_readiness_uxp.handler({ action: "unsupported" }))
+      .resolves.toEqual({ success: false, error: "Unsupported readiness action: unsupported" });
   });
 });
