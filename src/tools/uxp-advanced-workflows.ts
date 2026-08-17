@@ -1,5 +1,7 @@
 import type { UxpWebSocketBridge } from "../bridge/uxp-websocket-bridge.js";
 
+const WAIT_RESPONSE_BUFFER_MS = 5_000;
+
 type AdvancedArgs = Record<string, unknown> & {
   action?: string;
   operation_id?: string;
@@ -9,8 +11,12 @@ function invoke(
   bridge: UxpWebSocketBridge,
   command: string,
   args: Record<string, unknown> = {},
+  hostWaitMs?: number,
 ) {
-  return bridge.request(command, args)
+  const request = hostWaitMs === undefined
+    ? bridge.request(command, args)
+    : bridge.request(command, args, { minimumTimeoutMs: hostWaitMs + WAIT_RESPONSE_BUFFER_MS });
+  return request
     .then((result) => ({ success: true, data: { backend: "uxp", result } }))
     .catch((error: unknown) => ({
       success: false,
@@ -397,12 +403,15 @@ export function getUxpAdvancedWorkflowTools(bridge: UxpWebSocketBridge) {
     },
 
     encode_media_uxp: {
-      description: "Preflight or execute documented AME sequence, project-item, and external-file encodes inside the approved workspace. Host acceptance is not output-file verification.",
+      description: "Preflight, queue, or inspect and wait for conservatively correlated AME receipts inside the approved workspace. A terminal event is not output-file verification.",
       parameters: {
         type: "object" as const,
         additionalProperties: false,
         properties: {
-          action: { type: "string", enum: ["preflight", "sequence", "project_item", "file"] },
+          action: { type: "string", enum: ["preflight", "jobs", "wait", "sequence", "project_item", "file"] },
+          job_id: { type: "string", pattern: "^[A-Za-z0-9._:-]{1,128}$" },
+          timeout_ms: { type: "integer", minimum: 0, maximum: 60000 },
+          limit: { type: "integer", minimum: 1, maximum: 64 },
           sequence_id: sequenceId,
           project_item_id: projectItemId,
           export_type: { type: "string", enum: ["queue_to_ame", "queue_to_app", "immediately"] },
@@ -431,11 +440,18 @@ export function getUxpAdvancedWorkflowTools(bridge: UxpWebSocketBridge) {
           startQueueImmediately: args.start_queue_immediately, confirmExternalWrite: args.confirm_external_write,
         });
         const commands: Record<string, string> = {
-          preflight: "encoder.preflight", sequence: "encoder.sequence",
+          preflight: "encoder.preflight", jobs: "encoder.jobs", wait: "encoder.wait", sequence: "encoder.sequence",
           project_item: "encoder.projectItem", file: "encoder.file",
         };
         if (!args.action || !commands[args.action]) return invalidAction(args.action);
-        return invoke(bridge, commands[args.action], { ...common, ...operation(args) });
+        const jobQuery = compact({ jobId: args.job_id, timeoutMs: args.timeout_ms, limit: args.limit });
+        if (args.action === "wait") {
+          const hostWaitMs = typeof args.timeout_ms === "number" ? args.timeout_ms : 0;
+          return invoke(bridge, commands[args.action], jobQuery, hostWaitMs);
+        }
+        return invoke(bridge, commands[args.action], args.action === "jobs"
+          ? jobQuery
+          : { ...common, ...operation(args) });
       },
     },
   };

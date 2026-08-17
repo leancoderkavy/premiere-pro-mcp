@@ -14,7 +14,7 @@
   const MAX_BIN_CHILDREN = 1024;
 
   function createAdvancedWorkflowDefinitions(deps) {
-    const ppro = deps.ppro, Protocol = deps.Protocol, workspace = deps.workspace;
+    const ppro = deps.ppro, Protocol = deps.Protocol, workspace = deps.workspace, events = deps.events;
     const appendLocks = new Map();
     const definitions = {
       "projectSelection.views": { readOnly: true, minHostVersion: "25.6.0", probe: canUseProjectViews, handler: listProjectViews },
@@ -56,6 +56,8 @@
       "sequences.close": { idempotent: true, targetCapabilityProbe: true, minHostVersion: "26.2.0", probe: canCloseSequence, handler: closeSequence },
       "sequences.delete": { destructive: true, undoable: false, targetCapabilityProbe: true, minHostVersion: "25.6.0", probe: canUseSequences, handler: deleteSequence },
       "encoder.preflight": { readOnly: true, conditionalWorkspace: true, minHostVersion: "25.6.0", probe: canUseEncoder, handler: encoderPreflight },
+      "encoder.jobs": { readOnly: true, minHostVersion: "25.6.0", probe: canTrackEncoderJobs, handler: inspectEncoderJobs },
+      "encoder.wait": { readOnly: true, minHostVersion: "25.6.0", probe: canTrackEncoderJobs, handler: waitForEncoderJob },
       "encoder.sequence": { destructive: true, undoable: false, requiresWorkspace: true, minHostVersion: "25.6.0", probe: canUseEncoder, handler: encodeSequence },
       "encoder.projectItem": { destructive: true, undoable: false, targetCapabilityProbe: true, requiresWorkspace: true, minHostVersion: "25.6.0", probe: canUseEncoder, handler: encodeProjectItem },
       "encoder.file": { destructive: true, undoable: false, requiresWorkspace: true, minHostVersion: "25.6.0", probe: canUseEncoder, handler: encodeFile }
@@ -850,18 +852,22 @@
       assertObject(args); assertOnlyKeys(args, ["sequenceId", "exportType", "outputFile", "presetFile", "exportFull", "confirmExternalWrite", "operationId"]);
       requireExternalWrite(args.confirmExternalWrite);
       const project = await activeProject(false), sequence = await resolveSequence(project, args.sequenceId), manager = encoderManager(), output = await allowedPath(args.outputFile, "outputFile", "file"), preset = await allowedPath(args.presetFile, "presetFile", "file");
-      const accepted = await manager.exportSequence(sequence, exportType(args.exportType), output, preset, optionalBoolean(args.exportFull, true, "exportFull"));
-      if (!accepted) throw commandError("UXP_HOST_REJECTED", "Premiere rejected sequence export");
-      return externalWriteResult({ queued: true, kind: "sequence", sequence: await sequenceSnapshot(sequence), outputFile: output });
+      const job = beginEncoderJob("sequence", args.operationId);
+      const accepted = await runTrackedEncode(job, function () {
+        return manager.exportSequence(sequence, exportType(args.exportType), output, preset, optionalBoolean(args.exportFull, true, "exportFull"));
+      }, "Premiere rejected sequence export");
+      return externalWriteResult({ queued: true, kind: "sequence", sequence: await sequenceSnapshot(sequence), outputFile: output, encodeJob: accepted });
     }
 
     async function encodeProjectItem(args) {
       assertObject(args); assertOnlyKeys(args, ["projectItemId", "outputFile", "presetFile", "workArea", "removeUponCompletion", "startQueueImmediately", "confirmExternalWrite", "operationId"]);
       requireExternalWrite(args.confirmExternalWrite);
       const project = await activeProject(false), clip = asClip(await resolveProjectItem(project, args.projectItemId, true), "projectItemId"), manager = encoderManager(), output = await allowedPath(args.outputFile, "outputFile", "file"), preset = await allowedPath(args.presetFile, "presetFile", "file");
-      const accepted = await manager.encodeProjectItem(clip, output, preset, boundedInt(args.workArea == null ? 0 : args.workArea, "workArea", 0, 16), optionalBoolean(args.removeUponCompletion, false, "removeUponCompletion"), optionalBoolean(args.startQueueImmediately, true, "startQueueImmediately"));
-      if (!accepted) throw commandError("UXP_HOST_REJECTED", "Premiere rejected project-item encode");
-      return externalWriteResult({ queued: true, kind: "projectItem", projectItemId: await projectItemId(clip), outputFile: output });
+      const job = beginEncoderJob("projectItem", args.operationId);
+      const accepted = await runTrackedEncode(job, function () {
+        return manager.encodeProjectItem(clip, output, preset, boundedInt(args.workArea == null ? 0 : args.workArea, "workArea", 0, 16), optionalBoolean(args.removeUponCompletion, false, "removeUponCompletion"), optionalBoolean(args.startQueueImmediately, true, "startQueueImmediately"));
+      }, "Premiere rejected project-item encode");
+      return externalWriteResult({ queued: true, kind: "projectItem", projectItemId: await projectItemId(clip), outputFile: output, encodeJob: accepted });
     }
 
     async function encodeFile(args) {
@@ -869,9 +875,47 @@
       requireExternalWrite(args.confirmExternalWrite);
       const manager = encoderManager(), input = await allowedPath(args.filePath, "filePath", "file"), output = await allowedPath(args.outputFile, "outputFile", "file"), preset = await allowedPath(args.presetFile, "presetFile", "file"), start = finiteNumber(args.inSeconds, "inSeconds", 0, 86400), end = finiteNumber(args.outSeconds, "outSeconds", 0, 86400);
       if (end <= start) throw commandError("UXP_INVALID_ARGUMENT", "outSeconds must be greater than inSeconds");
-      const accepted = await manager.encodeFile(input, output, preset, tick(start), tick(end), boundedInt(args.workArea == null ? 0 : args.workArea, "workArea", 0, 16), optionalBoolean(args.removeUponCompletion, false, "removeUponCompletion"), optionalBoolean(args.startQueueImmediately, true, "startQueueImmediately"));
-      if (!accepted) throw commandError("UXP_HOST_REJECTED", "Premiere rejected file encode");
-      return externalWriteResult({ queued: true, kind: "file", outputFile: output });
+      const job = beginEncoderJob("file", args.operationId);
+      const accepted = await runTrackedEncode(job, function () {
+        return manager.encodeFile(input, output, preset, tick(start), tick(end), boundedInt(args.workArea == null ? 0 : args.workArea, "workArea", 0, 16), optionalBoolean(args.removeUponCompletion, false, "removeUponCompletion"), optionalBoolean(args.startQueueImmediately, true, "startQueueImmediately"));
+      }, "Premiere rejected file encode");
+      return externalWriteResult({ queued: true, kind: "file", outputFile: output, encodeJob: accepted });
+    }
+
+    function inspectEncoderJobs(args) {
+      assertObject(args); assertOnlyKeys(args, ["jobId", "limit"]);
+      return events.listEncodeJobs({
+        jobId: args.jobId == null ? undefined : boundedString(args.jobId, "jobId", 128),
+        limit: args.limit == null ? undefined : boundedInt(args.limit, "limit", 1, 64)
+      });
+    }
+
+    function waitForEncoderJob(args) {
+      assertObject(args); assertOnlyKeys(args, ["jobId", "timeoutMs"]);
+      return events.waitForEncodeJob({
+        jobId: boundedString(args.jobId, "jobId", 128),
+        timeoutMs: args.timeoutMs == null ? 0 : boundedInt(args.timeoutMs, "timeoutMs", 0, 60000)
+      });
+    }
+
+    function beginEncoderJob(kind, operationId) {
+      if (!canTrackEncoderJobs()) return null;
+      return events.beginEncodeJob({ kind, operationId: operationId || undefined });
+    }
+
+    async function runTrackedEncode(job, callback, rejectionMessage) {
+      let accepted;
+      try {
+        accepted = await callback();
+      } catch (error) {
+        if (job) events.markEncodeRejected(job.jobId, "host_error");
+        throw error;
+      }
+      if (!accepted) {
+        if (job) events.markEncodeRejected(job.jobId, "host_rejected");
+        throw commandError("UXP_HOST_REJECTED", rejectionMessage);
+      }
+      return job ? events.markEncodeAccepted(job.jobId) : null;
     }
 
     function operationSemantics(options) { return Protocol && typeof Protocol.operationSemantics === "function" ? Protocol.operationSemantics(options) : undefined; }
@@ -997,6 +1041,7 @@
       return !!project && typeof project.closeSequence === "function";
     }
     function canUseEncoder() { return !!(ppro.EncoderManager && typeof ppro.EncoderManager.getManager === "function"); }
+    function canTrackEncoderJobs() { return !!(events && typeof events.beginEncodeJob === "function" && typeof events.listEncodeJobs === "function" && typeof events.waitForEncodeJob === "function"); }
 
     return definitions;
   }

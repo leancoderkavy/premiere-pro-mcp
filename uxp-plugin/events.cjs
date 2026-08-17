@@ -9,6 +9,7 @@
   const MAX_CAPACITY = 2048;
   const MAX_WAIT_MS = 60000;
   const MAX_RESULTS = 256;
+  const MAX_ENCODE_JOBS = 64;
   const SAFE_DETAIL_KEYS = new Set([
     "state", "progress", "phase", "trackIndex", "mediaType", "attributed", "jobId"
   ]);
@@ -21,9 +22,13 @@
     const clearTimer = typeof value.clearTimer === "function" ? value.clearTimer : clearTimeout;
     const entries = [];
     const waiters = new Set();
+    const jobs = new Map();
+    const jobWaiters = new Set();
     let revision = 0;
     let dropped = 0;
     let evictedThroughRevision = 0;
+    let jobSequence = 0;
+    let unattributedEncoderEvents = 0;
     let closed = false;
 
     function append(input) {
@@ -43,6 +48,25 @@
       }
       settleWaiters();
       return publicEvent(event);
+    }
+
+    function recordHostEvent(input) {
+      const value = Object.assign({}, input, { detail: Object.assign({}, input && input.detail) });
+      let attributedJob = null;
+      if (value.category === "encoder") {
+        const candidates = Array.from(jobs.values()).filter(function (job) { return !job.terminal; });
+        if (candidates.length === 1) {
+          attributedJob = candidates[0];
+          value.detail.attributed = true;
+          value.detail.jobId = attributedJob.jobId;
+        } else {
+          value.detail.attributed = false;
+          unattributedEncoderEvents += 1;
+        }
+      }
+      const receipt = append(value);
+      if (attributedJob && receipt) applyEncoderReceipt(attributedJob, receipt);
+      return receipt;
     }
 
     function list(input) {
@@ -78,6 +102,78 @@
       });
     }
 
+    function beginEncodeJob(input) {
+      if (closed) throw trackerError("UXP_ENCODE_TRACKER_CLOSED", "Encode receipt tracking is closed");
+      const value = input || {};
+      const operationId = value.operationId == null ? null : boundedToken(value.operationId, "operationId");
+      const jobId = operationId || ("encode-" + now() + "-" + (++jobSequence));
+      if (jobs.has(jobId)) return publicJob(jobs.get(jobId));
+      pruneJobs();
+      if (jobs.size >= MAX_ENCODE_JOBS) throw trackerError("UXP_ENCODE_TRACKER_FULL", "Encode receipt tracker is full");
+      const timestamp = new Date(now()).toISOString();
+      const job = {
+        jobId,
+        operationId,
+        kind: boundedToken(value.kind || "unknown", "kind"),
+        state: "submitting",
+        progress: null,
+        hostEvent: null,
+        eventRevision: null,
+        terminal: false,
+        terminalReason: null,
+        createdAt: timestamp,
+        updatedAt: timestamp
+      };
+      jobs.set(jobId, job);
+      return publicJob(job);
+    }
+
+    function markEncodeAccepted(jobId) {
+      const job = requiredJob(jobId);
+      if (job.state === "submitting") updateJob(job, { state: "accepted" });
+      return publicJob(job);
+    }
+
+    function markEncodeRejected(jobId, reason) {
+      const job = requiredJob(jobId);
+      updateJob(job, {
+        state: "failed",
+        terminal: true,
+        terminalReason: boundedToken(reason || "host_rejected", "reason")
+      });
+      return publicJob(job);
+    }
+
+    function listEncodeJobs(input) {
+      const value = input || {};
+      const jobId = value.jobId == null ? null : boundedToken(value.jobId, "jobId");
+      const limit = boundedInteger(value.limit == null ? 32 : value.limit, "limit", 1, MAX_ENCODE_JOBS);
+      const values = jobId ? [requiredJob(jobId)] : Array.from(jobs.values()).slice(-limit).reverse();
+      return {
+        jobs: values.map(publicJob),
+        count: values.length,
+        unattributedEncoderEvents,
+        correlation: "single-active-job-only"
+      };
+    }
+
+    function waitForEncodeJob(input) {
+      const value = input || {};
+      const job = requiredJob(value.jobId);
+      const timeoutMs = boundedInteger(value.timeoutMs == null ? 0 : value.timeoutMs, "timeoutMs", 0, MAX_WAIT_MS);
+      if (job.terminal || timeoutMs === 0 || closed) {
+        return Promise.resolve({ job: publicJob(job), timedOut: false, closed });
+      }
+      return new Promise(function (resolve) {
+        const waiter = { jobId: job.jobId, resolve, timer: null };
+        waiter.timer = setTimer(function () {
+          jobWaiters.delete(waiter);
+          resolve({ job: publicJob(requiredJob(waiter.jobId)), timedOut: true, closed });
+        }, timeoutMs);
+        jobWaiters.add(waiter);
+      });
+    }
+
     function settleWaiters() {
       for (const waiter of Array.from(waiters)) {
         const result = list(waiter.query);
@@ -96,6 +192,11 @@
         if (waiter.timer) clearTimer(waiter.timer);
         waiter.resolve(Object.assign(list(waiter.query), { closed: true }));
       }
+      for (const waiter of Array.from(jobWaiters)) {
+        jobWaiters.delete(waiter);
+        if (waiter.timer) clearTimer(waiter.timer);
+        waiter.resolve({ job: publicJob(requiredJob(waiter.jobId)), timedOut: false, closed: true });
+      }
     }
 
     function status() {
@@ -105,11 +206,74 @@
         latestRevision: revision,
         oldestRevision: entries.length ? entries[0].revision : revision + 1,
         dropped,
+        encodeJobs: jobs.size,
+        unattributedEncoderEvents,
         closed
       };
     }
 
-    return { append, list, wait, close, status };
+    function applyEncoderReceipt(job, receipt) {
+      const states = {
+        "encoder.queued": { state: "queued" },
+        "encoder.progress": { state: "rendering", progress: receipt.detail.progress == null ? job.progress : receipt.detail.progress },
+        "encoder.complete": { state: "completed", progress: 1, terminal: true, terminalReason: "completed" },
+        "encoder.error": { state: "failed", terminal: true, terminalReason: "encoder_error" },
+        "encoder.cancelled": { state: "cancelled", terminal: true, terminalReason: "cancelled" }
+      };
+      updateJob(job, Object.assign({ hostEvent: receipt.name, eventRevision: receipt.revision }, states[receipt.name] || {}));
+    }
+
+    function updateJob(job, values) {
+      Object.assign(job, values, { updatedAt: new Date(now()).toISOString() });
+      if (!job.terminal) return;
+      for (const waiter of Array.from(jobWaiters)) {
+        if (waiter.jobId !== job.jobId) continue;
+        jobWaiters.delete(waiter);
+        if (waiter.timer) clearTimer(waiter.timer);
+        waiter.resolve({ job: publicJob(job), timedOut: false, closed });
+      }
+    }
+
+    function requiredJob(jobId) {
+      const id = boundedToken(jobId, "jobId");
+      const job = jobs.get(id);
+      if (!job) throw trackerError("UXP_ENCODE_JOB_NOT_FOUND", "Encode job receipt was not found");
+      return job;
+    }
+
+    function pruneJobs() {
+      if (jobs.size < MAX_ENCODE_JOBS) return;
+      const terminal = Array.from(jobs.values()).filter(function (job) { return job.terminal; });
+      if (terminal.length) jobs.delete(terminal[0].jobId);
+    }
+
+    return {
+      append, recordHostEvent, list, wait, close, status,
+      beginEncodeJob, markEncodeAccepted, markEncodeRejected, listEncodeJobs, waitForEncodeJob
+    };
+  }
+
+  function publicJob(job) {
+    return {
+      jobId: job.jobId,
+      operationId: job.operationId,
+      kind: job.kind,
+      state: job.state,
+      progress: job.progress,
+      hostEvent: job.hostEvent,
+      eventRevision: job.eventRevision,
+      terminal: job.terminal,
+      terminalReason: job.terminalReason,
+      createdAt: job.createdAt,
+      updatedAt: job.updatedAt,
+      verificationBoundary: job.terminal ? "encoder_terminal_event_only" : "encoder_host_acceptance_or_event"
+    };
+  }
+
+  function trackerError(code, message) {
+    const error = new Error(message);
+    error.code = code;
+    return error;
   }
 
   function normalizeEvent(input, revision, timestamp) {

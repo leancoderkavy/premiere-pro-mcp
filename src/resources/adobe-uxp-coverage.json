@@ -939,6 +939,33 @@
       "undoable": false,
       "idempotency": "not_applicable",
       "verificationBoundary": "bounded_redacted_host_event_receipt"
+    },
+    {
+      "id": "ame-terminal-receipts",
+      "adobeApi": [
+        "EncoderManager.EVENT_RENDER_QUEUE",
+        "EncoderManager.EVENT_RENDER_PROGRESS",
+        "EncoderManager.EVENT_RENDER_COMPLETE",
+        "EncoderManager.EVENT_RENDER_ERROR",
+        "EncoderManager.EVENT_RENDER_CANCEL",
+        "EventManager.addGlobalEventListener"
+      ],
+      "documentationUrls": [
+        "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/encodermanager/",
+        "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/eventmanager/"
+      ],
+      "minimumPremiereVersion": "25.6.0",
+      "backend": "uxp",
+      "uxpCommand": "encoder.wait",
+      "mcpTools": ["encode_media_uxp"],
+      "availability": "current",
+      "implementationStatus": "implemented",
+      "verificationStatus": "automated_contract_verified",
+      "liveHostVerificationStatus": "not_run",
+      "mutatesProject": false,
+      "undoable": false,
+      "idempotency": "operation_id",
+      "verificationBoundary": "conservatively_attributed_encoder_terminal_event"
     }
   ]
 }

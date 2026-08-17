@@ -151,6 +151,17 @@ describe("UXP WebSocket bridge", () => {
     client.close();
   });
 
+  it("rejects invalid per-request minimum timeouts before dispatch", async () => {
+    const bridge = await createBridge();
+    const client = await connectHost(bridge);
+
+    await expect(bridge.request("state.get", {}, { minimumTimeoutMs: -1 }))
+      .rejects.toThrow("non-negative integer");
+    await expect(bridge.request("state.get", {}, { minimumTimeoutMs: 1.5 }))
+      .rejects.toThrow("non-negative integer");
+    client.close();
+  });
+
   it("rejects invalid configuration without opening a listener", () => {
     expect(() => new UxpWebSocketBridge({ token: "short" })).toThrow(
       "at least 16 characters",
