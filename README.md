@@ -6,7 +6,7 @@
 
 **Give compatible AI assistants structured control over supported Adobe Premiere Pro workflows.**
 
-282 core tools across 31 modules, 3 resources, and 4 guided workflows. A connected UXP host adds 43 capability-gated tools.
+282 core tools across 31 modules, 3 resources, and 4 guided workflows. A connected UXP host adds 44 capability-gated tools.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Node.js](https://img.shields.io/badge/Node.js-20.19%2B-green.svg)](https://nodejs.org)
@@ -29,7 +29,7 @@ An [MCP (Model Context Protocol)](https://modelcontextprotocol.io) server that l
 "Add the B-roll clips to V2, apply a cross dissolve between each, color correct them to match the A-roll, and export a 1080p ProRes."
 ```
 
-The AI handles the entire workflow through 282 core tools spanning the supported ExtendScript, QE DOM, local media analysis, safe edit-planning, and connection-verification surfaces. A compatible, authenticated UXP panel adds 43 documented, capability-gated tools without replacing the production CEP bridge.
+The AI handles the entire workflow through 282 core tools spanning the supported ExtendScript, QE DOM, local media analysis, safe edit-planning, and connection-verification surfaces. A compatible, authenticated UXP panel adds 44 documented, capability-gated tools without replacing the production CEP bridge.
 
 ### Latest release: 1.10.0
 
@@ -391,7 +391,7 @@ PREMIERE_UXP_TOKEN="replace-with-a-long-random-secret" premiere-pro-mcp
 
 Enter the same token in the UXP panel. The listener binds only to `127.0.0.1:7777`, authenticates the WebSocket upgrade, requires a versioned capability handshake, correlates concurrent requests, and fails pending work on timeout or disconnect. Set `PREMIERE_UXP_PORT` to use another loopback port.
 
-When enabled, MCP discovery includes the original 19 UXP tools, 21 consolidated stable workflows, and three third-wave tools. The first expansion covers effects, deterministic timeline selection, selection batches, scene detection, proxy/ingest, relink, metadata, color conformance, Source Monitor audition, storage, and least-privilege workspace access. The second adds Project-panel selection, marker CRUD, bin organization, sequence settings, imports, typed effect parameters/keyframes, track-item transforms, SequenceEditor timeline edits, sequence lifecycle, and AME encoding. The third wave begins with a redacted event journal, conservative AME terminal receipts, explicit host-readiness gates, and safe multi-project sessions documented in [the third-wave workflow matrix](docs/third-wave-uxp-workflows.md). See also [the first stable workflow matrix](docs/uxp-stable-workflows.md) and [the next-ten workflow matrix](docs/uxp-next-ten-workflows.md). Commands are advertised only while the authenticated local UXP bridge is connected; the host capability handshake remains the authority for support in the running Premiere build. A failed UXP command is never silently retried through CEP because the first operation may have partially succeeded.
+When enabled, MCP discovery includes the original 19 UXP tools, 21 consolidated stable workflows, and four third-wave tools. The first expansion covers effects, deterministic timeline selection, selection batches, scene detection, proxy/ingest, relink, metadata, color conformance, Source Monitor audition, storage, and least-privilege workspace access. The second adds Project-panel selection, marker CRUD, bin organization, sequence settings, imports, typed effect parameters/keyframes, track-item transforms, SequenceEditor timeline edits, sequence lifecycle, and AME encoding. The third wave begins with a redacted event journal, conservative AME terminal receipts, explicit host-readiness gates, safe multi-project sessions, and lease-based growing-media control documented in [the third-wave workflow matrix](docs/third-wave-uxp-workflows.md). See also [the first stable workflow matrix](docs/uxp-stable-workflows.md) and [the next-ten workflow matrix](docs/uxp-next-ten-workflows.md). Commands are advertised only while the authenticated local UXP bridge is connected; the host capability handshake remains the authority for support in the running Premiere build. A failed UXP command is never silently retried through CEP because the first operation may have partially succeeded.
 
 The panel now requests access to one operator-selected workspace instead of declaring full filesystem access. Choose the folder in the panel before invoking a path-based UXP workflow. Media, relink, preset, export, and Source Monitor file paths must remain inside it; the persistent capability token and native root path are never returned over MCP. Lexical containment alone cannot exclude symlink, junction, or reparse-point escapes, and Adobe's request-scoped UXP filesystem API does not document canonical-path resolution. Builds without a host-supplied canonical resolver therefore advertise path-based UXP commands as unsupported and fail closed at invocation; use the existing CEP fallback for those operations.
 
@@ -466,7 +466,7 @@ The file-based IPC bridge is simple, reliable, and works across macOS and Window
 
 ---
 
-## Tools (282 core total; 280 under the default profile; 323 with a connected UXP bridge)
+## Tools (282 core total; 280 under the default profile; 324 with a connected UXP bridge)
 
 ### Discovery & Inspection (10 + 10)
 

@@ -6,12 +6,23 @@
   "use strict";
 
   function createNextWorkflowDefinitions(deps) {
+    return createNextWorkflowRuntime(deps).definitions;
+  }
+
+  function createNextWorkflowRuntime(deps) {
     const ppro = deps.ppro, events = deps.events;
     const now = typeof deps.now === "function" ? deps.now : function () { return Date.now(); };
     const sleep = typeof deps.sleep === "function" ? deps.sleep : function (milliseconds) {
       return new Promise(function (resolve) { setTimeout(resolve, milliseconds); });
     };
-    return {
+    const scheduleTimer = typeof deps.setTimer === "function" ? deps.setTimer : function (callback, milliseconds) {
+      return setTimeout(callback, milliseconds);
+    };
+    const cancelTimer = typeof deps.clearTimer === "function" ? deps.clearTimer : function (timer) { clearTimeout(timer); };
+    const localStorage = deps.storage || (typeof globalThis !== "undefined" ? globalThis.localStorage : null);
+    const GROWING_LEASE_KEY = "premiereMcp.growingMediaLease";
+    let growingLease = null, growingTimer = null;
+    const definitions = {
       "events.list": {
         readOnly: true,
         minHostVersion: "25.6.0",
@@ -102,8 +113,33 @@
         minHostVersion: "26.2.0",
         probe: canManageProjectSessions,
         handler: closeProjectSession
+      },
+      "growing.status": {
+        readOnly: true,
+        targetCapabilityProbe: true,
+        minHostVersion: "25.6.0",
+        probe: canControlGrowingMedia,
+        handler: growingMediaStatus
+      },
+      "growing.pause": {
+        destructive: true,
+        undoable: false,
+        targetCapabilityProbe: true,
+        minHostVersion: "25.6.0",
+        probe: canControlGrowingMedia,
+        handler: pauseGrowingMedia
+      },
+      "growing.resume": {
+        destructive: true,
+        undoable: false,
+        targetCapabilityProbe: true,
+        minHostVersion: "25.6.0",
+        probe: canControlGrowingMedia,
+        handler: resumeGrowingMedia
       }
     };
+
+    return { definitions, initialize, dispose };
 
     function canUseEvents() {
       return !!(events && typeof events.list === "function" && typeof events.wait === "function");
@@ -136,6 +172,33 @@
         typeof ppro.Project.open === "function" &&
         typeof ppro.Project.createProject === "function" &&
         typeof ppro.Project.isProject === "function");
+    }
+
+    async function canControlGrowingMedia() {
+      if (!ppro || !ppro.Project || typeof ppro.Project.getActiveProject !== "function") return false;
+      try {
+        const project = await ppro.Project.getActiveProject();
+        return !!(project && typeof project.pauseGrowing === "function");
+      } catch (_) { return false; }
+    }
+
+    async function initialize() {
+      const stored = readGrowingLease();
+      if (!stored) return { recovered: false };
+      growingLease = stored;
+      try {
+        const receipt = await resumeLease("startup_recovery");
+        return { recovered: !!receipt.resumed, receipt };
+      } catch (error) {
+        return { recovered: false, recoveryPending: true, error: error && error.message || String(error) };
+      }
+    }
+
+    async function dispose() {
+      clearGrowingTimer();
+      if (!growingLease && !readGrowingLease()) return { resumed: false, alreadyResumed: true };
+      try { return await resumeLease("panel_or_bridge_disconnect"); }
+      catch (error) { return { resumed: false, recoveryPending: true, error: error && error.message || String(error) }; }
     }
 
     async function canWaitForAnalysis() {
@@ -367,6 +430,116 @@
       return { closed: true, saved: saveBeforeClose, projectId, outcome: "verified", verificationBoundary: "project_view_absence_readback" };
     }
 
+    function growingMediaStatus(args) {
+      assertOnlyKeys(args, []);
+      const stored = readGrowingLease();
+      const lease = growingLease || stored;
+      return {
+        pausedByThisPanel: !!lease,
+        projectId: lease ? lease.projectId : null,
+        expiresAt: lease ? new Date(lease.expiresAt).toISOString() : null,
+        recoveryPending: !!stored && !growingLease,
+        verificationBoundary: "panel_local_lease_only"
+      };
+    }
+
+    async function pauseGrowingMedia(args) {
+      assertOnlyKeys(args, ["projectId", "expectedPath", "leaseMs", "confirmPause", "operationId"]);
+      requireConfirmation(args.confirmPause, "confirmPause", "Pausing growing-media swaps can delay visibility of newly written media");
+      const leaseMs = args.leaseMs == null ? 60000 : integer(args.leaseMs, "leaseMs", 1000, 600000);
+      const project = await targetProject(args.projectId);
+      if (args.expectedPath != null) assertProjectPath(project, requiredPath(args.expectedPath, "expectedPath"), "target project");
+      if (typeof project.pauseGrowing !== "function") throw commandError("UXP_COMMAND_UNAVAILABLE", "This project cannot control growing media");
+      if (growingLease || readGrowingLease()) await resumeLease("superseded_by_new_lease");
+      if (!await project.pauseGrowing(true)) throw commandError("UXP_VERIFICATION_FAILED", "Premiere did not confirm the growing-media pause request");
+      growingLease = {
+        schemaVersion: 1,
+        projectId: guidString(project.guid),
+        expiresAt: now() + leaseMs
+      };
+      writeGrowingLease(growingLease);
+      clearGrowingTimer();
+      growingTimer = scheduleTimer(function () {
+        Promise.resolve(resumeLease("lease_expired")).catch(function () {});
+      }, leaseMs);
+      return {
+        paused: true,
+        projectId: growingLease.projectId,
+        leaseMs,
+        expiresAt: new Date(growingLease.expiresAt).toISOString(),
+        outcome: "committed_unverified",
+        verificationBoundary: "project_pauseGrowing_host_return_only"
+      };
+    }
+
+    async function resumeGrowingMedia(args) {
+      assertOnlyKeys(args, ["projectId", "operationId"]);
+      return resumeLease("explicit_resume", args.projectId);
+    }
+
+    async function resumeLease(reason, explicitProjectId) {
+      const lease = growingLease || readGrowingLease();
+      const projectId = explicitProjectId == null ? lease && lease.projectId : optionalToken(explicitProjectId, "projectId");
+      if (!lease && !projectId) {
+        return { resumed: false, alreadyResumed: true, reason, outcome: "verified", verificationBoundary: "panel_local_lease_only" };
+      }
+      const project = await projectForLease(projectId);
+      if (!project || typeof project.pauseGrowing !== "function") {
+        throw commandError("UXP_RECOVERY_PENDING", "The paused project is not currently available for growing-media recovery");
+      }
+      if (!await project.pauseGrowing(false)) {
+        throw commandError("UXP_RECOVERY_PENDING", "Premiere did not confirm the growing-media resume request");
+      }
+      clearGrowingTimer();
+      growingLease = null;
+      removeGrowingLease();
+      return {
+        resumed: true,
+        projectId: guidString(project.guid),
+        reason,
+        outcome: "committed_unverified",
+        verificationBoundary: "project_pauseGrowing_host_return_only"
+      };
+    }
+
+    async function projectForLease(projectId) {
+      if (projectId && ppro.Guid && typeof ppro.Guid.fromString === "function" &&
+        ppro.Project && typeof ppro.Project.getProject === "function") {
+        try {
+          const project = ppro.Project.getProject(ppro.Guid.fromString(projectId));
+          if (project) return project;
+        } catch (_) {}
+      }
+      return ppro.Project && typeof ppro.Project.getActiveProject === "function"
+        ? ppro.Project.getActiveProject()
+        : null;
+    }
+
+    function readGrowingLease() {
+      if (!localStorage || typeof localStorage.getItem !== "function") return null;
+      try {
+        const value = JSON.parse(localStorage.getItem(GROWING_LEASE_KEY) || "null");
+        if (!value || value.schemaVersion !== 1 || typeof value.projectId !== "string" ||
+          !Number.isFinite(value.expiresAt)) return null;
+        return { schemaVersion: 1, projectId: value.projectId, expiresAt: value.expiresAt };
+      } catch (_) { return null; }
+    }
+
+    function writeGrowingLease(value) {
+      if (!localStorage || typeof localStorage.setItem !== "function") return;
+      try { localStorage.setItem(GROWING_LEASE_KEY, JSON.stringify(value)); } catch (_) {}
+    }
+
+    function removeGrowingLease() {
+      if (!localStorage || typeof localStorage.removeItem !== "function") return;
+      try { localStorage.removeItem(GROWING_LEASE_KEY); } catch (_) {}
+    }
+
+    function clearGrowingTimer() {
+      if (growingTimer != null) cancelTimer(growingTimer);
+      growingTimer = null;
+    }
+
     async function openProjectInventory(includePaths) {
       const viewIds = Array.from(await ppro.ProjectUtils.getProjectViewIds() || []);
       if (viewIds.length > 64) throw commandError("UXP_PROJECT_TOO_LARGE", "Open Project views exceed the 64-view safety cap");
@@ -567,5 +740,5 @@
     return error;
   }
 
-  return { createNextWorkflowDefinitions };
+  return { createNextWorkflowDefinitions, createNextWorkflowRuntime };
 });

@@ -42,6 +42,16 @@ describe("next-wave UXP MCP tools", () => {
         confirm_discard_unsaved: { type: "boolean" },
       },
     });
+    const growing = getUxpNextWorkflowTools(bridge).manage_growing_media_uxp;
+    expect(growing.parameters).toMatchObject({
+      additionalProperties: false,
+      required: ["action"],
+      properties: {
+        action: { enum: ["status", "pause", "resume"] },
+        lease_ms: { minimum: 1000, maximum: 600000 },
+        confirm_pause: { type: "boolean" },
+      },
+    });
   });
 
   it("maps snake-case event queries to the exact bridge commands", async () => {
@@ -87,6 +97,16 @@ describe("next-wave UXP MCP tools", () => {
       projectId: "project-1", expectedPath: "C:/work/source.prproj", operationId: "branches-1",
       paths: ["C:/work/a.prproj", "C:/work/b.prproj"],
       confirmExternalWrite: true, confirmOverwrite: false,
+    });
+
+    const growing = getUxpNextWorkflowTools(bridge).manage_growing_media_uxp;
+    await growing.handler({
+      action: "pause", project_id: "project-1", expected_path: "C:/work/source.prproj",
+      lease_ms: 30000, confirm_pause: true, operation_id: "pause-1",
+    });
+    expect(request).toHaveBeenLastCalledWith("growing.pause", {
+      projectId: "project-1", expectedPath: "C:/work/source.prproj",
+      leaseMs: 30000, confirmPause: true, operationId: "pause-1",
     });
   });
 
@@ -201,5 +221,24 @@ describe("next-wave UXP MCP tools", () => {
     });
     await expect(tool.handler({ action: "unsupported" }))
       .resolves.toEqual({ success: false, error: "Unsupported project-session action: unsupported" });
+  });
+
+  it("covers growing-media status, lease defaults, resume targeting, and rejection", async () => {
+    const request = vi.fn().mockResolvedValue({ ok: true });
+    const bridge = { request, getState: vi.fn() } as unknown as UxpWebSocketBridge;
+    const tool = getUxpNextWorkflowTools(bridge).manage_growing_media_uxp;
+
+    await tool.handler({ action: "status" });
+    expect(request).toHaveBeenLastCalledWith("growing.status", {});
+    await tool.handler({ action: "pause" });
+    expect(request).toHaveBeenLastCalledWith("growing.pause", {});
+    await tool.handler({ action: "resume" });
+    expect(request).toHaveBeenLastCalledWith("growing.resume", {});
+    await tool.handler({ action: "resume", project_id: "project-1", operation_id: "resume-1" });
+    expect(request).toHaveBeenLastCalledWith("growing.resume", {
+      projectId: "project-1", operationId: "resume-1",
+    });
+    await expect(tool.handler({ action: "unsupported" }))
+      .resolves.toEqual({ success: false, error: "Unsupported growing-media action: unsupported" });
   });
 });
