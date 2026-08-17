@@ -144,7 +144,7 @@ describe("advanced stable UXP workflow MCP catalog", () => {
         removeUponCompletion: true, startQueueImmediately: false,
         confirmExternalWrite: true, operationId: "encode-op",
       }],
-      ["encoder.wait", { jobId: "encode-op", timeoutMs: 5000 }],
+      ["encoder.wait", { jobId: "encode-op", timeoutMs: 5000 }, { minimumTimeoutMs: 10000 }],
     ]);
   });
 

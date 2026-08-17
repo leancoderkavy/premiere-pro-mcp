@@ -1,5 +1,7 @@
 import type { UxpWebSocketBridge } from "../bridge/uxp-websocket-bridge.js";
 
+const WAIT_RESPONSE_BUFFER_MS = 5_000;
+
 type AdvancedArgs = Record<string, unknown> & {
   action?: string;
   operation_id?: string;
@@ -9,8 +11,12 @@ function invoke(
   bridge: UxpWebSocketBridge,
   command: string,
   args: Record<string, unknown> = {},
+  hostWaitMs?: number,
 ) {
-  return bridge.request(command, args)
+  const request = hostWaitMs === undefined
+    ? bridge.request(command, args)
+    : bridge.request(command, args, { minimumTimeoutMs: hostWaitMs + WAIT_RESPONSE_BUFFER_MS });
+  return request
     .then((result) => ({ success: true, data: { backend: "uxp", result } }))
     .catch((error: unknown) => ({
       success: false,
@@ -439,7 +445,11 @@ export function getUxpAdvancedWorkflowTools(bridge: UxpWebSocketBridge) {
         };
         if (!args.action || !commands[args.action]) return invalidAction(args.action);
         const jobQuery = compact({ jobId: args.job_id, timeoutMs: args.timeout_ms, limit: args.limit });
-        return invoke(bridge, commands[args.action], args.action === "jobs" || args.action === "wait"
+        if (args.action === "wait") {
+          const hostWaitMs = typeof args.timeout_ms === "number" ? args.timeout_ms : 0;
+          return invoke(bridge, commands[args.action], jobQuery, hostWaitMs);
+        }
+        return invoke(bridge, commands[args.action], args.action === "jobs"
           ? jobQuery
           : { ...common, ...operation(args) });
       },
