@@ -5,6 +5,26 @@ import { product } from "@/lib/product"
 
 const releases = [
   {
+    version: "1.11.1",
+    date: "2026-08-16",
+    label: "Remote static-route stability hotfix",
+    groups: [
+      {
+        title: "Fixed",
+        items: [
+          "Extensionless exported routes now resolve to their index file instead of streaming a directory and restarting the Linux HTTP process with EISDIR.",
+          "Static candidates must remain inside the landing root and resolve to regular files; asynchronous read failures no longer terminate the server.",
+        ],
+      },
+      {
+        title: "Validation",
+        items: [
+          "Regression tests cover extensionless routes and read-stream failures; real Premiere host verification remains a separate gate.",
+        ],
+      },
+    ],
+  },
+  {
     version: "1.11.0",
     date: "2026-08-16",
     label: "Evidence-backed third-wave UXP workflows",

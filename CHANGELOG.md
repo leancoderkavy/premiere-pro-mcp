@@ -6,6 +6,24 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [1.11.1] - 2026-08-16
+
+### Fixed
+
+- Extensionless landing routes such as `/changelog` now resolve to their
+  exported `index.html` file instead of attempting to stream a directory. The
+  previous behavior emitted an unhandled `EISDIR` error on Linux and restarted
+  the remote HTTP process.
+- Static asset candidates are required to remain inside the landing directory
+  and resolve to regular files, and read-stream failures are handled without
+  terminating the server.
+
+### Validation
+
+- Added regression coverage for extensionless exported routes and asynchronous
+  static-file read failures. The complete release gates remain distinct from
+  validation inside a licensed Premiere host.
+
 ## [1.11.0] - 2026-08-16
 
 ### Fixed

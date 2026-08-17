@@ -55,21 +55,65 @@ const MIME: Record<string, string> = {
 function serveLanding(req: http.IncomingMessage, res: http.ServerResponse): boolean {
   if (!fs.existsSync(LANDING_DIR)) return false;
 
-  let urlPath = req.url?.split("?")[0] ?? "/";
-  if (urlPath === "/" || urlPath === "") urlPath = "/index.html";
-  // Next.js trailingSlash: /about/ -> /about/index.html
-  if (urlPath.endsWith("/")) urlPath += "index.html";
+  let urlPath: string;
+  try {
+    urlPath = decodeURIComponent(req.url?.split("?")[0] ?? "/");
+  } catch {
+    return false;
+  }
+  const requestedSegments = urlPath.split("/").filter(Boolean);
+  const safeSegments = requestedSegments.map((segment) => path.basename(segment));
+  if (safeSegments.some((segment, index) => (
+    segment !== requestedSegments[index] ||
+    segment === "." ||
+    segment === ".." ||
+    segment.includes("\\") ||
+    segment.includes("\0")
+  ))) return false;
+  // Next.js trailingSlash exports /about/ as /about/index.html.
+  if (urlPath.endsWith("/") || safeSegments.length === 0) safeSegments.push("index.html");
 
-  const filePath = path.join(LANDING_DIR, urlPath);
+  let filePath = path.join(LANDING_DIR, ...safeSegments);
   // Security: ensure we stay within LANDING_DIR
-  if (!filePath.startsWith(LANDING_DIR)) return false;
+  const relativePath = path.relative(LANDING_DIR, filePath);
+  if (
+    relativePath === ".." ||
+    relativePath.startsWith(`..${path.sep}`) ||
+    path.isAbsolute(relativePath)
+  ) return false;
 
   if (!fs.existsSync(filePath)) return false;
 
+  let fileStats: fs.Stats;
+  try {
+    fileStats = fs.statSync(filePath);
+    // Accept extensionless Next.js routes such as /changelog without trying to
+    // stream the directory itself. Streaming a directory emits an unhandled
+    // EISDIR error on Linux and previously restarted the production process.
+    if (fileStats.isDirectory()) {
+      filePath = path.join(filePath, "index.html");
+      if (!fs.existsSync(filePath)) return false;
+      fileStats = fs.statSync(filePath);
+    }
+  } catch {
+    return false;
+  }
+  if (!fileStats.isFile()) return false;
+
   const ext = path.extname(filePath);
   const contentType = MIME[ext] ?? "application/octet-stream";
+  const stream = fs.createReadStream(filePath);
+  stream.once("error", (error) => {
+    console.error("[premiere-pro-mcp] Landing asset read failed:", error);
+    if (!res.headersSent) {
+      res.writeHead(500, { "Content-Type": "text/plain; charset=utf-8" });
+      res.end("Internal server error");
+      return;
+    }
+    res.destroy();
+  });
   res.writeHead(200, { "Content-Type": contentType });
-  fs.createReadStream(filePath).pipe(res);
+  stream.pipe(res);
   return true;
 }
 

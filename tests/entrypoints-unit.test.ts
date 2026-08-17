@@ -15,6 +15,9 @@ const mocks = vi.hoisted(() => ({
   uxpStop: vi.fn(async () => {}),
   execFileSync: vi.fn(),
   fsExists: vi.fn(() => false),
+  fsStat: vi.fn(() => ({ isDirectory: () => false, isFile: () => true })),
+  fsCreateReadStream: vi.fn(),
+  streamOnce: vi.fn(),
   pipe: vi.fn(),
 }));
 
@@ -62,7 +65,8 @@ vi.mock("node:fs", async (original) => {
     default: {
       ...actual,
       existsSync: mocks.fsExists,
-      createReadStream: vi.fn(() => ({ pipe: mocks.pipe })),
+      statSync: mocks.fsStat,
+      createReadStream: mocks.fsCreateReadStream,
     },
   };
 });
@@ -79,6 +83,8 @@ beforeEach(() => {
   vi.clearAllMocks();
   mocks.requestHandler = undefined;
   mocks.fsExists.mockReturnValue(false);
+  mocks.fsStat.mockReturnValue({ isDirectory: () => false, isFile: () => true });
+  mocks.fsCreateReadStream.mockReturnValue({ once: mocks.streamOnce, pipe: mocks.pipe });
   process.env = { ...env };
 });
 afterEach(() => {
@@ -97,6 +103,7 @@ function response() {
     statusCode: 200, headersSent: false, body: "", closeHandler: undefined,
     writeHead: vi.fn((status: number) => { res.statusCode = status; res.headersSent = true; }),
     end: vi.fn((body = "") => { res.body = body; }),
+    destroy: vi.fn(),
     on: vi.fn((name: string, handler: () => void) => { if (name === "close") res.closeHandler = handler; }),
   };
   return res;
@@ -329,6 +336,48 @@ describe("HTTP entry point", () => {
     await handler({ method: "GET", url: "/docs/", headers: {} }, res);
     expect(res.writeHead).toHaveBeenCalledWith(200, { "Content-Type": "text/html; charset=utf-8" });
     expect(mocks.pipe).toHaveBeenCalledWith(res);
+  });
+
+  it("serves extensionless landing routes from their index file", async () => {
+    mocks.fsExists.mockReturnValue(true);
+    mocks.fsStat
+      .mockReturnValueOnce({ isDirectory: () => true, isFile: () => false })
+      .mockReturnValueOnce({ isDirectory: () => false, isFile: () => true });
+    const handler = await loadHttp();
+    const res = response();
+    await handler({ method: "GET", url: "/changelog", headers: {} }, res);
+    expect(mocks.fsCreateReadStream).toHaveBeenCalledWith(
+      expect.stringMatching(/[\\/]changelog[\\/]index\.html$/),
+    );
+    expect(res.statusCode).toBe(200);
+    expect(mocks.pipe).toHaveBeenCalledWith(res);
+  });
+
+  it("does not crash when a landing asset read fails after validation", async () => {
+    mocks.fsExists.mockReturnValue(true);
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    const handler = await loadHttp();
+    const res = response();
+    await handler({ method: "GET", url: "/docs/", headers: {} }, res);
+    const streamError = mocks.streamOnce.mock.calls.find(([event]) => event === "error")?.[1];
+    expect(streamError).toBeTypeOf("function");
+    streamError(new Error("read failed"));
+    expect(res.destroy).toHaveBeenCalledOnce();
+    expect(error).toHaveBeenCalledWith(
+      "[premiere-pro-mcp] Landing asset read failed:",
+      expect.any(Error),
+    );
+  });
+
+  it("rejects landing paths that escape the static root", async () => {
+    mocks.fsExists.mockReturnValue(true);
+    const handler = await loadHttp();
+    for (const url of ["/../outside.txt", "/%2e%2e/outside.txt", "/..\\outside.txt"]) {
+      const res = response();
+      await handler({ method: "GET", url, headers: {} }, res);
+      expect(res.statusCode).toBe(404);
+    }
+    expect(mocks.fsCreateReadStream).not.toHaveBeenCalled();
   });
 
   it("returns 404 when no landing asset matches", async () => {
