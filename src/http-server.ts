@@ -60,16 +60,47 @@ function serveLanding(req: http.IncomingMessage, res: http.ServerResponse): bool
   // Next.js trailingSlash: /about/ -> /about/index.html
   if (urlPath.endsWith("/")) urlPath += "index.html";
 
-  const filePath = path.join(LANDING_DIR, urlPath);
+  let filePath = path.resolve(LANDING_DIR, `.${urlPath}`);
   // Security: ensure we stay within LANDING_DIR
-  if (!filePath.startsWith(LANDING_DIR)) return false;
+  const relativePath = path.relative(LANDING_DIR, filePath);
+  if (
+    relativePath === ".." ||
+    relativePath.startsWith(`..${path.sep}`) ||
+    path.isAbsolute(relativePath)
+  ) return false;
 
   if (!fs.existsSync(filePath)) return false;
 
+  let fileStats: fs.Stats;
+  try {
+    fileStats = fs.statSync(filePath);
+    // Accept extensionless Next.js routes such as /changelog without trying to
+    // stream the directory itself. Streaming a directory emits an unhandled
+    // EISDIR error on Linux and previously restarted the production process.
+    if (fileStats.isDirectory()) {
+      filePath = path.join(filePath, "index.html");
+      if (!fs.existsSync(filePath)) return false;
+      fileStats = fs.statSync(filePath);
+    }
+  } catch {
+    return false;
+  }
+  if (!fileStats.isFile()) return false;
+
   const ext = path.extname(filePath);
   const contentType = MIME[ext] ?? "application/octet-stream";
+  const stream = fs.createReadStream(filePath);
+  stream.once("error", (error) => {
+    console.error("[premiere-pro-mcp] Landing asset read failed:", error);
+    if (!res.headersSent) {
+      res.writeHead(500, { "Content-Type": "text/plain; charset=utf-8" });
+      res.end("Internal server error");
+      return;
+    }
+    res.destroy();
+  });
   res.writeHead(200, { "Content-Type": contentType });
-  fs.createReadStream(filePath).pipe(res);
+  stream.pipe(res);
   return true;
 }
 

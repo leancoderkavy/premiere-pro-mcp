@@ -14,7 +14,7 @@ body:
     id: versions
     attributes:
       label: Premiere Pro and MCP versions
-      placeholder: Premiere 26.3.0, Premiere Pro MCP 1.11.0
+      placeholder: Premiere 26.3.0, Premiere Pro MCP 1.11.1
     validations:
       required: true
   - type: input
