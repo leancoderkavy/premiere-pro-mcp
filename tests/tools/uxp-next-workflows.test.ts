@@ -26,6 +26,7 @@ describe("next-wave UXP MCP tools", () => {
       properties: {
         action: { enum: ["snapshot", "analysis", "operation"] },
         operation_type: { enum: ["import", "export", "effect_drop", "generative_extend"] },
+        after_revision: { maximum: Number.MAX_SAFE_INTEGER },
         timeout_ms: { maximum: 60000 },
         poll_max_ms: { maximum: 5000 },
       },
@@ -56,14 +57,14 @@ describe("next-wave UXP MCP tools", () => {
     expect(request).toHaveBeenLastCalledWith("readiness.analysis.wait", {
       sequenceId: "sequence-1", expectedSequenceId: "sequence-1",
       timeoutMs: 10000, pollMinMs: 100, pollMaxMs: 1000,
-    });
+    }, { minimumTimeoutMs: 15000 });
 
     await readiness.handler({
       action: "operation", operation_type: "effect_drop", after_revision: 9, timeout_ms: 5000,
     });
     expect(request).toHaveBeenLastCalledWith("readiness.operation.wait", {
       operationType: "effectDrop", afterRevision: 9, timeoutMs: 5000,
-    });
+    }, { minimumTimeoutMs: 10000 });
   });
 
   it("covers bounded event and readiness fallbacks without hiding bridge errors", async () => {
@@ -102,9 +103,13 @@ describe("next-wave UXP MCP tools", () => {
     await tools.wait_for_host_readiness_uxp.handler({ action: "snapshot", sequence_id: "sequence-1" });
     expect(request).toHaveBeenLastCalledWith("readiness.snapshot", { sequenceId: "sequence-1" });
     await tools.wait_for_host_readiness_uxp.handler({ action: "analysis" });
-    expect(request).toHaveBeenLastCalledWith("readiness.analysis.wait", {});
+    expect(request).toHaveBeenLastCalledWith(
+      "readiness.analysis.wait", {}, { minimumTimeoutMs: 35000 },
+    );
     await tools.wait_for_host_readiness_uxp.handler({ action: "operation" });
-    expect(request).toHaveBeenLastCalledWith("readiness.operation.wait", {});
+    expect(request).toHaveBeenLastCalledWith(
+      "readiness.operation.wait", {}, { minimumTimeoutMs: 35000 },
+    );
     await expect(tools.wait_for_host_readiness_uxp.handler({ action: "unsupported" }))
       .resolves.toEqual({ success: false, error: "Unsupported readiness action: unsupported" });
   });
