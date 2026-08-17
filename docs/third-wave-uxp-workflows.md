@@ -153,6 +153,20 @@ can return `verified` after exact readback. This workflow does not duplicate the
 existing color, frame-rate, or pixel-aspect conformance surfaces. Real-host testing
 remains required for mixed audio/video media and source-monitor behavior.
 
+## PR 10 — Hybrid acceleration benchmark gate
+
+The production panel still has no native-addon permission or binary. A deterministic
+developer-only harness compares a pure JavaScript weighted-energy workload with an
+optional SDK-built addon adapter, checks identical output, and records p50, p95, and
+diagnostic heap snapshots. A separate verifier requires same-commit Release evidence
+for Windows x64, macOS x64, and macOS arm64; both percentiles must improve by at least
+30%, macOS binaries must be signed and notarized, and peak working-set regression may
+not exceed 10%.
+
+See [the benchmark and promotion procedure](uxp-hybrid-benchmark.md). No result from
+one development machine can alter the production manifest or justify a native
+performance claim.
+
 ## Primary Adobe references
 
 - [EventManager](https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/eventmanager/)

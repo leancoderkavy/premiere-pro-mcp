@@ -1,0 +1,67 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://premiere-pro-mcp.com/schemas/uxp-hybrid-benchmark-evidence-v1.json",
+  "title": "Premiere Pro MCP UXP hybrid benchmark evidence",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "workloadId", "configuration", "memoryMeasurement", "runs"],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "workloadId": { "const": "weighted-energy-v1" },
+    "configuration": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["sampleCount", "warmupCount", "iterations", "inputLength", "seed"],
+      "properties": {
+        "sampleCount": { "const": 30 },
+        "warmupCount": { "const": 3 },
+        "iterations": { "const": 4 },
+        "inputLength": { "const": 131072 },
+        "seed": { "const": 1337 }
+      }
+    },
+    "memoryMeasurement": { "type": "string", "minLength": 1, "maxLength": 256 },
+    "runs": {
+      "type": "array",
+      "minItems": 3,
+      "maxItems": 3,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "platform", "arch", "hostVersion", "sdkVersion", "buildMode",
+          "addonLoaded", "addonSha256", "sourceCommit", "checksumMatch",
+          "codeSigned", "notarized", "javascript", "native"
+        ],
+        "properties": {
+          "platform": { "enum": ["win", "mac"] },
+          "arch": { "enum": ["x64", "arm64"] },
+          "hostVersion": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$" },
+          "sdkVersion": { "type": "string", "minLength": 1, "maxLength": 128 },
+          "buildMode": { "const": "Release" },
+          "addonLoaded": { "const": true },
+          "addonSha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+          "sourceCommit": { "type": "string", "pattern": "^[a-f0-9]{40}$" },
+          "checksumMatch": { "const": true },
+          "codeSigned": { "type": "boolean" },
+          "notarized": { "type": "boolean" },
+          "javascript": { "$ref": "#/$defs/metrics" },
+          "native": { "$ref": "#/$defs/metrics" }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "metrics": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["sampleCount", "p50Ms", "p95Ms", "peakWorkingSetBytes"],
+      "properties": {
+        "sampleCount": { "type": "integer", "minimum": 20 },
+        "p50Ms": { "type": "number", "exclusiveMinimum": 0 },
+        "p95Ms": { "type": "number", "exclusiveMinimum": 0 },
+        "peakWorkingSetBytes": { "type": "integer", "exclusiveMinimum": 0 }
+      }
+    }
+  }
+}
