@@ -6,7 +6,7 @@
 
 **Give compatible AI assistants structured control over supported Adobe Premiere Pro workflows.**
 
-285 core tools across 32 modules, 4 resources, and 5 guided workflows. A connected UXP host adds 48 capability-gated tools.
+285 core tools across 32 modules, 4 resources, and 6 guided workflows. A connected UXP host adds 49 capability-gated tools.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Node.js](https://img.shields.io/badge/Node.js-20.19%2B-green.svg)](https://nodejs.org)
@@ -29,7 +29,7 @@ An [MCP (Model Context Protocol)](https://modelcontextprotocol.io) server that l
 "Add the B-roll clips to V2, apply a cross dissolve between each, color correct them to match the A-roll, and export a 1080p ProRes."
 ```
 
-The AI handles the entire workflow through 285 core tools spanning the supported ExtendScript, QE DOM, local media analysis, revisioned project-context retrieval, safe edit-planning, and connection-verification surfaces. A compatible, authenticated UXP panel adds 48 documented, capability-gated tools without replacing the production CEP bridge.
+The AI handles the entire workflow through 285 core tools spanning the supported ExtendScript, QE DOM, local media analysis, revisioned project-context retrieval, safe edit-planning, and connection-verification surfaces. A compatible, authenticated UXP panel adds 49 documented, capability-gated tools without replacing the production CEP bridge.
 
 ### Latest release: 1.11.2
 
@@ -375,6 +375,11 @@ capability negotiation.
 - Frame.io needs a separately authenticated Frame.io API integration; an account
   entitlement alone does not make it callable through Premiere's DOM.
 - Transcript JSON import/export is documented in UXP. Starting Speech-to-Text is not.
+- `preview_transcript_edit_uxp` and `plan_transcript_rough_cut_uxp` provide a
+  revision-locked transcript-edit workflow. The planner maps selected transcript
+  ranges to verified 1x placements in a duplicate sequence and emits descending
+  split/remove instructions; it does not claim that Adobe exposes native transcript
+  text deletion or perform an unverified destructive edit.
 - The remaining AI operations are user-assisted or unsupported by documented
   public APIs. The tool explains what can be inspected after a user completes
   the operation and where artifact provenance cannot be established safely.
@@ -483,11 +488,11 @@ The file-based IPC bridge is simple, reliable, and works across macOS and Window
 
 ---
 
-## Tools (285 core total; 283 under the default profile; 331 with a connected UXP bridge)
+## Tools (285 core total; 283 under the default profile; 332 with a connected UXP bridge)
 
 The [complete supported-actions catalog](docs/supported-actions.md) lists every
 registered core tool, the two tools restricted behind explicit `unsafe-script`
-authority, and all 48 authenticated UXP additions with their current action or mode
+authority, and all 49 authenticated UXP additions with their current action or mode
 values. It is generated from the same MCP registration surface returned to clients;
 the tables below are a shorter workflow-oriented overview.
 

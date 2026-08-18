@@ -17,6 +17,6 @@
   ],
   "requiredPermissions": {
     "localFileSystem": "request",
-    "network": { "domains": ["http://127.0.0.1", "ws://127.0.0.1", "http://localhost", "ws://localhost"] }
+    "network": { "domains": "all" }
   }
 }
