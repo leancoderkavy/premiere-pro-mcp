@@ -415,7 +415,8 @@ describe("Tool Handler Behavior", () => {
       vi.clearAllMocks();
       await (getTimelineTools(bridgeOptions).split_clip.handler as any)({ time_seconds: 2 });
       script = mockedSendCommand.mock.calls[0][0];
-      expect(script).toContain("clipCountAfter <= clipCountBefore");
+      expect(script).toContain("var expectedClipCount = clipCountBefore + eligibleBefore.length");
+      expect(script).toContain("function __hasSegment");
     });
 
     it("checks transition API availability and verifies track state", async () => {

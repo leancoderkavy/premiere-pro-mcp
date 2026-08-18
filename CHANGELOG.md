@@ -25,6 +25,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - `overwrite_clip` now rejects invalid video and audio track indices before invoking
   Premiere and confirms the requested source item appears at the requested frame. A
   no-op or an unverifiable repeat placement returns an error instead of false success.
+- `trim_clip` now proves the requested source point also produced the expected visible timeline
+  edge and duration. It refuses retimed clips and, by default, trims that would strand effect
+  keyframes instead of treating source-metadata-only changes as success on Premiere Pro 26.x.
+- `split_clip` now verifies that a clip spans the requested cut and that QE produced each expected
+  left/right segment, rather than accepting any increase in track clip count. QE keyframe
+  redistribution remains explicitly unverified.
 
 ### Security
 

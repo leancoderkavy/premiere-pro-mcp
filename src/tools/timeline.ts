@@ -185,7 +185,8 @@ export function getTimelineTools(bridgeOptions: BridgeOptions) {
     },
 
     trim_clip: {
-      description: "Trim a clip's in or out point",
+      description:
+        "Trim exactly one source in/out point and verify the corresponding visible timeline edge. Refuses retimed clips and, by default, trims that would leave effect keyframes outside the visible clip.",
       parameters: {
         type: "object" as const,
         properties: {
@@ -195,23 +196,56 @@ export function getTimelineTools(bridgeOptions: BridgeOptions) {
           },
           new_in_seconds: {
             type: "number",
-            description: "New in-point in seconds (relative to clip's source media)",
+            minimum: 0,
+            description:
+              "New source in-point in seconds (relative to the clip's source media). Specify exactly one edit point.",
           },
           new_out_seconds: {
             type: "number",
-            description: "New out-point in seconds (relative to clip's source media)",
+            minimum: 0,
+            description:
+              "New source out-point in seconds (relative to the clip's source media). Specify exactly one edit point.",
+          },
+          keyframe_policy: {
+            type: "string",
+            enum: ["reject", "preserve"],
+            description:
+              "How to handle effect keyframes beyond the trimmed visible range: reject (default) leaves the timeline unchanged; preserve explicitly keeps them and reports their count.",
           },
         },
         required: ["node_id"],
       },
-      handler: async (args: { node_id: string; new_in_seconds?: number; new_out_seconds?: number }) => {
-        // Both edit points are optional in the schema, so a call carrying only
-        // node_id would previously set nothing and still report trimmed: true.
-        if (args.new_in_seconds === undefined && args.new_out_seconds === undefined) {
+      handler: async (args: {
+        node_id: string;
+        new_in_seconds?: number;
+        new_out_seconds?: number;
+        keyframe_policy?: "reject" | "preserve";
+      }) => {
+        // The schema permits both optional edit points. Applying both requires
+        // two CEP writes and can leave a partially altered timeline when the
+        // second write silently fails, so this tool intentionally supports one
+        // verified edge per request.
+        if ((args.new_in_seconds === undefined) === (args.new_out_seconds === undefined)) {
           return {
             success: false,
             error:
-              "trim_clip requires new_in_seconds, new_out_seconds, or both — a call with neither would report success without changing the clip.",
+              "trim_clip requires exactly one of new_in_seconds or new_out_seconds so its visible timeline edge can be verified without a partial multi-write.",
+          };
+        }
+
+        const requestedSeconds = args.new_in_seconds ?? args.new_out_seconds;
+        if (requestedSeconds === undefined || !Number.isFinite(requestedSeconds) || requestedSeconds < 0) {
+          return {
+            success: false,
+            error: "trim_clip edit points must be finite, non-negative seconds.",
+          };
+        }
+
+        const keyframePolicy = args.keyframe_policy ?? "reject";
+        if (keyframePolicy !== "reject" && keyframePolicy !== "preserve") {
+          return {
+            success: false,
+            error: "keyframe_policy must be reject or preserve.",
           };
         }
 
@@ -230,11 +264,114 @@ export function getTimelineTools(bridgeOptions: BridgeOptions) {
           if (!frameTicks || isNaN(frameTicks)) frameTicks = TICKS_PER_SECOND / 24;
           var tolerance = __ticksToSeconds(frameTicks);
 
-          ${args.new_in_seconds !== undefined ? `clip.inPoint = __secondsToTicks(${args.new_in_seconds}).toString();` : ""}
-          ${args.new_out_seconds !== undefined ? `clip.outPoint = __secondsToTicks(${args.new_out_seconds}).toString();` : ""}
+          function __trimSeconds(timeValue) {
+            try { return __ticksToSeconds(timeValue.ticks); } catch(e) { return NaN; }
+          }
 
-          var actualIn = __ticksToSeconds(clip.inPoint.ticks);
-          var actualOut = __ticksToSeconds(clip.outPoint.ticks);
+          function __snapshotTrimGeometry(item) {
+            return {
+              inPoint: __trimSeconds(item.inPoint),
+              outPoint: __trimSeconds(item.outPoint),
+              start: __trimSeconds(item.start),
+              end: __trimSeconds(item.end),
+              duration: __trimSeconds(item.duration)
+            };
+          }
+
+          // ComponentParam keyframe times are relative to the clip start in
+          // this CEP interface. A bounded scan lets the default reject a trim
+          // before it creates keyframes that remain beyond the visible range.
+          function __findOutOfRangeKeyframes(item, visibleDuration) {
+            var scan = { outside: [], errors: [], inspected: 0 };
+            var limit = 10000;
+            try {
+              for (var ci = 0; ci < item.components.numItems; ci++) {
+                var component = item.components[ci];
+                for (var pi = 0; pi < component.properties.numItems; pi++) {
+                  var property = component.properties[pi];
+                  var isTimeVarying = false;
+                  try { isTimeVarying = property.isTimeVarying(); } catch(varyingError) {
+                    scan.errors.push("component " + ci + " property " + pi + " time-varying state: " + varyingError.toString());
+                    continue;
+                  }
+                  if (!isTimeVarying) continue;
+                  var keys;
+                  try { keys = property.getKeys(); } catch(keyError) {
+                    scan.errors.push("component " + ci + " property " + pi + " keys: " + keyError.toString());
+                    continue;
+                  }
+                  if (!keys) continue;
+                  for (var ki = 0; ki < keys.length; ki++) {
+                    scan.inspected++;
+                    if (scan.inspected > limit) {
+                      scan.errors.push("more than " + limit + " keyframes; refusing an unbounded inspection");
+                      return scan;
+                    }
+                    var keySeconds = __trimSeconds(keys[ki]);
+                    if (!isFinite(keySeconds)) {
+                      scan.errors.push("component " + ci + " property " + pi + " key " + ki + " has no readable time");
+                      continue;
+                    }
+                    if (keySeconds > visibleDuration + tolerance) {
+                      scan.outside.push({ component: ci, property: pi, seconds: keySeconds });
+                    }
+                  }
+                }
+              }
+            } catch(scanError) {
+              scan.errors.push(scanError.toString());
+            }
+            return scan;
+          }
+
+          var before = __snapshotTrimGeometry(clip);
+          if (!isFinite(before.inPoint) || !isFinite(before.outPoint) || !isFinite(before.start) || !isFinite(before.end) || !isFinite(before.duration)) {
+            return __error("Premiere did not provide readable source and timeline times for this clip; trim was not attempted.");
+          }
+          if (before.outPoint - before.inPoint < tolerance || before.end - before.start < tolerance) {
+            return __error("Clip has an empty or unreadable duration; trim was not attempted.");
+          }
+
+          // A source-point trim can only have an exact CEP postcondition when
+          // the source and visible durations agree. Retimed/reversed clips need
+          // host-specific semantics, so refusing them is safer than guessing.
+          if (Math.abs((before.end - before.start) - (before.outPoint - before.inPoint)) > tolerance) {
+            return __error("trim_clip does not support retimed or otherwise non-1x clips because CEP cannot prove the requested source trim maps to the correct timeline edge. Use a host-verified workflow instead.");
+          }
+
+          var requestedIn = ${args.new_in_seconds !== undefined ? args.new_in_seconds : "null"};
+          var requestedOut = ${args.new_out_seconds !== undefined ? args.new_out_seconds : "null"};
+          var targetIn = requestedIn === null ? before.inPoint : requestedIn;
+          var targetOut = requestedOut === null ? before.outPoint : requestedOut;
+          if (!isFinite(targetIn) || !isFinite(targetOut) || targetIn < 0 || targetOut - targetIn < tolerance) {
+            return __error("The requested source trim must leave at least one frame between in and out; trim was not attempted.");
+          }
+
+          var prospectiveDuration = targetOut - targetIn;
+          var beforeKeyframes = __findOutOfRangeKeyframes(clip, prospectiveDuration);
+          if (beforeKeyframes.errors.length && "${keyframePolicy}" === "reject") {
+            return __error("Could not inspect every time-varying effect property before trim (" + beforeKeyframes.errors.join("; ") + "); trim was not attempted so keyframe behavior is not guessed.");
+          }
+          if (beforeKeyframes.outside.length && "${keyframePolicy}" === "reject") {
+            return __error("Refusing trim before mutation: " + beforeKeyframes.outside.length + " effect keyframe(s) would remain outside the visible clip. Use keyframe_policy: preserve only if retaining those keyframes is intentional, or adjust them explicitly with the keyframe tools.");
+          }
+
+          ${args.new_in_seconds !== undefined ? `clip.inPoint = __secondsToTicks(${args.new_in_seconds}).toString();` : "clip.outPoint = __secondsToTicks(" + args.new_out_seconds + ").toString();"}
+
+          // Re-find the TrackItem after the write. Premiere can replace stale
+          // DOM references during an edit, especially for audio clips.
+          var afterResult = __findClip("${escapeForExtendScript(args.node_id)}");
+          if (!afterResult) return __error("Clip could not be found after the trim attempt; the timeline may have changed and the result is not verified.");
+          if (afterResult.trackType !== result.trackType || afterResult.trackIndex !== result.trackIndex) {
+            return __error("Clip moved tracks during the trim attempt; the result is not verified.");
+          }
+          var after = __snapshotTrimGeometry(afterResult.clip);
+          if (!isFinite(after.inPoint) || !isFinite(after.outPoint) || !isFinite(after.start) || !isFinite(after.end) || !isFinite(after.duration)) {
+            return __error("Premiere did not provide readable source and timeline times after trim; the result is not verified.");
+          }
+
+          var actualIn = after.inPoint;
+          var actualOut = after.outPoint;
 
           var drift = [];
           ${args.new_in_seconds !== undefined ? `
@@ -246,16 +383,49 @@ export function getTimelineTools(bridgeOptions: BridgeOptions) {
             drift.push("outPoint requested ${args.new_out_seconds}s, read back " + actualOut + "s");
           }` : ""}
 
+          var expectedStart = ${args.new_in_seconds !== undefined
+            ? "before.start + (actualIn - before.inPoint)"
+            : "before.start"};
+          var expectedEnd = ${args.new_in_seconds !== undefined
+            ? "before.end"
+            : "before.end + (actualOut - before.outPoint)"};
+          if (Math.abs(after.start - expectedStart) > tolerance) {
+            drift.push("timeline start expected " + expectedStart + "s, read back " + after.start + "s");
+          }
+          if (Math.abs(after.end - expectedEnd) > tolerance) {
+            drift.push("timeline end expected " + expectedEnd + "s, read back " + after.end + "s");
+          }
+          if (Math.abs(after.duration - (after.end - after.start)) > tolerance) {
+            drift.push("timeline duration " + after.duration + "s does not match visible span " + (after.end - after.start) + "s");
+          }
+          if (Math.abs((after.end - after.start) - (actualOut - actualIn)) > tolerance) {
+            drift.push("visible timeline duration does not match the applied source range");
+          }
+
           if (drift.length) {
-            return __error("Premiere did not apply the requested trim: " + drift.join("; ") + ". Structural clip edits are known to no-op on some Premiere Pro 26.x installations (confirmed on 26.2.2).");
+            return __error("Premiere did not apply a verified timeline trim: " + drift.join("; ") + ". The source metadata may have changed, but this is not reported as success. Structural clip edits are known to no-op on some Premiere Pro 26.x installations.");
+          }
+
+          var afterKeyframes = __findOutOfRangeKeyframes(afterResult.clip, after.end - after.start);
+          if (afterKeyframes.errors.length && "${keyframePolicy}" === "reject") {
+            return __error("The timeline trim may have applied, but keyframes could not be fully read back (" + afterKeyframes.errors.join("; ") + "). It is not reported as verified; inspect the clip or use Undo.");
+          }
+          if (afterKeyframes.outside.length && "${keyframePolicy}" === "reject") {
+            return __error("The timeline trim may have applied, but " + afterKeyframes.outside.length + " effect keyframe(s) remain outside its visible range. It is not reported as verified; inspect the clip or use Undo.");
           }
 
           return __result({
             trimmed: true,
             verified: true,
-            clipName: clip.name,
+            clipName: afterResult.clip.name,
             inPoint: actualIn,
-            outPoint: actualOut
+            outPoint: actualOut,
+            timelineStart: after.start,
+            timelineEnd: after.end,
+            timelineDuration: after.duration,
+            keyframePolicy: "${keyframePolicy}",
+            keyframesOutsideVisibleRange: afterKeyframes.outside.length,
+            keyframesVerified: afterKeyframes.errors.length === 0 && afterKeyframes.outside.length === 0
           });
         `);
         return sendCommand(script, bridgeOptions);
@@ -263,17 +433,20 @@ export function getTimelineTools(bridgeOptions: BridgeOptions) {
     },
 
     split_clip: {
-      description: "Split (razor) a clip at a specific time position. Requires QE DOM.",
+      description:
+        "Split every clip on one track that spans a timeline time, then verify both resulting boundaries. Requires QE DOM; effect-keyframe redistribution remains unverified.",
       parameters: {
         type: "object" as const,
         properties: {
           time_seconds: {
             type: "number",
-            description: "Time position in seconds where to split",
+            minimum: 0,
+            description: "Timeline time in seconds where clips on the selected track will split",
           },
           track_index: {
             type: "number",
-            description: "Track index (0-based)",
+            minimum: 0,
+            description: "Track index (0-based, default: 0)",
           },
           track_type: {
             type: "string",
@@ -284,27 +457,97 @@ export function getTimelineTools(bridgeOptions: BridgeOptions) {
         required: ["time_seconds"],
       },
       handler: async (args: { time_seconds: number; track_index?: number; track_type?: string }) => {
-        const trackType = args.track_type || "video";
+        if (!Number.isFinite(args.time_seconds) || args.time_seconds < 0) {
+          return { success: false, error: "time_seconds must be finite, non-negative seconds." };
+        }
+        if (args.track_index !== undefined && (!Number.isInteger(args.track_index) || args.track_index < 0)) {
+          return { success: false, error: "track_index must be a non-negative integer." };
+        }
+        const trackType = args.track_type ?? "video";
+        if (trackType !== "video" && trackType !== "audio") {
+          return { success: false, error: "track_type must be video or audio." };
+        }
         const trackIndex = args.track_index ?? 0;
 
         const script = buildToolScript(`
           app.enableQE();
+          var domSequence = app.project.activeSequence;
+          if (!domSequence) return __error("No active sequence");
           var seq = qe.project.getActiveSequence();
           if (!seq) return __error("No active sequence (QE)");
           
           var track = ${trackType === "video" ? `seq.getVideoTrackAt(${trackIndex})` : `seq.getAudioTrackAt(${trackIndex})`};
-          if (!track) return __error("Track not found");
+          if (!track) return __error("QE track not found");
 
-          var domTrack = ${trackType === "video" ? `app.project.activeSequence.videoTracks[${trackIndex}]` : `app.project.activeSequence.audioTracks[${trackIndex}]`};
+          var domTrack = ${trackType === "video" ? `domSequence.videoTracks[${trackIndex}]` : `domSequence.audioTracks[${trackIndex}]`};
+          if (!domTrack) return __error("DOM track not found");
+          var frameTicks = domSequence.timebase ? parseFloat(domSequence.timebase) : NaN;
+          if (!frameTicks || isNaN(frameTicks)) frameTicks = TICKS_PER_SECOND / 24;
+          var boundaryTolerance = frameTicks;
           var clipCountBefore = domTrack.clips.numItems;
-          var timeTicks = __secondsToTicks(${args.time_seconds}).toString();
-          track.razor(timeTicks);
+          var cutTicks = __secondsToTicks(${args.time_seconds});
+
+          function __eligibleClips(track, cut) {
+            var clips = [];
+            for (var i = 0; i < track.clips.numItems; i++) {
+              var item = track.clips[i];
+              var start = parseFloat(item.start.ticks);
+              var end = parseFloat(item.end.ticks);
+              if (!isFinite(start) || !isFinite(end)) continue;
+              if (cut > start && cut < end) {
+                clips.push({ start: start, end: end, nodeId: item.nodeId, name: item.name });
+              }
+            }
+            return clips;
+          }
+
+          function __hasSegment(track, wantedStart, wantedEnd) {
+            for (var i = 0; i < track.clips.numItems; i++) {
+              var item = track.clips[i];
+              var actualStart = parseFloat(item.start.ticks);
+              var actualEnd = parseFloat(item.end.ticks);
+              if (Math.abs(actualStart - wantedStart) <= boundaryTolerance && Math.abs(actualEnd - wantedEnd) <= boundaryTolerance) return true;
+            }
+            return false;
+          }
+
+          var eligibleBefore = __eligibleClips(domTrack, cutTicks);
+          if (!eligibleBefore.length) {
+            return __error("No clip on the requested ${trackType} track strictly spans ${args.time_seconds}s; no razor was attempted.");
+          }
+
+          try {
+            track.razor(cutTicks.toString());
+          } catch(razorError) {
+            return __error("QE razor rejected the request: " + razorError.toString() + ". No verified split was produced.");
+          }
 
           var clipCountAfter = domTrack.clips.numItems;
-          if (clipCountAfter <= clipCountBefore) {
-            return __error("Premiere reported razor but the track clip count did not change. Structural QE edits are known to no-op on some Premiere Pro 26.x installations (confirmed on 26.2.2).");
+          var expectedClipCount = clipCountBefore + eligibleBefore.length;
+          if (clipCountAfter !== expectedClipCount) {
+            return __error("Premiere razor changed the track clip count from " + clipCountBefore + " to " + clipCountAfter + ", expected " + expectedClipCount + " for " + eligibleBefore.length + " spanning clip(s). The timeline may be partially changed, but the split is not reported as verified. Structural QE edits are known to no-op on some Premiere Pro 26.x installations.");
           }
-          return __result({ split: true, verified: true, atSeconds: ${args.time_seconds}, trackIndex: ${trackIndex}, trackType: "${trackType}" });
+
+          var missingSegments = [];
+          for (var ei = 0; ei < eligibleBefore.length; ei++) {
+            var before = eligibleBefore[ei];
+            if (!__hasSegment(domTrack, before.start, cutTicks)) missingSegments.push(before.name + " left segment");
+            if (!__hasSegment(domTrack, cutTicks, before.end)) missingSegments.push(before.name + " right segment");
+          }
+          if (missingSegments.length) {
+            return __error("Premiere razor changed the clip count but did not create the requested cut boundary for " + missingSegments.join(", ") + ". The timeline may be partially changed, but the split is not reported as verified.");
+          }
+          return __result({
+            split: true,
+            verified: true,
+            timelineVerified: true,
+            atSeconds: __ticksToSeconds(cutTicks),
+            requestedSeconds: ${args.time_seconds},
+            trackIndex: ${trackIndex},
+            trackType: "${trackType}",
+            splitClipCount: eligibleBefore.length,
+            keyframeSemantics: "unverified"
+          });
         `);
         return sendCommand(script, bridgeOptions);
       },

@@ -304,12 +304,12 @@ operation” when the tool has no enum-based mode.
 | `slide_edit` | Default profile | Single operation | Perform a slide edit on a clip (moves clip without changing its duration, adjusting adjacent clips). Uses QE DOM. |
 | `slip_edit` | Default profile | Single operation | Perform a slip edit on a clip (changes source in/out points without moving clip on timeline). Uses QE DOM. |
 | `speed_change` | Default profile | Single operation | Change the playback speed of a clip |
-| `split_clip` | Default profile | `track_type`: `video`, `audio` | Split (razor) a clip at a specific time position. Requires QE DOM. |
+| `split_clip` | Default profile | `track_type`: `video`, `audio` | Split every clip on one track that spans a timeline time, then verify both resulting boundaries. Requires QE DOM; effect-keyframe redistribution remains unverified. |
 | `stabilize_clip` | Default profile | `method`: `Subspace Warp`, `Position`, `Position, Scale, Rotation` | Apply the Warp Stabilizer effect to a clip for video stabilization. Uses QE DOM. |
 | `start_batch_encode` | Default profile | Single operation | Start encoding all items in the Adobe Media Encoder render queue |
 | `stop_playback` | Default profile | Single operation | Stop playback of the active sequence timeline. Uses QE DOM. |
 | `toggle_track_visibility` | Default profile | Single operation | Toggle a video track's visibility (eye icon) |
-| `trim_clip` | Default profile | Single operation | Trim a clip's in or out point |
+| `trim_clip` | Default profile | `keyframe_policy`: `reject`, `preserve` | Trim exactly one source in/out point and verify the corresponding visible timeline edge. Refuses retimed clips and, by default, trims that would leave effect keyframes outside the visible clip. |
 | `undo` | Default profile | Single operation | Undo the last action in Premiere Pro |
 | `unlink_selection` | Default profile | Single operation | Unlink the currently selected video and audio clips in the active sequence |
 | `unnest_sequence` | Default profile | Single operation | Unnest a nested sequence on the timeline, replacing it with the contents of the nested sequence |
