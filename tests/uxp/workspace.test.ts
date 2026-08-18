@@ -1,4 +1,6 @@
 import { createRequire } from "node:module";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { describe, expect, it, vi } from "vitest";
 
 const require = createRequire(import.meta.url);
@@ -30,6 +32,12 @@ function storageFixture() {
 }
 
 describe("least-privilege UXP workspace broker", () => {
+  it("uses Adobe's compatible manifest permission while retaining a loopback runtime boundary", () => {
+    const manifest = JSON.parse(readFileSync(join(process.cwd(), "uxp-plugin", "manifest.json"), "utf8"));
+    expect(manifest.requiredPermissions.network.domains).toBe("all");
+    expect(Workspace.validateLoopbackBridgeUrl("ws://127.0.0.1:7777/uxp").hostname).toBe("127.0.0.1");
+    expect(() => Workspace.validateLoopbackBridgeUrl("ws://example.com:7777/uxp")).toThrow("Bridge URL must");
+  });
   it("normalizes absolute paths without allowing root traversal", () => {
     expect(Workspace.parseAbsolutePath("D:\\Projects\\Film\\media\\..\\clip.mov", "path")).toMatchObject({
       normalized: "D:/Projects/Film/clip.mov",

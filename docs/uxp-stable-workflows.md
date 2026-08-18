@@ -97,7 +97,9 @@ how Premiere resolves symlinks and Windows reparse points. Operators should not 
 links to unrelated data inside an approved workspace.
 
 The panel's bridge URL is separately restricted to `ws://127.0.0.1:<port>/uxp` or
-`ws://localhost:<port>/uxp`, matching the manifest's loopback-only network policy.
+`ws://localhost:<port>/uxp`. The manifest uses Adobe's compatible `domains: "all"` declaration
+because Premiere 26.3 rejects the narrower WebSocket list; the panel's runtime validator is the
+loopback-only authority and rejects remote hosts, credentials, fragments, and non-`/uxp` paths.
 
 ## Public action contracts
 
