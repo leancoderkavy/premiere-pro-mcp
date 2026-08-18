@@ -8,12 +8,14 @@ import { sendCommand } from "../../src/bridge/file-bridge.js";
 import { getTimelineTools } from "../../src/tools/timeline.js";
 import { getTrackTargetingTools } from "../../src/tools/track-targeting.js";
 import { getAdvancedTools } from "../../src/tools/advanced.js";
+import { getTrackTools } from "../../src/tools/tracks.js";
 
 const mockedSendCommand = vi.mocked(sendCommand);
 const bridgeOptions = { tempDir: "/tmp/test", timeoutMs: 1000 };
 const timeline = getTimelineTools(bridgeOptions);
 const trackTargeting = getTrackTargetingTools(bridgeOptions);
 const advanced = getAdvancedTools(bridgeOptions);
+const tracks = getTrackTools(bridgeOptions);
 
 beforeEach(() => vi.clearAllMocks());
 
@@ -205,5 +207,92 @@ describe("move_clip_to_track verification", () => {
     expect(script).toContain("catch (moveErr)");
     expect(script).toContain("The clip was left untouched");
     expect(script).toContain("overwriteClip");
+  });
+});
+
+describe("track creation verification", () => {
+  it("rejects invalid add_track requests locally instead of generating unsafe host code", async () => {
+    const result = await tracks.add_track.handler({ track_type: "audio", count: 0 });
+
+    expect(result.success).toBe(false);
+    expect(result.error).toContain("positive integer");
+    expect(mockedSendCommand).not.toHaveBeenCalled();
+  });
+
+  it("uses a bounded QE fallback only after a public add_track failure with no mutation", async () => {
+    await tracks.add_track.handler({ track_type: "audio", count: 2 });
+    const script = mockedSendCommand.mock.calls[0][0];
+
+    expect(script).toContain('typeof seq.insertAudioTrackAt !== "function"');
+    expect(script).toContain("afterPublic !== expected && afterPublic !== before");
+    expect(script).toContain("qeSeq.addTracks(0, 2, 0, 0)");
+    expect(script).toContain("if (after !== expected)");
+    expect(script).toContain("verified: true");
+  });
+
+  it("does not report QE add_tracks success until exact video and audio count readback", async () => {
+    await advanced.add_tracks.handler({
+      video_tracks: 1,
+      audio_tracks: 2,
+      audio_mono_tracks: 1,
+      audio_51_tracks: 1,
+    });
+    const script = mockedSendCommand.mock.calls[0][0];
+
+    expect(script).toContain("var beforeVideo = seq.videoTracks.numTracks");
+    expect(script).toContain("var expectedAudio = beforeAudio + 4");
+    expect(script).toContain("typeof qeSeq.addTracks !== \"function\"");
+    expect(script).toContain("afterVideo !== expectedVideo || afterAudio !== expectedAudio");
+    expect(script).toContain("verified: true");
+  });
+
+  it("rejects an empty add_tracks request locally rather than returning a successful no-op", async () => {
+    const result = await advanced.add_tracks.handler({});
+
+    expect(result.success).toBe(false);
+    expect(result.error).toContain("at least one");
+    expect(mockedSendCommand).not.toHaveBeenCalled();
+  });
+});
+
+describe("overwrite_clip verification", () => {
+  it("rejects invalid indices locally before they can be interpolated into ExtendScript", async () => {
+    const result = await advanced.overwrite_clip.handler({
+      item_id: "source-1",
+      audio_track_index: -1,
+    });
+
+    expect(result.success).toBe(false);
+    expect(result.error).toContain("audio_track_index");
+    expect(mockedSendCommand).not.toHaveBeenCalled();
+  });
+
+  it("checks both target tracks and host capability before calling overwriteClip", async () => {
+    await advanced.overwrite_clip.handler({
+      item_id: "source-1",
+      track_index: 1,
+      audio_track_index: 2,
+      start_seconds: 5,
+    });
+    const script = mockedSendCommand.mock.calls[0][0];
+    const videoCheck = script.indexOf("Video track index 1 is out of range");
+    const audioCheck = script.indexOf("Audio track index 2 is out of range");
+    const call = script.indexOf("seq.overwriteClip(item");
+
+    expect(videoCheck).toBeGreaterThan(-1);
+    expect(audioCheck).toBeGreaterThan(-1);
+    expect(call).toBeGreaterThan(audioCheck);
+    expect(script).toContain('typeof seq.overwriteClip !== "function"');
+  });
+
+  it("proves the requested source landed on a target track and errors on no new placement", async () => {
+    await advanced.overwrite_clip.handler({ item_id: "source-1", start_seconds: 5 });
+    const script = mockedSendCommand.mock.calls[0][0];
+
+    expect(script).toContain("clip.projectItem ? String(clip.projectItem.nodeId)");
+    expect(script).toContain("Math.abs(actualStartTicks - wantedStartTicks) <= frameTicks");
+    expect(script).toContain("if (!videoPlaced && !audioPlaced)");
+    expect(script).toContain("produced no verifiable new placement");
+    expect(script).toContain("verified: true");
   });
 });

@@ -43,8 +43,8 @@ operation” when the tool has no enum-based mode.
 | `add_text_overlay` | Default profile | `caption_format`: `608`, `708`, `subtitle`, `teletext` | Add a subtitle-style text overlay to the active sequence. Note: Premiere's ExtendScript API does not expose Essential-Graphics title creation, so this routes through the Captions/Subtitle API. Text appears on a caption track at the platform-default subtitle position. For freeform titles, render a PNG and import_media it instead. |
 | `add_to_render_queue` | Default profile | Single operation | Add the active sequence to the Adobe Media Encoder render queue |
 | `add_to_timeline` | Default profile | Single operation | Add a project item (clip) to the timeline at a specific position |
-| `add_track` | Default profile | `track_type`: `video`, `audio` | Add a new video or audio track to the active sequence |
-| `add_tracks` | Default profile | Single operation | Add video and/or audio tracks to the active sequence. Uses QE DOM. |
+| `add_track` | Default profile | `track_type`: `video`, `audio` | Add verified video or audio tracks to the active sequence. Returns an error if Premiere cannot add the exact requested count. |
+| `add_tracks` | Default profile | Single operation | Add video and/or audio tracks through QE and verify the active sequence gained the exact requested counts |
 | `add_transition` | Default profile | Single operation | Add a video transition between two clips at a cut point. Uses QE DOM. |
 | `add_transition_to_clip` | Default profile | `position`: `start`, `end`, `both` | Add a transition to a specific clip's start or end |
 | `adjust_audio_levels` | Default profile | Single operation | Adjust a clip's Volume > Level in dB. Does not read or change Essential Sound Amplify automation. |
@@ -210,7 +210,7 @@ operation” when the tool has no enum-based mode.
 | `nest_clips` | Default profile | Single operation | Nest selected clips into a nested sequence. Select the clips first, then call this tool. |
 | `open_in_source` | Default profile | Single operation | Open a project item in the Source Monitor for preview and trimming. |
 | `open_project` | Default profile | Single operation | Open a Premiere Pro project file |
-| `overwrite_clip` | Default profile | Single operation | Overwrite a project item onto the timeline (replaces existing clips at the insertion point) |
+| `overwrite_clip` | Default profile | Single operation | Overwrite a project item onto validated timeline tracks and verify a new source placement at the requested time |
 | `overwrite_from_source` | Default profile | Single operation | Overwrite the clip from the Source Monitor at the playhead position (overwrite edit — replaces existing clips). |
 | `ping` | Default profile | Single operation | Health check — verify the CEP plugin is running and connected to Premiere Pro. Call this before other tools to confirm connectivity. |
 | `play_source_monitor` | Default profile | Single operation | Start playback of the clip in the Source Monitor |

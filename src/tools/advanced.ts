@@ -597,7 +597,7 @@ export function getAdvancedTools(bridgeOptions: BridgeOptions) {
 
     overwrite_clip: {
       description:
-        "Overwrite a project item onto the timeline (replaces existing clips at the insertion point)",
+        "Overwrite a project item onto validated timeline tracks and verify a new source placement at the requested time",
       parameters: {
         type: "object" as const,
         properties: {
@@ -629,22 +629,81 @@ export function getAdvancedTools(bridgeOptions: BridgeOptions) {
         const startSeconds = args.start_seconds ?? 0;
         const trackIndex = args.track_index ?? 0;
         const audioTrackIndex = args.audio_track_index ?? 0;
+        if (!Number.isFinite(startSeconds) || startSeconds < 0) {
+          return { success: false, error: "start_seconds must be a non-negative finite number" };
+        }
+        if (!Number.isSafeInteger(trackIndex) || trackIndex < 0) {
+          return { success: false, error: "track_index must be a non-negative integer" };
+        }
+        if (!Number.isSafeInteger(audioTrackIndex) || audioTrackIndex < 0) {
+          return { success: false, error: "audio_track_index must be a non-negative integer" };
+        }
 
         const script = buildToolScript(`
           var seq = app.project.activeSequence;
           if (!seq) return __error("No active sequence");
-          
+
+          if (${trackIndex} >= seq.videoTracks.numTracks) {
+            return __error("Video track index ${trackIndex} is out of range: the sequence has " + seq.videoTracks.numTracks + " video track(s).");
+          }
+          if (${audioTrackIndex} >= seq.audioTracks.numTracks) {
+            return __error("Audio track index ${audioTrackIndex} is out of range: the sequence has " + seq.audioTracks.numTracks + " audio track(s).");
+          }
+          if (typeof seq.overwriteClip !== "function") {
+            return __error("Sequence.overwriteClip is unavailable on this Premiere build.");
+          }
+
           var item = __findProjectItem("${escapeForExtendScript(args.item_id)}");
           if (!item) return __error("Project item not found: ${escapeForExtendScript(args.item_id)}");
-          
+
           var startTicks = __secondsToTicks(${startSeconds}).toString();
-          seq.overwriteClip(item, startTicks, ${trackIndex}, ${audioTrackIndex});
-          
+          var wantedItemId = String(item.nodeId);
+          var wantedStartTicks = parseFloat(startTicks);
+          var frameTicks = seq.timebase ? parseFloat(seq.timebase) : NaN;
+          if (!frameTicks || isNaN(frameTicks)) frameTicks = TICKS_PER_SECOND / 24;
+
+          function __isPlacedOn(track) {
+            for (var clipIndex = 0; clipIndex < track.clips.numItems; clipIndex++) {
+              var clip = track.clips[clipIndex];
+              var sourceId = "";
+              try { sourceId = clip.projectItem ? String(clip.projectItem.nodeId) : ""; } catch (sourceError) {}
+              if (sourceId !== wantedItemId) continue;
+              var actualStartTicks = NaN;
+              try { actualStartTicks = parseFloat(clip.start.ticks); } catch (startError) {}
+              if (!isNaN(actualStartTicks) && Math.abs(actualStartTicks - wantedStartTicks) <= frameTicks) return true;
+            }
+            return false;
+          }
+
+          var videoWasPlaced = __isPlacedOn(seq.videoTracks[${trackIndex}]);
+          var audioWasPlaced = __isPlacedOn(seq.audioTracks[${audioTrackIndex}]);
+          try {
+            seq.overwriteClip(item, startTicks, ${trackIndex}, ${audioTrackIndex});
+          } catch (overwriteError) {
+            return __error("Sequence.overwriteClip failed: " + overwriteError.toString());
+          }
+
+          // The call can return without adding anything on Premiere 26.x. Read
+          // the target tracks back by source node ID and frame-snapped position
+          // instead of trusting the method's return value or a clip-count delta.
+          var videoPlaced = __isPlacedOn(seq.videoTracks[${trackIndex}]);
+          var audioPlaced = __isPlacedOn(seq.audioTracks[${audioTrackIndex}]);
+          if (!videoPlaced && !audioPlaced) {
+            return __error("overwrite_clip did not place project item " + item.name + " on either requested track at ${startSeconds}s. Premiere reported no verifiable timeline change.");
+          }
+          if ((videoPlaced && videoWasPlaced) && (audioPlaced && audioWasPlaced)) {
+            return __error("overwrite_clip produced no verifiable new placement: project item " + item.name + " was already present at ${startSeconds}s on the requested track(s).");
+          }
+
           return __result({
             overwritten: true,
+            verified: true,
             item: item.name,
             trackIndex: ${trackIndex},
-            startSeconds: ${startSeconds}
+            audioTrackIndex: ${audioTrackIndex},
+            startSeconds: ${startSeconds},
+            placedOnVideoTrack: videoPlaced,
+            placedOnAudioTrack: audioPlaced
           });
         `);
         return sendCommand(script, bridgeOptions);
@@ -831,7 +890,7 @@ export function getAdvancedTools(bridgeOptions: BridgeOptions) {
 
     add_tracks: {
       description:
-        "Add video and/or audio tracks to the active sequence. Uses QE DOM.",
+        "Add video and/or audio tracks through QE and verify the active sequence gained the exact requested counts",
       parameters: {
         type: "object" as const,
         properties: {
@@ -864,19 +923,59 @@ export function getAdvancedTools(bridgeOptions: BridgeOptions) {
         const a = args.audio_tracks ?? 0;
         const aMono = args.audio_mono_tracks ?? 0;
         const a51 = args.audio_51_tracks ?? 0;
+        const requested = [
+          ["video_tracks", v],
+          ["audio_tracks", a],
+          ["audio_mono_tracks", aMono],
+          ["audio_51_tracks", a51],
+        ] as const;
+        for (const [name, value] of requested) {
+          if (!Number.isSafeInteger(value) || value < 0) {
+            return { success: false, error: `${name} must be a non-negative integer` };
+          }
+        }
+        if (v + a + aMono + a51 === 0) {
+          return { success: false, error: "Request at least one video or audio track" };
+        }
 
         const script = buildToolScript(`
+          var seq = app.project.activeSequence;
+          if (!seq) return __error("No active sequence");
+          var beforeVideo = seq.videoTracks.numTracks;
+          var beforeAudio = seq.audioTracks.numTracks;
+          var expectedVideo = beforeVideo + ${v};
+          var expectedAudio = beforeAudio + ${a + aMono + a51};
+
+          if (typeof app.enableQE !== "function") return __error("QE is unavailable on this Premiere build; cannot add tracks.");
           app.enableQE();
+          if (typeof qe === "undefined" || !qe.project || typeof qe.project.getActiveSequence !== "function") {
+            return __error("QE active-sequence access is unavailable on this Premiere build; cannot add tracks.");
+          }
           var qeSeq = qe.project.getActiveSequence();
           if (!qeSeq) return __error("No active sequence (QE)");
-          
-          qeSeq.addTracks(${v}, ${a}, ${aMono}, ${a51});
+          if (typeof qeSeq.addTracks !== "function") return __error("QE addTracks is unavailable on this Premiere build.");
+
+          try {
+            qeSeq.addTracks(${v}, ${a}, ${aMono}, ${a51});
+          } catch (addTracksError) {
+            return __error("QE addTracks failed: " + addTracksError.toString());
+          }
+
+          var afterVideo = seq.videoTracks.numTracks;
+          var afterAudio = seq.audioTracks.numTracks;
+          if (afterVideo !== expectedVideo || afterAudio !== expectedAudio) {
+            return __error("QE addTracks did not add the requested tracks: video " + beforeVideo + " -> " + afterVideo + " (expected " + expectedVideo + "), audio " + beforeAudio + " -> " + afterAudio + " (expected " + expectedAudio + ").");
+          }
+
           return __result({
             added: true,
+            verified: true,
             videoTracks: ${v},
             audioTracks: ${a},
             audioMonoTracks: ${aMono},
-            audio51Tracks: ${a51}
+            audio51Tracks: ${a51},
+            totalVideoTracks: afterVideo,
+            totalAudioTracks: afterAudio
           });
         `);
         return sendCommand(script, bridgeOptions);

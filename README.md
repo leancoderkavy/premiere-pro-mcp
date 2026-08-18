@@ -542,6 +542,14 @@ the tables below are a shorter workflow-oriented overview.
 > `qeTrack.addTransition`; overlay clips remain a workaround for transitions that do not need
 > to blend adjacent source frames. See [issue #21](https://github.com/leancoderkavy/premiere-pro-mcp/issues/21).
 
+> **Verified track edits:** `add_track` and `add_tracks` validate requested counts and
+> return success only when the active sequence's track counts exactly match the request.
+> `overwrite_clip` validates both selected track indices and confirms the requested source
+> item appears at the requested frame on a target track. On a Premiere 26.x build that
+> ignores any of these calls, the MCP response is an error with the observed state rather
+> than a false success. These are automated CEP contracts, not proof of a particular
+> licensed host configuration.
+
 ### Effects & Color (8)
 
 | Tool | Description |

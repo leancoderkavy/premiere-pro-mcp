@@ -16,6 +16,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Added a context-aware rough-cut prompt and `config://premiere-project-context`
   resource documenting privacy, invalidation, retrieval, and preview requirements.
 
+### Fixed
+
+- `add_track` and QE-backed `add_tracks` now validate their inputs and return success
+  only after the active sequence reports the exact requested track-count increase. The
+  single-track call uses a bounded QE fallback only when the public DOM call made no
+  change, and never retries a partially applied call.
+- `overwrite_clip` now rejects invalid video and audio track indices before invoking
+  Premiere and confirms the requested source item appears at the requested frame. A
+  no-op or an unverifiable repeat placement returns an error instead of false success.
+
 ### Security
 
 - Native media paths are hashed before persistence, credential-like enrichment
