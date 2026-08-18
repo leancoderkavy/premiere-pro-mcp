@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import type { UxpWebSocketBridge } from "../../src/bridge/uxp-websocket-bridge.js";
 import {
   normalizeTranscriptDeletionRanges,
+  planTranscriptRoughCut,
   previewTranscriptEdit,
   transcriptRevision,
 } from "../../src/tools/transcript-edits.js";
@@ -43,6 +44,70 @@ describe("transcript edit planning", () => {
     expect(first).toMatchObject({ deletedSeconds: 2.5, applied: false });
     expect(first.confirmationToken).toBe(second.confirmationToken);
     expect(() => previewTranscriptEdit(json, transcriptRevision("different"), [{ start_seconds: 1, end_seconds: 2 }])).toThrow("does not match");
+  });
+
+  it("maps transcript deletions to descending verified 1x timeline cut instructions", () => {
+    const json = '{"segments":[]}';
+    const preview = previewTranscriptEdit(json, transcriptRevision(json), [
+      { start_seconds: 2, end_seconds: 4 },
+      { start_seconds: 8, end_seconds: 12 },
+    ]);
+    const plan = planTranscriptRoughCut(preview, [{
+      placement_id: "clip-1",
+      track_type: "video",
+      track_index: 0,
+      source_in_seconds: 0,
+      source_out_seconds: 10,
+      timeline_start_seconds: 20,
+      timeline_end_seconds: 30,
+    }]);
+    expect(plan).toMatchObject({
+      applied: false,
+      requiresDuplicateSequence: true,
+      requiresPostMutationRequery: true,
+      ripple: true,
+      unmappedDeletionRanges: [],
+    });
+    expect(plan.steps.map((step) => step.timeline_range)).toEqual([
+      { start_seconds: 28, end_seconds: 30 },
+      { start_seconds: 22, end_seconds: 24 },
+    ]);
+  });
+
+  it("rejects retimed placements instead of guessing source-to-timeline mapping", () => {
+    const json = '{"segments":[]}';
+    const preview = previewTranscriptEdit(json, transcriptRevision(json), [{ start_seconds: 1, end_seconds: 2 }]);
+    expect(() => planTranscriptRoughCut(preview, [{
+      placement_id: "retimed",
+      track_type: "video",
+      track_index: 0,
+      source_in_seconds: 0,
+      source_out_seconds: 10,
+      timeline_start_seconds: 0,
+      timeline_end_seconds: 5,
+    }])).toThrow("retimed");
+  });
+
+  it("fails closed for malformed placements and reports unmapped non-ripple ranges", () => {
+    const json = '{"segments":[]}';
+    const preview = previewTranscriptEdit(json, transcriptRevision(json), [{ start_seconds: 20, end_seconds: 21 }]);
+    const valid = {
+      placement_id: "clip-1", track_type: "audio", track_index: 0,
+      source_in_seconds: 0, source_out_seconds: 10,
+      timeline_start_seconds: 0, timeline_end_seconds: 10,
+    } as const;
+
+    expect(() => planTranscriptRoughCut(preview, [])).toThrow("at least one");
+    expect(() => planTranscriptRoughCut(preview, Array(257).fill(valid))).toThrow("limited to 256");
+    expect(() => planTranscriptRoughCut(preview, [null])).toThrow("must be an object");
+    expect(() => planTranscriptRoughCut(preview, [{ ...valid, placement_id: "" }])).toThrow("1-512");
+    expect(() => planTranscriptRoughCut(preview, [{ ...valid, track_type: "caption" }])).toThrow("video or audio");
+    expect(() => planTranscriptRoughCut(preview, [{ ...valid, track_index: -1 }])).toThrow("non-negative integer");
+    expect(() => planTranscriptRoughCut(preview, [{ ...valid, source_out_seconds: Number.NaN }])).toThrow("finite number");
+    expect(() => planTranscriptRoughCut(preview, [{ ...valid, source_out_seconds: 0 }])).toThrow("increasing");
+
+    const plan = planTranscriptRoughCut(preview, [valid], false);
+    expect(plan).toMatchObject({ ripple: false, steps: [], unmappedDeletionRanges: preview.deletionRanges });
   });
 });
 
@@ -89,6 +154,32 @@ describe("transcript UXP MCP tools", () => {
     expect(result).toMatchObject({
       success: true,
       data: { result: { projectItemId: "clip-1", deletedSeconds: 2, applied: false } },
+    });
+  });
+
+  it("builds a transcript rough-cut plan without mutating Premiere", async () => {
+    const json = '{"segments":[{"text":"cut this"}]}';
+    const request = vi.fn().mockResolvedValue({ projectItemId: "clip-1", projectItemName: "Interview", json });
+    const bridge = { request, getState: vi.fn() } as unknown as UxpWebSocketBridge;
+    const result = await getUxpTools(bridge).plan_transcript_rough_cut_uxp.handler({
+      project_item_id: "clip-1",
+      transcript_revision: transcriptRevision(json),
+      deletions: [{ start_seconds: 2, end_seconds: 4 }],
+      placements: [{
+        placement_id: "timeline-clip-1",
+        track_type: "video",
+        track_index: 0,
+        source_in_seconds: 0,
+        source_out_seconds: 10,
+        timeline_start_seconds: 20,
+        timeline_end_seconds: 30,
+      }],
+    });
+    expect(request).toHaveBeenCalledTimes(1);
+    expect(request).toHaveBeenCalledWith("transcript.export", { projectItemId: "clip-1" });
+    expect(result).toMatchObject({
+      success: true,
+      data: { result: { applied: false, requiresDuplicateSequence: true, steps: [{ timeline_range: { start_seconds: 22, end_seconds: 24 } }] } },
     });
   });
 });

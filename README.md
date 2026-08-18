@@ -6,7 +6,7 @@
 
 **Give compatible AI assistants structured control over supported Adobe Premiere Pro workflows.**
 
-285 core tools across 32 modules, 4 resources, and 5 guided workflows. A connected UXP host adds 48 capability-gated tools.
+285 core tools across 32 modules, 4 resources, and 6 guided workflows. A connected UXP host adds 49 capability-gated tools.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Node.js](https://img.shields.io/badge/Node.js-20.19%2B-green.svg)](https://nodejs.org)
@@ -29,9 +29,9 @@ An [MCP (Model Context Protocol)](https://modelcontextprotocol.io) server that l
 "Add the B-roll clips to V2, apply a cross dissolve between each, color correct them to match the A-roll, and export a 1080p ProRes."
 ```
 
-The AI handles the entire workflow through 285 core tools spanning the supported ExtendScript, QE DOM, local media analysis, revisioned project-context retrieval, safe edit-planning, and connection-verification surfaces. A compatible, authenticated UXP panel adds 48 documented, capability-gated tools without replacing the production CEP bridge.
+The AI handles the entire workflow through 285 core tools spanning the supported ExtendScript, QE DOM, local media analysis, revisioned project-context retrieval, safe edit-planning, and connection-verification surfaces. A compatible, authenticated UXP panel adds 49 documented, capability-gated tools without replacing the production CEP bridge.
 
-### Latest release: 1.11.2
+### Latest release: 1.11.3
 
 - **Honest timeline mutations:** trim, split, track creation, and overwrite placement now verify
   observable postconditions instead of trusting Premiere 26.x calls that can silently no-op.
@@ -42,7 +42,7 @@ The AI handles the entire workflow through 285 core tools spanning the supported
 - **Truthful compatibility:** the fixes have automated CEP/QE contract coverage; confirmation in
   a licensed Premiere Pro 26.x host remains a separate validation boundary.
 
-See the [v1.11.2 release notes](https://github.com/leancoderkavy/premiere-pro-mcp/releases/tag/v1.11.2)
+See the [v1.11.3 release notes](https://github.com/leancoderkavy/premiere-pro-mcp/releases/tag/v1.11.3)
 for complete details. Live installation in Premiere Pro still requires host verification.
 
 ---
@@ -51,9 +51,9 @@ for complete details. Live installation in Premiere Pro still requires host veri
 
 ### Easiest supported path: Claude Desktop
 
-1. Download the current [Claude Desktop bundle (`.mcpb`)](https://github.com/leancoderkavy/premiere-pro-mcp/releases/download/v1.11.2/premiere-pro-mcp-1.11.2.mcpb).
+1. Download the current [Claude Desktop bundle (`.mcpb`)](https://github.com/leancoderkavy/premiere-pro-mcp/releases/download/v1.11.3/premiere-pro-mcp-1.11.3.mcpb).
 2. In Claude Desktop, open **Settings > Extensions > Advanced settings > Install Extension**, select the downloaded bundle, and restart Claude Desktop.
-3. Download the separate [signed Premiere connector (`.zxp`)](https://github.com/leancoderkavy/premiere-pro-mcp/releases/download/v1.11.2/MCPBridgeCEP.zxp). Open it with your trusted ZXP installer. If your computer has no ZXP installer, use the npm connector installer in **Advanced setup** below.
+3. Download the separate [signed Premiere connector (`.zxp`)](https://github.com/leancoderkavy/premiere-pro-mcp/releases/download/v1.11.3/MCPBridgeCEP.zxp). Open it with your trusted ZXP installer. If your computer has no ZXP installer, use the npm connector installer in **Advanced setup** below.
 4. Restart Premiere, open a project, then open **Window > Extensions > MCP Bridge**.
 5. In Claude, enter: `Safely check my Premiere connection with verify_premiere_connection. Make no changes.`
 
@@ -277,11 +277,11 @@ From a clone of this repository:
 ```bash
 codex plugin marketplace add .
 codex plugin add premiere-pro@premiere-pro-mcp
-npx -y premiere-pro-mcp@1.11.2 --install-cep
+npx -y premiere-pro-mcp@1.11.3 --install-cep
 ```
 
 Restart Premiere Pro and start a new Codex session after installation. The plugin
-launches `premiere-pro-mcp@1.11.2` through `npx`; the separate CEP installation is
+launches `premiere-pro-mcp@1.11.3` through `npx`; the separate CEP installation is
 required because the MCP server communicates with the running Premiere host through
 the local bridge.
 
@@ -301,7 +301,7 @@ For Claude Code, add this repository as a marketplace and install the plugin:
 Then install the Premiere bridge and start a new Claude Code session:
 
 ```bash
-npx -y premiere-pro-mcp@1.11.2 --install-cep
+npx -y premiere-pro-mcp@1.11.3 --install-cep
 ```
 
 The Claude Code package lives in
@@ -375,6 +375,11 @@ capability negotiation.
 - Frame.io needs a separately authenticated Frame.io API integration; an account
   entitlement alone does not make it callable through Premiere's DOM.
 - Transcript JSON import/export is documented in UXP. Starting Speech-to-Text is not.
+- `preview_transcript_edit_uxp` and `plan_transcript_rough_cut_uxp` provide a
+  revision-locked transcript-edit workflow. The planner maps selected transcript
+  ranges to verified 1x placements in a duplicate sequence and emits descending
+  split/remove instructions; it does not claim that Adobe exposes native transcript
+  text deletion or perform an unverified destructive edit.
 - The remaining AI operations are user-assisted or unsupported by documented
   public APIs. The tool explains what can be inspected after a user completes
   the operation and where artifact provenance cannot be established safely.
@@ -483,11 +488,11 @@ The file-based IPC bridge is simple, reliable, and works across macOS and Window
 
 ---
 
-## Tools (285 core total; 283 under the default profile; 331 with a connected UXP bridge)
+## Tools (285 core total; 283 under the default profile; 332 with a connected UXP bridge)
 
 The [complete supported-actions catalog](docs/supported-actions.md) lists every
 registered core tool, the two tools restricted behind explicit `unsafe-script`
-authority, and all 48 authenticated UXP additions with their current action or mode
+authority, and all 49 authenticated UXP additions with their current action or mode
 values. It is generated from the same MCP registration surface returned to clients;
 the tables below are a shorter workflow-oriented overview.
 
