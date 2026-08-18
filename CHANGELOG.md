@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [1.11.3] - 2026-08-18
+
 ### Added
 
 - Added a revision-locked `plan_transcript_rough_cut_uxp` workflow that maps native transcript
