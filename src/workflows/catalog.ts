@@ -31,6 +31,12 @@ export const WORKFLOW_CATALOG = [
     summary: "Capture reusable project context, retrieve only evidence relevant to the edit intent, create a revision-guarded plan, then preview before applying.",
     recommendedTools: ["manage_project_context", "search_project_context", "create_context_edit_plan", "preview_edit_plan", "apply_edit_plan"],
   },
+  {
+    id: "transcript-rough-cut",
+    title: "Plan a transcript-driven rough cut",
+    summary: "Export Premiere's native transcript, select revision-locked source ranges, map them to verified 1x placements in a duplicate sequence, then execute the descending cut plan with re-query verification.",
+    recommendedTools: ["get_clip_transcript_uxp", "search_clip_transcript_uxp", "preview_transcript_edit_uxp", "plan_transcript_rough_cut_uxp", "manage_sequences_uxp", "split_clip", "get_sequence_structure"],
+  },
 ] as const;
 
 export const WORKFLOW_RESOURCE = JSON.stringify(

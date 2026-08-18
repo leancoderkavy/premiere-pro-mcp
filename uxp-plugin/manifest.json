@@ -2,7 +2,7 @@
   "manifestVersion": 5,
   "id": "com.ppmcp.premiere.uxp",
   "name": "Premiere Pro MCP Bridge",
-  "version": "1.11.2",
+  "version": "1.11.3",
   "main": "index.html",
   "host": { "app": "premierepro", "minVersion": "25.6.0" },
   "entrypoints": [
@@ -17,6 +17,6 @@
   ],
   "requiredPermissions": {
     "localFileSystem": "request",
-    "network": { "domains": ["http://127.0.0.1", "ws://127.0.0.1", "http://localhost", "ws://localhost"] }
+    "network": { "domains": "all" }
   }
 }
