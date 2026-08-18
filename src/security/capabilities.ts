@@ -60,6 +60,7 @@ const INSPECT_TOOL_NAMES = new Set([
   "get_capabilities",
   "preview_edit_plan",
   "preview_transcript_edit_uxp",
+  "plan_transcript_rough_cut_uxp",
   "create_context_edit_plan",
 ]);
 // detect_silence reads a media file from disk and shells out to ffmpeg. It

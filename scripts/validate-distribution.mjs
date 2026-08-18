@@ -8,12 +8,6 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
 const MCPB_SCHEMA =
   "https://raw.githubusercontent.com/modelcontextprotocol/mcpb/main/schemas/mcpb-manifest-v0.4.schema.json";
-const LOOPBACK_DOMAINS = new Set([
-  "http://127.0.0.1",
-  "http://localhost",
-  "ws://127.0.0.1",
-  "ws://localhost",
-]);
 const SEMVER = /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/;
 const ADOBE_VERSION = /^\d+\.\d+\.\d+$/;
 
@@ -129,10 +123,9 @@ export function validateUxpManifest(manifest, packageJson, { expectedId } = {}) 
     "UXP package must use operator-requested local file access",
   );
   const domains = manifest.requiredPermissions?.network?.domains;
-  assert(Array.isArray(domains) && domains.length > 0, "UXP package must declare its loopback network access");
   assert(
-    domains.every((domain) => LOOPBACK_DOMAINS.has(domain)),
-    "UXP package may only declare the reviewed loopback HTTP/WebSocket domains",
+    domains === "all",
+    "UXP package must use Adobe's compatible network permission; runtime code remains the loopback-only authority",
   );
 }
 
