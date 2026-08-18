@@ -11,8 +11,8 @@ descriptions, action enums, authority visibility, and counts stay aligned with t
 | Registered core actions | 285 | CEP/local server catalog; host and authority checks still apply |
 | Default-profile core actions | 283 | Advertised with `inspect,edit,export,filesystem` |
 | Restricted core actions | 2 | Require explicit `unsafe-script` authority |
-| Authenticated UXP additions | 48 | Advertised only while a compatible authenticated UXP panel is connected |
-| Default profile with UXP | 331 | 283 core plus 48 UXP tools |
+| Authenticated UXP additions | 49 | Advertised only while a compatible authenticated UXP panel is connected |
+| Default profile with UXP | 332 | 283 core plus 49 UXP tools |
 
 ## How to read support
 
@@ -366,6 +366,7 @@ authenticated and the connected host advertises the required command capabilitie
 | `manage_track_state_uxp` | Connected UXP | `inspect`, `set_mute` | Inspect audio, video, and caption track mute state or set one media type serially with stale-state preflight and per-track readback. Adobe exposes this as direct promises, so no undo transaction is claimed. |
 | `manage_workflow_checkpoints_uxp` | Connected UXP | `has`, `get`, `set`, `clear` | Read or transactionally write small, namespaced workflow checkpoints on the active project or a targeted sequence. Persistent values may sync with cloud projects; never store secrets, native paths, transcripts, or media names. |
 | `organize_project_items_uxp` | Connected UXP | `inspect_bin`, `create_bin`, `create_smart_bin`, `rename`, `move`, `set_color`, `remove` | Inspect a bin or transactionally create, rename, move, color-label, and remove project items with stable-ID guards. |
+| `plan_transcript_rough_cut_uxp` | Connected UXP | Single operation | Build a revision-locked, non-mutating rough-cut plan from Premiere's native transcript and verified 1x sequence placements. The plan orders cuts from the end of the timeline, requires a duplicate sequence, and requires re-query after every mutation. |
 | `preflight_production_storage_uxp` | Connected UXP | `preflight`, `configure_project` | Inspect project/Production scratch disks and ingest state, or set supported project scratch categories to Premiere's symbolic destinations in one undoable transaction. |
 | `preview_transcript_edit_uxp` | Connected UXP | Single operation | Validate and merge source-time ranges selected from Premiere's native transcript. Returns a confirmation token and never changes the timeline. Automatic timeline application remains withheld until the source-to-sequence mapping is live-host verified. |
 | `relink_offline_media_uxp` | Connected UXP | Single operation | Relink one offline clip to a workspace-contained media path after stale-path and capability checks. This Premiere API is non-undoable and requires explicit confirmation. |
