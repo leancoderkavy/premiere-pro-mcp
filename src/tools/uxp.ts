@@ -1,5 +1,5 @@
 import type { UxpWebSocketBridge } from "../bridge/uxp-websocket-bridge.js";
-import { previewTranscriptEdit, transcriptRevision } from "./transcript-edits.js";
+import { planTranscriptRoughCut, previewTranscriptEdit, transcriptRevision } from "./transcript-edits.js";
 import { getUxpAdvancedWorkflowTools } from "./uxp-advanced-workflows.js";
 import { getUxpNextWorkflowTools } from "./uxp-next-workflows.js";
 import { getUxpWorkflowTools } from "./uxp-workflows.js";
@@ -171,6 +171,65 @@ export function getUxpTools(bridge: UxpWebSocketBridge) {
             projectItemId: exported.projectItemId,
             projectItemName: exported.projectItemName,
             ...preview,
+          } } };
+        } catch (error) {
+          return { success: false, error: error instanceof Error ? error.message : String(error) };
+        }
+      },
+    },
+    plan_transcript_rough_cut_uxp: {
+      description: "Build a revision-locked, non-mutating rough-cut plan from Premiere's native transcript and verified 1x sequence placements. The plan orders cuts from the end of the timeline, requires a duplicate sequence, and requires re-query after every mutation.",
+      parameters: {
+        type: "object" as const,
+        properties: {
+          project_item_id: { type: "string", maxLength: 512 },
+          project_item_name: { type: "string", maxLength: 255 },
+          transcript_revision: { type: "string", pattern: "^sha256:[a-f0-9]{64}$" },
+          deletions: {
+            type: "array", minItems: 1, maxItems: 100,
+            items: {
+              type: "object", additionalProperties: false,
+              properties: {
+                start_seconds: { type: "number", minimum: 0 },
+                end_seconds: { type: "number", exclusiveMinimum: 0 },
+              },
+              required: ["start_seconds", "end_seconds"],
+            },
+          },
+          placements: {
+            type: "array", minItems: 1, maxItems: 256,
+            description: "Verified 1x placements of this source in the target duplicate sequence.",
+            items: {
+              type: "object", additionalProperties: false,
+              properties: {
+                placement_id: { type: "string", minLength: 1, maxLength: 512 },
+                track_type: { type: "string", enum: ["video", "audio"] },
+                track_index: { type: "integer", minimum: 0 },
+                source_in_seconds: { type: "number", minimum: 0 },
+                source_out_seconds: { type: "number", exclusiveMinimum: 0 },
+                timeline_start_seconds: { type: "number", minimum: 0 },
+                timeline_end_seconds: { type: "number", exclusiveMinimum: 0 },
+              },
+              required: ["placement_id", "track_type", "track_index", "source_in_seconds", "source_out_seconds", "timeline_start_seconds", "timeline_end_seconds"],
+            },
+          },
+          handle_seconds: { type: "number", minimum: 0, maximum: 10 },
+          ripple: { type: "boolean", description: "Whether the resulting instructions should ripple removals; defaults to true." },
+        },
+        required: ["transcript_revision", "deletions", "placements"],
+      },
+      handler: async (args: { project_item_id?: string; project_item_name?: string; transcript_revision: string; deletions: unknown; placements: unknown; handle_seconds?: number; ripple?: boolean }) => {
+        try {
+          const exported = await bridge.request("transcript.export", {
+            ...(args.project_item_id ? { projectItemId: args.project_item_id } : {}),
+            ...(args.project_item_name ? { projectItemName: args.project_item_name } : {}),
+          }) as { json?: unknown; projectItemId?: unknown; projectItemName?: unknown };
+          if (typeof exported?.json !== "string") throw new Error("Premiere returned an empty transcript");
+          const preview = previewTranscriptEdit(exported.json, args.transcript_revision, args.deletions, args.handle_seconds);
+          return { success: true, data: { backend: "uxp", result: {
+            projectItemId: exported.projectItemId,
+            projectItemName: exported.projectItemName,
+            ...planTranscriptRoughCut(preview, args.placements, args.ripple ?? true),
           } } };
         } catch (error) {
           return { success: false, error: error instanceof Error ? error.message : String(error) };

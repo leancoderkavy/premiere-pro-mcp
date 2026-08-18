@@ -101,6 +101,7 @@ describe("UXP MCP tools", () => {
           "get_clip_transcript_uxp",
           "search_clip_transcript_uxp",
           "preview_transcript_edit_uxp",
+          "plan_transcript_rough_cut_uxp",
           "detect_object_masks_uxp",
           "configure_encoder_uxp",
           "rename_track_uxp",
@@ -116,7 +117,7 @@ describe("UXP MCP tools", () => {
       // transcript workflow and documented Premiere 26.3 tools add nineteen,
       // and the two stable workflow expansions add twenty-one consolidated UXP tools;
       // connection verification adds one default-profile core tool.
-      expect(tools.tools).toHaveLength(331);
+      expect(tools.tools).toHaveLength(332);
     } finally {
       await client.close();
       await server.close();

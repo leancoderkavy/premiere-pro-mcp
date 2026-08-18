@@ -25,7 +25,9 @@ The builder uses a fixed ZIP timestamp, lexical file order, and stored entries,
 then reads the generated central directory and checks every entry and CRC. The
 result is reproducible for identical source bytes. It also rejects symlinks,
 requires the UXP v5 Premiere manifest, checks the version against
-`package.json`, and permits only the reviewed loopback network domains.
+`package.json`. Adobe's Premiere 26.3 runtime requires the compatible `domains: "all"`
+manifest form for the WebSocket connection; `workspace.cjs` remains the enforced authority and
+accepts only `ws://127.0.0.1:<port>/uxp` or `ws://localhost:<port>/uxp`.
 
 For an Adobe Creative Cloud Marketplace submission, Adobe Developer
 Distribution must first create the Marketplace plugin ID. Build a separate
