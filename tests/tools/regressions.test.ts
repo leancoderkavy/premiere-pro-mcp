@@ -15,6 +15,7 @@ import { getExportTools } from "../../src/tools/export.js";
 import { getUtilityTools } from "../../src/tools/utility.js";
 import { getTrackTargetingTools } from "../../src/tools/track-targeting.js";
 import { getEffectsTools } from "../../src/tools/effects.js";
+import { getClipboardTools } from "../../src/tools/clipboard.js";
 
 const mockedSendCommand = vi.mocked(sendCommand);
 const bridgeOptions: BridgeOptions = { tempDir: "/tmp/test-bridge", timeoutMs: 5000 };
@@ -217,6 +218,43 @@ describe("script-builder helpers used by the fixes are actually defined", () => 
     ]) {
       expect(script).toContain(helper);
     }
+  });
+});
+
+// https://github.com/leancoderkavy/premiere-pro-mcp/issues/129
+describe("issue #129 — CEP component removal is capability-gated", () => {
+  const effects = getEffectsTools(bridgeOptions);
+  const clipboard = getClipboardTools(bridgeOptions);
+
+  it.each([
+    ["index", { node_id: "clip1", effect_index: 3 }],
+    ["name", { node_id: "clip1", effect_name: "Amplify" }],
+  ])("remove_effect by %s guards an unavailable Component.remove()", async (_mode, args) => {
+    const code = await codeFor(effects.remove_effect, args);
+
+    expect(code).toContain('typeof component.remove !== "function"');
+    expect(code).toContain("No safe targeted QE fallback exists");
+    expect(code).toContain("return __error(removal.error)");
+    expect(code).not.toContain("qeClip.removeEffects()");
+  });
+
+  it("preflights every matching component before remove_effect_by_name mutates any", async () => {
+    const code = await codeFor(clipboard.remove_effect_by_name, {
+      node_id: "clip1",
+      effect_name: "Amplify",
+    });
+
+    expect(code).toContain("var matches = []");
+    expect(code).toContain("if (!canRemoveComponent(component))");
+    expect(code).toContain("No matching components were removed");
+    expect(code).not.toContain("qeClip.removeEffects()");
+    expect(code.indexOf("if (!canRemoveComponent(component))"))
+      .toBeLessThan(code.lastIndexOf("component.remove()"));
+  });
+
+  it("documents the capability boundary in each targeted removal tool", () => {
+    expect(effects.remove_effect.description).toContain("capability error");
+    expect(clipboard.remove_effect_by_name.description).toContain("capability error");
   });
 });
 

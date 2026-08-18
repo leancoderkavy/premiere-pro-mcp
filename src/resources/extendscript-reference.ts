@@ -139,7 +139,7 @@ export const EXTENDSCRIPT_REFERENCE = [
   "comp.displayName               - String",
   "comp.matchName                 - String",
   "comp.properties                - PropertyCollection (.numItems, [i])",
-  "comp.remove()",
+  "comp.remove()                  - Not exposed by every Premiere 26.x CEP component; capability-check before use",
   "",
   "## Property (effect parameters)",
   "prop.displayName               - String",

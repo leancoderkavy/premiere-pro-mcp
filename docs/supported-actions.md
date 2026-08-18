@@ -47,7 +47,7 @@ operation” when the tool has no enum-based mode.
 | `add_tracks` | Default profile | Single operation | Add video and/or audio tracks to the active sequence. Uses QE DOM. |
 | `add_transition` | Default profile | Single operation | Add a video transition between two clips at a cut point. Uses QE DOM. |
 | `add_transition_to_clip` | Default profile | `position`: `start`, `end`, `both` | Add a transition to a specific clip's start or end |
-| `adjust_audio_levels` | Default profile | Single operation | Adjust the audio level (volume) of a clip in dB |
+| `adjust_audio_levels` | Default profile | Single operation | Adjust a clip's Volume > Level in dB. Does not read or change Essential Sound Amplify automation. |
 | `apply_audio_effect` | Default profile | Single operation | Apply an audio effect to a clip |
 | `apply_edit_plan` | Default profile | Single operation | Apply a previously previewed compound edit after revalidating every target. Requires the edit capability and exact preview confirmation token. |
 | `apply_effect` | Default profile | Single operation | Apply a video effect to a clip. Uses QE DOM for effect lookup. |
@@ -121,7 +121,7 @@ operation” when the tool has no enum-based mode.
 | `get_clip_markers` | Default profile | Single operation | Get all markers on a specific project item (source clip markers, not sequence markers). |
 | `get_clip_properties` | Default profile | Single operation | Get detailed properties of a specific clip by its node ID |
 | `get_clip_speed` | Default profile | Single operation | Get the playback speed and reverse state of a clip |
-| `get_clip_volume` | Default profile | Single operation | Read the volume level of an audio clip, returned in dB. Use this to verify a level actually applied - setValue() clamps silently. |
+| `get_clip_volume` | Default profile | Single operation | Read an audio clip's Volume > Level in dB. Use this to verify a level actually applied - setValue() clamps silently. Does not report Essential Sound Amplify automation. |
 | `get_color_label` | Default profile | Single operation | Get the color label of a project item |
 | `get_color_space` | Default profile | Single operation | Get the color space information for a project item |
 | `get_duplicate_media` | Default profile | Single operation | Find project items that reference the same source media file. Useful for consolidation. |
@@ -221,8 +221,8 @@ operation” when the tool has no enum-based mode.
 | `refresh_media` | Default profile | Single operation | Refresh a project item to pick up changes to the source file |
 | `relink_media` | Default profile | Single operation | Relink an offline media item to a new file path |
 | `remove_all_effects` | Default profile | Single operation | Remove ALL effects from a clip. Uses QE DOM. |
-| `remove_effect` | Default profile | Single operation | Remove an effect from a clip by its index or name |
-| `remove_effect_by_name` | Default profile | Single operation | Remove all instances of a specific effect from a clip by display name. |
+| `remove_effect` | Default profile | Single operation | Remove an effect from a clip by its index or name. Returns a capability error when the host cannot remove an individual component. |
+| `remove_effect_by_name` | Default profile | Single operation | Remove all instances of a specific effect from a clip by display name. Returns a capability error when the host cannot remove individual components. |
 | `remove_from_timeline` | Default profile | Single operation | Remove a clip from the timeline |
 | `remove_keyframe` | Default profile | Single operation | Remove a keyframe at a specific time from an effect property |
 | `remove_keyframe_range` | Default profile | Single operation | Remove all keyframes in a time range from an effect property |
@@ -261,7 +261,7 @@ operation” when the tool has no enum-based mode.
 | `set_clip_selection` | Default profile | Single operation | Select or deselect a clip in the active sequence |
 | `set_clip_speed_qe` | Default profile | Single operation | Set clip playback speed using QE DOM (more reliable than ExtendScript). Supports reverse. |
 | `set_clip_start_time` | Default profile | Single operation | Set the start time (timecode offset) of a project item. This shifts where timecode begins for the source media. |
-| `set_clip_volume` | Default profile | Single operation | Set the volume level on an audio clip (in dB). |
+| `set_clip_volume` | Default profile | Single operation | Set an audio clip's Volume > Level in dB. Does not read or change Essential Sound Amplify automation. |
 | `set_clips_volume` | Default profile | Single operation | Set the volume (in dB) on every audio clip of a track, or on a list of clip indices. One round trip instead of one call per clip - essential for sequences with dozens of clips. |
 | `set_color_label` | Default profile | Single operation | Set the color label on a project item or clip |
 | `set_color_value` | Default profile | Single operation | Set a color value on an effect property (e.g., tint color, fill color) |

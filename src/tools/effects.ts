@@ -107,7 +107,7 @@ export function getEffectsTools(bridgeOptions: BridgeOptions) {
     },
 
     remove_effect: {
-      description: "Remove an effect from a clip by its index or name",
+      description: "Remove an effect from a clip by its index or name. Returns a capability error when the host cannot remove an individual component.",
       parameters: {
         type: "object" as const,
         properties: {
@@ -117,6 +117,7 @@ export function getEffectsTools(bridgeOptions: BridgeOptions) {
           },
           effect_index: {
             type: "number",
+            minimum: 0,
             description: "Index of the effect to remove (0-based). Use get_clip_properties to see effects list.",
           },
           effect_name: {
@@ -132,22 +133,46 @@ export function getEffectsTools(bridgeOptions: BridgeOptions) {
           if (!result) return __error("Clip not found");
           
           var clip = result.clip;
+          // Component.remove() is not present on every CEP Component object in
+          // Premiere 26.x (notably Essential Sound's Amplify component). QE only
+          // exposes an all-effects removal, which is not a safe fallback here.
+          function removeComponent(component, effectName) {
+            try {
+              if (!component || typeof component.remove !== "function") {
+                return {
+                  removed: false,
+                  error: "Premiere does not expose Component.remove() for \"" + effectName + "\". The effect was not removed. No safe targeted QE fallback exists; remove it manually in Effect Controls."
+                };
+              }
+              component.remove();
+              return { removed: true };
+            } catch (e) {
+              return {
+                removed: false,
+                error: "Premiere could not remove \"" + effectName + "\": " + e.toString() + ". The effect may still be present; inspect Effect Controls."
+              };
+            }
+          }
+
           ${args.effect_index !== undefined ? `
-          if (${args.effect_index} >= clip.components.numItems) return __error("Effect index out of range");
-          var effectName = clip.components[${args.effect_index}].displayName;
-          clip.components[${args.effect_index}].remove();
+          if (${args.effect_index} < 0 || ${args.effect_index} >= clip.components.numItems) return __error("Effect index out of range");
+          var component = clip.components[${args.effect_index}];
+          var effectName = component.displayName;
+          var removal = removeComponent(component, effectName);
+          if (!removal.removed) return __error(removal.error);
           return __result({ removed: true, effect: effectName });
           ` : `
           var effectName = "${escapeForExtendScript(args.effect_name || "")}";
-          var found = false;
+          var component = null;
           for (var i = clip.components.numItems - 1; i >= 0; i--) {
             if (clip.components[i].displayName === effectName) {
-              clip.components[i].remove();
-              found = true;
+              component = clip.components[i];
               break;
             }
           }
-          if (!found) return __error("Effect not found: " + effectName);
+          if (!component) return __error("Effect not found: " + effectName);
+          var removal = removeComponent(component, effectName);
+          if (!removal.removed) return __error(removal.error);
           return __result({ removed: true, effect: effectName });
           `}
         `);

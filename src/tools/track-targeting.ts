@@ -763,7 +763,7 @@ export function getTrackTargetingTools(bridgeOptions: BridgeOptions) {
     },
 
     set_clip_volume: {
-      description: "Set the volume level on an audio clip (in dB).",
+      description: "Set an audio clip's Volume > Level in dB. Does not read or change Essential Sound Amplify automation.",
       parameters: {
         type: "object" as const,
         properties: {
@@ -809,7 +809,7 @@ export function getTrackTargetingTools(bridgeOptions: BridgeOptions) {
 
     get_clip_volume: {
       description:
-        "Read the volume level of an audio clip, returned in dB. Use this to verify a level actually applied - setValue() clamps silently.",
+        "Read an audio clip's Volume > Level in dB. Use this to verify a level actually applied - setValue() clamps silently. Does not report Essential Sound Amplify automation.",
       parameters: {
         type: "object" as const,
         properties: {

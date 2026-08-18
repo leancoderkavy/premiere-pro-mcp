@@ -109,7 +109,7 @@ export function invertToSegments(
 export function getAudioTools(bridgeOptions: BridgeOptions) {
   return {
     adjust_audio_levels: {
-      description: "Adjust the audio level (volume) of a clip in dB",
+      description: "Adjust a clip's Volume > Level in dB. Does not read or change Essential Sound Amplify automation.",
       parameters: {
         type: "object" as const,
         properties: {

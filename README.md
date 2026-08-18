@@ -552,6 +552,19 @@ the tables below are a shorter workflow-oriented overview.
 | `apply_lut` | Apply LUT files |
 | `stabilize_clip` | Warp Stabilizer with configurable settings |
 
+> **Premiere 26.x component removal:** `remove_effect` and `remove_effect_by_name`
+> require the CEP `Component.remove()` method. Some 26.x components, including
+> Essential Sound's **Amplify**, do not expose that method. The tools return an
+> actionable capability error and leave the component unchanged; use Effect Controls
+> to remove it manually. The QE DOM has no safe targeted-removal fallback.
+
+> **Essential Sound audio automation:** Essential Sound can write ducking or level
+> automation to an **Amplify** component rather than the clip's **Volume > Level**.
+> `adjust_audio_levels`, `set_clip_volume`, and `get_clip_volume` operate only on
+> Volume > Level, so they do not read, change, or verify Amplify automation. Inspect
+> the clip's components (or Effect Controls) before treating a Volume readback as the
+> clip's final gain.
+
 ### Keyframes (8)
 
 | Tool | Description |
