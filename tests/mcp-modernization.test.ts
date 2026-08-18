@@ -19,7 +19,7 @@ describe("modern MCP surface", () => {
   it("exposes a machine-readable workflow resource", () => {
     const resource = JSON.parse(WORKFLOW_RESOURCE);
     expect(resource.version).toBe(1);
-    expect(resource.workflows).toHaveLength(5);
+    expect(resource.workflows).toHaveLength(6);
     expect(resource.workflows[0].recommendedTools).toContain("get_premiere_state");
   });
 
