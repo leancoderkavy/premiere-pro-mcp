@@ -10,6 +10,11 @@ const values: Record<string, unknown> = {
   name: "Coverage Name", query: "coverage", preset_path: "/tmp/preset.sqpreset",
   output_file_path: "/tmp/output.otio", project_item_id: "item-1", track_index: 0,
   start_seconds: 1, end_seconds: 2, transcript_revision: `sha256:${"a".repeat(64)}`,
+  placements: [{
+    placement_id: "coverage-placement", track_type: "video", track_index: 0,
+    source_in_seconds: 0, source_out_seconds: 10,
+    timeline_start_seconds: 20, timeline_end_seconds: 30,
+  }],
 };
 
 function valueFor(schema: Schema, field: string, all: boolean): unknown {
