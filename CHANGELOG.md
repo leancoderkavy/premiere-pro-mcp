@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [1.11.2] - 2026-08-18
+
 ### Added
 
 - Added a durable local project-context engine with active-sequence capture,
@@ -31,12 +33,20 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - `split_clip` now verifies that a clip spans the requested cut and that QE produced each expected
   left/right segment, rather than accepting any increase in track clip count. QE keyframe
   redistribution remains explicitly unverified.
+- `remove_effect` and `remove_effect_by_name` now preflight `Component.remove()` support before
+  mutation. Unsupported Premiere 26.x components such as Essential Sound's Amplify return an
+  actionable capability error without crashing or partially removing matched effects.
 
 ### Security
 
 - Native media paths are hashed before persistence, credential-like enrichment
   metadata is discarded, stale source/timeline enrichments are rejected, and
   context clearing remains an explicit filesystem-authorized action.
+
+### Validation
+
+- Added fail-closed CEP/QE contract coverage for trim, split, track creation, overwrite placement,
+  and component removal. Licensed Premiere Pro 26.x host confirmation remains a separate gate.
 
 ## [1.11.1] - 2026-08-16
 
