@@ -530,7 +530,7 @@ the tables below are a shorter workflow-oriented overview.
 | `roll_edit` / `slide_edit` / `slip_edit` | Professional trim modes (QE) |
 | `move_clip_to_track` | Move between tracks (QE) |
 | `set_clip_speed_qe` / `reverse_clip` | Speed/reverse (QE) |
-| `split_clip` / `trim_clip` / `move_clip` | Basic edits |
+| `split_clip` / `trim_clip` / `move_clip` | Basic edits; trim verifies source points and visible timeline edges |
 | `set_clip_properties` | Opacity, scale, rotation, position |
 | `link_selection` / `unlink_selection` | Link/unlink A/V |
 
@@ -542,6 +542,24 @@ the tables below are a shorter workflow-oriented overview.
 > `qeTrack.addTransition`; overlay clips remain a workaround for transitions that do not need
 > to blend adjacent source frames. See [issue #21](https://github.com/leancoderkavy/premiere-pro-mcp/issues/21).
 
+> **Verified track edits:** `add_track` and `add_tracks` validate requested counts and
+> return success only when the active sequence's track counts exactly match the request.
+> `overwrite_clip` validates both selected track indices and confirms the requested source
+> item appears at the requested frame on a target track. On a Premiere 26.x build that
+> ignores any of these calls, the MCP response is an error with the observed state rather
+> than a false success. These are automated CEP contracts, not proof of a particular
+> licensed host configuration.
+
+ `trim_clip` accepts exactly one source-relative `new_in_seconds` or `new_out_seconds` per
+call. It refuses retimed clips because CEP cannot prove their source-to-timeline mapping, then
+reads both source points and visible timeline start/end/duration before reporting success. The
+default `keyframe_policy: "reject"` stops before a trim that would leave effect keyframes beyond
+the visible clip; `keyframe_policy: "preserve"` is an explicit opt-in and reports the remaining
+count. `split_clip` verifies a spanning clip, the expected count increase, and the left/right
+cut boundaries. Its QE path cannot prove effect-keyframe redistribution, so a successful result
+labels those semantics `unverified`. These are CEP contract checks, not validation in a licensed
+Premiere Pro 26.x host.
+
 ### Effects & Color (8)
 
 | Tool | Description |
@@ -551,6 +569,19 @@ the tables below are a shorter workflow-oriented overview.
 | `color_correct` | Lumetri: exposure, contrast, temperature, etc. |
 | `apply_lut` | Apply LUT files |
 | `stabilize_clip` | Warp Stabilizer with configurable settings |
+
+> **Premiere 26.x component removal:** `remove_effect` and `remove_effect_by_name`
+> require the CEP `Component.remove()` method. Some 26.x components, including
+> Essential Sound's **Amplify**, do not expose that method. The tools return an
+> actionable capability error and leave the component unchanged; use Effect Controls
+> to remove it manually. The QE DOM has no safe targeted-removal fallback.
+
+> **Essential Sound audio automation:** Essential Sound can write ducking or level
+> automation to an **Amplify** component rather than the clip's **Volume > Level**.
+> `adjust_audio_levels`, `set_clip_volume`, and `get_clip_volume` operate only on
+> Volume > Level, so they do not read, change, or verify Amplify automation. Inspect
+> the clip's components (or Effect Controls) before treating a Volume readback as the
+> clip's final gain.
 
 ### Keyframes (8)
 

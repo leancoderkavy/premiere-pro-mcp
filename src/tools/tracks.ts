@@ -1,10 +1,15 @@
 import { buildToolScript, escapeForExtendScript } from "../bridge/script-builder.js";
 import { sendCommand, BridgeOptions } from "../bridge/file-bridge.js";
 
+function isPositiveInteger(value: unknown): value is number {
+  return typeof value === "number" && Number.isSafeInteger(value) && value > 0;
+}
+
 export function getTrackTools(bridgeOptions: BridgeOptions) {
   return {
     add_track: {
-      description: "Add a new video or audio track to the active sequence",
+      description:
+        "Add verified video or audio tracks to the active sequence. Returns an error if Premiere cannot add the exact requested count.",
       parameters: {
         type: "object" as const,
         properties: {
@@ -22,23 +27,75 @@ export function getTrackTools(bridgeOptions: BridgeOptions) {
       },
       handler: async (args: { track_type: string; count?: number }) => {
         const count = args.count ?? 1;
+        if (args.track_type !== "video" && args.track_type !== "audio") {
+          return { success: false, error: "track_type must be either video or audio" };
+        }
+        if (!isPositiveInteger(count)) {
+          return { success: false, error: "count must be a positive integer" };
+        }
+
+        const isVideo = args.track_type === "video";
         const script = buildToolScript(`
           var seq = app.project.activeSequence;
           if (!seq) return __error("No active sequence");
-          
-          var before = ${args.track_type === "video" ? "seq.videoTracks.numTracks" : "seq.audioTracks.numTracks"};
-          
-          ${args.track_type === "video"
-            ? `seq.insertVideoTrackAt(before, ${count});`
-            : `seq.insertAudioTrackAt(before, ${count});`
+
+          var before = ${isVideo ? "seq.videoTracks.numTracks" : "seq.audioTracks.numTracks"};
+          var expected = before + ${count};
+          var method = "public DOM";
+          var publicFailure = "";
+
+          // Premiere 26.x can expose this public Sequence API but reject the
+          // call. Do not report the request as successful until the DOM count
+          // proves it happened. If the public call made no change, QE is a
+          // bounded fallback; a partially applied public call is never retried.
+          try {
+            if (typeof seq.${isVideo ? "insertVideoTrackAt" : "insertAudioTrackAt"} !== "function") {
+              publicFailure = "Sequence.${isVideo ? "insertVideoTrackAt" : "insertAudioTrackAt"} is unavailable";
+            } else {
+              ${isVideo
+                ? `seq.insertVideoTrackAt(before, ${count});`
+                : `seq.insertAudioTrackAt(before, ${count});`}
+            }
+          } catch (publicError) {
+            publicFailure = publicError.toString();
           }
-          
-          var after = ${args.track_type === "video" ? "seq.videoTracks.numTracks" : "seq.audioTracks.numTracks"};
-          
+
+          var afterPublic = ${isVideo ? "seq.videoTracks.numTracks" : "seq.audioTracks.numTracks"};
+          if (afterPublic !== expected && afterPublic !== before) {
+            return __error("Track add partially applied through the public DOM: requested ${count} ${args.track_type} track(s), had " + before + ", now has " + afterPublic + ". It was not retried.");
+          }
+
+          if (afterPublic !== expected) {
+            method = "QE fallback";
+            if (typeof app.enableQE !== "function") {
+              return __error("Could not add ${args.track_type} track(s): " + publicFailure + ". QE fallback is unavailable on this Premiere build.");
+            }
+            app.enableQE();
+            if (typeof qe === "undefined" || !qe.project || typeof qe.project.getActiveSequence !== "function") {
+              return __error("Could not add ${args.track_type} track(s): " + publicFailure + ". QE active-sequence access is unavailable on this Premiere build.");
+            }
+            var qeSeq = qe.project.getActiveSequence();
+            if (!qeSeq || typeof qeSeq.addTracks !== "function") {
+              return __error("Could not add ${args.track_type} track(s): " + publicFailure + ". QE addTracks is unavailable on this Premiere build.");
+            }
+            try {
+              qeSeq.addTracks(${isVideo ? count : 0}, ${isVideo ? 0 : count}, 0, 0);
+            } catch (qeError) {
+              return __error("Could not add ${args.track_type} track(s): public DOM failed (" + publicFailure + ") and QE addTracks failed (" + qeError.toString() + ").");
+            }
+          }
+
+          var after = ${isVideo ? "seq.videoTracks.numTracks" : "seq.audioTracks.numTracks"};
+          if (after !== expected) {
+            return __error("Premiere did not add the requested ${args.track_type} tracks: requested ${count}, had " + before + ", now has " + after + " (" + method + ").");
+          }
+
           return __result({
-            added: after - before,
+            added: ${count},
             trackType: "${args.track_type}",
-            totalTracks: after
+            totalTracks: after,
+            method: method,
+            verified: true
           });
         `);
         return sendCommand(script, bridgeOptions);

@@ -281,7 +281,7 @@ export function getClipboardTools(bridgeOptions: BridgeOptions) {
     },
 
     remove_effect_by_name: {
-      description: "Remove all instances of a specific effect from a clip by display name.",
+      description: "Remove all instances of a specific effect from a clip by display name. Returns a capability error when the host cannot remove individual components.",
       parameters: {
         type: "object" as const,
         properties: {
@@ -302,17 +302,49 @@ export function getClipboardTools(bridgeOptions: BridgeOptions) {
           if (!result) return __error("Clip not found");
 
           var clip = result.clip;
-          var removed = 0;
-          // Iterate backwards to avoid index issues when removing
+          var effectName = "${escapeForExtendScript(args.effect_name)}";
+          var matches = [];
+          // Record matching indices from back to front. This both keeps indexes
+          // stable during removal and lets us preflight every match before any
+          // mutation, so an unsupported Amplify component cannot cause a partial
+          // all-matches removal.
           for (var i = clip.components.numItems - 1; i >= 0; i--) {
-            if (clip.components[i].displayName === "${escapeForExtendScript(args.effect_name)}") {
-              clip.components[i].remove();
-              removed++;
+            if (clip.components[i].displayName === effectName) {
+              matches.push(i);
             }
           }
 
-          if (removed === 0) return __error("Effect not found: ${escapeForExtendScript(args.effect_name)}");
-          return __result({ removed: removed, effect: "${escapeForExtendScript(args.effect_name)}", clip: clip.name });
+          if (matches.length === 0) return __error("Effect not found: " + effectName);
+
+          function canRemoveComponent(component) {
+            try {
+              return !!component && typeof component.remove === "function";
+            } catch (e) {
+              return false;
+            }
+          }
+
+          // QE offers only removeEffects(), which would also remove unrelated
+          // effects. Do not substitute that broad mutation for this targeted tool.
+          for (var j = 0; j < matches.length; j++) {
+            var component = clip.components[matches[j]];
+            if (!canRemoveComponent(component)) {
+              return __error("Premiere does not expose Component.remove() for \"" + effectName + "\". No matching components were removed. No safe targeted QE fallback exists; remove it manually in Effect Controls.");
+            }
+          }
+
+          var removed = 0;
+          for (var j = 0; j < matches.length; j++) {
+            var component = clip.components[matches[j]];
+            try {
+              component.remove();
+              removed++;
+            } catch (e) {
+              return __error("Premiere could not remove \"" + effectName + "\" after removing " + removed + " matching component(s): " + e.toString() + ". Inspect Effect Controls before retrying.");
+            }
+          }
+
+          return __result({ removed: removed, effect: effectName, clip: clip.name });
         `);
         return sendCommand(script, bridgeOptions);
       },
