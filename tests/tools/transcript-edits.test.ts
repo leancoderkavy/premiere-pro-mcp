@@ -87,6 +87,28 @@ describe("transcript edit planning", () => {
       timeline_end_seconds: 5,
     }])).toThrow("retimed");
   });
+
+  it("fails closed for malformed placements and reports unmapped non-ripple ranges", () => {
+    const json = '{"segments":[]}';
+    const preview = previewTranscriptEdit(json, transcriptRevision(json), [{ start_seconds: 20, end_seconds: 21 }]);
+    const valid = {
+      placement_id: "clip-1", track_type: "audio", track_index: 0,
+      source_in_seconds: 0, source_out_seconds: 10,
+      timeline_start_seconds: 0, timeline_end_seconds: 10,
+    } as const;
+
+    expect(() => planTranscriptRoughCut(preview, [])).toThrow("at least one");
+    expect(() => planTranscriptRoughCut(preview, Array(257).fill(valid))).toThrow("limited to 256");
+    expect(() => planTranscriptRoughCut(preview, [null])).toThrow("must be an object");
+    expect(() => planTranscriptRoughCut(preview, [{ ...valid, placement_id: "" }])).toThrow("1-512");
+    expect(() => planTranscriptRoughCut(preview, [{ ...valid, track_type: "caption" }])).toThrow("video or audio");
+    expect(() => planTranscriptRoughCut(preview, [{ ...valid, track_index: -1 }])).toThrow("non-negative integer");
+    expect(() => planTranscriptRoughCut(preview, [{ ...valid, source_out_seconds: Number.NaN }])).toThrow("finite number");
+    expect(() => planTranscriptRoughCut(preview, [{ ...valid, source_out_seconds: 0 }])).toThrow("increasing");
+
+    const plan = planTranscriptRoughCut(preview, [valid], false);
+    expect(plan).toMatchObject({ ripple: false, steps: [], unmappedDeletionRanges: preview.deletionRanges });
+  });
 });
 
 describe("transcript UXP MCP tools", () => {
