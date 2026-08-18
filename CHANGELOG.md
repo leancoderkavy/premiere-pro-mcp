@@ -6,6 +6,20 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [1.11.3] - 2026-08-18
+
+### Added
+
+- Added a revision-locked `plan_transcript_rough_cut_uxp` workflow that maps native transcript
+  deletion ranges to verified 1x sequence placements, orders cut instructions from the end of the
+  timeline, and requires duplicate-sequence and post-mutation verification safeguards.
+
+### Fixed
+
+- Premiere Pro 26.3 can reject a manifest list of loopback WebSocket domains with `Manifest entry
+  not found`. The UXP package now uses Adobe's compatible network permission while the panel keeps
+  enforcing the exact loopback-only `/uxp` endpoint at runtime.
+
 ## [1.11.2] - 2026-08-18
 
 ### Added

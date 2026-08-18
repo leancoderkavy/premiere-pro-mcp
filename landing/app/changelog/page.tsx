@@ -5,6 +5,31 @@ import { product } from "@/lib/product"
 
 const releases = [
   {
+    version: "1.11.3",
+    date: "2026-08-18",
+    label: "Premiere 26.3 UXP connection and transcript planning",
+    groups: [
+      {
+        title: "Added",
+        items: [
+          "Added a revision-locked transcript rough-cut planner that maps selected source ranges to verified 1x sequence placements and emits descending, non-mutating cut instructions.",
+        ],
+      },
+      {
+        title: "Fixed",
+        items: [
+          "Updated the UXP network manifest declaration for Premiere Pro 26.3 compatibility while retaining exact loopback-only bridge validation at runtime.",
+        ],
+      },
+      {
+        title: "Validation",
+        items: [
+          "Automated tests and cross-platform package gates pass; exact-package confirmation in a licensed Premiere host remains separate.",
+        ],
+      },
+    ],
+  },
+  {
     version: "1.11.2",
     date: "2026-08-18",
     label: "Fail-closed Premiere 26.x timeline mutations",
