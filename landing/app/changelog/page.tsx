@@ -5,6 +5,32 @@ import { product } from "@/lib/product"
 
 const releases = [
   {
+    version: "1.11.2",
+    date: "2026-08-18",
+    label: "Fail-closed Premiere 26.x timeline mutations",
+    groups: [
+      {
+        title: "Added",
+        items: [
+          "Added durable local project-context capture, bounded retrieval, enrichment, and non-mutating edit-plan scaffolds with independent source and timeline revisions.",
+        ],
+      },
+      {
+        title: "Fixed",
+        items: [
+          "Trim and split now verify visible timeline geometry; track creation and overwrite placement verify exact postconditions instead of accepting silent no-ops.",
+          "Effect removal now preflights Component.remove support, including safe handling for unsupported Essential Sound Amplify components.",
+        ],
+      },
+      {
+        title: "Validation",
+        items: [
+          "Automated CEP/QE contract coverage is included; licensed Premiere Pro 26.x host confirmation remains a separate gate.",
+        ],
+      },
+    ],
+  },
+  {
     version: "1.11.1",
     date: "2026-08-16",
     label: "Remote static-route stability hotfix",
