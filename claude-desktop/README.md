@@ -40,6 +40,13 @@ directory listing or an organization allowlist is controlled by Anthropic and
 is outside this repository's CI; the workflow never submits or publishes a
 bundle there.
 
+During installation, Claude Desktop prompts for a sensitive **Premiere UXP
+Token**. Enter a random value of at least 16 characters, then enter that same
+value in the Premiere UXP panel. The MCPB maps the saved value to
+`PREMIERE_UXP_TOKEN` for the child server process; setting a Windows or macOS
+login-shell environment variable alone is not reliable because Claude Desktop
+controls the extension process environment.
+
 The CI artifact is structurally validated but unsigned. A release owner must
 provide and protect an appropriate signing certificate and private key before
 adding MCPB signing to the release process. Do not use a throwaway self-signed

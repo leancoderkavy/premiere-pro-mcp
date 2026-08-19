@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Fixed
+
+- The Claude Desktop MCPB now prompts for a sensitive Premiere UXP token and maps it to
+  `PREMIERE_UXP_TOKEN` in the bundled server process, allowing the authenticated loopback UXP
+  listener to start when Claude Desktop does not inherit login-shell environment variables.
+
 ## [1.11.3] - 2026-08-18
 
 ### Added

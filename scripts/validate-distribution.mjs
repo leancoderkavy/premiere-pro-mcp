@@ -64,6 +64,18 @@ export function validateClaudeManifest(manifest, packageJson) {
       JSON.stringify(["${__dirname}/server/dist/index.js"]),
     "Claude bundle command arguments must use a bundle-relative entry point",
   );
+  const tokenConfig = manifest.user_config?.premiere_uxp_token;
+  assert(
+    tokenConfig?.type === "string" &&
+      tokenConfig?.sensitive === true &&
+      tokenConfig?.required === true,
+    "Claude bundle must require a sensitive Premiere UXP token configuration",
+  );
+  assert(
+    manifest.server?.mcp_config?.env?.PREMIERE_UXP_TOKEN ===
+      "${user_config.premiere_uxp_token}",
+    "Claude bundle must map the configured Premiere UXP token into the server environment",
+  );
   assert(
     Array.isArray(manifest.compatibility?.platforms) &&
       manifest.compatibility.platforms.length === 2 &&

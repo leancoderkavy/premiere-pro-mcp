@@ -124,5 +124,13 @@ describe("Claude distributions", () => {
     expect(manifest.server.mcp_config.args).toContain(
       "${__dirname}/server/dist/index.js",
     );
+    expect(manifest.user_config.premiere_uxp_token).toMatchObject({
+      type: "string",
+      sensitive: true,
+      required: true,
+    });
+    expect(manifest.server.mcp_config.env).toEqual({
+      PREMIERE_UXP_TOKEN: "${user_config.premiere_uxp_token}",
+    });
   });
 });
