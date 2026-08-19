@@ -22,7 +22,19 @@
     "entry_point": "server/dist/index.js",
     "mcp_config": {
       "command": "node",
-      "args": ["${__dirname}/server/dist/index.js"]
+      "args": ["${__dirname}/server/dist/index.js"],
+      "env": {
+        "PREMIERE_UXP_TOKEN": "${user_config.premiere_uxp_token}"
+      }
+    }
+  },
+  "user_config": {
+    "premiere_uxp_token": {
+      "type": "string",
+      "title": "Premiere UXP Token",
+      "description": "Shared secret used to authenticate the local Premiere UXP bridge. Use the same value in the Premiere panel (minimum 16 characters).",
+      "sensitive": true,
+      "required": true
     }
   },
   "tools_generated": true,
