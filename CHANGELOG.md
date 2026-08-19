@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [1.11.4] - 2026-08-19
+
 ### Fixed
 
 - The Claude Desktop MCPB now prompts for a sensitive Premiere UXP token and maps it to

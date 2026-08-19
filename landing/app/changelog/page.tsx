@@ -5,6 +5,25 @@ import { product } from "@/lib/product"
 
 const releases = [
   {
+    version: "1.11.4",
+    date: "2026-08-19",
+    label: "Claude Desktop UXP token injection",
+    groups: [
+      {
+        title: "Fixed",
+        items: [
+          "The Claude Desktop MCPB now prompts for the sensitive Premiere UXP token and injects it into the bundled server process so the authenticated loopback listener starts reliably.",
+        ],
+      },
+      {
+        title: "Validation",
+        items: [
+          "MCPB schema and distribution validation now fail if the token field or environment mapping is removed.",
+        ],
+      },
+    ],
+  },
+  {
     version: "1.11.3",
     date: "2026-08-18",
     label: "Premiere 26.3 UXP connection and transcript planning",
