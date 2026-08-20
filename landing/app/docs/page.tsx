@@ -124,6 +124,25 @@ export default function DocsPage() {
           </p>
         </section>
 
+        <section className="border-t border-zinc-800 py-12" aria-labelledby="project-context-heading">
+          <h2 id="project-context-heading" className="text-3xl font-semibold">Project context: a reviewable editing workflow</h2>
+          <p className="mt-5 leading-8 text-zinc-400">
+            The opt-in local project-context engine is designed for repeatable work that needs more evidence than a conversational request. It never captures context until the MCP client asks for it, and it does not send an entire Premiere project or customer footage into every model turn.
+          </p>
+          <ol className="mt-6 list-decimal space-y-3 pl-6 leading-7 text-zinc-300">
+            <li>Use <code className="rounded bg-zinc-900 px-2 py-1 text-purple-200">manage_project_context</code> to capture a bounded active-sequence snapshot locally.</li>
+            <li>Use <code className="rounded bg-zinc-900 px-2 py-1 text-purple-200">search_project_context</code> to retrieve only relevant evidence and stable identities.</li>
+            <li>Use <code className="rounded bg-zinc-900 px-2 py-1 text-purple-200">create_context_edit_plan</code> to generate a non-mutating candidate scaffold with stale-state guards.</li>
+            <li>Use <code className="rounded bg-zinc-900 px-2 py-1 text-purple-200">preview_edit_plan</code> before <code className="rounded bg-zinc-900 px-2 py-1 text-purple-200">apply_edit_plan</code>. Apply requires the exact preview confirmation token and current target validation.</li>
+          </ol>
+          <p className="mt-6 leading-7 text-zinc-400">
+            A context plan is evidence, not mutation authority or proof that an editorial choice is correct. Clear local context when it is no longer needed.
+          </p>
+          <a className="mt-6 inline-flex font-medium text-purple-200 hover:text-white" href="https://github.com/leancoderkavy/premiere-pro-mcp/blob/main/docs/project-context-engine.md">
+            Read the project-context engine guide <span aria-hidden="true" className="ml-2">→</span>
+          </a>
+        </section>
+
         <section className="border-t border-zinc-800 py-12" aria-labelledby="resources-heading">
           <h2 id="resources-heading" className="text-3xl font-semibold">Canonical resources</h2>
           <ul className="mt-6 space-y-3 text-purple-300">

@@ -10,6 +10,7 @@ const mobileLinks = [
   { label: "How it works", href: "#how-it-works" },
   { label: "Install", href: "#install" },
   { label: "FAQ", href: "#faq" },
+  { label: "Guides", href: "/blog/" },
   { label: "Docs", href: "/docs/" },
   { label: "Changelog", href: "/changelog/" },
 ] as const
