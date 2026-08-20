@@ -6,6 +6,20 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Fixed
+
+- macOS Adobe Media Encoder preset discovery now scans application-bundle resources under
+  `Contents/MediaIO/systempresets`, and preset filtering normalizes names such as `H.264` and
+  `H264`.
+- `add_to_timeline` now validates its arguments and verifies that a single requested item landed
+  on each affected target track, returning an error instead of a false success when Premiere
+  creates an unexpected residual fragment at an exact insert boundary.
+- Removed calls to unsupported or incorrectly signed speed and raw-text caption APIs. Speed
+  requests and `add_text_overlay` now return actionable errors before mutating Premiere.
+- `add_keyframe` now verifies stored parameter readback and explicitly labels render output as
+  unverified; `create_caption_track` likewise labels its result as structural rather than
+  render verification.
+
 ## [1.11.4] - 2026-08-19
 
 ### Fixed

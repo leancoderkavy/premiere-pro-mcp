@@ -199,7 +199,8 @@ export function getKeyframeTools(bridgeOptions: BridgeOptions) {
     },
 
     add_keyframe: {
-      description: "Add a keyframe to an effect property at a specific time",
+      description:
+        "Add and read back a keyframe on an effect property. This verifies stored parameter data only; render/playback verification remains host-dependent.",
       parameters: {
         type: "object" as const,
         properties: {
@@ -255,6 +256,9 @@ export function getKeyframeTools(bridgeOptions: BridgeOptions) {
             }
           }
           if (!prop) return __error("Property not found");
+          try {
+            if (!prop.areKeyframesSupported()) return __error("Property does not support keyframes");
+          } catch(eSupports) {}
           
           // Enable keyframes if not already
           try {
@@ -267,13 +271,25 @@ export function getKeyframeTools(bridgeOptions: BridgeOptions) {
           time.ticks = __secondsToTicks(${args.time_seconds}).toString();
           prop.addKey(time);
           prop.setValueAtKey(time, ${args.value}, true);
+          var readBack = null;
+          try { readBack = prop.getValueAtKey(time); } catch(eReadBack) {}
+          if (readBack === null || readBack === undefined) {
+            return __error("Premiere did not return the keyframe value after writing it; storage is not reported as verified.");
+          }
+          if (typeof readBack === "number" && Math.abs(readBack - ${args.value}) > 0.0001) {
+            return __error("Premiere returned " + readBack + " after writing keyframe value ${args.value}; storage is not reported as verified.");
+          }
           
           return __result({
             added: true,
+            stored: true,
+            renderVerified: false,
+            verificationScope: "Premiere parameter readback only; verify playback or exported frames before relying on visual output.",
             effect: "${escapeForExtendScript(args.effect_name)}",
             property: "${escapeForExtendScript(args.property_name)}",
             time: ${args.time_seconds},
-            value: ${args.value}
+            value: ${args.value},
+            readBackValue: readBack
           });
         `);
         return sendCommand(script, bridgeOptions);

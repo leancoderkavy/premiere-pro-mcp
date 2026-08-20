@@ -4,7 +4,8 @@ import { sendCommand, BridgeOptions } from "../bridge/file-bridge.js";
 export function getTimelineTools(bridgeOptions: BridgeOptions) {
   return {
     add_to_timeline: {
-      description: "Add a project item (clip) to the timeline at a specific position",
+      description:
+        "Insert a project item at a timeline position and verify Premiere added no unexpected same-track fragments.",
       parameters: {
         type: "object" as const,
         properties: {
@@ -24,29 +25,90 @@ export function getTimelineTools(bridgeOptions: BridgeOptions) {
             type: "number",
             description: "Audio track index for the audio portion (default: 0)",
           },
-        },
-        required: ["item_id"],
+      },
+      required: ["item_id"],
       },
       handler: async (args: { item_id: string; track_index?: number; start_seconds?: number; audio_track_index?: number }) => {
         const trackIndex = args.track_index ?? 0;
         const startSeconds = args.start_seconds ?? 0;
         const audioTrackIndex = args.audio_track_index ?? 0;
+        if (!Number.isInteger(trackIndex) || trackIndex < 0 ||
+            !Number.isInteger(audioTrackIndex) || audioTrackIndex < 0 ||
+            !Number.isFinite(startSeconds) || startSeconds < 0) {
+          return {
+            success: false,
+            error: "track_index and audio_track_index must be non-negative integers, and start_seconds must be a finite non-negative number.",
+          };
+        }
 
         const script = buildToolScript(`
           var seq = app.project.activeSequence;
           if (!seq) return __error("No active sequence");
+          var videoTrack = seq.videoTracks[${trackIndex}];
+          if (!videoTrack) return __error("Video track index ${trackIndex} is out of range");
+          var audioTrack = seq.audioTracks[${audioTrackIndex}];
           
           var item = __findProjectItem("${escapeForExtendScript(args.item_id)}");
           if (!item) return __error("Project item not found: ${escapeForExtendScript(args.item_id)}");
           
+          var beforeVideoCount = videoTrack.clips.numItems;
+          var beforeAudioCount = audioTrack ? audioTrack.clips.numItems : 0;
+          var beforeVideoIds = {};
+          var beforeAudioIds = {};
+          var i;
+          for (i = 0; i < beforeVideoCount; i++) beforeVideoIds[videoTrack.clips[i].nodeId] = true;
+          if (audioTrack) {
+            for (i = 0; i < beforeAudioCount; i++) beforeAudioIds[audioTrack.clips[i].nodeId] = true;
+          }
+
           var startTicks = __secondsToTicks(${startSeconds}).toString();
           seq.insertClip(item, startTicks, ${trackIndex}, ${audioTrackIndex});
+
+          var afterVideoCount = videoTrack.clips.numItems;
+          var afterAudioCount = audioTrack ? audioTrack.clips.numItems : 0;
+          if (afterVideoCount > beforeVideoCount + 1 || (audioTrack && afterAudioCount > beforeAudioCount + 1)) {
+            return __error("Premiere inserted more than one clip on a targeted track. This can leave a residual frame fragment at an exact boundary; the insertion may be partial, but is not reported as verified.");
+          }
+
+          var inserted = [];
+          for (i = 0; i < afterVideoCount; i++) {
+            var videoClip = videoTrack.clips[i];
+            if (!beforeVideoIds[videoClip.nodeId]) inserted.push({ clip: videoClip, trackType: "video" });
+          }
+          if (audioTrack) {
+            for (i = 0; i < afterAudioCount; i++) {
+              var audioClip = audioTrack.clips[i];
+              if (!beforeAudioIds[audioClip.nodeId]) inserted.push({ clip: audioClip, trackType: "audio" });
+            }
+          }
+          if (!inserted.length) {
+            return __error("Premiere did not add a new track item at the requested insertion point.");
+          }
+
+          var frameTicks = parseFloat(seq.timebase);
+          if (!frameTicks || isNaN(frameTicks)) frameTicks = TICKS_PER_SECOND / 24;
+          var tolerance = __ticksToSeconds(frameTicks);
+          var matchedItem = false;
+          for (i = 0; i < inserted.length; i++) {
+            var insertedClip = inserted[i].clip;
+            if (insertedClip.projectItem && insertedClip.projectItem.nodeId === item.nodeId) {
+              matchedItem = true;
+              if (Math.abs(__ticksToSeconds(insertedClip.start.ticks) - ${startSeconds}) > tolerance) {
+                return __error("Premiere added the requested item but not at the requested timeline frame; the insertion is not reported as verified.");
+              }
+            }
+          }
+          if (!matchedItem) {
+            return __error("Premiere changed the target track but the requested project item was not found after insertion.");
+          }
           
           return __result({
             added: true,
+            verified: true,
             item: item.name,
             trackIndex: ${trackIndex},
-            startSeconds: ${startSeconds}
+            startSeconds: ${startSeconds},
+            insertedTrackItems: inserted.length
           });
         `);
         return sendCommand(script, bridgeOptions);
@@ -616,7 +678,8 @@ export function getTimelineTools(bridgeOptions: BridgeOptions) {
     },
 
     set_clip_properties: {
-      description: "Set properties on a clip (opacity, speed, etc.)",
+      description:
+        "Set supported clip properties (opacity, scale, position, rotation). Clip speed is unsupported and fails before mutation.",
       parameters: {
         type: "object" as const,
         properties: {
@@ -630,7 +693,7 @@ export function getTimelineTools(bridgeOptions: BridgeOptions) {
           },
           speed: {
             type: "number",
-            description: "Playback speed multiplier (1.0 = normal, 2.0 = double speed)",
+            description: "Unsupported by Premiere's public scripting APIs. Supplying this returns an actionable error without mutating the clip.",
           },
           scale: {
             type: "number",
@@ -660,6 +723,13 @@ export function getTimelineTools(bridgeOptions: BridgeOptions) {
         position_y?: number;
         rotation?: number;
       }) => {
+        if (args.speed !== undefined) {
+          return {
+            success: false,
+            error:
+              "Changing a timeline clip's speed is not exposed by Premiere's supported ExtendScript or UXP APIs. No mutation was attempted. Use Premiere's Speed/Duration UI or pre-render retimed media before import.",
+          };
+        }
         const script = buildToolScript(`
           var result = __findClip("${escapeForExtendScript(args.node_id)}");
           if (!result) return __error("Clip not found: ${escapeForExtendScript(args.node_id)}");
@@ -680,11 +750,6 @@ export function getTimelineTools(bridgeOptions: BridgeOptions) {
               }
             }
           }
-          ` : ""}
-          
-          ${args.speed !== undefined ? `
-          clip.setSpeed(${args.speed * 100});
-          changes.speed = ${args.speed};
           ` : ""}
           
           ${args.scale !== undefined || args.position_x !== undefined || args.position_y !== undefined || args.rotation !== undefined ? `
@@ -779,7 +844,8 @@ export function getTimelineTools(bridgeOptions: BridgeOptions) {
     },
 
     speed_change: {
-      description: "Change the playback speed of a clip",
+      description:
+        "Unavailable: Premiere does not expose a supported scripting API for changing a timeline clip's speed.",
       parameters: {
         type: "object" as const,
         properties: {
@@ -799,22 +865,12 @@ export function getTimelineTools(bridgeOptions: BridgeOptions) {
         required: ["node_id", "speed_percent"],
       },
       handler: async (args: { node_id: string; speed_percent: number; reverse?: boolean }) => {
-        const script = buildToolScript(`
-          app.enableQE();
-          var qeSeq = qe.project.getActiveSequence();
-          if (!qeSeq) return __error("No active sequence (QE)");
-          
-          var result = __findClip("${escapeForExtendScript(args.node_id)}");
-          if (!result) return __error("Clip not found");
-          
-          var clip = result.clip;
-          var speed = "${args.speed_percent}";
-          ${args.reverse ? 'speed = "-" + speed;' : ""}
-          
-          clip.setSpeed(speed);
-          return __result({ speedChanged: true, clipName: clip.name, speed: ${args.speed_percent}, reverse: ${!!args.reverse} });
-        `);
-        return sendCommand(script, bridgeOptions);
+        void args;
+        return {
+          success: false,
+          error:
+            "Changing a timeline clip's speed is not exposed by Premiere's supported ExtendScript or UXP APIs. No mutation was attempted. Use Premiere's Speed/Duration UI or pre-render retimed media before import.",
+        };
       },
     },
   };

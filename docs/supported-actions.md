@@ -37,12 +37,12 @@ operation” when the tool has no enum-based mode.
 | `add_adjustment_layer` | Default profile | Single operation | Add an adjustment layer to the active sequence via QE DOM. The layer is added at the playhead position on the specified track. |
 | `add_audio_keyframes` | Default profile | Single operation | Add audio level keyframes to create fades or level changes |
 | `add_custom_metadata_field` | Default profile | Single operation | Add a custom metadata field to the project's metadata schema |
-| `add_keyframe` | Default profile | Single operation | Add a keyframe to an effect property at a specific time |
+| `add_keyframe` | Default profile | Single operation | Add and read back a keyframe on an effect property. This verifies stored parameter data only; render/playback verification remains host-dependent. |
 | `add_marker` | Default profile | Single operation | Add a marker to the active sequence or a clip |
 | `add_marker_to_project_item` | Default profile | `type`: `Comment`, `Chapter`, `Segmentation`, `WebLink` | Add a marker to a project item (source clip marker). |
-| `add_text_overlay` | Default profile | `caption_format`: `608`, `708`, `subtitle`, `teletext` | Add a subtitle-style text overlay to the active sequence. Note: Premiere's ExtendScript API does not expose Essential-Graphics title creation, so this routes through the Captions/Subtitle API. Text appears on a caption track at the platform-default subtitle position. For freeform titles, render a PNG and import_media it instead. |
+| `add_text_overlay` | Default profile | `caption_format`: `608`, `708`, `subtitle`, `teletext` | Unavailable: Premiere does not expose a supported scripting API to create caption clips directly from raw text. Import an .srt/.vtt and use create_caption_track, or use a MOGRT/PNG overlay for title graphics. |
 | `add_to_render_queue` | Default profile | Single operation | Add the active sequence to the Adobe Media Encoder render queue |
-| `add_to_timeline` | Default profile | Single operation | Add a project item (clip) to the timeline at a specific position |
+| `add_to_timeline` | Default profile | Single operation | Insert a project item at a timeline position and verify Premiere added no unexpected same-track fragments. |
 | `add_track` | Default profile | `track_type`: `video`, `audio` | Add verified video or audio tracks to the active sequence. Returns an error if Premiere cannot add the exact requested count. |
 | `add_tracks` | Default profile | Single operation | Add video and/or audio tracks through QE and verify the active sequence gained the exact requested counts |
 | `add_transition` | Default profile | Single operation | Add a video transition between two clips at a cut point. Uses QE DOM. |
@@ -73,7 +73,7 @@ operation” when the tool has no enum-based mode.
 | `copy_effects_between_clips` | Default profile | Single operation | Copy all effects (or a specific effect) from one clip to another. Does not copy intrinsic properties like Motion/Opacity unless specified. |
 | `create_bars_and_tone` | Default profile | Single operation | Create a Bars and Tone synthetic media item in the project (useful for leader/calibration) |
 | `create_bin` | Default profile | Single operation | Create a new bin (folder) in the project panel |
-| `create_caption_track` | Default profile | Single operation | Create a caption/subtitle track in the active sequence from an imported caption file (e.g., .srt, .vtt) |
+| `create_caption_track` | Default profile | Single operation | Create a caption/subtitle track in the active sequence from an imported caption file (e.g., .srt, .vtt). Creation is structural only; verify playback or exported frames before delivery. |
 | `create_context_edit_plan` | Default profile | `strategy`: `rough_cut`, `select_ranges`, `review` | Create a non-mutating, evidence-backed edit-plan scaffold from indexed Premiere context. It returns ranked source/time candidates and stale-state guards; the model must review them and use preview_edit_plan before any mutation. |
 | `create_project` | Default profile | Single operation | Create a new Premiere Pro project at the specified path |
 | `create_sequence` | Default profile | Single operation | Create a new sequence in the project |
@@ -255,11 +255,11 @@ operation” when the tool has no enum-based mode.
 | `set_clip_opacity` | Default profile | Single operation | Set the opacity of a video clip (0-100). |
 | `set_clip_pan` | Default profile | Single operation | Set the pan (left/right balance) on an audio clip. |
 | `set_clip_position` | Default profile | Single operation | Set the Position property on a video clip's Motion effect. Values are in pixels. |
-| `set_clip_properties` | Default profile | Single operation | Set properties on a clip (opacity, speed, etc.) |
+| `set_clip_properties` | Default profile | Single operation | Set supported clip properties (opacity, scale, position, rotation). Clip speed is unsupported and fails before mutation. |
 | `set_clip_rotation` | Default profile | Single operation | Set the Rotation property on a video clip's Motion effect. |
 | `set_clip_scale` | Default profile | Single operation | Set the Scale property on a video clip's Motion effect. |
 | `set_clip_selection` | Default profile | Single operation | Select or deselect a clip in the active sequence |
-| `set_clip_speed_qe` | Default profile | Single operation | Set clip playback speed using QE DOM (more reliable than ExtendScript). Supports reverse. |
+| `set_clip_speed_qe` | Default profile | Single operation | Unavailable: Premiere does not expose a supported scripting API for changing a timeline clip's speed. |
 | `set_clip_start_time` | Default profile | Single operation | Set the start time (timecode offset) of a project item. This shifts where timecode begins for the source media. |
 | `set_clip_volume` | Default profile | Single operation | Set an audio clip's Volume > Level in dB. Does not read or change Essential Sound Amplify automation. |
 | `set_clips_volume` | Default profile | Single operation | Set the volume (in dB) on every audio clip of a track, or on a list of clip indices. One round trip instead of one call per clip - essential for sequences with dozens of clips. |
@@ -303,7 +303,7 @@ operation” when the tool has no enum-based mode.
 | `set_zero_point` | Default profile | Single operation | Set the starting timecode (zero point) of a sequence |
 | `slide_edit` | Default profile | Single operation | Perform a slide edit on a clip (moves clip without changing its duration, adjusting adjacent clips). Uses QE DOM. |
 | `slip_edit` | Default profile | Single operation | Perform a slip edit on a clip (changes source in/out points without moving clip on timeline). Uses QE DOM. |
-| `speed_change` | Default profile | Single operation | Change the playback speed of a clip |
+| `speed_change` | Default profile | Single operation | Unavailable: Premiere does not expose a supported scripting API for changing a timeline clip's speed. |
 | `split_clip` | Default profile | `track_type`: `video`, `audio` | Split every clip on one track that spans a timeline time, then verify both resulting boundaries. Requires QE DOM; effect-keyframe redistribution remains unverified. |
 | `stabilize_clip` | Default profile | `method`: `Subspace Warp`, `Position`, `Position, Scale, Rotation` | Apply the Warp Stabilizer effect to a clip for video stabilization. Uses QE DOM. |
 | `start_batch_encode` | Default profile | Single operation | Start encoding all items in the Adobe Media Encoder render queue |

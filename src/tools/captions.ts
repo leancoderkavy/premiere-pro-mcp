@@ -5,7 +5,7 @@ export function getCaptionTools(bridgeOptions: BridgeOptions) {
   return {
     create_caption_track: {
       description:
-        "Create a caption/subtitle track in the active sequence from an imported caption file (e.g., .srt, .vtt)",
+        "Create a caption/subtitle track in the active sequence from an imported caption file (e.g., .srt, .vtt). Creation is structural only; verify playback or exported frames before delivery.",
       parameters: {
         type: "object" as const,
         properties: {
@@ -55,7 +55,14 @@ export function getCaptionTools(bridgeOptions: BridgeOptions) {
           
           var result = seq.createCaptionTrack(item, ${startSeconds}, ${format});
           if (!result) return __error("Failed to create caption track");
-          return __result({ created: true, item: item.name, startSeconds: ${startSeconds}, format: "${args.caption_format || "subtitle"}" });
+          return __result({
+            created: true,
+            renderVerified: false,
+            verificationScope: "Premiere accepted the caption-track creation; verify playback or exported frames before delivery.",
+            item: item.name,
+            startSeconds: ${startSeconds},
+            format: "${args.caption_format || "subtitle"}"
+          });
         `);
         return sendCommand(script, bridgeOptions);
       },

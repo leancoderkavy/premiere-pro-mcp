@@ -157,18 +157,28 @@ describe("large tool handler coverage", () => {
             it(`${toolName} handles ${field}=${String(enumValue)}`, async () => {
               const args = argsFor(tool.parameters, true);
               args[field] = enumValue;
-              await tool.handler(args);
-              expect(mockedSendCommand.mock.calls.length + mockedSendRawCommand.mock.calls.length)
-                .toBeGreaterThan(0);
+              const commandCount = mockedSendCommand.mock.calls.length + mockedSendRawCommand.mock.calls.length;
+              const result = await tool.handler(args);
+              const nextCommandCount = mockedSendCommand.mock.calls.length + mockedSendRawCommand.mock.calls.length;
+              if (nextCommandCount === commandCount) {
+                expect(result).toMatchObject({ success: false });
+                return;
+              }
+              expect(nextCommandCount).toBeGreaterThan(commandCount);
             });
           }
           if (property.type === "boolean") {
             it(`${toolName} handles ${field}=false`, async () => {
               const args = argsFor(tool.parameters, true);
               args[field] = false;
-              await tool.handler(args);
-              expect(mockedSendCommand.mock.calls.length + mockedSendRawCommand.mock.calls.length)
-                .toBeGreaterThan(0);
+              const commandCount = mockedSendCommand.mock.calls.length + mockedSendRawCommand.mock.calls.length;
+              const result = await tool.handler(args);
+              const nextCommandCount = mockedSendCommand.mock.calls.length + mockedSendRawCommand.mock.calls.length;
+              if (nextCommandCount === commandCount) {
+                expect(result).toMatchObject({ success: false });
+                return;
+              }
+              expect(nextCommandCount).toBeGreaterThan(commandCount);
             });
           }
         }
