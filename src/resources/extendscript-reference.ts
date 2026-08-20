@@ -194,7 +194,7 @@ export const EXTENDSCRIPT_REFERENCE = [
   "qeClip.roll(offsetTicks)",
   "qeClip.slide(offsetTicks)",
   "qeClip.slip(offsetTicks)",
-  "qeClip.setSpeed(percent)              - e.g., 200 for 2x",
+  "No supported scripting API changes a timeline clip's speed; do not call qeClip.setSpeed().",
   "qeClip.setReverse(bool)",
   "qeClip.setFrameBlend(bool)",
   "qeClip.setTimeInterpolationType(type) - 0=sampling, 1=blending, 2=optical flow",

@@ -16,6 +16,11 @@ import { getUtilityTools } from "../../src/tools/utility.js";
 import { getTrackTargetingTools } from "../../src/tools/track-targeting.js";
 import { getEffectsTools } from "../../src/tools/effects.js";
 import { getClipboardTools } from "../../src/tools/clipboard.js";
+import { getTimelineTools } from "../../src/tools/timeline.js";
+import { getAdvancedTools } from "../../src/tools/advanced.js";
+import { getTextTools } from "../../src/tools/text.js";
+import { getKeyframeTools } from "../../src/tools/keyframes.js";
+import { getCaptionTools } from "../../src/tools/captions.js";
 
 const mockedSendCommand = vi.mocked(sendCommand);
 const bridgeOptions: BridgeOptions = { tempDir: "/tmp/test-bridge", timeoutMs: 5000 };
@@ -218,6 +223,80 @@ describe("script-builder helpers used by the fixes are actually defined", () => 
     ]) {
       expect(script).toContain(helper);
     }
+  });
+});
+
+// https://github.com/leancoderkavy/premiere-pro-mcp/issues/189
+describe("issue #189 — Premiere 26.3 capability boundaries and macOS presets", () => {
+  const trackTargeting = getTrackTargetingTools(bridgeOptions);
+  const timeline = getTimelineTools(bridgeOptions);
+  const advanced = getAdvancedTools(bridgeOptions);
+  const text = getTextTools(bridgeOptions);
+  const keyframes = getKeyframeTools(bridgeOptions);
+  const captions = getCaptionTools(bridgeOptions);
+
+  it("searches resources inside macOS application bundles and normalizes H.264 filters", async () => {
+    const helpers = getHelpersSource();
+    const code = await codeFor(trackTargeting.get_encoder_presets, { format: "H.264" });
+
+    expect(helpers).toContain("function __adobeApplicationResourceFolder(");
+    expect(helpers).toContain('"/Contents/"');
+    expect(helpers).toContain('"MediaIO/systempresets"');
+    expect(code).toContain('__presetSearchText("H.264")');
+    expect(code).toContain("__presetSearchText(p.name)");
+  });
+
+  it("never calls unsupported speed setters", async () => {
+    const variants = [
+      timeline.speed_change.handler({ node_id: "clip-1", speed_percent: 65 }),
+      advanced.set_clip_speed_qe.handler({ node_id: "clip-1", speed_percent: 65 }),
+      timeline.set_clip_properties.handler({ node_id: "clip-1", speed: 0.65 }),
+    ];
+
+    await expect(Promise.all(variants)).resolves.toEqual([
+      expect.objectContaining({ success: false, error: expect.stringContaining("No mutation was attempted") }),
+      expect.objectContaining({ success: false, error: expect.stringContaining("No mutation was attempted") }),
+      expect.objectContaining({ success: false, error: expect.stringContaining("No mutation was attempted") }),
+    ]);
+    expect(mockedSendCommand).not.toHaveBeenCalled();
+  });
+
+  it("fails raw-text caption creation before it can call an unsupported signature", async () => {
+    const result = await text.add_text_overlay.handler({ text: "TREINO UPPER" });
+
+    expect(result).toEqual(expect.objectContaining({
+      success: false,
+      error: expect.stringContaining("No mutation was attempted"),
+    }));
+    expect(mockedSendCommand).not.toHaveBeenCalled();
+  });
+
+  it("labels keyframe and caption results as storage or structure verification, not rendered output", async () => {
+    const keyframeScript = await scriptFor(keyframes.add_keyframe, {
+      node_id: "clip-1", effect_name: "Opacity", property_name: "Opacity", time_seconds: 0, value: 0,
+    });
+    expect(keyframeScript).toContain("getValueAtKey(time)");
+    expect(keyframeScript).toContain("renderVerified: false");
+    expect(keyframeScript).toContain("Premiere parameter readback only");
+
+    const captionScript = await scriptFor(captions.create_caption_track, { item_id: "captions.srt" });
+    expect(captionScript).toContain("renderVerified: false");
+    expect(captionScript).toContain("verify playback or exported frames");
+  });
+
+  it("validates and structurally verifies timeline insertion instead of trusting insertClip", async () => {
+    const invalid = await timeline.add_to_timeline.handler({ item_id: "clip-1", start_seconds: -1 });
+    expect(invalid).toEqual(expect.objectContaining({ success: false }));
+    expect(mockedSendCommand).not.toHaveBeenCalled();
+
+    const script = await scriptFor(timeline.add_to_timeline, {
+      item_id: "clip-1", track_index: 0, audio_track_index: 0, start_seconds: 3.4,
+    });
+    expect(script).toContain("beforeVideoCount");
+    expect(script).toContain("afterVideoCount > beforeVideoCount + 1");
+    expect(script).toContain("residual frame fragment");
+    expect(script).toContain("matchedItem");
+    expect(script).toContain("verified: true");
   });
 });
 

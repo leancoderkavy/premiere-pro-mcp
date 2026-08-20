@@ -197,18 +197,25 @@ function __collectEprFiles(folder, out) {
   return out;
 }
 
+// macOS applications are bundles: AME/Premiere resources live below Contents,
+// whereas the Windows installers put the same folders directly below the app root.
+function __adobeApplicationResourceFolder(appFolder, relativePath) {
+  var prefix = appFolder.fsName + (__isMacOS() ? "/Contents/" : "/");
+  return new Folder(prefix + relativePath);
+}
+
 // All export presets AME ships, plus the user's own saved presets.
 function __collectAllPresets() {
   var roots = [];
 
   var ame = __adobeAppFolders("Adobe Media Encoder");
   for (var i = 0; i < ame.length; i++) {
-    roots.push(new Folder(ame[i].fsName + "/MediaIO/systempresets"));
+    roots.push(__adobeApplicationResourceFolder(ame[i], "MediaIO/systempresets"));
   }
 
   var ppro = __adobeAppFolders("Adobe Premiere Pro");
   for (var j = 0; j < ppro.length; j++) {
-    roots.push(new Folder(ppro[j].fsName + "/Settings/IngestPresets"));
+    roots.push(__adobeApplicationResourceFolder(ppro[j], "Settings/IngestPresets"));
   }
 
   // User-saved presets live under the Documents tree on both platforms.
@@ -235,6 +242,10 @@ function __collectAllPresets() {
   return presets;
 }
 
+function __presetSearchText(value) {
+  return String(value || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+}
+
 // Default export preset. "48323634" is hex for "H264" — the folder name AME uses
 // for the H.264 format bucket on disk.
 function __findH264Preset() {
@@ -257,7 +268,7 @@ function __findH264Preset() {
 function __findProxyPreset() {
   var ppro = __adobeAppFolders("Adobe Premiere Pro");
   for (var i = 0; i < ppro.length; i++) {
-    var proxyDir = new Folder(ppro[i].fsName + "/Settings/IngestPresets/Proxy");
+    var proxyDir = __adobeApplicationResourceFolder(ppro[i], "Settings/IngestPresets/Proxy");
     var eprs = __collectEprFiles(proxyDir, []);
     if (eprs.length) {
       eprs.sort(function(a, b) { return a.displayName < b.displayName ? -1 : 1; });

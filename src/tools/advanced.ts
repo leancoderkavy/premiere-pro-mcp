@@ -287,7 +287,7 @@ export function getAdvancedTools(bridgeOptions: BridgeOptions) {
 
     set_clip_speed_qe: {
       description:
-        "Set clip playback speed using QE DOM (more reliable than ExtendScript). Supports reverse.",
+        "Unavailable: Premiere does not expose a supported scripting API for changing a timeline clip's speed.",
       parameters: {
         type: "object" as const,
         properties: {
@@ -312,31 +312,12 @@ export function getAdvancedTools(bridgeOptions: BridgeOptions) {
         speed_percent: number;
         reverse?: boolean;
       }) => {
-        const script = buildToolScript(`
-          app.enableQE();
-          var qeSeq = qe.project.getActiveSequence();
-          if (!qeSeq) return __error("No active sequence (QE)");
-          
-          var result = __findClip("${escapeForExtendScript(args.node_id)}");
-          if (!result) return __error("Clip not found");
-          
-          var qeTrack = result.trackType === "video"
-            ? qeSeq.getVideoTrackAt(result.trackIndex)
-            : qeSeq.getAudioTrackAt(result.trackIndex);
-          var qeClip = qeTrack.getItemAt(result.clipIndex);
-          if (!qeClip) return __error("QE clip not found");
-          
-          qeClip.setSpeed(${args.speed_percent});
-          ${args.reverse ? `qeClip.setReverse(true);` : ""}
-          
-          return __result({
-            speedSet: true,
-            clipName: result.clip.name,
-            speed: ${args.speed_percent},
-            reverse: ${!!args.reverse}
-          });
-        `);
-        return sendCommand(script, bridgeOptions);
+        void args;
+        return {
+          success: false,
+          error:
+            "Changing a timeline clip's speed is not exposed by Premiere's supported ExtendScript or UXP APIs. No mutation was attempted. Use Premiere's Speed/Duration UI or pre-render retimed media before import.",
+        };
       },
     },
 

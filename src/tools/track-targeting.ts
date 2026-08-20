@@ -1206,11 +1206,11 @@ export function getTrackTargetingTools(bridgeOptions: BridgeOptions) {
 
           ${
             args.format
-              ? `var needle = "${escapeForExtendScript(args.format)}".toLowerCase();
+              ? `var needle = __presetSearchText("${escapeForExtendScript(args.format)}");
                var filtered = [];
                for (var i = 0; i < presets.length; i++) {
                  var p = presets[i];
-                 if (p.name.toLowerCase().indexOf(needle) !== -1 || p.format.toLowerCase().indexOf(needle) !== -1) {
+                 if (__presetSearchText(p.name).indexOf(needle) !== -1 || __presetSearchText(p.format).indexOf(needle) !== -1) {
                    filtered.push(p);
                  }
                }

@@ -5,10 +5,8 @@ export function getTextTools(bridgeOptions: BridgeOptions) {
   return {
     add_text_overlay: {
       description:
-        "Add a subtitle-style text overlay to the active sequence. " +
-        "Note: Premiere's ExtendScript API does not expose Essential-Graphics title creation, " +
-        "so this routes through the Captions/Subtitle API. Text appears on a caption track at " +
-        "the platform-default subtitle position. For freeform titles, render a PNG and import_media it instead.",
+        "Unavailable: Premiere does not expose a supported scripting API to create caption clips directly from raw text. " +
+        "Import an .srt/.vtt and use create_caption_track, or use a MOGRT/PNG overlay for title graphics.",
       parameters: {
         type: "object" as const,
         properties: {
@@ -38,55 +36,12 @@ export function getTextTools(bridgeOptions: BridgeOptions) {
         duration_seconds?: number;
         caption_format?: string;
       }) => {
-        const startSeconds = args.start_seconds ?? 0;
-        const durationSeconds = args.duration_seconds ?? 5;
-        const formatMap: Record<string, number> = {
-          // Premiere Caption format constants (Sequence.captionFormat)
-          subtitle: 3,
-          "608": 1,
-          "708": 2,
-          teletext: 4,
+        void args;
+        return {
+          success: false,
+          error:
+            "Premiere does not expose a supported scripting API to create a caption clip from raw text. No mutation was attempted. Import an .srt or .vtt first, then use create_caption_track; use a MOGRT or pre-rendered PNG overlay for title graphics.",
         };
-        const formatNum = formatMap[args.caption_format ?? "subtitle"] ?? 3;
-
-        const script = buildToolScript(`
-          var seq = app.project.activeSequence;
-          if (!seq) return __error("No active sequence");
-
-          var startTicks = __secondsToTicks(${startSeconds});
-          var endTicks = __secondsToTicks(${startSeconds + durationSeconds});
-          var textContent = "${escapeForExtendScript(args.text)}";
-
-          // createCaptionTrack(captionFormat:Number) -> Track. Reuse first
-          // matching track if it exists; otherwise create one.
-          var captionTrack = null;
-          try {
-            captionTrack = seq.createCaptionTrack(${formatNum});
-          } catch(eCT) {
-            return __error("createCaptionTrack failed: " + eCT.toString());
-          }
-          if (!captionTrack) return __error("Could not create caption track");
-
-          var newCap = null;
-          try {
-            // Modern signature: addCaption(startTime:Time, endTime:Time)
-            newCap = captionTrack.addCaption(startTicks, endTicks);
-            if (newCap) {
-              try { newCap.text = textContent; } catch(eT) {}
-            }
-          } catch(eAdd) {
-            return __error("addCaption failed: " + eAdd.toString());
-          }
-
-          return __result({
-            added: true,
-            text: textContent,
-            captionFormat: ${formatNum},
-            startSeconds: ${startSeconds},
-            durationSeconds: ${durationSeconds}
-          });
-        `);
-        return sendCommand(script, bridgeOptions);
       },
     },
 

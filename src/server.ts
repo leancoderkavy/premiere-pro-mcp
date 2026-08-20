@@ -99,7 +99,7 @@ KEYFRAMES:
 QE DOM TOOLS:
 - Tools marked "Uses QE DOM" use an undocumented API. They are powerful but may behave unexpectedly.
 - ripple_delete, roll_edit, slide_edit, slip_edit are QE-based advanced trim tools.
-- set_clip_speed_qe is more reliable than the ExtendScript speed method.
+- Premiere does not expose a supported scripting API for changing timeline-clip speed; speed tools fail before mutation.
 
 CLIPS & SELECTION:
 - Use set_clip_selection to select clips before operations that work on selection (link, unlink, scene_edit_detection).
