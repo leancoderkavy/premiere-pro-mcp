@@ -24,7 +24,7 @@ The recommended setup runs the MCP server and CEP bridge locally. Project media 
 
 ## Verified facts
 
-- Current project release: 1.11.4.
+- Current project release: 1.11.5.
 - Tool surface: 285 core structured MCP tools are registered; the default profile exposes 283. With an authenticated compatible UXP panel, 49 additional capability-gated tools bring the connected surface to 332. The server also exposes 4 resources and 6 prompts.
 - Supported desktop platforms: Windows and macOS.
 - Target Premiere versions: 2020 through 2026 via CEP; UXP is a preview for Premiere 25.6 and newer.
