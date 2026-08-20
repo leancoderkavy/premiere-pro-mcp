@@ -5,6 +5,25 @@ import { product } from "@/lib/product"
 
 const releases = [
   {
+    version: "1.11.5",
+    date: "2026-08-19",
+    label: "MCP safety and interoperability research",
+    groups: [
+      {
+        title: "Changed",
+        items: [
+          "Published ten research-backed implementation recommendations for subscription streams, contextual completions, workspace boundaries, resource annotations and canonical URIs, prompt-injection defenses, end-to-end health checks, C2PA inspection, UXP external-launch safeguards, and keyframe verification.",
+        ],
+      },
+      {
+        title: "Validation",
+        items: [
+          "The recommendations are documented planning work; implementation and licensed-Premiere host confirmation remain explicit follow-up gates.",
+        ],
+      },
+    ],
+  },
+  {
     version: "1.11.4",
     date: "2026-08-19",
     label: "Claude Desktop UXP token injection",

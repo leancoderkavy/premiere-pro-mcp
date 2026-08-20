@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [1.11.5] - 2026-08-19
+
 ### Fixed
 
 - macOS Adobe Media Encoder preset discovery now scans application-bundle resources under
@@ -19,6 +21,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - `add_keyframe` now verifies stored parameter readback and explicitly labels render output as
   unverified; `create_caption_track` likewise labels its result as structural rather than
   render verification.
+
+### Changed
+
+- Published ten research-backed implementation recommendations covering MCP subscription streams,
+  contextual completions, workspace boundaries, resource annotations and canonical URIs, prompt and
+  resource-injection defenses, layered end-to-end health checks, experimental C2PA inspection,
+  UXP external-launch safeguards, and semantic keyframe verification.
 
 ## [1.11.4] - 2026-08-19
 
