@@ -2,6 +2,7 @@ import { Github, Monitor, Package, ShieldCheck, Sparkles } from "lucide-react"
 import Image from "next/image"
 import { HeroDepthLoader } from "@/components/sections/hero-depth-loader"
 import { MobileNav } from "@/components/sections/mobile-nav"
+import { WorkflowProof } from "@/components/sections/workflow-proof"
 import { TrackedLink } from "@/components/ui/tracked-link"
 import { product } from "@/lib/product"
 
@@ -11,6 +12,7 @@ const navItems = [
   { label: "How it works", href: "#how-it-works" },
   { label: "Install", href: "#install" },
   { label: "FAQ", href: "#faq" },
+  { label: "Guides", href: "/blog/" },
   { label: "Docs", href: "/docs/" },
   { label: "Changelog", href: "/changelog/" },
 ]
@@ -72,49 +74,39 @@ export function HeroSection() {
         <div className="relative mx-auto max-w-6xl">
           <div className="mx-auto max-w-4xl text-center">
             <p className="hero-enter hero-enter-1 mb-5 font-mono text-xs font-semibold uppercase tracking-[0.18em] text-purple-300">
-              For editors and automation teams
+              Open source · local-first · editor approved
             </p>
             <h1 className="hero-enter hero-enter-1 text-balance text-4xl font-bold leading-[1.02] tracking-[-0.045em] text-white sm:text-6xl md:text-7xl">
-              Control Adobe Premiere Pro with <span className="accent-text">AI</span>
+              Make repeatable edits a <span className="accent-text">reviewed workflow.</span>
             </h1>
             <p className="hero-enter hero-enter-2 mx-auto mt-7 max-w-2xl text-balance text-lg leading-8 text-zinc-400 md:text-xl">
-              Inspect projects, plan edits, automate repeatable timeline work, and export from your AI client—while Premiere and your media stay on your computer.
+              Use the MCP-compatible client your team already trusts to capture local project context, prepare a non-mutating plan, and verify supported Premiere work before you rely on it.
             </p>
             <div className="hero-enter hero-enter-3 mt-9 flex flex-col items-center justify-center gap-3 sm:flex-row">
               <TrackedLink
                 href="#install"
                 trackingLocation="hero"
-                trackingDestination="install"
-                className="inline-flex h-12 items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-[#8b7cff] to-[#ef76b9] px-6 text-sm font-semibold text-white shadow-[0_12px_40px_rgba(139,124,255,0.22)] transition-transform hover:-translate-y-0.5"
+                trackingDestination="safe_connection_check"
+                className="inline-flex h-12 items-center justify-center gap-2 rounded-lg bg-purple-300 px-6 text-sm font-semibold text-black transition-colors hover:bg-white"
               >
-                <Package className="h-4 w-4" /> Choose your assistant
+                <Package className="h-4 w-4" /> Run a safe connection check
               </TrackedLink>
               <TrackedLink
-                href="https://github.com/leancoderkavy/premiere-pro-mcp"
-                target="_blank"
-                rel="noopener noreferrer"
+                href="/docs/#project-context-heading"
                 trackingLocation="hero"
-                trackingDestination="github"
+                trackingDestination="project_context_docs"
                 className="inline-flex h-12 items-center justify-center gap-2 rounded-lg border border-zinc-700 bg-zinc-950/80 px-6 text-sm font-semibold text-zinc-100 transition-colors hover:border-zinc-500 hover:bg-zinc-900"
               >
-                <Github className="h-4 w-4" /> View on GitHub
+                <ShieldCheck className="h-4 w-4" /> See the workflow boundary
               </TrackedLink>
             </div>
             <p className="hero-enter hero-enter-3 mt-4 text-sm text-zinc-500">
-              Free and MIT licensed · runs locally · guided first check
+              Project context is opt-in and local · every applied plan requires current targets and confirmation
             </p>
           </div>
 
-          <div className="hero-enter hero-enter-4 relative mx-auto mt-12 max-w-6xl overflow-hidden rounded-xl border border-white/10 bg-[#050506] shadow-[0_28px_90px_rgba(0,0,0,0.55)] md:mt-16">
-            <Image
-              src="/marketing/premiere-pro-mcp-campaign-hero-v1.png"
-              alt="A structured AI request passes through a local protocol bridge into an organized video-editing timeline and verified export."
-              width={1672}
-              height={941}
-              sizes="(max-width: 768px) 100vw, 1152px"
-              className="h-auto w-full"
-              priority
-            />
+          <div className="hero-enter hero-enter-4">
+            <WorkflowProof />
           </div>
 
           <div className="hero-enter hero-enter-5 mt-6 flex snap-x overflow-x-auto rounded-xl border border-zinc-800 bg-zinc-950/75 sm:mt-8 sm:grid sm:grid-cols-2 sm:overflow-hidden lg:grid-cols-4">

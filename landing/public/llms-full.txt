@@ -4,6 +4,10 @@ Premiere Pro MCP is an open-source, local-first Model Context Protocol server th
 
 Canonical website: https://premiere-pro-mcp.com/
 Documentation: https://premiere-pro-mcp.com/docs/
+Guides: https://premiere-pro-mcp.com/blog/
+Guide: What is a Premiere Pro MCP server?: https://premiere-pro-mcp.com/blog/what-is-a-premiere-pro-mcp-server/
+Guide: AI video editing with Premiere Pro: https://premiere-pro-mcp.com/blog/ai-video-editing-with-premiere-pro/
+Guide: Premiere Pro workflow automation: https://premiere-pro-mcp.com/blog/premiere-pro-workflow-automation/
 Source: https://github.com/leancoderkavy/premiere-pro-mcp
 npm: https://www.npmjs.com/package/premiere-pro-mcp
 License: MIT

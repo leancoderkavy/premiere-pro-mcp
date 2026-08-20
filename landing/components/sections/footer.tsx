@@ -1,5 +1,6 @@
 import { Github, Package } from "lucide-react"
 import Image from "next/image"
+import Link from "next/link"
 
 export function Footer() {
   return (
@@ -27,6 +28,7 @@ export function Footer() {
               <a href="#how-it-works" className="hover:text-white">How it works</a>
               <a href="#install" className="hover:text-white">Install</a>
               <a href="#faq" className="hover:text-white">FAQ</a>
+              <Link href="/blog/" className="hover:text-white">Guides</Link>
               <a href="/docs/" className="hover:text-white">Documentation</a>
               <a href="/changelog/" className="hover:text-white">Changelog</a>
             </div>

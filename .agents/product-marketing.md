@@ -1,13 +1,13 @@
 # Product Marketing Context
 
-**Document version:** v2
-**Last updated:** 2026-08-15
+**Document version:** v4
+**Last updated:** 2026-08-20
 
 ## Product Overview
 
 **One-liner:** Premiere Pro MCP gives compatible AI assistants a structured, local-first way to inspect projects, plan edits, automate supported timeline work, and export through Adobe Premiere Pro.
 
-**What it does:** A local MCP server connects an AI client to Premiere through the production CEP bridge. It exposes 280 core tools across project inspection, editing, effects, color, audio, media management, diagnostics, and export; an authenticated compatible UXP host adds 29 capability-gated tools for a 307-tool connected surface.
+**What it does:** A local MCP server connects an AI client to Premiere through the production CEP bridge. It exposes 285 core tools across project inspection, editing, effects, color, audio, media management, diagnostics, and export; an authenticated compatible UXP host adds 49 capability-gated tools for a 332-tool connected surface.
 
 **Product category:** Premiere Pro automation, MCP server, AI-assisted video-editing infrastructure.
 
@@ -74,10 +74,12 @@
 - Local-first recommended architecture
 - Broad structured tool surface with capability and authority metadata
 - Read-only connection verification and diagnostic paths
+- Opt-in local project context with evidence retrieval and stale-state guards
+- Preview-confirmed compound edit plans with exact target revalidation
 - Production CEP compatibility plus capability-gated UXP expansion
 - Open-source client bundles, connectors, and release artifacts
 
-**How we do it differently:** The server presents explicit tools and verification boundaries instead of asking an AI to guess at Premiere's interface.
+**How we do it differently:** The server presents explicit tools, client choice, local project context, and verification boundaries instead of asking an AI to guess at Premiere's interface. Its project-context workflow captures bounded evidence locally, generates a non-mutating plan, and requires an exact preview confirmation before a compound edit can apply.
 
 **Why that's better:** Users can inspect support, preview risk, and evaluate returned state or diagnostics before relying on an operation.
 
@@ -138,7 +140,7 @@
 
 ## Proof Points
 
-**Metrics:** 280 registered core tools; 278 exposed by the default authority profile; 29 additional capability-gated tools with an authenticated compatible UXP host; 307 connected tools total; 31 core modules; 3 MCP resources; 4 guided workflows.
+**Metrics:** 285 registered core tools; 283 exposed by the default authority profile; 49 additional capability-gated tools with an authenticated compatible UXP host; 332 connected tools total; 32 core modules; 4 MCP resources; 6 guided workflows.
 
 **Customers:** No approved customer-logo claims are currently documented.
 
@@ -161,9 +163,13 @@
 
 **Current metrics:** Public discovery and distribution signals exist, but current activation counts must be queried from the production PostHog project before being reported.
 
+**Organic acquisition strategy:** Publish practical, intent-specific guides that answer what an MCP server is, how it fits a Premiere workflow, and how to automate repetitive work without promising autonomous editing or universal host compatibility. Each guide should lead to the read-only connection check as the measurable next action.
+
 ## Changelog
 
 *Newest first. One line per revision: what changed and why.*
 
+- v4 (2026-08-20) — Added the project-context review workflow and client-choice differentiation after Adobe AI Assistant comparison.
+- v3 (2026-08-19) — Updated proof counts for v1.11.4 and added the organic article strategy and activation path.
 - v2 (2026-08-15) — Expanded audience, differentiation, objections, brand voice, proof, and activation goals; aligned the current 280-core and 307-connected tool surfaces.
 - v1 (2026-07-27) — Initial context derived from the product README, package requirements, compatibility guidance, and usage-measurement work.
