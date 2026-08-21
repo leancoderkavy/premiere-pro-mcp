@@ -69,6 +69,21 @@ describe("advanced collaboration and AI feature support", () => {
     expect(features.objectMask.unsupportedOperations).toContain("create an Object Mask");
     expect(features.captionTranslation.detection).toContain("No documented metadata");
     expect(features.remix.detection).toContain("not proof");
+    expect(features.editorialPlans).toMatchObject({
+      status: "local-planning",
+      access: "direct",
+      callableThroughCurrentMcpTransport: true,
+    });
+    expect(features.premiereAiAssistant).toMatchObject({
+      status: "user-assisted",
+      access: "user-assisted",
+      callableThroughCurrentMcpTransport: false,
+    });
+    expect(features.localSemanticIndex).toMatchObject({
+      status: "planned-local",
+      access: "planned",
+      callableThroughCurrentMcpTransport: false,
+    });
   });
 
   it("rejects non-numeric host versions", () => {
