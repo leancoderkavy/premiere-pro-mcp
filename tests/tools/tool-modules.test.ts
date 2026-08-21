@@ -49,6 +49,7 @@ import { getProjectManagerTools } from "../../src/tools/project-manager.js";
 import { getRecoveryTools } from "../../src/tools/recovery.js";
 import { getAvSettingsTools } from "../../src/tools/av-settings.js";
 import { getProjectContextTools } from "../../src/tools/project-context.js";
+import { getEditorialPlanTools } from "../../src/tools/editorial-plans.js";
 import type { Telemetry, TelemetryProperties } from "../../src/telemetry.js";
 
 interface ToolDef {
@@ -96,6 +97,7 @@ const ALL_MODULES: Array<{
   { name: "recovery", getter: getRecoveryTools, minTools: 2 },
   { name: "av-settings", getter: getAvSettingsTools, minTools: 4 },
   { name: "project-context", getter: getProjectContextTools, minTools: 3 },
+  { name: "editorial-plans", getter: () => getEditorialPlanTools(), minTools: 2 },
 ];
 
 describe("Tool Module Structure", () => {
@@ -137,7 +139,7 @@ describe("Tool Module Structure", () => {
             for (const [propName, prop] of Object.entries(props) as [string, any][]) {
               expect(prop.type, `${name}.${propName} type`).toBeDefined();
               expect(
-                ["string", "number", "boolean", "array", "object"].includes(prop.type),
+                ["string", "number", "integer", "boolean", "array", "object"].includes(prop.type),
                 `${name}.${propName} has valid type "${prop.type}"`
               ).toBe(true);
             }
@@ -177,16 +179,16 @@ describe("Tool Module Structure", () => {
 });
 
 describe("Total Tool Count", () => {
-  it("all modules together have 283 tools", () => {
+  it("all modules together have 285 tools", () => {
     let total = 0;
     for (const mod of ALL_MODULES) {
       total += Object.keys(mod.getter(bridgeOptions)).length;
     }
-    expect(total).toBe(283);
+    expect(total).toBe(285);
   });
 
-  it("there are 31 directly enumerated modules", () => {
-    expect(ALL_MODULES.length).toBe(31);
+  it("there are 32 directly enumerated modules", () => {
+    expect(ALL_MODULES.length).toBe(32);
   });
 });
 

@@ -19,7 +19,7 @@ describe("modern MCP surface", () => {
   it("exposes a machine-readable workflow resource", () => {
     const resource = JSON.parse(WORKFLOW_RESOURCE);
     expect(resource.version).toBe(1);
-    expect(resource.workflows).toHaveLength(6);
+    expect(resource.workflows).toHaveLength(9);
     expect(resource.workflows[0].recommendedTools).toContain("get_premiere_state");
   });
 
@@ -36,6 +36,8 @@ describe("modern MCP surface", () => {
     expect(annotationsForTool("execute_extendscript").openWorldHint).toBe(true);
     expect(annotationsForTool("search_project_context")).toMatchObject({ readOnlyHint: true, idempotentHint: true });
     expect(annotationsForTool("create_context_edit_plan")).toMatchObject({ readOnlyHint: true, idempotentHint: true });
+    expect(annotationsForTool("create_editorial_plan")).toMatchObject({ readOnlyHint: true, idempotentHint: true });
+    expect(annotationsForTool("preview_editorial_plan")).toMatchObject({ readOnlyHint: true, idempotentHint: true });
     expect(annotationsForTool("manage_project_context")).toMatchObject({
       readOnlyHint: false,
       destructiveHint: true,
@@ -97,11 +99,13 @@ describe("modern MCP surface", () => {
       // unsafe-script, so the two scripting tools are not advertised.
       expect(tools.tools.map((tool) => tool.name)).not.toContain("execute_extendscript");
       expect(tools.tools.map((tool) => tool.name)).not.toContain("evaluate_expression");
-      expect(tools.tools).toHaveLength(283);
+      expect(tools.tools).toHaveLength(285);
       expect(tools.tools.map((tool) => tool.name)).toEqual(expect.arrayContaining([
         "manage_project_context",
         "search_project_context",
         "create_context_edit_plan",
+        "create_editorial_plan",
+        "preview_editorial_plan",
       ]));
 
       const capabilities = await client.callTool({
