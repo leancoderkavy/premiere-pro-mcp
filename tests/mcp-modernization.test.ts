@@ -19,7 +19,7 @@ describe("modern MCP surface", () => {
   it("exposes a machine-readable workflow resource", () => {
     const resource = JSON.parse(WORKFLOW_RESOURCE);
     expect(resource.version).toBe(1);
-    expect(resource.workflows).toHaveLength(9);
+    expect(resource.workflows).toHaveLength(10);
     expect(resource.workflows[0].recommendedTools).toContain("get_premiere_state");
   });
 
@@ -38,6 +38,11 @@ describe("modern MCP surface", () => {
     expect(annotationsForTool("create_context_edit_plan")).toMatchObject({ readOnlyHint: true, idempotentHint: true });
     expect(annotationsForTool("create_editorial_plan")).toMatchObject({ readOnlyHint: true, idempotentHint: true });
     expect(annotationsForTool("preview_editorial_plan")).toMatchObject({ readOnlyHint: true, idempotentHint: true });
+    expect(annotationsForTool("apply_editorial_organization_plan")).toMatchObject({
+      readOnlyHint: false,
+      destructiveHint: false,
+      idempotentHint: false,
+    });
     expect(annotationsForTool("manage_project_context")).toMatchObject({
       readOnlyHint: false,
       destructiveHint: true,

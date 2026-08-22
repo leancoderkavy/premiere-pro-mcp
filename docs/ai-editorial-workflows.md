@@ -21,12 +21,13 @@ Premiere project.
    notes, audio observations, or approved analysis results. Do not put secrets,
    native paths, or unrelated customer content in an enrichment.
 3. Call `create_editorial_plan` with an editorial intent and one workflow:
-   `organize`, `stringout`, `rough_cut`, or `caption_review`.
+   `organize`, `stringout`, `rough_cut`, `caption_review`, or
+   `platform_cutdown`.
 4. Call `preview_editorial_plan`. It rejects a plan when its saved context or
    timeline revision is stale and returns a review receipt when it is current.
 5. Re-capture context immediately before a mutation. Resolve stable Premiere
    identities and use the route stated by the recommendation, for example
-   `organize_project_items_uxp`, `manage_sequences_uxp`,
+   `apply_editorial_organization_plan`, `manage_sequences_uxp`,
    `preview_transcript_edit_uxp`, or `create_caption_track`.
 6. Apply the individual supported operation under its normal authority,
    idempotency, transaction, and verification contract. Inspect the final
@@ -44,10 +45,33 @@ matches these rules only against stored local context records. It deliberately
 does not infer bins from filenames, claim semantic understanding, or create a
 destination bin automatically.
 
-After review, create or resolve the destination bin through the documented UXP
-workflow and move only stable project-item IDs with expected-parent guards.
-Because a newly created bin receives its identity from Premiere, a new plan or
-explicit ID-resolution step is required before moves.
+With an authenticated compatible UXP bridge, a reviewed plan can be supplied to
+`apply_editorial_organization_plan` with its exact preview confirmation token,
+one selected recommendation per operation, stable source IDs, and required
+expected-parent guards. If no destination bin ID is supplied, the tool creates
+the proposed bin with a documented UXP transaction, resolves the returned bin
+ID, then performs individually guarded move/color transactions.
+
+The operation is intentionally UXP-only: it never falls back to CEP or QE.
+Cross-command rollback is not possible because Premiere returns a newly created
+bin ID only after the first transaction. If a later transaction fails, the tool
+reports the completed actions as `partial`, tells the editor to inspect them,
+and never implies that Premiere rolled them back. `verified` means every host
+response reported its own verified postcondition; it is not playback, render,
+or visual-quality verification.
+
+## Platform cutdowns
+
+`platform_cutdown` accepts one to eight explicit target dimensions and plans a
+separate derived sequence for each one. Every recommendation names the captured
+source sequence, proposed derivative name, target width and height, and the
+review order: clone the source sequence, re-query the stable derivative ID,
+review Auto Reframe, optionally review captions, inspect structure, then export.
+
+This is local planning only. It does not create a sequence, invoke Auto Reframe,
+change captions, relabel clips, render/export media, query Adobe Media
+Intelligence, or call an AI/provider service. Every later host mutation keeps
+its own capability, confirmation, and verification boundary.
 
 ## Rough cuts and captions
 

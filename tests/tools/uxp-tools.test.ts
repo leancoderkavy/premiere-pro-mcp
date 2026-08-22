@@ -111,13 +111,14 @@ describe("UXP MCP tools", () => {
           "has_transcript_uxp",
           "export_aaf_uxp",
           "export_frame_uxp",
+          "apply_editorial_organization_plan",
         ]),
       );
       // The default profile excludes two unsafe-script tools. The native
       // transcript workflow and documented Premiere 26.3 tools add nineteen,
-      // and the two stable workflow expansions add twenty-one consolidated UXP tools;
+      // and the two stable workflow expansions plus confirmed organization application add twenty-two consolidated UXP tools;
       // connection verification adds one default-profile core tool.
-      expect(tools.tools).toHaveLength(334);
+      expect(tools.tools).toHaveLength(335);
     } finally {
       await client.close();
       await server.close();

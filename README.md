@@ -6,7 +6,7 @@
 
 **Give compatible AI assistants structured control over supported Adobe Premiere Pro workflows.**
 
-287 core tools across 33 modules, 4 resources, and 9 guided workflows. A connected UXP host adds 49 capability-gated tools.
+287 core tools across 33 modules, 4 resources, and 10 guided workflows. A connected UXP host adds 50 capability-gated tools.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Node.js](https://img.shields.io/badge/Node.js-20.19%2B-green.svg)](https://nodejs.org)
@@ -493,11 +493,11 @@ The file-based IPC bridge is simple, reliable, and works across macOS and Window
 
 ---
 
-## Tools (287 core total; 285 under the default profile; 334 with a connected UXP bridge)
+## Tools (287 core total; 285 under the default profile; 335 with a connected UXP bridge)
 
 The [complete supported-actions catalog](docs/supported-actions.md) lists every
 registered core tool, the two tools restricted behind explicit `unsafe-script`
-authority, and all 49 authenticated UXP additions with their current action or mode
+authority, and all 50 authenticated UXP additions with their current action or mode
 values. It is generated from the same MCP registration surface returned to clients;
 the tables below are a shorter workflow-oriented overview.
 
@@ -518,6 +518,7 @@ the tables below are a shorter workflow-oriented overview.
 | `get_advanced_feature_support` | Collaboration/AI API support, prerequisites, entitlements, and user-assisted boundaries |
 | `create_editorial_plan` | Create a review-only local editorial plan from captured project context |
 | `preview_editorial_plan` | Revalidate a local editorial plan and return a review receipt without changing Premiere |
+| `apply_editorial_organization_plan` | Apply a confirmed organization plan through guarded UXP bin transactions only |
 
 ### Project Management (26)
 
@@ -692,7 +693,7 @@ Track targeting, batch operations, markers, audio levels, motion/transform, meta
 
 ## MCP Resources
 
-The server exposes three LLM context resources and four workflow prompts:
+The server exposes four LLM context resources and ten workflow prompts:
 
 | Resource URI | Description |
 | :----------- | :---------- |

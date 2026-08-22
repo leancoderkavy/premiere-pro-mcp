@@ -58,7 +58,7 @@ export const articles: Article[] = [
       {
         heading: "What can an AI assistant help with in Premiere Pro?",
         paragraphs: [
-          "The server currently registers 287 core structured tools across timeline work, effects and Lumetri color, audio, captions, markers, keyframes, project organization, media and proxy workflows, diagnostics, export, and local editorial planning. The default capability profile exposes 285 of those tools. An authenticated compatible UXP host can add 49 capability-gated tools, bringing the connected surface to 334.",
+          "The server currently registers 287 core structured tools across timeline work, effects and Lumetri color, audio, captions, markers, keyframes, project organization, media and proxy workflows, diagnostics, export, and local editorial planning. The default capability profile exposes 285 of those tools. An authenticated compatible UXP host can add 50 capability-gated tools, bringing the connected surface to 335.",
           "Those numbers describe discovery, not a blanket promise. A better question is whether the current host can perform the specific task you need. For example, an editor might ask for the active sequence and its clip structure before requesting a preview of a B-roll assembly. A post-production lead might ask for a project inventory before standardizing bins. A workflow developer might use the structured surface as a starting point rather than building and maintaining a bridge from scratch.",
         ],
       },
