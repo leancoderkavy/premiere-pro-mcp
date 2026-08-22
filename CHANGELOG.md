@@ -6,6 +6,26 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [1.12.0] - 2026-08-22
+
+### Added
+
+- Added local-first editorial planning for organization, stringout, rough-cut,
+  caption-review, and platform-cutdown workflows. Plans are non-mutating and
+  can be previewed against captured local project context.
+- Added a guarded UXP organization apply route with stable source and parent
+  guards, structured bin/move/color readback requirements, partial-outcome
+  reporting, and a licensed-host validation runbook.
+- Added a canonical product-claims registry and regression coverage for
+  release-backed claims and unsupported endorsement language.
+
+### Fixed
+
+- Editorial-plan preview and apply now accept only exact server-issued plans
+  with opaque confirmation tokens. Client-modified plans and duplicate source
+  guards are rejected before any UXP mutation.
+- Unverified UXP attempts are no longer reported as applied or committed.
+
 ## [1.11.5] - 2026-08-19
 
 ### Fixed

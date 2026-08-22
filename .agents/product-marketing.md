@@ -137,7 +137,7 @@
 
 ## Proof Points
 
-**Release-backed facts:** v1.11.5 registers 287 core tools; the default profile exposes 285; an authenticated compatible UXP host can add 50 capability-gated tools for a 335-tool connected surface. The release also declares 33 modules, 4 MCP resources, and 10 workflow prompts. These are catalog and packaging facts from `release-metadata.json`, not a promise that a particular host operation will work.
+**Release-backed facts:** v1.12.0 registers 287 core tools; the default profile exposes 285; an authenticated compatible UXP host can add 50 capability-gated tools for a 335-tool connected surface. The release also declares 33 modules, 4 MCP resources, and 10 workflow prompts. These are catalog and packaging facts from `release-metadata.json`, not a promise that a particular host operation will work.
 
 **Compatibility boundary:** The release targets Premiere Pro 2020–2026; UXP workflows require a compatible Premiere Pro 25.6.0+ host and advertised capabilities. CEP remains the default compatibility route. A compatibility range, package validation, CI pass, HTTP health check, or local build is not real-host proof.
 
@@ -172,7 +172,7 @@
 
 *Newest first. One line per revision: what changed and why.*
 
-- v5 (2026-08-22) — Repositioned around reviewable workflow automation; refreshed v1.11.5 release facts, ICP, Adobe AI Assistant overlap, commercial hypotheses, and explicit proof boundaries.
+- v5 (2026-08-22) — Repositioned around reviewable workflow automation; refreshed v1.12.0 release facts, ICP, Adobe AI Assistant overlap, commercial hypotheses, and explicit proof boundaries.
 - v4 (2026-08-20) — Added the project-context review workflow and client-choice differentiation after Adobe AI Assistant comparison.
 - v3 (2026-08-19) — Updated proof counts for v1.11.4 and added the organic article strategy and activation path.
 - v2 (2026-08-15) — Expanded audience, differentiation, objections, brand voice, proof, and activation goals; aligned the current 280-core and 307-connected tool surfaces.
