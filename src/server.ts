@@ -32,6 +32,7 @@ import { getEditPlanTools } from "./tools/edit-plans.js";
 import { getAvSettingsTools } from "./tools/av-settings.js";
 import { getRecoveryTools } from "./tools/recovery.js";
 import { getProjectContextTools } from "./tools/project-context.js";
+import { getEditorialPlanTools } from "./tools/editorial-plans.js";
 import { getUxpTools } from "./tools/uxp.js";
 import type { UxpWebSocketBridge } from "./bridge/uxp-websocket-bridge.js";
 import {
@@ -295,6 +296,7 @@ function collectTools(
     ...getAvSettingsTools(bridgeOptions),
     ...getRecoveryTools(bridgeOptions),
     ...getProjectContextTools(bridgeOptions),
+    ...getEditorialPlanTools({ uxpBridge }),
     ...(uxpBridge ? getUxpTools(uxpBridge) : {}),
   };
   Object.assign(

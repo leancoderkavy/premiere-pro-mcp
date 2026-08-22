@@ -37,6 +37,30 @@ export const WORKFLOW_CATALOG = [
     summary: "Export Premiere's native transcript, select revision-locked source ranges, map them to verified 1x placements in a duplicate sequence, then execute the descending cut plan with re-query verification.",
     recommendedTools: ["get_clip_transcript_uxp", "search_clip_transcript_uxp", "preview_transcript_edit_uxp", "plan_transcript_rough_cut_uxp", "manage_sequences_uxp", "split_clip", "get_sequence_structure"],
   },
+  {
+    id: "project-organization",
+    title: "Plan project organization",
+    summary: "Capture project context, supply explicit editorial categories, create a review-only organization plan, then use stable-ID bin operations after review.",
+    recommendedTools: ["manage_project_context", "create_editorial_plan", "preview_editorial_plan", "organize_project_items_uxp"],
+  },
+  {
+    id: "ai-assisted-stringout",
+    title: "Plan a reviewed stringout",
+    summary: "Retrieve relevant local evidence, produce a review-only stringout plan, resolve selected project items, then create and verify a new sequence.",
+    recommendedTools: ["manage_project_context", "create_editorial_plan", "preview_editorial_plan", "manage_sequences_uxp", "edit_timeline_uxp"],
+  },
+  {
+    id: "caption-artifact-review",
+    title: "Review a caption artifact",
+    summary: "Use existing transcript evidence to review a supplied caption artifact, import it deliberately, create a caption track, and verify playback before delivery.",
+    recommendedTools: ["manage_project_context", "create_editorial_plan", "preview_editorial_plan", "import_media", "create_caption_track", "get_sequence_structure"],
+  },
+  {
+    id: "platform-cutdown",
+    title: "Plan platform cutdowns",
+    summary: "Capture source-sequence context, propose bounded platform dimensions, review derivative sequence routes, then create and verify each cutdown deliberately.",
+    recommendedTools: ["manage_project_context", "create_editorial_plan", "preview_editorial_plan", "manage_sequences_uxp", "auto_reframe_sequence", "get_sequence_structure", "export_sequence"],
+  },
 ] as const;
 
 export const WORKFLOW_RESOURCE = JSON.stringify(

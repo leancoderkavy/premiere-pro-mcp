@@ -53,7 +53,12 @@ export interface ToolOperationalCapability {
   notes: string[];
 }
 
-const LOCAL_TOOLS = new Set(["get_capabilities", "preview_edit_plan"]);
+const LOCAL_TOOLS = new Set([
+  "get_capabilities",
+  "preview_edit_plan",
+  "create_editorial_plan",
+  "preview_editorial_plan",
+]);
 const ORCHESTRATOR_TOOLS = new Set(["apply_edit_plan"]);
 
 /**
@@ -87,6 +92,30 @@ export const TOOL_OPERATIONAL_OVERRIDES: Readonly<
     hostVerificationRequired: false,
     notes: [
       "Evaluates documented feature prerequisites locally; it does not prove host availability or entitlement.",
+    ],
+  },
+  create_editorial_plan: {
+    backend: "local",
+    backends: ["local"],
+    status: "supported",
+    minimumPremiereVersion: null,
+    authority: "inspect",
+    verificationBoundary: "static_metadata_only",
+    hostVerificationRequired: false,
+    notes: [
+      "Builds a review-only plan from saved project context; it does not contact Premiere, call an AI provider, or change the project.",
+    ],
+  },
+  preview_editorial_plan: {
+    backend: "local",
+    backends: ["local"],
+    status: "supported",
+    minimumPremiereVersion: null,
+    authority: "inspect",
+    verificationBoundary: "plan_revalidation",
+    hostVerificationRequired: false,
+    notes: [
+      "Revalidates the plan against saved project-context revisions; a current local revision is not live Premiere host verification.",
     ],
   },
   validate_export_preset: {

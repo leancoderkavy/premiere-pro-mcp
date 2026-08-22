@@ -1,7 +1,11 @@
 import type { ToolAnnotations } from "@modelcontextprotocol/sdk/types.js";
 
 const READ_PREFIXES = ["get_", "list_", "inspect_", "find_", "check_", "search_"];
-const READ_ONLY_TOOLS = new Set(["create_context_edit_plan"]);
+const READ_ONLY_TOOLS = new Set([
+  "create_context_edit_plan",
+  "create_editorial_plan",
+  "preview_editorial_plan",
+]);
 const DESTRUCTIVE_PREFIXES = ["delete_", "remove_", "ripple_delete", "close_"];
 const DESTRUCTIVE_TOOLS = new Set(["manage_project_context"]);
 const OPEN_WORLD_TOOLS = new Set(["execute_extendscript", "send_raw_script"]);

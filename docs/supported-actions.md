@@ -8,11 +8,11 @@ descriptions, action enums, authority visibility, and counts stay aligned with t
 
 | Surface | Count | Availability |
 | --- | ---: | --- |
-| Registered core actions | 285 | CEP/local server catalog; host and authority checks still apply |
-| Default-profile core actions | 283 | Advertised with `inspect,edit,export,filesystem` |
+| Registered core actions | 287 | CEP/local server catalog; host and authority checks still apply |
+| Default-profile core actions | 285 | Advertised with `inspect,edit,export,filesystem` |
 | Restricted core actions | 2 | Require explicit `unsafe-script` authority |
-| Authenticated UXP additions | 49 | Advertised only while a compatible authenticated UXP panel is connected |
-| Default profile with UXP | 332 | 283 core plus 49 UXP tools |
+| Authenticated UXP additions | 50 | Advertised only while a compatible authenticated UXP panel is connected |
+| Default profile with UXP | 335 | 285 core plus 50 UXP tools |
 
 ## How to read support
 
@@ -75,6 +75,7 @@ operation” when the tool has no enum-based mode.
 | `create_bin` | Default profile | Single operation | Create a new bin (folder) in the project panel |
 | `create_caption_track` | Default profile | Single operation | Create a caption/subtitle track in the active sequence from an imported caption file (e.g., .srt, .vtt). Creation is structural only; verify playback or exported frames before delivery. |
 | `create_context_edit_plan` | Default profile | `strategy`: `rough_cut`, `select_ranges`, `review` | Create a non-mutating, evidence-backed edit-plan scaffold from indexed Premiere context. It returns ranked source/time candidates and stale-state guards; the model must review them and use preview_edit_plan before any mutation. |
+| `create_editorial_plan` | Default profile | `workflow`: `organize`, `stringout`, `rough_cut`, `caption_review`, `platform_cutdown` | Create a local, evidence-backed editorial workflow plan from captured project context. It never calls an LLM, uploads media, or changes Premiere. |
 | `create_project` | Default profile | Single operation | Create a new Premiere Pro project at the specified path |
 | `create_sequence` | Default profile | Single operation | Create a new sequence in the project |
 | `create_sequence_from_clips` | Default profile | Single operation | Create a new sequence by automatically placing project items in order |
@@ -216,6 +217,7 @@ operation” when the tool has no enum-based mode.
 | `play_source_monitor` | Default profile | Single operation | Start playback of the clip in the Source Monitor |
 | `play_timeline` | Default profile | Single operation | Start playback of the active sequence timeline. Uses QE DOM. |
 | `preview_edit_plan` | Default profile | Single operation | Validate and preview a compound timeline edit without changing Premiere. Returns a confirmation token required by apply_edit_plan. |
+| `preview_editorial_plan` | Default profile | Single operation | Revalidate an editorial plan against the saved project-context revisions and return a confirmation token. This tool is read-only and cannot apply the plan. |
 | `razor_all_tracks` | Default profile | `track_type`: `video`, `audio`, `both` | Razor (split) all clips at the playhead position across all tracks, or at a specific time. |
 | `redo` | Default profile | Single operation | Redo the last undone action in Premiere Pro. |
 | `refresh_media` | Default profile | Single operation | Refresh a project item to pick up changes to the source file |
@@ -327,6 +329,7 @@ authenticated and the connected host advertises the required command capabilitie
 
 | MCP tool | Availability | Actions or modes | Description |
 | --- | --- | --- | --- |
+| `apply_editorial_organization_plan` | Connected UXP | Single operation | Apply selected organization recommendations through documented UXP bin transactions only. Requires the exact preview confirmation token and stable source/parent guards; individual host transactions may be partially committed and are never silently retried or rolled back. |
 | `audition_source_monitor_uxp` | Connected UXP | `state`, `open_project_item`, `open_file`, `set_position`, `play`, `close`, `close_all` | Open a selected project item or approved file, inspect/set position, play at bounded speed, or close Source Monitor media through documented UXP APIs. |
 | `automate_effect_parameters_uxp` | Connected UXP | `inspect`, `set_value`, `add_keyframe`, `remove_keyframe`, `remove_keyframe_range`, `set_interpolation` | Inspect or transactionally set scalar effect parameters and add, remove, range-remove, or interpolate keyframes through documented UXP actions. |
 | `batch_selected_clips_uxp` | Connected UXP | `inspect`, `add_effect`, `remove_effect` | Inspect the current timeline selection or apply one native effect add/remove across up to 64 same-type selected clips as a single compound transaction. |

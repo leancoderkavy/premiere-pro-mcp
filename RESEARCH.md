@@ -9,6 +9,28 @@
 5. **adb-mcp** (github.com/mikechambers/adb-mcp) — UXP-based MCP for Premiere (Python + proxy)
 6. **hetpatel-11/Adobe_Premiere_Pro_MCP** — CEP-based MCP (same architecture as ours)
 
+### Adobe AI editorial workflow boundary (2026-08-21)
+
+Adobe's current Premiere AI Assistant documentation describes a beta, in-product
+assistant that can organize Project-panel assets, work with transcripts and
+markers, and help construct stringouts or first cuts. It does not document a
+public CEP, UXP, REST, or MCP invocation API. The Generative Media Tool is also
+beta and requires in-product access, service availability, and generative
+credits; it is not wired to this server.
+
+Accordingly, this repository exposes only local, revision-aware planning and
+preview artifacts for editorial workflows. Applying any recommendation remains
+an explicit call to a supported, separately authorized Premiere tool, and
+generation, transcription, translation, cloud upload, and paid-provider use
+remain outside this implementation.
+
+Primary references:
+
+- Adobe Premiere AI Assistant FAQ — https://helpx.adobe.com/premiere/desktop/premiere-ai-assistant/assistant-faq.html
+- Adobe Premiere UXP Transcript API — https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/transcript/
+- Adobe Premiere UXP SequenceEditor API — https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/sequenceeditor/
+- Adobe Premiere UXP Hybrid Plugins guide — https://developer.adobe.com/premiere-pro/uxp/plugins/hybrid-plugins/
+
 ---
 
 ## Historical Repository Snapshot (2026-07-20)
