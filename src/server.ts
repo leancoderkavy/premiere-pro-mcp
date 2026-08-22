@@ -296,7 +296,7 @@ function collectTools(
     ...getAvSettingsTools(bridgeOptions),
     ...getRecoveryTools(bridgeOptions),
     ...getProjectContextTools(bridgeOptions),
-    ...getEditorialPlanTools(),
+    ...getEditorialPlanTools({ uxpBridge }),
     ...(uxpBridge ? getUxpTools(uxpBridge) : {}),
   };
   Object.assign(

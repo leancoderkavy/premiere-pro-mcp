@@ -11,13 +11,22 @@ import {
 export const EDITORIAL_PLAN_SCHEMA_VERSION = 1;
 export const MAX_EDITORIAL_CANDIDATES = 32;
 export const MAX_ORGANIZATION_RULES = 16;
+export const MAX_PLATFORM_CUTDOWN_TARGETS = 8;
 
-export type EditorialWorkflow = "organize" | "stringout" | "rough_cut" | "caption_review";
+export type EditorialWorkflow = "organize" | "stringout" | "rough_cut" | "caption_review" | "platform_cutdown";
 
 export interface OrganizationRule {
   name: string;
   keywords: string[];
   colorIndex?: number;
+}
+
+export interface PlatformCutdownTarget {
+  name: string;
+  width: number;
+  height: number;
+  sequenceName?: string;
+  includeCaptions?: boolean;
 }
 
 export interface EditorialCandidate {
@@ -36,7 +45,7 @@ export interface EditorialCandidate {
 
 export interface EditorialRecommendation {
   id: string;
-  kind: "organize_source" | "create_stringout" | "transcript_rough_cut" | "caption_artifact_review";
+  kind: "organize_source" | "create_stringout" | "transcript_rough_cut" | "caption_artifact_review" | "create_platform_cutdown";
   title: string;
   route: string;
   mutatesProject: false;
@@ -64,6 +73,7 @@ export interface BuildEditorialPlanOptions {
   sequenceId?: string;
   maxCandidates?: number;
   organizationRules?: OrganizationRule[];
+  platformTargets?: PlatformCutdownTarget[];
 }
 
 function hash(value: string): string {
@@ -83,8 +93,8 @@ export function editorialPlanConfirmationToken(plan: EditorialPlan): string {
 }
 
 function boundedWorkflow(value: unknown): EditorialWorkflow {
-  if (value === "organize" || value === "stringout" || value === "rough_cut" || value === "caption_review") return value;
-  throw new Error("workflow must be organize, stringout, rough_cut, or caption_review");
+  if (value === "organize" || value === "stringout" || value === "rough_cut" || value === "caption_review" || value === "platform_cutdown") return value;
+  throw new Error("workflow must be organize, stringout, rough_cut, caption_review, or platform_cutdown");
 }
 
 function boundedOrganizationRules(value: unknown): OrganizationRule[] {
@@ -100,7 +110,7 @@ function boundedOrganizationRules(value: unknown): OrganizationRule[] {
     const raw = entry as Record<string, unknown>;
     const name = normalizeContextText(raw.name).slice(0, 255);
     const keywords = normalizeContextKeywords(raw.keywords).map((keyword) => keyword.toLocaleLowerCase());
-    const rawColorIndex = raw.color_index;
+    const rawColorIndex = raw.colorIndex ?? raw.color_index;
     if (!name) throw new Error(`organization_rules[${index}].name must not be empty`);
     if (!keywords.length) throw new Error(`organization_rules[${index}].keywords must contain at least one keyword`);
     if (names.has(name.toLocaleLowerCase())) throw new Error(`organization_rules contains duplicate name: ${name}`);
@@ -110,6 +120,44 @@ function boundedOrganizationRules(value: unknown): OrganizationRule[] {
     }
     const colorIndex = rawColorIndex as number | undefined;
     return { name, keywords, ...(colorIndex === undefined ? {} : { colorIndex }) };
+  });
+}
+
+function boundedPlatformCutdownTargets(value: unknown): PlatformCutdownTarget[] {
+  if (value === undefined) return [];
+  if (!Array.isArray(value) || !value.length || value.length > MAX_PLATFORM_CUTDOWN_TARGETS) {
+    throw new Error(`platform_targets must contain between 1 and ${MAX_PLATFORM_CUTDOWN_TARGETS} targets`);
+  }
+  const names = new Set<string>();
+  return value.map((entry, index) => {
+    if (!entry || typeof entry !== "object" || Array.isArray(entry)) {
+      throw new Error(`platform_targets[${index}] must be an object`);
+    }
+    const raw = entry as Record<string, unknown>;
+    const name = normalizeContextText(raw.name).slice(0, 64);
+    const width = raw.width;
+    const height = raw.height;
+    const sequenceName = normalizeContextText(raw.sequenceName ?? raw.sequence_name).slice(0, 255);
+    const includeCaptions = raw.includeCaptions ?? raw.include_captions;
+    if (!name) throw new Error(`platform_targets[${index}].name must not be empty`);
+    if (names.has(name.toLocaleLowerCase())) throw new Error(`platform_targets contains duplicate name: ${name}`);
+    names.add(name.toLocaleLowerCase());
+    if (typeof width !== "number" || !Number.isInteger(width) || width < 16 || width > 8192) {
+      throw new Error(`platform_targets[${index}].width must be an integer from 16 through 8192`);
+    }
+    if (typeof height !== "number" || !Number.isInteger(height) || height < 16 || height > 8192) {
+      throw new Error(`platform_targets[${index}].height must be an integer from 16 through 8192`);
+    }
+    if (includeCaptions !== undefined && typeof includeCaptions !== "boolean") {
+      throw new Error(`platform_targets[${index}].include_captions must be a boolean`);
+    }
+    return {
+      name,
+      width,
+      height,
+      ...(sequenceName ? { sequenceName } : {}),
+      ...(includeCaptions === undefined ? {} : { includeCaptions }),
+    };
   });
 }
 
@@ -129,7 +177,11 @@ function candidateFromRecord(record: ProjectContextRecord, score: number, matche
   };
 }
 
-function organizationRecommendations(document: ProjectContextDocument, rules: OrganizationRule[]): EditorialRecommendation[] {
+function organizationRecommendations(
+  document: ProjectContextDocument,
+  rules: OrganizationRule[],
+  candidateEvidenceIds: ReadonlySet<string>,
+): EditorialRecommendation[] {
   if (!rules.length) return [];
   const sources = document.records.filter((record) => record.kind === "source" && record.sourceId);
   return rules.map((rule, index) => {
@@ -139,7 +191,8 @@ function organizationRecommendations(document: ProjectContextDocument, rules: Or
         const haystack = `${record.name} ${record.text} ${record.keywords.join(" ")}`.toLocaleLowerCase();
         return [...keywords].some((keyword) => haystack.includes(keyword));
       })
-      .map((record) => record.id);
+      .map((record) => record.id)
+      .filter((id) => candidateEvidenceIds.has(id));
     return {
       id: `organization-${index + 1}`,
       kind: "organize_source",
@@ -159,6 +212,48 @@ function organizationRecommendations(document: ProjectContextDocument, rules: Or
   });
 }
 
+function selectedSequence(document: ProjectContextDocument, sequenceId?: string): ProjectContextRecord {
+  const sequence = document.records.find((record) => record.kind === "sequence" && record.sequenceId && (!sequenceId || record.sequenceId === sequenceId));
+  if (!sequence?.sequenceId) {
+    throw new Error(sequenceId
+      ? "platform_cutdown requires a captured sequence matching sequence_id"
+      : "platform_cutdown requires at least one captured sequence");
+  }
+  return sequence;
+}
+
+function platformCutdownRecommendations(
+  sourceSequence: ProjectContextRecord,
+  targets: PlatformCutdownTarget[],
+  candidateEvidenceIds: string[],
+): EditorialRecommendation[] {
+  const sourceSequenceId = sourceSequence.sequenceId as string;
+  return targets.map((target, index) => ({
+    id: `platform-cutdown-${index + 1}`,
+    kind: "create_platform_cutdown",
+    title: `Review ${target.name} cutdown`,
+    route: "manage_sequences_uxp",
+    mutatesProject: false,
+    requiresReview: true,
+    candidateEvidenceIds,
+    details: {
+      sourceSequenceId,
+      sourceSequenceName: sourceSequence.name,
+      proposedSequenceName: target.sequenceName ?? `${sourceSequence.name} - ${target.name}`.slice(0, 255),
+      target: { width: target.width, height: target.height },
+      includeCaptions: target.includeCaptions === true,
+      nextRoutes: [
+        { tool: "manage_sequences_uxp", action: "clone" },
+        { tool: "auto_reframe_sequence", targetWidth: target.width, targetHeight: target.height },
+        ...(target.includeCaptions ? [{ tool: "create_caption_track" }] : []),
+        { tool: "get_sequence_structure" },
+        { tool: "export_sequence" },
+      ],
+      note: "First clone the source sequence, re-query the stable derivative ID, then review Auto Reframe and captions before any export. This plan does not create, reframe, or render a sequence.",
+    },
+  }));
+}
+
 export function buildEditorialPlan(
   document: ProjectContextDocument,
   options: BuildEditorialPlanOptions,
@@ -166,10 +261,16 @@ export function buildEditorialPlan(
   const workflow = boundedWorkflow(options.workflow);
   const intent = normalizeContextText(options.intent).slice(0, 1_000);
   if (!intent) throw new Error("intent must not be empty");
-  const maxCandidates = Math.max(1, Math.min(MAX_EDITORIAL_CANDIDATES, Math.trunc(options.maxCandidates ?? 8)));
+  const requestedCandidates = options.maxCandidates ?? 8;
+  if (!Number.isFinite(requestedCandidates)) throw new Error("max_candidates must be a finite number");
+  const maxCandidates = Math.max(1, Math.min(MAX_EDITORIAL_CANDIDATES, Math.trunc(requestedCandidates)));
   const organizationRules = boundedOrganizationRules(options.organizationRules);
+  const platformTargets = boundedPlatformCutdownTargets(options.platformTargets);
   if (workflow === "organize" && !organizationRules.length) {
     throw new Error("organization_rules are required for an organize workflow; the server does not infer editorial categories from filenames alone");
+  }
+  if (workflow === "platform_cutdown" && !platformTargets.length) {
+    throw new Error("platform_targets are required for a platform_cutdown workflow");
   }
 
   const candidates = searchProjectContext(document, {
@@ -187,7 +288,7 @@ export function buildEditorialPlan(
   ];
 
   if (workflow === "organize") {
-    recommendations.push(...organizationRecommendations(document, organizationRules));
+    recommendations.push(...organizationRecommendations(document, organizationRules, new Set(evidenceIds)));
     limitations.push("Review every source match before calling organize_project_items_uxp. Newly created bin IDs must be resolved before any move operation.");
   } else if (workflow === "stringout") {
     recommendations.push({
@@ -219,7 +320,7 @@ export function buildEditorialPlan(
       },
     });
     limitations.push("Transcript-to-timeline application remains restricted to mappings validated in a licensed Premiere host.");
-  } else {
+  } else if (workflow === "caption_review") {
     recommendations.push({
       id: "caption-review-1",
       kind: "caption_artifact_review",
@@ -233,6 +334,11 @@ export function buildEditorialPlan(
       },
     });
     limitations.push("Translation, transcription, and dubbing are user-assisted or separate-provider workflows; no media-transfer or paid-provider request is made by this plan.");
+  } else {
+    const sourceSequence = selectedSequence(document, options.sequenceId);
+    recommendations.push(...platformCutdownRecommendations(sourceSequence, platformTargets, evidenceIds));
+    limitations.push("Cutdown planning does not create a sequence, invoke Auto Reframe, relabel clips, translate captions, or render/export media.");
+    limitations.push("Any later UXP mutation must use the newly returned stable sequence ID and independently report its host verification boundary.");
   }
 
   return {

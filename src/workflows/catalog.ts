@@ -55,6 +55,12 @@ export const WORKFLOW_CATALOG = [
     summary: "Use existing transcript evidence to review a supplied caption artifact, import it deliberately, create a caption track, and verify playback before delivery.",
     recommendedTools: ["manage_project_context", "create_editorial_plan", "preview_editorial_plan", "import_media", "create_caption_track", "get_sequence_structure"],
   },
+  {
+    id: "platform-cutdown",
+    title: "Plan platform cutdowns",
+    summary: "Capture source-sequence context, propose bounded platform dimensions, review derivative sequence routes, then create and verify each cutdown deliberately.",
+    recommendedTools: ["manage_project_context", "create_editorial_plan", "preview_editorial_plan", "manage_sequences_uxp", "auto_reframe_sequence", "get_sequence_structure", "export_sequence"],
+  },
 ] as const;
 
 export const WORKFLOW_RESOURCE = JSON.stringify(
