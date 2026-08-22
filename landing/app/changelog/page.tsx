@@ -5,6 +5,19 @@ import { product } from "@/lib/product"
 
 const releases = [
   {
+    version: "1.12.1",
+    date: "2026-08-22",
+    label: "Analytics CSP compatibility",
+    groups: [
+      {
+        title: "Fixed",
+        items: [
+          "Allowed Google Analytics collection requests to www.google.com in the restrictive Content Security Policy, matching the current Google tag client.",
+        ],
+      },
+    ],
+  },
+  {
     version: "1.12.0",
     date: "2026-08-22",
     label: "Reviewed editorial workflow controls",

@@ -6,6 +6,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [1.12.1] - 2026-08-22
+
+### Fixed
+
+- Allowed Google Analytics collection requests to `www.google.com` in the
+  restrictive Content Security Policy, matching the current Google tag client.
+
 ## [1.12.0] - 2026-08-22
 
 ### Added

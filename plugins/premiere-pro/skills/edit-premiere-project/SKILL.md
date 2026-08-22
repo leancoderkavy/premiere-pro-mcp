@@ -14,7 +14,7 @@ project state, make only requested changes, and verify the timeline after mutati
 2. Call `ping` before any other Premiere operation.
 3. If `ping` fails, stop editing and tell the user to:
    - Open or restart Premiere Pro.
-   - Install the bridge with `npx -y premiere-pro-mcp@1.12.0 --install-cep` if needed.
+   - Install the bridge with `npx -y premiere-pro-mcp@1.12.1 --install-cep` if needed.
    - Open **Window > Extensions > MCP Bridge** and confirm it reports **Running**.
 4. Call `get_premiere_state` and inspect the active sequence before planning changes.
 5. Do not claim that a project, sequence, or export exists until a live tool result confirms it.
