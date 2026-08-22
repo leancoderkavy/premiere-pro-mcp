@@ -5,6 +5,27 @@ import { product } from "@/lib/product"
 
 const releases = [
   {
+    version: "1.12.0",
+    date: "2026-08-22",
+    label: "Reviewed editorial workflow controls",
+    groups: [
+      {
+        title: "Added",
+        items: [
+          "Added local-first editorial plans for organization and platform cutdowns, with previewable recommendations and a guarded UXP organization apply route.",
+          "Added structured UXP readback requirements, a licensed-host validation runbook, and product-claim drift checks.",
+        ],
+      },
+      {
+        title: "Safety",
+        items: [
+          "Organization plans now require an exact server-issued plan and opaque preview token; changed plans and duplicate source guards are rejected before a UXP mutation.",
+          "Automated contracts verify response shape, but real licensed-Premiere host validation remains a separate evidence gate.",
+        ],
+      },
+    ],
+  },
+  {
     version: "1.11.5",
     date: "2026-08-19",
     label: "MCP safety and interoperability research",

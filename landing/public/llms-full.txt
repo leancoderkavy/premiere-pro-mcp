@@ -11,11 +11,11 @@ Guide: Premiere Pro workflow automation: https://premiere-pro-mcp.com/blog/premi
 Source: https://github.com/leancoderkavy/premiere-pro-mcp
 npm: https://www.npmjs.com/package/premiere-pro-mcp
 License: MIT
-Current release: 1.11.5
+Current release: 1.12.0
 
 ## What it does
 
-The server registers 285 core tools for project inspection, timeline editing, media import and organization, clip selection, effects, Lumetri color, audio, silence detection, revisioned project-context retrieval, keyframes, markers, captions, transitions, playback, metadata, proxies, connection verification, and Adobe Media Encoder export. The default profile exposes 283. An authenticated compatible UXP panel adds 49 capability-gated tools for 332 connected tools. It also exposes four MCP resources and six workflow prompts.
+The server registers 287 core tools for project inspection, timeline editing, media import and organization, clip selection, effects, Lumetri color, audio, silence detection, revisioned project-context retrieval, keyframes, markers, captions, transitions, playback, metadata, proxies, connection verification, Adobe Media Encoder export, and review-only local editorial planning. The default profile exposes 285. An authenticated compatible UXP panel adds 50 capability-gated tools for 335 connected tools. It also exposes four MCP resources and ten workflow prompts.
 
 ## How it connects
 

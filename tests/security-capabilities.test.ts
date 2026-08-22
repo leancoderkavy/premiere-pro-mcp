@@ -259,6 +259,18 @@ describe("capability profiles", () => {
       },
     ],
     [
+      "preview_editorial_plan",
+      "Revalidate an editorial plan against saved project context.",
+      {
+        backend: "local",
+        backends: ["local"],
+        authority: { required: "inspect", enabled: true },
+        verificationBoundary: "plan_revalidation",
+        hostVerificationRequired: false,
+        minimumPremiereVersion: null,
+      },
+    ],
+    [
       "validate_export_preset",
       "Validate an export preset and resolve its output extension.",
       {

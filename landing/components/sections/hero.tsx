@@ -74,7 +74,7 @@ export function HeroSection() {
         <div className="relative mx-auto max-w-6xl">
           <div className="mx-auto max-w-4xl text-center">
             <p className="hero-enter hero-enter-1 mb-5 font-mono text-xs font-semibold uppercase tracking-[0.18em] text-purple-300">
-              Open source · local-first · editor approved
+              Open source · local-first · reviewable workflows
             </p>
             <h1 className="hero-enter hero-enter-1 text-balance text-4xl font-bold leading-[1.02] tracking-[-0.045em] text-white sm:text-6xl md:text-7xl">
               Make repeatable edits a <span className="accent-text">reviewed workflow.</span>
