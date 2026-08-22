@@ -1,4 +1,3 @@
-import { createHash } from "node:crypto";
 import {
   normalizeContextKeywords,
   normalizeContextText,
@@ -76,20 +75,8 @@ export interface BuildEditorialPlanOptions {
   platformTargets?: PlatformCutdownTarget[];
 }
 
-function hash(value: string): string {
-  return createHash("sha256").update(value).digest("hex");
-}
-
 function finiteSeconds(value: unknown): number | undefined {
   return typeof value === "number" && Number.isFinite(value) ? value : undefined;
-}
-
-function canonicalPlan(plan: EditorialPlan): string {
-  return JSON.stringify(plan);
-}
-
-export function editorialPlanConfirmationToken(plan: EditorialPlan): string {
-  return hash(canonicalPlan(plan));
 }
 
 function boundedWorkflow(value: unknown): EditorialWorkflow {
@@ -197,7 +184,7 @@ function organizationRecommendations(
       id: `organization-${index + 1}`,
       kind: "organize_source",
       title: `Review sources for ${rule.name}`,
-      route: "organize_project_items_uxp",
+      route: "apply_editorial_organization_plan",
       mutatesProject: false,
       requiresReview: true,
       candidateEvidenceIds: matchingIds,
@@ -206,7 +193,7 @@ function organizationRecommendations(
         matchingKeywords: rule.keywords,
         ...(rule.colorIndex === undefined ? {} : { proposedColorIndex: rule.colorIndex }),
         matchingSourceCount: matchingIds.length,
-        note: "Create or resolve the destination bin, then use stable project-item IDs with expected-parent guards. This plan never moves media itself.",
+        note: "After review, use the guarded organization-plan apply tool with stable project-item IDs and expected-parent guards. This plan never moves media itself.",
       },
     };
   });
@@ -289,7 +276,7 @@ export function buildEditorialPlan(
 
   if (workflow === "organize") {
     recommendations.push(...organizationRecommendations(document, organizationRules, new Set(evidenceIds)));
-    limitations.push("Review every source match before calling organize_project_items_uxp. Newly created bin IDs must be resolved before any move operation.");
+    limitations.push("Review every source match before calling apply_editorial_organization_plan. Newly created bin IDs must be resolved before any move operation.");
   } else if (workflow === "stringout") {
     recommendations.push({
       id: "stringout-1",

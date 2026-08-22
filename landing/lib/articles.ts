@@ -141,7 +141,7 @@ export const articles: Article[] = [
       {
         heading: "Where an MCP workflow fits",
         paragraphs: [
-          "Premiere Pro MCP is free, MIT-licensed, and designed for local-first use. It registers 287 core tools for project inspection, timeline editing, effects, color, audio, media management, diagnostics, export, and review-only editorial planning. The default profile deliberately limits the surface to 285 tools; a compatible authenticated UXP host can add 49 capability-gated tools. These boundaries let the client report what is available rather than pretending that every supported feature is ready at every moment.",
+          "Premiere Pro MCP is free, MIT-licensed, and designed for local-first use. It registers 287 core tools for project inspection, timeline editing, effects, color, audio, media management, diagnostics, export, and review-only editorial planning. The default profile deliberately limits the surface to 285 tools; a compatible authenticated UXP host can add 50 capability-gated tools. These boundaries let the client report what is available rather than pretending that every supported feature is ready at every moment.",
           "For an editor, the key benefit is repeatability without moving the project into a separate hosted editor. For a team, it is a consistent way to ask for and check common operations. For a workflow developer, it is a maintained bridge and structured discovery surface instead of a screen-reading macro.",
         ],
       },

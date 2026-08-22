@@ -29,7 +29,7 @@ An [MCP (Model Context Protocol)](https://modelcontextprotocol.io) server that l
 "Add the B-roll clips to V2, apply a cross dissolve between each, color correct them to match the A-roll, and export a 1080p ProRes."
 ```
 
-The AI handles the entire workflow through 287 core tools spanning the supported ExtendScript, QE DOM, revisioned project-context retrieval, safe edit-planning, and connection-verification surfaces. A compatible, authenticated UXP panel adds 49 documented, capability-gated tools without replacing the production CEP bridge.
+The AI handles the entire workflow through 287 core tools spanning the supported ExtendScript, QE DOM, revisioned project-context retrieval, safe edit-planning, and connection-verification surfaces. A compatible, authenticated UXP panel adds 50 documented, capability-gated tools without replacing the production CEP bridge.
 
 ### Latest release: 1.11.5
 

@@ -23,8 +23,10 @@ Premiere project.
 3. Call `create_editorial_plan` with an editorial intent and one workflow:
    `organize`, `stringout`, `rough_cut`, `caption_review`, or
    `platform_cutdown`.
-4. Call `preview_editorial_plan`. It rejects a plan when its saved context or
-   timeline revision is stale and returns a review receipt when it is current.
+4. Call `preview_editorial_plan` with the unchanged plan returned by
+   `create_editorial_plan` from the current server instance. It rejects a plan
+   when its saved context or timeline revision is stale and returns an opaque
+   review receipt when it is current.
 5. Re-capture context immediately before a mutation. Resolve stable Premiere
    identities and use the route stated by the recommendation, for example
    `apply_editorial_organization_plan`, `manage_sequences_uxp`,
@@ -33,9 +35,9 @@ Premiere project.
    idempotency, transaction, and verification contract. Inspect the final
    project state and verify playback/rendered delivery separately where needed.
 
-The confirmation token is a review receipt for the exact local plan; it is not
-permission for an unchecked host mutation and cannot bypass the routed tool's
-own confirmation or capability requirements.
+The confirmation token is an opaque review receipt for the exact server-issued
+local plan; it is not permission for an unchecked host mutation and cannot
+bypass the routed tool's own confirmation or capability requirements.
 
 ## Organization plans
 
@@ -45,20 +47,32 @@ matches these rules only against stored local context records. It deliberately
 does not infer bins from filenames, claim semantic understanding, or create a
 destination bin automatically.
 
-With an authenticated compatible UXP bridge, a reviewed plan can be supplied to
-`apply_editorial_organization_plan` with its exact preview confirmation token,
-one selected recommendation per operation, stable source IDs, and required
-expected-parent guards. If no destination bin ID is supplied, the tool creates
-the proposed bin with a documented UXP transaction, resolves the returned bin
-ID, then performs individually guarded move/color transactions.
+With an authenticated compatible UXP bridge, the unchanged server-issued,
+reviewed plan can be supplied to `apply_editorial_organization_plan` with its
+opaque preview confirmation token, one selected recommendation per operation,
+stable source IDs, and required expected-parent guards. A source evidence ID or
+project-item ID may appear only once in the complete batch. If no destination
+bin ID is supplied, the tool creates the proposed bin with a documented UXP
+transaction, resolves the returned bin ID, then performs individually guarded
+move/color transactions.
 
 The operation is intentionally UXP-only: it never falls back to CEP or QE.
 Cross-command rollback is not possible because Premiere returns a newly created
 bin ID only after the first transaction. If a later transaction fails, the tool
-reports the completed actions as `partial`, tells the editor to inspect them,
-and never implies that Premiere rolled them back. `verified` means every host
-response reported its own verified postcondition; it is not playback, render,
-or visual-quality verification.
+reports already verified completed actions as `partial`, tells the editor to
+inspect them, and never implies that Premiere rolled them back. If no action
+has a verified postcondition, the tool returns a failure that identifies the
+unverified attempted action and instructs the editor to inspect Premiere before
+retrying; it never calls that attempt a commit. `verified` means every host
+response supplied the required command-specific UXP readback (created bin ID,
+destination parent, or color label) with matching verification metadata. A
+bare successful or `verified` bridge response is rejected and stops the
+remaining batch. This is structured panel-response validation, not proof of
+behavior in a licensed Premiere host; it is not playback, render, or
+visual-quality verification.
+
+Use the [licensed-host validation runbook](editorial-workflow-host-validation.md)
+to record the real Premiere evidence required before widening support claims.
 
 ## Platform cutdowns
 

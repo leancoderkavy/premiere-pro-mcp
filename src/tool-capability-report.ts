@@ -12,6 +12,7 @@ export type VerificationBoundary =
   | "local_and_host_response"
   | "host_response"
   | "bridge_response"
+  | "structured_uxp_readback"
   | "output_and_host_response"
   | "plan_revalidation";
 

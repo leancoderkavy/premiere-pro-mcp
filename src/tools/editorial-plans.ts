@@ -1,7 +1,7 @@
-import { createHash } from "node:crypto";
+import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
+import { isDeepStrictEqual } from "node:util";
 import {
   buildEditorialPlan,
-  editorialPlanConfirmationToken,
   validateEditorialPlan,
   type EditorialPlan,
   type EditorialWorkflow,
@@ -33,6 +33,28 @@ interface ResolvedOrganizationOperation {
 
 const MAX_ORGANIZATION_APPLICATIONS = 16;
 const MAX_ORGANIZATION_SOURCE_GUARDS = 64;
+const MAX_ISSUED_EDITORIAL_PLANS = 128;
+
+interface IssuedEditorialPlan {
+  plan: EditorialPlan;
+  confirmationToken?: string;
+}
+
+type OrganizationAction = "create_bin" | "move" | "set_color";
+
+interface VerifiedOrganizationAction {
+  recommendationId: string;
+  action: OrganizationAction;
+  projectItemId?: string;
+  verified: true;
+}
+
+interface UnverifiedOrganizationAttempt {
+  recommendationId: string;
+  action: OrganizationAction;
+  projectItemId?: string;
+  verified: false;
+}
 
 function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
@@ -55,25 +77,122 @@ function optionalText(value: unknown, field: string, maxLength = 512): string | 
   return requiredText(value, field, maxLength);
 }
 
-function verifiedHostResult(value: unknown): boolean {
-  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
-  const result = value as Record<string, unknown>;
-  return result.verified === true || result.outcome === "verified";
+function objectValue(value: unknown): Record<string, unknown> | undefined {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? value as Record<string, unknown>
+    : undefined;
+}
+
+function textValue(value: unknown): string | undefined {
+  return typeof value === "string" && value.trim() ? value.trim() : undefined;
+}
+
+/**
+ * A UXP mutation may claim success only when the panel returned the documented
+ * readback contract for that exact command. A bare `verified: true` is not
+ * enough: it would turn a malformed or stale panel response into a false
+ * successful editorial workflow.
+ *
+ * This validates a panel response, not a licensed Premiere host. The latter
+ * remains a separate release gate.
+ */
+function verifiedReadback(value: unknown, boundary: string): Record<string, unknown> | undefined {
+  const result = objectValue(value);
+  const operation = objectValue(result?.operation);
+  const verification = objectValue(operation?.verification);
+  const evidence = verification?.evidence;
+  const hasMatchingEvidence = Array.isArray(evidence) && evidence.some((entry) => {
+    const item = objectValue(entry);
+    return item?.type === boundary && item.verified === true;
+  });
+  if (
+    result?.verified !== true
+    || result.outcome !== "verified"
+    || result.verificationBoundary !== boundary
+    || verification?.status !== "verified"
+    || verification.boundary !== boundary
+    || !hasMatchingEvidence
+  ) {
+    return undefined;
+  }
+  return result;
 }
 
 function createdBinId(value: unknown): string | undefined {
-  if (!value || typeof value !== "object" || Array.isArray(value)) return undefined;
-  const result = value as Record<string, unknown>;
-  const item = result.item;
-  if (!item || typeof item !== "object" || Array.isArray(item)) return undefined;
-  const itemRecord = item as Record<string, unknown>;
+  const result = objectValue(value);
+  const itemRecord = objectValue(result?.item);
+  if (!itemRecord) return undefined;
   const id = itemRecord.id ?? itemRecord.projectItemId;
-  return typeof id === "string" && id.trim() ? id.trim() : undefined;
+  return textValue(id);
+}
+
+function verifiedCreatedBin(value: unknown): string | undefined {
+  const result = verifiedReadback(value, "bin_child_id_readback");
+  if (!result || result.created !== true) return undefined;
+  return createdBinId(result);
+}
+
+function verifiedMove(value: unknown, destinationBinId: string): boolean {
+  const result = verifiedReadback(value, "project_item_parent_readback");
+  const after = objectValue(result?.after);
+  return result?.moved === true
+    && textValue(result.destinationBinId) === destinationBinId
+    && textValue(after?.parentId) === destinationBinId;
+}
+
+function verifiedColor(value: unknown, colorIndex: number): boolean {
+  const result = verifiedReadback(value, "project_item_color_readback");
+  const after = objectValue(result?.after);
+  return result?.updated === true && after?.colorLabelIndex === colorIndex;
 }
 
 function childOperationId(operationId: string, action: string, stableId: string): string {
   const digest = createHash("sha256").update(`${operationId}:${action}:${stableId}`).digest("hex").slice(0, 16);
   return `${operationId}:${action}:${digest}`;
+}
+
+function stableJson(value: unknown): string {
+  if (Array.isArray(value)) return `[${value.map((entry) => stableJson(entry)).join(",")}]`;
+  if (value && typeof value === "object") {
+    const record = value as Record<string, unknown>;
+    return `{${Object.keys(record).sort().map((key) => `${JSON.stringify(key)}:${stableJson(record[key])}`).join(",")}}`;
+  }
+  return JSON.stringify(value) ?? "\"__undefined__\"";
+}
+
+function planFingerprint(plan: EditorialPlan): string {
+  return createHash("sha256").update(stableJson(plan)).digest("hex");
+}
+
+function issuePlan(issuedPlans: Map<string, IssuedEditorialPlan>, plan: EditorialPlan): void {
+  const serverPlan = structuredClone(plan);
+  const fingerprint = planFingerprint(serverPlan);
+  const existing = issuedPlans.get(fingerprint);
+  if (existing && isDeepStrictEqual(existing.plan, serverPlan)) return;
+  if (issuedPlans.size >= MAX_ISSUED_EDITORIAL_PLANS) {
+    const oldestFingerprint = issuedPlans.keys().next().value;
+    if (oldestFingerprint) issuedPlans.delete(oldestFingerprint);
+  }
+  issuedPlans.set(fingerprint, { plan: serverPlan });
+}
+
+/**
+ * Plans are returned to clients for review, but only an exact, server-issued
+ * plan can be previewed or applied. The hash is an internal map index only;
+ * deep equality against the stored server plan is the authority check.
+ */
+function requireIssuedPlan(issuedPlans: ReadonlyMap<string, IssuedEditorialPlan>, plan: EditorialPlan): IssuedEditorialPlan {
+  const issued = issuedPlans.get(planFingerprint(plan));
+  if (!issued || !isDeepStrictEqual(issued.plan, plan)) {
+    throw new Error("Editorial plan was not issued by this server instance or its contents changed; create and preview a new plan");
+  }
+  return issued;
+}
+
+function confirmationTokenMatches(actual: string, expected: string): boolean {
+  const actualBuffer = Buffer.from(actual);
+  const expectedBuffer = Buffer.from(expected);
+  return actualBuffer.length === expectedBuffer.length && timingSafeEqual(actualBuffer, expectedBuffer);
 }
 
 function resolveOrganizationOperations(plan: EditorialPlan, value: unknown): ResolvedOrganizationOperation[] {
@@ -85,6 +204,8 @@ function resolveOrganizationOperations(plan: EditorialPlan, value: unknown): Res
     .map((recommendation) => [recommendation.id, recommendation]));
   const candidates = new Map(plan.candidates.map((candidate) => [candidate.evidenceId, candidate]));
   const seenRecommendations = new Set<string>();
+  const seenEvidence = new Set<string>();
+  const seenProjectItemIds = new Set<string>();
   let sourceGuardCount = 0;
 
   return value.map((entry, index) => {
@@ -111,20 +232,23 @@ function resolveOrganizationOperations(plan: EditorialPlan, value: unknown): Res
     if (sourceGuardCount > MAX_ORGANIZATION_SOURCE_GUARDS) {
       throw new Error(`organization_operations may contain at most ${MAX_ORGANIZATION_SOURCE_GUARDS} source guards`);
     }
-    const seenEvidence = new Set<string>();
     const sourceGuards = raw.source_guards.map((guard, guardIndex) => {
       if (!guard || typeof guard !== "object" || Array.isArray(guard)) {
         throw new Error(`organization_operations[${index}].source_guards[${guardIndex}] must be an object`);
       }
       const rawGuard = guard as Record<string, unknown>;
       const evidenceId = requiredText(rawGuard.evidence_id, `organization_operations[${index}].source_guards[${guardIndex}].evidence_id`, 128);
-      if (seenEvidence.has(evidenceId)) throw new Error(`organization_operations[${index}] contains duplicate evidence_id: ${evidenceId}`);
+      if (seenEvidence.has(evidenceId)) throw new Error(`organization_operations contains duplicate evidence_id: ${evidenceId}`);
       seenEvidence.add(evidenceId);
       const candidate = candidates.get(evidenceId);
       if (!recommendation.candidateEvidenceIds.includes(evidenceId) || candidate?.kind !== "source") {
         throw new Error(`organization_operations[${index}].source_guards[${guardIndex}] must reference a source selected by its recommendation`);
       }
       const projectItemId = requiredText(rawGuard.project_item_id, `organization_operations[${index}].source_guards[${guardIndex}].project_item_id`);
+      if (seenProjectItemIds.has(projectItemId)) {
+        throw new Error(`organization_operations contains duplicate project_item_id: ${projectItemId}`);
+      }
+      seenProjectItemIds.add(projectItemId);
       if (candidate.sourceId !== projectItemId) {
         throw new Error(`organization_operations[${index}].source_guards[${guardIndex}].project_item_id must match the planned source ID`);
       }
@@ -161,6 +285,7 @@ async function revalidatePlan(
 
 export function getEditorialPlanTools(dependencies: EditorialPlanToolDependencies = {}) {
   const repository = dependencies.repository ?? new ProjectContextRepository();
+  const issuedPlans = new Map<string, IssuedEditorialPlan>();
   const tools = {
     create_editorial_plan: {
       description: "Create a local, evidence-backed editorial workflow plan from captured project context. It never calls an LLM, uploads media, or changes Premiere.",
@@ -227,7 +352,7 @@ export function getEditorialPlanTools(dependencies: EditorialPlanToolDependencie
         const document = await repository.get(projectId(args.project_id));
         if (!document) return { success: false, error: "Project context not found; capture it before creating an editorial plan" };
         try {
-          return { success: true, data: buildEditorialPlan(document, {
+          const plan = buildEditorialPlan(document, {
             workflow: args.workflow,
             intent: args.intent,
             ...(args.sequence_id ? { sequenceId: args.sequence_id } : {}),
@@ -242,32 +367,36 @@ export function getEditorialPlanTools(dependencies: EditorialPlanToolDependencie
                 ...(target.include_captions === undefined ? {} : { includeCaptions: target.include_captions }),
               })),
             }),
-          }) };
+          });
+          issuePlan(issuedPlans, plan);
+          return { success: true, data: plan };
         } catch (error) {
           return { success: false, error: error instanceof Error ? error.message : String(error) };
         }
       },
     },
     preview_editorial_plan: {
-      description: "Revalidate an editorial plan against the saved project-context revisions and return a confirmation token. This tool is read-only and cannot apply the plan.",
+      description: "Revalidate an exact server-issued editorial plan against the saved project-context revisions and return an opaque confirmation token. This tool is read-only and cannot apply the plan.",
       parameters: {
         type: "object" as const,
         additionalProperties: false,
         properties: {
-          plan: { type: "object", description: "Exact plan returned by create_editorial_plan." },
+          plan: { type: "object", description: "Unchanged plan returned by create_editorial_plan from this running server instance." },
         },
         required: ["plan"],
       },
       handler: async (args: { plan: unknown }) => {
         try {
           const plan = validateEditorialPlan(args.plan);
+          const issuedPlan = requireIssuedPlan(issuedPlans, plan);
           const error = await revalidatePlan(repository, plan);
           if (error) return { success: false, error };
+          issuedPlan.confirmationToken ??= randomBytes(32).toString("base64url");
           return {
             success: true,
             data: {
               applied: false,
-              confirmationToken: editorialPlanConfirmationToken(plan),
+              confirmationToken: issuedPlan.confirmationToken,
               workflow: plan.workflow,
               expectedContextRevision: plan.expectedContextRevision,
               expectedTimelineRevision: plan.expectedTimelineRevision,
@@ -291,26 +420,27 @@ export function getEditorialPlanTools(dependencies: EditorialPlanToolDependencie
   return {
     ...tools,
     apply_editorial_organization_plan: {
-      description: "Apply selected organization recommendations through documented UXP bin transactions only. Requires the exact preview confirmation token and stable source/parent guards; individual host transactions may be partially committed and are never silently retried or rolled back.",
+      description: "Apply selected organization recommendations through documented UXP bin transactions only. Requires the unchanged server-issued plan, its opaque preview confirmation token, and stable source/parent guards; individual host transactions may be partially committed and are never silently retried or rolled back.",
       operationalCapability: {
         backend: "orchestrator" as const,
         backends: ["orchestrator" as const],
         status: "limited" as const,
         minimumPremiereVersion: "25.6",
         authority: "edit" as const,
-        verificationBoundary: "bridge_response" as const,
+        verificationBoundary: "structured_uxp_readback" as const,
         hostVerificationRequired: true,
         notes: [
           "Available only when the authenticated UXP bridge is registered; it never falls back to CEP or QE.",
           "Coordinates independently committed UXP bin transactions. A failure after an earlier transaction is reported as partial and is not automatically rolled back.",
+          "Stops after any mutation that lacks the command-specific UXP readback contract; automated contract coverage is not licensed-host evidence.",
         ],
       },
       parameters: {
         type: "object" as const,
         additionalProperties: false,
         properties: {
-          plan: { type: "object", description: "Exact organize plan returned by create_editorial_plan." },
-          confirmation_token: { type: "string", minLength: 1, maxLength: 256, description: "Exact confirmationToken returned by preview_editorial_plan for this unchanged plan." },
+          plan: { type: "object", description: "Unchanged organize plan returned by create_editorial_plan from this running server instance." },
+          confirmation_token: { type: "string", minLength: 1, maxLength: 256, description: "Opaque confirmationToken returned by preview_editorial_plan for this unchanged server-issued plan." },
           operation_id: { type: "string", minLength: 1, maxLength: 64, description: "Caller-supplied idempotency/audit identifier used to derive individual UXP transaction IDs." },
           organization_operations: {
             type: "array",
@@ -354,48 +484,90 @@ export function getEditorialPlanTools(dependencies: EditorialPlanToolDependencie
         try {
           const plan = validateEditorialPlan(args.plan);
           if (plan.workflow !== "organize") throw new Error("apply_editorial_organization_plan only accepts an organize workflow plan");
+          const issuedPlan = requireIssuedPlan(issuedPlans, plan);
           const confirmationToken = requiredText(args.confirmation_token, "confirmation_token", 256);
-          if (confirmationToken !== editorialPlanConfirmationToken(plan)) throw new Error("confirmation_token does not match this exact editorial plan");
+          if (!issuedPlan.confirmationToken || !confirmationTokenMatches(confirmationToken, issuedPlan.confirmationToken)) {
+            throw new Error("confirmation_token must be the exact opaque token returned by preview_editorial_plan for this server-issued plan");
+          }
           const operationId = requiredText(args.operation_id, "operation_id", 64);
           const revalidationError = await revalidatePlan(repository, plan);
           if (revalidationError) return { success: false, error: revalidationError };
           const operations = resolveOrganizationOperations(plan, args.organization_operations);
-          const committed: Array<{ recommendationId: string; action: "create_bin" | "move" | "set_color"; projectItemId?: string; verified: boolean }> = [];
+          const committed: VerifiedOrganizationAction[] = [];
+          const unverifiedAttempts: UnverifiedOrganizationAttempt[] = [];
 
           try {
             for (const operation of operations) {
               let destinationBinId = operation.destinationBinId;
               if (!destinationBinId) {
-                const result = await bridge.request("bins.create", {
-                  ...(operation.parentBinId ? { parentBinId: operation.parentBinId } : {}),
-                  name: operation.proposedBinName,
-                  makeUnique: true,
-                  operationId: childOperationId(operationId, "create", operation.recommendationId),
-                });
-                committed.push({ recommendationId: operation.recommendationId, action: "create_bin", verified: verifiedHostResult(result) });
-                destinationBinId = createdBinId(result);
-                if (!destinationBinId) throw new Error("UXP bins.create did not return a stable destination bin ID");
+                let result: unknown;
+                try {
+                  result = await bridge.request("bins.create", {
+                    ...(operation.parentBinId ? { parentBinId: operation.parentBinId } : {}),
+                    name: operation.proposedBinName,
+                    makeUnique: true,
+                    operationId: childOperationId(operationId, "create", operation.recommendationId),
+                  });
+                } catch (error) {
+                  unverifiedAttempts.push({ recommendationId: operation.recommendationId, action: "create_bin", verified: false });
+                  throw error;
+                }
+                destinationBinId = verifiedCreatedBin(result);
+                if (!destinationBinId) {
+                  unverifiedAttempts.push({ recommendationId: operation.recommendationId, action: "create_bin", verified: false });
+                  throw new Error("UXP bins.create did not return the required verified stable-bin readback");
+                }
+                committed.push({ recommendationId: operation.recommendationId, action: "create_bin", verified: true });
               }
               for (const guard of operation.sourceGuards) {
-                const moveResult = await bridge.request("bins.move", {
-                  projectItemId: guard.projectItemId,
-                  destinationBinId,
-                  expectedParentId: guard.expectedParentId,
-                  operationId: childOperationId(operationId, "move", guard.evidenceId),
-                });
-                committed.push({ recommendationId: operation.recommendationId, action: "move", projectItemId: guard.projectItemId, verified: verifiedHostResult(moveResult) });
-                if (operation.proposedColorIndex !== undefined) {
-                  const colorResult = await bridge.request("bins.color", {
+                let moveResult: unknown;
+                try {
+                  moveResult = await bridge.request("bins.move", {
                     projectItemId: guard.projectItemId,
-                    colorIndex: operation.proposedColorIndex,
-                    operationId: childOperationId(operationId, "color", guard.evidenceId),
+                    destinationBinId,
+                    expectedParentId: guard.expectedParentId,
+                    operationId: childOperationId(operationId, "move", guard.evidenceId),
                   });
-                  committed.push({ recommendationId: operation.recommendationId, action: "set_color", projectItemId: guard.projectItemId, verified: verifiedHostResult(colorResult) });
+                } catch (error) {
+                  unverifiedAttempts.push({ recommendationId: operation.recommendationId, action: "move", projectItemId: guard.projectItemId, verified: false });
+                  throw error;
+                }
+                const moveVerified = verifiedMove(moveResult, destinationBinId);
+                if (!moveVerified) {
+                  unverifiedAttempts.push({ recommendationId: operation.recommendationId, action: "move", projectItemId: guard.projectItemId, verified: false });
+                  throw new Error("UXP bins.move did not return the required verified destination-parent readback");
+                }
+                committed.push({ recommendationId: operation.recommendationId, action: "move", projectItemId: guard.projectItemId, verified: true });
+                if (operation.proposedColorIndex !== undefined) {
+                  let colorResult: unknown;
+                  try {
+                    colorResult = await bridge.request("bins.color", {
+                      projectItemId: guard.projectItemId,
+                      colorIndex: operation.proposedColorIndex,
+                      operationId: childOperationId(operationId, "color", guard.evidenceId),
+                    });
+                  } catch (error) {
+                    unverifiedAttempts.push({ recommendationId: operation.recommendationId, action: "set_color", projectItemId: guard.projectItemId, verified: false });
+                    throw error;
+                  }
+                  const colorVerified = verifiedColor(colorResult, operation.proposedColorIndex);
+                  if (!colorVerified) {
+                    unverifiedAttempts.push({ recommendationId: operation.recommendationId, action: "set_color", projectItemId: guard.projectItemId, verified: false });
+                    throw new Error("UXP bins.color did not return the required verified color-label readback");
+                  }
+                  committed.push({ recommendationId: operation.recommendationId, action: "set_color", projectItemId: guard.projectItemId, verified: true });
                 }
               }
             }
           } catch (error) {
-            if (!committed.length) return { success: false, error: errorMessage(error) };
+            const hasVerifiedCommit = committed.length > 0;
+            if (!hasVerifiedCommit) {
+              const attemptedActions = unverifiedAttempts.map((attempt) => attempt.action).join(", ");
+              return {
+                success: false,
+                error: `${errorMessage(error)} No project change was verified; inspect Premiere before retrying because the attempted UXP action${unverifiedAttempts.length === 1 ? "" : "s"} (${attemptedActions}) may have reached the host.`,
+              };
+            }
             return {
               success: true,
               data: {
@@ -403,23 +575,21 @@ export function getEditorialPlanTools(dependencies: EditorialPlanToolDependencie
                 outcome: "partial",
                 verified: false,
                 committedActions: committed,
+                unverifiedAttempts,
                 error: errorMessage(error),
-                nextSteps: ["Inspect project items and decide whether to undo the completed host transactions.", "Capture project context again before retrying with a new reviewed plan."],
+                nextSteps: ["Inspect project items and decide whether to undo the verified completed host transactions.", "Capture project context again before retrying with a new reviewed plan."],
               },
             };
           }
 
-          const verified = committed.length > 0 && committed.every((entry) => entry.verified);
           return {
             success: true,
             data: {
               applied: true,
-              outcome: verified ? "verified" : "applied_unverified",
-              verified,
+              outcome: "verified",
+              verified: true,
               committedActions: committed,
-              nextSteps: verified
-                ? ["Inspect the project organization in Premiere before continuing editorial work."]
-                : ["Inspect the project organization in Premiere; one or more host responses lacked a verified postcondition."],
+              nextSteps: ["Inspect the project organization in Premiere before continuing editorial work."],
             },
           };
         } catch (error) {

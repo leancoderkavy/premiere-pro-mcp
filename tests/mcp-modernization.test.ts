@@ -21,6 +21,10 @@ describe("modern MCP surface", () => {
     expect(resource.version).toBe(1);
     expect(resource.workflows).toHaveLength(10);
     expect(resource.workflows[0].recommendedTools).toContain("get_premiere_state");
+    const organization = resource.workflows.find((workflow: { id: string }) => workflow.id === "project-organization");
+    expect(organization.recommendedTools).toContain("apply_editorial_organization_plan");
+    expect(organization.recommendedTools).not.toContain("organize_project_items_uxp");
+    expect(organization.summary).toContain("advanced/manual only");
   });
 
   it("marks inspection as read-only and script execution as open-world", () => {

@@ -1,7 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import {
   buildEditorialPlan,
-  editorialPlanConfirmationToken,
   validateEditorialPlan,
 } from "../src/ai/editorial-plan.js";
 import { ProjectContextRepository } from "../src/context/project-context-store.js";
@@ -49,6 +48,44 @@ async function context() {
   }]).document;
 }
 
+function verifiedUxpReadback(boundary: string, result: Record<string, unknown>) {
+  return {
+    ...result,
+    outcome: "verified",
+    verified: true,
+    verificationBoundary: boundary,
+    operation: {
+      verification: {
+        status: "verified",
+        boundary,
+        evidence: [{ type: boundary, verified: true }],
+      },
+    },
+  };
+}
+
+async function createAndPreviewOrganizationPlan(
+  tools: any,
+  document: Awaited<ReturnType<typeof context>>,
+  organizationRules: Array<{ name: string; keywords: string[]; colorIndex?: number }>,
+) {
+  const created = await tools.create_editorial_plan.handler({
+    project_id: document.projectId,
+    workflow: "organize",
+    intent: "interview budget",
+    organization_rules: organizationRules.map((rule) => ({
+      name: rule.name,
+      keywords: rule.keywords,
+      ...(rule.colorIndex === undefined ? {} : { color_index: rule.colorIndex }),
+    })),
+  });
+  expect(created).toMatchObject({ success: true, data: { workflow: "organize", applied: false } });
+  const plan = created.data;
+  const preview = await tools.preview_editorial_plan.handler({ plan });
+  expect(preview).toMatchObject({ success: true, data: { applied: false, workflow: "organize" } });
+  return { plan, confirmationToken: preview.data.confirmationToken as string };
+}
+
 describe("editorial workflow plans", () => {
   it("creates a review-only organization plan from explicit rules", async () => {
     const document = await context();
@@ -65,13 +102,12 @@ describe("editorial workflow plans", () => {
       expectedContextRevision: document.revision,
       expectedTimelineRevision: document.timelineRevision,
       recommendations: [expect.objectContaining({
-        route: "organize_project_items_uxp",
+        route: "apply_editorial_organization_plan",
         mutatesProject: false,
         requiresReview: true,
       })],
     });
     expect(plan.limitations.join(" ")).toContain("does not call an LLM");
-    expect(editorialPlanConfirmationToken(plan)).toMatch(/^[a-f0-9]{64}$/);
   });
 
   it("routes rough cuts and caption review without claiming automatic application", async () => {
@@ -196,7 +232,7 @@ describe("editorial workflow plans", () => {
     const plan = created.data as any;
     const preview = await tools.preview_editorial_plan.handler({ plan });
     expect(preview).toMatchObject({ success: true, data: { applied: false, workflow: "stringout" } });
-    expect((preview as any).data.confirmationToken).toBe(editorialPlanConfirmationToken(plan));
+    expect((preview as any).data.confirmationToken).toMatch(/^[A-Za-z0-9_-]{32,}$/);
 
     await repository.put({
       ...document,
@@ -205,6 +241,144 @@ describe("editorial workflow plans", () => {
     });
     await expect(tools.preview_editorial_plan.handler({ plan }))
       .resolves.toEqual(expect.objectContaining({ success: false, error: expect.stringContaining("stale") }));
+  });
+
+  it("rejects client-modified server-issued plans during preview and apply", async () => {
+    const document = await context();
+    const repository = new ProjectContextRepository({ backend: "memory" });
+    await repository.put(document);
+    const request = vi.fn();
+    const tools = getEditorialPlanTools({ repository, uxpBridge: { request } as unknown as UxpWebSocketBridge }) as any;
+    const { plan, confirmationToken } = await createAndPreviewOrganizationPlan(
+      tools,
+      document,
+      [{ name: "Interviews", keywords: ["interview"] }],
+    );
+    const sourceIndex = plan.candidates.findIndex((candidate: any) => candidate.kind === "source");
+    const source = plan.candidates[sourceIndex];
+    const recommendation = plan.recommendations[0];
+    const sourceGuards = [{ evidence_id: source.evidenceId, project_item_id: source.sourceId, expected_parent_id: "root-bin" }];
+    const forgedPlans = [
+      {
+        ...plan,
+        candidates: plan.candidates.map((candidate: any, index: number) => index === sourceIndex
+          ? { ...candidate, sourceId: "attacker-source" }
+          : candidate),
+      },
+      {
+        ...plan,
+        recommendations: [{ ...recommendation, details: { ...recommendation.details, proposedBinName: "Attacker Bin" } }],
+      },
+      {
+        ...plan,
+        recommendations: [{ ...recommendation, route: "organize_project_items_uxp" }],
+      },
+      {
+        ...plan,
+        recommendations: [{ ...recommendation, candidateEvidenceIds: [] }],
+      },
+    ];
+
+    for (const forgedPlan of forgedPlans) {
+      await expect(tools.preview_editorial_plan.handler({ plan: forgedPlan }))
+        .resolves.toMatchObject({ success: false, error: expect.stringContaining("was not issued") });
+      await expect(tools.apply_editorial_organization_plan.handler({
+        plan: forgedPlan,
+        confirmation_token: confirmationToken,
+        operation_id: "forged-plan",
+        organization_operations: [{ recommendation_id: recommendation.id, source_guards: sourceGuards }],
+      })).resolves.toMatchObject({ success: false, error: expect.stringContaining("was not issued") });
+    }
+    expect(request).not.toHaveBeenCalled();
+  });
+
+  it("rejects duplicate source guards across the complete organization batch before UXP mutation", async () => {
+    const document = await context();
+    const repository = new ProjectContextRepository({ backend: "memory" });
+    await repository.put(document);
+    const request = vi.fn();
+    const tools = getEditorialPlanTools({ repository, uxpBridge: { request } as unknown as UxpWebSocketBridge }) as any;
+    const { plan, confirmationToken } = await createAndPreviewOrganizationPlan(
+      tools,
+      document,
+      [
+        { name: "Interviews", keywords: ["interview"] },
+        { name: "Interviews again", keywords: ["interview"] },
+      ],
+    );
+    const source = plan.candidates.find((candidate: any) => candidate.kind === "source")!;
+    const sourceGuard = { evidence_id: source.evidenceId, project_item_id: source.sourceId, expected_parent_id: "root-bin" };
+
+    await expect(tools.apply_editorial_organization_plan.handler({
+      plan,
+      confirmation_token: confirmationToken,
+      operation_id: "duplicate-evidence",
+      organization_operations: plan.recommendations.map((recommendation: any) => ({
+        recommendation_id: recommendation.id,
+        source_guards: [sourceGuard],
+      })),
+    })).resolves.toMatchObject({ success: false, error: expect.stringContaining("duplicate evidence_id") });
+    expect(request).not.toHaveBeenCalled();
+
+    const duplicateSourceDocument = structuredClone(document);
+    const originalSource = duplicateSourceDocument.records.find((record) => record.kind === "source")!;
+    duplicateSourceDocument.records.push({
+      ...originalSource,
+      id: "duplicate-source-evidence",
+      name: "Interview alternate record.mov",
+      text: "Interview alternate record.",
+      keywords: ["interview"],
+    });
+    await repository.put(duplicateSourceDocument);
+    const duplicateSourceTools = getEditorialPlanTools({ repository, uxpBridge: { request } as unknown as UxpWebSocketBridge }) as any;
+    const duplicateSourcePlan = await createAndPreviewOrganizationPlan(
+      duplicateSourceTools,
+      duplicateSourceDocument,
+      [
+        { name: "Interviews", keywords: ["interview"] },
+        { name: "Interview copies", keywords: ["interview"] },
+      ],
+    );
+    const [firstEvidence, secondEvidence] = duplicateSourcePlan.plan.candidates
+      .filter((candidate: any) => candidate.kind === "source")
+      .map((candidate: any) => candidate.evidenceId);
+
+    await expect(duplicateSourceTools.apply_editorial_organization_plan.handler({
+      plan: duplicateSourcePlan.plan,
+      confirmation_token: duplicateSourcePlan.confirmationToken,
+      operation_id: "duplicate-project-item",
+      organization_operations: duplicateSourcePlan.plan.recommendations.map((recommendation: any, index: number) => ({
+        recommendation_id: recommendation.id,
+        source_guards: [{
+          evidence_id: index === 0 ? firstEvidence : secondEvidence,
+          project_item_id: "source-1",
+          expected_parent_id: "root-bin",
+        }],
+      })),
+    })).resolves.toMatchObject({ success: false, error: expect.stringContaining("duplicate project_item_id") });
+    expect(request).not.toHaveBeenCalled();
+  });
+
+  it("keeps platform-cutdown creation and preview local even when a UXP bridge is available", async () => {
+    const document = await context();
+    const repository = new ProjectContextRepository({ backend: "memory" });
+    await repository.put(document);
+    const request = vi.fn().mockRejectedValue(new Error("A plan must not call the host"));
+    const tools = getEditorialPlanTools({ repository, uxpBridge: { request } as unknown as UxpWebSocketBridge });
+
+    const created = await tools.create_editorial_plan.handler({
+      project_id: document.projectId,
+      workflow: "platform_cutdown",
+      intent: "interview budget",
+      platform_targets: [{ name: "Vertical", width: 1080, height: 1920, include_captions: true }],
+    });
+    expect(created).toMatchObject({
+      success: true,
+      data: { workflow: "platform_cutdown", applied: false },
+    });
+    await expect(tools.preview_editorial_plan.handler({ plan: created.data }))
+      .resolves.toMatchObject({ success: true, data: { applied: false, workflow: "platform_cutdown" } });
+    expect(request).not.toHaveBeenCalled();
   });
 
   it("returns clear errors when a project context is missing", async () => {
@@ -220,25 +394,36 @@ describe("editorial workflow plans", () => {
     const document = await context();
     const repository = new ProjectContextRepository({ backend: "memory" });
     await repository.put(document);
-    const plan = buildEditorialPlan(document, {
-      workflow: "organize",
-      intent: "interview budget",
-      organizationRules: [{ name: "Interviews", keywords: ["interview"], colorIndex: 3 }],
-    });
-    const source = plan.candidates.find((candidate) => candidate.kind === "source")!;
-    expect(source).toMatchObject({ sourceId: "source-1" });
     const request = vi.fn()
-      .mockResolvedValueOnce({ item: { id: "bin-interviews" }, verified: true })
-      .mockResolvedValueOnce({ moved: true, verified: true })
-      .mockResolvedValueOnce({ updated: true, outcome: "verified" });
+      .mockResolvedValueOnce(verifiedUxpReadback("bin_child_id_readback", { created: true, item: { id: "bin-interviews" } }))
+      .mockResolvedValueOnce(verifiedUxpReadback("project_item_parent_readback", {
+        moved: true,
+        destinationBinId: "bin-interviews",
+        after: { parentId: "bin-interviews" },
+      }))
+      .mockResolvedValueOnce(verifiedUxpReadback("project_item_color_readback", {
+        updated: true,
+        after: { colorLabelIndex: 3 },
+      }));
     const bridge = { request } as unknown as UxpWebSocketBridge;
     const withoutUxp = getEditorialPlanTools({ repository });
     expect(withoutUxp).not.toHaveProperty("apply_editorial_organization_plan");
     const tools = getEditorialPlanTools({ repository, uxpBridge: bridge }) as any;
+    expect(tools.apply_editorial_organization_plan.operationalCapability).toMatchObject({
+      verificationBoundary: "structured_uxp_readback",
+      hostVerificationRequired: true,
+    });
+    const { plan, confirmationToken } = await createAndPreviewOrganizationPlan(
+      tools,
+      document,
+      [{ name: "Interviews", keywords: ["interview"], colorIndex: 3 }],
+    );
+    const source = plan.candidates.find((candidate: any) => candidate.kind === "source")!;
+    expect(source).toMatchObject({ sourceId: "source-1" });
 
     const result = await tools.apply_editorial_organization_plan.handler({
       plan,
-      confirmation_token: editorialPlanConfirmationToken(plan),
+      confirmation_token: confirmationToken,
       operation_id: "organize-2026-08-22",
       organization_operations: [{
         recommendation_id: "organization-1",
@@ -265,19 +450,36 @@ describe("editorial workflow plans", () => {
     const document = await context();
     const repository = new ProjectContextRepository({ backend: "memory" });
     await repository.put(document);
-    const plan = buildEditorialPlan(document, {
-      workflow: "organize",
-      intent: "interview budget",
-      organizationRules: [{ name: "Interviews", keywords: ["interview"] }],
-    });
-    const source = plan.candidates.find((candidate) => candidate.kind === "source")!;
     const request = vi.fn();
     const tools = getEditorialPlanTools({ repository, uxpBridge: { request } as unknown as UxpWebSocketBridge }) as any;
+    const { plan, confirmationToken } = await createAndPreviewOrganizationPlan(
+      tools,
+      document,
+      [{ name: "Interviews", keywords: ["interview"] }],
+    );
+    const source = plan.candidates.find((candidate: any) => candidate.kind === "source")!;
+    const unpreviewed = await tools.create_editorial_plan.handler({
+      project_id: document.projectId,
+      workflow: "organize",
+      intent: "interview budget",
+      organization_rules: [{ name: "Unpreviewed", keywords: ["interview"] }],
+    });
+    const unpreviewedPlan = unpreviewed.data;
+    const unpreviewedSource = unpreviewedPlan.candidates.find((candidate: any) => candidate.kind === "source")!;
     const validOperations = [{
       recommendation_id: "organization-1",
       source_guards: [{ evidence_id: source.evidenceId, project_item_id: "source-1", expected_parent_id: "root-bin" }],
     }];
 
+    await expect(tools.apply_editorial_organization_plan.handler({
+      plan: unpreviewedPlan,
+      confirmation_token: "not-previewed",
+      operation_id: "organize-unpreviewed",
+      organization_operations: [{
+        recommendation_id: "organization-1",
+        source_guards: [{ evidence_id: unpreviewedSource.evidenceId, project_item_id: "source-1", expected_parent_id: "root-bin" }],
+      }],
+    })).resolves.toMatchObject({ success: false, error: expect.stringContaining("opaque token") });
     await expect(tools.apply_editorial_organization_plan.handler({
       plan,
       confirmation_token: "wrong-token",
@@ -286,7 +488,7 @@ describe("editorial workflow plans", () => {
     })).resolves.toMatchObject({ success: false, error: expect.stringContaining("confirmation_token") });
     await expect(tools.apply_editorial_organization_plan.handler({
       plan,
-      confirmation_token: editorialPlanConfirmationToken(plan),
+      confirmation_token: confirmationToken,
       operation_id: "organize-invalid",
       organization_operations: [{ ...validOperations[0], source_guards: [{ ...validOperations[0].source_guards[0], project_item_id: "unplanned-source" }] }],
     })).resolves.toMatchObject({ success: false, error: expect.stringContaining("must match the planned source ID") });
@@ -294,7 +496,7 @@ describe("editorial workflow plans", () => {
     await repository.put({ ...document, revision: "new-revision", timelineRevision: "new-timeline-revision" });
     await expect(tools.apply_editorial_organization_plan.handler({
       plan,
-      confirmation_token: editorialPlanConfirmationToken(plan),
+      confirmation_token: confirmationToken,
       operation_id: "organize-stale",
       organization_operations: validOperations,
     })).resolves.toMatchObject({ success: false, error: expect.stringContaining("stale") });
@@ -305,20 +507,20 @@ describe("editorial workflow plans", () => {
     const document = await context();
     const repository = new ProjectContextRepository({ backend: "memory" });
     await repository.put(document);
-    const plan = buildEditorialPlan(document, {
-      workflow: "organize",
-      intent: "interview budget",
-      organizationRules: [{ name: "Interviews", keywords: ["interview"], colorIndex: 3 }],
-    });
-    const source = plan.candidates.find((candidate) => candidate.kind === "source")!;
     const request = vi.fn()
-      .mockResolvedValueOnce({ item: { id: "bin-interviews" }, verified: true })
+      .mockResolvedValueOnce(verifiedUxpReadback("bin_child_id_readback", { created: true, item: { id: "bin-interviews" } }))
       .mockRejectedValueOnce(new Error("expected parent no longer matches"));
     const tools = getEditorialPlanTools({ repository, uxpBridge: { request } as unknown as UxpWebSocketBridge }) as any;
+    const { plan, confirmationToken } = await createAndPreviewOrganizationPlan(
+      tools,
+      document,
+      [{ name: "Interviews", keywords: ["interview"], colorIndex: 3 }],
+    );
+    const source = plan.candidates.find((candidate: any) => candidate.kind === "source")!;
 
     await expect(tools.apply_editorial_organization_plan.handler({
       plan,
-      confirmation_token: editorialPlanConfirmationToken(plan),
+      confirmation_token: confirmationToken,
       operation_id: "organize-partial",
       organization_operations: [{
         recommendation_id: "organization-1",
@@ -331,65 +533,197 @@ describe("editorial workflow plans", () => {
         outcome: "partial",
         verified: false,
         committedActions: [{ action: "create_bin" }],
-        nextSteps: expect.arrayContaining([expect.stringContaining("undo the completed host transactions")]),
+        unverifiedAttempts: [{ action: "move", verified: false }],
+        nextSteps: expect.arrayContaining([expect.stringContaining("undo the verified completed host transactions")]),
       },
     });
     expect(request).toHaveBeenCalledTimes(2);
   });
 
-  it("uses an existing destination safely and reports incomplete UXP replies without hiding a created bin", async () => {
+  it("halts before a later mutation when a verified UXP reply contradicts its readback", async () => {
     const document = await context();
     const repository = new ProjectContextRepository({ backend: "memory" });
     await repository.put(document);
-    const uncoloredPlan = buildEditorialPlan(document, {
-      workflow: "organize",
-      intent: "interview budget",
-      organizationRules: [{ name: "Interviews", keywords: ["interview"] }],
-    });
-    const source = uncoloredPlan.candidates.find((candidate) => candidate.kind === "source")!;
-    const existingBinRequest = vi.fn().mockResolvedValue({ moved: true });
-    const existingBinTools = getEditorialPlanTools({ repository, uxpBridge: { request: existingBinRequest } as unknown as UxpWebSocketBridge }) as any;
-    await expect(existingBinTools.apply_editorial_organization_plan.handler({
-      plan: uncoloredPlan,
-      confirmation_token: editorialPlanConfirmationToken(uncoloredPlan),
-      operation_id: "organize-existing-bin",
-      organization_operations: [{
-        recommendation_id: "organization-1",
-        destination_bin_id: "existing-bin",
-        source_guards: [{ evidence_id: source.evidenceId, project_item_id: "source-1", expected_parent_id: "root-bin" }],
-      }],
-    })).resolves.toMatchObject({ success: true, data: { applied: true, outcome: "applied_unverified", verified: false } });
-    expect(existingBinRequest).toHaveBeenCalledTimes(1);
-    expect(existingBinRequest).toHaveBeenCalledWith("bins.move", expect.objectContaining({ destinationBinId: "existing-bin" }));
+    const request = vi.fn()
+      .mockResolvedValueOnce(verifiedUxpReadback("bin_child_id_readback", { created: true, item: { id: "bin-interviews" } }))
+      .mockResolvedValueOnce(verifiedUxpReadback("project_item_parent_readback", {
+        moved: true,
+        destinationBinId: "bin-interviews",
+        after: { parentId: "wrong-bin" },
+      }))
+      .mockRejectedValueOnce(new Error("Color should not be attempted after a contradictory move readback"));
+    const tools = getEditorialPlanTools({ repository, uxpBridge: { request } as unknown as UxpWebSocketBridge }) as any;
+    const { plan, confirmationToken } = await createAndPreviewOrganizationPlan(
+      tools,
+      document,
+      [{ name: "Interviews", keywords: ["interview"], colorIndex: 3 }],
+    );
+    const source = plan.candidates.find((candidate: any) => candidate.kind === "source")!;
 
-    const incompleteCreateRequest = vi.fn().mockResolvedValue({ item: {}, verified: false });
-    const incompleteCreateTools = getEditorialPlanTools({ repository, uxpBridge: { request: incompleteCreateRequest } as unknown as UxpWebSocketBridge }) as any;
-    await expect(incompleteCreateTools.apply_editorial_organization_plan.handler({
-      plan: uncoloredPlan,
-      confirmation_token: editorialPlanConfirmationToken(uncoloredPlan),
-      operation_id: "organize-incomplete-create",
+    await expect(tools.apply_editorial_organization_plan.handler({
+      plan,
+      confirmation_token: confirmationToken,
+      operation_id: "organize-contradictory-readback",
       organization_operations: [{
         recommendation_id: "organization-1",
         source_guards: [{ evidence_id: source.evidenceId, project_item_id: "source-1", expected_parent_id: "root-bin" }],
       }],
     })).resolves.toMatchObject({
       success: true,
-      data: { applied: true, outcome: "partial", committedActions: [{ action: "create_bin", verified: false }] },
+      data: {
+        outcome: "partial",
+        verified: false,
+        committedActions: [
+          { action: "create_bin", verified: true },
+        ],
+        unverifiedAttempts: [{ action: "move", verified: false }],
+        error: expect.stringContaining("destination-parent readback"),
+      },
+    });
+    expect(request).toHaveBeenCalledTimes(2);
+  });
+
+  it("reports a color response with the wrong observed label as partial", async () => {
+    const document = await context();
+    const repository = new ProjectContextRepository({ backend: "memory" });
+    await repository.put(document);
+    const request = vi.fn()
+      .mockResolvedValueOnce(verifiedUxpReadback("bin_child_id_readback", { created: true, item: { id: "bin-interviews" } }))
+      .mockResolvedValueOnce(verifiedUxpReadback("project_item_parent_readback", {
+        moved: true,
+        destinationBinId: "bin-interviews",
+        after: { parentId: "bin-interviews" },
+      }))
+      .mockResolvedValueOnce(verifiedUxpReadback("project_item_color_readback", {
+        updated: true,
+        after: { colorLabelIndex: 2 },
+      }));
+    const tools = getEditorialPlanTools({ repository, uxpBridge: { request } as unknown as UxpWebSocketBridge }) as any;
+    const { plan, confirmationToken } = await createAndPreviewOrganizationPlan(
+      tools,
+      document,
+      [{ name: "Interviews", keywords: ["interview"], colorIndex: 3 }],
+    );
+    const source = plan.candidates.find((candidate: any) => candidate.kind === "source")!;
+
+    await expect(tools.apply_editorial_organization_plan.handler({
+      plan,
+      confirmation_token: confirmationToken,
+      operation_id: "organize-color-readback",
+      organization_operations: [{
+        recommendation_id: "organization-1",
+        source_guards: [{ evidence_id: source.evidenceId, project_item_id: "source-1", expected_parent_id: "root-bin" }],
+      }],
+    })).resolves.toMatchObject({
+      success: true,
+      data: {
+        outcome: "partial",
+        verified: false,
+        committedActions: [
+          { action: "create_bin", verified: true },
+          { action: "move", verified: true },
+        ],
+        unverifiedAttempts: [{ action: "set_color", verified: false }],
+        error: expect.stringContaining("color-label readback"),
+      },
+    });
+    expect(request).toHaveBeenCalledTimes(3);
+  });
+
+  it("fails a malformed first UXP response without claiming an applied plan", async () => {
+    const document = await context();
+    const repository = new ProjectContextRepository({ backend: "memory" });
+    await repository.put(document);
+    const existingBinRequest = vi.fn().mockResolvedValue({ moved: true });
+    const existingBinTools = getEditorialPlanTools({ repository, uxpBridge: { request: existingBinRequest } as unknown as UxpWebSocketBridge }) as any;
+    const { plan, confirmationToken } = await createAndPreviewOrganizationPlan(
+      existingBinTools,
+      document,
+      [{ name: "Interviews", keywords: ["interview"] }],
+    );
+    const source = plan.candidates.find((candidate: any) => candidate.kind === "source")!;
+    const malformedResult = await existingBinTools.apply_editorial_organization_plan.handler({
+      plan,
+      confirmation_token: confirmationToken,
+      operation_id: "organize-existing-bin",
+      organization_operations: [{
+        recommendation_id: "organization-1",
+        destination_bin_id: "existing-bin",
+        source_guards: [{ evidence_id: source.evidenceId, project_item_id: "source-1", expected_parent_id: "root-bin" }],
+      }],
+    });
+    expect(malformedResult).toMatchObject({
+      success: false,
+      error: expect.stringContaining("destination-parent readback"),
+    });
+    expect(malformedResult.error).toContain("inspect Premiere before retrying");
+    expect(existingBinRequest).toHaveBeenCalledTimes(1);
+    expect(existingBinRequest).toHaveBeenCalledWith("bins.move", expect.objectContaining({ destinationBinId: "existing-bin" }));
+
+    const incompleteCreateRequest = vi.fn().mockResolvedValue({ item: {}, verified: false });
+    const incompleteCreateTools = getEditorialPlanTools({ repository, uxpBridge: { request: incompleteCreateRequest } as unknown as UxpWebSocketBridge }) as any;
+    const incomplete = await createAndPreviewOrganizationPlan(
+      incompleteCreateTools,
+      document,
+      [{ name: "Interviews", keywords: ["interview"] }],
+    );
+    await expect(incompleteCreateTools.apply_editorial_organization_plan.handler({
+      plan: incomplete.plan,
+      confirmation_token: incomplete.confirmationToken,
+      operation_id: "organize-incomplete-create",
+      organization_operations: [{
+        recommendation_id: "organization-1",
+        source_guards: [{ evidence_id: source.evidenceId, project_item_id: "source-1", expected_parent_id: "root-bin" }],
+      }],
+    })).resolves.toMatchObject({
+      success: false,
+      error: expect.stringContaining("stable-bin readback"),
     });
     expect(incompleteCreateRequest).toHaveBeenCalledTimes(1);
+  });
+
+  it("fails a first UXP request rejection and warns that host state is unknown", async () => {
+    const document = await context();
+    const repository = new ProjectContextRepository({ backend: "memory" });
+    await repository.put(document);
+    const request = vi.fn().mockRejectedValue(new Error("UXP bridge disconnected"));
+    const tools = getEditorialPlanTools({ repository, uxpBridge: { request } as unknown as UxpWebSocketBridge }) as any;
+    const { plan, confirmationToken } = await createAndPreviewOrganizationPlan(
+      tools,
+      document,
+      [{ name: "Interviews", keywords: ["interview"] }],
+    );
+    const source = plan.candidates.find((candidate: any) => candidate.kind === "source")!;
+
+    const rejectedResult = await tools.apply_editorial_organization_plan.handler({
+      plan,
+      confirmation_token: confirmationToken,
+      operation_id: "organize-rejected-first-request",
+      organization_operations: [{
+        recommendation_id: "organization-1",
+        destination_bin_id: "existing-bin",
+        source_guards: [{ evidence_id: source.evidenceId, project_item_id: "source-1", expected_parent_id: "root-bin" }],
+      }],
+    });
+    expect(rejectedResult).toMatchObject({
+      success: false,
+      error: expect.stringContaining("UXP bridge disconnected"),
+    });
+    expect(rejectedResult.error).toContain("may have reached the host");
+    expect(request).toHaveBeenCalledTimes(1);
   });
 
   it("returns local validation failures without starting a UXP transaction", async () => {
     const document = await context();
     const repository = new ProjectContextRepository({ backend: "memory" });
     await repository.put(document);
-    const plan = buildEditorialPlan(document, {
-      workflow: "organize",
-      intent: "interview",
-      organizationRules: [{ name: "Interviews", keywords: ["interview"] }],
-    });
     const request = vi.fn().mockRejectedValue(new Error("host unavailable"));
     const tools = getEditorialPlanTools({ repository, uxpBridge: { request } as unknown as UxpWebSocketBridge }) as any;
+    const { plan, confirmationToken } = await createAndPreviewOrganizationPlan(
+      tools,
+      document,
+      [{ name: "Interviews", keywords: ["interview"] }],
+    );
     await expect(tools.create_editorial_plan.handler({
       project_id: document.projectId,
       workflow: "platform_cutdown",
@@ -398,39 +732,39 @@ describe("editorial workflow plans", () => {
     await expect(tools.preview_editorial_plan.handler({ plan: null })).resolves.toMatchObject({ success: false, error: expect.stringContaining("plan must be an object") });
     await expect(tools.apply_editorial_organization_plan.handler({
       plan,
-      confirmation_token: editorialPlanConfirmationToken(plan),
+      confirmation_token: confirmationToken,
       operation_id: "organize-host-failure",
       organization_operations: [],
     })).resolves.toMatchObject({ success: false, error: expect.stringContaining("organization_operations") });
     await expect(tools.apply_editorial_organization_plan.handler({
       plan,
-      confirmation_token: editorialPlanConfirmationToken(plan),
+      confirmation_token: confirmationToken,
       operation_id: "organize-host-failure",
       organization_operations: [{ recommendation_id: "unknown", source_guards: [{ evidence_id: "missing", project_item_id: "source-1", expected_parent_id: "root" }] }],
     })).resolves.toMatchObject({ success: false, error: expect.stringContaining("organize_source recommendation") });
     await expect(tools.apply_editorial_organization_plan.handler({
       plan,
-      confirmation_token: editorialPlanConfirmationToken(plan),
+      confirmation_token: confirmationToken,
       operation_id: "organize-host-failure",
       organization_operations: [{ recommendation_id: "organization-1", source_guards: [] }],
     })).resolves.toMatchObject({ success: false, error: expect.stringContaining("source_guards") });
     await expect(tools.apply_editorial_organization_plan.handler({
       plan,
-      confirmation_token: editorialPlanConfirmationToken(plan),
+      confirmation_token: confirmationToken,
       operation_id: "organize-host-failure",
       organization_operations: [{ recommendation_id: "organization-1", source_guards: [null] }],
     })).resolves.toMatchObject({ success: false, error: expect.stringContaining("must be an object") });
     const transcript = plan.candidates.find((candidate) => candidate.kind === "transcript")!;
     await expect(tools.apply_editorial_organization_plan.handler({
       plan,
-      confirmation_token: editorialPlanConfirmationToken(plan),
+      confirmation_token: confirmationToken,
       operation_id: "organize-host-failure",
       organization_operations: [{ recommendation_id: "organization-1", source_guards: [{ evidence_id: transcript.evidenceId, project_item_id: "source-1", expected_parent_id: "root" }] }],
     })).resolves.toMatchObject({ success: false, error: expect.stringContaining("must reference a source") });
     const stringout = buildEditorialPlan(document, { workflow: "stringout", intent: "interview" });
     await expect(tools.apply_editorial_organization_plan.handler({
       plan: stringout,
-      confirmation_token: editorialPlanConfirmationToken(stringout),
+      confirmation_token: confirmationToken,
       operation_id: "organize-host-failure",
       organization_operations: [],
     })).resolves.toMatchObject({ success: false, error: expect.stringContaining("only accepts an organize") });

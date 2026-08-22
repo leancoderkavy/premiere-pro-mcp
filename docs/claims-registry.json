@@ -1,0 +1,68 @@
+{
+  "schemaVersion": 1,
+  "lastReviewed": "2026-08-22",
+  "purpose": "Canonical governance record for product and release claims. It distinguishes release-metadata facts, positioning, external research, unvalidated hypotheses, and prohibited claims.",
+  "authoritativeReleaseMetadata": "release-metadata.json",
+  "claims": [
+    {
+      "id": "release-capability-surface",
+      "status": "release_metadata",
+      "claim": "v{version} registers {coreTools} core tools; the default profile exposes {defaultProfileTools}; an authenticated compatible UXP host can add {uxpAdditionalTools} capability-gated tools for a {defaultProfileWithUxpTools}-tool connected surface. The release also declares {toolModules} modules, {resources} MCP resources, and {guidedWorkflows} workflow prompts.",
+      "fields": [
+        "version",
+        "coreTools",
+        "defaultProfileTools",
+        "uxpAdditionalTools",
+        "defaultProfileWithUxpTools",
+        "toolModules",
+        "resources",
+        "guidedWorkflows"
+      ],
+      "boundary": "Catalog and packaging facts do not prove that an individual Premiere operation works on a live host."
+    },
+    {
+      "id": "release-compatibility",
+      "status": "release_metadata",
+      "claim": "The release targets Premiere Pro {premiereVersions}; UXP workflows require a compatible Premiere Pro {uxpMinimumVersion}+ host and advertised capabilities.",
+      "fields": [
+        "premiereVersions",
+        "uxpMinimumVersion"
+      ],
+      "boundary": "Compatibility, CI, package validation, local build, and HTTP health are not real-host proof."
+    },
+    {
+      "id": "positioning-reviewable-workflow-automation",
+      "status": "positioning",
+      "claim": "Reviewable workflow automation for Adobe Premiere Pro.",
+      "boundary": "Use 'designed for reviewable workflows'; do not use 'production-proven' until a published licensed-host test matrix supports the specific workflow."
+    },
+    {
+      "id": "commercial-companion-pricing",
+      "status": "hypothesis",
+      "claim": "A design-partner program at $499–$1,500 per team for 60 days and a Pro companion at $19–$29 per month are validation hypotheses.",
+      "boundary": "No paid plan, checkout, revenue, or customer commitment is claimed. Do not publish as an offer without a separate commercial decision."
+    },
+    {
+      "id": "adobe-ai-assistant-overlap",
+      "status": "external_research",
+      "claim": "Adobe AI Assistant overlaps with media organization, footage preparation, and stringout workflows.",
+      "source": "https://helpx.adobe.com/premiere/desktop/premiere-ai-assistant/overview.html",
+      "reviewedOn": "2026-08-22",
+      "boundary": "Position the product as complementary and evolving; do not claim general superiority over Adobe AI Assistant."
+    }
+  ],
+  "prohibitedUntilEvidenceExists": [
+    "Current Adobe Marketplace approval or publication",
+    "Real licensed-host proof for an untested workflow",
+    "Approved testimonials, customer logos, adoption, activation, retention, conversion, revenue, or time-saved results",
+    "Live deployment state inferred from repository artifacts, CI, or local checks",
+    "Universal Premiere compatibility or guaranteed editing outcomes",
+    "Adobe affiliation, endorsement, or certification"
+  ],
+  "maintenance": {
+    "whenReleaseMetadataChanges": "Update release-metadata.json first, then resolve the template claims and affected public surfaces in the same change.",
+    "whenExternalResearchChanges": "Update reviewedOn, source, wording, and boundaries; do not turn an external fact into a product claim without evidence.",
+    "whenCommercialDecisionChanges": "Replace a hypothesis only after the offer, pricing, terms, billing, and support scope are approved and published.",
+    "validation": "tests/claims-registry.test.ts validates the metadata relationship, the marketing-context rendering, pricing labeling, and known stale marketing claims."
+  }
+}

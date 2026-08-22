@@ -40,8 +40,8 @@ export const WORKFLOW_CATALOG = [
   {
     id: "project-organization",
     title: "Plan project organization",
-    summary: "Capture project context, supply explicit editorial categories, create a review-only organization plan, then use stable-ID bin operations after review.",
-    recommendedTools: ["manage_project_context", "create_editorial_plan", "preview_editorial_plan", "organize_project_items_uxp"],
+    summary: "Capture project context, supply explicit editorial categories, create and preview a review-only organization plan, then use its guarded apply route with stable-ID bin operations. Direct organize_project_items_uxp use is advanced/manual only.",
+    recommendedTools: ["manage_project_context", "create_editorial_plan", "preview_editorial_plan", "apply_editorial_organization_plan"],
   },
   {
     id: "ai-assisted-stringout",

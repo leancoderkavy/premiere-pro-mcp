@@ -217,7 +217,7 @@ operation” when the tool has no enum-based mode.
 | `play_source_monitor` | Default profile | Single operation | Start playback of the clip in the Source Monitor |
 | `play_timeline` | Default profile | Single operation | Start playback of the active sequence timeline. Uses QE DOM. |
 | `preview_edit_plan` | Default profile | Single operation | Validate and preview a compound timeline edit without changing Premiere. Returns a confirmation token required by apply_edit_plan. |
-| `preview_editorial_plan` | Default profile | Single operation | Revalidate an editorial plan against the saved project-context revisions and return a confirmation token. This tool is read-only and cannot apply the plan. |
+| `preview_editorial_plan` | Default profile | Single operation | Revalidate an exact server-issued editorial plan against the saved project-context revisions and return an opaque confirmation token. This tool is read-only and cannot apply the plan. |
 | `razor_all_tracks` | Default profile | `track_type`: `video`, `audio`, `both` | Razor (split) all clips at the playhead position across all tracks, or at a specific time. |
 | `redo` | Default profile | Single operation | Redo the last undone action in Premiere Pro. |
 | `refresh_media` | Default profile | Single operation | Refresh a project item to pick up changes to the source file |
@@ -329,7 +329,7 @@ authenticated and the connected host advertises the required command capabilitie
 
 | MCP tool | Availability | Actions or modes | Description |
 | --- | --- | --- | --- |
-| `apply_editorial_organization_plan` | Connected UXP | Single operation | Apply selected organization recommendations through documented UXP bin transactions only. Requires the exact preview confirmation token and stable source/parent guards; individual host transactions may be partially committed and are never silently retried or rolled back. |
+| `apply_editorial_organization_plan` | Connected UXP | Single operation | Apply selected organization recommendations through documented UXP bin transactions only. Requires the unchanged server-issued plan, its opaque preview confirmation token, and stable source/parent guards; individual host transactions may be partially committed and are never silently retried or rolled back. |
 | `audition_source_monitor_uxp` | Connected UXP | `state`, `open_project_item`, `open_file`, `set_position`, `play`, `close`, `close_all` | Open a selected project item or approved file, inspect/set position, play at bounded speed, or close Source Monitor media through documented UXP APIs. |
 | `automate_effect_parameters_uxp` | Connected UXP | `inspect`, `set_value`, `add_keyframe`, `remove_keyframe`, `remove_keyframe_range`, `set_interpolation` | Inspect or transactionally set scalar effect parameters and add, remove, range-remove, or interpolate keyframes through documented UXP actions. |
 | `batch_selected_clips_uxp` | Connected UXP | `inspect`, `add_effect`, `remove_effect` | Inspect the current timeline selection or apply one native effect add/remove across up to 64 same-type selected clips as a single compound transaction. |
