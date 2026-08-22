@@ -12,7 +12,7 @@ export const HTTP_SECURITY_HEADERS = Object.freeze({
     "font-src 'self'",
     "style-src 'self' 'unsafe-inline'",
     "script-src 'self' 'unsafe-inline' https://www.googletagmanager.com",
-    "connect-src 'self' https://www.google-analytics.com https://www.googletagmanager.com https://us.i.posthog.com https://*.posthog.com",
+    "connect-src 'self' https://www.google.com https://www.google-analytics.com https://www.googletagmanager.com https://us.i.posthog.com https://*.posthog.com",
     "upgrade-insecure-requests",
   ].join("; "),
   "Strict-Transport-Security": "max-age=31536000; includeSubDomains",

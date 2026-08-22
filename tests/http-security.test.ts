@@ -23,6 +23,7 @@ describe("HTTP security headers", () => {
     expect(policy).toContain("frame-ancestors 'none'");
     expect(policy).toContain("object-src 'none'");
     expect(policy).toContain("connect-src 'self'");
+    expect(policy).toContain("https://www.google.com");
     expect(policy).not.toContain("connect-src *");
   });
 });
