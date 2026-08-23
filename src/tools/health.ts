@@ -125,7 +125,6 @@ export function getHealthTools(
       handler: async (args: { backend?: "cep" | "uxp" }) => {
         const backend = args.backend ?? "cep";
         const telemetry = options.telemetry ?? disabledTelemetry;
-        captureActivationEvent(telemetry, "premiere_mcp_activation_check_started", { backend });
 
         let report: FirstRunReport;
         if (backend === "uxp") {
@@ -169,10 +168,12 @@ export function getHealthTools(
           }
         }
 
-        captureActivationEvent(telemetry, "premiere_mcp_activation_check_finished", {
-          backend,
-          outcome: report.overall,
-        });
+        // This is the only repository-owned activation signal. A tool call
+        // that finds an unavailable bridge, project, or sequence remains a
+        // useful diagnostic, but is not activation.
+        if (report.overall === "ready") {
+          captureActivationEvent(telemetry, { backend });
+        }
         // A completed diagnostic remains a successful tool call even if it
         // identifies a problem. The structured report tells the user what to fix.
         return { success: true, data: report };

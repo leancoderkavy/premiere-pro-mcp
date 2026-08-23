@@ -1,6 +1,6 @@
 # Premiere Pro MCP Tracking Plan
 
-**Last updated:** 2026-08-15
+**Last updated:** 2026-08-23
 
 ## Decisions this data should inform
 
@@ -35,6 +35,7 @@
 | `mcp_connection_attempt` | bounded transport, status, duration | Connection attempt |
 | `mcp_request` | bounded method, outcome, status, duration | MCP request |
 | `mcp_tool_call` | tool name, outcome, status, duration, bounded error category | Supported action result |
+| `premiere_mcp_activation_completed` | selected bridge and fixed `verified_connection` stage | The read-only check confirms the selected bridge, an open project, and an active sequence |
 
 ## GA4 conversions to configure
 
@@ -45,7 +46,9 @@
 
 ## Activation reporting boundary
 
-The meaningful activation funnel is connection attempt → request → successful tool call. A website download cannot prove installation, a connection attempt cannot prove a live Premiere host, and an attempted tool call cannot prove a successful project change.
+The repository-owned activation signal is emitted only when `verify_premiere_connection` returns `ready`: the MCP client reached the server, the selected bridge answered, and Premiere reported an open project and active sequence. A website download, connection attempt, incomplete diagnostic, or generic successful tool call is not activation.
+
+There is no privacy-safe way to identify an editor's or client-side installation's first supported value from this event: it carries no editor, project, or client-installation identifier. `mcp_tool_call` remains operational telemetry, not a first-value conversion or proof of a host-observable workflow result.
 
 ## Validation checklist
 

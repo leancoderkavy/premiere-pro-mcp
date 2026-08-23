@@ -13,29 +13,20 @@ export interface Telemetry {
 }
 
 /**
- * Activation events have a deliberately smaller contract than operational tool
- * telemetry. Keep this list bounded: these events must remain useful without
- * ever receiving prompts, paths, project/media names, arguments, results,
- * tokens, IP addresses, or person profiles.
+ * Activation telemetry is deliberately narrower than operational tool
+ * telemetry. Emit it only after the read-only connection check has confirmed
+ * the selected bridge, an open project, and an active sequence. This avoids
+ * treating attempts or incomplete diagnostics as activation, and never sends
+ * prompts, paths, project/media names, arguments, results, tokens, IP
+ * addresses, or person profiles.
  */
-export type ActivationEventName =
-  | "premiere_mcp_activation_check_started"
-  | "premiere_mcp_activation_check_finished";
-
-export type ActivationOutcome = "ready" | "needs_attention";
-
 export function captureActivationEvent(
   telemetry: Telemetry,
-  event: ActivationEventName,
-  properties: {
-    backend: "cep" | "uxp";
-    outcome?: ActivationOutcome;
-  },
+  properties: { backend: "cep" | "uxp" },
 ): void {
-  telemetry.capture(event, {
-    activation_stage: "first_run",
+  telemetry.capture("premiere_mcp_activation_completed", {
+    activation_stage: "verified_connection",
     backend: properties.backend,
-    ...(properties.outcome ? { outcome: properties.outcome } : {}),
   });
 }
 
