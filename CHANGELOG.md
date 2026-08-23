@@ -6,6 +6,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [1.12.2] - 2026-08-22
+
+### Fixed
+
+- `set_effect_property` now accepts safely serialized string values as well as
+  numbers, unlocking MOGRT and graphic parameters that Premiere exposes as
+  JSON strings. Responses report parameter readback separately from render
+  verification.
+- An empty legacy QE effect catalog now returns a clear no-mutation capability
+  response rather than incorrectly reporting a requested effect as missing.
+  When connected, the documented UXP effect catalog and transaction workflow is
+  the supported alternative.
+
 ## [1.12.1] - 2026-08-22
 
 ### Fixed

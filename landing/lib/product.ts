@@ -1,6 +1,6 @@
 export const product = {
   name: "MCP for Adobe Premiere Pro",
-  version: "1.12.1",
+  version: "1.12.2",
   releaseDate: "2026-08-22",
   coreToolCount: 287,
   defaultProfileToolCount: 285,
@@ -10,10 +10,10 @@ export const product = {
   uxpMinimumVersion: "25.6",
   downloads: {
     claudeBundle:
-      "https://github.com/leancoderkavy/premiere-pro-mcp/releases/download/v1.12.1/premiere-pro-mcp-1.12.1.mcpb",
+      "https://github.com/leancoderkavy/premiere-pro-mcp/releases/download/v1.12.2/premiere-pro-mcp-1.12.2.mcpb",
     signedCepConnector:
-      "https://github.com/leancoderkavy/premiere-pro-mcp/releases/download/v1.12.1/MCPBridgeCEP.zxp",
-    releaseNotes: "https://github.com/leancoderkavy/premiere-pro-mcp/releases/tag/v1.12.1",
+      "https://github.com/leancoderkavy/premiere-pro-mcp/releases/download/v1.12.2/MCPBridgeCEP.zxp",
+    releaseNotes: "https://github.com/leancoderkavy/premiere-pro-mcp/releases/tag/v1.12.2",
   },
   links: {
     repository: "https://github.com/leancoderkavy/premiere-pro-mcp",

@@ -31,16 +31,17 @@ An [MCP (Model Context Protocol)](https://modelcontextprotocol.io) server that l
 
 The AI handles the entire workflow through 287 core tools spanning the supported ExtendScript, QE DOM, revisioned project-context retrieval, safe edit-planning, and connection-verification surfaces. A compatible, authenticated UXP panel adds 50 documented, capability-gated tools without replacing the production CEP bridge.
 
-### Latest release: 1.12.1
+### Latest release: 1.12.2
 
-- **MCP safety research:** ten documented recommendations now cover subscription streams,
-  contextual completions, workspace boundaries, resource metadata and canonical URIs.
-- **Trust boundaries:** the recommendations define prompt/resource-injection defenses, layered
-  end-to-end health checks, C2PA inspection limits, and UXP external-launch safeguards.
-- **Verification clarity:** semantic keyframe verification is scoped separately from implementation
-  and licensed Premiere Pro host confirmation.
+- **MOGRT text and graphics:** `set_effect_property` now accepts string-backed
+  parameters with safe serialization and readback status.
+- **Effect discovery clarity:** an empty legacy QE effect catalog now returns a
+  no-mutation capability response and directs connected hosts to the documented
+  UXP catalog/add workflow.
+- **Verification clarity:** property readback remains distinct from playback or
+  exported-frame verification in a licensed Premiere Pro host.
 
-See the [v1.12.1 release notes](https://github.com/leancoderkavy/premiere-pro-mcp/releases/tag/v1.12.1)
+See the [v1.12.2 release notes](https://github.com/leancoderkavy/premiere-pro-mcp/releases/tag/v1.12.2)
 for complete details. Live installation in Premiere Pro still requires host verification.
 
 ---
@@ -49,9 +50,9 @@ for complete details. Live installation in Premiere Pro still requires host veri
 
 ### Easiest supported path: Claude Desktop
 
-1. Download the current [Claude Desktop bundle (`.mcpb`)](https://github.com/leancoderkavy/premiere-pro-mcp/releases/download/v1.12.1/premiere-pro-mcp-1.12.1.mcpb).
+1. Download the current [Claude Desktop bundle (`.mcpb`)](https://github.com/leancoderkavy/premiere-pro-mcp/releases/download/v1.12.2/premiere-pro-mcp-1.12.2.mcpb).
 2. In Claude Desktop, open **Settings > Extensions > Advanced settings > Install Extension**, select the downloaded bundle, and restart Claude Desktop.
-3. Download the separate [signed Premiere connector (`.zxp`)](https://github.com/leancoderkavy/premiere-pro-mcp/releases/download/v1.12.1/MCPBridgeCEP.zxp). Open it with your trusted ZXP installer. If your computer has no ZXP installer, use the npm connector installer in **Advanced setup** below.
+3. Download the separate [signed Premiere connector (`.zxp`)](https://github.com/leancoderkavy/premiere-pro-mcp/releases/download/v1.12.2/MCPBridgeCEP.zxp). Open it with your trusted ZXP installer. If your computer has no ZXP installer, use the npm connector installer in **Advanced setup** below.
 4. Restart Premiere, open a project, then open **Window > Extensions > MCP for Adobe Premiere Pro**.
 5. In Claude, enter: `Safely check my Premiere connection with verify_premiere_connection. Make no changes.`
 
@@ -275,11 +276,11 @@ From a clone of this repository:
 ```bash
 codex plugin marketplace add .
 codex plugin add premiere-pro@premiere-pro-mcp
-npx -y premiere-pro-mcp@1.12.1 --install-cep
+npx -y premiere-pro-mcp@1.12.2 --install-cep
 ```
 
 Restart Premiere Pro and start a new Codex session after installation. The plugin
-launches `premiere-pro-mcp@1.12.1` through `npx`; the separate CEP installation is
+launches `premiere-pro-mcp@1.12.2` through `npx`; the separate CEP installation is
 required because the MCP server communicates with the running Premiere host through
 the local bridge.
 
@@ -299,7 +300,7 @@ For Claude Code, add this repository as a marketplace and install the plugin:
 Then install the Premiere bridge and start a new Claude Code session:
 
 ```bash
-npx -y premiere-pro-mcp@1.12.1 --install-cep
+npx -y premiere-pro-mcp@1.12.2 --install-cep
 ```
 
 The Claude Code package lives in

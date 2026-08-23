@@ -5,6 +5,20 @@ import { product } from "@/lib/product"
 
 const releases = [
   {
+    version: "1.12.2",
+    date: "2026-08-22",
+    label: "MOGRT values and QE catalog diagnostics",
+    groups: [
+      {
+        title: "Fixed",
+        items: [
+          "Allowed string-backed MOGRT and graphic effect properties, with parameter readback status that remains distinct from render verification.",
+          "Made empty legacy QE effect catalogs fail clearly without a mutation and point connected hosts to the documented UXP catalog and transaction workflow.",
+        ],
+      },
+    ],
+  },
+  {
     version: "1.12.1",
     date: "2026-08-22",
     label: "Analytics CSP compatibility",
