@@ -116,6 +116,50 @@ function __findClip(nodeId) {
   return null;
 }
 
+// CEP's legacy QE path can enumerate a host's effect catalog before adding an
+// effect to a timeline clip. Recent Premiere builds can expose QE yet return an
+// empty catalog, so distinguish that host limitation from a misspelled effect
+// name. Calling addVideoEffect/addAudioEffect without a catalog entry is not a
+// safe fallback; an available UXP bridge has its own documented effect workflow.
+function __getQeEffectCatalog(kind) {
+  var label = kind === "audio" ? "audio" : "video";
+  if (typeof app === "undefined" || typeof app.enableQE !== "function") {
+    return { ok: false, error: "QE is unavailable in this Premiere build, so " + label + " effects cannot be enumerated or applied." };
+  }
+
+  try {
+    app.enableQE();
+  } catch (eEnable) {
+    return { ok: false, error: "Premiere could not enable QE for " + label + " effect discovery: " + eEnable.toString() };
+  }
+
+  if (typeof qe === "undefined" || !qe.project) {
+    return { ok: false, error: "QE did not expose a project after enableQE(), so " + label + " effects cannot be enumerated or applied." };
+  }
+
+  var getter = kind === "audio" ? qe.project.getAudioEffectList : qe.project.getVideoEffectList;
+  if (typeof getter !== "function") {
+    return { ok: false, error: "This Premiere QE build does not expose the " + label + " effect catalog API." };
+  }
+
+  var effects = null;
+  try {
+    effects = getter.call(qe.project);
+  } catch (eList) {
+    return { ok: false, error: "Premiere could not read its QE " + label + " effect catalog: " + eList.toString() };
+  }
+
+  var count = effects && typeof effects.numItems !== "undefined" ? Number(effects.numItems) : NaN;
+  if (isNaN(count) || count < 1) {
+    return {
+      ok: false,
+      error: "Premiere returned an empty legacy QE " + label + " effect catalog; no effect was applied. If the authenticated Premiere UXP bridge is connected, use manage_clip_effects_uxp with action 'catalog' and then 'add' instead. Existing clip components can still be inspected or edited."
+    };
+  }
+
+  return { ok: true, effects: effects, count: count };
+}
+
 function __getAllClips(seq) {
   if (!seq) seq = app.project.activeSequence;
   if (!seq) return [];

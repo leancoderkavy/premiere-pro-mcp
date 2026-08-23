@@ -80,13 +80,17 @@ export function getKeyframeTools(bridgeOptions: BridgeOptions) {
             description: "Display name of the property (e.g., 'Scale', 'Position', 'Opacity')",
           },
           value: {
-            type: "number",
-            description: "Value to set",
+            type: ["number", "string"],
+            maxLength: 8192,
+            description: "Number or string value to set. Use the exact JSON string reported for a MOGRT text or graphic parameter.",
           },
         },
         required: ["node_id", "effect_name", "property_name", "value"],
       },
-      handler: async (args: { node_id: string; effect_name: string; property_name: string; value: number }) => {
+      handler: async (args: { node_id: string; effect_name: string; property_name: string; value: number | string }) => {
+        const requestedValue = typeof args.value === "string"
+          ? `"${escapeForExtendScript(args.value)}"`
+          : String(args.value);
         const script = buildToolScript(`
           var result = __findClip("${escapeForExtendScript(args.node_id)}");
           if (!result) return __error("Clip not found");
@@ -110,12 +114,30 @@ export function getKeyframeTools(bridgeOptions: BridgeOptions) {
           }
           if (!prop) return __error("Property not found: ${escapeForExtendScript(args.property_name)}");
           
-          prop.setValue(${args.value}, true);
+          var requestedValue = ${requestedValue};
+          try {
+            prop.setValue(requestedValue, true);
+          } catch (e) {
+            return __error("Premiere could not set the requested effect property: " + e.toString());
+          }
+
+          var readbackValue;
+          var readbackAvailable = true;
+          try {
+            readbackValue = prop.getValue();
+          } catch (eReadback) {
+            readbackAvailable = false;
+          }
           return __result({
             set: true,
             effect: "${escapeForExtendScript(args.effect_name)}",
             property: "${escapeForExtendScript(args.property_name)}",
-            value: ${args.value}
+            value: readbackAvailable ? readbackValue : requestedValue,
+            requestedValue: requestedValue,
+            readbackVerified: readbackAvailable && readbackValue === requestedValue,
+            verification: readbackAvailable
+              ? "Premiere parameter readback only; verify playback or exported frames before delivery."
+              : "Premiere accepted the parameter write, but this property did not expose a readback value. Verify playback or exported frames before delivery."
           });
         `);
         return sendCommand(script, bridgeOptions);

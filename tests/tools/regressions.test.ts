@@ -300,6 +300,49 @@ describe("issue #189 — Premiere 26.3 capability boundaries and macOS presets",
   });
 });
 
+// https://github.com/leancoderkavy/premiere-pro-mcp/issues/194
+describe("issue #194 — string-backed MOGRT effect properties", () => {
+  const keyframes = getKeyframeTools(bridgeOptions);
+
+  it("accepts and safely serializes the JSON string exposed by MOGRT text properties", async () => {
+    expect(keyframes.set_effect_property.parameters.properties.value).toMatchObject({
+      type: ["number", "string"],
+    });
+
+    const script = await scriptFor(keyframes.set_effect_property, {
+      node_id: "clip-1",
+      effect_name: "AE.ADBE Capsule",
+      property_name: "Source Text",
+      value: '{"textEditValue":"Hello \\"editor\\""}',
+    });
+
+    expect(script).toContain('var requestedValue = "{\\"textEditValue\\":\\"Hello \\\\\\\"editor\\\\\\\"\\"}";');
+    expect(script).toContain("prop.setValue(requestedValue, true)");
+    expect(script).toContain("readbackVerified: readbackAvailable && readbackValue === requestedValue");
+  });
+});
+
+// https://github.com/leancoderkavy/premiere-pro-mcp/issues/196
+describe("issue #196 — empty Premiere 26.x QE effect catalogs", () => {
+  const effects = getEffectsTools(bridgeOptions);
+
+  it("routes an empty legacy QE catalog to the documented UXP effect workflow, not an effect-name miss", async () => {
+    const script = await scriptFor(effects.apply_effect, {
+      node_id: "clip-1",
+      effect_name: "Transform",
+    });
+
+    expect(script).toContain('var effectCatalog = __getQeEffectCatalog("video")');
+    expect(script).toContain("if (!effectCatalog.ok) return __error(effectCatalog.error)");
+
+    const helpers = getHelpersSource();
+    expect(helpers).toContain("function __getQeEffectCatalog(kind)");
+    expect(helpers).toContain("Premiere returned an empty legacy QE");
+    expect(helpers).toContain("no effect was applied");
+    expect(helpers).toContain("manage_clip_effects_uxp");
+  });
+});
+
 // https://github.com/leancoderkavy/premiere-pro-mcp/issues/129
 describe("issue #129 — CEP component removal is capability-gated", () => {
   const effects = getEffectsTools(bridgeOptions);
