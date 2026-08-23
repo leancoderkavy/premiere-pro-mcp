@@ -5,6 +5,7 @@ const READ_ONLY_TOOLS = new Set([
   "create_context_edit_plan",
   "create_editorial_plan",
   "preview_editorial_plan",
+  "preview_project_intake",
 ]);
 const DESTRUCTIVE_PREFIXES = ["delete_", "remove_", "ripple_delete", "close_"];
 const DESTRUCTIVE_TOOLS = new Set(["manage_project_context"]);
