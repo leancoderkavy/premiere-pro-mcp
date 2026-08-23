@@ -1105,5 +1105,97 @@ export function getInspectionTools(bridgeOptions: BridgeOptions) {
         return sendCommand(script, bridgeOptions);
       },
     },
+
+    inspect_edit_readiness: {
+      description:
+        "Audit the active sequence in one read-only bridge request for empty timelines, primary-track gaps, disabled clips, muted tracks, and excessive Motion scale. Structural diagnostics only; it cannot judge story, framing, sound, or final delivery.",
+      parameters: {
+        type: "object" as const,
+        properties: {
+          primary_video_track: { type: "number", description: "Video track used for gap inspection (default: 0)" },
+          maximum_scale_percent: { type: "number", description: "Warn above this Motion scale percentage (default: 110)" },
+          gap_tolerance_seconds: { type: "number", description: "Ignore smaller gaps caused by time rounding (default: 0.001)" },
+        },
+      },
+      handler: async (args: { primary_video_track?: number; maximum_scale_percent?: number; gap_tolerance_seconds?: number }) => {
+        const trackIndex = args.primary_video_track ?? 0;
+        const maximumScale = args.maximum_scale_percent ?? 110;
+        const gapTolerance = args.gap_tolerance_seconds ?? 0.001;
+        if (!Number.isInteger(trackIndex) || trackIndex < 0) return { success: false, error: "primary_video_track must be a non-negative integer" };
+        if (!Number.isFinite(maximumScale) || maximumScale <= 0 || maximumScale > 10000) return { success: false, error: "maximum_scale_percent must be finite and greater than 0" };
+        if (!Number.isFinite(gapTolerance) || gapTolerance < 0 || gapTolerance > 1) return { success: false, error: "gap_tolerance_seconds must be from 0 through 1" };
+
+        const script = buildToolScript(`
+          var seq = app.project.activeSequence;
+          if (!seq) return __error("No active sequence");
+          if (${trackIndex} >= seq.videoTracks.numTracks) return __error("Primary video track index is out of range");
+          var blockers = [];
+          var warnings = [];
+          var counts = { videoClips: 0, audioClips: 0, disabledClips: 0, mutedTracks: 0, excessiveScaleClips: 0, gaps: 0 };
+
+          function inspectTracks(tracks, type) {
+            for (var t = 0; t < tracks.numTracks; t++) {
+              var track = tracks[t];
+              try {
+                if (track.isMuted && track.isMuted()) {
+                  counts.mutedTracks++;
+                  warnings.push({ code: "MUTED_TRACK", trackType: type, trackIndex: t, trackName: track.name });
+                }
+              } catch(e) {}
+              for (var c = 0; c < track.clips.numItems; c++) {
+                var clip = track.clips[c];
+                if (type === "video") counts.videoClips++; else counts.audioClips++;
+                try {
+                  if (clip.disabled === true || clip.disabled === 1) {
+                    counts.disabledClips++;
+                    warnings.push({ code: "DISABLED_CLIP", trackType: type, trackIndex: t, clipName: clip.name, nodeId: clip.nodeId });
+                  }
+                } catch(e2) {}
+                if (type === "video") {
+                  try {
+                    for (var x = 0; x < clip.components.numItems; x++) {
+                      var component = clip.components[x];
+                      if (component.displayName !== "Motion" && component.matchName !== "AE.ADBE Motion") continue;
+                      for (var p = 0; p < component.properties.numItems; p++) {
+                        var property = component.properties[p];
+                        if (property.displayName !== "Scale" && property.matchName !== "ADBE Scale") continue;
+                        var scale = Number(property.getValue());
+                        if (!isNaN(scale) && scale > ${maximumScale}) {
+                          counts.excessiveScaleClips++;
+                          warnings.push({ code: "EXCESSIVE_SCALE", trackIndex: t, clipName: clip.name, nodeId: clip.nodeId, scalePercent: scale, thresholdPercent: ${maximumScale} });
+                        }
+                      }
+                    }
+                  } catch(e3) {}
+                }
+              }
+            }
+          }
+          inspectTracks(seq.videoTracks, "video");
+          inspectTracks(seq.audioTracks, "audio");
+
+          var primary = seq.videoTracks[${trackIndex}];
+          var cursor = 0;
+          for (var i = 0; i < primary.clips.numItems; i++) {
+            var current = primary.clips[i];
+            var start = current.start.seconds;
+            if (start - cursor > ${gapTolerance}) {
+              counts.gaps++;
+              blockers.push({ code: "PRIMARY_TRACK_GAP", startSeconds: cursor, endSeconds: start, durationSeconds: start - cursor });
+            }
+            cursor = Math.max(cursor, current.end.seconds);
+          }
+          if (!counts.videoClips) blockers.push({ code: "EMPTY_VIDEO_TIMELINE" });
+          return __result({
+            sequence: { name: seq.name, durationSeconds: __ticksToSeconds(seq.end) },
+            thresholds: { primaryVideoTrack: ${trackIndex}, maximumScalePercent: ${maximumScale}, gapToleranceSeconds: ${gapTolerance} },
+            counts: counts, blockers: blockers, warnings: warnings,
+            structurallyReady: blockers.length === 0,
+            verificationScope: "Premiere timeline readback only. This does not inspect rendered pixels, loudness, captions, rights, or editorial quality."
+          });
+        `);
+        return sendCommand(script, bridgeOptions);
+      },
+    },
   };
 }
