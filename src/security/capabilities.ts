@@ -84,6 +84,11 @@ const FILESYSTEM_TOOL_NAMES = new Set([
   "analyze_video_qc",
   "detect_source_scene_changes",
   "normalize_loudness_file",
+  "inspect_media_streams",
+  "generate_media_contact_sheet",
+  "detect_audio_transients",
+  "analyze_video_interlacing",
+  "detect_active_picture_bounds",
 ]);
 
 const ACTION_CAPABILITIES: Readonly<Record<string, Readonly<Record<string, readonly Capability[]>>>> = {

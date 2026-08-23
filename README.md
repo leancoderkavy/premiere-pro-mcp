@@ -6,7 +6,7 @@
 
 **Give compatible AI assistants structured control over supported Adobe Premiere Pro workflows.**
 
-308 core tools across 35 modules, 4 resources, and 11 guided workflows. A connected UXP host adds 50 capability-gated tools.
+313 core tools across 36 modules, 4 resources, and 11 guided workflows. A connected UXP host adds 50 capability-gated tools.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Node.js](https://img.shields.io/badge/Node.js-20.19%2B-green.svg)](https://nodejs.org)
@@ -29,7 +29,7 @@ An [MCP (Model Context Protocol)](https://modelcontextprotocol.io) server that l
 "Add the B-roll clips to V2, apply a cross dissolve between each, color correct them to match the A-roll, and export a 1080p ProRes."
 ```
 
-The AI handles the entire workflow through 308 core tools spanning the supported ExtendScript, QE DOM, revisioned project-context retrieval, safe edit-planning, project-intake preview, and connection-verification surfaces. A compatible, authenticated UXP panel adds 50 documented, capability-gated tools without replacing the production CEP bridge.
+The AI handles the entire workflow through 313 core tools spanning the supported ExtendScript, QE DOM, local media analysis, revisioned project-context retrieval, safe edit-planning, project-intake preview, and connection-verification surfaces. A compatible, authenticated UXP panel adds 50 documented, capability-gated tools without replacing the production CEP bridge.
 
 ### Latest release: 1.13.0
 
@@ -376,7 +376,7 @@ installed separately.
 QE-backed tools are reported as `experimental` because QE is undocumented and can vary between Premiere builds. Authority availability is reported separately from implementation support, so disabling `edit`, for example, does not incorrectly label editing tools as unsupported. Static metadata never claims that a Premiere operation succeeded; use `ping` and inspect each tool result for runtime evidence.
 
 MCP `tools/list` is filtered to the active authority profile. The default
-`inspect,edit,export,filesystem` profile advertises 306 of the 308 registered
+`inspect,edit,export,filesystem` profile advertises 311 of the 313 registered
 tools and omits `execute_extendscript` and `evaluate_expression`, which require
 explicit `unsafe-script` authority. `ping` and `get_capabilities` remain visible
 under every profile so a restricted or misconfigured server can still explain
@@ -531,7 +531,7 @@ The file-based IPC bridge is simple, reliable, and works across macOS and Window
 
 ---
 
-## Tools (308 core total; 306 under the default profile; 356 with a connected UXP bridge)
+## Tools (313 core total; 311 under the default profile; 361 with a connected UXP bridge)
 
 The [complete supported-actions catalog](docs/supported-actions.md) lists every
 registered core tool, the two tools restricted behind explicit `unsafe-script`
@@ -846,7 +846,7 @@ premiere-pro-mcp/
 ├── src/
 │   ├── index.ts                 # Entry point — stdio transport setup
 │   ├── http-server.ts           # Entry point — HTTP/SSE transport (Fly.io / remote)
-│   ├── server.ts                # MCP server — registers 308 tools, filtered by authority profile
+│   ├── server.ts                # MCP server — registers 313 tools, filtered by authority profile
 │   ├── bridge/
 │   │   ├── file-bridge.ts       # File-based IPC (write .jsx, poll .json)
 │   │   └── script-builder.ts    # ExtendScript generator with ES3 helpers
