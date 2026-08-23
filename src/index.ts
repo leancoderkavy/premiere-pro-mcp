@@ -32,11 +32,12 @@ const args = process.argv.slice(2);
 
 if (args.includes("--help") || args.includes("-h")) {
   console.log(`
-premiere-pro-mcp — MCP server for Adobe Premiere Pro (286 default-profile tools)
+premiere-pro-mcp — MCP server for Adobe Premiere Pro (298 default-profile tools)
 
 Usage:
   premiere-pro-mcp              Start the MCP server (stdio transport)
   premiere-pro-mcp --install-cep   Install the CEP plugin into Premiere Pro
+  premiere-pro-mcp --uninstall-cep Remove this CEP plugin from Premiere Pro
   premiere-pro-mcp --diagnose-cep  Check the CEP install, debug keys, and Premiere signature logs
   premiere-pro-mcp --doctor        Check local install/configuration without reading a project
   premiere-pro-mcp --doctor --json Print the same local check as machine-readable JSON
@@ -83,9 +84,19 @@ if (args.includes("--doctor") || args.includes("--support-bundle")) {
   process.exit(0);
 }
 
-if (args.includes("--install-cep") || args.includes("--diagnose-cep")) {
-  const diagnose = args.includes("--diagnose-cep");
-  console.log(diagnose ? "Diagnosing CEP plugin...\n" : "Installing CEP plugin...\n");
+const cepActions = ["--install-cep", "--uninstall-cep", "--diagnose-cep"].filter((flag) => args.includes(flag));
+if (cepActions.length > 1) {
+  console.error("Use only one CEP action at a time: --install-cep, --uninstall-cep, or --diagnose-cep.");
+  process.exit(1);
+}
+
+if (cepActions.length === 1) {
+  const action = cepActions[0];
+  const diagnose = action === "--diagnose-cep";
+  const uninstall = action === "--uninstall-cep";
+  console.log(uninstall
+    ? "Removing CEP plugin...\n"
+    : diagnose ? "Diagnosing CEP plugin...\n" : "Installing CEP plugin...\n");
   const isWindows = process.platform === "win32";
   const isMacOS = process.platform === "darwin";
   if (!isWindows && !isMacOS) {
@@ -103,23 +114,30 @@ if (args.includes("--install-cep") || args.includes("--diagnose-cep")) {
     if (isWindows) {
       const powershellArgs = ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", scriptPath];
       if (diagnose) powershellArgs.push("-Diagnose");
+      if (uninstall) {
+        powershellArgs[4] = path.join(projectRoot, "scripts", "uninstall-cep.ps1");
+      }
       execFileSync(
         "powershell.exe",
         powershellArgs,
         { stdio: "inherit", cwd: projectRoot },
       );
     } else {
-      execFileSync("bash", [scriptPath, diagnose ? "--diagnose" : "--copy"], {
+      const macosScriptPath = uninstall
+        ? path.join(projectRoot, "scripts", "uninstall-cep.sh")
+        : scriptPath;
+      execFileSync("bash", [macosScriptPath, uninstall ? "--user" : diagnose ? "--diagnose" : "--copy"], {
         stdio: "inherit",
         cwd: projectRoot,
       });
     }
   } catch {
-    console.error(`CEP ${diagnose ? "diagnostics" : "installation"} failed. Try running manually:`);
+    const operation = uninstall ? "uninstallation" : diagnose ? "diagnostics" : "installation";
+    console.error(`CEP ${operation} failed. Try running manually:`);
     console.error(
       isWindows
-        ? `  powershell -ExecutionPolicy Bypass -File "${scriptPath}"${diagnose ? " -Diagnose" : ""}`
-        : `  bash "${scriptPath}" ${diagnose ? "--diagnose" : "--copy"}`,
+        ? `  powershell -ExecutionPolicy Bypass -File "${uninstall ? path.join(projectRoot, "scripts", "uninstall-cep.ps1") : scriptPath}"${diagnose ? " -Diagnose" : ""}`
+        : `  bash "${uninstall ? path.join(projectRoot, "scripts", "uninstall-cep.sh") : scriptPath}" ${uninstall ? "--user" : diagnose ? "--diagnose" : "--copy"}`,
     );
     process.exit(1);
   }

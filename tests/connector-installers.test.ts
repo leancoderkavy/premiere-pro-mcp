@@ -30,4 +30,14 @@ describe("native connector installers", () => {
     expect(macos).toContain("REQUIRE_SIGNING");
     expect(workflow).toContain("require_production_signing");
   });
+
+  it("ships a guarded macOS companion uninstaller and blocks Windows removal while Premiere is open", () => {
+    const windows = read("installer/windows/Program.cs");
+    const macos = read("scripts/build-connector-installer.sh");
+    const workflow = read(".github/workflows/connector-installers.yml");
+    expect(windows).toContain("Close it before removing the Connector");
+    expect(macos).toContain("Premiere-Connector-Uninstall-$VERSION-macos.command");
+    expect(macos).toContain("uninstall-cep.sh");
+    expect(workflow).toContain("*.command");
+  });
 });

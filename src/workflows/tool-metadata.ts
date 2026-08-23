@@ -6,6 +6,11 @@ const READ_ONLY_TOOLS = new Set([
   "create_editorial_plan",
   "preview_editorial_plan",
   "preview_project_intake",
+  "preview_motion_graphics_demo",
+  "preview_product_spot",
+  "preview_brand_spot",
+  "validate_project_for_export",
+  "read_sequence_captions",
 ]);
 const DESTRUCTIVE_PREFIXES = ["delete_", "remove_", "ripple_delete", "close_"];
 const DESTRUCTIVE_TOOLS = new Set(["manage_project_context"]);

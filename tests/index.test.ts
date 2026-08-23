@@ -11,6 +11,7 @@ describe("CLI flags", () => {
     expect(output).toContain("premiere-pro-mcp");
     expect(output).toContain("Usage:");
     expect(output).toContain("--install-cep");
+    expect(output).toContain("--uninstall-cep");
     expect(output).toContain("--diagnose-cep");
     expect(output).toContain("PREMIERE_TEMP_DIR");
     expect(output).toContain("PREMIERE_TIMEOUT_MS");

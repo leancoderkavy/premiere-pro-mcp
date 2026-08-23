@@ -1,0 +1,35 @@
+{
+  "schemaVersion": "premiere-pro-mcp.licensed-host-sweep-matrix.v1",
+  "id": "core-connection-and-edit-v1",
+  "title": "Core connection and bounded-edit licensed-host sweep",
+  "cases": [
+    {
+      "id": "LHS-CONNECTION-001",
+      "operationClass": "read_only",
+      "tool": "verify_premiere_connection",
+      "purpose": "Confirm the selected bridge, a project, and an active sequence without returning project details.",
+      "requiredEvidenceKinds": ["host_state", "structured_response"]
+    },
+    {
+      "id": "LHS-CEP-PING-001",
+      "operationClass": "read_only",
+      "tool": "ping",
+      "purpose": "Confirm the installed CEP bridge can reach the licensed Premiere host.",
+      "requiredEvidenceKinds": ["panel_state", "structured_response"]
+    },
+    {
+      "id": "LHS-UXP-CONNECTION-001",
+      "operationClass": "read_only",
+      "tool": "verify_premiere_connection",
+      "purpose": "Confirm an explicitly selected authenticated UXP bridge, or record it as unsupported or not run.",
+      "requiredEvidenceKinds": ["panel_state", "structured_response"]
+    },
+    {
+      "id": "LHS-MARKER-UNDO-001",
+      "operationClass": "mutation",
+      "tool": "add_marker",
+      "purpose": "Create one marker in a generated fixture, confirm the returned state, then prove Undo restores the before state.",
+      "requiredEvidenceKinds": ["before_state", "after_state", "structured_response", "undo"]
+    }
+  ]
+}

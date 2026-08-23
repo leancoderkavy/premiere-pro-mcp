@@ -59,8 +59,11 @@ const LOCAL_TOOLS = new Set([
   "preview_edit_plan",
   "create_editorial_plan",
   "preview_editorial_plan",
+  "preview_motion_graphics_demo",
+  "preview_product_spot",
+  "preview_brand_spot",
 ]);
-const ORCHESTRATOR_TOOLS = new Set(["apply_edit_plan"]);
+const ORCHESTRATOR_TOOLS = new Set(["apply_edit_plan", "apply_spot_workflow_plan"]);
 
 /**
  * Forward-compatible exceptions for tools whose implementation crosses a
@@ -149,7 +152,7 @@ function verificationBoundaryFor(
   local: boolean,
 ): VerificationBoundary {
   if (local) return "static_metadata_only";
-  if (name === "apply_edit_plan") return "plan_revalidation";
+  if (name === "apply_edit_plan" || name === "apply_spot_workflow_plan") return "plan_revalidation";
   if (authority === "inspect") return "host_response";
   if (authority === "export" || authority === "filesystem") {
     return "output_and_host_response";
