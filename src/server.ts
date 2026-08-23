@@ -14,6 +14,7 @@ import { getTrackTools } from "./tools/tracks.js";
 import { getPlayheadTools } from "./tools/playhead.js";
 import { getMetadataTools } from "./tools/metadata.js";
 import { getExportTools } from "./tools/export.js";
+import { getMediaAnalysisTools } from "./tools/media-analysis.js";
 import { getAdvancedTools } from "./tools/advanced.js";
 import { getKeyframeTools } from "./tools/keyframes.js";
 import { getScriptingTools } from "./tools/scripting.js";
@@ -282,6 +283,7 @@ function collectTools(
     ...getPlayheadTools(bridgeOptions),
     ...getMetadataTools(bridgeOptions),
     ...getExportTools(bridgeOptions),
+    ...getMediaAnalysisTools(bridgeOptions),
     ...getAdvancedTools(bridgeOptions),
     ...getKeyframeTools(bridgeOptions),
     ...getScriptingTools(bridgeOptions),

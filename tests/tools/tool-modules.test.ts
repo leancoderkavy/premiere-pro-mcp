@@ -32,6 +32,7 @@ import { getTrackTools } from "../../src/tools/tracks.js";
 import { getPlayheadTools } from "../../src/tools/playhead.js";
 import { getMetadataTools } from "../../src/tools/metadata.js";
 import { getExportTools } from "../../src/tools/export.js";
+import { getMediaAnalysisTools } from "../../src/tools/media-analysis.js";
 import { getAdvancedTools } from "../../src/tools/advanced.js";
 import { getKeyframeTools } from "../../src/tools/keyframes.js";
 import { getScriptingTools } from "../../src/tools/scripting.js";
@@ -83,6 +84,7 @@ const ALL_MODULES: Array<{
   { name: "playhead", getter: getPlayheadTools, minTools: 4 },
   { name: "metadata", getter: getMetadataTools, minTools: 6 },
   { name: "export", getter: getExportTools, minTools: 10 },
+  { name: "media-analysis", getter: getMediaAnalysisTools, minTools: 5 },
   { name: "advanced", getter: getAdvancedTools, minTools: 20 },
   { name: "keyframes", getter: getKeyframeTools, minTools: 5 },
   { name: "scripting", getter: getScriptingTools, minTools: 3 },
@@ -188,16 +190,16 @@ describe("Tool Module Structure", () => {
 });
 
 describe("Total Tool Count", () => {
-  it("all modules together have 306 tools", () => {
+  it("all modules together have 311 tools", () => {
     let total = 0;
     for (const mod of ALL_MODULES) {
       total += Object.keys(mod.getter(bridgeOptions)).length;
     }
-    expect(total).toBe(306);
+    expect(total).toBe(311);
   });
 
-  it("there are 35 directly enumerated modules", () => {
-    expect(ALL_MODULES.length).toBe(35);
+  it("there are 36 directly enumerated modules", () => {
+    expect(ALL_MODULES.length).toBe(36);
   });
 });
 

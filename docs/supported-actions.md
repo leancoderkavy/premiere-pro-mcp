@@ -8,11 +8,11 @@ descriptions, action enums, authority visibility, and counts stay aligned with t
 
 | Surface | Count | Availability |
 | --- | ---: | --- |
-| Registered core actions | 308 | CEP/local server catalog; host and authority checks still apply |
-| Default-profile core actions | 306 | Advertised with `inspect,edit,export,filesystem` |
+| Registered core actions | 313 | CEP/local server catalog; host and authority checks still apply |
+| Default-profile core actions | 311 | Advertised with `inspect,edit,export,filesystem` |
 | Restricted core actions | 2 | Require explicit `unsafe-script` authority |
 | Authenticated UXP additions | 50 | Advertised only while a compatible authenticated UXP panel is connected |
-| Default profile with UXP | 356 | 306 core plus 50 UXP tools |
+| Default profile with UXP | 361 | 311 core plus 50 UXP tools |
 
 ## How to read support
 
@@ -50,6 +50,7 @@ operation” when the tool has no enum-based mode.
 | `add_transition_to_clip` | Default profile | `position`: `start`, `end`, `both` | Add a transition to a specific clip's start or end |
 | `adjust_audio_levels` | Default profile | Single operation | Adjust a clip's Volume > Level in dB. Does not read or change Essential Sound Amplify automation. |
 | `analyze_loudness` | Default profile | Single operation | Measure integrated loudness (LUFS), loudness range (LU), and true peak (dBFS) from a local media file using FFmpeg's EBU R128 filter. Analysis only: it does not normalize audio or change Premiere. |
+| `analyze_video_interlacing` | Default profile | Single operation | Classify decoded video frames as progressive, top-field-first, bottom-field-first, mixed, or undetermined using FFmpeg idet. Read-only delivery preflight. |
 | `analyze_video_qc` | Default profile | Single operation | Analyze a local video delivery for sustained black and frozen sections with FFmpeg. Read-only: it does not contact Premiere or modify the file. |
 | `apply_audio_effect` | Default profile | Single operation | Apply an audio effect to a clip |
 | `apply_edit_plan` | Default profile | Single operation | Apply a previously previewed compound edit after revalidating every target. Requires the edit capability and exact preview confirmation token. |
@@ -98,6 +99,8 @@ operation” when the tool has no enum-based mode.
 | `delete_track` | Default profile | `track_type`: `video`, `audio` | Delete a video or audio track from the active sequence |
 | `deselect_all_clips` | Default profile | Single operation | Deselect all clips in the active sequence. |
 | `detach_proxy` | Default profile | Single operation | Detach/remove the proxy from a project item |
+| `detect_active_picture_bounds` | Default profile | Single operation | Detect the most frequent active-picture crop rectangle in decoded video, exposing probable letterbox or pillarbox bars without modifying the source. |
+| `detect_audio_transients` | Default profile | Single operation | Find probable beat or edit-point transients from decoded audio peaks. Returns candidates for editorial review; it does not claim musical beat-grid accuracy or change a timeline. |
 | `detect_scene_edits` | Default profile | `mode`: `apply_cuts`, `create_markers`, `create_subclips` | Safe scene-edit facade. It uses the authenticated Premiere UXP bridge when connected and explicitly confirmed; CEP fallback is intentionally withheld because synchronous scene detection can block the panel. |
 | `detect_silence` | Default profile | Single operation | Find silent ranges in a media file and return both the silences and the complementary segments worth keeping. Analysis only — nothing in the project or on the timeline is modified. Requires ffmpeg on PATH: Premiere's scripting API exposes no audio-level or waveform data, so silence cannot be measured through the bridge. |
 | `detect_source_scene_changes` | Default profile | Single operation | Detect probable visual cuts in a local source file using FFmpeg scene scores. Read-only and source-relative; it does not cut a Premiere timeline. |
@@ -118,6 +121,7 @@ operation” when the tool has no enum-based mode.
 | `find_items_by_media_path` | Default profile | Single operation | Find project items whose media path contains the given search string |
 | `find_project_item_by_name` | Default profile | Single operation | Find a project item by name (searches recursively through bins) |
 | `freeze_frame` | Default profile | Single operation | Create a freeze frame from a clip at a specific time. Exports the frame and imports it back as a still image. |
+| `generate_media_contact_sheet` | Default profile | Single operation | Generate a new, disk-verified PNG contact sheet from evenly sampled source frames. Refuses to overwrite an existing output and does not modify Premiere or the source. |
 | `get_active_sequence` | Default profile | Single operation | Get detailed information about the currently active sequence |
 | `get_advanced_feature_support` | Default profile | `backend`: `cep`, `uxp` | Report public-API support, prerequisites, entitlements, and user-assisted boundaries for Premiere collaboration and AI features |
 | `get_all_project_paths` | Default profile | Single operation | Get all unique media file paths used in the project. Useful for asset management and archiving. |
@@ -193,6 +197,7 @@ operation” when the tool has no enum-based mode.
 | `insert_from_source` | Default profile | Single operation | Insert the clip from the Source Monitor at the playhead position (insert edit — shifts existing clips). |
 | `inspect_dom_object` | Default profile | Single operation | Inspect a Premiere Pro DOM object and list its properties, methods, and values. Useful for exploring the API and debugging. Examples: - "app.project" → project properties - "app.project.activeSequence" → sequence properties - "app.project.activeSequence.videoTracks[0].clips[0]" → first clip on V1 - "app.project.activeSequence.videoTracks[0].clips[0].components[0]" → first component of a clip |
 | `inspect_edit_readiness` | Default profile | Single operation | Audit the active sequence in one read-only bridge request for empty timelines, primary-track gaps, disabled clips, muted tracks, and excessive Motion scale. Structural diagnostics only; it cannot judge story, framing, sound, or final delivery. |
+| `inspect_media_streams` | Default profile | Single operation | Inspect a local media file with ffprobe and return container, stream, codec, time-base, channel, and chapter metadata. Read-only and independent of Premiere. |
 | `inspect_project_item_av_metadata` | Default profile | Single operation | Inspect a project item's documented effective/original color space, LUT IDs, available color-space overrides, and audio channel shape. |
 | `inspect_project_recovery` | Default profile | Single operation | Read-only recovery inspection: diagnose the active project path and list adjacent Premiere Auto-Save project candidates without opening, copying, or restoring anything. |
 | `inspect_sequence_av_settings` | Default profile | Single operation | Inspect documented audio, tone-mapping, linear-compositing, bit-depth, render-quality, and display settings for the active sequence. |
