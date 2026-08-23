@@ -35,6 +35,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
+    "validate:host-report": "node scripts/validate-licensed-host-report.mjs",
     "benchmark:uxp-hybrid:verify": "node scripts/verify-uxp-hybrid-benchmark.mjs",
     "docs:supported-actions": "npm run build && node scripts/generate-supported-actions.mjs",
     "docs:supported-actions:check": "node scripts/generate-supported-actions.mjs --check",

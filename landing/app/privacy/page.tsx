@@ -13,7 +13,7 @@ export default function PrivacyPage() {
       <article className="mx-auto max-w-3xl">
         <Link href="/" className="text-sm text-purple-300 hover:text-purple-200">← Back to Premiere Pro MCP</Link>
         <h1 className="mt-8 text-4xl font-semibold tracking-tight text-white">Privacy Policy</h1>
-        <p className="mt-3 text-sm text-zinc-500">Last updated: August 4, 2026</p>
+        <p className="mt-3 text-sm text-zinc-500">Last updated: August 22, 2026</p>
 
         <div className="mt-10 space-y-9 leading-7">
           <section>
@@ -27,7 +27,7 @@ export default function PrivacyPage() {
           </section>
           <section>
             <h2 className="text-xl font-semibold text-white">Website analytics</h2>
-            <p className="mt-3">The public website uses Google Analytics with IP anonymization. It records page views and bounded setup interactions such as the route, selected assistant, download action, or help panel opened. These events are designed not to include prompts, project details, media names, or file paths. Google may process device, browser, approximate location, and interaction information under its own policies.</p>
+            <p className="mt-3">The public website loads Google Analytics after the page is interactive and idle, with IP anonymization. It records page views and bounded setup interactions such as the route, selected assistant, download action, or help panel opened. These events are designed not to include prompts, project details, media names, or file paths. Google may process device, browser, approximate location, and interaction information under its own policies.</p>
           </section>
           <section>
             <h2 className="text-xl font-semibold text-white">Cookies and choices</h2>

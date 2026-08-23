@@ -9,9 +9,29 @@ export type OnboardingEvent =
 
 type OnboardingEventParameters = Record<string, string>
 
+const campaignParameterNames = [
+  "utm_source",
+  "utm_medium",
+  "utm_campaign",
+  "utm_term",
+  "utm_content",
+] as const
+
+function campaignParameters(): OnboardingEventParameters {
+  if (typeof window === "undefined") return {}
+  const values: OnboardingEventParameters = {}
+  const search = new URLSearchParams(window.location.search)
+  for (const name of campaignParameterNames) {
+    const value = search.get(name)
+    if (value && value.length <= 80 && /^[a-z0-9._~-]+$/i.test(value)) values[name] = value
+  }
+  return values
+}
+
 declare global {
   interface Window {
-    gtag?: (command: "event", eventName: string, parameters?: OnboardingEventParameters) => void
+    dataLayer?: unknown[]
+    gtag?: (...args: unknown[]) => void
   }
 }
 
@@ -24,11 +44,19 @@ export function trackOnboardingEvent(
   parameters: OnboardingEventParameters = {},
 ) {
   if (typeof window === "undefined") return
+  const safeParameters = { ...campaignParameters(), ...parameters }
 
   window.dispatchEvent(
     new CustomEvent("premiere-pro-mcp:onboarding", {
-      detail: { eventName, parameters },
+      detail: { eventName, parameters: safeParameters },
     }),
   )
-  window.gtag?.("event", eventName, parameters)
+  // The external analytics loader is intentionally deferred. Keep a tiny local
+  // queue so a first CTA is retained without placing inline executable code in
+  // the document or forcing a third-party script into the critical path.
+  window.dataLayer = window.dataLayer ?? []
+  window.gtag = window.gtag ?? ((...args: unknown[]) => {
+    window.dataLayer?.push(args)
+  })
+  window.gtag("event", eventName, safeParameters)
 }

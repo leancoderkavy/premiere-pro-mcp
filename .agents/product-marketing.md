@@ -1,6 +1,6 @@
 # Product Marketing Context
 
-**Document version:** v5
+**Document version:** v6
 **Last updated:** 2026-08-22
 
 ## Product Overview
@@ -143,7 +143,7 @@
 
 **Customers and testimonials:** No approved customer-logo claims, adoption claims, case studies, or public testimonials are currently documented.
 
-**Activation and revenue:** Current production activation, retention, support, conversion, and revenue metrics have not been queried and must not be reported as known.
+**Activation and revenue:** The landing records only bounded anonymous setup actions and allowlisted UTM fields; the local runtime can separately record aggregate first-run check outcomes when an operator configures telemetry. These streams deliberately have no shared user identifier. Current production activation, retention, support, conversion, and revenue metrics have not been queried and must not be reported as known.
 
 **Marketplace and deployment:** Do not claim current Adobe Marketplace approval, directory approval, signed public distribution, or live deployment from repository artifacts alone. Marketplace submission and publication, trusted signing, and real-host installation are separate external gates.
 
@@ -168,10 +168,13 @@
 
 **Organic acquisition strategy:** Publish practical, intent-specific guides that lead to the read-only connection check and clearly distinguish package support, connected capabilities, and host-verified outcomes.
 
+**Paid-acquisition gate:** Do not activate paid campaigns until the current release download, privacy policy, browser conversion events, and aggregate first-run reliability evidence have been verified. A campaign budget, platform, and activation remain separate owner decisions.
+
 ## Changelog
 
 *Newest first. One line per revision: what changed and why.*
 
+- v6 (2026-08-22) — Added privacy-bounded acquisition attribution and the paid-acquisition measurement gate after production-readiness hardening.
 - v5 (2026-08-22) — Repositioned around reviewable workflow automation; refreshed v1.12.1 release facts, ICP, Adobe AI Assistant overlap, commercial hypotheses, and explicit proof boundaries.
 - v4 (2026-08-20) — Added the project-context review workflow and client-choice differentiation after Adobe AI Assistant comparison.
 - v3 (2026-08-19) — Updated proof counts for v1.11.4 and added the organic article strategy and activation path.

@@ -108,20 +108,10 @@ export default function RootLayout({
         {googleAnalyticsId ? (
           <>
             <Script
-              src={`https://www.googletagmanager.com/gtag/js?id=${googleAnalyticsId}`}
-              strategy="afterInteractive"
+              src="/analytics.js"
+              strategy="lazyOnload"
+              data-google-analytics-id={googleAnalyticsId}
             />
-            <Script id="google-analytics" strategy="afterInteractive">
-              {`
-                window.dataLayer = window.dataLayer || [];
-                function gtag(){dataLayer.push(arguments);}
-                gtag('js', new Date());
-                gtag('config', '${googleAnalyticsId}', {
-                  anonymize_ip: true,
-                  send_page_view: true
-                });
-              `}
-            </Script>
           </>
         ) : null}
       </body>

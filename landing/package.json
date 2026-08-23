@@ -4,7 +4,8 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "next build && npm run performance:check",
+    "performance:check": "node scripts/check-performance-budget.mjs",
     "render:demo-video": "node scripts/render-demo-video.mjs",
     "start": "next start",
     "lint": "eslint"

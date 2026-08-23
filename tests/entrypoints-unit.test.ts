@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { RequestBodyTooLargeError } from "../src/http-admission.js";
 
 const mocks = vi.hoisted(() => ({
   requestHandler: undefined as undefined | ((req: any, res: any) => Promise<void>),
@@ -17,8 +18,10 @@ const mocks = vi.hoisted(() => ({
   fsExists: vi.fn(() => false),
   fsStat: vi.fn(() => ({ isDirectory: () => false, isFile: () => true })),
   fsCreateReadStream: vi.fn(),
+  fsReadFileSync: vi.fn(),
   streamOnce: vi.fn(),
   pipe: vi.fn(),
+  readBoundedBody: vi.fn(async () => Buffer.from("{}")),
 }));
 
 vi.mock("node:http", () => ({
@@ -50,6 +53,10 @@ vi.mock("@modelcontextprotocol/sdk/server/stdio.js", () => ({
   StdioServerTransport: class {},
 }));
 vi.mock("../src/http-security.js", () => ({ applyHttpSecurityHeaders: vi.fn() }));
+vi.mock("../src/http-admission.js", async (original) => {
+  const actual = await original<typeof import("../src/http-admission.js")>();
+  return { ...actual, readBoundedRequestBody: mocks.readBoundedBody };
+});
 vi.mock("../src/bridge/uxp-websocket-bridge.js", () => ({
   UxpWebSocketBridge: class {
     start = mocks.uxpStart;
@@ -67,6 +74,7 @@ vi.mock("node:fs", async (original) => {
       existsSync: mocks.fsExists,
       statSync: mocks.fsStat,
       createReadStream: mocks.fsCreateReadStream,
+      readFileSync: mocks.fsReadFileSync,
     },
   };
 });
@@ -85,6 +93,8 @@ beforeEach(() => {
   mocks.fsExists.mockReturnValue(false);
   mocks.fsStat.mockReturnValue({ isDirectory: () => false, isFile: () => true });
   mocks.fsCreateReadStream.mockReturnValue({ once: mocks.streamOnce, pipe: mocks.pipe });
+  mocks.fsReadFileSync.mockReturnValue("<html><head><script>bootstrap()</script></head></html>");
+  mocks.readBoundedBody.mockResolvedValue(Buffer.from("{}"));
   process.env = { ...env };
 });
 afterEach(() => {
@@ -241,6 +251,7 @@ describe("HTTP entry point", () => {
   async function loadHttp(auth = "strong-test-token") {
     process.env.MCP_AUTH_TOKEN = auth;
     delete process.env.ALLOW_UNAUTHENTICATED;
+    process.env.NODE_ENV = "test";
     await import("../src/http-server.js");
     return mocks.requestHandler!;
   }
@@ -270,6 +281,7 @@ describe("HTTP entry point", () => {
   it("allows an explicitly unauthenticated deployment", async () => {
     process.env.ALLOW_UNAUTHENTICATED = "1";
     delete process.env.MCP_AUTH_TOKEN;
+    process.env.NODE_ENV = "test";
     await import("../src/http-server.js");
     const res = response();
     await mocks.requestHandler!({ method: "POST", url: "/mcp", headers: {} }, res);
@@ -284,20 +296,75 @@ describe("HTTP entry point", () => {
       throw new Error(`EXIT:${code}`);
     }) as never);
     await expect(import("../src/http-server.js")).rejects.toThrow("EXIT:1");
-    expect(error).toHaveBeenCalledWith(expect.stringContaining("Refusing to start"));
+    expect(error).toHaveBeenCalledWith(expect.stringContaining("Refusing to start"), expect.stringContaining("MCP_AUTH_TOKEN"));
     expect(exit).toHaveBeenCalledWith(1);
+  });
+
+  it("refuses an unauthenticated production HTTP deployment", async () => {
+    process.env.ALLOW_UNAUTHENTICATED = "1";
+    delete process.env.MCP_AUTH_TOKEN;
+    process.env.NODE_ENV = "production";
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    const exit = vi.spyOn(process, "exit").mockImplementation(((code?: number) => {
+      throw new Error(`EXIT:${code}`);
+    }) as never);
+    await expect(import("../src/http-server.js")).rejects.toThrow("EXIT:1");
+    expect(error).toHaveBeenCalledWith(expect.stringContaining("Refusing to start"), expect.stringContaining("MCP_AUTH_TOKEN"));
+    expect(exit).toHaveBeenCalledWith(1);
+  });
+
+  it("rejects non-exact MCP paths and unsupported methods before server construction", async () => {
+    const handler = await loadHttp();
+    const incorrectPath = response();
+    await handler({ method: "POST", url: "/mcp-typo", headers: {} }, incorrectPath);
+    expect(incorrectPath.statusCode).toBe(404);
+    expect(mocks.connect).not.toHaveBeenCalled();
+
+    const wrongMethod = response();
+    await handler({ method: "PUT", url: "/mcp?client=test", headers: {} }, wrongMethod);
+    expect(wrongMethod.statusCode).toBe(405);
+    expect(wrongMethod.writeHead).toHaveBeenCalledWith(405, expect.objectContaining({ Allow: "GET, POST, DELETE" }));
+    expect(mocks.connect).not.toHaveBeenCalled();
+  });
+
+  it("rejects chunked over-limit and malformed POST bodies before transport construction", async () => {
+    const handler = await loadHttp();
+    mocks.readBoundedBody.mockRejectedValueOnce(new RequestBodyTooLargeError());
+    const tooLarge = response();
+    await handler({ method: "POST", url: "/mcp", headers: { authorization: "Bearer strong-test-token" } }, tooLarge);
+    expect(tooLarge.statusCode).toBe(413);
+    expect(tooLarge.writeHead).toHaveBeenCalledWith(413, expect.objectContaining({ Connection: "close" }));
+    expect(mocks.connect).not.toHaveBeenCalled();
+
+    mocks.readBoundedBody.mockResolvedValueOnce(Buffer.from("not-json"));
+    const malformed = response();
+    await handler({ method: "POST", url: "/mcp", headers: { authorization: "Bearer strong-test-token" } }, malformed);
+    expect(malformed.statusCode).toBe(400);
+    expect(JSON.parse(malformed.body)).toMatchObject({ jsonrpc: "2.0", error: { code: -32700 }, id: null });
+    expect(mocks.connect).not.toHaveBeenCalled();
   });
 
   it("handles authorized MCP requests and closes request resources", async () => {
     const handler = await loadHttp();
     const res = response();
-    await handler({ method: "POST", url: "/mcp", headers: { authorization: "Bearer strong-test-token" } }, res);
+    const req = {
+      method: "POST", url: "/mcp", headers: { authorization: "Bearer strong-test-token" },
+    };
+    await handler(req, res);
     expect(mocks.connect).toHaveBeenCalledOnce();
     expect(mocks.handleRequest).toHaveBeenCalledOnce();
     expect(mocks.capture).toHaveBeenCalledWith("mcp_request", expect.objectContaining({ outcome: "succeeded", status_code: 204 }));
     res.closeHandler();
     expect(mocks.closeTransport).toHaveBeenCalled();
     expect(mocks.closeMcp).toHaveBeenCalled();
+  });
+
+  it("bounds DELETE request bodies before the MCP transport handles them", async () => {
+    const handler = await loadHttp();
+    const res = response();
+    await handler({ method: "DELETE", url: "/mcp", headers: { authorization: "Bearer strong-test-token" } }, res);
+    expect(mocks.readBoundedBody).toHaveBeenCalledOnce();
+    expect(mocks.handleRequest).toHaveBeenCalledOnce();
   });
 
   it("returns 500 when MCP request handling fails", async () => {
@@ -314,9 +381,9 @@ describe("HTTP entry point", () => {
     let handler = await loadHttp();
     mocks.handleRequest.mockImplementationOnce(async (_req, res) => { res.statusCode = 422; });
     const failedStatus = response();
-    await handler({ method: undefined, url: "/mcp", headers: { authorization: "Bearer strong-test-token" } }, failedStatus);
+    await handler({ method: "POST", url: "/mcp", headers: { authorization: "Bearer strong-test-token" } }, failedStatus);
     expect(mocks.capture).toHaveBeenCalledWith("mcp_request", expect.objectContaining({
-      outcome: "failed", method: "unknown", status_code: 422,
+      outcome: "failed", method: "POST", status_code: 422,
     }));
 
     vi.resetModules();
@@ -334,8 +401,21 @@ describe("HTTP entry point", () => {
     const handler = await loadHttp();
     const res = response();
     await handler({ method: "GET", url: "/docs/", headers: {} }, res);
-    expect(res.writeHead).toHaveBeenCalledWith(200, { "Content-Type": "text/html; charset=utf-8" });
-    expect(mocks.pipe).toHaveBeenCalledWith(res);
+    expect(res.writeHead).toHaveBeenCalledWith(200, expect.objectContaining({
+      "Content-Type": "text/html; charset=utf-8",
+      "Cache-Control": "no-cache, must-revalidate",
+    }));
+    expect(res.body).toContain("<script nonce=");
+  });
+
+  it("serves landing document headers without a body for HEAD", async () => {
+    mocks.fsExists.mockReturnValue(true);
+    const handler = await loadHttp();
+    const res = response();
+    await handler({ method: "HEAD", url: "/docs/", headers: {} }, res);
+    expect(res.statusCode).toBe(200);
+    expect(res.body).toBe("");
+    expect(mocks.fsReadFileSync).toHaveBeenCalledOnce();
   });
 
   it("serves extensionless landing routes from their index file", async () => {
@@ -346,11 +426,21 @@ describe("HTTP entry point", () => {
     const handler = await loadHttp();
     const res = response();
     await handler({ method: "GET", url: "/changelog", headers: {} }, res);
-    expect(mocks.fsCreateReadStream).toHaveBeenCalledWith(
+    expect(mocks.fsReadFileSync).toHaveBeenCalledWith(
       expect.stringMatching(/[\\/]changelog[\\/]index\.html$/),
+      "utf8",
     );
     expect(res.statusCode).toBe(200);
-    expect(mocks.pipe).toHaveBeenCalledWith(res);
+  });
+
+  it("marks hashed Next static assets immutable", async () => {
+    mocks.fsExists.mockReturnValue(true);
+    const handler = await loadHttp();
+    const res = response();
+    await handler({ method: "GET", url: "/_next/static/chunks/app.js", headers: {} }, res);
+    expect(res.writeHead).toHaveBeenCalledWith(200, expect.objectContaining({
+      "Cache-Control": "public, max-age=31536000, immutable",
+    }));
   });
 
   it("does not crash when a landing asset read fails after validation", async () => {
@@ -358,7 +448,7 @@ describe("HTTP entry point", () => {
     const error = vi.spyOn(console, "error").mockImplementation(() => {});
     const handler = await loadHttp();
     const res = response();
-    await handler({ method: "GET", url: "/docs/", headers: {} }, res);
+    await handler({ method: "GET", url: "/analytics.js", headers: {} }, res);
     const streamError = mocks.streamOnce.mock.calls.find(([event]) => event === "error")?.[1];
     expect(streamError).toBeTypeOf("function");
     streamError(new Error("read failed"));

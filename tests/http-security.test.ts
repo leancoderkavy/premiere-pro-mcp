@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { applyHttpSecurityHeaders, HTTP_SECURITY_HEADERS } from "../src/http-security.js";
+import { applyHttpSecurityHeaders, buildContentSecurityPolicy, HTTP_SECURITY_HEADERS } from "../src/http-security.js";
 
 describe("HTTP security headers", () => {
   it("sets a restrictive baseline on every response", () => {
@@ -25,5 +25,16 @@ describe("HTTP security headers", () => {
     expect(policy).toContain("connect-src 'self'");
     expect(policy).toContain("https://www.google.com");
     expect(policy).not.toContain("connect-src *");
+    expect(policy).not.toContain("script-src 'self' 'unsafe-inline'");
+  });
+
+  it("uses a per-response nonce instead of allowing inline scripts", () => {
+    const setHeader = vi.fn();
+    applyHttpSecurityHeaders({ setHeader } as never, { scriptNonce: "nonce-value" });
+    expect(setHeader).toHaveBeenCalledWith(
+      "Content-Security-Policy",
+      expect.stringContaining("script-src 'self' 'nonce-nonce-value' https://www.googletagmanager.com"),
+    );
+    expect(buildContentSecurityPolicy()).not.toContain("'unsafe-inline' https://www.googletagmanager.com");
   });
 });

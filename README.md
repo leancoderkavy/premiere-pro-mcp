@@ -731,7 +731,7 @@ A live instance is running at **https://premiere-pro-mcp.fly.dev**.
 git clone https://github.com/leancoderkavy/premiere-pro-mcp.git
 cd premiere-pro-mcp
 fly apps create your-app-name
-# Required: add bearer token auth
+# Required: add bearer token auth. Use a unique, high-entropy secret per deployment.
 fly secrets set MCP_AUTH_TOKEN=your-secret-token
 fly deploy --remote-only
 ```
@@ -752,6 +752,7 @@ Then connect with:
 
 > **Note:** The file bridge still requires the CEP plugin to share the same `PREMIERE_TEMP_DIR`. For cloud deployments this means running a sync agent or using `fly proxy` / WireGuard to reach your local machine.
 > `detect_silence` can analyze only media paths available inside the server filesystem; a desktop-only path is not automatically available to a remote Fly machine.
+> For a shared or multi-user remote deployment, put a managed identity-aware edge in front of the server and replace the shared bearer secret with per-user authorization. The built-in limiter is intentionally process-local defense in depth, not a substitute for an edge/WAF or account system.
 
 ---
 
@@ -768,14 +769,24 @@ Then connect with:
 | `PREMIERE_CONTEXT_DIR` | Override the local project-context storage directory | OS application-data directory |
 | `PORT` | HTTP port (HTTP/SSE transport only) | `3000` |
 | `MCP_AUTH_TOKEN` | Bearer token required by the HTTP transport | unset |
-| `ALLOW_UNAUTHENTICATED` | Set to `1` to run HTTP without auth (unsafe; throwaway instances only) | unset |
+| `ALLOW_UNAUTHENTICATED` | Set to `1` only for local/test HTTP harnesses; it is rejected when `NODE_ENV=production` | unset |
+| `MCP_MAX_REQUEST_BYTES` | Maximum HTTP MCP request body size | `1048576` |
+| `MCP_HEADERS_TIMEOUT_MS` | Maximum time to receive request headers | `10000` |
+| `MCP_REQUEST_TIMEOUT_MS` | Maximum time to receive an HTTP request | `60000` |
+| `MCP_KEEP_ALIVE_TIMEOUT_MS` | Idle keep-alive socket timeout | `5000` |
+| `MCP_MAX_REQUESTS_PER_SOCKET` | Requests permitted on one keep-alive socket | `100` |
+| `MCP_MAX_CONCURRENT_REQUESTS` | In-flight authenticated MCP request ceiling | `8` |
+| `MCP_RATE_LIMIT_PER_MINUTE` | Per-credential token-bucket refill rate | `120` |
+| `MCP_RATE_LIMIT_BURST` | Per-credential short burst allowance | `30` |
+| `MCP_MAX_RATE_LIMIT_KEYS` | In-memory rate-limit identity ceiling | `2048` |
+| `MCP_TRUST_PROXY` | Set to `1` only behind a proxy that overwrites `X-Forwarded-For` | unset |
 | `POSTHOG_API_KEY` | PostHog project token; enables privacy-safe MCP usage telemetry | unset |
 | `POSTHOG_HOST` | PostHog ingestion host | `https://us.i.posthog.com` |
 | `POSTHOG_ENVIRONMENT` | Environment property attached to telemetry events | `production` |
 | `POSTHOG_DISTINCT_ID` | Optional stable anonymous server identifier | Fly machine ID or random boot ID |
 
 When PostHog is enabled, the server records `mcp_connection_attempt`,
-`mcp_request`, and `mcp_tool_call`. Events contain operational fields such as
+`mcp_request`, `mcp_request_rejected`, and `mcp_tool_call`. Events contain operational fields such as
 method, tool name, outcome, status code, and duration. Authentication tokens,
 IP addresses, MCP arguments, project paths, media names, and tool results are
 never sent. Person profiles are disabled for these events.
@@ -865,8 +876,14 @@ by default. Enable them only by setting
 
 - **Run it locally over stdio** unless you have a specific reason not to. That's the safe default.
 - **The HTTP transport (`http-server`) requires `MCP_AUTH_TOKEN`** and refuses to start
-  without it. It binds `0.0.0.0` and is remotely reachable, so never expose it publicly
-  without a strong token (set `ALLOW_UNAUTHENTICATED=1` only for a throwaway public instance).
+  without it in production. It binds `0.0.0.0` and is remotely reachable, so never expose it publicly
+  without a strong token and edge controls. `ALLOW_UNAUTHENTICATED=1` is limited to non-production local/test use.
+- **The HTTP transport admits only exact `/mcp` Streamable HTTP requests**, enforces
+  body/socket/request limits, and applies a bounded in-process per-credential rate and concurrency limit before
+  MCP request parsing or Premiere bridge work begins. It returns `413`, `429`, or `503` on containment failures. Configure an
+  upstream rate limit and request-size limit too; process-local counters do not protect a multi-machine deployment.
+- **The landing CSP uses a per-response nonce for scripts**, and its static assets use explicit cache policies.
+  Keep the server in front of the exported landing so those controls are not bypassed by a separate static host.
 - The bridge temp directory is created private to your user (mode `0700`), and the server
   refuses to use one owned by another user — relevant on shared machines, where the CEP
   panel would otherwise execute any `cmd_*.jsx` staged there.
