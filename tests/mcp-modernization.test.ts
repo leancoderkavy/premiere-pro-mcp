@@ -100,6 +100,13 @@ describe("modern MCP surface", () => {
       const resources = await client.listResources();
       expect(resources.resources.map((resource) => resource.uri)).toContain("config://premiere-workflows");
       expect(resources.resources.map((resource) => resource.uri)).toContain("config://premiere-project-context");
+      expect(resources.resources.map((resource) => resource.uri)).toEqual(expect.arrayContaining([
+        "premiere://project/info",
+        "premiere://project/sequences",
+        "premiere://project/media",
+        "premiere://project/bins",
+        "premiere://timeline/active",
+      ]));
 
       const tools = await client.listTools();
       expect(tools.tools.find((tool) => tool.name === "get_project_info")?.annotations?.readOnlyHint).toBe(true);

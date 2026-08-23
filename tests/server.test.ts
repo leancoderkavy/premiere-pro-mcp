@@ -3,6 +3,8 @@ import { createServer, SERVER_VERSION } from "../src/server.js";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { z } from "zod";
+import { Client } from "@modelcontextprotocol/sdk/client/index.js";
+import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 
 // Mock all tool modules to return simple tool definitions
 vi.mock("../src/bridge/file-bridge.js", () => ({
@@ -89,6 +91,34 @@ describe("createServer", () => {
     expect(() =>
       createServer({ tempDir: "/custom/tmp", timeoutMs: 5000 })
     ).not.toThrow();
+  });
+
+  it("registers and serves the bounded live context resources", async () => {
+    const server = createServer({});
+    const client = new Client({ name: "live-resource-test", version: "1.0.0" });
+    const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
+    await Promise.all([server.connect(serverTransport), client.connect(clientTransport)]);
+
+    try {
+      const resources = await client.listResources();
+      expect(resources.resources.map((resource) => resource.uri)).toEqual(expect.arrayContaining([
+        "premiere://project/info",
+        "premiere://project/sequences",
+        "premiere://project/media",
+        "premiere://project/bins",
+        "premiere://timeline/active",
+      ]));
+
+      const read = await client.readResource({ uri: "premiere://project/info" });
+      expect(JSON.parse(read.contents[0].text as string)).toMatchObject({
+        ok: true,
+        resource: "premiere://project/info",
+        resourceSchemaVersion: 1,
+      });
+    } finally {
+      await client.close();
+      await server.close();
+    }
   });
 });
 

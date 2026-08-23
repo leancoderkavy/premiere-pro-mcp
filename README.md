@@ -6,7 +6,7 @@
 
 **Give compatible AI assistants structured control over supported Adobe Premiere Pro workflows.**
 
-313 core tools across 36 modules, 4 resources, and 11 guided workflows. A connected UXP host adds 50 capability-gated tools.
+313 core tools across 36 modules, 9 resources, and 11 guided workflows. A connected UXP host adds 50 capability-gated tools.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Node.js](https://img.shields.io/badge/Node.js-20.19%2B-green.svg)](https://nodejs.org)
@@ -731,15 +731,24 @@ Track targeting, batch operations, markers, audio levels, motion/transform, meta
 
 ## MCP Resources
 
-The server exposes four LLM context resources and eleven workflow prompts:
+The server exposes nine LLM context resources and eleven workflow prompts:
 
 | Resource URI | Description |
 | :----------- | :---------- |
 | `config://premiere-instructions` | Best practices: workflow order, timeline rules, effect tips, error handling |
 | `config://extendscript-reference` | Complete ExtendScript API reference for writing custom scripts |
 | `config://premiere-workflows` | Machine-readable catalog for rough cuts, dialogue cleanup, captions, and delivery |
+| `config://premiere-project-context` | Revisioned local project-context indexing and retrieval workflow |
+| `premiere://project/info` | Fresh, path-redacted current-project and active-sequence summary |
+| `premiere://project/sequences` | Bounded sequence inventory with stable Premiere IDs |
+| `premiere://project/media` | Bounded, path-redacted project-media inventory |
+| `premiere://project/bins` | Bounded, path-redacted project-bin inventory |
+| `premiere://timeline/active` | Bounded active-timeline tracks, clips, and markers snapshot |
 
-These are automatically available to MCP clients that support resources, giving the AI deep context about how to drive Premiere Pro effectively.
+The five `premiere://` snapshots are read-only CEP bridge requests. They include a
+revision token for stale-state detection and never return native media or project-tree
+paths. A successful snapshot proves bridge readback only—not licensed-host feature
+coverage, playback, rendering, or editorial correctness.
 
 ---
 
