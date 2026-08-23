@@ -66,7 +66,11 @@ export default async function ArticlePage({ params }: ArticlePageProps) {
     notFound()
   }
 
-  const relatedArticles = articles.filter((candidate) => candidate.slug !== article.slug).slice(0, 2)
+  const relatedArticles = article.relatedSlugs
+    ? article.relatedSlugs
+      .map((relatedSlug) => articleBySlug.get(relatedSlug))
+      .filter((related): related is (typeof articles)[number] => Boolean(related))
+    : articles.filter((candidate) => candidate.slug !== article.slug).slice(0, 2)
   const articleUrl = `https://premiere-pro-mcp.com/blog/${article.slug}/`
   const structuredData = {
     "@context": "https://schema.org",

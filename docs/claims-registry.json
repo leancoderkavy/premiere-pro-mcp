@@ -45,9 +45,9 @@
     {
       "id": "adobe-ai-assistant-overlap",
       "status": "external_research",
-      "claim": "Adobe AI Assistant overlaps with media organization, footage preparation, and stringout workflows.",
+      "claim": "Adobe AI Assistant is a public beta that overlaps with media organization, footage preparation, and initial-assembly workflows.",
       "source": "https://helpx.adobe.com/premiere/desktop/premiere-ai-assistant/overview.html",
-      "reviewedOn": "2026-08-22",
+      "reviewedOn": "2026-08-23",
       "boundary": "Position the product as complementary and evolving; do not claim general superiority over Adobe AI Assistant."
     }
   ],

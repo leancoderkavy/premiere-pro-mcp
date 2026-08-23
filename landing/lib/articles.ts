@@ -21,6 +21,7 @@ export type Article = {
   sections: ArticleSection[]
   faqs: ArticleFaq[]
   resources: Array<{ label: string; href: string }>
+  relatedSlugs?: string[]
 }
 
 export const articles: Article[] = [
@@ -122,6 +123,246 @@ export const articles: Article[] = [
       { label: "Read the supported Project Intake action", href: "https://github.com/leancoderkavy/premiere-pro-mcp/blob/main/docs/supported-actions.md" },
       { label: "Use the broader Premiere AI workflow checklist", href: "/blog/premiere-pro-ai-workflow-checklist/" },
     ],
+  },
+  {
+    slug: "premiere-pro-project-backup-checklist",
+    title: "Premiere Pro Project Backup Checklist: Make a Verifiable Copy Before High-Risk Changes",
+    description:
+      "Use this practical checklist to create and verify a separate Premiere Pro project backup before testing automation, major reorganization, or a delivery-critical change.",
+    eyebrow: "Project backup checklist",
+    publishedAt: "2026-08-23",
+    modifiedAt: "2026-08-23",
+    readingTime: "6 min read",
+    keywords: [
+      "Premiere Pro project backup",
+      "Premiere Pro backup checklist",
+      "Premiere Pro automation safety",
+      "Premiere Pro project recovery",
+    ],
+    sections: [
+      {
+        heading: "A backup is a recovery boundary, not a promise that an edit will work",
+        paragraphs: [
+          "Before you test a new automation, change project organization, or hand a project to another workflow, create a separate copy that you can identify and reopen. A backup gives the editor a concrete recovery point. It does not certify the current cut, validate media links, replace a version-control policy, or make an untested automation safe.",
+          "Start with the exact project file that should be recoverable. If Premiere has unsaved work, save it first and decide whether that saved state is the point you need to preserve. Keep a human owner for the project and use a duplicate or non-critical project while evaluating a new host, connector, or workflow.",
+        ],
+      },
+      {
+        heading: "1. Name the change you are protecting against",
+        paragraphs: [
+          "Write down the next operation and its boundary before copying anything. Examples include a bulk bin cleanup, a test of a new MCP client, a timeline restructuring pass, or a delivery-preflight experiment. State which project or sequence must remain untouched and who decides whether to continue or roll back.",
+          "Do not use a backup as a reason to issue a broad instruction such as “fix the project.” The safer next step is still a bounded request with named inputs, a no-change boundary, and a result you can inspect.",
+        ],
+        bullets: [
+          "Record the project file and the saved state you intend to protect.",
+          "Describe the one workflow you are about to test.",
+          "Choose a human owner for exceptions, rollback, and final editorial decisions.",
+        ],
+      },
+      {
+        heading: "2. Create a separate copy without opening or changing the source file",
+        paragraphs: [
+          "Premiere Pro MCP includes create_project_backup for an existing .prproj file. It creates a collision-safe copy beside the source and returns byte-verification evidence for the copy. The operation does not open the project in Premiere or modify the source project file.",
+          "Ask for the returned backup path and verification details, then keep them with the handoff record if your team permits it. File paths and project names can be sensitive, so do not paste them into public issue reports, analytics, or a shared prompt history unless that disclosure is appropriate.",
+        ],
+      },
+      {
+        heading: "3. Check the evidence, then test the smallest possible workflow",
+        paragraphs: [
+          "A successful backup result means the new copy was created and byte-verified against the source at that moment. It does not establish that the project will open successfully in every Premiere version, that media will relink, or that the next requested edit is appropriate. Open and inspect the copy in the actual host before you rely on it as a recovery route.",
+          "For a local MCP setup, next run the read-only connection check and inspect the active sequence. Request a preview or plan before a meaningful edit. When an operation returns a diagnostic or a partial result, stop and resolve that condition rather than assuming a backup makes a retry harmless.",
+        ],
+      },
+      {
+        heading: "4. Preserve the record until the owner accepts the result",
+        paragraphs: [
+          "Keep the original project, the backup reference, the requested workflow, and the reviewer decision together long enough to recover from a late-discovered problem. In a shared environment, use your facility’s naming, storage, and retention rules rather than inventing a new archive policy in an AI prompt.",
+          "Once the work is accepted, follow the team’s normal retention policy. A byte-verified project-file backup is useful evidence about that file copy; it is not a substitute for checking media availability, sequence contents, export artifacts, or creative quality.",
+        ],
+      },
+    ],
+    faqs: [
+      {
+        question: "Does create_project_backup change the source Premiere project?",
+        answer:
+          "No. It creates a separate, collision-safe copy of an existing .prproj file and does not open or modify the source project file.",
+      },
+      {
+        question: "Does byte verification prove the backup will open in Premiere?",
+        answer:
+          "No. It verifies that the created copy matches the source file bytes at creation time. Open the copy in the relevant Premiere host and inspect its media and sequence state before treating it as a usable recovery point.",
+      },
+      {
+        question: "Should a backup replace a preview or confirmation step?",
+        answer:
+          "No. Keep the edit itself bounded: inspect the target, request a preview where available, confirm meaningful changes, and review the returned state or diagnostic.",
+      },
+    ],
+    resources: [
+      { label: "Read the supported recovery actions", href: "https://github.com/leancoderkavy/premiere-pro-mcp/blob/main/docs/supported-actions.md" },
+      { label: "Evaluate an AI workflow before it changes a project", href: "/blog/premiere-pro-ai-workflow-checklist/" },
+      { label: "Prepare a read-only project-intake review", href: "/blog/premiere-pro-project-intake-checklist/" },
+    ],
+    relatedSlugs: ["premiere-pro-project-intake-checklist", "premiere-pro-ai-workflow-checklist"],
+  },
+  {
+    slug: "premiere-pro-review-frames-and-scene-detection",
+    title: "Premiere Pro Review Frames and Scene Detection: Build a Faster Human Review Pass",
+    description:
+      "Create a bounded Premiere Pro review pass with file-verified sequence frames, clip midpoint samples, and source-relative scene-change candidates—without mistaking samples for editorial approval.",
+    eyebrow: "Visual review workflow",
+    publishedAt: "2026-08-23",
+    modifiedAt: "2026-08-23",
+    readingTime: "7 min read",
+    keywords: [
+      "Premiere Pro review frames",
+      "Premiere Pro scene detection workflow",
+      "Premiere Pro visual QC",
+      "Premiere Pro clip review checklist",
+    ],
+    sections: [
+      {
+        heading: "Use sampled frames to focus an editor’s review, not to replace it",
+        paragraphs: [
+          "A long sequence can make a first review slow, especially when the question is structural: are the intended clips present, did a graphic land in the right region, or where should an editor look more closely? A small, clearly scoped set of stills can make that human review faster without pretending to judge pacing, story, color, audio, or playback.",
+          "Keep the review question narrow before generating frames. For example: review a 30-second sponsor cut for visible slate frames, compare the midpoint of each clip on V1, or identify likely source changes before an assistant editor logs a file. The output is evidence to review, not a pass/fail editorial verdict.",
+        ],
+      },
+      {
+        heading: "1. Sample an active sequence at a defined range",
+        paragraphs: [
+          "export_sequence_review_frames can write 2–24 evenly spaced frames from a chosen range in the active sequence. The bridge verifies each returned frame path on disk, so a reviewer can tell whether a requested sample was produced rather than relying only on an export request.",
+          "Frames are still samples. They do not prove smooth playback, correct audio, all edit points, intentional timing, or visual quality across the whole sequence. Use them to decide what deserves playback review in Premiere, and note any requested frame that was not returned.",
+        ],
+      },
+      {
+        heading: "2. Review a track clip by clip when coverage matters",
+        paragraphs: [
+          "For a focused track review, export_sequence_clip_review_frames can produce one composite midpoint frame for each selected video-track clip, within its configured limit. That is useful for a quick handoff or a graphics pass where the reviewer needs a representative view of each clip boundary without muting other tracks or changing the sequence.",
+          "A midpoint frame can miss a problem at a cut, animation, transition, or end frame. Treat every still as an orientation aid. Open the relevant timing region in Premiere whenever the frame raises a question or when the delivery requirement depends on motion, audio, or timing.",
+        ],
+      },
+      {
+        heading: "3. Use source scene changes as candidates, not timeline edits",
+        paragraphs: [
+          "detect_source_scene_changes analyzes a local source file with FFmpeg and returns probable visual-change times. Its timestamps are source-relative candidates; it does not add cuts, markers, subclips, or timeline edits in Premiere.",
+          "Start with a conservative threshold, inspect a few candidates in the source monitor, and record which ones are useful for the actual task. A scene-score change can reflect a flash, exposure shift, camera motion, or compression artifact, so it is not the same thing as an approved editorial cut.",
+        ],
+      },
+      {
+        heading: "4. Turn samples into a review decision",
+        paragraphs: [
+          "Give the reviewer a short checklist: the requested range or track, the returned frame paths, the question being reviewed, unresolved samples, and the next human action. Keep the decision language clear: accept the sample set for deeper playback review, escalate a suspected problem, or stop because the intended range is unclear.",
+          "Do not put project paths, clip names, transcripts, client notes, or source media in public review records. The MCP path can keep work local, but the privacy behavior of the chosen AI client and the team’s sharing tools still needs its own review.",
+        ],
+      },
+    ],
+    faqs: [
+      {
+        question: "Do review frames prove a sequence is ready to deliver?",
+        answer:
+          "No. The returned frame files show that selected stills were written. They do not prove playback, audio, timing, color, captions, visual quality, or editorial quality across the sequence.",
+      },
+      {
+        question: "Does source scene detection create edits in Premiere?",
+        answer:
+          "No. detect_source_scene_changes is read-only local source-file analysis. It returns candidate source-relative times and does not cut or otherwise modify a Premiere timeline.",
+      },
+      {
+        question: "What should happen when a frame is missing or suspicious?",
+        answer:
+          "Treat the sample set as incomplete or needing review. Inspect the relevant sequence region in Premiere before deciding whether to rerun a bounded request or escalate the issue.",
+      },
+    ],
+    resources: [
+      { label: "Review a delivery file with bounded local QC", href: "/blog/premiere-pro-delivery-qc-and-loudness-checklist/" },
+      { label: "See the supported review and detection actions", href: "https://github.com/leancoderkavy/premiere-pro-mcp/blob/main/docs/supported-actions.md" },
+      { label: "Use the broader AI workflow checklist", href: "/blog/premiere-pro-ai-workflow-checklist/" },
+    ],
+    relatedSlugs: ["premiere-pro-delivery-qc-and-loudness-checklist", "premiere-pro-ai-workflow-checklist"],
+  },
+  {
+    slug: "premiere-pro-delivery-qc-and-loudness-checklist",
+    title: "Premiere Pro Delivery QC and Loudness Checklist: Inspect the Exact File Before Handoff",
+    description:
+      "Use a practical delivery checklist for black and freeze findings, loudness measurement, and non-overwriting normalization—while keeping subjective mix and editorial approval with a human reviewer.",
+    eyebrow: "Delivery QC checklist",
+    publishedAt: "2026-08-23",
+    modifiedAt: "2026-08-23",
+    readingTime: "8 min read",
+    keywords: [
+      "Premiere Pro delivery QC checklist",
+      "Premiere Pro loudness check",
+      "Premiere Pro black frame detection",
+      "Premiere Pro frozen frame QC",
+    ],
+    sections: [
+      {
+        heading: "Check the delivered file, not a vague idea of the sequence",
+        paragraphs: [
+          "A delivery review is strongest when every finding points to the exact local file being handed off. The sequence, an Adobe Media Encoder job, and a file on disk are related but different things. Make the file path, intended destination, review owner, and technical thresholds explicit before you ask an assistant to inspect anything.",
+          "This checklist helps surface a few bounded signals. It does not replace a broadcaster, platform, client, or facility specification; it does not guarantee compliance; and it does not decide whether an intentional fade, slate, still, or creative audio choice is acceptable.",
+        ],
+      },
+      {
+        heading: "1. Preserve the exact file and review boundary",
+        paragraphs: [
+          "After rendering, identify the exact output file and keep it unchanged while it is being reviewed. Do not substitute a source clip, a previous export, or an assumed Media Encoder receipt for the actual delivery file. If the file must be regenerated, start the review again against the new output.",
+          "Record the chosen delivery requirements in plain language. A streaming upload, podcast, social cutdown, and broadcast master can use different loudness targets and technical rules. The workflow should measure against a target supplied by the responsible delivery owner rather than inventing one.",
+        ],
+      },
+      {
+        heading: "2. Scan for sustained black and frozen sections",
+        paragraphs: [
+          "analyze_video_qc runs a read-only FFmpeg scan against a local video file. It reports sustained black and frozen sections using thresholds you choose. It does not contact Premiere, change the file, or prove that an export plays correctly in every player.",
+          "Review every finding in context. Intentional fades, slates, still photography, end cards, and deliberate freeze frames can be valid. An empty finding list is also narrow evidence: it says the scan did not find sections at the configured thresholds, not that the delivery is visually or editorially approved.",
+        ],
+      },
+      {
+        heading: "3. Measure loudness and true peak on that same file",
+        paragraphs: [
+          "analyze_loudness measures integrated loudness, loudness range, and true peak from a local audio or video file using FFmpeg’s EBU R128 filter. Supply the target and tolerance that apply to the intended delivery, then keep the returned measurement with the file under review.",
+          "The measurement is local decoded-media evidence. It does not prove a Premiere sequence mix, a client’s subjective approval, rights clearance, dialogue intelligibility, or compliance with every destination-specific rule. FFmpeg must be available on the local machine for this measurement path.",
+        ],
+      },
+      {
+        heading: "4. Normalize only into a new derivative, then remeasure it",
+        paragraphs: [
+          "If the delivery owner approves a normalization experiment, normalize_loudness_file requires a new output path and refuses to overwrite the source or an existing output. It remeasures the newly written derivative and reports whether the requested integrated-loudness and true-peak checks passed.",
+          "That protects the source file but does not turn normalization into automatic mix approval. Listen to the new derivative, review any limiter or codec side effects, confirm the intended destination’s rules, and preserve the original until the responsible reviewer accepts the result.",
+        ],
+      },
+      {
+        heading: "5. Hand off a compact evidence record",
+        paragraphs: [
+          "A useful handoff names the exact reviewed file, configured black/freeze thresholds, loudness target and tolerance, returned findings, unresolved items, and the reviewer’s decision. If a finding is intentional, record why; if it is not, identify the sequence region and owner for the fix.",
+          "Keep this technical record separate from a claim that the work is visually perfect or ready for every platform. The final decision still belongs to the editor, mixer, post supervisor, or delivery owner responsible for the destination.",
+        ],
+      },
+    ],
+    faqs: [
+      {
+        question: "Does analyze_video_qc approve a delivery?",
+        answer:
+          "No. It reports black and frozen sections at selected thresholds in a local decoded-video scan. A reviewer must inspect the findings and apply the destination’s actual delivery requirements.",
+      },
+      {
+        question: "Can I use one loudness target for every destination?",
+        answer:
+          "No. Select the target, tolerance, and peak ceiling supplied by the responsible platform, facility, or delivery owner. The tool measures the values you provide; it does not choose a universal standard.",
+      },
+      {
+        question: "Will normalization overwrite my delivery file?",
+        answer:
+          "No. normalize_loudness_file requires a distinct new output path and refuses to overwrite either the input or an existing output file.",
+      },
+    ],
+    resources: [
+      { label: "Build a faster human visual-review pass", href: "/blog/premiere-pro-review-frames-and-scene-detection/" },
+      { label: "Read the supported loudness and QC actions", href: "https://github.com/leancoderkavy/premiere-pro-mcp/blob/main/docs/supported-actions.md" },
+      { label: "Back up a project before a high-risk workflow", href: "/blog/premiere-pro-project-backup-checklist/" },
+    ],
+    relatedSlugs: ["premiere-pro-review-frames-and-scene-detection", "premiere-pro-project-backup-checklist"],
   },
   {
     slug: "premiere-pro-ai-workflow-checklist",
@@ -443,10 +684,10 @@ export const articles: Article[] = [
     slug: "adobe-premiere-ai-assistant-vs-mcp",
     title: "Adobe Premiere Pro AI Assistant vs. MCP: How to Choose an AI Editing Workflow",
     description:
-      "Compare Adobe’s in-app AI Assistant with a local MCP workflow: client choice, bounded project context, and reviewable Premiere automation.",
+      "Compare Adobe’s public-beta in-app AI Assistant with a local MCP workflow: client choice, bounded project context, and reviewable Premiere automation.",
     eyebrow: "Choose the right workflow",
     publishedAt: "2026-08-22",
-    modifiedAt: "2026-08-22",
+    modifiedAt: "2026-08-23",
     readingTime: "8 min read",
     keywords: [
       "Adobe Premiere Pro AI Assistant vs MCP",
@@ -463,10 +704,10 @@ export const articles: Article[] = [
         ],
       },
       {
-        heading: "Choose Adobe’s assistant when the in-app experience is the priority",
+        heading: "Choose Adobe’s assistant when the native beta workflow fits the job",
         paragraphs: [
-          "Adobe’s AI Assistant is a sensible first place to look when you want a first-party conversational experience in Premiere and the documented feature fits the task. Its availability and feature scope can change, so check Adobe’s current documentation and test the exact workflow in the Premiere version your team uses.",
-          "A public-beta feature list is useful for discovery, but it is not a substitute for testing in the project and host version that matter to your delivery. Use a duplicate project or a small test sequence for any new automation, regardless of which assistant you choose.",
+          "Adobe documents its AI Assistant as a public beta for organizing media, preparing footage, and assembling an initial edit in Premiere. It is a sensible first place to look when a first-party in-app conversational experience and one of those documented workflows fit the task. Adobe also says the beta can change, so check the current documentation and test the exact workflow in the Premiere version your team uses.",
+          "Adobe’s current FAQ says that bringing your own model, using reference documents or templated workflows, sharing conversations across a team, and exporting chat history are not available today. Those are product-scope facts, not reasons to dismiss the Assistant: they simply help a workflow owner choose the right control path and keep a human review boundary around a beta feature.",
         ],
       },
       {
@@ -485,7 +726,7 @@ export const articles: Article[] = [
       {
         heading: "Keep privacy and creative control separate from marketing claims",
         paragraphs: [
-          "The recommended MCP setup keeps Premiere, its connector, the server, and project media on the same computer. That does not change the privacy settings or data handling of the AI client a team chooses. Review that client separately, and do not treat a local server as a universal privacy guarantee.",
+          "The recommended MCP setup keeps Premiere, its connector, the server, and project media on the same computer. That does not change the privacy settings or data handling of the AI client a team chooses. Adobe likewise documents that some Assistant tools run locally while others can require media to be sent to the cloud. Review the exact client and workflow separately instead of treating either route as a universal privacy guarantee.",
           "Neither approach removes editorial judgment. AI can assist with inspection, organization, documented timeline operations, metadata work, and delivery preparation. Decisions about story, performance, pacing, and taste remain the editor’s job.",
         ],
       },
@@ -506,19 +747,21 @@ export const articles: Article[] = [
       {
         question: "Which one is better for Premiere Pro automation?",
         answer:
-          "It depends on the workflow. Adobe’s assistant suits teams that prefer the supported first-party in-app experience. Premiere Pro MCP suits teams that need a compatible AI client, a local structured control path, and an explicit inspect-plan-preview-verify workflow.",
+          "It depends on the workflow. Adobe’s Assistant suits teams that prefer the documented first-party beta experience for its current organization, preparation, and assembly tasks. Premiere Pro MCP suits teams that need a compatible AI client, a local structured control path, and an explicit inspect-plan-preview-verify workflow.",
       },
       {
-        question: "Can project context replace an editor’s review?",
+        question: "Can either assistant replace an editor’s review?",
         answer:
-          "No. Context retrieval and edit plans are evidence tools, not editorial truth. An editor should review the target, preview, returned state, and any diagnostics before relying on a change.",
+          "No. Context retrieval, plans, samples, and assistant actions are evidence tools, not editorial truth. An editor should review the target, the current host behavior, returned state, and any diagnostics before relying on a change.",
       },
     ],
     resources: [
       { label: "Read Adobe’s current AI Assistant overview", href: "https://helpx.adobe.com/premiere/desktop/premiere-ai-assistant/overview.html" },
+      { label: "Read Adobe’s current AI Assistant FAQ", href: "https://helpx.adobe.com/premiere/desktop/premiere-ai-assistant/assistant-faq.html" },
       { label: "Run a safe Premiere connection check", href: "/#install" },
       { label: "Learn what an MCP server does in Premiere", href: "/blog/what-is-a-premiere-pro-mcp-server/" },
     ],
+    relatedSlugs: ["premiere-pro-ai-workflow-checklist", "premiere-pro-project-intake-checklist"],
   },
   {
     slug: "claude-desktop-premiere-pro-mcp-setup",
