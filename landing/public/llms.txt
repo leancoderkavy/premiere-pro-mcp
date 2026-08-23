@@ -12,6 +12,9 @@ MCP for Adobe Premiere Pro registers 287 core structured tools for timeline edit
 - What is an MCP server for Adobe Premiere Pro?: https://premiere-pro-mcp.com/blog/what-is-a-premiere-pro-mcp-server/
 - AI video editing with Premiere Pro: https://premiere-pro-mcp.com/blog/ai-video-editing-with-premiere-pro/
 - Premiere Pro workflow automation: https://premiere-pro-mcp.com/blog/premiere-pro-workflow-automation/
+- Adobe Premiere AI Assistant vs. MCP: https://premiere-pro-mcp.com/blog/adobe-premiere-ai-assistant-vs-mcp/
+- Claude Desktop and Premiere Pro MCP setup: https://premiere-pro-mcp.com/blog/claude-desktop-premiere-pro-mcp-setup/
+- Premiere Pro AI workflow checklist: https://premiere-pro-mcp.com/blog/premiere-pro-ai-workflow-checklist/
 - Source and documentation: https://github.com/leancoderkavy/premiere-pro-mcp
 - npm package: https://www.npmjs.com/package/premiere-pro-mcp
 - Releases: https://github.com/leancoderkavy/premiere-pro-mcp/releases

@@ -25,6 +25,95 @@ export type Article = {
 
 export const articles: Article[] = [
   {
+    slug: "premiere-pro-ai-workflow-checklist",
+    title: "Premiere Pro AI Workflow Checklist: Evaluate Automation Before It Touches a Project",
+    description:
+      "Use this practical checklist to evaluate an AI-assisted Adobe Premiere Pro workflow: define the boundary, verify the connection, preview the change, and inspect the result.",
+    eyebrow: "Premiere Pro AI workflow checklist",
+    publishedAt: "2026-08-22",
+    modifiedAt: "2026-08-22",
+    readingTime: "6 min read",
+    keywords: ["Premiere Pro AI workflow checklist", "Premiere Pro automation checklist", "AI-assisted video editing workflow"],
+    sections: [
+      {
+        heading: "Use this checklist before an AI-assisted Premiere workflow",
+        paragraphs: [
+          "A useful Premiere Pro automation does not begin with a broad instruction like “edit this video.” It begins with a task an editor can describe, constrain, and check. This checklist is for assistant editors, technical editors, and post-production leads evaluating a workflow on a duplicate project or small test sequence before they rely on it in active work.",
+          "It applies whether the assistant is using a native feature, a script, or a structured MCP connection. The goal is not to declare every automation safe. The goal is to make the next decision observable: what will change, what must not change, and how will the editor know the requested result happened?",
+        ],
+      },
+      {
+        heading: "1. Pick one repeated task with a visible definition of done",
+        paragraphs: [
+          "Choose work that happens often and has known inputs, constraints, and an expected outcome. Project inventory, bin organization, active-sequence inspection, proxy checks, marker preparation, and a standard delivery preflight are better first candidates than a complete creative rewrite.",
+          "Write the definition of done before opening the assistant. Name the project or sequence, source clips, target tracks, time range, expected output, and any element that must remain unchanged. If the team cannot state those details, the job still needs editorial direction rather than automation.",
+        ],
+        bullets: [
+          "Good boundary: “Inspect the active sequence and report its tracks and clips. Make no changes.”",
+          "Good boundary: “Prepare a plan for these named clips on V2; preserve A1 and do not apply it yet.”",
+          "Not yet bounded: “Make the pacing better” or “make this more engaging.”",
+        ],
+      },
+      {
+        heading: "2. Start with a no-change connection check",
+        paragraphs: [
+          "For a local MCP setup, install the compatible AI client, local server, and separate Premiere connector, then open Premiere with a project. Use the read-only connection check before asking for an edit: “Safely check my Premiere connection with verify_premiere_connection. Make no changes.”",
+          "A successful check establishes the current connection path; it does not prove every command works on the active host. If it returns a diagnostic, resolve the connector, host, project, or capability condition before moving to an editing request.",
+        ],
+      },
+      {
+        heading: "3. Inspect the current state and capability boundary",
+        paragraphs: [
+          "Ask the assistant to inspect the active project or sequence before it proposes a change. Confirm that the names, tracks, timings, and source media it reports match what the editor sees. Then review the capability or diagnostic information for the specific operation you need.",
+          "This is where structured tools are useful: the client can return data about the current request instead of inferring state from a workspace layout. But a tool catalog and a compatibility range are still not proof of a completed host operation. Treat the running Premiere session as the authority.",
+        ],
+      },
+      {
+        heading: "4. Ask for a bounded plan or preview before applying a change",
+        paragraphs: [
+          "For a meaningful edit, request a preview or plan that repeats the target, source, constraints, and expected result. Review it as you would a handoff from another editor. Make sure it does not substitute a different clip, track, sequence, or output preset just because a named target was unavailable.",
+          "Approval should be specific to the plan you reviewed. Split sensitive work into smaller stages: inventory first, then a proposed assembly, then a deliberately approved supported change. Avoid turning a capability error into a retry loop for a mutating request.",
+        ],
+      },
+      {
+        heading: "5. Verify the result and keep the useful evidence",
+        paragraphs: [
+          "After an operation, re-inspect the relevant project or sequence state and review returned confirmation or diagnostics. An attempted command is not the same as a verified result. For deliveries, confirm the expected receipt or exported artifact; for timeline work, confirm the named tracks, clips, timing, and values that defined success.",
+          "When the result matches the definition of done, save the bounded prompt, constraints, and verification step as a team recipe. When it does not, retain the diagnostic and stop before scaling the request. That creates a reviewable workflow rather than an opaque one-off automation.",
+        ],
+      },
+      {
+        heading: "6. Keep creative and project-risk decisions with the editor",
+        paragraphs: [
+          "Automation can handle structured, repeatable work. It does not replace editorial judgment about story, performance, pacing, music, or brand-sensitive choices. Use extra care with destructive batches, shared projects, incomplete media, and undocumented host behavior.",
+          "Adobe’s evolving native AI features can be useful for their supported workflows. MCP for Adobe Premiere Pro is an independent, local-first option for teams that want compatible-client choice, structured tools, and explicit inspection and verification boundaries. Pick the path that fits the specific job, then use the same review discipline.",
+        ],
+      },
+    ],
+    faqs: [
+      {
+        question: "Should I test an AI Premiere workflow on a live project?",
+        answer:
+          "Start on a duplicate project or a small test sequence. Confirm the connection, named targets, requested operation, and returned result before using a larger or shared project.",
+      },
+      {
+        question: "Does a successful connection check prove an edit will work?",
+        answer:
+          "No. It confirms the connection path. Inspect the current host state and capabilities, keep the first change bounded, and verify the result of the specific operation you need.",
+      },
+      {
+        question: "What should I keep after a workflow passes?",
+        answer:
+          "Keep a short team recipe: the named inputs, no-change boundaries, the approved plan or prompt, and the exact verification step. This lets the next editor repeat the workflow without guessing.",
+      },
+    ],
+    resources: [
+      { label: "Install and run a safe connection check", href: "/#install" },
+      { label: "Learn which Premiere tasks are good automation candidates", href: "/blog/premiere-pro-workflow-automation/" },
+      { label: "See how MCP compares with Adobe Premiere’s AI Assistant", href: "/blog/adobe-premiere-ai-assistant-vs-mcp/" },
+    ],
+  },
+  {
     slug: "what-is-a-premiere-pro-mcp-server",
     title: "What Is an MCP Server for Adobe Premiere Pro? A Practical Guide to AI-Assisted Editing",
     description:
