@@ -80,6 +80,7 @@ const FILESYSTEM_TOOL_NAMES = new Set([
   "verify_delivery_file",
   "detect_silence",
   "create_project_backup",
+  "analyze_loudness",
 ]);
 
 const ACTION_CAPABILITIES: Readonly<Record<string, Readonly<Record<string, readonly Capability[]>>>> = {

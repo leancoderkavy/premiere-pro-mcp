@@ -33,6 +33,7 @@ describe("capability profiles", () => {
     expect(capabilityForTool("validate_export_preset")).toBe("export");
     expect(capabilityForTool("verify_delivery_file")).toBe("filesystem");
     expect(capabilityForTool("create_project_backup")).toBe("filesystem");
+    expect(capabilityForTool("analyze_loudness")).toBe("filesystem");
     expect(capabilityForTool("import_media")).toBe("filesystem");
     expect(capabilityForTool("manage_proxy_ingest_uxp")).toBe("edit");
     expect(capabilityForTool("audition_source_monitor_uxp")).toBe("edit");
