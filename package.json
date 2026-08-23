@@ -36,6 +36,7 @@
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "validate:host-report": "node scripts/validate-licensed-host-report.mjs",
+    "validate:project-intake-host-report": "node scripts/validate-project-intake-host-report.mjs",
     "validate:marketplace-branding": "node scripts/validate-adobe-marketplace-branding.mjs",
     "benchmark:uxp-hybrid:verify": "node scripts/verify-uxp-hybrid-benchmark.mjs",
     "docs:supported-actions": "npm run build && node scripts/generate-supported-actions.mjs",

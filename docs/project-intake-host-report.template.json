@@ -1,0 +1,34 @@
+{
+  "schemaVersion": "project-intake-host-report/v1",
+  "sourceCommit": "0000000000000000000000000000000000000000",
+  "host": {
+    "os": "Windows",
+    "premiereVersion": "26.0.0",
+    "premiereBuild": "template-only",
+    "connector": {
+      "type": "cep",
+      "buildHash": "0000000"
+    }
+  },
+  "client": {
+    "name": "template-client",
+    "version": "template-only"
+  },
+  "fixture": {
+    "revision": "generated-fixture-v1",
+    "sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+  },
+  "privacy": {
+    "containsOnlyGeneratedFixtureData": true,
+    "localPathsRemoved": true,
+    "mediaNamesRemoved": true,
+    "promptsRemoved": true,
+    "transcriptsRemoved": true,
+    "credentialsRemoved": true
+  },
+  "cases": [
+    { "id": "PIP-CONNECT-001", "status": "not_run", "evidence": [] },
+    { "id": "PIP-PREVIEW-001", "status": "not_run", "evidence": [] },
+    { "id": "PIP-NO-MUTATION-001", "status": "not_run", "evidence": [] }
+  ]
+}

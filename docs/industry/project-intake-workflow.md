@@ -470,10 +470,12 @@ version, MCP client, fixture revision/checksum, case status, and evidence
 references. A case is `passed`, `failed`, `unsupported`, or `not_run`; a
 passing schema validator or an MCP response labeled `verified` is insufficient
 without human review of the exact host and post-state evidence. The repository
-already provides `npm run validate:host-report -- path/to/redacted-report.json`
-for its documented redacted report format; Project Intake SHOULD either use its
-compatible evidence shape or extend that validator in a separately reviewed
-change. See [host-validation report rules](../editorial-workflow-host-validation.md).
+now provides a separate, versioned
+`npm run validate:project-intake-host-report -- path/to/redacted-report.json`
+contract for this preview-only workflow. It accepts only the defined Project
+Intake cases, requires the documented non-mutation postconditions, and rejects
+project data from the shared evidence index. See the
+[Project Intake host-validation runbook](../project-intake-host-validation.md).
 
 ## Acceptance gates
 
