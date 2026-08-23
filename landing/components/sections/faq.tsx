@@ -3,9 +3,9 @@ import { product } from "@/lib/product"
 
 export const faqItems = [
   {
-    question: "What is Premiere Pro MCP?",
+    question: "What is MCP for Adobe Premiere Pro?",
     answer:
-      "Premiere Pro MCP is an open-source Model Context Protocol server that gives compatible AI clients a structured set of tools for editing timelines, applying effects, managing media, and exporting from Adobe Premiere Pro.",
+      "MCP for Adobe Premiere Pro is an open-source Model Context Protocol server that gives compatible AI clients a structured set of tools for editing timelines, applying effects, managing media, and exporting from Adobe Premiere Pro.",
   },
   {
     question: "Which Premiere Pro versions and operating systems are supported?",
@@ -13,7 +13,7 @@ export const faqItems = [
       `The signed CEP connector is the default route for Adobe Premiere Pro ${product.premiereCompatibility} on macOS and Windows, including Apple Silicon and Intel Macs. The UXP bridge adds capability-gated workflows on compatible Premiere ${product.uxpMinimumVersion}+ hosts; it is not the default installer.`,
   },
   {
-    question: "Does Premiere Pro MCP upload my footage?",
+    question: "Does MCP for Adobe Premiere Pro upload my footage?",
     answer:
       "The recommended setup is local-first. Premiere Pro, the connector, and the MCP server run on your machine, and the bridge exchanges commands and structured results rather than automatically uploading project media. Your AI assistant’s separate privacy settings still apply.",
   },
@@ -35,7 +35,7 @@ export function FaqSection() {
       <div className="mx-auto grid max-w-6xl gap-14 lg:grid-cols-[0.7fr_1.3fr] lg:gap-20">
         <div>
           <h2 className="text-balance text-3xl font-bold tracking-tight text-white md:text-5xl">
-            Premiere Pro MCP <span className="text-purple-400">FAQ</span>
+            MCP for Adobe Premiere Pro <span className="text-purple-400">FAQ</span>
           </h2>
           <p className="mt-5 max-w-md text-base leading-7 text-zinc-400">
             Straight answers about compatibility, privacy, AI clients, and remote access.

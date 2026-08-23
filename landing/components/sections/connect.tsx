@@ -73,7 +73,7 @@ const assistantRoutes: AssistantRoute[] = [
     primaryAction: "Open compatibility guide",
     href: product.links.readme,
     detail:
-      "If your assistant supports local MCP servers, it can use Premiere Pro MCP. Its setup may require its own settings screen or the manual configuration in Advanced setup.",
+      "If your assistant supports local MCP servers, it can use MCP for Adobe Premiere Pro. Its setup may require its own settings screen or the manual configuration in Advanced setup.",
     status: "advanced",
   },
 ]
@@ -258,7 +258,7 @@ export function ConnectSection() {
               <ol className="mt-4 list-decimal space-y-3 pl-5 text-sm leading-6 text-zinc-400">
                 <li>Quit and reopen both Premiere and your assistant.</li>
                 <li>Open a project and make sure an active sequence is selected.</li>
-                <li>In Premiere, look for <span className="text-zinc-200">Window → Extensions → MCP Bridge</span>.</li>
+                <li>In Premiere, look for <span className="text-zinc-200">Window → Extensions → MCP for Adobe Premiere Pro</span>.</li>
                 <li>Use the safe prompt again. If it still fails, share the connection state—not your project media—with support.</li>
               </ol>
               <a href={product.links.issues} target="_blank" rel="noopener noreferrer" className="mt-5 inline-flex min-h-11 items-center gap-2 text-sm font-semibold text-purple-200 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-300 focus-visible:ring-offset-2 focus-visible:ring-offset-[#08080a]">

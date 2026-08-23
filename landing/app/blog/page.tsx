@@ -20,7 +20,7 @@ const structuredData = {
   "@context": "https://schema.org",
   "@type": "CollectionPage",
   "@id": "https://premiere-pro-mcp.com/blog/#collection",
-  name: "Premiere Pro MCP Guides",
+  name: "MCP for Adobe Premiere Pro Guides",
   description:
     "Practical guides to AI-assisted video editing, Premiere Pro automation, and local MCP workflows.",
   url: "https://premiere-pro-mcp.com/blog/",
@@ -46,11 +46,11 @@ export default function BlogPage() {
       <main id="main-content" className="min-h-screen bg-black px-5 py-16 text-zinc-100 sm:py-24">
         <div className="mx-auto max-w-6xl">
           <nav aria-label="Breadcrumb" className="text-sm text-zinc-500">
-            <Link href="/" className="hover:text-purple-200">Premiere Pro MCP</Link>{" "}
+            <Link href="/" className="hover:text-purple-200">MCP for Adobe Premiere Pro</Link>{" "}
             <span aria-hidden="true">/</span> Guides
           </nav>
           <header className="max-w-3xl border-b border-zinc-800 pb-12 pt-10 sm:pb-16">
-            <p className="font-mono text-sm font-medium tracking-[0.16em] text-purple-300">PREMIERE PRO MCP GUIDES</p>
+            <p className="font-mono text-sm font-medium tracking-[0.16em] text-purple-300">MCP FOR ADOBE PREMIERE PRO GUIDES</p>
             <h1 className="mt-5 text-balance text-4xl font-bold tracking-tight text-white sm:text-6xl">
               Practical guides for AI-assisted Premiere workflows.
             </h1>
@@ -60,7 +60,7 @@ export default function BlogPage() {
             </p>
           </header>
 
-          <section className="grid gap-6 py-12 md:grid-cols-3" aria-label="Premiere Pro MCP guides">
+          <section className="grid gap-6 py-12 md:grid-cols-3" aria-label="MCP for Adobe Premiere Pro guides">
             {articles.map((article, index) => (
               <article key={article.slug} className="flex min-h-full flex-col border border-zinc-800 bg-zinc-950 p-6 transition-colors hover:border-purple-400/60 sm:p-7">
                 <p className="font-mono text-xs font-medium uppercase tracking-[0.14em] text-purple-300">0{index + 1} · {article.eyebrow}</p>

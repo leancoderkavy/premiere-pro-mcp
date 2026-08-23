@@ -38,7 +38,7 @@ try {
   }
   if (-not $CertificatePath) {
     $CertificatePath = Join-Path $temporaryRoot "premiere-pro-mcp-release.p12"
-    & $ZxpSignCmdPath -selfSignedCert US California "Premiere Pro MCP" "Premiere Pro MCP" $CertificatePassword $CertificatePath
+    & $ZxpSignCmdPath -selfSignedCert US California "MCP for Adobe Premiere Pro" "MCP for Adobe Premiere Pro" $CertificatePassword $CertificatePath
     if ($LASTEXITCODE -ne 0) {
       throw "ZXPSignCmd failed to create the release certificate."
     }

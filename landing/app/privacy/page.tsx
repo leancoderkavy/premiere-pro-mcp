@@ -3,7 +3,7 @@ import Link from "next/link"
 
 export const metadata: Metadata = {
   title: "Privacy Policy",
-  description: "How Premiere Pro MCP handles local project data, operational telemetry, and website analytics.",
+  description: "How MCP for Adobe Premiere Pro handles local project data, operational telemetry, and website analytics.",
   alternates: { canonical: "/privacy/" },
 }
 
@@ -11,14 +11,14 @@ export default function PrivacyPage() {
   return (
     <main className="min-h-screen bg-black px-5 py-16 text-zinc-300">
       <article className="mx-auto max-w-3xl">
-        <Link href="/" className="text-sm text-purple-300 hover:text-purple-200">← Back to Premiere Pro MCP</Link>
+        <Link href="/" className="text-sm text-purple-300 hover:text-purple-200">← Back to MCP for Adobe Premiere Pro</Link>
         <h1 className="mt-8 text-4xl font-semibold tracking-tight text-white">Privacy Policy</h1>
         <p className="mt-3 text-sm text-zinc-500">Last updated: August 22, 2026</p>
 
         <div className="mt-10 space-y-9 leading-7">
           <section>
             <h2 className="text-xl font-semibold text-white">Overview</h2>
-            <p className="mt-3">Premiere Pro MCP is an open-source, local-first connector. In the recommended setup, the MCP server and Adobe connector run on your computer. Project files, prompts, media, timelines, and exports are not automatically uploaded to us. Your chosen AI assistant and any remote MCP host have their own privacy practices.</p>
+            <p className="mt-3">MCP for Adobe Premiere Pro is an open-source, local-first connector. In the recommended setup, the MCP server and Adobe connector run on your computer. Project files, prompts, media, timelines, and exports are not automatically uploaded to us. Your chosen AI assistant and any remote MCP host have their own privacy practices.</p>
           </section>
           <section>
             <h2 className="text-xl font-semibold text-white">MCP operational telemetry</h2>

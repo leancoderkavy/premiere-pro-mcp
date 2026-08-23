@@ -4,7 +4,7 @@
 
 ## Objective
 
-Increase verified successful local activations of Premiere Pro MCP, not merely repository traffic or package downloads. The current public signals show interest, but they do not establish how many people have connected a real Premiere host or completed an edit.
+Increase verified successful local activations of MCP for Adobe Premiere Pro, not merely repository traffic or package downloads. The current public signals show interest, but they do not establish how many people have connected a real Premiere host or completed an edit.
 
 ## Starting signals and measurement boundary
 

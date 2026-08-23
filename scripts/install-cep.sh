@@ -1,5 +1,5 @@
 #!/bin/bash
-# Install the MCP Bridge CEP plugin for Premiere Pro
+# Install the MCP for Adobe Premiere Pro CEP plugin
 # This script creates a symlink from the CEP extensions directory to this project's cep-plugin folder.
 
 set -e
@@ -47,7 +47,7 @@ if [ "$MODE" = "--diagnose" ]; then
   fi
   if [ "$problems" -ne 0 ]; then
     echo ""
-    echo "Next steps: fully quit Premiere Pro, run the Connector installer again, then reopen Premiere and choose Window > Extensions > MCP Bridge." >&2
+    echo "Next steps: fully quit Premiere Pro, run the Connector installer again, then reopen Premiere and choose Window > Extensions > MCP for Adobe Premiere Pro." >&2
     exit 1
   fi
   echo "Installation verified: Connector files are present."
@@ -95,7 +95,7 @@ echo "✓ Connector installed"
 echo ""
 echo "Next steps:"
 echo "  1. Fully restart Premiere Pro"
-echo "  2. Go to Window > Extensions > MCP Bridge"
+echo "  2. Go to Window > Extensions > MCP for Adobe Premiere Pro"
 echo "  3. Check that the Connector says it is running"
 echo "  4. Ask your AI assistant to run 'Verify Premiere connection'"
 echo ""

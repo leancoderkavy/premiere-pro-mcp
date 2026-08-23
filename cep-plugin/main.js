@@ -416,7 +416,7 @@ function handleUpdateClick() {
     }
   } catch (e) {}
 
-  log("MCP Bridge CEP plugin loaded");
+  log("MCP for Adobe Premiere Pro CEP connector loaded");
   setStatus("waiting", "Ready — click Start Bridge");
 
   // Always auto-start. The headless instance (StartOn ApplicationActivate) has no

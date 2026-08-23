@@ -1,6 +1,6 @@
 <div align="center">
 
-# Premiere Pro MCP
+# MCP for Adobe Premiere Pro
 
 [![MCP Toplist](https://mcptoplist.com/badge/glama%2Fleancoderkavy%2Fpremiere-pro-mcp.svg)](https://mcptoplist.com/server/glama%2Fleancoderkavy%2Fpremiere-pro-mcp)
 
@@ -19,7 +19,7 @@
 
 ---
 
-![Premiere Pro MCP turns a structured AI request into an organized local editing workflow](landing/public/marketing/premiere-pro-mcp-campaign-hero-v1.png)
+![MCP for Adobe Premiere Pro turns a structured AI request into an organized local editing workflow](landing/public/marketing/premiere-pro-mcp-campaign-hero-v1.png)
 
 ## What is this?
 
@@ -52,7 +52,7 @@ for complete details. Live installation in Premiere Pro still requires host veri
 1. Download the current [Claude Desktop bundle (`.mcpb`)](https://github.com/leancoderkavy/premiere-pro-mcp/releases/download/v1.12.1/premiere-pro-mcp-1.12.1.mcpb).
 2. In Claude Desktop, open **Settings > Extensions > Advanced settings > Install Extension**, select the downloaded bundle, and restart Claude Desktop.
 3. Download the separate [signed Premiere connector (`.zxp`)](https://github.com/leancoderkavy/premiere-pro-mcp/releases/download/v1.12.1/MCPBridgeCEP.zxp). Open it with your trusted ZXP installer. If your computer has no ZXP installer, use the npm connector installer in **Advanced setup** below.
-4. Restart Premiere, open a project, then open **Window > Extensions > MCP Bridge**.
+4. Restart Premiere, open a project, then open **Window > Extensions > MCP for Adobe Premiere Pro**.
 5. In Claude, enter: `Safely check my Premiere connection with verify_premiere_connection. Make no changes.`
 
 The Claude bundle contains the local MCP server, so this route does not require Node.js. The Premiere connector is a separate required install. The first prompt is read-only and reports whether the server is installed, configured, connected, and live-verified.
@@ -259,7 +259,7 @@ Add to your VS Code MCP server configuration:
 
 1. Open (or restart) Premiere Pro
 2. The bridge starts automatically using the default temp directory (or its previously saved setting)
-3. Optionally go to **Window > Extensions > MCP Bridge** to confirm the green "Running" status or change the **Temp Directory** to match your MCP client config
+3. Optionally go to **Window > Extensions > MCP for Adobe Premiere Pro** to confirm the green "Running" status or change the **Temp Directory** to match your MCP client config
 4. Ask your AI assistant to run `get_capabilities`, then `ping`, with Premiere open.
 5. For a safe first request, ask: *"What is my current Premiere Pro project and active sequence? Do not make changes."*
 
@@ -453,7 +453,7 @@ argument, undo, confirmation, and live-host boundaries.
 
 ## Architecture
 
-![Local-first Premiere Pro MCP workflow from AI assistant through the MCP bridge to a verified Premiere result](landing/public/marketing/premiere-pro-mcp-workflow-v1.png)
+![Local-first MCP for Adobe Premiere Pro workflow from AI assistant through the MCP bridge to a verified Premiere result](landing/public/marketing/premiere-pro-mcp-workflow-v1.png)
 
 **Local (stdio):**
 

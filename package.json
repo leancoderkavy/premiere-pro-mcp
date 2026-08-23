@@ -1,7 +1,7 @@
 {
   "name": "premiere-pro-mcp",
   "version": "1.12.1",
-  "description": "Adobe Premiere Pro MCP server with 287 core AI video editing tools and a capability-aware UXP bridge for supported Premiere workflows.",
+  "description": "MCP server for Adobe Premiere Pro with 287 core AI video editing tools and a capability-aware UXP bridge for supported Premiere workflows.",
   "main": "dist/index.js",
   "types": "./dist/index.d.ts",
   "type": "module",
@@ -27,7 +27,7 @@
     "build": "tsc && node scripts/copy-adobe-uxp-coverage.mjs",
     "build:claude": "npm run build && node scripts/build-claude-desktop.mjs",
     "build:connector:windows": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build-connector-installer.ps1",
-    "check": "npm run lint && npm run build && npm run docs:supported-actions:check && npm test",
+    "check": "npm run lint && npm run build && npm run validate:marketplace-branding && npm run docs:supported-actions:check && npm test",
     "check:release-metadata": "vitest run tests/release-metadata.test.ts",
     "dev": "tsc --watch",
     "start": "node dist/index.js",
@@ -36,6 +36,7 @@
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "validate:host-report": "node scripts/validate-licensed-host-report.mjs",
+    "validate:marketplace-branding": "node scripts/validate-adobe-marketplace-branding.mjs",
     "benchmark:uxp-hybrid:verify": "node scripts/verify-uxp-hybrid-benchmark.mjs",
     "docs:supported-actions": "npm run build && node scripts/generate-supported-actions.mjs",
     "docs:supported-actions:check": "node scripts/generate-supported-actions.mjs --check",
@@ -52,7 +53,7 @@
   "bugs": {
     "url": "https://github.com/leancoderkavy/premiere-pro-mcp/issues"
   },
-  "author": "Premiere Pro MCP contributors",
+  "author": "MCP for Adobe Premiere Pro contributors",
   "keywords": [
     "mcp",
     "model-context-protocol",

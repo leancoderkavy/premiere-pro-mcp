@@ -184,7 +184,7 @@
       const kind = options && options.kind || "file";
       const rootPath = nativePathFor(rootEntry);
       if (!rootEntry || !rootPath) {
-        throw workspaceError("UXP_WORKSPACE_REQUIRED", "Choose an approved workspace folder in the MCP Bridge panel before using " + label);
+        throw workspaceError("UXP_WORKSPACE_REQUIRED", "Choose an approved workspace folder in the MCP for Adobe Premiere Pro panel before using " + label);
       }
       const candidate = parseAbsolutePath(value, label);
       if (!isContained(rootPath, candidate.normalized, kind === "directory")) {

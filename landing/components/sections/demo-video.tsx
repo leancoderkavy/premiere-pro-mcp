@@ -46,7 +46,7 @@ export function DemoVideoSection() {
               playsInline
               preload="metadata"
               poster="/premiere-pro-mcp-demo-poster.png"
-              aria-label="Premiere Pro MCP inserts B-roll, applies a color grade and title, then queues a ProRes export"
+              aria-label="MCP for Adobe Premiere Pro inserts B-roll, applies a color grade and title, then queues a ProRes export"
             >
               <source src="/premiere-pro-mcp-demo.mp4" type="video/mp4" />
               Your browser does not support embedded video. The demo shows an AI request becoming a structured Premiere Pro edit.
@@ -56,7 +56,7 @@ export function DemoVideoSection() {
               type="button"
               onClick={startDemo}
               className="group relative block aspect-video w-full overflow-hidden bg-[#060608] text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-300 focus-visible:ring-inset"
-              aria-label="Play the illustrated Premiere Pro MCP workflow walkthrough"
+              aria-label="Play the illustrated MCP for Adobe Premiere Pro workflow walkthrough"
             >
               <Image
                 src="/premiere-pro-mcp-demo-poster.png"
