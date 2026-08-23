@@ -1,56 +1,48 @@
 import type { MetadataRoute } from "next"
+import { articles } from "@/lib/articles"
 
 export const dynamic = "force-static"
 
-const lastModified = new Date("2026-08-19")
+const siteUrl = "https://premiere-pro-mcp.com"
+const latestArticleDate = new Date(
+  `${articles.reduce((latest, article) => article.modifiedAt > latest ? article.modifiedAt : latest, articles[0].modifiedAt)}T00:00:00Z`,
+)
 
 export default function sitemap(): MetadataRoute.Sitemap {
   return [
     {
-      url: "https://premiere-pro-mcp.com/",
-      lastModified,
+      url: `${siteUrl}/`,
+      lastModified: latestArticleDate,
       changeFrequency: "weekly",
       priority: 1,
     },
     {
-      url: "https://premiere-pro-mcp.com/docs/",
-      lastModified,
+      url: `${siteUrl}/docs/`,
+      lastModified: latestArticleDate,
       changeFrequency: "weekly",
       priority: 0.8,
     },
     {
-      url: "https://premiere-pro-mcp.com/blog/",
-      lastModified,
+      url: `${siteUrl}/blog/`,
+      lastModified: latestArticleDate,
       changeFrequency: "weekly",
       priority: 0.9,
     },
-    {
-      url: "https://premiere-pro-mcp.com/blog/what-is-a-premiere-pro-mcp-server/",
-      lastModified,
-      changeFrequency: "monthly",
+    ...articles.map((article) => ({
+      url: `${siteUrl}/blog/${article.slug}/`,
+      lastModified: new Date(`${article.modifiedAt}T00:00:00Z`),
+      changeFrequency: "monthly" as const,
       priority: 0.8,
-    },
+    })),
     {
-      url: "https://premiere-pro-mcp.com/blog/ai-video-editing-with-premiere-pro/",
-      lastModified,
-      changeFrequency: "monthly",
-      priority: 0.8,
-    },
-    {
-      url: "https://premiere-pro-mcp.com/blog/premiere-pro-workflow-automation/",
-      lastModified,
-      changeFrequency: "monthly",
-      priority: 0.8,
-    },
-    {
-      url: "https://premiere-pro-mcp.com/changelog/",
-      lastModified,
+      url: `${siteUrl}/changelog/`,
+      lastModified: latestArticleDate,
       changeFrequency: "monthly",
       priority: 0.7,
     },
     {
-      url: "https://premiere-pro-mcp.com/privacy/",
-      lastModified,
+      url: `${siteUrl}/privacy/`,
+      lastModified: latestArticleDate,
       changeFrequency: "yearly",
       priority: 0.5,
     },

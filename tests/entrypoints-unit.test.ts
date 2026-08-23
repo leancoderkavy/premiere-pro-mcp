@@ -443,6 +443,20 @@ describe("HTTP entry point", () => {
     }));
   });
 
+  it("serves nested static-export Flight payloads requested with Next's flattened path", async () => {
+    mocks.fsExists.mockImplementation((candidate) => (
+      String(candidate).endsWith("landing-dist") ||
+      /[\\/]blog[\\/]guide[\\/]__next\.blog[\\/]\$d\$slug[\\/]__PAGE__\.txt$/.test(String(candidate))
+    ));
+    const handler = await loadHttp();
+    const res = response();
+    await handler({ method: "GET", url: "/blog/guide/__next.blog.$d$slug.__PAGE__.txt?_rsc=test", headers: {} }, res);
+    expect(mocks.fsCreateReadStream).toHaveBeenCalledWith(
+      expect.stringMatching(/[\\/]blog[\\/]guide[\\/]__next\.blog[\\/]\$d\$slug[\\/]__PAGE__\.txt$/),
+    );
+    expect(res.statusCode).toBe(200);
+  });
+
   it("does not crash when a landing asset read fails after validation", async () => {
     mocks.fsExists.mockReturnValue(true);
     const error = vi.spyOn(console, "error").mockImplementation(() => {});

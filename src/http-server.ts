@@ -107,7 +107,31 @@ function serveLanding(req: http.IncomingMessage, res: http.ServerResponse, scrip
     path.isAbsolute(relativePath)
   ) return false;
 
-  if (!fs.existsSync(filePath)) return false;
+  if (!fs.existsSync(filePath)) {
+    // Next static exports store dynamic-route Flight payloads in nested folders
+    // (for example, __next.blog/$d$slug/__PAGE__.txt), while the client asks
+    // for a flattened filename (__next.blog.$d$slug.__PAGE__.txt). Map only
+    // that generated shape after every original URL segment has passed the
+    // containment check above. Without this, guide-to-guide navigation falls
+    // back to a full-document load and emits avoidable 404s.
+    const requestedFlightFile = safeSegments.at(-1);
+    const flightParts = requestedFlightFile?.split(".") ?? [];
+    const isNestedFlightPayload =
+      flightParts.length >= 4 &&
+      flightParts[0] === "__next" &&
+      flightParts.at(-1) === "txt";
+    if (!isNestedFlightPayload) return false;
+
+    const remappedFlightPath = path.join(
+      LANDING_DIR,
+      ...safeSegments.slice(0, -1),
+      `${flightParts[0]}.${flightParts[1]}`,
+      ...flightParts.slice(2, -2),
+      `${flightParts.at(-2)}.txt`,
+    );
+    if (!fs.existsSync(remappedFlightPath)) return false;
+    filePath = remappedFlightPath;
+  }
 
   let fileStats: fs.Stats;
   try {
