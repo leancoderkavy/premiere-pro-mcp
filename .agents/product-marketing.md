@@ -1,6 +1,6 @@
 # Product Marketing Context
 
-**Document version:** v6
+**Document version:** v7
 **Last updated:** 2026-08-22
 
 ## Product Overview
@@ -137,7 +137,7 @@
 
 ## Proof Points
 
-**Release-backed facts:** v1.12.2 registers 287 core tools; the default profile exposes 285; an authenticated compatible UXP host can add 50 capability-gated tools for a 335-tool connected surface. The release also declares 33 modules, 4 MCP resources, and 10 workflow prompts. These are catalog and packaging facts from `release-metadata.json`, not a promise that a particular host operation will work.
+**Release-backed facts:** v1.12.2 registers 288 core tools; the default profile exposes 286; an authenticated compatible UXP host can add 50 capability-gated tools for a 336-tool connected surface. The release also declares 34 modules, 4 MCP resources, and 11 workflow prompts. In this working tree, those source-derived counts include the new project-intake surface, which remains local and unreleased until it is merged, packaged, and published. These are catalog and packaging facts from `release-metadata.json`, not a promise that a particular host operation will work.
 
 **Compatibility boundary:** The release targets Premiere Pro 2020–2026; UXP workflows require a compatible Premiere Pro 25.6.0+ host and advertised capabilities. CEP remains the default compatibility route. A compatibility range, package validation, CI pass, HTTP health check, or local build is not real-host proof.
 
@@ -174,6 +174,7 @@
 
 *Newest first. One line per revision: what changed and why.*
 
+- v7 (2026-08-22) — Added the read-only Project Intake workflow and refreshed source-derived tool, module, and workflow counts; kept release publication and licensed-host proof separate.
 - v6 (2026-08-22) — Added privacy-bounded acquisition attribution and the paid-acquisition measurement gate after production-readiness hardening.
 - v5 (2026-08-22) — Repositioned around reviewable workflow automation; refreshed v1.12.1 release facts, ICP, Adobe AI Assistant overlap, commercial hypotheses, and explicit proof boundaries.
 - v6 (2026-08-22) — Released v1.12.2 with string-backed MOGRT property inputs and clearer legacy-QE effect-catalog diagnostics; real Premiere host validation remains separate.

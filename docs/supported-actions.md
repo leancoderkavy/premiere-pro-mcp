@@ -8,11 +8,11 @@ descriptions, action enums, authority visibility, and counts stay aligned with t
 
 | Surface | Count | Availability |
 | --- | ---: | --- |
-| Registered core actions | 287 | CEP/local server catalog; host and authority checks still apply |
-| Default-profile core actions | 285 | Advertised with `inspect,edit,export,filesystem` |
+| Registered core actions | 288 | CEP/local server catalog; host and authority checks still apply |
+| Default-profile core actions | 286 | Advertised with `inspect,edit,export,filesystem` |
 | Restricted core actions | 2 | Require explicit `unsafe-script` authority |
 | Authenticated UXP additions | 50 | Advertised only while a compatible authenticated UXP panel is connected |
-| Default profile with UXP | 335 | 285 core plus 50 UXP tools |
+| Default profile with UXP | 336 | 286 core plus 50 UXP tools |
 
 ## How to read support
 
@@ -218,6 +218,7 @@ operation” when the tool has no enum-based mode.
 | `play_timeline` | Default profile | Single operation | Start playback of the active sequence timeline. Uses QE DOM. |
 | `preview_edit_plan` | Default profile | Single operation | Validate and preview a compound timeline edit without changing Premiere. Returns a confirmation token required by apply_edit_plan. |
 | `preview_editorial_plan` | Default profile | Single operation | Revalidate an exact server-issued editorial plan against the saved project-context revisions and return an opaque confirmation token. This tool is read-only and cannot apply the plan. |
+| `preview_project_intake` | Default profile | Single operation | Inspect a bounded Premiere project against an explicit facility intake template and return a path-redacted report plus a non-mutating organization proposal. It never changes Premiere or persists the template. |
 | `razor_all_tracks` | Default profile | `track_type`: `video`, `audio`, `both` | Razor (split) all clips at the playhead position across all tracks, or at a specific time. |
 | `redo` | Default profile | Single operation | Redo the last undone action in Premiere Pro. |
 | `refresh_media` | Default profile | Single operation | Refresh a project item to pick up changes to the source file |

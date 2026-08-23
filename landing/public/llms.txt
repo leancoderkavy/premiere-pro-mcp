@@ -2,7 +2,7 @@
 
 > Open-source, local-first Model Context Protocol server for AI-assisted editing and automation in Adobe Premiere Pro.
 
-MCP for Adobe Premiere Pro registers 287 core structured tools for timeline editing, effects, Lumetri color, keyframes, media management, silence detection, revisioned project-context retrieval, project organization, connection verification, export, and review-only local editorial planning. The default profile exposes 285 tools. An authenticated compatible UXP host adds 50 capability-gated tools for 335 connected tools. Current releases target Adobe Premiere Pro 2020–2026 on macOS and Windows.
+MCP for Adobe Premiere Pro registers 288 core structured tools for timeline editing, effects, Lumetri color, keyframes, media management, silence detection, revisioned project-context retrieval, project organization, project-intake preview, connection verification, export, and review-only local editorial planning. The default profile exposes 286 tools. An authenticated compatible UXP host adds 50 capability-gated tools for 336 connected tools. Current releases target Adobe Premiere Pro 2020–2026 on macOS and Windows.
 
 ## Canonical resources
 
@@ -32,7 +32,7 @@ The recommended setup runs the MCP server and CEP bridge locally. Project media 
 ## Verified facts
 
 - Current project release: 1.12.2.
-- Tool surface: 287 core structured MCP tools are registered; the default profile exposes 285. With an authenticated compatible UXP panel, 50 additional capability-gated tools bring the connected surface to 335. The server also exposes 4 resources and 10 workflow prompts.
+- Tool surface: 288 core structured MCP tools are registered; the default profile exposes 286. With an authenticated compatible UXP panel, 50 additional capability-gated tools bring the connected surface to 336. The server also exposes 4 resources and 11 workflow prompts.
 - Supported desktop platforms: Windows and macOS.
 - Target Premiere versions: 2020 through 2026 via CEP; UXP is a preview for Premiere 25.6 and newer.
 - License: MIT.
