@@ -8,6 +8,12 @@ export const WORKFLOW_CATALOG = [
     recommendedTools: ["get_premiere_state", "import_media", "create_sequence", "add_to_timeline", "get_sequence_structure", "save_project"],
   },
   {
+    id: "project-intake",
+    title: "Preview project intake",
+    summary: "Inspect a bounded project against an explicit facility template and return a path-redacted intake report and non-mutating organization proposal.",
+    recommendedTools: ["verify_premiere_connection", "preview_project_intake"],
+  },
+  {
     id: "dialogue-cleanup",
     title: "Clean up dialogue",
     summary: "Inspect audio tracks, normalize dialogue, apply conservative cleanup, and verify levels before saving.",

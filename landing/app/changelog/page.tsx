@@ -5,6 +5,26 @@ import { product } from "@/lib/product"
 
 const releases = [
   {
+    version: "1.13.0",
+    date: "2026-08-22",
+    label: "Preview-only project intake for assistant editors",
+    groups: [
+      {
+        title: "Added",
+        items: [
+          "Added a bounded, inspect-only project intake preview that evaluates a Premiere project against a facility-supplied template and proposes organization work without changing the project.",
+          "Added deterministic intake rules, a guided workflow entry, a public facts page, and security and design-partner pilot contracts.",
+        ],
+      },
+      {
+        title: "Safety",
+        items: [
+          "Paths are redacted by default, capture and outputs are bounded, and automated tests remain distinct from licensed-host evidence; Premiere 2026 host execution is still an open gate after the test host hung before CEP panel launch.",
+        ],
+      },
+    ],
+  },
+  {
     version: "1.12.2",
     date: "2026-08-22",
     label: "MOGRT values and QE catalog diagnostics",

@@ -6,6 +6,25 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [1.13.0] - 2026-08-22
+
+### Added
+
+- Added `preview_project_intake`, a bounded, inspect-only project intake tool
+  that evaluates Premiere project organization against a facility-supplied
+  template and returns redacted findings plus proposed actions without changing
+  the project.
+- Added a deterministic intake rules engine, a guided workflow entry, a public
+  facts page, and design-partner/security pilot contracts for human-supervised
+  assistant-editor adoption.
+
+### Safety
+
+- File paths remain redacted unless explicitly requested, recursive capture and
+  outputs are bounded, and the intake workflow does not mutate or persist
+  project data. Automated tests passed, while licensed-host execution remains a
+  separate gate because Premiere 2026 hung before the CEP panel could open.
+
 ## [1.12.2] - 2026-08-22
 
 ### Fixed
