@@ -29,11 +29,13 @@ import { getCaptionTools } from "./tools/captions.js";
 import { getPlaybackTools } from "./tools/playback.js";
 import { getProjectManagerTools } from "./tools/project-manager.js";
 import { getEditPlanTools } from "./tools/edit-plans.js";
+import { getSpotWorkflowTools } from "./tools/spot-workflows.js";
 import { getAvSettingsTools } from "./tools/av-settings.js";
 import { getRecoveryTools } from "./tools/recovery.js";
 import { getProjectContextTools } from "./tools/project-context.js";
 import { getEditorialPlanTools } from "./tools/editorial-plans.js";
 import { getProjectIntakeTools } from "./tools/project-intake.js";
+import { getCompetitorGapTools } from "./tools/competitor-gaps.js";
 import { getUxpTools } from "./tools/uxp.js";
 import type { UxpWebSocketBridge } from "./bridge/uxp-websocket-bridge.js";
 import {
@@ -294,11 +296,13 @@ function collectTools(
     ...getPlaybackTools(bridgeOptions),
     ...getProjectManagerTools(bridgeOptions),
     ...getEditPlanTools(bridgeOptions, { capabilities }),
+    ...getSpotWorkflowTools(bridgeOptions, { capabilities }),
     ...getAvSettingsTools(bridgeOptions),
     ...getRecoveryTools(bridgeOptions),
     ...getProjectContextTools(bridgeOptions),
     ...getEditorialPlanTools({ uxpBridge }),
     ...getProjectIntakeTools(bridgeOptions),
+    ...getCompetitorGapTools(bridgeOptions, uxpBridge),
     ...(uxpBridge ? getUxpTools(uxpBridge) : {}),
   };
   Object.assign(

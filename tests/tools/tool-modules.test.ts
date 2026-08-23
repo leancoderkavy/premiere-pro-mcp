@@ -51,6 +51,8 @@ import { getAvSettingsTools } from "../../src/tools/av-settings.js";
 import { getProjectContextTools } from "../../src/tools/project-context.js";
 import { getEditorialPlanTools } from "../../src/tools/editorial-plans.js";
 import { getProjectIntakeTools } from "../../src/tools/project-intake.js";
+import { getCompetitorGapTools } from "../../src/tools/competitor-gaps.js";
+import { getSpotWorkflowTools } from "../../src/tools/spot-workflows.js";
 import type { Telemetry, TelemetryProperties } from "../../src/telemetry.js";
 
 interface ToolDef {
@@ -100,6 +102,8 @@ const ALL_MODULES: Array<{
   { name: "project-context", getter: getProjectContextTools, minTools: 3 },
   { name: "editorial-plans", getter: () => getEditorialPlanTools(), minTools: 2 },
   { name: "project-intake", getter: getProjectIntakeTools, minTools: 1 },
+  { name: "competitor-gaps", getter: getCompetitorGapTools, minTools: 8 },
+  { name: "spot-workflows", getter: getSpotWorkflowTools, minTools: 4 },
 ];
 
 describe("Tool Module Structure", () => {
@@ -184,16 +188,16 @@ describe("Tool Module Structure", () => {
 });
 
 describe("Total Tool Count", () => {
-  it("all modules together have 286 tools", () => {
+  it("all modules together have 298 tools", () => {
     let total = 0;
     for (const mod of ALL_MODULES) {
       total += Object.keys(mod.getter(bridgeOptions)).length;
     }
-    expect(total).toBe(286);
+    expect(total).toBe(298);
   });
 
-  it("there are 33 directly enumerated modules", () => {
-    expect(ALL_MODULES.length).toBe(33);
+  it("there are 35 directly enumerated modules", () => {
+    expect(ALL_MODULES.length).toBe(35);
   });
 });
 

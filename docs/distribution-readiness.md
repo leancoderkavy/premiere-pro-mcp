@@ -33,6 +33,32 @@ folder and validates ZIP paths before extraction. The macOS package installs
 the connector into Adobe's system-wide CEP extension folder. Both require a
 complete Premiere restart before connection verification.
 
+## Connector removal
+
+Fully quit Premiere before removal. The command-line path removes only this
+connector and deliberately leaves Adobe's shared `PlayerDebugMode` setting
+unchanged, because another CEP extension may rely on it:
+
+```bash
+premiere-pro-mcp --uninstall-cep
+```
+
+For a Windows release installer, `PremiereConnectorInstaller.exe --uninstall
+--quiet` is also an idempotent per-user removal path. The native installer and
+the CLI refuse removal while Premiere is running.
+
+The macOS `.pkg` installs system-wide. The macOS installer build publishes the
+matching `Premiere-Connector-Uninstall-<version>-macos.command` companion; run
+it from Terminal with administrator permission:
+
+```bash
+sudo ./Premiere-Connector-Uninstall-<version>-macos.command --system
+```
+
+This removes only `/Library/Application Support/Adobe/CEP/extensions/MCPBridgeCEP`.
+Remove the MCP server configuration from the AI client and any npm package
+separately; connector removal never edits unrelated client configuration.
+
 ## External owner actions
 
 ### Windows public installer

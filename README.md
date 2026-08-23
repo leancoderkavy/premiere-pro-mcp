@@ -6,7 +6,7 @@
 
 **Give compatible AI assistants structured control over supported Adobe Premiere Pro workflows.**
 
-288 core tools across 34 modules, 4 resources, and 11 guided workflows. A connected UXP host adds 50 capability-gated tools.
+300 core tools across 35 modules, 4 resources, and 11 guided workflows. A connected UXP host adds 50 capability-gated tools.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Node.js](https://img.shields.io/badge/Node.js-20.19%2B-green.svg)](https://nodejs.org)
@@ -29,7 +29,7 @@ An [MCP (Model Context Protocol)](https://modelcontextprotocol.io) server that l
 "Add the B-roll clips to V2, apply a cross dissolve between each, color correct them to match the A-roll, and export a 1080p ProRes."
 ```
 
-The AI handles the entire workflow through 288 core tools spanning the supported ExtendScript, QE DOM, revisioned project-context retrieval, safe edit-planning, project-intake preview, and connection-verification surfaces. A compatible, authenticated UXP panel adds 50 documented, capability-gated tools without replacing the production CEP bridge.
+The AI handles the entire workflow through 300 core tools spanning the supported ExtendScript, QE DOM, revisioned project-context retrieval, safe edit-planning, project-intake preview, and connection-verification surfaces. A compatible, authenticated UXP panel adds 50 documented, capability-gated tools without replacing the production CEP bridge.
 
 ### Latest release: 1.13.0
 
@@ -71,6 +71,19 @@ and the [Claude Desktop setup guide](https://premiere-pro-mcp.com/blog/claude-de
 5. In Claude, enter: `Safely check my Premiere connection with verify_premiere_connection. Make no changes.`
 
 The Claude bundle contains the local MCP server, so this route does not require Node.js. The Premiere connector is a separate required install. The first prompt is read-only and reports whether the server is installed, configured, connected, and live-verified.
+
+### First proof, before the first edit
+
+![Illustrated local Premiere MCP workflow](landing/public/premiere-pro-mcp-demo-poster.png)
+
+*This is an illustrated workflow, not a Premiere panel screenshot or licensed-host proof.*
+
+1. Open a copied test project and an active sequence in Premiere.
+2. Open **Window > Extensions > MCP for Adobe Premiere Pro**. “Running” means the local panel bridge is available; it does not show that an edit completed.
+3. Run `premiere-pro-mcp --doctor` to check only local package/configuration readiness.
+4. Ask the AI client: `Run verify_premiere_connection. Make no changes.` The returned check is read-only and avoids project names, paths, and media details.
+
+If a bridge, project, or active sequence is missing, fix that setup state before allowing a mutation. For a concise, translatable version of this path, see [quick starts in English, Spanish, and Japanese](docs/quickstart/README.md). The translations are machine-assisted drafts and retain command names in English.
 
 ### Other AI assistants
 
@@ -127,6 +140,16 @@ premiere-pro-mcp --doctor
 ```
 
 Then ask your MCP client to run `verify_premiere_connection`. The check is read-only.
+
+#### Remove the CEP connector
+
+Fully quit Premiere, then remove only this connector:
+
+```bash
+premiere-pro-mcp --uninstall-cep
+```
+
+The uninstaller intentionally leaves Adobe's shared `PlayerDebugMode` setting in place so it does not disrupt other CEP extensions. Remove the MCP server from your AI client's configuration and uninstall the npm package separately if you no longer use it. On macOS, `--uninstall-cep` removes the per-user npm/source install; the signed system-wide `.pkg` route has a separate privileged removal command in [distribution readiness](docs/distribution-readiness.md#connector-removal).
 
 </details>
 
@@ -353,7 +376,7 @@ installed separately.
 QE-backed tools are reported as `experimental` because QE is undocumented and can vary between Premiere builds. Authority availability is reported separately from implementation support, so disabling `edit`, for example, does not incorrectly label editing tools as unsupported. Static metadata never claims that a Premiere operation succeeded; use `ping` and inspect each tool result for runtime evidence.
 
 MCP `tools/list` is filtered to the active authority profile. The default
-`inspect,edit,export,filesystem` profile advertises 286 of the 288 registered
+`inspect,edit,export,filesystem` profile advertises 298 of the 300 registered
 tools and omits `execute_extendscript` and `evaluate_expression`, which require
 explicit `unsafe-script` authority. `ping` and `get_capabilities` remain visible
 under every profile so a restricted or misconfigured server can still explain
@@ -508,7 +531,7 @@ The file-based IPC bridge is simple, reliable, and works across macOS and Window
 
 ---
 
-## Tools (288 core total; 286 under the default profile; 336 with a connected UXP bridge)
+## Tools (300 core total; 298 under the default profile; 348 with a connected UXP bridge)
 
 The [complete supported-actions catalog](docs/supported-actions.md) lists every
 registered core tool, the two tools restricted behind explicit `unsafe-script`
@@ -823,7 +846,7 @@ premiere-pro-mcp/
 ├── src/
 │   ├── index.ts                 # Entry point — stdio transport setup
 │   ├── http-server.ts           # Entry point — HTTP/SSE transport (Fly.io / remote)
-│   ├── server.ts                # MCP server — registers 288 tools, filtered by authority profile
+│   ├── server.ts                # MCP server — registers 300 tools, filtered by authority profile
 │   ├── bridge/
 │   │   ├── file-bridge.ts       # File-based IPC (write .jsx, poll .json)
 │   │   └── script-builder.ts    # ExtendScript generator with ES3 helpers

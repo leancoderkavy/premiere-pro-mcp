@@ -1,0 +1,47 @@
+{
+  "schemaVersion": "premiere-pro-mcp.licensed-host-sweep.v1",
+  "sourceCommit": "0000000000000000000000000000000000000000",
+  "host": {
+    "os": "Windows",
+    "premiereVersion": "26.3.0",
+    "panelBuild": "0000000"
+  },
+  "fixture": {
+    "revision": "generated-fixture-v1",
+    "sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+  },
+  "sweep": {
+    "matrixId": "core-connection-and-edit-v1",
+    "matrixVersion": "1"
+  },
+  "cases": [
+    {
+      "id": "LHS-CONNECTION-001",
+      "operationClass": "read_only",
+      "status": "not_run",
+      "evidence": [],
+      "undoEvidence": false
+    },
+    {
+      "id": "LHS-CEP-PING-001",
+      "operationClass": "read_only",
+      "status": "not_run",
+      "evidence": [],
+      "undoEvidence": false
+    },
+    {
+      "id": "LHS-UXP-CONNECTION-001",
+      "operationClass": "read_only",
+      "status": "not_run",
+      "evidence": [],
+      "undoEvidence": false
+    },
+    {
+      "id": "LHS-MARKER-UNDO-001",
+      "operationClass": "mutation",
+      "status": "not_run",
+      "evidence": [],
+      "undoEvidence": false
+    }
+  ]
+}

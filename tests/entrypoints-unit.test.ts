@@ -222,6 +222,13 @@ describe("stdio CLI entry point", () => {
     loaded = await importCli(["--diagnose-cep"]);
     await expect(loaded.promise).rejects.toThrow("EXIT:0");
     expect(mocks.execFileSync.mock.calls[0][1]).toContain("-Diagnose");
+    vi.resetModules();
+    mocks.execFileSync.mockClear();
+    loaded = await importCli(["--uninstall-cep"]);
+    await expect(loaded.promise).rejects.toThrow("EXIT:0");
+    expect(mocks.execFileSync.mock.calls[0][1]).toEqual(expect.arrayContaining([
+      expect.stringMatching(/uninstall-cep\.ps1$/),
+    ]));
   });
 
   it("runs the macOS CEP diagnostic script", async () => {
@@ -235,6 +242,23 @@ describe("stdio CLI entry point", () => {
       expect.objectContaining({ stdio: "inherit" }),
     );
     expect(loaded.exit).toHaveBeenCalledWith(0);
+  });
+
+  it("runs the macOS CEP uninstaller and rejects conflicting CEP actions", async () => {
+    vi.spyOn(process, "platform", "get").mockReturnValue("darwin");
+    vi.spyOn(console, "log").mockImplementation(() => {});
+    let loaded = await importCli(["--uninstall-cep"]);
+    await expect(loaded.promise).rejects.toThrow("EXIT:0");
+    expect(mocks.execFileSync).toHaveBeenCalledWith(
+      "bash",
+      [expect.stringMatching(/uninstall-cep\.sh$/), "--user"],
+      expect.objectContaining({ stdio: "inherit" }),
+    );
+    vi.resetModules();
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    loaded = await importCli(["--install-cep", "--uninstall-cep"]);
+    await expect(loaded.promise).rejects.toThrow("EXIT:1");
+    expect(error).toHaveBeenCalledWith(expect.stringContaining("only one CEP action"));
   });
 
   it("reports a failed CEP installer command", async () => {

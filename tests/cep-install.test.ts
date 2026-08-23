@@ -69,4 +69,16 @@ describe("CEP installation metadata", () => {
     const cli = readFileSync(join(root, "src", "index.ts"), "utf8");
     expect(cli).toContain("supported only on Windows and macOS");
   });
+
+  it("offers an idempotent connector-only uninstall path on both supported operating systems", () => {
+    const cli = readFileSync(join(root, "src", "index.ts"), "utf8");
+    const windows = readFileSync(join(root, "scripts", "uninstall-cep.ps1"), "utf8");
+    const macos = readFileSync(join(root, "scripts", "uninstall-cep.sh"), "utf8");
+
+    expect(cli).toContain("--uninstall-cep");
+    expect(windows).toContain("Refusing to uninstall outside the CEP extensions directory");
+    expect(windows).toContain("PlayerDebugMode settings were left unchanged");
+    expect(macos).toContain("--uninstall-system");
+    expect(macos).toContain("PlayerDebugMode setting was left unchanged");
+  });
 });

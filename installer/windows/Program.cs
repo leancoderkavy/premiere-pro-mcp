@@ -22,8 +22,16 @@ internal static class Program
         {
             if (uninstall)
             {
+                if (IsPremiereRunning())
+                {
+                    Show(quiet, "Premiere Pro is running. Close it before removing the Connector.", MessageBoxIcon.Warning);
+                    return 3;
+                }
                 RemoveConnector();
-                Show(quiet, "Premiere Connector was removed. Restart Premiere Pro if it is open.", MessageBoxIcon.Information);
+                Show(
+                    quiet,
+                    "Premiere Connector was removed. Adobe's shared debug setting was left unchanged for other CEP extensions. Remove the MCP server from your AI client separately if needed.",
+                    MessageBoxIcon.Information);
                 return 0;
             }
 

@@ -1,0 +1,18 @@
+{
+  "schemaVersion": "premiere-pro-mcp.quickstart-locales.v1",
+  "source": "en.md",
+  "locales": [
+    {
+      "code": "es",
+      "file": "es.md",
+      "language": "Español",
+      "reviewStatus": "machine-assisted draft; community review welcome"
+    },
+    {
+      "code": "ja",
+      "file": "ja.md",
+      "language": "日本語",
+      "reviewStatus": "machine-assisted draft; community review welcome"
+    }
+  ]
+}

@@ -25,6 +25,7 @@ if [[ ! -f "$INSTALL_ROOT/CSXS/manifest.xml" ]]; then
 fi
 
 OUTPUT="$OUTPUT_DIRECTORY/Premiere-Connector-Setup-$VERSION-macos-universal.pkg"
+UNINSTALLER="$OUTPUT_DIRECTORY/Premiere-Connector-Uninstall-$VERSION-macos.command"
 ARGS=(--root "$PAYLOAD_ROOT" --identifier com.premieremcp.connector --version "$VERSION" --install-location /)
 if [[ -n "${MAC_INSTALLER_IDENTITY:-}" ]]; then
   ARGS+=(--sign "$MAC_INSTALLER_IDENTITY")
@@ -34,8 +35,11 @@ elif [[ "$REQUIRE_SIGNING" == "true" ]]; then
 fi
 
 pkgbuild "${ARGS[@]}" "$OUTPUT"
+cp "$PROJECT_DIR/scripts/uninstall-cep.sh" "$UNINSTALLER"
+chmod +x "$UNINSTALLER"
 pkgutil --check-signature "$OUTPUT" || {
   if [[ "$REQUIRE_SIGNING" == "true" ]]; then exit 1; fi
   echo "Preview artifact is unsigned and must not be published as a production installer." >&2
 }
 shasum -a 256 "$OUTPUT"
+shasum -a 256 "$UNINSTALLER"
