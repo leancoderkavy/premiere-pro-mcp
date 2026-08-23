@@ -46,6 +46,20 @@ for complete details. Live installation in Premiere Pro still requires host veri
 
 ---
 
+## For editors evaluating an AI workflow
+
+Before an assistant changes an active project, use the
+[Premiere Pro AI workflow checklist](https://premiere-pro-mcp.com/blog/premiere-pro-ai-workflow-checklist/)
+to define the target and no-change boundaries, verify the local connection, request
+a bounded plan, and inspect the returned result. It is a practical starting point for
+assistant editors and post leads testing a repeatable workflow on a duplicate project
+or small test sequence.
+
+For product context, see the [Adobe Premiere AI Assistant and MCP comparison](https://premiere-pro-mcp.com/blog/adobe-premiere-ai-assistant-vs-mcp/)
+and the [Claude Desktop setup guide](https://premiere-pro-mcp.com/blog/claude-desktop-premiere-pro-mcp-setup/).
+
+---
+
 ## Quick Start
 
 ### Easiest supported path: Claude Desktop

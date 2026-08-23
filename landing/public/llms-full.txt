@@ -8,6 +8,9 @@ Guides: https://premiere-pro-mcp.com/blog/
 Guide: What is an MCP server for Adobe Premiere Pro?: https://premiere-pro-mcp.com/blog/what-is-a-premiere-pro-mcp-server/
 Guide: AI video editing with Premiere Pro: https://premiere-pro-mcp.com/blog/ai-video-editing-with-premiere-pro/
 Guide: Premiere Pro workflow automation: https://premiere-pro-mcp.com/blog/premiere-pro-workflow-automation/
+Guide: Adobe Premiere AI Assistant vs. MCP: https://premiere-pro-mcp.com/blog/adobe-premiere-ai-assistant-vs-mcp/
+Guide: Claude Desktop and Premiere Pro MCP setup: https://premiere-pro-mcp.com/blog/claude-desktop-premiere-pro-mcp-setup/
+Guide: Premiere Pro AI workflow checklist: https://premiere-pro-mcp.com/blog/premiere-pro-ai-workflow-checklist/
 Source: https://github.com/leancoderkavy/premiere-pro-mcp
 npm: https://www.npmjs.com/package/premiere-pro-mcp
 License: MIT
