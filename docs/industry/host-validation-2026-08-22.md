@@ -38,3 +38,23 @@ command and no `preview_project_intake` call ran.
 
 This record is failure evidence for the host gate, not evidence that Project
 Intake works in Premiere 2026.
+
+## 2026-08-23 follow-up
+
+- Audited the public `v1.13.0` GitHub release connector before installation.
+  Its SHA-256 was
+  `583949dd0decd5ed91478ce3c39a75c67512b5b06ac6d1db712eb03ee9701bf7`,
+  and its embedded CEP manifest reported `1.13.0`.
+- Installed that exact signed connector and confirmed the local installer
+  diagnosis passed.
+- Adobe Premiere Pro 2026 opened the disposable project and rendered the empty
+  editing workspace, but became unresponsive when the Window menu was invoked.
+  No CEP panel command or MCP tool call completed.
+- Adobe Premiere Pro (Beta) opened the same fixture through its required
+  conversion flow into a separate disposable copy. The converted project then
+  stalled on a black editing canvas before the CEP panel could be opened.
+
+The repeated host failure now covers the stable and Beta applications with the
+audited signed connector. It still does not demonstrate a
+`preview_project_intake` execution, and it does not justify a real-host support
+claim for this workflow.
