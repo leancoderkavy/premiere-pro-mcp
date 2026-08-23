@@ -138,9 +138,12 @@ describe("Tool Module Structure", () => {
           if (props) {
             for (const [propName, prop] of Object.entries(props) as [string, any][]) {
               expect(prop.type, `${name}.${propName} type`).toBeDefined();
+              const types = Array.isArray(prop.type) ? prop.type : [prop.type];
               expect(
-                ["string", "number", "integer", "boolean", "array", "object"].includes(prop.type),
-                `${name}.${propName} has valid type "${prop.type}"`
+                types.length > 0 && types.every((type) =>
+                  ["string", "number", "integer", "boolean", "array", "object"].includes(type)
+                ),
+                `${name}.${propName} has valid type "${types.join(",")}"`
               ).toBe(true);
             }
           }

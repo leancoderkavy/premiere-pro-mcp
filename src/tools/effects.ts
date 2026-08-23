@@ -40,7 +40,9 @@ export function getEffectsTools(bridgeOptions: BridgeOptions) {
           if (!qeClip) return __error("QE clip not found");
           
           // Search for the effect
-          var effects = qe.project.getVideoEffectList();
+          var effectCatalog = __getQeEffectCatalog("video");
+          if (!effectCatalog.ok) return __error(effectCatalog.error);
+          var effects = effectCatalog.effects;
           var found = false;
           for (var i = 0; i < effects.numItems; i++) {
             if (effects[i].name === effectName) {
@@ -89,7 +91,9 @@ export function getEffectsTools(bridgeOptions: BridgeOptions) {
           var qeClip = qeTrack.getItemAt(result.clipIndex);
           if (!qeClip) return __error("QE clip not found");
           
-          var effects = qe.project.getAudioEffectList();
+          var effectCatalog = __getQeEffectCatalog("audio");
+          if (!effectCatalog.ok) return __error(effectCatalog.error);
+          var effects = effectCatalog.effects;
           var found = false;
           for (var i = 0; i < effects.numItems; i++) {
             if (effects[i].name === effectName) {
@@ -186,7 +190,9 @@ export function getEffectsTools(bridgeOptions: BridgeOptions) {
       handler: async () => {
         const script = buildToolScript(`
           app.enableQE();
-          var effects = qe.project.getVideoEffectList();
+          var effectCatalog = __getQeEffectCatalog("video");
+          if (!effectCatalog.ok) return __error(effectCatalog.error);
+          var effects = effectCatalog.effects;
           var list = [];
           for (var i = 0; i < effects.numItems; i++) {
             list.push({ name: effects[i].name, index: i });
@@ -203,7 +209,9 @@ export function getEffectsTools(bridgeOptions: BridgeOptions) {
       handler: async () => {
         const script = buildToolScript(`
           app.enableQE();
-          var effects = qe.project.getAudioEffectList();
+          var effectCatalog = __getQeEffectCatalog("audio");
+          if (!effectCatalog.ok) return __error(effectCatalog.error);
+          var effects = effectCatalog.effects;
           var list = [];
           for (var i = 0; i < effects.numItems; i++) {
             list.push({ name: effects[i].name, index: i });
@@ -301,7 +309,9 @@ export function getEffectsTools(bridgeOptions: BridgeOptions) {
           if (!hasLumetri) {
             var qeTrack = qeSeq.getVideoTrackAt(result.trackIndex);
             var qeClip = qeTrack.getItemAt(result.clipIndex);
-            var effects = qe.project.getVideoEffectList();
+            var effectCatalog = __getQeEffectCatalog("video");
+            if (!effectCatalog.ok) return __error(effectCatalog.error);
+            var effects = effectCatalog.effects;
             for (var i = 0; i < effects.numItems; i++) {
               if (effects[i].name === "Lumetri Color") {
                 qeClip.addVideoEffect(effects[i]);
@@ -374,7 +384,9 @@ export function getEffectsTools(bridgeOptions: BridgeOptions) {
             var qeSeq = qe.project.getActiveSequence();
             var qeTrack = qeSeq.getVideoTrackAt(result.trackIndex);
             var qeClip = qeTrack.getItemAt(result.clipIndex);
-            var effects = qe.project.getVideoEffectList();
+            var effectCatalog = __getQeEffectCatalog("video");
+            if (!effectCatalog.ok) return __error(effectCatalog.error);
+            var effects = effectCatalog.effects;
             for (var i = 0; i < effects.numItems; i++) {
               if (effects[i].name === "Lumetri Color") {
                 qeClip.addVideoEffect(effects[i]);
@@ -446,7 +458,9 @@ export function getEffectsTools(bridgeOptions: BridgeOptions) {
           if (!qeClip) return __error("QE clip not found");
           
           // Find and apply Warp Stabilizer
-          var effects = qe.project.getVideoEffectList();
+          var effectCatalog = __getQeEffectCatalog("video");
+          if (!effectCatalog.ok) return __error(effectCatalog.error);
+          var effects = effectCatalog.effects;
           var found = false;
           for (var i = 0; i < effects.numItems; i++) {
             if (effects[i].name === "Warp Stabilizer") {
