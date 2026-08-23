@@ -98,8 +98,8 @@ function argsFor(schema: Schema, includeOptional: boolean): Record<string, unkno
 
 const modules: Array<[string, () => Record<string, Tool>, Set<string>?]> = [
   ["advanced", () => getAdvancedTools(bridgeOptions) as Record<string, Tool>],
-  ["audio", () => getAudioTools(bridgeOptions) as Record<string, Tool>, new Set(["detect_silence", "analyze_loudness"])],
-  ["export", () => getExportTools(bridgeOptions) as Record<string, Tool>, new Set(["validate_export_preset", "verify_delivery_file"])],
+  ["audio", () => getAudioTools(bridgeOptions) as Record<string, Tool>, new Set(["detect_silence", "analyze_loudness", "normalize_loudness_file"])],
+  ["export", () => getExportTools(bridgeOptions) as Record<string, Tool>, new Set(["validate_export_preset", "verify_delivery_file", "analyze_video_qc", "detect_source_scene_changes"])],
   ["clipboard", () => getClipboardTools(bridgeOptions) as Record<string, Tool>],
   ["captions", () => getCaptionTools(bridgeOptions) as Record<string, Tool>],
   ["discovery", () => getDiscoveryTools(bridgeOptions) as Record<string, Tool>],
