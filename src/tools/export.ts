@@ -36,6 +36,29 @@ export function parseVideoQcOutput(stderr: string) {
   return { blackFrames, freezes };
 }
 
+export interface SceneChange {
+  timeSeconds: number;
+  score: number;
+}
+
+export function parseSceneChangeOutput(output: string, minimumIntervalSeconds = 0): SceneChange[] {
+  const events: SceneChange[] = [];
+  let pendingTime: number | null = null;
+  for (const line of output.split(/\r?\n/)) {
+    const time = line.match(/\bpts_time:([\d.]+)/);
+    if (time) pendingTime = Number(time[1]);
+    const score = line.match(/lavfi\.scene_score=([\d.]+)/);
+    if (score && pendingTime !== null) {
+      const event = { timeSeconds: pendingTime, score: Number(score[1]) };
+      const previous = events.at(-1);
+      if (!previous || event.timeSeconds - previous.timeSeconds >= minimumIntervalSeconds) events.push(event);
+      else if (event.score > previous.score) events[events.length - 1] = event;
+      pendingTime = null;
+    }
+  }
+  return events;
+}
+
 export type DeliveryChecksumAlgorithm = "sha256" | "sha512";
 
 export interface DeliveryFileVerification {
@@ -280,6 +303,53 @@ export function getExportTools(bridgeOptions: BridgeOptions) {
           if (failure.code === "ENOENT") return { success: false, error: "ffmpeg was not found on PATH" };
           if (failure.killed) return { success: false, error: "ffmpeg video QC timed out after 300 seconds" };
           return { success: false, error: `ffmpeg video QC failed: ${(failure.stderr ?? failure.message ?? "unknown error").split(/\r?\n/).filter(Boolean).slice(-3).join(" ")}` };
+        }
+      },
+    },
+
+    detect_source_scene_changes: {
+      description:
+        "Detect probable visual cuts in a local source file using FFmpeg scene scores. Read-only and source-relative; it does not cut a Premiere timeline.",
+      parameters: {
+        type: "object" as const,
+        properties: {
+          media_path: { type: "string", description: "Path to an existing local video file" },
+          threshold: { type: "number", description: "Scene-score threshold from 0.01 through 1 (default: 0.3)" },
+          minimum_interval_seconds: { type: "number", description: "Keep only the strongest event within this interval (default: 0.25)" },
+          maximum_events: { type: "number", description: "Maximum returned changes (default: 500; maximum: 2000)" },
+        },
+        required: ["media_path"],
+      },
+      handler: async (args: { media_path: string; threshold?: number; minimum_interval_seconds?: number; maximum_events?: number }) => {
+        const threshold = args.threshold ?? 0.3;
+        const minimumInterval = args.minimum_interval_seconds ?? 0.25;
+        const maximumEvents = args.maximum_events ?? 500;
+        if (!Number.isFinite(threshold) || threshold < 0.01 || threshold > 1) return { success: false, error: "threshold must be from 0.01 through 1" };
+        if (!Number.isFinite(minimumInterval) || minimumInterval < 0 || minimumInterval > 60) return { success: false, error: "minimum_interval_seconds must be from 0 through 60" };
+        if (!Number.isInteger(maximumEvents) || maximumEvents < 1 || maximumEvents > 2000) return { success: false, error: "maximum_events must be an integer from 1 through 2000" };
+        const mediaPath = resolve(args.media_path);
+        if (!existsSync(mediaPath) || !statSync(mediaPath).isFile()) return { success: false, error: `Video file not found on disk: ${mediaPath}` };
+        try {
+          const result = await execFileAsync("ffmpeg", [
+            "-nostdin", "-hide_banner", "-i", mediaPath,
+            "-vf", `select='gt(scene,${threshold})',showinfo,metadata=print`,
+            "-an", "-f", "null", "-",
+          ], { timeout: VIDEO_QC_TIMEOUT_MS, maxBuffer: 64 * 1024 * 1024 });
+          const all = parseSceneChangeOutput(`${result.stdout}\n${result.stderr}`, minimumInterval);
+          const sceneChanges = all.slice(0, maximumEvents);
+          return {
+            success: true,
+            data: {
+              mediaPath, threshold, minimumIntervalSeconds: minimumInterval,
+              totalDetected: all.length, truncated: all.length > sceneChanges.length, sceneChanges,
+              verificationScope: "Local source-file pixel analysis only. Times are source-relative probabilities, not verified editorial cuts or Premiere timeline positions.",
+            },
+          };
+        } catch (error) {
+          const failure = error as { code?: string; killed?: boolean; stderr?: string; message?: string };
+          if (failure.code === "ENOENT") return { success: false, error: "ffmpeg was not found on PATH" };
+          if (failure.killed) return { success: false, error: "ffmpeg scene detection timed out after 300 seconds" };
+          return { success: false, error: `ffmpeg scene detection failed: ${(failure.stderr ?? failure.message ?? "unknown error").split(/\r?\n/).filter(Boolean).slice(-3).join(" ")}` };
         }
       },
     },

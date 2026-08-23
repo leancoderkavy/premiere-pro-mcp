@@ -82,6 +82,7 @@ const FILESYSTEM_TOOL_NAMES = new Set([
   "create_project_backup",
   "analyze_loudness",
   "analyze_video_qc",
+  "detect_source_scene_changes",
 ]);
 
 const ACTION_CAPABILITIES: Readonly<Record<string, Readonly<Record<string, readonly Capability[]>>>> = {
