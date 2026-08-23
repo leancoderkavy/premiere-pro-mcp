@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-labelledby="title">
+  <title>Premiere Pro MCP</title>
+  <defs>
+    <linearGradient id="accent" x1="8" y1="8" x2="56" y2="56" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#a78bfa"/>
+      <stop offset="1" stop-color="#f472b6"/>
+    </linearGradient>
+  </defs>
+  <rect width="64" height="64" rx="14" fill="#09090b"/>
+  <path d="M17 15h18.2c7.6 0 12.8 4.4 12.8 11.5 0 7.2-5.3 11.7-12.8 11.7H25V49H17V15Zm8 7v9.3h9.2c3.7 0 5.9-1.7 5.9-4.7S37.9 22 34.2 22H25Z" fill="url(#accent)"/>
+</svg>

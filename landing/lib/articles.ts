@@ -251,6 +251,167 @@ export const articles: Article[] = [
       { label: "Explore AI-assisted Premiere workflows", href: "/blog/ai-video-editing-with-premiere-pro/" },
     ],
   },
+  {
+    slug: "adobe-premiere-ai-assistant-vs-mcp",
+    title: "Adobe Premiere Pro AI Assistant vs. MCP: How to Choose an AI Editing Workflow",
+    description:
+      "Compare Adobe’s in-app AI Assistant with a local MCP workflow: client choice, bounded project context, and reviewable Premiere automation.",
+    eyebrow: "Choose the right workflow",
+    publishedAt: "2026-08-22",
+    modifiedAt: "2026-08-22",
+    readingTime: "8 min read",
+    keywords: [
+      "Adobe Premiere Pro AI Assistant vs MCP",
+      "Premiere Pro AI Assistant alternative",
+      "Premiere Pro MCP workflow",
+      "AI assistant for Adobe Premiere Pro",
+    ],
+    sections: [
+      {
+        heading: "These are different ways to bring AI into Premiere",
+        paragraphs: [
+          "Adobe Premiere Pro AI Assistant and Premiere Pro MCP address related needs, but they are not the same product or control path. Adobe’s assistant is a first-party in-Premiere experience for documented workflows. Premiere Pro MCP is an independent, MIT-licensed server that lets a compatible AI client call structured tools through a local Premiere connection.",
+          "The useful comparison is not which product is universally better. Start with the task, the AI client your team prefers, the amount of project context involved, and how much review you need before a change is applied.",
+        ],
+      },
+      {
+        heading: "Choose Adobe’s assistant when the in-app experience is the priority",
+        paragraphs: [
+          "Adobe’s AI Assistant is a sensible first place to look when you want a first-party conversational experience in Premiere and the documented feature fits the task. Its availability and feature scope can change, so check Adobe’s current documentation and test the exact workflow in the Premiere version your team uses.",
+          "A public-beta feature list is useful for discovery, but it is not a substitute for testing in the project and host version that matter to your delivery. Use a duplicate project or a small test sequence for any new automation, regardless of which assistant you choose.",
+        ],
+      },
+      {
+        heading: "Choose Premiere Pro MCP when client choice and reviewable automation matter",
+        paragraphs: [
+          "Premiere Pro MCP fits when an assistant is part of a broader editorial or development workflow. Claude Desktop, Cursor, VS Code or Copilot, Windsurf, and other compatible MCP clients can call named Premiere operations, inspect capability information, and receive explicit diagnostics through a recommended local-first setup.",
+          "Its project-context flow is deliberately bounded: a client can explicitly capture a local context snapshot, retrieve relevant evidence, create a non-mutating edit-plan candidate, then preview and confirm the plan before an eligible compound edit applies. That is useful when a team wants the request and returned result to be inspectable, not merely conversational.",
+        ],
+        bullets: [
+          "Use the AI client that fits your team’s editorial or development workflow.",
+          "Run a read-only connection check before requesting a change.",
+          "Capture context only when the client explicitly requests it.",
+          "Treat returned state or diagnostics as evidence, not an attempted command as proof.",
+        ],
+      },
+      {
+        heading: "Keep privacy and creative control separate from marketing claims",
+        paragraphs: [
+          "The recommended MCP setup keeps Premiere, its connector, the server, and project media on the same computer. That does not change the privacy settings or data handling of the AI client a team chooses. Review that client separately, and do not treat a local server as a universal privacy guarantee.",
+          "Neither approach removes editorial judgment. AI can assist with inspection, organization, documented timeline operations, metadata work, and delivery preparation. Decisions about story, performance, pacing, and taste remain the editor’s job.",
+        ],
+      },
+      {
+        heading: "A practical way to evaluate either workflow",
+        paragraphs: [
+          "Pick one common task with a concrete success condition. Identify what must not change, use a duplicate project or test sequence, and start with the smallest inspectable step. For Premiere Pro MCP, begin with verify_premiere_connection, inspect the active sequence, then use a preview where it is available. For Adobe’s assistant, test the documented feature in the current host before relying on it in a larger project.",
+          "The winning workflow is the one that reduces repeated effort while leaving the editor confident about what changed, why it changed, and how to recover if the expected result is not there.",
+        ],
+      },
+    ],
+    faqs: [
+      {
+        question: "Is Premiere Pro MCP affiliated with Adobe or Adobe’s AI Assistant?",
+        answer:
+          "No. Premiere Pro MCP is an independent, MIT-licensed open-source project. Adobe Premiere Pro and Adobe’s AI Assistant are separate Adobe products and workflows.",
+      },
+      {
+        question: "Which one is better for Premiere Pro automation?",
+        answer:
+          "It depends on the workflow. Adobe’s assistant suits teams that prefer the supported first-party in-app experience. Premiere Pro MCP suits teams that need a compatible AI client, a local structured control path, and an explicit inspect-plan-preview-verify workflow.",
+      },
+      {
+        question: "Can project context replace an editor’s review?",
+        answer:
+          "No. Context retrieval and edit plans are evidence tools, not editorial truth. An editor should review the target, preview, returned state, and any diagnostics before relying on a change.",
+      },
+    ],
+    resources: [
+      { label: "Read Adobe’s current AI Assistant overview", href: "https://helpx.adobe.com/premiere/desktop/premiere-ai-assistant/overview.html" },
+      { label: "Run a safe Premiere connection check", href: "/#install" },
+      { label: "Learn what an MCP server does in Premiere", href: "/blog/what-is-a-premiere-pro-mcp-server/" },
+    ],
+  },
+  {
+    slug: "claude-desktop-premiere-pro-mcp-setup",
+    title: "Claude Desktop + Premiere Pro: Start with a Safe MCP Workflow",
+    description:
+      "Connect Claude Desktop to Adobe Premiere Pro with the local bundle and CEP connector, then verify the bridge before requesting any supported edit.",
+    eyebrow: "Safe Premiere setup",
+    publishedAt: "2026-08-22",
+    modifiedAt: "2026-08-22",
+    readingTime: "6 min read",
+    keywords: [
+      "Claude Desktop Premiere Pro",
+      "Claude Premiere Pro MCP setup",
+      "Premiere Pro MCP Claude Desktop",
+      "Premiere Pro safe connection check",
+    ],
+    sections: [
+      {
+        heading: "The first goal is a verified connection, not an edit",
+        paragraphs: [
+          "When you connect an AI client to Adobe Premiere Pro, the first useful question is whether the client can reach the open Premiere session without changing a project. That check separates installation or compatibility problems from editing problems and gives you a low-risk place to start.",
+          "Premiere Pro MCP provides a self-contained Claude Desktop bundle and a separate Premiere CEP connector. Both need to be installed on the same computer as Premiere. The connector is what carries supported commands between the local server and the open host session.",
+        ],
+      },
+      {
+        heading: "Set up the local path",
+        paragraphs: [
+          "Download the Claude Desktop bundle, install the Premiere connector with a trusted ZXP installer, then fully quit and reopen both Claude Desktop and Premiere. Open a Premiere project and make sure an active sequence is selected before you ask Claude to do anything with it.",
+          "The signed CEP connector is the default compatibility route for Premiere Pro 2020–2026 on Windows and macOS. The newer UXP bridge is capability-gated for compatible Premiere 25.6+ workflows, so it does not replace the CEP setup path for a first install.",
+        ],
+      },
+      {
+        heading: "Use this exact safe first request",
+        paragraphs: [
+          "In Claude Desktop, ask: Safely check my Premiere connection with verify_premiere_connection. Make no changes. The request is read-only. It does not ask Premiere to change a sequence, and it does not ask you to upload footage.",
+          "If the check returns a connection state, continue by inspecting the active project or sequence. If it returns a diagnostic, resolve that condition before attempting an edit. Repeating a mutating request is not a substitute for understanding whether the connector, host, active project, or capability state is ready.",
+        ],
+      },
+      {
+        heading: "Choose a first workflow with a clear definition of done",
+        paragraphs: [
+          "After the safe check passes, start with a small task that has named inputs and an observable result. Inspecting the active sequence, collecting a project inventory, or asking for a proposed plan is a better first exercise than a large timeline rewrite.",
+          "For a supported change, name the sequence, tracks, source clips, expected output, and no-change boundaries. Ask for a preview where available. Then review the returned state or diagnostics before you use the result in a larger project.",
+        ],
+        bullets: [
+          "Good first step: inspect an active sequence without changes.",
+          "Good next step: request a bounded preview or plan.",
+          "Use extra care: destructive batches, shared projects, and undocumented host behavior.",
+        ],
+      },
+      {
+        heading: "Troubleshoot without exposing project data",
+        paragraphs: [
+          "If the connection check fails, fully reopen both applications, confirm that a project is open with an active sequence, and look for Window → Extensions → MCP Bridge in Premiere. Share the returned connection state or diagnostic with support rather than project media, prompts, project names, or file paths.",
+          "Your AI client’s own privacy settings still apply. The local-first recommendation describes the Premiere MCP server and connector path; it does not override how a chosen client handles conversations or data.",
+        ],
+      },
+    ],
+    faqs: [
+      {
+        question: "Do I need Node.js to connect Claude Desktop?",
+        answer:
+          "The released Claude Desktop bundle includes the local server, so the recommended Claude path does not require a separate Node.js install just to connect. Other clients may use the npm or manual setup route.",
+      },
+      {
+        question: "Does a successful connection check prove every Premiere tool works?",
+        answer:
+          "No. It confirms the connection path. Inspect current capabilities, keep the task small, and verify the returned state or diagnostics for the specific operation you need.",
+      },
+      {
+        question: "Can I use a client other than Claude Desktop?",
+        answer:
+          "Yes, if it supports local MCP servers. Cursor, VS Code or Copilot, Windsurf, and other compatible clients use their own guided or advanced setup paths.",
+      },
+    ],
+    resources: [
+      { label: "Open the Premiere setup guide", href: "/#install" },
+      { label: "Read full technical setup documentation", href: "/docs/" },
+      { label: "Understand reviewable Premiere workflows", href: "/blog/premiere-pro-workflow-automation/" },
+    ],
+  },
 ]
 
 export const articleBySlug = new Map(articles.map((article) => [article.slug, article]))

@@ -1,6 +1,7 @@
 import type { Metadata } from "next"
 import Link from "next/link"
 import { notFound } from "next/navigation"
+import { TrackedLink } from "@/components/ui/tracked-link"
 import { articleBySlug, articles } from "@/lib/articles"
 
 type ArticlePageProps = {
@@ -8,6 +9,18 @@ type ArticlePageProps = {
 }
 
 export const dynamic = "force-static"
+const socialImage = "/marketing/premiere-pro-mcp-social-square-v1.png"
+
+const articleDateFormatter = new Intl.DateTimeFormat("en-US", {
+  day: "numeric",
+  month: "long",
+  timeZone: "UTC",
+  year: "numeric",
+})
+
+function formatArticleDate(date: string) {
+  return articleDateFormatter.format(new Date(`${date}T00:00:00Z`))
+}
 
 export function generateStaticParams() {
   return articles.map(({ slug }) => ({ slug }))
@@ -34,6 +47,13 @@ export async function generateMetadata({ params }: ArticlePageProps): Promise<Me
       publishedTime: article.publishedAt,
       modifiedTime: article.modifiedAt,
       authors: ["MCP for Adobe Premiere Pro contributors"],
+      images: [{ url: socialImage, width: 1254, height: 1254, alt: "Premiere Pro MCP — reviewable workflow automation" }],
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: article.title,
+      description: article.description,
+      images: [socialImage],
     },
   }
 }
@@ -68,6 +88,7 @@ export default async function ArticlePage({ params }: ArticlePageProps) {
         publisher: { "@id": "https://premiere-pro-mcp.com/#organization" },
         mainEntityOfPage: articleUrl,
         keywords: article.keywords.join(", "),
+        image: `https://premiere-pro-mcp.com${socialImage}`,
       },
       {
         "@type": "FAQPage",
@@ -110,7 +131,7 @@ export default async function ArticlePage({ params }: ArticlePageProps) {
             <h1 className="mt-5 text-balance text-4xl font-bold tracking-tight text-white sm:text-6xl">{article.title}</h1>
             <p className="mt-6 text-lg leading-8 text-zinc-400">{article.description}</p>
             <div className="mt-7 flex items-center gap-3 text-sm text-zinc-500">
-              <time dateTime={article.publishedAt}>Published August 19, 2026</time>
+              <time dateTime={article.publishedAt}>Published {formatArticleDate(article.publishedAt)}</time>
               <span aria-hidden="true">·</span>
               <span>{article.readingTime}</span>
             </div>
@@ -165,9 +186,14 @@ export default async function ArticlePage({ params }: ArticlePageProps) {
             <p className="mt-3 max-w-2xl leading-7 text-zinc-300">
               Connect your assistant, verify the local bridge without changing a project, then inspect the active sequence before requesting a supported edit.
             </p>
-            <Link href="/docs/" className="mt-6 inline-flex bg-purple-300 px-5 py-3 font-medium text-black transition-colors hover:bg-white">
-              Read the setup guide <span aria-hidden="true" className="ml-2">→</span>
-            </Link>
+            <TrackedLink
+              href="/#install"
+              trackingLocation={`guide:${article.slug}`}
+              trackingDestination="safe_connection_check"
+              className="mt-6 inline-flex bg-purple-300 px-5 py-3 font-medium text-black transition-colors hover:bg-white"
+            >
+              Run a safe connection check <span aria-hidden="true" className="ml-2">→</span>
+            </TrackedLink>
           </section>
 
           <aside className="border-t border-zinc-800 py-10" aria-labelledby="related-heading">

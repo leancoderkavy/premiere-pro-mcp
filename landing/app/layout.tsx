@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import Script from "next/script";
 import "./globals.css";
+import { MarketingPageView } from "@/components/analytics/marketing-page-view";
 import { product } from "@/lib/product";
 
 const geistSans = Geist({
@@ -15,9 +16,9 @@ const geistMono = Geist_Mono({
 });
 
 const siteUrl = "https://premiere-pro-mcp.com";
-const title = "MCP for Adobe Premiere Pro – AI Video Editing Tools";
+const title = "Premiere Pro Workflow Automation | Local MCP Server";
 const description =
-  `Connect AI assistants to Adobe Premiere Pro with ${product.coreToolCount} local-first MCP tools for timeline editing, effects, color, media management, automation, and export.`;
+  "Use a compatible AI client to inspect local Premiere projects, preview bounded work, and verify supported workflow results before you rely on them.";
 const googleAnalyticsId =
   process.env.NEXT_PUBLIC_GOOGLE_ANALYTICS_ID ?? "G-XSH74T16E4";
 
@@ -63,7 +64,7 @@ export const metadata: Metadata = {
         url: "/marketing/premiere-pro-mcp-social-square-v1.png",
         width: 1254,
         height: 1254,
-        alt: "MCP for Adobe Premiere Pro — local AI-assisted video editing tools",
+        alt: "MCP for Adobe Premiere Pro — local-first, reviewable workflow automation",
       },
     ],
   },
@@ -104,6 +105,7 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
         <a className="skip-link" href="#main-content">Skip to main content</a>
+        <MarketingPageView />
         {children}
         {googleAnalyticsId ? (
           <>

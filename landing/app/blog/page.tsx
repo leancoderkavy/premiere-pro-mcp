@@ -1,5 +1,6 @@
 import type { Metadata } from "next"
 import Link from "next/link"
+import { TrackedLink } from "@/components/ui/tracked-link"
 import { articles } from "@/lib/articles"
 
 export const metadata: Metadata = {
@@ -36,6 +37,17 @@ const structuredData = {
   },
 }
 
+const articleDateFormatter = new Intl.DateTimeFormat("en-US", {
+  day: "numeric",
+  month: "long",
+  timeZone: "UTC",
+  year: "numeric",
+})
+
+function formatArticleDate(date: string) {
+  return articleDateFormatter.format(new Date(`${date}T00:00:00Z`))
+}
+
 export default function BlogPage() {
   return (
     <>
@@ -60,7 +72,7 @@ export default function BlogPage() {
             </p>
           </header>
 
-          <section className="grid gap-6 py-12 md:grid-cols-3" aria-label="MCP for Adobe Premiere Pro guides">
+          <section className="grid gap-6 py-12 md:grid-cols-2" aria-label="MCP for Adobe Premiere Pro guides">
             {articles.map((article, index) => (
               <article key={article.slug} className="flex min-h-full flex-col border border-zinc-800 bg-zinc-950 p-6 transition-colors hover:border-purple-400/60 sm:p-7">
                 <p className="font-mono text-xs font-medium uppercase tracking-[0.14em] text-purple-300">0{index + 1} · {article.eyebrow}</p>
@@ -69,7 +81,7 @@ export default function BlogPage() {
                 </h2>
                 <p className="mt-4 flex-1 leading-7 text-zinc-400">{article.description}</p>
                 <div className="mt-7 flex items-center justify-between border-t border-zinc-800 pt-5 text-sm">
-                  <time dateTime={article.publishedAt} className="text-zinc-500">August 19, 2026</time>
+                  <time dateTime={article.publishedAt} className="text-zinc-500">{formatArticleDate(article.publishedAt)}</time>
                   <Link href={`/blog/${article.slug}/`} className="font-medium text-purple-200 hover:text-white">
                     Read guide <span aria-hidden="true">→</span>
                   </Link>
@@ -84,9 +96,14 @@ export default function BlogPage() {
             <p className="mt-4 max-w-2xl leading-7 text-zinc-400">
               Install the local server and connector, verify the live bridge without changing a project, then inspect your first sequence.
             </p>
-            <Link href="/docs/" className="mt-6 inline-flex border border-purple-300 bg-purple-300 px-5 py-3 font-medium text-black transition-colors hover:bg-white">
-              Read the setup guide <span aria-hidden="true" className="ml-2">→</span>
-            </Link>
+            <TrackedLink
+              href="/#install"
+              trackingLocation="blog_hub"
+              trackingDestination="safe_connection_check"
+              className="mt-6 inline-flex border border-purple-300 bg-purple-300 px-5 py-3 font-medium text-black transition-colors hover:bg-white"
+            >
+              Run a safe connection check <span aria-hidden="true" className="ml-2">→</span>
+            </TrackedLink>
           </section>
         </div>
       </main>

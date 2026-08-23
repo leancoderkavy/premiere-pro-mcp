@@ -18,7 +18,7 @@ export function TrackedLink({
     <a
       {...props}
       onClick={(event) => {
-        trackOnboardingEvent("marketing_cta_clicked", {
+        trackOnboardingEvent("primary_cta_clicked", {
           location: trackingLocation,
           destination: trackingDestination,
         })
