@@ -79,6 +79,11 @@ const FILESYSTEM_TOOL_NAMES = new Set([
   "set_scratch_disk_path",
   "verify_delivery_file",
   "detect_silence",
+  "create_project_backup",
+  "analyze_loudness",
+  "analyze_video_qc",
+  "detect_source_scene_changes",
+  "normalize_loudness_file",
 ]);
 
 const ACTION_CAPABILITIES: Readonly<Record<string, Readonly<Record<string, readonly Capability[]>>>> = {

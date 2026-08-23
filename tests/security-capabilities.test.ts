@@ -28,9 +28,15 @@ describe("capability profiles", () => {
     expect(capabilityForTool("execute_extendscript")).toBe("unsafe-script");
     expect(capabilityForTool("evaluate_expression")).toBe("unsafe-script");
     expect(capabilityForTool("export_sequence")).toBe("export");
+    expect(capabilityForTool("export_sequence_review_frames")).toBe("export");
     expect(capabilityForTool("capture_frame")).toBe("export");
     expect(capabilityForTool("validate_export_preset")).toBe("export");
     expect(capabilityForTool("verify_delivery_file")).toBe("filesystem");
+    expect(capabilityForTool("create_project_backup")).toBe("filesystem");
+    expect(capabilityForTool("analyze_loudness")).toBe("filesystem");
+    expect(capabilityForTool("analyze_video_qc")).toBe("filesystem");
+    expect(capabilityForTool("detect_source_scene_changes")).toBe("filesystem");
+    expect(capabilityForTool("normalize_loudness_file")).toBe("filesystem");
     expect(capabilityForTool("import_media")).toBe("filesystem");
     expect(capabilityForTool("manage_proxy_ingest_uxp")).toBe("edit");
     expect(capabilityForTool("audition_source_monitor_uxp")).toBe("edit");

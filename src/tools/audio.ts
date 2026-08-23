@@ -1,7 +1,8 @@
 import { buildToolScript, escapeForExtendScript } from "../bridge/script-builder.js";
 import { sendCommand, BridgeOptions } from "../bridge/file-bridge.js";
 import { execFile } from "node:child_process";
-import { existsSync } from "node:fs";
+import { existsSync, statSync } from "node:fs";
+import { dirname, resolve } from "node:path";
 import { promisify } from "node:util";
 
 const execFileAsync = promisify(execFile);
@@ -13,6 +14,29 @@ export interface SilenceInterval {
   start: number;
   end: number;
   duration: number;
+}
+
+export interface LoudnessMeasurement {
+  integratedLufs: number | null;
+  loudnessRangeLu: number | null;
+  truePeakDbfs: number | null;
+}
+
+function finiteMetric(value: string | undefined): number | null {
+  if (!value || value.toLowerCase().includes("inf")) return null;
+  const parsed = Number.parseFloat(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+/** Parse the final summary emitted by ffmpeg's EBU R128 filter. */
+export function parseEbur128Summary(stderr: string): LoudnessMeasurement {
+  const summaries = [...stderr.matchAll(/Summary:\s*([\s\S]*?)(?=(?:\r?\n\S)|$)/g)];
+  const summary = summaries.at(-1)?.[1] ?? stderr;
+  return {
+    integratedLufs: finiteMetric(summary.match(/Integrated loudness:[\s\S]*?\bI:\s*(-?(?:inf|\d+(?:\.\d+)?))\s+LUFS/i)?.[1]),
+    loudnessRangeLu: finiteMetric(summary.match(/Loudness range:[\s\S]*?\bLRA:\s*(-?(?:inf|\d+(?:\.\d+)?))\s+LU/i)?.[1]),
+    truePeakDbfs: finiteMetric(summary.match(/True peak:[\s\S]*?\bPeak:\s*(-?(?:inf|\d+(?:\.\d+)?))\s+dBFS/i)?.[1]),
+  };
 }
 
 /**
@@ -434,6 +458,209 @@ export function getAudioTools(bridgeOptions: BridgeOptions) {
             segments,
             silentSeconds: Number(silentSeconds.toFixed(3)),
             note: "Detection only — no clip was cut or removed. Times are relative to the start of the media file, not the timeline.",
+          },
+        };
+      },
+    },
+
+    analyze_loudness: {
+      description:
+        "Measure integrated loudness (LUFS), loudness range (LU), and true peak (dBFS) from a local media file using FFmpeg's EBU R128 filter. Analysis only: it does not normalize audio or change Premiere.",
+      parameters: {
+        type: "object" as const,
+        properties: {
+          media_path: {
+            type: "string",
+            description: "Absolute path to a local audio or video file. Provide this or project_item_id.",
+          },
+          project_item_id: {
+            type: "string",
+            description: "Project item whose local media path should be resolved through Premiere. Provide this or media_path.",
+          },
+          target_lufs: {
+            type: "number",
+            description: "Optional delivery target in LUFS (for example -14 streaming, -16 podcast, or -23 broadcast)",
+          },
+          tolerance_lu: {
+            type: "number",
+            description: "Allowed absolute difference from target_lufs (default: 1 LU)",
+          },
+          max_true_peak_dbfs: {
+            type: "number",
+            description: "Optional maximum acceptable true peak in dBFS (commonly -1 or -2)",
+          },
+        },
+      },
+      handler: async (args: {
+        media_path?: string;
+        project_item_id?: string;
+        target_lufs?: number;
+        tolerance_lu?: number;
+        max_true_peak_dbfs?: number;
+      }) => {
+        if (!args.media_path && !args.project_item_id) {
+          return { success: false, error: "analyze_loudness requires media_path or project_item_id." };
+        }
+        const tolerance = args.tolerance_lu ?? 1;
+        if (args.target_lufs !== undefined && (!Number.isFinite(args.target_lufs) || args.target_lufs > 0 || args.target_lufs < -100)) {
+          return { success: false, error: "target_lufs must be a finite value from -100 through 0" };
+        }
+        if (!Number.isFinite(tolerance) || tolerance < 0 || tolerance > 20) {
+          return { success: false, error: "tolerance_lu must be a finite value from 0 through 20" };
+        }
+        if (args.max_true_peak_dbfs !== undefined && (!Number.isFinite(args.max_true_peak_dbfs) || args.max_true_peak_dbfs > 0 || args.max_true_peak_dbfs < -100)) {
+          return { success: false, error: "max_true_peak_dbfs must be a finite value from -100 through 0" };
+        }
+
+        let mediaPath = args.media_path;
+        let itemName: string | undefined;
+        if (!mediaPath) {
+          const escaped = escapeForExtendScript(args.project_item_id as string);
+          const lookup = await sendCommand(buildToolScript(`
+            var item = __findProjectItem("${escaped}");
+            if (!item) return __error("Project item not found: ${escaped}");
+            var path = "";
+            try { path = item.getMediaPath(); } catch(e) {}
+            if (!path) return __error("Project item has no local media path");
+            return __result({ mediaPath: path, name: item.name });
+          `), bridgeOptions);
+          if (!lookup.success) return lookup;
+          const data = lookup.data as { mediaPath: string; name?: string };
+          mediaPath = data.mediaPath;
+          itemName = data.name;
+        }
+        if (!existsSync(mediaPath)) {
+          return { success: false, error: `Media file not found on disk: ${mediaPath}` };
+        }
+
+        try {
+          await execFileAsync("ffmpeg", ["-version"], { timeout: 10_000 });
+        } catch {
+          return {
+            success: false,
+            error: "ffmpeg was not found on PATH. analyze_loudness requires FFmpeg because Premiere scripting exposes no EBU R128 measurements.",
+          };
+        }
+
+        let stderr: string;
+        try {
+          const result = await execFileAsync("ffmpeg", [
+            "-nostdin", "-hide_banner", "-i", mediaPath,
+            "-vn", "-sn", "-dn", "-af", "ebur128=peak=true", "-f", "null", "-",
+          ], { timeout: FFMPEG_TIMEOUT_MS, maxBuffer: 32 * 1024 * 1024 });
+          stderr = result.stderr;
+        } catch (error) {
+          const failure = error as { killed?: boolean; stderr?: string; message?: string };
+          if (failure.killed) {
+            return { success: false, error: `ffmpeg timed out after ${FFMPEG_TIMEOUT_MS / 1000}s measuring ${mediaPath}.` };
+          }
+          const detail = (failure.stderr ?? failure.message ?? "").split(/\r?\n/).filter(Boolean).slice(-3).join(" ");
+          return { success: false, error: `ffmpeg could not measure loudness for ${mediaPath}: ${detail || "unknown error"}` };
+        }
+
+        const measurement = parseEbur128Summary(stderr);
+        if (measurement.integratedLufs === null) {
+          return {
+            success: false,
+            error: "FFmpeg completed but did not return measurable integrated loudness. The file may contain no audio or digital silence.",
+          };
+        }
+        const deltaLu = args.target_lufs === undefined
+          ? null
+          : Number((measurement.integratedLufs - args.target_lufs).toFixed(1));
+        const loudnessPass = deltaLu === null ? null : Math.abs(deltaLu) <= tolerance;
+        const truePeakPass = args.max_true_peak_dbfs === undefined || measurement.truePeakDbfs === null
+          ? null
+          : measurement.truePeakDbfs <= args.max_true_peak_dbfs;
+
+        return {
+          success: true,
+          data: {
+            mediaPath,
+            projectItemName: itemName,
+            ...measurement,
+            target: args.target_lufs === undefined ? null : {
+              lufs: args.target_lufs,
+              toleranceLu: tolerance,
+              deltaLu,
+              loudnessPass,
+              maxTruePeakDbfs: args.max_true_peak_dbfs ?? null,
+              truePeakPass,
+              passes: loudnessPass && (truePeakPass !== false),
+            },
+            verificationScope: "Local decoded-media measurement only. This does not normalize audio or prove a Premiere sequence mix or final export unless that exact exported file was measured.",
+          },
+        };
+      },
+    },
+
+    normalize_loudness_file: {
+      description:
+        "Create a new loudness-normalized media derivative with FFmpeg, then remeasure that exact output using EBU R128. Never overwrites the input or an existing output file.",
+      parameters: {
+        type: "object" as const,
+        properties: {
+          input_path: { type: "string", description: "Existing local audio or video file" },
+          output_path: { type: "string", description: "New output path; must not already exist" },
+          target_lufs: { type: "number", description: "Integrated loudness target from -70 through -5 LUFS (default: -16)" },
+          max_true_peak_dbfs: { type: "number", description: "True-peak ceiling from -9 through 0 dBFS (default: -1.5)" },
+          tolerance_lu: { type: "number", description: "Post-render integrated-loudness tolerance (default: 1 LU)" },
+        },
+        required: ["input_path", "output_path"],
+      },
+      handler: async (args: { input_path: string; output_path: string; target_lufs?: number; max_true_peak_dbfs?: number; tolerance_lu?: number }) => {
+        const inputPath = resolve(args.input_path);
+        const outputPath = resolve(args.output_path);
+        const target = args.target_lufs ?? -16;
+        const truePeak = args.max_true_peak_dbfs ?? -1.5;
+        const tolerance = args.tolerance_lu ?? 1;
+        if (!Number.isFinite(target) || target < -70 || target > -5) return { success: false, error: "target_lufs must be from -70 through -5" };
+        if (!Number.isFinite(truePeak) || truePeak < -9 || truePeak > 0) return { success: false, error: "max_true_peak_dbfs must be from -9 through 0" };
+        if (!Number.isFinite(tolerance) || tolerance < 0 || tolerance > 5) return { success: false, error: "tolerance_lu must be from 0 through 5" };
+        if (inputPath === outputPath) return { success: false, error: "output_path must differ from input_path" };
+        if (!existsSync(inputPath) || !statSync(inputPath).isFile()) return { success: false, error: `Input file not found: ${inputPath}` };
+        if (existsSync(outputPath)) return { success: false, error: `Output already exists and will not be overwritten: ${outputPath}` };
+        if (!existsSync(dirname(outputPath)) || !statSync(dirname(outputPath)).isDirectory()) return { success: false, error: `Output directory does not exist: ${dirname(outputPath)}` };
+
+        try {
+          await execFileAsync("ffmpeg", [
+            "-nostdin", "-hide_banner", "-n", "-i", inputPath,
+            "-af", `loudnorm=I=${target}:TP=${truePeak}:LRA=11`,
+            "-c:v", "copy", outputPath,
+          ], { timeout: FFMPEG_TIMEOUT_MS, maxBuffer: 32 * 1024 * 1024 });
+        } catch (error) {
+          const failure = error as { code?: string; killed?: boolean; stderr?: string; message?: string };
+          if (failure.code === "ENOENT") return { success: false, error: "ffmpeg was not found on PATH" };
+          if (failure.killed) return { success: false, error: "ffmpeg loudness normalization timed out after 300 seconds" };
+          return { success: false, error: `ffmpeg normalization failed: ${(failure.stderr ?? failure.message ?? "unknown error").split(/\r?\n/).filter(Boolean).slice(-3).join(" ")}` };
+        }
+        if (!existsSync(outputPath) || !statSync(outputPath).isFile() || statSync(outputPath).size < 1) {
+          return { success: false, error: "ffmpeg reported completion but no non-empty output file exists" };
+        }
+
+        let measurement: LoudnessMeasurement;
+        try {
+          const measured = await execFileAsync("ffmpeg", [
+            "-nostdin", "-hide_banner", "-i", outputPath,
+            "-vn", "-sn", "-dn", "-af", "ebur128=peak=true", "-f", "null", "-",
+          ], { timeout: FFMPEG_TIMEOUT_MS, maxBuffer: 32 * 1024 * 1024 });
+          measurement = parseEbur128Summary(measured.stderr);
+        } catch (error) {
+          return { success: false, error: `Normalized output exists but EBU R128 verification failed: ${error instanceof Error ? error.message : String(error)}` };
+        }
+        if (measurement.integratedLufs === null) return { success: false, error: "Normalized output exists but integrated loudness was not measurable" };
+        const deltaLu = Number((measurement.integratedLufs - target).toFixed(1));
+        const loudnessPass = Math.abs(deltaLu) <= tolerance;
+        const truePeakPass = measurement.truePeakDbfs !== null && measurement.truePeakDbfs <= truePeak;
+        return {
+          success: true,
+          data: {
+            inputPath, outputPath, outputSizeBytes: statSync(outputPath).size,
+            target: { integratedLufs: target, maxTruePeakDbfs: truePeak, toleranceLu: tolerance },
+            measured: measurement, deltaLu,
+            verified: loudnessPass && truePeakPass,
+            loudnessPass, truePeakPass,
+            verificationScope: "The new output file exists and was remeasured locally. This does not prove subjective mix quality, rights, or Premiere timeline state.",
           },
         };
       },
