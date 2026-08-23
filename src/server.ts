@@ -45,6 +45,7 @@ import {
   resolveCapabilities,
 } from "./security/index.js";
 import { EXTENDSCRIPT_REFERENCE } from "./resources/extendscript-reference.js";
+import { getLiveContextResources } from "./resources/live-context-resources.js";
 import { PROJECT_CONTEXT_RESOURCE } from "./context/project-context-resource.js";
 import { WORKFLOW_PROMPTS, WORKFLOW_RESOURCE } from "./workflows/catalog.js";
 import {
@@ -478,6 +479,18 @@ export function createServer(
     }),
   );
 
+  for (const resource of getLiveContextResources(bridgeOptions)) {
+    server.resource(
+      resource.name,
+      resource.uri,
+      {
+        description: resource.description,
+        mimeType: "application/json",
+      },
+      resource.read,
+    );
+  }
+
   server.resource(
     "premiere-workflows",
     "config://premiere-workflows",
@@ -547,7 +560,7 @@ export function createServer(
 
   const toolCount = Object.keys(toolModules).length;
   debugLog(
-    `Registered ${toolCount} tools + 4 resources + ${WORKFLOW_PROMPTS.length} prompts`,
+    `Registered ${toolCount} tools + 9 resources + ${WORKFLOW_PROMPTS.length} prompts`,
   );
 
   return server;
