@@ -2,8 +2,39 @@ import { buildToolScript, escapeForExtendScript } from "../bridge/script-builder
 import { sendCommand, BridgeOptions } from "../bridge/file-bridge.js";
 import { createReadStream, readFileSync, unlinkSync, existsSync, statSync } from "node:fs";
 import { createHash } from "node:crypto";
+import { execFile } from "node:child_process";
 import { extname, join, resolve } from "node:path";
 import { tmpdir } from "node:os";
+import { promisify } from "node:util";
+
+const execFileAsync = promisify(execFile);
+const VIDEO_QC_TIMEOUT_MS = 300_000;
+
+export interface VideoQcInterval {
+  start: number;
+  end: number;
+  duration: number;
+}
+
+export function parseVideoQcOutput(stderr: string) {
+  const blackFrames: VideoQcInterval[] = [];
+  const freezes: VideoQcInterval[] = [];
+  for (const match of stderr.matchAll(/black_start:([\d.]+)\s+black_end:([\d.]+)\s+black_duration:([\d.]+)/g)) {
+    blackFrames.push({ start: Number(match[1]), end: Number(match[2]), duration: Number(match[3]) });
+  }
+  let freezeStart: number | null = null;
+  for (const line of stderr.split(/\r?\n/)) {
+    const start = line.match(/freeze_start:\s*([\d.]+)/);
+    if (start) freezeStart = Number(start[1]);
+    const end = line.match(/freeze_end:\s*([\d.]+)/);
+    if (end && freezeStart !== null) {
+      const endSeconds = Number(end[1]);
+      freezes.push({ start: freezeStart, end: endSeconds, duration: Number((endSeconds - freezeStart).toFixed(3)) });
+      freezeStart = null;
+    }
+  }
+  return { blackFrames, freezes };
+}
 
 export type DeliveryChecksumAlgorithm = "sha256" | "sha512";
 
@@ -198,6 +229,57 @@ export function getExportTools(bridgeOptions: BridgeOptions) {
           return { success: true, data: verification };
         } catch (error) {
           return { success: false, error: error instanceof Error ? error.message : String(error) };
+        }
+      },
+    },
+
+    analyze_video_qc: {
+      description:
+        "Analyze a local video delivery for sustained black and frozen sections with FFmpeg. Read-only: it does not contact Premiere or modify the file.",
+      parameters: {
+        type: "object" as const,
+        properties: {
+          media_path: { type: "string", description: "Path to an existing local video file" },
+          minimum_black_seconds: { type: "number", description: "Minimum black duration to report (default: 0.5)" },
+          minimum_freeze_seconds: { type: "number", description: "Minimum frozen duration to report (default: 1)" },
+        },
+        required: ["media_path"],
+      },
+      handler: async (args: { media_path: string; minimum_black_seconds?: number; minimum_freeze_seconds?: number }) => {
+        const blackSeconds = args.minimum_black_seconds ?? 0.5;
+        const freezeSeconds = args.minimum_freeze_seconds ?? 1;
+        if (!Number.isFinite(blackSeconds) || blackSeconds <= 0 || blackSeconds > 60) {
+          return { success: false, error: "minimum_black_seconds must be a finite value greater than 0 and at most 60" };
+        }
+        if (!Number.isFinite(freezeSeconds) || freezeSeconds <= 0 || freezeSeconds > 60) {
+          return { success: false, error: "minimum_freeze_seconds must be a finite value greater than 0 and at most 60" };
+        }
+        const mediaPath = resolve(args.media_path);
+        if (!existsSync(mediaPath) || !statSync(mediaPath).isFile()) {
+          return { success: false, error: `Video file not found on disk: ${mediaPath}` };
+        }
+        try {
+          const result = await execFileAsync("ffmpeg", [
+            "-nostdin", "-hide_banner", "-i", mediaPath,
+            "-vf", `blackdetect=d=${blackSeconds}:pix_th=0.10,freezedetect=n=-50dB:d=${freezeSeconds}`,
+            "-an", "-f", "null", "-",
+          ], { timeout: VIDEO_QC_TIMEOUT_MS, maxBuffer: 32 * 1024 * 1024 });
+          const findings = parseVideoQcOutput(result.stderr);
+          return {
+            success: true,
+            data: {
+              mediaPath,
+              thresholds: { minimumBlackSeconds: blackSeconds, minimumFreezeSeconds: freezeSeconds },
+              ...findings,
+              passes: findings.blackFrames.length === 0 && findings.freezes.length === 0,
+              verificationScope: "Local decoded-video sampling only. Review intentional fades, slates, stills, and end cards before treating a finding as a defect.",
+            },
+          };
+        } catch (error) {
+          const failure = error as { killed?: boolean; code?: string; stderr?: string; message?: string };
+          if (failure.code === "ENOENT") return { success: false, error: "ffmpeg was not found on PATH" };
+          if (failure.killed) return { success: false, error: "ffmpeg video QC timed out after 300 seconds" };
+          return { success: false, error: `ffmpeg video QC failed: ${(failure.stderr ?? failure.message ?? "unknown error").split(/\r?\n/).filter(Boolean).slice(-3).join(" ")}` };
         }
       },
     },
