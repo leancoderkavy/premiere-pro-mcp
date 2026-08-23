@@ -1,7 +1,17 @@
 import type http from "node:http";
 
-export const HTTP_SECURITY_HEADERS = Object.freeze({
-  "Content-Security-Policy": [
+export interface HttpSecurityHeaderOptions {
+  scriptNonce?: string;
+}
+
+export function buildContentSecurityPolicy(options: HttpSecurityHeaderOptions = {}): string {
+  const scriptSource = [
+    "'self'",
+    ...(options.scriptNonce ? [`'nonce-${options.scriptNonce}'`] : []),
+    "https://www.googletagmanager.com",
+  ].join(" ");
+
+  return [
     "default-src 'self'",
     "base-uri 'self'",
     "frame-ancestors 'none'",
@@ -11,10 +21,14 @@ export const HTTP_SECURITY_HEADERS = Object.freeze({
     "media-src 'self'",
     "font-src 'self'",
     "style-src 'self' 'unsafe-inline'",
-    "script-src 'self' 'unsafe-inline' https://www.googletagmanager.com",
+    `script-src ${scriptSource}`,
     "connect-src 'self' https://www.google.com https://www.google-analytics.com https://www.googletagmanager.com https://us.i.posthog.com https://*.posthog.com",
     "upgrade-insecure-requests",
-  ].join("; "),
+  ].join("; ");
+}
+
+export const HTTP_SECURITY_HEADERS = Object.freeze({
+  "Content-Security-Policy": buildContentSecurityPolicy(),
   "Strict-Transport-Security": "max-age=31536000; includeSubDomains",
   "X-Content-Type-Options": "nosniff",
   "X-Frame-Options": "DENY",
@@ -23,8 +37,12 @@ export const HTTP_SECURITY_HEADERS = Object.freeze({
   "Cross-Origin-Opener-Policy": "same-origin",
 });
 
-export function applyHttpSecurityHeaders(res: http.ServerResponse): void {
-  for (const [name, value] of Object.entries(HTTP_SECURITY_HEADERS)) {
+export function applyHttpSecurityHeaders(res: http.ServerResponse, options: HttpSecurityHeaderOptions = {}): void {
+  const headers = {
+    ...HTTP_SECURITY_HEADERS,
+    "Content-Security-Policy": buildContentSecurityPolicy(options),
+  };
+  for (const [name, value] of Object.entries(headers)) {
     res.setHeader(name, value);
   }
 }

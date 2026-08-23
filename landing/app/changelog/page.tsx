@@ -214,7 +214,7 @@ const releases = [
       {
         title: "Added",
         items: [
-          "Added the Premiere Pro MCP cinematic intro video to the landing assets.",
+          "Added the MCP for Adobe Premiere Pro cinematic intro video to the landing assets.",
           "Added the dated security best-practices audit report for repository reference.",
         ],
       },

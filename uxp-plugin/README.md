@@ -1,6 +1,6 @@
-# Premiere Pro MCP UXP bridge
+# MCP for Adobe Premiere Pro UXP bridge
 
-Production-oriented UXP transport for Premiere Pro 25.6+. Set `PREMIERE_UXP_TOKEN` to a secret of at least 16 characters before starting the MCP server. Side-load `manifest.json` with UXP Developer Tool during development, open **Window → UXP Plugins → MCP Bridge**, enter the same secret in **Bridge token**, then connect to the MCP-side WebSocket endpoint (default `ws://127.0.0.1:7777/uxp`). For end-user direct distribution, use the `.ccx` workflow in [DISTRIBUTION.md](./DISTRIBUTION.md) instead of asking users to load a development folder.
+Production-oriented UXP transport for Premiere Pro 25.6+. Set `PREMIERE_UXP_TOKEN` to a secret of at least 16 characters before starting the MCP server. Side-load `manifest.json` with UXP Developer Tool during development, open **Window → UXP Plugins → MCP for Adobe Premiere Pro**, enter the same secret in **Bridge token**, then connect to the MCP-side WebSocket endpoint (default `ws://127.0.0.1:7777/uxp`). For end-user direct distribution, use the `.ccx` workflow in [DISTRIBUTION.md](./DISTRIBUTION.md) instead of asking users to load a development folder.
 
 Before using a path-based command, choose one **Approved workspace** folder in the
 panel. The manifest uses requested filesystem access, and the panel restores only

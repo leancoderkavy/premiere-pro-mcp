@@ -26,26 +26,26 @@ export type Article = {
 export const articles: Article[] = [
   {
     slug: "what-is-a-premiere-pro-mcp-server",
-    title: "What Is a Premiere Pro MCP Server? A Practical Guide to AI-Assisted Editing",
+    title: "What Is an MCP Server for Adobe Premiere Pro? A Practical Guide to AI-Assisted Editing",
     description:
-      "Learn what a Premiere Pro MCP server does, how it connects a compatible AI assistant to Adobe Premiere Pro, and how to start with a safe read-only check.",
-    eyebrow: "Premiere Pro MCP explained",
+      "Learn what an MCP server for Adobe Premiere Pro does, how it connects a compatible AI assistant to Adobe Premiere Pro, and how to start with a safe read-only check.",
+    eyebrow: "MCP for Adobe Premiere Pro explained",
     publishedAt: "2026-08-19",
     modifiedAt: "2026-08-19",
     readingTime: "7 min read",
-    keywords: ["Premiere Pro MCP server", "MCP video editing", "AI assistant for Adobe Premiere Pro"],
+    keywords: ["MCP server for Adobe Premiere Pro", "MCP video editing", "AI assistant for Adobe Premiere Pro"],
     sections: [
       {
         heading: "The short version",
         paragraphs: [
-          "A Premiere Pro MCP server is a local service that gives a compatible AI assistant a structured way to work with Adobe Premiere Pro. Instead of asking an assistant to guess what is on screen or operate the interface like a person, the server exposes named tools for supported tasks such as inspecting a sequence, organizing media, preparing an edit, applying a supported change, or sending an export to Adobe Media Encoder.",
+          "An MCP server for Adobe Premiere Pro is a local service that gives a compatible AI assistant a structured way to work with Adobe Premiere Pro. Instead of asking an assistant to guess what is on screen or operate the interface like a person, the server exposes named tools for supported tasks such as inspecting a sequence, organizing media, preparing an edit, applying a supported change, or sending an export to Adobe Media Encoder.",
           "MCP stands for Model Context Protocol, an open standard for connecting AI applications with external tools, data, and workflows. In this case, the external system is a Premiere project running on the editor’s computer. The useful outcome is not “AI edits a video by itself.” It is a more inspectable way to ask for repeatable Premiere work while the editor retains the creative decision and a chance to verify what happened.",
         ],
       },
       {
         heading: "How the connection works",
         paragraphs: [
-          "Premiere Pro MCP uses a local-first path: your AI client sends a structured request to a local MCP server, and a local Premiere connector carries supported commands into the open Premiere session. Premiere returns structured data, confirmation, or diagnostics to the client. The recommended setup keeps the server, connector, Premiere, and project media on the same computer.",
+          "MCP for Adobe Premiere Pro uses a local-first path: your AI client sends a structured request to a local MCP server, and a local Premiere connector carries supported commands into the open Premiere session. Premiere returns structured data, confirmation, or diagnostics to the client. The recommended setup keeps the server, connector, Premiere, and project media on the same computer.",
           "This architecture matters because a tool listing is not proof that a particular Premiere build can complete a particular operation. A robust workflow starts by checking the connection and available capabilities, then previewing or applying the smallest supported step, then inspecting the returned result. That is more dependable than treating natural-language output as evidence that a timeline changed.",
         ],
         bullets: [
@@ -63,7 +63,7 @@ export const articles: Article[] = [
         ],
       },
       {
-        heading: "What a Premiere Pro MCP server is not",
+        heading: "What an MCP server for Adobe Premiere Pro is not",
         paragraphs: [
           "It is not a hosted video editor, a replacement for editorial judgment, or a guarantee that every operation will work in every Premiere version. It does not turn a simulated product demo into proof of a completed edit. The local-first recommendation also does not override the privacy settings of the AI client you choose.",
           "That boundary is a feature, not a footnote. Repeatable automation is most useful when an editor can set the goal, review the plan, limit authority, and inspect the outcome. For unusual, destructive, or version-sensitive work, use a small test sequence and verify state before relying on a larger batch.",
@@ -79,7 +79,7 @@ export const articles: Article[] = [
     ],
     faqs: [
       {
-        question: "Does Premiere Pro MCP upload my footage?",
+        question: "Does MCP for Adobe Premiere Pro upload my footage?",
         answer:
           "The recommended setup is local-first: the server, Premiere connector, Premiere app, and project media stay on the editor’s computer. Your chosen AI client has its own privacy behavior and settings, so review those separately.",
       },
@@ -141,7 +141,7 @@ export const articles: Article[] = [
       {
         heading: "Where an MCP workflow fits",
         paragraphs: [
-          "Premiere Pro MCP is free, MIT-licensed, and designed for local-first use. It registers 287 core tools for project inspection, timeline editing, effects, color, audio, media management, diagnostics, export, and review-only editorial planning. The default profile deliberately limits the surface to 285 tools; a compatible authenticated UXP host can add 50 capability-gated tools. These boundaries let the client report what is available rather than pretending that every supported feature is ready at every moment.",
+          "MCP for Adobe Premiere Pro is free, MIT-licensed, and designed for local-first use. It registers 287 core tools for project inspection, timeline editing, effects, color, audio, media management, diagnostics, export, and review-only editorial planning. The default profile deliberately limits the surface to 285 tools; a compatible authenticated UXP host can add 50 capability-gated tools. These boundaries let the client report what is available rather than pretending that every supported feature is ready at every moment.",
           "For an editor, the key benefit is repeatability without moving the project into a separate hosted editor. For a team, it is a consistent way to ask for and check common operations. For a workflow developer, it is a maintained bridge and structured discovery surface instead of a screen-reading macro.",
         ],
       },
@@ -165,15 +165,15 @@ export const articles: Article[] = [
           "Yes. Start with the read-only verify_premiere_connection prompt, then inspect the project and active sequence. Ask for a preview or plan before applying any supported edit.",
       },
       {
-        question: "Is Premiere Pro MCP Adobe’s AI Assistant?",
+        question: "Is MCP for Adobe Premiere Pro Adobe’s AI Assistant?",
         answer:
-          "No. Premiere Pro MCP is an independent, open-source MCP server that works through a local Premiere connection. Adobe’s own AI features and their availability are separate products and workflows.",
+          "No. MCP for Adobe Premiere Pro is an independent, open-source MCP server that works through a local Premiere connection. Adobe’s own AI features and their availability are separate products and workflows.",
       },
     ],
     resources: [
       { label: "Install and run a safe first check", href: "/docs/" },
       { label: "Learn about Adobe Premiere’s AI Assistant", href: "https://helpx.adobe.com/premiere/desktop/premiere-ai-assistant/overview.html" },
-      { label: "Read how a Premiere Pro MCP server works", href: "/blog/what-is-a-premiere-pro-mcp-server/" },
+      { label: "Read how an MCP server for Adobe Premiere Pro works", href: "/blog/what-is-a-premiere-pro-mcp-server/" },
     ],
   },
   {
@@ -217,7 +217,7 @@ export const articles: Article[] = [
         heading: "Why structured tools are better than UI guessing",
         paragraphs: [
           "Traditional macros and screen-driven automation infer state from a changing interface. Panels move, workspaces differ, dialogs steal focus, and a visible click does not always prove the project changed. A structured MCP tool surface can expose specific actions and return data or diagnostics about the request.",
-          "Premiere Pro MCP combines that structure with a local-first bridge. The server registers 287 core tools, with capabilities and authority reported separately from static tool support. That matters when different Premiere versions, permission settings, and connection states change what is safe to run. The correct path is to discover the available surface and verify the particular operation at call time.",
+          "MCP for Adobe Premiere Pro combines that structure with a local-first bridge. The server registers 287 core tools, with capabilities and authority reported separately from static tool support. That matters when different Premiere versions, permission settings, and connection states change what is safe to run. The correct path is to discover the available surface and verify the particular operation at call time.",
         ],
       },
       {

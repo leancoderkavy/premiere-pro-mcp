@@ -1,5 +1,5 @@
 export const product = {
-  name: "Premiere Pro MCP",
+  name: "MCP for Adobe Premiere Pro",
   version: "1.12.1",
   releaseDate: "2026-08-22",
   coreToolCount: 287,

@@ -1,7 +1,7 @@
 {
   "manifestVersion": 5,
   "id": "com.ppmcp.premiere.uxp",
-  "name": "Premiere Pro MCP Bridge",
+  "name": "MCP for Adobe Premiere Pro",
   "version": "1.12.1",
   "main": "index.html",
   "host": { "app": "premierepro", "minVersion": "25.6.0" },
@@ -9,7 +9,7 @@
     {
       "type": "panel",
       "id": "mcpBridgePanel",
-      "label": { "default": "MCP Bridge" },
+      "label": { "default": "MCP for Adobe Premiere Pro" },
       "minimumSize": { "width": 320, "height": 240 },
       "preferredDockedSize": { "width": 380, "height": 520 },
       "preferredFloatingSize": { "width": 420, "height": 560 }

@@ -1,4 +1,4 @@
-# Premiere Pro MCP Marketing Assets
+# MCP for Adobe Premiere Pro Marketing Assets
 
 The approved launch set lives in `landing/public/marketing/`. Use the original `v1` assets for public product marketing.
 

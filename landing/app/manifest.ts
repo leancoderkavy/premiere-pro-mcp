@@ -4,8 +4,8 @@ export const dynamic = "force-static"
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "Premiere Pro MCP",
-    short_name: "PP MCP",
+    name: "MCP for Adobe Premiere Pro",
+    short_name: "MCP for Premiere",
     description:
       "Open-source MCP server for AI-assisted editing in Adobe Premiere Pro.",
     start_url: "/",

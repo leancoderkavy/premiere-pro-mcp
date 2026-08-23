@@ -63,3 +63,19 @@ after Project-panel captures, the structured UXP response, and Undo evidence.
 Do not call a case licensed-host verified merely because `npm test` passed or
 because the UXP panel reported `verified`. A reviewer must inspect the recorded
 host and post-state evidence for the exact claimed combination.
+
+## Validate a redacted report
+
+Start from [`licensed-host-report.template.json`](licensed-host-report.template.json)
+outside source control. Before sharing a fixture-only report or using it to update a
+capability record, run:
+
+```bash
+npm run validate:host-report -- path/to/redacted-report.json
+```
+
+The validator rejects missing host facts, invalid checksums, duplicate test IDs,
+unredacted local paths or credential-like strings, and `passed` mutations that lack
+before/after/response evidence plus Undo evidence. A passing validator result proves
+only that the evidence package is complete enough for human review; it does not turn
+an unreviewed or failed run into a supported product claim.

@@ -33,7 +33,7 @@ export async function generateMetadata({ params }: ArticlePageProps): Promise<Me
       type: "article",
       publishedTime: article.publishedAt,
       modifiedTime: article.modifiedAt,
-      authors: ["Premiere Pro MCP contributors"],
+      authors: ["MCP for Adobe Premiere Pro contributors"],
     },
   }
 }
@@ -62,7 +62,7 @@ export default async function ArticlePage({ params }: ArticlePageProps) {
         inLanguage: "en-US",
         author: {
           "@type": "Organization",
-          name: "Premiere Pro MCP contributors",
+          name: "MCP for Adobe Premiere Pro contributors",
           url: "https://github.com/leancoderkavy/premiere-pro-mcp",
         },
         publisher: { "@id": "https://premiere-pro-mcp.com/#organization" },
@@ -82,7 +82,7 @@ export default async function ArticlePage({ params }: ArticlePageProps) {
         "@type": "BreadcrumbList",
         "@id": `${articleUrl}#breadcrumb`,
         itemListElement: [
-          { "@type": "ListItem", position: 1, name: "Premiere Pro MCP", item: "https://premiere-pro-mcp.com/" },
+          { "@type": "ListItem", position: 1, name: "MCP for Adobe Premiere Pro", item: "https://premiere-pro-mcp.com/" },
           { "@type": "ListItem", position: 2, name: "Guides", item: "https://premiere-pro-mcp.com/blog/" },
           { "@type": "ListItem", position: 3, name: article.title, item: articleUrl },
         ],
@@ -99,7 +99,7 @@ export default async function ArticlePage({ params }: ArticlePageProps) {
       <main id="main-content" className="min-h-screen bg-black px-5 py-12 text-zinc-100 sm:py-20">
         <article className="mx-auto max-w-3xl">
           <nav aria-label="Breadcrumb" className="text-sm text-zinc-500">
-            <Link href="/" className="hover:text-purple-200">Premiere Pro MCP</Link>{" "}
+            <Link href="/" className="hover:text-purple-200">MCP for Adobe Premiere Pro</Link>{" "}
             <span aria-hidden="true">/</span>{" "}
             <Link href="/blog/" className="hover:text-purple-200">Guides</Link>{" "}
             <span aria-hidden="true">/</span> <span className="text-zinc-400">{article.eyebrow}</span>

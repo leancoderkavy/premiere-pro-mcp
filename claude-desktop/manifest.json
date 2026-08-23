@@ -2,12 +2,12 @@
   "$schema": "https://raw.githubusercontent.com/modelcontextprotocol/mcpb/main/schemas/mcpb-manifest-v0.4.schema.json",
   "manifest_version": "0.4",
   "name": "premiere-pro-mcp",
-  "display_name": "Premiere Pro MCP",
+  "display_name": "MCP for Adobe Premiere Pro",
   "version": "1.12.1",
   "description": "Control a local Adobe Premiere Pro project through MCP.",
   "long_description": "Inspect projects, assemble and modify timelines, manage media, effects, audio and captions, and export deliverables through a local bridge to Adobe Premiere Pro.",
   "author": {
-    "name": "Premiere Pro MCP contributors",
+    "name": "MCP for Adobe Premiere Pro contributors",
     "url": "https://github.com/leancoderkavy/premiere-pro-mcp"
   },
   "repository": {

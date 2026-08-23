@@ -14,7 +14,7 @@ const structuredData = {
     {
       "@type": "Organization",
       "@id": "https://premiere-pro-mcp.com/#organization",
-      name: "Premiere Pro MCP contributors",
+      name: "MCP for Adobe Premiere Pro contributors",
       url: "https://premiere-pro-mcp.com/",
       logo: {
         "@type": "ImageObject",
@@ -30,7 +30,7 @@ const structuredData = {
     {
       "@type": "WebSite",
       "@id": "https://premiere-pro-mcp.com/#website",
-      name: "Premiere Pro MCP",
+      name: product.name,
       url: "https://premiere-pro-mcp.com/",
       description: "Open-source AI control and automation for Adobe Premiere Pro through the Model Context Protocol.",
       inLanguage: "en-US",
@@ -39,7 +39,7 @@ const structuredData = {
     {
       "@type": "SoftwareApplication",
       "@id": "https://premiere-pro-mcp.com/#software",
-      name: "Premiere Pro MCP",
+      name: product.name,
       applicationCategory: "DeveloperApplication",
       operatingSystem: "macOS, Windows",
       softwareVersion: product.version,

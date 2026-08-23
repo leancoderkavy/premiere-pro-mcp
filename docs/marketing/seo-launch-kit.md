@@ -1,4 +1,4 @@
-# Premiere Pro MCP Organic Launch Kit
+# MCP for Adobe Premiere Pro Organic Launch Kit
 
 Published guides:
 
@@ -8,17 +8,17 @@ Published guides:
 
 ## Positioning
 
-Premiere Pro MCP gives compatible AI assistants a structured, local-first way to inspect Premiere projects, plan supported edits, automate repeatable work, and return observable results—without replacing the editor’s creative decision.
+MCP for Adobe Premiere Pro gives compatible AI assistants a structured, local-first way to inspect Premiere projects, plan supported edits, automate repeatable work, and return observable results—without replacing the editor’s creative decision.
 
 ## Launch post
 
 I published three practical guides for editors and workflow teams who want to use AI with Adobe Premiere Pro without handing over creative control:
 
-1. What a Premiere Pro MCP server actually does
+1. What an MCP server for Adobe Premiere Pro actually does
 2. A reviewable workflow for AI-assisted editing
 3. How to automate repeatable Premiere work without automating editorial judgment
 
-Premiere Pro MCP is free, MIT licensed, and local-first. Start with a read-only connection check, then inspect your active sequence before requesting an edit.
+MCP for Adobe Premiere Pro is free, MIT licensed, and local-first. Start with a read-only connection check, then inspect your active sequence before requesting an edit.
 
 Read the guides: https://premiere-pro-mcp.com/blog/
 
@@ -36,7 +36,7 @@ Start with the safe, read-only connection check: https://premiere-pro-mcp.com/bl
 
 New: a practical guide series for AI-assisted Adobe Premiere Pro workflows.
 
-Learn what a Premiere Pro MCP server does, how to verify edits instead of trusting a prompt, and which repetitive tasks to automate first.
+Learn what an MCP server for Adobe Premiere Pro does, how to verify edits instead of trusting a prompt, and which repetitive tasks to automate first.
 
 Free, MIT licensed, local-first: https://premiere-pro-mcp.com/blog/
 
@@ -54,12 +54,12 @@ Hi [name],
 
 I published a short guide series for editors and post-production teams exploring AI-assisted Adobe Premiere Pro workflows. It focuses on a gap that gets missed in “AI video editing” coverage: how to inspect a project, constrain an automation, and verify a result instead of treating a prompt as proof.
 
-Premiere Pro MCP is a free, MIT-licensed local MCP server. The guides are useful even for readers who are comparing approaches, because they explain a clear safety and review model.
+MCP for Adobe Premiere Pro is a free, MIT-licensed local MCP server. The guides are useful even for readers who are comparing approaches, because they explain a clear safety and review model.
 
 If it is relevant to your audience, the hub is here: https://premiere-pro-mcp.com/blog/
 
 Thanks,
-Premiere Pro MCP contributors
+MCP for Adobe Premiere Pro contributors
 
 ## 30-day distribution cadence
 

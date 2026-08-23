@@ -3,11 +3,11 @@ import Link from "next/link"
 import { product, safeFirstPrompt } from "@/lib/product"
 
 export const metadata: Metadata = {
-  title: "Premiere Pro MCP Setup, Tools, Compatibility & Security",
-  description: `Choose an AI assistant, connect Premiere Pro MCP, explore ${product.coreToolCount} AI video editing tools, and understand Windows, macOS, CEP, UXP, and security support.`,
+  title: "MCP for Adobe Premiere Pro Setup, Tools, Compatibility & Security",
+  description: `Choose an AI assistant, connect MCP for Adobe Premiere Pro, explore ${product.coreToolCount} AI video editing tools, and understand Windows, macOS, CEP, UXP, and security support.`,
   alternates: { canonical: "/docs/" },
   openGraph: {
-    title: "Premiere Pro MCP Documentation",
+    title: "MCP for Adobe Premiere Pro Documentation",
     description: "Setup, capabilities, compatibility, architecture, and security for AI-assisted Adobe Premiere Pro editing.",
     url: "/docs/",
     type: "article",
@@ -29,9 +29,9 @@ const structuredData = {
     {
       "@type": "TechArticle",
       "@id": "https://premiere-pro-mcp.com/docs/#article",
-      headline: "Premiere Pro MCP setup, tools, compatibility, and security",
+      headline: "MCP for Adobe Premiere Pro setup, tools, compatibility, and security",
       description:
-        "Installation and technical reference for connecting AI assistants to Adobe Premiere Pro with Premiere Pro MCP.",
+        "Installation and technical reference for connecting AI assistants to Adobe Premiere Pro with MCP for Adobe Premiere Pro.",
       url: "https://premiere-pro-mcp.com/docs/",
       dateModified: "2026-08-01",
       inLanguage: "en-US",
@@ -45,7 +45,7 @@ const structuredData = {
         {
           "@type": "ListItem",
           position: 1,
-          name: "Premiere Pro MCP",
+          name: product.name,
           item: "https://premiere-pro-mcp.com/",
         },
         {
@@ -69,14 +69,14 @@ export default function DocsPage() {
       <main id="main-content" className="min-h-screen bg-black px-5 py-16 text-zinc-100">
       <article className="mx-auto max-w-4xl">
         <nav aria-label="Breadcrumb" className="text-sm text-zinc-500">
-          <Link href="/" className="hover:text-purple-300">Premiere Pro MCP</Link> <span aria-hidden="true">/</span> Documentation
+          <Link href="/" className="hover:text-purple-300">MCP for Adobe Premiere Pro</Link> <span aria-hidden="true">/</span> Documentation
         </nav>
 
         <header className="border-b border-zinc-800 pb-12 pt-12">
-          <p className="font-mono text-sm text-purple-300">PREMIERE PRO MCP DOCUMENTATION</p>
+          <p className="font-mono text-sm text-purple-300">MCP FOR ADOBE PREMIERE PRO DOCUMENTATION</p>
           <h1 className="mt-4 text-balance text-4xl font-bold tracking-tight sm:text-6xl">AI editing tools for Adobe Premiere Pro</h1>
           <p className="mt-6 max-w-3xl text-lg leading-8 text-zinc-400">
-            Premiere Pro MCP is an open-source, local-first Model Context Protocol server that connects AI assistants to Adobe Premiere Pro through {product.coreToolCount} structured editing, inspection, automation, and export tools.
+            MCP for Adobe Premiere Pro is an open-source, local-first Model Context Protocol server that connects AI assistants to Adobe Premiere Pro through {product.coreToolCount} structured editing, inspection, automation, and export tools.
           </p>
         </header>
 

@@ -1,11 +1,11 @@
-# Premiere Pro MCP: complete AI reference
+# MCP for Adobe Premiere Pro: complete AI reference
 
-Premiere Pro MCP is an open-source, local-first Model Context Protocol server that lets compatible AI clients inspect and control Adobe Premiere Pro through structured tools.
+MCP for Adobe Premiere Pro is an open-source, local-first Model Context Protocol server that lets compatible AI clients inspect and control Adobe Premiere Pro through structured tools.
 
 Canonical website: https://premiere-pro-mcp.com/
 Documentation: https://premiere-pro-mcp.com/docs/
 Guides: https://premiere-pro-mcp.com/blog/
-Guide: What is a Premiere Pro MCP server?: https://premiere-pro-mcp.com/blog/what-is-a-premiere-pro-mcp-server/
+Guide: What is an MCP server for Adobe Premiere Pro?: https://premiere-pro-mcp.com/blog/what-is-a-premiere-pro-mcp-server/
 Guide: AI video editing with Premiere Pro: https://premiere-pro-mcp.com/blog/ai-video-editing-with-premiere-pro/
 Guide: Premiere Pro workflow automation: https://premiere-pro-mcp.com/blog/premiere-pro-workflow-automation/
 Source: https://github.com/leancoderkavy/premiere-pro-mcp
@@ -45,7 +45,7 @@ The default capability profile permits inspection, editing, export, and required
 
 ## Entity and attribution
 
-Project name: Premiere Pro MCP
+Project name: MCP for Adobe Premiere Pro
 Package name: premiere-pro-mcp
 Repository owner: leancoderkavy
 Code repository: https://github.com/leancoderkavy/premiere-pro-mcp

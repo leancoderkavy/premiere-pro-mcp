@@ -94,7 +94,7 @@ if ($problems.Count -gt 0) {
   Write-Host "Next steps:"
   Write-Host "  1. Fully quit Premiere Pro."
   Write-Host "  2. Run the Connector installer again."
-  Write-Host "  3. Reopen Premiere Pro, then choose Window > Extensions > MCP Bridge."
+  Write-Host "  3. Reopen Premiere Pro, then choose Window > Extensions > MCP for Adobe Premiere Pro."
   exit 1
 }
 
@@ -105,6 +105,6 @@ if ($Diagnose) {
   Write-Host "Next: Open Premiere Pro and ask your AI assistant to run 'Verify Premiere connection'."
 }
 else {
-  Write-Host "Connector installed. Fully restart Premiere Pro, then open Window > Extensions > MCP Bridge."
+  Write-Host "Connector installed. Fully restart Premiere Pro, then open Window > Extensions > MCP for Adobe Premiere Pro."
   Write-Host "After that, ask your AI assistant to run 'Verify Premiere connection' before editing."
 }
