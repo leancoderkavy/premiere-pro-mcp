@@ -25,6 +25,105 @@ export type Article = {
 
 export const articles: Article[] = [
   {
+    slug: "premiere-pro-project-intake-checklist",
+    title: "Premiere Pro Project Intake Checklist: Prepare a Read-Only Review Before Organizing Media",
+    description:
+      "Use this assistant-editor checklist to prepare a bounded, read-only Premiere Pro Project Intake preview with an approved facility template, clear scope, and review steps.",
+    eyebrow: "Project Intake readiness checklist",
+    publishedAt: "2026-08-23",
+    modifiedAt: "2026-08-23",
+    readingTime: "7 min read",
+    keywords: [
+      "Premiere Pro project intake checklist",
+      "assistant editor project intake",
+      "Premiere Pro project organization checklist",
+      "read-only Premiere Pro project review",
+    ],
+    sections: [
+      {
+        heading: "Use this before a Project Intake preview, not after a project changes",
+        paragraphs: [
+          "A project-intake review is most useful before an assistant editor starts organizing a handoff. It gives the post supervisor and assistant editor a shared way to inspect what is already in an open Premiere project, compare it with an explicit facility template, and decide what needs human attention.",
+          "Premiere Pro MCP v1.13.0 includes a preview-only Project Intake tool. It can return a path-redacted report and a proposed organization list, but it does not change Premiere or persist the template. Treat the output as a review artifact, not as proof that a project is ready for delivery or that a future organization action will succeed on every host.",
+        ],
+      },
+      {
+        heading: "1. Define the intake decision before you open the assistant",
+        paragraphs: [
+          "Start with the decision the report should support. For example: can this project enter an assistant-editor handoff, does it follow the team's bin and label policy, or which items need manual review before a conform? A report cannot supply a policy the team has not agreed on.",
+          "Keep the first review limited to the open project and the facts the template actually evaluates. Project Intake is not a request to choose selects, judge pacing, scan drives, relink media, attach proxies, create a rough cut, or change a timeline.",
+        ],
+        bullets: [
+          "Name the handoff or review decision the report must support.",
+          "Assign a human owner for policy exceptions and final organization decisions.",
+          "Use a copied or non-sensitive project when evaluating a new template or host path.",
+        ],
+      },
+      {
+        heading: "2. Bring an approved, versioned facility template",
+        paragraphs: [
+          "The preview evaluates an explicit facility-supplied template; it should not infer your house rules from a project name, a folder name, or a model guess. Before running it, make sure the workflow owner has reviewed the template version and the specific checks it is meant to enforce.",
+          "A useful first template focuses on deterministic project organization: expected bin destinations, allowed labels, a naming pattern, and allowlisted metadata fields. Keep rules narrow enough that an assistant editor can explain each finding and a supervisor can reject a proposal that does not fit the real handoff.",
+        ],
+      },
+      {
+        heading: "3. Verify the local Premiere path without changing the project",
+        paragraphs: [
+          "Install the compatible AI client, local server, and separate Premiere connector. Then open the intended project in Premiere and ask: “Safely check my Premiere connection with verify_premiere_connection. Make no changes.”",
+          "This read-only first-run check verifies the server, selected bridge, active project, and active sequence without returning project names, paths, or media details. A ready response is not a blanket compatibility guarantee. Resolve any returned diagnostic before asking for a Project Intake preview.",
+        ],
+      },
+      {
+        heading: "4. Request the Project Intake preview with the privacy boundary intact",
+        paragraphs: [
+          "Ask the assistant to use preview_project_intake with the approved template and to return the read-only report plus proposed organization actions. Be explicit that this is a preview: “Evaluate this open Premiere project against our approved intake template. Return the redacted report and proposed organization actions. Do not change Premiere or persist the template.”",
+          "Observed media paths are excluded from findings by default. Do not turn on path inclusion merely to make a report more detailed; use the minimum information needed for the review. If the report is marked truncated, treat it as incomplete rather than as a complete project inventory.",
+        ],
+      },
+      {
+        heading: "5. Review findings one by one before anyone organizes the project",
+        paragraphs: [
+          "Compare the report with the project in Premiere and the current facility policy. Confirm that each finding is meaningful, that any proposed action belongs to the right project, and that an exception has an assigned human decision. A proposed organization action is not an approval to mutate a project.",
+          "Keep the preview report, template version, and exception decision with the handoff record when your team's policy allows it. Avoid putting project paths, media names, transcripts, prompts, tokens, or secrets into shared workflow notes or analytics.",
+        ],
+        bullets: [
+          "Accept: the report supports a clear handoff decision and no unresolved finding needs action.",
+          "Escalate: a policy exception, incomplete report, unexpected item, or unsupported check needs a workflow owner.",
+          "Stop: the connection diagnostic, project identity, or review scope is unclear.",
+        ],
+      },
+      {
+        heading: "6. Keep preview evidence separate from real-host proof",
+        paragraphs: [
+          "The v1.13.0 Project Intake workflow is preview-only. Its automated tests and structured report are useful engineering evidence, but they do not establish that every Premiere version, operating system, client, or future organization action has been validated in a licensed host.",
+          "Use the preview to make the handoff discussion more concrete. Keep any later mutating workflow behind its own capability, confirmation, and host-observable verification steps. Do not describe a preview report as a finished organization pass, visual-quality check, or delivery approval.",
+        ],
+      },
+    ],
+    faqs: [
+      {
+        question: "Does preview_project_intake change my Premiere project?",
+        answer:
+          "No. The v1.13.0 tool returns a read-only, path-redacted intake report and a non-mutating organization proposal. It does not change Premiere or persist the facility template.",
+      },
+      {
+        question: "What should a facility template cover first?",
+        answer:
+          "Start with narrow, deterministic organization rules that a workflow owner has approved, such as expected bin destinations, allowed labels, a naming pattern, and allowlisted metadata fields. Do not ask it to infer editorial taste or unapproved policy.",
+      },
+      {
+        question: "Does a clean Project Intake report prove the project is ready?",
+        answer:
+          "No. It reports the bounded checks in the supplied template. Treat truncation, unavailable evidence, unsupported checks, and any policy exception as a reason to review the project before relying on the report.",
+      },
+    ],
+    resources: [
+      { label: "Install and run a safe connection check", href: "/#install" },
+      { label: "Read the supported Project Intake action", href: "https://github.com/leancoderkavy/premiere-pro-mcp/blob/main/docs/supported-actions.md" },
+      { label: "Use the broader Premiere AI workflow checklist", href: "/blog/premiere-pro-ai-workflow-checklist/" },
+    ],
+  },
+  {
     slug: "premiere-pro-ai-workflow-checklist",
     title: "Premiere Pro AI Workflow Checklist: Evaluate Automation Before It Touches a Project",
     description:
