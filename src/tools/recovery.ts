@@ -1,8 +1,12 @@
 import {
+  copyFileSync,
+  constants,
   existsSync,
+  readFileSync,
   readdirSync,
   statSync,
 } from "node:fs";
+import { createHash } from "node:crypto";
 import { basename, dirname, extname, join, resolve } from "node:path";
 import { buildToolScript } from "../bridge/script-builder.js";
 import {
@@ -30,6 +34,52 @@ export interface RecoveryCandidate {
   modifiedMs: number;
   sizeBytes: number;
   newerThanProjectFile: boolean | null;
+}
+
+export interface ProjectBackupReceipt {
+  sourcePath: string;
+  backupPath: string;
+  sizeBytes: number;
+  checksumSha256: string;
+  sourceUnchanged: true;
+  byteIdentical: true;
+}
+
+function sha256File(path: string): string {
+  return createHash("sha256").update(readFileSync(path)).digest("hex");
+}
+
+export function createProjectBackup(projectPath: string, now = new Date()): ProjectBackupReceipt {
+  const sourcePath = resolve(projectPath);
+  if (extname(sourcePath).toLowerCase() !== ".prproj") {
+    throw new Error("project_path must point to an Adobe Premiere .prproj file");
+  }
+  if (!existsSync(sourcePath)) throw new Error(`Project file does not exist: ${sourcePath}`);
+  const before = statSync(sourcePath);
+  if (!before.isFile()) throw new Error(`Project path is not a regular file: ${sourcePath}`);
+
+  const stamp = now.toISOString().replace(/[:.]/g, "-");
+  const backupPath = `${sourcePath}.backup-${stamp}`;
+  copyFileSync(sourcePath, backupPath, constants.COPYFILE_EXCL);
+
+  const after = statSync(sourcePath);
+  const backup = statSync(backupPath);
+  if (before.size !== after.size || before.mtimeMs !== after.mtimeMs) {
+    throw new Error("Project file changed while its backup was being created; do not rely on this copy");
+  }
+  const sourceChecksum = sha256File(sourcePath);
+  const backupChecksum = sha256File(backupPath);
+  if (backup.size !== before.size || backupChecksum !== sourceChecksum) {
+    throw new Error("Project backup verification failed: copied bytes do not match the source");
+  }
+  return {
+    sourcePath,
+    backupPath,
+    sizeBytes: backup.size,
+    checksumSha256: backupChecksum,
+    sourceUnchanged: true,
+    byteIdentical: true,
+  };
 }
 
 export function discoverAdjacentRecoveryCandidates(
@@ -140,6 +190,28 @@ function projectSnapshot(result: CommandResult): ProjectSnapshot | null {
 
 export function getRecoveryTools(bridgeOptions: BridgeOptions) {
   return {
+    create_project_backup: {
+      description:
+        "Create a collision-safe, byte-verified backup beside an existing .prproj file without opening or modifying the source project.",
+      parameters: {
+        type: "object" as const,
+        properties: {
+          project_path: {
+            type: "string",
+            description: "Absolute or working-directory-relative path to an existing .prproj file",
+          },
+        },
+        required: ["project_path"],
+      },
+      handler: async (args: { project_path: string }) => {
+        try {
+          return { success: true, data: createProjectBackup(args.project_path) };
+        } catch (error) {
+          return { success: false, error: error instanceof Error ? error.message : String(error) };
+        }
+      },
+    },
+
     inspect_project_recovery: {
       description:
         "Read-only recovery inspection: diagnose the active project path and list adjacent Premiere Auto-Save project candidates without opening, copying, or restoring anything.",

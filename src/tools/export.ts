@@ -279,6 +279,102 @@ export function getExportTools(bridgeOptions: BridgeOptions) {
       },
     },
 
+    export_sequence_review_frames: {
+      description:
+        "Export 2-24 evenly spaced, file-verified frames from an active-sequence range in one bridge round trip for visual review. This samples rendered output; it does not prove playback, audio, or editorial quality.",
+      parameters: {
+        type: "object" as const,
+        properties: {
+          output_dir: {
+            type: "string",
+            description: "Existing directory where review_001.png through review_NNN.png will be written",
+          },
+          frame_count: {
+            type: "number",
+            description: "Number of evenly spaced frames to export (default: 6; minimum: 2; maximum: 24)",
+          },
+          start_seconds: {
+            type: "number",
+            description: "Optional non-negative range start in seconds (default: sequence start)",
+          },
+          end_seconds: {
+            type: "number",
+            description: "Optional positive range end in seconds (default: sequence end)",
+          },
+        },
+        required: ["output_dir"],
+      },
+      handler: async (args: {
+        output_dir: string;
+        frame_count?: number;
+        start_seconds?: number;
+        end_seconds?: number;
+      }) => {
+        const frameCount = args.frame_count ?? 6;
+        if (!Number.isInteger(frameCount) || frameCount < 2 || frameCount > 24) {
+          return { success: false, error: "frame_count must be an integer from 2 through 24" };
+        }
+        if (typeof args.output_dir !== "string" || args.output_dir.trim() === "") {
+          return { success: false, error: "output_dir must be a non-empty directory path" };
+        }
+        for (const [name, value] of [["start_seconds", args.start_seconds], ["end_seconds", args.end_seconds]] as const) {
+          if (value !== undefined && (!Number.isFinite(value) || value < 0)) {
+            return { success: false, error: `${name} must be a finite non-negative number` };
+          }
+        }
+        if (args.start_seconds !== undefined && args.end_seconds !== undefined && args.end_seconds <= args.start_seconds) {
+          return { success: false, error: "end_seconds must be greater than start_seconds" };
+        }
+
+        const script = buildToolScript(`
+          var seq = app.project.activeSequence;
+          if (!seq) return __error("No active sequence");
+
+          var outputFolder = new Folder("${escapeForExtendScript(resolve(args.output_dir))}");
+          if (!outputFolder.exists) return __error("Output directory does not exist: " + outputFolder.fsName);
+
+          var sequenceEndSeconds = __ticksToSeconds(seq.end);
+          var rangeStart = ${args.start_seconds ?? 0};
+          var rangeEnd = ${args.end_seconds !== undefined ? args.end_seconds : "sequenceEndSeconds"};
+          if (rangeEnd > sequenceEndSeconds) rangeEnd = sequenceEndSeconds;
+          if (rangeStart < 0 || rangeEnd <= rangeStart) {
+            return __error("The requested review range is empty or outside the active sequence");
+          }
+
+          var requested = ${frameCount};
+          var span = rangeEnd - rangeStart;
+          var frames = [];
+          var failures = [];
+          for (var i = 0; i < requested; i++) {
+            var atSeconds = rangeStart + (span * i / (requested - 1));
+            if (atSeconds >= rangeEnd) atSeconds = Math.max(rangeStart, rangeEnd - 0.001);
+            var number = String(i + 1);
+            while (number.length < 3) number = "0" + number;
+            var requestedPath = outputFolder.fsName + "/review_" + number + ".png";
+            var result = __exportStillFrame(requestedPath, __secondsToTicks(atSeconds).toString());
+            if (result.ok) {
+              frames.push({ index: i, timeSeconds: atSeconds, outputPath: result.path, method: result.method });
+            } else {
+              failures.push({ index: i, timeSeconds: atSeconds, requestedPath: requestedPath, error: result.error, notes: result.notes });
+            }
+          }
+
+          if (!frames.length) return __error("Premiere did not write any review frames");
+          return __result({
+            sequence: { name: seq.name, durationSeconds: sequenceEndSeconds },
+            range: { startSeconds: rangeStart, endSeconds: rangeEnd },
+            requested: requested,
+            exported: frames.length,
+            complete: frames.length === requested,
+            frames: frames,
+            failures: failures,
+            verificationScope: "Each returned frame path was verified on disk by the Premiere bridge. Playback, audio, and editorial quality remain unverified."
+          });
+        `);
+        return sendCommand(script, { ...bridgeOptions, timeoutMs: Math.max(60000, frameCount * 30000) });
+      },
+    },
+
     export_as_fcp_xml: {
       description: "Export the active sequence as a Final Cut Pro XML file",
       parameters: {

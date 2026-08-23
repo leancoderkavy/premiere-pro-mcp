@@ -79,6 +79,7 @@ const FILESYSTEM_TOOL_NAMES = new Set([
   "set_scratch_disk_path",
   "verify_delivery_file",
   "detect_silence",
+  "create_project_backup",
 ]);
 
 const ACTION_CAPABILITIES: Readonly<Record<string, Readonly<Record<string, readonly Capability[]>>>> = {
