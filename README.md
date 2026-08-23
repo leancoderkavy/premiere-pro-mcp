@@ -801,10 +801,18 @@ Then connect with:
 | `POSTHOG_DISTINCT_ID` | Optional stable anonymous server identifier | Fly machine ID or random boot ID |
 
 When PostHog is enabled, the server records `mcp_connection_attempt`,
-`mcp_request`, `mcp_request_rejected`, and `mcp_tool_call`. Events contain operational fields such as
-method, tool name, outcome, status code, and duration. Authentication tokens,
-IP addresses, MCP arguments, project paths, media names, and tool results are
-never sent. Person profiles are disabled for these events.
+`mcp_request`, `mcp_request_rejected`, and `mcp_tool_call`. It also records
+`premiere_mcp_activation_completed` only after the read-only
+`verify_premiere_connection` check confirms the selected bridge, an open
+project, and an active sequence. Events contain bounded operational fields such
+as method, tool name, outcome, status code, duration, and selected bridge.
+Authentication tokens, IP addresses, MCP arguments, project paths, media names,
+and tool results are never sent. Person profiles are disabled for these events.
+
+This signal is an aggregate emission, not proof that an analytics provider
+received it, a count of unique people or editors, or evidence that an editing
+workflow succeeded. It does not carry a person or editor identifier, so it
+cannot safely infer "first value."
 
 ---
 
