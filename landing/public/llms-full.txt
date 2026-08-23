@@ -12,6 +12,9 @@ Guide: Adobe Premiere AI Assistant vs. MCP: https://premiere-pro-mcp.com/blog/ad
 Guide: Claude Desktop and Premiere Pro MCP setup: https://premiere-pro-mcp.com/blog/claude-desktop-premiere-pro-mcp-setup/
 Guide: Premiere Pro AI workflow checklist: https://premiere-pro-mcp.com/blog/premiere-pro-ai-workflow-checklist/
 Guide: Premiere Pro Project Intake checklist: https://premiere-pro-mcp.com/blog/premiere-pro-project-intake-checklist/
+Guide: Premiere Pro project backup checklist: https://premiere-pro-mcp.com/blog/premiere-pro-project-backup-checklist/
+Guide: Premiere Pro review frames and scene detection: https://premiere-pro-mcp.com/blog/premiere-pro-review-frames-and-scene-detection/
+Guide: Premiere Pro delivery QC and loudness checklist: https://premiere-pro-mcp.com/blog/premiere-pro-delivery-qc-and-loudness-checklist/
 Source: https://github.com/leancoderkavy/premiere-pro-mcp
 npm: https://www.npmjs.com/package/premiere-pro-mcp
 License: MIT

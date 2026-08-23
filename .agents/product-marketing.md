@@ -1,7 +1,7 @@
 # Product Marketing Context
 
-**Document version:** v8
-**Last updated:** 2026-08-22
+**Document version:** v9
+**Last updated:** 2026-08-23
 
 ## Product Overview
 
@@ -62,7 +62,7 @@
 
 **Secondary:** Premiere scripts, panels, macros, and outcome-specific automation products. They can solve a narrow task well, but may not offer client choice, structured workflow contracts, or a local inspect-plan-confirm-verify path.
 
-**Adobe AI Assistant:** Adobe's documented beta overlaps with media organization, footage preparation, and stringout work. Treat it as a complementary and evolving native alternative, not a competitor to dismiss. Do not claim that Premiere Pro MCP is generally better than Adobe AI Assistant; differentiate on client choice, local-first orchestration, structured workflow contracts, and explicit verification boundaries. Source reviewed 2026-08-22: <https://helpx.adobe.com/premiere/desktop/premiere-ai-assistant/overview.html>.
+**Adobe AI Assistant:** Adobe's public beta overlaps with media organization, footage preparation, and initial-assembly work. Adobe's current FAQ also says that connecting a user model, reference-document or templated workflows, team conversation sharing, and chat-history export are not available today. Treat it as a complementary and evolving native alternative, not a competitor to dismiss. Do not claim that Premiere Pro MCP is generally better than Adobe AI Assistant; differentiate on client choice, local-first orchestration, structured workflow contracts, and explicit verification boundaries. Sources reviewed 2026-08-23: <https://helpx.adobe.com/premiere/desktop/premiere-ai-assistant/overview.html> and <https://helpx.adobe.com/premiere/desktop/premiere-ai-assistant/assistant-faq.html>.
 
 **Indirect:** Manual editing and separate hosted AI editors. They can be familiar or convenient, but do not provide the same structured local control path into an existing Premiere project.
 
@@ -174,6 +174,7 @@
 
 *Newest first. One line per revision: what changed and why.*
 
+- v9 (2026-08-23) — Refreshed the Adobe AI Assistant public-beta scope and added project-backup, visual-review, and delivery-QC guide intents with explicit evidence boundaries.
 - v8 (2026-08-22) — Prepared v1.13.0 release-candidate positioning for preview-only Project Intake while preserving the unpublished and licensed-host evidence boundaries.
 - v7 (2026-08-22) — Added the read-only Project Intake workflow and refreshed source-derived tool, module, and workflow counts; kept release publication and licensed-host proof separate.
 - v6 (2026-08-22) — Added privacy-bounded acquisition attribution and the paid-acquisition measurement gate after production-readiness hardening.

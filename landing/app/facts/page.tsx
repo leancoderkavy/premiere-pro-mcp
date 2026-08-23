@@ -40,7 +40,7 @@ const facts = [
   {
     question: "How is it different from Adobe Premiere AI Assistant?",
     answer:
-      "Adobe Premiere AI Assistant is Adobe's native in-app beta for supported organization, preparation, and assembly workflows. MCP for Adobe Premiere Pro is an independent open-source integration for compatible MCP clients, local structured tools, and explicit capability and verification boundaries. The two can be complementary.",
+      "Adobe Premiere AI Assistant is Adobe's native in-app public beta for supported organization, preparation, and initial-assembly workflows. MCP for Adobe Premiere Pro is an independent open-source integration for compatible MCP clients, local structured tools, and explicit capability and verification boundaries. The two can be complementary; evaluate the exact current workflow and privacy behavior rather than assuming either route is universally better.",
   },
   {
     question: "Is it an autonomous video editor?",
@@ -86,6 +86,11 @@ const sources = [
   {
     label: "Premiere AI Assistant overview",
     href: "https://helpx.adobe.com/premiere/desktop/premiere-ai-assistant/overview.html",
+    publisher: "Adobe",
+  },
+  {
+    label: "Premiere AI Assistant FAQ",
+    href: "https://helpx.adobe.com/premiere/desktop/premiere-ai-assistant/assistant-faq.html",
     publisher: "Adobe",
   },
 ] as const
@@ -158,7 +163,7 @@ export default function FactsPage() {
             <p className="mt-6 max-w-3xl text-lg leading-8 text-zinc-400">
               Concise, source-linked answers for editors, developers, search engines, and AI assistants. Product-specific facts reflect release {product.version}; external platform facts link to their primary documentation.
             </p>
-            <p className="mt-4 text-sm text-zinc-500">Last reviewed: August 22, 2026</p>
+            <p className="mt-4 text-sm text-zinc-500">Last reviewed: August 23, 2026</p>
           </header>
 
           <section className="divide-y divide-zinc-800" aria-label="Premiere Pro MCP facts">

@@ -1,22 +1,36 @@
-# MCP for Adobe Premiere Pro Organic Launch Kit
+# MCP for Adobe Premiere Pro Organic Distribution Kit
 
-Published guides:
+## Gate before any public distribution
 
-- `https://premiere-pro-mcp.com/blog/what-is-a-premiere-pro-mcp-server/`
-- `https://premiere-pro-mcp.com/blog/ai-video-editing-with-premiere-pro/`
-- `https://premiere-pro-mcp.com/blog/premiere-pro-workflow-automation/`
+Treat this file as draft copy, not proof that a guide is public. Before a post,
+outreach message, directory submission, or community link goes out, verify the
+exact production guide URL and `/blog/` return HTTPS 200 on the intended
+deployed commit. Do not publish a URL from a local build or repository branch.
+
+## Guide inventory
+
+| Reader intent | Guide | Public route to verify before sharing |
+| --- | --- | --- |
+| Understand the product | What is an MCP server for Adobe Premiere Pro? | `/blog/what-is-a-premiere-pro-mcp-server/` |
+| Evaluate a safe first workflow | Premiere Pro AI workflow checklist | `/blog/premiere-pro-ai-workflow-checklist/` |
+| Compare AI routes | Adobe Premiere AI Assistant vs. MCP | `/blog/adobe-premiere-ai-assistant-vs-mcp/` |
+| Prepare assistant-editor intake | Premiere Pro Project Intake checklist | `/blog/premiere-pro-project-intake-checklist/` |
+| Preserve a recovery point | Premiere Pro project backup checklist | `/blog/premiere-pro-project-backup-checklist/` |
+| Focus a visual review | Premiere Pro review frames and scene detection | `/blog/premiere-pro-review-frames-and-scene-detection/` |
+| Inspect a delivery file | Premiere Pro delivery QC and loudness checklist | `/blog/premiere-pro-delivery-qc-and-loudness-checklist/` |
 
 ## Positioning
 
 MCP for Adobe Premiere Pro gives compatible AI assistants a structured, local-first way to inspect Premiere projects, plan supported edits, automate repeatable work, and return observable results—without replacing the editor’s creative decision.
 
-## Launch post
+## Draft release post
 
-I published three practical guides for editors and workflow teams who want to use AI with Adobe Premiere Pro without handing over creative control:
+When the checked guide URLs are live, share this for editors and workflow teams who want to use AI with Adobe Premiere Pro without handing over creative control:
 
-1. What an MCP server for Adobe Premiere Pro actually does
-2. A reviewable workflow for AI-assisted editing
-3. How to automate repeatable Premiere work without automating editorial judgment
+1. A practical comparison of Adobe’s current AI Assistant beta and a structured MCP workflow
+2. A project-backup checklist before high-risk automation or organization work
+3. A visual-review guide for file-verified frames and source scene candidates
+4. A delivery-QC guide for scoped black/freeze findings and loudness measurement
 
 MCP for Adobe Premiere Pro is free, MIT licensed, and local-first. Start with a read-only connection check, then inspect your active sequence before requesting an edit.
 
@@ -28,23 +42,23 @@ Read the guides: https://premiere-pro-mcp.com/blog/
 
 AI video editing should make repetitive Premiere work easier to review—not make creative decisions in a black box.
 
-I published three practical guides on using a local MCP workflow with Adobe Premiere Pro: what the server does, how to keep the editor in control, and which workflows are worth automating first.
+When the guide set is live, share the comparison, project-backup, visual-review, and delivery-QC checklists with the post-production teams who need a bounded way to evaluate automation.
 
 Start with the safe, read-only connection check: https://premiere-pro-mcp.com/blog/
 
 ### X / Bluesky
 
-New: a practical guide series for AI-assisted Adobe Premiere Pro workflows.
+New practical guides for AI-assisted Adobe Premiere Pro workflows.
 
-Learn what an MCP server for Adobe Premiere Pro does, how to verify edits instead of trusting a prompt, and which repetitive tasks to automate first.
+Compare the current native Assistant beta with a structured MCP path, then use focused backup, review, and delivery-QC checklists before relying on a workflow.
 
 Free, MIT licensed, local-first: https://premiere-pro-mcp.com/blog/
 
 ### Community post
 
-I built an open-source MCP server for structured, local-first Adobe Premiere Pro workflows. The goal is not autonomous editing: it is making repetitive work inspectable, bounded, and easier to verify.
+This open-source MCP server provides structured, local-first Adobe Premiere Pro workflows. The goal is not autonomous editing: it is making repetitive work inspectable, bounded, and easier to verify.
 
-I wrote a no-hype guide to the connection model, a workflow guide, and an automation guide. Feedback on capability boundaries, install friction, and real editor workflows is especially welcome: https://premiere-pro-mcp.com/blog/
+The guide hub covers the connection model, workflow boundaries, the current Adobe AI Assistant beta, project backups, visual review, and delivery QC. Feedback on capability boundaries, install friction, and real editor workflows is especially welcome once the verified guide URLs are live: https://premiere-pro-mcp.com/blog/
 
 ## Outreach email
 
