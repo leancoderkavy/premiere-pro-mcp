@@ -27,8 +27,12 @@ describe("export_sequence_review_frames", () => {
   it("fails invalid counts and ranges before contacting Premiere", async () => {
     await expect(tools.export_sequence_review_frames.handler({ output_dir: "/tmp/review", frame_count: 25 }))
       .resolves.toMatchObject({ success: false, error: expect.stringContaining("2 through 24") });
+    await expect(tools.export_sequence_review_frames.handler({ output_dir: "/tmp/review", frame_count: 1 }))
+      .resolves.toMatchObject({ success: false, error: expect.stringContaining("2 through 24") });
     await expect(tools.export_sequence_review_frames.handler({ output_dir: "/tmp/review", start_seconds: 8, end_seconds: 4 }))
       .resolves.toMatchObject({ success: false, error: expect.stringContaining("greater than") });
+    await expect(tools.export_sequence_review_frames.handler({ output_dir: "/tmp/review", start_seconds: -1 }))
+      .resolves.toMatchObject({ success: false, error: expect.stringContaining("non-negative") });
     await expect(tools.export_sequence_review_frames.handler({ output_dir: "", frame_count: 6 }))
       .resolves.toMatchObject({ success: false, error: expect.stringContaining("non-empty") });
     expect(mockedSendCommand).not.toHaveBeenCalled();
