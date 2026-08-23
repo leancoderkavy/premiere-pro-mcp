@@ -166,6 +166,40 @@ describe("project intake engine", () => {
     expect(report.applied).toBe(false);
   });
 
+  it("distinguishes unavailable, incorrect, and suffix-matched required-bin parents", () => {
+    const baseItems = snapshot.items.filter((item) => item.id !== "bin-interviews");
+
+    const unavailable = buildProjectIntakeReport({
+      ...snapshot,
+      items: [...baseItems, { id: "bin-interviews", name: "Interviews", type: "bin" }],
+    }, template);
+    expect(unavailable.status).toBe("incomplete");
+    expect(unavailable.findings).toContainEqual(expect.objectContaining({
+      code: "REQUIRED_BIN_PARENT_UNAVAILABLE",
+      certainty: "unavailable",
+    }));
+
+    const wrong = buildProjectIntakeReport({
+      ...snapshot,
+      items: [...baseItems, {
+        id: "bin-interviews", name: "Interviews", type: "bin", treePath: "Other/Interviews",
+      }],
+    }, template);
+    expect(wrong.status).toBe("needs_attention");
+    expect(wrong.findings).toContainEqual(expect.objectContaining({
+      code: "REQUIRED_BIN_WRONG_PARENT",
+      certainty: "observed",
+    }));
+
+    const suffixMatched = buildProjectIntakeReport({
+      ...snapshot,
+      items: [...baseItems, {
+        id: "bin-interviews", name: "Interviews", type: "bin", treePath: "Show/Editorial/Interviews",
+      }],
+    }, template);
+    expect(suffixMatched.findings.some((finding) => finding.code.startsWith("REQUIRED_BIN_"))).toBe(false);
+  });
+
   it("bounds snapshots and rejects malformed evidence before evaluation", () => {
     expect(() => validateProjectIntakeSnapshot({
       project: { id: "project" }, items: [{ id: "one", name: "One", type: "clip" }, { id: "one", name: "Two", type: "clip" }],
@@ -174,5 +208,39 @@ describe("project intake engine", () => {
     expect(() => validateProjectIntakeSnapshot({
       project: { id: "project" }, items: [], truncated: "no", unavailableEvidence: [],
     })).toThrow("must be a boolean");
+    expect(() => validateProjectIntakeSnapshot({
+      project: { id: "project" }, items: [{ id: "one", name: "One", type: "asset" }],
+      truncated: false, unavailableEvidence: [],
+    })).toThrow("type must be clip, bin, sequence, or other");
+    expect(() => validateProjectIntakeSnapshot({
+      project: { id: "project" }, items: [{ id: "one", name: "One", type: "clip", frameRate: 0 }],
+      truncated: false, unavailableEvidence: [],
+    })).toThrow("finite frame rate");
+  });
+
+  it("rejects duplicate and out-of-contract facility rules", () => {
+    expect(() => validateFacilityIntakeTemplate({
+      ...template,
+      approvedPathPrefixes: [{ id: "storage", prefix: "D:/One" }, { id: "storage", prefix: "D:/Two" }],
+    })).toThrow("approvedPathPrefixes contains duplicate ids");
+    expect(() => validateFacilityIntakeTemplate({
+      ...template,
+      requiredEvidence: ["proxy", "proxy"],
+    })).toThrow("requiredEvidence contains duplicate entries");
+    expect(() => validateFacilityIntakeTemplate({
+      ...template,
+      requiredEvidence: ["duration"],
+    })).toThrow("must be extension, frame_rate, offline, proxy, or path");
+    expect(() => validateFacilityIntakeTemplate({
+      ...template,
+      organizationRules: [template.organizationRules[0], { ...template.organizationRules[0] }],
+    })).toThrow("organizationRules contains duplicate ids");
+    expect(() => validateFacilityIntakeTemplate({
+      ...template,
+      organizationRules: [{ ...template.organizationRules[0], colorIndex: 15 }],
+    })).toThrow("colorIndex must be an integer from 0 through 14");
+    expect(() => validateFacilityIntakeTemplate({ ...template, proxyPolicy: "generate" })).toThrow(
+      "proxyPolicy must be ignore, report_missing, or require",
+    );
   });
 });
