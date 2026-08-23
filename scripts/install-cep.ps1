@@ -7,6 +7,8 @@ $ErrorActionPreference = "Stop"
 $projectDir = Split-Path -Parent $PSScriptRoot
 $pluginSource = Join-Path $projectDir "cep-plugin"
 $signedPackage = Join-Path $projectDir "artifacts\MCPBridgeCEP.zxp"
+$packageMetadata = Get-Content -LiteralPath (Join-Path $projectDir "package.json") -Raw | ConvertFrom-Json
+$expectedVersion = [string]$packageMetadata.version
 $cepRoot = Join-Path $env:APPDATA "Adobe\CEP\extensions"
 $pluginDestination = Join-Path $cepRoot "MCPBridgeCEP"
 $resolvedCepRoot = [System.IO.Path]::GetFullPath($cepRoot).TrimEnd([System.IO.Path]::DirectorySeparatorChar)
@@ -27,13 +29,45 @@ if (-not (Test-Path -LiteralPath (Join-Path $pluginSource "CSXS\manifest.xml")))
   throw "CEP plugin manifest not found at $pluginSource"
 }
 
+$signedPackageMatchesRelease = $false
+if (Test-Path -LiteralPath $signedPackage) {
+  try {
+    Add-Type -AssemblyName System.IO.Compression.FileSystem
+    $archive = [System.IO.Compression.ZipFile]::OpenRead($signedPackage)
+    try {
+      $manifestEntry = $archive.Entries | Where-Object { $_.FullName -eq "CSXS/manifest.xml" } | Select-Object -First 1
+      if (-not $manifestEntry) {
+        throw "Signed package does not contain CSXS/manifest.xml"
+      }
+      $reader = [System.IO.StreamReader]::new($manifestEntry.Open())
+      try {
+        $signedManifest = $reader.ReadToEnd()
+      }
+      finally {
+        $reader.Dispose()
+      }
+    }
+    finally {
+      $archive.Dispose()
+    }
+
+    $signedPackageMatchesRelease = $signedManifest -match ('ExtensionBundleVersion="' + [regex]::Escape($expectedVersion) + '"')
+    if (-not $signedPackageMatchesRelease) {
+      Write-Warning "Ignoring artifacts\MCPBridgeCEP.zxp because its embedded connector version does not match package version $expectedVersion."
+    }
+  }
+  catch {
+    Write-Warning "Ignoring artifacts\MCPBridgeCEP.zxp because its embedded manifest could not be verified: $($_.Exception.Message)"
+  }
+}
+
 if (-not $Diagnose) {
   New-Item -ItemType Directory -Force -Path $cepRoot | Out-Null
 
   if (Test-Path -LiteralPath $pluginDestination) {
     Remove-Item -LiteralPath $resolvedDestination -Recurse -Force
   }
-  if (Test-Path -LiteralPath $signedPackage) {
+  if ($signedPackageMatchesRelease) {
     $temporaryZip = Join-Path ([System.IO.Path]::GetTempPath()) ("MCPBridgeCEP-" + [guid]::NewGuid().ToString("N") + ".zip")
     try {
       Copy-Item -LiteralPath $signedPackage -Destination $temporaryZip

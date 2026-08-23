@@ -30,6 +30,9 @@ describe("CEP installation metadata", () => {
     expect(readme).not.toContain("set these DWORD values");
     expect(installer).toContain('-PropertyType String -Value "1"');
     expect(installer).toContain("artifacts\\MCPBridgeCEP.zxp");
+    expect(installer).toContain('ExtensionBundleVersion="');
+    expect(installer).toContain("signedPackageMatchesRelease");
+    expect(installer).toContain("embedded connector version does not match package version");
     expect(installer).toContain("Signature verification failed");
   });
 
