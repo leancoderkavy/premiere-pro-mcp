@@ -11,6 +11,7 @@ Guide: Premiere Pro workflow automation: https://premiere-pro-mcp.com/blog/premi
 Guide: Adobe Premiere AI Assistant vs. MCP: https://premiere-pro-mcp.com/blog/adobe-premiere-ai-assistant-vs-mcp/
 Guide: Claude Desktop and Premiere Pro MCP setup: https://premiere-pro-mcp.com/blog/claude-desktop-premiere-pro-mcp-setup/
 Guide: Premiere Pro AI workflow checklist: https://premiere-pro-mcp.com/blog/premiere-pro-ai-workflow-checklist/
+Guide: Premiere Pro Project Intake checklist: https://premiere-pro-mcp.com/blog/premiere-pro-project-intake-checklist/
 Source: https://github.com/leancoderkavy/premiere-pro-mcp
 npm: https://www.npmjs.com/package/premiere-pro-mcp
 License: MIT
@@ -32,7 +33,7 @@ The recommended configuration is local. An MCP client starts the Node.js server 
 - UXP preview target: Premiere Pro 25.6 or newer.
 - AI clients: Claude Desktop, Cursor, Windsurf, and other clients that support local stdio MCP servers.
 
-Compatibility claims describe packaged support. A live Premiere connection must be verified with the `ping` tool. Some undocumented QE DOM operations vary by Premiere release; mutation tools verify resulting state and return diagnostics rather than relying only on a method return value.
+Compatibility claims describe packaged support. For a safe first-run check, use `verify_premiere_connection`: it verifies the server, selected bridge, active project, and active sequence without returning project names, paths, or media details. `ping` remains a connectivity diagnostic, but it does not replace the broader first-run check. Some undocumented QE DOM operations vary by Premiere release; mutation tools verify resulting state and return diagnostics rather than relying only on a method return value.
 
 ## Installation
 
@@ -40,7 +41,7 @@ Compatibility claims describe packaged support. A live Premiere connection must 
 2. Run `npm install -g premiere-pro-mcp`.
 3. Run `premiere-pro-mcp --install-cep`.
 4. Configure the MCP client to launch `premiere-pro-mcp` over stdio.
-5. Start Premiere Pro and call `ping` before editing.
+5. Start Premiere Pro with a project and active sequence, then run `verify_premiere_connection` before editing.
 
 ## Security model
 
