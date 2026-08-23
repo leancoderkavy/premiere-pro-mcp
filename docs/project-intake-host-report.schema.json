@@ -1,0 +1,93 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:premiere-pro-mcp:project-intake-host-report:v1",
+  "title": "Premiere Project Intake licensed-host evidence report",
+  "description": "A privacy-safe, reviewer-facing evidence index for the preview-only Project Intake workflow. The repository validator adds case-specific and redaction checks beyond this portable schema.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "sourceCommit", "host", "client", "fixture", "privacy", "cases"],
+  "properties": {
+    "schemaVersion": { "const": "project-intake-host-report/v1" },
+    "sourceCommit": { "type": "string", "pattern": "^[0-9a-fA-F]{40}$" },
+    "host": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["os", "premiereVersion", "premiereBuild", "connector"],
+      "properties": {
+        "os": { "enum": ["Windows", "macOS"] },
+        "premiereVersion": { "type": "string", "minLength": 1, "maxLength": 64 },
+        "premiereBuild": { "type": "string", "minLength": 1, "maxLength": 64 },
+        "connector": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["type", "buildHash"],
+          "properties": {
+            "type": { "const": "cep" },
+            "buildHash": { "type": "string", "pattern": "^[0-9a-fA-F]{7,64}$" }
+          }
+        }
+      }
+    },
+    "client": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "version"],
+      "properties": {
+        "name": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "version": { "type": "string", "minLength": 1, "maxLength": 128 }
+      }
+    },
+    "fixture": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["revision", "sha256"],
+      "properties": {
+        "revision": { "type": "string", "pattern": "^[a-zA-Z0-9][a-zA-Z0-9._-]{0,63}$" },
+        "sha256": { "type": "string", "pattern": "^[0-9a-fA-F]{64}$" }
+      }
+    },
+    "privacy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["containsOnlyGeneratedFixtureData", "localPathsRemoved", "mediaNamesRemoved", "promptsRemoved", "transcriptsRemoved", "credentialsRemoved"],
+      "properties": {
+        "containsOnlyGeneratedFixtureData": { "const": true },
+        "localPathsRemoved": { "const": true },
+        "mediaNamesRemoved": { "const": true },
+        "promptsRemoved": { "const": true },
+        "transcriptsRemoved": { "const": true },
+        "credentialsRemoved": { "const": true }
+      }
+    },
+    "cases": {
+      "type": "array",
+      "minItems": 3,
+      "maxItems": 3,
+      "items": { "$ref": "#/$defs/case" }
+    }
+  },
+  "$defs": {
+    "evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "reference", "sha256"],
+      "properties": {
+        "kind": { "type": "string", "minLength": 1, "maxLength": 64 },
+        "reference": { "type": "string", "pattern": "^evidence://[a-zA-Z0-9][a-zA-Z0-9._-]{0,127}$" },
+        "sha256": { "type": "string", "pattern": "^[0-9a-fA-F]{64}$" }
+      }
+    },
+    "case": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "status", "evidence"],
+      "properties": {
+        "id": { "enum": ["PIP-CONNECT-001", "PIP-PREVIEW-001", "PIP-NO-MUTATION-001"] },
+        "status": { "enum": ["passed", "failed", "unsupported", "not_run"] },
+        "executedAt": { "type": "string", "format": "date-time" },
+        "assertions": { "type": "object" },
+        "evidence": { "type": "array", "items": { "$ref": "#/$defs/evidence" } }
+      }
+    }
+  }
+}
