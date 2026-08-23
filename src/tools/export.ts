@@ -457,6 +457,62 @@ export function getExportTools(bridgeOptions: BridgeOptions) {
       },
     },
 
+    export_sequence_clip_review_frames: {
+      description:
+        "Export one file-verified composite frame at the midpoint of each clip on a chosen video track in one bridge request. Read-only in Premiere; it does not mute tracks or claim visual quality.",
+      parameters: {
+        type: "object" as const,
+        properties: {
+          output_dir: { type: "string", description: "Existing directory for clip_001.png and subsequent review frames" },
+          track_index: { type: "number", description: "Zero-based video track index (default: 0)" },
+          limit: { type: "number", description: "Maximum clips to sample (default: 20; maximum: 50)" },
+        },
+        required: ["output_dir"],
+      },
+      handler: async (args: { output_dir: string; track_index?: number; limit?: number }) => {
+        const trackIndex = args.track_index ?? 0;
+        const limit = args.limit ?? 20;
+        if (!Number.isInteger(trackIndex) || trackIndex < 0) {
+          return { success: false, error: "track_index must be a non-negative integer" };
+        }
+        if (!Number.isInteger(limit) || limit < 1 || limit > 50) {
+          return { success: false, error: "limit must be an integer from 1 through 50" };
+        }
+        if (typeof args.output_dir !== "string" || !args.output_dir.trim()) {
+          return { success: false, error: "output_dir must be a non-empty directory path" };
+        }
+        const script = buildToolScript(`
+          var seq = app.project.activeSequence;
+          if (!seq) return __error("No active sequence");
+          if (${trackIndex} >= seq.videoTracks.numTracks) return __error("Video track index is out of range");
+          var outputFolder = new Folder("${escapeForExtendScript(resolve(args.output_dir))}");
+          if (!outputFolder.exists) return __error("Output directory does not exist: " + outputFolder.fsName);
+          var track = seq.videoTracks[${trackIndex}];
+          var frames = [];
+          var failures = [];
+          var count = Math.min(track.clips.numItems, ${limit});
+          for (var i = 0; i < count; i++) {
+            var clip = track.clips[i];
+            var atSeconds = clip.start.seconds + ((clip.end.seconds - clip.start.seconds) / 2);
+            var number = String(i + 1);
+            while (number.length < 3) number = "0" + number;
+            var requestedPath = outputFolder.fsName + "/clip_" + number + ".png";
+            var result = __exportStillFrame(requestedPath, __secondsToTicks(atSeconds).toString());
+            if (result.ok) frames.push({ index: i, clipName: clip.name, nodeId: clip.nodeId, timeSeconds: atSeconds, outputPath: result.path, method: result.method });
+            else failures.push({ index: i, clipName: clip.name, timeSeconds: atSeconds, error: result.error, notes: result.notes });
+          }
+          if (!count) return __error("The selected video track contains no clips");
+          if (!frames.length) return __error("Premiere did not write any clip review frames");
+          return __result({
+            trackIndex: ${trackIndex}, requested: count, exported: frames.length,
+            complete: frames.length === count, frames: frames, failures: failures,
+            verificationScope: "Each returned path exists on disk. Frames show the finished composite at each selected clip midpoint; composition and editorial quality require human or vision review."
+          });
+        `);
+        return sendCommand(script, { ...bridgeOptions, timeoutMs: Math.max(60000, limit * 30000) });
+      },
+    },
+
     export_as_fcp_xml: {
       description: "Export the active sequence as a Final Cut Pro XML file",
       parameters: {
