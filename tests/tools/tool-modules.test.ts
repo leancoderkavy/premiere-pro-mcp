@@ -228,7 +228,7 @@ describe("Tool Handler Behavior", () => {
   });
 
   describe("health.verify_premiere_connection", () => {
-    it("uses a read-only boolean check and emits bounded activation events", async () => {
+    it("uses a read-only boolean check and emits activation only after readiness is confirmed", async () => {
       const events: Array<{ event: string; properties?: TelemetryProperties }> = [];
       const telemetry: Telemetry = {
         enabled: true,
@@ -254,15 +254,30 @@ describe("Tool Handler Behavior", () => {
       expect(script).not.toContain("project.path");
       expect(events).toEqual([
         expect.objectContaining({
-          event: "premiere_mcp_activation_check_started",
-          properties: { activation_stage: "first_run", backend: "cep" },
-        }),
-        expect.objectContaining({
-          event: "premiere_mcp_activation_check_finished",
-          properties: { activation_stage: "first_run", backend: "cep", outcome: "ready" },
+          event: "premiere_mcp_activation_completed",
+          properties: { activation_stage: "verified_connection", backend: "cep" },
         }),
       ]);
       expect(JSON.stringify(events)).not.toMatch(/prompt|path|token|project|media|argument|result|profile/i);
+    });
+
+    it("does not record activation when the read-only check is incomplete", async () => {
+      const events: Array<{ event: string; properties?: TelemetryProperties }> = [];
+      const telemetry: Telemetry = {
+        enabled: true,
+        capture: (event, properties) => events.push({ event, properties }),
+        shutdown: async () => {},
+      };
+      mockedSendCommand.mockResolvedValue({
+        success: true,
+        data: { projectOpen: true, sequenceOpen: false },
+      });
+
+      const tools = getHealthTools(bridgeOptions, undefined, undefined, { telemetry });
+      const result = await (tools.verify_premiere_connection.handler as any)({});
+
+      expect(result).toMatchObject({ success: true, data: { overall: "needs_attention" } });
+      expect(events).toEqual([]);
     });
 
     it("does not fall back from an unavailable UXP check to CEP", async () => {

@@ -80,13 +80,11 @@ describe("telemetry", () => {
   it("emits only the bounded activation properties", async () => {
     const { captureActivationEvent } = await import("../src/telemetry.js");
     const telemetry = { enabled: true, capture: vi.fn(), shutdown: vi.fn(async () => {}) };
-    captureActivationEvent(telemetry, "premiere_mcp_activation_check_started", { backend: "uxp" });
-    captureActivationEvent(telemetry, "premiere_mcp_activation_check_finished", { backend: "cep", outcome: "ready" });
-    expect(telemetry.capture).toHaveBeenNthCalledWith(1, "premiere_mcp_activation_check_started", {
-      activation_stage: "first_run", backend: "uxp",
+    captureActivationEvent(telemetry, { backend: "uxp" });
+    expect(telemetry.capture).toHaveBeenCalledOnce();
+    expect(telemetry.capture).toHaveBeenCalledWith("premiere_mcp_activation_completed", {
+      activation_stage: "verified_connection", backend: "uxp",
     });
-    expect(telemetry.capture).toHaveBeenNthCalledWith(2, "premiere_mcp_activation_check_finished", {
-      activation_stage: "first_run", backend: "cep", outcome: "ready",
-    });
+    expect(JSON.stringify(telemetry.capture.mock.calls)).not.toMatch(/prompt|path|token|project|media|argument|result|profile/i);
   });
 });
