@@ -11,7 +11,7 @@ Guide: Premiere Pro workflow automation: https://premiere-pro-mcp.com/blog/premi
 Source: https://github.com/leancoderkavy/premiere-pro-mcp
 npm: https://www.npmjs.com/package/premiere-pro-mcp
 License: MIT
-Current release: 1.12.1
+Current release: 1.12.2
 
 ## What it does
 
