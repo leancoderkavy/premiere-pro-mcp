@@ -59,6 +59,13 @@ jobs:
           }
           if ('${{ inputs.require_production_signing }}' -eq 'true') { $params.RequireSigning = $true }
           ./scripts/build-connector-installer.ps1 @params
+      - name: Verify embedded connector package without installing it
+        shell: pwsh
+        run: |
+          $installer = Get-ChildItem "artifacts/connector-installers/*.exe" | Select-Object -First 1
+          if (-not $installer) { throw "Windows connector installer artifact was not produced." }
+          & $installer.FullName --verify-only
+          if ($LASTEXITCODE -ne 0) { throw "Windows connector installer verification failed." }
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: connector-installer-windows

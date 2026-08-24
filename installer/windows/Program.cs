@@ -13,6 +13,22 @@ internal static class Program
     [STAThread]
     private static int Main(string[] args)
     {
+        bool verifyOnly = args.Contains("--verify-only", StringComparer.OrdinalIgnoreCase);
+        if (verifyOnly)
+        {
+            try
+            {
+                VerifyEmbeddedPackage();
+                Console.WriteLine("Embedded connector package verified without installation.");
+                return 0;
+            }
+            catch (Exception error)
+            {
+                Console.Error.WriteLine("Embedded connector package verification failed: " + error.Message);
+                return 1;
+            }
+        }
+
         ApplicationConfiguration.Initialize();
 
         bool quiet = args.Contains("--quiet", StringComparer.OrdinalIgnoreCase);
@@ -132,6 +148,38 @@ internal static class Program
             Directory.CreateDirectory(Path.GetDirectoryName(target)!);
             entry.ExtractToFile(target, true);
         }
+    }
+
+    // This is deliberately read-only: CI can execute the shipped single-file installer
+    // and prove its embedded connector is structurally safe without touching the CEP
+    // directory, registry, Premiere process state, or any project data.
+    private static void VerifyEmbeddedPackage()
+    {
+        using Stream package = Assembly.GetExecutingAssembly().GetManifestResourceStream(ResourceName)
+            ?? throw new InvalidOperationException("The verified connector package is not embedded in this installer.");
+        using var archive = new ZipArchive(package, ZipArchiveMode.Read);
+        string validationRoot = Path.GetFullPath(Path.Combine(Path.GetTempPath(), "premiere-connector-validate"))
+            .TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar;
+        ZipArchiveEntry? manifest = null;
+
+        foreach (ZipArchiveEntry entry in archive.Entries)
+        {
+            string target = Path.GetFullPath(Path.Combine(
+                validationRoot,
+                entry.FullName.Replace('/', Path.DirectorySeparatorChar)));
+            if (!target.StartsWith(validationRoot, StringComparison.OrdinalIgnoreCase))
+                throw new InvalidDataException("The connector package contains an unsafe path.");
+
+            if (string.Equals(entry.FullName, "CSXS/manifest.xml", StringComparison.Ordinal))
+                manifest = entry;
+        }
+
+        if (manifest is null) throw new InvalidDataException("The connector package is missing CSXS/manifest.xml.");
+        using var reader = new StreamReader(manifest.Open());
+        string manifestText = reader.ReadToEnd();
+        if (!manifestText.Contains("<ExtensionManifest", StringComparison.Ordinal) ||
+            !manifestText.Contains("ExtensionBundleId=\"com.mcp.premiere.bridge\"", StringComparison.Ordinal))
+            throw new InvalidDataException("The connector package has an invalid CSXS/manifest.xml.");
     }
 
     private static void RemoveConnector()

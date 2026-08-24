@@ -21,6 +21,17 @@ describe("native connector installers", () => {
     expect(source).toContain("manifest.xml");
   });
 
+  it("verifies the shipped Windows installer payload without installing it", () => {
+    const source = read("installer/windows/Program.cs");
+    const workflow = read(".github/workflows/connector-installers.yml");
+    expect(source).toContain('"--verify-only"');
+    expect(source).toContain("VerifyEmbeddedPackage");
+    expect(source).toContain("premiere-connector-validate");
+    expect(source).toContain("GetManifestResourceStream");
+    expect(workflow).toContain("--verify-only");
+    expect(workflow).toContain("without installing it");
+  });
+
   it("makes production signing an explicit fail-closed gate", () => {
     const windows = read("scripts/build-connector-installer.ps1");
     const macos = read("scripts/build-connector-installer.sh");
