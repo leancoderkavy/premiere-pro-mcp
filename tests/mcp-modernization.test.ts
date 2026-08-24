@@ -99,6 +99,13 @@ describe("modern MCP surface", () => {
 
       const resources = await client.listResources();
       expect(resources.resources.map((resource) => resource.uri)).toContain("config://premiere-workflows");
+      expect(resources.resources.map((resource) => resource.uri)).toEqual(expect.arrayContaining([
+        "premiere://effects/available",
+        "premiere://effects/applied",
+        "premiere://transitions/available",
+        "premiere://export/presets",
+        "premiere://project/metadata",
+      ]));
       expect(resources.resources.map((resource) => resource.uri)).toContain("config://premiere-project-context");
       expect(resources.resources.map((resource) => resource.uri)).toEqual(expect.arrayContaining([
         "premiere://project/info",

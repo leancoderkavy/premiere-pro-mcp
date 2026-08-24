@@ -560,7 +560,7 @@ export function createServer(
 
   const toolCount = Object.keys(toolModules).length;
   debugLog(
-    `Registered ${toolCount} tools + 9 resources + ${WORKFLOW_PROMPTS.length} prompts`,
+    `Registered ${toolCount} tools + 14 resources + ${WORKFLOW_PROMPTS.length} prompts`,
   );
 
   return server;
