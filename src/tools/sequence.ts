@@ -253,18 +253,59 @@ export function getSequenceTools(bridgeOptions: BridgeOptions) {
             type: "number",
             description: "Target frame height in pixels",
           },
+          motion_preset: {
+            type: "string",
+            enum: ["slower", "default", "faster"],
+            description: "Premiere Auto Reframe motion preset (default: default)",
+          },
+          new_name: {
+            type: "string",
+            description: "Name for the newly created auto-reframed sequence",
+          },
+          use_nested_sequences: {
+            type: "boolean",
+            description: "Whether Auto Reframe should honor nested sequences (default: false)",
+          },
         },
         required: ["target_width", "target_height"],
       },
-      handler: async (args: { sequence_id?: string; target_width: number; target_height: number }) => {
+      handler: async (args: {
+        sequence_id?: string;
+        target_width: number;
+        target_height: number;
+        motion_preset?: "slower" | "default" | "faster";
+        new_name?: string;
+        use_nested_sequences?: boolean;
+      }) => {
+        if (!Number.isInteger(args.target_width) || !Number.isInteger(args.target_height)
+          || args.target_width < 1 || args.target_height < 1) {
+          return { success: false, error: "target_width and target_height must be positive integers" };
+        }
+        let a = args.target_width;
+        let b = args.target_height;
+        while (b !== 0) [a, b] = [b, a % b];
+        const numerator = args.target_width / a;
+        const denominator = args.target_height / a;
+        const motionPreset = args.motion_preset ?? "default";
+        const requestedName = args.new_name?.trim();
         const seqLookup = args.sequence_id
           ? `var seq = __findSequence("${escapeForExtendScript(args.sequence_id)}"); if (!seq) return __error("Sequence not found");`
           : `var seq = app.project.activeSequence; if (!seq) return __error("No active sequence");`;
 
         const script = buildToolScript(`
           ${seqLookup}
-          seq.autoReframeSequence(${args.target_width}, ${args.target_height}, false);
-          return __result({ reframed: true, name: seq.name, targetSize: "${args.target_width}x${args.target_height}" });
+          var newName = "${escapeForExtendScript(requestedName || "")}" || (seq.name + " - Auto Reframe ${numerator}x${denominator}");
+          var reframed = seq.autoReframeSequence(${numerator}, ${denominator}, "${motionPreset}", newName, ${args.use_nested_sequences === true});
+          if (!reframed) return __error("Premiere did not create an auto-reframed sequence");
+          return __result({
+            reframed: true,
+            sourceName: seq.name,
+            name: reframed.name,
+            id: reframed.sequenceID,
+            requestedAspectRatio: "${numerator}:${denominator}",
+            observedWidth: reframed.frameSizeHorizontal,
+            observedHeight: reframed.frameSizeVertical
+          });
         `);
         return sendCommand(script, bridgeOptions);
       },

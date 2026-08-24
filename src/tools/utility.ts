@@ -87,8 +87,28 @@ export function getUtilityTools(bridgeOptions: BridgeOptions) {
           if (!item) return __error("Item not found");
 
           var oldName = item.name;
+          var sequence = null;
+          try {
+            if (item.isSequence && item.isSequence()) {
+              for (var i = 0; i < app.project.sequences.numSequences; i++) {
+                var candidate = app.project.sequences[i];
+                if (candidate.projectItem && candidate.projectItem.nodeId === item.nodeId) {
+                  sequence = candidate;
+                  break;
+                }
+              }
+              if (!sequence) return __error("The sequence project item could not be matched to a live sequence; no rename was attempted");
+            }
+          } catch (e) {
+            return __error("Could not inspect the project item before rename: " + e.toString());
+          }
           item.name = "${escapeForExtendScript(args.new_name)}";
-          return __result({ oldName: oldName, newName: item.name });
+          if (sequence) sequence.name = "${escapeForExtendScript(args.new_name)}";
+          if (item.name !== "${escapeForExtendScript(args.new_name)}" ||
+              (sequence && sequence.name !== "${escapeForExtendScript(args.new_name)}")) {
+            return __error("Premiere did not apply the requested name to every sequence representation");
+          }
+          return __result({ oldName: oldName, newName: item.name, sequenceVerified: sequence ? true : undefined });
         `);
         return sendCommand(script, bridgeOptions);
       },

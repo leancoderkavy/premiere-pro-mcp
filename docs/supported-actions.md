@@ -58,7 +58,7 @@ operation” when the tool has no enum-based mode.
 | `apply_lut` | Default profile | Single operation | Apply a LUT file to a clip via Lumetri Color |
 | `apply_spot_workflow_plan` | Default profile | Single operation | Apply one exact previewed motion-demo, product-spot, or brand-spot plan. Requires edit authority, requires filesystem authority for a MOGRT, and only targets empty explicitly named tracks. Host readback is not playback or render verification. |
 | `attach_custom_property` | Default profile | Single operation | Attach a custom property (key/value pair) to the active sequence |
-| `auto_reframe_sequence` | Default profile | Single operation | Auto-reframe a sequence for a different aspect ratio |
+| `auto_reframe_sequence` | Default profile | `motion_preset`: `slower`, `default`, `faster` | Auto-reframe a sequence for a different aspect ratio |
 | `batch_add_transitions` | Default profile | Single operation | Add the same transition to all cut points on a track |
 | `batch_apply_effect` | Default profile | `target`: `selected`, `track`, `all`; `track_type`: `video`, `audio` | Apply an effect to multiple clips at once. Can target selected clips, all clips on a track, or all clips in the sequence. |
 | `batch_enable_disable` | Default profile | `target`: `selected`, `track`, `all`; `track_type`: `video`, `audio` | Enable or disable multiple clips at once (selected, track, or all). |

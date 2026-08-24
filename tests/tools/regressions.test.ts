@@ -21,6 +21,8 @@ import { getAdvancedTools } from "../../src/tools/advanced.js";
 import { getTextTools } from "../../src/tools/text.js";
 import { getKeyframeTools } from "../../src/tools/keyframes.js";
 import { getCaptionTools } from "../../src/tools/captions.js";
+import { getSequenceTools } from "../../src/tools/sequence.js";
+import { getPlayheadTools } from "../../src/tools/playhead.js";
 
 const mockedSendCommand = vi.mocked(sendCommand);
 const bridgeOptions: BridgeOptions = { tempDir: "/tmp/test-bridge", timeoutMs: 5000 };
@@ -44,6 +46,44 @@ async function codeFor(tool: { handler: (args: never) => Promise<unknown> }, arg
 }
 
 beforeEach(() => vi.clearAllMocks());
+
+describe("real-host social sequence regressions", () => {
+  const sequence = getSequenceTools(bridgeOptions);
+  const playhead = getPlayheadTools(bridgeOptions);
+  const utility = getUtilityTools(bridgeOptions);
+
+  it("calls Auto Reframe with its required five arguments and reports the derivative", async () => {
+    const script = await scriptFor(sequence.auto_reframe_sequence, {
+      sequence_id: "source-1",
+      target_width: 1080,
+      target_height: 1920,
+      motion_preset: "faster",
+      new_name: "TikTok Test",
+    });
+    expect(script).toContain('seq.autoReframeSequence(9, 16, "faster", newName, false)');
+    expect(script).toContain("if (!reframed) return __error");
+    expect(script).toContain("id: reframed.sequenceID");
+  });
+
+  it("sets and reads sequence in/out points in seconds with verification", async () => {
+    const setScript = await scriptFor(playhead.set_sequence_in_out_points, { in_seconds: 0, out_seconds: 60 });
+    expect(setScript).toContain("seq.setInPoint(0)");
+    expect(setScript).toContain("seq.setOutPoint(60)");
+    expect(setScript).not.toContain("__secondsToTicks(60)");
+    expect(setScript).toContain("Math.abs(observedOut - 60)");
+
+    const getScript = await scriptFor(playhead.get_sequence_in_out_points, {});
+    expect(getScript).toContain("outSeconds: Number(seq.getOutPoint())");
+    expect(getScript).not.toContain("__ticksToSeconds(seq.getOutPoint())");
+  });
+
+  it("matches a sequence through projectItem.nodeId and verifies both names", async () => {
+    const script = await scriptFor(utility.rename_project_item, { item_id: "item-1", new_name: "Instagram Test" });
+    expect(script).toContain("candidate.projectItem.nodeId === item.nodeId");
+    expect(script).toContain('sequence.name = "Instagram Test"');
+    expect(script).toContain("sequence && sequence.name !==");
+  });
+});
 
 // https://github.com/leancoderkavy/premiere-pro-mcp/issues/6
 describe("issue #6 — markers must use seconds, not ticks", () => {
