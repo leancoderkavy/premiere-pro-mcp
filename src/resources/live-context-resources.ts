@@ -26,12 +26,39 @@ const MAX_SEQUENCES = 50;
 const MAX_PROJECT_ITEMS = 100;
 const MAX_TIMELINE_CLIPS = 128;
 const MAX_MARKERS = 128;
+const MAX_CATALOG_ITEMS = 200;
+const MAX_APPLIED_EFFECTS = 200;
+
+const PRIVATE_PATH_KEYS = new Set([
+  "fsname",
+  "fullname",
+  "absoluteuri",
+]);
 
 function snapshotRevision(payload: unknown): string {
   return createHash("sha256")
     .update(JSON.stringify(payload))
     .digest("hex")
     .slice(0, 20);
+}
+
+/**
+ * Resources are attachable context and can be sent to an MCP client without a
+ * second confirmation step. Drop path-bearing fields at the response boundary
+ * as defense in depth, even when a host build returns an unexpected field.
+ */
+function redactPathFields(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(redactPathFields);
+  if (!value || typeof value !== "object") return value;
+
+  return Object.fromEntries(
+    Object.entries(value as Record<string, unknown>)
+      .filter(([key]) => {
+        const normalized = key.toLowerCase().replace(/[_-]/g, "");
+        return !normalized.includes("path") && !PRIVATE_PATH_KEYS.has(normalized);
+      })
+      .map(([key, nested]) => [key, redactPathFields(nested)]),
+  );
 }
 
 function resourceResult(uri: URL, resource: string, result: CommandResult) {
@@ -41,7 +68,7 @@ function resourceResult(uri: URL, resource: string, result: CommandResult) {
         resource,
         resourceSchemaVersion: 1,
         backend: "cep",
-        data: result.data ?? null,
+        data: redactPathFields(result.data ?? null),
       }
     : {
         ok: false,
@@ -282,6 +309,198 @@ export function getLiveContextResources(
     bridgeOptions,
   );
 
+  const availableEffects = createReader(
+    `
+      app.enableQE();
+      var rows = [];
+      var videoStatus = { available: false, count: 0, error: null };
+      var audioStatus = { available: false, count: 0, error: null };
+      function collect(catalog, type, status) {
+        if (!catalog.ok) { status.error = catalog.error || "Effect catalog unavailable"; return; }
+        status.available = true;
+        for (var i = 0; i < catalog.effects.numItems && rows.length < ${MAX_CATALOG_ITEMS}; i++) {
+          var effect = catalog.effects[i];
+          rows.push({ name: String(effect.name || ""), type: type, source: "qe" });
+          status.count++;
+        }
+      }
+      var videoCatalog = __getQeEffectCatalog("video");
+      collect(videoCatalog, "video", videoStatus);
+      var audioCatalog = __getQeEffectCatalog("audio");
+      collect(audioCatalog, "audio", audioStatus);
+      if (!videoStatus.available && !audioStatus.available) {
+        return __error("Premiere did not expose a readable video or audio effect catalog");
+      }
+      return __result({
+        effects: rows,
+        returnedCount: rows.length,
+        truncated: rows.length >= ${MAX_CATALOG_ITEMS},
+        maximumEffects: ${MAX_CATALOG_ITEMS},
+        catalogs: { video: videoStatus, audio: audioStatus },
+        privacy: { nativePaths: "not returned", use: "planning only; resolve exact effects through a tool before editing" }
+      });
+    `,
+    bridgeOptions,
+  );
+
+  const appliedEffects = createReader(
+    `
+      var project = app.project;
+      if (!project) return __error("No project is open");
+      var sequence = project.activeSequence;
+      if (!sequence) return __result({ activeSequence: null, appliedEffects: [], returnedCount: 0, truncated: false, maximumAppliedEffects: ${MAX_APPLIED_EFFECTS} });
+      var rows = [];
+      var scannedClips = 0;
+      var truncated = false;
+      function collect(trackCollection, type) {
+        for (var t = 0; t < trackCollection.numTracks && !truncated; t++) {
+          var track = trackCollection[t];
+          for (var c = 0; c < track.clips.numItems && !truncated; c++) {
+            var clip = track.clips[c];
+            scannedClips++;
+            for (var p = 0; p < clip.components.numItems; p++) {
+              if (rows.length >= ${MAX_APPLIED_EFFECTS}) { truncated = true; break; }
+              var component = clip.components[p];
+              var enabled = null;
+              try { enabled = component.isEnabled ? !!component.isEnabled() : null; } catch (enabledError) {}
+              rows.push({
+                clipId: String(clip.nodeId),
+                clipName: String(clip.name || ""),
+                trackType: type,
+                trackIndex: t,
+                componentIndex: p,
+                name: String(component.displayName || ""),
+                matchName: String(component.matchName || ""),
+                enabled: enabled
+              });
+            }
+          }
+        }
+      }
+      collect(sequence.videoTracks, "video");
+      if (!truncated) collect(sequence.audioTracks, "audio");
+      return __result({
+        activeSequence: { id: String(sequence.sequenceID), name: String(sequence.name || "") },
+        appliedEffects: rows,
+        returnedCount: rows.length,
+        scannedClips: scannedClips,
+        truncated: truncated,
+        maximumAppliedEffects: ${MAX_APPLIED_EFFECTS},
+        privacy: { nativePaths: "not returned" }
+      });
+    `,
+    bridgeOptions,
+  );
+
+  const availableTransitions = createReader(
+    `
+      app.enableQE();
+      var rows = [];
+      var videoStatus = { available: false, source: null, error: null };
+      var audioStatus = { available: false, source: null, error: null };
+      try {
+        var video = qe.project.getVideoTransitionList();
+        for (var i = 0; i < video.numItems && rows.length < ${MAX_CATALOG_ITEMS}; i++) {
+          rows.push({ name: String(video[i].name || ""), type: "video", source: "qe-list" });
+        }
+        if (video.numItems > 0) { videoStatus.available = true; videoStatus.source = "qe-list"; }
+      } catch (videoError) { videoStatus.error = String(videoError); }
+      if (!videoStatus.available && qe.project.getVideoTransitionByName) {
+        var fallbackNames = ["Cross Dissolve", "Dip to Black", "Dip to White", "Film Dissolve", "Additive Dissolve", "Morph Cut", "Push", "Slide", "Wipe", "Iris Round", "Iris Box"];
+        for (var f = 0; f < fallbackNames.length && rows.length < ${MAX_CATALOG_ITEMS}; f++) {
+          try {
+            if (qe.project.getVideoTransitionByName(fallbackNames[f])) {
+              rows.push({ name: fallbackNames[f], type: "video", source: "by-name-probe" });
+              videoStatus.available = true;
+              videoStatus.source = "by-name-probe";
+            }
+          } catch (probeError) {}
+        }
+      }
+      try {
+        var audio = qe.project.getAudioTransitionList();
+        for (var j = 0; j < audio.numItems && rows.length < ${MAX_CATALOG_ITEMS}; j++) {
+          rows.push({ name: String(audio[j].name || ""), type: "audio", source: "qe-list" });
+        }
+        if (audio.numItems > 0) { audioStatus.available = true; audioStatus.source = "qe-list"; }
+      } catch (audioError) { audioStatus.error = String(audioError); }
+      if (!videoStatus.available && !audioStatus.available) {
+        return __error("Premiere did not expose a readable video or audio transition catalog");
+      }
+      return __result({
+        transitions: rows,
+        returnedCount: rows.length,
+        truncated: rows.length >= ${MAX_CATALOG_ITEMS},
+        maximumTransitions: ${MAX_CATALOG_ITEMS},
+        catalogs: { video: videoStatus, audio: audioStatus },
+        privacy: { nativePaths: "not returned", use: "planning only; verify the target host before applying a transition" }
+      });
+    `,
+    bridgeOptions,
+  );
+
+  const exportPresets = createReader(
+    `
+      var presets = __collectAllPresets();
+      if (!presets.length) return __error("No Adobe Media Encoder presets were found");
+      var rows = [];
+      for (var i = 0; i < presets.length && i < ${MAX_CATALOG_ITEMS}; i++) {
+        rows.push({ name: String(presets[i].name || ""), format: String(presets[i].format || "") });
+      }
+      return __result({
+        presets: rows,
+        returnedCount: rows.length,
+        totalCount: presets.length,
+        truncated: presets.length > rows.length,
+        maximumPresets: ${MAX_CATALOG_ITEMS},
+        privacy: { nativePaths: "not returned", nextStep: "Use get_encoder_presets only when an operator approves revealing a preset path for export." }
+      });
+    `,
+    bridgeOptions,
+  );
+
+  const projectMetadata = createReader(
+    `
+      var project = app.project;
+      if (!project) return __error("No project is open");
+      var sequence = project.activeSequence;
+      var summary = { trackCount: 0, clipCount: 0, transitionCount: 0 };
+      if (sequence) {
+        function countTracks(trackCollection) {
+          for (var t = 0; t < trackCollection.numTracks; t++) {
+            var track = trackCollection[t];
+            summary.trackCount++;
+            summary.clipCount += track.clips.numItems;
+            try { summary.transitionCount += track.transitions.numItems; } catch (transitionError) {}
+          }
+        }
+        countTracks(sequence.videoTracks);
+        countTracks(sequence.audioTracks);
+      }
+      return __result({
+        project: {
+          name: String(project.name || ""),
+          documentId: project.documentID ? String(project.documentID) : null,
+          isDirty: project.dirty === true,
+          sequenceCount: project.sequences.numSequences,
+          rootItemCount: project.rootItem && project.rootItem.children ? project.rootItem.children.numItems : 0
+        },
+        activeSequence: sequence ? {
+          id: String(sequence.sequenceID),
+          name: String(sequence.name || ""),
+          width: sequence.frameSizeHorizontal,
+          height: sequence.frameSizeVertical,
+          videoTrackCount: sequence.videoTracks.numTracks,
+          audioTrackCount: sequence.audioTracks.numTracks,
+          durationSeconds: __ticksToSeconds(sequence.end.ticks)
+        } : null,
+        activeTimelineSummary: summary,
+        privacy: { nativePaths: "not returned", timestamps: "not returned" }
+      });
+    `,
+    bridgeOptions,
+  );
+
   return [
     {
       name: "premiere-live-project-info",
@@ -312,6 +531,36 @@ export function getLiveContextResources(
       uri: "premiere://timeline/active",
       description: "Bounded, read-only active-timeline tracks, clips, and markers snapshot.",
       read: (uri) => activeTimeline(uri, "premiere://timeline/active"),
+    },
+    {
+      name: "premiere-available-effects",
+      uri: "premiere://effects/available",
+      description: "Bounded, read-only effect catalog for planning; no file paths or mutations.",
+      read: (uri) => availableEffects(uri, "premiere://effects/available"),
+    },
+    {
+      name: "premiere-applied-effects",
+      uri: "premiere://effects/applied",
+      description: "Bounded, read-only component inventory for the active timeline; no file paths.",
+      read: (uri) => appliedEffects(uri, "premiere://effects/applied"),
+    },
+    {
+      name: "premiere-available-transitions",
+      uri: "premiere://transitions/available",
+      description: "Bounded, read-only transition catalog for planning; no file paths or mutations.",
+      read: (uri) => availableTransitions(uri, "premiere://transitions/available"),
+    },
+    {
+      name: "premiere-export-presets",
+      uri: "premiere://export/presets",
+      description: "Bounded, read-only export-preset names and formats with native paths withheld.",
+      read: (uri) => exportPresets(uri, "premiere://export/presets"),
+    },
+    {
+      name: "premiere-project-metadata",
+      uri: "premiere://project/metadata",
+      description: "Read-only project and active-timeline metadata summary with paths and timestamps withheld.",
+      read: (uri) => projectMetadata(uri, "premiere://project/metadata"),
     },
   ];
 }

@@ -13,7 +13,7 @@ describe("live context resources", () => {
     sendCommand.mockReset();
   });
 
-  it("defines five bounded, read-only resource endpoints", () => {
+  it("defines ten bounded, read-only resource endpoints", () => {
     const resources = getLiveContextResources({ timeoutMs: 10 });
 
     expect(resources.map((resource) => resource.uri)).toEqual([
@@ -22,8 +22,16 @@ describe("live context resources", () => {
       "premiere://project/media",
       "premiere://project/bins",
       "premiere://timeline/active",
+      "premiere://effects/available",
+      "premiere://effects/applied",
+      "premiere://transitions/available",
+      "premiere://export/presets",
+      "premiere://project/metadata",
     ]);
-    expect(resources.every((resource) => resource.description.includes("read-only") || resource.description.includes("path-redacted"))).toBe(true);
+    expect(resources.every((resource) => {
+      const description = resource.description.toLowerCase();
+      return description.includes("read-only") || description.includes("path-redacted");
+    })).toBe(true);
   });
 
   it("returns a revisioned, path-safe JSON snapshot", async () => {
@@ -58,5 +66,27 @@ describe("live context resources", () => {
       error: "CEP bridge offline",
     });
     expect(snapshot).not.toHaveProperty("data");
+  });
+
+  it("redacts unexpected path fields at the attachable-resource boundary", async () => {
+    sendCommand.mockResolvedValueOnce({
+      success: true,
+      data: {
+        presets: [{ name: "Match Source", path: "C:/Users/editor/private.epr" }],
+        projectPath: "C:/Projects/private.prproj",
+        nested: { tree_path: "Root/Private", fsName: "/tmp/private" },
+      },
+    });
+    const resource = getLiveContextResources({ timeoutMs: 10 }).find(
+      (candidate) => candidate.uri === "premiere://export/presets",
+    );
+    const output = await resource!.read(new URL(resource!.uri));
+    const snapshot = JSON.parse(output.contents[0].text);
+
+    expect(snapshot.data).toEqual({
+      presets: [{ name: "Match Source" }],
+      nested: {},
+    });
+    expect(output.contents[0].text).not.toContain("C:/");
   });
 });

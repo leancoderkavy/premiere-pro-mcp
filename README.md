@@ -6,7 +6,7 @@
 
 **Give compatible AI assistants structured control over supported Adobe Premiere Pro workflows.**
 
-313 core tools across 36 modules, 9 resources, and 11 guided workflows. A connected UXP host adds 50 capability-gated tools.
+313 core tools across 36 modules, 14 resources, and 11 guided workflows. A connected UXP host adds 50 capability-gated tools.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Node.js](https://img.shields.io/badge/Node.js-20.19%2B-green.svg)](https://nodejs.org)
@@ -731,7 +731,7 @@ Track targeting, batch operations, markers, audio levels, motion/transform, meta
 
 ## MCP Resources
 
-The server exposes nine LLM context resources and eleven workflow prompts:
+The server exposes fourteen LLM context resources and eleven workflow prompts:
 
 | Resource URI | Description |
 | :----------- | :---------- |
@@ -744,11 +744,16 @@ The server exposes nine LLM context resources and eleven workflow prompts:
 | `premiere://project/media` | Bounded, path-redacted project-media inventory |
 | `premiere://project/bins` | Bounded, path-redacted project-bin inventory |
 | `premiere://timeline/active` | Bounded active-timeline tracks, clips, and markers snapshot |
+| `premiere://effects/available` | Bounded video/audio effect catalog for planning |
+| `premiere://effects/applied` | Bounded active-timeline component inventory |
+| `premiere://transitions/available` | Bounded video/audio transition catalog for planning |
+| `premiere://export/presets` | Bounded export-preset names and formats, without native paths |
+| `premiere://project/metadata` | Read-only project and active-timeline summary, without paths or timestamps |
 
-The five `premiere://` snapshots are read-only CEP bridge requests. They include a
-revision token for stale-state detection and never return native media or project-tree
-paths. A successful snapshot proves bridge readback only—not licensed-host feature
-coverage, playback, rendering, or editorial correctness.
+The ten `premiere://` snapshots are read-only CEP bridge requests. They include a
+revision token for stale-state detection and omit native media, project-tree, preset,
+and output paths. A successful snapshot proves bridge readback only—not licensed-host
+feature coverage, playback, rendering, or editorial correctness.
 
 ---
 

@@ -107,6 +107,11 @@ describe("createServer", () => {
         "premiere://project/media",
         "premiere://project/bins",
         "premiere://timeline/active",
+        "premiere://effects/available",
+        "premiere://effects/applied",
+        "premiere://transitions/available",
+        "premiere://export/presets",
+        "premiere://project/metadata",
       ]));
 
       const read = await client.readResource({ uri: "premiere://project/info" });
