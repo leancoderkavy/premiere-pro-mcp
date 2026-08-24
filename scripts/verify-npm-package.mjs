@@ -7,13 +7,11 @@ import { dirname, join, resolve } from "node:path";
 import { tmpdir } from "node:os";
 
 const root = process.cwd();
-const npmCli = join(
-  dirname(process.execPath),
-  "node_modules",
-  "npm",
-  "bin",
-  "npm-cli.js",
-);
+const npmCli = [
+  process.env.npm_execpath,
+  join(dirname(process.execPath), "node_modules", "npm", "bin", "npm-cli.js"),
+  join(dirname(dirname(process.execPath)), "lib", "node_modules", "npm", "bin", "npm-cli.js"),
+].find((candidate) => candidate && existsSync(candidate));
 const requiredFiles = [
   "package/package.json",
   "package/dist/index.js",
@@ -59,7 +57,7 @@ function run(command, args, options = {}) {
 }
 
 function runNpm(args, options = {}) {
-  if (!existsSync(npmCli)) {
+  if (!npmCli) {
     throw new Error("The bundled npm CLI is unavailable for package verification");
   }
   return run(process.execPath, [npmCli, ...args], options);

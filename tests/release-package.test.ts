@@ -16,6 +16,8 @@ describe("npm release package verification", () => {
     expect(verifier).toContain('"package/uxp-plugin/manifest.json"');
     expect(verifier).toContain('"--ignore-scripts"');
     expect(verifier).toContain('installedCli, "--help"');
+    expect(verifier).toContain("process.env.npm_execpath");
+    expect(verifier).toContain('"lib", "node_modules", "npm"');
   });
 
   it("requires provenance and package verification in every npm publish path", () => {
