@@ -136,6 +136,21 @@ function writeFile(filePath, content) {
   }
 }
 
+// Publish responses atomically so the MCP process never sees a partially-written
+// JSON file. The staging suffix is not a response filename the server will read.
+function writeResponseFile(filePath, content) {
+  var stagedPath = filePath + ".staged";
+  try {
+    fs.writeFileSync(stagedPath, content, "utf-8");
+    fs.renameSync(stagedPath, filePath);
+    return true;
+  } catch (e) {
+    deleteFile(stagedPath);
+    log("Error publishing " + filePath + ": " + e.message, "err");
+    return false;
+  }
+}
+
 function deleteFile(filePath) {
   try {
     if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
@@ -234,7 +249,7 @@ function processOneCommand(cmdFileName) {
       }
     }
 
-    writeFile(resFilePath, response);
+    writeResponseFile(resFilePath, response);
   });
 }
 

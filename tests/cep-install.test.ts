@@ -57,6 +57,8 @@ describe("CEP installation metadata", () => {
     expect(workflow).toContain("artifacts/MCPBridgeCEP.zxp");
     expect(panel).toContain('src="updater.cjs"');
     expect(panelLogic).toContain("Download update");
+    expect(panelLogic).toContain("writeResponseFile(resFilePath, response)");
+    expect(panelLogic).toContain("fs.renameSync(stagedPath, filePath)");
   });
 
   it("copies the macOS plugin for npm installs and supports diagnostics", () => {
