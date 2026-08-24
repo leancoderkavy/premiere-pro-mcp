@@ -86,4 +86,10 @@ describe("canonical release metadata", () => {
     );
     expect(release.coreTools - release.defaultProfileTools).toBe(2);
   });
+
+  it("keeps the CLI help count aligned with the default profile", () => {
+    expect(read("src/index.ts")).toContain(
+      `(${release.defaultProfileTools} default-profile tools)`,
+    );
+  });
 });

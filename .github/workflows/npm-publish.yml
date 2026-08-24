@@ -55,7 +55,7 @@ jobs:
       - run: npm run build
       - if: ${{ inputs.skip_tests != 'true' }}
         run: npm test
-      - run: npm pack --dry-run
+      - run: npm run pack:check
       - name: Fail if version is already published
         shell: bash
         run: |
@@ -65,4 +65,4 @@ jobs:
             exit 1
           fi
       - name: Publish to npm
-        run: npm publish --access public --tag "${{ inputs.tag }}"
+        run: npm publish --provenance --access public --tag "${{ inputs.tag }}"

@@ -54,7 +54,8 @@
     "uninstall-cep": "node dist/index.js --uninstall-cep",
     "lint": "eslint uxp-plugin --ext .cjs --max-warnings 0",
     "publish:npm": "node scripts/publish-npm.mjs",
-    "publish:npm:dry-run": "node scripts/publish-npm.mjs --dry-run"
+    "publish:npm:dry-run": "node scripts/publish-npm.mjs --dry-run",
+    "pack:check": "node scripts/verify-npm-package.mjs"
   },
   "repository": {
     "type": "git",

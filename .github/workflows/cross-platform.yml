@@ -29,4 +29,4 @@ jobs:
         if: matrix.os == 'windows-latest' && matrix.node == 22
         run: npm run test:coverage
       - name: Verify packaged files
-        run: npm pack --dry-run
+        run: npm run pack:check
