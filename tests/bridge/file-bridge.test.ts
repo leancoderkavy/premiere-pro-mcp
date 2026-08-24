@@ -6,6 +6,7 @@ import {
   readFileSync,
   unlinkSync,
   readdirSync,
+  renameSync,
   statSync,
   chmodSync,
   watch,
@@ -27,6 +28,7 @@ vi.mock("node:fs", () => ({
   readFileSync: vi.fn(),
   unlinkSync: vi.fn(),
   readdirSync: vi.fn(),
+  renameSync: vi.fn(),
   statSync: vi.fn(),
   chmodSync: vi.fn(),
   watch: vi.fn(() => {
@@ -40,6 +42,7 @@ const mockedWriteFileSync = vi.mocked(writeFileSync);
 const mockedReadFileSync = vi.mocked(readFileSync);
 const mockedUnlinkSync = vi.mocked(unlinkSync);
 const mockedReaddirSync = vi.mocked(readdirSync);
+const mockedRenameSync = vi.mocked(renameSync);
 const mockedStatSync = vi.mocked(statSync);
 const mockedChmodSync = vi.mocked(chmodSync);
 const mockedWatch = vi.mocked(watch);
@@ -153,7 +156,7 @@ describe("sendCommand", () => {
     expect(mockedChmodSync).toHaveBeenCalledWith("/tmp/test-bridge", 0o700);
   });
 
-  it("writes command file as .jsx", async () => {
+  it("atomically publishes a complete command file as .jsx", async () => {
     mockedExistsSync.mockImplementation((path) => {
       if (String(path).includes("res_")) return true;
       return true;
@@ -164,13 +167,16 @@ describe("sendCommand", () => {
     await vi.advanceTimersByTimeAsync(200);
     await promise;
 
-    const writeCall = mockedWriteFileSync.mock.calls[0];
-    expect(String(writeCall[0])).toMatch(/cmd_.*\.jsx$/);
+    const writeCall = mockedWriteFileSync.mock.calls.find(([path]) => String(path).endsWith(".jsx.staged"));
+    expect(writeCall).toBeDefined();
+    expect(String(writeCall?.[0])).toMatch(/cmd_.*\.jsx\.staged$/);
+    const publishedPath = mockedRenameSync.mock.calls[0]?.[1];
+    expect(String(publishedPath)).toMatch(/cmd_.*\.jsx$/);
     // command = one-line helpers bootstrap, then the script itself
-    const content = String(writeCall[1]);
+    const content = String(writeCall?.[1]);
     expect(content.endsWith("\nvar x = 1;")).toBe(true);
     expect(content.replaceAll("\\\\", "/")).toContain('$.evalFile("/tmp/test-bridge/helpers_');
-    expect(writeCall[2]).toBe("utf-8");
+    expect(writeCall?.[2]).toBe("utf-8");
   });
 
   it("returns parsed JSON response", async () => {
@@ -185,6 +191,21 @@ describe("sendCommand", () => {
     const result = await promise;
 
     expect(result).toEqual({ success: true, data: { version: "24.0" } });
+  });
+
+  it("uses distinct cryptographic IDs for concurrently-created command files", async () => {
+    mockedExistsSync.mockReturnValue(true);
+    mockedReadFileSync.mockReturnValue('{"success":true}');
+
+    await Promise.all([
+      sendCommand("first", { tempDir: "/tmp/test-bridge" }),
+      sendCommand("second", { tempDir: "/tmp/test-bridge" }),
+    ]);
+
+    const publishedPaths = mockedRenameSync.mock.calls.map(([, target]) => String(target));
+    expect(publishedPaths).toHaveLength(2);
+    expect(new Set(publishedPaths).size).toBe(2);
+    expect(publishedPaths.every((path) => /cmd_[0-9a-f-]{36}\.jsx$/.test(path))).toBe(true);
   });
 
   it("attempts event-driven response watching before using the polling fallback", async () => {
@@ -219,27 +240,29 @@ describe("sendCommand", () => {
     const responsePath = mockedWatch.mock.calls[0]?.[0];
     expect(responsePath).toBeDefined();
     responseExists = true;
-    const commandWrite = mockedWriteFileSync.mock.calls.find(([path]) => String(path).includes("cmd_"));
-    const responseName = String(commandWrite?.[0]).replace(/.*[\\/]+cmd_/, "res_").replace(/\.jsx$/, ".json");
+    const commandPath = String(mockedRenameSync.mock.calls[0]?.[1]);
+    const responseName = commandPath.replace(/.*[\\/]+cmd_/, "res_").replace(/\.jsx$/, ".json");
     onChange?.("rename", responseName);
 
     await expect(promise).resolves.toEqual({ success: true, data: { eventDriven: true } });
     expect(fakeWatcher.close).toHaveBeenCalled();
   });
 
-  it("returns error on JSON parse failure", async () => {
+  it("keeps polling a malformed response without resending the command", async () => {
     mockedExistsSync.mockImplementation((path) => {
       if (String(path).includes("res_")) return true;
+      if (String(path).includes("busy_")) return false;
       return true;
     });
     mockedReadFileSync.mockReturnValue("not valid json{{{");
 
-    const promise = sendCommand("test", { tempDir: "/tmp/test-bridge" });
-    await vi.advanceTimersByTimeAsync(200);
+    const promise = sendCommand("test", { tempDir: "/tmp/test-bridge", timeoutMs: 500 });
+    await vi.advanceTimersByTimeAsync(700);
     const result = await promise;
 
     expect(result.success).toBe(false);
     expect(result.error).toContain("Failed to parse response");
+    expect(mockedRenameSync).toHaveBeenCalledTimes(1);
   });
 
   it("returns timeout error when response file never appears", async () => {
@@ -346,6 +369,7 @@ describe("cleanupTempDir", () => {
     mockedExistsSync.mockReturnValue(true);
     mockedReaddirSync.mockReturnValue([
       "cmd_123.jsx" as any,
+      "cmd_124.jsx.staged" as any,
       "res_123.json" as any,
       "other_file.txt" as any,
     ]);
@@ -359,6 +383,9 @@ describe("cleanupTempDir", () => {
     );
     expect(unlinkCalls).toContainEqual(
       join("/tmp/test-bridge", "res_123.json")
+    );
+    expect(unlinkCalls).toContainEqual(
+      join("/tmp/test-bridge", "cmd_124.jsx.staged")
     );
     expect(unlinkCalls).not.toContainEqual(
       join("/tmp/test-bridge", "other_file.txt")

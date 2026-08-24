@@ -1,6 +1,7 @@
-import { mkdirSync, writeFileSync, readFileSync, unlinkSync, existsSync, readdirSync, statSync, chmodSync, watch, FSWatcher } from "node:fs";
+import { mkdirSync, writeFileSync, readFileSync, unlinkSync, existsSync, readdirSync, renameSync, statSync, chmodSync, watch, FSWatcher } from "node:fs";
 import { basename, dirname, join } from "node:path";
 import { tmpdir } from "node:os";
+import { randomUUID } from "node:crypto";
 import { getHelpersSource, helpersFileName, buildBootstrap } from "./script-builder.js";
 
 const DEFAULT_TEMP_DIR = join(tmpdir(), "premiere-mcp-bridge");
@@ -17,8 +18,6 @@ export interface CommandResult {
   data?: unknown;
   error?: string;
 }
-
-let commandCounter = 0;
 
 /**
  * Create the bridge temp dir private to this user, and — critically — refuse to trust
@@ -80,7 +79,8 @@ function ensureHelpers(tempDir: string): string {
  * Send a command (ExtendScript) to the CEP plugin and wait for a response.
  * 
  * Protocol:
- * 1. Write script to <tempDir>/cmd_<id>.jsx
+ * 1. Write the script to a staging file, then atomically publish it as
+ *    <tempDir>/cmd_<id>.jsx. The CEP panel only sees complete commands.
  * 2. CEP plugin picks it up, executes, writes result to <tempDir>/res_<id>.json
  * 3. We poll for the response file and parse it.
  */
@@ -92,27 +92,29 @@ export async function sendCommand(
   const timeoutMs = options?.timeoutMs || DEFAULT_TIMEOUT_MS;
   ensureDir(tempDir);
 
-  const id = `${Date.now()}_${++commandCounter}`;
+  const id = randomUUID();
   const cmdFile = join(tempDir, `cmd_${id}.jsx`);
+  const stagedCmdFile = `${cmdFile}.staged`;
   const resFile = join(tempDir, `res_${id}.json`);
   const busyFile = join(tempDir, `busy_${id}.json`);
 
   // Validate script
   validateScript(script);
 
-  // Write command file (bootstrap loads the helpers into the engine if needed)
-  writeFileSync(cmdFile, `${ensureHelpers(tempDir)}
+  try {
+    // Write a complete command before its .jsx name makes it visible to CEP.
+    // renameSync is atomic when both paths are in the bridge directory.
+    writeFileSync(stagedCmdFile, `${ensureHelpers(tempDir)}
 ${script}`, "utf-8");
+    renameSync(stagedCmdFile, cmdFile);
 
-  // Poll for response
-  const result = await pollForResponse(resFile, busyFile, timeoutMs);
-
-  // Cleanup
-  safeUnlink(cmdFile);
-  safeUnlink(resFile);
-  safeUnlink(busyFile);
-
-  return result;
+    return await pollForResponse(resFile, busyFile, timeoutMs);
+  } finally {
+    safeUnlink(stagedCmdFile);
+    safeUnlink(cmdFile);
+    safeUnlink(resFile);
+    safeUnlink(busyFile);
+  }
 }
 
 function validateScript(script: string, allowUnsafe = false): void {
@@ -150,20 +152,24 @@ export async function sendRawCommand(
   const timeoutMs = options?.timeoutMs || DEFAULT_TIMEOUT_MS;
   ensureDir(tempDir);
 
-  const id = `${Date.now()}_${++commandCounter}`;
+  const id = randomUUID();
   const cmdFile = join(tempDir, `cmd_${id}.jsx`);
+  const stagedCmdFile = `${cmdFile}.staged`;
   const resFile = join(tempDir, `res_${id}.json`);
   const busyFile = join(tempDir, `busy_${id}.json`);
 
   validateScript(script, true);
-  writeFileSync(cmdFile, `${ensureHelpers(tempDir)}
+  try {
+    writeFileSync(stagedCmdFile, `${ensureHelpers(tempDir)}
 ${script}`, "utf-8");
-  const result = await pollForResponse(resFile, busyFile, timeoutMs);
-  safeUnlink(cmdFile);
-  safeUnlink(resFile);
-  safeUnlink(busyFile);
-
-  return result;
+    renameSync(stagedCmdFile, cmdFile);
+    return await pollForResponse(resFile, busyFile, timeoutMs);
+  } finally {
+    safeUnlink(stagedCmdFile);
+    safeUnlink(cmdFile);
+    safeUnlink(resFile);
+    safeUnlink(busyFile);
+  }
 }
 
 async function pollForResponse(
@@ -179,6 +185,7 @@ async function pollForResponse(
   // misreporting "is the plugin running?".
   const hardCapMs = Math.max(timeoutMs * 4, 120_000);
   let sawBusy = false;
+  let lastResponseParseError: string | undefined;
 
   const busyIsFresh = (): boolean => {
     try {
@@ -217,14 +224,18 @@ async function pollForResponse(
         try {
           const raw = readFileSync(resFile, "utf-8");
           const result = JSON.parse(raw) as CommandResult;
-          finish(result);
+          if (typeof result !== "object" || result === null || typeof result.success !== "boolean") {
+            lastResponseParseError = "Failed to parse response: missing boolean success field";
+          } else {
+            finish(result);
+            return;
+          }
         } catch (e) {
-          finish({
-            success: false,
-            error: `Failed to parse response: ${e instanceof Error ? e.message : String(e)}`,
-          });
+          // A CEP response can be observed while an older connector is still writing it.
+          // Keep polling the same response file; never resend the host operation.
+          lastResponseParseError =
+            `Failed to parse response: ${e instanceof Error ? e.message : String(e)}`;
         }
-        return;
       }
 
       const elapsed = Date.now() - start;
@@ -232,6 +243,10 @@ async function pollForResponse(
         const stillBusy = busyIsFresh();
         if (stillBusy && elapsed <= hardCapMs) {
           scheduleFallback();
+          return;
+        }
+        if (lastResponseParseError) {
+          finish({ success: false, error: lastResponseParseError });
           return;
         }
         finish({
