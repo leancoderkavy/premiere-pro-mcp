@@ -115,10 +115,17 @@ export function getPlayheadTools(bridgeOptions: BridgeOptions) {
           var seq = app.project.activeSequence;
           if (!seq) return __error("No active sequence");
           
-          seq.setInPoint(__secondsToTicks(${args.in_seconds}).toString());
-          seq.setOutPoint(__secondsToTicks(${args.out_seconds}).toString());
-          
-          return __result({ inSeconds: ${args.in_seconds}, outSeconds: ${args.out_seconds} });
+          seq.setInPoint(${args.in_seconds});
+          seq.setOutPoint(${args.out_seconds});
+          var observedIn = Number(seq.getInPoint());
+          var observedOut = Number(seq.getOutPoint());
+          var tolerance = 0.001;
+          if (!isFinite(observedIn) || !isFinite(observedOut) ||
+              Math.abs(observedIn - ${args.in_seconds}) > tolerance ||
+              Math.abs(observedOut - ${args.out_seconds}) > tolerance) {
+            return __error("Premiere did not apply the requested sequence in/out points; observed " + observedIn + " to " + observedOut + " seconds");
+          }
+          return __result({ inSeconds: observedIn, outSeconds: observedOut, verified: true });
         `);
         return sendCommand(script, bridgeOptions);
       },
@@ -133,8 +140,8 @@ export function getPlayheadTools(bridgeOptions: BridgeOptions) {
           if (!seq) return __error("No active sequence");
           
           return __result({
-            inSeconds: __ticksToSeconds(seq.getInPoint()),
-            outSeconds: __ticksToSeconds(seq.getOutPoint())
+            inSeconds: Number(seq.getInPoint()),
+            outSeconds: Number(seq.getOutPoint())
           });
         `);
         return sendCommand(script, bridgeOptions);
