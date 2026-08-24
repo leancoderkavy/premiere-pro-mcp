@@ -29,6 +29,7 @@ describe("native connector installers", () => {
     expect(source).toContain("premiere-connector-validate");
     expect(source).toContain("GetManifestResourceStream");
     expect(workflow).toContain("--verify-only");
+    expect(workflow).toContain("Start-Process");
     expect(workflow).toContain("without installing it");
   });
 
