@@ -8,11 +8,11 @@ descriptions, action enums, authority visibility, and counts stay aligned with t
 
 | Surface | Count | Availability |
 | --- | ---: | --- |
-| Registered core actions | 313 | CEP/local server catalog; host and authority checks still apply |
-| Default-profile core actions | 311 | Advertised with `inspect,edit,export,filesystem` |
+| Registered core actions | 318 | CEP/local server catalog; host and authority checks still apply |
+| Default-profile core actions | 316 | Advertised with `inspect,edit,export,filesystem` |
 | Restricted core actions | 2 | Require explicit `unsafe-script` authority |
 | Authenticated UXP additions | 50 | Advertised only while a compatible authenticated UXP panel is connected |
-| Default profile with UXP | 361 | 311 core plus 50 UXP tools |
+| Default profile with UXP | 366 | 316 core plus 50 UXP tools |
 
 ## How to read support
 
@@ -72,6 +72,7 @@ operation” when the tool has no enum-based mode.
 | `close_sequence` | Default profile | Single operation | Close a sequence tab in the timeline |
 | `close_source_monitor` | Default profile | Single operation | Close the clip currently open in the Source Monitor. |
 | `color_correct` | Default profile | Single operation | Apply basic color correction to a clip using Lumetri Color |
+| `compare_cmx3600_edls` | Default profile | Single operation | Compare two local CMX 3600 EDLs by event number and report bounded added, removed, and changed editorial events. Read-only; it does not alter either interchange file or Premiere. |
 | `consolidate_and_transfer` | Default profile | Single operation | Consolidate, copy, or transcode project media using the Project Manager. Useful for archiving or transferring projects. |
 | `consolidate_duplicates` | Default profile | Single operation | Consolidate duplicate project items |
 | `copy_effect_values` | Default profile | Single operation | Copy all property values from one effect to the matching effect on another clip. Both clips must already have the same effect applied. |
@@ -195,8 +196,10 @@ operation” when the tool has no enum-based mode.
 | `import_mogrt_from_library` | Default profile | Single operation | Import a MOGRT from an Adobe Library by name |
 | `import_sequences` | Default profile | Single operation | Import sequences from another Premiere Pro project file |
 | `insert_from_source` | Default profile | Single operation | Insert the clip from the Source Monitor at the playhead position (insert edit — shifts existing clips). |
+| `inspect_cmx3600_edl` | Default profile | Single operation | Parse a local CMX 3600 EDL into bounded event, reel, track, transition, and timecode facts without importing it into Premiere. |
 | `inspect_dom_object` | Default profile | Single operation | Inspect a Premiere Pro DOM object and list its properties, methods, and values. Useful for exploring the API and debugging. Examples: - "app.project" → project properties - "app.project.activeSequence" → sequence properties - "app.project.activeSequence.videoTracks[0].clips[0]" → first clip on V1 - "app.project.activeSequence.videoTracks[0].clips[0].components[0]" → first component of a clip |
 | `inspect_edit_readiness` | Default profile | Single operation | Audit the active sequence in one read-only bridge request for empty timelines, primary-track gaps, disabled clips, muted tracks, and excessive Motion scale. Structural diagnostics only; it cannot judge story, framing, sound, or final delivery. |
+| `inspect_fcpxml_interchange` | Default profile | Single operation | Inspect a local FCPXML document's root version, sequence/clip counts, bounded asset declarations, and text-only parser warnings before deliberate Premiere import. |
 | `inspect_media_streams` | Default profile | Single operation | Inspect a local media file with ffprobe and return container, stream, codec, time-base, channel, and chapter metadata. Read-only and independent of Premiere. |
 | `inspect_project_item_av_metadata` | Default profile | Single operation | Inspect a project item's documented effective/original color space, LUT IDs, available color-space overrides, and audio channel shape. |
 | `inspect_project_recovery` | Default profile | Single operation | Read-only recovery inspection: diagnose the active project path and list adjacent Premiere Auto-Save project candidates without opening, copying, or restoring anything. |
@@ -341,9 +344,11 @@ operation” when the tool has no enum-based mode.
 | `unlink_selection` | Default profile | Single operation | Unlink the currently selected video and audio clips in the active sequence |
 | `unnest_sequence` | Default profile | Single operation | Unnest a nested sequence on the timeline, replacing it with the contents of the nested sequence |
 | `update_marker` | Default profile | Single operation | Update an existing marker's properties |
+| `validate_cmx3600_edl` | Default profile | Single operation | Validate a local CMX 3600 EDL's supported event grammar, timecodes, durations, duplicate event IDs, record overlaps, and record gaps before user-assisted Premiere interchange. |
 | `validate_export_preset` | Default profile | Single operation | Validate that an Adobe Media Encoder .epr preset exists and ask the active Premiere sequence which output extension it produces |
 | `validate_project_for_export` | Default profile | Single operation | Run a non-mutating export readiness audit for an active or named sequence. It reports blocking offline media, empty timelines, inaccessible preset/output paths, duration, and optional timeline gaps without queuing an export. |
 | `verify_delivery_file` | Default profile | `checksum_algorithm`: `sha256`, `sha512` | Verify that an exported delivery is a non-empty regular file and calculate a SHA-256 or SHA-512 checksum; optionally compare expected size and checksum |
+| `verify_fcpxml_media_references` | Default profile | Single operation | Verify FCPXML file:// media references only inside caller-approved existing roots. References outside those roots are never statted or exposed as local paths. |
 | `verify_premiere_connection` | Default profile | `backend`: `cep`, `uxp` | Run a safe, read-only first-run check. It proves that this MCP server, the selected Premiere bridge, an active project, and an active sequence are connected without returning project names, paths, or media details. |
 | `evaluate_expression` | Requires `unsafe-script` | Single operation | Evaluate a simple ExtendScript expression and return its value. Use for quick queries like checking a property, getting a count, or reading state. The expression should be a single value/call — NOT a full script. Examples: - "app.project.name" → project name - "app.project.activeSequence.name" → active sequence name - "app.project.rootItem.children.numItems" → number of root items - "app.project.activeSequence.videoTracks.numTracks" → number of video tracks - "app.version" → Premiere Pro version |
 | `execute_extendscript` | Requires `unsafe-script` | Single operation | Execute custom ExtendScript code in Premiere Pro. The code runs inside an IIFE with helper functions available. IMPORTANT: You MUST write ES3 syntax (var instead of let/const, no arrow functions, no template literals, no destructuring). Available helpers (auto-prepended): - __ticksToSeconds(ticks) / __secondsToTicks(seconds) — time conversion - __ticksToTimecode(ticks, fps) — timecode string - __findSequence(idOrName) — find sequence by name or ID - __findProjectItem(nodeIdOrName) — find project item recursively - __findClip(nodeId) — find clip in active sequence, returns {clip, trackIndex, clipIndex, trackType} - __getAllClips(seq) — get all clips in a sequence - __result(data) — return success with data (MUST call this or __error) - __error(msg) — return error message - TICKS_PER_SECOND — constant 254016000000 - app.enableQE() — enable QE DOM access Your code MUST end with: return __result({...}) or return __error("message") Example: Set opacity to 50% on all video clips var seq = app.project.activeSequence; if (!seq) return __error("No active sequence"); var count = 0; for (var t = 0; t < seq.videoTracks.numTracks; t++) { var track = seq.videoTracks[t]; for (var c = 0; c < track.clips.numItems; c++) { var clip = track.clips[c]; for (var i = 0; i < clip.components.numItems; i++) { var comp = clip.components[i]; if (comp.displayName === "Opacity") { for (var p = 0; p < comp.properties.numItems; p++) { if (comp.properties[p].displayName === "Opacity") { comp.properties[p].setValue(50, true); count++; } } } } } } return __result({updated: count}); |

@@ -122,7 +122,7 @@ describe("modern MCP surface", () => {
       // unsafe-script, so the two scripting tools are not advertised.
       expect(tools.tools.map((tool) => tool.name)).not.toContain("execute_extendscript");
       expect(tools.tools.map((tool) => tool.name)).not.toContain("evaluate_expression");
-      expect(tools.tools).toHaveLength(311);
+      expect(tools.tools).toHaveLength(316);
       expect(tools.tools.map((tool) => tool.name)).toEqual(expect.arrayContaining([
         "manage_project_context",
         "search_project_context",
