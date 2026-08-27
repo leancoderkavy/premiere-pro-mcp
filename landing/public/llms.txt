@@ -9,6 +9,7 @@ MCP for Adobe Premiere Pro registers 313 core structured tools for timeline edit
 - Website: https://premiere-pro-mcp.com/
 - Documentation: https://premiere-pro-mcp.com/docs/
 - Guides: https://premiere-pro-mcp.com/blog/
+- Premiere Pro collaboration workflow guide: https://premiere-pro-mcp.com/premiere-pro-collaboration-workflow/
 - What is an MCP server for Adobe Premiere Pro?: https://premiere-pro-mcp.com/blog/what-is-a-premiere-pro-mcp-server/
 - AI video editing with Premiere Pro: https://premiere-pro-mcp.com/blog/ai-video-editing-with-premiere-pro/
 - Premiere Pro workflow automation: https://premiere-pro-mcp.com/blog/premiere-pro-workflow-automation/
@@ -32,6 +33,8 @@ MCP for Adobe Premiere Pro registers 313 core structured tools for timeline edit
 4. Add `premiere-pro-mcp` as a local stdio server in an MCP-compatible client.
 
 The recommended setup runs the MCP server and CEP bridge locally. Project media stays on the editor's machine. Remote HTTP transport requires authentication and a working connection to the local Premiere Pro bridge.
+
+For a local project, a shared-storage Adobe Production, or a remote Adobe Team Project, first use https://premiere-pro-mcp.com/premiere-pro-collaboration-workflow/ to keep the Adobe collaboration decision separate from the local MCP connection check. The guide does not inspect or store a project and does not claim Team Project permissions or Production-policy support.
 
 ## Verified facts
 

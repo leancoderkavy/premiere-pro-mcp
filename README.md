@@ -60,6 +60,12 @@ or small test sequence.
 For product context, see the [Adobe Premiere AI Assistant and MCP comparison](https://premiere-pro-mcp.com/blog/adobe-premiere-ai-assistant-vs-mcp/)
 and the [Claude Desktop setup guide](https://premiere-pro-mcp.com/blog/claude-desktop-premiere-pro-mcp-setup/).
 
+If you are deciding between a single local project, an Adobe Production on shared
+storage, or a remote Team Project, use the [Premiere Pro collaboration workflow
+guide](https://premiere-pro-mcp.com/premiere-pro-collaboration-workflow/) before
+you evaluate an MCP path. It links the relevant Adobe guidance, makes no project
+inspection request, and ends with the same read-only connection check.
+
 ---
 
 ## Quick Start

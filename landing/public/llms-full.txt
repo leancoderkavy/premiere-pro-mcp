@@ -5,6 +5,7 @@ MCP for Adobe Premiere Pro is an open-source, local-first Model Context Protocol
 Canonical website: https://premiere-pro-mcp.com/
 Documentation: https://premiere-pro-mcp.com/docs/
 Guides: https://premiere-pro-mcp.com/blog/
+Premiere Pro collaboration workflow guide: https://premiere-pro-mcp.com/premiere-pro-collaboration-workflow/
 Guide: What is an MCP server for Adobe Premiere Pro?: https://premiere-pro-mcp.com/blog/what-is-a-premiere-pro-mcp-server/
 Guide: AI video editing with Premiere Pro: https://premiere-pro-mcp.com/blog/ai-video-editing-with-premiere-pro/
 Guide: Premiere Pro workflow automation: https://premiere-pro-mcp.com/blog/premiere-pro-workflow-automation/
@@ -27,6 +28,10 @@ The server registers 313 core tools for project inspection, project-intake previ
 ## How it connects
 
 The recommended configuration is local. An MCP client starts the Node.js server over stdio. The server exchanges command and response files with a CEP extension running inside Premiere Pro. This design keeps project media on the editor's computer. A preview UXP bridge is included for Premiere Pro 25.6 and newer.
+
+## Collaboration workflow fit
+
+Premiere projects can be evaluated in different collaboration contexts. Adobe documents Productions for shared-storage, multi-project workflows and Team Projects for cloud-managed collaboration. The workflow-fit guide at https://premiere-pro-mcp.com/premiere-pro-collaboration-workflow/ routes readers to the relevant Adobe documentation and the same no-change local connection check. It does not inspect or store project data, grant Team Project permissions, create a Production policy, or prove future host behavior.
 
 ## Compatibility
 
