@@ -29,6 +29,12 @@ export default function sitemap(): MetadataRoute.Sitemap {
       priority: 0.9,
     },
     {
+      url: `${siteUrl}/premiere-pro-collaboration-workflow/`,
+      lastModified: new Date("2026-08-27T00:00:00Z"),
+      changeFrequency: "weekly",
+      priority: 0.9,
+    },
+    {
       url: `${siteUrl}/blog/`,
       lastModified: latestArticleDate,
       changeFrequency: "weekly",

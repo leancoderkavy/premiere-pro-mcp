@@ -28,6 +28,8 @@ export function Footer() {
               <Link href="/#how-it-works" className="hover:text-white">How it works</Link>
               <Link href="/#install" className="hover:text-white">Install</Link>
               <Link href="/#faq" className="hover:text-white">FAQ</Link>
+              <Link href="/premiere-pro-collaboration-workflow/" className="hover:text-white">Workflow fit guide</Link>
+              <Link href="/project-intake/" className="hover:text-white">Project Intake</Link>
               <Link href="/facts/" className="hover:text-white">Canonical facts</Link>
               <Link href="/blog/" className="hover:text-white">Guides</Link>
               <a href="/docs/" className="hover:text-white">Documentation</a>
