@@ -25,3 +25,6 @@ export const product = {
 
 export const safeFirstPrompt =
   "Safely check my Premiere connection with verify_premiere_connection. Make no changes."
+
+export const projectIntakePreviewPrompt =
+  "Evaluate this open Premiere project against our approved intake template. Return the path-redacted report and proposed organization actions. Do not change Premiere or persist the template."

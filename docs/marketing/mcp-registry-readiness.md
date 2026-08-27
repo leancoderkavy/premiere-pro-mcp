@@ -6,7 +6,7 @@ The official MCP Registry is a separate public listing. A repository change, an 
 
 Before a future submission:
 
-1. Release a new npm package version containing any required registry metadata.
+1. Release a new npm package version containing the required `mcpName` metadata and the matching README marker. The published npm version—not merely this repository checkout—must contain those values.
 2. Generate and inspect the registry manifest from the exact released package.
 3. Confirm the listing describes the published local stdio/server route accurately; do not present the local Premiere bridge as a hosted service.
 4. Validate the manifest and package version before authenticating.

@@ -1,4 +1,5 @@
 import { ArrowRight, Github, ShieldCheck } from "lucide-react"
+import { TrackedLink } from "@/components/ui/tracked-link"
 import { product } from "@/lib/product"
 
 export function FinalCtaSection() {
@@ -17,13 +18,15 @@ export function FinalCtaSection() {
               Connect your assistant, safely verify the Premiere connection without changes, then preview your first edit.
             </p>
           </div>
-          <a
+          <TrackedLink
             href="#install"
+            trackingLocation="final_cta"
+            trackingDestination="safe_connection_check"
             className="inline-flex h-12 items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-[#8b7cff] to-[#ef76b9] px-6 text-sm font-semibold text-white shadow-[0_12px_40px_rgba(139,124,255,0.2)] transition-transform hover:-translate-y-0.5"
           >
             Choose your assistant
             <ArrowRight className="h-4 w-4" />
-          </a>
+          </TrackedLink>
         </div>
         <div className="flex flex-col gap-3 pt-6 text-sm text-zinc-500 sm:flex-row sm:items-center sm:gap-8">
           <span className="inline-flex items-center gap-2">

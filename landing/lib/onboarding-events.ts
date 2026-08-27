@@ -4,6 +4,7 @@ export type OnboardingEvent =
   | "onboarding_assistant_selected"
   | "onboarding_download_started"
   | "onboarding_safe_prompt_copied"
+  | "onboarding_project_intake_prompt_copied"
   | "onboarding_advanced_opened"
   | "onboarding_recovery_opened"
   | "marketing_demo_played"

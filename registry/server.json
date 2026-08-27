@@ -1,0 +1,21 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-10-17/server.schema.json",
+  "name": "io.github.leancoderkavy/premiere-pro",
+  "title": "MCP for Adobe Premiere Pro",
+  "description": "Free, MIT-licensed local MCP server for supported Adobe Premiere Pro workflows. Begin with a read-only connection check; supported operations remain capability- and host-dependent.",
+  "repository": {
+    "url": "https://github.com/leancoderkavy/premiere-pro-mcp",
+    "source": "github"
+  },
+  "version": "1.13.0",
+  "packages": [
+    {
+      "registryType": "npm",
+      "identifier": "premiere-pro-mcp",
+      "version": "1.13.0",
+      "transport": {
+        "type": "stdio"
+      }
+    }
+  ]
+}

@@ -23,6 +23,12 @@ export default function sitemap(): MetadataRoute.Sitemap {
       priority: 0.8,
     },
     {
+      url: `${siteUrl}/project-intake/`,
+      lastModified: new Date("2026-08-26T00:00:00Z"),
+      changeFrequency: "weekly",
+      priority: 0.9,
+    },
+    {
       url: `${siteUrl}/blog/`,
       lastModified: latestArticleDate,
       changeFrequency: "weekly",
