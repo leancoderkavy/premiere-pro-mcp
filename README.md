@@ -2,6 +2,8 @@
 
 # MCP for Adobe Premiere Pro
 
+<!-- mcp-name: io.github.leancoderkavy/premiere-pro -->
+
 [![MCP Toplist](https://mcptoplist.com/badge/glama%2Fleancoderkavy%2Fpremiere-pro-mcp.svg)](https://mcptoplist.com/server/glama%2Fleancoderkavy%2Fpremiere-pro-mcp)
 
 **Give compatible AI assistants structured control over supported Adobe Premiere Pro workflows.**

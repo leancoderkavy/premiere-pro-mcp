@@ -23,11 +23,11 @@ export function Footer() {
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.16em] text-zinc-600">Product</p>
             <div className="mt-4 flex flex-col gap-3 text-sm text-zinc-400">
-              <a href="#demo" className="hover:text-white">Demo</a>
-              <a href="#features" className="hover:text-white">Features</a>
-              <a href="#how-it-works" className="hover:text-white">How it works</a>
-              <a href="#install" className="hover:text-white">Install</a>
-              <a href="#faq" className="hover:text-white">FAQ</a>
+              <Link href="/#demo" className="hover:text-white">Demo</Link>
+              <Link href="/#features" className="hover:text-white">Features</Link>
+              <Link href="/#how-it-works" className="hover:text-white">How it works</Link>
+              <Link href="/#install" className="hover:text-white">Install</Link>
+              <Link href="/#faq" className="hover:text-white">FAQ</Link>
               <Link href="/facts/" className="hover:text-white">Canonical facts</Link>
               <Link href="/blog/" className="hover:text-white">Guides</Link>
               <a href="/docs/" className="hover:text-white">Documentation</a>

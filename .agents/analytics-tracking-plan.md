@@ -20,11 +20,12 @@
 
 | Event | Properties | Trigger | Decision |
 | --- | --- | --- | --- |
-| `marketing_cta_clicked` | `location`, `destination` | Hero or navigation CTA | Which top-level path earns intent? |
+| `primary_cta_clicked` | `location`, `destination` | Hero, final, and guide CTA | Which top-level path earns intent? |
 | `marketing_demo_played` | `demo` | First playback per page view | Does the walkthrough support evaluation? |
 | `onboarding_assistant_selected` | `assistant` | Assistant route selected | Which setup path is demanded? |
 | `onboarding_download_started` | `route` | Bundle, guide, or connector action | Which routes progress to distribution? |
 | `onboarding_safe_prompt_copied` | none | Safe prompt copied | Is the visitor preparing to verify? |
+| `onboarding_project_intake_prompt_copied` | `prompt_kind` | Project Intake guide prompt copied | Does the outcome-specific route earn an attempted workflow preview? |
 | `onboarding_advanced_opened` | none | Advanced setup opened | How often does guided setup fall short? |
 | `onboarding_recovery_opened` | none | Recovery help opened | Where does setup friction appear? |
 
