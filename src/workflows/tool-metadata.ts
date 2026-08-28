@@ -11,6 +11,7 @@ const READ_ONLY_TOOLS = new Set([
   "preview_brand_spot",
   "validate_project_for_export",
   "read_sequence_captions",
+  "plan_silence_review_markers",
 ]);
 const DESTRUCTIVE_PREFIXES = ["delete_", "remove_", "ripple_delete", "close_"];
 const DESTRUCTIVE_TOOLS = new Set(["manage_project_context"]);

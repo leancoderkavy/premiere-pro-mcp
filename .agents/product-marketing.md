@@ -137,7 +137,7 @@
 
 ## Proof Points
 
-**Release facts:** v1.14.1 registers 319 core tools; the default profile exposes 317; an authenticated compatible UXP host can add 50 capability-gated tools for a 367-tool connected surface. The release also declares 37 modules, 4 MCP resources, and 11 workflow prompts. It includes focused tool packs, explicit output schemas, a read-only review report, and npm package verification compatible with the current npm CLI. These are catalog and packaging facts from `release-metadata.json`, not a promise that a particular host operation will work.
+**Release facts:** v1.14.1 registers 320 core tools; the default profile exposes 318; an authenticated compatible UXP host can add 50 capability-gated tools for a 368-tool connected surface. The release also declares 37 modules, 4 MCP resources, and 11 workflow prompts. It includes focused tool packs, explicit output schemas, a read-only review report, and npm package verification compatible with the current npm CLI. These are catalog and packaging facts from `release-metadata.json`, not a promise that a particular host operation will work.
 
 **Compatibility boundary:** The release targets Premiere Pro 2020–2026; UXP workflows require a compatible Premiere Pro 25.6.0+ host and advertised capabilities. CEP remains the default compatibility route. A compatibility range, package validation, CI pass, HTTP health check, or local build is not real-host proof.
 
