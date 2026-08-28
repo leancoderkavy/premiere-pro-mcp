@@ -345,10 +345,12 @@
       if (!args.outputDirectory) throw commandError("UXP_INVALID_ARGUMENT", "outputDirectory is required");
       const outputDirectory = await allowedPath(args.outputDirectory, "outputDirectory", "directory");
       const filename = Protocol.safeFilename(args.filename);
+      const exporterFilename = Protocol.exporterFrameName(filename);
       const position = args.seconds == null ? await context.sequence.getPlayerPosition() : await tickTime(args.seconds, "seconds");
       const size = await context.sequence.getFrameSize();
       const width = positiveInt(args.width, size.width, "width"), height = positiveInt(args.height, size.height, "height");
-      const returned = await ppro.Exporter.exportSequenceFrame(context.sequence, position, filename, outputDirectory, width, height);
+      const returned = await ppro.Exporter.exportSequenceFrame(context.sequence, position, exporterFilename, outputDirectory, width, height);
+      if (returned !== true) throw commandError("UXP_VERIFICATION_FAILED", "Premiere did not confirm frame export; no output path is reported");
       const path = Protocol.joinPath(outputDirectory, filename);
       return { path, width, height, seconds: position.seconds, exporterResult: returned };
     }
