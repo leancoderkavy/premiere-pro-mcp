@@ -390,7 +390,8 @@ export function getAdvancedTools(bridgeOptions: BridgeOptions) {
     },
 
     reverse_clip: {
-      description: "Reverse a clip's playback direction. Uses QE DOM.",
+      description:
+        "Unavailable: Premiere does not expose a supported scripting API for reversing a timeline clip's playback direction.",
       parameters: {
         type: "object" as const,
         properties: {
@@ -406,25 +407,12 @@ export function getAdvancedTools(bridgeOptions: BridgeOptions) {
         required: ["node_id"],
       },
       handler: async (args: { node_id: string; reverse?: boolean }) => {
-        const rev = args.reverse !== false;
-        const script = buildToolScript(`
-          app.enableQE();
-          var qeSeq = qe.project.getActiveSequence();
-          if (!qeSeq) return __error("No active sequence (QE)");
-          
-          var result = __findClip("${escapeForExtendScript(args.node_id)}");
-          if (!result) return __error("Clip not found");
-          
-          var qeTrack = result.trackType === "video"
-            ? qeSeq.getVideoTrackAt(result.trackIndex)
-            : qeSeq.getAudioTrackAt(result.trackIndex);
-          var qeClip = qeTrack.getItemAt(result.clipIndex);
-          if (!qeClip) return __error("QE clip not found");
-          
-          qeClip.setReverse(${rev});
-          return __result({ reversed: ${rev}, clipName: result.clip.name });
-        `);
-        return sendCommand(script, bridgeOptions);
+        void args;
+        return {
+          success: false,
+          error:
+            "Reversing a timeline clip is not exposed by Premiere's supported ExtendScript or UXP APIs. No mutation was attempted. Use Premiere's Speed/Duration UI or pre-render retimed media before import.",
+        };
       },
     },
 

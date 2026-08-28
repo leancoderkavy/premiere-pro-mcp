@@ -113,53 +113,67 @@ export function getProjectTools(bridgeOptions: BridgeOptions) {
     },
 
     consolidate_duplicates: {
-      description: "Consolidate duplicate project items",
+      description:
+        "Consolidate duplicate project items and report success only when duplicate media groups decrease.",
       parameters: {},
       handler: async () => {
         const script = buildToolScript(`
-          function duplicateGroups(root) {
-            var byPath = {};
-            function visit(item) {
-              if (!item) return;
-              if (item.type === 2) {
-                for (var i = 0; i < item.children.numItems; i++) visit(item.children[i]);
-                return;
-              }
-              try {
-                var path = item.getMediaPath ? String(item.getMediaPath() || "") : "";
-                if (!path) return;
-                if (!byPath[path]) byPath[path] = [];
-                byPath[path].push(String(item.nodeId));
-              } catch (e) {}
-            }
-            visit(root);
-            var groups = 0;
-            var items = 0;
-            for (var path in byPath) {
-              if (byPath.hasOwnProperty(path) && byPath[path].length > 1) {
-                groups++;
-                items += byPath[path].length;
+          function __duplicateMediaStats() {
+            var pathMap = {};
+            function scan(bin) {
+              for (var i = 0; i < bin.children.numItems; i++) {
+                var item = bin.children[i];
+                try {
+                  var mediaPath = item.getMediaPath();
+                  if (mediaPath) {
+                    if (!pathMap[mediaPath]) pathMap[mediaPath] = 0;
+                    pathMap[mediaPath]++;
+                  }
+                } catch (e) {}
+                if (item.type === 2) scan(item);
               }
             }
-            return { groups: groups, items: items };
+            scan(app.project.rootItem);
+
+            var duplicateGroupCount = 0;
+            var duplicateItemCount = 0;
+            for (var path in pathMap) {
+              if (pathMap.hasOwnProperty(path) && pathMap[path] > 1) {
+                duplicateGroupCount++;
+                duplicateItemCount += pathMap[path] - 1;
+              }
+            }
+            return {
+              duplicateGroupCount: duplicateGroupCount,
+              duplicateItemCount: duplicateItemCount
+            };
           }
-          var before = duplicateGroups(app.project.rootItem);
-          if (before.groups === 0) {
-            return __result({ consolidated: false, verified: true, duplicateGroupsBefore: 0, note: "No duplicate media groups were present." });
+
+          var before = __duplicateMediaStats();
+          if (before.duplicateGroupCount === 0) {
+            return __result({
+              consolidated: false,
+              changed: false,
+              reason: "No duplicate media groups were found before consolidation.",
+              before: before,
+              after: before
+            });
           }
-          app.project.consolidateDuplicates();
-          var after = duplicateGroups(app.project.rootItem);
-          if (after.groups >= before.groups) {
-            return __error("Premiere did not reduce the detected duplicate-media groups; no successful consolidation is reported.");
+          if (typeof app.project.consolidateDuplicates !== "function") {
+            return __error("This Premiere build does not expose project.consolidateDuplicates; no duplicate items were changed.");
           }
-          return __result({
-            consolidated: true,
-            verified: true,
-            duplicateGroupsBefore: before.groups,
-            duplicateGroupsAfter: after.groups,
-            duplicateItemsBefore: before.items,
-            duplicateItemsAfter: after.items
-          });
+
+          try {
+            app.project.consolidateDuplicates();
+          } catch (e) {
+            return __error("Premiere could not consolidate duplicate project items: " + e.toString());
+          }
+
+          var after = __duplicateMediaStats();
+          if (after.duplicateGroupCount >= before.duplicateGroupCount && after.duplicateItemCount >= before.duplicateItemCount) {
+            return __error("Premiere completed consolidateDuplicates but duplicate media groups did not decrease. No consolidation success is reported; inspect the project and use get_duplicate_media to review the unchanged groups.");
+          }
+          return __result({ consolidated: true, changed: true, verified: true, before: before, after: after });
         `);
         return sendCommand(script, bridgeOptions);
       },
