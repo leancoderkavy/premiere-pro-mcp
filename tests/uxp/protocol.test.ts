@@ -64,9 +64,18 @@ describe("UXP bridge protocol", () => {
     expect(() => protocol.safeFilename("../shot.png")).toThrow();
     expect(() => protocol.safeFilename("shot.jpg")).toThrow();
   });
+  it("passes a bare frame stem to Premiere while retaining the public PNG filename", () => {
+    expect(protocol.exporterFrameName("shot-01.png")).toBe("shot-01");
+    expect(protocol.exporterFrameName("Frame.PNG")).toBe("Frame");
+  });
   it("joins Windows and POSIX-style output paths", () => {
     expect(protocol.joinPath("C:/temp", "a.png")).toBe("C:/temp/a.png");
     expect(protocol.joinPath("C:/temp/", "a.png")).toBe("C:/temp/a.png");
+  });
+  it("keeps the one-extension normalization in the panel's direct frame-export path", () => {
+    const panel = readFileSync(new URL("../../uxp-plugin/index.cjs", import.meta.url), "utf8");
+    expect(panel).toContain("const exporterFilename = Protocol.exporterFrameName(filename);");
+    expect(panel).toContain("exportSequenceFrame(sequence, position, exporterFilename, outputDirectory, width, height)");
   });
 
   it("describes verification, undo, transaction, and cancellation boundaries", () => {
