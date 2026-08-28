@@ -78,6 +78,11 @@ guide](https://premiere-pro-mcp.com/premiere-pro-collaboration-workflow/) before
 you evaluate an MCP path. It links the relevant Adobe guidance, makes no project
 inspection request, and ends with the same read-only connection check.
 
+For a concrete first Project Intake preview, choose one of the three
+[schema-checked, no-sensitive-data starter templates](https://premiere-pro-mcp.com/project-intake/#starter-template).
+They are evaluation samples only: a human policy owner must review and replace
+their bins, media rules, and organization rules before a facility uses one.
+
 ---
 
 ## Quick Start
