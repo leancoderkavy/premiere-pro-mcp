@@ -6,6 +6,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [1.14.1] - 2026-08-27
+
+### Fixed
+
+- Made npm package verification isolate its temporary tarball and select the
+  package matching `package.json`, avoiding a current npm CLI packaging
+  regression before publication.
+
 ## [1.14.0] - 2026-08-27
 
 ### Added

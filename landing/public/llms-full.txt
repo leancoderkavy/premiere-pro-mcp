@@ -19,7 +19,7 @@ Guide: Premiere Pro delivery QC and loudness checklist: https://premiere-pro-mcp
 Source: https://github.com/leancoderkavy/premiere-pro-mcp
 npm: https://www.npmjs.com/package/premiere-pro-mcp
 License: MIT
-Current release: 1.14.0
+Current release: 1.14.1
 
 ## What it does
 

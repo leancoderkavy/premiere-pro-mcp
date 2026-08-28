@@ -65,14 +65,30 @@ function runNpm(args, options = {}) {
 
 let tarball;
 let installDir;
+let packDir;
 
 try {
-  const packed = JSON.parse(runNpm(["pack", "--json", "--ignore-scripts"]));
-  if (!Array.isArray(packed) || packed.length !== 1 || typeof packed[0]?.filename !== "string") {
-    throw new Error("npm pack did not return exactly one package filename");
+  packDir = mkdtempSync(join(tmpdir(), "premiere-pro-mcp-pack-output-"));
+  const packed = JSON.parse(
+    runNpm(["pack", "--json", "--ignore-scripts", "--pack-destination", packDir]),
+  );
+  const packageJson = JSON.parse(readFileSync(join(root, "package.json"), "utf8"));
+  const packEntries = Array.isArray(packed)
+    ? packed
+    : packed && typeof packed === "object"
+      ? Object.values(packed)
+      : [];
+  const matchingPackages = packEntries.filter(
+    (entry) =>
+      entry?.name === packageJson.name &&
+      entry?.version === packageJson.version &&
+      typeof entry?.filename === "string",
+  );
+  if (matchingPackages.length !== 1) {
+    throw new Error("npm pack did not return exactly one package matching package.json");
   }
 
-  tarball = resolve(root, packed[0].filename);
+  tarball = resolve(packDir, matchingPackages[0].filename);
   const entries = tarEntries(tarball);
   const missing = requiredFiles.filter((path) => !entries.has(path));
   if (missing.length > 0) {
@@ -93,8 +109,11 @@ try {
     throw new Error("installed CLI --help did not return the expected usage text");
   }
 
-  console.log(`Verified npm package contents and isolated CLI install: ${packed[0].filename}`);
+  console.log(
+    `Verified npm package contents and isolated CLI install: ${matchingPackages[0].filename}`,
+  );
 } finally {
   if (installDir) rmSync(installDir, { recursive: true, force: true });
   if (tarball) rmSync(tarball, { force: true });
+  if (packDir) rmSync(packDir, { recursive: true, force: true });
 }

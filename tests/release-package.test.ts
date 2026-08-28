@@ -15,6 +15,8 @@ describe("npm release package verification", () => {
     expect(verifier).toContain('"package/cep-plugin/CSXS/manifest.xml"');
     expect(verifier).toContain('"package/uxp-plugin/manifest.json"');
     expect(verifier).toContain('"--ignore-scripts"');
+    expect(verifier).toContain('"--pack-destination"');
+    expect(verifier).toContain("Object.values(packed)");
     expect(verifier).toContain('installedCli, "--help"');
     expect(verifier).toContain("process.env.npm_execpath");
     expect(verifier).toContain('"lib", "node_modules", "npm"');
