@@ -74,7 +74,7 @@ operation” when the tool has no enum-based mode.
 | `color_correct` | Default profile | Single operation | Apply basic color correction to a clip using Lumetri Color |
 | `compare_cmx3600_edls` | Default profile | Single operation | Compare two local CMX 3600 EDLs by event number and report bounded added, removed, and changed editorial events. Read-only; it does not alter either interchange file or Premiere. |
 | `consolidate_and_transfer` | Default profile | Single operation | Consolidate, copy, or transcode project media using the Project Manager. Useful for archiving or transferring projects. |
-| `consolidate_duplicates` | Default profile | Single operation | Consolidate duplicate project items |
+| `consolidate_duplicates` | Default profile | Single operation | Consolidate duplicate project items and report success only when duplicate media groups decrease. |
 | `copy_effect_values` | Default profile | Single operation | Copy all property values from one effect to the matching effect on another clip. Both clips must already have the same effect applied. |
 | `copy_effects_between_clips` | Default profile | Single operation | Copy all effects (or a specific effect) from one clip to another. Does not copy intrinsic properties like Motion/Opacity unless specified. |
 | `create_bars_and_tone` | Default profile | Single operation | Create a Bars and Tone synthetic media item in the project (useful for leader/calibration) |
@@ -263,7 +263,7 @@ operation” when the tool has no enum-based mode.
 | `rename_track` | Default profile | `track_type`: `video`, `audio` | Rename a video or audio track. |
 | `replace_clip` | Default profile | Single operation | Replace a clip on the timeline with a different project item, preserving position and duration |
 | `replace_clip_media` | Default profile | Single operation | Replace the source media of a clip on the timeline with a different project item, keeping the clip's position and duration. |
-| `reverse_clip` | Default profile | Single operation | Reverse a clip's playback direction. Uses QE DOM. |
+| `reverse_clip` | Default profile | Single operation | Unavailable: Premiere does not expose a supported scripting API for reversing a timeline clip's playback direction. |
 | `ripple_delete` | Default profile | Single operation | Ripple delete a clip (removes clip and closes the gap). Uses QE DOM. |
 | `roll_edit` | Default profile | Single operation | Perform a roll edit on a clip (adjusts the edit point between two adjacent clips). Uses QE DOM. |
 | `save_project` | Default profile | Single operation | Save the current Premiere Pro project |
@@ -330,7 +330,7 @@ operation” when the tool has no enum-based mode.
 | `set_uniform_scale` | Default profile | Single operation | Toggle uniform scale on a clip's Motion effect. When enabled, Scale Width and Scale Height are linked. |
 | `set_work_area` | Default profile | Single operation | Set the work area (bar) in and out points |
 | `set_workspace` | Default profile | Single operation | Switch to a specific workspace layout (e.g., 'Editing', 'Color', 'Audio', 'Effects', 'Graphics') |
-| `set_xmp_metadata` | Default profile | Single operation | Set raw XMP metadata on a project item (provide complete XMP XML string) |
+| `set_xmp_metadata` | Default profile | Single operation | Merge a raw XMP XML patch into a project item's existing XMP metadata without removing unrelated fields. |
 | `set_zero_point` | Default profile | Single operation | Set the starting timecode (zero point) of a sequence |
 | `setup_ducking` | Default profile | Single operation | Build a verified Volume > Level keyframe curve for one audio clip. Ducking-window times are relative to that clip's start; overlapping or out-of-range windows are rejected before any keyframe write. |
 | `slide_edit` | Default profile | Single operation | Perform a slide edit on a clip (moves clip without changing its duration, adjusting adjacent clips). Uses QE DOM. |

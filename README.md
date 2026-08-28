@@ -627,8 +627,7 @@ the tables below are a shorter workflow-oriented overview.
 | `ripple_delete` | Remove clip and close gap (QE) |
 | `roll_edit` / `slide_edit` / `slip_edit` | Professional trim modes (QE) |
 | `move_clip_to_track` | Move between tracks (QE) |
-| `reverse_clip` | Reverse direction (QE, host-dependent) |
-| `speed_change` / `set_clip_speed_qe` | Unavailable: Premiere has no supported scripting API for changing clip speed |
+| `reverse_clip` / `speed_change` / `set_clip_speed_qe` | Unavailable: Premiere has no supported scripting API for changing a timeline clip's speed or direction |
 | `split_clip` / `trim_clip` / `move_clip` | Basic edits; trim verifies source points and visible timeline edges |
 | `set_clip_properties` | Opacity, scale, rotation, position (speed requests fail before mutation) |
 | `link_selection` / `unlink_selection` | Link/unlink A/V |
@@ -642,8 +641,8 @@ the tables below are a shorter workflow-oriented overview.
 > to blend adjacent source frames. See [issue #21](https://github.com/leancoderkavy/premiere-pro-mcp/issues/21).
 
 > **Speed, caption, and visual-keyframe boundaries:** Premiere Pro 26.3 exposes no supported
-> scripting setter or Time Remapping component for timeline-clip speed. `speed_change`,
-> `set_clip_speed_qe`, and `set_clip_properties` with `speed` now stop before host mutation;
+> scripting setter or Time Remapping component for timeline-clip speed or direction. `reverse_clip`,
+> `speed_change`, `set_clip_speed_qe`, and `set_clip_properties` with `speed` now stop before host mutation;
 > use the Speed/Duration UI or pre-render retimed media. `add_text_overlay` likewise stops
 > before mutation because a raw-text-to-caption API is not exposed; import an `.srt`/`.vtt`
 > and use `create_caption_track`, or use a MOGRT/PNG overlay. Keyframe and caption-track
@@ -744,7 +743,7 @@ than presenting UI-only operations as available tools.
 | `set_offline` / `has_proxy` / `detach_proxy` | Offline/proxy management |
 | `set_override_frame_rate` | Override FPS |
 | `set_scale_to_frame_size` | Auto-scale to sequence frame |
-| `get_xmp_metadata` / `set_xmp_metadata` | Raw XMP access |
+| `get_xmp_metadata` / `set_xmp_metadata` | Raw XMP access; writes merge a well-formed patch without removing unrelated fields |
 | `get_color_space` | Color space info |
 
 ### Sequence Management (11)
