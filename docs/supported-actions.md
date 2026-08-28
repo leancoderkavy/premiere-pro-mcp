@@ -193,7 +193,7 @@ operation” when the tool has no enum-based mode.
 | `import_image_sequence` | Default profile | Single operation | Import a numbered image sequence as a single video clip. |
 | `import_media` | Default profile | Single operation | Import media files into the project |
 | `import_mogrt` | Default profile | Single operation | Import a Motion Graphics Template (.mogrt) file and add it to the timeline |
-| `import_mogrt_from_library` | Default profile | Single operation | Import a MOGRT from an Adobe Library by name |
+| `import_mogrt_from_library` | Default profile | Single operation | Import a MOGRT from a named Adobe Creative Cloud Library. |
 | `import_sequences` | Default profile | Single operation | Import sequences from another Premiere Pro project file |
 | `insert_from_source` | Default profile | Single operation | Insert the clip from the Source Monitor at the playhead position (insert edit — shifts existing clips). |
 | `inspect_cmx3600_edl` | Default profile | Single operation | Parse a local CMX 3600 EDL into bounded event, reel, track, transition, and timecode facts without importing it into Premiere. |
@@ -265,10 +265,10 @@ operation” when the tool has no enum-based mode.
 | `replace_clip_media` | Default profile | Single operation | Replace the source media of a clip on the timeline with a different project item, keeping the clip's position and duration. |
 | `reverse_clip` | Default profile | Single operation | Unavailable: Premiere does not expose a supported scripting API for reversing a timeline clip's playback direction. |
 | `ripple_delete` | Default profile | Single operation | Ripple delete a clip (removes clip and closes the gap). Uses QE DOM. |
-| `roll_edit` | Default profile | Single operation | Perform a roll edit on a clip (adjusts the edit point between two adjacent clips). Uses QE DOM. |
+| `roll_edit` | Default profile | Single operation | Perform a verified roll edit at the outgoing cut of a clip using the public timeline DOM. |
 | `save_project` | Default profile | Single operation | Save the current Premiere Pro project |
 | `save_project_as` | Default profile | Single operation | Save the current project to a new location |
-| `scene_edit_detection` | Default profile | Single operation | Perform scene edit detection on the selected clips in the active sequence |
+| `scene_edit_detection` | Default profile | `CreateMarkers`, `ApplyCuts` | Perform scene edit detection on the selected clips in the active sequence. Defaults to creating markers rather than cutting. |
 | `search_project_context` | Default profile | Single operation | Search a durable Premiere project-context index for relevant sources, timeline placements, transcript passages, shots, audio observations, and notes. Returns bounded evidence with stable IDs and revisions; it never changes Premiere. |
 | `search_project_items` | Default profile | `item_type`: `clip`, `bin`, `all` | Search for project items by name, media file extension, offline status, or color label. Returns matching items with full details. |
 | `select_all_clips` | Default profile | `track_type`: `video`, `audio`, `both` | Select all clips in the active sequence, or all clips on a specific track. |
@@ -303,7 +303,7 @@ operation” when the tool has no enum-based mode.
 | `set_item_in_out` | Default profile | Single operation | Set in and/or out points on a project item in the project panel (marks source range for editing). |
 | `set_keyframe_interpolation` | Default profile | `interpolation`: `linear`, `hold`, `bezier` | Set the interpolation type of a keyframe (Linear, Hold, or Bezier) |
 | `set_metadata` | Default profile | Single operation | Replace project metadata XML on a project item and verify the exact readback. Partial field/value writes are intentionally rejected because Premiere requires a complete Project Metadata XML payload. |
-| `set_offline` | Default profile | Single operation | Set a project item to offline status (unlinks its media) |
+| `set_offline` | Default profile | Single operation | Set a project item offline, or ask Premiere to refresh it back online when offline is false. |
 | `set_override_frame_rate` | Default profile | Single operation | Override the frame rate of a project item (useful for image sequences or misinterpreted media) |
 | `set_override_pixel_aspect_ratio` | Default profile | Single operation | Override the pixel aspect ratio of a project item |
 | `set_playhead_position` | Default profile | Single operation | Set the playhead (CTI) position in the active sequence |
@@ -333,8 +333,8 @@ operation” when the tool has no enum-based mode.
 | `set_xmp_metadata` | Default profile | Single operation | Merge a raw XMP XML patch into a project item's existing XMP metadata without removing unrelated fields. |
 | `set_zero_point` | Default profile | Single operation | Set the starting timecode (zero point) of a sequence |
 | `setup_ducking` | Default profile | Single operation | Build a verified Volume > Level keyframe curve for one audio clip. Ducking-window times are relative to that clip's start; overlapping or out-of-range windows are rejected before any keyframe write. |
-| `slide_edit` | Default profile | Single operation | Perform a slide edit on a clip (moves clip without changing its duration, adjusting adjacent clips). Uses QE DOM. |
-| `slip_edit` | Default profile | Single operation | Perform a slip edit on a clip (changes source in/out points without moving clip on timeline). Uses QE DOM. |
+| `slide_edit` | Default profile | Single operation | Perform a verified slide edit on a clip using adjacent clips from the public timeline DOM. |
+| `slip_edit` | Default profile | Single operation | Perform a verified slip edit on a clip using public source in/out properties. |
 | `speed_change` | Default profile | Single operation | Unavailable: Premiere does not expose a supported scripting API for changing a timeline clip's speed. |
 | `split_clip` | Default profile | `track_type`: `video`, `audio` | Split every clip on one track that spans a timeline time, then verify both resulting boundaries. Requires QE DOM; effect-keyframe redistribution remains unverified. |
 | `stabilize_clip` | Default profile | `method`: `Subspace Warp`, `Position`, `Position, Scale, Rotation` | Apply the Warp Stabilizer effect to a clip for video stabilization. Uses QE DOM. |

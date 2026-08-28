@@ -468,6 +468,13 @@ export function getTrackTargetingTools(bridgeOptions: BridgeOptions) {
         out_seconds?: number;
         media_type?: number;
       }) => {
+        if (args.in_seconds === undefined && args.out_seconds === undefined) {
+          return { success: false, error: "Provide in_seconds, out_seconds, or both." };
+        }
+        if ((args.in_seconds !== undefined && (!Number.isFinite(args.in_seconds) || args.in_seconds < 0))
+          || (args.out_seconds !== undefined && (!Number.isFinite(args.out_seconds) || args.out_seconds < 0))) {
+          return { success: false, error: "in_seconds and out_seconds must be finite, non-negative numbers." };
+        }
         const mediaType = args.media_type ?? 4;
         const script = buildToolScript(`
           var item = __findProjectItem("${escapeForExtendScript(args.item_id)}");
@@ -479,6 +486,10 @@ export function getTrackTargetingTools(bridgeOptions: BridgeOptions) {
           var inTime = new Time();
           inTime.seconds = ${args.in_seconds};
           item.setInPoint(inTime.ticks, ${mediaType});
+          var observedIn = item.getInPoint(${mediaType});
+          if (!observedIn || String(observedIn.ticks) !== String(inTime.ticks)) {
+            return __error("Premiere did not apply the requested project-item in point.");
+          }
           `
               : ""
           }
@@ -489,11 +500,20 @@ export function getTrackTargetingTools(bridgeOptions: BridgeOptions) {
           var outTime = new Time();
           outTime.seconds = ${args.out_seconds};
           item.setOutPoint(outTime.ticks, ${mediaType});
+          var observedOut = item.getOutPoint(${mediaType});
+          if (!observedOut || String(observedOut.ticks) !== String(outTime.ticks)) {
+            return __error("Premiere did not apply the requested project-item out point.");
+          }
           `
               : ""
           }
 
-          return __result({ item: item.name, inSet: ${args.in_seconds !== undefined}, outSet: ${args.out_seconds !== undefined} });
+          return __result({
+            item: item.name,
+            inSet: ${args.in_seconds !== undefined},
+            outSet: ${args.out_seconds !== undefined},
+            verified: true
+          });
         `);
         return sendCommand(script, bridgeOptions);
       },
@@ -522,6 +542,8 @@ export function getTrackTargetingTools(bridgeOptions: BridgeOptions) {
         target_bin?: string;
       }) => {
         const script = buildToolScript(`
+          var sourceFile = new File("${escapeForExtendScript(args.first_file_path)}");
+          if (!sourceFile.exists) return __error("The first image file does not exist: " + sourceFile.fsName);
           var targetBin = app.project.rootItem;
           ${
             args.target_bin
@@ -532,9 +554,30 @@ export function getTrackTargetingTools(bridgeOptions: BridgeOptions) {
               : ""
           }
 
-          app.project.importFiles(["${escapeForExtendScript(args.first_file_path)}"], true, targetBin, true);
+          var beforeCount = targetBin.children.numItems;
+          var imported = app.project.importFiles([sourceFile.fsName], true, targetBin, true);
+          if (!imported) return __error("Premiere did not import the numbered image sequence.");
+          var importedItem = null;
+          for (var i = 0; i < targetBin.children.numItems; i++) {
+            var candidate = targetBin.children[i];
+            try {
+              if (candidate.getMediaPath && String(candidate.getMediaPath()) === String(sourceFile.fsName)) {
+                importedItem = candidate;
+                break;
+              }
+            } catch (e) {}
+          }
+          if (!importedItem && targetBin.children.numItems <= beforeCount) {
+            return __error("Premiere accepted the image-sequence import but no project item was added.");
+          }
 
-          return __result({ imported: true, file: "${escapeForExtendScript(args.first_file_path)}", asImageSequence: true });
+          return __result({
+            imported: true,
+            file: sourceFile.fsName,
+            asImageSequence: true,
+            verified: true,
+            projectItem: importedItem ? { name: importedItem.name, nodeId: importedItem.nodeId } : null
+          });
         `);
         return sendCommand(script, bridgeOptions);
       },
@@ -1080,14 +1123,21 @@ export function getTrackTargetingTools(bridgeOptions: BridgeOptions) {
 
           var count = 0;
           var disabled = ${!args.enabled};
+          var candidates = 0;
+          var failures = [];
 
           function setOnTrack(track) {
             for (var c = 0; c < track.clips.numItems; c++) {
               try {
                 if ("${args.target}" === "selected" && !track.clips[c].isSelected()) continue;
-                track.clips[c].setDisabled(disabled);
+                candidates++;
+                track.clips[c].disabled = disabled;
+                if (Boolean(track.clips[c].disabled) !== disabled) {
+                  failures.push(track.clips[c].name || ("clip #" + c));
+                  continue;
+                }
                 count++;
-              } catch(e) {}
+              } catch(e) { failures.push("clip #" + c + ": " + e.toString()); }
             }
           }
 
@@ -1100,7 +1150,9 @@ export function getTrackTargetingTools(bridgeOptions: BridgeOptions) {
             for (var t = 0; t < seq.audioTracks.numTracks; t++) setOnTrack(seq.audioTracks[t]);
           }
 
-          return __result({ affected: count, enabled: ${args.enabled} });
+          if (candidates === 0) return __error("No clips matched target '${args.target}'. Select clips first or choose target 'track' or 'all'.");
+          if (failures.length) return __error("Premiere did not apply the requested enabled state to " + failures.length + " clip(s): " + failures.join("; "));
+          return __result({ affected: count, enabled: ${args.enabled}, verified: true });
         `);
         return sendCommand(script, bridgeOptions);
       },
@@ -1173,10 +1225,14 @@ export function getTrackTargetingTools(bridgeOptions: BridgeOptions) {
           var seq = app.project.activeSequence;
           if (!seq) return __error("No active sequence");
 
-          ${clearIn ? `seq.setInPoint(seq.zeroPoint.ticks);` : ""}
-          ${clearOut ? `seq.setOutPoint(seq.end);` : ""}
+          var zeroSeconds = __ticksToSeconds(seq.zeroPoint);
+          var endSeconds = __ticksToSeconds(seq.end);
+          ${clearIn ? `seq.setInPoint(zeroSeconds);` : ""}
+          ${clearOut ? `seq.setOutPoint(endSeconds);` : ""}
+          ${clearIn ? `if (Math.abs(Number(seq.getInPoint()) - zeroSeconds) > 0.000001) return __error("Premiere did not clear the sequence in point.");` : ""}
+          ${clearOut ? `if (Math.abs(Number(seq.getOutPoint()) - endSeconds) > 0.000001) return __error("Premiere did not clear the sequence out point.");` : ""}
 
-          return __result({ clearedIn: ${clearIn}, clearedOut: ${clearOut} });
+          return __result({ clearedIn: ${clearIn}, clearedOut: ${clearOut}, verified: true });
         `);
         return sendCommand(script, bridgeOptions);
       },
@@ -1464,14 +1520,13 @@ export function getTrackTargetingTools(bridgeOptions: BridgeOptions) {
           if (!result) return __error("Clip not found");
 
           var clip = result.clip;
-          var set = false;
+          var antiFlicker = null;
           for (var i = 0; i < clip.components.numItems; i++) {
             if (clip.components[i].displayName === "Motion") {
               for (var p = 0; p < clip.components[i].properties.numItems; p++) {
                 var pName = clip.components[i].properties[p].displayName;
-                if (pName === "Anti-flicker Filter" || pName === "Use Composition's Shutter Angle") {
-                  clip.components[i].properties[p].setValue(${args.enabled}, true);
-                  set = true;
+                if (pName === "Anti-flicker Filter") {
+                  antiFlicker = clip.components[i].properties[p];
                   break;
                 }
               }
@@ -1479,7 +1534,19 @@ export function getTrackTargetingTools(bridgeOptions: BridgeOptions) {
             }
           }
 
-          return __result({ clip: clip.name, antiAlias: ${args.enabled}, propertyFound: set });
+          if (!antiFlicker) return __error("The clip Motion component does not expose an Anti-flicker Filter parameter.");
+          var requestedValue = ${args.enabled ? 1 : 0};
+          antiFlicker.setValue(requestedValue, 1);
+          var observedValue = Number(antiFlicker.getValue());
+          if (Math.abs(observedValue - requestedValue) > 0.000001) {
+            return __error("Premiere did not apply the requested Anti-flicker Filter value.");
+          }
+          return __result({
+            clip: clip.name,
+            antiAlias: ${args.enabled},
+            antiFlickerValue: observedValue,
+            verified: true
+          });
         `);
         return sendCommand(script, bridgeOptions);
       },

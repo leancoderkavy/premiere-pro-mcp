@@ -228,7 +228,7 @@ export function getMediaTools(bridgeOptions: BridgeOptions) {
       },
     },
     set_offline: {
-      description: "Set a project item to offline status (unlinks its media)",
+      description: "Set a project item offline, or ask Premiere to refresh it back online when offline is false.",
       parameters: {
         type: "object" as const,
         properties: {
@@ -236,15 +236,30 @@ export function getMediaTools(bridgeOptions: BridgeOptions) {
             type: "string",
             description: "Node ID or name of the project item",
           },
+          offline: {
+            type: "boolean",
+            description: "true to take media offline (default); false to refresh an existing offline item",
+          },
         },
         required: ["item_id"],
       },
-      handler: async (args: { item_id: string }) => {
+      handler: async (args: { item_id: string; offline?: boolean }) => {
+        const offline = args.offline !== false;
         const script = buildToolScript(`
           var item = __findProjectItem("${escapeForExtendScript(args.item_id)}");
           if (!item) return __error("Item not found: ${escapeForExtendScript(args.item_id)}");
-          item.setOffline();
-          return __result({ offline: true, item: item.name });
+          ${offline
+            ? `item.setOffline();`
+            : `item.refreshMedia();`
+          }
+          var observedOffline = !!item.isOffline();
+          if (observedOffline !== ${offline}) {
+            return __error(${offline
+              ? `"Premiere did not take the project item offline."`
+              : `"Premiere could not refresh this item online. Use relink_media with the known media path if the source has moved."`
+            });
+          }
+          return __result({ offline: observedOffline, item: item.name, verified: true });
         `);
         return sendCommand(script, bridgeOptions);
       },
