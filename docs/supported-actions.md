@@ -36,7 +36,7 @@ operation” when the tool has no enum-based mode.
 | --- | --- | --- | --- |
 | `add_adjustment_layer` | Default profile | Single operation | Add an adjustment layer to the active sequence via QE DOM. The layer is added at the playhead position on the specified track. |
 | `add_audio_keyframes` | Default profile | Single operation | Add audio level keyframes to create fades or level changes |
-| `add_custom_metadata_field` | Default profile | Single operation | Add a custom metadata field to the project's metadata schema |
+| `add_custom_metadata_field` | Default profile | Single operation | Add a custom metadata field to the project's metadata schema. This creates a schema/column definition only; it does not set a per-item value. Use set_metadata with complete Project Metadata XML and readback to update a value. |
 | `add_keyframe` | Default profile | Single operation | Add and read back a keyframe on an effect property. This verifies stored parameter data only; render/playback verification remains host-dependent. |
 | `add_marker` | Default profile | Single operation | Add a marker to the active sequence or a clip |
 | `add_marker_to_project_item` | Default profile | `type`: `Comment`, `Chapter`, `Segmentation`, `WebLink` | Add a marker to a project item (source clip marker). |
@@ -75,7 +75,7 @@ operation” when the tool has no enum-based mode.
 | `compare_cmx3600_edls` | Default profile | Single operation | Compare two local CMX 3600 EDLs by event number and report bounded added, removed, and changed editorial events. Read-only; it does not alter either interchange file or Premiere. |
 | `consolidate_and_transfer` | Default profile | Single operation | Consolidate, copy, or transcode project media using the Project Manager. Useful for archiving or transferring projects. |
 | `consolidate_duplicates` | Default profile | Single operation | Consolidate duplicate project items and report success only when duplicate media groups decrease. |
-| `copy_effect_values` | Default profile | Single operation | Copy all property values from one effect to the matching effect on another clip. Both clips must already have the same effect applied. |
+| `copy_effect_values` | Default profile | Single operation | Copy verified scalar effect-property values from one effect to the matching effect on another clip. Both clips must already have the same effect applied. Legacy CEP deliberately refuses Blend Mode because Premiere can corrupt its enum value on cross-clip writes. |
 | `copy_effects_between_clips` | Default profile | Single operation | Copy all effects (or a specific effect) from one clip to another. Does not copy intrinsic properties like Motion/Opacity unless specified. |
 | `create_bars_and_tone` | Default profile | Single operation | Create a Bars and Tone synthetic media item in the project (useful for leader/calibration) |
 | `create_bin` | Default profile | Single operation | Create a new bin (folder) in the project panel |
@@ -89,7 +89,7 @@ operation” when the tool has no enum-based mode.
 | `create_sequence_from_preset` | Default profile | Single operation | Create a new sequence from a specific preset file (.sqpreset) |
 | `create_smart_bin` | Default profile | Single operation | Create a smart bin (search bin) in the project panel |
 | `create_subclip` | Default profile | Single operation | Create a subclip from a project item with in/out points |
-| `create_subsequence` | Default profile | Single operation | Create a subsequence (nested sequence) from selected clips or a time range |
+| `create_subsequence` | Default profile | Single operation | Create a separate subsequence from selected clips or a time range. This Premiere API does not replace the original timeline clips with a nested-sequence reference. |
 | `crop_clip` | Default profile | Single operation | Apply or update Premiere's Crop effect on one video clip and read back every requested value. Adding Crop uses the legacy QE catalog only when the clip does not already contain it. |
 | `delete_bin` | Default profile | Single operation | Delete a bin (folder) from the project panel |
 | `delete_marker` | Default profile | Single operation | Delete a marker at a specific time position |
@@ -229,7 +229,7 @@ operation” when the tool has no enum-based mode.
 | `move_playhead_to_edit` | Default profile | `direction`: `next`, `previous` | Move the playhead to the next or previous edit point. |
 | `multiple_undo` | Default profile | Single operation | Undo multiple steps at once. |
 | `mute_track` | Default profile | Single operation | Mute or unmute an audio track |
-| `nest_clips` | Default profile | Single operation | Nest selected clips into a nested sequence. Select the clips first, then call this tool. |
+| `nest_clips` | Default profile | Single operation | Unavailable on the legacy CEP backend: Premiere's documented createSubsequence API only creates a separate sequence and cannot safely replace the selected timeline clips with a nested-sequence reference. |
 | `normalize_loudness_file` | Default profile | Single operation | Create a new loudness-normalized media derivative with FFmpeg, then remeasure that exact output using EBU R128. Never overwrites the input or an existing output file. |
 | `open_in_source` | Default profile | Single operation | Open a project item in the Source Monitor for preview and trimming. |
 | `open_project` | Default profile | Single operation | Open a Premiere Pro project file |
@@ -302,14 +302,14 @@ operation” when the tool has no enum-based mode.
 | `set_graphics_white_luminance` | Default profile | Single operation | Set the graphics white luminance value (HDR setting) for the project |
 | `set_item_in_out` | Default profile | Single operation | Set in and/or out points on a project item in the project panel (marks source range for editing). |
 | `set_keyframe_interpolation` | Default profile | `interpolation`: `linear`, `hold`, `bezier` | Set the interpolation type of a keyframe (Linear, Hold, or Bezier) |
-| `set_metadata` | Default profile | Single operation | Set project metadata on a project item |
+| `set_metadata` | Default profile | Single operation | Replace project metadata XML on a project item and verify the exact readback. Partial field/value writes are intentionally rejected because Premiere requires a complete Project Metadata XML payload. |
 | `set_offline` | Default profile | Single operation | Set a project item to offline status (unlinks its media) |
 | `set_override_frame_rate` | Default profile | Single operation | Override the frame rate of a project item (useful for image sequences or misinterpreted media) |
 | `set_override_pixel_aspect_ratio` | Default profile | Single operation | Override the pixel aspect ratio of a project item |
 | `set_playhead_position` | Default profile | Single operation | Set the playhead (CTI) position in the active sequence |
 | `set_poster_frame` | Default profile | Single operation | Set the poster frame (thumbnail) for a project item at a specific time. |
 | `set_project_item_audio_channel_mapping` | Default profile | Single operation | Map one output audio channel of a project item to a source channel using Premiere's documented AudioChannelMapping API. |
-| `set_project_panel_metadata` | Default profile | Single operation | Set the project panel metadata/column configuration from XML |
+| `set_project_panel_metadata` | Default profile | Single operation | Set the project panel metadata/column configuration from XML and verify that Premiere reads back the exact XML |
 | `set_project_scratch_disk` | Default profile | Single operation | Set the project's scratch disk paths for captured video, audio, and previews. |
 | `set_scale_to_frame_size` | Default profile | Single operation | Enable 'Scale to Frame Size' on a project item so it fills the sequence frame |
 | `set_scale_width_height` | Default profile | Single operation | Set independent Scale Width and Scale Height on a clip (requires Uniform Scale to be OFF). |
