@@ -569,8 +569,8 @@ describe("issue #237 — reported mutations must be observable or fail", () => {
     expect(imports).toContain("new File");
     expect(imports).toContain("beforeIds");
     expect(imports).toContain("Premiere did not add any of the requested sequences");
-    expect(duplicates).toContain("duplicateGroups");
-    expect(duplicates).toContain("Premiere did not reduce the detected duplicate-media groups");
+    expect(duplicates).toContain("__duplicateMediaStats");
+    expect(duplicates).toContain("duplicate media groups did not decrease");
   });
 
   it("checks image imports, source-point writes, disable state, and offline state", async () => {
