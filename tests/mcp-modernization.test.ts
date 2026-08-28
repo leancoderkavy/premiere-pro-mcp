@@ -125,6 +125,11 @@ describe("modern MCP surface", () => {
       const capabilityTool = tools.tools.find((tool) => tool.name === "get_capabilities");
       expect(capabilityTool?.outputSchema).toMatchObject({
         type: "object",
+        // MCP clients such as Claude Desktop can require the 2020-12 dialect.
+        // Keep this explicit: an older SDK release silently serialized every
+        // registered output schema as draft-07, making every tool unusable
+        // before its handler could run.
+        $schema: "https://json-schema.org/draft/2020-12/schema",
         required: expect.arrayContaining(["ok", "tool"]),
         properties: expect.objectContaining({
           ok: expect.any(Object),
