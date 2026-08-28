@@ -83,7 +83,11 @@ export function getProjectTools(bridgeOptions: BridgeOptions) {
           var seq = __findSequence("${escapeForExtendScript(args.sequence_id)}");
           if (!seq) return __error("Sequence not found: ${escapeForExtendScript(args.sequence_id)}");
           app.project.activeSequence = seq;
-          return __result({ active: true, name: seq.name, id: seq.sequenceID });
+          var active = __getCurrentActiveSequence();
+          if (!active || String(active.sequenceID) !== String(seq.sequenceID)) {
+            return __error("Premiere did not activate the requested sequence. Re-read the active sequence before making timeline edits.");
+          }
+          return __result({ active: true, verified: true, name: active.name, id: active.sequenceID });
         `);
         return sendCommand(script, bridgeOptions);
       },
@@ -219,7 +223,14 @@ export function getProjectTools(bridgeOptions: BridgeOptions) {
               ". Check that the path is a new .prproj file and its parent directory exists."
             );
           }
-          return __result({ created: true, name: project.name, path: actualPath });
+          var active = __getCurrentActiveSequence();
+          if (project.sequences.numSequences === 0 && active) {
+            return __error(
+              "Premiere retained an active sequence from the prior project after creating an empty project. " +
+              "No timeline operation is reported as ready; reopen the project or create and activate a sequence before editing."
+            );
+          }
+          return __result({ created: true, name: project.name, path: actualPath, activeSequence: active ? { name: active.name, id: active.sequenceID } : null });
         `);
         return sendCommand(script, bridgeOptions);
       },
@@ -318,9 +329,13 @@ export function getProjectTools(bridgeOptions: BridgeOptions) {
           var bin = __findProjectItem("${escapeForExtendScript(args.bin_id)}");
           if (!bin) return __error("Bin not found: ${escapeForExtendScript(args.bin_id)}");
           if (bin.type !== 2) return __error("Item is not a bin");
+          var nodeId = String(bin.nodeId);
           var name = bin.name;
           bin.deleteBin();
-          return __result({ deleted: true, name: name });
+          if (__findProjectItem(nodeId)) {
+            return __error("Premiere did not remove bin: " + name + ". The deletion is not reported as successful.");
+          }
+          return __result({ deleted: true, verified: true, name: name, nodeId: nodeId });
         `);
         return sendCommand(script, bridgeOptions);
       },
@@ -428,7 +443,7 @@ export function getProjectTools(bridgeOptions: BridgeOptions) {
 
     add_custom_metadata_field: {
       description:
-        "Add a custom metadata field to the project's metadata schema",
+        "Add a custom metadata field to the project's metadata schema. This creates a schema/column definition only; it does not set a per-item value. Use set_metadata with complete Project Metadata XML and readback to update a value.",
       parameters: {
         type: "object" as const,
         properties: {
@@ -454,8 +469,16 @@ export function getProjectTools(bridgeOptions: BridgeOptions) {
         field_type: number;
       }) => {
         const script = buildToolScript(`
-          app.project.addPropertyToProjectMetadataSchema("${escapeForExtendScript(args.field_name)}", "${escapeForExtendScript(args.field_label)}", ${args.field_type});
-          return __result({ added: true, name: "${escapeForExtendScript(args.field_name)}", label: "${escapeForExtendScript(args.field_label)}" });
+          var accepted = app.project.addPropertyToProjectMetadataSchema("${escapeForExtendScript(args.field_name)}", "${escapeForExtendScript(args.field_label)}", ${args.field_type});
+          if (accepted === false) return __error("Premiere rejected the custom metadata schema field");
+          return __result({
+            added: true,
+            name: "${escapeForExtendScript(args.field_name)}",
+            label: "${escapeForExtendScript(args.field_label)}",
+            outcome: "committed_unverified",
+            verificationBoundary: "Premiere does not expose a schema-field enumeration readback through the legacy CEP API",
+            perItemValue: "Use set_metadata with complete Project Metadata XML and updated_fields."
+          });
         `);
         return sendCommand(script, bridgeOptions);
       },
@@ -672,7 +695,7 @@ export function getProjectTools(bridgeOptions: BridgeOptions) {
 
     set_project_panel_metadata: {
       description:
-        "Set the project panel metadata/column configuration from XML",
+        "Set the project panel metadata/column configuration from XML and verify that Premiere reads back the exact XML",
       parameters: {
         type: "object" as const,
         properties: {
@@ -686,8 +709,17 @@ export function getProjectTools(bridgeOptions: BridgeOptions) {
       },
       handler: async (args: { metadata_xml: string }) => {
         const script = buildToolScript(`
-          app.project.setProjectPanelMetadata("${escapeForExtendScript(args.metadata_xml)}");
-          return __result({ set: true });
+          var requestedMetadata = "${escapeForExtendScript(args.metadata_xml)}";
+          var accepted = app.project.setProjectPanelMetadata(requestedMetadata);
+          if (accepted === false) return __error("Premiere rejected the Project panel metadata update");
+          var readback = app.project.getProjectPanelMetadata();
+          if (String(readback) !== requestedMetadata) {
+            return __error(
+              "Premiere did not return the requested Project panel metadata XML after the write. " +
+              "The update is not reported as successful; inspect get_project_panel_metadata before retrying."
+            );
+          }
+          return __result({ set: true, verified: true });
         `);
         return sendCommand(script, bridgeOptions);
       },

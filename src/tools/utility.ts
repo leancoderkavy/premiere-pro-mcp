@@ -23,10 +23,37 @@ export function getUtilityTools(bridgeOptions: BridgeOptions) {
         const script = buildToolScript(`
           var item = __findProjectItem("${escapeForExtendScript(args.item_id)}");
           if (!item) return __error("Item not found: ${escapeForExtendScript(args.item_id)}");
+          if (item === app.project.rootItem) return __error("The project root cannot be deleted");
 
+          var nodeId = String(item.nodeId);
           var name = item.name;
-          app.project.deleteProjectItem(item);
-          return __result({ deleted: true, name: name });
+          var sequence = null;
+          for (var i = 0; i < app.project.sequences.numSequences; i++) {
+            var candidate = app.project.sequences[i];
+            try {
+              if (candidate.projectItem && String(candidate.projectItem.nodeId) === nodeId) {
+                sequence = candidate;
+                break;
+              }
+            } catch (e) {}
+          }
+
+          if (item.type === 2) {
+            item.deleteBin();
+          } else if (sequence) {
+            var accepted = app.project.deleteSequence(sequence);
+            if (accepted === false) return __error("Premiere rejected deletion of sequence: " + name);
+          } else {
+            return __error(
+              "Legacy CEP cannot safely delete this project item type through a documented API. " +
+              "No deletion was attempted; use organize_project_items_uxp with action 'remove' when the authenticated UXP bridge is connected, or remove it in Premiere's Project panel."
+            );
+          }
+
+          if (__findProjectItem(nodeId)) {
+            return __error("Premiere did not remove project item: " + name + ". The deletion is not reported as successful.");
+          }
+          return __result({ deleted: true, verified: true, name: name, nodeId: nodeId });
         `);
         return sendCommand(script, bridgeOptions);
       },
@@ -50,16 +77,49 @@ export function getUtilityTools(bridgeOptions: BridgeOptions) {
         const idsJson = JSON.stringify(args.item_ids);
         const script = buildToolScript(`
           var ids = ${idsJson};
-          var deleted = 0;
-          var names = [];
+          var planned = [];
           for (var i = 0; i < ids.length; i++) {
             var item = __findProjectItem(ids[i]);
-            if (item) {
-              names.push(item.name);
-              try { app.project.deleteProjectItem(item); deleted++; } catch(e) {}
+            if (!item) return __error("Item not found: " + ids[i] + ". No project items were deleted.");
+            if (item === app.project.rootItem) return __error("The project root cannot be deleted. No project items were deleted.");
+            var sequence = null;
+            for (var s = 0; s < app.project.sequences.numSequences; s++) {
+              var candidate = app.project.sequences[s];
+              try {
+                if (candidate.projectItem && String(candidate.projectItem.nodeId) === String(item.nodeId)) {
+                  sequence = candidate;
+                  break;
+                }
+              } catch (e) {}
+            }
+            if (item.type !== 2 && !sequence) {
+              return __error(
+                "Legacy CEP cannot safely delete project item: " + item.name + ". " +
+                "No project items were deleted; use organize_project_items_uxp with action 'remove' for generic project-item deletion."
+              );
+            }
+            planned.push({ nodeId: String(item.nodeId), name: item.name, item: item, sequence: sequence });
+          }
+          for (var p = 0; p < planned.length; p++) {
+            var target = planned[p];
+            // A selected child can already be gone after its selected parent bin is
+            // deleted; that still satisfies the requested postcondition.
+            if (!__findProjectItem(target.nodeId)) continue;
+            if (target.item.type === 2) {
+              target.item.deleteBin();
+            } else {
+              var accepted = app.project.deleteSequence(target.sequence);
+              if (accepted === false) return __error("Premiere rejected deletion of sequence: " + target.name);
             }
           }
-          return __result({ deleted: deleted, total: ids.length, names: names });
+          var deleted = [];
+          for (var q = 0; q < planned.length; q++) {
+            if (__findProjectItem(planned[q].nodeId)) {
+              return __error("Premiere did not remove project item: " + planned[q].name + ". The batch is not reported as successful.");
+            }
+            deleted.push({ nodeId: planned[q].nodeId, name: planned[q].name });
+          }
+          return __result({ deleted: deleted.length, total: ids.length, items: deleted, verified: true });
         `);
         return sendCommand(script, bridgeOptions);
       },
@@ -358,6 +418,26 @@ export function getUtilityTools(bridgeOptions: BridgeOptions) {
         sample_rate?: number;
         channel_type?: number;
       }) => {
+        if (args.sample_rate !== undefined &&
+          (!Number.isFinite(args.sample_rate) || args.sample_rate < 1 || args.sample_rate > 768000)) {
+          return {
+            success: false,
+            error: "sample_rate must be a finite value between 1 and 768000 Hz",
+          };
+        }
+        if (args.channel_type !== undefined &&
+          (!Number.isInteger(args.channel_type) || args.channel_type < 0 || args.channel_type > 5)) {
+          return {
+            success: false,
+            error: "channel_type must be an integer from 0 to 5",
+          };
+        }
+        if (args.sample_rate === undefined && args.channel_type === undefined) {
+          return {
+            success: false,
+            error: "Provide sample_rate and/or channel_type.",
+          };
+        }
         const script = buildToolScript(`
           var seq = app.project.activeSequence;
           if (!seq) return __error("No active sequence");
@@ -365,11 +445,36 @@ export function getUtilityTools(bridgeOptions: BridgeOptions) {
           var settings = seq.getSettings();
           if (!settings) return __error("Could not get sequence settings");
 
-          ${args.sample_rate !== undefined ? `settings.audioSampleRate = ${args.sample_rate};` : ""}
+          ${args.sample_rate !== undefined ? `
+          var requestedSampleRate = ${args.sample_rate};
+          var requestedTicksPerSample = Math.round(TICKS_PER_SECOND / requestedSampleRate);
+          var sampleDuration = new Time();
+          sampleDuration.ticks = requestedTicksPerSample.toString();
+          settings.audioSampleRate = sampleDuration;` : ""}
           ${args.channel_type !== undefined ? `settings.audioChannelType = ${args.channel_type};` : ""}
           seq.setSettings(settings);
 
-          return __result({ sequence: seq.name, sampleRate: settings.audioSampleRate, channelType: settings.audioChannelType });
+          var applied = seq.getSettings();
+          if (!applied) return __error("Premiere did not return updated sequence settings");
+          ${args.sample_rate !== undefined ? `
+          if (!applied.audioSampleRate) return __error("Premiere did not return the updated audio sample rate");
+          var appliedTicksPerSample = parseFloat(applied.audioSampleRate.ticks);
+          if (!isFinite(appliedTicksPerSample) || Math.abs(appliedTicksPerSample - requestedTicksPerSample) > 1) {
+            return __error(
+              "Premiere did not apply the requested audio sample rate: expected " +
+              requestedTicksPerSample + " ticks/sample, got " + appliedTicksPerSample
+            );
+          }` : ""}
+          ${args.channel_type !== undefined ? `
+          if (applied.audioChannelType !== ${args.channel_type}) {
+            return __error("Premiere did not apply the requested audio channel type");
+          }` : ""}
+          return __result({
+            sequence: seq.name,
+            ${args.sample_rate !== undefined ? `sampleRate: requestedSampleRate, ticksPerSample: requestedTicksPerSample.toString(),` : ""}
+            ${args.channel_type !== undefined ? `channelType: applied.audioChannelType,` : ""}
+            verified: true
+          });
         `);
         return sendCommand(script, bridgeOptions);
       },
@@ -1166,7 +1271,7 @@ export function getUtilityTools(bridgeOptions: BridgeOptions) {
 
     nest_clips: {
       description:
-        "Nest selected clips into a nested sequence. Select the clips first, then call this tool.",
+        "Unavailable on the legacy CEP backend: Premiere's documented createSubsequence API only creates a separate sequence and cannot safely replace the selected timeline clips with a nested-sequence reference.",
       parameters: {
         type: "object" as const,
         properties: {
@@ -1177,34 +1282,11 @@ export function getUtilityTools(bridgeOptions: BridgeOptions) {
         },
         required: ["name"],
       },
-      handler: async (args: { name: string }) => {
-        const script = buildToolScript(`
-          var seq = app.project.activeSequence;
-          if (!seq) return __error("No active sequence");
-
-          // Get selected clips
-          var selected = [];
-          function getSelected(tracks) {
-            for (var t = 0; t < tracks.numTracks; t++) {
-              for (var c = 0; c < tracks[t].clips.numItems; c++) {
-                if (tracks[t].clips[c].isSelected()) selected.push(tracks[t].clips[c]);
-              }
-            }
-          }
-          getSelected(seq.videoTracks);
-          getSelected(seq.audioTracks);
-
-          if (selected.length === 0) return __error("No clips selected. Select clips first.");
-
-          try {
-            seq.createSubsequence(true);
-            return __result({ nested: true, name: "${escapeForExtendScript(args.name)}", clipCount: selected.length });
-          } catch(e) {
-            return __error("Nesting failed: " + e.message);
-          }
-        `);
-        return sendCommand(script, bridgeOptions);
-      },
+      handler: async (_args: { name: string }) => ({
+        success: false,
+        error:
+          "nest_clips is unavailable on the legacy CEP backend because Premiere's documented createSubsequence API only creates a separate sequence and does not replace the original clips. No sequence was created and no timeline clips were changed; use Premiere's Nest command instead.",
+      }),
     },
 
     get_sequence_count: {

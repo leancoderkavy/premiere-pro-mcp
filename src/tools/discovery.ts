@@ -19,7 +19,7 @@ export function getDiscoveryTools(bridgeOptions: BridgeOptions) {
             activeSequence: null
           };
           
-          var activeSeq = project.activeSequence;
+          var activeSeq = __getCurrentActiveSequence();
           if (activeSeq) {
             info.activeSequence = {
               name: activeSeq.name,
@@ -121,8 +121,8 @@ export function getDiscoveryTools(bridgeOptions: BridgeOptions) {
       parameters: {},
       handler: async () => {
         const script = buildToolScript(`
-          var seq = app.project.activeSequence;
-          if (!seq) return __error("No active sequence");
+          var seq = __getCurrentActiveSequence();
+          if (!seq) return __error("No active sequence in the current project");
           
           var videoTracks = [];
           for (var t = 0; t < seq.videoTracks.numTracks; t++) {
