@@ -1,4 +1,4 @@
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { McpServer } from "@modelcontextprotocol/server";
 import { BridgeOptions } from "./bridge/file-bridge.js";
 import { getDiscoveryTools } from "./tools/discovery.js";
 import { getProjectTools } from "./tools/project.js";
@@ -155,12 +155,12 @@ const schemaCache = new WeakMap<
   Record<string, unknown>,
   Record<string, z.ZodTypeAny>
 >();
-const toolResultOutputSchema = {
+const toolResultOutputSchema = z.object({
   ok: z.boolean().describe("Whether the tool completed successfully."),
   tool: z.string().min(1).describe("The registered MCP tool name."),
   data: z.unknown().optional().describe("Tool-specific result data when ok is true."),
   error: z.string().optional().describe("Failure detail when ok is false."),
-};
+});
 const debugEnabled = /^(1|true|yes|on|debug)$/i.test(
   process.env.PREMIERE_MCP_DEBUG ?? "",
 );
@@ -346,10 +346,31 @@ export function createServer(
   bridgeOptions: BridgeOptions,
   serverOptions: ServerOptions = {},
 ): McpServer {
-  const server = new McpServer({
-    name: "premiere-pro-mcp",
-    version: SERVER_VERSION,
-  });
+  const server = new McpServer(
+    {
+      name: "premiere-pro-mcp",
+      version: SERVER_VERSION,
+    },
+    {
+      instructions: PREMIERE_INSTRUCTIONS,
+      cacheHints: {
+        "tools/list": { ttlMs: 30_000, cacheScope: "private" },
+        "prompts/list": { ttlMs: 300_000, cacheScope: "public" },
+        "resources/list": { ttlMs: 60_000, cacheScope: "private" },
+        "resources/read": { ttlMs: 0, cacheScope: "private" },
+      },
+      capabilities: {
+        extensions: {
+          "io.github.leancoderkavy/premiere-pro": {
+            protocolRevision: "2026-07-28",
+            dualEra: true,
+            transports: ["stdio", "streamable-http"],
+            bridgeBackends: ["cep", "uxp"],
+          },
+        },
+      },
+    },
+  );
 
   const capabilities = resolveCapabilities();
   const toolPacks = serverOptions.toolPacks === undefined
@@ -396,7 +417,7 @@ export function createServer(
       {
         title: annotations.title,
         description: tool.description,
-        inputSchema: zodShape,
+        inputSchema: z.object(zodShape),
         outputSchema: toolResultOutputSchema,
         annotations,
       },
@@ -502,7 +523,7 @@ export function createServer(
   }
 
   // Register LLM instructions resource
-  server.resource(
+  server.registerResource(
     "premiere-instructions",
     "config://premiere-instructions",
     {
@@ -521,7 +542,7 @@ export function createServer(
   );
 
   for (const resource of getLiveContextResources(bridgeOptions)) {
-    server.resource(
+    server.registerResource(
       resource.name,
       resource.uri,
       {
@@ -532,7 +553,7 @@ export function createServer(
     );
   }
 
-  server.resource(
+  server.registerResource(
     "premiere-workflows",
     "config://premiere-workflows",
     {
@@ -550,7 +571,7 @@ export function createServer(
     }),
   );
 
-  server.resource(
+  server.registerResource(
     "premiere-project-context",
     "config://premiere-project-context",
     {
@@ -574,14 +595,14 @@ export function createServer(
       {
         title: prompt.title,
         description: prompt.description,
-        argsSchema: prompt.argsSchema,
+        argsSchema: z.object(prompt.argsSchema),
       },
       prompt.render,
     );
   }
 
   // Register ExtendScript API reference resource
-  server.resource(
+  server.registerResource(
     "extendscript-reference",
     "config://extendscript-reference",
     {

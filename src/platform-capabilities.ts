@@ -221,6 +221,40 @@ export function buildPlatformCapabilityReport(
   const supported = SUPPORTED_HOST_PLATFORMS.includes(platform as SupportedHostPlatform);
   return {
     schemaVersion: 1,
+    mcp: {
+      sdk: {
+        generation: 2,
+        packages: [
+          "@modelcontextprotocol/server",
+          "@modelcontextprotocol/client",
+          "@modelcontextprotocol/node",
+        ],
+      },
+      protocol: {
+        modernRevision: "2026-07-28",
+        legacyRevisions: "2024-10-07 through 2025-11-25",
+        dualEra: true,
+      },
+      features: {
+        statelessRequests: "supported",
+        serverDiscovery: "supported",
+        requestMetadataEnvelope: "supported",
+        headerBasedRouting: "supported",
+        deterministicCacheableLists: "supported",
+        multiRoundTripRequests: "sdk_supported_no_current_workflow",
+        subscriptionsListen: "supported",
+        extensionCapabilities: "supported",
+        tasksExtension: "not_implemented",
+        oauthClientMetadataDocuments: "external_authorization_boundary",
+        deprecatedSamplingRootsLogging: "not_advertised",
+      },
+      cachePolicy: {
+        toolsList: { ttlMs: 30_000, cacheScope: "private" },
+        promptsList: { ttlMs: 300_000, cacheScope: "public" },
+        resourcesList: { ttlMs: 60_000, cacheScope: "private" },
+        resourcesRead: { ttlMs: 0, cacheScope: "private" },
+      },
+    },
     runtime: {
       platform,
       platformName: platformName(platform),

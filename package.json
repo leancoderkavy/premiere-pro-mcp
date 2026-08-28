@@ -19,6 +19,7 @@
     "benchmarks/uxp-hybrid",
     "docs/supported-actions.md",
     "docs/project-context-engine.md",
+    "docs/mcp-2026-07-28-capabilities.md",
     "docs/editorial-workflow-host-validation.md",
     "docs/licensed-host-report.template.json",
     "docs/licensed-host-sweep.md",
@@ -102,15 +103,17 @@
     "node": ">=20.19.0"
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.30.0",
     "posthog-node": "^5.51.1",
     "ws": "^8.21.1",
-    "zod": "^4.4.3"
+    "zod": "^4.4.3",
+    "@modelcontextprotocol/node": "^2.0.0",
+    "@modelcontextprotocol/server": "^2.0.0"
   },
   "devDependencies": {
     "@adobe/eslint-plugin-premierepro": "26.3.0",
     "@adobe/premierepro": "26.3.0",
     "@types/node": "^26.3.0",
+    "@modelcontextprotocol/client": "^2.0.0",
     "@types/ws": "^8.18.1",
     "@typescript-eslint/parser": "^8.68.0",
     "@vitest/coverage-v8": "^4.1.11",
