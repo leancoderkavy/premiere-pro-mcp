@@ -8,11 +8,11 @@ descriptions, action enums, authority visibility, and counts stay aligned with t
 
 | Surface | Count | Availability |
 | --- | ---: | --- |
-| Registered core actions | 320 | CEP/local server catalog; host and authority checks still apply |
-| Default-profile core actions | 318 | Advertised with `inspect,edit,export,filesystem` |
+| Registered core actions | 321 | CEP/local server catalog; host and authority checks still apply |
+| Default-profile core actions | 319 | Advertised with `inspect,edit,export,filesystem` |
 | Restricted core actions | 2 | Require explicit `unsafe-script` authority |
 | Authenticated UXP additions | 54 | Advertised only while a compatible authenticated UXP panel is connected |
-| Default profile with UXP | 372 | 318 core plus 54 UXP tools |
+| Default profile with UXP | 373 | 319 core plus 54 UXP tools |
 
 ## How to read support
 
@@ -117,6 +117,7 @@ operation” when the tool has no enum-based mode.
 | `export_omf` | Default profile | Single operation | Export the active sequence as an OMF file (Open Media Framework, for audio post-production) |
 | `export_sequence` | Default profile | Single operation | Export the active sequence using Adobe Media Encoder |
 | `export_sequence_clip_review_frames` | Default profile | Single operation | Export one file-verified composite frame at the midpoint of each clip on a chosen video track in one bridge request. Read-only in Premiere; it does not mute tracks or claim visual quality. |
+| `export_sequence_marker_review_frames` | Default profile | Single operation | Export up to 24 file-verified composite frames at active-sequence marker positions in one bridge request for marker-driven review. It reads markers and writes image files only; it does not add, update, or remove Premiere markers. |
 | `export_sequence_review_frames` | Default profile | Single operation | Export 2-24 evenly spaced, file-verified frames from an active-sequence range in one bridge round trip for visual review. This samples rendered output; it does not prove playback, audio, or editorial quality. |
 | `extract_selection` | Default profile | Single operation | Extract (remove and close gap) the content between sequence in/out points. |
 | `find_items_by_media_path` | Default profile | Single operation | Find project items whose media path contains the given search string |

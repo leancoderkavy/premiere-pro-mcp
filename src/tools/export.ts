@@ -527,6 +527,133 @@ export function getExportTools(bridgeOptions: BridgeOptions) {
       },
     },
 
+    export_sequence_marker_review_frames: {
+      description:
+        "Export up to 24 file-verified composite frames at active-sequence marker positions in one bridge request for marker-driven review. It reads markers and writes image files only; it does not add, update, or remove Premiere markers.",
+      parameters: {
+        type: "object" as const,
+        additionalProperties: false,
+        properties: {
+          output_dir: {
+            type: "string",
+            description: "Existing directory where marker_review_001.png through marker_review_NNN.png will be written",
+          },
+          marker_type: {
+            type: "string",
+            description: "Optional exact Premiere marker type to include (for example Comment or Chapter).",
+          },
+          start_seconds: {
+            type: "number",
+            description: "Optional non-negative lower bound for marker positions in seconds.",
+          },
+          end_seconds: {
+            type: "number",
+            description: "Optional positive exclusive upper bound for marker positions in seconds.",
+          },
+          limit: {
+            type: "number",
+            description: "Maximum chronological marker frames to export (default: 12; minimum: 1; maximum: 24).",
+          },
+        },
+        required: ["output_dir"],
+      },
+      handler: async (args: {
+        output_dir: string;
+        marker_type?: string;
+        start_seconds?: number;
+        end_seconds?: number;
+        limit?: number;
+      }) => {
+        const limit = args.limit ?? 12;
+        if (!Number.isInteger(limit) || limit < 1 || limit > 24) {
+          return { success: false, error: "limit must be an integer from 1 through 24" };
+        }
+        if (typeof args.output_dir !== "string" || args.output_dir.trim() === "") {
+          return { success: false, error: "output_dir must be a non-empty directory path" };
+        }
+        const markerType = args.marker_type?.trim();
+        if (args.marker_type !== undefined && !markerType) {
+          return { success: false, error: "marker_type must be a non-empty string when provided" };
+        }
+        if (markerType && markerType.length > 64) {
+          return { success: false, error: "marker_type must be at most 64 characters" };
+        }
+        for (const [name, value] of [["start_seconds", args.start_seconds], ["end_seconds", args.end_seconds]] as const) {
+          if (value !== undefined && (!Number.isFinite(value) || value < 0)) {
+            return { success: false, error: `${name} must be a finite non-negative number` };
+          }
+        }
+        if (args.start_seconds !== undefined && args.end_seconds !== undefined && args.end_seconds <= args.start_seconds) {
+          return { success: false, error: "end_seconds must be greater than start_seconds" };
+        }
+
+        const script = buildToolScript(`
+          var seq = app.project.activeSequence;
+          if (!seq) return __error("No active sequence");
+          var outputFolder = new Folder("${escapeForExtendScript(resolve(args.output_dir))}");
+          if (!outputFolder.exists) return __error("Output directory does not exist: " + outputFolder.fsName);
+
+          var sequenceEndSeconds = __ticksToSeconds(seq.end);
+          var rangeStart = ${args.start_seconds ?? 0};
+          var rangeEnd = ${args.end_seconds !== undefined ? args.end_seconds : "sequenceEndSeconds"};
+          if (rangeEnd > sequenceEndSeconds) rangeEnd = sequenceEndSeconds;
+          if (rangeStart < 0 || rangeEnd <= rangeStart) {
+            return __error("The requested marker range is empty or outside the active sequence");
+          }
+
+          var requiredType = ${markerType ? `"${escapeForExtendScript(markerType)}"` : "null"};
+          var matched = [];
+          var marker = seq.markers.getFirstMarker();
+          while (marker) {
+            var atSeconds = Number(marker.start.seconds);
+            if (isFinite(atSeconds) && atSeconds >= rangeStart && atSeconds < rangeEnd && (!requiredType || String(marker.type) === requiredType)) {
+              matched.push({
+                timeSeconds: atSeconds,
+                name: String(marker.name || ""),
+                comments: String(marker.comments || ""),
+                type: String(marker.type || "")
+              });
+            }
+            marker = seq.markers.getNextMarker(marker);
+          }
+          matched.sort(function(a, b) { return a.timeSeconds - b.timeSeconds; });
+          if (!matched.length) return __error("No matching sequence markers were found in the requested range");
+
+          var requested = Math.min(matched.length, ${limit});
+          var frames = [];
+          var failures = [];
+          for (var i = 0; i < requested; i++) {
+            var entry = matched[i];
+            var number = String(i + 1);
+            while (number.length < 3) number = "0" + number;
+            var requestedPath = outputFolder.fsName + "/marker_review_" + number + ".png";
+            var result = __exportStillFrame(requestedPath, __secondsToTicks(entry.timeSeconds).toString());
+            if (result.ok) {
+              frames.push({ index: i, marker: entry, outputPath: result.path, method: result.method });
+            } else {
+              failures.push({ index: i, marker: entry, requestedPath: requestedPath, error: result.error, notes: result.notes });
+            }
+          }
+
+          if (!frames.length) return __error("Premiere did not write any marker review frames");
+          return __result({
+            sequence: { name: seq.name, durationSeconds: sequenceEndSeconds },
+            range: { startSeconds: rangeStart, endSeconds: rangeEnd },
+            markerType: requiredType,
+            matched: matched.length,
+            requested: requested,
+            exported: frames.length,
+            complete: frames.length === requested,
+            truncated: matched.length > requested,
+            frames: frames,
+            failures: failures,
+            verificationScope: "Each returned frame path was verified on disk by the Premiere bridge at the matched marker start. This reads existing markers and does not prove playback, audio, marker intent, or editorial quality."
+          });
+        `);
+        return sendCommand(script, { ...bridgeOptions, timeoutMs: Math.max(60000, limit * 30000) });
+      },
+    },
+
     export_sequence_clip_review_frames: {
       description:
         "Export one file-verified composite frame at the midpoint of each clip on a chosen video track in one bridge request. Read-only in Premiere; it does not mute tracks or claim visual quality.",
