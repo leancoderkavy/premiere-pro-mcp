@@ -84,10 +84,11 @@ export function getPlayheadTools(bridgeOptions: BridgeOptions) {
         const script = buildToolScript(`
           var seq = app.project.activeSequence;
           if (!seq) return __error("No active sequence");
-          
+          var inPoint = seq.getWorkAreaInPoint();
+          var outPoint = seq.getWorkAreaOutPoint();
           return __result({
-            inSeconds: __ticksToSeconds(seq.workInPoint.ticks),
-            outSeconds: __ticksToSeconds(seq.workOutPoint.ticks)
+            inSeconds: __ticksToSeconds(inPoint),
+            outSeconds: __ticksToSeconds(outPoint)
           });
         `);
         return sendCommand(script, bridgeOptions);

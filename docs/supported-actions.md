@@ -11,8 +11,8 @@ descriptions, action enums, authority visibility, and counts stay aligned with t
 | Registered core actions | 320 | CEP/local server catalog; host and authority checks still apply |
 | Default-profile core actions | 318 | Advertised with `inspect,edit,export,filesystem` |
 | Restricted core actions | 2 | Require explicit `unsafe-script` authority |
-| Authenticated UXP additions | 50 | Advertised only while a compatible authenticated UXP panel is connected |
-| Default profile with UXP | 368 | 318 core plus 50 UXP tools |
+| Authenticated UXP additions | 54 | Advertised only while a compatible authenticated UXP panel is connected |
+| Default profile with UXP | 372 | 318 core plus 54 UXP tools |
 
 ## How to read support
 
@@ -362,6 +362,7 @@ authenticated and the connected host advertises the required command capabilitie
 
 | MCP tool | Availability | Actions or modes | Description |
 | --- | --- | --- | --- |
+| `add_video_transition_uxp` | Connected UXP | `position`: `start`, `end` | Add an installed native video transition to one video clip through an undoable UXP transaction. List match names first; transaction acceptance is not a visual timeline readback. |
 | `apply_editorial_organization_plan` | Connected UXP | Single operation | Apply selected organization recommendations through documented UXP bin transactions only. Requires the unchanged server-issued plan, its opaque preview confirmation token, and stable source/parent guards; individual host transactions may be partially committed and are never silently retried or rolled back. |
 | `audition_source_monitor_uxp` | Connected UXP | `state`, `open_project_item`, `open_file`, `set_position`, `play`, `close`, `close_all` | Open a selected project item or approved file, inspect/set position, play at bounded speed, or close Source Monitor media through documented UXP APIs. |
 | `automate_effect_parameters_uxp` | Connected UXP | `inspect`, `set_value`, `add_keyframe`, `remove_keyframe`, `remove_keyframe_range`, `set_interpolation` | Inspect or transactionally set scalar effect parameters and add, remove, range-remove, or interpolate keyframes through documented UXP actions. |
@@ -386,7 +387,9 @@ authenticated and the connected host advertises the required command capabilitie
 | `inspect_premiere_events_uxp` | Connected UXP | `list`, `wait` | List or briefly wait for bounded, redacted Premiere host-event receipts without polling the complete project state. |
 | `inspect_project_selection_uxp` | Connected UXP | `views`, `selection` | List Premiere Project-panel views or inspect up to 256 selected project items without traversing the complete project tree. |
 | `inspect_project_uxp` | Connected UXP | Single operation | Read a compact, revisioned project and sequence snapshot through documented Premiere UXP APIs. |
+| `lift_selection_uxp` | Connected UXP | Single operation | Lift the current timeline selection through Premiere's documented UXP SequenceEditor. This removes selected items without ripple in one undoable transaction; transaction acceptance is not a timeline readback. |
 | `list_markers_uxp` | Connected UXP | `scope`: `sequence`, `project_item` | List Premiere markers with stable 26.3+ GUIDs from the active sequence or one source media clip. |
+| `list_video_transitions_uxp` | Connected UXP | Single operation | List the installed native video-transition match names from the connected Premiere UXP host. |
 | `maintain_media_health_uxp` | Connected UXP | `inspect`, `refresh`, `set_offline`, `find_by_media_path` | Inspect up to 64 source media items, refresh them serially, transactionally set them offline, or find project items matching an approved media path. Native paths are redacted unless explicitly requested. |
 | `manage_clip_effects_uxp` | Connected UXP | `catalog`, `inspect`, `add`, `remove` | List native audio/video effects, inspect one clip's component chain, or add/remove one effect in a locked Premiere UXP transaction. |
 | `manage_color_conformance_uxp` | Connected UXP | `preflight`, `update` | Preflight project graphics-white/LUT/footage interpretation state, or update bounded footage-conformance fields in one undoable UXP transaction. |
@@ -406,6 +409,7 @@ authenticated and the connected host advertises the required command capabilitie
 | `preflight_production_storage_uxp` | Connected UXP | `preflight`, `configure_project` | Inspect project/Production scratch disks and ingest state, or set supported project scratch categories to Premiere's symbolic destinations in one undoable transaction. |
 | `preview_transcript_edit_uxp` | Connected UXP | Single operation | Validate and merge source-time ranges selected from Premiere's native transcript. Returns a confirmation token and never changes the timeline. Automatic timeline application remains withheld until the source-to-sequence mapping is live-host verified. |
 | `relink_offline_media_uxp` | Connected UXP | Single operation | Relink one offline clip to a workspace-contained media path after stale-path and capability checks. This Premiere API is non-undoable and requires explicit confirmation. |
+| `remove_video_transition_uxp` | Connected UXP | `position`: `start`, `end` | Remove the selected side of a native video transition through an undoable UXP transaction; transaction acceptance is not a visual timeline readback. |
 | `rename_track_uxp` | Connected UXP | `track_type`: `audio`, `video`, `caption` | Rename an audio, video, or caption track through Premiere 26.3+ UXP in an undoable transaction with name readback verification. |
 | `save_project_uxp` | Connected UXP | Single operation | Save the active project through UXP and require Premiere to confirm success. |
 | `search_clip_transcript_uxp` | Connected UXP | Single operation | Search Premiere's native transcript JSON without modifying the clip or timeline. |

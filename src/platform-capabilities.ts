@@ -312,6 +312,7 @@ export function buildPlatformCapabilityReport(
           "state.get",
           "operation.cancel",
           "frame.export",
+          "timeline.selection.lift",
           "transition.video.list",
           "transition.video.add",
           "transition.video.remove",

@@ -8,14 +8,25 @@ function host(options: { transitions?: boolean; commit?: boolean } = {}) {
   const addAction = vi.fn(() => true);
   const add = vi.fn(() => ({ kind: "add" }));
   const remove = vi.fn(() => ({ kind: "remove" }));
+  const liftAction = { kind: "lift" };
+  const selectedItem = { guid: "selected-clip" };
+  const selection = { getTrackItems: vi.fn(async () => [selectedItem]) };
+  const createRemoveItemsAction = vi.fn(() => liftAction);
   const clip = { createAddVideoTransitionAction: add, createRemoveVideoTransitionAction: remove };
   const track = { getTrackItems: vi.fn(async () => [clip]) };
+  const exportedFrames: string[] = [];
+  const exportSequenceFrame = vi.fn(async (_sequence: unknown, _position: unknown, filename: string) => {
+    exportedFrames.push(filename);
+    return true;
+  });
   const sequence = {
     guid: "sequence-1",
     name: "Timeline",
     getVideoTrackCount: vi.fn(async () => 1),
     getVideoTrack: vi.fn(async () => track),
-    getPlayerPosition: vi.fn(async () => ({ seconds: 3 }))
+    getSelection: vi.fn(async () => selection),
+    getPlayerPosition: vi.fn(async () => ({ seconds: 3 })),
+    getFrameSize: vi.fn(async () => ({ width: 1920, height: 1080 }))
   };
   const project = {
     guid: "project-1",
@@ -47,7 +58,8 @@ function host(options: { transitions?: boolean; commit?: boolean } = {}) {
   const ppro = {
     Project: { getActiveProject: vi.fn(async () => project) },
     TickTime: { createWithSeconds: vi.fn((seconds: number) => ({ seconds })) },
-    Constants: { TrackItemType: { CLIP: 1 }, TransitionPosition: { START: 0, END: 1 } },
+    Constants: { TrackItemType: { CLIP: 1 }, MediaType: { ANY: 0 }, TransitionPosition: { START: 0, END: 1 } },
+    SequenceEditor: { getEditor: vi.fn(async () => ({ createRemoveItemsAction })) },
     ProjectConverter: {
       exportAsOpenTimelineIO: vi.fn(async () => true),
       exportAsFinalCutProXML: vi.fn(async () => true),
@@ -60,15 +72,17 @@ function host(options: { transitions?: boolean; commit?: boolean } = {}) {
       setSidecarXMPEnabled: vi.fn(async () => true),
       startBatchEncode: vi.fn(async () => true),
     },
+    Exporter: { exportSequenceFrame },
     ...transitionApis
   };
-  return { registry: Commands.createCommandRegistry({ ppro, fs: {}, Protocol }), ppro, project, sequence, track, clip, add, remove, addAction, optionValues };
+  return { registry: Commands.createCommandRegistry({ ppro, fs: {}, Protocol }), ppro, project, sequence, track, clip, add, remove, addAction, optionValues, selection, createRemoveItemsAction, exportSequenceFrame, exportedFrames };
 }
 
 describe("UXP command registry", () => {
   it("reports support per command from the runtime API surface", async () => {
     const available = await host().registry.capabilities();
     expect(available.commands["transition.video.add"]).toMatchObject({ supported: true, destructive: true, undoable: true, minHostVersion: "25.6.0" });
+    expect(available.commands["timeline.selection.lift"]).toMatchObject({ supported: true, destructive: true, undoable: true, minHostVersion: "25.6.0" });
     for (const command of ["sequence.createPreset", "interchange.export", "interchange.aaf.export", "frame.export"]) {
       expect(available.commands[command]).toMatchObject({ workspaceRequired: true });
     }
@@ -101,6 +115,25 @@ describe("UXP command registry", () => {
     await expect(host().registry.dispatch("transition.video.list", {})).resolves.toEqual({
       matchNames: ["CrossDissolve", "DipToBlack"], count: 2
     });
+  });
+
+  it("exports a PNG with a bare host filename and a one-extension returned path", async () => {
+    const value = host();
+    await expect(value.registry.dispatch("frame.export", {
+      outputDirectory: "C:/approved", filename: "frame.png",
+    })).resolves.toMatchObject({ path: "C:/approved/frame.png", exporterResult: true });
+    expect(value.exportSequenceFrame).toHaveBeenCalledWith(
+      value.sequence, { seconds: 3 }, "frame", "C:/approved", 1920, 1080,
+    );
+    expect(value.exportedFrames).toEqual(["frame"]);
+  });
+
+  it("does not report a frame path when Premiere rejects the export", async () => {
+    const value = host();
+    value.exportSequenceFrame.mockResolvedValueOnce(false);
+    await expect(value.registry.dispatch("frame.export", {
+      outputDirectory: "C:/approved", filename: "frame.png",
+    })).rejects.toMatchObject({ code: "UXP_VERIFICATION_FAILED" });
   });
 
   it("returns a stable compact project snapshot", async () => {
@@ -227,6 +260,25 @@ describe("UXP command registry", () => {
     await expect(value.registry.dispatch("transition.video.remove", { videoTrackIndex: 0, clipIndex: 0, position: "end" }))
       .resolves.toMatchObject({ removed: true, position: "end" });
     expect(value.remove).toHaveBeenCalledWith(1);
+  });
+
+  it("lifts the current selection without ripple in one undoable transaction", async () => {
+    const value = host();
+    await expect(value.registry.dispatch("timeline.selection.lift", {
+      expectedSequenceGuid: "sequence-1", operationId: "lift-1",
+    })).resolves.toMatchObject({
+      lifted: true, selectedItemCount: 1, ripple: false, outcome: "committed_unverified", operationId: "lift-1",
+      operation: { mutatesProject: true, verification: { status: "not_verified" }, undo: { supported: true } },
+    });
+    expect(value.createRemoveItemsAction).toHaveBeenCalledWith(value.selection, false, 0, false);
+    expect(value.project.executeTransaction).toHaveBeenCalledWith(expect.any(Function), "Lift selected timeline items");
+  });
+
+  it("rejects a stale target before creating a selection-lift action", async () => {
+    const value = host();
+    await expect(value.registry.dispatch("timeline.selection.lift", { expectedSequenceGuid: "other-sequence" }))
+      .rejects.toMatchObject({ code: "UXP_STALE_SEQUENCE" });
+    expect(value.createRemoveItemsAction).not.toHaveBeenCalled();
   });
 
   it("rejects unknown transitions, invalid targets, and failed commits", async () => {

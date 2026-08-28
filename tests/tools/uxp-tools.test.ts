@@ -65,6 +65,30 @@ describe("UXP MCP tools", () => {
     });
   });
 
+  it("maps selection lift and native transition arguments to documented UXP commands", async () => {
+    const request = vi.fn().mockResolvedValue({ outcome: "committed_unverified" });
+    const bridge = { request, getState: vi.fn() } as unknown as UxpWebSocketBridge;
+    const tools = getUxpTools(bridge);
+    await tools.lift_selection_uxp.handler({ expected_sequence_guid: "sequence-1", operation_id: "lift-1" });
+    await tools.list_video_transitions_uxp.handler();
+    await tools.add_video_transition_uxp.handler({
+      video_track_index: 2, clip_index: 3, match_name: "CrossDissolve", position: "end",
+      duration_seconds: 0.5, force_single_sided: true, transition_alignment: 1, operation_id: "transition-add-1",
+    });
+    await tools.remove_video_transition_uxp.handler({
+      video_track_index: 2, clip_index: 3, position: "end", operation_id: "transition-remove-1",
+    });
+    expect(request).toHaveBeenNthCalledWith(1, "timeline.selection.lift", { expectedSequenceGuid: "sequence-1", operationId: "lift-1" });
+    expect(request).toHaveBeenNthCalledWith(2, "transition.video.list", {});
+    expect(request).toHaveBeenNthCalledWith(3, "transition.video.add", {
+      videoTrackIndex: 2, clipIndex: 3, matchName: "CrossDissolve", position: "end", durationSeconds: 0.5,
+      forceSingleSided: true, transitionAlignment: 1, operationId: "transition-add-1",
+    });
+    expect(request).toHaveBeenNthCalledWith(4, "transition.video.remove", {
+      videoTrackIndex: 2, clipIndex: 3, position: "end", operationId: "transition-remove-1",
+    });
+  });
+
   it("returns transport errors through the normal tool envelope", async () => {
     const bridge = {
       request: vi.fn().mockRejectedValue(new Error("UXP bridge is not connected")),
@@ -110,14 +134,18 @@ describe("UXP MCP tools", () => {
           "has_transcript_uxp",
           "export_aaf_uxp",
           "export_frame_uxp",
+          "lift_selection_uxp",
+          "list_video_transitions_uxp",
+          "add_video_transition_uxp",
+          "remove_video_transition_uxp",
           "apply_editorial_organization_plan",
         ]),
       );
       // The default profile excludes two unsafe-script tools. The native
       // transcript workflow and documented Premiere 26.3 tools add nineteen,
-      // and the two stable workflow expansions plus confirmed organization application add twenty-two consolidated UXP tools;
+      // and the two stable workflow expansions, confirmed organization application, and four bounded native migration adapters add twenty-six consolidated UXP tools;
       // connection verification adds one default-profile core tool.
-      expect(tools.tools).toHaveLength(368);
+      expect(tools.tools).toHaveLength(372);
     } finally {
       await client.close();
       await server.close();
