@@ -123,6 +123,16 @@ describe("generated script structure", () => {
     expect(result).toContain("var found = __findProjectItem(nodeIdOrName, item);");
   });
 
+  it("normalizes numeric host IDs without changing exact name matching", () => {
+    const result = getHelpersSource();
+    expect(result).toContain("var wantedId = String(idOrName);");
+    expect(result).toContain("String(seq.sequenceID) === wantedId || seq.name === idOrName");
+    expect(result).toContain("var wantedId = String(nodeIdOrName);");
+    expect(result).toContain("String(item.nodeId) === wantedId || item.name === nodeIdOrName");
+    expect(result).toContain("var wantedId = String(nodeId);");
+    expect(result).toContain("String(clip.nodeId) === wantedId");
+  });
+
   it("__findClip searches both video and audio tracks", () => {
     const result = getHelpersSource();
     expect(result).toContain("seq.videoTracks.numTracks");
