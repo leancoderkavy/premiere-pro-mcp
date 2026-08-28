@@ -117,12 +117,67 @@ export function getProjectTools(bridgeOptions: BridgeOptions) {
     },
 
     consolidate_duplicates: {
-      description: "Consolidate duplicate project items",
+      description:
+        "Consolidate duplicate project items and report success only when duplicate media groups decrease.",
       parameters: {},
       handler: async () => {
         const script = buildToolScript(`
-          app.project.consolidateDuplicates();
-          return __result({ consolidated: true });
+          function __duplicateMediaStats() {
+            var pathMap = {};
+            function scan(bin) {
+              for (var i = 0; i < bin.children.numItems; i++) {
+                var item = bin.children[i];
+                try {
+                  var mediaPath = item.getMediaPath();
+                  if (mediaPath) {
+                    if (!pathMap[mediaPath]) pathMap[mediaPath] = 0;
+                    pathMap[mediaPath]++;
+                  }
+                } catch (e) {}
+                if (item.type === 2) scan(item);
+              }
+            }
+            scan(app.project.rootItem);
+
+            var duplicateGroupCount = 0;
+            var duplicateItemCount = 0;
+            for (var path in pathMap) {
+              if (pathMap.hasOwnProperty(path) && pathMap[path] > 1) {
+                duplicateGroupCount++;
+                duplicateItemCount += pathMap[path] - 1;
+              }
+            }
+            return {
+              duplicateGroupCount: duplicateGroupCount,
+              duplicateItemCount: duplicateItemCount
+            };
+          }
+
+          var before = __duplicateMediaStats();
+          if (before.duplicateGroupCount === 0) {
+            return __result({
+              consolidated: false,
+              changed: false,
+              reason: "No duplicate media groups were found before consolidation.",
+              before: before,
+              after: before
+            });
+          }
+          if (typeof app.project.consolidateDuplicates !== "function") {
+            return __error("This Premiere build does not expose project.consolidateDuplicates; no duplicate items were changed.");
+          }
+
+          try {
+            app.project.consolidateDuplicates();
+          } catch (e) {
+            return __error("Premiere could not consolidate duplicate project items: " + e.toString());
+          }
+
+          var after = __duplicateMediaStats();
+          if (after.duplicateGroupCount >= before.duplicateGroupCount && after.duplicateItemCount >= before.duplicateItemCount) {
+            return __error("Premiere completed consolidateDuplicates but duplicate media groups did not decrease. No consolidation success is reported; inspect the project and use get_duplicate_media to review the unchanged groups.");
+          }
+          return __result({ consolidated: true, changed: true, verified: true, before: before, after: after });
         `);
         return sendCommand(script, bridgeOptions);
       },

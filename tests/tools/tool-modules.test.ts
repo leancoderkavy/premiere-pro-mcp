@@ -330,6 +330,48 @@ describe("Tool Handler Behavior", () => {
     });
   });
 
+  describe("reported tool regressions", () => {
+    beforeEach(() => mockedSendCommand.mockClear());
+
+    it("does not report duplicate consolidation as successful without a reduced duplicate scan", async () => {
+      const tools = getProjectTools(bridgeOptions);
+      await tools.consolidate_duplicates.handler({});
+
+      const script = mockedSendCommand.mock.calls[0][0];
+      expect(script).toContain("function __duplicateMediaStats()");
+      expect(script).toContain("var before = __duplicateMediaStats()");
+      expect(script).toContain("var after = __duplicateMediaStats()");
+      expect(script).toContain("duplicate media groups did not decrease");
+      expect(script).toContain("verified: true");
+    });
+
+    it("fails reverse_clip locally with an actionable unsupported-capability error", async () => {
+      const tools = getAdvancedTools(bridgeOptions);
+      const result = await tools.reverse_clip.handler({ node_id: "clip-1" });
+
+      expect(result).toEqual({
+        success: false,
+        error: expect.stringContaining("not exposed by Premiere's supported ExtendScript or UXP APIs"),
+      });
+      expect(mockedSendCommand).not.toHaveBeenCalled();
+    });
+
+    it("merges XMP patches through AdobeXMPScript and reparses host readback", async () => {
+      const tools = getMetadataTools(bridgeOptions);
+      await tools.set_xmp_metadata.handler({
+        item_id: "source-1",
+        xmp_xml: '<x:xmpmeta xmlns:x="adobe:ns:meta/"><rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"/></x:xmpmeta>',
+      });
+
+      const script = mockedSendCommand.mock.calls[0][0];
+      expect(script).toContain('new ExternalObject("lib:AdobeXMPScript")');
+      expect(script).toContain("var existingXmp = new XMPMeta(existingPacket)");
+      expect(script).toContain("XMPUtils.appendProperties(patchXmp, existingXmp, true, true, false)");
+      expect(script).toContain("var writtenPacket = String(item.getXMPMetadata() || \"\")");
+      expect(script).toContain('verification: "readback_xmp_packet_reparsed"');
+    });
+  });
+
   describe("health.get_capabilities", () => {
     it("reports platform support without requiring Premiere to be running", async () => {
       const tools = getHealthTools(bridgeOptions);
