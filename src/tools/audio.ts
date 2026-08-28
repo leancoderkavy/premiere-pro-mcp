@@ -2,7 +2,7 @@ import { buildToolScript, escapeForExtendScript } from "../bridge/script-builder
 import { sendCommand, BridgeOptions } from "../bridge/file-bridge.js";
 import { execFile } from "node:child_process";
 import { existsSync, statSync } from "node:fs";
-import { dirname, resolve } from "node:path";
+import { basename, dirname, resolve } from "node:path";
 import { promisify } from "node:util";
 
 const execFileAsync = promisify(execFile);
@@ -14,6 +14,20 @@ export interface SilenceInterval {
   start: number;
   end: number;
   duration: number;
+}
+
+export interface TimelineSilenceCandidate {
+  sourceStartSeconds: number;
+  sourceEndSeconds: number;
+  durationSeconds: number;
+  timelineStartSeconds: number;
+  timelineEndSeconds: number;
+}
+
+export interface SilenceTimelineMapping {
+  candidates: TimelineSilenceCandidate[];
+  totalCandidateCount: number;
+  truncated: boolean;
 }
 
 export interface LoudnessMeasurement {
@@ -128,6 +142,137 @@ export function invertToSegments(
   }
 
   return segments;
+}
+
+/**
+ * Map source-media silence ranges to a known 1x timeline placement.
+ *
+ * The plan deliberately has no speed, reverse, remap, multicam, or nested-sequence
+ * mode: those mappings need host evidence and should not be guessed from source
+ * timestamps. Ranges are clipped to the visible source span before they are mapped.
+ */
+export function mapSilenceIntervalsToTimeline(
+  silences: SilenceInterval[],
+  options: {
+    sourceInSeconds: number;
+    sourceOutSeconds: number;
+    timelineStartSeconds: number;
+    maxCandidates: number;
+  },
+): SilenceTimelineMapping {
+  const candidates: TimelineSilenceCandidate[] = [];
+  let totalCandidateCount = 0;
+
+  for (const silence of silences) {
+    const sourceStartSeconds = Math.max(silence.start, options.sourceInSeconds);
+    const sourceEndSeconds = Math.min(silence.end, options.sourceOutSeconds);
+    if (sourceEndSeconds <= sourceStartSeconds) continue;
+
+    totalCandidateCount++;
+    if (candidates.length >= options.maxCandidates) continue;
+
+    const timelineStartSeconds = options.timelineStartSeconds + sourceStartSeconds - options.sourceInSeconds;
+    const timelineEndSeconds = options.timelineStartSeconds + sourceEndSeconds - options.sourceInSeconds;
+    candidates.push({
+      sourceStartSeconds: Number(sourceStartSeconds.toFixed(3)),
+      sourceEndSeconds: Number(sourceEndSeconds.toFixed(3)),
+      durationSeconds: Number((sourceEndSeconds - sourceStartSeconds).toFixed(3)),
+      timelineStartSeconds: Number(timelineStartSeconds.toFixed(3)),
+      timelineEndSeconds: Number(timelineEndSeconds.toFixed(3)),
+    });
+  }
+
+  return {
+    candidates,
+    totalCandidateCount,
+    truncated: totalCandidateCount > candidates.length,
+  };
+}
+
+export interface SilenceAnalysis {
+  noiseThresholdDb: number;
+  minDurationSeconds: number;
+  totalDurationSeconds: number | null;
+  silenceIntervals: SilenceInterval[];
+  segments: SilenceInterval[];
+  silentSeconds: number;
+}
+
+/** Run the local, decode-only FFmpeg silence analysis shared by review workflows. */
+export async function analyzeSilenceFile(
+  mediaPath: string,
+  noiseDb: number,
+  minDuration: number,
+): Promise<{ success: true; data: SilenceAnalysis } | { success: false; error: string }> {
+  if (!existsSync(mediaPath)) {
+    return { success: false, error: `Media file not found on disk: ${mediaPath}` };
+  }
+
+  try {
+    await execFileAsync("ffmpeg", ["-version"], { timeout: 10_000 });
+  } catch {
+    return {
+      success: false,
+      error:
+        "ffmpeg was not found on PATH. Silence analysis needs it because Premiere's scripting API exposes no audio-level data. Install ffmpeg (brew install ffmpeg, or winget install Gyan.FFmpeg) and retry.",
+    };
+  }
+
+  const ffmpegArgs = [
+    "-nostdin",
+    "-hide_banner",
+    "-i",
+    mediaPath,
+    "-af",
+    `silencedetect=noise=${noiseDb}dB:d=${minDuration}`,
+    "-f",
+    "null",
+    "-",
+  ];
+
+  let stderr: string;
+  try {
+    // silencedetect reports on stderr, and `-f null -` exits 0 on success.
+    const result = await execFileAsync("ffmpeg", ffmpegArgs, {
+      timeout: FFMPEG_TIMEOUT_MS,
+      maxBuffer: 32 * 1024 * 1024,
+    });
+    stderr = result.stderr;
+  } catch (error) {
+    const failure = error as { killed?: boolean; stderr?: string; message?: string };
+    if (failure.killed) {
+      return {
+        success: false,
+        error: `ffmpeg timed out after ${FFMPEG_TIMEOUT_MS / 1000}s analysing ${mediaPath}.`,
+      };
+    }
+    const detail = (failure.stderr ?? failure.message ?? "")
+      .split(/\r?\n/)
+      .filter((line) => line.trim())
+      .slice(-3)
+      .join(" ");
+    return {
+      success: false,
+      error: `ffmpeg could not analyse ${mediaPath}: ${detail || "unknown error"}`,
+    };
+  }
+
+  const totalDurationSeconds = parseDurationSeconds(stderr);
+  const silenceIntervals = parseSilenceDetectOutput(stderr, totalDurationSeconds);
+  const segments = invertToSegments(silenceIntervals, totalDurationSeconds);
+  const silentSeconds = silenceIntervals.reduce((sum, interval) => sum + interval.duration, 0);
+
+  return {
+    success: true,
+    data: {
+      noiseThresholdDb: noiseDb,
+      minDurationSeconds: minDuration,
+      totalDurationSeconds,
+      silenceIntervals,
+      segments,
+      silentSeconds: Number(silentSeconds.toFixed(3)),
+    },
+  };
 }
 
 export function getAudioTools(bridgeOptions: BridgeOptions) {
@@ -383,81 +528,139 @@ export function getAudioTools(bridgeOptions: BridgeOptions) {
           };
         }
 
-        try {
-          await execFileAsync("ffmpeg", ["-version"], { timeout: 10_000 });
-        } catch {
-          return {
-            success: false,
-            error:
-              "ffmpeg was not found on PATH. detect_silence needs it because Premiere's scripting API exposes no audio-level data. Install ffmpeg (brew install ffmpeg, or winget install ffmpeg) and retry.",
-          };
-        }
-
-        // Arguments are passed as an array and never through a shell, so a path
-        // containing shell metacharacters cannot inject a command.
-        const ffmpegArgs = [
-          "-nostdin",
-          "-hide_banner",
-          "-i",
-          mediaPath,
-          "-af",
-          `silencedetect=noise=${noiseDb}dB:d=${minDuration}`,
-          "-f",
-          "null",
-          "-",
-        ];
-
-        let stderr: string;
-        try {
-          // silencedetect reports on stderr, and `-f null -` exits 0 on success.
-          const result = await execFileAsync("ffmpeg", ffmpegArgs, {
-            timeout: FFMPEG_TIMEOUT_MS,
-            maxBuffer: 32 * 1024 * 1024,
-          });
-          stderr = result.stderr;
-        } catch (error) {
-          const failure = error as {
-            killed?: boolean;
-            stderr?: string;
-            message?: string;
-          };
-          if (failure.killed) {
-            return {
-              success: false,
-              error: `ffmpeg timed out after ${FFMPEG_TIMEOUT_MS / 1000}s analysing ${mediaPath}.`,
-            };
-          }
-          const detail = (failure.stderr ?? failure.message ?? "")
-            .split(/\r?\n/)
-            .filter((line) => line.trim())
-            .slice(-3)
-            .join(" ");
-          return {
-            success: false,
-            error: `ffmpeg could not analyse ${mediaPath}: ${detail || "unknown error"}`,
-          };
-        }
-
-        const totalDuration = parseDurationSeconds(stderr);
-        const silenceIntervals = parseSilenceDetectOutput(stderr, totalDuration);
-        const segments = invertToSegments(silenceIntervals, totalDuration);
-        const silentSeconds = silenceIntervals.reduce(
-          (sum, interval) => sum + interval.duration,
-          0,
-        );
+        const analysis = await analyzeSilenceFile(mediaPath, noiseDb, minDuration);
+        if (!analysis.success) return analysis;
 
         return {
           success: true,
           data: {
             mediaPath,
             projectItemName: itemName,
+            ...analysis.data,
+            note: "Detection only — no clip was cut or removed. Times are relative to the start of the media file, not the timeline.",
+          },
+        };
+      },
+    },
+
+    plan_silence_review_markers: {
+      description:
+        "Create a bounded, non-mutating review plan that maps FFmpeg-detected source-media silences onto one known 1x timeline placement. It clips candidates to the supplied source in/out span, redacts the source path, and never adds markers, cuts clips, or changes Premiere.",
+      parameters: {
+        type: "object" as const,
+        additionalProperties: false,
+        properties: {
+          media_path: {
+            type: "string",
+            description: "Absolute path to the local source media file to analyse.",
+          },
+          timeline_start_seconds: {
+            type: "number",
+            description: "Timeline time where this 1x source placement begins.",
+          },
+          source_in_seconds: {
+            type: "number",
+            description: "Source-media in point used by the placement (default: 0).",
+          },
+          source_out_seconds: {
+            type: "number",
+            description: "Exclusive source-media out point used by the placement. Defaults to the detected media duration when available.",
+          },
+          noise_threshold_db: {
+            type: "number",
+            description: "Level at or below which audio counts as silence, in dBFS (default: -30).",
+          },
+          min_duration_seconds: {
+            type: "number",
+            description: "Shortest run of silence to consider (default: 1.5).",
+          },
+          max_candidates: {
+            type: "number",
+            description: "Maximum candidate ranges to return (default: 50, maximum: 200).",
+          },
+        },
+        required: ["media_path", "timeline_start_seconds"],
+      },
+      handler: async (args: {
+        media_path: string;
+        timeline_start_seconds: number;
+        source_in_seconds?: number;
+        source_out_seconds?: number;
+        noise_threshold_db?: number;
+        min_duration_seconds?: number;
+        max_candidates?: number;
+      }) => {
+        const timelineStart = args.timeline_start_seconds;
+        const sourceIn = args.source_in_seconds ?? 0;
+        const noiseDb = args.noise_threshold_db ?? -30;
+        const minDuration = args.min_duration_seconds ?? 1.5;
+        const maxCandidates = args.max_candidates ?? 50;
+
+        if (!Number.isFinite(timelineStart) || timelineStart < 0) {
+          return { success: false, error: "timeline_start_seconds must be a finite value greater than or equal to 0" };
+        }
+        if (!Number.isFinite(sourceIn) || sourceIn < 0) {
+          return { success: false, error: "source_in_seconds must be a finite value greater than or equal to 0" };
+        }
+        if (args.source_out_seconds !== undefined && (
+          !Number.isFinite(args.source_out_seconds) || args.source_out_seconds <= sourceIn
+        )) {
+          return { success: false, error: "source_out_seconds must be a finite value greater than source_in_seconds" };
+        }
+        if (!Number.isFinite(noiseDb) || noiseDb > 0) {
+          return { success: false, error: `noise_threshold_db must be a finite dBFS value at or below 0 (got ${noiseDb}).` };
+        }
+        if (!Number.isFinite(minDuration) || minDuration <= 0) {
+          return { success: false, error: `min_duration_seconds must be a finite value greater than 0 (got ${minDuration}).` };
+        }
+        if (!Number.isInteger(maxCandidates) || maxCandidates < 1 || maxCandidates > 200) {
+          return { success: false, error: "max_candidates must be an integer from 1 through 200" };
+        }
+
+        const analysis = await analyzeSilenceFile(args.media_path, noiseDb, minDuration);
+        if (!analysis.success) return analysis;
+
+        const sourceOut = args.source_out_seconds ?? analysis.data.totalDurationSeconds;
+        if (sourceOut === null) {
+          return {
+            success: false,
+            error: "FFmpeg did not report the media duration. Provide source_out_seconds to define the visible source span before mapping silence candidates.",
+          };
+        }
+        if (sourceOut <= sourceIn) {
+          return { success: false, error: "The visible source span must have source_out_seconds greater than source_in_seconds" };
+        }
+        if (analysis.data.totalDurationSeconds !== null && sourceOut > analysis.data.totalDurationSeconds + 0.001) {
+          return { success: false, error: "source_out_seconds cannot exceed the detected media duration" };
+        }
+
+        const mapping = mapSilenceIntervalsToTimeline(analysis.data.silenceIntervals, {
+          sourceInSeconds: sourceIn,
+          sourceOutSeconds: sourceOut,
+          timelineStartSeconds: timelineStart,
+          maxCandidates,
+        });
+
+        return {
+          success: true,
+          data: {
+            planType: "silence-review-markers",
+            sourceFileName: basename(args.media_path),
+            sourcePlacement: {
+              sourceInSeconds: Number(sourceIn.toFixed(3)),
+              sourceOutSeconds: Number(sourceOut.toFixed(3)),
+              timelineStartSeconds: Number(timelineStart.toFixed(3)),
+              playbackRate: 1,
+            },
             noiseThresholdDb: noiseDb,
             minDurationSeconds: minDuration,
-            totalDurationSeconds: totalDuration,
-            silenceIntervals,
-            segments,
-            silentSeconds: Number(silentSeconds.toFixed(3)),
-            note: "Detection only — no clip was cut or removed. Times are relative to the start of the media file, not the timeline.",
+            totalDetectedSilences: analysis.data.silenceIntervals.length,
+            totalCandidateCount: mapping.totalCandidateCount,
+            candidates: mapping.candidates,
+            candidatesTruncated: mapping.truncated,
+            markerMutationSupported: false,
+            nextStep: "Review the mapped ranges, then explicitly add or omit markers in Premiere. This plan never creates markers or removes silence.",
+            verificationScope: "Local decoded-source audio analysis plus arithmetic mapping for one known 1x placement only. It does not inspect Premiere clip timing, speed/remapping, multicam, nested sequences, rendered audio, or make any Premiere change.",
           },
         };
       },

@@ -10,6 +10,7 @@ import { sendCommand } from "../../src/bridge/file-bridge.js";
 import {
   getAudioTools,
   invertToSegments,
+  mapSilenceIntervalsToTimeline,
   parseDurationSeconds,
   parseSilenceDetectOutput,
 } from "../../src/tools/audio.js";
@@ -123,6 +124,54 @@ describe("invertToSegments", () => {
   });
 });
 
+describe("mapSilenceIntervalsToTimeline", () => {
+  it("clips source ranges and maps the retained intervals onto a 1x placement", () => {
+    expect(mapSilenceIntervalsToTimeline([
+      { start: 0, end: 4, duration: 4 },
+      { start: 7, end: 12, duration: 5 },
+    ], {
+      sourceInSeconds: 2,
+      sourceOutSeconds: 10,
+      timelineStartSeconds: 100,
+      maxCandidates: 50,
+    })).toEqual({
+      totalCandidateCount: 2,
+      truncated: false,
+      candidates: [
+        {
+          sourceStartSeconds: 2,
+          sourceEndSeconds: 4,
+          durationSeconds: 2,
+          timelineStartSeconds: 100,
+          timelineEndSeconds: 102,
+        },
+        {
+          sourceStartSeconds: 7,
+          sourceEndSeconds: 10,
+          durationSeconds: 3,
+          timelineStartSeconds: 105,
+          timelineEndSeconds: 108,
+        },
+      ],
+    });
+  });
+
+  it("keeps counting bounded candidates after its response limit", () => {
+    const result = mapSilenceIntervalsToTimeline([
+      { start: 1, end: 2, duration: 1 },
+      { start: 3, end: 4, duration: 1 },
+    ], {
+      sourceInSeconds: 0,
+      sourceOutSeconds: 10,
+      timelineStartSeconds: 0,
+      maxCandidates: 1,
+    });
+    expect(result.totalCandidateCount).toBe(2);
+    expect(result.truncated).toBe(true);
+    expect(result.candidates).toHaveLength(1);
+  });
+});
+
 describe("detect_silence argument handling", () => {
   it("requires either a media path or a project item", async () => {
     const result = await tools.detect_silence.handler({});
@@ -169,6 +218,29 @@ describe("detect_silence argument handling", () => {
     expect(mockedSendCommand.mock.calls[0][0]).toContain("getMediaPath");
     expect(result.success).toBe(false);
     expect(result.error).toContain("missing-clip");
+  });
+});
+
+describe("plan_silence_review_markers argument handling", () => {
+  const plan = tools.plan_silence_review_markers;
+
+  it("rejects invalid placement or response bounds before decoding media", async () => {
+    await expect(plan.handler({
+      media_path: "/tmp/does-not-matter.mov",
+      timeline_start_seconds: -1,
+    })).resolves.toMatchObject({ success: false, error: expect.stringContaining("timeline_start_seconds") });
+    await expect(plan.handler({
+      media_path: "/tmp/does-not-matter.mov",
+      timeline_start_seconds: 0,
+      source_in_seconds: 5,
+      source_out_seconds: 5,
+    })).resolves.toMatchObject({ success: false, error: expect.stringContaining("source_out_seconds") });
+    await expect(plan.handler({
+      media_path: "/tmp/does-not-matter.mov",
+      timeline_start_seconds: 0,
+      max_candidates: 201,
+    })).resolves.toMatchObject({ success: false, error: expect.stringContaining("max_candidates") });
+    expect(mockedSendCommand).not.toHaveBeenCalled();
   });
 });
 

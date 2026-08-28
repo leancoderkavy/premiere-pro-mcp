@@ -8,11 +8,11 @@ descriptions, action enums, authority visibility, and counts stay aligned with t
 
 | Surface | Count | Availability |
 | --- | ---: | --- |
-| Registered core actions | 319 | CEP/local server catalog; host and authority checks still apply |
-| Default-profile core actions | 317 | Advertised with `inspect,edit,export,filesystem` |
+| Registered core actions | 320 | CEP/local server catalog; host and authority checks still apply |
+| Default-profile core actions | 318 | Advertised with `inspect,edit,export,filesystem` |
 | Restricted core actions | 2 | Require explicit `unsafe-script` authority |
 | Authenticated UXP additions | 50 | Advertised only while a compatible authenticated UXP panel is connected |
-| Default profile with UXP | 367 | 317 core plus 50 UXP tools |
+| Default profile with UXP | 368 | 318 core plus 50 UXP tools |
 
 ## How to read support
 
@@ -236,6 +236,7 @@ operation” when the tool has no enum-based mode.
 | `overwrite_clip` | Default profile | Single operation | Overwrite a project item onto validated timeline tracks and verify a new source placement at the requested time |
 | `overwrite_from_source` | Default profile | Single operation | Overwrite the clip from the Source Monitor at the playhead position (overwrite edit — replaces existing clips). |
 | `ping` | Default profile | Single operation | Health check — verify the CEP plugin is running and connected to Premiere Pro. Call this before other tools to confirm connectivity. |
+| `plan_silence_review_markers` | Default profile | Single operation | Create a bounded, non-mutating review plan that maps FFmpeg-detected source-media silences onto one known 1x timeline placement. It clips candidates to the supplied source in/out span, redacts the source path, and never adds markers, cuts clips, or changes Premiere. |
 | `play_source_monitor` | Default profile | Single operation | Start playback of the clip in the Source Monitor |
 | `play_timeline` | Default profile | Single operation | Start playback of the active sequence timeline. Uses QE DOM. |
 | `preview_brand_spot` | Default profile | `motion_style`: `none`, `push_in`, `pull_out`, `alternate` | Preview a brand-spot assembly from existing project items with an optional workspace-contained MOGRT overlay. Preview is local-only; it does not read or import the MOGRT file. |
