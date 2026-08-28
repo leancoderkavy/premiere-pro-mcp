@@ -5,6 +5,27 @@ import { product } from "@/lib/product"
 
 const releases = [
   {
+    version: "1.14.0",
+    date: "2026-08-27",
+    label: "Focused workflow packs and review handoff",
+    groups: [
+      {
+        title: "Added",
+        items: [
+          "Added focused tool packs for essential work, inspection, delivery, and captions so compatible clients can start with a smaller, task-specific catalog.",
+          "Added a read-only sequence review report for editorial handoff, plus declared MCP output schemas for the registered tool surface.",
+        ],
+      },
+      {
+        title: "Safety",
+        items: [
+          "Tool packs reduce discoverability only; they do not grant new authority. Review reports redact media paths by default and include marker comments only when explicitly requested.",
+          "Automated checks validate the package and response contracts. Licensed-Premiere host execution remains a separate verification gate.",
+        ],
+      },
+    ],
+  },
+  {
     version: "1.13.0",
     date: "2026-08-22",
     label: "Preview-only project intake for assistant editors",

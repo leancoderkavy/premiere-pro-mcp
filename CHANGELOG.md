@@ -6,6 +6,22 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [1.14.0] - 2026-08-27
+
+### Added
+
+- Added focused `essential`, `inspection`, `delivery`, and `captions` tool packs
+  so compatible MCP clients can begin with a smaller task-specific catalog.
+- Added `inspect_sequence_review_report`, a read-only, handoff-oriented sequence
+  report, and explicit MCP output schemas for every registered tool.
+
+### Safety
+
+- Tool packs change discoverability, not authority. Review reports redact media
+  paths by default and include marker comments only with explicit opt-in.
+- Package and response-contract checks remain distinct from licensed Premiere
+  host verification.
+
 ## [1.13.0] - 2026-08-22
 
 ### Added

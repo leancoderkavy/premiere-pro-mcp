@@ -6,7 +6,7 @@ package. It does not create a public listing.
 The next npm release must contain the matching `mcpName` field in
 `package.json` and the `mcp-name` marker in the package README before this
 record can be published. The already-published `premiere-pro-mcp@1.13.0`
-package predates that metadata, so do not submit this exact file for v1.13.0.
+package predates that metadata and cannot validate this versioned record.
 
 Before a future owner-approved publish:
 
