@@ -53,6 +53,11 @@ import {
   annotationsForTool,
   structuredToolResult,
 } from "./workflows/tool-metadata.js";
+import {
+  isToolInSelectedPacks,
+  resolveToolPacks,
+  type ToolPackSelection,
+} from "./workflows/tool-packs.js";
 import { getTelemetry, type Telemetry } from "./telemetry.js";
 import { z } from "zod";
 import { readFileSync } from "node:fs";
@@ -150,6 +155,12 @@ const schemaCache = new WeakMap<
   Record<string, unknown>,
   Record<string, z.ZodTypeAny>
 >();
+const toolResultOutputSchema = {
+  ok: z.boolean().describe("Whether the tool completed successfully."),
+  tool: z.string().min(1).describe("The registered MCP tool name."),
+  data: z.unknown().optional().describe("Tool-specific result data when ok is true."),
+  error: z.string().optional().describe("Failure detail when ok is false."),
+};
 const debugEnabled = /^(1|true|yes|on|debug)$/i.test(
   process.env.PREMIERE_MCP_DEBUG ?? "",
 );
@@ -256,6 +267,7 @@ function collectTools(
   capabilities: ReturnType<typeof resolveCapabilities>,
   uxpBridge?: UxpWebSocketBridge,
   telemetry?: Telemetry,
+  toolPacks?: ToolPackSelection,
   cacheable = false,
 ): Record<string, ToolDef> {
   const cacheKey = JSON.stringify({
@@ -263,6 +275,7 @@ function collectTools(
     timeoutMs:
       bridgeOptions.timeoutMs ?? process.env.PREMIERE_TIMEOUT_MS ?? null,
     capabilities: [...capabilities.capabilities].sort(),
+    toolPacks: toolPacks ?? null,
   });
   // Health tools close over the telemetry sink and UXP adapter. The default
   // sink is a singleton and may be cached; a caller-supplied sink or UXP bridge
@@ -315,6 +328,7 @@ function collectTools(
     getHealthTools(bridgeOptions, capabilities, () => tools, {
       telemetry,
       uxpBridge,
+      toolPacks,
     }),
   );
   if (!uxpBridge && cacheable) toolCatalogCache.set(cacheKey, tools);
@@ -324,6 +338,8 @@ function collectTools(
 export interface ServerOptions {
   uxpBridge?: UxpWebSocketBridge;
   telemetry?: Telemetry;
+  /** Overrides PREMIERE_MCP_TOOL_PACKS for this server instance. */
+  toolPacks?: string;
 }
 
 export function createServer(
@@ -336,6 +352,9 @@ export function createServer(
   });
 
   const capabilities = resolveCapabilities();
+  const toolPacks = serverOptions.toolPacks === undefined
+    ? resolveToolPacks()
+    : resolveToolPacks(serverOptions.toolPacks, "explicit");
   const telemetry = serverOptions.telemetry ?? getTelemetry();
 
   // Collect all tools from each module
@@ -344,29 +363,43 @@ export function createServer(
     capabilities,
     serverOptions.uxpBridge,
     telemetry,
+    toolPacks,
     !serverOptions.telemetry,
   );
 
   // Register each tool with the MCP server
-  let withheld = 0;
+  let authorityWithheld = 0;
+  let packWithheld = 0;
   for (const [name, tool] of Object.entries(toolModules)) {
     // Don't advertise tools the active authority profile will always refuse.
     // guardToolHandler still rejects them at call time, but listing an
     // unusable tool spends client context and invites the model to attempt a
     // call that cannot succeed.
     if (!isToolPermitted(name, capabilities)) {
-      withheld++;
+      authorityWithheld++;
+      continue;
+    }
+    // Tool packs are a discovery/context optimization. They only decide which
+    // permitted tools this server registers; they never change the capability
+    // guard that protects every registered handler.
+    if (!isToolInSelectedPacks(name, toolPacks)) {
+      packWithheld++;
       continue;
     }
 
     const zodShape = jsonSchemaToZodShape(tool.parameters);
     const guardedHandler = guardToolHandler(name, tool.handler, capabilities);
 
-    server.tool(
+    const annotations = annotationsForTool(name);
+    server.registerTool(
       name,
-      tool.description,
-      zodShape,
-      annotationsForTool(name),
+      {
+        title: annotations.title,
+        description: tool.description,
+        inputSchema: zodShape,
+        outputSchema: toolResultOutputSchema,
+        annotations,
+      },
       async (args: Record<string, unknown>) => {
         const startedAt = Date.now();
         try {
@@ -454,11 +487,17 @@ export function createServer(
     );
   }
 
-  if (withheld > 0) {
+  if (authorityWithheld > 0) {
     debugLog(
-      `Withheld ${withheld} tool(s) from tools/list — not permitted by the ` +
+      `Withheld ${authorityWithheld} tool(s) from tools/list — not permitted by the ` +
         `active capability profile (${[...capabilities.capabilities].sort().join(", ")}). ` +
         `Call get_capabilities to see the enabled authority.`,
+    );
+  }
+  if (packWithheld > 0) {
+    debugLog(
+      `Withheld ${packWithheld} permitted tool(s) from tools/list by the ` +
+        `${toolPacks.fullCatalog ? "full" : toolPacks.selected.join(", ")} workflow tool pack selection.`,
     );
   }
 

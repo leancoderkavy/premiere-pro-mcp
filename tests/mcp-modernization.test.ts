@@ -122,7 +122,18 @@ describe("modern MCP surface", () => {
       // unsafe-script, so the two scripting tools are not advertised.
       expect(tools.tools.map((tool) => tool.name)).not.toContain("execute_extendscript");
       expect(tools.tools.map((tool) => tool.name)).not.toContain("evaluate_expression");
-      expect(tools.tools).toHaveLength(316);
+      expect(tools.tools).toHaveLength(317);
+      const capabilityTool = tools.tools.find((tool) => tool.name === "get_capabilities");
+      expect(capabilityTool?.outputSchema).toMatchObject({
+        type: "object",
+        required: expect.arrayContaining(["ok", "tool"]),
+        properties: expect.objectContaining({
+          ok: expect.any(Object),
+          tool: expect.any(Object),
+          data: expect.any(Object),
+          error: expect.any(Object),
+        }),
+      });
       expect(tools.tools.map((tool) => tool.name)).toEqual(expect.arrayContaining([
         "manage_project_context",
         "search_project_context",
@@ -148,6 +159,50 @@ describe("modern MCP surface", () => {
         capabilityData.tools.tools.find((tool: any) => tool.name === "execute_extendscript")
           ?.authority,
       ).toMatchObject({ required: "unsafe-script", enabled: false });
+    } finally {
+      await client.close();
+      await server.close();
+    }
+  });
+
+  it("narrows tools/list with an explicit workflow pack without changing the authority report", async () => {
+    const server = createServer({ timeoutMs: 50 }, { toolPacks: "essential" });
+    const client = new Client({ name: "tool-pack-test", version: "1.0.0" });
+    const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
+
+    await Promise.all([server.connect(serverTransport), client.connect(clientTransport)]);
+    try {
+      const tools = await client.listTools();
+      const names = tools.tools.map((tool) => tool.name);
+      expect(names).toEqual(expect.arrayContaining([
+        "ping",
+        "get_capabilities",
+        "get_project_info",
+        "inspect_sequence_review_report",
+        "preview_edit_plan",
+        "verify_delivery_file",
+      ]));
+      expect(names).not.toContain("create_bin");
+      // Essential is a 13-tool focused path (including the two always-visible
+      // diagnostics), versus 317 tools in the default full catalog.
+      expect(names).toHaveLength(13);
+
+      const capabilities = await client.callTool({
+        name: "get_capabilities",
+        arguments: {},
+      });
+      const capabilityData = (capabilities.structuredContent as any).data;
+      expect(capabilityData.toolPacks).toMatchObject({
+        source: "explicit",
+        selected: ["essential"],
+        fullCatalog: false,
+      });
+      expect(capabilityData.authority.enabled).toEqual(expect.arrayContaining([
+        "inspect",
+        "edit",
+        "export",
+        "filesystem",
+      ]));
     } finally {
       await client.close();
       await server.close();
