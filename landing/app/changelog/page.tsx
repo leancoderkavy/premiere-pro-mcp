@@ -5,6 +5,19 @@ import { product } from "@/lib/product"
 
 const releases = [
   {
+    version: "1.14.1",
+    date: "2026-08-27",
+    label: "Reliable npm package verification",
+    groups: [
+      {
+        title: "Fixed",
+        items: [
+          "Made package verification isolate its temporary npm tarball and select the package that matches package.json, keeping release validation stable with the current npm CLI.",
+        ],
+      },
+    ],
+  },
+  {
     version: "1.14.0",
     date: "2026-08-27",
     label: "Focused workflow packs and review handoff",
