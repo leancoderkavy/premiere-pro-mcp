@@ -28,7 +28,8 @@ import fs from "node:fs";
 import path from "node:path";
 import { randomBytes } from "node:crypto";
 import { fileURLToPath } from "node:url";
-import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
+import { toNodeHandler } from "@modelcontextprotocol/node";
+import { createMcpHandler } from "@modelcontextprotocol/server";
 import { createServer } from "./server.js";
 import { cleanupTempDir, getTempDir } from "./bridge/file-bridge.js";
 import { getTelemetry } from "./telemetry.js";
@@ -210,6 +211,15 @@ const bridgeOptions = {
 process.env.PREMIERE_MCP_TRANSPORT = "http";
 const telemetry = getTelemetry();
 const admission = new HttpAdmissionController(admissionSettings);
+const mcpHandler = createMcpHandler(
+  () => createServer(bridgeOptions, { telemetry }),
+  {
+    onerror: (error) => console.error("[premiere-pro-mcp] MCP handler error:", error),
+  },
+);
+const handleMcpRequest = toNodeHandler(mcpHandler, {
+  onerror: (error) => console.error("[premiere-pro-mcp] MCP Node adapter error:", error),
+});
 
 const tempDir = getTempDir(bridgeOptions);
 console.error(`[premiere-pro-mcp] Starting HTTP server on port ${PORT}...`);
@@ -314,20 +324,12 @@ const httpServer = http.createServer(async (req, res) => {
     outcome: "authorized",
     method: req.method ?? "unknown",
   });
-  const mcpServer = createServer(bridgeOptions, { telemetry });
-  const transport = new StreamableHTTPServerTransport({
-    sessionIdGenerator: undefined, // stateless
-  });
-
   res.on("close", () => {
     admissionDecision.release();
-    transport.close().catch(() => {});
-    mcpServer.close().catch(() => {});
   });
 
   try {
-    await mcpServer.connect(transport);
-    await transport.handleRequest(req, res, parsedBody);
+    await handleMcpRequest(req, res, parsedBody);
     telemetry.capture("mcp_request", {
       outcome: res.statusCode >= 400 ? "failed" : "succeeded",
       method: req.method ?? "unknown",
@@ -368,6 +370,7 @@ httpServer.listen(PORT, "0.0.0.0", () => {
 async function shutdown(signal: string) {
   console.error(`[premiere-pro-mcp] ${signal} received, shutting down...`);
   httpServer.close();
+  await mcpHandler.close();
   await telemetry.shutdown();
   process.exit(0);
 }

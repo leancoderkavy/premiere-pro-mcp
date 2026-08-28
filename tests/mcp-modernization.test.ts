@@ -2,8 +2,7 @@ import { describe, expect, it } from "vitest";
 import { WORKFLOW_CATALOG, WORKFLOW_PROMPTS, WORKFLOW_RESOURCE } from "../src/workflows/catalog.js";
 import { annotationsForTool, structuredToolResult } from "../src/workflows/tool-metadata.js";
 import { createServer } from "../src/server.js";
-import { Client } from "@modelcontextprotocol/sdk/client/index.js";
-import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
+import { Client, InMemoryTransport } from "@modelcontextprotocol/client";
 import type { Telemetry, TelemetryProperties } from "../src/telemetry.js";
 
 describe("modern MCP surface", () => {

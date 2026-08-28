@@ -12,7 +12,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Node.js](https://img.shields.io/badge/Node.js-20.19%2B-green.svg)](https://nodejs.org)
-[![MCP](https://img.shields.io/badge/MCP-1.29-purple.svg)](https://modelcontextprotocol.io)
+[![MCP](https://img.shields.io/badge/MCP-2026--07--28-purple.svg)](https://modelcontextprotocol.io/specification/2026-07-28)
 [![npm](https://img.shields.io/npm/v/premiere-pro-mcp.svg)](https://www.npmjs.com/package/premiere-pro-mcp)
 [![Fly.io](https://img.shields.io/badge/Fly.io-deployed-7C3AED.svg)](https://premiere-pro-mcp.fly.dev)
 [![Premiere Pro](https://img.shields.io/badge/Premiere%20Pro-2020--2026-9999FF.svg)](https://www.adobe.com/products/premiere.html)
@@ -49,6 +49,14 @@ The AI handles the entire workflow through 319 core tools spanning the supported
 
 See the [v1.14.1 release notes](https://github.com/leancoderkavy/premiere-pro-mcp/releases/tag/v1.14.1)
 for complete details. Live installation in Premiere Pro still requires host verification.
+
+### Current MCP protocol support
+
+The server uses the stable TypeScript SDK v2 and serves the `2026-07-28`
+stateless protocol over HTTP and stdio, while retaining legacy MCP compatibility
+through `2025-11-25`. Modern clients receive discovery, validated routing headers,
+cache hints, subscription-stream support, and the formal Premiere extension
+capability. See the [complete MCP capability and boundary report](docs/mcp-2026-07-28-capabilities.md).
 
 ---
 

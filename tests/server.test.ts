@@ -3,8 +3,7 @@ import { createServer, SERVER_VERSION } from "../src/server.js";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { z } from "zod";
-import { Client } from "@modelcontextprotocol/sdk/client/index.js";
-import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
+import { Client, InMemoryTransport } from "@modelcontextprotocol/client";
 
 // Mock all tool modules to return simple tool definitions
 vi.mock("../src/bridge/file-bridge.js", () => ({
@@ -69,14 +68,14 @@ describe("createServer", () => {
   it("returns an McpServer instance", () => {
     const server = createServer({});
     expect(server).toBeDefined();
-    expect(typeof server.tool).toBe("function");
-    expect(typeof server.resource).toBe("function");
+    expect(typeof server.registerTool).toBe("function");
+    expect(typeof server.registerResource).toBe("function");
     expect(typeof server.connect).toBe("function");
   });
 
   it("registers tools from all modules", () => {
     const toolSpy = vi.fn();
-    const originalTool = createServer({}).tool;
+    const originalTool = createServer({}).registerTool;
 
     // Create a new server and spy on tool registration
     const server = createServer({});

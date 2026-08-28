@@ -6,6 +6,30 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+
+- Added dual-era MCP serving with the stable TypeScript SDK v2: modern
+  `2026-07-28` discovery and stateless request handling over HTTP and stdio,
+  with legacy protocol compatibility through `2025-11-25`.
+- Added validated modern routing headers, cache hints, subscription-listen
+  support, a formal Premiere extension capability, and a machine-readable MCP
+  protocol report in `get_capabilities`.
+- Added an evidence-backed capability matrix covering implemented, SDK-ready,
+  external-boundary, deprecated, and intentionally unsupported MCP surfaces.
+
+### Changed
+
+- Migrated tool, resource, prompt, client, stdio, and Node HTTP integrations
+  from `@modelcontextprotocol/sdk` v1 to the split v2 packages and Standard
+  Schema registration APIs.
+
+### Safety
+
+- Live Premiere resources remain private and uncached, and tool discovery is
+  private-cache scoped. The tasks extension and OAuth discovery are not
+  advertised without the durable storage and authorization infrastructure they
+  require.
+
 ## [1.14.1] - 2026-08-27
 
 ### Fixed

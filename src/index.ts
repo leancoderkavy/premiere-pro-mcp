@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
+import { serveStdio } from "@modelcontextprotocol/server/stdio";
 import { createServer } from "./server.js";
 import { cleanupTempDir, getTempDir } from "./bridge/file-bridge.js";
 import { getTelemetry } from "./telemetry.js";
@@ -175,15 +175,17 @@ async function main() {
     debugLog(`UXP bridge listening on ws://${address.host}:${address.port}${address.path}`);
   }
 
-  const server = createServer(bridgeOptions, { uxpBridge, telemetry });
-  const transport = new StdioServerTransport();
-
-  await server.connect(transport);
+  const serverHandle = serveStdio(
+    () => createServer(bridgeOptions, { uxpBridge, telemetry }),
+    {
+      onerror: (error) => console.error("[premiere-pro-mcp] MCP stdio error:", error),
+    },
+  );
   debugLog("Server connected and ready");
 
   const shutdown = async () => {
     if (uxpBridge) await uxpBridge.stop();
-    await server.close();
+    await serverHandle.close();
     await telemetry.shutdown();
   };
   process.once("SIGINT", () => void shutdown().finally(() => process.exit(0)));

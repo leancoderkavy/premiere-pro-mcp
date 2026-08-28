@@ -1,4 +1,4 @@
-import type { ToolAnnotations } from "@modelcontextprotocol/sdk/types.js";
+import type { ToolAnnotations } from "@modelcontextprotocol/server";
 
 const READ_PREFIXES = ["get_", "list_", "inspect_", "find_", "check_", "search_"];
 const READ_ONLY_TOOLS = new Set([

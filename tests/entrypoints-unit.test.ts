@@ -9,6 +9,7 @@ const mocks = vi.hoisted(() => ({
   shutdown: vi.fn(async () => {}),
   cleanup: vi.fn(),
   connect: vi.fn(async () => {}),
+  serveStdio: vi.fn(),
   closeMcp: vi.fn(async () => {}),
   handleRequest: vi.fn(async (_req: any, res: any) => { res.statusCode = 204; }),
   closeTransport: vi.fn(async () => {}),
@@ -43,14 +44,25 @@ vi.mock("../src/telemetry.js", async (original) => {
   const actual = await original<typeof import("../src/telemetry.js")>();
   return { ...actual, getTelemetry: () => ({ enabled: true, capture: mocks.capture, shutdown: mocks.shutdown }) };
 });
-vi.mock("@modelcontextprotocol/sdk/server/streamableHttp.js", () => ({
-  StreamableHTTPServerTransport: class {
-    handleRequest = mocks.handleRequest;
-    close = mocks.closeTransport;
-  },
+vi.mock("@modelcontextprotocol/server", () => ({
+  createMcpHandler: vi.fn((factory: any) => ({
+    factory,
+    close: mocks.closeTransport,
+  })),
 }));
-vi.mock("@modelcontextprotocol/sdk/server/stdio.js", () => ({
-  StdioServerTransport: class {},
+vi.mock("@modelcontextprotocol/node", () => ({
+  toNodeHandler: vi.fn((handler: any) => async (req: any, res: any, body: unknown) => {
+    handler.factory();
+    await mocks.connect();
+    res.on?.("close", () => {
+      void mocks.closeMcp();
+      void mocks.closeTransport();
+    });
+    await mocks.handleRequest(req, res, body);
+  }),
+}));
+vi.mock("@modelcontextprotocol/server/stdio", () => ({
+  serveStdio: (...args: any[]) => mocks.serveStdio(...args),
 }));
 vi.mock("../src/http-security.js", () => ({ applyHttpSecurityHeaders: vi.fn() }));
 vi.mock("../src/http-admission.js", async (original) => {
@@ -95,6 +107,11 @@ beforeEach(() => {
   mocks.fsCreateReadStream.mockReturnValue({ once: mocks.streamOnce, pipe: mocks.pipe });
   mocks.fsReadFileSync.mockReturnValue("<html><head><script>bootstrap()</script></head></html>");
   mocks.readBoundedBody.mockResolvedValue(Buffer.from("{}"));
+  mocks.serveStdio.mockImplementation((factory: () => unknown) => {
+    factory();
+    void mocks.connect();
+    return { close: mocks.closeMcp };
+  });
   process.env = { ...env };
 });
 afterEach(() => {
@@ -195,7 +212,7 @@ describe("stdio CLI entry point", () => {
 
   it("reports a fatal stdio startup failure", async () => {
     process.argv = [process.execPath, "index.js"];
-    mocks.connect.mockRejectedValueOnce(new Error("connect failed"));
+    mocks.serveStdio.mockImplementationOnce(() => { throw new Error("connect failed"); });
     const error = vi.spyOn(console, "error").mockImplementation(() => {});
     const exit = vi.spyOn(process, "exit").mockImplementation((() => undefined) as never);
     await import("../src/index.js");
