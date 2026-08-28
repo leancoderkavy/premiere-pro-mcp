@@ -14,13 +14,19 @@ function host(options: { transitions?: boolean; commit?: boolean } = {}) {
   const createRemoveItemsAction = vi.fn(() => liftAction);
   const clip = { createAddVideoTransitionAction: add, createRemoveVideoTransitionAction: remove };
   const track = { getTrackItems: vi.fn(async () => [clip]) };
+  const exportedFrames: string[] = [];
+  const exportSequenceFrame = vi.fn(async (_sequence: unknown, _position: unknown, filename: string) => {
+    exportedFrames.push(filename);
+    return true;
+  });
   const sequence = {
     guid: "sequence-1",
     name: "Timeline",
     getVideoTrackCount: vi.fn(async () => 1),
     getVideoTrack: vi.fn(async () => track),
     getSelection: vi.fn(async () => selection),
-    getPlayerPosition: vi.fn(async () => ({ seconds: 3 }))
+    getPlayerPosition: vi.fn(async () => ({ seconds: 3 })),
+    getFrameSize: vi.fn(async () => ({ width: 1920, height: 1080 }))
   };
   const project = {
     guid: "project-1",
@@ -66,9 +72,10 @@ function host(options: { transitions?: boolean; commit?: boolean } = {}) {
       setSidecarXMPEnabled: vi.fn(async () => true),
       startBatchEncode: vi.fn(async () => true),
     },
+    Exporter: { exportSequenceFrame },
     ...transitionApis
   };
-  return { registry: Commands.createCommandRegistry({ ppro, fs: {}, Protocol }), ppro, project, sequence, track, clip, add, remove, addAction, optionValues, selection, createRemoveItemsAction };
+  return { registry: Commands.createCommandRegistry({ ppro, fs: {}, Protocol }), ppro, project, sequence, track, clip, add, remove, addAction, optionValues, selection, createRemoveItemsAction, exportSequenceFrame, exportedFrames };
 }
 
 describe("UXP command registry", () => {
@@ -108,6 +115,25 @@ describe("UXP command registry", () => {
     await expect(host().registry.dispatch("transition.video.list", {})).resolves.toEqual({
       matchNames: ["CrossDissolve", "DipToBlack"], count: 2
     });
+  });
+
+  it("exports a PNG with a bare host filename and a one-extension returned path", async () => {
+    const value = host();
+    await expect(value.registry.dispatch("frame.export", {
+      outputDirectory: "C:/approved", filename: "frame.png",
+    })).resolves.toMatchObject({ path: "C:/approved/frame.png", exporterResult: true });
+    expect(value.exportSequenceFrame).toHaveBeenCalledWith(
+      value.sequence, { seconds: 3 }, "frame", "C:/approved", 1920, 1080,
+    );
+    expect(value.exportedFrames).toEqual(["frame"]);
+  });
+
+  it("does not report a frame path when Premiere rejects the export", async () => {
+    const value = host();
+    value.exportSequenceFrame.mockResolvedValueOnce(false);
+    await expect(value.registry.dispatch("frame.export", {
+      outputDirectory: "C:/approved", filename: "frame.png",
+    })).rejects.toMatchObject({ code: "UXP_VERIFICATION_FAILED" });
   });
 
   it("returns a stable compact project snapshot", async () => {
