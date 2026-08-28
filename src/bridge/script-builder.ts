@@ -63,9 +63,10 @@ function __pad(n) {
 
 function __findSequence(idOrName) {
   var project = app.project;
+  var wantedId = String(idOrName);
   for (var i = 0; i < project.sequences.numSequences; i++) {
     var seq = project.sequences[i];
-    if (seq.sequenceID === idOrName || seq.name === idOrName) {
+    if (String(seq.sequenceID) === wantedId || seq.name === idOrName) {
       return seq;
     }
   }
@@ -74,9 +75,10 @@ function __findSequence(idOrName) {
 
 function __findProjectItem(nodeIdOrName, rootItem) {
   if (!rootItem) rootItem = app.project.rootItem;
+  var wantedId = String(nodeIdOrName);
   for (var i = 0; i < rootItem.children.numItems; i++) {
     var item = rootItem.children[i];
-    if (item.nodeId === nodeIdOrName || item.name === nodeIdOrName) {
+    if (String(item.nodeId) === wantedId || item.name === nodeIdOrName) {
       return item;
     }
     if (item.type === 2) { // Bin
@@ -90,13 +92,14 @@ function __findProjectItem(nodeIdOrName, rootItem) {
 function __findClip(nodeId) {
   var seq = app.project.activeSequence;
   if (!seq) return null;
+  var wantedId = String(nodeId);
 
   // Search video tracks
   for (var t = 0; t < seq.videoTracks.numTracks; t++) {
     var track = seq.videoTracks[t];
     for (var c = 0; c < track.clips.numItems; c++) {
       var clip = track.clips[c];
-      if (clip.nodeId === nodeId) {
+      if (String(clip.nodeId) === wantedId) {
         return { clip: clip, trackIndex: t, clipIndex: c, trackType: "video" };
       }
     }
@@ -107,7 +110,7 @@ function __findClip(nodeId) {
     var track = seq.audioTracks[t];
     for (var c = 0; c < track.clips.numItems; c++) {
       var clip = track.clips[c];
-      if (clip.nodeId === nodeId) {
+      if (String(clip.nodeId) === wantedId) {
         return { clip: clip, trackIndex: t, clipIndex: c, trackType: "audio" };
       }
     }
