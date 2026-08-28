@@ -18,12 +18,23 @@ This repository targets the current Model Context Protocol revision, `2026-07-28
 | Deterministic tool, prompt, and resource lists | Implemented | Registries are built in stable catalog order and v2 emits the modern cache fields. |
 | `subscriptions/listen` | Implemented by serving entries | Modern change streams are handled by the v2 HTTP/stdio entries. The current registries are static during a process lifetime, so they do not emit application-driven list changes. |
 | Multi Round-Trip Requests (MRTR) | SDK-ready | The server can return `input_required`, including elicitation, sampling, or roots requests. Current Premiere workflows use explicit preview/apply tools and do not yet require an interactive mid-call round trip. |
+| Required result discriminators | Implemented by serving entries | SDK v2 emits `resultType: "complete"` for ordinary modern-era results and preserves the legacy codec for older clients. |
 | Extension capability framework | Implemented | Discovery advertises `io.github.leancoderkavy/premiere-pro` with the protocol revision, transports, dual-era posture, and CEP/UXP bridge backends. |
+| Cancellation | Implemented by serving entries | Modern HTTP cancellation closes the request response stream; stdio and legacy clients retain their era-appropriate cancellation behavior. Premiere host calls remain cooperatively cancellable only where the Adobe API exposes a safe cancellation point. |
+| Progress notifications | Protocol-supported, not currently emitted | The serving entries accept request-scoped progress tokens. Existing Premiere tools return bounded final receipts and do not claim granular progress that the CEP/UXP host cannot prove. |
+| OpenTelemetry trace context | Transport pass-through | SDK v2 preserves the standard `traceparent`, `tracestate`, and `baggage` `_meta` keys. Application telemetry remains privacy-bounded and does not record tool arguments, results, media names, or paths. |
+| JSON Schema 2020-12 inputs and outputs | Implemented | Tool inputs use typed Zod schemas and every registered tool declares a validated output schema with structured content. No custom `x-mcp-header` parameters are currently required. |
 | Structured tool results | Implemented | Every tool declares one output schema and returns stable `structuredContent` plus human-readable content; frame capture can also return an image block. |
 | Tool annotations | Implemented | Read-only, destructive, idempotent, open-world, and title hints are derived per tool. |
 | Resources | Implemented | Four static guidance resources and ten bounded, path-redacted live Premiere context resources are registered. |
 | Prompts | Implemented | Eleven safety-oriented Premiere workflow prompts are registered with typed arguments. |
 | Tool discovery controls | Implemented | Capability profiles remove unauthorized tools from `tools/list`; optional workflow packs reduce context without expanding authority. |
+| Cursor pagination | Supported, not currently needed | The SDK accepts cursor-bearing list requests. The current bounded registries fit in one deterministic page and therefore return no `nextCursor`. |
+| Resource templates | Not currently exposed | All current resources have stable, bounded URIs. A template would create no repository-fit benefit until an authorized parameterized resource family exists. |
+| Completions | Not currently exposed | Current prompt arguments are free-form goals/constraints and resources are fixed URIs, so the server does not advertise low-value or path-leaking suggestions. |
+| Resource subscriptions and list-change events | Available, currently quiescent | `subscriptions/listen` is served, but the registered catalogs are immutable for a process lifetime and live Premiere resources are read on demand. No false change events are emitted. |
+| Embedded resources and resource links | Supported result types, selectively unused | The result codec supports them. Local Premiere artifacts are not converted into links until a contained, authorization-scoped artifact registry can guarantee access and expiry. |
+| Text, image, audio, and binary content blocks | Partially used | Text and structured content are standard; verified frame capture may return image content. The server does not synthesize audio or expose arbitrary local binary blobs. |
 
 ## Deliberate boundaries
 
@@ -33,8 +44,33 @@ This repository targets the current Model Context Protocol revision, `2026-07-28
 | OAuth Client ID Metadata Documents and issuer validation | External authorization boundary | The hosted endpoint currently uses a fail-closed operator bearer token. It does not operate an OAuth authorization server and therefore does not advertise OAuth discovery it cannot complete. |
 | Enterprise Managed Authorization | Not implemented | No enterprise identity-policy provider is configured in this repository. |
 | MCP Apps | Not implemented | Premiere UI is delivered through CEP/UXP, not an MCP App resource. |
+| Skills over MCP | Experimental, not advertised | The repository ships client-specific local skills, but the Skills over MCP working group is still defining interoperable discovery and distribution. Local skill packaging is not claimed as protocol support. |
 | Sampling, roots, and protocol logging capabilities | Not advertised | These legacy server/client capabilities are deprecated in `2026-07-28`. The server avoids introducing new dependencies on them; MRTR is the supported path if a future workflow needs client input. |
 | Dynamic Client Registration | Not implemented | DCR is deprecated in the current protocol revision. |
+| Server Card / `.well-known` discovery | Experimental roadmap item | The Server Card working group has not finalized a stable metadata contract. The existing MCP Registry manifest remains the public machine-readable discovery surface. |
+
+## Complete 2026-07-28 change checklist
+
+The release-specific implementation audit covers every normative change category in
+the official changelog:
+
+- **State and lifecycle:** no modern handshake, no protocol sessions, no
+  `Mcp-Session-Id`, per-request version/capability metadata, and `server/discover`.
+- **Transport:** Streamable HTTP POST responses, no modern GET/SSE control channel,
+  no modern SSE resume IDs, validated `Mcp-Method`/`Mcp-Name`, and optional
+  `Mcp-Param-*` support through schema declarations.
+- **Results and interactivity:** required result discriminators, MRTR-capable codecs,
+  request-scoped progress/cancellation, and `subscriptions/listen`.
+- **Discovery and schemas:** deterministic lists, `ttlMs`/`cacheScope`, cursor-ready
+  list operations, JSON Schema 2020-12 inputs/outputs, annotations, and structured
+  content.
+- **Extensions:** a declared Premiere extension plus explicit non-advertisement of
+  Tasks, MCP Apps, enterprise authorization, and experimental Skills/Server Card
+  surfaces that the product does not safely implement.
+- **Authorization and deprecations:** bearer-token authorization remains a documented
+  external boundary; issuer/CIMD requirements apply when an OAuth authorization
+  flow is added; new Roots, Sampling, Logging, DCR, or HTTP+SSE dependencies are not
+  introduced.
 
 ## Product capability surface
 

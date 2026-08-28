@@ -64,6 +64,16 @@ describe("MCP 2026-07-28 protocol entry", () => {
       data: {
         mcp: {
           protocol: { modernRevision: "2026-07-28", dualEra: true },
+          features: {
+            resultTypeDiscriminator: "supported",
+            cancellation: "supported_by_protocol_host_limited",
+            jsonSchema202012: "supported",
+            cursorPagination: "supported_single_page_catalogs",
+            resourceTemplates: "not_exposed_no_parameterized_resource_family",
+            completions: "not_exposed_no_bounded_completion_domain",
+            mcpAppsExtension: "not_implemented",
+            skillsOverMcp: "experimental_not_advertised",
+          },
         },
       },
     });
