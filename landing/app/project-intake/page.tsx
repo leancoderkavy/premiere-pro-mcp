@@ -4,13 +4,14 @@ import Link from "next/link"
 import { ArrowRight, CheckCircle2, ClipboardCheck, FileSearch, ShieldCheck } from "lucide-react"
 import { Footer } from "@/components/sections/footer"
 import { ProjectIntakePrompts } from "./project-intake-prompts"
+import { ProjectIntakeTemplateBuilder } from "./project-intake-template-builder"
 
 const pageUrl = "https://premiere-pro-mcp.com/project-intake/"
 
 export const metadata: Metadata = {
   title: "Premiere Pro Project Intake: Run a Read-Only Workflow Review",
   description:
-    "Prepare a bounded, read-only Premiere Pro Project Intake preview with a safe connection check, an approved template, and a path-redacted review report.",
+    "Prepare a bounded, read-only Premiere Pro Project Intake preview with a safe connection check, a schema-valid starter or approved template, and a path-redacted review report.",
   alternates: { canonical: "/project-intake/" },
   keywords: [
     "Premiere Pro project intake workflow",
@@ -58,6 +59,11 @@ const faqs = [
     answer:
       "No. It reports the bounded checks in the approved template. A human owner still reviews exceptions, truncated findings, and any later change before relying on the result.",
   },
+  {
+    question: "Can I use a starter template as-is?",
+    answer:
+      "Only as a non-sensitive evaluation sample. A human policy owner must review and replace the starter's bins, media rules, frame rates, proxy policy, and organization rules before relying on it for a facility workflow.",
+  },
 ]
 
 const structuredData = {
@@ -68,7 +74,7 @@ const structuredData = {
       "@id": `${pageUrl}#webpage`,
       name: "Premiere Pro Project Intake: Run a Read-Only Workflow Review",
       description:
-        "Prepare a bounded, read-only Premiere Pro Project Intake preview with a safe connection check, an approved template, and a path-redacted review report.",
+        "Prepare a bounded, read-only Premiere Pro Project Intake preview with a safe connection check, a schema-valid starter or approved template, and a path-redacted review report.",
       url: pageUrl,
       isPartOf: { "@id": "https://premiere-pro-mcp.com/#website" },
       about: { "@id": "https://premiere-pro-mcp.com/#software" },
@@ -170,9 +176,10 @@ export default function ProjectIntakePage() {
         <section id="try" className="border-y border-zinc-900 bg-[#050506] px-5 py-14 sm:py-20" aria-labelledby="try-heading">
           <div className="mx-auto max-w-4xl">
             <p className="font-mono text-xs font-semibold uppercase tracking-[0.16em] text-purple-300">Try the read-only path</p>
-            <h2 id="try-heading" className="mt-4 text-3xl font-bold tracking-tight text-white sm:text-5xl">Copy the prompts. Keep the boundary visible.</h2>
-            <p className="mt-5 max-w-3xl text-lg leading-8 text-zinc-400">The first prompt checks the connection only. The second requests an intake preview only after you have an approved template and a ready local connection.</p>
+            <h2 id="try-heading" className="mt-4 text-3xl font-bold tracking-tight text-white sm:text-5xl">Copy the safe prompt. Then choose a starter policy.</h2>
+            <p className="mt-5 max-w-3xl text-lg leading-8 text-zinc-400">The first prompt checks the connection only. Then choose a schema-valid starter policy or use your approved template for a path-redacted intake preview.</p>
             <div className="mt-10"><ProjectIntakePrompts /></div>
+            <div id="starter-template"><ProjectIntakeTemplateBuilder /></div>
           </div>
         </section>
 
@@ -185,6 +192,7 @@ export default function ProjectIntakePage() {
             <ul className="space-y-4 text-zinc-300">
               {[
                 "Use a copied or non-sensitive project while you evaluate a new client, connector, or template.",
+                "Starter templates deliberately omit approved media paths. Add any path policy only after a human owner reviews and approves it.",
                 "Start with deterministic organization rules: expected bins, allowed labels, naming patterns, and allowlisted metadata.",
                 "Review every finding and exception with a human owner. A proposed action is not permission to apply it.",
                 "Keep preview, structural verification, playback review, and exported-frame verification as separate evidence classes.",

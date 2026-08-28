@@ -1,0 +1,92 @@
+{
+  "templates": [
+    {
+      "key": "editorial_handoff",
+      "label": "Editorial handoff",
+      "description": "A small, repeatable review for common editorial source media before a handoff.",
+      "checks": [
+        "Footage, Audio, and Sequences bins",
+        "MOV, MP4, or MXF source media",
+        "Offline-media evidence and missing-proxy warnings"
+      ],
+      "template": {
+        "schemaVersion": 1,
+        "id": "starter-editorial-handoff",
+        "version": "1.0.0",
+        "requiredBins": [
+          { "name": "Footage" },
+          { "name": "Audio" },
+          { "name": "Sequences" }
+        ],
+        "allowedExtensions": ["mov", "mp4", "mxf"],
+        "allowedFrameRates": [],
+        "proxyPolicy": "report_missing",
+        "approvedPathPrefixes": [],
+        "requiredEvidence": ["extension", "offline"],
+        "organizationRules": [
+          {
+            "id": "source-video",
+            "destinationBinName": "Footage",
+            "match": { "extensions": ["mov", "mp4", "mxf"] }
+          }
+        ]
+      }
+    },
+    {
+      "key": "proxy_ready",
+      "label": "Proxy-ready editorial",
+      "description": "A bounded starting point for a handoff where every evaluated source clip should have a proxy.",
+      "checks": [
+        "Footage and Sequences bins",
+        "MOV, MP4, or MXF source media",
+        "Required proxy, offline-media, and extension evidence"
+      ],
+      "template": {
+        "schemaVersion": 1,
+        "id": "starter-proxy-ready-editorial",
+        "version": "1.0.0",
+        "requiredBins": [
+          { "name": "Footage" },
+          { "name": "Sequences" }
+        ],
+        "allowedExtensions": ["mov", "mp4", "mxf"],
+        "allowedFrameRates": [],
+        "proxyPolicy": "require",
+        "approvedPathPrefixes": [],
+        "requiredEvidence": ["extension", "offline", "proxy"],
+        "organizationRules": [
+          {
+            "id": "proxy-source-video",
+            "destinationBinName": "Footage",
+            "match": { "extensions": ["mov", "mp4", "mxf"] }
+          }
+        ]
+      }
+    },
+    {
+      "key": "delivery_preflight",
+      "label": "Delivery preflight",
+      "description": "A simple source-and-sequence check to adapt before a controlled delivery review.",
+      "checks": [
+        "Source and Sequences bins",
+        "Common editorial frame rates",
+        "Extension, frame-rate, and offline-media evidence"
+      ],
+      "template": {
+        "schemaVersion": 1,
+        "id": "starter-delivery-preflight",
+        "version": "1.0.0",
+        "requiredBins": [
+          { "name": "Source" },
+          { "name": "Sequences" }
+        ],
+        "allowedExtensions": ["mov", "mp4", "mxf"],
+        "allowedFrameRates": [23.976, 24, 25, 29.97, 30],
+        "proxyPolicy": "ignore",
+        "approvedPathPrefixes": [],
+        "requiredEvidence": ["extension", "frame_rate", "offline"],
+        "organizationRules": []
+      }
+    }
+  ]
+}

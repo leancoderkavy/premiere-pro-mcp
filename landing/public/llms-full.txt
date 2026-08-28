@@ -6,6 +6,7 @@ Canonical website: https://premiere-pro-mcp.com/
 Documentation: https://premiere-pro-mcp.com/docs/
 Guides: https://premiere-pro-mcp.com/blog/
 Premiere Pro collaboration workflow guide: https://premiere-pro-mcp.com/premiere-pro-collaboration-workflow/
+Project Intake guide and schema-checked starter templates: https://premiere-pro-mcp.com/project-intake/
 Guide: What is an MCP server for Adobe Premiere Pro?: https://premiere-pro-mcp.com/blog/what-is-a-premiere-pro-mcp-server/
 Guide: AI video editing with Premiere Pro: https://premiere-pro-mcp.com/blog/ai-video-editing-with-premiere-pro/
 Guide: Premiere Pro workflow automation: https://premiere-pro-mcp.com/blog/premiere-pro-workflow-automation/
@@ -32,6 +33,10 @@ The recommended configuration is local. An MCP client starts the Node.js server 
 ## Collaboration workflow fit
 
 Premiere projects can be evaluated in different collaboration contexts. Adobe documents Productions for shared-storage, multi-project workflows and Team Projects for cloud-managed collaboration. The workflow-fit guide at https://premiere-pro-mcp.com/premiere-pro-collaboration-workflow/ routes readers to the relevant Adobe documentation and the same no-change local connection check. It does not inspect or store project data, grant Team Project permissions, create a Production policy, or prove future host behavior.
+
+## Project Intake starter templates
+
+The Project Intake guide at https://premiere-pro-mcp.com/project-intake/ includes three schema-checked starter templates for `preview_project_intake`: editorial handoff, proxy-ready editorial, and delivery preflight. They contain no approved media paths and request a path-redacted, non-mutating preview only. They are evaluation samples, not facility policy: a human owner must review and replace their bins, media rules, frame rates, proxy policy, and organization rules before use.
 
 ## Compatibility
 

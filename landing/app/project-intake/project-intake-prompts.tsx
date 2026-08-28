@@ -67,7 +67,7 @@ export function ProjectIntakePrompts() {
         promptKind="safe_check"
       />
       <PromptCard
-        label="Step 2 · Preview only"
+        label="Existing policy · Preview only"
         title="Request the intake review"
         description="Use an approved intake template. The result is a path-redacted report and proposed organization actions—not permission to organize the project."
         prompt={projectIntakePreviewPrompt}

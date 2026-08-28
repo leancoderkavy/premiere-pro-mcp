@@ -5,6 +5,8 @@ export type OnboardingEvent =
   | "onboarding_download_started"
   | "onboarding_safe_prompt_copied"
   | "onboarding_project_intake_prompt_copied"
+  | "onboarding_project_intake_template_selected"
+  | "onboarding_project_intake_template_copied"
   | "onboarding_workflow_guide_recommendation_viewed"
   | "onboarding_workflow_guide_prompt_copied"
   | "onboarding_advanced_opened"
