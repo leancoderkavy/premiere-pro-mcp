@@ -25,6 +25,7 @@
       "objectMask.has": { readOnly: true, minHostVersion: "26.3.0", probe: canInspectObjectMasks, handler: hasObjectMask },
       "encoder.configure": { minHostVersion: "26.3.0", probe: canConfigureEncoder, handler: configureEncoder },
       "frame.export": { requiresWorkspace: true, minHostVersion: "25.6.0", probe: canExportFrame, handler: exportFrame },
+      "timeline.selection.lift": { destructive: true, undoable: true, minHostVersion: "25.6.0", probe: canLiftSelection, handler: liftSelection },
       "transition.video.list": { readOnly: true, minHostVersion: "25.6.0", probe: canListTransitions, handler: listTransitions },
       "transition.video.add": { destructive: true, undoable: true, minHostVersion: "25.6.0", probe: canMutateTransitions, handler: addTransition },
       "transition.video.remove": { destructive: true, undoable: true, minHostVersion: "25.6.0", probe: canMutateTransitions, handler: removeTransition }
@@ -354,6 +355,41 @@
       const path = Protocol.joinPath(outputDirectory, filename);
       return { path, width, height, seconds: position.seconds, exporterResult: returned };
     }
+    async function liftSelection(args) {
+      const input = validateLiftArgs(args), context = await activeContext(true);
+      const sequenceGuid = String(context.sequence.guid || "");
+      if (input.expectedSequenceGuid && input.expectedSequenceGuid !== sequenceGuid) {
+        throw commandError("UXP_STALE_SEQUENCE", "The active sequence changed before the lift request; inspect the project and retry with its current sequence GUID");
+      }
+      const selection = await context.sequence.getSelection();
+      if (!selection || typeof selection.getTrackItems !== "function") {
+        throw commandError("UXP_COMMAND_UNAVAILABLE", "This Premiere build does not expose timeline item selection for UXP lift");
+      }
+      const selectedItems = Array.from(await selection.getTrackItems() || []);
+      if (!selectedItems.length) throw commandError("UXP_INVALID_ARGUMENT", "Select one or more timeline items before requesting a lift");
+      const editor = await ppro.SequenceEditor.getEditor(context.sequence);
+      const mediaType = ppro.Constants && ppro.Constants.MediaType && ppro.Constants.MediaType.ANY;
+      if (!editor || typeof editor.createRemoveItemsAction !== "function" || mediaType == null) {
+        throw commandError("UXP_COMMAND_UNAVAILABLE", "This Premiere build does not expose the documented SequenceEditor lift action");
+      }
+      let committed = false;
+      context.project.lockedAccess(() => {
+        const action = editor.createRemoveItemsAction(selection, false, mediaType, false);
+        committed = context.project.executeTransaction((compoundAction) => {
+          if (!action || compoundAction.addAction(action) === false) throw commandError("UXP_ACTION_REJECTED", "Premiere rejected the selection lift action");
+        }, "Lift selected timeline items");
+      });
+      assertTransactionCommitted(committed, "selection lift");
+      return {
+        lifted: true, selectedItemCount: selectedItems.length, ripple: false, outcome: "committed_unverified",
+        verificationBoundary: "project_executeTransaction_return",
+        operation: operationSemantics({
+          mutatesProject: true, verificationStatus: "not_verified", verificationBoundary: "project_executeTransaction_return",
+          verificationEvidence: [{ type: "transaction", accepted: true, selectedItemCount: selectedItems.length }],
+          undoSupported: true, undoLabel: "Lift selected timeline items", transactionActionGroup: true, cancellationSupported: true
+        })
+      };
+    }
     async function listTransitions() {
       const matchNames = Array.from(await ppro.TransitionFactory.getVideoTransitionMatchNames() || []);
       return { matchNames, count: matchNames.length };
@@ -539,6 +575,10 @@
         : path;
     }
     function canExportFrame() { return !!(ppro.Exporter && typeof ppro.Exporter.exportSequenceFrame === "function"); }
+    function canLiftSelection() {
+      return !!(ppro.SequenceEditor && typeof ppro.SequenceEditor.getEditor === "function" &&
+        ppro.Constants && ppro.Constants.MediaType && ppro.Constants.MediaType.ANY != null) && activeSequenceHas(["getSelection"]);
+    }
     function canInspectProject() { return !!(ppro.Project && typeof ppro.Project.getActiveProject === "function"); }
     async function activeProjectHas(name) {
       if (!canInspectProject()) return false;
@@ -617,6 +657,12 @@
   function validateRemoveArgs(args) {
     assertObject(args); assertOnlyKeys(args, ["videoTrackIndex", "clipIndex", "position", "operationId"]);
     const result = targetArgs(args); result.position = optionalPosition(args.position); return result;
+  }
+  function validateLiftArgs(args) {
+    assertObject(args); assertOnlyKeys(args, ["expectedSequenceGuid", "operationId"]);
+    const result = {};
+    if (args.expectedSequenceGuid != null) result.expectedSequenceGuid = boundedString(args.expectedSequenceGuid, "expectedSequenceGuid", 512);
+    return result;
   }
   function validateRenameTrackArgs(args) {
     assertObject(args); assertOnlyKeys(args, ["trackType", "trackIndex", "name", "operationId"]);
