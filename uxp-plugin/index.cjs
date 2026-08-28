@@ -240,13 +240,15 @@ async function exportFrame(args, operation) {
   if (!args.outputDirectory) throw new Error("outputDirectory is required");
   const outputDirectory = await workspaceBroker.assertPathAllowed(args.outputDirectory, { label: "outputDirectory", kind: "directory" });
   const filename = Protocol.safeFilename(args.filename);
+  const exporterFilename = Protocol.exporterFrameName(filename);
   const position = args.seconds == null ? await sequence.getPlayerPosition() : await tickTime(args.seconds);
   const size = await sequence.getFrameSize();
   const width = positiveInt(args.width, size.width), height = positiveInt(args.height, size.height);
   assertNotCancelled(operation);
   operation.phase = "host_call";
   publishOperation("progress", operation, { phase: "host_call", progress: 0.4, cancellable: false });
-  const returned = await ppro.Exporter.exportSequenceFrame(sequence, position, filename, outputDirectory, width, height);
+  const returned = await ppro.Exporter.exportSequenceFrame(sequence, position, exporterFilename, outputDirectory, width, height);
+  if (returned !== true) throw new Error("Premiere did not confirm frame export; no output path is reported");
   const path = Protocol.joinPath(outputDirectory, filename);
   return {
     path, width, height, seconds: position.seconds, exporterResult: returned,

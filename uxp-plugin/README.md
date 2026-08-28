@@ -12,6 +12,7 @@ The bridge sends a versioned `hello`, subscribes to Premiere's documented global
 
 It also exposes documented Premiere 25.6+ video-transition and transcript workflows:
 
+- `timeline.selection.lift` removes the current timeline selection without ripple through one undoable transaction; the committed transaction is not a timeline readback
 - `transition.video.list`, `transition.video.add`, and `transition.video.remove`
 - `transcript.export`, `transcript.search`, `transcript.has`, and undoable `transcript.import`
 - read-only `captions.inspect`
@@ -83,7 +84,7 @@ native-acceleration change must first pass the documented Windows x64, macOS x64
 and macOS arm64 Release evidence gate; see
 [the hybrid benchmark procedure](../docs/uxp-hybrid-benchmark.md).
 
-`frame.export` uses Adobe's supported `Exporter.exportSequenceFrame()` and verifies the file exists before reporting success. Example:
+`frame.export` uses Adobe's supported `Exporter.exportSequenceFrame()`. The public request and returned path include one `.png` extension; the panel passes the bare stem to Premiere because its exporter appends the extension. Premiere must confirm the export request before a path is reported. A licensed-host file check remains required to prove the artifact exists on disk. Example:
 
 ```json
 {"type":"command","requestId":"42","command":"frame.export","args":{"outputDirectory":"C:/temp","filename":"frame.png"}}

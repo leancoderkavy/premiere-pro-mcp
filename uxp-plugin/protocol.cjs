@@ -129,6 +129,10 @@
     if (!/^[A-Za-z0-9][A-Za-z0-9._-]*\.png$/i.test(name)) throw new Error("filename must be a simple .png name");
     return name;
   }
+  // Premiere's frame exporter selects PNG from the name and appends that extension
+  // itself. Keep the public, fully qualified filename for reporting, but pass the
+  // bare stem to the host so `frame.png` does not become `frame.png.png`.
+  function exporterFrameName(value) { return safeFilename(value).replace(/\.png$/i, ""); }
   function joinPath(dir, name) { return /[\\\/]$/.test(dir) ? dir + name : dir + "/" + name; }
   return {
     PROTOCOL_VERSION,
@@ -143,6 +147,7 @@
     operationSemantics,
     createOperationTracker,
     safeFilename,
+    exporterFrameName,
     joinPath
   };
 });
