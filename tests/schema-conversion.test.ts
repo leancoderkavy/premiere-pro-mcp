@@ -75,6 +75,7 @@ vi.mock("../src/tools/playhead.js", () => ({ getPlayheadTools: () => ({}) }));
 vi.mock("../src/tools/metadata.js", () => ({ getMetadataTools: () => ({}) }));
 vi.mock("../src/tools/export.js", () => ({ getExportTools: () => ({}) }));
 vi.mock("../src/tools/media-analysis.js", () => ({ getMediaAnalysisTools: () => ({}) }));
+vi.mock("../src/tools/interchange-analysis.js", () => ({ getInterchangeAnalysisTools: () => ({}) }));
 vi.mock("../src/tools/advanced.js", () => ({ getAdvancedTools: () => ({}) }));
 vi.mock("../src/tools/keyframes.js", () => ({ getKeyframeTools: () => ({}) }));
 vi.mock("../src/tools/scripting.js", () => ({ getScriptingTools: () => ({}) }));

@@ -89,6 +89,11 @@ const FILESYSTEM_TOOL_NAMES = new Set([
   "detect_audio_transients",
   "analyze_video_interlacing",
   "detect_active_picture_bounds",
+  "inspect_cmx3600_edl",
+  "validate_cmx3600_edl",
+  "compare_cmx3600_edls",
+  "inspect_fcpxml_interchange",
+  "verify_fcpxml_media_references",
 ]);
 
 const ACTION_CAPABILITIES: Readonly<Record<string, Readonly<Record<string, readonly Capability[]>>>> = {

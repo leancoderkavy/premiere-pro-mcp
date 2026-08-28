@@ -15,6 +15,7 @@ import { getPlayheadTools } from "./tools/playhead.js";
 import { getMetadataTools } from "./tools/metadata.js";
 import { getExportTools } from "./tools/export.js";
 import { getMediaAnalysisTools } from "./tools/media-analysis.js";
+import { getInterchangeAnalysisTools } from "./tools/interchange-analysis.js";
 import { getAdvancedTools } from "./tools/advanced.js";
 import { getKeyframeTools } from "./tools/keyframes.js";
 import { getScriptingTools } from "./tools/scripting.js";
@@ -285,6 +286,7 @@ function collectTools(
     ...getMetadataTools(bridgeOptions),
     ...getExportTools(bridgeOptions),
     ...getMediaAnalysisTools(bridgeOptions),
+    ...getInterchangeAnalysisTools(bridgeOptions),
     ...getAdvancedTools(bridgeOptions),
     ...getKeyframeTools(bridgeOptions),
     ...getScriptingTools(bridgeOptions),
