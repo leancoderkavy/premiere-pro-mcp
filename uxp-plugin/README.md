@@ -12,6 +12,7 @@ The bridge sends a versioned `hello`, subscribes to Premiere's documented global
 
 It also exposes documented Premiere 25.6+ video-transition and transcript workflows:
 
+- `timeline.selection.lift` removes the current timeline selection without ripple through one undoable transaction; the committed transaction is not a timeline readback
 - `transition.video.list`, `transition.video.add`, and `transition.video.remove`
 - `transcript.export`, `transcript.search`, `transcript.has`, and undoable `transcript.import`
 - read-only `captions.inspect`

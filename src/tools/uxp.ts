@@ -468,5 +468,89 @@ export function getUxpTools(bridge: UxpWebSocketBridge) {
         ...(args.height === undefined ? {} : { height: args.height }),
       }),
     },
+    lift_selection_uxp: {
+      description: "Lift the current timeline selection through Premiere's documented UXP SequenceEditor. This removes selected items without ripple in one undoable transaction; transaction acceptance is not a timeline readback.",
+      parameters: {
+        type: "object" as const,
+        properties: {
+          expected_sequence_guid: {
+            type: "string",
+            maxLength: 512,
+            description: "Optional active-sequence GUID from inspect_project_uxp; rejects a stale target before mutation.",
+          },
+          operation_id: operationId,
+        },
+      },
+      handler: async (args: { expected_sequence_guid?: string; operation_id?: string }) =>
+        invoke(bridge, "timeline.selection.lift", {
+          ...(args.expected_sequence_guid ? { expectedSequenceGuid: args.expected_sequence_guid } : {}),
+          ...(args.operation_id ? { operationId: args.operation_id } : {}),
+        }),
+    },
+    list_video_transitions_uxp: {
+      description: "List the installed native video-transition match names from the connected Premiere UXP host.",
+      parameters: {},
+      handler: async () => invoke(bridge, "transition.video.list"),
+    },
+    add_video_transition_uxp: {
+      description: "Add an installed native video transition to one video clip through an undoable UXP transaction. List match names first; transaction acceptance is not a visual timeline readback.",
+      parameters: {
+        type: "object" as const,
+        properties: {
+          video_track_index: { type: "integer", minimum: 0, description: "Zero-based target video track index." },
+          clip_index: { type: "integer", minimum: 0, description: "Zero-based clip index on the target video track." },
+          match_name: { type: "string", minLength: 1, maxLength: 256, description: "Installed match name returned by list_video_transitions_uxp." },
+          position: { type: "string", enum: ["start", "end"], description: "Transition side; defaults to start." },
+          duration_seconds: { type: "number", exclusiveMinimum: 0, description: "Optional positive transition duration in seconds." },
+          force_single_sided: { type: "boolean", description: "Optional Premiere single-sided transition setting." },
+          transition_alignment: { type: "integer", description: "Optional Premiere transition alignment constant." },
+          operation_id: operationId,
+        },
+        required: ["video_track_index", "clip_index", "match_name"],
+      },
+      handler: async (args: {
+        video_track_index: number;
+        clip_index: number;
+        match_name: string;
+        position?: "start" | "end";
+        duration_seconds?: number;
+        force_single_sided?: boolean;
+        transition_alignment?: number;
+        operation_id?: string;
+      }) => invoke(bridge, "transition.video.add", {
+        videoTrackIndex: args.video_track_index,
+        clipIndex: args.clip_index,
+        matchName: args.match_name,
+        ...(args.position === undefined ? {} : { position: args.position }),
+        ...(args.duration_seconds === undefined ? {} : { durationSeconds: args.duration_seconds }),
+        ...(args.force_single_sided === undefined ? {} : { forceSingleSided: args.force_single_sided }),
+        ...(args.transition_alignment === undefined ? {} : { transitionAlignment: args.transition_alignment }),
+        ...(args.operation_id ? { operationId: args.operation_id } : {}),
+      }),
+    },
+    remove_video_transition_uxp: {
+      description: "Remove the selected side of a native video transition through an undoable UXP transaction; transaction acceptance is not a visual timeline readback.",
+      parameters: {
+        type: "object" as const,
+        properties: {
+          video_track_index: { type: "integer", minimum: 0, description: "Zero-based target video track index." },
+          clip_index: { type: "integer", minimum: 0, description: "Zero-based clip index on the target video track." },
+          position: { type: "string", enum: ["start", "end"], description: "Transition side; defaults to start." },
+          operation_id: operationId,
+        },
+        required: ["video_track_index", "clip_index"],
+      },
+      handler: async (args: {
+        video_track_index: number;
+        clip_index: number;
+        position?: "start" | "end";
+        operation_id?: string;
+      }) => invoke(bridge, "transition.video.remove", {
+        videoTrackIndex: args.video_track_index,
+        clipIndex: args.clip_index,
+        ...(args.position === undefined ? {} : { position: args.position }),
+        ...(args.operation_id ? { operationId: args.operation_id } : {}),
+      }),
+    },
   };
 }

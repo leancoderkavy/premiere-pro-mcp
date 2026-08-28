@@ -77,6 +77,18 @@ describe("real-host social sequence regressions", () => {
     expect(getScript).not.toContain("__ticksToSeconds(seq.getOutPoint())");
   });
 
+  it("uses documented DOM work-area accessors instead of unavailable properties and method names", async () => {
+    const workArea = await codeFor(playhead.get_work_area, {});
+    expect(workArea).toContain("seq.getWorkAreaInPoint()");
+    expect(workArea).toContain("seq.getWorkAreaOutPoint()");
+    expect(workArea).not.toContain("seq.workInPoint");
+    expect(workArea).not.toContain("seq.workOutPoint");
+
+    const enabled = await codeFor(sequence.is_work_area_enabled, {});
+    expect(enabled).toContain("seq.isWorkAreaEnabled()");
+    expect(enabled).not.toContain("seq.isWorkAreaBarEnabled()");
+  });
+
   it("matches a sequence through projectItem.nodeId and verifies both names", async () => {
     const script = await scriptFor(utility.rename_project_item, { item_id: "item-1", new_name: "Instagram Test" });
     expect(script).toContain("candidate.projectItem.nodeId === item.nodeId");
