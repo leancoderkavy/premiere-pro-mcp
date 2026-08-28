@@ -225,7 +225,8 @@ export function getMetadataTools(bridgeOptions: BridgeOptions) {
     },
 
     set_xmp_metadata: {
-      description: "Set raw XMP metadata on a project item (provide complete XMP XML string)",
+      description:
+        "Merge a raw XMP XML patch into a project item's existing XMP metadata without removing unrelated fields.",
       parameters: {
         type: "object" as const,
         properties: {
@@ -235,7 +236,7 @@ export function getMetadataTools(bridgeOptions: BridgeOptions) {
           },
           xmp_xml: {
             type: "string",
-            description: "Complete XMP metadata XML string to set",
+            description: "Well-formed XMP XML containing only the fields to add or replace",
           },
         },
         required: ["item_id", "xmp_xml"],
@@ -244,9 +245,42 @@ export function getMetadataTools(bridgeOptions: BridgeOptions) {
         const script = buildToolScript(`
           var item = __findProjectItem("${escapeForExtendScript(args.item_id)}");
           if (!item) return __error("Item not found");
-          
-          item.setXMPMetadata("${escapeForExtendScript(args.xmp_xml)}");
-          return __result({ updated: true, item: item.name });
+
+          try {
+            if (ExternalObject.AdobeXMPScript === undefined) {
+              ExternalObject.AdobeXMPScript = new ExternalObject("lib:AdobeXMPScript");
+            }
+          } catch (e) {
+            return __error("Premiere could not load the Adobe XMP library; no metadata was changed: " + e.toString());
+          }
+          if (typeof XMPMeta !== "function" || typeof XMPUtils === "undefined" || typeof XMPUtils.appendProperties !== "function") {
+            return __error("Premiere's XMP merge APIs are unavailable; no metadata was changed.");
+          }
+
+          try {
+            var existingPacket = String(item.getXMPMetadata() || "");
+            if (!existingPacket) return __error("The project item has no readable XMP packet; no metadata was changed.");
+            var existingXmp = new XMPMeta(existingPacket);
+            var patchXmp = new XMPMeta("${escapeForExtendScript(args.xmp_xml)}");
+            // Copy every supplied top-level field into the existing packet, replacing
+            // only fields named by the patch and retaining unrelated metadata.
+            XMPUtils.appendProperties(patchXmp, existingXmp, true, true, false);
+            item.setXMPMetadata(existingXmp.serialize());
+
+            // Reparse the host readback so a malformed or rejected packet never
+            // reports success. Exact serialized XML formatting is host-dependent.
+            var writtenPacket = String(item.getXMPMetadata() || "");
+            if (!writtenPacket) return __error("Premiere wrote no readable XMP packet; inspect the item before retrying.");
+            new XMPMeta(writtenPacket);
+            return __result({
+              updated: true,
+              merged: true,
+              item: item.name,
+              verification: "readback_xmp_packet_reparsed"
+            });
+          } catch (e) {
+            return __error("Premiere could not merge XMP metadata; no success is reported: " + e.toString());
+          }
         `);
         return sendCommand(script, bridgeOptions);
       },
