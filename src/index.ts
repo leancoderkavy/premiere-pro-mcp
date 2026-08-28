@@ -32,7 +32,7 @@ const args = process.argv.slice(2);
 
 if (args.includes("--help") || args.includes("-h")) {
   console.log(`
-premiere-pro-mcp — MCP server for Adobe Premiere Pro (316 default-profile tools)
+premiere-pro-mcp — MCP server for Adobe Premiere Pro (317 default-profile tools)
 
 Usage:
   premiere-pro-mcp              Start the MCP server (stdio transport)
@@ -49,6 +49,7 @@ Environment variables:
   PREMIERE_TEMP_DIR     Shared temp directory (default: OS temp + /premiere-mcp-bridge)
   PREMIERE_TIMEOUT_MS   Command timeout in ms (default: 30000)
   PREMIERE_MCP_CAPABILITIES  Comma-separated authority profile
+  PREMIERE_MCP_TOOL_PACKS    Comma-separated discovery packs: full, essential, inspection, delivery, captions
   PREMIERE_MCP_DEBUG    Set to 1/true to enable verbose stderr diagnostics
   PREMIERE_UXP_TOKEN    Enable the authenticated local UXP bridge (minimum 16 characters)
   PREMIERE_UXP_PORT     UXP loopback WebSocket port (default: 7777)

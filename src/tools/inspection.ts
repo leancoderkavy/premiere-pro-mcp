@@ -1197,5 +1197,173 @@ export function getInspectionTools(bridgeOptions: BridgeOptions) {
         return sendCommand(script, bridgeOptions);
       },
     },
+
+    inspect_sequence_review_report: {
+      description:
+        "Build one read-only sequence handoff report with timeline structure, primary-track gaps, disabled clips, muted tracks, marker timing, and offline-source evidence. Media paths are never returned; marker comments require an explicit opt-in. It does not prove rendered pixels, audio quality, caption correctness, rights, or editorial approval.",
+      parameters: {
+        type: "object" as const,
+        properties: {
+          sequence_id: {
+            type: "string",
+            description: "Sequence name or ID. Uses the active sequence if omitted.",
+          },
+          primary_video_track: {
+            type: "number",
+            description: "Video track used for gap inspection (default: 0).",
+          },
+          max_markers: {
+            type: "number",
+            description: "Maximum marker entries to return from the start of the sequence (default: 50, maximum: 200).",
+          },
+          include_marker_comments: {
+            type: "boolean",
+            description: "Include marker comments. Defaults to false because comments can contain private editorial notes.",
+          },
+        },
+      },
+      handler: async (args: {
+        sequence_id?: string;
+        primary_video_track?: number;
+        max_markers?: number;
+        include_marker_comments?: boolean;
+      }) => {
+        const primaryTrack = args.primary_video_track ?? 0;
+        const maxMarkers = args.max_markers ?? 50;
+        const includeComments = args.include_marker_comments === true;
+        if (!Number.isInteger(primaryTrack) || primaryTrack < 0) {
+          return { success: false, error: "primary_video_track must be a non-negative integer" };
+        }
+        if (!Number.isInteger(maxMarkers) || maxMarkers < 1 || maxMarkers > 200) {
+          return { success: false, error: "max_markers must be an integer from 1 through 200" };
+        }
+
+        const requestedSequence = args.sequence_id
+          ? `"${escapeForExtendScript(args.sequence_id)}"`
+          : "";
+        const script = buildToolScript(`
+          var requestedSequence = ${requestedSequence ? requestedSequence : "null"};
+          var seq = app.project.activeSequence;
+          if (requestedSequence) {
+            seq = null;
+            for (var s = 0; s < app.project.sequences.numSequences; s++) {
+              var candidate = app.project.sequences[s];
+              if (String(candidate.sequenceID) === requestedSequence || candidate.name === requestedSequence) {
+                seq = candidate;
+                break;
+              }
+            }
+          }
+          if (!seq) return __error(requestedSequence ? "Sequence not found: " + requestedSequence : "No active sequence");
+
+          var summary = {
+            videoClips: 0,
+            audioClips: 0,
+            disabledClips: 0,
+            mutedTracks: 0,
+            primaryTrackGaps: 0,
+            offlineSourceItems: 0,
+            markers: 0
+          };
+          var warnings = [];
+          var offlineItems = [];
+          var offlineById = {};
+
+          function noteOffline(clip, trackType, trackIndex) {
+            try {
+              var source = clip.projectItem;
+              if (!source || !source.isOffline || !source.isOffline()) return;
+              var key = String(source.nodeId || source.name || (trackType + ":" + trackIndex + ":" + clip.name));
+              if (offlineById[key]) return;
+              offlineById[key] = true;
+              summary.offlineSourceItems++;
+              offlineItems.push({ nodeId: source.nodeId, name: source.name, trackType: trackType, trackIndex: trackIndex });
+            } catch (offlineError) {}
+          }
+
+          function inspectTracks(tracks, trackType) {
+            for (var t = 0; t < tracks.numTracks; t++) {
+              var track = tracks[t];
+              try {
+                if (track.isMuted && track.isMuted()) {
+                  summary.mutedTracks++;
+                  warnings.push({ code: "MUTED_TRACK", trackType: trackType, trackIndex: t, trackName: track.name });
+                }
+              } catch (muteError) {}
+              for (var c = 0; c < track.clips.numItems; c++) {
+                var clip = track.clips[c];
+                if (trackType === "video") summary.videoClips++; else summary.audioClips++;
+                try {
+                  if (clip.disabled === true || clip.disabled === 1) {
+                    summary.disabledClips++;
+                    warnings.push({ code: "DISABLED_CLIP", trackType: trackType, trackIndex: t, clipName: clip.name, nodeId: clip.nodeId });
+                  }
+                } catch (disabledError) {}
+                noteOffline(clip, trackType, t);
+              }
+            }
+          }
+
+          inspectTracks(seq.videoTracks, "video");
+          inspectTracks(seq.audioTracks, "audio");
+
+          var gaps = [];
+          if (${primaryTrack} < seq.videoTracks.numTracks) {
+            var primary = seq.videoTracks[${primaryTrack}];
+            var cursor = 0;
+            for (var i = 0; i < primary.clips.numItems; i++) {
+              var current = primary.clips[i];
+              var start = current.start.seconds;
+              if (start - cursor > 0.001) {
+                summary.primaryTrackGaps++;
+                gaps.push({ startSeconds: cursor, endSeconds: start, durationSeconds: start - cursor });
+              }
+              cursor = Math.max(cursor, current.end.seconds);
+            }
+          } else {
+            warnings.push({ code: "PRIMARY_VIDEO_TRACK_UNAVAILABLE", trackIndex: ${primaryTrack} });
+          }
+
+          var markers = [];
+          var marker = null;
+          try { marker = seq.markers.getFirstMarker(); } catch (markerError) {}
+          while (marker) {
+            summary.markers++;
+            if (markers.length < ${maxMarkers}) {
+              var entry = {
+                name: marker.name,
+                type: marker.type,
+                startSeconds: __ticksToSeconds(marker.start.ticks),
+                endSeconds: __ticksToSeconds(marker.end.ticks)
+              };
+              ${includeComments ? "try { entry.comments = marker.comments; } catch (commentError) {}" : ""}
+              markers.push(entry);
+            }
+            try { marker = seq.markers.getNextMarker(marker); } catch (nextMarkerError) { marker = null; }
+          }
+
+          return __result({
+            reportType: "sequence-review-handoff",
+            sequence: {
+              name: seq.name,
+              id: seq.sequenceID,
+              durationSeconds: __ticksToSeconds(seq.end),
+              videoTracks: seq.videoTracks.numTracks,
+              audioTracks: seq.audioTracks.numTracks
+            },
+            primaryVideoTrack: ${primaryTrack},
+            summary: summary,
+            primaryTrackGaps: gaps,
+            markers: markers,
+            markersTruncated: summary.markers > markers.length,
+            markerCommentsIncluded: ${includeComments},
+            offlineItems: offlineItems,
+            warnings: warnings,
+            verificationScope: "Premiere timeline readback only. This report does not inspect rendered pixels, audio quality, caption accuracy, rights, or editorial approval. It never returns media paths."
+          });
+        `);
+        return sendCommand(script, bridgeOptions);
+      },
+    },
   };
 }

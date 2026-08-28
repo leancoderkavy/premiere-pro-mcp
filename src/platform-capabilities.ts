@@ -6,6 +6,7 @@ import {
   buildToolCapabilityReport,
   type CatalogToolDefinition,
 } from "./tool-capability-report.js";
+import type { ToolPackReport } from "./workflows/tool-packs.js";
 
 export const SUPPORTED_HOST_PLATFORMS = ["darwin", "win32"] as const;
 const ALL_CAPABILITIES: Capability[] = ["inspect", "edit", "export", "filesystem", "unsafe-script"];
@@ -215,6 +216,7 @@ export function buildPlatformCapabilityReport(
   platform: NodeJS.Platform = process.platform,
   tempDirectory: string = join(tmpdir(), "premiere-mcp-bridge"),
   toolCatalog: Record<string, CatalogToolDefinition> = {},
+  toolPacks?: ToolPackReport,
 ) {
   const supported = SUPPORTED_HOST_PLATFORMS.includes(platform as SupportedHostPlatform);
   return {
@@ -368,6 +370,7 @@ export function buildPlatformCapabilityReport(
       enabled: [...capabilities.capabilities].sort(),
       disabled: ALL_CAPABILITIES.filter((capability) => !capabilities.capabilities.has(capability)),
     },
+    ...(toolPacks === undefined ? {} : { toolPacks }),
     tools: buildToolCapabilityReport(toolCatalog, capabilities),
   };
 }

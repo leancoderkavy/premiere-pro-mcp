@@ -7,10 +7,16 @@ import type { CatalogToolDefinition } from "../tool-capability-report.js";
 import { buildFirstRunReport, type FirstRunReport } from "../diagnostics.js";
 import { captureActivationEvent, type Telemetry } from "../telemetry.js";
 import type { UxpWebSocketBridge } from "../bridge/uxp-websocket-bridge.js";
+import {
+  buildToolPackReport,
+  resolveToolPacks,
+  type ToolPackSelection,
+} from "../workflows/tool-packs.js";
 
 export interface HealthToolOptions {
   telemetry?: Telemetry;
   uxpBridge?: UxpWebSocketBridge;
+  toolPacks?: ToolPackSelection;
 }
 
 const disabledTelemetry: Telemetry = {
@@ -88,6 +94,7 @@ export function getHealthTools(
           process.platform,
           getTempDir(bridgeOptions),
           getToolCatalog(),
+          buildToolPackReport(options.toolPacks ?? resolveToolPacks()),
         ),
       }),
     },
