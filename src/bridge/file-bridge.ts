@@ -7,16 +7,31 @@ import { getHelpersSource, helpersFileName, buildBootstrap } from "./script-buil
 const DEFAULT_TEMP_DIR = join(tmpdir(), "premiere-mcp-bridge");
 const POLL_FALLBACK_MS = 250;
 const DEFAULT_TIMEOUT_MS = 30000;
+export const BRIDGE_HEARTBEAT_FILE = "bridge-heartbeat.json";
+export const BRIDGE_HEARTBEAT_STALE_MS = 3_000;
 
 export interface BridgeOptions {
   tempDir?: string;
   timeoutMs?: number;
+  /**
+   * Reject a health-style command without publishing it when a current CEP
+   * connector explicitly reports that it is waiting or its heartbeat is stale.
+   * A missing heartbeat remains compatible with older installed connectors.
+   */
+  failFastOnUnreadyHeartbeat?: boolean;
 }
 
 export interface CommandResult {
   success: boolean;
   data?: unknown;
   error?: string;
+}
+
+export type BridgeLivenessState = "running" | "waiting" | "stale" | "unknown";
+
+export interface BridgeLiveness {
+  state: BridgeLivenessState;
+  ageMs: number | null;
 }
 
 /**
@@ -64,6 +79,54 @@ export function getTempDir(options?: BridgeOptions): string {
 }
 
 /**
+ * Inspect the CEP panel's small, content-free heartbeat. This never creates a
+ * directory or reads command, response, project, or media data. Unknown is
+ * intentionally non-fatal so a server upgrade stays compatible with older CEP
+ * panels that do not publish a heartbeat yet.
+ */
+export function getBridgeLiveness(
+  options?: BridgeOptions,
+  nowMs = Date.now(),
+): BridgeLiveness {
+  const heartbeatPath = join(getTempDir(options), BRIDGE_HEARTBEAT_FILE);
+  try {
+    if (!existsSync(heartbeatPath)) return { state: "unknown", ageMs: null };
+    const raw = readFileSync(heartbeatPath, "utf-8");
+    const heartbeat = JSON.parse(raw) as Record<string, unknown>;
+    if (
+      heartbeat.protocolVersion !== 1 ||
+      (heartbeat.state !== "running" && heartbeat.state !== "waiting")
+    ) {
+      return { state: "unknown", ageMs: null };
+    }
+    const ageMs = Math.max(0, nowMs - statSync(heartbeatPath).mtimeMs);
+    return ageMs > BRIDGE_HEARTBEAT_STALE_MS
+      ? { state: "stale", ageMs }
+      : { state: heartbeat.state, ageMs };
+  } catch {
+    return { state: "unknown", ageMs: null };
+  }
+}
+
+function heartbeatFailure(liveness: BridgeLiveness): CommandResult | null {
+  if (liveness.state === "waiting") {
+    return {
+      success: false,
+      error:
+        "The CEP connector is open but not running. In Premiere Pro, open Window > Extensions > MCP Bridge, wait for it to finish starting, then retry once.",
+    };
+  }
+  if (liveness.state === "stale") {
+    return {
+      success: false,
+      error:
+        "The CEP connector heartbeat is stale. Reopen Window > Extensions > MCP Bridge in Premiere Pro, dismiss any blocking dialog, and retry once after it reports running.",
+    };
+  }
+  return null;
+}
+
+/**
  * Make sure this server version's helpers file exists in the temp dir, and return
  * the bootstrap line each command must carry so the CEP-side engine loads it once.
  */
@@ -91,6 +154,11 @@ export async function sendCommand(
   const tempDir = getTempDir(options);
   const timeoutMs = options?.timeoutMs || DEFAULT_TIMEOUT_MS;
   ensureDir(tempDir);
+
+  if (options?.failFastOnUnreadyHeartbeat) {
+    const failure = heartbeatFailure(getBridgeLiveness(options));
+    if (failure) return failure;
+  }
 
   const id = randomUUID();
   const cmdFile = join(tempDir, `cmd_${id}.jsx`);
@@ -151,6 +219,11 @@ export async function sendRawCommand(
   const tempDir = getTempDir(options);
   const timeoutMs = options?.timeoutMs || DEFAULT_TIMEOUT_MS;
   ensureDir(tempDir);
+
+  if (options?.failFastOnUnreadyHeartbeat) {
+    const failure = heartbeatFailure(getBridgeLiveness(options));
+    if (failure) return failure;
+  }
 
   const id = randomUUID();
   const cmdFile = join(tempDir, `cmd_${id}.jsx`);

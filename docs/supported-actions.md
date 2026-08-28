@@ -128,7 +128,7 @@ operation” when the tool has no enum-based mode.
 | `get_all_project_paths` | Default profile | Single operation | Get all unique media file paths used in the project. Useful for asset management and archiving. |
 | `get_av_feature_support` | Default profile | Single operation | Report the documented automation boundary for advanced audio and modern color management, including actionable reasons for UI-only features. |
 | `get_bin_contents` | Default profile | Single operation | Get detailed contents of a specific bin (folder) including all nested items, media paths, offline status, color labels, and metadata. Searches by bin name or node ID. |
-| `get_bridge_telemetry` | Default profile | Single operation | Inspect privacy-preserving aggregate bridge health: pending command/response counts, busy operations, and queue age without returning project or personal data. |
+| `get_bridge_telemetry` | Default profile | Single operation | Inspect privacy-preserving aggregate bridge health: pending command/response counts, busy operations, queue age, and CEP heartbeat state without returning project or personal data. |
 | `get_capabilities` | Default profile | Single operation | Report Windows/macOS support, Premiere Pro backend coverage, enabled authority, and whether live host verification is still required. |
 | `get_clip_adjustment_layer` | Default profile | Single operation | Check if a clip is an adjustment layer |
 | `get_clip_at_playhead` | Default profile | `track_type`: `video`, `audio`, `both` | Get all clips at the current playhead position across all tracks. |

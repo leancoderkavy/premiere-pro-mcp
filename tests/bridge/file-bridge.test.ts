@@ -15,6 +15,7 @@ import { dirname, join } from "node:path";
 import { tmpdir } from "node:os";
 import {
   getTempDir,
+  getBridgeLiveness,
   sendCommand,
   sendRawCommand,
   cleanupTempDir,
@@ -281,6 +282,51 @@ describe("sendCommand", () => {
     expect(result.error).toContain("CEP plugin");
   });
 
+  it("fails health-style commands before publication when a current connector is waiting", async () => {
+    vi.setSystemTime(new Date(10_000));
+    mockedExistsSync.mockImplementation((path) => String(path).includes("bridge-heartbeat"));
+    mockedReadFileSync.mockReturnValue('{"protocolVersion":1,"state":"waiting"}');
+    mockedStatSync.mockReturnValue({
+      uid: myUid,
+      mode: 0o700,
+      mtimeMs: 9_500,
+    } as unknown as ReturnType<typeof statSync>);
+
+    await expect(sendCommand("var health = true;", {
+      tempDir: "/tmp/test-bridge",
+      failFastOnUnreadyHeartbeat: true,
+    })).resolves.toMatchObject({ success: false, error: expect.stringContaining("not running") });
+    expect(mockedRenameSync).not.toHaveBeenCalled();
+  });
+
+  it("fails health-style commands before publication when a known connector heartbeat is stale", async () => {
+    vi.setSystemTime(new Date(10_000));
+    mockedExistsSync.mockImplementation((path) => String(path).includes("bridge-heartbeat"));
+    mockedReadFileSync.mockReturnValue('{"protocolVersion":1,"state":"running"}');
+    mockedStatSync.mockReturnValue({
+      uid: myUid,
+      mode: 0o700,
+      mtimeMs: 1_000,
+    } as unknown as ReturnType<typeof statSync>);
+
+    await expect(sendCommand("var health = true;", {
+      tempDir: "/tmp/test-bridge",
+      failFastOnUnreadyHeartbeat: true,
+    })).resolves.toMatchObject({ success: false, error: expect.stringContaining("heartbeat is stale") });
+    expect(mockedRenameSync).not.toHaveBeenCalled();
+  });
+
+  it("falls back to normal command delivery when no heartbeat exists", async () => {
+    mockedExistsSync.mockImplementation((path) => String(path).includes("res_"));
+    mockedReadFileSync.mockReturnValue('{"success":true}');
+
+    await expect(sendCommand("var legacy = true;", {
+      tempDir: "/tmp/test-bridge",
+      failFastOnUnreadyHeartbeat: true,
+    })).resolves.toEqual({ success: true });
+    expect(mockedRenameSync).toHaveBeenCalled();
+  });
+
   it("cleans up command and response files after success", async () => {
     let responseExists = false;
     mockedExistsSync.mockImplementation((path) => {
@@ -323,6 +369,38 @@ describe("sendCommand", () => {
     await expect(
       sendCommand(largeScript, { tempDir: "/tmp/test-bridge" })
     ).rejects.toThrow("500KB size limit");
+  });
+});
+
+describe("getBridgeLiveness", () => {
+  it("reports fresh, stale, and unknown states without exposing heartbeat contents", () => {
+    mockedExistsSync.mockReturnValue(true);
+    mockedReadFileSync.mockReturnValue('{"protocolVersion":1,"state":"running"}');
+    mockedStatSync.mockReturnValue({ mtimeMs: 9_000 } as ReturnType<typeof statSync>);
+    expect(getBridgeLiveness({ tempDir: "/tmp/test-bridge" }, 10_000)).toEqual({
+      state: "running",
+      ageMs: 1_000,
+    });
+
+    mockedStatSync.mockReturnValue({ mtimeMs: 1_000 } as ReturnType<typeof statSync>);
+    expect(getBridgeLiveness({ tempDir: "/tmp/test-bridge" }, 10_000)).toEqual({
+      state: "stale",
+      ageMs: 9_000,
+    });
+
+    mockedReadFileSync.mockReturnValue('{"state":"running"}');
+    expect(getBridgeLiveness({ tempDir: "/tmp/test-bridge" }, 10_000)).toEqual({
+      state: "unknown",
+      ageMs: null,
+    });
+
+    // This module-level fs mock is shared with the following raw-command
+    // suite, which exercises the POSIX ownership guard.
+    mockedStatSync.mockReturnValue({
+      uid: myUid,
+      mode: 0o700,
+      mtimeMs: Date.now(),
+    } as unknown as ReturnType<typeof statSync>);
   });
 });
 

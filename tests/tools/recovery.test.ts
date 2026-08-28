@@ -76,6 +76,10 @@ describe("privacy-preserving bridge telemetry", () => {
     writeFileSync(join(directory, "cmd_secret.jsx"), "private project script");
     writeFileSync(join(directory, "res_secret.json"), '{"project":"Private"}');
     writeFileSync(join(directory, "busy_secret.json"), "{}");
+    writeFileSync(join(directory, "bridge-heartbeat.json"), JSON.stringify({
+      protocolVersion: 1,
+      state: "running",
+    }));
     writeFileSync(join(directory, "helpers_ignored.jsx"), "helper");
 
     const telemetry = collectBridgeTelemetry(
@@ -87,6 +91,7 @@ describe("privacy-preserving bridge telemetry", () => {
       pendingCommands: 1,
       pendingResponses: 1,
       busyOperations: 1,
+      heartbeat: { state: "running" },
       healthy: false,
     });
     const serialized = JSON.stringify(telemetry);

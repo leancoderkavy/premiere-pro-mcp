@@ -113,7 +113,11 @@ export function getHealthTools(
             activeSequence: activeSeq
           });
         `);
-        return sendCommand(script, { ...bridgeOptions, timeoutMs: 5000 });
+        return sendCommand(script, {
+          ...bridgeOptions,
+          timeoutMs: 5000,
+          failFastOnUnreadyHeartbeat: true,
+        });
       },
     },
     verify_premiere_connection: {
@@ -161,7 +165,11 @@ export function getHealthTools(
               var sequenceOpen = !!(projectOpen && app.project.activeSequence);
               return __result({ projectOpen: projectOpen, sequenceOpen: sequenceOpen });
             `);
-            const response = await sendCommand(script, { ...bridgeOptions, timeoutMs: 5000 });
+            const response = await sendCommand(script, {
+              ...bridgeOptions,
+              timeoutMs: 5000,
+              failFastOnUnreadyHeartbeat: true,
+            });
             const data = response.success && response.data && typeof response.data === "object"
               ? response.data as Record<string, unknown>
               : {};

@@ -11,6 +11,7 @@ import { basename, dirname, extname, join, resolve } from "node:path";
 import { buildToolScript } from "../bridge/script-builder.js";
 import {
   getTempDir,
+  getBridgeLiveness,
   sendCommand,
   type BridgeOptions,
   type CommandResult,
@@ -142,6 +143,7 @@ export function collectBridgeTelemetry(
   nowMs = Date.now(),
 ) {
   const directory = getTempDir(bridgeOptions);
+  const heartbeat = getBridgeLiveness(bridgeOptions, nowMs);
   const counts = { pendingCommands: 0, pendingResponses: 0, busyOperations: 0 };
   let oldestPendingAgeMs: number | null = null;
   let directoryAccessible = false;
@@ -172,6 +174,7 @@ export function collectBridgeTelemetry(
     directoryAccessible,
     ...counts,
     oldestPendingAgeMs,
+    heartbeat,
     healthy:
       directoryAccessible &&
       counts.busyOperations === 0 &&
@@ -276,7 +279,7 @@ export function getRecoveryTools(bridgeOptions: BridgeOptions) {
 
     get_bridge_telemetry: {
       description:
-        "Inspect privacy-preserving aggregate bridge health: pending command/response counts, busy operations, and queue age without returning project or personal data.",
+        "Inspect privacy-preserving aggregate bridge health: pending command/response counts, busy operations, queue age, and CEP heartbeat state without returning project or personal data.",
       parameters: {},
       handler: async () => ({
         success: true,
