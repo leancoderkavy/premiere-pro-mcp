@@ -105,7 +105,8 @@ export function getHealthTools(
         const script = buildToolScript(`
           var version = app.version;
           var projectName = app.project && app.project.name ? app.project.name : "No project open";
-          var activeSeq = app.project && app.project.activeSequence ? app.project.activeSequence.name : "None";
+          var activeSequence = app.project ? __getCurrentActiveSequence() : null;
+          var activeSeq = activeSequence ? activeSequence.name : "None";
           return __result({
             connected: true,
             premiereVersion: version,
@@ -162,7 +163,7 @@ export function getHealthTools(
           try {
             const script = buildToolScript(`
               var projectOpen = !!(app && app.project && typeof app.project.name !== "undefined");
-              var sequenceOpen = !!(projectOpen && app.project.activeSequence);
+              var sequenceOpen = !!(projectOpen && __getCurrentActiveSequence());
               return __result({ projectOpen: projectOpen, sequenceOpen: sequenceOpen });
             `);
             const response = await sendCommand(script, {

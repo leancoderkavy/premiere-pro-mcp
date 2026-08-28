@@ -152,22 +152,16 @@ export function getSequenceTools(bridgeOptions: BridgeOptions) {
       handler: async (args: { sequence_id: string }) => {
         const script = buildToolScript(`
           var project = app.project;
-          var found = false;
-          
-          for (var i = 0; i < project.rootItem.children.numItems; i++) {
-            var item = project.rootItem.children[i];
-            if (item.type === 3) { // sequence type
-              var seq = __findSequence("${escapeForExtendScript(args.sequence_id)}");
-              if (seq && (item.name === seq.name)) {
-                project.deleteSequence(seq);
-                found = true;
-                break;
-              }
-            }
+          var seq = __findSequence("${escapeForExtendScript(args.sequence_id)}");
+          if (!seq) return __error("Sequence not found: ${escapeForExtendScript(args.sequence_id)}");
+          var sequenceId = String(seq.sequenceID);
+          var name = seq.name;
+          var accepted = project.deleteSequence(seq);
+          if (accepted === false) return __error("Premiere rejected deletion of sequence: " + name);
+          if (__findSequence(sequenceId)) {
+            return __error("Premiere did not remove sequence: " + name + ". The deletion is not reported as successful.");
           }
-          
-          if (!found) return __error("Sequence not found: ${escapeForExtendScript(args.sequence_id)}");
-          return __result({ deleted: true });
+          return __result({ deleted: true, verified: true, name: name, id: sequenceId });
         `);
         return sendCommand(script, bridgeOptions);
       },
@@ -213,7 +207,8 @@ export function getSequenceTools(bridgeOptions: BridgeOptions) {
     },
 
     create_subsequence: {
-      description: "Create a subsequence (nested sequence) from selected clips or a time range",
+      description:
+        "Create a separate subsequence from selected clips or a time range. This Premiere API does not replace the original timeline clips with a nested-sequence reference.",
       parameters: {
         type: "object" as const,
         properties: {
@@ -225,12 +220,34 @@ export function getSequenceTools(bridgeOptions: BridgeOptions) {
       },
       handler: async (args: { ignore_track_targeting?: boolean }) => {
         const script = buildToolScript(`
-          var seq = app.project.activeSequence;
+          var seq = __getCurrentActiveSequence();
           if (!seq) return __error("No active sequence");
-          
+
+          var before = [];
+          for (var i = 0; i < app.project.sequences.numSequences; i++) {
+            before.push(String(app.project.sequences[i].sequenceID));
+          }
           var newSeq = seq.createSubsequence(${args.ignore_track_targeting ? "true" : "false"});
           if (!newSeq) return __error("Failed to create subsequence");
-          return __result({ created: true, name: newSeq.name, id: newSeq.sequenceID });
+          var newId = String(newSeq.sequenceID);
+          var exists = false;
+          for (var j = 0; j < app.project.sequences.numSequences; j++) {
+            if (String(app.project.sequences[j].sequenceID) === newId) {
+              exists = true;
+              break;
+            }
+          }
+          if (!exists || before.indexOf(newId) !== -1) {
+            return __error("Premiere did not expose a newly created subsequence in the current project");
+          }
+          return __result({
+            created: true,
+            verified: true,
+            nested: false,
+            name: newSeq.name,
+            id: newSeq.sequenceID,
+            note: "The source timeline selection is intentionally unchanged; use Premiere's Nest command for replacement behavior."
+          });
         `);
         return sendCommand(script, bridgeOptions);
       },
@@ -325,7 +342,7 @@ export function getSequenceTools(bridgeOptions: BridgeOptions) {
       },
       handler: async (args: { node_id: string }) => {
         const script = buildToolScript(`
-          var seq = app.project.activeSequence;
+          var seq = __getCurrentActiveSequence();
           if (!seq) return __error("No active sequence");
           
           var result = __findClip("${escapeForExtendScript(args.node_id)}");
@@ -350,36 +367,90 @@ export function getSequenceTools(bridgeOptions: BridgeOptions) {
           
           if (!nestedSeq) return __error("Clip is not a nested sequence: " + clipName);
           
-          var startTicks = clip.start.ticks;
-          var trackIndex = result.trackIndex;
-          var trackType = result.trackType;
-          
-          // Remove the nested sequence clip
-          clip.remove(false, false);
-          
-          // Copy clips from the nested sequence to the current timeline
-          var addedClips = [];
-          var tracks = trackType === "video" ? nestedSeq.videoTracks : nestedSeq.audioTracks;
-          for (var t = 0; t < tracks.numTracks; t++) {
-            var track = tracks[t];
-            for (var c = 0; c < track.clips.numItems; c++) {
-              var nestedClip = track.clips[c];
-              if (nestedClip.projectItem) {
-                var insertTime = (parseFloat(startTicks) + parseFloat(nestedClip.start.ticks)).toString();
-                var targetTrack = trackIndex + t;
-                if (trackType === "video") {
-                  seq.insertClip(nestedClip.projectItem, insertTime, targetTrack, targetTrack);
-                } else {
-                  seq.insertClip(nestedClip.projectItem, insertTime, 0, targetTrack);
-                }
-                addedClips.push(nestedClip.name);
+          var startTicks = String(clip.start.ticks);
+          var endTicks = String(clip.end.ticks);
+          var nestedProjectItemId = String(projectItem.nodeId);
+          var linkedReferences = [];
+          function collectLinkedReferences(tracks, mediaType) {
+            for (var trackIndex = 0; trackIndex < tracks.numTracks; trackIndex++) {
+              var track = tracks[trackIndex];
+              for (var clipIndex = 0; clipIndex < track.clips.numItems; clipIndex++) {
+                var candidate = track.clips[clipIndex];
+                try {
+                  if (candidate.projectItem &&
+                      String(candidate.projectItem.nodeId) === nestedProjectItemId &&
+                      String(candidate.start.ticks) === startTicks &&
+                      String(candidate.end.ticks) === endTicks) {
+                    linkedReferences.push({ clip: candidate, trackIndex: trackIndex, mediaType: mediaType });
+                  }
+                } catch (e) {}
               }
+            }
+          }
+          collectLinkedReferences(seq.videoTracks, "video");
+          collectLinkedReferences(seq.audioTracks, "audio");
+          if (linkedReferences.length !== 1) {
+            return __error(
+              "Legacy CEP cannot atomically unnest linked video and audio references. " +
+              "No clips were changed; use Premiere's Unnest command to preserve linked tracks."
+            );
+          }
+
+          var reference = linkedReferences[0];
+          var tracks = reference.mediaType === "video" ? nestedSeq.videoTracks : nestedSeq.audioTracks;
+          var targetTracks = reference.mediaType === "video" ? seq.videoTracks : seq.audioTracks;
+          var planned = [];
+          var expectedByTrack = [];
+          for (var t = 0; t < tracks.numTracks; t++) {
+            var targetTrackIndex = reference.trackIndex + t;
+            if (targetTrackIndex >= targetTracks.numTracks) {
+              return __error("Cannot unnest safely because the destination " + reference.mediaType + " track " + targetTrackIndex + " does not exist. No clips were changed.");
+            }
+            expectedByTrack[t] = 0;
+            for (var c = 0; c < tracks[t].clips.numItems; c++) {
+              var nestedClip = tracks[t].clips[c];
+              if (!nestedClip.projectItem) {
+                return __error("Cannot unnest safely because a nested " + reference.mediaType + " clip has no project item. No clips were changed.");
+              }
+              planned.push({
+                projectItem: nestedClip.projectItem,
+                insertTime: (parseFloat(startTicks) + parseFloat(nestedClip.start.ticks)).toString(),
+                sourceTrackIndex: t,
+                name: nestedClip.name
+              });
+              expectedByTrack[t]++;
+            }
+          }
+          if (planned.length === 0) return __error("Nested sequence has no " + reference.mediaType + " clips to unnest. No clips were changed.");
+
+          var beforeCounts = [];
+          for (var b = 0; b < tracks.numTracks; b++) {
+            beforeCounts[b] = targetTracks[reference.trackIndex + b].clips.numItems;
+          }
+
+          // The existing implementation only changed one lane of a linked clip.
+          // This route runs only when preflight has proven there is exactly one
+          // unlinked reference, so it cannot report a partial A/V unnest as success.
+          reference.clip.remove(false, false);
+          var addedClips = [];
+          for (var p = 0; p < planned.length; p++) {
+            var placement = planned[p];
+            var targetTrack = targetTracks[reference.trackIndex + placement.sourceTrackIndex];
+            targetTrack.insertClip(placement.projectItem, placement.insertTime);
+            addedClips.push(placement.name);
+          }
+          for (var a = 0; a < tracks.numTracks; a++) {
+            var actualCount = targetTracks[reference.trackIndex + a].clips.numItems;
+            if (actualCount !== beforeCounts[a] - (a === 0 ? 1 : 0) + expectedByTrack[a]) {
+              return __error("Premiere did not place every nested " + reference.mediaType + " clip. Inspect the timeline before retrying.");
             }
           }
           
           return __result({
             unnested: true,
+            verified: true,
             nestedSequence: clipName,
+            mediaType: reference.mediaType,
             clipsAdded: addedClips.length,
             clips: addedClips
           });

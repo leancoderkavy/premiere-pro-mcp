@@ -73,6 +73,29 @@ function __findSequence(idOrName) {
   return null;
 }
 
+// Premiere can retain a reference to the last active sequence immediately after
+// app.newProject() switches to a new, empty project. Never expose or mutate
+// through that stale object: only a sequence currently enumerated by this
+// project's SequenceCollection is a valid active sequence for this command.
+function __isCurrentProjectSequence(sequence) {
+  if (!sequence || !app || !app.project || !app.project.sequences) return false;
+  var wantedId = "";
+  try { wantedId = String(sequence.sequenceID); } catch (e) { return false; }
+  for (var i = 0; i < app.project.sequences.numSequences; i++) {
+    var candidate = app.project.sequences[i];
+    try {
+      if (candidate === sequence || String(candidate.sequenceID) === wantedId) return true;
+    } catch (e) {}
+  }
+  return false;
+}
+
+function __getCurrentActiveSequence() {
+  var sequence = null;
+  try { sequence = app.project.activeSequence; } catch (e) { return null; }
+  return __isCurrentProjectSequence(sequence) ? sequence : null;
+}
+
 function __findProjectItem(nodeIdOrName, rootItem) {
   if (!rootItem) rootItem = app.project.rootItem;
   var wantedId = String(nodeIdOrName);

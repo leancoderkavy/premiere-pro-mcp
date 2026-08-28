@@ -81,7 +81,8 @@ export function getClipboardTools(bridgeOptions: BridgeOptions) {
     },
 
     copy_effect_values: {
-      description: "Copy all property values from one effect to the matching effect on another clip. Both clips must already have the same effect applied.",
+      description:
+        "Copy verified scalar effect-property values from one effect to the matching effect on another clip. Both clips must already have the same effect applied. Legacy CEP deliberately refuses Blend Mode because Premiere can corrupt its enum value on cross-clip writes.",
       parameters: {
         type: "object" as const,
         properties: {
@@ -125,22 +126,46 @@ export function getClipboardTools(bridgeOptions: BridgeOptions) {
           }
           if (!tgtComp) return __error("Effect not found on target clip: ${escapeForExtendScript(args.effect_name)}");
 
+          function valuesMatch(left, right) {
+            if (typeof left === "number" && typeof right === "number") return Math.abs(left - right) < 0.000001;
+            return String(left) === String(right);
+          }
           var copied = 0;
+          var skipped = [];
+          var failures = [];
           for (var p = 0; p < srcComp.properties.numItems; p++) {
             var srcProp = srcComp.properties[p];
             for (var q = 0; q < tgtComp.properties.numItems; q++) {
               if (tgtComp.properties[q].displayName === srcProp.displayName) {
+                if (srcProp.displayName === "Blend Mode") {
+                  skipped.push({ property: srcProp.displayName, reason: "Legacy CEP enum writes can corrupt Blend Mode; no write was attempted." });
+                  break;
+                }
                 try {
                   var val = srcProp.getValue(0, 0);
                   tgtComp.properties[q].setValue(val, true);
-                  copied++;
-                } catch(e) {}
+                  var readback = tgtComp.properties[q].getValue(0, 0);
+                  if (!valuesMatch(readback, val)) {
+                    failures.push(srcProp.displayName + " did not match its source value after the write");
+                  } else {
+                    copied++;
+                  }
+                } catch(e) {
+                  failures.push(srcProp.displayName + " could not be copied and read back: " + e.toString());
+                }
                 break;
               }
             }
           }
 
-          return __result({ copiedProperties: copied, effect: "${escapeForExtendScript(args.effect_name)}" });
+          if (skipped.length || failures.length) {
+            return __error(
+              "Effect-value copy was not fully verified. Copied " + copied + " property value(s); " +
+              "skipped: " + skipped.length + "; failures: " + failures.length + ". " +
+              "Blend Mode is intentionally refused on legacy CEP because Premiere can write an unrelated enum value. Inspect Effect Controls before retrying."
+            );
+          }
+          return __result({ copiedProperties: copied, verified: true, effect: "${escapeForExtendScript(args.effect_name)}" });
         `);
         return sendCommand(script, bridgeOptions);
       },

@@ -45,7 +45,8 @@ export function getMetadataTools(bridgeOptions: BridgeOptions) {
     },
 
     set_metadata: {
-      description: "Set project metadata on a project item",
+      description:
+        "Replace project metadata XML on a project item and verify the exact readback. Partial field/value writes are intentionally rejected because Premiere requires a complete Project Metadata XML payload.",
       parameters: {
         type: "object" as const,
         properties: {
@@ -55,23 +56,69 @@ export function getMetadataTools(bridgeOptions: BridgeOptions) {
           },
           field_name: {
             type: "string",
-            description: "Metadata field name (e.g., 'Column.Intrinsic.Description')",
+            description:
+              "Legacy partial-write argument. It is no longer executed because it cannot form a valid Project Metadata XML payload; use metadata_xml and updated_fields instead.",
           },
           value: {
             type: "string",
-            description: "Value to set",
+            description:
+              "Legacy partial-write argument. It is no longer executed; read projectMetadata first, update the complete XML, then supply metadata_xml and updated_fields.",
+          },
+          metadata_xml: {
+            type: "string",
+            description:
+              "Complete Project Metadata XML previously read from get_metadata, with the intended field values applied.",
+          },
+          updated_fields: {
+            type: "array",
+            items: { type: "string" },
+            minItems: 1,
+            description:
+              "Exact Project Metadata field paths changed in metadata_xml (for example, Column.Intrinsic.Description).",
           },
         },
-        required: ["item_id", "field_name", "value"],
+        required: ["item_id"],
       },
-      handler: async (args: { item_id: string; field_name: string; value: string }) => {
+      handler: async (args: {
+        item_id: string;
+        field_name?: string;
+        value?: string;
+        metadata_xml?: string;
+        updated_fields?: string[];
+      }) => {
+        if (!args.metadata_xml || !args.metadata_xml.trim()) {
+          return {
+            success: false,
+            error:
+              "set_metadata no longer accepts partial field_name/value writes because Premiere does not persist that form reliably. Call get_metadata, modify its complete projectMetadata XML, then pass metadata_xml with updated_fields; or use manage_metadata_uxp when the authenticated UXP bridge is connected.",
+          };
+        }
+        if (!Array.isArray(args.updated_fields) || args.updated_fields.length === 0 ||
+          args.updated_fields.some((field) => typeof field !== "string" || !field.trim())) {
+          return {
+            success: false,
+            error: "updated_fields must contain one or more non-empty Project Metadata field paths.",
+          };
+        }
+        const updatedFields = JSON.stringify(args.updated_fields);
         const script = buildToolScript(`
           var item = __findProjectItem("${escapeForExtendScript(args.item_id)}");
           if (!item) return __error("Item not found");
-          
-          item.setProjectMetadata("${escapeForExtendScript(args.value)}", ["${escapeForExtendScript(args.field_name)}"]);
-          
-          return __result({ updated: true, item: item.name, field: "${escapeForExtendScript(args.field_name)}" });
+
+          var requestedMetadata = "${escapeForExtendScript(args.metadata_xml)}";
+          var updatedFields = ${updatedFields};
+          var accepted = item.setProjectMetadata(requestedMetadata, updatedFields);
+          if (accepted === false) return __error("Premiere rejected the project metadata update");
+
+          var readback = item.getProjectMetadata();
+          if (String(readback) !== requestedMetadata) {
+            return __error(
+              "Premiere did not return the requested Project Metadata XML after the write. " +
+              "The update is not reported as successful; inspect get_metadata before retrying."
+            );
+          }
+
+          return __result({ updated: true, verified: true, item: item.name, updatedFields: updatedFields });
         `);
         return sendCommand(script, bridgeOptions);
       },
