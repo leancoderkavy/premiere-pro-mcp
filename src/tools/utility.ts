@@ -381,14 +381,18 @@ export function getUtilityTools(bridgeOptions: BridgeOptions) {
         type: "object" as const,
         properties: {
           ratio: {
-            type: "number",
+            type: "string",
             description:
-              "Pixel aspect ratio (1.0 for square pixels, 1.4222 for 16:9 DV, etc.)",
+              "Pixel aspect ratio string (for example '1.0' for square pixels or '1.4222' for 16:9 DV).",
           },
         },
         required: ["ratio"],
       },
-      handler: async (args: { ratio: number }) => {
+      handler: async (args: { ratio: string }) => {
+        const ratio = args.ratio.trim();
+        if (!/^(?:0|[1-9]\d*)(?:\.\d+)?$/.test(ratio) || Number(ratio) <= 0) {
+          return { success: false, error: "ratio must be a positive decimal string such as '1.0' or '1.4222'." };
+        }
         const script = buildToolScript(`
           var seq = app.project.activeSequence;
           if (!seq) return __error("No active sequence");
@@ -396,10 +400,14 @@ export function getUtilityTools(bridgeOptions: BridgeOptions) {
           var settings = seq.getSettings();
           if (!settings) return __error("Could not get sequence settings");
 
-          settings.videoPixelAspectRatio = ${args.ratio};
+          settings.videoPixelAspectRatio = "${ratio}";
           seq.setSettings(settings);
+          var observed = seq.getSettings();
+          if (!observed || String(observed.videoPixelAspectRatio) !== "${ratio}") {
+            return __error("Premiere did not apply the requested sequence pixel aspect ratio.");
+          }
 
-          return __result({ ratio: ${args.ratio}, sequence: seq.name });
+          return __result({ ratio: "${ratio}", sequence: seq.name, verified: true });
         `);
         return sendCommand(script, bridgeOptions);
       },

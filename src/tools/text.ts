@@ -109,10 +109,14 @@ export function getTextTools(bridgeOptions: BridgeOptions) {
     },
 
     import_mogrt_from_library: {
-      description: "Import a MOGRT from an Adobe Library by name",
+      description: "Import a MOGRT from a named Adobe Creative Cloud Library.",
       parameters: {
         type: "object" as const,
         properties: {
+          library_name: {
+            type: "string",
+            description: "Name of the Adobe Creative Cloud Library that contains the MOGRT",
+          },
           mogrt_name: {
             type: "string",
             description: "Name of the MOGRT in the library",
@@ -126,9 +130,14 @@ export function getTextTools(bridgeOptions: BridgeOptions) {
             description: "Start time in seconds (default: 0)",
           },
         },
-        required: ["mogrt_name"],
+        required: ["library_name", "mogrt_name"],
       },
-      handler: async (args: { mogrt_name: string; track_index?: number; start_seconds?: number }) => {
+      handler: async (args: {
+        library_name: string;
+        mogrt_name: string;
+        track_index?: number;
+        start_seconds?: number;
+      }) => {
         const trackIndex = args.track_index ?? 0;
         const startSeconds = args.start_seconds ?? 0;
 
@@ -136,13 +145,26 @@ export function getTextTools(bridgeOptions: BridgeOptions) {
           var seq = app.project.activeSequence;
           if (!seq) return __error("No active sequence");
           
+          var libraryName = "${escapeForExtendScript(args.library_name)}";
           var mogrtName = "${escapeForExtendScript(args.mogrt_name)}";
           var startTicks = __secondsToTicks(${startSeconds}).toString();
           
-          var success = seq.importMGTFromLibrary(mogrtName, startTicks, ${trackIndex}, ${trackIndex});
+          var success = seq.importMGTFromLibrary(
+            libraryName,
+            mogrtName,
+            startTicks,
+            ${trackIndex},
+            ${trackIndex}
+          );
           if (!success) return __error("Failed to import MOGRT from library: " + mogrtName);
           
-          return __result({ imported: true, mogrtName: mogrtName, trackIndex: ${trackIndex} });
+          return __result({
+            imported: true,
+            libraryName: libraryName,
+            mogrtName: mogrtName,
+            trackIndex: ${trackIndex},
+            startSeconds: ${startSeconds}
+          });
         `);
         return sendCommand(script, bridgeOptions);
       },

@@ -117,8 +117,49 @@ export function getProjectTools(bridgeOptions: BridgeOptions) {
       parameters: {},
       handler: async () => {
         const script = buildToolScript(`
+          function duplicateGroups(root) {
+            var byPath = {};
+            function visit(item) {
+              if (!item) return;
+              if (item.type === 2) {
+                for (var i = 0; i < item.children.numItems; i++) visit(item.children[i]);
+                return;
+              }
+              try {
+                var path = item.getMediaPath ? String(item.getMediaPath() || "") : "";
+                if (!path) return;
+                if (!byPath[path]) byPath[path] = [];
+                byPath[path].push(String(item.nodeId));
+              } catch (e) {}
+            }
+            visit(root);
+            var groups = 0;
+            var items = 0;
+            for (var path in byPath) {
+              if (byPath.hasOwnProperty(path) && byPath[path].length > 1) {
+                groups++;
+                items += byPath[path].length;
+              }
+            }
+            return { groups: groups, items: items };
+          }
+          var before = duplicateGroups(app.project.rootItem);
+          if (before.groups === 0) {
+            return __result({ consolidated: false, verified: true, duplicateGroupsBefore: 0, note: "No duplicate media groups were present." });
+          }
           app.project.consolidateDuplicates();
-          return __result({ consolidated: true });
+          var after = duplicateGroups(app.project.rootItem);
+          if (after.groups >= before.groups) {
+            return __error("Premiere did not reduce the detected duplicate-media groups; no successful consolidation is reported.");
+          }
+          return __result({
+            consolidated: true,
+            verified: true,
+            duplicateGroupsBefore: before.groups,
+            duplicateGroupsAfter: after.groups,
+            duplicateItemsBefore: before.items,
+            duplicateItemsAfter: after.items
+          });
         `);
         return sendCommand(script, bridgeOptions);
       },
@@ -418,31 +459,43 @@ export function getProjectTools(bridgeOptions: BridgeOptions) {
             type: "array",
             items: { type: "string" },
             description:
-              "Array of sequence IDs to import from the source project. If omitted, all sequences are imported.",
+              "Non-empty array of sequence IDs to import from the source project.",
           },
         },
-        required: ["project_path"],
+        required: ["project_path", "sequence_ids"],
       },
       handler: async (args: {
         project_path: string;
-        sequence_ids?: string[];
+        sequence_ids: string[];
       }) => {
-        if (args.sequence_ids && args.sequence_ids.length > 0) {
-          const ids = args.sequence_ids
-            .map((id) => `"${escapeForExtendScript(id)}"`)
-            .join(", ");
-          const script = buildToolScript(`
-            app.project.importSequences("${escapeForExtendScript(args.project_path)}", [${ids}]);
-            return __result({ imported: true, sequenceIds: [${ids}] });
-          `);
-          return sendCommand(script, bridgeOptions);
-        } else {
-          const script = buildToolScript(`
-            app.project.importSequences("${escapeForExtendScript(args.project_path)}");
-            return __result({ imported: true, allSequences: true });
-          `);
-          return sendCommand(script, bridgeOptions);
+        if (!Array.isArray(args.sequence_ids) || args.sequence_ids.length === 0
+          || args.sequence_ids.some((id) => typeof id !== "string" || !id.trim())) {
+          return { success: false, error: "sequence_ids must be a non-empty array of source sequence IDs." };
         }
+        const ids = args.sequence_ids
+          .map((id) => `"${escapeForExtendScript(id)}"`)
+          .join(", ");
+        const script = buildToolScript(`
+          var sourceProject = new File("${escapeForExtendScript(args.project_path)}");
+          if (!sourceProject.exists) return __error("Source Premiere project does not exist: " + sourceProject.fsName);
+          var beforeIds = {};
+          for (var beforeIndex = 0; beforeIndex < app.project.sequences.numSequences; beforeIndex++) {
+            beforeIds[String(app.project.sequences[beforeIndex].sequenceID)] = true;
+          }
+          app.project.importSequences(sourceProject.fsName, [${ids}]);
+          var imported = [];
+          for (var afterIndex = 0; afterIndex < app.project.sequences.numSequences; afterIndex++) {
+            var candidate = app.project.sequences[afterIndex];
+            if (!beforeIds[String(candidate.sequenceID)]) {
+              imported.push({ id: String(candidate.sequenceID), name: candidate.name });
+            }
+          }
+          if (!imported.length) {
+            return __error("Premiere did not add any of the requested sequences from the source project.");
+          }
+          return __result({ imported: true, requestedSequenceIds: [${ids}], sequences: imported, verified: true });
+        `);
+        return sendCommand(script, bridgeOptions);
       },
     },
 
@@ -465,6 +518,18 @@ export function getProjectTools(bridgeOptions: BridgeOptions) {
             description:
               "Timebase as ticks-per-second string (default uses sequence timebase)",
           },
+          pixel_aspect_numerator: {
+            type: "number",
+            description: "Pixel aspect ratio numerator (default: 1)",
+          },
+          pixel_aspect_denominator: {
+            type: "number",
+            description: "Pixel aspect ratio denominator (default: 1)",
+          },
+          audio_sample_rate: {
+            type: "number",
+            description: "Audio sample rate in Hz (default: 48000)",
+          },
           name: {
             type: "string",
             description:
@@ -476,16 +541,46 @@ export function getProjectTools(bridgeOptions: BridgeOptions) {
         width?: number;
         height?: number;
         timebase?: string;
+        pixel_aspect_numerator?: number;
+        pixel_aspect_denominator?: number;
+        audio_sample_rate?: number;
         name?: string;
       }) => {
         const w = args.width ?? 1920;
         const h = args.height ?? 1080;
+        const parNum = args.pixel_aspect_numerator ?? 1;
+        const parDen = args.pixel_aspect_denominator ?? 1;
+        const audioSampleRate = args.audio_sample_rate ?? 48000;
         const name = args.name ?? "Bars and Tone";
+        if (![w, h, parNum, parDen, audioSampleRate].every(Number.isFinite)
+          || ![w, h, parNum, parDen, audioSampleRate].every(Number.isInteger)
+          || w < 1 || h < 1 || parNum < 1 || parDen < 1 || audioSampleRate < 1) {
+          return { success: false, error: "Bars and tone dimensions, pixel-aspect values, and audio_sample_rate must be positive integers." };
+        }
         const script = buildToolScript(`
           var seq = app.project.activeSequence;
-          var timebase = ${args.timebase ? `"${escapeForExtendScript(args.timebase)}"` : `seq ? seq.timebase : "254016000000"`};
-          app.project.newBarsAndTone(${w}, ${h}, timebase, "${escapeForExtendScript(name)}");
-          return __result({ created: true, name: "${escapeForExtendScript(name)}", width: ${w}, height: ${h} });
+          var timebase = parseFloat(${args.timebase ? `"${escapeForExtendScript(args.timebase)}"` : `seq ? seq.timebase : "254016000000"`});
+          if (!isFinite(timebase) || timebase <= 0) return __error("A positive sequence timebase is required to create bars and tone.");
+          var item = app.project.newBarsAndTone(
+            ${w},
+            ${h},
+            timebase,
+            ${parNum},
+            ${parDen},
+            ${audioSampleRate},
+            "${escapeForExtendScript(name)}"
+          );
+          if (!item) return __error("Premiere did not create the Bars and Tone project item.");
+          return __result({
+            created: true,
+            verified: true,
+            name: item.name,
+            nodeId: item.nodeId,
+            width: ${w},
+            height: ${h},
+            pixelAspectRatio: "${parNum}:${parDen}",
+            audioSampleRate: ${audioSampleRate}
+          });
         `);
         return sendCommand(script, bridgeOptions);
       },

@@ -686,21 +686,31 @@ export function getExportTools(bridgeOptions: BridgeOptions) {
           
           encoder.launchEncoder();
           
-          var outputPath = "${escapeForExtendScript(args.output_path)}";
+          var outputFile = new File("${escapeForExtendScript(args.output_path)}");
+          if (!outputFile.parent || !outputFile.parent.exists) {
+            return __error("The requested AME output directory does not exist: " + outputFile.parent);
+          }
+          var outputPath = outputFile.fsName;
           ${args.preset_path
             ? `var presetPath = "${escapeForExtendScript(args.preset_path)}";`
             : `var presetPath = encoder.ENCODE_MATCH_SEQUENCE;`
           }
           
-          encoder.encodeSequence(
+          var jobId = encoder.encodeSequence(
             seq,
             outputPath,
             presetPath,
             0, // workAreaType
             1  // removeOnCompletion
           );
+          if (!jobId || jobId === 0) return __error("Adobe Media Encoder did not queue the sequence export.");
           
-          return __result({ queued: true, outputPath: outputPath });
+          return __result({
+            queued: true,
+            jobId: String(jobId),
+            outputPath: outputPath,
+            verificationScope: "AME accepted a job; this does not prove that asynchronous encoding finished or wrote an output file."
+          });
         `);
         return sendCommand(script, bridgeOptions);
       },
@@ -860,6 +870,10 @@ export function getExportTools(bridgeOptions: BridgeOptions) {
             type: "number",
             description: "Handle length in frames when trimming (default: 1000)",
           },
+          include_pan: {
+            type: "boolean",
+            description: "Include pan information in the OMF (default: false)",
+          },
         },
         required: ["output_path"],
       },
@@ -871,24 +885,34 @@ export function getExportTools(bridgeOptions: BridgeOptions) {
         audio_file_format?: number;
         trim_audio_files?: boolean;
         handle_frames?: number;
+        include_pan?: boolean;
       }) => {
         const script = buildToolScript(`
           var seq = app.project.activeSequence;
           if (!seq) return __error("No active sequence");
+          var outputFile = new File("${escapeForExtendScript(args.output_path)}");
+          if (!outputFile.parent || !outputFile.parent.exists) {
+            return __error("The OMF output directory does not exist: " + outputFile.parent);
+          }
+          if (outputFile.exists) {
+            return __error("Refusing to treat a pre-existing OMF as a new export. Choose a new output_path or remove the existing file first.");
+          }
           
           app.project.exportOMF(
             seq,
-            "${escapeForExtendScript(args.output_path)}",
+            outputFile.fsName,
             "OMFTitle",
             ${args.sample_rate ?? 48000},
             ${args.bits_per_sample ?? 16},
             ${args.audio_encapsulated !== false ? 1 : 0},
             ${args.audio_file_format ?? 1},
             ${args.trim_audio_files !== false ? 1 : 0},
-            ${args.handle_frames ?? 1000}
+            ${args.handle_frames ?? 1000},
+            ${args.include_pan === true ? 1 : 0}
           );
+          if (!outputFile.exists) return __error("Premiere did not write the requested OMF file.");
           
-          return __result({ exported: true, outputPath: "${escapeForExtendScript(args.output_path)}", format: "OMF" });
+          return __result({ exported: true, outputPath: outputFile.fsName, format: "OMF", verified: true });
         `);
         return sendCommand(script, { ...bridgeOptions, timeoutMs: 120000 });
       },
@@ -927,21 +951,28 @@ export function getExportTools(bridgeOptions: BridgeOptions) {
         const script = buildToolScript(`
           var item = __findProjectItem("${escapeForExtendScript(args.item_id)}");
           if (!item) return __error("Project item not found: ${escapeForExtendScript(args.item_id)}");
+          var outputFile = new File("${escapeForExtendScript(args.output_path)}");
+          if (!outputFile.parent || !outputFile.parent.exists) {
+            return __error("The requested AME output directory does not exist: " + outputFile.parent);
+          }
           
           app.encoder.launchEncoder();
-          app.encoder.encodeProjectItem(
+          var jobId = app.encoder.encodeProjectItem(
             item,
-            "${escapeForExtendScript(args.output_path)}",
+            outputFile.fsName,
             "${escapeForExtendScript(args.preset_path)}",
             app.encoder.ENCODE_IN_TO_OUT,
             ${args.remove_on_completion !== false ? 1 : 0}
           );
+          if (!jobId || jobId === 0) return __error("Adobe Media Encoder did not queue the project-item export.");
           app.encoder.startBatch();
           
           return __result({
             queued: true,
+            jobId: String(jobId),
             item: item.name,
-            outputPath: "${escapeForExtendScript(args.output_path)}"
+            outputPath: outputFile.fsName,
+            verificationScope: "AME accepted and started a job; this does not prove that asynchronous encoding finished or wrote an output file."
           });
         `);
         return sendCommand(script, bridgeOptions);
@@ -988,33 +1019,51 @@ export function getExportTools(bridgeOptions: BridgeOptions) {
         out_seconds?: number;
         remove_on_completion?: boolean;
       }) => {
-        const inPointCode = args.in_seconds !== undefined
-          ? `var srcIn = new Time(); srcIn.seconds = ${args.in_seconds};`
-          : `var srcIn = undefined;`;
-        const outPointCode = args.out_seconds !== undefined
-          ? `var srcOut = new Time(); srcOut.seconds = ${args.out_seconds};`
-          : `var srcOut = undefined;`;
+        const hasRange = args.in_seconds !== undefined || args.out_seconds !== undefined;
+        if (hasRange && (args.in_seconds === undefined || args.out_seconds === undefined)) {
+          return { success: false, error: "Pass both in_seconds and out_seconds, or omit both to encode the entire file." };
+        }
+        if (hasRange && (!Number.isFinite(args.in_seconds) || !Number.isFinite(args.out_seconds)
+          || args.in_seconds! < 0 || args.out_seconds! <= args.in_seconds!)) {
+          return { success: false, error: "in_seconds and out_seconds must define a finite, non-empty range." };
+        }
+        const inSeconds = args.in_seconds ?? 0;
+        const outSeconds = args.out_seconds ?? 0;
 
         const script = buildToolScript(`
+          var inputFile = new File("${escapeForExtendScript(args.input_path)}");
+          if (!inputFile.exists) return __error("Input file does not exist: " + inputFile.fsName);
+          var outputFile = new File("${escapeForExtendScript(args.output_path)}");
+          if (!outputFile.parent || !outputFile.parent.exists) {
+            return __error("The requested AME output directory does not exist: " + outputFile.parent);
+          }
           app.encoder.launchEncoder();
           
-          ${inPointCode}
-          ${outPointCode}
+          var srcIn = new Time();
+          srcIn.seconds = ${inSeconds};
+          var srcOut = new Time();
+          srcOut.seconds = ${outSeconds};
+          var workArea = ${hasRange ? 1 : 0};
           
-          app.encoder.encodeFile(
-            "${escapeForExtendScript(args.input_path)}",
-            "${escapeForExtendScript(args.output_path)}",
+          var jobId = app.encoder.encodeFile(
+            inputFile.fsName,
+            outputFile.fsName,
             "${escapeForExtendScript(args.preset_path)}",
+            workArea,
             ${args.remove_on_completion !== false ? 1 : 0},
             srcIn,
             srcOut
           );
+          if (!jobId || jobId === 0) return __error("Adobe Media Encoder did not queue the file export.");
           app.encoder.startBatch();
           
           return __result({
             queued: true,
-            inputPath: "${escapeForExtendScript(args.input_path)}",
-            outputPath: "${escapeForExtendScript(args.output_path)}"
+            jobId: String(jobId),
+            inputPath: inputFile.fsName,
+            outputPath: outputFile.fsName,
+            workArea: ${hasRange ? "IN_TO_OUT" : "ENTIRE"},
+            verificationScope: "AME accepted and started a job; this does not prove that asynchronous encoding finished or wrote an output file."
           });
         `);
         return sendCommand(script, bridgeOptions);

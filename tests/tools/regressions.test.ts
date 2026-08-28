@@ -18,6 +18,8 @@ import { getEffectsTools } from "../../src/tools/effects.js";
 import { getClipboardTools } from "../../src/tools/clipboard.js";
 import { getTimelineTools } from "../../src/tools/timeline.js";
 import { getAdvancedTools } from "../../src/tools/advanced.js";
+import { getProjectTools } from "../../src/tools/project.js";
+import { getMediaTools } from "../../src/tools/media.js";
 import { getTextTools } from "../../src/tools/text.js";
 import { getKeyframeTools } from "../../src/tools/keyframes.js";
 import { getCaptionTools } from "../../src/tools/captions.js";
@@ -441,5 +443,202 @@ describe("issue #37 — sequence frame rate uses ticks per frame", () => {
 
     expect(result).toMatchObject({ success: false });
     expect(mockedSendCommand).not.toHaveBeenCalled();
+  });
+});
+
+// https://github.com/leancoderkavy/premiere-pro-mcp/issues/235
+describe("issue #235 — CEP tool calls use the host's documented argument types", () => {
+  const utility = getUtilityTools(bridgeOptions);
+  const tracks = getTrackTargetingTools(bridgeOptions);
+  const project = getProjectTools(bridgeOptions);
+
+  it("uses a string-backed pixel aspect ratio and verifies the settings readback", async () => {
+    const script = await scriptFor(utility.set_sequence_pixel_aspect_ratio, { ratio: "1.0" });
+
+    expect(utility.set_sequence_pixel_aspect_ratio.parameters.properties.ratio).toMatchObject({ type: "string" });
+    expect(script).toContain('settings.videoPixelAspectRatio = "1.0"');
+    expect(script).toContain("seq.getSettings()");
+    expect(script).toContain("Premiere did not apply the requested sequence pixel aspect ratio");
+  });
+
+  it("clears sequence points with seconds derived from their tick values", async () => {
+    const script = await scriptFor(tracks.clear_sequence_in_out, {});
+
+    expect(script).toContain("var zeroSeconds = __ticksToSeconds(seq.zeroPoint)");
+    expect(script).toContain("var endSeconds = __ticksToSeconds(seq.end)");
+    expect(script).toContain("seq.setInPoint(zeroSeconds)");
+    expect(script).toContain("seq.setOutPoint(endSeconds)");
+    expect(script).not.toContain("seq.zeroPoint.ticks");
+  });
+
+  it("passes every positional bars-and-tone argument and captures the created item", async () => {
+    const script = await scriptFor(project.create_bars_and_tone, {
+      width: 1920,
+      height: 1080,
+      pixel_aspect_numerator: 1,
+      pixel_aspect_denominator: 1,
+      audio_sample_rate: 48000,
+      name: "Bars",
+    });
+
+    expect(script).toContain("app.project.newBarsAndTone(");
+    expect(script).toContain("1920,");
+    expect(script).toContain("1080,");
+    expect(script).toContain("1,");
+    expect(script).toContain("48000,");
+    expect(script).toContain('"Bars"');
+    expect(script).toContain("if (!item) return __error");
+  });
+
+  it("writes the Anti-flicker numeric stream value and verifies it", async () => {
+    const script = await scriptFor(tracks.set_anti_alias_quality, { node_id: "clip-1", enabled: false });
+
+    expect(script).toContain("var requestedValue = 0");
+    expect(script).toContain("antiFlicker.setValue(requestedValue, 1)");
+    expect(script).toContain("antiFlicker.getValue()");
+    expect(script).not.toContain("Use Composition's Shutter Angle");
+  });
+});
+
+// https://github.com/leancoderkavy/premiere-pro-mcp/issues/236
+describe("issue #236 — CEP tools supply required positional arguments", () => {
+  const advanced = getAdvancedTools(bridgeOptions);
+  const text = getTextTools(bridgeOptions);
+
+  it("passes action, linked-audio, and sensitivity to scene detection", async () => {
+    const script = await scriptFor(advanced.scene_edit_detection, {
+      action: "CreateMarkers",
+      apply_cuts_to_linked_audio: false,
+      sensitivity: "MediumSensitivity",
+    });
+
+    expect(script).toContain("seq.performSceneEditDetectionOnSelection(");
+    expect(script).toContain('"CreateMarkers"');
+    expect(script).toContain("false,");
+    expect(script).toContain('"MediumSensitivity"');
+    expect(script).toContain("Select at least one clip");
+  });
+
+  it("passes the Creative Cloud Library name before the MOGRT name", async () => {
+    const script = await scriptFor(text.import_mogrt_from_library, {
+      library_name: "Brand Library",
+      mogrt_name: "Lower Third",
+    });
+
+    expect(text.import_mogrt_from_library.parameters.required).toEqual(["library_name", "mogrt_name"]);
+    expect(script).toContain("seq.importMGTFromLibrary(");
+    expect(script).toContain('libraryName,');
+    expect(script).toContain('mogrtName,');
+    expect(script).toContain("startTicks,");
+  });
+
+  it("fails raw-text overlay creation before sending an unsupported bridge call", async () => {
+    const result = await text.add_text_overlay.handler({ text: "Title" });
+
+    expect(result).toMatchObject({ success: false, error: expect.stringContaining("No mutation was attempted") });
+    expect(mockedSendCommand).not.toHaveBeenCalled();
+  });
+});
+
+// https://github.com/leancoderkavy/premiere-pro-mcp/issues/237
+describe("issue #237 — reported mutations must be observable or fail", () => {
+  const advanced = getAdvancedTools(bridgeOptions);
+  const project = getProjectTools(bridgeOptions);
+  const tracks = getTrackTargetingTools(bridgeOptions);
+  const media = getMediaTools(bridgeOptions);
+  const exports = getExportTools(bridgeOptions);
+
+  it("makes trim tools read back their claimed changes", async () => {
+    const slide = await scriptFor(advanced.slide_edit, { node_id: "clip-1", offset_seconds: 1 });
+    const slip = await scriptFor(advanced.slip_edit, { node_id: "clip-1", offset_seconds: 1 });
+    const roll = await scriptFor(advanced.roll_edit, { node_id: "clip-1", offset_seconds: 1 });
+
+    expect(slide).toContain("The slide edit returned without an observable timeline change");
+    expect(roll).toContain("The roll edit returned without an observable timeline change");
+    expect(slip).toContain("The slip edit returned without an observable source in/out change");
+    expect(slip).toContain("verified: true");
+  });
+
+  it("uses structural receipts for import and duplicate consolidation", async () => {
+    const imports = await scriptFor(project.import_sequences, {
+      project_path: "/tmp/source.prproj",
+      sequence_ids: ["source-sequence-id"],
+    });
+    const duplicates = await scriptFor(project.consolidate_duplicates, {});
+
+    expect(imports).toContain("new File");
+    expect(imports).toContain("beforeIds");
+    expect(imports).toContain("Premiere did not add any of the requested sequences");
+    expect(duplicates).toContain("duplicateGroups");
+    expect(duplicates).toContain("Premiere did not reduce the detected duplicate-media groups");
+  });
+
+  it("checks image imports, source-point writes, disable state, and offline state", async () => {
+    const image = await scriptFor(tracks.import_image_sequence, { first_file_path: "/tmp/frame_001.png" });
+    const points = await scriptFor(tracks.set_item_in_out, { item_id: "item-1", in_seconds: 1 });
+    const enabled = await scriptFor(tracks.batch_enable_disable, { target: "selected", enabled: false });
+    const offline = await scriptFor(media.set_offline, { item_id: "item-1", offline: false });
+
+    expect(image).toContain("sourceFile.exists");
+    expect(image).toContain("Premiere accepted the image-sequence import but no project item was added");
+    expect(points).toContain("item.getInPoint");
+    expect(points).toContain("Premiere did not apply the requested project-item in point");
+    expect(enabled).toContain("track.clips[c].disabled = disabled");
+    expect(enabled).toContain("No clips matched target 'selected'");
+    expect(offline).toContain("item.refreshMedia()");
+    expect(offline).toContain("item.isOffline()");
+  });
+
+  it("labels sequence close as a tab operation and verifies an OMF file", async () => {
+    const close = await scriptFor(advanced.close_sequence, { sequence_id: "sequence-1" });
+    const omf = await scriptFor(exports.export_omf, { output_path: "/tmp/export.omf" });
+
+    expect(close).toContain("timelineTabCloseRequested: true");
+    expect(close).toContain("sequenceRetainedInProject");
+    expect(omf).toContain("outputFile.exists");
+    expect(omf).toContain("Premiere did not write the requested OMF file");
+    expect(exports.export_omf.parameters.properties.include_pan).toMatchObject({ type: "boolean" });
+  });
+});
+
+// https://github.com/leancoderkavy/premiere-pro-mcp/issues/238
+describe("issue #238 — AME uses canonical paths and documented encodeFile positions", () => {
+  const exports = getExportTools(bridgeOptions);
+
+  it("captures AME job IDs and does not present queueing as a completed encode", async () => {
+    const queued = await scriptFor(exports.add_to_render_queue, { output_path: "/tmp/render.mp4" });
+    const projectItem = await scriptFor(exports.encode_project_item, {
+      item_id: "item-1",
+      output_path: "/tmp/render.mp4",
+      preset_path: "/tmp/preset.epr",
+    });
+
+    expect(queued).toContain("var outputFile = new File");
+    expect(queued).toContain("var jobId = encoder.encodeSequence");
+    expect(queued).toContain("this does not prove that asynchronous encoding finished");
+    expect(projectItem).toContain("outputFile.fsName");
+    expect(projectItem).toContain("var jobId = app.encoder.encodeProjectItem");
+  });
+
+  it("passes work area before removal and never passes undefined Time values", async () => {
+    const wholeFile = await scriptFor(exports.encode_file, {
+      input_path: "/tmp/source.mov",
+      output_path: "/tmp/render.mp4",
+      preset_path: "/tmp/preset.epr",
+    });
+    const range = await scriptFor(exports.encode_file, {
+      input_path: "/tmp/source.mov",
+      output_path: "/tmp/render.mp4",
+      preset_path: "/tmp/preset.epr",
+      in_seconds: 1,
+      out_seconds: 2,
+    });
+
+    expect(wholeFile).toContain("var srcIn = new Time()");
+    expect(wholeFile).toContain("var workArea = 0");
+    expect(range).toContain("var workArea = 1");
+    expect(range).toContain("workArea,");
+    expect(range).not.toContain("var srcIn = undefined");
+    expect(range).toContain("var jobId = app.encoder.encodeFile");
   });
 });

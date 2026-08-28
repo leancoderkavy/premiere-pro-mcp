@@ -50,7 +50,7 @@ export function getAdvancedTools(bridgeOptions: BridgeOptions) {
 
     roll_edit: {
       description:
-        "Perform a roll edit on a clip (adjusts the edit point between two adjacent clips). Uses QE DOM.",
+        "Perform a verified roll edit at the outgoing cut of a clip using the public timeline DOM.",
       parameters: {
         type: "object" as const,
         properties: {
@@ -67,23 +67,42 @@ export function getAdvancedTools(bridgeOptions: BridgeOptions) {
         required: ["node_id", "offset_seconds"],
       },
       handler: async (args: { node_id: string; offset_seconds: number }) => {
+        if (!Number.isFinite(args.offset_seconds) || args.offset_seconds === 0) {
+          return { success: false, error: "offset_seconds must be a finite, non-zero number" };
+        }
         const script = buildToolScript(`
-          app.enableQE();
-          var qeSeq = qe.project.getActiveSequence();
-          if (!qeSeq) return __error("No active sequence (QE)");
-          
           var result = __findClip("${escapeForExtendScript(args.node_id)}");
           if (!result) return __error("Clip not found");
-          
-          var qeTrack = result.trackType === "video"
-            ? qeSeq.getVideoTrackAt(result.trackIndex)
-            : qeSeq.getAudioTrackAt(result.trackIndex);
-          var qeClip = qeTrack.getItemAt(result.clipIndex);
-          if (!qeClip) return __error("QE clip not found");
-          
-          var offsetTicks = __secondsToTicks(${args.offset_seconds}).toString();
-          qeClip.roll(offsetTicks);
-          return __result({ rolled: true, clipName: result.clip.name, offsetSeconds: ${args.offset_seconds} });
+          var track = result.trackType === "video"
+            ? app.project.activeSequence.videoTracks[result.trackIndex]
+            : app.project.activeSequence.audioTracks[result.trackIndex];
+          var outgoing = track.clips[result.clipIndex + 1];
+          if (!outgoing) return __error("A roll edit requires the selected clip to have an outgoing adjacent clip on the same track.");
+          var beforeStart = String(result.clip.start.ticks);
+          var beforeEnd = String(result.clip.end.ticks);
+          if (String(outgoing.start.ticks) !== beforeEnd) return __error("A roll edit requires two contiguous clips with no gap at the outgoing cut.");
+          var newCutTicks = parseFloat(beforeEnd) + __secondsToTicks(${args.offset_seconds});
+          if (newCutTicks <= parseFloat(result.clip.start.ticks) || newCutTicks >= parseFloat(outgoing.end.ticks)) {
+            return __error("The requested roll offset would create a zero- or negative-duration clip.");
+          }
+          var newCut = new Time();
+          newCut.ticks = String(Math.round(newCutTicks));
+          result.clip.end = newCut;
+          outgoing.start = newCut;
+          var after = __findClip("${escapeForExtendScript(args.node_id)}");
+          if (!after) return __error("Clip could not be found after the roll edit");
+          if (String(after.clip.start.ticks) === beforeStart && String(after.clip.end.ticks) === beforeEnd) {
+            return __error("The roll edit returned without an observable timeline change; no successful edit is reported.");
+          }
+          if (String(after.clip.end.ticks) !== String(outgoing.start.ticks)) return __error("The roll edit left a gap or overlap at the edited cut.");
+          return __result({
+            rolled: true,
+            verified: true,
+            clipName: after.clip.name,
+            offsetSeconds: ${args.offset_seconds},
+            before: { startTicks: beforeStart, endTicks: beforeEnd },
+            after: { startTicks: String(after.clip.start.ticks), endTicks: String(after.clip.end.ticks) }
+          });
         `);
         return sendCommand(script, bridgeOptions);
       },
@@ -91,7 +110,7 @@ export function getAdvancedTools(bridgeOptions: BridgeOptions) {
 
     slide_edit: {
       description:
-        "Perform a slide edit on a clip (moves clip without changing its duration, adjusting adjacent clips). Uses QE DOM.",
+        "Perform a verified slide edit on a clip using adjacent clips from the public timeline DOM.",
       parameters: {
         type: "object" as const,
         properties: {
@@ -108,23 +127,53 @@ export function getAdvancedTools(bridgeOptions: BridgeOptions) {
         required: ["node_id", "offset_seconds"],
       },
       handler: async (args: { node_id: string; offset_seconds: number }) => {
+        if (!Number.isFinite(args.offset_seconds) || args.offset_seconds === 0) {
+          return { success: false, error: "offset_seconds must be a finite, non-zero number" };
+        }
         const script = buildToolScript(`
-          app.enableQE();
-          var qeSeq = qe.project.getActiveSequence();
-          if (!qeSeq) return __error("No active sequence (QE)");
-          
           var result = __findClip("${escapeForExtendScript(args.node_id)}");
           if (!result) return __error("Clip not found");
-          
-          var qeTrack = result.trackType === "video"
-            ? qeSeq.getVideoTrackAt(result.trackIndex)
-            : qeSeq.getAudioTrackAt(result.trackIndex);
-          var qeClip = qeTrack.getItemAt(result.clipIndex);
-          if (!qeClip) return __error("QE clip not found");
-          
-          var offsetTicks = __secondsToTicks(${args.offset_seconds}).toString();
-          qeClip.slide(offsetTicks);
-          return __result({ slid: true, clipName: result.clip.name, offsetSeconds: ${args.offset_seconds} });
+          var track = result.trackType === "video"
+            ? app.project.activeSequence.videoTracks[result.trackIndex]
+            : app.project.activeSequence.audioTracks[result.trackIndex];
+          var previous = track.clips[result.clipIndex - 1];
+          var following = track.clips[result.clipIndex + 1];
+          if (!previous || !following) return __error("A slide edit requires contiguous clips before and after the selected clip on the same track.");
+          var beforeStart = String(result.clip.start.ticks);
+          var beforeEnd = String(result.clip.end.ticks);
+          if (String(previous.end.ticks) !== beforeStart || String(following.start.ticks) !== beforeEnd) {
+            return __error("A slide edit requires no gaps at either adjacent cut.");
+          }
+          var deltaTicks = __secondsToTicks(${args.offset_seconds});
+          var newStartTicks = parseFloat(beforeStart) + deltaTicks;
+          var newEndTicks = parseFloat(beforeEnd) + deltaTicks;
+          if (newStartTicks <= parseFloat(previous.start.ticks) || newEndTicks >= parseFloat(following.end.ticks)) {
+            return __error("The requested slide offset would create a zero- or negative-duration adjacent clip.");
+          }
+          var newStart = new Time();
+          newStart.ticks = String(Math.round(newStartTicks));
+          var newEnd = new Time();
+          newEnd.ticks = String(Math.round(newEndTicks));
+          previous.end = newStart;
+          result.clip.start = newStart;
+          result.clip.end = newEnd;
+          following.start = newEnd;
+          var after = __findClip("${escapeForExtendScript(args.node_id)}");
+          if (!after) return __error("Clip could not be found after the slide edit");
+          if (String(after.clip.start.ticks) === beforeStart && String(after.clip.end.ticks) === beforeEnd) {
+            return __error("The slide edit returned without an observable timeline change; no successful edit is reported.");
+          }
+          if (String(previous.end.ticks) !== String(after.clip.start.ticks) || String(after.clip.end.ticks) !== String(following.start.ticks)) {
+            return __error("The slide edit left a gap or overlap at an adjacent cut.");
+          }
+          return __result({
+            slid: true,
+            verified: true,
+            clipName: after.clip.name,
+            offsetSeconds: ${args.offset_seconds},
+            before: { startTicks: beforeStart, endTicks: beforeEnd },
+            after: { startTicks: String(after.clip.start.ticks), endTicks: String(after.clip.end.ticks) }
+          });
         `);
         return sendCommand(script, bridgeOptions);
       },
@@ -132,7 +181,7 @@ export function getAdvancedTools(bridgeOptions: BridgeOptions) {
 
     slip_edit: {
       description:
-        "Perform a slip edit on a clip (changes source in/out points without moving clip on timeline). Uses QE DOM.",
+        "Perform a verified slip edit on a clip using public source in/out properties.",
       parameters: {
         type: "object" as const,
         properties: {
@@ -149,23 +198,42 @@ export function getAdvancedTools(bridgeOptions: BridgeOptions) {
         required: ["node_id", "offset_seconds"],
       },
       handler: async (args: { node_id: string; offset_seconds: number }) => {
+        if (!Number.isFinite(args.offset_seconds) || args.offset_seconds === 0) {
+          return { success: false, error: "offset_seconds must be a finite, non-zero number" };
+        }
         const script = buildToolScript(`
-          app.enableQE();
-          var qeSeq = qe.project.getActiveSequence();
-          if (!qeSeq) return __error("No active sequence (QE)");
-          
           var result = __findClip("${escapeForExtendScript(args.node_id)}");
           if (!result) return __error("Clip not found");
-          
-          var qeTrack = result.trackType === "video"
-            ? qeSeq.getVideoTrackAt(result.trackIndex)
-            : qeSeq.getAudioTrackAt(result.trackIndex);
-          var qeClip = qeTrack.getItemAt(result.clipIndex);
-          if (!qeClip) return __error("QE clip not found");
-          
-          var offsetTicks = __secondsToTicks(${args.offset_seconds}).toString();
-          qeClip.slip(offsetTicks);
-          return __result({ slipped: true, clipName: result.clip.name, offsetSeconds: ${args.offset_seconds} });
+          var beforeStart = String(result.clip.start.ticks);
+          var beforeEnd = String(result.clip.end.ticks);
+          var beforeIn = String(result.clip.inPoint.ticks);
+          var beforeOut = String(result.clip.outPoint.ticks);
+          var deltaTicks = __secondsToTicks(${args.offset_seconds});
+          var newInTicks = parseFloat(beforeIn) + deltaTicks;
+          var newOutTicks = parseFloat(beforeOut) + deltaTicks;
+          if (newInTicks < 0 || newOutTicks <= newInTicks) return __error("The requested slip offset would create an invalid source range.");
+          var newIn = new Time();
+          newIn.ticks = String(Math.round(newInTicks));
+          var newOut = new Time();
+          newOut.ticks = String(Math.round(newOutTicks));
+          result.clip.inPoint = newIn;
+          result.clip.outPoint = newOut;
+          var after = __findClip("${escapeForExtendScript(args.node_id)}");
+          if (!after) return __error("Clip could not be found after the slip edit");
+          if (String(after.clip.start.ticks) !== beforeStart || String(after.clip.end.ticks) !== beforeEnd) {
+            return __error("The slip edit changed the timeline placement instead of only source in/out points.");
+          }
+          if (String(after.clip.inPoint.ticks) === beforeIn && String(after.clip.outPoint.ticks) === beforeOut) {
+            return __error("The slip edit returned without an observable source in/out change; no successful edit is reported.");
+          }
+          return __result({
+            slipped: true,
+            verified: true,
+            clipName: after.clip.name,
+            offsetSeconds: ${args.offset_seconds},
+            before: { inTicks: beforeIn, outTicks: beforeOut },
+            after: { inTicks: String(after.clip.inPoint.ticks), outTicks: String(after.clip.outPoint.ticks) }
+          });
         `);
         return sendCommand(script, bridgeOptions);
       },
@@ -750,8 +818,15 @@ export function getAdvancedTools(bridgeOptions: BridgeOptions) {
         const script = buildToolScript(`
           ${seqLookup}
           var name = seq.name;
+          var sequenceId = String(seq.sequenceID);
           seq.close();
-          return __result({ closed: true, name: name });
+          return __result({
+            timelineTabCloseRequested: true,
+            sequenceRetainedInProject: !!__findSequence(sequenceId),
+            name: name,
+            sequenceId: sequenceId,
+            note: "Closing a sequence closes its timeline tab; it does not delete the sequence from the project."
+          });
         `);
         return sendCommand(script, bridgeOptions);
       },
@@ -826,14 +901,52 @@ export function getAdvancedTools(bridgeOptions: BridgeOptions) {
 
     scene_edit_detection: {
       description:
-        "Perform scene edit detection on the selected clips in the active sequence",
-      parameters: {},
-      handler: async () => {
+        "Perform scene edit detection on the selected clips in the active sequence. Defaults to creating markers rather than cutting.",
+      parameters: {
+        type: "object" as const,
+        properties: {
+          action: {
+            type: "string",
+            enum: ["CreateMarkers", "ApplyCuts"],
+            description: "Create markers (default) or apply cuts to the selected clips",
+          },
+          apply_cuts_to_linked_audio: {
+            type: "boolean",
+            description: "When applying cuts, also cut linked audio (default: false)",
+          },
+          sensitivity: {
+            type: "string",
+            enum: ["LowSensitivity", "MediumSensitivity", "HighSensitivity"],
+            description: "Scene-detection sensitivity (default: MediumSensitivity)",
+          },
+        },
+      },
+      handler: async (args: {
+        action?: "CreateMarkers" | "ApplyCuts";
+        apply_cuts_to_linked_audio?: boolean;
+        sensitivity?: "LowSensitivity" | "MediumSensitivity" | "HighSensitivity";
+      }) => {
+        const action = args.action ?? "CreateMarkers";
+        const applyCutsToLinkedAudio = args.apply_cuts_to_linked_audio === true;
+        const sensitivity = args.sensitivity ?? "MediumSensitivity";
         const script = buildToolScript(`
           var seq = app.project.activeSequence;
           if (!seq) return __error("No active sequence");
-          seq.performSceneEditDetectionOnSelection();
-          return __result({ sceneDetection: true });
+          var selected = seq.getSelection();
+          if (!selected || selected.length === 0) return __error("Select at least one clip before scene edit detection.");
+          var detected = seq.performSceneEditDetectionOnSelection(
+            "${action}",
+            ${applyCutsToLinkedAudio},
+            "${sensitivity}"
+          );
+          if (!detected) return __error("Premiere did not complete scene edit detection for the selected clips.");
+          return __result({
+            sceneDetection: true,
+            selectedClipCount: selected.length,
+            action: "${action}",
+            applyCutsToLinkedAudio: ${applyCutsToLinkedAudio},
+            sensitivity: "${sensitivity}"
+          });
         `);
         return sendCommand(script, bridgeOptions);
       },
