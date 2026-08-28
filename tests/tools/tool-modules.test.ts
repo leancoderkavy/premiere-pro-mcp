@@ -222,6 +222,7 @@ describe("Tool Handler Behavior", () => {
       expect(callArgs[0]).toContain("app.version");
       // Should use a 5-second timeout override
       expect(callArgs[1]?.timeoutMs).toBe(5000);
+      expect(callArgs[1]?.failFastOnUnreadyHeartbeat).toBe(true);
     });
 
     it("generates script that checks connectivity", async () => {
@@ -258,6 +259,7 @@ describe("Tool Handler Behavior", () => {
       });
       expect(script).toContain("projectOpen");
       expect(script).toContain("sequenceOpen");
+      expect(mockedSendCommand.mock.calls[0][1]?.failFastOnUnreadyHeartbeat).toBe(true);
       expect(script).not.toContain("projectName");
       expect(script).not.toContain("project.path");
       expect(events).toEqual([

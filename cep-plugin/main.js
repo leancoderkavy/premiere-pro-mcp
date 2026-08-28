@@ -8,6 +8,8 @@ var pollInterval = null;
 var commandCount = 0;
 var tempDir = "";
 var POLL_MS = 200;
+var HEARTBEAT_MS = 1000;
+var heartbeatInterval = null;
 
 // ---- Logging ----
 function log(msg, cls) {
@@ -157,6 +159,36 @@ function deleteFile(filePath) {
   } catch (e) {}
 }
 
+// The heartbeat carries only protocol state. It is published by rename so a
+// server never observes partial JSON, and an older server can ignore it.
+function writeBridgeHeartbeat() {
+  if (!tempDir) return;
+  var heartbeatPath = path.join(tempDir, "bridge-heartbeat.json");
+  var stagedPath = heartbeatPath + "." + ENGINE_ID + ".staged";
+  try {
+    fs.writeFileSync(stagedPath, JSON.stringify({
+      protocolVersion: 1,
+      state: bridgeRunning ? "running" : "waiting"
+    }), "utf-8");
+    fs.renameSync(stagedPath, heartbeatPath);
+  } catch (e) {
+    deleteFile(stagedPath);
+  }
+}
+
+function startBridgeHeartbeat() {
+  if (heartbeatInterval) clearInterval(heartbeatInterval);
+  writeBridgeHeartbeat();
+  heartbeatInterval = setInterval(writeBridgeHeartbeat, HEARTBEAT_MS);
+}
+
+function stopBridgeHeartbeat() {
+  if (heartbeatInterval) clearInterval(heartbeatInterval);
+  heartbeatInterval = null;
+  // Keep the last heartbeat in place. Its age lets newer servers diagnose a
+  // stopped connector, while concurrent visible/headless panels stay isolated.
+}
+
 // ---- Script Execution ----
 function executeScript(script, callback) {
   // Script is already wrapped in an IIFE by the MCP server's buildScript(),
@@ -264,6 +296,7 @@ function startBridge() {
 
   ensureDir(tempDir);
   bridgeRunning = true;
+  startBridgeHeartbeat();
   setStatus("waiting", "Connector running");
   log("Connector started and ready for safe checks.", "ok");
 
@@ -279,6 +312,8 @@ function startBridge() {
 
 function stopBridge() {
   bridgeRunning = false;
+  writeBridgeHeartbeat();
+  stopBridgeHeartbeat();
   if (pollInterval) clearInterval(pollInterval);
   pollInterval = null;
 
@@ -438,6 +473,7 @@ function handleUpdateClick() {
   // one to click Start, and macOS periodically purges the temp dir — so create it
   // rather than gating auto-start on its existence.
   ensureDir(tempDir);
+  startBridgeHeartbeat();
   log("Auto-starting bridge...");
   setTimeout(startBridge, 500);
   setTimeout(checkForUpdates, 1200);
