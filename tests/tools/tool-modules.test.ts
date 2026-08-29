@@ -606,6 +606,31 @@ describe("Tool Handler Behavior", () => {
       expect(mockedSendCommand).not.toHaveBeenCalled();
     });
 
+    it("preflights and verifies every batch effect target instead of swallowing failures", async () => {
+      const tools = getClipboardTools(bridgeOptions);
+      await (tools.batch_apply_effect.handler as any)({ effect_name: "Gaussian Blur", target: "selected" });
+      const script = mockedSendCommand.mock.calls[0][0];
+      expect(script).toContain("function findQeClip(target)");
+      expect(script).toContain("function countEffectComponents(clip)");
+      expect(script).toContain("component count did not increase");
+      expect(script).toContain("Batch effect application was only partially verified");
+      expect(script).toContain("selectedIncompatible");
+
+      vi.clearAllMocks();
+      await expect((tools.batch_apply_effect.handler as any)({ effect_name: "Gaussian Blur", target: "track" }))
+        .resolves.toMatchObject({ success: false, error: expect.stringContaining("track_type") });
+      expect(mockedSendCommand).not.toHaveBeenCalled();
+    });
+
+    it("does not report an empty QE audio-transition catalog as an available list", async () => {
+      const tools = getTransitionsTools(bridgeOptions);
+      await (tools.list_available_audio_transitions.handler as any)({});
+      const script = mockedSendCommand.mock.calls[0][0];
+      expect(script).toContain("QE reported an empty audio-transition catalog");
+      expect(script).toContain("no transition availability is claimed");
+      expect(script).toContain('source: "qe.catalog"');
+    });
+
     it("uses Time objects and verifies audio keyframe values", async () => {
       const tools = getAudioTools(bridgeOptions);
       await (tools.add_audio_keyframes.handler as any)({

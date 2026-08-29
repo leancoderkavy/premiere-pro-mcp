@@ -305,17 +305,26 @@ export function getTransitionsTools(bridgeOptions: BridgeOptions) {
     },
 
     list_available_audio_transitions: {
-      description: "List all available audio transitions. Uses QE DOM.",
+      description: "List all available audio transitions. Uses QE DOM and reports an unavailable or empty legacy catalog as an error rather than an assumed usable list.",
       parameters: {},
       handler: async () => {
         const script = buildToolScript(`
           app.enableQE();
-          var transitions = qe.project.getAudioTransitionList();
+          var transitions = null;
+          try { transitions = qe.project.getAudioTransitionList(); } catch (catalogError) {
+            return __error("Premiere did not expose an audio-transition catalog through QE: " + catalogError.toString());
+          }
+          if (!transitions || typeof transitions.numItems !== "number") {
+            return __error("Premiere did not expose an enumerable audio-transition catalog through QE.");
+          }
           var list = [];
           for (var i = 0; i < transitions.numItems; i++) {
             list.push({ name: transitions[i].name, index: i });
           }
-          return __result(list);
+          if (list.length === 0) {
+            return __error("QE reported an empty audio-transition catalog. No supported by-name fallback is available, so no transition availability is claimed.");
+          }
+          return __result({ transitions: list, verified: true, source: "qe.catalog" });
         `);
         return sendCommand(script, bridgeOptions);
       },
