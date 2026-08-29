@@ -9,7 +9,7 @@ export interface AuthenticatedPrincipal {
 
 export type AuthenticationResult =
   | { authenticated: true; principal: AuthenticatedPrincipal }
-  | { authenticated: false; error: "invalid_token" | "insufficient_scope" };
+  | { authenticated: false; error: "missing_token" | "invalid_token" | "insufficient_scope" };
 
 export interface OAuthResourceMetadata {
   resource: string;
@@ -71,21 +71,24 @@ export class OAuthResourceServer {
     return `${this.configuration.publicUrl}/.well-known/oauth-protected-resource/mcp`;
   }
 
-  challenge(error?: "invalid_token" | "insufficient_scope"): string {
-    const attributes = [`resource_metadata="${this.metadataUrl()}"`];
-    if (error) attributes.push(`error="${error}"`);
-    if (error === "insufficient_scope") {
-      attributes.push(`scope="${this.configuration.requiredScopes.join(" ")}"`);
-    }
+  challenge(error?: "missing_token" | "invalid_token" | "insufficient_scope"): string {
+    const attributes = [
+      `resource_metadata="${this.metadataUrl()}"`,
+      `scope="${this.configuration.requiredScopes.join(" ")}"`,
+    ];
+    if (error && error !== "missing_token") attributes.push(`error="${error}"`);
     return `Bearer ${attributes.join(", ")}`;
   }
 
   async authenticate(req: Pick<http.IncomingMessage, "headers">): Promise<AuthenticationResult> {
     const token = bearerToken(req);
-    if (!token) return { authenticated: false, error: "invalid_token" };
+    if (!token) return { authenticated: false, error: "missing_token" };
     try {
       const payload = await this.verifyToken(token);
       if (!payload.sub || payload.sub.length > 255) return { authenticated: false, error: "invalid_token" };
+      if (!this.configuration.allowedSubjects.includes(payload.sub)) {
+        return { authenticated: false, error: "invalid_token" };
+      }
       const scopes = tokenScopes(payload);
       if (!this.configuration.requiredScopes.every((scope) => scopes.includes(scope))) {
         return { authenticated: false, error: "insufficient_scope" };

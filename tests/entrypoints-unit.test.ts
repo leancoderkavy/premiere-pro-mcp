@@ -82,7 +82,7 @@ vi.mock("../src/oauth-resource-server.js", () => ({
       };
     }
     challenge(error?: string) {
-      return `Bearer resource_metadata="https://premiere.example.com/.well-known/oauth-protected-resource/mcp"${error ? `, error="${error}"` : ""}`;
+      return `Bearer resource_metadata="https://premiere.example.com/.well-known/oauth-protected-resource/mcp", scope="premiere:mcp"${error && error !== "missing_token" ? `, error="${error}"` : ""}`;
     }
   },
 }));
@@ -323,6 +323,7 @@ describe("HTTP entry point", () => {
     process.env.MCP_OAUTH_JWKS_URI = "https://identity.example.com/.well-known/jwks.json";
     process.env.MCP_PUBLIC_URL = "https://premiere.example.com";
     process.env.MCP_OAUTH_REQUIRED_SCOPES = "premiere:mcp";
+    process.env.MCP_OAUTH_ALLOWED_SUBJECTS = "user-1";
     await import("../src/http-server.js");
     return mocks.requestHandler!;
   }
@@ -382,6 +383,19 @@ describe("HTTP entry point", () => {
       "WWW-Authenticate": expect.stringContaining('error="insufficient_scope"'),
     }));
     expect(mocks.handleRequest).not.toHaveBeenCalled();
+  });
+
+  it("rate-limits before OAuth verification work", async () => {
+    process.env.MCP_RATE_LIMIT_PER_MINUTE = "1";
+    process.env.MCP_RATE_LIMIT_BURST = "1";
+    const handler = await loadOAuth();
+    const request = { method: "POST", url: "/mcp", headers: {}, socket: { remoteAddress: "203.0.113.9" } };
+    const first = response();
+    await handler(request, first);
+    const second = response();
+    await handler(request, second);
+    expect(mocks.oauthAuthenticate).toHaveBeenCalledOnce();
+    expect(second.statusCode).toBe(429);
   });
 
   it("allows an explicitly unauthenticated deployment", async () => {

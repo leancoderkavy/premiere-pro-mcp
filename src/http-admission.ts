@@ -12,6 +12,7 @@ export interface HttpAuthConfiguration {
     publicUrl: string;
     jwksUri: string;
     requiredScopes: string[];
+    allowedSubjects: string[];
   };
   allowUnauthenticated: boolean;
 }
@@ -92,15 +93,21 @@ export function readHttpAuthConfiguration(env: NodeJS.ProcessEnv): HttpAuthConfi
   const oauthAudience = env.MCP_OAUTH_AUDIENCE?.trim();
   const publicUrl = env.MCP_PUBLIC_URL?.trim();
   const oauthJwksUri = env.MCP_OAUTH_JWKS_URI?.trim();
+  const oauthRequiredScopes = env.MCP_OAUTH_REQUIRED_SCOPES?.trim();
+  const oauthAllowedSubjects = env.MCP_OAUTH_ALLOWED_SUBJECTS?.trim();
+  const hasOAuthIntent = Boolean(
+    oauthIssuer || oauthAudience || publicUrl || oauthJwksUri || oauthRequiredScopes || oauthAllowedSubjects,
+  );
 
-  if (authToken && (oauthIssuer || oauthAudience || publicUrl || oauthJwksUri)) {
+  if (authToken && hasOAuthIntent) {
     throw new Error("Configure either MCP_AUTH_TOKEN or MCP_OAUTH_ISSUER, not both.");
   }
 
-  if (oauthIssuer || oauthAudience || publicUrl || oauthJwksUri) {
-    if (!oauthIssuer || !oauthAudience || !publicUrl || !oauthJwksUri) {
+  if (hasOAuthIntent) {
+    if (!oauthIssuer || !oauthAudience || !publicUrl || !oauthJwksUri || !oauthAllowedSubjects) {
       throw new Error(
-        "MCP_OAUTH_ISSUER, MCP_OAUTH_AUDIENCE, MCP_OAUTH_JWKS_URI, and MCP_PUBLIC_URL are all required for OAuth.",
+        "MCP_OAUTH_ISSUER, MCP_OAUTH_AUDIENCE, MCP_OAUTH_JWKS_URI, MCP_PUBLIC_URL, and " +
+        "MCP_OAUTH_ALLOWED_SUBJECTS are all required for OAuth.",
       );
     }
     const issuer = parseSecureUrl(oauthIssuer, "MCP_OAUTH_ISSUER", env.NODE_ENV);
@@ -113,12 +120,25 @@ export function readHttpAuthConfiguration(env: NodeJS.ProcessEnv): HttpAuthConfi
     if (canonicalPublicUrl.pathname !== "/" || canonicalPublicUrl.search || canonicalPublicUrl.hash) {
       throw new Error("MCP_PUBLIC_URL must be an origin without a path, query, or fragment.");
     }
-    const requiredScopes = (env.MCP_OAUTH_REQUIRED_SCOPES ?? "premiere:mcp")
+    if (audience.href !== `${canonicalPublicUrl.origin}/mcp`) {
+      throw new Error("MCP_OAUTH_AUDIENCE must exactly equal MCP_PUBLIC_URL plus /mcp.");
+    }
+    const requiredScopes = (oauthRequiredScopes ?? "premiere:mcp")
       .split(/[ ,]+/)
       .map((scope) => scope.trim())
       .filter(Boolean);
     if (requiredScopes.length === 0 || requiredScopes.some((scope) => !/^[\x21\x23-\x5B\x5D-\x7E]+$/.test(scope))) {
       throw new Error("MCP_OAUTH_REQUIRED_SCOPES must contain one or more valid OAuth scope values.");
+    }
+    const allowedSubjects = oauthAllowedSubjects
+      .split(",")
+      .map((subject) => subject.trim())
+      .filter(Boolean);
+    if (
+      allowedSubjects.length === 0 ||
+      allowedSubjects.some((subject) => subject.length > 255 || /[\u0000-\u001F\u007F]/.test(subject))
+    ) {
+      throw new Error("MCP_OAUTH_ALLOWED_SUBJECTS must contain valid comma-separated token subjects.");
     }
     return {
       mode: "oauth",
@@ -128,6 +148,7 @@ export function readHttpAuthConfiguration(env: NodeJS.ProcessEnv): HttpAuthConfi
         publicUrl: canonicalPublicUrl.origin,
         jwksUri: jwksUri.href,
         requiredScopes: [...new Set(requiredScopes)],
+        allowedSubjects: [...new Set(allowedSubjects)],
       },
       allowUnauthenticated: false,
     };

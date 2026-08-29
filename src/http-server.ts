@@ -214,6 +214,7 @@ const bridgeOptions = {
 process.env.PREMIERE_MCP_TRANSPORT = "http";
 const telemetry = getTelemetry();
 const admission = new HttpAdmissionController(admissionSettings);
+const preAuthAdmission = new HttpAdmissionController(admissionSettings);
 const oauthResourceServer = httpAuth.oauth ? new OAuthResourceServer(httpAuth.oauth) : undefined;
 const mcpHandler = createMcpHandler(
   () => createServer(bridgeOptions, { telemetry }),
@@ -287,9 +288,32 @@ const httpServer = http.createServer(async (req, res) => {
   // OAuth access tokens are verified for issuer, audience, lifetime, signature,
   // subject, and scope. The legacy shared token remains available for controlled
   // single-operator deployments and is compared in constant time.
-  const oauthAuthentication = oauthResourceServer
-    ? await oauthResourceServer.authenticate(req)
-    : undefined;
+  // Apply an IP-keyed gate first so untrusted JWT/JWKS work cannot bypass the
+  // same concurrency and rate bounds that protect authenticated requests.
+  const preAuthDecision = preAuthAdmission.acquire(rateLimitIdentity(req, undefined, admissionSettings.trustProxy));
+  if (!preAuthDecision.accepted) {
+    telemetry.capture("mcp_request_rejected", {
+      outcome: preAuthDecision.reason,
+      status_code: preAuthDecision.statusCode,
+      phase: "pre_auth",
+    });
+    res.writeHead(preAuthDecision.statusCode, {
+      "Content-Type": "application/json",
+      "Cache-Control": "no-store",
+      "Retry-After": String(preAuthDecision.retryAfterSeconds),
+    });
+    res.end(JSON.stringify({ error: preAuthDecision.reason === "rate_limited" ? "Too many requests" : "Service busy" }));
+    return;
+  }
+
+  let oauthAuthentication: Awaited<ReturnType<OAuthResourceServer["authenticate"]>> | undefined;
+  try {
+    oauthAuthentication = oauthResourceServer
+      ? await oauthResourceServer.authenticate(req)
+      : undefined;
+  } finally {
+    preAuthDecision.release();
+  }
   const isAuthorized = oauthAuthentication
     ? oauthAuthentication.authenticated
     : isAuthorizedBearer(req, httpAuth.authToken);

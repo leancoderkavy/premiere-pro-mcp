@@ -9,6 +9,7 @@ const configuration = {
   jwksUri: "https://identity.example.com/.well-known/jwks.json",
   publicUrl: "https://premiere.example.com",
   requiredScopes: ["premiere:mcp", "premiere:read"],
+  allowedSubjects: ["user-1"],
 };
 
 const request = (authorization?: string) => ({ headers: { authorization } } as never);
@@ -23,8 +24,9 @@ describe("OAuth resource server", () => {
       scopes_supported: ["premiere:mcp", "premiere:read"],
     });
     expect(resource.challenge()).toBe(
-      'Bearer resource_metadata="https://premiere.example.com/.well-known/oauth-protected-resource/mcp"',
+      'Bearer resource_metadata="https://premiere.example.com/.well-known/oauth-protected-resource/mcp", scope="premiere:mcp premiere:read"',
     );
+    expect(resource.challenge("missing_token")).not.toContain("error=");
     expect(resource.challenge("insufficient_scope")).toContain('scope="premiere:mcp premiere:read"');
   });
 
@@ -36,14 +38,19 @@ describe("OAuth resource server", () => {
       authenticated: true,
       principal: { subject: "user-1", scopes: ["premiere:mcp", "premiere:read", "extra"] },
     });
-    await expect(valid.authenticate(request())).resolves.toEqual({ authenticated: false, error: "invalid_token" });
-    await expect(valid.authenticate(request("Basic signed-token"))).resolves.toEqual({ authenticated: false, error: "invalid_token" });
+    await expect(valid.authenticate(request())).resolves.toEqual({ authenticated: false, error: "missing_token" });
+    await expect(valid.authenticate(request("Basic signed-token"))).resolves.toEqual({ authenticated: false, error: "missing_token" });
 
     const missingSubject = new OAuthResourceServer(configuration, async () => ({ scope: "premiere:mcp premiere:read" }));
     await expect(missingSubject.authenticate(request("Bearer token"))).resolves.toEqual({ authenticated: false, error: "invalid_token" });
 
     const missingScope = new OAuthResourceServer(configuration, async () => ({ sub: "user-1", scope: "premiere:mcp" }));
     await expect(missingScope.authenticate(request("Bearer token"))).resolves.toEqual({ authenticated: false, error: "insufficient_scope" });
+
+    const wrongSubject = new OAuthResourceServer(configuration, async () => ({
+      sub: "user-2", scope: "premiere:mcp premiere:read",
+    }));
+    await expect(wrongSubject.authenticate(request("Bearer token"))).resolves.toEqual({ authenticated: false, error: "invalid_token" });
   });
 
   it("fails closed when verification or JWKS retrieval fails", async () => {
@@ -95,6 +102,58 @@ describe("OAuth resource server", () => {
         .setExpirationTime(now + 300)
         .sign(privateKey);
       await expect(resource.authenticate(request(`Bearer ${wrongAudience}`))).resolves.toEqual({
+        authenticated: false,
+        error: "invalid_token",
+      });
+
+      const rejectedClaims = [
+        new SignJWT({ scope: "premiere:mcp premiere:read" })
+          .setProtectedHeader({ alg: "RS256", kid: "test-key" })
+          .setIssuer("https://wrong-issuer.example.com")
+          .setAudience(configuration.audience)
+          .setSubject("user-1")
+          .setIssuedAt(now)
+          .setExpirationTime(now + 300),
+        new SignJWT({ scope: "premiere:mcp premiere:read" })
+          .setProtectedHeader({ alg: "RS256", kid: "test-key" })
+          .setIssuer(configuration.issuer)
+          .setAudience(configuration.audience)
+          .setSubject("user-1")
+          .setIssuedAt(now)
+          .setExpirationTime(now - 60),
+        new SignJWT({ scope: "premiere:mcp premiere:read" })
+          .setProtectedHeader({ alg: "RS256", kid: "test-key" })
+          .setIssuer(configuration.issuer)
+          .setAudience(configuration.audience)
+          .setSubject("user-1")
+          .setIssuedAt(now)
+          .setNotBefore(now + 300)
+          .setExpirationTime(now + 600),
+        new SignJWT({ scope: "premiere:mcp premiere:read" })
+          .setProtectedHeader({ alg: "RS256", kid: "test-key" })
+          .setIssuer(configuration.issuer)
+          .setAudience(configuration.audience)
+          .setSubject("user-1")
+          .setExpirationTime(now + 300),
+      ];
+      for (const builder of rejectedClaims) {
+        const token = await builder.sign(privateKey);
+        await expect(resource.authenticate(request(`Bearer ${token}`))).resolves.toEqual({
+          authenticated: false,
+          error: "invalid_token",
+        });
+      }
+
+      const { privateKey: attackerKey } = await generateKeyPair("RS256");
+      const badSignature = await new SignJWT({ scope: "premiere:mcp premiere:read" })
+        .setProtectedHeader({ alg: "RS256", kid: "test-key" })
+        .setIssuer(configuration.issuer)
+        .setAudience(configuration.audience)
+        .setSubject("user-1")
+        .setIssuedAt(now)
+        .setExpirationTime(now + 300)
+        .sign(attackerKey);
+      await expect(resource.authenticate(request(`Bearer ${badSignature}`))).resolves.toEqual({
         authenticated: false,
         error: "invalid_token",
       });

@@ -44,6 +44,7 @@ describe("HTTP admission settings", () => {
       MCP_OAUTH_JWKS_URI: "https://identity.example.com/.well-known/jwks.json",
       MCP_PUBLIC_URL: "https://premiere.example.com",
       MCP_OAUTH_REQUIRED_SCOPES: "premiere:mcp premiere:read",
+      MCP_OAUTH_ALLOWED_SUBJECTS: "user-1,user-2",
     });
     expect(oauth).toEqual({
       mode: "oauth",
@@ -54,6 +55,7 @@ describe("HTTP admission settings", () => {
         jwksUri: "https://identity.example.com/.well-known/jwks.json",
         publicUrl: "https://premiere.example.com",
         requiredScopes: ["premiere:mcp", "premiere:read"],
+        allowedSubjects: ["user-1", "user-2"],
       },
     });
     expect(() => readHttpAuthConfiguration({
@@ -65,12 +67,26 @@ describe("HTTP admission settings", () => {
       MCP_OAUTH_AUDIENCE: "https://premiere.example.com/mcp",
       MCP_OAUTH_JWKS_URI: "https://identity.example.com/jwks.json",
       MCP_PUBLIC_URL: "https://premiere.example.com",
+      MCP_OAUTH_ALLOWED_SUBJECTS: "user-1",
     })).toThrow("HTTPS");
     expect(() => readHttpAuthConfiguration({
       NODE_ENV: "production",
       MCP_AUTH_TOKEN: "legacy",
       MCP_OAUTH_ISSUER: "https://identity.example.com",
     })).toThrow("either MCP_AUTH_TOKEN or MCP_OAUTH_ISSUER");
+    expect(() => readHttpAuthConfiguration({
+      NODE_ENV: "production",
+      MCP_AUTH_TOKEN: "legacy",
+      MCP_OAUTH_REQUIRED_SCOPES: "premiere:mcp",
+    })).toThrow("either MCP_AUTH_TOKEN or MCP_OAUTH_ISSUER");
+    expect(() => readHttpAuthConfiguration({
+      NODE_ENV: "production",
+      MCP_OAUTH_ISSUER: "https://identity.example.com",
+      MCP_OAUTH_AUDIENCE: "https://other.example.com/mcp",
+      MCP_OAUTH_JWKS_URI: "https://identity.example.com/jwks.json",
+      MCP_PUBLIC_URL: "https://premiere.example.com",
+      MCP_OAUTH_ALLOWED_SUBJECTS: "user-1",
+    })).toThrow("exactly equal");
   });
 });
 

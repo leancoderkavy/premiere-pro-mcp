@@ -856,9 +856,9 @@ Then connect with:
 }
 ```
 
-### Per-user OAuth resource-server mode
+### Trusted-operator OAuth resource-server mode
 
-For an identity-aware deployment, configure a real OAuth/OIDC authorization
+For an identity-aware operator deployment, configure a real OAuth/OIDC authorization
 server rather than distributing `MCP_AUTH_TOKEN`. The authorization server must
 support the MCP client's registration model and issue signed access tokens with
 an exact audience for this MCP resource.
@@ -869,7 +869,8 @@ fly secrets set \
   MCP_OAUTH_JWKS_URI=https://identity.example.com/.well-known/jwks.json \
   MCP_OAUTH_AUDIENCE=https://your-app-name.fly.dev/mcp \
   MCP_PUBLIC_URL=https://your-app-name.fly.dev \
-  MCP_OAUTH_REQUIRED_SCOPES=premiere:mcp
+  MCP_OAUTH_REQUIRED_SCOPES=premiere:mcp \
+  MCP_OAUTH_ALLOWED_SUBJECTS=your-provider-user-subject
 ```
 
 OAuth mode validates the token signature, algorithm, issuer, exact audience,
@@ -879,7 +880,11 @@ that URL in the `WWW-Authenticate` challenge. Configuration is fail-closed:
 partial OAuth settings, non-HTTPS production URLs, ambiguous OAuth/shared-token
 settings, and missing credentials all prevent startup.
 
-This mode authenticates users but does **not** yet implement device ownership,
+`MCP_OAUTH_ALLOWED_SUBJECTS` is mandatory and restricts this single-bridge
+deployment to explicitly trusted operator identities. This is an enforcement
+boundary, not a public-user device model.
+
+This mode authenticates trusted operators but does **not** yet implement device ownership,
 desktop pairing, or per-user Premiere routing. Do not expose editor mutations as
 a public multi-user service until an outbound desktop relay and durable
 user/device authorization are implemented.
@@ -908,6 +913,7 @@ user/device authorization are implemented.
 | `MCP_OAUTH_AUDIENCE` | Exact MCP resource audience, normally the public `/mcp` URL | unset |
 | `MCP_PUBLIC_URL` | Canonical HTTPS origin used in protected-resource discovery | unset |
 | `MCP_OAUTH_REQUIRED_SCOPES` | Space- or comma-separated scopes required for `/mcp` | `premiere:mcp` |
+| `MCP_OAUTH_ALLOWED_SUBJECTS` | Mandatory comma-separated token-subject allowlist for the single operator bridge | unset |
 | `ALLOW_UNAUTHENTICATED` | Set to `1` only for local/test HTTP harnesses; it is rejected when `NODE_ENV=production` | unset |
 | `MCP_MAX_REQUEST_BYTES` | Maximum HTTP MCP request body size | `1048576` |
 | `MCP_HEADERS_TIMEOUT_MS` | Maximum time to receive request headers | `10000` |
