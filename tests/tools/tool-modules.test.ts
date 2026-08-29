@@ -501,11 +501,28 @@ describe("Tool Handler Behavior", () => {
       const script = mockedSendCommand.mock.calls[0][0];
       expect(script).toContain("app.enableQE()");
       expect(script).toContain("qe.startPlayback()");
+      expect(script).toContain("playbackRequested: true");
+      expect(script).toContain("playbackVerified: false");
+      expect(script).toContain("poll get_playhead_position");
     });
 
     it("play_timeline has no speed parameter (QE startPlayback ignores it)", async () => {
       const tools = getPlaybackTools(bridgeOptions);
       expect(tools.play_timeline.parameters).toEqual({});
+    });
+
+    it("does not claim legacy source-monitor or stop-playback requests are verified", async () => {
+      const tools = getPlaybackTools(bridgeOptions);
+      await (tools.stop_playback.handler as any)({});
+      let script = mockedSendCommand.mock.calls[0][0];
+      expect(script).toContain("stopRequested: true");
+      expect(script).toContain("playbackVerified: false");
+
+      vi.clearAllMocks();
+      await (tools.play_source_monitor.handler as any)({ speed: 1 });
+      script = mockedSendCommand.mock.calls[0][0];
+      expect(script).toContain("playbackRequested: true");
+      expect(script).toContain("poll get_source_monitor_position");
     });
 
     it("stop_playback uses QE DOM", async () => {

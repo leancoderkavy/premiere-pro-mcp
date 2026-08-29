@@ -238,8 +238,8 @@ operation” when the tool has no enum-based mode.
 | `overwrite_from_source` | Default profile | Single operation | Overwrite the clip from the Source Monitor at the playhead position (overwrite edit — replaces existing clips). |
 | `ping` | Default profile | Single operation | Health check — verify the CEP plugin is running and connected to Premiere Pro. Call this before other tools to confirm connectivity. |
 | `plan_silence_review_markers` | Default profile | Single operation | Create a bounded, non-mutating review plan that maps FFmpeg-detected source-media silences onto one known 1x timeline placement. It clips candidates to the supplied source in/out span, redacts the source path, and never adds markers, cuts clips, or changes Premiere. |
-| `play_source_monitor` | Default profile | Single operation | Start playback of the clip in the Source Monitor |
-| `play_timeline` | Default profile | Single operation | Start playback of the active sequence timeline. Uses QE DOM. |
+| `play_source_monitor` | Default profile | Single operation | Request playback of the clip in the Source Monitor. The legacy API does not provide a same-call position readback, so movement is not reported as verified. |
+| `play_timeline` | Default profile | Single operation | Request playback of the active sequence timeline through QE. The legacy API does not provide a same-call playhead readback, so movement is not reported as verified. |
 | `preview_brand_spot` | Default profile | `motion_style`: `none`, `push_in`, `pull_out`, `alternate` | Preview a brand-spot assembly from existing project items with an optional workspace-contained MOGRT overlay. Preview is local-only; it does not read or import the MOGRT file. |
 | `preview_edit_plan` | Default profile | Single operation | Validate and preview a compound timeline edit without changing Premiere. Returns a confirmation token required by apply_edit_plan. |
 | `preview_editorial_plan` | Default profile | Single operation | Revalidate an exact server-issued editorial plan against the saved project-context revisions and return an opaque confirmation token. This tool is read-only and cannot apply the plan. |
@@ -340,7 +340,7 @@ operation” when the tool has no enum-based mode.
 | `split_clip` | Default profile | `track_type`: `video`, `audio` | Split every clip on one track that spans a timeline time, then verify both resulting boundaries. Requires QE DOM; effect-keyframe redistribution remains unverified. |
 | `stabilize_clip` | Default profile | `method`: `Subspace Warp`, `Position`, `Position, Scale, Rotation` | Apply the Warp Stabilizer effect to a clip for video stabilization. Uses QE DOM. |
 | `start_batch_encode` | Default profile | Single operation | Start encoding all items in the Adobe Media Encoder render queue |
-| `stop_playback` | Default profile | Single operation | Stop playback of the active sequence timeline. Uses QE DOM. |
+| `stop_playback` | Default profile | Single operation | Request that active-sequence timeline playback stop through QE. The legacy API does not provide a same-call playhead readback, so stopped state is not reported as verified. |
 | `toggle_track_visibility` | Default profile | Single operation | Toggle a video track's visibility (eye icon) |
 | `trim_clip` | Default profile | `keyframe_policy`: `reject`, `preserve` | Trim exactly one source in/out point and verify the corresponding visible timeline edge. Refuses retimed clips and, by default, trims that would leave effect keyframes outside the visible clip. |
 | `undo` | Default profile | Single operation | Undo the last action in Premiere Pro |
