@@ -99,6 +99,40 @@ describe("project intake engine", () => {
     expect(JSON.stringify(disclosed)).toContain("D:/Unapproved/INT_A_001.mp4");
   });
 
+  it("normalizes noisy Premiere frame-rate evidence without conflating canonical timebases", () => {
+    const noisy = buildProjectIntakeReport({
+      ...snapshot,
+      items: snapshot.items.map((item) => item.id === "clip-1" ? { ...item, frameRate: 29.93295 } : item),
+    }, { ...template, allowedFrameRates: [29.97] });
+    expect(noisy.findings.some((finding) => finding.code === "FRAME_RATE_NOT_ALLOWED")).toBe(false);
+
+    const distinctCanonical = buildProjectIntakeReport({
+      ...snapshot,
+      items: snapshot.items.map((item) => item.id === "clip-1" ? { ...item, frameRate: 23.976 } : item),
+    }, { ...template, allowedFrameRates: [24] });
+    expect(distinctCanonical.findings).toContainEqual(expect.objectContaining({
+      code: "FRAME_RATE_NOT_ALLOWED",
+      itemId: "clip-1",
+    }));
+  });
+
+  it.each([Number.NaN, Number.POSITIVE_INFINITY, 0, 241, null])(
+    "keeps malformed frame-rate evidence as an item-level unsupported finding: %s",
+    (frameRate) => {
+      const report = buildProjectIntakeReport({
+        ...snapshot,
+        items: snapshot.items.map((item) => item.id === "clip-1" ? { ...item, frameRate } : item),
+      }, template);
+      expect(report.status).toBe("incomplete");
+      expect(report.capture.itemCount).toBe(snapshot.items.length);
+      expect(report.findings).toContainEqual(expect.objectContaining({
+        code: "FRAME_RATE_UNSUPPORTED",
+        certainty: "unavailable",
+        itemId: "clip-1",
+      }));
+    },
+  );
+
   it("returns incomplete when required evidence is unavailable and distinguishes optional checks not performed", () => {
     const incomplete = buildProjectIntakeReport({
       project: { id: "project-2" },
@@ -200,7 +234,7 @@ describe("project intake engine", () => {
     expect(suffixMatched.findings.some((finding) => finding.code.startsWith("REQUIRED_BIN_"))).toBe(false);
   });
 
-  it("bounds snapshots and rejects malformed evidence before evaluation", () => {
+  it("bounds snapshots and rejects malformed structural evidence before evaluation", () => {
     expect(() => validateProjectIntakeSnapshot({
       project: { id: "project" }, items: [{ id: "one", name: "One", type: "clip" }, { id: "one", name: "Two", type: "clip" }],
       truncated: false, unavailableEvidence: [],
@@ -212,10 +246,6 @@ describe("project intake engine", () => {
       project: { id: "project" }, items: [{ id: "one", name: "One", type: "asset" }],
       truncated: false, unavailableEvidence: [],
     })).toThrow("type must be clip, bin, sequence, or other");
-    expect(() => validateProjectIntakeSnapshot({
-      project: { id: "project" }, items: [{ id: "one", name: "One", type: "clip", frameRate: 0 }],
-      truncated: false, unavailableEvidence: [],
-    })).toThrow("finite frame rate");
   });
 
   it("rejects duplicate and out-of-contract facility rules", () => {
