@@ -315,6 +315,18 @@ export function getTrackTargetingTools(bridgeOptions: BridgeOptions) {
           var eligible = 0;
           var failures = [];
 
+          // QE razor() expects a timecode string, not ticks. See timeline.ts.
+          var __razorFrameTicks = seq && seq.timebase ? parseFloat(seq.timebase) : NaN;
+          if (!__razorFrameTicks || isNaN(__razorFrameTicks)) __razorFrameTicks = 254016000000 / 24;
+          var __razorFps = Math.round(254016000000 / __razorFrameTicks);
+          if (!__razorFps || !isFinite(__razorFps) || __razorFps < 1) __razorFps = 30;
+          var __razorFrames = Math.round(parseFloat(ticks) / __razorFrameTicks);
+          function __pad2(n) { return n < 10 ? "0" + n : "" + n; }
+          var __razorTc = __pad2(Math.floor(__razorFrames / (__razorFps * 3600))) + ":" +
+                          __pad2(Math.floor((__razorFrames % (__razorFps * 3600)) / (__razorFps * 60))) + ":" +
+                          __pad2(Math.floor((__razorFrames % (__razorFps * 60)) / __razorFps)) + ":" +
+                          __pad2(__razorFrames % __razorFps);
+
           if ("${trackType}" !== "audio") {
             for (var t = 0; t < seq.videoTracks.numTracks; t++) {
               var domTrack = seq.videoTracks[t];
@@ -322,7 +334,7 @@ export function getTrackTargetingTools(bridgeOptions: BridgeOptions) {
               if (wasEligible) eligible++;
               var before = domTrack.clips.numItems;
               try {
-                qeSeq.getVideoTrackAt(t).razor(ticks);
+                qeSeq.getVideoTrackAt(t).razor(__razorTc);
               } catch(e) {
                 if (wasEligible) failures.push("V" + (t + 1) + ": " + e.toString());
                 continue;
@@ -337,7 +349,7 @@ export function getTrackTargetingTools(bridgeOptions: BridgeOptions) {
               if (wasEligible) eligible++;
               var before = domTrack.clips.numItems;
               try {
-                qeSeq.getAudioTrackAt(t).razor(ticks);
+                qeSeq.getAudioTrackAt(t).razor(__razorTc);
               } catch(e) {
                 if (wasEligible) failures.push("A" + (t + 1) + ": " + e.toString());
                 continue;

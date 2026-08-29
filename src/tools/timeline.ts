@@ -578,8 +578,21 @@ export function getTimelineTools(bridgeOptions: BridgeOptions) {
             return __error("No clip on the requested ${trackType} track strictly spans ${args.time_seconds}s; no razor was attempted.");
           }
 
+          // QE razor() parses its argument as a timecode string. Handing it a
+          // tick count makes the call succeed and do nothing, which is the
+          // silent no-op reported in #21, #127, #263 and #264. frameTicks is
+          // ticks-per-frame for this sequence, so frames = ticks / frameTicks.
+          var __razorFps = Math.round(TICKS_PER_SECOND / frameTicks);
+          if (!__razorFps || !isFinite(__razorFps) || __razorFps < 1) __razorFps = 30;
+          var __razorFrames = Math.round(cutTicks / frameTicks);
+          function __pad2(n) { return n < 10 ? "0" + n : "" + n; }
+          var __razorTc = __pad2(Math.floor(__razorFrames / (__razorFps * 3600))) + ":" +
+                          __pad2(Math.floor((__razorFrames % (__razorFps * 3600)) / (__razorFps * 60))) + ":" +
+                          __pad2(Math.floor((__razorFrames % (__razorFps * 60)) / __razorFps)) + ":" +
+                          __pad2(__razorFrames % __razorFps);
+
           try {
-            track.razor(cutTicks.toString());
+            track.razor(__razorTc);
           } catch(razorError) {
             return __error("QE razor rejected the request: " + razorError.toString() + ". No verified split was produced.");
           }
