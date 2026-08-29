@@ -1,7 +1,7 @@
 {
   "name": "premiere-pro-mcp",
   "mcpName": "io.github.leancoderkavy/premiere-pro",
-  "version": "1.14.3",
+  "version": "1.14.4",
   "description": "MCP server for Adobe Premiere Pro with 321 core AI video editing tools and a capability-aware UXP bridge for supported Premiere workflows.",
   "main": "dist/index.js",
   "types": "./dist/index.d.ts",

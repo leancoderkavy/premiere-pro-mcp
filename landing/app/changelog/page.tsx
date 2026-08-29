@@ -5,6 +5,28 @@ import { product } from "@/lib/product"
 
 const releases = [
   {
+    version: "1.14.4",
+    date: "2026-08-29",
+    label: "Verified mutation and playback hotfixes",
+    groups: [
+      {
+        title: "Fixed",
+        items: [
+          "QE razor operations now pass sequence timecode instead of ticks, with regression coverage for split and all-track cuts.",
+          "Batch effect application preflights every target, resolves QE clips without assuming gap-free indexes, and requires component-count readback.",
+          "Legacy playback tools now report request acceptance rather than unverified playhead movement or stoppage.",
+          "Empty QE audio-transition catalogs fail closed, while effect fallback results are explicitly bounded and partial.",
+        ],
+      },
+      {
+        title: "Validation",
+        items: [
+          "Automated contracts cover the repaired behaviors; real licensed-Premiere host execution remains a separate evidence gate.",
+        ],
+      },
+    ],
+  },
+  {
     version: "1.14.3",
     date: "2026-08-29",
     label: "Fail-closed OAuth for trusted operators",
