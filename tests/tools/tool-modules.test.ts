@@ -618,7 +618,7 @@ describe("Tool Handler Behavior", () => {
       expect(script).toContain("verificationErrors");
     });
 
-    it("verifies ripple delete and razor postconditions", async () => {
+    it("verifies ripple delete and passes QE razor a sequence timecode", async () => {
       await (getAdvancedTools(bridgeOptions).ripple_delete.handler as any)({ node_id: "clip-1" });
       let script = mockedSendCommand.mock.calls[0][0];
       expect(script).toContain("if (__findClip(deletedNodeId))");
@@ -628,6 +628,16 @@ describe("Tool Handler Behavior", () => {
       script = mockedSendCommand.mock.calls[0][0];
       expect(script).toContain("var expectedClipCount = clipCountBefore + eligibleBefore.length");
       expect(script).toContain("function __hasSegment");
+      expect(script).toContain("var __razorTc");
+      expect(script).toContain("track.razor(__razorTc)");
+      expect(script).not.toContain("track.razor(cutTicks.toString())");
+
+      vi.clearAllMocks();
+      await (getTrackTargetingTools(bridgeOptions).razor_all_tracks.handler as any)({ time_seconds: 2 });
+      script = mockedSendCommand.mock.calls[0][0];
+      expect(script).toContain("var __razorTc");
+      expect(script).toContain("getVideoTrackAt(t).razor(__razorTc)");
+      expect(script).toContain("getAudioTrackAt(t).razor(__razorTc)");
     });
 
     it("checks transition API availability and verifies track state", async () => {
