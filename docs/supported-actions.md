@@ -130,7 +130,7 @@ operation” when the tool has no enum-based mode.
 | `get_av_feature_support` | Default profile | Single operation | Report the documented automation boundary for advanced audio and modern color management, including actionable reasons for UI-only features. |
 | `get_bin_contents` | Default profile | Single operation | Get detailed contents of a specific bin (folder) including all nested items, media paths, offline status, color labels, and metadata. Searches by bin name or node ID. |
 | `get_bridge_telemetry` | Default profile | Single operation | Inspect privacy-preserving aggregate bridge health: pending command/response counts, busy operations, queue age, and CEP heartbeat state without returning project or personal data. |
-| `get_capabilities` | Default profile | Single operation | Report Windows/macOS support, Premiere Pro backend coverage, enabled authority, and whether live host verification is still required. |
+| `get_capabilities` | Default profile | Single operation | Report Windows/macOS support, Premiere Pro backend coverage, enabled authority, and whether live host verification is still required. Use tool_names or tool_offset/tool_limit to return a bounded tool catalog. |
 | `get_clip_adjustment_layer` | Default profile | Single operation | Check if a clip is an adjustment layer |
 | `get_clip_at_playhead` | Default profile | `track_type`: `video`, `audio`, `both` | Get all clips at the current playhead position across all tracks. |
 | `get_clip_at_position` | Default profile | `track_type`: `video`, `audio` | Get the clip at a specific time position on a track |
@@ -147,14 +147,14 @@ operation” when the tool has no enum-based mode.
 | `get_export_file_extension` | Default profile | Single operation | Get the file extension that would be used when exporting the active sequence with a given preset |
 | `get_footage_interpretation` | Default profile | Single operation | Get footage interpretation settings for a project item |
 | `get_full_clip_info` | Default profile | Single operation | Get exhaustive information about a specific clip: all effects with every property value, source media details, footage interpretation, metadata, markers, speed, enabled state, color label, linked clips, and proxy status. |
-| `get_full_project_overview` | Default profile | Single operation | Get a comprehensive overview of the entire project: all bins (recursive tree), all sequences, media stats, offline items, and project settings. This is the best first call to fully understand a project. |
+| `get_full_project_overview` | Default profile | Single operation | Get a comprehensive overview of the project. Use include_bin_tree false or sequence_offset/sequence_limit for a bounded response on large projects. |
 | `get_full_sequence_info` | Default profile | Single operation | Get exhaustive information about a sequence: settings, all tracks with lock/mute/target state, all clips with positions/effects/speed/enabled state, all markers, transitions, in/out points, and work area. |
 | `get_graphics_white_luminance` | Default profile | Single operation | Get the graphics white luminance value (HDR setting) for the project |
 | `get_insertion_bin` | Default profile | Single operation | Get the current target bin for new imports (the bin that is currently focused in the Project panel) |
 | `get_item_info` | Default profile | Single operation | Get detailed type info about a project item (is it a sequence, multicam, merged clip, etc.) |
 | `get_keyframes` | Default profile | Single operation | Get all keyframes for a specific effect property on a clip |
 | `get_linked_items` | Default profile | Single operation | Get all clips in the sequence that are linked to the same source as a given clip |
-| `get_metadata` | Default profile | Single operation | Get metadata for a project item |
+| `get_metadata` | Default profile | Single operation | Get metadata for a project item. Disable either XML payload when a bounded identity/path response is sufficient. |
 | `get_mogrt_component` | Default profile | Single operation | Get MOGRT (Motion Graphics Template) component parameters from a clip |
 | `get_next_edit_point` | Default profile | `direction`: `next`, `previous`; `track_type`: `video`, `audio`, `both` | Find the next or previous edit point (clip boundary) from the playhead position. |
 | `get_offline_media` | Default profile | Single operation | Find all offline/missing media in the project with their expected file paths. Essential for diagnosing broken links. |

@@ -85,18 +85,74 @@ export function getHealthTools(
       },
     },
     get_capabilities: {
-      description: "Report Windows/macOS support, Premiere Pro backend coverage, enabled authority, and whether live host verification is still required.",
-      parameters: {},
-      handler: async () => ({
-        success: true,
-        data: buildPlatformCapabilityReport(
+      description: "Report Windows/macOS support, Premiere Pro backend coverage, enabled authority, and whether live host verification is still required. Use tool_names or tool_offset/tool_limit to return a bounded tool catalog.",
+      parameters: {
+        type: "object" as const,
+        additionalProperties: false,
+        properties: {
+          tool_names: {
+            type: "array",
+            items: { type: "string", minLength: 1, maxLength: 256 },
+            minItems: 1,
+            maxItems: 128,
+            uniqueItems: true,
+            description: "Optional exact tool-name allowlist. Returns only those catalog entries while retaining the overall capability summary.",
+          },
+          tool_offset: {
+            type: "integer",
+            minimum: 0,
+            description: "Zero-based offset into the filtered tool catalog. Pair with tool_limit for an explicitly sized page.",
+          },
+          tool_limit: {
+            type: "integer",
+            minimum: 1,
+            maximum: 128,
+            description: "Maximum tool catalog entries to return. Omit with tool_offset to preserve the complete legacy response.",
+          },
+        },
+      },
+      handler: async (args: { tool_names?: string[]; tool_offset?: number; tool_limit?: number } = {}) => {
+        const report = buildPlatformCapabilityReport(
           capabilities,
           process.platform,
           getTempDir(bridgeOptions),
           getToolCatalog(),
           buildToolPackReport(options.toolPacks ?? resolveToolPacks()),
-        ),
-      }),
+        );
+        const names = Array.isArray(args.tool_names) ? new Set(args.tool_names) : undefined;
+        const matchingTools = names
+          ? report.tools.tools.filter((tool) => names.has(tool.name))
+          : report.tools.tools;
+        const offset = Number.isInteger(args.tool_offset) && (args.tool_offset as number) >= 0 ? args.tool_offset as number : 0;
+        const hasExplicitPage = args.tool_limit !== undefined || args.tool_offset !== undefined;
+        const limit = Number.isInteger(args.tool_limit) && (args.tool_limit as number) > 0
+          ? Math.min(args.tool_limit as number, 128)
+          : matchingTools.length;
+        const page = hasExplicitPage ? matchingTools.slice(offset, offset + limit) : matchingTools;
+
+        return {
+          success: true,
+          data: {
+            ...report,
+            tools: {
+              ...report.tools,
+              tools: page,
+              ...(names || hasExplicitPage
+                ? {
+                    pagination: {
+                      offset,
+                      limit,
+                      returned: page.length,
+                      totalMatching: matchingTools.length,
+                      hasMore: offset + page.length < matchingTools.length,
+                      nextOffset: offset + page.length < matchingTools.length ? offset + page.length : null,
+                    },
+                  }
+                : {}),
+            },
+          },
+        };
+      },
     },
     ping: {
       description: "Health check — verify the CEP plugin is running and connected to Premiere Pro. Call this before other tools to confirm connectivity.",

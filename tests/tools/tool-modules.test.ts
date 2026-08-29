@@ -405,6 +405,74 @@ describe("Tool Handler Behavior", () => {
     });
   });
 
+  describe("bounded read tools", () => {
+    it("returns a filtered, paged get_capabilities catalog without changing the capability summary", async () => {
+      const tools = getHealthTools(
+        bridgeOptions,
+        undefined,
+        () => ({
+          ping: { description: "Ping." },
+          get_capabilities: { description: "Capabilities." },
+          ripple_delete: { description: "Ripple delete. Uses QE DOM." },
+        }),
+      );
+      const result = await tools.get_capabilities.handler({ tool_names: ["ripple_delete", "missing"], tool_limit: 1 });
+
+      expect(result.success).toBe(true);
+      expect(result.data.tools.tools).toEqual([expect.objectContaining({ name: "ripple_delete" })]);
+      expect(result.data.tools.pagination).toEqual({
+        offset: 0,
+        limit: 1,
+        returned: 1,
+        totalMatching: 1,
+        hasMore: false,
+        nextOffset: null,
+      });
+      expect(result.data.backends.cep.status).toBe("production");
+    });
+
+    it("omits requested metadata XML payloads before invoking the CEP bridge", async () => {
+      const tools = getMetadataTools(bridgeOptions);
+      await tools.get_metadata.handler({
+        item_id: "source-1",
+        include_project_metadata: false,
+        include_xmp_metadata: false,
+      });
+
+      const script = mockedSendCommand.mock.calls[0][0];
+      expect(script).not.toContain("item.getProjectMetadata()");
+      expect(script).not.toContain("item.getXMPMetadata()");
+      expect(script).toContain("metadata.nodeId = item.nodeId");
+    });
+
+    it("generates bounded overview and bin read scripts", async () => {
+      const tools = getInspectionTools(bridgeOptions);
+      await tools.get_full_project_overview.handler({
+        include_bin_tree: false,
+        sequence_offset: 5,
+        sequence_limit: 10,
+      });
+      const overview = mockedSendCommand.mock.calls[0][0];
+      expect(overview).toContain("var binTree = null");
+      expect(overview).toContain("var sequenceOffset = 5");
+      expect(overview).toContain("var sequenceLimit = 10");
+      expect(overview).toContain("sequencePagination");
+
+      vi.clearAllMocks();
+      await tools.get_bin_contents.handler({
+        bin_id: "Footage",
+        recursive: false,
+        offset: 10,
+        limit: 25,
+        max_depth: 0,
+      });
+      const bin = mockedSendCommand.mock.calls[0][0];
+      expect(bin).toContain("var allContents = walkItems(target, false, 0)");
+      expect(bin).toContain("allContents.slice(offset, offset + limit)");
+      expect(bin).toContain("totalDirectItems");
+    });
+  });
+
   describe("workspace tools", () => {
     it("get_workspaces generates correct script", async () => {
       const tools = getWorkspaceTools(bridgeOptions);

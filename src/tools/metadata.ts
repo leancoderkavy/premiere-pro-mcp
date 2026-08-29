@@ -4,7 +4,7 @@ import { sendCommand, BridgeOptions } from "../bridge/file-bridge.js";
 export function getMetadataTools(bridgeOptions: BridgeOptions) {
   return {
     get_metadata: {
-      description: "Get metadata for a project item",
+      description: "Get metadata for a project item. Disable either XML payload when a bounded identity/path response is sufficient.",
       parameters: {
         type: "object" as const,
         properties: {
@@ -12,24 +12,34 @@ export function getMetadataTools(bridgeOptions: BridgeOptions) {
             type: "string",
             description: "Node ID or name of the project item",
           },
+          include_project_metadata: {
+            type: "boolean",
+            description: "Include the potentially large Project Metadata XML payload (default: true). Set false for a bounded identity/path response.",
+          },
+          include_xmp_metadata: {
+            type: "boolean",
+            description: "Include the potentially large XMP XML payload (default: true). Set false for a bounded identity/path response.",
+          },
         },
         required: ["item_id"],
       },
-      handler: async (args: { item_id: string }) => {
+      handler: async (args: { item_id: string; include_project_metadata?: boolean; include_xmp_metadata?: boolean }) => {
+        const includeProjectMetadata = args.include_project_metadata !== false;
+        const includeXmpMetadata = args.include_xmp_metadata !== false;
         const script = buildToolScript(`
           var item = __findProjectItem("${escapeForExtendScript(args.item_id)}");
           if (!item) return __error("Item not found");
           
           var metadata = {};
-          try {
+          ${includeProjectMetadata ? `try {
             var xmpBlob = item.getProjectMetadata();
             metadata.projectMetadata = xmpBlob;
-          } catch(e) {}
+          } catch(e) {}` : ""}
           
-          try {
+          ${includeXmpMetadata ? `try {
             var xmpBlob2 = item.getXMPMetadata();
             metadata.xmpMetadata = xmpBlob2;
-          } catch(e) {}
+          } catch(e) {}` : ""}
           
           metadata.name = item.name;
           metadata.nodeId = item.nodeId;
