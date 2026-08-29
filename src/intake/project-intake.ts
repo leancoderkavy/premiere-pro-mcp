@@ -7,6 +7,11 @@ export const MAX_PROJECT_INTAKE_RULES = 64;
 // A clip can produce six independent findings (extension, frame rate, offline,
 // proxy, path, and ambiguous organization), plus bounded project-level findings.
 export const MAX_PROJECT_INTAKE_FINDINGS = 12_200;
+// Premiere's footage interpretation can expose a measured decimal that drifts
+// slightly from the source timebase. Keep canonical rates distinct, then allow
+// a bounded tolerance for non-canonical host readings.
+export const FRAME_RATE_CANONICAL_SNAP_TOLERANCE_FPS = 0.005;
+export const FRAME_RATE_MATCH_TOLERANCE_FPS = 0.05;
 
 export type IntakeCertainty = "observed" | "unavailable" | "not_checked";
 export type IntakeSeverity = "error" | "warning" | "info";
@@ -57,6 +62,8 @@ export interface ProjectIntakeItem {
   offline?: boolean;
   hasProxy?: boolean;
   frameRate?: number;
+  /** Derived during snapshot validation; never accepted as caller authority. */
+  frameRateUnsupported?: true;
 }
 
 export interface ProjectIntakeSnapshot {
@@ -256,6 +263,26 @@ function isRequired(template: FacilityIntakeTemplate, evidence: "extension" | "f
     || (evidence === "path" && template.approvedPathPrefixes.length > 0);
 }
 
+const CANONICAL_FRAME_RATES = [
+  23.976, 24, 25, 29.97, 30, 47.952, 48, 50, 59.94, 60, 100, 119.88, 120,
+];
+
+function canonicalFrameRate(value: number): number | undefined {
+  return CANONICAL_FRAME_RATES.find((rate) =>
+    Math.abs(rate - value) <= FRAME_RATE_CANONICAL_SNAP_TOLERANCE_FPS);
+}
+
+function frameRateMatches(observed: number, allowed: number): boolean {
+  const observedCanonical = canonicalFrameRate(observed);
+  const allowedCanonical = canonicalFrameRate(allowed);
+  if (observedCanonical !== undefined || allowedCanonical !== undefined) {
+    if (observedCanonical !== undefined && allowedCanonical !== undefined) {
+      return observedCanonical === allowedCanonical;
+    }
+  }
+  return Math.abs(allowed - observed) <= FRAME_RATE_MATCH_TOLERANCE_FPS;
+}
+
 function findingSort(left: ProjectIntakeFinding, right: ProjectIntakeFinding): number {
   const severity = { error: 0, warning: 1, info: 2 } as const;
   return severity[left.severity] - severity[right.severity]
@@ -370,9 +397,8 @@ export function validateProjectIntakeSnapshot(value: unknown): ProjectIntakeSnap
     if (typeof item.type !== "string" || !ITEM_TYPES.has(item.type)) {
       throw new Error(`snapshot.items[${index}].type must be clip, bin, sequence, or other`);
     }
-    if (item.frameRate !== undefined && (typeof item.frameRate !== "number" || !Number.isFinite(item.frameRate) || item.frameRate < 1 || item.frameRate > 240)) {
-      throw new Error(`snapshot.items[${index}].frameRate must be a finite frame rate from 1 through 240`);
-    }
+    const frameRateSupported = item.frameRate === undefined
+      || (typeof item.frameRate === "number" && Number.isFinite(item.frameRate) && item.frameRate >= 1 && item.frameRate <= 240);
     return {
       id: requiredText(item.id, `snapshot.items[${index}].id`, 512),
       name: requiredText(item.name, `snapshot.items[${index}].name`, 255),
@@ -382,7 +408,9 @@ export function validateProjectIntakeSnapshot(value: unknown): ProjectIntakeSnap
       ...(optionalText(item.mediaPath, `snapshot.items[${index}].mediaPath`, 4096) ? { mediaPath: optionalText(item.mediaPath, `snapshot.items[${index}].mediaPath`, 4096) } : {}),
       ...(optionalBoolean(item.offline, `snapshot.items[${index}].offline`) === undefined ? {} : { offline: optionalBoolean(item.offline, `snapshot.items[${index}].offline`) }),
       ...(optionalBoolean(item.hasProxy, `snapshot.items[${index}].hasProxy`) === undefined ? {} : { hasProxy: optionalBoolean(item.hasProxy, `snapshot.items[${index}].hasProxy`) }),
-      ...(item.frameRate === undefined ? {} : { frameRate: Number((item.frameRate as number).toFixed(6)) }),
+      ...(item.frameRate === undefined || !frameRateSupported
+        ? (frameRateSupported ? {} : { frameRateUnsupported: true as const })
+        : { frameRate: Number((item.frameRate as number).toFixed(6)) }),
     };
   });
   if (new Set(items.map((item) => item.id)).size !== items.length) throw new Error("snapshot.items contains duplicate ids");
@@ -514,7 +542,16 @@ export function buildProjectIntakeReport(
     }
 
     if (template.allowedFrameRates.length || isRequired(template, "frame_rate")) {
-      if (item.frameRate === undefined) {
+      if (item.frameRateUnsupported === true) {
+        requiredUnavailable.add("frame_rate");
+        pushFinding(findings, {
+          code: "FRAME_RATE_UNSUPPORTED",
+          severity: "error",
+          certainty: "unavailable",
+          itemId: item.id,
+          expected: { allowedFrameRates: template.allowedFrameRates },
+        });
+      } else if (item.frameRate === undefined) {
         requiredUnavailable.add("frame_rate");
         pushFinding(findings, {
           code: "FRAME_RATE_UNAVAILABLE",
@@ -523,7 +560,7 @@ export function buildProjectIntakeReport(
           itemId: item.id,
           expected: { allowedFrameRates: template.allowedFrameRates },
         });
-      } else if (!template.allowedFrameRates.some((rate) => Math.abs(rate - item.frameRate!) <= 0.000001)) {
+      } else if (!template.allowedFrameRates.some((rate) => frameRateMatches(item.frameRate!, rate))) {
         pushFinding(findings, {
           code: "FRAME_RATE_NOT_ALLOWED",
           severity: "error",

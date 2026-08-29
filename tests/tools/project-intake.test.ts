@@ -43,6 +43,32 @@ describe("preview_project_intake tool", () => {
     expect(JSON.stringify(result)).not.toContain("D:/Secret");
   });
 
+  it("does not abort the preview when one host item has malformed frame-rate evidence", async () => {
+    const captureSnapshot = vi.fn(async () => ({
+      success: true,
+      data: {
+        project: { id: "project-1", name: "Feature" },
+        items: [{ id: "clip-1", name: "A001.mov", type: "clip", frameRate: null }],
+        truncated: false,
+        unavailableEvidence: [],
+      },
+    }));
+    const tools = getProjectIntakeTools({}, { captureSnapshot });
+    const result = await tools.preview_project_intake.handler({
+      template: { ...template, allowedFrameRates: [29.97], requiredEvidence: ["frame_rate"] },
+    });
+
+    expect(result).toMatchObject({
+      success: true,
+      data: {
+        status: "incomplete",
+        findings: expect.arrayContaining([
+          expect.objectContaining({ code: "FRAME_RATE_UNSUPPORTED", itemId: "clip-1" }),
+        ]),
+      },
+    });
+  });
+
   it("propagates bridge failures and rejects invalid bounds before capture", async () => {
     const captureSnapshot = vi.fn(async () => ({ success: false, error: "No project is open" }));
     const tools = getProjectIntakeTools({}, { captureSnapshot });

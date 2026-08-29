@@ -62,6 +62,13 @@ The workflow MUST begin read-only. A template check whose required host field is
 not exposed by the selected capability MUST report `unsupported` or
 `not_inspected`; it MUST NOT be inferred as a pass.
 
+Frame-rate evidence follows the same fail-closed rule. A non-finite or out-of-range
+host value becomes an item-level `FRAME_RATE_UNSUPPORTED` finding and makes the
+report incomplete; it does not abort inspection of unrelated items. Valid decimal
+readings are matched after snapping values within 0.005 fps of a canonical timebase,
+then using a maximum 0.05 fps tolerance for non-canonical Premiere measurements.
+Canonical rates such as 23.976 and 24 remain distinct.
+
 ### Non-goals
 
 Project Intake v0.1 MUST NOT:
