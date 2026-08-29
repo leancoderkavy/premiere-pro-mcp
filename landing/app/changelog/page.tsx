@@ -5,6 +5,32 @@ import { product } from "@/lib/product"
 
 const releases = [
   {
+    version: "1.14.2",
+    date: "2026-08-28",
+    label: "Verified host contracts and safer mutation outcomes",
+    groups: [
+      {
+        title: "Fixed",
+        items: [
+          "Corrected MCP schema compatibility, CEP argument contracts, sequence timing units, Media Encoder paths, metadata readback, XMP patch merging, and UXP frame filenames.",
+          "Host mutations now report verified outcomes or explicit fail-closed errors instead of claiming success without observable evidence.",
+        ],
+      },
+      {
+        title: "Added",
+        items: [
+          "Added bounded UXP selection lift and native transition adapters while leaving unavailable track-management and global-redo capabilities explicit.",
+        ],
+      },
+      {
+        title: "Safety",
+        items: [
+          "Automated and contract tests do not replace persistence checks in a licensed Premiere Pro host.",
+        ],
+      },
+    ],
+  },
+  {
     version: "1.14.1",
     date: "2026-08-27",
     label: "Reliable npm package verification",
