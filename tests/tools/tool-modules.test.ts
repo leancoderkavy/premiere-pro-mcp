@@ -590,14 +590,20 @@ describe("Tool Handler Behavior", () => {
        expect(script).toContain('"0" + paddedSequenceNumber');
      });
 
-    it("converts audio dB to amplitude and verifies the readback", async () => {
+    it("converts audio dB from Premiere's +15 dB normalized level and verifies the readback", async () => {
       const tools = getAudioTools(bridgeOptions);
       await (tools.adjust_audio_levels.handler as any)({ node_id: "clip-1", level_db: -6 });
       const script = mockedSendCommand.mock.calls[0][0];
-      expect(script).toContain("requestedAmplitude");
+      expect(script).toContain("requestedLevel");
       expect(script).toContain("levelProp.getValue()");
       expect(script).toContain("Premiere did not apply the requested audio level");
-      expect(script).toContain("0.501187");
+      expect(script).toContain("0.089125");
+      expect(script).toContain("appliedDb");
+
+      vi.clearAllMocks();
+      await expect((tools.adjust_audio_levels.handler as any)({ node_id: "clip-1", level_db: 16 }))
+        .resolves.toMatchObject({ success: false, error: expect.stringContaining("+15 dB") });
+      expect(mockedSendCommand).not.toHaveBeenCalled();
     });
 
     it("uses Time objects and verifies audio keyframe values", async () => {
