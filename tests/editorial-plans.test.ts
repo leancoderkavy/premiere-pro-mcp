@@ -446,6 +446,41 @@ describe("editorial workflow plans", () => {
     ]);
   });
 
+  it("accepts an unchanged editorial plan after an MCP JSON round trip", async () => {
+    const document = await context();
+    const repository = new ProjectContextRepository({ backend: "memory" });
+    await repository.put(document);
+    const request = vi.fn()
+      .mockResolvedValueOnce(verifiedUxpReadback("bin_child_id_readback", { created: true, item: { id: "bin-interviews" } }))
+      .mockResolvedValueOnce(verifiedUxpReadback("project_item_parent_readback", {
+        moved: true,
+        destinationBinId: "bin-interviews",
+        after: { parentId: "bin-interviews" },
+      }));
+    const tools = getEditorialPlanTools({ repository, uxpBridge: { request } as unknown as UxpWebSocketBridge }) as any;
+    const { plan, confirmationToken } = await createAndPreviewOrganizationPlan(
+      tools,
+      document,
+      [{ name: "Interviews", keywords: ["interview"] }],
+    );
+    const roundTrippedPlan = JSON.parse(JSON.stringify(plan));
+    const source = roundTrippedPlan.candidates.find((candidate: any) => candidate.kind === "source")!;
+
+    await expect(tools.apply_editorial_organization_plan.handler({
+      plan: roundTrippedPlan,
+      confirmation_token: confirmationToken,
+      operation_id: "organize-json-roundtrip",
+      organization_operations: [{
+        recommendation_id: "organization-1",
+        source_guards: [{ evidence_id: source.evidenceId, project_item_id: "source-1", expected_parent_id: "root-bin" }],
+      }],
+    })).resolves.toMatchObject({
+      success: true,
+      data: { applied: true, outcome: "verified", verified: true },
+    });
+    expect(request).toHaveBeenCalledTimes(2);
+  });
+
   it("fails closed before UXP mutation for stale, unconfirmed, or unplanned organization input", async () => {
     const document = await context();
     const repository = new ProjectContextRepository({ backend: "memory" });
