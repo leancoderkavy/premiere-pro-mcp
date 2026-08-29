@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [1.14.2] - 2026-08-28
+
 ### Added
 
 - Added dual-era MCP serving with the stable TypeScript SDK v2: modern
@@ -22,6 +24,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Migrated tool, resource, prompt, client, stdio, and Node HTTP integrations
   from `@modelcontextprotocol/sdk` v1 to the split v2 packages and Standard
   Schema registration APIs.
+
+### Fixed
+
+- Restored strict JSON Schema 2020-12 tool compatibility and corrected legacy
+  CEP argument contracts, Premiere Time units, Adobe Media Encoder output
+  paths, active-sequence verification, metadata readback, XMP patch merging,
+  and single-extension UXP frame exports.
+- Replaced false-success responses for structural edits, duplicate
+  consolidation, effect copying, nesting, deletion, and other host mutations
+  with verified outcomes or explicit fail-closed errors.
+- Added bounded UXP selection lift and native transition adapters while keeping
+  unavailable track-management and global-redo capabilities explicit.
 
 ### Safety
 

@@ -2,7 +2,7 @@
   "$schema": "https://json.schemastore.org/claude-code-plugin-manifest.json",
   "name": "premiere-pro",
   "displayName": "Premiere Pro MCP",
-  "version": "1.14.1",
+  "version": "1.14.2",
   "description": "Inspect, edit, verify, and export local Adobe Premiere Pro projects through MCP.",
   "author": {
     "name": "Premiere Pro MCP contributors",

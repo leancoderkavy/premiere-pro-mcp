@@ -3,7 +3,7 @@
   "manifest_version": "0.4",
   "name": "premiere-pro-mcp",
   "display_name": "MCP for Adobe Premiere Pro",
-  "version": "1.14.1",
+  "version": "1.14.2",
   "description": "Control a local Adobe Premiere Pro project through MCP.",
   "long_description": "Inspect projects, assemble and modify timelines, manage media, effects, audio and captions, and export deliverables through a local bridge to Adobe Premiere Pro.",
   "author": {
