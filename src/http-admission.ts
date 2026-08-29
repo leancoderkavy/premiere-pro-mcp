@@ -1,10 +1,19 @@
-import { createHash, timingSafeEqual } from "node:crypto";
+import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 import type http from "node:http";
 
 export const MCP_HTTP_METHODS = ["GET", "POST", "DELETE"] as const;
 
 export interface HttpAuthConfiguration {
+  mode: "shared-token" | "oauth" | "unauthenticated";
   authToken?: string;
+  oauth?: {
+    issuer: string;
+    audience: string;
+    publicUrl: string;
+    jwksUri: string;
+    requiredScopes: string[];
+    allowedSubjects: string[];
+  };
   allowUnauthenticated: boolean;
 }
 
@@ -31,6 +40,7 @@ export type AdmissionDecision =
   | { accepted: false; reason: "rate_limited" | "at_capacity"; statusCode: 429 | 503; retryAfterSeconds: number };
 
 const ONE_MINUTE_MS = 60_000;
+const RATE_LIMIT_IDENTITY_KEY = randomBytes(32);
 
 function readBoundedInteger(
   env: NodeJS.ProcessEnv,
@@ -80,16 +90,100 @@ export function readHttpAdmissionSettings(env: NodeJS.ProcessEnv): HttpAdmission
  */
 export function readHttpAuthConfiguration(env: NodeJS.ProcessEnv): HttpAuthConfiguration {
   const authToken = env.MCP_AUTH_TOKEN?.trim();
-  if (authToken) return { authToken, allowUnauthenticated: false };
+  const oauthIssuer = env.MCP_OAUTH_ISSUER?.trim();
+  const oauthAudience = env.MCP_OAUTH_AUDIENCE?.trim();
+  const publicUrl = env.MCP_PUBLIC_URL?.trim();
+  const oauthJwksUri = env.MCP_OAUTH_JWKS_URI?.trim();
+  const oauthRequiredScopes = env.MCP_OAUTH_REQUIRED_SCOPES?.trim();
+  const oauthAllowedSubjects = env.MCP_OAUTH_ALLOWED_SUBJECTS?.trim();
+  const hasOAuthIntent = Boolean(
+    oauthIssuer || oauthAudience || publicUrl || oauthJwksUri || oauthRequiredScopes || oauthAllowedSubjects,
+  );
+
+  if (authToken && hasOAuthIntent) {
+    throw new Error("Configure either MCP_AUTH_TOKEN or MCP_OAUTH_ISSUER, not both.");
+  }
+
+  if (hasOAuthIntent) {
+    if (!oauthIssuer || !oauthAudience || !publicUrl || !oauthJwksUri || !oauthAllowedSubjects) {
+      throw new Error(
+        "MCP_OAUTH_ISSUER, MCP_OAUTH_AUDIENCE, MCP_OAUTH_JWKS_URI, MCP_PUBLIC_URL, and " +
+        "MCP_OAUTH_ALLOWED_SUBJECTS are all required for OAuth.",
+      );
+    }
+    const issuer = parseSecureUrl(oauthIssuer, "MCP_OAUTH_ISSUER", env.NODE_ENV);
+    const audience = parseSecureUrl(oauthAudience, "MCP_OAUTH_AUDIENCE", env.NODE_ENV);
+    const canonicalPublicUrl = parseSecureUrl(publicUrl, "MCP_PUBLIC_URL", env.NODE_ENV);
+    const jwksUri = parseSecureUrl(oauthJwksUri, "MCP_OAUTH_JWKS_URI", env.NODE_ENV);
+    if (issuer.search) {
+      throw new Error("MCP_OAUTH_ISSUER must not contain a query.");
+    }
+    if (canonicalPublicUrl.pathname !== "/" || canonicalPublicUrl.search || canonicalPublicUrl.hash) {
+      throw new Error("MCP_PUBLIC_URL must be an origin without a path, query, or fragment.");
+    }
+    if (audience.href !== `${canonicalPublicUrl.origin}/mcp`) {
+      throw new Error("MCP_OAUTH_AUDIENCE must exactly equal MCP_PUBLIC_URL plus /mcp.");
+    }
+    const requiredScopes = (oauthRequiredScopes ?? "premiere:mcp")
+      .split(/[ ,]+/)
+      .map((scope) => scope.trim())
+      .filter(Boolean);
+    if (requiredScopes.length === 0 || requiredScopes.some((scope) => !/^[\x21\x23-\x5B\x5D-\x7E]+$/.test(scope))) {
+      throw new Error("MCP_OAUTH_REQUIRED_SCOPES must contain one or more valid OAuth scope values.");
+    }
+    const allowedSubjects = oauthAllowedSubjects
+      .split(",")
+      .map((subject) => subject.trim())
+      .filter(Boolean);
+    if (
+      allowedSubjects.length === 0 ||
+      allowedSubjects.some((subject) => subject.length > 255 || /[\u0000-\u001F\u007F]/.test(subject))
+    ) {
+      throw new Error("MCP_OAUTH_ALLOWED_SUBJECTS must contain valid comma-separated token subjects.");
+    }
+    return {
+      mode: "oauth",
+      oauth: {
+        issuer: issuer.pathname === "/" && !issuer.search ? issuer.origin : issuer.href,
+        audience: audience.href,
+        publicUrl: canonicalPublicUrl.origin,
+        jwksUri: jwksUri.href,
+        requiredScopes: [...new Set(requiredScopes)],
+        allowedSubjects: [...new Set(allowedSubjects)],
+      },
+      allowUnauthenticated: false,
+    };
+  }
+
+  if (authToken) return { mode: "shared-token", authToken, allowUnauthenticated: false };
 
   if (env.ALLOW_UNAUTHENTICATED === "1" && env.NODE_ENV !== "production") {
-    return { allowUnauthenticated: true };
+    return { mode: "unauthenticated", allowUnauthenticated: true };
   }
 
   throw new Error(
     "MCP_AUTH_TOKEN is required for the HTTP transport. " +
     "ALLOW_UNAUTHENTICATED=1 is permitted only outside NODE_ENV=production.",
   );
+}
+
+function parseSecureUrl(raw: string, name: string, nodeEnv: string | undefined): URL {
+  let parsed: URL;
+  try {
+    parsed = new URL(raw);
+  } catch {
+    throw new Error(`${name} must be an absolute URL.`);
+  }
+  const localDevelopment = nodeEnv !== "production" &&
+    parsed.protocol === "http:" &&
+    (parsed.hostname === "localhost" || parsed.hostname === "127.0.0.1" || parsed.hostname === "[::1]");
+  if (parsed.protocol !== "https:" && !localDevelopment) {
+    throw new Error(`${name} must use HTTPS (HTTP is allowed only for loopback development).`);
+  }
+  if (parsed.username || parsed.password || parsed.hash) {
+    throw new Error(`${name} must not contain credentials or a fragment.`);
+  }
+  return parsed;
 }
 
 export function getRequestPathname(rawUrl: string | undefined): string | undefined {
@@ -192,7 +286,10 @@ function timingSafeBufferEqual(left: Buffer, right: Buffer): boolean {
 }
 
 function hashedIdentity(value: string): string {
-  return createHash("sha256").update(value).digest("hex").slice(0, 32);
+  // A process-local keyed digest prevents network addresses from being
+  // recovered through an offline dictionary attack if a bucket key
+  // is ever observed. The key and derived identities are never persisted.
+  return createHmac("sha256", RATE_LIMIT_IDENTITY_KEY).update(value).digest("hex").slice(0, 32);
 }
 
 /**
@@ -202,11 +299,8 @@ function hashedIdentity(value: string): string {
  */
 export function rateLimitIdentity(
   req: Pick<http.IncomingMessage, "headers" | "socket">,
-  authorizedCredential: string | undefined,
   trustProxy: boolean,
 ): string {
-  if (authorizedCredential) return `credential:${hashedIdentity(authorizedCredential)}`;
-
   const forwarded = req.headers["x-forwarded-for"];
   const forwardedValue = Array.isArray(forwarded) ? forwarded[0] : forwarded;
   const remoteAddress = trustProxy && forwardedValue

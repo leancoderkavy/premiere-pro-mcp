@@ -808,20 +808,27 @@ feature coverage, playback, rendering, or editorial correctness.
 
 The server includes an HTTP/SSE transport (`src/http-server.ts`) for remote access via [mcp-remote](https://github.com/geelen/mcp-remote) or any MCP client that supports Streamable HTTP.
 
-A live instance is running at **https://premiere-pro-mcp.fly.dev**.
+A live operator-managed instance is running at **https://premiere-pro-mcp.fly.dev**.
+It is not a public desktop relay: it cannot connect an authenticated user to
+Premiere on that user's computer. Public users should use the local stdio setup
+until the separate device-pairing relay is available.
 
-### Connect via mcp-remote
+### Connect to an operator-managed instance
 
 ```json
 {
   "mcpServers": {
     "premiere-pro": {
       "command": "npx",
-      "args": ["mcp-remote", "https://premiere-pro-mcp.fly.dev/mcp"]
+      "args": ["mcp-remote", "https://your-authorized-instance.example/mcp"]
     }
   }
 }
 ```
+
+The instance must either provision an operator bearer token or use the OAuth
+resource-server configuration below. The production endpoint intentionally
+returns `401` to callers who have not been authorized.
 
 ### Self-host on Fly.io
 
@@ -849,6 +856,39 @@ Then connect with:
 }
 ```
 
+### Trusted-operator OAuth resource-server mode
+
+For an identity-aware operator deployment, configure a real OAuth/OIDC authorization
+server rather than distributing `MCP_AUTH_TOKEN`. The authorization server must
+support the MCP client's registration model and issue signed access tokens with
+an exact audience for this MCP resource.
+
+```bash
+fly secrets set \
+  MCP_OAUTH_ISSUER=https://identity.example.com \
+  MCP_OAUTH_JWKS_URI=https://identity.example.com/.well-known/jwks.json \
+  MCP_OAUTH_AUDIENCE=https://your-app-name.fly.dev/mcp \
+  MCP_PUBLIC_URL=https://your-app-name.fly.dev \
+  MCP_OAUTH_REQUIRED_SCOPES=premiere:mcp \
+  MCP_OAUTH_ALLOWED_SUBJECTS=your-provider-user-subject
+```
+
+OAuth mode validates the token signature, algorithm, issuer, exact audience,
+expiry, issued-at time, subject, and required scopes. It publishes protected
+resource metadata at `/.well-known/oauth-protected-resource/mcp` and includes
+that URL in the `WWW-Authenticate` challenge. Configuration is fail-closed:
+partial OAuth settings, non-HTTPS production URLs, ambiguous OAuth/shared-token
+settings, and missing credentials all prevent startup.
+
+`MCP_OAUTH_ALLOWED_SUBJECTS` is mandatory and restricts this single-bridge
+deployment to explicitly trusted operator identities. This is an enforcement
+boundary, not a public-user device model.
+
+This mode authenticates trusted operators but does **not** yet implement device ownership,
+desktop pairing, or per-user Premiere routing. Do not expose editor mutations as
+a public multi-user service until an outbound desktop relay and durable
+user/device authorization are implemented.
+
 > **Note:** The file bridge still requires the CEP plugin to share the same `PREMIERE_TEMP_DIR`. For cloud deployments this means running a sync agent or using `fly proxy` / WireGuard to reach your local machine.
 > `detect_silence` can analyze only media paths available inside the server filesystem; a desktop-only path is not automatically available to a remote Fly machine.
 > For a shared or multi-user remote deployment, put a managed identity-aware edge in front of the server and replace the shared bearer secret with per-user authorization. The built-in limiter is intentionally process-local defense in depth, not a substitute for an edge/WAF or account system.
@@ -867,7 +907,13 @@ Then connect with:
 | `PREMIERE_CONTEXT_BACKEND` | Local project-context store: `auto`, `sqlite`, `json`, or `memory` | `auto` |
 | `PREMIERE_CONTEXT_DIR` | Override the local project-context storage directory | OS application-data directory |
 | `PORT` | HTTP port (HTTP/SSE transport only) | `3000` |
-| `MCP_AUTH_TOKEN` | Bearer token required by the HTTP transport | unset |
+| `MCP_AUTH_TOKEN` | Operator bearer token for controlled HTTP deployments; mutually exclusive with OAuth mode | unset |
+| `MCP_OAUTH_ISSUER` | Exact trusted OAuth/OIDC token issuer URL | unset |
+| `MCP_OAUTH_JWKS_URI` | HTTPS JWKS URL used to verify access-token signatures | unset |
+| `MCP_OAUTH_AUDIENCE` | Exact MCP resource audience, normally the public `/mcp` URL | unset |
+| `MCP_PUBLIC_URL` | Canonical HTTPS origin used in protected-resource discovery | unset |
+| `MCP_OAUTH_REQUIRED_SCOPES` | Space- or comma-separated scopes required for `/mcp` | `premiere:mcp` |
+| `MCP_OAUTH_ALLOWED_SUBJECTS` | Mandatory comma-separated token-subject allowlist for the single operator bridge | unset |
 | `ALLOW_UNAUTHENTICATED` | Set to `1` only for local/test HTTP harnesses; it is rejected when `NODE_ENV=production` | unset |
 | `MCP_MAX_REQUEST_BYTES` | Maximum HTTP MCP request body size | `1048576` |
 | `MCP_HEADERS_TIMEOUT_MS` | Maximum time to receive request headers | `10000` |
