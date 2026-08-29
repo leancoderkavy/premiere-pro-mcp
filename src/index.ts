@@ -27,6 +27,14 @@ function debugLog(message: string): void {
   }
 }
 
+function isLoopbackPortInUse(error: unknown): boolean {
+  return Boolean(
+    error
+    && typeof error === "object"
+    && (error as NodeJS.ErrnoException).code === "EADDRINUSE",
+  );
+}
+
 // Handle CLI flags
 const args = process.argv.slice(2);
 
@@ -164,15 +172,23 @@ async function main() {
 
   let uxpBridge: UxpWebSocketBridge | undefined;
   if (process.env.PREMIERE_UXP_TOKEN) {
-    uxpBridge = new UxpWebSocketBridge({
+    const bridge = new UxpWebSocketBridge({
       token: process.env.PREMIERE_UXP_TOKEN,
       port: process.env.PREMIERE_UXP_PORT
         ? parseInt(process.env.PREMIERE_UXP_PORT, 10)
         : undefined,
     });
-    await uxpBridge.start();
-    const address = uxpBridge.address();
-    debugLog(`UXP bridge listening on ws://${address.host}:${address.port}${address.path}`);
+    try {
+      await bridge.start();
+      uxpBridge = bridge;
+      const address = bridge.address();
+      debugLog(`UXP bridge listening on ws://${address.host}:${address.port}${address.path}`);
+    } catch (error) {
+      if (!isLoopbackPortInUse(error)) throw error;
+      console.error(
+        "[premiere-pro-mcp] UXP bridge unavailable because its loopback port is already in use; continuing with CEP-only tools.",
+      );
+    }
   }
 
   const serverHandle = serveStdio(

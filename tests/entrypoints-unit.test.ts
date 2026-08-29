@@ -230,6 +230,36 @@ describe("stdio CLI entry point", () => {
     expect(error).toHaveBeenCalledWith(expect.stringContaining("UXP bridge listening"));
   });
 
+  it("continues with CEP-only tools when another MCP instance owns the UXP loopback port", async () => {
+    process.argv = [process.execPath, "index.js"];
+    process.env.PREMIERE_UXP_TOKEN = "a-secure-token-with-length";
+    mocks.uxpStart.mockRejectedValueOnce(Object.assign(new Error("address already in use"), { code: "EADDRINUSE" }));
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    await import("../src/index.js");
+
+    await vi.waitFor(() => expect(mocks.serveStdio).toHaveBeenCalledOnce());
+    expect(mocks.connect).toHaveBeenCalledOnce();
+    expect(error).toHaveBeenCalledWith(expect.stringContaining("continuing with CEP-only tools"));
+  });
+
+  it("keeps non-port UXP startup failures fatal", async () => {
+    process.argv = [process.execPath, "index.js"];
+    process.env.PREMIERE_UXP_TOKEN = "a-secure-token-with-length";
+    mocks.uxpStart.mockRejectedValueOnce(Object.assign(new Error("permission denied"), { code: "EACCES" }));
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    const exit = vi.spyOn(process, "exit").mockImplementation((() => undefined) as never);
+
+    await import("../src/index.js");
+
+    await vi.waitFor(() => expect(exit).toHaveBeenCalledWith(1));
+    expect(mocks.serveStdio).not.toHaveBeenCalled();
+    expect(error).toHaveBeenCalledWith(
+      "[premiere-pro-mcp] Fatal error:",
+      expect.objectContaining({ message: "permission denied" }),
+    );
+  });
+
   it("reports a fatal stdio startup failure", async () => {
     process.argv = [process.execPath, "index.js"];
     mocks.serveStdio.mockImplementationOnce(() => { throw new Error("connect failed"); });
