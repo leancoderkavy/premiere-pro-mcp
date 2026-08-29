@@ -30,4 +30,12 @@ describe("npm release package verification", () => {
     expect(publish).toContain("npm run pack:check");
     expect(crossPlatform).toContain("npm run pack:check");
   });
+
+  it("validates the Claude bundle against its declared production dependencies", () => {
+    const validator = read("scripts/validate-distribution.mjs");
+
+    expect(validator).toContain("Object.keys(packageJson.dependencies ?? {})");
+    expect(validator).toContain("node_modules\", dependency, \"package.json");
+    expect(validator).not.toContain('"@modelcontextprotocol", "sdk"');
+  });
 });
