@@ -28,12 +28,49 @@ describe("HTTP admission settings", () => {
 
   it("never permits unauthenticated HTTP in production", () => {
     expect(readHttpAuthConfiguration({ MCP_AUTH_TOKEN: "secret", NODE_ENV: "production" })).toEqual({
-      authToken: "secret", allowUnauthenticated: false,
+      mode: "shared-token", authToken: "secret", allowUnauthenticated: false,
     });
     expect(readHttpAuthConfiguration({ ALLOW_UNAUTHENTICATED: "1", NODE_ENV: "test" })).toEqual({
-      allowUnauthenticated: true,
+      mode: "unauthenticated", allowUnauthenticated: true,
     });
     expect(() => readHttpAuthConfiguration({ ALLOW_UNAUTHENTICATED: "1", NODE_ENV: "production" })).toThrow("MCP_AUTH_TOKEN");
+  });
+
+  it("requires complete HTTPS OAuth configuration and rejects ambiguous auth modes", () => {
+    const oauth = readHttpAuthConfiguration({
+      NODE_ENV: "production",
+      MCP_OAUTH_ISSUER: "https://identity.example.com",
+      MCP_OAUTH_AUDIENCE: "https://premiere.example.com/mcp",
+      MCP_OAUTH_JWKS_URI: "https://identity.example.com/.well-known/jwks.json",
+      MCP_PUBLIC_URL: "https://premiere.example.com",
+      MCP_OAUTH_REQUIRED_SCOPES: "premiere:mcp premiere:read",
+    });
+    expect(oauth).toEqual({
+      mode: "oauth",
+      allowUnauthenticated: false,
+      oauth: {
+        issuer: "https://identity.example.com",
+        audience: "https://premiere.example.com/mcp",
+        jwksUri: "https://identity.example.com/.well-known/jwks.json",
+        publicUrl: "https://premiere.example.com",
+        requiredScopes: ["premiere:mcp", "premiere:read"],
+      },
+    });
+    expect(() => readHttpAuthConfiguration({
+      NODE_ENV: "production", MCP_OAUTH_ISSUER: "https://identity.example.com",
+    })).toThrow("all required");
+    expect(() => readHttpAuthConfiguration({
+      NODE_ENV: "production",
+      MCP_OAUTH_ISSUER: "http://identity.example.com",
+      MCP_OAUTH_AUDIENCE: "https://premiere.example.com/mcp",
+      MCP_OAUTH_JWKS_URI: "https://identity.example.com/jwks.json",
+      MCP_PUBLIC_URL: "https://premiere.example.com",
+    })).toThrow("HTTPS");
+    expect(() => readHttpAuthConfiguration({
+      NODE_ENV: "production",
+      MCP_AUTH_TOKEN: "legacy",
+      MCP_OAUTH_ISSUER: "https://identity.example.com",
+    })).toThrow("either MCP_AUTH_TOKEN or MCP_OAUTH_ISSUER");
   });
 });
 

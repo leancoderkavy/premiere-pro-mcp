@@ -23,6 +23,7 @@ const mocks = vi.hoisted(() => ({
   streamOnce: vi.fn(),
   pipe: vi.fn(),
   readBoundedBody: vi.fn(async () => Buffer.from("{}")),
+  oauthAuthenticate: vi.fn(async () => ({ authenticated: true, principal: { subject: "user-1", scopes: ["premiere:mcp"] } })),
 }));
 
 vi.mock("node:http", () => ({
@@ -69,6 +70,22 @@ vi.mock("../src/http-admission.js", async (original) => {
   const actual = await original<typeof import("../src/http-admission.js")>();
   return { ...actual, readBoundedRequestBody: mocks.readBoundedBody };
 });
+vi.mock("../src/oauth-resource-server.js", () => ({
+  OAuthResourceServer: class {
+    authenticate = mocks.oauthAuthenticate;
+    metadata() {
+      return {
+        resource: "https://premiere.example.com/mcp",
+        authorization_servers: ["https://identity.example.com"],
+        bearer_methods_supported: ["header"],
+        scopes_supported: ["premiere:mcp"],
+      };
+    }
+    challenge(error?: string) {
+      return `Bearer resource_metadata="https://premiere.example.com/.well-known/oauth-protected-resource/mcp"${error ? `, error="${error}"` : ""}`;
+    }
+  },
+}));
 vi.mock("../src/bridge/uxp-websocket-bridge.js", () => ({
   UxpWebSocketBridge: class {
     start = mocks.uxpStart;
@@ -297,6 +314,19 @@ describe("HTTP entry point", () => {
     return mocks.requestHandler!;
   }
 
+  async function loadOAuth() {
+    delete process.env.MCP_AUTH_TOKEN;
+    delete process.env.ALLOW_UNAUTHENTICATED;
+    process.env.NODE_ENV = "production";
+    process.env.MCP_OAUTH_ISSUER = "https://identity.example.com";
+    process.env.MCP_OAUTH_AUDIENCE = "https://premiere.example.com/mcp";
+    process.env.MCP_OAUTH_JWKS_URI = "https://identity.example.com/.well-known/jwks.json";
+    process.env.MCP_PUBLIC_URL = "https://premiere.example.com";
+    process.env.MCP_OAUTH_REQUIRED_SCOPES = "premiere:mcp";
+    await import("../src/http-server.js");
+    return mocks.requestHandler!;
+  }
+
   it("serves health and rejects missing bearer credentials", async () => {
     const handler = await loadHttp();
     const health = response();
@@ -317,6 +347,41 @@ describe("HTTP entry point", () => {
       await handler({ method: "POST", url: "/mcp", headers: { authorization } }, denied);
       expect(denied.statusCode).toBe(401);
     }
+  });
+
+  it("publishes OAuth protected-resource metadata without authentication", async () => {
+    const handler = await loadOAuth();
+    const res = response();
+    await handler({ method: "GET", url: "/.well-known/oauth-protected-resource/mcp", headers: {} }, res);
+    expect(res.statusCode).toBe(200);
+    expect(JSON.parse(res.body)).toMatchObject({
+      resource: "https://premiere.example.com/mcp",
+      authorization_servers: ["https://identity.example.com"],
+    });
+    expect(mocks.oauthAuthenticate).not.toHaveBeenCalled();
+  });
+
+  it("returns discoverable OAuth challenges and separates invalid token from insufficient scope", async () => {
+    let handler = await loadOAuth();
+    mocks.oauthAuthenticate.mockResolvedValueOnce({ authenticated: false, error: "invalid_token" });
+    const invalid = response();
+    await handler({ method: "POST", url: "/mcp", headers: {} }, invalid);
+    expect(invalid.statusCode).toBe(401);
+    expect(invalid.writeHead).toHaveBeenCalledWith(401, expect.objectContaining({
+      "WWW-Authenticate": expect.stringContaining("/.well-known/oauth-protected-resource/mcp"),
+      "Cache-Control": "no-store",
+    }));
+
+    vi.resetModules();
+    handler = await loadOAuth();
+    mocks.oauthAuthenticate.mockResolvedValueOnce({ authenticated: false, error: "insufficient_scope" });
+    const insufficient = response();
+    await handler({ method: "POST", url: "/mcp", headers: { authorization: "Bearer redacted" } }, insufficient);
+    expect(insufficient.statusCode).toBe(403);
+    expect(insufficient.writeHead).toHaveBeenCalledWith(403, expect.objectContaining({
+      "WWW-Authenticate": expect.stringContaining('error="insufficient_scope"'),
+    }));
+    expect(mocks.handleRequest).not.toHaveBeenCalled();
   });
 
   it("allows an explicitly unauthenticated deployment", async () => {

@@ -41,7 +41,8 @@ This repository targets the current Model Context Protocol revision, `2026-07-28
 | Surface | Status | Reason |
 | --- | --- | --- |
 | Tasks extension (`io.modelcontextprotocol/tasks`) | Not implemented | Current bridge calls are bounded request/response operations. Advertising durable tasks without durable, authorization-scoped storage, TTL cleanup, cancellation, and result recovery would be misleading. |
-| OAuth Client ID Metadata Documents and issuer validation | External authorization boundary | The hosted endpoint currently uses a fail-closed operator bearer token. It does not operate an OAuth authorization server and therefore does not advertise OAuth discovery it cannot complete. |
+| OAuth resource-server authorization | Implemented, externally provisioned | HTTP can validate signed access tokens by exact issuer, audience, lifetime, subject, and scope and publishes RFC 9728 protected-resource metadata. A separately configured authorization server owns login, consent, token issuance, and MCP client registration; this repository does not issue tokens. |
+| OAuth Client ID Metadata Documents | Authorization-server responsibility | The resource server advertises its configured authorization server. That external service must support the registration mechanism required by the connecting MCP clients; this repository does not claim to operate CIMD or client registration. |
 | Enterprise Managed Authorization | Not implemented | No enterprise identity-policy provider is configured in this repository. |
 | MCP Apps | Not implemented | Premiere UI is delivered through CEP/UXP, not an MCP App resource. |
 | Skills over MCP | Experimental, not advertised | The repository ships client-specific local skills, but the Skills over MCP working group is still defining interoperable discovery and distribution. Local skill packaging is not claimed as protocol support. |
@@ -67,9 +68,10 @@ the official changelog:
 - **Extensions:** a declared Premiere extension plus explicit non-advertisement of
   Tasks, MCP Apps, enterprise authorization, and experimental Skills/Server Card
   surfaces that the product does not safely implement.
-- **Authorization and deprecations:** bearer-token authorization remains a documented
-  external boundary; issuer/CIMD requirements apply when an OAuth authorization
-  flow is added; new Roots, Sampling, Logging, DCR, or HTTP+SSE dependencies are not
+- **Authorization and deprecations:** HTTP supports either controlled operator-token
+  authentication or fail-closed OAuth resource-server validation and RFC 9728
+  discovery; login, consent, token issuance, and CIMD remain the configured external
+  authorization server's responsibility; new Roots, Sampling, Logging, DCR, or HTTP+SSE dependencies are not
   introduced.
 
 ## Product capability surface

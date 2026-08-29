@@ -19,6 +19,8 @@
  *   MCP_AUTH_TOKEN     Bearer token required on every /mcp request. REQUIRED — the
  *                      server refuses to start without it, because this transport
  *                      binds 0.0.0.0 and can drive Premiere.
+ *   MCP_OAUTH_*        Alternatively configure an OAuth issuer, JWKS URI,
+ *                      audience, public URL, and required scopes for per-user auth.
  *   MCP_MAX_REQUEST_BYTES, MCP_*_TIMEOUT_MS, MCP_RATE_LIMIT_* and
  *   MCP_MAX_CONCURRENT_REQUESTS bound public HTTP resource use. See README.
  */
@@ -34,6 +36,7 @@ import { createServer } from "./server.js";
 import { cleanupTempDir, getTempDir } from "./bridge/file-bridge.js";
 import { getTelemetry } from "./telemetry.js";
 import { applyHttpSecurityHeaders } from "./http-security.js";
+import { OAuthResourceServer } from "./oauth-resource-server.js";
 import {
   HttpAdmissionController,
   MCP_HTTP_METHODS,
@@ -211,6 +214,7 @@ const bridgeOptions = {
 process.env.PREMIERE_MCP_TRANSPORT = "http";
 const telemetry = getTelemetry();
 const admission = new HttpAdmissionController(admissionSettings);
+const oauthResourceServer = httpAuth.oauth ? new OAuthResourceServer(httpAuth.oauth) : undefined;
 const mcpHandler = createMcpHandler(
   () => createServer(bridgeOptions, { telemetry }),
   {
@@ -241,7 +245,21 @@ const httpServer = http.createServer(async (req, res) => {
   // Health check
   if (req.method === "GET" && pathname === "/health") {
     res.writeHead(200, { "Content-Type": "application/json", "Cache-Control": "no-store" });
-    res.end(JSON.stringify({ status: "ok", service: "premiere-pro-mcp", admission: admission.metrics() }));
+    res.end(JSON.stringify({ status: "ok", service: "premiere-pro-mcp" }));
+    return;
+  }
+
+  if (
+    req.method === "GET" &&
+    (pathname === "/.well-known/oauth-protected-resource" ||
+      pathname === "/.well-known/oauth-protected-resource/mcp") &&
+    oauthResourceServer
+  ) {
+    res.writeHead(200, {
+      "Content-Type": "application/json",
+      "Cache-Control": "public, max-age=300",
+    });
+    res.end(JSON.stringify(oauthResourceServer.metadata()));
     return;
   }
 
@@ -266,19 +284,39 @@ const httpServer = http.createServer(async (req, res) => {
     return;
   }
 
-  // Bearer token auth is fail-closed in production. The comparison is constant
-  // time for equal-length credentials and never records the provided header.
-  if (!isAuthorizedBearer(req, httpAuth.authToken)) {
+  // OAuth access tokens are verified for issuer, audience, lifetime, signature,
+  // subject, and scope. The legacy shared token remains available for controlled
+  // single-operator deployments and is compared in constant time.
+  const oauthAuthentication = oauthResourceServer
+    ? await oauthResourceServer.authenticate(req)
+    : undefined;
+  const isAuthorized = oauthAuthentication
+    ? oauthAuthentication.authenticated
+    : isAuthorizedBearer(req, httpAuth.authToken);
+  if (!isAuthorized) {
     telemetry.capture("mcp_connection_attempt", {
       outcome: "unauthorized",
       method: req.method ?? "unknown",
     });
-    res.writeHead(401, { "Content-Type": "application/json" });
-    res.end(JSON.stringify({ error: "Unauthorized" }));
+    const challenge = oauthResourceServer
+      ? oauthResourceServer.challenge(oauthAuthentication?.authenticated === false ? oauthAuthentication.error : undefined)
+      : "Bearer";
+    const statusCode = oauthAuthentication?.authenticated === false && oauthAuthentication.error === "insufficient_scope"
+      ? 403
+      : 401;
+    res.writeHead(statusCode, {
+      "Content-Type": "application/json",
+      "Cache-Control": "no-store",
+      "WWW-Authenticate": challenge,
+    });
+    res.end(JSON.stringify({ error: statusCode === 403 ? "Forbidden" : "Unauthorized" }));
     return;
   }
 
-  const admissionDecision = admission.acquire(rateLimitIdentity(req, httpAuth.authToken, admissionSettings.trustProxy));
+  const authenticatedIdentity = oauthAuthentication?.authenticated
+    ? `oauth:${oauthAuthentication.principal.subject}`
+    : httpAuth.authToken;
+  const admissionDecision = admission.acquire(rateLimitIdentity(req, authenticatedIdentity, admissionSettings.trustProxy));
   if (!admissionDecision.accepted) {
     telemetry.capture("mcp_request_rejected", {
       outcome: admissionDecision.reason,
@@ -360,7 +398,9 @@ httpServer.maxRequestsPerSocket = admissionSettings.maxRequestsPerSocket;
 httpServer.listen(PORT, "0.0.0.0", () => {
   console.error(`[premiere-pro-mcp] HTTP server listening on 0.0.0.0:${PORT}`);
   console.error(`[premiere-pro-mcp] MCP endpoint: http://0.0.0.0:${PORT}/mcp`);
-  if (httpAuth.authToken) {
+  if (oauthResourceServer) {
+    console.error(`[premiere-pro-mcp] Auth: OAuth bearer tokens required`);
+  } else if (httpAuth.authToken) {
     console.error(`[premiere-pro-mcp] Auth: Bearer token required`);
   } else {
     console.error(`[premiere-pro-mcp] Auth: disabled outside production for an explicit local/test override`);

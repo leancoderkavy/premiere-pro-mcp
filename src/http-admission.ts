@@ -4,7 +4,15 @@ import type http from "node:http";
 export const MCP_HTTP_METHODS = ["GET", "POST", "DELETE"] as const;
 
 export interface HttpAuthConfiguration {
+  mode: "shared-token" | "oauth" | "unauthenticated";
   authToken?: string;
+  oauth?: {
+    issuer: string;
+    audience: string;
+    publicUrl: string;
+    jwksUri: string;
+    requiredScopes: string[];
+  };
   allowUnauthenticated: boolean;
 }
 
@@ -80,16 +88,80 @@ export function readHttpAdmissionSettings(env: NodeJS.ProcessEnv): HttpAdmission
  */
 export function readHttpAuthConfiguration(env: NodeJS.ProcessEnv): HttpAuthConfiguration {
   const authToken = env.MCP_AUTH_TOKEN?.trim();
-  if (authToken) return { authToken, allowUnauthenticated: false };
+  const oauthIssuer = env.MCP_OAUTH_ISSUER?.trim();
+  const oauthAudience = env.MCP_OAUTH_AUDIENCE?.trim();
+  const publicUrl = env.MCP_PUBLIC_URL?.trim();
+  const oauthJwksUri = env.MCP_OAUTH_JWKS_URI?.trim();
+
+  if (authToken && (oauthIssuer || oauthAudience || publicUrl || oauthJwksUri)) {
+    throw new Error("Configure either MCP_AUTH_TOKEN or MCP_OAUTH_ISSUER, not both.");
+  }
+
+  if (oauthIssuer || oauthAudience || publicUrl || oauthJwksUri) {
+    if (!oauthIssuer || !oauthAudience || !publicUrl || !oauthJwksUri) {
+      throw new Error(
+        "MCP_OAUTH_ISSUER, MCP_OAUTH_AUDIENCE, MCP_OAUTH_JWKS_URI, and MCP_PUBLIC_URL are all required for OAuth.",
+      );
+    }
+    const issuer = parseSecureUrl(oauthIssuer, "MCP_OAUTH_ISSUER", env.NODE_ENV);
+    const audience = parseSecureUrl(oauthAudience, "MCP_OAUTH_AUDIENCE", env.NODE_ENV);
+    const canonicalPublicUrl = parseSecureUrl(publicUrl, "MCP_PUBLIC_URL", env.NODE_ENV);
+    const jwksUri = parseSecureUrl(oauthJwksUri, "MCP_OAUTH_JWKS_URI", env.NODE_ENV);
+    if (issuer.search) {
+      throw new Error("MCP_OAUTH_ISSUER must not contain a query.");
+    }
+    if (canonicalPublicUrl.pathname !== "/" || canonicalPublicUrl.search || canonicalPublicUrl.hash) {
+      throw new Error("MCP_PUBLIC_URL must be an origin without a path, query, or fragment.");
+    }
+    const requiredScopes = (env.MCP_OAUTH_REQUIRED_SCOPES ?? "premiere:mcp")
+      .split(/[ ,]+/)
+      .map((scope) => scope.trim())
+      .filter(Boolean);
+    if (requiredScopes.length === 0 || requiredScopes.some((scope) => !/^[\x21\x23-\x5B\x5D-\x7E]+$/.test(scope))) {
+      throw new Error("MCP_OAUTH_REQUIRED_SCOPES must contain one or more valid OAuth scope values.");
+    }
+    return {
+      mode: "oauth",
+      oauth: {
+        issuer: issuer.pathname === "/" && !issuer.search ? issuer.origin : issuer.href,
+        audience: audience.href,
+        publicUrl: canonicalPublicUrl.origin,
+        jwksUri: jwksUri.href,
+        requiredScopes: [...new Set(requiredScopes)],
+      },
+      allowUnauthenticated: false,
+    };
+  }
+
+  if (authToken) return { mode: "shared-token", authToken, allowUnauthenticated: false };
 
   if (env.ALLOW_UNAUTHENTICATED === "1" && env.NODE_ENV !== "production") {
-    return { allowUnauthenticated: true };
+    return { mode: "unauthenticated", allowUnauthenticated: true };
   }
 
   throw new Error(
     "MCP_AUTH_TOKEN is required for the HTTP transport. " +
     "ALLOW_UNAUTHENTICATED=1 is permitted only outside NODE_ENV=production.",
   );
+}
+
+function parseSecureUrl(raw: string, name: string, nodeEnv: string | undefined): URL {
+  let parsed: URL;
+  try {
+    parsed = new URL(raw);
+  } catch {
+    throw new Error(`${name} must be an absolute URL.`);
+  }
+  const localDevelopment = nodeEnv !== "production" &&
+    parsed.protocol === "http:" &&
+    (parsed.hostname === "localhost" || parsed.hostname === "127.0.0.1" || parsed.hostname === "[::1]");
+  if (parsed.protocol !== "https:" && !localDevelopment) {
+    throw new Error(`${name} must use HTTPS (HTTP is allowed only for loopback development).`);
+  }
+  if (parsed.username || parsed.password || parsed.hash) {
+    throw new Error(`${name} must not contain credentials or a fragment.`);
+  }
+  return parsed;
 }
 
 export function getRequestPathname(rawUrl: string | undefined): string | undefined {
