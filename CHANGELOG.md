@@ -6,6 +6,25 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [1.14.3] - 2026-08-29
+
+### Added
+
+- Added an optional, fail-closed OAuth resource-server mode with RFC 9728
+  protected-resource metadata, remote JWKS verification, exact issuer and
+  audience validation, required scopes, and an explicit trusted-subject
+  allowlist for operator-managed HTTP deployments.
+
+### Security
+
+- Added an IP-keyed admission gate before JWT verification and isolated
+  authenticated rate-limit identities behind random process-local keys.
+- Made partial or mixed OAuth/shared-token configuration fail startup, kept the
+  shared token as an operator-only compatibility mode, and removed internal
+  admission counters from the public health response.
+- Kept public desktop routing deliberately disabled: OAuth does not claim
+  user-to-device pairing or access to a user's local Premiere process.
+
 ## [1.14.2] - 2026-08-28
 
 ### Added

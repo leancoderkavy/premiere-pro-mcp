@@ -5,6 +5,26 @@ import { product } from "@/lib/product"
 
 const releases = [
   {
+    version: "1.14.3",
+    date: "2026-08-29",
+    label: "Fail-closed OAuth for trusted operators",
+    groups: [
+      {
+        title: "Added",
+        items: [
+          "Added optional OAuth resource-server validation with protected-resource discovery, remote JWKS, exact issuer and audience checks, required scopes, and a mandatory trusted-subject allowlist.",
+        ],
+      },
+      {
+        title: "Security",
+        items: [
+          "JWT verification is protected by a pre-auth admission gate, authenticated rate-limit keys are opaque, mixed auth modes fail startup, and the public health response no longer exposes admission counters.",
+          "OAuth remains an operator boundary; this release does not claim public desktop pairing or per-user Premiere routing.",
+        ],
+      },
+    ],
+  },
+  {
     version: "1.14.2",
     date: "2026-08-28",
     label: "Verified host contracts and safer mutation outcomes",
