@@ -73,13 +73,13 @@ operation” when the tool has no enum-based mode.
 | `close_source_monitor` | Default profile | Single operation | Close the clip currently open in the Source Monitor. |
 | `color_correct` | Default profile | Single operation | Apply basic color correction to a clip using Lumetri Color |
 | `compare_cmx3600_edls` | Default profile | Single operation | Compare two local CMX 3600 EDLs by event number and report bounded added, removed, and changed editorial events. Read-only; it does not alter either interchange file or Premiere. |
-| `consolidate_and_transfer` | Default profile | Single operation | Consolidate, copy, or transcode project media using the Project Manager. Useful for archiving or transferring projects. |
+| `consolidate_and_transfer` | Default profile | Single operation | Consolidate, copy, or transcode project media using the Project Manager. Reports success only after a new destination folder contains a copied Premiere project. |
 | `consolidate_duplicates` | Default profile | Single operation | Consolidate duplicate project items and report success only when duplicate media groups decrease. |
 | `copy_effect_values` | Default profile | Single operation | Copy verified scalar effect-property values from one effect to the matching effect on another clip. Both clips must already have the same effect applied. Legacy CEP deliberately refuses Blend Mode because Premiere can corrupt its enum value on cross-clip writes. |
 | `copy_effects_between_clips` | Default profile | Single operation | Copy all effects (or a specific effect) from one clip to another. Does not copy intrinsic properties like Motion/Opacity unless specified. |
 | `create_bars_and_tone` | Default profile | Single operation | Create a Bars and Tone synthetic media item in the project (useful for leader/calibration) |
 | `create_bin` | Default profile | Single operation | Create a new bin (folder) in the project panel |
-| `create_caption_track` | Default profile | Single operation | Create a caption/subtitle track in the active sequence from an imported caption file (e.g., .srt, .vtt). Creation is structural only; verify playback or exported frames before delivery. |
+| `create_caption_track` | Default profile | Single operation | Create a caption/subtitle track in the active sequence from an imported caption file (e.g., .srt, .vtt). Reports structural success only when the host exposes a caption-track readback; otherwise reports an unverified accepted request. |
 | `create_context_edit_plan` | Default profile | `strategy`: `rough_cut`, `select_ranges`, `review` | Create a non-mutating, evidence-backed edit-plan scaffold from indexed Premiere context. It returns ranked source/time candidates and stale-state guards; the model must review them and use preview_edit_plan before any mutation. |
 | `create_editorial_plan` | Default profile | `workflow`: `organize`, `stringout`, `rough_cut`, `caption_review`, `platform_cutdown` | Create a local, evidence-backed editorial workflow plan from captured project context. It never calls an LLM, uploads media, or changes Premiere. |
 | `create_project` | Default profile | Single operation | Create a new Premiere Pro project at the specified path |
@@ -110,7 +110,7 @@ operation” when the tool has no enum-based mode.
 | `enable_disable_clip` | Default profile | Single operation | Enable or disable a clip on the timeline |
 | `encode_file` | Default profile | Single operation | Encode an external file (not in project) using Adobe Media Encoder |
 | `encode_project_item` | Default profile | Single operation | Encode a specific project item (not a sequence) using Adobe Media Encoder |
-| `export_aaf` | Default profile | Single operation | Export the active sequence as an AAF file (for Pro Tools, etc.) |
+| `export_aaf` | Default profile | Single operation | Unavailable on the CEP backend. Use export_aaf_uxp with an authenticated Premiere 26.3+ UXP bridge. |
 | `export_as_fcp_xml` | Default profile | Single operation | Export the active sequence as a Final Cut Pro XML file |
 | `export_as_project` | Default profile | Single operation | Export a sequence as a standalone Premiere Pro project file |
 | `export_frame` | Default profile | Single operation | Export the current frame as an image file |
@@ -228,7 +228,7 @@ operation” when the tool has no enum-based mode.
 | `move_item_to_bin` | Default profile | Single operation | Move a project item to a different bin |
 | `move_items_to_bin` | Default profile | Single operation | Move multiple project items to a target bin at once. |
 | `move_playhead_to_edit` | Default profile | `direction`: `next`, `previous` | Move the playhead to the next or previous edit point. |
-| `multiple_undo` | Default profile | Single operation | Undo multiple steps at once. |
+| `multiple_undo` | Default profile | Single operation | Unavailable: Premiere exposes no supported, observable undo-stack API for multiple scripted undo steps. |
 | `mute_track` | Default profile | Single operation | Mute or unmute an audio track |
 | `nest_clips` | Default profile | Single operation | Unavailable on the legacy CEP backend: Premiere's documented createSubsequence API only creates a separate sequence and cannot safely replace the selected timeline clips with a nested-sequence reference. |
 | `normalize_loudness_file` | Default profile | Single operation | Create a new loudness-normalized media derivative with FFmpeg, then remeasure that exact output using EBU R128. Never overwrites the input or an existing output file. |
@@ -322,7 +322,7 @@ operation” when the tool has no enum-based mode.
 | `set_sequence_in_out_points` | Default profile | Single operation | Set the sequence in and out points (for export range, etc.) |
 | `set_sequence_pixel_aspect_ratio` | Default profile | Single operation | Change the pixel aspect ratio of the active sequence. |
 | `set_sequence_resolution` | Default profile | Single operation | Change the resolution (frame size) of the active sequence. |
-| `set_sequence_settings` | Default profile | Single operation | Modify sequence settings (frame size, frame rate, etc.) |
+| `set_sequence_settings` | Default profile | Single operation | Modify and read back sequence frame-size settings. |
 | `set_source_in_out` | Default profile | Single operation | Set in and/or out points on the clip currently open in the Source Monitor. |
 | `set_start_time` | Default profile | Single operation | Set the start time (timecode offset) for a project item |
 | `set_target_track` | Default profile | `track_type`: `video`, `audio` | Set a track as targeted (active for insert/overwrite edits). Only one video and one audio track can be targeted at a time. |

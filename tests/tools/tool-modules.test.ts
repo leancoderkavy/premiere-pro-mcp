@@ -459,6 +459,29 @@ describe("Tool Handler Behavior", () => {
   });
 
   describe("verified Premiere mutations", () => {
+    it("uses settings fields and readback for set_sequence_settings", async () => {
+      const tools = getSequenceTools(bridgeOptions);
+      await (tools.set_sequence_settings.handler as any)({ sequence_id: "seq-1", width: 1920, height: 1080 });
+      const script = mockedSendCommand.mock.calls[0][0];
+      expect(script).toContain("settings.videoFrameWidth = 1920");
+      expect(script).toContain("settings.videoFrameHeight = 1080");
+      expect(script).toContain("var applied = seq.getSettings()");
+      expect(script).toContain("Premiere did not apply the requested frame width");
+      expect(script).toContain("verified: true");
+
+      vi.clearAllMocks();
+      await expect((tools.set_sequence_settings.handler as any)({})).resolves.toMatchObject({ success: false });
+      expect(mockedSendCommand).not.toHaveBeenCalled();
+    });
+
+    it("fails unsupported legacy AAF and multiple-undo requests before mutation", async () => {
+      const aaf = await (getExportTools(bridgeOptions).export_aaf.handler as any)({ output_path: "/tmp/turnover.aaf" });
+      const undo = await (getTrackTargetingTools(bridgeOptions).multiple_undo.handler as any)({ count: 2 });
+      expect(aaf).toMatchObject({ success: false, error: expect.stringContaining("No export was attempted") });
+      expect(undo).toMatchObject({ success: false, error: expect.stringContaining("No mutation was attempted") });
+      expect(mockedSendCommand).not.toHaveBeenCalled();
+    });
+
     it("converts audio dB to amplitude and verifies the readback", async () => {
       const tools = getAudioTools(bridgeOptions);
       await (tools.adjust_audio_levels.handler as any)({ node_id: "clip-1", level_db: -6 });
@@ -610,14 +633,22 @@ describe("Tool Handler Behavior", () => {
       expect(script).toContain("__result");
       expect(script).toContain("my-srt-file");
       expect(script).toContain("createCaptionTrack");
+      expect(script).toContain("__captionTrackCount");
+      expect(script).toContain("no caption track appeared in host readback");
+      expect(script).toContain("accepted: true");
     });
   });
 
   describe("project-manager tools", () => {
-    it("consolidate_and_transfer exists and is callable", async () => {
+    it("consolidate_and_transfer verifies a copied project in a new destination", async () => {
       const tools = getProjectManagerTools(bridgeOptions);
       expect(tools.consolidate_and_transfer).toBeDefined();
       expect(typeof tools.consolidate_and_transfer.handler).toBe("function");
+      await (tools.consolidate_and_transfer.handler as any)({ destination_path: "/tmp/transfer" });
+      const script = mockedSendCommand.mock.calls[0][0];
+      expect(script).toContain("destination_path must be a new, empty folder");
+      expect(script).toContain('destination.getFiles("*.prproj")');
+      expect(script).toContain("copiedProjectCount");
     });
   });
 });

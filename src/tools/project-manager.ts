@@ -5,7 +5,7 @@ export function getProjectManagerTools(bridgeOptions: BridgeOptions) {
   return {
     consolidate_and_transfer: {
       description:
-        "Consolidate, copy, or transcode project media using the Project Manager. Useful for archiving or transferring projects.",
+        "Consolidate, copy, or transcode project media using the Project Manager. Reports success only after a new destination folder contains a copied Premiere project.",
       parameters: {
         type: "object" as const,
         properties: {
@@ -64,11 +64,19 @@ export function getProjectManagerTools(bridgeOptions: BridgeOptions) {
         convert_ae_comps?: boolean;
         convert_synthetic?: boolean;
       }) => {
+        const destinationPath = args.destination_path.trim();
+        if (!destinationPath) {
+          return { success: false, error: "destination_path must not be empty" };
+        }
         const script = buildToolScript(`
           var pm = app.projectManager;
           if (!pm) return __error("Project Manager not available");
-          
-          pm.destinationPath = "${escapeForExtendScript(args.destination_path)}";
+
+          var destination = new Folder("${escapeForExtendScript(destinationPath)}");
+          if (destination.exists) {
+            return __error("destination_path must be a new, empty folder so the Project Manager output can be verified: ${escapeForExtendScript(destinationPath)}");
+          }
+          pm.destinationPath = "${escapeForExtendScript(destinationPath)}";
           pm.includeAllSequences = ${args.include_all_sequences !== false ? 1 : 0};
           pm.copyToNewLocation = ${args.copy_to_new_location !== false ? 1 : 0};
           pm.excludeUnused = ${args.exclude_unused !== false ? 1 : 0};
@@ -79,11 +87,20 @@ export function getProjectManagerTools(bridgeOptions: BridgeOptions) {
           pm.convertAEComps = ${args.convert_ae_comps ? 1 : 0};
           pm.convertSyntheticMedia = ${args.convert_synthetic ? 1 : 0};
           
-          pm.process(app.project);
-          
+          var accepted = pm.process(app.project);
+          if (accepted === false) return __error("Premiere rejected the Project Manager request");
+          if (!destination.exists) {
+            return __error("Premiere accepted the Project Manager request but did not create the destination folder. No successful transfer is reported.");
+          }
+          var outputFiles = destination.getFiles("*.prproj");
+          if (!outputFiles || outputFiles.length < 1) {
+            return __error("Premiere created the destination folder but no copied .prproj file was found. No successful transfer is reported.");
+          }
           return __result({
-            started: true,
-            destination: "${escapeForExtendScript(args.destination_path)}"
+            completed: true,
+            verified: true,
+            destination: "${escapeForExtendScript(destinationPath)}",
+            copiedProjectCount: outputFiles.length
           });
         `);
         return sendCommand(script, { ...bridgeOptions, timeoutMs: 300000 }); // 5 min timeout

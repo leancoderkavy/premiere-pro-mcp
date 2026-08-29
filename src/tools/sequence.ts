@@ -168,7 +168,7 @@ export function getSequenceTools(bridgeOptions: BridgeOptions) {
     },
 
     set_sequence_settings: {
-      description: "Modify sequence settings (frame size, frame rate, etc.)",
+      description: "Modify and read back sequence frame-size settings.",
       parameters: {
         type: "object" as const,
         properties: {
@@ -187,20 +187,33 @@ export function getSequenceTools(bridgeOptions: BridgeOptions) {
         },
       },
       handler: async (args: { sequence_id?: string; width?: number; height?: number }) => {
+        if (args.width === undefined && args.height === undefined) {
+          return { success: false, error: "Pass width, height, or both" };
+        }
+        for (const [name, value] of Object.entries({ width: args.width, height: args.height })) {
+          if (value !== undefined && (!Number.isInteger(value) || value < 1 || value > 16384)) {
+            return { success: false, error: `${name} must be an integer from 1 through 16384` };
+          }
+        }
         const seqLookup = args.sequence_id
           ? `var seq = __findSequence("${escapeForExtendScript(args.sequence_id)}"); if (!seq) return __error("Sequence not found");`
           : `var seq = app.project.activeSequence; if (!seq) return __error("No active sequence");`;
 
-        const setters: string[] = [];
-        if (args.width) setters.push(`seq.frameSizeHorizontal = ${args.width};`);
-        if (args.height) setters.push(`seq.frameSizeVertical = ${args.height};`);
-
         const script = buildToolScript(`
           ${seqLookup}
           var settings = seq.getSettings();
-          ${setters.join("\n          ")}
-          seq.setSettings(settings);
-          return __result({ updated: true, name: seq.name });
+          if (!settings) return __error("Could not get sequence settings");
+          ${args.width === undefined ? "" : `settings.videoFrameWidth = ${args.width};`}
+          ${args.height === undefined ? "" : `settings.videoFrameHeight = ${args.height};`}
+          var accepted = seq.setSettings(settings);
+          if (accepted === false) return __error("Premiere rejected the requested sequence settings");
+          var applied = seq.getSettings();
+          if (!applied) return __error("Premiere did not return sequence settings after the update");
+          var appliedWidth = Number(applied.videoFrameWidth);
+          var appliedHeight = Number(applied.videoFrameHeight);
+          ${args.width === undefined ? "" : `if (appliedWidth !== ${args.width}) return __error("Premiere did not apply the requested frame width: expected ${args.width}, got " + appliedWidth);`}
+          ${args.height === undefined ? "" : `if (appliedHeight !== ${args.height}) return __error("Premiere did not apply the requested frame height: expected ${args.height}, got " + appliedHeight);`}
+          return __result({ updated: true, verified: true, name: seq.name, width: appliedWidth, height: appliedHeight });
         `);
         return sendCommand(script, bridgeOptions);
       },

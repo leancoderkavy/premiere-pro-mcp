@@ -735,7 +735,7 @@ export function getExportTools(bridgeOptions: BridgeOptions) {
     },
 
     export_aaf: {
-      description: "Export the active sequence as an AAF file (for Pro Tools, etc.)",
+      description: "Unavailable on the CEP backend. Use export_aaf_uxp with an authenticated Premiere 26.3+ UXP bridge.",
       parameters: {
         type: "object" as const,
         properties: {
@@ -762,28 +762,17 @@ export function getExportTools(bridgeOptions: BridgeOptions) {
         },
         required: ["output_path"],
       },
-      handler: async (args: {
+      handler: async (_args: {
         output_path: string;
         mix_down_video?: boolean;
         explode_to_mono?: boolean;
         sample_rate?: number;
         bits_per_sample?: number;
       }) => {
-        const script = buildToolScript(`
-          var seq = app.project.activeSequence;
-          if (!seq) return __error("No active sequence");
-          
-          seq.exportAsAAF(
-            "${escapeForExtendScript(args.output_path)}",
-            ${args.mix_down_video !== false ? 1 : 0},
-            ${args.explode_to_mono ? 1 : 0},
-            ${args.sample_rate ?? 48000},
-            ${args.bits_per_sample ?? 16}
-          );
-          
-          return __result({ exported: true, outputPath: "${escapeForExtendScript(args.output_path)}", format: "AAF" });
-        `);
-        return sendCommand(script, bridgeOptions);
+        return {
+          success: false,
+          error: "export_aaf is unavailable on the CEP backend because this Premiere host does not expose Sequence.exportAsAAF. Use export_aaf_uxp with an authenticated Premiere 26.3+ UXP bridge. No export was attempted.",
+        };
       },
     },
 

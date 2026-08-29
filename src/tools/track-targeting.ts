@@ -1377,7 +1377,7 @@ export function getTrackTargetingTools(bridgeOptions: BridgeOptions) {
     },
 
     multiple_undo: {
-      description: "Undo multiple steps at once.",
+      description: "Unavailable: Premiere exposes no supported, observable undo-stack API for multiple scripted undo steps.",
       parameters: {
         type: "object" as const,
         properties: {
@@ -1389,17 +1389,13 @@ export function getTrackTargetingTools(bridgeOptions: BridgeOptions) {
       },
       handler: async (args: { count?: number }) => {
         const count = args.count ?? 1;
-        const script = buildToolScript(`
-          var undone = 0;
-          for (var i = 0; i < ${count}; i++) {
-            try {
-              app.project.undo();
-              undone++;
-            } catch(e) { break; }
-          }
-          return __result({ undone: undone });
-        `);
-        return sendCommand(script, bridgeOptions);
+        if (!Number.isInteger(count) || count < 1 || count > 100) {
+          return { success: false, error: "count must be an integer from 1 through 100" };
+        }
+        return {
+          success: false,
+          error: "multiple_undo is unavailable because Premiere exposes no supported undo-stack API that can verify how many actions were undone. No mutation was attempted.",
+        };
       },
     },
 
