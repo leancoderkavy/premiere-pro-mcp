@@ -4,7 +4,7 @@ import { sendCommand, BridgeOptions } from "../bridge/file-bridge.js";
 export function getEffectsTools(bridgeOptions: BridgeOptions) {
   return {
     apply_effect: {
-      description: "Apply a video effect to a clip. Uses QE DOM for effect lookup.",
+      description: "Apply a video effect to a clip. Uses QE DOM catalog lookup, with an exact-name QE probe when Premiere's catalog enumeration is empty.",
       parameters: {
         type: "object" as const,
         properties: {
@@ -39,28 +39,33 @@ export function getEffectsTools(bridgeOptions: BridgeOptions) {
           var qeClip = qeTrack.getItemAt(result.clipIndex);
           if (!qeClip) return __error("QE clip not found");
           
-          // Search for the effect
-          var effectCatalog = __getQeEffectCatalog("video");
-          if (!effectCatalog.ok) return __error(effectCatalog.error);
-          var effects = effectCatalog.effects;
-          var found = false;
-          for (var i = 0; i < effects.numItems; i++) {
-            if (effects[i].name === effectName) {
-              qeClip.addVideoEffect(effects[i]);
-              found = true;
-              break;
+          // Premiere 26 can expose direct by-name lookup while returning an
+          // empty QE catalog. Probe the requested name before consulting the
+          // catalog so a known installed effect remains usable.
+          var qeEffect = null;
+          try { qeEffect = qe.project.getVideoEffectByName(effectName); } catch (byNameError) {}
+          var lookupSource = qeEffect ? "qe.byName" : "qe.catalog";
+          if (!qeEffect) {
+            var effectCatalog = __getQeEffectCatalog("video");
+            if (!effectCatalog.ok) return __error(effectCatalog.error + " Direct QE lookup for \"" + effectName + "\" also did not resolve an effect.");
+            var effects = effectCatalog.effects;
+            for (var i = 0; i < effects.numItems; i++) {
+              if (effects[i].name === effectName) {
+                qeEffect = effects[i];
+                break;
+              }
             }
           }
-          
-          if (!found) return __error("Effect not found: " + effectName);
-          return __result({ applied: true, effect: effectName, clipName: result.clip.name });
+          if (!qeEffect) return __error("Effect not found: " + effectName);
+          qeClip.addVideoEffect(qeEffect);
+          return __result({ applied: true, effect: effectName, lookupSource: lookupSource, clipName: result.clip.name });
         `);
         return sendCommand(script, bridgeOptions);
       },
     },
 
     apply_audio_effect: {
-      description: "Apply an audio effect to a clip",
+      description: "Apply an audio effect to a clip. Uses QE catalog lookup, with an exact-name QE probe when enumeration is empty.",
       parameters: {
         type: "object" as const,
         properties: {
@@ -91,20 +96,23 @@ export function getEffectsTools(bridgeOptions: BridgeOptions) {
           var qeClip = qeTrack.getItemAt(result.clipIndex);
           if (!qeClip) return __error("QE clip not found");
           
-          var effectCatalog = __getQeEffectCatalog("audio");
-          if (!effectCatalog.ok) return __error(effectCatalog.error);
-          var effects = effectCatalog.effects;
-          var found = false;
-          for (var i = 0; i < effects.numItems; i++) {
-            if (effects[i].name === effectName) {
-              qeClip.addAudioEffect(effects[i]);
-              found = true;
-              break;
+          var qeEffect = null;
+          try { qeEffect = qe.project.getAudioEffectByName(effectName); } catch (byNameError) {}
+          var lookupSource = qeEffect ? "qe.byName" : "qe.catalog";
+          if (!qeEffect) {
+            var effectCatalog = __getQeEffectCatalog("audio");
+            if (!effectCatalog.ok) return __error(effectCatalog.error + " Direct QE lookup for \"" + effectName + "\" also did not resolve an effect.");
+            var effects = effectCatalog.effects;
+            for (var i = 0; i < effects.numItems; i++) {
+              if (effects[i].name === effectName) {
+                qeEffect = effects[i];
+                break;
+              }
             }
           }
-          
-          if (!found) return __error("Audio effect not found: " + effectName);
-          return __result({ applied: true, effect: effectName });
+          if (!qeEffect) return __error("Audio effect not found: " + effectName);
+          qeClip.addAudioEffect(qeEffect);
+          return __result({ applied: true, effect: effectName, lookupSource: lookupSource });
         `);
         return sendCommand(script, bridgeOptions);
       },
@@ -185,18 +193,31 @@ export function getEffectsTools(bridgeOptions: BridgeOptions) {
     },
 
     list_available_effects: {
-      description: "List all available video effects in Premiere Pro. Uses QE DOM.",
+      description: "List available video effects in Premiere Pro. Uses the full QE catalog when exposed; otherwise returns a verified, explicitly partial set of common effects resolved by exact name.",
       parameters: {},
       handler: async () => {
         const script = buildToolScript(`
           app.enableQE();
-          var effectCatalog = __getQeEffectCatalog("video");
-          if (!effectCatalog.ok) return __error(effectCatalog.error);
-          var effects = effectCatalog.effects;
           var list = [];
-          for (var i = 0; i < effects.numItems; i++) {
-            list.push({ name: effects[i].name, index: i });
+          var effectCatalog = __getQeEffectCatalog("video");
+          if (effectCatalog.ok) {
+            var effects = effectCatalog.effects;
+            for (var i = 0; i < effects.numItems; i++) {
+              list.push({ name: effects[i].name, index: i, source: "qe.catalog" });
+            }
+            return __result(list);
           }
+
+          // Keep this bounded and label every result as partial. It is a
+          // usability fallback, not a claim that these are all installed
+          // effects or that their localized display names are exhaustive.
+          var commonNames = ["Transform", "Gaussian Blur", "Lumetri Color", "Crop", "Warp Stabilizer", "Tint", "Brightness & Contrast", "Ultra Key"];
+          for (var probeIndex = 0; probeIndex < commonNames.length; probeIndex++) {
+            var candidate = null;
+            try { candidate = qe.project.getVideoEffectByName(commonNames[probeIndex]); } catch (probeError) {}
+            if (candidate) list.push({ name: commonNames[probeIndex], index: null, source: "qe.byName.partial" });
+          }
+          if (list.length === 0) return __error(effectCatalog.error + " Direct lookup did not resolve any bounded fallback effects.");
           return __result(list);
         `);
         return sendCommand(script, bridgeOptions);

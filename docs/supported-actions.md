@@ -52,9 +52,9 @@ operation” when the tool has no enum-based mode.
 | `analyze_loudness` | Default profile | Single operation | Measure integrated loudness (LUFS), loudness range (LU), and true peak (dBFS) from a local media file using FFmpeg's EBU R128 filter. Analysis only: it does not normalize audio or change Premiere. |
 | `analyze_video_interlacing` | Default profile | Single operation | Classify decoded video frames as progressive, top-field-first, bottom-field-first, mixed, or undetermined using FFmpeg idet. Read-only delivery preflight. |
 | `analyze_video_qc` | Default profile | Single operation | Analyze a local video delivery for sustained black and frozen sections with FFmpeg. Read-only: it does not contact Premiere or modify the file. |
-| `apply_audio_effect` | Default profile | Single operation | Apply an audio effect to a clip |
+| `apply_audio_effect` | Default profile | Single operation | Apply an audio effect to a clip. Uses QE catalog lookup, with an exact-name QE probe when enumeration is empty. |
 | `apply_edit_plan` | Default profile | Single operation | Apply a previously previewed compound edit after revalidating every target. Requires the edit capability and exact preview confirmation token. |
-| `apply_effect` | Default profile | Single operation | Apply a video effect to a clip. Uses QE DOM for effect lookup. |
+| `apply_effect` | Default profile | Single operation | Apply a video effect to a clip. Uses QE DOM catalog lookup, with an exact-name QE probe when Premiere's catalog enumeration is empty. |
 | `apply_lut` | Default profile | Single operation | Apply a LUT file to a clip via Lumetri Color |
 | `apply_spot_workflow_plan` | Default profile | Single operation | Apply one exact previewed motion-demo, product-spot, or brand-spot plan. Requires edit authority, requires filesystem authority for a MOGRT, and only targets empty explicitly named tracks. Host readback is not playback or render verification. |
 | `attach_custom_property` | Default profile | Single operation | Attach a custom property (key/value pair) to the active sequence |
@@ -212,7 +212,7 @@ operation” when the tool has no enum-based mode.
 | `link_selection` | Default profile | Single operation | Link the currently selected video and audio clips in the active sequence |
 | `list_available_audio_effects` | Default profile | Single operation | List all available audio effects in Premiere Pro. Uses QE DOM. |
 | `list_available_audio_transitions` | Default profile | Single operation | List all available audio transitions. Uses QE DOM. |
-| `list_available_effects` | Default profile | Single operation | List all available video effects in Premiere Pro. Uses QE DOM. |
+| `list_available_effects` | Default profile | Single operation | List available video effects in Premiere Pro. Uses the full QE catalog when exposed; otherwise returns a verified, explicitly partial set of common effects resolved by exact name. |
 | `list_available_transitions` | Default profile | Single operation | List all available video transitions. Uses QE DOM. Returns a hint set on PPro 2026 where the transition registry list is empty even though by-name lookup works. |
 | `list_clip_effects` | Default profile | Single operation | List all effects/components on a clip with their properties and current values. Essential for debugging effect issues. |
 | `list_markers` | Default profile | Single operation | List all markers on the active sequence or a specific clip |

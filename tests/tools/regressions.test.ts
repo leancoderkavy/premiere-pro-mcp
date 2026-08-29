@@ -380,14 +380,21 @@ describe("issue #194 — string-backed MOGRT effect properties", () => {
 describe("issue #196 — empty Premiere 26.x QE effect catalogs", () => {
   const effects = getEffectsTools(bridgeOptions);
 
-  it("routes an empty legacy QE catalog to the documented UXP effect workflow, not an effect-name miss", async () => {
+  it("probes an exact QE effect name before treating an empty catalog as unavailable", async () => {
     const script = await scriptFor(effects.apply_effect, {
       node_id: "clip-1",
       effect_name: "Transform",
     });
 
+    expect(script).toContain("qe.project.getVideoEffectByName(effectName)");
     expect(script).toContain('var effectCatalog = __getQeEffectCatalog("video")');
-    expect(script).toContain("if (!effectCatalog.ok) return __error(effectCatalog.error)");
+    expect(script).toContain("Direct QE lookup for");
+    expect(script).toContain('lookupSource: lookupSource');
+
+    const listScript = await scriptFor(effects.list_available_effects, {});
+    expect(listScript).toContain("var commonNames = [");
+    expect(listScript).toContain("qe.byName.partial");
+    expect(listScript).toContain("Direct lookup did not resolve any bounded fallback effects.");
 
     const helpers = getHelpersSource();
     expect(helpers).toContain("function __getQeEffectCatalog(kind)");
