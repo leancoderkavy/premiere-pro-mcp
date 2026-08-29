@@ -117,6 +117,21 @@ describe("UXP command registry", () => {
     });
   });
 
+  it("accepts a transition match name returned by an earlier list when host enumeration changes", async () => {
+    const value = host();
+    value.ppro.TransitionFactory.getVideoTransitionMatchNames
+      .mockResolvedValueOnce(["ADBE Cross Dissolve New"])
+      .mockResolvedValueOnce(["ADBE Additive Dissolve"]);
+
+    await expect(value.registry.dispatch("transition.video.list", {})).resolves.toEqual({
+      matchNames: ["ADBE Cross Dissolve New"], count: 1,
+    });
+    await expect(value.registry.dispatch("transition.video.add", {
+      videoTrackIndex: 0, clipIndex: 0, matchName: "ADBE Cross Dissolve New", position: "start",
+    })).resolves.toMatchObject({ applied: true, matchName: "ADBE Cross Dissolve New" });
+    expect(value.ppro.TransitionFactory.createVideoTransition).toHaveBeenCalledWith("ADBE Cross Dissolve New");
+  });
+
   it("exports a PNG with a bare host filename and a one-extension returned path", async () => {
     const value = host();
     await expect(value.registry.dispatch("frame.export", {
