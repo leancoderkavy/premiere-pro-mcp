@@ -6,6 +6,21 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [1.14.4] - 2026-08-29
+
+### Fixed
+
+- Corrected QE razor operations to pass sequence timecode rather than ticks and
+  added regression coverage for both split and all-track cuts.
+- Made batch effect application preflight every target, match QE clips without
+  assuming gap-free indexes, and require post-application component readback.
+- Replaced false playback-success claims with explicit request-only results and
+  polling guidance when the legacy API cannot provide same-call verification.
+- Added direct QE by-name effect probes when Premiere exposes an empty effect
+  catalog, while labelling bounded fallback lists as partial.
+- Made an empty or unavailable QE audio-transition catalog fail closed instead
+  of appearing as a usable transition list.
+
 ## [1.14.3] - 2026-08-29
 
 ### Added
