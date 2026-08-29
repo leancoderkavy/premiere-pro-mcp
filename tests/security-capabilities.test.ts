@@ -29,6 +29,7 @@ describe("capability profiles", () => {
     expect(capabilityForTool("evaluate_expression")).toBe("unsafe-script");
     expect(capabilityForTool("export_sequence")).toBe("export");
     expect(capabilityForTool("export_sequence_review_frames")).toBe("export");
+    expect(capabilityForTool("export_sequence_marker_review_frames")).toBe("export");
     expect(capabilityForTool("capture_frame")).toBe("export");
     expect(capabilityForTool("validate_export_preset")).toBe("export");
     expect(capabilityForTool("verify_delivery_file")).toBe("filesystem");

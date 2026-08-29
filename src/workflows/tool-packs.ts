@@ -99,6 +99,7 @@ export const WORKFLOW_TOOL_PACKS: readonly WorkflowToolPack[] = [
       "export_sequence",
       "export_frame",
       "export_sequence_review_frames",
+      "export_sequence_marker_review_frames",
       "export_sequence_clip_review_frames",
       "export_as_fcp_xml",
       "export_aaf",
