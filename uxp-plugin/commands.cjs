@@ -9,6 +9,7 @@
     const ppro = deps.ppro, Protocol = deps.Protocol, workspace = deps.workspace;
     const completedOperations = new Map();
     const inFlightOperations = new Map();
+    const listedVideoTransitionMatchNames = new Set();
     const definitions = {
       "capabilities.get": { readOnly: true, handler: capabilities },
       "state.get": { readOnly: true, handler: stateSnapshot },
@@ -391,14 +392,16 @@
       };
     }
     async function listTransitions() {
-      const matchNames = Array.from(await ppro.TransitionFactory.getVideoTransitionMatchNames() || []);
+      const matchNames = await currentVideoTransitionMatchNames();
       return { matchNames, count: matchNames.length };
     }
     async function addTransition(args) {
       const input = validateAddArgs(args), context = await activeContext(true);
       const target = await videoClipAt(context.sequence, input.videoTrackIndex, input.clipIndex);
-      const available = Array.from(await ppro.TransitionFactory.getVideoTransitionMatchNames() || []);
-      if (!available.includes(input.matchName)) throw commandError("UXP_TRANSITION_NOT_FOUND", "Unknown video transition matchName: " + input.matchName);
+      const available = await currentVideoTransitionMatchNames();
+      if (!available.includes(input.matchName) && !listedVideoTransitionMatchNames.has(input.matchName)) {
+        throw commandError("UXP_TRANSITION_NOT_FOUND", "Unknown video transition matchName: " + input.matchName);
+      }
       const transition = await ppro.TransitionFactory.createVideoTransition(input.matchName);
       if (!transition) throw commandError("UXP_TRANSITION_NOT_FOUND", "Premiere could not create video transition: " + input.matchName);
       const options = ppro.AddTransitionOptions();
@@ -415,6 +418,13 @@
       });
       assertTransactionCommitted(committed, "transition addition");
       return { applied: true, verified: "transaction", matchName: input.matchName, videoTrackIndex: input.videoTrackIndex, clipIndex: input.clipIndex, position: input.position };
+    }
+    async function currentVideoTransitionMatchNames() {
+      const matchNames = Array.from(await ppro.TransitionFactory.getVideoTransitionMatchNames() || []);
+      for (let i = 0; i < matchNames.length; i += 1) {
+        if (typeof matchNames[i] === "string" && matchNames[i]) listedVideoTransitionMatchNames.add(matchNames[i]);
+      }
+      return matchNames;
     }
     async function removeTransition(args) {
       const input = validateRemoveArgs(args), context = await activeContext(true);
