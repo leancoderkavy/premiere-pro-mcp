@@ -1,10 +1,12 @@
 import type http from "node:http";
+import { randomBytes } from "node:crypto";
 import { createRemoteJWKSet, errors, jwtVerify, type JWTPayload } from "jose";
 import type { HttpAuthConfiguration } from "./http-admission.js";
 
 export interface AuthenticatedPrincipal {
   subject: string;
   scopes: string[];
+  rateLimitKey: string;
 }
 
 export type AuthenticationResult =
@@ -36,11 +38,15 @@ function tokenScopes(payload: JWTPayload): string[] {
 
 export class OAuthResourceServer {
   private readonly verifyToken: JwtVerifier;
+  private readonly rateLimitKeys: Map<string, string>;
 
   constructor(
     private readonly configuration: NonNullable<HttpAuthConfiguration["oauth"]>,
     verifier?: JwtVerifier,
   ) {
+    this.rateLimitKeys = new Map(
+      configuration.allowedSubjects.map((subject) => [subject, randomBytes(16).toString("hex")]),
+    );
     if (verifier) {
       this.verifyToken = verifier;
       return;
@@ -93,7 +99,14 @@ export class OAuthResourceServer {
       if (!this.configuration.requiredScopes.every((scope) => scopes.includes(scope))) {
         return { authenticated: false, error: "insufficient_scope" };
       }
-      return { authenticated: true, principal: { subject: payload.sub, scopes } };
+      return {
+        authenticated: true,
+        principal: {
+          subject: payload.sub,
+          scopes,
+          rateLimitKey: this.rateLimitKeys.get(payload.sub)!,
+        },
+      };
     } catch (error) {
       if (error instanceof errors.JOSEError) return { authenticated: false, error: "invalid_token" };
       // Remote JWKS/network failures must fail closed without disclosing provider details.

@@ -290,7 +290,7 @@ const httpServer = http.createServer(async (req, res) => {
   // single-operator deployments and is compared in constant time.
   // Apply an IP-keyed gate first so untrusted JWT/JWKS work cannot bypass the
   // same concurrency and rate bounds that protect authenticated requests.
-  const preAuthDecision = preAuthAdmission.acquire(rateLimitIdentity(req, undefined, admissionSettings.trustProxy));
+  const preAuthDecision = preAuthAdmission.acquire(rateLimitIdentity(req, admissionSettings.trustProxy));
   if (!preAuthDecision.accepted) {
     telemetry.capture("mcp_request_rejected", {
       outcome: preAuthDecision.reason,
@@ -338,9 +338,9 @@ const httpServer = http.createServer(async (req, res) => {
   }
 
   const authenticatedIdentity = oauthAuthentication?.authenticated
-    ? `oauth:${oauthAuthentication.principal.subject}`
-    : httpAuth.authToken;
-  const admissionDecision = admission.acquire(rateLimitIdentity(req, authenticatedIdentity, admissionSettings.trustProxy));
+    ? `oauth:${oauthAuthentication.principal.rateLimitKey}`
+    : "credential:shared-operator";
+  const admissionDecision = admission.acquire(authenticatedIdentity);
   if (!admissionDecision.accepted) {
     telemetry.capture("mcp_request_rejected", {
       outcome: admissionDecision.reason,

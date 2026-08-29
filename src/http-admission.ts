@@ -286,8 +286,8 @@ function timingSafeBufferEqual(left: Buffer, right: Buffer): boolean {
 }
 
 function hashedIdentity(value: string): string {
-  // A process-local keyed digest prevents low-entropy subjects or addresses
-  // from being recovered through an offline dictionary attack if a bucket key
+  // A process-local keyed digest prevents network addresses from being
+  // recovered through an offline dictionary attack if a bucket key
   // is ever observed. The key and derived identities are never persisted.
   return createHmac("sha256", RATE_LIMIT_IDENTITY_KEY).update(value).digest("hex").slice(0, 32);
 }
@@ -299,11 +299,8 @@ function hashedIdentity(value: string): string {
  */
 export function rateLimitIdentity(
   req: Pick<http.IncomingMessage, "headers" | "socket">,
-  authorizedCredential: string | undefined,
   trustProxy: boolean,
 ): string {
-  if (authorizedCredential) return `credential:${hashedIdentity(authorizedCredential)}`;
-
   const forwarded = req.headers["x-forwarded-for"];
   const forwardedValue = Array.isArray(forwarded) ? forwarded[0] : forwarded;
   const remoteAddress = trustProxy && forwardedValue

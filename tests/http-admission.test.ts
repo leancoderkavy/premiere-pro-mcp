@@ -144,11 +144,10 @@ describe("HTTP request classification", () => {
       headers: { "x-forwarded-for": "198.51.100.4, 10.0.0.1" },
       socket: { remoteAddress: "10.0.0.1" },
     } as never;
-    expect(rateLimitIdentity(request, undefined, false)).not.toBe(rateLimitIdentity(request, undefined, true));
-    expect(rateLimitIdentity(request, "credential", false)).toMatch(/^credential:/);
-    expect(rateLimitIdentity({ headers: { "x-forwarded-for": ["203.0.113.8"] }, socket: { remoteAddress: "10.0.0.1" } } as never, undefined, true)).toMatch(/^ip:/);
-    expect(rateLimitIdentity({ headers: {}, socket: { remoteAddress: "" } } as never, undefined, false)).toMatch(/^ip:/);
-    expect(rateLimitIdentity({ headers: {}, socket: {} } as never, undefined, true)).toMatch(/^ip:/);
+    expect(rateLimitIdentity(request, false)).not.toBe(rateLimitIdentity(request, true));
+    expect(rateLimitIdentity({ headers: { "x-forwarded-for": ["203.0.113.8"] }, socket: { remoteAddress: "10.0.0.1" } } as never, true)).toMatch(/^ip:/);
+    expect(rateLimitIdentity({ headers: {}, socket: { remoteAddress: "" } } as never, false)).toMatch(/^ip:/);
+    expect(rateLimitIdentity({ headers: {}, socket: {} } as never, true)).toMatch(/^ip:/);
   });
 });
 

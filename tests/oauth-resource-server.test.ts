@@ -34,7 +34,7 @@ describe("OAuth resource server", () => {
     const valid = new OAuthResourceServer(configuration, async () => ({
       sub: "user-1", scope: "premiere:mcp premiere:read extra",
     }));
-    await expect(valid.authenticate(request("Bearer signed-token"))).resolves.toEqual({
+    await expect(valid.authenticate(request("Bearer signed-token"))).resolves.toMatchObject({
       authenticated: true,
       principal: { subject: "user-1", scopes: ["premiere:mcp", "premiere:read", "extra"] },
     });
@@ -90,7 +90,7 @@ describe("OAuth resource server", () => {
         .sign(privateKey);
       await expect(resource.authenticate(request(`Bearer ${validToken}`))).resolves.toMatchObject({
         authenticated: true,
-        principal: { subject: "user-1" },
+        principal: { subject: "user-1", rateLimitKey: expect.stringMatching(/^[a-f0-9]{32}$/) },
       });
 
       const wrongAudience = await new SignJWT({ scope: "premiere:mcp premiere:read" })

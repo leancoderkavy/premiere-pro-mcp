@@ -23,7 +23,10 @@ const mocks = vi.hoisted(() => ({
   streamOnce: vi.fn(),
   pipe: vi.fn(),
   readBoundedBody: vi.fn(async () => Buffer.from("{}")),
-  oauthAuthenticate: vi.fn(async () => ({ authenticated: true, principal: { subject: "user-1", scopes: ["premiere:mcp"] } })),
+  oauthAuthenticate: vi.fn(async () => ({
+    authenticated: true,
+    principal: { subject: "user-1", scopes: ["premiere:mcp"], rateLimitKey: "opaque-user-key" },
+  })),
 }));
 
 vi.mock("node:http", () => ({
