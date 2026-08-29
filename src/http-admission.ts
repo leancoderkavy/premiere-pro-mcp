@@ -1,4 +1,4 @@
-import { createHash, timingSafeEqual } from "node:crypto";
+import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 import type http from "node:http";
 
 export const MCP_HTTP_METHODS = ["GET", "POST", "DELETE"] as const;
@@ -40,6 +40,7 @@ export type AdmissionDecision =
   | { accepted: false; reason: "rate_limited" | "at_capacity"; statusCode: 429 | 503; retryAfterSeconds: number };
 
 const ONE_MINUTE_MS = 60_000;
+const RATE_LIMIT_IDENTITY_KEY = randomBytes(32);
 
 function readBoundedInteger(
   env: NodeJS.ProcessEnv,
@@ -285,7 +286,10 @@ function timingSafeBufferEqual(left: Buffer, right: Buffer): boolean {
 }
 
 function hashedIdentity(value: string): string {
-  return createHash("sha256").update(value).digest("hex").slice(0, 32);
+  // A process-local keyed digest prevents low-entropy subjects or addresses
+  // from being recovered through an offline dictionary attack if a bucket key
+  // is ever observed. The key and derived identities are never persisted.
+  return createHmac("sha256", RATE_LIMIT_IDENTITY_KEY).update(value).digest("hex").slice(0, 32);
 }
 
 /**
