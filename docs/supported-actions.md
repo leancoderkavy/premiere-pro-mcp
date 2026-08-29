@@ -60,7 +60,7 @@ operation” when the tool has no enum-based mode.
 | `attach_custom_property` | Default profile | Single operation | Attach a custom property (key/value pair) to the active sequence |
 | `auto_reframe_sequence` | Default profile | `motion_preset`: `slower`, `default`, `faster` | Auto-reframe a sequence for a different aspect ratio |
 | `batch_add_transitions` | Default profile | Single operation | Add the same transition to all cut points on a track |
-| `batch_apply_effect` | Default profile | `target`: `selected`, `track`, `all`; `track_type`: `video`, `audio` | Apply an effect to multiple clips at once. Can target selected clips, all clips on a track, or all clips in the sequence. |
+| `batch_apply_effect` | Default profile | `target`: `selected`, `track`, `all`; `track_type`: `video`, `audio` | Apply one audio or video effect to compatible selected clips, a compatible track, or all compatible clips. Every target is preflighted and then checked by component-count readback. |
 | `batch_enable_disable` | Default profile | `target`: `selected`, `track`, `all`; `track_type`: `video`, `audio` | Enable or disable multiple clips at once (selected, track, or all). |
 | `batch_rename_clips` | Default profile | `track_type`: `video`, `audio` | Rename multiple clips on the timeline using a pattern. Supports sequential numbering. |
 | `capture_frame` | Default profile | Single operation | Capture the current frame and return it as inline image data for the LLM to see. This lets the AI visually inspect the current state of the timeline. |
@@ -211,7 +211,7 @@ operation” when the tool has no enum-based mode.
 | `lift_selection` | Default profile | Single operation | Lift (remove without closing gap) the content between sequence in/out points or selected clips. |
 | `link_selection` | Default profile | Single operation | Link the currently selected video and audio clips in the active sequence |
 | `list_available_audio_effects` | Default profile | Single operation | List all available audio effects in Premiere Pro. Uses QE DOM. |
-| `list_available_audio_transitions` | Default profile | Single operation | List all available audio transitions. Uses QE DOM. |
+| `list_available_audio_transitions` | Default profile | Single operation | List all available audio transitions. Uses QE DOM and reports an unavailable or empty legacy catalog as an error rather than an assumed usable list. |
 | `list_available_effects` | Default profile | Single operation | List available video effects in Premiere Pro. Uses the full QE catalog when exposed; otherwise returns a verified, explicitly partial set of common effects resolved by exact name. |
 | `list_available_transitions` | Default profile | Single operation | List all available video transitions. Uses QE DOM. Returns a hint set on PPro 2026 where the transition registry list is empty even though by-name lookup works. |
 | `list_clip_effects` | Default profile | Single operation | List all effects/components on a clip with their properties and current values. Essential for debugging effect issues. |

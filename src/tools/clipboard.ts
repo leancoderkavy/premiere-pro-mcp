@@ -214,7 +214,7 @@ export function getClipboardTools(bridgeOptions: BridgeOptions) {
     },
 
     batch_apply_effect: {
-      description: "Apply an effect to multiple clips at once. Can target selected clips, all clips on a track, or all clips in the sequence.",
+      description: "Apply one audio or video effect to compatible selected clips, a compatible track, or all compatible clips. Every target is preflighted and then checked by component-count readback.",
       parameters: {
         type: "object" as const,
         properties: {
@@ -236,70 +236,135 @@ export function getClipboardTools(bridgeOptions: BridgeOptions) {
             type: "number",
             description: "Track index (required when target is 'track')",
           },
-        },
-        required: ["effect_name", "target"],
+      },
+      required: ["effect_name", "target"],
       },
       handler: async (args: { effect_name: string; target: string; track_type?: string; track_index?: number }) => {
+        if (!args.effect_name.trim()) return { success: false, error: "effect_name must not be empty" };
+        if (args.target !== "selected" && args.target !== "track" && args.target !== "all") {
+          return { success: false, error: "target must be selected, track, or all" };
+        }
+        if (args.target === "track" && (args.track_type !== "video" && args.track_type !== "audio")) {
+          return { success: false, error: "track_type must be video or audio when target is track" };
+        }
+        if (args.target === "track" && (!Number.isInteger(args.track_index) || (args.track_index as number) < 0)) {
+          return { success: false, error: "track_index must be a non-negative integer when target is track" };
+        }
         const script = buildToolScript(`
           app.enableQE();
           var seq = app.project.activeSequence;
           if (!seq) return __error("No active sequence");
           var qeSeq = qe.project.getActiveSequence();
+          if (!qeSeq) return __error("No active sequence (QE)");
 
           var effectName = "${escapeForExtendScript(args.effect_name)}";
           var qeEffect = qe.project.getVideoEffectByName(effectName);
-          var isAudio = false;
+          var effectType = "video";
           if (!qeEffect) {
             qeEffect = qe.project.getAudioEffectByName(effectName);
-            isAudio = true;
+            effectType = "audio";
           }
           if (!qeEffect) return __error("Effect not found: " + effectName);
 
-          var applied = 0;
           var target = "${args.target}";
+          var targets = [];
+          var selectedIncompatible = 0;
 
-          function applyToClip(trackIdx, clipIdx, trackType) {
-            try {
-              var qeTrack = trackType === "video" ? qeSeq.getVideoTrackAt(trackIdx) : qeSeq.getAudioTrackAt(trackIdx);
-              var qeClip = qeTrack.getItemAt(clipIdx);
-              if (isAudio || trackType === "audio") {
-                qeClip.addAudioEffect(qeEffect);
-              } else {
-                qeClip.addVideoEffect(qeEffect);
+          function collectTracks(tracks, trackType, selectedOnly, onlyTrackIndex) {
+            for (var t = 0; t < tracks.numTracks; t++) {
+              if (onlyTrackIndex !== null && t !== onlyTrackIndex) continue;
+              for (var c = 0; c < tracks[t].clips.numItems; c++) {
+                var clip = tracks[t].clips[c];
+                if (selectedOnly && !clip.isSelected()) continue;
+                if (trackType !== effectType) {
+                  if (selectedOnly) selectedIncompatible++;
+                  continue;
+                }
+                targets.push({ clip: clip, trackIndex: t, trackType: trackType, qeClip: null, beforeCount: 0 });
               }
-              applied++;
-            } catch(e) {}
+            }
           }
 
           if (target === "selected") {
-            for (var t = 0; t < seq.videoTracks.numTracks; t++) {
-              for (var c = 0; c < seq.videoTracks[t].clips.numItems; c++) {
-                if (seq.videoTracks[t].clips[c].isSelected()) applyToClip(t, c, "video");
-              }
-            }
-            for (var t = 0; t < seq.audioTracks.numTracks; t++) {
-              for (var c = 0; c < seq.audioTracks[t].clips.numItems; c++) {
-                if (seq.audioTracks[t].clips[c].isSelected()) applyToClip(t, c, "audio");
-              }
-            }
+            collectTracks(seq.videoTracks, "video", true, null);
+            collectTracks(seq.audioTracks, "audio", true, null);
           } else if (target === "track") {
-            var tt = "${args.track_type || "video"}";
-            var ti = ${args.track_index ?? 0};
-            var tracks = tt === "video" ? seq.videoTracks : seq.audioTracks;
-            if (ti >= tracks.numTracks) return __error("Track index out of range");
-            for (var c = 0; c < tracks[ti].clips.numItems; c++) {
-              applyToClip(ti, c, tt);
+            var requestedTrackType = "${args.track_type || "video"}";
+            var requestedTrackIndex = ${args.track_index ?? 0};
+            if (requestedTrackType !== effectType) {
+              return __error("Effect " + effectName + " is a " + effectType + " effect and cannot be applied to an " + requestedTrackType + " track. No mutation was attempted.");
             }
+            var requestedTracks = requestedTrackType === "video" ? seq.videoTracks : seq.audioTracks;
+            if (requestedTrackIndex >= requestedTracks.numTracks) return __error("Track index out of range");
+            collectTracks(requestedTracks, requestedTrackType, false, requestedTrackIndex);
           } else {
-            for (var t = 0; t < seq.videoTracks.numTracks; t++) {
-              for (var c = 0; c < seq.videoTracks[t].clips.numItems; c++) applyToClip(t, c, "video");
-            }
-            for (var t = 0; t < seq.audioTracks.numTracks; t++) {
-              for (var c = 0; c < seq.audioTracks[t].clips.numItems; c++) applyToClip(t, c, "audio");
-            }
+            collectTracks(effectType === "video" ? seq.videoTracks : seq.audioTracks, effectType, false, null);
           }
 
-          return __result({ applied: applied, effect: effectName, target: target });
+          if (targets.length === 0) {
+            return __error("No compatible " + effectType + " clips matched target " + target + ". No mutation was attempted.");
+          }
+
+          function findQeClip(target) {
+            var qeTrack = target.trackType === "video"
+              ? qeSeq.getVideoTrackAt(target.trackIndex)
+              : qeSeq.getAudioTrackAt(target.trackIndex);
+            if (!qeTrack) return null;
+            var expectedStart = parseFloat(target.clip.start.ticks);
+            for (var qi = 0; qi < qeTrack.numItems; qi++) {
+              var candidate = qeTrack.getItemAt(qi);
+              if (!candidate || String(candidate.type) !== "Clip") continue;
+              try {
+                if (Math.abs(parseFloat(candidate.start.ticks) - expectedStart) < 1) return candidate;
+              } catch (lookupError) {}
+            }
+            return null;
+          }
+
+          function countEffectComponents(clip) {
+            var count = 0;
+            for (var ci = 0; ci < clip.components.numItems; ci++) {
+              var component = clip.components[ci];
+              if (component.displayName === effectName || component.matchName === effectName) count++;
+            }
+            return count;
+          }
+
+          // Resolve every QE clip before changing anything. QE item indexes include
+          // gaps, so a DOM clip index cannot safely be used as a QE item index.
+          for (var preflightIndex = 0; preflightIndex < targets.length; preflightIndex++) {
+            var preflightTarget = targets[preflightIndex];
+            preflightTarget.qeClip = findQeClip(preflightTarget);
+            if (!preflightTarget.qeClip) {
+              return __error("Could not match a selected " + effectType + " clip to its QE item. No effects were applied.");
+            }
+            preflightTarget.beforeCount = countEffectComponents(preflightTarget.clip);
+          }
+
+          var applied = 0;
+          var failures = [];
+          for (var targetIndex = 0; targetIndex < targets.length; targetIndex++) {
+            var current = targets[targetIndex];
+            try {
+              if (effectType === "audio") current.qeClip.addAudioEffect(qeEffect);
+              else current.qeClip.addVideoEffect(qeEffect);
+            } catch (applyError) {
+              failures.push("track " + current.trackIndex + ": " + applyError.toString());
+              continue;
+            }
+            var afterCount = countEffectComponents(current.clip);
+            if (afterCount <= current.beforeCount) {
+              failures.push("track " + current.trackIndex + ": component count did not increase");
+              continue;
+            }
+            applied++;
+          }
+
+          if (failures.length > 0) {
+            return __error("Batch effect application was only partially verified (" + applied + "/" + targets.length + "). Do not retry blindly; inspect Effect Controls. Failures: " + failures.join("; "));
+          }
+
+          return __result({ applied: applied, verified: true, effect: effectName, effectType: effectType, target: target, selectedIncompatible: selectedIncompatible });
         `);
         return sendCommand(script, bridgeOptions);
       },
