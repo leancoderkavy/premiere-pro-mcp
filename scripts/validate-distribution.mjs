@@ -104,10 +104,12 @@ export async function validateClaudeStage(stage) {
     path.join(stage, "server", "dist", "index.js"),
     "Claude bundle stage is missing server/dist/index.js; run the TypeScript build first",
   );
-  await assertFile(
-    path.join(stage, "node_modules", "@modelcontextprotocol", "sdk", "package.json"),
-    "Claude bundle stage is missing production dependencies",
-  );
+  for (const dependency of Object.keys(packageJson.dependencies ?? {})) {
+    await assertFile(
+      path.join(stage, "node_modules", dependency, "package.json"),
+      `Claude bundle stage is missing production dependency ${dependency}`,
+    );
+  }
   return { manifest, packageJson };
 }
 
