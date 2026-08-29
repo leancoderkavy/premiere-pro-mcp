@@ -963,7 +963,7 @@ export function getTrackTargetingTools(bridgeOptions: BridgeOptions) {
     },
 
     set_clip_pan: {
-      description: "Set the pan (left/right balance) on an audio clip.",
+      description: "Set and read back the pan (left/right balance) on an audio clip, including Channel Volume layouts.",
       parameters: {
         type: "object" as const,
         properties: {
@@ -980,26 +980,34 @@ export function getTrackTargetingTools(bridgeOptions: BridgeOptions) {
         required: ["node_id", "pan"],
       },
       handler: async (args: { node_id: string; pan: number }) => {
+        if (!Number.isFinite(args.pan) || args.pan < -100 || args.pan > 100) {
+          return { success: false, error: "pan must be a finite value from -100 through 100" };
+        }
         const script = buildToolScript(`
           var result = __findClip("${escapeForExtendScript(args.node_id)}");
           if (!result) return __error("Clip not found");
+          if (result.trackType !== "audio") return __error("Clip is not on an audio track");
 
           var clip = result.clip;
-          var set = false;
+          var panProperty = null;
           for (var i = 0; i < clip.components.numItems; i++) {
-            if (clip.components[i].displayName === "Panner") {
-              for (var p = 0; p < clip.components[i].properties.numItems; p++) {
-                if (clip.components[i].properties[p].displayName === "Balance" || clip.components[i].properties[p].displayName === "Pan") {
-                  clip.components[i].properties[p].setValue(${args.pan}, true);
-                  set = true;
-                  break;
-                }
+            var component = clip.components[i];
+            for (var p = 0; p < component.properties.numItems; p++) {
+              var property = component.properties[p];
+              if (property.displayName === "Balance" || property.displayName === "Pan") {
+                panProperty = property;
+                break;
               }
-              break;
             }
+            if (panProperty) break;
           }
-          if (!set) return __error("Could not set pan - is this an audio clip?");
-          return __result({ pan: ${args.pan}, clip: clip.name });
+          if (!panProperty) return __error("Audio clip does not expose a writable Balance or Pan property (checked Panner, Channel Volume, and other audio components).");
+          var writeResult = panProperty.setValue(${args.pan}, true);
+          var appliedPan = Number(panProperty.getValue());
+          if (isNaN(appliedPan) || Math.abs(appliedPan - ${args.pan}) > 0.0001) {
+            return __error("Premiere did not apply the requested pan: expected ${args.pan}, got " + appliedPan);
+          }
+          return __result({ pan: appliedPan, verified: true, writeResult: writeResult, clip: clip.name });
         `);
         return sendCommand(script, bridgeOptions);
       },
@@ -1014,7 +1022,7 @@ export function getTrackTargetingTools(bridgeOptions: BridgeOptions) {
           pattern: {
             type: "string",
             description:
-              "Name pattern. Use {n} for sequential number, {name} for original name (e.g., 'Scene_{n}', '{name}_v2')",
+              "Name pattern. Use {n} for a sequential number, ## for a zero-padded two-digit sequence number, and {name} for the original name (e.g., 'Scene_##', '{name}_v2')",
           },
           track_type: {
             type: "string",
@@ -1045,6 +1053,9 @@ export function getTrackTargetingTools(bridgeOptions: BridgeOptions) {
         start_number?: number;
       }) => {
         const startNum = args.start_number ?? 1;
+        if (!Number.isInteger(startNum) || startNum < 1 || startNum > 1_000_000) {
+          return { success: false, error: "start_number must be an integer from 1 through 1000000" };
+        }
         const script = buildToolScript(`
           app.enableQE();
           var seq = app.project.activeSequence;
@@ -1069,7 +1080,10 @@ export function getTrackTargetingTools(bridgeOptions: BridgeOptions) {
             var clip = track.clips[c];
             ${args.selected_only ? `if (!clip.isSelected()) continue;` : ""}
 
-            var newName = pattern.split("{n}").join("" + num).split("{name}").join(clip.name);
+            var sequenceNumber = "" + num;
+            var paddedSequenceNumber = sequenceNumber;
+            while (paddedSequenceNumber.length < 2) paddedSequenceNumber = "0" + paddedSequenceNumber;
+            var newName = pattern.split("{n}").join(sequenceNumber).split("##").join(paddedSequenceNumber).split("{name}").join(clip.name);
             try {
               var qeClip = qeTrack.getItemAt(c);
               qeClip.setName(newName);

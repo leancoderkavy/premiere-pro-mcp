@@ -284,7 +284,7 @@ operation” when the tool has no enum-based mode.
 | `set_blend_mode` | Default profile | `blend_mode`: `Normal`, `Dissolve`, `Darken`, `Multiply`, `Color Burn`, `Linear Burn`, `Darker Color`, `Lighten`, `Screen`, `Color Dodge`, `Linear Dodge`, `Lighter Color`, `Overlay`, `Soft Light`, `Hard Light`, `Vivid Light`, `Linear Light`, `Pin Light`, `Hard Mix`, `Difference`, `Exclusion`, `Subtract`, `Divide`, `Hue`, `Saturation`, `Color`, `Luminosity` | Set the blend mode on a video clip. Uses the Opacity effect's Blend Mode property. |
 | `set_clip_anchor_point` | Default profile | Single operation | Set the Anchor Point property on a video clip's Motion effect. |
 | `set_clip_opacity` | Default profile | Single operation | Set the opacity of a video clip (0-100). |
-| `set_clip_pan` | Default profile | Single operation | Set the pan (left/right balance) on an audio clip. |
+| `set_clip_pan` | Default profile | Single operation | Set and read back the pan (left/right balance) on an audio clip, including Channel Volume layouts. |
 | `set_clip_position` | Default profile | Single operation | Set the Position property on a video clip's Motion effect. Values are in pixels. |
 | `set_clip_properties` | Default profile | Single operation | Set supported clip properties (opacity, scale, position, rotation). Clip speed is unsupported and fails before mutation. |
 | `set_clip_properties_batch` | Default profile | Single operation | Apply Motion/Opacity values to up to 16 clips after preflighting every target property. The handler reads each requested value back and never reports a partial batch as verified. |

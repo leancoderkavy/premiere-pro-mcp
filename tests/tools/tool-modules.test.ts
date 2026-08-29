@@ -498,6 +498,30 @@ describe("Tool Handler Behavior", () => {
       expect(mockedSendCommand).not.toHaveBeenCalled();
     });
 
+    it("finds pan on Channel Volume layouts and verifies the readback", async () => {
+      const tools = getTrackTargetingTools(bridgeOptions);
+      await (tools.set_clip_pan.handler as any)({ node_id: "audio-clip-1", pan: -50 });
+      const script = mockedSendCommand.mock.calls[0][0];
+      expect(script).toContain('result.trackType !== "audio"');
+      expect(script).toContain("component.properties");
+      expect(script).toContain('property.displayName === "Balance"');
+      expect(script).toContain("panProperty.getValue()");
+      expect(script).toContain("Premiere did not apply the requested pan");
+
+      vi.clearAllMocks();
+      await expect((tools.set_clip_pan.handler as any)({ node_id: "audio-clip-1", pan: 101 })).resolves.toMatchObject({ success: false });
+      expect(mockedSendCommand).not.toHaveBeenCalled();
+    });
+
+    it("supports the documented ## zero-padded rename placeholder", async () => {
+      const tools = getTrackTargetingTools(bridgeOptions);
+      await (tools.batch_rename_clips.handler as any)({ pattern: "QA_Batch_##", track_type: "video", track_index: 0 });
+      const script = mockedSendCommand.mock.calls[0][0];
+      expect(script).toContain('.split("##").join(paddedSequenceNumber)');
+       expect(script).toContain('while (paddedSequenceNumber.length < 2)');
+       expect(script).toContain('"0" + paddedSequenceNumber');
+     });
+
     it("converts audio dB to amplitude and verifies the readback", async () => {
       const tools = getAudioTools(bridgeOptions);
       await (tools.adjust_audio_levels.handler as any)({ node_id: "clip-1", level_db: -6 });
