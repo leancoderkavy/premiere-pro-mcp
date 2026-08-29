@@ -5,7 +5,7 @@ export function getCaptionTools(bridgeOptions: BridgeOptions) {
   return {
     create_caption_track: {
       description:
-        "Create a caption/subtitle track in the active sequence from an imported caption file (e.g., .srt, .vtt). Creation is structural only; verify playback or exported frames before delivery.",
+        "Create a caption/subtitle track in the active sequence from an imported caption file (e.g., .srt, .vtt). Reports structural success only when the host exposes a caption-track readback; otherwise reports an unverified accepted request.",
       parameters: {
         type: "object" as const,
         properties: {
@@ -52,13 +52,42 @@ export function getCaptionTools(bridgeOptions: BridgeOptions) {
           
           var item = __findProjectItem("${escapeForExtendScript(args.item_id)}");
           if (!item) return __error("Caption item not found: ${escapeForExtendScript(args.item_id)}");
-          
+
+          function __captionTrackCount(sequence) {
+            var tracks = null;
+            try {
+              if (typeof sequence.getCaptionTracks === "function") tracks = sequence.getCaptionTracks();
+              else if (sequence.captionTracks) tracks = sequence.captionTracks;
+            } catch (readError) { tracks = null; }
+            if (!tracks) return null;
+            try { return tracks.numTracks !== undefined ? Number(tracks.numTracks) : Number(tracks.length); }
+            catch (countError) { return null; }
+          }
+          var beforeCount = __captionTrackCount(seq);
           var result = seq.createCaptionTrack(item, ${startSeconds}, ${format});
           if (!result) return __error("Failed to create caption track");
+          var afterCount = __captionTrackCount(seq);
+          if (beforeCount !== null && afterCount !== null) {
+            if (afterCount <= beforeCount) {
+              return __error("Premiere accepted caption-track creation but no caption track appeared in host readback. No successful creation is reported.");
+            }
+            return __result({
+              created: true,
+              verified: true,
+              renderVerified: false,
+              verificationScope: "Caption-track count readback only; verify playback or exported frames before delivery.",
+              item: item.name,
+              startSeconds: ${startSeconds},
+              format: "${args.caption_format || "subtitle"}",
+              beforeTrackCount: beforeCount,
+              afterTrackCount: afterCount
+            });
+          }
           return __result({
-            created: true,
+            accepted: true,
+            verified: false,
             renderVerified: false,
-            verificationScope: "Premiere accepted the caption-track creation; verify playback or exported frames before delivery.",
+            verificationScope: "Premiere accepted the caption-track request, but this CEP host exposes no caption-track readback. No structural creation is claimed; verify playback or exported frames before delivery.",
             item: item.name,
             startSeconds: ${startSeconds},
             format: "${args.caption_format || "subtitle"}"
