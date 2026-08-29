@@ -470,15 +470,31 @@ describe("Tool Handler Behavior", () => {
       expect(script).toContain("verified: true");
 
       vi.clearAllMocks();
+      await (tools.set_sequence_settings.handler as any)({ width: 1920 });
+      expect(mockedSendCommand.mock.calls[0][0]).toContain("settings.videoFrameWidth = 1920");
+      expect(mockedSendCommand.mock.calls[0][0]).not.toContain("settings.videoFrameHeight =");
+
+      vi.clearAllMocks();
+      await (tools.set_sequence_settings.handler as any)({ height: 1080 });
+      expect(mockedSendCommand.mock.calls[0][0]).toContain("settings.videoFrameHeight = 1080");
+      expect(mockedSendCommand.mock.calls[0][0]).not.toContain("settings.videoFrameWidth =");
+
+      vi.clearAllMocks();
+      await expect((tools.set_sequence_settings.handler as any)({ width: 0 })).resolves.toMatchObject({ success: false });
+      expect(mockedSendCommand).not.toHaveBeenCalled();
+
       await expect((tools.set_sequence_settings.handler as any)({})).resolves.toMatchObject({ success: false });
       expect(mockedSendCommand).not.toHaveBeenCalled();
     });
 
     it("fails unsupported legacy AAF and multiple-undo requests before mutation", async () => {
       const aaf = await (getExportTools(bridgeOptions).export_aaf.handler as any)({ output_path: "/tmp/turnover.aaf" });
-      const undo = await (getTrackTargetingTools(bridgeOptions).multiple_undo.handler as any)({ count: 2 });
+      const undoTools = getTrackTargetingTools(bridgeOptions);
+      const undo = await (undoTools.multiple_undo.handler as any)({ count: 2 });
+      const invalidUndo = await (undoTools.multiple_undo.handler as any)({ count: 0 });
       expect(aaf).toMatchObject({ success: false, error: expect.stringContaining("No export was attempted") });
       expect(undo).toMatchObject({ success: false, error: expect.stringContaining("No mutation was attempted") });
+      expect(invalidUndo).toMatchObject({ success: false, error: expect.stringContaining("integer from 1 through 100") });
       expect(mockedSendCommand).not.toHaveBeenCalled();
     });
 
