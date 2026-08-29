@@ -4,9 +4,24 @@ import { sendCommand, BridgeOptions } from "../bridge/file-bridge.js";
 export function getInspectionTools(bridgeOptions: BridgeOptions) {
   return {
     get_full_project_overview: {
-      description: "Get a comprehensive overview of the entire project: all bins (recursive tree), all sequences, media stats, offline items, and project settings. This is the best first call to fully understand a project.",
-      parameters: {},
-      handler: async () => {
+      description: "Get a comprehensive overview of the project. Use include_bin_tree false or sequence_offset/sequence_limit for a bounded response on large projects.",
+      parameters: {
+        type: "object" as const,
+        additionalProperties: false,
+        properties: {
+          include_bin_tree: { type: "boolean", description: "Include the recursive bin tree (default: true). Set false to return project statistics and sequences only." },
+          max_bin_depth: { type: "integer", minimum: 0, maximum: 10, description: "Maximum recursive bin-tree depth when include_bin_tree is true (default: 10)." },
+          sequence_offset: { type: "integer", minimum: 0, description: "Zero-based offset into project sequences." },
+          sequence_limit: { type: "integer", minimum: 1, maximum: 500, description: "Maximum sequences to include. Omit to preserve the complete legacy response." },
+        },
+      },
+      handler: async (args: { include_bin_tree?: boolean; max_bin_depth?: number; sequence_offset?: number; sequence_limit?: number } = {}) => {
+        const includeBinTree = args.include_bin_tree !== false;
+        const maxBinDepth = Number.isInteger(args.max_bin_depth) ? Math.min(Math.max(args.max_bin_depth as number, 0), 10) : 10;
+        const sequenceOffset = Number.isInteger(args.sequence_offset) && (args.sequence_offset as number) >= 0 ? args.sequence_offset as number : 0;
+        const sequenceLimit = Number.isInteger(args.sequence_limit) && (args.sequence_limit as number) > 0
+          ? Math.min(args.sequence_limit as number, 500)
+          : -1;
         const script = buildToolScript(`
           var project = app.project;
           if (!project) return __error("No project is open");
@@ -24,7 +39,7 @@ export function getInspectionTools(bridgeOptions: BridgeOptions) {
               try { entry.mediaPath = item.getMediaPath(); } catch(e) {}
               try { entry.offline = item.isOffline(); } catch(e) {}
               try { entry.colorLabel = item.getColorLabel(); } catch(e) {}
-              if (item.type === 2 && depth < 10) {
+              if (item.type === 2 && depth < ${maxBinDepth}) {
                 entry.children = walkBin(item, depth + 1);
                 entry.childCount = entry.children.length;
               }
@@ -33,10 +48,13 @@ export function getInspectionTools(bridgeOptions: BridgeOptions) {
             return items;
           }
 
-          var binTree = walkBin(project.rootItem, 0);
+          var binTree = ${includeBinTree ? "walkBin(project.rootItem, 0)" : "null"};
 
           var sequences = [];
-          for (var i = 0; i < project.sequences.numSequences; i++) {
+          var sequenceTotal = project.sequences.numSequences;
+          var sequenceOffset = ${sequenceOffset};
+          var sequenceLimit = ${sequenceLimit};
+          for (var i = sequenceOffset; i < sequenceTotal && (sequenceLimit < 0 || sequences.length < sequenceLimit); i++) {
             var seq = project.sequences[i];
             var clipCount = 0;
             for (var t = 0; t < seq.videoTracks.numTracks; t++) clipCount += seq.videoTracks[t].clips.numItems;
@@ -85,11 +103,19 @@ export function getInspectionTools(bridgeOptions: BridgeOptions) {
             projectPath: project.path,
             totalItems: totalItems,
             offlineItems: offlineCount,
-            sequenceCount: sequences.length,
+            sequenceCount: sequenceTotal,
             mediaFileTypes: mediaTypes,
             activeSequence: activeSeqInfo,
             sequences: sequences,
-            binTree: binTree
+            ${includeBinTree ? "binTree: binTree," : ""}
+            sequencePagination: {
+              offset: sequenceOffset,
+              limit: sequenceLimit < 0 ? null : sequenceLimit,
+              returned: sequences.length,
+              total: sequenceTotal,
+              hasMore: sequenceOffset + sequences.length < sequenceTotal,
+              nextOffset: sequenceOffset + sequences.length < sequenceTotal ? sequenceOffset + sequences.length : null
+            }
           });
         `);
         return sendCommand(script, bridgeOptions);
@@ -109,11 +135,31 @@ export function getInspectionTools(bridgeOptions: BridgeOptions) {
             type: "boolean",
             description: "Include items from sub-bins recursively (default: true)",
           },
+          offset: {
+            type: "integer",
+            minimum: 0,
+            description: "Zero-based offset into the bin's direct children. Pair with limit for a bounded page.",
+          },
+          limit: {
+            type: "integer",
+            minimum: 1,
+            maximum: 500,
+            description: "Maximum direct children to return. Pair with recursive false for the smallest bounded response.",
+          },
+          max_depth: {
+            type: "integer",
+            minimum: 0,
+            maximum: 10,
+            description: "Maximum nested-bin depth when recursive is true. Defaults to the legacy unlimited recursion.",
+          },
         },
         required: ["bin_id"],
       },
-      handler: async (args: { bin_id: string; recursive?: boolean }) => {
+      handler: async (args: { bin_id: string; recursive?: boolean; offset?: number; limit?: number; max_depth?: number }) => {
         const recursive = args.recursive !== false;
+        const offset = Number.isInteger(args.offset) && (args.offset as number) >= 0 ? args.offset as number : 0;
+        const limit = Number.isInteger(args.limit) && (args.limit as number) > 0 ? Math.min(args.limit as number, 500) : -1;
+        const maxDepth = Number.isInteger(args.max_depth) ? Math.min(Math.max(args.max_depth as number, 0), 10) : -1;
         const script = buildToolScript(`
           var root = app.project.rootItem;
           var target = null;
@@ -193,13 +239,13 @@ export function getInspectionTools(bridgeOptions: BridgeOptions) {
             return info;
           }
 
-          function walkItems(bin, recurse) {
+          function walkItems(bin, recurse, depth) {
             var items = [];
             for (var i = 0; i < bin.children.numItems; i++) {
               var item = bin.children[i];
               var info = getItemDetails(item);
-              if (item.type === 2 && recurse) {
-                info.children = walkItems(item, true);
+              if (item.type === 2 && recurse && (${maxDepth} < 0 || depth < ${maxDepth})) {
+                info.children = walkItems(item, true, depth + 1);
                 info.childCount = info.children.length;
               }
               items.push(info);
@@ -207,13 +253,25 @@ export function getInspectionTools(bridgeOptions: BridgeOptions) {
             return items;
           }
 
-          var contents = walkItems(target, ${recursive});
+          var allContents = walkItems(target, ${recursive}, 0);
+          var offset = ${offset};
+          var limit = ${limit};
+          var contents = limit < 0 ? allContents.slice(offset) : allContents.slice(offset, offset + limit);
           return __result({
             binName: target.name,
             binNodeId: target.nodeId,
             binPath: target.treePath,
             itemCount: contents.length,
-            items: contents
+            totalDirectItems: allContents.length,
+            items: contents,
+            pagination: {
+              offset: offset,
+              limit: limit < 0 ? null : limit,
+              returned: contents.length,
+              totalDirectItems: allContents.length,
+              hasMore: offset + contents.length < allContents.length,
+              nextOffset: offset + contents.length < allContents.length ? offset + contents.length : null
+            }
           });
         `);
         return sendCommand(script, bridgeOptions);
