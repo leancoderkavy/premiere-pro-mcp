@@ -10,6 +10,14 @@ const execFileAsync = promisify(execFile);
 /** Cap on a single ffmpeg analysis pass. Decode-only, so this is generous. */
 const FFMPEG_TIMEOUT_MS = 300_000;
 
+// Premiere stores Volume > Level as a normalized value, not a linear gain.
+// Its maximum value (1) represents +15 dB, so 0 dB is 10^(-15/20).
+const PREMIERE_MAX_LEVEL_DB = 15;
+
+function dbToPremiereLevel(db: number): number {
+  return Math.pow(10, (db - PREMIERE_MAX_LEVEL_DB) / 20);
+}
+
 export interface SilenceInterval {
   start: number;
   end: number;
@@ -290,11 +298,17 @@ export function getAudioTools(bridgeOptions: BridgeOptions) {
             type: "number",
             description: "Audio level in dB (0 = unity, negative = quieter, positive = louder)",
           },
-        },
-        required: ["node_id", "level_db"],
+      },
+      required: ["node_id", "level_db"],
       },
       handler: async (args: { node_id: string; level_db: number }) => {
-        const amplitude = Math.pow(10, args.level_db / 20);
+        if (!Number.isFinite(args.level_db) || args.level_db > PREMIERE_MAX_LEVEL_DB) {
+          return {
+            success: false,
+            error: `level_db must be a finite value at or below +${PREMIERE_MAX_LEVEL_DB} dB`,
+          };
+        }
+        const normalizedLevel = dbToPremiereLevel(args.level_db);
         const script = buildToolScript(`
           var result = __findClip("${escapeForExtendScript(args.node_id)}");
           if (!result) return __error("Clip not found");
@@ -307,13 +321,14 @@ export function getAudioTools(bridgeOptions: BridgeOptions) {
               for (var p = 0; p < comp.properties.numItems; p++) {
                 if (comp.properties[p].displayName === "Level") {
                   var levelProp = comp.properties[p];
-                  var requestedAmplitude = ${amplitude};
-                  var writeResult = levelProp.setValue(requestedAmplitude, true);
-                  var appliedAmplitude = Number(levelProp.getValue());
-                  if (isNaN(appliedAmplitude) || Math.abs(appliedAmplitude - requestedAmplitude) > 0.0001) {
-                    return __error("Premiere did not apply the requested audio level (requested " + requestedAmplitude + ", read back " + appliedAmplitude + "). Effect-property writes are known to no-op on some Premiere Pro 26.3 installations.");
+                  var requestedLevel = ${normalizedLevel};
+                  var writeResult = levelProp.setValue(requestedLevel, true);
+                  var appliedLevel = Number(levelProp.getValue());
+                  var appliedDb = appliedLevel > 0 ? (20 * (Math.log(appliedLevel) / Math.LN10) + ${PREMIERE_MAX_LEVEL_DB}) : null;
+                  if (isNaN(appliedLevel) || Math.abs(appliedLevel - requestedLevel) > 0.0001 || appliedDb === null || Math.abs(appliedDb - ${args.level_db}) > 0.01) {
+                    return __error("Premiere did not apply the requested audio level (requested ${args.level_db} dB / normalized " + requestedLevel + ", read back " + appliedLevel + " / " + appliedDb + " dB). Effect-property writes are known to no-op on some Premiere Pro 26.3 installations.");
                   }
-                  return __result({ adjusted: true, verified: true, clipName: clip.name, levelDb: ${args.level_db}, amplitude: appliedAmplitude, writeResult: writeResult });
+                  return __result({ adjusted: true, verified: true, clipName: clip.name, levelDb: ${args.level_db}, normalizedLevel: appliedLevel, writeResult: writeResult });
                 }
               }
             }
