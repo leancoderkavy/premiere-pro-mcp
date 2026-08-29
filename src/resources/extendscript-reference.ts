@@ -184,7 +184,7 @@ export const EXTENDSCRIPT_REFERENCE = [
   "qeSeq.getVideoTrackAt(index)          - QETrack",
   "qeSeq.getAudioTrackAt(index)          - QETrack",
   "qeTrack.getItemAt(index)              - QEClip",
-  "qeTrack.razor(tickString)             - split at position",
+  "qeTrack.razor(timecodeString)         - split at position (HH:MM:SS:FF, NOT ticks)",
   "",
   "qeClip.addVideoEffect(qeEffect)",
   "qeClip.addAudioEffect(qeEffect)",
