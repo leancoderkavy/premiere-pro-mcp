@@ -33,6 +33,22 @@ folder and validates ZIP paths before extraction. The macOS package installs
 the connector into Adobe's system-wide CEP extension folder. Both require a
 complete Premiere restart before connection verification.
 
+## Updating an installed copy
+
+A published release is the update signal for local copies. A deployment of the
+hosted MCP endpoint changes only that operator-managed service; it does not
+update a user's local npm server, CEP connector, or Claude extension.
+
+For a global npm installation, users can run `premiere-pro-mcp --check-update`
+to see the current npm `latest` version. After fully quitting Premiere,
+`premiere-pro-mcp --update` installs that published package and refreshes the
+per-user CEP connector. It does not alter MCP client configuration or project
+files. Source users can run `npm run check-update:source` and then
+`npm run update:source`; the source path refuses dirty or locally-ahead
+checkouts and uses a fast-forward-only update before rebuilding and refreshing
+the connector. Claude Desktop `.mcpb` bundles remain user-installed extension
+packages and must be replaced from the matching release asset.
+
 ## Connector removal
 
 Fully quit Premiere before removal. The command-line path removes only this

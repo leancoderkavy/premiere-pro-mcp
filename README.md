@@ -165,6 +165,38 @@ premiere-pro-mcp --doctor
 
 Then ask your MCP client to run `verify_premiere_connection`. The check is read-only.
 
+#### Update an existing installation
+
+New **releases** update the local server and Premiere connector; a deployment of
+the hosted MCP service does not replace software on your computer. Fully quit
+Premiere before updating the connector.
+
+**Installed globally from npm:**
+
+```bash
+premiere-pro-mcp --check-update
+premiere-pro-mcp --update
+```
+
+`--update` only changes a global npm installation. It installs the published
+`latest` package, refreshes the bundled CEP connector, and leaves your MCP
+client configuration and projects untouched. Restart Premiere and your MCP
+client afterward, then run `verify_premiere_connection` before editing.
+
+**Installed from a Git clone:**
+
+```bash
+npm run check-update:source
+npm run update:source
+```
+
+The source updater refuses a checkout with uncommitted files or local commits,
+fast-forwards only to its configured upstream, runs `npm ci` and the production
+build, then refreshes the CEP connector. This avoids silently overwriting local
+code. If you installed the Claude Desktop `.mcpb` bundle, download and install
+the newer bundle from the GitHub release instead; Claude controls extension
+updates.
+
 #### Remove the CEP connector
 
 Fully quit Premiere, then remove only this connector:
