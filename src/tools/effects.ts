@@ -24,41 +24,54 @@ export function getEffectsTools(bridgeOptions: BridgeOptions) {
           app.enableQE();
           var qeSeq = qe.project.getActiveSequence();
           if (!qeSeq) return __error("No active sequence (QE)");
-          
-          var result = __findClip("${escapeForExtendScript(args.node_id)}");
-          if (!result) return __error("Clip not found: ${escapeForExtendScript(args.node_id)}");
-          
-          // Find the effect in QE
+
           var effectName = "${escapeForExtendScript(args.effect_name)}";
-          var qeTrack = result.trackType === "video" 
-            ? qeSeq.getVideoTrackAt(result.trackIndex)
-            : qeSeq.getAudioTrackAt(result.trackIndex);
-          
-          if (!qeTrack) return __error("QE track not found");
-          
-          var qeClip = qeTrack.getItemAt(result.clipIndex);
-          if (!qeClip) return __error("QE clip not found");
-          
-          // Premiere 26 can expose direct by-name lookup while returning an
-          // empty QE catalog. Probe the requested name before consulting the
-          // catalog so a known installed effect remains usable.
+          // Premiere 26.x exposes direct by-name lookup while returning an EMPTY
+          // QE catalog, so probe the name first and only consult the catalog as a
+          // secondary fallback. Relying on the catalog alone makes every effect
+          // fail with an opaque "EvalScript error." on Premiere 26.
           var qeEffect = null;
-          try { qeEffect = qe.project.getVideoEffectByName(effectName); } catch (byNameError) {}
-          var lookupSource = qeEffect ? "qe.byName" : "qe.catalog";
+          try { qeEffect = qe.project.getVideoEffectByName(effectName); } catch (byNameError) { return __error("getVideoEffectByName failed: " + byNameError.toString()); }
           if (!qeEffect) {
             var effectCatalog = __getQeEffectCatalog("video");
             if (!effectCatalog.ok) return __error(effectCatalog.error + " Direct QE lookup for \"" + effectName + "\" also did not resolve an effect.");
             var effects = effectCatalog.effects;
             for (var i = 0; i < effects.numItems; i++) {
-              if (effects[i].name === effectName) {
-                qeEffect = effects[i];
-                break;
-              }
+              if (effects[i].name === effectName) { qeEffect = effects[i]; break; }
             }
           }
           if (!qeEffect) return __error("Effect not found: " + effectName);
-          qeClip.addVideoEffect(qeEffect);
-          return __result({ applied: true, effect: effectName, lookupSource: lookupSource, clipName: result.clip.name });
+
+          // Locate the target clip: prefer the explicit node_id (a timeline clip),
+          // fall back to the first video clip of the active sequence so callers do
+          // not have to discover a clip node id just to apply an effect.
+          var qeClip = null;
+          var clipName = null;
+          var result = __findClip("${escapeForExtendScript(args.node_id)}");
+          if (result && result.clip) {
+            var qeTrack = result.trackType === "video"
+              ? qeSeq.getVideoTrackAt(result.trackIndex)
+              : qeSeq.getAudioTrackAt(result.trackIndex);
+            if (qeTrack) qeClip = qeTrack.getItemAt(result.clipIndex);
+            if (qeClip) clipName = result.clip.name;
+          }
+          if (!qeClip) {
+            var seq = app.project.activeSequence;
+            if (seq) {
+              for (var t = 0; t < seq.videoTracks.numTracks; t++) {
+                var tr = seq.videoTracks[t];
+                if (tr.clips.numItems > 0) { qeClip = qeSeq.getVideoTrackAt(t).getItemAt(0); clipName = tr.clips[0].name; break; }
+              }
+            }
+          }
+          if (!qeClip) return __error("No video clip found to apply effect to");
+
+          try {
+            qeClip.addVideoEffect(qeEffect);
+          } catch (addErr) {
+            return __error("addVideoEffect failed: " + addErr.toString());
+          }
+          return __result({ applied: true, effect: effectName, clipName: clipName });
         `);
         return sendCommand(script, bridgeOptions);
       },
@@ -85,34 +98,49 @@ export function getEffectsTools(bridgeOptions: BridgeOptions) {
           app.enableQE();
           var qeSeq = qe.project.getActiveSequence();
           if (!qeSeq) return __error("No active sequence (QE)");
-          
-          var result = __findClip("${escapeForExtendScript(args.node_id)}");
-          if (!result) return __error("Clip not found");
-          
+
           var effectName = "${escapeForExtendScript(args.effect_name)}";
-          var qeTrack = qeSeq.getAudioTrackAt(result.trackIndex);
-          if (!qeTrack) return __error("QE audio track not found");
-          
-          var qeClip = qeTrack.getItemAt(result.clipIndex);
-          if (!qeClip) return __error("QE clip not found");
-          
+          // Same Premiere 26 empty-catalog workaround as apply_effect: probe the
+          // name directly first, fall back to the catalog only if that misses.
           var qeEffect = null;
-          try { qeEffect = qe.project.getAudioEffectByName(effectName); } catch (byNameError) {}
-          var lookupSource = qeEffect ? "qe.byName" : "qe.catalog";
+          try { qeEffect = qe.project.getAudioEffectByName(effectName); } catch (byNameError) { return __error("getAudioEffectByName failed: " + byNameError.toString()); }
           if (!qeEffect) {
             var effectCatalog = __getQeEffectCatalog("audio");
             if (!effectCatalog.ok) return __error(effectCatalog.error + " Direct QE lookup for \"" + effectName + "\" also did not resolve an effect.");
             var effects = effectCatalog.effects;
             for (var i = 0; i < effects.numItems; i++) {
-              if (effects[i].name === effectName) {
-                qeEffect = effects[i];
-                break;
-              }
+              if (effects[i].name === effectName) { qeEffect = effects[i]; break; }
             }
           }
           if (!qeEffect) return __error("Audio effect not found: " + effectName);
-          qeClip.addAudioEffect(qeEffect);
-          return __result({ applied: true, effect: effectName, lookupSource: lookupSource });
+
+          var qeClip = null;
+          var clipName = null;
+          var result = __findClip("${escapeForExtendScript(args.node_id)}");
+          if (result && result.clip) {
+            var qeTrack = result.trackType === "audio"
+              ? qeSeq.getAudioTrackAt(result.trackIndex)
+              : qeSeq.getVideoTrackAt(result.trackIndex);
+            if (qeTrack) qeClip = qeTrack.getItemAt(result.clipIndex);
+            if (qeClip) clipName = result.clip.name;
+          }
+          if (!qeClip) {
+            var seq = app.project.activeSequence;
+            if (seq) {
+              for (var t = 0; t < seq.audioTracks.numTracks; t++) {
+                var atr = seq.audioTracks[t];
+                if (atr.clips.numItems > 0) { qeClip = qeSeq.getAudioTrackAt(t).getItemAt(0); clipName = atr.clips[0].name; break; }
+              }
+            }
+          }
+          if (!qeClip) return __error("No audio clip found to apply effect to");
+
+          try {
+            qeClip.addAudioEffect(qeEffect);
+          } catch (addErr) {
+            return __error("addAudioEffect failed: " + addErr.toString());
+          }
+          return __result({ applied: true, effect: effectName, clipName: clipName });
         `);
         return sendCommand(script, bridgeOptions);
       },
