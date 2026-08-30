@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { dirname } from "node:path";
 import { RequestBodyTooLargeError } from "../src/http-admission.js";
 
 const mocks = vi.hoisted(() => ({
@@ -16,6 +17,8 @@ const mocks = vi.hoisted(() => ({
   uxpStart: vi.fn(async () => {}),
   uxpStop: vi.fn(async () => {}),
   execFileSync: vi.fn(),
+  spawnSync: vi.fn(),
+  fetchLatestNpmVersion: vi.fn(async () => "1.14.4"),
   fsExists: vi.fn(() => false),
   fsStat: vi.fn(() => ({ isDirectory: () => false, isFile: () => true })),
   fsCreateReadStream: vi.fn(),
@@ -96,7 +99,11 @@ vi.mock("../src/bridge/uxp-websocket-bridge.js", () => ({
     address() { return { host: "127.0.0.1", port: 7788, path: "/premiere-uxp" }; }
   },
 }));
-vi.mock("node:child_process", () => ({ execFileSync: mocks.execFileSync }));
+vi.mock("../src/update.js", () => ({
+  compareVersions: (left: string, right: string) => left.localeCompare(right),
+  fetchLatestNpmVersion: mocks.fetchLatestNpmVersion,
+}));
+vi.mock("node:child_process", () => ({ execFileSync: mocks.execFileSync, spawnSync: mocks.spawnSync }));
 vi.mock("node:fs", async (original) => {
   const actual = await original<typeof import("node:fs")>();
   return {
@@ -122,6 +129,8 @@ beforeEach(() => {
   vi.resetModules();
   vi.clearAllMocks();
   mocks.requestHandler = undefined;
+  mocks.fetchLatestNpmVersion.mockResolvedValue("1.14.4");
+  mocks.spawnSync.mockReturnValue({ status: 1, stdout: "" });
   mocks.fsExists.mockReturnValue(false);
   mocks.fsStat.mockReturnValue({ isDirectory: () => false, isFile: () => true });
   mocks.fsCreateReadStream.mockReturnValue({ once: mocks.streamOnce, pipe: mocks.pipe });
@@ -197,6 +206,48 @@ describe("stdio CLI entry point", () => {
     expect(JSON.parse(String(log.mock.calls[0][0]))).toMatchObject({
       schemaVersion: "premiere-pro-mcp.support-bundle.v1",
     });
+  });
+
+  it("checks for a newer release and updates a global npm installation", async () => {
+    const log = vi.spyOn(console, "log").mockImplementation(() => {});
+    mocks.fetchLatestNpmVersion.mockResolvedValueOnce("1.14.5");
+    let loaded = await importCli(["--check-update"]);
+    await expect(loaded.promise).rejects.toThrow("EXIT:0");
+    expect(log).toHaveBeenCalledWith(expect.stringContaining("1.14.4 → 1.14.5"));
+
+    vi.resetModules();
+    vi.clearAllMocks();
+    log.mockClear();
+    mocks.fetchLatestNpmVersion.mockResolvedValueOnce("1.14.5");
+    mocks.spawnSync.mockReturnValue({ status: 0, stdout: `${dirname(process.cwd())}\n` });
+    loaded = await importCli(["--update"]);
+    await expect(loaded.promise).rejects.toThrow("EXIT:0");
+    expect(mocks.execFileSync).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.arrayContaining(["install", "--global", "premiere-pro-mcp@latest"]),
+      expect.objectContaining({ stdio: "inherit" }),
+    );
+    expect(mocks.execFileSync).toHaveBeenCalledWith(
+      process.execPath,
+      expect.arrayContaining(["--install-cep"]),
+      expect.objectContaining({ cwd: process.cwd() }),
+    );
+  });
+
+  it("rejects conflicting update actions and leaves a current installation untouched", async () => {
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    let loaded = await importCli(["--check-update", "--update"]);
+    await expect(loaded.promise).rejects.toThrow("EXIT:1");
+    expect(error).toHaveBeenCalledWith(expect.stringContaining("only one update action"));
+
+    vi.resetModules();
+    vi.clearAllMocks();
+    const log = vi.spyOn(console, "log").mockImplementation(() => {});
+    mocks.fetchLatestNpmVersion.mockResolvedValueOnce("1.14.4");
+    loaded = await importCli(["--update"]);
+    await expect(loaded.promise).rejects.toThrow("EXIT:0");
+    expect(log).toHaveBeenCalledWith(expect.stringContaining("is current"));
+    expect(mocks.execFileSync).not.toHaveBeenCalled();
   });
 
   it("rejects CEP installation on unsupported platforms", async () => {

@@ -14,14 +14,18 @@ describe("user update paths", () => {
   it("normalizes and compares released package versions", () => {
     expect(normalizeVersion("v1.14.4")).toBe("1.14.4");
     expect(normalizeVersion("1.14")).toBe("1.14.0");
+    expect(normalizeVersion("1")).toBe("1.0.0");
+    expect(normalizeVersion(undefined)).toBeUndefined();
     expect(normalizeVersion("not-a-version")).toBeUndefined();
     expect(compareVersions("1.15.0", "1.14.99")).toBe(1);
     expect(compareVersions("1.14.4", "1.14.4")).toBe(0);
     expect(compareVersions("1.14.3", "1.14.4")).toBe(-1);
+    expect(() => compareVersions("nightly", "1.14.4")).toThrow("numeric semantic versions");
   });
 
   it("accepts only the latest package version from the npm registry payload", () => {
     expect(latestVersionFromRegistry({ "dist-tags": { latest: "v1.14.4" } })).toBe("1.14.4");
+    expect(() => latestVersionFromRegistry(null)).toThrow("invalid package record");
     expect(() => latestVersionFromRegistry({ "dist-tags": { latest: "nightly" } })).toThrow("valid latest version");
   });
 
