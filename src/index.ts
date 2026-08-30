@@ -4,7 +4,8 @@ import { serveStdio } from "@modelcontextprotocol/server/stdio";
 import { createServer } from "./server.js";
 import { cleanupTempDir, getTempDir } from "./bridge/file-bridge.js";
 import { getTelemetry } from "./telemetry.js";
-import { execFileSync } from "child_process";
+import { execFileSync, spawnSync } from "child_process";
+import { existsSync } from "fs";
 import { fileURLToPath } from "url";
 import path from "path";
 import { UxpWebSocketBridge } from "./bridge/uxp-websocket-bridge.js";
@@ -13,6 +14,7 @@ import {
   createSupportBundle,
   renderDoctorHuman,
 } from "./diagnostics.js";
+import { compareVersions, fetchLatestNpmVersion } from "./update.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -35,6 +37,90 @@ function isLoopbackPortInUse(error: unknown): boolean {
   );
 }
 
+function npmInvocation(): { command: string; prefix: string[] } {
+  const candidates = [
+    process.env.npm_execpath,
+    path.join(path.dirname(process.execPath), "node_modules", "npm", "bin", "npm-cli.js"),
+    path.join(path.dirname(path.dirname(process.execPath)), "lib", "node_modules", "npm", "bin", "npm-cli.js"),
+  ].filter((candidate): candidate is string => Boolean(candidate && existsSync(candidate)));
+
+  if (candidates.length > 0) return { command: process.execPath, prefix: [candidates[0]] };
+  return { command: process.platform === "win32" ? "npm.cmd" : "npm", prefix: [] };
+}
+
+function globalNpmRoot(): string | undefined {
+  const npm = npmInvocation();
+  const result = spawnSync(npm.command, [...npm.prefix, "root", "--global"], {
+    encoding: "utf8",
+    windowsHide: true,
+  });
+  if (result.status !== 0 || !result.stdout) return undefined;
+  return path.resolve(result.stdout.trim());
+}
+
+function isGlobalNpmInstallation(globalRoot: string | undefined): boolean {
+  if (!globalRoot) return false;
+  const relative = path.relative(globalRoot, projectRoot);
+  return relative !== "" && !relative.startsWith(`..${path.sep}`) && relative !== ".." && !path.isAbsolute(relative);
+}
+
+async function checkForPackageUpdate(): Promise<{ currentVersion: string; latestVersion: string; updateAvailable: boolean }> {
+  const pkg = await import("../package.json", { with: { type: "json" } });
+  const currentVersion = String(pkg.default.version ?? "unknown");
+  const latestVersion = await fetchLatestNpmVersion(String(pkg.default.name ?? "premiere-pro-mcp"));
+  return {
+    currentVersion,
+    latestVersion,
+    updateAvailable: compareVersions(latestVersion, currentVersion) > 0,
+  };
+}
+
+async function runPackageUpdate(apply: boolean): Promise<void> {
+  let update;
+  try {
+    update = await checkForPackageUpdate();
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "unknown error";
+    console.error(`Could not check npm for an update: ${message}`);
+    process.exit(1);
+  }
+
+  if (!update.updateAvailable) {
+    console.log(`premiere-pro-mcp ${update.currentVersion} is current (npm latest: ${update.latestVersion}).`);
+    if (apply) console.log("To repair the Premiere connector, fully quit Premiere and run premiere-pro-mcp --install-cep.");
+    return;
+  }
+
+  if (!apply) {
+    console.log(`Update available: ${update.currentVersion} → ${update.latestVersion}. Run premiere-pro-mcp --update after fully quitting Premiere.`);
+    return;
+  }
+
+  if (!isGlobalNpmInstallation(globalNpmRoot())) {
+    console.error("This server is not an npm global installation, so it will not be replaced automatically.");
+    console.error("For a source checkout, fully quit Premiere and run: npm run update:source");
+    process.exit(1);
+  }
+
+  const npm = npmInvocation();
+  console.log(`Updating premiere-pro-mcp ${update.currentVersion} → ${update.latestVersion} and refreshing the Premiere connector...`);
+  try {
+    execFileSync(npm.command, [...npm.prefix, "install", "--global", "premiere-pro-mcp@latest"], {
+      stdio: "inherit",
+      windowsHide: true,
+    });
+    execFileSync(process.execPath, [__filename, "--install-cep"], {
+      stdio: "inherit",
+      cwd: projectRoot,
+      windowsHide: true,
+    });
+  } catch {
+    console.error("The package or connector update did not finish. Premiere must be fully closed before refreshing the connector.");
+    process.exit(1);
+  }
+  console.log("Update complete. Restart Premiere and your MCP client, then run verify_premiere_connection before editing.");
+}
+
 // Handle CLI flags
 const args = process.argv.slice(2);
 
@@ -50,6 +136,8 @@ Usage:
   premiere-pro-mcp --doctor        Check local install/configuration without reading a project
   premiere-pro-mcp --doctor --json Print the same local check as machine-readable JSON
   premiere-pro-mcp --support-bundle  Print a privacy-safe, machine-readable support bundle
+  premiere-pro-mcp --check-update    Check npm for a newer released local server
+  premiere-pro-mcp --update          Update an npm global install and refresh the CEP connector
   premiere-pro-mcp --help          Show this help message
   premiere-pro-mcp --version       Show version
 
@@ -64,6 +152,16 @@ Environment variables:
 
 More info: https://github.com/leancoderkavy/premiere-pro-mcp
 `);
+  process.exit(0);
+}
+
+const updateActions = ["--check-update", "--update"].filter((flag) => args.includes(flag));
+if (updateActions.length > 1) {
+  console.error("Use only one update action at a time: --check-update or --update.");
+  process.exit(1);
+}
+if (updateActions.length === 1) {
+  await runPackageUpdate(updateActions[0] === "--update");
   process.exit(0);
 }
 

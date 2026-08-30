@@ -55,6 +55,8 @@
     "docs:quickstart:check": "node scripts/check-quickstart-locales.mjs",
     "install-cep": "node dist/index.js --install-cep",
     "uninstall-cep": "node dist/index.js --uninstall-cep",
+    "check-update:source": "node scripts/update-source.mjs --check",
+    "update:source": "node scripts/update-source.mjs",
     "lint": "eslint uxp-plugin --ext .cjs --max-warnings 0",
     "publish:npm": "node scripts/publish-npm.mjs",
     "publish:npm:dry-run": "node scripts/publish-npm.mjs --dry-run",
