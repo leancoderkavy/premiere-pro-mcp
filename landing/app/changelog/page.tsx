@@ -5,8 +5,8 @@ import { product } from "@/lib/product"
 
 const releases = [
   {
-    version: "1.14.4",
-    date: "2026-08-29",
+    version: "1.14.5",
+    date: "2026-08-31",
     label: "Verified mutation and playback hotfixes",
     groups: [
       {

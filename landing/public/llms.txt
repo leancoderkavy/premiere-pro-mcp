@@ -41,7 +41,7 @@ The Project Intake guide includes no-sensitive-data starter templates for a path
 
 ## Verified facts
 
-- Current project release: 1.14.4.
+- Current project release: 1.14.5.
 - Tool surface: 321 core structured MCP tools are registered; the default profile exposes 319. With an authenticated compatible UXP panel, 54 additional capability-gated tools bring the connected surface to 373. The server also exposes 4 resources and 11 workflow prompts.
 - Supported desktop platforms: Windows and macOS.
 - Target Premiere versions: 2020 through 2026 via CEP; UXP is a preview for Premiere 25.6 and newer.
