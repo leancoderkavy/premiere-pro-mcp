@@ -667,12 +667,14 @@ the tables below are a shorter workflow-oriented overview.
 > (`ripple_delete`, razor/split) and existing effect-parameter writes. These tools now verify
 > the resulting sequence state and return an error instead of a false success. For structural
 > edits, rebuild the wanted source ranges into a new sequence with `create_sequence` and
-> `add_to_timeline`. Native transitions are unavailable when the host does not expose
-> `qeTrack.addTransition`; overlay clips remain a workaround for transitions that do not need
-> to blend adjacent source frames. See [issue #21](https://github.com/leancoderkavy/premiere-pro-mcp/issues/21).
+> `add_to_timeline`. The legacy CEP transition path targets `qeClip.addTransition` (not the
+> QE track) and reports success only after DOM transition-count readback. Prefer the connected
+> UXP transition tools where available; overlay clips remain a workaround when a legacy QE
+> write is rejected or not verified. See [issue #21](https://github.com/leancoderkavy/premiere-pro-mcp/issues/21).
 
-> **Speed, caption, and visual-keyframe boundaries:** Premiere Pro 26.3 exposes no supported
-> scripting setter or Time Remapping component for timeline-clip speed or direction. `reverse_clip`,
+> **Speed, caption, and visual-keyframe boundaries:** Premiere Pro 26.3 may reflect legacy QE
+> speed/direction methods, but exposes no supported scripting setter or Time Remapping component
+> for timeline-clip speed or direction. `reverse_clip`,
 > `speed_change`, `set_clip_speed_qe`, and `set_clip_properties` with `speed` now stop before host mutation;
 > use the Speed/Duration UI or pre-render retimed media. `add_text_overlay` likewise stops
 > before mutation because a raw-text-to-caption API is not exposed; import an `.srt`/`.vtt`

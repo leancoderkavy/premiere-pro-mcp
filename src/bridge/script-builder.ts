@@ -142,6 +142,27 @@ function __findClip(nodeId) {
   return null;
 }
 
+// QE tracks include gaps and transitions in addition to clips, so a DOM clip
+// index cannot safely be passed to qeTrack.getItemAt(). Resolve a QE clip by
+// its timeline start instead. Return null rather than a nearest candidate: a
+// mutation must never be redirected to a neighbouring clip.
+function __findQeClipByDomClip(qeTrack, domClip) {
+  if (!qeTrack || !domClip) return null;
+  var wantedStart = null;
+  try { wantedStart = parseFloat(domClip.start.ticks); } catch (eStart) {}
+  if (wantedStart === null || isNaN(wantedStart)) return null;
+
+  for (var qi = 0; qi < qeTrack.numItems; qi++) {
+    var candidate = null;
+    try { candidate = qeTrack.getItemAt(qi); } catch (eItem) {}
+    if (!candidate || String(candidate.type) !== "Clip") continue;
+    try {
+      if (Math.abs(parseFloat(candidate.start.ticks) - wantedStart) < 1) return candidate;
+    } catch (eCandidate) {}
+  }
+  return null;
+}
+
 // CEP's legacy QE path can enumerate a host's effect catalog before adding an
 // effect to a timeline clip. Recent Premiere builds can expose QE yet return an
 // empty catalog, so distinguish that host limitation from a misspelled effect
