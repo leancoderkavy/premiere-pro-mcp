@@ -99,6 +99,10 @@ describe("spot workflow plans", () => {
     expect(script).toContain("Target video and audio tracks must be empty");
     expect(script).toContain("Project item ID was not found exactly");
     expect(script).toContain("scaleProperty.getValueAtKey");
+    expect(script).toContain("__findQeClipByDomClip(qeTrack, placedInfo.clip)");
+    expect(script).toContain("typeof qeClip.addTransition !== \"function\"");
+    expect(script).toContain('qeClip.addTransition(transitionQE, true, String(durationFrames), "0", 0.5, false, true)');
+    expect(script).not.toContain("qeTrack.addTransition(");
     expect(script).toContain("renderVerified: false");
     expect(script).not.toContain("importMedia");
     expect(script).not.toContain("createNewSequence");

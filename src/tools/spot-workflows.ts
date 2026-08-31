@@ -327,13 +327,13 @@ function buildApplyScript(plan: SpotWorkflowPlan): string {
         app.enableQE();
         var qeSequence = qe.project.getActiveSequence();
         qeTrack = qeSequence ? qeSequence.getVideoTrackAt(${plan.video_track_index}) : null;
-        if (qeTrack && typeof qeTrack.addTransition === "function" && qe.project.getVideoTransitionByName) {
+        if (qeTrack && qe.project.getVideoTransitionByName) {
           transitionQE = qe.project.getVideoTransitionByName(transitionName);
         }
-        transitionReady = !!transitionQE;
+        transitionReady = !!qeTrack && !!transitionQE;
         transitionPreflight = transitionReady
           ? { requested: true, ready: true }
-          : { requested: true, ready: false, reason: "The active Premiere build did not expose the requested transition write path" };
+          : { requested: true, ready: false, reason: "The active Premiere build did not expose the requested transition or QE video track" };
       } catch (transitionProbeError) {
         transitionPreflight = { requested: true, ready: false, reason: String(transitionProbeError) };
       }
@@ -421,7 +421,14 @@ function buildApplyScript(plan: SpotWorkflowPlan): string {
       }
       var transitionCountBefore = videoTrack.transitions.numItems;
       try {
-        qeTrack.addTransition(transitionQE, true, __secondsToTicks(placed[cutIndex].endSeconds).toString(), __secondsToTicks(transitionDuration).toString(), "0", false);
+        var placedInfo = __findClip(placed[cutIndex].nodeId);
+        var qeClip = placedInfo ? __findQeClipByDomClip(qeTrack, placedInfo.clip) : null;
+        if (!qeClip || typeof qeClip.addTransition !== "function") {
+          transitionResults.push({ applied: false, verified: false, reason: "The target QE clip did not expose addTransition" });
+          continue;
+        }
+        var durationFrames = Math.max(1, Math.round(__secondsToTicks(transitionDuration) / frameTicks));
+        qeClip.addTransition(transitionQE, true, String(durationFrames), "0", 0.5, false, true);
         var transitionCountAfter = videoTrack.transitions.numItems;
         transitionResults.push(transitionCountAfter > transitionCountBefore
           ? { applied: true, verified: true, atSeconds: placed[cutIndex].endSeconds }

@@ -682,7 +682,7 @@ describe("Tool Handler Behavior", () => {
       expect(script).toContain("getAudioTrackAt(t).razor(__razorTc)");
     });
 
-    it("checks transition API availability and verifies track state", async () => {
+    it("targets the QE clip, preserves an unsupported speed boundary, and verifies track state", async () => {
       const tools = getTransitionsTools(bridgeOptions);
       await (tools.add_transition.handler as any)({
         transition_name: "Cross Dissolve",
@@ -690,9 +690,29 @@ describe("Tool Handler Behavior", () => {
         cut_point_seconds: 2,
       });
       const script = mockedSendCommand.mock.calls[0][0];
-      expect(script).toContain('typeof qeTrack.addTransition !== "function"');
+      expect(script).toContain("__findQeClipByDomClip(qeTrack, outgoingClip)");
+      expect(script).toContain('typeof qeClip.addTransition !== "function"');
+      expect(script).toContain('qeClip.addTransition(transitionQE, true, String(durationFrames), "0", 0.5, false, true)');
+      expect(script).not.toContain("qeTrack.addTransition(");
       expect(script).toContain("transitionCountBefore");
       expect(script).toContain("domTrack.transitions.numItems <= transitionCountBefore");
+
+      vi.clearAllMocks();
+      await (tools.add_transition_to_clip.handler as any)({
+        node_id: "clip-1", transition_name: "Cross Dissolve", position: "both",
+      });
+      const clipScript = mockedSendCommand.mock.calls[0][0];
+      expect(clipScript).toContain("__findQeClipByDomClip(qeTrack, result.clip)");
+      expect(clipScript).toContain("var requestedCount = position === \"both\" ? 2 : 1");
+      expect(clipScript).toContain('qeClip.addTransition(transitionQE, false, String(durationFrames), "0", 0.5, true, true)');
+      expect(clipScript).toContain('qeClip.addTransition(transitionQE, true, String(durationFrames), "0", 0.5, true, true)');
+
+      vi.clearAllMocks();
+      await (tools.batch_add_transitions.handler as any)({ transition_name: "Cross Dissolve" });
+      const batchScript = mockedSendCommand.mock.calls[0][0];
+      expect(batchScript).toContain("__findQeClipByDomClip(qeTrack, outgoingClip)");
+      expect(batchScript).toContain('qeClip.addTransition(transitionQE, true, String(durationFrames), "0", 0.5, false, true)');
+      expect(batchScript).toContain("verifiedCount !== requestedCount");
     });
   });
 
