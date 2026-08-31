@@ -237,7 +237,7 @@ export function buildFirstRunReport(
         },
       ],
       nextStep: "Reconnect the Premiere Connector, then run this safe check again.",
-      repair: "If the Connector still does not respond, run premiere-pro-mcp --diagnose-cep and follow its repair guidance.",
+      repair: "If the Connector still does not respond, run get_capabilities to compare the selected bridge directory with the CEP panel, then run premiere-pro-mcp --diagnose-cep and follow its repair guidance.",
     };
   }
 

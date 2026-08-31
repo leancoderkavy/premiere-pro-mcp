@@ -62,6 +62,8 @@ describe("CEP installation metadata", () => {
     expect(panelLogic).toContain('"bridge-heartbeat.json"');
     expect(panelLogic).toContain("protocolVersion: 1");
     expect(panelLogic).toContain("startBridgeHeartbeat()");
+    expect(panelLogic).toContain("PREMIERE_TEMP_DIR");
+    expect(panelLogic).toContain('nodeRequire("process")');
   });
 
   it("copies the macOS plugin for npm installs and supports diagnostics", () => {

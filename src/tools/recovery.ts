@@ -177,6 +177,7 @@ export function collectBridgeTelemetry(
     heartbeat,
     healthy:
       directoryAccessible &&
+      heartbeat.state === "running" &&
       counts.busyOperations === 0 &&
       (oldestPendingAgeMs === null || oldestPendingAgeMs < 30_000),
     privacy:

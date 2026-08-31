@@ -1,10 +1,41 @@
 import { mkdirSync, writeFileSync, readFileSync, unlinkSync, existsSync, readdirSync, renameSync, statSync, chmodSync, watch, FSWatcher } from "node:fs";
-import { basename, dirname, join } from "node:path";
+import { basename, dirname, isAbsolute, join } from "node:path";
 import { tmpdir } from "node:os";
 import { randomUUID } from "node:crypto";
+import { execFileSync } from "node:child_process";
 import { getHelpersSource, helpersFileName, buildBootstrap } from "./script-builder.js";
 
-const DEFAULT_TEMP_DIR = join(tmpdir(), "premiere-mcp-bridge");
+export function getDarwinUserTempDirectory(): string | null {
+  try {
+    // GUI-launched MCP clients can omit TMPDIR. On macOS, getconf still returns
+    // the same per-user temporary root inherited by Premiere's CEP process.
+    const value = execFileSync("/usr/bin/getconf", ["DARWIN_USER_TEMP_DIR"], {
+      encoding: "utf-8",
+      stdio: ["ignore", "pipe", "ignore"],
+    }).trim();
+    return value && isAbsolute(value) ? value : null;
+  } catch {
+    return null;
+  }
+}
+
+export function getDefaultBridgeTempDir(
+  platform: NodeJS.Platform = process.platform,
+  fallbackTempDirectory = tmpdir(),
+  readDarwinUserTempDirectory: () => string | null = getDarwinUserTempDirectory,
+  environment: NodeJS.ProcessEnv = process.env,
+): string {
+  const hasConfiguredNodeTempDirectory = Boolean(
+    environment.TMPDIR || environment.TMP || environment.TEMP,
+  );
+  const temporaryRoot =
+    platform === "darwin" && !hasConfiguredNodeTempDirectory
+      ? readDarwinUserTempDirectory() ?? fallbackTempDirectory
+      : fallbackTempDirectory;
+  return join(temporaryRoot, "premiere-mcp-bridge");
+}
+
+const DEFAULT_TEMP_DIR = getDefaultBridgeTempDir();
 const POLL_FALLBACK_MS = 250;
 const DEFAULT_TIMEOUT_MS = 30000;
 export const BRIDGE_HEARTBEAT_FILE = "bridge-heartbeat.json";

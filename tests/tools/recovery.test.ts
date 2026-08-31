@@ -71,6 +71,15 @@ describe("recovery candidate discovery", () => {
 });
 
 describe("privacy-preserving bridge telemetry", () => {
+  it("does not report a quiet directory as healthy when no CEP heartbeat is present", () => {
+    const directory = temporaryDirectory();
+    expect(collectBridgeTelemetry({ tempDir: directory })).toMatchObject({
+      directoryAccessible: true,
+      heartbeat: { state: "unknown" },
+      healthy: false,
+    });
+  });
+
   it("returns aggregate state without paths, filenames, or contents", () => {
     const directory = temporaryDirectory();
     writeFileSync(join(directory, "cmd_secret.jsx"), "private project script");

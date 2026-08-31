@@ -357,7 +357,7 @@ Add to your VS Code MCP server configuration:
 4. Ask your AI assistant to run `get_capabilities`, then `ping`, with Premiere open.
 5. For a safe first request, ask: *"What is my current Premiere Pro project and active sequence? Do not make changes."*
 
-The default bridge directory is derived from the operating system on both sides, so most local setups should not set `PREMIERE_TEMP_DIR`. If you override it, use the same absolute path in the MCP server and CEP panel; Windows and macOS paths are not interchangeable.
+The default bridge directory is derived from the operating system on both sides, so most local setups should not set `PREMIERE_TEMP_DIR`. On macOS, the server resolves the per-user system temporary directory even when a GUI-launched client strips `TMPDIR`, keeping it aligned with Premiere's CEP panel. If you override it, use the same absolute path in the MCP server and CEP panel; Windows and macOS paths are not interchangeable.
 
 ### Codex plugin
 
@@ -930,7 +930,7 @@ user/device authorization are implemented.
 
 | Variable | Description | Default |
 | :------- | :---------- | :------ |
-| `PREMIERE_TEMP_DIR` | Shared temp directory for MCP ↔ CEP communication | OS temp dir + `/premiere-mcp-bridge` |
+| `PREMIERE_TEMP_DIR` | Shared temp directory for MCP ↔ CEP communication | OS user temp dir + `/premiere-mcp-bridge` (macOS fallback is independent of `TMPDIR`) |
 | `PREMIERE_TIMEOUT_MS` | Command timeout in milliseconds | `30000` |
 | `PREMIERE_DEFAULT_SEQUENCE_PRESET` | Override the auto-discovered `.sqpreset` used by `create_sequence` | auto-discovered |
 | `PREMIERE_MCP_CAPABILITIES` | Comma-separated authority profile; add `unsafe-script` only when raw scripting is required | `inspect,edit,export,filesystem` |
