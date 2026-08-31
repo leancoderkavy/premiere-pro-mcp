@@ -95,7 +95,17 @@ var fs = nodeRequire("fs");
 var path = nodeRequire("path");
 var os = nodeRequire("os");
 var https = nodeRequire("https");
-tempDir = path.join(os.tmpdir(), "premiere-mcp-bridge");
+function defaultBridgeDirectory() {
+  try {
+    var nodeProcess = nodeRequire("process");
+    var configured = nodeProcess && nodeProcess.env && nodeProcess.env.PREMIERE_TEMP_DIR;
+    if (typeof configured === "string" && configured.trim()) return configured.trim();
+  } catch (e) {
+    // The panel still has a safe OS temporary-directory fallback.
+  }
+  return path.join(os.tmpdir(), "premiere-mcp-bridge");
+}
+tempDir = defaultBridgeDirectory();
 var latestUpdate = null;
 
 function ensureDir(dir) {

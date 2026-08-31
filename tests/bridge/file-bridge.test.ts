@@ -13,8 +13,11 @@ import {
 } from "node:fs";
 import { dirname, join } from "node:path";
 import { tmpdir } from "node:os";
+import { execFileSync } from "node:child_process";
 import {
+  getDarwinUserTempDirectory,
   getTempDir,
+  getDefaultBridgeTempDir,
   getBridgeLiveness,
   sendCommand,
   sendRawCommand,
@@ -37,6 +40,10 @@ vi.mock("node:fs", () => ({
   }),
 }));
 
+vi.mock("node:child_process", () => ({
+  execFileSync: vi.fn(),
+}));
+
 const mockedExistsSync = vi.mocked(existsSync);
 const mockedMkdirSync = vi.mocked(mkdirSync);
 const mockedWriteFileSync = vi.mocked(writeFileSync);
@@ -47,6 +54,7 @@ const mockedRenameSync = vi.mocked(renameSync);
 const mockedStatSync = vi.mocked(statSync);
 const mockedChmodSync = vi.mocked(chmodSync);
 const mockedWatch = vi.mocked(watch);
+const mockedExecFileSync = vi.mocked(execFileSync);
 
 // ensureDir on an existing dir stat-checks ownership; default to a dir owned by us
 // with safe perms so the existing tests exercise the happy path.
@@ -84,9 +92,56 @@ describe("getTempDir", () => {
     expect(result).toBe(join(tmpdir(), "premiere-mcp-bridge"));
   });
 
+  it("uses the Darwin per-user temporary root when a GUI client omits TMPDIR", () => {
+    expect(getDefaultBridgeTempDir(
+      "darwin",
+      "/tmp",
+      () => "/var/folders/example/T",
+      {},
+    ).replaceAll("\\", "/")).toBe("/var/folders/example/T/premiere-mcp-bridge");
+  });
+
+  it("falls back safely when the Darwin temporary-root lookup is unavailable", () => {
+    expect(getDefaultBridgeTempDir("darwin", "/tmp", () => null, {}).replaceAll("\\", "/"))
+      .toBe("/tmp/premiere-mcp-bridge");
+  });
+
+  it("preserves a configured Darwin temporary root", () => {
+    expect(getDefaultBridgeTempDir(
+      "darwin",
+      "/configured/T",
+      () => "/var/folders/example/T",
+      { TMPDIR: "/configured/T" },
+    ).replaceAll("\\", "/")).toBe("/configured/T/premiere-mcp-bridge");
+  });
+
   it("prefers options.tempDir over env var", () => {
     process.env.PREMIERE_TEMP_DIR = "/env/dir";
     expect(getTempDir({ tempDir: "/custom/dir" })).toBe("/custom/dir");
+  });
+});
+
+describe("getDarwinUserTempDirectory", () => {
+  it("uses the per-user macOS temporary root reported by getconf", () => {
+    mockedExecFileSync.mockReturnValue("/var/folders/example/T/\n" as never);
+
+    expect(getDarwinUserTempDirectory()).toBe("/var/folders/example/T/");
+    expect(mockedExecFileSync).toHaveBeenCalledWith("/usr/bin/getconf", ["DARWIN_USER_TEMP_DIR"], {
+      encoding: "utf-8",
+      stdio: ["ignore", "pipe", "ignore"],
+    });
+  });
+
+  it("rejects a non-absolute getconf result", () => {
+    mockedExecFileSync.mockReturnValue("relative-temp\n" as never);
+
+    expect(getDarwinUserTempDirectory()).toBeNull();
+  });
+
+  it("falls back when the getconf lookup fails", () => {
+    mockedExecFileSync.mockImplementation(() => { throw new Error("unavailable"); });
+
+    expect(getDarwinUserTempDirectory()).toBeNull();
   });
 });
 
