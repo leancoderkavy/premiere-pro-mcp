@@ -33,7 +33,7 @@ An [MCP (Model Context Protocol)](https://modelcontextprotocol.io) server that l
 
 The AI handles the entire workflow through 321 core tools spanning the supported ExtendScript, QE DOM, local media and interchange analysis, revisioned project-context retrieval, safe edit-planning, project-intake preview, review handoff, and connection-verification surfaces. A compatible, authenticated UXP panel adds 54 documented, capability-gated tools without replacing the production CEP bridge.
 
-### Latest release: 1.14.4
+### Latest release: 1.14.5
 
 - **Verified editing semantics:** QE razor operations use sequence timecode and
   batch effect application preflights every target before reporting a verified
@@ -46,7 +46,7 @@ The AI handles the entire workflow through 321 core tools spanning the supported
   service; unauthenticated callers are rejected and it does not pair users to
   local Premiere processes.
 
-See the [v1.14.4 release notes](https://github.com/leancoderkavy/premiere-pro-mcp/releases/tag/v1.14.4)
+See the [v1.14.5 release notes](https://github.com/leancoderkavy/premiere-pro-mcp/releases/tag/v1.14.5)
 for complete details. Live installation in Premiere Pro still requires host verification.
 
 ### Current MCP protocol support
@@ -88,9 +88,9 @@ their bins, media rules, and organization rules before a facility uses one.
 
 ### Easiest supported path: Claude Desktop
 
-1. Download the current [Claude Desktop bundle (`.mcpb`)](https://github.com/leancoderkavy/premiere-pro-mcp/releases/download/v1.14.4/premiere-pro-mcp-1.14.4.mcpb).
+1. Download the current [Claude Desktop bundle (`.mcpb`)](https://github.com/leancoderkavy/premiere-pro-mcp/releases/download/v1.14.5/premiere-pro-mcp-1.14.5.mcpb).
 2. In Claude Desktop, open **Settings > Extensions > Advanced settings > Install Extension**, select the downloaded bundle, and restart Claude Desktop.
-3. Download the separate [signed Premiere connector (`.zxp`)](https://github.com/leancoderkavy/premiere-pro-mcp/releases/download/v1.14.4/MCPBridgeCEP.zxp). Open it with your trusted ZXP installer. If your computer has no ZXP installer, use the npm connector installer in **Advanced setup** below.
+3. Download the separate [signed Premiere connector (`.zxp`)](https://github.com/leancoderkavy/premiere-pro-mcp/releases/download/v1.14.5/MCPBridgeCEP.zxp). Open it with your trusted ZXP installer. If your computer has no ZXP installer, use the npm connector installer in **Advanced setup** below.
 4. Restart Premiere, open a project, then open **Window > Extensions > MCP for Adobe Premiere Pro**.
 5. In Claude, enter: `Safely check my Premiere connection with verify_premiere_connection. Make no changes.`
 
@@ -369,11 +369,11 @@ From a clone of this repository:
 ```bash
 codex plugin marketplace add .
 codex plugin add premiere-pro@premiere-pro-mcp
-npx -y premiere-pro-mcp@1.14.4 --install-cep
+npx -y premiere-pro-mcp@1.14.5 --install-cep
 ```
 
 Restart Premiere Pro and start a new Codex session after installation. The plugin
-launches `premiere-pro-mcp@1.14.4` through `npx`; the separate CEP installation is
+launches `premiere-pro-mcp@1.14.5` through `npx`; the separate CEP installation is
 required because the MCP server communicates with the running Premiere host through
 the local bridge.
 
@@ -393,7 +393,7 @@ For Claude Code, add this repository as a marketplace and install the plugin:
 Then install the Premiere bridge and start a new Claude Code session:
 
 ```bash
-npx -y premiere-pro-mcp@1.14.4 --install-cep
+npx -y premiere-pro-mcp@1.14.5 --install-cep
 ```
 
 The Claude Code package lives in

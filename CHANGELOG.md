@@ -6,6 +6,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [1.14.5] - 2026-08-31
+
+### Added
+
+- Added safe user update commands for global npm installations and guarded
+  source check/update scripts. Global updates refresh the CEP connector after
+  npm succeeds; source updates require a clean fast-forwardable checkout.
+
+### Fixed
+
+- Corrected macOS bridge-directory handling when `TMPDIR` is set and made QE
+  transition writes target the intended clip on current Premiere builds.
+
 ## [1.14.4] - 2026-08-29
 
 ### Fixed
