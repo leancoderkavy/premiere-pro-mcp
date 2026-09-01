@@ -7,7 +7,7 @@ import type { BridgeOptions } from "../bridge/file-bridge.js";
 const execFileAsync = promisify(execFile);
 const ANALYSIS_TIMEOUT_MS = 300_000;
 
-type ExecFailure = Error & { killed?: boolean; stderr?: string };
+type ExecFailure = Error & { killed?: boolean; stderr?: string | Buffer };
 
 function inputPath(value: unknown): string | null {
   if (typeof value !== "string" || value.trim() === "") return null;
@@ -15,10 +15,11 @@ function inputPath(value: unknown): string | null {
   return existsSync(path) && statSync(path).isFile() ? path : null;
 }
 
-function failureMessage(error: unknown, operation: string): string {
+function failureMessage(error: unknown, operation: string, timeoutSeconds = 300): string {
   const failure = error as ExecFailure;
-  if (failure.killed) return `${operation} timed out after 300 seconds`;
-  const detail = (failure.stderr ?? failure.message ?? "unknown error")
+  if (failure.killed) return `${operation} timed out after ${timeoutSeconds} seconds`;
+  const rawDetail = failure.stderr ?? failure.message ?? "unknown error";
+  const detail = (Buffer.isBuffer(rawDetail) ? rawDetail.toString("utf8") : String(rawDetail))
     .split(/\r?\n/).filter(Boolean).slice(-3).join(" ");
   return `${operation} failed: ${detail}`;
 }
@@ -84,6 +85,40 @@ export function parseMotionPeakCandidates(output: string, threshold: number, min
     else if (sample.difference > previous.difference) peaks[peaks.length - 1] = sample;
   }
   return peaks;
+}
+
+export interface VideoScopeReading {
+  pixels: number;
+  waveform: { black: number; shadows: number; median: number; highlights: number; white: number };
+  rgbParade: Record<"red" | "green" | "blue", { low: number; median: number; high: number }>;
+  saturation: { mean: number; high: number };
+  rgbExtremes: { nearBlackPercent: number; nearWhitePercent: number };
+}
+
+export function analyzeRgbScopes(bytes: Uint8Array): VideoScopeReading {
+  if (bytes.length < 3 || bytes.length % 3 !== 0) throw new Error("RGB scope analysis requires complete RGB24 pixels");
+  const red: number[] = [], green: number[] = [], blue: number[] = [], luma: number[] = [], saturation: number[] = [];
+  let below = 0, above = 0;
+  for (let index = 0; index < bytes.length; index += 3) {
+    const r = bytes[index] / 255, g = bytes[index + 1] / 255, b = bytes[index + 2] / 255;
+    const y = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+    const maximum = Math.max(r, g, b), minimum = Math.min(r, g, b);
+    red.push(r * 100); green.push(g * 100); blue.push(b * 100); luma.push(y * 100);
+    saturation.push(maximum > 0 ? (maximum - minimum) / maximum * 100 : 0);
+    if (y < 16 / 255) below++;
+    if (y > 235 / 255) above++;
+  }
+  for (const values of [red, green, blue, luma, saturation]) values.sort((a, b) => a - b);
+  const percentile = (values: number[], fraction: number) => Number(values[Math.min(values.length - 1, Math.max(0, Math.round((values.length - 1) * fraction)))].toFixed(2));
+  const channel = (values: number[]) => ({ low: percentile(values, 0.1), median: percentile(values, 0.5), high: percentile(values, 0.9) });
+  const pixels = luma.length;
+  return {
+    pixels,
+    waveform: { black: percentile(luma, 0.01), shadows: percentile(luma, 0.1), median: percentile(luma, 0.5), highlights: percentile(luma, 0.9), white: percentile(luma, 0.99) },
+    rgbParade: { red: channel(red), green: channel(green), blue: channel(blue) },
+    saturation: { mean: Number((saturation.reduce((sum, value) => sum + value, 0) / pixels).toFixed(2)), high: percentile(saturation, 0.9) },
+    rgbExtremes: { nearBlackPercent: Number((below / pixels * 100).toFixed(2)), nearWhitePercent: Number((above / pixels * 100).toFixed(2)) },
+  };
 }
 
 export interface InterlaceAnalysis { tff: number; bff: number; progressive: number; undetermined: number; classification: "tff" | "bff" | "progressive" | "mixed" | "undetermined" }
@@ -217,6 +252,27 @@ export function getMediaAnalysisTools(_bridgeOptions: BridgeOptions) {
             verificationScope: "Mean luma frame-difference peaks from a downscaled decoded sample only. Camera movement, flashes, edits, and subject motion can produce similar scores; confirm candidates visually before editing."
           } };
         } catch (error) { return { success: false, error: failureMessage(error, "motion-peak analysis") }; }
+      },
+    },
+    read_video_scopes: {
+      description: "Read waveform percentiles, RGB parade percentiles, saturation, and near-black/near-white RGB occupancy from one bounded decoded local-media frame. Read-only; this is a sampled analytical proxy, not Premiere's rendered scopes.",
+      parameters: { type: "object", properties: {
+        media_path: { type: "string", description: "Existing local video file" },
+        time_seconds: { type: "number", description: "Source-relative frame time from 0 through 86400 seconds (default: 0)" },
+      }, required: ["media_path"] },
+      handler: async (args: { media_path?: string; time_seconds?: number }) => {
+        const path = inputPath(args.media_path);
+        if (!path) return { success: false, error: "media_path must identify an existing regular file" };
+        const time = args.time_seconds ?? 0;
+        if (!Number.isFinite(time) || time < 0 || time > 86_400) return { success: false, error: "time_seconds must be from 0 through 86400" };
+        try {
+          const result = await execFileAsync("ffmpeg", ["-v", "error", "-ss", String(time), "-i", path, "-frames:v", "1", "-vf", "scale=320:180:flags=area", "-pix_fmt", "rgb24", "-f", "rawvideo", "pipe:1"], { encoding: "buffer", timeout: 60_000, windowsHide: true, maxBuffer: 2 * 1024 * 1024 }) as unknown as { stdout: Buffer };
+          if (result.stdout.length !== 320 * 180 * 3) return { success: false, error: "ffmpeg did not return one complete RGB scope frame" };
+          return { success: true, data: {
+            mediaPath: path, timeSeconds: time, sampleSize: { width: 320, height: 180 }, ...analyzeRgbScopes(result.stdout),
+            verificationScope: "One source-relative frame decoded and downscaled to 320x180. Values are post-conversion RGB/luma sample statistics; near-black/near-white occupancy does not prove source-domain legal-range violations. This is not a Premiere program-monitor render, HDR interpretation, vectorscope trace, or visual grade approval."
+          } };
+        } catch (error) { return { success: false, error: failureMessage(error, "video scope analysis", 60) }; }
       },
     },
     analyze_video_interlacing: {
