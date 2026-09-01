@@ -779,7 +779,7 @@ describe("stable Premiere UXP workflow expansion", () => {
     expect(withoutColorApi.commands["environment.inspect"]).toMatchObject({ supported: false });
 
     const noActiveProject = stableHost();
-    noActiveProject.ppro.Project.getActiveProject.mockResolvedValueOnce(null);
+    noActiveProject.ppro.Project.getActiveProject.mockResolvedValue(null);
     const withoutProject = await noActiveProject.registry.capabilities();
     expect(withoutProject.commands["environment.inspect"]).toMatchObject({ supported: true });
   });
