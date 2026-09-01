@@ -41,6 +41,7 @@
       "parameters.keyframeInterpolation": { destructive: true, undoable: true, targetCapabilityProbe: true, minHostVersion: "25.6.0", probe: canUseParameters, handler: setParameterInterpolation },
       "trackItem.inspect": { readOnly: true, targetCapabilityProbe: true, minHostVersion: "25.6.0", probe: canUseTrackItems, handler: inspectTrackItem },
       "trackItem.update": { destructive: true, undoable: true, targetCapabilityProbe: true, minHostVersion: "25.6.0", probe: canUseTrackItems, handler: updateTrackItem },
+      "trackItem.splitEdit": { destructive: true, undoable: true, targetCapabilityProbe: true, minHostVersion: "25.6.0", probe: canUseTrackItems, handler: makeSplitEdit },
       "timeline.insert": { destructive: true, undoable: true, targetCapabilityProbe: true, minHostVersion: "25.6.0", probe: canUseSequenceEditor, handler: insertTimelineItem },
       "timeline.overwrite": { destructive: true, undoable: true, targetCapabilityProbe: true, minHostVersion: "25.6.0", probe: canUseSequenceEditor, handler: overwriteTimelineItem },
       "timeline.cloneSelection": { destructive: true, undoable: true, minHostVersion: "25.6.0", probe: canUseSequenceEditor, handler: cloneTimelineSelection },
@@ -697,6 +698,29 @@
       });
       const after = await trackItemSnapshot(context), verified = trackItemUpdateMatches(before, after, args);
       return mutationResult(verified, { updated: true, before, after, changedFields: requested.length }, "track_item_readback", "Update timeline item");
+    }
+
+    async function makeSplitEdit(args) {
+      assertObject(args); assertOnlyKeys(args, ["kind", "audioTrackIndex", "audioClipIndex", "videoTrackIndex", "videoClipIndex", "extensionSeconds", "operationId"]);
+      const kind = enumValue(args.kind, "kind", ["j_cut", "l_cut"]), extension = finiteNumber(args.extensionSeconds, "extensionSeconds", 0.001, 60);
+      const context = await activeContext(true);
+      const audioContext = { ...context, item: await trackItemAt(context.sequence, "audio", nonNegativeInt(args.audioTrackIndex, "audioTrackIndex"), nonNegativeInt(args.audioClipIndex, "audioClipIndex")), mediaType: "audio", trackIndex: args.audioTrackIndex, clipIndex: args.audioClipIndex };
+      const videoContext = { ...context, item: await trackItemAt(context.sequence, "video", nonNegativeInt(args.videoTrackIndex, "videoTrackIndex"), nonNegativeInt(args.videoClipIndex, "videoClipIndex")), mediaType: "video", trackIndex: args.videoTrackIndex, clipIndex: args.videoClipIndex };
+      const before = { audio: await trackItemSnapshot(audioContext), video: await trackItemSnapshot(videoContext) };
+      if (!numbersEqual(before.audio.speed, 1) || before.audio.reversed) throw commandError("UXP_TARGET_UNSUPPORTED", "Split edits require forward 1x audio so source sync can be preserved");
+      const edge = kind === "j_cut" ? "startSeconds" : "endSeconds";
+      if (!numbersEqual(before.audio[edge], before.video[edge])) throw commandError("UXP_STALE_TRACK_ITEM", "Audio and video " + (kind === "j_cut" ? "start" : "end") + " edges are not aligned");
+      const timelineValue = Number(before.audio[edge]) + (kind === "j_cut" ? -extension : extension);
+      const sourceField = kind === "j_cut" ? "inSeconds" : "outSeconds", sourceValue = Number(before.audio[sourceField]) + (kind === "j_cut" ? -extension : extension);
+      if (timelineValue < 0 || sourceValue < 0) throw commandError("UXP_TARGET_UNSUPPORTED", "The requested J-cut exceeds the available leading timeline or source handle");
+      context.project.lockedAccess(() => {
+        const actions = kind === "j_cut"
+          ? [audioContext.item.createSetStartAction(tick(timelineValue)), audioContext.item.createSetInPointAction(tick(sourceValue))]
+          : [audioContext.item.createSetEndAction(tick(timelineValue)), audioContext.item.createSetOutPointAction(tick(sourceValue))];
+        commitActions(context.project, kind === "j_cut" ? "Create J-cut" : "Create L-cut", actions);
+      });
+      const after = await trackItemSnapshot(audioContext), verified = numbersEqual(after[edge], timelineValue) && numbersEqual(after[sourceField], sourceValue);
+      return mutationResult(verified, { splitEdit: kind, extensionSeconds: extension, before, after }, "split_edit_audio_edge_and_source_readback", kind === "j_cut" ? "Create J-cut" : "Create L-cut");
     }
 
     async function editorContext(requireTransactions) {

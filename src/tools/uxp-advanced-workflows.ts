@@ -321,6 +321,27 @@ export function getUxpAdvancedWorkflowTools(bridge: UxpWebSocketBridge) {
       },
     },
 
+    make_split_edit_uxp: {
+      description: "Create an undoable J-cut or L-cut by extending one aligned 1x audio item while preserving source sync, with atomic UXP actions and edge/source readback.",
+      parameters: {
+        type: "object" as const,
+        additionalProperties: false,
+        properties: {
+          kind: { type: "string", enum: ["j_cut", "l_cut"] },
+          audio_track_index: { type: "integer", minimum: 0 }, audio_clip_index: { type: "integer", minimum: 0 },
+          video_track_index: { type: "integer", minimum: 0 }, video_clip_index: { type: "integer", minimum: 0 },
+          extension_seconds: { type: "number", minimum: 0.001, maximum: 60 },
+          operation_id: operationId,
+        },
+        required: ["kind", "audio_track_index", "audio_clip_index", "video_track_index", "video_clip_index", "extension_seconds"],
+      },
+      handler: async (args: AdvancedArgs) => invoke(bridge, "trackItem.splitEdit", {
+        kind: args.kind, audioTrackIndex: args.audio_track_index, audioClipIndex: args.audio_clip_index,
+        videoTrackIndex: args.video_track_index, videoClipIndex: args.video_clip_index,
+        extensionSeconds: args.extension_seconds, ...operation(args),
+      }),
+    },
+
     edit_timeline_uxp: {
       description: "Use the documented SequenceEditor to insert, overwrite, clone, remove, or insert MOGRT content without undocumented QE calls.",
       parameters: {
