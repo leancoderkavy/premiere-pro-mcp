@@ -2,7 +2,9 @@ import { readFile, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 
 const sitemapUrl = "https://developer.adobe.com/sitemap.xml";
-const outputPath = resolve("src/resources/premiere-doc-inventory.json");
+const outputPath = process.env.PREMIERE_DOC_INVENTORY_OUTPUT_PATH
+  ? resolve(process.env.PREMIERE_DOC_INVENTORY_OUTPUT_PATH)
+  : resolve("src/resources/premiere-doc-inventory.json");
 const check = process.argv.includes("--check");
 const validateOnly = process.argv.includes("--validate-only");
 

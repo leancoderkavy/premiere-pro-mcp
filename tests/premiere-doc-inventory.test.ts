@@ -53,14 +53,22 @@ describe("Adobe Premiere UXP documentation inventory", () => {
   it("decodes XML entities once without double-unescaping nested text", () => {
     const directory = mkdtempSync(join(tmpdir(), "premiere-doc-inventory-"));
     const fixture = join(directory, "sitemap.xml");
+    const output = join(directory, "inventory.json");
     const nestedEntityUrl = "https://developer.adobe.com/premiere-pro/uxp/plugins/?value=&amp;amp;";
     writeFileSync(fixture, `<urlset><url><loc>${nestedEntityUrl}</loc></url></urlset>`);
     try {
-      const result = spawnSync(process.execPath, ["scripts/generate-premiere-doc-inventory.mjs", "--validate-only"], {
+      const result = spawnSync(process.execPath, ["scripts/generate-premiere-doc-inventory.mjs"], {
         encoding: "utf8",
-        env: { ...process.env, PREMIERE_DOC_SITEMAP_PATH: fixture },
+        env: {
+          ...process.env,
+          PREMIERE_DOC_SITEMAP_PATH: fixture,
+          PREMIERE_DOC_INVENTORY_OUTPUT_PATH: output,
+        },
       });
       expect(result.status).toBe(0);
+      const generated = JSON.parse(readFileSync(output, "utf8"));
+      expect(generated.pages).toHaveLength(1);
+      expect(generated.pages[0].url).toBe("https://developer.adobe.com/premiere-pro/uxp/plugins/?value=&amp;");
     } finally {
       rmSync(directory, { recursive: true, force: true });
     }
