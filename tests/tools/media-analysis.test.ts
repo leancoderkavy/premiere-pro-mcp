@@ -14,6 +14,7 @@ vi.mock("node:child_process", () => ({ execFile: mockedExecFile }));
 
 import {
   analyzeRgbScopes,
+  compareScopeReadings,
   getMediaAnalysisTools,
   parseCropDetectOutput,
   parseIdetOutput,
@@ -93,6 +94,24 @@ describe("media analysis parsers", () => {
     expect(() => analyzeRgbScopes(Uint8Array.from([0, 1]))).toThrow("complete RGB24 pixels");
   });
 
+  it("compares scope readings with target-minus-reference deltas and coarse directions", () => {
+    const reference = analyzeRgbScopes(Uint8Array.from([100, 100, 100, 120, 120, 120]));
+    const target = analyzeRgbScopes(Uint8Array.from([60, 70, 80, 70, 80, 90]));
+    expect(compareScopeReadings(reference, target)).toMatchObject({
+      targetMinusReference: { medianLuma: expect.any(Number), redBlueBalance: expect.any(Number) },
+      suggestedDirections: { exposure: "raise", warmth: "warmer", saturation: "lower" },
+    });
+  });
+
+  it("keeps the warmth direction stable across proportional exposure changes", () => {
+    const reference = analyzeRgbScopes(Uint8Array.from([100, 75, 50]));
+    const target = analyzeRgbScopes(Uint8Array.from([200, 150, 100]));
+    expect(compareScopeReadings(reference, target)).toMatchObject({
+      targetMinusReference: { redBlueBalance: -0.01 },
+      suggestedDirections: { exposure: "lower", warmth: "hold", saturation: "hold" },
+    });
+  });
+
   it("classifies progressive, mixed, and absent idet summaries", () => {
     expect(parseIdetOutput("Multi frame detection: TFF: 1 BFF: 0 Progressive: 99 Undetermined: 0").classification).toBe("progressive");
     expect(parseIdetOutput("Multi frame detection: TFF: 50 BFF: 0 Progressive: 50 Undetermined: 0").classification).toBe("mixed");
@@ -130,6 +149,7 @@ describe("media analysis tool contracts", () => {
     await expect(tools.detect_motion_peaks.handler({ media_path: mediaPath, minimum_interval_seconds: 0 })).resolves.toMatchObject({ success: false });
     await expect(tools.detect_motion_peaks.handler({ media_path: mediaPath, maximum_events: 0 })).resolves.toMatchObject({ success: false });
     await expect(tools.read_video_scopes.handler({ media_path: mediaPath, time_seconds: -1 })).resolves.toMatchObject({ success: false });
+    await expect(tools.plan_shot_match.handler({ reference_media_path: mediaPath, target_media_path: mediaPath, target_time_seconds: -1 })).resolves.toMatchObject({ success: false });
     await expect(tools.analyze_video_interlacing.handler({ media_path: mediaPath, sample_seconds: 0 })).resolves.toMatchObject({ success: false });
     await expect(tools.detect_active_picture_bounds.handler({ media_path: mediaPath, sample_seconds: 301 })).resolves.toMatchObject({ success: false });
     await expect(tools.detect_active_picture_bounds.handler({ media_path: mediaPath, limit: 300 })).resolves.toMatchObject({ success: false });
@@ -162,6 +182,10 @@ describe("media analysis tool contracts", () => {
 
     mockedExecFileAsync.mockRejectedValueOnce(Object.assign(new Error("decode"), { stderr: Buffer.from("invalid video stream") }));
     await expect(tools.read_video_scopes.handler({ media_path: mediaPath })).resolves.toMatchObject({ success: false, error: expect.stringContaining("invalid video stream") });
+
+    mockedExecFileAsync.mockResolvedValueOnce({ stdout: Buffer.alloc(320 * 180 * 3, 100), stderr: Buffer.alloc(0) });
+    mockedExecFileAsync.mockResolvedValueOnce({ stdout: Buffer.alloc(320 * 180 * 3, 80), stderr: Buffer.alloc(0) });
+    await expect(tools.plan_shot_match.handler({ reference_media_path: mediaPath, target_media_path: mediaPath })).resolves.toMatchObject({ success: true, data: { comparison: { suggestedDirections: { exposure: "raise" } } } });
 
     mockedExecFileAsync.mockResolvedValueOnce({ stdout: "", stderr: "Multi frame detection: TFF: 0 BFF: 0 Progressive: 20 Undetermined: 0" });
     await expect(tools.analyze_video_interlacing.handler({ media_path: mediaPath })).resolves.toMatchObject({ success: true, data: { classification: "progressive", passesProgressiveDelivery: true } });

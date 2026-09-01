@@ -38,6 +38,7 @@ describe("capability profiles", () => {
     expect(capabilityForTool("detect_beats")).toBe("filesystem");
     expect(capabilityForTool("detect_motion_peaks")).toBe("filesystem");
     expect(capabilityForTool("read_video_scopes")).toBe("filesystem");
+    expect(capabilityForTool("plan_shot_match")).toBe("filesystem");
     expect(capabilityForTool("analyze_video_qc")).toBe("filesystem");
     expect(capabilityForTool("detect_source_scene_changes")).toBe("filesystem");
     expect(capabilityForTool("normalize_loudness_file")).toBe("filesystem");
