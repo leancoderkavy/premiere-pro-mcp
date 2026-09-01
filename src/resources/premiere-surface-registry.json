@@ -95,10 +95,10 @@
         "https://github.com/docsforadobe/premiere-scripting-guide"
       ],
       "versionSource": "Premiere Pro Scripting Guide and bundled host DOM",
-      "inventoryArtifact": "dist/resources/extendscript-reference.js",
-      "inventoryState": "partial",
+      "inventoryArtifact": "dist/resources/extendscript-api-inventory.json",
+      "inventoryState": "complete",
       "implementationState": "partial",
-      "notes": "The current reference is curated rather than generated from a versioned complete symbol source. The Docs for Adobe scripting guide is recorded as a community reference, not Adobe authority."
+      "notes": "Every object member documented by the pinned community scripting guide is inventoried. The executable cheat sheet remains curated, and community coverage is not Adobe authority or proof of runtime compatibility."
     },
     {
       "id": "cep-platform",
