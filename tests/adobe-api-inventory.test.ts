@@ -15,6 +15,7 @@ describe("Adobe declaration API inventory", () => {
     expect(inventory.stats.mapped + inventory.stats.unmapped).toBe(inventory.stats.total);
     expect(inventory.entries).toEqual(expect.arrayContaining([
       expect.objectContaining({ symbol: "Project.lockedAccess", kind: "method", coverage: "mapped" }),
+      expect.objectContaining({ symbol: "Project.createProject", declarationSymbol: "ProjectStatic.createProject" }),
       expect.objectContaining({ symbol: "Sequence.setSelection", kind: "method" }),
       expect.objectContaining({ symbol: "Constants.MediaType", kind: "enum" }),
     ]));
@@ -33,10 +34,11 @@ describe("Adobe declaration API inventory", () => {
     ["namespace", "export declare namespace Constants { interface Unsupported {} }", "Unsupported declaration in namespace"],
     ["member", "export declare type Unsupported = { get value(): string };", "Unsupported type member"],
     ["type expression", "export declare type Unsupported = () => string;", "Unsupported type expression"],
+    ["syntax error", "export declare type Unsupported = { value: string", "TypeScript declaration parse failed"],
   ])("fails closed for an unsupported %s declaration form", (_label, declarations, expectedError) => {
     const directory = mkdtempSync(join(tmpdir(), "premiere-api-inventory-"));
     const fixturePath = join(directory, "premierepro.d.ts");
-    writeFileSync(fixturePath, declarations);
+    writeFileSync(fixturePath, `export declare type premierepro = {};\n${declarations}`);
     try {
       const result = spawnSync(process.execPath, ["scripts/generate-adobe-api-inventory.mjs", "--validate-only"], {
         encoding: "utf8",

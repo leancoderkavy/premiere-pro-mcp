@@ -23,9 +23,24 @@ const packageMetadata = JSON.parse(packageText);
 const coverage = JSON.parse(coverageText);
 const coveredApis = new Set(coverage.entries.flatMap((entry) => entry.adobeApi));
 const source = ts.createSourceFile(declarationsPath, declarationsText, ts.ScriptTarget.Latest, true);
+if (source.parseDiagnostics.length > 0) {
+  const details = source.parseDiagnostics.map((diagnostic) => ts.flattenDiagnosticMessageText(diagnostic.messageText, " ")).join("; ");
+  throw new Error(`TypeScript declaration parse failed: ${details}`);
+}
 const compareText = (left, right) => left < right ? -1 : left > right ? 1 : 0;
 const normalizedDeclarations = declarationsText.replaceAll("\r\n", "\n");
 const declarationsSha256 = createHash("sha256").update(normalizedDeclarations).digest("hex");
+const canonicalOwners = new Map();
+const rootDeclaration = source.statements.find((statement) => (
+  ts.isTypeAliasDeclaration(statement) && statement.name.text === "premierepro"
+));
+if (!rootDeclaration || !ts.isTypeLiteralNode(rootDeclaration.type)) {
+  throw new Error("Adobe declarations must expose a premierepro root type literal.");
+}
+for (const member of rootDeclaration.type.members) {
+  if (!ts.isPropertySignature(member) || !member.name || !member.type || !ts.isTypeReferenceNode(member.type)) continue;
+  canonicalOwners.set(member.type.typeName.getText(source), member.name.getText(source).replaceAll('"', ""));
+}
 
 function memberName(member) {
   if (ts.isConstructSignatureDeclaration(member)) return "[[construct]]";
@@ -48,10 +63,17 @@ function memberKind(member) {
 }
 
 const symbols = [];
+function addMember(owner, name, kind) {
+  const canonicalOwner = canonicalOwners.get(owner) ?? owner;
+  const symbol = `${canonicalOwner}.${name}`;
+  const declarationSymbol = `${owner}.${name}`;
+  symbols.push({ symbol, kind, ...(symbol === declarationSymbol ? {} : { declarationSymbol }) });
+}
+
 function collectTypeMembers(owner, node) {
   if (ts.isTypeLiteralNode(node)) {
     for (const member of node.members) {
-      symbols.push({ symbol: `${owner}.${memberName(member)}`, kind: memberKind(member) });
+      addMember(owner, memberName(member), memberKind(member));
     }
     return;
   }
