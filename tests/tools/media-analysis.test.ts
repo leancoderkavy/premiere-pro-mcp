@@ -58,12 +58,13 @@ describe("media analysis parsers", () => {
     const output = [
       "frame:0 pts_time:0", "lavfi.signalstats.YAVG=2",
       "frame:1 pts_time:0.25", "lavfi.signalstats.YAVG=15",
-      "frame:2 pts_time:0.5", "lavfi.signalstats.YAVG=20",
-      "frame:3 pts_time:0.75", "lavfi.signalstats.YAVG=10",
-      "frame:4 pts_time:2", "lavfi.signalstats.YAVG=18",
+      "frame:2 pts_time:0.5", "lavfi.signalstats.YAVG=2",
+      "frame:3 pts_time:0.75", "lavfi.signalstats.YAVG=20",
+      "frame:4 pts_time:1", "lavfi.signalstats.YAVG=2",
+      "frame:5 pts_time:2", "lavfi.signalstats.YAVG=18",
     ].join("\n");
     expect(parseMotionPeakCandidates(output, 12, 1)).toEqual([
-      { timeSeconds: 0.5, difference: 20 }, { timeSeconds: 2, difference: 18 },
+      { timeSeconds: 0.75, difference: 20 }, { timeSeconds: 2, difference: 18 },
     ]);
   });
 
