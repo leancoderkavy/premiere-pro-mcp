@@ -62,10 +62,18 @@ function normalized(value: unknown): string {
 
 export function validateDeliveryConformanceContract(contract: DeliveryConformanceContract): string | null {
   if (!contract || typeof contract !== "object") return "contract is required";
-  const entries = Object.entries(contract).filter(([, value]) => value !== undefined);
-  if (entries.length === 0) return "At least one delivery conformance expectation is required";
+  const expectations = [
+    contract.allowedContainerNames, contract.videoCodec, contract.audioCodec,
+    contract.width, contract.height, contract.frameRate, contract.durationSeconds,
+    contract.minimumVideoBitrateKbps, contract.maximumVideoBitrateKbps,
+    contract.audioSampleRateHz, contract.audioChannels, contract.targetLufs,
+    contract.maximumTruePeakDbfs,
+  ];
   if (contract.allowedContainerNames !== undefined && (!Array.isArray(contract.allowedContainerNames) || contract.allowedContainerNames.length === 0 || contract.allowedContainerNames.some(value => !normalized(value)))) {
     return "allowed_container_names must contain at least one non-empty container name";
+  }
+  for (const [name, value] of Object.entries({ video_codec: contract.videoCodec, audio_codec: contract.audioCodec })) {
+    if (value !== undefined && !normalized(value)) return `${name} must be a non-empty string`;
   }
   for (const [name, value] of Object.entries({ width: contract.width, height: contract.height, audio_sample_rate_hz: contract.audioSampleRateHz, audio_channels: contract.audioChannels })) {
     if (value !== undefined && (!Number.isInteger(value) || value <= 0)) return `${name} must be a positive integer`;
@@ -79,6 +87,7 @@ export function validateDeliveryConformanceContract(contract: DeliveryConformanc
   if (contract.minimumVideoBitrateKbps !== undefined && contract.maximumVideoBitrateKbps !== undefined && contract.minimumVideoBitrateKbps > contract.maximumVideoBitrateKbps) return "minimum_video_bitrate_kbps cannot exceed maximum_video_bitrate_kbps";
   if (contract.targetLufs !== undefined && (!Number.isFinite(contract.targetLufs) || contract.targetLufs < -100 || contract.targetLufs > 0)) return "target_lufs must be from -100 through 0";
   if (contract.maximumTruePeakDbfs !== undefined && (!Number.isFinite(contract.maximumTruePeakDbfs) || contract.maximumTruePeakDbfs < -100 || contract.maximumTruePeakDbfs > 0)) return "maximum_true_peak_dbfs must be from -100 through 0";
+  if (!expectations.some(value => value !== undefined)) return "At least one delivery conformance expectation is required";
   return null;
 }
 
@@ -107,20 +116,22 @@ export function evaluateDeliveryConformance(
   if (contract.audioCodec !== undefined) exact("audio_codec", contract.audioCodec, audio?.codec_name);
   if (contract.width !== undefined) numeric("width", contract.width, video?.width);
   if (contract.height !== undefined) numeric("height", contract.height, video?.height);
-  if (contract.frameRate !== undefined) numeric("frame_rate", contract.frameRate, parseRationalRate(video?.avg_frame_rate ?? video?.r_frame_rate), contract.frameRateTolerance ?? 0.001);
+  if (contract.frameRate !== undefined) numeric("frame_rate", contract.frameRate, parseRationalRate(video?.avg_frame_rate) ?? parseRationalRate(video?.r_frame_rate), contract.frameRateTolerance ?? 0.001);
   if (contract.durationSeconds !== undefined) numeric("duration", contract.durationSeconds, format.duration, contract.durationToleranceSeconds ?? 0.05);
-  const bitrate = finiteNumber(video?.bit_rate ?? format.bit_rate);
+  const bitrate = finiteNumber(video?.bit_rate) ?? finiteNumber(format.bit_rate);
   if (contract.minimumVideoBitrateKbps !== undefined) checks.push({ id: "minimum_video_bitrate", status: bitrate !== null && bitrate / 1000 >= contract.minimumVideoBitrateKbps ? "pass" : "fail", expected: contract.minimumVideoBitrateKbps, actual: bitrate === null ? null : bitrate / 1000 });
   if (contract.maximumVideoBitrateKbps !== undefined) checks.push({ id: "maximum_video_bitrate", status: bitrate !== null && bitrate / 1000 <= contract.maximumVideoBitrateKbps ? "pass" : "fail", expected: contract.maximumVideoBitrateKbps, actual: bitrate === null ? null : bitrate / 1000 });
   if (contract.audioSampleRateHz !== undefined) numeric("audio_sample_rate", contract.audioSampleRateHz, audio?.sample_rate);
   if (contract.audioChannels !== undefined) numeric("audio_channels", contract.audioChannels, audio?.channels);
   if (contract.targetLufs !== undefined) {
     const actual = loudness?.integratedLufs ?? null;
-    checks.push({ id: "integrated_loudness", status: loudnessUnavailableReason ? "not_evaluated" : actual !== null && Math.abs(actual - contract.targetLufs) <= (contract.loudnessToleranceLu ?? 1) ? "pass" : "fail", expected: contract.targetLufs, actual, detail: loudnessUnavailableReason ?? `tolerance=${contract.loudnessToleranceLu ?? 1} LU` });
+    const unavailable = loudnessUnavailableReason ?? (actual === null ? "Integrated loudness measurement was unavailable" : undefined);
+    checks.push({ id: "integrated_loudness", status: unavailable ? "not_evaluated" : Math.abs(actual! - contract.targetLufs) <= (contract.loudnessToleranceLu ?? 1) ? "pass" : "fail", expected: contract.targetLufs, actual, detail: unavailable ?? `tolerance=${contract.loudnessToleranceLu ?? 1} LU` });
   }
   if (contract.maximumTruePeakDbfs !== undefined) {
     const actual = loudness?.truePeakDbfs ?? null;
-    checks.push({ id: "true_peak", status: loudnessUnavailableReason ? "not_evaluated" : actual !== null && actual <= contract.maximumTruePeakDbfs ? "pass" : "fail", expected: contract.maximumTruePeakDbfs, actual, detail: loudnessUnavailableReason });
+    const unavailable = loudnessUnavailableReason ?? (actual === null ? "True-peak measurement was unavailable" : undefined);
+    checks.push({ id: "true_peak", status: unavailable ? "not_evaluated" : actual! <= contract.maximumTruePeakDbfs ? "pass" : "fail", expected: contract.maximumTruePeakDbfs, actual, detail: unavailable });
   }
   return checks;
 }
@@ -374,6 +385,16 @@ export function getExportTools(bridgeOptions: BridgeOptions) {
     verify_delivery_conformance: {
       description:
         "Verify a local exported file against an explicit delivery contract using ffprobe and optional EBU R128 analysis. Returns pass, fail, or not_evaluated per check; it does not prove Premiere render lineage or visual approval.",
+      operationalCapability: {
+        backend: "local" as const,
+        backends: ["local" as const],
+        status: "supported" as const,
+        minimumPremiereVersion: null,
+        authority: "filesystem" as const,
+        verificationBoundary: "local_filesystem" as const,
+        hostVerificationRequired: false,
+        notes: ["Reads a local delivery with ffprobe and optional FFmpeg decoding; it does not contact Premiere Pro."],
+      },
       parameters: {
         type: "object" as const,
         properties: {
@@ -463,14 +484,16 @@ export function getExportTools(bridgeOptions: BridgeOptions) {
             } catch (error) {
               const failure = error as { code?: string; killed?: boolean; stderr?: string; message?: string };
               if (failure.stderr) loudness = parseEbur128Summary(failure.stderr);
-              if (!loudness || (loudness.integratedLufs === null && loudness.truePeakDbfs === null)) {
-                loudnessUnavailableReason = failure.code === "ENOENT" ? "ffmpeg was not found on PATH" : failure.killed ? "EBU R128 analysis timed out" : "EBU R128 analysis was unavailable";
-              }
+              loudnessUnavailableReason = failure.code === "ENOENT" ? "ffmpeg was not found on PATH" : failure.killed ? "EBU R128 analysis timed out" : "EBU R128 analysis was unavailable";
             }
           }
         }
-        const after = statSync(mediaPath);
-        if (!after.isFile() || deliveryFileChangedDuringHash(before, after)) return { success: false, error: `Delivery file changed during conformance inspection: ${mediaPath}` };
+        try {
+          const after = statSync(mediaPath);
+          if (!after.isFile() || deliveryFileChangedDuringHash(before, after)) return { success: false, error: `Delivery file changed during conformance inspection: ${mediaPath}` };
+        } catch {
+          return { success: false, error: `Delivery file changed during conformance inspection: ${mediaPath}` };
+        }
         const checks = evaluateDeliveryConformance(probe, contract, loudness, loudnessUnavailableReason);
         return {
           success: true,

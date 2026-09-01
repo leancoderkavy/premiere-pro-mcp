@@ -1,4 +1,4 @@
-import { appendFileSync, mkdtempSync, writeFileSync } from "node:fs";
+import { appendFileSync, mkdtempSync, unlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -42,6 +42,23 @@ describe("delivery conformance comparisons", () => {
     expect(validateDeliveryConformanceContract({ durationToleranceSeconds: -1 })).toContain("non-negative");
     expect(validateDeliveryConformanceContract({ targetLufs: 1 })).toContain("target_lufs");
     expect(validateDeliveryConformanceContract({ maximumTruePeakDbfs: 1 })).toContain("maximum_true_peak");
+    expect(validateDeliveryConformanceContract({ frameRateTolerance: 0.01 })).toContain("At least one");
+    expect(validateDeliveryConformanceContract({ durationToleranceSeconds: 0.01 })).toContain("At least one");
+    expect(validateDeliveryConformanceContract({ videoCodec: " " })).toContain("non-empty");
+    expect(validateDeliveryConformanceContract({ audioCodec: "" })).toContain("non-empty");
+  });
+
+  it("falls back from unusable stream metadata and does not fail missing measurements", () => {
+    const checks = evaluateDeliveryConformance({
+      format: { bit_rate: "12000000" },
+      streams: [{ codec_type: "video", avg_frame_rate: "0/0", r_frame_rate: "24/1", bit_rate: "N/A" }],
+    }, {
+      frameRate: 24, minimumVideoBitrateKbps: 11000, targetLufs: -23, maximumTruePeakDbfs: -1,
+    }, { integratedLufs: -23, truePeakDbfs: null });
+    expect(checks.find(check => check.id === "frame_rate")?.status).toBe("pass");
+    expect(checks.find(check => check.id === "minimum_video_bitrate")?.status).toBe("pass");
+    expect(checks.find(check => check.id === "integrated_loudness")?.status).toBe("pass");
+    expect(checks.find(check => check.id === "true_peak")?.status).toBe("not_evaluated");
   });
 
   it("reports matching and mismatching fields independently", () => {
@@ -81,6 +98,14 @@ describe("delivery conformance comparisons", () => {
 describe("verify_delivery_conformance boundary", () => {
   const tool = getExportTools({ tempDir: "/tmp/test" }).verify_delivery_conformance;
   beforeEach(() => vi.clearAllMocks());
+
+  it("reports its local filesystem-only operational boundary", () => {
+    expect(tool.operationalCapability).toMatchObject({
+      backend: "local", backends: ["local"], authority: "filesystem",
+      verificationBoundary: "local_filesystem", hostVerificationRequired: false,
+      minimumPremiereVersion: null,
+    });
+  });
 
   function mediaFile() {
     const directory = mkdtempSync(join(tmpdir(), "premiere-delivery-conformance-"));
@@ -125,6 +150,14 @@ describe("verify_delivery_conformance boundary", () => {
     });
     await expect(tool.handler({ output_path: changingPath, video_codec: "h264" }))
       .resolves.toMatchObject({ success: false, error: expect.stringContaining("changed during") });
+
+    const disappearingPath = mediaFile();
+    mockedExecFileAsync.mockImplementationOnce(async () => {
+      unlinkSync(disappearingPath);
+      return { stdout: JSON.stringify(probe), stderr: "" };
+    });
+    await expect(tool.handler({ output_path: disappearingPath, video_codec: "h264" }))
+      .resolves.toMatchObject({ success: false, error: expect.stringContaining("changed during") });
   });
 
   it("handles missing tools, invalid probe JSON, and unavailable loudness without overclaiming", async () => {
@@ -149,5 +182,12 @@ describe("verify_delivery_conformance boundary", () => {
       .mockRejectedValueOnce(Object.assign(new Error("decode"), { stderr: "no measurement" }));
     await expect(tool.handler({ output_path: unreadableAudioPath, target_lufs: -23 }))
       .resolves.toMatchObject({ success: true, data: { conforms: false, notEvaluated: 1 } });
+
+    const partialAudioPath = mediaFile();
+    mockedExecFileAsync
+      .mockResolvedValueOnce({ stdout: JSON.stringify(probe), stderr: "" })
+      .mockRejectedValueOnce(Object.assign(new Error("decode"), { stderr: "Summary:\n Integrated loudness:\n I: -23.0 LUFS\n True peak:\n Peak: -2.0 dBFS" }));
+    await expect(tool.handler({ output_path: partialAudioPath, target_lufs: -23, maximum_true_peak_dbfs: -1 }))
+      .resolves.toMatchObject({ success: true, data: { conforms: false, evaluated: 0, notEvaluated: 2 } });
   });
 });
