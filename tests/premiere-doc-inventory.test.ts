@@ -73,4 +73,37 @@ describe("Adobe Premiere UXP documentation inventory", () => {
       rmSync(directory, { recursive: true, force: true });
     }
   });
+
+  it("classifies a representative URL from every documentation branch", () => {
+    const directory = mkdtempSync(join(tmpdir(), "premiere-doc-inventory-"));
+    const fixture = join(directory, "sitemap.xml");
+    const output = join(directory, "inventory.json");
+    const expected = new Map([
+      ["https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/project", "premiere-dom"],
+      ["https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-js/Modules/uxp/", "uxp-javascript"],
+      ["https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-html/HTML%20Elements/", "uxp-html"],
+      ["https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-css/General/", "uxp-css"],
+      ["https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-spectrum/spectrum-to-swc-mapping/", "spectrum-web-components"],
+      ["https://developer.adobe.com/premiere-pro/uxp/plugins/concepts/manifest/", "uxp-plugin-guides"],
+      ["https://developer.adobe.com/premiere-pro/uxp/resources/migration-guides/", "premiere-uxp-supporting-docs"],
+    ]);
+    const sitemap = `<urlset>${[...expected.keys()].map((url) => `<url><loc>${url}</loc></url>`).join("")}</urlset>`;
+    writeFileSync(fixture, sitemap);
+    try {
+      const result = spawnSync(process.execPath, ["scripts/generate-premiere-doc-inventory.mjs"], {
+        encoding: "utf8",
+        env: {
+          ...process.env,
+          PREMIERE_DOC_SITEMAP_PATH: fixture,
+          PREMIERE_DOC_INVENTORY_OUTPUT_PATH: output,
+        },
+      });
+      expect(result.status).toBe(0);
+      const generated = JSON.parse(readFileSync(output, "utf8"));
+      expect(new Map(generated.pages.map((page: { url: string; surface: string }) => [page.url, page.surface])))
+        .toEqual(expected);
+    } finally {
+      rmSync(directory, { recursive: true, force: true });
+    }
+  });
 });
