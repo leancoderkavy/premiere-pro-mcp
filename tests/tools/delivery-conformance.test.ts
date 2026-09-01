@@ -174,6 +174,13 @@ describe("verify_delivery_conformance boundary", () => {
     mockedExecFileAsync.mockRejectedValueOnce(Object.assign(new Error("probe failed"), { stderr: "" }));
     await expect(tool.handler({ output_path: emptyStderrPath, video_codec: "h264" }))
       .resolves.toMatchObject({ success: false, error: expect.stringContaining("probe failed") });
+
+    const noisyStderrPath = mediaFile();
+    mockedExecFileAsync.mockRejectedValueOnce(Object.assign(new Error("probe failed"), { stderr: "x".repeat(5_000_000) }));
+    const result = await tool.handler({ output_path: noisyStderrPath, video_codec: "h264" });
+    expect(result).toMatchObject({ success: false, error: expect.stringContaining("ffprobe delivery conformance inspection failed:") });
+    expect(result.error).toHaveLength(4_096 + "ffprobe delivery conformance inspection failed: ".length);
+    expect(result.error.endsWith("…")).toBe(true);
   });
 
   it("reports ffprobe timeouts and refuses a file that changes during inspection", async () => {

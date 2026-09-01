@@ -10,6 +10,7 @@ import { parseEbur128Summary } from "./audio.js";
 
 const execFileAsync = promisify(execFile);
 const VIDEO_QC_TIMEOUT_MS = 300_000;
+const MAX_FAILURE_DIAGNOSTIC_LENGTH = 4_096;
 
 export type ConformanceStatus = "pass" | "fail" | "not_evaluated";
 
@@ -63,6 +64,13 @@ export function parseRationalRate(value: unknown): number | null {
 
 function normalized(value: unknown): string {
   return String(value ?? "").trim().toLowerCase();
+}
+
+function boundedFailureDiagnostic(value: unknown): string {
+  const diagnostic = String(value ?? "").trim();
+  return diagnostic.length > MAX_FAILURE_DIAGNOSTIC_LENGTH
+    ? `${diagnostic.slice(0, MAX_FAILURE_DIAGNOSTIC_LENGTH - 1)}…`
+    : diagnostic;
 }
 
 export function validateDeliveryConformanceContract(contract: DeliveryConformanceContract): string | null {
@@ -501,7 +509,10 @@ export function getExportTools(bridgeOptions: BridgeOptions) {
           if (changedSinceStart()) return { success: false, error: `Delivery file changed during conformance inspection: ${mediaPath}` };
           if (failure.code === "ENOENT") return { success: false, error: "ffprobe was not found on PATH" };
           if (failure.killed) return { success: false, error: "ffprobe delivery conformance inspection timed out after 60 seconds" };
-          return { success: false, error: `ffprobe delivery conformance inspection failed: ${failure.stderr?.trim() || failure.message || "unknown error"}` };
+          return {
+            success: false,
+            error: `ffprobe delivery conformance inspection failed: ${boundedFailureDiagnostic(failure.stderr) || boundedFailureDiagnostic(failure.message) || "unknown error"}`,
+          };
         }
         let loudness: ReturnType<typeof parseEbur128Summary> | null = null;
         let loudnessUnavailableReason: string | undefined;
