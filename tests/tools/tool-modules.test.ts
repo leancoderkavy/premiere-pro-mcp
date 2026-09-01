@@ -511,6 +511,16 @@ describe("Tool Handler Behavior", () => {
       expect(tools.play_timeline.parameters).toEqual({});
     });
 
+    it("writes and verifies the public TrackItem disabled property", async () => {
+      const tools = getTimelineTools(bridgeOptions);
+      await (tools.enable_disable_clip.handler as any)({ node_id: "clip-1", enabled: false });
+      const script = mockedSendCommand.mock.calls[0][0];
+      expect(script).toContain("result.clip.disabled = wantDisabled");
+      expect(script).toContain('var verified = __findClip("clip-1")');
+      expect(script).toContain("!!verified.clip.disabled !== wantDisabled");
+      expect(script).not.toContain("setDisabled(");
+    });
+
     it("does not claim legacy source-monitor or stop-playback requests are verified", async () => {
       const tools = getPlaybackTools(bridgeOptions);
       await (tools.stop_playback.handler as any)({});
@@ -690,29 +700,38 @@ describe("Tool Handler Behavior", () => {
         cut_point_seconds: 2,
       });
       const script = mockedSendCommand.mock.calls[0][0];
-      expect(script).toContain("__findQeClipByDomClip(qeTrack, outgoingClip)");
+      expect(script).toContain("var targetClip = incomingClip || outgoingClip");
+      expect(script).toContain("__findQeClipByDomClip(qeTrack, targetClip)");
       expect(script).toContain('typeof qeClip.addTransition !== "function"');
-      expect(script).toContain('qeClip.addTransition(transitionQE, true, String(durationFrames), "0", 0.5, false, true)');
+      expect(script).toContain('qeClip.addTransition(transitionQE, targetHead, String(durationFrames), "0", 0.5, false, true)');
       expect(script).not.toContain("qeTrack.addTransition(");
-      expect(script).toContain("transitionCountBefore");
-      expect(script).toContain("domTrack.transitions.numItems <= transitionCountBefore");
+      expect(script).toContain("transitionAtCut");
+      expect(script).toContain("Math.abs(((transitionStart + transitionEnd) / 2) - cutTicks) <= frameTicks / 2");
+      expect(script).toContain("DOM readback did not find it at the requested cut point");
 
       vi.clearAllMocks();
       await (tools.add_transition_to_clip.handler as any)({
         node_id: "clip-1", transition_name: "Cross Dissolve", position: "both",
       });
       const clipScript = mockedSendCommand.mock.calls[0][0];
+      expect(clipScript).toContain('result.trackType !== "video"');
       expect(clipScript).toContain("__findQeClipByDomClip(qeTrack, result.clip)");
       expect(clipScript).toContain("var requestedCount = position === \"both\" ? 2 : 1");
-      expect(clipScript).toContain('qeClip.addTransition(transitionQE, false, String(durationFrames), "0", 0.5, true, true)');
-      expect(clipScript).toContain('qeClip.addTransition(transitionQE, true, String(durationFrames), "0", 0.5, true, true)');
+      expect(clipScript).toContain('qeClip.addTransition(transitionQE, true, String(durationFrames), "0", 0.5, false, true)');
+      expect(clipScript).toContain('qeClip.addTransition(transitionQE, false, String(durationFrames), "0", 0.5, false, true)');
+      expect(clipScript).toContain("startVerified");
+      expect(clipScript).toContain("endVerified");
+      expect(clipScript).toContain("var verifiedMidpoint = (verifiedStart + verifiedEnd) / 2");
+      expect(clipScript).toContain("the request was partially applied");
 
       vi.clearAllMocks();
       await (tools.batch_add_transitions.handler as any)({ transition_name: "Cross Dissolve" });
       const batchScript = mockedSendCommand.mock.calls[0][0];
-      expect(batchScript).toContain("__findQeClipByDomClip(qeTrack, outgoingClip)");
+      expect(batchScript).toContain("__findQeClipByDomClip(qeTrack, incomingClip)");
       expect(batchScript).toContain('qeClip.addTransition(transitionQE, true, String(durationFrames), "0", 0.5, false, true)');
       expect(batchScript).toContain("verifiedCount !== requestedCount");
+      expect(batchScript).toContain("Math.abs(((readStart + readEnd) / 2) - expectedCut) <= frameTicks / 2");
+      expect(batchScript).toContain("DOM readback did not find a transition at cut");
     });
   });
 

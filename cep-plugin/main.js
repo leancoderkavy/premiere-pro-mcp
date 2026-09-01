@@ -61,16 +61,18 @@ function refreshConnectionCenter() {
   setConnectionCheck("checkProject", "waiting", "Checking…");
   setConnectionCheck("checkSequence", "waiting", "Checking…");
   cs.evalScript(
-    '(function(){var p=app&&app.project;return JSON.stringify({projectOpen:!!(p&&typeof p.name!=="undefined"),sequenceOpen:!!(p&&p.activeSequence)});}())',
+    '(function(){var p=app&&app.project;return "mcpstate:"+(p&&typeof p.name!=="undefined"?"1":"0")+","+(p&&p.activeSequence?"1":"0");}())',
     function (raw) {
-      try {
-        var state = JSON.parse(raw || "{}");
-        setConnectionCheck("checkProject", state.projectOpen ? "ready" : "needs-attention", state.projectOpen ? "Project open" : "Open a project in Premiere Pro");
-        setConnectionCheck("checkSequence", state.sequenceOpen ? "ready" : "needs-attention", state.sequenceOpen ? "Active sequence open" : "Open a sequence in Premiere Pro");
-      } catch (e) {
+      var match = /^mcpstate:([01]),([01])$/.exec(String(raw || ""));
+      if (!match) {
         setConnectionCheck("checkProject", "needs-attention", "Could not read Premiere state");
         setConnectionCheck("checkSequence", "needs-attention", "Could not read Premiere state");
+        return;
       }
+      var projectOpen = match[1] === "1";
+      var sequenceOpen = match[2] === "1";
+      setConnectionCheck("checkProject", projectOpen ? "ready" : "needs-attention", projectOpen ? "Project open" : "Open a project in Premiere Pro");
+      setConnectionCheck("checkSequence", sequenceOpen ? "ready" : "needs-attention", sequenceOpen ? "Active sequence open" : "Open a sequence in Premiere Pro");
     }
   );
 }

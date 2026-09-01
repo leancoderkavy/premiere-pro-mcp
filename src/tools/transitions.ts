@@ -72,12 +72,21 @@ export function getTransitionsTools(bridgeOptions: BridgeOptions) {
           if (!domTrack) return __error("Track not found in the Premiere DOM");
           var cutTicks = __secondsToTicks(${args.cut_point_seconds});
           var outgoingClip = null;
+          var incomingClip = null;
           for (var c = 0; c < domTrack.clips.numItems; c++) {
             var candidate = domTrack.clips[c];
             if (Math.abs(parseFloat(candidate.end.ticks) - cutTicks) < 1) { outgoingClip = candidate; break; }
           }
-          if (!outgoingClip) return __error("No video clip ends at the requested cut point, so no transition was attempted.");
-          var qeClip = __findQeClipByDomClip(qeTrack, outgoingClip);
+          for (var c2 = 0; c2 < domTrack.clips.numItems; c2++) {
+            var candidate2 = domTrack.clips[c2];
+            if (Math.abs(parseFloat(candidate2.start.ticks) - cutTicks) < 1) { incomingClip = candidate2; break; }
+          }
+          if (!incomingClip && !outgoingClip) return __error("No video clip edge exists at the requested cut point, so no transition was attempted.");
+          // Premiere 26.3.2 confirms arg 2 is the clip edge: true=head,
+          // false=tail. Prefer the incoming head and fall back to the outgoing tail.
+          var targetClip = incomingClip || outgoingClip;
+          var targetHead = !!incomingClip;
+          var qeClip = __findQeClipByDomClip(qeTrack, targetClip);
           if (!qeClip || typeof qeClip.addTransition !== "function") {
             return __error("The target QE clip does not expose addTransition; no transition was attempted. The QE track itself is not the transition write surface.");
           }
@@ -91,7 +100,7 @@ export function getTransitionsTools(bridgeOptions: BridgeOptions) {
             // QE transition writes belong to the clip. The legacy method takes
             // a clip edge, duration in sequence frames, offset, alignment, and
             // single-sided flags; DOM readback below decides whether it worked.
-            qeClip.addTransition(transitionQE, true, String(durationFrames), "0", 0.5, false, true);
+            qeClip.addTransition(transitionQE, targetHead, String(durationFrames), "0", 0.5, false, true);
           } catch (transitionError) {
             return __error("QE clip addTransition rejected the transition: " + transitionError.toString());
           }
@@ -99,6 +108,17 @@ export function getTransitionsTools(bridgeOptions: BridgeOptions) {
           if (domTrack.transitions.numItems <= transitionCountBefore) {
             return __error("QE clip addTransition returned without adding a transition to the track.");
           }
+          var transitionAtCut = false;
+          for (var t = 0; t < domTrack.transitions.numItems; t++) {
+            var placedTransition = domTrack.transitions[t];
+            var transitionStart = parseFloat(placedTransition.start.ticks);
+            var transitionEnd = parseFloat(placedTransition.end.ticks);
+            if (!isNaN(transitionStart) && !isNaN(transitionEnd) && Math.abs(((transitionStart + transitionEnd) / 2) - cutTicks) <= frameTicks / 2) {
+              transitionAtCut = true;
+              break;
+            }
+          }
+          if (!transitionAtCut) return __error("Premiere added a transition, but DOM readback did not find it at the requested cut point.");
 
           return __result({
             added: true,
@@ -154,6 +174,7 @@ export function getTransitionsTools(bridgeOptions: BridgeOptions) {
           
           var result = __findClip("${escapeForExtendScript(args.node_id)}");
           if (!result) return __error("Clip not found");
+          if (result.trackType !== "video") return __error("Video transitions can only be added to a video clip; no transition was attempted.");
           
           var transitionName = "${escapeForExtendScript(args.transition_name)}";
           var transitionQE = null;
@@ -187,15 +208,18 @@ export function getTransitionsTools(bridgeOptions: BridgeOptions) {
           
           if (position === "start" || position === "both") {
             try {
-              qeClip.addTransition(transitionQE, false, String(durationFrames), "0", 0.5, true, true);
+              qeClip.addTransition(transitionQE, true, String(durationFrames), "0", 0.5, false, true);
             } catch (startTransitionError) {
               return __error("QE clip addTransition rejected the transition at the clip start: " + startTransitionError.toString());
             }
           }
           if (position === "end" || position === "both") {
             try {
-              qeClip.addTransition(transitionQE, true, String(durationFrames), "0", 0.5, true, true);
+              qeClip.addTransition(transitionQE, false, String(durationFrames), "0", 0.5, false, true);
             } catch (endTransitionError) {
+              if (position === "both" && domTrack.transitions.numItems > transitionCountBefore) {
+                return __error("Premiere added the transition at the clip start, but rejected the transition at the clip end; the request was partially applied: " + endTransitionError.toString());
+              }
               return __error("QE clip addTransition rejected the transition at the clip end: " + endTransitionError.toString());
             }
           }
@@ -204,6 +228,20 @@ export function getTransitionsTools(bridgeOptions: BridgeOptions) {
           if (verifiedCount < requestedCount) {
             return __error("QE clip addTransition returned, but Premiere added " + verifiedCount + " of " + requestedCount + " requested transition(s) to the track.");
           }
+          var startVerified = position !== "start" && position !== "both";
+          var endVerified = position !== "end" && position !== "both";
+          var clipStartTicks = parseFloat(clip.start.ticks);
+          var clipEndTicks = parseFloat(clip.end.ticks);
+          for (var vt = 0; vt < domTrack.transitions.numItems; vt++) {
+            var verifiedTransition = domTrack.transitions[vt];
+            var verifiedStart = parseFloat(verifiedTransition.start.ticks);
+            var verifiedEnd = parseFloat(verifiedTransition.end.ticks);
+            if (isNaN(verifiedStart) || isNaN(verifiedEnd)) continue;
+            var verifiedMidpoint = (verifiedStart + verifiedEnd) / 2;
+            if (Math.abs(verifiedMidpoint - clipStartTicks) <= frameTicks / 2) startVerified = true;
+            if (Math.abs(verifiedMidpoint - clipEndTicks) <= frameTicks / 2) endVerified = true;
+          }
+          if (!startVerified || !endVerified) return __error("Premiere added the requested transition count, but DOM readback did not find a transition at each requested clip edge.");
           
           return __result({
             added: true,
@@ -283,7 +321,7 @@ export function getTransitionsTools(bridgeOptions: BridgeOptions) {
             var incomingClip = track.clips[c + 1];
             if (Math.abs(parseFloat(outgoingClip.end.ticks) - parseFloat(incomingClip.start.ticks)) >= 1) continue;
             requestedCount++;
-            var qeClip = __findQeClipByDomClip(qeTrack, outgoingClip);
+            var qeClip = __findQeClipByDomClip(qeTrack, incomingClip);
             if (!qeClip || typeof qeClip.addTransition !== "function") {
               failures.push("cut " + c + ": target QE clip does not expose addTransition");
               continue;
@@ -298,6 +336,20 @@ export function getTransitionsTools(bridgeOptions: BridgeOptions) {
           if (requestedCount === 0) return __error("No adjacent video clips were found, so no transitions were attempted.");
           if (verifiedCount !== requestedCount) {
             return __error("QE clip addTransition verified " + verifiedCount + " of " + requestedCount + " requested transitions" + (failures.length ? ": " + failures.join("; ") : "."));
+          }
+          for (var cutIndex = 0; cutIndex < track.clips.numItems - 1; cutIndex++) {
+            var leftClip = track.clips[cutIndex];
+            var rightClip = track.clips[cutIndex + 1];
+            var expectedCut = parseFloat(rightClip.start.ticks);
+            if (Math.abs(parseFloat(leftClip.end.ticks) - expectedCut) >= 1) continue;
+            var foundAtCut = false;
+            for (var transitionIndex = 0; transitionIndex < track.transitions.numItems; transitionIndex++) {
+              var readTransition = track.transitions[transitionIndex];
+              var readStart = parseFloat(readTransition.start.ticks);
+              var readEnd = parseFloat(readTransition.end.ticks);
+              if (!isNaN(readStart) && !isNaN(readEnd) && Math.abs(((readStart + readEnd) / 2) - expectedCut) <= frameTicks / 2) { foundAtCut = true; break; }
+            }
+            if (!foundAtCut) return __error("Premiere added the requested transition count, but DOM readback did not find a transition at cut " + cutIndex + ".");
           }
           
           return __result({
