@@ -1,14 +1,18 @@
 import { readFile, writeFile } from "node:fs/promises";
+import { createHash } from "node:crypto";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import ts from "typescript";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const packagePath = resolve(root, "node_modules/@adobe/premierepro/package.json");
-const declarationsPath = resolve(root, "node_modules/@adobe/premierepro/src/premierepro.d.ts");
+const declarationsPath = process.env.PREMIERE_API_DECLARATIONS_PATH
+  ? resolve(process.env.PREMIERE_API_DECLARATIONS_PATH)
+  : resolve(root, "node_modules/@adobe/premierepro/src/premierepro.d.ts");
 const coveragePath = resolve(root, "src/resources/adobe-uxp-coverage.json");
 const outputPath = resolve(root, "src/resources/adobe-api-inventory.json");
 const check = process.argv.includes("--check");
+const validateOnly = process.argv.includes("--validate-only");
 
 const [packageText, declarationsText, coverageText] = await Promise.all([
   readFile(packagePath, "utf8"),
@@ -20,6 +24,8 @@ const coverage = JSON.parse(coverageText);
 const coveredApis = new Set(coverage.entries.flatMap((entry) => entry.adobeApi));
 const source = ts.createSourceFile(declarationsPath, declarationsText, ts.ScriptTarget.Latest, true);
 const compareText = (left, right) => left < right ? -1 : left > right ? 1 : 0;
+const normalizedDeclarations = declarationsText.replaceAll("\r\n", "\n");
+const declarationsSha256 = createHash("sha256").update(normalizedDeclarations).digest("hex");
 
 function memberName(member) {
   if (ts.isConstructSignatureDeclaration(member)) return "[[construct]]";
@@ -54,6 +60,7 @@ function collectTypeMembers(owner, node) {
     return;
   }
   if (ts.isParenthesizedTypeNode(node)) collectTypeMembers(owner, node.type);
+  else throw new Error(`Unsupported type expression for ${owner}: ${ts.SyntaxKind[node.kind]}`);
 }
 
 function collectModule(owner, moduleDeclaration) {
@@ -110,6 +117,7 @@ const inventory = {
     package: "@adobe/premierepro",
     version: packageMetadata.version,
     declarations: "node_modules/@adobe/premierepro/src/premierepro.d.ts",
+    declarationsSha256,
     coverageManifest: "src/resources/adobe-uxp-coverage.json",
   },
   semantics: {
@@ -127,7 +135,9 @@ const inventory = {
 };
 const rendered = `${JSON.stringify(inventory, null, 2)}\n`;
 
-if (check) {
+if (validateOnly) {
+  console.log(`Validated ${entries.length} Adobe API symbols from ${packageMetadata.version}.`);
+} else if (check) {
   let current = "";
   try { current = await readFile(outputPath, "utf8"); } catch {}
   if (current.replaceAll("\r\n", "\n") !== rendered) {

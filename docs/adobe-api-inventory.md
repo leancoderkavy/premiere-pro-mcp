@@ -1,10 +1,12 @@
 # Adobe Premiere API inventory
 
-The generated `src/resources/adobe-api-inventory.json` is the exhaustive review
-queue for the stable `@adobe/premierepro` declaration package pinned by this
-repository. It records every exported type, namespace, enum, property, method,
-constructor, and call signature and compares exact symbol names with
-`src/resources/adobe-uxp-coverage.json`.
+The generated inventory is stored at `src/resources/adobe-api-inventory.json`
+in the repository and at `dist/resources/adobe-api-inventory.json` in the
+published package. It is the exhaustive review queue for the stable
+`@adobe/premierepro` declaration package pinned by this repository. It records
+every exported type, namespace, enum, property, method, constructor, and call
+signature, fingerprints the normalized declarations, and compares exact symbol
+names with `src/resources/adobe-uxp-coverage.json`.
 
 Run `npm run adobe:api-inventory` after intentionally changing the Adobe package
 or the coverage manifest. CI runs `npm run adobe:api-inventory:check`, so package

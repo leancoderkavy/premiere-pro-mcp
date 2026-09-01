@@ -1,5 +1,7 @@
-import { readFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { spawnSync } from "node:child_process";
+import { join } from "node:path";
+import { tmpdir } from "node:os";
 import { describe, expect, it } from "vitest";
 
 const inventory = JSON.parse(readFileSync("src/resources/adobe-api-inventory.json", "utf8"));
@@ -8,6 +10,7 @@ const coverage = JSON.parse(readFileSync("src/resources/adobe-uxp-coverage.json"
 describe("Adobe declaration API inventory", () => {
   it("accounts for every generated entry and retains exact symbol identities", () => {
     expect(inventory.source.version).toBe("26.3.0");
+    expect(inventory.source.declarationsSha256).toMatch(/^[a-f0-9]{64}$/);
     expect(inventory.stats.total).toBe(inventory.entries.length);
     expect(inventory.stats.mapped + inventory.stats.unmapped).toBe(inventory.stats.total);
     expect(inventory.entries).toEqual(expect.arrayContaining([
@@ -25,10 +28,24 @@ describe("Adobe declaration API inventory", () => {
     expect(inventory.stats.manifestOnly).toBe(expectedManifestOnly.length);
   });
 
-  it("fails closed when the declaration file contains an unknown top-level form", () => {
-    const script = readFileSync("scripts/generate-adobe-api-inventory.mjs", "utf8");
-    expect(script).toContain("Unsupported top-level Adobe declaration");
-    expect(script).toContain("Unsupported declaration in namespace");
-    expect(spawnSync(process.execPath, ["scripts/generate-adobe-api-inventory.mjs", "--check"]).status).toBe(0);
+  it.each([
+    ["top-level", "export interface Unsupported {}", "Unsupported top-level Adobe declaration"],
+    ["namespace", "export declare namespace Constants { interface Unsupported {} }", "Unsupported declaration in namespace"],
+    ["member", "export declare type Unsupported = { get value(): string };", "Unsupported type member"],
+    ["type expression", "export declare type Unsupported = () => string;", "Unsupported type expression"],
+  ])("fails closed for an unsupported %s declaration form", (_label, declarations, expectedError) => {
+    const directory = mkdtempSync(join(tmpdir(), "premiere-api-inventory-"));
+    const fixturePath = join(directory, "premierepro.d.ts");
+    writeFileSync(fixturePath, declarations);
+    try {
+      const result = spawnSync(process.execPath, ["scripts/generate-adobe-api-inventory.mjs", "--validate-only"], {
+        encoding: "utf8",
+        env: { ...process.env, PREMIERE_API_DECLARATIONS_PATH: fixturePath },
+      });
+      expect(result.status).not.toBe(0);
+      expect(result.stderr).toContain(expectedError);
+    } finally {
+      rmSync(directory, { recursive: true, force: true });
+    }
   });
 });

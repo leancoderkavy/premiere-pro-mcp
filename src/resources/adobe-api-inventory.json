@@ -4,6 +4,7 @@
     "package": "@adobe/premierepro",
     "version": "26.3.0",
     "declarations": "node_modules/@adobe/premierepro/src/premierepro.d.ts",
+    "declarationsSha256": "c16a90e3fb24924ac2e3b00f0e269981c82898e2d15bfe77c67e2be2f1fc4db5",
     "coverageManifest": "src/resources/adobe-uxp-coverage.json"
   },
   "semantics": {
