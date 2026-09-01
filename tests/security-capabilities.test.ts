@@ -33,6 +33,7 @@ describe("capability profiles", () => {
     expect(capabilityForTool("capture_frame")).toBe("export");
     expect(capabilityForTool("validate_export_preset")).toBe("export");
     expect(capabilityForTool("verify_delivery_file")).toBe("filesystem");
+    expect(capabilityForTool("verify_delivery_conformance")).toBe("filesystem");
     expect(capabilityForTool("create_project_backup")).toBe("filesystem");
     expect(capabilityForTool("analyze_loudness")).toBe("filesystem");
     expect(capabilityForTool("detect_beats")).toBe("filesystem");
@@ -355,10 +356,16 @@ describe("isToolPermitted", () => {
     expect(isToolPermitted("trim_clip", config)).toBe(false);
     expect(isToolPermitted("export_sequence", config)).toBe(false);
     expect(isToolPermitted("import_media", config)).toBe(false);
+    expect(isToolPermitted("verify_delivery_conformance", config)).toBe(false);
     expect(isToolPermitted("get_project_info", config)).toBe(true);
     expect(isToolPermitted("manage_proxy_ingest_uxp", config)).toBe(true);
     expect(isToolPermitted("audition_source_monitor_uxp", config)).toBe(true);
     expect(isToolPermitted("edit_timeline_uxp", config)).toBe(false);
+  });
+
+  it("permits delivery conformance verification only with filesystem authority", () => {
+    expect(isToolPermitted("verify_delivery_conformance", resolveCapabilities("inspect"))).toBe(false);
+    expect(isToolPermitted("verify_delivery_conformance", resolveCapabilities("filesystem"))).toBe(true);
   });
 
   it("always advertises the diagnostic tools, even under a profile that excludes inspect", () => {
