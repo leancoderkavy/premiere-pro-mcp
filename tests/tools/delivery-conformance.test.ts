@@ -52,7 +52,7 @@ describe("delivery conformance comparisons", () => {
     expect(validateDeliveryConformanceContract({ audioCodec: "" })).toContain("non-empty");
   });
 
-  it("falls back from unusable stream metadata and does not fail missing measurements", () => {
+  it("falls back from unusable frame-rate metadata without treating mux bitrate as video bitrate", () => {
     const checks = evaluateDeliveryConformance({
       format: { bit_rate: "12000000" },
       streams: [{ codec_type: "video", avg_frame_rate: "0/1", r_frame_rate: "24/1", bit_rate: "N/A" }],
@@ -60,9 +60,20 @@ describe("delivery conformance comparisons", () => {
       frameRate: 24, minimumVideoBitrateKbps: 11000, targetLufs: -23, maximumTruePeakDbfs: -1,
     }, { integratedLufs: -23, truePeakDbfs: null });
     expect(checks.find(check => check.id === "frame_rate")?.status).toBe("pass");
-    expect(checks.find(check => check.id === "minimum_video_bitrate")?.status).toBe("pass");
+    expect(checks.find(check => check.id === "minimum_video_bitrate")?.status).toBe("not_evaluated");
     expect(checks.find(check => check.id === "integrated_loudness")?.status).toBe("pass");
     expect(checks.find(check => check.id === "true_peak")?.status).toBe("not_evaluated");
+  });
+
+  it("does not declare unavailable numeric metadata nonconforming", () => {
+    const checks = evaluateDeliveryConformance({
+      format: { duration: "N/A" },
+      streams: [
+        { codec_type: "video", avg_frame_rate: "0/0", r_frame_rate: "0/1" },
+        { codec_type: "audio", sample_rate: "N/A", channels: "N/A" },
+      ],
+    }, { width: 1920, frameRate: 24, durationSeconds: 10, audioSampleRateHz: 48000, audioChannels: 2 });
+    expect(checks.every(check => check.status === "not_evaluated")).toBe(true);
   });
 
   it("reports matching and mismatching fields independently", () => {

@@ -123,9 +123,9 @@ export function evaluateDeliveryConformance(
   const audio = streams.find(stream => stream.codec_type === "audio");
   const checks: DeliveryConformanceCheck[] = [];
   const exact = (id: string, expected: unknown, actual: unknown) => checks.push({ id, status: normalized(actual) === normalized(expected) ? "pass" : "fail", expected, actual: actual ?? null });
-  const numeric = (id: string, expected: number, actualValue: unknown, tolerance = 0) => {
+  const numeric = (id: string, expected: number, actualValue: unknown, tolerance = 0, unavailableReason?: string) => {
     const actual = finiteNumber(actualValue);
-    checks.push({ id, status: actual !== null && Math.abs(actual - expected) <= tolerance ? "pass" : "fail", expected, actual, detail: `tolerance=${tolerance}` });
+    checks.push({ id, status: actual === null && unavailableReason ? "not_evaluated" : actual !== null && Math.abs(actual - expected) <= tolerance ? "pass" : "fail", expected, actual, detail: actual === null && unavailableReason ? unavailableReason : `tolerance=${tolerance}` });
   };
   if (contract.allowedContainerNames) {
     const actualNames = normalized(format.format_name).split(",").filter(Boolean);
@@ -134,16 +134,16 @@ export function evaluateDeliveryConformance(
   }
   if (contract.videoCodec !== undefined) exact("video_codec", contract.videoCodec, video?.codec_name);
   if (contract.audioCodec !== undefined) exact("audio_codec", contract.audioCodec, audio?.codec_name);
-  if (contract.width !== undefined) numeric("width", contract.width, video?.width);
-  if (contract.height !== undefined) numeric("height", contract.height, video?.height);
-  if (contract.frameRate !== undefined) numeric("frame_rate", contract.frameRate, parseRationalRate(video?.avg_frame_rate) ?? parseRationalRate(video?.r_frame_rate), contract.frameRateTolerance ?? 0.001);
-  if (contract.durationSeconds !== undefined) numeric("duration", contract.durationSeconds, format.duration, contract.durationToleranceSeconds ?? 0.05);
-  const bitrate = video ? finiteNumber(video.bit_rate) ?? finiteNumber(format.bit_rate) : null;
+  if (contract.width !== undefined) numeric("width", contract.width, video?.width, 0, video ? "Video width metadata was unavailable" : undefined);
+  if (contract.height !== undefined) numeric("height", contract.height, video?.height, 0, video ? "Video height metadata was unavailable" : undefined);
+  if (contract.frameRate !== undefined) numeric("frame_rate", contract.frameRate, parseRationalRate(video?.avg_frame_rate) ?? parseRationalRate(video?.r_frame_rate), contract.frameRateTolerance ?? 0.001, video ? "Video frame-rate metadata was unavailable" : undefined);
+  if (contract.durationSeconds !== undefined) numeric("duration", contract.durationSeconds, format.duration, contract.durationToleranceSeconds ?? 0.05, "Duration metadata was unavailable");
+  const bitrate = video ? finiteNumber(video.bit_rate) : null;
   const bitrateUnavailable = !video ? "No video stream was available for video bitrate evaluation" : bitrate === null ? "Video bitrate metadata was unavailable" : undefined;
   if (contract.minimumVideoBitrateKbps !== undefined) checks.push({ id: "minimum_video_bitrate", status: bitrateUnavailable ? "not_evaluated" : bitrate !== null && bitrate / 1000 >= contract.minimumVideoBitrateKbps ? "pass" : "fail", expected: contract.minimumVideoBitrateKbps, actual: bitrate === null ? null : bitrate / 1000, detail: bitrateUnavailable });
   if (contract.maximumVideoBitrateKbps !== undefined) checks.push({ id: "maximum_video_bitrate", status: bitrateUnavailable ? "not_evaluated" : bitrate !== null && bitrate / 1000 <= contract.maximumVideoBitrateKbps ? "pass" : "fail", expected: contract.maximumVideoBitrateKbps, actual: bitrate === null ? null : bitrate / 1000, detail: bitrateUnavailable });
-  if (contract.audioSampleRateHz !== undefined) numeric("audio_sample_rate", contract.audioSampleRateHz, audio?.sample_rate);
-  if (contract.audioChannels !== undefined) numeric("audio_channels", contract.audioChannels, audio?.channels);
+  if (contract.audioSampleRateHz !== undefined) numeric("audio_sample_rate", contract.audioSampleRateHz, audio?.sample_rate, 0, audio ? "Audio sample-rate metadata was unavailable" : undefined);
+  if (contract.audioChannels !== undefined) numeric("audio_channels", contract.audioChannels, audio?.channels, 0, audio ? "Audio channel-count metadata was unavailable" : undefined);
   if (contract.targetLufs !== undefined) {
     const actual = loudness?.integratedLufs ?? null;
     const unavailable = loudnessUnavailableReason ?? (actual === null ? "Integrated loudness measurement was unavailable" : undefined);

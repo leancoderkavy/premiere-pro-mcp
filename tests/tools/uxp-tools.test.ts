@@ -144,7 +144,7 @@ describe("UXP MCP tools", () => {
       // The default profile excludes two unsafe-script tools. The native
       // transcript workflow and documented Premiere 26.3 tools add nineteen,
       // and the two stable workflow expansions, confirmed organization application, and four bounded native migration adapters add twenty-six consolidated UXP tools;
-      // connection verification adds one default-profile core tool.
+      // connection verification and delivery conformance add two default-profile core tools.
       expect(tools.tools).toHaveLength(381);
     } finally {
       await client.close();
