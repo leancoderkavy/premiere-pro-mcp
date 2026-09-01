@@ -436,7 +436,7 @@ function buildApplyScript(plan: SpotWorkflowPlan): string {
           var transitionReadback = videoTrack.transitions[transitionIndex];
           var transitionStartTicks = parseFloat(transitionReadback.start.ticks);
           var transitionEndTicks = parseFloat(transitionReadback.end.ticks);
-          if (!isNaN(transitionStartTicks) && !isNaN(transitionEndTicks) && transitionStartTicks <= expectedCutTicks + frameTicks && transitionEndTicks >= expectedCutTicks - frameTicks) { foundAtExpectedCut = true; break; }
+          if (!isNaN(transitionStartTicks) && !isNaN(transitionEndTicks) && Math.abs(((transitionStartTicks + transitionEndTicks) / 2) - expectedCutTicks) <= frameTicks / 2) { foundAtExpectedCut = true; break; }
         }
         transitionResults.push(transitionCountAfter > transitionCountBefore && foundAtExpectedCut
           ? { applied: true, verified: true, atSeconds: placed[cutIndex].endSeconds }

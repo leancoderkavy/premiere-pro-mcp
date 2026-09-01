@@ -706,6 +706,7 @@ describe("Tool Handler Behavior", () => {
       expect(script).toContain('qeClip.addTransition(transitionQE, targetHead, String(durationFrames), "0", 0.5, false, true)');
       expect(script).not.toContain("qeTrack.addTransition(");
       expect(script).toContain("transitionAtCut");
+      expect(script).toContain("Math.abs(((transitionStart + transitionEnd) / 2) - cutTicks) <= frameTicks / 2");
       expect(script).toContain("DOM readback did not find it at the requested cut point");
 
       vi.clearAllMocks();
@@ -719,6 +720,7 @@ describe("Tool Handler Behavior", () => {
       expect(clipScript).toContain('qeClip.addTransition(transitionQE, false, String(durationFrames), "0", 0.5, false, true)');
       expect(clipScript).toContain("startVerified");
       expect(clipScript).toContain("endVerified");
+      expect(clipScript).toContain("var verifiedMidpoint = (verifiedStart + verifiedEnd) / 2");
 
       vi.clearAllMocks();
       await (tools.batch_add_transitions.handler as any)({ transition_name: "Cross Dissolve" });
@@ -726,6 +728,7 @@ describe("Tool Handler Behavior", () => {
       expect(batchScript).toContain("__findQeClipByDomClip(qeTrack, incomingClip)");
       expect(batchScript).toContain('qeClip.addTransition(transitionQE, true, String(durationFrames), "0", 0.5, false, true)');
       expect(batchScript).toContain("verifiedCount !== requestedCount");
+      expect(batchScript).toContain("Math.abs(((readStart + readEnd) / 2) - expectedCut) <= frameTicks / 2");
       expect(batchScript).toContain("DOM readback did not find a transition at cut");
     });
   });

@@ -104,6 +104,7 @@ describe("spot workflow plans", () => {
     expect(script).toContain("typeof qeClip.addTransition !== \"function\"");
     expect(script).toContain('qeClip.addTransition(transitionQE, true, String(durationFrames), "0", 0.5, false, true)');
     expect(script).toContain("foundAtExpectedCut");
+    expect(script).toContain("Math.abs(((transitionStartTicks + transitionEndTicks) / 2) - expectedCutTicks) <= frameTicks / 2");
     expect(script).not.toContain("qeTrack.addTransition(");
     expect(script).toContain("renderVerified: false");
     expect(script).not.toContain("importMedia");

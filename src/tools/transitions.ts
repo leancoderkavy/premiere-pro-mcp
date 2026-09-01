@@ -113,7 +113,7 @@ export function getTransitionsTools(bridgeOptions: BridgeOptions) {
             var placedTransition = domTrack.transitions[t];
             var transitionStart = parseFloat(placedTransition.start.ticks);
             var transitionEnd = parseFloat(placedTransition.end.ticks);
-            if (!isNaN(transitionStart) && !isNaN(transitionEnd) && transitionStart <= cutTicks + frameTicks && transitionEnd >= cutTicks - frameTicks) {
+            if (!isNaN(transitionStart) && !isNaN(transitionEnd) && Math.abs(((transitionStart + transitionEnd) / 2) - cutTicks) <= frameTicks / 2) {
               transitionAtCut = true;
               break;
             }
@@ -233,8 +233,9 @@ export function getTransitionsTools(bridgeOptions: BridgeOptions) {
             var verifiedStart = parseFloat(verifiedTransition.start.ticks);
             var verifiedEnd = parseFloat(verifiedTransition.end.ticks);
             if (isNaN(verifiedStart) || isNaN(verifiedEnd)) continue;
-            if (verifiedStart <= clipStartTicks + frameTicks && verifiedEnd >= clipStartTicks - frameTicks) startVerified = true;
-            if (verifiedStart <= clipEndTicks + frameTicks && verifiedEnd >= clipEndTicks - frameTicks) endVerified = true;
+            var verifiedMidpoint = (verifiedStart + verifiedEnd) / 2;
+            if (Math.abs(verifiedMidpoint - clipStartTicks) <= frameTicks / 2) startVerified = true;
+            if (Math.abs(verifiedMidpoint - clipEndTicks) <= frameTicks / 2) endVerified = true;
           }
           if (!startVerified || !endVerified) return __error("Premiere added the requested transition count, but DOM readback did not find a transition at each requested clip edge.");
           
@@ -342,7 +343,7 @@ export function getTransitionsTools(bridgeOptions: BridgeOptions) {
               var readTransition = track.transitions[transitionIndex];
               var readStart = parseFloat(readTransition.start.ticks);
               var readEnd = parseFloat(readTransition.end.ticks);
-              if (!isNaN(readStart) && !isNaN(readEnd) && readStart <= expectedCut + frameTicks && readEnd >= expectedCut - frameTicks) { foundAtCut = true; break; }
+              if (!isNaN(readStart) && !isNaN(readEnd) && Math.abs(((readStart + readEnd) / 2) - expectedCut) <= frameTicks / 2) { foundAtCut = true; break; }
             }
             if (!foundAtCut) return __error("Premiere added the requested transition count, but DOM readback did not find a transition at cut " + cutIndex + ".");
           }
