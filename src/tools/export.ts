@@ -110,7 +110,7 @@ export function evaluateDeliveryConformance(
   if (contract.allowedContainerNames) {
     const actualNames = normalized(format.format_name).split(",").filter(Boolean);
     const allowed = contract.allowedContainerNames.map(normalized);
-    checks.push({ id: "container", status: actualNames.some(name => allowed.includes(name)) ? "pass" : "fail", expected: contract.allowedContainerNames, actual: actualNames });
+    checks.push({ id: "container_demuxer_family", status: actualNames.some(name => allowed.includes(name)) ? "pass" : "fail", expected: contract.allowedContainerNames, actual: actualNames, detail: "Matches ffprobe demuxer-family aliases only; aliases such as mov and mp4 do not identify an exact container subtype." });
   }
   if (contract.videoCodec !== undefined) exact("video_codec", contract.videoCodec, video?.codec_name);
   if (contract.audioCodec !== undefined) exact("audio_codec", contract.audioCodec, audio?.codec_name);
@@ -118,7 +118,7 @@ export function evaluateDeliveryConformance(
   if (contract.height !== undefined) numeric("height", contract.height, video?.height);
   if (contract.frameRate !== undefined) numeric("frame_rate", contract.frameRate, parseRationalRate(video?.avg_frame_rate) ?? parseRationalRate(video?.r_frame_rate), contract.frameRateTolerance ?? 0.001);
   if (contract.durationSeconds !== undefined) numeric("duration", contract.durationSeconds, format.duration, contract.durationToleranceSeconds ?? 0.05);
-  const bitrate = finiteNumber(video?.bit_rate) ?? finiteNumber(format.bit_rate);
+  const bitrate = video ? finiteNumber(video.bit_rate) ?? finiteNumber(format.bit_rate) : null;
   if (contract.minimumVideoBitrateKbps !== undefined) checks.push({ id: "minimum_video_bitrate", status: bitrate !== null && bitrate / 1000 >= contract.minimumVideoBitrateKbps ? "pass" : "fail", expected: contract.minimumVideoBitrateKbps, actual: bitrate === null ? null : bitrate / 1000 });
   if (contract.maximumVideoBitrateKbps !== undefined) checks.push({ id: "maximum_video_bitrate", status: bitrate !== null && bitrate / 1000 <= contract.maximumVideoBitrateKbps ? "pass" : "fail", expected: contract.maximumVideoBitrateKbps, actual: bitrate === null ? null : bitrate / 1000 });
   if (contract.audioSampleRateHz !== undefined) numeric("audio_sample_rate", contract.audioSampleRateHz, audio?.sample_rate);
@@ -399,7 +399,7 @@ export function getExportTools(bridgeOptions: BridgeOptions) {
         type: "object" as const,
         properties: {
           output_path: { type: "string", description: "Existing local delivery file" },
-          allowed_container_names: { type: "array", items: { type: "string" }, description: "Allowed ffprobe container names, such as mov or mp4" },
+          allowed_container_names: { type: "array", items: { type: "string" }, description: "Allowed ffprobe demuxer-family aliases, such as mov or mp4. This cannot distinguish exact subtypes when ffprobe reports a shared alias family." },
           video_codec: { type: "string", description: "Expected video codec name, such as h264 or prores" },
           audio_codec: { type: "string", description: "Expected audio codec name, such as aac or pcm_s24le" },
           width: { type: "integer", description: "Expected video width in pixels" },
@@ -460,14 +460,26 @@ export function getExportTools(bridgeOptions: BridgeOptions) {
         const mediaPath = resolve(args.output_path);
         if (!existsSync(mediaPath) || !statSync(mediaPath).isFile()) return { success: false, error: `Delivery file not found on disk: ${mediaPath}` };
         const before = statSync(mediaPath);
+        const changedSinceStart = () => {
+          try {
+            const current = statSync(mediaPath);
+            return !current.isFile() || deliveryFileChangedDuringHash(before, current);
+          } catch {
+            return true;
+          }
+        };
         let probe: Record<string, unknown>;
         try {
           const { stdout } = await execFileAsync("ffprobe", ["-v", "error", "-protocol_whitelist", "file,crypto,data", "-show_format", "-show_streams", "-of", "json", mediaPath], { timeout: 60_000, windowsHide: true, maxBuffer: 8 * 1024 * 1024 });
           const parsed = JSON.parse(stdout) as unknown;
-          if (!parsed || typeof parsed !== "object") return { success: false, error: "ffprobe returned an invalid delivery report" };
+          if (!parsed || typeof parsed !== "object") {
+            if (changedSinceStart()) return { success: false, error: `Delivery file changed during conformance inspection: ${mediaPath}` };
+            return { success: false, error: "ffprobe returned an invalid delivery report" };
+          }
           probe = parsed as Record<string, unknown>;
         } catch (error) {
           const failure = error as { code?: string; killed?: boolean; stderr?: string; message?: string };
+          if (changedSinceStart()) return { success: false, error: `Delivery file changed during conformance inspection: ${mediaPath}` };
           if (failure.code === "ENOENT") return { success: false, error: "ffprobe was not found on PATH" };
           if (failure.killed) return { success: false, error: "ffprobe delivery conformance inspection timed out after 60 seconds" };
           return { success: false, error: `ffprobe delivery conformance inspection failed: ${failure.stderr ?? failure.message ?? "unknown error"}` };
@@ -488,12 +500,7 @@ export function getExportTools(bridgeOptions: BridgeOptions) {
             }
           }
         }
-        try {
-          const after = statSync(mediaPath);
-          if (!after.isFile() || deliveryFileChangedDuringHash(before, after)) return { success: false, error: `Delivery file changed during conformance inspection: ${mediaPath}` };
-        } catch {
-          return { success: false, error: `Delivery file changed during conformance inspection: ${mediaPath}` };
-        }
+        if (changedSinceStart()) return { success: false, error: `Delivery file changed during conformance inspection: ${mediaPath}` };
         const checks = evaluateDeliveryConformance(probe, contract, loudness, loudnessUnavailableReason);
         return {
           success: true,

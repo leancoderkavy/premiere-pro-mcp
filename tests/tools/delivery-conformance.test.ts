@@ -69,7 +69,9 @@ describe("delivery conformance comparisons", () => {
       minimumVideoBitrateKbps: 9000, maximumVideoBitrateKbps: 11000,
       audioSampleRateHz: 48000, audioChannels: 2,
     });
-    expect(checks.find(check => check.id === "container")?.status).toBe("pass");
+    expect(checks.find(check => check.id === "container_demuxer_family")).toMatchObject({
+      status: "pass", detail: expect.stringContaining("do not identify an exact container subtype"),
+    });
     expect(checks.find(check => check.id === "audio_codec")?.status).toBe("fail");
     expect(checks.find(check => check.id === "height")?.status).toBe("fail");
     expect(checks.find(check => check.id === "frame_rate")?.status).toBe("pass");
@@ -87,7 +89,7 @@ describe("delivery conformance comparisons", () => {
   });
 
   it("evaluates loudness failures and absent bitrate evidence", () => {
-    const checks = evaluateDeliveryConformance({ format: { format_name: "matroska" }, streams: [{ codec_type: "audio", codec_name: "aac" }] }, {
+    const checks = evaluateDeliveryConformance({ format: { format_name: "matroska", bit_rate: "5000000" }, streams: [{ codec_type: "audio", codec_name: "aac" }] }, {
       allowedContainerNames: ["mov"], minimumVideoBitrateKbps: 1000, maximumVideoBitrateKbps: 2000,
       targetLufs: -23, loudnessToleranceLu: 0.5, maximumTruePeakDbfs: -1,
     }, { integratedLufs: -20, truePeakDbfs: -0.5 });
@@ -159,6 +161,22 @@ describe("verify_delivery_conformance boundary", () => {
       return { stdout: JSON.stringify(probe), stderr: "" };
     });
     await expect(tool.handler({ output_path: disappearingPath, video_codec: "h264" }))
+      .resolves.toMatchObject({ success: false, error: expect.stringContaining("changed during") });
+
+    const rejectedAfterDeletionPath = mediaFile();
+    mockedExecFileAsync.mockImplementationOnce(async () => {
+      unlinkSync(rejectedAfterDeletionPath);
+      throw Object.assign(new Error("probe failed"), { stderr: "invalid media" });
+    });
+    await expect(tool.handler({ output_path: rejectedAfterDeletionPath, video_codec: "h264" }))
+      .resolves.toMatchObject({ success: false, error: expect.stringContaining("changed during") });
+
+    const invalidAfterChangePath = mediaFile();
+    mockedExecFileAsync.mockImplementationOnce(async () => {
+      appendFileSync(invalidAfterChangePath, "changed");
+      return { stdout: "null", stderr: "" };
+    });
+    await expect(tool.handler({ output_path: invalidAfterChangePath, video_codec: "h264" }))
       .resolves.toMatchObject({ success: false, error: expect.stringContaining("changed during") });
   });
 
