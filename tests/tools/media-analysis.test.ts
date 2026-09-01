@@ -160,6 +160,9 @@ describe("media analysis tool contracts", () => {
     mockedExecFileAsync.mockRejectedValueOnce(Object.assign(new Error("timeout"), { killed: true }));
     await expect(tools.read_video_scopes.handler({ media_path: mediaPath })).resolves.toMatchObject({ success: false, error: expect.stringContaining("timed out after 60 seconds") });
 
+    mockedExecFileAsync.mockRejectedValueOnce(Object.assign(new Error("decode"), { stderr: Buffer.from("invalid video stream") }));
+    await expect(tools.read_video_scopes.handler({ media_path: mediaPath })).resolves.toMatchObject({ success: false, error: expect.stringContaining("invalid video stream") });
+
     mockedExecFileAsync.mockResolvedValueOnce({ stdout: "", stderr: "Multi frame detection: TFF: 0 BFF: 0 Progressive: 20 Undetermined: 0" });
     await expect(tools.analyze_video_interlacing.handler({ media_path: mediaPath })).resolves.toMatchObject({ success: true, data: { classification: "progressive", passesProgressiveDelivery: true } });
 

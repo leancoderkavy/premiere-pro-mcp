@@ -7,7 +7,7 @@ import type { BridgeOptions } from "../bridge/file-bridge.js";
 const execFileAsync = promisify(execFile);
 const ANALYSIS_TIMEOUT_MS = 300_000;
 
-type ExecFailure = Error & { killed?: boolean; stderr?: string };
+type ExecFailure = Error & { killed?: boolean; stderr?: string | Buffer };
 
 function inputPath(value: unknown): string | null {
   if (typeof value !== "string" || value.trim() === "") return null;
@@ -18,7 +18,8 @@ function inputPath(value: unknown): string | null {
 function failureMessage(error: unknown, operation: string, timeoutSeconds = 300): string {
   const failure = error as ExecFailure;
   if (failure.killed) return `${operation} timed out after ${timeoutSeconds} seconds`;
-  const detail = (failure.stderr ?? failure.message ?? "unknown error")
+  const rawDetail = failure.stderr ?? failure.message ?? "unknown error";
+  const detail = (Buffer.isBuffer(rawDetail) ? rawDetail.toString("utf8") : String(rawDetail))
     .split(/\r?\n/).filter(Boolean).slice(-3).join(" ");
   return `${operation} failed: ${detail}`;
 }
