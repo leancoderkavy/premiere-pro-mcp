@@ -3,8 +3,11 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const scriptDirectory = dirname(fileURLToPath(import.meta.url));
-const source = resolve(scriptDirectory, "../src/resources/adobe-uxp-coverage.json");
-const target = resolve(scriptDirectory, "../dist/resources/adobe-uxp-coverage.json");
+const resources = ["adobe-uxp-coverage.json", "adobe-api-inventory.json"];
+const targetDirectory = resolve(scriptDirectory, "../dist/resources");
 
-await mkdir(dirname(target), { recursive: true });
-await copyFile(source, target);
+await mkdir(targetDirectory, { recursive: true });
+await Promise.all(resources.map((resource) => copyFile(
+  resolve(scriptDirectory, `../src/resources/${resource}`),
+  resolve(targetDirectory, resource),
+)));
