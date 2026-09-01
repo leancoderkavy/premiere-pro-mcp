@@ -77,7 +77,7 @@ export function parseMotionPeakCandidates(output: string, threshold: number, min
   for (let index = 0; index < samples.length; index++) {
     const sample = samples[index];
     if (!Number.isFinite(sample.difference) || sample.difference < threshold) continue;
-    if (index > 0 && sample.difference < samples[index - 1].difference) continue;
+    if (index > 0 && sample.difference <= samples[index - 1].difference) continue;
     if (index + 1 < samples.length && sample.difference < samples[index + 1].difference) continue;
     const previous = peaks.at(-1);
     if (!previous || sample.timeSeconds - previous.timeSeconds >= minimumIntervalSeconds) peaks.push(sample);

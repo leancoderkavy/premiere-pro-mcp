@@ -68,6 +68,18 @@ describe("media analysis parsers", () => {
     ]);
   });
 
+  it("represents an equal-valued motion plateau with one peak", () => {
+    const output = [
+      "frame:0 pts_time:0", "lavfi.signalstats.YAVG=2",
+      "frame:1 pts_time:0.25", "lavfi.signalstats.YAVG=15",
+      "frame:2 pts_time:0.5", "lavfi.signalstats.YAVG=15",
+      "frame:3 pts_time:0.75", "lavfi.signalstats.YAVG=2",
+    ].join("\n");
+    expect(parseMotionPeakCandidates(output, 12, 0.1)).toEqual([
+      { timeSeconds: 0.25, difference: 15 },
+    ]);
+  });
+
   it("classifies progressive, mixed, and absent idet summaries", () => {
     expect(parseIdetOutput("Multi frame detection: TFF: 1 BFF: 0 Progressive: 99 Undetermined: 0").classification).toBe("progressive");
     expect(parseIdetOutput("Multi frame detection: TFF: 50 BFF: 0 Progressive: 50 Undetermined: 0").classification).toBe("mixed");
