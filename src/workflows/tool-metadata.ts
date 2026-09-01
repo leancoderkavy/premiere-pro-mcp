@@ -10,6 +10,7 @@ const READ_ONLY_TOOLS = new Set([
   "preview_product_spot",
   "preview_brand_spot",
   "validate_project_for_export",
+  "verify_delivery_conformance",
   "read_sequence_captions",
   "plan_silence_review_markers",
 ]);

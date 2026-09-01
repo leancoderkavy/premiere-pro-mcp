@@ -462,7 +462,7 @@ export function getExportTools(bridgeOptions: BridgeOptions) {
         const before = statSync(mediaPath);
         let probe: Record<string, unknown>;
         try {
-          const { stdout } = await execFileAsync("ffprobe", ["-v", "error", "-show_format", "-show_streams", "-of", "json", mediaPath], { timeout: 60_000, windowsHide: true, maxBuffer: 8 * 1024 * 1024 });
+          const { stdout } = await execFileAsync("ffprobe", ["-v", "error", "-protocol_whitelist", "file,crypto,data", "-show_format", "-show_streams", "-of", "json", mediaPath], { timeout: 60_000, windowsHide: true, maxBuffer: 8 * 1024 * 1024 });
           const parsed = JSON.parse(stdout) as unknown;
           if (!parsed || typeof parsed !== "object") return { success: false, error: "ffprobe returned an invalid delivery report" };
           probe = parsed as Record<string, unknown>;
@@ -479,7 +479,7 @@ export function getExportTools(bridgeOptions: BridgeOptions) {
           if (!streams.some(stream => stream.codec_type === "audio")) loudnessUnavailableReason = "No audio stream was available for EBU R128 analysis";
           else {
             try {
-              const measured = await execFileAsync("ffmpeg", ["-nostdin", "-hide_banner", "-i", mediaPath, "-vn", "-sn", "-dn", "-af", "ebur128=peak=true", "-f", "null", "-"], { timeout: VIDEO_QC_TIMEOUT_MS, windowsHide: true, maxBuffer: 32 * 1024 * 1024 });
+              const measured = await execFileAsync("ffmpeg", ["-nostdin", "-hide_banner", "-protocol_whitelist", "file,crypto,data", "-i", mediaPath, "-map", "0:a:0", "-vn", "-sn", "-dn", "-af", "ebur128=peak=true", "-f", "null", "-"], { timeout: VIDEO_QC_TIMEOUT_MS, windowsHide: true, maxBuffer: 32 * 1024 * 1024 });
               loudness = parseEbur128Summary(measured.stderr);
             } catch (error) {
               const failure = error as { code?: string; killed?: boolean; stderr?: string; message?: string };

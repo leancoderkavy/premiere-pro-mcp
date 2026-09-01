@@ -128,6 +128,8 @@ describe("verify_delivery_conformance boundary", () => {
       data: { mediaPath, conforms: true, evaluated: 5, notEvaluated: 0 },
     });
     expect(mockedExecFileAsync).toHaveBeenCalledTimes(2);
+    expect(mockedExecFileAsync).toHaveBeenNthCalledWith(1, "ffprobe", expect.arrayContaining(["-protocol_whitelist", "file,crypto,data"]), expect.any(Object));
+    expect(mockedExecFileAsync).toHaveBeenNthCalledWith(2, "ffmpeg", expect.arrayContaining(["-protocol_whitelist", "file,crypto,data", "-map", "0:a:0"]), expect.any(Object));
   });
 
   it("keeps ffprobe process failures explicit", async () => {
