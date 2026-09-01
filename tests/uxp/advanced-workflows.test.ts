@@ -363,6 +363,16 @@ describe("advanced stable Premiere UXP workflows", () => {
     } }));
     await expect(wrongTime.registry.dispatch("markers.addBeatGrid", { beatTimesSeconds: [1] }))
       .resolves.toMatchObject({ outcome: "committed_unverified", verified: false });
+
+    const wrongName = advancedHost();
+    wrongName.markers.createAddMarkerAction.mockImplementation((_name: string, type: string, start: { seconds: number }) => ({ apply: () => {
+      wrongName.markerValues.push({
+        ...wrongName.markerValues[0], guid: "wrong-name-guid", getName: vi.fn(async () => "Unexpected"), getType: vi.fn(async () => type),
+        getStart: vi.fn(async () => ({ seconds: start.seconds })),
+      });
+    } }));
+    await expect(wrongName.registry.dispatch("markers.addBeatGrid", { beatTimesSeconds: [1] }))
+      .resolves.toMatchObject({ outcome: "committed_unverified", verified: false });
   });
 
   it("updates sequence settings, imports workspace media, and automates a typed effect parameter", async () => {

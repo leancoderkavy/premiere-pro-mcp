@@ -140,7 +140,7 @@ export function getUxpAdvancedWorkflowTools(bridge: UxpWebSocketBridge) {
         properties: {
           beat_times_seconds: { type: "array", minItems: 1, maxItems: 512, items: { type: "number", minimum: 0, maximum: 86400 }, description: "Strictly increasing unique beat times, such as beatTimesSeconds returned by detect_beats." },
           sequence_id: sequenceId,
-          offset_seconds: { type: "number", minimum: -86400, maximum: 86400, description: "Timeline offset added to every beat time; all resulting times must remain non-negative." },
+          offset_seconds: { type: "number", minimum: -86400, maximum: 86400, description: "Timeline offset added to every beat time; every result must remain between 0 and 86400 seconds." },
           name_prefix: { type: "string", minLength: 1, maxLength: 64, description: "Marker label prefix; defaults to Beat." },
           comments: { type: "string", maxLength: 1000 },
           marker_type: { type: "string", minLength: 1, maxLength: 128 },
