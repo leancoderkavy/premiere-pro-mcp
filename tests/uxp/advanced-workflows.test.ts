@@ -283,6 +283,7 @@ describe("advanced stable Premiere UXP workflows", () => {
       "bins.inspect", "bins.create", "sequenceSettings.get", "sequenceSettings.update",
       "project.import", "parameters.inspect", "parameters.keyframeAdd", "trackItem.inspect",
       "trackItem.update", "timeline.insert", "timeline.mogrtPath", "sequences.inspect",
+      "trackItem.splitEdit",
       "sequences.clone", "encoder.preflight", "encoder.sequence", "encoder.file",
     ]));
     expect(capabilities.commands["projectSelection.inspect"]).toMatchObject({ supported: true, readOnly: true });
@@ -369,6 +370,19 @@ describe("advanced stable Premiere UXP workflows", () => {
       verificationBoundary: "sequence_editor_host_return",
     });
     expect(value.project.executeTransaction).toHaveBeenCalledTimes(2);
+  });
+
+  it("creates an atomic L-cut with synchronized timeline and source edges", async () => {
+    const value = advancedHost();
+    await expect(value.registry.dispatch("trackItem.splitEdit", {
+      kind: "l_cut", audioTrackIndex: 0, audioClipIndex: 0, videoTrackIndex: 0, videoClipIndex: 0,
+      extensionSeconds: 2, operationId: "l-cut",
+    })).resolves.toMatchObject({
+      splitEdit: "l_cut", extensionSeconds: 2, outcome: "verified",
+      before: { audio: { endSeconds: 20, outSeconds: 10 }, video: { endSeconds: 20 } },
+      after: { endSeconds: 22, outSeconds: 12 },
+    });
+    expect(value.project.executeTransaction).toHaveBeenCalledTimes(1);
   });
 
   it("uses complete keyframe preflight/readback and reports absent removals as no-ops", async () => {

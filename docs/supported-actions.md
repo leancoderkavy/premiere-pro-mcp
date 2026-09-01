@@ -11,8 +11,8 @@ descriptions, action enums, authority visibility, and counts stay aligned with t
 | Registered core actions | 326 | CEP/local server catalog; host and authority checks still apply |
 | Default-profile core actions | 324 | Advertised with `inspect,edit,export,filesystem` |
 | Restricted core actions | 2 | Require explicit `unsafe-script` authority |
-| Authenticated UXP additions | 55 | Advertised only while a compatible authenticated UXP panel is connected |
-| Default profile with UXP | 379 | 324 core plus 55 UXP tools |
+| Authenticated UXP additions | 56 | Advertised only while a compatible authenticated UXP panel is connected |
+| Default profile with UXP | 380 | 324 core plus 56 UXP tools |
 
 ## How to read support
 
@@ -398,6 +398,7 @@ authenticated and the connected host advertises the required command capabilitie
 | `list_markers_uxp` | Connected UXP | `scope`: `sequence`, `project_item` | List Premiere markers with stable 26.3+ GUIDs from the active sequence or one source media clip. |
 | `list_video_transitions_uxp` | Connected UXP | Single operation | List the installed native video-transition match names from the connected Premiere UXP host. |
 | `maintain_media_health_uxp` | Connected UXP | `inspect`, `refresh`, `set_offline`, `find_by_media_path` | Inspect up to 64 source media items, refresh them serially, transactionally set them offline, or find project items matching an approved media path. Native paths are redacted unless explicitly requested. |
+| `make_split_edit_uxp` | Connected UXP | `kind`: `j_cut`, `l_cut` | Create an undoable J-cut or L-cut by extending one aligned 1x audio item while preserving source sync, with atomic UXP actions and edge/source readback. |
 | `manage_clip_effects_uxp` | Connected UXP | `catalog`, `inspect`, `add`, `remove` | List native audio/video effects, inspect one clip's component chain, or add/remove one effect in a locked Premiere UXP transaction. |
 | `manage_color_conformance_uxp` | Connected UXP | `preflight`, `update` | Preflight project graphics-white/LUT/footage interpretation state, or update bounded footage-conformance fields in one undoable UXP transaction. |
 | `manage_growing_media_uxp` | Connected UXP | `status`, `pause`, `resume` | Inspect, pause under a bounded lease, or resume Premiere growing-media swaps. Pause expires within ten minutes and is resumed on ordinary panel or bridge shutdown; status is panel-local and never claims a host readback. |
