@@ -127,6 +127,13 @@ describe("verify_delivery_conformance boundary", () => {
     return mediaPath;
   }
 
+  it("returns an explicit failure for a missing baseline file", async () => {
+    const missingPath = join(tmpdir(), `missing-delivery-${Date.now()}.mp4`);
+    await expect(tool.handler({ output_path: missingPath, video_codec: "h264" }))
+      .resolves.toMatchObject({ success: false, error: expect.stringContaining("not found on disk") });
+    expect(mockedExecFileAsync).not.toHaveBeenCalled();
+  });
+
   it("returns a complete local conformance report", async () => {
     const mediaPath = mediaFile();
     mockedExecFileAsync

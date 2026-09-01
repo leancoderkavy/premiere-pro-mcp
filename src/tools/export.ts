@@ -459,8 +459,13 @@ export function getExportTools(bridgeOptions: BridgeOptions) {
         const contractError = validateDeliveryConformanceContract(contract);
         if (contractError) return { success: false, error: contractError };
         const mediaPath = resolve(args.output_path);
-        if (!existsSync(mediaPath) || !statSync(mediaPath).isFile()) return { success: false, error: `Delivery file not found on disk: ${mediaPath}` };
-        const before = statSync(mediaPath);
+        let before: ReturnType<typeof statSync>;
+        try {
+          before = statSync(mediaPath);
+          if (!before.isFile()) return { success: false, error: `Delivery file not found on disk: ${mediaPath}` };
+        } catch {
+          return { success: false, error: `Delivery file not found on disk: ${mediaPath}` };
+        }
         const changedSinceStart = () => {
           try {
             const current = statSync(mediaPath);
