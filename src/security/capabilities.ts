@@ -79,6 +79,7 @@ const FILESYSTEM_TOOL_NAMES = new Set([
   "apply_lut",
   "set_scratch_disk_path",
   "verify_delivery_file",
+  "verify_delivery_conformance",
   "detect_silence",
   "detect_beats",
   "create_project_backup",

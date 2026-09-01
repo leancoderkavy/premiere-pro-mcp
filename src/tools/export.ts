@@ -6,9 +6,157 @@ import { execFile } from "node:child_process";
 import { extname, join, resolve } from "node:path";
 import { tmpdir } from "node:os";
 import { promisify } from "node:util";
+import { parseEbur128Summary } from "./audio.js";
 
 const execFileAsync = promisify(execFile);
 const VIDEO_QC_TIMEOUT_MS = 300_000;
+const MAX_FAILURE_DIAGNOSTIC_LENGTH = 4_096;
+
+export type ConformanceStatus = "pass" | "fail" | "not_evaluated";
+
+export interface DeliveryConformanceCheck {
+  id: string;
+  status: ConformanceStatus;
+  expected: unknown;
+  actual: unknown;
+  detail?: string;
+}
+
+export interface DeliveryConformanceContract {
+  allowedContainerNames?: string[];
+  videoCodec?: string;
+  audioCodec?: string;
+  width?: number;
+  height?: number;
+  frameRate?: number;
+  frameRateTolerance?: number;
+  durationSeconds?: number;
+  durationToleranceSeconds?: number;
+  minimumVideoBitrateKbps?: number;
+  maximumVideoBitrateKbps?: number;
+  audioSampleRateHz?: number;
+  audioChannels?: number;
+  targetLufs?: number;
+  loudnessToleranceLu?: number;
+  maximumTruePeakDbfs?: number;
+}
+
+function finiteNumber(value: unknown): number | null {
+  const parsed = typeof value === "number" ? value : typeof value === "string" ? Number(value) : NaN;
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+export function parseRationalRate(value: unknown): number | null {
+  if (typeof value !== "string") {
+    const parsed = finiteNumber(value);
+    return parsed !== null && parsed > 0 ? parsed : null;
+  }
+  const parts = value.split("/");
+  if (parts.length === 2) {
+    const numerator = Number(parts[0]);
+    const denominator = Number(parts[1]);
+    const parsed = Number.isFinite(numerator) && Number.isFinite(denominator) && denominator !== 0 ? numerator / denominator : null;
+    return parsed !== null && parsed > 0 ? parsed : null;
+  }
+  const parsed = finiteNumber(value);
+  return parsed !== null && parsed > 0 ? parsed : null;
+}
+
+function normalized(value: unknown): string {
+  return String(value ?? "").trim().toLowerCase();
+}
+
+function boundedFailureDiagnostic(value: unknown): string {
+  const diagnostic = String(value ?? "").trim();
+  return diagnostic.length > MAX_FAILURE_DIAGNOSTIC_LENGTH
+    ? `${diagnostic.slice(0, MAX_FAILURE_DIAGNOSTIC_LENGTH - 1)}…`
+    : diagnostic;
+}
+
+export function validateDeliveryConformanceContract(contract: DeliveryConformanceContract): string | null {
+  if (!contract || typeof contract !== "object") return "contract is required";
+  const expectations = [
+    contract.allowedContainerNames, contract.videoCodec, contract.audioCodec,
+    contract.width, contract.height, contract.frameRate, contract.durationSeconds,
+    contract.minimumVideoBitrateKbps, contract.maximumVideoBitrateKbps,
+    contract.audioSampleRateHz, contract.audioChannels, contract.targetLufs,
+    contract.maximumTruePeakDbfs,
+  ];
+  if (contract.allowedContainerNames !== undefined && (!Array.isArray(contract.allowedContainerNames) || contract.allowedContainerNames.length === 0 || contract.allowedContainerNames.some(value => !normalized(value)))) {
+    return "allowed_container_names must contain at least one non-empty container name";
+  }
+  for (const [name, value] of Object.entries({ video_codec: contract.videoCodec, audio_codec: contract.audioCodec })) {
+    if (value !== undefined && !normalized(value)) return `${name} must be a non-empty string`;
+  }
+  for (const [name, value] of Object.entries({ width: contract.width, height: contract.height, audio_sample_rate_hz: contract.audioSampleRateHz, audio_channels: contract.audioChannels })) {
+    if (value !== undefined && (!Number.isInteger(value) || value <= 0)) return `${name} must be a positive integer`;
+  }
+  for (const [name, value] of Object.entries({ frame_rate: contract.frameRate, duration_seconds: contract.durationSeconds, minimum_video_bitrate_kbps: contract.minimumVideoBitrateKbps, maximum_video_bitrate_kbps: contract.maximumVideoBitrateKbps })) {
+    if (value !== undefined && (!Number.isFinite(value) || value <= 0)) return `${name} must be a finite value greater than 0`;
+  }
+  for (const [name, value] of Object.entries({ frame_rate_tolerance: contract.frameRateTolerance, duration_tolerance_seconds: contract.durationToleranceSeconds, loudness_tolerance_lu: contract.loudnessToleranceLu })) {
+    if (value !== undefined && (!Number.isFinite(value) || value < 0)) return `${name} must be a finite non-negative value`;
+  }
+  if (contract.frameRateTolerance !== undefined && contract.frameRate === undefined) return "frame_rate_tolerance requires frame_rate";
+  if (contract.durationToleranceSeconds !== undefined && contract.durationSeconds === undefined) return "duration_tolerance_seconds requires duration_seconds";
+  if (contract.loudnessToleranceLu !== undefined && contract.targetLufs === undefined) return "loudness_tolerance_lu requires target_lufs";
+  if (contract.minimumVideoBitrateKbps !== undefined && contract.maximumVideoBitrateKbps !== undefined && contract.minimumVideoBitrateKbps > contract.maximumVideoBitrateKbps) return "minimum_video_bitrate_kbps cannot exceed maximum_video_bitrate_kbps";
+  if (contract.targetLufs !== undefined && (!Number.isFinite(contract.targetLufs) || contract.targetLufs < -100 || contract.targetLufs > 0)) return "target_lufs must be from -100 through 0";
+  if (contract.maximumTruePeakDbfs !== undefined && (!Number.isFinite(contract.maximumTruePeakDbfs) || contract.maximumTruePeakDbfs < -100 || contract.maximumTruePeakDbfs > 0)) return "maximum_true_peak_dbfs must be from -100 through 0";
+  if (!expectations.some(value => value !== undefined)) return "At least one delivery conformance expectation is required";
+  return null;
+}
+
+export function evaluateDeliveryConformance(
+  probe: Record<string, unknown>,
+  contract: DeliveryConformanceContract,
+  loudness?: { integratedLufs: number | null; truePeakDbfs: number | null } | null,
+  loudnessUnavailableReason?: string,
+): DeliveryConformanceCheck[] {
+  const streams = Array.isArray(probe.streams) ? probe.streams.filter((value): value is Record<string, unknown> => !!value && typeof value === "object") : [];
+  const format = probe.format && typeof probe.format === "object" ? probe.format as Record<string, unknown> : {};
+  const video = streams.find(stream => {
+    if (stream.codec_type !== "video") return false;
+    const disposition = stream.disposition && typeof stream.disposition === "object" ? stream.disposition as Record<string, unknown> : {};
+    return finiteNumber(disposition.attached_pic) !== 1;
+  });
+  const audio = streams.find(stream => stream.codec_type === "audio");
+  const checks: DeliveryConformanceCheck[] = [];
+  const exact = (id: string, expected: unknown, actual: unknown) => checks.push({ id, status: normalized(actual) === normalized(expected) ? "pass" : "fail", expected, actual: actual ?? null });
+  const numeric = (id: string, expected: number, actualValue: unknown, tolerance = 0, unavailableReason?: string) => {
+    const actual = finiteNumber(actualValue);
+    const unavailable = actual === null ? unavailableReason : undefined;
+    checks.push({ id, status: unavailable ? "not_evaluated" : actual !== null && Math.abs(actual - expected) <= tolerance ? "pass" : "fail", expected, actual, detail: unavailable ?? `tolerance=${tolerance}` });
+  };
+  if (contract.allowedContainerNames) {
+    const actualNames = normalized(format.format_name).split(",").filter(Boolean);
+    const allowed = contract.allowedContainerNames.map(normalized);
+    checks.push({ id: "container_demuxer_family", status: actualNames.some(name => allowed.includes(name)) ? "pass" : "fail", expected: contract.allowedContainerNames, actual: actualNames, detail: "Matches ffprobe demuxer-family aliases only; aliases such as mov and mp4 do not identify an exact container subtype." });
+  }
+  if (contract.videoCodec !== undefined) exact("video_codec", contract.videoCodec, video?.codec_name);
+  if (contract.audioCodec !== undefined) exact("audio_codec", contract.audioCodec, audio?.codec_name);
+  if (contract.width !== undefined) numeric("width", contract.width, video?.width, 0, video ? "Video width metadata was unavailable" : undefined);
+  if (contract.height !== undefined) numeric("height", contract.height, video?.height, 0, video ? "Video height metadata was unavailable" : undefined);
+  if (contract.frameRate !== undefined) numeric("frame_rate", contract.frameRate, parseRationalRate(video?.avg_frame_rate) ?? parseRationalRate(video?.r_frame_rate), contract.frameRateTolerance ?? 0.001, video ? "Video frame-rate metadata was unavailable" : undefined);
+  if (contract.durationSeconds !== undefined) numeric("duration", contract.durationSeconds, format.duration, contract.durationToleranceSeconds ?? 0.05, "Duration metadata was unavailable");
+  const bitrate = video ? finiteNumber(video.bit_rate) : null;
+  const bitrateUnavailable = !video ? "No video stream was available for video bitrate evaluation" : bitrate === null ? "Video bitrate metadata was unavailable" : undefined;
+  if (contract.minimumVideoBitrateKbps !== undefined) checks.push({ id: "minimum_video_bitrate", status: bitrateUnavailable ? "not_evaluated" : bitrate !== null && bitrate / 1000 >= contract.minimumVideoBitrateKbps ? "pass" : "fail", expected: contract.minimumVideoBitrateKbps, actual: bitrate === null ? null : bitrate / 1000, detail: bitrateUnavailable });
+  if (contract.maximumVideoBitrateKbps !== undefined) checks.push({ id: "maximum_video_bitrate", status: bitrateUnavailable ? "not_evaluated" : bitrate !== null && bitrate / 1000 <= contract.maximumVideoBitrateKbps ? "pass" : "fail", expected: contract.maximumVideoBitrateKbps, actual: bitrate === null ? null : bitrate / 1000, detail: bitrateUnavailable });
+  if (contract.audioSampleRateHz !== undefined) numeric("audio_sample_rate", contract.audioSampleRateHz, audio?.sample_rate, 0, audio ? "Audio sample-rate metadata was unavailable" : undefined);
+  if (contract.audioChannels !== undefined) numeric("audio_channels", contract.audioChannels, audio?.channels, 0, audio ? "Audio channel-count metadata was unavailable" : undefined);
+  if (contract.targetLufs !== undefined) {
+    const actual = loudness?.integratedLufs ?? null;
+    const unavailable = loudnessUnavailableReason ?? (actual === null ? "Integrated loudness measurement was unavailable" : undefined);
+    checks.push({ id: "integrated_loudness", status: unavailable ? "not_evaluated" : Math.abs(actual! - contract.targetLufs) <= (contract.loudnessToleranceLu ?? 1) ? "pass" : "fail", expected: contract.targetLufs, actual, detail: unavailable ?? `tolerance=${contract.loudnessToleranceLu ?? 1} LU` });
+  }
+  if (contract.maximumTruePeakDbfs !== undefined) {
+    const actual = loudness?.truePeakDbfs ?? null;
+    const unavailable = loudnessUnavailableReason ?? (actual === null ? "True-peak measurement was unavailable" : undefined);
+    checks.push({ id: "true_peak", status: unavailable ? "not_evaluated" : actual! <= contract.maximumTruePeakDbfs ? "pass" : "fail", expected: contract.maximumTruePeakDbfs, actual, detail: unavailable });
+  }
+  return checks;
+}
 
 export interface VideoQcInterval {
   start: number;
@@ -253,6 +401,149 @@ export function getExportTools(bridgeOptions: BridgeOptions) {
         } catch (error) {
           return { success: false, error: error instanceof Error ? error.message : String(error) };
         }
+      },
+    },
+
+    verify_delivery_conformance: {
+      description:
+        "Verify a local exported file against an explicit delivery contract using ffprobe and optional EBU R128 analysis. Returns pass, fail, or not_evaluated per check; it does not prove Premiere render lineage or visual approval.",
+      operationalCapability: {
+        backend: "local" as const,
+        backends: ["local" as const],
+        status: "supported" as const,
+        minimumPremiereVersion: null,
+        authority: "filesystem" as const,
+        verificationBoundary: "local_filesystem" as const,
+        hostVerificationRequired: false,
+        notes: ["Reads a local delivery with ffprobe and optional FFmpeg decoding; it does not contact Premiere Pro."],
+      },
+      parameters: {
+        type: "object" as const,
+        properties: {
+          output_path: { type: "string", description: "Existing local delivery file" },
+          allowed_container_names: { type: "array", items: { type: "string" }, description: "Allowed ffprobe demuxer-family aliases, such as mov or mp4. This cannot distinguish exact subtypes when ffprobe reports a shared alias family." },
+          video_codec: { type: "string", description: "Expected video codec name, such as h264 or prores" },
+          audio_codec: { type: "string", description: "Expected audio codec name, such as aac or pcm_s24le" },
+          width: { type: "integer", description: "Expected video width in pixels" },
+          height: { type: "integer", description: "Expected video height in pixels" },
+          frame_rate: { type: "number", description: "Expected frames per second; rational ffprobe rates are compared numerically" },
+          frame_rate_tolerance: { type: "number", description: "Allowed absolute frame-rate difference (default: 0.001)" },
+          duration_seconds: { type: "number", description: "Expected duration in seconds" },
+          duration_tolerance_seconds: { type: "number", description: "Allowed absolute duration difference (default: 0.05)" },
+          minimum_video_bitrate_kbps: { type: "number", description: "Optional minimum selected-video-stream bitrate in kilobits per second" },
+          maximum_video_bitrate_kbps: { type: "number", description: "Optional maximum selected-video-stream bitrate in kilobits per second" },
+          audio_sample_rate_hz: { type: "integer", description: "Expected audio sample rate" },
+          audio_channels: { type: "integer", description: "Expected audio channel count" },
+          target_lufs: { type: "number", description: "Optional integrated loudness target from -100 through 0 LUFS" },
+          loudness_tolerance_lu: { type: "number", description: "Allowed absolute loudness difference (default: 1 LU)" },
+          maximum_true_peak_dbfs: { type: "number", description: "Optional maximum true peak from -100 through 0 dBFS" },
+        },
+        required: ["output_path"],
+      },
+      handler: async (args: {
+        output_path: string;
+        allowed_container_names?: string[];
+        video_codec?: string;
+        audio_codec?: string;
+        width?: number;
+        height?: number;
+        frame_rate?: number;
+        frame_rate_tolerance?: number;
+        duration_seconds?: number;
+        duration_tolerance_seconds?: number;
+        minimum_video_bitrate_kbps?: number;
+        maximum_video_bitrate_kbps?: number;
+        audio_sample_rate_hz?: number;
+        audio_channels?: number;
+        target_lufs?: number;
+        loudness_tolerance_lu?: number;
+        maximum_true_peak_dbfs?: number;
+      }) => {
+        const contract: DeliveryConformanceContract = {
+          allowedContainerNames: args.allowed_container_names,
+          videoCodec: args.video_codec,
+          audioCodec: args.audio_codec,
+          width: args.width,
+          height: args.height,
+          frameRate: args.frame_rate,
+          frameRateTolerance: args.frame_rate_tolerance,
+          durationSeconds: args.duration_seconds,
+          durationToleranceSeconds: args.duration_tolerance_seconds,
+          minimumVideoBitrateKbps: args.minimum_video_bitrate_kbps,
+          maximumVideoBitrateKbps: args.maximum_video_bitrate_kbps,
+          audioSampleRateHz: args.audio_sample_rate_hz,
+          audioChannels: args.audio_channels,
+          targetLufs: args.target_lufs,
+          loudnessToleranceLu: args.loudness_tolerance_lu,
+          maximumTruePeakDbfs: args.maximum_true_peak_dbfs,
+        };
+        const contractError = validateDeliveryConformanceContract(contract);
+        if (contractError) return { success: false, error: contractError };
+        const mediaPath = resolve(args.output_path);
+        let before: ReturnType<typeof statSync>;
+        try {
+          before = statSync(mediaPath);
+          if (!before.isFile()) return { success: false, error: `Delivery file not found on disk: ${mediaPath}` };
+        } catch {
+          return { success: false, error: `Delivery file not found on disk: ${mediaPath}` };
+        }
+        const changedSinceStart = () => {
+          try {
+            const current = statSync(mediaPath);
+            return !current.isFile() || deliveryFileChangedDuringHash(before, current);
+          } catch {
+            return true;
+          }
+        };
+        let probe: Record<string, unknown>;
+        try {
+          const { stdout } = await execFileAsync("ffprobe", ["-v", "error", "-protocol_whitelist", "file,crypto,data", "-show_format", "-show_streams", "-of", "json", mediaPath], { timeout: 60_000, windowsHide: true, maxBuffer: 8 * 1024 * 1024 });
+          const parsed = JSON.parse(stdout) as unknown;
+          const candidate = parsed && typeof parsed === "object" ? parsed as { format?: unknown; streams?: unknown } : null;
+          if (!candidate || !candidate.format || typeof candidate.format !== "object" || !Array.isArray(candidate.streams)) {
+            if (changedSinceStart()) return { success: false, error: `Delivery file changed during conformance inspection: ${mediaPath}` };
+            return { success: false, error: "ffprobe returned an invalid delivery report" };
+          }
+          probe = candidate as Record<string, unknown>;
+        } catch (error) {
+          const failure = error as { code?: string; killed?: boolean; stderr?: string; message?: string };
+          if (changedSinceStart()) return { success: false, error: `Delivery file changed during conformance inspection: ${mediaPath}` };
+          if (failure.code === "ENOENT") return { success: false, error: "ffprobe was not found on PATH" };
+          if (failure.killed) return { success: false, error: "ffprobe delivery conformance inspection timed out after 60 seconds" };
+          return {
+            success: false,
+            error: `ffprobe delivery conformance inspection failed: ${boundedFailureDiagnostic(failure.stderr) || boundedFailureDiagnostic(failure.message) || "unknown error"}`,
+          };
+        }
+        let loudness: ReturnType<typeof parseEbur128Summary> | null = null;
+        let loudnessUnavailableReason: string | undefined;
+        if (contract.targetLufs !== undefined || contract.maximumTruePeakDbfs !== undefined) {
+          const streams = Array.isArray(probe.streams) ? probe.streams as Array<Record<string, unknown>> : [];
+          if (!streams.some(stream => stream.codec_type === "audio")) loudnessUnavailableReason = "No audio stream was available for EBU R128 analysis";
+          else {
+            try {
+              const measured = await execFileAsync("ffmpeg", ["-nostdin", "-hide_banner", "-protocol_whitelist", "file,crypto,data", "-i", mediaPath, "-map", "0:a:0", "-vn", "-sn", "-dn", "-af", "ebur128=peak=true", "-f", "null", "-"], { timeout: VIDEO_QC_TIMEOUT_MS, windowsHide: true, maxBuffer: 32 * 1024 * 1024 });
+              loudness = parseEbur128Summary(measured.stderr);
+            } catch (error) {
+              const failure = error as { code?: string; killed?: boolean; stderr?: string; message?: string };
+              if (failure.stderr) loudness = parseEbur128Summary(failure.stderr);
+              loudnessUnavailableReason = failure.code === "ENOENT" ? "ffmpeg was not found on PATH" : failure.killed ? "EBU R128 analysis timed out" : "EBU R128 analysis was unavailable";
+            }
+          }
+        }
+        if (changedSinceStart()) return { success: false, error: `Delivery file changed during conformance inspection: ${mediaPath}` };
+        const checks = evaluateDeliveryConformance(probe, contract, loudness, loudnessUnavailableReason);
+        return {
+          success: true,
+          data: {
+            mediaPath,
+            checks,
+            conforms: checks.length > 0 && checks.every(check => check.status === "pass"),
+            evaluated: checks.filter(check => check.status !== "not_evaluated").length,
+            notEvaluated: checks.filter(check => check.status === "not_evaluated").length,
+            verificationScope: "Local ffprobe metadata and optional decoded EBU R128 measurements only. This does not prove Premiere render lineage, visual quality, editorial approval, or destination-platform acceptance.",
+          },
+        };
       },
     },
 

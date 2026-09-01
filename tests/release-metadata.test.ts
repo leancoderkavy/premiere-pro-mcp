@@ -67,6 +67,9 @@ describe("canonical release metadata", () => {
       `${release.uxpAdditionalTools} capability-gated tools`,
     );
     expect(landingProduct).toContain(`version: "${release.version}"`);
+    expect(landingProduct).toContain(`coreToolCount: ${release.coreTools}`);
+    expect(landingProduct).toContain(`defaultProfileToolCount: ${release.defaultProfileTools}`);
+    expect(landingProduct).toContain(`connectedUxpToolCount: ${release.defaultProfileWithUxpTools}`);
     expect(landingProduct).toContain(
       `/releases/download/v${release.version}/premiere-pro-mcp-${release.version}.mcpb`,
     );
@@ -75,6 +78,7 @@ describe("canonical release metadata", () => {
     );
     expect(landingProduct).toContain(`/releases/tag/v${release.version}`);
     expect(readme).toContain(`Latest release: ${release.version}`);
+    expect(readme).toContain(`registers ${release.coreTools} tools, filtered by authority profile`);
     expect(read("landing/app/changelog/page.tsx")).toContain(
       `version: "${release.version}"`,
     );

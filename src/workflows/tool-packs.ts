@@ -61,6 +61,7 @@ export const WORKFLOW_TOOL_PACKS: readonly WorkflowToolPack[] = [
       "validate_project_for_export",
       "export_sequence",
       "verify_delivery_file",
+      "verify_delivery_conformance",
     ],
   },
   {
@@ -110,6 +111,7 @@ export const WORKFLOW_TOOL_PACKS: readonly WorkflowToolPack[] = [
       "encode_project_item",
       "encode_file",
       "verify_delivery_file",
+      "verify_delivery_conformance",
       "analyze_video_qc",
     ],
   },

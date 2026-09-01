@@ -8,11 +8,11 @@ descriptions, action enums, authority visibility, and counts stay aligned with t
 
 | Surface | Count | Availability |
 | --- | ---: | --- |
-| Registered core actions | 326 | CEP/local server catalog; host and authority checks still apply |
-| Default-profile core actions | 324 | Advertised with `inspect,edit,export,filesystem` |
+| Registered core actions | 327 | CEP/local server catalog; host and authority checks still apply |
+| Default-profile core actions | 325 | Advertised with `inspect,edit,export,filesystem` |
 | Restricted core actions | 2 | Require explicit `unsafe-script` authority |
 | Authenticated UXP additions | 56 | Advertised only while a compatible authenticated UXP panel is connected |
-| Default profile with UXP | 380 | 324 core plus 56 UXP tools |
+| Default profile with UXP | 381 | 325 core plus 56 UXP tools |
 
 ## How to read support
 
@@ -355,6 +355,7 @@ operation” when the tool has no enum-based mode.
 | `validate_cmx3600_edl` | Default profile | Single operation | Validate a local CMX 3600 EDL's supported event grammar, timecodes, durations, duplicate event IDs, record overlaps, and record gaps before user-assisted Premiere interchange. |
 | `validate_export_preset` | Default profile | Single operation | Validate that an Adobe Media Encoder .epr preset exists and ask the active Premiere sequence which output extension it produces |
 | `validate_project_for_export` | Default profile | Single operation | Run a non-mutating export readiness audit for an active or named sequence. It reports blocking offline media, empty timelines, inaccessible preset/output paths, duration, and optional timeline gaps without queuing an export. |
+| `verify_delivery_conformance` | Default profile | Single operation | Verify a local exported file against an explicit delivery contract using ffprobe and optional EBU R128 analysis. Returns pass, fail, or not_evaluated per check; it does not prove Premiere render lineage or visual approval. |
 | `verify_delivery_file` | Default profile | `checksum_algorithm`: `sha256`, `sha512` | Verify that an exported delivery is a non-empty regular file and calculate a SHA-256 or SHA-512 checksum; optionally compare expected size and checksum |
 | `verify_fcpxml_media_references` | Default profile | Single operation | Verify FCPXML file:// media references only inside caller-approved existing roots. References outside those roots are never statted or exposed as local paths. |
 | `verify_premiere_connection` | Default profile | `backend`: `cep`, `uxp` | Run a safe, read-only first-run check. It proves that this MCP server, the selected Premiere bridge, an active project, and an active sequence are connected without returning project names, paths, or media details. |

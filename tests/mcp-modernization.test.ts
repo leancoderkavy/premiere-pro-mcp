@@ -41,6 +41,7 @@ describe("modern MCP surface", () => {
     expect(annotationsForTool("create_context_edit_plan")).toMatchObject({ readOnlyHint: true, idempotentHint: true });
     expect(annotationsForTool("create_editorial_plan")).toMatchObject({ readOnlyHint: true, idempotentHint: true });
     expect(annotationsForTool("preview_editorial_plan")).toMatchObject({ readOnlyHint: true, idempotentHint: true });
+    expect(annotationsForTool("verify_delivery_conformance")).toMatchObject({ readOnlyHint: true, idempotentHint: true, openWorldHint: false });
     expect(annotationsForTool("apply_editorial_organization_plan")).toMatchObject({
       readOnlyHint: false,
       destructiveHint: false,
@@ -121,7 +122,7 @@ describe("modern MCP surface", () => {
       // unsafe-script, so the two scripting tools are not advertised.
       expect(tools.tools.map((tool) => tool.name)).not.toContain("execute_extendscript");
       expect(tools.tools.map((tool) => tool.name)).not.toContain("evaluate_expression");
-      expect(tools.tools).toHaveLength(324);
+      expect(tools.tools).toHaveLength(325);
       const capabilityTool = tools.tools.find((tool) => tool.name === "get_capabilities");
       expect(capabilityTool?.outputSchema).toMatchObject({
         type: "object",
@@ -187,9 +188,9 @@ describe("modern MCP surface", () => {
         "verify_delivery_file",
       ]));
       expect(names).not.toContain("create_bin");
-      // Essential is a 13-tool focused path (including the two always-visible
-      // diagnostics), versus 324 tools in the default full catalog.
-      expect(names).toHaveLength(13);
+      // Essential is a 14-tool focused path (including the two always-visible
+      // diagnostics), versus 325 tools in the default full catalog.
+      expect(names).toHaveLength(14);
 
       const capabilities = await client.callTool({
         name: "get_capabilities",
