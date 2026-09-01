@@ -84,6 +84,9 @@ export function validateDeliveryConformanceContract(contract: DeliveryConformanc
   for (const [name, value] of Object.entries({ frame_rate_tolerance: contract.frameRateTolerance, duration_tolerance_seconds: contract.durationToleranceSeconds, loudness_tolerance_lu: contract.loudnessToleranceLu })) {
     if (value !== undefined && (!Number.isFinite(value) || value < 0)) return `${name} must be a finite non-negative value`;
   }
+  if (contract.frameRateTolerance !== undefined && contract.frameRate === undefined) return "frame_rate_tolerance requires frame_rate";
+  if (contract.durationToleranceSeconds !== undefined && contract.durationSeconds === undefined) return "duration_tolerance_seconds requires duration_seconds";
+  if (contract.loudnessToleranceLu !== undefined && contract.targetLufs === undefined) return "loudness_tolerance_lu requires target_lufs";
   if (contract.minimumVideoBitrateKbps !== undefined && contract.maximumVideoBitrateKbps !== undefined && contract.minimumVideoBitrateKbps > contract.maximumVideoBitrateKbps) return "minimum_video_bitrate_kbps cannot exceed maximum_video_bitrate_kbps";
   if (contract.targetLufs !== undefined && (!Number.isFinite(contract.targetLufs) || contract.targetLufs < -100 || contract.targetLufs > 0)) return "target_lufs must be from -100 through 0";
   if (contract.maximumTruePeakDbfs !== undefined && (!Number.isFinite(contract.maximumTruePeakDbfs) || contract.maximumTruePeakDbfs < -100 || contract.maximumTruePeakDbfs > 0)) return "maximum_true_peak_dbfs must be from -100 through 0";

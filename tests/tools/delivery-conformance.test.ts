@@ -42,8 +42,10 @@ describe("delivery conformance comparisons", () => {
     expect(validateDeliveryConformanceContract({ durationToleranceSeconds: -1 })).toContain("non-negative");
     expect(validateDeliveryConformanceContract({ targetLufs: 1 })).toContain("target_lufs");
     expect(validateDeliveryConformanceContract({ maximumTruePeakDbfs: 1 })).toContain("maximum_true_peak");
-    expect(validateDeliveryConformanceContract({ frameRateTolerance: 0.01 })).toContain("At least one");
-    expect(validateDeliveryConformanceContract({ durationToleranceSeconds: 0.01 })).toContain("At least one");
+    expect(validateDeliveryConformanceContract({ frameRateTolerance: 0.01 })).toContain("frame_rate_tolerance requires frame_rate");
+    expect(validateDeliveryConformanceContract({ durationToleranceSeconds: 0.01 })).toContain("duration_tolerance_seconds requires duration_seconds");
+    expect(validateDeliveryConformanceContract({ loudnessToleranceLu: 1 })).toContain("loudness_tolerance_lu requires target_lufs");
+    expect(validateDeliveryConformanceContract({ videoCodec: "h264", frameRateTolerance: 0.01 })).toContain("frame_rate_tolerance requires frame_rate");
     expect(validateDeliveryConformanceContract({ videoCodec: " " })).toContain("non-empty");
     expect(validateDeliveryConformanceContract({ audioCodec: "" })).toContain("non-empty");
   });
