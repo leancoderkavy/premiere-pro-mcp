@@ -24,7 +24,7 @@ const sources = [
     scope: "premiere-extendscript-guide",
   },
 ];
-const outputPath = resolve("src/resources/cep-reference-inventory.json");
+const outputPath = resolve(process.env.CEP_INVENTORY_OUTPUT_PATH ?? "src/resources/cep-reference-inventory.json");
 const check = process.argv.includes("--check");
 
 function category(source, path) {
