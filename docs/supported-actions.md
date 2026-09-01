@@ -8,11 +8,11 @@ descriptions, action enums, authority visibility, and counts stay aligned with t
 
 | Surface | Count | Availability |
 | --- | ---: | --- |
-| Registered core actions | 324 | CEP/local server catalog; host and authority checks still apply |
-| Default-profile core actions | 322 | Advertised with `inspect,edit,export,filesystem` |
+| Registered core actions | 325 | CEP/local server catalog; host and authority checks still apply |
+| Default-profile core actions | 323 | Advertised with `inspect,edit,export,filesystem` |
 | Restricted core actions | 2 | Require explicit `unsafe-script` authority |
 | Authenticated UXP additions | 55 | Advertised only while a compatible authenticated UXP panel is connected |
-| Default profile with UXP | 377 | 322 core plus 55 UXP tools |
+| Default profile with UXP | 378 | 323 core plus 55 UXP tools |
 
 ## How to read support
 
@@ -251,6 +251,7 @@ operation” when the tool has no enum-based mode.
 | `preview_project_intake` | Default profile | Single operation | Inspect a bounded Premiere project against an explicit facility intake template and return a path-redacted report plus a non-mutating organization proposal. It never changes Premiere or persists the template. |
 | `razor_all_tracks` | Default profile | `track_type`: `video`, `audio`, `both` | Razor (split) all clips at the playhead position across all tracks, or at a specific time. |
 | `read_sequence_captions` | Default profile | Single operation | Diagnose whether the active Premiere scripting host can enumerate caption tracks. It never treats an empty result as proof that the sequence has no captions, because most CEP builds expose caption creation but not caption reads. |
+| `read_video_scopes` | Default profile | Single operation | Read waveform percentiles, RGB parade percentiles, saturation, and probable legal-range excursions from one bounded decoded local-media frame. Read-only; this is a sampled analytical proxy, not Premiere's rendered scopes. |
 | `redo` | Default profile | Single operation | Redo the last undone action in Premiere Pro. |
 | `refresh_media` | Default profile | Single operation | Refresh a project item to pick up changes to the source file |
 | `relink_media` | Default profile | Single operation | Relink an offline media item to a new file path |
