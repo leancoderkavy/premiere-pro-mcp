@@ -17,6 +17,7 @@ import {
   parseCropDetectOutput,
   parseIdetOutput,
   parseMediaProbeJson,
+  parseMotionPeakCandidates,
   parseTransientCandidates,
 } from "../../src/tools/media-analysis.js";
 
@@ -53,6 +54,19 @@ describe("media analysis parsers", () => {
     ]);
   });
 
+  it("keeps local motion maxima and the strongest peak inside the minimum interval", () => {
+    const output = [
+      "frame:0 pts_time:0", "lavfi.signalstats.YAVG=2",
+      "frame:1 pts_time:0.25", "lavfi.signalstats.YAVG=15",
+      "frame:2 pts_time:0.5", "lavfi.signalstats.YAVG=20",
+      "frame:3 pts_time:0.75", "lavfi.signalstats.YAVG=10",
+      "frame:4 pts_time:2", "lavfi.signalstats.YAVG=18",
+    ].join("\n");
+    expect(parseMotionPeakCandidates(output, 12, 1)).toEqual([
+      { timeSeconds: 0.5, difference: 20 }, { timeSeconds: 2, difference: 18 },
+    ]);
+  });
+
   it("classifies progressive, mixed, and absent idet summaries", () => {
     expect(parseIdetOutput("Multi frame detection: TFF: 1 BFF: 0 Progressive: 99 Undetermined: 0").classification).toBe("progressive");
     expect(parseIdetOutput("Multi frame detection: TFF: 50 BFF: 0 Progressive: 50 Undetermined: 0").classification).toBe("mixed");
@@ -84,6 +98,11 @@ describe("media analysis tool contracts", () => {
     await expect(tools.detect_audio_transients.handler({ media_path: mediaPath, threshold_dbfs: 1 })).resolves.toMatchObject({ success: false });
     await expect(tools.detect_audio_transients.handler({ media_path: mediaPath, minimum_interval_seconds: 20 })).resolves.toMatchObject({ success: false });
     await expect(tools.detect_audio_transients.handler({ media_path: mediaPath, maximum_events: 0 })).resolves.toMatchObject({ success: false });
+    await expect(tools.detect_motion_peaks.handler({ media_path: mediaPath, sample_seconds: 0 })).resolves.toMatchObject({ success: false });
+    await expect(tools.detect_motion_peaks.handler({ media_path: mediaPath, samples_per_second: 11 })).resolves.toMatchObject({ success: false });
+    await expect(tools.detect_motion_peaks.handler({ media_path: mediaPath, threshold: 256 })).resolves.toMatchObject({ success: false });
+    await expect(tools.detect_motion_peaks.handler({ media_path: mediaPath, minimum_interval_seconds: 0 })).resolves.toMatchObject({ success: false });
+    await expect(tools.detect_motion_peaks.handler({ media_path: mediaPath, maximum_events: 0 })).resolves.toMatchObject({ success: false });
     await expect(tools.analyze_video_interlacing.handler({ media_path: mediaPath, sample_seconds: 0 })).resolves.toMatchObject({ success: false });
     await expect(tools.detect_active_picture_bounds.handler({ media_path: mediaPath, sample_seconds: 301 })).resolves.toMatchObject({ success: false });
     await expect(tools.detect_active_picture_bounds.handler({ media_path: mediaPath, limit: 300 })).resolves.toMatchObject({ success: false });
@@ -102,6 +121,10 @@ describe("media analysis tool contracts", () => {
     const mediaPath = fixture();
     mockedExecFileAsync.mockResolvedValueOnce({ stdout: "", stderr: "pts_time:1\nlavfi.astats.Overall.Peak_level=-4" });
     await expect(tools.detect_audio_transients.handler({ media_path: mediaPath, maximum_events: 1 })).resolves.toMatchObject({ success: true, data: { candidates: [{ timeSeconds: 1, peakDbfs: -4 }] } });
+
+    mockedExecFileAsync.mockResolvedValueOnce({ stdout: "", stderr: "pts_time:1\nlavfi.signalstats.YAVG=20" });
+    await expect(tools.detect_motion_peaks.handler({ media_path: mediaPath, threshold: 12, maximum_events: 1 })).resolves.toMatchObject({ success: true, data: { candidates: [{ timeSeconds: 1, difference: 20 }] } });
+    expect(mockedExecFileAsync.mock.calls.at(-1)?.[1]).toEqual(expect.arrayContaining(["-t", "60", "-an", "-f", "null", "-"]));
 
     mockedExecFileAsync.mockResolvedValueOnce({ stdout: "", stderr: "Multi frame detection: TFF: 0 BFF: 0 Progressive: 20 Undetermined: 0" });
     await expect(tools.analyze_video_interlacing.handler({ media_path: mediaPath })).resolves.toMatchObject({ success: true, data: { classification: "progressive", passesProgressiveDelivery: true } });

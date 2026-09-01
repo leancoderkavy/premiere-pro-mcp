@@ -60,6 +60,32 @@ export function parseTransientCandidates(output: string, thresholdDbfs: number, 
   return candidates;
 }
 
+export interface MotionPeakCandidate { timeSeconds: number; difference: number }
+
+export function parseMotionPeakCandidates(output: string, threshold: number, minimumIntervalSeconds: number): MotionPeakCandidate[] {
+  const samples: MotionPeakCandidate[] = [];
+  let time: number | null = null;
+  for (const line of output.split(/\r?\n/)) {
+    const timeMatch = line.match(/\bpts_time:([\d.]+)/);
+    if (timeMatch) time = Number(timeMatch[1]);
+    const differenceMatch = line.match(/lavfi\.signalstats\.YAVG=([\d.]+)/);
+    if (!differenceMatch || time === null) continue;
+    samples.push({ timeSeconds: time, difference: Number(differenceMatch[1]) });
+    time = null;
+  }
+  const peaks: MotionPeakCandidate[] = [];
+  for (let index = 0; index < samples.length; index++) {
+    const sample = samples[index];
+    if (!Number.isFinite(sample.difference) || sample.difference < threshold) continue;
+    if (index > 0 && sample.difference < samples[index - 1].difference) continue;
+    if (index + 1 < samples.length && sample.difference < samples[index + 1].difference) continue;
+    const previous = peaks.at(-1);
+    if (!previous || sample.timeSeconds - previous.timeSeconds >= minimumIntervalSeconds) peaks.push(sample);
+    else if (sample.difference > previous.difference) peaks[peaks.length - 1] = sample;
+  }
+  return peaks;
+}
+
 export interface InterlaceAnalysis { tff: number; bff: number; progressive: number; undetermined: number; classification: "tff" | "bff" | "progressive" | "mixed" | "undetermined" }
 
 export function parseIdetOutput(output: string): InterlaceAnalysis {
@@ -158,6 +184,39 @@ export function getMediaAnalysisTools(_bridgeOptions: BridgeOptions) {
           const all = parseTransientCandidates(`${result.stdout}\n${result.stderr}`, threshold, interval);
           return { success: true, data: { mediaPath: path, thresholdDbfs: threshold, minimumIntervalSeconds: interval, totalDetected: all.length, truncated: all.length > maximum, candidates: all.slice(0, maximum), verificationScope: "Peak-derived transient candidates only; confirm rhythm and editorial suitability by listening." } };
         } catch (error) { return { success: false, error: failureMessage(error, "audio transient analysis") }; }
+      },
+    },
+    detect_motion_peaks: {
+      description: "Find probable high-motion moments in a bounded local video sample from decoded frame differences. Read-only editorial candidates; camera movement, flashes, cuts, and subject motion are not semantically distinguished.",
+      parameters: { type: "object", properties: {
+        media_path: { type: "string", description: "Existing local video file" },
+        sample_seconds: { type: "number", description: "Decode duration from 1 through 300 seconds (default: 60)" },
+        samples_per_second: { type: "number", description: "Frame samples per second from 1 through 10 (default: 4)" },
+        threshold: { type: "number", description: "Minimum mean luma-frame difference from 0 through 255 (default: 12)" },
+        minimum_interval_seconds: { type: "number", description: "Minimum peak spacing from 0.1 through 30 seconds (default: 1)" },
+        maximum_events: { type: "integer", description: "Maximum returned candidates from 1 through 1000 (default: 200)" },
+      }, required: ["media_path"] },
+      handler: async (args: { media_path?: string; sample_seconds?: number; samples_per_second?: number; threshold?: number; minimum_interval_seconds?: number; maximum_events?: number }) => {
+        const path = inputPath(args.media_path);
+        if (!path) return { success: false, error: "media_path must identify an existing regular file" };
+        const seconds = args.sample_seconds ?? 60, rate = args.samples_per_second ?? 4;
+        const threshold = args.threshold ?? 12, interval = args.minimum_interval_seconds ?? 1, maximum = args.maximum_events ?? 200;
+        if (!Number.isFinite(seconds) || seconds < 1 || seconds > 300) return { success: false, error: "sample_seconds must be from 1 through 300" };
+        if (!Number.isFinite(rate) || rate < 1 || rate > 10) return { success: false, error: "samples_per_second must be from 1 through 10" };
+        if (!Number.isFinite(threshold) || threshold < 0 || threshold > 255) return { success: false, error: "threshold must be from 0 through 255" };
+        if (!Number.isFinite(interval) || interval < 0.1 || interval > 30) return { success: false, error: "minimum_interval_seconds must be from 0.1 through 30" };
+        if (!Number.isInteger(maximum) || maximum < 1 || maximum > 1000) return { success: false, error: "maximum_events must be an integer from 1 through 1000" };
+        try {
+          const filter = `fps=${rate},scale=160:-2:flags=area,format=gray,tblend=all_mode=difference,signalstats,metadata=print:key=lavfi.signalstats.YAVG`;
+          const result = await execFileAsync("ffmpeg", ["-v", "info", "-i", path, "-t", String(seconds), "-vf", filter, "-an", "-f", "null", "-"], { timeout: ANALYSIS_TIMEOUT_MS, windowsHide: true, maxBuffer: 32 * 1024 * 1024 });
+          const all = parseMotionPeakCandidates(`${result.stdout}\n${result.stderr}`, threshold, interval);
+          return { success: true, data: {
+            mediaPath: path, sampleSeconds: seconds, samplesPerSecond: rate, threshold,
+            minimumIntervalSeconds: interval, totalDetected: all.length, truncated: all.length > maximum,
+            candidates: all.slice(0, maximum),
+            verificationScope: "Mean luma frame-difference peaks from a downscaled decoded sample only. Camera movement, flashes, edits, and subject motion can produce similar scores; confirm candidates visually before editing."
+          } };
+        } catch (error) { return { success: false, error: failureMessage(error, "motion-peak analysis") }; }
       },
     },
     analyze_video_interlacing: {
