@@ -145,6 +145,7 @@ function stableHost() {
   let monitorItem: typeof sourceClip | null = null, monitorPosition = 0;
   const ppro = {
     Project: { getActiveProject: vi.fn(async () => project) },
+    Utils: { isAEInstalled: vi.fn(async () => true) },
     ProjectItem: { cast: vi.fn((item: unknown) => item) },
     ClipProjectItem: { cast: vi.fn((item: { isClip?: boolean }) => { if (!item.isClip) throw new Error("not clip"); return item; }) },
     FolderItem: { cast: vi.fn((item: { isFolder?: boolean }) => { if (!item.isFolder) throw new Error("not folder"); return item; }) },
@@ -220,7 +221,7 @@ describe("stable Premiere UXP workflow expansion", () => {
     expect(Object.keys(capabilities.commands)).toEqual(expect.arrayContaining([
       "effects.catalog", "effects.chain.add", "selection.inspect", "selection.fingerprints.inspect", "selection.targets.inspect", "selection.update", "effects.selection.add",
       "sceneEdit.detect", "proxy.attach", "ingest.configure", "media.relink",
-      "metadata.update", "color.preflight", "footage.conform", "sourceMonitor.open",
+      "metadata.update", "color.preflight", "environment.inspect", "footage.conform", "sourceMonitor.open",
       "storage.preflight", "scratch.configure", "workspace.status",
     ]));
     expect(capabilities.commands["effects.selection.add"]).toMatchObject({
@@ -756,6 +757,21 @@ describe("stable Premiere UXP workflow expansion", () => {
     await expect(value.registry.dispatch("footage.conform", {
       projectItemId: "source-1", frameRate: 24, pixelAspectRatio: 1.2, inputLutId: "lut-guid",
     })).resolves.toMatchObject({ conformed: true, outcome: "verified", after: { frameRate: 24, pixelAspectRatio: 1.2, inputLutId: "lut-guid" } });
+  });
+
+  it("inspects After Effects interoperability and project color support without mutation", async () => {
+    const value = stableHost();
+    await expect(value.registry.dispatch("environment.inspect", {})).resolves.toEqual({
+      afterEffectsInstalled: true,
+      projectColor: {
+        graphicsWhiteLuminance: 203,
+        supportedGraphicsWhiteLuminances: [100, 203, 300],
+      },
+    });
+
+    Reflect.deleteProperty(value.ppro.Utils, "isAEInstalled");
+    const capabilities = await value.registry.capabilities();
+    expect(capabilities.commands["environment.inspect"]).toMatchObject({ supported: false });
   });
 
   it("rejects metadata whose combined serialized UTF-8 result exceeds the frame budget", async () => {

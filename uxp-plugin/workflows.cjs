@@ -46,6 +46,7 @@
       "metadata.get": { readOnly: true, minHostVersion: "25.6.0", probe: canUseMetadata, handler: getMetadata },
       "metadata.update": { destructive: true, undoable: true, idempotent: true, minHostVersion: "25.6.0", probe: canUseMetadata, handler: updateMetadata },
       "color.preflight": { readOnly: true, targetCapabilityProbe: true, minHostVersion: "25.6.0", probe: canInspectColor, handler: colorPreflight },
+      "environment.inspect": { readOnly: true, targetCapabilityProbe: true, minHostVersion: "25.6.0", probe: canInspectEnvironment, handler: inspectEnvironment },
       "footage.conform": { destructive: true, undoable: true, idempotent: true, targetCapabilityProbe: true, minHostVersion: "25.6.0", probe: canConformFootage, handler: conformFootage },
       "sourceMonitor.state": { readOnly: true, minHostVersion: "25.6.0", probe: canInspectSourceMonitor, handler: sourceMonitorState },
       "sourceMonitor.open": { idempotent: true, conditionalWorkspace: true, minHostVersion: "25.6.0", probe: canOpenSourceMonitor, handler: openSourceMonitor },
@@ -917,6 +918,29 @@
       };
     }
 
+    async function inspectEnvironment(args) {
+      assertObject(args); assertOnlyKeys(args, []);
+      const project = await activeProject(false);
+      if (!ppro.Utils || typeof ppro.Utils.isAEInstalled !== "function") {
+        throw commandError("UXP_COMMAND_UNAVAILABLE", "After Effects installation detection is unavailable");
+      }
+      if (typeof project.getColorSettings !== "function") {
+        throw commandError("UXP_COMMAND_UNAVAILABLE", "Project color settings are unavailable");
+      }
+      const settings = await project.getColorSettings();
+      if (!settings || typeof settings.getGraphicsWhiteLuminance !== "function" ||
+        typeof settings.getSupportedGraphicsWhiteLuminances !== "function") {
+        throw commandError("UXP_COMMAND_UNAVAILABLE", "Premiere did not return complete project color settings");
+      }
+      return {
+        afterEffectsInstalled: !!await ppro.Utils.isAEInstalled(),
+        projectColor: {
+          graphicsWhiteLuminance: await settings.getGraphicsWhiteLuminance(),
+          supportedGraphicsWhiteLuminances: Array.from(await settings.getSupportedGraphicsWhiteLuminances() || [])
+        }
+      };
+    }
+
     async function conformFootage(args) {
       const input = validateConformanceArgs(args), project = await activeProject(true);
       const clip = await resolveClipProjectItem(project, input), before = await footageSnapshot(clip);
@@ -1141,6 +1165,9 @@
     function canUseIngest() { return canInspectProject() && !!(ppro.ProjectSettings && typeof ppro.ProjectSettings.getIngestSettings === "function" && typeof ppro.ProjectSettings.createSetIngestSettingsAction === "function"); }
     function canUseMetadata() { return canUseClipItems() && !!(ppro.Metadata && typeof ppro.Metadata.getProjectMetadata === "function" && typeof ppro.Metadata.getXMPMetadata === "function" && typeof ppro.Metadata.createSetProjectMetadataAction === "function" && typeof ppro.Metadata.createSetXMPMetadataAction === "function"); }
     function canInspectColor() { return canUseClipItems(); }
+    function canInspectEnvironment() {
+      return canInspectProject() && !!(ppro.Utils && typeof ppro.Utils.isAEInstalled === "function");
+    }
     function canConformFootage() { return canUseClipItems(); }
     function canInspectSourceMonitor() {
       return !!(ppro.SourceMonitor && typeof ppro.SourceMonitor.getPosition === "function" && typeof ppro.SourceMonitor.getProjectItem === "function");

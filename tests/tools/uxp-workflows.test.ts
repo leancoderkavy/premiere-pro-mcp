@@ -13,6 +13,7 @@ const WORKFLOW_TOOLS = [
   "manage_color_conformance_uxp",
   "audition_source_monitor_uxp",
   "preflight_production_storage_uxp",
+  "inspect_premiere_environment_uxp",
   "get_uxp_workspace_access",
 ] as const;
 
@@ -169,6 +170,7 @@ describe("stable UXP workflow MCP catalog", () => {
     await tools.preflight_production_storage_uxp.handler({
       action: "configure_project", folder_types: ["capture", "auto_save"], destination: "same_as_project", operation_id: "scratch-1",
     });
+    await tools.inspect_premiere_environment_uxp.handler();
     await tools.get_uxp_workspace_access.handler();
 
     expect(request).toHaveBeenNthCalledWith(1, "effects.chain.add", {
@@ -193,7 +195,8 @@ describe("stable UXP workflow MCP catalog", () => {
     expect(request).toHaveBeenNthCalledWith(9, "scratch.configure", {
       folderTypes: ["capture", "autoSave"], destination: "sameAsProject", operationId: "scratch-1",
     });
-    expect(request).toHaveBeenNthCalledWith(10, "workspace.status", {});
+    expect(request).toHaveBeenNthCalledWith(10, "environment.inspect", {});
+    expect(request).toHaveBeenNthCalledWith(11, "workspace.status", {});
   });
 
   it("rejects unsupported dispatcher actions before bridge access", async () => {
