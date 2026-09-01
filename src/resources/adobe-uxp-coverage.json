@@ -225,6 +225,33 @@
       "verificationBoundary": "created_project_item_guid"
     },
     {
+      "id": "single-source-silence-stringout",
+      "adobeApi": [
+        "ClipProjectItem.createSubClipAction",
+        "Project.createSequenceFromMedia",
+        "SequenceEditor.createInsertProjectItemAction"
+      ],
+      "documentationUrls": [
+        "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/clipprojectitem/",
+        "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/project/",
+        "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/sequenceeditor/"
+      ],
+      "minimumPremiereVersion": "26.3.0",
+      "backend": "uxp",
+      "uxpCommand": "silence.deriveSequence",
+      "mcpTools": [
+        "create_silence_cut_source_stringout_uxp"
+      ],
+      "availability": "current",
+      "implementationStatus": "implemented",
+      "verificationStatus": "committed_unverified",
+      "liveHostVerificationStatus": "not_run",
+      "mutatesProject": true,
+      "undoable": false,
+      "idempotency": "operation_id",
+      "verificationBoundary": "derived_sequence_structure_unverified"
+    },
+    {
       "id": "marker-list-with-guid",
       "adobeApi": [
         "Marker.guid",

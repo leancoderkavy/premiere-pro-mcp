@@ -11,8 +11,8 @@ descriptions, action enums, authority visibility, and counts stay aligned with t
 | Registered core actions | 327 | CEP/local server catalog; host and authority checks still apply |
 | Default-profile core actions | 325 | Advertised with `inspect,edit,export,filesystem` |
 | Restricted core actions | 2 | Require explicit `unsafe-script` authority |
-| Authenticated UXP additions | 57 | Advertised only while a compatible authenticated UXP panel is connected |
-| Default profile with UXP | 382 | 325 core plus 57 UXP tools |
+| Authenticated UXP additions | 58 | Advertised only while a compatible authenticated UXP panel is connected |
+| Default profile with UXP | 383 | 325 core plus 58 UXP tools |
 
 ## How to read support
 
@@ -377,6 +377,7 @@ authenticated and the connected host advertises the required command capabilitie
 | `batch_selected_clips_uxp` | Connected UXP | `inspect`, `add_effect`, `remove_effect` | Inspect the current timeline selection or apply one native effect add/remove across up to 64 same-type selected clips as a single compound transaction. |
 | `configure_encoder_uxp` | Connected UXP | Single operation | Launch or configure Adobe Media Encoder and optionally start its queued batch using Premiere 26.3+. |
 | `create_sequence_with_preset_uxp` | Connected UXP | Single operation | Create and verify a sequence from a preset path using the documented Premiere 26.3+ UXP API. |
+| `create_silence_cut_source_stringout_uxp` | Connected UXP | Single operation | Create a new single-source rough-cut stringout from reviewed silence ranges using documented Premiere 26.3+ hard-bounded linked A/V subclips. It does not preserve or modify an existing edited timeline. |
 | `create_subclip_uxp` | Connected UXP | Single operation | Create and verify a Premiere 26.3+ subclip in an undoable transaction. Prefer project_item_id; a name must resolve to exactly one media clip. |
 | `detect_object_masks_uxp` | Connected UXP | `scope`: `sequence`, `project` | Detect whether the active project or sequence contains an Object Mask using Premiere 26.3+. |
 | `detect_scene_edits_uxp` | Connected UXP | `mode`: `apply_cuts`, `create_markers`, `create_subclips` | Run Premiere's documented scene-edit detection on the current timeline selection using cuts, markers, or subclips. This direct host mutation is not claimed undoable. |

@@ -382,6 +382,7 @@ export function buildPlatformCapabilityReport(
           "timeline.mogrtLibrary",
           "sequences.inspect",
           "sequences.createFromMedia",
+          "silence.deriveSequence",
           "sequences.clone",
           "sequences.subsequence",
           "sequences.activate",
