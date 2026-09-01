@@ -20,7 +20,9 @@ const requiredFiles = [
   "package/uxp-plugin/manifest.json",
   "package/docs/supported-actions.md",
   "package/docs/premiere-surface-registry.md",
+  "package/docs/uxp-js-api-inventory.md",
   "package/dist/resources/premiere-surface-registry.json",
+  "package/dist/resources/uxp-js-api-inventory.json",
   "package/scripts/install-cep.ps1",
   "package/scripts/install-cep.sh",
 ];

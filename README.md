@@ -562,9 +562,10 @@ validation boundary.
 The [Premiere surface registry](docs/premiere-surface-registry.md) separately
 tracks the Premiere DOM, general UXP JavaScript, HTML/CSS, Spectrum, plugin
 guides, UXP Hybrid C++, the standalone Premiere C++ PrSDK, CEP/ExtendScript,
-the CEP platform, QE, and pinned competitor sources. This
-keeps complete DOM declaration inventory distinct from incomplete platform and
-runtime coverage.
+the CEP platform, QE, and pinned competitor sources. The exhaustive
+[general UXP JavaScript inventory](docs/uxp-js-api-inventory.md) is generated
+from Adobe's pinned declarations. This keeps declaration inventory distinct
+from implementation and licensed-host coverage.
 
 The stable workflow expansion adds native component-chain effects, deterministic
 timeline selection, compound selection batches, scene-edit detection, proxy/ingest control, guarded offline
