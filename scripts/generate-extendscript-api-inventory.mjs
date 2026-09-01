@@ -23,13 +23,29 @@ function parsePage(path, source) {
   if (!title || !/ object$/i.test(title)) return [];
   const objectName = title.replace(/ object$/i, "");
   let section = null;
+  let sectionHasHeadings = false;
   const symbols = [];
   for (let index = 0; index < lines.length; index += 1) {
     const line = lines[index];
-    if (line === "## Attributes") section = "attribute";
-    else if (line === "## Methods") section = "method";
+    if (line === "## Attributes") { section = "attribute"; sectionHasHeadings = false; }
+    else if (line === "## Methods") { section = "method"; sectionHasHeadings = false; }
     else if (line.startsWith("## ")) section = null;
+    if (section && !sectionHasHeadings) {
+      const tableMember = line.match(/^\|\s*`([^`]+)`\s*\|/);
+      if (tableMember) {
+        const member = tableMember[1];
+        symbols.push({
+          object: objectName,
+          name: `${objectName}.${member}`,
+          kind: section,
+          signature: member,
+          sourcePath: path,
+        });
+        continue;
+      }
+    }
     if (!section || !line.startsWith("### ")) continue;
+    sectionHasHeadings = true;
     const name = line.slice(4).trim();
     const signatureLine = lines.slice(index + 1).find((candidate) => candidate.trim() !== "");
     const match = signatureLine?.match(/^`([^`]+)`$/);

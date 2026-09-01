@@ -65,6 +65,19 @@ describe("Premiere ExtendScript API inventory", () => {
     }
   });
 
+  it("parses table-defined collection members without treating parameter tables as APIs", () => {
+    const fixture = runFixture("# Collection object\n\n## Attributes\n\n| Attribute | Type |\n| --- | --- |\n| `length` | Integer |\n\n## Methods\n\n| Method | Return Type |\n| --- | --- |\n| `[]` | Object |\n");
+    try {
+      expect(fixture.result.status).toBe(0);
+      expect(JSON.parse(readFileSync(fixture.outputPath, "utf8")).symbols).toEqual([
+        expect.objectContaining({ name: "Collection.length", kind: "attribute", signature: "length" }),
+        expect.objectContaining({ name: "Collection.[]", kind: "method", signature: "[]" }),
+      ]);
+    } finally {
+      rmSync(fixture.directory, { recursive: true, force: true });
+    }
+  });
+
   it.each([
     ["missing signature", "# Example object\n\n## Methods\n\n### Example.run()\n\nNo signature\n", "Missing inline signature"],
     ["duplicate member", "# Example object\n\n## Methods\n\n### Example.run()\n\n`app.run()`\n\n### Example.run()\n\n`app.run()`\n", "duplicate object members"],

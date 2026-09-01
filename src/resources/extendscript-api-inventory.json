@@ -7,15 +7,16 @@
     "authorityNote": "Community-maintained guide; not Adobe API authority."
   },
   "stats": {
-    "total": 326,
-    "objects": 25,
-    "attributes": 107,
-    "methods": 219
+    "total": 328,
+    "objects": 26,
+    "attributes": 108,
+    "methods": 220
   },
   "objects": [
     "Anywhere",
     "Application",
     "AudioChannelMapping",
+    "Collection",
     "Component",
     "ComponentCollection",
     "ComponentParam",
@@ -389,6 +390,20 @@
       "kind": "method",
       "signature": "app.project.rootItem.children[index].setMappingForChannel(channelIndex, sourceChannelIndex)",
       "sourcePath": "docs/other/audiochannelmapping.md"
+    },
+    {
+      "object": "Collection",
+      "name": "Collection.length",
+      "kind": "attribute",
+      "signature": "length",
+      "sourcePath": "docs/collection/collection.md"
+    },
+    {
+      "object": "Collection",
+      "name": "Collection.[]",
+      "kind": "method",
+      "signature": "[]",
+      "sourcePath": "docs/collection/collection.md"
     },
     {
       "object": "Component",
