@@ -6,7 +6,7 @@ import { describe, expect, it } from "vitest";
 
 const inventory = JSON.parse(readFileSync("src/resources/extendscript-api-inventory.json", "utf8"));
 
-function runFixture(markdown: string) {
+function runFixture(markdown: string, referenceOverrides: Record<string, string> = {}) {
   const directory = mkdtempSync(join(tmpdir(), "extendscript-api-inventory-"));
   const sourcePath = "docs/example/example.md";
   const fixturePath = join(directory, sourcePath);
@@ -14,7 +14,11 @@ function runFixture(markdown: string) {
   writeFileSync(fixturePath, markdown);
   const referencePath = join(directory, "reference.json");
   writeFileSync(referencePath, JSON.stringify({ entries: [{
-    repository: "docsforadobe/premiere-scripting-guide", path: sourcePath,
+    repository: "docsforadobe/premiere-scripting-guide",
+    commit: "4253cea094e84d43590b77012b33bd1c140f72ea",
+    scope: "premiere-extendscript-guide",
+    path: sourcePath,
+    ...referenceOverrides,
   }] }));
   const outputPath = join(directory, "output.json");
   const result = spawnSync(process.execPath, ["scripts/generate-extendscript-api-inventory.mjs"], {
@@ -87,6 +91,19 @@ describe("Premiere ExtendScript API inventory", () => {
     try {
       expect(fixture.result.status).not.toBe(0);
       expect(fixture.result.stderr).toContain(expectedError);
+    } finally {
+      rmSync(fixture.directory, { recursive: true, force: true });
+    }
+  });
+
+  it.each([
+    ["commit", { commit: "0".repeat(40) }],
+    ["scope", { scope: "wrong-scope" }],
+  ])("fails closed for mismatched reference %s", (_label, overrides) => {
+    const fixture = runFixture("# Example object\n\n## Attributes\n\n### Example.value\n\n`app.value`\n", overrides);
+    try {
+      expect(fixture.result.status).not.toBe(0);
+      expect(fixture.result.stderr).toContain("do not match the pinned commit and scope");
     } finally {
       rmSync(fixture.directory, { recursive: true, force: true });
     }

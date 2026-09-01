@@ -56,8 +56,16 @@ function parsePage(path, source) {
 }
 
 const reference = JSON.parse(await readFile(referencePath, "utf8"));
+const guideEntries = reference.entries.filter((entry) => entry.repository === repository);
+if (guideEntries.some((entry) => entry.commit !== commit || entry.scope !== "premiere-extendscript-guide")) {
+  throw new Error("Scripting guide reference entries do not match the pinned commit and scope");
+}
 const paths = reference.entries
-  .filter((entry) => entry.repository === repository && entry.path.startsWith("docs/") && entry.path.endsWith(".md"))
+  .filter((entry) => entry.repository === repository
+    && entry.commit === commit
+    && entry.scope === "premiere-extendscript-guide"
+    && entry.path.startsWith("docs/")
+    && entry.path.endsWith(".md"))
   .map((entry) => entry.path)
   .sort();
 if (paths.length === 0) throw new Error("Pinned CEP reference inventory contains no scripting guide Markdown files");
