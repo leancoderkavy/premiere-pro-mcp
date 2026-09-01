@@ -8,11 +8,11 @@ descriptions, action enums, authority visibility, and counts stay aligned with t
 
 | Surface | Count | Availability |
 | --- | ---: | --- |
-| Registered core actions | 322 | CEP/local server catalog; host and authority checks still apply |
-| Default-profile core actions | 320 | Advertised with `inspect,edit,export,filesystem` |
+| Registered core actions | 323 | CEP/local server catalog; host and authority checks still apply |
+| Default-profile core actions | 321 | Advertised with `inspect,edit,export,filesystem` |
 | Restricted core actions | 2 | Require explicit `unsafe-script` authority |
 | Authenticated UXP additions | 55 | Advertised only while a compatible authenticated UXP panel is connected |
-| Default profile with UXP | 375 | 320 core plus 55 UXP tools |
+| Default profile with UXP | 376 | 321 core plus 55 UXP tools |
 
 ## How to read support
 
@@ -207,6 +207,7 @@ operation” when the tool has no enum-based mode.
 | `inspect_project_recovery` | Default profile | Single operation | Read-only recovery inspection: diagnose the active project path and list adjacent Premiere Auto-Save project candidates without opening, copying, or restoring anything. |
 | `inspect_sequence_av_settings` | Default profile | Single operation | Inspect documented audio, tone-mapping, linear-compositing, bit-depth, render-quality, and display settings for the active sequence. |
 | `inspect_sequence_review_report` | Default profile | Single operation | Build one read-only sequence handoff report with timeline structure, primary-track gaps, disabled clips, muted tracks, marker timing, and offline-source evidence. Media paths are never returned; marker comments require an explicit opt-in. It does not prove rendered pixels, audio quality, caption correctness, rights, or editorial approval. |
+| `inspect_stabilizer_status` | Default profile | Single operation | Read Warp Stabilizer presence, exposed status properties, and conservative analysis state for one clip or every video clip in the active sequence. Read-only: unknown or localized host values remain unknown rather than being reported as solved. |
 | `invert_selection` | Default profile | Single operation | Invert the current clip selection in the active sequence (selected become deselected and vice versa). |
 | `is_work_area_enabled` | Default profile | Single operation | Check whether the work area bar is enabled on the active sequence |
 | `lift_selection` | Default profile | Single operation | Lift (remove without closing gap) the content between sequence in/out points or selected clips. |

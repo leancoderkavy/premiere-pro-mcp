@@ -440,6 +440,92 @@ export function getEffectsTools(bridgeOptions: BridgeOptions) {
       },
     },
 
+    inspect_stabilizer_status: {
+      description: "Read Warp Stabilizer presence, exposed status properties, and conservative analysis state for one clip or every video clip in the active sequence. Read-only: unknown or localized host values remain unknown rather than being reported as solved.",
+      parameters: {
+        type: "object" as const,
+        additionalProperties: false,
+        properties: {
+          node_id: { type: "string", description: "Optional clip node ID. Omit to inspect every video clip in the active sequence." },
+        },
+      },
+      handler: async (args: { node_id?: string }) => {
+        const nodeId = args.node_id ? escapeForExtendScript(args.node_id) : "";
+        const script = buildToolScript(`
+          var seq = app.project.activeSequence;
+          if (!seq) return __error("No active sequence");
+          var requestedNodeId = "${nodeId}";
+          var clips = [];
+          if (requestedNodeId) {
+            var found = __findClip(requestedNodeId);
+            if (!found || found.trackType !== "video") return __error("Video clip not found: " + requestedNodeId);
+            clips.push({ clip: found.clip, trackIndex: found.trackIndex, clipIndex: found.clipIndex });
+          } else {
+            for (var trackIndex = 0; trackIndex < seq.videoTracks.numTracks; trackIndex++) {
+              var track = seq.videoTracks[trackIndex];
+              for (var clipIndex = 0; clipIndex < track.clips.numItems; clipIndex++) {
+                clips.push({ clip: track.clips[clipIndex], trackIndex: trackIndex, clipIndex: clipIndex });
+              }
+            }
+          }
+          function primitiveValue(value) {
+            if (value === null || typeof value === "number" || typeof value === "string" || typeof value === "boolean") return value;
+            return String(value);
+          }
+          var results = [];
+          for (var clipCursor = 0; clipCursor < clips.length; clipCursor++) {
+            var entry = clips[clipCursor];
+            var stabilizer = null;
+            for (var componentIndex = 0; componentIndex < entry.clip.components.numItems; componentIndex++) {
+              var component = entry.clip.components[componentIndex];
+              var componentName = String(component.displayName || "");
+              var matchName = String(component.matchName || "");
+              var identity = (componentName + " " + matchName).toLowerCase();
+              if (identity.indexOf("warp stabilizer") >= 0 || identity.indexOf("warp stabiliser") >= 0) {
+                stabilizer = component;
+                break;
+              }
+            }
+            if (!stabilizer) continue;
+            var properties = [];
+            var stateEvidence = [];
+            for (var propertyIndex = 0; propertyIndex < stabilizer.properties.numItems; propertyIndex++) {
+              var property = stabilizer.properties[propertyIndex];
+              var propertyName = String(property.displayName || "");
+              var propertyValue = null;
+              var readable = true;
+              try { propertyValue = primitiveValue(property.getValue()); } catch (readError) { readable = false; }
+              properties.push({ name: propertyName, value: propertyValue, readable: readable });
+              var stateName = propertyName.toLowerCase();
+              if (stateName.indexOf("status") >= 0 || stateName.indexOf("result") >= 0 || stateName.indexOf("analy") >= 0) {
+                stateEvidence.push({ name: propertyName, value: propertyValue, readable: readable });
+              }
+            }
+            var analysisStatus = "unknown";
+            for (var evidenceIndex = 0; evidenceIndex < stateEvidence.length; evidenceIndex++) {
+              var text = String(stateEvidence[evidenceIndex].value).toLowerCase();
+              if (text.indexOf("not analy") >= 0 || text.indexOf("unanaly") >= 0) analysisStatus = "not_analyzed";
+              else if (text.indexOf("analyzing") >= 0 || text.indexOf("analysing") >= 0 || text.indexOf("progress") >= 0) analysisStatus = "analyzing";
+              else if (text.indexOf("stabilized") >= 0 || text.indexOf("stabilised") >= 0 || text.indexOf("complete") >= 0 || text.indexOf("solved") >= 0) analysisStatus = "analyzed";
+            }
+            results.push({
+              nodeId: String(entry.clip.nodeId), clipName: String(entry.clip.name),
+              trackIndex: entry.trackIndex, clipIndex: entry.clipIndex,
+              componentName: String(stabilizer.displayName || "Warp Stabilizer"),
+              analysisStatus: analysisStatus, stateEvidence: stateEvidence, properties: properties
+            });
+          }
+          return __result({
+            inspectedClipCount: clips.length,
+            stabilizerClipCount: results.length,
+            clips: results,
+            verificationScope: "Read-only host property inspection. analysisStatus is conservative and remains unknown when Premiere exposes numeric, localized, absent, or unreadable state values; unknown is not proof of a completed solve."
+          });
+        `);
+        return sendCommand(script, bridgeOptions);
+      },
+    },
+
     stabilize_clip: {
       description: "Apply the Warp Stabilizer effect to a clip for video stabilization. Uses QE DOM.",
       parameters: {
