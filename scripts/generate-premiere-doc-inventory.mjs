@@ -31,6 +31,12 @@ function classify(url) {
   return "premiere-uxp-supporting-docs";
 }
 
+function isCalendarDate(value) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const parsed = new Date(`${value}T00:00:00.000Z`);
+  return !Number.isNaN(parsed.valueOf()) && parsed.toISOString().slice(0, 10) === value;
+}
+
 const sitemap = await loadSitemap();
 const urlBlocks = [...sitemap.matchAll(/<url>\s*([\s\S]*?)\s*<\/url>/g)].map((match) => match[1]);
 if (urlBlocks.length === 0) throw new Error("Adobe sitemap contained no URL entries");
@@ -41,7 +47,7 @@ for (const block of urlBlocks) {
   const url = decodeXml(location);
   if (!url.startsWith("https://developer.adobe.com/premiere-pro/uxp/")) continue;
   const lastModified = block.match(/<lastmod>([\s\S]*?)<\/lastmod>/)?.[1]?.trim() ?? null;
-  if (lastModified !== null && !/^\d{4}-\d{2}-\d{2}$/.test(lastModified)) {
+  if (lastModified !== null && !isCalendarDate(lastModified)) {
     throw new Error(`Invalid Adobe sitemap lastmod for ${url}: ${lastModified}`);
   }
   pages.push({ url, surface: classify(url), lastModified });

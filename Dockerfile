@@ -10,6 +10,8 @@ COPY tsconfig.json ./
 COPY src/ ./src/
 COPY scripts/copy-adobe-uxp-coverage.mjs ./scripts/copy-adobe-uxp-coverage.mjs
 COPY scripts/generate-adobe-api-inventory.mjs ./scripts/generate-adobe-api-inventory.mjs
+COPY scripts/generate-uxp-js-api-inventory.mjs ./scripts/generate-uxp-js-api-inventory.mjs
+COPY scripts/generate-premiere-doc-inventory.mjs ./scripts/generate-premiere-doc-inventory.mjs
 
 RUN npm run build
 

@@ -32,6 +32,7 @@ describe("Adobe Premiere UXP documentation inventory", () => {
     ["empty", "<urlset></urlset>", "no URL entries"],
     ["missing location", "<urlset><url><lastmod>2026-09-01</lastmod></url></urlset>", "no location"],
     ["bad date", "<urlset><url><loc>https://developer.adobe.com/premiere-pro/uxp/plugins/</loc><lastmod>today</lastmod></url></urlset>", "Invalid Adobe sitemap lastmod"],
+    ["impossible date", "<urlset><url><loc>https://developer.adobe.com/premiere-pro/uxp/plugins/</loc><lastmod>2026-02-31</lastmod></url></urlset>", "Invalid Adobe sitemap lastmod"],
     ["duplicate", "<urlset><url><loc>https://developer.adobe.com/premiere-pro/uxp/plugins/</loc></url><url><loc>https://developer.adobe.com/premiere-pro/uxp/plugins/</loc></url></urlset>", "duplicate"],
   ])("fails closed for a %s sitemap", (_label, sitemap, expectedError) => {
     const directory = mkdtempSync(join(tmpdir(), "premiere-doc-inventory-"));
