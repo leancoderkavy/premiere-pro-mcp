@@ -559,6 +559,12 @@ coverage matrix](docs/adobe-uxp-26.3-coverage.md) and [the UXP capability
 foundation](docs/uxp-capability-foundation.md) for the command matrix and live-host
 validation boundary.
 
+The [Premiere surface registry](docs/premiere-surface-registry.md) separately
+tracks the Premiere DOM, general UXP JavaScript, HTML/CSS, Spectrum, plugin
+guides, Hybrid C++, CEP/ExtendScript, QE, and pinned competitor sources. This
+keeps complete DOM declaration inventory distinct from incomplete platform and
+runtime coverage.
+
 The stable workflow expansion adds native component-chain effects, deterministic
 timeline selection, compound selection batches, scene-edit detection, proxy/ingest control, guarded offline
 relink, transactional project/XMP metadata, color and footage-conformance
