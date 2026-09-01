@@ -772,6 +772,16 @@ describe("stable Premiere UXP workflow expansion", () => {
     Reflect.deleteProperty(value.ppro.Utils, "isAEInstalled");
     const capabilities = await value.registry.capabilities();
     expect(capabilities.commands["environment.inspect"]).toMatchObject({ supported: false });
+
+    const missingColorApi = stableHost();
+    missingColorApi.project.getColorSettings.mockResolvedValueOnce({});
+    const withoutColorApi = await missingColorApi.registry.capabilities();
+    expect(withoutColorApi.commands["environment.inspect"]).toMatchObject({ supported: false });
+
+    const noActiveProject = stableHost();
+    noActiveProject.ppro.Project.getActiveProject.mockResolvedValue(null);
+    const withoutProject = await noActiveProject.registry.capabilities();
+    expect(withoutProject.commands["environment.inspect"]).toMatchObject({ supported: true });
   });
 
   it("rejects metadata whose combined serialized UTF-8 result exceeds the frame budget", async () => {

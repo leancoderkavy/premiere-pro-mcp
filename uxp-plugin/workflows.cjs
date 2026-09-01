@@ -1165,8 +1165,16 @@
     function canUseIngest() { return canInspectProject() && !!(ppro.ProjectSettings && typeof ppro.ProjectSettings.getIngestSettings === "function" && typeof ppro.ProjectSettings.createSetIngestSettingsAction === "function"); }
     function canUseMetadata() { return canUseClipItems() && !!(ppro.Metadata && typeof ppro.Metadata.getProjectMetadata === "function" && typeof ppro.Metadata.getXMPMetadata === "function" && typeof ppro.Metadata.createSetProjectMetadataAction === "function" && typeof ppro.Metadata.createSetXMPMetadataAction === "function"); }
     function canInspectColor() { return canUseClipItems(); }
-    function canInspectEnvironment() {
-      return canInspectProject() && !!(ppro.Utils && typeof ppro.Utils.isAEInstalled === "function");
+    async function canInspectEnvironment() {
+      if (!canInspectProject() || !ppro.Utils || typeof ppro.Utils.isAEInstalled !== "function") return false;
+      try {
+        const project = await ppro.Project.getActiveProject();
+        if (!project) return true;
+        if (typeof project.getColorSettings !== "function") return false;
+        const settings = await project.getColorSettings();
+        return !!settings && typeof settings.getGraphicsWhiteLuminance === "function" &&
+          typeof settings.getSupportedGraphicsWhiteLuminances === "function";
+      } catch (_) { return false; }
     }
     function canConformFootage() { return canUseClipItems(); }
     function canInspectSourceMonitor() {
