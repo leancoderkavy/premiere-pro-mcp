@@ -103,7 +103,7 @@ const rendered = `${JSON.stringify(inventory, null, 2)}\n`;
 if (check) {
   let current = "";
   try { current = await readFile(outputPath, "utf8"); } catch {}
-  if (current !== rendered) {
+  if (current.replaceAll("\r\n", "\n") !== rendered) {
     console.error("Adobe API inventory is stale. Run npm run adobe:api-inventory.");
     process.exitCode = 1;
   } else {
