@@ -16,12 +16,8 @@ async function loadSitemap() {
 }
 
 function decodeXml(value) {
-  return value
-    .replaceAll("&amp;", "&")
-    .replaceAll("&lt;", "<")
-    .replaceAll("&gt;", ">")
-    .replaceAll("&quot;", '"')
-    .replaceAll("&apos;", "'");
+  const entities = { amp: "&", lt: "<", gt: ">", quot: '"', apos: "'" };
+  return value.replace(/&(amp|lt|gt|quot|apos);/g, (_match, entity) => entities[entity]);
 }
 
 function classify(url) {

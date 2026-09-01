@@ -48,4 +48,20 @@ describe("Adobe Premiere UXP documentation inventory", () => {
       rmSync(directory, { recursive: true, force: true });
     }
   });
+
+  it("decodes XML entities once without double-unescaping nested text", () => {
+    const directory = mkdtempSync(join(tmpdir(), "premiere-doc-inventory-"));
+    const fixture = join(directory, "sitemap.xml");
+    const nestedEntityUrl = "https://developer.adobe.com/premiere-pro/uxp/plugins/?value=&amp;amp;";
+    writeFileSync(fixture, `<urlset><url><loc>${nestedEntityUrl}</loc></url></urlset>`);
+    try {
+      const result = spawnSync(process.execPath, ["scripts/generate-premiere-doc-inventory.mjs", "--validate-only"], {
+        encoding: "utf8",
+        env: { ...process.env, PREMIERE_DOC_SITEMAP_PATH: fixture },
+      });
+      expect(result.status).toBe(0);
+    } finally {
+      rmSync(directory, { recursive: true, force: true });
+    }
+  });
 });
