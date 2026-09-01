@@ -121,7 +121,7 @@ describe("modern MCP surface", () => {
       // unsafe-script, so the two scripting tools are not advertised.
       expect(tools.tools.map((tool) => tool.name)).not.toContain("execute_extendscript");
       expect(tools.tools.map((tool) => tool.name)).not.toContain("evaluate_expression");
-      expect(tools.tools).toHaveLength(320);
+      expect(tools.tools).toHaveLength(321);
       const capabilityTool = tools.tools.find((tool) => tool.name === "get_capabilities");
       expect(capabilityTool?.outputSchema).toMatchObject({
         type: "object",
@@ -188,7 +188,7 @@ describe("modern MCP surface", () => {
       ]));
       expect(names).not.toContain("create_bin");
       // Essential is a 13-tool focused path (including the two always-visible
-      // diagnostics), versus 320 tools in the default full catalog.
+      // diagnostics), versus 321 tools in the default full catalog.
       expect(names).toHaveLength(13);
 
       const capabilities = await client.callTool({
