@@ -5,6 +5,7 @@ type Surface = {
   id: string;
   kind: string;
   authorityUrls: string[];
+  communityReferenceUrls?: string[];
   versionSource: string;
   inventoryArtifact: string | null;
   inventoryState: string;
@@ -64,6 +65,7 @@ describe("Premiere API and competitor surface registry", () => {
         expect(surface.authorityUrls.length).toBeGreaterThan(0);
         for (const url of surface.authorityUrls) expect(url).toMatch(/^https:\/\//);
       }
+      for (const url of surface.communityReferenceUrls ?? []) expect(url).toMatch(/^https:\/\//);
       expect(surface.versionSource.length).toBeGreaterThan(0);
       expect(surface.notes.length).toBeGreaterThan(20);
       expect(inventoryStates.has(surface.inventoryState)).toBe(true);
@@ -74,6 +76,11 @@ describe("Premiere API and competitor surface registry", () => {
     }
     expect(registry.integrationSurfaces.find((surface) => surface.id === "premiere-dom"))
       .toMatchObject({ inventoryState: "complete", implementationState: "partial" });
+    expect(registry.integrationSurfaces.find((surface) => surface.id === "cep-extendscript"))
+      .toMatchObject({
+        authorityUrls: ["https://github.com/Adobe-CEP/Samples/tree/master/PProPanel"],
+        communityReferenceUrls: ["https://ppro-scripting.docsforadobe.dev/"],
+      });
     expect(registry.integrationSurfaces.filter((surface) => surface.inventoryState === "complete"))
       .toHaveLength(1);
   });

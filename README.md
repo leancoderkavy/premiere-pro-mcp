@@ -561,7 +561,8 @@ validation boundary.
 
 The [Premiere surface registry](docs/premiere-surface-registry.md) separately
 tracks the Premiere DOM, general UXP JavaScript, HTML/CSS, Spectrum, plugin
-guides, Hybrid C++, CEP/ExtendScript, QE, and pinned competitor sources. This
+guides, UXP Hybrid C++, the standalone Premiere C++ PrSDK, CEP/ExtendScript,
+the CEP platform, QE, and pinned competitor sources. This
 keeps complete DOM declaration inventory distinct from incomplete platform and
 runtime coverage.
 

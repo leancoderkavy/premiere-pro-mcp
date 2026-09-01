@@ -89,12 +89,13 @@
     {
       "id": "cep-extendscript",
       "kind": "legacy_api",
-      "authorityUrls": ["https://ppro-scripting.docsforadobe.dev/"],
+      "authorityUrls": ["https://github.com/Adobe-CEP/Samples/tree/master/PProPanel"],
+      "communityReferenceUrls": ["https://ppro-scripting.docsforadobe.dev/"],
       "versionSource": "Premiere Pro Scripting Guide and bundled host DOM",
       "inventoryArtifact": "dist/resources/extendscript-reference.js",
       "inventoryState": "partial",
       "implementationState": "partial",
-      "notes": "The current reference is curated rather than generated from a versioned complete symbol source."
+      "notes": "The current reference is curated rather than generated from a versioned complete symbol source. The Docs for Adobe scripting guide is recorded as a community reference, not Adobe authority."
     },
     {
       "id": "cep-platform",
