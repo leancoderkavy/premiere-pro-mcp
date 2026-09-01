@@ -98,6 +98,13 @@ describe("delivery conformance comparisons", () => {
     });
     expect(checks.find(check => check.id === "maximum_video_bitrate")?.status).toBe("not_evaluated");
     expect(checks.filter(check => !check.id.includes("video_bitrate")).every(check => check.status === "fail")).toBe(true);
+
+    const missingBitrate = evaluateDeliveryConformance({ format: {}, streams: [{ codec_type: "video", bit_rate: "N/A" }] }, {
+      minimumVideoBitrateKbps: 1000,
+    });
+    expect(missingBitrate.find(check => check.id === "minimum_video_bitrate")).toMatchObject({
+      status: "not_evaluated", detail: "Video bitrate metadata was unavailable",
+    });
   });
 });
 

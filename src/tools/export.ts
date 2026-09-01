@@ -119,7 +119,7 @@ export function evaluateDeliveryConformance(
   if (contract.frameRate !== undefined) numeric("frame_rate", contract.frameRate, parseRationalRate(video?.avg_frame_rate) ?? parseRationalRate(video?.r_frame_rate), contract.frameRateTolerance ?? 0.001);
   if (contract.durationSeconds !== undefined) numeric("duration", contract.durationSeconds, format.duration, contract.durationToleranceSeconds ?? 0.05);
   const bitrate = video ? finiteNumber(video.bit_rate) ?? finiteNumber(format.bit_rate) : null;
-  const bitrateUnavailable = video ? undefined : "No video stream was available for video bitrate evaluation";
+  const bitrateUnavailable = !video ? "No video stream was available for video bitrate evaluation" : bitrate === null ? "Video bitrate metadata was unavailable" : undefined;
   if (contract.minimumVideoBitrateKbps !== undefined) checks.push({ id: "minimum_video_bitrate", status: bitrateUnavailable ? "not_evaluated" : bitrate !== null && bitrate / 1000 >= contract.minimumVideoBitrateKbps ? "pass" : "fail", expected: contract.minimumVideoBitrateKbps, actual: bitrate === null ? null : bitrate / 1000, detail: bitrateUnavailable });
   if (contract.maximumVideoBitrateKbps !== undefined) checks.push({ id: "maximum_video_bitrate", status: bitrateUnavailable ? "not_evaluated" : bitrate !== null && bitrate / 1000 <= contract.maximumVideoBitrateKbps ? "pass" : "fail", expected: contract.maximumVideoBitrateKbps, actual: bitrate === null ? null : bitrate / 1000, detail: bitrateUnavailable });
   if (contract.audioSampleRateHz !== undefined) numeric("audio_sample_rate", contract.audioSampleRateHz, audio?.sample_rate);
