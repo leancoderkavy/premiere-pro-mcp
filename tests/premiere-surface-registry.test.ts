@@ -49,6 +49,14 @@ describe("Premiere API and competitor surface registry", () => {
     expect(new Set(registry.integrationSurfaces.map((surface) => surface.id)).size)
       .toBe(registry.integrationSurfaces.length);
 
+    const inventoryStates = new Set([
+      "complete",
+      "partial",
+      "not_started",
+      "blocked_external_artifact",
+      "unavailable_authoritative_source",
+    ]);
+    const implementationStates = new Set(["partial", "gated", "not_started", "experimental"]);
     for (const surface of registry.integrationSurfaces) {
       if (surface.kind === "undocumented_api") {
         expect(surface.authorityUrls).toEqual([]);
@@ -58,6 +66,8 @@ describe("Premiere API and competitor surface registry", () => {
       }
       expect(surface.versionSource.length).toBeGreaterThan(0);
       expect(surface.notes.length).toBeGreaterThan(20);
+      expect(inventoryStates.has(surface.inventoryState)).toBe(true);
+      expect(implementationStates.has(surface.implementationState)).toBe(true);
       if (surface.inventoryState === "complete") {
         expect(surface.inventoryArtifact).toBeTruthy();
       }
