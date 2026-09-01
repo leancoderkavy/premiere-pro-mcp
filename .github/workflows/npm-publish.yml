@@ -52,6 +52,7 @@ jobs:
           package-manager-cache: false
       - run: npm install --global npm@latest
       - run: npm ci
+      - run: npm run premiere:docs-inventory:check
       - run: npm run build
       - if: ${{ inputs.skip_tests != 'true' }}
         run: npm test

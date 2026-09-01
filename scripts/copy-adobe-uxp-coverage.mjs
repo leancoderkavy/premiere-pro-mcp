@@ -8,6 +8,7 @@ const resources = [
   "adobe-api-inventory.json",
   "uxp-js-coverage.json",
   "uxp-js-api-inventory.json",
+  "premiere-doc-inventory.json",
   "premiere-surface-registry.json",
 ];
 const targetDirectory = resolve(scriptDirectory, "../dist/resources");

@@ -8,13 +8,18 @@ describe("Docker release build context", () => {
       scripts: Record<string, string>;
     };
 
-    expect(packageJson.scripts.build).toContain("scripts/copy-adobe-uxp-coverage.mjs");
-    expect(dockerfile).toContain(
-      "COPY scripts/copy-adobe-uxp-coverage.mjs ./scripts/copy-adobe-uxp-coverage.mjs",
-    );
-    expect(packageJson.scripts.build).toContain("scripts/generate-adobe-api-inventory.mjs --check");
-    expect(dockerfile).toContain(
-      "COPY scripts/generate-adobe-api-inventory.mjs ./scripts/generate-adobe-api-inventory.mjs",
-    );
+    const buildScripts = [...packageJson.scripts.build.matchAll(/scripts\/[\w-]+\.mjs/g)]
+      .map((match) => match[0]);
+    expect(buildScripts).toEqual([
+      "scripts/generate-adobe-api-inventory.mjs",
+      "scripts/generate-uxp-js-api-inventory.mjs",
+      "scripts/copy-adobe-uxp-coverage.mjs",
+    ]);
+    for (const script of buildScripts) {
+      expect(dockerfile).toContain(`COPY ${script} ./${script}`);
+    }
+    for (const generator of buildScripts.filter((script) => script.includes("/generate-"))) {
+      expect(packageJson.scripts.build).toContain(`${generator} --check`);
+    }
   });
 });

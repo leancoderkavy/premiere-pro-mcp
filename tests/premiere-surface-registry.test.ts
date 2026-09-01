@@ -89,7 +89,7 @@ describe("Premiere API and competitor surface registry", () => {
         communityReferenceUrls: ["https://ppro-scripting.docsforadobe.dev/"],
       });
     expect(registry.integrationSurfaces.filter((surface) => surface.inventoryState === "complete"))
-      .toHaveLength(2);
+      .toHaveLength(6);
   });
 
   it("pins reviewed competitor sources and explicit safe-adoption boundaries", () => {

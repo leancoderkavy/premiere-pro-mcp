@@ -28,8 +28,8 @@
       "kind": "api",
       "authorityUrls": ["https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-html/"],
       "versionSource": "Premiere-bundled UXP runtime",
-      "inventoryArtifact": null,
-      "inventoryState": "not_started",
+      "inventoryArtifact": "dist/resources/premiere-doc-inventory.json",
+      "inventoryState": "complete",
       "implementationState": "partial",
       "notes": "Supported HTML elements and attributes affect the packaged panel, not the MCP command catalog."
     },
@@ -38,8 +38,8 @@
       "kind": "api",
       "authorityUrls": ["https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-css/"],
       "versionSource": "Premiere-bundled UXP runtime",
-      "inventoryArtifact": null,
-      "inventoryState": "not_started",
+      "inventoryArtifact": "dist/resources/premiere-doc-inventory.json",
+      "inventoryState": "complete",
       "implementationState": "partial",
       "notes": "Supported CSS properties and features affect the packaged panel, not the MCP command catalog."
     },
@@ -48,8 +48,8 @@
       "kind": "api",
       "authorityUrls": ["https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-spectrum/"],
       "versionSource": "Premiere-bundled UXP runtime",
-      "inventoryArtifact": null,
-      "inventoryState": "not_started",
+      "inventoryArtifact": "dist/resources/premiere-doc-inventory.json",
+      "inventoryState": "complete",
       "implementationState": "partial",
       "notes": "Spectrum UI coverage is a panel compatibility concern and must not inflate editing-tool coverage."
     },
@@ -58,10 +58,10 @@
       "kind": "documentation",
       "authorityUrls": ["https://developer.adobe.com/premiere-pro/uxp/plugins/"],
       "versionSource": "Adobe documentation",
-      "inventoryArtifact": null,
-      "inventoryState": "not_started",
+      "inventoryArtifact": "dist/resources/premiere-doc-inventory.json",
+      "inventoryState": "complete",
       "implementationState": "partial",
-      "notes": "Manifest, entrypoint, lifecycle, packaging, distribution, and recipe requirements need page-level classification."
+      "notes": "Manifest, entrypoint, lifecycle, packaging, distribution, and recipe pages are classified in the live-sitemap inventory; implementation remains partial."
     },
     {
       "id": "uxp-hybrid-cpp",
