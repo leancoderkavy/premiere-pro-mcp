@@ -13,8 +13,8 @@
   },
   "stats": {
     "total": 976,
-    "mapped": 177,
-    "unmapped": 799,
+    "mapped": 179,
+    "unmapped": 797,
     "manifestOnly": 4
   },
   "manifestOnly": [
@@ -3047,7 +3047,7 @@
     {
       "symbol": "ProjectColorSettings.getSupportedGraphicsWhiteLuminances",
       "kind": "method",
-      "coverage": "unmapped"
+      "coverage": "mapped"
     },
     {
       "symbol": "ProjectConverter",
@@ -4401,7 +4401,7 @@
       "symbol": "Utils.isAEInstalled",
       "kind": "method",
       "declarationSymbol": "UtilsStatic.isAEInstalled",
-      "coverage": "unmapped"
+      "coverage": "mapped"
     },
     {
       "symbol": "UtilsStatic",

@@ -470,6 +470,12 @@ export function getUxpWorkflowTools(bridge: UxpWebSocketBridge) {
       },
     },
 
+    inspect_premiere_environment_uxp: {
+      description: "Inspect After Effects interoperability and the active Premiere project's current and supported graphics-white luminance values through documented read-only UXP APIs.",
+      parameters: {},
+      handler: async () => invoke(bridge, "environment.inspect"),
+    },
+
     get_uxp_workspace_access: {
       description: "Report whether the Premiere panel has an operator-approved persistent workspace folder. The native path and persistent token are never returned.",
       parameters: {},

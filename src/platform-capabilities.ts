@@ -340,6 +340,7 @@ export function buildPlatformCapabilityReport(
           "metadata.get",
           "metadata.update",
           "color.preflight",
+          "environment.inspect",
           "footage.conform",
           "sourceMonitor.state",
           "sourceMonitor.open",

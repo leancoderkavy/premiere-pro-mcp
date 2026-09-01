@@ -606,6 +606,31 @@
       "verificationBoundary": "source_monitor_state_readback"
     },
     {
+      "id": "premiere-environment-preflight",
+      "adobeApi": [
+        "Utils.isAEInstalled",
+        "Project.getColorSettings",
+        "ProjectColorSettings.getGraphicsWhiteLuminance",
+        "ProjectColorSettings.getSupportedGraphicsWhiteLuminances"
+      ],
+      "documentationUrls": [
+        "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/utils/",
+        "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/projectcolorsettings/"
+      ],
+      "minimumPremiereVersion": "25.6.0",
+      "backend": "uxp",
+      "uxpCommand": "environment.inspect",
+      "mcpTools": ["inspect_premiere_environment_uxp"],
+      "availability": "current",
+      "implementationStatus": "implemented",
+      "verificationStatus": "automated_contract_verified",
+      "liveHostVerificationStatus": "not_run",
+      "mutatesProject": false,
+      "undoable": false,
+      "idempotency": "not_applicable",
+      "verificationBoundary": "host_return"
+    },
+    {
       "id": "productions-storage-preflight",
       "adobeApi": [
         "PRProduction.getActiveProduction",
