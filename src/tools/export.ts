@@ -46,14 +46,19 @@ function finiteNumber(value: unknown): number | null {
 }
 
 export function parseRationalRate(value: unknown): number | null {
-  if (typeof value !== "string") return finiteNumber(value);
+  if (typeof value !== "string") {
+    const parsed = finiteNumber(value);
+    return parsed !== null && parsed > 0 ? parsed : null;
+  }
   const parts = value.split("/");
   if (parts.length === 2) {
     const numerator = Number(parts[0]);
     const denominator = Number(parts[1]);
-    return Number.isFinite(numerator) && Number.isFinite(denominator) && denominator !== 0 ? numerator / denominator : null;
+    const parsed = Number.isFinite(numerator) && Number.isFinite(denominator) && denominator !== 0 ? numerator / denominator : null;
+    return parsed !== null && parsed > 0 ? parsed : null;
   }
-  return finiteNumber(value);
+  const parsed = finiteNumber(value);
+  return parsed !== null && parsed > 0 ? parsed : null;
 }
 
 function normalized(value: unknown): string {

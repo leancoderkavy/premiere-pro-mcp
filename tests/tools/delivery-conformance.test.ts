@@ -31,6 +31,8 @@ describe("delivery conformance comparisons", () => {
   it("parses rational frame rates and rejects malformed contracts", () => {
     expect(parseRationalRate("30000/1001")).toBeCloseTo(29.97003, 5);
     expect(parseRationalRate("0/0")).toBeNull();
+    expect(parseRationalRate("0/1")).toBeNull();
+    expect(parseRationalRate(0)).toBeNull();
     expect(validateDeliveryConformanceContract({})).toContain("At least one");
     expect(validateDeliveryConformanceContract({ width: -1 })).toContain("positive integer");
     expect(validateDeliveryConformanceContract({ minimumVideoBitrateKbps: 20, maximumVideoBitrateKbps: 10 })).toContain("cannot exceed");
@@ -53,7 +55,7 @@ describe("delivery conformance comparisons", () => {
   it("falls back from unusable stream metadata and does not fail missing measurements", () => {
     const checks = evaluateDeliveryConformance({
       format: { bit_rate: "12000000" },
-      streams: [{ codec_type: "video", avg_frame_rate: "0/0", r_frame_rate: "24/1", bit_rate: "N/A" }],
+      streams: [{ codec_type: "video", avg_frame_rate: "0/1", r_frame_rate: "24/1", bit_rate: "N/A" }],
     }, {
       frameRate: 24, minimumVideoBitrateKbps: 11000, targetLufs: -23, maximumTruePeakDbfs: -1,
     }, { integratedLufs: -23, truePeakDbfs: null });
