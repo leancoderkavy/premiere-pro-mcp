@@ -1,0 +1,2243 @@
+{
+  "schemaVersion": 1,
+  "source": {
+    "sitemapUrl": "https://developer.adobe.com/sitemap.xml"
+  },
+  "semantics": {
+    "listed": "The page appears in Adobe's live developer sitemap; this inventories documentation and does not prove API implementation or host behavior."
+  },
+  "stats": {
+    "total": 444,
+    "bySurface": {
+      "premiere-dom": 72,
+      "premiere-uxp-supporting-docs": 33,
+      "spectrum-web-components": 27,
+      "uxp-css": 114,
+      "uxp-html": 19,
+      "uxp-javascript": 152,
+      "uxp-plugin-guides": 27
+    }
+  },
+  "pages": [
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/",
+      "surface": "premiere-uxp-supporting-docs",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/changelog/",
+      "surface": "premiere-uxp-supporting-docs",
+      "lastModified": "2026-07-22"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/introduction/",
+      "surface": "premiere-uxp-supporting-docs",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/introduction/essentials/dev-tools/",
+      "surface": "premiere-uxp-supporting-docs",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/introduction/essentials/nomenclature/",
+      "surface": "premiere-uxp-supporting-docs",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/introduction/essentials/tech-stack/",
+      "surface": "premiere-uxp-supporting-docs",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/plugins/",
+      "surface": "uxp-plugin-guides",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/plugins/advanced/",
+      "surface": "uxp-plugin-guides",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/plugins/concepts/",
+      "surface": "uxp-plugin-guides",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/plugins/concepts/entrypoints/",
+      "surface": "uxp-plugin-guides",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/plugins/concepts/manifest/",
+      "surface": "uxp-plugin-guides",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/plugins/concepts/panels-and-commands/",
+      "surface": "uxp-plugin-guides",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/plugins/distribution/adobe-marketplace/",
+      "surface": "uxp-plugin-guides",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/plugins/distribution/enterprise-distribution/",
+      "surface": "uxp-plugin-guides",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/plugins/distribution/independent-distribution/",
+      "surface": "uxp-plugin-guides",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/plugins/distribution/install/",
+      "surface": "uxp-plugin-guides",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/plugins/distribution/listing/",
+      "surface": "uxp-plugin-guides",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/plugins/distribution/overview/",
+      "surface": "uxp-plugin-guides",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/plugins/distribution/package/",
+      "surface": "uxp-plugin-guides",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/plugins/distribution/review-guidelines/",
+      "surface": "uxp-plugin-guides",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/plugins/hybrid-plugins/",
+      "surface": "uxp-plugin-guides",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/plugins/hybrid-plugins/build",
+      "surface": "uxp-plugin-guides",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/plugins/hybrid-plugins/faq",
+      "surface": "uxp-plugin-guides",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/plugins/tutorials/",
+      "surface": "uxp-plugin-guides",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/plugins/tutorials/add-commands/",
+      "surface": "uxp-plugin-guides",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/plugins/tutorials/add-lifecycle-hooks/",
+      "surface": "uxp-plugin-guides",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/plugins/tutorials/add-modal-dialogs/",
+      "surface": "uxp-plugin-guides",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/plugins/tutorials/add-panels/",
+      "surface": "uxp-plugin-guides",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/plugins/tutorials/inter-plugin-comm/",
+      "surface": "uxp-plugin-guides",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/plugins/tutorials/udt-deep-dive/",
+      "surface": "uxp-plugin-guides",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/plugins/tutorials/udt-deep-dive/playground",
+      "surface": "uxp-plugin-guides",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/plugins/tutorials/udt-deep-dive/plugin-management",
+      "surface": "uxp-plugin-guides",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/plugins/tutorials/udt-deep-dive/plugin-workflows",
+      "surface": "uxp-plugin-guides",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/",
+      "surface": "premiere-dom",
+      "lastModified": "2026-07-08"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/",
+      "surface": "premiere-dom",
+      "lastModified": "2026-07-08"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/aafexportoptions",
+      "surface": "premiere-dom",
+      "lastModified": "2026-07-08"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/action",
+      "surface": "premiere-dom",
+      "lastModified": "2026-07-08"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/addtransitionoptions",
+      "surface": "premiere-dom",
+      "lastModified": "2026-07-08"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/application",
+      "surface": "premiere-dom",
+      "lastModified": "2026-07-08"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/apppreference",
+      "surface": "premiere-dom",
+      "lastModified": "2026-07-08"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/audiocliptrackitem",
+      "surface": "premiere-dom",
+      "lastModified": "2026-07-08"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/audiocomponentchain",
+      "surface": "premiere-dom",
+      "lastModified": "2026-07-08"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/audiofiltercomponent",
+      "surface": "premiere-dom",
+      "lastModified": "2026-07-08"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/audiofilterfactory",
+      "surface": "premiere-dom",
+      "lastModified": "2026-07-08"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/audiotrack",
+      "surface": "premiere-dom",
+      "lastModified": "2026-07-08"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/captiontrack",
+      "surface": "premiere-dom",
+      "lastModified": "2026-07-08"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/clipprojectitem",
+      "surface": "premiere-dom",
+      "lastModified": "2026-07-08"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/closeprojectoptions",
+      "surface": "premiere-dom",
+      "lastModified": "2026-07-08"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/color",
+      "surface": "premiere-dom",
+      "lastModified": "2026-07-08"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/component",
+      "surface": "premiere-dom",
+      "lastModified": "2026-07-08"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/componentparam",
+      "surface": "premiere-dom",
+      "lastModified": "2026-07-08"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/compoundaction",
+      "surface": "premiere-dom",
+      "lastModified": "2026-07-08"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/encodermanager",
+      "surface": "premiere-dom",
+      "lastModified": "2026-07-08"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/eventmanager",
+      "surface": "premiere-dom",
+      "lastModified": "2026-07-08"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/exporter",
+      "surface": "premiere-dom",
+      "lastModified": "2026-07-08"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/folderitem",
+      "surface": "premiere-dom",
+      "lastModified": "2026-07-08"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/footageinterpretation",
+      "surface": "premiere-dom",
+      "lastModified": "2026-07-08"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/framerate",
+      "surface": "premiere-dom",
+      "lastModified": "2026-07-08"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/guid",
+      "surface": "premiere-dom",
+      "lastModified": "2026-07-08"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/ingestsettings",
+      "surface": "premiere-dom",
+      "lastModified": "2026-07-08"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/keyframe",
+      "surface": "premiere-dom",
+      "lastModified": "2026-07-08"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/marker",
+      "surface": "premiere-dom",
+      "lastModified": "2026-07-08"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/markers",
+      "surface": "premiere-dom",
+      "lastModified": "2026-07-08"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/media",
+      "surface": "premiere-dom",
+      "lastModified": "2026-07-08"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/metadata",
+      "surface": "premiere-dom",
+      "lastModified": "2026-07-08"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/objectmaskutils",
+      "surface": "premiere-dom",
+      "lastModified": "2026-07-08"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/openprojectoptions",
+      "surface": "premiere-dom",
+      "lastModified": "2026-07-08"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/pointf",
+      "surface": "premiere-dom",
+      "lastModified": "2026-07-08"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/pointkeyframe",
+      "surface": "premiere-dom",
+      "lastModified": "2026-07-08"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/project",
+      "surface": "premiere-dom",
+      "lastModified": "2026-07-22"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/projectcolorsettings",
+      "surface": "premiere-dom",
+      "lastModified": "2026-07-08"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/projectconverter",
+      "surface": "premiere-dom",
+      "lastModified": "2026-07-08"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/projectitem",
+      "surface": "premiere-dom",
+      "lastModified": "2026-07-08"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/projectitemselection",
+      "surface": "premiere-dom",
+      "lastModified": "2026-07-08"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/projectsettings",
+      "surface": "premiere-dom",
+      "lastModified": "2026-07-08"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/projectutils",
+      "surface": "premiere-dom",
+      "lastModified": "2026-07-08"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/properties",
+      "surface": "premiere-dom",
+      "lastModified": "2026-07-08"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/prproduction",
+      "surface": "premiere-dom",
+      "lastModified": "2026-07-08"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/rectf",
+      "surface": "premiere-dom",
+      "lastModified": "2026-07-08"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/scratchdisksettings",
+      "surface": "premiere-dom",
+      "lastModified": "2026-07-08"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/sequence",
+      "surface": "premiere-dom",
+      "lastModified": "2026-07-08"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/sequenceeditor",
+      "surface": "premiere-dom",
+      "lastModified": "2026-07-08"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/sequencesettings",
+      "surface": "premiere-dom",
+      "lastModified": "2026-07-08"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/sequenceutils",
+      "surface": "premiere-dom",
+      "lastModified": "2026-07-08"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/sourcemonitor",
+      "surface": "premiere-dom",
+      "lastModified": "2026-07-08"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/textsegments",
+      "surface": "premiere-dom",
+      "lastModified": "2026-07-08"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/ticktime",
+      "surface": "premiere-dom",
+      "lastModified": "2026-07-08"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/timedisplay",
+      "surface": "premiere-dom",
+      "lastModified": "2026-07-08"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/trackitemselection",
+      "surface": "premiere-dom",
+      "lastModified": "2026-07-08"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/transcript",
+      "surface": "premiere-dom",
+      "lastModified": "2026-07-08"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/transitionfactory",
+      "surface": "premiere-dom",
+      "lastModified": "2026-07-08"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/uniqueserializeable",
+      "surface": "premiere-dom",
+      "lastModified": "2026-07-08"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/utils",
+      "surface": "premiere-dom",
+      "lastModified": "2026-07-08"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/videocliptrackitem",
+      "surface": "premiere-dom",
+      "lastModified": "2026-07-08"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/videocomponentchain",
+      "surface": "premiere-dom",
+      "lastModified": "2026-07-08"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/videofiltercomponent",
+      "surface": "premiere-dom",
+      "lastModified": "2026-07-08"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/videofilterfactory",
+      "surface": "premiere-dom",
+      "lastModified": "2026-07-08"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/videotrack",
+      "surface": "premiere-dom",
+      "lastModified": "2026-07-08"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/videotransition",
+      "surface": "premiere-dom",
+      "lastModified": "2026-07-08"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/constants/",
+      "surface": "premiere-dom",
+      "lastModified": "2026-07-08"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/events/",
+      "surface": "premiere-dom",
+      "lastModified": "2026-07-08"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/events/operationcompleteevent",
+      "surface": "premiere-dom",
+      "lastModified": "2026-07-08"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/events/projectclosedevent",
+      "surface": "premiere-dom",
+      "lastModified": "2026-07-08"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/events/projectevent",
+      "surface": "premiere-dom",
+      "lastModified": "2026-07-08"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/events/snapevent",
+      "surface": "premiere-dom",
+      "lastModified": "2026-07-08"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/resources/",
+      "surface": "premiere-uxp-supporting-docs",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/resources/faq/",
+      "surface": "premiere-uxp-supporting-docs",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/resources/fundamentals/apis/",
+      "surface": "premiere-uxp-supporting-docs",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/resources/fundamentals/dom-apis/",
+      "surface": "premiere-uxp-supporting-docs",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/resources/fundamentals/eslint-support/",
+      "surface": "premiere-uxp-supporting-docs",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/resources/fundamentals/typescript-support/",
+      "surface": "premiere-uxp-supporting-docs",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/resources/fundamentals/user-interfaces/",
+      "surface": "premiere-uxp-supporting-docs",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/resources/migration-guides/",
+      "surface": "premiere-uxp-supporting-docs",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/resources/migration-guides/cep/",
+      "surface": "premiere-uxp-supporting-docs",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/resources/migration-guides/extendscript/",
+      "surface": "premiere-uxp-supporting-docs",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/resources/recipes/",
+      "surface": "premiere-uxp-supporting-docs",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/resources/recipes/clipboard/",
+      "surface": "premiere-uxp-supporting-docs",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/resources/recipes/css-styling/",
+      "surface": "premiere-uxp-supporting-docs",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/resources/recipes/debug/",
+      "surface": "premiere-uxp-supporting-docs",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/resources/recipes/external-process/",
+      "surface": "premiere-uxp-supporting-docs",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/resources/recipes/filesystem-operations/",
+      "surface": "premiere-uxp-supporting-docs",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/resources/recipes/host-info/",
+      "surface": "premiere-uxp-supporting-docs",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/resources/recipes/html-elements/",
+      "surface": "premiere-uxp-supporting-docs",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/resources/recipes/html-events/",
+      "surface": "premiere-uxp-supporting-docs",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/resources/recipes/js-modules/",
+      "surface": "premiere-uxp-supporting-docs",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/resources/recipes/network/",
+      "surface": "premiere-uxp-supporting-docs",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/resources/recipes/recipe-template",
+      "surface": "premiere-uxp-supporting-docs",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/resources/starters-samples/",
+      "surface": "premiere-uxp-supporting-docs",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/",
+      "surface": "premiere-uxp-supporting-docs",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/changelog3-p",
+      "surface": "premiere-uxp-supporting-docs",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/known-issues",
+      "surface": "premiere-uxp-supporting-docs",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-css/",
+      "surface": "uxp-css",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-css/general/",
+      "surface": "uxp-css",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-css/general/calc",
+      "surface": "uxp-css",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-css/general/units",
+      "surface": "uxp-css",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-css/general/variables",
+      "surface": "uxp-css",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-css/media-queries/",
+      "surface": "uxp-css",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-css/media-queries/height",
+      "surface": "uxp-css",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-css/media-queries/prefers-color-scheme",
+      "surface": "uxp-css",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-css/media-queries/width",
+      "surface": "uxp-css",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-css/pseudo-classes/",
+      "surface": "uxp-css",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-css/pseudo-classes/active",
+      "surface": "uxp-css",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-css/pseudo-classes/checked",
+      "surface": "uxp-css",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-css/pseudo-classes/defined",
+      "surface": "uxp-css",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-css/pseudo-classes/disabled",
+      "surface": "uxp-css",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-css/pseudo-classes/empty",
+      "surface": "uxp-css",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-css/pseudo-classes/enabled",
+      "surface": "uxp-css",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-css/pseudo-classes/first-child",
+      "surface": "uxp-css",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-css/pseudo-classes/focus",
+      "surface": "uxp-css",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-css/pseudo-classes/hover",
+      "surface": "uxp-css",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-css/pseudo-classes/last-child",
+      "surface": "uxp-css",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-css/pseudo-classes/nth-child",
+      "surface": "uxp-css",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-css/pseudo-classes/nth-last-child",
+      "surface": "uxp-css",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-css/pseudo-classes/nth-last-of-type",
+      "surface": "uxp-css",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-css/pseudo-classes/nth-of-type",
+      "surface": "uxp-css",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-css/pseudo-classes/only-child",
+      "surface": "uxp-css",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-css/pseudo-classes/root",
+      "surface": "uxp-css",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-css/pseudo-elements/",
+      "surface": "uxp-css",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-css/pseudo-elements/after",
+      "surface": "uxp-css",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-css/pseudo-elements/before",
+      "surface": "uxp-css",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-css/selectors/",
+      "surface": "uxp-css",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-css/selectors/adjacent-sibling-combinator",
+      "surface": "uxp-css",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-css/selectors/attribute-selector",
+      "surface": "uxp-css",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-css/selectors/child-combinator",
+      "surface": "uxp-css",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-css/selectors/class-selector",
+      "surface": "uxp-css",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-css/selectors/descendant-combinator",
+      "surface": "uxp-css",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-css/selectors/general-sibling-combinator",
+      "surface": "uxp-css",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-css/selectors/identifier-selector",
+      "surface": "uxp-css",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-css/selectors/type-selector",
+      "surface": "uxp-css",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-css/selectors/universal-selector",
+      "surface": "uxp-css",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-css/styles/",
+      "surface": "uxp-css",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-css/styles/align-content",
+      "surface": "uxp-css",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-css/styles/align-items",
+      "surface": "uxp-css",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-css/styles/align-self",
+      "surface": "uxp-css",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-css/styles/background",
+      "surface": "uxp-css",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-css/styles/background-attachment",
+      "surface": "uxp-css",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-css/styles/background-color",
+      "surface": "uxp-css",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-css/styles/background-image",
+      "surface": "uxp-css",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-css/styles/background-repeat",
+      "surface": "uxp-css",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-css/styles/background-size",
+      "surface": "uxp-css",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-css/styles/border-bottom",
+      "surface": "uxp-css",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-css/styles/border-bottom-color",
+      "surface": "uxp-css",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-css/styles/border-bottom-left-radius",
+      "surface": "uxp-css",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-css/styles/border-bottom-right-radius",
+      "surface": "uxp-css",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-css/styles/border-bottom-style",
+      "surface": "uxp-css",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-css/styles/border-bottom-width",
+      "surface": "uxp-css",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-css/styles/border-color",
+      "surface": "uxp-css",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-css/styles/border-left",
+      "surface": "uxp-css",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-css/styles/border-left-color",
+      "surface": "uxp-css",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-css/styles/border-left-style",
+      "surface": "uxp-css",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-css/styles/border-left-width",
+      "surface": "uxp-css",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-css/styles/border-radius",
+      "surface": "uxp-css",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-css/styles/border-right",
+      "surface": "uxp-css",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-css/styles/border-right-color",
+      "surface": "uxp-css",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-css/styles/border-right-style",
+      "surface": "uxp-css",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-css/styles/border-right-width",
+      "surface": "uxp-css",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-css/styles/border-style",
+      "surface": "uxp-css",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-css/styles/border-top",
+      "surface": "uxp-css",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-css/styles/border-top-color",
+      "surface": "uxp-css",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-css/styles/border-top-left-radius",
+      "surface": "uxp-css",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-css/styles/border-top-style",
+      "surface": "uxp-css",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-css/styles/border-top-width",
+      "surface": "uxp-css",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-css/styles/border-width",
+      "surface": "uxp-css",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-css/styles/bottom",
+      "surface": "uxp-css",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-css/styles/color",
+      "surface": "uxp-css",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-css/styles/display",
+      "surface": "uxp-css",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-css/styles/flex",
+      "surface": "uxp-css",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-css/styles/flex-basis",
+      "surface": "uxp-css",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-css/styles/flex-direction",
+      "surface": "uxp-css",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-css/styles/flex-grow",
+      "surface": "uxp-css",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-css/styles/flex-shrink",
+      "surface": "uxp-css",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-css/styles/flex-wrap",
+      "surface": "uxp-css",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-css/styles/font-family",
+      "surface": "uxp-css",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-css/styles/font-size",
+      "surface": "uxp-css",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-css/styles/font-style",
+      "surface": "uxp-css",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-css/styles/font-weight",
+      "surface": "uxp-css",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-css/styles/height",
+      "surface": "uxp-css",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-css/styles/justify-content",
+      "surface": "uxp-css",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-css/styles/left",
+      "surface": "uxp-css",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-css/styles/letter-spacing",
+      "surface": "uxp-css",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-css/styles/margin",
+      "surface": "uxp-css",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-css/styles/margin-bottom",
+      "surface": "uxp-css",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-css/styles/margin-left",
+      "surface": "uxp-css",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-css/styles/margin-right",
+      "surface": "uxp-css",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-css/styles/margin-top",
+      "surface": "uxp-css",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-css/styles/max-height",
+      "surface": "uxp-css",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-css/styles/max-width",
+      "surface": "uxp-css",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-css/styles/min-height",
+      "surface": "uxp-css",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-css/styles/min-width",
+      "surface": "uxp-css",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-css/styles/opacity",
+      "surface": "uxp-css",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-css/styles/overflow",
+      "surface": "uxp-css",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-css/styles/overflow-x",
+      "surface": "uxp-css",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-css/styles/overflow-y",
+      "surface": "uxp-css",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-css/styles/padding",
+      "surface": "uxp-css",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-css/styles/padding-bottom",
+      "surface": "uxp-css",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-css/styles/padding-left",
+      "surface": "uxp-css",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-css/styles/padding-right",
+      "surface": "uxp-css",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-css/styles/padding-top",
+      "surface": "uxp-css",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-css/styles/right",
+      "surface": "uxp-css",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-css/styles/text-align",
+      "surface": "uxp-css",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-css/styles/text-overflow",
+      "surface": "uxp-css",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-css/styles/top",
+      "surface": "uxp-css",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-css/styles/visibility",
+      "surface": "uxp-css",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-css/styles/white-space",
+      "surface": "uxp-css",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-css/styles/width",
+      "surface": "uxp-css",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-html/",
+      "surface": "uxp-html",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-html/general/",
+      "surface": "uxp-html",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-html/general/body",
+      "surface": "uxp-html",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-html/general/head",
+      "surface": "uxp-html",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-html/general/html",
+      "surface": "uxp-html",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-html/general/link",
+      "surface": "uxp-html",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-html/general/script",
+      "surface": "uxp-html",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-html/general/style",
+      "surface": "uxp-html",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-html/general/unsupported-attributes",
+      "surface": "uxp-html",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-html/general/unsupported-elements",
+      "surface": "uxp-html",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-html/hierarchy/",
+      "surface": "uxp-html",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-html/hierarchy/footer",
+      "surface": "uxp-html",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-html/hierarchy/h1",
+      "surface": "uxp-html",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-html/hierarchy/h2",
+      "surface": "uxp-html",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-html/hierarchy/h3",
+      "surface": "uxp-html",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-html/hierarchy/h4",
+      "surface": "uxp-html",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-html/hierarchy/h5",
+      "surface": "uxp-html",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-html/hierarchy/h6",
+      "surface": "uxp-html",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-html/hierarchy/hr",
+      "surface": "uxp-html",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-js/",
+      "surface": "uxp-javascript",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-js/global-members/",
+      "surface": "uxp-javascript",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-js/global-members/crypto/crypto",
+      "surface": "uxp-javascript",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-js/global-members/data-storage/",
+      "surface": "uxp-javascript",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-js/global-members/data-storage/local-storage",
+      "surface": "uxp-javascript",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-js/global-members/data-storage/session-storage",
+      "surface": "uxp-javascript",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-js/global-members/data-transfers/",
+      "surface": "uxp-javascript",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-js/global-members/data-transfers/blob",
+      "surface": "uxp-javascript",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-js/global-members/data-transfers/clipboard",
+      "surface": "uxp-javascript",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-js/global-members/data-transfers/fetch",
+      "surface": "uxp-javascript",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-js/global-members/data-transfers/form-data",
+      "surface": "uxp-javascript",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-js/global-members/data-transfers/headers",
+      "surface": "uxp-javascript",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-js/global-members/data-transfers/request",
+      "surface": "uxp-javascript",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-js/global-members/data-transfers/response",
+      "surface": "uxp-javascript",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-js/global-members/data-transfers/web-socket",
+      "surface": "uxp-javascript",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-js/global-members/data-transfers/xml-http-request",
+      "surface": "uxp-javascript",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-js/global-members/html-dom/",
+      "surface": "uxp-javascript",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-js/global-members/html-dom/abort-controller",
+      "surface": "uxp-javascript",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-js/global-members/html-dom/abort-signal",
+      "surface": "uxp-javascript",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-js/global-members/html-dom/alert",
+      "surface": "uxp-javascript",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-js/global-members/html-dom/attr",
+      "surface": "uxp-javascript",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-js/global-members/html-dom/canvas-gradient",
+      "surface": "uxp-javascript",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-js/global-members/html-dom/canvas-rendering-context2-d",
+      "surface": "uxp-javascript",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-js/global-members/html-dom/character-data",
+      "surface": "uxp-javascript",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-js/global-members/html-dom/class-list",
+      "surface": "uxp-javascript",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-js/global-members/html-dom/comment",
+      "surface": "uxp-javascript",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-js/global-members/html-dom/confirm",
+      "surface": "uxp-javascript",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-js/global-members/html-dom/custom-element-registry",
+      "surface": "uxp-javascript",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-js/global-members/html-dom/document",
+      "surface": "uxp-javascript",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-js/global-members/html-dom/document-fragment",
+      "surface": "uxp-javascript",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-js/global-members/html-dom/dom-token-list",
+      "surface": "uxp-javascript",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-js/global-members/html-dom/element",
+      "surface": "uxp-javascript",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-js/global-members/html-dom/get-computed-style",
+      "surface": "uxp-javascript",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-js/global-members/html-dom/html-collection",
+      "surface": "uxp-javascript",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-js/global-members/html-dom/intersection-observer",
+      "surface": "uxp-javascript",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-js/global-members/html-dom/intersection-observer-entry",
+      "surface": "uxp-javascript",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-js/global-members/html-dom/named-node-map",
+      "surface": "uxp-javascript",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-js/global-members/html-dom/node",
+      "surface": "uxp-javascript",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-js/global-members/html-dom/node-filter",
+      "surface": "uxp-javascript",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-js/global-members/html-dom/node-list",
+      "surface": "uxp-javascript",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-js/global-members/html-dom/path2-d",
+      "surface": "uxp-javascript",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-js/global-members/html-dom/prompt",
+      "surface": "uxp-javascript",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-js/global-members/html-dom/resize-observer",
+      "surface": "uxp-javascript",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-js/global-members/html-dom/resize-observer-entry",
+      "surface": "uxp-javascript",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-js/global-members/html-dom/resize-observer-size",
+      "surface": "uxp-javascript",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-js/global-members/html-dom/shadow-root",
+      "surface": "uxp-javascript",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-js/global-members/html-dom/text",
+      "surface": "uxp-javascript",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-js/global-members/html-dom/tree-walker",
+      "surface": "uxp-javascript",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-js/global-members/html-elements/",
+      "surface": "uxp-javascript",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-js/global-members/html-elements/html-anchor-element",
+      "surface": "uxp-javascript",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-js/global-members/html-elements/html-body-element",
+      "surface": "uxp-javascript",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-js/global-members/html-elements/html-button-element",
+      "surface": "uxp-javascript",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-js/global-members/html-elements/html-canvas-element",
+      "surface": "uxp-javascript",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-js/global-members/html-elements/html-dialog-element",
+      "surface": "uxp-javascript",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-js/global-members/html-elements/html-element",
+      "surface": "uxp-javascript",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-js/global-members/html-elements/html-head-element",
+      "surface": "uxp-javascript",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-js/global-members/html-elements/html-html-element",
+      "surface": "uxp-javascript",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-js/global-members/html-elements/html-image-element",
+      "surface": "uxp-javascript",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-js/global-members/html-elements/html-input-element",
+      "surface": "uxp-javascript",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-js/global-members/html-elements/html-label-element",
+      "surface": "uxp-javascript",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-js/global-members/html-elements/html-link-element",
+      "surface": "uxp-javascript",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-js/global-members/html-elements/html-menu-element",
+      "surface": "uxp-javascript",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-js/global-members/html-elements/html-menu-item-element",
+      "surface": "uxp-javascript",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-js/global-members/html-elements/html-option-element",
+      "surface": "uxp-javascript",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-js/global-members/html-elements/html-progress-element",
+      "surface": "uxp-javascript",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-js/global-members/html-elements/html-script-element",
+      "surface": "uxp-javascript",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-js/global-members/html-elements/html-select-element",
+      "surface": "uxp-javascript",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-js/global-members/html-elements/html-slot-element",
+      "surface": "uxp-javascript",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-js/global-members/html-elements/html-style-element",
+      "surface": "uxp-javascript",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-js/global-members/html-elements/html-template-element",
+      "surface": "uxp-javascript",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-js/global-members/html-elements/html-text-area-element",
+      "surface": "uxp-javascript",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-js/global-members/html-elements/html-video-element",
+      "surface": "uxp-javascript",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-js/global-members/html-elements/html-web-view-element",
+      "surface": "uxp-javascript",
+      "lastModified": "2026-08-12"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-js/global-members/html-events/",
+      "surface": "uxp-javascript",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-js/global-members/html-events/base-ui-event",
+      "surface": "uxp-javascript",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-js/global-members/html-events/close-event",
+      "surface": "uxp-javascript",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-js/global-members/html-events/drag-event",
+      "surface": "uxp-javascript",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-js/global-members/html-events/error-event",
+      "surface": "uxp-javascript",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-js/global-members/html-events/event",
+      "surface": "uxp-javascript",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-js/global-members/html-events/event-target",
+      "surface": "uxp-javascript",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-js/global-members/html-events/gesture-event",
+      "surface": "uxp-javascript",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-js/global-members/html-events/keyboard-event",
+      "surface": "uxp-javascript",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-js/global-members/html-events/message-event",
+      "surface": "uxp-javascript",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-js/global-members/html-events/pointer-event",
+      "surface": "uxp-javascript",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-js/global-members/html-events/progress-event",
+      "surface": "uxp-javascript",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-js/global-members/image-blob/image-blob",
+      "surface": "uxp-javascript",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-js/global-members/path/path",
+      "surface": "uxp-javascript",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-js/global-members/streams/",
+      "surface": "uxp-javascript",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-js/global-members/streams/count-queuing-strategy",
+      "surface": "uxp-javascript",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-js/global-members/streams/readable-stream",
+      "surface": "uxp-javascript",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-js/global-members/streams/readable-stream-default-controller",
+      "surface": "uxp-javascript",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-js/global-members/streams/readable-stream-default-reader",
+      "surface": "uxp-javascript",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-js/global-members/streams/transform-stream",
+      "surface": "uxp-javascript",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-js/global-members/streams/transform-stream-default-controller",
+      "surface": "uxp-javascript",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-js/global-members/streams/writable-stream",
+      "surface": "uxp-javascript",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-js/global-members/streams/writable-stream-default-controller",
+      "surface": "uxp-javascript",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-js/global-members/streams/writable-stream-default-writer",
+      "surface": "uxp-javascript",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-js/modules/",
+      "surface": "uxp-javascript",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-js/modules/fs/",
+      "surface": "uxp-javascript",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-js/modules/fs/fs",
+      "surface": "uxp-javascript",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-js/modules/os/",
+      "surface": "uxp-javascript",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-js/modules/os/os",
+      "surface": "uxp-javascript",
+      "lastModified": "2026-08-25"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-js/modules/uxp/",
+      "surface": "uxp-javascript",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-js/modules/uxp/entry-points/",
+      "surface": "uxp-javascript",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-js/modules/uxp/entry-points/entry-points",
+      "surface": "uxp-javascript",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-js/modules/uxp/entry-points/entry-points-error",
+      "surface": "uxp-javascript",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-js/modules/uxp/entry-points/uxp-command-info",
+      "surface": "uxp-javascript",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-js/modules/uxp/entry-points/uxp-menu-item",
+      "surface": "uxp-javascript",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-js/modules/uxp/entry-points/uxp-menu-items",
+      "surface": "uxp-javascript",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-js/modules/uxp/entry-points/uxp-panel-info",
+      "surface": "uxp-javascript",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-js/modules/uxp/entry-points/uxp-plugin-info",
+      "surface": "uxp-javascript",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-js/modules/uxp/host-information/",
+      "surface": "uxp-javascript",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-js/modules/uxp/host-information/host",
+      "surface": "uxp-javascript",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-js/modules/uxp/key-value-storage/",
+      "surface": "uxp-javascript",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-js/modules/uxp/key-value-storage/secure-storage",
+      "surface": "uxp-javascript",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-js/modules/uxp/persistent-file-storage/",
+      "surface": "uxp-javascript",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-js/modules/uxp/persistent-file-storage/domains",
+      "surface": "uxp-javascript",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-js/modules/uxp/persistent-file-storage/entry",
+      "surface": "uxp-javascript",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-js/modules/uxp/persistent-file-storage/entry-metadata",
+      "surface": "uxp-javascript",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-js/modules/uxp/persistent-file-storage/errors",
+      "surface": "uxp-javascript",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-js/modules/uxp/persistent-file-storage/file",
+      "surface": "uxp-javascript",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-js/modules/uxp/persistent-file-storage/file-system-provider",
+      "surface": "uxp-javascript",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-js/modules/uxp/persistent-file-storage/file-types",
+      "surface": "uxp-javascript",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-js/modules/uxp/persistent-file-storage/folder",
+      "surface": "uxp-javascript",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-js/modules/uxp/persistent-file-storage/formats",
+      "surface": "uxp-javascript",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-js/modules/uxp/persistent-file-storage/local-file-system",
+      "surface": "uxp-javascript",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-js/modules/uxp/persistent-file-storage/modes",
+      "surface": "uxp-javascript",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-js/modules/uxp/persistent-file-storage/storage",
+      "surface": "uxp-javascript",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-js/modules/uxp/persistent-file-storage/types",
+      "surface": "uxp-javascript",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-js/modules/uxp/plugin-manager/",
+      "surface": "uxp-javascript",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-js/modules/uxp/plugin-manager/plugin",
+      "surface": "uxp-javascript",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-js/modules/uxp/plugin-manager/plugin-manager",
+      "surface": "uxp-javascript",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-js/modules/uxp/plugin-manager/script",
+      "surface": "uxp-javascript",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-js/modules/uxp/shell/",
+      "surface": "uxp-javascript",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-js/modules/uxp/shell/shell",
+      "surface": "uxp-javascript",
+      "lastModified": "2026-08-25"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-js/modules/uxp/user-information/",
+      "surface": "uxp-javascript",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-js/modules/uxp/user-information/user-info",
+      "surface": "uxp-javascript",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-js/modules/uxp/versions/",
+      "surface": "uxp-javascript",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-js/modules/uxp/versions/versions",
+      "surface": "uxp-javascript",
+      "lastModified": "2026-08-25"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-js/modules/uxp/xmp/",
+      "surface": "uxp-javascript",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-js/modules/uxp/xmp/getting-started/",
+      "surface": "uxp-javascript",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-js/modules/uxp/xmp/getting-started/xmp",
+      "surface": "uxp-javascript",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-js/modules/uxp/xmp/xmp-classes/",
+      "surface": "uxp-javascript",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-js/modules/uxp/xmp/xmp-classes/xmp-const",
+      "surface": "uxp-javascript",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-js/modules/uxp/xmp/xmp-classes/xmp-date-time",
+      "surface": "uxp-javascript",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-js/modules/uxp/xmp/xmp-classes/xmp-file",
+      "surface": "uxp-javascript",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-js/modules/uxp/xmp/xmp-classes/xmp-file-info",
+      "surface": "uxp-javascript",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-js/modules/uxp/xmp/xmp-classes/xmp-iterator",
+      "surface": "uxp-javascript",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-js/modules/uxp/xmp/xmp-classes/xmp-meta",
+      "surface": "uxp-javascript",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-js/modules/uxp/xmp/xmp-classes/xmp-packet-info",
+      "surface": "uxp-javascript",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-js/modules/uxp/xmp/xmp-classes/xmp-property",
+      "surface": "uxp-javascript",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-js/modules/uxp/xmp/xmp-classes/xmp-utils",
+      "surface": "uxp-javascript",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-spectrum/",
+      "surface": "spectrum-web-components",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-spectrum/faqs/",
+      "surface": "spectrum-web-components",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-spectrum/spectrum-to-swc-mapping/",
+      "surface": "spectrum-web-components",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-spectrum/spectrum-uxp-widgets/",
+      "surface": "spectrum-web-components",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-spectrum/spectrum-uxp-widgets/typography/",
+      "surface": "spectrum-web-components",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-spectrum/spectrum-uxp-widgets/typography/sp-body",
+      "surface": "spectrum-web-components",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-spectrum/spectrum-uxp-widgets/typography/sp-detail",
+      "surface": "spectrum-web-components",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-spectrum/spectrum-uxp-widgets/typography/sp-heading",
+      "surface": "spectrum-web-components",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-spectrum/spectrum-uxp-widgets/typography/sp-label",
+      "surface": "spectrum-web-components",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-spectrum/spectrum-uxp-widgets/user-interface/",
+      "surface": "spectrum-web-components",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-spectrum/spectrum-uxp-widgets/user-interface/sp-action-button",
+      "surface": "spectrum-web-components",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-spectrum/spectrum-uxp-widgets/user-interface/sp-button",
+      "surface": "spectrum-web-components",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-spectrum/spectrum-uxp-widgets/user-interface/sp-checkbox",
+      "surface": "spectrum-web-components",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-spectrum/spectrum-uxp-widgets/user-interface/sp-divider",
+      "surface": "spectrum-web-components",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-spectrum/spectrum-uxp-widgets/user-interface/sp-dropdown",
+      "surface": "spectrum-web-components",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-spectrum/spectrum-uxp-widgets/user-interface/sp-icon",
+      "surface": "spectrum-web-components",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-spectrum/spectrum-uxp-widgets/user-interface/sp-link",
+      "surface": "spectrum-web-components",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-spectrum/spectrum-uxp-widgets/user-interface/sp-menu",
+      "surface": "spectrum-web-components",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-spectrum/spectrum-uxp-widgets/user-interface/sp-menu-item",
+      "surface": "spectrum-web-components",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-spectrum/spectrum-uxp-widgets/user-interface/sp-progressbar",
+      "surface": "spectrum-web-components",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-spectrum/spectrum-uxp-widgets/user-interface/sp-radio",
+      "surface": "spectrum-web-components",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-spectrum/spectrum-uxp-widgets/user-interface/sp-radio-group",
+      "surface": "spectrum-web-components",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-spectrum/spectrum-uxp-widgets/user-interface/sp-slider",
+      "surface": "spectrum-web-components",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-spectrum/spectrum-uxp-widgets/user-interface/sp-textarea",
+      "surface": "spectrum-web-components",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-spectrum/spectrum-uxp-widgets/user-interface/sp-textfield",
+      "surface": "spectrum-web-components",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-spectrum/spectrum-uxp-widgets/using-with-react",
+      "surface": "spectrum-web-components",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-spectrum/swc/",
+      "surface": "spectrum-web-components",
+      "lastModified": "2026-05-28"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/versions3-p",
+      "surface": "premiere-uxp-supporting-docs",
+      "lastModified": "2026-05-28"
+    }
+  ]
+}

@@ -14,9 +14,11 @@ it is not the same SDK as a UXP Hybrid addon. This project also retains CEP/Exte
 uses explicitly experimental QE behavior, for which Adobe publishes no
 authoritative reference.
 
-Only the stable Premiere DOM declaration surface currently has a complete
-symbol inventory. Every other surface remains visibly partial, not started,
-externally gated, or unavailable from an authoritative source. Both C++ SDK
+The stable Premiere DOM and general UXP JavaScript declarations have complete
+symbol inventories. Adobe's live sitemap supplies a complete page inventory
+for HTML, CSS, Spectrum, plugin guides, and supporting UXP documentation.
+Remaining surfaces stay visibly partial, not started, externally gated, or
+unavailable from an authoritative source. Both C++ SDK
 inventories remain externally gated because their headers and packaged
 documentation require Adobe Developer Console access. An inventory is
 not implementation proof, and automated contracts are not licensed-host proof.
