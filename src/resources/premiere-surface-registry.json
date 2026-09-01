@@ -90,7 +90,10 @@
       "id": "cep-extendscript",
       "kind": "legacy_api",
       "authorityUrls": ["https://github.com/Adobe-CEP/Samples/tree/master/PProPanel"],
-      "communityReferenceUrls": ["https://ppro-scripting.docsforadobe.dev/"],
+      "communityReferenceUrls": [
+        "https://ppro-scripting.docsforadobe.dev/",
+        "https://github.com/docsforadobe/premiere-scripting-guide"
+      ],
       "versionSource": "Premiere Pro Scripting Guide and bundled host DOM",
       "inventoryArtifact": "dist/resources/extendscript-reference.js",
       "inventoryState": "partial",
@@ -101,11 +104,11 @@
       "id": "cep-platform",
       "kind": "legacy_sdk",
       "authorityUrls": ["https://github.com/Adobe-CEP/CEP-Resources"],
-      "versionSource": "Adobe CEP Resources",
-      "inventoryArtifact": null,
-      "inventoryState": "not_started",
+      "versionSource": "Adobe-CEP/CEP-Resources@ab5e4e3e53a42fad08e1225a22a991bb1ffe73f6",
+      "inventoryArtifact": "dist/resources/cep-reference-inventory.json",
+      "inventoryState": "complete",
       "implementationState": "partial",
-      "notes": "Panel manifest, CSInterface, signing, installation, and host compatibility require a dedicated SDK inventory."
+      "notes": "Every file in the pinned Adobe CEP Resources tree and Premiere PProPanel sample subtree is inventoried and classified; implementation remains partial."
     },
     {
       "id": "qe-dom",

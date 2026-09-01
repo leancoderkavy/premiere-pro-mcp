@@ -86,10 +86,19 @@ describe("Premiere API and competitor surface registry", () => {
     expect(registry.integrationSurfaces.find((surface) => surface.id === "cep-extendscript"))
       .toMatchObject({
         authorityUrls: ["https://github.com/Adobe-CEP/Samples/tree/master/PProPanel"],
-        communityReferenceUrls: ["https://ppro-scripting.docsforadobe.dev/"],
+        communityReferenceUrls: [
+          "https://ppro-scripting.docsforadobe.dev/",
+          "https://github.com/docsforadobe/premiere-scripting-guide",
+        ],
+      });
+    expect(registry.integrationSurfaces.find((surface) => surface.id === "cep-platform"))
+      .toMatchObject({
+        inventoryArtifact: "dist/resources/cep-reference-inventory.json",
+        inventoryState: "complete",
+        implementationState: "partial",
       });
     expect(registry.integrationSurfaces.filter((surface) => surface.inventoryState === "complete"))
-      .toHaveLength(6);
+      .toHaveLength(7);
   });
 
   it("pins reviewed competitor sources and explicit safe-adoption boundaries", () => {
