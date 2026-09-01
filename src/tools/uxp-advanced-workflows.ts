@@ -132,6 +132,29 @@ export function getUxpAdvancedWorkflowTools(bridge: UxpWebSocketBridge) {
       },
     },
 
+    apply_beat_markers_uxp: {
+      description: "Apply a reviewed beat grid as native sequence markers in one undoable Premiere 26.3+ UXP transaction, with bounded inputs and GUID/time readback for every marker.",
+      parameters: {
+        type: "object" as const,
+        additionalProperties: false,
+        properties: {
+          beat_times_seconds: { type: "array", minItems: 1, maxItems: 512, items: { type: "number", minimum: 0, maximum: 86400 }, description: "Strictly increasing unique beat times, such as beatTimesSeconds returned by detect_beats." },
+          sequence_id: sequenceId,
+          offset_seconds: { type: "number", minimum: -86400, maximum: 86400, description: "Timeline offset added to every beat time; all resulting times must remain non-negative." },
+          name_prefix: { type: "string", minLength: 1, maxLength: 64, description: "Marker label prefix; defaults to Beat." },
+          comments: { type: "string", maxLength: 1000 },
+          marker_type: { type: "string", minLength: 1, maxLength: 128 },
+          operation_id: operationId,
+        },
+        required: ["beat_times_seconds"],
+      },
+      handler: async (args: AdvancedArgs) => invoke(bridge, "markers.addBeatGrid", {
+        beatTimesSeconds: args.beat_times_seconds,
+        ...compact({ sequenceId: args.sequence_id, offsetSeconds: args.offset_seconds, namePrefix: args.name_prefix, comments: args.comments, markerType: args.marker_type }),
+        ...operation(args),
+      }),
+    },
+
     organize_project_items_uxp: {
       description: "Inspect a bin or transactionally create, rename, move, color-label, and remove project items with stable-ID guards.",
       parameters: {

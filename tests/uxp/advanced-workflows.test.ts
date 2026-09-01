@@ -279,7 +279,7 @@ describe("advanced stable Premiere UXP workflows", () => {
     const value = advancedHost();
     const capabilities = await value.registry.capabilities();
     expect(Object.keys(capabilities.commands)).toEqual(expect.arrayContaining([
-      "projectSelection.views", "projectSelection.inspect", "markers.inspect", "markers.add",
+      "projectSelection.views", "projectSelection.inspect", "markers.inspect", "markers.add", "markers.addBeatGrid",
       "bins.inspect", "bins.create", "sequenceSettings.get", "sequenceSettings.update",
       "project.import", "parameters.inspect", "parameters.keyframeAdd", "trackItem.inspect",
       "trackItem.update", "timeline.insert", "timeline.mogrtPath", "sequences.inspect",
@@ -288,6 +288,7 @@ describe("advanced stable Premiere UXP workflows", () => {
     ]));
     expect(capabilities.commands["projectSelection.inspect"]).toMatchObject({ supported: true, readOnly: true });
     expect(capabilities.commands["markers.add"]).toMatchObject({ supported: true, destructive: true, undoable: true });
+    expect(capabilities.commands["markers.addBeatGrid"]).toMatchObject({ supported: true, destructive: true, undoable: true });
     expect(capabilities.commands["project.import"]).toMatchObject({ supported: true, workspaceRequired: true, undoable: false });
     expect(capabilities.commands["encoder.sequence"]).toMatchObject({ supported: true, workspaceRequired: true, undoable: false });
   });
@@ -303,6 +304,18 @@ describe("advanced stable Premiere UXP workflows", () => {
     await expect(value.registry.dispatch("markers.add", {
       name: "Turn", startSeconds: 3, comments: "Cut here", operationId: "marker-add",
     })).resolves.toMatchObject({ added: true, outcome: "verified", marker: { name: "Turn", startSeconds: 3 } });
+    await expect(value.registry.dispatch("markers.addBeatGrid", {
+      beatTimesSeconds: [1, 2, 3], offsetSeconds: 0.5, namePrefix: "Beat",
+      comments: "Detected grid", operationId: "beat-grid",
+    })).resolves.toMatchObject({
+      added: 3, outcome: "verified", verificationBoundary: "beat_marker_guid_and_time_readback",
+      markers: [
+        { name: "Beat 1", startSeconds: 1.5 },
+        { name: "Beat 2", startSeconds: 2.5 },
+        { name: "Beat 3", startSeconds: 3.5 },
+      ],
+    });
+    expect(value.project.executeTransaction).toHaveBeenCalledTimes(2);
     await expect(value.registry.dispatch("markers.update", {
       markerGuid: "marker-1", expectedName: "Beat", name: "Beat updated",
       startSeconds: 2, colorIndex: 4, operationId: "marker-update",
