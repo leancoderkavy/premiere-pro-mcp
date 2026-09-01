@@ -35,6 +35,7 @@ describe("capability profiles", () => {
     expect(capabilityForTool("verify_delivery_file")).toBe("filesystem");
     expect(capabilityForTool("create_project_backup")).toBe("filesystem");
     expect(capabilityForTool("analyze_loudness")).toBe("filesystem");
+    expect(capabilityForTool("detect_beats")).toBe("filesystem");
     expect(capabilityForTool("analyze_video_qc")).toBe("filesystem");
     expect(capabilityForTool("detect_source_scene_changes")).toBe("filesystem");
     expect(capabilityForTool("normalize_loudness_file")).toBe("filesystem");

@@ -44,6 +44,82 @@ export interface LoudnessMeasurement {
   truePeakDbfs: number | null;
 }
 
+export interface BeatMeasurement {
+  bpm: number;
+  confidence: number;
+  beatTimesSeconds: number[];
+  durationSeconds: number;
+}
+
+/** Estimate a steady beat grid from signed 16-bit mono samples at a low analysis rate. */
+export function analyzeBeatPcm(samples: Int16Array, sampleRate: number): BeatMeasurement {
+  if (!Number.isFinite(sampleRate) || sampleRate < 20 || samples.length < sampleRate * 2) {
+    throw new Error("Beat analysis requires at least two seconds of finite-rate audio");
+  }
+  const hop = Math.max(1, Math.round(sampleRate / 20));
+  const envelope: number[] = [];
+  for (let offset = 0; offset + hop <= samples.length; offset += hop) {
+    let energy = 0;
+    for (let index = offset; index < offset + hop; index++) energy += Math.abs(samples[index]);
+    envelope.push(energy / hop);
+  }
+  const onset = envelope.map((value, index) => {
+    let baseline = 0;
+    let count = 0;
+    for (let at = Math.max(0, index - 10); at <= Math.min(envelope.length - 1, index + 10); at++) {
+      baseline += envelope[at]; count++;
+    }
+    return Math.max(0, value - baseline / count);
+  });
+  const envelopeRate = sampleRate / hop;
+  const minLag = Math.max(1, Math.floor(envelopeRate * 60 / 200));
+  const maxLag = Math.min(onset.length - 1, Math.ceil(envelopeRate * 60 / 60));
+  let bestLag = minLag;
+  let bestScore = -1;
+  const lagScores = new Map<number, number>();
+  for (let lag = minLag; lag <= maxLag; lag++) {
+    let score = 0;
+    for (let index = 0; index + lag < onset.length; index++) score += onset[index] * onset[index + lag];
+    score /= Math.max(1, onset.length - lag);
+    lagScores.set(lag, score);
+    if (score > bestScore) { bestScore = score; bestLag = lag; }
+  }
+  // Autocorrelation often gives equal strength to half time. Prefer the
+  // octave-up pulse only when its exact divisor retains most of the evidence.
+  while (Math.round(bestLag / 2) >= minLag) {
+    const halfLag = Math.round(bestLag / 2);
+    const halfScore = lagScores.get(halfLag) ?? -1;
+    if (halfScore < bestScore * 0.8) break;
+    bestLag = halfLag;
+    bestScore = halfScore;
+  }
+  let selfScore = 0;
+  for (const value of onset) selfScore += value * value;
+  selfScore /= onset.length;
+  const confidence = Math.max(0, Math.min(1, selfScore > 0 ? bestScore / selfScore : 0));
+  if (!Number.isFinite(confidence) || confidence < 0.05) {
+    throw new Error("No repeating beat evidence was detected in the decoded media");
+  }
+  const bpm = 60 * envelopeRate / bestLag;
+  let bestOffset = 0;
+  let phaseScore = -1;
+  for (let offset = 0; offset < bestLag; offset++) {
+    let score = 0;
+    for (let index = offset; index < onset.length; index += bestLag) score += onset[index];
+    if (score > phaseScore) { phaseScore = score; bestOffset = offset; }
+  }
+  const beatTimesSeconds: number[] = [];
+  for (let index = bestOffset; index < onset.length; index += bestLag) {
+    beatTimesSeconds.push(Number((index / envelopeRate).toFixed(3)));
+  }
+  return {
+    bpm: Number(bpm.toFixed(1)),
+    confidence: Number(confidence.toFixed(2)),
+    beatTimesSeconds,
+    durationSeconds: Number((samples.length / sampleRate).toFixed(3)),
+  };
+}
+
 function finiteMetric(value: string | undefined): number | null {
   if (!value || value.toLowerCase().includes("inf")) return null;
   const parsed = Number.parseFloat(value);
@@ -678,6 +754,64 @@ export function getAudioTools(bridgeOptions: BridgeOptions) {
             verificationScope: "Local decoded-source audio analysis plus arithmetic mapping for one known 1x placement only. It does not inspect Premiere clip timing, speed/remapping, multicam, nested sequences, rendered audio, or make any Premiere change.",
           },
         };
+      },
+    },
+
+    detect_beats: {
+      description:
+        "Estimate a steady beat grid from a local audio or video file without changing Premiere. FFmpeg decodes at most 30 minutes to a bounded mono analysis stream; local onset autocorrelation returns BPM, phase-aligned beat times, confidence, and half/double-time alternatives.",
+      parameters: {
+        type: "object" as const,
+        additionalProperties: false,
+        properties: {
+          media_path: { type: "string", description: "Absolute path to an existing local audio or video file." },
+          max_beats: { type: "integer", minimum: 1, maximum: 2000, description: "Maximum beat times returned (default: 500)." },
+        },
+        required: ["media_path"],
+      },
+      handler: async (args: { media_path: string; max_beats?: number }) => {
+        const maxBeats = args.max_beats ?? 500;
+        if (!args.media_path) {
+          return { success: false, error: "media_path is required." };
+        }
+        if (!Number.isInteger(maxBeats) || maxBeats < 1 || maxBeats > 2000) {
+          return { success: false, error: "max_beats must be an integer from 1 through 2000." };
+        }
+        const mediaPath = resolve(args.media_path);
+        if (!existsSync(mediaPath) || !statSync(mediaPath).isFile()) {
+          return { success: false, error: `Media file not found on disk: ${mediaPath}` };
+        }
+        try {
+          const result = await execFileAsync("ffmpeg", [
+            "-nostdin", "-hide_banner", "-loglevel", "error", "-i", mediaPath,
+            "-t", "1800", "-vn", "-sn", "-dn", "-ac", "1", "-ar", "200", "-f", "s16le", "pipe:1",
+          ], { encoding: "buffer", timeout: FFMPEG_TIMEOUT_MS, maxBuffer: 128 * 1024 * 1024 }) as unknown as { stdout: Buffer };
+          const bytes = result.stdout;
+          const samples = new Int16Array(bytes.length >> 1);
+          for (let index = 0; index < samples.length; index++) samples[index] = bytes.readInt16LE(index * 2);
+          const measurement = analyzeBeatPcm(samples, 200);
+          const truncated = measurement.beatTimesSeconds.length > maxBeats;
+          return {
+            success: true,
+            data: {
+              ...measurement,
+              halfTimeBpm: Number((measurement.bpm / 2).toFixed(1)),
+              doubleTimeBpm: Number((measurement.bpm * 2).toFixed(1)),
+              reliable: measurement.confidence >= 0.35,
+              beatTimesSeconds: measurement.beatTimesSeconds.slice(0, maxBeats),
+              beatTimesTruncated: truncated,
+              verificationScope: "Local decoded-media estimate only. Low confidence and half/double-time ambiguity require human musical review; no markers, cuts, or Premiere changes are made.",
+            },
+          };
+        } catch (error) {
+          const failure = error as { code?: string; killed?: boolean; stderr?: Buffer | string; message?: string };
+          const detail = Buffer.isBuffer(failure.stderr) ? failure.stderr.toString("utf8") : (failure.stderr ?? failure.message ?? "");
+          return { success: false, error: failure.code === "ENOENT"
+            ? "ffmpeg was not found on PATH; install FFmpeg to analyze beats."
+            : failure.killed
+            ? `ffmpeg timed out after ${FFMPEG_TIMEOUT_MS / 1000}s during beat analysis.`
+            : `ffmpeg could not decode media for beat analysis: ${String(detail).trim() || "unknown error"}` };
+        }
       },
     },
 
