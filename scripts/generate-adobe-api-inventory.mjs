@@ -19,6 +19,7 @@ const packageMetadata = JSON.parse(packageText);
 const coverage = JSON.parse(coverageText);
 const coveredApis = new Set(coverage.entries.flatMap((entry) => entry.adobeApi));
 const source = ts.createSourceFile(declarationsPath, declarationsText, ts.ScriptTarget.Latest, true);
+const compareText = (left, right) => left < right ? -1 : left > right ? 1 : 0;
 
 function memberName(member) {
   if (ts.isConstructSignatureDeclaration(member)) return "[[construct]]";
@@ -68,14 +69,14 @@ for (const statement of source.statements) {
 }
 
 const uniqueSymbols = [...new Map(symbols.map((entry) => [entry.symbol, entry])).values()]
-  .sort((left, right) => left.symbol.localeCompare(right.symbol));
+  .sort((left, right) => compareText(left.symbol, right.symbol));
 const entries = uniqueSymbols.map((entry) => ({
   ...entry,
   coverage: coveredApis.has(entry.symbol) ? "mapped" : "unmapped",
 }));
 const mapped = entries.filter((entry) => entry.coverage === "mapped").length;
 const declaredSymbols = new Set(entries.map((entry) => entry.symbol));
-const manifestOnly = [...coveredApis].filter((symbol) => !declaredSymbols.has(symbol)).sort();
+const manifestOnly = [...coveredApis].filter((symbol) => !declaredSymbols.has(symbol)).sort(compareText);
 const inventory = {
   schemaVersion: 1,
   source: {
