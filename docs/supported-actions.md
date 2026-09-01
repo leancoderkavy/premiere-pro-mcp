@@ -8,11 +8,11 @@ descriptions, action enums, authority visibility, and counts stay aligned with t
 
 | Surface | Count | Availability |
 | --- | ---: | --- |
-| Registered core actions | 323 | CEP/local server catalog; host and authority checks still apply |
-| Default-profile core actions | 321 | Advertised with `inspect,edit,export,filesystem` |
+| Registered core actions | 324 | CEP/local server catalog; host and authority checks still apply |
+| Default-profile core actions | 322 | Advertised with `inspect,edit,export,filesystem` |
 | Restricted core actions | 2 | Require explicit `unsafe-script` authority |
 | Authenticated UXP additions | 55 | Advertised only while a compatible authenticated UXP panel is connected |
-| Default profile with UXP | 376 | 321 core plus 55 UXP tools |
+| Default profile with UXP | 377 | 322 core plus 55 UXP tools |
 
 ## How to read support
 
@@ -103,6 +103,7 @@ operation” when the tool has no enum-based mode.
 | `detect_active_picture_bounds` | Default profile | Single operation | Detect the most frequent active-picture crop rectangle in decoded video, exposing probable letterbox or pillarbox bars without modifying the source. |
 | `detect_audio_transients` | Default profile | Single operation | Find probable beat or edit-point transients from decoded audio peaks. Returns candidates for editorial review; it does not claim musical beat-grid accuracy or change a timeline. |
 | `detect_beats` | Default profile | Single operation | Estimate a steady beat grid from a local audio or video file without changing Premiere. FFmpeg decodes at most 30 minutes to a bounded mono analysis stream; local onset autocorrelation returns BPM, phase-aligned beat times, confidence, and half/double-time alternatives. |
+| `detect_motion_peaks` | Default profile | Single operation | Find probable high-motion moments in a bounded local video sample from decoded frame differences. Read-only editorial candidates; camera movement, flashes, cuts, and subject motion are not semantically distinguished. |
 | `detect_scene_edits` | Default profile | `mode`: `apply_cuts`, `create_markers`, `create_subclips` | Safe scene-edit facade. It uses the authenticated Premiere UXP bridge when connected and explicitly confirmed; CEP fallback is intentionally withheld because synchronous scene detection can block the panel. |
 | `detect_silence` | Default profile | Single operation | Find silent ranges in a media file and return both the silences and the complementary segments worth keeping. Analysis only — nothing in the project or on the timeline is modified. Requires ffmpeg on PATH: Premiere's scripting API exposes no audio-level or waveform data, so silence cannot be measured through the bridge. |
 | `detect_source_scene_changes` | Default profile | Single operation | Detect probable visual cuts in a local source file using FFmpeg scene scores. Read-only and source-relative; it does not cut a Premiere timeline. |

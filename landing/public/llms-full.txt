@@ -24,7 +24,7 @@ Current release: 1.14.5
 
 ## What it does
 
-The server registers 323 core tools for project inspection, project-intake preview, timeline editing, media import and organization, clip selection, effects, Lumetri color, audio, silence and beat detection, loudness analysis and normalization, stream inspection, contact sheets, transient detection, interlace analysis, active-picture detection, local delivery QC, source scene detection, CMX 3600 and FCPXML interchange preflight, revisioned project-context retrieval, keyframes, markers, captions, transitions, playback, metadata, proxies, connection verification, Adobe Media Encoder export, review handoff, and review-only local editorial planning. The default profile exposes 321. An authenticated compatible UXP panel adds 55 capability-gated tools for 376 connected tools. It also exposes four MCP resources and eleven workflow prompts.
+The server registers 324 core tools for project inspection, project-intake preview, timeline editing, media import and organization, clip selection, effects, Lumetri color, audio, silence and beat detection, loudness analysis and normalization, stream inspection, contact sheets, transient and motion-peak detection, interlace analysis, active-picture detection, local delivery QC, source scene detection, CMX 3600 and FCPXML interchange preflight, revisioned project-context retrieval, keyframes, markers, captions, transitions, playback, metadata, proxies, connection verification, Adobe Media Encoder export, review handoff, and review-only local editorial planning. The default profile exposes 322. An authenticated compatible UXP panel adds 55 capability-gated tools for 377 connected tools. It also exposes four MCP resources and eleven workflow prompts.
 
 ## How it connects
 

@@ -89,6 +89,7 @@ const FILESYSTEM_TOOL_NAMES = new Set([
   "inspect_media_streams",
   "generate_media_contact_sheet",
   "detect_audio_transients",
+  "detect_motion_peaks",
   "analyze_video_interlacing",
   "detect_active_picture_bounds",
   "inspect_cmx3600_edl",
