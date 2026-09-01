@@ -44,6 +44,7 @@ describe("Premiere ExtendScript API inventory", () => {
   });
 
   it("accounts for unique object members and representative APIs", () => {
+    expect(inventory.stats).toEqual({ total: 328, objects: 26, attributes: 108, methods: 220 });
     expect(inventory.stats.total).toBe(inventory.symbols.length);
     expect(inventory.stats.attributes + inventory.stats.methods).toBe(inventory.stats.total);
     expect(inventory.stats.objects).toBe(inventory.objects.length);
