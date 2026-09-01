@@ -123,8 +123,13 @@ export function analyzeRgbScopes(bytes: Uint8Array): VideoScopeReading {
 
 export function compareScopeReadings(reference: VideoScopeReading, target: VideoScopeReading) {
   const delta = (targetValue: number, referenceValue: number) => Number((targetValue - referenceValue).toFixed(2));
-  const referenceBalance = reference.rgbParade.red.median - reference.rgbParade.blue.median;
-  const targetBalance = target.rgbParade.red.median - target.rgbParade.blue.median;
+  const redBlueBalance = (reading: VideoScopeReading) => {
+    const red = reading.rgbParade.red.median, blue = reading.rgbParade.blue.median;
+    return red + blue > 0 ? (red - blue) / (red + blue) * 100 : 0;
+  };
+  const referenceBalance = redBlueBalance(reference);
+  const targetBalance = redBlueBalance(target);
+  const balanceDelta = delta(targetBalance, referenceBalance);
   return {
     targetMinusReference: {
       medianLuma: delta(target.waveform.median, reference.waveform.median),
@@ -134,11 +139,11 @@ export function compareScopeReadings(reference: VideoScopeReading, target: Video
       greenMedian: delta(target.rgbParade.green.median, reference.rgbParade.green.median),
       blueMedian: delta(target.rgbParade.blue.median, reference.rgbParade.blue.median),
       saturationMean: delta(target.saturation.mean, reference.saturation.mean),
-      redBlueBalance: delta(targetBalance, referenceBalance),
+      redBlueBalance: balanceDelta,
     },
     suggestedDirections: {
       exposure: target.waveform.median < reference.waveform.median ? "raise" : target.waveform.median > reference.waveform.median ? "lower" : "hold",
-      warmth: targetBalance < referenceBalance ? "warmer" : targetBalance > referenceBalance ? "cooler" : "hold",
+      warmth: Math.abs(balanceDelta) < 0.25 ? "hold" : balanceDelta < 0 ? "warmer" : "cooler",
       saturation: target.saturation.mean < reference.saturation.mean ? "raise" : target.saturation.mean > reference.saturation.mean ? "lower" : "hold",
     },
   };

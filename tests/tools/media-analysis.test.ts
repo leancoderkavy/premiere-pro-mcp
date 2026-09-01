@@ -103,6 +103,15 @@ describe("media analysis parsers", () => {
     });
   });
 
+  it("keeps the warmth direction stable across proportional exposure changes", () => {
+    const reference = analyzeRgbScopes(Uint8Array.from([100, 75, 50]));
+    const target = analyzeRgbScopes(Uint8Array.from([200, 150, 100]));
+    expect(compareScopeReadings(reference, target)).toMatchObject({
+      targetMinusReference: { redBlueBalance: -0.01 },
+      suggestedDirections: { exposure: "lower", warmth: "hold", saturation: "hold" },
+    });
+  });
+
   it("classifies progressive, mixed, and absent idet summaries", () => {
     expect(parseIdetOutput("Multi frame detection: TFF: 1 BFF: 0 Progressive: 99 Undetermined: 0").classification).toBe("progressive");
     expect(parseIdetOutput("Multi frame detection: TFF: 50 BFF: 0 Progressive: 50 Undetermined: 0").classification).toBe("mixed");
