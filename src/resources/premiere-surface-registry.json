@@ -17,11 +17,11 @@
       "id": "uxp-javascript",
       "kind": "api",
       "authorityUrls": ["https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-js/"],
-      "versionSource": "Premiere-bundled UXP runtime",
-      "inventoryArtifact": null,
-      "inventoryState": "not_started",
+      "versionSource": "@adobe/cc-ext-uxp-types@7.3.1",
+      "inventoryArtifact": "dist/resources/uxp-js-api-inventory.json",
+      "inventoryState": "complete",
       "implementationState": "partial",
-      "notes": "Filesystem, networking, shell, core runtime, and module APIs require a separate inventory from the Premiere DOM."
+      "notes": "All declarations in Adobe's UXP 7.3 type package are inventoried and classified separately from the Premiere DOM; mapped remains static panel evidence, not licensed-host proof."
     },
     {
       "id": "uxp-html",

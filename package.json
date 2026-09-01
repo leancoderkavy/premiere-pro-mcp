@@ -14,6 +14,7 @@
     "dist/**/*.d.ts",
     "dist/resources/adobe-uxp-coverage.json",
     "dist/resources/adobe-api-inventory.json",
+    "dist/resources/uxp-js-api-inventory.json",
     "dist/resources/premiere-surface-registry.json",
     "cep-plugin",
     "artifacts/MCPBridgeCEP.zxp",
@@ -21,6 +22,7 @@
     "benchmarks/uxp-hybrid",
     "docs/supported-actions.md",
     "docs/adobe-api-inventory.md",
+    "docs/uxp-js-api-inventory.md",
     "docs/premiere-surface-registry.md",
     "docs/project-context-engine.md",
     "docs/mcp-2026-07-28-capabilities.md",
@@ -37,10 +39,10 @@
     "CHANGELOG.md"
   ],
   "scripts": {
-    "build": "node scripts/generate-adobe-api-inventory.mjs --check && tsc && node scripts/copy-adobe-uxp-coverage.mjs",
+    "build": "node scripts/generate-adobe-api-inventory.mjs --check && node scripts/generate-uxp-js-api-inventory.mjs --check && tsc && node scripts/copy-adobe-uxp-coverage.mjs",
     "build:claude": "npm run build && node scripts/build-claude-desktop.mjs",
     "build:connector:windows": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build-connector-installer.ps1",
-    "check": "npm run lint && npm run adobe:api-inventory:check && npm run build && npm run validate:marketplace-branding && npm run validate:mcp-registry-metadata && npm run docs:supported-actions:check && npm run docs:quickstart:check && npm test",
+    "check": "npm run lint && npm run adobe:api-inventory:check && npm run uxp:js-api-inventory:check && npm run build && npm run validate:marketplace-branding && npm run validate:mcp-registry-metadata && npm run docs:supported-actions:check && npm run docs:quickstart:check && npm test",
     "check:release-metadata": "vitest run tests/release-metadata.test.ts",
     "dev": "tsc --watch",
     "start": "node dist/index.js",
@@ -59,6 +61,8 @@
     "docs:quickstart:check": "node scripts/check-quickstart-locales.mjs",
     "adobe:api-inventory": "node scripts/generate-adobe-api-inventory.mjs",
     "adobe:api-inventory:check": "node scripts/generate-adobe-api-inventory.mjs --check",
+    "uxp:js-api-inventory": "node scripts/generate-uxp-js-api-inventory.mjs",
+    "uxp:js-api-inventory:check": "node scripts/generate-uxp-js-api-inventory.mjs --check",
     "install-cep": "node dist/index.js --install-cep",
     "uninstall-cep": "node dist/index.js --uninstall-cep",
     "check-update:source": "node scripts/update-source.mjs --check",
@@ -119,6 +123,7 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
+    "@adobe/cc-ext-uxp-types": "7.3.1",
     "@adobe/eslint-plugin-premierepro": "26.3.0",
     "@adobe/premierepro": "26.3.0",
     "@modelcontextprotocol/client": "^2.0.0",

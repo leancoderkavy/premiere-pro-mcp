@@ -76,13 +76,20 @@ describe("Premiere API and competitor surface registry", () => {
     }
     expect(registry.integrationSurfaces.find((surface) => surface.id === "premiere-dom"))
       .toMatchObject({ inventoryState: "complete", implementationState: "partial" });
+    expect(registry.integrationSurfaces.find((surface) => surface.id === "uxp-javascript"))
+      .toMatchObject({
+        versionSource: "@adobe/cc-ext-uxp-types@7.3.1",
+        inventoryArtifact: "dist/resources/uxp-js-api-inventory.json",
+        inventoryState: "complete",
+        implementationState: "partial",
+      });
     expect(registry.integrationSurfaces.find((surface) => surface.id === "cep-extendscript"))
       .toMatchObject({
         authorityUrls: ["https://github.com/Adobe-CEP/Samples/tree/master/PProPanel"],
         communityReferenceUrls: ["https://ppro-scripting.docsforadobe.dev/"],
       });
     expect(registry.integrationSurfaces.filter((surface) => surface.inventoryState === "complete"))
-      .toHaveLength(1);
+      .toHaveLength(2);
   });
 
   it("pins reviewed competitor sources and explicit safe-adoption boundaries", () => {
