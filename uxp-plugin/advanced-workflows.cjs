@@ -355,7 +355,9 @@
         });
         const after = await markerList(context.collection), beforeGuids = new Set(before.map((marker) => marker.guid));
         const added = after.filter((marker) => !beforeGuids.has(marker.guid));
-        const verified = added.length === times.length && added.every((marker, index) => marker.name === prefix + " " + (index + 1) && numbersEqual(marker.startSeconds, times[index]));
+        const addedGuids = new Set(added.map((marker) => marker.guid));
+        const verified = added.length === times.length && addedGuids.size === added.length
+          && added.every((marker, index) => Boolean(marker.guid) && marker.name === prefix + " " + (index + 1) && numbersEqual(marker.startSeconds, times[index]));
         return mutationResult(verified, { added: added.length, markers: added, beforeCount: before.length, afterCount: after.length, offsetSeconds: offset }, "beat_marker_guid_and_time_readback", "Add beat grid markers");
       });
     }

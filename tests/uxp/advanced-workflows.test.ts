@@ -328,6 +328,43 @@ describe("advanced stable Premiere UXP workflows", () => {
     })).resolves.toMatchObject({ created: true, outcome: "verified", item: { name: "Selects" } });
   });
 
+  it("rejects invalid beat grids before mutation and reports contradictory readback as unverified", async () => {
+    const value = advancedHost();
+    for (const args of [
+      { beatTimesSeconds: [2, 1] },
+      { beatTimesSeconds: [1, 1] },
+      { beatTimesSeconds: [1], offsetSeconds: -2 },
+    ]) {
+      await expect(value.registry.dispatch("markers.addBeatGrid", args)).rejects.toMatchObject({ code: "UXP_INVALID_ARGUMENT" });
+    }
+    expect(value.project.lockedAccess).not.toHaveBeenCalled();
+
+    value.markerValues.push(...Array.from({ length: 2046 }, () => value.markerValues[0]));
+    await expect(value.registry.dispatch("markers.addBeatGrid", { beatTimesSeconds: [1, 2] }))
+      .rejects.toMatchObject({ code: "UXP_COLLECTION_LIMIT" });
+    expect(value.project.lockedAccess).not.toHaveBeenCalled();
+
+    const emptyGuid = advancedHost();
+    emptyGuid.markers.createAddMarkerAction.mockImplementation((name: string, type: string, start: { seconds: number }) => ({ apply: () => {
+      emptyGuid.markerValues.push({
+        ...emptyGuid.markerValues[0], guid: "", getName: vi.fn(async () => name), getType: vi.fn(async () => type),
+        getStart: vi.fn(async () => ({ seconds: start.seconds })),
+      });
+    } }));
+    await expect(emptyGuid.registry.dispatch("markers.addBeatGrid", { beatTimesSeconds: [1] }))
+      .resolves.toMatchObject({ outcome: "committed_unverified", verified: false });
+
+    const wrongTime = advancedHost();
+    wrongTime.markers.createAddMarkerAction.mockImplementation((name: string, type: string, start: { seconds: number }) => ({ apply: () => {
+      wrongTime.markerValues.push({
+        ...wrongTime.markerValues[0], guid: "wrong-time-guid", getName: vi.fn(async () => name), getType: vi.fn(async () => type),
+        getStart: vi.fn(async () => ({ seconds: start.seconds + 1 })),
+      });
+    } }));
+    await expect(wrongTime.registry.dispatch("markers.addBeatGrid", { beatTimesSeconds: [1] }))
+      .resolves.toMatchObject({ outcome: "committed_unverified", verified: false });
+  });
+
   it("updates sequence settings, imports workspace media, and automates a typed effect parameter", async () => {
     const value = advancedHost();
     await expect(value.registry.dispatch("sequenceSettings.update", {

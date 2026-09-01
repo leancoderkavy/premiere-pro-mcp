@@ -720,7 +720,7 @@
       "minimumPremiereVersion": "26.3.0",
       "backend": "uxp",
       "uxpCommand": "markers.update",
-      "mcpTools": ["manage_markers_uxp"],
+      "mcpTools": ["manage_markers_uxp", "apply_beat_markers_uxp"],
       "availability": "current",
       "implementationStatus": "implemented",
       "verificationStatus": "automated_contract_verified",

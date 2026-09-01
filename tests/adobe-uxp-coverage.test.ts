@@ -49,6 +49,10 @@ describe("Adobe Premiere Pro 26.3 UXP coverage", () => {
       "sequence-lifecycle-derivatives",
       "ame-encode-controller",
     ]));
+    expect(entries.find((entry) => entry.id === "native-marker-crud")?.mcpTools).toEqual([
+      "manage_markers_uxp",
+      "apply_beat_markers_uxp",
+    ]);
     for (const entry of entries) {
       expect(entry.minimumPremiereVersion).toMatch(/^\d+\.\d+\.\d+$/);
       expect(entry.backend).toBe("uxp");
