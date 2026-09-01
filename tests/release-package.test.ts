@@ -32,6 +32,9 @@ describe("npm release package verification", () => {
 
     expect(publish).toContain("npm publish --provenance --access public");
     expect(publish).toContain("npm run pack:check");
+    expect(publish).toContain("npm run premiere:docs-inventory:check");
+    expect(publish.indexOf("npm run premiere:docs-inventory:check"))
+      .toBeLessThan(publish.indexOf("npm run build"));
     expect(crossPlatform).toContain("npm run pack:check");
   });
 

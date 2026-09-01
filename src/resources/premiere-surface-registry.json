@@ -61,7 +61,7 @@
       "inventoryArtifact": "dist/resources/premiere-doc-inventory.json",
       "inventoryState": "complete",
       "implementationState": "partial",
-      "notes": "Manifest, entrypoint, lifecycle, packaging, distribution, and recipe requirements need page-level classification."
+      "notes": "Manifest, entrypoint, lifecycle, packaging, distribution, and recipe pages are classified in the live-sitemap inventory; implementation remains partial."
     },
     {
       "id": "uxp-hybrid-cpp",
