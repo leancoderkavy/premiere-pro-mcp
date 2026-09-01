@@ -8,7 +8,7 @@
 
 **Give compatible AI assistants structured control over supported Adobe Premiere Pro workflows.**
 
-322 core tools across 37 modules, 14 resources, and 11 guided workflows. A connected UXP host adds 55 capability-gated tools.
+322 core tools across 37 modules, 4 resources, and 11 guided workflows. A connected UXP host adds 55 capability-gated tools.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Node.js](https://img.shields.io/badge/Node.js-20.19%2B-green.svg)](https://nodejs.org)

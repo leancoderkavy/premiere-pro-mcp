@@ -96,6 +96,10 @@ export function analyzeBeatPcm(samples: Int16Array, sampleRate: number): BeatMea
   let selfScore = 0;
   for (const value of onset) selfScore += value * value;
   selfScore /= onset.length;
+  const confidence = Math.max(0, Math.min(1, selfScore > 0 ? bestScore / selfScore : 0));
+  if (!Number.isFinite(confidence) || confidence < 0.05) {
+    throw new Error("No repeating beat evidence was detected in the decoded media");
+  }
   const bpm = 60 * envelopeRate / bestLag;
   let bestOffset = 0;
   let phaseScore = -1;
@@ -110,7 +114,7 @@ export function analyzeBeatPcm(samples: Int16Array, sampleRate: number): BeatMea
   }
   return {
     bpm: Number(bpm.toFixed(1)),
-    confidence: Number(Math.max(0, Math.min(1, selfScore > 0 ? bestScore / selfScore : 0)).toFixed(2)),
+    confidence: Number(confidence.toFixed(2)),
     beatTimesSeconds,
     durationSeconds: Number((samples.length / sampleRate).toFixed(3)),
   };
@@ -767,8 +771,11 @@ export function getAudioTools(bridgeOptions: BridgeOptions) {
       },
       handler: async (args: { media_path: string; max_beats?: number }) => {
         const maxBeats = args.max_beats ?? 500;
-        if (!args.media_path || !Number.isInteger(maxBeats) || maxBeats < 1 || maxBeats > 2000) {
-          return { success: false, error: "media_path and max_beats from 1 through 2000 are required." };
+        if (!args.media_path) {
+          return { success: false, error: "media_path is required." };
+        }
+        if (!Number.isInteger(maxBeats) || maxBeats < 1 || maxBeats > 2000) {
+          return { success: false, error: "max_beats must be an integer from 1 through 2000." };
         }
         const mediaPath = resolve(args.media_path);
         if (!existsSync(mediaPath) || !statSync(mediaPath).isFile()) {
@@ -797,9 +804,11 @@ export function getAudioTools(bridgeOptions: BridgeOptions) {
             },
           };
         } catch (error) {
-          const failure = error as { killed?: boolean; stderr?: Buffer | string; message?: string };
+          const failure = error as { code?: string; killed?: boolean; stderr?: Buffer | string; message?: string };
           const detail = Buffer.isBuffer(failure.stderr) ? failure.stderr.toString("utf8") : (failure.stderr ?? failure.message ?? "");
-          return { success: false, error: failure.killed
+          return { success: false, error: failure.code === "ENOENT"
+            ? "ffmpeg was not found on PATH; install FFmpeg to analyze beats."
+            : failure.killed
             ? `ffmpeg timed out after ${FFMPEG_TIMEOUT_MS / 1000}s during beat analysis.`
             : `ffmpeg could not decode media for beat analysis: ${String(detail).trim() || "unknown error"}` };
         }
