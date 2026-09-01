@@ -17,8 +17,10 @@ authoritative reference.
 The stable Premiere DOM and general UXP JavaScript declarations have complete
 symbol inventories. Adobe's live sitemap supplies a complete page inventory
 for HTML, CSS, Spectrum, plugin guides, and supporting UXP documentation.
-Remaining surfaces stay visibly partial, not started, externally gated, or
-unavailable from an authoritative source. Both C++ SDK
+The pinned community Premiere scripting guide also has a complete member
+inventory, explicitly labeled as non-Adobe authority and not runtime proof.
+Other remaining surfaces stay visibly partial, not started, externally gated,
+or unavailable from an authoritative source. Both C++ SDK
 inventories remain externally gated because their headers and packaged
 documentation require Adobe Developer Console access. An inventory is
 not implementation proof, and automated contracts are not licensed-host proof.

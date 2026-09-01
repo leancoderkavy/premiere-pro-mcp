@@ -70,13 +70,16 @@ describe("Premiere ExtendScript API inventory", () => {
   });
 
   it("parses table-defined collection members without treating parameter tables as APIs", () => {
-    const fixture = runFixture("# Collection object\n\n## Attributes\n\n| Attribute | Type |\n| --- | --- |\n| `length` | Integer |\n\n## Methods\n\n| Method | Return Type |\n| --- | --- |\n| `[]` | Object |\n");
+    const fixture = runFixture("# Collection object\n\n## Attributes\n\n| Attribute | Type |\n| --- | --- |\n| `length` | Integer |\n\n## Methods\n\n| Method | Return Type |\n| --- | --- |\n| `[]` | Object |\n\n### Collection.find()\n\n`collection.find(index)`\n\n#### Parameters\n\n| Parameter | Type |\n| --- | --- |\n| `index` | Integer |\n");
     try {
       expect(fixture.result.status).toBe(0);
       expect(JSON.parse(readFileSync(fixture.outputPath, "utf8")).symbols).toEqual([
         expect.objectContaining({ name: "Collection.length", kind: "attribute", signature: "length" }),
         expect.objectContaining({ name: "Collection.[]", kind: "method", signature: "[]" }),
+        expect.objectContaining({ name: "Collection.find()", kind: "method", signature: "collection.find(index)" }),
       ]);
+      expect(JSON.parse(readFileSync(fixture.outputPath, "utf8")).symbols)
+        .not.toEqual(expect.arrayContaining([expect.objectContaining({ name: "Collection.index" })]));
     } finally {
       rmSync(fixture.directory, { recursive: true, force: true });
     }
