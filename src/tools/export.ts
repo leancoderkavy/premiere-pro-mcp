@@ -107,7 +107,11 @@ export function evaluateDeliveryConformance(
 ): DeliveryConformanceCheck[] {
   const streams = Array.isArray(probe.streams) ? probe.streams.filter((value): value is Record<string, unknown> => !!value && typeof value === "object") : [];
   const format = probe.format && typeof probe.format === "object" ? probe.format as Record<string, unknown> : {};
-  const video = streams.find(stream => stream.codec_type === "video");
+  const video = streams.find(stream => {
+    if (stream.codec_type !== "video") return false;
+    const disposition = stream.disposition && typeof stream.disposition === "object" ? stream.disposition as Record<string, unknown> : {};
+    return finiteNumber(disposition.attached_pic) !== 1;
+  });
   const audio = streams.find(stream => stream.codec_type === "audio");
   const checks: DeliveryConformanceCheck[] = [];
   const exact = (id: string, expected: unknown, actual: unknown) => checks.push({ id, status: normalized(actual) === normalized(expected) ? "pass" : "fail", expected, actual: actual ?? null });
@@ -497,7 +501,7 @@ export function getExportTools(bridgeOptions: BridgeOptions) {
           if (changedSinceStart()) return { success: false, error: `Delivery file changed during conformance inspection: ${mediaPath}` };
           if (failure.code === "ENOENT") return { success: false, error: "ffprobe was not found on PATH" };
           if (failure.killed) return { success: false, error: "ffprobe delivery conformance inspection timed out after 60 seconds" };
-          return { success: false, error: `ffprobe delivery conformance inspection failed: ${failure.stderr ?? failure.message ?? "unknown error"}` };
+          return { success: false, error: `ffprobe delivery conformance inspection failed: ${failure.stderr?.trim() || failure.message || "unknown error"}` };
         }
         let loudness: ReturnType<typeof parseEbur128Summary> | null = null;
         let loudnessUnavailableReason: string | undefined;

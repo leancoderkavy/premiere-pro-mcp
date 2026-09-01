@@ -109,6 +109,14 @@ describe("delivery conformance comparisons", () => {
     expect(missingBitrate.find(check => check.id === "minimum_video_bitrate")).toMatchObject({
       status: "not_evaluated", detail: "Video bitrate metadata was unavailable",
     });
+
+    const coverArtOnly = evaluateDeliveryConformance({
+      format: { bit_rate: "5000000" },
+      streams: [{ codec_type: "video", codec_name: "mjpeg", width: 1000, disposition: { attached_pic: 1 } }],
+    }, { videoCodec: "mjpeg", width: 1000, minimumVideoBitrateKbps: 1000 });
+    expect(coverArtOnly.find(check => check.id === "video_codec")?.status).toBe("fail");
+    expect(coverArtOnly.find(check => check.id === "width")?.status).toBe("fail");
+    expect(coverArtOnly.find(check => check.id === "minimum_video_bitrate")?.status).toBe("not_evaluated");
   });
 });
 
@@ -161,6 +169,11 @@ describe("verify_delivery_conformance boundary", () => {
     mockedExecFileAsync.mockRejectedValueOnce(Object.assign(new Error("probe failed"), { stderr: "invalid media" }));
     await expect(tool.handler({ output_path: mediaPath, video_codec: "h264" }))
       .resolves.toMatchObject({ success: false, error: expect.stringContaining("invalid media") });
+
+    const emptyStderrPath = mediaFile();
+    mockedExecFileAsync.mockRejectedValueOnce(Object.assign(new Error("probe failed"), { stderr: "" }));
+    await expect(tool.handler({ output_path: emptyStderrPath, video_codec: "h264" }))
+      .resolves.toMatchObject({ success: false, error: expect.stringContaining("probe failed") });
   });
 
   it("reports ffprobe timeouts and refuses a file that changes during inspection", async () => {
