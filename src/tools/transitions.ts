@@ -174,6 +174,7 @@ export function getTransitionsTools(bridgeOptions: BridgeOptions) {
           
           var result = __findClip("${escapeForExtendScript(args.node_id)}");
           if (!result) return __error("Clip not found");
+          if (result.trackType !== "video") return __error("Video transitions can only be added to a video clip; no transition was attempted.");
           
           var transitionName = "${escapeForExtendScript(args.transition_name)}";
           var transitionQE = null;
@@ -216,6 +217,9 @@ export function getTransitionsTools(bridgeOptions: BridgeOptions) {
             try {
               qeClip.addTransition(transitionQE, false, String(durationFrames), "0", 0.5, false, true);
             } catch (endTransitionError) {
+              if (position === "both" && domTrack.transitions.numItems > transitionCountBefore) {
+                return __error("Premiere added the transition at the clip start, but rejected the transition at the clip end; the request was partially applied: " + endTransitionError.toString());
+              }
               return __error("QE clip addTransition rejected the transition at the clip end: " + endTransitionError.toString());
             }
           }

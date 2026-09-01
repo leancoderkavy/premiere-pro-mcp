@@ -714,6 +714,7 @@ describe("Tool Handler Behavior", () => {
         node_id: "clip-1", transition_name: "Cross Dissolve", position: "both",
       });
       const clipScript = mockedSendCommand.mock.calls[0][0];
+      expect(clipScript).toContain('result.trackType !== "video"');
       expect(clipScript).toContain("__findQeClipByDomClip(qeTrack, result.clip)");
       expect(clipScript).toContain("var requestedCount = position === \"both\" ? 2 : 1");
       expect(clipScript).toContain('qeClip.addTransition(transitionQE, true, String(durationFrames), "0", 0.5, false, true)');
@@ -721,6 +722,7 @@ describe("Tool Handler Behavior", () => {
       expect(clipScript).toContain("startVerified");
       expect(clipScript).toContain("endVerified");
       expect(clipScript).toContain("var verifiedMidpoint = (verifiedStart + verifiedEnd) / 2");
+      expect(clipScript).toContain("the request was partially applied");
 
       vi.clearAllMocks();
       await (tools.batch_add_transitions.handler as any)({ transition_name: "Cross Dissolve" });
