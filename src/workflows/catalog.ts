@@ -29,7 +29,7 @@ export const WORKFLOW_CATALOG = [
     id: "delivery",
     title: "Prepare a delivery export",
     summary: "Validate the sequence and destination, export with an explicit preset, then report the produced artifact.",
-    recommendedTools: ["get_premiere_state", "get_active_sequence", "export_sequence"],
+    recommendedTools: ["get_premiere_state", "get_active_sequence", "export_sequence", "verify_delivery_file", "verify_delivery_conformance"],
   },
   {
     id: "contextual-rough-cut",
