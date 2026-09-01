@@ -1,0 +1,5095 @@
+{
+  "schemaVersion": 1,
+  "source": {
+    "package": "@adobe/premierepro",
+    "version": "26.3.0",
+    "declarations": "node_modules/@adobe/premierepro/src/premierepro.d.ts",
+    "declarationsSha256": "c16a90e3fb24924ac2e3b00f0e269981c82898e2d15bfe77c67e2be2f1fc4db5",
+    "coverageManifest": "src/resources/adobe-uxp-coverage.json"
+  },
+  "semantics": {
+    "mapped": "The exact declaration symbol is referenced by at least one coverage-manifest entry; this alone is not live-host verification.",
+    "unmapped": "No coverage-manifest entry references the exact declaration symbol; this is a review queue, not proof that a standalone MCP tool is appropriate."
+  },
+  "stats": {
+    "total": 976,
+    "mapped": 177,
+    "unmapped": 799,
+    "manifestOnly": 4
+  },
+  "manifestOnly": [
+    "MarkerCollection",
+    "storage.localFileSystem.createPersistentToken",
+    "storage.localFileSystem.getEntryForPersistentToken",
+    "storage.localFileSystem.getFolder"
+  ],
+  "entries": [
+    {
+      "symbol": "AAFExportOptions",
+      "kind": "type",
+      "coverage": "mapped"
+    },
+    {
+      "symbol": "AAFExportOptions.[[call]]",
+      "kind": "call",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "AAFExportOptions.[[construct]]",
+      "kind": "constructor",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "AAFExportOptions.audioFileFormat",
+      "kind": "property",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "AAFExportOptions.bitsPerSample",
+      "kind": "property",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "AAFExportOptions.embedAudio",
+      "kind": "property",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "AAFExportOptions.explodeToMono",
+      "kind": "property",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "AAFExportOptions.handleFrames",
+      "kind": "property",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "AAFExportOptions.interleaveWithoutEffects",
+      "kind": "property",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "AAFExportOptions.mixdownVideo",
+      "kind": "property",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "AAFExportOptions.preserveParentFolder",
+      "kind": "property",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "AAFExportOptions.renderAudioEffects",
+      "kind": "property",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "AAFExportOptions.sampleRate",
+      "kind": "property",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "AAFExportOptions.setAudioFileFormat",
+      "kind": "method",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "AAFExportOptions.setBitsPerSample",
+      "kind": "method",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "AAFExportOptions.setEmbedAudio",
+      "kind": "method",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "AAFExportOptions.setExplodeToMono",
+      "kind": "method",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "AAFExportOptions.setHandleFrames",
+      "kind": "method",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "AAFExportOptions.setInterleaveWithoutEffects",
+      "kind": "method",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "AAFExportOptions.setMixdownVideo",
+      "kind": "method",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "AAFExportOptions.setPreserveParentFolder",
+      "kind": "method",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "AAFExportOptions.setRenderAudioEffects",
+      "kind": "method",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "AAFExportOptions.setSampleRate",
+      "kind": "method",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "AAFExportOptions.setTrimSources",
+      "kind": "method",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "AAFExportOptions.setVideoMixdownPresetPath",
+      "kind": "method",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "AAFExportOptions.trimSources",
+      "kind": "property",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "AAFExportOptions.videoMixdownPresetPath",
+      "kind": "property",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Action",
+      "kind": "type",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "AddTransitionOptions",
+      "kind": "type",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "AddTransitionOptions.[[call]]",
+      "kind": "call",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "AddTransitionOptions.[[construct]]",
+      "kind": "constructor",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "AddTransitionOptions.applyToStart",
+      "kind": "property",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "AddTransitionOptions.duration",
+      "kind": "property",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "AddTransitionOptions.forceSingleSided",
+      "kind": "property",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "AddTransitionOptions.setApplyToStart",
+      "kind": "method",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "AddTransitionOptions.setDuration",
+      "kind": "method",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "AddTransitionOptions.setForceSingleSided",
+      "kind": "method",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "AddTransitionOptions.setTransitionAlignment",
+      "kind": "method",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "AddTransitionOptions.transitionAlignment",
+      "kind": "property",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "AppPreference",
+      "kind": "type",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "AppPreference.KEY_AUTO_PEAK_GENERATION",
+      "kind": "property",
+      "declarationSymbol": "AppPreferenceStatic.KEY_AUTO_PEAK_GENERATION",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "AppPreference.KEY_IMPORT_WORKSPACE",
+      "kind": "property",
+      "declarationSymbol": "AppPreferenceStatic.KEY_IMPORT_WORKSPACE",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "AppPreference.KEY_SHOW_QUICKSTART_DIALOG",
+      "kind": "property",
+      "declarationSymbol": "AppPreferenceStatic.KEY_SHOW_QUICKSTART_DIALOG",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "AppPreference.PROPERTY_NON_PERSISTENT",
+      "kind": "property",
+      "declarationSymbol": "AppPreferenceStatic.PROPERTY_NON_PERSISTENT",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "AppPreference.PROPERTY_PERSISTENT",
+      "kind": "property",
+      "declarationSymbol": "AppPreferenceStatic.PROPERTY_PERSISTENT",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "AppPreference.getValue",
+      "kind": "method",
+      "declarationSymbol": "AppPreferenceStatic.getValue",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "AppPreference.setValue",
+      "kind": "method",
+      "declarationSymbol": "AppPreferenceStatic.setValue",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "AppPreferenceStatic",
+      "kind": "type",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Application",
+      "kind": "type",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Application.version",
+      "kind": "property",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "AudioClipTrackItem",
+      "kind": "type",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "AudioClipTrackItem.TRACKITEMTYPE_CLIP",
+      "kind": "property",
+      "declarationSymbol": "AudioClipTrackItemStatic.TRACKITEMTYPE_CLIP",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "AudioClipTrackItem.TRACKITEMTYPE_EMPTY",
+      "kind": "property",
+      "declarationSymbol": "AudioClipTrackItemStatic.TRACKITEMTYPE_EMPTY",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "AudioClipTrackItem.TRACKITEMTYPE_FEEDBACK",
+      "kind": "property",
+      "declarationSymbol": "AudioClipTrackItemStatic.TRACKITEMTYPE_FEEDBACK",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "AudioClipTrackItem.TRACKITEMTYPE_PREVIEW",
+      "kind": "property",
+      "declarationSymbol": "AudioClipTrackItemStatic.TRACKITEMTYPE_PREVIEW",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "AudioClipTrackItem.TRACKITEMTYPE_TRANSITION",
+      "kind": "property",
+      "declarationSymbol": "AudioClipTrackItemStatic.TRACKITEMTYPE_TRANSITION",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "AudioClipTrackItem.createMoveAction",
+      "kind": "method",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "AudioClipTrackItem.createSetDisabledAction",
+      "kind": "method",
+      "coverage": "mapped"
+    },
+    {
+      "symbol": "AudioClipTrackItem.createSetEndAction",
+      "kind": "method",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "AudioClipTrackItem.createSetInPointAction",
+      "kind": "method",
+      "coverage": "mapped"
+    },
+    {
+      "symbol": "AudioClipTrackItem.createSetNameAction",
+      "kind": "method",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "AudioClipTrackItem.createSetOutPointAction",
+      "kind": "method",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "AudioClipTrackItem.createSetStartAction",
+      "kind": "method",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "AudioClipTrackItem.getComponentChain",
+      "kind": "method",
+      "coverage": "mapped"
+    },
+    {
+      "symbol": "AudioClipTrackItem.getDuration",
+      "kind": "method",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "AudioClipTrackItem.getEndTime",
+      "kind": "method",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "AudioClipTrackItem.getInPoint",
+      "kind": "method",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "AudioClipTrackItem.getIsSelected",
+      "kind": "method",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "AudioClipTrackItem.getMatchName",
+      "kind": "method",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "AudioClipTrackItem.getMediaType",
+      "kind": "method",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "AudioClipTrackItem.getName",
+      "kind": "method",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "AudioClipTrackItem.getOutPoint",
+      "kind": "method",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "AudioClipTrackItem.getProjectItem",
+      "kind": "method",
+      "coverage": "mapped"
+    },
+    {
+      "symbol": "AudioClipTrackItem.getSpeed",
+      "kind": "method",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "AudioClipTrackItem.getStartTime",
+      "kind": "method",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "AudioClipTrackItem.getTrackIndex",
+      "kind": "method",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "AudioClipTrackItem.getType",
+      "kind": "method",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "AudioClipTrackItem.isAdjustmentLayer",
+      "kind": "method",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "AudioClipTrackItem.isDisabled",
+      "kind": "method",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "AudioClipTrackItem.isSpeedReversed",
+      "kind": "method",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "AudioClipTrackItemStatic",
+      "kind": "type",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "AudioComponentChain",
+      "kind": "type",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "AudioComponentChain.createAppendComponentAction",
+      "kind": "method",
+      "coverage": "mapped"
+    },
+    {
+      "symbol": "AudioComponentChain.createInsertComponentAction",
+      "kind": "method",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "AudioComponentChain.createRemoveComponentAction",
+      "kind": "method",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "AudioComponentChain.getComponentAtIndex",
+      "kind": "method",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "AudioComponentChain.getComponentCount",
+      "kind": "method",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "AudioComponentChainStatic",
+      "kind": "type",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "AudioFilterComponent",
+      "kind": "type",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "AudioFilterComponentStatic",
+      "kind": "type",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "AudioFilterFactory",
+      "kind": "type",
+      "coverage": "mapped"
+    },
+    {
+      "symbol": "AudioFilterFactory.createComponentByDisplayName",
+      "kind": "method",
+      "declarationSymbol": "AudioFilterFactoryStatic.createComponentByDisplayName",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "AudioFilterFactory.getDisplayNames",
+      "kind": "method",
+      "declarationSymbol": "AudioFilterFactoryStatic.getDisplayNames",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "AudioFilterFactoryStatic",
+      "kind": "type",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "AudioTrack",
+      "kind": "type",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "AudioTrack.EVENT_TRACK_CHANGED",
+      "kind": "property",
+      "declarationSymbol": "AudioTrackStatic.EVENT_TRACK_CHANGED",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "AudioTrack.EVENT_TRACK_INFO_CHANGED",
+      "kind": "property",
+      "declarationSymbol": "AudioTrackStatic.EVENT_TRACK_INFO_CHANGED",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "AudioTrack.EVENT_TRACK_LOCK_CHANGED",
+      "kind": "property",
+      "declarationSymbol": "AudioTrackStatic.EVENT_TRACK_LOCK_CHANGED",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "AudioTrack.createSetNameAction",
+      "kind": "method",
+      "coverage": "mapped"
+    },
+    {
+      "symbol": "AudioTrack.getIndex",
+      "kind": "method",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "AudioTrack.getMediaType",
+      "kind": "method",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "AudioTrack.getTrackItems",
+      "kind": "method",
+      "coverage": "mapped"
+    },
+    {
+      "symbol": "AudioTrack.id",
+      "kind": "property",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "AudioTrack.isMuted",
+      "kind": "method",
+      "coverage": "mapped"
+    },
+    {
+      "symbol": "AudioTrack.name",
+      "kind": "property",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "AudioTrack.setMute",
+      "kind": "method",
+      "coverage": "mapped"
+    },
+    {
+      "symbol": "AudioTrackStatic",
+      "kind": "type",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "CaptionTrack",
+      "kind": "type",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "CaptionTrack.createSetNameAction",
+      "kind": "method",
+      "coverage": "mapped"
+    },
+    {
+      "symbol": "CaptionTrack.getIndex",
+      "kind": "method",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "CaptionTrack.getMediaType",
+      "kind": "method",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "CaptionTrack.getTrackItems",
+      "kind": "method",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "CaptionTrack.id",
+      "kind": "property",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "CaptionTrack.isMuted",
+      "kind": "method",
+      "coverage": "mapped"
+    },
+    {
+      "symbol": "CaptionTrack.name",
+      "kind": "property",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "CaptionTrack.setMute",
+      "kind": "method",
+      "coverage": "mapped"
+    },
+    {
+      "symbol": "CaptionTrackStatic",
+      "kind": "type",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "ClipProjectItem",
+      "kind": "type",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "ClipProjectItem.attachProxy",
+      "kind": "method",
+      "coverage": "mapped"
+    },
+    {
+      "symbol": "ClipProjectItem.canChangeMediaPath",
+      "kind": "method",
+      "coverage": "mapped"
+    },
+    {
+      "symbol": "ClipProjectItem.canProxy",
+      "kind": "method",
+      "coverage": "mapped"
+    },
+    {
+      "symbol": "ClipProjectItem.cast",
+      "kind": "method",
+      "declarationSymbol": "ClipProjectItemStatic.cast",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "ClipProjectItem.changeMediaFilePath",
+      "kind": "method",
+      "coverage": "mapped"
+    },
+    {
+      "symbol": "ClipProjectItem.createClearInOutPointsAction",
+      "kind": "method",
+      "coverage": "mapped"
+    },
+    {
+      "symbol": "ClipProjectItem.createSetColorLabelAction",
+      "kind": "method",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "ClipProjectItem.createSetFootageInterpretationAction",
+      "kind": "method",
+      "coverage": "mapped"
+    },
+    {
+      "symbol": "ClipProjectItem.createSetInOutPointsAction",
+      "kind": "method",
+      "coverage": "mapped"
+    },
+    {
+      "symbol": "ClipProjectItem.createSetInPointAction",
+      "kind": "method",
+      "coverage": "mapped"
+    },
+    {
+      "symbol": "ClipProjectItem.createSetInputLUTIDAction",
+      "kind": "method",
+      "coverage": "mapped"
+    },
+    {
+      "symbol": "ClipProjectItem.createSetNameAction",
+      "kind": "method",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "ClipProjectItem.createSetOfflineAction",
+      "kind": "method",
+      "coverage": "mapped"
+    },
+    {
+      "symbol": "ClipProjectItem.createSetOutPointAction",
+      "kind": "method",
+      "coverage": "mapped"
+    },
+    {
+      "symbol": "ClipProjectItem.createSetOverrideFrameRateAction",
+      "kind": "method",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "ClipProjectItem.createSetOverridePixelAspectRatioAction",
+      "kind": "method",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "ClipProjectItem.createSetScaleToFrameSizeAction",
+      "kind": "method",
+      "coverage": "mapped"
+    },
+    {
+      "symbol": "ClipProjectItem.createSubClipAction",
+      "kind": "method",
+      "coverage": "mapped"
+    },
+    {
+      "symbol": "ClipProjectItem.findItemsMatchingMediaPath",
+      "kind": "method",
+      "coverage": "mapped"
+    },
+    {
+      "symbol": "ClipProjectItem.getColorLabelIndex",
+      "kind": "method",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "ClipProjectItem.getComponentChain",
+      "kind": "method",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "ClipProjectItem.getContentType",
+      "kind": "method",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "ClipProjectItem.getEmbeddedLUTID",
+      "kind": "method",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "ClipProjectItem.getFootageInterpretation",
+      "kind": "method",
+      "coverage": "mapped"
+    },
+    {
+      "symbol": "ClipProjectItem.getInPoint",
+      "kind": "method",
+      "coverage": "mapped"
+    },
+    {
+      "symbol": "ClipProjectItem.getInputLUTID",
+      "kind": "method",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "ClipProjectItem.getMedia",
+      "kind": "method",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "ClipProjectItem.getMediaFilePath",
+      "kind": "method",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "ClipProjectItem.getOriginatingProjectPath",
+      "kind": "method",
+      "coverage": "mapped"
+    },
+    {
+      "symbol": "ClipProjectItem.getOutPoint",
+      "kind": "method",
+      "coverage": "mapped"
+    },
+    {
+      "symbol": "ClipProjectItem.getProject",
+      "kind": "method",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "ClipProjectItem.getProxyPath",
+      "kind": "method",
+      "coverage": "mapped"
+    },
+    {
+      "symbol": "ClipProjectItem.getSequence",
+      "kind": "method",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "ClipProjectItem.hasProxy",
+      "kind": "method",
+      "coverage": "mapped"
+    },
+    {
+      "symbol": "ClipProjectItem.isMergedClip",
+      "kind": "method",
+      "coverage": "mapped"
+    },
+    {
+      "symbol": "ClipProjectItem.isMulticamClip",
+      "kind": "method",
+      "coverage": "mapped"
+    },
+    {
+      "symbol": "ClipProjectItem.isOffline",
+      "kind": "method",
+      "coverage": "mapped"
+    },
+    {
+      "symbol": "ClipProjectItem.isSequence",
+      "kind": "method",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "ClipProjectItem.name",
+      "kind": "property",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "ClipProjectItem.refreshMedia",
+      "kind": "method",
+      "coverage": "mapped"
+    },
+    {
+      "symbol": "ClipProjectItem.type",
+      "kind": "property",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "ClipProjectItemStatic",
+      "kind": "type",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "CloseProjectOptions",
+      "kind": "type",
+      "coverage": "mapped"
+    },
+    {
+      "symbol": "CloseProjectOptions.[[call]]",
+      "kind": "call",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "CloseProjectOptions.[[construct]]",
+      "kind": "constructor",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "CloseProjectOptions.isAppBeingPreparedToQuit",
+      "kind": "property",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "CloseProjectOptions.promptIfDirty",
+      "kind": "property",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "CloseProjectOptions.saveWorkspace",
+      "kind": "property",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "CloseProjectOptions.setIsAppBeingPreparedToQuit",
+      "kind": "method",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "CloseProjectOptions.setPromptIfDirty",
+      "kind": "method",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "CloseProjectOptions.setSaveWorkspace",
+      "kind": "method",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "CloseProjectOptions.setShowCancelButton",
+      "kind": "method",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "CloseProjectOptions.showCancelButton",
+      "kind": "property",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Color",
+      "kind": "type",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Color.[[call]]",
+      "kind": "call",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Color.[[construct]]",
+      "kind": "constructor",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Color.alpha",
+      "kind": "property",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Color.blue",
+      "kind": "property",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Color.equals",
+      "kind": "method",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Color.green",
+      "kind": "property",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Color.red",
+      "kind": "property",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Component",
+      "kind": "type",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Component.getDisplayName",
+      "kind": "method",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Component.getMatchName",
+      "kind": "method",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Component.getParam",
+      "kind": "method",
+      "coverage": "mapped"
+    },
+    {
+      "symbol": "Component.getParamCount",
+      "kind": "method",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "ComponentParam",
+      "kind": "type",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "ComponentParam.areKeyframesSupported",
+      "kind": "method",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "ComponentParam.createAddKeyframeAction",
+      "kind": "method",
+      "coverage": "mapped"
+    },
+    {
+      "symbol": "ComponentParam.createKeyframe",
+      "kind": "method",
+      "coverage": "mapped"
+    },
+    {
+      "symbol": "ComponentParam.createRemoveKeyframeAction",
+      "kind": "method",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "ComponentParam.createRemoveKeyframeRangeAction",
+      "kind": "method",
+      "coverage": "mapped"
+    },
+    {
+      "symbol": "ComponentParam.createSetInterpolationAtKeyframeAction",
+      "kind": "method",
+      "coverage": "mapped"
+    },
+    {
+      "symbol": "ComponentParam.createSetTimeVaryingAction",
+      "kind": "method",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "ComponentParam.createSetValueAction",
+      "kind": "method",
+      "coverage": "mapped"
+    },
+    {
+      "symbol": "ComponentParam.displayName",
+      "kind": "property",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "ComponentParam.findNearestKeyframe",
+      "kind": "method",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "ComponentParam.findNextKeyframe",
+      "kind": "method",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "ComponentParam.findPreviousKeyframe",
+      "kind": "method",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "ComponentParam.getKeyframeListAsTickTimes",
+      "kind": "method",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "ComponentParam.getKeyframePtr",
+      "kind": "method",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "ComponentParam.getStartValue",
+      "kind": "method",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "ComponentParam.getValueAtTime",
+      "kind": "method",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "ComponentParam.isTimeVarying",
+      "kind": "method",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "CompoundAction",
+      "kind": "type",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "CompoundAction.addAction",
+      "kind": "method",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "CompoundAction.empty",
+      "kind": "property",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Constants",
+      "kind": "namespace",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Constants.AAFExportAudioFormat",
+      "kind": "enum",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Constants.AAFExportAudioFormat.AIFF",
+      "kind": "enumMember",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Constants.AAFExportAudioFormat.WAV",
+      "kind": "enumMember",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Constants.AudioChannelType",
+      "kind": "enum",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Constants.AudioChannelType.MONO",
+      "kind": "enumMember",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Constants.AudioChannelType.MULTI",
+      "kind": "enumMember",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Constants.AudioChannelType.STEREO",
+      "kind": "enumMember",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Constants.AudioChannelType.SURROUND_51",
+      "kind": "enumMember",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Constants.AudioDisplayFormatType",
+      "kind": "enum",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Constants.AudioDisplayFormatType.MILLISECONDS",
+      "kind": "enumMember",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Constants.AudioDisplayFormatType.SAMPLE_RATE",
+      "kind": "enumMember",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Constants.AudioTrackEvent",
+      "kind": "enum",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Constants.AudioTrackEvent.INFO_CHANGED",
+      "kind": "enumMember",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Constants.AudioTrackEvent.LOCK_CHANGED",
+      "kind": "enumMember",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Constants.AudioTrackEvent.TRACK_CHANGED",
+      "kind": "enumMember",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Constants.ContentType",
+      "kind": "enum",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Constants.ContentType.ANY",
+      "kind": "enumMember",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Constants.ContentType.MEDIA",
+      "kind": "enumMember",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Constants.ContentType.SEQUENCE",
+      "kind": "enumMember",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Constants.EncoderEvent",
+      "kind": "enum",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Constants.EncoderEvent.RENDER_CANCEL",
+      "kind": "enumMember",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Constants.EncoderEvent.RENDER_COMPLETE",
+      "kind": "enumMember",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Constants.EncoderEvent.RENDER_ERROR",
+      "kind": "enumMember",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Constants.EncoderEvent.RENDER_PROGRESS",
+      "kind": "enumMember",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Constants.EncoderEvent.RENDER_QUEUE",
+      "kind": "enumMember",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Constants.ExportType",
+      "kind": "enum",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Constants.ExportType.IMMEDIATELY",
+      "kind": "enumMember",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Constants.ExportType.QUEUE_TO_AME",
+      "kind": "enumMember",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Constants.ExportType.QUEUE_TO_APP",
+      "kind": "enumMember",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Constants.InterpolationMode",
+      "kind": "enum",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Constants.InterpolationMode.BEZIER",
+      "kind": "enumMember",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Constants.InterpolationMode.HOLD",
+      "kind": "enumMember",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Constants.InterpolationMode.LINEAR",
+      "kind": "enumMember",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Constants.InterpolationMode.TIME",
+      "kind": "enumMember",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Constants.InterpolationMode.TIME_TRANSITION_END",
+      "kind": "enumMember",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Constants.InterpolationMode.TIME_TRANSITION_START",
+      "kind": "enumMember",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Constants.MarkerColor",
+      "kind": "enum",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Constants.MarkerColor.BLUE",
+      "kind": "enumMember",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Constants.MarkerColor.CYAN",
+      "kind": "enumMember",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Constants.MarkerColor.GREEN",
+      "kind": "enumMember",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Constants.MarkerColor.MAGNETA",
+      "kind": "enumMember",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Constants.MarkerColor.ORANGE",
+      "kind": "enumMember",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Constants.MarkerColor.RED",
+      "kind": "enumMember",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Constants.MarkerColor.YELLOW",
+      "kind": "enumMember",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Constants.MediaType",
+      "kind": "enum",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Constants.MediaType.ANY",
+      "kind": "enumMember",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Constants.MediaType.AUDIO",
+      "kind": "enumMember",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Constants.MediaType.DATA",
+      "kind": "enumMember",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Constants.MediaType.VIDEO",
+      "kind": "enumMember",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Constants.MetadataType",
+      "kind": "enum",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Constants.MetadataType.BOOLEAN",
+      "kind": "enumMember",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Constants.MetadataType.INTEGER",
+      "kind": "enumMember",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Constants.MetadataType.REAL",
+      "kind": "enumMember",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Constants.MetadataType.TEXT",
+      "kind": "enumMember",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Constants.OperationCompleteEvent",
+      "kind": "enum",
+      "coverage": "mapped"
+    },
+    {
+      "symbol": "Constants.OperationCompleteEvent.CLIP_EXTEND_REACHED",
+      "kind": "enumMember",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Constants.OperationCompleteEvent.EFFECT_DRAG_OVER",
+      "kind": "enumMember",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Constants.OperationCompleteEvent.EFFECT_DROP_COMPLETE",
+      "kind": "enumMember",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Constants.OperationCompleteEvent.EXPORT_MEDIA_COMPLETE",
+      "kind": "enumMember",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Constants.OperationCompleteEvent.GENERATIVE_EXTEND_COMPLETE",
+      "kind": "enumMember",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Constants.OperationCompleteEvent.IMPORT_MEDIA_COMPLETE",
+      "kind": "enumMember",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Constants.OperationCompleteState",
+      "kind": "enum",
+      "coverage": "mapped"
+    },
+    {
+      "symbol": "Constants.OperationCompleteState.CANCELLED",
+      "kind": "enumMember",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Constants.OperationCompleteState.FAILED",
+      "kind": "enumMember",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Constants.OperationCompleteState.SUCCESS",
+      "kind": "enumMember",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Constants.PixelAspectRatio",
+      "kind": "enum",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Constants.PixelAspectRatio.Anamorphic",
+      "kind": "enumMember",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Constants.PixelAspectRatio.DVCProHD",
+      "kind": "enumMember",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Constants.PixelAspectRatio.DVNTSC",
+      "kind": "enumMember",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Constants.PixelAspectRatio.DVNTSCWide",
+      "kind": "enumMember",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Constants.PixelAspectRatio.DVPAL",
+      "kind": "enumMember",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Constants.PixelAspectRatio.DVPALWide",
+      "kind": "enumMember",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Constants.PixelAspectRatio.HDAnamorphic1080",
+      "kind": "enumMember",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Constants.PixelAspectRatio.SQUARE",
+      "kind": "enumMember",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Constants.PreferenceKey",
+      "kind": "enum",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Constants.PreferenceKey.AUTO_PEAK_GENERATION",
+      "kind": "enumMember",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Constants.PreferenceKey.IMPORT_WORKSPACE",
+      "kind": "enumMember",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Constants.PreferenceKey.SHOW_QUICKSTART_DIALOG",
+      "kind": "enumMember",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Constants.ProjectEvent",
+      "kind": "enum",
+      "coverage": "mapped"
+    },
+    {
+      "symbol": "Constants.ProjectEvent.ACTIVATED",
+      "kind": "enumMember",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Constants.ProjectEvent.CLOSED",
+      "kind": "enumMember",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Constants.ProjectEvent.DIRTY",
+      "kind": "enumMember",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Constants.ProjectEvent.OPENED",
+      "kind": "enumMember",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Constants.ProjectEvent.PROJECT_ITEM_SELECTION_CHANGED",
+      "kind": "enumMember",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Constants.ProjectItemColorLabel",
+      "kind": "enum",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Constants.ProjectItemColorLabel.BLUE",
+      "kind": "enumMember",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Constants.ProjectItemColorLabel.BROWN",
+      "kind": "enumMember",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Constants.ProjectItemColorLabel.CERULEAN",
+      "kind": "enumMember",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Constants.ProjectItemColorLabel.FOREST",
+      "kind": "enumMember",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Constants.ProjectItemColorLabel.GREEN",
+      "kind": "enumMember",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Constants.ProjectItemColorLabel.IRIS",
+      "kind": "enumMember",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Constants.ProjectItemColorLabel.LAVENDER",
+      "kind": "enumMember",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Constants.ProjectItemColorLabel.MAGENTA",
+      "kind": "enumMember",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Constants.ProjectItemColorLabel.MANGO",
+      "kind": "enumMember",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Constants.ProjectItemColorLabel.PURPLE",
+      "kind": "enumMember",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Constants.ProjectItemColorLabel.ROSE",
+      "kind": "enumMember",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Constants.ProjectItemColorLabel.TAN",
+      "kind": "enumMember",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Constants.ProjectItemColorLabel.TEAL",
+      "kind": "enumMember",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Constants.ProjectItemColorLabel.VIOLET",
+      "kind": "enumMember",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Constants.ProjectItemColorLabel.YELLOW",
+      "kind": "enumMember",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Constants.PropertyType",
+      "kind": "enum",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Constants.PropertyType.NON_PERSISTENT",
+      "kind": "enumMember",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Constants.PropertyType.PERSISTENT",
+      "kind": "enumMember",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Constants.ScratchDiskFolder",
+      "kind": "enum",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Constants.ScratchDiskFolder.MY_DOCUMENTS",
+      "kind": "enumMember",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Constants.ScratchDiskFolder.SAME_AS_PROJECT",
+      "kind": "enumMember",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Constants.ScratchDiskFolderType",
+      "kind": "enum",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Constants.ScratchDiskFolderType.AUDIO_PREVIEW",
+      "kind": "enumMember",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Constants.ScratchDiskFolderType.AUTO_SAVE",
+      "kind": "enumMember",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Constants.ScratchDiskFolderType.CAPSULE_MEDIA",
+      "kind": "enumMember",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Constants.ScratchDiskFolderType.CAPTURE",
+      "kind": "enumMember",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Constants.ScratchDiskFolderType.CCL_LIBRARIES",
+      "kind": "enumMember",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Constants.ScratchDiskFolderType.VIDEO_PREVIEW",
+      "kind": "enumMember",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Constants.SequenceEvent",
+      "kind": "enum",
+      "coverage": "mapped"
+    },
+    {
+      "symbol": "Constants.SequenceEvent.ACTIVATED",
+      "kind": "enumMember",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Constants.SequenceEvent.CLOSED",
+      "kind": "enumMember",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Constants.SequenceEvent.SELECTION_CHANGED",
+      "kind": "enumMember",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Constants.SequenceOperation",
+      "kind": "enum",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Constants.SequenceOperation.APPLYCUT",
+      "kind": "enumMember",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Constants.SequenceOperation.CREATEMARKER",
+      "kind": "enumMember",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Constants.SequenceOperation.CREATESUBCLIP",
+      "kind": "enumMember",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Constants.SnapEvent",
+      "kind": "enum",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Constants.SnapEvent.GUIDES",
+      "kind": "enumMember",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Constants.SnapEvent.KEYFRAME",
+      "kind": "enumMember",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Constants.SnapEvent.PLAYHEAD_TRACKITEM",
+      "kind": "enumMember",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Constants.SnapEvent.RAZOR_MARKER",
+      "kind": "enumMember",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Constants.SnapEvent.RAZOR_PLAYHEAD",
+      "kind": "enumMember",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Constants.SnapEvent.TRACKITEM",
+      "kind": "enumMember",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Constants.TrackItemType",
+      "kind": "enum",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Constants.TrackItemType.CLIP",
+      "kind": "enumMember",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Constants.TrackItemType.EMPTY",
+      "kind": "enumMember",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Constants.TrackItemType.FEEDBACK",
+      "kind": "enumMember",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Constants.TrackItemType.PREVIEW",
+      "kind": "enumMember",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Constants.TrackItemType.TRANSITION",
+      "kind": "enumMember",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Constants.TransitionPosition",
+      "kind": "enum",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Constants.TransitionPosition.END",
+      "kind": "enumMember",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Constants.TransitionPosition.START",
+      "kind": "enumMember",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Constants.VideoDisplayFormatType",
+      "kind": "enum",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Constants.VideoDisplayFormatType.FEET_FRAME_16mm",
+      "kind": "enumMember",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Constants.VideoDisplayFormatType.FEET_FRAME_35mm",
+      "kind": "enumMember",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Constants.VideoDisplayFormatType.FPS_23_976",
+      "kind": "enumMember",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Constants.VideoDisplayFormatType.FPS_25",
+      "kind": "enumMember",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Constants.VideoDisplayFormatType.FPS_29_97",
+      "kind": "enumMember",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Constants.VideoDisplayFormatType.FPS_29_97_NON_DROP",
+      "kind": "enumMember",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Constants.VideoDisplayFormatType.FRAMES",
+      "kind": "enumMember",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Constants.VideoFieldType",
+      "kind": "enum",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Constants.VideoFieldType.LOWER_FIRST",
+      "kind": "enumMember",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Constants.VideoFieldType.PROGRESSIVE",
+      "kind": "enumMember",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Constants.VideoFieldType.UPPER_FIRST",
+      "kind": "enumMember",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Constants.VideoTrackEvent",
+      "kind": "enum",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Constants.VideoTrackEvent.INFO_CHANGED",
+      "kind": "enumMember",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Constants.VideoTrackEvent.LOCK_CHANGED",
+      "kind": "enumMember",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Constants.VideoTrackEvent.TRACK_CHANGED",
+      "kind": "enumMember",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "EncoderManager",
+      "kind": "type",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "EncoderManager.EVENT_RENDER_CANCEL",
+      "kind": "property",
+      "declarationSymbol": "EncoderManagerStatic.EVENT_RENDER_CANCEL",
+      "coverage": "mapped"
+    },
+    {
+      "symbol": "EncoderManager.EVENT_RENDER_COMPLETE",
+      "kind": "property",
+      "declarationSymbol": "EncoderManagerStatic.EVENT_RENDER_COMPLETE",
+      "coverage": "mapped"
+    },
+    {
+      "symbol": "EncoderManager.EVENT_RENDER_ERROR",
+      "kind": "property",
+      "declarationSymbol": "EncoderManagerStatic.EVENT_RENDER_ERROR",
+      "coverage": "mapped"
+    },
+    {
+      "symbol": "EncoderManager.EVENT_RENDER_PROGRESS",
+      "kind": "property",
+      "declarationSymbol": "EncoderManagerStatic.EVENT_RENDER_PROGRESS",
+      "coverage": "mapped"
+    },
+    {
+      "symbol": "EncoderManager.EVENT_RENDER_QUEUE",
+      "kind": "property",
+      "declarationSymbol": "EncoderManagerStatic.EVENT_RENDER_QUEUE",
+      "coverage": "mapped"
+    },
+    {
+      "symbol": "EncoderManager.EXPORT_IMMEDIATELY",
+      "kind": "property",
+      "declarationSymbol": "EncoderManagerStatic.EXPORT_IMMEDIATELY",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "EncoderManager.EXPORT_QUEUE_TO_AME",
+      "kind": "property",
+      "declarationSymbol": "EncoderManagerStatic.EXPORT_QUEUE_TO_AME",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "EncoderManager.EXPORT_QUEUE_TO_APP",
+      "kind": "property",
+      "declarationSymbol": "EncoderManagerStatic.EXPORT_QUEUE_TO_APP",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "EncoderManager.encodeFile",
+      "kind": "method",
+      "coverage": "mapped"
+    },
+    {
+      "symbol": "EncoderManager.encodeProjectItem",
+      "kind": "method",
+      "coverage": "mapped"
+    },
+    {
+      "symbol": "EncoderManager.exportSequence",
+      "kind": "method",
+      "coverage": "mapped"
+    },
+    {
+      "symbol": "EncoderManager.getExportFileExtension",
+      "kind": "method",
+      "declarationSymbol": "EncoderManagerStatic.getExportFileExtension",
+      "coverage": "mapped"
+    },
+    {
+      "symbol": "EncoderManager.getManager",
+      "kind": "method",
+      "declarationSymbol": "EncoderManagerStatic.getManager",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "EncoderManager.isAMEInstalled",
+      "kind": "property",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "EncoderManager.launchEncoder",
+      "kind": "method",
+      "coverage": "mapped"
+    },
+    {
+      "symbol": "EncoderManager.setEmbeddedXMPEnabled",
+      "kind": "method",
+      "coverage": "mapped"
+    },
+    {
+      "symbol": "EncoderManager.setSidecarXMPEnabled",
+      "kind": "method",
+      "coverage": "mapped"
+    },
+    {
+      "symbol": "EncoderManager.startBatchEncode",
+      "kind": "method",
+      "coverage": "mapped"
+    },
+    {
+      "symbol": "EncoderManagerStatic",
+      "kind": "type",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "EventManager",
+      "kind": "type",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "EventManager.addEventListener",
+      "kind": "method",
+      "declarationSymbol": "EventManagerStatic.addEventListener",
+      "coverage": "mapped"
+    },
+    {
+      "symbol": "EventManager.addGlobalEventListener",
+      "kind": "method",
+      "declarationSymbol": "EventManagerStatic.addGlobalEventListener",
+      "coverage": "mapped"
+    },
+    {
+      "symbol": "EventManager.removeEventListener",
+      "kind": "method",
+      "declarationSymbol": "EventManagerStatic.removeEventListener",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "EventManager.removeGlobalEventListener",
+      "kind": "method",
+      "declarationSymbol": "EventManagerStatic.removeGlobalEventListener",
+      "coverage": "mapped"
+    },
+    {
+      "symbol": "EventManagerStatic",
+      "kind": "type",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Exporter",
+      "kind": "type",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Exporter.exportSequenceFrame",
+      "kind": "method",
+      "declarationSymbol": "ExporterStatic.exportSequenceFrame",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "ExporterStatic",
+      "kind": "type",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "FolderItem",
+      "kind": "type",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "FolderItem.cast",
+      "kind": "method",
+      "declarationSymbol": "FolderItemStatic.cast",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "FolderItem.createBinAction",
+      "kind": "method",
+      "coverage": "mapped"
+    },
+    {
+      "symbol": "FolderItem.createMoveItemAction",
+      "kind": "method",
+      "coverage": "mapped"
+    },
+    {
+      "symbol": "FolderItem.createRemoveItemAction",
+      "kind": "method",
+      "coverage": "mapped"
+    },
+    {
+      "symbol": "FolderItem.createRenameBinAction",
+      "kind": "method",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "FolderItem.createSetColorLabelAction",
+      "kind": "method",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "FolderItem.createSetNameAction",
+      "kind": "method",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "FolderItem.createSmartBinAction",
+      "kind": "method",
+      "coverage": "mapped"
+    },
+    {
+      "symbol": "FolderItem.getColorLabelIndex",
+      "kind": "method",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "FolderItem.getItems",
+      "kind": "method",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "FolderItem.getProject",
+      "kind": "method",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "FolderItem.name",
+      "kind": "property",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "FolderItem.type",
+      "kind": "property",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "FolderItemStatic",
+      "kind": "type",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "FootageInterpretation",
+      "kind": "type",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "FootageInterpretation.ALPHACHANNEL_IGNORE",
+      "kind": "property",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "FootageInterpretation.ALPHACHANNEL_NONE",
+      "kind": "property",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "FootageInterpretation.ALPHACHANNEL_PREMULTIPLIED",
+      "kind": "property",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "FootageInterpretation.ALPHACHANNEL_STRAIGHT",
+      "kind": "property",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "FootageInterpretation.FIELD_TYPE_DEFAULT",
+      "kind": "property",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "FootageInterpretation.FIELD_TYPE_LOWERFIRST",
+      "kind": "property",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "FootageInterpretation.FIELD_TYPE_PROGRESSIVE",
+      "kind": "property",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "FootageInterpretation.FIELD_TYPE_UPPERFIRST",
+      "kind": "property",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "FootageInterpretation.getAlphaUsage",
+      "kind": "method",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "FootageInterpretation.getFieldType",
+      "kind": "method",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "FootageInterpretation.getFrameRate",
+      "kind": "method",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "FootageInterpretation.getIgnoreAlpha",
+      "kind": "method",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "FootageInterpretation.getInputLUTID",
+      "kind": "method",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "FootageInterpretation.getInvertAlpha",
+      "kind": "method",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "FootageInterpretation.getPixelAspectRatio",
+      "kind": "method",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "FootageInterpretation.getRemovePullDown",
+      "kind": "method",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "FootageInterpretation.getVrConform",
+      "kind": "method",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "FootageInterpretation.getVrHorzView",
+      "kind": "method",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "FootageInterpretation.getVrLayout",
+      "kind": "method",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "FootageInterpretation.getVrVertView",
+      "kind": "method",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "FootageInterpretation.setAlphaUsage",
+      "kind": "method",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "FootageInterpretation.setFieldType",
+      "kind": "method",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "FootageInterpretation.setFrameRate",
+      "kind": "method",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "FootageInterpretation.setIgnoreAlpha",
+      "kind": "method",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "FootageInterpretation.setInputLUTID",
+      "kind": "method",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "FootageInterpretation.setInvertAlpha",
+      "kind": "method",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "FootageInterpretation.setPixelAspectRatio",
+      "kind": "method",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "FootageInterpretation.setRemovePullDown",
+      "kind": "method",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "FootageInterpretation.setVrConform",
+      "kind": "method",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "FootageInterpretation.setVrHorzView",
+      "kind": "method",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "FootageInterpretation.setVrLayout",
+      "kind": "method",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "FootageInterpretation.setVrVertView",
+      "kind": "method",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "FrameRate",
+      "kind": "type",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "FrameRate.[[call]]",
+      "kind": "call",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "FrameRate.[[construct]]",
+      "kind": "constructor",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "FrameRate.createWithValue",
+      "kind": "method",
+      "declarationSymbol": "FrameRateStatic.createWithValue",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "FrameRate.equals",
+      "kind": "method",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "FrameRate.ticksPerFrame",
+      "kind": "property",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "FrameRate.value",
+      "kind": "property",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "FrameRateStatic",
+      "kind": "type",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Guid",
+      "kind": "type",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Guid.[[call]]",
+      "kind": "call",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Guid.[[construct]]",
+      "kind": "constructor",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Guid.fromString",
+      "kind": "method",
+      "declarationSymbol": "GuidStatic.fromString",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Guid.toString",
+      "kind": "method",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "GuidStatic",
+      "kind": "type",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "IngestSettings",
+      "kind": "type",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "IngestSettings.getIsIngestEnabled",
+      "kind": "method",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "IngestSettings.setIngestEnabled",
+      "kind": "method",
+      "coverage": "mapped"
+    },
+    {
+      "symbol": "Keyframe",
+      "kind": "type",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Keyframe.INTERPOLATION_MODE_BEZIER",
+      "kind": "property",
+      "declarationSymbol": "KeyframeStatic.INTERPOLATION_MODE_BEZIER",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Keyframe.INTERPOLATION_MODE_HOLD",
+      "kind": "property",
+      "declarationSymbol": "KeyframeStatic.INTERPOLATION_MODE_HOLD",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Keyframe.INTERPOLATION_MODE_LINEAR",
+      "kind": "property",
+      "declarationSymbol": "KeyframeStatic.INTERPOLATION_MODE_LINEAR",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Keyframe.INTERPOLATION_MODE_TIME",
+      "kind": "property",
+      "declarationSymbol": "KeyframeStatic.INTERPOLATION_MODE_TIME",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Keyframe.INTERPOLATION_MODE_TIME_TRANSITION_END",
+      "kind": "property",
+      "declarationSymbol": "KeyframeStatic.INTERPOLATION_MODE_TIME_TRANSITION_END",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Keyframe.INTERPOLATION_MODE_TIME_TRANSITION_START",
+      "kind": "property",
+      "declarationSymbol": "KeyframeStatic.INTERPOLATION_MODE_TIME_TRANSITION_START",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Keyframe.getTemporalInterpolationMode",
+      "kind": "method",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Keyframe.position",
+      "kind": "property",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Keyframe.setTemporalInterpolationMode",
+      "kind": "method",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Keyframe.value",
+      "kind": "property",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "KeyframeStatic",
+      "kind": "type",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Marker",
+      "kind": "type",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Marker.MARKER_TYPE_CHAPTER",
+      "kind": "property",
+      "declarationSymbol": "MarkerStatic.MARKER_TYPE_CHAPTER",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Marker.MARKER_TYPE_COMMENT",
+      "kind": "property",
+      "declarationSymbol": "MarkerStatic.MARKER_TYPE_COMMENT",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Marker.MARKER_TYPE_FLVCUEPOINT",
+      "kind": "property",
+      "declarationSymbol": "MarkerStatic.MARKER_TYPE_FLVCUEPOINT",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Marker.MARKER_TYPE_WEBLINK",
+      "kind": "property",
+      "declarationSymbol": "MarkerStatic.MARKER_TYPE_WEBLINK",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Marker.createSetColorByIndexAction",
+      "kind": "method",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Marker.createSetCommentsAction",
+      "kind": "method",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Marker.createSetDurationAction",
+      "kind": "method",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Marker.createSetNameAction",
+      "kind": "method",
+      "coverage": "mapped"
+    },
+    {
+      "symbol": "Marker.createSetTypeAction",
+      "kind": "method",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Marker.getColor",
+      "kind": "method",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Marker.getColorIndex",
+      "kind": "method",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Marker.getComments",
+      "kind": "method",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Marker.getDuration",
+      "kind": "method",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Marker.getName",
+      "kind": "method",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Marker.getStart",
+      "kind": "method",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Marker.getTarget",
+      "kind": "method",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Marker.getType",
+      "kind": "method",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Marker.getUrl",
+      "kind": "method",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Marker.guid",
+      "kind": "property",
+      "coverage": "mapped"
+    },
+    {
+      "symbol": "MarkerStatic",
+      "kind": "type",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Markers",
+      "kind": "type",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Markers.createAddMarkerAction",
+      "kind": "method",
+      "coverage": "mapped"
+    },
+    {
+      "symbol": "Markers.createMoveMarkerAction",
+      "kind": "method",
+      "coverage": "mapped"
+    },
+    {
+      "symbol": "Markers.createRemoveMarkerAction",
+      "kind": "method",
+      "coverage": "mapped"
+    },
+    {
+      "symbol": "Markers.getMarkers",
+      "kind": "method",
+      "coverage": "mapped"
+    },
+    {
+      "symbol": "MarkersStatic",
+      "kind": "type",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Media",
+      "kind": "type",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Media.createSetStartAction",
+      "kind": "method",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Media.duration",
+      "kind": "property",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Media.start",
+      "kind": "property",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Metadata",
+      "kind": "type",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Metadata.METADATA_TYPE_BOOLEAN",
+      "kind": "property",
+      "declarationSymbol": "MetadataStatic.METADATA_TYPE_BOOLEAN",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Metadata.METADATA_TYPE_INTEGER",
+      "kind": "property",
+      "declarationSymbol": "MetadataStatic.METADATA_TYPE_INTEGER",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Metadata.METADATA_TYPE_REAL",
+      "kind": "property",
+      "declarationSymbol": "MetadataStatic.METADATA_TYPE_REAL",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Metadata.METADATA_TYPE_TEXT",
+      "kind": "property",
+      "declarationSymbol": "MetadataStatic.METADATA_TYPE_TEXT",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Metadata.addPropertyToProjectMetadataSchema",
+      "kind": "method",
+      "declarationSymbol": "MetadataStatic.addPropertyToProjectMetadataSchema",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Metadata.createSetProjectMetadataAction",
+      "kind": "method",
+      "declarationSymbol": "MetadataStatic.createSetProjectMetadataAction",
+      "coverage": "mapped"
+    },
+    {
+      "symbol": "Metadata.createSetXMPMetadataAction",
+      "kind": "method",
+      "declarationSymbol": "MetadataStatic.createSetXMPMetadataAction",
+      "coverage": "mapped"
+    },
+    {
+      "symbol": "Metadata.getProjectColumnsMetadata",
+      "kind": "method",
+      "declarationSymbol": "MetadataStatic.getProjectColumnsMetadata",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Metadata.getProjectMetadata",
+      "kind": "method",
+      "declarationSymbol": "MetadataStatic.getProjectMetadata",
+      "coverage": "mapped"
+    },
+    {
+      "symbol": "Metadata.getProjectPanelMetadata",
+      "kind": "method",
+      "declarationSymbol": "MetadataStatic.getProjectPanelMetadata",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Metadata.getXMPMetadata",
+      "kind": "method",
+      "declarationSymbol": "MetadataStatic.getXMPMetadata",
+      "coverage": "mapped"
+    },
+    {
+      "symbol": "Metadata.setProjectPanelMetadata",
+      "kind": "method",
+      "declarationSymbol": "MetadataStatic.setProjectPanelMetadata",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "MetadataStatic",
+      "kind": "type",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "ObjectMaskUtils",
+      "kind": "type",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "ObjectMaskUtils.hasObjectMask",
+      "kind": "method",
+      "declarationSymbol": "ObjectMaskUtilsStatic.hasObjectMask",
+      "coverage": "mapped"
+    },
+    {
+      "symbol": "ObjectMaskUtilsStatic",
+      "kind": "type",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "OpenProjectOptions",
+      "kind": "type",
+      "coverage": "mapped"
+    },
+    {
+      "symbol": "OpenProjectOptions.[[call]]",
+      "kind": "call",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "OpenProjectOptions.[[construct]]",
+      "kind": "constructor",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "OpenProjectOptions.addToMRUList",
+      "kind": "property",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "OpenProjectOptions.setAddToMRUList",
+      "kind": "method",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "OpenProjectOptions.setShowConvertProjectDialog",
+      "kind": "method",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "OpenProjectOptions.setShowLocateFileDialog",
+      "kind": "method",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "OpenProjectOptions.setShowWarningDialog",
+      "kind": "method",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "OpenProjectOptions.showConvertProjectDialog",
+      "kind": "property",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "OpenProjectOptions.showLocateFileDialog",
+      "kind": "property",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "OpenProjectOptions.showWarningDialog",
+      "kind": "property",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "OperationCompleteEvent",
+      "kind": "type",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "OperationCompleteEvent.EVENT_CLIP_EXTEND_REACHED",
+      "kind": "property",
+      "declarationSymbol": "OperationCompleteEventStatic.EVENT_CLIP_EXTEND_REACHED",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "OperationCompleteEvent.EVENT_EFFECT_DRAG_OVER",
+      "kind": "property",
+      "declarationSymbol": "OperationCompleteEventStatic.EVENT_EFFECT_DRAG_OVER",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "OperationCompleteEvent.EVENT_EFFECT_DROP_COMPLETE",
+      "kind": "property",
+      "declarationSymbol": "OperationCompleteEventStatic.EVENT_EFFECT_DROP_COMPLETE",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "OperationCompleteEvent.EVENT_EXPORT_MEDIA_COMPLETE",
+      "kind": "property",
+      "declarationSymbol": "OperationCompleteEventStatic.EVENT_EXPORT_MEDIA_COMPLETE",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "OperationCompleteEvent.EVENT_GENERATIVE_EXTEND_COMPLETE",
+      "kind": "property",
+      "declarationSymbol": "OperationCompleteEventStatic.EVENT_GENERATIVE_EXTEND_COMPLETE",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "OperationCompleteEvent.EVENT_IMPORT_MEDIA_COMPLETE",
+      "kind": "property",
+      "declarationSymbol": "OperationCompleteEventStatic.EVENT_IMPORT_MEDIA_COMPLETE",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "OperationCompleteEvent.OPERATION_STATE_CANCELLED",
+      "kind": "property",
+      "declarationSymbol": "OperationCompleteEventStatic.OPERATION_STATE_CANCELLED",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "OperationCompleteEvent.OPERATION_STATE_FAILED",
+      "kind": "property",
+      "declarationSymbol": "OperationCompleteEventStatic.OPERATION_STATE_FAILED",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "OperationCompleteEvent.OPERATION_STATE_SUCCESS",
+      "kind": "property",
+      "declarationSymbol": "OperationCompleteEventStatic.OPERATION_STATE_SUCCESS",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "OperationCompleteEvent.state",
+      "kind": "property",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "OperationCompleteEventStatic",
+      "kind": "type",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "PRProduction",
+      "kind": "type",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "PRProduction.getActiveProduction",
+      "kind": "method",
+      "declarationSymbol": "PRProductionStatic.getActiveProduction",
+      "coverage": "mapped"
+    },
+    {
+      "symbol": "PRProduction.getScratchDiskSettings",
+      "kind": "method",
+      "coverage": "mapped"
+    },
+    {
+      "symbol": "PRProductionStatic",
+      "kind": "type",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "PointF",
+      "kind": "type",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "PointF.[[call]]",
+      "kind": "call",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "PointF.[[construct]]",
+      "kind": "constructor",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "PointF.distanceTo",
+      "kind": "method",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "PointF.x",
+      "kind": "property",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "PointF.y",
+      "kind": "property",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "PointKeyframe",
+      "kind": "type",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "PointKeyframe.position",
+      "kind": "property",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "PointKeyframe.value",
+      "kind": "property",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Project",
+      "kind": "type",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Project.close",
+      "kind": "method",
+      "coverage": "mapped"
+    },
+    {
+      "symbol": "Project.closeSequence",
+      "kind": "method",
+      "coverage": "mapped"
+    },
+    {
+      "symbol": "Project.createProject",
+      "kind": "method",
+      "declarationSymbol": "ProjectStatic.createProject",
+      "coverage": "mapped"
+    },
+    {
+      "symbol": "Project.createSequence",
+      "kind": "method",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Project.createSequenceFromMedia",
+      "kind": "method",
+      "coverage": "mapped"
+    },
+    {
+      "symbol": "Project.createSequenceWithPresetPath",
+      "kind": "method",
+      "coverage": "mapped"
+    },
+    {
+      "symbol": "Project.deleteSequence",
+      "kind": "method",
+      "coverage": "mapped"
+    },
+    {
+      "symbol": "Project.executeTransaction",
+      "kind": "method",
+      "coverage": "mapped"
+    },
+    {
+      "symbol": "Project.getActiveProject",
+      "kind": "method",
+      "declarationSymbol": "ProjectStatic.getActiveProject",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Project.getActiveSequence",
+      "kind": "method",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Project.getColorSettings",
+      "kind": "method",
+      "coverage": "mapped"
+    },
+    {
+      "symbol": "Project.getInsertionBin",
+      "kind": "method",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Project.getProject",
+      "kind": "method",
+      "declarationSymbol": "ProjectStatic.getProject",
+      "coverage": "mapped"
+    },
+    {
+      "symbol": "Project.getRootItem",
+      "kind": "method",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Project.getSequence",
+      "kind": "method",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Project.getSequences",
+      "kind": "method",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Project.guid",
+      "kind": "property",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Project.importAEComps",
+      "kind": "method",
+      "coverage": "mapped"
+    },
+    {
+      "symbol": "Project.importAllAEComps",
+      "kind": "method",
+      "coverage": "mapped"
+    },
+    {
+      "symbol": "Project.importFiles",
+      "kind": "method",
+      "coverage": "mapped"
+    },
+    {
+      "symbol": "Project.importSequences",
+      "kind": "method",
+      "coverage": "mapped"
+    },
+    {
+      "symbol": "Project.isProject",
+      "kind": "method",
+      "declarationSymbol": "ProjectStatic.isProject",
+      "coverage": "mapped"
+    },
+    {
+      "symbol": "Project.lockedAccess",
+      "kind": "method",
+      "coverage": "mapped"
+    },
+    {
+      "symbol": "Project.name",
+      "kind": "property",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Project.open",
+      "kind": "method",
+      "declarationSymbol": "ProjectStatic.open",
+      "coverage": "mapped"
+    },
+    {
+      "symbol": "Project.openSequence",
+      "kind": "method",
+      "coverage": "mapped"
+    },
+    {
+      "symbol": "Project.path",
+      "kind": "property",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Project.pauseGrowing",
+      "kind": "method",
+      "coverage": "mapped"
+    },
+    {
+      "symbol": "Project.save",
+      "kind": "method",
+      "coverage": "mapped"
+    },
+    {
+      "symbol": "Project.saveAs",
+      "kind": "method",
+      "coverage": "mapped"
+    },
+    {
+      "symbol": "Project.setActiveSequence",
+      "kind": "method",
+      "coverage": "mapped"
+    },
+    {
+      "symbol": "ProjectClosedEvent",
+      "kind": "type",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "ProjectClosedEvent.EVENT_CLOSED",
+      "kind": "property",
+      "declarationSymbol": "ProjectClosedEventStatic.EVENT_CLOSED",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "ProjectClosedEvent.id",
+      "kind": "property",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "ProjectClosedEvent.name",
+      "kind": "property",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "ProjectClosedEvent.path",
+      "kind": "property",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "ProjectClosedEventStatic",
+      "kind": "type",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "ProjectColorSettings",
+      "kind": "type",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "ProjectColorSettings.getGraphicsWhiteLuminance",
+      "kind": "method",
+      "coverage": "mapped"
+    },
+    {
+      "symbol": "ProjectColorSettings.getSupportedGraphicsWhiteLuminances",
+      "kind": "method",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "ProjectConverter",
+      "kind": "type",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "ProjectConverter.AAF_EXPORT_AUDIO_FORMAT_AIFF",
+      "kind": "property",
+      "declarationSymbol": "ProjectConverterStatic.AAF_EXPORT_AUDIO_FORMAT_AIFF",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "ProjectConverter.AAF_EXPORT_AUDIO_FORMAT_WAV",
+      "kind": "property",
+      "declarationSymbol": "ProjectConverterStatic.AAF_EXPORT_AUDIO_FORMAT_WAV",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "ProjectConverter.exportAAF",
+      "kind": "method",
+      "declarationSymbol": "ProjectConverterStatic.exportAAF",
+      "coverage": "mapped"
+    },
+    {
+      "symbol": "ProjectConverter.exportAsFinalCutProXML",
+      "kind": "method",
+      "declarationSymbol": "ProjectConverterStatic.exportAsFinalCutProXML",
+      "coverage": "mapped"
+    },
+    {
+      "symbol": "ProjectConverter.exportAsOpenTimelineIO",
+      "kind": "method",
+      "declarationSymbol": "ProjectConverterStatic.exportAsOpenTimelineIO",
+      "coverage": "mapped"
+    },
+    {
+      "symbol": "ProjectConverterStatic",
+      "kind": "type",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "ProjectEvent",
+      "kind": "type",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "ProjectEvent.EVENT_ACTIVATED",
+      "kind": "property",
+      "declarationSymbol": "ProjectEventStatic.EVENT_ACTIVATED",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "ProjectEvent.EVENT_DIRTY",
+      "kind": "property",
+      "declarationSymbol": "ProjectEventStatic.EVENT_DIRTY",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "ProjectEvent.EVENT_OPENED",
+      "kind": "property",
+      "declarationSymbol": "ProjectEventStatic.EVENT_OPENED",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "ProjectEvent.id",
+      "kind": "property",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "ProjectEvent.name",
+      "kind": "property",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "ProjectEvent.path",
+      "kind": "property",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "ProjectEvent.project",
+      "kind": "property",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "ProjectEventStatic",
+      "kind": "type",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "ProjectItem",
+      "kind": "type",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "ProjectItem.TYPE_BIN",
+      "kind": "property",
+      "declarationSymbol": "ProjectItemStatic.TYPE_BIN",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "ProjectItem.TYPE_CLIP",
+      "kind": "property",
+      "declarationSymbol": "ProjectItemStatic.TYPE_CLIP",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "ProjectItem.TYPE_COMPOUND",
+      "kind": "property",
+      "declarationSymbol": "ProjectItemStatic.TYPE_COMPOUND",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "ProjectItem.TYPE_FILE",
+      "kind": "property",
+      "declarationSymbol": "ProjectItemStatic.TYPE_FILE",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "ProjectItem.TYPE_ROOT",
+      "kind": "property",
+      "declarationSymbol": "ProjectItemStatic.TYPE_ROOT",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "ProjectItem.TYPE_STYLE",
+      "kind": "property",
+      "declarationSymbol": "ProjectItemStatic.TYPE_STYLE",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "ProjectItem.cast",
+      "kind": "method",
+      "declarationSymbol": "ProjectItemStatic.cast",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "ProjectItem.createSetColorLabelAction",
+      "kind": "method",
+      "coverage": "mapped"
+    },
+    {
+      "symbol": "ProjectItem.createSetNameAction",
+      "kind": "method",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "ProjectItem.getColorLabelIndex",
+      "kind": "method",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "ProjectItem.getId",
+      "kind": "method",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "ProjectItem.getParentBin",
+      "kind": "method",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "ProjectItem.getProject",
+      "kind": "method",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "ProjectItem.name",
+      "kind": "property",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "ProjectItem.type",
+      "kind": "property",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "ProjectItemSelection",
+      "kind": "type",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "ProjectItemSelection.getItems",
+      "kind": "method",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "ProjectItemStatic",
+      "kind": "type",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "ProjectSettings",
+      "kind": "type",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "ProjectSettings.createSetIngestSettingsAction",
+      "kind": "method",
+      "declarationSymbol": "ProjectSettingsStatic.createSetIngestSettingsAction",
+      "coverage": "mapped"
+    },
+    {
+      "symbol": "ProjectSettings.createSetScratchDiskSettingsAction",
+      "kind": "method",
+      "declarationSymbol": "ProjectSettingsStatic.createSetScratchDiskSettingsAction",
+      "coverage": "mapped"
+    },
+    {
+      "symbol": "ProjectSettings.getIngestSettings",
+      "kind": "method",
+      "declarationSymbol": "ProjectSettingsStatic.getIngestSettings",
+      "coverage": "mapped"
+    },
+    {
+      "symbol": "ProjectSettings.getScratchDiskSettings",
+      "kind": "method",
+      "declarationSymbol": "ProjectSettingsStatic.getScratchDiskSettings",
+      "coverage": "mapped"
+    },
+    {
+      "symbol": "ProjectSettingsStatic",
+      "kind": "type",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "ProjectStatic",
+      "kind": "type",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "ProjectUtils",
+      "kind": "type",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "ProjectUtils.getProjectFromViewId",
+      "kind": "method",
+      "declarationSymbol": "ProjectUtilsStatic.getProjectFromViewId",
+      "coverage": "mapped"
+    },
+    {
+      "symbol": "ProjectUtils.getProjectViewIds",
+      "kind": "method",
+      "declarationSymbol": "ProjectUtilsStatic.getProjectViewIds",
+      "coverage": "mapped"
+    },
+    {
+      "symbol": "ProjectUtils.getSelection",
+      "kind": "method",
+      "declarationSymbol": "ProjectUtilsStatic.getSelection",
+      "coverage": "mapped"
+    },
+    {
+      "symbol": "ProjectUtils.getSelectionFromViewId",
+      "kind": "method",
+      "declarationSymbol": "ProjectUtilsStatic.getSelectionFromViewId",
+      "coverage": "mapped"
+    },
+    {
+      "symbol": "ProjectUtilsStatic",
+      "kind": "type",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Properties",
+      "kind": "type",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Properties.PROPERTY_NON_PERSISTENT",
+      "kind": "property",
+      "declarationSymbol": "PropertiesStatic.PROPERTY_NON_PERSISTENT",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Properties.PROPERTY_PERSISTENT",
+      "kind": "property",
+      "declarationSymbol": "PropertiesStatic.PROPERTY_PERSISTENT",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Properties.createClearValueAction",
+      "kind": "method",
+      "coverage": "mapped"
+    },
+    {
+      "symbol": "Properties.createSetValueAction",
+      "kind": "method",
+      "coverage": "mapped"
+    },
+    {
+      "symbol": "Properties.getProperties",
+      "kind": "method",
+      "declarationSymbol": "PropertiesStatic.getProperties",
+      "coverage": "mapped"
+    },
+    {
+      "symbol": "Properties.getValue",
+      "kind": "method",
+      "coverage": "mapped"
+    },
+    {
+      "symbol": "Properties.getValueAsBool",
+      "kind": "method",
+      "coverage": "mapped"
+    },
+    {
+      "symbol": "Properties.getValueAsFloat",
+      "kind": "method",
+      "coverage": "mapped"
+    },
+    {
+      "symbol": "Properties.getValueAsInt",
+      "kind": "method",
+      "coverage": "mapped"
+    },
+    {
+      "symbol": "Properties.hasValue",
+      "kind": "method",
+      "coverage": "mapped"
+    },
+    {
+      "symbol": "PropertiesStatic",
+      "kind": "type",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "RectF",
+      "kind": "type",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "RectF.[[call]]",
+      "kind": "call",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "RectF.[[construct]]",
+      "kind": "constructor",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "RectF.height",
+      "kind": "property",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "RectF.width",
+      "kind": "property",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "ScratchDiskSettings",
+      "kind": "type",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "ScratchDiskSettings.FOLDERTYPE_AUDIO_PREVIEW",
+      "kind": "property",
+      "declarationSymbol": "ScratchDiskSettingsStatic.FOLDERTYPE_AUDIO_PREVIEW",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "ScratchDiskSettings.FOLDERTYPE_AUTO_SAVE",
+      "kind": "property",
+      "declarationSymbol": "ScratchDiskSettingsStatic.FOLDERTYPE_AUTO_SAVE",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "ScratchDiskSettings.FOLDERTYPE_CAPSULE_MEDIA",
+      "kind": "property",
+      "declarationSymbol": "ScratchDiskSettingsStatic.FOLDERTYPE_CAPSULE_MEDIA",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "ScratchDiskSettings.FOLDERTYPE_CAPTURE",
+      "kind": "property",
+      "declarationSymbol": "ScratchDiskSettingsStatic.FOLDERTYPE_CAPTURE",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "ScratchDiskSettings.FOLDERTYPE_CCL_LIBRARIES",
+      "kind": "property",
+      "declarationSymbol": "ScratchDiskSettingsStatic.FOLDERTYPE_CCL_LIBRARIES",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "ScratchDiskSettings.FOLDERTYPE_VIDEO_PREVIEW",
+      "kind": "property",
+      "declarationSymbol": "ScratchDiskSettingsStatic.FOLDERTYPE_VIDEO_PREVIEW",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "ScratchDiskSettings.FOLDER_MY_DOCUMNETS",
+      "kind": "property",
+      "declarationSymbol": "ScratchDiskSettingsStatic.FOLDER_MY_DOCUMNETS",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "ScratchDiskSettings.FOLDER_SAME_AS_PROJECT",
+      "kind": "property",
+      "declarationSymbol": "ScratchDiskSettingsStatic.FOLDER_SAME_AS_PROJECT",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "ScratchDiskSettings.getScratchDiskPath",
+      "kind": "method",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "ScratchDiskSettings.setScratchDiskPath",
+      "kind": "method",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "ScratchDiskSettingsStatic",
+      "kind": "type",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Sequence",
+      "kind": "type",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Sequence.clearSelection",
+      "kind": "method",
+      "coverage": "mapped"
+    },
+    {
+      "symbol": "Sequence.createCloneAction",
+      "kind": "method",
+      "coverage": "mapped"
+    },
+    {
+      "symbol": "Sequence.createSetInPointAction",
+      "kind": "method",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Sequence.createSetOutPointAction",
+      "kind": "method",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Sequence.createSetSettingsAction",
+      "kind": "method",
+      "coverage": "mapped"
+    },
+    {
+      "symbol": "Sequence.createSetZeroPointAction",
+      "kind": "method",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Sequence.createSubsequence",
+      "kind": "method",
+      "coverage": "mapped"
+    },
+    {
+      "symbol": "Sequence.getAudioTrack",
+      "kind": "method",
+      "coverage": "mapped"
+    },
+    {
+      "symbol": "Sequence.getAudioTrackCount",
+      "kind": "method",
+      "coverage": "mapped"
+    },
+    {
+      "symbol": "Sequence.getCaptionTrack",
+      "kind": "method",
+      "coverage": "mapped"
+    },
+    {
+      "symbol": "Sequence.getCaptionTrackCount",
+      "kind": "method",
+      "coverage": "mapped"
+    },
+    {
+      "symbol": "Sequence.getEndTime",
+      "kind": "method",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Sequence.getFrameSize",
+      "kind": "method",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Sequence.getInPoint",
+      "kind": "method",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Sequence.getOutPoint",
+      "kind": "method",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Sequence.getPlayerPosition",
+      "kind": "method",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Sequence.getProjectItem",
+      "kind": "method",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Sequence.getSelection",
+      "kind": "method",
+      "coverage": "mapped"
+    },
+    {
+      "symbol": "Sequence.getSequenceAudioTimeDisplayFormat",
+      "kind": "method",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Sequence.getSequenceVideoTimeDisplayFormat",
+      "kind": "method",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Sequence.getSettings",
+      "kind": "method",
+      "coverage": "mapped"
+    },
+    {
+      "symbol": "Sequence.getTimebase",
+      "kind": "method",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Sequence.getVideoTrack",
+      "kind": "method",
+      "coverage": "mapped"
+    },
+    {
+      "symbol": "Sequence.getVideoTrackCount",
+      "kind": "method",
+      "coverage": "mapped"
+    },
+    {
+      "symbol": "Sequence.getZeroPoint",
+      "kind": "method",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Sequence.guid",
+      "kind": "property",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Sequence.isDoneAnalyzingForVideoEffects",
+      "kind": "method",
+      "coverage": "mapped"
+    },
+    {
+      "symbol": "Sequence.name",
+      "kind": "property",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Sequence.setPlayerPosition",
+      "kind": "method",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Sequence.setSelection",
+      "kind": "method",
+      "coverage": "mapped"
+    },
+    {
+      "symbol": "SequenceEditor",
+      "kind": "type",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "SequenceEditor.createCloneTrackItemAction",
+      "kind": "method",
+      "coverage": "mapped"
+    },
+    {
+      "symbol": "SequenceEditor.createInsertProjectItemAction",
+      "kind": "method",
+      "coverage": "mapped"
+    },
+    {
+      "symbol": "SequenceEditor.createOverwriteItemAction",
+      "kind": "method",
+      "coverage": "mapped"
+    },
+    {
+      "symbol": "SequenceEditor.createRemoveItemsAction",
+      "kind": "method",
+      "coverage": "mapped"
+    },
+    {
+      "symbol": "SequenceEditor.getEditor",
+      "kind": "method",
+      "declarationSymbol": "SequenceEditorStatic.getEditor",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "SequenceEditor.getInstalledMogrtPath",
+      "kind": "method",
+      "declarationSymbol": "SequenceEditorStatic.getInstalledMogrtPath",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "SequenceEditor.insertMogrtFromLibrary",
+      "kind": "method",
+      "coverage": "mapped"
+    },
+    {
+      "symbol": "SequenceEditor.insertMogrtFromPath",
+      "kind": "method",
+      "coverage": "mapped"
+    },
+    {
+      "symbol": "SequenceEditorStatic",
+      "kind": "type",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "SequenceSettings",
+      "kind": "type",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "SequenceSettings.AUDIO_CHANNEL_TYPE_51",
+      "kind": "property",
+      "declarationSymbol": "SequenceSettingsStatic.AUDIO_CHANNEL_TYPE_51",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "SequenceSettings.AUDIO_CHANNEL_TYPE_MONO",
+      "kind": "property",
+      "declarationSymbol": "SequenceSettingsStatic.AUDIO_CHANNEL_TYPE_MONO",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "SequenceSettings.AUDIO_CHANNEL_TYPE_MULTI",
+      "kind": "property",
+      "declarationSymbol": "SequenceSettingsStatic.AUDIO_CHANNEL_TYPE_MULTI",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "SequenceSettings.AUDIO_CHANNEL_TYPE_STEREO",
+      "kind": "property",
+      "declarationSymbol": "SequenceSettingsStatic.AUDIO_CHANNEL_TYPE_STEREO",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "SequenceSettings.AUDIO_DISPLAY_FORMAT_MILISECONDS",
+      "kind": "property",
+      "declarationSymbol": "SequenceSettingsStatic.AUDIO_DISPLAY_FORMAT_MILISECONDS",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "SequenceSettings.AUDIO_DISPLAY_FORMAT_SAMPLE_RATE",
+      "kind": "property",
+      "declarationSymbol": "SequenceSettingsStatic.AUDIO_DISPLAY_FORMAT_SAMPLE_RATE",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "SequenceSettings.PAR_Anamorphic",
+      "kind": "property",
+      "declarationSymbol": "SequenceSettingsStatic.PAR_Anamorphic",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "SequenceSettings.PAR_DVCProHD",
+      "kind": "property",
+      "declarationSymbol": "SequenceSettingsStatic.PAR_DVCProHD",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "SequenceSettings.PAR_DVNTSC",
+      "kind": "property",
+      "declarationSymbol": "SequenceSettingsStatic.PAR_DVNTSC",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "SequenceSettings.PAR_DVNTSCWide",
+      "kind": "property",
+      "declarationSymbol": "SequenceSettingsStatic.PAR_DVNTSCWide",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "SequenceSettings.PAR_DVPAL",
+      "kind": "property",
+      "declarationSymbol": "SequenceSettingsStatic.PAR_DVPAL",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "SequenceSettings.PAR_DVPALWide",
+      "kind": "property",
+      "declarationSymbol": "SequenceSettingsStatic.PAR_DVPALWide",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "SequenceSettings.PAR_HDAnamorphic1080",
+      "kind": "property",
+      "declarationSymbol": "SequenceSettingsStatic.PAR_HDAnamorphic1080",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "SequenceSettings.PAR_SQUARE",
+      "kind": "property",
+      "declarationSymbol": "SequenceSettingsStatic.PAR_SQUARE",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "SequenceSettings.VIDEO_DISPLAY_FORMAT_16mm",
+      "kind": "property",
+      "declarationSymbol": "SequenceSettingsStatic.VIDEO_DISPLAY_FORMAT_16mm",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "SequenceSettings.VIDEO_DISPLAY_FORMAT_23976",
+      "kind": "property",
+      "declarationSymbol": "SequenceSettingsStatic.VIDEO_DISPLAY_FORMAT_23976",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "SequenceSettings.VIDEO_DISPLAY_FORMAT_25",
+      "kind": "property",
+      "declarationSymbol": "SequenceSettingsStatic.VIDEO_DISPLAY_FORMAT_25",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "SequenceSettings.VIDEO_DISPLAY_FORMAT_2997",
+      "kind": "property",
+      "declarationSymbol": "SequenceSettingsStatic.VIDEO_DISPLAY_FORMAT_2997",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "SequenceSettings.VIDEO_DISPLAY_FORMAT_2997_NON_DROP",
+      "kind": "property",
+      "declarationSymbol": "SequenceSettingsStatic.VIDEO_DISPLAY_FORMAT_2997_NON_DROP",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "SequenceSettings.VIDEO_DISPLAY_FORMAT_35mm",
+      "kind": "property",
+      "declarationSymbol": "SequenceSettingsStatic.VIDEO_DISPLAY_FORMAT_35mm",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "SequenceSettings.VIDEO_DISPLAY_FORMAT_FRAMES",
+      "kind": "property",
+      "declarationSymbol": "SequenceSettingsStatic.VIDEO_DISPLAY_FORMAT_FRAMES",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "SequenceSettings.VIDEO_FIELDTYPE_LOWER_FIRST",
+      "kind": "property",
+      "declarationSymbol": "SequenceSettingsStatic.VIDEO_FIELDTYPE_LOWER_FIRST",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "SequenceSettings.VIDEO_FIELDTYPE_PROGRESSIVE",
+      "kind": "property",
+      "declarationSymbol": "SequenceSettingsStatic.VIDEO_FIELDTYPE_PROGRESSIVE",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "SequenceSettings.VIDEO_FIELDTYPE_UPPER_FIRST",
+      "kind": "property",
+      "declarationSymbol": "SequenceSettingsStatic.VIDEO_FIELDTYPE_UPPER_FIRST",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "SequenceSettings.getAudioChannelCount",
+      "kind": "method",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "SequenceSettings.getAudioChannelType",
+      "kind": "method",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "SequenceSettings.getAudioDisplayFormat",
+      "kind": "method",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "SequenceSettings.getAudioSampleRate",
+      "kind": "method",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "SequenceSettings.getCompositeInLinearColor",
+      "kind": "method",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "SequenceSettings.getEditingMode",
+      "kind": "method",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "SequenceSettings.getMaxRenderQuality",
+      "kind": "method",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "SequenceSettings.getMaximumBitDepth",
+      "kind": "method",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "SequenceSettings.getPreviewCodec",
+      "kind": "method",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "SequenceSettings.getPreviewFileFormat",
+      "kind": "method",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "SequenceSettings.getPreviewFrameRect",
+      "kind": "method",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "SequenceSettings.getVideoDisplayFormat",
+      "kind": "method",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "SequenceSettings.getVideoFieldType",
+      "kind": "method",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "SequenceSettings.getVideoFrameRate",
+      "kind": "method",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "SequenceSettings.getVideoFrameRect",
+      "kind": "method",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "SequenceSettings.getVideoPixelAspectRatio",
+      "kind": "method",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "SequenceSettings.setAudioDisplayFormat",
+      "kind": "method",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "SequenceSettings.setAudioSampleRate",
+      "kind": "method",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "SequenceSettings.setCompositeInLinearColor",
+      "kind": "method",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "SequenceSettings.setEditingMode",
+      "kind": "method",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "SequenceSettings.setMaxRenderQuality",
+      "kind": "method",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "SequenceSettings.setMaximumBitDepth",
+      "kind": "method",
+      "coverage": "mapped"
+    },
+    {
+      "symbol": "SequenceSettings.setPreviewCodec",
+      "kind": "method",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "SequenceSettings.setPreviewFileFormat",
+      "kind": "method",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "SequenceSettings.setPreviewFrameRect",
+      "kind": "method",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "SequenceSettings.setVideoDisplayFormat",
+      "kind": "method",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "SequenceSettings.setVideoFieldType",
+      "kind": "method",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "SequenceSettings.setVideoFrameRate",
+      "kind": "method",
+      "coverage": "mapped"
+    },
+    {
+      "symbol": "SequenceSettings.setVideoFrameRect",
+      "kind": "method",
+      "coverage": "mapped"
+    },
+    {
+      "symbol": "SequenceSettings.setVideoPixelAspectRatio",
+      "kind": "method",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "SequenceSettingsStatic",
+      "kind": "type",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "SequenceStatic",
+      "kind": "type",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "SequenceUtils",
+      "kind": "type",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "SequenceUtils.SEQUENCE_OPERATION_APPLYCUT",
+      "kind": "property",
+      "declarationSymbol": "SequenceUtilsStatic.SEQUENCE_OPERATION_APPLYCUT",
+      "coverage": "mapped"
+    },
+    {
+      "symbol": "SequenceUtils.SEQUENCE_OPERATION_CREATEMARKER",
+      "kind": "property",
+      "declarationSymbol": "SequenceUtilsStatic.SEQUENCE_OPERATION_CREATEMARKER",
+      "coverage": "mapped"
+    },
+    {
+      "symbol": "SequenceUtils.SEQUENCE_OPERATION_CREATESUBCLIP",
+      "kind": "property",
+      "declarationSymbol": "SequenceUtilsStatic.SEQUENCE_OPERATION_CREATESUBCLIP",
+      "coverage": "mapped"
+    },
+    {
+      "symbol": "SequenceUtils.performSceneEditDetectionOnSelection",
+      "kind": "method",
+      "declarationSymbol": "SequenceUtilsStatic.performSceneEditDetectionOnSelection",
+      "coverage": "mapped"
+    },
+    {
+      "symbol": "SequenceUtilsStatic",
+      "kind": "type",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "SnapEvent",
+      "kind": "type",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "SnapEvent.EVENT_SNAP_PLAYHEAD_TO_TRACKITEM_EDGE",
+      "kind": "property",
+      "declarationSymbol": "SnapEventStatic.EVENT_SNAP_PLAYHEAD_TO_TRACKITEM_EDGE",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "SnapEvent.EVENT_SNAP_RAZOR_TO_MARKER",
+      "kind": "property",
+      "declarationSymbol": "SnapEventStatic.EVENT_SNAP_RAZOR_TO_MARKER",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "SnapEvent.EVENT_SNAP_RAZOR_TO_PLAYHEAD",
+      "kind": "property",
+      "declarationSymbol": "SnapEventStatic.EVENT_SNAP_RAZOR_TO_PLAYHEAD",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "SnapEvent.EVENT_SNAP_TO_GUIDES",
+      "kind": "property",
+      "declarationSymbol": "SnapEventStatic.EVENT_SNAP_TO_GUIDES",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "SnapEvent.EVENT_SNAP_TO_KEYFRAME",
+      "kind": "property",
+      "declarationSymbol": "SnapEventStatic.EVENT_SNAP_TO_KEYFRAME",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "SnapEvent.EVENT_SNAP_TO_TRACKITEM",
+      "kind": "property",
+      "declarationSymbol": "SnapEventStatic.EVENT_SNAP_TO_TRACKITEM",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "SnapEventStatic",
+      "kind": "type",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "SourceMonitor",
+      "kind": "type",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "SourceMonitor.closeAllClips",
+      "kind": "method",
+      "declarationSymbol": "SourceMonitorStatic.closeAllClips",
+      "coverage": "mapped"
+    },
+    {
+      "symbol": "SourceMonitor.closeClip",
+      "kind": "method",
+      "declarationSymbol": "SourceMonitorStatic.closeClip",
+      "coverage": "mapped"
+    },
+    {
+      "symbol": "SourceMonitor.getPosition",
+      "kind": "method",
+      "declarationSymbol": "SourceMonitorStatic.getPosition",
+      "coverage": "mapped"
+    },
+    {
+      "symbol": "SourceMonitor.getProjectItem",
+      "kind": "method",
+      "declarationSymbol": "SourceMonitorStatic.getProjectItem",
+      "coverage": "mapped"
+    },
+    {
+      "symbol": "SourceMonitor.openFilePath",
+      "kind": "method",
+      "declarationSymbol": "SourceMonitorStatic.openFilePath",
+      "coverage": "mapped"
+    },
+    {
+      "symbol": "SourceMonitor.openProjectItem",
+      "kind": "method",
+      "declarationSymbol": "SourceMonitorStatic.openProjectItem",
+      "coverage": "mapped"
+    },
+    {
+      "symbol": "SourceMonitor.play",
+      "kind": "method",
+      "declarationSymbol": "SourceMonitorStatic.play",
+      "coverage": "mapped"
+    },
+    {
+      "symbol": "SourceMonitor.setPosition",
+      "kind": "method",
+      "declarationSymbol": "SourceMonitorStatic.setPosition",
+      "coverage": "mapped"
+    },
+    {
+      "symbol": "SourceMonitorStatic",
+      "kind": "type",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "TextSegments",
+      "kind": "type",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "TextSegments.importFromJSON",
+      "kind": "method",
+      "declarationSymbol": "TextSegmentsStatic.importFromJSON",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "TextSegmentsStatic",
+      "kind": "type",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "TickTime",
+      "kind": "type",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "TickTime.TIME_INVALID",
+      "kind": "property",
+      "declarationSymbol": "TickTimeStatic.TIME_INVALID",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "TickTime.TIME_MAX",
+      "kind": "property",
+      "declarationSymbol": "TickTimeStatic.TIME_MAX",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "TickTime.TIME_MIN",
+      "kind": "property",
+      "declarationSymbol": "TickTimeStatic.TIME_MIN",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "TickTime.TIME_ONE_HOUR",
+      "kind": "property",
+      "declarationSymbol": "TickTimeStatic.TIME_ONE_HOUR",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "TickTime.TIME_ONE_MINUTE",
+      "kind": "property",
+      "declarationSymbol": "TickTimeStatic.TIME_ONE_MINUTE",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "TickTime.TIME_ONE_SECOND",
+      "kind": "property",
+      "declarationSymbol": "TickTimeStatic.TIME_ONE_SECOND",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "TickTime.TIME_ZERO",
+      "kind": "property",
+      "declarationSymbol": "TickTimeStatic.TIME_ZERO",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "TickTime.[[call]]",
+      "kind": "call",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "TickTime.[[construct]]",
+      "kind": "constructor",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "TickTime.add",
+      "kind": "method",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "TickTime.alignToFrame",
+      "kind": "method",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "TickTime.alignToNearestFrame",
+      "kind": "method",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "TickTime.createWithFrameAndFrameRate",
+      "kind": "method",
+      "declarationSymbol": "TickTimeStatic.createWithFrameAndFrameRate",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "TickTime.createWithSeconds",
+      "kind": "method",
+      "declarationSymbol": "TickTimeStatic.createWithSeconds",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "TickTime.createWithTicks",
+      "kind": "method",
+      "declarationSymbol": "TickTimeStatic.createWithTicks",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "TickTime.divide",
+      "kind": "method",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "TickTime.equals",
+      "kind": "method",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "TickTime.multiply",
+      "kind": "method",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "TickTime.seconds",
+      "kind": "property",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "TickTime.subtract",
+      "kind": "method",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "TickTime.ticks",
+      "kind": "property",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "TickTime.ticksNumber",
+      "kind": "property",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "TickTimeStatic",
+      "kind": "type",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "TimeDisplay",
+      "kind": "type",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "TimeDisplay.type",
+      "kind": "property",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "TrackItemSelection",
+      "kind": "type",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "TrackItemSelection.addItem",
+      "kind": "method",
+      "coverage": "mapped"
+    },
+    {
+      "symbol": "TrackItemSelection.createEmptySelection",
+      "kind": "method",
+      "declarationSymbol": "TrackItemSelectionStatic.createEmptySelection",
+      "coverage": "mapped"
+    },
+    {
+      "symbol": "TrackItemSelection.getTrackItems",
+      "kind": "method",
+      "coverage": "mapped"
+    },
+    {
+      "symbol": "TrackItemSelection.removeItem",
+      "kind": "method",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "TrackItemSelectionStatic",
+      "kind": "type",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Transcript",
+      "kind": "type",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Transcript.createImportTextSegmentsAction",
+      "kind": "method",
+      "declarationSymbol": "TranscriptStatic.createImportTextSegmentsAction",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Transcript.exportToJSON",
+      "kind": "method",
+      "declarationSymbol": "TranscriptStatic.exportToJSON",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Transcript.hasTranscript",
+      "kind": "method",
+      "declarationSymbol": "TranscriptStatic.hasTranscript",
+      "coverage": "mapped"
+    },
+    {
+      "symbol": "Transcript.importFromJSON",
+      "kind": "method",
+      "declarationSymbol": "TranscriptStatic.importFromJSON",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Transcript.querySupportedLanguages",
+      "kind": "method",
+      "declarationSymbol": "TranscriptStatic.querySupportedLanguages",
+      "coverage": "mapped"
+    },
+    {
+      "symbol": "TranscriptStatic",
+      "kind": "type",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "TransitionFactory",
+      "kind": "type",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "TransitionFactory.createVideoTransition",
+      "kind": "method",
+      "declarationSymbol": "TransitionFactoryStatic.createVideoTransition",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "TransitionFactory.getVideoTransitionMatchNames",
+      "kind": "method",
+      "declarationSymbol": "TransitionFactoryStatic.getVideoTransitionMatchNames",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "TransitionFactoryStatic",
+      "kind": "type",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "UniqueSerializeable",
+      "kind": "type",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "UniqueSerializeable.cast",
+      "kind": "method",
+      "declarationSymbol": "UniqueSerializeableStatic.cast",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "UniqueSerializeable.getUniqueID",
+      "kind": "method",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "UniqueSerializeableStatic",
+      "kind": "type",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Utils",
+      "kind": "type",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "Utils.isAEInstalled",
+      "kind": "method",
+      "declarationSymbol": "UtilsStatic.isAEInstalled",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "UtilsStatic",
+      "kind": "type",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "VideoClipTrackItem",
+      "kind": "type",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "VideoClipTrackItem.TRACKITEMTYPE_CLIP",
+      "kind": "property",
+      "declarationSymbol": "VideoClipTrackItemStatic.TRACKITEMTYPE_CLIP",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "VideoClipTrackItem.TRACKITEMTYPE_EMPTY",
+      "kind": "property",
+      "declarationSymbol": "VideoClipTrackItemStatic.TRACKITEMTYPE_EMPTY",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "VideoClipTrackItem.TRACKITEMTYPE_FEEDBACK",
+      "kind": "property",
+      "declarationSymbol": "VideoClipTrackItemStatic.TRACKITEMTYPE_FEEDBACK",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "VideoClipTrackItem.TRACKITEMTYPE_PREVIEW",
+      "kind": "property",
+      "declarationSymbol": "VideoClipTrackItemStatic.TRACKITEMTYPE_PREVIEW",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "VideoClipTrackItem.TRACKITEMTYPE_TRANSITION",
+      "kind": "property",
+      "declarationSymbol": "VideoClipTrackItemStatic.TRACKITEMTYPE_TRANSITION",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "VideoClipTrackItem.createAddVideoTransitionAction",
+      "kind": "method",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "VideoClipTrackItem.createMoveAction",
+      "kind": "method",
+      "coverage": "mapped"
+    },
+    {
+      "symbol": "VideoClipTrackItem.createRemoveVideoTransitionAction",
+      "kind": "method",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "VideoClipTrackItem.createSetDisabledAction",
+      "kind": "method",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "VideoClipTrackItem.createSetEndAction",
+      "kind": "method",
+      "coverage": "mapped"
+    },
+    {
+      "symbol": "VideoClipTrackItem.createSetInPointAction",
+      "kind": "method",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "VideoClipTrackItem.createSetNameAction",
+      "kind": "method",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "VideoClipTrackItem.createSetOutPointAction",
+      "kind": "method",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "VideoClipTrackItem.createSetStartAction",
+      "kind": "method",
+      "coverage": "mapped"
+    },
+    {
+      "symbol": "VideoClipTrackItem.getComponentChain",
+      "kind": "method",
+      "coverage": "mapped"
+    },
+    {
+      "symbol": "VideoClipTrackItem.getDuration",
+      "kind": "method",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "VideoClipTrackItem.getEndTime",
+      "kind": "method",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "VideoClipTrackItem.getInPoint",
+      "kind": "method",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "VideoClipTrackItem.getIsSelected",
+      "kind": "method",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "VideoClipTrackItem.getMatchName",
+      "kind": "method",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "VideoClipTrackItem.getMediaType",
+      "kind": "method",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "VideoClipTrackItem.getName",
+      "kind": "method",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "VideoClipTrackItem.getOutPoint",
+      "kind": "method",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "VideoClipTrackItem.getProjectItem",
+      "kind": "method",
+      "coverage": "mapped"
+    },
+    {
+      "symbol": "VideoClipTrackItem.getSpeed",
+      "kind": "method",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "VideoClipTrackItem.getStartTime",
+      "kind": "method",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "VideoClipTrackItem.getTrackIndex",
+      "kind": "method",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "VideoClipTrackItem.getType",
+      "kind": "method",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "VideoClipTrackItem.isAdjustmentLayer",
+      "kind": "method",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "VideoClipTrackItem.isDisabled",
+      "kind": "method",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "VideoClipTrackItem.isSpeedReversed",
+      "kind": "method",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "VideoClipTrackItemStatic",
+      "kind": "type",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "VideoComponentChain",
+      "kind": "type",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "VideoComponentChain.createAppendComponentAction",
+      "kind": "method",
+      "coverage": "mapped"
+    },
+    {
+      "symbol": "VideoComponentChain.createInsertComponentAction",
+      "kind": "method",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "VideoComponentChain.createRemoveComponentAction",
+      "kind": "method",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "VideoComponentChain.getComponentAtIndex",
+      "kind": "method",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "VideoComponentChain.getComponentCount",
+      "kind": "method",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "VideoComponentChainStatic",
+      "kind": "type",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "VideoFilterComponent",
+      "kind": "type",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "VideoFilterComponentStatic",
+      "kind": "type",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "VideoFilterFactory",
+      "kind": "type",
+      "coverage": "mapped"
+    },
+    {
+      "symbol": "VideoFilterFactory.createComponent",
+      "kind": "method",
+      "declarationSymbol": "VideoFilterFactoryStatic.createComponent",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "VideoFilterFactory.getDisplayNames",
+      "kind": "method",
+      "declarationSymbol": "VideoFilterFactoryStatic.getDisplayNames",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "VideoFilterFactory.getMatchNames",
+      "kind": "method",
+      "declarationSymbol": "VideoFilterFactoryStatic.getMatchNames",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "VideoFilterFactoryStatic",
+      "kind": "type",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "VideoTrack",
+      "kind": "type",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "VideoTrack.EVENT_TRACK_CHANGED",
+      "kind": "property",
+      "declarationSymbol": "VideoTrackStatic.EVENT_TRACK_CHANGED",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "VideoTrack.EVENT_TRACK_INFO_CHANGED",
+      "kind": "property",
+      "declarationSymbol": "VideoTrackStatic.EVENT_TRACK_INFO_CHANGED",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "VideoTrack.EVENT_TRACK_LOCK_CHANGED",
+      "kind": "property",
+      "declarationSymbol": "VideoTrackStatic.EVENT_TRACK_LOCK_CHANGED",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "VideoTrack.createSetNameAction",
+      "kind": "method",
+      "coverage": "mapped"
+    },
+    {
+      "symbol": "VideoTrack.getIndex",
+      "kind": "method",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "VideoTrack.getMediaType",
+      "kind": "method",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "VideoTrack.getTrackItems",
+      "kind": "method",
+      "coverage": "mapped"
+    },
+    {
+      "symbol": "VideoTrack.id",
+      "kind": "property",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "VideoTrack.isMuted",
+      "kind": "method",
+      "coverage": "mapped"
+    },
+    {
+      "symbol": "VideoTrack.name",
+      "kind": "property",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "VideoTrack.setMute",
+      "kind": "method",
+      "coverage": "mapped"
+    },
+    {
+      "symbol": "VideoTrackStatic",
+      "kind": "type",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "VideoTransition",
+      "kind": "type",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "VideoTransition.TRANSITIONPOSITION_END",
+      "kind": "property",
+      "declarationSymbol": "VideoTransitionStatic.TRANSITIONPOSITION_END",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "VideoTransition.TRANSITIONPOSITION_START",
+      "kind": "property",
+      "declarationSymbol": "VideoTransitionStatic.TRANSITIONPOSITION_START",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "VideoTransitionStatic",
+      "kind": "type",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "premierepro",
+      "kind": "type",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "premierepro.AAFExportOptions",
+      "kind": "property",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "premierepro.Action",
+      "kind": "property",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "premierepro.AddTransitionOptions",
+      "kind": "property",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "premierepro.AppPreference",
+      "kind": "property",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "premierepro.Application",
+      "kind": "property",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "premierepro.AudioClipTrackItem",
+      "kind": "property",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "premierepro.AudioComponentChain",
+      "kind": "property",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "premierepro.AudioFilterComponent",
+      "kind": "property",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "premierepro.AudioFilterFactory",
+      "kind": "property",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "premierepro.AudioTrack",
+      "kind": "property",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "premierepro.CaptionTrack",
+      "kind": "property",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "premierepro.ClipProjectItem",
+      "kind": "property",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "premierepro.CloseProjectOptions",
+      "kind": "property",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "premierepro.Color",
+      "kind": "property",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "premierepro.Component",
+      "kind": "property",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "premierepro.ComponentParam",
+      "kind": "property",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "premierepro.CompoundAction",
+      "kind": "property",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "premierepro.Constants",
+      "kind": "property",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "premierepro.EncoderManager",
+      "kind": "property",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "premierepro.EventManager",
+      "kind": "property",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "premierepro.Exporter",
+      "kind": "property",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "premierepro.FolderItem",
+      "kind": "property",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "premierepro.FootageInterpretation",
+      "kind": "property",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "premierepro.FrameRate",
+      "kind": "property",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "premierepro.Guid",
+      "kind": "property",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "premierepro.IngestSettings",
+      "kind": "property",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "premierepro.Keyframe",
+      "kind": "property",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "premierepro.Marker",
+      "kind": "property",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "premierepro.Markers",
+      "kind": "property",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "premierepro.Media",
+      "kind": "property",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "premierepro.Metadata",
+      "kind": "property",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "premierepro.ObjectMaskUtils",
+      "kind": "property",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "premierepro.OpenProjectOptions",
+      "kind": "property",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "premierepro.OperationCompleteEvent",
+      "kind": "property",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "premierepro.PRProduction",
+      "kind": "property",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "premierepro.PointF",
+      "kind": "property",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "premierepro.PointKeyframe",
+      "kind": "property",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "premierepro.Project",
+      "kind": "property",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "premierepro.ProjectClosedEvent",
+      "kind": "property",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "premierepro.ProjectColorSettings",
+      "kind": "property",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "premierepro.ProjectConverter",
+      "kind": "property",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "premierepro.ProjectEvent",
+      "kind": "property",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "premierepro.ProjectItem",
+      "kind": "property",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "premierepro.ProjectItemSelection",
+      "kind": "property",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "premierepro.ProjectSettings",
+      "kind": "property",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "premierepro.ProjectUtils",
+      "kind": "property",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "premierepro.Properties",
+      "kind": "property",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "premierepro.RectF",
+      "kind": "property",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "premierepro.ScratchDiskSettings",
+      "kind": "property",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "premierepro.Sequence",
+      "kind": "property",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "premierepro.SequenceEditor",
+      "kind": "property",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "premierepro.SequenceSettings",
+      "kind": "property",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "premierepro.SequenceUtils",
+      "kind": "property",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "premierepro.SnapEvent",
+      "kind": "property",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "premierepro.SourceMonitor",
+      "kind": "property",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "premierepro.TextSegments",
+      "kind": "property",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "premierepro.TickTime",
+      "kind": "property",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "premierepro.TimeDisplay",
+      "kind": "property",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "premierepro.TrackItemSelection",
+      "kind": "property",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "premierepro.Transcript",
+      "kind": "property",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "premierepro.TransitionFactory",
+      "kind": "property",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "premierepro.UniqueSerializeable",
+      "kind": "property",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "premierepro.Utils",
+      "kind": "property",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "premierepro.VideoClipTrackItem",
+      "kind": "property",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "premierepro.VideoComponentChain",
+      "kind": "property",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "premierepro.VideoFilterComponent",
+      "kind": "property",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "premierepro.VideoFilterFactory",
+      "kind": "property",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "premierepro.VideoTrack",
+      "kind": "property",
+      "coverage": "unmapped"
+    },
+    {
+      "symbol": "premierepro.VideoTransition",
+      "kind": "property",
+      "coverage": "unmapped"
+    }
+  ]
+}
