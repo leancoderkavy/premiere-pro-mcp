@@ -8,7 +8,7 @@
       "kind": "api",
       "authorityUrls": ["https://developer.adobe.com/premiere-pro/uxp/ppro-reference/"],
       "versionSource": "@adobe/premierepro@26.3.0",
-      "inventoryArtifact": "src/resources/adobe-api-inventory.json",
+      "inventoryArtifact": "dist/resources/adobe-api-inventory.json",
       "inventoryState": "complete",
       "implementationState": "partial",
       "notes": "All stable declaration symbols are inventoried; mapped means classified, not necessarily a standalone MCP tool or live-host proof."
@@ -68,17 +68,30 @@
       "kind": "sdk",
       "authorityUrls": ["https://developer.adobe.com/premiere-pro/uxp/plugins/hybrid-plugins/"],
       "versionSource": "UXP Hybrid Plugin SDK from Adobe Developer Console",
-      "inventoryArtifact": "docs/uxp-hybrid-benchmark.md",
+      "inventoryArtifact": null,
       "inventoryState": "blocked_external_artifact",
       "implementationState": "gated",
       "notes": "The downloadable SDK headers are access-controlled. The existing benchmark remains disabled until exact SDK and cross-platform evidence are available."
+    },
+    {
+      "id": "premiere-cpp-sdk",
+      "kind": "sdk",
+      "authorityUrls": [
+        "https://developer.adobe.com/premiere-pro/",
+        "https://developer.adobe.com/premiere-pro/access-the-developer-console/"
+      ],
+      "versionSource": "Premiere Pro C++ SDK from Adobe Developer Console",
+      "inventoryArtifact": null,
+      "inventoryState": "blocked_external_artifact",
+      "implementationState": "not_started",
+      "notes": "The standalone PrSDK for native importers, exporters, effects, transitions, devices, and related plug-ins is distinct from UXP Hybrid addons and requires the access-controlled SDK documentation and headers."
     },
     {
       "id": "cep-extendscript",
       "kind": "legacy_api",
       "authorityUrls": ["https://ppro-scripting.docsforadobe.dev/"],
       "versionSource": "Premiere Pro Scripting Guide and bundled host DOM",
-      "inventoryArtifact": "src/resources/extendscript-reference.ts",
+      "inventoryArtifact": "dist/resources/extendscript-reference.js",
       "inventoryState": "partial",
       "implementationState": "partial",
       "notes": "The current reference is curated rather than generated from a versioned complete symbol source."

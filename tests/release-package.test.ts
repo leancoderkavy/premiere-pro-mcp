@@ -14,6 +14,7 @@ describe("npm release package verification", () => {
     expect(verifier).toContain("package/docs/premiere-surface-registry.md");
     expect(verifier).toContain("package/dist/resources/premiere-surface-registry.json");
     expect(verifier).toContain("installedRegistry.integrationSurfaces");
+    expect(verifier).toContain("registry references a missing inventory artifact");
     expect(verifier).toContain('"package/dist/index.js"');
     expect(verifier).toContain('"package/cep-plugin/CSXS/manifest.xml"');
     expect(verifier).toContain('"package/uxp-plugin/manifest.json"');

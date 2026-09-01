@@ -41,6 +41,7 @@ describe("Premiere API and competitor surface registry", () => {
       "spectrum-web-components",
       "uxp-plugin-guides",
       "uxp-hybrid-cpp",
+      "premiere-cpp-sdk",
       "cep-extendscript",
       "cep-platform",
       "qe-dom",
