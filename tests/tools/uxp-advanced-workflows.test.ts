@@ -5,6 +5,7 @@ import { getUxpTools } from "../../src/tools/uxp.js";
 const ADVANCED_WORKFLOW_TOOLS = [
   "inspect_project_selection_uxp",
   "manage_markers_uxp",
+  "apply_beat_markers_uxp",
   "organize_project_items_uxp",
   "manage_sequence_settings_uxp",
   "import_project_media_uxp",
@@ -16,17 +17,17 @@ const ADVANCED_WORKFLOW_TOOLS = [
 ] as const;
 
 describe("advanced stable UXP workflow MCP catalog", () => {
-  it("publishes exactly ten new consolidated tools with closed, bounded schemas", () => {
+  it("publishes eleven advanced tools with closed, bounded schemas", () => {
     const bridge = { request: vi.fn(), getState: vi.fn() } as unknown as UxpWebSocketBridge;
     const tools = getUxpTools(bridge) as Record<string, { parameters: Record<string, unknown> }>;
 
     expect(Object.keys(tools)).toEqual(expect.arrayContaining(ADVANCED_WORKFLOW_TOOLS));
-    expect(ADVANCED_WORKFLOW_TOOLS).toHaveLength(10);
+    expect(ADVANCED_WORKFLOW_TOOLS).toHaveLength(11);
     for (const name of ADVANCED_WORKFLOW_TOOLS) {
       expect(tools[name].parameters).toMatchObject({
         type: "object",
         additionalProperties: false,
-        required: expect.arrayContaining(["action"]),
+        required: expect.arrayContaining([name === "apply_beat_markers_uxp" ? "beat_times_seconds" : "action"]),
       });
     }
     expect(tools.inspect_project_selection_uxp.parameters).toMatchObject({
@@ -57,6 +58,10 @@ describe("advanced stable UXP workflow MCP catalog", () => {
       action: "update", owner_type: "project_item", project_item_id: "clip-1",
       marker_guid: "marker-1", expected_name: "Old", name: "New", color_index: 3,
       operation_id: "marker-op",
+    });
+    await tools.apply_beat_markers_uxp.handler({
+      beat_times_seconds: [0.5, 1, 1.5], sequence_id: "sequence-1", offset_seconds: 2,
+      name_prefix: "Downbeat", comments: "Detected beat grid", operation_id: "beat-grid-op",
     });
     await tools.organize_project_items_uxp.handler({
       action: "create_smart_bin", parent_bin_id: "bin-1", name: "Selects",
@@ -109,6 +114,10 @@ describe("advanced stable UXP workflow MCP catalog", () => {
       ["markers.update", {
         ownerType: "projectItem", projectItemId: "clip-1", markerGuid: "marker-1",
         expectedName: "Old", name: "New", colorIndex: 3, operationId: "marker-op",
+      }],
+      ["markers.addBeatGrid", {
+        beatTimesSeconds: [0.5, 1, 1.5], sequenceId: "sequence-1", offsetSeconds: 2,
+        namePrefix: "Downbeat", comments: "Detected beat grid", operationId: "beat-grid-op",
       }],
       ["bins.createSmart", {
         parentBinId: "bin-1", name: "Selects", searchQuery: "rating:5", operationId: "bin-op",

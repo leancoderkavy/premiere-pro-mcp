@@ -353,6 +353,7 @@ export function buildPlatformCapabilityReport(
           "projectSelection.inspect",
           "markers.inspect",
           "markers.add",
+          "markers.addBeatGrid",
           "markers.update",
           "markers.remove",
           "bins.inspect",

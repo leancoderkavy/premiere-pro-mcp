@@ -11,8 +11,8 @@ descriptions, action enums, authority visibility, and counts stay aligned with t
 | Registered core actions | 327 | CEP/local server catalog; host and authority checks still apply |
 | Default-profile core actions | 325 | Advertised with `inspect,edit,export,filesystem` |
 | Restricted core actions | 2 | Require explicit `unsafe-script` authority |
-| Authenticated UXP additions | 56 | Advertised only while a compatible authenticated UXP panel is connected |
-| Default profile with UXP | 381 | 325 core plus 56 UXP tools |
+| Authenticated UXP additions | 57 | Advertised only while a compatible authenticated UXP panel is connected |
+| Default profile with UXP | 382 | 325 core plus 57 UXP tools |
 
 ## How to read support
 
@@ -370,6 +370,7 @@ authenticated and the connected host advertises the required command capabilitie
 | MCP tool | Availability | Actions or modes | Description |
 | --- | --- | --- | --- |
 | `add_video_transition_uxp` | Connected UXP | `position`: `start`, `end` | Add an installed native video transition to one video clip through an undoable UXP transaction. List match names first; transaction acceptance is not a visual timeline readback. |
+| `apply_beat_markers_uxp` | Connected UXP | Single operation | Apply a reviewed beat grid as native sequence markers in one undoable Premiere 26.3+ UXP transaction, with bounded inputs and GUID/time readback for every marker. |
 | `apply_editorial_organization_plan` | Connected UXP | Single operation | Apply selected organization recommendations through documented UXP bin transactions only. Requires the unchanged server-issued plan, its opaque preview confirmation token, and stable source/parent guards; individual host transactions may be partially committed and are never silently retried or rolled back. |
 | `audition_source_monitor_uxp` | Connected UXP | `state`, `open_project_item`, `open_file`, `set_position`, `play`, `close`, `close_all` | Open a selected project item or approved file, inspect/set position, play at bounded speed, or close Source Monitor media through documented UXP APIs. |
 | `automate_effect_parameters_uxp` | Connected UXP | `inspect`, `set_value`, `add_keyframe`, `remove_keyframe`, `remove_keyframe_range`, `set_interpolation` | Inspect or transactionally set scalar effect parameters and add, remove, range-remove, or interpolate keyframes through documented UXP actions. |

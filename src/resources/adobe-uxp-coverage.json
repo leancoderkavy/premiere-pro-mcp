@@ -731,6 +731,30 @@
       "verificationBoundary": "marker_guid_and_field_readback"
     },
     {
+      "id": "native-beat-grid-markers",
+      "adobeApi": [
+        "Markers.getMarkers",
+        "Markers.createAddMarkerAction",
+        "Marker.guid"
+      ],
+      "documentationUrls": [
+        "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/markers/",
+        "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/marker/"
+      ],
+      "minimumPremiereVersion": "26.3.0",
+      "backend": "uxp",
+      "uxpCommand": "markers.addBeatGrid",
+      "mcpTools": ["apply_beat_markers_uxp"],
+      "availability": "current",
+      "implementationStatus": "implemented",
+      "verificationStatus": "automated_contract_verified",
+      "liveHostVerificationStatus": "not_run",
+      "mutatesProject": true,
+      "undoable": true,
+      "idempotency": "operation_id",
+      "verificationBoundary": "beat_marker_guid_and_time_readback"
+    },
+    {
       "id": "transactional-bin-organizer",
       "adobeApi": [
         "FolderItem.createBinAction",

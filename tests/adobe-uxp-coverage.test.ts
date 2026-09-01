@@ -40,6 +40,7 @@ describe("Adobe Premiere Pro 26.3 UXP coverage", () => {
       "least-privilege-uxp-workspace",
       "project-view-selection-resolver",
       "native-marker-crud",
+      "native-beat-grid-markers",
       "transactional-bin-organizer",
       "sequence-settings-profiles",
       "workspace-gated-project-import",
@@ -49,6 +50,12 @@ describe("Adobe Premiere Pro 26.3 UXP coverage", () => {
       "sequence-lifecycle-derivatives",
       "ame-encode-controller",
     ]));
+    expect(entries.find((entry) => entry.id === "native-marker-crud")?.mcpTools).toEqual(["manage_markers_uxp"]);
+    expect(entries.find((entry) => entry.id === "native-beat-grid-markers")).toMatchObject({
+      uxpCommand: "markers.addBeatGrid",
+      mcpTools: ["apply_beat_markers_uxp"],
+      verificationBoundary: "beat_marker_guid_and_time_readback",
+    });
     for (const entry of entries) {
       expect(entry.minimumPremiereVersion).toMatch(/^\d+\.\d+\.\d+$/);
       expect(entry.backend).toBe("uxp");
@@ -63,12 +70,12 @@ describe("Adobe Premiere Pro 26.3 UXP coverage", () => {
   it("keeps unimplemented 26.3 work visibly planned", () => {
     const report = buildAdobeUxpCoverageReport();
     expect(report.summary).toEqual({
-      total: 46,
-      current: 43,
+      total: 47,
+      current: 44,
       planned: 3,
-      implemented: 43,
+      implemented: 44,
       committedUnverified: 7,
-      automatedContractVerified: 36,
+      automatedContractVerified: 37,
       liveHostVerified: 0,
     });
     expect(report.entries.find((entry) => entry.id === "aaf-export")).toMatchObject({
@@ -91,7 +98,7 @@ describe("Adobe Premiere Pro 26.3 UXP coverage", () => {
   it("surfaces the baseline in the platform capability report", () => {
     const report = buildPlatformCapabilityReport(resolveCapabilities("inspect"), "win32");
     expect(report.backends.uxp.apiCoverage.summary).toMatchObject({
-      current: 43,
+      current: 44,
       planned: 3,
       committedUnverified: 7,
     });

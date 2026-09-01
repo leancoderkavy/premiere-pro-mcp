@@ -21,6 +21,7 @@
       "projectSelection.inspect": { readOnly: true, minHostVersion: "25.6.0", probe: canUseProjectViews, handler: inspectProjectSelection },
       "markers.inspect": { readOnly: true, targetCapabilityProbe: true, minHostVersion: "26.3.0", probe: canUseMarkers, handler: inspectMarkers },
       "markers.add": { destructive: true, undoable: true, targetCapabilityProbe: true, minHostVersion: "26.3.0", probe: canUseMarkers, handler: addMarker },
+      "markers.addBeatGrid": { destructive: true, undoable: true, targetCapabilityProbe: true, minHostVersion: "26.3.0", probe: canUseMarkers, handler: addBeatGrid },
       "markers.update": { destructive: true, undoable: true, targetCapabilityProbe: true, minHostVersion: "26.3.0", probe: canUseMarkers, handler: updateMarker },
       "markers.remove": { destructive: true, undoable: true, targetCapabilityProbe: true, minHostVersion: "26.3.0", probe: canUseMarkers, handler: removeMarker },
       "bins.inspect": { readOnly: true, targetCapabilityProbe: true, minHostVersion: "25.6.0", probe: canUseBins, handler: inspectBin },
@@ -319,6 +320,54 @@
         });
         const after = await markerList(context.collection), added = after.filter((value) => !before.some((old) => old.guid === value.guid));
         return mutationResult(added.length === 1, { added: true, marker: added[0] || null, beforeCount: before.length, afterCount: after.length }, "marker_guid_readback", "Add marker");
+      });
+    }
+
+    async function addBeatGrid(args) {
+      assertObject(args); assertOnlyKeys(args, ["sequenceId", "beatTimesSeconds", "offsetSeconds", "namePrefix", "comments", "markerType", "operationId"]);
+      const context = await markerContext({ ownerType: "sequence", sequenceId: args.sequenceId }, true);
+      if (!Array.isArray(args.beatTimesSeconds) || !args.beatTimesSeconds.length || args.beatTimesSeconds.length > 512) {
+        throw commandError("UXP_INVALID_ARGUMENT", "beatTimesSeconds must contain between 1 and 512 entries");
+      }
+      const offset = finiteNumber(args.offsetSeconds == null ? 0 : args.offsetSeconds, "offsetSeconds", -86400, 86400);
+      const prefix = args.namePrefix == null ? "Beat" : boundedString(args.namePrefix, "namePrefix", 64);
+      const comments = args.comments == null ? "" : boundedStringAllowEmpty(args.comments, "comments", 1000);
+      const markerType = args.markerType == null ? String(ppro.Marker && ppro.Marker.MARKER_TYPE_COMMENT || "Comment") : boundedString(args.markerType, "markerType", 128);
+      const times = [], seen = new Set();
+      for (let index = 0; index < args.beatTimesSeconds.length; index++) {
+        const value = finiteNumber(args.beatTimesSeconds[index], "beatTimesSeconds[" + index + "]", 0, 86400);
+        const positioned = value + offset;
+        if (positioned < 0 || positioned > 86400) throw commandError("UXP_INVALID_ARGUMENT", "offset beat times must remain between 0 and 86400 seconds");
+        const key = positioned.toFixed(9);
+        if (seen.has(key)) throw commandError("UXP_INVALID_ARGUMENT", "offset beat times must be unique");
+        seen.add(key); times.push(positioned);
+      }
+      for (let index = 1; index < times.length; index++) {
+        if (times[index] <= times[index - 1]) throw commandError("UXP_INVALID_ARGUMENT", "beatTimesSeconds must be strictly increasing");
+      }
+      const ownerId = guidString(context.owner && context.owner.guid);
+      return withAppendLock(appendLockKey(context.project, "markers", "sequence:" + ownerId), async () => {
+        const before = boundedMarkers(context.collection);
+        if (before.length + times.length > MAX_MARKERS) throw commandError("UXP_COLLECTION_LIMIT", "Beat marker creation would exceed the " + MAX_MARKERS + " marker limit");
+        const beforeGuids = new Set(before.map((marker) => guidString(marker.guid)));
+        context.project.lockedAccess(() => {
+          const actions = times.map((time, index) => context.collection.createAddMarkerAction(prefix + " " + (index + 1), markerType, tick(time, "beat time"), tick(0, "durationSeconds"), comments));
+          commitActions(context.project, "Add beat grid markers", actions);
+        });
+        let afterMarkers, added;
+        try {
+          afterMarkers = boundedMarkers(context.collection);
+          const addedMarkers = afterMarkers.filter((marker) => !beforeGuids.has(guidString(marker.guid)));
+          added = [];
+          for (const marker of addedMarkers) added.push(await markerSnapshot(marker));
+        } catch (_) {
+          return mutationResult(false, { added: null, markers: [], beforeCount: before.length, afterCount: null, offsetSeconds: offset }, "beat_marker_guid_and_time_readback", "Add beat grid markers");
+        }
+        const addedGuids = new Set(added.map((marker) => marker.guid));
+        const verified = added.length === times.length && addedGuids.size === added.length
+          && added.every((marker, index) => Boolean(marker.guid) && marker.name === prefix + " " + (index + 1)
+            && marker.startSeconds != null && numbersEqual(marker.startSeconds, times[index]));
+        return mutationResult(verified, { added: added.length, markers: added, beforeCount: before.length, afterCount: afterMarkers.length, offsetSeconds: offset }, "beat_marker_guid_and_time_readback", "Add beat grid markers");
       });
     }
 

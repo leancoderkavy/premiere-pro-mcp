@@ -279,7 +279,7 @@ describe("advanced stable Premiere UXP workflows", () => {
     const value = advancedHost();
     const capabilities = await value.registry.capabilities();
     expect(Object.keys(capabilities.commands)).toEqual(expect.arrayContaining([
-      "projectSelection.views", "projectSelection.inspect", "markers.inspect", "markers.add",
+      "projectSelection.views", "projectSelection.inspect", "markers.inspect", "markers.add", "markers.addBeatGrid",
       "bins.inspect", "bins.create", "sequenceSettings.get", "sequenceSettings.update",
       "project.import", "parameters.inspect", "parameters.keyframeAdd", "trackItem.inspect",
       "trackItem.update", "timeline.insert", "timeline.mogrtPath", "sequences.inspect",
@@ -288,6 +288,7 @@ describe("advanced stable Premiere UXP workflows", () => {
     ]));
     expect(capabilities.commands["projectSelection.inspect"]).toMatchObject({ supported: true, readOnly: true });
     expect(capabilities.commands["markers.add"]).toMatchObject({ supported: true, destructive: true, undoable: true });
+    expect(capabilities.commands["markers.addBeatGrid"]).toMatchObject({ supported: true, destructive: true, undoable: true });
     expect(capabilities.commands["project.import"]).toMatchObject({ supported: true, workspaceRequired: true, undoable: false });
     expect(capabilities.commands["encoder.sequence"]).toMatchObject({ supported: true, workspaceRequired: true, undoable: false });
   });
@@ -303,6 +304,18 @@ describe("advanced stable Premiere UXP workflows", () => {
     await expect(value.registry.dispatch("markers.add", {
       name: "Turn", startSeconds: 3, comments: "Cut here", operationId: "marker-add",
     })).resolves.toMatchObject({ added: true, outcome: "verified", marker: { name: "Turn", startSeconds: 3 } });
+    await expect(value.registry.dispatch("markers.addBeatGrid", {
+      beatTimesSeconds: [1, 2, 3], offsetSeconds: 0.5, namePrefix: "Beat",
+      comments: "Detected grid", operationId: "beat-grid",
+    })).resolves.toMatchObject({
+      added: 3, outcome: "verified", verificationBoundary: "beat_marker_guid_and_time_readback",
+      markers: [
+        { name: "Beat 1", startSeconds: 1.5 },
+        { name: "Beat 2", startSeconds: 2.5 },
+        { name: "Beat 3", startSeconds: 3.5 },
+      ],
+    });
+    expect(value.project.executeTransaction).toHaveBeenCalledTimes(2);
     await expect(value.registry.dispatch("markers.update", {
       markerGuid: "marker-1", expectedName: "Beat", name: "Beat updated",
       startSeconds: 2, colorIndex: 4, operationId: "marker-update",
@@ -313,6 +326,79 @@ describe("advanced stable Premiere UXP workflows", () => {
     await expect(value.registry.dispatch("bins.create", {
       parentBinId: "bin-1", name: "Selects", operationId: "bin-create",
     })).resolves.toMatchObject({ created: true, outcome: "verified", item: { name: "Selects" } });
+  });
+
+  it("rejects invalid beat grids before mutation and reports contradictory readback as unverified", async () => {
+    const value = advancedHost();
+    for (const args of [
+      { beatTimesSeconds: [2, 1] },
+      { beatTimesSeconds: [1, 1] },
+      { beatTimesSeconds: [1], offsetSeconds: -2 },
+    ]) {
+      await expect(value.registry.dispatch("markers.addBeatGrid", args)).rejects.toMatchObject({ code: "UXP_INVALID_ARGUMENT" });
+    }
+    expect(value.project.lockedAccess).not.toHaveBeenCalled();
+
+    value.markerValues.push(...Array.from({ length: 2046 }, () => value.markerValues[0]));
+    await expect(value.registry.dispatch("markers.addBeatGrid", { beatTimesSeconds: [1, 2] }))
+      .rejects.toMatchObject({ code: "UXP_COLLECTION_LIMIT" });
+    expect(value.project.lockedAccess).not.toHaveBeenCalled();
+
+    const emptyGuid = advancedHost();
+    emptyGuid.markers.createAddMarkerAction.mockImplementation((name: string, type: string, start: { seconds: number }) => ({ apply: () => {
+      emptyGuid.markerValues.push({
+        ...emptyGuid.markerValues[0], guid: "", getName: vi.fn(async () => name), getType: vi.fn(async () => type),
+        getStart: vi.fn(async () => ({ seconds: start.seconds })),
+      });
+    } }));
+    await expect(emptyGuid.registry.dispatch("markers.addBeatGrid", { beatTimesSeconds: [1] }))
+      .resolves.toMatchObject({ outcome: "committed_unverified", verified: false });
+
+    const wrongTime = advancedHost();
+    wrongTime.markers.createAddMarkerAction.mockImplementation((name: string, type: string, start: { seconds: number }) => ({ apply: () => {
+      wrongTime.markerValues.push({
+        ...wrongTime.markerValues[0], guid: "wrong-time-guid", getName: vi.fn(async () => name), getType: vi.fn(async () => type),
+        getStart: vi.fn(async () => ({ seconds: start.seconds + 1 })),
+      });
+    } }));
+    await expect(wrongTime.registry.dispatch("markers.addBeatGrid", { beatTimesSeconds: [1] }))
+      .resolves.toMatchObject({ outcome: "committed_unverified", verified: false });
+
+    const wrongName = advancedHost();
+    wrongName.markers.createAddMarkerAction.mockImplementation((_name: string, type: string, start: { seconds: number }) => ({ apply: () => {
+      wrongName.markerValues.push({
+        ...wrongName.markerValues[0], guid: "wrong-name-guid", getName: vi.fn(async () => "Unexpected"), getType: vi.fn(async () => type),
+        getStart: vi.fn(async () => ({ seconds: start.seconds })),
+      });
+    } }));
+    await expect(wrongName.registry.dispatch("markers.addBeatGrid", { beatTimesSeconds: [1] }))
+      .resolves.toMatchObject({ outcome: "committed_unverified", verified: false });
+
+    const missingZeroTime = advancedHost();
+    missingZeroTime.markers.createAddMarkerAction.mockImplementation((name: string, type: string) => ({ apply: () => {
+      missingZeroTime.markerValues.push({
+        ...missingZeroTime.markerValues[0], guid: "missing-zero-time-guid", getName: vi.fn(async () => name),
+        getType: vi.fn(async () => type), getStart: vi.fn(async () => ({})),
+      });
+    } }));
+    await expect(missingZeroTime.registry.dispatch("markers.addBeatGrid", { beatTimesSeconds: [0] }))
+      .resolves.toMatchObject({ outcome: "committed_unverified", verified: false });
+    expect(missingZeroTime.markerValues[0].getName).not.toHaveBeenCalled();
+    expect(missingZeroTime.markerValues[0].getStart).not.toHaveBeenCalled();
+
+    const getterFailure = advancedHost();
+    getterFailure.markers.createAddMarkerAction.mockImplementation((name: string, type: string, start: { seconds: number }) => ({ apply: () => {
+      getterFailure.markerValues.push({
+        ...getterFailure.markerValues[0], guid: "getter-failure-guid", getName: vi.fn(async () => { throw new Error("readback failed"); }),
+        getType: vi.fn(async () => type), getStart: vi.fn(async () => ({ seconds: start.seconds })),
+      });
+    } }));
+    const getterFailureArgs = { beatTimesSeconds: [1], operationId: "getter-failure-grid" };
+    await expect(getterFailure.registry.dispatch("markers.addBeatGrid", getterFailureArgs))
+      .resolves.toMatchObject({ outcome: "committed_unverified", verified: false, added: null, afterCount: null });
+    await expect(getterFailure.registry.dispatch("markers.addBeatGrid", getterFailureArgs))
+      .resolves.toMatchObject({ outcome: "committed_unverified", verified: false });
+    expect(getterFailure.project.executeTransaction).toHaveBeenCalledTimes(1);
   });
 
   it("updates sequence settings, imports workspace media, and automates a typed effect parameter", async () => {
