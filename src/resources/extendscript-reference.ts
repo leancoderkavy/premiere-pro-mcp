@@ -129,7 +129,7 @@ export const EXTENDSCRIPT_REFERENCE = [
   "clip.remove(ripple, alignToVideo)",
   "clip.setSelected(selected, updateUI)",
   "clip.isSelected()              - Boolean",
-  "clip.setDisabled(disabled)",
+  "clip.disabled = disabled",
   "clip.isDisabled()              - Boolean",
   "clip.getSpeed()                - Number",
   "clip.isSpeedReversed()         - Boolean",

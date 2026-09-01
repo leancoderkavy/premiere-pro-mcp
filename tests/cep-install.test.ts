@@ -64,6 +64,9 @@ describe("CEP installation metadata", () => {
     expect(panelLogic).toContain("startBridgeHeartbeat()");
     expect(panelLogic).toContain("PREMIERE_TEMP_DIR");
     expect(panelLogic).toContain('nodeRequire("process")');
+    expect(panelLogic).toContain('return "mcpstate:"');
+    expect(panelLogic).toContain("/^mcpstate:([01]),([01])$/");
+    expect(panelLogic).not.toContain("return JSON.stringify({projectOpen:");
   });
 
   it("copies the macOS plugin for npm installs and supports diagnostics", () => {

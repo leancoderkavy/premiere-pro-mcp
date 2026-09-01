@@ -683,8 +683,12 @@ export function getTimelineTools(bridgeOptions: BridgeOptions) {
           var result = __findClip("${escapeForExtendScript(args.node_id)}");
           if (!result) return __error("Clip not found: ${escapeForExtendScript(args.node_id)}");
           
-          result.clip.setDisabled(${args.enabled ? "false" : "true"});
-          return __result({ clipName: result.clip.name, enabled: ${args.enabled} });
+          var wantDisabled = ${args.enabled ? "false" : "true"};
+          result.clip.disabled = wantDisabled;
+          var verified = __findClip("${escapeForExtendScript(args.node_id)}");
+          if (!verified) return __error("Clip state changed, but the clip could not be re-resolved for verification.");
+          if (!!verified.clip.disabled !== wantDisabled) return __error("Premiere did not persist the requested clip enabled state.");
+          return __result({ clipName: verified.clip.name, enabled: !verified.clip.disabled, verified: true });
         `);
         return sendCommand(script, bridgeOptions);
       },

@@ -421,7 +421,7 @@ function buildApplyScript(plan: SpotWorkflowPlan): string {
       }
       var transitionCountBefore = videoTrack.transitions.numItems;
       try {
-        var placedInfo = __findClip(placed[cutIndex].nodeId);
+        var placedInfo = __findClip(placed[cutIndex + 1].nodeId);
         var qeClip = placedInfo ? __findQeClipByDomClip(qeTrack, placedInfo.clip) : null;
         if (!qeClip || typeof qeClip.addTransition !== "function") {
           transitionResults.push({ applied: false, verified: false, reason: "The target QE clip did not expose addTransition" });
@@ -430,9 +430,17 @@ function buildApplyScript(plan: SpotWorkflowPlan): string {
         var durationFrames = Math.max(1, Math.round(__secondsToTicks(transitionDuration) / frameTicks));
         qeClip.addTransition(transitionQE, true, String(durationFrames), "0", 0.5, false, true);
         var transitionCountAfter = videoTrack.transitions.numItems;
-        transitionResults.push(transitionCountAfter > transitionCountBefore
+        var expectedCutTicks = __secondsToTicks(placed[cutIndex + 1].startSeconds);
+        var foundAtExpectedCut = false;
+        for (var transitionIndex = 0; transitionIndex < videoTrack.transitions.numItems; transitionIndex++) {
+          var transitionReadback = videoTrack.transitions[transitionIndex];
+          var transitionStartTicks = parseFloat(transitionReadback.start.ticks);
+          var transitionEndTicks = parseFloat(transitionReadback.end.ticks);
+          if (!isNaN(transitionStartTicks) && !isNaN(transitionEndTicks) && transitionStartTicks <= expectedCutTicks + frameTicks && transitionEndTicks >= expectedCutTicks - frameTicks) { foundAtExpectedCut = true; break; }
+        }
+        transitionResults.push(transitionCountAfter > transitionCountBefore && foundAtExpectedCut
           ? { applied: true, verified: true, atSeconds: placed[cutIndex].endSeconds }
-          : { applied: false, verified: false, reason: "Premiere did not add a transition to the track" });
+          : { applied: false, verified: false, reason: transitionCountAfter > transitionCountBefore ? "Premiere added a transition, but not at the requested cut" : "Premiere did not add a transition to the track" });
       } catch (transitionError) {
         transitionResults.push({ applied: false, verified: false, reason: String(transitionError) });
       }
