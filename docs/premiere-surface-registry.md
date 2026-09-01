@@ -1,7 +1,8 @@
 # Premiere API and documentation surface registry
 
-The machine-readable authority is
-`src/resources/premiere-surface-registry.json`. It prevents the generated
+The machine-readable source is
+`src/resources/premiere-surface-registry.json`; npm consumers receive it at
+`dist/resources/premiere-surface-registry.json`. It prevents the generated
 Premiere DOM declaration inventory from being mistaken for all Adobe
 extensibility documentation.
 

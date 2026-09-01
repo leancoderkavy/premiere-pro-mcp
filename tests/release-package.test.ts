@@ -11,6 +11,9 @@ describe("npm release package verification", () => {
     const verifier = read("scripts/verify-npm-package.mjs");
 
     expect(packageJson.scripts["pack:check"]).toBe("node scripts/verify-npm-package.mjs");
+    expect(verifier).toContain("package/docs/premiere-surface-registry.md");
+    expect(verifier).toContain("package/dist/resources/premiere-surface-registry.json");
+    expect(verifier).toContain("installedRegistry.integrationSurfaces");
     expect(verifier).toContain('"package/dist/index.js"');
     expect(verifier).toContain('"package/cep-plugin/CSXS/manifest.xml"');
     expect(verifier).toContain('"package/uxp-plugin/manifest.json"');

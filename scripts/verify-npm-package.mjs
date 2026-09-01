@@ -19,6 +19,8 @@ const requiredFiles = [
   "package/cep-plugin/CSXS/manifest.xml",
   "package/uxp-plugin/manifest.json",
   "package/docs/supported-actions.md",
+  "package/docs/premiere-surface-registry.md",
+  "package/dist/resources/premiere-surface-registry.json",
   "package/scripts/install-cep.ps1",
   "package/scripts/install-cep.sh",
 ];
@@ -103,6 +105,17 @@ try {
   const installedCli = join(installDir, "node_modules", "premiere-pro-mcp", "dist", "index.js");
   if (!existsSync(installedCli)) {
     throw new Error("isolated package installation did not contain the CLI entrypoint");
+  }
+  const installedRegistry = JSON.parse(readFileSync(join(
+    installDir,
+    "node_modules",
+    "premiere-pro-mcp",
+    "dist",
+    "resources",
+    "premiere-surface-registry.json",
+  ), "utf8"));
+  if (installedRegistry.schemaVersion !== 1 || !Array.isArray(installedRegistry.integrationSurfaces)) {
+    throw new Error("installed package did not contain a valid Premiere surface registry");
   }
   const help = run(process.execPath, [installedCli, "--help"], { cwd: installDir });
   if (!help.includes("Usage:")) {

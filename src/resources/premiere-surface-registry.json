@@ -2,11 +2,11 @@
   "schemaVersion": 1,
   "researchedAt": "2026-09-01",
   "completionPolicy": "A surface is complete only when its authoritative symbol or document inventory is generated, every item is classified, freshness is checked in CI, and claimed runtime behavior has the declared verification evidence.",
-  "officialSurfaces": [
+  "integrationSurfaces": [
     {
       "id": "premiere-dom",
       "kind": "api",
-      "authorityUrl": "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/",
+      "authorityUrls": ["https://developer.adobe.com/premiere-pro/uxp/ppro-reference/"],
       "versionSource": "@adobe/premierepro@26.3.0",
       "inventoryArtifact": "src/resources/adobe-api-inventory.json",
       "inventoryState": "complete",
@@ -16,7 +16,7 @@
     {
       "id": "uxp-javascript",
       "kind": "api",
-      "authorityUrl": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-js/",
+      "authorityUrls": ["https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-js/"],
       "versionSource": "Premiere-bundled UXP runtime",
       "inventoryArtifact": null,
       "inventoryState": "not_started",
@@ -24,19 +24,29 @@
       "notes": "Filesystem, networking, shell, core runtime, and module APIs require a separate inventory from the Premiere DOM."
     },
     {
-      "id": "uxp-html-css",
+      "id": "uxp-html",
       "kind": "api",
-      "authorityUrl": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-css/",
+      "authorityUrls": ["https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-html/"],
       "versionSource": "Premiere-bundled UXP runtime",
       "inventoryArtifact": null,
       "inventoryState": "not_started",
       "implementationState": "partial",
-      "notes": "Supported HTML elements and CSS properties affect the packaged panel, not the MCP command catalog."
+      "notes": "Supported HTML elements and attributes affect the packaged panel, not the MCP command catalog."
+    },
+    {
+      "id": "uxp-css",
+      "kind": "api",
+      "authorityUrls": ["https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-css/"],
+      "versionSource": "Premiere-bundled UXP runtime",
+      "inventoryArtifact": null,
+      "inventoryState": "not_started",
+      "implementationState": "partial",
+      "notes": "Supported CSS properties and features affect the packaged panel, not the MCP command catalog."
     },
     {
       "id": "spectrum-web-components",
       "kind": "api",
-      "authorityUrl": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-spectrum/",
+      "authorityUrls": ["https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-spectrum/"],
       "versionSource": "Premiere-bundled UXP runtime",
       "inventoryArtifact": null,
       "inventoryState": "not_started",
@@ -46,7 +56,7 @@
     {
       "id": "uxp-plugin-guides",
       "kind": "documentation",
-      "authorityUrl": "https://developer.adobe.com/premiere-pro/uxp/plugins/",
+      "authorityUrls": ["https://developer.adobe.com/premiere-pro/uxp/plugins/"],
       "versionSource": "Adobe documentation",
       "inventoryArtifact": null,
       "inventoryState": "not_started",
@@ -56,7 +66,7 @@
     {
       "id": "uxp-hybrid-cpp",
       "kind": "sdk",
-      "authorityUrl": "https://developer.adobe.com/premiere-pro/uxp/plugins/hybrid-plugins/",
+      "authorityUrls": ["https://developer.adobe.com/premiere-pro/uxp/plugins/hybrid-plugins/"],
       "versionSource": "UXP Hybrid Plugin SDK from Adobe Developer Console",
       "inventoryArtifact": "docs/uxp-hybrid-benchmark.md",
       "inventoryState": "blocked_external_artifact",
@@ -66,7 +76,7 @@
     {
       "id": "cep-extendscript",
       "kind": "legacy_api",
-      "authorityUrl": "https://ppro-scripting.docsforadobe.dev/",
+      "authorityUrls": ["https://ppro-scripting.docsforadobe.dev/"],
       "versionSource": "Premiere Pro Scripting Guide and bundled host DOM",
       "inventoryArtifact": "src/resources/extendscript-reference.ts",
       "inventoryState": "partial",
@@ -76,7 +86,7 @@
     {
       "id": "cep-platform",
       "kind": "legacy_sdk",
-      "authorityUrl": "https://github.com/Adobe-CEP/CEP-Resources",
+      "authorityUrls": ["https://github.com/Adobe-CEP/CEP-Resources"],
       "versionSource": "Adobe CEP Resources",
       "inventoryArtifact": null,
       "inventoryState": "not_started",
@@ -86,7 +96,7 @@
     {
       "id": "qe-dom",
       "kind": "undocumented_api",
-      "authorityUrl": "https://developer.adobe.com/premiere-pro/uxp/",
+      "authorityUrls": [],
       "versionSource": "Runtime observation only",
       "inventoryArtifact": null,
       "inventoryState": "unavailable_authoritative_source",

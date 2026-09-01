@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 type Surface = {
   id: string;
   kind: string;
-  authorityUrl: string;
+  authorityUrls: string[];
   versionSource: string;
   inventoryArtifact: string | null;
   inventoryState: string;
@@ -24,7 +24,7 @@ const registry = JSON.parse(readFileSync("src/resources/premiere-surface-registr
   schemaVersion: number;
   researchedAt: string;
   completionPolicy: string;
-  officialSurfaces: Surface[];
+  integrationSurfaces: Surface[];
   competitorSources: Competitor[];
 };
 
@@ -33,10 +33,11 @@ describe("Premiere API and competitor surface registry", () => {
     expect(registry.schemaVersion).toBe(1);
     expect(registry.researchedAt).toMatch(/^\d{4}-\d{2}-\d{2}$/);
     expect(registry.completionPolicy).toContain("every item is classified");
-    expect(registry.officialSurfaces.map((surface) => surface.id)).toEqual([
+    expect(registry.integrationSurfaces.map((surface) => surface.id)).toEqual([
       "premiere-dom",
       "uxp-javascript",
-      "uxp-html-css",
+      "uxp-html",
+      "uxp-css",
       "spectrum-web-components",
       "uxp-plugin-guides",
       "uxp-hybrid-cpp",
@@ -44,20 +45,25 @@ describe("Premiere API and competitor surface registry", () => {
       "cep-platform",
       "qe-dom",
     ]);
-    expect(new Set(registry.officialSurfaces.map((surface) => surface.id)).size)
-      .toBe(registry.officialSurfaces.length);
+    expect(new Set(registry.integrationSurfaces.map((surface) => surface.id)).size)
+      .toBe(registry.integrationSurfaces.length);
 
-    for (const surface of registry.officialSurfaces) {
-      expect(surface.authorityUrl).toMatch(/^https:\/\//);
+    for (const surface of registry.integrationSurfaces) {
+      if (surface.kind === "undocumented_api") {
+        expect(surface.authorityUrls).toEqual([]);
+      } else {
+        expect(surface.authorityUrls.length).toBeGreaterThan(0);
+        for (const url of surface.authorityUrls) expect(url).toMatch(/^https:\/\//);
+      }
       expect(surface.versionSource.length).toBeGreaterThan(0);
       expect(surface.notes.length).toBeGreaterThan(20);
       if (surface.inventoryState === "complete") {
         expect(surface.inventoryArtifact).toBeTruthy();
       }
     }
-    expect(registry.officialSurfaces.find((surface) => surface.id === "premiere-dom"))
+    expect(registry.integrationSurfaces.find((surface) => surface.id === "premiere-dom"))
       .toMatchObject({ inventoryState: "complete", implementationState: "partial" });
-    expect(registry.officialSurfaces.filter((surface) => surface.inventoryState === "complete"))
+    expect(registry.integrationSurfaces.filter((surface) => surface.inventoryState === "complete"))
       .toHaveLength(1);
   });
 
