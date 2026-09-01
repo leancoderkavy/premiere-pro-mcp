@@ -13,11 +13,13 @@ describe("Docker release build context", () => {
     expect(buildScripts).toEqual([
       "scripts/generate-adobe-api-inventory.mjs",
       "scripts/generate-uxp-js-api-inventory.mjs",
-      "scripts/generate-premiere-doc-inventory.mjs",
       "scripts/copy-adobe-uxp-coverage.mjs",
     ]);
     for (const script of buildScripts) {
       expect(dockerfile).toContain(`COPY ${script} ./${script}`);
+    }
+    for (const generator of buildScripts.filter((script) => script.includes("/generate-"))) {
+      expect(packageJson.scripts.build).toContain(`${generator} --check`);
     }
   });
 });

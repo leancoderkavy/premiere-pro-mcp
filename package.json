@@ -41,10 +41,10 @@
     "CHANGELOG.md"
   ],
   "scripts": {
-    "build": "node scripts/generate-adobe-api-inventory.mjs --check && node scripts/generate-uxp-js-api-inventory.mjs --check && node scripts/generate-premiere-doc-inventory.mjs --check && tsc && node scripts/copy-adobe-uxp-coverage.mjs",
+    "build": "node scripts/generate-adobe-api-inventory.mjs --check && node scripts/generate-uxp-js-api-inventory.mjs --check && tsc && node scripts/copy-adobe-uxp-coverage.mjs",
     "build:claude": "npm run build && node scripts/build-claude-desktop.mjs",
     "build:connector:windows": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build-connector-installer.ps1",
-    "check": "npm run lint && npm run adobe:api-inventory:check && npm run uxp:js-api-inventory:check && npm run build && npm run validate:marketplace-branding && npm run validate:mcp-registry-metadata && npm run docs:supported-actions:check && npm run docs:quickstart:check && npm test",
+    "check": "npm run lint && npm run adobe:api-inventory:check && npm run uxp:js-api-inventory:check && npm run premiere:docs-inventory:check && npm run build && npm run validate:marketplace-branding && npm run validate:mcp-registry-metadata && npm run docs:supported-actions:check && npm run docs:quickstart:check && npm test",
     "check:release-metadata": "vitest run tests/release-metadata.test.ts",
     "dev": "tsc --watch",
     "start": "node dist/index.js",
