@@ -119,8 +119,9 @@ export function evaluateDeliveryConformance(
   if (contract.frameRate !== undefined) numeric("frame_rate", contract.frameRate, parseRationalRate(video?.avg_frame_rate) ?? parseRationalRate(video?.r_frame_rate), contract.frameRateTolerance ?? 0.001);
   if (contract.durationSeconds !== undefined) numeric("duration", contract.durationSeconds, format.duration, contract.durationToleranceSeconds ?? 0.05);
   const bitrate = video ? finiteNumber(video.bit_rate) ?? finiteNumber(format.bit_rate) : null;
-  if (contract.minimumVideoBitrateKbps !== undefined) checks.push({ id: "minimum_video_bitrate", status: bitrate !== null && bitrate / 1000 >= contract.minimumVideoBitrateKbps ? "pass" : "fail", expected: contract.minimumVideoBitrateKbps, actual: bitrate === null ? null : bitrate / 1000 });
-  if (contract.maximumVideoBitrateKbps !== undefined) checks.push({ id: "maximum_video_bitrate", status: bitrate !== null && bitrate / 1000 <= contract.maximumVideoBitrateKbps ? "pass" : "fail", expected: contract.maximumVideoBitrateKbps, actual: bitrate === null ? null : bitrate / 1000 });
+  const bitrateUnavailable = video ? undefined : "No video stream was available for video bitrate evaluation";
+  if (contract.minimumVideoBitrateKbps !== undefined) checks.push({ id: "minimum_video_bitrate", status: bitrateUnavailable ? "not_evaluated" : bitrate !== null && bitrate / 1000 >= contract.minimumVideoBitrateKbps ? "pass" : "fail", expected: contract.minimumVideoBitrateKbps, actual: bitrate === null ? null : bitrate / 1000, detail: bitrateUnavailable });
+  if (contract.maximumVideoBitrateKbps !== undefined) checks.push({ id: "maximum_video_bitrate", status: bitrateUnavailable ? "not_evaluated" : bitrate !== null && bitrate / 1000 <= contract.maximumVideoBitrateKbps ? "pass" : "fail", expected: contract.maximumVideoBitrateKbps, actual: bitrate === null ? null : bitrate / 1000, detail: bitrateUnavailable });
   if (contract.audioSampleRateHz !== undefined) numeric("audio_sample_rate", contract.audioSampleRateHz, audio?.sample_rate);
   if (contract.audioChannels !== undefined) numeric("audio_channels", contract.audioChannels, audio?.channels);
   if (contract.targetLufs !== undefined) {
@@ -472,7 +473,7 @@ export function getExportTools(bridgeOptions: BridgeOptions) {
         try {
           const { stdout } = await execFileAsync("ffprobe", ["-v", "error", "-protocol_whitelist", "file,crypto,data", "-show_format", "-show_streams", "-of", "json", mediaPath], { timeout: 60_000, windowsHide: true, maxBuffer: 8 * 1024 * 1024 });
           const parsed = JSON.parse(stdout) as unknown;
-          if (!parsed || typeof parsed !== "object") {
+          if (!parsed || typeof parsed !== "object" || !("format" in parsed) || !("streams" in parsed) || !parsed.format || typeof parsed.format !== "object" || !Array.isArray(parsed.streams)) {
             if (changedSinceStart()) return { success: false, error: `Delivery file changed during conformance inspection: ${mediaPath}` };
             return { success: false, error: "ffprobe returned an invalid delivery report" };
           }

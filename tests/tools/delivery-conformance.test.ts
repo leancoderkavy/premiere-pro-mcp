@@ -88,12 +88,16 @@ describe("delivery conformance comparisons", () => {
     expect(checks.find(check => check.id === "true_peak")?.status).toBe("not_evaluated");
   });
 
-  it("evaluates loudness failures and absent bitrate evidence", () => {
+  it("evaluates loudness failures and does not evaluate video bitrate without video", () => {
     const checks = evaluateDeliveryConformance({ format: { format_name: "matroska", bit_rate: "5000000" }, streams: [{ codec_type: "audio", codec_name: "aac" }] }, {
       allowedContainerNames: ["mov"], minimumVideoBitrateKbps: 1000, maximumVideoBitrateKbps: 2000,
       targetLufs: -23, loudnessToleranceLu: 0.5, maximumTruePeakDbfs: -1,
     }, { integratedLufs: -20, truePeakDbfs: -0.5 });
-    expect(checks.every(check => check.status === "fail")).toBe(true);
+    expect(checks.find(check => check.id === "minimum_video_bitrate")).toMatchObject({
+      status: "not_evaluated", detail: expect.stringContaining("No video stream"),
+    });
+    expect(checks.find(check => check.id === "maximum_video_bitrate")?.status).toBe("not_evaluated");
+    expect(checks.filter(check => !check.id.includes("video_bitrate")).every(check => check.status === "fail")).toBe(true);
   });
 });
 
@@ -189,6 +193,11 @@ describe("verify_delivery_conformance boundary", () => {
     const invalidJsonPath = mediaFile();
     mockedExecFileAsync.mockResolvedValueOnce({ stdout: "null", stderr: "" });
     await expect(tool.handler({ output_path: invalidJsonPath, video_codec: "h264" }))
+      .resolves.toMatchObject({ success: false, error: expect.stringContaining("invalid delivery report") });
+
+    const incompleteProbePath = mediaFile();
+    mockedExecFileAsync.mockResolvedValueOnce({ stdout: JSON.stringify({ format: {} }), stderr: "" });
+    await expect(tool.handler({ output_path: incompleteProbePath, video_codec: "h264" }))
       .resolves.toMatchObject({ success: false, error: expect.stringContaining("invalid delivery report") });
 
     const silentPath = mediaFile();
