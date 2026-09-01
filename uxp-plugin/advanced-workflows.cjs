@@ -353,7 +353,13 @@
           const actions = times.map((time, index) => context.collection.createAddMarkerAction(prefix + " " + (index + 1), markerType, tick(time, "beat time"), tick(0, "durationSeconds"), comments));
           commitActions(context.project, "Add beat grid markers", actions);
         });
-        const after = await markerList(context.collection), beforeGuids = new Set(before.map((marker) => marker.guid));
+        let after;
+        try {
+          after = await markerList(context.collection);
+        } catch (_) {
+          return mutationResult(false, { added: null, markers: [], beforeCount: before.length, afterCount: null, offsetSeconds: offset }, "beat_marker_guid_and_time_readback", "Add beat grid markers");
+        }
+        const beforeGuids = new Set(before.map((marker) => marker.guid));
         const added = after.filter((marker) => !beforeGuids.has(marker.guid));
         const addedGuids = new Set(added.map((marker) => marker.guid));
         const verified = added.length === times.length && addedGuids.size === added.length

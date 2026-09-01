@@ -373,6 +373,20 @@ describe("advanced stable Premiere UXP workflows", () => {
     } }));
     await expect(wrongName.registry.dispatch("markers.addBeatGrid", { beatTimesSeconds: [1] }))
       .resolves.toMatchObject({ outcome: "committed_unverified", verified: false });
+
+    const getterFailure = advancedHost();
+    getterFailure.markers.createAddMarkerAction.mockImplementation((name: string, type: string, start: { seconds: number }) => ({ apply: () => {
+      getterFailure.markerValues.push({
+        ...getterFailure.markerValues[0], guid: "getter-failure-guid", getName: vi.fn(async () => { throw new Error("readback failed"); }),
+        getType: vi.fn(async () => type), getStart: vi.fn(async () => ({ seconds: start.seconds })),
+      });
+    } }));
+    const getterFailureArgs = { beatTimesSeconds: [1], operationId: "getter-failure-grid" };
+    await expect(getterFailure.registry.dispatch("markers.addBeatGrid", getterFailureArgs))
+      .resolves.toMatchObject({ outcome: "committed_unverified", verified: false, added: null, afterCount: null });
+    await expect(getterFailure.registry.dispatch("markers.addBeatGrid", getterFailureArgs))
+      .resolves.toMatchObject({ outcome: "committed_unverified", verified: false });
+    expect(getterFailure.project.executeTransaction).toHaveBeenCalledTimes(1);
   });
 
   it("updates sequence settings, imports workspace media, and automates a typed effect parameter", async () => {
