@@ -26,6 +26,7 @@ jobs:
     name: Validate and package UXP CCX
     runs-on: ubuntu-latest
     env:
+      GITHUB_TOKEN: ${{ github.token }}
       UXP_DISTRIBUTION_CHANNEL: ${{ inputs.distribution_channel || 'direct' }}
       UXP_MARKETPLACE_PLUGIN_ID: ${{ inputs.marketplace_plugin_id }}
     steps:
