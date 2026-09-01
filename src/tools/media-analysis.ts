@@ -121,6 +121,35 @@ export function analyzeRgbScopes(bytes: Uint8Array): VideoScopeReading {
   };
 }
 
+export function compareScopeReadings(reference: VideoScopeReading, target: VideoScopeReading) {
+  const delta = (targetValue: number, referenceValue: number) => Number((targetValue - referenceValue).toFixed(2));
+  const referenceBalance = reference.rgbParade.red.median - reference.rgbParade.blue.median;
+  const targetBalance = target.rgbParade.red.median - target.rgbParade.blue.median;
+  return {
+    targetMinusReference: {
+      medianLuma: delta(target.waveform.median, reference.waveform.median),
+      shadowLuma: delta(target.waveform.shadows, reference.waveform.shadows),
+      highlightLuma: delta(target.waveform.highlights, reference.waveform.highlights),
+      redMedian: delta(target.rgbParade.red.median, reference.rgbParade.red.median),
+      greenMedian: delta(target.rgbParade.green.median, reference.rgbParade.green.median),
+      blueMedian: delta(target.rgbParade.blue.median, reference.rgbParade.blue.median),
+      saturationMean: delta(target.saturation.mean, reference.saturation.mean),
+      redBlueBalance: delta(targetBalance, referenceBalance),
+    },
+    suggestedDirections: {
+      exposure: target.waveform.median < reference.waveform.median ? "raise" : target.waveform.median > reference.waveform.median ? "lower" : "hold",
+      warmth: targetBalance < referenceBalance ? "warmer" : targetBalance > referenceBalance ? "cooler" : "hold",
+      saturation: target.saturation.mean < reference.saturation.mean ? "raise" : target.saturation.mean > reference.saturation.mean ? "lower" : "hold",
+    },
+  };
+}
+
+async function decodeScopeFrame(path: string, time: number): Promise<VideoScopeReading> {
+  const result = await execFileAsync("ffmpeg", ["-v", "error", "-ss", String(time), "-i", path, "-frames:v", "1", "-vf", "scale=320:180:flags=area", "-pix_fmt", "rgb24", "-f", "rawvideo", "pipe:1"], { encoding: "buffer", timeout: 60_000, windowsHide: true, maxBuffer: 2 * 1024 * 1024 }) as unknown as { stdout: Buffer };
+  if (result.stdout.length !== 320 * 180 * 3) throw new Error("ffmpeg did not return one complete RGB scope frame");
+  return analyzeRgbScopes(result.stdout);
+}
+
 export interface InterlaceAnalysis { tff: number; bff: number; progressive: number; undetermined: number; classification: "tff" | "bff" | "progressive" | "mixed" | "undetermined" }
 
 export function parseIdetOutput(output: string): InterlaceAnalysis {
@@ -266,13 +295,39 @@ export function getMediaAnalysisTools(_bridgeOptions: BridgeOptions) {
         const time = args.time_seconds ?? 0;
         if (!Number.isFinite(time) || time < 0 || time > 86_400) return { success: false, error: "time_seconds must be from 0 through 86400" };
         try {
-          const result = await execFileAsync("ffmpeg", ["-v", "error", "-ss", String(time), "-i", path, "-frames:v", "1", "-vf", "scale=320:180:flags=area", "-pix_fmt", "rgb24", "-f", "rawvideo", "pipe:1"], { encoding: "buffer", timeout: 60_000, windowsHide: true, maxBuffer: 2 * 1024 * 1024 }) as unknown as { stdout: Buffer };
-          if (result.stdout.length !== 320 * 180 * 3) return { success: false, error: "ffmpeg did not return one complete RGB scope frame" };
+          const scopes = await decodeScopeFrame(path, time);
           return { success: true, data: {
-            mediaPath: path, timeSeconds: time, sampleSize: { width: 320, height: 180 }, ...analyzeRgbScopes(result.stdout),
+            mediaPath: path, timeSeconds: time, sampleSize: { width: 320, height: 180 }, ...scopes,
             verificationScope: "One source-relative frame decoded and downscaled to 320x180. Values are post-conversion RGB/luma sample statistics; near-black/near-white occupancy does not prove source-domain legal-range violations. This is not a Premiere program-monitor render, HDR interpretation, vectorscope trace, or visual grade approval."
           } };
         } catch (error) { return { success: false, error: failureMessage(error, "video scope analysis", 60) }; }
+      },
+    },
+    plan_shot_match: {
+      description: "Compare two bounded local-media frame samples and return measured waveform/parade/saturation deltas plus coarse correction directions. Read-only planning only; it does not grade Premiere or claim that primaries alone can match the shots.",
+      parameters: { type: "object", properties: {
+        reference_media_path: { type: "string", description: "Existing local reference video file" },
+        target_media_path: { type: "string", description: "Existing local target video file" },
+        reference_time_seconds: { type: "number", description: "Reference source time from 0 through 86400 seconds (default: 0)" },
+        target_time_seconds: { type: "number", description: "Target source time from 0 through 86400 seconds (default: 0)" },
+      }, required: ["reference_media_path", "target_media_path"] },
+      handler: async (args: { reference_media_path?: string; target_media_path?: string; reference_time_seconds?: number; target_time_seconds?: number }) => {
+        const referencePath = inputPath(args.reference_media_path), targetPath = inputPath(args.target_media_path);
+        if (!referencePath) return { success: false, error: "reference_media_path must identify an existing regular file" };
+        if (!targetPath) return { success: false, error: "target_media_path must identify an existing regular file" };
+        const referenceTime = args.reference_time_seconds ?? 0, targetTime = args.target_time_seconds ?? 0;
+        if (!Number.isFinite(referenceTime) || referenceTime < 0 || referenceTime > 86_400) return { success: false, error: "reference_time_seconds must be from 0 through 86400" };
+        if (!Number.isFinite(targetTime) || targetTime < 0 || targetTime > 86_400) return { success: false, error: "target_time_seconds must be from 0 through 86400" };
+        try {
+          const reference = await decodeScopeFrame(referencePath, referenceTime);
+          const target = await decodeScopeFrame(targetPath, targetTime);
+          return { success: true, data: {
+            reference: { mediaPath: referencePath, timeSeconds: referenceTime, scopes: reference },
+            target: { mediaPath: targetPath, timeSeconds: targetTime, scopes: target },
+            comparison: compareScopeReadings(reference, target),
+            verificationScope: "Two source-relative 320x180 post-conversion RGB samples. Directions are coarse planning hints, not numeric Lumetri settings, a Premiere-render comparison, semantic shot equivalence, or proof that the shots can be matched with primary corrections."
+          } };
+        } catch (error) { return { success: false, error: failureMessage(error, "shot-match planning", 60) }; }
       },
     },
     analyze_video_interlacing: {
