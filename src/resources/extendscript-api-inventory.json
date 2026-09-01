@@ -1,0 +1,2326 @@
+{
+  "schemaVersion": 1,
+  "source": {
+    "repository": "docsforadobe/premiere-scripting-guide",
+    "commit": "4253cea094e84d43590b77012b33bd1c140f72ea",
+    "authority": "community",
+    "authorityNote": "Community-maintained guide; not Adobe API authority."
+  },
+  "stats": {
+    "total": 326,
+    "objects": 25,
+    "attributes": 107,
+    "methods": 219
+  },
+  "objects": [
+    "Anywhere",
+    "Application",
+    "AudioChannelMapping",
+    "Component",
+    "ComponentCollection",
+    "ComponentParam",
+    "Encoder",
+    "Marker",
+    "MarkerCollection",
+    "Metadata",
+    "Production",
+    "Project",
+    "ProjectCollection",
+    "ProjectItem",
+    "ProjectItemCollection",
+    "ProjectManager",
+    "Properties",
+    "Sequence",
+    "SequenceCollection",
+    "SourceMonitor",
+    "Time",
+    "Track",
+    "TrackCollection",
+    "TrackItem",
+    "TrackItemCollection"
+  ],
+  "symbols": [
+    {
+      "object": "Anywhere",
+      "name": "Anywhere.getAuthenticationToken()",
+      "kind": "method",
+      "signature": "app.anywhere.getAuthenticationToken()",
+      "sourcePath": "docs/general/anywhere.md"
+    },
+    {
+      "object": "Anywhere",
+      "name": "Anywhere.getCurrentEditingSessionActiveSequenceURL()",
+      "kind": "method",
+      "signature": "app.anywhere.getCurrentEditingSessionActiveSequenceURL()",
+      "sourcePath": "docs/general/anywhere.md"
+    },
+    {
+      "object": "Anywhere",
+      "name": "Anywhere.getCurrentEditingSessionSelectionURL()",
+      "kind": "method",
+      "signature": "app.anywhere.getCurrentEditingSessionSelectionURL()",
+      "sourcePath": "docs/general/anywhere.md"
+    },
+    {
+      "object": "Anywhere",
+      "name": "Anywhere.getCurrentEditingSessionURL()",
+      "kind": "method",
+      "signature": "app.anywhere.getCurrentEditingSessionURL()",
+      "sourcePath": "docs/general/anywhere.md"
+    },
+    {
+      "object": "Anywhere",
+      "name": "Anywhere.isProductionOpen()",
+      "kind": "method",
+      "signature": "app.anywhere.isProductionOpen()",
+      "sourcePath": "docs/general/anywhere.md"
+    },
+    {
+      "object": "Anywhere",
+      "name": "Anywhere.listProductions()",
+      "kind": "method",
+      "signature": "app.anywhere.listProductions()",
+      "sourcePath": "docs/general/anywhere.md"
+    },
+    {
+      "object": "Anywhere",
+      "name": "Anywhere.openProduction()",
+      "kind": "method",
+      "signature": "app.anywhere.openProduction(productionURL)",
+      "sourcePath": "docs/general/anywhere.md"
+    },
+    {
+      "object": "Anywhere",
+      "name": "Anywhere.setAuthenticationToken()",
+      "kind": "method",
+      "signature": "app.anywhere.setAuthenticationToken(token, emailAddress)",
+      "sourcePath": "docs/general/anywhere.md"
+    },
+    {
+      "object": "Application",
+      "name": "app.anywhere",
+      "kind": "attribute",
+      "signature": "app.anywhere",
+      "sourcePath": "docs/application/application.md"
+    },
+    {
+      "object": "Application",
+      "name": "app.bind",
+      "kind": "attribute",
+      "signature": "app.bind",
+      "sourcePath": "docs/application/application.md"
+    },
+    {
+      "object": "Application",
+      "name": "app.build",
+      "kind": "attribute",
+      "signature": "app.build",
+      "sourcePath": "docs/application/application.md"
+    },
+    {
+      "object": "Application",
+      "name": "app.encoder",
+      "kind": "attribute",
+      "signature": "app.encoder",
+      "sourcePath": "docs/application/application.md"
+    },
+    {
+      "object": "Application",
+      "name": "app.getAppPrefPath",
+      "kind": "attribute",
+      "signature": "app.getAppPrefPath",
+      "sourcePath": "docs/application/application.md"
+    },
+    {
+      "object": "Application",
+      "name": "app.getAppSystemPrefPath",
+      "kind": "attribute",
+      "signature": "app.getAppSystemPrefPath",
+      "sourcePath": "docs/application/application.md"
+    },
+    {
+      "object": "Application",
+      "name": "app.getPProPrefPath",
+      "kind": "attribute",
+      "signature": "app.getPProPrefPath",
+      "sourcePath": "docs/application/application.md"
+    },
+    {
+      "object": "Application",
+      "name": "app.getPProSystemPrefPath",
+      "kind": "attribute",
+      "signature": "app.getPProSystemPrefPath",
+      "sourcePath": "docs/application/application.md"
+    },
+    {
+      "object": "Application",
+      "name": "app.learnPanelContentDirPath",
+      "kind": "attribute",
+      "signature": "app.learnPanelContentDirPath",
+      "sourcePath": "docs/application/application.md"
+    },
+    {
+      "object": "Application",
+      "name": "app.learnPanelExampleProjectDirPath",
+      "kind": "attribute",
+      "signature": "app.learnPanelExampleProjectDirPath",
+      "sourcePath": "docs/application/application.md"
+    },
+    {
+      "object": "Application",
+      "name": "app.metadata",
+      "kind": "attribute",
+      "signature": "app.metadata",
+      "sourcePath": "docs/application/application.md"
+    },
+    {
+      "object": "Application",
+      "name": "app.path",
+      "kind": "attribute",
+      "signature": "app.path",
+      "sourcePath": "docs/application/application.md"
+    },
+    {
+      "object": "Application",
+      "name": "app.production",
+      "kind": "attribute",
+      "signature": "app.production",
+      "sourcePath": "docs/application/application.md"
+    },
+    {
+      "object": "Application",
+      "name": "app.project",
+      "kind": "attribute",
+      "signature": "app.project",
+      "sourcePath": "docs/application/application.md"
+    },
+    {
+      "object": "Application",
+      "name": "app.projectManager",
+      "kind": "attribute",
+      "signature": "app.projectManager",
+      "sourcePath": "docs/application/application.md"
+    },
+    {
+      "object": "Application",
+      "name": "app.projects",
+      "kind": "attribute",
+      "signature": "app.projects",
+      "sourcePath": "docs/application/application.md"
+    },
+    {
+      "object": "Application",
+      "name": "app.properties",
+      "kind": "attribute",
+      "signature": "app.properties",
+      "sourcePath": "docs/application/application.md"
+    },
+    {
+      "object": "Application",
+      "name": "app.sourceMonitor",
+      "kind": "attribute",
+      "signature": "app.sourceMonitor",
+      "sourcePath": "docs/application/application.md"
+    },
+    {
+      "object": "Application",
+      "name": "app.userGuid",
+      "kind": "attribute",
+      "signature": "app.userGuid",
+      "sourcePath": "docs/application/application.md"
+    },
+    {
+      "object": "Application",
+      "name": "app.version",
+      "kind": "attribute",
+      "signature": "app.version",
+      "sourcePath": "docs/application/application.md"
+    },
+    {
+      "object": "Application",
+      "name": "app.broadcastPrefsChanged()",
+      "kind": "method",
+      "signature": "app.broadcastPrefsChanged()",
+      "sourcePath": "docs/application/application.md"
+    },
+    {
+      "object": "Application",
+      "name": "app.enableQE()",
+      "kind": "method",
+      "signature": "app.enableQE()",
+      "sourcePath": "docs/application/application.md"
+    },
+    {
+      "object": "Application",
+      "name": "app.getCurrentProjectViewSelection()",
+      "kind": "method",
+      "signature": "app.getCurrentProjectViewSelection()",
+      "sourcePath": "docs/application/application.md"
+    },
+    {
+      "object": "Application",
+      "name": "app.getEnableProxies()",
+      "kind": "method",
+      "signature": "app.getEnableProxies()",
+      "sourcePath": "docs/application/application.md"
+    },
+    {
+      "object": "Application",
+      "name": "app.getProjectFromViewID()",
+      "kind": "method",
+      "signature": "app.getProjectFromViewID()",
+      "sourcePath": "docs/application/application.md"
+    },
+    {
+      "object": "Application",
+      "name": "app.getProjectViewIDs()",
+      "kind": "method",
+      "signature": "app.getProjectViewIDs()",
+      "sourcePath": "docs/application/application.md"
+    },
+    {
+      "object": "Application",
+      "name": "app.getWorkspaces()",
+      "kind": "method",
+      "signature": "app.getWorkspaces()",
+      "sourcePath": "docs/application/application.md"
+    },
+    {
+      "object": "Application",
+      "name": "app.isDocument()",
+      "kind": "method",
+      "signature": "app.isDocument(path)",
+      "sourcePath": "docs/application/application.md"
+    },
+    {
+      "object": "Application",
+      "name": "app.isDocumentOpen()",
+      "kind": "method",
+      "signature": "app.isDocumentOpen()",
+      "sourcePath": "docs/application/application.md"
+    },
+    {
+      "object": "Application",
+      "name": "app.newProject()",
+      "kind": "method",
+      "signature": "app.newProject(path)",
+      "sourcePath": "docs/application/application.md"
+    },
+    {
+      "object": "Application",
+      "name": "app.openDocument()",
+      "kind": "method",
+      "signature": "app.openDocument(path, [suppressConversionDialog], [bypassLocateFileDialog], [bypassWarningDialog], [doNotAddToMRUList])",
+      "sourcePath": "docs/application/application.md"
+    },
+    {
+      "object": "Application",
+      "name": "app.openFCPXML()",
+      "kind": "method",
+      "signature": "app.openFCPXML(path, projPath)",
+      "sourcePath": "docs/application/application.md"
+    },
+    {
+      "object": "Application",
+      "name": "app.quit()",
+      "kind": "method",
+      "signature": "app.quit()",
+      "sourcePath": "docs/application/application.md"
+    },
+    {
+      "object": "Application",
+      "name": "app.setEnableProxies()",
+      "kind": "method",
+      "signature": "app.setEnableProxies(enabled)",
+      "sourcePath": "docs/application/application.md"
+    },
+    {
+      "object": "Application",
+      "name": "app.setExtensionPersistent()",
+      "kind": "method",
+      "signature": "app.setExtensionPersistent(extensionID, persistent)",
+      "sourcePath": "docs/application/application.md"
+    },
+    {
+      "object": "Application",
+      "name": "app.setScratchDiskPath()",
+      "kind": "method",
+      "signature": "app.setScratchDiskPath(path, scratchDiskType)",
+      "sourcePath": "docs/application/application.md"
+    },
+    {
+      "object": "Application",
+      "name": "app.setSDKEventMessage()",
+      "kind": "method",
+      "signature": "app.setSDKEventMessage(message, decorator)",
+      "sourcePath": "docs/application/application.md"
+    },
+    {
+      "object": "Application",
+      "name": "app.setWorkspace()",
+      "kind": "method",
+      "signature": "app.setWorkspace(workspace)",
+      "sourcePath": "docs/application/application.md"
+    },
+    {
+      "object": "Application",
+      "name": "app.trace()",
+      "kind": "method",
+      "signature": "app.trace()",
+      "sourcePath": "docs/application/application.md"
+    },
+    {
+      "object": "AudioChannelMapping",
+      "name": "AudioChannelMapping.audioChannelsType",
+      "kind": "attribute",
+      "signature": "app.project.rootItem.children[index].getAudioChannelMapping.audioChannelsType",
+      "sourcePath": "docs/other/audiochannelmapping.md"
+    },
+    {
+      "object": "AudioChannelMapping",
+      "name": "AudioChannelMapping.audioClipsNumber",
+      "kind": "attribute",
+      "signature": "app.project.rootItem.children[index].getAudioChannelMapping.audioClipsNumber",
+      "sourcePath": "docs/other/audiochannelmapping.md"
+    },
+    {
+      "object": "AudioChannelMapping",
+      "name": "AudioChannelMapping.setMappingForChannel()",
+      "kind": "method",
+      "signature": "app.project.rootItem.children[index].setMappingForChannel(channelIndex, sourceChannelIndex)",
+      "sourcePath": "docs/other/audiochannelmapping.md"
+    },
+    {
+      "object": "Component",
+      "name": "Component.displayName",
+      "kind": "attribute",
+      "signature": "app.project.sequences[index].audioTracks[index].clips[index].components[index].displayName",
+      "sourcePath": "docs/sequence/component.md"
+    },
+    {
+      "object": "Component",
+      "name": "Component.matchName",
+      "kind": "attribute",
+      "signature": "app.project.sequences[index].audioTracks[index].clips[index].components[index].matchName",
+      "sourcePath": "docs/sequence/component.md"
+    },
+    {
+      "object": "Component",
+      "name": "Component.properties",
+      "kind": "attribute",
+      "signature": "app.project.sequences[index].audioTracks[index].clips[index].components[index].properties",
+      "sourcePath": "docs/sequence/component.md"
+    },
+    {
+      "object": "ComponentCollection",
+      "name": "ComponentCollection.numItems",
+      "kind": "attribute",
+      "signature": "app.project.rootItem.children[index].videoComponents().numItems",
+      "sourcePath": "docs/collection/componentcollection.md"
+    },
+    {
+      "object": "ComponentParam",
+      "name": "ComponentParam.displayName",
+      "kind": "attribute",
+      "signature": "app.project.sequences[index].audioTracks[index].clips[index].components[index].properties[index].displayName",
+      "sourcePath": "docs/sequence/componentparam.md"
+    },
+    {
+      "object": "ComponentParam",
+      "name": "ComponentParam.addKey()",
+      "kind": "method",
+      "signature": "app.project.sequences[index].audioTracks[index].clips[index].components[index].properties[index].addKey(time)",
+      "sourcePath": "docs/sequence/componentparam.md"
+    },
+    {
+      "object": "ComponentParam",
+      "name": "ComponentParam.areKeyframesSupported()",
+      "kind": "method",
+      "signature": "app.project.sequences[index].audioTracks[index].clips[index].components[index].properties[index].areKeyframesSupported()",
+      "sourcePath": "docs/sequence/componentparam.md"
+    },
+    {
+      "object": "ComponentParam",
+      "name": "ComponentParam.findNearestKey()",
+      "kind": "method",
+      "signature": "app.project.sequences[index].audioTracks[index].clips[index].components[index].properties[index].findNearestKey(timeToCheck, threshold)",
+      "sourcePath": "docs/sequence/componentparam.md"
+    },
+    {
+      "object": "ComponentParam",
+      "name": "ComponentParam.findNextKey()",
+      "kind": "method",
+      "signature": "app.project.sequences[index].audioTracks[index].clips[index].components[index].properties[index].findNextKey(timeToCheck)",
+      "sourcePath": "docs/sequence/componentparam.md"
+    },
+    {
+      "object": "ComponentParam",
+      "name": "ComponentParam.findPreviousKey()",
+      "kind": "method",
+      "signature": "app.project.sequences[index].audioTracks[index].clips[index].components[index].properties[index].findPreviousKey(timeToCheck)",
+      "sourcePath": "docs/sequence/componentparam.md"
+    },
+    {
+      "object": "ComponentParam",
+      "name": "ComponentParam.getColorValue()",
+      "kind": "method",
+      "signature": "app.project.sequences[index].audioTracks[index].clips[index].components[index].properties[index].getColorValue()",
+      "sourcePath": "docs/sequence/componentparam.md"
+    },
+    {
+      "object": "ComponentParam",
+      "name": "ComponentParam.getKeys()",
+      "kind": "method",
+      "signature": "app.project.sequences[index].audioTracks[index].clips[index].components[index].properties[index].getKeys()",
+      "sourcePath": "docs/sequence/componentparam.md"
+    },
+    {
+      "object": "ComponentParam",
+      "name": "ComponentParam.getValue()",
+      "kind": "method",
+      "signature": "app.project.sequences[index].audioTracks[index].clips[index].components[index].properties[index].getValue()",
+      "sourcePath": "docs/sequence/componentparam.md"
+    },
+    {
+      "object": "ComponentParam",
+      "name": "ComponentParam.getValueAtKey()",
+      "kind": "method",
+      "signature": "app.project.sequences[index].audioTracks[index].clips[index].components[index].properties[index].getValueAtKey(time)",
+      "sourcePath": "docs/sequence/componentparam.md"
+    },
+    {
+      "object": "ComponentParam",
+      "name": "ComponentParam.getValueAtTime()",
+      "kind": "method",
+      "signature": "app.project.sequences[index].audioTracks[index].clips[index].components[index].properties[index].getValueAtTime(time)",
+      "sourcePath": "docs/sequence/componentparam.md"
+    },
+    {
+      "object": "ComponentParam",
+      "name": "ComponentParam.isTimeVarying()",
+      "kind": "method",
+      "signature": "app.project.sequences[index].audioTracks[index].clips[index].components[index].properties[index].isTimeVarying()",
+      "sourcePath": "docs/sequence/componentparam.md"
+    },
+    {
+      "object": "ComponentParam",
+      "name": "ComponentParam.removeKey()",
+      "kind": "method",
+      "signature": "app.project.sequences[index].audioTracks[index].clips[index].components[index].properties[index].removeKey(time)",
+      "sourcePath": "docs/sequence/componentparam.md"
+    },
+    {
+      "object": "ComponentParam",
+      "name": "ComponentParam.removeKeyRange()",
+      "kind": "method",
+      "signature": "app.project.sequences[index].audioTracks[index].clips[index].components[index].properties[index].removeKeyRange(startTime, endTime)",
+      "sourcePath": "docs/sequence/componentparam.md"
+    },
+    {
+      "object": "ComponentParam",
+      "name": "ComponentParam.setColorValue()",
+      "kind": "method",
+      "signature": "app.project.sequences[index].audioTracks[index].clips[index].components[index].properties[index].setColorValue(alpha, red, green, blue, updateUI)",
+      "sourcePath": "docs/sequence/componentparam.md"
+    },
+    {
+      "object": "ComponentParam",
+      "name": "ComponentParam.setInterpolationTypeAtKey()",
+      "kind": "method",
+      "signature": "app.project.sequences[index].audioTracks[index].clips[index].components[index].properties[index].setInterpolationTypeAtKey(time, interpretationType, [updateUI])",
+      "sourcePath": "docs/sequence/componentparam.md"
+    },
+    {
+      "object": "ComponentParam",
+      "name": "ComponentParam.setTimeVarying()",
+      "kind": "method",
+      "signature": "app.project.sequences[index].audioTracks[index].clips[index].components[index].properties[index].setTimeVarying(varying)",
+      "sourcePath": "docs/sequence/componentparam.md"
+    },
+    {
+      "object": "ComponentParam",
+      "name": "ComponentParam.setValue()",
+      "kind": "method",
+      "signature": "app.project.sequences[index].audioTracks[index].clips[index].components[index].properties[index].setValue(value, updateUI)",
+      "sourcePath": "docs/sequence/componentparam.md"
+    },
+    {
+      "object": "ComponentParam",
+      "name": "ComponentParam.setValueAtKey()",
+      "kind": "method",
+      "signature": "app.project.sequences[index].audioTracks[index].clips[index].components[index].properties[index].setValueAtKey(time, value, updateUI)",
+      "sourcePath": "docs/sequence/componentparam.md"
+    },
+    {
+      "object": "Encoder",
+      "name": "Encoder.encodeFile()",
+      "kind": "method",
+      "signature": "app.encoder.encodeFile(filePath, outputPath, presetPath, workArea, removeUponCompletion, inPoint, outPoint)",
+      "sourcePath": "docs/general/encoder.md"
+    },
+    {
+      "object": "Encoder",
+      "name": "Encoder.encodeProjectItem()",
+      "kind": "method",
+      "signature": "app.encoder.encodeProjectItem(projectItem, outputPath, presetPath, workArea, removeUponCompletion)",
+      "sourcePath": "docs/general/encoder.md"
+    },
+    {
+      "object": "Encoder",
+      "name": "Encoder.encodeSequence()",
+      "kind": "method",
+      "signature": "app.encoder.encodeSequence(sequence, outputPath, presetPath, workArea, removeUponCompletion)",
+      "sourcePath": "docs/general/encoder.md"
+    },
+    {
+      "object": "Encoder",
+      "name": "Encoder.launchEncoder()",
+      "kind": "method",
+      "signature": "app.encoder.launchEncoder()",
+      "sourcePath": "docs/general/encoder.md"
+    },
+    {
+      "object": "Encoder",
+      "name": "Encoder.setEmbeddedXMPEnabled()",
+      "kind": "method",
+      "signature": "app.encoder.setEmbeddedXMPEnabled(enabled)",
+      "sourcePath": "docs/general/encoder.md"
+    },
+    {
+      "object": "Encoder",
+      "name": "Encoder.setSidecarXMPEnabled()",
+      "kind": "method",
+      "signature": "app.encoder.setSidecarXMPEnabled(enabled)",
+      "sourcePath": "docs/general/encoder.md"
+    },
+    {
+      "object": "Encoder",
+      "name": "Encoder.startBatch()",
+      "kind": "method",
+      "signature": "app.encoder.startBatch()",
+      "sourcePath": "docs/general/encoder.md"
+    },
+    {
+      "object": "Marker",
+      "name": "Marker.comments",
+      "kind": "attribute",
+      "signature": "app.project.activeSequence.markers.getFirstMarker().comments",
+      "sourcePath": "docs/general/marker.md"
+    },
+    {
+      "object": "Marker",
+      "name": "Marker.end",
+      "kind": "attribute",
+      "signature": "app.project.activeSequence.markers.getFirstMarker().end",
+      "sourcePath": "docs/general/marker.md"
+    },
+    {
+      "object": "Marker",
+      "name": "Marker.guid",
+      "kind": "attribute",
+      "signature": "app.project.activeSequence.markers.getFirstMarker().guid",
+      "sourcePath": "docs/general/marker.md"
+    },
+    {
+      "object": "Marker",
+      "name": "Marker.name",
+      "kind": "attribute",
+      "signature": "app.project.activeSequence.markers.getFirstMarker().name",
+      "sourcePath": "docs/general/marker.md"
+    },
+    {
+      "object": "Marker",
+      "name": "Marker.start",
+      "kind": "attribute",
+      "signature": "app.project.activeSequence.markers.getFirstMarker().start",
+      "sourcePath": "docs/general/marker.md"
+    },
+    {
+      "object": "Marker",
+      "name": "Marker.type",
+      "kind": "attribute",
+      "signature": "app.project.activeSequence.markers.getFirstMarker().type",
+      "sourcePath": "docs/general/marker.md"
+    },
+    {
+      "object": "Marker",
+      "name": "Marker.getColorByIndex()",
+      "kind": "method",
+      "signature": "app.project.activeSequence.markers.getFirstMarker().getColorByIndex(index)",
+      "sourcePath": "docs/general/marker.md"
+    },
+    {
+      "object": "Marker",
+      "name": "Marker.getWebLinkFrameTarget()",
+      "kind": "method",
+      "signature": "app.project.activeSequence.markers.getFirstMarker().getWebLinkFrameTarget()",
+      "sourcePath": "docs/general/marker.md"
+    },
+    {
+      "object": "Marker",
+      "name": "Marker.getWebLinkURL()",
+      "kind": "method",
+      "signature": "app.project.activeSequence.markers.getFirstMarker().getWebLinkURL()",
+      "sourcePath": "docs/general/marker.md"
+    },
+    {
+      "object": "Marker",
+      "name": "Marker.setColorByIndex()",
+      "kind": "method",
+      "signature": "app.project.activeSequence.markers.getFirstMarker().setColorByIndex(colorIndex, markerIndex)",
+      "sourcePath": "docs/general/marker.md"
+    },
+    {
+      "object": "Marker",
+      "name": "Marker.setTypeAsChapter()",
+      "kind": "method",
+      "signature": "app.project.activeSequence.markers.getFirstMarker().setTypeAsChapter()",
+      "sourcePath": "docs/general/marker.md"
+    },
+    {
+      "object": "Marker",
+      "name": "Marker.setTypeAsComment()",
+      "kind": "method",
+      "signature": "app.project.activeSequence.markers.getFirstMarker().setTypeAsComment()",
+      "sourcePath": "docs/general/marker.md"
+    },
+    {
+      "object": "Marker",
+      "name": "Marker.setTypeAsSegmentation()",
+      "kind": "method",
+      "signature": "app.project.activeSequence.markers.getFirstMarker().setTypeAsSegmentation()",
+      "sourcePath": "docs/general/marker.md"
+    },
+    {
+      "object": "Marker",
+      "name": "Marker.setTypeAsWebLink()",
+      "kind": "method",
+      "signature": "app.project.activeSequence.markers.getFirstMarker().setTypeAsWebLink()",
+      "sourcePath": "docs/general/marker.md"
+    },
+    {
+      "object": "MarkerCollection",
+      "name": "MarkerCollection.numMarkers",
+      "kind": "attribute",
+      "signature": "app.project.sequences[index].markers.numMarkers",
+      "sourcePath": "docs/collection/markercollection.md"
+    },
+    {
+      "object": "MarkerCollection",
+      "name": "MarkerCollection.createMarker()",
+      "kind": "method",
+      "signature": "app.project.sequences[index].markers.createMarker(time)",
+      "sourcePath": "docs/collection/markercollection.md"
+    },
+    {
+      "object": "MarkerCollection",
+      "name": "MarkerCollection.deleteMarker()",
+      "kind": "method",
+      "signature": "app.project.sequences[index].markers.deleteMarker(marker)",
+      "sourcePath": "docs/collection/markercollection.md"
+    },
+    {
+      "object": "MarkerCollection",
+      "name": "MarkerCollection.getFirstMarker()",
+      "kind": "method",
+      "signature": "app.project.sequences[index].markers.getFirstMarker()",
+      "sourcePath": "docs/collection/markercollection.md"
+    },
+    {
+      "object": "MarkerCollection",
+      "name": "MarkerCollection.getLastMarker()",
+      "kind": "method",
+      "signature": "app.project.sequences[index].markers.getLastMarker()",
+      "sourcePath": "docs/collection/markercollection.md"
+    },
+    {
+      "object": "MarkerCollection",
+      "name": "MarkerCollection.getNextMarker()",
+      "kind": "method",
+      "signature": "app.project.sequences[index].markers.getNextMarker(currentMarker)",
+      "sourcePath": "docs/collection/markercollection.md"
+    },
+    {
+      "object": "MarkerCollection",
+      "name": "MarkerCollection.getPrevMarker()",
+      "kind": "method",
+      "signature": "app.project.sequences[index].markers.getPrevMarker(currentMarker)",
+      "sourcePath": "docs/collection/markercollection.md"
+    },
+    {
+      "object": "Metadata",
+      "name": "Metadata.getMetadata",
+      "kind": "attribute",
+      "signature": "app.metadata.getMetadata",
+      "sourcePath": "docs/general/metadata.md"
+    },
+    {
+      "object": "Metadata",
+      "name": "Metadata.addMarker()",
+      "kind": "method",
+      "signature": "app.metadata.addMarker()",
+      "sourcePath": "docs/general/metadata.md"
+    },
+    {
+      "object": "Metadata",
+      "name": "Metadata.deleteMarker()",
+      "kind": "method",
+      "signature": "app.metadata.deleteMarker()",
+      "sourcePath": "docs/general/metadata.md"
+    },
+    {
+      "object": "Metadata",
+      "name": "Metadata.setMarkerData()",
+      "kind": "method",
+      "signature": "app.metadata.setMarkerData()",
+      "sourcePath": "docs/general/metadata.md"
+    },
+    {
+      "object": "Metadata",
+      "name": "Metadata.setMetadataValue()",
+      "kind": "method",
+      "signature": "app.metadata.setMetadataValue()",
+      "sourcePath": "docs/general/metadata.md"
+    },
+    {
+      "object": "Metadata",
+      "name": "Metadata.updateMarker()",
+      "kind": "method",
+      "signature": "app.metadata.updateMarker()",
+      "sourcePath": "docs/general/metadata.md"
+    },
+    {
+      "object": "Production",
+      "name": "Production.name",
+      "kind": "attribute",
+      "signature": "app.production.name",
+      "sourcePath": "docs/general/production.md"
+    },
+    {
+      "object": "Production",
+      "name": "Production.path",
+      "kind": "attribute",
+      "signature": "app.production.path",
+      "sourcePath": "docs/general/production.md"
+    },
+    {
+      "object": "Production",
+      "name": "Production.projects",
+      "kind": "attribute",
+      "signature": "app.production.projects",
+      "sourcePath": "docs/general/production.md"
+    },
+    {
+      "object": "Production",
+      "name": "Production.addProject()",
+      "kind": "method",
+      "signature": "app.production.addProject(srcProjectPath, destProjectPath)",
+      "sourcePath": "docs/general/production.md"
+    },
+    {
+      "object": "Production",
+      "name": "Production.close()",
+      "kind": "method",
+      "signature": "app.production.close()",
+      "sourcePath": "docs/general/production.md"
+    },
+    {
+      "object": "Production",
+      "name": "Production.getLocked()",
+      "kind": "method",
+      "signature": "app.production.getLocked(project)",
+      "sourcePath": "docs/general/production.md"
+    },
+    {
+      "object": "Production",
+      "name": "Production.moveToTrash()",
+      "kind": "method",
+      "signature": "app.production.moveToTrash(projectOrFolderPath, suppressUI, saveProject)",
+      "sourcePath": "docs/general/production.md"
+    },
+    {
+      "object": "Production",
+      "name": "Production.setLocked()",
+      "kind": "method",
+      "signature": "app.production.setLocked(project,locked)",
+      "sourcePath": "docs/general/production.md"
+    },
+    {
+      "object": "Project",
+      "name": "Project.activeSequence",
+      "kind": "attribute",
+      "signature": "app.project.activeSequence",
+      "sourcePath": "docs/general/project.md"
+    },
+    {
+      "object": "Project",
+      "name": "Project.cloudProjectlocalID",
+      "kind": "attribute",
+      "signature": "app.project.cloudProjectlocalID",
+      "sourcePath": "docs/general/project.md"
+    },
+    {
+      "object": "Project",
+      "name": "Project.documentID",
+      "kind": "attribute",
+      "signature": "app.project.documentID",
+      "sourcePath": "docs/general/project.md"
+    },
+    {
+      "object": "Project",
+      "name": "Project.isCloudProject",
+      "kind": "attribute",
+      "signature": "app.project.isCloudProject",
+      "sourcePath": "docs/general/project.md"
+    },
+    {
+      "object": "Project",
+      "name": "Project.name",
+      "kind": "attribute",
+      "signature": "app.project.name",
+      "sourcePath": "docs/general/project.md"
+    },
+    {
+      "object": "Project",
+      "name": "Project.path",
+      "kind": "attribute",
+      "signature": "app.project.path",
+      "sourcePath": "docs/general/project.md"
+    },
+    {
+      "object": "Project",
+      "name": "Project.rootItem",
+      "kind": "attribute",
+      "signature": "app.project.rootItem",
+      "sourcePath": "docs/general/project.md"
+    },
+    {
+      "object": "Project",
+      "name": "Project.sequences",
+      "kind": "attribute",
+      "signature": "app.project.sequences",
+      "sourcePath": "docs/general/project.md"
+    },
+    {
+      "object": "Project",
+      "name": "Project.addPropertyToProjectMetadataSchema()",
+      "kind": "method",
+      "signature": "app.project.addPropertyToProjectMetadataSchema(propertyName, propertyLabel, propertyType)",
+      "sourcePath": "docs/general/project.md"
+    },
+    {
+      "object": "Project",
+      "name": "Project.closeDocument()",
+      "kind": "method",
+      "signature": "app.project.closeDocument(saveFirst, promptIfDirty)",
+      "sourcePath": "docs/general/project.md"
+    },
+    {
+      "object": "Project",
+      "name": "Project.consolidateDuplicates()",
+      "kind": "method",
+      "signature": "app.project.consolidateDuplicates()",
+      "sourcePath": "docs/general/project.md"
+    },
+    {
+      "object": "Project",
+      "name": "Project.createNewSequence()",
+      "kind": "method",
+      "signature": "app.project.createNewSequence(sequenceName, sequenceID)",
+      "sourcePath": "docs/general/project.md"
+    },
+    {
+      "object": "Project",
+      "name": "Project.createNewSequenceFromClips()",
+      "kind": "method",
+      "signature": "app.project.createNewSequenceFromClips(sequenceName, arrayOfProjectItems, [destinationBin])",
+      "sourcePath": "docs/general/project.md"
+    },
+    {
+      "object": "Project",
+      "name": "Project.deleteSequence()",
+      "kind": "method",
+      "signature": "app.project.deleteSequence(sequence)",
+      "sourcePath": "docs/general/project.md"
+    },
+    {
+      "object": "Project",
+      "name": "Project.exportAAF()",
+      "kind": "method",
+      "signature": "app.project.exportAAF(sequenceToExport, outputPath, mixdownVideo, explodeToMono, sampleRate, bitsPerSample, embedAudio, audioFileFormat, trimSources, handleFrames, presetPath, renderAudioEffects, includeClipCopies, preserveParentFolder)",
+      "sourcePath": "docs/general/project.md"
+    },
+    {
+      "object": "Project",
+      "name": "Project.exportFinalCutProXML()",
+      "kind": "method",
+      "signature": "app.project.exportFinalCutProXML(outputPath, suppressUI)",
+      "sourcePath": "docs/general/project.md"
+    },
+    {
+      "object": "Project",
+      "name": "Project.exportOMF()",
+      "kind": "method",
+      "signature": "app.project.exportOMF(sequence, outputPath, omfTitle, sampleRate, bitsPerSample, audioEncapsulated, audioFileFormat, trimAudioFiles, handleFrames, includePan)",
+      "sourcePath": "docs/general/project.md"
+    },
+    {
+      "object": "Project",
+      "name": "Project.exportTimeline()",
+      "kind": "method",
+      "signature": "app.project.exportTimeline(exportControllerName)",
+      "sourcePath": "docs/general/project.md"
+    },
+    {
+      "object": "Project",
+      "name": "Project.getGraphicsWhiteLuminance()",
+      "kind": "method",
+      "signature": "app.project.getGraphicsWhiteLuminance()",
+      "sourcePath": "docs/general/project.md"
+    },
+    {
+      "object": "Project",
+      "name": "Project.getInsertionBin()",
+      "kind": "method",
+      "signature": "app.project.getInsertionBin()",
+      "sourcePath": "docs/general/project.md"
+    },
+    {
+      "object": "Project",
+      "name": "Project.getProjectPanelMetadata()",
+      "kind": "method",
+      "signature": "app.project.getProjectPanelMetadata()",
+      "sourcePath": "docs/general/project.md"
+    },
+    {
+      "object": "Project",
+      "name": "Project.getSharedLocation()",
+      "kind": "method",
+      "signature": "app.project.getSharedLocation()",
+      "sourcePath": "docs/general/project.md"
+    },
+    {
+      "object": "Project",
+      "name": "Project.getSupportedGraphicsWhiteLuminances()",
+      "kind": "method",
+      "signature": "app.project.getSupportedGraphicsWhiteLuminances()",
+      "sourcePath": "docs/general/project.md"
+    },
+    {
+      "object": "Project",
+      "name": "Project.importAEComps()",
+      "kind": "method",
+      "signature": "app.project.importAEComps(path, compNames, [targetBin])",
+      "sourcePath": "docs/general/project.md"
+    },
+    {
+      "object": "Project",
+      "name": "Project.importAllAEComps()",
+      "kind": "method",
+      "signature": "app.project.importAllAEComps(path, [targetBin])",
+      "sourcePath": "docs/general/project.md"
+    },
+    {
+      "object": "Project",
+      "name": "Project.importFiles()",
+      "kind": "method",
+      "signature": "app.project.importFiles(filePaths, suppressUI, targetBin, importAsNumberedStills)",
+      "sourcePath": "docs/general/project.md"
+    },
+    {
+      "object": "Project",
+      "name": "Project.importSequences()",
+      "kind": "method",
+      "signature": "app.project.importSequences(path, sequenceIDs)",
+      "sourcePath": "docs/general/project.md"
+    },
+    {
+      "object": "Project",
+      "name": "Project.isSharedLocationCopyEnabled()",
+      "kind": "method",
+      "signature": "app.project.isSharedLocationCopyEnabled()",
+      "sourcePath": "docs/general/project.md"
+    },
+    {
+      "object": "Project",
+      "name": "Project.newBarsAndTone()",
+      "kind": "method",
+      "signature": "app.project.newBarsAndTone(width, height, timeBase, PARNum, PARDen, audioSampleRate, name)",
+      "sourcePath": "docs/general/project.md"
+    },
+    {
+      "object": "Project",
+      "name": "Project.newSequence()",
+      "kind": "method",
+      "signature": "app.project.newSequence(name, pathToSequencePreset)",
+      "sourcePath": "docs/general/project.md"
+    },
+    {
+      "object": "Project",
+      "name": "Project.openSequence()",
+      "kind": "method",
+      "signature": "app.project.openSequence(sequence.sequenceID)",
+      "sourcePath": "docs/general/project.md"
+    },
+    {
+      "object": "Project",
+      "name": "Project.pauseGrowing()",
+      "kind": "method",
+      "signature": "app.project.pauseGrowing(pause)",
+      "sourcePath": "docs/general/project.md"
+    },
+    {
+      "object": "Project",
+      "name": "Project.save()",
+      "kind": "method",
+      "signature": "app.project.save()",
+      "sourcePath": "docs/general/project.md"
+    },
+    {
+      "object": "Project",
+      "name": "Project.saveAs()",
+      "kind": "method",
+      "signature": "app.project.saveAs(path)",
+      "sourcePath": "docs/general/project.md"
+    },
+    {
+      "object": "Project",
+      "name": "Project.setEnableTranscodeOnIngest()",
+      "kind": "method",
+      "signature": "app.project.setEnableTranscodeOnIngest(state)",
+      "sourcePath": "docs/general/project.md"
+    },
+    {
+      "object": "Project",
+      "name": "Project.setGraphicsWhiteLuminance()",
+      "kind": "method",
+      "signature": "app.project.setGraphicsWhiteLuminance(value)",
+      "sourcePath": "docs/general/project.md"
+    },
+    {
+      "object": "Project",
+      "name": "Project.setProjectPanelMetadata()",
+      "kind": "method",
+      "signature": "app.project.setProjectPanelMetadata(layout)",
+      "sourcePath": "docs/general/project.md"
+    },
+    {
+      "object": "Project",
+      "name": "Project.setScratchDiskPath()",
+      "kind": "method",
+      "signature": "app.project.setScratchDiskPath(newPath, whichScratchDiskPath)",
+      "sourcePath": "docs/general/project.md"
+    },
+    {
+      "object": "ProjectCollection",
+      "name": "ProjectCollection.numProjects",
+      "kind": "attribute",
+      "signature": "app.projects.numProjects",
+      "sourcePath": "docs/collection/projectcollection.md"
+    },
+    {
+      "object": "ProjectItem",
+      "name": "ProjectItem.children",
+      "kind": "attribute",
+      "signature": "app.project.rootItem.children[index].children",
+      "sourcePath": "docs/item/projectitem.md"
+    },
+    {
+      "object": "ProjectItem",
+      "name": "ProjectItem.getAudioChannelMapping",
+      "kind": "attribute",
+      "signature": "app.project.rootItem.children[index].getAudioChannelMapping",
+      "sourcePath": "docs/item/projectitem.md"
+    },
+    {
+      "object": "ProjectItem",
+      "name": "ProjectItem.getOverrideColorSpaceList",
+      "kind": "attribute",
+      "signature": "app.project.rootItem.children[index].getOverrideColorSpaceList",
+      "sourcePath": "docs/item/projectitem.md"
+    },
+    {
+      "object": "ProjectItem",
+      "name": "ProjectItem.name",
+      "kind": "attribute",
+      "signature": "app.project.rootItem.children[index].name",
+      "sourcePath": "docs/item/projectitem.md"
+    },
+    {
+      "object": "ProjectItem",
+      "name": "ProjectItem.nodeId",
+      "kind": "attribute",
+      "signature": "app.project.rootItem.children[index].nodeId",
+      "sourcePath": "docs/item/projectitem.md"
+    },
+    {
+      "object": "ProjectItem",
+      "name": "ProjectItem.teamProjectsAssetId",
+      "kind": "attribute",
+      "signature": "app.project.rootItem.children[index].teamProjectsAssetId",
+      "sourcePath": "docs/item/projectitem.md"
+    },
+    {
+      "object": "ProjectItem",
+      "name": "ProjectItem.treePath",
+      "kind": "attribute",
+      "signature": "app.project.rootItem.children[index].treePath",
+      "sourcePath": "docs/item/projectitem.md"
+    },
+    {
+      "object": "ProjectItem",
+      "name": "ProjectItem.type",
+      "kind": "attribute",
+      "signature": "app.project.rootItem.children[index].type",
+      "sourcePath": "docs/item/projectitem.md"
+    },
+    {
+      "object": "ProjectItem",
+      "name": "ProjectItem.attachProxy()",
+      "kind": "method",
+      "signature": "app.project.rootItem.children[index].attachProxy(mediaPath, isHiRes)",
+      "sourcePath": "docs/item/projectitem.md"
+    },
+    {
+      "object": "ProjectItem",
+      "name": "ProjectItem.canChangeMediaPath()",
+      "kind": "method",
+      "signature": "app.project.rootItem.children[index].canChangeMediaPath()",
+      "sourcePath": "docs/item/projectitem.md"
+    },
+    {
+      "object": "ProjectItem",
+      "name": "ProjectItem.canProxy()",
+      "kind": "method",
+      "signature": "app.project.rootItem.children[index].canProxy()",
+      "sourcePath": "docs/item/projectitem.md"
+    },
+    {
+      "object": "ProjectItem",
+      "name": "ProjectItem.changeMediaPath()",
+      "kind": "method",
+      "signature": "app.project.rootItem.children[index].changeMediaPath(newPath)",
+      "sourcePath": "docs/item/projectitem.md"
+    },
+    {
+      "object": "ProjectItem",
+      "name": "ProjectItem.clearInPoint()",
+      "kind": "method",
+      "signature": "app.project.rootItem.children[index].clearInPoint()",
+      "sourcePath": "docs/item/projectitem.md"
+    },
+    {
+      "object": "ProjectItem",
+      "name": "ProjectItem.clearOutPoint()",
+      "kind": "method",
+      "signature": "app.project.rootItem.children[index].clearOutPoint()",
+      "sourcePath": "docs/item/projectitem.md"
+    },
+    {
+      "object": "ProjectItem",
+      "name": "ProjectItem.createBin()",
+      "kind": "method",
+      "signature": "app.project.rootItem.children[index].createBin(name)",
+      "sourcePath": "docs/item/projectitem.md"
+    },
+    {
+      "object": "ProjectItem",
+      "name": "ProjectItem.createSmartBin()",
+      "kind": "method",
+      "signature": "app.project.rootItem.children[index].createSmartBin(name, queryString)",
+      "sourcePath": "docs/item/projectitem.md"
+    },
+    {
+      "object": "ProjectItem",
+      "name": "ProjectItem.createSubClip()",
+      "kind": "method",
+      "signature": "app.project.rootItem.children[index].createSubClip(name, startTime, endTime, hasHardBoundaries, takeAudio, takeVideo)",
+      "sourcePath": "docs/item/projectitem.md"
+    },
+    {
+      "object": "ProjectItem",
+      "name": "ProjectItem.deleteBin()",
+      "kind": "method",
+      "signature": "app.project.rootItem.children[index].deleteBin()",
+      "sourcePath": "docs/item/projectitem.md"
+    },
+    {
+      "object": "ProjectItem",
+      "name": "ProjectItem.findItemsMatchingMediaPath()",
+      "kind": "method",
+      "signature": "app.project.rootItem.children[index].findItemsMatchingMediaPath(pathToMatch, ignoreSubClips)",
+      "sourcePath": "docs/item/projectitem.md"
+    },
+    {
+      "object": "ProjectItem",
+      "name": "ProjectItem.getColorLabel()",
+      "kind": "method",
+      "signature": "app.project.rootItem.children[index].getColorLabel()",
+      "sourcePath": "docs/item/projectitem.md"
+    },
+    {
+      "object": "ProjectItem",
+      "name": "ProjectItem.getColorSpace()",
+      "kind": "method",
+      "signature": "app.project.rootItem.children[index].getColorSpace()",
+      "sourcePath": "docs/item/projectitem.md"
+    },
+    {
+      "object": "ProjectItem",
+      "name": "ProjectItem.getEmbeddedLUTID()",
+      "kind": "method",
+      "signature": "app.project.rootItem.children[index].getEmbeddedLUTID()",
+      "sourcePath": "docs/item/projectitem.md"
+    },
+    {
+      "object": "ProjectItem",
+      "name": "ProjectItem.getFootageInterpretation()",
+      "kind": "method",
+      "signature": "app.project.rootItem.children[index].getFootageInterpretation()",
+      "sourcePath": "docs/item/projectitem.md"
+    },
+    {
+      "object": "ProjectItem",
+      "name": "ProjectItem.getInPoint()",
+      "kind": "method",
+      "signature": "app.project.rootItem.children[index].getInPoint()",
+      "sourcePath": "docs/item/projectitem.md"
+    },
+    {
+      "object": "ProjectItem",
+      "name": "ProjectItem.getInputLUTID()",
+      "kind": "method",
+      "signature": "app.project.rootItem.children[index].getInputLUTID()",
+      "sourcePath": "docs/item/projectitem.md"
+    },
+    {
+      "object": "ProjectItem",
+      "name": "ProjectItem.getMarkers()",
+      "kind": "method",
+      "signature": "app.project.rootItem.children[index].getMarkers()",
+      "sourcePath": "docs/item/projectitem.md"
+    },
+    {
+      "object": "ProjectItem",
+      "name": "ProjectItem.getMediaPath()",
+      "kind": "method",
+      "signature": "app.project.rootItem.children[index].getMediaPath()",
+      "sourcePath": "docs/item/projectitem.md"
+    },
+    {
+      "object": "ProjectItem",
+      "name": "ProjectItem.getOriginalColorSpace()",
+      "kind": "method",
+      "signature": "app.project.rootItem.children[index].getOriginalColorSpace()",
+      "sourcePath": "docs/item/projectitem.md"
+    },
+    {
+      "object": "ProjectItem",
+      "name": "ProjectItem.getOutPoint()",
+      "kind": "method",
+      "signature": "app.project.rootItem.children[index].getOutPoint(mediaType)",
+      "sourcePath": "docs/item/projectitem.md"
+    },
+    {
+      "object": "ProjectItem",
+      "name": "ProjectItem.getProjectColumnsMetadata()",
+      "kind": "method",
+      "signature": "app.project.rootItem.children[index].getProjectColumnsMetadata()",
+      "sourcePath": "docs/item/projectitem.md"
+    },
+    {
+      "object": "ProjectItem",
+      "name": "ProjectItem.getProjectMetadata()",
+      "kind": "method",
+      "signature": "app.project.rootItem.children[index].getProjectMetadata()",
+      "sourcePath": "docs/item/projectitem.md"
+    },
+    {
+      "object": "ProjectItem",
+      "name": "ProjectItem.getProxyPath()",
+      "kind": "method",
+      "signature": "app.project.rootItem.children[index].getProxyPath()",
+      "sourcePath": "docs/item/projectitem.md"
+    },
+    {
+      "object": "ProjectItem",
+      "name": "ProjectItem.getXMPMetadata()",
+      "kind": "method",
+      "signature": "app.project.rootItem.children[index].getXMPMetadata()",
+      "sourcePath": "docs/item/projectitem.md"
+    },
+    {
+      "object": "ProjectItem",
+      "name": "ProjectItem.hasProxy()",
+      "kind": "method",
+      "signature": "app.project.rootItem.children[index].hasProxy()",
+      "sourcePath": "docs/item/projectitem.md"
+    },
+    {
+      "object": "ProjectItem",
+      "name": "ProjectItem.isMergedClip()",
+      "kind": "method",
+      "signature": "app.project.rootItem.children[index].isMergedClip()",
+      "sourcePath": "docs/item/projectitem.md"
+    },
+    {
+      "object": "ProjectItem",
+      "name": "ProjectItem.isMulticamClip()",
+      "kind": "method",
+      "signature": "app.project.rootItem.children[index].isMulticamClip()",
+      "sourcePath": "docs/item/projectitem.md"
+    },
+    {
+      "object": "ProjectItem",
+      "name": "ProjectItem.isOffline()",
+      "kind": "method",
+      "signature": "app.project.rootItem.children[index].isOffline()",
+      "sourcePath": "docs/item/projectitem.md"
+    },
+    {
+      "object": "ProjectItem",
+      "name": "ProjectItem.isSequence()",
+      "kind": "method",
+      "signature": "app.project.rootItem.children[index].isSequence()",
+      "sourcePath": "docs/item/projectitem.md"
+    },
+    {
+      "object": "ProjectItem",
+      "name": "ProjectItem.moveBin()",
+      "kind": "method",
+      "signature": "app.project.rootItem.children[index].moveBin(newParentBinProjectItem)",
+      "sourcePath": "docs/item/projectitem.md"
+    },
+    {
+      "object": "ProjectItem",
+      "name": "ProjectItem.refreshMedia()",
+      "kind": "method",
+      "signature": "app.project.rootItem.children[index].refreshMedia()",
+      "sourcePath": "docs/item/projectitem.md"
+    },
+    {
+      "object": "ProjectItem",
+      "name": "ProjectItem.renameBin()",
+      "kind": "method",
+      "signature": "app.project.rootItem.children[index].renameBin(newName)",
+      "sourcePath": "docs/item/projectitem.md"
+    },
+    {
+      "object": "ProjectItem",
+      "name": "ProjectItem.select()",
+      "kind": "method",
+      "signature": "app.project.rootItem.children[index].select()",
+      "sourcePath": "docs/item/projectitem.md"
+    },
+    {
+      "object": "ProjectItem",
+      "name": "ProjectItem.setColorLabel()",
+      "kind": "method",
+      "signature": "app.project.rootItem.children[index].setColorLabel(labelColor)",
+      "sourcePath": "docs/item/projectitem.md"
+    },
+    {
+      "object": "ProjectItem",
+      "name": "ProjectItem.setFootageInterpretation()",
+      "kind": "method",
+      "signature": "app.project.rootItem.children[index].setFootageInterpretation(interpretation)",
+      "sourcePath": "docs/item/projectitem.md"
+    },
+    {
+      "object": "ProjectItem",
+      "name": "ProjectItem.setInPoint()",
+      "kind": "method",
+      "signature": "app.project.rootItem.children[index].setInPoint(seconds, mediaType)",
+      "sourcePath": "docs/item/projectitem.md"
+    },
+    {
+      "object": "ProjectItem",
+      "name": "ProjectItem.setOffline()",
+      "kind": "method",
+      "signature": "app.project.rootItem.children[index].setOffline()",
+      "sourcePath": "docs/item/projectitem.md"
+    },
+    {
+      "object": "ProjectItem",
+      "name": "ProjectItem.setOutPoint()",
+      "kind": "method",
+      "signature": "app.project.rootItem.children[index].setOutPoint(seconds, mediaType)",
+      "sourcePath": "docs/item/projectitem.md"
+    },
+    {
+      "object": "ProjectItem",
+      "name": "ProjectItem.setOverrideFrameRate()",
+      "kind": "method",
+      "signature": "app.project.rootItem.children[index].setOverrideFrameRate(newFrameRate)",
+      "sourcePath": "docs/item/projectitem.md"
+    },
+    {
+      "object": "ProjectItem",
+      "name": "ProjectItem.setOverridePixelAspectRatio()",
+      "kind": "method",
+      "signature": "app.project.rootItem.children[index].setOverridePixelAspectRatio(numerator, denominator)",
+      "sourcePath": "docs/item/projectitem.md"
+    },
+    {
+      "object": "ProjectItem",
+      "name": "ProjectItem.setProjectMetadata()",
+      "kind": "method",
+      "signature": "app.project.rootItem.children[index].setProjectMetadata(newMetadata, updatedFields)",
+      "sourcePath": "docs/item/projectitem.md"
+    },
+    {
+      "object": "ProjectItem",
+      "name": "ProjectItem.setScaleToFrameSize()",
+      "kind": "method",
+      "signature": "app.project.rootItem.children[index].setScaleToFrameSize()",
+      "sourcePath": "docs/item/projectitem.md"
+    },
+    {
+      "object": "ProjectItem",
+      "name": "ProjectItem.setStartTime()",
+      "kind": "method",
+      "signature": "app.project.rootItem.children[index].setStartTime(time)",
+      "sourcePath": "docs/item/projectitem.md"
+    },
+    {
+      "object": "ProjectItem",
+      "name": "ProjectItem.setXMPMetadata()",
+      "kind": "method",
+      "signature": "app.project.rootItem.children[index].setXMPMetadata(newXMP)",
+      "sourcePath": "docs/item/projectitem.md"
+    },
+    {
+      "object": "ProjectItem",
+      "name": "ProjectItem.startTime()",
+      "kind": "method",
+      "signature": "app.project.rootItem.children[index].startTime()",
+      "sourcePath": "docs/item/projectitem.md"
+    },
+    {
+      "object": "ProjectItem",
+      "name": "ProjectItem.videoComponents()",
+      "kind": "method",
+      "signature": "app.project.rootItem.children[index].videoComponents()",
+      "sourcePath": "docs/item/projectitem.md"
+    },
+    {
+      "object": "ProjectItemCollection",
+      "name": "ProjectItemCollection.numItems",
+      "kind": "attribute",
+      "signature": "app.project.rootItem.children.numItems",
+      "sourcePath": "docs/collection/projectitemcollection.md"
+    },
+    {
+      "object": "ProjectManager",
+      "name": "ProjectManager.affectedSequences",
+      "kind": "attribute",
+      "signature": "app.projectManager.options.affectedSequences",
+      "sourcePath": "docs/general/projectmanager.md"
+    },
+    {
+      "object": "ProjectManager",
+      "name": "ProjectManager.clipTranscoderOption",
+      "kind": "attribute",
+      "signature": "app.projectManager.options.clipTranscoderOption",
+      "sourcePath": "docs/general/projectmanager.md"
+    },
+    {
+      "object": "ProjectManager",
+      "name": "ProjectManager.clipTransferOption",
+      "kind": "attribute",
+      "signature": "app.projectManager.options.clipTransferOption",
+      "sourcePath": "docs/general/projectmanager.md"
+    },
+    {
+      "object": "ProjectManager",
+      "name": "ProjectManager.convertAECompsToClips",
+      "kind": "attribute",
+      "signature": "app.projectManager.options.convertAECompsToClips",
+      "sourcePath": "docs/general/projectmanager.md"
+    },
+    {
+      "object": "ProjectManager",
+      "name": "ProjectManager.convertImageSequencesToClips",
+      "kind": "attribute",
+      "signature": "app.projectManager.options.convertImageSequencesToClips",
+      "sourcePath": "docs/general/projectmanager.md"
+    },
+    {
+      "object": "ProjectManager",
+      "name": "ProjectManager.convertSyntheticsToClips",
+      "kind": "attribute",
+      "signature": "app.projectManager.options.convertSyntheticsToClips",
+      "sourcePath": "docs/general/projectmanager.md"
+    },
+    {
+      "object": "ProjectManager",
+      "name": "ProjectManager.copyToPreventAlphaLoss",
+      "kind": "attribute",
+      "signature": "app.projectManager.options.copyToPreventAlphaLoss",
+      "sourcePath": "docs/general/projectmanager.md"
+    },
+    {
+      "object": "ProjectManager",
+      "name": "ProjectManager.destinationPath",
+      "kind": "attribute",
+      "signature": "app.projectManager.options.destinationPath",
+      "sourcePath": "docs/general/projectmanager.md"
+    },
+    {
+      "object": "ProjectManager",
+      "name": "ProjectManager.encoderPresetFilePath",
+      "kind": "attribute",
+      "signature": "app.projectManager.options.encoderPresetFilePath",
+      "sourcePath": "docs/general/projectmanager.md"
+    },
+    {
+      "object": "ProjectManager",
+      "name": "ProjectManager.excludeUnused",
+      "kind": "attribute",
+      "signature": "app.projectManager.options.excludeUnused",
+      "sourcePath": "docs/general/projectmanager.md"
+    },
+    {
+      "object": "ProjectManager",
+      "name": "ProjectManager.handleFrameCount",
+      "kind": "attribute",
+      "signature": "app.projectManager.options.handleFrameCount",
+      "sourcePath": "docs/general/projectmanager.md"
+    },
+    {
+      "object": "ProjectManager",
+      "name": "ProjectManager.includeAllSequences",
+      "kind": "attribute",
+      "signature": "app.projectManager.options.includeAllSequences",
+      "sourcePath": "docs/general/projectmanager.md"
+    },
+    {
+      "object": "ProjectManager",
+      "name": "ProjectManager.includeConformedAudio",
+      "kind": "attribute",
+      "signature": "app.projectManager.options.includeConformedAudio",
+      "sourcePath": "docs/general/projectmanager.md"
+    },
+    {
+      "object": "ProjectManager",
+      "name": "ProjectManager.includePreviews",
+      "kind": "attribute",
+      "signature": "app.projectManager.options.includePreviews",
+      "sourcePath": "docs/general/projectmanager.md"
+    },
+    {
+      "object": "ProjectManager",
+      "name": "ProjectManager.renameMedia",
+      "kind": "attribute",
+      "signature": "app.projectManager.options.renameMedia",
+      "sourcePath": "docs/general/projectmanager.md"
+    },
+    {
+      "object": "Properties",
+      "name": "Properties.clearProperty()",
+      "kind": "method",
+      "signature": "app.properties.clearProperty()",
+      "sourcePath": "docs/general/properties.md"
+    },
+    {
+      "object": "Properties",
+      "name": "Properties.doesPropertyExist()",
+      "kind": "method",
+      "signature": "app.properties.doesPropertyExist(property)",
+      "sourcePath": "docs/general/properties.md"
+    },
+    {
+      "object": "Properties",
+      "name": "Properties.getProperty()",
+      "kind": "method",
+      "signature": "app.properties.getProperty(property)",
+      "sourcePath": "docs/general/properties.md"
+    },
+    {
+      "object": "Properties",
+      "name": "Properties.isPropertyReadOnly()",
+      "kind": "method",
+      "signature": "app.properties.isPropertyReadOnly(property)",
+      "sourcePath": "docs/general/properties.md"
+    },
+    {
+      "object": "Properties",
+      "name": "Properties.setProperty()",
+      "kind": "method",
+      "signature": "app.properties.setProperty(property, value, persistent, createIfNotExist)",
+      "sourcePath": "docs/general/properties.md"
+    },
+    {
+      "object": "Sequence",
+      "name": "Sequence.audioDisplayFormat",
+      "kind": "attribute",
+      "signature": "app.project.sequences[index].audioDisplayFormat",
+      "sourcePath": "docs/sequence/sequence.md"
+    },
+    {
+      "object": "Sequence",
+      "name": "Sequence.audioTracks",
+      "kind": "attribute",
+      "signature": "app.project.sequences[index].audioTracks",
+      "sourcePath": "docs/sequence/sequence.md"
+    },
+    {
+      "object": "Sequence",
+      "name": "Sequence.end",
+      "kind": "attribute",
+      "signature": "app.project.sequences[index].end",
+      "sourcePath": "docs/sequence/sequence.md"
+    },
+    {
+      "object": "Sequence",
+      "name": "Sequence.frameSizeHorizontal",
+      "kind": "attribute",
+      "signature": "app.project.sequences[index].frameSizeHorizontal",
+      "sourcePath": "docs/sequence/sequence.md"
+    },
+    {
+      "object": "Sequence",
+      "name": "Sequence.frameSizeVertical",
+      "kind": "attribute",
+      "signature": "app.project.sequences[index].frameSizeVertical",
+      "sourcePath": "docs/sequence/sequence.md"
+    },
+    {
+      "object": "Sequence",
+      "name": "Sequence.id",
+      "kind": "attribute",
+      "signature": "app.project.sequences[index].id",
+      "sourcePath": "docs/sequence/sequence.md"
+    },
+    {
+      "object": "Sequence",
+      "name": "Sequence.markers",
+      "kind": "attribute",
+      "signature": "app.project.sequences[index].markers",
+      "sourcePath": "docs/sequence/sequence.md"
+    },
+    {
+      "object": "Sequence",
+      "name": "Sequence.name",
+      "kind": "attribute",
+      "signature": "app.project.sequences[index].name",
+      "sourcePath": "docs/sequence/sequence.md"
+    },
+    {
+      "object": "Sequence",
+      "name": "Sequence.projectItem",
+      "kind": "attribute",
+      "signature": "app.project.sequences[index].projectItem",
+      "sourcePath": "docs/sequence/sequence.md"
+    },
+    {
+      "object": "Sequence",
+      "name": "Sequence.sequenceID",
+      "kind": "attribute",
+      "signature": "app.project.sequences[index].sequenceID",
+      "sourcePath": "docs/sequence/sequence.md"
+    },
+    {
+      "object": "Sequence",
+      "name": "Sequence.timebase",
+      "kind": "attribute",
+      "signature": "app.project.sequences[index].timebase",
+      "sourcePath": "docs/sequence/sequence.md"
+    },
+    {
+      "object": "Sequence",
+      "name": "Sequence.videoDisplayFormat",
+      "kind": "attribute",
+      "signature": "app.project.sequences[index].videoDisplayFormat",
+      "sourcePath": "docs/sequence/sequence.md"
+    },
+    {
+      "object": "Sequence",
+      "name": "Sequence.videoTracks",
+      "kind": "attribute",
+      "signature": "app.project.sequences[index].videoTracks",
+      "sourcePath": "docs/sequence/sequence.md"
+    },
+    {
+      "object": "Sequence",
+      "name": "Sequence.zeroPoint",
+      "kind": "attribute",
+      "signature": "app.project.sequences[index].zeroPoint",
+      "sourcePath": "docs/sequence/sequence.md"
+    },
+    {
+      "object": "Sequence",
+      "name": "Sequence.attachCustomProperty()",
+      "kind": "method",
+      "signature": "app.project.sequences[index].attachCustomProperty(propertyID, propertyValue)",
+      "sourcePath": "docs/sequence/sequence.md"
+    },
+    {
+      "object": "Sequence",
+      "name": "Sequence.autoReframeSequence()",
+      "kind": "method",
+      "signature": "app.project.sequences[index].autoReframeSequence(numerator, denominator, motionPreset, newName, useNestedSequences)",
+      "sourcePath": "docs/sequence/sequence.md"
+    },
+    {
+      "object": "Sequence",
+      "name": "Sequence.clone()",
+      "kind": "method",
+      "signature": "app.project.sequences[index].clone()",
+      "sourcePath": "docs/sequence/sequence.md"
+    },
+    {
+      "object": "Sequence",
+      "name": "Sequence.close()",
+      "kind": "method",
+      "signature": "app.project.sequences[index].close()",
+      "sourcePath": "docs/sequence/sequence.md"
+    },
+    {
+      "object": "Sequence",
+      "name": "Sequence.createCaptionTrack()",
+      "kind": "method",
+      "signature": "app.project.sequences[index].createCaptionTrack(projectItem, startAtTime, [captionFormat])",
+      "sourcePath": "docs/sequence/sequence.md"
+    },
+    {
+      "object": "Sequence",
+      "name": "Sequence.createSubsequence()",
+      "kind": "method",
+      "signature": "app.project.sequences[index].createSubsequence([ignoreTrackTargeting])",
+      "sourcePath": "docs/sequence/sequence.md"
+    },
+    {
+      "object": "Sequence",
+      "name": "Sequence.exportAsFinalCutProXML()",
+      "kind": "method",
+      "signature": "app.project.sequences[index].exportAsFinalCutProXML(outputPath)",
+      "sourcePath": "docs/sequence/sequence.md"
+    },
+    {
+      "object": "Sequence",
+      "name": "Sequence.exportAsMediaDirect()",
+      "kind": "method",
+      "signature": "app.project.sequences[index].exportAsMediaDirect(outputPath, presetPath, workAreaType)",
+      "sourcePath": "docs/sequence/sequence.md"
+    },
+    {
+      "object": "Sequence",
+      "name": "Sequence.exportAsProject()",
+      "kind": "method",
+      "signature": "app.project.sequences[index].exportAsProject(outputPath)",
+      "sourcePath": "docs/sequence/sequence.md"
+    },
+    {
+      "object": "Sequence",
+      "name": "Sequence.getExportFileExtension()",
+      "kind": "method",
+      "signature": "app.project.sequences[index].getExportFileExtension(outputPresetPath)",
+      "sourcePath": "docs/sequence/sequence.md"
+    },
+    {
+      "object": "Sequence",
+      "name": "Sequence.getInPoint()",
+      "kind": "method",
+      "signature": "app.project.sequences[index].getInPoint()",
+      "sourcePath": "docs/sequence/sequence.md"
+    },
+    {
+      "object": "Sequence",
+      "name": "Sequence.getInPointAsTime()",
+      "kind": "method",
+      "signature": "app.project.sequences[index].getInPointAsTime()",
+      "sourcePath": "docs/sequence/sequence.md"
+    },
+    {
+      "object": "Sequence",
+      "name": "Sequence.getOutPoint()",
+      "kind": "method",
+      "signature": "app.project.sequences[index].getOutPoint()",
+      "sourcePath": "docs/sequence/sequence.md"
+    },
+    {
+      "object": "Sequence",
+      "name": "Sequence.getOutPointAsTime()",
+      "kind": "method",
+      "signature": "app.project.sequences[index].getOutPointAsTime()",
+      "sourcePath": "docs/sequence/sequence.md"
+    },
+    {
+      "object": "Sequence",
+      "name": "Sequence.getPlayerPosition()",
+      "kind": "method",
+      "signature": "app.project.sequences[index].getPlayerPosition()",
+      "sourcePath": "docs/sequence/sequence.md"
+    },
+    {
+      "object": "Sequence",
+      "name": "Sequence.getSelection()",
+      "kind": "method",
+      "signature": "app.project.sequences[index].getSelection()",
+      "sourcePath": "docs/sequence/sequence.md"
+    },
+    {
+      "object": "Sequence",
+      "name": "Sequence.getSettings()",
+      "kind": "method",
+      "signature": "app.project.sequences[index].getSettings()",
+      "sourcePath": "docs/sequence/sequence.md"
+    },
+    {
+      "object": "Sequence",
+      "name": "Sequence.getWorkAreaInPoint()",
+      "kind": "method",
+      "signature": "app.project.sequences[index].getWorkAreaInPoint()",
+      "sourcePath": "docs/sequence/sequence.md"
+    },
+    {
+      "object": "Sequence",
+      "name": "Sequence.getWorkAreaInPointAsTime()",
+      "kind": "method",
+      "signature": "app.project.sequences[index].getWorkAreaInPointAsTime()",
+      "sourcePath": "docs/sequence/sequence.md"
+    },
+    {
+      "object": "Sequence",
+      "name": "Sequence.getWorkAreaOutPoint()",
+      "kind": "method",
+      "signature": "app.project.sequences[index].getWorkAreaOutPoint()",
+      "sourcePath": "docs/sequence/sequence.md"
+    },
+    {
+      "object": "Sequence",
+      "name": "Sequence.getWorkAreaOutPointAsTime()",
+      "kind": "method",
+      "signature": "app.project.sequences[index].getWorkAreaOutPointAsTime()",
+      "sourcePath": "docs/sequence/sequence.md"
+    },
+    {
+      "object": "Sequence",
+      "name": "Sequence.importMGT()",
+      "kind": "method",
+      "signature": "app.project.sequences[index].importMGT(path, time, vidTrackOffset, audTrackOffset)",
+      "sourcePath": "docs/sequence/sequence.md"
+    },
+    {
+      "object": "Sequence",
+      "name": "Sequence.importMGTFromLibrary()",
+      "kind": "method",
+      "signature": "app.project.sequences[index].importMGTFromLibrary(libraryName, mgtName, time, vidTrackOffset, audTrackOffset)",
+      "sourcePath": "docs/sequence/sequence.md"
+    },
+    {
+      "object": "Sequence",
+      "name": "Sequence.insertClip()",
+      "kind": "method",
+      "signature": "app.project.sequences[index].insertClip(projectItem, time, vTrackIndex, aTrackIndex)",
+      "sourcePath": "docs/sequence/sequence.md"
+    },
+    {
+      "object": "Sequence",
+      "name": "Sequence.isDoneAnalyzingForVideoEffects()",
+      "kind": "method",
+      "signature": "app.project.sequences[index].isDoneAnalyzingForVideoEffects()",
+      "sourcePath": "docs/sequence/sequence.md"
+    },
+    {
+      "object": "Sequence",
+      "name": "Sequence.isWorkAreaEnabled()",
+      "kind": "method",
+      "signature": "app.project.sequences[index].isWorkAreaEnabled()",
+      "sourcePath": "docs/sequence/sequence.md"
+    },
+    {
+      "object": "Sequence",
+      "name": "Sequence.linkSelection()",
+      "kind": "method",
+      "signature": "app.project.sequences[index].linkSelection()",
+      "sourcePath": "docs/sequence/sequence.md"
+    },
+    {
+      "object": "Sequence",
+      "name": "Sequence.overwriteClip()",
+      "kind": "method",
+      "signature": "app.project.sequences[index].overwriteClip(projectItem, time, vTrackIndex, aTrackIndex)",
+      "sourcePath": "docs/sequence/sequence.md"
+    },
+    {
+      "object": "Sequence",
+      "name": "Sequence.performSceneEditDetectionOnSelection()",
+      "kind": "method",
+      "signature": "app.project.sequences[index].performSceneEditDetectionOnSelection(actionDesired, applyCutsToLinkedAudio, sensitivity)",
+      "sourcePath": "docs/sequence/sequence.md"
+    },
+    {
+      "object": "Sequence",
+      "name": "Sequence.setInPoint()",
+      "kind": "method",
+      "signature": "app.project.sequences[index].setInPoint(time)",
+      "sourcePath": "docs/sequence/sequence.md"
+    },
+    {
+      "object": "Sequence",
+      "name": "Sequence.setOutPoint()",
+      "kind": "method",
+      "signature": "app.project.sequences[index].setOutPoint(time)",
+      "sourcePath": "docs/sequence/sequence.md"
+    },
+    {
+      "object": "Sequence",
+      "name": "Sequence.setPlayerPosition()",
+      "kind": "method",
+      "signature": "app.project.sequences[index].setPlayerPosition(time)",
+      "sourcePath": "docs/sequence/sequence.md"
+    },
+    {
+      "object": "Sequence",
+      "name": "Sequence.setSettings()",
+      "kind": "method",
+      "signature": "app.project.sequences[index].setSettings(sequenceSettings)",
+      "sourcePath": "docs/sequence/sequence.md"
+    },
+    {
+      "object": "Sequence",
+      "name": "Sequence.setWorkAreaInPoint()",
+      "kind": "method",
+      "signature": "app.project.sequences[index].setWorkAreaInPoint(time)",
+      "sourcePath": "docs/sequence/sequence.md"
+    },
+    {
+      "object": "Sequence",
+      "name": "Sequence.setWorkAreaOutPoint()",
+      "kind": "method",
+      "signature": "app.project.sequences[index].setWorkAreaOutPoint(time)",
+      "sourcePath": "docs/sequence/sequence.md"
+    },
+    {
+      "object": "Sequence",
+      "name": "Sequence.setZeroPoint()",
+      "kind": "method",
+      "signature": "app.project.sequences[index].setZeroPoint(newZeroPoint)",
+      "sourcePath": "docs/sequence/sequence.md"
+    },
+    {
+      "object": "Sequence",
+      "name": "Sequence.unlinkSelection()",
+      "kind": "method",
+      "signature": "app.project.sequences[index].unlinkSelection()",
+      "sourcePath": "docs/sequence/sequence.md"
+    },
+    {
+      "object": "SequenceCollection",
+      "name": "SequenceCollection.numSequences",
+      "kind": "attribute",
+      "signature": "app.project.sequences.numSequences",
+      "sourcePath": "docs/collection/sequencecollection.md"
+    },
+    {
+      "object": "SourceMonitor",
+      "name": "SourceMonitor.closeAllClips()",
+      "kind": "method",
+      "signature": "app.sourceMonitor.closeAllClips()",
+      "sourcePath": "docs/general/sourcemonitor.md"
+    },
+    {
+      "object": "SourceMonitor",
+      "name": "SourceMonitor.closeClip()",
+      "kind": "method",
+      "signature": "app.sourceMonitor.closeClip()",
+      "sourcePath": "docs/general/sourcemonitor.md"
+    },
+    {
+      "object": "SourceMonitor",
+      "name": "SourceMonitor.getPosition()",
+      "kind": "method",
+      "signature": "app.sourceMonitor.getPosition()",
+      "sourcePath": "docs/general/sourcemonitor.md"
+    },
+    {
+      "object": "SourceMonitor",
+      "name": "SourceMonitor.getProjectItem()",
+      "kind": "method",
+      "signature": "app.sourceMonitor.getProjectItem()",
+      "sourcePath": "docs/general/sourcemonitor.md"
+    },
+    {
+      "object": "SourceMonitor",
+      "name": "SourceMonitor.openFilePath()",
+      "kind": "method",
+      "signature": "app.sourceMonitor.openFilePath(path)",
+      "sourcePath": "docs/general/sourcemonitor.md"
+    },
+    {
+      "object": "SourceMonitor",
+      "name": "SourceMonitor.openProjectItem()",
+      "kind": "method",
+      "signature": "app.sourceMonitor.openProjectItem(projectItem)",
+      "sourcePath": "docs/general/sourcemonitor.md"
+    },
+    {
+      "object": "SourceMonitor",
+      "name": "SourceMonitor.play()",
+      "kind": "method",
+      "signature": "app.sourceMonitor.play(playbackSpeed)",
+      "sourcePath": "docs/general/sourcemonitor.md"
+    },
+    {
+      "object": "Time",
+      "name": "Time.seconds",
+      "kind": "attribute",
+      "signature": "myTime.seconds",
+      "sourcePath": "docs/other/time.md"
+    },
+    {
+      "object": "Time",
+      "name": "Time.ticks",
+      "kind": "attribute",
+      "signature": "myTime.ticks",
+      "sourcePath": "docs/other/time.md"
+    },
+    {
+      "object": "Time",
+      "name": "Time.getFormatted()",
+      "kind": "method",
+      "signature": "myTime.getFormatted(frameRate, displayFormat)",
+      "sourcePath": "docs/other/time.md"
+    },
+    {
+      "object": "Time",
+      "name": "Time.setSecondsAsFraction()",
+      "kind": "method",
+      "signature": "myTime.setSecondsAsFraction(numerator, denominator)",
+      "sourcePath": "docs/other/time.md"
+    },
+    {
+      "object": "Track",
+      "name": "Track.clips",
+      "kind": "attribute",
+      "signature": "app.project.sequences[index].audioTracks[index].clips",
+      "sourcePath": "docs/sequence/track.md"
+    },
+    {
+      "object": "Track",
+      "name": "Track.id",
+      "kind": "attribute",
+      "signature": "app.project.sequences[index].audioTracks[index].id",
+      "sourcePath": "docs/sequence/track.md"
+    },
+    {
+      "object": "Track",
+      "name": "Track.mediaType",
+      "kind": "attribute",
+      "signature": "app.project.sequences[index].audioTracks[index].mediaType",
+      "sourcePath": "docs/sequence/track.md"
+    },
+    {
+      "object": "Track",
+      "name": "Track.name",
+      "kind": "attribute",
+      "signature": "app.project.sequences[index].audioTracks[index].name",
+      "sourcePath": "docs/sequence/track.md"
+    },
+    {
+      "object": "Track",
+      "name": "Track.transitions",
+      "kind": "attribute",
+      "signature": "app.project.sequences[index].audioTracks[index].transitions",
+      "sourcePath": "docs/sequence/track.md"
+    },
+    {
+      "object": "Track",
+      "name": "Track.insertClip()",
+      "kind": "method",
+      "signature": "app.project.sequences[index].audioTracks[index].insertClip(projectItem, time, vTrackIndex, aTrackIndex)",
+      "sourcePath": "docs/sequence/track.md"
+    },
+    {
+      "object": "Track",
+      "name": "Track.isMuted()",
+      "kind": "method",
+      "signature": "app.project.sequences[index].audioTracks[index].isMuted()",
+      "sourcePath": "docs/sequence/track.md"
+    },
+    {
+      "object": "Track",
+      "name": "Track.overwriteClip()",
+      "kind": "method",
+      "signature": "app.project.sequences[index].audioTracks[index].overwriteClip(projectItem, time)",
+      "sourcePath": "docs/sequence/track.md"
+    },
+    {
+      "object": "Track",
+      "name": "Track.setMute()",
+      "kind": "method",
+      "signature": "app.project.sequences[index].audioTracks[index].setMute(isMuted)",
+      "sourcePath": "docs/sequence/track.md"
+    },
+    {
+      "object": "TrackCollection",
+      "name": "TrackCollection.numTracks",
+      "kind": "attribute",
+      "signature": "app.project.sequences[index].audioTracks.numTracks",
+      "sourcePath": "docs/collection/trackcollection.md"
+    },
+    {
+      "object": "TrackItem",
+      "name": "TrackItem.components",
+      "kind": "attribute",
+      "signature": "app.project.sequences[index].audioTracks[index].clips[index].components",
+      "sourcePath": "docs/item/trackitem.md"
+    },
+    {
+      "object": "TrackItem",
+      "name": "TrackItem.duration",
+      "kind": "attribute",
+      "signature": "app.project.sequences[index].audioTracks[index].clips[index].duration",
+      "sourcePath": "docs/item/trackitem.md"
+    },
+    {
+      "object": "TrackItem",
+      "name": "TrackItem.end",
+      "kind": "attribute",
+      "signature": "app.project.sequences[index].audioTracks[index].clips[index].end",
+      "sourcePath": "docs/item/trackitem.md"
+    },
+    {
+      "object": "TrackItem",
+      "name": "TrackItem.inPoint",
+      "kind": "attribute",
+      "signature": "app.project.sequences[index].audioTracks[index].clips[index].inPoint",
+      "sourcePath": "docs/item/trackitem.md"
+    },
+    {
+      "object": "TrackItem",
+      "name": "TrackItem.matchName",
+      "kind": "attribute",
+      "signature": "app.project.sequences[index].audioTracks[index].clips[index].matchName",
+      "sourcePath": "docs/item/trackitem.md"
+    },
+    {
+      "object": "TrackItem",
+      "name": "TrackItem.mediaType",
+      "kind": "attribute",
+      "signature": "app.project.sequences[index].audioTracks[index].clips[index].mediaType",
+      "sourcePath": "docs/item/trackitem.md"
+    },
+    {
+      "object": "TrackItem",
+      "name": "TrackItem.name",
+      "kind": "attribute",
+      "signature": "app.project.sequences[index].audioTracks[index].clips[index].name",
+      "sourcePath": "docs/item/trackitem.md"
+    },
+    {
+      "object": "TrackItem",
+      "name": "TrackItem.nodeId",
+      "kind": "attribute",
+      "signature": "app.project.sequences[index].audioTracks[index].clips[index].nodeId",
+      "sourcePath": "docs/item/trackitem.md"
+    },
+    {
+      "object": "TrackItem",
+      "name": "TrackItem.outPoint",
+      "kind": "attribute",
+      "signature": "app.project.sequences[index].audioTracks[index].clips[index].outPoint",
+      "sourcePath": "docs/item/trackitem.md"
+    },
+    {
+      "object": "TrackItem",
+      "name": "TrackItem.projectItem",
+      "kind": "attribute",
+      "signature": "app.project.sequences[index].audioTracks[index].clips[index].projectItem",
+      "sourcePath": "docs/item/trackitem.md"
+    },
+    {
+      "object": "TrackItem",
+      "name": "TrackItem.start",
+      "kind": "attribute",
+      "signature": "app.project.sequences[index].audioTracks[index].clips[index].start",
+      "sourcePath": "docs/item/trackitem.md"
+    },
+    {
+      "object": "TrackItem",
+      "name": "TrackItem.type",
+      "kind": "attribute",
+      "signature": "app.project.sequences[index].audioTracks[index].clips[index].type",
+      "sourcePath": "docs/item/trackitem.md"
+    },
+    {
+      "object": "TrackItem",
+      "name": "TrackItem.disabled",
+      "kind": "method",
+      "signature": "app.project.sequences[index].audioTracks[index].clips[index].disabled",
+      "sourcePath": "docs/item/trackitem.md"
+    },
+    {
+      "object": "TrackItem",
+      "name": "TrackItem.getMatchName()",
+      "kind": "method",
+      "signature": "app.project.sequences[index].audioTracks[index].clips[index].getMatchName()",
+      "sourcePath": "docs/item/trackitem.md"
+    },
+    {
+      "object": "TrackItem",
+      "name": "TrackItem.getMGTComponent()",
+      "kind": "method",
+      "signature": "app.project.sequences[index].videotracks[index].getMGTComponent",
+      "sourcePath": "docs/item/trackitem.md"
+    },
+    {
+      "object": "TrackItem",
+      "name": "TrackItem.getSpeed()",
+      "kind": "method",
+      "signature": "app.project.sequences[index].audioTracks[index].clips[index].getSpeed()",
+      "sourcePath": "docs/item/trackitem.md"
+    },
+    {
+      "object": "TrackItem",
+      "name": "TrackItem.isAdjustmentLayer()",
+      "kind": "method",
+      "signature": "app.project.sequences[index].audioTracks[index].clips[index].isAdjustmentLayer()",
+      "sourcePath": "docs/item/trackitem.md"
+    },
+    {
+      "object": "TrackItem",
+      "name": "TrackItem.isSelected()",
+      "kind": "method",
+      "signature": "app.project.sequences[index].audioTracks[index].clips[index].isSelected()",
+      "sourcePath": "docs/item/trackitem.md"
+    },
+    {
+      "object": "TrackItem",
+      "name": "TrackItem.isSpeedReversed()mm",
+      "kind": "method",
+      "signature": "app.project.sequences[index].audioTracks[index].clips[index].isSpeedReversed()",
+      "sourcePath": "docs/item/trackitem.md"
+    },
+    {
+      "object": "TrackItem",
+      "name": "TrackItem.move()",
+      "kind": "method",
+      "signature": "app.project.sequences[index].audioTracks[index].clips[index].move(newInPoint)",
+      "sourcePath": "docs/item/trackitem.md"
+    },
+    {
+      "object": "TrackItem",
+      "name": "TrackItem.remove()",
+      "kind": "method",
+      "signature": "app.project.sequences[index].audioTracks[index].clips[index].remove(inRipple, inAlignToVideo)",
+      "sourcePath": "docs/item/trackitem.md"
+    },
+    {
+      "object": "TrackItem",
+      "name": "TrackItem.setSelected()",
+      "kind": "method",
+      "signature": "app.project.sequences[index].audioTracks[index].clips[index].setSelected(state, updateUI)",
+      "sourcePath": "docs/item/trackitem.md"
+    },
+    {
+      "object": "TrackItemCollection",
+      "name": "TrackItemCollection.numItems",
+      "kind": "attribute",
+      "signature": "app.project.sequences[index].audioTracks[index].clips.numItems",
+      "sourcePath": "docs/collection/trackitemcollection.md"
+    }
+  ]
+}

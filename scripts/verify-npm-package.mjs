@@ -23,10 +23,12 @@ const requiredFiles = [
   "package/docs/uxp-js-api-inventory.md",
   "package/docs/premiere-doc-inventory.md",
   "package/docs/cep-reference-inventory.md",
+  "package/docs/extendscript-api-inventory.md",
   "package/dist/resources/premiere-surface-registry.json",
   "package/dist/resources/uxp-js-api-inventory.json",
   "package/dist/resources/premiere-doc-inventory.json",
   "package/dist/resources/cep-reference-inventory.json",
+  "package/dist/resources/extendscript-api-inventory.json",
   "package/scripts/install-cep.ps1",
   "package/scripts/install-cep.sh",
 ];

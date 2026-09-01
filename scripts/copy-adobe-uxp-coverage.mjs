@@ -10,6 +10,7 @@ const resources = [
   "uxp-js-api-inventory.json",
   "premiere-doc-inventory.json",
   "cep-reference-inventory.json",
+  "extendscript-api-inventory.json",
   "premiere-surface-registry.json",
 ];
 const targetDirectory = resolve(scriptDirectory, "../dist/resources");

@@ -90,6 +90,9 @@ describe("Premiere API and competitor surface registry", () => {
           "https://ppro-scripting.docsforadobe.dev/",
           "https://github.com/docsforadobe/premiere-scripting-guide",
         ],
+        inventoryArtifact: "dist/resources/extendscript-api-inventory.json",
+        inventoryState: "complete",
+        implementationState: "partial",
       });
     expect(registry.integrationSurfaces.find((surface) => surface.id === "cep-platform"))
       .toMatchObject({
@@ -98,7 +101,7 @@ describe("Premiere API and competitor surface registry", () => {
         implementationState: "partial",
       });
     expect(registry.integrationSurfaces.filter((surface) => surface.inventoryState === "complete"))
-      .toHaveLength(7);
+      .toHaveLength(8);
   });
 
   it("pins reviewed competitor sources and explicit safe-adoption boundaries", () => {
