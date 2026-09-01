@@ -138,7 +138,7 @@ describe("delivery conformance comparisons", () => {
     const checks = evaluateDeliveryConformance({
       format: { bit_rate: "5000000" },
       streams: [{ codec_type: "video", bit_rate: "1000000" }],
-    }, { minimumVideoBitrateKbps: 4000, maximumVideoBitrateKbps: 2000 });
+    }, { minimumVideoBitrateKbps: 3000, maximumVideoBitrateKbps: 3000 });
     expect(checks.find(check => check.id === "minimum_video_bitrate")?.status).toBe("fail");
     expect(checks.find(check => check.id === "maximum_video_bitrate")?.status).toBe("pass");
   });
