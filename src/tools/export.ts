@@ -125,7 +125,8 @@ export function evaluateDeliveryConformance(
   const exact = (id: string, expected: unknown, actual: unknown) => checks.push({ id, status: normalized(actual) === normalized(expected) ? "pass" : "fail", expected, actual: actual ?? null });
   const numeric = (id: string, expected: number, actualValue: unknown, tolerance = 0, unavailableReason?: string) => {
     const actual = finiteNumber(actualValue);
-    checks.push({ id, status: actual === null && unavailableReason ? "not_evaluated" : actual !== null && Math.abs(actual - expected) <= tolerance ? "pass" : "fail", expected, actual, detail: actual === null && unavailableReason ? unavailableReason : `tolerance=${tolerance}` });
+    const unavailable = actual === null ? unavailableReason : undefined;
+    checks.push({ id, status: unavailable ? "not_evaluated" : actual !== null && Math.abs(actual - expected) <= tolerance ? "pass" : "fail", expected, actual, detail: unavailable ?? `tolerance=${tolerance}` });
   };
   if (contract.allowedContainerNames) {
     const actualNames = normalized(format.format_name).split(",").filter(Boolean);
@@ -429,8 +430,8 @@ export function getExportTools(bridgeOptions: BridgeOptions) {
           frame_rate_tolerance: { type: "number", description: "Allowed absolute frame-rate difference (default: 0.001)" },
           duration_seconds: { type: "number", description: "Expected duration in seconds" },
           duration_tolerance_seconds: { type: "number", description: "Allowed absolute duration difference (default: 0.05)" },
-          minimum_video_bitrate_kbps: { type: "number", description: "Optional minimum video or format bitrate in kilobits per second" },
-          maximum_video_bitrate_kbps: { type: "number", description: "Optional maximum video or format bitrate in kilobits per second" },
+          minimum_video_bitrate_kbps: { type: "number", description: "Optional minimum selected-video-stream bitrate in kilobits per second" },
+          maximum_video_bitrate_kbps: { type: "number", description: "Optional maximum selected-video-stream bitrate in kilobits per second" },
           audio_sample_rate_hz: { type: "integer", description: "Expected audio sample rate" },
           audio_channels: { type: "integer", description: "Expected audio channel count" },
           target_lufs: { type: "number", description: "Optional integrated loudness target from -100 through 0 LUFS" },
