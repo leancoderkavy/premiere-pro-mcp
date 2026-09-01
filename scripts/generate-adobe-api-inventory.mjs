@@ -24,7 +24,8 @@ const compareText = (left, right) => left < right ? -1 : left > right ? 1 : 0;
 function memberName(member) {
   if (ts.isConstructSignatureDeclaration(member)) return "[[construct]]";
   if (ts.isCallSignatureDeclaration(member)) return "[[call]]";
-  if (!member.name) return undefined;
+  if (ts.isIndexSignatureDeclaration(member)) return "[[index]]";
+  if (!member.name) throw new Error(`Unsupported anonymous type member: ${ts.SyntaxKind[member.kind]}`);
   if (ts.isIdentifier(member.name) || ts.isStringLiteral(member.name) || ts.isNumericLiteral(member.name)) {
     return member.name.text;
   }
@@ -37,34 +38,60 @@ function memberKind(member) {
   if (ts.isConstructSignatureDeclaration(member)) return "constructor";
   if (ts.isCallSignatureDeclaration(member)) return "call";
   if (ts.isIndexSignatureDeclaration(member)) return "index";
-  return "member";
+  throw new Error(`Unsupported type member: ${ts.SyntaxKind[member.kind]}`);
 }
 
 const symbols = [];
+function collectTypeMembers(owner, node) {
+  if (ts.isTypeLiteralNode(node)) {
+    for (const member of node.members) {
+      symbols.push({ symbol: `${owner}.${memberName(member)}`, kind: memberKind(member) });
+    }
+    return;
+  }
+  if (ts.isIntersectionTypeNode(node) || ts.isUnionTypeNode(node)) {
+    for (const type of node.types) collectTypeMembers(owner, type);
+    return;
+  }
+  if (ts.isParenthesizedTypeNode(node)) collectTypeMembers(owner, node.type);
+}
+
+function collectModule(owner, moduleDeclaration) {
+  symbols.push({ symbol: owner, kind: "namespace" });
+  if (!moduleDeclaration.body) throw new Error(`Namespace ${owner} has no body.`);
+  if (ts.isModuleDeclaration(moduleDeclaration.body)) {
+    collectModule(`${owner}.${moduleDeclaration.body.name.getText(source).replaceAll('"', "")}`, moduleDeclaration.body);
+    return;
+  }
+  if (!ts.isModuleBlock(moduleDeclaration.body)) {
+    throw new Error(`Unsupported namespace body for ${owner}: ${ts.SyntaxKind[moduleDeclaration.body.kind]}`);
+  }
+  for (const child of moduleDeclaration.body.statements) {
+    if (ts.isEnumDeclaration(child)) {
+      const enumName = `${owner}.${child.name.text}`;
+      symbols.push({ symbol: enumName, kind: "enum" });
+      for (const member of child.members) {
+        symbols.push({ symbol: `${enumName}.${member.name.getText(source).replaceAll('"', "")}`, kind: "enumMember" });
+      }
+    } else if (ts.isModuleDeclaration(child)) {
+      collectModule(`${owner}.${child.name.getText(source).replaceAll('"', "")}`, child);
+    } else {
+      throw new Error(`Unsupported declaration in namespace ${owner}: ${ts.SyntaxKind[child.kind]}`);
+    }
+  }
+}
+
 for (const statement of source.statements) {
   if (ts.isTypeAliasDeclaration(statement)) {
     const owner = statement.name.text;
     symbols.push({ symbol: owner, kind: "type" });
-    if (ts.isTypeLiteralNode(statement.type)) {
-      for (const member of statement.type.members) {
-        const name = memberName(member);
-        if (name) symbols.push({ symbol: `${owner}.${name}`, kind: memberKind(member) });
-      }
-    }
+    collectTypeMembers(owner, statement.type);
   } else if (ts.isModuleDeclaration(statement)) {
-    const owner = statement.name.getText(source).replaceAll('"', "");
-    symbols.push({ symbol: owner, kind: "namespace" });
-    if (statement.body && ts.isModuleBlock(statement.body)) {
-      for (const child of statement.body.statements) {
-        if (ts.isEnumDeclaration(child)) {
-          const enumName = `${owner}.${child.name.text}`;
-          symbols.push({ symbol: enumName, kind: "enum" });
-          for (const member of child.members) {
-            symbols.push({ symbol: `${enumName}.${member.name.getText(source).replaceAll('"', "")}`, kind: "enumMember" });
-          }
-        }
-      }
-    }
+    collectModule(statement.name.getText(source).replaceAll('"', ""), statement);
+  } else if (ts.isExportAssignment(statement) && statement.expression.getText(source) === "premierepro") {
+    // The package's `export = premierepro` binds the root declaration object.
+  } else {
+    throw new Error(`Unsupported top-level Adobe declaration: ${ts.SyntaxKind[statement.kind]}`);
   }
 }
 

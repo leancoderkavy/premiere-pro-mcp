@@ -1,4 +1,5 @@
 import { readFileSync } from "node:fs";
+import { spawnSync } from "node:child_process";
 import { describe, expect, it } from "vitest";
 
 const inventory = JSON.parse(readFileSync("src/resources/adobe-api-inventory.json", "utf8"));
@@ -22,5 +23,12 @@ describe("Adobe declaration API inventory", () => {
     const expectedManifestOnly = [...manifestApis].filter((symbol) => !declared.has(symbol)).sort();
     expect(inventory.manifestOnly).toEqual(expectedManifestOnly);
     expect(inventory.stats.manifestOnly).toBe(expectedManifestOnly.length);
+  });
+
+  it("fails closed when the declaration file contains an unknown top-level form", () => {
+    const script = readFileSync("scripts/generate-adobe-api-inventory.mjs", "utf8");
+    expect(script).toContain("Unsupported top-level Adobe declaration");
+    expect(script).toContain("Unsupported declaration in namespace");
+    expect(spawnSync(process.execPath, ["scripts/generate-adobe-api-inventory.mjs", "--check"]).status).toBe(0);
   });
 });

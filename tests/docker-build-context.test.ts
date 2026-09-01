@@ -12,5 +12,9 @@ describe("Docker release build context", () => {
     expect(dockerfile).toContain(
       "COPY scripts/copy-adobe-uxp-coverage.mjs ./scripts/copy-adobe-uxp-coverage.mjs",
     );
+    expect(packageJson.scripts.build).toContain("scripts/generate-adobe-api-inventory.mjs --check");
+    expect(dockerfile).toContain(
+      "COPY scripts/generate-adobe-api-inventory.mjs ./scripts/generate-adobe-api-inventory.mjs",
+    );
   });
 });
