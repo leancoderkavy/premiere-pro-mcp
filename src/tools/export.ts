@@ -473,11 +473,12 @@ export function getExportTools(bridgeOptions: BridgeOptions) {
         try {
           const { stdout } = await execFileAsync("ffprobe", ["-v", "error", "-protocol_whitelist", "file,crypto,data", "-show_format", "-show_streams", "-of", "json", mediaPath], { timeout: 60_000, windowsHide: true, maxBuffer: 8 * 1024 * 1024 });
           const parsed = JSON.parse(stdout) as unknown;
-          if (!parsed || typeof parsed !== "object" || !("format" in parsed) || !("streams" in parsed) || !parsed.format || typeof parsed.format !== "object" || !Array.isArray(parsed.streams)) {
+          const candidate = parsed && typeof parsed === "object" ? parsed as { format?: unknown; streams?: unknown } : null;
+          if (!candidate || !candidate.format || typeof candidate.format !== "object" || !Array.isArray(candidate.streams)) {
             if (changedSinceStart()) return { success: false, error: `Delivery file changed during conformance inspection: ${mediaPath}` };
             return { success: false, error: "ffprobe returned an invalid delivery report" };
           }
-          probe = parsed as Record<string, unknown>;
+          probe = candidate as Record<string, unknown>;
         } catch (error) {
           const failure = error as { code?: string; killed?: boolean; stderr?: string; message?: string };
           if (changedSinceStart()) return { success: false, error: `Delivery file changed during conformance inspection: ${mediaPath}` };
