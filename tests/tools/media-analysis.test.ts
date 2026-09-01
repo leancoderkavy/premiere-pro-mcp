@@ -81,14 +81,14 @@ describe("media analysis parsers", () => {
     ]);
   });
 
-  it("computes waveform, parade, saturation, and legal-range samples from RGB pixels", () => {
+  it("computes waveform, parade, saturation, and RGB endpoint occupancy", () => {
     const reading = analyzeRgbScopes(Uint8Array.from([0, 0, 0, 255, 255, 255, 255, 0, 0]));
     expect(reading).toMatchObject({
       pixels: 3,
       waveform: { black: 0, white: 100 },
       rgbParade: { red: { high: 100 }, green: { low: 0 }, blue: { median: 0 } },
       saturation: { high: 100 },
-      illegal: { belowLegalBlackPercent: 33.33, aboveLegalWhitePercent: 33.33 },
+      rgbExtremes: { nearBlackPercent: 33.33, nearWhitePercent: 33.33 },
     });
     expect(() => analyzeRgbScopes(Uint8Array.from([0, 1]))).toThrow("complete RGB24 pixels");
   });
@@ -156,6 +156,9 @@ describe("media analysis tool contracts", () => {
     mockedExecFileAsync.mockResolvedValueOnce({ stdout: Buffer.alloc(320 * 180 * 3, 128), stderr: Buffer.alloc(0) });
     await expect(tools.read_video_scopes.handler({ media_path: mediaPath, time_seconds: 2 })).resolves.toMatchObject({ success: true, data: { timeSeconds: 2, pixels: 57_600, sampleSize: { width: 320, height: 180 } } });
     expect(mockedExecFileAsync.mock.calls.at(-1)?.[1]).toEqual(expect.arrayContaining(["-ss", "2", "-frames:v", "1", "rgb24", "pipe:1"]));
+
+    mockedExecFileAsync.mockRejectedValueOnce(Object.assign(new Error("timeout"), { killed: true }));
+    await expect(tools.read_video_scopes.handler({ media_path: mediaPath })).resolves.toMatchObject({ success: false, error: expect.stringContaining("timed out after 60 seconds") });
 
     mockedExecFileAsync.mockResolvedValueOnce({ stdout: "", stderr: "Multi frame detection: TFF: 0 BFF: 0 Progressive: 20 Undetermined: 0" });
     await expect(tools.analyze_video_interlacing.handler({ media_path: mediaPath })).resolves.toMatchObject({ success: true, data: { classification: "progressive", passesProgressiveDelivery: true } });

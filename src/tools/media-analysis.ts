@@ -15,9 +15,9 @@ function inputPath(value: unknown): string | null {
   return existsSync(path) && statSync(path).isFile() ? path : null;
 }
 
-function failureMessage(error: unknown, operation: string): string {
+function failureMessage(error: unknown, operation: string, timeoutSeconds = 300): string {
   const failure = error as ExecFailure;
-  if (failure.killed) return `${operation} timed out after 300 seconds`;
+  if (failure.killed) return `${operation} timed out after ${timeoutSeconds} seconds`;
   const detail = (failure.stderr ?? failure.message ?? "unknown error")
     .split(/\r?\n/).filter(Boolean).slice(-3).join(" ");
   return `${operation} failed: ${detail}`;
@@ -91,7 +91,7 @@ export interface VideoScopeReading {
   waveform: { black: number; shadows: number; median: number; highlights: number; white: number };
   rgbParade: Record<"red" | "green" | "blue", { low: number; median: number; high: number }>;
   saturation: { mean: number; high: number };
-  illegal: { belowLegalBlackPercent: number; aboveLegalWhitePercent: number };
+  rgbExtremes: { nearBlackPercent: number; nearWhitePercent: number };
 }
 
 export function analyzeRgbScopes(bytes: Uint8Array): VideoScopeReading {
@@ -116,7 +116,7 @@ export function analyzeRgbScopes(bytes: Uint8Array): VideoScopeReading {
     waveform: { black: percentile(luma, 0.01), shadows: percentile(luma, 0.1), median: percentile(luma, 0.5), highlights: percentile(luma, 0.9), white: percentile(luma, 0.99) },
     rgbParade: { red: channel(red), green: channel(green), blue: channel(blue) },
     saturation: { mean: Number((saturation.reduce((sum, value) => sum + value, 0) / pixels).toFixed(2)), high: percentile(saturation, 0.9) },
-    illegal: { belowLegalBlackPercent: Number((below / pixels * 100).toFixed(2)), aboveLegalWhitePercent: Number((above / pixels * 100).toFixed(2)) },
+    rgbExtremes: { nearBlackPercent: Number((below / pixels * 100).toFixed(2)), nearWhitePercent: Number((above / pixels * 100).toFixed(2)) },
   };
 }
 
@@ -254,7 +254,7 @@ export function getMediaAnalysisTools(_bridgeOptions: BridgeOptions) {
       },
     },
     read_video_scopes: {
-      description: "Read waveform percentiles, RGB parade percentiles, saturation, and probable legal-range excursions from one bounded decoded local-media frame. Read-only; this is a sampled analytical proxy, not Premiere's rendered scopes.",
+      description: "Read waveform percentiles, RGB parade percentiles, saturation, and near-black/near-white RGB occupancy from one bounded decoded local-media frame. Read-only; this is a sampled analytical proxy, not Premiere's rendered scopes.",
       parameters: { type: "object", properties: {
         media_path: { type: "string", description: "Existing local video file" },
         time_seconds: { type: "number", description: "Source-relative frame time from 0 through 86400 seconds (default: 0)" },
@@ -269,9 +269,9 @@ export function getMediaAnalysisTools(_bridgeOptions: BridgeOptions) {
           if (result.stdout.length !== 320 * 180 * 3) return { success: false, error: "ffmpeg did not return one complete RGB scope frame" };
           return { success: true, data: {
             mediaPath: path, timeSeconds: time, sampleSize: { width: 320, height: 180 }, ...analyzeRgbScopes(result.stdout),
-            verificationScope: "One source-relative frame decoded and downscaled to 320x180. Values are RGB/luma sample statistics, not a Premiere program-monitor render, HDR interpretation, vectorscope trace, or visual grade approval."
+            verificationScope: "One source-relative frame decoded and downscaled to 320x180. Values are post-conversion RGB/luma sample statistics; near-black/near-white occupancy does not prove source-domain legal-range violations. This is not a Premiere program-monitor render, HDR interpretation, vectorscope trace, or visual grade approval."
           } };
-        } catch (error) { return { success: false, error: failureMessage(error, "video scope analysis") }; }
+        } catch (error) { return { success: false, error: failureMessage(error, "video scope analysis", 60) }; }
       },
     },
     analyze_video_interlacing: {
