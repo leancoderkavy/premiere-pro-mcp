@@ -996,7 +996,7 @@ premiere-pro-mcp/
 ├── src/
 │   ├── index.ts                 # Entry point — stdio transport setup
 │   ├── http-server.ts           # Entry point — HTTP/SSE transport (Fly.io / remote)
-│   ├── server.ts                # MCP server — registers 326 tools, filtered by authority profile
+│   ├── server.ts                # MCP server — registers 327 tools, filtered by authority profile
 │   ├── bridge/
 │   │   ├── file-bridge.ts       # File-based IPC (write .jsx, poll .json)
 │   │   └── script-builder.ts    # ExtendScript generator with ES3 helpers
