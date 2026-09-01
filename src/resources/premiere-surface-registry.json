@@ -1,0 +1,151 @@
+{
+  "schemaVersion": 1,
+  "researchedAt": "2026-09-01",
+  "completionPolicy": "A surface is complete only when its authoritative symbol or document inventory is generated, every item is classified, freshness is checked in CI, and claimed runtime behavior has the declared verification evidence.",
+  "integrationSurfaces": [
+    {
+      "id": "premiere-dom",
+      "kind": "api",
+      "authorityUrls": ["https://developer.adobe.com/premiere-pro/uxp/ppro-reference/"],
+      "versionSource": "@adobe/premierepro@26.3.0",
+      "inventoryArtifact": "dist/resources/adobe-api-inventory.json",
+      "inventoryState": "complete",
+      "implementationState": "partial",
+      "notes": "All stable declaration symbols are inventoried; mapped means classified, not necessarily a standalone MCP tool or live-host proof."
+    },
+    {
+      "id": "uxp-javascript",
+      "kind": "api",
+      "authorityUrls": ["https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-js/"],
+      "versionSource": "Premiere-bundled UXP runtime",
+      "inventoryArtifact": null,
+      "inventoryState": "not_started",
+      "implementationState": "partial",
+      "notes": "Filesystem, networking, shell, core runtime, and module APIs require a separate inventory from the Premiere DOM."
+    },
+    {
+      "id": "uxp-html",
+      "kind": "api",
+      "authorityUrls": ["https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-html/"],
+      "versionSource": "Premiere-bundled UXP runtime",
+      "inventoryArtifact": null,
+      "inventoryState": "not_started",
+      "implementationState": "partial",
+      "notes": "Supported HTML elements and attributes affect the packaged panel, not the MCP command catalog."
+    },
+    {
+      "id": "uxp-css",
+      "kind": "api",
+      "authorityUrls": ["https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-css/"],
+      "versionSource": "Premiere-bundled UXP runtime",
+      "inventoryArtifact": null,
+      "inventoryState": "not_started",
+      "implementationState": "partial",
+      "notes": "Supported CSS properties and features affect the packaged panel, not the MCP command catalog."
+    },
+    {
+      "id": "spectrum-web-components",
+      "kind": "api",
+      "authorityUrls": ["https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-spectrum/"],
+      "versionSource": "Premiere-bundled UXP runtime",
+      "inventoryArtifact": null,
+      "inventoryState": "not_started",
+      "implementationState": "partial",
+      "notes": "Spectrum UI coverage is a panel compatibility concern and must not inflate editing-tool coverage."
+    },
+    {
+      "id": "uxp-plugin-guides",
+      "kind": "documentation",
+      "authorityUrls": ["https://developer.adobe.com/premiere-pro/uxp/plugins/"],
+      "versionSource": "Adobe documentation",
+      "inventoryArtifact": null,
+      "inventoryState": "not_started",
+      "implementationState": "partial",
+      "notes": "Manifest, entrypoint, lifecycle, packaging, distribution, and recipe requirements need page-level classification."
+    },
+    {
+      "id": "uxp-hybrid-cpp",
+      "kind": "sdk",
+      "authorityUrls": ["https://developer.adobe.com/premiere-pro/uxp/plugins/hybrid-plugins/"],
+      "versionSource": "UXP Hybrid Plugin SDK from Adobe Developer Console",
+      "inventoryArtifact": null,
+      "inventoryState": "blocked_external_artifact",
+      "implementationState": "gated",
+      "notes": "The downloadable SDK headers are access-controlled. The existing benchmark remains disabled until exact SDK and cross-platform evidence are available."
+    },
+    {
+      "id": "premiere-cpp-sdk",
+      "kind": "sdk",
+      "authorityUrls": [
+        "https://developer.adobe.com/premiere-pro/",
+        "https://developer.adobe.com/premiere-pro/access-the-developer-console/"
+      ],
+      "versionSource": "Premiere Pro C++ SDK from Adobe Developer Console",
+      "inventoryArtifact": null,
+      "inventoryState": "blocked_external_artifact",
+      "implementationState": "not_started",
+      "notes": "The standalone PrSDK for native importers, exporters, effects, transitions, devices, and related plug-ins is distinct from UXP Hybrid addons and requires the access-controlled SDK documentation and headers."
+    },
+    {
+      "id": "cep-extendscript",
+      "kind": "legacy_api",
+      "authorityUrls": ["https://github.com/Adobe-CEP/Samples/tree/master/PProPanel"],
+      "communityReferenceUrls": ["https://ppro-scripting.docsforadobe.dev/"],
+      "versionSource": "Premiere Pro Scripting Guide and bundled host DOM",
+      "inventoryArtifact": "dist/resources/extendscript-reference.js",
+      "inventoryState": "partial",
+      "implementationState": "partial",
+      "notes": "The current reference is curated rather than generated from a versioned complete symbol source. The Docs for Adobe scripting guide is recorded as a community reference, not Adobe authority."
+    },
+    {
+      "id": "cep-platform",
+      "kind": "legacy_sdk",
+      "authorityUrls": ["https://github.com/Adobe-CEP/CEP-Resources"],
+      "versionSource": "Adobe CEP Resources",
+      "inventoryArtifact": null,
+      "inventoryState": "not_started",
+      "implementationState": "partial",
+      "notes": "Panel manifest, CSInterface, signing, installation, and host compatibility require a dedicated SDK inventory."
+    },
+    {
+      "id": "qe-dom",
+      "kind": "undocumented_api",
+      "authorityUrls": [],
+      "versionSource": "Runtime observation only",
+      "inventoryArtifact": null,
+      "inventoryState": "unavailable_authoritative_source",
+      "implementationState": "experimental",
+      "notes": "Adobe publishes no authoritative QE reference. Runtime probes and explicit experimental boundaries remain required."
+    }
+  ],
+  "competitorSources": [
+    {
+      "repository": "nepfaff/premiere-pro-mcp",
+      "commit": "63215d327384ac226183f29cac4140e64382e7a1",
+      "observedAt": "2026-09-01",
+      "featureFamilies": ["arbitrary_uxp_javascript", "deferred_result_retrieval", "embedded_api_help"],
+      "adoptionBoundary": "Arbitrary code generation is already authority-gated in this project; no unsafe default parity is permitted."
+    },
+    {
+      "repository": "antipaster/Adobe-Premiere-Pro-MCP",
+      "commit": "9cb62cf9c7f9a64379e0cb1600ff3be93a46cac5",
+      "observedAt": "2026-09-01",
+      "featureFamilies": ["ai_workflows", "audio", "captions", "effects", "export", "graphics", "markers", "metadata", "playback", "project", "sequence", "timeline"],
+      "adoptionBoundary": "Compare named tools and host scripts against current catalog before treating any advertised family as a gap."
+    },
+    {
+      "repository": "designbyfatur/PremiereMCP",
+      "commit": "cce19c2e631015f76e209977472316e56e0faf76",
+      "observedAt": "2026-09-01",
+      "featureFamilies": ["large_declared_tool_catalog", "cli_chat", "cep_host_bridge", "workflow_orchestration"],
+      "adoptionBoundary": "README tool-count claims are not implementation or licensed-host evidence; source extraction is required."
+    },
+    {
+      "repository": "MarvelCollin/adobe-premiere-cc-mcp",
+      "commit": "c27152fd18ad27c80591d3b88965a9e9a792845d",
+      "observedAt": "2026-09-01",
+      "featureFamilies": ["audio_faults", "beats", "color_scopes", "dialogue", "ducking", "frame_analysis", "loudness", "motion", "qc", "review", "split_edits", "stabilizer"],
+      "adoptionBoundary": "Outcome workflows must be independently implemented with exact target, confirmation, and verification contracts."
+    }
+  ]
+}
