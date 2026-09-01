@@ -34,6 +34,14 @@ describe("delivery conformance comparisons", () => {
     expect(validateDeliveryConformanceContract({})).toContain("At least one");
     expect(validateDeliveryConformanceContract({ width: -1 })).toContain("positive integer");
     expect(validateDeliveryConformanceContract({ minimumVideoBitrateKbps: 20, maximumVideoBitrateKbps: 10 })).toContain("cannot exceed");
+    expect(parseRationalRate(24)).toBe(24);
+    expect(parseRationalRate("bad")).toBeNull();
+    expect(validateDeliveryConformanceContract({ allowedContainerNames: [] })).toContain("container name");
+    expect(validateDeliveryConformanceContract({ audioChannels: 1.5 })).toContain("positive integer");
+    expect(validateDeliveryConformanceContract({ durationSeconds: 0 })).toContain("greater than 0");
+    expect(validateDeliveryConformanceContract({ durationToleranceSeconds: -1 })).toContain("non-negative");
+    expect(validateDeliveryConformanceContract({ targetLufs: 1 })).toContain("target_lufs");
+    expect(validateDeliveryConformanceContract({ maximumTruePeakDbfs: 1 })).toContain("maximum_true_peak");
   });
 
   it("reports matching and mismatching fields independently", () => {
@@ -59,6 +67,14 @@ describe("delivery conformance comparisons", () => {
     expect(checks.find(check => check.id === "audio_channels")?.status).toBe("fail");
     expect(checks.find(check => check.id === "integrated_loudness")?.status).toBe("not_evaluated");
     expect(checks.find(check => check.id === "true_peak")?.status).toBe("not_evaluated");
+  });
+
+  it("evaluates loudness failures and absent bitrate evidence", () => {
+    const checks = evaluateDeliveryConformance({ format: { format_name: "matroska" }, streams: [{ codec_type: "audio", codec_name: "aac" }] }, {
+      allowedContainerNames: ["mov"], minimumVideoBitrateKbps: 1000, maximumVideoBitrateKbps: 2000,
+      targetLufs: -23, loudnessToleranceLu: 0.5, maximumTruePeakDbfs: -1,
+    }, { integratedLufs: -20, truePeakDbfs: -0.5 });
+    expect(checks.every(check => check.status === "fail")).toBe(true);
   });
 });
 
@@ -109,5 +125,29 @@ describe("verify_delivery_conformance boundary", () => {
     });
     await expect(tool.handler({ output_path: changingPath, video_codec: "h264" }))
       .resolves.toMatchObject({ success: false, error: expect.stringContaining("changed during") });
+  });
+
+  it("handles missing tools, invalid probe JSON, and unavailable loudness without overclaiming", async () => {
+    const missingToolPath = mediaFile();
+    mockedExecFileAsync.mockRejectedValueOnce(Object.assign(new Error("missing"), { code: "ENOENT" }));
+    await expect(tool.handler({ output_path: missingToolPath, video_codec: "h264" }))
+      .resolves.toMatchObject({ success: false, error: expect.stringContaining("ffprobe was not found") });
+
+    const invalidJsonPath = mediaFile();
+    mockedExecFileAsync.mockResolvedValueOnce({ stdout: "null", stderr: "" });
+    await expect(tool.handler({ output_path: invalidJsonPath, video_codec: "h264" }))
+      .resolves.toMatchObject({ success: false, error: expect.stringContaining("invalid delivery report") });
+
+    const silentPath = mediaFile();
+    mockedExecFileAsync.mockResolvedValueOnce({ stdout: JSON.stringify({ format: {}, streams: [] }), stderr: "" });
+    await expect(tool.handler({ output_path: silentPath, target_lufs: -23 }))
+      .resolves.toMatchObject({ success: true, data: { conforms: false, evaluated: 0, notEvaluated: 1 } });
+
+    const unreadableAudioPath = mediaFile();
+    mockedExecFileAsync
+      .mockResolvedValueOnce({ stdout: JSON.stringify(probe), stderr: "" })
+      .mockRejectedValueOnce(Object.assign(new Error("decode"), { stderr: "no measurement" }));
+    await expect(tool.handler({ output_path: unreadableAudioPath, target_lufs: -23 }))
+      .resolves.toMatchObject({ success: true, data: { conforms: false, notEvaluated: 1 } });
   });
 });
