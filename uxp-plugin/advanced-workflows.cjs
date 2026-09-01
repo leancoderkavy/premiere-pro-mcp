@@ -347,24 +347,27 @@
       }
       const ownerId = guidString(context.owner && context.owner.guid);
       return withAppendLock(appendLockKey(context.project, "markers", "sequence:" + ownerId), async () => {
-        const before = await markerList(context.collection);
+        const before = boundedMarkers(context.collection);
         if (before.length + times.length > MAX_MARKERS) throw commandError("UXP_COLLECTION_LIMIT", "Beat marker creation would exceed the " + MAX_MARKERS + " marker limit");
+        const beforeGuids = new Set(before.map((marker) => guidString(marker.guid)));
         context.project.lockedAccess(() => {
           const actions = times.map((time, index) => context.collection.createAddMarkerAction(prefix + " " + (index + 1), markerType, tick(time, "beat time"), tick(0, "durationSeconds"), comments));
           commitActions(context.project, "Add beat grid markers", actions);
         });
-        let after;
+        let afterMarkers, added;
         try {
-          after = await markerList(context.collection);
+          afterMarkers = boundedMarkers(context.collection);
+          const addedMarkers = afterMarkers.filter((marker) => !beforeGuids.has(guidString(marker.guid)));
+          added = [];
+          for (const marker of addedMarkers) added.push(await markerSnapshot(marker));
         } catch (_) {
           return mutationResult(false, { added: null, markers: [], beforeCount: before.length, afterCount: null, offsetSeconds: offset }, "beat_marker_guid_and_time_readback", "Add beat grid markers");
         }
-        const beforeGuids = new Set(before.map((marker) => marker.guid));
-        const added = after.filter((marker) => !beforeGuids.has(marker.guid));
         const addedGuids = new Set(added.map((marker) => marker.guid));
         const verified = added.length === times.length && addedGuids.size === added.length
-          && added.every((marker, index) => Boolean(marker.guid) && marker.name === prefix + " " + (index + 1) && numbersEqual(marker.startSeconds, times[index]));
-        return mutationResult(verified, { added: added.length, markers: added, beforeCount: before.length, afterCount: after.length, offsetSeconds: offset }, "beat_marker_guid_and_time_readback", "Add beat grid markers");
+          && added.every((marker, index) => Boolean(marker.guid) && marker.name === prefix + " " + (index + 1)
+            && marker.startSeconds != null && numbersEqual(marker.startSeconds, times[index]));
+        return mutationResult(verified, { added: added.length, markers: added, beforeCount: before.length, afterCount: afterMarkers.length, offsetSeconds: offset }, "beat_marker_guid_and_time_readback", "Add beat grid markers");
       });
     }
 

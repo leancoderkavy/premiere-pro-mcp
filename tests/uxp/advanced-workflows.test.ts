@@ -374,6 +374,18 @@ describe("advanced stable Premiere UXP workflows", () => {
     await expect(wrongName.registry.dispatch("markers.addBeatGrid", { beatTimesSeconds: [1] }))
       .resolves.toMatchObject({ outcome: "committed_unverified", verified: false });
 
+    const missingZeroTime = advancedHost();
+    missingZeroTime.markers.createAddMarkerAction.mockImplementation((name: string, type: string) => ({ apply: () => {
+      missingZeroTime.markerValues.push({
+        ...missingZeroTime.markerValues[0], guid: "missing-zero-time-guid", getName: vi.fn(async () => name),
+        getType: vi.fn(async () => type), getStart: vi.fn(async () => ({})),
+      });
+    } }));
+    await expect(missingZeroTime.registry.dispatch("markers.addBeatGrid", { beatTimesSeconds: [0] }))
+      .resolves.toMatchObject({ outcome: "committed_unverified", verified: false });
+    expect(missingZeroTime.markerValues[0].getName).not.toHaveBeenCalled();
+    expect(missingZeroTime.markerValues[0].getStart).not.toHaveBeenCalled();
+
     const getterFailure = advancedHost();
     getterFailure.markers.createAddMarkerAction.mockImplementation((name: string, type: string, start: { seconds: number }) => ({ apply: () => {
       getterFailure.markerValues.push({
