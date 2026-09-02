@@ -1110,7 +1110,7 @@ export function getExportTools(bridgeOptions: BridgeOptions) {
             0, // workAreaType
             1  // removeOnCompletion
           );
-          if (!jobId || jobId === 0) return __error("Adobe Media Encoder did not queue the sequence export.");
+          if (!jobId || String(jobId) === "0") return __error("Adobe Media Encoder did not queue the sequence export.");
           
           return __result({
             accepted: true,
@@ -1373,7 +1373,7 @@ export function getExportTools(bridgeOptions: BridgeOptions) {
             app.encoder.ENCODE_IN_TO_OUT,
             ${args.remove_on_completion !== false ? 1 : 0}
           );
-          if (!jobId || jobId === 0) return __error("Adobe Media Encoder did not queue the project-item export.");
+          if (!jobId || String(jobId) === "0") return __error("Adobe Media Encoder did not queue the project-item export.");
           app.encoder.startBatch();
           
           return __result({
@@ -1465,7 +1465,7 @@ export function getExportTools(bridgeOptions: BridgeOptions) {
             srcIn,
             srcOut
           );
-          if (!jobId || jobId === 0) return __error("Adobe Media Encoder did not queue the file export.");
+          if (!jobId || String(jobId) === "0") return __error("Adobe Media Encoder did not queue the file export.");
           app.encoder.startBatch();
           
           return __result({
@@ -1484,8 +1484,8 @@ export function getExportTools(bridgeOptions: BridgeOptions) {
     manage_proxies: {
       description:
         "Create, attach, or toggle proxies for a project item. " +
-        "Note: 'create' queues a proxy encode in Adobe Media Encoder and returns immediately — " +
-        "AME renders in the background. Once it finishes, call this tool again with action 'attach' " +
+        "Note: 'create' only requests a proxy encode from Adobe Media Encoder and returns an unverified handoff. " +
+        "Independently verify the AME queue or output file before calling this tool again with action 'attach' " +
         "and proxy_path set to the output_path you passed here. There is no single-call create-and-attach " +
         "in Premiere's ExtendScript API.",
       parameters: {
@@ -1546,7 +1546,7 @@ export function getExportTools(bridgeOptions: BridgeOptions) {
                  // AME has finished writing the file.
                  app.encoder.launchEncoder();
                  var jobId = app.encoder.encodeProjectItem(item, outputPath, presetPath, app.encoder.ENCODE_ENTIRE, 1);
-                 if (!jobId || jobId === 0) return __error("Adobe Media Encoder did not queue the proxy encode.");
+                 if (!jobId || String(jobId) === "0") return __error("Adobe Media Encoder did not queue the proxy encode.");
                  app.encoder.startBatch();
 
                  return __result({

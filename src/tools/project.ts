@@ -129,9 +129,13 @@ export function getProjectTools(bridgeOptions: BridgeOptions) {
                 var item = bin.children[i];
                 try {
                   var mediaPath = item.getMediaPath();
-                  if (mediaPath) {
-                    if (!pathMap[mediaPath]) pathMap[mediaPath] = 0;
-                    pathMap[mediaPath]++;
+                  var nodeId = String(item.nodeId || "");
+                  if (mediaPath && nodeId) {
+                    if (!pathMap[mediaPath]) pathMap[mediaPath] = { nodeIds: {}, count: 0 };
+                    if (!pathMap[mediaPath].nodeIds[nodeId]) {
+                      pathMap[mediaPath].nodeIds[nodeId] = true;
+                      pathMap[mediaPath].count++;
+                    }
                   }
                 } catch (e) {}
                 if (item.type === 2) scan(item);
@@ -142,9 +146,9 @@ export function getProjectTools(bridgeOptions: BridgeOptions) {
             var duplicateGroupCount = 0;
             var duplicateItemCount = 0;
             for (var path in pathMap) {
-              if (pathMap.hasOwnProperty(path) && pathMap[path] > 1) {
+              if (pathMap.hasOwnProperty(path) && pathMap[path].count > 1) {
                 duplicateGroupCount++;
-                duplicateItemCount += pathMap[path] - 1;
+                duplicateItemCount += pathMap[path].count - 1;
               }
             }
             return {

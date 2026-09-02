@@ -587,6 +587,8 @@ describe("issue #237 — reported mutations must be observable or fail", () => {
 
     expect(imports).toContain("new File");
     expect(imports).toContain("beforeIds");
+    expect(duplicates).toContain("var nodeId = String(item.nodeId || \"\")");
+    expect(duplicates).toContain("pathMap[mediaPath].nodeIds[nodeId]");
     expect(imports).toContain("Premiere did not add any of the requested sequences");
     expect(duplicates).toContain("__duplicateMediaStats");
     expect(duplicates).toContain("duplicate media groups did not decrease");
@@ -696,7 +698,7 @@ describe("issue #323 — AME handoffs are unverified until a queue or file readb
     const batch = await scriptFor(project.start_batch_encode, {});
 
     for (const script of [render, item, proxy]) {
-      expect(script).toContain("if (!jobId || jobId === 0) return __error");
+      expect(script).toContain('if (!jobId || String(jobId) === "0") return __error');
       expect(script).toContain("accepted: true");
       expect(script).toContain('outcome: "committed_unverified"');
       expect(script).not.toContain("queued: true");
