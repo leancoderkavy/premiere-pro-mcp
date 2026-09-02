@@ -13,8 +13,8 @@
   },
   "stats": {
     "total": 976,
-    "mapped": 181,
-    "unmapped": 795,
+    "mapped": 183,
+    "unmapped": 793,
     "manifestOnly": 4
   },
   "manifestOnly": [
@@ -604,7 +604,7 @@
     {
       "symbol": "CaptionTrack.id",
       "kind": "property",
-      "coverage": "unmapped"
+      "coverage": "mapped"
     },
     {
       "symbol": "CaptionTrack.isMuted",
@@ -614,7 +614,7 @@
     {
       "symbol": "CaptionTrack.name",
       "kind": "property",
-      "coverage": "unmapped"
+      "coverage": "mapped"
     },
     {
       "symbol": "CaptionTrack.setMute",

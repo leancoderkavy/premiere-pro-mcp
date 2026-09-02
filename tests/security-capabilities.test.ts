@@ -220,6 +220,26 @@ describe("capability profiles", () => {
       verificationBoundary: "static_metadata_only",
       hostVerificationRequired: false,
     });
+
+  });
+
+  it("classifies caption inventory with its UXP backend and baseline", () => {
+    const tool = deriveToolOperationalCapability(
+      "inspect_caption_tracks_uxp",
+      { description: "Inventory native caption tracks on the active sequence." },
+      resolveCapabilities("inspect"),
+    );
+    expect(tool).toMatchObject({
+      backend: "UXP",
+      backends: ["uxp"],
+      minimumPremiereVersion: "25.6",
+      authority: { required: "inspect", enabled: true },
+      verificationBoundary: "host_response",
+      hostVerificationRequired: true,
+    });
+    expect(tool.notes).toEqual([
+      "Runs through the authenticated local UXP bridge using Premiere UXP APIs.",
+    ]);
   });
 
   it("builds a deterministic summary from the registered catalog", () => {
