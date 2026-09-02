@@ -405,7 +405,7 @@ describe("UXP MCP tools", () => {
       // guarded append-only timeline duplication add thirty-nine consolidated
       // UXP tools;
       // connection verification and delivery conformance add two default-profile core tools.
-      expect(tools.tools).toHaveLength(403);
+      expect(tools.tools).toHaveLength(404);
     } finally {
       await client.close();
       await server.close();
