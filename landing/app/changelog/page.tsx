@@ -20,7 +20,29 @@ const releases = [
       {
         title: "Safety",
         items: [
-          "Unsupported sequence formats, unavailable readback, incomplete delivery probes, and partial transition writes fail closed. Automated contracts remain distinct from licensed-Premiere host proof.",
+          "Unsupported sequence pixel-aspect ratios, incomplete delivery probes, and partial transition writes fail closed. Mutations without a complete Adobe readback retain their documented verified or committed-unverified outcome; automated contracts remain distinct from licensed-Premiere host proof.",
+        ],
+      },
+    ],
+  },
+  {
+    version: "1.14.5",
+    date: "2026-08-31",
+    label: "Verified mutation and playback hotfixes",
+    groups: [
+      {
+        title: "Fixed",
+        items: [
+          "QE razor operations now pass sequence timecode instead of ticks, with regression coverage for split and all-track cuts.",
+          "Batch effect application preflights every target, resolves QE clips without assuming gap-free indexes, and requires component-count readback.",
+          "Legacy playback tools now report request acceptance rather than unverified playhead movement or stoppage.",
+          "Empty QE audio-transition catalogs fail closed, while effect fallback results are explicitly bounded and partial.",
+        ],
+      },
+      {
+        title: "Validation",
+        items: [
+          "Automated contracts cover the repaired behaviors; real licensed-Premiere host execution remains a separate evidence gate.",
         ],
       },
     ],

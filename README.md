@@ -39,8 +39,9 @@ The AI handles the entire workflow through 327 core tools spanning the supported
   playhead, marker, transition, caption, silence-cut, and split-edit workflows.
 - **Review-first evidence:** local delivery checks, sampled media analysis, and
   editorial context packs remain bounded and avoid unapproved provider writes.
-- **Fail-closed host behavior:** unavailable readback, partial writes, and
-  unsupported sequence formats are explicit errors rather than success claims.
+- **Narrowed host behavior:** unsupported sequence pixel-aspect ratios and
+  partial UXP transition writes fail closed; other mutations retain their
+  documented verified or explicitly `committed_unverified` outcome.
 - **Explicit boundary:** the hosted endpoint remains an operator-managed MCP
   service; unauthenticated callers are rejected and it does not pair users to
   local Premiere processes.
