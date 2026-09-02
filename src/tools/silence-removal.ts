@@ -33,22 +33,28 @@ export function planDerivedSilenceRemoval(input: {
 
   const totalFrames = Math.floor(duration * frameRate + 1e-7);
   if (totalFrames < 1) throw new Error("media duration is shorter than one frame");
-  const candidates: FrameRange[] = [];
+  const snappedSilenceRanges: FrameRange[] = [];
   for (let index = 0; index < input.silenceRanges.length; index += 1) {
     const range = input.silenceRanges[index];
     const start = finite(range?.startSeconds, `silenceRanges[${index}].startSeconds`);
     const end = finite(range?.endSeconds, `silenceRanges[${index}].endSeconds`);
     if (start < 0 || end <= start || end > duration + 1e-7) throw new Error(`silenceRanges[${index}] is outside the media duration`);
-    const startFrame = Math.max(0, Math.ceil(start * frameRate - 1e-7) + keepHandleFrames);
-    const endFrame = Math.min(totalFrames, Math.floor(end * frameRate + 1e-7) - keepHandleFrames);
-    if (endFrame > startFrame) candidates.push({ startFrame, endFrame });
+    const startFrame = Math.max(0, Math.ceil(start * frameRate - 1e-7));
+    const endFrame = Math.min(totalFrames, Math.floor(end * frameRate + 1e-7));
+    if (endFrame > startFrame) snappedSilenceRanges.push({ startFrame, endFrame });
   }
-  candidates.sort((left, right) => left.startFrame - right.startFrame || left.endFrame - right.endFrame);
-  const removalRanges: FrameRange[] = [];
-  for (const candidate of candidates) {
-    const previous = removalRanges.at(-1);
+  snappedSilenceRanges.sort((left, right) => left.startFrame - right.startFrame || left.endFrame - right.endFrame);
+  const mergedSilenceRanges: FrameRange[] = [];
+  for (const candidate of snappedSilenceRanges) {
+    const previous = mergedSilenceRanges.at(-1);
     if (previous && candidate.startFrame <= previous.endFrame) previous.endFrame = Math.max(previous.endFrame, candidate.endFrame);
-    else removalRanges.push({ ...candidate });
+    else mergedSilenceRanges.push({ ...candidate });
+  }
+  const removalRanges: FrameRange[] = [];
+  for (const silence of mergedSilenceRanges) {
+    const startFrame = silence.startFrame + keepHandleFrames;
+    const endFrame = silence.endFrame - keepHandleFrames;
+    if (endFrame > startFrame) removalRanges.push({ startFrame, endFrame });
   }
   if (removalRanges.length > maximumRemovals) throw new Error(`silence plan exceeds maximumRemovals (${maximumRemovals})`);
 

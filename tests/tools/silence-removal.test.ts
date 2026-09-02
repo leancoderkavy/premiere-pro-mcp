@@ -16,6 +16,22 @@ describe("derived silence-removal planner", () => {
     expect(plan.keepRanges).toEqual([{ startFrame: 0, endFrame: 32 }, { startFrame: 118, endFrame: 180 }]);
   });
 
+  it("merges snapped overlapping silences before applying outer handles", () => {
+    const plan = planDerivedSilenceRemoval({ durationSeconds: 10, frameRate: 30, keepHandleFrames: 10, silenceRanges: [
+      { startSeconds: 0, endSeconds: 5 }, { startSeconds: 4.5, endSeconds: 10 },
+    ] });
+    expect(plan.removalRanges).toEqual([{ startFrame: 10, endFrame: 290 }]);
+    expect(plan.keepRanges).toEqual([{ startFrame: 0, endFrame: 10 }, { startFrame: 290, endFrame: 300 }]);
+  });
+
+  it("merges snapped overlapping silences before applying outer handles", () => {
+    const plan = planDerivedSilenceRemoval({ durationSeconds: 10, frameRate: 30, keepHandleFrames: 10, silenceRanges: [
+      { startSeconds: 0, endSeconds: 5 }, { startSeconds: 4.5, endSeconds: 10 },
+    ] });
+    expect(plan.removalRanges).toEqual([{ startFrame: 10, endFrame: 290 }]);
+    expect(plan.keepRanges).toEqual([{ startFrame: 0, endFrame: 10 }, { startFrame: 290, endFrame: 300 }]);
+  });
+
   it("refuses invalid, truncated, and all-silence plans", () => {
     expect(() => planDerivedSilenceRemoval({ durationSeconds: 1, frameRate: 30, silenceRanges: [{ startSeconds: 0, endSeconds: 1 }] })).toThrow("entire source");
     expect(() => planDerivedSilenceRemoval({ durationSeconds: 10, frameRate: 30, maximumRemovals: 1, silenceRanges: [

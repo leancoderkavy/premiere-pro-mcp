@@ -409,6 +409,54 @@ describe("advanced stable Premiere UXP workflows", () => {
     expect(value.project.createSequenceFromMedia).toHaveBeenCalledTimes(1);
   });
 
+  it("rejects a silence stringout before overflowing the destination bin", async () => {
+    const value = advancedHost();
+    value.bin.children?.push(...Array.from({ length: 1023 }, () => value.clip));
+    await expect(value.registry.dispatch("silence.deriveSequence", {
+      sourceProjectItemId: "clip-1", name: "Over Capacity", confirmNonUndoable: true, operationId: "over-capacity",
+      keepRanges: [{ startSeconds: 0, endSeconds: 2, startFrame: 0, endFrame: 60 }],
+    })).rejects.toMatchObject({ code: "UXP_PROJECT_TOO_LARGE" });
+    expect(value.clip.createSubClipAction).not.toHaveBeenCalled();
+  });
+
+  it("caches a partial receipt when a post-mutation subclip snapshot rejects", async () => {
+    const value = advancedHost();
+    let idReads = 0;
+    value.clip.createSubClipAction.mockImplementationOnce((name: string) => ({ apply: () => {
+      const created = {
+        ...value.clip, id: "subclip-snapshot-failure", name,
+        getId: vi.fn(async () => { idReads += 1; if (idReads === 1) return "subclip-snapshot-failure"; throw new Error("snapshot unavailable"); }),
+      };
+      value.bin.children?.push(created);
+    } }));
+    value.ppro.SequenceEditor.getEditor.mockImplementationOnce(() => { throw new Error("editor unavailable"); });
+    const args = {
+      sourceProjectItemId: "clip-1", name: "Snapshot Tight", confirmNonUndoable: true, operationId: "snapshot-failure",
+      keepRanges: [{ startSeconds: 0, endSeconds: 2, startFrame: 0, endFrame: 60 }],
+    };
+    await expect(value.registry.dispatch("silence.deriveSequence", args)).resolves.toMatchObject({
+      partial: true, verificationBoundary: "derived_sequence_partial_insert_receipt",
+      createdSubclips: [{ id: "", name: "Snapshot Tight Keep 1" }],
+    });
+    await expect(value.registry.dispatch("silence.deriveSequence", args)).resolves.toMatchObject({ partial: true, replayed: true });
+    expect(value.clip.createSubClipAction).toHaveBeenCalledTimes(1);
+  });
+
+  it("reconciles a sequence created before its host call rejects", async () => {
+    const value = advancedHost();
+    value.project.createSequenceFromMedia.mockImplementationOnce(async (name: string) => {
+      value.sequences.push({ guid: "sequence-after-error", name });
+      throw new Error("host rejected after creation");
+    });
+    await expect(value.registry.dispatch("silence.deriveSequence", {
+      sourceProjectItemId: "clip-1", name: "Recovered Tight", confirmNonUndoable: true, operationId: "sequence-reconcile",
+      keepRanges: [{ startSeconds: 0, endSeconds: 2, startFrame: 0, endFrame: 60 }],
+    })).resolves.toMatchObject({
+      partial: true, verificationBoundary: "derived_sequence_host_reconciliation",
+      sequence: { id: "sequence-after-error", name: "Recovered Tight" },
+    });
+  });
+
   it("fails the silence-stringout capability probe when required host primitives are absent", async () => {
     const value = advancedHost();
     value.ppro.TickTime.createWithSeconds = undefined;
