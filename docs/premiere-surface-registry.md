@@ -22,6 +22,9 @@ inventory, explicitly labeled as non-Adobe authority and not runtime proof.
 The [beta AAFExportOptions declaration receipt](adobe-beta-aaf-export-options-drift.md)
 records a beta-only factory-type migration without constructing export options,
 exposing an AAF-export operation, or claiming export behavior in any host.
+The [beta project-options declaration receipt](adobe-beta-project-options-drift.md)
+records beta factory-type migrations without constructing project options,
+opening or closing projects, or claiming lifecycle behavior in any host.
 The [beta Media drift receipt](adobe-beta-media-drift.md) separately records the
 pinned stable-to-beta `Media` declaration delta. It is deliberately not a beta
 surface inventory or beta-host support claim. The [beta C2PA declaration

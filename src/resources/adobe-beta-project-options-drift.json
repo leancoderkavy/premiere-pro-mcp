@@ -1,0 +1,167 @@
+{
+  "schemaVersion": 1,
+  "scope": {
+    "declarations": [
+      "premierepro.OpenProjectOptions",
+      "OpenProjectOptions",
+      "OpenProjectOptionsStatic",
+      "premierepro.CloseProjectOptions",
+      "CloseProjectOptions",
+      "CloseProjectOptionsStatic"
+    ],
+    "semantics": "This records the beta OpenProjectOptions and CloseProjectOptions factory-type migrations against the pinned stable package. It is static declaration-drift accounting, not beta API support or a complete package diff.",
+    "mutationBoundary": "These options configure project open and close behavior, including dialog, dirty-project, workspace, and quit controls. This receipt intentionally does not construct options or expose an MCP open/close project operation.",
+    "doesNotEstablish": "It does not prove a beta host exposes either static factory, that dialogs or dirty-project behavior can be safely controlled, that a project opens or closes, or that any MCP action is supported or licensed-host validated."
+  },
+  "sources": {
+    "stable": {
+      "package": "@adobe/premierepro",
+      "version": "26.3.0",
+      "declarations": "node_modules/@adobe/premierepro/src/premierepro.d.ts",
+      "rootDeclarationSha256": "d5f794b13ebccf5781c4cdcab91fc3188a4a8bf26263f2cf20a1524280988b6e",
+      "staticFactoriesPresent": false,
+      "options": {
+        "OpenProjectOptions": "3a4b834d07c5c15bd7280a0761f5b5e5eca3b7a0395456ac71f50d71d084c32c",
+        "CloseProjectOptions": "8db822f666d87125f5490fc25c32f3cdc12275df1e1fbfc114c2b72e3f561277"
+      }
+    },
+    "beta": {
+      "package": "@adobe/premierepro-beta",
+      "version": "26.5.0-beta.73",
+      "declarations": "node_modules/@adobe/premierepro-beta/src/premierepro.d.ts",
+      "rootDeclarationSha256": "e546fac5bc471b755db6cb28e74ea43b7c92e60b288a3aa5ce6d572568490a16",
+      "staticFactoriesPresent": true,
+      "options": {
+        "OpenProjectOptions": {
+          "optionsDeclarationSha256": "70ee286173ab0dcf0583caa83e7ecbe70a0a6f2e2b258589d2aa85c24d33d44b",
+          "staticDeclarationSha256": "3cb24d8ba8b80fb8e9dff7e6985affa94f8de605055c4149503bcde2109ef2bd"
+        },
+        "CloseProjectOptions": {
+          "optionsDeclarationSha256": "953146952fd48b99239cb059ee16356dab79833cd814775bc061bf445ced4acd",
+          "staticDeclarationSha256": "72bfee10fb0d449a9f3ec2889ba3e554be6ee00096a0bbdc71f3e431ba3c8969"
+        }
+      }
+    }
+  },
+  "diff": {
+    "betaOnly": [
+      {
+        "symbol": "CloseProjectOptionsStatic",
+        "kind": "type",
+        "signature": "{ /** * Construct an object that contains properties for closing a project. * @constructor */ new (): CloseProjectOptions; (): CloseProjectOptions; }"
+      },
+      {
+        "symbol": "CloseProjectOptionsStatic.call",
+        "kind": "call_signature",
+        "signature": "() => CloseProjectOptions"
+      },
+      {
+        "symbol": "CloseProjectOptionsStatic.new",
+        "kind": "construct_signature",
+        "signature": "() => CloseProjectOptions"
+      },
+      {
+        "symbol": "OpenProjectOptionsStatic",
+        "kind": "type",
+        "signature": "{ /** * Construct an object that contains properties for opening a project. * @constructor */ new (): OpenProjectOptions; (): OpenProjectOptions; }"
+      },
+      {
+        "symbol": "OpenProjectOptionsStatic.call",
+        "kind": "call_signature",
+        "signature": "() => OpenProjectOptions"
+      },
+      {
+        "symbol": "OpenProjectOptionsStatic.new",
+        "kind": "construct_signature",
+        "signature": "() => OpenProjectOptions"
+      }
+    ],
+    "stableOnly": [],
+    "changed": [
+      {
+        "symbol": "premierepro.OpenProjectOptions",
+        "stable": {
+          "symbol": "premierepro.OpenProjectOptions",
+          "kind": "property",
+          "signature": "OpenProjectOptions"
+        },
+        "beta": {
+          "symbol": "premierepro.OpenProjectOptions",
+          "kind": "property",
+          "signature": "OpenProjectOptionsStatic"
+        }
+      },
+      {
+        "symbol": "OpenProjectOptions.factorySignatures",
+        "stable": {
+          "owner": "OpenProjectOptions",
+          "entries": [
+            {
+              "kind": "call_signature",
+              "signature": "() => OpenProjectOptions"
+            },
+            {
+              "kind": "construct_signature",
+              "signature": "() => OpenProjectOptions"
+            }
+          ]
+        },
+        "beta": {
+          "owner": "OpenProjectOptionsStatic",
+          "entries": [
+            {
+              "kind": "call_signature",
+              "signature": "() => OpenProjectOptions"
+            },
+            {
+              "kind": "construct_signature",
+              "signature": "() => OpenProjectOptions"
+            }
+          ]
+        }
+      },
+      {
+        "symbol": "premierepro.CloseProjectOptions",
+        "stable": {
+          "symbol": "premierepro.CloseProjectOptions",
+          "kind": "property",
+          "signature": "CloseProjectOptions"
+        },
+        "beta": {
+          "symbol": "premierepro.CloseProjectOptions",
+          "kind": "property",
+          "signature": "CloseProjectOptionsStatic"
+        }
+      },
+      {
+        "symbol": "CloseProjectOptions.factorySignatures",
+        "stable": {
+          "owner": "CloseProjectOptions",
+          "entries": [
+            {
+              "kind": "call_signature",
+              "signature": "() => CloseProjectOptions"
+            },
+            {
+              "kind": "construct_signature",
+              "signature": "() => CloseProjectOptions"
+            }
+          ]
+        },
+        "beta": {
+          "owner": "CloseProjectOptionsStatic",
+          "entries": [
+            {
+              "kind": "call_signature",
+              "signature": "() => CloseProjectOptions"
+            },
+            {
+              "kind": "construct_signature",
+              "signature": "() => CloseProjectOptions"
+            }
+          ]
+        }
+      }
+    ]
+  }
+}
