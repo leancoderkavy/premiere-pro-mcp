@@ -283,6 +283,15 @@ describe("Adobe Premiere Pro 26.3 UXP coverage", () => {
       verificationBoundary: "bounded_project_panel_metadata_readback",
       liveHostVerificationStatus: "not_run",
     });
+    expect(entries.find((entry) => entry.id === "guarded-project-panel-metadata-update")).toMatchObject({
+      uxpCommand: "metadata.projectPanel.update",
+      mcpTools: ["manage_project_panel_metadata_uxp"],
+      mutatesProject: true,
+      undoable: false,
+      idempotency: "operation_id",
+      verificationBoundary: "project_panel_metadata_exact_readback",
+      liveHostVerificationStatus: "not_run",
+    });
     expect(entries.find((entry) => entry.id === "guarded-track-item-slip")).toMatchObject({
       uxpCommand: "trackItem.slip",
       mcpTools: ["slip_track_item_uxp"],

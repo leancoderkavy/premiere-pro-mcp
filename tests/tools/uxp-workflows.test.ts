@@ -12,6 +12,7 @@ const WORKFLOW_TOOLS = [
   "relink_offline_media_uxp",
   "manage_metadata_uxp",
   "inspect_project_panel_metadata_uxp",
+  "manage_project_panel_metadata_uxp",
   "manage_color_conformance_uxp",
   "audition_source_monitor_uxp",
   "preflight_production_storage_uxp",
@@ -54,6 +55,19 @@ describe("stable UXP workflow MCP catalog", () => {
         action: { enum: ["panel", "item_columns"] },
         project_item_id: { minLength: 1, maxLength: 512 },
         project_item_name: { minLength: 1, maxLength: 255 },
+      },
+    });
+    expect(tools.manage_project_panel_metadata_uxp.parameters).toMatchObject({
+      type: "object",
+      additionalProperties: false,
+      required: ["action"],
+      properties: {
+        action: { enum: ["inspect", "update"] },
+        expected_project_guid: { minLength: 1, maxLength: 512 },
+        expected_project_panel_metadata: { maxLength: 12288 },
+        project_panel_metadata: { maxLength: 12288 },
+        confirm_update: { type: "boolean" },
+        operation_id: { pattern: expect.any(String) },
       },
     });
     expect(tools.relink_offline_media_uxp.parameters).toMatchObject({
@@ -191,6 +205,10 @@ describe("stable UXP workflow MCP catalog", () => {
     await tools.manage_metadata_uxp.handler({
       action: "update", project_item_id: "clip-1", project_metadata: "metadata", updated_fields: ["LogNote"], operation_id: "meta-1",
     });
+    await tools.manage_project_panel_metadata_uxp.handler({
+      action: "update", expected_project_guid: "project-1", expected_project_panel_metadata: "<before/>",
+      project_panel_metadata: "<after/>", confirm_update: true, operation_id: "panel-1",
+    });
     await tools.manage_color_conformance_uxp.handler({
       action: "update", project_item_id: "clip-1", frame_rate: 24, input_lut_id: "lut-guid", operation_id: "color-1",
     });
@@ -216,27 +234,43 @@ describe("stable UXP workflow MCP catalog", () => {
     expect(request).toHaveBeenNthCalledWith(6, "metadata.update", {
       projectItemId: "clip-1", projectMetadata: "metadata", updatedFields: ["LogNote"], operationId: "meta-1",
     });
-    expect(request).toHaveBeenNthCalledWith(7, "footage.conform", {
+    expect(request).toHaveBeenNthCalledWith(7, "metadata.projectPanel.update", {
+      expectedProjectGuid: "project-1", expectedProjectPanelMetadata: "<before/>", projectPanelMetadata: "<after/>",
+      confirmUpdate: true, operationId: "panel-1",
+    });
+    expect(request).toHaveBeenNthCalledWith(8, "footage.conform", {
       projectItemId: "clip-1", frameRate: 24, inputLutId: "lut-guid", operationId: "color-1",
     });
-    expect(request).toHaveBeenNthCalledWith(8, "sourceMonitor.open", { filePath: "D:/Approved/take.mov", operationId: "monitor-1" });
-    expect(request).toHaveBeenNthCalledWith(9, "scratch.configure", {
+    expect(request).toHaveBeenNthCalledWith(9, "sourceMonitor.open", { filePath: "D:/Approved/take.mov", operationId: "monitor-1" });
+    expect(request).toHaveBeenNthCalledWith(10, "scratch.configure", {
       folderTypes: ["capture", "autoSave"], destination: "sameAsProject", operationId: "scratch-1",
     });
-    expect(request).toHaveBeenNthCalledWith(10, "environment.inspect", {});
-    expect(request).toHaveBeenNthCalledWith(11, "workspace.status", {});
+    expect(request).toHaveBeenNthCalledWith(11, "environment.inspect", {});
+    expect(request).toHaveBeenNthCalledWith(12, "workspace.status", {});
   });
 
-  it("maps Project-panel metadata reads without exposing a write route", async () => {
+  it("maps Project-panel metadata reads and guarded writes to separate authority routes", async () => {
     const request = vi.fn().mockResolvedValue({ outcome: "verified" });
     const bridge = { request, getState: vi.fn() } as unknown as UxpWebSocketBridge;
     const tool = getUxpTools(bridge).inspect_project_panel_metadata_uxp;
 
     await tool.handler({ action: "panel" });
     await tool.handler({ action: "item_columns", project_item_id: "clip-1" });
+    await getUxpTools(bridge).manage_project_panel_metadata_uxp.handler({
+      action: "inspect",
+    });
+    await getUxpTools(bridge).manage_project_panel_metadata_uxp.handler({
+      action: "update", expected_project_guid: "project-1", expected_project_panel_metadata: "<before/>",
+      project_panel_metadata: "<after/>", confirm_update: true, operation_id: "panel-1",
+    });
 
     expect(request).toHaveBeenNthCalledWith(1, "metadata.projectPanel.get", {});
     expect(request).toHaveBeenNthCalledWith(2, "metadata.columns.get", { projectItemId: "clip-1" });
+    expect(request).toHaveBeenNthCalledWith(3, "metadata.projectPanel.get", {});
+    expect(request).toHaveBeenNthCalledWith(4, "metadata.projectPanel.update", {
+      expectedProjectGuid: "project-1", expectedProjectPanelMetadata: "<before/>", projectPanelMetadata: "<after/>",
+      confirmUpdate: true, operationId: "panel-1",
+    });
   });
 
   it("rejects unsupported dispatcher actions before bridge access", async () => {
@@ -251,11 +285,12 @@ describe("stable UXP workflow MCP catalog", () => {
       tools.manage_proxy_ingest_uxp.handler({ action: "unsupported" }),
       tools.manage_metadata_uxp.handler({ action: "unsupported" }),
       tools.inspect_project_panel_metadata_uxp.handler({ action: "unsupported" }),
+      tools.manage_project_panel_metadata_uxp.handler({ action: "unsupported" }),
       tools.manage_color_conformance_uxp.handler({ action: "unsupported" }),
       tools.audition_source_monitor_uxp.handler({ action: "unsupported" }),
     ]);
 
-    expect(results).toEqual(Array.from({ length: 8 }, () => ({
+    expect(results).toEqual(Array.from({ length: 9 }, () => ({
       success: false,
       error: "Unsupported workflow action: unsupported",
     })));

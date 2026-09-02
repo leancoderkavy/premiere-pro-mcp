@@ -26,6 +26,10 @@ type WorkflowArgs = {
   project_metadata?: string;
   xmp_metadata?: string;
   updated_fields?: string[];
+  expected_project_guid?: string;
+  expected_project_panel_metadata?: string;
+  project_panel_metadata?: string;
+  confirm_update?: boolean;
   frame_rate?: number;
   pixel_aspect_ratio?: number;
   field_type?: number;
@@ -404,6 +408,45 @@ export function getUxpWorkflowTools(bridge: UxpWebSocketBridge) {
       handler: async (args: WorkflowArgs) => {
         if (args.action === "panel") return invoke(bridge, "metadata.projectPanel.get");
         if (args.action === "item_columns") return invoke(bridge, "metadata.columns.get", target(args));
+        return invalidAction(args.action);
+      },
+    },
+
+    manage_project_panel_metadata_uxp: {
+      description: "Inspect or guardedly replace native Project-panel metadata. Update requires the exact inspected project GUID and XML, explicit confirmation, a replay key, local per-project serialization, and exact native readback; Premiere does not expose an atomic compare-and-set for this direct non-undoable setter.",
+      parameters: {
+        type: "object" as const,
+        additionalProperties: false,
+        properties: {
+          action: { type: "string", enum: ["inspect", "update"] },
+          expected_project_guid: { type: "string", minLength: 1, maxLength: 512, description: "Required for update; must exactly match inspect's active-project GUID." },
+          expected_project_panel_metadata: { type: "string", maxLength: 12288, description: "Required for update; exact inspected Project-panel XML. The UXP host enforces a 12 KiB UTF-8 bound." },
+          project_panel_metadata: { type: "string", maxLength: 12288, description: "Required replacement Project-panel XML. The UXP host enforces a 12 KiB UTF-8 bound." },
+          confirm_update: { type: "boolean", description: "Required true for update because this direct setter is non-undoable." },
+          operation_id: { ...operationId, description: "Required replay key for a guarded Project-panel metadata replacement." },
+        },
+        required: ["action"],
+      },
+      operationalCapability: {
+        backend: "UXP" as const,
+        backends: ["uxp" as const],
+        minimumPremiereVersion: "25.6",
+        verificationBoundary: "project_panel_metadata_exact_readback" as const,
+        hostVerificationRequired: true,
+        notes: [
+          "Update is available only when the authenticated UXP bridge advertises metadata.projectPanel.update.",
+          "The direct documented setter is non-undoable and has no cancellation support; exact readback proves only the active project returned the requested XML after the setter completed.",
+        ],
+      },
+      handler: async (args: WorkflowArgs) => {
+        if (args.action === "inspect") return invoke(bridge, "metadata.projectPanel.get");
+        if (args.action === "update") return invoke(bridge, "metadata.projectPanel.update", {
+          expectedProjectGuid: args.expected_project_guid,
+          expectedProjectPanelMetadata: args.expected_project_panel_metadata,
+          projectPanelMetadata: args.project_panel_metadata,
+          confirmUpdate: args.confirm_update,
+          operationId: args.operation_id,
+        });
         return invalidAction(args.action);
       },
     },

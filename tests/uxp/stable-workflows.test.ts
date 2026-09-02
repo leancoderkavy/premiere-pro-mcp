@@ -201,6 +201,7 @@ function stableHost() {
       getXMPMetadata: vi.fn(async () => xmpMetadata),
       getProjectColumnsMetadata: vi.fn(async () => projectColumnsMetadata),
       getProjectPanelMetadata: vi.fn(async () => projectPanelMetadata),
+      setProjectPanelMetadata: vi.fn(async (value: string) => { projectPanelMetadata = value; return true; }),
       createSetProjectMetadataAction: vi.fn((_item: unknown, value: string) => ({ apply: () => { projectMetadata = value; } })),
       createSetXMPMetadataAction: vi.fn((_item: unknown, value: string) => ({ apply: () => { xmpMetadata = value; } })),
     },
@@ -224,6 +225,7 @@ function stableHost() {
   return {
     registry: Commands.createCommandRegistry({ ppro, Protocol, workspace }),
     ppro, project, sequence, videoItem, audioItem, components, audioComponents, sourceClip, workspace,
+    setProjectPanelMetadataValue: (value: string) => { projectPanelMetadata = value; },
     selectedItems: () => [...selectedItems],
     selectMany: (count: number) => { selectedItems = Array.from({ length: count }, () => videoItem); },
     selectAudio: () => { selectedItems = [audioItem]; },
@@ -237,7 +239,7 @@ describe("stable Premiere UXP workflow expansion", () => {
     expect(Object.keys(capabilities.commands)).toEqual(expect.arrayContaining([
       "effects.catalog", "effects.chain.add", "trackItem.identity.inspect", "selection.inspect", "selection.fingerprints.inspect", "selection.targets.inspect", "selection.update", "effects.selection.add",
       "sceneEdit.detect", "proxy.attach", "ingest.configure", "media.relink",
-      "metadata.update", "metadata.columns.get", "metadata.projectPanel.get", "color.preflight", "environment.inspect", "footage.conform", "sourceMonitor.open",
+      "metadata.update", "metadata.columns.get", "metadata.projectPanel.get", "metadata.projectPanel.update", "color.preflight", "environment.inspect", "footage.conform", "sourceMonitor.open",
       "storage.preflight", "scratch.configure", "workspace.status",
     ]));
     expect(capabilities.commands["effects.selection.add"]).toMatchObject({
@@ -265,12 +267,20 @@ describe("stable Premiere UXP workflow expansion", () => {
     const withoutPanelMetadata = await missingPanelMetadata.registry.capabilities();
     expect(withoutPanelMetadata.commands["metadata.columns.get"]).toMatchObject({ supported: true });
     expect(withoutPanelMetadata.commands["metadata.projectPanel.get"]).toMatchObject({ supported: false });
+    expect(withoutPanelMetadata.commands["metadata.projectPanel.update"]).toMatchObject({ supported: false });
 
     const missingColumnsMetadata = stableHost();
     Reflect.deleteProperty(missingColumnsMetadata.ppro.Metadata, "getProjectColumnsMetadata");
     const withoutColumnsMetadata = await missingColumnsMetadata.registry.capabilities();
     expect(withoutColumnsMetadata.commands["metadata.columns.get"]).toMatchObject({ supported: false });
     expect(withoutColumnsMetadata.commands["metadata.projectPanel.get"]).toMatchObject({ supported: true });
+    expect(withoutColumnsMetadata.commands["metadata.projectPanel.update"]).toMatchObject({ supported: true });
+
+    const missingPanelSetter = stableHost();
+    Reflect.deleteProperty(missingPanelSetter.ppro.Metadata, "setProjectPanelMetadata");
+    const withoutPanelSetter = await missingPanelSetter.registry.capabilities();
+    expect(withoutPanelSetter.commands["metadata.projectPanel.get"]).toMatchObject({ supported: true });
+    expect(withoutPanelSetter.commands["metadata.projectPanel.update"]).toMatchObject({ supported: false });
   });
 
   it("probes Source Monitor state, play, and close commands independently", async () => {
@@ -832,7 +842,7 @@ describe("stable Premiere UXP workflow expansion", () => {
     })).resolves.toMatchObject({ conformed: true, outcome: "verified", after: { frameRate: 24, pixelAspectRatio: 1.2, inputLutId: "lut-guid" } });
   });
 
-  it("reads bounded native Project-panel schema and item-column metadata without writing it", async () => {
+  it("reads bounded native Project-panel schema and item-column metadata without calling the setter", async () => {
     const value = stableHost();
     await expect(value.registry.dispatch("metadata.columns.get", { projectItemId: "source-1" })).resolves.toEqual({
       projectItemId: "source-1", name: "Interview.mov", projectColumnsMetadata: "columns-before",
@@ -842,7 +852,71 @@ describe("stable Premiere UXP workflow expansion", () => {
     });
     expect(value.ppro.Metadata.getProjectColumnsMetadata).toHaveBeenCalledWith(value.sourceClip);
     expect(value.ppro.Metadata.getProjectPanelMetadata).toHaveBeenCalledTimes(1);
-    expect(value.ppro.Metadata).not.toHaveProperty("setProjectPanelMetadata");
+    expect(value.ppro.Metadata.setProjectPanelMetadata).not.toHaveBeenCalled();
+  });
+
+  it("guardedly replaces bounded Project-panel metadata with exact readback and operation replay", async () => {
+    const value = stableHost();
+    const args = {
+      expectedProjectGuid: "project-1", expectedProjectPanelMetadata: "panel-before",
+      projectPanelMetadata: "<panel><column id=\"review\"/></panel>", confirmUpdate: true, operationId: "panel-metadata-1",
+    };
+    await expect(value.registry.dispatch("metadata.projectPanel.update", args)).resolves.toMatchObject({
+      updated: true, outcome: "verified", verified: true, projectGuid: "project-1",
+      projectPanelMetadata: "<panel><column id=\"review\"/></panel>",
+      operation: { undo: { supported: false }, cancellation: { supported: false } },
+    });
+    await expect(value.registry.dispatch("metadata.projectPanel.update", args)).resolves.toMatchObject({
+      updated: true, replayed: true, outcome: "verified",
+    });
+    expect(value.ppro.Metadata.setProjectPanelMetadata).toHaveBeenCalledTimes(1);
+
+    await expect(value.registry.dispatch("metadata.projectPanel.update", {
+      ...args, expectedProjectPanelMetadata: "panel-before", projectPanelMetadata: "<panel/>", operationId: "panel-stale-1",
+    })).rejects.toMatchObject({ code: "UXP_STALE_PROJECT_PANEL_METADATA" });
+    await expect(value.registry.dispatch("metadata.projectPanel.update", {
+      ...args, expectedProjectPanelMetadata: "<panel><column id=\"review\"/></panel>", projectPanelMetadata: "<panel/>",
+      confirmUpdate: false, operationId: "panel-confirmation-1",
+    })).rejects.toMatchObject({ code: "UXP_CONFIRMATION_REQUIRED" });
+    await expect(value.registry.dispatch("metadata.projectPanel.update", {
+      ...args, expectedProjectPanelMetadata: "<panel><column id=\"review\"/></panel>", projectPanelMetadata: "<panel/>", confirmUpdate: true, operationId: "*",
+    })).rejects.toMatchObject({ code: "UXP_INVALID_ARGUMENT" });
+    expect(value.ppro.Metadata.setProjectPanelMetadata).toHaveBeenCalledTimes(1);
+  });
+
+  it("serializes different guarded Project-panel metadata operations and fails the queued stale request", async () => {
+    const value = stableHost();
+    let releaseFirst: (() => void) | undefined;
+    const firstAccepted = new Promise<boolean>((resolve) => { releaseFirst = () => resolve(true); });
+    value.ppro.Metadata.setProjectPanelMetadata.mockImplementationOnce(async (xml: string) => {
+      value.setProjectPanelMetadataValue(xml);
+      return firstAccepted;
+    });
+    const first = value.registry.dispatch("metadata.projectPanel.update", {
+      expectedProjectGuid: "project-1", expectedProjectPanelMetadata: "panel-before", projectPanelMetadata: "panel-first",
+      confirmUpdate: true, operationId: "panel-concurrent-first",
+    });
+    await vi.waitFor(() => expect(value.ppro.Metadata.setProjectPanelMetadata).toHaveBeenCalledOnce());
+    const second = value.registry.dispatch("metadata.projectPanel.update", {
+      expectedProjectGuid: "project-1", expectedProjectPanelMetadata: "panel-before", projectPanelMetadata: "panel-second",
+      confirmUpdate: true, operationId: "panel-concurrent-second",
+    });
+    releaseFirst?.();
+    await expect(first).resolves.toMatchObject({ updated: true, verified: true, projectPanelMetadata: "panel-first" });
+    await expect(second).rejects.toMatchObject({ code: "UXP_STALE_PROJECT_PANEL_METADATA" });
+    expect(value.ppro.Metadata.setProjectPanelMetadata).toHaveBeenCalledOnce();
+  });
+
+  it("reports committed-unverified Project-panel metadata if post-set readback differs", async () => {
+    const value = stableHost();
+    value.ppro.Metadata.setProjectPanelMetadata.mockResolvedValueOnce(true);
+    await expect(value.registry.dispatch("metadata.projectPanel.update", {
+      expectedProjectGuid: "project-1", expectedProjectPanelMetadata: "panel-before", projectPanelMetadata: "panel-requested",
+      confirmUpdate: true, operationId: "panel-unverified-1",
+    })).resolves.toMatchObject({
+      updated: true, outcome: "committed_unverified", verified: false,
+      verificationBoundary: "project_panel_metadata_active_project_readback", projectPanelMetadata: "panel-before",
+    });
   });
 
   it("fails closed for malformed or oversized native Project-panel metadata", async () => {
@@ -853,6 +927,10 @@ describe("stable Premiere UXP workflow expansion", () => {
     value.ppro.Metadata.getProjectPanelMetadata.mockResolvedValueOnce("\u0800".repeat(350000));
     await expect(value.registry.dispatch("metadata.projectPanel.get", {}))
       .rejects.toMatchObject({ code: "UXP_RESULT_TOO_LARGE" });
+    await expect(value.registry.dispatch("metadata.projectPanel.update", {
+      expectedProjectGuid: "project-1", expectedProjectPanelMetadata: "panel-before", projectPanelMetadata: "x".repeat(12289),
+      confirmUpdate: true, operationId: "panel-too-large",
+    })).rejects.toMatchObject({ code: "UXP_INVALID_ARGUMENT" });
   });
 
   it("inspects After Effects interoperability and project color support without mutation", async () => {

@@ -2626,7 +2626,7 @@
       "symbol": "Metadata.setProjectPanelMetadata",
       "kind": "method",
       "declarationSymbol": "MetadataStatic.setProjectPanelMetadata",
-      "coverage": "unmapped"
+      "coverage": "mapped"
     },
     {
       "symbol": "MetadataStatic",
