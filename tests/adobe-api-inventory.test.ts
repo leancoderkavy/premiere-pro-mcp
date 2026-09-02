@@ -7,6 +7,7 @@ import { describe, expect, it } from "vitest";
 const inventory = JSON.parse(readFileSync("src/resources/adobe-api-inventory.json", "utf8"));
 const coverage = JSON.parse(readFileSync("src/resources/adobe-uxp-coverage.json", "utf8"));
 const betaAafExportOptionsDrift = JSON.parse(readFileSync("src/resources/adobe-beta-aaf-export-options-drift.json", "utf8"));
+const betaProjectOptionsDrift = JSON.parse(readFileSync("src/resources/adobe-beta-project-options-drift.json", "utf8"));
 const betaC2paDrift = JSON.parse(readFileSync("src/resources/adobe-beta-c2pa-drift.json", "utf8"));
 const betaMediaDrift = JSON.parse(readFileSync("src/resources/adobe-beta-media-drift.json", "utf8"));
 const betaMediaManagerDrift = JSON.parse(readFileSync("src/resources/adobe-beta-media-manager-drift.json", "utf8"));
@@ -190,6 +191,50 @@ describe("Adobe declaration API inventory", () => {
         "premierepro.AAFExportOptions",
         "AAFExportOptionsStatic.new",
       ]));
+  });
+
+  it("accounts for beta project-option factory migrations without advertising lifecycle actions", () => {
+    const stableDeclarations = readFileSync("node_modules/@adobe/premierepro/src/premierepro.d.ts", "utf8");
+    const betaDeclarations = readFileSync("node_modules/@adobe/premierepro-beta/src/premierepro.d.ts", "utf8");
+    for (const name of ["OpenProjectOptions", "CloseProjectOptions"]) {
+      expect(stableDeclarations).toContain(`${name}: ${name};`);
+      expect(stableDeclarations).not.toContain(`export declare type ${name}Static`);
+      expect(declarationType(stableDeclarations, name)).toContain(`new (): ${name};`);
+      expect(betaDeclarations).toContain(`${name}: ${name}Static;`);
+      expect(declarationType(betaDeclarations, name)).not.toContain(`new (): ${name};`);
+      expect(declarationType(betaDeclarations, `${name}Static`)).toContain(`new (): ${name};`);
+    }
+    expect(betaProjectOptionsDrift).toMatchObject({
+      schemaVersion: 1,
+      scope: {
+        declarations: [
+          "premierepro.OpenProjectOptions", "OpenProjectOptions", "OpenProjectOptionsStatic",
+          "premierepro.CloseProjectOptions", "CloseProjectOptions", "CloseProjectOptionsStatic",
+        ],
+        mutationBoundary: expect.stringContaining("does not construct options"),
+      },
+      sources: {
+        stable: { package: "@adobe/premierepro", version: "26.3.0", staticFactoriesPresent: false },
+        beta: { package: "@adobe/premierepro-beta", version: "26.5.0-beta.73", staticFactoriesPresent: true },
+      },
+      diff: {
+        stableOnly: [],
+      },
+    });
+    expect(betaProjectOptionsDrift.diff.betaOnly).toEqual(expect.arrayContaining([
+      { symbol: "OpenProjectOptionsStatic.new", kind: "construct_signature", signature: "() => OpenProjectOptions" },
+      { symbol: "CloseProjectOptionsStatic.call", kind: "call_signature", signature: "() => CloseProjectOptions" },
+    ]));
+    expect(betaProjectOptionsDrift.diff.changed.some((entry: { symbol: string; beta: { signature: string } }) => (
+      entry.symbol === "premierepro.OpenProjectOptions" && entry.beta.signature === "OpenProjectOptionsStatic"
+    ))).toBe(true);
+    expect(betaProjectOptionsDrift.diff.changed.some((entry: { symbol: string; beta: { signature: string } }) => (
+      entry.symbol === "premierepro.CloseProjectOptions" && entry.beta.signature === "CloseProjectOptionsStatic"
+    ))).toBe(true);
+    expect(spawnSync(process.execPath, ["scripts/generate-adobe-beta-project-options-drift.mjs", "--check"], { encoding: "utf8" }).status).toBe(0);
+    expect(coverage.entries.flatMap((entry: { adobeApi: string[] }) => entry.adobeApi)).not.toEqual(expect.arrayContaining([
+      "premierepro.OpenProjectOptions", "premierepro.CloseProjectOptions",
+    ]));
   });
 
   it("accounts for the beta-only C2PA declaration surface without advertising an action", () => {
