@@ -45,8 +45,9 @@ unsupported compression or ZIP64 entry metadata, or if its required
 files, ZIP identity, manifest facts, header provenance, addon-layout receipt
 binding, or complete entry-name-set digest changed. It also checks every local
 ZIP header against its central-directory entry before reading required payloads,
-so unselected archive entries cannot use a different name, flags, compression
-method, declared size, or an out-of-bounds/overlapping data range:
+so unselected archive entries cannot use a different version-needed value,
+name, flags, compression method, declared size, or an
+out-of-bounds/overlapping data range:
 
 For a ZIP entry whose general-purpose bit 3 requests a streamed data descriptor,
 the verifier additionally requires that descriptor immediately after the
