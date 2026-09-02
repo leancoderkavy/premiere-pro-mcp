@@ -150,6 +150,13 @@
         "Sequence.getSequenceAudioTimeDisplayFormat",
         "Sequence.getSequenceVideoTimeDisplayFormat",
         "Sequence.getProjectItem",
+        "Sequence.guid",
+        "Sequence.name",
+        "ProjectItem.getId",
+        "ProjectItem.name",
+        "RectF",
+        "RectF.width",
+        "RectF.height",
         "TimeDisplay",
         "TimeDisplay.type"
       ],
