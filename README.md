@@ -8,7 +8,7 @@
 
 **Give compatible AI assistants structured control over supported Adobe Premiere Pro workflows.**
 
-328 core tools across 37 modules, 4 resources, and 11 guided workflows. A connected UXP host adds 65 capability-gated tools.
+328 core tools across 37 modules, 4 resources, and 11 guided workflows. A connected UXP host adds 66 capability-gated tools.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Node.js](https://img.shields.io/badge/Node.js-20.19%2B-green.svg)](https://nodejs.org)
@@ -620,11 +620,11 @@ The file-based IPC bridge is simple, reliable, and works across macOS and Window
 
 ---
 
-## Tools (328 core total; 326 under the default profile; 391 with a connected UXP bridge)
+## Tools (328 core total; 326 under the default profile; 392 with a connected UXP bridge)
 
 The [complete supported-actions catalog](docs/supported-actions.md) lists every
 registered core tool, the two tools restricted behind explicit `unsafe-script`
-authority, and all 65 authenticated UXP additions with their current action or mode
+authority, and all 66 authenticated UXP additions with their current action or mode
 values. It is generated from the same MCP registration surface returned to clients;
 the tables below are a shorter workflow-oriented overview.
 

@@ -20,12 +20,12 @@ const ADVANCED_WORKFLOW_TOOLS = [
 ] as const;
 
 describe("advanced stable UXP workflow MCP catalog", () => {
-  it("publishes thirteen advanced tools with closed, bounded schemas", () => {
+  it("publishes fourteen advanced tools with closed, bounded schemas", () => {
     const bridge = { request: vi.fn(), getState: vi.fn() } as unknown as UxpWebSocketBridge;
     const tools = getUxpTools(bridge) as Record<string, { parameters: Record<string, unknown> }>;
 
     expect(Object.keys(tools)).toEqual(expect.arrayContaining(ADVANCED_WORKFLOW_TOOLS));
-    expect(ADVANCED_WORKFLOW_TOOLS).toHaveLength(13);
+    expect(ADVANCED_WORKFLOW_TOOLS).toHaveLength(14);
     for (const name of ADVANCED_WORKFLOW_TOOLS) {
       const parameters = tools[name].parameters;
       expect(parameters).toMatchObject({
