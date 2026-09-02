@@ -204,12 +204,12 @@ describe("UXP MCP tools", () => {
     await tools.inspect_sequence_structure_uxp.handler({
       sequence_id: "sequence-1", expected_sequence_id: "sequence-1", media_type: "video",
       track_indices: [1, 0], include_empty_tracks: true, include_source_project_items: true,
-      include_source_project_item_classification: true, max_items: 8,
+      include_source_project_item_classification: true, include_source_nested_sequence_identity: true, max_items: 8,
     });
     expect(request).toHaveBeenCalledWith("timeline.structure.inspect", {
       sequenceId: "sequence-1", expectedSequenceId: "sequence-1", mediaType: "video",
       trackIndices: [1, 0], includeEmptyTracks: true, includeSourceProjectItems: true,
-      includeSourceProjectItemClassification: true, maxItems: 8,
+      includeSourceProjectItemClassification: true, includeSourceNestedSequenceIdentity: true, maxItems: 8,
     });
     expect(tools.inspect_sequence_structure_uxp.description).toContain(
       "track_counts contains only the requested media types",
@@ -225,6 +225,7 @@ describe("UXP MCP tools", () => {
         include_empty_tracks: { type: "boolean" },
         include_source_project_items: { type: "boolean" },
         include_source_project_item_classification: { type: "boolean" },
+        include_source_nested_sequence_identity: { type: "boolean" },
         max_items: { type: "integer", minimum: 1, maximum: 512 },
       },
     });

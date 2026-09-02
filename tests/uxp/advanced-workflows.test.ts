@@ -23,6 +23,7 @@ type MutableItem = {
   isMergedClip?: ReturnType<typeof vi.fn>;
   isMulticamClip?: ReturnType<typeof vi.fn>;
   isOffline?: ReturnType<typeof vi.fn>;
+  getSequence?: ReturnType<typeof vi.fn>;
   createSetNameAction: ReturnType<typeof vi.fn>;
   createSetColorLabelAction: ReturnType<typeof vi.fn>;
   createBinAction?: ReturnType<typeof vi.fn>;
@@ -221,6 +222,7 @@ function advancedHost() {
     createCloneAction: vi.fn(() => ({ apply: () => sequences.push({ guid: "sequence-2", name: "Assembly Copy" }) })),
     createSubsequence: vi.fn(async () => ({ guid: "sequence-3", name: "Assembly Subsequence" })),
   };
+  clip.getSequence = vi.fn(async () => sequence);
   const sequences: Array<{ guid: string; name: string }> = [sequence];
 
   const addAction = vi.fn((action: { apply?: () => void }) => { action.apply?.(); return true; });
@@ -963,6 +965,7 @@ describe("advanced stable Premiere UXP workflows", () => {
     expect(sourceOptIn.clip.isMergedClip).not.toHaveBeenCalled();
     expect(sourceOptIn.clip.isMulticamClip).not.toHaveBeenCalled();
     expect(sourceOptIn.clip.isOffline).not.toHaveBeenCalled();
+    expect(sourceOptIn.clip.getSequence).not.toHaveBeenCalled();
     expect(sourceOptIn.project.lockedAccess).not.toHaveBeenCalled();
     expect(sourceOptIn.project.executeTransaction).not.toHaveBeenCalled();
 
@@ -988,8 +991,48 @@ describe("advanced stable Premiere UXP workflows", () => {
     expect(classifiedSource.clip.isMergedClip).toHaveBeenCalledTimes(1);
     expect(classifiedSource.clip.isMulticamClip).toHaveBeenCalledTimes(1);
     expect(classifiedSource.clip.isOffline).toHaveBeenCalledTimes(1);
+    expect(classifiedSource.clip.getSequence).not.toHaveBeenCalled();
     expect(classifiedSource.project.lockedAccess).not.toHaveBeenCalled();
     expect(classifiedSource.project.executeTransaction).not.toHaveBeenCalled();
+
+    const nestedSource = advancedHost();
+    nestedSource.clip.isSequence?.mockResolvedValueOnce(true);
+    await expect(nestedSource.registry.dispatch("timeline.structure.inspect", {
+      mediaType: "video", includeSourceProjectItems: true, includeSourceProjectItemClassification: true,
+      includeSourceNestedSequenceIdentity: true,
+    })).resolves.toMatchObject({ tracks: [{ items: [{
+      sourceProjectItemId: "clip-1", sourceNestedSequenceId: "sequence-1",
+      sourceProjectItemClassification: { isSequence: true },
+    }] }] });
+    expect(nestedSource.clip.getSequence).toHaveBeenCalledTimes(1);
+    expect(nestedSource.project.lockedAccess).not.toHaveBeenCalled();
+    expect(nestedSource.project.executeTransaction).not.toHaveBeenCalled();
+
+    const nonSequenceNestedSource = advancedHost();
+    await expect(nonSequenceNestedSource.registry.dispatch("timeline.structure.inspect", {
+      mediaType: "video", includeSourceProjectItems: true, includeSourceProjectItemClassification: true,
+      includeSourceNestedSequenceIdentity: true,
+    })).resolves.toMatchObject({ tracks: [{ items: [{
+      sourceNestedSequenceId: null, sourceProjectItemClassification: { isSequence: false },
+    }] }] });
+    expect(nonSequenceNestedSource.clip.getSequence).not.toHaveBeenCalled();
+
+    const unavailableNestedSource = advancedHost();
+    unavailableNestedSource.clip.isSequence?.mockResolvedValueOnce(true);
+    unavailableNestedSource.clip.getSequence?.mockRejectedValueOnce(new Error("nested sequence unavailable"));
+    await expect(unavailableNestedSource.registry.dispatch("timeline.structure.inspect", {
+      mediaType: "video", includeSourceProjectItems: true, includeSourceProjectItemClassification: true,
+      includeSourceNestedSequenceIdentity: true,
+    })).resolves.toMatchObject({ tracks: [{ items: [{ sourceNestedSequenceId: null }] }] });
+    expect(unavailableNestedSource.clip.getSequence).toHaveBeenCalledTimes(1);
+
+    const malformedNestedSource = advancedHost();
+    malformedNestedSource.clip.isSequence?.mockResolvedValueOnce(true);
+    malformedNestedSource.clip.getSequence?.mockResolvedValueOnce({ guid: {} });
+    await expect(malformedNestedSource.registry.dispatch("timeline.structure.inspect", {
+      mediaType: "video", includeSourceProjectItems: true, includeSourceProjectItemClassification: true,
+      includeSourceNestedSequenceIdentity: true,
+    })).resolves.toMatchObject({ tracks: [{ items: [{ sourceNestedSequenceId: null }] }] });
 
     const unavailableSource = advancedHost();
     unavailableSource.trackItem.getProjectItem.mockRejectedValueOnce(new Error("source item unavailable"));
@@ -1021,6 +1064,12 @@ describe("advanced stable Premiere UXP workflows", () => {
     })).rejects.toMatchObject({ code: "UXP_INVALID_ARGUMENT" });
     await expect(value.registry.dispatch("timeline.structure.inspect", {
       includeSourceProjectItemClassification: true,
+    })).rejects.toMatchObject({ code: "UXP_INVALID_ARGUMENT" });
+    await expect(value.registry.dispatch("timeline.structure.inspect", {
+      includeSourceNestedSequenceIdentity: true,
+    })).rejects.toMatchObject({ code: "UXP_INVALID_ARGUMENT" });
+    await expect(value.registry.dispatch("timeline.structure.inspect", {
+      includeSourceProjectItems: true, includeSourceNestedSequenceIdentity: true,
     })).rejects.toMatchObject({ code: "UXP_INVALID_ARGUMENT" });
     await expect(value.registry.dispatch("timeline.structure.inspect", {
       mediaType: "all", maxItems: 1,
