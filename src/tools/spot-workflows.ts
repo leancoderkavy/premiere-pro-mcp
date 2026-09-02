@@ -359,12 +359,17 @@ function buildApplyScript(plan: SpotWorkflowPlan): string {
     for (var placementIndex = 0; placementIndex < requestedItems.length; placementIndex++) {
       var targetStart = placementIndex * ${plan.clip_duration_seconds};
       var targetEnd = targetStart + ${plan.clip_duration_seconds};
+      var audioCountBefore = audioTrack.clips.numItems;
       seq.insertClip(requestedItems[placementIndex], __secondsToTicks(targetStart).toString(), ${plan.video_track_index}, ${plan.audio_track_index});
       var placedClip = findPlacedClip(videoTrack, requestedItemIds[placementIndex], targetStart);
       if (!placedClip) return __error("Premiere did not add the requested video item at the planned frame; the assembly is not reported as verified");
       if (!trimPlacedClip(placedClip, targetEnd)) return __error("Premiere did not trim the placed video item to the previewed duration; the assembly is not reported as verified");
-      var placedAudio = findPlacedClip(audioTrack, requestedItemIds[placementIndex], targetStart);
-      if (placedAudio && !trimPlacedClip(placedAudio, targetEnd)) return __error("Premiere did not trim the placed audio item to the previewed duration; the assembly is not reported as verified");
+      var audioCountAfter = audioTrack.clips.numItems;
+      if (audioCountAfter > audioCountBefore) {
+        if (audioCountAfter !== audioCountBefore + 1) return __error("Premiere added an unexpected number of audio items; the assembly is not reported as verified");
+        var placedAudio = findPlacedClip(audioTrack, requestedItemIds[placementIndex], targetStart);
+        if (!placedAudio || !trimPlacedClip(placedAudio, targetEnd)) return __error("Premiere did not identify and trim the placed audio item to the previewed duration; the assembly is not reported as verified");
+      }
       usedNodeIds[String(placedClip.nodeId)] = true;
       placed.push({
         nodeId: String(placedClip.nodeId),

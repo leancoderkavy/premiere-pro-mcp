@@ -749,6 +749,9 @@ describe("issue #327 — legacy media replacement is fail-closed", () => {
   const clipboard = getClipboardTools(bridgeOptions);
 
   it("never uses overwriteClip when duration and adjacent-track preservation cannot be verified", async () => {
+    expect(clipboard.replace_clip_media.operationalCapability).toMatchObject({
+      backend: "local", backends: ["local"], status: "unsupported", hostVerificationRequired: false,
+    });
     const result = await clipboard.replace_clip_media.handler({ clip_node_id: "clip-1", new_item_id: "item-2" } as never);
     expect(result).toMatchObject({ success: false, error: expect.stringContaining("No mutation was attempted") });
     expect(mockedSendCommand).not.toHaveBeenCalled();

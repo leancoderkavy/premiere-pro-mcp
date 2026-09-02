@@ -728,6 +728,9 @@ describe("stable Premiere UXP workflow expansion", () => {
       });
       expect(value.ppro.SequenceUtils.performSceneEditDetectionOnSelection)
         .toHaveBeenLastCalledWith(hostOperation, expect.any(Object));
+      if (mode === "createMarkers") {
+        expect(value.ppro.Markers.getMarkers).toHaveBeenCalledWith(value.sourceClip);
+      }
     }
   });
 

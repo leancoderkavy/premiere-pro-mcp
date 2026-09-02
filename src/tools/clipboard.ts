@@ -173,6 +173,16 @@ export function getClipboardTools(bridgeOptions: BridgeOptions) {
 
     replace_clip_media: {
       description: "Unavailable by design: the legacy ExtendScript overwrite route cannot prove that replacing media preserves the original clip's trim, position, linked audio, or adjacent clips, so this tool performs no mutation.",
+      operationalCapability: {
+        backend: "local" as const,
+        backends: ["local" as const],
+        status: "unsupported" as const,
+        minimumPremiereVersion: null,
+        authority: "edit" as const,
+        verificationBoundary: "static_metadata_only" as const,
+        hostVerificationRequired: false,
+        notes: ["Unavailable by design; this tool returns a local negative result and never contacts Premiere."],
+      },
       parameters: {
         type: "object" as const,
         properties: {

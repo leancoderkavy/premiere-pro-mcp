@@ -100,6 +100,9 @@ describe("spot workflow plans", () => {
     expect(script).toContain("Project item ID was not found exactly");
     expect(script).toContain("function findPlacedClip(track, itemId, expectedStart)");
     expect(script).toContain("function trimPlacedClip(clip, targetEnd)");
+    expect(script).toContain("var audioCountBefore = audioTrack.clips.numItems");
+    expect(script).toContain("if (audioCountAfter > audioCountBefore)");
+    expect(script).toContain("did not identify and trim the placed audio item");
     expect(script).toContain("clip.end = requestedEnd");
     expect(script).toContain("requestedDurationSeconds");
     expect(script).toContain("scaleProperty.getValueAtKey");
