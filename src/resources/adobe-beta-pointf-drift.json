@@ -1,0 +1,93 @@
+{
+  "schemaVersion": 1,
+  "scope": {
+    "declarations": [
+      "premierepro.PointF",
+      "PointF",
+      "PointFStatic"
+    ],
+    "semantics": "This records the beta PointF factory-type migration against the pinned stable package. It is static declaration-drift accounting, not beta API support or a complete package diff.",
+    "doesNotEstablish": "It does not prove a beta host exposes PointFStatic, that a PointF can be constructed or accepted by another API, that point arithmetic or component-parameter behavior is preserved, or that any MCP action is supported or licensed-host validated."
+  },
+  "sources": {
+    "stable": {
+      "package": "@adobe/premierepro",
+      "version": "26.3.0",
+      "declarations": "node_modules/@adobe/premierepro/src/premierepro.d.ts",
+      "pointDeclarationSha256": "b3791f811d157908f30156e544f50f960821e750bcc73f0b2456e58cf2eeab9e",
+      "staticFactoryPresent": false
+    },
+    "beta": {
+      "package": "@adobe/premierepro-beta",
+      "version": "26.5.0-beta.73",
+      "declarations": "node_modules/@adobe/premierepro-beta/src/premierepro.d.ts",
+      "pointDeclarationSha256": "c17062969cb5703fd2b6eba0510c047e7650fef72de0564db0bb034871668377",
+      "staticDeclarationSha256": "d2f7438886f528c68dcdac858e2c3a4f65916843bb218fd521d8b3b1dcc75ea2",
+      "staticFactoryPresent": true
+    }
+  },
+  "diff": {
+    "betaOnly": [
+      {
+        "symbol": "PointFStatic",
+        "kind": "type",
+        "signature": "{ /** * Construct a PointFloat Object. * @constructor * * @param [x] * @param [y] */ new (x?: number, y?: number): PointF; (x?: number, y?: number): PointF; }"
+      },
+      {
+        "symbol": "PointFStatic.call",
+        "kind": "call_signature",
+        "signature": "(x?: number, y?: number) => PointF"
+      },
+      {
+        "symbol": "PointFStatic.new",
+        "kind": "construct_signature",
+        "signature": "(x?: number, y?: number) => PointF"
+      }
+    ],
+    "stableOnly": [],
+    "changed": [
+      {
+        "symbol": "premierepro.PointF",
+        "stable": {
+          "symbol": "premierepro.PointF",
+          "kind": "property",
+          "signature": "PointF"
+        },
+        "beta": {
+          "symbol": "premierepro.PointF",
+          "kind": "property",
+          "signature": "PointFStatic"
+        }
+      },
+      {
+        "symbol": "PointF.factorySignatures",
+        "stable": {
+          "owner": "PointF",
+          "entries": [
+            {
+              "kind": "call_signature",
+              "signature": "(x?: number, y?: number) => PointF"
+            },
+            {
+              "kind": "construct_signature",
+              "signature": "(x?: number, y?: number) => PointF"
+            }
+          ]
+        },
+        "beta": {
+          "owner": "PointFStatic",
+          "entries": [
+            {
+              "kind": "call_signature",
+              "signature": "(x?: number, y?: number) => PointF"
+            },
+            {
+              "kind": "construct_signature",
+              "signature": "(x?: number, y?: number) => PointF"
+            }
+          ]
+        }
+      }
+    ]
+  }
+}

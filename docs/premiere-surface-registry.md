@@ -34,6 +34,9 @@ claiming host behavior.
 The [beta Color declaration receipt](adobe-beta-color-drift.md) records its
 factory migration without constructing a color, changing the stable Color
 workflow, binding it to another API, or claiming host behavior.
+The [beta PointF declaration receipt](adobe-beta-pointf-drift.md) records its
+factory migration without constructing a point, changing the stable PointF
+workflow, binding it to another API, or claiming host behavior.
 The [beta Media drift receipt](adobe-beta-media-drift.md) separately records the
 pinned stable-to-beta `Media` declaration delta. It is deliberately not a beta
 surface inventory or beta-host support claim. The [beta C2PA declaration

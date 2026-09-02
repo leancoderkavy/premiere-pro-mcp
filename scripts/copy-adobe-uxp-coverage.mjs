@@ -11,6 +11,7 @@ const resources = [
   "adobe-beta-transition-options-drift.json",
   "adobe-beta-rectf-drift.json",
   "adobe-beta-color-drift.json",
+  "adobe-beta-pointf-drift.json",
   "adobe-beta-c2pa-drift.json",
   "adobe-beta-media-drift.json",
   "adobe-beta-media-manager-drift.json",
