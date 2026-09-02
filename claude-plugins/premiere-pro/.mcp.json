@@ -2,7 +2,7 @@
   "mcpServers": {
     "premiere-pro": {
       "command": "npx",
-      "args": ["-y", "premiere-pro-mcp@1.14.6"]
+      "args": ["-y", "premiere-pro-mcp@1.14.7"]
     }
   }
 }

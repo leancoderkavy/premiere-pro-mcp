@@ -6,6 +6,21 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [1.14.7] - 2026-09-02
+
+### Added
+
+- Added bounded UXP source-proxy readiness inspection, with explicit opt-in
+  disclosure for an attached proxy path, and read-only animated PointF
+  endpoint-displacement inspection.
+
+### Fixed
+
+- Added an explicit `PREMIERE_MCP_PROTOCOL_MODE=legacy` fallback for desktop
+  clients whose stdio protocol negotiation cannot use the modern server mode;
+  the default remains the current automatic mode and invalid values fail fast.
+- Updated the affected `@humanfs/node`, `fast-uri`, and `qs` dependency paths.
+
 ## [1.14.6] - 2026-09-02
 
 ### Added

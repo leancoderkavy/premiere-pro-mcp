@@ -5,6 +5,26 @@ import { product } from "@/lib/product"
 
 const releases = [
   {
+    version: "1.14.7",
+    date: "2026-09-02",
+    label: "Desktop protocol fallback and bounded UXP inspection",
+    groups: [
+      {
+        title: "Added",
+        items: [
+          "Compatible UXP hosts gain bounded source-proxy readiness inspection with an explicit attached-path opt-in, plus read-only animated PointF endpoint-displacement inspection.",
+        ],
+      },
+      {
+        title: "Fixed",
+        items: [
+          "Desktop clients can explicitly select the legacy stdio protocol when modern negotiation is unavailable; automatic mode remains the default and invalid configuration fails fast.",
+          "Updated affected dependency paths for @humanfs/node, fast-uri, and qs.",
+        ],
+      },
+    ],
+  },
+  {
     version: "1.14.6",
     date: "2026-09-02",
     label: "Guarded UXP editing and local review evidence",
