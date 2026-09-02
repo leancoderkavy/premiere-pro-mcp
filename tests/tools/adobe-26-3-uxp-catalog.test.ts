@@ -47,7 +47,7 @@ describe("Adobe Premiere 26.3 UXP public MCP catalog", () => {
       expect(listed.tools.map((tool) => tool.name)).toEqual(
         expect.arrayContaining(ADOBE_26_3_TOOLS),
       );
-      expect(listed.tools).toHaveLength(402);
+      expect(listed.tools).toHaveLength(403);
     } finally {
       await client.close();
       await server.close();

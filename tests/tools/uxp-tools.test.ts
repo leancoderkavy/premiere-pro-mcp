@@ -403,7 +403,7 @@ describe("UXP MCP tools", () => {
       // direct track-item identity inspection, and guarded three-item slides add
       // thirty-eight consolidated UXP tools;
       // connection verification and delivery conformance add two default-profile core tools.
-      expect(tools.tools).toHaveLength(402);
+      expect(tools.tools).toHaveLength(403);
     } finally {
       await client.close();
       await server.close();
