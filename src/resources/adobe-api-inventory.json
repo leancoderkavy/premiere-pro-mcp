@@ -13,8 +13,8 @@
   },
   "stats": {
     "total": 976,
-    "mapped": 326,
-    "unmapped": 650,
+    "mapped": 331,
+    "unmapped": 645,
     "manifestOnly": 5
   },
   "manifestOnly": [
@@ -916,12 +916,12 @@
     {
       "symbol": "Color.alpha",
       "kind": "property",
-      "coverage": "unmapped"
+      "coverage": "mapped"
     },
     {
       "symbol": "Color.blue",
       "kind": "property",
-      "coverage": "unmapped"
+      "coverage": "mapped"
     },
     {
       "symbol": "Color.equals",
@@ -931,12 +931,12 @@
     {
       "symbol": "Color.green",
       "kind": "property",
-      "coverage": "unmapped"
+      "coverage": "mapped"
     },
     {
       "symbol": "Color.red",
       "kind": "property",
-      "coverage": "unmapped"
+      "coverage": "mapped"
     },
     {
       "symbol": "Component",
@@ -2449,7 +2449,7 @@
     {
       "symbol": "Marker.getColor",
       "kind": "method",
-      "coverage": "unmapped"
+      "coverage": "mapped"
     },
     {
       "symbol": "Marker.getColorIndex",

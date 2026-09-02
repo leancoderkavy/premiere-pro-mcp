@@ -657,7 +657,7 @@ export function getUxpTools(bridge: UxpWebSocketBridge) {
       }),
     },
     list_markers_uxp: {
-      description: "List Premiere markers with stable 26.3+ GUIDs from the active sequence or one source media clip. Web-link URLs and frame targets are returned only with explicit opt-in because they can contain sensitive query data.",
+      description: "List Premiere markers with stable 26.3+ GUIDs from the active sequence or one source media clip. Web-link URLs/frame targets and raw marker RGBA components are returned only with explicit opt-in; URLs can contain sensitive query data, and color components are host values without a color-profile or rendered-appearance claim.",
       parameters: {
         type: "object" as const,
         properties: {
@@ -666,15 +666,17 @@ export function getUxpTools(bridge: UxpWebSocketBridge) {
           project_item_name: { type: "string", maxLength: 255, description: "Unique source clip name when scope is project_item." },
           filters: { type: "array", maxItems: 16, items: { type: "string", minLength: 1, maxLength: 64 }, description: "Optional documented marker-type filters." },
           include_web_links: { type: "boolean", description: "Explicitly include documented marker URL and target values; defaults to false because web-link URLs can contain sensitive query data." },
+          include_color_values: { type: "boolean", description: "Explicitly include documented raw marker color red, green, blue, and alpha components. Values are host-provided components, not color-managed or rendered-appearance proof." },
         },
       },
-      handler: async (args: { scope?: "sequence" | "project_item"; project_item_id?: string; project_item_name?: string; filters?: string[]; include_web_links?: boolean }) =>
+      handler: async (args: { scope?: "sequence" | "project_item"; project_item_id?: string; project_item_name?: string; filters?: string[]; include_web_links?: boolean; include_color_values?: boolean }) =>
         invoke(bridge, "marker.list", {
           ...(args.scope ? { scope: args.scope === "project_item" ? "projectItem" : "sequence" } : {}),
           ...(args.project_item_id ? { projectItemId: args.project_item_id } : {}),
           ...(args.project_item_name ? { projectItemName: args.project_item_name } : {}),
           ...(args.filters ? { filters: args.filters } : {}),
           ...(args.include_web_links === undefined ? {} : { includeWebLinks: args.include_web_links }),
+          ...(args.include_color_values === undefined ? {} : { includeColorValues: args.include_color_values }),
         }),
     },
     set_source_monitor_position_uxp: {

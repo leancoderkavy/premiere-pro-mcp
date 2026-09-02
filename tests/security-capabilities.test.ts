@@ -52,6 +52,7 @@ describe("capability profiles", () => {
     expect(capabilityForTool("encode_media_uxp")).toBe("export");
     expect(capabilityForTool("inspect_project_selection_uxp")).toBe("inspect");
     expect(capabilityForTool("manage_markers_uxp")).toBe("edit");
+    expect(capabilityForTool("list_markers_uxp")).toBe("inspect");
     expect(capabilityForTool("get_project_info")).toBe("inspect");
     expect(capabilityForTool("preview_transcript_edit_uxp")).toBe("inspect");
     expect(capabilityForTool("plan_transcript_rough_cut_uxp")).toBe("inspect");

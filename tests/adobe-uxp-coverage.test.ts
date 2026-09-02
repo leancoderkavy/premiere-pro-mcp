@@ -71,6 +71,9 @@ describe("Adobe Premiere Pro 26.3 UXP coverage", () => {
       "guarded-timeline-source-color-label",
     ]));
     expect(entries.find((entry) => entry.id === "native-marker-crud")?.mcpTools).toEqual(["manage_markers_uxp"]);
+    expect(entries.find((entry) => entry.id === "marker-list-with-guid")?.adobeApi).toEqual(expect.arrayContaining([
+      "Marker.guid", "Marker.getColor", "Color.red", "Color.green", "Color.blue", "Color.alpha",
+    ]));
     expect(entries.find((entry) => entry.id === "native-beat-grid-markers")).toMatchObject({
       uxpCommand: "markers.addBeatGrid",
       mcpTools: ["apply_beat_markers_uxp"],
