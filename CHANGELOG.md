@@ -6,12 +6,29 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [1.14.6] - 2026-09-02
+
 ### Added
 
 - Added `create_editorial_context_pack`, a review-only, revision-aware Markdown
   reading view for explicitly captured transcript, shot, audio, source,
   timeline, and editor-note context. It is bounded by entry and character
   limits and never invokes a provider, Premiere bridge, or project mutation.
+- Added guarded UXP workflows for sequence playhead and range updates, marker
+  batch removal, native transition application, caption-track inventory,
+  silence-cut stringouts, atomic split edits, and beat-grid markers.
+- Added local-only delivery conformance, sampled video scopes and motion
+  analysis, Warp Stabilizer status inspection, and shot-match planning.
+- Added source-backed inventories for documented UXP, CEP, ExtendScript, and
+  native SDK integration surfaces.
+
+### Fixed
+
+- Made unsupported sequence pixel-aspect ratios, partial transitions,
+  unavailable media timing readback, and incomplete delivery probes fail
+  closed instead of reporting unverified success.
+- Corrected marker, encoder, duplicate-media, caption, and capability
+  inference contracts, with expanded mutation verification coverage.
 
 ## [1.14.5] - 2026-08-31
 

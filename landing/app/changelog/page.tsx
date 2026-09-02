@@ -5,6 +5,27 @@ import { product } from "@/lib/product"
 
 const releases = [
   {
+    version: "1.14.6",
+    date: "2026-09-02",
+    label: "Guarded UXP editing and local review evidence",
+    groups: [
+      {
+        title: "Added",
+        items: [
+          "Compatible UXP hosts gain guarded sequence range and playhead control, marker batch removal, native video transitions, caption inventory, silence-cut stringouts, and atomic split edits.",
+          "Local review workflows add delivery conformance, sampled media analysis, Warp Stabilizer status, shot-match planning, and revision-aware editorial context packs.",
+          "The release records UXP, CEP, ExtendScript, and native SDK integration surfaces with source-backed inventories.",
+        ],
+      },
+      {
+        title: "Safety",
+        items: [
+          "Unsupported sequence pixel-aspect ratios, incomplete delivery probes, and partial transition writes fail closed. Mutations without a complete Adobe readback retain their documented verified or committed-unverified outcome; automated contracts remain distinct from licensed-Premiere host proof.",
+        ],
+      },
+    ],
+  },
+  {
     version: "1.14.5",
     date: "2026-08-31",
     label: "Verified mutation and playback hotfixes",
