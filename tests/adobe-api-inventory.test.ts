@@ -96,6 +96,32 @@ describe("Adobe declaration API inventory", () => {
     }
   });
 
+  it("maps native PointF endpoint displacement without claiming animated-path or host proof", () => {
+    const pointCoverage = coverage.entries.find((entry: { id: string }) => entry.id === "bounded-point-effect-parameter-displacement");
+    expect(pointCoverage).toMatchObject({
+      backend: "uxp",
+      uxpCommand: "parameters.point.displacement.inspect",
+      mcpTools: ["automate_effect_parameters_uxp"],
+      minimumPremiereVersion: "26.3.0",
+      mutatesProject: false,
+      undoable: false,
+      verificationStatus: "automated_contract_verified",
+      liveHostVerificationStatus: "not_run",
+      verificationBoundary: "native_point_distance_complete_endpoint_double_readback",
+    });
+    expect(pointCoverage.adobeApi).toEqual(expect.arrayContaining([
+      "ComponentParam.getValueAtTime",
+      "ComponentParam.isTimeVarying",
+      "TickTime.createWithSeconds",
+      "PointF.distanceTo",
+      "PointF.x",
+      "PointF.y",
+    ]));
+    for (const symbol of pointCoverage.adobeApi) {
+      if (symbol.includes(".")) expect(inventory.entries).toContainEqual(expect.objectContaining({ symbol, coverage: "mapped" }));
+    }
+  });
+
   it("pins beta Media declarations for drift audit while coverage remains stable-only", () => {
     const manifest = JSON.parse(readFileSync("package.json", "utf8"));
     const lockfile = JSON.parse(readFileSync("package-lock.json", "utf8"));

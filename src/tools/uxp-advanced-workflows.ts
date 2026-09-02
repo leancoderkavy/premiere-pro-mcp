@@ -528,7 +528,7 @@ export function getUxpAdvancedWorkflowTools(bridge: UxpWebSocketBridge) {
         type: "object" as const,
         additionalProperties: false,
         properties: {
-          action: { type: "string", enum: ["inspect", "inspect_point_value", "set_point_value", "inspect_color_value", "set_color_value", "inspect_keyframe", "set_value", "add_keyframe", "remove_keyframe", "remove_keyframe_range", "set_interpolation", "inspect_time_varying", "set_time_varying"] },
+          action: { type: "string", enum: ["inspect", "inspect_point_value", "inspect_point_displacement", "set_point_value", "inspect_color_value", "set_color_value", "inspect_keyframe", "set_value", "add_keyframe", "remove_keyframe", "remove_keyframe_range", "set_interpolation", "inspect_time_varying", "set_time_varying"] },
           ...timelineTargetProperties,
           component_index: { type: "integer", minimum: 0 },
           param_index: { type: "integer", minimum: 0 },
@@ -610,7 +610,7 @@ export function getUxpAdvancedWorkflowTools(bridge: UxpWebSocketBridge) {
           confirm_set_point: { type: "boolean", description: "Required true for set_point_value after reviewing the complete point snapshot." },
           confirm_set_color: { type: "boolean", description: "Required true for set_color_value after reviewing the complete color snapshot." },
           time_seconds: { type: "number", minimum: 0, maximum: 86400 },
-          end_seconds: { type: "number", minimum: 0, maximum: 86400, description: "Required with inspect_keyframe direction nearest as the documented native outTime; also used as the inclusive end for remove_keyframe_range." },
+          end_seconds: { type: "number", minimum: 0, maximum: 86400, description: "Required with inspect_keyframe direction nearest as the documented native outTime, inspect_point_displacement as the strictly later PointF sample, and used as the inclusive end for remove_keyframe_range." },
           interpolation: { type: "string", enum: ["linear", "hold", "bezier", "time"] },
           keyframe_direction: { type: "string", enum: ["at", "next", "previous", "nearest"], description: "Required for inspect_keyframe. nearest requires end_seconds greater than or equal to time_seconds and passes both documented native lookup bounds to Premiere." },
           expected_sequence_id: { type: "string", minLength: 1, maxLength: 128, description: "Required for set_time_varying; exact sequence ID from inspect_time_varying." },
@@ -636,6 +636,7 @@ export function getUxpAdvancedWorkflowTools(bridge: UxpWebSocketBridge) {
           inspect_keyframe: "parameters.keyframe.inspect",
           inspect_time_varying: "parameters.timeVarying.inspect", set_time_varying: "parameters.timeVarying.set",
           inspect_point_value: "parameters.point.inspect", set_point_value: "parameters.point.set",
+          inspect_point_displacement: "parameters.point.displacement.inspect",
           inspect_color_value: "parameters.color.inspect", set_color_value: "parameters.color.set",
         };
         if (!args.action || !commands[args.action]) return invalidAction(args.action);
@@ -666,6 +667,14 @@ export function getUxpAdvancedWorkflowTools(bridge: UxpWebSocketBridge) {
             mediaType: args.media_type, trackIndex: args.track_index, clipIndex: args.clip_index,
             componentIndex: args.component_index, paramIndex: args.param_index,
             expectedComponentId: args.expected_component_id, expectedParamName: args.expected_param_name,
+          }));
+        }
+        if (args.action === "inspect_point_displacement") {
+          return invoke(bridge, commands[args.action], compact({
+            mediaType: args.media_type, trackIndex: args.track_index, clipIndex: args.clip_index,
+            componentIndex: args.component_index, paramIndex: args.param_index,
+            expectedComponentId: args.expected_component_id, expectedParamName: args.expected_param_name,
+            startSeconds: args.time_seconds, endSeconds: args.end_seconds,
           }));
         }
         if (args.action === "set_point_value") {

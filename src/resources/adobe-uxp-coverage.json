@@ -1547,6 +1547,47 @@
       "verificationBoundary": "point_parameter_readback"
     },
     {
+      "id": "bounded-point-effect-parameter-displacement",
+      "adobeApi": [
+        "Project.getActiveProject",
+        "Project.guid",
+        "Project.getActiveSequence",
+        "Sequence.guid",
+        "Sequence.getVideoTrack",
+        "Sequence.getAudioTrack",
+        "VideoClipTrackItem.getComponentChain",
+        "AudioClipTrackItem.getComponentChain",
+        "VideoComponentChain.getComponentAtIndex",
+        "AudioComponentChain.getComponentAtIndex",
+        "Component.getMatchName",
+        "Component.getDisplayName",
+        "Component.getParam",
+        "ComponentParam.displayName",
+        "ComponentParam.isTimeVarying",
+        "ComponentParam.getValueAtTime",
+        "TickTime.createWithSeconds",
+        "PointF.distanceTo",
+        "PointF.x",
+        "PointF.y"
+      ],
+      "documentationUrls": [
+        "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/componentparam/",
+        "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/pointf/"
+      ],
+      "minimumPremiereVersion": "26.3.0",
+      "backend": "uxp",
+      "uxpCommand": "parameters.point.displacement.inspect",
+      "mcpTools": ["automate_effect_parameters_uxp"],
+      "availability": "current",
+      "implementationStatus": "implemented",
+      "verificationStatus": "automated_contract_verified",
+      "liveHostVerificationStatus": "not_run",
+      "mutatesProject": false,
+      "undoable": false,
+      "idempotency": "not_applicable",
+      "verificationBoundary": "native_point_distance_complete_endpoint_double_readback"
+    },
+    {
       "id": "guarded-static-color-effect-parameter",
       "adobeApi": [
         "ComponentParam.getStartValue",

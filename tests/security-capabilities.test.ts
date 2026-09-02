@@ -227,6 +227,7 @@ describe("capability profiles", () => {
     ["inspect_track_item_identity_uxp", undefined],
     ["automate_effect_parameters_uxp", "inspect"],
     ["automate_effect_parameters_uxp", "inspect_point_value"],
+    ["automate_effect_parameters_uxp", "inspect_point_displacement"],
     ["automate_effect_parameters_uxp", "inspect_color_value"],
     ["automate_effect_parameters_uxp", "inspect_keyframe", { keyframe_direction: "nearest" }],
     ["automate_effect_parameters_uxp", "inspect_time_varying"],

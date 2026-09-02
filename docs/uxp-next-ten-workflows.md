@@ -23,7 +23,7 @@ a failed UXP mutation through CEP.
 | Sequence settings profiles | `manage_sequence_settings_uxp` | `sequenceSettings.get`, `sequenceSettings.update` | Requested settings read back after one `createSetSettingsAction` transaction |
 | Guarded sequence preview frame | `manage_sequence_preview_frame_uxp` | `sequence.previewFrame.inspect`, `sequence.previewFrame.update` | Explicit sequence GUID, full preview-frame snapshot, confirmation and operation ID; one settings transaction then same-sequence rectangle readback |
 | Workspace-gated imports | `import_project_media_uxp` | `project.import` | New project-item or sequence identities when Premiere exposes them |
-| Typed parameter/keyframe automation | `automate_effect_parameters_uxp` | `parameters.inspect`, `parameters.point.inspect`, `parameters.point.set`, `parameters.color.inspect`, `parameters.color.set`, `parameters.set`, `parameters.keyframe.inspect`, `parameters.keyframeAdd`, `parameters.keyframeRemove`, `parameters.keyframeRemoveRange`, `parameters.keyframeInterpolation`, `parameters.timeVarying.inspect`, `parameters.timeVarying.set` | Scalar parameter, static PointF x/y or raw Color RGBA, keyframe time, absence, interpolation, animation mode, or direct keyframe lookup readback |
+| Typed parameter/keyframe automation | `automate_effect_parameters_uxp` | `parameters.inspect`, `parameters.point.inspect`, `parameters.point.displacement.inspect`, `parameters.point.set`, `parameters.color.inspect`, `parameters.color.set`, `parameters.set`, `parameters.keyframe.inspect`, `parameters.keyframeAdd`, `parameters.keyframeRemove`, `parameters.keyframeRemoveRange`, `parameters.keyframeInterpolation`, `parameters.timeVarying.inspect`, `parameters.timeVarying.set` | Scalar parameter, static PointF x/y, animated PointF endpoint displacement, raw Color RGBA, keyframe time, absence, interpolation, animation mode, or direct keyframe lookup readback |
 | Track-item transformations | `transform_track_item_uxp` | `trackItem.inspect`, `trackItem.update` | Start/end, source in/out, disabled state, and name readback |
 | SequenceEditor timeline layer | `edit_timeline_uxp` | `timeline.insert`, `timeline.overwrite`, `timeline.cloneSelection`, `timeline.removeSelection`, `timeline.mogrtPath`, `timeline.mogrtLibrary` | Action transaction accepted; MOGRT calls return inserted items |
 | Empty sequence creation | `create_empty_sequence_uxp` | `sequences.createEmpty` | New sequence identity from the post-call project collection |
@@ -149,6 +149,13 @@ accepts scalar number, string, or boolean values; `inspect_point_value` and
 static composite update requires the complete returned snapshot, confirmation, and an
 operation ID; it rejects time-varying parameters, so PointF and Color keyframe edits,
 color management, and rendered-appearance claims remain out of scope.
+
+`inspect_point_displacement` instead requires a time-varying PointF parameter and two
+strictly increasing bounded seconds. It double-reads the complete target identity,
+animation flag, endpoints, and native `PointF.distanceTo()` result. The returned value
+is only the straight-line endpoint displacement: it is not a total animation-path
+length, keyframe edit, rendered-motion, playback, persistence, Undo, or licensed-host
+claim.
 Keyframe actions support add, remove, inclusive range removal, and interpolation.
 `inspect_keyframe` accepts one bounded reference time with `at`, `next`, or
 `previous`, or `nearest` with an explicit nondecreasing `time_seconds` to

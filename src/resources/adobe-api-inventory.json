@@ -13,8 +13,8 @@
   },
   "stats": {
     "total": 976,
-    "mapped": 375,
-    "unmapped": 601,
+    "mapped": 377,
+    "unmapped": 599,
     "manifestOnly": 5
   },
   "manifestOnly": [
@@ -1046,7 +1046,7 @@
     {
       "symbol": "ComponentParam.getValueAtTime",
       "kind": "method",
-      "coverage": "unmapped"
+      "coverage": "mapped"
     },
     {
       "symbol": "ComponentParam.isTimeVarying",
@@ -2812,7 +2812,7 @@
     {
       "symbol": "PointF.distanceTo",
       "kind": "method",
-      "coverage": "unmapped"
+      "coverage": "mapped"
     },
     {
       "symbol": "PointF.x",

@@ -69,7 +69,7 @@ describe("advanced stable UXP workflow MCP catalog", () => {
     });
     expect(tools.automate_effect_parameters_uxp.parameters).toMatchObject({
       properties: {
-        action: { enum: ["inspect", "inspect_point_value", "set_point_value", "inspect_color_value", "set_color_value", "inspect_keyframe", "set_value", "add_keyframe", "remove_keyframe", "remove_keyframe_range", "set_interpolation", "inspect_time_varying", "set_time_varying"] },
+        action: { enum: ["inspect", "inspect_point_value", "inspect_point_displacement", "set_point_value", "inspect_color_value", "set_color_value", "inspect_keyframe", "set_value", "add_keyframe", "remove_keyframe", "remove_keyframe_range", "set_interpolation", "inspect_time_varying", "set_time_varying"] },
         point: { required: ["x", "y"], additionalProperties: false },
         expected_point_snapshot: { required: ["project_id", "sequence_id", "media_type", "track_index", "clip_index", "component_index", "component_id", "param_index", "param_name", "time_varying", "point"], additionalProperties: false },
         color: { required: ["red", "green", "blue", "alpha"], additionalProperties: false },
@@ -167,6 +167,21 @@ describe("advanced stable UXP workflow MCP catalog", () => {
         confirmSetPoint: true, operationId: "point-tool-op",
       }],
     ]);
+  });
+
+  it("maps bounded native PointF displacement inspection to its exact UXP command", async () => {
+    const request = vi.fn().mockResolvedValue({ straightLineDistance: 5 });
+    const bridge = { request, getState: vi.fn() } as unknown as UxpWebSocketBridge;
+    const tools = getUxpTools(bridge);
+    await tools.automate_effect_parameters_uxp.handler({
+      action: "inspect_point_displacement", media_type: "video", track_index: 0, clip_index: 1,
+      component_index: 2, param_index: 3, expected_component_id: "ADBE Motion", expected_param_name: "Position",
+      time_seconds: 2, end_seconds: 5,
+    });
+    expect(request).toHaveBeenCalledWith("parameters.point.displacement.inspect", {
+      mediaType: "video", trackIndex: 0, clipIndex: 1, componentIndex: 2, paramIndex: 3,
+      expectedComponentId: "ADBE Motion", expectedParamName: "Position", startSeconds: 2, endSeconds: 5,
+    });
   });
 
   it("maps guarded static Color inspection and update actions to the exact UXP commands", async () => {
