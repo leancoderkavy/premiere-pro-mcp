@@ -287,6 +287,16 @@ describe("UXP command registry", () => {
       updates: { outSeconds: 110 },
     })).rejects.toMatchObject({ code: "UXP_VERIFICATION_FAILED" });
 
+    const durationChanged = host();
+    durationChanged.sequence.getEndTime
+      .mockResolvedValueOnce({ seconds: 120 })
+      .mockResolvedValueOnce({ seconds: 119 });
+    await expect(durationChanged.registry.dispatch("sequence.range.update", {
+      expectedSequenceGuid: "sequence-1",
+      expectedRange: { inSeconds: 1, outSeconds: 100, zeroPointSeconds: 3600, endSeconds: 120 },
+      updates: { inSeconds: 2 },
+    })).rejects.toMatchObject({ code: "UXP_VERIFICATION_FAILED" });
+
     const unavailable = host();
     unavailable.sequence.createSetZeroPointAction = undefined;
     const capabilities = await unavailable.registry.capabilities();

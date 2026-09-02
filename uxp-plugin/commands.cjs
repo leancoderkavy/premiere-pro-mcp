@@ -483,7 +483,7 @@
     }
     function sameSequenceRange(actual, expected) {
       return sameSeconds(actual.inSeconds, expected.inSeconds) && sameSeconds(actual.outSeconds, expected.outSeconds) &&
-        sameSeconds(actual.zeroPointSeconds, expected.zeroPointSeconds);
+        sameSeconds(actual.zeroPointSeconds, expected.zeroPointSeconds) && sameSeconds(actual.endSeconds, expected.endSeconds);
     }
     function sameSeconds(left, right) {
       return typeof left === "number" && typeof right === "number" && Math.abs(left - right) <= 0.000001;
