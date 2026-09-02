@@ -5,6 +5,7 @@ import { getUxpCloneWorkflowTools } from "./uxp-clone-workflows.js";
 import { getUxpEffectParameterCatalogWorkflowTools } from "./uxp-effect-parameter-catalog-workflows.js";
 import { getUxpNextWorkflowTools } from "./uxp-next-workflows.js";
 import { getUxpObjectMaskAuditWorkflowTools } from "./uxp-object-mask-audit-workflows.js";
+import { getUxpUniqueIdentityWorkflowTools } from "./uxp-unique-identity-workflows.js";
 import { getUxpRippleDeleteWorkflowTools } from "./uxp-ripple-delete-workflows.js";
 import { getUxpSlipWorkflowTools } from "./uxp-slip-workflows.js";
 import { getUxpSlideWorkflowTools } from "./uxp-slide-workflows.js";
@@ -49,6 +50,7 @@ export function getUxpTools(bridge: UxpWebSocketBridge) {
   return {
     ...getUxpNextWorkflowTools(bridge),
     ...getUxpObjectMaskAuditWorkflowTools(bridge),
+    ...getUxpUniqueIdentityWorkflowTools(bridge),
     ...getUxpEffectParameterCatalogWorkflowTools(bridge),
     ...getUxpAdvancedWorkflowTools(bridge),
     ...getUxpCloneWorkflowTools(bridge),

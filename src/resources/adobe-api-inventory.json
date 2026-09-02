@@ -13,8 +13,8 @@
   },
   "stats": {
     "total": 976,
-    "mapped": 360,
-    "unmapped": 616,
+    "mapped": 363,
+    "unmapped": 613,
     "manifestOnly": 5
   },
   "manifestOnly": [
@@ -2304,7 +2304,7 @@
     {
       "symbol": "Guid.toString",
       "kind": "method",
-      "coverage": "unmapped"
+      "coverage": "mapped"
     },
     {
       "symbol": "GuidStatic",
@@ -4381,12 +4381,12 @@
       "symbol": "UniqueSerializeable.cast",
       "kind": "method",
       "declarationSymbol": "UniqueSerializeableStatic.cast",
-      "coverage": "unmapped"
+      "coverage": "mapped"
     },
     {
       "symbol": "UniqueSerializeable.getUniqueID",
       "kind": "method",
-      "coverage": "unmapped"
+      "coverage": "mapped"
     },
     {
       "symbol": "UniqueSerializeableStatic",

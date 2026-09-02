@@ -27,6 +27,7 @@ const ADOBE_26_3_TOOLS = [
   "ripple_delete_track_item_uxp",
   "create_empty_sequence_uxp",
   "audit_object_masks_uxp",
+  "inspect_unique_object_identity_uxp",
   "inspect_effect_parameter_catalog_uxp",
   "has_transcript_uxp",
   "export_aaf_uxp",
@@ -53,7 +54,7 @@ describe("Adobe Premiere 26.3 UXP public MCP catalog", () => {
       expect(listed.tools.map((tool) => tool.name)).toEqual(
         expect.arrayContaining(ADOBE_26_3_TOOLS),
       );
-      expect(listed.tools).toHaveLength(413);
+      expect(listed.tools).toHaveLength(414);
     } finally {
       await client.close();
       await server.close();
@@ -143,6 +144,16 @@ describe("Adobe Premiere 26.3 UXP public MCP catalog", () => {
           items: { type: "string", minLength: 1, maxLength: 512 },
         },
       },
+    });
+    expect(tools.inspect_unique_object_identity_uxp.parameters).toMatchObject({
+      type: "object", additionalProperties: false,
+      properties: {
+        project_item_id: { type: "string", minLength: 1, maxLength: 512 },
+        sequence_guid: { type: "string", minLength: 1, maxLength: 512 },
+        expected_project_guid: { type: "string", minLength: 1, maxLength: 512 },
+        expected_unique_id: { type: "string", minLength: 1, maxLength: 512 },
+      },
+      oneOf: [{ required: ["project_item_id"] }, { required: ["sequence_guid"] }],
     });
     expect(tools.inspect_track_item_identity_uxp.parameters).toMatchObject({
       type: "object",

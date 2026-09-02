@@ -13,8 +13,8 @@ source catalog may include unreleased actions.
 | Registered core actions | 328 | CEP/local server catalog; host and authority checks still apply |
 | Default-profile core actions | 326 | Advertised with `inspect,edit,export,filesystem` |
 | Restricted core actions | 2 | Require explicit `unsafe-script` authority |
-| Authenticated UXP additions | 87 | Advertised only while a compatible authenticated UXP panel is connected |
-| Default profile with UXP | 413 | 326 core plus 87 UXP tools |
+| Authenticated UXP additions | 88 | Advertised only while a compatible authenticated UXP panel is connected |
+| Default profile with UXP | 414 | 326 core plus 88 UXP tools |
 
 ## How to read support
 
@@ -417,6 +417,7 @@ authenticated and the connected host advertises the required command capabilitie
 | `inspect_sequence_timing_by_guid_uxp` | Connected UXP | Single operation | Read one known sequence's bounded native timing and backing Project-item identity, including a non-active sequence without activating it. It resolves the exact GUID through the documented Project API, requires a matching project/sequence identity after the asynchronous reads, and rejects any timing change between complete first and final snapshots. It does not modify Premiere, prove an atomic host snapshot, or validate a licensed host. |
 | `inspect_sequence_timing_uxp` | Connected UXP | Single operation | Read the active sequence's native frame size, timebase, audio/video time-display codes, and backing Project-item identity. The command rejects malformed host values or a final active-sequence mismatch; it does not modify Premiere, claim a locked snapshot, or detect a transient switch that returns to the same active sequence. |
 | `inspect_track_item_identity_uxp` | Connected UXP | `media_type`: `video`, `audio` | Inspect one active-sequence clip's native match name, item type, media UUID, reported track index, and selection state through documented UXP APIs. It rechecks the active sequence identity before returning and does not expose media paths, effect parameters, or rendered output. |
+| `inspect_unique_object_identity_uxp` | Connected UXP | Single operation | Read the opaque documented Premiere unique serializable identity for exactly one existing project item or sequence, without changing the project. Select exactly one locator. The bridge independently resolves and reads the target twice, rejecting an active-project, locator, or unique-identity change rather than returning a mixed snapshot. It does not expose paths, metadata, content, timeline placement, editability, rendering, playback, persistence guarantees, or a licensed-host result. |
 | `inspect_video_transition_uxp` | Connected UXP | `position`: `start`, `end` | Read one bounded native video-transition target, including the active sequence GUID, source item ID, timeline edges, and presence at one requested edge. Copy this snapshot unchanged into add_video_transition_uxp or remove_video_transition_uxp. |
 | `lift_selection_uxp` | Connected UXP | Single operation | Lift the current timeline selection through Premiere's documented UXP SequenceEditor. This removes selected items without ripple in one undoable transaction; transaction acceptance is not a timeline readback. |
 | `list_markers_uxp` | Connected UXP | `scope`: `sequence`, `project_item` | List Premiere markers with stable 26.3+ GUIDs from the active sequence or one source media clip. Web-link URLs/frame targets and raw marker RGBA components are returned only with explicit opt-in; URLs can contain sensitive query data, and color components are host values without a color-profile or rendered-appearance claim. |

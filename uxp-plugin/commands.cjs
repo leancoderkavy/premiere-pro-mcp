@@ -98,6 +98,11 @@
     if (objectMaskAuditWorkflowApi && typeof objectMaskAuditWorkflowApi.createObjectMaskAuditWorkflowDefinitions === "function") {
       Object.assign(definitions, objectMaskAuditWorkflowApi.createObjectMaskAuditWorkflowDefinitions({ ppro }));
     }
+    let uniqueIdentityWorkflowApi = deps.UniqueIdentityWorkflows || (typeof globalThis !== "undefined" && globalThis.PremiereMcpUniqueIdentityWorkflows);
+    if (!uniqueIdentityWorkflowApi && typeof require === "function") uniqueIdentityWorkflowApi = require("./unique-identity-workflows.cjs");
+    if (uniqueIdentityWorkflowApi && typeof uniqueIdentityWorkflowApi.createUniqueIdentityWorkflowDefinitions === "function") {
+      Object.assign(definitions, uniqueIdentityWorkflowApi.createUniqueIdentityWorkflowDefinitions({ ppro }));
+    }
     let effectParameterCatalogWorkflowApi = deps.EffectParameterCatalogWorkflows || (typeof globalThis !== "undefined" && globalThis.PremiereMcpEffectParameterCatalogWorkflows);
     if (!effectParameterCatalogWorkflowApi && typeof require === "function") effectParameterCatalogWorkflowApi = require("./effect-parameter-catalog-workflows.cjs");
     if (effectParameterCatalogWorkflowApi && typeof effectParameterCatalogWorkflowApi.createEffectParameterCatalogWorkflowDefinitions === "function") {

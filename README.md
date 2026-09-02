@@ -8,7 +8,7 @@
 
 **Give compatible AI assistants structured control over supported Adobe Premiere Pro workflows.**
 
-328 core tools across 37 modules, 4 resources, and 11 guided workflows. A connected UXP host adds 87 capability-gated tools.
+328 core tools across 37 modules, 4 resources, and 11 guided workflows. A connected UXP host adds 88 capability-gated tools.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Node.js](https://img.shields.io/badge/Node.js-20.19%2B-green.svg)](https://nodejs.org)
@@ -624,7 +624,13 @@ The file-based IPC bridge is simple, reliable, and works across macOS and Window
 
 ---
 
-## Tools (328 core total; 326 under the default profile; 413 with a connected UXP bridge)
+`inspect_unique_object_identity_uxp` is a separate read-only native identity
+inspection route. It resolves exactly one project item or sequence, reads the
+opaque `UniqueSerializeable` identity twice, and rejects drift without retaining
+the value or treating it as edit authority. See the [unique-identity workflow
+notes](docs/uxp-unique-identity-workflows.md) for its bounds and proof boundary.
+
+## Tools (328 core total; 326 under the default profile; 414 with a connected UXP bridge)
 
 The [complete supported-actions catalog](docs/supported-actions.md) lists every
 registered core tool, the two tools restricted behind explicit `unsafe-script`
