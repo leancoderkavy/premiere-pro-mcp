@@ -34,6 +34,10 @@ type Surface = {
   betaMediaManagerDriftCommand?: string;
   betaMediaManagerDriftVerificationCommand?: string;
   betaMediaManagerDriftDocumentation?: string;
+  betaTranscriptDriftArtifact?: string;
+  betaTranscriptDriftCommand?: string;
+  betaTranscriptDriftVerificationCommand?: string;
+  betaTranscriptDriftDocumentation?: string;
   betaWorkAreaDriftArtifact?: string;
   betaWorkAreaDriftCommand?: string;
   betaWorkAreaDriftVerificationCommand?: string;
@@ -118,6 +122,10 @@ describe("Premiere API and competitor surface registry", () => {
         betaMediaManagerDriftCommand: "npm run adobe:beta-media-manager-drift",
         betaMediaManagerDriftVerificationCommand: "npm run adobe:beta-media-manager-drift:check",
         betaMediaManagerDriftDocumentation: "docs/adobe-beta-media-manager-drift.md",
+        betaTranscriptDriftArtifact: "dist/resources/adobe-beta-transcript-drift.json",
+        betaTranscriptDriftCommand: "npm run adobe:beta-transcript-drift",
+        betaTranscriptDriftVerificationCommand: "npm run adobe:beta-transcript-drift:check",
+        betaTranscriptDriftDocumentation: "docs/adobe-beta-transcript-drift.md",
         betaWorkAreaDriftArtifact: "dist/resources/adobe-beta-work-area-drift.json",
         betaWorkAreaDriftCommand: "npm run adobe:beta-work-area-drift",
         betaWorkAreaDriftVerificationCommand: "npm run adobe:beta-work-area-drift:check",
