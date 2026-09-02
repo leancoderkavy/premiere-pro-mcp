@@ -98,6 +98,11 @@
     if (sourceMediaProvenanceWorkflowApi && typeof sourceMediaProvenanceWorkflowApi.createSourceMediaProvenanceWorkflowDefinitions === "function") {
       Object.assign(definitions, sourceMediaProvenanceWorkflowApi.createSourceMediaProvenanceWorkflowDefinitions({ ppro }));
     }
+    let sourceProxyWorkflowApi = deps.SourceProxyWorkflows || (typeof globalThis !== "undefined" && globalThis.PremiereMcpSourceProxyWorkflows);
+    if (!sourceProxyWorkflowApi && typeof require === "function") sourceProxyWorkflowApi = require("./source-proxy-workflows.cjs");
+    if (sourceProxyWorkflowApi && typeof sourceProxyWorkflowApi.createSourceProxyWorkflowDefinitions === "function") {
+      Object.assign(definitions, sourceProxyWorkflowApi.createSourceProxyWorkflowDefinitions({ ppro }));
+    }
     let tickTimeArithmeticWorkflowApi = deps.TickTimeArithmeticWorkflows || (typeof globalThis !== "undefined" && globalThis.PremiereMcpTickTimeArithmeticWorkflows);
     if (!tickTimeArithmeticWorkflowApi && typeof require === "function") tickTimeArithmeticWorkflowApi = require("./tick-time-arithmetic-workflows.cjs");
     if (tickTimeArithmeticWorkflowApi && typeof tickTimeArithmeticWorkflowApi.createTickTimeArithmeticWorkflowDefinitions === "function") {

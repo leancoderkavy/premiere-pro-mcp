@@ -2552,6 +2552,41 @@
       "undoable": false,
       "idempotency": "not_applicable",
       "verificationBoundary": "bounded_opt_in_source_path_double_readback"
+    },
+    {
+      "id": "bounded-source-proxy-inspection",
+      "adobeApi": [
+        "Project.getActiveProject",
+        "Project.getRootItem",
+        "Project.guid",
+        "ProjectItem.getId",
+        "FolderItem.cast",
+        "FolderItem.getItems",
+        "ClipProjectItem.cast",
+        "ClipProjectItem.canChangeMediaPath",
+        "ClipProjectItem.isOffline",
+        "ClipProjectItem.canProxy",
+        "ClipProjectItem.hasProxy",
+        "ClipProjectItem.getProxyPath"
+      ],
+      "documentationUrls": [
+        "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/project/",
+        "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/projectitem/",
+        "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/folderitem/",
+        "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/clipprojectitem/"
+      ],
+      "minimumPremiereVersion": "26.3.0",
+      "backend": "uxp",
+      "uxpCommand": "source.proxy.inspect",
+      "mcpTools": ["inspect_source_proxy_uxp"],
+      "availability": "current",
+      "implementationStatus": "implemented",
+      "verificationStatus": "automated_contract_verified",
+      "liveHostVerificationStatus": "not_run",
+      "mutatesProject": false,
+      "undoable": false,
+      "idempotency": "not_applicable",
+      "verificationBoundary": "bounded_source_proxy_state_double_readback"
     }
   ]
 }
