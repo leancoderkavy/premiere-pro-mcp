@@ -99,6 +99,26 @@ export function getUxpTools(bridge: UxpWebSocketBridge) {
       },
       handler: async () => invoke(bridge, "sequence.timing.inspect"),
     },
+    inspect_sequence_timing_by_guid_uxp: {
+      description: "Read one known sequence's bounded native timing and backing Project-item identity, including a non-active sequence without activating it. It resolves the exact GUID through the documented Project API, requires a matching project/sequence identity after the asynchronous reads, and rejects any timing change between complete first and final snapshots. It does not modify Premiere, prove an atomic host snapshot, or validate a licensed host.",
+      parameters: {
+        type: "object" as const,
+        additionalProperties: false,
+        properties: {
+          sequence_guid: { type: "string", minLength: 1, maxLength: 512, description: "Exact Premiere sequence GUID from a recent native sequence inspection or listing." },
+        },
+        required: ["sequence_guid"],
+      },
+      operationalCapability: {
+        backend: "UXP" as const,
+        backends: ["uxp" as const],
+        minimumPremiereVersion: "25.6",
+        verificationBoundary: "structured_uxp_readback" as const,
+        hostVerificationRequired: true,
+        notes: ["Available only through an authenticated UXP bridge whose runtime capability handshake advertises sequence.timingByGuid.inspect."],
+      },
+      handler: async (args: { sequence_guid: string }) => invoke(bridge, "sequence.timingByGuid.inspect", { sequenceGuid: args.sequence_guid }),
+    },
     inspect_caption_tracks_uxp: {
       description: "Inventory native caption tracks on the active sequence through documented Premiere UXP APIs. Returns track identity, name, mute state, and item count only; it does not inspect cue text, timing, rendered appearance, or caption correctness.",
       parameters: {},

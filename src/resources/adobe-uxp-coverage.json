@@ -205,6 +205,8 @@
         "Sequence.getSequenceAudioTimeDisplayFormat",
         "Sequence.getSequenceVideoTimeDisplayFormat",
         "Sequence.getProjectItem",
+        "Project.getSequence",
+        "Guid.fromString",
         "Sequence.guid",
         "Sequence.name",
         "ProjectItem.getId",
@@ -231,7 +233,7 @@
       "mutatesProject": false,
       "undoable": false,
       "idempotency": "not_applicable",
-      "verificationBoundary": "sequence_timing_readback"
+      "verificationBoundary": "sequence_timing_readback_or_targeted_sequence_timing_double_readback"
     },
     {
       "id": "native-caption-track-inventory",

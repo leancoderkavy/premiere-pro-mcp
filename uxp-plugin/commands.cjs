@@ -41,6 +41,7 @@
       "sequence.playhead.inspect": { readOnly: true, minHostVersion: "25.6.0", probe: canInspectSequencePlayhead, handler: inspectSequencePlayhead },
       "sequence.playhead.set": { idempotent: true, minHostVersion: "25.6.0", probe: canSetSequencePlayhead, handler: setSequencePlayhead },
       "sequence.timing.inspect": { readOnly: true, minHostVersion: "25.6.0", probe: canInspectSequenceTiming, handler: inspectSequenceTiming },
+      "sequence.timingByGuid.inspect": { readOnly: true, targetCapabilityProbe: true, minHostVersion: "25.6.0", probe: canInspectSequenceTimingByGuid, handler: inspectSequenceTimingByGuid },
       "preferences.inspect": { readOnly: true, minHostVersion: "25.6.0", probe: canInspectAppPreferences, handler: inspectAppPreferences },
       "preferences.set": { idempotent: true, minHostVersion: "25.6.0", probe: canSetAppPreferences, handler: setAppPreference },
       "interchange.export": { requiresWorkspace: true, minHostVersion: "26.2.0", probe: canExportInterchange, handler: exportInterchange },
@@ -379,6 +380,45 @@
         throw commandError("UXP_STALE_SEQUENCE", "The active sequence no longer matches the timing snapshot; retry the inspection");
       }
       return { ...snapshot, verificationBoundary: "sequence_timing_readback" };
+    }
+    async function inspectSequenceTimingByGuid(args) {
+      assertOnlyKeys(args, ["sequenceGuid"]);
+      const requestedSequenceGuid = sequenceGuidArgument(args.sequenceGuid, "sequenceGuid");
+      const project = await ppro.Project.getActiveProject();
+      if (!project) throw commandError("UXP_NO_ACTIVE_PROJECT", "No active project");
+      if (typeof project.getSequence !== "function") {
+        throw commandError("UXP_COMMAND_UNAVAILABLE", "Premiere cannot resolve a sequence by GUID");
+      }
+      const projectGuid = requiredProjectGuid(project);
+      const firstSequence = await project.getSequence(requestedSequenceGuid.native);
+      if (!firstSequence) throw commandError("UXP_TARGET_NOT_FOUND", "sequenceGuid was not found in the active project");
+      const first = await sequenceTimingSnapshot(firstSequence);
+      if (first.sequenceGuid !== requestedSequenceGuid.text) {
+        throw commandError("UXP_STALE_SEQUENCE", "The requested sequence GUID did not match Premiere's resolved sequence");
+      }
+      // Re-resolve the active project and the requested sequence after every
+      // asynchronous timing read. Project.getSequence() is the documented
+      // targeted lookup; it avoids activating a different timeline just to
+      // inspect it. Premiere exposes no atomic sequence-timing snapshot, so
+      // require a complete second equal read rather than returning a mixed
+      // first snapshot when the target changes during inspection.
+      const currentProject = await ppro.Project.getActiveProject();
+      if (!currentProject || requiredProjectGuid(currentProject) !== projectGuid ||
+        typeof currentProject.getSequence !== "function") {
+        throw commandError("UXP_STALE_PROJECT", "The active project changed while reading the target sequence; retry the inspection");
+      }
+      const finalSequence = await currentProject.getSequence(requestedSequenceGuid.native);
+      if (!finalSequence) throw commandError("UXP_STALE_SEQUENCE", "The requested sequence changed or was removed while reading it; retry the inspection");
+      const final = await sequenceTimingSnapshot(finalSequence);
+      if (final.sequenceGuid !== requestedSequenceGuid.text || !sameSequenceTimingSnapshot(first, final)) {
+        throw commandError("UXP_STALE_SEQUENCE", "The requested sequence timing changed while reading it; retry the inspection");
+      }
+      return {
+        ...final,
+        projectGuid,
+        requestedSequenceGuid: requestedSequenceGuid.text,
+        verificationBoundary: "targeted_sequence_timing_double_readback"
+      };
     }
     async function setSequencePlayhead(args) {
       const input = validateSequencePlayheadSetArgs(args);
@@ -721,6 +761,34 @@
         throw commandError("UXP_VERIFICATION_FAILED", "Premiere did not provide a stable active-sequence GUID");
       }
       return sequenceGuid;
+    }
+    function sequenceGuidArgument(value, name) {
+      if (typeof value !== "string" || !value.trim() || value !== value.trim() || value.length > 512) {
+        throw commandError("UXP_INVALID_ARGUMENT", name + " is required and must be a bounded GUID string");
+      }
+      if (!ppro.Guid || typeof ppro.Guid.fromString !== "function") {
+        throw commandError("UXP_COMMAND_UNAVAILABLE", "Premiere cannot parse sequence GUIDs");
+      }
+      let native;
+      try { native = ppro.Guid.fromString(value); } catch (_) {
+        throw commandError("UXP_INVALID_ARGUMENT", name + " is not a valid Premiere GUID");
+      }
+      if (!native) throw commandError("UXP_INVALID_ARGUMENT", name + " is not a valid Premiere GUID");
+      return { text: value, native };
+    }
+    function sameSequenceTimingSnapshot(left, right) {
+      return left && right &&
+        left.sequenceGuid === right.sequenceGuid &&
+        left.sequenceName === right.sequenceName &&
+        left.timebase === right.timebase &&
+        left.frameSize && right.frameSize &&
+        left.frameSize.width === right.frameSize.width && left.frameSize.height === right.frameSize.height &&
+        left.audioTimeDisplayFormat && right.audioTimeDisplayFormat &&
+        left.audioTimeDisplayFormat.type === right.audioTimeDisplayFormat.type &&
+        left.videoTimeDisplayFormat && right.videoTimeDisplayFormat &&
+        left.videoTimeDisplayFormat.type === right.videoTimeDisplayFormat.type &&
+        left.projectItem && right.projectItem &&
+        left.projectItem.id === right.projectItem.id && left.projectItem.name === right.projectItem.name;
     }
     function frameSizeSnapshot(value) {
       if (!value || typeof value.width !== "number" || typeof value.height !== "number" ||
@@ -1199,6 +1267,11 @@
         "getFrameSize", "getTimebase", "getSequenceAudioTimeDisplayFormat",
         "getSequenceVideoTimeDisplayFormat", "getProjectItem"
       ]);
+    }
+    async function canInspectSequenceTimingByGuid() {
+      if (!canInspectProject() || !ppro.Guid || typeof ppro.Guid.fromString !== "function") return false;
+      const project = await ppro.Project.getActiveProject();
+      return !project || typeof project.getSequence === "function";
     }
     function canInspectAppPreferences() {
       if (!ppro.AppPreference || typeof ppro.AppPreference.getValue !== "function") return false;
