@@ -1068,7 +1068,8 @@ export function getExportTools(bridgeOptions: BridgeOptions) {
     },
 
     add_to_render_queue: {
-      description: "Add the active sequence to the Adobe Media Encoder render queue",
+      description:
+        "Request an Adobe Media Encoder render-queue handoff for the active sequence. Verify queue presence or the output file independently.",
       parameters: {
         type: "object" as const,
         properties: {
@@ -1328,7 +1329,8 @@ export function getExportTools(bridgeOptions: BridgeOptions) {
     },
 
     encode_project_item: {
-      description: "Encode a specific project item (not a sequence) using Adobe Media Encoder",
+      description:
+        "Request an Adobe Media Encoder encode for a project item. The returned job ID is an unverified handoff; verify queue presence or the output file independently.",
       parameters: {
         type: "object" as const,
         properties: {
@@ -1391,7 +1393,8 @@ export function getExportTools(bridgeOptions: BridgeOptions) {
     },
 
     encode_file: {
-      description: "Encode an external file (not in project) using Adobe Media Encoder",
+      description:
+        "Request an Adobe Media Encoder encode for an external file. The returned job ID is an unverified handoff; verify queue presence or the output file independently.",
       parameters: {
         type: "object" as const,
         properties: {

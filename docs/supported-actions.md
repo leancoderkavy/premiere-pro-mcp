@@ -41,7 +41,7 @@ operation” when the tool has no enum-based mode.
 | `add_marker` | Default profile | Single operation | Add a marker to the active sequence or a clip |
 | `add_marker_to_project_item` | Default profile | `type`: `Comment`, `Chapter`, `Segmentation`, `WebLink` | Add a marker to a project item (source clip marker). |
 | `add_text_overlay` | Default profile | `caption_format`: `608`, `708`, `subtitle`, `teletext` | Unavailable: Premiere does not expose a supported scripting API to create caption clips directly from raw text. Import an .srt/.vtt and use create_caption_track, or use a MOGRT/PNG overlay for title graphics. |
-| `add_to_render_queue` | Default profile | Single operation | Add the active sequence to the Adobe Media Encoder render queue |
+| `add_to_render_queue` | Default profile | Single operation | Request an Adobe Media Encoder render-queue handoff for the active sequence. Verify queue presence or the output file independently. |
 | `add_to_timeline` | Default profile | Single operation | Insert a project item at a timeline position and verify Premiere added no unexpected same-track fragments. |
 | `add_to_timeline_batch` | Default profile | Single operation | Insert up to 32 project items in one validated CEP request. All items and target tracks are preflighted before the first insertion; every requested placement is read back, and the tool fails closed if Premiere cannot verify one. |
 | `add_track` | Default profile | `track_type`: `video`, `audio` | Add verified video or audio tracks to the active sequence. Returns an error if Premiere cannot add the exact requested count. |
@@ -110,8 +110,8 @@ operation” when the tool has no enum-based mode.
 | `duplicate_clip` | Default profile | Single operation | Duplicate a clip on the timeline (copy to same position on next available track) |
 | `duplicate_sequence` | Default profile | Single operation | Duplicate an existing sequence |
 | `enable_disable_clip` | Default profile | Single operation | Enable or disable a clip on the timeline |
-| `encode_file` | Default profile | Single operation | Encode an external file (not in project) using Adobe Media Encoder |
-| `encode_project_item` | Default profile | Single operation | Encode a specific project item (not a sequence) using Adobe Media Encoder |
+| `encode_file` | Default profile | Single operation | Request an Adobe Media Encoder encode for an external file. The returned job ID is an unverified handoff; verify queue presence or the output file independently. |
+| `encode_project_item` | Default profile | Single operation | Request an Adobe Media Encoder encode for a project item. The returned job ID is an unverified handoff; verify queue presence or the output file independently. |
 | `export_aaf` | Default profile | Single operation | Unavailable on the CEP backend. Use export_aaf_uxp with an authenticated Premiere 26.3+ UXP bridge. |
 | `export_as_fcp_xml` | Default profile | Single operation | Export the active sequence as a Final Cut Pro XML file |
 | `export_as_project` | Default profile | Single operation | Export a sequence as a standalone Premiere Pro project file |
