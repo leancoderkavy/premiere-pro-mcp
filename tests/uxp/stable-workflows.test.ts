@@ -119,6 +119,8 @@ function stableHost() {
     getAudioTrackCount: vi.fn(async () => 1),
     getAudioTrack: vi.fn(async () => audioTrack),
   };
+  const markerValues: Array<{ guid: string }> = [];
+  const markers = { getMarkers: vi.fn(async () => markerValues) };
   const root = { isFolder: true, getItems: vi.fn(async () => [sourceClip]) };
   let projectMetadata = "project-before", xmpMetadata = "xmp-before", ingestEnabled = false;
   const ingestSettings = {
@@ -174,8 +176,12 @@ function stableHost() {
       SEQUENCE_OPERATION_APPLYCUT: "ApplyCuts",
       SEQUENCE_OPERATION_CREATEMARKER: "CreateMarkers",
       SEQUENCE_OPERATION_CREATESUBCLIP: "CreateSubclips",
-      performSceneEditDetectionOnSelection: vi.fn(async () => true),
+      performSceneEditDetectionOnSelection: vi.fn(async (operation: string) => {
+        if (operation === "CreateMarkers") markerValues.push({ guid: `marker-${markerValues.length + 1}` });
+        return true;
+      }),
     },
+    Markers: { getMarkers: vi.fn(async () => markers) },
     ProjectSettings: {
       getIngestSettings: vi.fn(async () => ingestSettings),
       createSetIngestSettingsAction: vi.fn(() => ({ apply: () => undefined })),
@@ -226,6 +232,9 @@ describe("stable Premiere UXP workflow expansion", () => {
     ]));
     expect(capabilities.commands["effects.selection.add"]).toMatchObject({
       supported: true, documented: true, destructive: true, undoable: true,
+    });
+    expect(capabilities.commands["sceneEdit.detect"]).toMatchObject({
+      supported: true, minHostVersion: "26.3.0",
     });
     expect(capabilities.commands["selection.update"]).toMatchObject({
       supported: true, documented: true, readOnly: false, destructive: false,
@@ -717,12 +726,22 @@ describe("stable Premiere UXP workflow expansion", () => {
       ["createSubclips", "CreateSubclips"],
     ]) {
       await expect(value.registry.dispatch("sceneEdit.detect", { mode })).resolves.toMatchObject({
-        detected: true, mode, selectedItemCount: 1, outcome: "committed_unverified",
+        detected: true, mode, selectedItemCount: 1, outcome: mode === "createMarkers" ? "verified" : "committed_unverified",
         operation: { mutatesProject: true, undo: { supported: false } },
       });
       expect(value.ppro.SequenceUtils.performSceneEditDetectionOnSelection)
         .toHaveBeenLastCalledWith(hostOperation, expect.any(Object));
+      if (mode === "createMarkers") {
+        expect(value.ppro.Markers.getMarkers).toHaveBeenCalledWith(value.sourceClip);
+      }
     }
+  });
+
+  it("refuses to report scene-marker detection when marker readback is unchanged", async () => {
+    const value = stableHost();
+    value.ppro.SequenceUtils.performSceneEditDetectionOnSelection.mockImplementationOnce(async () => true);
+    await expect(value.registry.dispatch("sceneEdit.detect", { mode: "createMarkers" }))
+      .rejects.toMatchObject({ code: "UXP_VERIFICATION_FAILED" });
   });
 
   it("guards non-undoable proxy/relink calls and verifies host readback", async () => {

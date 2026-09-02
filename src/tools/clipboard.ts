@@ -172,7 +172,17 @@ export function getClipboardTools(bridgeOptions: BridgeOptions) {
     },
 
     replace_clip_media: {
-      description: "Replace the source media of a clip on the timeline with a different project item, keeping the clip's position and duration.",
+      description: "Unavailable by design: the legacy ExtendScript overwrite route cannot prove that replacing media preserves the original clip's trim, position, linked audio, or adjacent clips, so this tool performs no mutation.",
+      operationalCapability: {
+        backend: "local" as const,
+        backends: ["local" as const],
+        status: "unsupported" as const,
+        minimumPremiereVersion: null,
+        authority: "edit" as const,
+        verificationBoundary: "static_metadata_only" as const,
+        hostVerificationRequired: false,
+        notes: ["Unavailable by design; this tool returns a local negative result and never contacts Premiere."],
+      },
       parameters: {
         type: "object" as const,
         properties: {
@@ -187,30 +197,10 @@ export function getClipboardTools(bridgeOptions: BridgeOptions) {
         },
         required: ["clip_node_id", "new_item_id"],
       },
-      handler: async (args: { clip_node_id: string; new_item_id: string }) => {
-        const script = buildToolScript(`
-          var clipResult = __findClip("${escapeForExtendScript(args.clip_node_id)}");
-          if (!clipResult) return __error("Clip not found");
-          var newItem = __findProjectItem("${escapeForExtendScript(args.new_item_id)}");
-          if (!newItem) return __error("New project item not found: ${escapeForExtendScript(args.new_item_id)}");
-
-          var clip = clipResult.clip;
-          var seq = app.project.activeSequence;
-          var startTicks = clip.start.ticks;
-          var trackType = clipResult.trackType;
-          var trackIndex = clipResult.trackIndex;
-
-          // Overwrite at the same position with new media
-          if (trackType === "video") {
-            seq.overwriteClip(newItem, startTicks, trackIndex, -1);
-          } else {
-            seq.overwriteClip(newItem, startTicks, -1, trackIndex);
-          }
-
-          return __result({ replaced: true, clipName: clip.name, newSource: newItem.name });
-        `);
-        return sendCommand(script, bridgeOptions);
-      },
+      handler: async () => ({
+        success: false,
+        error: "replace_clip_media is unavailable because the legacy overwrite route cannot preserve and verify clip duration, placement, linked audio, and neighboring clips. No mutation was attempted.",
+      }),
     },
 
     batch_apply_effect: {

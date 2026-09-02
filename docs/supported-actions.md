@@ -268,7 +268,7 @@ operation” when the tool has no enum-based mode.
 | `rename_project_item` | Default profile | Single operation | Rename a project item in the project panel. |
 | `rename_track` | Default profile | `track_type`: `video`, `audio` | Rename a video or audio track. |
 | `replace_clip` | Default profile | Single operation | Replace a clip on the timeline with a different project item, preserving position and duration |
-| `replace_clip_media` | Default profile | Single operation | Replace the source media of a clip on the timeline with a different project item, keeping the clip's position and duration. |
+| `replace_clip_media` | Default profile | Single operation | Unavailable by design: the legacy ExtendScript overwrite route cannot prove that replacing media preserves the original clip's trim, position, linked audio, or adjacent clips, so this tool performs no mutation. |
 | `reverse_clip` | Default profile | Single operation | Unavailable: Premiere does not expose a supported scripting API for reversing a timeline clip's playback direction. |
 | `ripple_delete` | Default profile | Single operation | Ripple delete a clip (removes clip and closes the gap). Uses QE DOM. |
 | `roll_edit` | Default profile | Single operation | Perform a verified roll edit at the outgoing cut of a clip using the public timeline DOM. |

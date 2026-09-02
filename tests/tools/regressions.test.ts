@@ -728,3 +728,35 @@ describe("issue #324 — duplicate media requires distinct project-item node IDs
     expect(script).not.toContain("pathMap[path].length > 1");
   });
 });
+
+// https://github.com/leancoderkavy/premiere-pro-mcp/issues/326
+describe("issue #326 — sequence creation requires project-collection readback", () => {
+  const sequence = getSequenceTools(bridgeOptions);
+
+  it("does not report a QE-active sequence as created unless it is discoverable", async () => {
+    const script = await scriptFor(sequence.create_sequence, {
+      name: "Verified Sequence", preset_path: "/tmp/sequence.sqpreset",
+    });
+    expect(script).toContain("var beforeSequenceIds = {}");
+    expect(script).toContain("var sequenceId = String(seq.sequenceID)");
+    expect(script).toContain("if (beforeSequenceIds[sequenceId])");
+    expect(script).toContain("did not create a new sequence");
+    expect(script).toContain("var created = __findSequence(sequenceId)");
+    expect(script).toContain("no creation success is reported");
+    expect(script).toContain("verified: true");
+  });
+});
+
+// https://github.com/leancoderkavy/premiere-pro-mcp/issues/327
+describe("issue #327 — legacy media replacement is fail-closed", () => {
+  const clipboard = getClipboardTools(bridgeOptions);
+
+  it("never uses overwriteClip when duration and adjacent-track preservation cannot be verified", async () => {
+    expect(clipboard.replace_clip_media.operationalCapability).toMatchObject({
+      backend: "local", backends: ["local"], status: "unsupported", hostVerificationRequired: false,
+    });
+    const result = await clipboard.replace_clip_media.handler({ clip_node_id: "clip-1", new_item_id: "item-2" } as never);
+    expect(result).toMatchObject({ success: false, error: expect.stringContaining("No mutation was attempted") });
+    expect(mockedSendCommand).not.toHaveBeenCalled();
+  });
+});
