@@ -88,6 +88,56 @@ const operationId = {
   description: "Optional idempotency key for a mutating operation.",
 };
 
+const MAX_DISPLAY_FORMAT_CODE = 2_147_483_647;
+
+type DisplayFormatSnapshot = {
+  audioDisplayFormat: number;
+  videoDisplayFormat: number;
+};
+
+function boundedDisplayFormatCode(value: unknown, name: string): number {
+  if (typeof value !== "number" || !Number.isSafeInteger(value) || value < 0 || value > MAX_DISPLAY_FORMAT_CODE) {
+    throw new Error(`${name} must be a non-negative integer no greater than ${MAX_DISPLAY_FORMAT_CODE}`);
+  }
+  return value;
+}
+
+function reviewedDisplayFormats(value: unknown): DisplayFormatSnapshot {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    throw new Error("expected_display_formats must be an object returned by inspect");
+  }
+  const formats = value as Record<string, unknown>;
+  const allowed = ["audio_display_format", "video_display_format"];
+  const unknown = Object.keys(formats).find((key) => !allowed.includes(key));
+  if (unknown) throw new Error(`expected_display_formats has an unknown field: ${unknown}`);
+  if (!("audio_display_format" in formats) || !("video_display_format" in formats)) {
+    throw new Error("expected_display_formats must include audio_display_format and video_display_format");
+  }
+  return {
+    audioDisplayFormat: boundedDisplayFormatCode(formats.audio_display_format, "expected_display_formats.audio_display_format"),
+    videoDisplayFormat: boundedDisplayFormatCode(formats.video_display_format, "expected_display_formats.video_display_format"),
+  };
+}
+
+function requestedDisplayFormats(value: unknown): Partial<DisplayFormatSnapshot> {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    throw new Error("updates must be an object");
+  }
+  const formats = value as Record<string, unknown>;
+  const allowed = ["audio_display_format", "video_display_format"];
+  const unknown = Object.keys(formats).find((key) => !allowed.includes(key));
+  if (unknown) throw new Error(`updates has an unknown field: ${unknown}`);
+  const result: Partial<DisplayFormatSnapshot> = {};
+  if ("audio_display_format" in formats) {
+    result.audioDisplayFormat = boundedDisplayFormatCode(formats.audio_display_format, "updates.audio_display_format");
+  }
+  if ("video_display_format" in formats) {
+    result.videoDisplayFormat = boundedDisplayFormatCode(formats.video_display_format, "updates.video_display_format");
+  }
+  if (!Object.keys(result).length) throw new Error("updates must include audio_display_format or video_display_format");
+  return result;
+}
+
 const sequenceId = {
   type: "string",
   minLength: 1,
@@ -360,6 +410,61 @@ export function getUxpAdvancedWorkflowTools(bridge: UxpWebSocketBridge) {
           videoHeight: source.video_height,
         });
         return invoke(bridge, "sequenceSettings.update", { ...compact({ sequenceId: args.sequence_id }), updates, ...operation(args) });
+      },
+    },
+
+    manage_sequence_display_format_uxp: {
+      description: "Inspect or update a sequence's native audio/video time-display formats. Updates require the exact inspected sequence GUID and complete display-format snapshot, serialize competing updates per sequence, commit one undoable UXP transaction, and verify native readback. Cancellation is not supported after dispatch.",
+      parameters: {
+        type: "object" as const,
+        additionalProperties: false,
+        properties: {
+          action: { type: "string", enum: ["inspect", "update"] },
+          sequence_id: sequenceId,
+          expected_sequence_guid: {
+            type: "string", minLength: 1, maxLength: 128,
+            description: "Required for update; copy sequence.guid from inspect. The update targets this GUID even if the active sequence changes.",
+          },
+          expected_display_formats: {
+            type: "object", additionalProperties: false,
+            properties: {
+              audio_display_format: { type: "integer", minimum: 0, maximum: MAX_DISPLAY_FORMAT_CODE },
+              video_display_format: { type: "integer", minimum: 0, maximum: MAX_DISPLAY_FORMAT_CODE },
+            },
+            required: ["audio_display_format", "video_display_format"],
+            description: "Required for update; copy both display-format codes returned by inspect without changes.",
+          },
+          updates: {
+            type: "object", additionalProperties: false,
+            properties: {
+              audio_display_format: { type: "integer", minimum: 0, maximum: MAX_DISPLAY_FORMAT_CODE },
+              video_display_format: { type: "integer", minimum: 0, maximum: MAX_DISPLAY_FORMAT_CODE },
+            },
+            description: "One or both documented display-format codes returned in supportedDisplayFormats by inspect.",
+          },
+          operation_id: operationId,
+        },
+        required: ["action"],
+      },
+      handler: async (args: AdvancedArgs) => {
+        if (args.action === "inspect") return invoke(bridge, "sequence.displayFormat.inspect", compact({ sequenceId: args.sequence_id }));
+        if (args.action !== "update") return invalidAction(args.action);
+        if (typeof args.expected_sequence_guid !== "string" || !args.expected_sequence_guid.trim() || args.expected_sequence_guid.length > 128) {
+          return { success: false, error: "update requires expected_sequence_guid from inspect" };
+        }
+        try {
+          const expectedDisplayFormats = reviewedDisplayFormats(args.expected_display_formats);
+          const updates = requestedDisplayFormats(args.updates);
+          return invoke(bridge, "sequence.displayFormat.update", {
+            ...compact({ sequenceId: args.sequence_id }),
+            expectedSequenceGuid: args.expected_sequence_guid,
+            expectedDisplayFormats,
+            updates,
+            ...operation(args),
+          });
+        } catch (error) {
+          return { success: false, error: error instanceof Error ? error.message : String(error) };
+        }
       },
     },
 

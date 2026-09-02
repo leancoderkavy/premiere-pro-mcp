@@ -13,8 +13,8 @@
   },
   "stats": {
     "total": 976,
-    "mapped": 239,
-    "unmapped": 737,
+    "mapped": 252,
+    "unmapped": 724,
     "manifestOnly": 5
   },
   "manifestOnly": [
@@ -3709,13 +3709,13 @@
       "symbol": "SequenceSettings.AUDIO_DISPLAY_FORMAT_MILISECONDS",
       "kind": "property",
       "declarationSymbol": "SequenceSettingsStatic.AUDIO_DISPLAY_FORMAT_MILISECONDS",
-      "coverage": "unmapped"
+      "coverage": "mapped"
     },
     {
       "symbol": "SequenceSettings.AUDIO_DISPLAY_FORMAT_SAMPLE_RATE",
       "kind": "property",
       "declarationSymbol": "SequenceSettingsStatic.AUDIO_DISPLAY_FORMAT_SAMPLE_RATE",
-      "coverage": "unmapped"
+      "coverage": "mapped"
     },
     {
       "symbol": "SequenceSettings.PAR_Anamorphic",
@@ -3769,43 +3769,43 @@
       "symbol": "SequenceSettings.VIDEO_DISPLAY_FORMAT_16mm",
       "kind": "property",
       "declarationSymbol": "SequenceSettingsStatic.VIDEO_DISPLAY_FORMAT_16mm",
-      "coverage": "unmapped"
+      "coverage": "mapped"
     },
     {
       "symbol": "SequenceSettings.VIDEO_DISPLAY_FORMAT_23976",
       "kind": "property",
       "declarationSymbol": "SequenceSettingsStatic.VIDEO_DISPLAY_FORMAT_23976",
-      "coverage": "unmapped"
+      "coverage": "mapped"
     },
     {
       "symbol": "SequenceSettings.VIDEO_DISPLAY_FORMAT_25",
       "kind": "property",
       "declarationSymbol": "SequenceSettingsStatic.VIDEO_DISPLAY_FORMAT_25",
-      "coverage": "unmapped"
+      "coverage": "mapped"
     },
     {
       "symbol": "SequenceSettings.VIDEO_DISPLAY_FORMAT_2997",
       "kind": "property",
       "declarationSymbol": "SequenceSettingsStatic.VIDEO_DISPLAY_FORMAT_2997",
-      "coverage": "unmapped"
+      "coverage": "mapped"
     },
     {
       "symbol": "SequenceSettings.VIDEO_DISPLAY_FORMAT_2997_NON_DROP",
       "kind": "property",
       "declarationSymbol": "SequenceSettingsStatic.VIDEO_DISPLAY_FORMAT_2997_NON_DROP",
-      "coverage": "unmapped"
+      "coverage": "mapped"
     },
     {
       "symbol": "SequenceSettings.VIDEO_DISPLAY_FORMAT_35mm",
       "kind": "property",
       "declarationSymbol": "SequenceSettingsStatic.VIDEO_DISPLAY_FORMAT_35mm",
-      "coverage": "unmapped"
+      "coverage": "mapped"
     },
     {
       "symbol": "SequenceSettings.VIDEO_DISPLAY_FORMAT_FRAMES",
       "kind": "property",
       "declarationSymbol": "SequenceSettingsStatic.VIDEO_DISPLAY_FORMAT_FRAMES",
-      "coverage": "unmapped"
+      "coverage": "mapped"
     },
     {
       "symbol": "SequenceSettings.VIDEO_FIELDTYPE_LOWER_FIRST",
@@ -3838,7 +3838,7 @@
     {
       "symbol": "SequenceSettings.getAudioDisplayFormat",
       "kind": "method",
-      "coverage": "unmapped"
+      "coverage": "mapped"
     },
     {
       "symbol": "SequenceSettings.getAudioSampleRate",
@@ -3883,7 +3883,7 @@
     {
       "symbol": "SequenceSettings.getVideoDisplayFormat",
       "kind": "method",
-      "coverage": "unmapped"
+      "coverage": "mapped"
     },
     {
       "symbol": "SequenceSettings.getVideoFieldType",
@@ -3908,7 +3908,7 @@
     {
       "symbol": "SequenceSettings.setAudioDisplayFormat",
       "kind": "method",
-      "coverage": "unmapped"
+      "coverage": "mapped"
     },
     {
       "symbol": "SequenceSettings.setAudioSampleRate",
@@ -3953,7 +3953,7 @@
     {
       "symbol": "SequenceSettings.setVideoDisplayFormat",
       "kind": "method",
-      "coverage": "unmapped"
+      "coverage": "mapped"
     },
     {
       "symbol": "SequenceSettings.setVideoFieldType",

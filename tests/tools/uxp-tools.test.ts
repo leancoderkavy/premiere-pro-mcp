@@ -260,6 +260,7 @@ describe("UXP MCP tools", () => {
           "inspect_project_uxp",
           "inspect_sequence_timing_uxp",
           "inspect_caption_tracks_uxp",
+          "manage_sequence_display_format_uxp",
           "manage_sequence_range_uxp",
           "manage_sequence_playhead_uxp",
           "save_project_uxp",
@@ -291,10 +292,10 @@ describe("UXP MCP tools", () => {
       // transcript workflow and documented Premiere 26.3 tools add nineteen. The
       // two stable workflow expansions, confirmed organization application, four
       // bounded native migration adapters, beat-grid marker application, and
-      // guarded sequence-playhead control and native sequence-timing inspection add
-      // twenty-nine consolidated UXP tools;
+      // guarded sequence-playhead control, native sequence-timing inspection, and
+      // guarded sequence-display-format updates add thirty consolidated UXP tools;
       // connection verification and delivery conformance add two default-profile core tools.
-      expect(tools.tools).toHaveLength(390);
+      expect(tools.tools).toHaveLength(391);
     } finally {
       await client.close();
       await server.close();
