@@ -503,8 +503,13 @@
       "id": "marker-list-with-guid",
       "adobeApi": [
         "Marker.guid",
+        "Marker.getColor",
         "Marker.getUrl",
         "Marker.getTarget",
+        "Color.red",
+        "Color.green",
+        "Color.blue",
+        "Color.alpha",
         "MarkerCollection"
       ],
       "documentationUrls": [

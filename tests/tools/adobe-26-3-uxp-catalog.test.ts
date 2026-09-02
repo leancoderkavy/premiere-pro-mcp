@@ -93,6 +93,7 @@ describe("Adobe Premiere 26.3 UXP public MCP catalog", () => {
         project_item_name: { type: "string" },
         filters: { type: "array", items: { type: "string" } },
         include_web_links: { type: "boolean" },
+        include_color_values: { type: "boolean" },
       },
     });
     expect(tools.set_source_monitor_position_uxp.parameters).toMatchObject({
@@ -167,7 +168,7 @@ describe("Adobe Premiere 26.3 UXP public MCP catalog", () => {
       hard_boundaries: true, take_video: false, take_audio: true, operation_id: "subclip-1",
     });
     await tools.list_markers_uxp.handler({
-      scope: "project_item", project_item_id: "clip-17", filters: ["Comment", "Chapter"], include_web_links: true,
+      scope: "project_item", project_item_id: "clip-17", filters: ["Comment", "Chapter"], include_web_links: true, include_color_values: true,
     });
     await tools.set_source_monitor_position_uxp.handler({ seconds: 12.5, operation_id: "source-1" });
     await tools.create_empty_sequence_uxp.handler({
@@ -196,7 +197,7 @@ describe("Adobe Premiere 26.3 UXP public MCP catalog", () => {
       hasHardBoundaries: true, takeVideo: false, takeAudio: true, operationId: "subclip-1",
     });
     expect(request).toHaveBeenNthCalledWith(3, "marker.list", {
-      scope: "projectItem", projectItemId: "clip-17", filters: ["Comment", "Chapter"], includeWebLinks: true,
+      scope: "projectItem", projectItemId: "clip-17", filters: ["Comment", "Chapter"], includeWebLinks: true, includeColorValues: true,
     });
     expect(request).toHaveBeenNthCalledWith(4, "sourceMonitor.position.set", {
       seconds: 12.5, operationId: "source-1",

@@ -13,6 +13,7 @@ function adobe263Host() {
     guid: { toString: () => "marker-guid-1" },
     getName: vi.fn(() => "Review"), getComments: vi.fn(() => "Check this cut"), getType: vi.fn(() => "Comment"),
     getColorIndex: vi.fn(() => 6), getStart: vi.fn(() => ({ seconds: 12.5 })), getDuration: vi.fn(() => ({ seconds: 1.25 })),
+    getColor: vi.fn(() => ({ red: 0.2, green: 0.4, blue: 0.8, alpha: 1 })),
     getUrl: vi.fn(() => "https://review.example.test/cut?token=opaque"), getTarget: vi.fn(() => "frame-41"),
   };
   const source = {
@@ -86,18 +87,23 @@ describe("Adobe Premiere Pro 26.3 UXP commands", () => {
     );
   });
 
-  it("returns stable marker GUIDs, redacts web links by default, and opts in to documented URL/target readback", async () => {
+  it("returns stable marker GUIDs, redacts optional values by default, and opts in to documented link and raw color readback", async () => {
     const value = adobe263Host();
     await expect(value.registry.dispatch("marker.list", {})).resolves.toMatchObject({
       scope: "sequence", count: 1, markers: [{ guid: "marker-guid-1", startSeconds: 12.5, durationSeconds: 1.25 }],
     });
     expect(value.marker.getUrl).not.toHaveBeenCalled();
     expect(value.marker.getTarget).not.toHaveBeenCalled();
+    expect(value.marker.getColor).not.toHaveBeenCalled();
     await expect(value.registry.dispatch("marker.list", { includeWebLinks: true })).resolves.toMatchObject({
       scope: "sequence", markers: [{ url: "https://review.example.test/cut?token=opaque", target: "frame-41" }],
     });
     expect(value.marker.getUrl).toHaveBeenCalledTimes(1);
     expect(value.marker.getTarget).toHaveBeenCalledTimes(1);
+    await expect(value.registry.dispatch("marker.list", { includeColorValues: true })).resolves.toMatchObject({
+      scope: "sequence", markers: [{ color: { red: 0.2, green: 0.4, blue: 0.8, alpha: 1 } }],
+    });
+    expect(value.marker.getColor).toHaveBeenCalledTimes(1);
 
     const partialHost = adobe263Host();
     delete (partialHost.marker as { getUrl?: unknown }).getUrl;
@@ -105,6 +111,15 @@ describe("Adobe Premiere Pro 26.3 UXP commands", () => {
     await expect(partialHost.registry.dispatch("marker.list", { includeWebLinks: true })).resolves.toMatchObject({
       markers: [{ url: null, target: null }],
     });
+    delete (partialHost.marker as { getColor?: unknown }).getColor;
+    await expect(partialHost.registry.dispatch("marker.list", { includeColorValues: true })).resolves.toMatchObject({
+      markers: [{ color: null }],
+    });
+
+    const malformedHost = adobe263Host();
+    malformedHost.marker.getColor.mockReturnValueOnce({ red: Number.NaN, green: 0.4, blue: 0.8, alpha: 1 });
+    await expect(malformedHost.registry.dispatch("marker.list", { includeColorValues: true }))
+      .rejects.toMatchObject({ code: "UXP_VERIFICATION_FAILED" });
   });
 
   it("verifies Source Monitor positioning and applies bounded AAF options", async () => {
@@ -130,5 +145,6 @@ describe("Adobe Premiere Pro 26.3 UXP commands", () => {
       outputFilePath: "/exports/edit.aaf", options: { sampleRate: 12345 },
     })).rejects.toMatchObject({ code: "UXP_INVALID_ARGUMENT" });
     await expect(value.registry.dispatch("marker.list", { includeWebLinks: "true" })).rejects.toMatchObject({ code: "UXP_INVALID_ARGUMENT" });
+    await expect(value.registry.dispatch("marker.list", { includeColorValues: "true" })).rejects.toMatchObject({ code: "UXP_INVALID_ARGUMENT" });
   });
 });

@@ -648,7 +648,7 @@
       if (!collection || typeof collection.getMarkers !== "function") throw commandError("UXP_COMMAND_UNAVAILABLE", "Premiere did not return a marker collection");
       const source = Array.from(await collection.getMarkers(input.filters) || []);
       const markers = [];
-      for (let i = 0; i < source.length; i += 1) markers.push(await markerSnapshot(source[i], input.includeWebLinks));
+      for (let i = 0; i < source.length; i += 1) markers.push(await markerSnapshot(source[i], input.includeWebLinks, input.includeColorValues));
       return {
         scope: input.scope, ownerGuid: input.scope === "sequence" ? stringifyGuid(owner.guid) : null,
         ownerProjectItemId: input.scope === "projectItem" ? await projectItemIdentifier(owner) : null,
@@ -1207,7 +1207,7 @@
       }
       return null;
     }
-    async function markerSnapshot(marker, includeWebLinks) {
+    async function markerSnapshot(marker, includeWebLinks, includeColorValues) {
       const start = await marker.getStart(), duration = await marker.getDuration();
       const snapshot = {
         guid: stringifyGuid(marker.guid), name: String(await marker.getName() || ""),
@@ -1218,12 +1218,23 @@
         snapshot.url = await optionalMarkerString(marker, "getUrl");
         snapshot.target = await optionalMarkerString(marker, "getTarget");
       }
+      if (includeColorValues) snapshot.color = await optionalMarkerColor(marker);
       return snapshot;
     }
     async function optionalMarkerString(marker, method) {
       if (!marker || typeof marker[method] !== "function") return null;
       const value = await marker[method]();
       return value == null ? "" : String(value);
+    }
+    async function optionalMarkerColor(marker) {
+      if (!marker || typeof marker.getColor !== "function") return null;
+      const color = await marker.getColor();
+      if (color == null) return null;
+      const snapshot = { red: color.red, green: color.green, blue: color.blue, alpha: color.alpha };
+      if (!Object.values(snapshot).every((value) => typeof value === "number" && Number.isFinite(value))) {
+        throw commandError("UXP_VERIFICATION_FAILED", "Premiere did not return finite marker color components");
+      }
+      return snapshot;
     }
     function stringifyGuid(value) {
       if (value == null) return "";
@@ -1453,7 +1464,7 @@
     };
   }
   function validateMarkerListArgs(args) {
-    assertObject(args); assertOnlyKeys(args, ["scope", "projectItemId", "projectItemName", "filters", "includeWebLinks"]);
+    assertObject(args); assertOnlyKeys(args, ["scope", "projectItemId", "projectItemName", "filters", "includeWebLinks", "includeColorValues"]);
     const scope = args.scope == null ? "sequence" : args.scope;
     if (scope !== "sequence" && scope !== "projectItem") throw commandError("UXP_INVALID_ARGUMENT", "scope must be sequence or projectItem");
     if (scope === "sequence" && (args.projectItemId != null || args.projectItemName != null)) {
@@ -1465,7 +1476,11 @@
       if (!Array.isArray(args.filters) || args.filters.length > 16) throw commandError("UXP_INVALID_ARGUMENT", "filters must contain at most 16 marker types");
       filters = args.filters.map((value, index) => boundedString(value, "filters[" + index + "]", 64));
     }
-    return Object.assign({ scope, filters, includeWebLinks: optionalBoolean(args.includeWebLinks, false, "includeWebLinks") }, target);
+    return Object.assign({
+      scope, filters,
+      includeWebLinks: optionalBoolean(args.includeWebLinks, false, "includeWebLinks"),
+      includeColorValues: optionalBoolean(args.includeColorValues, false, "includeColorValues")
+    }, target);
   }
   function validateProjectItemTarget(args) {
     const hasId = args.projectItemId != null, hasName = args.projectItemName != null;

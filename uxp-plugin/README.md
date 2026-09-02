@@ -44,7 +44,9 @@ available only when the connected host advertises them through `capabilities.get
   ordered in/out points, hard-boundary selection, and optional audio/video
   inclusion. It is an undoable action and must return the created item identity.
 - `marker.list` — return sequence or resolved project-item markers, including the
-  stable marker `guid` introduced in 26.3. It is read-only.
+  stable marker `guid` introduced in 26.3. It is read-only; documented web links
+  and raw RGBA color components are opt-in, and raw color values make no
+  color-profile or rendered-appearance claim.
 - `sourceMonitor.position.set` — set the Source Monitor using a `TickTime` and
   read the position back. It changes monitor state, not project edit history.
 - `transcript.has` — report whether a resolved `ClipProjectItem` has a
