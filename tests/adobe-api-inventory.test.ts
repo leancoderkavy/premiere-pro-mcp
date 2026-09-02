@@ -6,6 +6,7 @@ import { describe, expect, it } from "vitest";
 
 const inventory = JSON.parse(readFileSync("src/resources/adobe-api-inventory.json", "utf8"));
 const coverage = JSON.parse(readFileSync("src/resources/adobe-uxp-coverage.json", "utf8"));
+const betaMediaDrift = JSON.parse(readFileSync("src/resources/adobe-beta-media-drift.json", "utf8"));
 
 function declarationType(declarations: string, name: string): string {
   const match = declarations.match(new RegExp(`export declare type ${name} = \\{([\\s\\S]*?)^\\};`, "m"));
@@ -62,6 +63,29 @@ describe("Adobe declaration API inventory", () => {
     expect(betaMedia).toContain("getDuration(): TickTime;");
     expect(betaMedia).toMatch(/@deprecated Use getStart\(\) instead\.[\s\S]*?readonly start: Promise<TickTime>;/);
     expect(betaMedia).toMatch(/@deprecated Use getDuration\(\) instead\.[\s\S]*?readonly duration: Promise<TickTime>;/);
+    expect(betaMediaDrift).toMatchObject({
+      schemaVersion: 1,
+      scope: { declaration: "Media" },
+      sources: {
+        stable: { package: "@adobe/premierepro", version: "26.3.0", mediaDeclarationSha256: expect.stringMatching(/^[a-f0-9]{64}$/) },
+        beta: { package: "@adobe/premierepro-beta", version: "26.5.0-beta.73", mediaDeclarationSha256: expect.stringMatching(/^[a-f0-9]{64}$/) },
+      },
+      diff: {
+        betaOnly: [
+          { symbol: "Media.getDuration", kind: "method", signature: "() => TickTime" },
+          { symbol: "Media.getStart", kind: "method", signature: "() => TickTime" },
+        ],
+        stableOnly: [],
+        changed: [
+          { symbol: "Media.duration", stable: { signature: "TickTime" }, beta: { signature: "Promise<TickTime>" } },
+          { symbol: "Media.start", stable: { signature: "TickTime" }, beta: { signature: "Promise<TickTime>" } },
+        ],
+        unchanged: ["Media.createSetStartAction"],
+      },
+    });
+    expect(spawnSync(process.execPath, ["scripts/generate-adobe-beta-media-drift.mjs", "--check"], {
+      encoding: "utf8",
+    }).status).toBe(0);
     const mediaHealthCoverage = coverage.entries.find((entry: { id: string }) => entry.id === "bounded-media-health-maintenance");
     expect(mediaHealthCoverage.adobeApi).toEqual(expect.arrayContaining([
       "ClipProjectItem.getMedia",
@@ -83,6 +107,28 @@ describe("Adobe declaration API inventory", () => {
       "Media.getStart",
       "Media.getDuration",
     ]));
+  });
+
+  it("fails closed when either pinned declaration does not expose a Media type literal", () => {
+    const directory = mkdtempSync(join(tmpdir(), "premiere-beta-media-drift-"));
+    const stablePath = join(directory, "stable.d.ts");
+    const betaPath = join(directory, "beta.d.ts");
+    writeFileSync(stablePath, "export declare type Media = { readonly start: TickTime; };\n");
+    writeFileSync(betaPath, "export declare type Media = () => TickTime;\n");
+    try {
+      const result = spawnSync(process.execPath, ["scripts/generate-adobe-beta-media-drift.mjs", "--validate-only"], {
+        encoding: "utf8",
+        env: {
+          ...process.env,
+          PREMIERE_BETA_MEDIA_STABLE_DECLARATIONS_PATH: stablePath,
+          PREMIERE_BETA_MEDIA_BETA_DECLARATIONS_PATH: betaPath,
+        },
+      });
+      expect(result.status).not.toBe(0);
+      expect(result.stderr).toContain("must expose Media as a type literal");
+    } finally {
+      rmSync(directory, { recursive: true, force: true });
+    }
   });
 
   it.each([

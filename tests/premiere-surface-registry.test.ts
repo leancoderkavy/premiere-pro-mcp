@@ -22,6 +22,10 @@ type Surface = {
   ccxReceiptVerificationCommand?: string;
   ccxReceiptDocumentation?: string;
   ccxReceiptSchemaVersion?: number;
+  betaMediaDriftArtifact?: string;
+  betaMediaDriftCommand?: string;
+  betaMediaDriftVerificationCommand?: string;
+  betaMediaDriftDocumentation?: string;
   notes: string;
 };
 
@@ -87,7 +91,14 @@ describe("Premiere API and competitor surface registry", () => {
       }
     }
     expect(registry.integrationSurfaces.find((surface) => surface.id === "premiere-dom"))
-      .toMatchObject({ inventoryState: "complete", implementationState: "partial" });
+      .toMatchObject({
+        inventoryState: "complete",
+        implementationState: "partial",
+        betaMediaDriftArtifact: "dist/resources/adobe-beta-media-drift.json",
+        betaMediaDriftCommand: "npm run adobe:beta-media-drift",
+        betaMediaDriftVerificationCommand: "npm run adobe:beta-media-drift:check",
+        betaMediaDriftDocumentation: "docs/adobe-beta-media-drift.md",
+      });
     expect(registry.integrationSurfaces.find((surface) => surface.id === "uxp-javascript"))
       .toMatchObject({
         versionSource: "@adobe/cc-ext-uxp-types@7.3.1",

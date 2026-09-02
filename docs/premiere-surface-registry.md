@@ -19,6 +19,9 @@ symbol inventories. Adobe's live sitemap supplies a complete page inventory
 for HTML, CSS, Spectrum, plugin guides, and supporting UXP documentation.
 The pinned community Premiere scripting guide also has a complete member
 inventory, explicitly labeled as non-Adobe authority and not runtime proof.
+The [beta Media drift receipt](adobe-beta-media-drift.md) separately records the
+pinned stable-to-beta `Media` declaration delta. It is deliberately not a beta
+surface inventory or beta-host support claim.
 Other remaining surfaces stay visibly partial, not started, externally gated,
 or unavailable from an authoritative source. Both C++ SDK
 inventories remain externally gated because their headers and packaged

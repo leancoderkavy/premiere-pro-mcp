@@ -1,0 +1,122 @@
+{
+  "schemaVersion": 1,
+  "scope": {
+    "declaration": "Media",
+    "semantics": "This compares only the public Media declaration in the pinned stable and beta packages. It is a declaration-drift audit, not beta API support or a complete package diff.",
+    "doesNotEstablish": "It does not prove a beta host exposes these members, that a stable host accepts a beta call, or that any MCP action is supported or licensed-host validated."
+  },
+  "sources": {
+    "stable": {
+      "package": "@adobe/premierepro",
+      "version": "26.3.0",
+      "declarations": "node_modules/@adobe/premierepro/src/premierepro.d.ts",
+      "mediaDeclarationSha256": "61b2cef852826ff244dcd3ec6099072d32e0fc4f1aac99304e8a7c04dc934981"
+    },
+    "beta": {
+      "package": "@adobe/premierepro-beta",
+      "version": "26.5.0-beta.73",
+      "declarations": "node_modules/@adobe/premierepro-beta/src/premierepro.d.ts",
+      "mediaDeclarationSha256": "2aa6468b0f07bdeb07edfda479b63e8419b60feaacf6304314053e20eb125674"
+    }
+  },
+  "members": {
+    "stable": [
+      {
+        "symbol": "Media.createSetStartAction",
+        "kind": "method",
+        "signature": "(time: TickTime) => Action"
+      },
+      {
+        "symbol": "Media.duration",
+        "kind": "property",
+        "readonly": true,
+        "signature": "TickTime"
+      },
+      {
+        "symbol": "Media.start",
+        "kind": "property",
+        "readonly": true,
+        "signature": "TickTime"
+      }
+    ],
+    "beta": [
+      {
+        "symbol": "Media.createSetStartAction",
+        "kind": "method",
+        "signature": "(time: TickTime) => Action"
+      },
+      {
+        "symbol": "Media.duration",
+        "kind": "property",
+        "readonly": true,
+        "signature": "Promise<TickTime>"
+      },
+      {
+        "symbol": "Media.getDuration",
+        "kind": "method",
+        "signature": "() => TickTime"
+      },
+      {
+        "symbol": "Media.getStart",
+        "kind": "method",
+        "signature": "() => TickTime"
+      },
+      {
+        "symbol": "Media.start",
+        "kind": "property",
+        "readonly": true,
+        "signature": "Promise<TickTime>"
+      }
+    ]
+  },
+  "diff": {
+    "betaOnly": [
+      {
+        "symbol": "Media.getDuration",
+        "kind": "method",
+        "signature": "() => TickTime"
+      },
+      {
+        "symbol": "Media.getStart",
+        "kind": "method",
+        "signature": "() => TickTime"
+      }
+    ],
+    "stableOnly": [],
+    "changed": [
+      {
+        "symbol": "Media.duration",
+        "stable": {
+          "symbol": "Media.duration",
+          "kind": "property",
+          "readonly": true,
+          "signature": "TickTime"
+        },
+        "beta": {
+          "symbol": "Media.duration",
+          "kind": "property",
+          "readonly": true,
+          "signature": "Promise<TickTime>"
+        }
+      },
+      {
+        "symbol": "Media.start",
+        "stable": {
+          "symbol": "Media.start",
+          "kind": "property",
+          "readonly": true,
+          "signature": "TickTime"
+        },
+        "beta": {
+          "symbol": "Media.start",
+          "kind": "property",
+          "readonly": true,
+          "signature": "Promise<TickTime>"
+        }
+      }
+    ],
+    "unchanged": [
+      "Media.createSetStartAction"
+    ]
+  }
+}
