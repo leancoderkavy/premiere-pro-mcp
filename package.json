@@ -64,6 +64,7 @@
     "validate:marketplace-branding": "node scripts/validate-adobe-marketplace-branding.mjs",
     "benchmark:uxp-hybrid:verify": "node scripts/verify-uxp-hybrid-benchmark.mjs",
     "native:sdk-header-inventory": "node scripts/generate-native-sdk-header-inventory.mjs",
+    "native:sdk-header-inventory:verify": "node scripts/verify-native-sdk-header-inventory.mjs",
     "docs:supported-actions": "npm run build && node scripts/generate-supported-actions.mjs",
     "docs:supported-actions:check": "node scripts/generate-supported-actions.mjs --check",
     "docs:quickstart:check": "node scripts/check-quickstart-locales.mjs",

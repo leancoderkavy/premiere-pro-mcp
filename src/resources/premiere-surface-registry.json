@@ -72,8 +72,9 @@
       "inventoryState": "blocked_external_artifact",
       "implementationState": "gated",
       "inventoryCommand": "npm run native:sdk-header-inventory",
+      "inventoryVerificationCommand": "npm run native:sdk-header-inventory:verify",
       "inventoryDocumentation": "docs/native-sdk-header-inventory.md",
-      "notes": "The downloadable SDK headers are access-controlled. The header receipt can account for an authorized artifact without copying it; the existing benchmark remains disabled until exact SDK and cross-platform evidence are available."
+      "notes": "The downloadable SDK headers are access-controlled. The header receipt and standalone verifier can account for an authorized artifact without copying it; the existing benchmark remains disabled until exact SDK and cross-platform evidence are available."
     },
     {
       "id": "premiere-cpp-sdk",
@@ -87,8 +88,9 @@
       "inventoryState": "blocked_external_artifact",
       "implementationState": "not_started",
       "inventoryCommand": "npm run native:sdk-header-inventory",
+      "inventoryVerificationCommand": "npm run native:sdk-header-inventory:verify",
       "inventoryDocumentation": "docs/native-sdk-header-inventory.md",
-      "notes": "The standalone PrSDK for native importers, exporters, effects, transitions, devices, and related plug-ins is distinct from UXP Hybrid addons. The header receipt can account for an authorized artifact, but the access-controlled SDK documentation and headers are still required."
+      "notes": "The standalone PrSDK for native importers, exporters, effects, transitions, devices, and related plug-ins is distinct from UXP Hybrid addons. The header receipt and standalone verifier can account for an authorized artifact, but the access-controlled SDK documentation and headers are still required."
     },
     {
       "id": "cep-extendscript",
