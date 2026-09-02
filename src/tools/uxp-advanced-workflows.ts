@@ -37,6 +37,51 @@ function invalidAction(value: unknown) {
   return { success: false, error: `Unsupported workflow action: ${String(value)}` };
 }
 
+type ReviewedMarkerSnapshot = {
+  markerGuid: string;
+  expectedName: string;
+  expectedStartSeconds: number;
+  expectedDurationSeconds: number;
+};
+
+function reviewedMarkerSnapshots(value: unknown): ReviewedMarkerSnapshot[] {
+  if (!Array.isArray(value) || value.length === 0 || value.length > 128) {
+    throw new Error("marker_snapshots must contain between 1 and 128 reviewed marker snapshots");
+  }
+  const seen = new Set<string>();
+  return value.map((rawSnapshot, index) => {
+    if (!rawSnapshot || typeof rawSnapshot !== "object" || Array.isArray(rawSnapshot)) {
+      throw new Error(`marker_snapshots[${index}] must be an object`);
+    }
+    const snapshot = rawSnapshot as Record<string, unknown>;
+    const allowed = ["marker_guid", "expected_name", "expected_start_seconds", "expected_duration_seconds"];
+    const unknown = Object.keys(snapshot).find((key) => !allowed.includes(key));
+    if (unknown) throw new Error(`marker_snapshots[${index}] has an unknown field: ${unknown}`);
+    if (typeof snapshot.marker_guid !== "string" || !snapshot.marker_guid.trim() || snapshot.marker_guid.length > 128) {
+      throw new Error(`marker_snapshots[${index}].marker_guid must be a non-empty string of at most 128 characters`);
+    }
+    if (seen.has(snapshot.marker_guid)) throw new Error("marker_snapshots must not contain duplicate marker_guid values");
+    seen.add(snapshot.marker_guid);
+    if (typeof snapshot.expected_name !== "string" || snapshot.expected_name.length > 255) {
+      throw new Error(`marker_snapshots[${index}].expected_name must be a string of at most 255 characters`);
+    }
+    for (const [key, item] of Object.entries({
+      expected_start_seconds: snapshot.expected_start_seconds,
+      expected_duration_seconds: snapshot.expected_duration_seconds,
+    })) {
+      if (typeof item !== "number" || !Number.isFinite(item) || item < 0 || item > 86400) {
+        throw new Error(`marker_snapshots[${index}].${key} must be a number from 0 to 86400`);
+      }
+    }
+    return {
+      markerGuid: snapshot.marker_guid,
+      expectedName: snapshot.expected_name,
+      expectedStartSeconds: snapshot.expected_start_seconds as number,
+      expectedDurationSeconds: snapshot.expected_duration_seconds as number,
+    };
+  });
+}
+
 const operationId = {
   type: "string",
   pattern: "^[A-Za-z0-9._:-]{1,128}$",
@@ -90,12 +135,12 @@ export function getUxpAdvancedWorkflowTools(bridge: UxpWebSocketBridge) {
     },
 
     manage_markers_uxp: {
-      description: "Inspect, add, update/move, or remove sequence and clip markers by stable marker GUID using documented, undoable Premiere actions.",
+      description: "Inspect, add, update/move, remove, or explicitly review-then-remove a bounded marker batch by stable GUID using documented, undoable Premiere actions.",
       parameters: {
         type: "object" as const,
         additionalProperties: false,
         properties: {
-          action: { type: "string", enum: ["inspect", "add", "update", "remove"] },
+          action: { type: "string", enum: ["inspect", "add", "update", "remove", "remove_many"] },
           owner_type: { type: "string", enum: ["sequence", "project_item"] },
           sequence_id: sequenceId,
           project_item_id: projectItemId,
@@ -107,6 +152,24 @@ export function getUxpAdvancedWorkflowTools(bridge: UxpWebSocketBridge) {
           duration_seconds: { type: "number", minimum: 0, maximum: 86400 },
           comments: { type: "string", maxLength: 4000 },
           color_index: { type: "integer", minimum: 0, maximum: 6 },
+          marker_snapshots: {
+            type: "array",
+            minItems: 1,
+            maxItems: 128,
+            description: "Required for remove_many. Explicit read snapshots from inspect: every target GUID, name, start, and duration must still match before action creation.",
+            items: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
+                marker_guid: { type: "string", minLength: 1, maxLength: 128 },
+                expected_name: { type: "string", maxLength: 255 },
+                expected_start_seconds: { type: "number", minimum: 0, maximum: 86400 },
+                expected_duration_seconds: { type: "number", minimum: 0, maximum: 86400 },
+              },
+              required: ["marker_guid", "expected_name", "expected_start_seconds", "expected_duration_seconds"],
+            },
+          },
+          confirm_destructive: { type: "boolean", description: "Required true for remove_many after reviewing every explicit marker snapshot." },
           operation_id: operationId,
         },
         required: ["action"],
@@ -129,6 +192,21 @@ export function getUxpAdvancedWorkflowTools(bridge: UxpWebSocketBridge) {
           durationSeconds: args.duration_seconds, comments: args.comments, colorIndex: args.color_index,
         }), ...operation(args) });
         if (args.action === "remove") return invoke(bridge, "markers.remove", { ...common, ...operation(args) });
+        if (args.action === "remove_many") {
+          try {
+            if (args.confirm_destructive !== true) {
+              return { success: false, error: "remove_many is destructive; pass confirm_destructive=true after reviewing every marker snapshot" };
+            }
+            return invoke(bridge, "markers.removeMany", {
+              ...common,
+              markerSnapshots: reviewedMarkerSnapshots(args.marker_snapshots),
+              confirmDestructive: true,
+              ...operation(args),
+            });
+          } catch (error) {
+            return { success: false, error: error instanceof Error ? error.message : String(error) };
+          }
+        }
         return invalidAction(args.action);
       },
     },

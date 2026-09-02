@@ -44,6 +44,7 @@ describe("Adobe Premiere Pro 26.3 UXP coverage", () => {
       "project-view-selection-resolver",
       "native-marker-crud",
       "native-beat-grid-markers",
+      "native-marker-batch-removal",
       "transactional-bin-organizer",
       "sequence-settings-profiles",
       "workspace-gated-project-import",
@@ -68,6 +69,12 @@ describe("Adobe Premiere Pro 26.3 UXP coverage", () => {
       "Media.getStart",
       "Media.getDuration",
     ]));
+    expect(entries.find((entry) => entry.id === "native-marker-batch-removal")).toMatchObject({
+      uxpCommand: "markers.removeMany",
+      mcpTools: ["manage_markers_uxp"],
+      verificationBoundary: "marker_guid_absence_readback",
+      liveHostVerificationStatus: "not_run",
+    });
     for (const entry of entries) {
       expect(entry.minimumPremiereVersion).toMatch(/^\d+\.\d+\.\d+$/);
       expect(entry.backend).toBe("uxp");
