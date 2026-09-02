@@ -1,0 +1,93 @@
+{
+  "schemaVersion": 1,
+  "scope": {
+    "declarations": [
+      "premierepro.RectF",
+      "RectF",
+      "RectFStatic"
+    ],
+    "semantics": "This records the beta RectF factory-type migration against the pinned stable package. It is static declaration-drift accounting, not beta API support or a complete package diff.",
+    "doesNotEstablish": "It does not prove a beta host exposes RectFStatic, that a RectF can be constructed or used by another API, or that any MCP action is supported or licensed-host validated."
+  },
+  "sources": {
+    "stable": {
+      "package": "@adobe/premierepro",
+      "version": "26.3.0",
+      "declarations": "node_modules/@adobe/premierepro/src/premierepro.d.ts",
+      "rectDeclarationSha256": "c0599590da90da508ccb7e5c65acd68fbe105bb400a817aad1c07f0bcfddad86",
+      "staticFactoryPresent": false
+    },
+    "beta": {
+      "package": "@adobe/premierepro-beta",
+      "version": "26.5.0-beta.73",
+      "declarations": "node_modules/@adobe/premierepro-beta/src/premierepro.d.ts",
+      "rectDeclarationSha256": "ab744d87f6b16e674f2d61db9a4df63baab52ea39b9d60bf2b444f677d23b4dd",
+      "staticDeclarationSha256": "b2b9f347308e83338e630332538688042babe582e8f448f86c775598d9110b0a",
+      "staticFactoryPresent": true
+    }
+  },
+  "diff": {
+    "betaOnly": [
+      {
+        "symbol": "RectFStatic",
+        "kind": "type",
+        "signature": "{ /** * Constructs a new instance of the RectF class. * @constructor */ new (): RectF; (): RectF; }"
+      },
+      {
+        "symbol": "RectFStatic.call",
+        "kind": "call_signature",
+        "signature": "() => RectF"
+      },
+      {
+        "symbol": "RectFStatic.new",
+        "kind": "construct_signature",
+        "signature": "() => RectF"
+      }
+    ],
+    "stableOnly": [],
+    "changed": [
+      {
+        "symbol": "premierepro.RectF",
+        "stable": {
+          "symbol": "premierepro.RectF",
+          "kind": "property",
+          "signature": "RectF"
+        },
+        "beta": {
+          "symbol": "premierepro.RectF",
+          "kind": "property",
+          "signature": "RectFStatic"
+        }
+      },
+      {
+        "symbol": "RectF.factorySignatures",
+        "stable": {
+          "owner": "RectF",
+          "entries": [
+            {
+              "kind": "call_signature",
+              "signature": "() => RectF"
+            },
+            {
+              "kind": "construct_signature",
+              "signature": "() => RectF"
+            }
+          ]
+        },
+        "beta": {
+          "owner": "RectFStatic",
+          "entries": [
+            {
+              "kind": "call_signature",
+              "signature": "() => RectF"
+            },
+            {
+              "kind": "construct_signature",
+              "signature": "() => RectF"
+            }
+          ]
+        }
+      }
+    ]
+  }
+}

@@ -9,6 +9,7 @@ const coverage = JSON.parse(readFileSync("src/resources/adobe-uxp-coverage.json"
 const betaAafExportOptionsDrift = JSON.parse(readFileSync("src/resources/adobe-beta-aaf-export-options-drift.json", "utf8"));
 const betaProjectOptionsDrift = JSON.parse(readFileSync("src/resources/adobe-beta-project-options-drift.json", "utf8"));
 const betaTransitionOptionsDrift = JSON.parse(readFileSync("src/resources/adobe-beta-transition-options-drift.json", "utf8"));
+const betaRectFDrift = JSON.parse(readFileSync("src/resources/adobe-beta-rectf-drift.json", "utf8"));
 const betaC2paDrift = JSON.parse(readFileSync("src/resources/adobe-beta-c2pa-drift.json", "utf8"));
 const betaMediaDrift = JSON.parse(readFileSync("src/resources/adobe-beta-media-drift.json", "utf8"));
 const betaMediaManagerDrift = JSON.parse(readFileSync("src/resources/adobe-beta-media-manager-drift.json", "utf8"));
@@ -270,6 +271,67 @@ describe("Adobe declaration API inventory", () => {
     expect(coverage.entries.flatMap((entry: { adobeApi: string[] }) => entry.adobeApi)).not.toEqual(expect.arrayContaining([
       "premierepro.AddTransitionOptions", "AddTransitionOptionsStatic.new",
     ]));
+  });
+
+  it("accounts for beta RectF factory migration without advertising geometry support", () => {
+    const stableDeclarations = readFileSync("node_modules/@adobe/premierepro/src/premierepro.d.ts", "utf8");
+    const betaDeclarations = readFileSync("node_modules/@adobe/premierepro-beta/src/premierepro.d.ts", "utf8");
+    expect(stableDeclarations).toContain("RectF: RectF;");
+    expect(stableDeclarations).not.toContain("export declare type RectFStatic");
+    expect(declarationType(stableDeclarations, "RectF")).toContain("new (): RectF;");
+    expect(betaDeclarations).toContain("RectF: RectFStatic;");
+    expect(declarationType(betaDeclarations, "RectF")).not.toContain("new (): RectF;");
+    expect(declarationType(betaDeclarations, "RectFStatic")).toContain("new (): RectF;");
+    expect(betaRectFDrift).toMatchObject({
+      schemaVersion: 1,
+      scope: {
+        declarations: ["premierepro.RectF", "RectF", "RectFStatic"],
+        doesNotEstablish: expect.stringContaining("does not prove"),
+      },
+      sources: {
+        stable: {
+          package: "@adobe/premierepro",
+          version: "26.3.0",
+          staticFactoryPresent: false,
+          rectDeclarationSha256: expect.stringMatching(/^[a-f0-9]{64}$/),
+        },
+        beta: {
+          package: "@adobe/premierepro-beta",
+          version: "26.5.0-beta.73",
+          staticFactoryPresent: true,
+          rectDeclarationSha256: expect.stringMatching(/^[a-f0-9]{64}$/),
+          staticDeclarationSha256: expect.stringMatching(/^[a-f0-9]{64}$/),
+        },
+      },
+      diff: { stableOnly: [] },
+    });
+    expect(betaRectFDrift.diff.betaOnly).toEqual(expect.arrayContaining([
+      { symbol: "RectFStatic.new", kind: "construct_signature", signature: "() => RectF" },
+      { symbol: "RectFStatic.call", kind: "call_signature", signature: "() => RectF" },
+    ]));
+    expect(betaRectFDrift.diff.changed.some((entry: { symbol: string; beta: { signature: string } }) => (
+      entry.symbol === "premierepro.RectF" && entry.beta.signature === "RectFStatic"
+    ))).toBe(true);
+    expect(spawnSync(process.execPath, ["scripts/generate-adobe-beta-rectf-drift.mjs", "--check"], { encoding: "utf8" }).status).toBe(0);
+    expect(coverage.entries.flatMap((entry: { adobeApi: string[] }) => entry.adobeApi)).not.toEqual(expect.arrayContaining([
+      "premierepro.RectF", "RectFStatic.new",
+    ]));
+  });
+
+  it("rejects an unexpected RectF root binding before writing a receipt", () => {
+    const temporary = mkdtempSync(join(tmpdir(), "premiere-beta-rectf-drift-"));
+    try {
+      const betaPath = join(temporary, "premierepro.d.ts");
+      writeFileSync(betaPath, readFileSync("node_modules/@adobe/premierepro-beta/src/premierepro.d.ts", "utf8").replace("RectF: RectFStatic;", "RectF: RectF;"));
+      const result = spawnSync(process.execPath, ["scripts/generate-adobe-beta-rectf-drift.mjs", "--validate-only"], {
+        encoding: "utf8",
+        env: { ...process.env, PREMIERE_BETA_RECTF_BETA_DECLARATIONS_PATH: betaPath },
+      });
+      expect(result.status).not.toBe(0);
+      expect(result.stderr).toContain("must move premierepro.RectF to RectFStatic");
+    } finally {
+      rmSync(temporary, { recursive: true, force: true });
+    }
   });
 
   it("accounts for the beta-only C2PA declaration surface without advertising an action", () => {
