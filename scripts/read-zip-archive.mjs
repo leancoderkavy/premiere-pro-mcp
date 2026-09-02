@@ -72,6 +72,7 @@ function readCentralDirectory(buffer, expectedEntries) {
     if (offset + 46 > buffer.length || buffer.readUInt32LE(offset) !== CENTRAL_DIRECTORY_SIGNATURE) {
       throw archiveError("CCX archive central directory entry is invalid");
     }
+    const versionNeeded = buffer.readUInt16LE(offset + 6);
     const flags = buffer.readUInt16LE(offset + 8);
     const method = buffer.readUInt16LE(offset + 10);
     const crc32 = buffer.readUInt32LE(offset + 16);
@@ -92,7 +93,7 @@ function readCentralDirectory(buffer, expectedEntries) {
     if (!name || !rawName.equals(Buffer.from(name, "utf8"))) {
       throw archiveError("CCX archive contains an invalid ZIP entry name");
     }
-    entries.push(Object.freeze({ name, flags, method, crc32, compressedBytes, uncompressedBytes, localOffset }));
+    entries.push(Object.freeze({ name, versionNeeded, flags, method, crc32, compressedBytes, uncompressedBytes, localOffset }));
     offset = next;
   }
   if (entries.length !== expectedEntries) throw archiveError("CCX archive central directory count is inconsistent");
@@ -159,9 +160,12 @@ async function localDataRangeFromHandle(handle, entry, maximumOffset) {
   if (entry.localOffset + 30 > maximumOffset) throw archiveError("CCX archive local entry is outside the ZIP bounds");
   const local = await readExactly(handle, 30, entry.localOffset, "CCX archive local entry");
   if (local.readUInt32LE(0) !== LOCAL_FILE_SIGNATURE) throw archiveError("CCX archive local entry is invalid");
+  const versionNeeded = local.readUInt16LE(4);
   const flags = local.readUInt16LE(6);
   const method = local.readUInt16LE(8);
-  if (flags !== entry.flags || method !== entry.method) throw archiveError("CCX archive local entry metadata is inconsistent");
+  if (versionNeeded !== entry.versionNeeded || flags !== entry.flags || method !== entry.method) {
+    throw archiveError("CCX archive local entry metadata is inconsistent");
+  }
   const localCrc32 = local.readUInt32LE(14);
   const localCompressedBytes = local.readUInt32LE(18);
   const localUncompressedBytes = local.readUInt32LE(22);
