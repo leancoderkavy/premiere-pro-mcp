@@ -464,7 +464,6 @@ describe("UXP MCP tools", () => {
       // bounded Object Mask audits, native TickTime arithmetic, and guarded
       // explicit-sequence preview-frame updates plus unique serializable identity
       // inspection add forty-eight consolidated UXP tools;
-      // consolidated UXP tools;
       // connection verification and delivery conformance add two default-profile core tools.
         expect(tools.tools).toHaveLength(415);
     } finally {
