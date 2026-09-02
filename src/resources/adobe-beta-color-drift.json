@@ -1,0 +1,93 @@
+{
+  "schemaVersion": 1,
+  "scope": {
+    "declarations": [
+      "premierepro.Color",
+      "Color",
+      "ColorStatic"
+    ],
+    "semantics": "This records the beta Color factory-type migration against the pinned stable package. It is static declaration-drift accounting, not beta API support or a complete package diff.",
+    "doesNotEstablish": "It does not prove a beta host exposes ColorStatic, that a Color can be constructed or accepted by another API, that RGBA behavior is preserved, or that any MCP action is supported or licensed-host validated."
+  },
+  "sources": {
+    "stable": {
+      "package": "@adobe/premierepro",
+      "version": "26.3.0",
+      "declarations": "node_modules/@adobe/premierepro/src/premierepro.d.ts",
+      "colorDeclarationSha256": "152b384facecf07ed927a6500b21724d9870a6d3dad3435bc7a2843c4656368f",
+      "staticFactoryPresent": false
+    },
+    "beta": {
+      "package": "@adobe/premierepro-beta",
+      "version": "26.5.0-beta.73",
+      "declarations": "node_modules/@adobe/premierepro-beta/src/premierepro.d.ts",
+      "colorDeclarationSha256": "e586be42fffcffbfa9f2a4e7ea6e604860cde2d039f8d023d7b5d0af273fad9c",
+      "staticDeclarationSha256": "a0c630b6d8d047030a348ebe985d59927e5e3df19a0ccda8016319b0a8ab5501",
+      "staticFactoryPresent": true
+    }
+  },
+  "diff": {
+    "betaOnly": [
+      {
+        "symbol": "ColorStatic",
+        "kind": "type",
+        "signature": "{ /** * Construct a Color Object with parameters for Red, Green, Blue, and Alpha values which are in range [0.0-1.0] * @constructor * * @param [red] * @param [green] * @param [blue] * @param [alpha] */ new (red?: number, green?: number, blue?: number, alpha?: number): Color; (red?: number, green?: number, blue?: number, alpha?: number): Color; }"
+      },
+      {
+        "symbol": "ColorStatic.call",
+        "kind": "call_signature",
+        "signature": "(red?: number, green?: number, blue?: number, alpha?: number) => Color"
+      },
+      {
+        "symbol": "ColorStatic.new",
+        "kind": "construct_signature",
+        "signature": "(red?: number, green?: number, blue?: number, alpha?: number) => Color"
+      }
+    ],
+    "stableOnly": [],
+    "changed": [
+      {
+        "symbol": "premierepro.Color",
+        "stable": {
+          "symbol": "premierepro.Color",
+          "kind": "property",
+          "signature": "Color"
+        },
+        "beta": {
+          "symbol": "premierepro.Color",
+          "kind": "property",
+          "signature": "ColorStatic"
+        }
+      },
+      {
+        "symbol": "Color.factorySignatures",
+        "stable": {
+          "owner": "Color",
+          "entries": [
+            {
+              "kind": "call_signature",
+              "signature": "(red?: number, green?: number, blue?: number, alpha?: number) => Color"
+            },
+            {
+              "kind": "construct_signature",
+              "signature": "(red?: number, green?: number, blue?: number, alpha?: number) => Color"
+            }
+          ]
+        },
+        "beta": {
+          "owner": "ColorStatic",
+          "entries": [
+            {
+              "kind": "call_signature",
+              "signature": "(red?: number, green?: number, blue?: number, alpha?: number) => Color"
+            },
+            {
+              "kind": "construct_signature",
+              "signature": "(red?: number, green?: number, blue?: number, alpha?: number) => Color"
+            }
+          ]
+        }
+      }
+    ]
+  }
+}
