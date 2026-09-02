@@ -148,6 +148,22 @@ describe("capability profiles", () => {
     expect(handler).toHaveBeenCalledTimes(1);
   });
 
+  it("lists source-label inspection for inspect authority but requires edit to update", async () => {
+    const handler = vi.fn(async () => "ok");
+    const inspectOnly = resolveCapabilities("inspect");
+    expect(isToolPermitted("manage_timeline_source_label_uxp", inspectOnly)).toBe(true);
+    expect(capabilitiesForToolInvocation("manage_timeline_source_label_uxp", { action: "inspect" })).toEqual(["inspect"]);
+    expect(capabilitiesForToolInvocation("manage_timeline_source_label_uxp", { action: "update" })).toEqual(["edit"]);
+
+    await expect(
+      guardToolHandler("manage_timeline_source_label_uxp", handler, inspectOnly, () => "source-label-inspect")({ action: "inspect" }),
+    ).resolves.toBe("ok");
+    await expect(
+      guardToolHandler("manage_timeline_source_label_uxp", handler, inspectOnly, () => "source-label-update")({ action: "update" }),
+    ).rejects.toMatchObject({ code: "CAPABILITY_DENIED", capability: "edit", operationId: "source-label-update" });
+    expect(handler).toHaveBeenCalledTimes(1);
+  });
+
   it("lists and invokes native sequence-timing inspection with inspect authority only", async () => {
     const handler = vi.fn(async () => "ok");
     const inspectOnly = resolveCapabilities("inspect");
@@ -194,6 +210,7 @@ describe("capability profiles", () => {
     ["manage_sequence_range_uxp", "inspect"],
     ["manage_sequence_playhead_uxp", "inspect"],
     ["manage_app_preferences_uxp", "inspect"],
+    ["manage_timeline_source_label_uxp", "inspect"],
     ["inspect_project_insertion_bin_uxp", undefined],
     ["inspect_sequence_timing_uxp", undefined],
     ["inspect_sequence_timing_by_guid_uxp", undefined],
@@ -227,6 +244,7 @@ describe("capability profiles", () => {
     ["manage_sequence_range_uxp", "update", ["edit"]],
     ["manage_sequence_playhead_uxp", "set", ["edit"]],
     ["manage_app_preferences_uxp", "set", ["edit"]],
+    ["manage_timeline_source_label_uxp", "update", ["edit"]],
     ["import_project_media_uxp", "files", ["edit", "filesystem"]],
     ["automate_effect_parameters_uxp", "add_keyframe", ["edit"]],
     ["automate_effect_parameters_uxp", "set_time_varying", ["edit"]],

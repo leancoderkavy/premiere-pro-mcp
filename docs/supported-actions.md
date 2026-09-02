@@ -13,8 +13,8 @@ source catalog may include unreleased actions.
 | Registered core actions | 328 | CEP/local server catalog; host and authority checks still apply |
 | Default-profile core actions | 326 | Advertised with `inspect,edit,export,filesystem` |
 | Restricted core actions | 2 | Require explicit `unsafe-script` authority |
-| Authenticated UXP additions | 81 | Advertised only while a compatible authenticated UXP panel is connected |
-| Default profile with UXP | 407 | 326 core plus 81 UXP tools |
+| Authenticated UXP additions | 82 | Advertised only while a compatible authenticated UXP panel is connected |
+| Default profile with UXP | 408 | 326 core plus 82 UXP tools |
 
 ## How to read support
 
@@ -436,6 +436,7 @@ authenticated and the connected host advertises the required command capabilitie
 | `manage_source_media_overrides_uxp` | Connected UXP | `inspect`, `update` | Inspect or transactionally set one source media item's explicit frame-rate and/or pixel-aspect-ratio override through stable Premiere 26.3 UXP actions. Updates require the complete effective-interpretation snapshot, explicit confirmation, an operation_id, per-item serialization, one undoable transaction, and native effective-value readback. Premiere does not expose an override-presence getter, so this tool cannot clear or distinguish an explicit override from matching file-native interpretation. |
 | `manage_source_media_timing_uxp` | Connected UXP | `inspect`, `set_start` | Inspect or transactionally set one source media item's timecode start through stable Premiere 26.3 UXP APIs. Setting requires the exact bounded timing snapshot, explicit confirmation, one undoable transaction, per-item serialization, and native readback. |
 | `manage_timeline_selection_uxp` | Connected UXP | `inspect`, `inspect_targets`, `replace`, `add`, `remove`, `clear` | Inspect, replace, add to, remove from, or clear the active sequence's native UXP clip selection with sequence and clip fingerprint stale-state guards. |
+| `manage_timeline_source_label_uxp` | Connected UXP | `inspect`, `update` | Inspect or set the documented source Project-item color label resolved from one active audio or video timeline coordinate. Update requires the complete reviewed snapshot, explicit confirmation, and an operation ID; it serializes color-label changes by source item, commits one undoable transaction, then re-reads the coordinate and source label. A source label is project-global: another use of the same source can reflect the change. It does not label a timeline-only instance, change clip timing, prove rendered appearance, playback, persistence, or Undo behavior. |
 | `manage_track_state_uxp` | Connected UXP | `inspect`, `set_mute` | Inspect audio, video, and caption track mute state or set one media type serially with stale-state preflight and per-track readback. Adobe exposes this as direct promises, so no undo transaction is claimed. |
 | `manage_workflow_checkpoints_uxp` | Connected UXP | `has`, `get`, `set`, `clear` | Read or transactionally write small, namespaced workflow checkpoints on the active project or a targeted sequence. Persistent values may sync with cloud projects; never store secrets, native paths, transcripts, or media names. |
 | `organize_project_items_uxp` | Connected UXP | `inspect_bin`, `create_bin`, `create_smart_bin`, `rename`, `move`, `set_color`, `remove` | Inspect a bin or transactionally create, rename, move, color-label, and remove project items with stable-ID guards. |

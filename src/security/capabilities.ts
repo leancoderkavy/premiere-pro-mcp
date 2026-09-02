@@ -210,6 +210,10 @@ const ACTION_CAPABILITIES: Readonly<Record<string, Readonly<Record<string, reado
     inspect: ["inspect"],
     set: ["edit"],
   },
+  manage_timeline_source_label_uxp: {
+    inspect: ["inspect"],
+    update: ["edit"],
+  },
   import_project_media_uxp: {
     files: ["edit", "filesystem"],
     sequences: ["edit", "filesystem"],

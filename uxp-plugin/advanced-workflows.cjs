@@ -22,6 +22,10 @@
     const ppro = deps.ppro, Protocol = deps.Protocol, workspace = deps.workspace, events = deps.events;
     const appendLocks = new Map();
     const parameterTimeVaryingLocks = new Map();
+    const colorLabelLocks = deps.colorLabelLocks && typeof deps.colorLabelLocks.withProjectItemColorLabelLock === "function"
+      ? deps.colorLabelLocks
+      : { withProjectItemColorLabelLock: withColorLabelLock };
+    const colorLabelFallbackTails = new Map();
     const definitions = {
       "projectSelection.views": { readOnly: true, minHostVersion: "25.6.0", probe: canUseProjectViews, handler: listProjectViews },
       "projectSelection.inspect": { readOnly: true, minHostVersion: "25.6.0", probe: canUseProjectViews, handler: inspectProjectSelection },
@@ -706,13 +710,17 @@
 
     async function colorProjectItem(args) {
       assertObject(args); assertOnlyKeys(args, ["projectItemId", "colorIndex", "operationId"]);
-      const project = await activeProject(true), item = await resolveProjectItem(project, args.projectItemId, true), colorIndex = boundedInt(args.colorIndex, "colorIndex", 0, 14), before = await projectItemSnapshot(item);
+      const project = await activeProject(true), item = await resolveProjectItem(project, args.projectItemId, true), colorIndex = boundedInt(args.colorIndex, "colorIndex", 0, 14), itemId = await projectItemId(item);
       if (typeof item.createSetColorLabelAction !== "function") throw commandError("UXP_TARGET_UNSUPPORTED", "Project item does not support color labels");
-      project.lockedAccess(() => {
-        commitActions(project, "Set project item color", [item.createSetColorLabelAction(colorIndex)]);
+      if (!itemId) throw commandError("UXP_TARGET_NOT_FOUND", "Project item ID is unavailable");
+      return colorLabelLocks.withProjectItemColorLabelLock(guidString(project.guid) + "\u0000" + itemId, async () => {
+        const before = await projectItemSnapshot(item);
+        project.lockedAccess(() => {
+          commitActions(project, "Set project item color", [item.createSetColorLabelAction(colorIndex)]);
+        });
+        const after = await projectItemSnapshot(item);
+        return mutationResult(after.colorLabelIndex === colorIndex, { updated: true, before, after }, "project_item_color_readback", "Set project item color");
       });
-      const after = await projectItemSnapshot(item);
-      return mutationResult(after.colorLabelIndex === colorIndex, { updated: true, before, after }, "project_item_color_readback", "Set project item color");
     }
 
     async function removeProjectItem(args) {
@@ -1787,6 +1795,20 @@
       } finally {
         release();
         if (appendLocks.get(key) === current) appendLocks.delete(key);
+      }
+    }
+
+    async function withColorLabelLock(key, callback) {
+      const previous = colorLabelFallbackTails.get(key) || Promise.resolve();
+      let release = function () {};
+      const current = new Promise((resolve) => { release = resolve; });
+      colorLabelFallbackTails.set(key, current);
+      await previous;
+      try {
+        return await callback();
+      } finally {
+        release();
+        if (colorLabelFallbackTails.get(key) === current) colorLabelFallbackTails.delete(key);
       }
     }
 

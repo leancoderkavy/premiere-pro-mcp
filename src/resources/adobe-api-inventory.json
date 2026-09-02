@@ -13,8 +13,8 @@
   },
   "stats": {
     "total": 976,
-    "mapped": 325,
-    "unmapped": 651,
+    "mapped": 326,
+    "unmapped": 650,
     "manifestOnly": 5
   },
   "manifestOnly": [
@@ -1721,7 +1721,7 @@
     {
       "symbol": "Constants.TrackItemType.CLIP",
       "kind": "enumMember",
-      "coverage": "unmapped"
+      "coverage": "mapped"
     },
     {
       "symbol": "Constants.TrackItemType.EMPTY",
