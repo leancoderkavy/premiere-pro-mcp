@@ -15,7 +15,7 @@ function revision(json: string) {
   return `sha256:${createHash("sha256").update(json, "utf8").digest("hex")}`;
 }
 
-function fixture(options: { initialJson?: string | null; apply?: boolean; itemCount?: number } = {}) {
+function fixture(options: { initialJson?: string | null; apply?: boolean; itemCount?: number; readbackFailure?: boolean } = {}) {
   const state = { json: options.initialJson === undefined ? beforeJson : options.initialJson };
   const clip = { kind: "clip", getId: vi.fn(async () => "clip-1") };
   const filler = Array.from({ length: options.itemCount ?? 1 }, (_, index) => ({
@@ -36,6 +36,7 @@ function fixture(options: { initialJson?: string | null; apply?: boolean; itemCo
       return true;
     }),
   };
+  let exportCalls = 0;
   const ppro = {
     Project: { getActiveProject: vi.fn(async () => project) },
     FolderItem: { cast: vi.fn((item: { kind?: string }) => item.kind === "folder" ? item : null) },
@@ -43,6 +44,8 @@ function fixture(options: { initialJson?: string | null; apply?: boolean; itemCo
     Transcript: {
       hasTranscript: vi.fn(() => state.json !== null),
       exportToJSON: vi.fn(async () => {
+        exportCalls += 1;
+        if (options.readbackFailure && exportCalls > 2) throw new Error("post-commit export unavailable");
         if (state.json === null) throw new Error("no transcript");
         return state.json;
       }),
@@ -73,6 +76,9 @@ describe("guarded UXP transcript import", () => {
     const json = '{"segments":[{"text":"café 🎬"}]}';
     expect(Transcript.transcriptRevision(json)).toBe(revision(json));
     expect(Transcript.utf8ByteLength(json)).toBe(Buffer.byteLength(json, "utf8"));
+    const unpairedSurrogate = "transcript-" + String.fromCharCode(0xd800);
+    expect(Transcript.transcriptRevision(unpairedSurrogate)).toBe(revision(unpairedSurrogate));
+    expect(Transcript.utf8ByteLength(unpairedSurrogate)).toBe(Buffer.byteLength(unpairedSurrogate, "utf8"));
   });
 
   it("imports one exact clip in one transaction and verifies exact export readback", async () => {
@@ -134,6 +140,20 @@ describe("guarded UXP transcript import", () => {
       verified: false,
       outcome: "committed_unverified",
       verificationBoundary: "transcript_transaction_commit_with_readback_mismatch",
+      operation: { verification: { status: "committed_unverified" } },
+    });
+    expect(value.project.executeTransaction).toHaveBeenCalledOnce();
+  });
+
+  it("does not turn a committed transaction into verified when post-commit export throws", async () => {
+    const value = fixture({ readbackFailure: true });
+
+    await expect(value.runtime.importTranscript(args())).resolves.toMatchObject({
+      committed: true,
+      verified: false,
+      outcome: "committed_unverified",
+      verificationBoundary: "transcript_transaction_commit_with_readback_unavailable",
+      readbackError: "post-commit export unavailable",
       operation: { verification: { status: "committed_unverified" } },
     });
     expect(value.project.executeTransaction).toHaveBeenCalledOnce();

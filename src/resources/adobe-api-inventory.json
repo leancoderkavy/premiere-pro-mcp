@@ -13,8 +13,8 @@
   },
   "stats": {
     "total": 976,
-    "mapped": 277,
-    "unmapped": 699,
+    "mapped": 281,
+    "unmapped": 695,
     "manifestOnly": 5
   },
   "manifestOnly": [
@@ -2889,7 +2889,7 @@
       "symbol": "Project.getActiveProject",
       "kind": "method",
       "declarationSymbol": "ProjectStatic.getActiveProject",
-      "coverage": "unmapped"
+      "coverage": "mapped"
     },
     {
       "symbol": "Project.getActiveSequence",
@@ -4319,13 +4319,13 @@
       "symbol": "Transcript.createImportTextSegmentsAction",
       "kind": "method",
       "declarationSymbol": "TranscriptStatic.createImportTextSegmentsAction",
-      "coverage": "unmapped"
+      "coverage": "mapped"
     },
     {
       "symbol": "Transcript.exportToJSON",
       "kind": "method",
       "declarationSymbol": "TranscriptStatic.exportToJSON",
-      "coverage": "unmapped"
+      "coverage": "mapped"
     },
     {
       "symbol": "Transcript.hasTranscript",
@@ -4337,7 +4337,7 @@
       "symbol": "Transcript.importFromJSON",
       "kind": "method",
       "declarationSymbol": "TranscriptStatic.importFromJSON",
-      "coverage": "unmapped"
+      "coverage": "mapped"
     },
     {
       "symbol": "Transcript.querySupportedLanguages",

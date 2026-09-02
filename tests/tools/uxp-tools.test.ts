@@ -397,7 +397,7 @@ describe("UXP MCP tools", () => {
       // inspection, Project-panel metadata inspection, and guarded app-preference
       // control add thirty-five consolidated UXP tools;
       // connection verification and delivery conformance add two default-profile core tools.
-      expect(tools.tools).toHaveLength(397);
+      expect(tools.tools).toHaveLength(398);
     } finally {
       await client.close();
       await server.close();

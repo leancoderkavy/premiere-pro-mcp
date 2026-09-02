@@ -114,13 +114,13 @@ describe("transcript edit planning", () => {
 describe("transcript UXP MCP tools", () => {
   it("exports native transcript JSON with a stable revision", async () => {
     const json = '{"segments":[]}';
-    const request = vi.fn().mockResolvedValue({ projectItemId: "clip-1", projectItemName: "Interview", json });
+    const request = vi.fn().mockResolvedValue({ projectGuid: "project-1", projectItemId: "clip-1", projectItemName: "Interview", json });
     const bridge = { request, getState: vi.fn() } as unknown as UxpWebSocketBridge;
     const result = await getUxpTools(bridge).get_clip_transcript_uxp.handler({ project_item_id: "clip-1" });
     expect(request).toHaveBeenCalledWith("transcript.export", { projectItemId: "clip-1" });
     expect(result).toMatchObject({
       success: true,
-      data: { result: { projectItemId: "clip-1", json, transcriptRevision: transcriptRevision(json) } },
+      data: { result: { projectGuid: "project-1", projectItemId: "clip-1", json, transcriptRevision: transcriptRevision(json) } },
     });
   });
 
