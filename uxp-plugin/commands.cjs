@@ -290,7 +290,9 @@
         }
         const accepted = await context.sequence.setPlayerPosition(position);
         if (accepted !== true) throw commandError("UXP_VERIFICATION_FAILED", "Premiere did not confirm the sequence player position");
-        const after = await sequencePlayheadSnapshot(context.sequence);
+        // Re-resolve the active sequence for postcondition readback: a user can
+        // switch sequences while Premiere awaits the host setter.
+        const after = await sequencePlayheadSnapshot((await activeContext(false)).sequence);
         if (after.sequenceGuid !== before.sequenceGuid || !sameSeconds(after.positionSeconds, input.positionSeconds)) {
           throw commandError("UXP_VERIFICATION_FAILED", "Premiere did not retain the requested sequence player position");
         }
