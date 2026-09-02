@@ -328,7 +328,7 @@ operation” when the tool has no enum-based mode.
 | `set_sequence_field_type` | Default profile | Single operation | Set the field order of the active sequence. |
 | `set_sequence_frame_rate` | Default profile | Single operation | Change the frame rate of the active sequence. |
 | `set_sequence_in_out_points` | Default profile | Single operation | Set the sequence in and out points (for export range, etc.) |
-| `set_sequence_pixel_aspect_ratio` | Default profile | Single operation | Change the pixel aspect ratio of the active sequence. |
+| `set_sequence_pixel_aspect_ratio` | Default profile | Single operation | Change the pixel aspect ratio of the active sequence, or return a capability error when the legacy host does not expose a writable setting. |
 | `set_sequence_resolution` | Default profile | Single operation | Change the resolution (frame size) of the active sequence. |
 | `set_sequence_settings` | Default profile | Single operation | Modify and read back sequence frame-size settings. |
 | `set_source_in_out` | Default profile | Single operation | Set in and/or out points on the clip currently open in the Source Monitor. |

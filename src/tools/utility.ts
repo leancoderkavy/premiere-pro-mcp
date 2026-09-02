@@ -481,7 +481,8 @@ export function getUtilityTools(bridgeOptions: BridgeOptions) {
     },
 
     set_sequence_pixel_aspect_ratio: {
-      description: "Change the pixel aspect ratio of the active sequence.",
+      description:
+        "Change the pixel aspect ratio of the active sequence, or return a capability error when the legacy host does not expose a writable setting.",
       parameters: {
         type: "object" as const,
         properties: {
@@ -494,6 +495,9 @@ export function getUtilityTools(bridgeOptions: BridgeOptions) {
         required: ["ratio"],
       },
       handler: async (args: { ratio: string }) => {
+        if (typeof args.ratio !== "string") {
+          return { success: false, error: "ratio must be a positive decimal string such as '1.0' or '1.4222'." };
+        }
         const ratio = args.ratio.trim();
         if (!/^(?:0|[1-9]\d*)(?:\.\d+)?$/.test(ratio) || Number(ratio) <= 0) {
           return { success: false, error: "ratio must be a positive decimal string such as '1.0' or '1.4222'." };
@@ -505,14 +509,51 @@ export function getUtilityTools(bridgeOptions: BridgeOptions) {
           var settings = seq.getSettings();
           if (!settings) return __error("Could not get sequence settings");
 
-          settings.videoPixelAspectRatio = "${ratio}";
-          seq.setSettings(settings);
-          var observed = seq.getSettings();
-          if (!observed || String(observed.videoPixelAspectRatio) !== "${ratio}") {
+          var requestedRatio = "${ratio}";
+          var currentRatio;
+          try {
+            currentRatio = settings.videoPixelAspectRatio;
+          } catch (eRead) {
+            return __error("This Premiere host does not expose a readable sequence pixel-aspect-ratio setting: " + eRead.toString());
+          }
+          if (typeof currentRatio === "undefined") {
+            return __error("This Premiere host does not expose a writable sequence pixel-aspect-ratio setting. No sequence settings were changed.");
+          }
+
+          try {
+            settings.videoPixelAspectRatio = requestedRatio;
+          } catch (eAssign) {
+            return __error("This Premiere host rejected the sequence pixel-aspect-ratio update. No sequence settings were changed: " + eAssign.toString());
+          }
+          var settingsApplied;
+          try {
+            settingsApplied = seq.setSettings(settings);
+          } catch (eSet) {
+            return __error("Premiere could not apply the sequence pixel-aspect-ratio update: " + eSet.toString());
+          }
+          if (settingsApplied === false) {
+            return __error("Premiere rejected the sequence pixel-aspect-ratio update. No sequence settings were changed.");
+          }
+
+          var observed;
+          try {
+            observed = seq.getSettings();
+          } catch (eVerify) {
+            return __error("Premiere could not read back the sequence pixel-aspect-ratio update: " + eVerify.toString());
+          }
+          if (!observed) return __error("Premiere did not return sequence settings after the pixel-aspect-ratio update");
+
+          var observedRatio;
+          try {
+            observedRatio = String(observed.videoPixelAspectRatio);
+          } catch (eObserved) {
+            return __error("Premiere did not expose the applied sequence pixel-aspect ratio for verification: " + eObserved.toString());
+          }
+          if (observedRatio !== requestedRatio) {
             return __error("Premiere did not apply the requested sequence pixel aspect ratio.");
           }
 
-          return __result({ ratio: "${ratio}", sequence: seq.name, verified: true });
+          return __result({ ratio: requestedRatio, sequence: seq.name, verified: true });
         `);
         return sendCommand(script, bridgeOptions);
       },
