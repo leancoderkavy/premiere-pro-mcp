@@ -13,6 +13,7 @@ const resources = [
   "adobe-beta-color-drift.json",
   "adobe-beta-pointf-drift.json",
   "adobe-beta-guid-drift.json",
+  "adobe-beta-frame-rate-drift.json",
   "adobe-beta-c2pa-drift.json",
   "adobe-beta-media-drift.json",
   "adobe-beta-media-manager-drift.json",

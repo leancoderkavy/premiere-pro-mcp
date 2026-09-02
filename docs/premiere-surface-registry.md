@@ -40,6 +40,10 @@ workflow, binding it to another API, or claiming host behavior.
 The [beta Guid declaration receipt](adobe-beta-guid-drift.md) records its
 factory-placement migration without constructing or parsing a GUID, changing
 existing GUID workflows, binding it to another API, or claiming host behavior.
+The [beta FrameRate declaration receipt](adobe-beta-frame-rate-drift.md) records
+its factory-placement migration without constructing a frame rate, changing
+existing frame-alignment or TickTime workflows, binding it to another API, or
+claiming host behavior.
 The [beta Media drift receipt](adobe-beta-media-drift.md) separately records the
 pinned stable-to-beta `Media` declaration delta. It is deliberately not a beta
 surface inventory or beta-host support claim. The [beta C2PA declaration
