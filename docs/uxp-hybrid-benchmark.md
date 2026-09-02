@@ -87,9 +87,10 @@ candidates must use v2 rather than changing a published v1 receipt's meaning.
 
 Before submitting performance evidence, record the candidate development
 bundle with the separate [Hybrid addon-layout receipt](uxp-hybrid-addon-receipt.md).
-That verifies the public three-target paths and binds them to the Hybrid header
-receipt without publishing binaries. It is a preflight accounting artifact, not
-a compile, signing, UDT-load, or host-behavior claim.
+That verifies the public root `main.js` entrypoint and three-target paths and
+binds them to the Hybrid header receipt without publishing source or binaries.
+It is a preflight accounting artifact, not a compile, signing, UDT-load, or
+host-behavior claim.
 
 The native implementation must improve both p50 and p95 by at least 30% on every
 target while keeping peak working-set regression at or below 10%. Verify with:
