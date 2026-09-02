@@ -50,7 +50,11 @@ name, flags, compression method, declared size, or an
 out-of-bounds/overlapping data range. The referenced local records, including
 any valid data descriptors, must also account for every byte before the central
 directory: the bounded verifier rejects a prefixed archive or an unreferenced
-local header/payload rather than omitting it from the entry-name accounting:
+local header/payload rather than omitting it from the entry-name accounting.
+For its ZIP32, unencrypted profile, the declared central-directory range must
+also end directly at the end-of-central-directory record; the verifier rejects
+unaccounted bytes in that gap rather than silently excluding them from its
+structure validation.
 
 When a central-directory entry declares a Unix origin and a POSIX file type,
 the bounded verifier accepts only a regular file or directory. It rejects
@@ -99,3 +103,5 @@ and licensed-host gates.
 Official references: [Package a UXP plugin](https://developer.adobe.com/premiere-pro/uxp/plugins/distribution/package/),
 [Building Hybrid Plugins](https://developer.adobe.com/premiere-pro/uxp/plugins/hybrid-plugins/build/),
 and [Hybrid Plugins](https://developer.adobe.com/premiere-pro/uxp/plugins/hybrid-plugins/).
+The ZIP layout rule follows PKWARE's [ZIP File Format Specification](https://pkware.cachefly.net/webdocs/casestudies/APPNOTE.TXT),
+sections 4.3.6, 4.3.12, and 4.3.16.

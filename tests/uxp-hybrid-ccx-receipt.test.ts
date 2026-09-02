@@ -78,6 +78,7 @@ type ZipOptions = {
   method?: number;
   localPreamble?: Buffer;
   localSuffix?: Buffer;
+  centralSuffix?: Buffer;
   localNames?: Record<string, string>;
   localMetadata?: Record<string, { versionNeeded?: number; flags?: number; method?: number; crc32?: number; compressedBytes?: number; uncompressedBytes?: number }>;
   centralMetadata?: Record<string, { versionMadeBy?: number; versionNeeded?: number; flags?: number; compressedBytes?: number; uncompressedBytes?: number; externalAttributes?: number; localOffset?: number }>;
@@ -147,16 +148,17 @@ function createZip(entries: Array<{ path: string; contents: Buffer }>, prefix = 
     localOffset += options.localSuffix.length;
   }
   const central = Buffer.concat(centrals);
+  const centralSuffix = options.centralSuffix ?? Buffer.alloc(0);
   const end = Buffer.alloc(22);
   end.writeUInt32LE(0x06054b50, 0);
   end.writeUInt16LE(entries.length, 8);
   end.writeUInt16LE(entries.length, 10);
   end.writeUInt32LE(central.length, 12);
   end.writeUInt32LE(localOffset, 16);
-  return Buffer.concat([...locals, central, end]);
+  return Buffer.concat([...locals, central, centralSuffix, end]);
 }
 
-function writeCcx(bundle: string, archive: string, options: { prefix?: string; deflate?: boolean; main?: string; manifest?: Record<string, unknown>; duplicateMain?: boolean; localMainName?: string; extra?: Array<{ path: string; contents: Buffer }>; zipFlags?: number; compressionMethod?: number; localPreamble?: Buffer; localSuffix?: Buffer; localNames?: Record<string, string>; localMetadata?: Record<string, { versionNeeded?: number; flags?: number; method?: number; crc32?: number; compressedBytes?: number; uncompressedBytes?: number }>; centralMetadata?: Record<string, { versionMadeBy?: number; versionNeeded?: number; flags?: number; compressedBytes?: number; uncompressedBytes?: number; externalAttributes?: number; localOffset?: number }>; crc32Adjustments?: Record<string, number>; compressedDataSuffixes?: Record<string, Buffer>; compressedByteAdjustments?: Record<string, number>; dataDescriptors?: Record<string, DataDescriptorMetadata> } = {}) {
+function writeCcx(bundle: string, archive: string, options: { prefix?: string; deflate?: boolean; main?: string; manifest?: Record<string, unknown>; duplicateMain?: boolean; localMainName?: string; extra?: Array<{ path: string; contents: Buffer }>; zipFlags?: number; compressionMethod?: number; localPreamble?: Buffer; localSuffix?: Buffer; centralSuffix?: Buffer; localNames?: Record<string, string>; localMetadata?: Record<string, { versionNeeded?: number; flags?: number; method?: number; crc32?: number; compressedBytes?: number; uncompressedBytes?: number }>; centralMetadata?: Record<string, { versionMadeBy?: number; versionNeeded?: number; flags?: number; compressedBytes?: number; uncompressedBytes?: number; externalAttributes?: number; localOffset?: number }>; crc32Adjustments?: Record<string, number>; compressedDataSuffixes?: Record<string, Buffer>; compressedByteAdjustments?: Record<string, number>; dataDescriptors?: Record<string, DataDescriptorMetadata> } = {}) {
   const name = "fixture-addon.uxpaddon";
   const manifest = { ...JSON.parse(readFileSync(join(bundle, "manifest.json"), "utf8")), ...(options.manifest ?? {}) };
   const entries = [
@@ -173,6 +175,7 @@ function writeCcx(bundle: string, archive: string, options: { prefix?: string; d
     method: options.compressionMethod,
     localPreamble: options.localPreamble,
     localSuffix: options.localSuffix,
+    centralSuffix: options.centralSuffix,
     localNames: options.localNames,
     localMetadata: options.localMetadata,
     centralMetadata: options.centralMetadata,
@@ -436,6 +439,9 @@ describe("UXP Hybrid CCX receipt", () => {
       orphanLocal.writeUInt16LE(orphanName.length, 26);
       writeCcx(bundle, archive, { localSuffix: Buffer.concat([orphanLocal, orphanName]) });
       await expect(buildUxpHybridCcxReceipt({ ccxPath: archive, addonReceipt, sdkHeaderReceipt: headers })).rejects.toThrow("local records have unaccounted bytes");
+
+      writeCcx(bundle, archive, { centralSuffix: Buffer.from("unexpected central-directory suffix") });
+      await expect(buildUxpHybridCcxReceipt({ ccxPath: archive, addonReceipt, sdkHeaderReceipt: headers })).rejects.toThrow("unaccounted bytes between the central directory and ZIP end record");
 
       writeCcx(bundle, archive, {
         extra: [{ path: "docs/readme.txt", contents: Buffer.from("unselected entry") }],
