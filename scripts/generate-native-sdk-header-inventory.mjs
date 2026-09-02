@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 import { createHash } from "node:crypto";
-import { readFile, readdir, stat, writeFile } from "node:fs/promises";
+import { readFile, readdir, realpath, stat, writeFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import { relative, resolve, sep } from "node:path";
 
@@ -74,14 +74,27 @@ async function requiredFile(path, label) {
   if (!value.isFile()) throw inventoryError(`${label} must be a file`);
 }
 
+async function resolvedPathInside(root, candidate, label) {
+  let resolvedPath;
+  try { resolvedPath = await realpath(candidate); } catch { throw inventoryError(`${label} does not exist`); }
+  return assertInside(root, resolvedPath, label);
+}
+
+async function resolvedDirectoryInside(root, candidate, label) {
+  const path = await resolvedPathInside(root, candidate, label);
+  await requiredDirectory(path, label);
+  return path;
+}
+
 async function listHeaders(root, includeDirectories) {
   const headers = [];
   const visit = async (directory) => {
     const entries = await readdir(directory, { withFileTypes: true });
     entries.sort((left, right) => comparePaths(left.name, right.name));
     for (const entry of entries) {
-      const path = resolve(directory, entry.name);
-      if (entry.isSymbolicLink()) throw inventoryError(`SDK header inventory refuses symbolic link: ${relative(root, path)}`);
+      const candidate = resolve(directory, entry.name);
+      if (entry.isSymbolicLink()) throw inventoryError(`SDK header inventory refuses symbolic link: ${relative(root, candidate)}`);
+      const path = await resolvedPathInside(root, candidate, `SDK entry ${relative(root, candidate)}`);
       if (entry.isDirectory()) await visit(path);
       else if (entry.isFile() && /\.(h|hpp)$/i.test(entry.name)) {
         const content = await readFile(path);
@@ -94,8 +107,7 @@ async function listHeaders(root, includeDirectories) {
     }
   };
   for (const includeDirectory of includeDirectories) {
-    const path = assertInside(root, resolve(root, includeDirectory), `include directory ${includeDirectory}`);
-    await requiredDirectory(path, `include directory ${includeDirectory}`);
+    const path = await resolvedDirectoryInside(root, resolve(root, includeDirectory), `include directory ${includeDirectory}`);
     await visit(path);
   }
   headers.sort((left, right) => comparePaths(left.path, right.path));
@@ -108,12 +120,13 @@ async function listHeaders(root, includeDirectories) {
 
 export async function generateNativeSdkHeaderInventory(options) {
   const sdk = options?.sdk;
-  const family = SDK_FAMILIES[sdk];
+  const family = Object.prototype.hasOwnProperty.call(SDK_FAMILIES, sdk) ? SDK_FAMILIES[sdk] : undefined;
   if (!family) throw inventoryError("sdk must be uxp-hybrid or premiere-prsdk");
   const sdkVersion = stringOption(options?.sdkVersion, "sdkVersion", 128);
-  const sdkRoot = resolve(stringOption(options?.sdkRoot, "sdkRoot", 4096));
+  const suppliedSdkRoot = resolve(stringOption(options?.sdkRoot, "sdkRoot", 4096));
   const archivePath = resolve(stringOption(options?.archivePath, "archivePath", 4096));
-  await requiredDirectory(sdkRoot, "sdkRoot");
+  await requiredDirectory(suppliedSdkRoot, "sdkRoot");
+  const sdkRoot = await realpath(suppliedSdkRoot);
   await requiredFile(archivePath, "archivePath");
 
   const suppliedDirectories = options?.includeDirectories ?? [];
