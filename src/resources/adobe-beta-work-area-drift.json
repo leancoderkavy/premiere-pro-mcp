@@ -1,0 +1,71 @@
+{
+  "schemaVersion": 1,
+  "scope": {
+    "declarations": [
+      "premierepro.WorkAreaUtils",
+      "WorkAreaUtilsStatic",
+      "WorkAreaUtils"
+    ],
+    "semantics": "This records the WorkAreaUtils declaration surface that is absent from the pinned stable package and present in the pinned beta package. It is static declaration-drift accounting, not beta API support or a complete package diff.",
+    "doesNotEstablish": "It does not prove a beta host exposes WorkAreaUtils, that a stable host accepts a beta call, that any work-area mutation changes a sequence, or that an MCP action is supported or licensed-host validated.",
+    "existingToolBoundary": "Existing MCP work-area tools use established legacy host paths. This receipt neither changes those implementations nor establishes that they are equivalent to beta WorkAreaUtils behavior."
+  },
+  "sources": {
+    "stable": {
+      "package": "@adobe/premierepro",
+      "version": "26.3.0",
+      "declarations": "node_modules/@adobe/premierepro/src/premierepro.d.ts",
+      "workAreaSurfacePresent": false
+    },
+    "beta": {
+      "package": "@adobe/premierepro-beta",
+      "version": "26.5.0-beta.73",
+      "declarations": "node_modules/@adobe/premierepro-beta/src/premierepro.d.ts",
+      "workAreaSurfacePresent": true,
+      "rootDeclarationSha256": "e546fac5bc471b755db6cb28e74ea43b7c92e60b288a3aa5ce6d572568490a16",
+      "workAreaStaticDeclarationSha256": "a3e17e1bdc4426414c94d4f1b23374bf6fcbf1e17bac54230304c0ea70f9ae85",
+      "workAreaDeclarationSha256": "8cf07771cc3159965430b1232eb99b9edaf78c96514ddc0a95c0dadef2a44483"
+    }
+  },
+  "diff": {
+    "betaOnly": [
+      {
+        "symbol": "WorkAreaUtils",
+        "kind": "type",
+        "signature": "{}"
+      },
+      {
+        "symbol": "WorkAreaUtilsStatic.getWorkAreaInPoint",
+        "kind": "method",
+        "signature": "(sequence: Sequence) => TickTime"
+      },
+      {
+        "symbol": "WorkAreaUtilsStatic.getWorkAreaOutPoint",
+        "kind": "method",
+        "signature": "(sequence: Sequence) => TickTime"
+      },
+      {
+        "symbol": "WorkAreaUtilsStatic.setWorkAreaInOutPoints",
+        "kind": "method",
+        "signature": "(sequence: Sequence, inTickTime: TickTime, outTickTime: TickTime) => boolean"
+      },
+      {
+        "symbol": "WorkAreaUtilsStatic.setWorkAreaInPoint",
+        "kind": "method",
+        "signature": "(sequence: Sequence, tickTime: TickTime) => boolean"
+      },
+      {
+        "symbol": "WorkAreaUtilsStatic.setWorkAreaOutPoint",
+        "kind": "method",
+        "signature": "(sequence: Sequence, tickTime: TickTime) => boolean"
+      },
+      {
+        "symbol": "premierepro.WorkAreaUtils",
+        "kind": "property",
+        "signature": "WorkAreaUtilsStatic"
+      }
+    ],
+    "stableOnly": [],
+    "changed": []
+  }
+}

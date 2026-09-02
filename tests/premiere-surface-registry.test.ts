@@ -30,6 +30,10 @@ type Surface = {
   betaMediaDriftCommand?: string;
   betaMediaDriftVerificationCommand?: string;
   betaMediaDriftDocumentation?: string;
+  betaWorkAreaDriftArtifact?: string;
+  betaWorkAreaDriftCommand?: string;
+  betaWorkAreaDriftVerificationCommand?: string;
+  betaWorkAreaDriftDocumentation?: string;
   notes: string;
 };
 
@@ -106,6 +110,10 @@ describe("Premiere API and competitor surface registry", () => {
         betaMediaDriftCommand: "npm run adobe:beta-media-drift",
         betaMediaDriftVerificationCommand: "npm run adobe:beta-media-drift:check",
         betaMediaDriftDocumentation: "docs/adobe-beta-media-drift.md",
+        betaWorkAreaDriftArtifact: "dist/resources/adobe-beta-work-area-drift.json",
+        betaWorkAreaDriftCommand: "npm run adobe:beta-work-area-drift",
+        betaWorkAreaDriftVerificationCommand: "npm run adobe:beta-work-area-drift:check",
+        betaWorkAreaDriftDocumentation: "docs/adobe-beta-work-area-drift.md",
       });
     expect(registry.integrationSurfaces.find((surface) => surface.id === "uxp-javascript"))
       .toMatchObject({
