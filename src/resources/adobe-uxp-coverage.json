@@ -60,8 +60,6 @@
       "adobeApi": [
         "Sequence.getCaptionTrackCount",
         "Sequence.getCaptionTrack",
-        "CaptionTrack.id",
-        "CaptionTrack.name",
         "CaptionTrack.getIndex",
         "CaptionTrack.id",
         "CaptionTrack.isMuted",
