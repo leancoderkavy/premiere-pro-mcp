@@ -80,7 +80,7 @@ type ZipOptions = {
   localSuffix?: Buffer;
   localNames?: Record<string, string>;
   localMetadata?: Record<string, { versionNeeded?: number; flags?: number; method?: number; crc32?: number; compressedBytes?: number; uncompressedBytes?: number }>;
-  centralMetadata?: Record<string, { versionNeeded?: number; flags?: number; compressedBytes?: number; uncompressedBytes?: number; localOffset?: number }>;
+  centralMetadata?: Record<string, { versionMadeBy?: number; versionNeeded?: number; flags?: number; compressedBytes?: number; uncompressedBytes?: number; externalAttributes?: number; localOffset?: number }>;
   crc32Adjustments?: Record<string, number>;
   compressedDataSuffixes?: Record<string, Buffer>;
   compressedByteAdjustments?: Record<string, number>;
@@ -129,7 +129,7 @@ function createZip(entries: Array<{ path: string; contents: Buffer }>, prefix = 
     const central = Buffer.alloc(46);
     const centralMetadata = options.centralMetadata?.[entry.path] ?? {};
     central.writeUInt32LE(0x02014b50, 0);
-    central.writeUInt16LE(20, 4);
+    central.writeUInt16LE(centralMetadata.versionMadeBy ?? 20, 4);
     central.writeUInt16LE(centralMetadata.versionNeeded ?? 20, 6);
     central.writeUInt16LE(centralMetadata.flags ?? flags, 8);
     central.writeUInt16LE(method, 10);
@@ -137,6 +137,7 @@ function createZip(entries: Array<{ path: string; contents: Buffer }>, prefix = 
     central.writeUInt32LE(centralMetadata.compressedBytes ?? declaredCompressedBytes, 20);
     central.writeUInt32LE(centralMetadata.uncompressedBytes ?? entry.contents.length, 24);
     central.writeUInt16LE(name.length, 28);
+    central.writeUInt32LE(centralMetadata.externalAttributes ?? 0, 38);
     central.writeUInt32LE(centralMetadata.localOffset ?? localOffset, 42);
     centrals.push(central, name);
     localOffset += local.length + localName.length + compressedPayload.length + (descriptor?.length ?? 0);
@@ -155,7 +156,7 @@ function createZip(entries: Array<{ path: string; contents: Buffer }>, prefix = 
   return Buffer.concat([...locals, central, end]);
 }
 
-function writeCcx(bundle: string, archive: string, options: { prefix?: string; deflate?: boolean; main?: string; manifest?: Record<string, unknown>; duplicateMain?: boolean; localMainName?: string; extra?: Array<{ path: string; contents: Buffer }>; zipFlags?: number; compressionMethod?: number; localPreamble?: Buffer; localSuffix?: Buffer; localNames?: Record<string, string>; localMetadata?: Record<string, { versionNeeded?: number; flags?: number; method?: number; crc32?: number; compressedBytes?: number; uncompressedBytes?: number }>; centralMetadata?: Record<string, { versionNeeded?: number; flags?: number; compressedBytes?: number; uncompressedBytes?: number; localOffset?: number }>; crc32Adjustments?: Record<string, number>; compressedDataSuffixes?: Record<string, Buffer>; compressedByteAdjustments?: Record<string, number>; dataDescriptors?: Record<string, DataDescriptorMetadata> } = {}) {
+function writeCcx(bundle: string, archive: string, options: { prefix?: string; deflate?: boolean; main?: string; manifest?: Record<string, unknown>; duplicateMain?: boolean; localMainName?: string; extra?: Array<{ path: string; contents: Buffer }>; zipFlags?: number; compressionMethod?: number; localPreamble?: Buffer; localSuffix?: Buffer; localNames?: Record<string, string>; localMetadata?: Record<string, { versionNeeded?: number; flags?: number; method?: number; crc32?: number; compressedBytes?: number; uncompressedBytes?: number }>; centralMetadata?: Record<string, { versionMadeBy?: number; versionNeeded?: number; flags?: number; compressedBytes?: number; uncompressedBytes?: number; externalAttributes?: number; localOffset?: number }>; crc32Adjustments?: Record<string, number>; compressedDataSuffixes?: Record<string, Buffer>; compressedByteAdjustments?: Record<string, number>; dataDescriptors?: Record<string, DataDescriptorMetadata> } = {}) {
   const name = "fixture-addon.uxpaddon";
   const manifest = { ...JSON.parse(readFileSync(join(bundle, "manifest.json"), "utf8")), ...(options.manifest ?? {}) };
   const entries = [
@@ -373,6 +374,34 @@ describe("UXP Hybrid CCX receipt", () => {
         centralMetadata: { [nonAsciiPath]: { flags: 0 } },
       });
       await expect(buildUxpHybridCcxReceipt({ ccxPath: archive, addonReceipt, sdkHeaderReceipt: headers })).rejects.toThrow("non-ASCII ZIP entry names must declare UTF-8");
+
+      const unixVersionMadeBy = 0x0314;
+      const unixFileAttributes = (fileType: number) => (fileType << 16) >>> 0;
+      const regularPath = "docs/regular.txt";
+      writeCcx(bundle, archive, {
+        extra: [{ path: regularPath, contents: Buffer.from("declared Unix regular file") }],
+        centralMetadata: { [regularPath]: { versionMadeBy: unixVersionMadeBy, externalAttributes: unixFileAttributes(0o100000) } },
+      });
+      await expect(buildUxpHybridCcxReceipt({ ccxPath: archive, addonReceipt, sdkHeaderReceipt: headers })).resolves.toMatchObject({
+        contents: { entries: 6 },
+      });
+
+      const directoryPath = "docs/unix-directory/";
+      writeCcx(bundle, archive, {
+        extra: [{ path: directoryPath, contents: Buffer.alloc(0) }],
+        centralMetadata: { [directoryPath]: { versionMadeBy: unixVersionMadeBy, externalAttributes: unixFileAttributes(0o040000) } },
+      });
+      await expect(buildUxpHybridCcxReceipt({ ccxPath: archive, addonReceipt, sdkHeaderReceipt: headers })).resolves.toMatchObject({
+        contents: { entries: 6, directories: 1 },
+      });
+
+      for (const unixSpecialFileType of [0o010000, 0o020000, 0o060000, 0o120000, 0o140000]) {
+        writeCcx(bundle, archive, {
+          extra: [{ path: "docs/unsupported-type", contents: Buffer.from("declared Unix special file") }],
+          centralMetadata: { "docs/unsupported-type": { versionMadeBy: unixVersionMadeBy, externalAttributes: unixFileAttributes(unixSpecialFileType) } },
+        });
+        await expect(buildUxpHybridCcxReceipt({ ccxPath: archive, addonReceipt, sdkHeaderReceipt: headers })).rejects.toThrow("Unix entries must be regular files or directories");
+      }
 
       writeCcx(bundle, archive, {
         zipFlags: 0x8,
