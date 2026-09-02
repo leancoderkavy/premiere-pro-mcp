@@ -13,8 +13,8 @@ source catalog may include unreleased actions.
 | Registered core actions | 328 | CEP/local server catalog; host and authority checks still apply |
 | Default-profile core actions | 326 | Advertised with `inspect,edit,export,filesystem` |
 | Restricted core actions | 2 | Require explicit `unsafe-script` authority |
-| Authenticated UXP additions | 67 | Advertised only while a compatible authenticated UXP panel is connected |
-| Default profile with UXP | 393 | 326 core plus 67 UXP tools |
+| Authenticated UXP additions | 68 | Advertised only while a compatible authenticated UXP panel is connected |
+| Default profile with UXP | 394 | 326 core plus 68 UXP tools |
 
 ## How to read support
 
@@ -424,6 +424,7 @@ authenticated and the connected host advertises the required command capabilitie
 | `manage_sequence_settings_uxp` | Connected UXP | `get`, `update` | Inspect sequence settings or apply a bounded settings profile in one documented, undoable UXP transaction with readback. |
 | `manage_sequences_uxp` | Connected UXP | `inspect`, `create_from_media`, `clone`, `subsequence`, `activate`, `open`, `close`, `delete` | Inspect, create-from-media, clone, derive, activate, open, close, or explicitly delete sequences through documented stable UXP APIs. |
 | `manage_source_clip_uxp` | Connected UXP | `inspect`, `update` | Inspect or transactionally update source-clip in/out points and request scale-to-frame for up to 64 media items. In/out values are read back; Adobe exposes no getter for clear or scale state, so those requests remain committed-unverified. |
+| `manage_source_media_timing_uxp` | Connected UXP | `inspect`, `set_start` | Inspect or transactionally set one source media item's timecode start through stable Premiere 26.3 UXP APIs. Setting requires the exact bounded timing snapshot, explicit confirmation, one undoable transaction, per-item serialization, and native readback. |
 | `manage_timeline_selection_uxp` | Connected UXP | `inspect`, `inspect_targets`, `replace`, `add`, `remove`, `clear` | Inspect, replace, add to, remove from, or clear the active sequence's native UXP clip selection with sequence and clip fingerprint stale-state guards. |
 | `manage_track_state_uxp` | Connected UXP | `inspect`, `set_mute` | Inspect audio, video, and caption track mute state or set one media type serially with stale-state preflight and per-track readback. Adobe exposes this as direct promises, so no undo transaction is claimed. |
 | `manage_workflow_checkpoints_uxp` | Connected UXP | `has`, `get`, `set`, `clear` | Read or transactionally write small, namespaced workflow checkpoints on the active project or a targeted sequence. Persistent values may sync with cloud projects; never store secrets, native paths, transcripts, or media names. |

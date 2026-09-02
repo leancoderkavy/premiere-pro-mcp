@@ -313,7 +313,7 @@ describe("UXP MCP tools", () => {
       // guarded sequence-display-format updates and guarded Project-panel
       // insertion-bin inspection add thirty-one consolidated UXP tools;
       // connection verification and delivery conformance add two default-profile core tools.
-      expect(tools.tools).toHaveLength(393);
+      expect(tools.tools).toHaveLength(394);
     } finally {
       await client.close();
       await server.close();

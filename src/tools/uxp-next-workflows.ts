@@ -73,6 +73,18 @@ type MediaHealthArgs = {
   operation_id?: string;
 };
 
+type SourceMediaTimingArgs = {
+  action?: string;
+  project_item_id?: string;
+  expected_timing?: {
+    start_seconds?: number;
+    duration_seconds?: number;
+  };
+  start_seconds?: number;
+  confirm_set_start?: boolean;
+  operation_id?: string;
+};
+
 type TrackStateArgs = {
   action?: string;
   sequence_id?: string;
@@ -400,6 +412,47 @@ export function getUxpNextWorkflowTools(bridge: UxpWebSocketBridge) {
           ...(args.include_paths !== undefined ? { includePaths: args.include_paths } : {}),
         });
         return { success: false, error: `Unsupported media-health action: ${String(args.action)}` };
+      },
+    },
+    manage_source_media_timing_uxp: {
+      description: "Inspect or transactionally set one source media item's timecode start through stable Premiere 26.3 UXP APIs. Setting requires the exact bounded timing snapshot, explicit confirmation, one undoable transaction, per-item serialization, and native readback.",
+      parameters: {
+        type: "object" as const,
+        additionalProperties: false,
+        properties: {
+          action: { type: "string", enum: ["inspect", "set_start"] },
+          project_item_id: { type: "string", minLength: 1, maxLength: 512 },
+          expected_timing: {
+            type: "object", additionalProperties: false,
+            properties: {
+              start_seconds: { type: "number", minimum: 0, maximum: 86400000 },
+              duration_seconds: { type: "number", minimum: 0, maximum: 86400000 },
+            },
+            required: ["start_seconds", "duration_seconds"],
+            description: "Required for set_start. Copy the complete snapshot returned by inspect; a changed start or duration rejects the request before action creation.",
+          },
+          start_seconds: { type: "number", minimum: 0, maximum: 86400000 },
+          confirm_set_start: { type: "boolean", description: "Required true for set_start because source timecode changes can affect editorial synchronization." },
+          operation_id: { type: "string", pattern: "^[A-Za-z0-9._:-]{1,128}$" },
+        },
+        required: ["action", "project_item_id"],
+      },
+      handler: async (args: SourceMediaTimingArgs) => {
+        const common = {
+          ...(args.project_item_id === undefined ? {} : { projectItemId: args.project_item_id }),
+        };
+        if (args.action === "inspect") return invoke(bridge, "source.mediaTiming.inspect", common);
+        if (args.action === "set_start") return invoke(bridge, "source.mediaTiming.setStart", {
+          ...common,
+          ...(args.expected_timing === undefined ? {} : { expectedTiming: {
+            ...(args.expected_timing.start_seconds === undefined ? {} : { startSeconds: args.expected_timing.start_seconds }),
+            ...(args.expected_timing.duration_seconds === undefined ? {} : { durationSeconds: args.expected_timing.duration_seconds }),
+          } }),
+          ...(args.start_seconds === undefined ? {} : { startSeconds: args.start_seconds }),
+          ...(args.confirm_set_start === undefined ? {} : { confirmSetStart: args.confirm_set_start }),
+          ...(args.operation_id === undefined ? {} : { operationId: args.operation_id }),
+        });
+        return { success: false, error: `Unsupported source-media timing action: ${String(args.action)}` };
       },
     },
     manage_track_state_uxp: {

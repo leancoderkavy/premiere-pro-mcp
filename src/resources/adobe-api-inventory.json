@@ -13,8 +13,8 @@
   },
   "stats": {
     "total": 976,
-    "mapped": 259,
-    "unmapped": 717,
+    "mapped": 262,
+    "unmapped": 714,
     "manifestOnly": 5
   },
   "manifestOnly": [
@@ -651,7 +651,7 @@
       "symbol": "ClipProjectItem.cast",
       "kind": "method",
       "declarationSymbol": "ClipProjectItemStatic.cast",
-      "coverage": "unmapped"
+      "coverage": "mapped"
     },
     {
       "symbol": "ClipProjectItem.changeMediaFilePath",
@@ -2539,7 +2539,7 @@
     {
       "symbol": "Media.createSetStartAction",
       "kind": "method",
-      "coverage": "unmapped"
+      "coverage": "mapped"
     },
     {
       "symbol": "Media.duration",
@@ -4221,7 +4221,7 @@
       "symbol": "TickTime.createWithSeconds",
       "kind": "method",
       "declarationSymbol": "TickTimeStatic.createWithSeconds",
-      "coverage": "unmapped"
+      "coverage": "mapped"
     },
     {
       "symbol": "TickTime.createWithTicks",
