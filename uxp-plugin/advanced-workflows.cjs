@@ -863,16 +863,19 @@
       });
       const project = await activeProject(true), source = asClip(await findProjectItem(project, args.sourceProjectItemId), "sourceProjectItemId");
       if (typeof source.createSubClipAction !== "function") throw commandError("UXP_COMMAND_UNAVAILABLE", "Premiere cannot create documented subclips for silence removal");
-      const parent = asFolder(await source.getParentBin(), "source parent"), before = Array.from(await parent.getItems() || []);
-      const beforeIds = new Set(); for (const item of before) beforeIds.add(await projectItemId(item));
+      const parent = asFolder(await source.getParentBin(), "source parent");
+      const target = args.targetBinId ? await resolveFolder(project, args.targetBinId, "targetBinId") : undefined;
       const name = boundedString(args.name, "name", 255), prefix = name + " Keep";
-      let subclipCommitError = false;
+      return withAppendLock(appendLockKey(project, "bin", await projectItemId(parent)), async () => {
+      const lockedBefore = Array.from(await parent.getItems() || []), beforeIds = new Set(); for (const item of lockedBefore) beforeIds.add(await projectItemId(item));
+      let subclipCommitError = false, mutationAttempted = false;
       try {
         project.lockedAccess(() => {
           const actions = ranges.map((range, index) => source.createSubClipAction(prefix + " " + (index + 1), tick(range.startSeconds, "startSeconds"), tick(range.endSeconds, "endSeconds"), true, { takeVideo: true, takeAudio: true }));
+          mutationAttempted = true;
           commitActions(project, "Create silence-removal subclips", actions);
         });
-      } catch (_) { subclipCommitError = true; }
+      } catch (error) { if (!mutationAttempted) throw error; subclipCommitError = true; }
       let createdItems;
       try {
         const after = Array.from(await parent.getItems() || []), added = [];
@@ -883,7 +886,7 @@
       }
       if (subclipCommitError || createdItems.length !== ranges.length) return directMutationResult(false, { partial: true, createdSubclips: await Promise.all(createdItems.map(projectItemSnapshot)), sequence: null, originalChanged: false }, subclipCommitError ? "derived_subclip_partial_transaction_receipt" : "derived_subclip_count_readback");
       let sequence;
-      try { sequence = await project.createSequenceFromMedia(name, [createdItems[0]], args.targetBinId ? await resolveFolder(project, args.targetBinId, "targetBinId") : undefined); } catch (_) {}
+      try { sequence = await project.createSequenceFromMedia(name, [createdItems[0]], target); } catch (_) {}
       if (!sequence) return directMutationResult(false, { partial: true, createdSubclips: await Promise.all(createdItems.map(projectItemSnapshot)), sequence: null, originalChanged: false }, "derived_sequence_host_return");
       const inserted = [await projectItemId(createdItems[0])];
       try {
@@ -898,6 +901,7 @@
         return directMutationResult(false, { partial: true, createdSubclips: await Promise.all(createdItems.map(projectItemSnapshot)), sequence: await sequenceSnapshot(sequence), insertedProjectItemIds: inserted, originalChanged: false }, "derived_sequence_partial_insert_receipt");
       }
       return directMutationResult(false, { created: true, partial: false, createdSubclips: await Promise.all(createdItems.map(projectItemSnapshot)), sequence: await sequenceSnapshot(sequence), insertedProjectItemIds: inserted, originalChanged: false }, "derived_sequence_structure_unverified");
+      });
     }
 
     async function cloneSequence(args) {
@@ -1162,7 +1166,14 @@
     function canUseMogrtPath() { return canUseSequenceEditor(); }
     function canUseMogrtLibrary() { return canUseSequenceEditor(); }
     function canUseSequences() { return canInspectProject(); }
-    function canDeriveSilenceSequence() { return canUseSequences() && canUseSequenceEditor(); }
+    async function canDeriveSilenceSequence() {
+      if (!canUseSequences() || !canUseSequenceEditor() || !ppro.ClipProjectItem || typeof ppro.ClipProjectItem.cast !== "function"
+        || !ppro.FolderItem || typeof ppro.FolderItem.cast !== "function" || !ppro.TickTime || typeof ppro.TickTime.createWithSeconds !== "function") return false;
+      const project = await ppro.Project.getActiveProject();
+      if (!project) return true;
+      return typeof project.lockedAccess === "function" && typeof project.executeTransaction === "function"
+        && typeof project.getRootItem === "function" && typeof project.createSequenceFromMedia === "function";
+    }
     async function canCloseSequence() {
       if (!canInspectProject()) return false;
       const project = await ppro.Project.getActiveProject();

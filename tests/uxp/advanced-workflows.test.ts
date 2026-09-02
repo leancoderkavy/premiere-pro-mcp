@@ -379,6 +379,43 @@ describe("advanced stable Premiere UXP workflows", () => {
     expect(value.project.createSequenceFromMedia).not.toHaveBeenCalled();
   });
 
+  it("resolves the destination before creating subclips", async () => {
+    const value = advancedHost();
+    await expect(value.registry.dispatch("silence.deriveSequence", {
+      sourceProjectItemId: "clip-1", targetBinId: "missing-bin", name: "Invalid Target",
+      confirmNonUndoable: true, operationId: "invalid-target", keepRanges: [
+        { startSeconds: 0, endSeconds: 2, startFrame: 0, endFrame: 60 },
+      ],
+    })).rejects.toThrow("projectItemId was not found");
+    expect(value.clip.createSubClipAction).not.toHaveBeenCalled();
+    expect(value.project.createSequenceFromMedia).not.toHaveBeenCalled();
+  });
+
+  it("does not cache failures that occur before a subclip transaction is attempted", async () => {
+    const value = advancedHost();
+    const implementation = value.clip.createSubClipAction.getMockImplementation();
+    value.clip.createSubClipAction.mockImplementationOnce(() => { throw new Error("cannot construct action"); });
+    const args = {
+      sourceProjectItemId: "clip-1", name: "Retry Tight", confirmNonUndoable: true,
+      operationId: "pre-transaction-retry", keepRanges: [
+        { startSeconds: 0, endSeconds: 2, startFrame: 0, endFrame: 60 },
+      ],
+    };
+    await expect(value.registry.dispatch("silence.deriveSequence", args)).rejects.toThrow("cannot construct action");
+    value.clip.createSubClipAction.mockImplementation(implementation!);
+    await expect(value.registry.dispatch("silence.deriveSequence", args)).resolves.toMatchObject({
+      created: true, partial: false,
+    });
+    expect(value.project.createSequenceFromMedia).toHaveBeenCalledTimes(1);
+  });
+
+  it("fails the silence-stringout capability probe when required host primitives are absent", async () => {
+    const value = advancedHost();
+    value.ppro.TickTime.createWithSeconds = undefined;
+    const capabilities = await value.registry.capabilities();
+    expect(capabilities.commands["silence.deriveSequence"]).toMatchObject({ supported: false });
+  });
+
   it("rejects invalid beat grids before mutation and reports contradictory readback as unverified", async () => {
     const value = advancedHost();
     for (const args of [
