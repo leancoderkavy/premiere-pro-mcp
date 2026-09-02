@@ -2602,7 +2602,7 @@
       "symbol": "Metadata.getProjectColumnsMetadata",
       "kind": "method",
       "declarationSymbol": "MetadataStatic.getProjectColumnsMetadata",
-      "coverage": "unmapped"
+      "coverage": "mapped"
     },
     {
       "symbol": "Metadata.getProjectMetadata",
@@ -2614,7 +2614,7 @@
       "symbol": "Metadata.getProjectPanelMetadata",
       "kind": "method",
       "declarationSymbol": "MetadataStatic.getProjectPanelMetadata",
-      "coverage": "unmapped"
+      "coverage": "mapped"
     },
     {
       "symbol": "Metadata.getXMPMetadata",

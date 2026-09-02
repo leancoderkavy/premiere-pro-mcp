@@ -10,6 +10,7 @@ const WORKFLOW_TOOLS = [
   "manage_proxy_ingest_uxp",
   "relink_offline_media_uxp",
   "manage_metadata_uxp",
+  "inspect_project_panel_metadata_uxp",
   "manage_color_conformance_uxp",
   "audition_source_monitor_uxp",
   "preflight_production_storage_uxp",
@@ -37,6 +38,16 @@ describe("stable UXP workflow MCP catalog", () => {
         project_metadata: { maxLength: 350000, description: expect.stringContaining("900,000-byte") },
         xmp_metadata: { maxLength: 350000, description: expect.stringContaining("900,000-byte") },
         updated_fields: { maxItems: 128 },
+      },
+    });
+    expect(tools.inspect_project_panel_metadata_uxp.parameters).toMatchObject({
+      type: "object",
+      additionalProperties: false,
+      required: ["action"],
+      properties: {
+        action: { enum: ["panel", "item_columns"] },
+        project_item_id: { minLength: 1, maxLength: 512 },
+        project_item_name: { minLength: 1, maxLength: 255 },
       },
     });
     expect(tools.relink_offline_media_uxp.parameters).toMatchObject({
@@ -199,6 +210,18 @@ describe("stable UXP workflow MCP catalog", () => {
     expect(request).toHaveBeenNthCalledWith(11, "workspace.status", {});
   });
 
+  it("maps Project-panel metadata reads without exposing a write route", async () => {
+    const request = vi.fn().mockResolvedValue({ outcome: "verified" });
+    const bridge = { request, getState: vi.fn() } as unknown as UxpWebSocketBridge;
+    const tool = getUxpTools(bridge).inspect_project_panel_metadata_uxp;
+
+    await tool.handler({ action: "panel" });
+    await tool.handler({ action: "item_columns", project_item_id: "clip-1" });
+
+    expect(request).toHaveBeenNthCalledWith(1, "metadata.projectPanel.get", {});
+    expect(request).toHaveBeenNthCalledWith(2, "metadata.columns.get", { projectItemId: "clip-1" });
+  });
+
   it("rejects unsupported dispatcher actions before bridge access", async () => {
     const request = vi.fn();
     const bridge = { request, getState: vi.fn() } as unknown as UxpWebSocketBridge;
@@ -210,11 +233,12 @@ describe("stable UXP workflow MCP catalog", () => {
       tools.manage_timeline_selection_uxp.handler({ action: "unsupported" }),
       tools.manage_proxy_ingest_uxp.handler({ action: "unsupported" }),
       tools.manage_metadata_uxp.handler({ action: "unsupported" }),
+      tools.inspect_project_panel_metadata_uxp.handler({ action: "unsupported" }),
       tools.manage_color_conformance_uxp.handler({ action: "unsupported" }),
       tools.audition_source_monitor_uxp.handler({ action: "unsupported" }),
     ]);
 
-    expect(results).toEqual(Array.from({ length: 7 }, () => ({
+    expect(results).toEqual(Array.from({ length: 8 }, () => ({
       success: false,
       error: "Unsupported workflow action: unsupported",
     })));

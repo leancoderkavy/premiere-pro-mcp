@@ -363,6 +363,32 @@ export function getUxpWorkflowTools(bridge: UxpWebSocketBridge) {
       },
     },
 
+    inspect_project_panel_metadata_uxp: {
+      description: "Read bounded native Project-panel metadata: either the active project's panel schema or one media item's column metadata. This is read-only; it neither creates metadata schema fields nor writes Project-panel state.",
+      parameters: {
+        type: "object" as const,
+        additionalProperties: false,
+        properties: {
+          action: { type: "string", enum: ["panel", "item_columns"] },
+          ...projectItemProperties,
+        },
+        required: ["action"],
+      },
+      operationalCapability: {
+        backend: "UXP" as const,
+        backends: ["uxp" as const],
+        minimumPremiereVersion: "25.6",
+        verificationBoundary: "structured_uxp_readback" as const,
+        hostVerificationRequired: true,
+        notes: ["Available only through an authenticated UXP bridge whose runtime capability handshake advertises the requested metadata Project-panel command."],
+      },
+      handler: async (args: WorkflowArgs) => {
+        if (args.action === "panel") return invoke(bridge, "metadata.projectPanel.get");
+        if (args.action === "item_columns") return invoke(bridge, "metadata.columns.get", target(args));
+        return invalidAction(args.action);
+      },
+    },
+
     manage_color_conformance_uxp: {
       description: "Preflight project graphics-white/LUT/footage interpretation state, or update bounded footage-conformance fields in one undoable UXP transaction.",
       parameters: {
