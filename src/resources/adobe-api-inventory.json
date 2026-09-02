@@ -13,8 +13,8 @@
   },
   "stats": {
     "total": 976,
-    "mapped": 269,
-    "unmapped": 707,
+    "mapped": 270,
+    "unmapped": 706,
     "manifestOnly": 5
   },
   "manifestOnly": [
@@ -796,7 +796,7 @@
     {
       "symbol": "ClipProjectItem.getSequence",
       "kind": "method",
-      "coverage": "unmapped"
+      "coverage": "mapped"
     },
     {
       "symbol": "ClipProjectItem.hasProxy",

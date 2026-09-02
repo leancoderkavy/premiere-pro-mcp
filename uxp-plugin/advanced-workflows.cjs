@@ -308,16 +308,19 @@
     }
 
     async function inspectTimelineStructure(args) {
-      assertObject(args); assertOnlyKeys(args, ["sequenceId", "expectedSequenceId", "mediaType", "trackIndices", "includeEmptyTracks", "includeSourceProjectItems", "includeSourceProjectItemClassification", "maxItems"]);
+      assertObject(args); assertOnlyKeys(args, ["sequenceId", "expectedSequenceId", "mediaType", "trackIndices", "includeEmptyTracks", "includeSourceProjectItems", "includeSourceProjectItemClassification", "includeSourceNestedSequenceIdentity", "maxItems"]);
       const project = await activeProject(false), sequence = await resolveSequence(project, args.sequenceId);
       const sequenceId = guidString(sequence.guid), expectedSequenceId = args.expectedSequenceId == null ? null : boundedString(args.expectedSequenceId, "expectedSequenceId", 128);
       if (expectedSequenceId && expectedSequenceId !== sequenceId) {
         throw commandError("UXP_STALE_SEQUENCE", "The requested sequence identity no longer matches; inspect the current timeline and retry");
       }
       const mediaType = enumValue(args.mediaType == null ? "all" : args.mediaType, "mediaType", ["all", "video", "audio"]);
-      const trackIndices = timelineTrackIndices(args.trackIndices), includeEmptyTracks = optionalBoolean(args.includeEmptyTracks, false, "includeEmptyTracks"), includeSourceProjectItems = optionalBoolean(args.includeSourceProjectItems, false, "includeSourceProjectItems"), includeSourceProjectItemClassification = optionalBoolean(args.includeSourceProjectItemClassification, false, "includeSourceProjectItemClassification");
+      const trackIndices = timelineTrackIndices(args.trackIndices), includeEmptyTracks = optionalBoolean(args.includeEmptyTracks, false, "includeEmptyTracks"), includeSourceProjectItems = optionalBoolean(args.includeSourceProjectItems, false, "includeSourceProjectItems"), includeSourceProjectItemClassification = optionalBoolean(args.includeSourceProjectItemClassification, false, "includeSourceProjectItemClassification"), includeSourceNestedSequenceIdentity = optionalBoolean(args.includeSourceNestedSequenceIdentity, false, "includeSourceNestedSequenceIdentity");
       if (includeSourceProjectItemClassification && !includeSourceProjectItems) {
         throw commandError("UXP_INVALID_ARGUMENT", "includeSourceProjectItemClassification requires includeSourceProjectItems");
+      }
+      if (includeSourceNestedSequenceIdentity && (!includeSourceProjectItems || !includeSourceProjectItemClassification)) {
+        throw commandError("UXP_INVALID_ARGUMENT", "includeSourceNestedSequenceIdentity requires source Project-item IDs and classification");
       }
       const maxItems = args.maxItems == null ? 128 : boundedInt(args.maxItems, "maxItems", 1, MAX_TIMELINE_ITEMS);
       const itemType = ppro.Constants && ppro.Constants.TrackItemType;
@@ -351,7 +354,7 @@
           if (!items.length && !includeEmptyTracks) { emptyTracksOmitted += 1; continue; }
           const snapshots = [];
           for (let clipIndex = 0; clipIndex < items.length; clipIndex += 1) {
-            snapshots.push(await trackItemSnapshot({ item: items[clipIndex], mediaType: currentMediaType, trackIndex, clipIndex, includeSourceProjectItems, includeSourceProjectItemClassification }));
+            snapshots.push(await trackItemSnapshot({ item: items[clipIndex], mediaType: currentMediaType, trackIndex, clipIndex, includeSourceProjectItems, includeSourceProjectItemClassification, includeSourceNestedSequenceIdentity }));
           }
           itemCount += snapshots.length;
           tracks.push({ mediaType: currentMediaType, trackIndex, name: String(track.name || ""), itemCount: snapshots.length, items: snapshots });
@@ -1000,36 +1003,50 @@
         speed: await maybeCall(context.item, "getSpeed"), reversed: await maybeCall(context.item, "isSpeedReversed"), adjustmentLayer: await maybeCall(context.item, "isAdjustmentLayer"), disabled: await maybeCall(context.item, "isDisabled")
       };
       if (context.includeSourceProjectItems) {
-        const source = await trackItemSourceProjectItemSnapshot(context.item, context.includeSourceProjectItemClassification);
+        const source = await trackItemSourceProjectItemSnapshot(context.item, context.includeSourceProjectItemClassification, context.includeSourceNestedSequenceIdentity);
         snapshot.sourceProjectItemId = source.id;
         if (context.includeSourceProjectItemClassification) snapshot.sourceProjectItemClassification = source.classification;
+        if (context.includeSourceNestedSequenceIdentity) snapshot.sourceNestedSequenceId = source.nestedSequenceId;
       }
       return snapshot;
     }
 
-    async function trackItemSourceProjectItemSnapshot(item, includeClassification) {
+    async function trackItemSourceProjectItemSnapshot(item, includeClassification, includeNestedSequenceIdentity) {
       try {
-        if (!item || typeof item.getProjectItem !== "function") return { id: null, classification: null };
+        if (!item || typeof item.getProjectItem !== "function") return { id: null, classification: null, nestedSequenceId: null };
         const sourceItem = await item.getProjectItem();
         let id = null;
         try { id = await projectItemId(sourceItem) || null; } catch (_) {}
-        return { id, classification: includeClassification ? await sourceProjectItemClassification(sourceItem) : null };
+        const details = includeClassification ? await sourceProjectItemClassification(sourceItem, includeNestedSequenceIdentity) : { classification: null, nestedSequenceId: null };
+        return { id, classification: details.classification, nestedSequenceId: details.nestedSequenceId };
       } catch (_) {
-        return { id: null, classification: null };
+        return { id: null, classification: null, nestedSequenceId: null };
       }
     }
 
-    async function sourceProjectItemClassification(item) {
-      if (!ppro.ClipProjectItem || typeof ppro.ClipProjectItem.cast !== "function") return null;
+    async function sourceProjectItemClassification(item, includeNestedSequenceIdentity) {
+      if (!ppro.ClipProjectItem || typeof ppro.ClipProjectItem.cast !== "function") return { classification: null, nestedSequenceId: null };
       let clip;
-      try { clip = ppro.ClipProjectItem.cast(item); } catch (_) { return null; }
-      if (!clip) return null;
-      return {
+      try { clip = ppro.ClipProjectItem.cast(item); } catch (_) { return { classification: null, nestedSequenceId: null }; }
+      if (!clip) return { classification: null, nestedSequenceId: null };
+      const classification = {
         isSequence: await sourceProjectItemBoolean(clip, "isSequence"),
         isMergedClip: await sourceProjectItemBoolean(clip, "isMergedClip"),
         isMulticamClip: await sourceProjectItemBoolean(clip, "isMulticamClip"),
         isOffline: await sourceProjectItemBoolean(clip, "isOffline")
       };
+      return {
+        classification,
+        nestedSequenceId: includeNestedSequenceIdentity ? await sourceProjectItemNestedSequenceId(clip, classification) : null
+      };
+    }
+
+    async function sourceProjectItemNestedSequenceId(clip, classification) {
+      if (!classification || classification.isSequence !== true || !clip || typeof clip.getSequence !== "function") return null;
+      try {
+        const sequence = await clip.getSequence(), id = guidString(sequence && sequence.guid);
+        return id && id !== "[object Object]" && id.length <= 128 ? id : null;
+      } catch (_) { return null; }
     }
 
     async function sourceProjectItemBoolean(item, method) {

@@ -1670,6 +1670,7 @@
         "ProjectItem.getId",
         "ClipProjectItem.cast",
         "ClipProjectItem.isSequence",
+        "ClipProjectItem.getSequence",
         "ClipProjectItem.isMergedClip",
         "ClipProjectItem.isMulticamClip",
         "ClipProjectItem.isOffline"

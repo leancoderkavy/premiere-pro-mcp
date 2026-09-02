@@ -154,8 +154,14 @@ bounded `operation_id` replay key where applicable.
   ID opt-in and returns only documented source flags for sequence, merged-clip,
   multicam-clip, and offline status. A source unavailable to Premiere or an
   unavailable individual getter is represented as `null`; no source name, type,
-  media path, Project-panel metadata, or project-tree traversal is read. This is
-  a current bounded read, not an atomic source/timeline revision, playback proof,
+  media path, Project-panel metadata, or project-tree traversal is read. Only
+  when explicitly requested by
+  `include_source_nested_sequence_identity: true`, which also requires both
+  source-ID and classification opt-ins. When and only when `isSequence` is
+  exactly `true`, it returns the linked nested sequence's documented GUID; a
+  non-sequence or unavailable nested source is `null`. It neither inspects the
+  nested sequence nor reads Project-panel state. This is a current bounded read,
+  not an atomic source/timeline revision, playback proof,
   or licensed-host validation.
 - `inspect_project_panel_metadata_uxp`: action `panel` reads the active project's
   native Project-panel metadata and `item_columns` resolves one media item using
