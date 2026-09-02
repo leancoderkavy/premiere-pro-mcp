@@ -242,6 +242,23 @@ describe("capability profiles", () => {
     ]);
   });
 
+  it("does not infer QE usage from a UXP tool description that rejects QE", () => {
+    const tool = deriveToolOperationalCapability(
+      "edit_timeline_uxp",
+      { description: "Edit through documented UXP APIs without undocumented QE calls." },
+      resolveCapabilities("edit"),
+    );
+    expect(tool).toMatchObject({
+      backend: "UXP",
+      backends: ["uxp"],
+      status: "supported",
+      minimumPremiereVersion: "25.6",
+    });
+    expect(tool.notes).not.toEqual(expect.arrayContaining([
+      expect.stringContaining("undocumented QE DOM"),
+    ]));
+  });
+
   it("represents authenticated UXP-only tool metadata without a CEP fallback claim", () => {
     const tool = deriveToolOperationalCapability(
       "inspect_caption_tracks_uxp",

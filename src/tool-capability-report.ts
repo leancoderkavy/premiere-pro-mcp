@@ -182,10 +182,10 @@ export function deriveToolOperationalCapability(
     ? true
     : LOCAL_TOOLS.has(name);
   const orchestrator = ORCHESTRATOR_TOOLS.has(name);
-  const usesQe = /\bQE(?:\s+DOM)?\b/i.test(definition.description);
   const usesUxp = override.backends?.includes("uxp")
     || name.endsWith("_uxp")
     || name.startsWith("get_uxp_");
+  const usesQe = !usesUxp && /\bQE(?:\s+DOM)?\b/i.test(definition.description);
   const backends: ToolBackend[] = override.backends ?? (local
     ? ["local"]
     : orchestrator
