@@ -346,8 +346,7 @@
       const markerType = args.markerType == null ? String(ppro.Marker && ppro.Marker.MARKER_TYPE_COMMENT || "Comment") : boundedString(args.markerType, "markerType", 128);
       const start = tick(finiteNumber(args.startSeconds == null ? 0 : args.startSeconds, "startSeconds", 0, 86400), "startSeconds"), duration = tick(finiteNumber(args.durationSeconds == null ? 0 : args.durationSeconds, "durationSeconds", 0, 86400), "durationSeconds");
       const comments = args.comments == null ? "" : boundedStringAllowEmpty(args.comments, "comments", 4000);
-      const ownerId = context.ownerType === "sequence" ? guidString(context.owner && context.owner.guid) : await projectItemId(context.owner);
-      return withAppendLock(appendLockKey(context.project, "markers", context.ownerType + ":" + ownerId), async () => {
+      return withAppendLock(await markerLockKey(context), async () => {
         const before = await markerList(context.collection);
         assertAppendCapacity(before, MAX_MARKERS, "Marker creation");
         context.project.lockedAccess(() => {
@@ -380,8 +379,7 @@
       for (let index = 1; index < times.length; index++) {
         if (times[index] <= times[index - 1]) throw commandError("UXP_INVALID_ARGUMENT", "beatTimesSeconds must be strictly increasing");
       }
-      const ownerId = guidString(context.owner && context.owner.guid);
-      return withAppendLock(appendLockKey(context.project, "markers", "sequence:" + ownerId), async () => {
+      return withAppendLock(await markerLockKey(context), async () => {
         const before = boundedMarkers(context.collection);
         if (before.length + times.length > MAX_MARKERS) throw commandError("UXP_COLLECTION_LIMIT", "Beat marker creation would exceed the " + MAX_MARKERS + " marker limit");
         const beforeGuids = new Set(before.map((marker) => guidString(marker.guid)));
@@ -407,69 +405,78 @@
     }
 
     async function updateMarker(args) {
-      const context = await markerContext(args, true), marker = await findMarker(context.collection, args.markerGuid, args.expectedName);
+      const context = await markerContext(args, true);
       const requested = [args.name, args.comments, args.markerType, args.durationSeconds, args.startSeconds, args.colorIndex].filter((value) => value != null);
       if (!requested.length) throw commandError("UXP_INVALID_ARGUMENT", "Provide at least one marker field to update");
-      context.project.lockedAccess(() => {
-        const actions = [];
-        if (args.name != null) actions.push(marker.createSetNameAction(boundedString(args.name, "name", 255)));
-        if (args.comments != null) actions.push(marker.createSetCommentsAction(boundedStringAllowEmpty(args.comments, "comments", 4000)));
-        if (args.markerType != null) actions.push(marker.createSetTypeAction(boundedString(args.markerType, "markerType", 128)));
-        if (args.durationSeconds != null) actions.push(marker.createSetDurationAction(tick(finiteNumber(args.durationSeconds, "durationSeconds", 0, 86400), "durationSeconds")));
-        if (args.startSeconds != null) actions.push(context.collection.createMoveMarkerAction(marker, tick(finiteNumber(args.startSeconds, "startSeconds", 0, 86400), "startSeconds")));
-        if (args.colorIndex != null) actions.push(marker.createSetColorByIndexAction(boundedInt(args.colorIndex, "colorIndex", 0, 6)));
-        commitActions(context.project, "Update marker", actions);
+      return withAppendLock(await markerLockKey(context), async () => {
+        const marker = await findMarker(context.collection, args.markerGuid, args.expectedName);
+        context.project.lockedAccess(() => {
+          const actions = [];
+          if (args.name != null) actions.push(marker.createSetNameAction(boundedString(args.name, "name", 255)));
+          if (args.comments != null) actions.push(marker.createSetCommentsAction(boundedStringAllowEmpty(args.comments, "comments", 4000)));
+          if (args.markerType != null) actions.push(marker.createSetTypeAction(boundedString(args.markerType, "markerType", 128)));
+          if (args.durationSeconds != null) actions.push(marker.createSetDurationAction(tick(finiteNumber(args.durationSeconds, "durationSeconds", 0, 86400), "durationSeconds")));
+          if (args.startSeconds != null) actions.push(context.collection.createMoveMarkerAction(marker, tick(finiteNumber(args.startSeconds, "startSeconds", 0, 86400), "startSeconds")));
+          if (args.colorIndex != null) actions.push(marker.createSetColorByIndexAction(boundedInt(args.colorIndex, "colorIndex", 0, 6)));
+          commitActions(context.project, "Update marker", actions);
+        });
+        const updated = await findMarker(context.collection, args.markerGuid), snapshot = await markerSnapshot(updated);
+        const verified = (args.name == null || snapshot.name === args.name)
+          && (args.comments == null || snapshot.comments === args.comments)
+          && (args.markerType == null || snapshot.type === args.markerType)
+          && (args.durationSeconds == null || numbersEqual(snapshot.durationSeconds, args.durationSeconds))
+          && (args.startSeconds == null || numbersEqual(snapshot.startSeconds, args.startSeconds))
+          && (args.colorIndex == null || snapshot.colorIndex === args.colorIndex);
+        return mutationResult(verified, { updated: true, marker: snapshot }, "marker_field_readback", "Update marker");
       });
-      const updated = await findMarker(context.collection, args.markerGuid), snapshot = await markerSnapshot(updated);
-      const verified = (args.name == null || snapshot.name === args.name)
-        && (args.comments == null || snapshot.comments === args.comments)
-        && (args.markerType == null || snapshot.type === args.markerType)
-        && (args.durationSeconds == null || numbersEqual(snapshot.durationSeconds, args.durationSeconds))
-        && (args.startSeconds == null || numbersEqual(snapshot.startSeconds, args.startSeconds))
-        && (args.colorIndex == null || snapshot.colorIndex === args.colorIndex);
-      return mutationResult(verified, { updated: true, marker: snapshot }, "marker_field_readback", "Update marker");
     }
 
     async function removeMarker(args) {
-      const context = await markerContext(args, true), marker = await findMarker(context.collection, args.markerGuid, args.expectedName);
-      context.project.lockedAccess(() => {
-        commitActions(context.project, "Remove marker", [context.collection.createRemoveMarkerAction(marker)]);
+      const context = await markerContext(args, true);
+      return withAppendLock(await markerLockKey(context), async () => {
+        const marker = await findMarker(context.collection, args.markerGuid, args.expectedName);
+        context.project.lockedAccess(() => {
+          commitActions(context.project, "Remove marker", [context.collection.createRemoveMarkerAction(marker)]);
+        });
+        const remaining = await markerList(context.collection), verified = !remaining.some((value) => value.guid === args.markerGuid);
+        return mutationResult(verified, { removed: true, markerGuid: args.markerGuid, remainingCount: remaining.length }, "marker_guid_absence_readback", "Remove marker");
       });
-      const remaining = await markerList(context.collection), verified = !remaining.some((value) => value.guid === args.markerGuid);
-      return mutationResult(verified, { removed: true, markerGuid: args.markerGuid, remainingCount: remaining.length }, "marker_guid_absence_readback", "Remove marker");
     }
 
     async function removeManyMarkers(args) {
       const context = await markerContext(args, true);
       requireDestructiveConfirmation(args.confirmDestructive);
-      const requested = reviewedMarkerSnapshots(args.markerSnapshots), current = [];
-      for (const marker of boundedMarkers(context.collection)) current.push({ marker, snapshot: await markerSnapshot(marker) });
-      const targets = requested.map((expected) => {
-        const currentMarker = current.find((value) => value.snapshot.guid === expected.markerGuid);
-        if (!currentMarker) throw commandError("UXP_TARGET_NOT_FOUND", "markerSnapshots contains a markerGuid that was not found");
-        assertExpected(currentMarker.snapshot.name, expected.expectedName, "UXP_STALE_MARKER", "Marker name");
-        assertExpectedNumber(currentMarker.snapshot.startSeconds, expected.expectedStartSeconds, "UXP_STALE_MARKER", "Marker startSeconds");
-        assertExpectedNumber(currentMarker.snapshot.durationSeconds, expected.expectedDurationSeconds, "UXP_STALE_MARKER", "Marker durationSeconds");
-        return currentMarker.marker;
-      });
-      context.project.lockedAccess(() => {
-        commitActions(context.project, "Remove reviewed markers", targets.map((marker) => context.collection.createRemoveMarkerAction(marker)));
-      });
+      const requested = reviewedMarkerSnapshots(args.markerSnapshots);
       const targetGuids = requested.map((value) => value.markerGuid);
-      try {
-        const remaining = await markerList(context.collection);
-        const remainingTargetGuids = remaining.filter((value) => targetGuids.includes(value.guid)).map((value) => value.guid);
-        const verified = remainingTargetGuids.length === 0;
-        return mutationResult(verified, {
-          requested: targetGuids.length, removed: verified ? targetGuids.length : null, markerGuids: targetGuids,
-          remainingCount: remaining.length, remainingTargetGuids,
-        }, "marker_guid_absence_readback", "Remove reviewed markers");
-      } catch (_) {
-        return mutationResult(false, {
-          requested: targetGuids.length, removed: null, markerGuids: targetGuids,
-          remainingCount: null, remainingTargetGuids: null,
-        }, "marker_guid_absence_readback", "Remove reviewed markers");
-      }
+      return withAppendLock(await markerLockKey(context), async () => {
+        const current = [];
+        for (const marker of boundedMarkers(context.collection)) current.push({ marker, snapshot: await markerSnapshot(marker) });
+        const targets = requested.map((expected) => {
+          const currentMarker = current.find((value) => value.snapshot.guid === expected.markerGuid);
+          if (!currentMarker) throw commandError("UXP_TARGET_NOT_FOUND", "markerSnapshots contains a markerGuid that was not found");
+          assertExpected(currentMarker.snapshot.name, expected.expectedName, "UXP_STALE_MARKER", "Marker name");
+          assertExpectedNumber(currentMarker.snapshot.startSeconds, expected.expectedStartSeconds, "UXP_STALE_MARKER", "Marker startSeconds");
+          assertExpectedNumber(currentMarker.snapshot.durationSeconds, expected.expectedDurationSeconds, "UXP_STALE_MARKER", "Marker durationSeconds");
+          return currentMarker.marker;
+        });
+        context.project.lockedAccess(() => {
+          commitActions(context.project, "Remove reviewed markers", targets.map((marker) => context.collection.createRemoveMarkerAction(marker)));
+        });
+        try {
+          const remaining = await markerList(context.collection);
+          const remainingTargetGuids = remaining.filter((value) => targetGuids.includes(value.guid)).map((value) => value.guid);
+          const verified = remainingTargetGuids.length === 0;
+          return mutationResult(verified, {
+            requested: targetGuids.length, removed: verified ? targetGuids.length : null, markerGuids: targetGuids,
+            remainingCount: remaining.length, remainingTargetGuids,
+          }, "marker_guid_absence_readback", "Remove reviewed markers");
+        } catch (_) {
+          return mutationResult(false, {
+            requested: targetGuids.length, removed: null, markerGuids: targetGuids,
+            remainingCount: null, remainingTargetGuids: null,
+          }, "marker_guid_absence_readback", "Remove reviewed markers");
+        }
+      });
     }
 
     async function binChildren(folder) {
@@ -1244,6 +1251,11 @@
 
     function appendLockKey(project, collectionType, targetId) {
       return guidString(project && project.guid) + ":" + collectionType + ":" + targetId;
+    }
+
+    async function markerLockKey(context) {
+      const ownerId = context.ownerType === "sequence" ? guidString(context.owner && context.owner.guid) : await projectItemId(context.owner);
+      return appendLockKey(context.project, "markers", context.ownerType + ":" + ownerId);
     }
 
     async function withAppendLock(key, callback) {

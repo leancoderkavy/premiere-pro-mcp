@@ -379,6 +379,29 @@ describe("advanced stable Premiere UXP workflows", () => {
     expect(value.project.executeTransaction).not.toHaveBeenCalled();
   });
 
+  it("serializes marker updates behind a batch removal snapshot and commit", async () => {
+    const value = advancedHost();
+    let releaseNameRead: () => void = () => undefined;
+    const nameRead = new Promise<void>((resolve) => { releaseNameRead = resolve; });
+    const marker = value.markerValues[0];
+    marker.getName.mockImplementationOnce(async () => {
+      await nameRead;
+      return marker.state.name;
+    });
+    const removing = value.registry.dispatch("markers.removeMany", {
+      confirmDestructive: true,
+      markerSnapshots: [{ markerGuid: "marker-1", expectedName: "Beat", expectedStartSeconds: 1, expectedDurationSeconds: 0 }],
+    });
+    await Promise.resolve();
+    const updating = value.registry.dispatch("markers.update", { markerGuid: "marker-1", name: "Changed concurrently" });
+    await Promise.resolve();
+    expect(marker.createSetNameAction).not.toHaveBeenCalled();
+    releaseNameRead();
+    await expect(removing).resolves.toMatchObject({ outcome: "verified", removed: 1 });
+    await expect(updating).rejects.toMatchObject({ code: "UXP_TARGET_NOT_FOUND" });
+    expect(marker.createSetNameAction).not.toHaveBeenCalled();
+  });
+
   it("reports marker batch deletion as committed-unverified when GUID absence cannot be read back", async () => {
     const value = advancedHost();
     value.markers.createRemoveMarkerAction.mockImplementation(() => ({ apply: () => undefined }));
