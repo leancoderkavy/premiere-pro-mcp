@@ -11,8 +11,8 @@ descriptions, action enums, authority visibility, and counts stay aligned with t
 | Registered core actions | 327 | CEP/local server catalog; host and authority checks still apply |
 | Default-profile core actions | 325 | Advertised with `inspect,edit,export,filesystem` |
 | Restricted core actions | 2 | Require explicit `unsafe-script` authority |
-| Authenticated UXP additions | 59 | Advertised only while a compatible authenticated UXP panel is connected |
-| Default profile with UXP | 384 | 325 core plus 59 UXP tools |
+| Authenticated UXP additions | 60 | Advertised only while a compatible authenticated UXP panel is connected |
+| Default profile with UXP | 385 | 325 core plus 60 UXP tools |
 
 ## How to read support
 
@@ -410,6 +410,7 @@ authenticated and the connected host advertises the required command capabilitie
 | `manage_metadata_uxp` | Connected UXP | `get`, `update` | Read bounded project/XMP metadata or update either form together in one locked, undoable Premiere transaction with readback evidence. |
 | `manage_project_sessions_uxp` | Connected UXP | `list`, `validate`, `create`, `open`, `save`, `save_as`, `branch_copies`, `close` | List or explicitly create, open, save, branch, and close Premiere project sessions. Path writes stay inside the approved UXP workspace; Save As handle changes are read back and branch copies reopen the source after every copy. |
 | `manage_proxy_ingest_uxp` | Connected UXP | `inspect_proxy`, `attach_proxy`, `get_ingest`, `set_ingest` | Inspect or attach proxy/high-resolution media for one clip, or read/update project ingest state. Attach operations are non-undoable and workspace-contained. |
+| `manage_sequence_range_uxp` | Connected UXP | `inspect`, `update` | Inspect or update the active sequence's in, out, and zero points through documented Premiere UXP actions. Updates require the complete inspect snapshot, run in one undoable transaction, and return native readback; a runtime capability probe remains authoritative. |
 | `manage_sequence_settings_uxp` | Connected UXP | `get`, `update` | Inspect sequence settings or apply a bounded settings profile in one documented, undoable UXP transaction with readback. |
 | `manage_sequences_uxp` | Connected UXP | `inspect`, `create_from_media`, `clone`, `subsequence`, `activate`, `open`, `close`, `delete` | Inspect, create-from-media, clone, derive, activate, open, close, or explicitly delete sequences through documented stable UXP APIs. |
 | `manage_source_clip_uxp` | Connected UXP | `inspect`, `update` | Inspect or transactionally update source-clip in/out points and request scale-to-frame for up to 64 media items. In/out values are read back; Adobe exposes no getter for clear or scale state, so those requests remain committed-unverified. |

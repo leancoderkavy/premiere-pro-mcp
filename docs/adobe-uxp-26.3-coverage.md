@@ -44,6 +44,7 @@ verification column describes the required evidence, not a completed test run.
 | `create_subclip_uxp` | `subclip.create` | `ClipProjectItem.createSubClipAction()` | Undoable project mutation | Supported when the resolved item is a clip and action APIs probe true | Return and re-resolve the created subclip identity; live host must validate hard boundaries and audio/video options. |
 | `list_markers_uxp` | `marker.list` | `Marker.guid` plus marker accessors | Read-only | Supported when sequence or clip marker APIs probe true | Return marker values and the stable 26.3 `guid`; no project mutation. |
 | `set_source_monitor_position_uxp` | `sourceMonitor.position.set` | `SourceMonitor.setPosition()` | Source Monitor state mutation; no edit-history claim | Supported when `setPosition` and position read-back APIs probe true | Read `SourceMonitor.getPosition()` after setting the requested `TickTime`. |
+| `manage_sequence_range_uxp` | `sequence.range.inspect`, `sequence.range.update` | `Sequence` range accessors plus `createSetInPointAction()`, `createSetOutPointAction()`, and `createSetZeroPointAction()` | Undoable sequence-range mutation | Supported when every accessor, action, `TickTime`, and transaction primitive probes true | Read the complete range after one transaction and require it to match the guarded request; live host must also validate Undo. |
 | `has_transcript_uxp` | `transcript.has` | `Transcript.hasTranscript()` | Read-only | Native 26.3 support is used when it probes true; the existing 25.6 transcript-export compatibility probe is labeled as a fallback | Return Adobe's native boolean when available; never infer transcript presence from names or transcript text. |
 | `export_aaf_uxp` | `interchange.aaf.export` | `ProjectConverter.exportAAF()` and `AAFExportOptions` | Export side effect; no project undo claim | Supported when converter and option APIs probe true | Record Premiere's boolean result and, in a live host, confirm the intended AAF artifact exists and is usable. |
 
@@ -75,6 +76,12 @@ bounded `operation_id` replay key where applicable.
   The latter accepts one item selector as above. `filters` is an optional list of
   at most 16 marker-type strings, each at most 64 characters.
 - `set_source_monitor_position_uxp`: `seconds` is finite and non-negative.
+- `manage_sequence_range_uxp`: `inspect` returns the active sequence GUID and its
+  complete in/out/zero-point/end snapshot. `update` requires that GUID and the
+  complete `expected_range` from `inspect`, plus one or more bounded updates.
+  Stale snapshots, unknown fields, and a final range outside `0 <= in <= out <= end`
+  are rejected before any Premiere action is created. Zero point is independently
+  bounded but is not conflated with the sequence in/out export range.
 - `has_transcript_uxp`: accepts at most one resolved `project_item_id` or
   `project_item_name`; omitting both requires exactly one Project-panel selection.
 - `export_aaf_uxp`: `output_file_path` is non-empty and at most 4096 characters.
@@ -114,6 +121,9 @@ Automated tests may prove these properties:
   command names and camelCase arguments;
 - capability probes report unavailable APIs without optimistic version guessing and
   distinguish the 26.3 native transcript check from its older export-probe fallback;
+- sequence-range updates require the complete read snapshot, place all requested
+  actions in one transaction, and reject a changed sequence or range before action
+  construction;
 - action commands preserve lock/transaction boundaries and operation replay
   behavior in a contract host; and
 - AAF options are bounded before a call reaches the host adapter.
@@ -130,11 +140,14 @@ AAF, or produced a usable Undo entry. Before release, validate on a real Premier
    project state.
 5. Set the Source Monitor position and read the position back with a sensible
    time tolerance.
-6. Check both a transcribed and non-transcribed clip with `transcript.has`.
-7. Export an AAF with representative options; confirm the resulting artifact is
+6. Inspect a sequence range, change one field and all three fields, verify the
+   returned values, and Undo each update. Confirm stale range snapshots fail before
+   changing the sequence.
+7. Check both a transcribed and non-transcribed clip with `transcript.has`.
+8. Export an AAF with representative options; confirm the resulting artifact is
    present, opens in the intended downstream workflow, and any requested media
    side effects match the options.
-8. Disconnect/reconnect the panel and exercise duplicate `operation_id` calls;
+9. Disconnect/reconnect the panel and exercise duplicate `operation_id` calls;
    confirm that a completed mutation is replayed rather than repeated in the
    same panel session.
 
@@ -149,6 +162,7 @@ specific Premiere version and platform.
 - [ClipProjectItem `createSubClipAction`](https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/clipprojectitem)
 - [Marker `guid`](https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/marker)
 - [SourceMonitor `setPosition`](https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/sourcemonitor)
+- [Sequence range actions and accessors](https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/sequence)
 - [Transcript `hasTranscript`](https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/transcript)
 - [ProjectConverter `exportAAF`](https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/projectconverter) and [AAFExportOptions](https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/aafexportoptions)
 - [Adobe official UXP samples](https://github.com/AdobeDocs/uxp-premiere-pro-samples)

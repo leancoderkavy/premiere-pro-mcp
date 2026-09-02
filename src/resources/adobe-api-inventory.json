@@ -13,8 +13,8 @@
   },
   "stats": {
     "total": 976,
-    "mapped": 186,
-    "unmapped": 790,
+    "mapped": 193,
+    "unmapped": 783,
     "manifestOnly": 4
   },
   "manifestOnly": [
@@ -3486,12 +3486,12 @@
     {
       "symbol": "Sequence.createSetInPointAction",
       "kind": "method",
-      "coverage": "unmapped"
+      "coverage": "mapped"
     },
     {
       "symbol": "Sequence.createSetOutPointAction",
       "kind": "method",
-      "coverage": "unmapped"
+      "coverage": "mapped"
     },
     {
       "symbol": "Sequence.createSetSettingsAction",
@@ -3501,7 +3501,7 @@
     {
       "symbol": "Sequence.createSetZeroPointAction",
       "kind": "method",
-      "coverage": "unmapped"
+      "coverage": "mapped"
     },
     {
       "symbol": "Sequence.createSubsequence",
@@ -3531,7 +3531,7 @@
     {
       "symbol": "Sequence.getEndTime",
       "kind": "method",
-      "coverage": "unmapped"
+      "coverage": "mapped"
     },
     {
       "symbol": "Sequence.getFrameSize",
@@ -3541,12 +3541,12 @@
     {
       "symbol": "Sequence.getInPoint",
       "kind": "method",
-      "coverage": "unmapped"
+      "coverage": "mapped"
     },
     {
       "symbol": "Sequence.getOutPoint",
       "kind": "method",
-      "coverage": "unmapped"
+      "coverage": "mapped"
     },
     {
       "symbol": "Sequence.getPlayerPosition",
@@ -3596,7 +3596,7 @@
     {
       "symbol": "Sequence.getZeroPoint",
       "kind": "method",
-      "coverage": "unmapped"
+      "coverage": "mapped"
     },
     {
       "symbol": "Sequence.guid",

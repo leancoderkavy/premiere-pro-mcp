@@ -178,6 +178,10 @@ const ACTION_CAPABILITIES: Readonly<Record<string, Readonly<Record<string, reado
     get: ["inspect"],
     update: ["edit"],
   },
+  manage_sequence_range_uxp: {
+    inspect: ["inspect"],
+    update: ["edit"],
+  },
   import_project_media_uxp: {
     files: ["edit", "filesystem"],
     sequences: ["edit", "filesystem"],

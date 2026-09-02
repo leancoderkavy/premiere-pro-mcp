@@ -176,6 +176,27 @@ See [the benchmark and promotion procedure](uxp-hybrid-benchmark.md). No result 
 one development machine can alter the production manifest or justify a native
 performance claim.
 
+## PR 11 — Guarded sequence range updates
+
+`manage_sequence_range_uxp` inspects or updates the active sequence's in point,
+out point, and zero point through Adobe's documented `Sequence` accessors and
+action factories. An update requires the exact sequence GUID and a complete
+in/out/zero-point/end snapshot returned by a prior inspection. The panel rejects a
+changed sequence or range before creating an action, requires the final range to
+satisfy `in <= out <= end`, and bounds all public times to 24 hours.
+
+Requested actions are created synchronously inside `Project.lockedAccess()` and
+added to one `Project.executeTransaction()` group. The panel then re-reads every
+range field and reports `verified` only when the requested values match within a
+microsecond tolerance. The action is idempotent within the panel's existing
+operation-ID replay window; a failed UXP operation is never retried through CEP.
+
+The workflow is an action/readback contract, not proof of Premiere's visible
+timecode display, export-range behavior, persistence after reopening, or Undo on
+a licensed host. Real-host validation must exercise one-field and all-field
+updates, stale snapshots, a range at the sequence end, and Undo on Windows and
+macOS.
+
 ## Primary Adobe references
 
 - [EventManager](https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/eventmanager/)
@@ -184,4 +205,5 @@ performance claim.
 - [Project](https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/project/)
 - [ProjectUtils](https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/projectutils/)
 - [Properties](https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/properties/)
+- [Sequence](https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/sequence/)
 - [ClipProjectItem](https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/clipprojectitem/)

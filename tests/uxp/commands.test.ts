@@ -5,7 +5,10 @@ const Commands = require("../../uxp-plugin/commands.cjs");
 const Protocol = require("../../uxp-plugin/protocol.cjs");
 
 function host(options: { transitions?: boolean; commit?: boolean } = {}) {
-  const addAction = vi.fn(() => true);
+  const addAction = vi.fn((action: { apply?: () => void }) => {
+    action.apply?.();
+    return true;
+  });
   const add = vi.fn(() => ({ kind: "add" }));
   const remove = vi.fn(() => ({ kind: "remove" }));
   const liftAction = { kind: "lift" };
@@ -19,6 +22,7 @@ function host(options: { transitions?: boolean; commit?: boolean } = {}) {
     exportedFrames.push(filename);
     return true;
   });
+  const range = { inSeconds: 1, outSeconds: 100, zeroPointSeconds: 3600, endSeconds: 120 };
   const sequence = {
     guid: "sequence-1",
     name: "Timeline",
@@ -26,7 +30,14 @@ function host(options: { transitions?: boolean; commit?: boolean } = {}) {
     getVideoTrack: vi.fn(async () => track),
     getSelection: vi.fn(async () => selection),
     getPlayerPosition: vi.fn(async () => ({ seconds: 3 })),
-    getFrameSize: vi.fn(async () => ({ width: 1920, height: 1080 }))
+    getFrameSize: vi.fn(async () => ({ width: 1920, height: 1080 })),
+    getInPoint: vi.fn(async () => ({ seconds: range.inSeconds })),
+    getOutPoint: vi.fn(async () => ({ seconds: range.outSeconds })),
+    getZeroPoint: vi.fn(async () => ({ seconds: range.zeroPointSeconds })),
+    getEndTime: vi.fn(async () => ({ seconds: range.endSeconds })),
+    createSetInPointAction: vi.fn((time: { seconds: number }) => ({ apply: () => { range.inSeconds = time.seconds; } })),
+    createSetOutPointAction: vi.fn((time: { seconds: number }) => ({ apply: () => { range.outSeconds = time.seconds; } })),
+    createSetZeroPointAction: vi.fn((time: { seconds: number }) => ({ apply: () => { range.zeroPointSeconds = time.seconds; } })),
   };
   const project = {
     guid: "project-1",
@@ -38,8 +49,9 @@ function host(options: { transitions?: boolean; commit?: boolean } = {}) {
     createSequenceWithPresetPath: vi.fn(async (name: string) => ({ guid: "sequence-2", name })),
     lockedAccess: vi.fn((callback: () => void) => callback()),
     executeTransaction: vi.fn((callback: (compound: unknown) => void) => {
+      if (options.commit === false) return false;
       callback({ addAction });
-      return options.commit !== false;
+      return true;
     })
   };
   const optionValues: Record<string, unknown> = {};
@@ -75,7 +87,7 @@ function host(options: { transitions?: boolean; commit?: boolean } = {}) {
     Exporter: { exportSequenceFrame },
     ...transitionApis
   };
-  return { registry: Commands.createCommandRegistry({ ppro, fs: {}, Protocol }), ppro, project, sequence, track, clip, add, remove, addAction, optionValues, selection, createRemoveItemsAction, exportSequenceFrame, exportedFrames };
+  return { registry: Commands.createCommandRegistry({ ppro, fs: {}, Protocol }), ppro, project, sequence, range, track, clip, add, remove, addAction, optionValues, selection, createRemoveItemsAction, exportSequenceFrame, exportedFrames };
 }
 
 describe("UXP command registry", () => {
@@ -83,6 +95,8 @@ describe("UXP command registry", () => {
     const available = await host().registry.capabilities();
     expect(available.commands["transition.video.add"]).toMatchObject({ supported: true, destructive: true, undoable: true, minHostVersion: "25.6.0" });
     expect(available.commands["timeline.selection.lift"]).toMatchObject({ supported: true, destructive: true, undoable: true, minHostVersion: "25.6.0" });
+    expect(available.commands["sequence.range.inspect"]).toMatchObject({ supported: true, readOnly: true, minHostVersion: "25.6.0" });
+    expect(available.commands["sequence.range.update"]).toMatchObject({ supported: true, destructive: true, undoable: true, idempotent: true, minHostVersion: "25.6.0" });
     for (const command of ["sequence.createPreset", "interchange.export", "interchange.aaf.export", "frame.export"]) {
       expect(available.commands[command]).toMatchObject({ workspaceRequired: true });
     }
@@ -158,6 +172,158 @@ describe("UXP command registry", () => {
       activeSequenceGuid: "sequence-1",
       sequences: [{ guid: "sequence-1", name: "Timeline" }],
     });
+  });
+
+  it("inspects and transactionally updates a complete guarded sequence range", async () => {
+    const value = host();
+    await expect(value.registry.dispatch("sequence.range.inspect", {})).resolves.toEqual({
+      sequenceGuid: "sequence-1",
+      range: { inSeconds: 1, outSeconds: 100, zeroPointSeconds: 3600, endSeconds: 120 },
+      verificationBoundary: "sequence_range_readback",
+    });
+    await expect(value.registry.dispatch("sequence.range.update", {
+      expectedSequenceGuid: "sequence-1",
+      expectedRange: { inSeconds: 1, outSeconds: 100, zeroPointSeconds: 3600, endSeconds: 120 },
+      updates: { inSeconds: 2, outSeconds: 110, zeroPointSeconds: 7200 },
+      operationId: "range-1",
+    })).resolves.toMatchObject({
+      updated: true,
+      outcome: "verified",
+      sequenceGuid: "sequence-1",
+      range: { inSeconds: 2, outSeconds: 110, zeroPointSeconds: 7200, endSeconds: 120 },
+      operation: {
+        mutatesProject: true,
+        verification: { status: "verified" },
+        undo: { supported: true },
+        cancellation: { supported: false },
+      },
+      operationId: "range-1",
+    });
+    expect(value.project.lockedAccess).toHaveBeenCalledOnce();
+    expect(value.project.executeTransaction).toHaveBeenCalledWith(expect.any(Function), "Update sequence range");
+    expect(value.sequence.createSetInPointAction).toHaveBeenCalledWith({ seconds: 2 });
+    expect(value.sequence.createSetOutPointAction).toHaveBeenCalledWith({ seconds: 110 });
+    expect(value.sequence.createSetZeroPointAction).toHaveBeenCalledWith({ seconds: 7200 });
+    await expect(value.registry.dispatch("sequence.range.update", {
+      expectedSequenceGuid: "sequence-1",
+      expectedRange: { inSeconds: 1, outSeconds: 100, zeroPointSeconds: 3600, endSeconds: 120 },
+      updates: { inSeconds: 2, outSeconds: 110, zeroPointSeconds: 7200 },
+      operationId: "range-1",
+    })).resolves.toMatchObject({ replayed: true });
+    expect(value.project.executeTransaction).toHaveBeenCalledOnce();
+  });
+
+  it("serializes concurrent sequence-range updates with different operation IDs", async () => {
+    const value = host();
+    const expectedRange = { inSeconds: 1, outSeconds: 100, zeroPointSeconds: 3600, endSeconds: 120 };
+    const first = value.registry.dispatch("sequence.range.update", {
+      expectedSequenceGuid: "sequence-1",
+      expectedRange,
+      updates: { inSeconds: 2 },
+      operationId: "range-concurrent-first",
+    });
+    const second = value.registry.dispatch("sequence.range.update", {
+      expectedSequenceGuid: "sequence-1",
+      expectedRange,
+      updates: { outSeconds: 110 },
+      operationId: "range-concurrent-second",
+    });
+
+    await expect(first).resolves.toMatchObject({
+      updated: true,
+      operationId: "range-concurrent-first",
+      range: { inSeconds: 2, outSeconds: 100, zeroPointSeconds: 3600, endSeconds: 120 },
+    });
+    await expect(second).rejects.toMatchObject({ code: "UXP_STALE_RANGE" });
+    expect(value.project.executeTransaction).toHaveBeenCalledOnce();
+    expect(value.range).toEqual({ inSeconds: 2, outSeconds: 100, zeroPointSeconds: 3600, endSeconds: 120 });
+  });
+
+  it("rejects a range change that occurs while TickTime values are being created", async () => {
+    const value = host();
+    value.ppro.TickTime.createWithSeconds.mockImplementation((seconds: number) => {
+      value.range.outSeconds = 99;
+      return { seconds };
+    });
+
+    await expect(value.registry.dispatch("sequence.range.update", {
+      expectedSequenceGuid: "sequence-1",
+      expectedRange: { inSeconds: 1, outSeconds: 100, zeroPointSeconds: 3600, endSeconds: 120 },
+      updates: { inSeconds: 2 },
+    })).rejects.toMatchObject({ code: "UXP_STALE_RANGE" });
+    expect(value.ppro.TickTime.createWithSeconds).toHaveBeenCalledWith(2);
+    expect(value.project.lockedAccess).not.toHaveBeenCalled();
+    expect(value.sequence.createSetInPointAction).not.toHaveBeenCalled();
+  });
+
+  it("fails closed for stale, malformed, and out-of-bounds sequence-range updates", async () => {
+    const value = host();
+    await expect(value.registry.dispatch("sequence.range.update", {
+      expectedSequenceGuid: "other-sequence",
+      expectedRange: { inSeconds: 1, outSeconds: 100, zeroPointSeconds: 3600, endSeconds: 120 },
+      updates: { inSeconds: 2 },
+    })).rejects.toMatchObject({ code: "UXP_STALE_SEQUENCE" });
+    await expect(value.registry.dispatch("sequence.range.update", {
+      expectedSequenceGuid: "sequence-1",
+      expectedRange: { inSeconds: 0, outSeconds: 100, zeroPointSeconds: 3600, endSeconds: 120 },
+      updates: { inSeconds: 2 },
+    })).rejects.toMatchObject({ code: "UXP_STALE_RANGE" });
+    const durationChanged = host();
+    durationChanged.range.endSeconds = 119;
+    await expect(durationChanged.registry.dispatch("sequence.range.update", {
+      expectedSequenceGuid: "sequence-1",
+      expectedRange: { inSeconds: 1, outSeconds: 100, zeroPointSeconds: 3600, endSeconds: 120 },
+      updates: { inSeconds: 2 },
+    })).rejects.toMatchObject({ code: "UXP_STALE_RANGE" });
+    expect(durationChanged.project.executeTransaction).not.toHaveBeenCalled();
+    await expect(value.registry.dispatch("sequence.range.update", {
+      expectedSequenceGuid: "sequence-1",
+      expectedRange: { inSeconds: 1, outSeconds: 100, zeroPointSeconds: 3600, endSeconds: 120 },
+      updates: { inSeconds: 111, outSeconds: 110 },
+    })).rejects.toMatchObject({ code: "UXP_INVALID_ARGUMENT" });
+    await expect(value.registry.dispatch("sequence.range.update", {
+      expectedSequenceGuid: "sequence-1",
+      expectedRange: { inSeconds: 1, outSeconds: 100, zeroPointSeconds: 3600, endSeconds: 120 },
+      updates: {},
+    })).rejects.toMatchObject({ code: "UXP_INVALID_ARGUMENT" });
+    expect(value.sequence.createSetInPointAction).not.toHaveBeenCalled();
+    expect(value.project.executeTransaction).not.toHaveBeenCalled();
+
+    const rejectedAction = host();
+    rejectedAction.sequence.createSetInPointAction.mockReturnValue(undefined);
+    await expect(rejectedAction.registry.dispatch("sequence.range.update", {
+      expectedSequenceGuid: "sequence-1",
+      expectedRange: { inSeconds: 1, outSeconds: 100, zeroPointSeconds: 3600, endSeconds: 120 },
+      updates: { inSeconds: 2 },
+    })).rejects.toMatchObject({ code: "UXP_ACTION_REJECTED" });
+  });
+
+  it("rejects failed range readback and advertises only the supported command variant", async () => {
+    const value = host();
+    value.sequence.getOutPoint
+      .mockResolvedValueOnce({ seconds: 100 })
+      .mockResolvedValueOnce({ seconds: 99 });
+    await expect(value.registry.dispatch("sequence.range.update", {
+      expectedSequenceGuid: "sequence-1",
+      expectedRange: { inSeconds: 1, outSeconds: 100, zeroPointSeconds: 3600, endSeconds: 120 },
+      updates: { outSeconds: 110 },
+    })).rejects.toMatchObject({ code: "UXP_VERIFICATION_FAILED" });
+
+    const durationChanged = host();
+    durationChanged.sequence.getEndTime
+      .mockResolvedValueOnce({ seconds: 120 })
+      .mockResolvedValueOnce({ seconds: 119 });
+    await expect(durationChanged.registry.dispatch("sequence.range.update", {
+      expectedSequenceGuid: "sequence-1",
+      expectedRange: { inSeconds: 1, outSeconds: 100, zeroPointSeconds: 3600, endSeconds: 120 },
+      updates: { inSeconds: 2 },
+    })).rejects.toMatchObject({ code: "UXP_VERIFICATION_FAILED" });
+
+    const unavailable = host();
+    unavailable.sequence.createSetZeroPointAction = undefined;
+    const capabilities = await unavailable.registry.capabilities();
+    expect(capabilities.commands["sequence.range.inspect"]).toMatchObject({ supported: true });
+    expect(capabilities.commands["sequence.range.update"]).toMatchObject({ supported: false, reason: expect.any(String) });
   });
 
   it("deduplicates completed mutations by operation id", async () => {
