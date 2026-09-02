@@ -61,7 +61,8 @@ the bounded verifier accepts only a regular file or directory. It rejects
 declared links, devices, FIFOs, and sockets without extracting their contents.
 Directory entries must have zero declared compressed and uncompressed bytes;
 the verifier rejects file data hidden beneath a directory-name suffix without
-extracting it.
+extracting it. Because this profile's directories contain no bytes, their
+declared ZIP CRC-32 must also be zero.
 
 Non-ASCII ZIP entry-name bytes must declare UTF-8 with general-purpose bit 11;
 the verifier accepts unflagged legacy names only when they are ASCII. This keeps

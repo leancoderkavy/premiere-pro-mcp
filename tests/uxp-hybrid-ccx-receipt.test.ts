@@ -402,6 +402,14 @@ describe("UXP Hybrid CCX receipt", () => {
       writeCcx(bundle, archive, { extra: [{ path: "docs/nonempty-directory/", contents: Buffer.from("unexpected directory data") }] });
       await expect(buildUxpHybridCcxReceipt({ ccxPath: archive, addonReceipt, sdkHeaderReceipt: headers })).rejects.toThrow("directory entries must not contain file data");
 
+      const nonzeroCrcDirectoryPath = "docs/nonzero-crc-directory/";
+      writeCcx(bundle, archive, {
+        deflate: false,
+        extra: [{ path: nonzeroCrcDirectoryPath, contents: Buffer.alloc(0) }],
+        crc32Adjustments: { [nonzeroCrcDirectoryPath]: 1 },
+      });
+      await expect(buildUxpHybridCcxReceipt({ ccxPath: archive, addonReceipt, sdkHeaderReceipt: headers })).rejects.toThrow("directory entries must use a zero CRC-32");
+
       for (const unixSpecialFileType of [0o010000, 0o020000, 0o060000, 0o120000, 0o140000]) {
         writeCcx(bundle, archive, {
           extra: [{ path: "docs/unsupported-type", contents: Buffer.from("declared Unix special file") }],
