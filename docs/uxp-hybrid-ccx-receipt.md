@@ -60,6 +60,12 @@ payloads, the verifier also recomputes their ZIP CRC-32 values and rejects a
 central-directory checksum that does not match the uncompressed bytes. It does
 not decompress or checksum unselected archive payloads.
 
+For those same deflated required payloads, the verifier also requires the raw
+DEFLATE stream to consume the exact central-directory compressed-data range.
+It rejects unused trailing compressed bytes rather than accepting a valid
+prefix followed by unrelated data. Unselected payloads are still not
+decompressed.
+
 ```powershell
 npm run native:hybrid-ccx-receipt:verify -- `
   --input C:\hybrid-evidence\fixture-ccx.json `
