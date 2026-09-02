@@ -14,7 +14,7 @@ source catalog may include unreleased actions.
 | Default-profile core actions | 326 | Advertised with `inspect,edit,export,filesystem` |
 | Restricted core actions | 2 | Require explicit `unsafe-script` authority |
 | Authenticated UXP additions | 60 | Advertised only while a compatible authenticated UXP panel is connected |
-| Default profile with UXP | 385 | 325 core plus 60 UXP tools |
+| Default profile with UXP | 386 | 326 core plus 60 UXP tools |
 
 ## How to read support
 
