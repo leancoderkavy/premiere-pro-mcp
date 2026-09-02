@@ -112,28 +112,47 @@ describe("UXP MCP tools", () => {
     });
   });
 
-  it("maps selection lift and native transition arguments to documented UXP commands", async () => {
+  it("maps guarded native transition inspection and mutation arguments to documented UXP commands", async () => {
     const request = vi.fn().mockResolvedValue({ outcome: "committed_unverified" });
     const bridge = { request, getState: vi.fn() } as unknown as UxpWebSocketBridge;
     const tools = getUxpTools(bridge);
+    const expectedTarget = {
+      sequence_guid: "sequence-1", video_track_index: 2, clip_index: 3, project_item_id: "project-item-1",
+      start_seconds: 10, end_seconds: 20, position: "end" as const, transition_present: false,
+    };
     await tools.lift_selection_uxp.handler({ expected_sequence_guid: "sequence-1", operation_id: "lift-1" });
     await tools.list_video_transitions_uxp.handler();
+    await tools.inspect_video_transition_uxp.handler({ video_track_index: 2, clip_index: 3, position: "end" });
     await tools.add_video_transition_uxp.handler({
       video_track_index: 2, clip_index: 3, match_name: "CrossDissolve", position: "end",
-      duration_seconds: 0.5, force_single_sided: true, transition_alignment: 1, operation_id: "transition-add-1",
+      duration_seconds: 0.5, force_single_sided: true, transition_alignment: 1, expected_target: expectedTarget, operation_id: "transition-add-1",
     });
     await tools.remove_video_transition_uxp.handler({
-      video_track_index: 2, clip_index: 3, position: "end", operation_id: "transition-remove-1",
+      video_track_index: 2, clip_index: 3, position: "end", expected_target: { ...expectedTarget, transition_present: true }, operation_id: "transition-remove-1",
     });
     expect(request).toHaveBeenNthCalledWith(1, "timeline.selection.lift", { expectedSequenceGuid: "sequence-1", operationId: "lift-1" });
     expect(request).toHaveBeenNthCalledWith(2, "transition.video.list", {});
-    expect(request).toHaveBeenNthCalledWith(3, "transition.video.add", {
+    expect(request).toHaveBeenNthCalledWith(3, "transition.video.inspect", {
+      videoTrackIndex: 2, clipIndex: 3, position: "end",
+    });
+    expect(request).toHaveBeenNthCalledWith(4, "transition.video.add", {
       videoTrackIndex: 2, clipIndex: 3, matchName: "CrossDissolve", position: "end", durationSeconds: 0.5,
-      forceSingleSided: true, transitionAlignment: 1, operationId: "transition-add-1",
+      forceSingleSided: true, transitionAlignment: 1,
+      expectedTarget: {
+        sequenceGuid: "sequence-1", videoTrackIndex: 2, clipIndex: 3, projectItemId: "project-item-1",
+        startSeconds: 10, endSeconds: 20, position: "end", transitionPresent: false,
+      },
+      operationId: "transition-add-1",
     });
-    expect(request).toHaveBeenNthCalledWith(4, "transition.video.remove", {
+    expect(request).toHaveBeenNthCalledWith(5, "transition.video.remove", {
       videoTrackIndex: 2, clipIndex: 3, position: "end", operationId: "transition-remove-1",
+      expectedTarget: {
+        sequenceGuid: "sequence-1", videoTrackIndex: 2, clipIndex: 3, projectItemId: "project-item-1",
+        startSeconds: 10, endSeconds: 20, position: "end", transitionPresent: true,
+      },
     });
+    expect(tools.add_video_transition_uxp.parameters).toMatchObject({ required: expect.arrayContaining(["expected_target"]) });
+    expect(tools.remove_video_transition_uxp.parameters).toMatchObject({ required: expect.arrayContaining(["expected_target"]) });
   });
 
   it("returns transport errors through the normal tool envelope", async () => {
@@ -185,6 +204,7 @@ describe("UXP MCP tools", () => {
           "export_frame_uxp",
           "lift_selection_uxp",
           "list_video_transitions_uxp",
+          "inspect_video_transition_uxp",
           "add_video_transition_uxp",
           "remove_video_transition_uxp",
           "apply_editorial_organization_plan",
@@ -194,7 +214,7 @@ describe("UXP MCP tools", () => {
       // transcript workflow and documented Premiere 26.3 tools add nineteen,
       // and the two stable workflow expansions, confirmed organization application, four bounded native migration adapters, and beat-grid marker application add twenty-seven consolidated UXP tools;
       // connection verification and delivery conformance add two default-profile core tools.
-      expect(tools.tools).toHaveLength(386);
+      expect(tools.tools).toHaveLength(387);
     } finally {
       await client.close();
       await server.close();

@@ -22,6 +22,22 @@ export function getUxpTools(bridge: UxpWebSocketBridge) {
     type: "string" as const,
     description: "Optional idempotency key (1-128 letters, numbers, dot, underscore, colon, or dash).",
   };
+  const expectedTransitionTarget = {
+    type: "object" as const,
+    additionalProperties: false,
+    required: ["sequence_guid", "video_track_index", "clip_index", "project_item_id", "start_seconds", "end_seconds", "position", "transition_present"],
+    properties: {
+      sequence_guid: { type: "string", minLength: 1, maxLength: 512 },
+      video_track_index: { type: "integer", minimum: 0 },
+      clip_index: { type: "integer", minimum: 0 },
+      project_item_id: { type: "string", minLength: 1, maxLength: 512 },
+      start_seconds: { type: "number", minimum: 0, maximum: 86400 },
+      end_seconds: { type: "number", minimum: 0, maximum: 86400 },
+      position: { type: "string", enum: ["start", "end"] },
+      transition_present: { type: "boolean" },
+    },
+    description: "Exact snapshot returned by inspect_video_transition_uxp. Mutations reject any changed sequence, clip identity, timing, edge, or transition presence.",
+  };
   return {
     ...getUxpNextWorkflowTools(bridge),
     ...getUxpAdvancedWorkflowTools(bridge),
@@ -572,64 +588,112 @@ export function getUxpTools(bridge: UxpWebSocketBridge) {
       parameters: {},
       handler: async () => invoke(bridge, "transition.video.list"),
     },
+    inspect_video_transition_uxp: {
+      description: "Read one bounded native video-transition target, including the active sequence GUID, source item ID, timeline edges, and presence at one requested edge. Copy this snapshot unchanged into add_video_transition_uxp or remove_video_transition_uxp.",
+      parameters: {
+        type: "object" as const,
+        additionalProperties: false,
+        properties: {
+          video_track_index: { type: "integer", minimum: 0, description: "Zero-based target video track index." },
+          clip_index: { type: "integer", minimum: 0, description: "Zero-based clip index on the target video track." },
+          position: { type: "string", enum: ["start", "end"], description: "Transition side; defaults to end." },
+        },
+        required: ["video_track_index", "clip_index"],
+      },
+      handler: async (args: { video_track_index: number; clip_index: number; position?: "start" | "end" }) =>
+        invoke(bridge, "transition.video.inspect", {
+          videoTrackIndex: args.video_track_index, clipIndex: args.clip_index,
+          ...(args.position === undefined ? {} : { position: args.position }),
+        }),
+    },
     add_video_transition_uxp: {
-      description: "Add an installed native video transition to one video clip through an undoable UXP transaction. List match names first; transaction acceptance is not a visual timeline readback.",
+      description: "Add an installed native video transition to one unchanged video-clip edge through one undoable UXP transaction. Requires an exact inspect snapshot, serializes transition updates per sequence, and reads edge presence back; it does not prove handles, rendered appearance, or playback.",
       parameters: {
         type: "object" as const,
         properties: {
           video_track_index: { type: "integer", minimum: 0, description: "Zero-based target video track index." },
           clip_index: { type: "integer", minimum: 0, description: "Zero-based clip index on the target video track." },
           match_name: { type: "string", minLength: 1, maxLength: 256, description: "Installed match name returned by list_video_transitions_uxp." },
-          position: { type: "string", enum: ["start", "end"], description: "Transition side; defaults to start." },
+          position: { type: "string", enum: ["start", "end"], description: "Transition side; defaults to end." },
           duration_seconds: { type: "number", exclusiveMinimum: 0, description: "Optional positive transition duration in seconds." },
-          force_single_sided: { type: "boolean", description: "Optional Premiere single-sided transition setting." },
-          transition_alignment: { type: "integer", description: "Optional Premiere transition alignment constant." },
-          operation_id: operationId,
-        },
-        required: ["video_track_index", "clip_index", "match_name"],
+            force_single_sided: { type: "boolean", description: "Optional Premiere single-sided transition setting." },
+            transition_alignment: { type: "integer", description: "Optional Premiere transition alignment constant." },
+            expected_target: expectedTransitionTarget,
+            operation_id: operationId,
+          },
+          required: ["video_track_index", "clip_index", "match_name", "expected_target"],
       },
       handler: async (args: {
         video_track_index: number;
         clip_index: number;
         match_name: string;
         position?: "start" | "end";
-        duration_seconds?: number;
-        force_single_sided?: boolean;
-        transition_alignment?: number;
-        operation_id?: string;
+          duration_seconds?: number;
+          force_single_sided?: boolean;
+          transition_alignment?: number;
+          expected_target: {
+            sequence_guid: string; video_track_index: number; clip_index: number; project_item_id: string;
+            start_seconds: number; end_seconds: number; position: "start" | "end"; transition_present: boolean;
+          };
+          operation_id?: string;
       }) => invoke(bridge, "transition.video.add", {
         videoTrackIndex: args.video_track_index,
         clipIndex: args.clip_index,
         matchName: args.match_name,
         ...(args.position === undefined ? {} : { position: args.position }),
         ...(args.duration_seconds === undefined ? {} : { durationSeconds: args.duration_seconds }),
-        ...(args.force_single_sided === undefined ? {} : { forceSingleSided: args.force_single_sided }),
-        ...(args.transition_alignment === undefined ? {} : { transitionAlignment: args.transition_alignment }),
-        ...(args.operation_id ? { operationId: args.operation_id } : {}),
-      }),
-    },
+          ...(args.force_single_sided === undefined ? {} : { forceSingleSided: args.force_single_sided }),
+          ...(args.transition_alignment === undefined ? {} : { transitionAlignment: args.transition_alignment }),
+          expectedTarget: {
+            sequenceGuid: args.expected_target.sequence_guid,
+            videoTrackIndex: args.expected_target.video_track_index,
+            clipIndex: args.expected_target.clip_index,
+            projectItemId: args.expected_target.project_item_id,
+            startSeconds: args.expected_target.start_seconds,
+            endSeconds: args.expected_target.end_seconds,
+            position: args.expected_target.position,
+            transitionPresent: args.expected_target.transition_present,
+          },
+          ...(args.operation_id ? { operationId: args.operation_id } : {}),
+        }),
+      },
     remove_video_transition_uxp: {
-      description: "Remove the selected side of a native video transition through an undoable UXP transaction; transaction acceptance is not a visual timeline readback.",
+      description: "Remove one unchanged native video-transition edge through one undoable UXP transaction. Requires an exact inspect snapshot, serializes transition updates per sequence, and reads edge absence back; it does not prove rendered appearance or playback.",
       parameters: {
         type: "object" as const,
         properties: {
           video_track_index: { type: "integer", minimum: 0, description: "Zero-based target video track index." },
-          clip_index: { type: "integer", minimum: 0, description: "Zero-based clip index on the target video track." },
-          position: { type: "string", enum: ["start", "end"], description: "Transition side; defaults to start." },
-          operation_id: operationId,
-        },
-        required: ["video_track_index", "clip_index"],
+            clip_index: { type: "integer", minimum: 0, description: "Zero-based clip index on the target video track." },
+            position: { type: "string", enum: ["start", "end"], description: "Transition side; defaults to end." },
+            expected_target: expectedTransitionTarget,
+            operation_id: operationId,
+          },
+          required: ["video_track_index", "clip_index", "expected_target"],
       },
       handler: async (args: {
-        video_track_index: number;
-        clip_index: number;
-        position?: "start" | "end";
-        operation_id?: string;
+          video_track_index: number;
+          clip_index: number;
+          position?: "start" | "end";
+          expected_target: {
+            sequence_guid: string; video_track_index: number; clip_index: number; project_item_id: string;
+            start_seconds: number; end_seconds: number; position: "start" | "end"; transition_present: boolean;
+          };
+          operation_id?: string;
       }) => invoke(bridge, "transition.video.remove", {
-        videoTrackIndex: args.video_track_index,
-        clipIndex: args.clip_index,
-        ...(args.position === undefined ? {} : { position: args.position }),
-        ...(args.operation_id ? { operationId: args.operation_id } : {}),
+          videoTrackIndex: args.video_track_index,
+          clipIndex: args.clip_index,
+          ...(args.position === undefined ? {} : { position: args.position }),
+          expectedTarget: {
+            sequenceGuid: args.expected_target.sequence_guid,
+            videoTrackIndex: args.expected_target.video_track_index,
+            clipIndex: args.expected_target.clip_index,
+            projectItemId: args.expected_target.project_item_id,
+            startSeconds: args.expected_target.start_seconds,
+            endSeconds: args.expected_target.end_seconds,
+            position: args.expected_target.position,
+            transitionPresent: args.expected_target.transition_present,
+          },
+          ...(args.operation_id ? { operationId: args.operation_id } : {}),
       }),
     },
   };

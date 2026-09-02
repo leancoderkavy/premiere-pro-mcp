@@ -56,6 +56,40 @@
       "verificationBoundary": "created_sequence_guid"
     },
     {
+      "id": "guarded-video-transition",
+      "adobeApi": [
+        "TransitionFactory.getVideoTransitionMatchNames",
+        "TransitionFactory.createVideoTransition",
+        "VideoClipTrackItem.getProjectItem",
+        "VideoClipTrackItem.getStartTime",
+        "VideoClipTrackItem.getEndTime",
+        "VideoClipTrackItem.hasVideoTransition",
+        "VideoClipTrackItem.createAddVideoTransitionAction",
+        "VideoClipTrackItem.createRemoveVideoTransitionAction",
+        "AddTransitionOptions"
+      ],
+      "documentationUrls": [
+        "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/transitionfactory/",
+        "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/videocliptrackitem/"
+      ],
+      "minimumPremiereVersion": "25.6.0",
+      "backend": "uxp",
+      "uxpCommand": "transition.video.inspect",
+      "mcpTools": [
+        "inspect_video_transition_uxp",
+        "add_video_transition_uxp",
+        "remove_video_transition_uxp"
+      ],
+      "availability": "current",
+      "implementationStatus": "implemented",
+      "verificationStatus": "automated_contract_verified",
+      "liveHostVerificationStatus": "not_run",
+      "mutatesProject": true,
+      "undoable": true,
+      "idempotency": "operation_id",
+      "verificationBoundary": "video_transition_edge_readback"
+    },
+    {
       "id": "transactional-sequence-range",
       "adobeApi": [
         "Sequence.getInPoint",

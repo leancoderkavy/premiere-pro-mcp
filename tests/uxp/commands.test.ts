@@ -9,13 +9,25 @@ function host(options: { transitions?: boolean; commit?: boolean } = {}) {
     action.apply?.();
     return true;
   });
-  const add = vi.fn(() => ({ kind: "add" }));
-  const remove = vi.fn(() => ({ kind: "remove" }));
+  const transitionState = { start: false, end: true };
+  const add = vi.fn((_transition: unknown, options: { applyToStart?: boolean }) => ({
+    kind: "add", apply: () => { transitionState[options.applyToStart ? "start" : "end"] = true; }
+  }));
+  const remove = vi.fn((position: number) => ({
+    kind: "remove", apply: () => { transitionState[position === 0 ? "start" : "end"] = false; }
+  }));
   const liftAction = { kind: "lift" };
   const selectedItem = { guid: "selected-clip" };
   const selection = { getTrackItems: vi.fn(async () => [selectedItem]) };
   const createRemoveItemsAction = vi.fn(() => liftAction);
-  const clip = { createAddVideoTransitionAction: add, createRemoveVideoTransitionAction: remove };
+  const clip = {
+    createAddVideoTransitionAction: add,
+    createRemoveVideoTransitionAction: remove,
+    getProjectItem: vi.fn(async () => ({ getId: vi.fn(async () => "project-item-1") })),
+    getStartTime: vi.fn(async () => ({ seconds: 10 })),
+    getEndTime: vi.fn(async () => ({ seconds: 20 })),
+    hasVideoTransition: vi.fn(async (position: number) => transitionState[position === 0 ? "start" : "end"]),
+  };
   const track = { getTrackItems: vi.fn(async () => [clip]) };
   const exportedFrames: string[] = [];
   const exportSequenceFrame = vi.fn(async (_sequence: unknown, _position: unknown, filename: string) => {
@@ -60,12 +72,15 @@ function host(options: { transitions?: boolean; commit?: boolean } = {}) {
       getVideoTransitionMatchNames: vi.fn(async () => ["CrossDissolve", "DipToBlack"]),
       createVideoTransition: vi.fn(async (name: string) => ({ name }))
     },
-    AddTransitionOptions: vi.fn(() => ({
-      setApplyToStart: vi.fn((value: boolean) => { optionValues.applyToStart = value; }),
+    AddTransitionOptions: vi.fn(() => {
+      const options: { applyToStart?: boolean; setApplyToStart: ReturnType<typeof vi.fn>; setDuration: ReturnType<typeof vi.fn>; setForceSingleSided: ReturnType<typeof vi.fn>; setTransitionAlignment: ReturnType<typeof vi.fn> } = {
+        setApplyToStart: vi.fn((value: boolean) => { optionValues.applyToStart = value; options.applyToStart = value; }),
       setDuration: vi.fn((value: unknown) => { optionValues.duration = value; }),
       setForceSingleSided: vi.fn((value: boolean) => { optionValues.forceSingleSided = value; }),
       setTransitionAlignment: vi.fn((value: number) => { optionValues.transitionAlignment = value; })
-    }))
+      };
+      return options;
+    })
   };
   const ppro = {
     Project: { getActiveProject: vi.fn(async () => project) },
@@ -87,7 +102,14 @@ function host(options: { transitions?: boolean; commit?: boolean } = {}) {
     Exporter: { exportSequenceFrame },
     ...transitionApis
   };
-  return { registry: Commands.createCommandRegistry({ ppro, fs: {}, Protocol }), ppro, project, sequence, range, track, clip, add, remove, addAction, optionValues, selection, createRemoveItemsAction, exportSequenceFrame, exportedFrames };
+  return { registry: Commands.createCommandRegistry({ ppro, fs: {}, Protocol }), ppro, project, sequence, range, track, clip, add, remove, addAction, optionValues, selection, createRemoveItemsAction, exportSequenceFrame, exportedFrames, transitionState };
+}
+
+function expectedTransition(position: "start" | "end", transitionPresent: boolean) {
+  return {
+    sequenceGuid: "sequence-1", videoTrackIndex: 0, clipIndex: 0, projectItemId: "project-item-1",
+    startSeconds: 10, endSeconds: 20, position, transitionPresent,
+  };
 }
 
 describe("UXP command registry", () => {
@@ -131,6 +153,15 @@ describe("UXP command registry", () => {
     });
   });
 
+  it("inspects a bounded native video-transition target before mutation", async () => {
+    await expect(host().registry.dispatch("transition.video.inspect", {
+      videoTrackIndex: 0, clipIndex: 0, position: "end",
+    })).resolves.toEqual({
+      target: expectedTransition("end", true),
+      verificationBoundary: "video_transition_target_readback",
+    });
+  });
+
   it("accepts a transition match name returned by an earlier list when host enumeration changes", async () => {
     const value = host();
     value.ppro.TransitionFactory.getVideoTransitionMatchNames
@@ -142,6 +173,7 @@ describe("UXP command registry", () => {
     });
     await expect(value.registry.dispatch("transition.video.add", {
       videoTrackIndex: 0, clipIndex: 0, matchName: "ADBE Cross Dissolve New", position: "start",
+      expectedTarget: expectedTransition("start", false),
     })).resolves.toMatchObject({ applied: true, matchName: "ADBE Cross Dissolve New" });
     expect(value.ppro.TransitionFactory.createVideoTransition).toHaveBeenCalledWith("ADBE Cross Dissolve New");
   });
@@ -428,8 +460,9 @@ describe("UXP command registry", () => {
     const value = host();
     await expect(value.registry.dispatch("transition.video.add", {
       videoTrackIndex: 0, clipIndex: 0, matchName: "CrossDissolve", position: "start",
-      durationSeconds: 0.5, forceSingleSided: true, transitionAlignment: 1
-    })).resolves.toMatchObject({ applied: true, verified: "transaction", position: "start" });
+      durationSeconds: 0.5, forceSingleSided: true, transitionAlignment: 1,
+      expectedTarget: expectedTransition("start", false),
+    })).resolves.toMatchObject({ applied: true, verified: "video_transition_edge_readback", target: { transitionPresent: true } });
     expect(value.project.lockedAccess).toHaveBeenCalledOnce();
     expect(value.project.executeTransaction).toHaveBeenCalledWith(expect.any(Function), "Add video transition");
     expect(value.add).toHaveBeenCalledWith({ name: "CrossDissolve" }, expect.any(Object));
@@ -438,9 +471,66 @@ describe("UXP command registry", () => {
 
   it("removes the requested transition side in a transaction", async () => {
     const value = host();
-    await expect(value.registry.dispatch("transition.video.remove", { videoTrackIndex: 0, clipIndex: 0, position: "end" }))
-      .resolves.toMatchObject({ removed: true, position: "end" });
+    await expect(value.registry.dispatch("transition.video.remove", {
+      videoTrackIndex: 0, clipIndex: 0, position: "end", expectedTarget: expectedTransition("end", true),
+    })).resolves.toMatchObject({ removed: true, verified: "video_transition_edge_readback", target: { transitionPresent: false } });
     expect(value.remove).toHaveBeenCalledWith(1);
+  });
+
+  it("rejects a stale transition snapshot before creating an action", async () => {
+    const value = host();
+    await expect(value.registry.dispatch("transition.video.add", {
+      videoTrackIndex: 0, clipIndex: 0, matchName: "CrossDissolve", position: "start",
+      expectedTarget: { ...expectedTransition("start", false), startSeconds: 11 },
+    })).rejects.toMatchObject({ code: "UXP_STALE_TRANSITION_TARGET" });
+    expect(value.add).not.toHaveBeenCalled();
+    expect(value.project.lockedAccess).not.toHaveBeenCalled();
+  });
+
+  it("serializes different transition operation IDs through snapshot, action, and readback", async () => {
+    const value = host();
+    let releasePreflight: () => void = () => undefined;
+    const preflight = new Promise<void>((resolve) => { releasePreflight = resolve; });
+    value.clip.hasVideoTransition.mockImplementationOnce(async () => {
+      await preflight;
+      return false;
+    });
+    const first = value.registry.dispatch("transition.video.add", {
+      videoTrackIndex: 0, clipIndex: 0, matchName: "CrossDissolve", position: "start",
+      expectedTarget: expectedTransition("start", false), operationId: "transition-first",
+    });
+    await vi.waitFor(() => expect(value.clip.hasVideoTransition).toHaveBeenCalledOnce());
+    const second = value.registry.dispatch("transition.video.add", {
+      videoTrackIndex: 0, clipIndex: 0, matchName: "CrossDissolve", position: "start",
+      expectedTarget: expectedTransition("start", false), operationId: "transition-second",
+    });
+    releasePreflight();
+    await expect(first).resolves.toMatchObject({ outcome: "verified", target: { transitionPresent: true } });
+    await expect(second).rejects.toMatchObject({ code: "UXP_STALE_TRANSITION_TARGET" });
+    expect(value.add).toHaveBeenCalledOnce();
+    expect(value.project.executeTransaction).toHaveBeenCalledOnce();
+  });
+
+  it("replays one guarded transition operation without creating a second action", async () => {
+    const value = host();
+    const args = {
+      videoTrackIndex: 0, clipIndex: 0, matchName: "CrossDissolve", position: "start",
+      expectedTarget: expectedTransition("start", false), operationId: "transition-replay",
+    };
+    await expect(value.registry.dispatch("transition.video.add", args)).resolves.toMatchObject({ outcome: "verified" });
+    await expect(value.registry.dispatch("transition.video.add", args)).resolves.toMatchObject({ replayed: true, outcome: "verified" });
+    expect(value.add).toHaveBeenCalledOnce();
+  });
+
+  it("fails closed when transition presence readback does not confirm the committed add", async () => {
+    const value = host();
+    value.clip.hasVideoTransition.mockResolvedValueOnce(false).mockResolvedValueOnce(false);
+    await expect(value.registry.dispatch("transition.video.add", {
+      videoTrackIndex: 0, clipIndex: 0, matchName: "CrossDissolve", position: "start",
+      expectedTarget: expectedTransition("start", false),
+    })).rejects.toMatchObject({ code: "UXP_VERIFICATION_FAILED" });
+    expect(value.add).toHaveBeenCalledOnce();
+    expect(value.project.executeTransaction).toHaveBeenCalledOnce();
   });
 
   it("lifts the current selection without ripple in one undoable transaction", async () => {
@@ -463,19 +553,25 @@ describe("UXP command registry", () => {
   });
 
   it("rejects unknown transitions, invalid targets, and failed commits", async () => {
-    await expect(host().registry.dispatch("transition.video.add", { videoTrackIndex: 0, clipIndex: 0, matchName: "Missing" }))
+    await expect(host().registry.dispatch("transition.video.add", {
+      videoTrackIndex: 0, clipIndex: 0, matchName: "Missing", position: "start", expectedTarget: expectedTransition("start", false),
+    }))
       .rejects.toMatchObject({ code: "UXP_TRANSITION_NOT_FOUND" });
-    await expect(host().registry.dispatch("transition.video.remove", { videoTrackIndex: 1, clipIndex: 0 }))
+    await expect(host().registry.dispatch("transition.video.remove", { videoTrackIndex: 1, clipIndex: 0, expectedTarget: {
+      ...expectedTransition("end", true), videoTrackIndex: 1,
+    } }))
       .rejects.toMatchObject({ code: "UXP_TARGET_NOT_FOUND" });
-    await expect(host({ commit: false }).registry.dispatch("transition.video.remove", { videoTrackIndex: 0, clipIndex: 0 }))
+    await expect(host({ commit: false }).registry.dispatch("transition.video.remove", {
+      videoTrackIndex: 0, clipIndex: 0, expectedTarget: expectedTransition("end", true),
+    }))
       .rejects.toMatchObject({ code: "UXP_TRANSACTION_FAILED" });
   });
 });
 
 describe("UXP transition argument validation", () => {
   it("requires explicit non-negative clip coordinates and a match name", () => {
-    expect(() => Commands.validateAddArgs({ videoTrackIndex: 0, clipIndex: 0, matchName: "CrossDissolve" })).not.toThrow();
-    expect(() => Commands.validateAddArgs({ videoTrackIndex: -1, clipIndex: 0, matchName: "CrossDissolve" })).toThrow("videoTrackIndex");
-    expect(() => Commands.validateAddArgs({ videoTrackIndex: 0, clipIndex: 0, matchName: "CrossDissolve", surprise: true })).toThrow("Unknown argument");
+    expect(() => Commands.validateAddArgs({ videoTrackIndex: 0, clipIndex: 0, matchName: "CrossDissolve", expectedTarget: expectedTransition("end", true) })).not.toThrow();
+    expect(() => Commands.validateAddArgs({ videoTrackIndex: -1, clipIndex: 0, matchName: "CrossDissolve", expectedTarget: expectedTransition("end", true) })).toThrow("videoTrackIndex");
+    expect(() => Commands.validateAddArgs({ videoTrackIndex: 0, clipIndex: 0, matchName: "CrossDissolve", expectedTarget: expectedTransition("end", true), surprise: true })).toThrow("Unknown argument");
   });
 });
