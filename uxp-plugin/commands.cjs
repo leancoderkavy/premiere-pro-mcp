@@ -34,6 +34,7 @@
       "state.get": { readOnly: true, handler: stateSnapshot },
       "project.snapshot": { readOnly: true, minHostVersion: "25.6.0", probe: canInspectProject, handler: projectSnapshot },
       "project.insertionBin.inspect": { readOnly: true, minHostVersion: "25.6.0", probe: canInspectProjectInsertionBin, handler: inspectProjectInsertionBin },
+      "graphics.mogrtPath.inspect": { readOnly: true, minHostVersion: "25.6.0", probe: canInspectInstalledMogrtDirectory, handler: inspectInstalledMogrtDirectory },
       "project.save": { idempotent: true, minHostVersion: "25.6.0", probe: canSaveProject, handler: saveProject },
       "sequence.createPreset": { destructive: true, undoable: false, requiresWorkspace: true, minHostVersion: "26.3.0", probe: canCreatePresetSequence, handler: createPresetSequence },
       "sequence.range.inspect": { readOnly: true, minHostVersion: "25.6.0", probe: canInspectSequenceRange, handler: inspectSequenceRange },
@@ -240,6 +241,23 @@
         throw commandError("UXP_STALE_INSERTION_BIN", "The Project-panel insertion bin changed while reading it; retry the inspection");
       }
       return { projectGuid, insertionBin, verificationBoundary: "project_insertion_bin_identity_readback" };
+    }
+    async function inspectInstalledMogrtDirectory(args) {
+      assertOnlyKeys(args, ["includePath"]);
+      const includePath = optionalBoolean(args.includePath, false, "includePath");
+      const path = await ppro.SequenceEditor.getInstalledMogrtPath();
+      // This bridge deliberately does not turn the returned host path into a
+      // filesystem capability. It only validates the bounded native value, and
+      // returns it when the caller explicitly requested disclosure.
+      if (typeof path !== "string" || !path.trim() || path.length > 4096 || path.includes("\0")) {
+        throw commandError("UXP_VERIFICATION_FAILED", "Premiere did not return a valid installed MOGRT directory path");
+      }
+      return {
+        available: true,
+        installedMogrtPath: includePath ? path : null,
+        pathDisclosure: includePath ? "requested" : "redacted",
+        verificationBoundary: "documented_sequence_editor_installation_directory_readback"
+      };
     }
     async function insertionBinSnapshot(project) {
       if (typeof project.getInsertionBin !== "function") {
@@ -1278,6 +1296,9 @@
     }
     function canSaveProject() { return activeProjectHas("save"); }
     function canInspectProjectInsertionBin() { return activeProjectHas("getInsertionBin"); }
+    function canInspectInstalledMogrtDirectory() {
+      return !!(ppro.SequenceEditor && typeof ppro.SequenceEditor.getInstalledMogrtPath === "function");
+    }
     function canCreatePresetSequence() { return activeProjectHas("createSequenceWithPresetPath"); }
     function canInspectSequenceRange() {
       return activeSequenceHas(["getInPoint", "getOutPoint", "getZeroPoint", "getEndTime"]);

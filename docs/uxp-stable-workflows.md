@@ -34,6 +34,7 @@ Premiere build.
 | Guarded Project-panel metadata replacement | `manage_project_panel_metadata_uxp` | `metadata.projectPanel.get`, `metadata.projectPanel.update` | Require the exact inspected project GUID and XML, confirmation, operation ID, local per-project serialization, then exact native readback; the direct setter is non-undoable and no atomic compare-and-set is claimed |
 | Guarded Project metadata schema field creation | `create_project_metadata_field_uxp` | `metadata.projectSchema.inspect`, `metadata.projectSchema.create` | Require the exact inspected project GUID and bounded panel XML, typed name/label, confirmation, operation ID, and shared per-project serialization; native acceptance and panel-XML change are observable but Adobe exposes no atomic compare-and-set or field-level getter, so creation is always `committed_unverified` |
 | Guarded app preferences | `manage_app_preferences_uxp` | `preferences.inspect`, `preferences.set` | Inspect only Adobe's three named application preferences; direct string writes require stale value, persistence, confirmation, operation ID, per-key serialization, and exact native-string readback; no transaction or Undo claim |
+| Installed MOGRT-directory inspection | `inspect_installed_mogrt_directory_uxp` | `graphics.mogrtPath.inspect` | Return only documented installed-directory availability by default. A caller must explicitly request the bounded native path; the bridge does not enumerate it, read templates, or import MOGRTs. |
 | Color and conformance | `manage_color_conformance_uxp` | `color.preflight`, `footage.conform` | Project graphics-white values, embedded/input LUT IDs, and requested footage fields read back |
 | Source Monitor audition | `audition_source_monitor_uxp` | `sourceMonitor.state`, `sourceMonitor.open`, `sourceMonitor.position.set`, `sourceMonitor.play`, `sourceMonitor.close` | Project-item and position readback where Adobe exposes it; file open/play rely on explicit host returns |
 | Productions and storage | `preflight_production_storage_uxp` | `storage.preflight`, `scratch.configure` | Project/Production scratch snapshots and project action-transaction result |
@@ -130,6 +131,15 @@ track-item match name, numeric item type, media UUID, reported track index, and
 selected state. It rejects a changed active sequence before returning. It neither
 reads source paths nor effect values and is not visual, playback, persistence, or
 licensed-host proof.
+
+### `inspect_installed_mogrt_directory_uxp`
+
+The documented `SequenceEditor.getInstalledMogrtPath()` getter is called only
+through the authenticated bridge. The result is a bounded string and stays
+redacted unless `include_path: true`. The command never enumerates, reads, or
+imports from that directory, so a returned path is not evidence of installed
+templates, compatibility, successful insertion, rendering, or licensed-host
+behavior.
 
 ### `batch_selected_clips_uxp`
 

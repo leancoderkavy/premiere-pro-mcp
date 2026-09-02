@@ -13,8 +13,8 @@
   },
   "stats": {
     "total": 976,
-    "mapped": 331,
-    "unmapped": 645,
+    "mapped": 332,
+    "unmapped": 644,
     "manifestOnly": 5
   },
   "manifestOnly": [
@@ -3659,7 +3659,7 @@
       "symbol": "SequenceEditor.getInstalledMogrtPath",
       "kind": "method",
       "declarationSymbol": "SequenceEditorStatic.getInstalledMogrtPath",
-      "coverage": "unmapped"
+      "coverage": "mapped"
     },
     {
       "symbol": "SequenceEditor.insertMogrtFromLibrary",

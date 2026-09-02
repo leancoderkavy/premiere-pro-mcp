@@ -82,6 +82,29 @@
       "verificationBoundary": "project_insertion_bin_identity_readback"
     },
     {
+      "id": "native-installed-mogrt-directory-inspection",
+      "adobeApi": [
+        "SequenceEditor.getInstalledMogrtPath"
+      ],
+      "documentationUrls": [
+        "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/sequenceeditor/"
+      ],
+      "minimumPremiereVersion": "25.6.0",
+      "backend": "uxp",
+      "uxpCommand": "graphics.mogrtPath.inspect",
+      "mcpTools": [
+        "inspect_installed_mogrt_directory_uxp"
+      ],
+      "availability": "current",
+      "implementationStatus": "implemented",
+      "verificationStatus": "automated_contract_verified",
+      "liveHostVerificationStatus": "not_run",
+      "mutatesProject": false,
+      "undoable": false,
+      "idempotency": "not_applicable",
+      "verificationBoundary": "documented_sequence_editor_installation_directory_readback"
+    },
+    {
       "id": "guarded-video-transition",
       "adobeApi": [
         "TransitionFactory.getVideoTransitionMatchNames",
