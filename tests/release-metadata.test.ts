@@ -50,6 +50,7 @@ describe("canonical release metadata", () => {
     const llms = read("landing/public/llms.txt");
     const llmsFull = read("landing/public/llms-full.txt");
     const landingProduct = read("landing/lib/product.ts");
+    const marketingAssets = read("docs/marketing-assets.md");
 
     expect(readme).toContain(`${release.coreTools} core tools`);
     expect(readme).toContain(
@@ -65,6 +66,9 @@ describe("canonical release metadata", () => {
     expect(llmsFull).toContain(`Current release: ${release.version}`);
     expect(llmsFull).toContain(
       `${release.uxpAdditionalTools} capability-gated tools`,
+    );
+    expect(marketingAssets).toContain(
+      `${release.uxpAdditionalTools} additional capability-gated tools`,
     );
     expect(landingProduct).toContain(`version: "${release.version}"`);
     expect(landingProduct).toContain(`coreToolCount: ${release.coreTools}`);

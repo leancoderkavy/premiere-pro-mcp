@@ -36,6 +36,8 @@ import { getAvSettingsTools } from "./tools/av-settings.js";
 import { getRecoveryTools } from "./tools/recovery.js";
 import { getProjectContextTools } from "./tools/project-context.js";
 import { getEditorialPlanTools } from "./tools/editorial-plans.js";
+import { getEditorialContextPackTools } from "./tools/editorial-context-pack.js";
+import { ProjectContextRepository } from "./context/project-context-store.js";
 import { getProjectIntakeTools } from "./tools/project-intake.js";
 import { getCompetitorGapTools } from "./tools/competitor-gaps.js";
 import { getUxpTools } from "./tools/uxp.js";
@@ -182,8 +184,11 @@ function jsonSchemaPropToZod(prop: Record<string, unknown>): z.ZodTypeAny {
     return z.string();
   }
 
-  if (propType === "number") {
-    return z.number();
+  if (propType === "number" || propType === "integer") {
+    let schema = propType === "integer" ? z.number().int() : z.number();
+    if (typeof prop.minimum === "number") schema = schema.min(prop.minimum);
+    if (typeof prop.maximum === "number") schema = schema.max(prop.maximum);
+    return schema;
   }
 
   if (propType === "boolean") {
@@ -269,6 +274,7 @@ function collectTools(
   telemetry?: Telemetry,
   toolPacks?: ToolPackSelection,
   cacheable = false,
+  projectContextRepository = new ProjectContextRepository(),
 ): Record<string, ToolDef> {
   const cacheKey = JSON.stringify({
     tempDir: bridgeOptions.tempDir ?? process.env.PREMIERE_TEMP_DIR ?? null,
@@ -317,8 +323,9 @@ function collectTools(
     ...getSpotWorkflowTools(bridgeOptions, { capabilities }),
     ...getAvSettingsTools(bridgeOptions),
     ...getRecoveryTools(bridgeOptions),
-    ...getProjectContextTools(bridgeOptions),
-    ...getEditorialPlanTools({ uxpBridge }),
+    ...getProjectContextTools(bridgeOptions, { repository: projectContextRepository }),
+    ...getEditorialContextPackTools({ repository: projectContextRepository }),
+    ...getEditorialPlanTools({ repository: projectContextRepository, uxpBridge }),
     ...getProjectIntakeTools(bridgeOptions),
     ...getCompetitorGapTools(bridgeOptions, uxpBridge),
     ...(uxpBridge ? getUxpTools(uxpBridge) : {}),
@@ -338,6 +345,8 @@ function collectTools(
 export interface ServerOptions {
   uxpBridge?: UxpWebSocketBridge;
   telemetry?: Telemetry;
+  /** Allows embedded hosts to share an explicitly configured context backend. */
+  contextRepository?: ProjectContextRepository;
   /** Overrides PREMIERE_MCP_TOOL_PACKS for this server instance. */
   toolPacks?: string;
 }
@@ -377,6 +386,10 @@ export function createServer(
     ? resolveToolPacks()
     : resolveToolPacks(serverOptions.toolPacks, "explicit");
   const telemetry = serverOptions.telemetry ?? getTelemetry();
+  // Context consumers must share a single in-memory backend as well as the
+  // durable backends; independent repository instances would otherwise make
+  // a just-captured memory context invisible to plans and reading packs.
+  const projectContextRepository = serverOptions.contextRepository ?? new ProjectContextRepository();
 
   // Collect all tools from each module
   const toolModules = collectTools(
@@ -385,7 +398,11 @@ export function createServer(
     serverOptions.uxpBridge,
     telemetry,
     toolPacks,
-    !serverOptions.telemetry,
+    // Every server owns stateful project-context handlers. Reusing a catalog
+    // would capture the first server's repository, particularly incorrect for
+    // the in-memory backend, so do not cache the assembled tool closures.
+    false,
+    projectContextRepository,
   );
 
   // Register each tool with the MCP server

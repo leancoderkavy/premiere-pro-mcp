@@ -6,6 +6,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+
+- Added `create_editorial_context_pack`, a review-only, revision-aware Markdown
+  reading view for explicitly captured transcript, shot, audio, source,
+  timeline, and editor-note context. It is bounded by entry and character
+  limits and never invokes a provider, Premiere bridge, or project mutation.
+
 ## [1.14.5] - 2026-08-31
 
 ### Added

@@ -18,12 +18,14 @@ describe("modern MCP surface", () => {
   it("exposes a machine-readable workflow resource", () => {
     const resource = JSON.parse(WORKFLOW_RESOURCE);
     expect(resource.version).toBe(1);
-    expect(resource.workflows).toHaveLength(11);
+    expect(resource.workflows).toHaveLength(12);
     expect(resource.workflows[0].recommendedTools).toContain("get_premiere_state");
     const organization = resource.workflows.find((workflow: { id: string }) => workflow.id === "project-organization");
     expect(organization.recommendedTools).toContain("apply_editorial_organization_plan");
     expect(organization.recommendedTools).not.toContain("organize_project_items_uxp");
     expect(organization.summary).toContain("advanced/manual only");
+    const transcriptFirst = resource.workflows.find((workflow: { id: string }) => workflow.id === "transcript-first-context");
+    expect(transcriptFirst.recommendedTools).toContain("create_editorial_context_pack");
   });
 
   it("marks inspection as read-only and script execution as open-world", () => {
@@ -39,6 +41,7 @@ describe("modern MCP surface", () => {
     expect(annotationsForTool("execute_extendscript").openWorldHint).toBe(true);
     expect(annotationsForTool("search_project_context")).toMatchObject({ readOnlyHint: true, idempotentHint: true });
     expect(annotationsForTool("create_context_edit_plan")).toMatchObject({ readOnlyHint: true, idempotentHint: true });
+    expect(annotationsForTool("create_editorial_context_pack")).toMatchObject({ readOnlyHint: true, idempotentHint: true });
     expect(annotationsForTool("create_editorial_plan")).toMatchObject({ readOnlyHint: true, idempotentHint: true });
     expect(annotationsForTool("preview_editorial_plan")).toMatchObject({ readOnlyHint: true, idempotentHint: true });
     expect(annotationsForTool("verify_delivery_conformance")).toMatchObject({ readOnlyHint: true, idempotentHint: true, openWorldHint: false });
@@ -122,7 +125,7 @@ describe("modern MCP surface", () => {
       // unsafe-script, so the two scripting tools are not advertised.
       expect(tools.tools.map((tool) => tool.name)).not.toContain("execute_extendscript");
       expect(tools.tools.map((tool) => tool.name)).not.toContain("evaluate_expression");
-      expect(tools.tools).toHaveLength(325);
+      expect(tools.tools).toHaveLength(326);
       const capabilityTool = tools.tools.find((tool) => tool.name === "get_capabilities");
       expect(capabilityTool?.outputSchema).toMatchObject({
         type: "object",
@@ -143,9 +146,21 @@ describe("modern MCP surface", () => {
         "manage_project_context",
         "search_project_context",
         "create_context_edit_plan",
+        "create_editorial_context_pack",
         "create_editorial_plan",
         "preview_editorial_plan",
       ]));
+      expect(tools.tools.find((tool) => tool.name === "create_editorial_context_pack")?.inputSchema)
+        .toMatchObject({
+          properties: {
+            max_entries: { type: "integer", minimum: 1, maximum: 50 },
+            max_characters: { type: "integer", minimum: 1024, maximum: 24_000 },
+          },
+        });
+      expect(tools.tools.find((tool) => tool.name === "search_project_context")?.inputSchema)
+        .toMatchObject({
+          properties: { max_results: { type: "integer", minimum: 1, maximum: 50 } },
+        });
 
       const capabilities = await client.callTool({
         name: "get_capabilities",
@@ -160,6 +175,14 @@ describe("modern MCP surface", () => {
       expect(capabilityData.tools.tools.map((tool: any) => tool.name)).toEqual(
         expect.arrayContaining(tools.tools.map((tool) => tool.name)),
       );
+      expect(
+        capabilityData.tools.tools.find((tool: any) => tool.name === "create_editorial_context_pack"),
+      ).toMatchObject({
+        backend: "local",
+        authority: { required: "inspect", enabled: true },
+        verificationBoundary: "static_metadata_only",
+        hostVerificationRequired: false,
+      });
       expect(
         capabilityData.tools.tools.find((tool: any) => tool.name === "execute_extendscript")
           ?.authority,
@@ -189,7 +212,7 @@ describe("modern MCP surface", () => {
       ]));
       expect(names).not.toContain("create_bin");
       // Essential is a 14-tool focused path (including the two always-visible
-      // diagnostics), versus 325 tools in the default full catalog.
+      // diagnostics), versus 326 tools in the default full catalog.
       expect(names).toHaveLength(14);
 
       const capabilities = await client.callTool({

@@ -51,6 +51,7 @@ import { getProjectManagerTools } from "../../src/tools/project-manager.js";
 import { getRecoveryTools } from "../../src/tools/recovery.js";
 import { getAvSettingsTools } from "../../src/tools/av-settings.js";
 import { getProjectContextTools } from "../../src/tools/project-context.js";
+import { getEditorialContextPackTools } from "../../src/tools/editorial-context-pack.js";
 import { getEditorialPlanTools } from "../../src/tools/editorial-plans.js";
 import { getProjectIntakeTools } from "../../src/tools/project-intake.js";
 import { getCompetitorGapTools } from "../../src/tools/competitor-gaps.js";
@@ -104,6 +105,7 @@ const ALL_MODULES: Array<{
   { name: "recovery", getter: getRecoveryTools, minTools: 2 },
   { name: "av-settings", getter: getAvSettingsTools, minTools: 4 },
   { name: "project-context", getter: getProjectContextTools, minTools: 3 },
+  { name: "editorial-context-pack", getter: getEditorialContextPackTools, minTools: 1 },
   { name: "editorial-plans", getter: () => getEditorialPlanTools(), minTools: 2 },
   { name: "project-intake", getter: getProjectIntakeTools, minTools: 1 },
   { name: "competitor-gaps", getter: getCompetitorGapTools, minTools: 8 },
@@ -192,16 +194,16 @@ describe("Tool Module Structure", () => {
 });
 
 describe("Total Tool Count", () => {
-  it("all modules together have 325 tools", () => {
+  it("all modules together have 326 tools", () => {
     let total = 0;
     for (const mod of ALL_MODULES) {
       total += Object.keys(mod.getter(bridgeOptions)).length;
     }
-    expect(total).toBe(325);
+    expect(total).toBe(326);
   });
 
-  it("there are 37 directly enumerated modules", () => {
-    expect(ALL_MODULES.length).toBe(37);
+  it("there are 38 directly enumerated modules", () => {
+    expect(ALL_MODULES.length).toBe(38);
   });
 });
 

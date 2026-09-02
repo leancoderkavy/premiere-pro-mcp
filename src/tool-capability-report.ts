@@ -58,6 +58,7 @@ export interface ToolOperationalCapability {
 const LOCAL_TOOLS = new Set([
   "get_capabilities",
   "preview_edit_plan",
+  "create_editorial_context_pack",
   "create_editorial_plan",
   "preview_editorial_plan",
   "preview_motion_graphics_demo",
