@@ -380,6 +380,28 @@ describe("UXP command registry", () => {
     await expect(blankTimebase.registry.dispatch("sequence.timing.inspect", {}))
       .rejects.toMatchObject({ code: "UXP_VERIFICATION_FAILED" });
 
+    for (const malformedTimebase of ["not-a-timebase", "0", "-1", "1.5", "1234567890123456789"]) {
+      const malformedTimebaseHost = host();
+      malformedTimebaseHost.sequence.getTimebase.mockResolvedValueOnce(malformedTimebase);
+      await expect(malformedTimebaseHost.registry.dispatch("sequence.timing.inspect", {}))
+        .rejects.toMatchObject({ code: "UXP_VERIFICATION_FAILED" });
+    }
+
+    const whitespaceSequenceGuid = host();
+    whitespaceSequenceGuid.sequence.guid = "   ";
+    await expect(whitespaceSequenceGuid.registry.dispatch("sequence.timing.inspect", {}))
+      .rejects.toMatchObject({ code: "UXP_VERIFICATION_FAILED" });
+
+    const nonGuidSequenceIdentity = host();
+    nonGuidSequenceIdentity.sequence.guid = 123;
+    await expect(nonGuidSequenceIdentity.registry.dispatch("sequence.timing.inspect", {}))
+      .rejects.toMatchObject({ code: "UXP_VERIFICATION_FAILED" });
+
+    const nativeGuidObject = host();
+    nativeGuidObject.sequence.guid = { toString: vi.fn(() => "sequence-guid-object") };
+    await expect(nativeGuidObject.registry.dispatch("sequence.timing.inspect", {}))
+      .resolves.toMatchObject({ sequenceGuid: "sequence-guid-object" });
+
     const blankProjectItemName = host();
     blankProjectItemName.sequenceProjectItem.name = "";
     await expect(blankProjectItemName.registry.dispatch("sequence.timing.inspect", {}))

@@ -18,6 +18,10 @@
     // host data instead of serializing an implausible frame size.
     const MAX_SEQUENCE_FRAME_WIDTH = 10240;
     const MAX_SEQUENCE_FRAME_HEIGHT = 8192;
+    // Preserve the native decimal ticks value as a string. Eighteen digits is a
+    // generous bounded protocol representation while avoiding an unbounded
+    // value from the host.
+    const MAX_SEQUENCE_TIMEBASE_DIGITS = 18;
     const definitions = {
       "capabilities.get": { readOnly: true, handler: capabilities },
       "state.get": { readOnly: true, handler: stateSnapshot },
@@ -548,7 +552,7 @@
         sequenceGuid,
         sequenceName: snapshotString(sequence.name, "sequence name", 255),
         frameSize: frameSizeSnapshot(frameSize),
-        timebase: snapshotString(timebase, "sequence timebase", 256),
+        timebase: timebaseSnapshot(timebase),
         audioTimeDisplayFormat: timeDisplaySnapshot(audioDisplay, "sequence audio time display format"),
         videoTimeDisplayFormat: timeDisplaySnapshot(videoDisplay, "sequence video time display format"),
         projectItem: {
@@ -558,8 +562,18 @@
       };
     }
     function sequenceGuidRequired(sequence) {
-      const sequenceGuid = String(sequence && sequence.guid || "");
-      if (!sequenceGuid || sequenceGuid.length > 512) throw commandError("UXP_VERIFICATION_FAILED", "Premiere did not provide a stable active-sequence GUID");
+      const rawGuid = sequence && sequence.guid;
+      const isStringGuid = typeof rawGuid === "string";
+      const isGuidObject = rawGuid && typeof rawGuid === "object" &&
+        typeof rawGuid.toString === "function" && rawGuid.toString !== Object.prototype.toString;
+      if (!isStringGuid && !isGuidObject) {
+        throw commandError("UXP_VERIFICATION_FAILED", "Premiere did not provide a stable active-sequence GUID");
+      }
+      let sequenceGuid;
+      try { sequenceGuid = isStringGuid ? rawGuid : rawGuid.toString(); } catch (_) { sequenceGuid = ""; }
+      if (typeof sequenceGuid !== "string" || !sequenceGuid.trim() || sequenceGuid !== sequenceGuid.trim() || sequenceGuid.length > 512) {
+        throw commandError("UXP_VERIFICATION_FAILED", "Premiere did not provide a stable active-sequence GUID");
+      }
       return sequenceGuid;
     }
     function frameSizeSnapshot(value) {
@@ -570,6 +584,12 @@
         throw commandError("UXP_VERIFICATION_FAILED", "Premiere did not return a valid sequence frame size");
       }
       return { width: value.width, height: value.height };
+    }
+    function timebaseSnapshot(value) {
+      if (typeof value !== "string" || !new RegExp("^[1-9]\\d{0," + (MAX_SEQUENCE_TIMEBASE_DIGITS - 1) + "}$").test(value)) {
+        throw commandError("UXP_VERIFICATION_FAILED", "Premiere did not return a valid sequence timebase");
+      }
+      return value;
     }
     function timeDisplaySnapshot(value, name) {
       if (!value || typeof value.type !== "number" || !Number.isSafeInteger(value.type) || value.type < 0) {
