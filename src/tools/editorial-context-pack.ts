@@ -7,6 +7,7 @@ import {
   MIN_EDITORIAL_CONTEXT_PACK_CHARACTERS,
 } from "../ai/editorial-context-pack.js";
 import {
+  countProjectContextMatches,
   ProjectContextRepository,
   searchProjectContext,
   type ProjectContextKind,
@@ -129,21 +130,22 @@ export function getEditorialContextPackTools(dependencies: EditorialContextPackT
           );
           const document = await repository.get(id);
           if (!document) return { success: false, error: "Project context not found; capture it before creating an editorial context pack" };
-          const matches = searchProjectContext(document, {
+          const searchOptions = {
             query: intent,
             ...(sequenceId ? { sequenceId } : {}),
             ...(kinds ? { kinds } : {}),
-            // One extra result is enough to make entry-limit truncation
-            // observable while retaining a bounded local read.
-            limit: maxEntries + 1,
+          };
+          const results = searchProjectContext(document, {
+            ...searchOptions,
+            limit: maxEntries,
           }).filter((result) => result.matchedTerms.length > 0);
-          const results = matches.slice(0, maxEntries);
+          const totalResultCount = countProjectContextMatches(document, searchOptions);
           return {
             success: true,
             data: buildEditorialContextPack(document, {
               intent,
               results,
-              totalResultCount: matches.length,
+              totalResultCount,
               maxEntries,
               maxCharacters,
             }),

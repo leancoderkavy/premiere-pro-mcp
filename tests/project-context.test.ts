@@ -257,6 +257,11 @@ describe("project context index", () => {
     });
     expect(search.data.results[0]).toMatchObject({ kind: "transcript", sourceId: "source-1" });
     expect(search.data.results[0].metadata).toEqual({ confidence: 0.97 });
+    await expect((tools.search_project_context.handler as any)({
+      project_id: built.document.projectId,
+      query: "budget",
+      max_results: 51,
+    })).resolves.toMatchObject({ success: false, error: expect.stringContaining("1 through 50") });
 
     const plan = await (tools.create_context_edit_plan.handler as any)({
       project_id: built.document.projectId,

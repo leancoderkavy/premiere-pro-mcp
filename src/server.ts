@@ -395,7 +395,10 @@ export function createServer(
     serverOptions.uxpBridge,
     telemetry,
     toolPacks,
-    !serverOptions.telemetry && !serverOptions.contextRepository,
+    // Every server owns stateful project-context handlers. Reusing a catalog
+    // would capture the first server's repository, particularly incorrect for
+    // the in-memory backend, so do not cache the assembled tool closures.
+    false,
     projectContextRepository,
   );
 

@@ -379,6 +379,29 @@ export interface ProjectContextSearchResult {
   matchedTerms: string[];
 }
 
+function matchingTerms(record: ProjectContextRecord, queryTerms: readonly string[]): string[] {
+  const name = record.name.toLocaleLowerCase();
+  const text = record.text.toLocaleLowerCase();
+  const keywordSet = new Set(record.keywords.flatMap(tokens));
+  return queryTerms.filter((term) => name.includes(term) || text.includes(term) || keywordSet.has(term));
+}
+
+/** Counts exact keyword-relevant records without materializing their evidence. */
+export function countProjectContextMatches(
+  document: ProjectContextDocument,
+  options: Omit<ProjectContextSearchOptions, "limit">,
+): number {
+  const query = options.query.trim().slice(0, 1_000);
+  if (!query) throw new Error("query must not be empty");
+  const queryTerms = tokens(query);
+  const kindFilter = options.kinds?.length ? new Set(options.kinds) : undefined;
+  return document.records
+    .filter((record) => !options.sequenceId || record.sequenceId === options.sequenceId)
+    .filter((record) => !kindFilter || kindFilter.has(record.kind))
+    .filter((record) => matchingTerms(record, queryTerms).length > 0)
+    .length;
+}
+
 export function searchProjectContext(
   document: ProjectContextDocument,
   options: ProjectContextSearchOptions,
@@ -393,11 +416,11 @@ export function searchProjectContext(
     .filter((record) => !options.sequenceId || record.sequenceId === options.sequenceId)
     .filter((record) => !kindFilter || kindFilter.has(record.kind))
     .map((record) => {
+      const matchedTerms = matchingTerms(record, queryTerms);
+      let score = matchedTerms.length * 2;
       const name = record.name.toLocaleLowerCase();
       const text = record.text.toLocaleLowerCase();
       const keywordSet = new Set(record.keywords.flatMap(tokens));
-      const matchedTerms = queryTerms.filter((term) => name.includes(term) || text.includes(term) || keywordSet.has(term));
-      let score = matchedTerms.length * 2;
       if (name.includes(query.toLocaleLowerCase())) score += 8;
       if (text.includes(query.toLocaleLowerCase())) score += 5;
       score += matchedTerms.filter((term) => keywordSet.has(term)).length * 2;

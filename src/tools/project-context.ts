@@ -570,7 +570,7 @@ export function getProjectContextTools(
             items: { type: "string", enum: ["project", "sequence", "source", "timeline", "transcript", "shot", "audio", "note"] },
             description: "Optional context-kind filter",
           },
-          max_results: { type: "number", description: "Maximum 50; default 12" },
+          max_results: { type: "integer", minimum: 1, maximum: 50, description: "Maximum 50; default 12" },
         },
         required: ["project_id", "query"],
       },
@@ -582,13 +582,17 @@ export function getProjectContextTools(
         max_results?: number;
       }) => {
         const projectId = requireProjectId(args.project_id);
+        if (args.max_results !== undefined &&
+          (!Number.isInteger(args.max_results) || args.max_results < 1 || args.max_results > 50)) {
+          return { success: false, error: "max_results must be an integer from 1 through 50" };
+        }
         const document = await repository.get(projectId);
         if (!document) return { success: false, error: "Project context not found" };
         const results = searchProjectContext(document, {
           query: args.query,
           sequenceId: args.sequence_id,
           kinds: args.kinds,
-          limit: args.max_results,
+          limit: args.max_results ?? 12,
         });
         return {
           success: true,

@@ -181,7 +181,7 @@ describe("editorial context pack", () => {
   it("reports entry overflow and excludes records with no matched intent term", async () => {
     const repository = new ProjectContextRepository({ backend: "memory" });
     const source = document();
-    for (let index = 2; index <= 13; index++) {
+    for (let index = 2; index <= 100; index++) {
       source.records.push({
         ...source.records[1], id: `transcript-${index}`, name: `Budget answer ${index}`,
         text: `The launch budget answer ${index}.`,
@@ -193,7 +193,7 @@ describe("editorial context pack", () => {
     await expect(tool.handler({ project_id: "project-1", intent: "budget", max_entries: 12 }))
       .resolves.toMatchObject({
         success: true,
-        data: { evidence: expect.any(Array), omittedEvidenceCount: 1, truncated: true },
+        data: { evidence: expect.any(Array), omittedEvidenceCount: 88, truncated: true },
       });
     await expect(tool.handler({ project_id: "project-1", intent: "unrelated", kinds: ["transcript"] }))
       .resolves.toMatchObject({ success: true, data: { evidence: [], omittedEvidenceCount: 0, truncated: false } });
