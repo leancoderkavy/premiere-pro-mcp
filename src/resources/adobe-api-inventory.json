@@ -13,8 +13,8 @@
   },
   "stats": {
     "total": 976,
-    "mapped": 323,
-    "unmapped": 653,
+    "mapped": 325,
+    "unmapped": 651,
     "manifestOnly": 5
   },
   "manifestOnly": [
@@ -2299,7 +2299,7 @@
       "symbol": "Guid.fromString",
       "kind": "method",
       "declarationSymbol": "GuidStatic.fromString",
-      "coverage": "unmapped"
+      "coverage": "mapped"
     },
     {
       "symbol": "Guid.toString",
@@ -2920,7 +2920,7 @@
     {
       "symbol": "Project.getSequence",
       "kind": "method",
-      "coverage": "unmapped"
+      "coverage": "mapped"
     },
     {
       "symbol": "Project.getSequences",

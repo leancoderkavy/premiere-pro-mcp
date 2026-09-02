@@ -197,7 +197,7 @@ describe("Adobe Premiere Pro 26.3 UXP coverage", () => {
     expect(entries.find((entry) => entry.id === "native-sequence-timing-snapshot")).toMatchObject({
       uxpCommand: "sequence.timing.inspect",
       mcpTools: ["inspect_sequence_timing_uxp"],
-      verificationBoundary: "sequence_timing_readback",
+      verificationBoundary: "sequence_timing_readback_or_targeted_sequence_timing_double_readback",
       liveHostVerificationStatus: "not_run",
     });
     expect(entries.find((entry) => entry.id === "native-sequence-timing-snapshot")?.adobeApi).toEqual(expect.arrayContaining([
@@ -206,6 +206,8 @@ describe("Adobe Premiere Pro 26.3 UXP coverage", () => {
       "Sequence.getSequenceAudioTimeDisplayFormat",
       "Sequence.getSequenceVideoTimeDisplayFormat",
       "Sequence.getProjectItem",
+      "Project.getSequence",
+      "Guid.fromString",
       "Sequence.guid",
       "Sequence.name",
       "ProjectItem.getId",

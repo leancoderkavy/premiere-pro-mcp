@@ -248,6 +248,18 @@ describe("UXP MCP tools", () => {
     });
   });
 
+  it("maps non-active native sequence timing inspection to its guarded GUID command", async () => {
+    const request = vi.fn().mockResolvedValue({ outcome: "verified" });
+    const bridge = { request, getState: vi.fn() } as unknown as UxpWebSocketBridge;
+    const tools = getUxpTools(bridge);
+    await tools.inspect_sequence_timing_by_guid_uxp.handler({ sequence_guid: "sequence-2" });
+    expect(request).toHaveBeenCalledWith("sequence.timingByGuid.inspect", { sequenceGuid: "sequence-2" });
+    expect(tools.inspect_sequence_timing_by_guid_uxp.parameters).toMatchObject({
+      type: "object", additionalProperties: false, required: ["sequence_guid"],
+      properties: { sequence_guid: { minLength: 1, maxLength: 512 } },
+    });
+  });
+
   it("maps bounded native timeline-structure inspection and documents scoped track counts", async () => {
     const request = vi.fn().mockResolvedValue({ outcome: "verified" });
     const bridge = { request, getState: vi.fn() } as unknown as UxpWebSocketBridge;
@@ -358,6 +370,7 @@ describe("UXP MCP tools", () => {
           "inspect_project_uxp",
           "inspect_project_insertion_bin_uxp",
           "inspect_sequence_timing_uxp",
+          "inspect_sequence_timing_by_guid_uxp",
           "inspect_caption_tracks_uxp",
           "manage_sequence_display_format_uxp",
           "manage_sequence_range_uxp",
@@ -402,12 +415,12 @@ describe("UXP MCP tools", () => {
       // insertion-bin inspection, guarded empty-sequence creation, marker web-link
       // inspection, Project-panel metadata inspection and guarded replacement,
       // guarded app-preference control, source-media interpretation overrides,
-      // direct track-item identity inspection, guarded three-item slides,
-      // append-only timeline duplication, guarded Project metadata schema-field
-      // creation, and guarded contiguous ripple deletes add forty-one
+      // direct track-item identity inspection, targeted sequence timing, guarded
+      // three-item slides, append-only timeline duplication, guarded Project metadata
+      // schema-field creation, and guarded contiguous ripple deletes add forty-two
       // consolidated UXP tools;
       // connection verification and delivery conformance add two default-profile core tools.
-      expect(tools.tools).toHaveLength(406);
+      expect(tools.tools).toHaveLength(407);
     } finally {
       await client.close();
       await server.close();

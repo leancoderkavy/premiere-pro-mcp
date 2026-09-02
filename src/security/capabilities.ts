@@ -70,6 +70,7 @@ const INSPECT_TOOL_NAMES = new Set([
   "preview_product_spot",
   "preview_brand_spot",
   "inspect_sequence_timing_uxp",
+  "inspect_sequence_timing_by_guid_uxp",
   "validate_project_for_export",
   "read_sequence_captions",
   "plan_silence_review_markers",

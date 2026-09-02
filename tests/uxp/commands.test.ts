@@ -72,6 +72,10 @@ function host(options: { transitions?: boolean; commit?: boolean } = {}) {
     name: "Example",
     path: "/projects/example.prproj",
     getActiveSequence: vi.fn(async () => sequence),
+    getSequence: vi.fn((guid: { toString?: () => string } | string) => {
+      const value = typeof guid === "string" ? guid : String(guid?.toString?.() || "");
+      return value === sequence.guid ? sequence : null;
+    }),
     getInsertionBin: vi.fn(async () => insertionBin),
     getSequences: vi.fn(async () => [sequence]),
     save: vi.fn(async () => true),
@@ -101,6 +105,7 @@ function host(options: { transitions?: boolean; commit?: boolean } = {}) {
   };
   const ppro = {
     Project: { getActiveProject: vi.fn(async () => project) },
+    Guid: { fromString: vi.fn((value: string) => ({ toString: () => value })) },
     TickTime: { createWithSeconds: vi.fn((seconds: number) => ({ seconds })) },
     Constants: { TrackItemType: { CLIP: 1 }, MediaType: { ANY: 0 }, TransitionPosition: { START: 0, END: 1 } },
     AppPreference: {
@@ -148,6 +153,7 @@ describe("UXP command registry", () => {
     expect(available.commands["sequence.playhead.inspect"]).toMatchObject({ supported: true, readOnly: true, minHostVersion: "25.6.0" });
     expect(available.commands["sequence.playhead.set"]).toMatchObject({ supported: true, destructive: false, undoable: false, idempotent: true, minHostVersion: "25.6.0" });
     expect(available.commands["sequence.timing.inspect"]).toMatchObject({ supported: true, readOnly: true, minHostVersion: "25.6.0" });
+    expect(available.commands["sequence.timingByGuid.inspect"]).toMatchObject({ supported: true, readOnly: true, minHostVersion: "25.6.0", targetCapabilityProbe: "invocation" });
     expect(available.commands["preferences.inspect"]).toMatchObject({ supported: true, readOnly: true, minHostVersion: "25.6.0" });
     expect(available.commands["preferences.set"]).toMatchObject({ supported: true, destructive: false, undoable: false, idempotent: true, minHostVersion: "25.6.0" });
     expect(available.commands["project.insertionBin.inspect"]).toMatchObject({ supported: true, readOnly: true, minHostVersion: "25.6.0" });
@@ -475,6 +481,51 @@ describe("UXP command registry", () => {
       .rejects.toMatchObject({ code: "UXP_STALE_SEQUENCE" });
   });
 
+  it("inspects one non-active sequence by documented GUID lookup without activating it and rejects changing double-read state", async () => {
+    const value = host();
+    const targetProjectItem = { name: "Nested Timeline", getId: vi.fn(async () => "sequence-project-item-2") };
+    const target = {
+      ...value.sequence,
+      guid: "sequence-2",
+      name: "Nested Timeline",
+      getFrameSize: vi.fn(async () => ({ width: 3840, height: 2160 })),
+      getTimebase: vi.fn(async () => "508032000000"),
+      getSequenceAudioTimeDisplayFormat: vi.fn(async () => ({ type: 201 })),
+      getSequenceVideoTimeDisplayFormat: vi.fn(async () => ({ type: 101 })),
+      getProjectItem: vi.fn(async () => targetProjectItem),
+    };
+    value.project.getSequence.mockImplementation((guid: { toString?: () => string } | string) => {
+      const requested = typeof guid === "string" ? guid : String(guid?.toString?.() || "");
+      return requested === "sequence-2" ? target : null;
+    });
+    await expect(value.registry.dispatch("sequence.timingByGuid.inspect", { sequenceGuid: "sequence-2" })).resolves.toMatchObject({
+      projectGuid: "project-1", requestedSequenceGuid: "sequence-2", sequenceGuid: "sequence-2",
+      sequenceName: "Nested Timeline", frameSize: { width: 3840, height: 2160 },
+      projectItem: { id: "sequence-project-item-2", name: "Nested Timeline" },
+      verificationBoundary: "targeted_sequence_timing_double_readback",
+    });
+    expect(value.project.getActiveSequence).not.toHaveBeenCalled();
+    expect(value.ppro.Guid.fromString).toHaveBeenCalledWith("sequence-2");
+    expect(value.project.getSequence).toHaveBeenCalledTimes(2);
+
+    const switchedProject = host();
+    const switchedTarget = { ...switchedProject.sequence, guid: "sequence-2", name: "Nested Timeline" };
+    switchedProject.project.getSequence.mockReturnValue(switchedTarget);
+    const replacementProject = { ...switchedProject.project, guid: "project-2" };
+    switchedProject.ppro.Project.getActiveProject
+      .mockResolvedValueOnce(switchedProject.project)
+      .mockResolvedValueOnce(replacementProject);
+    await expect(switchedProject.registry.dispatch("sequence.timingByGuid.inspect", { sequenceGuid: "sequence-2" }))
+      .rejects.toMatchObject({ code: "UXP_STALE_PROJECT" });
+
+    const changed = host();
+    const first = { ...changed.sequence, guid: "sequence-2", name: "Nested Timeline" };
+    const final = { ...changed.sequence, guid: "sequence-2", name: "Nested Timeline", getTimebase: vi.fn(async () => "508032000000") };
+    changed.project.getSequence.mockReturnValueOnce(first).mockReturnValueOnce(final);
+    await expect(changed.registry.dispatch("sequence.timingByGuid.inspect", { sequenceGuid: "sequence-2" }))
+      .rejects.toMatchObject({ code: "UXP_STALE_SEQUENCE" });
+  });
+
   it("fails closed for malformed timing values, identity, unknown arguments, and unavailable timing APIs", async () => {
     const invalidDisplay = host();
     invalidDisplay.sequence.getSequenceAudioTimeDisplayFormat.mockResolvedValueOnce({ type: Number.NaN });
@@ -565,6 +616,16 @@ describe("UXP command registry", () => {
     unavailable.sequence.getTimebase = undefined;
     const capabilities = await unavailable.registry.capabilities();
     expect(capabilities.commands["sequence.timing.inspect"])
+      .toMatchObject({ supported: false, reason: expect.any(String) });
+
+    await expect(host().registry.dispatch("sequence.timingByGuid.inspect", {}))
+      .rejects.toMatchObject({ code: "UXP_INVALID_ARGUMENT" });
+    await expect(host().registry.dispatch("sequence.timingByGuid.inspect", { sequenceGuid: "missing" }))
+      .rejects.toMatchObject({ code: "UXP_TARGET_NOT_FOUND" });
+    const missingGuid = host();
+    missingGuid.ppro.Guid.fromString = undefined;
+    const byGuidCapabilities = await missingGuid.registry.capabilities();
+    expect(byGuidCapabilities.commands["sequence.timingByGuid.inspect"])
       .toMatchObject({ supported: false, reason: expect.any(String) });
   });
 
