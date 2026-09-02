@@ -42,7 +42,7 @@ can bind those public layout facts to the matching files and a content-free safe
 ZIP entry-name-set digest in a local `.ccx` ZIP without disclosing archive
 contents or entry names, while rejecting inconsistent or feature-insufficient
 local ZIP version-needed, Deflate-only compression-option flags, framed non-ZIP64 extra fields, and core header fields, unaccounted local-record or central-directory-to-end
-bytes, ambiguous non-ASCII entry-name encodings, and declared Unix special file
+bytes, ambiguous non-ASCII entry-name encodings or declared UTF-8 file comments, and declared Unix special file
 types, nonempty directory entries, or nonzero directory CRC-32 values. It is not UDT,
 portal, installation, or host-runtime proof. Where a ZIP entry uses a streamed
 data descriptor, the local archive verifier also checks its required CRC and
