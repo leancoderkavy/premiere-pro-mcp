@@ -60,6 +60,7 @@ describe("Adobe Premiere Pro 26.3 UXP coverage", () => {
       "workspace-gated-project-import",
       "typed-parameter-keyframe-automation",
       "native-track-item-identity",
+      "native-tick-time-arithmetic",
       "track-item-transformations",
       "bounded-native-timeline-structure",
       "sequence-editor-timeline-layer",
@@ -308,6 +309,21 @@ describe("Adobe Premiere Pro 26.3 UXP coverage", () => {
       "ClipProjectItem.isMulticamClip",
       "ClipProjectItem.isOffline",
     ]));
+    expect(entries.find((entry) => entry.id === "native-tick-time-arithmetic")).toMatchObject({
+      uxpCommand: "time.tickArithmetic.inspect",
+      mcpTools: ["calculate_tick_time_uxp"],
+      verificationBoundary: "native_tick_time_value_readback",
+      liveHostVerificationStatus: "not_run",
+    });
+    expect(entries.find((entry) => entry.id === "native-tick-time-arithmetic")?.adobeApi).toEqual(expect.arrayContaining([
+      "TickTime.createWithTicks",
+      "TickTime.add",
+      "TickTime.subtract",
+      "TickTime.multiply",
+      "TickTime.divide",
+      "TickTime.ticks",
+      "TickTime.seconds",
+    ]));
     expect(entries.find((entry) => entry.id === "guarded-empty-sequence-creation")).toMatchObject({
       uxpCommand: "sequences.createEmpty",
       mcpTools: ["create_empty_sequence_uxp"],
@@ -434,12 +450,12 @@ describe("Adobe Premiere Pro 26.3 UXP coverage", () => {
   it("keeps unimplemented 26.3 work visibly planned", () => {
     const report = buildAdobeUxpCoverageReport();
     expect(report.summary).toEqual({
-      total: 79,
-      current: 76,
+      total: 80,
+      current: 77,
       planned: 3,
-      implemented: 76,
+      implemented: 77,
       committedUnverified: 9,
-      automatedContractVerified: 67,
+      automatedContractVerified: 68,
       liveHostVerified: 0,
     });
     expect(report.entries.find((entry) => entry.id === "aaf-export")).toMatchObject({
@@ -462,7 +478,7 @@ describe("Adobe Premiere Pro 26.3 UXP coverage", () => {
   it("surfaces the baseline in the platform capability report", () => {
     const report = buildPlatformCapabilityReport(resolveCapabilities("inspect"), "win32");
     expect(report.backends.uxp.apiCoverage.summary).toMatchObject({
-      current: 76,
+      current: 77,
       planned: 3,
       committedUnverified: 9,
     });

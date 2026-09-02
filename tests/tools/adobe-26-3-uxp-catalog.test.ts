@@ -19,6 +19,7 @@ const ADOBE_26_3_TOOLS = [
   "list_markers_uxp",
   "set_source_monitor_position_uxp",
   "inspect_frame_alignment_uxp",
+  "calculate_tick_time_uxp",
   "manage_source_media_overrides_uxp",
   "inspect_track_item_identity_uxp",
   "slide_track_item_uxp",
@@ -52,7 +53,7 @@ describe("Adobe Premiere 26.3 UXP public MCP catalog", () => {
       expect(listed.tools.map((tool) => tool.name)).toEqual(
         expect.arrayContaining(ADOBE_26_3_TOOLS),
       );
-      expect(listed.tools).toHaveLength(412);
+      expect(listed.tools).toHaveLength(413);
     } finally {
       await client.close();
       await server.close();
@@ -111,6 +112,15 @@ describe("Adobe Premiere 26.3 UXP public MCP catalog", () => {
         frame_rate: { type: "number", minimum: 1, maximum: 240 },
         seconds: { type: "number", minimum: 0, maximum: 86400 },
         frame_count: { type: "integer", minimum: 0, maximum: 20736000 },
+      },
+    });
+    expect(tools.calculate_tick_time_uxp.parameters).toMatchObject({
+      type: "object", additionalProperties: false, required: ["operation", "base_ticks"],
+      properties: {
+        operation: { type: "string", enum: ["add", "subtract", "multiply", "divide"] },
+        base_ticks: { type: "string", pattern: "^(?:0|-?[1-9][0-9]{0,17})$" },
+        operand_ticks: { type: "string", pattern: "^(?:0|-?[1-9][0-9]{0,17})$" },
+        factor: { type: "integer", minimum: -1_000_000, maximum: 1_000_000 },
       },
     });
     expect(tools.create_empty_sequence_uxp.parameters).toMatchObject({
@@ -204,6 +214,7 @@ describe("Adobe Premiere 26.3 UXP public MCP catalog", () => {
     });
     await tools.set_source_monitor_position_uxp.handler({ seconds: 12.5, operation_id: "source-1" });
     await tools.inspect_frame_alignment_uxp.handler({ action: "align", frame_rate: 24, seconds: 1.03 });
+    await tools.calculate_tick_time_uxp.handler({ operation: "add", base_ticks: "1", operand_ticks: "2" });
     await tools.create_empty_sequence_uxp.handler({
       name: "Empty Assembly", confirm_non_undoable: true, operation_id: "empty-1",
     });
@@ -241,17 +252,20 @@ describe("Adobe Premiere 26.3 UXP public MCP catalog", () => {
     expect(request).toHaveBeenNthCalledWith(5, "time.frameAlignment.inspect", {
       action: "align", frameRate: 24, seconds: 1.03,
     });
-    expect(request).toHaveBeenNthCalledWith(6, "sequences.createEmpty", {
+    expect(request).toHaveBeenNthCalledWith(6, "time.tickArithmetic.inspect", {
+      operation: "add", baseTicks: "1", operandTicks: "2",
+    });
+    expect(request).toHaveBeenNthCalledWith(7, "sequences.createEmpty", {
       name: "Empty Assembly", confirmNonUndoable: true, operationId: "empty-1",
     });
-    expect(request).toHaveBeenNthCalledWith(7, "objectMask.audit", {
+    expect(request).toHaveBeenNthCalledWith(8, "objectMask.audit", {
       expectedProjectGuid: "project-1", sequenceIds: ["sequence-2", "sequence-1"],
     });
-    expect(request).toHaveBeenNthCalledWith(8, "trackItem.identity.inspect", {
+    expect(request).toHaveBeenNthCalledWith(9, "trackItem.identity.inspect", {
       mediaType: "video", trackIndex: 1, clipIndex: 2, expectedSequenceGuid: "sequence-1",
     });
-    expect(request).toHaveBeenNthCalledWith(9, "transcript.has", { projectItemName: "Interview A" });
-    expect(request).toHaveBeenNthCalledWith(10, "interchange.aaf.export", {
+    expect(request).toHaveBeenNthCalledWith(10, "transcript.has", { projectItemName: "Interview A" });
+    expect(request).toHaveBeenNthCalledWith(11, "interchange.aaf.export", {
       outputFilePath: "/exports/turnover.aaf",
       options: {
         mixdownVideo: true, explodeToMono: true, embedAudio: false, trimSources: true,

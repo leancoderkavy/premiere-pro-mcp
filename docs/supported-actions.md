@@ -13,8 +13,8 @@ source catalog may include unreleased actions.
 | Registered core actions | 328 | CEP/local server catalog; host and authority checks still apply |
 | Default-profile core actions | 326 | Advertised with `inspect,edit,export,filesystem` |
 | Restricted core actions | 2 | Require explicit `unsafe-script` authority |
-| Authenticated UXP additions | 86 | Advertised only while a compatible authenticated UXP panel is connected |
-| Default profile with UXP | 412 | 326 core plus 86 UXP tools |
+| Authenticated UXP additions | 87 | Advertised only while a compatible authenticated UXP panel is connected |
+| Default profile with UXP | 413 | 326 core plus 87 UXP tools |
 
 ## How to read support
 
@@ -379,6 +379,7 @@ authenticated and the connected host advertises the required command capabilitie
 | `audition_source_monitor_uxp` | Connected UXP | `state`, `open_project_item`, `open_file`, `set_position`, `play`, `close`, `close_all` | Open a selected project item or approved file, inspect/set position, play at bounded speed, or close Source Monitor media through documented UXP APIs. |
 | `automate_effect_parameters_uxp` | Connected UXP | `inspect`, `inspect_point_value`, `set_point_value`, `inspect_color_value`, `set_color_value`, `inspect_keyframe`, `set_value`, `add_keyframe`, `remove_keyframe`, `remove_keyframe_range`, `set_interpolation`, `inspect_time_varying`, `set_time_varying` | Inspect or transactionally set scalar effect parameters; inspect or guardedly set static PointF x/y and Color RGBA parameters; locate individual keyframes including a bounded native nearest-range lookup; adjust keyframes/interpolation; and control explicit time-varying animation mode through documented UXP actions. Disabling animation requires a complete inspected keyframe-time snapshot and confirmation. |
 | `batch_selected_clips_uxp` | Connected UXP | `inspect`, `add_effect`, `remove_effect` | Inspect the current timeline selection or apply one native effect add/remove across up to 64 same-type selected clips as a single compound transaction. |
+| `calculate_tick_time_uxp` | Connected UXP | `operation`: `add`, `subtract`, `multiply`, `divide` | Calculate one bounded add, subtract, multiply, or divide operation using Premiere's documented native TickTime arithmetic over canonical tick integers. It returns native ticks and seconds readback only. It deliberately does not accept seconds or frame rates, align to frames, infer timecode, inspect any Premiere project object, mutate Premiere, or prove a licensed host. |
 | `configure_encoder_uxp` | Connected UXP | Single operation | Launch or configure Adobe Media Encoder and optionally start its queued batch using Premiere 26.3+. |
 | `create_empty_sequence_uxp` | Connected UXP | Single operation | Create one empty/default sequence through the documented Premiere 26.3+ UXP API. This direct, non-undoable host call requires explicit confirmation and an operation_id; the host serializes capacity preflight through identity readback and replays the receipt safely. |
 | `create_project_metadata_field_uxp` | Connected UXP | `inspect`, `create` | Inspect a bounded native Project-panel schema or request one typed Project metadata field through Adobe's documented direct UXP API. Creation requires the exact inspected project GUID/XML, explicit confirmation, and a replay key; it is non-undoable and reports host acceptance plus schema-change readback without claiming field-level verification or atomic compare-and-set semantics. |

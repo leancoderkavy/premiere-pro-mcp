@@ -409,6 +409,7 @@ describe("UXP MCP tools", () => {
           "inspect_installed_mogrt_directory_uxp",
           "inspect_sequence_timing_uxp",
           "inspect_frame_alignment_uxp",
+          "calculate_tick_time_uxp",
           "inspect_sequence_timing_by_guid_uxp",
           "inspect_caption_tracks_uxp",
           "manage_sequence_display_format_uxp",
@@ -460,10 +461,10 @@ describe("UXP MCP tools", () => {
       // three-item slides, append-only timeline duplication, guarded Project metadata
       // schema-field creation, guarded contiguous ripple deletes, and guarded
       // source-label updates, opt-in installed-MOGRT directory inspection, and
-      // bounded Object Mask audits add forty-five
+      // bounded Object Mask audits and native TickTime arithmetic add forty-six
       // consolidated UXP tools;
       // connection verification and delivery conformance add two default-profile core tools.
-        expect(tools.tools).toHaveLength(412);
+        expect(tools.tools).toHaveLength(413);
     } finally {
       await client.close();
       await server.close();

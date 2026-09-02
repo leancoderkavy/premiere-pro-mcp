@@ -88,6 +88,11 @@
         ppro, colorLabelLocks: projectItemColorLabelLocks
       }));
     }
+    let tickTimeArithmeticWorkflowApi = deps.TickTimeArithmeticWorkflows || (typeof globalThis !== "undefined" && globalThis.PremiereMcpTickTimeArithmeticWorkflows);
+    if (!tickTimeArithmeticWorkflowApi && typeof require === "function") tickTimeArithmeticWorkflowApi = require("./tick-time-arithmetic-workflows.cjs");
+    if (tickTimeArithmeticWorkflowApi && typeof tickTimeArithmeticWorkflowApi.createTickTimeArithmeticWorkflowDefinitions === "function") {
+      Object.assign(definitions, tickTimeArithmeticWorkflowApi.createTickTimeArithmeticWorkflowDefinitions({ ppro }));
+    }
     let objectMaskAuditWorkflowApi = deps.ObjectMaskAuditWorkflows || (typeof globalThis !== "undefined" && globalThis.PremiereMcpObjectMaskAuditWorkflows);
     if (!objectMaskAuditWorkflowApi && typeof require === "function") objectMaskAuditWorkflowApi = require("./object-mask-audit-workflows.cjs");
     if (objectMaskAuditWorkflowApi && typeof objectMaskAuditWorkflowApi.createObjectMaskAuditWorkflowDefinitions === "function") {

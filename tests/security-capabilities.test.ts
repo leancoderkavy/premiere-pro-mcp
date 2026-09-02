@@ -222,6 +222,7 @@ describe("capability profiles", () => {
     ["inspect_installed_mogrt_directory_uxp", undefined],
     ["inspect_sequence_timing_uxp", undefined],
     ["inspect_frame_alignment_uxp", undefined],
+    ["calculate_tick_time_uxp", undefined],
     ["inspect_sequence_timing_by_guid_uxp", undefined],
     ["inspect_track_item_identity_uxp", undefined],
     ["automate_effect_parameters_uxp", "inspect"],

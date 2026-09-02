@@ -72,6 +72,7 @@ const INSPECT_TOOL_NAMES = new Set([
   "inspect_sequence_timing_uxp",
   "inspect_sequence_timing_by_guid_uxp",
   "inspect_frame_alignment_uxp",
+  "calculate_tick_time_uxp",
   "validate_project_for_export",
   "read_sequence_captions",
   "plan_silence_review_markers",
