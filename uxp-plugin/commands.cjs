@@ -25,6 +25,8 @@
     // host data instead of serializing an implausible frame size.
     const MAX_SEQUENCE_FRAME_WIDTH = 10240;
     const MAX_SEQUENCE_FRAME_HEIGHT = 8192;
+    const MAX_TIME_ALIGNMENT_SECONDS = 86400;
+    const MAX_TIME_ALIGNMENT_FRAME_COUNT = MAX_TIME_ALIGNMENT_SECONDS * 240;
     // Preserve the native decimal ticks value as a string. Eighteen digits is a
     // generous bounded protocol representation while avoiding an unbounded
     // value from the host.
@@ -41,6 +43,7 @@
       "sequence.range.update": { destructive: true, undoable: true, idempotent: true, minHostVersion: "25.6.0", probe: canUpdateSequenceRange, handler: updateSequenceRange },
       "sequence.playhead.inspect": { readOnly: true, minHostVersion: "25.6.0", probe: canInspectSequencePlayhead, handler: inspectSequencePlayhead },
       "sequence.playhead.set": { idempotent: true, minHostVersion: "25.6.0", probe: canSetSequencePlayhead, handler: setSequencePlayhead },
+      "time.frameAlignment.inspect": { readOnly: true, minHostVersion: "25.6.0", probe: canInspectFrameAlignment, handler: inspectFrameAlignment },
       "sequence.timing.inspect": { readOnly: true, minHostVersion: "25.6.0", probe: canInspectSequenceTiming, handler: inspectSequenceTiming },
       "sequence.timingByGuid.inspect": { readOnly: true, targetCapabilityProbe: true, minHostVersion: "25.6.0", probe: canInspectSequenceTimingByGuid, handler: inspectSequenceTimingByGuid },
       "preferences.inspect": { readOnly: true, minHostVersion: "25.6.0", probe: canInspectAppPreferences, handler: inspectAppPreferences },
@@ -403,6 +406,68 @@
       return {
         ...await sequencePlayheadSnapshot(context.sequence),
         verificationBoundary: "sequence_playhead_readback"
+      };
+    }
+    function inspectFrameAlignment(args) {
+      assertObject(args);
+      assertOnlyKeys(args, ["action", "frameRate", "seconds", "frameCount"]);
+      const action = args.action;
+      if (action !== "align" && action !== "frame") {
+        throw commandError("UXP_INVALID_ARGUMENT", "action must be align or frame");
+      }
+      const requestedFrameRate = boundedFiniteNumber(args.frameRate, "frameRate", 1, 240);
+      if (!ppro.FrameRate || typeof ppro.FrameRate.createWithValue !== "function" ||
+        !ppro.TickTime || typeof ppro.TickTime.createWithSeconds !== "function" ||
+        typeof ppro.TickTime.createWithFrameAndFrameRate !== "function") {
+        throw commandError("UXP_COMMAND_UNAVAILABLE", "This Premiere build cannot construct native frame-aligned TickTime values");
+      }
+      let frameRate;
+      try { frameRate = ppro.FrameRate.createWithValue(requestedFrameRate); } catch (_) {
+        throw commandError("UXP_COMMAND_UNAVAILABLE", "Premiere rejected the requested frame rate");
+      }
+      const frameRateSnapshot = nativeFrameRateSnapshot(frameRate, requestedFrameRate);
+      if (action === "align") {
+        if (args.frameCount !== undefined || args.seconds === undefined) {
+          throw commandError("UXP_INVALID_ARGUMENT", "align requires seconds and does not accept frameCount");
+        }
+        const seconds = boundedFiniteNumber(args.seconds, "seconds", 0, MAX_TIME_ALIGNMENT_SECONDS);
+        let value, alignedDown, alignedNearest;
+        try {
+          value = ppro.TickTime.createWithSeconds(seconds);
+          if (!value || typeof value.alignToFrame !== "function" || typeof value.alignToNearestFrame !== "function") {
+            throw new Error("missing frame-alignment methods");
+          }
+          alignedDown = value.alignToFrame(frameRate);
+          alignedNearest = value.alignToNearestFrame(frameRate);
+        } catch (_) {
+          throw commandError("UXP_COMMAND_UNAVAILABLE", "Premiere could not align the requested TickTime to the supplied frame rate");
+        }
+        return {
+          action,
+          requested: { seconds, frameRate: requestedFrameRate },
+          frameRate: frameRateSnapshot,
+          input: nativeTickTimeSnapshot(value, "input TickTime"),
+          aligned: {
+            down: nativeTickTimeSnapshot(alignedDown, "frame-aligned TickTime"),
+            nearest: nativeTickTimeSnapshot(alignedNearest, "nearest-frame TickTime")
+          },
+          verificationBoundary: "native_ticktime_value_readback"
+        };
+      }
+      if (args.seconds !== undefined || args.frameCount === undefined) {
+        throw commandError("UXP_INVALID_ARGUMENT", "frame requires frameCount and does not accept seconds");
+      }
+      const frameCount = boundedInteger(args.frameCount, "frameCount", 0, MAX_TIME_ALIGNMENT_FRAME_COUNT);
+      let value;
+      try { value = ppro.TickTime.createWithFrameAndFrameRate(frameCount, frameRate); } catch (_) {
+        throw commandError("UXP_COMMAND_UNAVAILABLE", "Premiere could not construct the requested frame TickTime");
+      }
+      return {
+        action,
+        requested: { frameCount, frameRate: requestedFrameRate },
+        frameRate: frameRateSnapshot,
+        value: nativeTickTimeSnapshot(value, "frame TickTime"),
+        verificationBoundary: "native_ticktime_value_readback"
       };
     }
     async function inspectSequenceTiming(args) {
@@ -850,6 +915,33 @@
         throw commandError("UXP_VERIFICATION_FAILED", "Premiere did not return a valid " + name);
       }
       return { type: value.type };
+    }
+    function nativeFrameRateSnapshot(value, requested) {
+      if (!value || !Number.isFinite(Number(value.value)) || Number(value.value) < 1 || Number(value.value) > 240 ||
+        Math.abs(Number(value.value) - requested) > 0.000001 || !Number.isFinite(Number(value.ticksPerFrame)) || Number(value.ticksPerFrame) <= 0) {
+        throw commandError("UXP_INVALID_HOST_STATE", "Premiere did not return the requested valid native frame rate");
+      }
+      return { value: Number(value.value), ticksPerFrame: Number(value.ticksPerFrame) };
+    }
+    function nativeTickTimeSnapshot(value, name) {
+      if (!value || !Number.isFinite(Number(value.seconds)) || Number(value.seconds) < 0 || Number(value.seconds) > MAX_TIME_ALIGNMENT_SECONDS ||
+        typeof value.ticks !== "string" || !/^\d{1,18}$/.test(value.ticks)) {
+        throw commandError("UXP_INVALID_HOST_STATE", "Premiere did not return a valid " + name);
+      }
+      return { seconds: Number(value.seconds), ticks: value.ticks };
+    }
+    function boundedFiniteNumber(value, name, minimum, maximum) {
+      const number = Number(value);
+      if (!Number.isFinite(number) || number < minimum || number > maximum) {
+        throw commandError("UXP_INVALID_ARGUMENT", name + " must be a finite number from " + minimum + " through " + maximum);
+      }
+      return number;
+    }
+    function boundedInteger(value, name, minimum, maximum) {
+      if (!Number.isSafeInteger(value) || value < minimum || value > maximum) {
+        throw commandError("UXP_INVALID_ARGUMENT", name + " must be an integer from " + minimum + " through " + maximum);
+      }
+      return value;
     }
     function snapshotString(value, name, maximum) {
       if (typeof value !== "string" || !value.trim() || value.length > maximum) {
@@ -1315,6 +1407,11 @@
     }
     function canInspectSequencePlayhead() {
       return activeSequenceHas(["getPlayerPosition"]);
+    }
+    function canInspectFrameAlignment() {
+      return !!(ppro.FrameRate && typeof ppro.FrameRate.createWithValue === "function" &&
+        ppro.TickTime && typeof ppro.TickTime.createWithSeconds === "function" &&
+        typeof ppro.TickTime.createWithFrameAndFrameRate === "function");
     }
     function canInspectSequenceTiming() {
       return activeSequenceHas([

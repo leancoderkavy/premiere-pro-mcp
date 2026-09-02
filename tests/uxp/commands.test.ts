@@ -10,6 +10,12 @@ function host(options: { transitions?: boolean; commit?: boolean } = {}) {
     return true;
   });
   const transitionState = { start: false, end: true };
+  const ticksPerSecond = 1000000;
+  const createNativeTickTime = (seconds: number) => Object.defineProperties({ seconds }, {
+    ticks: { value: String(Math.round(seconds * ticksPerSecond)) },
+    alignToFrame: { value: (frameRate: { value: number }) => createNativeTickTime(Math.floor(seconds * frameRate.value + 1e-9) / frameRate.value) },
+    alignToNearestFrame: { value: (frameRate: { value: number }) => createNativeTickTime(Math.round(seconds * frameRate.value) / frameRate.value) },
+  });
   const add = vi.fn((_transition: unknown, options: { applyToStart?: boolean }) => ({
     kind: "add", apply: () => { transitionState[options.applyToStart ? "start" : "end"] = true; }
   }));
@@ -106,7 +112,11 @@ function host(options: { transitions?: boolean; commit?: boolean } = {}) {
   const ppro = {
     Project: { getActiveProject: vi.fn(async () => project) },
     Guid: { fromString: vi.fn((value: string) => ({ toString: () => value })) },
-    TickTime: { createWithSeconds: vi.fn((seconds: number) => ({ seconds })) },
+    FrameRate: { createWithValue: vi.fn((value: number) => ({ value, ticksPerFrame: ticksPerSecond / value })) },
+    TickTime: {
+      createWithSeconds: vi.fn((seconds: number) => createNativeTickTime(seconds)),
+      createWithFrameAndFrameRate: vi.fn((frameCount: number, frameRate: { value: number }) => createNativeTickTime(frameCount / frameRate.value)),
+    },
     Constants: { TrackItemType: { CLIP: 1 }, MediaType: { ANY: 0 }, TransitionPosition: { START: 0, END: 1 } },
     AppPreference: {
       KEY_AUTO_PEAK_GENERATION: "auto-peak-generation",
@@ -155,6 +165,7 @@ describe("UXP command registry", () => {
     expect(available.commands["sequence.range.update"]).toMatchObject({ supported: true, destructive: true, undoable: true, idempotent: true, minHostVersion: "25.6.0" });
     expect(available.commands["sequence.playhead.inspect"]).toMatchObject({ supported: true, readOnly: true, minHostVersion: "25.6.0" });
     expect(available.commands["sequence.playhead.set"]).toMatchObject({ supported: true, destructive: false, undoable: false, idempotent: true, minHostVersion: "25.6.0" });
+    expect(available.commands["time.frameAlignment.inspect"]).toMatchObject({ supported: true, readOnly: true, minHostVersion: "25.6.0" });
     expect(available.commands["sequence.timing.inspect"]).toMatchObject({ supported: true, readOnly: true, minHostVersion: "25.6.0" });
     expect(available.commands["sequence.timingByGuid.inspect"]).toMatchObject({ supported: true, readOnly: true, minHostVersion: "25.6.0", targetCapabilityProbe: "invocation" });
     expect(available.commands["graphics.mogrtPath.inspect"]).toMatchObject({ supported: true, readOnly: true, minHostVersion: "25.6.0" });
@@ -461,6 +472,55 @@ describe("UXP command registry", () => {
     const capabilities = await unavailable.registry.capabilities();
     expect(capabilities.commands["preferences.inspect"]).toMatchObject({ supported: true });
     expect(capabilities.commands["preferences.set"]).toMatchObject({ supported: false, reason: expect.any(String) });
+  });
+
+  it("uses only native TickTime and FrameRate values for bounded frame alignment", async () => {
+    const value = host();
+    await expect(value.registry.dispatch("time.frameAlignment.inspect", {
+      action: "align", frameRate: 24, seconds: 1.03,
+    })).resolves.toMatchObject({
+      action: "align",
+      requested: { seconds: 1.03, frameRate: 24 },
+      frameRate: { value: 24 },
+      input: { seconds: 1.03, ticks: "1030000" },
+      aligned: { down: { seconds: 1 }, nearest: { seconds: 1.0416666666666667 } },
+      verificationBoundary: "native_ticktime_value_readback",
+    });
+    expect(value.ppro.FrameRate.createWithValue).toHaveBeenCalledWith(24);
+    expect(value.ppro.TickTime.createWithSeconds).toHaveBeenCalledWith(1.03);
+
+    await expect(value.registry.dispatch("time.frameAlignment.inspect", {
+      action: "frame", frameRate: 30000 / 1001, frameCount: 30,
+    })).resolves.toMatchObject({
+      action: "frame",
+      requested: { frameCount: 30, frameRate: 30000 / 1001 },
+      value: { seconds: 1.0010000000000001 },
+      verificationBoundary: "native_ticktime_value_readback",
+    });
+    expect(value.ppro.TickTime.createWithFrameAndFrameRate).toHaveBeenCalledWith(30, expect.objectContaining({ value: 30000 / 1001 }));
+  });
+
+  it("fails closed for malformed frame-alignment inputs and invalid native readback", async () => {
+    const value = host();
+    await expect(value.registry.dispatch("time.frameAlignment.inspect", { action: "align", frameRate: 24 }))
+      .rejects.toMatchObject({ code: "UXP_INVALID_ARGUMENT" });
+    await expect(value.registry.dispatch("time.frameAlignment.inspect", { action: "frame", frameRate: 24, seconds: 1, frameCount: 1 }))
+      .rejects.toMatchObject({ code: "UXP_INVALID_ARGUMENT" });
+    await expect(value.registry.dispatch("time.frameAlignment.inspect", { action: "frame", frameRate: 24, frameCount: 20736001 }))
+      .rejects.toMatchObject({ code: "UXP_INVALID_ARGUMENT" });
+    await expect(value.registry.dispatch("time.frameAlignment.inspect", { action: "align", frameRate: 24, seconds: 1, extra: true }))
+      .rejects.toMatchObject({ code: "UXP_INVALID_ARGUMENT" });
+
+    const malformed = host();
+    malformed.ppro.TickTime.createWithSeconds.mockReturnValueOnce({ seconds: 1, ticks: "not-ticks", alignToFrame: () => ({ seconds: 1, ticks: "1000000" }), alignToNearestFrame: () => ({ seconds: 1, ticks: "1000000" }) });
+    await expect(malformed.registry.dispatch("time.frameAlignment.inspect", { action: "align", frameRate: 24, seconds: 1 }))
+      .rejects.toMatchObject({ code: "UXP_INVALID_HOST_STATE" });
+
+    const unavailable = host();
+    unavailable.ppro.TickTime.createWithFrameAndFrameRate = undefined;
+    await expect(unavailable.registry.capabilities()).resolves.toMatchObject({
+      commands: { "time.frameAlignment.inspect": { supported: false, reason: expect.any(String) } },
+    });
   });
 
   it("returns a bounded native sequence-timing snapshot and rejects a final active-sequence mismatch", async () => {

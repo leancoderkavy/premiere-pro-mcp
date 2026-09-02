@@ -55,6 +55,38 @@
       "verificationBoundary": "created_sequence_guid"
     },
     {
+      "id": "native-ticktime-frame-alignment",
+      "adobeApi": [
+        "FrameRate.createWithValue",
+        "FrameRate.value",
+        "FrameRate.ticksPerFrame",
+        "TickTime.createWithSeconds",
+        "TickTime.createWithFrameAndFrameRate",
+        "TickTime.alignToFrame",
+        "TickTime.alignToNearestFrame",
+        "TickTime.seconds",
+        "TickTime.ticks"
+      ],
+      "documentationUrls": [
+        "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/framerate/",
+        "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/ticktime/"
+      ],
+      "minimumPremiereVersion": "25.6.0",
+      "backend": "uxp",
+      "uxpCommand": "time.frameAlignment.inspect",
+      "mcpTools": [
+        "inspect_frame_alignment_uxp"
+      ],
+      "availability": "current",
+      "implementationStatus": "implemented",
+      "verificationStatus": "automated_contract_verified",
+      "liveHostVerificationStatus": "not_run",
+      "mutatesProject": false,
+      "undoable": false,
+      "idempotency": "not_applicable",
+      "verificationBoundary": "native_ticktime_value_readback"
+    },
+    {
       "id": "native-project-insertion-bin-snapshot",
       "adobeApi": [
         "Project.getInsertionBin",

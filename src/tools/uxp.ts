@@ -126,6 +126,34 @@ export function getUxpTools(bridge: UxpWebSocketBridge) {
       },
       handler: async () => invoke(bridge, "sequence.timing.inspect"),
     },
+    inspect_frame_alignment_uxp: {
+      description: "Use Premiere's documented native TickTime and FrameRate APIs to either align one bounded requested time down or to the nearest frame boundary, or construct the exact TickTime for one frame count. This is read-only, uses only caller-owned inputs, and returns native seconds and tick-string readback; it does not inspect a sequence, infer its frame rate, change Premiere, or prove a licensed host.",
+      parameters: {
+        type: "object" as const,
+        additionalProperties: false,
+        properties: {
+          action: { type: "string", enum: ["align", "frame"] },
+          frame_rate: { type: "number", minimum: 1, maximum: 240, description: "Caller-supplied frames per second used by Premiere's native FrameRate factory." },
+          seconds: { type: "number", minimum: 0, maximum: 86400, description: "Required only for align; a requested time to align natively." },
+          frame_count: { type: "integer", minimum: 0, maximum: 20736000, description: "Required only for frame; an exact frame number to convert natively." },
+        },
+        required: ["action", "frame_rate"],
+      },
+      operationalCapability: {
+        backend: "UXP" as const,
+        backends: ["uxp" as const],
+        minimumPremiereVersion: "25.6",
+        verificationBoundary: "structured_uxp_readback" as const,
+        hostVerificationRequired: true,
+        notes: ["Available only through an authenticated UXP bridge whose runtime capability handshake advertises time.frameAlignment.inspect."],
+      },
+      handler: async (args: { action: "align" | "frame"; frame_rate: number; seconds?: number; frame_count?: number }) => invoke(bridge, "time.frameAlignment.inspect", {
+        action: args.action,
+        frameRate: args.frame_rate,
+        ...(args.seconds === undefined ? {} : { seconds: args.seconds }),
+        ...(args.frame_count === undefined ? {} : { frameCount: args.frame_count }),
+      }),
+    },
     inspect_sequence_timing_by_guid_uxp: {
       description: "Read one known sequence's bounded native timing and backing Project-item identity, including a non-active sequence without activating it. It resolves the exact GUID through the documented Project API, requires a matching project/sequence identity after the asynchronous reads, and rejects any timing change between complete first and final snapshots. It does not modify Premiere, prove an atomic host snapshot, or validate a licensed host.",
       parameters: {

@@ -170,13 +170,18 @@ describe("capability profiles", () => {
     const inspectOnly = resolveCapabilities("inspect");
     expect(isToolPermitted("inspect_sequence_timing_uxp", inspectOnly)).toBe(true);
     expect(capabilitiesForToolInvocation("inspect_sequence_timing_uxp", {})).toEqual(["inspect"]);
+    expect(isToolPermitted("inspect_frame_alignment_uxp", inspectOnly)).toBe(true);
+    expect(capabilitiesForToolInvocation("inspect_frame_alignment_uxp", { action: "align", frame_rate: 24, seconds: 1 })).toEqual(["inspect"]);
     expect(capabilitiesForToolInvocation("inspect_project_insertion_bin_uxp", {})).toEqual(["inspect"]);
     expect(capabilitiesForToolInvocation("inspect_installed_mogrt_directory_uxp", {})).toEqual(["inspect"]);
     expect(capabilitiesForToolInvocation("inspect_track_item_identity_uxp", {})).toEqual(["inspect"]);
     await expect(
       guardToolHandler("inspect_sequence_timing_uxp", handler, inspectOnly, () => "timing-inspect")({}),
     ).resolves.toBe("ok");
-    expect(handler).toHaveBeenCalledOnce();
+    await expect(
+      guardToolHandler("inspect_frame_alignment_uxp", handler, inspectOnly, () => "frame-alignment-inspect")({ action: "frame", frame_rate: 24, frame_count: 1 }),
+    ).resolves.toBe("ok");
+    expect(handler).toHaveBeenCalledTimes(2);
   });
 
   it("withholds and rejects non-undoable empty sequence creation without edit authority", async () => {
@@ -216,6 +221,7 @@ describe("capability profiles", () => {
     ["inspect_project_insertion_bin_uxp", undefined],
     ["inspect_installed_mogrt_directory_uxp", undefined],
     ["inspect_sequence_timing_uxp", undefined],
+    ["inspect_frame_alignment_uxp", undefined],
     ["inspect_sequence_timing_by_guid_uxp", undefined],
     ["inspect_track_item_identity_uxp", undefined],
     ["automate_effect_parameters_uxp", "inspect"],
