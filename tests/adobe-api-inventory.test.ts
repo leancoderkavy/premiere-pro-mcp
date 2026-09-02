@@ -45,6 +45,32 @@ describe("Adobe declaration API inventory", () => {
     expect(inventory.stats.manifestOnly).toBe(expectedManifestOnly.length);
   });
 
+  it("maps the documented stable SnapEvent journal constants without advertising host execution", () => {
+    const snapCoverage = coverage.entries.find((entry: { id: string }) => entry.id === "bounded-timeline-snap-event-journal");
+    expect(snapCoverage).toMatchObject({
+      backend: "uxp",
+      uxpCommand: "events.list",
+      mcpTools: ["inspect_premiere_events_uxp"],
+      minimumPremiereVersion: "26.3.0",
+      mutatesProject: false,
+      undoable: false,
+      verificationStatus: "automated_contract_verified",
+      liveHostVerificationStatus: "not_run",
+      verificationBoundary: "bounded_redacted_timeline_snap_event_receipt",
+    });
+    expect(snapCoverage.adobeApi).toEqual([
+      "SnapEvent.EVENT_SNAP_TO_KEYFRAME",
+      "SnapEvent.EVENT_SNAP_TO_TRACKITEM",
+      "SnapEvent.EVENT_SNAP_TO_GUIDES",
+      "SnapEvent.EVENT_SNAP_RAZOR_TO_PLAYHEAD",
+      "SnapEvent.EVENT_SNAP_RAZOR_TO_MARKER",
+      "SnapEvent.EVENT_SNAP_PLAYHEAD_TO_TRACKITEM_EDGE",
+    ]);
+    for (const symbol of snapCoverage.adobeApi) {
+      expect(inventory.entries).toContainEqual(expect.objectContaining({ symbol, coverage: "mapped" }));
+    }
+  });
+
   it("pins beta Media declarations for drift audit while coverage remains stable-only", () => {
     const manifest = JSON.parse(readFileSync("package.json", "utf8"));
     const lockfile = JSON.parse(readFileSync("package-lock.json", "utf8"));

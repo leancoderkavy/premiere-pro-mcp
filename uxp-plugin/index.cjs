@@ -411,6 +411,9 @@ function supportedHostEvents() {
   const sequence = constants.SequenceEvent || {};
   const operation = constants.OperationCompleteEvent || {};
   const encoder = ppro.EncoderManager || {};
+  const snapEvents = typeof EventSupport.createTimelineSnapEventDefinitions === "function"
+    ? EventSupport.createTimelineSnapEventDefinitions(ppro.SnapEvent)
+    : [];
   return [
     hostEvent("project", "project.opened", project.OPENED, true),
     hostEvent("project", "project.closed", project.CLOSED, true),
@@ -429,7 +432,7 @@ function supportedHostEvents() {
     hostEvent("encoder", "encoder.complete", encoder.EVENT_RENDER_COMPLETE, false),
     hostEvent("encoder", "encoder.error", encoder.EVENT_RENDER_ERROR, false),
     hostEvent("encoder", "encoder.cancelled", encoder.EVENT_RENDER_CANCEL, false)
-  ].filter((event) => event.eventName !== undefined && event.eventName !== null);
+  ].concat(snapEvents).filter((event) => event.eventName !== undefined && event.eventName !== null);
 }
 function hostEvent(category, name, eventName, stateInvalidating, coalesceKey) {
   return { category, name, eventName, stateInvalidating, coalesceKey: coalesceKey || null };

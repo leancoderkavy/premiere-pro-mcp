@@ -13,8 +13,8 @@
   },
   "stats": {
     "total": 976,
-    "mapped": 366,
-    "unmapped": 610,
+    "mapped": 372,
+    "unmapped": 604,
     "manifestOnly": 5
   },
   "manifestOnly": [
@@ -4028,37 +4028,37 @@
       "symbol": "SnapEvent.EVENT_SNAP_PLAYHEAD_TO_TRACKITEM_EDGE",
       "kind": "property",
       "declarationSymbol": "SnapEventStatic.EVENT_SNAP_PLAYHEAD_TO_TRACKITEM_EDGE",
-      "coverage": "unmapped"
+      "coverage": "mapped"
     },
     {
       "symbol": "SnapEvent.EVENT_SNAP_RAZOR_TO_MARKER",
       "kind": "property",
       "declarationSymbol": "SnapEventStatic.EVENT_SNAP_RAZOR_TO_MARKER",
-      "coverage": "unmapped"
+      "coverage": "mapped"
     },
     {
       "symbol": "SnapEvent.EVENT_SNAP_RAZOR_TO_PLAYHEAD",
       "kind": "property",
       "declarationSymbol": "SnapEventStatic.EVENT_SNAP_RAZOR_TO_PLAYHEAD",
-      "coverage": "unmapped"
+      "coverage": "mapped"
     },
     {
       "symbol": "SnapEvent.EVENT_SNAP_TO_GUIDES",
       "kind": "property",
       "declarationSymbol": "SnapEventStatic.EVENT_SNAP_TO_GUIDES",
-      "coverage": "unmapped"
+      "coverage": "mapped"
     },
     {
       "symbol": "SnapEvent.EVENT_SNAP_TO_KEYFRAME",
       "kind": "property",
       "declarationSymbol": "SnapEventStatic.EVENT_SNAP_TO_KEYFRAME",
-      "coverage": "unmapped"
+      "coverage": "mapped"
     },
     {
       "symbol": "SnapEvent.EVENT_SNAP_TO_TRACKITEM",
       "kind": "property",
       "declarationSymbol": "SnapEventStatic.EVENT_SNAP_TO_TRACKITEM",
-      "coverage": "unmapped"
+      "coverage": "mapped"
     },
     {
       "symbol": "SnapEventStatic",
