@@ -65,6 +65,10 @@ describe("native SDK header receipt verifier", () => {
     absolutePath.headers[0].path = "C:/sdk/UxpAddonShared.h";
     expect(() => verifyNativeSdkHeaderInventory(absolutePath)).toThrow("must be a canonical relative path");
 
+    const driveRelativePath = clone(hybridReceipt());
+    driveRelativePath.headers[0].path = "C:Headers/UxpAddonShared.h";
+    expect(() => verifyNativeSdkHeaderInventory(driveRelativePath)).toThrow("must be a canonical relative path");
+
     const unsorted = clone(hybridReceipt());
     [unsorted.headers[0], unsorted.headers[1]] = [unsorted.headers[1], unsorted.headers[0]];
     expect(() => verifyNativeSdkHeaderInventory(unsorted)).toThrow("must be strictly sorted");

@@ -44,7 +44,7 @@ function string(value, label, maximum = MAX_PATH_LENGTH) {
 function canonicalRelativePath(value, label) {
   const path = string(value, label).replaceAll("\\", "/");
   const segments = path.split("/");
-  if (path !== value || path.startsWith("/") || /^[A-Za-z]:\//.test(path) || path !== "." && segments.some((segment) => segment === "" || segment === "." || segment === "..")) {
+  if (path !== value || path.startsWith("/") || /^[A-Za-z]:/.test(path) || path !== "." && segments.some((segment) => segment === "" || segment === "." || segment === "..")) {
     throw verificationError(`${label} must be a canonical relative path`);
   }
   return path;

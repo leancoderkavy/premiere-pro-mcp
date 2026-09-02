@@ -27,7 +27,7 @@ function normalRelativePath(value, label) {
     throw inventoryError(`${label} must be a non-empty relative path`);
   }
   const normalized = value.replaceAll("\\", "/");
-  if (normalized.startsWith("/") || /^[A-Za-z]:\//.test(normalized) || normalized.split("/").includes("..")) {
+  if (normalized.startsWith("/") || /^[A-Za-z]:/.test(normalized) || normalized.split("/").includes("..")) {
     throw inventoryError(`${label} must stay relative to the SDK root`);
   }
   const segments = normalized.split("/");

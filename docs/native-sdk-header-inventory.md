@@ -29,7 +29,7 @@ reviewed one; `--validate-only` verifies the supplied artifact without writing.
 Use the standalone verifier when a reviewer needs to inspect a receipt without
 receiving the SDK extraction or archive. It rejects extra fields (including
 header contents and absolute paths), inconsistent totals, non-canonical or
-duplicate paths, incorrect hashes, and Hybrid receipts missing the public-guide
+duplicate paths, malformed digest fields, and Hybrid receipts missing the public-guide
 headers:
 
 ```powershell

@@ -87,6 +87,10 @@ describe("native SDK header-inventory receipt", () => {
         includeDirectories: ["Headers/"],
       })).rejects.toThrow("must use a canonical relative path");
       await expect(generateNativeSdkHeaderInventory({
+        sdk: "premiere-prsdk", sdkVersion: "fixture", archivePath, sdkRoot,
+        includeDirectories: ["C:Headers"],
+      })).rejects.toThrow("must stay relative to the SDK root");
+      await expect(generateNativeSdkHeaderInventory({
         sdk: "constructor", sdkVersion: "fixture", archivePath, sdkRoot,
       })).rejects.toThrow("sdk must be uxp-hybrid or premiere-prsdk");
     } finally {
