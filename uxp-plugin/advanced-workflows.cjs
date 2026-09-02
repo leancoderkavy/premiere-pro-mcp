@@ -308,14 +308,14 @@
     }
 
     async function inspectTimelineStructure(args) {
-      assertObject(args); assertOnlyKeys(args, ["sequenceId", "expectedSequenceId", "mediaType", "trackIndices", "includeEmptyTracks", "maxItems"]);
+      assertObject(args); assertOnlyKeys(args, ["sequenceId", "expectedSequenceId", "mediaType", "trackIndices", "includeEmptyTracks", "includeSourceProjectItems", "maxItems"]);
       const project = await activeProject(false), sequence = await resolveSequence(project, args.sequenceId);
       const sequenceId = guidString(sequence.guid), expectedSequenceId = args.expectedSequenceId == null ? null : boundedString(args.expectedSequenceId, "expectedSequenceId", 128);
       if (expectedSequenceId && expectedSequenceId !== sequenceId) {
         throw commandError("UXP_STALE_SEQUENCE", "The requested sequence identity no longer matches; inspect the current timeline and retry");
       }
       const mediaType = enumValue(args.mediaType == null ? "all" : args.mediaType, "mediaType", ["all", "video", "audio"]);
-      const trackIndices = timelineTrackIndices(args.trackIndices), includeEmptyTracks = optionalBoolean(args.includeEmptyTracks, false, "includeEmptyTracks");
+      const trackIndices = timelineTrackIndices(args.trackIndices), includeEmptyTracks = optionalBoolean(args.includeEmptyTracks, false, "includeEmptyTracks"), includeSourceProjectItems = optionalBoolean(args.includeSourceProjectItems, false, "includeSourceProjectItems");
       const maxItems = args.maxItems == null ? 128 : boundedInt(args.maxItems, "maxItems", 1, MAX_TIMELINE_ITEMS);
       const itemType = ppro.Constants && ppro.Constants.TrackItemType;
       if (!itemType || itemType.CLIP == null) throw commandError("UXP_COMMAND_UNAVAILABLE", "Clip track-item APIs are unavailable");
@@ -348,7 +348,7 @@
           if (!items.length && !includeEmptyTracks) { emptyTracksOmitted += 1; continue; }
           const snapshots = [];
           for (let clipIndex = 0; clipIndex < items.length; clipIndex += 1) {
-            snapshots.push(await trackItemSnapshot({ item: items[clipIndex], mediaType: currentMediaType, trackIndex, clipIndex }));
+            snapshots.push(await trackItemSnapshot({ item: items[clipIndex], mediaType: currentMediaType, trackIndex, clipIndex, includeSourceProjectItems }));
           }
           itemCount += snapshots.length;
           tracks.push({ mediaType: currentMediaType, trackIndex, name: String(track.name || ""), itemCount: snapshots.length, items: snapshots });
@@ -990,12 +990,24 @@
     }
 
     async function trackItemSnapshot(context) {
-      return {
+      const snapshot = {
         mediaType: context.mediaType, trackIndex: context.trackIndex, clipIndex: context.clipIndex,
         name: await maybeCall(context.item, "getName"), startSeconds: tickSeconds(await context.item.getStartTime()), endSeconds: tickSeconds(await context.item.getEndTime()),
         inSeconds: tickSeconds(await context.item.getInPoint()), outSeconds: tickSeconds(await context.item.getOutPoint()), durationSeconds: tickSeconds(await context.item.getDuration()),
         speed: await maybeCall(context.item, "getSpeed"), reversed: await maybeCall(context.item, "isSpeedReversed"), adjustmentLayer: await maybeCall(context.item, "isAdjustmentLayer"), disabled: await maybeCall(context.item, "isDisabled")
       };
+      if (context.includeSourceProjectItems) snapshot.sourceProjectItemId = await trackItemSourceProjectItemId(context.item);
+      return snapshot;
+    }
+
+    async function trackItemSourceProjectItemId(item) {
+      try {
+        if (!item || typeof item.getProjectItem !== "function") return null;
+        const sourceItem = await item.getProjectItem(), sourceId = await projectItemId(sourceItem);
+        return sourceId || null;
+      } catch (_) {
+        return null;
+      }
     }
 
     async function inspectTrackItem(args) {

@@ -1611,6 +1611,7 @@
         "VideoClipTrackItem.isSpeedReversed",
         "VideoClipTrackItem.isAdjustmentLayer",
         "VideoClipTrackItem.isDisabled",
+        "VideoClipTrackItem.getProjectItem",
         "AudioClipTrackItem.getName",
         "AudioClipTrackItem.getStartTime",
         "AudioClipTrackItem.getEndTime",
@@ -1620,14 +1621,17 @@
         "AudioClipTrackItem.getSpeed",
         "AudioClipTrackItem.isSpeedReversed",
         "AudioClipTrackItem.isAdjustmentLayer",
-        "AudioClipTrackItem.isDisabled"
+        "AudioClipTrackItem.isDisabled",
+        "AudioClipTrackItem.getProjectItem",
+        "ProjectItem.getId"
       ],
       "documentationUrls": [
         "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/sequence/",
         "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/videotrack/",
         "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/audiotrack/",
         "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/videocliptrackitem/",
-        "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/audiocliptrackitem/"
+        "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/audiocliptrackitem/",
+        "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/projectitem/"
       ],
       "minimumPremiereVersion": "25.6.0",
       "backend": "uxp",
