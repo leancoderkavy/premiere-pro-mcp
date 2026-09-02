@@ -69,9 +69,10 @@ describe("advanced stable UXP workflow MCP catalog", () => {
     });
     expect(tools.automate_effect_parameters_uxp.parameters).toMatchObject({
       properties: {
-        action: { enum: ["inspect", "set_value", "add_keyframe", "remove_keyframe", "remove_keyframe_range", "set_interpolation", "inspect_time_varying", "set_time_varying"] },
+        action: { enum: ["inspect", "inspect_keyframe", "set_value", "add_keyframe", "remove_keyframe", "remove_keyframe_range", "set_interpolation", "inspect_time_varying", "set_time_varying"] },
         expected_sequence_id: { maxLength: 128 }, expected_time_varying: { type: "boolean" },
         expected_keyframe_times_seconds: { maxItems: 256, uniqueItems: true },
+        keyframe_direction: { enum: ["at", "next", "previous"] },
         time_varying: { type: "boolean" }, confirm_disable_time_varying: { type: "boolean" },
       },
     });
@@ -86,7 +87,7 @@ describe("advanced stable UXP workflow MCP catalog", () => {
     });
   });
 
-  it("maps guarded parameter animation-mode inspect and set actions without forwarding unrelated time arguments", async () => {
+  it("maps guarded parameter keyframe and animation-mode reads to their exact UXP commands", async () => {
     const request = vi.fn().mockResolvedValue({ outcome: "verified" });
     const bridge = { request, getState: vi.fn() } as unknown as UxpWebSocketBridge;
     const tools = getUxpTools(bridge);
@@ -95,6 +96,7 @@ describe("advanced stable UXP workflow MCP catalog", () => {
       expected_component_id: "ADBE Opacity", expected_param_name: "Opacity",
     };
 
+    await tools.automate_effect_parameters_uxp.handler({ action: "inspect_keyframe", ...target, time_seconds: 4, keyframe_direction: "next" });
     await tools.automate_effect_parameters_uxp.handler({ action: "inspect_time_varying", ...target, time_seconds: 4 });
     await tools.automate_effect_parameters_uxp.handler({
       action: "set_time_varying", ...target, expected_sequence_id: "sequence-1", expected_time_varying: true,
@@ -103,6 +105,10 @@ describe("advanced stable UXP workflow MCP catalog", () => {
     });
 
     expect(request.mock.calls).toEqual([
+      ["parameters.keyframe.inspect", {
+        mediaType: "video", trackIndex: 0, clipIndex: 1, componentIndex: 2, paramIndex: 3,
+        expectedComponentId: "ADBE Opacity", expectedParamName: "Opacity", timeSeconds: 4, direction: "next",
+      }],
       ["parameters.timeVarying.inspect", {
         mediaType: "video", trackIndex: 0, clipIndex: 1, componentIndex: 2, paramIndex: 3,
         expectedComponentId: "ADBE Opacity", expectedParamName: "Opacity",

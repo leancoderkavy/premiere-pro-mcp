@@ -118,6 +118,10 @@ function advancedHost() {
   };
 
   const parameterState = { value: 50, varying: false, keyframes: [] as number[] };
+  const parameterKeyframe = (seconds: number) => ({
+    position: { seconds },
+    getTemporalInterpolationMode: vi.fn(async () => 1),
+  });
   const parameter = {
     displayName: "Opacity",
     areKeyframesSupported: vi.fn(async () => true),
@@ -125,6 +129,15 @@ function advancedHost() {
     getKeyframeListAsTickTimes: vi.fn(() => parameterState.keyframes.map((seconds) => ({ seconds }))),
     getStartValue: vi.fn(async () => ({ value: parameterState.value })),
     getValueAtTime: vi.fn(async () => parameterState.value),
+    getKeyframePtr: vi.fn((time: { seconds: number }) => parameterState.keyframes.includes(time.seconds) ? parameterKeyframe(time.seconds) : null),
+    findNextKeyframe: vi.fn((time: { seconds: number }) => {
+      const next = parameterState.keyframes.find((seconds) => seconds > time.seconds);
+      return next == null ? null : parameterKeyframe(next);
+    }),
+    findPreviousKeyframe: vi.fn((time: { seconds: number }) => {
+      const previous = parameterState.keyframes.filter((seconds) => seconds < time.seconds).at(-1);
+      return previous == null ? null : parameterKeyframe(previous);
+    }),
     createKeyframe: vi.fn((value: number) => ({ value, position: null as { seconds: number } | null })),
     createSetValueAction: vi.fn((keyframe: { value: number }) => ({ apply: () => { parameterState.value = keyframe.value; } })),
     createSetTimeVaryingAction: vi.fn((value: boolean) => ({ apply: () => { parameterState.varying = value; } })),
@@ -326,7 +339,7 @@ describe("advanced stable Premiere UXP workflows", () => {
     expect(Object.keys(capabilities.commands)).toEqual(expect.arrayContaining([
       "projectSelection.views", "projectSelection.inspect", "projectTree.inspect", "markers.inspect", "markers.add", "markers.addBeatGrid", "markers.removeMany",
       "bins.inspect", "bins.create", "sequenceSettings.get", "sequenceSettings.update", "sequence.displayFormat.inspect", "sequence.displayFormat.update",
-      "project.import", "parameters.inspect", "parameters.keyframeAdd", "parameters.timeVarying.inspect", "parameters.timeVarying.set", "trackItem.inspect",
+      "project.import", "parameters.inspect", "parameters.keyframeAdd", "parameters.keyframe.inspect", "parameters.timeVarying.inspect", "parameters.timeVarying.set", "trackItem.inspect",
       "trackItem.update", "timeline.insert", "timeline.mogrtPath", "timeline.structure.inspect", "sequences.inspect",
       "sequences.createEmpty",
       "trackItem.splitEdit",
@@ -340,6 +353,7 @@ describe("advanced stable Premiere UXP workflows", () => {
     expect(capabilities.commands["encoder.sequence"]).toMatchObject({ supported: true, workspaceRequired: true, undoable: false });
     expect(capabilities.commands["sequence.displayFormat.inspect"]).toMatchObject({ supported: true, readOnly: true, destructive: false });
     expect(capabilities.commands["sequence.displayFormat.update"]).toMatchObject({ supported: true, destructive: true, undoable: true, idempotent: true });
+    expect(capabilities.commands["parameters.keyframe.inspect"]).toMatchObject({ supported: true, readOnly: true, destructive: false });
     expect(capabilities.commands["parameters.timeVarying.inspect"]).toMatchObject({ supported: true, readOnly: true, destructive: false });
     expect(capabilities.commands["parameters.timeVarying.set"]).toMatchObject({ supported: true, destructive: true, undoable: true, idempotent: true });
     expect(capabilities.commands["sequences.createEmpty"]).toMatchObject({ supported: true, destructive: true, undoable: false, idempotent: true, minHostVersion: "26.3.0" });
@@ -1214,6 +1228,38 @@ describe("advanced stable Premiere UXP workflows", () => {
     });
     expect(value.parameter.createSetTimeVaryingAction).toHaveBeenCalledTimes(1);
     expect(value.project.executeTransaction).toHaveBeenCalledTimes(1);
+  });
+
+  it("locates one exact, next, or previous keyframe with bounded native position and interpolation readback", async () => {
+    const value = advancedHost();
+    value.parameterState.keyframes = [1, 3, 7];
+    const target = { mediaType: "video", trackIndex: 0, clipIndex: 0, componentIndex: 0, paramIndex: 0, expectedComponentId: "ADBE Opacity", expectedParamName: "Opacity" };
+
+    await expect(value.registry.dispatch("parameters.keyframe.inspect", { ...target, direction: "at", timeSeconds: 3 })).resolves.toMatchObject({
+      sequenceId: "sequence-1", direction: "at", referenceSeconds: 3, found: true,
+      keyframe: { positionSeconds: 3, temporalInterpolationMode: 1 },
+    });
+    await expect(value.registry.dispatch("parameters.keyframe.inspect", { ...target, direction: "next", timeSeconds: 3 })).resolves.toMatchObject({
+      direction: "next", found: true, keyframe: { positionSeconds: 7, temporalInterpolationMode: 1 },
+    });
+    await expect(value.registry.dispatch("parameters.keyframe.inspect", { ...target, direction: "previous", timeSeconds: 3 })).resolves.toMatchObject({
+      direction: "previous", found: true, keyframe: { positionSeconds: 1, temporalInterpolationMode: 1 },
+    });
+    await expect(value.registry.dispatch("parameters.keyframe.inspect", { ...target, direction: "next", timeSeconds: 7 })).resolves.toMatchObject({
+      direction: "next", found: false, keyframe: null,
+    });
+    await expect(value.registry.dispatch("parameters.keyframe.inspect", { ...target, direction: "nearest", timeSeconds: 3 }))
+      .rejects.toMatchObject({ code: "UXP_INVALID_ARGUMENT" });
+    expect(value.parameter.getKeyframePtr).toHaveBeenCalledWith({ seconds: 3 });
+    expect(value.parameter.findNextKeyframe).toHaveBeenCalledWith({ seconds: 3 });
+    expect(value.parameter.findPreviousKeyframe).toHaveBeenCalledWith({ seconds: 3 });
+
+    const staleTarget = advancedHost();
+    staleTarget.parameterState.keyframes = [3];
+    await expect(staleTarget.registry.dispatch("parameters.keyframe.inspect", {
+      ...target, expectedParamName: "Stale Opacity", direction: "at", timeSeconds: 3,
+    })).rejects.toMatchObject({ code: "UXP_STALE_PARAMETER" });
+    expect(staleTarget.parameter.getKeyframePtr).not.toHaveBeenCalled();
   });
 
   it("keeps direct sequence actions unverified with stable result keys and probes host methods", async () => {

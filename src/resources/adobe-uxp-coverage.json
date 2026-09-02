@@ -1257,11 +1257,17 @@
         "ComponentParam.areKeyframesSupported",
         "ComponentParam.isTimeVarying",
         "ComponentParam.getKeyframeListAsTickTimes",
-        "ComponentParam.createSetTimeVaryingAction"
+        "ComponentParam.createSetTimeVaryingAction",
+        "ComponentParam.getKeyframePtr",
+        "ComponentParam.findNextKeyframe",
+        "ComponentParam.findPreviousKeyframe",
+        "Keyframe.position",
+        "Keyframe.getTemporalInterpolationMode"
       ],
       "documentationUrls": [
         "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/component/",
-        "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/componentparam/"
+        "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/componentparam/",
+        "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/keyframe/"
       ],
       "minimumPremiereVersion": "25.6.0",
       "backend": "uxp",
@@ -1274,7 +1280,7 @@
       "mutatesProject": true,
       "undoable": true,
       "idempotency": "operation_id",
-      "verificationBoundary": "parameter_value_keyframe_or_animation_mode_readback"
+      "verificationBoundary": "parameter_value_keyframe_animation_mode_or_lookup_readback"
     },
     {
       "id": "track-item-transformations",

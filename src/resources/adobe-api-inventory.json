@@ -13,8 +13,8 @@
   },
   "stats": {
     "total": 976,
-    "mapped": 289,
-    "unmapped": 687,
+    "mapped": 294,
+    "unmapped": 682,
     "manifestOnly": 5
   },
   "manifestOnly": [
@@ -1021,12 +1021,12 @@
     {
       "symbol": "ComponentParam.findNextKeyframe",
       "kind": "method",
-      "coverage": "unmapped"
+      "coverage": "mapped"
     },
     {
       "symbol": "ComponentParam.findPreviousKeyframe",
       "kind": "method",
-      "coverage": "unmapped"
+      "coverage": "mapped"
     },
     {
       "symbol": "ComponentParam.getKeyframeListAsTickTimes",
@@ -1036,7 +1036,7 @@
     {
       "symbol": "ComponentParam.getKeyframePtr",
       "kind": "method",
-      "coverage": "unmapped"
+      "coverage": "mapped"
     },
     {
       "symbol": "ComponentParam.getStartValue",
@@ -2370,12 +2370,12 @@
     {
       "symbol": "Keyframe.getTemporalInterpolationMode",
       "kind": "method",
-      "coverage": "unmapped"
+      "coverage": "mapped"
     },
     {
       "symbol": "Keyframe.position",
       "kind": "property",
-      "coverage": "unmapped"
+      "coverage": "mapped"
     },
     {
       "symbol": "Keyframe.setTemporalInterpolationMode",

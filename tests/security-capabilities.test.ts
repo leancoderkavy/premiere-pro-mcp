@@ -194,6 +194,7 @@ describe("capability profiles", () => {
     ["inspect_project_insertion_bin_uxp", undefined],
     ["inspect_sequence_timing_uxp", undefined],
     ["automate_effect_parameters_uxp", "inspect"],
+    ["automate_effect_parameters_uxp", "inspect_keyframe"],
     ["automate_effect_parameters_uxp", "inspect_time_varying"],
     ["transform_track_item_uxp", "inspect"],
     ["manage_sequences_uxp", "inspect"],

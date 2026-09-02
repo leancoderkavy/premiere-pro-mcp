@@ -50,6 +50,7 @@
       "parameters.keyframeRemove": { destructive: true, undoable: true, targetCapabilityProbe: true, minHostVersion: "25.6.0", probe: canUseParameters, handler: removeParameterKeyframe },
       "parameters.keyframeRemoveRange": { destructive: true, undoable: true, targetCapabilityProbe: true, minHostVersion: "25.6.0", probe: canUseParameters, handler: removeParameterKeyframeRange },
       "parameters.keyframeInterpolation": { destructive: true, undoable: true, targetCapabilityProbe: true, minHostVersion: "25.6.0", probe: canUseParameters, handler: setParameterInterpolation },
+      "parameters.keyframe.inspect": { readOnly: true, targetCapabilityProbe: true, minHostVersion: "25.6.0", probe: canUseParameters, handler: inspectParameterKeyframe },
       "parameters.timeVarying.inspect": { readOnly: true, targetCapabilityProbe: true, minHostVersion: "25.6.0", probe: canUseParameters, handler: inspectParameterTimeVarying },
       "parameters.timeVarying.set": { destructive: true, undoable: true, idempotent: true, targetCapabilityProbe: true, minHostVersion: "25.6.0", probe: canUseParameters, handler: setParameterTimeVarying },
       "trackItem.inspect": { readOnly: true, targetCapabilityProbe: true, minHostVersion: "25.6.0", probe: canUseTrackItems, handler: inspectTrackItem },
@@ -926,6 +927,50 @@
     async function inspectParameter(args) {
       const context = await parameterContext(args, false);
       return parameterSnapshot(context, args.timeSeconds);
+    }
+
+    async function inspectParameterKeyframe(args) {
+      assertObject(args);
+      assertOnlyKeys(args, ["mediaType", "trackIndex", "clipIndex", "componentIndex", "paramIndex", "expectedComponentId", "expectedParamName", "timeSeconds", "direction"]);
+      const direction = enumValue(args.direction, "direction", ["at", "next", "previous"]);
+      const timeSeconds = finiteNumber(args.timeSeconds, "timeSeconds", 0, 86400);
+      const context = await parameterContext({
+        mediaType: args.mediaType, trackIndex: args.trackIndex, clipIndex: args.clipIndex,
+        componentIndex: args.componentIndex, paramIndex: args.paramIndex,
+        expectedComponentId: args.expectedComponentId, expectedParamName: args.expectedParamName,
+        timeSeconds,
+      }, false);
+      if (typeof context.param.areKeyframesSupported !== "function" || !await context.param.areKeyframesSupported()) {
+        throw commandError("UXP_TARGET_UNSUPPORTED", "This parameter does not support keyframes");
+      }
+      const method = direction === "at" ? "getKeyframePtr" : direction === "next" ? "findNextKeyframe" : "findPreviousKeyframe";
+      if (typeof context.param[method] !== "function") {
+        throw commandError("UXP_COMMAND_UNAVAILABLE", "Premiere cannot locate parameter keyframes in the requested direction");
+      }
+      let keyframe;
+      try { keyframe = context.param[method](tick(timeSeconds, "timeSeconds")); } catch (_) {
+        throw commandError("UXP_KEYFRAME_LOOKUP_FAILED", "Premiere could not locate the requested parameter keyframe");
+      }
+      const base = {
+        projectId: guidString(context.project && context.project.guid), sequenceId: guidString(context.sequence && context.sequence.guid),
+        mediaType: context.mediaType, trackIndex: context.trackIndex, clipIndex: context.clipIndex,
+        componentIndex: context.componentIndex, componentId: context.componentId, paramIndex: context.paramIndex,
+        paramName: context.paramName, direction, referenceSeconds: timeSeconds,
+      };
+      if (!keyframe) return { ...base, found: false, keyframe: null };
+      const positionSeconds = tickSeconds(keyframe.position);
+      if (positionSeconds == null) throw commandError("UXP_INVALID_HOST_STATE", "Premiere returned a keyframe without a readable position");
+      if (typeof keyframe.getTemporalInterpolationMode !== "function") {
+        throw commandError("UXP_COMMAND_UNAVAILABLE", "Premiere cannot read the located keyframe interpolation mode");
+      }
+      let temporalInterpolationMode;
+      try { temporalInterpolationMode = await keyframe.getTemporalInterpolationMode(); } catch (_) {
+        throw commandError("UXP_KEYFRAME_LOOKUP_FAILED", "Premiere did not return the located keyframe interpolation mode");
+      }
+      if (!Number.isFinite(Number(temporalInterpolationMode))) {
+        throw commandError("UXP_INVALID_HOST_STATE", "Premiere returned an invalid keyframe interpolation mode");
+      }
+      return { ...base, found: true, keyframe: { positionSeconds, temporalInterpolationMode: Number(temporalInterpolationMode) } };
     }
 
     async function parameterTimeVaryingContext(args, mutation) {

@@ -22,7 +22,7 @@ a failed UXP mutation through CEP.
 | Transactional bin organizer | `organize_project_items_uxp` | `bins.inspect`, `bins.create`, `bins.createSmart`, `bins.rename`, `bins.move`, `bins.color`, `bins.remove` | Project-item identity, name, parent, color, or absence readback |
 | Sequence settings profiles | `manage_sequence_settings_uxp` | `sequenceSettings.get`, `sequenceSettings.update` | Requested settings read back after one `createSetSettingsAction` transaction |
 | Workspace-gated imports | `import_project_media_uxp` | `project.import` | New project-item or sequence identities when Premiere exposes them |
-| Typed parameter/keyframe automation | `automate_effect_parameters_uxp` | `parameters.inspect`, `parameters.set`, `parameters.keyframeAdd`, `parameters.keyframeRemove`, `parameters.keyframeRemoveRange`, `parameters.keyframeInterpolation`, `parameters.timeVarying.inspect`, `parameters.timeVarying.set` | Parameter value, keyframe time, absence, interpolation, or animation-mode readback |
+| Typed parameter/keyframe automation | `automate_effect_parameters_uxp` | `parameters.inspect`, `parameters.set`, `parameters.keyframe.inspect`, `parameters.keyframeAdd`, `parameters.keyframeRemove`, `parameters.keyframeRemoveRange`, `parameters.keyframeInterpolation`, `parameters.timeVarying.inspect`, `parameters.timeVarying.set` | Parameter value, keyframe time, absence, interpolation, animation mode, or direct keyframe lookup readback |
 | Track-item transformations | `transform_track_item_uxp` | `trackItem.inspect`, `trackItem.update` | Start/end, source in/out, disabled state, and name readback |
 | SequenceEditor timeline layer | `edit_timeline_uxp` | `timeline.insert`, `timeline.overwrite`, `timeline.cloneSelection`, `timeline.removeSelection`, `timeline.mogrtPath`, `timeline.mogrtLibrary` | Action transaction accepted; MOGRT calls return inserted items |
 | Empty sequence creation | `create_empty_sequence_uxp` | `sequences.createEmpty` | New sequence identity from the post-call project collection |
@@ -135,6 +135,12 @@ The tool resolves one audio/video clip, component index, and parameter index. It
 accepts only scalar number, string, or boolean values; point and color values remain
 out of scope until the public schema can represent their Adobe types unambiguously.
 Keyframe actions support add, remove, inclusive range removal, and interpolation.
+`inspect_keyframe` accepts one bounded reference time and only `at`, `next`, or
+`previous`; it reads one native keyframe's returned position and temporal interpolation
+mode. It does not enumerate more keyframes, alter animation, inspect a rendered frame,
+or claim host navigation semantics beyond that direct native result. Optional expected
+component and parameter identifiers guard the selected target; a missing native result
+is reported as `found: false`.
 `inspect_time_varying` returns the current animation mode and its bounded keyframe-time
 snapshot. `set_time_varying` requires the exact inspected sequence, component,
 parameter, mode, and complete keyframe-time snapshot; disabling animation additionally
