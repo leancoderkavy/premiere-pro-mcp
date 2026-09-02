@@ -56,6 +56,11 @@ also end directly at the end-of-central-directory record; the verifier rejects
 unaccounted bytes in that gap rather than silently excluding them from its
 structure validation.
 
+The general-purpose compression-option bits are accepted only on Deflate
+entries. The verifier rejects those bits on stored entries, where ZIP defines
+them as undefined, rather than carrying ambiguous feature metadata into the
+local receipt profile.
+
 Each local and central ZIP extra-field area must be a complete sequence of
 little-endian Header-ID and Data-Size blocks. The verifier preserves compatible
 well-formed non-ZIP64 fields, but rejects both malformed blocks and the ZIP64
@@ -122,4 +127,4 @@ Official references: [Package a UXP plugin](https://developer.adobe.com/premiere
 [Building Hybrid Plugins](https://developer.adobe.com/premiere-pro/uxp/plugins/hybrid-plugins/build/),
 and [Hybrid Plugins](https://developer.adobe.com/premiere-pro/uxp/plugins/hybrid-plugins/).
 The ZIP layout rules follow PKWARE's [ZIP File Format Specification](https://pkware.cachefly.net/webdocs/casestudies/APPNOTE.TXT),
-sections 4.3.6, 4.3.8, 4.3.12, 4.3.16, 4.4.3, and 4.5.1-4.5.3.
+sections 4.3.6, 4.3.8, 4.3.12, 4.3.16, 4.4.3, 4.4.4, and 4.5.1-4.5.3.

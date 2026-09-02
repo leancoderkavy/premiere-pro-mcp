@@ -19,6 +19,7 @@ const ZIP_FLAG_STRONG_ENCRYPTION = 0x0040;
 const ZIP_FLAG_UTF8 = 0x0800;
 const ZIP_FLAG_CENTRAL_DIRECTORY_ENCRYPTION = 0x2000;
 const ENCRYPTED_ENTRY_FLAGS = ZIP_FLAG_ENCRYPTED | ZIP_FLAG_STRONG_ENCRYPTION | ZIP_FLAG_CENTRAL_DIRECTORY_ENCRYPTION;
+const ZIP_FLAG_COMPRESSION_OPTIONS = ZIP_FLAG_MAXIMUM_COMPRESSION | ZIP_FLAG_FAST_COMPRESSION;
 const SUPPORTED_GENERAL_PURPOSE_FLAGS = ZIP_FLAG_MAXIMUM_COMPRESSION | ZIP_FLAG_FAST_COMPRESSION | ZIP_FLAG_DATA_DESCRIPTOR | ZIP_FLAG_UTF8;
 const ZIP_HOST_UNIX = 3;
 const UNIX_FILE_TYPE_MASK = 0o170000;
@@ -148,6 +149,9 @@ function validateArchiveEntries(entries) {
     }
     if (entry.method !== 0 && entry.method !== 8) {
       throw archiveError("CCX archive entries must use stored or deflate compression");
+    }
+    if (entry.method !== 8 && entry.flags & ZIP_FLAG_COMPRESSION_OPTIONS) {
+      throw archiveError("CCX archive compression option flags require deflate");
     }
     const isDirectory = entry.name.endsWith("/");
     const minimumVersionNeeded = isDirectory || entry.method === 8 ? 20 : 10;
