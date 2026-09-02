@@ -20,6 +20,7 @@ describe("npm release package verification", () => {
     expect(verifier).toContain("package/docs/adobe-beta-pointf-drift.md");
     expect(verifier).toContain("package/docs/adobe-beta-guid-drift.md");
     expect(verifier).toContain("package/docs/adobe-beta-frame-rate-drift.md");
+    expect(verifier).toContain("package/docs/adobe-beta-tick-time-drift.md");
     expect(verifier).toContain("package/docs/adobe-beta-c2pa-drift.md");
     expect(verifier).toContain("package/docs/adobe-beta-media-drift.md");
     expect(verifier).toContain("package/docs/adobe-beta-media-manager-drift.md");
@@ -37,6 +38,7 @@ describe("npm release package verification", () => {
     expect(verifier).toContain("package/dist/resources/adobe-beta-pointf-drift.json");
     expect(verifier).toContain("package/dist/resources/adobe-beta-guid-drift.json");
     expect(verifier).toContain("package/dist/resources/adobe-beta-frame-rate-drift.json");
+    expect(verifier).toContain("package/dist/resources/adobe-beta-tick-time-drift.json");
     expect(verifier).toContain("package/dist/resources/adobe-beta-c2pa-drift.json");
     expect(verifier).toContain("package/dist/resources/adobe-beta-media-drift.json");
     expect(verifier).toContain("package/dist/resources/adobe-beta-media-manager-drift.json");
