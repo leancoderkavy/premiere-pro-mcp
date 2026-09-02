@@ -364,6 +364,9 @@ describe("UXP Hybrid CCX receipt", () => {
       writeCcx(bundle, archive, { zipFlags: 0x1 });
       await expect(buildUxpHybridCcxReceipt({ ccxPath: archive, addonReceipt, sdkHeaderReceipt: headers })).rejects.toThrow("entries must not be encrypted");
 
+      writeCcx(bundle, archive, { zipFlags: 0x2000 });
+      await expect(buildUxpHybridCcxReceipt({ ccxPath: archive, addonReceipt, sdkHeaderReceipt: headers })).rejects.toThrow("entries must not be encrypted");
+
       writeCcx(bundle, archive, { compressionMethod: 12 });
       await expect(buildUxpHybridCcxReceipt({ ccxPath: archive, addonReceipt, sdkHeaderReceipt: headers })).rejects.toThrow("stored or deflate compression");
     } finally {
