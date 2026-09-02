@@ -744,12 +744,13 @@
     }
 
     async function inspectMediaHealth(args) {
-      assertOnlyKeys(args, ["projectItemIds", "includePaths"]);
+      assertOnlyKeys(args, ["projectItemIds", "includePaths", "includeMediaTiming"]);
       const project = await activeProject(true);
       const clips = await resolveMediaHealthClips(project, args.projectItemIds);
       const includePaths = optionalBoolean(args.includePaths, false, "includePaths");
+      const includeMediaTiming = optionalBoolean(args.includeMediaTiming, false, "includeMediaTiming");
       const items = [];
-      for (let i = 0; i < clips.length; i += 1) items.push(await mediaHealthSnapshot(clips[i], includePaths));
+      for (let i = 0; i < clips.length; i += 1) items.push(await mediaHealthSnapshot(clips[i], includePaths, includeMediaTiming));
       return { count: items.length, items, pathDisclosure: includePaths ? "requested" : "redacted" };
     }
 
@@ -925,7 +926,7 @@
       return projectItemId(clip);
     }
 
-    async function mediaHealthSnapshot(clip, includePaths) {
+    async function mediaHealthSnapshot(clip, includePaths, includeMediaTiming) {
       const id = await clipProjectItemId(clip);
       const offline = typeof clip.isOffline === "function" ? !!(await clip.isOffline()) : null;
       const hasProxy = typeof clip.hasProxy === "function" ? !!(await clip.hasProxy()) : null;
@@ -945,7 +946,49 @@
         result.originatingProjectPath = typeof clip.getOriginatingProjectPath === "function"
           ? String(await clip.getOriginatingProjectPath() || "") : null;
       }
+      if (includeMediaTiming) result.mediaTiming = await mediaTimingSnapshot(clip);
       return result;
+    }
+
+    async function mediaTimingSnapshot(clip) {
+      const unavailable = function () {
+        return {
+          available: false,
+          startSeconds: null,
+          durationSeconds: null,
+          startAccessor: null,
+          durationAccessor: null
+        };
+      };
+      if (!clip || typeof clip.getMedia !== "function") return unavailable();
+      let media;
+      try { media = await clip.getMedia(); } catch (_) { return unavailable(); }
+      if (!media) return unavailable();
+      const start = await mediaTimingValue(media, "start");
+      const duration = await mediaTimingValue(media, "duration");
+      return {
+        available: start.seconds != null && duration.seconds != null,
+        startSeconds: start.seconds,
+        durationSeconds: duration.seconds,
+        startAccessor: start.accessor,
+        durationAccessor: duration.accessor
+      };
+    }
+
+    async function mediaTimingValue(media, propertyName) {
+      try {
+        return { accessor: propertyName, seconds: boundedMediaTimingSeconds(await media[propertyName]) };
+      } catch (_) {
+        return { accessor: propertyName, seconds: null };
+      }
+    }
+
+    function boundedMediaTimingSeconds(value) {
+      try {
+        if (!value || typeof value !== "object" || typeof value.seconds !== "number") return null;
+        const seconds = value.seconds;
+        return Number.isFinite(seconds) && seconds >= 0 && seconds <= 86400000 ? seconds : null;
+      } catch (_) { return null; }
     }
 
     async function inspectTrackState(args) {

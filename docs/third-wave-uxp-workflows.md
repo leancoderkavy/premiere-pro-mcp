@@ -115,6 +115,15 @@ or cross-version property retention in a real Premiere host.
 items for offline, relink, proxy, merged-clip, and multicam capabilities. Media,
 proxy, and originating-project paths remain absent unless the caller explicitly asks
 for them. Project traversal is capped at 10,000 items and path-match results at 512.
+`include_media_timing` is also opt-in and defaults to false. It reads source start
+and duration only when `getMedia()` is available, accepts finite non-negative
+TickTime seconds through the existing 86,400,000-second bound, and identifies the
+stable `start`/`duration` property accessors used. This stays within the 26.3
+declaration baseline. The beta-only callable `getStart()`/`getDuration()` APIs remain
+excluded from production until Adobe ships them in a stable release and they pass the
+licensed-host validation gate. Awaiting the stable properties also tolerates the beta
+deprecated Promise<TickTime> shape; that declaration-drift compatibility is not a
+beta-host support claim. Automated mocks do not prove licensed-host support.
 
 Refresh calls run serially and return per-item acceptance plus offline-state
 readback, so a partial batch is visible instead of being reported atomically. Setting

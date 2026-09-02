@@ -1196,6 +1196,9 @@
         "ClipProjectItem.isMergedClip",
         "ClipProjectItem.isMulticamClip",
         "ClipProjectItem.getOriginatingProjectPath",
+        "ClipProjectItem.getMedia",
+        "Media.start",
+        "Media.duration",
         "ClipProjectItem.refreshMedia",
         "ClipProjectItem.createSetOfflineAction",
         "ClipProjectItem.findItemsMatchingMediaPath"

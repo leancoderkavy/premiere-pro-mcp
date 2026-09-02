@@ -69,6 +69,7 @@ type MediaHealthArgs = {
   match_path?: string;
   ignore_subclips?: boolean;
   include_paths?: boolean;
+  include_media_timing?: boolean;
   operation_id?: string;
 };
 
@@ -354,7 +355,7 @@ export function getUxpNextWorkflowTools(bridge: UxpWebSocketBridge) {
       },
     },
     maintain_media_health_uxp: {
-      description: "Inspect up to 64 source media items, refresh them serially, transactionally set them offline, or find project items matching an approved media path. Native paths are redacted unless explicitly requested.",
+      description: "Inspect up to 64 source media items, refresh them serially, transactionally set them offline, or find project items matching an approved media path. Native paths are redacted unless explicitly requested; opt-in media timing is read-only, bounded, and runtime-compatible.",
       parameters: {
         type: "object" as const,
         additionalProperties: false,
@@ -370,6 +371,7 @@ export function getUxpNextWorkflowTools(bridge: UxpWebSocketBridge) {
           match_path: { type: "string", minLength: 1, maxLength: 4096 },
           ignore_subclips: { type: "boolean" },
           include_paths: { type: "boolean", description: "Explicitly include media/proxy/origin paths; defaults to redacted." },
+          include_media_timing: { type: "boolean", description: "For inspect only, include bounded source start/duration readback; defaults to false." },
           operation_id: { type: "string", pattern: "^[A-Za-z0-9._:-]{1,128}$" },
         },
         required: ["action"],
@@ -378,6 +380,7 @@ export function getUxpNextWorkflowTools(bridge: UxpWebSocketBridge) {
         if (args.action === "inspect") return invoke(bridge, "media.health.inspect", {
           ...(args.project_item_ids !== undefined ? { projectItemIds: args.project_item_ids } : {}),
           ...(args.include_paths !== undefined ? { includePaths: args.include_paths } : {}),
+          ...(args.include_media_timing !== undefined ? { includeMediaTiming: args.include_media_timing } : {}),
         });
         if (args.action === "refresh") return invoke(bridge, "media.health.refresh", {
           ...(args.project_item_ids !== undefined ? { projectItemIds: args.project_item_ids } : {}),
