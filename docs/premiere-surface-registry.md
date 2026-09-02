@@ -43,7 +43,7 @@ ZIP entry-name-set digest in a local `.ccx` ZIP without disclosing archive
 contents or entry names, while rejecting inconsistent local ZIP version-needed
 and core header fields, unaccounted local-record or central-directory-to-end
 bytes, ambiguous non-ASCII entry-name encodings, and declared Unix special file
-types. It is not UDT,
+types or nonempty directory entries. It is not UDT,
 portal, installation, or host-runtime proof. Where a ZIP entry uses a streamed
 data descriptor, the local archive verifier also checks its required CRC and
 sizes against the central directory without extracting unselected contents. The

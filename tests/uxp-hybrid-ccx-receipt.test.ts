@@ -391,12 +391,16 @@ describe("UXP Hybrid CCX receipt", () => {
 
       const directoryPath = "docs/unix-directory/";
       writeCcx(bundle, archive, {
+        deflate: false,
         extra: [{ path: directoryPath, contents: Buffer.alloc(0) }],
         centralMetadata: { [directoryPath]: { versionMadeBy: unixVersionMadeBy, externalAttributes: unixFileAttributes(0o040000) } },
       });
       await expect(buildUxpHybridCcxReceipt({ ccxPath: archive, addonReceipt, sdkHeaderReceipt: headers })).resolves.toMatchObject({
         contents: { entries: 6, directories: 1 },
       });
+
+      writeCcx(bundle, archive, { extra: [{ path: "docs/nonempty-directory/", contents: Buffer.from("unexpected directory data") }] });
+      await expect(buildUxpHybridCcxReceipt({ ccxPath: archive, addonReceipt, sdkHeaderReceipt: headers })).rejects.toThrow("directory entries must not contain file data");
 
       for (const unixSpecialFileType of [0o010000, 0o020000, 0o060000, 0o120000, 0o140000]) {
         writeCcx(bundle, archive, {
