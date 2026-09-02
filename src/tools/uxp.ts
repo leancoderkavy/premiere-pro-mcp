@@ -57,6 +57,23 @@ export function getUxpTools(bridge: UxpWebSocketBridge) {
       parameters: {},
       handler: async () => invoke(bridge, "project.snapshot"),
     },
+    inspect_project_insertion_bin_uxp: {
+      description: "Read the current Project-panel insertion bin through documented Premiere UXP APIs. Returns only the active-project GUID and insertion-bin ID, name, and type; it does not traverse project folders, reveal media paths, or change Premiere. The panel target is read twice and the command rejects a project or target change while snapshotting.",
+      parameters: {
+        type: "object" as const,
+        additionalProperties: false,
+        properties: {},
+      },
+      operationalCapability: {
+        backend: "UXP" as const,
+        backends: ["uxp" as const],
+        minimumPremiereVersion: "25.6",
+        verificationBoundary: "structured_uxp_readback" as const,
+        hostVerificationRequired: true,
+        notes: ["Available only through an authenticated UXP bridge whose runtime capability handshake advertises project.insertionBin.inspect."],
+      },
+      handler: async () => invoke(bridge, "project.insertionBin.inspect"),
+    },
     inspect_sequence_timing_uxp: {
       description: "Read the active sequence's native frame size, timebase, audio/video time-display codes, and backing Project-item identity. The command rejects malformed host values or a final active-sequence mismatch; it does not modify Premiere, claim a locked snapshot, or detect a transient switch that returns to the same active sequence.",
       parameters: {

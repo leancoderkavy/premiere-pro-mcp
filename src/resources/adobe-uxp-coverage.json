@@ -56,6 +56,33 @@
       "verificationBoundary": "created_sequence_guid"
     },
     {
+      "id": "native-project-insertion-bin-snapshot",
+      "adobeApi": [
+        "Project.getInsertionBin",
+        "Project.guid",
+        "ProjectItem.getId",
+        "ProjectItem.name",
+        "ProjectItem.type"
+      ],
+      "documentationUrls": [
+        "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/project/"
+      ],
+      "minimumPremiereVersion": "25.6.0",
+      "backend": "uxp",
+      "uxpCommand": "project.insertionBin.inspect",
+      "mcpTools": [
+        "inspect_project_insertion_bin_uxp"
+      ],
+      "availability": "current",
+      "implementationStatus": "implemented",
+      "verificationStatus": "automated_contract_verified",
+      "liveHostVerificationStatus": "not_run",
+      "mutatesProject": false,
+      "undoable": false,
+      "idempotency": "not_applicable",
+      "verificationBoundary": "project_insertion_bin_identity_readback"
+    },
+    {
       "id": "guarded-video-transition",
       "adobeApi": [
         "TransitionFactory.getVideoTransitionMatchNames",

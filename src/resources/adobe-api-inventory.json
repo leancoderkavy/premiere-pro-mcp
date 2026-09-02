@@ -13,8 +13,8 @@
   },
   "stats": {
     "total": 976,
-    "mapped": 257,
-    "unmapped": 719,
+    "mapped": 259,
+    "unmapped": 717,
     "manifestOnly": 5
   },
   "manifestOnly": [
@@ -2904,7 +2904,7 @@
     {
       "symbol": "Project.getInsertionBin",
       "kind": "method",
-      "coverage": "unmapped"
+      "coverage": "mapped"
     },
     {
       "symbol": "Project.getProject",
@@ -2930,7 +2930,7 @@
     {
       "symbol": "Project.guid",
       "kind": "property",
-      "coverage": "unmapped"
+      "coverage": "mapped"
     },
     {
       "symbol": "Project.importAEComps",
