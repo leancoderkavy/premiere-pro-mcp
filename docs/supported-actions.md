@@ -13,8 +13,8 @@ source catalog may include unreleased actions.
 | Registered core actions | 328 | CEP/local server catalog; host and authority checks still apply |
 | Default-profile core actions | 326 | Advertised with `inspect,edit,export,filesystem` |
 | Restricted core actions | 2 | Require explicit `unsafe-script` authority |
-| Authenticated UXP additions | 70 | Advertised only while a compatible authenticated UXP panel is connected |
-| Default profile with UXP | 396 | 326 core plus 70 UXP tools |
+| Authenticated UXP additions | 71 | Advertised only while a compatible authenticated UXP panel is connected |
+| Default profile with UXP | 397 | 326 core plus 71 UXP tools |
 
 ## How to read support
 
@@ -413,6 +413,7 @@ authenticated and the connected host advertises the required command capabilitie
 | `list_video_transitions_uxp` | Connected UXP | Single operation | List the installed native video-transition match names from the connected Premiere UXP host. |
 | `maintain_media_health_uxp` | Connected UXP | `inspect`, `refresh`, `set_offline`, `find_by_media_path` | Inspect up to 64 source media items, refresh them serially, transactionally set them offline, or find project items matching an approved media path. Native paths are redacted unless explicitly requested; opt-in media timing is read-only, bounded, and runtime-compatible. |
 | `make_split_edit_uxp` | Connected UXP | `kind`: `j_cut`, `l_cut` | Create an undoable J-cut or L-cut by extending one aligned 1x audio item while preserving source sync, with atomic UXP actions and edge/source readback. |
+| `manage_app_preferences_uxp` | Connected UXP | `inspect`, `set` | Inspect or explicitly set one of Premiere's three documented AppPreference keys. Setting is a direct, non-undoable application-state change: copy the native string returned by inspect, choose persistence deliberately, confirm the change, and provide an operation_id for replay-safe dispatch. Competing writes to the same named preference serialize and are read back exactly. |
 | `manage_clip_effects_uxp` | Connected UXP | `catalog`, `inspect`, `add`, `remove` | List native audio/video effects, inspect one clip's component chain, or add/remove one effect in a locked Premiere UXP transaction. |
 | `manage_color_conformance_uxp` | Connected UXP | `preflight`, `update` | Preflight project graphics-white/LUT/footage interpretation state, or update bounded footage-conformance fields in one undoable UXP transaction. |
 | `manage_growing_media_uxp` | Connected UXP | `status`, `pause`, `resume` | Inspect, pause under a bounded lease, or resume Premiere growing-media swaps. Pause expires within ten minutes and is resumed on ordinary panel or bridge shutdown; status is panel-local and never claims a host readback. |

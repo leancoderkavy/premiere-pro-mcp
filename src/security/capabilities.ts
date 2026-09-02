@@ -197,6 +197,10 @@ const ACTION_CAPABILITIES: Readonly<Record<string, Readonly<Record<string, reado
     inspect: ["inspect"],
     set: ["edit"],
   },
+  manage_app_preferences_uxp: {
+    inspect: ["inspect"],
+    set: ["edit"],
+  },
   import_project_media_uxp: {
     files: ["edit", "filesystem"],
     sequences: ["edit", "filesystem"],

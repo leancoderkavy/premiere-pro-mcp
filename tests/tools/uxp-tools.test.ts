@@ -184,6 +184,57 @@ describe("UXP MCP tools", () => {
     });
   });
 
+  it("maps bounded guarded app-preference inspection and direct writes to documented UXP commands", async () => {
+    const request = vi.fn().mockResolvedValue({ outcome: "verified" });
+    const bridge = { request, getState: vi.fn() } as unknown as UxpWebSocketBridge;
+    const tools = getUxpTools(bridge);
+    await tools.manage_app_preferences_uxp.handler({ action: "inspect" });
+    await tools.manage_app_preferences_uxp.handler({
+      action: "set",
+      preference: "auto_peak_generation",
+      expected_value: "0",
+      value: "1",
+      persistence: "persistent",
+      confirm_preference_change: true,
+      operation_id: "app-preference-1",
+    });
+    expect(request).toHaveBeenNthCalledWith(1, "preferences.inspect", {});
+    expect(request).toHaveBeenNthCalledWith(2, "preferences.set", {
+      preference: "auto_peak_generation",
+      expectedValue: "0",
+      value: "1",
+      persistence: "persistent",
+      confirmPreferenceChange: true,
+      operationId: "app-preference-1",
+    });
+    expect(tools.manage_app_preferences_uxp.parameters).toMatchObject({
+      type: "object",
+      additionalProperties: false,
+      required: ["action"],
+      properties: {
+        action: { type: "string", enum: ["inspect", "set"] },
+        preference: { enum: ["auto_peak_generation", "import_workspace", "show_quickstart_dialog"] },
+        expected_value: { type: "string", maxLength: 1024 },
+        value: { type: "string", maxLength: 1024 },
+        persistence: { enum: ["persistent", "non_persistent"] },
+        confirm_preference_change: { type: "boolean" },
+        operation_id: { type: "string", minLength: 1, maxLength: 128 },
+      },
+    });
+  });
+
+  it("rejects incomplete or unconfirmed app-preference writes before bridge access", async () => {
+    const request = vi.fn();
+    const bridge = { request, getState: vi.fn() } as unknown as UxpWebSocketBridge;
+    const tool = getUxpTools(bridge).manage_app_preferences_uxp;
+    await expect(tool.handler({ action: "set", preference: "import_workspace" }))
+      .resolves.toMatchObject({ success: false, error: expect.stringContaining("requires preference") });
+    await expect(tool.handler({
+      action: "set", preference: "import_workspace", expected_value: "1", value: "0", persistence: "persistent", operation_id: "app-preference-unconfirmed",
+    })).resolves.toMatchObject({ success: false, error: expect.stringContaining("confirm_preference_change") });
+    expect(request).not.toHaveBeenCalled();
+  });
+
   it("maps bounded native sequence-timing inspection to its documented UXP command", async () => {
     const request = vi.fn().mockResolvedValue({ outcome: "verified" });
     const bridge = { request, getState: vi.fn() } as unknown as UxpWebSocketBridge;
@@ -308,6 +359,7 @@ describe("UXP MCP tools", () => {
           "manage_sequence_display_format_uxp",
           "manage_sequence_range_uxp",
           "manage_sequence_playhead_uxp",
+          "manage_app_preferences_uxp",
           "save_project_uxp",
           "create_sequence_with_preset_uxp",
           "create_empty_sequence_uxp",
@@ -342,9 +394,10 @@ describe("UXP MCP tools", () => {
       // guarded sequence-playhead control, native sequence-timing inspection, and
       // guarded sequence-display-format updates and guarded Project-panel
       // insertion-bin inspection, guarded empty-sequence creation, marker web-link
-      // inspection, and Project-panel metadata inspection add thirty-four consolidated UXP tools;
+      // inspection, Project-panel metadata inspection, and guarded app-preference
+      // control add thirty-five consolidated UXP tools;
       // connection verification and delivery conformance add two default-profile core tools.
-      expect(tools.tools).toHaveLength(396);
+      expect(tools.tools).toHaveLength(397);
     } finally {
       await client.close();
       await server.close();

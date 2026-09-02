@@ -170,6 +170,35 @@
       "verificationBoundary": "sequence_playhead_readback"
     },
     {
+      "id": "guarded-app-preferences",
+      "adobeApi": [
+        "AppPreference.getValue",
+        "AppPreference.setValue",
+        "AppPreference.KEY_AUTO_PEAK_GENERATION",
+        "AppPreference.KEY_IMPORT_WORKSPACE",
+        "AppPreference.KEY_SHOW_QUICKSTART_DIALOG",
+        "AppPreference.PROPERTY_PERSISTENT",
+        "AppPreference.PROPERTY_NON_PERSISTENT"
+      ],
+      "documentationUrls": [
+        "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/apppreference/"
+      ],
+      "minimumPremiereVersion": "25.6.0",
+      "backend": "uxp",
+      "uxpCommand": "preferences.set",
+      "mcpTools": [
+        "manage_app_preferences_uxp"
+      ],
+      "availability": "current",
+      "implementationStatus": "implemented",
+      "verificationStatus": "automated_contract_verified",
+      "liveHostVerificationStatus": "not_run",
+      "mutatesProject": false,
+      "undoable": false,
+      "idempotency": "operation_id",
+      "verificationBoundary": "app_preference_native_string_readback"
+    },
+    {
       "id": "native-sequence-timing-snapshot",
       "adobeApi": [
         "Sequence.getFrameSize",

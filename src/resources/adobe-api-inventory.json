@@ -13,8 +13,8 @@
   },
   "stats": {
     "total": 976,
-    "mapped": 270,
-    "unmapped": 706,
+    "mapped": 277,
+    "unmapped": 699,
     "manifestOnly": 5
   },
   "manifestOnly": [
@@ -229,43 +229,43 @@
       "symbol": "AppPreference.KEY_AUTO_PEAK_GENERATION",
       "kind": "property",
       "declarationSymbol": "AppPreferenceStatic.KEY_AUTO_PEAK_GENERATION",
-      "coverage": "unmapped"
+      "coverage": "mapped"
     },
     {
       "symbol": "AppPreference.KEY_IMPORT_WORKSPACE",
       "kind": "property",
       "declarationSymbol": "AppPreferenceStatic.KEY_IMPORT_WORKSPACE",
-      "coverage": "unmapped"
+      "coverage": "mapped"
     },
     {
       "symbol": "AppPreference.KEY_SHOW_QUICKSTART_DIALOG",
       "kind": "property",
       "declarationSymbol": "AppPreferenceStatic.KEY_SHOW_QUICKSTART_DIALOG",
-      "coverage": "unmapped"
+      "coverage": "mapped"
     },
     {
       "symbol": "AppPreference.PROPERTY_NON_PERSISTENT",
       "kind": "property",
       "declarationSymbol": "AppPreferenceStatic.PROPERTY_NON_PERSISTENT",
-      "coverage": "unmapped"
+      "coverage": "mapped"
     },
     {
       "symbol": "AppPreference.PROPERTY_PERSISTENT",
       "kind": "property",
       "declarationSymbol": "AppPreferenceStatic.PROPERTY_PERSISTENT",
-      "coverage": "unmapped"
+      "coverage": "mapped"
     },
     {
       "symbol": "AppPreference.getValue",
       "kind": "method",
       "declarationSymbol": "AppPreferenceStatic.getValue",
-      "coverage": "unmapped"
+      "coverage": "mapped"
     },
     {
       "symbol": "AppPreference.setValue",
       "kind": "method",
       "declarationSymbol": "AppPreferenceStatic.setValue",
-      "coverage": "unmapped"
+      "coverage": "mapped"
     },
     {
       "symbol": "AppPreferenceStatic",

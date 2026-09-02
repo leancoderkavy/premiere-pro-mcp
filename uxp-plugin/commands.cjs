@@ -12,7 +12,14 @@
     const sequenceRangeUpdateTails = new Map();
     const transitionUpdateTails = new Map();
     const sequencePlayheadSetTails = new Map();
+    const appPreferenceSetTails = new Map();
     const listedVideoTransitionMatchNames = new Set();
+    const APP_PREFERENCE_KEYS = Object.freeze({
+      auto_peak_generation: "KEY_AUTO_PEAK_GENERATION",
+      import_workspace: "KEY_IMPORT_WORKSPACE",
+      show_quickstart_dialog: "KEY_SHOW_QUICKSTART_DIALOG"
+    });
+    const MAX_APP_PREFERENCE_VALUE_CHARS = 1024;
     // Adobe's current Sequence Settings reference caps a sequence at 10,240 x
     // 8,192 pixels. These bounds make the read-only bridge reject malformed
     // host data instead of serializing an implausible frame size.
@@ -34,6 +41,8 @@
       "sequence.playhead.inspect": { readOnly: true, minHostVersion: "25.6.0", probe: canInspectSequencePlayhead, handler: inspectSequencePlayhead },
       "sequence.playhead.set": { idempotent: true, minHostVersion: "25.6.0", probe: canSetSequencePlayhead, handler: setSequencePlayhead },
       "sequence.timing.inspect": { readOnly: true, minHostVersion: "25.6.0", probe: canInspectSequenceTiming, handler: inspectSequenceTiming },
+      "preferences.inspect": { readOnly: true, minHostVersion: "25.6.0", probe: canInspectAppPreferences, handler: inspectAppPreferences },
+      "preferences.set": { idempotent: true, minHostVersion: "25.6.0", probe: canSetAppPreferences, handler: setAppPreference },
       "interchange.export": { requiresWorkspace: true, minHostVersion: "26.2.0", probe: canExportInterchange, handler: exportInterchange },
       "interchange.aaf.export": { destructive: true, undoable: false, idempotent: true, requiresWorkspace: true, minHostVersion: "26.3.0", probe: canExportAaf, handler: exportAaf },
       "track.rename": { destructive: true, undoable: true, idempotent: true, minHostVersion: "26.3.0", probe: canRenameTracks, handler: renameTrack },
@@ -393,6 +402,71 @@
       return previous.catch(() => undefined).then(operation).finally(() => {
         release();
         if (sequencePlayheadSetTails.get(sequenceGuid) === tail) sequencePlayheadSetTails.delete(sequenceGuid);
+      });
+    }
+    function inspectAppPreferences(args) {
+      assertOnlyKeys(args, []);
+      return {
+        preferences: Object.keys(APP_PREFERENCE_KEYS).map((preference) => appPreferenceSnapshot(preference)),
+        verificationBoundary: "app_preference_native_string_readback"
+      };
+    }
+    function setAppPreference(args) {
+      const input = validateAppPreferenceSetArgs(args);
+      return withAppPreferenceSetLock(input.preference, () => {
+        const before = appPreferenceSnapshot(input.preference);
+        if (before.value !== input.expectedValue) {
+          throw commandError("UXP_STALE_APP_PREFERENCE", "The app preference changed before it was set; inspect current preferences and retry");
+        }
+        const persistenceFlag = ppro.AppPreference[input.persistence === "persistent" ? "PROPERTY_PERSISTENT" : "PROPERTY_NON_PERSISTENT"];
+        const accepted = ppro.AppPreference.setValue(preferenceNativeKey(input.preference), input.value, persistenceFlag);
+        if (accepted !== true) throw commandError("UXP_ACTION_REJECTED", "Premiere rejected the app preference update");
+        const after = appPreferenceSnapshot(input.preference);
+        if (after.value !== input.value) {
+          throw commandError("UXP_VERIFICATION_FAILED", "Premiere did not retain the requested app preference value");
+        }
+        return {
+          updated: true,
+          outcome: "verified",
+          preference: input.preference,
+          beforeValue: before.value,
+          value: after.value,
+          persistence: input.persistence,
+          verified: "app_preference_native_string_readback",
+          operation: operationSemantics({
+            // Adobe exposes AppPreference as application state, not a project
+            // action or transaction. Do not claim project mutation or Undo.
+            mutatesProject: false,
+            verificationStatus: "verified",
+            verificationBoundary: "app_preference_native_string_readback",
+            verificationEvidence: [{ type: "app_preference", preference: input.preference, beforeValue: before.value, value: after.value, persistence: input.persistence }],
+            undoSupported: false,
+            cancellationSupported: false
+          })
+        };
+      });
+    }
+    function appPreferenceSnapshot(preference) {
+      const value = ppro.AppPreference.getValue(preferenceNativeKey(preference));
+      if (typeof value !== "string" || value.length > MAX_APP_PREFERENCE_VALUE_CHARS) {
+        throw commandError("UXP_VERIFICATION_FAILED", "Premiere did not return a bounded native string app preference value");
+      }
+      return { preference, value };
+    }
+    function preferenceNativeKey(preference) {
+      const property = APP_PREFERENCE_KEYS[preference], value = property && ppro.AppPreference && ppro.AppPreference[property];
+      if (typeof value !== "string" || !value) throw commandError("UXP_COMMAND_UNAVAILABLE", "This Premiere build does not expose the requested app preference key");
+      return value;
+    }
+    function withAppPreferenceSetLock(preference, operation) {
+      const previous = appPreferenceSetTails.get(preference) || Promise.resolve();
+      let release;
+      const gate = new Promise((resolve) => { release = resolve; });
+      const tail = previous.catch(() => undefined).then(() => gate);
+      appPreferenceSetTails.set(preference, tail);
+      return previous.catch(() => undefined).then(operation).finally(() => {
+        release();
+        if (appPreferenceSetTails.get(preference) === tail) appPreferenceSetTails.delete(preference);
       });
     }
     async function exportInterchange(args) {
@@ -1099,6 +1173,14 @@
         "getSequenceVideoTimeDisplayFormat", "getProjectItem"
       ]);
     }
+    function canInspectAppPreferences() {
+      if (!ppro.AppPreference || typeof ppro.AppPreference.getValue !== "function") return false;
+      return Object.values(APP_PREFERENCE_KEYS).every((property) => typeof ppro.AppPreference[property] === "string" && ppro.AppPreference[property]);
+    }
+    function canSetAppPreferences() {
+      return canInspectAppPreferences() && typeof ppro.AppPreference.setValue === "function" &&
+        Number.isFinite(ppro.AppPreference.PROPERTY_PERSISTENT) && Number.isFinite(ppro.AppPreference.PROPERTY_NON_PERSISTENT);
+    }
     async function canSetSequencePlayhead() {
       return !!(ppro.TickTime && typeof ppro.TickTime.createWithSeconds === "function" &&
         await canInspectSequencePlayhead() && await activeSequenceHas(["setPlayerPosition"]));
@@ -1236,6 +1318,28 @@
       name: boundedString(args.name, "name", 255), startSeconds, endSeconds, hasHardBoundaries, takeVideo, takeAudio
     });
   }
+  function validateAppPreferenceSetArgs(args) {
+    assertObject(args);
+    assertOnlyKeys(args, ["preference", "expectedValue", "value", "persistence", "confirmPreferenceChange", "operationId"]);
+    const preference = args.preference;
+    if (preference !== "auto_peak_generation" && preference !== "import_workspace" && preference !== "show_quickstart_dialog") {
+      throw commandError("UXP_INVALID_ARGUMENT", "preference must be auto_peak_generation, import_workspace, or show_quickstart_dialog");
+    }
+    if (args.confirmPreferenceChange !== true) {
+      throw commandError("UXP_CONFIRMATION_REQUIRED", "App preference changes are direct application-state updates; pass confirmPreferenceChange=true after review");
+    }
+    const persistence = args.persistence;
+    if (persistence !== "persistent" && persistence !== "non_persistent") {
+      throw commandError("UXP_INVALID_ARGUMENT", "persistence must be persistent or non_persistent");
+    }
+    return {
+      preference,
+      expectedValue: boundedStringAllowEmpty(args.expectedValue, "expectedValue", 1024),
+      value: boundedStringAllowEmpty(args.value, "value", 1024),
+      persistence,
+      operationId: requiredOperationId(args.operationId)
+    };
+  }
   function validateMarkerListArgs(args) {
     assertObject(args); assertOnlyKeys(args, ["scope", "projectItemId", "projectItemName", "filters", "includeWebLinks"]);
     const scope = args.scope == null ? "sequence" : args.scope;
@@ -1326,9 +1430,11 @@
   function positiveInt(value, fallback, name) { return Math.round(positiveNumber(value == null ? fallback : value, name)); }
   function requiredString(value, name) { if (typeof value !== "string" || !value.trim() || value.length > 4096) throw commandError("UXP_INVALID_ARGUMENT", name + " must be a non-empty string"); return value; }
   function boundedString(value, name, maximum) { if (typeof value !== "string" || !value.trim() || value.length > maximum) throw commandError("UXP_INVALID_ARGUMENT", name + " must be a non-empty string of at most " + maximum + " characters"); return value; }
+  function boundedStringAllowEmpty(value, name, maximum) { if (typeof value !== "string" || value.length > maximum) throw commandError("UXP_INVALID_ARGUMENT", name + " must be a string of at most " + maximum + " characters"); return value; }
   function requiredBoolean(value, name) { if (typeof value !== "boolean") throw commandError("UXP_INVALID_ARGUMENT", name + " must be a boolean"); return value; }
   function optionalBoolean(value, fallback, name) { return value == null ? fallback : requiredBoolean(value, name); }
   function oneOfInt(value, name, allowed) { if (!Number.isInteger(value) || !allowed.includes(value)) throw commandError("UXP_INVALID_ARGUMENT", name + " must be one of " + allowed.join(", ")); return value; }
+  function requiredOperationId(value) { if (typeof value !== "string" || !/^[A-Za-z0-9._:-]{1,128}$/.test(value)) throw commandError("UXP_INVALID_ARGUMENT", "operationId is required and must be 1-128 safe characters"); return value; }
   function validateOperationId(value) { if (value == null) return null; if (typeof value !== "string" || !/^[A-Za-z0-9._:-]{1,128}$/.test(value)) throw commandError("UXP_INVALID_ARGUMENT", "operationId must be 1-128 safe characters"); return value; }
   function simpleRevision(value) { var hash = 2166136261; for (var i = 0; i < value.length; i += 1) { hash ^= value.charCodeAt(i); hash = Math.imul(hash, 16777619); } return "uxp-" + (hash >>> 0).toString(16); }
   function commandError(code, message) { const error = new Error(message); error.code = code; return error; }

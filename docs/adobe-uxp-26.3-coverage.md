@@ -7,7 +7,7 @@ panel through `capabilities.get`; package version, static TypeScript declaration
 and unit tests are insufficient evidence that a particular host supports a command.
 
 The later stable-API expansion is documented separately in the
-[stable UXP workflow matrix](uxp-stable-workflows.md). Its thirteen coverage entries
+[stable UXP workflow matrix](uxp-stable-workflows.md). Its coverage entries
 share this pinned 26.3 declaration baseline and the same pending live-host gate.
 
 ## Source and version policy
@@ -46,6 +46,7 @@ verification column describes the required evidence, not a completed test run.
 | `set_source_monitor_position_uxp` | `sourceMonitor.position.set` | `SourceMonitor.setPosition()` | Source Monitor state mutation; no edit-history claim | Supported when `setPosition` and position read-back APIs probe true | Read `SourceMonitor.getPosition()` after setting the requested `TickTime`. |
 | `manage_sequence_range_uxp` | `sequence.range.inspect`, `sequence.range.update` | `Sequence` range accessors plus `createSetInPointAction()`, `createSetOutPointAction()`, and `createSetZeroPointAction()` | Undoable sequence-range mutation | Supported when every accessor, action, `TickTime`, and transaction primitive probes true | Read the complete range after one transaction and require it to match the guarded request; live host must also validate Undo. |
 | `manage_sequence_playhead_uxp` | `sequence.playhead.inspect`, `sequence.playhead.set` | `Sequence.getPlayerPosition()` and `Sequence.setPlayerPosition()` | Sequence player-state mutation; no project-save or Undo claim | Supported when the active sequence, `TickTime`, getter, and setter probe true | Require the inspected sequence GUID and exact current position, serialize competing setters, then read the player position back. |
+| `manage_app_preferences_uxp` | `preferences.inspect`, `preferences.set` | `AppPreference.getValue()`, `setValue()`, the three documented preference keys, and persistence constants | Direct application-state update; no project-save, transaction, or Undo claim | Supported when all three named keys, both property-type constants, and the exact getter/setter probe true | Return three bounded native strings. A write accepts only one allow-listed key and string value, requires the exact inspected value, explicit persistence and confirmation, serializes competing writes to that key, and verifies exact native-string readback. This is not a licensed-host proof. |
 | `inspect_sequence_timing_uxp` | `sequence.timing.inspect` | `Sequence.getFrameSize()`, `getTimebase()`, audio/video time-display getters, and `getProjectItem()` | Read-only timing and ownership snapshot | Supported when the active sequence exposes each listed getter; invocation then requires the returned ProjectItem to expose a valid ID | Return bounded native values and reject a different active sequence at read completion. This is not a locked atomic snapshot, does not detect a transient switch back to the same sequence, and is not licensed-host proof. |
 | `manage_sequence_display_format_uxp` | `sequence.displayFormat.inspect`, `sequence.displayFormat.update` | `Sequence.getSettings()`, `createSetSettingsAction()`, and `SequenceSettings` audio/video display-format getters, setters, and constants | One undoable sequence-settings mutation | Supported when the getters, setters, documented constants, and transaction primitives probe true | Require the inspected sequence GUID and complete two-code snapshot, serialize all competing updates for that sequence, commit one native settings action, and read both codes back. Contract coverage is not licensed-host or Undo proof. |
 | `manage_source_media_timing_uxp` | `source.mediaTiming.inspect`, `source.mediaTiming.setStart` | `ClipProjectItem.getMedia()`, stable `Media.start`/`duration`, `Media.createSetStartAction()`, `TickTime`, and Project transaction primitives | One undoable source-media start-time mutation | Supported when the resolved clip's media surface, TickTime factory, and transaction primitives probe true | Require the exact project-item ID and a complete start/duration snapshot, serialize competing updates for that clip, reject a changed synchronous timing snapshot under the action lock, then read back the requested start and unchanged duration. Contract coverage is not licensed-host, timecode-display, persistence, or Undo proof. |
@@ -101,6 +102,18 @@ bounded `operation_id` replay key where applicable.
   accepted requests require boolean host confirmation and player-position readback
   within that same tolerance. It controls UI player
   state only, so it does not claim a project save or Undo entry.
+- `manage_app_preferences_uxp`: `inspect` returns only the native string values
+  for Adobe's three documented named keys: `auto_peak_generation`,
+  `import_workspace`, and `show_quickstart_dialog`. `set` requires one of those
+  keys, its exact `expected_value` from inspection, a string `value` capped at
+  1024 characters, an explicit `persistent` or `non_persistent` flag,
+  `confirm_preference_change: true`, and a bounded `operation_id`. The panel
+  serializes competing writes for the same key, rechecks the expected native
+  string immediately before the direct setter, requires Adobe's boolean success,
+  then requires exact native-string readback. Adobe exposes no project action,
+  transaction, cancellation, or Undo boundary for this application state, so none
+  is claimed; mock coverage is not licensed-host, persistence, or user-interface
+  behavior proof.
 - `inspect_sequence_timing_uxp`: accepts no arguments and returns the active
   sequence GUID/name, positive integral native frame dimensions, a positive
   bounded decimal timebase, non-negative integral

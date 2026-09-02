@@ -269,6 +269,57 @@ export function getUxpTools(bridge: UxpWebSocketBridge) {
         });
       },
     },
+    manage_app_preferences_uxp: {
+      description: "Inspect or explicitly set one of Premiere's three documented AppPreference keys. Setting is a direct, non-undoable application-state change: copy the native string returned by inspect, choose persistence deliberately, confirm the change, and provide an operation_id for replay-safe dispatch. Competing writes to the same named preference serialize and are read back exactly.",
+      parameters: {
+        type: "object" as const,
+        additionalProperties: false,
+        properties: {
+          action: { type: "string", enum: ["inspect", "set"], description: "Read all bounded preference values or guardedly set one." },
+          preference: { type: "string", enum: ["auto_peak_generation", "import_workspace", "show_quickstart_dialog"], description: "Required for set; one documented Premiere application preference." },
+          expected_value: { type: "string", maxLength: 1024, description: "Required for set; exact native string returned for preference by inspect. A changed value rejects the write." },
+          value: { type: "string", maxLength: 1024, description: "Required for set. String-only by design so native string readback can be compared exactly." },
+          persistence: { type: "string", enum: ["persistent", "non_persistent"], description: "Required for set; maps explicitly to Adobe's persistent or non-persistent property flag." },
+          confirm_preference_change: { type: "boolean", description: "Required true for set because AppPreference writes directly to application state and are not undoable." },
+          operation_id: { type: "string", minLength: 1, maxLength: 128, pattern: "^[A-Za-z0-9._:-]+$", description: "Required replay key for a direct preference update." },
+        },
+        required: ["action"],
+      },
+      operationalCapability: {
+        backend: "UXP" as const,
+        backends: ["uxp" as const],
+        minimumPremiereVersion: "25.6",
+        verificationBoundary: "structured_uxp_readback" as const,
+        hostVerificationRequired: true,
+        notes: ["Available only through an authenticated UXP bridge whose runtime capability handshake advertises the requested preferences command."],
+      },
+      handler: async (args: {
+        action: "inspect" | "set";
+        preference?: "auto_peak_generation" | "import_workspace" | "show_quickstart_dialog";
+        expected_value?: string;
+        value?: string;
+        persistence?: "persistent" | "non_persistent";
+        confirm_preference_change?: boolean;
+        operation_id?: string;
+      }) => {
+        if (args.action === "inspect") return invoke(bridge, "preferences.inspect");
+        if (args.action !== "set") return { success: false, error: `Unsupported app preference action: ${String(args.action)}` };
+        if (!args.preference || args.expected_value === undefined || args.value === undefined || !args.persistence || !args.operation_id) {
+          return { success: false, error: "set requires preference, expected_value, value, persistence, and operation_id from a recent inspect" };
+        }
+        if (args.confirm_preference_change !== true) {
+          return { success: false, error: "set requires confirm_preference_change: true because AppPreference changes are direct and non-undoable" };
+        }
+        return invoke(bridge, "preferences.set", {
+          preference: args.preference,
+          expectedValue: args.expected_value,
+          value: args.value,
+          persistence: args.persistence,
+          confirmPreferenceChange: true,
+          operationId: args.operation_id,
+        });
+      },
+    },
     export_interchange_uxp: {
       description: "Export the active sequence as OpenTimelineIO or Final Cut Pro XML with explicit verification.",
       parameters: {
