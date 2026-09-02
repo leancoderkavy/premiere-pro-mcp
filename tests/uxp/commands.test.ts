@@ -350,6 +350,26 @@ describe("UXP command registry", () => {
     await expect(invalidFrame.registry.dispatch("sequence.timing.inspect", {}))
       .rejects.toMatchObject({ code: "UXP_VERIFICATION_FAILED" });
 
+    const fractionalFrame = host();
+    fractionalFrame.sequence.getFrameSize.mockResolvedValueOnce({ width: 1920.5, height: 1080 });
+    await expect(fractionalFrame.registry.dispatch("sequence.timing.inspect", {}))
+      .rejects.toMatchObject({ code: "UXP_VERIFICATION_FAILED" });
+
+    const oversizedFrame = host();
+    oversizedFrame.sequence.getFrameSize.mockResolvedValueOnce({ width: 10241, height: 8193 });
+    await expect(oversizedFrame.registry.dispatch("sequence.timing.inspect", {}))
+      .rejects.toMatchObject({ code: "UXP_VERIFICATION_FAILED" });
+
+    const negativeDisplayCode = host();
+    negativeDisplayCode.sequence.getSequenceVideoTimeDisplayFormat.mockResolvedValueOnce({ type: -1 });
+    await expect(negativeDisplayCode.registry.dispatch("sequence.timing.inspect", {}))
+      .rejects.toMatchObject({ code: "UXP_VERIFICATION_FAILED" });
+
+    const fractionalDisplayCode = host();
+    fractionalDisplayCode.sequence.getSequenceVideoTimeDisplayFormat.mockResolvedValueOnce({ type: 100.5 });
+    await expect(fractionalDisplayCode.registry.dispatch("sequence.timing.inspect", {}))
+      .rejects.toMatchObject({ code: "UXP_VERIFICATION_FAILED" });
+
     const invalidTimebase = host();
     invalidTimebase.sequence.getTimebase.mockResolvedValueOnce(123);
     await expect(invalidTimebase.registry.dispatch("sequence.timing.inspect", {}))

@@ -145,9 +145,12 @@ Automated tests may prove these properties:
 - sequence-playhead requests reject stale sequence or position snapshots, serialize
   concurrent setters per sequence, and require boolean acceptance plus position
   readback;
-- sequence-timing inspection probes every required getter, bounds the native
-  `RectF`, `TimeDisplay`, and Project-item identity values, and rejects an active
-  sequence mismatch at read completion; it does not prove detection of a
+- sequence-timing inspection probes every required getter, accepts only positive
+  integral `RectF` values within [Premiere's documented 10,240x8,192 sequence
+  maximum](https://helpx.adobe.com/premiere/desktop/edit-projects/change-clip-sequence/sequence-settings-reference.html)
+  and non-negative integral `TimeDisplay.type` codes, bounds Project-item
+  identity values, and rejects an active sequence mismatch at read completion; it
+  does not prove detection of a
   transient switch back to the same sequence; and
 - action commands preserve lock/transaction boundaries and operation replay
   behavior in a contract host; and

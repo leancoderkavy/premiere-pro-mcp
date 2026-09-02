@@ -13,6 +13,11 @@
     const transitionUpdateTails = new Map();
     const sequencePlayheadSetTails = new Map();
     const listedVideoTransitionMatchNames = new Set();
+    // Adobe's current Sequence Settings reference caps a sequence at 10,240 x
+    // 8,192 pixels. These bounds make the read-only bridge reject malformed
+    // host data instead of serializing an implausible frame size.
+    const MAX_SEQUENCE_FRAME_WIDTH = 10240;
+    const MAX_SEQUENCE_FRAME_HEIGHT = 8192;
     const definitions = {
       "capabilities.get": { readOnly: true, handler: capabilities },
       "state.get": { readOnly: true, handler: stateSnapshot },
@@ -559,13 +564,15 @@
     }
     function frameSizeSnapshot(value) {
       if (!value || typeof value.width !== "number" || typeof value.height !== "number" ||
-        !Number.isFinite(value.width) || !Number.isFinite(value.height) || value.width <= 0 || value.height <= 0) {
+        !Number.isSafeInteger(value.width) || !Number.isSafeInteger(value.height) ||
+        value.width < 1 || value.height < 1 ||
+        value.width > MAX_SEQUENCE_FRAME_WIDTH || value.height > MAX_SEQUENCE_FRAME_HEIGHT) {
         throw commandError("UXP_VERIFICATION_FAILED", "Premiere did not return a valid sequence frame size");
       }
       return { width: value.width, height: value.height };
     }
     function timeDisplaySnapshot(value, name) {
-      if (!value || typeof value.type !== "number" || !Number.isFinite(value.type)) {
+      if (!value || typeof value.type !== "number" || !Number.isSafeInteger(value.type) || value.type < 0) {
         throw commandError("UXP_VERIFICATION_FAILED", "Premiere did not return a valid " + name);
       }
       return { type: value.type };
