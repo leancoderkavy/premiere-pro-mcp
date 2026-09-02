@@ -1,0 +1,87 @@
+{
+  "schemaVersion": 1,
+  "scope": {
+    "declarations": [
+      "premierepro.FrameRate",
+      "FrameRate",
+      "FrameRateStatic"
+    ],
+    "semantics": "This records the beta FrameRate factory-placement migration against the pinned stable package. It is static declaration-drift accounting, not beta API support or a complete package diff.",
+    "doesNotEstablish": "It does not prove a beta host exposes FrameRateStatic factory calls, that a FrameRate can be constructed or accepted by another API, that frame alignment or time conversion behavior is preserved, or that any MCP action is supported or licensed-host validated."
+  },
+  "sources": {
+    "stable": {
+      "package": "@adobe/premierepro",
+      "version": "26.3.0",
+      "declarations": "node_modules/@adobe/premierepro/src/premierepro.d.ts",
+      "frameRateDeclarationSha256": "13637f87a8db22576e1715877bcb53c6de5f2d5433d80b66cd5c3bda6accf42d",
+      "frameRateStaticDeclarationSha256": "afefb48d51eec64383bf5f0ae7f1fa52194b7343b1c28d39914c1ceebf7e9f1a",
+      "rootBinding": "FrameRateStatic"
+    },
+    "beta": {
+      "package": "@adobe/premierepro-beta",
+      "version": "26.5.0-beta.73",
+      "declarations": "node_modules/@adobe/premierepro-beta/src/premierepro.d.ts",
+      "frameRateDeclarationSha256": "11b94e912afbe7e6bdadb13522e9a39324ca7fa5bfd8eaef49f3b17a49d453b9",
+      "frameRateStaticDeclarationSha256": "41123e557f9822b455919ca288988299fbdc0202337186b514265070275f8e17",
+      "rootBinding": "FrameRateStatic"
+    }
+  },
+  "diff": {
+    "betaOnly": [
+      {
+        "symbol": "FrameRateStatic.call",
+        "kind": "call_signature",
+        "signature": "() => FrameRate"
+      },
+      {
+        "symbol": "FrameRateStatic.new",
+        "kind": "construct_signature",
+        "signature": "() => FrameRate"
+      }
+    ],
+    "stableOnly": [
+      {
+        "symbol": "FrameRate.call",
+        "kind": "call_signature",
+        "signature": "() => FrameRate"
+      },
+      {
+        "symbol": "FrameRate.new",
+        "kind": "construct_signature",
+        "signature": "() => FrameRate"
+      }
+    ],
+    "changed": [
+      {
+        "symbol": "FrameRate.factorySignaturePlacement",
+        "stable": {
+          "owner": "FrameRate",
+          "entries": [
+            {
+              "kind": "call_signature",
+              "signature": "() => FrameRate"
+            },
+            {
+              "kind": "construct_signature",
+              "signature": "() => FrameRate"
+            }
+          ]
+        },
+        "beta": {
+          "owner": "FrameRateStatic",
+          "entries": [
+            {
+              "kind": "call_signature",
+              "signature": "() => FrameRate"
+            },
+            {
+              "kind": "construct_signature",
+              "signature": "() => FrameRate"
+            }
+          ]
+        }
+      }
+    ]
+  }
+}
