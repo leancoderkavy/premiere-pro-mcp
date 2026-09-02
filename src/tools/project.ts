@@ -434,14 +434,15 @@ export function getProjectTools(bridgeOptions: BridgeOptions) {
 
     start_batch_encode: {
       description:
-        "Start encoding all items in the Adobe Media Encoder render queue",
+        "Request Adobe Media Encoder to start the render queue; reports only accepted handoff, not queue progress or output-file creation.",
       parameters: {},
       handler: async () => {
         const script = buildToolScript(`
           if (!app.encoder || typeof app.encoder.startBatch !== "function") return __error("Adobe Media Encoder is not available");
           try {
             var startResult = app.encoder.startBatch();
-            if (startResult !== 0) return __error("Adobe Media Encoder did not accept the start request.");
+            // Premiere reports an accepted batch-start request as 1/true.
+            if (startResult !== 1 && startResult !== true) return __error("Adobe Media Encoder did not accept the start request.");
           } catch (e) {
             return __error("Adobe Media Encoder rejected the start request: " + e.message);
           }

@@ -737,6 +737,40 @@ describe("advanced stable Premiere UXP workflows", () => {
     })).rejects.toMatchObject({ code: "UXP_HOST_REJECTED" });
   });
 
+  it("caches partial direct receipts when post-rejection reconciliation cannot be read", async () => {
+    const sequenceCreation = advancedHost();
+    let sequenceReads = 0;
+    sequenceCreation.project.getSequences.mockImplementation(async () => {
+      sequenceReads++;
+      if (sequenceReads > 1) throw new Error("sequence readback unavailable");
+      return sequenceCreation.sequences;
+    });
+    sequenceCreation.project.createSequenceFromMedia.mockRejectedValueOnce(new Error("host rejected"));
+    const sequenceArgs = {
+      name: "Unverified Assembly", projectItemIds: ["clip-1"], confirmNonUndoable: true, operationId: "sequence-readback-failed",
+    };
+    await expect(sequenceCreation.registry.dispatch("sequences.createFromMedia", sequenceArgs)).resolves.toMatchObject({
+      created: false, partial: true, verificationBoundary: "create_sequence_reconciliation_readback_failed",
+    });
+    await expect(sequenceCreation.registry.dispatch("sequences.createFromMedia", sequenceArgs)).resolves.toMatchObject({ partial: true, replayed: true });
+
+    const subsequenceCreation = advancedHost();
+    let subsequenceReads = 0;
+    subsequenceCreation.project.getSequences.mockImplementation(async () => {
+      subsequenceReads++;
+      if (subsequenceReads > 2) throw new Error("sequence readback unavailable");
+      return subsequenceCreation.sequences;
+    });
+    subsequenceCreation.sequence.createSubsequence.mockRejectedValueOnce(new Error("host rejected"));
+    const subsequenceArgs = {
+      sequenceId: "sequence-1", confirmNonUndoable: true, operationId: "subsequence-readback-failed",
+    };
+    await expect(subsequenceCreation.registry.dispatch("sequences.subsequence", subsequenceArgs)).resolves.toMatchObject({
+      created: false, partial: true, verificationBoundary: "create_subsequence_reconciliation_readback_failed",
+    });
+    await expect(subsequenceCreation.registry.dispatch("sequences.subsequence", subsequenceArgs)).resolves.toMatchObject({ partial: true, replayed: true });
+  });
+
   it("bounds ID-targeted sequence lookup before invoking the host mutation", async () => {
     const value = advancedHost();
     value.project.getSequences.mockResolvedValue(Array.from({ length: 1025 }, (_, index) => ({

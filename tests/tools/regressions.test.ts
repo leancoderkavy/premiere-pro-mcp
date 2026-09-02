@@ -710,7 +710,7 @@ describe("issue #323 — AME handoffs are unverified until a queue or file readb
     expect(batch).toContain('outcome: "committed_unverified"');
     expect(batch).not.toContain("started: true");
     expect(batch).toContain("var startResult = app.encoder.startBatch()");
-    expect(batch).toContain("if (startResult !== 0)");
+    expect(batch).toContain("if (startResult !== 1 && startResult !== true)");
   });
 });
 

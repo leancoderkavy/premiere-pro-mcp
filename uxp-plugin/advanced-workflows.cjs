@@ -882,8 +882,8 @@
         const reconciledSequence = async () => {
           try {
             const after = await listSequences(project);
-            return after.find((item) => !before.some((old) => old.id === item.id)) || null;
-          } catch (_) { return null; }
+            return { readable: true, sequence: after.find((item) => !before.some((old) => old.id === item.id)) || null };
+          } catch (_) { return { readable: false, sequence: null }; }
         };
           const partialReceipt = async (boundary, sequence) => directMutationResult(false, {
             created: !!sequence, partial: true, sequence: await safeSequenceSnapshot(sequence)
@@ -891,13 +891,15 @@
           let sequence;
           try { sequence = await project.createSequenceFromMedia(name, clips, target); }
           catch (error) {
-            const reconciled = await reconciledSequence();
-            if (reconciled) return partialReceipt("create_sequence_host_reconciliation", reconciled);
+            const reconciliation = await reconciledSequence();
+            if (reconciliation.sequence) return partialReceipt("create_sequence_host_reconciliation", reconciliation.sequence);
+            if (!reconciliation.readable) return partialReceipt("create_sequence_reconciliation_readback_failed", null);
             throw commandError("UXP_HOST_REJECTED", "Premiere rejected sequence creation: " + error.message);
           }
           if (!sequence) {
-            const reconciled = await reconciledSequence();
-            if (reconciled) return partialReceipt("create_sequence_host_return", reconciled);
+            const reconciliation = await reconciledSequence();
+            if (reconciliation.sequence) return partialReceipt("create_sequence_host_return", reconciliation.sequence);
+            if (!reconciliation.readable) return partialReceipt("create_sequence_reconciliation_readback_failed", null);
             throw commandError("UXP_HOST_REJECTED", "Premiere did not create a sequence");
           }
         const snapshot = await safeSequenceSnapshot(sequence);
@@ -1013,8 +1015,8 @@
         const reconciledSequence = async () => {
           try {
             const after = await listSequences(project);
-            return after.find((item) => !before.some((old) => old.id === item.id)) || null;
-          } catch (_) { return null; }
+            return { readable: true, sequence: after.find((item) => !before.some((old) => old.id === item.id)) || null };
+          } catch (_) { return { readable: false, sequence: null }; }
         };
           const partialReceipt = async (boundary, created) => directMutationResult(false, {
             created: !!created, partial: true, sequence: await safeSequenceSnapshot(created)
@@ -1022,13 +1024,15 @@
           let created;
           try { created = await sequence.createSubsequence(ignoreTrackTargeting); }
           catch (error) {
-            const reconciled = await reconciledSequence();
-            if (reconciled) return partialReceipt("create_subsequence_host_reconciliation", reconciled);
+            const reconciliation = await reconciledSequence();
+            if (reconciliation.sequence) return partialReceipt("create_subsequence_host_reconciliation", reconciliation.sequence);
+            if (!reconciliation.readable) return partialReceipt("create_subsequence_reconciliation_readback_failed", null);
             throw commandError("UXP_HOST_REJECTED", "Premiere rejected subsequence creation: " + error.message);
           }
           if (!created) {
-            const reconciled = await reconciledSequence();
-            if (reconciled) return partialReceipt("create_subsequence_host_return", reconciled);
+            const reconciliation = await reconciledSequence();
+            if (reconciliation.sequence) return partialReceipt("create_subsequence_host_return", reconciliation.sequence);
+            if (!reconciliation.readable) return partialReceipt("create_subsequence_reconciliation_readback_failed", null);
             throw commandError("UXP_HOST_REJECTED", "Premiere did not create a subsequence");
           }
         const snapshot = await safeSequenceSnapshot(created);
