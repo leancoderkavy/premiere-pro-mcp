@@ -116,7 +116,6 @@ function expectedTransition(position: "start" | "end", transitionPresent: boolea
     startSeconds: 10, endSeconds: 20, position, transitionPresent,
   };
 }
-}
 
 describe("UXP command registry", () => {
   it("reports support per command from the runtime API surface", async () => {
@@ -327,7 +326,22 @@ describe("UXP command registry", () => {
     expect(value.playhead).toEqual({ positionSeconds: 8 });
   });
 
-  it("fails closed for stale, rejected, unreadable, and unavailable sequence player-position setters", async () => {
+  it("fails closed for malformed, stale, rejected, unreadable, and unavailable sequence player-position setters", async () => {
+    const malformed = host();
+    await expect(malformed.registry.dispatch("sequence.playhead.set", {
+      expectedPositionSeconds: 3, positionSeconds: 8,
+    })).rejects.toMatchObject({ code: "UXP_INVALID_ARGUMENT" });
+    await expect(malformed.registry.dispatch("sequence.playhead.set", {
+      expectedSequenceGuid: "sequence-1", expectedPositionSeconds: Number.NaN, positionSeconds: 8,
+    })).rejects.toMatchObject({ code: "UXP_INVALID_ARGUMENT" });
+    await expect(malformed.registry.dispatch("sequence.playhead.set", {
+      expectedSequenceGuid: "sequence-1", expectedPositionSeconds: 3, positionSeconds: 86400.001,
+    })).rejects.toMatchObject({ code: "UXP_INVALID_ARGUMENT" });
+    await expect(malformed.registry.dispatch("sequence.playhead.set", {
+      expectedSequenceGuid: "sequence-1", expectedPositionSeconds: 3, positionSeconds: 8, unexpected: true,
+    })).rejects.toMatchObject({ code: "UXP_INVALID_ARGUMENT" });
+    expect(malformed.sequence.setPlayerPosition).not.toHaveBeenCalled();
+
     const staleSequence = host();
     await expect(staleSequence.registry.dispatch("sequence.playhead.set", {
       expectedSequenceGuid: "other-sequence", expectedPositionSeconds: 3, positionSeconds: 8,
@@ -355,6 +369,21 @@ describe("UXP command registry", () => {
     await expect(noReadback.registry.dispatch("sequence.playhead.set", {
       expectedSequenceGuid: "sequence-1", expectedPositionSeconds: 3, positionSeconds: 8,
     })).rejects.toMatchObject({ code: "UXP_VERIFICATION_FAILED" });
+
+    const changedSequence = host();
+    const newlyActiveSequence = {
+      ...changedSequence.sequence,
+      guid: "sequence-2",
+      getPlayerPosition: vi.fn(async () => ({ seconds: 8 })),
+    };
+    changedSequence.sequence.setPlayerPosition.mockImplementationOnce(async () => {
+      changedSequence.project.getActiveSequence.mockResolvedValueOnce(newlyActiveSequence);
+      return true;
+    });
+    await expect(changedSequence.registry.dispatch("sequence.playhead.set", {
+      expectedSequenceGuid: "sequence-1", expectedPositionSeconds: 3, positionSeconds: 8,
+    })).rejects.toMatchObject({ code: "UXP_VERIFICATION_FAILED" });
+    expect(changedSequence.sequence.setPlayerPosition).toHaveBeenCalledOnce();
 
     const unavailable = host();
     unavailable.sequence.setPlayerPosition = undefined;

@@ -248,7 +248,7 @@ describe("UXP MCP tools", () => {
       // transcript workflow and documented Premiere 26.3 tools add nineteen,
       // and the two stable workflow expansions, confirmed organization application, four bounded native migration adapters, and beat-grid marker application add twenty-seven consolidated UXP tools;
       // connection verification and delivery conformance add two default-profile core tools.
-      expect(tools.tools).toHaveLength(387);
+      expect(tools.tools).toHaveLength(388);
     } finally {
       await client.close();
       await server.close();
