@@ -73,6 +73,9 @@ function findEndOfCentralDirectory(tail, archiveBytes) {
     if (!Number.isSafeInteger(directoryEnd) || directoryEnd > eocdPosition) {
       throw archiveError("CCX archive central directory is outside the ZIP bounds");
     }
+    if (directoryEnd !== eocdPosition) {
+      throw archiveError("CCX archive has unaccounted bytes between the central directory and ZIP end record");
+    }
     return { entries, directoryBytes, directoryOffset };
   }
   throw archiveError("CCX archive must contain a conventional ZIP end record");
