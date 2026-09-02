@@ -134,6 +134,11 @@ function validateArchiveEntries(entries) {
     if (entry.method !== 0 && entry.method !== 8) {
       throw archiveError("CCX archive entries must use stored or deflate compression");
     }
+    const isDirectory = entry.name.endsWith("/");
+    const minimumVersionNeeded = isDirectory || entry.method === 8 ? 20 : 10;
+    if (entry.versionNeeded < minimumVersionNeeded) {
+      throw archiveError("CCX archive entry version-needed does not support its ZIP features");
+    }
     const createdOnUnix = entry.versionMadeBy >>> 8 === ZIP_HOST_UNIX;
     const unixFileType = (entry.externalAttributes >>> 16) & UNIX_FILE_TYPE_MASK;
     if (createdOnUnix && unixFileType !== 0 && unixFileType !== UNIX_FILE_TYPE_REGULAR && unixFileType !== UNIX_FILE_TYPE_DIRECTORY) {
@@ -143,7 +148,6 @@ function validateArchiveEntries(entries) {
     if (name.length > 1024 || /[\0-\x1f\x7f]/.test(name) || name.includes("\\") || name.startsWith("/") || /^[A-Za-z]:/.test(name)) {
       throw archiveError("CCX archive contains an unsafe ZIP entry name");
     }
-    const isDirectory = name.endsWith("/");
     if (isDirectory && (entry.compressedBytes !== 0 || entry.uncompressedBytes !== 0)) {
       throw archiveError("CCX archive directory entries must not contain file data");
     }

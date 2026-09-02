@@ -348,6 +348,43 @@ describe("UXP Hybrid CCX receipt", () => {
       });
       await expect(buildUxpHybridCcxReceipt({ ccxPath: archive, addonReceipt, sdkHeaderReceipt: headers })).rejects.toThrow("local entry metadata is inconsistent");
 
+      const storedV10Path = "docs/stored-v10.txt";
+      writeCcx(bundle, archive, {
+        deflate: false,
+        extra: [{ path: storedV10Path, contents: Buffer.from("stored ZIP 1.0 entry") }],
+        localMetadata: { [storedV10Path]: { versionNeeded: 10 } },
+        centralMetadata: { [storedV10Path]: { versionNeeded: 10 } },
+      });
+      await expect(buildUxpHybridCcxReceipt({ ccxPath: archive, addonReceipt, sdkHeaderReceipt: headers })).resolves.toMatchObject({
+        contents: { entries: 6 },
+      });
+
+      const invalidV09Path = "docs/stored-v09.txt";
+      writeCcx(bundle, archive, {
+        deflate: false,
+        extra: [{ path: invalidV09Path, contents: Buffer.from("invalid ZIP version") }],
+        localMetadata: { [invalidV09Path]: { versionNeeded: 9 } },
+        centralMetadata: { [invalidV09Path]: { versionNeeded: 9 } },
+      });
+      await expect(buildUxpHybridCcxReceipt({ ccxPath: archive, addonReceipt, sdkHeaderReceipt: headers })).rejects.toThrow("version-needed does not support its ZIP features");
+
+      const deflatedV10Path = "docs/deflated-v10.txt";
+      writeCcx(bundle, archive, {
+        extra: [{ path: deflatedV10Path, contents: Buffer.from("Deflate requires ZIP 2.0") }],
+        localMetadata: { [deflatedV10Path]: { versionNeeded: 10 } },
+        centralMetadata: { [deflatedV10Path]: { versionNeeded: 10 } },
+      });
+      await expect(buildUxpHybridCcxReceipt({ ccxPath: archive, addonReceipt, sdkHeaderReceipt: headers })).rejects.toThrow("version-needed does not support its ZIP features");
+
+      const directoryV10Path = "docs/directory-v10/";
+      writeCcx(bundle, archive, {
+        deflate: false,
+        extra: [{ path: directoryV10Path, contents: Buffer.alloc(0) }],
+        localMetadata: { [directoryV10Path]: { versionNeeded: 10 } },
+        centralMetadata: { [directoryV10Path]: { versionNeeded: 10 } },
+      });
+      await expect(buildUxpHybridCcxReceipt({ ccxPath: archive, addonReceipt, sdkHeaderReceipt: headers })).rejects.toThrow("version-needed does not support its ZIP features");
+
       writeCcx(bundle, archive, {
         extra: [{ path: "docs/readme.txt", contents: Buffer.from("unselected entry") }],
         localMetadata: { "docs/readme.txt": { flags: 0x810 } },
