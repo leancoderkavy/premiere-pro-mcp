@@ -90,6 +90,11 @@
     if (objectMaskAuditWorkflowApi && typeof objectMaskAuditWorkflowApi.createObjectMaskAuditWorkflowDefinitions === "function") {
       Object.assign(definitions, objectMaskAuditWorkflowApi.createObjectMaskAuditWorkflowDefinitions({ ppro }));
     }
+    let effectParameterCatalogWorkflowApi = deps.EffectParameterCatalogWorkflows || (typeof globalThis !== "undefined" && globalThis.PremiereMcpEffectParameterCatalogWorkflows);
+    if (!effectParameterCatalogWorkflowApi && typeof require === "function") effectParameterCatalogWorkflowApi = require("./effect-parameter-catalog-workflows.cjs");
+    if (effectParameterCatalogWorkflowApi && typeof effectParameterCatalogWorkflowApi.createEffectParameterCatalogWorkflowDefinitions === "function") {
+      Object.assign(definitions, effectParameterCatalogWorkflowApi.createEffectParameterCatalogWorkflowDefinitions({ ppro }));
+    }
     let trackItemLocksApi = deps.TrackItemMutationLocks || (typeof globalThis !== "undefined" && globalThis.PremiereMcpTrackItemMutationLocks);
     if (!trackItemLocksApi && typeof require === "function") trackItemLocksApi = require("./track-item-mutation-locks.cjs");
     const trackItemLocks = trackItemLocksApi && typeof trackItemLocksApi.createTrackItemMutationLocks === "function"

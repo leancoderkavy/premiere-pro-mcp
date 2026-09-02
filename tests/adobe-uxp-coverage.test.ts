@@ -36,6 +36,7 @@ describe("Adobe Premiere Pro 26.3 UXP coverage", () => {
       "aaf-export",
       "media-encoder-launch",
       "native-effects-pipeline",
+      "bounded-effect-parameter-catalog",
       "selection-compound-effect-batch",
       "deterministic-timeline-selection",
       "native-scene-edit-detection",
@@ -154,6 +155,19 @@ describe("Adobe Premiere Pro 26.3 UXP coverage", () => {
       "ComponentParam.findPreviousKeyframe",
       "Keyframe.position",
       "Keyframe.getTemporalInterpolationMode",
+    ]));
+    expect(entries.find((entry) => entry.id === "bounded-effect-parameter-catalog")).toMatchObject({
+      uxpCommand: "parameters.catalog.inspect",
+      mcpTools: ["inspect_effect_parameter_catalog_uxp"],
+      verificationBoundary: "bounded_effect_parameter_catalog_double_readback",
+      liveHostVerificationStatus: "not_run",
+    });
+    expect(entries.find((entry) => entry.id === "bounded-effect-parameter-catalog")?.adobeApi).toEqual(expect.arrayContaining([
+      "Component.getParamCount",
+      "Component.getParam",
+      "ComponentParam.displayName",
+      "ComponentParam.areKeyframesSupported",
+      "ComponentParam.isTimeVarying",
     ]));
     expect(entries.find((entry) => entry.id === "native-track-item-identity")).toMatchObject({
       uxpCommand: "trackItem.identity.inspect",
@@ -405,12 +419,12 @@ describe("Adobe Premiere Pro 26.3 UXP coverage", () => {
   it("keeps unimplemented 26.3 work visibly planned", () => {
     const report = buildAdobeUxpCoverageReport();
     expect(report.summary).toEqual({
-      total: 77,
-      current: 74,
+      total: 78,
+      current: 75,
       planned: 3,
-      implemented: 74,
+      implemented: 75,
       committedUnverified: 9,
-      automatedContractVerified: 65,
+      automatedContractVerified: 66,
       liveHostVerified: 0,
     });
     expect(report.entries.find((entry) => entry.id === "aaf-export")).toMatchObject({
@@ -433,7 +447,7 @@ describe("Adobe Premiere Pro 26.3 UXP coverage", () => {
   it("surfaces the baseline in the platform capability report", () => {
     const report = buildPlatformCapabilityReport(resolveCapabilities("inspect"), "win32");
     expect(report.backends.uxp.apiCoverage.summary).toMatchObject({
-      current: 74,
+      current: 75,
       planned: 3,
       committedUnverified: 9,
     });
