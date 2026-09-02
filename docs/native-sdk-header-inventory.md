@@ -26,6 +26,21 @@ For `uxp-hybrid`, the command requires the public-guide layout:
 is hashed independently. `--check` compares a regenerated receipt with a
 reviewed one; `--validate-only` verifies the supplied artifact without writing.
 
+Use the standalone verifier when a reviewer needs to inspect a receipt without
+receiving the SDK extraction or archive. It rejects extra fields (including
+header contents and absolute paths), inconsistent totals, non-canonical or
+duplicate paths, incorrect hashes, and Hybrid receipts missing the public-guide
+headers:
+
+```powershell
+npm run native:sdk-header-inventory:verify -- `
+  --input C:\sdk-evidence\uxp-hybrid-headers.json
+```
+
+This checks receipt structure and declared provenance only. It cannot verify
+the private archive bytes, compile the SDK, or establish that an addon can load
+in Premiere.
+
 For `premiere-prsdk`, pass each documented include directory explicitly because
 Adobe does not publicly publish a stable header layout:
 

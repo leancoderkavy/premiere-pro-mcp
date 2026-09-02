@@ -4,23 +4,13 @@ import { createHash } from "node:crypto";
 import { readFile, readdir, realpath, stat, writeFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import { relative, resolve, sep } from "node:path";
-
-const SDK_FAMILIES = {
-  "uxp-hybrid": {
-    authorityUrl: "https://developer.adobe.com/premiere-pro/uxp/plugins/hybrid-plugins/",
-    includeDirectories: ["src/api", "src/utilities"],
-    requiredHeaders: [
-      "src/api/UxpAddonShared.h",
-      "src/api/UxpAddonTypes.h",
-      "src/utilities/UxpAddon.h",
-    ],
-  },
-  "premiere-prsdk": {
-    authorityUrl: "https://developer.adobe.com/premiere-pro/",
-    includeDirectories: null,
-    requiredHeaders: [],
-  },
-};
+import {
+  compareNativeSdkPaths,
+  hasNativeSdkFamily,
+  NATIVE_SDK_FAMILIES,
+  NATIVE_SDK_HEADER_INVENTORY_SCHEMA_VERSION,
+  NATIVE_SDK_HEADER_INVENTORY_SEMANTICS,
+} from "./native-sdk-header-inventory-contract.mjs";
 
 function inventoryError(message) {
   const error = new Error(message);
@@ -32,10 +22,6 @@ function sha256(value) {
   return createHash("sha256").update(value).digest("hex");
 }
 
-function comparePaths(left, right) {
-  return left < right ? -1 : left > right ? 1 : 0;
-}
-
 function normalRelativePath(value, label) {
   if (typeof value !== "string" || !value || value.includes("\0")) {
     throw inventoryError(`${label} must be a non-empty relative path`);
@@ -44,7 +30,11 @@ function normalRelativePath(value, label) {
   if (normalized.startsWith("/") || /^[A-Za-z]:\//.test(normalized) || normalized.split("/").includes("..")) {
     throw inventoryError(`${label} must stay relative to the SDK root`);
   }
-  return normalized.replace(/\/$/, "");
+  const segments = normalized.split("/");
+  if (normalized !== "." && segments.some((segment) => segment === "" || segment === ".")) {
+    throw inventoryError(`${label} must use a canonical relative path`);
+  }
+  return normalized;
 }
 
 function stringOption(value, label, maximum = 512) {
@@ -90,7 +80,7 @@ async function listHeaders(root, includeDirectories) {
   const headers = [];
   const visit = async (directory) => {
     const entries = await readdir(directory, { withFileTypes: true });
-    entries.sort((left, right) => comparePaths(left.name, right.name));
+    entries.sort((left, right) => compareNativeSdkPaths(left.name, right.name));
     for (const entry of entries) {
       const candidate = resolve(directory, entry.name);
       if (entry.isSymbolicLink()) throw inventoryError(`SDK header inventory refuses symbolic link: ${relative(root, candidate)}`);
@@ -110,7 +100,7 @@ async function listHeaders(root, includeDirectories) {
     const path = await resolvedDirectoryInside(root, resolve(root, includeDirectory), `include directory ${includeDirectory}`);
     await visit(path);
   }
-  headers.sort((left, right) => comparePaths(left.path, right.path));
+  headers.sort((left, right) => compareNativeSdkPaths(left.path, right.path));
   if (headers.length === 0) throw inventoryError("No C/C++ headers were found in the selected SDK include directories");
   if (new Set(headers.map((header) => header.path)).size !== headers.length) {
     throw inventoryError("SDK include directories overlap and produced duplicate headers");
@@ -120,7 +110,7 @@ async function listHeaders(root, includeDirectories) {
 
 export async function generateNativeSdkHeaderInventory(options) {
   const sdk = options?.sdk;
-  const family = Object.prototype.hasOwnProperty.call(SDK_FAMILIES, sdk) ? SDK_FAMILIES[sdk] : undefined;
+  const family = hasNativeSdkFamily(sdk) ? NATIVE_SDK_FAMILIES[sdk] : undefined;
   if (!family) throw inventoryError("sdk must be uxp-hybrid or premiere-prsdk");
   const sdkVersion = stringOption(options?.sdkVersion, "sdkVersion", 128);
   const suppliedSdkRoot = resolve(stringOption(options?.sdkRoot, "sdkRoot", 4096));
@@ -151,7 +141,7 @@ export async function generateNativeSdkHeaderInventory(options) {
   }
   const archive = await readFile(archivePath);
   return {
-    schemaVersion: 1,
+    schemaVersion: NATIVE_SDK_HEADER_INVENTORY_SCHEMA_VERSION,
     source: {
       sdk,
       sdkVersion,
@@ -160,10 +150,7 @@ export async function generateNativeSdkHeaderInventory(options) {
       inventoryScope: "header_files_only",
       includeDirectories,
     },
-    semantics: {
-      listed: "Each listed item is a header file observed in a locally supplied Adobe SDK extraction. Paths are relative to that extraction and contents are not copied into this inventory.",
-      doesNotEstablish: "This receipt does not establish Adobe entitlement, complete C/C++ declaration coverage, a compiled addon, a loaded plugin, MCP exposure, or licensed-host behavior.",
-    },
+    semantics: NATIVE_SDK_HEADER_INVENTORY_SEMANTICS,
     stats: {
       headers: headers.length,
       bytes: headers.reduce((total, header) => total + header.bytes, 0),

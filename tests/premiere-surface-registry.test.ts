@@ -11,6 +11,7 @@ type Surface = {
   inventoryState: string;
   implementationState: string;
   inventoryCommand?: string;
+  inventoryVerificationCommand?: string;
   inventoryDocumentation?: string;
   notes: string;
 };
@@ -109,6 +110,7 @@ describe("Premiere API and competitor surface registry", () => {
         inventoryArtifact: null,
         inventoryState: "blocked_external_artifact",
         inventoryCommand: "npm run native:sdk-header-inventory",
+        inventoryVerificationCommand: "npm run native:sdk-header-inventory:verify",
         inventoryDocumentation: "docs/native-sdk-header-inventory.md",
       });
     }
