@@ -41,7 +41,7 @@ Use `--validate-only` to examine a local archive without writing a receipt, or
 `--check` to compare a regenerated receipt to a reviewed local file. The
 standalone verifier re-reads the archive and fails if any ZIP entry is unsafe,
 duplicated, encrypted, requests central-directory encryption, or uses
-unsupported compression, or if its required
+unsupported compression or ZIP64 entry metadata, or if its required
 files, ZIP identity, manifest facts, header provenance, addon-layout receipt
 binding, or complete entry-name-set digest changed. It also checks every local
 ZIP header against its central-directory entry before reading required payloads,

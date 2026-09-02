@@ -84,6 +84,9 @@ function readCentralDirectory(buffer, expectedEntries) {
     const localOffset = buffer.readUInt32LE(offset + 42);
     const next = offset + 46 + nameBytes + extraBytes + commentBytes;
     if (next > buffer.length || disk !== 0) throw archiveError("CCX archive central directory entry is invalid");
+    if (compressedBytes === MAX_ZIP32_BYTES || uncompressedBytes === MAX_ZIP32_BYTES || localOffset === MAX_ZIP32_BYTES) {
+      throw archiveError("CCX archive ZIP64 entry metadata is not supported by this bounded verifier");
+    }
     const rawName = buffer.subarray(offset + 46, offset + 46 + nameBytes);
     const name = rawName.toString("utf8");
     if (!name || !rawName.equals(Buffer.from(name, "utf8"))) {
