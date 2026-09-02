@@ -13,8 +13,8 @@
   },
   "stats": {
     "total": 976,
-    "mapped": 179,
-    "unmapped": 797,
+    "mapped": 181,
+    "unmapped": 795,
     "manifestOnly": 4
   },
   "manifestOnly": [
@@ -589,7 +589,7 @@
     {
       "symbol": "CaptionTrack.getIndex",
       "kind": "method",
-      "coverage": "unmapped"
+      "coverage": "mapped"
     },
     {
       "symbol": "CaptionTrack.getMediaType",
@@ -599,7 +599,7 @@
     {
       "symbol": "CaptionTrack.getTrackItems",
       "kind": "method",
-      "coverage": "unmapped"
+      "coverage": "mapped"
     },
     {
       "symbol": "CaptionTrack.id",

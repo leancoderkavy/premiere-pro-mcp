@@ -56,6 +56,34 @@
       "verificationBoundary": "created_sequence_guid"
     },
     {
+      "id": "native-caption-track-inventory",
+      "adobeApi": [
+        "Sequence.getCaptionTrackCount",
+        "Sequence.getCaptionTrack",
+        "CaptionTrack.getIndex",
+        "CaptionTrack.isMuted",
+        "CaptionTrack.getTrackItems"
+      ],
+      "documentationUrls": [
+        "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/sequence/",
+        "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/captiontrack/"
+      ],
+      "minimumPremiereVersion": "25.6.0",
+      "backend": "uxp",
+      "uxpCommand": "captions.inspect",
+      "mcpTools": [
+        "inspect_caption_tracks_uxp"
+      ],
+      "availability": "current",
+      "implementationStatus": "implemented",
+      "verificationStatus": "automated_contract_verified",
+      "liveHostVerificationStatus": "not_run",
+      "mutatesProject": false,
+      "undoable": false,
+      "idempotency": "not_applicable",
+      "verificationBoundary": "native_caption_track_structure_read"
+    },
+    {
       "id": "project-converter-interchange-export",
       "adobeApi": [
         "ProjectConverter.exportAsFinalCutProXML",
