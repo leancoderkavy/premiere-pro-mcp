@@ -141,6 +141,7 @@ describe("Adobe Premiere Pro 26.3 UXP coverage", () => {
       "ComponentParam.getKeyframeListAsTickTimes",
       "ComponentParam.createSetTimeVaryingAction",
       "ComponentParam.getKeyframePtr",
+      "ComponentParam.findNearestKeyframe",
       "ComponentParam.findNextKeyframe",
       "ComponentParam.findPreviousKeyframe",
       "Keyframe.position",

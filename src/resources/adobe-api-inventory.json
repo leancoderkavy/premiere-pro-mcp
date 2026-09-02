@@ -13,8 +13,8 @@
   },
   "stats": {
     "total": 976,
-    "mapped": 310,
-    "unmapped": 666,
+    "mapped": 311,
+    "unmapped": 665,
     "manifestOnly": 5
   },
   "manifestOnly": [
@@ -1016,7 +1016,7 @@
     {
       "symbol": "ComponentParam.findNearestKeyframe",
       "kind": "method",
-      "coverage": "unmapped"
+      "coverage": "mapped"
     },
     {
       "symbol": "ComponentParam.findNextKeyframe",

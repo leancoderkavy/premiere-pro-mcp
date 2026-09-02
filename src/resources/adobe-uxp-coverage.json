@@ -1259,6 +1259,7 @@
         "ComponentParam.getKeyframeListAsTickTimes",
         "ComponentParam.createSetTimeVaryingAction",
         "ComponentParam.getKeyframePtr",
+        "ComponentParam.findNearestKeyframe",
         "ComponentParam.findNextKeyframe",
         "ComponentParam.findPreviousKeyframe",
         "Keyframe.position",

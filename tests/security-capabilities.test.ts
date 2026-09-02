@@ -196,13 +196,13 @@ describe("capability profiles", () => {
     ["inspect_sequence_timing_uxp", undefined],
     ["inspect_track_item_identity_uxp", undefined],
     ["automate_effect_parameters_uxp", "inspect"],
-    ["automate_effect_parameters_uxp", "inspect_keyframe"],
+    ["automate_effect_parameters_uxp", "inspect_keyframe", { keyframe_direction: "nearest" }],
     ["automate_effect_parameters_uxp", "inspect_time_varying"],
     ["transform_track_item_uxp", "inspect"],
     ["manage_sequences_uxp", "inspect"],
     ["encode_media_uxp", "preflight"],
-  ])("keeps %s:%s available to inspect-only profiles", (toolName, action) => {
-    expect(capabilitiesForToolInvocation(toolName, { action })).toEqual(["inspect"]);
+  ])("keeps %s:%s available to inspect-only profiles", (toolName, action, args = {}) => {
+    expect(capabilitiesForToolInvocation(toolName, { action, ...args })).toEqual(["inspect"]);
     expect(isToolPermitted(toolName, resolveCapabilities("inspect"))).toBe(true);
   });
 

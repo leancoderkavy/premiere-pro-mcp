@@ -135,12 +135,14 @@ The tool resolves one audio/video clip, component index, and parameter index. It
 accepts only scalar number, string, or boolean values; point and color values remain
 out of scope until the public schema can represent their Adobe types unambiguously.
 Keyframe actions support add, remove, inclusive range removal, and interpolation.
-`inspect_keyframe` accepts one bounded reference time and only `at`, `next`, or
-`previous`; it reads one native keyframe's returned position and temporal interpolation
-mode. It does not enumerate more keyframes, alter animation, inspect a rendered frame,
-or claim host navigation semantics beyond that direct native result. Optional expected
-component and parameter identifiers guard the selected target; a missing native result
-is reported as `found: false`.
+`inspect_keyframe` accepts one bounded reference time with `at`, `next`, or
+`previous`, or `nearest` with an explicit nondecreasing `time_seconds` to
+`end_seconds` range. The nearest form passes both documented native lookup bounds to
+Premiere and reads one returned keyframe's position and temporal interpolation mode; it
+does not infer tie-breaking or navigation semantics. It does not enumerate more
+keyframes, alter animation, inspect a rendered frame, or claim host behavior beyond
+that direct native result. Optional expected component and parameter identifiers guard
+the selected target; a missing native result is reported as `found: false`.
 `inspect_time_varying` returns the current animation mode and its bounded keyframe-time
 snapshot. `set_time_varying` requires the exact inspected sequence, component,
 parameter, mode, and complete keyframe-time snapshot; disabling animation additionally

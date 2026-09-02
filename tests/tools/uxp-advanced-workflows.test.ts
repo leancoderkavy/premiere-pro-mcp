@@ -72,7 +72,7 @@ describe("advanced stable UXP workflow MCP catalog", () => {
         action: { enum: ["inspect", "inspect_keyframe", "set_value", "add_keyframe", "remove_keyframe", "remove_keyframe_range", "set_interpolation", "inspect_time_varying", "set_time_varying"] },
         expected_sequence_id: { maxLength: 128 }, expected_time_varying: { type: "boolean" },
         expected_keyframe_times_seconds: { maxItems: 256, uniqueItems: true },
-        keyframe_direction: { enum: ["at", "next", "previous"] },
+        keyframe_direction: { enum: ["at", "next", "previous", "nearest"] },
         time_varying: { type: "boolean" }, confirm_disable_time_varying: { type: "boolean" },
       },
     });
@@ -97,6 +97,7 @@ describe("advanced stable UXP workflow MCP catalog", () => {
     };
 
     await tools.automate_effect_parameters_uxp.handler({ action: "inspect_keyframe", ...target, time_seconds: 4, keyframe_direction: "next" });
+    await tools.automate_effect_parameters_uxp.handler({ action: "inspect_keyframe", ...target, time_seconds: 4, end_seconds: 6, keyframe_direction: "nearest" });
     await tools.automate_effect_parameters_uxp.handler({ action: "inspect_time_varying", ...target, time_seconds: 4 });
     await tools.automate_effect_parameters_uxp.handler({
       action: "set_time_varying", ...target, expected_sequence_id: "sequence-1", expected_time_varying: true,
@@ -108,6 +109,10 @@ describe("advanced stable UXP workflow MCP catalog", () => {
       ["parameters.keyframe.inspect", {
         mediaType: "video", trackIndex: 0, clipIndex: 1, componentIndex: 2, paramIndex: 3,
         expectedComponentId: "ADBE Opacity", expectedParamName: "Opacity", timeSeconds: 4, direction: "next",
+      }],
+      ["parameters.keyframe.inspect", {
+        mediaType: "video", trackIndex: 0, clipIndex: 1, componentIndex: 2, paramIndex: 3,
+        expectedComponentId: "ADBE Opacity", expectedParamName: "Opacity", timeSeconds: 4, direction: "nearest", endSeconds: 6,
       }],
       ["parameters.timeVarying.inspect", {
         mediaType: "video", trackIndex: 0, clipIndex: 1, componentIndex: 2, paramIndex: 3,

@@ -140,6 +140,10 @@ function advancedHost() {
       const previous = parameterState.keyframes.filter((seconds) => seconds < time.seconds).at(-1);
       return previous == null ? null : parameterKeyframe(previous);
     }),
+    findNearestKeyframe: vi.fn((inTime: { seconds: number }, outTime: { seconds: number }) => {
+      const result = parameterState.keyframes.find((seconds) => seconds >= inTime.seconds && seconds <= outTime.seconds);
+      return result == null ? null : parameterKeyframe(result);
+    }),
     createKeyframe: vi.fn((value: number) => ({ value, position: null as { seconds: number } | null })),
     createSetValueAction: vi.fn((keyframe: { value: number }) => ({ apply: () => { parameterState.value = keyframe.value; } })),
     createSetTimeVaryingAction: vi.fn((value: boolean) => ({ apply: () => { parameterState.varying = value; } })),
@@ -1273,7 +1277,7 @@ describe("advanced stable Premiere UXP workflows", () => {
     expect(value.project.executeTransaction).toHaveBeenCalledTimes(1);
   });
 
-  it("locates one exact, next, or previous keyframe with bounded native position and interpolation readback", async () => {
+  it("locates one exact, directional, or bounded-nearest keyframe with native position and interpolation readback", async () => {
     const value = advancedHost();
     value.parameterState.keyframes = [1, 3, 7];
     const target = { mediaType: "video", trackIndex: 0, clipIndex: 0, componentIndex: 0, paramIndex: 0, expectedComponentId: "ADBE Opacity", expectedParamName: "Opacity" };
@@ -1291,11 +1295,20 @@ describe("advanced stable Premiere UXP workflows", () => {
     await expect(value.registry.dispatch("parameters.keyframe.inspect", { ...target, direction: "next", timeSeconds: 7 })).resolves.toMatchObject({
       direction: "next", found: false, keyframe: null,
     });
+    await expect(value.registry.dispatch("parameters.keyframe.inspect", { ...target, direction: "nearest", timeSeconds: 2, endSeconds: 5 })).resolves.toMatchObject({
+      direction: "nearest", referenceSeconds: 2, rangeEndSeconds: 5, found: true,
+      keyframe: { positionSeconds: 3, temporalInterpolationMode: 1 },
+    });
     await expect(value.registry.dispatch("parameters.keyframe.inspect", { ...target, direction: "nearest", timeSeconds: 3 }))
+      .rejects.toMatchObject({ code: "UXP_INVALID_ARGUMENT" });
+    await expect(value.registry.dispatch("parameters.keyframe.inspect", { ...target, direction: "nearest", timeSeconds: 5, endSeconds: 2 }))
+      .rejects.toMatchObject({ code: "UXP_INVALID_ARGUMENT" });
+    await expect(value.registry.dispatch("parameters.keyframe.inspect", { ...target, direction: "next", timeSeconds: 3, endSeconds: 5 }))
       .rejects.toMatchObject({ code: "UXP_INVALID_ARGUMENT" });
     expect(value.parameter.getKeyframePtr).toHaveBeenCalledWith({ seconds: 3 });
     expect(value.parameter.findNextKeyframe).toHaveBeenCalledWith({ seconds: 3 });
     expect(value.parameter.findPreviousKeyframe).toHaveBeenCalledWith({ seconds: 3 });
+    expect(value.parameter.findNearestKeyframe).toHaveBeenCalledWith({ seconds: 2 }, { seconds: 5 });
 
     const staleTarget = advancedHost();
     staleTarget.parameterState.keyframes = [3];
