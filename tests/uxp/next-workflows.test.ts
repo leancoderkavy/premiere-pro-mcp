@@ -489,6 +489,102 @@ describe("next-wave UXP event workflows", () => {
     expect(betaPromiseMedia.createSetStartAction).not.toHaveBeenCalled();
   });
 
+  it("guards, serializes, replays, and reads back source-media interpretation overrides", async () => {
+    let frameRate = 23.976, pixelAspectRatio = 1;
+    const clip = {
+      getId: vi.fn(async () => "clip-1"),
+      getFootageInterpretation: vi.fn(async () => ({
+        getFrameRate: () => frameRate,
+        getPixelAspectRatio: () => pixelAspectRatio,
+      })),
+      createSetOverrideFrameRateAction: vi.fn((value: number) => ({ apply: () => { frameRate = value; } })),
+      createSetOverridePixelAspectRatioAction: vi.fn((numerator: number, denominator: number) => ({
+        apply: () => { pixelAspectRatio = numerator / denominator; },
+      })),
+    };
+    const root = { getItems: vi.fn(async () => [clip]) };
+    const project = {
+      guid: "project-1",
+      getRootItem: vi.fn(async () => root),
+      lockedAccess: vi.fn((callback: () => void) => callback()),
+      executeTransaction: vi.fn((callback: (compound: { addAction: (action: { apply: () => void }) => boolean }) => void) => {
+        callback({ addAction: (action) => { action.apply(); return true; } });
+        return true;
+      }),
+    };
+    const ppro = {
+      Project: { getActiveProject: vi.fn(async () => project) },
+      ProjectItem: { cast: vi.fn((item: unknown) => item) },
+      ClipProjectItem: { cast: vi.fn((item: unknown) => item) },
+      FolderItem: { cast: vi.fn(() => null) },
+    };
+    const registry = Commands.createCommandRegistry({ ppro, Protocol });
+    const initial = { projectGuid: "project-1", frameRate: 23.976, pixelAspectRatio: 1 };
+
+    await expect(registry.dispatch("source.mediaOverrides.inspect", { projectItemId: "clip-1" })).resolves.toEqual({
+      ...initial,
+      projectItemId: "clip-1",
+      verificationBoundary: "source_media_effective_interpretation_readback",
+    });
+    await expect(registry.dispatch("source.mediaOverrides.update", {
+      projectItemId: "clip-1", expectedOverrides: initial, frameRate: 25,
+    })).rejects.toMatchObject({ code: "UXP_CONFIRMATION_REQUIRED" });
+    await expect(registry.dispatch("source.mediaOverrides.update", {
+      projectItemId: "clip-1", expectedOverrides: initial, frameRate: 25, confirmMediaInterpretation: true,
+    })).rejects.toMatchObject({ code: "UXP_INVALID_ARGUMENT" });
+    expect(clip.createSetOverrideFrameRateAction).not.toHaveBeenCalled();
+
+    const firstArgs = {
+      projectItemId: "clip-1", expectedOverrides: initial, frameRate: 25,
+      pixelAspectRatio: { numerator: 4, denominator: 3 }, confirmMediaInterpretation: true,
+      operationId: "source-override-1",
+    };
+    await expect(registry.dispatch("source.mediaOverrides.update", firstArgs)).resolves.toMatchObject({
+      updated: true, operationId: "source-override-1", outcome: "verified",
+      before: { projectGuid: "project-1", projectItemId: "clip-1", frameRate: 23.976, pixelAspectRatio: 1 },
+      after: { projectGuid: "project-1", projectItemId: "clip-1", frameRate: 25, pixelAspectRatio: 4 / 3 },
+      requested: { frameRate: 25, pixelAspectRatio: { numerator: 4, denominator: 3 } },
+    });
+    expect(project.executeTransaction).toHaveBeenCalledWith(expect.any(Function), "Set source media interpretation override");
+    await expect(registry.dispatch("source.mediaOverrides.update", firstArgs)).resolves.toMatchObject({
+      replayed: true, operationId: "source-override-1",
+    });
+    expect(clip.createSetOverrideFrameRateAction).toHaveBeenCalledTimes(1);
+    expect(clip.createSetOverridePixelAspectRatioAction).toHaveBeenCalledTimes(1);
+
+    const expectedCurrent = { projectGuid: "project-1", frameRate: 25, pixelAspectRatio: 4 / 3 };
+    const concurrentFirst = registry.dispatch("source.mediaOverrides.update", {
+      projectItemId: "clip-1", expectedOverrides: expectedCurrent, frameRate: 30,
+      confirmMediaInterpretation: true, operationId: "source-override-2",
+    });
+    const concurrentSecond = registry.dispatch("source.mediaOverrides.update", {
+      projectItemId: "clip-1", expectedOverrides: expectedCurrent, pixelAspectRatio: { numerator: 16, denominator: 9 },
+      confirmMediaInterpretation: true, operationId: "source-override-3",
+    });
+    await expect(concurrentFirst).resolves.toMatchObject({
+      updated: true, operationId: "source-override-2", after: { frameRate: 30, pixelAspectRatio: 4 / 3 },
+    });
+    await expect(concurrentSecond).rejects.toMatchObject({ code: "UXP_STALE_TARGET" });
+    expect(clip.createSetOverrideFrameRateAction).toHaveBeenCalledTimes(2);
+    expect(clip.createSetOverridePixelAspectRatioAction).toHaveBeenCalledTimes(1);
+    expect(frameRate).toBe(30);
+    expect(pixelAspectRatio).toBeCloseTo(4 / 3);
+
+    await expect(registry.dispatch("source.mediaOverrides.update", {
+      projectItemId: "clip-1", expectedOverrides: expectedCurrent, frameRate: 24,
+      confirmMediaInterpretation: true, operationId: "source-override-4",
+    })).rejects.toMatchObject({ code: "UXP_STALE_TARGET" });
+    expect(clip.createSetOverrideFrameRateAction).toHaveBeenCalledTimes(2);
+
+    clip.createSetOverrideFrameRateAction.mockImplementationOnce(() => ({ apply: () => { frameRate = 29.97; } }));
+    await expect(registry.dispatch("source.mediaOverrides.update", {
+      projectItemId: "clip-1", expectedOverrides: { projectGuid: "project-1", frameRate: 30, pixelAspectRatio: 4 / 3 }, frameRate: 24,
+      confirmMediaInterpretation: true, operationId: "source-override-5",
+    })).rejects.toMatchObject({ code: "UXP_VERIFICATION_FAILED" });
+    expect(project.executeTransaction).toHaveBeenCalledTimes(3);
+    expect(frameRate).toBe(29.97);
+  });
+
   it("sets caption-track mute state through direct host promises and reads it back", async () => {
     let muted = false;
     const captionTrack = {

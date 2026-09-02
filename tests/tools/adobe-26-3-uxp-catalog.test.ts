@@ -18,6 +18,7 @@ const ADOBE_26_3_TOOLS = [
   "create_subclip_uxp",
   "list_markers_uxp",
   "set_source_monitor_position_uxp",
+  "manage_source_media_overrides_uxp",
   "create_empty_sequence_uxp",
   "has_transcript_uxp",
   "export_aaf_uxp",
@@ -29,7 +30,7 @@ function catalog(request = vi.fn().mockResolvedValue({ outcome: "verified" })) {
 }
 
 describe("Adobe Premiere 26.3 UXP public MCP catalog", () => {
-  it("registers the seven capability-gated tools only with a UXP bridge", async () => {
+  it("registers the sampled capability-gated tools only with a UXP bridge", async () => {
     const bridge = {
       request: vi.fn(),
       getState: vi.fn(() => ({ status: "listening", connected: false })),
@@ -44,7 +45,7 @@ describe("Adobe Premiere 26.3 UXP public MCP catalog", () => {
       expect(listed.tools.map((tool) => tool.name)).toEqual(
         expect.arrayContaining(ADOBE_26_3_TOOLS),
       );
-      expect(listed.tools).toHaveLength(398);
+      expect(listed.tools).toHaveLength(399);
     } finally {
       await client.close();
       await server.close();

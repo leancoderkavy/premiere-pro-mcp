@@ -85,6 +85,23 @@ type SourceMediaTimingArgs = {
   operation_id?: string;
 };
 
+type SourceMediaOverridesArgs = {
+  action?: string;
+  project_item_id?: string;
+  expected_overrides?: {
+    project_guid?: string;
+    frame_rate?: number;
+    pixel_aspect_ratio?: number;
+  };
+  frame_rate?: number;
+  pixel_aspect_ratio?: {
+    numerator?: number;
+    denominator?: number;
+  };
+  confirm_media_interpretation?: boolean;
+  operation_id?: string;
+};
+
 type TrackStateArgs = {
   action?: string;
   sequence_id?: string;
@@ -453,6 +470,72 @@ export function getUxpNextWorkflowTools(bridge: UxpWebSocketBridge) {
           ...(args.operation_id === undefined ? {} : { operationId: args.operation_id }),
         });
         return { success: false, error: `Unsupported source-media timing action: ${String(args.action)}` };
+      },
+    },
+    manage_source_media_overrides_uxp: {
+      description: "Inspect or transactionally set one source media item's explicit frame-rate and/or pixel-aspect-ratio override through stable Premiere 26.3 UXP actions. Updates require the complete effective-interpretation snapshot, explicit confirmation, an operation_id, per-item serialization, one undoable transaction, and native effective-value readback. Premiere does not expose an override-presence getter, so this tool cannot clear or distinguish an explicit override from matching file-native interpretation.",
+      parameters: {
+        type: "object" as const,
+        additionalProperties: false,
+        properties: {
+          action: { type: "string", enum: ["inspect", "update"] },
+          project_item_id: { type: "string", minLength: 1, maxLength: 512 },
+          expected_overrides: {
+            type: "object", additionalProperties: false,
+            properties: {
+              project_guid: { type: "string", pattern: "^[A-Za-z0-9._:-]{1,128}$" },
+              frame_rate: { type: "number", minimum: 1, maximum: 240 },
+              pixel_aspect_ratio: { type: "number", minimum: 0.01, maximum: 100 },
+            },
+            required: ["project_guid", "frame_rate", "pixel_aspect_ratio"],
+            description: "Required for update; copy the complete snapshot returned by inspect. Any changed effective value or active project rejects before the transaction.",
+          },
+          frame_rate: { type: "number", minimum: 1, maximum: 240 },
+          pixel_aspect_ratio: {
+            type: "object", additionalProperties: false,
+            properties: {
+              numerator: { type: "integer", minimum: 1, maximum: 10000 },
+              denominator: { type: "integer", minimum: 1, maximum: 10000 },
+            },
+            required: ["numerator", "denominator"],
+          },
+          confirm_media_interpretation: { type: "boolean", description: "Required true for update because source interpretation can alter editorial timing and framing." },
+          operation_id: { type: "string", pattern: "^[A-Za-z0-9._:-]{1,128}$", description: "Required for update so an interrupted mutation can be safely replayed." },
+        },
+        required: ["action", "project_item_id"],
+      },
+      operationalCapability: {
+        backend: "UXP" as const,
+        backends: ["uxp" as const],
+        minimumPremiereVersion: "26.3",
+        verificationBoundary: "structured_uxp_readback" as const,
+        hostVerificationRequired: true,
+        notes: [
+          "The documented UXP actions and effective-value readback are covered by mocks and static declaration inventory.",
+          "No licensed Premiere host validation has run; the API has no override-presence or clear-override getter.",
+        ],
+      },
+      handler: async (args: SourceMediaOverridesArgs) => {
+        const common = {
+          ...(args.project_item_id === undefined ? {} : { projectItemId: args.project_item_id }),
+        };
+        if (args.action === "inspect") return invoke(bridge, "source.mediaOverrides.inspect", common);
+        if (args.action === "update") return invoke(bridge, "source.mediaOverrides.update", {
+          ...common,
+          ...(args.expected_overrides === undefined ? {} : { expectedOverrides: {
+            ...(args.expected_overrides.project_guid === undefined ? {} : { projectGuid: args.expected_overrides.project_guid }),
+            ...(args.expected_overrides.frame_rate === undefined ? {} : { frameRate: args.expected_overrides.frame_rate }),
+            ...(args.expected_overrides.pixel_aspect_ratio === undefined ? {} : { pixelAspectRatio: args.expected_overrides.pixel_aspect_ratio }),
+          } }),
+          ...(args.frame_rate === undefined ? {} : { frameRate: args.frame_rate }),
+          ...(args.pixel_aspect_ratio === undefined ? {} : { pixelAspectRatio: {
+            ...(args.pixel_aspect_ratio.numerator === undefined ? {} : { numerator: args.pixel_aspect_ratio.numerator }),
+            ...(args.pixel_aspect_ratio.denominator === undefined ? {} : { denominator: args.pixel_aspect_ratio.denominator }),
+          } }),
+          ...(args.confirm_media_interpretation === undefined ? {} : { confirmMediaInterpretation: args.confirm_media_interpretation }),
+          ...(args.operation_id === undefined ? {} : { operationId: args.operation_id }),
+        });
+        return { success: false, error: `Unsupported source-media override action: ${String(args.action)}` };
       },
     },
     manage_track_state_uxp: {

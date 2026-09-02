@@ -159,8 +159,8 @@ Adobe exposes only a set-true action for scale-to-frame and no getter for either
 setting or an unambiguous cleared-in/out sentinel. Those requests are returned as
 `committed_unverified` even though the transaction committed; ordinary in/out sets
 can return `verified` after exact readback. This workflow does not duplicate the
-existing color, frame-rate, or pixel-aspect conformance surfaces. Real-host testing
-remains required for mixed audio/video media and source-monitor behavior.
+existing color-conformance surface. Real-host testing remains required for mixed
+audio/video media and source-monitor behavior.
 
 ## PR 10 — Hybrid acceleration benchmark gate
 
@@ -239,6 +239,37 @@ fallback. Contract tests cover confirmation, stale preflight, serialization,
 operation replay, one transaction, and post-readback; they do not prove a licensed
 Premiere host accepted the action, displayed the new timecode, persisted it, or
 provided a usable Undo entry.
+
+## PR 14 — Guarded source-media interpretation overrides
+
+`manage_source_media_overrides_uxp` inspects the effective frame rate and pixel
+aspect ratio for one explicitly identified source clip, then can set one or both
+explicit overrides using the dedicated documented
+`ClipProjectItem.createSetOverrideFrameRateAction()` and
+`createSetOverridePixelAspectRatioAction()` APIs. It never accepts a selected item
+or name as the mutation target, does not read paths or Project-panel metadata, and
+does not call CEP, QE, or raw evaluation.
+
+An update requires the exact project GUID, project-item ID, frame-rate, and
+pixel-aspect-ratio snapshot returned by `inspect`, an explicit
+`confirm_media_interpretation: true`, and a bounded `operation_id`. It allows a
+finite frame rate from 1 through 240 and a positive rational pixel-aspect ratio
+from 0.01 through 100, with an integer numerator and denominator. The panel
+serializes competing requests through this source-media timing/override protocol
+per project and item, refreshes the asynchronous effective interpretation snapshot
+immediately before action construction, rejects staleness, builds only requested
+actions synchronously inside `Project.lockedAccess()`, commits one transaction,
+and then re-reads both effective values.
+
+Adobe does not document an explicit-override presence getter or a clear-override
+action. Consequently, effective-value readback cannot show whether an explicit
+override persists or distinguish it from matching file-native interpretation; the
+tool deliberately offers no clear operation. The lock cannot exclude Premiere UI
+or a separate workflow changing interpretation after the asynchronous snapshot.
+Contract tests cover confirmation, operation replay, stale preflight, concurrent
+different-ID rejection, one transaction, and effective-value readback; they do not
+prove a licensed Premiere host accepted the action, persisted the override,
+displayed the intended interpretation, or provided a usable Undo entry.
 
 ## Primary Adobe references
 
