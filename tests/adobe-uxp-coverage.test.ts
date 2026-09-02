@@ -452,6 +452,22 @@ describe("Adobe Premiere Pro 26.3 UXP coverage", () => {
       "Project.lockedAccess",
       "Project.executeTransaction",
     ]));
+    expect(entries.find((entry) => entry.id === "guarded-sequence-preview-frame")).toMatchObject({
+      uxpCommand: "sequence.previewFrame.update",
+      mcpTools: ["manage_sequence_preview_frame_uxp"],
+      verificationBoundary: "sequence_preview_frame_readback",
+      liveHostVerificationStatus: "not_run",
+    });
+    expect(entries.find((entry) => entry.id === "guarded-sequence-preview-frame")?.adobeApi).toEqual(expect.arrayContaining([
+      "Project.getSequences",
+      "Sequence.getSettings",
+      "Sequence.createSetSettingsAction",
+      "SequenceSettings.getPreviewFrameRect",
+      "SequenceSettings.setPreviewFrameRect",
+      "RectF.[[construct]]",
+      "Project.lockedAccess",
+      "Project.executeTransaction",
+    ]));
     for (const entry of entries) {
       expect(entry.minimumPremiereVersion).toMatch(/^\d+\.\d+\.\d+$/);
       expect(entry.backend).toBe("uxp");

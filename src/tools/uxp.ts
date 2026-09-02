@@ -9,6 +9,7 @@ import { getUxpUniqueIdentityWorkflowTools } from "./uxp-unique-identity-workflo
 import { getUxpRippleDeleteWorkflowTools } from "./uxp-ripple-delete-workflows.js";
 import { getUxpSlipWorkflowTools } from "./uxp-slip-workflows.js";
 import { getUxpSlideWorkflowTools } from "./uxp-slide-workflows.js";
+import { getUxpSequencePreviewFrameWorkflowTools } from "./uxp-sequence-preview-frame-workflows.js";
 import { getUxpTickTimeArithmeticWorkflowTools } from "./uxp-tick-time-arithmetic-workflows.js";
 import { getUxpTimelineSourceLabelWorkflowTools } from "./uxp-timeline-source-label-workflows.js";
 import { getUxpWorkflowTools } from "./uxp-workflows.js";
@@ -57,6 +58,7 @@ export function getUxpTools(bridge: UxpWebSocketBridge) {
     ...getUxpRippleDeleteWorkflowTools(bridge),
     ...getUxpSlipWorkflowTools(bridge),
     ...getUxpSlideWorkflowTools(bridge),
+    ...getUxpSequencePreviewFrameWorkflowTools(bridge),
     ...getUxpTickTimeArithmeticWorkflowTools(bridge),
     ...getUxpTimelineSourceLabelWorkflowTools(bridge),
     ...getUxpWorkflowTools(bridge),

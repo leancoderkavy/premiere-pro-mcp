@@ -461,10 +461,12 @@ describe("UXP MCP tools", () => {
       // three-item slides, append-only timeline duplication, guarded Project metadata
       // schema-field creation, guarded contiguous ripple deletes, and guarded
       // source-label updates, opt-in installed-MOGRT directory inspection, and
-      // bounded Object Mask audits, native TickTime arithmetic, and unique serializable identity inspection add forty-seven
+      // bounded Object Mask audits, native TickTime arithmetic, and guarded
+      // explicit-sequence preview-frame updates plus unique serializable identity
+      // inspection add forty-eight consolidated UXP tools;
       // consolidated UXP tools;
       // connection verification and delivery conformance add two default-profile core tools.
-        expect(tools.tools).toHaveLength(414);
+        expect(tools.tools).toHaveLength(415);
     } finally {
       await client.close();
       await server.close();

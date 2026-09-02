@@ -3389,7 +3389,7 @@
     {
       "symbol": "RectF.[[construct]]",
       "kind": "constructor",
-      "coverage": "unmapped"
+      "coverage": "mapped"
     },
     {
       "symbol": "RectF.height",
@@ -3878,7 +3878,7 @@
     {
       "symbol": "SequenceSettings.getPreviewFrameRect",
       "kind": "method",
-      "coverage": "unmapped"
+      "coverage": "mapped"
     },
     {
       "symbol": "SequenceSettings.getVideoDisplayFormat",
@@ -3948,7 +3948,7 @@
     {
       "symbol": "SequenceSettings.setPreviewFrameRect",
       "kind": "method",
-      "coverage": "unmapped"
+      "coverage": "mapped"
     },
     {
       "symbol": "SequenceSettings.setVideoDisplayFormat",
