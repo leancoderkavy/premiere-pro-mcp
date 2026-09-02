@@ -30,6 +30,10 @@ type WorkflowArgs = {
   expected_project_panel_metadata?: string;
   project_panel_metadata?: string;
   confirm_update?: boolean;
+  field_name?: string;
+  field_label?: string;
+  schema_field_type?: string;
+  confirm_create?: boolean;
   frame_rate?: number;
   pixel_aspect_ratio?: number;
   field_type?: number;
@@ -445,6 +449,49 @@ export function getUxpWorkflowTools(bridge: UxpWebSocketBridge) {
           expectedProjectPanelMetadata: args.expected_project_panel_metadata,
           projectPanelMetadata: args.project_panel_metadata,
           confirmUpdate: args.confirm_update,
+          operationId: args.operation_id,
+        });
+        return invalidAction(args.action);
+      },
+    },
+
+    create_project_metadata_field_uxp: {
+      description: "Inspect a bounded native Project-panel schema or request one typed Project metadata field through Adobe's documented direct UXP API. Creation requires the exact inspected project GUID/XML, explicit confirmation, and a replay key; it is non-undoable and reports host acceptance plus schema-change readback without claiming field-level verification or atomic compare-and-set semantics.",
+      parameters: {
+        type: "object" as const,
+        additionalProperties: false,
+        properties: {
+          action: { type: "string", enum: ["inspect", "create"] },
+          expected_project_guid: { type: "string", minLength: 1, maxLength: 512, description: "Required for create; must exactly match inspect's active-project GUID." },
+          expected_project_panel_metadata: { type: "string", maxLength: 12288, description: "Required for create; exact inspected Project-panel XML. The UXP host enforces a 12 KiB UTF-8 bound." },
+          field_name: { type: "string", minLength: 1, maxLength: 128, pattern: "^[A-Za-z][A-Za-z0-9_.-]{0,127}$", description: "Required stable metadata field identifier. Starts with a letter; only letters, digits, periods, underscores, and hyphens are accepted." },
+          field_label: { type: "string", minLength: 1, maxLength: 255, description: "Required user-visible label for the new metadata field." },
+          schema_field_type: { type: "string", enum: ["integer", "real", "text", "boolean"], description: "Required documented Premiere metadata-field type." },
+          confirm_create: { type: "boolean", description: "Required true for create because this direct schema API is non-undoable." },
+          operation_id: { ...operationId, description: "Required replay key for a guarded Project metadata schema field creation." },
+        },
+        required: ["action"],
+      },
+      operationalCapability: {
+        backend: "UXP" as const,
+        backends: ["uxp" as const],
+        minimumPremiereVersion: "25.6",
+        verificationBoundary: "project_panel_metadata_change_readback" as const,
+        hostVerificationRequired: true,
+        notes: [
+          "Creation is available only when the authenticated UXP bridge advertises metadata.projectSchema.create.",
+          "Adobe supplies no atomic compare-and-set or field-level schema getter; success is always committed_unverified even when post-call Project-panel XML changes.",
+        ],
+      },
+      handler: async (args: WorkflowArgs) => {
+        if (args.action === "inspect") return invoke(bridge, "metadata.projectSchema.inspect");
+        if (args.action === "create") return invoke(bridge, "metadata.projectSchema.create", {
+          expectedProjectGuid: args.expected_project_guid,
+          expectedProjectPanelMetadata: args.expected_project_panel_metadata,
+          fieldName: args.field_name,
+          fieldLabel: args.field_label,
+          fieldType: args.schema_field_type,
+          confirmCreate: args.confirm_create,
           operationId: args.operation_id,
         });
         return invalidAction(args.action);

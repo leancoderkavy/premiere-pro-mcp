@@ -31,7 +31,7 @@
 
   function createWorkflowDefinitions(deps) {
     const ppro = deps.ppro, Protocol = deps.Protocol, workspace = deps.workspace;
-    const projectPanelMetadataUpdateTails = new Map();
+    const projectPanelMetadataMutationTails = new Map();
     const definitions = {
       "effects.catalog": { readOnly: true, minHostVersion: "25.6.0", probe: canUseEffects, handler: effectCatalog },
       "effects.chain.get": { readOnly: true, targetCapabilityProbe: true, minHostVersion: "25.6.0", probe: canUseEffects, handler: effectChain },
@@ -55,6 +55,8 @@
       "metadata.columns.get": { readOnly: true, targetCapabilityProbe: true, minHostVersion: "25.6.0", probe: canGetProjectColumnsMetadata, handler: getProjectColumnsMetadata },
       "metadata.projectPanel.get": { readOnly: true, minHostVersion: "25.6.0", probe: canGetProjectPanelMetadata, handler: getProjectPanelMetadata },
       "metadata.projectPanel.update": { destructive: true, undoable: false, idempotent: true, targetCapabilityProbe: true, minHostVersion: "25.6.0", probe: canSetProjectPanelMetadata, handler: updateProjectPanelMetadata },
+      "metadata.projectSchema.inspect": { readOnly: true, minHostVersion: "25.6.0", probe: canCreateProjectMetadataSchema, handler: inspectProjectMetadataSchema },
+      "metadata.projectSchema.create": { destructive: true, undoable: false, idempotent: true, targetCapabilityProbe: true, minHostVersion: "25.6.0", probe: canCreateProjectMetadataSchema, handler: createProjectMetadataField },
       "color.preflight": { readOnly: true, targetCapabilityProbe: true, minHostVersion: "25.6.0", probe: canInspectColor, handler: colorPreflight },
       "environment.inspect": { readOnly: true, targetCapabilityProbe: true, minHostVersion: "25.6.0", probe: canInspectEnvironment, handler: inspectEnvironment },
       "footage.conform": { destructive: true, undoable: true, idempotent: true, targetCapabilityProbe: true, minHostVersion: "25.6.0", probe: canConformFootage, handler: conformFootage },
@@ -991,7 +993,7 @@
       if (args.confirmUpdate !== true) {
         throw commandError("UXP_CONFIRMATION_REQUIRED", "Replacing Project-panel metadata is not undoable; pass confirmUpdate=true after review");
       }
-      return withProjectPanelMetadataUpdateLock(input.expectedProjectGuid, async () => {
+      return withProjectPanelMetadataMutationLock(input.expectedProjectGuid, async () => {
         // This queue serializes this bridge's competing requests. Premiere does
         // not expose an atomic compare-and-set for this direct setter, so the
         // snapshot is deliberately the final asynchronous preflight before the
@@ -1025,15 +1027,15 @@
       });
     }
 
-    function withProjectPanelMetadataUpdateLock(projectGuid, operation) {
-      const previous = projectPanelMetadataUpdateTails.get(projectGuid) || Promise.resolve();
+    function withProjectPanelMetadataMutationLock(projectGuid, operation) {
+      const previous = projectPanelMetadataMutationTails.get(projectGuid) || Promise.resolve();
       let release;
       const gate = new Promise((resolve) => { release = resolve; });
       const tail = previous.catch(() => undefined).then(() => gate);
-      projectPanelMetadataUpdateTails.set(projectGuid, tail);
+      projectPanelMetadataMutationTails.set(projectGuid, tail);
       return previous.catch(() => undefined).then(operation).finally(() => {
         release();
-        if (projectPanelMetadataUpdateTails.get(projectGuid) === tail) projectPanelMetadataUpdateTails.delete(projectGuid);
+        if (projectPanelMetadataMutationTails.get(projectGuid) === tail) projectPanelMetadataMutationTails.delete(projectGuid);
       });
     }
 
@@ -1047,6 +1049,92 @@
           transactionActionGroup: false, cancellationSupported: false
         })
       };
+    }
+
+    async function inspectProjectMetadataSchema(args) {
+      assertObject(args); assertOnlyKeys(args, []);
+      const snapshot = await projectPanelMetadataSnapshot(MAX_PROJECT_PANEL_METADATA_UPDATE_BYTES);
+      return {
+        projectGuid: snapshot.projectGuid, projectName: snapshot.projectName,
+        projectPanelMetadata: snapshot.projectPanelMetadata,
+        verificationBoundary: "bounded_project_panel_metadata_readback"
+      };
+    }
+
+    async function createProjectMetadataField(args) {
+      assertObject(args);
+      assertOnlyKeys(args, ["expectedProjectGuid", "expectedProjectPanelMetadata", "fieldName", "fieldLabel", "fieldType", "confirmCreate", "operationId"]);
+      const input = {
+        expectedProjectGuid: boundedString(args.expectedProjectGuid, "expectedProjectGuid", 512),
+        expectedProjectPanelMetadata: boundedUtf8StringAllowEmpty(args.expectedProjectPanelMetadata, "expectedProjectPanelMetadata", MAX_PROJECT_PANEL_METADATA_UPDATE_BYTES),
+        fieldName: metadataSchemaFieldName(args.fieldName),
+        fieldLabel: boundedString(args.fieldLabel, "fieldLabel", 255),
+        fieldType: enumValue(args.fieldType, "fieldType", ["integer", "real", "text", "boolean"]),
+        operationId: requiredOperationId(args.operationId, "operationId")
+      };
+      if (args.confirmCreate !== true) {
+        throw commandError("UXP_CONFIRMATION_REQUIRED", "Creating a Project metadata schema field is non-undoable; pass confirmCreate=true after review");
+      }
+      // Resolve every synchronous host value before the queued stale snapshot so
+      // no awaited conversion can open a gap between validation and the direct
+      // schema call under lockedAccess().
+      const metadataType = projectMetadataType(input.fieldType);
+      return withProjectPanelMetadataMutationLock(input.expectedProjectGuid, async () => {
+        // This shared queue also excludes this bridge's direct Project-panel XML
+        // replacement requests. Adobe provides no atomic compare-and-set or
+        // schema-field getter, so UI and other-extension races remain outside
+        // this protocol's proof boundary.
+        const before = await projectPanelMetadataSnapshot(MAX_PROJECT_PANEL_METADATA_UPDATE_BYTES);
+        if (before.projectGuid !== input.expectedProjectGuid) {
+          throw commandError("UXP_STALE_PROJECT_METADATA_SCHEMA", "The active project changed before the metadata schema field was created; inspect and retry");
+        }
+        if (before.projectPanelMetadata !== input.expectedProjectPanelMetadata) {
+          throw commandError("UXP_STALE_PROJECT_METADATA_SCHEMA", "Project-panel metadata changed before the metadata schema field was created; inspect and retry");
+        }
+        let request;
+        before.project.lockedAccess(() => {
+          request = ppro.Metadata.addPropertyToProjectMetadataSchema(input.fieldName, input.fieldLabel, metadataType);
+        });
+        if (await request !== true) throw commandError("UXP_ACTION_REJECTED", "Premiere did not accept Project metadata schema field creation");
+        const after = await projectPanelMetadataSnapshot(MAX_PROJECT_PANEL_METADATA_UPDATE_BYTES);
+        const activeProjectRetained = after.projectGuid === before.projectGuid;
+        const panelMetadataChanged = activeProjectRetained && after.projectPanelMetadata !== before.projectPanelMetadata;
+        return {
+          creationRequested: true,
+          hostAccepted: true,
+          projectGuid: before.projectGuid,
+          projectName: after.projectName,
+          field: { name: input.fieldName, label: input.fieldLabel, type: input.fieldType },
+          readbackProjectGuid: after.projectGuid,
+          panelMetadataChanged,
+          outcome: "committed_unverified",
+          verified: false,
+          verificationBoundary: panelMetadataChanged ? "project_panel_metadata_change_readback" : "metadata_schema_add_host_return",
+          operation: operationSemantics({
+            mutatesProject: true, verificationStatus: "not_verified",
+            verificationBoundary: panelMetadataChanged ? "project_panel_metadata_change_readback" : "metadata_schema_add_host_return",
+            verificationEvidence: [{ type: "metadata_schema_host_return", value: true }, { type: "project_panel_metadata_changed", value: panelMetadataChanged }],
+            undoSupported: false, transactionActionGroup: false, cancellationSupported: false
+          })
+        };
+      });
+    }
+
+    function metadataSchemaFieldName(value) {
+      if (typeof value !== "string" || !/^[A-Za-z][A-Za-z0-9_.-]{0,127}$/.test(value)) {
+        throw commandError("UXP_INVALID_ARGUMENT", "fieldName must start with a letter and contain at most 128 letters, digits, periods, underscores, or hyphens");
+      }
+      return value;
+    }
+
+    function projectMetadataType(fieldType) {
+      const typeNames = {
+        integer: "METADATA_TYPE_INTEGER", real: "METADATA_TYPE_REAL",
+        text: "METADATA_TYPE_TEXT", boolean: "METADATA_TYPE_BOOLEAN"
+      };
+      const value = ppro.Metadata && ppro.Metadata[typeNames[fieldType]];
+      if (value == null) throw commandError("UXP_COMMAND_UNAVAILABLE", "Premiere does not expose the " + fieldType + " Project metadata field type");
+      return value;
     }
 
     async function updateMetadata(args) {
@@ -1365,6 +1453,11 @@
     function canUseMetadata() { return canUseClipItems() && !!(ppro.Metadata && typeof ppro.Metadata.getProjectMetadata === "function" && typeof ppro.Metadata.getXMPMetadata === "function" && typeof ppro.Metadata.createSetProjectMetadataAction === "function" && typeof ppro.Metadata.createSetXMPMetadataAction === "function"); }
     function canGetProjectColumnsMetadata() { return canUseClipItems() && !!(ppro.Metadata && typeof ppro.Metadata.getProjectColumnsMetadata === "function"); }
     function canGetProjectPanelMetadata() { return canInspectProject() && !!(ppro.Metadata && typeof ppro.Metadata.getProjectPanelMetadata === "function"); }
+    function canCreateProjectMetadataSchema() {
+      return canGetProjectPanelMetadata() && !!(ppro.Metadata && typeof ppro.Metadata.addPropertyToProjectMetadataSchema === "function"
+        && ppro.Metadata.METADATA_TYPE_INTEGER != null && ppro.Metadata.METADATA_TYPE_REAL != null
+        && ppro.Metadata.METADATA_TYPE_TEXT != null && ppro.Metadata.METADATA_TYPE_BOOLEAN != null);
+    }
     async function canSetProjectPanelMetadata() {
       if (!canGetProjectPanelMetadata() || !ppro.Metadata || typeof ppro.Metadata.setProjectPanelMetadata !== "function") return false;
       try {

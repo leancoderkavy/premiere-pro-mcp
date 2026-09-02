@@ -401,11 +401,11 @@ describe("UXP MCP tools", () => {
       // insertion-bin inspection, guarded empty-sequence creation, marker web-link
       // inspection, Project-panel metadata inspection and guarded replacement,
       // guarded app-preference control, source-media interpretation overrides,
-      // direct track-item identity inspection, guarded three-item slides, and
-      // guarded append-only timeline duplication add thirty-nine consolidated
-      // UXP tools;
+      // direct track-item identity inspection, guarded three-item slides, guarded
+      // append-only timeline duplication, and guarded Project metadata schema-field
+      // creation add forty consolidated UXP tools;
       // connection verification and delivery conformance add two default-profile core tools.
-      expect(tools.tools).toHaveLength(404);
+      expect(tools.tools).toHaveLength(405);
     } finally {
       await client.close();
       await server.close();

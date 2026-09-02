@@ -131,6 +131,7 @@ function stableHost() {
   const markers = { getMarkers: vi.fn(async () => markerValues) };
   const root = { isFolder: true, getItems: vi.fn(async () => [sourceClip]) };
   let projectMetadata = "project-before", xmpMetadata = "xmp-before", projectColumnsMetadata = "columns-before", projectPanelMetadata = "panel-before", ingestEnabled = false;
+  const metadataSchemaFields: Array<{ name: string; label: string; type: number }> = [];
   const ingestSettings = {
     getIsIngestEnabled: vi.fn(async () => ingestEnabled),
     setIngestEnabled: vi.fn(async (value: boolean) => { ingestEnabled = value; return true; }),
@@ -202,6 +203,15 @@ function stableHost() {
       getProjectColumnsMetadata: vi.fn(async () => projectColumnsMetadata),
       getProjectPanelMetadata: vi.fn(async () => projectPanelMetadata),
       setProjectPanelMetadata: vi.fn(async (value: string) => { projectPanelMetadata = value; return true; }),
+      METADATA_TYPE_INTEGER: 1,
+      METADATA_TYPE_REAL: 2,
+      METADATA_TYPE_TEXT: 3,
+      METADATA_TYPE_BOOLEAN: 4,
+      addPropertyToProjectMetadataSchema: vi.fn(async (name: string, label: string, type: number) => {
+        metadataSchemaFields.push({ name, label, type });
+        projectPanelMetadata += `|schema:${name}:${label}:${type}`;
+        return true;
+      }),
       createSetProjectMetadataAction: vi.fn((_item: unknown, value: string) => ({ apply: () => { projectMetadata = value; } })),
       createSetXMPMetadataAction: vi.fn((_item: unknown, value: string) => ({ apply: () => { xmpMetadata = value; } })),
     },
@@ -224,7 +234,7 @@ function stableHost() {
   };
   return {
     registry: Commands.createCommandRegistry({ ppro, Protocol, workspace }),
-    ppro, project, sequence, videoItem, audioItem, components, audioComponents, sourceClip, workspace,
+    ppro, project, sequence, videoItem, audioItem, components, audioComponents, sourceClip, workspace, metadataSchemaFields,
     setProjectPanelMetadataValue: (value: string) => { projectPanelMetadata = value; },
     selectedItems: () => [...selectedItems],
     selectMany: (count: number) => { selectedItems = Array.from({ length: count }, () => videoItem); },
@@ -239,7 +249,7 @@ describe("stable Premiere UXP workflow expansion", () => {
     expect(Object.keys(capabilities.commands)).toEqual(expect.arrayContaining([
       "effects.catalog", "effects.chain.add", "trackItem.identity.inspect", "selection.inspect", "selection.fingerprints.inspect", "selection.targets.inspect", "selection.update", "effects.selection.add",
       "sceneEdit.detect", "proxy.attach", "ingest.configure", "media.relink",
-      "metadata.update", "metadata.columns.get", "metadata.projectPanel.get", "metadata.projectPanel.update", "color.preflight", "environment.inspect", "footage.conform", "sourceMonitor.open",
+      "metadata.update", "metadata.columns.get", "metadata.projectPanel.get", "metadata.projectPanel.update", "metadata.projectSchema.inspect", "metadata.projectSchema.create", "color.preflight", "environment.inspect", "footage.conform", "sourceMonitor.open",
       "storage.preflight", "scratch.configure", "workspace.status",
     ]));
     expect(capabilities.commands["effects.selection.add"]).toMatchObject({
@@ -268,6 +278,8 @@ describe("stable Premiere UXP workflow expansion", () => {
     expect(withoutPanelMetadata.commands["metadata.columns.get"]).toMatchObject({ supported: true });
     expect(withoutPanelMetadata.commands["metadata.projectPanel.get"]).toMatchObject({ supported: false });
     expect(withoutPanelMetadata.commands["metadata.projectPanel.update"]).toMatchObject({ supported: false });
+    expect(withoutPanelMetadata.commands["metadata.projectSchema.inspect"]).toMatchObject({ supported: false });
+    expect(withoutPanelMetadata.commands["metadata.projectSchema.create"]).toMatchObject({ supported: false });
 
     const missingColumnsMetadata = stableHost();
     Reflect.deleteProperty(missingColumnsMetadata.ppro.Metadata, "getProjectColumnsMetadata");
@@ -281,6 +293,12 @@ describe("stable Premiere UXP workflow expansion", () => {
     const withoutPanelSetter = await missingPanelSetter.registry.capabilities();
     expect(withoutPanelSetter.commands["metadata.projectPanel.get"]).toMatchObject({ supported: true });
     expect(withoutPanelSetter.commands["metadata.projectPanel.update"]).toMatchObject({ supported: false });
+
+    const missingSchemaCreator = stableHost();
+    Reflect.deleteProperty(missingSchemaCreator.ppro.Metadata, "addPropertyToProjectMetadataSchema");
+    const withoutSchemaCreator = await missingSchemaCreator.registry.capabilities();
+    expect(withoutSchemaCreator.commands["metadata.projectSchema.inspect"]).toMatchObject({ supported: false });
+    expect(withoutSchemaCreator.commands["metadata.projectSchema.create"]).toMatchObject({ supported: false });
   });
 
   it("probes Source Monitor state, play, and close commands independently", async () => {
@@ -916,6 +934,86 @@ describe("stable Premiere UXP workflow expansion", () => {
     })).resolves.toMatchObject({
       updated: true, outcome: "committed_unverified", verified: false,
       verificationBoundary: "project_panel_metadata_active_project_readback", projectPanelMetadata: "panel-before",
+    });
+  });
+
+  it("guards direct Project metadata schema-field creation with bounded snapshots, replay, and honest readback", async () => {
+    const value = stableHost();
+    const args = {
+      expectedProjectGuid: "project-1", expectedProjectPanelMetadata: "panel-before",
+      fieldName: "McpReviewState", fieldLabel: "MCP Review State", fieldType: "text",
+      confirmCreate: true, operationId: "schema-create-1",
+    };
+    await expect(value.registry.dispatch("metadata.projectSchema.inspect", {})).resolves.toMatchObject({
+      projectGuid: "project-1", projectPanelMetadata: "panel-before",
+      verificationBoundary: "bounded_project_panel_metadata_readback",
+    });
+    await expect(value.registry.dispatch("metadata.projectSchema.create", args)).resolves.toMatchObject({
+      creationRequested: true, hostAccepted: true, projectGuid: "project-1",
+      field: { name: "McpReviewState", label: "MCP Review State", type: "text" },
+      panelMetadataChanged: true, outcome: "committed_unverified", verified: false,
+      verificationBoundary: "project_panel_metadata_change_readback",
+      operation: { undo: { supported: false }, cancellation: { supported: false } },
+    });
+    await expect(value.registry.dispatch("metadata.projectSchema.create", args)).resolves.toMatchObject({
+      creationRequested: true, replayed: true, outcome: "committed_unverified",
+    });
+    expect(value.ppro.Metadata.addPropertyToProjectMetadataSchema).toHaveBeenCalledTimes(1);
+    expect(value.metadataSchemaFields).toEqual([{ name: "McpReviewState", label: "MCP Review State", type: 3 }]);
+
+    await expect(value.registry.dispatch("metadata.projectSchema.create", {
+      ...args, fieldName: "McpPriority", expectedProjectPanelMetadata: "panel-before", operationId: "schema-stale-1",
+    })).rejects.toMatchObject({ code: "UXP_STALE_PROJECT_METADATA_SCHEMA" });
+    await expect(value.registry.dispatch("metadata.projectSchema.create", {
+      ...args, fieldName: "McpPriority", expectedProjectPanelMetadata: "panel-before|schema:McpReviewState:MCP Review State:3",
+      confirmCreate: false, operationId: "schema-confirmation-1",
+    })).rejects.toMatchObject({ code: "UXP_CONFIRMATION_REQUIRED" });
+    await expect(value.registry.dispatch("metadata.projectSchema.create", {
+      ...args, fieldName: "9-invalid", expectedProjectPanelMetadata: "panel-before|schema:McpReviewState:MCP Review State:3", operationId: "schema-invalid-name-1",
+    })).rejects.toMatchObject({ code: "UXP_INVALID_ARGUMENT" });
+    await expect(value.registry.dispatch("metadata.projectSchema.create", {
+      ...args, fieldName: "McpPriority", fieldType: "date", expectedProjectPanelMetadata: "panel-before|schema:McpReviewState:MCP Review State:3", operationId: "schema-invalid-type-1",
+    })).rejects.toMatchObject({ code: "UXP_INVALID_ARGUMENT" });
+    await expect(value.registry.dispatch("metadata.projectSchema.create", {
+      ...args, fieldName: "McpPriority", expectedProjectPanelMetadata: "panel-before|schema:McpReviewState:MCP Review State:3", operationId: "*",
+    })).rejects.toMatchObject({ code: "UXP_INVALID_ARGUMENT" });
+    expect(value.ppro.Metadata.addPropertyToProjectMetadataSchema).toHaveBeenCalledTimes(1);
+  });
+
+  it("serializes competing Project metadata schema creates before their final stale snapshots", async () => {
+    const value = stableHost();
+    let releaseFirst: (() => void) | undefined;
+    const firstFinished = new Promise<void>((resolve) => { releaseFirst = resolve; });
+    value.ppro.Metadata.addPropertyToProjectMetadataSchema.mockImplementationOnce(async (name: string, label: string, type: number) => {
+      await firstFinished;
+      value.metadataSchemaFields.push({ name, label, type });
+      value.setProjectPanelMetadataValue("panel-after-first");
+      return true;
+    });
+    const first = value.registry.dispatch("metadata.projectSchema.create", {
+      expectedProjectGuid: "project-1", expectedProjectPanelMetadata: "panel-before",
+      fieldName: "McpFirst", fieldLabel: "MCP First", fieldType: "boolean", confirmCreate: true, operationId: "schema-concurrent-first",
+    });
+    await vi.waitFor(() => expect(value.ppro.Metadata.addPropertyToProjectMetadataSchema).toHaveBeenCalledOnce());
+    const second = value.registry.dispatch("metadata.projectSchema.create", {
+      expectedProjectGuid: "project-1", expectedProjectPanelMetadata: "panel-before",
+      fieldName: "McpSecond", fieldLabel: "MCP Second", fieldType: "integer", confirmCreate: true, operationId: "schema-concurrent-second",
+    });
+    releaseFirst?.();
+    await expect(first).resolves.toMatchObject({ creationRequested: true, panelMetadataChanged: true, verified: false });
+    await expect(second).rejects.toMatchObject({ code: "UXP_STALE_PROJECT_METADATA_SCHEMA" });
+    expect(value.ppro.Metadata.addPropertyToProjectMetadataSchema).toHaveBeenCalledOnce();
+  });
+
+  it("remains committed-unverified when schema creation has no observable panel XML change", async () => {
+    const value = stableHost();
+    value.ppro.Metadata.addPropertyToProjectMetadataSchema.mockResolvedValueOnce(true);
+    await expect(value.registry.dispatch("metadata.projectSchema.create", {
+      expectedProjectGuid: "project-1", expectedProjectPanelMetadata: "panel-before",
+      fieldName: "McpSilent", fieldLabel: "MCP Silent", fieldType: "real", confirmCreate: true, operationId: "schema-unverified-1",
+    })).resolves.toMatchObject({
+      hostAccepted: true, panelMetadataChanged: false, outcome: "committed_unverified", verified: false,
+      verificationBoundary: "metadata_schema_add_host_return",
     });
   });
 

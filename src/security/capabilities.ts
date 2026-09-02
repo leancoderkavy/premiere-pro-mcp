@@ -148,6 +148,10 @@ const ACTION_CAPABILITIES: Readonly<Record<string, Readonly<Record<string, reado
     inspect: ["inspect"],
     update: ["edit"],
   },
+  create_project_metadata_field_uxp: {
+    inspect: ["inspect"],
+    create: ["edit"],
+  },
   manage_color_conformance_uxp: {
     preflight: ["inspect"],
     update: ["edit"],

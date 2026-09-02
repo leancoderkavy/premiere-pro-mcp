@@ -66,6 +66,7 @@ describe("Adobe Premiere Pro 26.3 UXP coverage", () => {
       "guarded-source-media-overrides",
       "guarded-transcript-json-import",
       "guarded-track-item-append-duplicate",
+      "guarded-project-metadata-schema-field-creation",
     ]));
     expect(entries.find((entry) => entry.id === "native-marker-crud")?.mcpTools).toEqual(["manage_markers_uxp"]);
     expect(entries.find((entry) => entry.id === "native-beat-grid-markers")).toMatchObject({
@@ -293,6 +294,24 @@ describe("Adobe Premiere Pro 26.3 UXP coverage", () => {
       verificationBoundary: "project_panel_metadata_exact_readback",
       liveHostVerificationStatus: "not_run",
     });
+    expect(entries.find((entry) => entry.id === "guarded-project-metadata-schema-field-creation")).toMatchObject({
+      uxpCommand: "metadata.projectSchema.create",
+      mcpTools: ["create_project_metadata_field_uxp"],
+      mutatesProject: true,
+      undoable: false,
+      idempotency: "operation_id",
+      verificationStatus: "committed_unverified",
+      verificationBoundary: "project_panel_metadata_change_readback",
+      liveHostVerificationStatus: "not_run",
+    });
+    expect(entries.find((entry) => entry.id === "guarded-project-metadata-schema-field-creation")?.adobeApi).toEqual(expect.arrayContaining([
+      "Metadata.addPropertyToProjectMetadataSchema",
+      "Metadata.METADATA_TYPE_INTEGER",
+      "Metadata.METADATA_TYPE_REAL",
+      "Metadata.METADATA_TYPE_TEXT",
+      "Metadata.METADATA_TYPE_BOOLEAN",
+      "Project.lockedAccess",
+    ]));
     expect(entries.find((entry) => entry.id === "guarded-track-item-slip")).toMatchObject({
       uxpCommand: "trackItem.slip",
       mcpTools: ["slip_track_item_uxp"],
@@ -339,11 +358,11 @@ describe("Adobe Premiere Pro 26.3 UXP coverage", () => {
   it("keeps unimplemented 26.3 work visibly planned", () => {
     const report = buildAdobeUxpCoverageReport();
     expect(report.summary).toEqual({
-      total: 70,
-      current: 67,
+      total: 71,
+      current: 68,
       planned: 3,
-      implemented: 67,
-      committedUnverified: 8,
+      implemented: 68,
+      committedUnverified: 9,
       automatedContractVerified: 59,
       liveHostVerified: 0,
     });
@@ -367,9 +386,9 @@ describe("Adobe Premiere Pro 26.3 UXP coverage", () => {
   it("surfaces the baseline in the platform capability report", () => {
     const report = buildPlatformCapabilityReport(resolveCapabilities("inspect"), "win32");
     expect(report.backends.uxp.apiCoverage.summary).toMatchObject({
-      current: 67,
+      current: 68,
       planned: 3,
-      committedUnverified: 8,
+      committedUnverified: 9,
     });
   });
 });
