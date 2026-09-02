@@ -59,6 +59,9 @@ structure validation.
 When a central-directory entry declares a Unix origin and a POSIX file type,
 the bounded verifier accepts only a regular file or directory. It rejects
 declared links, devices, FIFOs, and sockets without extracting their contents.
+Directory entries must have zero declared compressed and uncompressed bytes;
+the verifier rejects file data hidden beneath a directory-name suffix without
+extracting it.
 
 Non-ASCII ZIP entry-name bytes must declare UTF-8 with general-purpose bit 11;
 the verifier accepts unflagged legacy names only when they are ASCII. This keeps
@@ -103,5 +106,5 @@ and licensed-host gates.
 Official references: [Package a UXP plugin](https://developer.adobe.com/premiere-pro/uxp/plugins/distribution/package/),
 [Building Hybrid Plugins](https://developer.adobe.com/premiere-pro/uxp/plugins/hybrid-plugins/build/),
 and [Hybrid Plugins](https://developer.adobe.com/premiere-pro/uxp/plugins/hybrid-plugins/).
-The ZIP layout rule follows PKWARE's [ZIP File Format Specification](https://pkware.cachefly.net/webdocs/casestudies/APPNOTE.TXT),
-sections 4.3.6, 4.3.12, and 4.3.16.
+The ZIP layout rules follow PKWARE's [ZIP File Format Specification](https://pkware.cachefly.net/webdocs/casestudies/APPNOTE.TXT),
+sections 4.3.6, 4.3.8, 4.3.12, and 4.3.16.
