@@ -46,7 +46,9 @@ streamed data descriptor, the local archive verifier also checks its required
 CRC and sizes against the central directory without extracting unselected
 contents. The verifier also recomputes ZIP CRC-32 for the already-required
 manifest, entrypoint, and addon payloads; it does not decompress unselected
-entries.
+entries. Deflated required entries must also consume their exact declared
+compressed-data range, rejecting unused trailing bytes without reading
+unselected entries.
 
 The same registry pins the exact competitor commits reviewed for feature-gap
 work. A competitor feature family becomes an implementation candidate only

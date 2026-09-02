@@ -222,7 +222,8 @@ async function localDataRange(archivePath, entry, archiveBytes) {
 async function consumeZipEntry(archivePath, archiveBytes, entry, maximumBytes, collect) {
   const { dataStart, dataEnd } = await localDataRange(archivePath, entry, archiveBytes);
   const input = createReadStream(archivePath, { start: dataStart, end: dataEnd - 1 });
-  const stream = entry.method === 8 ? input.pipe(createInflateRaw()) : input;
+  const inflator = entry.method === 8 ? createInflateRaw() : undefined;
+  const stream = inflator ? input.pipe(inflator) : input;
   const digest = createHash("sha256");
   const chunks = [];
   let bytes = 0;
@@ -241,6 +242,9 @@ async function consumeZipEntry(archivePath, archiveBytes, entry, maximumBytes, c
   }
   if (bytes !== entry.uncompressedBytes) throw archiveError("CCX archive required entry size is inconsistent");
   if ((crc32 ^ 0xffff_ffff) >>> 0 !== entry.crc32) throw archiveError("CCX archive required entry checksum is inconsistent");
+  if (inflator && inflator.bytesWritten !== entry.compressedBytes) {
+    throw archiveError("CCX archive required entry has trailing compressed data");
+  }
   return { bytes, sha256: digest.digest("hex"), buffer: collect ? Buffer.concat(chunks, bytes) : undefined };
 }
 
