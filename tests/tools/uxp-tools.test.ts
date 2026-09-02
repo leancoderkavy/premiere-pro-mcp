@@ -75,6 +75,22 @@ describe("UXP MCP tools", () => {
     expect(request).toHaveBeenCalledWith("captions.inspect", {});
   });
 
+  it("maps guarded native Project-panel insertion-bin inspection to its documented UXP command", async () => {
+    const request = vi.fn().mockResolvedValue({ projectGuid: "project-1" });
+    const bridge = { request, getState: vi.fn() } as unknown as UxpWebSocketBridge;
+    const tool = getUxpTools(bridge).inspect_project_insertion_bin_uxp;
+    await expect(tool.handler()).resolves.toEqual({
+      success: true,
+      data: { backend: "uxp", result: { projectGuid: "project-1" } },
+    });
+    expect(request).toHaveBeenCalledWith("project.insertionBin.inspect", {});
+    expect(tool.parameters).toMatchObject({
+      type: "object",
+      additionalProperties: false,
+      properties: {},
+    });
+  });
+
   it("maps guarded sequence-range inspection and updates to documented UXP commands", async () => {
     const request = vi.fn().mockResolvedValue({ outcome: "verified" });
     const bridge = { request, getState: vi.fn() } as unknown as UxpWebSocketBridge;
@@ -258,6 +274,7 @@ describe("UXP MCP tools", () => {
           "get_uxp_capabilities",
           "get_uxp_state",
           "inspect_project_uxp",
+          "inspect_project_insertion_bin_uxp",
           "inspect_sequence_timing_uxp",
           "inspect_caption_tracks_uxp",
           "manage_sequence_display_format_uxp",
@@ -293,9 +310,10 @@ describe("UXP MCP tools", () => {
       // two stable workflow expansions, confirmed organization application, four
       // bounded native migration adapters, beat-grid marker application, and
       // guarded sequence-playhead control, native sequence-timing inspection, and
-      // guarded sequence-display-format updates add thirty consolidated UXP tools;
+      // guarded sequence-display-format updates and guarded Project-panel
+      // insertion-bin inspection add thirty-one consolidated UXP tools;
       // connection verification and delivery conformance add two default-profile core tools.
-      expect(tools.tools).toHaveLength(392);
+      expect(tools.tools).toHaveLength(393);
     } finally {
       await client.close();
       await server.close();

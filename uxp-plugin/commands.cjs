@@ -26,6 +26,7 @@
       "capabilities.get": { readOnly: true, handler: capabilities },
       "state.get": { readOnly: true, handler: stateSnapshot },
       "project.snapshot": { readOnly: true, minHostVersion: "25.6.0", probe: canInspectProject, handler: projectSnapshot },
+      "project.insertionBin.inspect": { readOnly: true, minHostVersion: "25.6.0", probe: canInspectProjectInsertionBin, handler: inspectProjectInsertionBin },
       "project.save": { idempotent: true, minHostVersion: "25.6.0", probe: canSaveProject, handler: saveProject },
       "sequence.createPreset": { destructive: true, undoable: false, requiresWorkspace: true, minHostVersion: "26.3.0", probe: canCreatePresetSequence, handler: createPresetSequence },
       "sequence.range.inspect": { readOnly: true, minHostVersion: "25.6.0", probe: canInspectSequenceRange, handler: inspectSequenceRange },
@@ -171,6 +172,50 @@
         activeSequenceGuid: active ? String(active.guid || "") : null,
         sequences
       };
+    }
+    async function inspectProjectInsertionBin(args) {
+      assertOnlyKeys(args, []);
+      const project = await ppro.Project.getActiveProject();
+      if (!project) throw commandError("UXP_NO_ACTIVE_PROJECT", "No active project");
+      const projectGuid = requiredProjectGuid(project);
+      const before = await insertionBinSnapshot(project);
+      // The insertion target is panel state that can change while its item
+      // properties are read. Resolve both the active project and target again
+      // before returning so callers never receive a mixed-project snapshot.
+      const currentProject = await ppro.Project.getActiveProject();
+      if (!currentProject || requiredProjectGuid(currentProject) !== projectGuid) {
+        throw commandError("UXP_STALE_PROJECT", "The active project changed while reading the insertion bin; retry the inspection");
+      }
+      const insertionBin = await insertionBinSnapshot(currentProject);
+      if (before.projectItemId !== insertionBin.projectItemId) {
+        throw commandError("UXP_STALE_INSERTION_BIN", "The Project-panel insertion bin changed while reading it; retry the inspection");
+      }
+      return { projectGuid, insertionBin, verificationBoundary: "project_insertion_bin_identity_readback" };
+    }
+    async function insertionBinSnapshot(project) {
+      if (typeof project.getInsertionBin !== "function") {
+        throw commandError("UXP_COMMAND_UNAVAILABLE", "Premiere does not expose the Project-panel insertion bin");
+      }
+      const item = await project.getInsertionBin();
+      if (!item || typeof item.getId !== "function") {
+        throw commandError("UXP_VERIFICATION_FAILED", "Premiere did not return an identifiable insertion bin");
+      }
+      const projectItemId = await item.getId();
+      if (typeof projectItemId !== "string" || !projectItemId.trim() || projectItemId.length > 512) {
+        throw commandError("UXP_VERIFICATION_FAILED", "Premiere did not return a valid insertion-bin project-item ID");
+      }
+      const name = String(item.name == null ? "" : item.name);
+      if (name.length > 1024) throw commandError("UXP_VERIFICATION_FAILED", "Premiere returned an oversized insertion-bin name");
+      const type = Number(item.type);
+      if (!Number.isInteger(type) || type < 0 || type > 1024) {
+        throw commandError("UXP_VERIFICATION_FAILED", "Premiere did not return a valid insertion-bin item type");
+      }
+      return { projectItemId, name, type };
+    }
+    function requiredProjectGuid(project) {
+      const guid = stringifyGuid(project && project.guid);
+      if (!guid || guid.length > 512) throw commandError("UXP_VERIFICATION_FAILED", "Premiere did not return a valid active-project GUID");
+      return guid;
     }
     async function saveProject() {
       const project = await ppro.Project.getActiveProject();
@@ -1030,6 +1075,7 @@
       return !project || typeof project[name] === "function";
     }
     function canSaveProject() { return activeProjectHas("save"); }
+    function canInspectProjectInsertionBin() { return activeProjectHas("getInsertionBin"); }
     function canCreatePresetSequence() { return activeProjectHas("createSequenceWithPresetPath"); }
     function canInspectSequenceRange() {
       return activeSequenceHas(["getInPoint", "getOutPoint", "getZeroPoint", "getEndTime"]);

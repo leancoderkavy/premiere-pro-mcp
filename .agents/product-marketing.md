@@ -137,7 +137,7 @@
 
 ## Proof Points
 
-**Release facts:** v1.14.6 registers 328 core tools; the default profile exposes 326; an authenticated compatible UXP host can add 66 capability-gated tools for a 392-tool connected surface. The release also declares 37 modules, 4 MCP resources, and 11 workflow prompts. It adds guarded UXP sequence, marker, transition, caption, and silence-removal workflows alongside local-only delivery and editorial review evidence. These are catalog, packaging, and HTTP authorization facts from the repository, not a promise that a particular host operation will work.
+**Release facts:** v1.14.6 registers 328 core tools; the default profile exposes 326; an authenticated compatible UXP host can add 67 capability-gated tools for a 393-tool connected surface. The release also declares 37 modules, 4 MCP resources, and 11 workflow prompts. It adds guarded UXP sequence, marker, transition, caption, and silence-removal workflows alongside local-only delivery and editorial review evidence. These are catalog, packaging, and HTTP authorization facts from the repository, not a promise that a particular host operation will work.
 
 **Compatibility boundary:** The release targets Premiere Pro 2020–2026; UXP workflows require a compatible Premiere Pro 25.6.0+ host and advertised capabilities. CEP remains the default compatibility route. A compatibility range, package validation, CI pass, HTTP health check, or local build is not real-host proof.
 

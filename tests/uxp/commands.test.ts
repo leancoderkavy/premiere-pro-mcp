@@ -37,6 +37,7 @@ function host(options: { transitions?: boolean; commit?: boolean } = {}) {
   const range = { inSeconds: 1, outSeconds: 100, zeroPointSeconds: 3600, endSeconds: 120 };
   const playhead = { positionSeconds: 3 };
   const sequenceProjectItem = { name: "Timeline", getId: vi.fn(() => "sequence-project-item-1") };
+  const insertionBin = { name: "Imports", type: 2, getId: vi.fn(async () => "insertion-bin-1") };
   const sequence = {
     guid: "sequence-1",
     name: "Timeline",
@@ -66,6 +67,7 @@ function host(options: { transitions?: boolean; commit?: boolean } = {}) {
     name: "Example",
     path: "/projects/example.prproj",
     getActiveSequence: vi.fn(async () => sequence),
+    getInsertionBin: vi.fn(async () => insertionBin),
     getSequences: vi.fn(async () => [sequence]),
     save: vi.fn(async () => true),
     createSequenceWithPresetPath: vi.fn(async (name: string) => ({ guid: "sequence-2", name })),
@@ -112,7 +114,7 @@ function host(options: { transitions?: boolean; commit?: boolean } = {}) {
     Exporter: { exportSequenceFrame },
     ...transitionApis
   };
-  return { registry: Commands.createCommandRegistry({ ppro, fs: {}, Protocol }), ppro, project, sequence, sequenceProjectItem, range, playhead, track, clip, add, remove, addAction, optionValues, selection, createRemoveItemsAction, exportSequenceFrame, exportedFrames, transitionState };
+  return { registry: Commands.createCommandRegistry({ ppro, fs: {}, Protocol }), ppro, project, sequence, sequenceProjectItem, insertionBin, range, playhead, track, clip, add, remove, addAction, optionValues, selection, createRemoveItemsAction, exportSequenceFrame, exportedFrames, transitionState };
 }
 
 function expectedTransition(position: "start" | "end", transitionPresent: boolean) {
@@ -132,6 +134,7 @@ describe("UXP command registry", () => {
     expect(available.commands["sequence.playhead.inspect"]).toMatchObject({ supported: true, readOnly: true, minHostVersion: "25.6.0" });
     expect(available.commands["sequence.playhead.set"]).toMatchObject({ supported: true, destructive: false, undoable: false, idempotent: true, minHostVersion: "25.6.0" });
     expect(available.commands["sequence.timing.inspect"]).toMatchObject({ supported: true, readOnly: true, minHostVersion: "25.6.0" });
+    expect(available.commands["project.insertionBin.inspect"]).toMatchObject({ supported: true, readOnly: true, minHostVersion: "25.6.0" });
     for (const command of ["sequence.createPreset", "interchange.export", "interchange.aaf.export", "frame.export"]) {
       expect(available.commands[command]).toMatchObject({ workspaceRequired: true });
     }
@@ -164,6 +167,33 @@ describe("UXP command registry", () => {
     await expect(host().registry.dispatch("transition.video.list", {})).resolves.toEqual({
       matchNames: ["CrossDissolve", "DipToBlack"], count: 2
     });
+  });
+
+  it("reads a bounded native insertion-bin snapshot and rejects a changing target", async () => {
+    const value = host();
+    await expect(value.registry.dispatch("project.insertionBin.inspect", {})).resolves.toEqual({
+      projectGuid: "project-1",
+      insertionBin: { projectItemId: "insertion-bin-1", name: "Imports", type: 2 },
+      verificationBoundary: "project_insertion_bin_identity_readback",
+    });
+    expect(value.project.getInsertionBin).toHaveBeenCalledTimes(2);
+
+    const changed = host();
+    changed.project.getInsertionBin
+      .mockResolvedValueOnce(changed.insertionBin)
+      .mockResolvedValueOnce({ name: "Graphics", type: 2, getId: vi.fn(async () => "insertion-bin-2") });
+    await expect(changed.registry.dispatch("project.insertionBin.inspect", {}))
+      .rejects.toMatchObject({ code: "UXP_STALE_INSERTION_BIN" });
+  });
+
+  it("rejects an insertion-bin snapshot when the active project changes during readback", async () => {
+    const value = host();
+    value.ppro.Project.getActiveProject
+      .mockResolvedValueOnce(value.project)
+      .mockResolvedValueOnce({ ...value.project, guid: "project-2" });
+    await expect(value.registry.dispatch("project.insertionBin.inspect", {}))
+      .rejects.toMatchObject({ code: "UXP_STALE_PROJECT" });
+    expect(value.project.getInsertionBin).toHaveBeenCalledTimes(1);
   });
 
   it("inspects a bounded native video-transition target before mutation", async () => {

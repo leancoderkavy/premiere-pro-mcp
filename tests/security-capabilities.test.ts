@@ -137,6 +137,7 @@ describe("capability profiles", () => {
     const inspectOnly = resolveCapabilities("inspect");
     expect(isToolPermitted("inspect_sequence_timing_uxp", inspectOnly)).toBe(true);
     expect(capabilitiesForToolInvocation("inspect_sequence_timing_uxp", {})).toEqual(["inspect"]);
+    expect(capabilitiesForToolInvocation("inspect_project_insertion_bin_uxp", {})).toEqual(["inspect"]);
     await expect(
       guardToolHandler("inspect_sequence_timing_uxp", handler, inspectOnly, () => "timing-inspect")({}),
     ).resolves.toBe("ok");
@@ -160,6 +161,7 @@ describe("capability profiles", () => {
     ["manage_sequence_display_format_uxp", "inspect"],
     ["manage_sequence_range_uxp", "inspect"],
     ["manage_sequence_playhead_uxp", "inspect"],
+    ["inspect_project_insertion_bin_uxp", undefined],
     ["inspect_sequence_timing_uxp", undefined],
     ["automate_effect_parameters_uxp", "inspect"],
     ["transform_track_item_uxp", "inspect"],
