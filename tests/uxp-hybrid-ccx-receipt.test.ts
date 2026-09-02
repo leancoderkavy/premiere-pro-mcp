@@ -400,6 +400,14 @@ describe("UXP Hybrid CCX receipt", () => {
       });
       await expect(buildUxpHybridCcxReceipt({ ccxPath: archive, addonReceipt, sdkHeaderReceipt: headers })).rejects.toThrow("entries use unsupported ZIP flags");
 
+      writeCcx(bundle, archive, { deflate: false, zipFlags: 0x6 });
+      await expect(buildUxpHybridCcxReceipt({ ccxPath: archive, addonReceipt, sdkHeaderReceipt: headers })).rejects.toThrow("compression option flags require deflate");
+
+      writeCcx(bundle, archive, { zipFlags: 0x6 });
+      await expect(buildUxpHybridCcxReceipt({ ccxPath: archive, addonReceipt, sdkHeaderReceipt: headers })).resolves.toMatchObject({
+        contents: { entries: 5 },
+      });
+
       const asciiPath = "docs/legacy.txt";
       writeCcx(bundle, archive, {
         extra: [{ path: asciiPath, contents: Buffer.from("unflagged ASCII entry") }],
