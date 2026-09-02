@@ -3653,7 +3653,7 @@
       "symbol": "SequenceEditor.getEditor",
       "kind": "method",
       "declarationSymbol": "SequenceEditorStatic.getEditor",
-      "coverage": "unmapped"
+      "coverage": "mapped"
     },
     {
       "symbol": "SequenceEditor.getInstalledMogrtPath",

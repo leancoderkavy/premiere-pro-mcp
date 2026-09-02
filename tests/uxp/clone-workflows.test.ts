@@ -106,6 +106,24 @@ describe("guarded documented UXP append-only track-item duplicate workflow", () 
     ]);
   });
 
+  it("does not invoke unrelated earlier item getters during append preflight or readback", async () => {
+    const value = cloneHost();
+    const unrelatedGetter = vi.fn(async () => { throw new Error("unrelated item must not be read"); });
+    value.states.unshift({ projectItemId: "unrelated-1", start: 0, end: 5, inPoint: 0, outPoint: 5, speed: 1, reversed: false });
+    value.items.unshift({
+      getProjectItem: unrelatedGetter, getStartTime: unrelatedGetter, getEndTime: unrelatedGetter,
+      getInPoint: unrelatedGetter, getOutPoint: unrelatedGetter, getDuration: unrelatedGetter,
+      getSpeed: unrelatedGetter, isSpeedReversed: unrelatedGetter,
+      createSetInPointAction: unrelatedGetter, createSetOutPointAction: unrelatedGetter,
+    });
+    const target = { mediaType: "video", trackIndex: 0, clipIndex: 1 };
+    const expected = { ...expectedSnapshot, clipIndex: 1, trackItemCount: 2 };
+    await expect(value.registry.dispatch("trackItem.clone", {
+      ...target, expectedSnapshot: expected, confirmDuplicate: true, operationId: "bounded-readback",
+    })).resolves.toMatchObject({ outcome: "verified", after: { trackItemCount: 3, duplicateClipIndex: 2 } });
+    expect(unrelatedGetter).not.toHaveBeenCalled();
+  });
+
   it("rejects missing confirmation/replay, stale state, and non-final sources before action creation", async () => {
     const value = cloneHost();
     await expect(value.registry.dispatch("trackItem.clone", { ...targetCoordinates, expectedSnapshot, operationId: "missing-confirmation" })).rejects.toMatchObject({ code: "UXP_CONFIRMATION_REQUIRED" });

@@ -65,6 +65,7 @@ describe("Adobe Premiere Pro 26.3 UXP coverage", () => {
       "guarded-source-media-timing",
       "guarded-source-media-overrides",
       "guarded-transcript-json-import",
+      "guarded-track-item-append-duplicate",
     ]));
     expect(entries.find((entry) => entry.id === "native-marker-crud")?.mcpTools).toEqual(["manage_markers_uxp"]);
     expect(entries.find((entry) => entry.id === "native-beat-grid-markers")).toMatchObject({
@@ -307,6 +308,19 @@ describe("Adobe Premiere Pro 26.3 UXP coverage", () => {
     expect(entries.find((entry) => entry.id === "guarded-track-item-slide")?.adobeApi).toEqual(expect.arrayContaining([
       "AudioClipTrackItem.createMoveAction",
       "VideoClipTrackItem.createSetEndAction",
+      "Project.lockedAccess",
+      "Project.executeTransaction",
+    ]));
+    expect(entries.find((entry) => entry.id === "guarded-track-item-append-duplicate")).toMatchObject({
+      uxpCommand: "trackItem.clone",
+      mcpTools: ["duplicate_track_item_uxp"],
+      verificationBoundary: "guarded_source_and_appended_track_item_readback",
+      liveHostVerificationStatus: "not_run",
+    });
+    expect(entries.find((entry) => entry.id === "guarded-track-item-append-duplicate")?.adobeApi).toEqual(expect.arrayContaining([
+      "SequenceEditor.getEditor",
+      "SequenceEditor.createCloneTrackItemAction",
+      "TickTime.createWithSeconds",
       "Project.lockedAccess",
       "Project.executeTransaction",
     ]));

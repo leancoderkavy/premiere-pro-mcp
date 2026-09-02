@@ -21,6 +21,7 @@ const ADOBE_26_3_TOOLS = [
   "manage_source_media_overrides_uxp",
   "inspect_track_item_identity_uxp",
   "slide_track_item_uxp",
+  "duplicate_track_item_uxp",
   "create_empty_sequence_uxp",
   "has_transcript_uxp",
   "export_aaf_uxp",
