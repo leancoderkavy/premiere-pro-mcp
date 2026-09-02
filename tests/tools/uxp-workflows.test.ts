@@ -13,6 +13,7 @@ const WORKFLOW_TOOLS = [
   "manage_metadata_uxp",
   "inspect_project_panel_metadata_uxp",
   "manage_project_panel_metadata_uxp",
+  "create_project_metadata_field_uxp",
   "manage_color_conformance_uxp",
   "audition_source_monitor_uxp",
   "preflight_production_storage_uxp",
@@ -67,6 +68,21 @@ describe("stable UXP workflow MCP catalog", () => {
         expected_project_panel_metadata: { maxLength: 12288 },
         project_panel_metadata: { maxLength: 12288 },
         confirm_update: { type: "boolean" },
+        operation_id: { pattern: expect.any(String) },
+      },
+    });
+    expect(tools.create_project_metadata_field_uxp.parameters).toMatchObject({
+      type: "object",
+      additionalProperties: false,
+      required: ["action"],
+      properties: {
+        action: { enum: ["inspect", "create"] },
+        expected_project_guid: { minLength: 1, maxLength: 512 },
+        expected_project_panel_metadata: { maxLength: 12288 },
+        field_name: { minLength: 1, maxLength: 128, pattern: expect.any(String) },
+        field_label: { minLength: 1, maxLength: 255 },
+        schema_field_type: { enum: ["integer", "real", "text", "boolean"] },
+        confirm_create: { type: "boolean" },
         operation_id: { pattern: expect.any(String) },
       },
     });
@@ -273,6 +289,26 @@ describe("stable UXP workflow MCP catalog", () => {
     });
   });
 
+  it("maps Project metadata schema inspection and creation to separate authority routes", async () => {
+    const request = vi.fn().mockResolvedValue({ outcome: "committed_unverified" });
+    const bridge = { request, getState: vi.fn() } as unknown as UxpWebSocketBridge;
+    const tool = getUxpTools(bridge).create_project_metadata_field_uxp;
+
+    await tool.handler({ action: "inspect" });
+    await tool.handler({
+      action: "create", expected_project_guid: "project-1", expected_project_panel_metadata: "<before/>",
+      field_name: "McpReviewState", field_label: "MCP Review State", schema_field_type: "text",
+      confirm_create: true, operation_id: "schema-1",
+    });
+
+    expect(request).toHaveBeenNthCalledWith(1, "metadata.projectSchema.inspect", {});
+    expect(request).toHaveBeenNthCalledWith(2, "metadata.projectSchema.create", {
+      expectedProjectGuid: "project-1", expectedProjectPanelMetadata: "<before/>",
+      fieldName: "McpReviewState", fieldLabel: "MCP Review State", fieldType: "text",
+      confirmCreate: true, operationId: "schema-1",
+    });
+  });
+
   it("rejects unsupported dispatcher actions before bridge access", async () => {
     const request = vi.fn();
     const bridge = { request, getState: vi.fn() } as unknown as UxpWebSocketBridge;
@@ -286,11 +322,12 @@ describe("stable UXP workflow MCP catalog", () => {
       tools.manage_metadata_uxp.handler({ action: "unsupported" }),
       tools.inspect_project_panel_metadata_uxp.handler({ action: "unsupported" }),
       tools.manage_project_panel_metadata_uxp.handler({ action: "unsupported" }),
+      tools.create_project_metadata_field_uxp.handler({ action: "unsupported" }),
       tools.manage_color_conformance_uxp.handler({ action: "unsupported" }),
       tools.audition_source_monitor_uxp.handler({ action: "unsupported" }),
     ]);
 
-    expect(results).toEqual(Array.from({ length: 9 }, () => ({
+    expect(results).toEqual(Array.from({ length: 10 }, () => ({
       success: false,
       error: "Unsupported workflow action: unsupported",
     })));

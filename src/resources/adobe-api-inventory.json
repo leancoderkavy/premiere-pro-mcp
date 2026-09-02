@@ -13,8 +13,8 @@
   },
   "stats": {
     "total": 976,
-    "mapped": 316,
-    "unmapped": 660,
+    "mapped": 321,
+    "unmapped": 655,
     "manifestOnly": 5
   },
   "manifestOnly": [
@@ -2560,31 +2560,31 @@
       "symbol": "Metadata.METADATA_TYPE_BOOLEAN",
       "kind": "property",
       "declarationSymbol": "MetadataStatic.METADATA_TYPE_BOOLEAN",
-      "coverage": "unmapped"
+      "coverage": "mapped"
     },
     {
       "symbol": "Metadata.METADATA_TYPE_INTEGER",
       "kind": "property",
       "declarationSymbol": "MetadataStatic.METADATA_TYPE_INTEGER",
-      "coverage": "unmapped"
+      "coverage": "mapped"
     },
     {
       "symbol": "Metadata.METADATA_TYPE_REAL",
       "kind": "property",
       "declarationSymbol": "MetadataStatic.METADATA_TYPE_REAL",
-      "coverage": "unmapped"
+      "coverage": "mapped"
     },
     {
       "symbol": "Metadata.METADATA_TYPE_TEXT",
       "kind": "property",
       "declarationSymbol": "MetadataStatic.METADATA_TYPE_TEXT",
-      "coverage": "unmapped"
+      "coverage": "mapped"
     },
     {
       "symbol": "Metadata.addPropertyToProjectMetadataSchema",
       "kind": "method",
       "declarationSymbol": "MetadataStatic.addPropertyToProjectMetadataSchema",
-      "coverage": "unmapped"
+      "coverage": "mapped"
     },
     {
       "symbol": "Metadata.createSetProjectMetadataAction",
