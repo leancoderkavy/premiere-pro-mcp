@@ -302,7 +302,7 @@
 
     async function markerContext(args, includeMutationFields) {
       const allowed = ["ownerType", "sequenceId", "projectItemId", "markerGuid", "expectedName"];
-      if (includeMutationFields) allowed.push("name", "markerType", "startSeconds", "durationSeconds", "comments", "colorIndex", "markerSnapshots", "confirmDestructive", "operationId");
+      if (includeMutationFields) allowed.push("name", "markerType", "startSeconds", "durationSeconds", "comments", "colorIndex", "operationId");
       assertObject(args); assertOnlyKeys(args, allowed);
       const ownerType = args.ownerType == null ? "sequence" : enumValue(args.ownerType, "ownerType", ["sequence", "projectItem"]);
       const project = await activeProject(includeMutationFields);
@@ -459,7 +459,12 @@
       requireDestructiveConfirmation(args.confirmDestructive);
       const requested = reviewedMarkerSnapshots(args.markerSnapshots);
       const targetGuids = requested.map((value) => value.markerGuid);
-      const context = await markerContext(args, true);
+      const context = await markerContext({
+        ownerType: args.ownerType,
+        sequenceId: args.sequenceId,
+        projectItemId: args.projectItemId,
+        operationId: args.operationId,
+      }, true);
       return withAppendLock(await markerLockKey(context), async () => {
         const currentByGuid = new Map();
         for (const marker of boundedMarkers(context.collection)) currentByGuid.set(guidString(marker.guid), marker);

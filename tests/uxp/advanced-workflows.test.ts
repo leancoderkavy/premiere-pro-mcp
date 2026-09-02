@@ -391,6 +391,19 @@ describe("advanced stable Premiere UXP workflows", () => {
     expect(value.ppro.Markers.getMarkers).not.toHaveBeenCalled();
   });
 
+  it("keeps batch-only marker arguments scoped to removeMany", async () => {
+    const value = advancedHost();
+    await expect(value.registry.dispatch("markers.add", { name: "Unexpected", confirmDestructive: true }))
+      .rejects.toMatchObject({ code: "UXP_INVALID_ARGUMENT" });
+    await expect(value.registry.dispatch("markers.update", {
+      markerGuid: "marker-1", name: "Unexpected", markerSnapshots: [],
+    })).rejects.toMatchObject({ code: "UXP_INVALID_ARGUMENT" });
+    await expect(value.registry.dispatch("markers.remove", { markerGuid: "marker-1", confirmDestructive: true }))
+      .rejects.toMatchObject({ code: "UXP_INVALID_ARGUMENT" });
+    expect(value.ppro.Project.getActiveProject).not.toHaveBeenCalled();
+    expect(value.ppro.Markers.getMarkers).not.toHaveBeenCalled();
+  });
+
   it("serializes marker updates behind a batch removal snapshot and commit", async () => {
     const value = advancedHost();
     let releaseNameRead: () => void = () => undefined;
