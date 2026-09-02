@@ -21,6 +21,10 @@
       "betaTransitionOptionsDriftCommand": "npm run adobe:beta-transition-options-drift",
       "betaTransitionOptionsDriftVerificationCommand": "npm run adobe:beta-transition-options-drift:check",
       "betaTransitionOptionsDriftDocumentation": "docs/adobe-beta-transition-options-drift.md",
+      "betaRectFDriftArtifact": "dist/resources/adobe-beta-rectf-drift.json",
+      "betaRectFDriftCommand": "npm run adobe:beta-rectf-drift",
+      "betaRectFDriftVerificationCommand": "npm run adobe:beta-rectf-drift:check",
+      "betaRectFDriftDocumentation": "docs/adobe-beta-rectf-drift.md",
       "betaC2paDriftArtifact": "dist/resources/adobe-beta-c2pa-drift.json",
       "betaC2paDriftCommand": "npm run adobe:beta-c2pa-drift",
       "betaC2paDriftVerificationCommand": "npm run adobe:beta-c2pa-drift:check",
@@ -43,7 +47,7 @@
       "betaWorkAreaDriftDocumentation": "docs/adobe-beta-work-area-drift.md",
       "inventoryState": "complete",
       "implementationState": "partial",
-      "notes": "All stable declaration symbols are inventoried; mapped means classified, not necessarily a standalone MCP tool or live-host proof. Separate AAFExportOptions-only, project-options-only, transition-options-only, Media-only, MediaManager-only, TranscriptStatic-only, C2PA-only, and WorkAreaUtils-only receipts watch narrow pinned beta declaration deltas without advertising beta members as supported."
+      "notes": "All stable declaration symbols are inventoried; mapped means classified, not necessarily a standalone MCP tool or live-host proof. Separate AAFExportOptions-only, project-options-only, transition-options-only, RectF-only, Media-only, MediaManager-only, TranscriptStatic-only, C2PA-only, and WorkAreaUtils-only receipts watch narrow pinned beta declaration deltas without advertising beta members as supported."
     },
     {
       "id": "uxp-javascript",

@@ -28,6 +28,9 @@ opening or closing projects, or claiming lifecycle behavior in any host.
 The [beta transition-options declaration receipt](adobe-beta-transition-options-drift.md)
 records its factory migration without constructing options, applying a
 transition, or claiming transition behavior in any host.
+The [beta RectF declaration receipt](adobe-beta-rectf-drift.md) records its
+factory migration without constructing geometry, binding it to another API, or
+claiming host behavior.
 The [beta Media drift receipt](adobe-beta-media-drift.md) separately records the
 pinned stable-to-beta `Media` declaration delta. It is deliberately not a beta
 surface inventory or beta-host support claim. The [beta C2PA declaration
