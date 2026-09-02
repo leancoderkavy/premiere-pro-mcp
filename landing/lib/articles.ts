@@ -487,7 +487,7 @@ export const articles: Article[] = [
       {
         heading: "What can an AI assistant help with in Premiere Pro?",
         paragraphs: [
-          "The server currently registers 328 core structured tools across timeline work, effects and Lumetri color, audio, captions, markers, keyframes, project organization, project-intake preview, media and proxy workflows, local media and interchange preflight analysis, diagnostics, export, review handoff, and local editorial planning. The default capability profile exposes 326 of those tools. An authenticated compatible UXP host can add 70 capability-gated tools, bringing the connected surface to 396.",
+          "The server currently registers 328 core structured tools across timeline work, effects and Lumetri color, audio, captions, markers, keyframes, project organization, project-intake preview, media and proxy workflows, local media and interchange preflight analysis, diagnostics, export, review handoff, and local editorial planning. The default capability profile exposes 326 of those tools. An authenticated compatible UXP host can add 71 capability-gated tools, bringing the connected surface to 397.",
           "Those numbers describe discovery, not a blanket promise. A better question is whether the current host can perform the specific task you need. For example, an editor might ask for the active sequence and its clip structure before requesting a preview of a B-roll assembly. A post-production lead might ask for a project inventory before standardizing bins. A workflow developer might use the structured surface as a starting point rather than building and maintaining a bridge from scratch.",
         ],
       },
@@ -570,7 +570,7 @@ export const articles: Article[] = [
       {
         heading: "Where an MCP workflow fits",
         paragraphs: [
-          "MCP for Adobe Premiere Pro is free, MIT-licensed, and designed for local-first use. It registers 328 core tools for project inspection, project-intake preview, timeline editing, effects, color, audio, media management, local media and interchange preflight analysis, diagnostics, export, review handoff, and review-only local editorial planning. The default profile deliberately limits the surface to 326 tools; a compatible authenticated UXP host can add 70 capability-gated tools. These boundaries let the client report what is available rather than pretending that every supported feature is ready at every moment.",
+          "MCP for Adobe Premiere Pro is free, MIT-licensed, and designed for local-first use. It registers 328 core tools for project inspection, project-intake preview, timeline editing, effects, color, audio, media management, local media and interchange preflight analysis, diagnostics, export, review handoff, and review-only local editorial planning. The default profile deliberately limits the surface to 326 tools; a compatible authenticated UXP host can add 71 capability-gated tools. These boundaries let the client report what is available rather than pretending that every supported feature is ready at every moment.",
           "For an editor, the key benefit is repeatability without moving the project into a separate hosted editor. For a team, it is a consistent way to ask for and check common operations. For a workflow developer, it is a maintained bridge and structured discovery surface instead of a screen-reading macro.",
         ],
       },

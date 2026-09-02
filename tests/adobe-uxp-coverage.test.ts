@@ -24,6 +24,7 @@ describe("Adobe Premiere Pro 26.3 UXP coverage", () => {
       "native-project-insertion-bin-snapshot",
       "transactional-sequence-range",
       "guarded-sequence-playhead-control",
+      "guarded-app-preferences",
       "native-sequence-timing-snapshot",
       "native-caption-track-inventory",
       "track-rename",
@@ -90,6 +91,21 @@ describe("Adobe Premiere Pro 26.3 UXP coverage", () => {
       "Media.createSetStartAction",
       "Project.lockedAccess",
       "Project.executeTransaction",
+    ]));
+    expect(entries.find((entry) => entry.id === "guarded-app-preferences")).toMatchObject({
+      uxpCommand: "preferences.set",
+      mcpTools: ["manage_app_preferences_uxp"],
+      verificationBoundary: "app_preference_native_string_readback",
+      liveHostVerificationStatus: "not_run",
+    });
+    expect(entries.find((entry) => entry.id === "guarded-app-preferences")?.adobeApi).toEqual(expect.arrayContaining([
+      "AppPreference.getValue",
+      "AppPreference.setValue",
+      "AppPreference.KEY_AUTO_PEAK_GENERATION",
+      "AppPreference.KEY_IMPORT_WORKSPACE",
+      "AppPreference.KEY_SHOW_QUICKSTART_DIALOG",
+      "AppPreference.PROPERTY_PERSISTENT",
+      "AppPreference.PROPERTY_NON_PERSISTENT",
     ]));
     expect(entries.find((entry) => entry.id === "native-marker-batch-removal")).toMatchObject({
       uxpCommand: "markers.removeMany",
@@ -209,12 +225,12 @@ describe("Adobe Premiere Pro 26.3 UXP coverage", () => {
   it("keeps unimplemented 26.3 work visibly planned", () => {
     const report = buildAdobeUxpCoverageReport();
     expect(report.summary).toEqual({
-      total: 62,
-      current: 59,
+      total: 63,
+      current: 60,
       planned: 3,
-      implemented: 59,
+      implemented: 60,
       committedUnverified: 8,
-      automatedContractVerified: 51,
+      automatedContractVerified: 52,
       liveHostVerified: 0,
     });
     expect(report.entries.find((entry) => entry.id === "aaf-export")).toMatchObject({
@@ -237,7 +253,7 @@ describe("Adobe Premiere Pro 26.3 UXP coverage", () => {
   it("surfaces the baseline in the platform capability report", () => {
     const report = buildPlatformCapabilityReport(resolveCapabilities("inspect"), "win32");
     expect(report.backends.uxp.apiCoverage.summary).toMatchObject({
-      current: 59,
+      current: 60,
       planned: 3,
       committedUnverified: 8,
     });

@@ -36,6 +36,11 @@ function host(options: { transitions?: boolean; commit?: boolean } = {}) {
   });
   const range = { inSeconds: 1, outSeconds: 100, zeroPointSeconds: 3600, endSeconds: 120 };
   const playhead = { positionSeconds: 3 };
+  const preferenceValues = new Map<string, string>([
+    ["auto-peak-generation", "0"],
+    ["import-workspace", "1"],
+    ["show-quickstart-dialog", "1"],
+  ]);
   const sequenceProjectItem = { name: "Timeline", getId: vi.fn(() => "sequence-project-item-1") };
   const insertionBin = { name: "Imports", type: 2, getId: vi.fn(async () => "insertion-bin-1") };
   const sequence = {
@@ -98,6 +103,15 @@ function host(options: { transitions?: boolean; commit?: boolean } = {}) {
     Project: { getActiveProject: vi.fn(async () => project) },
     TickTime: { createWithSeconds: vi.fn((seconds: number) => ({ seconds })) },
     Constants: { TrackItemType: { CLIP: 1 }, MediaType: { ANY: 0 }, TransitionPosition: { START: 0, END: 1 } },
+    AppPreference: {
+      KEY_AUTO_PEAK_GENERATION: "auto-peak-generation",
+      KEY_IMPORT_WORKSPACE: "import-workspace",
+      KEY_SHOW_QUICKSTART_DIALOG: "show-quickstart-dialog",
+      PROPERTY_PERSISTENT: 1,
+      PROPERTY_NON_PERSISTENT: 2,
+      getValue: vi.fn((key: string) => preferenceValues.get(key)),
+      setValue: vi.fn((key: string, value: string) => { preferenceValues.set(key, value); return true; }),
+    },
     SequenceEditor: { getEditor: vi.fn(async () => ({ createRemoveItemsAction })) },
     ProjectConverter: {
       exportAsOpenTimelineIO: vi.fn(async () => true),
@@ -114,7 +128,7 @@ function host(options: { transitions?: boolean; commit?: boolean } = {}) {
     Exporter: { exportSequenceFrame },
     ...transitionApis
   };
-  return { registry: Commands.createCommandRegistry({ ppro, fs: {}, Protocol }), ppro, project, sequence, sequenceProjectItem, insertionBin, range, playhead, track, clip, add, remove, addAction, optionValues, selection, createRemoveItemsAction, exportSequenceFrame, exportedFrames, transitionState };
+  return { registry: Commands.createCommandRegistry({ ppro, fs: {}, Protocol }), ppro, project, sequence, sequenceProjectItem, insertionBin, range, playhead, preferenceValues, track, clip, add, remove, addAction, optionValues, selection, createRemoveItemsAction, exportSequenceFrame, exportedFrames, transitionState };
 }
 
 function expectedTransition(position: "start" | "end", transitionPresent: boolean) {
@@ -134,6 +148,8 @@ describe("UXP command registry", () => {
     expect(available.commands["sequence.playhead.inspect"]).toMatchObject({ supported: true, readOnly: true, minHostVersion: "25.6.0" });
     expect(available.commands["sequence.playhead.set"]).toMatchObject({ supported: true, destructive: false, undoable: false, idempotent: true, minHostVersion: "25.6.0" });
     expect(available.commands["sequence.timing.inspect"]).toMatchObject({ supported: true, readOnly: true, minHostVersion: "25.6.0" });
+    expect(available.commands["preferences.inspect"]).toMatchObject({ supported: true, readOnly: true, minHostVersion: "25.6.0" });
+    expect(available.commands["preferences.set"]).toMatchObject({ supported: true, destructive: false, undoable: false, idempotent: true, minHostVersion: "25.6.0" });
     expect(available.commands["project.insertionBin.inspect"]).toMatchObject({ supported: true, readOnly: true, minHostVersion: "25.6.0" });
     for (const command of ["sequence.createPreset", "interchange.export", "interchange.aaf.export", "frame.export"]) {
       expect(available.commands[command]).toMatchObject({ workspaceRequired: true });
@@ -345,6 +361,96 @@ describe("UXP command registry", () => {
     expect(value.project.lockedAccess).not.toHaveBeenCalled();
     await expect(value.registry.dispatch("sequence.playhead.set", args)).resolves.toMatchObject({ replayed: true });
     expect(value.sequence.setPlayerPosition).toHaveBeenCalledOnce();
+  });
+
+  it("inspects, guardedly sets, and replays bounded documented app preferences", async () => {
+    const value = host();
+    await expect(value.registry.dispatch("preferences.inspect", {})).resolves.toEqual({
+      preferences: [
+        { preference: "auto_peak_generation", value: "0" },
+        { preference: "import_workspace", value: "1" },
+        { preference: "show_quickstart_dialog", value: "1" },
+      ],
+      verificationBoundary: "app_preference_native_string_readback",
+    });
+    const args = {
+      preference: "auto_peak_generation",
+      expectedValue: "0",
+      value: "1",
+      persistence: "persistent",
+      confirmPreferenceChange: true,
+      operationId: "app-preference-1",
+    };
+    await expect(value.registry.dispatch("preferences.set", args)).resolves.toMatchObject({
+      updated: true,
+      outcome: "verified",
+      preference: "auto_peak_generation",
+      beforeValue: "0",
+      value: "1",
+      persistence: "persistent",
+      verified: "app_preference_native_string_readback",
+      operationId: "app-preference-1",
+      operation: {
+        mutatesProject: false,
+        verification: { status: "verified", boundary: "app_preference_native_string_readback" },
+        undo: { supported: false },
+        cancellation: { supported: false },
+      },
+    });
+    expect(value.ppro.AppPreference.setValue).toHaveBeenCalledWith("auto-peak-generation", "1", 1);
+    await expect(value.registry.dispatch("preferences.set", args)).resolves.toMatchObject({ replayed: true });
+    expect(value.ppro.AppPreference.setValue).toHaveBeenCalledOnce();
+  });
+
+  it("serializes competing app-preference writes and fails closed on stale or unverified values", async () => {
+    const value = host();
+    const first = value.registry.dispatch("preferences.set", {
+      preference: "import_workspace", expectedValue: "1", value: "0", persistence: "non_persistent",
+      confirmPreferenceChange: true, operationId: "app-preference-concurrent-first",
+    });
+    const second = value.registry.dispatch("preferences.set", {
+      preference: "import_workspace", expectedValue: "1", value: "2", persistence: "persistent",
+      confirmPreferenceChange: true, operationId: "app-preference-concurrent-second",
+    });
+    await expect(first).resolves.toMatchObject({ updated: true, value: "0", operationId: "app-preference-concurrent-first" });
+    await expect(second).rejects.toMatchObject({ code: "UXP_STALE_APP_PREFERENCE" });
+    expect(value.ppro.AppPreference.setValue).toHaveBeenCalledOnce();
+
+    const stale = host();
+    stale.preferenceValues.set("show-quickstart-dialog", "0");
+    await expect(stale.registry.dispatch("preferences.set", {
+      preference: "show_quickstart_dialog", expectedValue: "1", value: "0", persistence: "persistent",
+      confirmPreferenceChange: true, operationId: "app-preference-stale",
+    })).rejects.toMatchObject({ code: "UXP_STALE_APP_PREFERENCE" });
+    expect(stale.ppro.AppPreference.setValue).not.toHaveBeenCalled();
+
+    const noReadback = host();
+    noReadback.ppro.AppPreference.setValue.mockImplementationOnce(() => true);
+    await expect(noReadback.registry.dispatch("preferences.set", {
+      preference: "show_quickstart_dialog", expectedValue: "1", value: "0", persistence: "persistent",
+      confirmPreferenceChange: true, operationId: "app-preference-readback",
+    })).rejects.toMatchObject({ code: "UXP_VERIFICATION_FAILED" });
+  });
+
+  it("rejects malformed, unconfirmed, unsupported, and unavailable app-preference writes", async () => {
+    const value = host();
+    await expect(value.registry.dispatch("preferences.set", {
+      preference: "auto_peak_generation", expectedValue: "0", value: "1", persistence: "persistent", operationId: "app-preference-unconfirmed",
+    })).rejects.toMatchObject({ code: "UXP_CONFIRMATION_REQUIRED" });
+    await expect(value.registry.dispatch("preferences.set", {
+      preference: "unknown", expectedValue: "0", value: "1", persistence: "persistent", confirmPreferenceChange: true, operationId: "app-preference-invalid",
+    })).rejects.toMatchObject({ code: "UXP_INVALID_ARGUMENT" });
+    await expect(value.registry.dispatch("preferences.set", {
+      preference: "auto_peak_generation", expectedValue: "0", value: "1", persistence: "persistent", confirmPreferenceChange: true,
+    })).rejects.toMatchObject({ code: "UXP_INVALID_ARGUMENT" });
+    await expect(value.registry.dispatch("preferences.inspect", { extra: true }))
+      .rejects.toMatchObject({ code: "UXP_INVALID_ARGUMENT" });
+
+    const unavailable = host();
+    unavailable.ppro.AppPreference.setValue = undefined;
+    const capabilities = await unavailable.registry.capabilities();
+    expect(capabilities.commands["preferences.inspect"]).toMatchObject({ supported: true });
+    expect(capabilities.commands["preferences.set"]).toMatchObject({ supported: false, reason: expect.any(String) });
   });
 
   it("returns a bounded native sequence-timing snapshot and rejects a final active-sequence mismatch", async () => {

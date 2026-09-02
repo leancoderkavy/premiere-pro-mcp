@@ -15,7 +15,7 @@ discipline, selection performance, readback evidence, and filesystem authority.
 It does not remove or silently replace the production CEP path. A failed UXP
 mutation is returned to the caller and is never replayed automatically through CEP.
 
-The public MCP surface adds eleven consolidated tools. Each maps to smaller protocol
+The public MCP surface adds consolidated tools. Each maps to smaller protocol
 commands so `capabilities.get` can report the exact methods available in the running
 Premiere build.
 
@@ -29,6 +29,7 @@ Premiere build.
 | Offline relink repair | `relink_offline_media_uxp` | `media.relink` | Expected old path, offline default, capability check, then media-path and online-state readback |
 | Transactional metadata | `manage_metadata_uxp` | `metadata.get`, `metadata.update` | Project metadata and XMP are committed together and read back; each payload is size bounded |
 | Project-panel metadata inspection | `inspect_project_panel_metadata_uxp` | `metadata.columns.get`, `metadata.projectPanel.get` | Read one native item-column or active-project panel-metadata string, bounded to 350,000 characters and a 900,000-byte serialized result; no schema or metadata writes are exposed |
+| Guarded app preferences | `manage_app_preferences_uxp` | `preferences.inspect`, `preferences.set` | Inspect only Adobe's three named application preferences; direct string writes require stale value, persistence, confirmation, operation ID, per-key serialization, and exact native-string readback; no transaction or Undo claim |
 | Color and conformance | `manage_color_conformance_uxp` | `color.preflight`, `footage.conform` | Project graphics-white values, embedded/input LUT IDs, and requested footage fields read back |
 | Source Monitor audition | `audition_source_monitor_uxp` | `sourceMonitor.state`, `sourceMonitor.open`, `sourceMonitor.position.set`, `sourceMonitor.play`, `sourceMonitor.close` | Project-item and position readback where Adobe exposes it; file open/play rely on explicit host returns |
 | Productions and storage | `preflight_production_storage_uxp` | `storage.preflight`, `scratch.configure` | Project/Production scratch snapshots and project action-transaction result |
@@ -178,6 +179,18 @@ documented setter has no project-targeted action or transaction boundary that
 could truthfully guard it across an awaited call. The result is a current-host
 read, not an atomic project revision, persistence, or licensed-host proof.
 
+### `manage_app_preferences_uxp`
+
+`inspect` returns just the native string values of the documented
+`auto_peak_generation`, `import_workspace`, and `show_quickstart_dialog` keys.
+`set` accepts one allow-listed key plus the exact inspected string, a requested
+string value (each capped at 1024 characters), explicit persistence, confirmation,
+and an operation ID. The panel keeps all snapshot/stale-check/set/readback work for
+that key within its per-key exclusion boundary. `AppPreference.setValue()` is a
+direct application-state call rather than a project action, so this tool makes no
+claim of a project transaction, cancellation, Undo, durable persistence, or
+licensed-host validation.
+
 ### `manage_color_conformance_uxp`
 
 `preflight` returns graphics-white support, LUT IDs, and footage interpretation.
@@ -199,12 +212,15 @@ claim that UXP exposes an equivalent Production mutation API.
 
 ## Automated evidence
 
-- `tests/uxp/stable-workflows.test.ts` exercises all eleven host workflows against a
+- `tests/uxp/stable-workflows.test.ts` exercises the workflow-module host paths against a
   deterministic mock Premiere surface, including transaction and readback behavior.
 - `tests/uxp/workspace.test.ts` exercises token persistence, path normalization,
   containment, redaction, restore, and revoke behavior.
-- `tests/tools/uxp-workflows.test.ts` checks the eleven public schemas and snake-case to
+- `tests/tools/uxp-workflows.test.ts` checks the workflow-module public schemas and snake-case to
   protocol argument translation.
+- `tests/uxp/commands.test.ts` exercises the command-registry AppPreference contract,
+  including allowlisted keys, stale reads, direct-set rejection, exact readback,
+  replay, and competing operation IDs.
 - `tests/adobe-uxp-coverage.test.ts` keeps the official-source coverage manifest
   machine validated.
 
