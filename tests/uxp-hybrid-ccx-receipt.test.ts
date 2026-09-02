@@ -76,6 +76,8 @@ type DataDescriptorMetadata = false | { signature?: boolean; crc32?: number; com
 type ZipOptions = {
   flags?: number;
   method?: number;
+  localPreamble?: Buffer;
+  localSuffix?: Buffer;
   localNames?: Record<string, string>;
   localMetadata?: Record<string, { versionNeeded?: number; flags?: number; method?: number; crc32?: number; compressedBytes?: number; uncompressedBytes?: number }>;
   centralMetadata?: Record<string, { versionNeeded?: number; flags?: number; compressedBytes?: number; uncompressedBytes?: number; localOffset?: number }>;
@@ -86,9 +88,9 @@ type ZipOptions = {
 };
 
 function createZip(entries: Array<{ path: string; contents: Buffer }>, prefix = "", deflate = true, localNameOverride?: string, options: ZipOptions = {}) {
-  const locals: Buffer[] = [];
+  const locals: Buffer[] = options.localPreamble ? [options.localPreamble] : [];
   const centrals: Buffer[] = [];
-  let localOffset = 0;
+  let localOffset = options.localPreamble?.length ?? 0;
   for (const entry of entries) {
     const name = Buffer.from(`${prefix}${entry.path}`, "utf8");
     const method = options.method ?? (deflate ? 8 : 0);
@@ -139,6 +141,10 @@ function createZip(entries: Array<{ path: string; contents: Buffer }>, prefix = 
     centrals.push(central, name);
     localOffset += local.length + localName.length + compressedPayload.length + (descriptor?.length ?? 0);
   }
+  if (options.localSuffix) {
+    locals.push(options.localSuffix);
+    localOffset += options.localSuffix.length;
+  }
   const central = Buffer.concat(centrals);
   const end = Buffer.alloc(22);
   end.writeUInt32LE(0x06054b50, 0);
@@ -149,7 +155,7 @@ function createZip(entries: Array<{ path: string; contents: Buffer }>, prefix = 
   return Buffer.concat([...locals, central, end]);
 }
 
-function writeCcx(bundle: string, archive: string, options: { prefix?: string; deflate?: boolean; main?: string; manifest?: Record<string, unknown>; duplicateMain?: boolean; localMainName?: string; extra?: Array<{ path: string; contents: Buffer }>; zipFlags?: number; compressionMethod?: number; localNames?: Record<string, string>; localMetadata?: Record<string, { versionNeeded?: number; flags?: number; method?: number; crc32?: number; compressedBytes?: number; uncompressedBytes?: number }>; centralMetadata?: Record<string, { versionNeeded?: number; flags?: number; compressedBytes?: number; uncompressedBytes?: number; localOffset?: number }>; crc32Adjustments?: Record<string, number>; compressedDataSuffixes?: Record<string, Buffer>; compressedByteAdjustments?: Record<string, number>; dataDescriptors?: Record<string, DataDescriptorMetadata> } = {}) {
+function writeCcx(bundle: string, archive: string, options: { prefix?: string; deflate?: boolean; main?: string; manifest?: Record<string, unknown>; duplicateMain?: boolean; localMainName?: string; extra?: Array<{ path: string; contents: Buffer }>; zipFlags?: number; compressionMethod?: number; localPreamble?: Buffer; localSuffix?: Buffer; localNames?: Record<string, string>; localMetadata?: Record<string, { versionNeeded?: number; flags?: number; method?: number; crc32?: number; compressedBytes?: number; uncompressedBytes?: number }>; centralMetadata?: Record<string, { versionNeeded?: number; flags?: number; compressedBytes?: number; uncompressedBytes?: number; localOffset?: number }>; crc32Adjustments?: Record<string, number>; compressedDataSuffixes?: Record<string, Buffer>; compressedByteAdjustments?: Record<string, number>; dataDescriptors?: Record<string, DataDescriptorMetadata> } = {}) {
   const name = "fixture-addon.uxpaddon";
   const manifest = { ...JSON.parse(readFileSync(join(bundle, "manifest.json"), "utf8")), ...(options.manifest ?? {}) };
   const entries = [
@@ -164,6 +170,8 @@ function writeCcx(bundle: string, archive: string, options: { prefix?: string; d
   writeFileSync(archive, createZip(entries, options.prefix ?? "", options.deflate ?? true, options.localMainName, {
     flags: options.zipFlags,
     method: options.compressionMethod,
+    localPreamble: options.localPreamble,
+    localSuffix: options.localSuffix,
     localNames: options.localNames,
     localMetadata: options.localMetadata,
     centralMetadata: options.centralMetadata,
@@ -387,6 +395,18 @@ describe("UXP Hybrid CCX receipt", () => {
 
       writeCcx(bundle, archive, { compressedByteAdjustments: { "manifest.json": 1 } });
       await expect(buildUxpHybridCcxReceipt({ ccxPath: archive, addonReceipt, sdkHeaderReceipt: headers })).rejects.toThrow("local entries overlap");
+
+      writeCcx(bundle, archive, { localPreamble: Buffer.from("unexpected ZIP prefix") });
+      await expect(buildUxpHybridCcxReceipt({ ccxPath: archive, addonReceipt, sdkHeaderReceipt: headers })).rejects.toThrow("local records have unaccounted bytes");
+
+      const orphanName = Buffer.from("unreferenced-local-entry.txt");
+      const orphanLocal = Buffer.alloc(30);
+      orphanLocal.writeUInt32LE(0x04034b50, 0);
+      orphanLocal.writeUInt16LE(20, 4);
+      orphanLocal.writeUInt16LE(0x800, 6);
+      orphanLocal.writeUInt16LE(orphanName.length, 26);
+      writeCcx(bundle, archive, { localSuffix: Buffer.concat([orphanLocal, orphanName]) });
+      await expect(buildUxpHybridCcxReceipt({ ccxPath: archive, addonReceipt, sdkHeaderReceipt: headers })).rejects.toThrow("local records have unaccounted bytes");
 
       writeCcx(bundle, archive, {
         extra: [{ path: "docs/readme.txt", contents: Buffer.from("unselected entry") }],

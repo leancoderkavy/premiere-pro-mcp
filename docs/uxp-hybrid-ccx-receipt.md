@@ -47,7 +47,10 @@ binding, or complete entry-name-set digest changed. It also checks every local
 ZIP header against its central-directory entry before reading required payloads,
 so unselected archive entries cannot use a different version-needed value,
 name, flags, compression method, declared size, or an
-out-of-bounds/overlapping data range:
+out-of-bounds/overlapping data range. The referenced local records, including
+any valid data descriptors, must also account for every byte before the central
+directory: the bounded verifier rejects a prefixed archive or an unreferenced
+local header/payload rather than omitting it from the entry-name accounting:
 
 Non-ASCII ZIP entry-name bytes must declare UTF-8 with general-purpose bit 11;
 the verifier accepts unflagged legacy names only when they are ASCII. This keeps

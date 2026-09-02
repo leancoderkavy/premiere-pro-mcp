@@ -225,11 +225,17 @@ async function validateLocalEntries(handle, entries, directoryOffset) {
     ranges.push({ entry, ...(await localDataRangeFromHandle(handle, entry, directoryOffset)) });
   }
   ranges.sort((left, right) => left.entry.localOffset - right.entry.localOffset);
+  if (ranges[0]?.entry.localOffset !== 0) {
+    throw archiveError("CCX archive local records have unaccounted bytes");
+  }
   for (let index = 0; index < ranges.length; index += 1) {
     const nextOffset = index + 1 < ranges.length ? ranges[index + 1].entry.localOffset : directoryOffset;
     const recordEnd = await validateDataDescriptor(handle, ranges[index], nextOffset);
     if (recordEnd > nextOffset) {
       throw archiveError("CCX archive local entries overlap");
+    }
+    if (recordEnd < nextOffset) {
+      throw archiveError("CCX archive local records have unaccounted bytes");
     }
   }
 }
