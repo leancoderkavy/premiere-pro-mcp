@@ -289,18 +289,11 @@ describe("next-wave UXP event workflows", () => {
     });
   });
 
-  it("reads opt-in media timing through beta getters or stable properties without retrying a failed getter", async () => {
-    let legacyStartReads = 0;
-    let legacyDurationReads = 0;
-    const betaMedia = {
-      getStart: vi.fn(async () => ({ seconds: 1.25 })),
-      getDuration: vi.fn(async () => ({ seconds: 9.5 })),
+  it("reads opt-in media timing through stable properties", async () => {
+    let media: Record<string, unknown> = {
+      start: { seconds: 1.25 },
+      duration: Promise.resolve({ seconds: 9.5 }),
     };
-    Object.defineProperties(betaMedia, {
-      start: { get: () => { legacyStartReads += 1; throw new Error("deprecated start must not be read"); } },
-      duration: { get: () => { legacyDurationReads += 1; throw new Error("deprecated duration must not be read"); } },
-    });
-    let media: Record<string, unknown> = betaMedia;
     const clip = {
       name: "Camera A",
       getId: vi.fn(async () => "clip-1"),
@@ -327,15 +320,11 @@ describe("next-wave UXP event workflows", () => {
           available: true,
           startSeconds: 1.25,
           durationSeconds: 9.5,
-          startAccessor: "getStart",
-          durationAccessor: "getDuration",
+          startAccessor: "start",
+          durationAccessor: "duration",
         },
       }],
     });
-    expect(betaMedia.getStart).toHaveBeenCalledOnce();
-    expect(betaMedia.getDuration).toHaveBeenCalledOnce();
-    expect(legacyStartReads).toBe(0);
-    expect(legacyDurationReads).toBe(0);
 
     media = { start: { seconds: 3 }, duration: Promise.resolve({ seconds: 12 }) };
     await expect(definitions["media.health.inspect"].handler({ includeMediaTiming: true })).resolves.toMatchObject({
@@ -350,28 +339,21 @@ describe("next-wave UXP event workflows", () => {
       }],
     });
 
-    let failedGetterFallbackReads = 0;
-    const failedGetterMedia = {
-      getStart: vi.fn(async () => { throw new Error("getter failed"); }),
-      getDuration: vi.fn(async () => ({ seconds: 7 })),
+    media = {
+      get start() { throw new Error("start unavailable"); },
+      duration: { seconds: 7 },
     };
-    Object.defineProperties(failedGetterMedia, {
-      start: { get: () => { failedGetterFallbackReads += 1; return { seconds: 99 }; } },
-      duration: { get: () => ({ seconds: 99 }) },
-    });
-    media = failedGetterMedia;
     await expect(definitions["media.health.inspect"].handler({ includeMediaTiming: true })).resolves.toMatchObject({
       items: [{
         mediaTiming: {
           available: false,
           startSeconds: null,
           durationSeconds: 7,
-          startAccessor: "getStart",
-          durationAccessor: "getDuration",
+          startAccessor: "start",
+          durationAccessor: "duration",
         },
       }],
     });
-    expect(failedGetterFallbackReads).toBe(0);
 
     media = { start: { seconds: -1 }, duration: { seconds: 86400001 } };
     await expect(definitions["media.health.inspect"].handler({ includeMediaTiming: true })).resolves.toMatchObject({

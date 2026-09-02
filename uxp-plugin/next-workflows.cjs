@@ -964,8 +964,8 @@
       let media;
       try { media = await clip.getMedia(); } catch (_) { return unavailable(); }
       if (!media) return unavailable();
-      const start = await mediaTimingValue(media, "getStart", "start");
-      const duration = await mediaTimingValue(media, "getDuration", "duration");
+      const start = await mediaTimingValue(media, "start");
+      const duration = await mediaTimingValue(media, "duration");
       return {
         available: start.seconds != null && duration.seconds != null,
         startSeconds: start.seconds,
@@ -975,18 +975,7 @@
       };
     }
 
-    async function mediaTimingValue(media, getterName, propertyName) {
-      let getter;
-      try { getter = media[getterName]; } catch (_) {
-        return { accessor: getterName, seconds: null };
-      }
-      if (typeof getter === "function") {
-        try {
-          return { accessor: getterName, seconds: boundedMediaTimingSeconds(await getter.call(media)) };
-        } catch (_) {
-          return { accessor: getterName, seconds: null };
-        }
-      }
+    async function mediaTimingValue(media, propertyName) {
       try {
         return { accessor: propertyName, seconds: boundedMediaTimingSeconds(await media[propertyName]) };
       } catch (_) {

@@ -118,11 +118,8 @@ for them. Project traversal is capped at 10,000 items and path-match results at 
 `include_media_timing` is also opt-in and defaults to false. It reads source start
 and duration only when `getMedia()` is available, accepts finite non-negative
 TickTime seconds through the existing 86,400,000-second bound, and identifies the
-accessor used. At runtime it prefers callable `getStart()`/`getDuration()` and falls
-back to the stable `start`/`duration` properties only when those methods are absent;
-a throwing callable getter is unavailable timing, not permission to try a deprecated
-property. The beta declaration contract is pinned for this compatibility branch, but
-neither that contract nor automated mocks proves beta or licensed-host support.
+stable `start`/`duration` property accessors used. This stays within the 26.3
+declaration baseline; automated mocks do not prove licensed-host support.
 
 Refresh calls run serially and return per-item acceptance plus offline-state
 readback, so a partial batch is visible instead of being reported atomically. Setting
