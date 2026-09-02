@@ -69,7 +69,9 @@ describe("advanced stable UXP workflow MCP catalog", () => {
     });
     expect(tools.automate_effect_parameters_uxp.parameters).toMatchObject({
       properties: {
-        action: { enum: ["inspect", "inspect_keyframe", "set_value", "add_keyframe", "remove_keyframe", "remove_keyframe_range", "set_interpolation", "inspect_time_varying", "set_time_varying"] },
+        action: { enum: ["inspect", "inspect_point_value", "set_point_value", "inspect_keyframe", "set_value", "add_keyframe", "remove_keyframe", "remove_keyframe_range", "set_interpolation", "inspect_time_varying", "set_time_varying"] },
+        point: { required: ["x", "y"], additionalProperties: false },
+        expected_point_snapshot: { required: ["project_id", "sequence_id", "media_type", "track_index", "clip_index", "component_index", "component_id", "param_index", "param_name", "time_varying", "point"], additionalProperties: false },
         expected_sequence_id: { maxLength: 128 }, expected_time_varying: { type: "boolean" },
         expected_keyframe_times_seconds: { maxItems: 256, uniqueItems: true },
         keyframe_direction: { enum: ["at", "next", "previous", "nearest"] },
@@ -123,6 +125,44 @@ describe("advanced stable UXP workflow MCP catalog", () => {
         expectedSequenceId: "sequence-1", expectedComponentId: "ADBE Opacity", expectedParamName: "Opacity",
         expectedTimeVarying: true, expectedKeyframeTimesSeconds: [1, 2], timeVarying: false,
         confirmDisableTimeVarying: true, operationId: "parameter-animation-op",
+      }],
+    ]);
+  });
+
+  it("maps guarded static PointF inspection and update actions to the exact UXP commands", async () => {
+    const request = vi.fn().mockResolvedValue({ outcome: "verified" });
+    const bridge = { request, getState: vi.fn() } as unknown as UxpWebSocketBridge;
+    const tools = getUxpTools(bridge);
+    const target = {
+      media_type: "video", track_index: 0, clip_index: 1, component_index: 2, param_index: 3,
+      expected_component_id: "ADBE Motion", expected_param_name: "Position",
+    };
+    const expectedPointSnapshot = {
+      project_id: "project-1", sequence_id: "sequence-1", media_type: "video", track_index: 0, clip_index: 1,
+      component_index: 2, component_id: "ADBE Motion", param_index: 3, param_name: "Position", time_varying: false,
+      point: { x: 960, y: 540 },
+    };
+
+    await tools.automate_effect_parameters_uxp.handler({ action: "inspect_point_value", ...target });
+    await tools.automate_effect_parameters_uxp.handler({
+      action: "set_point_value", ...target, expected_point_snapshot: expectedPointSnapshot,
+      point: { x: 1100, y: 600 }, confirm_set_point: true, operation_id: "point-tool-op",
+    });
+
+    expect(request.mock.calls).toEqual([
+      ["parameters.point.inspect", {
+        mediaType: "video", trackIndex: 0, clipIndex: 1, componentIndex: 2, paramIndex: 3,
+        expectedComponentId: "ADBE Motion", expectedParamName: "Position",
+      }],
+      ["parameters.point.set", {
+        mediaType: "video", trackIndex: 0, clipIndex: 1, componentIndex: 2, paramIndex: 3,
+        expectedComponentId: "ADBE Motion", expectedParamName: "Position", point: { x: 1100, y: 600 },
+        expectedSnapshot: {
+          projectId: "project-1", sequenceId: "sequence-1", mediaType: "video", trackIndex: 0, clipIndex: 1,
+          componentIndex: 2, componentId: "ADBE Motion", paramIndex: 3, paramName: "Position", timeVarying: false,
+          point: { x: 960, y: 540 },
+        },
+        confirmSetPoint: true, operationId: "point-tool-op",
       }],
     ]);
   });

@@ -119,7 +119,7 @@ function advancedHost() {
     createRemoveMarkerAction: vi.fn((marker: ReturnType<typeof makeMarker>) => ({ apply: () => markerValues.splice(markerValues.indexOf(marker), 1) })),
   };
 
-  const parameterState = { value: 50, varying: false, keyframes: [] as number[] };
+  const parameterState: { value: unknown; varying: boolean; keyframes: number[] } = { value: 50, varying: false, keyframes: [] };
   const parameterKeyframe = (seconds: number) => ({
     position: { seconds },
     getTemporalInterpolationMode: vi.fn(async () => 1),
@@ -144,8 +144,8 @@ function advancedHost() {
       const result = parameterState.keyframes.find((seconds) => seconds >= inTime.seconds && seconds <= outTime.seconds);
       return result == null ? null : parameterKeyframe(result);
     }),
-    createKeyframe: vi.fn((value: number) => ({ value, position: null as { seconds: number } | null })),
-    createSetValueAction: vi.fn((keyframe: { value: number }) => ({ apply: () => { parameterState.value = keyframe.value; } })),
+    createKeyframe: vi.fn((value: unknown) => ({ value, position: null as { seconds: number } | null })),
+    createSetValueAction: vi.fn((keyframe: { value: unknown }) => ({ apply: () => { parameterState.value = keyframe.value; } })),
     createSetTimeVaryingAction: vi.fn((value: boolean) => ({ apply: () => { parameterState.varying = value; } })),
     createAddKeyframeAction: vi.fn((keyframe: { position: { seconds: number } }) => ({ apply: () => parameterState.keyframes.push(keyframe.position.seconds) })),
     createRemoveKeyframeAction: vi.fn((time: { seconds: number }) => ({ apply: () => { parameterState.keyframes = parameterState.keyframes.filter((value) => value !== time.seconds); } })),
@@ -299,6 +299,7 @@ function advancedHost() {
     FolderItem: { cast: vi.fn((item: MutableItem) => { if (!item.isFolder) throw new Error("not folder"); return item; }) },
     ClipProjectItem: { cast: vi.fn((item: MutableItem) => { if (!item.isClip) throw new Error("not clip"); return item; }) },
     TickTime: { createWithSeconds: vi.fn((seconds: number) => ({ seconds })) },
+    PointF: class PointF { constructor(readonly x: number, readonly y: number) {} },
     FrameRate: { createWithValue: vi.fn((value: number) => ({ value })) },
     RectF: class RectF { width = 0; height = 0; },
     Guid: { fromString: vi.fn((value: string) => value) },
@@ -345,7 +346,7 @@ describe("advanced stable Premiere UXP workflows", () => {
     expect(Object.keys(capabilities.commands)).toEqual(expect.arrayContaining([
       "projectSelection.views", "projectSelection.inspect", "projectTree.inspect", "markers.inspect", "markers.add", "markers.addBeatGrid", "markers.removeMany",
       "bins.inspect", "bins.create", "sequenceSettings.get", "sequenceSettings.update", "sequence.displayFormat.inspect", "sequence.displayFormat.update",
-      "project.import", "parameters.inspect", "parameters.keyframeAdd", "parameters.keyframe.inspect", "parameters.timeVarying.inspect", "parameters.timeVarying.set", "trackItem.inspect",
+      "project.import", "parameters.inspect", "parameters.point.inspect", "parameters.point.set", "parameters.keyframeAdd", "parameters.keyframe.inspect", "parameters.timeVarying.inspect", "parameters.timeVarying.set", "trackItem.inspect",
       "trackItem.update", "timeline.insert", "timeline.mogrtPath", "timeline.structure.inspect", "sequences.inspect",
       "sequences.createEmpty",
       "trackItem.splitEdit",
@@ -360,6 +361,8 @@ describe("advanced stable Premiere UXP workflows", () => {
     expect(capabilities.commands["sequence.displayFormat.inspect"]).toMatchObject({ supported: true, readOnly: true, destructive: false });
     expect(capabilities.commands["sequence.displayFormat.update"]).toMatchObject({ supported: true, destructive: true, undoable: true, idempotent: true });
     expect(capabilities.commands["parameters.keyframe.inspect"]).toMatchObject({ supported: true, readOnly: true, destructive: false });
+    expect(capabilities.commands["parameters.point.inspect"]).toMatchObject({ supported: true, readOnly: true, destructive: false, minHostVersion: "26.3.0" });
+    expect(capabilities.commands["parameters.point.set"]).toMatchObject({ supported: true, destructive: true, undoable: true, idempotent: true, minHostVersion: "26.3.0" });
     expect(capabilities.commands["parameters.timeVarying.inspect"]).toMatchObject({ supported: true, readOnly: true, destructive: false });
     expect(capabilities.commands["parameters.timeVarying.set"]).toMatchObject({ supported: true, destructive: true, undoable: true, idempotent: true });
     expect(capabilities.commands["sequences.createEmpty"]).toMatchObject({ supported: true, destructive: true, undoable: false, idempotent: true, minHostVersion: "26.3.0" });
@@ -857,6 +860,96 @@ describe("advanced stable Premiere UXP workflows", () => {
     expect(value.workspace.assertPathAllowed).toHaveBeenCalledWith("D:/Approved/broll.mov", {
       label: "paths[0]", kind: "file",
     });
+  });
+
+  it("double-reads a static PointF parameter and applies one reviewed point with serialized readback and replay", async () => {
+    const value = advancedHost();
+    value.parameterState.value = { x: 960, y: 540 };
+    const target = { mediaType: "video", trackIndex: 0, clipIndex: 0, componentIndex: 0, paramIndex: 0, expectedComponentId: "ADBE Opacity", expectedParamName: "Opacity" };
+    const inspected = await value.registry.dispatch("parameters.point.inspect", target);
+    expect(inspected).toMatchObject({
+      projectId: "project-1", sequenceId: "sequence-1", timeVarying: false,
+      point: { x: 960, y: 540 }, componentId: "ADBE Opacity", paramName: "Opacity",
+    });
+    expect(value.project.executeTransaction).not.toHaveBeenCalled();
+
+    const input = { ...target, expectedSnapshot: inspected, point: { x: 1100, y: 600 }, confirmSetPoint: true, operationId: "point-parameter-replay" };
+    await expect(value.registry.dispatch("parameters.point.set", input)).resolves.toMatchObject({
+      operationId: "point-parameter-replay", updated: true, outcome: "verified",
+      before: { point: { x: 960, y: 540 } }, after: { point: { x: 1100, y: 600 } },
+      verificationBoundary: "point_parameter_readback",
+    });
+    await expect(value.registry.dispatch("parameters.point.set", input)).resolves.toMatchObject({ replayed: true, after: { point: { x: 1100, y: 600 } } });
+    expect(value.parameter.createKeyframe).toHaveBeenCalledWith(expect.objectContaining({ x: 1100, y: 600 }));
+    expect(value.project.executeTransaction).toHaveBeenCalledTimes(1);
+  });
+
+  it("fails closed on stale, animated, unavailable, or changing PointF parameter state", async () => {
+    const value = advancedHost();
+    value.parameterState.value = { x: 960, y: 540 };
+    const target = { mediaType: "video", trackIndex: 0, clipIndex: 0, componentIndex: 0, paramIndex: 0, expectedComponentId: "ADBE Opacity", expectedParamName: "Opacity" };
+    const expectedSnapshot = await value.registry.dispatch("parameters.point.inspect", target);
+    value.parameterState.value = { x: 961, y: 540 };
+    await expect(value.registry.dispatch("parameters.point.set", {
+      ...target, expectedSnapshot, point: { x: 1100, y: 600 }, confirmSetPoint: true, operationId: "point-stale",
+    })).rejects.toMatchObject({ code: "UXP_STALE_POINT_PARAMETER" });
+    expect(value.project.executeTransaction).not.toHaveBeenCalled();
+
+    const animated = advancedHost();
+    animated.parameterState.value = { x: 960, y: 540 };
+    animated.parameterState.varying = true;
+    const animatedSnapshot = await animated.registry.dispatch("parameters.point.inspect", target);
+    await expect(animated.registry.dispatch("parameters.point.set", {
+      ...target, expectedSnapshot: animatedSnapshot, point: { x: 1100, y: 600 }, confirmSetPoint: true, operationId: "point-animated",
+    })).rejects.toMatchObject({ code: "UXP_TARGET_UNSUPPORTED" });
+    expect(animated.project.executeTransaction).not.toHaveBeenCalled();
+
+    const changing = advancedHost();
+    changing.parameterState.value = { x: 960, y: 540 };
+    let reads = 0;
+    changing.parameter.getStartValue.mockImplementation(async () => {
+      reads += 1;
+      return { value: reads === 1 ? { x: 960, y: 540 } : { x: 961, y: 540 } };
+    });
+    await expect(changing.registry.dispatch("parameters.point.inspect", target)).rejects.toMatchObject({ code: "UXP_STALE_POINT_PARAMETER" });
+
+    const unavailable = advancedHost();
+    Reflect.deleteProperty(unavailable.ppro, "PointF");
+    const capabilities = await unavailable.registry.capabilities();
+    expect(capabilities.commands["parameters.point.inspect"]).toMatchObject({ supported: false });
+    expect(capabilities.commands["parameters.point.set"]).toMatchObject({ supported: false });
+  });
+
+  it("serializes distinct PointF updates so a later stale snapshot cannot overwrite the first", async () => {
+    const value = advancedHost();
+    value.parameterState.value = { x: 960, y: 540 };
+    const target = { mediaType: "video", trackIndex: 0, clipIndex: 0, componentIndex: 0, paramIndex: 0, expectedComponentId: "ADBE Opacity", expectedParamName: "Opacity" };
+    const expectedSnapshot = await value.registry.dispatch("parameters.point.inspect", target);
+    let releaseRead: (() => void) | undefined;
+    const firstReadReleased = new Promise<void>((resolve) => { releaseRead = resolve; });
+    let signalRead: (() => void) | undefined;
+    const firstReadStarted = new Promise<void>((resolve) => { signalRead = resolve; });
+    let reads = 0;
+    value.parameter.getStartValue.mockImplementation(async () => {
+      reads += 1;
+      if (reads === 1) {
+        signalRead?.();
+        await firstReadReleased;
+      }
+      return { value: value.parameterState.value };
+    });
+    const first = value.registry.dispatch("parameters.point.set", {
+      ...target, expectedSnapshot, point: { x: 1100, y: 600 }, confirmSetPoint: true, operationId: "point-first",
+    });
+    await firstReadStarted;
+    const second = value.registry.dispatch("parameters.point.set", {
+      ...target, expectedSnapshot, point: { x: 1200, y: 700 }, confirmSetPoint: true, operationId: "point-second",
+    });
+    releaseRead?.();
+    await expect(first).resolves.toMatchObject({ outcome: "verified", after: { point: { x: 1100, y: 600 } } });
+    await expect(second).rejects.toMatchObject({ code: "UXP_STALE_POINT_PARAMETER" });
+    expect(value.project.executeTransaction).toHaveBeenCalledTimes(1);
+    expect(value.parameterState.value).toMatchObject({ x: 1100, y: 600 });
   });
 
   it("guards, serializes, replays, and reads back native sequence display-format updates", async () => {

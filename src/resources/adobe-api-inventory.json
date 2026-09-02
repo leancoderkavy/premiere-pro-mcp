@@ -13,8 +13,8 @@
   },
   "stats": {
     "total": 976,
-    "mapped": 332,
-    "unmapped": 644,
+    "mapped": 337,
+    "unmapped": 639,
     "manifestOnly": 5
   },
   "manifestOnly": [
@@ -1041,7 +1041,7 @@
     {
       "symbol": "ComponentParam.getStartValue",
       "kind": "method",
-      "coverage": "unmapped"
+      "coverage": "mapped"
     },
     {
       "symbol": "ComponentParam.getValueAtTime",
@@ -2797,7 +2797,7 @@
     {
       "symbol": "PointF",
       "kind": "type",
-      "coverage": "unmapped"
+      "coverage": "mapped"
     },
     {
       "symbol": "PointF.[[call]]",
@@ -2807,7 +2807,7 @@
     {
       "symbol": "PointF.[[construct]]",
       "kind": "constructor",
-      "coverage": "unmapped"
+      "coverage": "mapped"
     },
     {
       "symbol": "PointF.distanceTo",
@@ -2817,12 +2817,12 @@
     {
       "symbol": "PointF.x",
       "kind": "property",
-      "coverage": "unmapped"
+      "coverage": "mapped"
     },
     {
       "symbol": "PointF.y",
       "kind": "property",
-      "coverage": "unmapped"
+      "coverage": "mapped"
     },
     {
       "symbol": "PointKeyframe",

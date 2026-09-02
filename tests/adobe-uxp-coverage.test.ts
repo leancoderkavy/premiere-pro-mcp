@@ -405,12 +405,12 @@ describe("Adobe Premiere Pro 26.3 UXP coverage", () => {
   it("keeps unimplemented 26.3 work visibly planned", () => {
     const report = buildAdobeUxpCoverageReport();
     expect(report.summary).toEqual({
-      total: 74,
-      current: 71,
+      total: 75,
+      current: 72,
       planned: 3,
-      implemented: 71,
+      implemented: 72,
       committedUnverified: 9,
-      automatedContractVerified: 62,
+      automatedContractVerified: 63,
       liveHostVerified: 0,
     });
     expect(report.entries.find((entry) => entry.id === "aaf-export")).toMatchObject({
@@ -433,7 +433,7 @@ describe("Adobe Premiere Pro 26.3 UXP coverage", () => {
   it("surfaces the baseline in the platform capability report", () => {
     const report = buildPlatformCapabilityReport(resolveCapabilities("inspect"), "win32");
     expect(report.backends.uxp.apiCoverage.summary).toMatchObject({
-      current: 71,
+      current: 72,
       planned: 3,
       committedUnverified: 9,
     });

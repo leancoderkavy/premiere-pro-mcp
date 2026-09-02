@@ -523,18 +523,53 @@ export function getUxpAdvancedWorkflowTools(bridge: UxpWebSocketBridge) {
     },
 
     automate_effect_parameters_uxp: {
-      description: "Inspect or transactionally set scalar effect parameters, locate individual keyframes including a bounded native nearest-range lookup, adjust keyframes/interpolation, and control explicit time-varying animation mode through documented UXP actions. Disabling animation requires a complete inspected keyframe-time snapshot and confirmation.",
+      description: "Inspect or transactionally set scalar effect parameters, inspect or guardedly set a static PointF x/y parameter, locate individual keyframes including a bounded native nearest-range lookup, adjust keyframes/interpolation, and control explicit time-varying animation mode through documented UXP actions. Disabling animation requires a complete inspected keyframe-time snapshot and confirmation.",
       parameters: {
         type: "object" as const,
         additionalProperties: false,
         properties: {
-          action: { type: "string", enum: ["inspect", "inspect_keyframe", "set_value", "add_keyframe", "remove_keyframe", "remove_keyframe_range", "set_interpolation", "inspect_time_varying", "set_time_varying"] },
+          action: { type: "string", enum: ["inspect", "inspect_point_value", "set_point_value", "inspect_keyframe", "set_value", "add_keyframe", "remove_keyframe", "remove_keyframe_range", "set_interpolation", "inspect_time_varying", "set_time_varying"] },
           ...timelineTargetProperties,
           component_index: { type: "integer", minimum: 0 },
           param_index: { type: "integer", minimum: 0 },
           expected_component_id: { type: "string", minLength: 1, maxLength: 256 },
           expected_param_name: { type: "string", maxLength: 255 },
           value: { type: ["number", "string", "boolean"] },
+          point: {
+            type: "object", additionalProperties: false,
+            properties: {
+              x: { type: "number", minimum: -1_000_000, maximum: 1_000_000 },
+              y: { type: "number", minimum: -1_000_000, maximum: 1_000_000 },
+            },
+            required: ["x", "y"],
+            description: "Requested static PointF x/y value for set_point_value.",
+          },
+          expected_point_snapshot: {
+            type: "object", additionalProperties: false,
+            properties: {
+              project_id: { type: "string", minLength: 1, maxLength: 128 },
+              sequence_id: { type: "string", minLength: 1, maxLength: 128 },
+              media_type: { type: "string", enum: ["video", "audio"] },
+              track_index: { type: "integer", minimum: 0 },
+              clip_index: { type: "integer", minimum: 0 },
+              component_index: { type: "integer", minimum: 0 },
+              component_id: { type: "string", minLength: 1, maxLength: 256 },
+              param_index: { type: "integer", minimum: 0 },
+              param_name: { type: "string", maxLength: 255 },
+              time_varying: { type: "boolean" },
+              point: {
+                type: "object", additionalProperties: false,
+                properties: {
+                  x: { type: "number", minimum: -1_000_000, maximum: 1_000_000 },
+                  y: { type: "number", minimum: -1_000_000, maximum: 1_000_000 },
+                },
+                required: ["x", "y"],
+              },
+            },
+            required: ["project_id", "sequence_id", "media_type", "track_index", "clip_index", "component_index", "component_id", "param_index", "param_name", "time_varying", "point"],
+            description: "Required for set_point_value; copy the complete inspect_point_value snapshot unchanged.",
+          },
+          confirm_set_point: { type: "boolean", description: "Required true for set_point_value after reviewing the complete point snapshot." },
           time_seconds: { type: "number", minimum: 0, maximum: 86400 },
           end_seconds: { type: "number", minimum: 0, maximum: 86400, description: "Required with inspect_keyframe direction nearest as the documented native outTime; also used as the inclusive end for remove_keyframe_range." },
           interpolation: { type: "string", enum: ["linear", "hold", "bezier", "time"] },
@@ -561,6 +596,7 @@ export function getUxpAdvancedWorkflowTools(bridge: UxpWebSocketBridge) {
           set_interpolation: "parameters.keyframeInterpolation",
           inspect_keyframe: "parameters.keyframe.inspect",
           inspect_time_varying: "parameters.timeVarying.inspect", set_time_varying: "parameters.timeVarying.set",
+          inspect_point_value: "parameters.point.inspect", set_point_value: "parameters.point.set",
         };
         if (!args.action || !commands[args.action]) return invalidAction(args.action);
         if (args.action === "inspect_keyframe") {
@@ -583,6 +619,33 @@ export function getUxpAdvancedWorkflowTools(bridge: UxpWebSocketBridge) {
               expectedKeyframeTimesSeconds: args.expected_keyframe_times_seconds,
               timeVarying: args.time_varying, confirmDisableTimeVarying: args.confirm_disable_time_varying,
             }), ...operation(args),
+          });
+        }
+        if (args.action === "inspect_point_value") {
+          return invoke(bridge, commands[args.action], compact({
+            mediaType: args.media_type, trackIndex: args.track_index, clipIndex: args.clip_index,
+            componentIndex: args.component_index, paramIndex: args.param_index,
+            expectedComponentId: args.expected_component_id, expectedParamName: args.expected_param_name,
+          }));
+        }
+        if (args.action === "set_point_value") {
+          const raw = args.expected_point_snapshot;
+          const snapshot = raw && typeof raw === "object" && !Array.isArray(raw) ? raw as Record<string, unknown> : null;
+          if (!snapshot) return { success: false, error: "set_point_value requires expected_point_snapshot from inspect_point_value" };
+          return invoke(bridge, commands[args.action], {
+            mediaType: args.media_type, trackIndex: args.track_index, clipIndex: args.clip_index,
+            componentIndex: args.component_index, paramIndex: args.param_index,
+            expectedComponentId: args.expected_component_id, expectedParamName: args.expected_param_name,
+            point: args.point,
+            expectedSnapshot: {
+              projectId: snapshot.project_id, sequenceId: snapshot.sequence_id, mediaType: snapshot.media_type,
+              trackIndex: snapshot.track_index, clipIndex: snapshot.clip_index, componentIndex: snapshot.component_index,
+              componentId: snapshot.component_id, paramIndex: snapshot.param_index, paramName: snapshot.param_name,
+              timeVarying: snapshot.time_varying,
+              point: snapshot.point,
+            },
+            confirmSetPoint: args.confirm_set_point,
+            ...operation(args),
           });
         }
         return invoke(bridge, commands[args.action], { ...common, ...compact({ value: args.value, endSeconds: args.end_seconds, interpolation: args.interpolation }), ...operation(args) });
