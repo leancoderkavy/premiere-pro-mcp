@@ -92,6 +92,12 @@ binds them to the Hybrid header receipt without publishing source or binaries.
 It is a preflight accounting artifact, not a compile, signing, UDT-load, or
 host-behavior claim.
 
+When a candidate is later packaged for distribution, use the separate
+[Hybrid CCX archive receipt](uxp-hybrid-ccx-receipt.md) to confirm that the
+local ZIP-format `.ccx` contains byte-identical required files from the current
+addon-layout receipt. That archive check is not evidence that UDT created the
+archive, that Adobe accepts the package, or that it installs or loads.
+
 The native implementation must improve both p50 and p95 by at least 30% on every
 target while keeping peak working-set regression at or below 10%. Verify with:
 

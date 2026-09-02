@@ -24,6 +24,7 @@ const requiredFiles = [
   "package/docs/premiere-doc-inventory.md",
   "package/docs/native-sdk-header-inventory.md",
   "package/docs/uxp-hybrid-addon-receipt.md",
+  "package/docs/uxp-hybrid-ccx-receipt.md",
   "package/docs/uxp-hybrid-benchmark.md",
   "package/docs/cep-reference-inventory.md",
   "package/docs/extendscript-api-inventory.md",
