@@ -634,7 +634,7 @@ describe("issue #238 — AME uses canonical paths and documented encodeFile posi
 
     expect(queued).toContain("var outputFile = new File");
     expect(queued).toContain("var jobId = encoder.encodeSequence");
-    expect(queued).toContain("this does not prove that asynchronous encoding finished");
+    expect(queued).toContain("Queue presence and output-file creation are not verified");
     expect(projectItem).toContain("outputFile.fsName");
     expect(projectItem).toContain("var jobId = app.encoder.encodeProjectItem");
   });
@@ -659,5 +659,65 @@ describe("issue #238 — AME uses canonical paths and documented encodeFile posi
     expect(range).toContain("workArea,");
     expect(range).not.toContain("var srcIn = undefined");
     expect(range).toContain("var jobId = app.encoder.encodeFile");
+  });
+});
+
+// https://github.com/leancoderkavy/premiere-pro-mcp/issues/322
+describe("issue #322 — marker filtering retains the requested sequence collection", () => {
+  const utility = getUtilityTools(bridgeOptions);
+
+  it("resolves the requested sequence once and returns its identity with the marker set", async () => {
+    const script = await scriptFor(utility.get_sequence_markers_by_type, {
+      sequence_id: "target-sequence", marker_type: "Comment",
+    });
+
+    expect(script).toContain('var seq = __findSequence("target-sequence")');
+    expect(script).toContain("var selectedSequence = { id: String(seq.sequenceID)");
+    expect(script).toContain("var markerCollection = seq.markers");
+    expect(script).toContain("markerCollection.getFirstMarker()");
+    expect(script).toContain("markerCollection.getNextMarker(m)");
+    expect(script).toContain("sequence: selectedSequence");
+  });
+});
+
+// https://github.com/leancoderkavy/premiere-pro-mcp/issues/323
+describe("issue #323 — AME handoffs are unverified until a queue or file readback", () => {
+  const exports = getExportTools(bridgeOptions);
+  const project = getProjectTools(bridgeOptions);
+
+  it("does not present AME acceptance as a queued, started, or completed encode", async () => {
+    const render = await scriptFor(exports.add_to_render_queue, { output_path: "/tmp/render.mp4" });
+    const item = await scriptFor(exports.encode_project_item, {
+      item_id: "item-1", output_path: "/tmp/render.mp4", preset_path: "/tmp/preset.epr",
+    });
+    const proxy = await scriptFor(exports.manage_proxies, {
+      item_id: "item-1", action: "create", output_path: "/tmp/proxy.mov", preset_path: "/tmp/proxy.epr",
+    });
+    const batch = await scriptFor(project.start_batch_encode, {});
+
+    for (const script of [render, item, proxy]) {
+      expect(script).toContain("if (!jobId || jobId === 0) return __error");
+      expect(script).toContain("accepted: true");
+      expect(script).toContain('outcome: "committed_unverified"');
+      expect(script).not.toContain("queued: true");
+    }
+    expect(batch).toContain("requested: true");
+    expect(batch).toContain('outcome: "committed_unverified"');
+    expect(batch).not.toContain("started: true");
+  });
+});
+
+// https://github.com/leancoderkavy/premiere-pro-mcp/issues/324
+describe("issue #324 — duplicate media requires distinct project-item node IDs", () => {
+  const utility = getUtilityTools(bridgeOptions);
+
+  it("deduplicates each media path by stable node ID before forming a group", async () => {
+    const script = await scriptFor(utility.get_duplicate_media, {});
+
+    expect(script).toContain("var nodeId = String(item.nodeId || \"\")");
+    expect(script).toContain("pathMap[mp] = { items: [], nodeIds: {} }");
+    expect(script).toContain("if (!pathMap[mp].nodeIds[nodeId])");
+    expect(script).toContain("pathMap[path].items.length > 1");
+    expect(script).not.toContain("pathMap[path].length > 1");
   });
 });

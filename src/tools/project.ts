@@ -434,8 +434,18 @@ export function getProjectTools(bridgeOptions: BridgeOptions) {
       parameters: {},
       handler: async () => {
         const script = buildToolScript(`
-          app.encoder.startBatch();
-          return __result({ started: true });
+          if (!app.encoder || typeof app.encoder.startBatch !== "function") return __error("Adobe Media Encoder is not available");
+          try {
+            app.encoder.startBatch();
+          } catch (e) {
+            return __error("Adobe Media Encoder rejected the start request: " + e.message);
+          }
+          return __result({
+            requested: true,
+            verified: false,
+            outcome: "committed_unverified",
+            verificationScope: "Premiere accepted a start request; queue presence, progress, and output-file creation are not verified by this tool."
+          });
         `);
         return sendCommand(script, bridgeOptions);
       },

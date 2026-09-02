@@ -648,9 +648,15 @@ export function getUtilityTools(bridgeOptions: BridgeOptions) {
               var item = bin.children[i];
               try {
                 var mp = item.getMediaPath();
-                if (mp) {
-                  if (!pathMap[mp]) pathMap[mp] = [];
-                  pathMap[mp].push({ nodeId: item.nodeId, name: item.name, treePath: item.treePath });
+                var nodeId = String(item.nodeId || "");
+                // A project item can be exposed more than once while Premiere walks
+                // bins. Only distinct, stable node IDs can establish a duplicate.
+                if (mp && nodeId) {
+                  if (!pathMap[mp]) pathMap[mp] = { items: [], nodeIds: {} };
+                  if (!pathMap[mp].nodeIds[nodeId]) {
+                    pathMap[mp].nodeIds[nodeId] = true;
+                    pathMap[mp].items.push({ nodeId: nodeId, name: item.name, treePath: item.treePath });
+                  }
                 }
               } catch(e) {}
               if (item.type === 2) scan(item);
@@ -660,8 +666,8 @@ export function getUtilityTools(bridgeOptions: BridgeOptions) {
 
           var duplicates = [];
           for (var path in pathMap) {
-            if (pathMap.hasOwnProperty(path) && pathMap[path].length > 1) {
-              duplicates.push({ mediaPath: path, count: pathMap[path].length, items: pathMap[path] });
+            if (pathMap.hasOwnProperty(path) && pathMap[path].items.length > 1) {
+              duplicates.push({ mediaPath: path, count: pathMap[path].items.length, items: pathMap[path].items });
             }
           }
 
@@ -817,8 +823,13 @@ export function getUtilityTools(bridgeOptions: BridgeOptions) {
         const script = buildToolScript(`
           ${seqLookup}
 
+          var selectedSequence = { id: String(seq.sequenceID), name: String(seq.name || "") };
+          var markerCollection = seq.markers;
+          if (!markerCollection || typeof markerCollection.getFirstMarker !== "function" || typeof markerCollection.getNextMarker !== "function") {
+            return __error("The requested sequence does not expose a readable marker collection");
+          }
           var markers = [];
-          var m = seq.markers.getFirstMarker();
+          var m = markerCollection.getFirstMarker();
           while (m) {
             if (m.type === "${escapeForExtendScript(args.marker_type)}") {
               markers.push({
@@ -829,10 +840,10 @@ export function getUtilityTools(bridgeOptions: BridgeOptions) {
                 type: m.type
               });
             }
-            m = seq.markers.getNextMarker(m);
+            m = markerCollection.getNextMarker(m);
           }
 
-          return __result({ type: "${escapeForExtendScript(args.marker_type)}", count: markers.length, markers: markers });
+          return __result({ sequence: selectedSequence, type: "${escapeForExtendScript(args.marker_type)}", count: markers.length, markers: markers });
         `);
         return sendCommand(script, bridgeOptions);
       },
