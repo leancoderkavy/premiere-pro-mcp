@@ -879,9 +879,22 @@
       return withAppendLock(appendLockKey(project, "sequences", "all"), async () => {
         const before = await listSequences(project);
         assertAppendCapacity(before, MAX_SEQUENCES, "Sequence creation");
-        const sequence = await project.createSequenceFromMedia(name, clips, target);
-        if (!sequence) throw commandError("UXP_HOST_REJECTED", "Premiere did not create a sequence");
-        return directMutationResult(false, { created: true, sequence: await sequenceSnapshot(sequence) }, "create_sequence_host_return");
+        const reconciledSequence = async () => {
+          try {
+            const after = await listSequences(project);
+            return after.find((item) => !before.some((old) => old.id === item.id)) || null;
+          } catch (_) { return null; }
+        };
+        const partialReceipt = async (boundary, sequence) => directMutationResult(false, {
+          created: !!sequence, partial: true, sequence: await safeSequenceSnapshot(sequence)
+        }, boundary);
+        let sequence;
+        try { sequence = await project.createSequenceFromMedia(name, clips, target); }
+        catch (_) { return partialReceipt("create_sequence_host_reconciliation", await reconciledSequence()); }
+        if (!sequence) return partialReceipt("create_sequence_host_return", await reconciledSequence());
+        const snapshot = await safeSequenceSnapshot(sequence);
+        if (!snapshot || !snapshot.id) return partialReceipt("create_sequence_identity_readback", sequence);
+        return directMutationResult(false, { created: true, partial: false, sequence: snapshot }, "create_sequence_host_return");
       });
     }
 
@@ -958,7 +971,12 @@
           } catch (_) {
             return partialReceipt("derived_sequence_partial_insert_receipt", sequence, inserted);
           }
-          return directMutationResult(false, { created: true, partial: false, createdSubclips: await safeProjectItemSnapshots(createdItems), sequence: await safeSequenceSnapshot(sequence), insertedProjectItemIds: inserted, originalChanged: false }, "derived_sequence_structure_unverified");
+          const createdSubclips = await safeProjectItemSnapshots(createdItems), sequenceSnapshot = await safeSequenceSnapshot(sequence);
+          if (createdSubclips.length !== createdItems.length || createdSubclips.some((item) => !item.id)
+            || !sequenceSnapshot || !sequenceSnapshot.id || inserted.length !== createdItems.length || inserted.some((id) => !id)) {
+            return partialReceipt("derived_sequence_final_identity_readback", sequence, inserted);
+          }
+          return directMutationResult(false, { created: true, partial: false, createdSubclips: createdSubclips, sequence: sequenceSnapshot, insertedProjectItemIds: inserted, originalChanged: false }, "derived_sequence_structure_unverified");
         });
       });
     }
@@ -984,9 +1002,22 @@
       return withAppendLock(appendLockKey(project, "sequences", "all"), async () => {
         const before = await listSequences(project);
         assertAppendCapacity(before, MAX_SEQUENCES, "Subsequence creation");
-        const created = await sequence.createSubsequence(ignoreTrackTargeting);
-        if (!created) throw commandError("UXP_HOST_REJECTED", "Premiere did not create a subsequence");
-        return directMutationResult(false, { created: true, sequence: await sequenceSnapshot(created) }, "create_subsequence_host_return");
+        const reconciledSequence = async () => {
+          try {
+            const after = await listSequences(project);
+            return after.find((item) => !before.some((old) => old.id === item.id)) || null;
+          } catch (_) { return null; }
+        };
+        const partialReceipt = async (boundary, created) => directMutationResult(false, {
+          created: !!created, partial: true, sequence: await safeSequenceSnapshot(created)
+        }, boundary);
+        let created;
+        try { created = await sequence.createSubsequence(ignoreTrackTargeting); }
+        catch (_) { return partialReceipt("create_subsequence_host_reconciliation", await reconciledSequence()); }
+        if (!created) return partialReceipt("create_subsequence_host_return", await reconciledSequence());
+        const snapshot = await safeSequenceSnapshot(created);
+        if (!snapshot || !snapshot.id) return partialReceipt("create_subsequence_identity_readback", created);
+        return directMutationResult(false, { created: true, partial: false, sequence: snapshot }, "create_subsequence_host_return");
       });
     }
 

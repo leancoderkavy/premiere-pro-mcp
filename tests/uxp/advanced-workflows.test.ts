@@ -684,6 +684,45 @@ describe("advanced stable Premiere UXP workflows", () => {
     });
   });
 
+  it("caches partial receipts when direct sequence creation mutates before rejecting or loses identity", async () => {
+    const rejected = advancedHost();
+    rejected.project.createSequenceFromMedia.mockImplementationOnce(async (name: string) => {
+      rejected.sequences.push({ guid: "sequence-created-before-error", name });
+      throw new Error("host rejected after creation");
+    });
+    await expect(rejected.registry.dispatch("sequences.createFromMedia", {
+      name: "Recovered Assembly", projectItemIds: ["clip-1"], confirmNonUndoable: true, operationId: "sequence-host-error",
+    })).resolves.toMatchObject({
+      created: true, partial: true, verificationBoundary: "create_sequence_host_reconciliation",
+      sequence: { id: "sequence-created-before-error", name: "Recovered Assembly" },
+    });
+    await expect(rejected.registry.dispatch("sequences.createFromMedia", {
+      name: "Recovered Assembly", projectItemIds: ["clip-1"], confirmNonUndoable: true, operationId: "sequence-host-error",
+    })).resolves.toMatchObject({ partial: true, replayed: true });
+
+    const missingIdentity = advancedHost();
+    missingIdentity.project.createSequenceFromMedia.mockResolvedValueOnce({ name: "Unknown identity" });
+    await expect(missingIdentity.registry.dispatch("sequences.createFromMedia", {
+      name: "Unknown identity", projectItemIds: ["clip-1"], confirmNonUndoable: true,
+    })).resolves.toMatchObject({
+      created: true, partial: true, verificationBoundary: "create_sequence_identity_readback", sequence: { id: "" },
+    });
+  });
+
+  it("reconciles a subsequence that exists when the direct host call rejects", async () => {
+    const value = advancedHost();
+    value.sequence.createSubsequence.mockImplementationOnce(async () => {
+      value.sequences.push({ guid: "subsequence-created-before-error", name: "Recovered Subsequence" });
+      throw new Error("host rejected after creation");
+    });
+    await expect(value.registry.dispatch("sequences.subsequence", {
+      sequenceId: "sequence-1", confirmNonUndoable: true, operationId: "subsequence-host-error",
+    })).resolves.toMatchObject({
+      created: true, partial: true, verificationBoundary: "create_subsequence_host_reconciliation",
+      sequence: { id: "subsequence-created-before-error", name: "Recovered Subsequence" },
+    });
+  });
+
   it("bounds ID-targeted sequence lookup before invoking the host mutation", async () => {
     const value = advancedHost();
     value.project.getSequences.mockResolvedValue(Array.from({ length: 1025 }, (_, index) => ({
