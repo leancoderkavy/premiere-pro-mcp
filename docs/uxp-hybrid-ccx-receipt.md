@@ -49,6 +49,10 @@ so unselected archive entries cannot use a different version-needed value,
 name, flags, compression method, declared size, or an
 out-of-bounds/overlapping data range:
 
+Non-ASCII ZIP entry-name bytes must declare UTF-8 with general-purpose bit 11;
+the verifier accepts unflagged legacy names only when they are ASCII. This keeps
+its entry-name-set accounting independent of legacy ZIP code pages.
+
 For a ZIP entry whose general-purpose bit 3 requests a streamed data descriptor,
 the verifier additionally requires that descriptor immediately after the
 declared payload and confirms its CRC-32 and both sizes against the central
