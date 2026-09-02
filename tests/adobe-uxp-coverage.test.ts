@@ -289,6 +289,18 @@ describe("Adobe Premiere Pro 26.3 UXP coverage", () => {
       verificationBoundary: "guarded_track_item_source_and_timeline_readback",
       liveHostVerificationStatus: "not_run",
     });
+    expect(entries.find((entry) => entry.id === "guarded-track-item-slide")).toMatchObject({
+      uxpCommand: "trackItem.slide",
+      mcpTools: ["slide_track_item_uxp"],
+      verificationBoundary: "guarded_three_track_item_source_and_timeline_readback",
+      liveHostVerificationStatus: "not_run",
+    });
+    expect(entries.find((entry) => entry.id === "guarded-track-item-slide")?.adobeApi).toEqual(expect.arrayContaining([
+      "AudioClipTrackItem.createMoveAction",
+      "VideoClipTrackItem.createSetEndAction",
+      "Project.lockedAccess",
+      "Project.executeTransaction",
+    ]));
     for (const entry of entries) {
       expect(entry.minimumPremiereVersion).toMatch(/^\d+\.\d+\.\d+$/);
       expect(entry.backend).toBe("uxp");
@@ -304,12 +316,12 @@ describe("Adobe Premiere Pro 26.3 UXP coverage", () => {
   it("keeps unimplemented 26.3 work visibly planned", () => {
     const report = buildAdobeUxpCoverageReport();
     expect(report.summary).toEqual({
-      total: 67,
-      current: 64,
+      total: 68,
+      current: 65,
       planned: 3,
-      implemented: 64,
+      implemented: 65,
       committedUnverified: 8,
-      automatedContractVerified: 56,
+      automatedContractVerified: 57,
       liveHostVerified: 0,
     });
     expect(report.entries.find((entry) => entry.id === "aaf-export")).toMatchObject({

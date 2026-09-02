@@ -13,8 +13,8 @@
   },
   "stats": {
     "total": 976,
-    "mapped": 311,
-    "unmapped": 665,
+    "mapped": 314,
+    "unmapped": 662,
     "manifestOnly": 5
   },
   "manifestOnly": [
@@ -320,7 +320,7 @@
     {
       "symbol": "AudioClipTrackItem.createMoveAction",
       "kind": "method",
-      "coverage": "unmapped"
+      "coverage": "mapped"
     },
     {
       "symbol": "AudioClipTrackItem.createSetDisabledAction",
@@ -330,7 +330,7 @@
     {
       "symbol": "AudioClipTrackItem.createSetEndAction",
       "kind": "method",
-      "coverage": "unmapped"
+      "coverage": "mapped"
     },
     {
       "symbol": "AudioClipTrackItem.createSetInPointAction",
@@ -350,7 +350,7 @@
     {
       "symbol": "AudioClipTrackItem.createSetStartAction",
       "kind": "method",
-      "coverage": "unmapped"
+      "coverage": "mapped"
     },
     {
       "symbol": "AudioClipTrackItem.getComponentChain",
