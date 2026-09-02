@@ -175,13 +175,18 @@ export function getUxpAdvancedWorkflowTools(bridge: UxpWebSocketBridge) {
         required: ["action"],
       },
       handler: async (args: AdvancedArgs) => {
-        const common = compact({
+        const markerOwner = compact({
           ownerType: args.owner_type === "project_item" ? "projectItem" : args.owner_type,
           sequenceId: args.sequence_id,
           projectItemId: args.project_item_id,
-          markerGuid: args.marker_guid,
-          expectedName: args.expected_name,
         });
+        const common = {
+          ...markerOwner,
+          ...compact({
+            markerGuid: args.marker_guid,
+            expectedName: args.expected_name,
+          }),
+        };
         if (args.action === "inspect") return invoke(bridge, "markers.inspect", common);
         if (args.action === "add") return invoke(bridge, "markers.add", { ...common, ...compact({
           name: args.name, markerType: args.marker_type, startSeconds: args.start_seconds,
@@ -198,7 +203,7 @@ export function getUxpAdvancedWorkflowTools(bridge: UxpWebSocketBridge) {
               return { success: false, error: "remove_many is destructive; pass confirm_destructive=true after reviewing every marker snapshot" };
             }
             return invoke(bridge, "markers.removeMany", {
-              ...common,
+              ...markerOwner,
               markerSnapshots: reviewedMarkerSnapshots(args.marker_snapshots),
               confirmDestructive: true,
               ...operation(args),

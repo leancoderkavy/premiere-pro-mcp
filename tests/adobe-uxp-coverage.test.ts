@@ -75,6 +75,11 @@ describe("Adobe Premiere Pro 26.3 UXP coverage", () => {
       verificationBoundary: "marker_guid_absence_readback",
       liveHostVerificationStatus: "not_run",
     });
+    expect(entries.find((entry) => entry.id === "native-marker-batch-removal")?.adobeApi).toEqual(expect.arrayContaining([
+      "Marker.getName",
+      "Marker.getStart",
+      "Marker.getDuration",
+    ]));
     for (const entry of entries) {
       expect(entry.minimumPremiereVersion).toMatch(/^\d+\.\d+\.\d+$/);
       expect(entry.backend).toBe("uxp");

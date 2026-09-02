@@ -846,6 +846,9 @@
         "Markers.getMarkers",
         "Markers.createRemoveMarkerAction",
         "Marker.guid",
+        "Marker.getName",
+        "Marker.getStart",
+        "Marker.getDuration",
         "Project.lockedAccess",
         "Project.executeTransaction"
       ],

@@ -164,6 +164,7 @@ const ACTION_CAPABILITIES: Readonly<Record<string, Readonly<Record<string, reado
     add: ["edit"],
     update: ["edit"],
     remove: ["edit"],
+    remove_many: ["edit"],
   },
   organize_project_items_uxp: {
     inspect_bin: ["inspect"],

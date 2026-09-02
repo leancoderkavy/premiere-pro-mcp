@@ -71,7 +71,7 @@ describe("advanced stable UXP workflow MCP catalog", () => {
       operation_id: "marker-op",
     });
     await tools.manage_markers_uxp.handler({
-      action: "remove_many", owner_type: "sequence", sequence_id: "sequence-1", confirm_destructive: true,
+      action: "remove_many", owner_type: "sequence", sequence_id: "sequence-1", marker_guid: "single-marker", expected_name: "Ignored", confirm_destructive: true,
       marker_snapshots: [{ marker_guid: "marker-1", expected_name: "Old", expected_start_seconds: 1, expected_duration_seconds: 0 }],
       operation_id: "marker-batch-op",
     });

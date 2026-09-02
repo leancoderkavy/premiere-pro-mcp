@@ -149,6 +149,7 @@ describe("capability profiles", () => {
     ["manage_color_conformance_uxp", "update", ["edit"]],
     ["preflight_production_storage_uxp", "configure_project", ["edit"]],
     ["manage_markers_uxp", "remove", ["edit"]],
+    ["manage_markers_uxp", "remove_many", ["edit"]],
     ["organize_project_items_uxp", "move", ["edit"]],
     ["manage_sequence_settings_uxp", "update", ["edit"]],
     ["manage_sequence_range_uxp", "update", ["edit"]],
@@ -192,6 +193,7 @@ describe("capability profiles", () => {
     expect(report.backends.uxp.hostVerificationRequired).toBe(true);
     expect(report.backends.uxp.commands).toContain("operation.cancel");
     expect(report.backends.uxp.commands).toContain("markers.addBeatGrid");
+    expect(report.backends.uxp.commands).toContain("markers.removeMany");
     expect(report.backends.uxp.events).toContain("premiere.state.changed");
     expect(report.backends.uxp.operationSemantics.atomicRollback).toBe(false);
     expect(report.authority.disabled).toContain("unsafe-script");
