@@ -116,6 +116,7 @@ describe("file bridge uncovered security and fallback paths", () => {
   });
 
   it("reports a busy Premiere operation when its heartbeat cannot be statted", async () => {
+    usePosixProcess();
     fs.exists.mockImplementation((path) => {
       const value = String(path);
       if (value.includes("res_")) return false;
@@ -140,6 +141,7 @@ describe("file bridge uncovered security and fallback paths", () => {
   });
 
   it("normalizes non-Error response read failures into command results", async () => {
+    usePosixProcess();
     fs.exists.mockImplementation((path) => !String(path).includes("busy_"));
     fs.read.mockImplementation(() => {
       throw "response file is locked";
