@@ -73,6 +73,28 @@ describe("Adobe declaration API inventory", () => {
     }
   });
 
+  it("maps stable root operation-boundary event constants without treating them as completion proof", () => {
+    const operationCoverage = coverage.entries.find((entry: { id: string }) => entry.id === "bounded-operation-boundary-event-journal");
+    expect(operationCoverage).toMatchObject({
+      backend: "uxp",
+      uxpCommand: "events.list",
+      mcpTools: ["inspect_premiere_events_uxp"],
+      minimumPremiereVersion: "26.3.0",
+      mutatesProject: false,
+      undoable: false,
+      verificationStatus: "automated_contract_verified",
+      liveHostVerificationStatus: "not_run",
+      verificationBoundary: "bounded_redacted_operation_boundary_event_receipt",
+    });
+    expect(operationCoverage.adobeApi).toEqual([
+      "OperationCompleteEvent.EVENT_CLIP_EXTEND_REACHED",
+      "OperationCompleteEvent.EVENT_EFFECT_DRAG_OVER",
+    ]);
+    for (const symbol of operationCoverage.adobeApi) {
+      expect(inventory.entries).toContainEqual(expect.objectContaining({ symbol, coverage: "mapped" }));
+    }
+  });
+
   it("pins beta Media declarations for drift audit while coverage remains stable-only", () => {
     const manifest = JSON.parse(readFileSync("package.json", "utf8"));
     const lockfile = JSON.parse(readFileSync("package-lock.json", "utf8"));

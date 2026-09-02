@@ -25,8 +25,14 @@ non-empty documented constants it can probe, does not invalidate project state f
 those notifications, and records the same bounded redacted receipt shape. It does
 not infer that every host emits each notification or expose the native event object.
 
+The same journal additionally registers the two stable root `OperationCompleteEvent`
+notifications that are not already covered by the import/export/effect-drop completion
+receipts: `operation.clip.extend.reached` and coalesced `operation.effect.drag.over`.
+They remain passive bounded notifications, not success or completion attestations, and
+the host payload is subject to the same scalar-only redaction.
+
 Automated tests cover overflow, progress coalescing, filtering, timeouts, shutdown,
-capability discovery, the exact SnapEvent mapping and redaction, and the public MCP
+capability discovery, the exact SnapEvent and operation-boundary mappings and redaction, and the public MCP
 schema. They do not establish that a real Premiere build emits every declared event.
 Windows and macOS host runs must record the exact event names and payload shapes
 before downstream workflows treat them as completion evidence.

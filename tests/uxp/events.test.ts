@@ -43,6 +43,38 @@ describe("UXP host event journal", () => {
       .toMatchObject({ events: [{ category: "timeline", name: "timeline.snap.keyframe", detail: { state: 4 } }] });
   });
 
+  it("maps only documented root operation-boundary events and coalesces drag-over receipts", () => {
+    const definitions = Events.createOperationBoundaryEventDefinitions({
+      EVENT_CLIP_EXTEND_REACHED: "clip-extend-reached",
+      EVENT_EFFECT_DRAG_OVER: "effect-drag-over",
+      EVENT_EXPORT_MEDIA_COMPLETE: "already-handled-completion",
+    });
+
+    expect(definitions).toEqual([
+      { category: "operation", name: "operation.clip.extend.reached", eventName: "clip-extend-reached", stateInvalidating: false, coalesceKey: null },
+      { category: "operation", name: "operation.effect.drag.over", eventName: "effect-drag-over", stateInvalidating: false, coalesceKey: "operation.effect.drag.over" },
+    ]);
+    expect(Events.createOperationBoundaryEventDefinitions({
+      EVENT_CLIP_EXTEND_REACHED: 1,
+      EVENT_EFFECT_DRAG_OVER: "",
+    })).toEqual([]);
+    expect(Events.createOperationBoundaryEventDefinitions(null)).toEqual([]);
+
+    const journal = Events.createEventJournal({ capacity: 16 });
+    journal.recordHostEvent({
+      category: "operation", name: definitions[1].name, coalesceKey: definitions[1].coalesceKey,
+      detail: { state: 1, path: "D:/private.prproj" },
+    });
+    journal.recordHostEvent({
+      category: "operation", name: definitions[1].name, coalesceKey: definitions[1].coalesceKey,
+      detail: { state: 2, target: "private clip" },
+    });
+    expect(journal.list({ eventNames: ["operation.effect.drag.over"] })).toMatchObject({
+      latestRevision: 2,
+      events: [{ category: "operation", name: "operation.effect.drag.over", detail: { state: 2 }, coalesced: 1 }],
+    });
+  });
+
   it("keeps a bounded revisioned history and reports overflow", () => {
     let now = 1_700_000_000_000;
     const journal = Events.createEventJournal({ capacity: 16, now: () => now++ });

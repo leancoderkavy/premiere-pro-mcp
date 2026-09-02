@@ -59,6 +59,11 @@ describe("UXP bridge protocol", () => {
     expect(panel).toContain("transcriptImportHandler: transcriptImportRuntime && transcriptImportRuntime.importTranscript");
     expect(panel).not.toContain('cmd.command === "transcript.import") result = await importTranscript');
   });
+  it("registers the bounded root operation-boundary event definitions with host subscriptions", () => {
+    const panel = readFileSync(new URL("../../uxp-plugin/index.cjs", import.meta.url), "utf8");
+    expect(panel).toContain("EventSupport.createOperationBoundaryEventDefinitions(ppro.OperationCompleteEvent)");
+    expect(panel).toContain("].concat(snapEvents, operationBoundaryEvents)");
+  });
   it("prevents filename path traversal", () => {
     expect(protocol.safeFilename("shot-01.png")).toBe("shot-01.png");
     expect(() => protocol.safeFilename("../shot.png")).toThrow();

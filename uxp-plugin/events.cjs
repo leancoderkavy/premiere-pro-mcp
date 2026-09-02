@@ -39,6 +39,28 @@
     });
   }
 
+  // These two root OperationCompleteEvent constants are not completion
+  // attestations: one reports a clip's extend limit and the other reports an
+  // effect drag-over. Keep them passive and redact the native event object.
+  // Drag-over may be noisy, so retain only the most recent consecutive receipt.
+  function createOperationBoundaryEventDefinitions(operationCompleteEvent) {
+    if (!operationCompleteEvent || typeof operationCompleteEvent !== "object") return [];
+    return [
+      ["operation.clip.extend.reached", operationCompleteEvent.EVENT_CLIP_EXTEND_REACHED, null],
+      ["operation.effect.drag.over", operationCompleteEvent.EVENT_EFFECT_DRAG_OVER, "operation.effect.drag.over"]
+    ].filter(function (entry) {
+      return typeof entry[1] === "string" && entry[1].length > 0;
+    }).map(function (entry) {
+      return {
+        category: "operation",
+        name: entry[0],
+        eventName: entry[1],
+        stateInvalidating: false,
+        coalesceKey: entry[2]
+      };
+    });
+  }
+
   function createEventJournal(options) {
     const value = options || {};
     const capacity = boundedInteger(value.capacity == null ? DEFAULT_CAPACITY : value.capacity, "capacity", 16, MAX_CAPACITY);
@@ -379,5 +401,5 @@
     };
   }
 
-  return { createEventJournal, createTimelineSnapEventDefinitions };
+  return { createEventJournal, createTimelineSnapEventDefinitions, createOperationBoundaryEventDefinitions };
 });
