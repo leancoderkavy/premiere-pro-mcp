@@ -299,7 +299,10 @@ function advancedHost() {
     FolderItem: { cast: vi.fn((item: MutableItem) => { if (!item.isFolder) throw new Error("not folder"); return item; }) },
     ClipProjectItem: { cast: vi.fn((item: MutableItem) => { if (!item.isClip) throw new Error("not clip"); return item; }) },
     TickTime: { createWithSeconds: vi.fn((seconds: number) => ({ seconds })) },
-    PointF: class PointF { constructor(readonly x: number, readonly y: number) {} },
+    PointF: class PointF {
+      constructor(readonly x: number, readonly y: number) {}
+      distanceTo(point: { x: number; y: number }) { return Math.hypot(this.x - point.x, this.y - point.y); }
+    },
     Color: class Color { constructor(readonly red: number, readonly green: number, readonly blue: number, readonly alpha: number) {} },
     FrameRate: { createWithValue: vi.fn((value: number) => ({ value })) },
     RectF: class RectF { width = 0; height = 0; },
@@ -363,6 +366,7 @@ describe("advanced stable Premiere UXP workflows", () => {
     expect(capabilities.commands["sequence.displayFormat.update"]).toMatchObject({ supported: true, destructive: true, undoable: true, idempotent: true });
     expect(capabilities.commands["parameters.keyframe.inspect"]).toMatchObject({ supported: true, readOnly: true, destructive: false });
     expect(capabilities.commands["parameters.point.inspect"]).toMatchObject({ supported: true, readOnly: true, destructive: false, minHostVersion: "26.3.0" });
+    expect(capabilities.commands["parameters.point.displacement.inspect"]).toMatchObject({ supported: true, readOnly: true, destructive: false, minHostVersion: "26.3.0" });
     expect(capabilities.commands["parameters.point.set"]).toMatchObject({ supported: true, destructive: true, undoable: true, idempotent: true, minHostVersion: "26.3.0" });
     expect(capabilities.commands["parameters.timeVarying.inspect"]).toMatchObject({ supported: true, readOnly: true, destructive: false });
     expect(capabilities.commands["parameters.timeVarying.set"]).toMatchObject({ supported: true, destructive: true, undoable: true, idempotent: true });
@@ -885,6 +889,53 @@ describe("advanced stable Premiere UXP workflows", () => {
     expect(value.project.executeTransaction).toHaveBeenCalledTimes(1);
   });
 
+  it("double-reads one animated PointF parameter's native endpoint displacement without mutating Premiere", async () => {
+    const value = advancedHost();
+    value.parameterState.varying = true;
+    const nativePoints: Array<{ x: number; y: number; distanceTo: ReturnType<typeof vi.fn> }> = [];
+    const pointAt = (x: number, y: number) => {
+      const point = { x, y, distanceTo: vi.fn((other: { x: number; y: number }) => Math.hypot(x - other.x, y - other.y)) };
+      nativePoints.push(point);
+      return point;
+    };
+    value.parameter.getValueAtTime.mockImplementation(async (time: { seconds: number }) => time.seconds === 2 ? pointAt(0, 0) : pointAt(3, 4));
+    const target = { mediaType: "video", trackIndex: 0, clipIndex: 0, componentIndex: 0, paramIndex: 0, expectedComponentId: "ADBE Opacity", expectedParamName: "Opacity" };
+
+    await expect(value.registry.dispatch("parameters.point.displacement.inspect", {
+      ...target, startSeconds: 2, endSeconds: 5,
+    })).resolves.toMatchObject({
+      projectId: "project-1", sequenceId: "sequence-1", timeVarying: true,
+      startSeconds: 2, endSeconds: 5, startPoint: { x: 0, y: 0 }, endPoint: { x: 3, y: 4 }, straightLineDistance: 5,
+    });
+    expect(nativePoints[0].distanceTo).toHaveBeenCalledWith(expect.objectContaining({ x: 3, y: 4 }));
+    expect(value.project.executeTransaction).not.toHaveBeenCalled();
+  });
+
+  it("fails closed when PointF displacement is static, malformed, stale, or has an invalid interval", async () => {
+    const target = { mediaType: "video", trackIndex: 0, clipIndex: 0, componentIndex: 0, paramIndex: 0, expectedComponentId: "ADBE Opacity", expectedParamName: "Opacity", startSeconds: 2, endSeconds: 5 };
+    const staticPoint = advancedHost();
+    staticPoint.parameter.getValueAtTime.mockResolvedValue({ x: 0, y: 0, distanceTo: () => 0 });
+    await expect(staticPoint.registry.dispatch("parameters.point.displacement.inspect", target)).rejects.toMatchObject({ code: "UXP_TARGET_UNSUPPORTED" });
+
+    const malformedPoint = advancedHost();
+    malformedPoint.parameterState.varying = true;
+    malformedPoint.parameter.getValueAtTime.mockResolvedValue({ x: 0, y: 0 });
+    await expect(malformedPoint.registry.dispatch("parameters.point.displacement.inspect", target)).rejects.toMatchObject({ code: "UXP_TARGET_UNSUPPORTED" });
+
+    const changing = advancedHost();
+    changing.parameterState.varying = true;
+    let reads = 0;
+    changing.parameter.getValueAtTime.mockImplementation(async (time: { seconds: number }) => {
+      reads += 1;
+      const endX = reads >= 4 ? 4 : 3;
+      const x = time.seconds === 2 ? 0 : endX;
+      return { x, y: time.seconds === 2 ? 0 : 4, distanceTo: (other: { x: number; y: number }) => Math.hypot(x - other.x, (time.seconds === 2 ? 0 : 4) - other.y) };
+    });
+    await expect(changing.registry.dispatch("parameters.point.displacement.inspect", target)).rejects.toMatchObject({ code: "UXP_STALE_POINT_PARAMETER" });
+
+    await expect(changing.registry.dispatch("parameters.point.displacement.inspect", { ...target, endSeconds: 2 })).rejects.toMatchObject({ code: "UXP_INVALID_ARGUMENT" });
+  });
+
   it("fails closed on stale, animated, unavailable, or changing PointF parameter state", async () => {
     const value = advancedHost();
     value.parameterState.value = { x: 960, y: 540 };
@@ -923,6 +974,7 @@ describe("advanced stable Premiere UXP workflows", () => {
     Reflect.deleteProperty(unavailable.ppro, "PointF");
     const capabilities = await unavailable.registry.capabilities();
     expect(capabilities.commands["parameters.point.inspect"]).toMatchObject({ supported: false });
+    expect(capabilities.commands["parameters.point.displacement.inspect"]).toMatchObject({ supported: false });
     expect(capabilities.commands["parameters.point.set"]).toMatchObject({ supported: false });
   });
 

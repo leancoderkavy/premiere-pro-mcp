@@ -52,6 +52,7 @@
       "project.import": { destructive: true, undoable: false, requiresWorkspace: true, minHostVersion: "25.6.0", probe: canImportProjectMedia, handler: importProjectMedia },
       "parameters.inspect": { readOnly: true, targetCapabilityProbe: true, minHostVersion: "25.6.0", probe: canUseParameters, handler: inspectParameter },
       "parameters.point.inspect": { readOnly: true, targetCapabilityProbe: true, minHostVersion: "26.3.0", probe: canUsePointParameters, handler: inspectPointParameter },
+      "parameters.point.displacement.inspect": { readOnly: true, targetCapabilityProbe: true, minHostVersion: "26.3.0", probe: canUsePointParameters, handler: inspectPointParameterDisplacement },
       "parameters.point.set": { destructive: true, undoable: true, idempotent: true, targetCapabilityProbe: true, minHostVersion: "26.3.0", probe: canUsePointParameters, handler: setPointParameter },
       "parameters.color.inspect": { readOnly: true, targetCapabilityProbe: true, minHostVersion: "26.3.0", probe: canUseColorParameters, handler: inspectColorParameter },
       "parameters.color.set": { destructive: true, undoable: true, idempotent: true, targetCapabilityProbe: true, minHostVersion: "26.3.0", probe: canUseColorParameters, handler: setColorParameter },
@@ -1012,6 +1013,80 @@
       const finalContext = await pointParameterContext(args, false), final = await pointParameterSnapshot(finalContext);
       if (!pointSnapshotMatches(first, final)) {
         throw commandError("UXP_STALE_POINT_PARAMETER", "The PointF parameter changed while it was being inspected; retry the inspection");
+      }
+      return final;
+    }
+
+    function pointDisplacementInput(args) {
+      assertObject(args);
+      assertOnlyKeys(args, ["mediaType", "trackIndex", "clipIndex", "componentIndex", "paramIndex", "expectedComponentId", "expectedParamName", "startSeconds", "endSeconds"]);
+      const startSeconds = finiteNumber(args.startSeconds, "startSeconds", 0, 86400);
+      const endSeconds = finiteNumber(args.endSeconds, "endSeconds", 0, 86400);
+      if (endSeconds <= startSeconds) {
+        throw commandError("UXP_INVALID_ARGUMENT", "endSeconds must be greater than startSeconds for PointF displacement inspection");
+      }
+      return {
+        mediaType: args.mediaType, trackIndex: args.trackIndex, clipIndex: args.clipIndex,
+        componentIndex: args.componentIndex, paramIndex: args.paramIndex,
+        expectedComponentId: args.expectedComponentId, expectedParamName: args.expectedParamName,
+        startSeconds, endSeconds,
+      };
+    }
+
+    async function pointDisplacementContext(input) {
+      const context = await parameterContext({
+        mediaType: input.mediaType, trackIndex: input.trackIndex, clipIndex: input.clipIndex,
+        componentIndex: input.componentIndex, paramIndex: input.paramIndex,
+        expectedComponentId: input.expectedComponentId, expectedParamName: input.expectedParamName,
+      }, false);
+      if (typeof context.param.getValueAtTime !== "function" || typeof context.param.isTimeVarying !== "function") {
+        throw commandError("UXP_COMMAND_UNAVAILABLE", "Premiere cannot read time-varying PointF parameter values");
+      }
+      return context;
+    }
+
+    async function pointDisplacementSnapshot(context, input) {
+      const projectId = guidString(context.project && context.project.guid), sequenceId = guidString(context.sequence && context.sequence.guid);
+      if (!projectId || !sequenceId) throw commandError("UXP_INVALID_HOST_STATE", "Premiere did not provide stable project and sequence identities for the PointF parameter");
+      const timeVarying = !!context.param.isTimeVarying();
+      if (!timeVarying) throw commandError("UXP_TARGET_UNSUPPORTED", "PointF displacement inspection requires a time-varying parameter");
+      const startValue = await context.param.getValueAtTime(tick(input.startSeconds, "startSeconds"));
+      const endValue = await context.param.getValueAtTime(tick(input.endSeconds, "endSeconds"));
+      if (!startValue || !endValue || typeof startValue.distanceTo !== "function" || typeof endValue.distanceTo !== "function") {
+        throw commandError("UXP_TARGET_UNSUPPORTED", "Premiere did not return native PointF values with distanceTo");
+      }
+      const startPoint = pointValue({ x: startValue.x, y: startValue.y }, "Premiere PointF start value");
+      const endPoint = pointValue({ x: endValue && endValue.x, y: endValue && endValue.y }, "Premiere PointF end value");
+      let distance;
+      try { distance = Number(startValue.distanceTo(endValue)); }
+      catch (_) { throw commandError("UXP_COMMAND_UNAVAILABLE", "Premiere rejected native PointF distance calculation"); }
+      if (!Number.isFinite(distance) || distance < 0) {
+        throw commandError("UXP_INVALID_HOST_STATE", "Premiere returned an invalid PointF distance");
+      }
+      return {
+        projectId, sequenceId, mediaType: context.mediaType, trackIndex: context.trackIndex, clipIndex: context.clipIndex,
+        componentIndex: context.componentIndex, componentId: context.componentId, paramIndex: context.paramIndex,
+        paramName: context.paramName, timeVarying, startSeconds: input.startSeconds, endSeconds: input.endSeconds,
+        startPoint, endPoint, straightLineDistance: distance,
+      };
+    }
+
+    function pointDisplacementSnapshotMatches(left, right) {
+      return left && right && left.projectId === right.projectId && left.sequenceId === right.sequenceId
+        && left.mediaType === right.mediaType && left.trackIndex === right.trackIndex && left.clipIndex === right.clipIndex
+        && left.componentIndex === right.componentIndex && left.componentId === right.componentId && left.paramIndex === right.paramIndex
+        && left.paramName === right.paramName && left.timeVarying === right.timeVarying
+        && numbersEqual(left.startSeconds, right.startSeconds) && numbersEqual(left.endSeconds, right.endSeconds)
+        && pointsEqual(left.startPoint, right.startPoint) && pointsEqual(left.endPoint, right.endPoint)
+        && numbersEqual(left.straightLineDistance, right.straightLineDistance);
+    }
+
+    async function inspectPointParameterDisplacement(args) {
+      const input = pointDisplacementInput(args);
+      const firstContext = await pointDisplacementContext(input), first = await pointDisplacementSnapshot(firstContext, input);
+      const finalContext = await pointDisplacementContext(input), final = await pointDisplacementSnapshot(finalContext, input);
+      if (!pointDisplacementSnapshotMatches(first, final)) {
+        throw commandError("UXP_STALE_POINT_PARAMETER", "The PointF parameter changed while its displacement was being inspected; retry the inspection");
       }
       return final;
     }

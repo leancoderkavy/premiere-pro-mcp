@@ -175,6 +175,22 @@ describe("Adobe Premiere Pro 26.3 UXP coverage", () => {
       "Keyframe.position",
       "Keyframe.getTemporalInterpolationMode",
     ]));
+    expect(entries.find((entry) => entry.id === "bounded-point-effect-parameter-displacement")).toMatchObject({
+      uxpCommand: "parameters.point.displacement.inspect",
+      mcpTools: ["automate_effect_parameters_uxp"],
+      mutatesProject: false,
+      undoable: false,
+      verificationBoundary: "native_point_distance_complete_endpoint_double_readback",
+      liveHostVerificationStatus: "not_run",
+    });
+    expect(entries.find((entry) => entry.id === "bounded-point-effect-parameter-displacement")?.adobeApi).toEqual(expect.arrayContaining([
+      "ComponentParam.getValueAtTime",
+      "ComponentParam.isTimeVarying",
+      "TickTime.createWithSeconds",
+      "PointF.distanceTo",
+      "PointF.x",
+      "PointF.y",
+    ]));
     expect(entries.find((entry) => entry.id === "bounded-effect-parameter-catalog")).toMatchObject({
       uxpCommand: "parameters.catalog.inspect",
       mcpTools: ["inspect_effect_parameter_catalog_uxp"],
@@ -516,12 +532,12 @@ describe("Adobe Premiere Pro 26.3 UXP coverage", () => {
   it("keeps unimplemented 26.3 work visibly planned", () => {
     const report = buildAdobeUxpCoverageReport();
     expect(report.summary).toEqual({
-      total: 86,
-      current: 83,
+      total: 87,
+      current: 84,
       planned: 3,
-      implemented: 83,
+      implemented: 84,
       committedUnverified: 9,
-      automatedContractVerified: 74,
+      automatedContractVerified: 75,
       liveHostVerified: 0,
     });
     expect(report.entries.find((entry) => entry.id === "aaf-export")).toMatchObject({
@@ -553,7 +569,7 @@ describe("Adobe Premiere Pro 26.3 UXP coverage", () => {
   it("surfaces the baseline in the platform capability report", () => {
     const report = buildPlatformCapabilityReport(resolveCapabilities("inspect"), "win32");
     expect(report.backends.uxp.apiCoverage.summary).toMatchObject({
-      current: 83,
+      current: 84,
       planned: 3,
       committedUnverified: 9,
     });

@@ -225,6 +225,7 @@ const ACTION_CAPABILITIES: Readonly<Record<string, Readonly<Record<string, reado
   automate_effect_parameters_uxp: {
     inspect: ["inspect"],
     inspect_point_value: ["inspect"],
+    inspect_point_displacement: ["inspect"],
     inspect_color_value: ["inspect"],
     inspect_keyframe: ["inspect"],
     inspect_time_varying: ["inspect"],
