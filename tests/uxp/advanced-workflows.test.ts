@@ -379,6 +379,18 @@ describe("advanced stable Premiere UXP workflows", () => {
     expect(value.project.executeTransaction).not.toHaveBeenCalled();
   });
 
+  it("validates marker batch confirmation and bounds before resolving Premiere state", async () => {
+    const value = advancedHost();
+    const snapshot = { markerGuid: "marker-1", expectedName: "Beat", expectedStartSeconds: 1, expectedDurationSeconds: 0 };
+    await expect(value.registry.dispatch("markers.removeMany", { markerSnapshots: [snapshot] }))
+      .rejects.toMatchObject({ code: "UXP_CONFIRMATION_REQUIRED" });
+    await expect(value.registry.dispatch("markers.removeMany", {
+      confirmDestructive: true, markerSnapshots: Array.from({ length: 129 }, () => snapshot),
+    })).rejects.toMatchObject({ code: "UXP_INVALID_ARGUMENT" });
+    expect(value.ppro.Project.getActiveProject).not.toHaveBeenCalled();
+    expect(value.ppro.Markers.getMarkers).not.toHaveBeenCalled();
+  });
+
   it("serializes marker updates behind a batch removal snapshot and commit", async () => {
     const value = advancedHost();
     let releaseNameRead: () => void = () => undefined;
@@ -412,6 +424,38 @@ describe("advanced stable Premiere UXP workflows", () => {
       requested: 1, removed: null, remainingTargetGuids: ["marker-1"],
       outcome: "committed_unverified", verified: false, verificationBoundary: "marker_guid_absence_readback",
     });
+  });
+
+  it("reads removal fields only for requested markers and confirms absence by GUID without unrelated getters", async () => {
+    const value = advancedHost();
+    const target = value.markerValues[0];
+    const unrelated = {
+      ...target,
+      guid: "marker-unrelated",
+      getName: vi.fn(async () => { throw new Error("unrelated name getter"); }),
+      getType: vi.fn(async () => { throw new Error("unrelated type getter"); }),
+      getComments: vi.fn(async () => { throw new Error("unrelated comments getter"); }),
+      getColorIndex: vi.fn(async () => { throw new Error("unrelated color getter"); }),
+      getStart: vi.fn(async () => { throw new Error("unrelated start getter"); }),
+      getDuration: vi.fn(async () => { throw new Error("unrelated duration getter"); }),
+    };
+    value.markerValues.push(unrelated);
+
+    await expect(value.registry.dispatch("markers.removeMany", {
+      confirmDestructive: true,
+      markerSnapshots: [{ markerGuid: "marker-1", expectedName: "Beat", expectedStartSeconds: 1, expectedDurationSeconds: 0 }],
+    })).resolves.toMatchObject({
+      requested: 1, removed: 1, remainingCount: 1, remainingTargetGuids: [], outcome: "verified",
+    });
+    expect(target.getName).toHaveBeenCalledOnce();
+    expect(target.getStart).toHaveBeenCalledOnce();
+    expect(target.getDuration).toHaveBeenCalledOnce();
+    expect(unrelated.getName).not.toHaveBeenCalled();
+    expect(unrelated.getType).not.toHaveBeenCalled();
+    expect(unrelated.getComments).not.toHaveBeenCalled();
+    expect(unrelated.getColorIndex).not.toHaveBeenCalled();
+    expect(unrelated.getStart).not.toHaveBeenCalled();
+    expect(unrelated.getDuration).not.toHaveBeenCalled();
   });
 
   it("serializes marker update and batch deletion by owner so changed snapshots fail stale without deletion", async () => {

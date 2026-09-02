@@ -326,6 +326,17 @@
       return result;
     }
 
+    async function markerRemovalSnapshot(marker) {
+      return {
+        guid: guidString(marker.guid), name: String(await marker.getName() || ""),
+        startSeconds: tickSeconds(await marker.getStart()), durationSeconds: tickSeconds(await marker.getDuration())
+      };
+    }
+
+    function markerGuids(collection) {
+      return boundedMarkers(collection).map((marker) => guidString(marker.guid));
+    }
+
     async function findMarker(collection, markerGuid, expectedName) {
       const wanted = boundedString(markerGuid, "markerGuid", 128);
       for (const marker of boundedMarkers(collection)) {
@@ -444,31 +455,34 @@
     }
 
     async function removeManyMarkers(args) {
-      const context = await markerContext(args, true);
+      assertObject(args); assertOnlyKeys(args, ["ownerType", "sequenceId", "projectItemId", "markerSnapshots", "confirmDestructive", "operationId"]);
       requireDestructiveConfirmation(args.confirmDestructive);
       const requested = reviewedMarkerSnapshots(args.markerSnapshots);
       const targetGuids = requested.map((value) => value.markerGuid);
+      const context = await markerContext(args, true);
       return withAppendLock(await markerLockKey(context), async () => {
-        const current = [];
-        for (const marker of boundedMarkers(context.collection)) current.push({ marker, snapshot: await markerSnapshot(marker) });
-        const targets = requested.map((expected) => {
-          const currentMarker = current.find((value) => value.snapshot.guid === expected.markerGuid);
-          if (!currentMarker) throw commandError("UXP_TARGET_NOT_FOUND", "markerSnapshots contains a markerGuid that was not found");
-          assertExpected(currentMarker.snapshot.name, expected.expectedName, "UXP_STALE_MARKER", "Marker name");
-          assertExpectedNumber(currentMarker.snapshot.startSeconds, expected.expectedStartSeconds, "UXP_STALE_MARKER", "Marker startSeconds");
-          assertExpectedNumber(currentMarker.snapshot.durationSeconds, expected.expectedDurationSeconds, "UXP_STALE_MARKER", "Marker durationSeconds");
-          return currentMarker.marker;
-        });
+        const currentByGuid = new Map();
+        for (const marker of boundedMarkers(context.collection)) currentByGuid.set(guidString(marker.guid), marker);
+        const targets = [];
+        for (const expected of requested) {
+          const marker = currentByGuid.get(expected.markerGuid);
+          if (!marker) throw commandError("UXP_TARGET_NOT_FOUND", "markerSnapshots contains a markerGuid that was not found");
+          const snapshot = await markerRemovalSnapshot(marker);
+          assertExpected(snapshot.name, expected.expectedName, "UXP_STALE_MARKER", "Marker name");
+          assertExpectedNumber(snapshot.startSeconds, expected.expectedStartSeconds, "UXP_STALE_MARKER", "Marker startSeconds");
+          assertExpectedNumber(snapshot.durationSeconds, expected.expectedDurationSeconds, "UXP_STALE_MARKER", "Marker durationSeconds");
+          targets.push(marker);
+        }
         context.project.lockedAccess(() => {
           commitActions(context.project, "Remove reviewed markers", targets.map((marker) => context.collection.createRemoveMarkerAction(marker)));
         });
         try {
-          const remaining = await markerList(context.collection);
-          const remainingTargetGuids = remaining.filter((value) => targetGuids.includes(value.guid)).map((value) => value.guid);
+          const remainingGuids = markerGuids(context.collection);
+          const remainingTargetGuids = remainingGuids.filter((guid) => targetGuids.includes(guid));
           const verified = remainingTargetGuids.length === 0;
           return mutationResult(verified, {
             requested: targetGuids.length, removed: verified ? targetGuids.length : null, markerGuids: targetGuids,
-            remainingCount: remaining.length, remainingTargetGuids,
+            remainingCount: remainingGuids.length, remainingTargetGuids,
           }, "marker_guid_absence_readback", "Remove reviewed markers");
         } catch (_) {
           return mutationResult(false, {
