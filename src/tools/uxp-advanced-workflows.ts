@@ -624,7 +624,7 @@ export function getUxpAdvancedWorkflowTools(bridge: UxpWebSocketBridge) {
     },
 
     inspect_sequence_structure_uxp: {
-      description: "Read a bounded native UXP timeline structure for one sequence: selected video and/or audio tracks with clip timing and state. Opt in to source Project-item IDs only when needed, then optionally classify those sources as sequence, merged, multicam, or offline through documented ClipProjectItem reads; a further opt-in returns only a nested source sequence GUID when that classification is exactly sequence. No Project-panel metadata, names, types, paths, nested timeline content, or traversal are read. track_counts contains only the requested media types, never a zero placeholder for an unqueried type. The response is capped at 64 tracks and 512 items, omits components, rendered pixels, audio analysis, and caption cues, and is not a locked cross-object snapshot or proof of playback or editorial correctness.",
+      description: "Read a bounded native UXP timeline structure for one sequence: selected video and/or audio tracks with clip timing and state. Opt in to source Project-item IDs only when needed, then optionally classify those sources as sequence, merged, multicam, or offline or return their documented broad content category (any, sequence, or media); a further opt-in returns only a nested source sequence GUID when that classification is exactly sequence. No Project-panel metadata, names, type codes, paths, nested timeline content, or traversal are read. track_counts contains only the requested media types, never a zero placeholder for an unqueried type. The response is capped at 64 tracks and 512 items, omits components, rendered pixels, audio analysis, and caption cues, and is not a locked cross-object snapshot or proof of playback or editorial correctness.",
       parameters: {
         type: "object" as const,
         additionalProperties: false,
@@ -639,6 +639,7 @@ export function getUxpAdvancedWorkflowTools(bridge: UxpWebSocketBridge) {
           include_empty_tracks: { type: "boolean", description: "Return selected empty tracks instead of omitting them." },
           include_source_project_items: { type: "boolean", description: "Opt in to each returned timeline clip's stable source Project-item ID. The default omits it; this never reads Project-panel metadata, names, types, or media paths." },
           include_source_project_item_classification: { type: "boolean", description: "Requires include_source_project_items. Also return documented read-only source flags for sequence, merged-clip, multicam-clip, and offline status; unavailable flags are null. It never reads Project-panel metadata, names, types, paths, or project-tree state." },
+          include_source_project_item_content_type: { type: "boolean", description: "Requires include_source_project_items. Also return only the documented ClipProjectItem content category: any, sequence, or media; unavailable or unrecognized values are null. It never returns a Project-panel type code, name, metadata, path, or tree state." },
           include_source_nested_sequence_identity: { type: "boolean", description: "Requires source Project-item IDs and classification. For a source classified exactly as a sequence, return only its documented nested sequence GUID; unavailable or non-sequence sources return null. It never reads the nested sequence's content or Project-panel state." },
           max_items: { type: "integer", minimum: 1, maximum: 512, description: "Hard limit for all returned clip snapshots; the request fails rather than returning a partial timeline." },
         },
@@ -648,6 +649,7 @@ export function getUxpAdvancedWorkflowTools(bridge: UxpWebSocketBridge) {
         mediaType: args.media_type, trackIndices: args.track_indices,
         includeEmptyTracks: args.include_empty_tracks, includeSourceProjectItems: args.include_source_project_items,
         includeSourceProjectItemClassification: args.include_source_project_item_classification,
+        includeSourceProjectItemContentType: args.include_source_project_item_content_type,
         includeSourceNestedSequenceIdentity: args.include_source_nested_sequence_identity, maxItems: args.max_items,
       })),
     },

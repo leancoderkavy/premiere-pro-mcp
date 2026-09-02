@@ -13,8 +13,8 @@
   },
   "stats": {
     "total": 976,
-    "mapped": 294,
-    "unmapped": 682,
+    "mapped": 296,
+    "unmapped": 680,
     "manifestOnly": 5
   },
   "manifestOnly": [
@@ -741,7 +741,7 @@
     {
       "symbol": "ClipProjectItem.getContentType",
       "kind": "method",
-      "coverage": "unmapped"
+      "coverage": "mapped"
     },
     {
       "symbol": "ClipProjectItem.getEmbeddedLUTID",
@@ -1151,7 +1151,7 @@
     {
       "symbol": "Constants.ContentType",
       "kind": "enum",
-      "coverage": "unmapped"
+      "coverage": "mapped"
     },
     {
       "symbol": "Constants.ContentType.ANY",

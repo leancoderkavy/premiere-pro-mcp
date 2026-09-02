@@ -1780,6 +1780,8 @@
         "AudioClipTrackItem.getProjectItem",
         "ProjectItem.getId",
         "ClipProjectItem.cast",
+        "ClipProjectItem.getContentType",
+        "Constants.ContentType",
         "ClipProjectItem.isSequence",
         "ClipProjectItem.getSequence",
         "ClipProjectItem.isMergedClip",
