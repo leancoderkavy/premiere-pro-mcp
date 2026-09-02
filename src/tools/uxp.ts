@@ -58,7 +58,7 @@ export function getUxpTools(bridge: UxpWebSocketBridge) {
       handler: async () => invoke(bridge, "project.snapshot"),
     },
     inspect_sequence_timing_uxp: {
-      description: "Read the active sequence's native frame size, timebase, audio/video time-display codes, and backing Project-item identity. The command rejects malformed host values and an active-sequence switch during the read; it does not modify Premiere or claim a locked snapshot.",
+      description: "Read the active sequence's native frame size, timebase, audio/video time-display codes, and backing Project-item identity. The command rejects malformed host values or a final active-sequence mismatch; it does not modify Premiere, claim a locked snapshot, or detect a transient switch that returns to the same active sequence.",
       parameters: {
         type: "object" as const,
         additionalProperties: false,

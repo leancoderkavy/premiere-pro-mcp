@@ -46,7 +46,7 @@ verification column describes the required evidence, not a completed test run.
 | `set_source_monitor_position_uxp` | `sourceMonitor.position.set` | `SourceMonitor.setPosition()` | Source Monitor state mutation; no edit-history claim | Supported when `setPosition` and position read-back APIs probe true | Read `SourceMonitor.getPosition()` after setting the requested `TickTime`. |
 | `manage_sequence_range_uxp` | `sequence.range.inspect`, `sequence.range.update` | `Sequence` range accessors plus `createSetInPointAction()`, `createSetOutPointAction()`, and `createSetZeroPointAction()` | Undoable sequence-range mutation | Supported when every accessor, action, `TickTime`, and transaction primitive probes true | Read the complete range after one transaction and require it to match the guarded request; live host must also validate Undo. |
 | `manage_sequence_playhead_uxp` | `sequence.playhead.inspect`, `sequence.playhead.set` | `Sequence.getPlayerPosition()` and `Sequence.setPlayerPosition()` | Sequence player-state mutation; no project-save or Undo claim | Supported when the active sequence, `TickTime`, getter, and setter probe true | Require the inspected sequence GUID and exact current position, serialize competing setters, then read the player position back. |
-| `inspect_sequence_timing_uxp` | `sequence.timing.inspect` | `Sequence.getFrameSize()`, `getTimebase()`, audio/video time-display getters, and `getProjectItem()` | Read-only timing and ownership snapshot | Supported only when each native getter and the backing project-item ID probe true | Return bounded native values and reject an active-sequence switch during asynchronous readback. This is not a locked atomic snapshot or licensed-host proof. |
+| `inspect_sequence_timing_uxp` | `sequence.timing.inspect` | `Sequence.getFrameSize()`, `getTimebase()`, audio/video time-display getters, and `getProjectItem()` | Read-only timing and ownership snapshot | Supported only when each native getter and the backing project-item ID probe true | Return bounded native values and reject a different active sequence at read completion. This is not a locked atomic snapshot, does not detect a transient switch back to the same sequence, and is not licensed-host proof. |
 | `has_transcript_uxp` | `transcript.has` | `Transcript.hasTranscript()` | Read-only | Native 26.3 support is used when it probes true; the existing 25.6 transcript-export compatibility probe is labeled as a fallback | Return Adobe's native boolean when available; never infer transcript presence from names or transcript text. |
 | `export_aaf_uxp` | `interchange.aaf.export` | `ProjectConverter.exportAAF()` and `AAFExportOptions` | Export side effect; no project undo claim | Supported when converter and option APIs probe true | Record Premiere's boolean result and, in a live host, confirm the intended AAF artifact exists and is usable. |
 
@@ -95,9 +95,11 @@ bounded `operation_id` replay key where applicable.
   sequence GUID/name, positive native frame dimensions, native timebase,
   audio/video `TimeDisplay.type` codes, and backing Project-item ID/name. Every
   field is bounded and validated. The panel re-resolves the active sequence
-  after the asynchronous getter set and fails rather than returning a snapshot
-  from a sequence that was switched mid-request. It performs no mutation,
-  transaction, operation replay, or atomic-snapshot claim.
+  after the asynchronous getter set and fails when its GUID no longer matches
+  the sequence captured at request start. Adobe does not expose an atomic
+  snapshot or activation revision here, so a transient switch back to the same
+  sequence is not detectable. It performs no mutation, transaction, or
+  operation replay.
 - `has_transcript_uxp`: accepts at most one resolved `project_item_id` or
   `project_item_name`; omitting both requires exactly one Project-panel selection.
 - `export_aaf_uxp`: `output_file_path` is non-empty and at most 4096 characters.
@@ -145,7 +147,8 @@ Automated tests may prove these properties:
   readback;
 - sequence-timing inspection probes every required getter, bounds the native
   `RectF`, `TimeDisplay`, and Project-item identity values, and rejects an active
-  sequence switch during asynchronous readback; and
+  sequence mismatch at read completion; it does not prove detection of a
+  transient switch back to the same sequence; and
 - action commands preserve lock/transaction boundaries and operation replay
   behavior in a contract host; and
 - AAF options are bounded before a call reaches the host adapter.
@@ -165,10 +168,11 @@ AAF, or produced a usable Undo entry. Before release, validate on a real Premier
 6. Inspect a sequence range, change one field and all three fields, verify the
    returned values, and Undo each update. Confirm stale range snapshots fail before
    changing the sequence.
-7. Inspect sequence timing while switching the active sequence and confirm the
-   command rejects the switched request. For an unchanged sequence, compare frame
-   size, timebase, both time-display codes, and the backing Project-item identity
-   with the Premiere UI.
+7. Inspect sequence timing, switch to another active sequence before readback
+   completes, and confirm the command rejects the final mismatch. For an
+   unchanged sequence, compare frame size, timebase, both time-display codes, and
+   the backing Project-item identity with the Premiere UI. A transient switch that
+   returns to the same sequence is outside this command's proof boundary.
 8. Check both a transcribed and non-transcribed clip with `transcript.has`.
 9. Export an AAF with representative options; confirm the resulting artifact is
    present, opens in the intended downstream workflow, and any requested media

@@ -317,7 +317,7 @@ describe("UXP command registry", () => {
     expect(value.sequence.setPlayerPosition).toHaveBeenCalledOnce();
   });
 
-  it("returns a bounded native sequence-timing snapshot and rejects a sequence switch during readback", async () => {
+  it("returns a bounded native sequence-timing snapshot and rejects a final active-sequence mismatch", async () => {
     const value = host();
     await expect(value.registry.dispatch("sequence.timing.inspect", {})).resolves.toEqual({
       sequenceGuid: "sequence-1",
@@ -339,10 +339,45 @@ describe("UXP command registry", () => {
       .rejects.toMatchObject({ code: "UXP_STALE_SEQUENCE" });
   });
 
-  it("fails closed for invalid timing data, unknown arguments, and unavailable timing APIs", async () => {
-    const malformed = host();
-    malformed.sequence.getSequenceAudioTimeDisplayFormat.mockResolvedValueOnce({ type: Number.NaN });
-    await expect(malformed.registry.dispatch("sequence.timing.inspect", {}))
+  it("fails closed for malformed timing values, identity, unknown arguments, and unavailable timing APIs", async () => {
+    const invalidDisplay = host();
+    invalidDisplay.sequence.getSequenceAudioTimeDisplayFormat.mockResolvedValueOnce({ type: Number.NaN });
+    await expect(invalidDisplay.registry.dispatch("sequence.timing.inspect", {}))
+      .rejects.toMatchObject({ code: "UXP_VERIFICATION_FAILED" });
+
+    const invalidFrame = host();
+    invalidFrame.sequence.getFrameSize.mockResolvedValueOnce({ width: 0, height: 1080 });
+    await expect(invalidFrame.registry.dispatch("sequence.timing.inspect", {}))
+      .rejects.toMatchObject({ code: "UXP_VERIFICATION_FAILED" });
+
+    const invalidTimebase = host();
+    invalidTimebase.sequence.getTimebase.mockResolvedValueOnce(123);
+    await expect(invalidTimebase.registry.dispatch("sequence.timing.inspect", {}))
+      .rejects.toMatchObject({ code: "UXP_VERIFICATION_FAILED" });
+
+    const blankTimebase = host();
+    blankTimebase.sequence.getTimebase.mockResolvedValueOnce("   ");
+    await expect(blankTimebase.registry.dispatch("sequence.timing.inspect", {}))
+      .rejects.toMatchObject({ code: "UXP_VERIFICATION_FAILED" });
+
+    const blankProjectItemName = host();
+    blankProjectItemName.sequenceProjectItem.name = "";
+    await expect(blankProjectItemName.registry.dispatch("sequence.timing.inspect", {}))
+      .rejects.toMatchObject({ code: "UXP_VERIFICATION_FAILED" });
+
+    const blankProjectItemId = host();
+    blankProjectItemId.sequenceProjectItem.getId.mockReturnValueOnce("   ");
+    await expect(blankProjectItemId.registry.dispatch("sequence.timing.inspect", {}))
+      .rejects.toMatchObject({ code: "UXP_VERIFICATION_FAILED" });
+
+    const nonStringProjectItemId = host();
+    nonStringProjectItemId.sequenceProjectItem.getId.mockReturnValueOnce(123);
+    await expect(nonStringProjectItemId.registry.dispatch("sequence.timing.inspect", {}))
+      .rejects.toMatchObject({ code: "UXP_VERIFICATION_FAILED" });
+
+    const missingProjectItem = host();
+    missingProjectItem.sequence.getProjectItem.mockResolvedValueOnce(null);
+    await expect(missingProjectItem.registry.dispatch("sequence.timing.inspect", {}))
       .rejects.toMatchObject({ code: "UXP_VERIFICATION_FAILED" });
 
     await expect(host().registry.dispatch("sequence.timing.inspect", { extra: true }))

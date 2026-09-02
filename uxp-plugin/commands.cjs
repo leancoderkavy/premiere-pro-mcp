@@ -279,11 +279,14 @@
       const context = await activeContext(false);
       const snapshot = await sequenceTimingSnapshot(context.sequence);
       // Every timing field is a native asynchronous read. Re-resolve the active
-      // sequence after that read set so this command never presents a timing
-      // snapshot for a sequence that the user switched away from mid-request.
+      // sequence after that read set so the returned snapshot belongs to the
+      // same active sequence at both the start and end of this request. The
+      // documented API does not provide an atomic snapshot or an activation
+      // revision, so a transient switch back to the same sequence is not
+      // distinguishable from an unchanged active sequence.
       const current = await activeContext(false);
       if (sequenceGuidRequired(current.sequence) !== snapshot.sequenceGuid) {
-        throw commandError("UXP_STALE_SEQUENCE", "The active sequence changed while timing was being read; retry the inspection");
+        throw commandError("UXP_STALE_SEQUENCE", "The active sequence no longer matches the timing snapshot; retry the inspection");
       }
       return { ...snapshot, verificationBoundary: "sequence_timing_readback" };
     }
@@ -532,8 +535,8 @@
       if (!projectItem || typeof projectItem.getId !== "function") {
         throw commandError("UXP_VERIFICATION_FAILED", "Premiere did not return an identifiable sequence project item");
       }
-      const projectItemId = String(await projectItem.getId() || "");
-      if (!projectItemId || projectItemId.length > 512) {
+      const projectItemId = await projectItem.getId();
+      if (typeof projectItemId !== "string" || !projectItemId.trim() || projectItemId.length > 512) {
         throw commandError("UXP_VERIFICATION_FAILED", "Premiere did not return a valid sequence project-item ID");
       }
       return {
