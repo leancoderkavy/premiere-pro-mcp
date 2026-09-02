@@ -300,6 +300,7 @@ function advancedHost() {
     ClipProjectItem: { cast: vi.fn((item: MutableItem) => { if (!item.isClip) throw new Error("not clip"); return item; }) },
     TickTime: { createWithSeconds: vi.fn((seconds: number) => ({ seconds })) },
     PointF: class PointF { constructor(readonly x: number, readonly y: number) {} },
+    Color: class Color { constructor(readonly red: number, readonly green: number, readonly blue: number, readonly alpha: number) {} },
     FrameRate: { createWithValue: vi.fn((value: number) => ({ value })) },
     RectF: class RectF { width = 0; height = 0; },
     Guid: { fromString: vi.fn((value: string) => value) },
@@ -895,6 +896,11 @@ describe("advanced stable Premiere UXP workflows", () => {
     })).rejects.toMatchObject({ code: "UXP_STALE_POINT_PARAMETER" });
     expect(value.project.executeTransaction).not.toHaveBeenCalled();
 
+    await expect(value.registry.dispatch("parameters.point.set", {
+      ...target, expectedSnapshot, point: { x: 1100, y: 600 }, confirmSetPoint: true,
+    })).rejects.toMatchObject({ code: "UXP_INVALID_ARGUMENT" });
+    expect(value.project.executeTransaction).not.toHaveBeenCalled();
+
     const animated = advancedHost();
     animated.parameterState.value = { x: 960, y: 540 };
     animated.parameterState.varying = true;
@@ -950,6 +956,112 @@ describe("advanced stable Premiere UXP workflows", () => {
     await expect(second).rejects.toMatchObject({ code: "UXP_STALE_POINT_PARAMETER" });
     expect(value.project.executeTransaction).toHaveBeenCalledTimes(1);
     expect(value.parameterState.value).toMatchObject({ x: 1100, y: 600 });
+  });
+
+  it("double-reads a static Color parameter and applies one reviewed RGBA value with replay", async () => {
+    const value = advancedHost();
+    value.parameterState.value = { red: 0.1, green: 0.2, blue: 0.3, alpha: 1 };
+    const target = { mediaType: "video", trackIndex: 0, clipIndex: 0, componentIndex: 0, paramIndex: 0, expectedComponentId: "ADBE Opacity", expectedParamName: "Opacity" };
+    const inspected = await value.registry.dispatch("parameters.color.inspect", target);
+    expect(inspected).toMatchObject({
+      projectId: "project-1", sequenceId: "sequence-1", timeVarying: false,
+      color: { red: 0.1, green: 0.2, blue: 0.3, alpha: 1 },
+    });
+    const input = {
+      ...target, expectedSnapshot: inspected, color: { red: 0.9, green: 0.8, blue: 0.7, alpha: 0.6 },
+      confirmSetColor: true, operationId: "color-parameter-replay",
+    };
+    await expect(value.registry.dispatch("parameters.color.set", input)).resolves.toMatchObject({
+      operationId: "color-parameter-replay", updated: true, outcome: "verified",
+      before: { color: { red: 0.1, green: 0.2, blue: 0.3, alpha: 1 } },
+      after: { color: { red: 0.9, green: 0.8, blue: 0.7, alpha: 0.6 } },
+      verificationBoundary: "color_parameter_readback",
+    });
+    await expect(value.registry.dispatch("parameters.color.set", input)).resolves.toMatchObject({
+      replayed: true, after: { color: { red: 0.9, green: 0.8, blue: 0.7, alpha: 0.6 } },
+    });
+    expect(value.parameter.createKeyframe).toHaveBeenCalledWith(expect.objectContaining({ red: 0.9, green: 0.8, blue: 0.7, alpha: 0.6 }));
+    expect(value.project.executeTransaction).toHaveBeenCalledTimes(1);
+  });
+
+  it("fails closed on stale, animated, unavailable, or changing Color parameter state", async () => {
+    const value = advancedHost();
+    value.parameterState.value = { red: 0.1, green: 0.2, blue: 0.3, alpha: 1 };
+    const target = { mediaType: "video", trackIndex: 0, clipIndex: 0, componentIndex: 0, paramIndex: 0, expectedComponentId: "ADBE Opacity", expectedParamName: "Opacity" };
+    const expectedSnapshot = await value.registry.dispatch("parameters.color.inspect", target);
+    value.parameterState.value = { red: 0.2, green: 0.2, blue: 0.3, alpha: 1 };
+    await expect(value.registry.dispatch("parameters.color.set", {
+      ...target, expectedSnapshot, color: { red: 0.9, green: 0.8, blue: 0.7, alpha: 0.6 },
+      confirmSetColor: true, operationId: "color-stale",
+    })).rejects.toMatchObject({ code: "UXP_STALE_COLOR_PARAMETER" });
+    expect(value.project.executeTransaction).not.toHaveBeenCalled();
+
+    await expect(value.registry.dispatch("parameters.color.set", {
+      ...target, expectedSnapshot, color: { red: 0.9, green: 0.8, blue: 0.7, alpha: 0.6 }, confirmSetColor: true,
+    })).rejects.toMatchObject({ code: "UXP_INVALID_ARGUMENT" });
+    await expect(value.registry.dispatch("parameters.color.set", {
+      ...target, expectedSnapshot, color: { red: 0.9, green: 0.8, blue: 0.7, alpha: 0.6 }, operationId: "color-unconfirmed",
+    })).rejects.toMatchObject({ code: "UXP_CONFIRMATION_REQUIRED" });
+    expect(value.project.executeTransaction).not.toHaveBeenCalled();
+
+    const animated = advancedHost();
+    animated.parameterState.value = { red: 0.1, green: 0.2, blue: 0.3, alpha: 1 };
+    animated.parameterState.varying = true;
+    const animatedSnapshot = await animated.registry.dispatch("parameters.color.inspect", target);
+    await expect(animated.registry.dispatch("parameters.color.set", {
+      ...target, expectedSnapshot: animatedSnapshot, color: { red: 0.9, green: 0.8, blue: 0.7, alpha: 0.6 },
+      confirmSetColor: true, operationId: "color-animated",
+    })).rejects.toMatchObject({ code: "UXP_TARGET_UNSUPPORTED" });
+    expect(animated.project.executeTransaction).not.toHaveBeenCalled();
+
+    const changing = advancedHost();
+    changing.parameterState.value = { red: 0.1, green: 0.2, blue: 0.3, alpha: 1 };
+    let reads = 0;
+    changing.parameter.getStartValue.mockImplementation(async () => {
+      reads += 1;
+      return { value: reads === 1 ? { red: 0.1, green: 0.2, blue: 0.3, alpha: 1 } : { red: 0.2, green: 0.2, blue: 0.3, alpha: 1 } };
+    });
+    await expect(changing.registry.dispatch("parameters.color.inspect", target)).rejects.toMatchObject({ code: "UXP_STALE_COLOR_PARAMETER" });
+
+    const unavailable = advancedHost();
+    Reflect.deleteProperty(unavailable.ppro, "Color");
+    const capabilities = await unavailable.registry.capabilities();
+    expect(capabilities.commands["parameters.color.inspect"]).toMatchObject({ supported: false });
+    expect(capabilities.commands["parameters.color.set"]).toMatchObject({ supported: false });
+  });
+
+  it("serializes distinct Color updates so a later stale snapshot cannot overwrite the first", async () => {
+    const value = advancedHost();
+    value.parameterState.value = { red: 0.1, green: 0.2, blue: 0.3, alpha: 1 };
+    const target = { mediaType: "video", trackIndex: 0, clipIndex: 0, componentIndex: 0, paramIndex: 0, expectedComponentId: "ADBE Opacity", expectedParamName: "Opacity" };
+    const expectedSnapshot = await value.registry.dispatch("parameters.color.inspect", target);
+    let releaseRead: (() => void) | undefined;
+    const firstReadReleased = new Promise<void>((resolve) => { releaseRead = resolve; });
+    let signalRead: (() => void) | undefined;
+    const firstReadStarted = new Promise<void>((resolve) => { signalRead = resolve; });
+    let reads = 0;
+    value.parameter.getStartValue.mockImplementation(async () => {
+      reads += 1;
+      if (reads === 1) {
+        signalRead?.();
+        await firstReadReleased;
+      }
+      return { value: value.parameterState.value };
+    });
+    const first = value.registry.dispatch("parameters.color.set", {
+      ...target, expectedSnapshot, color: { red: 0.9, green: 0.8, blue: 0.7, alpha: 0.6 },
+      confirmSetColor: true, operationId: "color-first",
+    });
+    await firstReadStarted;
+    const second = value.registry.dispatch("parameters.color.set", {
+      ...target, expectedSnapshot, color: { red: 0.4, green: 0.5, blue: 0.6, alpha: 0.7 },
+      confirmSetColor: true, operationId: "color-second",
+    });
+    releaseRead?.();
+    await expect(first).resolves.toMatchObject({ outcome: "verified", after: { color: { red: 0.9, green: 0.8, blue: 0.7, alpha: 0.6 } } });
+    await expect(second).rejects.toMatchObject({ code: "UXP_STALE_COLOR_PARAMETER" });
+    expect(value.project.executeTransaction).toHaveBeenCalledTimes(1);
+    expect(value.parameterState.value).toMatchObject({ red: 0.9, green: 0.8, blue: 0.7, alpha: 0.6 });
   });
 
   it("guards, serializes, replays, and reads back native sequence display-format updates", async () => {

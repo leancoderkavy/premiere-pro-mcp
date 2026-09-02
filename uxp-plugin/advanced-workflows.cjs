@@ -23,6 +23,7 @@
     const appendLocks = new Map();
     const parameterTimeVaryingLocks = new Map();
     const pointParameterLocks = new Map();
+    const colorParameterLocks = new Map();
     const colorLabelLocks = deps.colorLabelLocks && typeof deps.colorLabelLocks.withProjectItemColorLabelLock === "function"
       ? deps.colorLabelLocks
       : { withProjectItemColorLabelLock: withColorLabelLock };
@@ -52,6 +53,8 @@
       "parameters.inspect": { readOnly: true, targetCapabilityProbe: true, minHostVersion: "25.6.0", probe: canUseParameters, handler: inspectParameter },
       "parameters.point.inspect": { readOnly: true, targetCapabilityProbe: true, minHostVersion: "26.3.0", probe: canUsePointParameters, handler: inspectPointParameter },
       "parameters.point.set": { destructive: true, undoable: true, idempotent: true, targetCapabilityProbe: true, minHostVersion: "26.3.0", probe: canUsePointParameters, handler: setPointParameter },
+      "parameters.color.inspect": { readOnly: true, targetCapabilityProbe: true, minHostVersion: "26.3.0", probe: canUseColorParameters, handler: inspectColorParameter },
+      "parameters.color.set": { destructive: true, undoable: true, idempotent: true, targetCapabilityProbe: true, minHostVersion: "26.3.0", probe: canUseColorParameters, handler: setColorParameter },
       "parameters.set": { destructive: true, undoable: true, targetCapabilityProbe: true, minHostVersion: "25.6.0", probe: canUseParameters, handler: setParameterValue },
       "parameters.keyframeAdd": { destructive: true, undoable: true, targetCapabilityProbe: true, minHostVersion: "25.6.0", probe: canUseParameters, handler: addParameterKeyframe },
       "parameters.keyframeRemove": { destructive: true, undoable: true, targetCapabilityProbe: true, minHostVersion: "25.6.0", probe: canUseParameters, handler: removeParameterKeyframe },
@@ -1018,6 +1021,9 @@
       if (args.confirmSetPoint !== true) {
         throw commandError("UXP_CONFIRMATION_REQUIRED", "Setting a PointF parameter requires confirmSetPoint=true after review");
       }
+      if (typeof args.operationId !== "string" || !/^[A-Za-z0-9._:-]{1,128}$/.test(args.operationId)) {
+        throw commandError("UXP_INVALID_ARGUMENT", "operationId is required and must be 1-128 safe characters");
+      }
       return {
         ...args,
         expectedSnapshot: expectedPointParameterSnapshot(args.expectedSnapshot),
@@ -1045,6 +1051,114 @@
         const afterContext = await pointParameterContext(input, true), after = await pointParameterSnapshot(afterContext);
         const verified = !after.timeVarying && pointsEqual(after.point, input.point);
         return mutationResult(verified, { updated: true, before, after }, "point_parameter_readback", "Set PointF effect parameter");
+      });
+    }
+
+    async function colorParameterContext(args, mutation) {
+      const allowed = ["mediaType", "trackIndex", "clipIndex", "componentIndex", "paramIndex", "expectedComponentId", "expectedParamName"];
+      if (mutation) allowed.push("expectedSnapshot", "color", "confirmSetColor", "operationId");
+      assertObject(args); assertOnlyKeys(args, allowed);
+      const context = await parameterContext({
+        mediaType: args.mediaType, trackIndex: args.trackIndex, clipIndex: args.clipIndex,
+        componentIndex: args.componentIndex, paramIndex: args.paramIndex,
+        expectedComponentId: args.expectedComponentId, expectedParamName: args.expectedParamName,
+      }, mutation);
+      if (typeof context.param.getStartValue !== "function" || typeof context.param.isTimeVarying !== "function") {
+        throw commandError("UXP_COMMAND_UNAVAILABLE", "Premiere cannot read a stable Color parameter snapshot");
+      }
+      return context;
+    }
+
+    async function colorParameterSnapshot(context) {
+      const projectId = guidString(context.project && context.project.guid), sequenceId = guidString(context.sequence && context.sequence.guid);
+      if (!projectId || !sequenceId) throw commandError("UXP_INVALID_HOST_STATE", "Premiere did not provide stable project and sequence identities for the Color parameter");
+      const color = colorValue(keyframeValue(await context.param.getStartValue()), "Premiere parameter start value");
+      return {
+        projectId, sequenceId, mediaType: context.mediaType, trackIndex: context.trackIndex, clipIndex: context.clipIndex,
+        componentIndex: context.componentIndex, componentId: context.componentId, paramIndex: context.paramIndex,
+        paramName: context.paramName, timeVarying: !!context.param.isTimeVarying(), color,
+      };
+    }
+
+    function colorSnapshotMatches(left, right) {
+      return left && right && left.projectId === right.projectId && left.sequenceId === right.sequenceId
+        && left.mediaType === right.mediaType && left.trackIndex === right.trackIndex && left.clipIndex === right.clipIndex
+        && left.componentIndex === right.componentIndex && left.componentId === right.componentId && left.paramIndex === right.paramIndex
+        && left.paramName === right.paramName && left.timeVarying === right.timeVarying
+        && colorsEqual(left.color, right.color);
+    }
+
+    function assertColorSnapshot(current, expected) {
+      if (!colorSnapshotMatches(current, expected)) {
+        throw commandError("UXP_STALE_COLOR_PARAMETER", "The Color parameter changed; inspect it again before updating it");
+      }
+    }
+
+    function colorParameterLockKey(context) {
+      return appendLockKey(context.project, "parameter-color", [
+        guidString(context.sequence && context.sequence.guid), context.mediaType, context.trackIndex, context.clipIndex,
+        context.componentIndex, context.paramIndex
+      ].join(":"));
+    }
+
+    async function withColorParameterLock(key, callback) {
+      const previous = colorParameterLocks.get(key) || Promise.resolve();
+      let release = function () {};
+      const current = new Promise((resolve) => { release = resolve; });
+      colorParameterLocks.set(key, current);
+      await previous;
+      try {
+        return await callback();
+      } finally {
+        release();
+        if (colorParameterLocks.get(key) === current) colorParameterLocks.delete(key);
+      }
+    }
+
+    async function inspectColorParameter(args) {
+      const firstContext = await colorParameterContext(args, false), first = await colorParameterSnapshot(firstContext);
+      const finalContext = await colorParameterContext(args, false), final = await colorParameterSnapshot(finalContext);
+      if (!colorSnapshotMatches(first, final)) {
+        throw commandError("UXP_STALE_COLOR_PARAMETER", "The Color parameter changed while it was being inspected; retry the inspection");
+      }
+      return final;
+    }
+
+    function validateColorParameterSet(args) {
+      assertObject(args); assertOnlyKeys(args, ["mediaType", "trackIndex", "clipIndex", "componentIndex", "paramIndex", "expectedComponentId", "expectedParamName", "expectedSnapshot", "color", "confirmSetColor", "operationId"]);
+      if (args.confirmSetColor !== true) {
+        throw commandError("UXP_CONFIRMATION_REQUIRED", "Setting a Color parameter requires confirmSetColor=true after review");
+      }
+      if (typeof args.operationId !== "string" || !/^[A-Za-z0-9._:-]{1,128}$/.test(args.operationId)) {
+        throw commandError("UXP_INVALID_ARGUMENT", "operationId is required and must be 1-128 safe characters");
+      }
+      return {
+        ...args,
+        expectedSnapshot: expectedColorParameterSnapshot(args.expectedSnapshot),
+        color: colorValue(args.color, "color"),
+      };
+    }
+
+    function createColor(value) {
+      if (typeof ppro.Color !== "function") throw commandError("UXP_COMMAND_UNAVAILABLE", "Premiere does not expose the Color constructor");
+      try { return new ppro.Color(value.red, value.green, value.blue, value.alpha); }
+      catch (_) { throw commandError("UXP_COMMAND_UNAVAILABLE", "Premiere rejected Color construction"); }
+    }
+
+    async function setColorParameter(args) {
+      const input = validateColorParameterSet(args), color = createColor(input.color);
+      const initialContext = await colorParameterContext(input, true);
+      return withColorParameterLock(colorParameterLockKey(initialContext), async () => {
+        const context = await colorParameterContext(input, true), before = await colorParameterSnapshot(context);
+        assertColorSnapshot(before, input.expectedSnapshot);
+        if (before.timeVarying) throw commandError("UXP_TARGET_UNSUPPORTED", "Color updates support only non-time-varying parameters; keyframed Color edits are not exposed");
+        context.project.lockedAccess(() => {
+          const action = context.param.createSetValueAction(context.param.createKeyframe(color), true);
+          commitActions(context.project, "Set Color effect parameter", [action]);
+        });
+        const afterContext = await colorParameterContext(input, true), after = await colorParameterSnapshot(afterContext);
+        const verified = !after.timeVarying && colorsEqual(after.color, input.color);
+        return mutationResult(verified, { updated: true, before, after }, "color_parameter_readback", "Set Color effect parameter");
       });
     }
 
@@ -2041,6 +2155,15 @@
         y: finiteNumber(value.y, (label || "point") + ".y", -1000000, 1000000),
       };
     }
+    function colorValue(value, label) {
+      assertObject(value); assertOnlyKeys(value, ["red", "green", "blue", "alpha"]);
+      return {
+        red: finiteNumber(value.red, (label || "color") + ".red", -1000000, 1000000),
+        green: finiteNumber(value.green, (label || "color") + ".green", -1000000, 1000000),
+        blue: finiteNumber(value.blue, (label || "color") + ".blue", -1000000, 1000000),
+        alpha: finiteNumber(value.alpha, (label || "color") + ".alpha", -1000000, 1000000),
+      };
+    }
     function expectedPointParameterSnapshot(value) {
       assertObject(value);
       assertOnlyKeys(value, ["projectId", "sequenceId", "mediaType", "trackIndex", "clipIndex", "componentIndex", "componentId", "paramIndex", "paramName", "timeVarying", "point"]);
@@ -2057,6 +2180,24 @@
         paramName: boundedStringAllowEmpty(value.paramName, "expectedSnapshot.paramName", 255),
         timeVarying: value.timeVarying,
         point: pointValue(value.point, "expectedSnapshot.point"),
+      };
+    }
+    function expectedColorParameterSnapshot(value) {
+      assertObject(value);
+      assertOnlyKeys(value, ["projectId", "sequenceId", "mediaType", "trackIndex", "clipIndex", "componentIndex", "componentId", "paramIndex", "paramName", "timeVarying", "color"]);
+      if (typeof value.timeVarying !== "boolean") throw commandError("UXP_INVALID_ARGUMENT", "expectedSnapshot.timeVarying must be boolean");
+      return {
+        projectId: boundedString(value.projectId, "expectedSnapshot.projectId", 128),
+        sequenceId: boundedString(value.sequenceId, "expectedSnapshot.sequenceId", 128),
+        mediaType: enumValue(value.mediaType, "expectedSnapshot.mediaType", ["video", "audio"]),
+        trackIndex: nonNegativeInt(value.trackIndex, "expectedSnapshot.trackIndex"),
+        clipIndex: nonNegativeInt(value.clipIndex, "expectedSnapshot.clipIndex"),
+        componentIndex: nonNegativeInt(value.componentIndex, "expectedSnapshot.componentIndex"),
+        componentId: boundedString(value.componentId, "expectedSnapshot.componentId", 256),
+        paramIndex: nonNegativeInt(value.paramIndex, "expectedSnapshot.paramIndex"),
+        paramName: boundedStringAllowEmpty(value.paramName, "expectedSnapshot.paramName", 255),
+        timeVarying: value.timeVarying,
+        color: colorValue(value.color, "expectedSnapshot.color"),
       };
     }
 
@@ -2088,6 +2229,7 @@
     }
     function canUseParameters() { return canInspectProject() && !!(ppro.Constants && ppro.Constants.TrackItemType); }
     function canUsePointParameters() { return canUseParameters() && typeof ppro.PointF === "function"; }
+    function canUseColorParameters() { return canUseParameters() && typeof ppro.Color === "function"; }
     function canUseTrackItems() { return canUseParameters(); }
     function canInspectTimelineStructure() { return canUseTrackItems(); }
     function canUseSequenceEditor() { return canInspectProject() && !!(ppro.SequenceEditor && typeof ppro.SequenceEditor.getEditor === "function"); }
@@ -2157,6 +2299,7 @@
   function sameNumberArrays(left, right) { return Array.isArray(left) && Array.isArray(right) && left.length === right.length && left.every((value, index) => numbersEqual(value, right[index])); }
   function numbersEqual(left, right) { return Number.isFinite(Number(left)) && Number.isFinite(Number(right)) && Math.abs(Number(left) - Number(right)) < 0.000001; }
   function pointsEqual(left, right) { return !!left && !!right && numbersEqual(left.x, right.x) && numbersEqual(left.y, right.y); }
+  function colorsEqual(left, right) { return !!left && !!right && numbersEqual(left.red, right.red) && numbersEqual(left.green, right.green) && numbersEqual(left.blue, right.blue) && numbersEqual(left.alpha, right.alpha); }
   function valuesEqual(left, right) { return typeof right === "number" ? numbersEqual(left, right) : left === right; }
   function commandError(code, message) { const error = new Error(message); error.code = code; return error; }
 

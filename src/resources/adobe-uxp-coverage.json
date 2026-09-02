@@ -1430,6 +1430,39 @@
       "verificationBoundary": "point_parameter_readback"
     },
     {
+      "id": "guarded-static-color-effect-parameter",
+      "adobeApi": [
+        "ComponentParam.getStartValue",
+        "ComponentParam.isTimeVarying",
+        "ComponentParam.createKeyframe",
+        "ComponentParam.createSetValueAction",
+        "Color",
+        "Color.[[construct]]",
+        "Color.red",
+        "Color.green",
+        "Color.blue",
+        "Color.alpha",
+        "Project.lockedAccess",
+        "Project.executeTransaction"
+      ],
+      "documentationUrls": [
+        "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/componentparam/",
+        "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/color/"
+      ],
+      "minimumPremiereVersion": "26.3.0",
+      "backend": "uxp",
+      "uxpCommand": "parameters.color.set",
+      "mcpTools": ["automate_effect_parameters_uxp"],
+      "availability": "current",
+      "implementationStatus": "implemented",
+      "verificationStatus": "automated_contract_verified",
+      "liveHostVerificationStatus": "not_run",
+      "mutatesProject": true,
+      "undoable": true,
+      "idempotency": "operation_id",
+      "verificationBoundary": "color_parameter_readback"
+    },
+    {
       "id": "native-track-item-identity",
       "adobeApi": [
         "Project.getActiveSequence",

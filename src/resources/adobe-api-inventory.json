@@ -13,8 +13,8 @@
   },
   "stats": {
     "total": 976,
-    "mapped": 337,
-    "unmapped": 639,
+    "mapped": 339,
+    "unmapped": 637,
     "manifestOnly": 5
   },
   "manifestOnly": [
@@ -901,7 +901,7 @@
     {
       "symbol": "Color",
       "kind": "type",
-      "coverage": "unmapped"
+      "coverage": "mapped"
     },
     {
       "symbol": "Color.[[call]]",
@@ -911,7 +911,7 @@
     {
       "symbol": "Color.[[construct]]",
       "kind": "constructor",
-      "coverage": "unmapped"
+      "coverage": "mapped"
     },
     {
       "symbol": "Color.alpha",

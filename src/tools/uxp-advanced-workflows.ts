@@ -523,12 +523,12 @@ export function getUxpAdvancedWorkflowTools(bridge: UxpWebSocketBridge) {
     },
 
     automate_effect_parameters_uxp: {
-      description: "Inspect or transactionally set scalar effect parameters, inspect or guardedly set a static PointF x/y parameter, locate individual keyframes including a bounded native nearest-range lookup, adjust keyframes/interpolation, and control explicit time-varying animation mode through documented UXP actions. Disabling animation requires a complete inspected keyframe-time snapshot and confirmation.",
+      description: "Inspect or transactionally set scalar effect parameters; inspect or guardedly set static PointF x/y and Color RGBA parameters; locate individual keyframes including a bounded native nearest-range lookup; adjust keyframes/interpolation; and control explicit time-varying animation mode through documented UXP actions. Disabling animation requires a complete inspected keyframe-time snapshot and confirmation.",
       parameters: {
         type: "object" as const,
         additionalProperties: false,
         properties: {
-          action: { type: "string", enum: ["inspect", "inspect_point_value", "set_point_value", "inspect_keyframe", "set_value", "add_keyframe", "remove_keyframe", "remove_keyframe_range", "set_interpolation", "inspect_time_varying", "set_time_varying"] },
+          action: { type: "string", enum: ["inspect", "inspect_point_value", "set_point_value", "inspect_color_value", "set_color_value", "inspect_keyframe", "set_value", "add_keyframe", "remove_keyframe", "remove_keyframe_range", "set_interpolation", "inspect_time_varying", "set_time_varying"] },
           ...timelineTargetProperties,
           component_index: { type: "integer", minimum: 0 },
           param_index: { type: "integer", minimum: 0 },
@@ -543,6 +543,17 @@ export function getUxpAdvancedWorkflowTools(bridge: UxpWebSocketBridge) {
             },
             required: ["x", "y"],
             description: "Requested static PointF x/y value for set_point_value.",
+          },
+          color: {
+            type: "object", additionalProperties: false,
+            properties: {
+              red: { type: "number", minimum: -1_000_000, maximum: 1_000_000 },
+              green: { type: "number", minimum: -1_000_000, maximum: 1_000_000 },
+              blue: { type: "number", minimum: -1_000_000, maximum: 1_000_000 },
+              alpha: { type: "number", minimum: -1_000_000, maximum: 1_000_000 },
+            },
+            required: ["red", "green", "blue", "alpha"],
+            description: "Requested static Color RGBA value for set_color_value. Values are raw host components, not color-managed or rendered-appearance proof.",
           },
           expected_point_snapshot: {
             type: "object", additionalProperties: false,
@@ -569,7 +580,35 @@ export function getUxpAdvancedWorkflowTools(bridge: UxpWebSocketBridge) {
             required: ["project_id", "sequence_id", "media_type", "track_index", "clip_index", "component_index", "component_id", "param_index", "param_name", "time_varying", "point"],
             description: "Required for set_point_value; copy the complete inspect_point_value snapshot unchanged.",
           },
+          expected_color_snapshot: {
+            type: "object", additionalProperties: false,
+            properties: {
+              project_id: { type: "string", minLength: 1, maxLength: 128 },
+              sequence_id: { type: "string", minLength: 1, maxLength: 128 },
+              media_type: { type: "string", enum: ["video", "audio"] },
+              track_index: { type: "integer", minimum: 0 },
+              clip_index: { type: "integer", minimum: 0 },
+              component_index: { type: "integer", minimum: 0 },
+              component_id: { type: "string", minLength: 1, maxLength: 256 },
+              param_index: { type: "integer", minimum: 0 },
+              param_name: { type: "string", maxLength: 255 },
+              time_varying: { type: "boolean" },
+              color: {
+                type: "object", additionalProperties: false,
+                properties: {
+                  red: { type: "number", minimum: -1_000_000, maximum: 1_000_000 },
+                  green: { type: "number", minimum: -1_000_000, maximum: 1_000_000 },
+                  blue: { type: "number", minimum: -1_000_000, maximum: 1_000_000 },
+                  alpha: { type: "number", minimum: -1_000_000, maximum: 1_000_000 },
+                },
+                required: ["red", "green", "blue", "alpha"],
+              },
+            },
+            required: ["project_id", "sequence_id", "media_type", "track_index", "clip_index", "component_index", "component_id", "param_index", "param_name", "time_varying", "color"],
+            description: "Required for set_color_value; copy the complete inspect_color_value snapshot unchanged.",
+          },
           confirm_set_point: { type: "boolean", description: "Required true for set_point_value after reviewing the complete point snapshot." },
+          confirm_set_color: { type: "boolean", description: "Required true for set_color_value after reviewing the complete color snapshot." },
           time_seconds: { type: "number", minimum: 0, maximum: 86400 },
           end_seconds: { type: "number", minimum: 0, maximum: 86400, description: "Required with inspect_keyframe direction nearest as the documented native outTime; also used as the inclusive end for remove_keyframe_range." },
           interpolation: { type: "string", enum: ["linear", "hold", "bezier", "time"] },
@@ -597,6 +636,7 @@ export function getUxpAdvancedWorkflowTools(bridge: UxpWebSocketBridge) {
           inspect_keyframe: "parameters.keyframe.inspect",
           inspect_time_varying: "parameters.timeVarying.inspect", set_time_varying: "parameters.timeVarying.set",
           inspect_point_value: "parameters.point.inspect", set_point_value: "parameters.point.set",
+          inspect_color_value: "parameters.color.inspect", set_color_value: "parameters.color.set",
         };
         if (!args.action || !commands[args.action]) return invalidAction(args.action);
         if (args.action === "inspect_keyframe") {
@@ -645,6 +685,33 @@ export function getUxpAdvancedWorkflowTools(bridge: UxpWebSocketBridge) {
               point: snapshot.point,
             },
             confirmSetPoint: args.confirm_set_point,
+            ...operation(args),
+          });
+        }
+        if (args.action === "inspect_color_value") {
+          return invoke(bridge, commands[args.action], compact({
+            mediaType: args.media_type, trackIndex: args.track_index, clipIndex: args.clip_index,
+            componentIndex: args.component_index, paramIndex: args.param_index,
+            expectedComponentId: args.expected_component_id, expectedParamName: args.expected_param_name,
+          }));
+        }
+        if (args.action === "set_color_value") {
+          const raw = args.expected_color_snapshot;
+          const snapshot = raw && typeof raw === "object" && !Array.isArray(raw) ? raw as Record<string, unknown> : null;
+          if (!snapshot) return { success: false, error: "set_color_value requires expected_color_snapshot from inspect_color_value" };
+          return invoke(bridge, commands[args.action], {
+            mediaType: args.media_type, trackIndex: args.track_index, clipIndex: args.clip_index,
+            componentIndex: args.component_index, paramIndex: args.param_index,
+            expectedComponentId: args.expected_component_id, expectedParamName: args.expected_param_name,
+            color: args.color,
+            expectedSnapshot: {
+              projectId: snapshot.project_id, sequenceId: snapshot.sequence_id, mediaType: snapshot.media_type,
+              trackIndex: snapshot.track_index, clipIndex: snapshot.clip_index, componentIndex: snapshot.component_index,
+              componentId: snapshot.component_id, paramIndex: snapshot.param_index, paramName: snapshot.param_name,
+              timeVarying: snapshot.time_varying,
+              color: snapshot.color,
+            },
+            confirmSetColor: args.confirm_set_color,
             ...operation(args),
           });
         }
