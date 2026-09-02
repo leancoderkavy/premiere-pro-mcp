@@ -10,6 +10,15 @@ const DATA_DESCRIPTOR_SIGNATURE = 0x08074b50;
 const MAX_ZIP32_BYTES = 0xffff_ffff;
 const MAX_CENTRAL_DIRECTORY_BYTES = 64 * 1024 * 1024;
 const MAX_ENTRIES = 100_000;
+const ZIP_FLAG_ENCRYPTED = 0x0001;
+const ZIP_FLAG_MAXIMUM_COMPRESSION = 0x0002;
+const ZIP_FLAG_FAST_COMPRESSION = 0x0004;
+const ZIP_FLAG_DATA_DESCRIPTOR = 0x0008;
+const ZIP_FLAG_STRONG_ENCRYPTION = 0x0040;
+const ZIP_FLAG_UTF8 = 0x0800;
+const ZIP_FLAG_CENTRAL_DIRECTORY_ENCRYPTION = 0x2000;
+const ENCRYPTED_ENTRY_FLAGS = ZIP_FLAG_ENCRYPTED | ZIP_FLAG_STRONG_ENCRYPTION | ZIP_FLAG_CENTRAL_DIRECTORY_ENCRYPTION;
+const SUPPORTED_GENERAL_PURPOSE_FLAGS = ZIP_FLAG_MAXIMUM_COMPRESSION | ZIP_FLAG_FAST_COMPRESSION | ZIP_FLAG_DATA_DESCRIPTOR | ZIP_FLAG_UTF8;
 const CRC32_TABLE = Uint32Array.from({ length: 256 }, (_, index) => {
   let value = index;
   for (let bit = 0; bit < 8; bit += 1) value = (value >>> 1) ^ (value & 1 ? 0xedb8_8320 : 0);
@@ -104,8 +113,11 @@ function validateArchiveEntries(entries) {
   const names = new Set();
   let directories = 0;
   for (const entry of entries) {
-    if (entry.flags & 0x1 || entry.flags & 0x40 || entry.flags & 0x2000) {
+    if (entry.flags & ENCRYPTED_ENTRY_FLAGS) {
       throw archiveError("CCX archive entries must not be encrypted");
+    }
+    if (entry.flags & ~SUPPORTED_GENERAL_PURPOSE_FLAGS) {
+      throw archiveError("CCX archive entries use unsupported ZIP flags");
     }
     if (entry.method !== 0 && entry.method !== 8) {
       throw archiveError("CCX archive entries must use stored or deflate compression");
@@ -169,7 +181,7 @@ async function localDataRangeFromHandle(handle, entry, maximumOffset) {
   const localCrc32 = local.readUInt32LE(14);
   const localCompressedBytes = local.readUInt32LE(18);
   const localUncompressedBytes = local.readUInt32LE(22);
-  const hasDataDescriptor = Boolean(entry.flags & 0x8);
+  const hasDataDescriptor = Boolean(entry.flags & ZIP_FLAG_DATA_DESCRIPTOR);
   const hasInconsistentDeclaredMetadata = hasDataDescriptor
     ? (localCrc32 !== 0 && localCrc32 !== entry.crc32) ||
       (localCompressedBytes !== 0 && localCompressedBytes !== entry.compressedBytes) ||
