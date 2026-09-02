@@ -129,8 +129,13 @@ describe("Claude distributions", () => {
       sensitive: true,
       required: true,
     });
+    expect(manifest.user_config.premiere_mcp_protocol_mode).toMatchObject({
+      type: "string",
+      required: false,
+    });
     expect(manifest.server.mcp_config.env).toEqual({
       PREMIERE_UXP_TOKEN: "${user_config.premiere_uxp_token}",
+      PREMIERE_MCP_PROTOCOL_MODE: "${user_config.premiere_mcp_protocol_mode}",
     });
   });
 });

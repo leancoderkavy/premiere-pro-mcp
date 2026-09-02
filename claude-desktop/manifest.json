@@ -24,7 +24,8 @@
       "command": "node",
       "args": ["${__dirname}/server/dist/index.js"],
       "env": {
-        "PREMIERE_UXP_TOKEN": "${user_config.premiere_uxp_token}"
+        "PREMIERE_UXP_TOKEN": "${user_config.premiere_uxp_token}",
+        "PREMIERE_MCP_PROTOCOL_MODE": "${user_config.premiere_mcp_protocol_mode}"
       }
     }
   },
@@ -35,6 +36,12 @@
       "description": "Shared secret used to authenticate the local Premiere UXP bridge. Use the same value in the Premiere panel (minimum 16 characters).",
       "sensitive": true,
       "required": true
+    },
+    "premiere_mcp_protocol_mode": {
+      "type": "string",
+      "title": "MCP protocol mode",
+      "description": "Leave blank or use auto for modern MCP negotiation. Set legacy only if Claude Desktop support directs you to bypass server/discover negotiation.",
+      "required": false
     }
   },
   "tools_generated": true,

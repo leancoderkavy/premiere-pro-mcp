@@ -76,6 +76,16 @@ export function validateClaudeManifest(manifest, packageJson) {
       "${user_config.premiere_uxp_token}",
     "Claude bundle must map the configured Premiere UXP token into the server environment",
   );
+  const protocolModeConfig = manifest.user_config?.premiere_mcp_protocol_mode;
+  assert(
+    protocolModeConfig?.type === "string" && protocolModeConfig?.required === false,
+    "Claude bundle must expose an optional MCP protocol-mode fallback configuration",
+  );
+  assert(
+    manifest.server?.mcp_config?.env?.PREMIERE_MCP_PROTOCOL_MODE ===
+      "${user_config.premiere_mcp_protocol_mode}",
+    "Claude bundle must map the configured MCP protocol mode into the server environment",
+  );
   assert(
     Array.isArray(manifest.compatibility?.platforms) &&
       manifest.compatibility.platforms.length === 2 &&

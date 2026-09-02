@@ -11,7 +11,7 @@ This repository targets the current Model Context Protocol revision, `2026-07-28
 | Stateless protocol core | Implemented | HTTP uses `createMcpHandler`; every modern request receives a fresh MCP server instance and can land on any process instance. |
 | `server/discover` | Implemented | HTTP and stdio use the v2 serving entries and advertise `2026-07-28`; modern clients can probe before selecting an era. |
 | Per-request `_meta` envelope | Implemented | Validated and exposed by the SDK on modern calls; no hidden MCP session state is required. |
-| Dual-era serving | Implemented | One factory serves modern and legacy clients over both Streamable HTTP and stdio. |
+| Dual-era serving | Implemented | One factory serves modern and legacy clients over both Streamable HTTP and stdio. For a stdio client that cannot complete `server/discover`, the explicit `PREMIERE_MCP_PROTOCOL_MODE=legacy` fallback serves the legacy initialization handshake only. |
 | `MCP-Protocol-Version`, `Mcp-Method`, and `Mcp-Name` routing headers | Implemented | The modern HTTP entry validates required headers and agreement with the JSON-RPC body before dispatch. |
 | `Mcp-Param-*` schema headers | Available | The v2 entry validates parameters declared with `x-mcp-header`; no current Premiere tool duplicates an argument into a routing header. |
 | Cacheable list/read results | Implemented | `tools/list` is private for 30 seconds; `prompts/list` is public for 5 minutes; `resources/list` is private for 1 minute; live `resources/read` results are private and uncached. |
