@@ -23,6 +23,7 @@ describe("Adobe Premiere Pro 26.3 UXP coverage", () => {
       "project-sequence-create-preset",
       "track-rename",
       "subclip-create",
+      "single-source-silence-stringout",
       "marker-list-with-guid",
       "source-monitor-set-position",
       "aaf-export",
@@ -70,11 +71,11 @@ describe("Adobe Premiere Pro 26.3 UXP coverage", () => {
   it("keeps unimplemented 26.3 work visibly planned", () => {
     const report = buildAdobeUxpCoverageReport();
     expect(report.summary).toEqual({
-      total: 47,
-      current: 44,
+      total: 48,
+      current: 45,
       planned: 3,
-      implemented: 44,
-      committedUnverified: 7,
+      implemented: 45,
+      committedUnverified: 8,
       automatedContractVerified: 37,
       liveHostVerified: 0,
     });
@@ -98,9 +99,9 @@ describe("Adobe Premiere Pro 26.3 UXP coverage", () => {
   it("surfaces the baseline in the platform capability report", () => {
     const report = buildPlatformCapabilityReport(resolveCapabilities("inspect"), "win32");
     expect(report.backends.uxp.apiCoverage.summary).toMatchObject({
-      current: 44,
+      current: 45,
       planned: 3,
-      committedUnverified: 7,
+      committedUnverified: 8,
     });
   });
 });

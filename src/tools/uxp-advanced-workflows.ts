@@ -1,4 +1,5 @@
 import type { UxpWebSocketBridge } from "../bridge/uxp-websocket-bridge.js";
+import { planDerivedSilenceRemoval } from "./silence-removal.js";
 
 const WAIT_RESPONSE_BUFFER_MS = 5_000;
 
@@ -153,6 +154,45 @@ export function getUxpAdvancedWorkflowTools(bridge: UxpWebSocketBridge) {
         ...compact({ sequenceId: args.sequence_id, offsetSeconds: args.offset_seconds, namePrefix: args.name_prefix, comments: args.comments, markerType: args.marker_type }),
         ...operation(args),
       }),
+    },
+
+    create_silence_cut_source_stringout_uxp: {
+      description: "Create a new single-source rough-cut stringout from reviewed silence ranges using documented Premiere 26.3+ hard-bounded linked A/V subclips. It does not preserve or modify an existing edited timeline.",
+      parameters: {
+        type: "object" as const, additionalProperties: false,
+        properties: {
+          source_project_item_id: projectItemId,
+          sequence_name: { type: "string", minLength: 1, maxLength: 255 },
+          duration_seconds: { type: "number", exclusiveMinimum: 0, maximum: 86400 },
+          frame_rate: { type: "number", exclusiveMinimum: 0, maximum: 240 },
+          silence_ranges: { type: "array", minItems: 1, maxItems: 512, items: { type: "object", additionalProperties: false, properties: {
+            start_seconds: { type: "number", minimum: 0, maximum: 86400 }, end_seconds: { type: "number", minimum: 0, maximum: 86400 },
+          }, required: ["start_seconds", "end_seconds"] } },
+          keep_handle_frames: { type: "integer", minimum: 0, maximum: 2400 },
+          maximum_removals: { type: "integer", minimum: 1, maximum: 512 },
+          target_bin_id: projectItemId,
+          confirm_non_undoable: { type: "boolean", description: "Required true. Derived sequence creation is a direct host call and partial generated artifacts can remain." },
+          operation_id: operationId,
+        },
+        required: ["source_project_item_id", "sequence_name", "duration_seconds", "frame_rate", "silence_ranges", "confirm_non_undoable"],
+      },
+      handler: async (args: AdvancedArgs) => {
+        try {
+          const plan = planDerivedSilenceRemoval({
+            durationSeconds: Number(args.duration_seconds), frameRate: Number(args.frame_rate),
+            silenceRanges: (args.silence_ranges as Array<{ start_seconds: number; end_seconds: number }>).map((range) => ({ startSeconds: range.start_seconds, endSeconds: range.end_seconds })),
+            keepHandleFrames: args.keep_handle_frames as number | undefined,
+            maximumRemovals: args.maximum_removals as number | undefined,
+          });
+          if (plan.keepRanges.length > 64) return { success: false, error: "Source stringout requires more than 64 keep segments; narrow the reviewed plan." };
+          const keepRanges = plan.keepRanges.map((range) => ({ ...range, startSeconds: range.startFrame / plan.frameRate, endSeconds: range.endFrame / plan.frameRate }));
+          const result = await invoke(bridge, "silence.deriveSequence", {
+            sourceProjectItemId: args.source_project_item_id, name: args.sequence_name, keepRanges,
+            ...compact({ targetBinId: args.target_bin_id, confirmNonUndoable: args.confirm_non_undoable }), ...operation(args),
+          });
+          return "data" in result ? { ...result, data: { ...result.data, plan } } : result;
+        } catch (error) { return { success: false, error: error instanceof Error ? error.message : String(error) }; }
+      },
     },
 
     organize_project_items_uxp: {

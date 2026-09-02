@@ -51,6 +51,7 @@
       "timeline.mogrtLibrary": { destructive: true, undoable: false, minHostVersion: "25.6.0", probe: canUseMogrtLibrary, handler: insertMogrtLibrary },
       "sequences.inspect": { readOnly: true, minHostVersion: "25.6.0", probe: canUseSequences, handler: inspectSequences },
       "sequences.createFromMedia": { destructive: true, undoable: false, minHostVersion: "25.6.0", probe: canUseSequences, handler: createSequenceFromMedia },
+      "silence.deriveSequence": { destructive: true, undoable: false, targetCapabilityProbe: true, minHostVersion: "26.3.0", probe: canDeriveSilenceSequence, handler: deriveSilenceSequence },
       "sequences.clone": { destructive: true, undoable: true, targetCapabilityProbe: true, minHostVersion: "25.6.0", probe: canUseSequences, handler: cloneSequence },
       "sequences.subsequence": { destructive: true, undoable: false, targetCapabilityProbe: true, minHostVersion: "25.6.0", probe: canUseSequences, handler: createSubsequence },
       "sequences.activate": { idempotent: true, targetCapabilityProbe: true, minHostVersion: "25.6.0", probe: canUseSequences, handler: activateSequence },
@@ -846,6 +847,63 @@
       return directMutationResult(false, { created: true, sequence: await sequenceSnapshot(sequence) }, "create_sequence_host_return");
     }
 
+    async function deriveSilenceSequence(args) {
+      assertObject(args); assertOnlyKeys(args, ["sourceProjectItemId", "name", "keepRanges", "targetBinId", "confirmNonUndoable", "operationId"]);
+      requireConfirmation(args.confirmNonUndoable, "Derived silence removal creates subclips and a new sequence; the original source is not changed");
+      if (!Array.isArray(args.keepRanges) || !args.keepRanges.length || args.keepRanges.length > 64) throw commandError("UXP_INVALID_ARGUMENT", "keepRanges must contain 1-64 ranges");
+      const ranges = args.keepRanges.map((range, index) => {
+        assertObject(range); assertOnlyKeys(range, ["startSeconds", "endSeconds", "startFrame", "endFrame"]);
+        const startSeconds = finiteNumber(range.startSeconds, "keepRanges[" + index + "].startSeconds", 0, 86400);
+        const endSeconds = finiteNumber(range.endSeconds, "keepRanges[" + index + "].endSeconds", 0, 86400);
+        if (endSeconds <= startSeconds) throw commandError("UXP_INVALID_ARGUMENT", "keepRanges must have positive duration");
+        if (index && startSeconds < args.keepRanges[index - 1].endSeconds) throw commandError("UXP_INVALID_ARGUMENT", "keepRanges must be ordered and non-overlapping");
+        const startFrame = boundedInt(range.startFrame, "startFrame", 0, 100000000), endFrame = boundedInt(range.endFrame, "endFrame", 1, 100000000);
+        if (endFrame <= startFrame) throw commandError("UXP_INVALID_ARGUMENT", "keepRanges frame bounds must have positive duration");
+        return { startSeconds, endSeconds, startFrame, endFrame };
+      });
+      const project = await activeProject(true), source = asClip(await findProjectItem(project, args.sourceProjectItemId), "sourceProjectItemId");
+      if (typeof source.createSubClipAction !== "function") throw commandError("UXP_COMMAND_UNAVAILABLE", "Premiere cannot create documented subclips for silence removal");
+      const parent = asFolder(await source.getParentBin(), "source parent");
+      const target = args.targetBinId ? await resolveFolder(project, args.targetBinId, "targetBinId") : undefined;
+      const name = boundedString(args.name, "name", 255), prefix = name + " Keep";
+      return withAppendLock(appendLockKey(project, "bin", await projectItemId(parent)), async () => {
+      const lockedBefore = Array.from(await parent.getItems() || []), beforeIds = new Set(); for (const item of lockedBefore) beforeIds.add(await projectItemId(item));
+      let subclipCommitError = false, mutationAttempted = false;
+      try {
+        project.lockedAccess(() => {
+          const actions = ranges.map((range, index) => source.createSubClipAction(prefix + " " + (index + 1), tick(range.startSeconds, "startSeconds"), tick(range.endSeconds, "endSeconds"), true, { takeVideo: true, takeAudio: true }));
+          mutationAttempted = true;
+          commitActions(project, "Create silence-removal subclips", actions);
+        });
+      } catch (error) { if (!mutationAttempted) throw error; subclipCommitError = true; }
+      let createdItems;
+      try {
+        const after = Array.from(await parent.getItems() || []), added = [];
+        for (const item of after) if (!beforeIds.has(await projectItemId(item))) added.push(item);
+        createdItems = ranges.map((_, index) => added.find((item) => String(item.name || "") === prefix + " " + (index + 1))).filter(Boolean);
+      } catch (_) {
+        return directMutationResult(false, { partial: true, createdSubclips: [], sequence: null, originalChanged: false }, "derived_subclip_readback_failed");
+      }
+      if (subclipCommitError || createdItems.length !== ranges.length) return directMutationResult(false, { partial: true, createdSubclips: await Promise.all(createdItems.map(projectItemSnapshot)), sequence: null, originalChanged: false }, subclipCommitError ? "derived_subclip_partial_transaction_receipt" : "derived_subclip_count_readback");
+      let sequence;
+      try { sequence = await project.createSequenceFromMedia(name, [createdItems[0]], target); } catch (_) {}
+      if (!sequence) return directMutationResult(false, { partial: true, createdSubclips: await Promise.all(createdItems.map(projectItemSnapshot)), sequence: null, originalChanged: false }, "derived_sequence_host_return");
+      const inserted = [await projectItemId(createdItems[0])];
+      try {
+        const editor = ppro.SequenceEditor.getEditor(sequence);
+        if (!editor || typeof editor.createInsertProjectItemAction !== "function") throw new Error("editor unavailable");
+        let offset = ranges[0].endSeconds - ranges[0].startSeconds;
+        for (let index = 1; index < createdItems.length; index++) {
+          project.lockedAccess(() => commitActions(project, "Insert silence-removal segment", [editor.createInsertProjectItemAction(createdItems[index], tick(offset, "timeline offset"), 0, 0, false)]));
+          inserted.push(await projectItemId(createdItems[index])); offset += ranges[index].endSeconds - ranges[index].startSeconds;
+        }
+      } catch (_) {
+        return directMutationResult(false, { partial: true, createdSubclips: await Promise.all(createdItems.map(projectItemSnapshot)), sequence: await sequenceSnapshot(sequence), insertedProjectItemIds: inserted, originalChanged: false }, "derived_sequence_partial_insert_receipt");
+      }
+      return directMutationResult(false, { created: true, partial: false, createdSubclips: await Promise.all(createdItems.map(projectItemSnapshot)), sequence: await sequenceSnapshot(sequence), insertedProjectItemIds: inserted, originalChanged: false }, "derived_sequence_structure_unverified");
+      });
+    }
+
     async function cloneSequence(args) {
       assertObject(args); assertOnlyKeys(args, ["sequenceId", "operationId"]);
       const project = await activeProject(true), sequence = await resolveSequence(project, args.sequenceId);
@@ -1108,6 +1166,14 @@
     function canUseMogrtPath() { return canUseSequenceEditor(); }
     function canUseMogrtLibrary() { return canUseSequenceEditor(); }
     function canUseSequences() { return canInspectProject(); }
+    async function canDeriveSilenceSequence() {
+      if (!canUseSequences() || !canUseSequenceEditor() || !ppro.ClipProjectItem || typeof ppro.ClipProjectItem.cast !== "function"
+        || !ppro.FolderItem || typeof ppro.FolderItem.cast !== "function" || !ppro.TickTime || typeof ppro.TickTime.createWithSeconds !== "function") return false;
+      const project = await ppro.Project.getActiveProject();
+      if (!project) return true;
+      return typeof project.lockedAccess === "function" && typeof project.executeTransaction === "function"
+        && typeof project.getRootItem === "function" && typeof project.createSequenceFromMedia === "function";
+    }
     async function canCloseSequence() {
       if (!canInspectProject()) return false;
       const project = await ppro.Project.getActiveProject();

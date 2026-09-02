@@ -6,6 +6,7 @@ const ADVANCED_WORKFLOW_TOOLS = [
   "inspect_project_selection_uxp",
   "manage_markers_uxp",
   "apply_beat_markers_uxp",
+  "create_silence_cut_source_stringout_uxp",
   "organize_project_items_uxp",
   "manage_sequence_settings_uxp",
   "import_project_media_uxp",
@@ -17,17 +18,17 @@ const ADVANCED_WORKFLOW_TOOLS = [
 ] as const;
 
 describe("advanced stable UXP workflow MCP catalog", () => {
-  it("publishes eleven advanced tools with closed, bounded schemas", () => {
+  it("publishes twelve advanced tools with closed, bounded schemas", () => {
     const bridge = { request: vi.fn(), getState: vi.fn() } as unknown as UxpWebSocketBridge;
     const tools = getUxpTools(bridge) as Record<string, { parameters: Record<string, unknown> }>;
 
     expect(Object.keys(tools)).toEqual(expect.arrayContaining(ADVANCED_WORKFLOW_TOOLS));
-    expect(ADVANCED_WORKFLOW_TOOLS).toHaveLength(11);
+    expect(ADVANCED_WORKFLOW_TOOLS).toHaveLength(12);
     for (const name of ADVANCED_WORKFLOW_TOOLS) {
       expect(tools[name].parameters).toMatchObject({
         type: "object",
         additionalProperties: false,
-        required: expect.arrayContaining([name === "apply_beat_markers_uxp" ? "beat_times_seconds" : "action"]),
+        required: expect.arrayContaining([name === "apply_beat_markers_uxp" ? "beat_times_seconds" : name === "create_silence_cut_source_stringout_uxp" ? "source_project_item_id" : "action"]),
       });
     }
     expect(tools.inspect_project_selection_uxp.parameters).toMatchObject({
@@ -62,6 +63,11 @@ describe("advanced stable UXP workflow MCP catalog", () => {
     await tools.apply_beat_markers_uxp.handler({
       beat_times_seconds: [0.5, 1, 1.5], sequence_id: "sequence-1", offset_seconds: 2,
       name_prefix: "Downbeat", comments: "Detected beat grid", operation_id: "beat-grid-op",
+    });
+    await tools.create_silence_cut_source_stringout_uxp.handler({
+      source_project_item_id: "clip-1", sequence_name: "Interview Tight", duration_seconds: 10,
+      frame_rate: 30, silence_ranges: [{ start_seconds: 2, end_seconds: 4 }],
+      keep_handle_frames: 0, confirm_non_undoable: true, operation_id: "silence-op",
     });
     await tools.organize_project_items_uxp.handler({
       action: "create_smart_bin", parent_bin_id: "bin-1", name: "Selects",
@@ -118,6 +124,14 @@ describe("advanced stable UXP workflow MCP catalog", () => {
       ["markers.addBeatGrid", {
         beatTimesSeconds: [0.5, 1, 1.5], sequenceId: "sequence-1", offsetSeconds: 2,
         namePrefix: "Downbeat", comments: "Detected beat grid", operationId: "beat-grid-op",
+      }],
+      ["silence.deriveSequence", {
+        sourceProjectItemId: "clip-1", name: "Interview Tight",
+        keepRanges: [
+          { startFrame: 0, endFrame: 60, startSeconds: 0, endSeconds: 2 },
+          { startFrame: 120, endFrame: 300, startSeconds: 4, endSeconds: 10 },
+        ],
+        confirmNonUndoable: true, operationId: "silence-op",
       }],
       ["bins.createSmart", {
         parentBinId: "bin-1", name: "Selects", searchQuery: "rating:5", operationId: "bin-op",

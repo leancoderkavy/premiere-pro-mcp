@@ -25,6 +25,7 @@ type MutableItem = {
   createSmartBinAction?: ReturnType<typeof vi.fn>;
   createMoveItemAction?: ReturnType<typeof vi.fn>;
   createRemoveItemAction?: ReturnType<typeof vi.fn>;
+  createSubClipAction?: ReturnType<typeof vi.fn>;
 };
 
 function advancedHost() {
@@ -57,6 +58,12 @@ function advancedHost() {
       } }));
       item.createRemoveItemAction = vi.fn((child: MutableItem) => ({ apply: () => {
         item.children = item.children?.filter((value) => value !== child);
+      } }));
+    }
+    if (options.isClip) {
+      item.createSubClipAction = vi.fn((name: string) => ({ apply: () => {
+        const created = makeItem(`subclip-${nextItem++}`, name, { isClip: true, parent: item.parent });
+        item.parent?.children?.push(created);
       } }));
     }
     return item;
@@ -326,6 +333,87 @@ describe("advanced stable Premiere UXP workflows", () => {
     await expect(value.registry.dispatch("bins.create", {
       parentBinId: "bin-1", name: "Selects", operationId: "bin-create",
     })).resolves.toMatchObject({ created: true, outcome: "verified", item: { name: "Selects" } });
+  });
+
+  it("creates a single-source silence-cut stringout without mutating an existing sequence", async () => {
+    const value = advancedHost();
+    await expect(value.registry.dispatch("silence.deriveSequence", {
+      sourceProjectItemId: "clip-1", name: "Interview Tight", confirmNonUndoable: true,
+      operationId: "silence-stringout", keepRanges: [
+        { startSeconds: 0, endSeconds: 2, startFrame: 0, endFrame: 60 },
+        { startSeconds: 4, endSeconds: 10, startFrame: 120, endFrame: 300 },
+      ],
+    })).resolves.toMatchObject({
+      created: true, partial: false, outcome: "committed_unverified", originalChanged: false,
+      createdSubclips: [{ name: "Interview Tight Keep 1" }, { name: "Interview Tight Keep 2" }],
+      insertedProjectItemIds: expect.arrayContaining([expect.stringMatching(/^subclip-/)]),
+      sequence: { name: "Interview Tight" },
+    });
+    expect(value.clip.createSubClipAction).toHaveBeenCalledTimes(2);
+    expect(value.project.createSequenceFromMedia).toHaveBeenCalledTimes(1);
+    expect(value.editor.createInsertProjectItemAction).toHaveBeenCalledTimes(1);
+    expect(value.sequence.createCloneAction).not.toHaveBeenCalled();
+  });
+
+  it("caches a partial subclip transaction receipt so retry cannot duplicate artifacts", async () => {
+    const value = advancedHost();
+    value.clip.createSubClipAction
+      .mockImplementationOnce((name: string) => ({ apply: () => {
+        const created = { ...value.clip, id: "partial-subclip", name, getId: vi.fn(async () => "partial-subclip") };
+        value.bin.children?.push(created);
+      } }))
+      .mockImplementationOnce(() => ({ apply: () => { throw new Error("host rejected second action"); } }));
+    const args = {
+      sourceProjectItemId: "clip-1", name: "Partial Tight", confirmNonUndoable: true, operationId: "partial-stringout",
+      keepRanges: [
+        { startSeconds: 0, endSeconds: 2, startFrame: 0, endFrame: 60 },
+        { startSeconds: 4, endSeconds: 10, startFrame: 120, endFrame: 300 },
+      ],
+    };
+    await expect(value.registry.dispatch("silence.deriveSequence", args)).resolves.toMatchObject({
+      partial: true, outcome: "committed_unverified", sequence: null,
+      verificationBoundary: "derived_subclip_partial_transaction_receipt",
+    });
+    await expect(value.registry.dispatch("silence.deriveSequence", args)).resolves.toMatchObject({ partial: true, replayed: true });
+    expect(value.clip.createSubClipAction).toHaveBeenCalledTimes(2);
+    expect(value.project.createSequenceFromMedia).not.toHaveBeenCalled();
+  });
+
+  it("resolves the destination before creating subclips", async () => {
+    const value = advancedHost();
+    await expect(value.registry.dispatch("silence.deriveSequence", {
+      sourceProjectItemId: "clip-1", targetBinId: "missing-bin", name: "Invalid Target",
+      confirmNonUndoable: true, operationId: "invalid-target", keepRanges: [
+        { startSeconds: 0, endSeconds: 2, startFrame: 0, endFrame: 60 },
+      ],
+    })).rejects.toThrow("projectItemId was not found");
+    expect(value.clip.createSubClipAction).not.toHaveBeenCalled();
+    expect(value.project.createSequenceFromMedia).not.toHaveBeenCalled();
+  });
+
+  it("does not cache failures that occur before a subclip transaction is attempted", async () => {
+    const value = advancedHost();
+    const implementation = value.clip.createSubClipAction.getMockImplementation();
+    value.clip.createSubClipAction.mockImplementationOnce(() => { throw new Error("cannot construct action"); });
+    const args = {
+      sourceProjectItemId: "clip-1", name: "Retry Tight", confirmNonUndoable: true,
+      operationId: "pre-transaction-retry", keepRanges: [
+        { startSeconds: 0, endSeconds: 2, startFrame: 0, endFrame: 60 },
+      ],
+    };
+    await expect(value.registry.dispatch("silence.deriveSequence", args)).rejects.toThrow("cannot construct action");
+    value.clip.createSubClipAction.mockImplementation(implementation!);
+    await expect(value.registry.dispatch("silence.deriveSequence", args)).resolves.toMatchObject({
+      created: true, partial: false,
+    });
+    expect(value.project.createSequenceFromMedia).toHaveBeenCalledTimes(1);
+  });
+
+  it("fails the silence-stringout capability probe when required host primitives are absent", async () => {
+    const value = advancedHost();
+    value.ppro.TickTime.createWithSeconds = undefined;
+    const capabilities = await value.registry.capabilities();
+    expect(capabilities.commands["silence.deriveSequence"]).toMatchObject({ supported: false });
   });
 
   it("rejects invalid beat grids before mutation and reports contradictory readback as unverified", async () => {
