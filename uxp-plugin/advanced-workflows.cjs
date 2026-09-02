@@ -14,6 +14,7 @@
   const MAX_BIN_CHILDREN = 1024;
   const MAX_TIMELINE_TRACKS = 64;
   const MAX_TIMELINE_ITEMS = 512;
+  const MAX_DISPLAY_FORMAT_CODE = 2147483647;
 
   function createAdvancedWorkflowDefinitions(deps) {
     const ppro = deps.ppro, Protocol = deps.Protocol, workspace = deps.workspace, events = deps.events;
@@ -36,6 +37,8 @@
       "bins.remove": { destructive: true, undoable: true, targetCapabilityProbe: true, minHostVersion: "25.6.0", probe: canUseBins, handler: removeProjectItem },
       "sequenceSettings.get": { readOnly: true, targetCapabilityProbe: true, minHostVersion: "26.2.0", probe: canUseSequenceSettings, handler: getSequenceSettings },
       "sequenceSettings.update": { destructive: true, undoable: true, targetCapabilityProbe: true, minHostVersion: "26.2.0", probe: canUseSequenceSettings, handler: updateSequenceSettings },
+      "sequence.displayFormat.inspect": { readOnly: true, targetCapabilityProbe: true, minHostVersion: "26.3.0", probe: canUseSequenceDisplayFormats, handler: inspectSequenceDisplayFormats },
+      "sequence.displayFormat.update": { destructive: true, undoable: true, idempotent: true, targetCapabilityProbe: true, minHostVersion: "26.3.0", probe: canUseSequenceDisplayFormats, handler: updateSequenceDisplayFormats },
       "project.import": { destructive: true, undoable: false, requiresWorkspace: true, minHostVersion: "25.6.0", probe: canImportProjectMedia, handler: importProjectMedia },
       "parameters.inspect": { readOnly: true, targetCapabilityProbe: true, minHostVersion: "25.6.0", probe: canUseParameters, handler: inspectParameter },
       "parameters.set": { destructive: true, undoable: true, targetCapabilityProbe: true, minHostVersion: "25.6.0", probe: canUseParameters, handler: setParameterValue },
@@ -721,6 +724,65 @@
       return mutationResult(verified, { updated: true, sequence: await sequenceSnapshot(sequence), before, after, changedFields: Object.keys(updates) }, "sequence_settings_readback", "Update sequence settings");
     }
 
+    async function inspectSequenceDisplayFormats(args) {
+      assertObject(args); assertOnlyKeys(args, ["sequenceId"]);
+      const project = await activeProject(false), sequence = await resolveSequence(project, args.sequenceId);
+      const state = await sequenceDisplayFormatState(await sequence.getSettings());
+      return {
+        sequence: await sequenceSnapshot(sequence),
+        displayFormats: state.values,
+        supportedDisplayFormats: supportedDisplayFormats(),
+        verificationBoundary: "sequence_display_format_snapshot"
+      };
+    }
+
+    async function updateSequenceDisplayFormats(args) {
+      const input = validateSequenceDisplayFormatUpdate(args), project = await activeProject(true);
+      return withAppendLock(appendLockKey(project, "sequence-display-format", input.expectedSequenceGuid), async () => {
+        const sequence = await resolveSequence(project, input.sequenceId);
+        assertExpected(guidString(sequence.guid), input.expectedSequenceGuid, "UXP_STALE_SEQUENCE", "Sequence GUID");
+        const supported = supportedDisplayFormats(), settings = await sequence.getSettings(), beforeState = await sequenceDisplayFormatState(settings);
+        assertExpectedNumber(beforeState.values.audioDisplayFormat, input.expectedDisplayFormats.audioDisplayFormat, "UXP_STALE_SEQUENCE_DISPLAY_FORMAT", "Audio display format");
+        assertExpectedNumber(beforeState.values.videoDisplayFormat, input.expectedDisplayFormats.videoDisplayFormat, "UXP_STALE_SEQUENCE_DISPLAY_FORMAT", "Video display format");
+        assertRequestedDisplayFormatsSupported(input.updates, supported);
+        const changedFields = Object.keys(input.updates);
+        if (changedFields.every((key) => beforeState.values[key] === input.updates[key])) {
+          return sequenceDisplayFormatNoop({
+            updated: false,
+            unchanged: true,
+            sequence: await sequenceSnapshot(sequence),
+            before: beforeState.values,
+            after: beforeState.values,
+            supportedDisplayFormats: supported,
+            changedFields
+          }, "sequence_display_format_noop_readback");
+        }
+        if (input.updates.audioDisplayFormat !== undefined) {
+          if (typeof settings.setAudioDisplayFormat !== "function") throw commandError("UXP_COMMAND_UNAVAILABLE", "Premiere does not expose audio display-format updates");
+          beforeState.audioDisplay.type = input.updates.audioDisplayFormat;
+          if (await settings.setAudioDisplayFormat(beforeState.audioDisplay) === false) throw commandError("UXP_ACTION_REJECTED", "Premiere rejected the audio display format");
+        }
+        if (input.updates.videoDisplayFormat !== undefined) {
+          if (typeof settings.setVideoDisplayFormat !== "function") throw commandError("UXP_COMMAND_UNAVAILABLE", "Premiere does not expose video display-format updates");
+          beforeState.videoDisplay.type = input.updates.videoDisplayFormat;
+          if (await settings.setVideoDisplayFormat(beforeState.videoDisplay) === false) throw commandError("UXP_ACTION_REJECTED", "Premiere rejected the video display format");
+        }
+        project.lockedAccess(() => {
+          commitActions(project, "Update sequence display formats", [sequence.createSetSettingsAction(settings)]);
+        });
+        const afterState = await sequenceDisplayFormatState(await sequence.getSettings());
+        const verified = changedFields.every((key) => afterState.values[key] === input.updates[key]);
+        return sequenceDisplayFormatResult(verified, {
+          updated: true,
+          sequence: await sequenceSnapshot(sequence),
+          before: beforeState.values,
+          after: afterState.values,
+          supportedDisplayFormats: supported,
+          changedFields
+        }, "sequence_display_format_readback");
+      });
+    }
+
     async function importProjectMedia(args) {
       assertObject(args); assertOnlyKeys(args, ["mode", "paths", "projectPath", "sequenceIds", "aepPath", "compNames", "targetBinId", "suppressUI", "asNumberedStills", "confirmNonUndoable", "operationId"]);
       requireConfirmation(args.confirmNonUndoable, "Documented import APIs are direct host calls without an Action undo boundary");
@@ -1302,6 +1364,16 @@
         operation: operationSemantics({ mutatesProject: true, verificationStatus: verified ? "verified" : "not_verified", verificationBoundary: boundary, verificationEvidence: [{ type: boundary, verified }], undoSupported: true, undoLabel, transactionActionGroup: true, cancellationSupported: true }) };
     }
 
+    function sequenceDisplayFormatResult(verified, values, boundary) {
+      return { ...values, outcome: verified ? "verified" : "committed_unverified", verified, verificationBoundary: boundary,
+        operation: operationSemantics({ mutatesProject: true, verificationStatus: verified ? "verified" : "not_verified", verificationBoundary: boundary, verificationEvidence: [{ type: boundary, verified }], undoSupported: true, undoLabel: "Update sequence display formats", transactionActionGroup: true, cancellationSupported: false }) };
+    }
+
+    function sequenceDisplayFormatNoop(values, boundary) {
+      return { ...values, outcome: "verified", verified: true, verificationBoundary: boundary,
+        operation: operationSemantics({ mutatesProject: false, verificationStatus: "verified", verificationBoundary: boundary, verificationEvidence: [{ type: boundary, verified: true }], cancellationSupported: false }) };
+    }
+
     function verifiedNoopResult(values, boundary) {
       return { ...values, outcome: "verified", verified: true, verificationBoundary: boundary,
         operation: operationSemantics({ mutatesProject: false, verificationStatus: "verified", verificationBoundary: boundary, verificationEvidence: [{ type: boundary, verified: true }], cancellationSupported: true }) };
@@ -1362,6 +1434,93 @@
       }
     }
 
+    function displayFormatCode(value, label) {
+      const code = value && value.type;
+      if (!Number.isSafeInteger(code) || code < 0 || code > MAX_DISPLAY_FORMAT_CODE) {
+        throw commandError("UXP_INVALID_HOST_STATE", label + " did not return a bounded display-format code");
+      }
+      return code;
+    }
+
+    async function sequenceDisplayFormatState(settings) {
+      if (!settings || typeof settings.getAudioDisplayFormat !== "function" || typeof settings.getVideoDisplayFormat !== "function") {
+        throw commandError("UXP_COMMAND_UNAVAILABLE", "Premiere does not expose sequence audio/video display formats");
+      }
+      const audioDisplay = await settings.getAudioDisplayFormat(), videoDisplay = await settings.getVideoDisplayFormat();
+      return {
+        audioDisplay,
+        videoDisplay,
+        values: {
+          audioDisplayFormat: displayFormatCode(audioDisplay, "Audio display format"),
+          videoDisplayFormat: displayFormatCode(videoDisplay, "Video display format")
+        }
+      };
+    }
+
+    function supportedDisplayFormats() {
+      const settings = ppro.SequenceSettings;
+      if (!settings || (typeof settings !== "object" && typeof settings !== "function")) throw commandError("UXP_COMMAND_UNAVAILABLE", "Premiere does not expose SequenceSettings display-format constants");
+      const collect = function (keys, label) {
+        const values = [];
+        for (const key of keys) {
+          const code = settings[key];
+          if (!Number.isSafeInteger(code) || code < 0 || code > MAX_DISPLAY_FORMAT_CODE) continue;
+          values.push({ constant: key, code });
+        }
+        if (!values.length) throw commandError("UXP_COMMAND_UNAVAILABLE", "Premiere does not expose " + label + " display-format constants");
+        return values.sort((left, right) => left.constant.localeCompare(right.constant));
+      };
+      return {
+        audio: collect(["AUDIO_DISPLAY_FORMAT_SAMPLE_RATE", "AUDIO_DISPLAY_FORMAT_MILISECONDS"], "audio"),
+        video: collect(["VIDEO_DISPLAY_FORMAT_23976", "VIDEO_DISPLAY_FORMAT_25", "VIDEO_DISPLAY_FORMAT_2997", "VIDEO_DISPLAY_FORMAT_2997_NON_DROP", "VIDEO_DISPLAY_FORMAT_16mm", "VIDEO_DISPLAY_FORMAT_35mm", "VIDEO_DISPLAY_FORMAT_FRAMES"], "video")
+      };
+    }
+
+    function validateDisplayFormatCode(value, label) {
+      return boundedInt(value, label, 0, MAX_DISPLAY_FORMAT_CODE);
+    }
+
+    function validateExpectedDisplayFormats(value) {
+      assertObject(value); assertOnlyKeys(value, ["audioDisplayFormat", "videoDisplayFormat"]);
+      if (!Object.prototype.hasOwnProperty.call(value, "audioDisplayFormat") || !Object.prototype.hasOwnProperty.call(value, "videoDisplayFormat")) {
+        throw commandError("UXP_INVALID_ARGUMENT", "expectedDisplayFormats must include audioDisplayFormat and videoDisplayFormat");
+      }
+      return {
+        audioDisplayFormat: validateDisplayFormatCode(value.audioDisplayFormat, "expectedDisplayFormats.audioDisplayFormat"),
+        videoDisplayFormat: validateDisplayFormatCode(value.videoDisplayFormat, "expectedDisplayFormats.videoDisplayFormat")
+      };
+    }
+
+    function validateDisplayFormatUpdates(value) {
+      assertObject(value); assertOnlyKeys(value, ["audioDisplayFormat", "videoDisplayFormat"]);
+      const updates = {};
+      if (Object.prototype.hasOwnProperty.call(value, "audioDisplayFormat")) updates.audioDisplayFormat = validateDisplayFormatCode(value.audioDisplayFormat, "updates.audioDisplayFormat");
+      if (Object.prototype.hasOwnProperty.call(value, "videoDisplayFormat")) updates.videoDisplayFormat = validateDisplayFormatCode(value.videoDisplayFormat, "updates.videoDisplayFormat");
+      if (!Object.keys(updates).length) throw commandError("UXP_INVALID_ARGUMENT", "updates must include audioDisplayFormat or videoDisplayFormat");
+      return updates;
+    }
+
+    function validateSequenceDisplayFormatUpdate(args) {
+      assertObject(args); assertOnlyKeys(args, ["sequenceId", "expectedSequenceGuid", "expectedDisplayFormats", "updates", "operationId"]);
+      const expectedSequenceGuid = boundedString(args.expectedSequenceGuid, "expectedSequenceGuid", 128);
+      return {
+        sequenceId: args.sequenceId == null ? expectedSequenceGuid : boundedString(args.sequenceId, "sequenceId", 128),
+        expectedSequenceGuid,
+        expectedDisplayFormats: validateExpectedDisplayFormats(args.expectedDisplayFormats),
+        updates: validateDisplayFormatUpdates(args.updates)
+      };
+    }
+
+    function assertRequestedDisplayFormatsSupported(updates, supported) {
+      const audioCodes = new Set(supported.audio.map((value) => value.code)), videoCodes = new Set(supported.video.map((value) => value.code));
+      if (updates.audioDisplayFormat !== undefined && !audioCodes.has(updates.audioDisplayFormat)) {
+        throw commandError("UXP_INVALID_ARGUMENT", "updates.audioDisplayFormat is not advertised by this Premiere host");
+      }
+      if (updates.videoDisplayFormat !== undefined && !videoCodes.has(updates.videoDisplayFormat)) {
+        throw commandError("UXP_INVALID_ARGUMENT", "updates.videoDisplayFormat is not advertised by this Premiere host");
+      }
+    }
+
     function validateSettingsUpdates(value) {
       assertObject(value);
       const allowed = ["maximumBitDepth", "maxRenderQuality", "compositeInLinearColor", "audioSampleRate", "videoFrameRate", "videoFieldType", "videoPixelAspectRatio", "editingMode", "previewFileFormat", "previewCodec", "videoWidth", "videoHeight"];
@@ -1406,6 +1565,10 @@
     function canUseMarkers() { return canInspectProject() && !!(ppro.Markers && typeof ppro.Markers.getMarkers === "function"); }
     function canUseBins() { return canInspectProject() && !!(ppro.FolderItem && typeof ppro.FolderItem.cast === "function"); }
     function canUseSequenceSettings() { return canInspectProject(); }
+    function canUseSequenceDisplayFormats() {
+      try { return canUseSequenceSettings() && !!supportedDisplayFormats(); }
+      catch (_) { return false; }
+    }
     async function canImportProjectMedia() {
       if (!canInspectProject()) return false;
       const project = await ppro.Project.getActiveProject();

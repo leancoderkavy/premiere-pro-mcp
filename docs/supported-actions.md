@@ -13,8 +13,8 @@ source catalog may include unreleased actions.
 | Registered core actions | 328 | CEP/local server catalog; host and authority checks still apply |
 | Default-profile core actions | 326 | Advertised with `inspect,edit,export,filesystem` |
 | Restricted core actions | 2 | Require explicit `unsafe-script` authority |
-| Authenticated UXP additions | 64 | Advertised only while a compatible authenticated UXP panel is connected |
-| Default profile with UXP | 390 | 326 core plus 64 UXP tools |
+| Authenticated UXP additions | 65 | Advertised only while a compatible authenticated UXP panel is connected |
+| Default profile with UXP | 391 | 326 core plus 65 UXP tools |
 
 ## How to read support
 
@@ -416,6 +416,7 @@ authenticated and the connected host advertises the required command capabilitie
 | `manage_metadata_uxp` | Connected UXP | `get`, `update` | Read bounded project/XMP metadata or update either form together in one locked, undoable Premiere transaction with readback evidence. |
 | `manage_project_sessions_uxp` | Connected UXP | `list`, `validate`, `create`, `open`, `save`, `save_as`, `branch_copies`, `close` | List or explicitly create, open, save, branch, and close Premiere project sessions. Path writes stay inside the approved UXP workspace; Save As handle changes are read back and branch copies reopen the source after every copy. |
 | `manage_proxy_ingest_uxp` | Connected UXP | `inspect_proxy`, `attach_proxy`, `get_ingest`, `set_ingest` | Inspect or attach proxy/high-resolution media for one clip, or read/update project ingest state. Attach operations are non-undoable and workspace-contained. |
+| `manage_sequence_display_format_uxp` | Connected UXP | `inspect`, `update` | Inspect or update a sequence's native audio/video time-display formats. Updates require the exact inspected sequence GUID and complete display-format snapshot, serialize competing updates per sequence, commit one undoable UXP transaction, and verify native readback. Cancellation is not supported after dispatch. |
 | `manage_sequence_playhead_uxp` | Connected UXP | `inspect`, `set` | Inspect or set the active sequence player position through documented Premiere UXP APIs. Setting requires the sequence GUID and current position returned by inspect, serializes competing requests for that sequence, and verifies native readback; it changes player state only and makes no project-save or Undo claim. |
 | `manage_sequence_range_uxp` | Connected UXP | `inspect`, `update` | Inspect or update the active sequence's in, out, and zero points through documented Premiere UXP actions. Updates require the complete inspect snapshot, run in one undoable transaction, and return native readback; a runtime capability probe remains authoritative. |
 | `manage_sequence_settings_uxp` | Connected UXP | `get`, `update` | Inspect sequence settings or apply a bounded settings profile in one documented, undoable UXP transaction with readback. |

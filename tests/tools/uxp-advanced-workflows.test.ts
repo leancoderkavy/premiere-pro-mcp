@@ -9,6 +9,7 @@ const ADVANCED_WORKFLOW_TOOLS = [
   "create_silence_cut_source_stringout_uxp",
   "organize_project_items_uxp",
   "manage_sequence_settings_uxp",
+  "manage_sequence_display_format_uxp",
   "import_project_media_uxp",
   "automate_effect_parameters_uxp",
   "transform_track_item_uxp",
@@ -18,12 +19,12 @@ const ADVANCED_WORKFLOW_TOOLS = [
 ] as const;
 
 describe("advanced stable UXP workflow MCP catalog", () => {
-  it("publishes twelve advanced tools with closed, bounded schemas", () => {
+  it("publishes thirteen advanced tools with closed, bounded schemas", () => {
     const bridge = { request: vi.fn(), getState: vi.fn() } as unknown as UxpWebSocketBridge;
     const tools = getUxpTools(bridge) as Record<string, { parameters: Record<string, unknown> }>;
 
     expect(Object.keys(tools)).toEqual(expect.arrayContaining(ADVANCED_WORKFLOW_TOOLS));
-    expect(ADVANCED_WORKFLOW_TOOLS).toHaveLength(12);
+    expect(ADVANCED_WORKFLOW_TOOLS).toHaveLength(13);
     for (const name of ADVANCED_WORKFLOW_TOOLS) {
       expect(tools[name].parameters).toMatchObject({
         type: "object",
@@ -42,6 +43,14 @@ describe("advanced stable UXP workflow MCP catalog", () => {
           items: { required: ["marker_guid", "expected_name", "expected_start_seconds", "expected_duration_seconds"] },
         },
         confirm_destructive: { type: "boolean" },
+      },
+    });
+    expect(tools.manage_sequence_display_format_uxp.parameters).toMatchObject({
+      properties: {
+        action: { enum: ["inspect", "update"] },
+        expected_sequence_guid: { maxLength: 128 },
+        expected_display_formats: { required: ["audio_display_format", "video_display_format"] },
+        updates: { additionalProperties: false },
       },
     });
     expect(tools.import_project_media_uxp.parameters).toMatchObject({
@@ -92,6 +101,11 @@ describe("advanced stable UXP workflow MCP catalog", () => {
       action: "update", sequence_id: "sequence-1",
       updates: { maximum_bit_depth: true, video_frame_rate: 24, video_width: 1920 },
       operation_id: "settings-op",
+    });
+    await tools.manage_sequence_display_format_uxp.handler({
+      action: "update", sequence_id: "sequence-1", expected_sequence_guid: "sequence-1",
+      expected_display_formats: { audio_display_format: 1, video_display_format: 20 },
+      updates: { audio_display_format: 2, video_display_format: 26 }, operation_id: "display-format-op",
     });
     await tools.import_project_media_uxp.handler({
       action: "ae_comps", aep_path: "D:/Approved/graphics.aep",
@@ -160,6 +174,11 @@ describe("advanced stable UXP workflow MCP catalog", () => {
         sequenceId: "sequence-1",
         updates: { maximumBitDepth: true, videoFrameRate: 24, videoWidth: 1920 },
         operationId: "settings-op",
+      }],
+      ["sequence.displayFormat.update", {
+        sequenceId: "sequence-1", expectedSequenceGuid: "sequence-1",
+        expectedDisplayFormats: { audioDisplayFormat: 1, videoDisplayFormat: 20 },
+        updates: { audioDisplayFormat: 2, videoDisplayFormat: 26 }, operationId: "display-format-op",
       }],
       ["project.import", {
         mode: "aeComps", aepPath: "D:/Approved/graphics.aep", compNames: ["Lower Third"],

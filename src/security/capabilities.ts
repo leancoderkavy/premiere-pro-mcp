@@ -181,6 +181,10 @@ const ACTION_CAPABILITIES: Readonly<Record<string, Readonly<Record<string, reado
     get: ["inspect"],
     update: ["edit"],
   },
+  manage_sequence_display_format_uxp: {
+    inspect: ["inspect"],
+    update: ["edit"],
+  },
   manage_sequence_range_uxp: {
     inspect: ["inspect"],
     update: ["edit"],

@@ -1017,6 +1017,43 @@
       "verificationBoundary": "sequence_settings_readback"
     },
     {
+      "id": "guarded-sequence-display-format",
+      "adobeApi": [
+        "Sequence.getSettings",
+        "Sequence.createSetSettingsAction",
+        "SequenceSettings.getAudioDisplayFormat",
+        "SequenceSettings.setAudioDisplayFormat",
+        "SequenceSettings.getVideoDisplayFormat",
+        "SequenceSettings.setVideoDisplayFormat",
+        "SequenceSettings.AUDIO_DISPLAY_FORMAT_SAMPLE_RATE",
+        "SequenceSettings.AUDIO_DISPLAY_FORMAT_MILISECONDS",
+        "SequenceSettings.VIDEO_DISPLAY_FORMAT_23976",
+        "SequenceSettings.VIDEO_DISPLAY_FORMAT_25",
+        "SequenceSettings.VIDEO_DISPLAY_FORMAT_2997",
+        "SequenceSettings.VIDEO_DISPLAY_FORMAT_2997_NON_DROP",
+        "SequenceSettings.VIDEO_DISPLAY_FORMAT_16mm",
+        "SequenceSettings.VIDEO_DISPLAY_FORMAT_35mm",
+        "SequenceSettings.VIDEO_DISPLAY_FORMAT_FRAMES",
+        "TimeDisplay.type"
+      ],
+      "documentationUrls": [
+        "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/sequence/",
+        "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/sequencesettings/"
+      ],
+      "minimumPremiereVersion": "26.3.0",
+      "backend": "uxp",
+      "uxpCommand": "sequence.displayFormat.update",
+      "mcpTools": ["manage_sequence_display_format_uxp"],
+      "availability": "current",
+      "implementationStatus": "implemented",
+      "verificationStatus": "automated_contract_verified",
+      "liveHostVerificationStatus": "not_run",
+      "mutatesProject": true,
+      "undoable": true,
+      "idempotency": "operation_id",
+      "verificationBoundary": "sequence_display_format_readback"
+    },
+    {
       "id": "workspace-gated-project-import",
       "adobeApi": [
         "Project.importFiles",

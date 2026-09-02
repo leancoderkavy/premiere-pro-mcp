@@ -159,14 +159,18 @@ function advancedHost() {
     audioSampleRate: 48000, videoFrameRate: 23.976, videoFieldType: 0,
     videoPixelAspectRatio: "square", editingMode: "custom", previewFileFormat: "mpeg",
     previewCodec: "i-frame", videoWidth: 1280, videoHeight: 720,
+    audioDisplayFormat: 1, videoDisplayFormat: 20,
   };
+  const displayFormatCandidate: { audio?: number; video?: number } = {};
   const settings = {
     getMaximumBitDepth: vi.fn(async () => settingsState.maximumBitDepth),
     getMaxRenderQuality: vi.fn(async () => settingsState.maxRenderQuality),
     getCompositeInLinearColor: vi.fn(async () => settingsState.compositeInLinearColor),
     getAudioChannelCount: vi.fn(async () => 2),
     getAudioChannelType: vi.fn(async () => 1),
+    getAudioDisplayFormat: vi.fn(async () => ({ type: settingsState.audioDisplayFormat })),
     getAudioSampleRate: vi.fn(async () => ({ value: settingsState.audioSampleRate })),
+    getVideoDisplayFormat: vi.fn(async () => ({ type: settingsState.videoDisplayFormat })),
     getVideoFrameRate: vi.fn(() => ({ value: settingsState.videoFrameRate })),
     getVideoFieldType: vi.fn(async () => settingsState.videoFieldType),
     getVideoPixelAspectRatio: vi.fn(async () => settingsState.videoPixelAspectRatio),
@@ -178,7 +182,9 @@ function advancedHost() {
     setMaximumBitDepth: vi.fn(async (value: boolean) => { settingsState.maximumBitDepth = value; return true; }),
     setMaxRenderQuality: vi.fn(async (value: boolean) => { settingsState.maxRenderQuality = value; return true; }),
     setCompositeInLinearColor: vi.fn(async (value: boolean) => { settingsState.compositeInLinearColor = value; return true; }),
+    setAudioDisplayFormat: vi.fn(async (value: { type: number }) => { displayFormatCandidate.audio = value.type; return true; }),
     setAudioSampleRate: vi.fn(async (value: { value: number }) => { settingsState.audioSampleRate = value.value; return true; }),
+    setVideoDisplayFormat: vi.fn(async (value: { type: number }) => { displayFormatCandidate.video = value.type; return true; }),
     setVideoFrameRate: vi.fn((value: { value: number }) => { settingsState.videoFrameRate = value.value; return true; }),
     setVideoFieldType: vi.fn(async (value: number) => { settingsState.videoFieldType = value; return true; }),
     setVideoPixelAspectRatio: vi.fn(async (value: string) => { settingsState.videoPixelAspectRatio = value; return true; }),
@@ -197,7 +203,12 @@ function advancedHost() {
     getAudioTrackCount: vi.fn(async () => 1),
     getAudioTrack: vi.fn(async () => ({ getTrackItems: vi.fn(async () => [trackItem]) })),
     getSettings: vi.fn(async () => settings),
-    createSetSettingsAction: vi.fn(() => ({ apply: () => undefined })),
+    createSetSettingsAction: vi.fn(() => ({ apply: () => {
+      if (displayFormatCandidate.audio !== undefined) settingsState.audioDisplayFormat = displayFormatCandidate.audio;
+      if (displayFormatCandidate.video !== undefined) settingsState.videoDisplayFormat = displayFormatCandidate.video;
+      delete displayFormatCandidate.audio;
+      delete displayFormatCandidate.video;
+    } })),
     createCloneAction: vi.fn(() => ({ apply: () => sequences.push({ guid: "sequence-2", name: "Assembly Copy" }) })),
     createSubsequence: vi.fn(async () => ({ guid: "sequence-3", name: "Assembly Subsequence" })),
   };
@@ -267,6 +278,17 @@ function advancedHost() {
       getExportFileExtension: vi.fn(async () => "mp4"),
       EXPORT_QUEUE_TO_AME: "ame", EXPORT_QUEUE_TO_APP: "app", EXPORT_IMMEDIATELY: "now",
     },
+    SequenceSettings: {
+      AUDIO_DISPLAY_FORMAT_SAMPLE_RATE: 1,
+      AUDIO_DISPLAY_FORMAT_MILISECONDS: 2,
+      VIDEO_DISPLAY_FORMAT_23976: 20,
+      VIDEO_DISPLAY_FORMAT_25: 21,
+      VIDEO_DISPLAY_FORMAT_2997: 22,
+      VIDEO_DISPLAY_FORMAT_2997_NON_DROP: 23,
+      VIDEO_DISPLAY_FORMAT_16mm: 24,
+      VIDEO_DISPLAY_FORMAT_35mm: 25,
+      VIDEO_DISPLAY_FORMAT_FRAMES: 26,
+    },
     Utils: { isAEInstalled: vi.fn(async () => true) },
   };
   const workspace = {
@@ -277,7 +299,7 @@ function advancedHost() {
   return {
     registry: Commands.createCommandRegistry({ ppro, Protocol, workspace, events }),
     project, ppro, workspace, markers, markerValues, root, bin, clip,
-    sequence, sequences, settingsState, parameterState, trackState, editor, manager, events,
+    sequence, sequences, settings, settingsState, parameterState, trackState, editor, manager, events,
   };
 }
 
@@ -287,7 +309,7 @@ describe("advanced stable Premiere UXP workflows", () => {
     const capabilities = await value.registry.capabilities();
     expect(Object.keys(capabilities.commands)).toEqual(expect.arrayContaining([
       "projectSelection.views", "projectSelection.inspect", "markers.inspect", "markers.add", "markers.addBeatGrid", "markers.removeMany",
-      "bins.inspect", "bins.create", "sequenceSettings.get", "sequenceSettings.update",
+      "bins.inspect", "bins.create", "sequenceSettings.get", "sequenceSettings.update", "sequence.displayFormat.inspect", "sequence.displayFormat.update",
       "project.import", "parameters.inspect", "parameters.keyframeAdd", "trackItem.inspect",
       "trackItem.update", "timeline.insert", "timeline.mogrtPath", "timeline.structure.inspect", "sequences.inspect",
       "trackItem.splitEdit",
@@ -299,6 +321,8 @@ describe("advanced stable Premiere UXP workflows", () => {
     expect(capabilities.commands["markers.removeMany"]).toMatchObject({ supported: true, destructive: true, undoable: true });
     expect(capabilities.commands["project.import"]).toMatchObject({ supported: true, workspaceRequired: true, undoable: false });
     expect(capabilities.commands["encoder.sequence"]).toMatchObject({ supported: true, workspaceRequired: true, undoable: false });
+    expect(capabilities.commands["sequence.displayFormat.inspect"]).toMatchObject({ supported: true, readOnly: true, destructive: false });
+    expect(capabilities.commands["sequence.displayFormat.update"]).toMatchObject({ supported: true, destructive: true, undoable: true, idempotent: true });
   });
 
   it("uses Project-view selection and completes marker/bin actions with identity and field readback", async () => {
@@ -759,6 +783,75 @@ describe("advanced stable Premiere UXP workflows", () => {
     expect(value.workspace.assertPathAllowed).toHaveBeenCalledWith("D:/Approved/broll.mov", {
       label: "paths[0]", kind: "file",
     });
+  });
+
+  it("guards, serializes, replays, and reads back native sequence display-format updates", async () => {
+    const value = advancedHost();
+    await expect(value.registry.dispatch("sequence.displayFormat.inspect", {})).resolves.toMatchObject({
+      sequence: { id: "sequence-1" },
+      displayFormats: { audioDisplayFormat: 1, videoDisplayFormat: 20 },
+      supportedDisplayFormats: {
+        audio: [{ constant: "AUDIO_DISPLAY_FORMAT_MILISECONDS", code: 2 }, { constant: "AUDIO_DISPLAY_FORMAT_SAMPLE_RATE", code: 1 }],
+        video: expect.arrayContaining([{ constant: "VIDEO_DISPLAY_FORMAT_FRAMES", code: 26 }]),
+      },
+    });
+
+    const update = {
+      expectedSequenceGuid: "sequence-1",
+      expectedDisplayFormats: { audioDisplayFormat: 1, videoDisplayFormat: 20 },
+      updates: { audioDisplayFormat: 2, videoDisplayFormat: 26 },
+      operationId: "display-format-replay",
+    };
+    await expect(value.registry.dispatch("sequence.displayFormat.update", update)).resolves.toMatchObject({
+      updated: true, outcome: "verified", before: { audioDisplayFormat: 1, videoDisplayFormat: 20 },
+      after: { audioDisplayFormat: 2, videoDisplayFormat: 26 },
+      operation: { mutatesProject: true, undo: { supported: true }, cancellation: { supported: false } },
+    });
+    await expect(value.registry.dispatch("sequence.displayFormat.update", update)).resolves.toMatchObject({
+      replayed: true, operationId: "display-format-replay", after: { audioDisplayFormat: 2, videoDisplayFormat: 26 },
+    });
+    expect(value.project.executeTransaction).toHaveBeenCalledTimes(1);
+
+    await expect(value.registry.dispatch("sequence.displayFormat.update", {
+      expectedSequenceGuid: "sequence-1",
+      expectedDisplayFormats: { audioDisplayFormat: 1, videoDisplayFormat: 26 },
+      updates: { audioDisplayFormat: 1 },
+    })).rejects.toMatchObject({ code: "UXP_STALE_SEQUENCE_DISPLAY_FORMAT" });
+    await expect(value.registry.dispatch("sequence.displayFormat.update", {
+      expectedSequenceGuid: "sequence-1",
+      expectedDisplayFormats: { audioDisplayFormat: 2, videoDisplayFormat: 26 },
+      updates: { audioDisplayFormat: 999 },
+    })).rejects.toMatchObject({ code: "UXP_INVALID_ARGUMENT" });
+    expect(value.project.executeTransaction).toHaveBeenCalledTimes(1);
+
+    const concurrent = advancedHost();
+    let releaseFirstSnapshot: (() => void) | undefined;
+    const firstSnapshotReleased = new Promise<void>((resolve) => { releaseFirstSnapshot = resolve; });
+    let signalFirstSnapshot: (() => void) | undefined;
+    const firstSnapshotStarted = new Promise<void>((resolve) => { signalFirstSnapshot = resolve; });
+    let audioReads = 0;
+    concurrent.settings.getAudioDisplayFormat.mockImplementation(async () => {
+      audioReads += 1;
+      if (audioReads === 1) {
+        signalFirstSnapshot?.();
+        await firstSnapshotReleased;
+      }
+      return { type: concurrent.settingsState.audioDisplayFormat };
+    });
+    const expected = { audioDisplayFormat: 1, videoDisplayFormat: 20 };
+    const first = concurrent.registry.dispatch("sequence.displayFormat.update", {
+      expectedSequenceGuid: "sequence-1", expectedDisplayFormats: expected,
+      updates: { audioDisplayFormat: 2 }, operationId: "display-format-first",
+    });
+    await firstSnapshotStarted;
+    const second = concurrent.registry.dispatch("sequence.displayFormat.update", {
+      expectedSequenceGuid: "sequence-1", expectedDisplayFormats: expected,
+      updates: { videoDisplayFormat: 26 }, operationId: "display-format-second",
+    });
+    releaseFirstSnapshot?.();
+    await expect(first).resolves.toMatchObject({ outcome: "verified", after: { audioDisplayFormat: 2, videoDisplayFormat: 20 } });
+    await expect(second).rejects.toMatchObject({ code: "UXP_STALE_SEQUENCE_DISPLAY_FORMAT" });
+    expect(concurrent.project.executeTransaction).toHaveBeenCalledTimes(1);
   });
 
   it("verifies relative track moves while keeping SequenceEditor transaction limits explicit", async () => {

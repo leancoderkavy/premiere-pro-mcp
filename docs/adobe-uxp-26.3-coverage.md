@@ -47,6 +47,7 @@ verification column describes the required evidence, not a completed test run.
 | `manage_sequence_range_uxp` | `sequence.range.inspect`, `sequence.range.update` | `Sequence` range accessors plus `createSetInPointAction()`, `createSetOutPointAction()`, and `createSetZeroPointAction()` | Undoable sequence-range mutation | Supported when every accessor, action, `TickTime`, and transaction primitive probes true | Read the complete range after one transaction and require it to match the guarded request; live host must also validate Undo. |
 | `manage_sequence_playhead_uxp` | `sequence.playhead.inspect`, `sequence.playhead.set` | `Sequence.getPlayerPosition()` and `Sequence.setPlayerPosition()` | Sequence player-state mutation; no project-save or Undo claim | Supported when the active sequence, `TickTime`, getter, and setter probe true | Require the inspected sequence GUID and exact current position, serialize competing setters, then read the player position back. |
 | `inspect_sequence_timing_uxp` | `sequence.timing.inspect` | `Sequence.getFrameSize()`, `getTimebase()`, audio/video time-display getters, and `getProjectItem()` | Read-only timing and ownership snapshot | Supported when the active sequence exposes each listed getter; invocation then requires the returned ProjectItem to expose a valid ID | Return bounded native values and reject a different active sequence at read completion. This is not a locked atomic snapshot, does not detect a transient switch back to the same sequence, and is not licensed-host proof. |
+| `manage_sequence_display_format_uxp` | `sequence.displayFormat.inspect`, `sequence.displayFormat.update` | `Sequence.getSettings()`, `createSetSettingsAction()`, and `SequenceSettings` audio/video display-format getters, setters, and constants | One undoable sequence-settings mutation | Supported when the getters, setters, documented constants, and transaction primitives probe true | Require the inspected sequence GUID and complete two-code snapshot, serialize all competing updates for that sequence, commit one native settings action, and read both codes back. Contract coverage is not licensed-host or Undo proof. |
 | `has_transcript_uxp` | `transcript.has` | `Transcript.hasTranscript()` | Read-only | Native 26.3 support is used when it probes true; the existing 25.6 transcript-export compatibility probe is labeled as a fallback | Return Adobe's native boolean when available; never infer transcript presence from names or transcript text. |
 | `export_aaf_uxp` | `interchange.aaf.export` | `ProjectConverter.exportAAF()` and `AAFExportOptions` | Export side effect; no project undo claim | Supported when converter and option APIs probe true | Record Premiere's boolean result and, in a live host, confirm the intended AAF artifact exists and is usable. |
 
@@ -101,6 +102,19 @@ bounded `operation_id` replay key where applicable.
   snapshot or activation revision here, so a transient switch back to the same
   sequence is not detectable. It performs no mutation, transaction, or
   operation replay.
+- `manage_sequence_display_format_uxp`: `inspect` returns the resolved sequence
+  GUID, a complete `displayFormats` snapshot containing both native
+  `audio_display_format` and `video_display_format` codes, and the exact
+  `SequenceSettings` constants supported by that host. `update` requires the
+  inspected GUID, both expected codes, at least one requested code from that
+  returned list, and an `operation_id`. The panel serializes the entire
+  resolve/snapshot/stale-check/setter/action/readback flow per sequence,
+  including different operation IDs; it rejects stale codes before either
+  setter or action construction, executes one `createSetSettingsAction()`
+  transaction, and verifies both requested codes through a new settings read.
+  Completed duplicate operation IDs replay through the command registry.
+  Cancellation is explicitly unsupported, and the mock contract does not prove
+  host acceptance, persistence, or Undo behavior.
 - `has_transcript_uxp`: accepts at most one resolved `project_item_id` or
   `project_item_name`; omitting both requires exactly one Project-panel selection.
 - `export_aaf_uxp`: `output_file_path` is non-empty and at most 4096 characters.
@@ -153,6 +167,11 @@ Automated tests may prove these properties:
   identity values, and rejects an active sequence mismatch at read completion; it
   does not prove detection of a
   transient switch back to the same sequence; and
+- sequence-display-format updates require a complete two-code snapshot and
+  sequence GUID, reject stale values within the same per-sequence exclusion
+  boundary, accept only runtime-advertised official constants, commit one
+  settings action, replay a completed operation ID, and verify native readback;
+  and
 - action commands preserve lock/transaction boundaries and operation replay
   behavior in a contract host; and
 - AAF options are bounded before a call reaches the host adapter.
@@ -177,11 +196,15 @@ AAF, or produced a usable Undo entry. Before release, validate on a real Premier
    unchanged sequence, compare frame size, timebase, both time-display codes, and
    the backing Project-item identity with the Premiere UI. A transient switch that
    returns to the same sequence is outside this command's proof boundary.
-8. Check both a transcribed and non-transcribed clip with `transcript.has`.
-9. Export an AAF with representative options; confirm the resulting artifact is
+8. Inspect display formats, change audio and video codes separately and together,
+   confirm both codes read back, repeat an `operation_id` without a second
+   transaction, confirm a stale full snapshot is rejected, and Undo each accepted
+   update.
+9. Check both a transcribed and non-transcribed clip with `transcript.has`.
+10. Export an AAF with representative options; confirm the resulting artifact is
    present, opens in the intended downstream workflow, and any requested media
    side effects match the options.
-10. Disconnect/reconnect the panel and exercise duplicate `operation_id` calls;
+11. Disconnect/reconnect the panel and exercise duplicate `operation_id` calls;
    confirm that a completed mutation is replayed rather than repeated in the
    same panel session.
 

@@ -49,6 +49,7 @@ describe("Adobe Premiere Pro 26.3 UXP coverage", () => {
       "native-marker-batch-removal",
       "transactional-bin-organizer",
       "sequence-settings-profiles",
+      "guarded-sequence-display-format",
       "workspace-gated-project-import",
       "typed-parameter-keyframe-automation",
       "track-item-transformations",
@@ -105,6 +106,20 @@ describe("Adobe Premiere Pro 26.3 UXP coverage", () => {
       "TimeDisplay",
       "TimeDisplay.type",
     ]));
+    expect(entries.find((entry) => entry.id === "guarded-sequence-display-format")).toMatchObject({
+      uxpCommand: "sequence.displayFormat.update",
+      mcpTools: ["manage_sequence_display_format_uxp"],
+      verificationBoundary: "sequence_display_format_readback",
+      liveHostVerificationStatus: "not_run",
+    });
+    expect(entries.find((entry) => entry.id === "guarded-sequence-display-format")?.adobeApi).toEqual(expect.arrayContaining([
+      "Sequence.getSettings",
+      "Sequence.createSetSettingsAction",
+      "SequenceSettings.getAudioDisplayFormat",
+      "SequenceSettings.setAudioDisplayFormat",
+      "SequenceSettings.getVideoDisplayFormat",
+      "SequenceSettings.setVideoDisplayFormat",
+    ]));
     for (const entry of entries) {
       expect(entry.minimumPremiereVersion).toMatch(/^\d+\.\d+\.\d+$/);
       expect(entry.backend).toBe("uxp");
@@ -120,12 +135,12 @@ describe("Adobe Premiere Pro 26.3 UXP coverage", () => {
   it("keeps unimplemented 26.3 work visibly planned", () => {
     const report = buildAdobeUxpCoverageReport();
     expect(report.summary).toEqual({
-      total: 55,
-      current: 52,
+      total: 56,
+      current: 53,
       planned: 3,
-      implemented: 52,
+      implemented: 53,
       committedUnverified: 8,
-      automatedContractVerified: 44,
+      automatedContractVerified: 45,
       liveHostVerified: 0,
     });
     expect(report.entries.find((entry) => entry.id === "aaf-export")).toMatchObject({
@@ -148,7 +163,7 @@ describe("Adobe Premiere Pro 26.3 UXP coverage", () => {
   it("surfaces the baseline in the platform capability report", () => {
     const report = buildPlatformCapabilityReport(resolveCapabilities("inspect"), "win32");
     expect(report.backends.uxp.apiCoverage.summary).toMatchObject({
-      current: 52,
+      current: 53,
       planned: 3,
       committedUnverified: 8,
     });
