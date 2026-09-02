@@ -18,6 +18,7 @@ const ADOBE_26_3_TOOLS = [
   "create_subclip_uxp",
   "list_markers_uxp",
   "set_source_monitor_position_uxp",
+  "create_empty_sequence_uxp",
   "has_transcript_uxp",
   "export_aaf_uxp",
 ] as const;
@@ -28,7 +29,7 @@ function catalog(request = vi.fn().mockResolvedValue({ outcome: "verified" })) {
 }
 
 describe("Adobe Premiere 26.3 UXP public MCP catalog", () => {
-  it("registers the six capability-gated tools only with a UXP bridge", async () => {
+  it("registers the seven capability-gated tools only with a UXP bridge", async () => {
     const bridge = {
       request: vi.fn(),
       getState: vi.fn(() => ({ status: "listening", connected: false })),
@@ -43,7 +44,7 @@ describe("Adobe Premiere 26.3 UXP public MCP catalog", () => {
       expect(listed.tools.map((tool) => tool.name)).toEqual(
         expect.arrayContaining(ADOBE_26_3_TOOLS),
       );
-      expect(listed.tools).toHaveLength(394);
+      expect(listed.tools).toHaveLength(395);
     } finally {
       await client.close();
       await server.close();
@@ -92,6 +93,16 @@ describe("Adobe Premiere 26.3 UXP public MCP catalog", () => {
       type: "object",
       required: ["seconds"],
       properties: { seconds: { type: "number" }, operation_id: { type: "string" } },
+    });
+    expect(tools.create_empty_sequence_uxp.parameters).toMatchObject({
+      type: "object",
+      additionalProperties: false,
+      required: ["name", "confirm_non_undoable", "operation_id"],
+      properties: {
+        name: { type: "string" },
+        confirm_non_undoable: { type: "boolean" },
+        operation_id: { type: "string" },
+      },
     });
     expect(tools.has_transcript_uxp.parameters).toMatchObject({
       type: "object",
@@ -142,6 +153,9 @@ describe("Adobe Premiere 26.3 UXP public MCP catalog", () => {
       scope: "project_item", project_item_id: "clip-17", filters: ["Comment", "Chapter"],
     });
     await tools.set_source_monitor_position_uxp.handler({ seconds: 12.5, operation_id: "source-1" });
+    await tools.create_empty_sequence_uxp.handler({
+      name: "Empty Assembly", confirm_non_undoable: true, operation_id: "empty-1",
+    });
     await tools.has_transcript_uxp.handler({ project_item_name: "Interview A" });
     await tools.export_aaf_uxp.handler({
       output_file_path: "/exports/turnover.aaf",
@@ -167,8 +181,11 @@ describe("Adobe Premiere 26.3 UXP public MCP catalog", () => {
     expect(request).toHaveBeenNthCalledWith(4, "sourceMonitor.position.set", {
       seconds: 12.5, operationId: "source-1",
     });
-    expect(request).toHaveBeenNthCalledWith(5, "transcript.has", { projectItemName: "Interview A" });
-    expect(request).toHaveBeenNthCalledWith(6, "interchange.aaf.export", {
+    expect(request).toHaveBeenNthCalledWith(5, "sequences.createEmpty", {
+      name: "Empty Assembly", confirmNonUndoable: true, operationId: "empty-1",
+    });
+    expect(request).toHaveBeenNthCalledWith(6, "transcript.has", { projectItemName: "Interview A" });
+    expect(request).toHaveBeenNthCalledWith(7, "interchange.aaf.export", {
       outputFilePath: "/exports/turnover.aaf",
       options: {
         mixdownVideo: true, explodeToMono: true, embedAudio: false, trimSources: true,

@@ -1563,6 +1563,32 @@
       "verificationBoundary": "source_in_out_readback_or_transaction_commit"
     },
     {
+      "id": "guarded-empty-sequence-creation",
+      "adobeApi": [
+        "Project.createSequence",
+        "Project.getSequences",
+        "Project.guid",
+        "Sequence.guid",
+        "Sequence.name"
+      ],
+      "documentationUrls": [
+        "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/project/",
+        "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/sequence/"
+      ],
+      "minimumPremiereVersion": "26.3.0",
+      "backend": "uxp",
+      "uxpCommand": "sequences.createEmpty",
+      "mcpTools": ["create_empty_sequence_uxp"],
+      "availability": "current",
+      "implementationStatus": "implemented",
+      "verificationStatus": "automated_contract_verified",
+      "liveHostVerificationStatus": "not_run",
+      "mutatesProject": true,
+      "undoable": false,
+      "idempotency": "operation_id",
+      "verificationBoundary": "sequence_collection_identity_readback"
+    },
+    {
       "id": "bounded-native-timeline-structure",
       "adobeApi": [
         "Sequence.getVideoTrackCount",

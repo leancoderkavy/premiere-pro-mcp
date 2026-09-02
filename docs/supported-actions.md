@@ -13,8 +13,8 @@ source catalog may include unreleased actions.
 | Registered core actions | 328 | CEP/local server catalog; host and authority checks still apply |
 | Default-profile core actions | 326 | Advertised with `inspect,edit,export,filesystem` |
 | Restricted core actions | 2 | Require explicit `unsafe-script` authority |
-| Authenticated UXP additions | 68 | Advertised only while a compatible authenticated UXP panel is connected |
-| Default profile with UXP | 394 | 326 core plus 68 UXP tools |
+| Authenticated UXP additions | 69 | Advertised only while a compatible authenticated UXP panel is connected |
+| Default profile with UXP | 395 | 326 core plus 69 UXP tools |
 
 ## How to read support
 
@@ -379,6 +379,7 @@ authenticated and the connected host advertises the required command capabilitie
 | `automate_effect_parameters_uxp` | Connected UXP | `inspect`, `set_value`, `add_keyframe`, `remove_keyframe`, `remove_keyframe_range`, `set_interpolation` | Inspect or transactionally set scalar effect parameters and add, remove, range-remove, or interpolate keyframes through documented UXP actions. |
 | `batch_selected_clips_uxp` | Connected UXP | `inspect`, `add_effect`, `remove_effect` | Inspect the current timeline selection or apply one native effect add/remove across up to 64 same-type selected clips as a single compound transaction. |
 | `configure_encoder_uxp` | Connected UXP | Single operation | Launch or configure Adobe Media Encoder and optionally start its queued batch using Premiere 26.3+. |
+| `create_empty_sequence_uxp` | Connected UXP | Single operation | Create one empty/default sequence through the documented Premiere 26.3+ UXP API. This direct, non-undoable host call requires explicit confirmation and an operation_id; the host serializes capacity preflight through identity readback and replays the receipt safely. |
 | `create_sequence_with_preset_uxp` | Connected UXP | Single operation | Create and verify a sequence from a preset path using the documented Premiere 26.3+ UXP API. |
 | `create_silence_cut_source_stringout_uxp` | Connected UXP | Single operation | Create a new single-source rough-cut stringout from reviewed silence ranges using documented Premiere 26.3+ hard-bounded linked A/V subclips. It does not preserve or modify an existing edited timeline. |
 | `create_subclip_uxp` | Connected UXP | Single operation | Create and verify a Premiere 26.3+ subclip in an undoable transaction. Prefer project_item_id; a name must resolve to exactly one media clip. |
