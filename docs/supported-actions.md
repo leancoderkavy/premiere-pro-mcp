@@ -13,8 +13,8 @@ source catalog may include unreleased actions.
 | Registered core actions | 328 | CEP/local server catalog; host and authority checks still apply |
 | Default-profile core actions | 326 | Advertised with `inspect,edit,export,filesystem` |
 | Restricted core actions | 2 | Require explicit `unsafe-script` authority |
-| Authenticated UXP additions | 75 | Advertised only while a compatible authenticated UXP panel is connected |
-| Default profile with UXP | 401 | 326 core plus 75 UXP tools |
+| Authenticated UXP additions | 76 | Advertised only while a compatible authenticated UXP panel is connected |
+| Default profile with UXP | 402 | 326 core plus 76 UXP tools |
 
 ## How to read support
 
@@ -444,6 +444,7 @@ authenticated and the connected host advertises the required command capabilitie
 | `save_project_uxp` | Connected UXP | Single operation | Save the active project through UXP and require Premiere to confirm success. |
 | `search_clip_transcript_uxp` | Connected UXP | Single operation | Search Premiere's native transcript JSON without modifying the clip or timeline. |
 | `set_source_monitor_position_uxp` | Connected UXP | Single operation | Set and read back the Source Monitor position using Premiere 26.3+ UXP. |
+| `slide_track_item_uxp` | Connected UXP | `inspect`, `apply` | Inspect or perform one guarded slide on an audio or video timeline item using documented UXP track-item actions. Apply requires the complete three-item snapshot, explicit confirmation, and an operation ID; it serializes slides and source-only slips on the affected track, commits one transaction, and verifies every affected source and timeline boundary. Only contiguous forward 1x clips are supported. It does not prove source handles, linked A/V synchronization, rendered frames, playback, persistence, or Undo behavior. |
 | `slip_track_item_uxp` | Connected UXP | `inspect`, `apply` | Inspect or perform one guarded source-only slip on an audio or video timeline item. Apply requires the complete inspected snapshot, explicit confirmation, and an operation ID; it serializes slip operations per target, creates the documented source in/out actions in one undoable transaction, and reads back unchanged timeline timing plus the exact shifted source range. It supports only forward 1x clips, does not infer available media handles, and does not prove rendered frames, playback, linked-item sync, persistence, or Undo behavior. |
 | `transform_track_item_uxp` | Connected UXP | `inspect`, `update` | Inspect or atomically move, trim, rename, and enable/disable one audio or video track item with stale-position guards and readback. |
 | `wait_for_host_readiness_uxp` | Connected UXP | `snapshot`, `analysis`, `operation` | Capture a pre-dispatch readiness revision or wait, without retrying, for video-effect analysis or one documented operation-completion receipt. |

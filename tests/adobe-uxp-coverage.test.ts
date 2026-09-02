@@ -344,7 +344,7 @@ describe("Adobe Premiere Pro 26.3 UXP coverage", () => {
   it("surfaces the baseline in the platform capability report", () => {
     const report = buildPlatformCapabilityReport(resolveCapabilities("inspect"), "win32");
     expect(report.backends.uxp.apiCoverage.summary).toMatchObject({
-      current: 64,
+      current: 65,
       planned: 3,
       committedUnverified: 8,
     });
