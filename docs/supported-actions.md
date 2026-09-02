@@ -13,8 +13,8 @@ source catalog may include unreleased actions.
 | Registered core actions | 328 | CEP/local server catalog; host and authority checks still apply |
 | Default-profile core actions | 326 | Advertised with `inspect,edit,export,filesystem` |
 | Restricted core actions | 2 | Require explicit `unsafe-script` authority |
-| Authenticated UXP additions | 84 | Advertised only while a compatible authenticated UXP panel is connected |
-| Default profile with UXP | 410 | 326 core plus 84 UXP tools |
+| Authenticated UXP additions | 85 | Advertised only while a compatible authenticated UXP panel is connected |
+| Default profile with UXP | 411 | 326 core plus 85 UXP tools |
 
 ## How to read support
 
@@ -402,6 +402,7 @@ authenticated and the connected host advertises the required command capabilitie
 | `import_project_media_uxp` | Connected UXP | `files`, `sequences`, `ae_comps`, `all_ae_comps` | Import workspace-contained media files, sequences, or After Effects compositions through documented Project APIs with post-state evidence. |
 | `import_transcript_uxp` | Connected UXP | Single operation | Replace one source media clip's native transcript JSON through documented Premiere 26.3+ UXP APIs. Use project_guid and transcript_revision returned by get_clip_transcript_uxp, or project_guid plus a null expected_transcript_revision from has_transcript_uxp for an untranscribed clip. This destructive import requires explicit confirmation and an operation_id, serializes competing imports for the same project item, runs one undoable transaction, and reports exact bounded export SHA-256 readback rather than claiming a licensed-host result. |
 | `inspect_caption_tracks_uxp` | Connected UXP | Single operation | Inventory native caption tracks on the active sequence through documented Premiere UXP APIs. Returns track identity, name, mute state, and item count only; it does not inspect cue text, timing, rendered appearance, or caption correctness. |
+| `inspect_effect_parameter_catalog_uxp` | Connected UXP | `media_type`: `video`, `audio` | Inspect the bounded native descriptor catalog for one effect component on one active-sequence audio or video clip. The returned parameter index and display name can be used with existing parameter automation. It returns only animation capability/state, never raw parameter values (including Color or PointF), media paths, rendered pixels, or playback results. The bridge reads the complete catalog twice and rejects a changed project, active sequence, component identity, or parameter descriptor set. |
 | `inspect_installed_mogrt_directory_uxp` | Connected UXP | Single operation | Inspect whether Premiere exposes its documented installed MOGRT directory. The native path is redacted unless include_path is explicitly true. This tool never enumerates the directory, reads its files, imports a template, or changes Premiere; a returned path is not proof that templates are usable or compatible. |
 | `inspect_premiere_environment_uxp` | Connected UXP | Single operation | Inspect After Effects interoperability and the active Premiere project's current and supported graphics-white luminance values through documented read-only UXP APIs. |
 | `inspect_premiere_events_uxp` | Connected UXP | `list`, `wait` | List or briefly wait for bounded, redacted Premiere host-event receipts without polling the complete project state. |

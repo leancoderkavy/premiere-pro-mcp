@@ -443,7 +443,7 @@ describe("UXP MCP tools", () => {
       // bounded Object Mask audits add forty-five
       // consolidated UXP tools;
       // connection verification and delivery conformance add two default-profile core tools.
-        expect(tools.tools).toHaveLength(410);
+        expect(tools.tools).toHaveLength(411);
     } finally {
       await client.close();
       await server.close();

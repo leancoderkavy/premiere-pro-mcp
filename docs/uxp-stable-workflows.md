@@ -22,6 +22,7 @@ Premiere build.
 | Improvement | Public MCP tool | UXP commands | Host evidence |
 | --- | --- | --- | --- |
 | Native effects pipeline | `manage_clip_effects_uxp` | `effects.catalog`, `effects.chain.get`, `effects.chain.add`, `effects.chain.remove` | Effect catalog allowlist; component-chain count and component readback after an action transaction |
+| Bounded effect-parameter catalog | `inspect_effect_parameter_catalog_uxp` | `parameters.catalog.inspect` | One active audio/video coordinate resolves at most 64 component-parameter index/name/animation descriptors twice; no raw Color, PointF, or other parameter values are read |
 | Native track-item identity | `inspect_track_item_identity_uxp` | `trackItem.identity.inspect` | One bounded audio/video coordinate resolves documented match name, item/media type, track index, and selected state only after the active sequence identity is re-read |
 | Guarded timeline source label | `manage_timeline_source_label_uxp` | `timeline.sourceLabel.inspect`, `timeline.sourceLabel.update` | A bounded active audio/video coordinate resolves its source `ClipProjectItem`; update requires the complete snapshot, confirmation, operation ID, per-source serialization, one transaction, and source-label readback. The label is project-global rather than timeline-instance state. |
 | Selection compound batch | `batch_selected_clips_uxp` | `selection.inspect`, `effects.selection.add`, `effects.selection.remove` | Preflight all selected items, then commit one action group and read every chain count back |
@@ -123,6 +124,20 @@ loopback-only authority and rejects remote hosts, credentials, fragments, and no
 
 Video additions accept only a match name returned by `VideoFilterFactory`.
 Audio additions accept only a display name returned by `AudioFilterFactory`.
+
+### `inspect_effect_parameter_catalog_uxp`
+
+Require one `media_type`, `track_index`, `clip_index`, and `component_index`.
+The panel resolves that active-sequence coordinate and returns no more than 64
+parameter descriptors: the zero-based index, native display name, whether
+keyframes are supported, and whether the parameter is currently time-varying.
+It never reads a parameter value, including PointF or Color data. Optional
+`expected_sequence_guid` and `expected_component_id` reject a changed target
+before the final result. The complete catalog is read twice, so a changed active
+project, sequence, component identity, or descriptor set rejects rather than
+returning a mixed result. This remains a read-only contract check, not evidence
+of parameter editability, rendered output, playback, persistence, Undo, or a
+licensed Premiere host.
 
 ### `inspect_track_item_identity_uxp`
 

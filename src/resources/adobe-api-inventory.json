@@ -13,8 +13,8 @@
   },
   "stats": {
     "total": 976,
-    "mapped": 339,
-    "unmapped": 637,
+    "mapped": 347,
+    "unmapped": 629,
     "manifestOnly": 5
   },
   "manifestOnly": [
@@ -465,12 +465,12 @@
     {
       "symbol": "AudioComponentChain.getComponentAtIndex",
       "kind": "method",
-      "coverage": "unmapped"
+      "coverage": "mapped"
     },
     {
       "symbol": "AudioComponentChain.getComponentCount",
       "kind": "method",
-      "coverage": "unmapped"
+      "coverage": "mapped"
     },
     {
       "symbol": "AudioComponentChainStatic",
@@ -946,12 +946,12 @@
     {
       "symbol": "Component.getDisplayName",
       "kind": "method",
-      "coverage": "unmapped"
+      "coverage": "mapped"
     },
     {
       "symbol": "Component.getMatchName",
       "kind": "method",
-      "coverage": "unmapped"
+      "coverage": "mapped"
     },
     {
       "symbol": "Component.getParam",
@@ -961,7 +961,7 @@
     {
       "symbol": "Component.getParamCount",
       "kind": "method",
-      "coverage": "unmapped"
+      "coverage": "mapped"
     },
     {
       "symbol": "ComponentParam",
@@ -1011,7 +1011,7 @@
     {
       "symbol": "ComponentParam.displayName",
       "kind": "property",
-      "coverage": "unmapped"
+      "coverage": "mapped"
     },
     {
       "symbol": "ComponentParam.findNearestKeyframe",
@@ -4602,12 +4602,12 @@
     {
       "symbol": "VideoComponentChain.getComponentAtIndex",
       "kind": "method",
-      "coverage": "unmapped"
+      "coverage": "mapped"
     },
     {
       "symbol": "VideoComponentChain.getComponentCount",
       "kind": "method",
-      "coverage": "unmapped"
+      "coverage": "mapped"
     },
     {
       "symbol": "VideoComponentChainStatic",

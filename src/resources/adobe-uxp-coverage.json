@@ -733,6 +733,55 @@
       "verificationBoundary": "effect_chain_count_readback"
     },
     {
+      "id": "bounded-effect-parameter-catalog",
+      "adobeApi": [
+        "Project.getActiveProject",
+        "Project.guid",
+        "Project.getActiveSequence",
+        "Sequence.guid",
+        "Sequence.getVideoTrackCount",
+        "Sequence.getVideoTrack",
+        "Sequence.getAudioTrackCount",
+        "Sequence.getAudioTrack",
+        "VideoTrack.getTrackItems",
+        "AudioTrack.getTrackItems",
+        "VideoClipTrackItem.getComponentChain",
+        "AudioClipTrackItem.getComponentChain",
+        "VideoComponentChain.getComponentCount",
+        "VideoComponentChain.getComponentAtIndex",
+        "AudioComponentChain.getComponentCount",
+        "AudioComponentChain.getComponentAtIndex",
+        "Component.getMatchName",
+        "Component.getDisplayName",
+        "Component.getParamCount",
+        "Component.getParam",
+        "ComponentParam.displayName",
+        "ComponentParam.areKeyframesSupported",
+        "ComponentParam.isTimeVarying",
+        "Constants.TrackItemType.CLIP"
+      ],
+      "documentationUrls": [
+        "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/videocomponentchain/",
+        "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/audiocomponentchain/",
+        "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/component/",
+        "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/componentparam/"
+      ],
+      "minimumPremiereVersion": "25.6.0",
+      "backend": "uxp",
+      "uxpCommand": "parameters.catalog.inspect",
+      "mcpTools": [
+        "inspect_effect_parameter_catalog_uxp"
+      ],
+      "availability": "current",
+      "implementationStatus": "implemented",
+      "verificationStatus": "automated_contract_verified",
+      "liveHostVerificationStatus": "not_run",
+      "mutatesProject": false,
+      "undoable": false,
+      "idempotency": "not_applicable",
+      "verificationBoundary": "bounded_effect_parameter_catalog_double_readback"
+    },
+    {
       "id": "selection-compound-effect-batch",
       "adobeApi": [
         "Sequence.getSelection",
