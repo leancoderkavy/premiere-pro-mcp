@@ -85,6 +85,11 @@
         ppro, colorLabelLocks: projectItemColorLabelLocks
       }));
     }
+    let objectMaskAuditWorkflowApi = deps.ObjectMaskAuditWorkflows || (typeof globalThis !== "undefined" && globalThis.PremiereMcpObjectMaskAuditWorkflows);
+    if (!objectMaskAuditWorkflowApi && typeof require === "function") objectMaskAuditWorkflowApi = require("./object-mask-audit-workflows.cjs");
+    if (objectMaskAuditWorkflowApi && typeof objectMaskAuditWorkflowApi.createObjectMaskAuditWorkflowDefinitions === "function") {
+      Object.assign(definitions, objectMaskAuditWorkflowApi.createObjectMaskAuditWorkflowDefinitions({ ppro }));
+    }
     let trackItemLocksApi = deps.TrackItemMutationLocks || (typeof globalThis !== "undefined" && globalThis.PremiereMcpTrackItemMutationLocks);
     if (!trackItemLocksApi && typeof require === "function") trackItemLocksApi = require("./track-item-mutation-locks.cjs");
     const trackItemLocks = trackItemLocksApi && typeof trackItemLocksApi.createTrackItemMutationLocks === "function"

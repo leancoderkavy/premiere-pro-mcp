@@ -405,6 +405,7 @@ describe("UXP MCP tools", () => {
           "preview_transcript_edit_uxp",
           "plan_transcript_rough_cut_uxp",
           "detect_object_masks_uxp",
+          "audit_object_masks_uxp",
           "configure_encoder_uxp",
           "rename_track_uxp",
           "create_subclip_uxp",
@@ -438,11 +439,11 @@ describe("UXP MCP tools", () => {
       // direct track-item identity inspection, targeted sequence timing, guarded
       // three-item slides, append-only timeline duplication, guarded Project metadata
       // schema-field creation, guarded contiguous ripple deletes, and guarded
-      // source-label updates, and opt-in installed-MOGRT directory inspection
-      // add forty-four
+      // source-label updates, opt-in installed-MOGRT directory inspection, and
+      // bounded Object Mask audits add forty-five
       // consolidated UXP tools;
       // connection verification and delivery conformance add two default-profile core tools.
-        expect(tools.tools).toHaveLength(409);
+        expect(tools.tools).toHaveLength(410);
     } finally {
       await client.close();
       await server.close();

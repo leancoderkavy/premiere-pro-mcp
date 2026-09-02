@@ -24,6 +24,7 @@ const ADOBE_26_3_TOOLS = [
   "duplicate_track_item_uxp",
   "ripple_delete_track_item_uxp",
   "create_empty_sequence_uxp",
+  "audit_object_masks_uxp",
   "has_transcript_uxp",
   "export_aaf_uxp",
 ] as const;
@@ -49,7 +50,7 @@ describe("Adobe Premiere 26.3 UXP public MCP catalog", () => {
       expect(listed.tools.map((tool) => tool.name)).toEqual(
         expect.arrayContaining(ADOBE_26_3_TOOLS),
       );
-      expect(listed.tools).toHaveLength(409);
+      expect(listed.tools).toHaveLength(410);
     } finally {
       await client.close();
       await server.close();
@@ -109,6 +110,17 @@ describe("Adobe Premiere 26.3 UXP public MCP catalog", () => {
         name: { type: "string" },
         confirm_non_undoable: { type: "boolean" },
         operation_id: { type: "string" },
+      },
+    });
+    expect(tools.audit_object_masks_uxp.parameters).toMatchObject({
+      type: "object",
+      additionalProperties: false,
+      properties: {
+        expected_project_guid: { type: "string", minLength: 1, maxLength: 512 },
+        sequence_ids: {
+          type: "array", minItems: 1, maxItems: 64, uniqueItems: true,
+          items: { type: "string", minLength: 1, maxLength: 512 },
+        },
       },
     });
     expect(tools.inspect_track_item_identity_uxp.parameters).toMatchObject({
@@ -174,6 +186,9 @@ describe("Adobe Premiere 26.3 UXP public MCP catalog", () => {
     await tools.create_empty_sequence_uxp.handler({
       name: "Empty Assembly", confirm_non_undoable: true, operation_id: "empty-1",
     });
+    await tools.audit_object_masks_uxp.handler({
+      expected_project_guid: "project-1", sequence_ids: ["sequence-2", "sequence-1"],
+    });
     await tools.inspect_track_item_identity_uxp.handler({
       media_type: "video", track_index: 1, clip_index: 2, expected_sequence_guid: "sequence-1",
     });
@@ -205,11 +220,14 @@ describe("Adobe Premiere 26.3 UXP public MCP catalog", () => {
     expect(request).toHaveBeenNthCalledWith(5, "sequences.createEmpty", {
       name: "Empty Assembly", confirmNonUndoable: true, operationId: "empty-1",
     });
-    expect(request).toHaveBeenNthCalledWith(6, "trackItem.identity.inspect", {
+    expect(request).toHaveBeenNthCalledWith(6, "objectMask.audit", {
+      expectedProjectGuid: "project-1", sequenceIds: ["sequence-2", "sequence-1"],
+    });
+    expect(request).toHaveBeenNthCalledWith(7, "trackItem.identity.inspect", {
       mediaType: "video", trackIndex: 1, clipIndex: 2, expectedSequenceGuid: "sequence-1",
     });
-    expect(request).toHaveBeenNthCalledWith(7, "transcript.has", { projectItemName: "Interview A" });
-    expect(request).toHaveBeenNthCalledWith(8, "interchange.aaf.export", {
+    expect(request).toHaveBeenNthCalledWith(8, "transcript.has", { projectItemName: "Interview A" });
+    expect(request).toHaveBeenNthCalledWith(9, "interchange.aaf.export", {
       outputFilePath: "/exports/turnover.aaf",
       options: {
         mixdownVideo: true, explodeToMono: true, embedAudio: false, trimSources: true,

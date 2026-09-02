@@ -13,8 +13,8 @@ source catalog may include unreleased actions.
 | Registered core actions | 328 | CEP/local server catalog; host and authority checks still apply |
 | Default-profile core actions | 326 | Advertised with `inspect,edit,export,filesystem` |
 | Restricted core actions | 2 | Require explicit `unsafe-script` authority |
-| Authenticated UXP additions | 83 | Advertised only while a compatible authenticated UXP panel is connected |
-| Default profile with UXP | 409 | 326 core plus 83 UXP tools |
+| Authenticated UXP additions | 84 | Advertised only while a compatible authenticated UXP panel is connected |
+| Default profile with UXP | 410 | 326 core plus 84 UXP tools |
 
 ## How to read support
 
@@ -375,6 +375,7 @@ authenticated and the connected host advertises the required command capabilitie
 | `add_video_transition_uxp` | Connected UXP | `position`: `start`, `end` | Add an installed native video transition to one unchanged video-clip edge through one undoable UXP transaction. Requires an exact inspect snapshot, serializes transition updates per sequence, and reads edge presence back; it does not prove handles, rendered appearance, or playback. |
 | `apply_beat_markers_uxp` | Connected UXP | Single operation | Apply a reviewed beat grid as native sequence markers in one undoable Premiere 26.3+ UXP transaction, with bounded inputs and GUID/time readback for every marker. |
 | `apply_editorial_organization_plan` | Connected UXP | Single operation | Apply selected organization recommendations through documented UXP bin transactions only. Requires the unchanged server-issued plan, its opaque preview confirmation token, and stable source/parent guards; individual host transactions may be partially committed and are never silently retried or rolled back. |
+| `audit_object_masks_uxp` | Connected UXP | Single operation | Audit documented Object Mask presence across up to 64 Premiere sequences without changing the project. Omit sequence_ids only when the entire active project has at most 64 sequences; otherwise pass explicit exact GUIDs. The bridge double-reads the active-project identity, aggregate result, and every selected sequence result, rejecting drift instead of returning a mixed audit. It reports only yes/no presence—not mask count, location, tracking, editability, rendered pixels, or playback correctness. |
 | `audition_source_monitor_uxp` | Connected UXP | `state`, `open_project_item`, `open_file`, `set_position`, `play`, `close`, `close_all` | Open a selected project item or approved file, inspect/set position, play at bounded speed, or close Source Monitor media through documented UXP APIs. |
 | `automate_effect_parameters_uxp` | Connected UXP | `inspect`, `inspect_point_value`, `set_point_value`, `inspect_keyframe`, `set_value`, `add_keyframe`, `remove_keyframe`, `remove_keyframe_range`, `set_interpolation`, `inspect_time_varying`, `set_time_varying` | Inspect or transactionally set scalar effect parameters, inspect or guardedly set a static PointF x/y parameter, locate individual keyframes including a bounded native nearest-range lookup, adjust keyframes/interpolation, and control explicit time-varying animation mode through documented UXP actions. Disabling animation requires a complete inspected keyframe-time snapshot and confirmation. |
 | `batch_selected_clips_uxp` | Connected UXP | `inspect`, `add_effect`, `remove_effect` | Inspect the current timeline selection or apply one native effect add/remove across up to 64 same-type selected clips as a single compound transaction. |
