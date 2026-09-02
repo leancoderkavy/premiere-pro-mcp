@@ -4,7 +4,7 @@
   "title": "Premiere Pro MCP UXP hybrid benchmark evidence",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schemaVersion", "workloadId", "configuration", "memoryMeasurement", "runs"],
+  "required": ["schemaVersion", "workloadId", "configuration", "memoryMeasurement", "sdkHeaderReceiptSha256", "runs"],
   "properties": {
     "schemaVersion": { "const": 1 },
     "workloadId": { "const": "weighted-energy-v1" },
@@ -21,6 +21,7 @@
       }
     },
     "memoryMeasurement": { "type": "string", "minLength": 1, "maxLength": 256 },
+    "sdkHeaderReceiptSha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
     "runs": {
       "type": "array",
       "minItems": 3,

@@ -4,7 +4,10 @@ import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { describe, expect, it } from "vitest";
 import { NATIVE_SDK_HEADER_INVENTORY_SEMANTICS } from "../scripts/native-sdk-header-inventory-contract.mjs";
-import { verifyNativeSdkHeaderInventory } from "../scripts/verify-native-sdk-header-inventory.mjs";
+import {
+  canonicalNativeSdkHeaderInventorySha256,
+  verifyNativeSdkHeaderInventory,
+} from "../scripts/verify-native-sdk-header-inventory.mjs";
 
 const hash = (character: string) => character.repeat(64);
 
@@ -83,6 +86,19 @@ describe("native SDK header receipt verifier", () => {
     expect(() => verifyNativeSdkHeaderInventory(missingExpectedHeader)).toThrow("Missing required UXP Hybrid SDK header");
   });
 
+  it("creates one canonical digest for equivalent verified receipts", () => {
+    const receipt = hybridReceipt();
+    const reordered = {
+      headers: receipt.headers,
+      stats: receipt.stats,
+      semantics: receipt.semantics,
+      source: receipt.source,
+      schemaVersion: receipt.schemaVersion,
+    };
+    expect(canonicalNativeSdkHeaderInventorySha256(receipt)).toMatch(/^[a-f0-9]{64}$/);
+    expect(canonicalNativeSdkHeaderInventorySha256(reordered)).toBe(canonicalNativeSdkHeaderInventorySha256(receipt));
+  });
+
   it("validates JSON through the CLI without printing receipt contents", () => {
     const directory = mkdtempSync(join(tmpdir(), "premiere-native-sdk-receipt-"));
     const input = join(directory, "receipt.json");
@@ -92,6 +108,11 @@ describe("native SDK header receipt verifier", () => {
       expect(result.status).toBe(0);
       expect(result.stdout).toContain("Native SDK header receipt is valid: 3 uxp-hybrid header files, 24 bytes.");
       expect(result.stdout).not.toContain("UxpAddonShared.h");
+
+      const digest = spawnSync(process.execPath, ["scripts/verify-native-sdk-header-inventory.mjs", "--input", input, "--print-canonical-sha256"], { encoding: "utf8" });
+      expect(digest.status).toBe(0);
+      expect(digest.stdout).toContain(`Canonical receipt SHA-256: ${canonicalNativeSdkHeaderInventorySha256(hybridReceipt())}`);
+      expect(digest.stdout).not.toContain("UxpAddonShared.h");
 
       const malformed = clone(hybridReceipt());
       malformed.headers[0].contents = "private SDK header";

@@ -30,7 +30,10 @@ When an authorized SDK artifact becomes available, the
 its archive hash and relative header hashes without copying access-controlled
 files into this repository. That receipt leaves both C++ surfaces blocked until
 the relevant declaration classification, reproducible native build, and
-licensed-host evidence are supplied.
+licensed-host evidence are supplied. A future Hybrid benchmark must also bind
+its submitted runs to a matching verified receipt, as described by the
+[Hybrid benchmark gate](uxp-hybrid-benchmark.md); the digest binding is not a
+native-build or host-behavior claim.
 
 The same registry pins the exact competitor commits reviewed for feature-gap
 work. A competitor feature family becomes an implementation candidate only

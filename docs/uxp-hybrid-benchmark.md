@@ -73,13 +73,25 @@ schema, and add one run for each required target: Windows x64, macOS x64, and ma
 arm64. Every run must use the same full source commit, an identified SDK version, a
 Release binary SHA-256, matching output, and stable Premiere 26.2+.
 
+Create and structurally verify a hash-only UXP Hybrid header receipt from the
+authorized SDK download first. Add the canonical digest printed by the receipt
+verifier as `sdkHeaderReceiptSha256`, retain the actual receipt outside this
+repository, and give its local path to the benchmark verifier. The receipt must
+identify `uxp-hybrid`, and its `source.sdkVersion` must exactly match every run's
+`sdkVersion`.
+
 The native implementation must improve both p50 and p95 by at least 30% on every
 target while keeping peak working-set regression at or below 10%. Verify with:
 
 ```powershell
-npm run benchmark:uxp-hybrid:verify -- --input .\path\to\evidence.json
+npm run benchmark:uxp-hybrid:verify -- `
+  --input .\path\to\evidence.json `
+  --sdk-header-receipt C:\sdk-evidence\uxp-hybrid-headers.json
 ```
 
 Only a zero exit code and `promotionEligible: true` support a later PR that adds the
 native source, reproducible build files, signed/notarized artifacts, manifest v6, and
-addon permission. This benchmark PR itself is not that promotion.
+addon permission. This receipt binding verifies only the documented hash-only receipt
+structure and the submitted evidence's SDK identity; it does not verify the private
+archive bytes, establish access entitlement, compile an addon, or prove behavior in a
+licensed Premiere host. This benchmark PR itself is not that promotion.
