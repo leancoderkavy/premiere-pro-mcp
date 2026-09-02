@@ -37,7 +37,7 @@ function sdkHeaderReceipt(sdkVersion = "fixture-sdk") {
 async function writeDevelopmentBundle(root: string, name = "fixture-addon.uxpaddon") {
   writeFileSync(join(root, "manifest.json"), `${JSON.stringify({
     manifestVersion: 6,
-    host: { app: "premierepro", minVersion: "26.2.0" },
+    host: { app: "premierepro", minVersion: "25.6.0" },
     addon: { name },
     requiredPermissions: { enableAddon: true },
   }, null, 2)}\n`);
@@ -68,7 +68,7 @@ describe("UXP Hybrid addon receipt", () => {
       expect(receipt).toMatchObject({
         schemaVersion: 1,
         source: { sdk: "uxp-hybrid", sdkVersion: "fixture-sdk", sdkHeaderReceiptSha256: expect.stringMatching(/^[a-f0-9]{64}$/) },
-        manifest: { manifestVersion: 6, hostApp: "premierepro", hostMinVersion: "26.2.0", addonName: "fixture-addon.uxpaddon", enableAddon: true },
+        manifest: { manifestVersion: 6, hostApp: "premierepro", hostMinVersion: "25.6.0", addonName: "fixture-addon.uxpaddon", enableAddon: true },
         stats: { artifacts: 3 },
       });
       expect(receipt.artifacts.map((artifact) => artifact.path)).toEqual([

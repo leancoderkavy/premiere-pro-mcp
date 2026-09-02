@@ -9,7 +9,6 @@ import {
   UXP_HYBRID_ADDON_RECEIPT_SCHEMA_VERSION,
   UXP_HYBRID_ADDON_RECEIPT_SEMANTICS,
   UXP_HYBRID_ADDON_TARGETS,
-  UXP_HYBRID_MIN_PREMIERE_VERSION,
   compareUxpHybridPaths,
 } from "./uxp-hybrid-addon-receipt-contract.mjs";
 import {
@@ -66,16 +65,6 @@ function addonName(value) {
   return name;
 }
 
-function versionAtLeast(value, minimum) {
-  if (!/^\d+\.\d+\.\d+$/.test(value)) return false;
-  const left = value.split(".").map(Number), right = minimum.split(".").map(Number);
-  for (let index = 0; index < left.length; index += 1) {
-    if (left[index] > right[index]) return true;
-    if (left[index] < right[index]) return false;
-  }
-  return true;
-}
-
 function canonicalize(value) {
   if (Array.isArray(value)) return value.map(canonicalize);
   if (value && typeof value === "object") {
@@ -107,8 +96,8 @@ export function verifyUxpHybridAddonReceipt(document, options = {}) {
     throw receiptError("manifest.manifestVersion must be 6 or newer");
   }
   if (manifest.hostApp !== "premierepro") throw receiptError("manifest.hostApp must be premierepro");
-  if (!versionAtLeast(String(manifest.hostMinVersion || ""), UXP_HYBRID_MIN_PREMIERE_VERSION)) {
-    throw receiptError(`manifest.hostMinVersion must be Premiere ${UXP_HYBRID_MIN_PREMIERE_VERSION} or newer`);
+  if (!/^\d+\.\d+\.\d+$/.test(String(manifest.hostMinVersion || ""))) {
+    throw receiptError("manifest.hostMinVersion must be a semantic version");
   }
   const name = addonName(manifest.addonName);
   if (manifest.enableAddon !== true) throw receiptError("manifest.enableAddon must be true");

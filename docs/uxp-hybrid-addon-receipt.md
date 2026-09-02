@@ -45,7 +45,9 @@ identity. It does **not** prove that a binary was compiled with the SDK, has the
 advertised architecture, is signed or notarized, can load in UXP Developer
 Tool, exposes the benchmark adapter, is an MCP capability, or behaves in a
 licensed Premiere host. Those remain separate build, signing, UDT installation,
-and licensed-host gates.
+and licensed-host gates. It records a valid manifest `host.minVersion` (the
+build guide's example is 25.6); the separate benchmark evidence requires the
+actual Premiere host to be 26.2 or newer.
 
 Official references: [Hybrid Plugins](https://developer.adobe.com/premiere-pro/uxp/plugins/hybrid-plugins/)
 and [Building Hybrid Plugins](https://developer.adobe.com/premiere-pro/uxp/plugins/hybrid-plugins/build).

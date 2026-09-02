@@ -10,7 +10,6 @@ import {
   UXP_HYBRID_ADDON_RECEIPT_SCHEMA_VERSION,
   UXP_HYBRID_ADDON_RECEIPT_SEMANTICS,
   UXP_HYBRID_ADDON_TARGETS,
-  UXP_HYBRID_MIN_PREMIERE_VERSION,
 } from "./uxp-hybrid-addon-receipt-contract.mjs";
 import {
   canonicalNativeSdkHeaderInventorySha256,
@@ -37,16 +36,6 @@ function assertInside(root, candidate, label) {
   const value = resolve(candidate);
   if (value !== root && !value.startsWith(`${root}${sep}`)) throw receiptError(`${label} must stay inside the plugin root`);
   return value;
-}
-
-function versionAtLeast(value, minimum) {
-  if (!/^\d+\.\d+\.\d+$/.test(value)) return false;
-  const left = value.split(".").map(Number), right = minimum.split(".").map(Number);
-  for (let index = 0; index < left.length; index += 1) {
-    if (left[index] > right[index]) return true;
-    if (left[index] < right[index]) return false;
-  }
-  return true;
 }
 
 function addonName(value) {
@@ -89,8 +78,8 @@ async function readDevelopmentManifest(root) {
     throw receiptError("manifest.json must declare manifestVersion 6 or newer");
   }
   if (manifest.host?.app !== "premierepro") throw receiptError("manifest.json host.app must be premierepro");
-  if (!versionAtLeast(String(manifest.host?.minVersion || ""), UXP_HYBRID_MIN_PREMIERE_VERSION)) {
-    throw receiptError(`manifest.json host.minVersion must be Premiere ${UXP_HYBRID_MIN_PREMIERE_VERSION} or newer`);
+  if (!/^\d+\.\d+\.\d+$/.test(String(manifest.host?.minVersion || ""))) {
+    throw receiptError("manifest.json host.minVersion must be a semantic version");
   }
   const name = addonName(manifest.addon?.name);
   if (manifest.requiredPermissions?.enableAddon !== true) throw receiptError("manifest.json requiredPermissions.enableAddon must be true");
