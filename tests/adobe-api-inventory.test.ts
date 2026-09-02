@@ -12,6 +12,7 @@ const betaTransitionOptionsDrift = JSON.parse(readFileSync("src/resources/adobe-
 const betaRectFDrift = JSON.parse(readFileSync("src/resources/adobe-beta-rectf-drift.json", "utf8"));
 const betaColorDrift = JSON.parse(readFileSync("src/resources/adobe-beta-color-drift.json", "utf8"));
 const betaPointFDrift = JSON.parse(readFileSync("src/resources/adobe-beta-pointf-drift.json", "utf8"));
+const betaGuidDrift = JSON.parse(readFileSync("src/resources/adobe-beta-guid-drift.json", "utf8"));
 const betaC2paDrift = JSON.parse(readFileSync("src/resources/adobe-beta-c2pa-drift.json", "utf8"));
 const betaMediaDrift = JSON.parse(readFileSync("src/resources/adobe-beta-media-drift.json", "utf8"));
 const betaMediaManagerDrift = JSON.parse(readFileSync("src/resources/adobe-beta-media-manager-drift.json", "utf8"));
@@ -485,6 +486,74 @@ describe("Adobe declaration API inventory", () => {
       });
       expect(result.status).not.toBe(0);
       expect(result.stderr).toContain("must move premierepro.PointF to PointFStatic");
+    } finally {
+      rmSync(temporary, { recursive: true, force: true });
+    }
+  });
+
+  it("accounts for beta Guid factory placement without advertising a beta Guid path", () => {
+    const stableDeclarations = readFileSync("node_modules/@adobe/premierepro/src/premierepro.d.ts", "utf8");
+    const betaDeclarations = readFileSync("node_modules/@adobe/premierepro-beta/src/premierepro.d.ts", "utf8");
+    const guidFactory = "new (): Guid;";
+    expect(stableDeclarations).toContain("Guid: GuidStatic;");
+    expect(betaDeclarations).toContain("Guid: GuidStatic;");
+    expect(declarationType(stableDeclarations, "Guid")).toContain(guidFactory);
+    expect(declarationType(stableDeclarations, "GuidStatic")).not.toContain(guidFactory);
+    expect(declarationType(betaDeclarations, "Guid")).not.toContain(guidFactory);
+    expect(declarationType(betaDeclarations, "GuidStatic")).toContain(guidFactory);
+    expect(betaGuidDrift).toMatchObject({
+      schemaVersion: 1,
+      scope: {
+        declarations: ["premierepro.Guid", "Guid", "GuidStatic"],
+        doesNotEstablish: expect.stringContaining("does not prove"),
+      },
+      sources: {
+        stable: {
+          package: "@adobe/premierepro",
+          version: "26.3.0",
+          rootBinding: "GuidStatic",
+          guidDeclarationSha256: expect.stringMatching(/^[a-f0-9]{64}$/),
+          guidStaticDeclarationSha256: expect.stringMatching(/^[a-f0-9]{64}$/),
+        },
+        beta: {
+          package: "@adobe/premierepro-beta",
+          version: "26.5.0-beta.73",
+          rootBinding: "GuidStatic",
+          guidDeclarationSha256: expect.stringMatching(/^[a-f0-9]{64}$/),
+          guidStaticDeclarationSha256: expect.stringMatching(/^[a-f0-9]{64}$/),
+        },
+      },
+    });
+    expect(betaGuidDrift.diff.betaOnly).toEqual(expect.arrayContaining([
+      { symbol: "GuidStatic.new", kind: "construct_signature", signature: "() => Guid" },
+      { symbol: "GuidStatic.call", kind: "call_signature", signature: "() => Guid" },
+    ]));
+    expect(betaGuidDrift.diff.stableOnly).toEqual(expect.arrayContaining([
+      { symbol: "Guid.new", kind: "construct_signature", signature: "() => Guid" },
+      { symbol: "Guid.call", kind: "call_signature", signature: "() => Guid" },
+    ]));
+    expect(betaGuidDrift.diff.changed).toEqual(expect.arrayContaining([
+      expect.objectContaining({ symbol: "Guid.factorySignaturePlacement" }),
+    ]));
+    expect(spawnSync(process.execPath, ["scripts/generate-adobe-beta-guid-drift.mjs", "--check"], { encoding: "utf8" }).status).toBe(0);
+    const claimedApis = coverage.entries.flatMap((entry: { adobeApi: string[] }) => entry.adobeApi);
+    expect(claimedApis).toContain("Guid.fromString");
+    expect(claimedApis).not.toEqual(expect.arrayContaining([
+      "premierepro.Guid", "Guid.[[construct]]", "Guid.new", "Guid.call", "GuidStatic.new", "GuidStatic.call",
+    ]));
+  });
+
+  it("rejects unexpected beta Guid factory signatures before writing a receipt", () => {
+    const temporary = mkdtempSync(join(tmpdir(), "premiere-beta-guid-drift-"));
+    try {
+      const betaPath = join(temporary, "premierepro.d.ts");
+      writeFileSync(betaPath, readFileSync("node_modules/@adobe/premierepro-beta/src/premierepro.d.ts", "utf8").replace(/(export declare type GuidStatic = \{[\s\S]*?)new \(\): Guid;/, "$1new (unexpected: string): Guid;"));
+      const result = spawnSync(process.execPath, ["scripts/generate-adobe-beta-guid-drift.mjs", "--validate-only"], {
+        encoding: "utf8",
+        env: { ...process.env, PREMIERE_BETA_GUID_BETA_DECLARATIONS_PATH: betaPath },
+      });
+      expect(result.status).not.toBe(0);
+      expect(result.stderr).toContain("GuidStatic factory signatures must match stable Guid");
     } finally {
       rmSync(temporary, { recursive: true, force: true });
     }
