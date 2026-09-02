@@ -80,6 +80,8 @@ type ZipOptions = {
   localSuffix?: Buffer;
   centralSuffix?: Buffer;
   localNames?: Record<string, string>;
+  localExtraFields?: Record<string, Buffer>;
+  centralExtraFields?: Record<string, Buffer>;
   localMetadata?: Record<string, { versionNeeded?: number; flags?: number; method?: number; crc32?: number; compressedBytes?: number; uncompressedBytes?: number }>;
   centralMetadata?: Record<string, { versionMadeBy?: number; versionNeeded?: number; flags?: number; compressedBytes?: number; uncompressedBytes?: number; externalAttributes?: number; localOffset?: number }>;
   crc32Adjustments?: Record<string, number>;
@@ -103,6 +105,7 @@ function createZip(entries: Array<{ path: string; contents: Buffer }>, prefix = 
     const declaredCrc32 = (crc32(entry.contents) + (options.crc32Adjustments?.[entry.path] ?? 0)) >>> 0;
     const declaredCompressedBytes = compressedPayload.length + (options.compressedByteAdjustments?.[entry.path] ?? 0);
     const localMetadata = options.localMetadata?.[entry.path] ?? {};
+    const localExtraFields = options.localExtraFields?.[entry.path] ?? Buffer.alloc(0);
     const local = Buffer.alloc(30);
     local.writeUInt32LE(0x04034b50, 0);
     local.writeUInt16LE(localMetadata.versionNeeded ?? 20, 4);
@@ -115,7 +118,8 @@ function createZip(entries: Array<{ path: string; contents: Buffer }>, prefix = 
     const localNamePath = options.localNames?.[entry.path] ?? (localNameOverride && entry.path === "main.js" ? localNameOverride : entry.path);
     const localName = Buffer.from(`${prefix}${localNamePath}`, "utf8");
     local.writeUInt16LE(localName.length, 26);
-    locals.push(local, localName, compressedPayload);
+    local.writeUInt16LE(localExtraFields.length, 28);
+    locals.push(local, localName, localExtraFields, compressedPayload);
     const descriptorMetadata = flags & 0x8 ? options.dataDescriptors?.[entry.path] ?? {} : false;
     const descriptor = descriptorMetadata === false ? undefined : Buffer.alloc(descriptorMetadata.signature === false ? 12 : 16);
     if (descriptor) {
@@ -129,6 +133,7 @@ function createZip(entries: Array<{ path: string; contents: Buffer }>, prefix = 
 
     const central = Buffer.alloc(46);
     const centralMetadata = options.centralMetadata?.[entry.path] ?? {};
+    const centralExtraFields = options.centralExtraFields?.[entry.path] ?? Buffer.alloc(0);
     central.writeUInt32LE(0x02014b50, 0);
     central.writeUInt16LE(centralMetadata.versionMadeBy ?? 20, 4);
     central.writeUInt16LE(centralMetadata.versionNeeded ?? 20, 6);
@@ -138,10 +143,11 @@ function createZip(entries: Array<{ path: string; contents: Buffer }>, prefix = 
     central.writeUInt32LE(centralMetadata.compressedBytes ?? declaredCompressedBytes, 20);
     central.writeUInt32LE(centralMetadata.uncompressedBytes ?? entry.contents.length, 24);
     central.writeUInt16LE(name.length, 28);
+    central.writeUInt16LE(centralExtraFields.length, 30);
     central.writeUInt32LE(centralMetadata.externalAttributes ?? 0, 38);
     central.writeUInt32LE(centralMetadata.localOffset ?? localOffset, 42);
-    centrals.push(central, name);
-    localOffset += local.length + localName.length + compressedPayload.length + (descriptor?.length ?? 0);
+    centrals.push(central, name, centralExtraFields);
+    localOffset += local.length + localName.length + localExtraFields.length + compressedPayload.length + (descriptor?.length ?? 0);
   }
   if (options.localSuffix) {
     locals.push(options.localSuffix);
@@ -158,7 +164,7 @@ function createZip(entries: Array<{ path: string; contents: Buffer }>, prefix = 
   return Buffer.concat([...locals, central, centralSuffix, end]);
 }
 
-function writeCcx(bundle: string, archive: string, options: { prefix?: string; deflate?: boolean; main?: string; manifest?: Record<string, unknown>; duplicateMain?: boolean; localMainName?: string; extra?: Array<{ path: string; contents: Buffer }>; zipFlags?: number; compressionMethod?: number; localPreamble?: Buffer; localSuffix?: Buffer; centralSuffix?: Buffer; localNames?: Record<string, string>; localMetadata?: Record<string, { versionNeeded?: number; flags?: number; method?: number; crc32?: number; compressedBytes?: number; uncompressedBytes?: number }>; centralMetadata?: Record<string, { versionMadeBy?: number; versionNeeded?: number; flags?: number; compressedBytes?: number; uncompressedBytes?: number; externalAttributes?: number; localOffset?: number }>; crc32Adjustments?: Record<string, number>; compressedDataSuffixes?: Record<string, Buffer>; compressedByteAdjustments?: Record<string, number>; dataDescriptors?: Record<string, DataDescriptorMetadata> } = {}) {
+function writeCcx(bundle: string, archive: string, options: { prefix?: string; deflate?: boolean; main?: string; manifest?: Record<string, unknown>; duplicateMain?: boolean; localMainName?: string; extra?: Array<{ path: string; contents: Buffer }>; zipFlags?: number; compressionMethod?: number; localPreamble?: Buffer; localSuffix?: Buffer; centralSuffix?: Buffer; localNames?: Record<string, string>; localExtraFields?: Record<string, Buffer>; centralExtraFields?: Record<string, Buffer>; localMetadata?: Record<string, { versionNeeded?: number; flags?: number; method?: number; crc32?: number; compressedBytes?: number; uncompressedBytes?: number }>; centralMetadata?: Record<string, { versionMadeBy?: number; versionNeeded?: number; flags?: number; compressedBytes?: number; uncompressedBytes?: number; externalAttributes?: number; localOffset?: number }>; crc32Adjustments?: Record<string, number>; compressedDataSuffixes?: Record<string, Buffer>; compressedByteAdjustments?: Record<string, number>; dataDescriptors?: Record<string, DataDescriptorMetadata> } = {}) {
   const name = "fixture-addon.uxpaddon";
   const manifest = { ...JSON.parse(readFileSync(join(bundle, "manifest.json"), "utf8")), ...(options.manifest ?? {}) };
   const entries = [
@@ -177,6 +183,8 @@ function writeCcx(bundle: string, archive: string, options: { prefix?: string; d
     localSuffix: options.localSuffix,
     centralSuffix: options.centralSuffix,
     localNames: options.localNames,
+    localExtraFields: options.localExtraFields,
+    centralExtraFields: options.centralExtraFields,
     localMetadata: options.localMetadata,
     centralMetadata: options.centralMetadata,
     crc32Adjustments: options.crc32Adjustments,
@@ -524,6 +532,42 @@ describe("UXP Hybrid CCX receipt", () => {
         });
         await expect(buildUxpHybridCcxReceipt({ ccxPath: archive, addonReceipt, sdkHeaderReceipt: headers })).rejects.toThrow("ZIP64 entry metadata is not supported");
       }
+
+      const vendorExtraField = Buffer.from([0xfe, 0xca, 0x00, 0x00]);
+      writeCcx(bundle, archive, {
+        extra: [{ path: "docs/vendor-extra.txt", contents: Buffer.from("well-formed non-ZIP64 extra field") }],
+        localExtraFields: { "docs/vendor-extra.txt": vendorExtraField },
+        centralExtraFields: { "docs/vendor-extra.txt": vendorExtraField },
+      });
+      await expect(buildUxpHybridCcxReceipt({ ccxPath: archive, addonReceipt, sdkHeaderReceipt: headers })).resolves.toMatchObject({
+        contents: { entries: 6 },
+      });
+
+      const zip64ExtraField = Buffer.from([0x01, 0x00, 0x00, 0x00]);
+      writeCcx(bundle, archive, {
+        extra: [{ path: "docs/central-zip64-extra.txt", contents: Buffer.from("central ZIP64 extra field") }],
+        centralExtraFields: { "docs/central-zip64-extra.txt": zip64ExtraField },
+      });
+      await expect(buildUxpHybridCcxReceipt({ ccxPath: archive, addonReceipt, sdkHeaderReceipt: headers })).rejects.toThrow("ZIP64 extra fields are not supported");
+
+      writeCcx(bundle, archive, {
+        extra: [{ path: "docs/local-zip64-extra.txt", contents: Buffer.from("local ZIP64 extra field") }],
+        localExtraFields: { "docs/local-zip64-extra.txt": zip64ExtraField },
+      });
+      await expect(buildUxpHybridCcxReceipt({ ccxPath: archive, addonReceipt, sdkHeaderReceipt: headers })).rejects.toThrow("ZIP64 extra fields are not supported");
+
+      const malformedExtraField = Buffer.from([0x55, 0x54, 0x01, 0x00]);
+      writeCcx(bundle, archive, {
+        extra: [{ path: "docs/malformed-central-extra.txt", contents: Buffer.from("malformed central extra field") }],
+        centralExtraFields: { "docs/malformed-central-extra.txt": malformedExtraField },
+      });
+      await expect(buildUxpHybridCcxReceipt({ ccxPath: archive, addonReceipt, sdkHeaderReceipt: headers })).rejects.toThrow("ZIP extra fields are malformed");
+
+      writeCcx(bundle, archive, {
+        extra: [{ path: "docs/malformed-local-extra.txt", contents: Buffer.from("malformed local extra field") }],
+        localExtraFields: { "docs/malformed-local-extra.txt": malformedExtraField },
+      });
+      await expect(buildUxpHybridCcxReceipt({ ccxPath: archive, addonReceipt, sdkHeaderReceipt: headers })).rejects.toThrow("ZIP extra fields are malformed");
     } finally {
       rmSync(directory, { recursive: true, force: true });
     }

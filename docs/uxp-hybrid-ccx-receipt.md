@@ -56,6 +56,13 @@ also end directly at the end-of-central-directory record; the verifier rejects
 unaccounted bytes in that gap rather than silently excluding them from its
 structure validation.
 
+Each local and central ZIP extra-field area must be a complete sequence of
+little-endian Header-ID and Data-Size blocks. The verifier preserves compatible
+well-formed non-ZIP64 fields, but rejects both malformed blocks and the ZIP64
+`0x0001` field before reading required payloads. This keeps the bounded ZIP32
+profile closed even when a Zip64 field is present without a corresponding
+32-bit sentinel.
+
 For its stored-or-Deflate ZIP32 profile, the verifier also requires each
 central and matching local `version needed to extract` field to truthfully
 cover the declared feature: at least ZIP 1.0 for a stored regular file, and at
@@ -115,4 +122,4 @@ Official references: [Package a UXP plugin](https://developer.adobe.com/premiere
 [Building Hybrid Plugins](https://developer.adobe.com/premiere-pro/uxp/plugins/hybrid-plugins/build/),
 and [Hybrid Plugins](https://developer.adobe.com/premiere-pro/uxp/plugins/hybrid-plugins/).
 The ZIP layout rules follow PKWARE's [ZIP File Format Specification](https://pkware.cachefly.net/webdocs/casestudies/APPNOTE.TXT),
-sections 4.3.6, 4.3.8, 4.3.12, 4.3.16, and 4.4.3.
+sections 4.3.6, 4.3.8, 4.3.12, 4.3.16, 4.4.3, and 4.5.1-4.5.3.
