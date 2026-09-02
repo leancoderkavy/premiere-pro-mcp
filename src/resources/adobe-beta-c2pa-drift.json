@@ -1,0 +1,101 @@
+{
+  "schemaVersion": 1,
+  "scope": {
+    "declarations": [
+      "premierepro.C2PAService",
+      "C2PAServiceStatic",
+      "C2PAService",
+      "Constants.C2PAManifestLocation"
+    ],
+    "semantics": "This records the C2PA declaration surface that is absent from the pinned stable package and present in the pinned beta package. It is static declaration-drift accounting, not beta API support or a complete package diff.",
+    "enumValueBoundary": "C2PAManifestLocation members have implicit enum initializers. declarationOrder records source order only; this receipt does not establish runtime numeric flag values or manifest-location semantics.",
+    "doesNotEstablish": "It does not prove a beta host exposes C2PAService, that a stable host accepts a beta call, that a manifest can be read or validated, or that an MCP action is supported or licensed-host validated."
+  },
+  "sources": {
+    "stable": {
+      "package": "@adobe/premierepro",
+      "version": "26.3.0",
+      "declarations": "node_modules/@adobe/premierepro/src/premierepro.d.ts",
+      "c2paSurfacePresent": false
+    },
+    "beta": {
+      "package": "@adobe/premierepro-beta",
+      "version": "26.5.0-beta.73",
+      "declarations": "node_modules/@adobe/premierepro-beta/src/premierepro.d.ts",
+      "c2paSurfacePresent": true,
+      "rootDeclarationSha256": "e546fac5bc471b755db6cb28e74ea43b7c92e60b288a3aa5ce6d572568490a16",
+      "serviceStaticDeclarationSha256": "280b490f55df6a27e77e671faca7e6dc07a8a945b9d4561cab53114046cc5333",
+      "serviceDeclarationSha256": "2483b58af09b85cb676ded45fb7bbc924a98d6c87e7b4ad9277a8080f9d962e1",
+      "manifestLocationDeclarationSha256": "8101a9bd8a3326d7cee9b4d60cd1ff724fb49d740b27851ed9f9145b5f1546cf"
+    }
+  },
+  "diff": {
+    "betaOnly": [
+      {
+        "symbol": "C2PAService",
+        "kind": "type",
+        "signature": "{}"
+      },
+      {
+        "symbol": "C2PAServiceStatic.MANIFEST_LOCATION_CLOUD",
+        "kind": "property",
+        "readonly": true,
+        "signature": "number"
+      },
+      {
+        "symbol": "C2PAServiceStatic.MANIFEST_LOCATION_EMBEDDED",
+        "kind": "property",
+        "readonly": true,
+        "signature": "number"
+      },
+      {
+        "symbol": "C2PAServiceStatic.MANIFEST_LOCATION_NONE",
+        "kind": "property",
+        "readonly": true,
+        "signature": "number"
+      },
+      {
+        "symbol": "C2PAServiceStatic.MANIFEST_LOCATION_SIDE_CAR",
+        "kind": "property",
+        "readonly": true,
+        "signature": "number"
+      },
+      {
+        "symbol": "C2PAServiceStatic.getManifest",
+        "kind": "method",
+        "signature": "(filePath: string, withValidation: boolean) => { manifest: string; manifestLocation: Constants.C2PAManifestLocation }"
+      },
+      {
+        "symbol": "Constants.C2PAManifestLocation.CLOUD",
+        "kind": "enum_member",
+        "declarationOrder": 0,
+        "initializer": "implicit"
+      },
+      {
+        "symbol": "Constants.C2PAManifestLocation.EMBEDDED",
+        "kind": "enum_member",
+        "declarationOrder": 1,
+        "initializer": "implicit"
+      },
+      {
+        "symbol": "Constants.C2PAManifestLocation.NONE",
+        "kind": "enum_member",
+        "declarationOrder": 2,
+        "initializer": "implicit"
+      },
+      {
+        "symbol": "Constants.C2PAManifestLocation.SIDE_CAR",
+        "kind": "enum_member",
+        "declarationOrder": 3,
+        "initializer": "implicit"
+      },
+      {
+        "symbol": "premierepro.C2PAService",
+        "kind": "property",
+        "signature": "C2PAServiceStatic"
+      }
+    ],
+    "stableOnly": [],
+    "changed": []
+  }
+}

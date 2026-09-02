@@ -6,6 +6,7 @@ const scriptDirectory = dirname(fileURLToPath(import.meta.url));
 const resources = [
   "adobe-uxp-coverage.json",
   "adobe-api-inventory.json",
+  "adobe-beta-c2pa-drift.json",
   "adobe-beta-media-drift.json",
   "uxp-js-coverage.json",
   "uxp-js-api-inventory.json",
