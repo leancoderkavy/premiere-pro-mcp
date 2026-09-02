@@ -1,0 +1,87 @@
+{
+  "schemaVersion": 1,
+  "scope": {
+    "declarations": [
+      "premierepro.TickTime",
+      "TickTime",
+      "TickTimeStatic"
+    ],
+    "semantics": "This records the beta TickTime factory-placement migration against the pinned stable package. It is static declaration-drift accounting, not beta API support or a complete package diff.",
+    "doesNotEstablish": "It does not prove a beta host exposes TickTimeStatic factory calls, that a TickTime can be constructed or accepted by another API, that TickTime arithmetic or frame alignment behavior is preserved, or that any MCP action is supported or licensed-host validated."
+  },
+  "sources": {
+    "stable": {
+      "package": "@adobe/premierepro",
+      "version": "26.3.0",
+      "declarations": "node_modules/@adobe/premierepro/src/premierepro.d.ts",
+      "tickTimeDeclarationSha256": "d165866267856e95ef130802ebfbcc02bbb0e7310d5fee29e5bba140eabf8ebd",
+      "tickTimeStaticDeclarationSha256": "dfe0484beebdf1fb39c16a40983f4bc8dd78bf9f63d51db39f9c1390035d868b",
+      "rootBinding": "TickTimeStatic"
+    },
+    "beta": {
+      "package": "@adobe/premierepro-beta",
+      "version": "26.5.0-beta.73",
+      "declarations": "node_modules/@adobe/premierepro-beta/src/premierepro.d.ts",
+      "tickTimeDeclarationSha256": "980a076a8e29831866b12c0645471d1e781d9d5adebbf38cdc8d5ca28aeae3c1",
+      "tickTimeStaticDeclarationSha256": "30515debaad87773f6ffe8a88b5184443a02f00af8dcf2f07121cb92923a9287",
+      "rootBinding": "TickTimeStatic"
+    }
+  },
+  "diff": {
+    "betaOnly": [
+      {
+        "symbol": "TickTimeStatic.call",
+        "kind": "call_signature",
+        "signature": "() => TickTime"
+      },
+      {
+        "symbol": "TickTimeStatic.new",
+        "kind": "construct_signature",
+        "signature": "() => TickTime"
+      }
+    ],
+    "stableOnly": [
+      {
+        "symbol": "TickTime.call",
+        "kind": "call_signature",
+        "signature": "() => TickTime"
+      },
+      {
+        "symbol": "TickTime.new",
+        "kind": "construct_signature",
+        "signature": "() => TickTime"
+      }
+    ],
+    "changed": [
+      {
+        "symbol": "TickTime.factorySignaturePlacement",
+        "stable": {
+          "owner": "TickTime",
+          "entries": [
+            {
+              "kind": "call_signature",
+              "signature": "() => TickTime"
+            },
+            {
+              "kind": "construct_signature",
+              "signature": "() => TickTime"
+            }
+          ]
+        },
+        "beta": {
+          "owner": "TickTimeStatic",
+          "entries": [
+            {
+              "kind": "call_signature",
+              "signature": "() => TickTime"
+            },
+            {
+              "kind": "construct_signature",
+              "signature": "() => TickTime"
+            }
+          ]
+        }
+      }
+    ]
+  }
+}
