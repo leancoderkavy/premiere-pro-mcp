@@ -8,6 +8,7 @@ const inventory = JSON.parse(readFileSync("src/resources/adobe-api-inventory.jso
 const coverage = JSON.parse(readFileSync("src/resources/adobe-uxp-coverage.json", "utf8"));
 const betaC2paDrift = JSON.parse(readFileSync("src/resources/adobe-beta-c2pa-drift.json", "utf8"));
 const betaMediaDrift = JSON.parse(readFileSync("src/resources/adobe-beta-media-drift.json", "utf8"));
+const betaMediaManagerDrift = JSON.parse(readFileSync("src/resources/adobe-beta-media-manager-drift.json", "utf8"));
 const betaWorkAreaDrift = JSON.parse(readFileSync("src/resources/adobe-beta-work-area-drift.json", "utf8"));
 
 function declarationType(declarations: string, name: string): string {
@@ -232,6 +233,50 @@ describe("Adobe declaration API inventory", () => {
       ]));
   });
 
+  it("accounts for beta MediaManager without exposing its cache mutation", () => {
+    const stableDeclarations = readFileSync("node_modules/@adobe/premierepro/src/premierepro.d.ts", "utf8");
+    const betaDeclarations = readFileSync("node_modules/@adobe/premierepro-beta/src/premierepro.d.ts", "utf8");
+    expect(stableDeclarations).not.toContain("MediaManager");
+    expect(betaDeclarations).toContain("MediaManager: MediaManagerStatic;");
+    expect(declarationType(betaDeclarations, "MediaManagerStatic"))
+      .toContain("purgeMediaCache(): Promise<boolean>;");
+    expect(betaMediaManagerDrift).toMatchObject({
+      schemaVersion: 1,
+      scope: {
+        declarations: ["premierepro.MediaManager", "MediaManagerStatic", "MediaManager"],
+        mutationBoundary: expect.stringContaining("no production call"),
+      },
+      sources: {
+        stable: { package: "@adobe/premierepro", version: "26.3.0", mediaManagerSurfacePresent: false },
+        beta: {
+          package: "@adobe/premierepro-beta",
+          version: "26.5.0-beta.73",
+          mediaManagerSurfacePresent: true,
+          rootDeclarationSha256: expect.stringMatching(/^[a-f0-9]{64}$/),
+          mediaManagerStaticDeclarationSha256: expect.stringMatching(/^[a-f0-9]{64}$/),
+          mediaManagerDeclarationSha256: expect.stringMatching(/^[a-f0-9]{64}$/),
+        },
+      },
+      diff: {
+        betaOnly: [
+          { symbol: "MediaManager", kind: "type", signature: "{}" },
+          { symbol: "MediaManagerStatic.purgeMediaCache", kind: "method", signature: "() => Promise<boolean>" },
+          { symbol: "premierepro.MediaManager", kind: "property", signature: "MediaManagerStatic" },
+        ],
+        stableOnly: [],
+        changed: [],
+      },
+    });
+    expect(spawnSync(process.execPath, ["scripts/generate-adobe-beta-media-manager-drift.mjs", "--check"], {
+      encoding: "utf8",
+    }).status).toBe(0);
+    expect(coverage.entries.flatMap((entry: { adobeApi: string[] }) => entry.adobeApi))
+      .not.toEqual(expect.arrayContaining([
+        "premierepro.MediaManager",
+        "MediaManagerStatic.purgeMediaCache",
+      ]));
+  });
+
   it("fails closed when either pinned declaration does not expose a Media type literal", () => {
     const directory = mkdtempSync(join(tmpdir(), "premiere-beta-media-drift-"));
     const stablePath = join(directory, "stable.d.ts");
@@ -303,6 +348,33 @@ describe("Adobe declaration API inventory", () => {
       });
       expect(result.status).not.toBe(0);
       expect(result.stderr).toContain("must expose premierepro.WorkAreaUtils as WorkAreaUtilsStatic");
+    } finally {
+      rmSync(directory, { recursive: true, force: true });
+    }
+  });
+
+  it("fails closed when the beta MediaManager root binding no longer has its declared static type", () => {
+    const directory = mkdtempSync(join(tmpdir(), "premiere-beta-media-manager-drift-"));
+    const stablePath = join(directory, "stable.d.ts");
+    const betaPath = join(directory, "beta.d.ts");
+    const stableDeclarations = readFileSync("node_modules/@adobe/premierepro/src/premierepro.d.ts", "utf8");
+    const betaDeclarations = readFileSync("node_modules/@adobe/premierepro-beta/src/premierepro.d.ts", "utf8");
+    writeFileSync(stablePath, stableDeclarations);
+    writeFileSync(betaPath, betaDeclarations.replace(
+      "MediaManager: MediaManagerStatic;",
+      "MediaManager: MediaManager;",
+    ));
+    try {
+      const result = spawnSync(process.execPath, ["scripts/generate-adobe-beta-media-manager-drift.mjs", "--validate-only"], {
+        encoding: "utf8",
+        env: {
+          ...process.env,
+          PREMIERE_BETA_MEDIA_MANAGER_STABLE_DECLARATIONS_PATH: stablePath,
+          PREMIERE_BETA_MEDIA_MANAGER_BETA_DECLARATIONS_PATH: betaPath,
+        },
+      });
+      expect(result.status).not.toBe(0);
+      expect(result.stderr).toContain("must expose premierepro.MediaManager as MediaManagerStatic");
     } finally {
       rmSync(directory, { recursive: true, force: true });
     }

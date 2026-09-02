@@ -1,0 +1,51 @@
+{
+  "schemaVersion": 1,
+  "scope": {
+    "declarations": [
+      "premierepro.MediaManager",
+      "MediaManagerStatic",
+      "MediaManager"
+    ],
+    "semantics": "This records the MediaManager declaration surface that is absent from the pinned stable package and present in the pinned beta package. It is static declaration-drift accounting, not beta API support or a complete package diff.",
+    "doesNotEstablish": "It does not prove a beta host exposes MediaManager, that a stable host accepts a beta call, that purging changes a cache, or that an MCP action is supported or licensed-host validated.",
+    "mutationBoundary": "purgeMediaCache is declared as a mutating cache operation. This receipt intentionally has no production call or user-facing cache-purge action."
+  },
+  "sources": {
+    "stable": {
+      "package": "@adobe/premierepro",
+      "version": "26.3.0",
+      "declarations": "node_modules/@adobe/premierepro/src/premierepro.d.ts",
+      "mediaManagerSurfacePresent": false
+    },
+    "beta": {
+      "package": "@adobe/premierepro-beta",
+      "version": "26.5.0-beta.73",
+      "declarations": "node_modules/@adobe/premierepro-beta/src/premierepro.d.ts",
+      "mediaManagerSurfacePresent": true,
+      "rootDeclarationSha256": "e546fac5bc471b755db6cb28e74ea43b7c92e60b288a3aa5ce6d572568490a16",
+      "mediaManagerStaticDeclarationSha256": "2a4cbbd14b5770d785da18cc849b9b84c7ef298ad0401d37593ae3078e0d564c",
+      "mediaManagerDeclarationSha256": "4b8b9bb6be45a7372d7cfe7dbba6dd180fe8885e1c68987fbb6f9157a2395786"
+    }
+  },
+  "diff": {
+    "betaOnly": [
+      {
+        "symbol": "MediaManager",
+        "kind": "type",
+        "signature": "{}"
+      },
+      {
+        "symbol": "MediaManagerStatic.purgeMediaCache",
+        "kind": "method",
+        "signature": "() => Promise<boolean>"
+      },
+      {
+        "symbol": "premierepro.MediaManager",
+        "kind": "property",
+        "signature": "MediaManagerStatic"
+      }
+    ],
+    "stableOnly": [],
+    "changed": []
+  }
+}

@@ -27,6 +27,9 @@ surface and does not expose a C2PA operation or claim a manifest can be read in
 any host. The [beta WorkAreaUtils declaration receipt](adobe-beta-work-area-drift.md)
 records the separate beta-only work-area surface without changing existing
 legacy work-area tools or claiming equivalent beta behavior.
+The [beta MediaManager declaration receipt](adobe-beta-media-manager-drift.md)
+records the separate beta-only cache-purge declaration without exposing a
+destructive cache operation or claiming host behavior.
 Other remaining surfaces stay visibly partial, not started, externally gated,
 or unavailable from an authoritative source. Both C++ SDK
 inventories remain externally gated because their headers and packaged
