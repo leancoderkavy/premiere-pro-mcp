@@ -6,6 +6,9 @@ import { fileURLToPath } from "node:url";
 import { resolve } from "node:path";
 import {
   UXP_HYBRID_ADDON_AUTHORITY_URL,
+  UXP_HYBRID_ADDON_ENTRYPOINT_PATH,
+  UXP_HYBRID_ADDON_RECEIPT_LEGACY_SCHEMA_VERSION,
+  UXP_HYBRID_ADDON_RECEIPT_LEGACY_SEMANTICS,
   UXP_HYBRID_ADDON_RECEIPT_SCHEMA_VERSION,
   UXP_HYBRID_ADDON_RECEIPT_SEMANTICS,
   UXP_HYBRID_ADDON_TARGETS,
@@ -19,6 +22,7 @@ import {
 const SHA256_PATTERN = /^[a-f0-9]{64}$/;
 const MAX_PATH_LENGTH = 512;
 const MAX_ARTIFACT_BYTES = 2 ** 31;
+const MAX_ENTRYPOINT_BYTES = 16 * 1024 * 1024;
 
 function receiptError(message) {
   const error = new Error(message);
@@ -78,9 +82,13 @@ function expectedArtifactPath(target, name) {
 }
 
 export function verifyUxpHybridAddonReceipt(document, options = {}) {
-  const receipt = record(document, "receipt", ["schemaVersion", "source", "manifest", "semantics", "stats", "artifacts"]);
-  if (receipt.schemaVersion !== UXP_HYBRID_ADDON_RECEIPT_SCHEMA_VERSION) {
-    throw receiptError(`schemaVersion must be ${UXP_HYBRID_ADDON_RECEIPT_SCHEMA_VERSION}`);
+  if (!document || typeof document !== "object" || Array.isArray(document)) throw receiptError("receipt must be an object");
+  const legacy = document.schemaVersion === UXP_HYBRID_ADDON_RECEIPT_LEGACY_SCHEMA_VERSION;
+  const receipt = record(document, "receipt", legacy
+    ? ["schemaVersion", "source", "manifest", "semantics", "stats", "artifacts"]
+    : ["schemaVersion", "source", "manifest", "entrypoint", "semantics", "stats", "artifacts"]);
+  if (!legacy && receipt.schemaVersion !== UXP_HYBRID_ADDON_RECEIPT_SCHEMA_VERSION) {
+    throw receiptError(`schemaVersion must be ${UXP_HYBRID_ADDON_RECEIPT_LEGACY_SCHEMA_VERSION} or ${UXP_HYBRID_ADDON_RECEIPT_SCHEMA_VERSION}`);
   }
 
   const source = record(receipt.source, "source", ["sdk", "sdkVersion", "sdkHeaderReceiptSha256", "authorityUrl"]);
@@ -103,8 +111,25 @@ export function verifyUxpHybridAddonReceipt(document, options = {}) {
   if (manifest.enableAddon !== true) throw receiptError("manifest.enableAddon must be true");
 
   const semantics = record(receipt.semantics, "semantics", ["listed", "doesNotEstablish"]);
-  if (semantics.listed !== UXP_HYBRID_ADDON_RECEIPT_SEMANTICS.listed || semantics.doesNotEstablish !== UXP_HYBRID_ADDON_RECEIPT_SEMANTICS.doesNotEstablish) {
+  const requiredSemantics = legacy ? UXP_HYBRID_ADDON_RECEIPT_LEGACY_SEMANTICS : UXP_HYBRID_ADDON_RECEIPT_SEMANTICS;
+  if (semantics.listed !== requiredSemantics.listed || semantics.doesNotEstablish !== requiredSemantics.doesNotEstablish) {
     throw receiptError("semantics must retain the documented evidence boundary");
+  }
+
+  let entrypoint;
+  if (!legacy) {
+    const value = record(receipt.entrypoint, "entrypoint", ["path", "bytes", "sha256"]);
+    if (value.path !== UXP_HYBRID_ADDON_ENTRYPOINT_PATH) {
+      throw receiptError(`entrypoint.path must be ${UXP_HYBRID_ADDON_ENTRYPOINT_PATH}`);
+    }
+    entrypoint = {
+      path: value.path,
+      bytes: safePositiveInteger(value.bytes, "entrypoint.bytes"),
+      sha256: sha256(value.sha256, "entrypoint.sha256"),
+    };
+    if (entrypoint.bytes > MAX_ENTRYPOINT_BYTES) {
+      throw receiptError(`entrypoint.bytes must be no larger than ${MAX_ENTRYPOINT_BYTES}`);
+    }
   }
 
   if (!Array.isArray(receipt.artifacts) || receipt.artifacts.length !== UXP_HYBRID_ADDON_TARGETS.length) {
@@ -119,10 +144,18 @@ export function verifyUxpHybridAddonReceipt(document, options = {}) {
     return { target: artifact.target, path, bytes: safePositiveInteger(artifact.bytes, `artifacts[${index}].bytes`), sha256: sha256(artifact.sha256, `artifacts[${index}].sha256`) };
   });
 
-  const stats = record(receipt.stats, "stats", ["artifacts", "bytes"]);
+  const stats = record(receipt.stats, "stats", legacy
+    ? ["artifacts", "bytes"]
+    : ["artifacts", "addonBytes", "entrypoints", "entrypointBytes"]);
   if (stats.artifacts !== artifacts.length) throw receiptError("stats.artifacts does not match artifacts");
-  const bytes = artifacts.reduce((total, artifact) => total + artifact.bytes, 0);
-  if (!Number.isSafeInteger(bytes) || stats.bytes !== bytes) throw receiptError("stats.bytes does not match artifacts");
+  const addonBytes = artifacts.reduce((total, artifact) => total + artifact.bytes, 0);
+  if (!Number.isSafeInteger(addonBytes)) throw receiptError("addon artifact bytes exceed the supported total");
+  if (legacy && stats.bytes !== addonBytes) throw receiptError("stats.bytes does not match artifacts");
+  if (!legacy) {
+    if (stats.addonBytes !== addonBytes) throw receiptError("stats.addonBytes does not match artifacts");
+    if (stats.entrypoints !== 1) throw receiptError("stats.entrypoints must be 1");
+    if (stats.entrypointBytes !== entrypoint.bytes) throw receiptError("stats.entrypointBytes does not match entrypoint");
+  }
 
   if (options.sdkHeaderReceipt !== undefined) {
     const summary = verifyNativeSdkHeaderInventory(options.sdkHeaderReceipt);
@@ -135,7 +168,9 @@ export function verifyUxpHybridAddonReceipt(document, options = {}) {
     }
   }
 
-  return Object.freeze({ addonName: name, artifacts: artifacts.length, bytes });
+  return Object.freeze(legacy
+    ? { addonName: name, artifacts: artifacts.length, bytes: addonBytes }
+    : { addonName: name, artifacts: artifacts.length, addonBytes, entrypoints: 1, entrypointBytes: entrypoint.bytes });
 }
 
 export function canonicalUxpHybridAddonReceiptSha256(document) {
@@ -172,7 +207,9 @@ async function main() {
     readJson(options.sdkHeaderReceiptPath, "sdkHeaderReceipt"),
   ]);
   const summary = verifyUxpHybridAddonReceipt(receipt, { sdkHeaderReceipt });
-  process.stdout.write(`UXP Hybrid addon receipt is valid: ${summary.artifacts} addon artifacts, ${summary.bytes} bytes.\n`);
+  const entrypointText = "entrypoints" in summary ? ` and ${summary.entrypoints} entrypoint` : "";
+  const bytes = "addonBytes" in summary ? summary.addonBytes + summary.entrypointBytes : summary.bytes;
+  process.stdout.write(`UXP Hybrid addon receipt is valid: ${summary.artifacts} addon artifacts${entrypointText}, ${bytes} bytes.\n`);
   if (options.printCanonicalSha256) process.stdout.write(`Canonical receipt SHA-256: ${canonicalUxpHybridAddonReceiptSha256(receipt)}\n`);
 }
 

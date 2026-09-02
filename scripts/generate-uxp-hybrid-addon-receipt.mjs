@@ -7,6 +7,7 @@ import { fileURLToPath } from "node:url";
 import { relative, resolve, sep } from "node:path";
 import {
   UXP_HYBRID_ADDON_AUTHORITY_URL,
+  UXP_HYBRID_ADDON_ENTRYPOINT_PATH,
   UXP_HYBRID_ADDON_RECEIPT_SCHEMA_VERSION,
   UXP_HYBRID_ADDON_RECEIPT_SEMANTICS,
   UXP_HYBRID_ADDON_TARGETS,
@@ -18,6 +19,7 @@ import {
 import { verifyUxpHybridAddonReceipt } from "./verify-uxp-hybrid-addon-receipt.mjs";
 
 const MAX_ARTIFACT_BYTES = 2 ** 31;
+const MAX_ENTRYPOINT_BYTES = 16 * 1024 * 1024;
 
 function receiptError(message) {
   const error = new Error(message);
@@ -107,6 +109,15 @@ export async function generateUxpHybridAddonReceipt(options) {
   if (sdkSummary.sdk !== "uxp-hybrid") throw receiptError("sdkHeaderReceipt must identify uxp-hybrid");
 
   const manifest = await readDevelopmentManifest(pluginRoot);
+  const entrypointFile = await requiredPluginFile(pluginRoot, resolve(pluginRoot, UXP_HYBRID_ADDON_ENTRYPOINT_PATH), UXP_HYBRID_ADDON_ENTRYPOINT_PATH);
+  if (!Number.isSafeInteger(entrypointFile.size) || entrypointFile.size <= 0 || entrypointFile.size > MAX_ENTRYPOINT_BYTES) {
+    throw receiptError(`${UXP_HYBRID_ADDON_ENTRYPOINT_PATH} must be a non-empty file no larger than ${MAX_ENTRYPOINT_BYTES} bytes`);
+  }
+  const entrypoint = {
+    path: UXP_HYBRID_ADDON_ENTRYPOINT_PATH,
+    bytes: entrypointFile.size,
+    sha256: await sha256File(entrypointFile.path),
+  };
   const artifacts = [];
   for (const target of UXP_HYBRID_ADDON_TARGETS) {
     const relativePath = `${target.pathPrefix}/${manifest.addonName}`;
@@ -126,8 +137,14 @@ export async function generateUxpHybridAddonReceipt(options) {
       authorityUrl: UXP_HYBRID_ADDON_AUTHORITY_URL,
     },
     manifest,
+    entrypoint,
     semantics: UXP_HYBRID_ADDON_RECEIPT_SEMANTICS,
-    stats: { artifacts: artifacts.length, bytes: artifacts.reduce((total, artifact) => total + artifact.bytes, 0) },
+    stats: {
+      artifacts: artifacts.length,
+      addonBytes: artifacts.reduce((total, artifact) => total + artifact.bytes, 0),
+      entrypoints: 1,
+      entrypointBytes: entrypoint.bytes,
+    },
     artifacts,
   };
   verifyUxpHybridAddonReceipt(receipt, { sdkHeaderReceipt: options.sdkHeaderReceipt });
@@ -166,7 +183,7 @@ async function main() {
   });
   const rendered = `${JSON.stringify(receipt, null, 2)}\n`;
   if (options.validateOnly) {
-    process.stdout.write(`Validated ${receipt.stats.artifacts} UXP Hybrid addon artifacts.\n`);
+    process.stdout.write(`Validated ${receipt.stats.artifacts} UXP Hybrid addon artifacts and ${receipt.stats.entrypoints} entrypoint.\n`);
     return;
   }
   const outputPath = resolve(options.outputPath);
@@ -176,11 +193,11 @@ async function main() {
     if (current.replaceAll("\r\n", "\n") !== rendered) {
       throw receiptError("UXP Hybrid addon receipt is stale; rerun without --check after reviewing the local development bundle");
     }
-    process.stdout.write(`UXP Hybrid addon receipt is current: ${receipt.stats.artifacts} artifacts.\n`);
+    process.stdout.write(`UXP Hybrid addon receipt is current: ${receipt.stats.artifacts} artifacts and ${receipt.stats.entrypoints} entrypoint.\n`);
     return;
   }
   await writeFile(outputPath, rendered);
-  process.stdout.write(`Wrote ${receipt.stats.artifacts} UXP Hybrid addon artifacts.\n`);
+  process.stdout.write(`Wrote ${receipt.stats.artifacts} UXP Hybrid addon artifacts and ${receipt.stats.entrypoints} entrypoint.\n`);
 }
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {

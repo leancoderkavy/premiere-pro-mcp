@@ -125,6 +125,8 @@ describe("Premiere API and competitor surface registry", () => {
         addonReceiptVerificationCommand: "npm run native:hybrid-addon-receipt:verify",
         addonReceiptDocumentation: "docs/uxp-hybrid-addon-receipt.md",
       });
+    expect(registry.integrationSurfaces.find((surface) => surface.id === "uxp-hybrid-cpp")?.notes)
+      .toContain("root main.js entrypoint and three-target bundle layout");
   });
 
   it("pins reviewed competitor sources and explicit safe-adoption boundaries", () => {
