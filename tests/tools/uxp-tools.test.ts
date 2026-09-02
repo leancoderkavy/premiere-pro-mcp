@@ -112,6 +112,39 @@ describe("UXP MCP tools", () => {
     });
   });
 
+  it("maps guarded sequence-playhead inspection and settings to documented UXP commands", async () => {
+    const request = vi.fn().mockResolvedValue({ outcome: "verified" });
+    const bridge = { request, getState: vi.fn() } as unknown as UxpWebSocketBridge;
+    const tools = getUxpTools(bridge);
+    await tools.manage_sequence_playhead_uxp.handler({ action: "inspect" });
+    await tools.manage_sequence_playhead_uxp.handler({
+      action: "set",
+      expected_sequence_guid: "sequence-1",
+      expected_position_seconds: 3,
+      position_seconds: 8,
+      operation_id: "playhead-1",
+    });
+    expect(request).toHaveBeenNthCalledWith(1, "sequence.playhead.inspect", {});
+    expect(request).toHaveBeenNthCalledWith(2, "sequence.playhead.set", {
+      expectedSequenceGuid: "sequence-1",
+      expectedPositionSeconds: 3,
+      positionSeconds: 8,
+      operationId: "playhead-1",
+    });
+    expect(tools.manage_sequence_playhead_uxp.parameters).toMatchObject({
+      type: "object",
+      additionalProperties: false,
+      required: ["action"],
+      properties: {
+        action: { type: "string", enum: ["inspect", "set"] },
+        expected_sequence_guid: { type: "string" },
+        expected_position_seconds: { type: "number", minimum: 0, maximum: 86400 },
+        position_seconds: { type: "number", minimum: 0, maximum: 86400 },
+        operation_id: { type: "string" },
+      },
+    });
+  });
+
   it("maps guarded native transition inspection and mutation arguments to documented UXP commands", async () => {
     const request = vi.fn().mockResolvedValue({ outcome: "committed_unverified" });
     const bridge = { request, getState: vi.fn() } as unknown as UxpWebSocketBridge;
@@ -185,6 +218,7 @@ describe("UXP MCP tools", () => {
           "inspect_project_uxp",
           "inspect_caption_tracks_uxp",
           "manage_sequence_range_uxp",
+          "manage_sequence_playhead_uxp",
           "save_project_uxp",
           "create_sequence_with_preset_uxp",
           "export_interchange_uxp",

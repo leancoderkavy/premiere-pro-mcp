@@ -184,6 +184,10 @@ const ACTION_CAPABILITIES: Readonly<Record<string, Readonly<Record<string, reado
     inspect: ["inspect"],
     update: ["edit"],
   },
+  manage_sequence_playhead_uxp: {
+    inspect: ["inspect"],
+    set: ["edit"],
+  },
   import_project_media_uxp: {
     files: ["edit", "filesystem"],
     sequences: ["edit", "filesystem"],

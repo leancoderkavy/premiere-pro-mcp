@@ -35,13 +35,18 @@ function host(options: { transitions?: boolean; commit?: boolean } = {}) {
     return true;
   });
   const range = { inSeconds: 1, outSeconds: 100, zeroPointSeconds: 3600, endSeconds: 120 };
+  const playhead = { positionSeconds: 3 };
   const sequence = {
     guid: "sequence-1",
     name: "Timeline",
     getVideoTrackCount: vi.fn(async () => 1),
     getVideoTrack: vi.fn(async () => track),
     getSelection: vi.fn(async () => selection),
-    getPlayerPosition: vi.fn(async () => ({ seconds: 3 })),
+    getPlayerPosition: vi.fn(async () => ({ seconds: playhead.positionSeconds })),
+    setPlayerPosition: vi.fn(async (position: { seconds: number }) => {
+      playhead.positionSeconds = position.seconds;
+      return true;
+    }),
     getFrameSize: vi.fn(async () => ({ width: 1920, height: 1080 })),
     getInPoint: vi.fn(async () => ({ seconds: range.inSeconds })),
     getOutPoint: vi.fn(async () => ({ seconds: range.outSeconds })),
@@ -102,7 +107,7 @@ function host(options: { transitions?: boolean; commit?: boolean } = {}) {
     Exporter: { exportSequenceFrame },
     ...transitionApis
   };
-  return { registry: Commands.createCommandRegistry({ ppro, fs: {}, Protocol }), ppro, project, sequence, range, track, clip, add, remove, addAction, optionValues, selection, createRemoveItemsAction, exportSequenceFrame, exportedFrames, transitionState };
+  return { registry: Commands.createCommandRegistry({ ppro, fs: {}, Protocol }), ppro, project, sequence, range, playhead, track, clip, add, remove, addAction, optionValues, selection, createRemoveItemsAction, exportSequenceFrame, exportedFrames, transitionState };
 }
 
 function expectedTransition(position: "start" | "end", transitionPresent: boolean) {
@@ -110,6 +115,7 @@ function expectedTransition(position: "start" | "end", transitionPresent: boolea
     sequenceGuid: "sequence-1", videoTrackIndex: 0, clipIndex: 0, projectItemId: "project-item-1",
     startSeconds: 10, endSeconds: 20, position, transitionPresent,
   };
+}
 }
 
 describe("UXP command registry", () => {
@@ -119,6 +125,8 @@ describe("UXP command registry", () => {
     expect(available.commands["timeline.selection.lift"]).toMatchObject({ supported: true, destructive: true, undoable: true, minHostVersion: "25.6.0" });
     expect(available.commands["sequence.range.inspect"]).toMatchObject({ supported: true, readOnly: true, minHostVersion: "25.6.0" });
     expect(available.commands["sequence.range.update"]).toMatchObject({ supported: true, destructive: true, undoable: true, idempotent: true, minHostVersion: "25.6.0" });
+    expect(available.commands["sequence.playhead.inspect"]).toMatchObject({ supported: true, readOnly: true, minHostVersion: "25.6.0" });
+    expect(available.commands["sequence.playhead.set"]).toMatchObject({ supported: true, destructive: false, undoable: false, idempotent: true, minHostVersion: "25.6.0" });
     for (const command of ["sequence.createPreset", "interchange.export", "interchange.aaf.export", "frame.export"]) {
       expect(available.commands[command]).toMatchObject({ workspaceRequired: true });
     }
@@ -269,6 +277,84 @@ describe("UXP command registry", () => {
     await expect(second).rejects.toMatchObject({ code: "UXP_STALE_RANGE" });
     expect(value.project.executeTransaction).toHaveBeenCalledOnce();
     expect(value.range).toEqual({ inSeconds: 2, outSeconds: 100, zeroPointSeconds: 3600, endSeconds: 120 });
+  });
+
+  it("inspects, guardedly sets, and replays the sequence player position", async () => {
+    const value = host();
+    await expect(value.registry.dispatch("sequence.playhead.inspect", {})).resolves.toEqual({
+      sequenceGuid: "sequence-1",
+      positionSeconds: 3,
+      verificationBoundary: "sequence_playhead_readback",
+    });
+    const args = {
+      expectedSequenceGuid: "sequence-1",
+      expectedPositionSeconds: 3,
+      positionSeconds: 8,
+      operationId: "playhead-1",
+    };
+    await expect(value.registry.dispatch("sequence.playhead.set", args)).resolves.toMatchObject({
+      positioned: true,
+      outcome: "verified",
+      sequenceGuid: "sequence-1",
+      positionSeconds: 8,
+      verified: "sequence_playhead_readback",
+      operationId: "playhead-1",
+      operation: {
+        mutatesProject: false,
+        verification: { status: "verified", boundary: "sequence_playhead_readback" },
+        undo: { supported: false },
+        cancellation: { supported: false },
+      },
+    });
+    expect(value.sequence.setPlayerPosition).toHaveBeenCalledWith({ seconds: 8 });
+    expect(value.project.lockedAccess).not.toHaveBeenCalled();
+    await expect(value.registry.dispatch("sequence.playhead.set", args)).resolves.toMatchObject({ replayed: true });
+    expect(value.sequence.setPlayerPosition).toHaveBeenCalledOnce();
+  });
+
+  it("serializes concurrent sequence player-position requests with different operation IDs", async () => {
+    const value = host();
+    const first = value.registry.dispatch("sequence.playhead.set", {
+      expectedSequenceGuid: "sequence-1", expectedPositionSeconds: 3, positionSeconds: 8, operationId: "playhead-concurrent-first",
+    });
+    const second = value.registry.dispatch("sequence.playhead.set", {
+      expectedSequenceGuid: "sequence-1", expectedPositionSeconds: 3, positionSeconds: 9, operationId: "playhead-concurrent-second",
+    });
+
+    await expect(first).resolves.toMatchObject({ positioned: true, operationId: "playhead-concurrent-first", positionSeconds: 8 });
+    await expect(second).rejects.toMatchObject({ code: "UXP_STALE_PLAYHEAD" });
+    expect(value.sequence.setPlayerPosition).toHaveBeenCalledOnce();
+    expect(value.playhead).toEqual({ positionSeconds: 8 });
+  });
+
+  it("fails closed for stale, rejected, unreadable, and unavailable sequence player-position setters", async () => {
+    const staleDuringConversion = host();
+    staleDuringConversion.ppro.TickTime.createWithSeconds.mockImplementation((seconds: number) => {
+      staleDuringConversion.playhead.positionSeconds = 4;
+      return { seconds };
+    });
+    await expect(staleDuringConversion.registry.dispatch("sequence.playhead.set", {
+      expectedSequenceGuid: "sequence-1", expectedPositionSeconds: 3, positionSeconds: 8,
+    })).rejects.toMatchObject({ code: "UXP_STALE_PLAYHEAD" });
+    expect(staleDuringConversion.sequence.setPlayerPosition).not.toHaveBeenCalled();
+
+    const rejected = host();
+    rejected.sequence.setPlayerPosition.mockResolvedValueOnce(false);
+    await expect(rejected.registry.dispatch("sequence.playhead.set", {
+      expectedSequenceGuid: "sequence-1", expectedPositionSeconds: 3, positionSeconds: 8,
+    })).rejects.toMatchObject({ code: "UXP_VERIFICATION_FAILED" });
+
+    const noReadback = host();
+    noReadback.sequence.setPlayerPosition.mockImplementationOnce(async () => true);
+    await expect(noReadback.registry.dispatch("sequence.playhead.set", {
+      expectedSequenceGuid: "sequence-1", expectedPositionSeconds: 3, positionSeconds: 8,
+    })).rejects.toMatchObject({ code: "UXP_VERIFICATION_FAILED" });
+
+    const unavailable = host();
+    unavailable.sequence.setPlayerPosition = undefined;
+    const capabilities = await unavailable.registry.capabilities();
+    expect(capabilities.commands["sequence.playhead.inspect"]).toMatchObject({ supported: true });
+    expect(capabilities.commands["sequence.playhead.set"]).toMatchObject({ supported: false, reason: expect.any(String) });
   });
 
   it("rejects a range change that occurs while TickTime values are being created", async () => {

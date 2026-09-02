@@ -22,6 +22,7 @@ describe("Adobe Premiere Pro 26.3 UXP coverage", () => {
       "action-transaction-discipline",
       "project-sequence-create-preset",
       "transactional-sequence-range",
+      "guarded-sequence-playhead-control",
       "native-caption-track-inventory",
       "track-rename",
       "subclip-create",

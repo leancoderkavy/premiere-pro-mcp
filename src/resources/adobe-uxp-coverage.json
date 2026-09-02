@@ -119,6 +119,30 @@
       "verificationBoundary": "sequence_range_readback"
     },
     {
+      "id": "guarded-sequence-playhead-control",
+      "adobeApi": [
+        "Sequence.getPlayerPosition",
+        "Sequence.setPlayerPosition"
+      ],
+      "documentationUrls": [
+        "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/sequence/"
+      ],
+      "minimumPremiereVersion": "25.6.0",
+      "backend": "uxp",
+      "uxpCommand": "sequence.playhead.set",
+      "mcpTools": [
+        "manage_sequence_playhead_uxp"
+      ],
+      "availability": "current",
+      "implementationStatus": "implemented",
+      "verificationStatus": "automated_contract_verified",
+      "liveHostVerificationStatus": "not_run",
+      "mutatesProject": false,
+      "undoable": false,
+      "idempotency": "operation_id",
+      "verificationBoundary": "sequence_playhead_readback"
+    },
+    {
       "id": "native-caption-track-inventory",
       "adobeApi": [
         "Sequence.getCaptionTrackCount",

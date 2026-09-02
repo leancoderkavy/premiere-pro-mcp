@@ -3552,7 +3552,7 @@
     {
       "symbol": "Sequence.getPlayerPosition",
       "kind": "method",
-      "coverage": "unmapped"
+      "coverage": "mapped"
     },
     {
       "symbol": "Sequence.getProjectItem",
@@ -3617,7 +3617,7 @@
     {
       "symbol": "Sequence.setPlayerPosition",
       "kind": "method",
-      "coverage": "unmapped"
+      "coverage": "mapped"
     },
     {
       "symbol": "Sequence.setSelection",
