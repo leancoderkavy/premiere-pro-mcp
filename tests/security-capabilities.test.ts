@@ -220,6 +220,67 @@ describe("capability profiles", () => {
       verificationBoundary: "static_metadata_only",
       hostVerificationRequired: false,
     });
+
+  });
+
+  it("classifies caption inventory with its UXP backend and baseline", () => {
+    const tool = deriveToolOperationalCapability(
+      "inspect_caption_tracks_uxp",
+      { description: "Inventory native caption tracks on the active sequence." },
+      resolveCapabilities("inspect"),
+    );
+    expect(tool).toMatchObject({
+      backend: "UXP",
+      backends: ["uxp"],
+      minimumPremiereVersion: "25.6",
+      authority: { required: "inspect", enabled: true },
+      verificationBoundary: "host_response",
+      hostVerificationRequired: true,
+    });
+    expect(tool.notes).toEqual([
+      "Runs through the authenticated local UXP bridge using Premiere UXP APIs.",
+    ]);
+  });
+
+  it("does not infer QE usage from a UXP tool description that rejects QE", () => {
+    const tool = deriveToolOperationalCapability(
+      "edit_timeline_uxp",
+      { description: "Edit through documented UXP APIs without undocumented QE calls." },
+      resolveCapabilities("edit"),
+    );
+    expect(tool).toMatchObject({
+      backend: "UXP",
+      backends: ["uxp"],
+      status: "supported",
+      minimumPremiereVersion: "25.6",
+    });
+    expect(tool.notes).not.toEqual(expect.arrayContaining([
+      expect.stringContaining("undocumented QE DOM"),
+    ]));
+  });
+
+  it("represents authenticated UXP-only tool metadata without a CEP fallback claim", () => {
+    const tool = deriveToolOperationalCapability(
+      "inspect_caption_tracks_uxp",
+      {
+        description: "Inspect native caption tracks.",
+        operationalCapability: {
+          backend: "UXP",
+          backends: ["uxp"],
+          minimumPremiereVersion: "25.6",
+          verificationBoundary: "structured_uxp_readback",
+          hostVerificationRequired: true,
+        },
+      },
+      resolveCapabilities("inspect"),
+    );
+    expect(tool).toMatchObject({
+      backend: "UXP",
+      backends: ["uxp"],
+      minimumPremiereVersion: "25.6",
+      verificationBoundary: "structured_uxp_readback",
+      hostVerificationRequired: true,
+    });
   });
 
   it("builds a deterministic summary from the registered catalog", () => {

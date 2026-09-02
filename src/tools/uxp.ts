@@ -41,6 +41,19 @@ export function getUxpTools(bridge: UxpWebSocketBridge) {
       parameters: {},
       handler: async () => invoke(bridge, "project.snapshot"),
     },
+    inspect_caption_tracks_uxp: {
+      description: "Inventory native caption tracks on the active sequence through documented Premiere UXP APIs. Returns track identity, name, mute state, and item count only; it does not inspect cue text, timing, rendered appearance, or caption correctness.",
+      parameters: {},
+      operationalCapability: {
+        backend: "UXP" as const,
+        backends: ["uxp" as const],
+        minimumPremiereVersion: "25.6",
+        verificationBoundary: "structured_uxp_readback" as const,
+        hostVerificationRequired: true,
+        notes: ["Available only through an authenticated UXP bridge whose runtime capability handshake advertises captions.inspect."],
+      },
+      handler: async () => invoke(bridge, "captions.inspect"),
+    },
     save_project_uxp: {
       description: "Save the active project through UXP and require Premiere to confirm success.",
       parameters: {

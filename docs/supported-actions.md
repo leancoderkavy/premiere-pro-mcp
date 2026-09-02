@@ -11,8 +11,8 @@ descriptions, action enums, authority visibility, and counts stay aligned with t
 | Registered core actions | 327 | CEP/local server catalog; host and authority checks still apply |
 | Default-profile core actions | 325 | Advertised with `inspect,edit,export,filesystem` |
 | Restricted core actions | 2 | Require explicit `unsafe-script` authority |
-| Authenticated UXP additions | 58 | Advertised only while a compatible authenticated UXP panel is connected |
-| Default profile with UXP | 383 | 325 core plus 58 UXP tools |
+| Authenticated UXP additions | 59 | Advertised only while a compatible authenticated UXP panel is connected |
+| Default profile with UXP | 384 | 325 core plus 59 UXP tools |
 
 ## How to read support
 
@@ -393,6 +393,7 @@ authenticated and the connected host advertises the required command capabilitie
 | `get_uxp_workspace_access` | Connected UXP | Single operation | Report whether the Premiere panel has an operator-approved persistent workspace folder. The native path and persistent token are never returned. |
 | `has_transcript_uxp` | Connected UXP | Single operation | Check whether a source media clip has a transcript, preferring Premiere 26.3's documented native API when available. |
 | `import_project_media_uxp` | Connected UXP | `files`, `sequences`, `ae_comps`, `all_ae_comps` | Import workspace-contained media files, sequences, or After Effects compositions through documented Project APIs with post-state evidence. |
+| `inspect_caption_tracks_uxp` | Connected UXP | Single operation | Inventory native caption tracks on the active sequence through documented Premiere UXP APIs. Returns track identity, name, mute state, and item count only; it does not inspect cue text, timing, rendered appearance, or caption correctness. |
 | `inspect_premiere_environment_uxp` | Connected UXP | Single operation | Inspect After Effects interoperability and the active Premiere project's current and supported graphics-white luminance values through documented read-only UXP APIs. |
 | `inspect_premiere_events_uxp` | Connected UXP | `list`, `wait` | List or briefly wait for bounded, redacted Premiere host-event receipts without polling the complete project state. |
 | `inspect_project_selection_uxp` | Connected UXP | `views`, `selection` | List Premiere Project-panel views or inspect up to 256 selected project items without traversing the complete project tree. |

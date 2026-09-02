@@ -4,7 +4,7 @@ import {
   type CapabilityConfig,
 } from "./security/capabilities.js";
 
-export type ToolBackend = "local" | "cep" | "extendscript" | "qe" | "orchestrator";
+export type ToolBackend = "local" | "cep" | "extendscript" | "qe" | "orchestrator" | "uxp";
 export type ToolSupportStatus = "supported" | "limited" | "experimental" | "unsupported";
 export type VerificationBoundary =
   | "static_metadata_only"
@@ -25,6 +25,7 @@ export type ToolBackendLabel =
   | "local"
   | "CEP/ExtendScript"
   | "CEP/ExtendScript + QE"
+  | "UXP"
   | "local + CEP/ExtendScript"
   | "orchestrator";
 
@@ -136,13 +137,14 @@ export const TOOL_OPERATIONAL_OVERRIDES: Readonly<
   },
 };
 
-function minimumVersion(description: string, usesQe: boolean): string {
+function minimumVersion(description: string, usesQe: boolean, usesUxp: boolean): string {
   const explicit = description.match(
     /Premiere(?: Pro)?(?: version)?\s*(\d{2}(?:\.\d+)?)\s*\+/i,
   );
   if (explicit) return explicit[1];
   // The production CEP bridge supports the repository's documented 2020–2026
   // range. QE does not improve that guarantee because it is undocumented.
+  if (usesUxp) return "25.6";
   return usesQe ? "2020 (QE availability varies by build)" : "2020";
 }
 
@@ -180,12 +182,17 @@ export function deriveToolOperationalCapability(
     ? true
     : LOCAL_TOOLS.has(name);
   const orchestrator = ORCHESTRATOR_TOOLS.has(name);
-  const usesQe = /\bQE(?:\s+DOM)?\b/i.test(definition.description);
+  const usesUxp = override.backends?.includes("uxp")
+    || name.endsWith("_uxp")
+    || name.startsWith("get_uxp_");
+  const usesQe = !usesUxp && /\bQE(?:\s+DOM)?\b/i.test(definition.description);
   const backends: ToolBackend[] = override.backends ?? (local
     ? ["local"]
     : orchestrator
       ? ["orchestrator", "cep", "extendscript"]
-      : usesQe
+      : usesUxp
+        ? ["uxp"]
+        : usesQe
         ? ["cep", "extendscript", "qe"]
         : ["cep", "extendscript"]);
 
@@ -194,6 +201,8 @@ export function deriveToolOperationalCapability(
     notes.push("Computed locally; does not prove that Premiere Pro is connected.");
   } else if (override.notes === undefined && orchestrator) {
     notes.push("Coordinates registered tools and revalidates the preview before applying edits.");
+  } else if (override.notes === undefined && usesUxp) {
+    notes.push("Runs through the authenticated local UXP bridge using Premiere UXP APIs.");
   } else if (override.notes === undefined && usesQe) {
     notes.push("Uses Adobe's undocumented QE DOM; behavior can vary between Premiere Pro builds.");
   } else if (override.notes === undefined) {
@@ -209,7 +218,9 @@ export function deriveToolOperationalCapability(
       ? "local"
       : orchestrator
         ? "orchestrator"
-        : usesQe
+        : usesUxp
+          ? "UXP"
+          : usesQe
           ? "CEP/ExtendScript + QE"
           : "CEP/ExtendScript"),
     backends,
@@ -218,7 +229,7 @@ export function deriveToolOperationalCapability(
     ),
     minimumPremiereVersion: override.minimumPremiereVersion !== undefined
       ? override.minimumPremiereVersion
-      : local ? null : minimumVersion(definition.description, usesQe),
+      : local ? null : minimumVersion(definition.description, usesQe, usesUxp),
     authority: {
       required: authority,
       enabled: capabilities.capabilities.has(authority),

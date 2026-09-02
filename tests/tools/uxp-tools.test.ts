@@ -65,6 +65,16 @@ describe("UXP MCP tools", () => {
     });
   });
 
+  it("maps native caption-track inspection to its documented UXP command", async () => {
+    const request = vi.fn().mockResolvedValue({ trackCount: 0, tracks: [] });
+    const bridge = { request, getState: vi.fn() } as unknown as UxpWebSocketBridge;
+    await expect(getUxpTools(bridge).inspect_caption_tracks_uxp.handler()).resolves.toEqual({
+      success: true,
+      data: { backend: "uxp", result: { trackCount: 0, tracks: [] } },
+    });
+    expect(request).toHaveBeenCalledWith("captions.inspect", {});
+  });
+
   it("maps selection lift and native transition arguments to documented UXP commands", async () => {
     const request = vi.fn().mockResolvedValue({ outcome: "committed_unverified" });
     const bridge = { request, getState: vi.fn() } as unknown as UxpWebSocketBridge;
@@ -117,6 +127,7 @@ describe("UXP MCP tools", () => {
           "get_uxp_capabilities",
           "get_uxp_state",
           "inspect_project_uxp",
+          "inspect_caption_tracks_uxp",
           "save_project_uxp",
           "create_sequence_with_preset_uxp",
           "export_interchange_uxp",
@@ -145,7 +156,7 @@ describe("UXP MCP tools", () => {
       // transcript workflow and documented Premiere 26.3 tools add nineteen,
       // and the two stable workflow expansions, confirmed organization application, four bounded native migration adapters, and beat-grid marker application add twenty-seven consolidated UXP tools;
       // connection verification and delivery conformance add two default-profile core tools.
-      expect(tools.tools).toHaveLength(383);
+      expect(tools.tools).toHaveLength(384);
     } finally {
       await client.close();
       await server.close();
