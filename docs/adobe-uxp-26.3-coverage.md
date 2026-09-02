@@ -50,6 +50,7 @@ verification column describes the required evidence, not a completed test run.
 | `inspect_sequence_timing_uxp` | `sequence.timing.inspect` | `Sequence.getFrameSize()`, `getTimebase()`, audio/video time-display getters, and `getProjectItem()` | Read-only timing and ownership snapshot | Supported when the active sequence exposes each listed getter; invocation then requires the returned ProjectItem to expose a valid ID | Return bounded native values and reject a different active sequence at read completion. This is not a locked atomic snapshot, does not detect a transient switch back to the same sequence, and is not licensed-host proof. |
 | `manage_sequence_display_format_uxp` | `sequence.displayFormat.inspect`, `sequence.displayFormat.update` | `Sequence.getSettings()`, `createSetSettingsAction()`, and `SequenceSettings` audio/video display-format getters, setters, and constants | One undoable sequence-settings mutation | Supported when the getters, setters, documented constants, and transaction primitives probe true | Require the inspected sequence GUID and complete two-code snapshot, serialize all competing updates for that sequence, commit one native settings action, and read both codes back. Contract coverage is not licensed-host or Undo proof. |
 | `manage_source_media_timing_uxp` | `source.mediaTiming.inspect`, `source.mediaTiming.setStart` | `ClipProjectItem.getMedia()`, stable `Media.start`/`duration`, `Media.createSetStartAction()`, `TickTime`, and Project transaction primitives | One undoable source-media start-time mutation | Supported when the resolved clip's media surface, TickTime factory, and transaction primitives probe true | Require the exact project-item ID and a complete start/duration snapshot, serialize competing updates for that clip, reject a changed synchronous timing snapshot under the action lock, then read back the requested start and unchanged duration. Contract coverage is not licensed-host, timecode-display, persistence, or Undo proof. |
+| `manage_source_media_overrides_uxp` | `source.mediaOverrides.inspect`, `source.mediaOverrides.update` | `ClipProjectItem.getFootageInterpretation()`, `FootageInterpretation.getFrameRate()`, `getPixelAspectRatio()`, `createSetOverrideFrameRateAction()`, `createSetOverridePixelAspectRatioAction()`, and Project transaction primitives | One undoable explicit source-media interpretation-override mutation | Supported when the resolved clip, effective interpretation getters, dedicated override actions, and transaction primitives probe true | Require the exact project/item/effective-value snapshot, confirmation, and operation ID; serialize this protocol's competing source-media timing/override updates per item; construct requested actions under one lock and commit one transaction, then read both effective values back. Adobe exposes no explicit-override-presence or clear getter, so matching effective values do not prove persistence or distinguish an override from file-native interpretation. Contract coverage is not licensed-host or Undo proof. |
 | `create_empty_sequence_uxp` | `sequences.createEmpty` | `Project.createSequence()`, `Project.getSequences()`, and sequence identity accessors | Direct project mutation; no Undo or transaction claim | Supported when the active project exposes documented empty-sequence creation | Require explicit confirmation and an operation ID, serialize the complete project-sequence capacity snapshot through creation and post-call collection readback, and verify the returned identity. Contract coverage is not licensed-host proof. |
 | `inspect_project_tree_uxp` | `projectTree.inspect` | `Project.getRootItem()`, `FolderItem.getItems()`, and project-item identity accessors | Read-only bounded Project-panel tree snapshot | Supported when the active project exposes a readable root folder and runtime folder casts | Return only stable IDs, names, types, parent IDs, bin state, and optional color-label indexes, capped at 512 items and depth 16. It omits media paths, metadata, and content; depth or item truncation is explicit, and this is not licensed-host proof. |
 | `inspect_project_panel_metadata_uxp` | `metadata.columns.get`, `metadata.projectPanel.get` | `Metadata.getProjectColumnsMetadata()` and `Metadata.getProjectPanelMetadata()` | Read-only bounded Project-panel metadata snapshot | Supported when the exact documented accessor probes true; item columns additionally resolve one media item | Return one native metadata string capped at 350,000 characters and 900,000 serialized UTF-8 bytes. It intentionally offers no schema-creation or `setProjectPanelMetadata()` route because the documented setter has no project-targeted action/transaction boundary. This is not an atomic project snapshot or licensed-host proof. |
@@ -150,6 +151,24 @@ bounded `operation_id` replay key where applicable.
   verifies the requested start and unchanged duration afterward. It neither uses
   beta-only `Media` getters nor accepts a beta Promise-shaped timing property as a
   mutation fallback.
+- `manage_source_media_overrides_uxp`: `inspect` requires one
+  `project_item_id` and returns its active project GUID, the ID, and bounded
+  effective frame-rate and pixel-aspect-ratio values. `update` requires that
+  complete `expected_overrides` snapshot, an explicit
+  `confirm_media_interpretation: true`, a bounded `operation_id`, and one or both
+  requested overrides. Frame rate is a finite 1 through 240 value; pixel aspect
+  is a positive integer numerator/denominator pair whose resulting ratio is 0.01
+  through 100. The panel serializes this protocol's source-media timing/override
+  operations per project/item, rejects changed effective values before action
+  creation, builds only the requested dedicated override actions under one
+  `lockedAccess()` callback, commits exactly one transaction, and reads both
+  effective values back. `getFootageInterpretation()` is asynchronous, so the
+  effective snapshot is refreshed immediately before the lock rather than
+  falsely claiming an in-lock getter recheck. Adobe provides no documented
+  explicit-override presence or clear API: the tool cannot clear an override or
+  distinguish a matching override from file-native interpretation. Mock and
+  static contract coverage are not licensed-host, persistence, display, or Undo
+  proof.
 - `create_empty_sequence_uxp`: requires a non-empty `name`,
   `confirm_non_undoable: true`, and a bounded non-empty `operation_id`. It performs
   no sequence action or transaction because Adobe exposes this as a direct

@@ -13,8 +13,8 @@
   },
   "stats": {
     "total": 976,
-    "mapped": 285,
-    "unmapped": 691,
+    "mapped": 289,
+    "unmapped": 687,
     "manifestOnly": 5
   },
   "manifestOnly": [
@@ -706,12 +706,12 @@
     {
       "symbol": "ClipProjectItem.createSetOverrideFrameRateAction",
       "kind": "method",
-      "coverage": "unmapped"
+      "coverage": "mapped"
     },
     {
       "symbol": "ClipProjectItem.createSetOverridePixelAspectRatioAction",
       "kind": "method",
-      "coverage": "unmapped"
+      "coverage": "mapped"
     },
     {
       "symbol": "ClipProjectItem.createSetScaleToFrameSizeAction",
@@ -2132,7 +2132,7 @@
     {
       "symbol": "FootageInterpretation.getFrameRate",
       "kind": "method",
-      "coverage": "unmapped"
+      "coverage": "mapped"
     },
     {
       "symbol": "FootageInterpretation.getIgnoreAlpha",
@@ -2152,7 +2152,7 @@
     {
       "symbol": "FootageInterpretation.getPixelAspectRatio",
       "kind": "method",
-      "coverage": "unmapped"
+      "coverage": "mapped"
     },
     {
       "symbol": "FootageInterpretation.getRemovePullDown",

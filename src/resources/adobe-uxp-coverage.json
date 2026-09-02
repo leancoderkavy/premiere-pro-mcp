@@ -1649,6 +1649,41 @@
       "verificationBoundary": "guarded_source_media_timing_readback"
     },
     {
+      "id": "guarded-source-media-overrides",
+      "adobeApi": [
+        "Project.getActiveProject",
+        "Project.getRootItem",
+        "Project.guid",
+        "Project.lockedAccess",
+        "Project.executeTransaction",
+        "FolderItem.getItems",
+        "ProjectItem.getId",
+        "ClipProjectItem.cast",
+        "ClipProjectItem.getFootageInterpretation",
+        "FootageInterpretation.getFrameRate",
+        "FootageInterpretation.getPixelAspectRatio",
+        "ClipProjectItem.createSetOverrideFrameRateAction",
+        "ClipProjectItem.createSetOverridePixelAspectRatioAction"
+      ],
+      "documentationUrls": [
+        "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/clipprojectitem/",
+        "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/footageinterpretation/",
+        "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/project/"
+      ],
+      "minimumPremiereVersion": "26.3.0",
+      "backend": "uxp",
+      "uxpCommand": "source.mediaOverrides.update",
+      "mcpTools": ["manage_source_media_overrides_uxp"],
+      "availability": "current",
+      "implementationStatus": "implemented",
+      "verificationStatus": "automated_contract_verified",
+      "liveHostVerificationStatus": "not_run",
+      "mutatesProject": true,
+      "undoable": true,
+      "idempotency": "operation_id",
+      "verificationBoundary": "guarded_source_media_effective_interpretation_readback"
+    },
+    {
       "id": "transactional-source-trim-framing",
       "adobeApi": [
         "ClipProjectItem.getInPoint",

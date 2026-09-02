@@ -13,8 +13,8 @@ source catalog may include unreleased actions.
 | Registered core actions | 328 | CEP/local server catalog; host and authority checks still apply |
 | Default-profile core actions | 326 | Advertised with `inspect,edit,export,filesystem` |
 | Restricted core actions | 2 | Require explicit `unsafe-script` authority |
-| Authenticated UXP additions | 72 | Advertised only while a compatible authenticated UXP panel is connected |
-| Default profile with UXP | 398 | 326 core plus 72 UXP tools |
+| Authenticated UXP additions | 73 | Advertised only while a compatible authenticated UXP panel is connected |
+| Default profile with UXP | 399 | 326 core plus 73 UXP tools |
 
 ## How to read support
 
@@ -428,6 +428,7 @@ authenticated and the connected host advertises the required command capabilitie
 | `manage_sequence_settings_uxp` | Connected UXP | `get`, `update` | Inspect sequence settings or apply a bounded settings profile in one documented, undoable UXP transaction with readback. |
 | `manage_sequences_uxp` | Connected UXP | `inspect`, `create_from_media`, `clone`, `subsequence`, `activate`, `open`, `close`, `delete` | Inspect, create-from-media, clone, derive, activate, open, close, or explicitly delete sequences through documented stable UXP APIs. |
 | `manage_source_clip_uxp` | Connected UXP | `inspect`, `update` | Inspect or transactionally update source-clip in/out points and request scale-to-frame for up to 64 media items. In/out values are read back; Adobe exposes no getter for clear or scale state, so those requests remain committed-unverified. |
+| `manage_source_media_overrides_uxp` | Connected UXP | `inspect`, `update` | Inspect or transactionally set one source media item's explicit frame-rate and/or pixel-aspect-ratio override through stable Premiere 26.3 UXP actions. Updates require the complete effective-interpretation snapshot, explicit confirmation, an operation_id, per-item serialization, one undoable transaction, and native effective-value readback. Premiere does not expose an override-presence getter, so this tool cannot clear or distinguish an explicit override from matching file-native interpretation. |
 | `manage_source_media_timing_uxp` | Connected UXP | `inspect`, `set_start` | Inspect or transactionally set one source media item's timecode start through stable Premiere 26.3 UXP APIs. Setting requires the exact bounded timing snapshot, explicit confirmation, one undoable transaction, per-item serialization, and native readback. |
 | `manage_timeline_selection_uxp` | Connected UXP | `inspect`, `inspect_targets`, `replace`, `add`, `remove`, `clear` | Inspect, replace, add to, remove from, or clear the active sequence's native UXP clip selection with sequence and clip fingerprint stale-state guards. |
 | `manage_track_state_uxp` | Connected UXP | `inspect`, `set_mute` | Inspect audio, video, and caption track mute state or set one media type serially with stale-state preflight and per-track readback. Adobe exposes this as direct promises, so no undo transaction is claimed. |
