@@ -14,12 +14,16 @@ export function verifyHybridBenchmarkEvidence(document, options = {}) {
   if (!document || typeof document !== "object" || Array.isArray(document)) {
     return verdict(errors.concat("Evidence must be a JSON object."), [], minimumSpeedupPercent, maximumMemoryRegressionPercent);
   }
-  if (!sameKeys(document, ["schemaVersion", "workloadId", "configuration", "memoryMeasurement", "sdkHeaderReceiptSha256", "runs"])) {
+  const receiptBound = document.schemaVersion === 2;
+  const expectedEvidenceKeys = receiptBound
+    ? ["schemaVersion", "workloadId", "configuration", "memoryMeasurement", "sdkHeaderReceiptSha256", "runs"]
+    : ["schemaVersion", "workloadId", "configuration", "memoryMeasurement", "runs"];
+  if (!sameKeys(document, expectedEvidenceKeys)) {
     errors.push("Evidence must contain only the documented benchmark receipt fields.");
   }
-  if (document.schemaVersion !== 1) errors.push("schemaVersion must be 1.");
+  if (document.schemaVersion !== 1 && document.schemaVersion !== 2) errors.push("schemaVersion must be 1 or 2.");
   if (document.workloadId !== "weighted-energy-v1") errors.push("workloadId must be weighted-energy-v1.");
-  if (!/^[a-f0-9]{64}$/.test(String(document.sdkHeaderReceiptSha256 || ""))) {
+  if (receiptBound && !/^[a-f0-9]{64}$/.test(String(document.sdkHeaderReceiptSha256 || ""))) {
     errors.push("sdkHeaderReceiptSha256 must be a canonical SDK header receipt SHA-256 digest.");
   }
   const expectedConfiguration = { sampleCount: 30, warmupCount: 3, iterations: 4, inputLength: 131072, seed: 1337 };
@@ -79,8 +83,8 @@ export function verifyHybridBenchmarkEvidence(document, options = {}) {
   if (commits.size > 1) errors.push("All runs must measure the same sourceCommit.");
   if (commits.size === 0) errors.push("A shared full sourceCommit is required.");
   if (sdkVersions.size > 1) errors.push("All runs must use the same UXP Hybrid SDK version.");
-  validateSdkReceipt(document, options.sdkHeaderReceipt, sdkVersions, errors);
-  return verdict(errors, Array.from(targets.keys()).sort(), minimumSpeedupPercent, maximumMemoryRegressionPercent);
+  if (receiptBound) validateSdkReceipt(document, options.sdkHeaderReceipt, sdkVersions, errors);
+  return verdict(errors, Array.from(targets.keys()).sort(), minimumSpeedupPercent, maximumMemoryRegressionPercent, document.schemaVersion);
 }
 
 function validateSdkReceipt(document, receipt, sdkVersions, errors) {
@@ -155,13 +159,15 @@ function finiteOption(value, fallback, name) {
   return result;
 }
 
-function verdict(errors, targets, minimumSpeedupPercent, maximumMemoryRegressionPercent) {
+function verdict(errors, targets, minimumSpeedupPercent, maximumMemoryRegressionPercent, schemaVersion) {
   return {
     promotionEligible: errors.length === 0,
     errors,
     targets,
     thresholds: { minimumSpeedupPercent, maximumMemoryRegressionPercent },
-    verificationBoundary: "submitted_cross_platform_release_build_and_verified_sdk_receipt_evidence"
+    verificationBoundary: schemaVersion === 2
+      ? "submitted_cross_platform_release_build_and_verified_sdk_receipt_evidence"
+      : "submitted_cross_platform_release_build_evidence"
   };
 }
 
@@ -175,16 +181,16 @@ function parseArguments(argv) {
     else if (value === "--max-memory-regression-percent") result.maximumMemoryRegressionPercent = Number(argv[++index]);
     else throw new Error(`Unknown argument: ${value}`);
   }
-  if (!result.input || !result.sdkHeaderReceipt) throw new Error("--input <evidence.json> and --sdk-header-receipt <receipt.json> are required.");
+  if (!result.input) throw new Error("--input <evidence.json> is required.");
   return result;
 }
 
 async function main() {
   const args = parseArguments(process.argv.slice(2));
-  const [document, sdkHeaderReceipt] = await Promise.all([
-    readEvidenceJson(args.input, "benchmark evidence"),
-    readEvidenceJson(args.sdkHeaderReceipt, "SDK header receipt"),
-  ]);
+  const document = await readEvidenceJson(args.input, "benchmark evidence");
+  const sdkHeaderReceipt = args.sdkHeaderReceipt
+    ? await readEvidenceJson(args.sdkHeaderReceipt, "SDK header receipt")
+    : undefined;
   const result = verifyHybridBenchmarkEvidence(document, { ...args, sdkHeaderReceipt });
   process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
   if (!result.promotionEligible) process.exitCode = 1;

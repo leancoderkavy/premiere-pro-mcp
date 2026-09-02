@@ -1,4 +1,4 @@
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
@@ -55,7 +55,7 @@ function prsdkHeaderReceipt() {
 
 function evidence(headerReceipt = sdkHeaderReceipt()) {
   return {
-    schemaVersion: 1,
+    schemaVersion: 2,
     workloadId: "weighted-energy-v1",
     configuration: { sampleCount: 30, warmupCount: 3, iterations: 4, inputLength: 131072, seed: 1337 },
     memoryMeasurement: "fixture process monitor",
@@ -81,7 +81,30 @@ function evidence(headerReceipt = sdkHeaderReceipt()) {
   };
 }
 
+function legacyEvidence() {
+  const { sdkHeaderReceiptSha256, ...v1 } = evidence();
+  return { ...v1, schemaVersion: 1 };
+}
+
 describe("UXP hybrid benchmark evidence verifier", () => {
+  it("keeps the frozen v1 schema and verifier path available while making receipt binding v2", () => {
+    const v1Schema = JSON.parse(readFileSync("benchmarks/uxp-hybrid/evidence.v1.schema.json", "utf8"));
+    const v2Schema = JSON.parse(readFileSync("benchmarks/uxp-hybrid/evidence.schema.json", "utf8"));
+    expect(v1Schema.$id).toBe("https://premiere-pro-mcp.com/schemas/uxp-hybrid-benchmark-evidence-v1.json");
+    expect(v1Schema.properties.schemaVersion.const).toBe(1);
+    expect(v1Schema.required).not.toContain("sdkHeaderReceiptSha256");
+    expect(v2Schema.$id).toBe("https://premiere-pro-mcp.com/schemas/uxp-hybrid-benchmark-evidence-v2.json");
+    expect(v2Schema.properties.schemaVersion.const).toBe(2);
+    expect(v2Schema.required).toContain("sdkHeaderReceiptSha256");
+    expect(verifyHybridBenchmarkEvidence(legacyEvidence())).toEqual({
+      promotionEligible: true,
+      errors: [],
+      targets: ["mac-arm64", "mac-x64", "win-x64"],
+      thresholds: { minimumSpeedupPercent: 30, maximumMemoryRegressionPercent: 10 },
+      verificationBoundary: "submitted_cross_platform_release_build_evidence",
+    });
+  });
+
   it("requires all release targets, matching output, speed, memory, signing, and one commit", () => {
     const receipt = sdkHeaderReceipt();
     expect(verifyHybridBenchmarkEvidence(evidence(receipt), { sdkHeaderReceipt: receipt })).toEqual({
@@ -148,7 +171,7 @@ describe("UXP hybrid benchmark evidence verifier", () => {
       .toContain("runs[0].native must contain only the documented metric fields.");
   });
 
-  it("requires the local receipt path from the command-line verifier without printing it", () => {
+  it("requires a local receipt path for v2 without printing it while retaining v1 CLI compatibility", () => {
     const directory = mkdtempSync(join(tmpdir(), "premiere-hybrid-benchmark-"));
     const input = join(directory, "evidence.json");
     const receiptPath = join(directory, "receipt.json");
@@ -158,7 +181,14 @@ describe("UXP hybrid benchmark evidence verifier", () => {
       writeFileSync(receiptPath, `${JSON.stringify(receipt, null, 2)}\n`);
       const missingReceipt = spawnSync(process.execPath, ["scripts/verify-uxp-hybrid-benchmark.mjs", "--input", input], { encoding: "utf8" });
       expect(missingReceipt.status).not.toBe(0);
-      expect(missingReceipt.stderr).toContain("--input <evidence.json> and --sdk-header-receipt <receipt.json> are required.");
+      expect(missingReceipt.stdout).toContain("A verified UXP Hybrid SDK header receipt is required.");
+
+      writeFileSync(input, `${JSON.stringify(legacyEvidence(), null, 2)}\n`);
+      const legacy = spawnSync(process.execPath, ["scripts/verify-uxp-hybrid-benchmark.mjs", "--input", input], { encoding: "utf8" });
+      expect(legacy.status).toBe(0);
+      expect(legacy.stdout).toContain('"verificationBoundary": "submitted_cross_platform_release_build_evidence"');
+
+      writeFileSync(input, `${JSON.stringify(evidence(receipt), null, 2)}\n`);
 
       const verified = spawnSync(process.execPath, ["scripts/verify-uxp-hybrid-benchmark.mjs", "--input", input, "--sdk-header-receipt", receiptPath], { encoding: "utf8" });
       expect(verified.status).toBe(0);

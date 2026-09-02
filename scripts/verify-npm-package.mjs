@@ -23,6 +23,7 @@ const requiredFiles = [
   "package/docs/uxp-js-api-inventory.md",
   "package/docs/premiere-doc-inventory.md",
   "package/docs/native-sdk-header-inventory.md",
+  "package/docs/uxp-hybrid-benchmark.md",
   "package/docs/cep-reference-inventory.md",
   "package/docs/extendscript-api-inventory.md",
   "package/dist/resources/premiere-surface-registry.json",
