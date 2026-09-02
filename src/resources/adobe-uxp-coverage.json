@@ -1667,7 +1667,12 @@
         "AudioClipTrackItem.isAdjustmentLayer",
         "AudioClipTrackItem.isDisabled",
         "AudioClipTrackItem.getProjectItem",
-        "ProjectItem.getId"
+        "ProjectItem.getId",
+        "ClipProjectItem.cast",
+        "ClipProjectItem.isSequence",
+        "ClipProjectItem.isMergedClip",
+        "ClipProjectItem.isMulticamClip",
+        "ClipProjectItem.isOffline"
       ],
       "documentationUrls": [
         "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/sequence/",
@@ -1675,7 +1680,8 @@
         "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/audiotrack/",
         "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/videocliptrackitem/",
         "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/audiocliptrackitem/",
-        "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/projectitem/"
+        "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/projectitem/",
+        "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/clipprojectitem/"
       ],
       "minimumPremiereVersion": "25.6.0",
       "backend": "uxp",

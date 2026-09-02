@@ -161,6 +161,16 @@ describe("Adobe Premiere Pro 26.3 UXP coverage", () => {
       "FolderItem.getItems",
       "ProjectItem.getId",
     ]));
+    expect(entries.find((entry) => entry.id === "bounded-native-timeline-structure")?.adobeApi).toEqual(expect.arrayContaining([
+      "VideoClipTrackItem.getProjectItem",
+      "AudioClipTrackItem.getProjectItem",
+      "ProjectItem.getId",
+      "ClipProjectItem.cast",
+      "ClipProjectItem.isSequence",
+      "ClipProjectItem.isMergedClip",
+      "ClipProjectItem.isMulticamClip",
+      "ClipProjectItem.isOffline",
+    ]));
     expect(entries.find((entry) => entry.id === "guarded-empty-sequence-creation")).toMatchObject({
       uxpCommand: "sequences.createEmpty",
       mcpTools: ["create_empty_sequence_uxp"],
