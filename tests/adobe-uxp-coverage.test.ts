@@ -73,6 +73,7 @@ describe("Adobe Premiere Pro 26.3 UXP coverage", () => {
       "guarded-project-metadata-schema-field-creation",
       "guarded-track-item-contiguous-ripple-delete",
       "guarded-timeline-source-color-label",
+      "bounded-unique-serializable-identity",
     ]));
     expect(entries.find((entry) => entry.id === "native-marker-crud")?.mcpTools).toEqual(["manage_markers_uxp"]);
     expect(entries.find((entry) => entry.id === "native-ticktime-frame-alignment")).toMatchObject({
@@ -184,6 +185,22 @@ describe("Adobe Premiere Pro 26.3 UXP coverage", () => {
       "ComponentParam.displayName",
       "ComponentParam.areKeyframesSupported",
       "ComponentParam.isTimeVarying",
+    ]));
+    expect(entries.find((entry) => entry.id === "bounded-unique-serializable-identity")).toMatchObject({
+      uxpCommand: "object.uniqueIdentity.inspect",
+      mcpTools: ["inspect_unique_object_identity_uxp"],
+      verificationBoundary: "bounded_unique_serializable_double_readback",
+      liveHostVerificationStatus: "not_run",
+      mutatesProject: false,
+    });
+    expect(entries.find((entry) => entry.id === "bounded-unique-serializable-identity")?.adobeApi).toEqual(expect.arrayContaining([
+      "Project.getActiveProject",
+      "Project.getRootItem",
+      "Project.getSequence",
+      "ProjectItem.getId",
+      "FolderItem.getItems",
+      "UniqueSerializeable.cast",
+      "UniqueSerializeable.getUniqueID",
     ]));
     expect(entries.find((entry) => entry.id === "native-track-item-identity")).toMatchObject({
       uxpCommand: "trackItem.identity.inspect",
@@ -450,12 +467,12 @@ describe("Adobe Premiere Pro 26.3 UXP coverage", () => {
   it("keeps unimplemented 26.3 work visibly planned", () => {
     const report = buildAdobeUxpCoverageReport();
     expect(report.summary).toEqual({
-      total: 80,
-      current: 77,
+      total: 81,
+      current: 78,
       planned: 3,
-      implemented: 77,
+      implemented: 78,
       committedUnverified: 9,
-      automatedContractVerified: 68,
+      automatedContractVerified: 69,
       liveHostVerified: 0,
     });
     expect(report.entries.find((entry) => entry.id === "aaf-export")).toMatchObject({
@@ -478,7 +495,7 @@ describe("Adobe Premiere Pro 26.3 UXP coverage", () => {
   it("surfaces the baseline in the platform capability report", () => {
     const report = buildPlatformCapabilityReport(resolveCapabilities("inspect"), "win32");
     expect(report.backends.uxp.apiCoverage.summary).toMatchObject({
-      current: 77,
+      current: 78,
       planned: 3,
       committedUnverified: 9,
     });

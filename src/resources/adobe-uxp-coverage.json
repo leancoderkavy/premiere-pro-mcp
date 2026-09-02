@@ -483,6 +483,42 @@
       "verificationBoundary": "bounded_project_and_sequence_object_mask_double_readback"
     },
     {
+      "id": "bounded-unique-serializable-identity",
+      "adobeApi": [
+        "Project.getActiveProject",
+        "Project.getRootItem",
+        "Project.getSequence",
+        "Project.guid",
+        "ProjectItem.getId",
+        "FolderItem.getItems",
+        "Sequence.guid",
+        "Guid.fromString",
+        "Guid.toString",
+        "UniqueSerializeable.cast",
+        "UniqueSerializeable.getUniqueID"
+      ],
+      "documentationUrls": [
+        "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/uniqueserializeable/",
+        "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/project/",
+        "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/projectitem/",
+        "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/sequence/"
+      ],
+      "minimumPremiereVersion": "25.6.0",
+      "backend": "uxp",
+      "uxpCommand": "object.uniqueIdentity.inspect",
+      "mcpTools": [
+        "inspect_unique_object_identity_uxp"
+      ],
+      "availability": "current",
+      "implementationStatus": "implemented",
+      "verificationStatus": "automated_contract_verified",
+      "liveHostVerificationStatus": "not_run",
+      "mutatesProject": false,
+      "undoable": false,
+      "idempotency": "not_applicable",
+      "verificationBoundary": "bounded_unique_serializable_double_readback"
+    },
+    {
       "id": "media-encoder-configuration",
       "adobeApi": [
         "EncoderManager.launchEncoder",
