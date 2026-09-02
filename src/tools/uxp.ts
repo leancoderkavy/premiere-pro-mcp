@@ -366,6 +366,59 @@ export function getUxpTools(bridge: UxpWebSocketBridge) {
         }
       },
     },
+    import_transcript_uxp: {
+      description: "Replace one source media clip's native transcript JSON through documented Premiere 26.3+ UXP APIs. Use project_guid and transcript_revision returned by get_clip_transcript_uxp, or project_guid plus a null expected_transcript_revision from has_transcript_uxp for an untranscribed clip. This destructive import requires explicit confirmation and an operation_id, serializes competing imports for the same project item, runs one undoable transaction, and reports exact bounded export SHA-256 readback rather than claiming a licensed-host result.",
+      parameters: {
+        type: "object" as const,
+        additionalProperties: false,
+        properties: {
+          project_item_id: { type: "string", minLength: 1, maxLength: 512, description: "Exact source project-item ID returned by the transcript inspection command." },
+          project_guid: { type: "string", minLength: 1, maxLength: 512, description: "Active project GUID returned by get_clip_transcript_uxp or has_transcript_uxp." },
+          expected_transcript_revision: {
+            oneOf: [{ type: "string", pattern: "^sha256:[a-f0-9]{64}$" }, { type: "null" }],
+            description: "Exact revision returned by get_clip_transcript_uxp, or null only when has_transcript_uxp reports no transcript. Any change rejects before an action is created.",
+          },
+          replacement_transcript_json: { type: "string", minLength: 1, maxLength: 24576, description: "Replacement Premiere transcript JSON, capped at 24 KiB UTF-8 for the authenticated local bridge." },
+          confirm_destructive: { type: "boolean", description: "Must be true to replace the existing source transcript." },
+          operation_id: { type: "string", minLength: 1, maxLength: 128, pattern: "^[A-Za-z0-9._:-]+$", description: "Required idempotency key; reuse it only to replay the same completed import receipt." },
+        },
+        required: ["project_item_id", "project_guid", "expected_transcript_revision", "replacement_transcript_json", "confirm_destructive", "operation_id"],
+      },
+      operationalCapability: {
+        backend: "UXP" as const,
+        backends: ["uxp" as const],
+        minimumPremiereVersion: "26.3",
+        verificationBoundary: "structured_uxp_readback" as const,
+        hostVerificationRequired: true,
+        notes: ["Available only through an authenticated UXP bridge whose runtime capability handshake advertises transcript.import. Static and mocked tests do not prove a licensed Premiere host accepted or preserved a transcript."],
+      },
+      handler: async (args: {
+        project_item_id: string;
+        project_guid: string;
+        expected_transcript_revision: string | null;
+        replacement_transcript_json: string;
+        confirm_destructive: boolean;
+        operation_id: string;
+      }) => {
+        if (args.confirm_destructive !== true) {
+          return { success: false, error: "import_transcript_uxp requires confirm_destructive: true" };
+        }
+        if (!args.operation_id) {
+          return { success: false, error: "import_transcript_uxp requires operation_id for safe replay" };
+        }
+        if (Buffer.byteLength(args.replacement_transcript_json, "utf8") > 24 * 1024) {
+          return { success: false, error: "import_transcript_uxp replacement_transcript_json exceeds the 24 KiB UTF-8 bridge limit" };
+        }
+        return invoke(bridge, "transcript.import", {
+          projectItemId: args.project_item_id,
+          expectedProjectGuid: args.project_guid,
+          expectedTranscriptRevision: args.expected_transcript_revision,
+          json: args.replacement_transcript_json,
+          confirmDestructive: true,
+          operationId: args.operation_id,
+        });
+      },
+    },
     search_clip_transcript_uxp: {
       description: "Search Premiere's native transcript JSON without modifying the clip or timeline.",
       parameters: {

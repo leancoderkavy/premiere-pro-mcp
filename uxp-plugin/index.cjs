@@ -3,19 +3,23 @@ const { entrypoints, host, storage } = require("uxp");
 const ppro = require("premierepro");
 const Protocol = globalThis.PremiereMcpProtocol;
 const TranscriptSupport = globalThis.PremiereMcpTranscript;
+const TranscriptImport = globalThis.PremiereMcpTranscriptImport || (typeof require === "function" ? require("./transcript-import.cjs") : null);
 const WorkspaceSupport = globalThis.PremiereMcpWorkspace;
 const EventSupport = globalThis.PremiereMcpEvents;
 const Commands = globalThis.PremiereMcpCommands;
 const workspaceBroker = WorkspaceSupport.createWorkspaceBroker({ fs: storage && storage.localFileSystem });
 const eventJournal = EventSupport.createEventJournal({ capacity: 512 });
+const transcriptImportRuntime = TranscriptImport && typeof TranscriptImport.createTranscriptImportRuntime === "function"
+  ? TranscriptImport.createTranscriptImportRuntime({ ppro, TranscriptSupport, Protocol })
+  : null;
 const commandRegistry = Commands.createCommandRegistry({
   ppro,
   Protocol,
   workspace: workspaceBroker,
   events: eventJournal,
   storage: typeof globalThis !== "undefined" ? globalThis.localStorage : null,
-  transcriptImportHandler: importTranscript,
-  transcriptImportProbe: canImportTranscript
+  transcriptImportHandler: transcriptImportRuntime && transcriptImportRuntime.importTranscript,
+  transcriptImportProbe: transcriptImportRuntime && transcriptImportRuntime.canImportTranscript
 });
 let socket = null;
 let reconnectTimer = null;
@@ -58,6 +62,7 @@ async function capabilities() {
     cancellable: "preflight only", verification: "exporter return value", undoable: false, atomic: false
   });
   const supportedHost = TranscriptSupport.versionAtLeast(host && host.version, "25.6.0");
+  const transcriptImportHost = TranscriptSupport.versionAtLeast(host && host.version, "26.3.0");
   const transcriptExportApi = supportedHost && !!(ppro.Transcript && ppro.Transcript.exportToJSON && ppro.Transcript.importFromJSON);
   const transcriptNativeHasApi = supportedHost && !!(ppro.Transcript && typeof ppro.Transcript.hasTranscript === "function");
   const transcriptHasApi = transcriptNativeHasApi || !!(supportedHost && ppro.Transcript && typeof ppro.Transcript.exportToJSON === "function");
@@ -69,6 +74,16 @@ async function capabilities() {
       nativeCheckMinVersion: "26.3.0", nativeCheck: transcriptNativeHasApi,
       fallback: transcriptNativeHasApi ? null : transcriptHasApi ? "export-probe" : null,
       fallbackMinVersion: transcriptHasApi ? "25.6.0" : null
+    },
+    "transcript.import": {
+      supported: transcriptImportHost && !!transcriptImportRuntime && transcriptImportRuntime.canImportTranscript(),
+      readOnly: false,
+      destructive: true,
+      undoable: true,
+      idempotent: true,
+      minVersion: "26.3.0",
+      confirmationRequired: true,
+      verification: "bounded exact transcript-export SHA-256 readback"
     },
     "captions.inspect": { supported: supportedHost, readOnly: true, minVersion: "25.6.0" },
     "captions.create": { supported: false, reason: "No documented Premiere UXP caption creation API." },
@@ -142,7 +157,13 @@ async function transcriptContext(args) {
   if (!ppro.Transcript || typeof ppro.Transcript.exportToJSON !== "function") throw new Error("Transcript APIs require Premiere Pro 25.6 or newer");
   const clip = await findProjectItem(project, args || {});
   const projectItem = ppro.ProjectItem.cast(clip);
-  return { project, clip, projectItemId: String(projectItem.getId()), projectItemName: clip.name };
+  return {
+    project,
+    projectGuid: String(project.guid),
+    clip,
+    projectItemId: String(await projectItem.getId()),
+    projectItemName: clip.name
+  };
 }
 
 async function exportTranscript(args) {
@@ -150,7 +171,12 @@ async function exportTranscript(args) {
   const json = await ppro.Transcript.exportToJSON(context.clip);
   if (typeof json !== "string" || !json) throw new Error("The selected clip has no transcript");
   TranscriptSupport.parseTranscriptJSON(json);
-  return { projectItemId: context.projectItemId, projectItemName: context.projectItemName, json };
+  return {
+    projectGuid: context.projectGuid,
+    projectItemId: context.projectItemId,
+    projectItemName: context.projectItemName,
+    json
+  };
 }
 
 async function searchTranscript(args) {
@@ -167,38 +193,32 @@ async function hasTranscript(args) {
   if (!ppro.Transcript) throw new Error("Transcript APIs require Premiere Pro 25.6 or newer");
   const clip = await findProjectItem(project, args || {});
   const projectItem = ppro.ProjectItem.cast(clip);
-  const context = { projectItemId: String(projectItem.getId()), projectItemName: clip.name, clip };
+  const context = {
+    projectGuid: String(project.guid),
+    projectItemId: String(await projectItem.getId()),
+    projectItemName: clip.name,
+    clip
+  };
   if (typeof ppro.Transcript.hasTranscript === "function") {
-    return { projectItemId: context.projectItemId, projectItemName: context.projectItemName, hasTranscript: !!ppro.Transcript.hasTranscript(context.clip), method: "native" };
+    return {
+      projectGuid: context.projectGuid,
+      projectItemId: context.projectItemId,
+      projectItemName: context.projectItemName,
+      hasTranscript: !!await ppro.Transcript.hasTranscript(context.clip),
+      method: "native"
+    };
   }
   if (typeof ppro.Transcript.exportToJSON !== "function") throw new Error("This Premiere build cannot check transcripts");
   const present = await TranscriptSupport.probeTranscriptExport(function () {
     return ppro.Transcript.exportToJSON(context.clip);
   });
-  return { projectItemId: context.projectItemId, projectItemName: context.projectItemName, hasTranscript: present, method: "export-probe" };
-}
-
-function canImportTranscript() {
-  return TranscriptSupport.versionAtLeast(host && host.version, "25.6.0")
-    && !!(ppro.Transcript && typeof ppro.Transcript.exportToJSON === "function")
-    && typeof ppro.Transcript.importFromJSON === "function"
-    && typeof ppro.Transcript.createImportTextSegmentsAction === "function";
-}
-
-async function importTranscript(args) {
-  if (!args || typeof args.json !== "string") throw new Error("json is required");
-  TranscriptSupport.parseTranscriptJSON(args.json);
-  const context = await transcriptContext(args);
-  if (typeof ppro.Transcript.createImportTextSegmentsAction !== "function") throw new Error("This Premiere build cannot create transcript import actions");
-  const textSegments = ppro.Transcript.importFromJSON(args.json);
-  let committed = false;
-  context.project.lockedAccess(function () {
-    committed = context.project.executeTransaction(function (compoundAction) {
-      compoundAction.addAction(ppro.Transcript.createImportTextSegmentsAction(textSegments, context.clip));
-    }, "Import transcript");
-  });
-  if (!committed) throw new Error("Premiere rejected the transcript import transaction");
-  return { imported: true, projectItemId: context.projectItemId, projectItemName: context.projectItemName, undoable: true };
+  return {
+    projectGuid: context.projectGuid,
+    projectItemId: context.projectItemId,
+    projectItemName: context.projectItemName,
+    hasTranscript: present,
+    method: "export-probe"
+  };
 }
 
 async function inspectCaptions() {
@@ -299,16 +319,14 @@ async function dispatch(raw) {
       operation: result && result.operation
         ? result.operation
         : Protocol.operationSemantics(
-          (cmd.command.indexOf("transition.video.") === 0 && cmd.command !== "transition.video.list") || cmd.command === "transcript.import"
+          cmd.command.indexOf("transition.video.") === 0 && cmd.command !== "transition.video.list"
             ? {
                 mutatesProject: true,
                 verificationStatus: "verified",
                 verificationBoundary: "project_executeTransaction_return",
                 verificationEvidence: [{ type: "transaction", accepted: true }],
                 undoSupported: true,
-                undoLabel: cmd.command === "transcript.import"
-                  ? "Import transcript"
-                  : cmd.command === "transition.video.add"
+                undoLabel: cmd.command === "transition.video.add"
                     ? "Add video transition"
                     : "Remove video transition",
                 transactionActionGroup: true,
