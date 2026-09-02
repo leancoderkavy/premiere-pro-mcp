@@ -29,6 +29,7 @@
     const definitions = {
       "effects.catalog": { readOnly: true, minHostVersion: "25.6.0", probe: canUseEffects, handler: effectCatalog },
       "effects.chain.get": { readOnly: true, targetCapabilityProbe: true, minHostVersion: "25.6.0", probe: canUseEffects, handler: effectChain },
+      "trackItem.identity.inspect": { readOnly: true, targetCapabilityProbe: true, minHostVersion: "25.6.0", probe: canInspectTrackItemIdentity, handler: inspectTrackItemIdentity },
       "effects.chain.add": { destructive: true, undoable: true, targetCapabilityProbe: true, minHostVersion: "25.6.0", probe: canUseEffects, handler: addEffect },
       "effects.chain.remove": { destructive: true, undoable: true, targetCapabilityProbe: true, minHostVersion: "25.6.0", probe: canUseEffects, handler: removeEffect },
       "selection.inspect": { readOnly: true, minHostVersion: "25.6.0", probe: canUseSelection, handler: inspectSelection },
@@ -267,6 +268,46 @@
       const input = validateTrackTarget(args, ["mediaType", "trackIndex", "clipIndex"]), context = await activeContext(false);
       const item = await trackItemAt(context.sequence, input.mediaType, input.trackIndex, input.clipIndex);
       return { ...input, ...(await chainSnapshot(await componentChain(item))) };
+    }
+
+    async function inspectTrackItemIdentity(args) {
+      const input = validateTrackItemIdentityArgs(args), context = await activeContext(false);
+      const sequenceGuid = guidString(context.sequence && context.sequence.guid);
+      if (!sequenceGuid) throw commandError("UXP_COMMAND_UNAVAILABLE", "The active sequence does not expose a stable GUID");
+      if (input.expectedSequenceGuid && input.expectedSequenceGuid !== sequenceGuid) {
+        throw commandError("UXP_STALE_SEQUENCE", "The active sequence differs from expectedSequenceGuid; inspect the track-item identity again");
+      }
+      const item = await trackItemAt(context.sequence, input.mediaType, input.trackIndex, input.clipIndex);
+      const identity = await trackItemIdentitySnapshot(item);
+      const activeAfter = await context.project.getActiveSequence(), activeAfterGuid = guidString(activeAfter && activeAfter.guid);
+      if (activeAfterGuid !== sequenceGuid) {
+        throw commandError("UXP_STALE_SEQUENCE", "The active sequence changed while reading the track-item identity; retry the inspection");
+      }
+      return {
+        sequenceGuid, mediaType: input.mediaType, trackIndex: input.trackIndex, clipIndex: input.clipIndex,
+        ...identity, verificationBoundary: "active_sequence_identity_readback"
+      };
+    }
+
+    async function trackItemIdentitySnapshot(item) {
+      const required = ["getMatchName", "getType", "getMediaType", "getTrackIndex", "getIsSelected"];
+      const missing = required.find((name) => !item || typeof item[name] !== "function");
+      if (missing) throw commandError("UXP_COMMAND_UNAVAILABLE", "This track item does not expose documented " + missing + " identity access");
+      const matchName = await item.getMatchName(), trackItemType = await item.getType(), mediaTypeGuid = guidString(await item.getMediaType());
+      const reportedTrackIndex = await item.getTrackIndex(), selected = await item.getIsSelected();
+      if (typeof matchName !== "string" || matchName.length > 512 || !Number.isInteger(trackItemType) ||
+        !mediaTypeGuid || !Number.isInteger(reportedTrackIndex) || reportedTrackIndex < 0 || typeof selected !== "boolean") {
+        throw commandError("UXP_VERIFICATION_FAILED", "Premiere returned an incomplete track-item identity snapshot");
+      }
+      return { matchName, trackItemType, mediaTypeGuid, reportedTrackIndex, selected };
+    }
+
+    function guidString(value) {
+      if (value == null) return "";
+      try {
+        const result = String(typeof value.toString === "function" ? value.toString() : value);
+        return result.length <= 512 ? result : "";
+      } catch (_) { return ""; }
     }
 
     async function createEffectComponent(mediaType, effectId, item) {
@@ -1216,6 +1257,7 @@
     function canUseVideoEffects() { return !!(ppro.VideoFilterFactory && typeof ppro.VideoFilterFactory.createComponent === "function" && typeof ppro.VideoFilterFactory.getMatchNames === "function"); }
     function canUseAudioEffects() { return !!(ppro.AudioFilterFactory && typeof ppro.AudioFilterFactory.createComponentByDisplayName === "function" && typeof ppro.AudioFilterFactory.getDisplayNames === "function"); }
     function canUseEffects() { return canInspectProject() && (canUseVideoEffects() || canUseAudioEffects()); }
+    function canInspectTrackItemIdentity() { return canInspectProject() && !!(ppro.Constants && ppro.Constants.TrackItemType); }
     function canUseSelection() { return canInspectProject() && !!(ppro.Constants && ppro.Constants.TrackItemType); }
     async function canManageSelection() {
       if (!canUseSelection() || !ppro.TrackItemSelection || typeof ppro.TrackItemSelection.createEmptySelection !== "function") return false;
@@ -1272,6 +1314,17 @@
       mediaType: enumValue(args.mediaType, "mediaType", ["video", "audio"]),
       trackIndex: nonNegativeInt(args.trackIndex, "trackIndex"), clipIndex: nonNegativeInt(args.clipIndex, "clipIndex")
     };
+  }
+
+  function validateTrackItemIdentityArgs(args) {
+    assertObject(args); assertOnlyKeys(args, ["mediaType", "trackIndex", "clipIndex", "expectedSequenceGuid"]);
+    const result = {
+      mediaType: enumValue(args.mediaType, "mediaType", ["video", "audio"]),
+      trackIndex: nonNegativeInt(args.trackIndex, "trackIndex"),
+      clipIndex: nonNegativeInt(args.clipIndex, "clipIndex")
+    };
+    if (args.expectedSequenceGuid != null) result.expectedSequenceGuid = boundedString(args.expectedSequenceGuid, "expectedSequenceGuid", 512);
+    return result;
   }
 
   function validateEffectAdd(args, selection) {

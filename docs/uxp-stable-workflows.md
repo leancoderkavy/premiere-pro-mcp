@@ -22,6 +22,7 @@ Premiere build.
 | Improvement | Public MCP tool | UXP commands | Host evidence |
 | --- | --- | --- | --- |
 | Native effects pipeline | `manage_clip_effects_uxp` | `effects.catalog`, `effects.chain.get`, `effects.chain.add`, `effects.chain.remove` | Effect catalog allowlist; component-chain count and component readback after an action transaction |
+| Native track-item identity | `inspect_track_item_identity_uxp` | `trackItem.identity.inspect` | One bounded audio/video coordinate resolves documented match name, item/media type, track index, and selected state only after the active sequence identity is re-read |
 | Selection compound batch | `batch_selected_clips_uxp` | `selection.inspect`, `effects.selection.add`, `effects.selection.remove` | Preflight all selected items, then commit one action group and read every chain count back |
 | Deterministic timeline selection | `manage_timeline_selection_uxp` | `selection.fingerprints.inspect`, `selection.targets.inspect`, `selection.update` | Current or coordinate-resolved clips return active-sequence GUID and project-item/time fingerprints; mutations check them before one native selection update and exact readback |
 | Scene-edit detection | `detect_scene_edits_uxp` | `sceneEdit.detect` | `createMarkers` requires selected project-item marker-GUID growth; cut/subclip modes return only Adobe's host result and selected-item count |
@@ -117,6 +118,15 @@ loopback-only authority and rejects remote hosts, credentials, fragments, and no
 
 Video additions accept only a match name returned by `VideoFilterFactory`.
 Audio additions accept only a display name returned by `AudioFilterFactory`.
+
+### `inspect_track_item_identity_uxp`
+
+Require one `media_type`, `track_index`, and `clip_index`; callers may provide
+`expected_sequence_guid` from a recent result. The read returns only the host's
+track-item match name, numeric item type, media UUID, reported track index, and
+selected state. It rejects a changed active sequence before returning. It neither
+reads source paths nor effect values and is not visual, playback, persistence, or
+licensed-host proof.
 
 ### `batch_selected_clips_uxp`
 

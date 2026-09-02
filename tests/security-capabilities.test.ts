@@ -154,6 +154,7 @@ describe("capability profiles", () => {
     expect(isToolPermitted("inspect_sequence_timing_uxp", inspectOnly)).toBe(true);
     expect(capabilitiesForToolInvocation("inspect_sequence_timing_uxp", {})).toEqual(["inspect"]);
     expect(capabilitiesForToolInvocation("inspect_project_insertion_bin_uxp", {})).toEqual(["inspect"]);
+    expect(capabilitiesForToolInvocation("inspect_track_item_identity_uxp", {})).toEqual(["inspect"]);
     await expect(
       guardToolHandler("inspect_sequence_timing_uxp", handler, inspectOnly, () => "timing-inspect")({}),
     ).resolves.toBe("ok");
@@ -193,6 +194,7 @@ describe("capability profiles", () => {
     ["manage_app_preferences_uxp", "inspect"],
     ["inspect_project_insertion_bin_uxp", undefined],
     ["inspect_sequence_timing_uxp", undefined],
+    ["inspect_track_item_identity_uxp", undefined],
     ["automate_effect_parameters_uxp", "inspect"],
     ["automate_effect_parameters_uxp", "inspect_keyframe"],
     ["automate_effect_parameters_uxp", "inspect_time_varying"],

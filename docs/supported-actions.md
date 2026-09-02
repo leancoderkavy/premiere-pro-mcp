@@ -13,8 +13,8 @@ source catalog may include unreleased actions.
 | Registered core actions | 328 | CEP/local server catalog; host and authority checks still apply |
 | Default-profile core actions | 326 | Advertised with `inspect,edit,export,filesystem` |
 | Restricted core actions | 2 | Require explicit `unsafe-script` authority |
-| Authenticated UXP additions | 73 | Advertised only while a compatible authenticated UXP panel is connected |
-| Default profile with UXP | 399 | 326 core plus 73 UXP tools |
+| Authenticated UXP additions | 74 | Advertised only while a compatible authenticated UXP panel is connected |
+| Default profile with UXP | 400 | 326 core plus 74 UXP tools |
 
 ## How to read support
 
@@ -408,6 +408,7 @@ authenticated and the connected host advertises the required command capabilitie
 | `inspect_project_uxp` | Connected UXP | Single operation | Read a compact, revisioned project and sequence snapshot through documented Premiere UXP APIs. |
 | `inspect_sequence_structure_uxp` | Connected UXP | `media_type`: `all`, `video`, `audio` | Read a bounded native UXP timeline structure for one sequence: selected video and/or audio tracks with clip timing and state. Opt in to source Project-item IDs only when needed, then optionally classify those sources as sequence, merged, multicam, or offline or return their documented broad content category (any, sequence, or media); a further opt-in returns only a nested source sequence GUID when that classification is exactly sequence. No Project-panel metadata, names, type codes, paths, nested timeline content, or traversal are read. track_counts contains only the requested media types, never a zero placeholder for an unqueried type. The response is capped at 64 tracks and 512 items, omits components, rendered pixels, audio analysis, and caption cues, and is not a locked cross-object snapshot or proof of playback or editorial correctness. |
 | `inspect_sequence_timing_uxp` | Connected UXP | Single operation | Read the active sequence's native frame size, timebase, audio/video time-display codes, and backing Project-item identity. The command rejects malformed host values or a final active-sequence mismatch; it does not modify Premiere, claim a locked snapshot, or detect a transient switch that returns to the same active sequence. |
+| `inspect_track_item_identity_uxp` | Connected UXP | `media_type`: `video`, `audio` | Inspect one active-sequence clip's native match name, item type, media UUID, reported track index, and selection state through documented UXP APIs. It rechecks the active sequence identity before returning and does not expose media paths, effect parameters, or rendered output. |
 | `inspect_video_transition_uxp` | Connected UXP | `position`: `start`, `end` | Read one bounded native video-transition target, including the active sequence GUID, source item ID, timeline edges, and presence at one requested edge. Copy this snapshot unchanged into add_video_transition_uxp or remove_video_transition_uxp. |
 | `lift_selection_uxp` | Connected UXP | Single operation | Lift the current timeline selection through Premiere's documented UXP SequenceEditor. This removes selected items without ripple in one undoable transaction; transaction acceptance is not a timeline readback. |
 | `list_markers_uxp` | Connected UXP | `scope`: `sequence`, `project_item` | List Premiere markers with stable 26.3+ GUIDs from the active sequence or one source media clip. Web-link URLs and frame targets are returned only with explicit opt-in because they can contain sensitive query data. |

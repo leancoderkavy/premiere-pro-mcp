@@ -398,9 +398,10 @@ describe("UXP MCP tools", () => {
       // guarded sequence-display-format updates and guarded Project-panel
       // insertion-bin inspection, guarded empty-sequence creation, marker web-link
       // inspection, Project-panel metadata inspection, and guarded app-preference
-      // control, source-media interpretation overrides add thirty-six consolidated UXP tools;
+      // control, source-media interpretation overrides, and direct track-item
+      // identity inspection add thirty-seven consolidated UXP tools;
       // connection verification and delivery conformance add two default-profile core tools.
-      expect(tools.tools).toHaveLength(399);
+      expect(tools.tools).toHaveLength(400);
     } finally {
       await client.close();
       await server.close();
