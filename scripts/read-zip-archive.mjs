@@ -100,7 +100,9 @@ function validateArchiveEntries(entries) {
   const names = new Set();
   let directories = 0;
   for (const entry of entries) {
-    if (entry.flags & 0x1 || entry.flags & 0x40) throw archiveError("CCX archive entries must not be encrypted");
+    if (entry.flags & 0x1 || entry.flags & 0x40 || entry.flags & 0x2000) {
+      throw archiveError("CCX archive entries must not be encrypted");
+    }
     if (entry.method !== 0 && entry.method !== 8) {
       throw archiveError("CCX archive entries must use stored or deflate compression");
     }

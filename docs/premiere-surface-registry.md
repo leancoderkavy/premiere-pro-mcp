@@ -48,7 +48,8 @@ contents. The verifier also recomputes ZIP CRC-32 for the already-required
 manifest, entrypoint, and addon payloads; it does not decompress unselected
 entries. Deflated required entries must also consume their exact declared
 compressed-data range, rejecting unused trailing bytes without reading
-unselected entries.
+unselected entries. The verifier rejects unsupported encrypted-entry and
+central-directory-encryption flags before reading required payloads.
 
 The same registry pins the exact competitor commits reviewed for feature-gap
 work. A competitor feature family becomes an implementation candidate only
