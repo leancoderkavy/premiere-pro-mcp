@@ -25,9 +25,9 @@ export type ToolBackendLabel =
   | "local"
   | "CEP/ExtendScript"
   | "CEP/ExtendScript + QE"
+  | "UXP"
   | "local + CEP/ExtendScript"
-  | "orchestrator"
-  | "UXP";
+  | "orchestrator";
 
 export interface ToolOperationalOverride {
   backend?: ToolBackendLabel;

@@ -242,6 +242,30 @@ describe("capability profiles", () => {
     ]);
   });
 
+  it("represents authenticated UXP-only tool metadata without a CEP fallback claim", () => {
+    const tool = deriveToolOperationalCapability(
+      "inspect_caption_tracks_uxp",
+      {
+        description: "Inspect native caption tracks.",
+        operationalCapability: {
+          backend: "UXP",
+          backends: ["uxp"],
+          minimumPremiereVersion: "25.6",
+          verificationBoundary: "structured_uxp_readback",
+          hostVerificationRequired: true,
+        },
+      },
+      resolveCapabilities("inspect"),
+    );
+    expect(tool).toMatchObject({
+      backend: "UXP",
+      backends: ["uxp"],
+      minimumPremiereVersion: "25.6",
+      verificationBoundary: "structured_uxp_readback",
+      hostVerificationRequired: true,
+    });
+  });
+
   it("builds a deterministic summary from the registered catalog", () => {
     const report = buildToolCapabilityReport(
       {
