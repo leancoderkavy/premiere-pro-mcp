@@ -289,10 +289,10 @@ describe("next-wave UXP event workflows", () => {
     });
   });
 
-  it("reads opt-in media timing through stable properties", async () => {
+  it("reads opt-in media timing through stable properties, including beta promise-shape compatibility", async () => {
     let media: Record<string, unknown> = {
       start: { seconds: 1.25 },
-      duration: Promise.resolve({ seconds: 9.5 }),
+      duration: { seconds: 9.5 },
     };
     const clip = {
       name: "Camera A",
@@ -326,7 +326,13 @@ describe("next-wave UXP event workflows", () => {
       }],
     });
 
-    media = { start: { seconds: 3 }, duration: Promise.resolve({ seconds: 12 }) };
+    const betaPropertyMedia = {
+      getStart: vi.fn(async () => ({ seconds: 99 })),
+      getDuration: vi.fn(async () => ({ seconds: 99 })),
+      start: Promise.resolve({ seconds: 3 }),
+      duration: Promise.resolve({ seconds: 12 }),
+    };
+    media = betaPropertyMedia;
     await expect(definitions["media.health.inspect"].handler({ includeMediaTiming: true })).resolves.toMatchObject({
       items: [{
         mediaTiming: {
@@ -338,11 +344,16 @@ describe("next-wave UXP event workflows", () => {
         },
       }],
     });
+    expect(betaPropertyMedia.getStart).not.toHaveBeenCalled();
+    expect(betaPropertyMedia.getDuration).not.toHaveBeenCalled();
 
-    media = {
+    const failedPropertyMedia = {
+      getStart: vi.fn(async () => ({ seconds: 99 })),
+      getDuration: vi.fn(async () => ({ seconds: 99 })),
       get start() { throw new Error("start unavailable"); },
       duration: { seconds: 7 },
     };
+    media = failedPropertyMedia;
     await expect(definitions["media.health.inspect"].handler({ includeMediaTiming: true })).resolves.toMatchObject({
       items: [{
         mediaTiming: {
@@ -354,6 +365,8 @@ describe("next-wave UXP event workflows", () => {
         },
       }],
     });
+    expect(failedPropertyMedia.getStart).not.toHaveBeenCalled();
+    expect(failedPropertyMedia.getDuration).not.toHaveBeenCalled();
 
     media = { start: { seconds: -1 }, duration: { seconds: 86400001 } };
     await expect(definitions["media.health.inspect"].handler({ includeMediaTiming: true })).resolves.toMatchObject({

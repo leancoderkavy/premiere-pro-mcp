@@ -119,7 +119,11 @@ for them. Project traversal is capped at 10,000 items and path-match results at 
 and duration only when `getMedia()` is available, accepts finite non-negative
 TickTime seconds through the existing 86,400,000-second bound, and identifies the
 stable `start`/`duration` property accessors used. This stays within the 26.3
-declaration baseline; automated mocks do not prove licensed-host support.
+declaration baseline. The beta-only callable `getStart()`/`getDuration()` APIs remain
+excluded from production until Adobe ships them in a stable release and they pass the
+licensed-host validation gate. Awaiting the stable properties also tolerates the beta
+deprecated Promise<TickTime> shape; that declaration-drift compatibility is not a
+beta-host support claim. Automated mocks do not prove licensed-host support.
 
 Refresh calls run serially and return per-item acceptance plus offline-state
 readback, so a partial batch is visible instead of being reported atomically. Setting

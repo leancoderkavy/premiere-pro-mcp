@@ -63,6 +63,10 @@ describe("Adobe Premiere Pro 26.3 UXP coverage", () => {
       "Media.start",
       "Media.duration",
     ]));
+    expect(entries.find((entry) => entry.id === "bounded-media-health-maintenance")?.adobeApi).not.toEqual(expect.arrayContaining([
+      "Media.getStart",
+      "Media.getDuration",
+    ]));
     for (const entry of entries) {
       expect(entry.minimumPremiereVersion).toMatch(/^\d+\.\d+\.\d+$/);
       expect(entry.backend).toBe("uxp");
