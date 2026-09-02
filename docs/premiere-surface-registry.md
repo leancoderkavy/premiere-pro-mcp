@@ -24,7 +24,9 @@ pinned stable-to-beta `Media` declaration delta. It is deliberately not a beta
 surface inventory or beta-host support claim. The [beta C2PA declaration
 receipt](adobe-beta-c2pa-drift.md) records only the separate beta-only C2PA
 surface and does not expose a C2PA operation or claim a manifest can be read in
-any host.
+any host. The [beta WorkAreaUtils declaration receipt](adobe-beta-work-area-drift.md)
+records the separate beta-only work-area surface without changing existing
+legacy work-area tools or claiming equivalent beta behavior.
 Other remaining surfaces stay visibly partial, not started, externally gated,
 or unavailable from an authoritative source. Both C++ SDK
 inventories remain externally gated because their headers and packaged
