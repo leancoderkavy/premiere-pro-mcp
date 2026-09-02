@@ -343,25 +343,35 @@ function buildApplyScript(plan: SpotWorkflowPlan): string {
     var frameTolerance = __ticksToSeconds(frameTicks) + 0.000001;
     var placed = [];
     var usedNodeIds = {};
-    function findPlacedVideo(itemId, expectedStart) {
-      for (var clipIndex = 0; clipIndex < videoTrack.clips.numItems; clipIndex++) {
-        var candidate = videoTrack.clips[clipIndex];
+    function findPlacedClip(track, itemId, expectedStart) {
+      for (var clipIndex = 0; clipIndex < track.clips.numItems; clipIndex++) {
+        var candidate = track.clips[clipIndex];
         if (!candidate.projectItem || String(candidate.projectItem.nodeId) !== String(itemId) || usedNodeIds[String(candidate.nodeId)]) continue;
         if (Math.abs(__ticksToSeconds(candidate.start.ticks) - expectedStart) <= frameTolerance) return candidate;
       }
       return null;
     }
+    function trimPlacedClip(clip, targetEnd) {
+      var requestedEnd = new Time(); requestedEnd.ticks = __secondsToTicks(targetEnd).toString();
+      clip.end = requestedEnd;
+      return Math.abs(__ticksToSeconds(clip.end.ticks) - targetEnd) <= frameTolerance;
+    }
     for (var placementIndex = 0; placementIndex < requestedItems.length; placementIndex++) {
       var targetStart = placementIndex * ${plan.clip_duration_seconds};
+      var targetEnd = targetStart + ${plan.clip_duration_seconds};
       seq.insertClip(requestedItems[placementIndex], __secondsToTicks(targetStart).toString(), ${plan.video_track_index}, ${plan.audio_track_index});
-      var placedClip = findPlacedVideo(requestedItemIds[placementIndex], targetStart);
+      var placedClip = findPlacedClip(videoTrack, requestedItemIds[placementIndex], targetStart);
       if (!placedClip) return __error("Premiere did not add the requested video item at the planned frame; the assembly is not reported as verified");
+      if (!trimPlacedClip(placedClip, targetEnd)) return __error("Premiere did not trim the placed video item to the previewed duration; the assembly is not reported as verified");
+      var placedAudio = findPlacedClip(audioTrack, requestedItemIds[placementIndex], targetStart);
+      if (placedAudio && !trimPlacedClip(placedAudio, targetEnd)) return __error("Premiere did not trim the placed audio item to the previewed duration; the assembly is not reported as verified");
       usedNodeIds[String(placedClip.nodeId)] = true;
       placed.push({
         nodeId: String(placedClip.nodeId),
         projectItemId: requestedItemIds[placementIndex],
         startSeconds: __ticksToSeconds(placedClip.start.ticks),
         endSeconds: __ticksToSeconds(placedClip.end.ticks),
+        requestedDurationSeconds: ${plan.clip_duration_seconds},
         verified: true
       });
     }

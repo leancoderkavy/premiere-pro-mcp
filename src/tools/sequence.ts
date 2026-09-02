@@ -107,7 +107,12 @@ export function getSequenceTools(bridgeOptions: BridgeOptions) {
           if (!seq || seq.name !== "${escapeForExtendScript(args.name)}") {
             return __error("Failed to create sequence from preset: ${escapeForExtendScript(presetPath)}");
           }
-          return __result({ created: true, name: seq.name, id: seq.sequenceID, presetUsed: "${escapeForExtendScript(presetPath)}" });
+          var sequenceId = String(seq.sequenceID);
+          var created = __findSequence(sequenceId);
+          if (!created || String(created.sequenceID) !== sequenceId) {
+            return __error("Premiere did not add the new sequence to the project collection; no creation success is reported.");
+          }
+          return __result({ created: true, verified: true, name: created.name, id: sequenceId, presetUsed: "${escapeForExtendScript(presetPath)}" });
         `);
         return sendCommand(script, bridgeOptions);
       },

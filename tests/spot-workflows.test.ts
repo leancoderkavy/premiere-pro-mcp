@@ -98,6 +98,10 @@ describe("spot workflow plans", () => {
     expect(script).toContain("Target sequence must be active before applying a spot workflow plan");
     expect(script).toContain("Target video and audio tracks must be empty");
     expect(script).toContain("Project item ID was not found exactly");
+    expect(script).toContain("function findPlacedClip(track, itemId, expectedStart)");
+    expect(script).toContain("function trimPlacedClip(clip, targetEnd)");
+    expect(script).toContain("clip.end = requestedEnd");
+    expect(script).toContain("requestedDurationSeconds");
     expect(script).toContain("scaleProperty.getValueAtKey");
     expect(script).toContain("__findClip(placed[cutIndex + 1].nodeId)");
     expect(script).toContain("__findQeClipByDomClip(qeTrack, placedInfo.clip)");

@@ -694,6 +694,13 @@
       assertObject(args); assertOnlyKeys(args, ["mode", "operationId"]);
       const mode = enumValue(args.mode, "mode", ["applyCuts", "createMarkers", "createSubclips"]);
       const context = await activeContext(false), selected = await selectedTrackItems(context.sequence);
+      let markersBefore = null;
+      if (mode === "createMarkers") {
+        if (!ppro.Markers || typeof ppro.Markers.getMarkers !== "function") throw commandError("UXP_COMMAND_UNAVAILABLE", "Premiere marker readback is required before scene-marker detection can run");
+        const collection = await ppro.Markers.getMarkers(context.sequence);
+        if (!collection || typeof collection.getMarkers !== "function") throw commandError("UXP_COMMAND_UNAVAILABLE", "Premiere did not expose a marker collection for scene-marker readback");
+        markersBefore = Array.from(await collection.getMarkers() || []).length;
+      }
       const utils = ppro.SequenceUtils, names = {
         applyCuts: "SEQUENCE_OPERATION_APPLYCUT",
         createMarkers: "SEQUENCE_OPERATION_CREATEMARKER",
@@ -703,6 +710,21 @@
       if (typeof operation !== "string" || !operation) throw commandError("UXP_COMMAND_UNAVAILABLE", "Premiere scene-edit operation constants are unavailable");
       const detected = await utils.performSceneEditDetectionOnSelection(operation, selected.selection);
       if (!detected) throw commandError("UXP_VERIFICATION_FAILED", "Premiere did not confirm scene-edit detection");
+      if (mode === "createMarkers") {
+        const collection = await ppro.Markers.getMarkers(context.sequence);
+        if (!collection || typeof collection.getMarkers !== "function") throw commandError("UXP_VERIFICATION_FAILED", "Premiere could not read scene markers after detection");
+        const markersAfter = Array.from(await collection.getMarkers() || []).length;
+        if (markersAfter <= markersBefore) throw commandError("UXP_VERIFICATION_FAILED", "Premiere reported scene-marker detection but did not add observable markers");
+        return {
+          detected: true, verified: true, mode, selectedItemCount: selected.items.length,
+          markerCountBefore: markersBefore, markerCountAfter: markersAfter, addedMarkerCount: markersAfter - markersBefore,
+          outcome: "verified", verificationBoundary: "marker_collection_count_readback",
+          operation: operationSemantics({
+            mutatesProject: true, verificationStatus: "verified", verificationBoundary: "marker_collection_count_readback",
+            verificationEvidence: [{ type: "marker_count_delta", before: markersBefore, after: markersAfter }], undoSupported: false, cancellationSupported: true
+          })
+        };
+      }
       return {
         detected: true, outcome: "committed_unverified", mode, selectedItemCount: selected.items.length,
         verificationBoundary: "sequence_utils_host_return",
