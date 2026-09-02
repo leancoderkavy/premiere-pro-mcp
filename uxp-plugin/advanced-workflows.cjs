@@ -12,6 +12,8 @@
   const MAX_MARKERS = 2048;
   const MAX_SEQUENCES = 1024;
   const MAX_BIN_CHILDREN = 1024;
+  const MAX_TIMELINE_TRACKS = 64;
+  const MAX_TIMELINE_ITEMS = 512;
 
   function createAdvancedWorkflowDefinitions(deps) {
     const ppro = deps.ppro, Protocol = deps.Protocol, workspace = deps.workspace, events = deps.events;
@@ -50,6 +52,7 @@
       "timeline.removeSelection": { destructive: true, undoable: true, minHostVersion: "25.6.0", probe: canUseSequenceEditor, handler: removeTimelineSelection },
       "timeline.mogrtPath": { destructive: true, undoable: false, requiresWorkspace: true, minHostVersion: "25.6.0", probe: canUseMogrtPath, handler: insertMogrtPath },
       "timeline.mogrtLibrary": { destructive: true, undoable: false, minHostVersion: "25.6.0", probe: canUseMogrtLibrary, handler: insertMogrtLibrary },
+      "timeline.structure.inspect": { readOnly: true, targetCapabilityProbe: true, minHostVersion: "25.6.0", probe: canInspectTimelineStructure, handler: inspectTimelineStructure },
       "sequences.inspect": { readOnly: true, minHostVersion: "25.6.0", probe: canUseSequences, handler: inspectSequences },
       "sequences.createFromMedia": { destructive: true, undoable: false, minHostVersion: "25.6.0", probe: canUseSequences, handler: createSequenceFromMedia },
       "silence.deriveSequence": { destructive: true, undoable: false, targetCapabilityProbe: true, minHostVersion: "26.3.0", probe: canDeriveSilenceSequence, handler: deriveSilenceSequence },
@@ -281,6 +284,74 @@
       if (!items.length) throw commandError("UXP_EMPTY_SELECTION", "Select at least one timeline item");
       if (items.length > MAX_SELECTION_ITEMS) throw commandError("UXP_SELECTION_TOO_LARGE", "Select at most " + MAX_SELECTION_ITEMS + " timeline items");
       return { selection, items };
+    }
+
+    function timelineTrackIndices(value) {
+      if (value == null) return null;
+      if (!Array.isArray(value) || !value.length || value.length > MAX_TIMELINE_TRACKS) {
+        throw commandError("UXP_INVALID_ARGUMENT", "trackIndices must contain 1-" + MAX_TIMELINE_TRACKS + " indices");
+      }
+      const seen = new Set(), indices = [];
+      for (let index = 0; index < value.length; index += 1) {
+        const trackIndex = nonNegativeInt(value[index], "trackIndices[" + index + "]");
+        if (seen.has(trackIndex)) throw commandError("UXP_INVALID_ARGUMENT", "trackIndices must not contain duplicate indices");
+        seen.add(trackIndex); indices.push(trackIndex);
+      }
+      return indices.sort((left, right) => left - right);
+    }
+
+    async function inspectTimelineStructure(args) {
+      assertObject(args); assertOnlyKeys(args, ["sequenceId", "expectedSequenceId", "mediaType", "trackIndices", "includeEmptyTracks", "maxItems"]);
+      const project = await activeProject(false), sequence = await resolveSequence(project, args.sequenceId);
+      const sequenceId = guidString(sequence.guid), expectedSequenceId = args.expectedSequenceId == null ? null : boundedString(args.expectedSequenceId, "expectedSequenceId", 128);
+      if (expectedSequenceId && expectedSequenceId !== sequenceId) {
+        throw commandError("UXP_STALE_SEQUENCE", "The requested sequence identity no longer matches; inspect the current timeline and retry");
+      }
+      const mediaType = enumValue(args.mediaType == null ? "all" : args.mediaType, "mediaType", ["all", "video", "audio"]);
+      const trackIndices = timelineTrackIndices(args.trackIndices), includeEmptyTracks = optionalBoolean(args.includeEmptyTracks, false, "includeEmptyTracks");
+      const maxItems = args.maxItems == null ? 128 : boundedInt(args.maxItems, "maxItems", 1, MAX_TIMELINE_ITEMS);
+      const itemType = ppro.Constants && ppro.Constants.TrackItemType;
+      if (!itemType || itemType.CLIP == null) throw commandError("UXP_COMMAND_UNAVAILABLE", "Clip track-item APIs are unavailable");
+      const groups = mediaType === "all" ? ["video", "audio"] : [mediaType], tracks = [], trackCounts = {};
+      let itemCount = 0, emptyTracksOmitted = 0;
+      for (const currentMediaType of groups) {
+        const title = currentMediaType === "video" ? "Video" : "Audio", countMethod = "get" + title + "TrackCount", trackMethod = "get" + title + "Track";
+        if (typeof sequence[countMethod] !== "function" || typeof sequence[trackMethod] !== "function") {
+          throw commandError("UXP_COMMAND_UNAVAILABLE", currentMediaType + " track inspection APIs are unavailable");
+        }
+        trackCounts[currentMediaType] = nonNegativeInt(await sequence[countMethod](), currentMediaType + " track count");
+      }
+      const requestedTrackCount = trackIndices == null
+        ? groups.reduce((total, currentMediaType) => total + trackCounts[currentMediaType], 0)
+        : trackIndices.length * groups.length;
+      if (requestedTrackCount > MAX_TIMELINE_TRACKS) {
+        throw commandError("UXP_TIMELINE_TOO_LARGE", "Requested timeline scope exceeds " + MAX_TIMELINE_TRACKS + " tracks; filter mediaType or trackIndices");
+      }
+      for (const currentMediaType of groups) {
+        const title = currentMediaType === "video" ? "Video" : "Audio", trackMethod = "get" + title + "Track", count = trackCounts[currentMediaType];
+        const indices = trackIndices == null ? Array.from({ length: count }, (_, index) => index) : trackIndices;
+        for (const trackIndex of indices) {
+          if (trackIndex >= count) throw commandError("UXP_TARGET_NOT_FOUND", currentMediaType + " trackIndices contains an out-of-range index");
+          const track = await sequence[trackMethod](trackIndex);
+          if (!track || typeof track.getTrackItems !== "function") throw commandError("UXP_COMMAND_UNAVAILABLE", currentMediaType + " track-item APIs are unavailable");
+          const items = Array.from(await track.getTrackItems(itemType.CLIP, false) || []);
+          if (itemCount + items.length > maxItems) {
+            throw commandError("UXP_TIMELINE_TOO_LARGE", "Requested timeline scope exceeds maxItems; filter trackIndices or raise maxItems up to " + MAX_TIMELINE_ITEMS);
+          }
+          if (!items.length && !includeEmptyTracks) { emptyTracksOmitted += 1; continue; }
+          const snapshots = [];
+          for (let clipIndex = 0; clipIndex < items.length; clipIndex += 1) {
+            snapshots.push(await trackItemSnapshot({ item: items[clipIndex], mediaType: currentMediaType, trackIndex, clipIndex }));
+          }
+          itemCount += snapshots.length;
+          tracks.push({ mediaType: currentMediaType, trackIndex, name: String(track.name || ""), itemCount: snapshots.length, items: snapshots });
+        }
+      }
+      return {
+        sequence: { id: sequenceId, name: String(sequence.name || "") }, mediaType, trackIndices, maxItems,
+        trackCounts, trackCount: tracks.length, itemCount, emptyTracksOmitted, tracks,
+        verificationBoundary: "bounded_track_item_readback"
+      };
     }
 
     async function listProjectViews(args) {
@@ -1342,6 +1413,7 @@
     }
     function canUseParameters() { return canInspectProject() && !!(ppro.Constants && ppro.Constants.TrackItemType); }
     function canUseTrackItems() { return canUseParameters(); }
+    function canInspectTimelineStructure() { return canUseTrackItems(); }
     function canUseSequenceEditor() { return canInspectProject() && !!(ppro.SequenceEditor && typeof ppro.SequenceEditor.getEditor === "function"); }
     function canUseMogrtPath() { return canUseSequenceEditor(); }
     function canUseMogrtLibrary() { return canUseSequenceEditor(); }
