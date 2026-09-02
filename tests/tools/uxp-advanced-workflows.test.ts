@@ -4,6 +4,7 @@ import { getUxpTools } from "../../src/tools/uxp.js";
 
 const ADVANCED_WORKFLOW_TOOLS = [
   "inspect_project_selection_uxp",
+  "inspect_project_tree_uxp",
   "manage_markers_uxp",
   "apply_beat_markers_uxp",
   "create_silence_cut_source_stringout_uxp",
@@ -26,14 +27,23 @@ describe("advanced stable UXP workflow MCP catalog", () => {
     expect(Object.keys(tools)).toEqual(expect.arrayContaining(ADVANCED_WORKFLOW_TOOLS));
     expect(ADVANCED_WORKFLOW_TOOLS).toHaveLength(13);
     for (const name of ADVANCED_WORKFLOW_TOOLS) {
-      expect(tools[name].parameters).toMatchObject({
+      const parameters = tools[name].parameters;
+      expect(parameters).toMatchObject({
         type: "object",
         additionalProperties: false,
-        required: expect.arrayContaining([name === "apply_beat_markers_uxp" ? "beat_times_seconds" : name === "create_silence_cut_source_stringout_uxp" ? "source_project_item_id" : "action"]),
       });
+      if (name !== "inspect_project_tree_uxp") {
+        expect(parameters).toMatchObject({
+          required: expect.arrayContaining([name === "apply_beat_markers_uxp" ? "beat_times_seconds" : name === "create_silence_cut_source_stringout_uxp" ? "source_project_item_id" : "action"]),
+        });
+      }
     }
     expect(tools.inspect_project_selection_uxp.parameters).toMatchObject({
       properties: { action: { enum: ["views", "selection"] }, view_id: { maxLength: 128 } },
+    });
+    expect(tools.inspect_project_tree_uxp.parameters).toMatchObject({
+      additionalProperties: false,
+      properties: { max_items: { minimum: 1, maximum: 512 }, max_depth: { minimum: 0, maximum: 16 } },
     });
     expect(tools.manage_markers_uxp.parameters).toMatchObject({
       properties: {
@@ -74,6 +84,7 @@ describe("advanced stable UXP workflow MCP catalog", () => {
     const tools = getUxpTools(bridge);
 
     await tools.inspect_project_selection_uxp.handler({ action: "selection", view_id: "view-1" });
+    await tools.inspect_project_tree_uxp.handler({ max_items: 12, max_depth: 3 });
     await tools.manage_markers_uxp.handler({
       action: "update", owner_type: "project_item", project_item_id: "clip-1",
       marker_guid: "marker-1", expected_name: "Old", name: "New", color_index: 3,
@@ -146,6 +157,7 @@ describe("advanced stable UXP workflow MCP catalog", () => {
 
     expect(request.mock.calls).toEqual([
       ["projectSelection.inspect", { viewId: "view-1" }],
+      ["projectTree.inspect", { maxItems: 12, maxDepth: 3 }],
       ["markers.update", {
         ownerType: "projectItem", projectItemId: "clip-1", markerGuid: "marker-1",
         expectedName: "Old", name: "New", colorIndex: 3, operationId: "marker-op",

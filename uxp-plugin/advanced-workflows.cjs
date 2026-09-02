@@ -8,6 +8,8 @@
   const MAX_SELECTION_ITEMS = 64;
   const MAX_PROJECT_ITEMS = 4096;
   const MAX_VIEW_ITEMS = 256;
+  const MAX_PROJECT_TREE_ITEMS = 512;
+  const MAX_PROJECT_TREE_DEPTH = 16;
   const MAX_KEYFRAMES = 256;
   const MAX_MARKERS = 2048;
   const MAX_SEQUENCES = 1024;
@@ -22,6 +24,7 @@
     const definitions = {
       "projectSelection.views": { readOnly: true, minHostVersion: "25.6.0", probe: canUseProjectViews, handler: listProjectViews },
       "projectSelection.inspect": { readOnly: true, minHostVersion: "25.6.0", probe: canUseProjectViews, handler: inspectProjectSelection },
+      "projectTree.inspect": { readOnly: true, minHostVersion: "26.3.0", probe: canUseProjectTree, handler: inspectProjectTree },
       "markers.inspect": { readOnly: true, targetCapabilityProbe: true, minHostVersion: "26.3.0", probe: canUseMarkers, handler: inspectMarkers },
       "markers.add": { destructive: true, undoable: true, targetCapabilityProbe: true, minHostVersion: "26.3.0", probe: canUseMarkers, handler: addMarker },
       "markers.addBeatGrid": { destructive: true, undoable: true, targetCapabilityProbe: true, minHostVersion: "26.3.0", probe: canUseMarkers, handler: addBeatGrid },
@@ -372,6 +375,51 @@
       const project = await activeProject(false), items = await selectedProjectItems(project, args.viewId), snapshots = [];
       for (const item of items) snapshots.push(await projectItemSnapshot(item));
       return { viewId: args.viewId || null, count: snapshots.length, items: snapshots, resolver: "project_view_selection" };
+    }
+
+    async function projectTreeSnapshot(item, parentId, depth) {
+      const id = await projectItemId(item);
+      if (!id) throw commandError("UXP_ITEM_ID_UNAVAILABLE", "A project-tree item did not expose a stable ID");
+      let colorLabelIndex = null;
+      try { if (typeof item.getColorLabelIndex === "function") colorLabelIndex = await item.getColorLabelIndex(); } catch (_) {}
+      let name = "", type = null;
+      try { name = String(item && item.name || ""); } catch (_) {}
+      try { type = item && item.type != null ? item.type : null; } catch (_) {}
+      return { id, name, type, colorLabelIndex, parentId, depth, isBin: isFolder(item) };
+    }
+
+    async function inspectProjectTree(args) {
+      assertObject(args); assertOnlyKeys(args, ["maxItems", "maxDepth"]);
+      const maxItems = args.maxItems == null ? 256 : boundedInt(args.maxItems, "maxItems", 1, MAX_PROJECT_TREE_ITEMS);
+      const maxDepth = args.maxDepth == null ? 6 : boundedInt(args.maxDepth, "maxDepth", 0, MAX_PROJECT_TREE_DEPTH);
+      const project = await activeProject(false), root = await project.getRootItem();
+      if (!root) throw commandError("UXP_COMMAND_UNAVAILABLE", "Premiere did not return a project root item");
+      const rootSnapshot = await projectTreeSnapshot(root, null, 0);
+      if (!rootSnapshot.isBin || typeof root.getItems !== "function") {
+        throw commandError("UXP_COMMAND_UNAVAILABLE", "Premiere did not expose a readable project-root folder");
+      }
+      const pending = [{ folder: root, id: rootSnapshot.id, depth: 0 }], items = [];
+      let itemLimitReached = false, depthLimitApplied = false;
+      while (pending.length && items.length < maxItems) {
+        const current = pending.shift();
+        if (current.depth >= maxDepth) { depthLimitApplied = true; continue; }
+        const children = Array.from(await current.folder.getItems() || []);
+        for (let index = 0; index < children.length; index += 1) {
+          if (items.length >= maxItems) { itemLimitReached = true; break; }
+          const child = children[index], snapshot = await projectTreeSnapshot(child, current.id, current.depth + 1);
+          items.push(snapshot);
+          if (snapshot.isBin) {
+            if (snapshot.depth < maxDepth && typeof child.getItems === "function") pending.push({ folder: child, id: snapshot.id, depth: snapshot.depth });
+            else if (snapshot.depth >= maxDepth) depthLimitApplied = true;
+          }
+        }
+        if (items.length >= maxItems && pending.length) itemLimitReached = true;
+      }
+      return {
+        root: rootSnapshot, count: items.length, items, maxItems, maxDepth,
+        truncated: itemLimitReached || depthLimitApplied, itemLimitReached, depthLimitApplied,
+        verificationBoundary: "bounded_project_tree_item_readback"
+      };
     }
 
     async function markerContext(args, includeMutationFields) {
@@ -1562,6 +1610,7 @@
 
     function canInspectProject() { return !!(ppro.Project && typeof ppro.Project.getActiveProject === "function"); }
     function canUseProjectViews() { return canInspectProject() && !!(ppro.ProjectUtils && typeof ppro.ProjectUtils.getSelection === "function" && typeof ppro.ProjectUtils.getProjectViewIds === "function"); }
+    function canUseProjectTree() { return canUseBins(); }
     function canUseMarkers() { return canInspectProject() && !!(ppro.Markers && typeof ppro.Markers.getMarkers === "function"); }
     function canUseBins() { return canInspectProject() && !!(ppro.FolderItem && typeof ppro.FolderItem.cast === "function"); }
     function canUseSequenceSettings() { return canInspectProject(); }

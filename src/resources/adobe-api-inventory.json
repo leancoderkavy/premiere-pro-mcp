@@ -2007,7 +2007,7 @@
       "symbol": "FolderItem.cast",
       "kind": "method",
       "declarationSymbol": "FolderItemStatic.cast",
-      "coverage": "unmapped"
+      "coverage": "mapped"
     },
     {
       "symbol": "FolderItem.createBinAction",
@@ -2052,7 +2052,7 @@
     {
       "symbol": "FolderItem.getItems",
       "kind": "method",
-      "coverage": "unmapped"
+      "coverage": "mapped"
     },
     {
       "symbol": "FolderItem.getProject",
@@ -2915,7 +2915,7 @@
     {
       "symbol": "Project.getRootItem",
       "kind": "method",
-      "coverage": "unmapped"
+      "coverage": "mapped"
     },
     {
       "symbol": "Project.getSequence",
@@ -3198,7 +3198,7 @@
     {
       "symbol": "ProjectItem.getColorLabelIndex",
       "kind": "method",
-      "coverage": "unmapped"
+      "coverage": "mapped"
     },
     {
       "symbol": "ProjectItem.getId",
@@ -3223,7 +3223,7 @@
     {
       "symbol": "ProjectItem.type",
       "kind": "property",
-      "coverage": "unmapped"
+      "coverage": "mapped"
     },
     {
       "symbol": "ProjectItemSelection",

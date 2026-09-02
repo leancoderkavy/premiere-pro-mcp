@@ -184,6 +184,27 @@ export function getUxpAdvancedWorkflowTools(bridge: UxpWebSocketBridge) {
       },
     },
 
+    inspect_project_tree_uxp: {
+      description: "Read a bounded, depth-limited native Project-panel tree rooted at the active project. Returns stable IDs, names, types, parent IDs, bin state, and optional color-label indexes only; it never returns media paths, metadata, or rendered media.",
+      parameters: {
+        type: "object" as const,
+        additionalProperties: false,
+        properties: {
+          max_items: { type: "integer", minimum: 1, maximum: 512, description: "Maximum non-root project items to snapshot; defaults to 256." },
+          max_depth: { type: "integer", minimum: 0, maximum: 16, description: "Maximum depth below the Project root to inspect; defaults to 6." },
+        },
+      },
+      operationalCapability: {
+        backend: "UXP" as const,
+        backends: ["uxp" as const],
+        minimumPremiereVersion: "26.3",
+        verificationBoundary: "structured_uxp_readback" as const,
+        hostVerificationRequired: true,
+        notes: ["Available only through an authenticated UXP bridge whose runtime capability handshake advertises projectTree.inspect."],
+      },
+      handler: async (args: AdvancedArgs) => invoke(bridge, "projectTree.inspect", compact({ maxItems: args.max_items, maxDepth: args.max_depth })),
+    },
+
     manage_markers_uxp: {
       description: "Inspect, add, update/move, remove, or explicitly review-then-remove a bounded marker batch by stable GUID using documented, undoable Premiere actions; mutations for one marker owner are serialized through preflight and readback.",
       parameters: {

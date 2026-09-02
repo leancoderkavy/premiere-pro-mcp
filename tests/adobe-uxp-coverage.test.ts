@@ -48,6 +48,7 @@ describe("Adobe Premiere Pro 26.3 UXP coverage", () => {
       "native-beat-grid-markers",
       "native-marker-batch-removal",
       "transactional-bin-organizer",
+      "bounded-native-project-tree",
       "sequence-settings-profiles",
       "guarded-sequence-display-format",
       "workspace-gated-project-import",
@@ -119,6 +120,17 @@ describe("Adobe Premiere Pro 26.3 UXP coverage", () => {
       "SequenceSettings.setAudioDisplayFormat",
       "SequenceSettings.getVideoDisplayFormat",
       "SequenceSettings.setVideoDisplayFormat",
+    ]));
+    expect(entries.find((entry) => entry.id === "bounded-native-project-tree")).toMatchObject({
+      uxpCommand: "projectTree.inspect",
+      mcpTools: ["inspect_project_tree_uxp"],
+      verificationBoundary: "bounded_project_tree_item_readback",
+      liveHostVerificationStatus: "not_run",
+    });
+    expect(entries.find((entry) => entry.id === "bounded-native-project-tree")?.adobeApi).toEqual(expect.arrayContaining([
+      "Project.getRootItem",
+      "FolderItem.getItems",
+      "ProjectItem.getId",
     ]));
     for (const entry of entries) {
       expect(entry.minimumPremiereVersion).toMatch(/^\d+\.\d+\.\d+$/);
