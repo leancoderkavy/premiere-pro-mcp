@@ -344,7 +344,7 @@ operation” when the tool has no enum-based mode.
 | `speed_change` | Default profile | Single operation | Unavailable: Premiere does not expose a supported scripting API for changing a timeline clip's speed. |
 | `split_clip` | Default profile | `track_type`: `video`, `audio` | Split every clip on one track that spans a timeline time, then verify both resulting boundaries. Requires QE DOM; effect-keyframe redistribution remains unverified. |
 | `stabilize_clip` | Default profile | `method`: `Subspace Warp`, `Position`, `Position, Scale, Rotation` | Apply the Warp Stabilizer effect to a clip for video stabilization. Uses QE DOM. |
-| `start_batch_encode` | Default profile | Single operation | Start encoding all items in the Adobe Media Encoder render queue |
+| `start_batch_encode` | Default profile | Single operation | Request Adobe Media Encoder to start the render queue; reports only accepted handoff, not queue progress or output-file creation. |
 | `stop_playback` | Default profile | Single operation | Request that active-sequence timeline playback stop through QE. The legacy API does not provide a same-call playhead readback, so stopped state is not reported as verified. |
 | `toggle_track_visibility` | Default profile | Single operation | Toggle a video track's visibility (eye icon) |
 | `trim_clip` | Default profile | `keyframe_policy`: `reject`, `preserve` | Trim exactly one source in/out point and verify the corresponding visible timeline edge. Refuses retimed clips and, by default, trims that would leave effect keyframes outside the visible clip. |
