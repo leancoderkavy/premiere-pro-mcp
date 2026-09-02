@@ -50,7 +50,9 @@ describe("canonical release metadata", () => {
     const llms = read("landing/public/llms.txt");
     const llmsFull = read("landing/public/llms-full.txt");
     const landingProduct = read("landing/lib/product.ts");
+    const landingArticles = read("landing/lib/articles.ts");
     const marketingAssets = read("docs/marketing-assets.md");
+    const supportedActions = read("docs/supported-actions.md");
 
     expect(readme).toContain(`${release.coreTools} core tools`);
     expect(readme).toContain(
@@ -59,6 +61,7 @@ describe("canonical release metadata", () => {
     expect(readme).toContain(
       `${release.defaultProfileWithUxpTools} with a connected UXP bridge`,
     );
+    expect(readme).toContain(`${release.uxpAdditionalTools} capability-gated tools`);
     expect(llms).toContain(`Current project release: ${release.version}`);
     expect(llms).toContain(
       `${release.coreTools} core structured MCP tools`,
@@ -67,6 +70,9 @@ describe("canonical release metadata", () => {
     expect(llmsFull).toContain(
       `${release.uxpAdditionalTools} capability-gated tools`,
     );
+    expect(llmsFull).toContain(
+      `${release.defaultProfileWithUxpTools} connected tools`,
+    );
     expect(marketingAssets).toContain(
       `${release.uxpAdditionalTools} additional capability-gated tools`,
     );
@@ -74,6 +80,12 @@ describe("canonical release metadata", () => {
     expect(landingProduct).toContain(`coreToolCount: ${release.coreTools}`);
     expect(landingProduct).toContain(`defaultProfileToolCount: ${release.defaultProfileTools}`);
     expect(landingProduct).toContain(`connectedUxpToolCount: ${release.defaultProfileWithUxpTools}`);
+    expect(landingArticles).toContain(
+      `The server currently registers ${release.coreTools} core structured tools`,
+    );
+    expect(landingArticles).toContain(
+      `${release.uxpAdditionalTools} capability-gated tools, bringing the connected surface to ${release.defaultProfileWithUxpTools}`,
+    );
     expect(landingProduct).toContain(
       `/releases/download/v${release.version}/premiere-pro-mcp-${release.version}.mcpb`,
     );
@@ -85,6 +97,18 @@ describe("canonical release metadata", () => {
     expect(readme).toContain(`registers ${release.coreTools} tools, filtered by authority profile`);
     expect(read("landing/app/changelog/page.tsx")).toContain(
       `version: "${release.version}"`,
+    );
+    expect(supportedActions).toContain(
+      `| Registered core actions | ${release.coreTools} |`,
+    );
+    expect(supportedActions).toContain(
+      `| Default-profile core actions | ${release.defaultProfileTools} |`,
+    );
+    expect(supportedActions).toContain(
+      `| Authenticated UXP additions | ${release.uxpAdditionalTools} |`,
+    );
+    expect(supportedActions).toContain(
+      `| Default profile with UXP | ${release.defaultProfileWithUxpTools} |`,
     );
   });
 
