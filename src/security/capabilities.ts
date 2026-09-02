@@ -140,6 +140,10 @@ const ACTION_CAPABILITIES: Readonly<Record<string, Readonly<Record<string, reado
     get: ["inspect"],
     update: ["edit"],
   },
+  inspect_project_panel_metadata_uxp: {
+    panel: ["inspect"],
+    item_columns: ["inspect"],
+  },
   manage_color_conformance_uxp: {
     preflight: ["inspect"],
     update: ["edit"],

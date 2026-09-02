@@ -162,6 +162,8 @@ describe("capability profiles", () => {
     ["manage_timeline_selection_uxp", "inspect_targets"],
     ["manage_proxy_ingest_uxp", "inspect_proxy"],
     ["manage_metadata_uxp", "get"],
+    ["inspect_project_panel_metadata_uxp", "panel"],
+    ["inspect_project_panel_metadata_uxp", "item_columns"],
     ["manage_color_conformance_uxp", "preflight"],
     ["audition_source_monitor_uxp", "state"],
     ["preflight_production_storage_uxp", "preflight"],

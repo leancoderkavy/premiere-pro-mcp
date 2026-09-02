@@ -45,6 +45,8 @@
       "media.relink": { destructive: true, undoable: false, idempotent: true, targetCapabilityProbe: true, requiresWorkspace: true, minHostVersion: "25.6.0", probe: canRelink, handler: relinkMedia },
       "metadata.get": { readOnly: true, minHostVersion: "25.6.0", probe: canUseMetadata, handler: getMetadata },
       "metadata.update": { destructive: true, undoable: true, idempotent: true, minHostVersion: "25.6.0", probe: canUseMetadata, handler: updateMetadata },
+      "metadata.columns.get": { readOnly: true, targetCapabilityProbe: true, minHostVersion: "25.6.0", probe: canGetProjectColumnsMetadata, handler: getProjectColumnsMetadata },
+      "metadata.projectPanel.get": { readOnly: true, minHostVersion: "25.6.0", probe: canGetProjectPanelMetadata, handler: getProjectPanelMetadata },
       "color.preflight": { readOnly: true, targetCapabilityProbe: true, minHostVersion: "25.6.0", probe: canInspectColor, handler: colorPreflight },
       "environment.inspect": { readOnly: true, targetCapabilityProbe: true, minHostVersion: "25.6.0", probe: canInspectEnvironment, handler: inspectEnvironment },
       "footage.conform": { destructive: true, undoable: true, idempotent: true, targetCapabilityProbe: true, minHostVersion: "25.6.0", probe: canConformFootage, handler: conformFootage },
@@ -886,6 +888,39 @@
       return metadataSnapshot(context.clip);
     }
 
+    function boundedMetadataResult(value, field, result) {
+      const metadata = boundedStringAllowEmpty(value, field, MAX_METADATA_CHARS);
+      if (utf8ByteLength(JSON.stringify(result)) > MAX_METADATA_RESULT_BYTES) {
+        throw commandError("UXP_RESULT_TOO_LARGE", field + " exceeds the bridge's bounded result size");
+      }
+      return Protocol && typeof Protocol.assertResultSize === "function" ? Protocol.assertResultSize(result) : result;
+    }
+
+    async function getProjectColumnsMetadata(args) {
+      const context = await clipTarget(args, ["projectItemId", "projectItemName"]);
+      const projectItem = castProjectItem(context.clip);
+      const projectColumnsMetadata = await ppro.Metadata.getProjectColumnsMetadata(projectItem);
+      const result = {
+        projectItemId: await projectItemIdentifier(projectItem),
+        name: String(context.clip.name || ""),
+        projectColumnsMetadata
+      };
+      return boundedMetadataResult(result.projectColumnsMetadata, "projectColumnsMetadata", result);
+    }
+
+    async function getProjectPanelMetadata(args) {
+      assertObject(args); assertOnlyKeys(args, []);
+      const project = await activeProject(false);
+      const projectPanelMetadata = await ppro.Metadata.getProjectPanelMetadata();
+      const result = {
+        projectGuid: String(project.guid || ""),
+        projectName: String(project.name || ""),
+        projectPanelMetadata
+      };
+      if (!result.projectGuid) throw commandError("UXP_INVALID_HOST_STATE", "Premiere did not return a project GUID for Project-panel metadata");
+      return boundedMetadataResult(result.projectPanelMetadata, "projectPanelMetadata", result);
+    }
+
     async function updateMetadata(args) {
       assertObject(args);
       assertOnlyKeys(args, ["projectItemId", "projectItemName", "projectMetadata", "xmpMetadata", "updatedFields", "operationId"]);
@@ -1199,6 +1234,8 @@
     function canUseProjectSettings() { return canInspectProject() && !!(ppro.ProjectSettings && typeof ppro.ProjectSettings.getScratchDiskSettings === "function"); }
     function canUseIngest() { return canInspectProject() && !!(ppro.ProjectSettings && typeof ppro.ProjectSettings.getIngestSettings === "function" && typeof ppro.ProjectSettings.createSetIngestSettingsAction === "function"); }
     function canUseMetadata() { return canUseClipItems() && !!(ppro.Metadata && typeof ppro.Metadata.getProjectMetadata === "function" && typeof ppro.Metadata.getXMPMetadata === "function" && typeof ppro.Metadata.createSetProjectMetadataAction === "function" && typeof ppro.Metadata.createSetXMPMetadataAction === "function"); }
+    function canGetProjectColumnsMetadata() { return canUseClipItems() && !!(ppro.Metadata && typeof ppro.Metadata.getProjectColumnsMetadata === "function"); }
+    function canGetProjectPanelMetadata() { return canInspectProject() && !!(ppro.Metadata && typeof ppro.Metadata.getProjectPanelMetadata === "function"); }
     function canInspectColor() { return canUseClipItems(); }
     async function canInspectEnvironment() {
       if (!canInspectProject() || !ppro.Utils || typeof ppro.Utils.isAEInstalled !== "function") return false;

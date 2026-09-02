@@ -172,6 +172,18 @@ describe("Adobe Premiere Pro 26.3 UXP coverage", () => {
       "Project.getSequences",
       "Sequence.guid",
     ]));
+    expect(entries.find((entry) => entry.id === "bounded-project-columns-metadata-inspection")).toMatchObject({
+      uxpCommand: "metadata.columns.get",
+      mcpTools: ["inspect_project_panel_metadata_uxp"],
+      verificationBoundary: "bounded_project_columns_metadata_readback",
+      liveHostVerificationStatus: "not_run",
+    });
+    expect(entries.find((entry) => entry.id === "bounded-project-panel-metadata-inspection")).toMatchObject({
+      uxpCommand: "metadata.projectPanel.get",
+      mcpTools: ["inspect_project_panel_metadata_uxp"],
+      verificationBoundary: "bounded_project_panel_metadata_readback",
+      liveHostVerificationStatus: "not_run",
+    });
     for (const entry of entries) {
       expect(entry.minimumPremiereVersion).toMatch(/^\d+\.\d+\.\d+$/);
       expect(entry.backend).toBe("uxp");
@@ -187,12 +199,12 @@ describe("Adobe Premiere Pro 26.3 UXP coverage", () => {
   it("keeps unimplemented 26.3 work visibly planned", () => {
     const report = buildAdobeUxpCoverageReport();
     expect(report.summary).toEqual({
-      total: 60,
-      current: 57,
+      total: 62,
+      current: 59,
       planned: 3,
-      implemented: 57,
+      implemented: 59,
       committedUnverified: 8,
-      automatedContractVerified: 49,
+      automatedContractVerified: 51,
       liveHostVerified: 0,
     });
     expect(report.entries.find((entry) => entry.id === "aaf-export")).toMatchObject({
@@ -215,7 +227,7 @@ describe("Adobe Premiere Pro 26.3 UXP coverage", () => {
   it("surfaces the baseline in the platform capability report", () => {
     const report = buildPlatformCapabilityReport(resolveCapabilities("inspect"), "win32");
     expect(report.backends.uxp.apiCoverage.summary).toMatchObject({
-      current: 57,
+      current: 59,
       planned: 3,
       committedUnverified: 8,
     });

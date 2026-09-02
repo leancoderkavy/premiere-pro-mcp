@@ -760,6 +760,50 @@
       "verificationBoundary": "metadata_readback"
     },
     {
+      "id": "bounded-project-columns-metadata-inspection",
+      "adobeApi": [
+        "Metadata.getProjectColumnsMetadata"
+      ],
+      "documentationUrls": [
+        "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/metadata/"
+      ],
+      "minimumPremiereVersion": "25.6.0",
+      "backend": "uxp",
+      "uxpCommand": "metadata.columns.get",
+      "mcpTools": ["inspect_project_panel_metadata_uxp"],
+      "availability": "current",
+      "implementationStatus": "implemented",
+      "verificationStatus": "automated_contract_verified",
+      "liveHostVerificationStatus": "not_run",
+      "mutatesProject": false,
+      "undoable": false,
+      "idempotency": "not_applicable",
+      "verificationBoundary": "bounded_project_columns_metadata_readback"
+    },
+    {
+      "id": "bounded-project-panel-metadata-inspection",
+      "adobeApi": [
+        "Metadata.getProjectPanelMetadata",
+        "Project.guid"
+      ],
+      "documentationUrls": [
+        "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/metadata/",
+        "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/project/"
+      ],
+      "minimumPremiereVersion": "25.6.0",
+      "backend": "uxp",
+      "uxpCommand": "metadata.projectPanel.get",
+      "mcpTools": ["inspect_project_panel_metadata_uxp"],
+      "availability": "current",
+      "implementationStatus": "implemented",
+      "verificationStatus": "automated_contract_verified",
+      "liveHostVerificationStatus": "not_run",
+      "mutatesProject": false,
+      "undoable": false,
+      "idempotency": "not_applicable",
+      "verificationBoundary": "bounded_project_panel_metadata_readback"
+    },
+    {
       "id": "color-footage-conformance",
       "adobeApi": [
         "Project.getColorSettings",

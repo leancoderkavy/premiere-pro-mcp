@@ -122,7 +122,7 @@ function stableHost() {
   const markerValues: Array<{ guid: string }> = [];
   const markers = { getMarkers: vi.fn(async () => markerValues) };
   const root = { isFolder: true, getItems: vi.fn(async () => [sourceClip]) };
-  let projectMetadata = "project-before", xmpMetadata = "xmp-before", ingestEnabled = false;
+  let projectMetadata = "project-before", xmpMetadata = "xmp-before", projectColumnsMetadata = "columns-before", projectPanelMetadata = "panel-before", ingestEnabled = false;
   const ingestSettings = {
     getIsIngestEnabled: vi.fn(async () => ingestEnabled),
     setIngestEnabled: vi.fn(async (value: boolean) => { ingestEnabled = value; return true; }),
@@ -191,6 +191,8 @@ function stableHost() {
     Metadata: {
       getProjectMetadata: vi.fn(async () => projectMetadata),
       getXMPMetadata: vi.fn(async () => xmpMetadata),
+      getProjectColumnsMetadata: vi.fn(async () => projectColumnsMetadata),
+      getProjectPanelMetadata: vi.fn(async () => projectPanelMetadata),
       createSetProjectMetadataAction: vi.fn((_item: unknown, value: string) => ({ apply: () => { projectMetadata = value; } })),
       createSetXMPMetadataAction: vi.fn((_item: unknown, value: string) => ({ apply: () => { xmpMetadata = value; } })),
     },
@@ -227,7 +229,7 @@ describe("stable Premiere UXP workflow expansion", () => {
     expect(Object.keys(capabilities.commands)).toEqual(expect.arrayContaining([
       "effects.catalog", "effects.chain.add", "selection.inspect", "selection.fingerprints.inspect", "selection.targets.inspect", "selection.update", "effects.selection.add",
       "sceneEdit.detect", "proxy.attach", "ingest.configure", "media.relink",
-      "metadata.update", "color.preflight", "environment.inspect", "footage.conform", "sourceMonitor.open",
+      "metadata.update", "metadata.columns.get", "metadata.projectPanel.get", "color.preflight", "environment.inspect", "footage.conform", "sourceMonitor.open",
       "storage.preflight", "scratch.configure", "workspace.status",
     ]));
     expect(capabilities.commands["effects.selection.add"]).toMatchObject({
@@ -247,6 +249,20 @@ describe("stable Premiere UXP workflow expansion", () => {
       supported: true, undoable: false, workspaceRequired: true, targetCapabilityProbe: "invocation",
     });
     expect(capabilities.workspace).toMatchObject({ configured: true, pathDisclosure: "redacted" });
+  });
+
+  it("probes Project-panel metadata accessors independently", async () => {
+    const missingPanelMetadata = stableHost();
+    Reflect.deleteProperty(missingPanelMetadata.ppro.Metadata, "getProjectPanelMetadata");
+    const withoutPanelMetadata = await missingPanelMetadata.registry.capabilities();
+    expect(withoutPanelMetadata.commands["metadata.columns.get"]).toMatchObject({ supported: true });
+    expect(withoutPanelMetadata.commands["metadata.projectPanel.get"]).toMatchObject({ supported: false });
+
+    const missingColumnsMetadata = stableHost();
+    Reflect.deleteProperty(missingColumnsMetadata.ppro.Metadata, "getProjectColumnsMetadata");
+    const withoutColumnsMetadata = await missingColumnsMetadata.registry.capabilities();
+    expect(withoutColumnsMetadata.commands["metadata.columns.get"]).toMatchObject({ supported: false });
+    expect(withoutColumnsMetadata.commands["metadata.projectPanel.get"]).toMatchObject({ supported: true });
   });
 
   it("probes Source Monitor state, play, and close commands independently", async () => {
@@ -776,6 +792,29 @@ describe("stable Premiere UXP workflow expansion", () => {
     await expect(value.registry.dispatch("footage.conform", {
       projectItemId: "source-1", frameRate: 24, pixelAspectRatio: 1.2, inputLutId: "lut-guid",
     })).resolves.toMatchObject({ conformed: true, outcome: "verified", after: { frameRate: 24, pixelAspectRatio: 1.2, inputLutId: "lut-guid" } });
+  });
+
+  it("reads bounded native Project-panel schema and item-column metadata without writing it", async () => {
+    const value = stableHost();
+    await expect(value.registry.dispatch("metadata.columns.get", { projectItemId: "source-1" })).resolves.toEqual({
+      projectItemId: "source-1", name: "Interview.mov", projectColumnsMetadata: "columns-before",
+    });
+    await expect(value.registry.dispatch("metadata.projectPanel.get", {})).resolves.toEqual({
+      projectGuid: "project-1", projectName: "", projectPanelMetadata: "panel-before",
+    });
+    expect(value.ppro.Metadata.getProjectColumnsMetadata).toHaveBeenCalledWith(value.sourceClip);
+    expect(value.ppro.Metadata.getProjectPanelMetadata).toHaveBeenCalledTimes(1);
+    expect(value.ppro.Metadata).not.toHaveProperty("setProjectPanelMetadata");
+  });
+
+  it("fails closed for malformed or oversized native Project-panel metadata", async () => {
+    const value = stableHost();
+    value.ppro.Metadata.getProjectColumnsMetadata.mockResolvedValueOnce(null);
+    await expect(value.registry.dispatch("metadata.columns.get", { projectItemId: "source-1" }))
+      .rejects.toMatchObject({ code: "UXP_INVALID_ARGUMENT" });
+    value.ppro.Metadata.getProjectPanelMetadata.mockResolvedValueOnce("\u0800".repeat(350000));
+    await expect(value.registry.dispatch("metadata.projectPanel.get", {}))
+      .rejects.toMatchObject({ code: "UXP_RESULT_TOO_LARGE" });
   });
 
   it("inspects After Effects interoperability and project color support without mutation", async () => {
