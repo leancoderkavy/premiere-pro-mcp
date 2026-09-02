@@ -42,7 +42,7 @@ verification column describes the required evidence, not a completed test run.
 | --- | --- | --- | --- | --- | --- |
 | `rename_track_uxp` | `track.rename` | `AudioTrack`, `VideoTrack`, and `CaptionTrack` `createSetNameAction()` | Undoable project mutation | Supported when the selected track type and action APIs probe true | Read back the target track's name after the committed transaction; live host must also validate Undo. |
 | `create_subclip_uxp` | `subclip.create` | `ClipProjectItem.createSubClipAction()` | Undoable project mutation | Supported when the resolved item is a clip and action APIs probe true | Return and re-resolve the created subclip identity; live host must validate hard boundaries and audio/video options. |
-| `list_markers_uxp` | `marker.list` | `Marker.guid` plus marker accessors | Read-only | Supported when sequence or clip marker APIs probe true | Return marker values and the stable 26.3 `guid`; no project mutation. |
+| `list_markers_uxp` | `marker.list` | `Marker.guid`, `getUrl()`, `getTarget()`, plus marker accessors | Read-only | Supported when sequence or clip marker APIs probe true | Return marker values and the stable 26.3 `guid`; optional web-link URL/target fields require explicit caller opt-in and do not mutate Premiere. |
 | `set_source_monitor_position_uxp` | `sourceMonitor.position.set` | `SourceMonitor.setPosition()` | Source Monitor state mutation; no edit-history claim | Supported when `setPosition` and position read-back APIs probe true | Read `SourceMonitor.getPosition()` after setting the requested `TickTime`. |
 | `manage_sequence_range_uxp` | `sequence.range.inspect`, `sequence.range.update` | `Sequence` range accessors plus `createSetInPointAction()`, `createSetOutPointAction()`, and `createSetZeroPointAction()` | Undoable sequence-range mutation | Supported when every accessor, action, `TickTime`, and transaction primitive probes true | Read the complete range after one transaction and require it to match the guarded request; live host must also validate Undo. |
 | `manage_sequence_playhead_uxp` | `sequence.playhead.inspect`, `sequence.playhead.set` | `Sequence.getPlayerPosition()` and `Sequence.setPlayerPosition()` | Sequence player-state mutation; no project-save or Undo claim | Supported when the active sequence, `TickTime`, getter, and setter probe true | Require the inspected sequence GUID and exact current position, serialize competing setters, then read the player position back. |
@@ -80,7 +80,12 @@ bounded `operation_id` replay key where applicable.
   `take_video` and `take_audio` each default to `true`.
 - `list_markers_uxp`: `scope` defaults to `sequence` and may be `project_item`.
   The latter accepts one item selector as above. `filters` is an optional list of
-  at most 16 marker-type strings, each at most 64 characters.
+  at most 16 marker-type strings, each at most 64 characters. Web-link `url` and
+  `target` fields are omitted unless `include_web_links=true`, because a URL can
+  contain sensitive query data. When opted in, a host that does not expose an
+  individual documented accessor returns `null` for that field; this is a marker
+  metadata snapshot, not a link reachability, browser-navigation, or licensed-host
+  validation claim.
 - `set_source_monitor_position_uxp`: `seconds` is finite and non-negative.
 - `manage_sequence_range_uxp`: `inspect` returns the active sequence GUID and its
   complete in/out/zero-point/end snapshot. `update` requires that GUID and the

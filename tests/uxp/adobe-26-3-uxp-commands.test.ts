@@ -13,6 +13,7 @@ function adobe263Host() {
     guid: { toString: () => "marker-guid-1" },
     getName: vi.fn(() => "Review"), getComments: vi.fn(() => "Check this cut"), getType: vi.fn(() => "Comment"),
     getColorIndex: vi.fn(() => 6), getStart: vi.fn(() => ({ seconds: 12.5 })), getDuration: vi.fn(() => ({ seconds: 1.25 })),
+    getUrl: vi.fn(() => "https://review.example.test/cut?token=opaque"), getTarget: vi.fn(() => "frame-41"),
   };
   const source = {
     id: "source-1", name: "Interview", isClip: true,
@@ -85,11 +86,29 @@ describe("Adobe Premiere Pro 26.3 UXP commands", () => {
     );
   });
 
-  it("returns stable marker GUIDs, verifies Source Monitor positioning, and applies bounded AAF options", async () => {
+  it("returns stable marker GUIDs, redacts web links by default, and opts in to documented URL/target readback", async () => {
     const value = adobe263Host();
     await expect(value.registry.dispatch("marker.list", {})).resolves.toMatchObject({
       scope: "sequence", count: 1, markers: [{ guid: "marker-guid-1", startSeconds: 12.5, durationSeconds: 1.25 }],
     });
+    expect(value.marker.getUrl).not.toHaveBeenCalled();
+    expect(value.marker.getTarget).not.toHaveBeenCalled();
+    await expect(value.registry.dispatch("marker.list", { includeWebLinks: true })).resolves.toMatchObject({
+      scope: "sequence", markers: [{ url: "https://review.example.test/cut?token=opaque", target: "frame-41" }],
+    });
+    expect(value.marker.getUrl).toHaveBeenCalledTimes(1);
+    expect(value.marker.getTarget).toHaveBeenCalledTimes(1);
+
+    const partialHost = adobe263Host();
+    delete (partialHost.marker as { getUrl?: unknown }).getUrl;
+    delete (partialHost.marker as { getTarget?: unknown }).getTarget;
+    await expect(partialHost.registry.dispatch("marker.list", { includeWebLinks: true })).resolves.toMatchObject({
+      markers: [{ url: null, target: null }],
+    });
+  });
+
+  it("verifies Source Monitor positioning and applies bounded AAF options", async () => {
+    const value = adobe263Host();
     await expect(value.registry.dispatch("sourceMonitor.position.set", { seconds: 4.5 })).resolves.toMatchObject({
       positioned: true, seconds: 4.5, outcome: "verified",
     });
@@ -110,5 +129,6 @@ describe("Adobe Premiere Pro 26.3 UXP commands", () => {
     await expect(value.registry.dispatch("interchange.aaf.export", {
       outputFilePath: "/exports/edit.aaf", options: { sampleRate: 12345 },
     })).rejects.toMatchObject({ code: "UXP_INVALID_ARGUMENT" });
+    await expect(value.registry.dispatch("marker.list", { includeWebLinks: "true" })).rejects.toMatchObject({ code: "UXP_INVALID_ARGUMENT" });
   });
 });
