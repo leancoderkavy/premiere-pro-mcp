@@ -37,6 +37,9 @@ workflow, binding it to another API, or claiming host behavior.
 The [beta PointF declaration receipt](adobe-beta-pointf-drift.md) records its
 factory migration without constructing a point, changing the stable PointF
 workflow, binding it to another API, or claiming host behavior.
+The [beta Guid declaration receipt](adobe-beta-guid-drift.md) records its
+factory-placement migration without constructing or parsing a GUID, changing
+existing GUID workflows, binding it to another API, or claiming host behavior.
 The [beta Media drift receipt](adobe-beta-media-drift.md) separately records the
 pinned stable-to-beta `Media` declaration delta. It is deliberately not a beta
 surface inventory or beta-host support claim. The [beta C2PA declaration

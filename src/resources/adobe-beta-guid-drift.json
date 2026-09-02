@@ -1,0 +1,87 @@
+{
+  "schemaVersion": 1,
+  "scope": {
+    "declarations": [
+      "premierepro.Guid",
+      "Guid",
+      "GuidStatic"
+    ],
+    "semantics": "This records the beta Guid factory-placement migration against the pinned stable package. It is static declaration-drift accounting, not beta API support or a complete package diff.",
+    "doesNotEstablish": "It does not prove a beta host exposes GuidStatic factory calls, that a Guid can be constructed or parsed or accepted by another API, that GUID identity is stable, or that any MCP action is supported or licensed-host validated."
+  },
+  "sources": {
+    "stable": {
+      "package": "@adobe/premierepro",
+      "version": "26.3.0",
+      "declarations": "node_modules/@adobe/premierepro/src/premierepro.d.ts",
+      "guidDeclarationSha256": "146e10ce0330e23deb3a6cd31d552a9ba8aef3cceb0dbcdd2ba87dee5ddaa511",
+      "guidStaticDeclarationSha256": "d532785c7fa973acfa0db935ec395a0da7b03b84a14fc41db2f6ddd09f7a2ffa",
+      "rootBinding": "GuidStatic"
+    },
+    "beta": {
+      "package": "@adobe/premierepro-beta",
+      "version": "26.5.0-beta.73",
+      "declarations": "node_modules/@adobe/premierepro-beta/src/premierepro.d.ts",
+      "guidDeclarationSha256": "3725a1fde62b51599bfb6831e797bdc7665e90de670a556d46307194e5f09406",
+      "guidStaticDeclarationSha256": "3623a9d5efd1bdb17bc961eb4ec76eb96d288a223795c3a5034ff6239ad6ba2d",
+      "rootBinding": "GuidStatic"
+    }
+  },
+  "diff": {
+    "betaOnly": [
+      {
+        "symbol": "GuidStatic.call",
+        "kind": "call_signature",
+        "signature": "() => Guid"
+      },
+      {
+        "symbol": "GuidStatic.new",
+        "kind": "construct_signature",
+        "signature": "() => Guid"
+      }
+    ],
+    "stableOnly": [
+      {
+        "symbol": "Guid.call",
+        "kind": "call_signature",
+        "signature": "() => Guid"
+      },
+      {
+        "symbol": "Guid.new",
+        "kind": "construct_signature",
+        "signature": "() => Guid"
+      }
+    ],
+    "changed": [
+      {
+        "symbol": "Guid.factorySignaturePlacement",
+        "stable": {
+          "owner": "Guid",
+          "entries": [
+            {
+              "kind": "call_signature",
+              "signature": "() => Guid"
+            },
+            {
+              "kind": "construct_signature",
+              "signature": "() => Guid"
+            }
+          ]
+        },
+        "beta": {
+          "owner": "GuidStatic",
+          "entries": [
+            {
+              "kind": "call_signature",
+              "signature": "() => Guid"
+            },
+            {
+              "kind": "construct_signature",
+              "signature": "() => Guid"
+            }
+          ]
+        }
+      }
+    ]
+  }
+}
