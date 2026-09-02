@@ -56,6 +56,13 @@ also end directly at the end-of-central-directory record; the verifier rejects
 unaccounted bytes in that gap rather than silently excluding them from its
 structure validation.
 
+For its stored-or-Deflate ZIP32 profile, the verifier also requires each
+central and matching local `version needed to extract` field to truthfully
+cover the declared feature: at least ZIP 1.0 for a stored regular file, and at
+least ZIP 2.0 for a directory or Deflate entry. It accepts a conforming stored
+ZIP 1.0 entry; this is not a blanket minimum-version policy for arbitrary ZIP
+features.
+
 When a central-directory entry declares a Unix origin and a POSIX file type,
 the bounded verifier accepts only a regular file or directory. It rejects
 declared links, devices, FIFOs, and sockets without extracting their contents.
@@ -108,4 +115,4 @@ Official references: [Package a UXP plugin](https://developer.adobe.com/premiere
 [Building Hybrid Plugins](https://developer.adobe.com/premiere-pro/uxp/plugins/hybrid-plugins/build/),
 and [Hybrid Plugins](https://developer.adobe.com/premiere-pro/uxp/plugins/hybrid-plugins/).
 The ZIP layout rules follow PKWARE's [ZIP File Format Specification](https://pkware.cachefly.net/webdocs/casestudies/APPNOTE.TXT),
-sections 4.3.6, 4.3.8, 4.3.12, and 4.3.16.
+sections 4.3.6, 4.3.8, 4.3.12, 4.3.16, and 4.4.3.
