@@ -22,6 +22,7 @@
     const ppro = deps.ppro, Protocol = deps.Protocol, workspace = deps.workspace, events = deps.events;
     const appendLocks = new Map();
     const parameterTimeVaryingLocks = new Map();
+    const pointParameterLocks = new Map();
     const colorLabelLocks = deps.colorLabelLocks && typeof deps.colorLabelLocks.withProjectItemColorLabelLock === "function"
       ? deps.colorLabelLocks
       : { withProjectItemColorLabelLock: withColorLabelLock };
@@ -49,6 +50,8 @@
       "sequence.displayFormat.update": { destructive: true, undoable: true, idempotent: true, targetCapabilityProbe: true, minHostVersion: "26.3.0", probe: canUseSequenceDisplayFormats, handler: updateSequenceDisplayFormats },
       "project.import": { destructive: true, undoable: false, requiresWorkspace: true, minHostVersion: "25.6.0", probe: canImportProjectMedia, handler: importProjectMedia },
       "parameters.inspect": { readOnly: true, targetCapabilityProbe: true, minHostVersion: "25.6.0", probe: canUseParameters, handler: inspectParameter },
+      "parameters.point.inspect": { readOnly: true, targetCapabilityProbe: true, minHostVersion: "26.3.0", probe: canUsePointParameters, handler: inspectPointParameter },
+      "parameters.point.set": { destructive: true, undoable: true, idempotent: true, targetCapabilityProbe: true, minHostVersion: "26.3.0", probe: canUsePointParameters, handler: setPointParameter },
       "parameters.set": { destructive: true, undoable: true, targetCapabilityProbe: true, minHostVersion: "25.6.0", probe: canUseParameters, handler: setParameterValue },
       "parameters.keyframeAdd": { destructive: true, undoable: true, targetCapabilityProbe: true, minHostVersion: "25.6.0", probe: canUseParameters, handler: addParameterKeyframe },
       "parameters.keyframeRemove": { destructive: true, undoable: true, targetCapabilityProbe: true, minHostVersion: "25.6.0", probe: canUseParameters, handler: removeParameterKeyframe },
@@ -938,6 +941,111 @@
     async function inspectParameter(args) {
       const context = await parameterContext(args, false);
       return parameterSnapshot(context, args.timeSeconds);
+    }
+
+    async function pointParameterContext(args, mutation) {
+      const allowed = ["mediaType", "trackIndex", "clipIndex", "componentIndex", "paramIndex", "expectedComponentId", "expectedParamName"];
+      if (mutation) allowed.push("expectedSnapshot", "point", "confirmSetPoint", "operationId");
+      assertObject(args); assertOnlyKeys(args, allowed);
+      const context = await parameterContext({
+        mediaType: args.mediaType, trackIndex: args.trackIndex, clipIndex: args.clipIndex,
+        componentIndex: args.componentIndex, paramIndex: args.paramIndex,
+        expectedComponentId: args.expectedComponentId, expectedParamName: args.expectedParamName,
+      }, mutation);
+      if (typeof context.param.getStartValue !== "function" || typeof context.param.isTimeVarying !== "function") {
+        throw commandError("UXP_COMMAND_UNAVAILABLE", "Premiere cannot read a stable PointF parameter snapshot");
+      }
+      return context;
+    }
+
+    async function pointParameterSnapshot(context) {
+      const projectId = guidString(context.project && context.project.guid), sequenceId = guidString(context.sequence && context.sequence.guid);
+      if (!projectId || !sequenceId) throw commandError("UXP_INVALID_HOST_STATE", "Premiere did not provide stable project and sequence identities for the PointF parameter");
+      const point = pointValue(keyframeValue(await context.param.getStartValue()), "Premiere parameter start value");
+      return {
+        projectId, sequenceId, mediaType: context.mediaType, trackIndex: context.trackIndex, clipIndex: context.clipIndex,
+        componentIndex: context.componentIndex, componentId: context.componentId, paramIndex: context.paramIndex,
+        paramName: context.paramName, timeVarying: !!context.param.isTimeVarying(), point,
+      };
+    }
+
+    function pointSnapshotMatches(left, right) {
+      return left && right && left.projectId === right.projectId && left.sequenceId === right.sequenceId
+        && left.mediaType === right.mediaType && left.trackIndex === right.trackIndex && left.clipIndex === right.clipIndex
+        && left.componentIndex === right.componentIndex && left.componentId === right.componentId && left.paramIndex === right.paramIndex
+        && left.paramName === right.paramName && left.timeVarying === right.timeVarying
+        && pointsEqual(left.point, right.point);
+    }
+
+    function assertPointSnapshot(current, expected) {
+      if (!pointSnapshotMatches(current, expected)) {
+        throw commandError("UXP_STALE_POINT_PARAMETER", "The PointF parameter changed; inspect it again before updating it");
+      }
+    }
+
+    function pointParameterLockKey(context) {
+      return appendLockKey(context.project, "parameter-point", [
+        guidString(context.sequence && context.sequence.guid), context.mediaType, context.trackIndex, context.clipIndex,
+        context.componentIndex, context.paramIndex
+      ].join(":"));
+    }
+
+    async function withPointParameterLock(key, callback) {
+      const previous = pointParameterLocks.get(key) || Promise.resolve();
+      let release = function () {};
+      const current = new Promise((resolve) => { release = resolve; });
+      pointParameterLocks.set(key, current);
+      await previous;
+      try {
+        return await callback();
+      } finally {
+        release();
+        if (pointParameterLocks.get(key) === current) pointParameterLocks.delete(key);
+      }
+    }
+
+    async function inspectPointParameter(args) {
+      const firstContext = await pointParameterContext(args, false), first = await pointParameterSnapshot(firstContext);
+      const finalContext = await pointParameterContext(args, false), final = await pointParameterSnapshot(finalContext);
+      if (!pointSnapshotMatches(first, final)) {
+        throw commandError("UXP_STALE_POINT_PARAMETER", "The PointF parameter changed while it was being inspected; retry the inspection");
+      }
+      return final;
+    }
+
+    function validatePointParameterSet(args) {
+      assertObject(args); assertOnlyKeys(args, ["mediaType", "trackIndex", "clipIndex", "componentIndex", "paramIndex", "expectedComponentId", "expectedParamName", "expectedSnapshot", "point", "confirmSetPoint", "operationId"]);
+      if (args.confirmSetPoint !== true) {
+        throw commandError("UXP_CONFIRMATION_REQUIRED", "Setting a PointF parameter requires confirmSetPoint=true after review");
+      }
+      return {
+        ...args,
+        expectedSnapshot: expectedPointParameterSnapshot(args.expectedSnapshot),
+        point: pointValue(args.point, "point"),
+      };
+    }
+
+    function createPoint(value) {
+      if (typeof ppro.PointF !== "function") throw commandError("UXP_COMMAND_UNAVAILABLE", "Premiere does not expose the PointF constructor");
+      try { return new ppro.PointF(value.x, value.y); }
+      catch (_) { throw commandError("UXP_COMMAND_UNAVAILABLE", "Premiere rejected PointF construction"); }
+    }
+
+    async function setPointParameter(args) {
+      const input = validatePointParameterSet(args), point = createPoint(input.point);
+      const initialContext = await pointParameterContext(input, true);
+      return withPointParameterLock(pointParameterLockKey(initialContext), async () => {
+        const context = await pointParameterContext(input, true), before = await pointParameterSnapshot(context);
+        assertPointSnapshot(before, input.expectedSnapshot);
+        if (before.timeVarying) throw commandError("UXP_TARGET_UNSUPPORTED", "PointF updates support only non-time-varying parameters; keyframed PointF edits are not exposed");
+        context.project.lockedAccess(() => {
+          const action = context.param.createSetValueAction(context.param.createKeyframe(point), true);
+          commitActions(context.project, "Set PointF effect parameter", [action]);
+        });
+        const afterContext = await pointParameterContext(input, true), after = await pointParameterSnapshot(afterContext);
+        const verified = !after.timeVarying && pointsEqual(after.point, input.point);
+        return mutationResult(verified, { updated: true, before, after }, "point_parameter_readback", "Set PointF effect parameter");
+      });
     }
 
     async function inspectParameterKeyframe(args) {
@@ -1926,6 +2034,31 @@
     function settingMatches(after, key, value) { if (key === "videoWidth") return after.videoFrame && numbersEqual(after.videoFrame.width, value); if (key === "videoHeight") return after.videoFrame && numbersEqual(after.videoFrame.height, value); return valuesEqual(after[key], value); }
     function keyframeValue(value) { return value && value.value && Object.prototype.hasOwnProperty.call(value.value, "value") ? value.value.value : value && value.value !== undefined ? value.value : null; }
     function scalarValue(value) { if (typeof value !== "number" && typeof value !== "string" && typeof value !== "boolean") throw commandError("UXP_INVALID_ARGUMENT", "value must be a number, string, or boolean"); if (typeof value === "number" && !Number.isFinite(value)) throw commandError("UXP_INVALID_ARGUMENT", "value must be finite"); if (typeof value === "string" && value.length > 4000) throw commandError("UXP_INVALID_ARGUMENT", "value string exceeds 4000 characters"); return value; }
+    function pointValue(value, label) {
+      assertObject(value); assertOnlyKeys(value, ["x", "y"]);
+      return {
+        x: finiteNumber(value.x, (label || "point") + ".x", -1000000, 1000000),
+        y: finiteNumber(value.y, (label || "point") + ".y", -1000000, 1000000),
+      };
+    }
+    function expectedPointParameterSnapshot(value) {
+      assertObject(value);
+      assertOnlyKeys(value, ["projectId", "sequenceId", "mediaType", "trackIndex", "clipIndex", "componentIndex", "componentId", "paramIndex", "paramName", "timeVarying", "point"]);
+      if (typeof value.timeVarying !== "boolean") throw commandError("UXP_INVALID_ARGUMENT", "expectedSnapshot.timeVarying must be boolean");
+      return {
+        projectId: boundedString(value.projectId, "expectedSnapshot.projectId", 128),
+        sequenceId: boundedString(value.sequenceId, "expectedSnapshot.sequenceId", 128),
+        mediaType: enumValue(value.mediaType, "expectedSnapshot.mediaType", ["video", "audio"]),
+        trackIndex: nonNegativeInt(value.trackIndex, "expectedSnapshot.trackIndex"),
+        clipIndex: nonNegativeInt(value.clipIndex, "expectedSnapshot.clipIndex"),
+        componentIndex: nonNegativeInt(value.componentIndex, "expectedSnapshot.componentIndex"),
+        componentId: boundedString(value.componentId, "expectedSnapshot.componentId", 256),
+        paramIndex: nonNegativeInt(value.paramIndex, "expectedSnapshot.paramIndex"),
+        paramName: boundedStringAllowEmpty(value.paramName, "expectedSnapshot.paramName", 255),
+        timeVarying: value.timeVarying,
+        point: pointValue(value.point, "expectedSnapshot.point"),
+      };
+    }
 
     function trackItemUpdateMatches(before, after, args) {
       if (args.startSeconds != null && !numbersEqual(after.startSeconds, args.startSeconds)) return false;
@@ -1954,6 +2087,7 @@
       return !!project && ["importFiles", "importSequences", "importAEComps", "importAllAEComps"].every((method) => typeof project[method] === "function");
     }
     function canUseParameters() { return canInspectProject() && !!(ppro.Constants && ppro.Constants.TrackItemType); }
+    function canUsePointParameters() { return canUseParameters() && typeof ppro.PointF === "function"; }
     function canUseTrackItems() { return canUseParameters(); }
     function canInspectTimelineStructure() { return canUseTrackItems(); }
     function canUseSequenceEditor() { return canInspectProject() && !!(ppro.SequenceEditor && typeof ppro.SequenceEditor.getEditor === "function"); }
@@ -2022,6 +2156,7 @@
   function requireExternalWrite(value) { if (value !== true) throw commandError("UXP_CONFIRMATION_REQUIRED", "Encoding writes external files and may overwrite an existing output; pass confirmExternalWrite=true after review"); }
   function sameNumberArrays(left, right) { return Array.isArray(left) && Array.isArray(right) && left.length === right.length && left.every((value, index) => numbersEqual(value, right[index])); }
   function numbersEqual(left, right) { return Number.isFinite(Number(left)) && Number.isFinite(Number(right)) && Math.abs(Number(left) - Number(right)) < 0.000001; }
+  function pointsEqual(left, right) { return !!left && !!right && numbersEqual(left.x, right.x) && numbersEqual(left.y, right.y); }
   function valuesEqual(left, right) { return typeof right === "number" ? numbersEqual(left, right) : left === right; }
   function commandError(code, message) { const error = new Error(message); error.code = code; return error; }
 

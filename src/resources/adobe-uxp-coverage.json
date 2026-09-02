@@ -1368,6 +1368,37 @@
       "verificationBoundary": "parameter_value_keyframe_animation_mode_or_lookup_readback"
     },
     {
+      "id": "guarded-static-point-effect-parameter",
+      "adobeApi": [
+        "ComponentParam.getStartValue",
+        "ComponentParam.isTimeVarying",
+        "ComponentParam.createKeyframe",
+        "ComponentParam.createSetValueAction",
+        "PointF",
+        "PointF.[[construct]]",
+        "PointF.x",
+        "PointF.y",
+        "Project.lockedAccess",
+        "Project.executeTransaction"
+      ],
+      "documentationUrls": [
+        "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/componentparam/",
+        "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/pointf/"
+      ],
+      "minimumPremiereVersion": "26.3.0",
+      "backend": "uxp",
+      "uxpCommand": "parameters.point.set",
+      "mcpTools": ["automate_effect_parameters_uxp"],
+      "availability": "current",
+      "implementationStatus": "implemented",
+      "verificationStatus": "automated_contract_verified",
+      "liveHostVerificationStatus": "not_run",
+      "mutatesProject": true,
+      "undoable": true,
+      "idempotency": "operation_id",
+      "verificationBoundary": "point_parameter_readback"
+    },
+    {
       "id": "native-track-item-identity",
       "adobeApi": [
         "Project.getActiveSequence",
