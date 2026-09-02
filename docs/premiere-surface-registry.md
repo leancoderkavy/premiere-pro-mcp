@@ -41,7 +41,10 @@ runtime proof. A subsequent [Hybrid CCX archive receipt](uxp-hybrid-ccx-receipt.
 can bind those public layout facts to the matching files and a content-free safe
 ZIP entry-name-set digest in a local `.ccx` ZIP without disclosing archive
 contents or entry names, while rejecting inconsistent local ZIP headers. It is
-not UDT, portal, installation, or host-runtime proof.
+not UDT, portal, installation, or host-runtime proof. Where a ZIP entry uses a
+streamed data descriptor, the local archive verifier also checks its required
+CRC and sizes against the central directory without extracting unselected
+contents.
 
 The same registry pins the exact competitor commits reviewed for feature-gap
 work. A competitor feature family becomes an implementation candidate only

@@ -47,6 +47,13 @@ ZIP header against its central-directory entry before reading required payloads,
 so unselected archive entries cannot use a different name, flags, compression
 method, declared size, or an out-of-bounds/overlapping data range:
 
+For a ZIP entry whose general-purpose bit 3 requests a streamed data descriptor,
+the verifier additionally requires that descriptor immediately after the
+declared payload and confirms its CRC-32 and both sizes against the central
+directory. Both conventional descriptor encodings (with or without the common
+signature) are supported. This remains ZIP-structure validation only; it does
+not extract unselected entry contents.
+
 ```powershell
 npm run native:hybrid-ccx-receipt:verify -- `
   --input C:\hybrid-evidence\fixture-ccx.json `

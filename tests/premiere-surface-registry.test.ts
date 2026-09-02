@@ -138,7 +138,7 @@ describe("Premiere API and competitor surface registry", () => {
     expect(registry.integrationSurfaces.find((surface) => surface.id === "uxp-hybrid-cpp")?.notes)
       .toContain("root main.js entrypoint and three-target bundle layout");
     expect(registry.integrationSurfaces.find((surface) => surface.id === "uxp-hybrid-cpp")?.notes)
-      .toContain("schema-v2 local CCX archive receipt can bind that current layout receipt to the byte-identical required files, a full safe ZIP entry-name-set digest, and matching local ZIP headers");
+      .toContain("schema-v2 local CCX archive receipt can bind that current layout receipt to the byte-identical required files, a full safe ZIP entry-name-set digest, matching local ZIP headers, and any required streamed data-descriptor CRC/sizes");
     expect(registry.integrationSurfaces.find((surface) => surface.id === "uxp-hybrid-cpp")?.notes)
       .toContain("schema-v3 candidate benchmark");
   });

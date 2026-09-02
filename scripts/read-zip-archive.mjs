@@ -6,6 +6,7 @@ import { createInflateRaw } from "node:zlib";
 const END_OF_CENTRAL_DIRECTORY_SIGNATURE = 0x06054b50;
 const CENTRAL_DIRECTORY_SIGNATURE = 0x02014b50;
 const LOCAL_FILE_SIGNATURE = 0x04034b50;
+const DATA_DESCRIPTOR_SIGNATURE = 0x08074b50;
 const MAX_ZIP32_BYTES = 0xffff_ffff;
 const MAX_CENTRAL_DIRECTORY_BYTES = 64 * 1024 * 1024;
 const MAX_ENTRIES = 100_000;
@@ -162,7 +163,25 @@ async function localDataRangeFromHandle(handle, entry, maximumOffset) {
   const dataStart = entry.localOffset + 30 + localNameBytes + localExtraBytes;
   const dataEnd = dataStart + entry.compressedBytes;
   if (!Number.isSafeInteger(dataEnd) || dataEnd > maximumOffset) throw archiveError("CCX archive local entry is outside the ZIP bounds");
-  return { dataStart, dataEnd };
+  return { dataStart, dataEnd, hasDataDescriptor };
+}
+
+function dataDescriptorMatches(buffer, offset, entry) {
+  return buffer.readUInt32LE(offset) === entry.crc32 &&
+    buffer.readUInt32LE(offset + 4) === entry.compressedBytes &&
+    buffer.readUInt32LE(offset + 8) === entry.uncompressedBytes;
+}
+
+async function validateDataDescriptor(handle, range, nextOffset) {
+  if (!range.hasDataDescriptor) return range.dataEnd;
+  const availableBytes = nextOffset - range.dataEnd;
+  if (availableBytes < 12) throw archiveError("CCX archive data descriptor is missing or truncated");
+  const descriptor = await readExactly(handle, Math.min(availableBytes, 16), range.dataEnd, "CCX archive data descriptor");
+  const unsignedMatches = dataDescriptorMatches(descriptor, 0, range.entry);
+  const signedMatches = descriptor.length === 16 && descriptor.readUInt32LE(0) === DATA_DESCRIPTOR_SIGNATURE &&
+    dataDescriptorMatches(descriptor, 4, range.entry);
+  if (!unsignedMatches && !signedMatches) throw archiveError("CCX archive data descriptor is inconsistent");
+  return range.dataEnd + (signedMatches ? 16 : 12);
 }
 
 async function validateLocalEntries(handle, entries, directoryOffset) {
@@ -171,8 +190,10 @@ async function validateLocalEntries(handle, entries, directoryOffset) {
     ranges.push({ entry, ...(await localDataRangeFromHandle(handle, entry, directoryOffset)) });
   }
   ranges.sort((left, right) => left.entry.localOffset - right.entry.localOffset);
-  for (let index = 1; index < ranges.length; index += 1) {
-    if (ranges[index].entry.localOffset < ranges[index - 1].dataEnd) {
+  for (let index = 0; index < ranges.length; index += 1) {
+    const nextOffset = index + 1 < ranges.length ? ranges[index + 1].entry.localOffset : directoryOffset;
+    const recordEnd = await validateDataDescriptor(handle, ranges[index], nextOffset);
+    if (recordEnd > nextOffset) {
       throw archiveError("CCX archive local entries overlap");
     }
   }
