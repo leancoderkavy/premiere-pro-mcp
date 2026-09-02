@@ -251,6 +251,7 @@ describe("next-wave UXP event workflows", () => {
       getMediaFilePath: vi.fn(async () => "C:/private/camera.mov"),
       getProxyPath: vi.fn(async () => "C:/private/proxy.mov"),
       getOriginatingProjectPath: vi.fn(async () => "C:/private/source.prproj"),
+      getMedia: vi.fn(async () => ({ start: { seconds: 2 }, duration: { seconds: 5 } })),
       createSetOfflineAction: vi.fn(() => ({ apply: () => { offline = true; } })),
     };
     const project = {
@@ -275,6 +276,8 @@ describe("next-wave UXP event workflows", () => {
       items: [{ projectItemId: "clip-1", offline: false, hasProxy: true }],
     });
     expect(inspected.items[0]).not.toHaveProperty("mediaPath");
+    expect(inspected.items[0]).not.toHaveProperty("mediaTiming");
+    expect(clip.getMedia).not.toHaveBeenCalled();
     await expect(definitions["media.health.setOffline"].handler({
       expectedOffline: false,
     })).rejects.toMatchObject({ code: "UXP_CONFIRMATION_REQUIRED" });
@@ -283,6 +286,107 @@ describe("next-wave UXP event workflows", () => {
     })).resolves.toMatchObject({
       updated: 1, items: [{ projectItemId: "clip-1", offline: true }],
       outcome: "verified", verificationBoundary: "offline_state_readback",
+    });
+  });
+
+  it("reads opt-in media timing through beta getters or stable properties without retrying a failed getter", async () => {
+    let legacyStartReads = 0;
+    let legacyDurationReads = 0;
+    const betaMedia = {
+      getStart: vi.fn(async () => ({ seconds: 1.25 })),
+      getDuration: vi.fn(async () => ({ seconds: 9.5 })),
+    };
+    Object.defineProperties(betaMedia, {
+      start: { get: () => { legacyStartReads += 1; throw new Error("deprecated start must not be read"); } },
+      duration: { get: () => { legacyDurationReads += 1; throw new Error("deprecated duration must not be read"); } },
+    });
+    let media: Record<string, unknown> = betaMedia;
+    const clip = {
+      name: "Camera A",
+      getId: vi.fn(async () => "clip-1"),
+      isOffline: vi.fn(async () => false),
+      canChangeMediaPath: vi.fn(async () => true),
+      canProxy: vi.fn(async () => true),
+      hasProxy: vi.fn(async () => false),
+      isMergedClip: vi.fn(async () => false),
+      isMulticamClip: vi.fn(async () => false),
+      getMedia: vi.fn(async () => media),
+    };
+    const project = { guid: "project-1" };
+    const definitions = NextWorkflows.createNextWorkflowDefinitions({
+      ppro: {
+        Project: { getActiveProject: vi.fn(async () => project) },
+        ProjectUtils: { getSelection: vi.fn(async () => ({ getItems: vi.fn(async () => [clip]) })) },
+        ClipProjectItem: { cast: vi.fn((item: unknown) => item) },
+      },
+    });
+
+    await expect(definitions["media.health.inspect"].handler({ includeMediaTiming: true })).resolves.toMatchObject({
+      items: [{
+        mediaTiming: {
+          available: true,
+          startSeconds: 1.25,
+          durationSeconds: 9.5,
+          startAccessor: "getStart",
+          durationAccessor: "getDuration",
+        },
+      }],
+    });
+    expect(betaMedia.getStart).toHaveBeenCalledOnce();
+    expect(betaMedia.getDuration).toHaveBeenCalledOnce();
+    expect(legacyStartReads).toBe(0);
+    expect(legacyDurationReads).toBe(0);
+
+    media = { start: { seconds: 3 }, duration: Promise.resolve({ seconds: 12 }) };
+    await expect(definitions["media.health.inspect"].handler({ includeMediaTiming: true })).resolves.toMatchObject({
+      items: [{
+        mediaTiming: {
+          available: true,
+          startSeconds: 3,
+          durationSeconds: 12,
+          startAccessor: "start",
+          durationAccessor: "duration",
+        },
+      }],
+    });
+
+    let failedGetterFallbackReads = 0;
+    const failedGetterMedia = {
+      getStart: vi.fn(async () => { throw new Error("getter failed"); }),
+      getDuration: vi.fn(async () => ({ seconds: 7 })),
+    };
+    Object.defineProperties(failedGetterMedia, {
+      start: { get: () => { failedGetterFallbackReads += 1; return { seconds: 99 }; } },
+      duration: { get: () => ({ seconds: 99 }) },
+    });
+    media = failedGetterMedia;
+    await expect(definitions["media.health.inspect"].handler({ includeMediaTiming: true })).resolves.toMatchObject({
+      items: [{
+        mediaTiming: {
+          available: false,
+          startSeconds: null,
+          durationSeconds: 7,
+          startAccessor: "getStart",
+          durationAccessor: "getDuration",
+        },
+      }],
+    });
+    expect(failedGetterFallbackReads).toBe(0);
+
+    media = { start: { seconds: -1 }, duration: { seconds: 86400001 } };
+    await expect(definitions["media.health.inspect"].handler({ includeMediaTiming: true })).resolves.toMatchObject({
+      items: [{
+        mediaTiming: {
+          available: false,
+          startSeconds: null,
+          durationSeconds: null,
+          startAccessor: "start",
+          durationAccessor: "duration",
+        },
+      }],
+    });
+    await expect(definitions["media.health.inspect"].handler({ includeMediaTiming: "yes" })).rejects.toMatchObject({
+      code: "UXP_INVALID_ARGUMENT",
     });
   });
 

@@ -58,6 +58,11 @@ describe("Adobe Premiere Pro 26.3 UXP coverage", () => {
       mcpTools: ["apply_beat_markers_uxp"],
       verificationBoundary: "beat_marker_guid_and_time_readback",
     });
+    expect(entries.find((entry) => entry.id === "bounded-media-health-maintenance")?.adobeApi).toEqual(expect.arrayContaining([
+      "ClipProjectItem.getMedia",
+      "Media.start",
+      "Media.duration",
+    ]));
     for (const entry of entries) {
       expect(entry.minimumPremiereVersion).toMatch(/^\d+\.\d+\.\d+$/);
       expect(entry.backend).toBe("uxp");

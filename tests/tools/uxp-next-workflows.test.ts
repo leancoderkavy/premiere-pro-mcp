@@ -72,6 +72,7 @@ describe("next-wave UXP MCP tools", () => {
         project_item_ids: { maxItems: 64, uniqueItems: true },
         confirm_set_offline: { type: "boolean" },
         include_paths: { type: "boolean" },
+        include_media_timing: { type: "boolean" },
       },
     });
     const tracks = getUxpNextWorkflowTools(bridge).manage_track_state_uxp;
@@ -378,9 +379,9 @@ describe("next-wave UXP MCP tools", () => {
 
     await tool.handler({ action: "inspect" });
     expect(request).toHaveBeenLastCalledWith("media.health.inspect", {});
-    await tool.handler({ action: "inspect", project_item_ids: ["clip-1"], include_paths: false });
+    await tool.handler({ action: "inspect", project_item_ids: ["clip-1"], include_paths: false, include_media_timing: true });
     expect(request).toHaveBeenLastCalledWith("media.health.inspect", {
-      projectItemIds: ["clip-1"], includePaths: false,
+      projectItemIds: ["clip-1"], includePaths: false, includeMediaTiming: true,
     });
     await tool.handler({ action: "refresh" });
     expect(request).toHaveBeenLastCalledWith("media.health.refresh", {});
