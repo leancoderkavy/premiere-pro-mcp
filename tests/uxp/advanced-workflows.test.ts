@@ -419,6 +419,18 @@ describe("advanced stable Premiere UXP workflows", () => {
     expect(value.clip.createSubClipAction).not.toHaveBeenCalled();
   });
 
+  it("caches a partial subclip receipt instead of overflowing the sequence collection", async () => {
+    const value = advancedHost();
+    value.sequences.push(...Array.from({ length: 1023 }, (_, index) => ({ guid: `sequence-${index + 2}`, name: `Existing ${index + 2}` })));
+    await expect(value.registry.dispatch("silence.deriveSequence", {
+      sourceProjectItemId: "clip-1", name: "Sequence Capacity", confirmNonUndoable: true, operationId: "sequence-capacity",
+      keepRanges: [{ startSeconds: 0, endSeconds: 2, startFrame: 0, endFrame: 60 }],
+    })).resolves.toMatchObject({
+      partial: true, verificationBoundary: "derived_sequence_capacity_preflight", sequence: null,
+    });
+    expect(value.project.createSequenceFromMedia).not.toHaveBeenCalled();
+  });
+
   it("caches a partial receipt when a post-mutation subclip snapshot rejects", async () => {
     const value = advancedHost();
     let idReads = 0;

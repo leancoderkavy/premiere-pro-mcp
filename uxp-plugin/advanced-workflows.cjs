@@ -875,9 +875,14 @@
       requireConfirmation(args.confirmNonUndoable, "Creating a sequence from media is a direct Project call without an Action boundary");
       const project = await activeProject(false), ids = boundedStringArray(args.projectItemIds, "projectItemIds", 64, 512), clips = [];
       for (const id of ids) clips.push(asClip(await findProjectItem(project, id), "projectItemId"));
-      const target = args.targetBinId ? await resolveFolder(project, args.targetBinId, "targetBinId") : undefined, sequence = await project.createSequenceFromMedia(boundedString(args.name, "name", 255), clips, target);
-      if (!sequence) throw commandError("UXP_HOST_REJECTED", "Premiere did not create a sequence");
-      return directMutationResult(false, { created: true, sequence: await sequenceSnapshot(sequence) }, "create_sequence_host_return");
+      const target = args.targetBinId ? await resolveFolder(project, args.targetBinId, "targetBinId") : undefined, name = boundedString(args.name, "name", 255);
+      return withAppendLock(appendLockKey(project, "sequences", "all"), async () => {
+        const before = await listSequences(project);
+        assertAppendCapacity(before, MAX_SEQUENCES, "Sequence creation");
+        const sequence = await project.createSequenceFromMedia(name, clips, target);
+        if (!sequence) throw commandError("UXP_HOST_REJECTED", "Premiere did not create a sequence");
+        return directMutationResult(false, { created: true, sequence: await sequenceSnapshot(sequence) }, "create_sequence_host_return");
+      });
     }
 
     async function deriveSilenceSequence(args) {
@@ -927,31 +932,34 @@
           originalChanged: false
         }, boundary);
         if (subclipCommitError || createdItems.length !== ranges.length) return partialReceipt(subclipCommitError ? "derived_subclip_partial_transaction_receipt" : "derived_subclip_count_readback", null);
-        let beforeSequences;
-        try { beforeSequences = await listSequences(project); }
-        catch (_) { return partialReceipt("derived_sequence_preflight_readback_failed", null); }
-        const reconciledSequence = async () => {
+        return withAppendLock(appendLockKey(project, "sequences", "all"), async () => {
+          let beforeSequences;
+          try { beforeSequences = await listSequences(project); }
+          catch (_) { return partialReceipt("derived_sequence_preflight_readback_failed", null); }
+          if (beforeSequences.length >= MAX_SEQUENCES) return partialReceipt("derived_sequence_capacity_preflight", null);
+          const reconciledSequence = async () => {
+            try {
+              const afterSequences = await listSequences(project);
+              return afterSequences.find((item) => !beforeSequences.some((old) => old.id === item.id)) || null;
+            } catch (_) { return null; }
+          };
+          let sequence;
+          try { sequence = await project.createSequenceFromMedia(name, [createdItems[0]], target); } catch (_) { return partialReceipt("derived_sequence_host_reconciliation", await reconciledSequence()); }
+          if (!sequence) return partialReceipt("derived_sequence_host_return", await reconciledSequence());
+          const inserted = await safeProjectItemIds([createdItems[0]]);
           try {
-            const afterSequences = await listSequences(project);
-            return afterSequences.find((item) => !beforeSequences.some((old) => old.id === item.id)) || null;
-          } catch (_) { return null; }
-        };
-        let sequence;
-        try { sequence = await project.createSequenceFromMedia(name, [createdItems[0]], target); } catch (_) { return partialReceipt("derived_sequence_host_reconciliation", await reconciledSequence()); }
-        if (!sequence) return partialReceipt("derived_sequence_host_return", await reconciledSequence());
-        const inserted = await safeProjectItemIds([createdItems[0]]);
-        try {
-          const editor = ppro.SequenceEditor.getEditor(sequence);
-          if (!editor || typeof editor.createInsertProjectItemAction !== "function") throw new Error("editor unavailable");
-          let offset = ranges[0].endSeconds - ranges[0].startSeconds;
-          for (let index = 1; index < createdItems.length; index++) {
-            project.lockedAccess(() => commitActions(project, "Insert silence-removal segment", [editor.createInsertProjectItemAction(createdItems[index], tick(offset, "timeline offset"), 0, 0, false)]));
-            inserted.push(...await safeProjectItemIds([createdItems[index]])); offset += ranges[index].endSeconds - ranges[index].startSeconds;
+            const editor = ppro.SequenceEditor.getEditor(sequence);
+            if (!editor || typeof editor.createInsertProjectItemAction !== "function") throw new Error("editor unavailable");
+            let offset = ranges[0].endSeconds - ranges[0].startSeconds;
+            for (let index = 1; index < createdItems.length; index++) {
+              project.lockedAccess(() => commitActions(project, "Insert silence-removal segment", [editor.createInsertProjectItemAction(createdItems[index], tick(offset, "timeline offset"), 0, 0, false)]));
+              inserted.push(...await safeProjectItemIds([createdItems[index]])); offset += ranges[index].endSeconds - ranges[index].startSeconds;
+            }
+          } catch (_) {
+            return partialReceipt("derived_sequence_partial_insert_receipt", sequence, inserted);
           }
-        } catch (_) {
-          return partialReceipt("derived_sequence_partial_insert_receipt", sequence, inserted);
-        }
-        return directMutationResult(false, { created: true, partial: false, createdSubclips: await safeProjectItemSnapshots(createdItems), sequence: await safeSequenceSnapshot(sequence), insertedProjectItemIds: inserted, originalChanged: false }, "derived_sequence_structure_unverified");
+          return directMutationResult(false, { created: true, partial: false, createdSubclips: await safeProjectItemSnapshots(createdItems), sequence: await safeSequenceSnapshot(sequence), insertedProjectItemIds: inserted, originalChanged: false }, "derived_sequence_structure_unverified");
+        });
       });
     }
 
@@ -972,9 +980,14 @@
     async function createSubsequence(args) {
       assertObject(args); assertOnlyKeys(args, ["sequenceId", "ignoreTrackTargeting", "confirmNonUndoable", "operationId"]);
       requireConfirmation(args.confirmNonUndoable, "Creating a subsequence is a direct Sequence call without an Action boundary");
-      const project = await activeProject(false), sequence = await resolveSequence(project, args.sequenceId), created = await sequence.createSubsequence(optionalBoolean(args.ignoreTrackTargeting, false, "ignoreTrackTargeting"));
-      if (!created) throw commandError("UXP_HOST_REJECTED", "Premiere did not create a subsequence");
-      return directMutationResult(false, { created: true, sequence: await sequenceSnapshot(created) }, "create_subsequence_host_return");
+      const project = await activeProject(false), sequence = await resolveSequence(project, args.sequenceId), ignoreTrackTargeting = optionalBoolean(args.ignoreTrackTargeting, false, "ignoreTrackTargeting");
+      return withAppendLock(appendLockKey(project, "sequences", "all"), async () => {
+        const before = await listSequences(project);
+        assertAppendCapacity(before, MAX_SEQUENCES, "Subsequence creation");
+        const created = await sequence.createSubsequence(ignoreTrackTargeting);
+        if (!created) throw commandError("UXP_HOST_REJECTED", "Premiere did not create a subsequence");
+        return directMutationResult(false, { created: true, sequence: await sequenceSnapshot(created) }, "create_subsequence_host_return");
+      });
     }
 
     async function activateSequence(args) { return sequenceDirectAction(args, "activate", "setActiveSequence"); }
