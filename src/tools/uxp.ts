@@ -84,6 +84,27 @@ export function getUxpTools(bridge: UxpWebSocketBridge) {
       },
       handler: async () => invoke(bridge, "project.insertionBin.inspect"),
     },
+    inspect_installed_mogrt_directory_uxp: {
+      description: "Inspect whether Premiere exposes its documented installed MOGRT directory. The native path is redacted unless include_path is explicitly true. This tool never enumerates the directory, reads its files, imports a template, or changes Premiere; a returned path is not proof that templates are usable or compatible.",
+      parameters: {
+        type: "object" as const,
+        additionalProperties: false,
+        properties: {
+          include_path: { type: "boolean", description: "Explicitly return the bounded native MOGRT installation directory path. Defaults to false, which keeps it redacted." },
+        },
+      },
+      operationalCapability: {
+        backend: "UXP" as const,
+        backends: ["uxp" as const],
+        minimumPremiereVersion: "25.6",
+        verificationBoundary: "structured_uxp_readback" as const,
+        hostVerificationRequired: true,
+        notes: ["Available only through an authenticated UXP bridge whose runtime capability handshake advertises graphics.mogrtPath.inspect; it does not grant filesystem access."],
+      },
+      handler: async (args: { include_path?: boolean } = {}) => invoke(bridge, "graphics.mogrtPath.inspect", {
+        ...(args.include_path === undefined ? {} : { includePath: args.include_path }),
+      }),
+    },
     inspect_sequence_timing_uxp: {
       description: "Read the active sequence's native frame size, timebase, audio/video time-display codes, and backing Project-item identity. The command rejects malformed host values or a final active-sequence mismatch; it does not modify Premiere, claim a locked snapshot, or detect a transient switch that returns to the same active sequence.",
       parameters: {

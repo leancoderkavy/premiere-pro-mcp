@@ -171,6 +171,7 @@ describe("capability profiles", () => {
     expect(isToolPermitted("inspect_sequence_timing_uxp", inspectOnly)).toBe(true);
     expect(capabilitiesForToolInvocation("inspect_sequence_timing_uxp", {})).toEqual(["inspect"]);
     expect(capabilitiesForToolInvocation("inspect_project_insertion_bin_uxp", {})).toEqual(["inspect"]);
+    expect(capabilitiesForToolInvocation("inspect_installed_mogrt_directory_uxp", {})).toEqual(["inspect"]);
     expect(capabilitiesForToolInvocation("inspect_track_item_identity_uxp", {})).toEqual(["inspect"]);
     await expect(
       guardToolHandler("inspect_sequence_timing_uxp", handler, inspectOnly, () => "timing-inspect")({}),
@@ -213,6 +214,7 @@ describe("capability profiles", () => {
     ["manage_app_preferences_uxp", "inspect"],
     ["manage_timeline_source_label_uxp", "inspect"],
     ["inspect_project_insertion_bin_uxp", undefined],
+    ["inspect_installed_mogrt_directory_uxp", undefined],
     ["inspect_sequence_timing_uxp", undefined],
     ["inspect_sequence_timing_by_guid_uxp", undefined],
     ["inspect_track_item_identity_uxp", undefined],

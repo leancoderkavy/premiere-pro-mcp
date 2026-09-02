@@ -22,6 +22,7 @@ describe("Adobe Premiere Pro 26.3 UXP coverage", () => {
       "action-transaction-discipline",
       "project-sequence-create-preset",
       "native-project-insertion-bin-snapshot",
+      "native-installed-mogrt-directory-inspection",
       "transactional-sequence-range",
       "guarded-sequence-playhead-control",
       "guarded-app-preferences",
@@ -234,6 +235,15 @@ describe("Adobe Premiere Pro 26.3 UXP coverage", () => {
       "ProjectItem.name",
       "ProjectItem.type",
     ]));
+    expect(entries.find((entry) => entry.id === "native-installed-mogrt-directory-inspection")).toMatchObject({
+      uxpCommand: "graphics.mogrtPath.inspect",
+      mcpTools: ["inspect_installed_mogrt_directory_uxp"],
+      verificationBoundary: "documented_sequence_editor_installation_directory_readback",
+      liveHostVerificationStatus: "not_run",
+    });
+    expect(entries.find((entry) => entry.id === "native-installed-mogrt-directory-inspection")?.adobeApi).toEqual([
+      "SequenceEditor.getInstalledMogrtPath",
+    ]);
     expect(entries.find((entry) => entry.id === "guarded-sequence-display-format")).toMatchObject({
       uxpCommand: "sequence.displayFormat.update",
       mcpTools: ["manage_sequence_display_format_uxp"],
@@ -395,12 +405,12 @@ describe("Adobe Premiere Pro 26.3 UXP coverage", () => {
   it("keeps unimplemented 26.3 work visibly planned", () => {
     const report = buildAdobeUxpCoverageReport();
     expect(report.summary).toEqual({
-      total: 73,
-      current: 70,
+      total: 74,
+      current: 71,
       planned: 3,
-      implemented: 70,
+      implemented: 71,
       committedUnverified: 9,
-      automatedContractVerified: 61,
+      automatedContractVerified: 62,
       liveHostVerified: 0,
     });
     expect(report.entries.find((entry) => entry.id === "aaf-export")).toMatchObject({
@@ -423,7 +433,7 @@ describe("Adobe Premiere Pro 26.3 UXP coverage", () => {
   it("surfaces the baseline in the platform capability report", () => {
     const report = buildPlatformCapabilityReport(resolveCapabilities("inspect"), "win32");
     expect(report.backends.uxp.apiCoverage.summary).toMatchObject({
-      current: 70,
+      current: 71,
       planned: 3,
       committedUnverified: 9,
     });

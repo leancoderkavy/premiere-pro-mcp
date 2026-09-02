@@ -114,6 +114,24 @@ describe("UXP MCP tools", () => {
     });
   });
 
+  it("maps opt-in installed MOGRT-directory disclosure to its documented UXP command", async () => {
+    const request = vi.fn().mockResolvedValue({ pathDisclosure: "requested" });
+    const bridge = { request, getState: vi.fn() } as unknown as UxpWebSocketBridge;
+    const tool = getUxpTools(bridge).inspect_installed_mogrt_directory_uxp;
+    await expect(tool.handler()).resolves.toEqual({
+      success: true,
+      data: { backend: "uxp", result: { pathDisclosure: "requested" } },
+    });
+    await tool.handler({ include_path: true });
+    expect(request).toHaveBeenNthCalledWith(1, "graphics.mogrtPath.inspect", {});
+    expect(request).toHaveBeenNthCalledWith(2, "graphics.mogrtPath.inspect", { includePath: true });
+    expect(tool.parameters).toMatchObject({
+      type: "object",
+      additionalProperties: false,
+      properties: { include_path: { type: "boolean" } },
+    });
+  });
+
   it("maps guarded sequence-range inspection and updates to documented UXP commands", async () => {
     const request = vi.fn().mockResolvedValue({ outcome: "verified" });
     const bridge = { request, getState: vi.fn() } as unknown as UxpWebSocketBridge;
@@ -369,6 +387,7 @@ describe("UXP MCP tools", () => {
           "get_uxp_state",
           "inspect_project_uxp",
           "inspect_project_insertion_bin_uxp",
+          "inspect_installed_mogrt_directory_uxp",
           "inspect_sequence_timing_uxp",
           "inspect_sequence_timing_by_guid_uxp",
           "inspect_caption_tracks_uxp",
@@ -419,10 +438,11 @@ describe("UXP MCP tools", () => {
       // direct track-item identity inspection, targeted sequence timing, guarded
       // three-item slides, append-only timeline duplication, guarded Project metadata
       // schema-field creation, guarded contiguous ripple deletes, and guarded
-      // source-label updates add forty-three
+      // source-label updates, and opt-in installed-MOGRT directory inspection
+      // add forty-four
       // consolidated UXP tools;
       // connection verification and delivery conformance add two default-profile core tools.
-        expect(tools.tools).toHaveLength(408);
+        expect(tools.tools).toHaveLength(409);
     } finally {
       await client.close();
       await server.close();

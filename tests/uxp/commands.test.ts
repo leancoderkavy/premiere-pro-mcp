@@ -117,7 +117,10 @@ function host(options: { transitions?: boolean; commit?: boolean } = {}) {
       getValue: vi.fn((key: string) => preferenceValues.get(key)),
       setValue: vi.fn((key: string, value: string) => { preferenceValues.set(key, value); return true; }),
     },
-    SequenceEditor: { getEditor: vi.fn(async () => ({ createRemoveItemsAction })) },
+    SequenceEditor: {
+      getEditor: vi.fn(async () => ({ createRemoveItemsAction })),
+      getInstalledMogrtPath: vi.fn(async () => "C:\\ProgramData\\Adobe\\Common\\Motion Graphics Templates"),
+    },
     ProjectConverter: {
       exportAsOpenTimelineIO: vi.fn(async () => true),
       exportAsFinalCutProXML: vi.fn(async () => true),
@@ -154,6 +157,7 @@ describe("UXP command registry", () => {
     expect(available.commands["sequence.playhead.set"]).toMatchObject({ supported: true, destructive: false, undoable: false, idempotent: true, minHostVersion: "25.6.0" });
     expect(available.commands["sequence.timing.inspect"]).toMatchObject({ supported: true, readOnly: true, minHostVersion: "25.6.0" });
     expect(available.commands["sequence.timingByGuid.inspect"]).toMatchObject({ supported: true, readOnly: true, minHostVersion: "25.6.0", targetCapabilityProbe: "invocation" });
+    expect(available.commands["graphics.mogrtPath.inspect"]).toMatchObject({ supported: true, readOnly: true, minHostVersion: "25.6.0" });
     expect(available.commands["preferences.inspect"]).toMatchObject({ supported: true, readOnly: true, minHostVersion: "25.6.0" });
     expect(available.commands["preferences.set"]).toMatchObject({ supported: true, destructive: false, undoable: false, idempotent: true, minHostVersion: "25.6.0" });
     expect(available.commands["project.insertionBin.inspect"]).toMatchObject({ supported: true, readOnly: true, minHostVersion: "25.6.0" });
@@ -479,6 +483,46 @@ describe("UXP command registry", () => {
     });
     await expect(changed.registry.dispatch("sequence.timing.inspect", {}))
       .rejects.toMatchObject({ code: "UXP_STALE_SEQUENCE" });
+  });
+
+  it("redacts the documented installed MOGRT directory unless path disclosure is explicitly requested", async () => {
+    const value = host();
+    await expect(value.registry.dispatch("graphics.mogrtPath.inspect", {})).resolves.toEqual({
+      available: true,
+      installedMogrtPath: null,
+      pathDisclosure: "redacted",
+      verificationBoundary: "documented_sequence_editor_installation_directory_readback",
+    });
+    await expect(value.registry.dispatch("graphics.mogrtPath.inspect", { includePath: true })).resolves.toEqual({
+      available: true,
+      installedMogrtPath: "C:\\ProgramData\\Adobe\\Common\\Motion Graphics Templates",
+      pathDisclosure: "requested",
+      verificationBoundary: "documented_sequence_editor_installation_directory_readback",
+    });
+    expect(value.ppro.SequenceEditor.getInstalledMogrtPath).toHaveBeenCalledTimes(2);
+  });
+
+  it("fails closed for invalid installed MOGRT directories, unsupported getters, and invalid arguments", async () => {
+    const invalid = host();
+    invalid.ppro.SequenceEditor.getInstalledMogrtPath.mockResolvedValueOnce(" ");
+    await expect(invalid.registry.dispatch("graphics.mogrtPath.inspect", { includePath: true }))
+      .rejects.toMatchObject({ code: "UXP_VERIFICATION_FAILED" });
+
+    const nul = host();
+    nul.ppro.SequenceEditor.getInstalledMogrtPath.mockResolvedValueOnce(["C:\\Templates", "hidden"].join("\0"));
+    await expect(nul.registry.dispatch("graphics.mogrtPath.inspect", { includePath: true }))
+      .rejects.toMatchObject({ code: "UXP_VERIFICATION_FAILED" });
+
+    await expect(host().registry.dispatch("graphics.mogrtPath.inspect", { includePath: "true" }))
+      .rejects.toMatchObject({ code: "UXP_INVALID_ARGUMENT" });
+    await expect(host().registry.dispatch("graphics.mogrtPath.inspect", { extra: true }))
+      .rejects.toMatchObject({ code: "UXP_INVALID_ARGUMENT" });
+
+    const unavailable = host();
+    unavailable.ppro.SequenceEditor.getInstalledMogrtPath = undefined;
+    await expect(unavailable.registry.capabilities()).resolves.toMatchObject({
+      commands: { "graphics.mogrtPath.inspect": { supported: false, reason: expect.any(String) } },
+    });
   });
 
   it("inspects one non-active sequence by documented GUID lookup without activating it and rejects changing double-read state", async () => {
