@@ -2,7 +2,7 @@
 
 > Open-source, local-first Model Context Protocol server for AI-assisted editing and automation in Adobe Premiere Pro.
 
-MCP for Adobe Premiere Pro registers 328 core structured tools for timeline editing, effects, Lumetri color, keyframes, media management, silence and beat detection, loudness analysis, stream inspection, contact sheets, transient and motion-peak detection, sampled video scopes and shot-match planning, interlace analysis, active-picture detection, local delivery conformance and QC, source scene detection, CMX 3600 and FCPXML interchange preflight, revisioned project-context retrieval, project organization, project-intake preview, connection verification, export, review handoff, and review-only local editorial planning. The default profile exposes 326 tools. An authenticated compatible UXP host adds 79 capability-gated tools for 405 connected tools. Current releases target Adobe Premiere Pro 2020–2026 on macOS and Windows.
+MCP for Adobe Premiere Pro registers 328 core structured tools for timeline editing, effects, Lumetri color, keyframes, media management, silence and beat detection, loudness analysis, stream inspection, contact sheets, transient and motion-peak detection, sampled video scopes and shot-match planning, interlace analysis, active-picture detection, local delivery conformance and QC, source scene detection, CMX 3600 and FCPXML interchange preflight, revisioned project-context retrieval, project organization, project-intake preview, connection verification, export, review handoff, and review-only local editorial planning. The default profile exposes 326 tools. An authenticated compatible UXP host adds 80 capability-gated tools for 406 connected tools. Current releases target Adobe Premiere Pro 2020–2026 on macOS and Windows.
 
 ## Canonical resources
 
@@ -42,7 +42,7 @@ The Project Intake guide includes no-sensitive-data starter templates for a path
 ## Verified facts
 
 - Current project release: 1.14.6.
-- Tool surface: 328 core structured MCP tools are registered; the default profile exposes 326. With an authenticated compatible UXP panel, 79 additional capability-gated tools bring the connected surface to 405. The server also exposes 4 resources and 11 workflow prompts.
+- Tool surface: 328 core structured MCP tools are registered; the default profile exposes 326. With an authenticated compatible UXP panel, 80 additional capability-gated tools bring the connected surface to 406. The server also exposes 4 resources and 11 workflow prompts.
 - Supported desktop platforms: Windows and macOS.
 - Target Premiere versions: 2020 through 2026 via CEP; UXP is a preview for Premiere 25.6 and newer.
 - License: MIT.

@@ -13,8 +13,8 @@
   },
   "stats": {
     "total": 976,
-    "mapped": 321,
-    "unmapped": 655,
+    "mapped": 323,
+    "unmapped": 653,
     "manifestOnly": 5
   },
   "manifestOnly": [
@@ -1306,7 +1306,7 @@
     {
       "symbol": "Constants.MediaType.AUDIO",
       "kind": "enumMember",
-      "coverage": "unmapped"
+      "coverage": "mapped"
     },
     {
       "symbol": "Constants.MediaType.DATA",
@@ -1316,7 +1316,7 @@
     {
       "symbol": "Constants.MediaType.VIDEO",
       "kind": "enumMember",
-      "coverage": "unmapped"
+      "coverage": "mapped"
     },
     {
       "symbol": "Constants.MetadataType",
