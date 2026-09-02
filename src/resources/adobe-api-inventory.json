@@ -971,7 +971,7 @@
     {
       "symbol": "ComponentParam.areKeyframesSupported",
       "kind": "method",
-      "coverage": "unmapped"
+      "coverage": "mapped"
     },
     {
       "symbol": "ComponentParam.createAddKeyframeAction",
@@ -1001,7 +1001,7 @@
     {
       "symbol": "ComponentParam.createSetTimeVaryingAction",
       "kind": "method",
-      "coverage": "unmapped"
+      "coverage": "mapped"
     },
     {
       "symbol": "ComponentParam.createSetValueAction",
@@ -1031,7 +1031,7 @@
     {
       "symbol": "ComponentParam.getKeyframeListAsTickTimes",
       "kind": "method",
-      "coverage": "unmapped"
+      "coverage": "mapped"
     },
     {
       "symbol": "ComponentParam.getKeyframePtr",
@@ -1051,7 +1051,7 @@
     {
       "symbol": "ComponentParam.isTimeVarying",
       "kind": "method",
-      "coverage": "unmapped"
+      "coverage": "mapped"
     },
     {
       "symbol": "CompoundAction",

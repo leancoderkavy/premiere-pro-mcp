@@ -112,6 +112,18 @@ describe("Adobe Premiere Pro 26.3 UXP coverage", () => {
       "Transcript.importFromJSON",
       "Transcript.createImportTextSegmentsAction",
     ]));
+    expect(entries.find((entry) => entry.id === "typed-parameter-keyframe-automation")).toMatchObject({
+      uxpCommand: "parameters.keyframeAdd",
+      mcpTools: ["automate_effect_parameters_uxp"],
+      verificationBoundary: "parameter_value_keyframe_or_animation_mode_readback",
+      liveHostVerificationStatus: "not_run",
+    });
+    expect(entries.find((entry) => entry.id === "typed-parameter-keyframe-automation")?.adobeApi).toEqual(expect.arrayContaining([
+      "ComponentParam.areKeyframesSupported",
+      "ComponentParam.isTimeVarying",
+      "ComponentParam.getKeyframeListAsTickTimes",
+      "ComponentParam.createSetTimeVaryingAction",
+    ]));
     expect(entries.find((entry) => entry.id === "guarded-app-preferences")).toMatchObject({
       uxpCommand: "preferences.set",
       mcpTools: ["manage_app_preferences_uxp"],

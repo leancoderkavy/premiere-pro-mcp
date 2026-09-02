@@ -21,6 +21,7 @@
   function createAdvancedWorkflowDefinitions(deps) {
     const ppro = deps.ppro, Protocol = deps.Protocol, workspace = deps.workspace, events = deps.events;
     const appendLocks = new Map();
+    const parameterTimeVaryingLocks = new Map();
     const definitions = {
       "projectSelection.views": { readOnly: true, minHostVersion: "25.6.0", probe: canUseProjectViews, handler: listProjectViews },
       "projectSelection.inspect": { readOnly: true, minHostVersion: "25.6.0", probe: canUseProjectViews, handler: inspectProjectSelection },
@@ -49,6 +50,8 @@
       "parameters.keyframeRemove": { destructive: true, undoable: true, targetCapabilityProbe: true, minHostVersion: "25.6.0", probe: canUseParameters, handler: removeParameterKeyframe },
       "parameters.keyframeRemoveRange": { destructive: true, undoable: true, targetCapabilityProbe: true, minHostVersion: "25.6.0", probe: canUseParameters, handler: removeParameterKeyframeRange },
       "parameters.keyframeInterpolation": { destructive: true, undoable: true, targetCapabilityProbe: true, minHostVersion: "25.6.0", probe: canUseParameters, handler: setParameterInterpolation },
+      "parameters.timeVarying.inspect": { readOnly: true, targetCapabilityProbe: true, minHostVersion: "25.6.0", probe: canUseParameters, handler: inspectParameterTimeVarying },
+      "parameters.timeVarying.set": { destructive: true, undoable: true, idempotent: true, targetCapabilityProbe: true, minHostVersion: "25.6.0", probe: canUseParameters, handler: setParameterTimeVarying },
       "trackItem.inspect": { readOnly: true, targetCapabilityProbe: true, minHostVersion: "25.6.0", probe: canUseTrackItems, handler: inspectTrackItem },
       "trackItem.update": { destructive: true, undoable: true, targetCapabilityProbe: true, minHostVersion: "25.6.0", probe: canUseTrackItems, handler: updateTrackItem },
       "trackItem.splitEdit": { destructive: true, undoable: true, targetCapabilityProbe: true, minHostVersion: "25.6.0", probe: canUseTrackItems, handler: makeSplitEdit },
@@ -923,6 +926,120 @@
     async function inspectParameter(args) {
       const context = await parameterContext(args, false);
       return parameterSnapshot(context, args.timeSeconds);
+    }
+
+    async function parameterTimeVaryingContext(args, mutation) {
+      const allowed = ["mediaType", "trackIndex", "clipIndex", "componentIndex", "paramIndex", "expectedComponentId", "expectedParamName"];
+      if (mutation) allowed.push("expectedSequenceId", "expectedTimeVarying", "expectedKeyframeTimesSeconds", "timeVarying", "confirmDisableTimeVarying", "operationId");
+      assertObject(args); assertOnlyKeys(args, allowed);
+      const mediaType = enumValue(args.mediaType, "mediaType", ["video", "audio"]), trackIndex = nonNegativeInt(args.trackIndex, "trackIndex"), clipIndex = nonNegativeInt(args.clipIndex, "clipIndex"), componentIndex = nonNegativeInt(args.componentIndex, "componentIndex"), paramIndex = nonNegativeInt(args.paramIndex, "paramIndex");
+      const context = await activeContext(mutation), sequenceId = guidString(context.sequence && context.sequence.guid);
+      if (mutation && sequenceId !== args.expectedSequenceId) {
+        throw commandError("UXP_STALE_SEQUENCE", "The active sequence changed; inspect the parameter animation mode again before updating it");
+      }
+      const item = await trackItemAt(context.sequence, mediaType, trackIndex, clipIndex), chain = await item.getComponentChain();
+      const count = chain.getComponentCount();
+      if (componentIndex >= count) throw commandError("UXP_TARGET_NOT_FOUND", "componentIndex is out of range");
+      const component = chain.getComponentAtIndex(componentIndex), componentId = await componentIdentifier(component);
+      assertExpected(componentId, args.expectedComponentId, "UXP_STALE_EFFECT_CHAIN", "Component identity");
+      if (paramIndex >= component.getParamCount()) throw commandError("UXP_TARGET_NOT_FOUND", "paramIndex is out of range");
+      const param = component.getParam(paramIndex), paramName = String(param.displayName || "");
+      assertExpected(paramName, args.expectedParamName, "UXP_STALE_PARAMETER", "Parameter name");
+      return { ...context, item, component, componentId, param, paramName, mediaType, trackIndex, clipIndex, componentIndex, paramIndex, sequenceId };
+    }
+
+    async function parameterTimeVaryingSnapshot(context, requireCompleteKeyframes) {
+      const snapshot = await parameterSnapshot(context);
+      if (requireCompleteKeyframes && snapshot.keyframesLimited) {
+        throw commandError("UXP_PROJECT_TOO_LARGE", "Parameter animation-mode verification exceeds " + MAX_KEYFRAMES + " keyframes");
+      }
+      if (requireCompleteKeyframes && snapshot.keyframeTimesSeconds.some((seconds) => !Number.isFinite(seconds))) {
+        throw commandError("UXP_INVALID_HOST_STATE", "Premiere returned an unreadable parameter keyframe time");
+      }
+      return { projectId: guidString(context.project && context.project.guid), sequenceId: context.sequenceId || guidString(context.sequence && context.sequence.guid), ...snapshot };
+    }
+
+    function validateParameterTimeVaryingSet(args) {
+      assertObject(args);
+      assertOnlyKeys(args, ["mediaType", "trackIndex", "clipIndex", "componentIndex", "paramIndex", "expectedSequenceId", "expectedComponentId", "expectedParamName", "expectedTimeVarying", "expectedKeyframeTimesSeconds", "timeVarying", "confirmDisableTimeVarying", "operationId"]);
+      const expectedSequenceId = boundedString(args.expectedSequenceId, "expectedSequenceId", 128);
+      if (typeof args.expectedTimeVarying !== "boolean") throw commandError("UXP_INVALID_ARGUMENT", "expectedTimeVarying must be boolean");
+      if (typeof args.timeVarying !== "boolean") throw commandError("UXP_INVALID_ARGUMENT", "timeVarying must be boolean");
+      if (!Array.isArray(args.expectedKeyframeTimesSeconds) || args.expectedKeyframeTimesSeconds.length > MAX_KEYFRAMES) {
+        throw commandError("UXP_INVALID_ARGUMENT", "expectedKeyframeTimesSeconds must contain at most " + MAX_KEYFRAMES + " entries");
+      }
+      let previous = -1;
+      const expectedKeyframeTimesSeconds = args.expectedKeyframeTimesSeconds.map((value, index) => {
+        const seconds = finiteNumber(value, "expectedKeyframeTimesSeconds[" + index + "]", 0, 86400);
+        if (seconds <= previous) throw commandError("UXP_INVALID_ARGUMENT", "expectedKeyframeTimesSeconds must be strictly increasing");
+        previous = seconds;
+        return seconds;
+      });
+      if (!args.timeVarying) requireConfirmation(args.confirmDisableTimeVarying, "Disabling a time-varying parameter can remove its editable animation state");
+      return { ...args, expectedSequenceId, expectedKeyframeTimesSeconds };
+    }
+
+    function assertExpectedParameterTimeVarying(snapshot, expectedTimeVarying, expectedKeyframeTimesSeconds) {
+      if (snapshot.timeVarying !== expectedTimeVarying || !sameNumberArrays(snapshot.keyframeTimesSeconds, expectedKeyframeTimesSeconds)) {
+        throw commandError("UXP_STALE_PARAMETER", "The parameter animation mode or keyframe timeline changed; inspect it again before updating it");
+      }
+    }
+
+    function nativeParameterTimeVaryingState(param) {
+      if (!param || typeof param.isTimeVarying !== "function" || typeof param.getKeyframeListAsTickTimes !== "function") {
+        throw commandError("UXP_COMMAND_UNAVAILABLE", "Premiere cannot read complete parameter animation state");
+      }
+      const rawTimes = Array.from(param.getKeyframeListAsTickTimes() || []);
+      if (rawTimes.length > MAX_KEYFRAMES) throw commandError("UXP_PROJECT_TOO_LARGE", "Parameter animation-mode verification exceeds " + MAX_KEYFRAMES + " keyframes");
+      const keyframeTimesSeconds = rawTimes.map(tickSeconds);
+      if (keyframeTimesSeconds.some((seconds) => !Number.isFinite(seconds))) throw commandError("UXP_INVALID_HOST_STATE", "Premiere returned an unreadable parameter keyframe time");
+      return { timeVarying: !!param.isTimeVarying(), keyframeTimesSeconds };
+    }
+
+    function parameterTimeVaryingLockKey(context) {
+      return appendLockKey(context.project, "parameter-time-varying", context.sequenceId + ":" + context.mediaType + ":" + context.trackIndex + ":" + context.clipIndex + ":" + context.componentIndex + ":" + context.paramIndex);
+    }
+
+    async function withParameterTimeVaryingLock(key, callback) {
+      const previous = parameterTimeVaryingLocks.get(key) || Promise.resolve();
+      let release = function () {};
+      const current = new Promise((resolve) => { release = resolve; });
+      parameterTimeVaryingLocks.set(key, current);
+      await previous;
+      try {
+        return await callback();
+      } finally {
+        release();
+        if (parameterTimeVaryingLocks.get(key) === current) parameterTimeVaryingLocks.delete(key);
+      }
+    }
+
+    async function inspectParameterTimeVarying(args) {
+      const context = await parameterTimeVaryingContext(args, false);
+      return parameterTimeVaryingSnapshot(context, false);
+    }
+
+    async function setParameterTimeVarying(args) {
+      const input = validateParameterTimeVaryingSet(args), initialContext = await parameterTimeVaryingContext(input, true);
+      return withParameterTimeVaryingLock(parameterTimeVaryingLockKey(initialContext), async () => {
+        const context = await parameterTimeVaryingContext(input, true), before = await parameterTimeVaryingSnapshot(context, true);
+        if (!before.keyframesSupported) throw commandError("UXP_TARGET_UNSUPPORTED", "This parameter does not support keyframes");
+        assertExpectedParameterTimeVarying(before, input.expectedTimeVarying, input.expectedKeyframeTimesSeconds);
+        if (before.timeVarying === input.timeVarying) {
+          return verifiedNoopResult({ updated: false, unchanged: true, before, after: before }, "parameter_time_varying_noop_readback");
+        }
+        context.project.lockedAccess(() => {
+          const locked = nativeParameterTimeVaryingState(context.param);
+          assertExpectedParameterTimeVarying(locked, input.expectedTimeVarying, input.expectedKeyframeTimesSeconds);
+          const action = context.param.createSetTimeVaryingAction(input.timeVarying);
+          if (!action) throw commandError("UXP_ACTION_REJECTED", "Premiere rejected the parameter animation-mode action");
+          commitActions(context.project, "Set effect parameter animation mode", [action]);
+        });
+        const afterContext = await parameterTimeVaryingContext(input, true), after = await parameterTimeVaryingSnapshot(afterContext, true);
+        return mutationResult(after.timeVarying === input.timeVarying, {
+          updated: true, requestedTimeVarying: input.timeVarying, before, after
+        }, "parameter_time_varying_readback", "Set effect parameter animation mode");
+      });
     }
 
     async function setParameterValue(args) {
@@ -1800,6 +1917,7 @@
   function assertExpected(actual, expected, code, label) { if (expected != null && actual !== expected) throw commandError(code, label + " no longer matches the expected value"); }
   function assertExpectedNumber(actual, expected, code, label) { if (expected != null && !numbersEqual(actual, expected)) throw commandError(code, label + " no longer matches the expected value"); }
   function requireExternalWrite(value) { if (value !== true) throw commandError("UXP_CONFIRMATION_REQUIRED", "Encoding writes external files and may overwrite an existing output; pass confirmExternalWrite=true after review"); }
+  function sameNumberArrays(left, right) { return Array.isArray(left) && Array.isArray(right) && left.length === right.length && left.every((value, index) => numbersEqual(value, right[index])); }
   function numbersEqual(left, right) { return Number.isFinite(Number(left)) && Number.isFinite(Number(right)) && Math.abs(Number(left) - Number(right)) < 0.000001; }
   function valuesEqual(left, right) { return typeof right === "number" ? numbersEqual(left, right) : left === right; }
   function commandError(code, message) { const error = new Error(message); error.code = code; return error; }

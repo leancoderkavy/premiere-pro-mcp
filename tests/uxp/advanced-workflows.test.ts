@@ -315,7 +315,7 @@ function advancedHost() {
   return {
     registry: Commands.createCommandRegistry({ ppro, Protocol, workspace, events }),
     project, ppro, workspace, markers, markerValues, root, bin, clip,
-    sequence, sequences, settings, settingsState, parameterState, trackState, trackItem, editor, manager, events,
+    sequence, sequences, settings, settingsState, parameter, parameterState, trackState, trackItem, editor, manager, events,
   };
 }
 
@@ -326,7 +326,7 @@ describe("advanced stable Premiere UXP workflows", () => {
     expect(Object.keys(capabilities.commands)).toEqual(expect.arrayContaining([
       "projectSelection.views", "projectSelection.inspect", "projectTree.inspect", "markers.inspect", "markers.add", "markers.addBeatGrid", "markers.removeMany",
       "bins.inspect", "bins.create", "sequenceSettings.get", "sequenceSettings.update", "sequence.displayFormat.inspect", "sequence.displayFormat.update",
-      "project.import", "parameters.inspect", "parameters.keyframeAdd", "trackItem.inspect",
+      "project.import", "parameters.inspect", "parameters.keyframeAdd", "parameters.timeVarying.inspect", "parameters.timeVarying.set", "trackItem.inspect",
       "trackItem.update", "timeline.insert", "timeline.mogrtPath", "timeline.structure.inspect", "sequences.inspect",
       "sequences.createEmpty",
       "trackItem.splitEdit",
@@ -340,6 +340,8 @@ describe("advanced stable Premiere UXP workflows", () => {
     expect(capabilities.commands["encoder.sequence"]).toMatchObject({ supported: true, workspaceRequired: true, undoable: false });
     expect(capabilities.commands["sequence.displayFormat.inspect"]).toMatchObject({ supported: true, readOnly: true, destructive: false });
     expect(capabilities.commands["sequence.displayFormat.update"]).toMatchObject({ supported: true, destructive: true, undoable: true, idempotent: true });
+    expect(capabilities.commands["parameters.timeVarying.inspect"]).toMatchObject({ supported: true, readOnly: true, destructive: false });
+    expect(capabilities.commands["parameters.timeVarying.set"]).toMatchObject({ supported: true, destructive: true, undoable: true, idempotent: true });
     expect(capabilities.commands["sequences.createEmpty"]).toMatchObject({ supported: true, destructive: true, undoable: false, idempotent: true, minHostVersion: "26.3.0" });
   });
 
@@ -1145,6 +1147,73 @@ describe("advanced stable Premiere UXP workflows", () => {
     value.parameterState.keyframes = Array.from({ length: 257 }, (_, index) => index);
     await expect(value.registry.dispatch("parameters.keyframeRemove", { ...target, timeSeconds: 1 }))
       .rejects.toMatchObject({ code: "UXP_PROJECT_TOO_LARGE" });
+  });
+
+  it("serializes guarded parameter animation-mode updates and verifies the native readback", async () => {
+    const value = advancedHost();
+    const target = { mediaType: "video", trackIndex: 0, clipIndex: 0, componentIndex: 0, paramIndex: 0, expectedSequenceId: "sequence-1" };
+    let enterSnapshot: () => void = function () {};
+    let releaseSnapshot: () => void = function () {};
+    const enteredSnapshot = new Promise<void>((resolve) => { enterSnapshot = resolve; });
+    const resumeSnapshot = new Promise<void>((resolve) => { releaseSnapshot = resolve; });
+    value.parameter.areKeyframesSupported.mockImplementationOnce(async () => {
+      enterSnapshot();
+      await resumeSnapshot;
+      return true;
+    });
+
+    const enable = value.registry.dispatch("parameters.timeVarying.set", {
+      ...target, expectedTimeVarying: false, expectedKeyframeTimesSeconds: [], timeVarying: true, operationId: "enable-animation",
+    });
+    await enteredSnapshot;
+    const disable = value.registry.dispatch("parameters.timeVarying.set", {
+      ...target, expectedTimeVarying: true, expectedKeyframeTimesSeconds: [], timeVarying: false,
+      confirmDisableTimeVarying: true, operationId: "disable-animation",
+    });
+    releaseSnapshot();
+
+    await expect(enable).resolves.toMatchObject({ updated: true, requestedTimeVarying: true, outcome: "verified", after: { timeVarying: true } });
+    await expect(disable).resolves.toMatchObject({ updated: true, requestedTimeVarying: false, outcome: "verified", after: { timeVarying: false } });
+    expect(value.parameter.createSetTimeVaryingAction).toHaveBeenNthCalledWith(1, true);
+    expect(value.parameter.createSetTimeVaryingAction).toHaveBeenNthCalledWith(2, false);
+    expect(value.project.executeTransaction).toHaveBeenCalledTimes(2);
+  });
+
+  it("fails closed on incomplete or stale animation-mode preconditions before it creates an action", async () => {
+    const value = advancedHost();
+    value.parameterState.varying = true;
+    value.parameterState.keyframes = [1, 2];
+    const target = { mediaType: "video", trackIndex: 0, clipIndex: 0, componentIndex: 0, paramIndex: 0, expectedSequenceId: "sequence-1", expectedTimeVarying: true, timeVarying: false };
+
+    await expect(value.registry.dispatch("parameters.timeVarying.set", {
+      ...target, expectedKeyframeTimesSeconds: [1], confirmDisableTimeVarying: true, operationId: "stale-animation",
+    })).rejects.toMatchObject({ code: "UXP_STALE_PARAMETER" });
+    await expect(value.registry.dispatch("parameters.timeVarying.set", {
+      ...target, expectedKeyframeTimesSeconds: [1, 2], operationId: "unconfirmed-animation",
+    })).rejects.toMatchObject({ code: "UXP_CONFIRMATION_REQUIRED" });
+    expect(value.parameter.createSetTimeVaryingAction).not.toHaveBeenCalled();
+
+    await expect(value.registry.dispatch("parameters.timeVarying.set", {
+      ...target, expectedKeyframeTimesSeconds: [1, 2], confirmDisableTimeVarying: true, operationId: "confirmed-animation",
+    })).resolves.toMatchObject({ updated: true, after: { timeVarying: false, keyframeTimesSeconds: [1, 2] }, outcome: "verified" });
+  });
+
+  it("replays a completed guarded animation-mode operation without creating another action", async () => {
+    const value = advancedHost();
+    const input = {
+      mediaType: "video", trackIndex: 0, clipIndex: 0, componentIndex: 0, paramIndex: 0,
+      expectedSequenceId: "sequence-1", expectedTimeVarying: false, expectedKeyframeTimesSeconds: [],
+      timeVarying: true, operationId: "replay-animation-mode",
+    };
+
+    const first = await value.registry.dispatch("parameters.timeVarying.set", input);
+    expect(first).toMatchObject({ updated: true, after: { timeVarying: true } });
+    expect(first).not.toHaveProperty("replayed");
+    await expect(value.registry.dispatch("parameters.timeVarying.set", input)).resolves.toMatchObject({
+      updated: true, after: { timeVarying: true }, replayed: true,
+    });
+    expect(value.parameter.createSetTimeVaryingAction).toHaveBeenCalledTimes(1);
+    expect(value.project.executeTransaction).toHaveBeenCalledTimes(1);
   });
 
   it("keeps direct sequence actions unverified with stable result keys and probes host methods", async () => {

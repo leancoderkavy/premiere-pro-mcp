@@ -1253,7 +1253,11 @@
         "ComponentParam.createSetValueAction",
         "ComponentParam.createAddKeyframeAction",
         "ComponentParam.createRemoveKeyframeRangeAction",
-        "ComponentParam.createSetInterpolationAtKeyframeAction"
+        "ComponentParam.createSetInterpolationAtKeyframeAction",
+        "ComponentParam.areKeyframesSupported",
+        "ComponentParam.isTimeVarying",
+        "ComponentParam.getKeyframeListAsTickTimes",
+        "ComponentParam.createSetTimeVaryingAction"
       ],
       "documentationUrls": [
         "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/component/",
@@ -1270,7 +1274,7 @@
       "mutatesProject": true,
       "undoable": true,
       "idempotency": "operation_id",
-      "verificationBoundary": "parameter_value_or_keyframe_readback"
+      "verificationBoundary": "parameter_value_keyframe_or_animation_mode_readback"
     },
     {
       "id": "track-item-transformations",

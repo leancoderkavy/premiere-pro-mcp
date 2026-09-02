@@ -523,12 +523,12 @@ export function getUxpAdvancedWorkflowTools(bridge: UxpWebSocketBridge) {
     },
 
     automate_effect_parameters_uxp: {
-      description: "Inspect or transactionally set scalar effect parameters and add, remove, range-remove, or interpolate keyframes through documented UXP actions.",
+      description: "Inspect or transactionally set scalar effect parameters, keyframes, interpolation, and explicit time-varying animation mode through documented UXP actions. Disabling animation requires a complete inspected keyframe-time snapshot and confirmation.",
       parameters: {
         type: "object" as const,
         additionalProperties: false,
         properties: {
-          action: { type: "string", enum: ["inspect", "set_value", "add_keyframe", "remove_keyframe", "remove_keyframe_range", "set_interpolation"] },
+          action: { type: "string", enum: ["inspect", "set_value", "add_keyframe", "remove_keyframe", "remove_keyframe_range", "set_interpolation", "inspect_time_varying", "set_time_varying"] },
           ...timelineTargetProperties,
           component_index: { type: "integer", minimum: 0 },
           param_index: { type: "integer", minimum: 0 },
@@ -538,6 +538,11 @@ export function getUxpAdvancedWorkflowTools(bridge: UxpWebSocketBridge) {
           time_seconds: { type: "number", minimum: 0, maximum: 86400 },
           end_seconds: { type: "number", minimum: 0, maximum: 86400 },
           interpolation: { type: "string", enum: ["linear", "hold", "bezier", "time"] },
+          expected_sequence_id: { type: "string", minLength: 1, maxLength: 128, description: "Required for set_time_varying; exact sequence ID from inspect_time_varying." },
+          expected_time_varying: { type: "boolean", description: "Required for set_time_varying; exact animation-mode value from inspect_time_varying." },
+          expected_keyframe_times_seconds: { type: "array", maxItems: 256, uniqueItems: true, items: { type: "number", minimum: 0, maximum: 86400 }, description: "Required complete, strictly increasing keyframe-time snapshot for set_time_varying." },
+          time_varying: { type: "boolean", description: "Requested parameter animation mode for set_time_varying." },
+          confirm_disable_time_varying: { type: "boolean", description: "Required true when set_time_varying disables animation, because Premiere can discard its editable animation state." },
           operation_id: operationId,
         },
         required: ["action", "media_type", "track_index", "clip_index", "component_index", "param_index"],
@@ -553,8 +558,28 @@ export function getUxpAdvancedWorkflowTools(bridge: UxpWebSocketBridge) {
           inspect: "parameters.inspect", set_value: "parameters.set", add_keyframe: "parameters.keyframeAdd",
           remove_keyframe: "parameters.keyframeRemove", remove_keyframe_range: "parameters.keyframeRemoveRange",
           set_interpolation: "parameters.keyframeInterpolation",
+          inspect_time_varying: "parameters.timeVarying.inspect", set_time_varying: "parameters.timeVarying.set",
         };
         if (!args.action || !commands[args.action]) return invalidAction(args.action);
+        if (args.action === "inspect_time_varying") {
+          return invoke(bridge, commands[args.action], compact({
+            mediaType: args.media_type, trackIndex: args.track_index, clipIndex: args.clip_index,
+            componentIndex: args.component_index, paramIndex: args.param_index,
+            expectedComponentId: args.expected_component_id, expectedParamName: args.expected_param_name,
+          }));
+        }
+        if (args.action === "set_time_varying") {
+          return invoke(bridge, commands[args.action], {
+            ...compact({
+              mediaType: args.media_type, trackIndex: args.track_index, clipIndex: args.clip_index,
+              componentIndex: args.component_index, paramIndex: args.param_index,
+              expectedSequenceId: args.expected_sequence_id, expectedComponentId: args.expected_component_id,
+              expectedParamName: args.expected_param_name, expectedTimeVarying: args.expected_time_varying,
+              expectedKeyframeTimesSeconds: args.expected_keyframe_times_seconds,
+              timeVarying: args.time_varying, confirmDisableTimeVarying: args.confirm_disable_time_varying,
+            }), ...operation(args),
+          });
+        }
         return invoke(bridge, commands[args.action], { ...common, ...compact({ value: args.value, endSeconds: args.end_seconds, interpolation: args.interpolation }), ...operation(args) });
       },
     },
