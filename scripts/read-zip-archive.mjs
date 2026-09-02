@@ -98,6 +98,9 @@ function readCentralDirectory(buffer, expectedEntries) {
       throw archiveError("CCX archive ZIP64 entry metadata is not supported by this bounded verifier");
     }
     const rawName = buffer.subarray(offset + 46, offset + 46 + nameBytes);
+    if (!(flags & ZIP_FLAG_UTF8) && rawName.some((byte) => byte > 0x7f)) {
+      throw archiveError("CCX archive non-ASCII ZIP entry names must declare UTF-8");
+    }
     const name = rawName.toString("utf8");
     if (!name || !rawName.equals(Buffer.from(name, "utf8"))) {
       throw archiveError("CCX archive contains an invalid ZIP entry name");

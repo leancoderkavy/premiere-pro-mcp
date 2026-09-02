@@ -343,6 +343,29 @@ describe("UXP Hybrid CCX receipt", () => {
       });
       await expect(buildUxpHybridCcxReceipt({ ccxPath: archive, addonReceipt, sdkHeaderReceipt: headers })).rejects.toThrow("entries use unsupported ZIP flags");
 
+      const asciiPath = "docs/legacy.txt";
+      writeCcx(bundle, archive, {
+        extra: [{ path: asciiPath, contents: Buffer.from("unflagged ASCII entry") }],
+        localMetadata: { [asciiPath]: { flags: 0 } },
+        centralMetadata: { [asciiPath]: { flags: 0 } },
+      });
+      await expect(buildUxpHybridCcxReceipt({ ccxPath: archive, addonReceipt, sdkHeaderReceipt: headers })).resolves.toMatchObject({
+        contents: { entries: 6 },
+      });
+
+      const nonAsciiPath = "docs/résumé.txt";
+      writeCcx(bundle, archive, { extra: [{ path: nonAsciiPath, contents: Buffer.from("declared UTF-8 entry") }] });
+      await expect(buildUxpHybridCcxReceipt({ ccxPath: archive, addonReceipt, sdkHeaderReceipt: headers })).resolves.toMatchObject({
+        contents: { entries: 6 },
+      });
+
+      writeCcx(bundle, archive, {
+        extra: [{ path: nonAsciiPath, contents: Buffer.from("undeclared legacy entry") }],
+        localMetadata: { [nonAsciiPath]: { flags: 0 } },
+        centralMetadata: { [nonAsciiPath]: { flags: 0 } },
+      });
+      await expect(buildUxpHybridCcxReceipt({ ccxPath: archive, addonReceipt, sdkHeaderReceipt: headers })).rejects.toThrow("non-ASCII ZIP entry names must declare UTF-8");
+
       writeCcx(bundle, archive, {
         zipFlags: 0x8,
         dataDescriptors: { "main.js": false },
