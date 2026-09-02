@@ -10,6 +10,8 @@ type Surface = {
   inventoryArtifact: string | null;
   inventoryState: string;
   implementationState: string;
+  inventoryCommand?: string;
+  inventoryDocumentation?: string;
   notes: string;
 };
 
@@ -102,6 +104,14 @@ describe("Premiere API and competitor surface registry", () => {
       });
     expect(registry.integrationSurfaces.filter((surface) => surface.inventoryState === "complete"))
       .toHaveLength(8);
+    for (const id of ["uxp-hybrid-cpp", "premiere-cpp-sdk"]) {
+      expect(registry.integrationSurfaces.find((surface) => surface.id === id)).toMatchObject({
+        inventoryArtifact: null,
+        inventoryState: "blocked_external_artifact",
+        inventoryCommand: "npm run native:sdk-header-inventory",
+        inventoryDocumentation: "docs/native-sdk-header-inventory.md",
+      });
+    }
   });
 
   it("pins reviewed competitor sources and explicit safe-adoption boundaries", () => {

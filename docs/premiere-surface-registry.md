@@ -25,6 +25,13 @@ inventories remain externally gated because their headers and packaged
 documentation require Adobe Developer Console access. An inventory is
 not implementation proof, and automated contracts are not licensed-host proof.
 
+When an authorized SDK artifact becomes available, the
+[native SDK header-inventory receipt](native-sdk-header-inventory.md) can record
+its archive hash and relative header hashes without copying access-controlled
+files into this repository. That receipt leaves both C++ surfaces blocked until
+the relevant declaration classification, reproducible native build, and
+licensed-host evidence are supplied.
+
 The same registry pins the exact competitor commits reviewed for feature-gap
 work. A competitor feature family becomes an implementation candidate only
 after source inspection proves a current gap and a concrete workflow benefit.
