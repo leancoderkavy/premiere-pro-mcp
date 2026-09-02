@@ -73,10 +73,10 @@ see [the stable workflow matrix](../docs/uxp-stable-workflows.md) for exact comm
 arguments, confirmation requirements, and the pending live-host gate.
 
 A second stable expansion adds Project-view selection, native marker CRUD, bin
-organization, sequence settings profiles, workspace-gated imports, typed parameter
-and keyframe automation, track-item transformations, documented SequenceEditor
+organization, sequence settings profiles, workspace-gated imports, typed parameter,
+keyframe, and animation-mode automation, track-item transformations, documented SequenceEditor
 edits, sequence lifecycle management, and AME encoding. These map to another ten
-consolidated MCP tools and 42 capability-probed panel commands. See [the next-ten
+consolidated MCP tools and 44 capability-probed panel commands. See [the next-ten
 workflow matrix](../docs/uxp-next-ten-workflows.md). Automated contract evidence is
 complete; live Premiere verification remains pending.
 

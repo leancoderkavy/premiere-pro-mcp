@@ -67,6 +67,14 @@ describe("advanced stable UXP workflow MCP catalog", () => {
       required: ["action", "confirm_non_undoable"],
       properties: { paths: { maxItems: 100 }, confirm_non_undoable: { type: "boolean" } },
     });
+    expect(tools.automate_effect_parameters_uxp.parameters).toMatchObject({
+      properties: {
+        action: { enum: ["inspect", "set_value", "add_keyframe", "remove_keyframe", "remove_keyframe_range", "set_interpolation", "inspect_time_varying", "set_time_varying"] },
+        expected_sequence_id: { maxLength: 128 }, expected_time_varying: { type: "boolean" },
+        expected_keyframe_times_seconds: { maxItems: 256, uniqueItems: true },
+        time_varying: { type: "boolean" }, confirm_disable_time_varying: { type: "boolean" },
+      },
+    });
     expect(tools.encode_media_uxp.parameters).toMatchObject({
       properties: {
         action: { enum: ["preflight", "jobs", "wait", "sequence", "project_item", "file"] },
@@ -76,6 +84,36 @@ describe("advanced stable UXP workflow MCP catalog", () => {
         confirm_external_write: { type: "boolean" },
       },
     });
+  });
+
+  it("maps guarded parameter animation-mode inspect and set actions without forwarding unrelated time arguments", async () => {
+    const request = vi.fn().mockResolvedValue({ outcome: "verified" });
+    const bridge = { request, getState: vi.fn() } as unknown as UxpWebSocketBridge;
+    const tools = getUxpTools(bridge);
+    const target = {
+      media_type: "video", track_index: 0, clip_index: 1, component_index: 2, param_index: 3,
+      expected_component_id: "ADBE Opacity", expected_param_name: "Opacity",
+    };
+
+    await tools.automate_effect_parameters_uxp.handler({ action: "inspect_time_varying", ...target, time_seconds: 4 });
+    await tools.automate_effect_parameters_uxp.handler({
+      action: "set_time_varying", ...target, expected_sequence_id: "sequence-1", expected_time_varying: true,
+      expected_keyframe_times_seconds: [1, 2], time_varying: false, confirm_disable_time_varying: true,
+      operation_id: "parameter-animation-op",
+    });
+
+    expect(request.mock.calls).toEqual([
+      ["parameters.timeVarying.inspect", {
+        mediaType: "video", trackIndex: 0, clipIndex: 1, componentIndex: 2, paramIndex: 3,
+        expectedComponentId: "ADBE Opacity", expectedParamName: "Opacity",
+      }],
+      ["parameters.timeVarying.set", {
+        mediaType: "video", trackIndex: 0, clipIndex: 1, componentIndex: 2, paramIndex: 3,
+        expectedSequenceId: "sequence-1", expectedComponentId: "ADBE Opacity", expectedParamName: "Opacity",
+        expectedTimeVarying: true, expectedKeyframeTimesSeconds: [1, 2], timeVarying: false,
+        confirmDisableTimeVarying: true, operationId: "parameter-animation-op",
+      }],
+    ]);
   });
 
   it("maps every consolidated tool to its exact camel-case UXP command contract", async () => {

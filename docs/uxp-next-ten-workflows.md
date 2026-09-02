@@ -22,7 +22,7 @@ a failed UXP mutation through CEP.
 | Transactional bin organizer | `organize_project_items_uxp` | `bins.inspect`, `bins.create`, `bins.createSmart`, `bins.rename`, `bins.move`, `bins.color`, `bins.remove` | Project-item identity, name, parent, color, or absence readback |
 | Sequence settings profiles | `manage_sequence_settings_uxp` | `sequenceSettings.get`, `sequenceSettings.update` | Requested settings read back after one `createSetSettingsAction` transaction |
 | Workspace-gated imports | `import_project_media_uxp` | `project.import` | New project-item or sequence identities when Premiere exposes them |
-| Typed parameter/keyframe automation | `automate_effect_parameters_uxp` | `parameters.inspect`, `parameters.set`, `parameters.keyframeAdd`, `parameters.keyframeRemove`, `parameters.keyframeRemoveRange`, `parameters.keyframeInterpolation` | Parameter value, keyframe time, absence, or interpolation readback |
+| Typed parameter/keyframe automation | `automate_effect_parameters_uxp` | `parameters.inspect`, `parameters.set`, `parameters.keyframeAdd`, `parameters.keyframeRemove`, `parameters.keyframeRemoveRange`, `parameters.keyframeInterpolation`, `parameters.timeVarying.inspect`, `parameters.timeVarying.set` | Parameter value, keyframe time, absence, interpolation, or animation-mode readback |
 | Track-item transformations | `transform_track_item_uxp` | `trackItem.inspect`, `trackItem.update` | Start/end, source in/out, disabled state, and name readback |
 | SequenceEditor timeline layer | `edit_timeline_uxp` | `timeline.insert`, `timeline.overwrite`, `timeline.cloneSelection`, `timeline.removeSelection`, `timeline.mogrtPath`, `timeline.mogrtLibrary` | Action transaction accepted; MOGRT calls return inserted items |
 | Empty sequence creation | `create_empty_sequence_uxp` | `sequences.createEmpty` | New sequence identity from the post-call project collection |
@@ -66,7 +66,7 @@ The following mutations are action based and can report an Adobe undo boundary:
 - marker add/update/remove;
 - bin create/smart-create/rename/move/color/remove;
 - sequence settings update;
-- parameter value and keyframe changes;
+- parameter value, keyframe, and animation-mode changes;
 - track-item timing/state changes;
 - SequenceEditor insert, overwrite, clone, and remove;
 - sequence clone.
@@ -135,6 +135,13 @@ The tool resolves one audio/video clip, component index, and parameter index. It
 accepts only scalar number, string, or boolean values; point and color values remain
 out of scope until the public schema can represent their Adobe types unambiguously.
 Keyframe actions support add, remove, inclusive range removal, and interpolation.
+`inspect_time_varying` returns the current animation mode and its bounded keyframe-time
+snapshot. `set_time_varying` requires the exact inspected sequence, component,
+parameter, mode, and complete keyframe-time snapshot; disabling animation additionally
+requires explicit confirmation. Competing animation-mode updates serialize per
+parameter, create one documented UXP action transaction, and verify native mode
+readback. This proves neither persistence after reopening nor Undo behavior in a
+licensed Premiere host.
 
 ### `transform_track_item_uxp`
 
@@ -210,8 +217,8 @@ hash. At minimum:
    reopen persistence.
 5. Import files, sequences, named AE comps, and all AE comps; confirm workspace
    rejection occurs before a host mutation.
-6. Set representative scalar parameters and keyframes for video and audio effects;
-   verify interpolation and Undo.
+6. Set representative scalar parameters, keyframes, and animation modes for video and
+   audio effects; verify interpolation, the disable confirmation, and Undo.
 7. Move, trim, rename, and disable track items, including linked audio/video and
    collisions.
 8. Run all SequenceEditor actions and both MOGRT paths, then inspect the exact

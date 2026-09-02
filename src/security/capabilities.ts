@@ -209,11 +209,13 @@ const ACTION_CAPABILITIES: Readonly<Record<string, Readonly<Record<string, reado
   },
   automate_effect_parameters_uxp: {
     inspect: ["inspect"],
+    inspect_time_varying: ["inspect"],
     set_value: ["edit"],
     add_keyframe: ["edit"],
     remove_keyframe: ["edit"],
     remove_keyframe_range: ["edit"],
     set_interpolation: ["edit"],
+    set_time_varying: ["edit"],
   },
   transform_track_item_uxp: {
     inspect: ["inspect"],
