@@ -11,6 +11,7 @@ const mocks = vi.hoisted(() => ({
   cleanup: vi.fn(),
   connect: vi.fn(async () => {}),
   serveStdio: vi.fn(),
+  stdioServerTransport: vi.fn(),
   closeMcp: vi.fn(async () => {}),
   handleRequest: vi.fn(async (_req: any, res: any) => { res.statusCode = 204; }),
   closeTransport: vi.fn(async () => {}),
@@ -70,6 +71,10 @@ vi.mock("@modelcontextprotocol/node", () => ({
 }));
 vi.mock("@modelcontextprotocol/server/stdio", () => ({
   serveStdio: (...args: any[]) => mocks.serveStdio(...args),
+  StdioServerTransport: class {
+    constructor() { mocks.stdioServerTransport(); }
+    close = mocks.closeTransport;
+  },
 }));
 vi.mock("../src/http-security.js", () => ({ applyHttpSecurityHeaders: vi.fn() }));
 vi.mock("../src/http-admission.js", async (original) => {
@@ -268,6 +273,33 @@ describe("stdio CLI entry point", () => {
     await vi.waitFor(() => expect(mocks.connect).toHaveBeenCalledOnce());
     expect(mocks.cleanup).toHaveBeenCalledWith({ tempDir: "C:\\custom-temp", timeoutMs: 4321 });
     expect(process.env.PREMIERE_MCP_TRANSPORT).toBe("stdio");
+  });
+
+  it("offers an explicit legacy stdio fallback for clients that cannot negotiate server/discover", async () => {
+    process.argv = [process.execPath, "index.js"];
+    process.env.PREMIERE_MCP_PROTOCOL_MODE = "legacy";
+
+    await import("../src/index.js");
+
+    await vi.waitFor(() => expect(mocks.connect).toHaveBeenCalledOnce());
+    expect(mocks.stdioServerTransport).toHaveBeenCalledOnce();
+    expect(mocks.serveStdio).not.toHaveBeenCalled();
+  });
+
+  it("rejects an unknown MCP protocol mode before opening stdio", async () => {
+    process.argv = [process.execPath, "index.js"];
+    process.env.PREMIERE_MCP_PROTOCOL_MODE = "unsupported";
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    const exit = vi.spyOn(process, "exit").mockImplementation((() => undefined) as never);
+
+    await import("../src/index.js");
+
+    await vi.waitFor(() => expect(exit).toHaveBeenCalledWith(1));
+    expect(mocks.serveStdio).not.toHaveBeenCalled();
+    expect(error).toHaveBeenCalledWith(
+      "[premiere-pro-mcp] Fatal error:",
+      expect.objectContaining({ message: "PREMIERE_MCP_PROTOCOL_MODE must be either auto or legacy." }),
+    );
   });
 
   it("starts the authenticated UXP bridge and emits debug readiness details", async () => {

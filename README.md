@@ -57,6 +57,11 @@ through `2025-11-25`. Modern clients receive discovery, validated routing header
 cache hints, subscription-stream support, and the formal Premiere extension
 capability. See the [complete MCP capability and boundary report](docs/mcp-2026-07-28-capabilities.md).
 
+If an MCP client cannot complete its `server/discover` probe, set
+`PREMIERE_MCP_PROTOCOL_MODE=legacy` in that client's server environment and restart
+the client. This uses the SDK's base stdio transport and the legacy initialization
+handshake only; leave it unset (or `auto`) for modern MCP capabilities.
+
 ---
 
 ## For editors evaluating an AI workflow

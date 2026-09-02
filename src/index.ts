@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import { serveStdio } from "@modelcontextprotocol/server/stdio";
+import { StdioServerTransport, serveStdio } from "@modelcontextprotocol/server/stdio";
 import { createServer } from "./server.js";
 import { cleanupTempDir, getTempDir } from "./bridge/file-bridge.js";
 import { getTelemetry } from "./telemetry.js";
@@ -27,6 +27,14 @@ function debugLog(message: string): void {
   if (debugEnabled) {
     console.error(`[premiere-pro-mcp] ${message}`);
   }
+}
+
+type McpProtocolMode = "auto" | "legacy";
+
+function readMcpProtocolMode(value = process.env.PREMIERE_MCP_PROTOCOL_MODE): McpProtocolMode {
+  if (value === undefined || value === "" || value === "auto") return "auto";
+  if (value === "legacy") return "legacy";
+  throw new Error("PREMIERE_MCP_PROTOCOL_MODE must be either auto or legacy.");
 }
 
 function isLoopbackPortInUse(error: unknown): boolean {
@@ -147,6 +155,7 @@ Environment variables:
   PREMIERE_MCP_CAPABILITIES  Comma-separated authority profile
   PREMIERE_MCP_TOOL_PACKS    Comma-separated discovery packs: full, essential, inspection, delivery, captions
   PREMIERE_MCP_DEBUG    Set to 1/true to enable verbose stderr diagnostics
+  PREMIERE_MCP_PROTOCOL_MODE  auto (default) or legacy; use legacy only when a client cannot complete modern MCP negotiation
   PREMIERE_UXP_TOKEN    Enable the authenticated local UXP bridge (minimum 16 characters)
   PREMIERE_UXP_PORT     UXP loopback WebSocket port (default: 7777)
 
@@ -253,6 +262,7 @@ if (cepActions.length === 1) {
 
 async function main() {
   process.env.PREMIERE_MCP_TRANSPORT = "stdio";
+  const protocolMode = readMcpProtocolMode();
   const telemetry = getTelemetry();
   const bridgeOptions = {
     tempDir: process.env.PREMIERE_TEMP_DIR,
@@ -289,13 +299,26 @@ async function main() {
     }
   }
 
-  const serverHandle = serveStdio(
-    () => createServer(bridgeOptions, { uxpBridge, telemetry }),
-    {
-      onerror: (error) => console.error("[premiere-pro-mcp] MCP stdio error:", error),
-    },
-  );
-  debugLog("Server connected and ready");
+  const serverHandle = protocolMode === "legacy"
+    ? await (async () => {
+      const server = createServer(bridgeOptions, { uxpBridge, telemetry });
+      const transport = new StdioServerTransport();
+      await server.connect(transport);
+      debugLog("Server connected in legacy MCP mode");
+      return {
+        close: async () => {
+          await server.close();
+          await transport.close();
+        },
+      };
+    })()
+    : serveStdio(
+      () => createServer(bridgeOptions, { uxpBridge, telemetry }),
+      {
+        onerror: (error) => console.error("[premiere-pro-mcp] MCP stdio error:", error),
+      },
+    );
+  if (protocolMode === "auto") debugLog("Server connected and ready");
 
   const shutdown = async () => {
     if (uxpBridge) await uxpBridge.stop();
