@@ -181,7 +181,7 @@ performance claim.
 `manage_sequence_range_uxp` inspects or updates the active sequence's in point,
 out point, and zero point through Adobe's documented `Sequence` accessors and
 action factories. An update requires the exact sequence GUID and a complete
-in/out/zero-point snapshot returned by a prior inspection. The panel rejects a
+in/out/zero-point/end snapshot returned by a prior inspection. The panel rejects a
 changed sequence or range before creating an action, requires the final range to
 satisfy `in <= out <= end`, and bounds all public times to 24 hours.
 

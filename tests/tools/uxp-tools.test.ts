@@ -83,14 +83,14 @@ describe("UXP MCP tools", () => {
     await tools.manage_sequence_range_uxp.handler({
       action: "update",
       expected_sequence_guid: "sequence-1",
-      expected_range: { in_seconds: 1, out_seconds: 10, zero_point_seconds: 3600 },
+      expected_range: { in_seconds: 1, out_seconds: 10, zero_point_seconds: 3600, end_seconds: 120 },
       updates: { in_seconds: 2, zero_point_seconds: 7200 },
       operation_id: "range-1",
     });
     expect(request).toHaveBeenNthCalledWith(1, "sequence.range.inspect", {});
     expect(request).toHaveBeenNthCalledWith(2, "sequence.range.update", {
       expectedSequenceGuid: "sequence-1",
-      expectedRange: { inSeconds: 1, outSeconds: 10, zeroPointSeconds: 3600 },
+      expectedRange: { inSeconds: 1, outSeconds: 10, zeroPointSeconds: 3600, endSeconds: 120 },
       updates: { inSeconds: 2, zeroPointSeconds: 7200 },
       operationId: "range-1",
     });
@@ -104,7 +104,7 @@ describe("UXP MCP tools", () => {
         expected_range: {
           type: "object",
           additionalProperties: false,
-          required: ["in_seconds", "out_seconds", "zero_point_seconds"],
+          required: ["in_seconds", "out_seconds", "zero_point_seconds", "end_seconds"],
         },
         updates: { type: "object", additionalProperties: false },
         operation_id: { type: "string" },

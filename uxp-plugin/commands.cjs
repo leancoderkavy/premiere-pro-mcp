@@ -200,14 +200,23 @@
       let committed = false;
       context.project.lockedAccess(() => {
         committed = context.project.executeTransaction((compoundAction) => {
-          if (ticks.inPoint && compoundAction.addAction(context.sequence.createSetInPointAction(ticks.inPoint)) === false) {
-            throw commandError("UXP_ACTION_REJECTED", "Premiere rejected the sequence in point action");
+          if (ticks.inPoint) {
+            const action = context.sequence.createSetInPointAction(ticks.inPoint);
+            if (!action || compoundAction.addAction(action) === false) {
+              throw commandError("UXP_ACTION_REJECTED", "Premiere rejected the sequence in point action");
+            }
           }
-          if (ticks.outPoint && compoundAction.addAction(context.sequence.createSetOutPointAction(ticks.outPoint)) === false) {
-            throw commandError("UXP_ACTION_REJECTED", "Premiere rejected the sequence out point action");
+          if (ticks.outPoint) {
+            const action = context.sequence.createSetOutPointAction(ticks.outPoint);
+            if (!action || compoundAction.addAction(action) === false) {
+              throw commandError("UXP_ACTION_REJECTED", "Premiere rejected the sequence out point action");
+            }
           }
-          if (ticks.zeroPoint && compoundAction.addAction(context.sequence.createSetZeroPointAction(ticks.zeroPoint)) === false) {
-            throw commandError("UXP_ACTION_REJECTED", "Premiere rejected the sequence zero point action");
+          if (ticks.zeroPoint) {
+            const action = context.sequence.createSetZeroPointAction(ticks.zeroPoint);
+            if (!action || compoundAction.addAction(action) === false) {
+              throw commandError("UXP_ACTION_REJECTED", "Premiere rejected the sequence zero point action");
+            }
           }
         }, "Update sequence range");
       });
@@ -415,29 +424,37 @@
       if (typeof args.expectedSequenceGuid !== "string" || !args.expectedSequenceGuid || args.expectedSequenceGuid.length > 512) {
         throw commandError("UXP_INVALID_ARGUMENT", "expectedSequenceGuid is required and must be at most 512 characters");
       }
-      const expectedRange = validateExpectedSequenceRange(args.expectedRange, "expectedRange", true);
-      const updates = validateExpectedSequenceRange(args.updates, "updates", false);
+      const expectedRange = validateExpectedSequenceRange(args.expectedRange, "expectedRange");
+      const updates = validateSequenceRangeUpdates(args.updates);
       if (updates.inSeconds == null && updates.outSeconds == null && updates.zeroPointSeconds == null) {
         throw commandError("UXP_INVALID_ARGUMENT", "updates must include at least one sequence range field");
       }
       return { expectedSequenceGuid: args.expectedSequenceGuid, expectedRange, updates };
     }
-    function validateExpectedSequenceRange(value, name, complete) {
+    function validateExpectedSequenceRange(value, name) {
       assertObject(value);
-      assertOnlyKeys(value, ["inSeconds", "outSeconds", "zeroPointSeconds"]);
+      assertOnlyKeys(value, ["inSeconds", "outSeconds", "zeroPointSeconds", "endSeconds"]);
       const result = {};
-      for (const key of ["inSeconds", "outSeconds", "zeroPointSeconds"]) {
+      for (const key of ["inSeconds", "outSeconds", "zeroPointSeconds", "endSeconds"]) {
         if (value[key] == null) {
-          if (complete) throw commandError("UXP_INVALID_ARGUMENT", name + "." + key + " is required");
-          continue;
+          throw commandError("UXP_INVALID_ARGUMENT", name + "." + key + " is required");
         }
         result[key] = boundedSeconds(value[key], name + "." + key);
       }
       return result;
     }
+    function validateSequenceRangeUpdates(value) {
+      assertObject(value);
+      assertOnlyKeys(value, ["inSeconds", "outSeconds", "zeroPointSeconds"]);
+      const result = {};
+      for (const key of ["inSeconds", "outSeconds", "zeroPointSeconds"]) {
+        if (value[key] != null) result[key] = boundedSeconds(value[key], "updates." + key);
+      }
+      return result;
+    }
     function assertExpectedSequenceRange(actual, expected) {
       if (!sameSeconds(actual.inSeconds, expected.inSeconds) || !sameSeconds(actual.outSeconds, expected.outSeconds) ||
-        !sameSeconds(actual.zeroPointSeconds, expected.zeroPointSeconds)) {
+        !sameSeconds(actual.zeroPointSeconds, expected.zeroPointSeconds) || !sameSeconds(actual.endSeconds, expected.endSeconds)) {
         throw commandError("UXP_STALE_RANGE", "The sequence range changed before the update; inspect the current range and retry");
       }
     }

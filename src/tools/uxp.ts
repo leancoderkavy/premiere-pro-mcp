@@ -95,8 +95,9 @@ export function getUxpTools(bridge: UxpWebSocketBridge) {
               in_seconds: { type: "number", minimum: 0, maximum: 86400 },
               out_seconds: { type: "number", minimum: 0, maximum: 86400 },
               zero_point_seconds: { type: "number", minimum: 0, maximum: 86400 },
+              end_seconds: { type: "number", minimum: 0, maximum: 86400 },
             },
-            required: ["in_seconds", "out_seconds", "zero_point_seconds"],
+            required: ["in_seconds", "out_seconds", "zero_point_seconds", "end_seconds"],
             description: "Required for update; complete range returned by inspect. A changed value rejects the request before Premiere actions are created.",
           },
           updates: {
@@ -124,7 +125,7 @@ export function getUxpTools(bridge: UxpWebSocketBridge) {
       handler: async (args: {
         action: "inspect" | "update";
         expected_sequence_guid?: string;
-        expected_range?: { in_seconds: number; out_seconds: number; zero_point_seconds: number };
+        expected_range?: { in_seconds: number; out_seconds: number; zero_point_seconds: number; end_seconds: number };
         updates?: { in_seconds?: number; out_seconds?: number; zero_point_seconds?: number };
         operation_id?: string;
       }) => {
@@ -135,6 +136,7 @@ export function getUxpTools(bridge: UxpWebSocketBridge) {
             inSeconds: args.expected_range.in_seconds,
             outSeconds: args.expected_range.out_seconds,
             zeroPointSeconds: args.expected_range.zero_point_seconds,
+            endSeconds: args.expected_range.end_seconds,
           } }),
           ...(args.updates === undefined ? {} : { updates: {
             ...(args.updates.in_seconds === undefined ? {} : { inSeconds: args.updates.in_seconds }),

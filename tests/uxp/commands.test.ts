@@ -183,7 +183,7 @@ describe("UXP command registry", () => {
     });
     await expect(value.registry.dispatch("sequence.range.update", {
       expectedSequenceGuid: "sequence-1",
-      expectedRange: { inSeconds: 1, outSeconds: 100, zeroPointSeconds: 3600 },
+      expectedRange: { inSeconds: 1, outSeconds: 100, zeroPointSeconds: 3600, endSeconds: 120 },
       updates: { inSeconds: 2, outSeconds: 110, zeroPointSeconds: 7200 },
       operationId: "range-1",
     })).resolves.toMatchObject({
@@ -201,7 +201,7 @@ describe("UXP command registry", () => {
     expect(value.sequence.createSetZeroPointAction).toHaveBeenCalledWith({ seconds: 7200 });
     await expect(value.registry.dispatch("sequence.range.update", {
       expectedSequenceGuid: "sequence-1",
-      expectedRange: { inSeconds: 1, outSeconds: 100, zeroPointSeconds: 3600 },
+      expectedRange: { inSeconds: 1, outSeconds: 100, zeroPointSeconds: 3600, endSeconds: 120 },
       updates: { inSeconds: 2, outSeconds: 110, zeroPointSeconds: 7200 },
       operationId: "range-1",
     })).resolves.toMatchObject({ replayed: true });
@@ -212,26 +212,39 @@ describe("UXP command registry", () => {
     const value = host();
     await expect(value.registry.dispatch("sequence.range.update", {
       expectedSequenceGuid: "other-sequence",
-      expectedRange: { inSeconds: 1, outSeconds: 100, zeroPointSeconds: 3600 },
+      expectedRange: { inSeconds: 1, outSeconds: 100, zeroPointSeconds: 3600, endSeconds: 120 },
       updates: { inSeconds: 2 },
     })).rejects.toMatchObject({ code: "UXP_STALE_SEQUENCE" });
     await expect(value.registry.dispatch("sequence.range.update", {
       expectedSequenceGuid: "sequence-1",
-      expectedRange: { inSeconds: 0, outSeconds: 100, zeroPointSeconds: 3600 },
+      expectedRange: { inSeconds: 0, outSeconds: 100, zeroPointSeconds: 3600, endSeconds: 120 },
       updates: { inSeconds: 2 },
     })).rejects.toMatchObject({ code: "UXP_STALE_RANGE" });
     await expect(value.registry.dispatch("sequence.range.update", {
       expectedSequenceGuid: "sequence-1",
-      expectedRange: { inSeconds: 1, outSeconds: 100, zeroPointSeconds: 3600 },
+      expectedRange: { inSeconds: 1, outSeconds: 100, zeroPointSeconds: 3600, endSeconds: 119 },
+      updates: { inSeconds: 2 },
+    })).rejects.toMatchObject({ code: "UXP_STALE_RANGE" });
+    await expect(value.registry.dispatch("sequence.range.update", {
+      expectedSequenceGuid: "sequence-1",
+      expectedRange: { inSeconds: 1, outSeconds: 100, zeroPointSeconds: 3600, endSeconds: 120 },
       updates: { inSeconds: 111, outSeconds: 110 },
     })).rejects.toMatchObject({ code: "UXP_INVALID_ARGUMENT" });
     await expect(value.registry.dispatch("sequence.range.update", {
       expectedSequenceGuid: "sequence-1",
-      expectedRange: { inSeconds: 1, outSeconds: 100, zeroPointSeconds: 3600 },
+      expectedRange: { inSeconds: 1, outSeconds: 100, zeroPointSeconds: 3600, endSeconds: 120 },
       updates: {},
     })).rejects.toMatchObject({ code: "UXP_INVALID_ARGUMENT" });
     expect(value.sequence.createSetInPointAction).not.toHaveBeenCalled();
     expect(value.project.executeTransaction).not.toHaveBeenCalled();
+
+    const rejectedAction = host();
+    rejectedAction.sequence.createSetInPointAction.mockReturnValue(undefined);
+    await expect(rejectedAction.registry.dispatch("sequence.range.update", {
+      expectedSequenceGuid: "sequence-1",
+      expectedRange: { inSeconds: 1, outSeconds: 100, zeroPointSeconds: 3600, endSeconds: 120 },
+      updates: { inSeconds: 2 },
+    })).rejects.toMatchObject({ code: "UXP_ACTION_REJECTED" });
   });
 
   it("rejects failed range readback and advertises only the supported command variant", async () => {
@@ -241,7 +254,7 @@ describe("UXP command registry", () => {
       .mockResolvedValueOnce({ seconds: 99 });
     await expect(value.registry.dispatch("sequence.range.update", {
       expectedSequenceGuid: "sequence-1",
-      expectedRange: { inSeconds: 1, outSeconds: 100, zeroPointSeconds: 3600 },
+      expectedRange: { inSeconds: 1, outSeconds: 100, zeroPointSeconds: 3600, endSeconds: 120 },
       updates: { outSeconds: 110 },
     })).rejects.toMatchObject({ code: "UXP_VERIFICATION_FAILED" });
 
