@@ -91,6 +91,11 @@
     if (cloneWorkflowApi && typeof cloneWorkflowApi.createCloneWorkflowDefinitions === "function") {
       Object.assign(definitions, cloneWorkflowApi.createCloneWorkflowDefinitions({ ppro, locks: trackItemLocks }));
     }
+    let rippleDeleteWorkflowApi = deps.RippleDeleteWorkflows || (typeof globalThis !== "undefined" && globalThis.PremiereMcpRippleDeleteWorkflows);
+    if (!rippleDeleteWorkflowApi && typeof require === "function") rippleDeleteWorkflowApi = require("./ripple-delete-workflows.cjs");
+    if (rippleDeleteWorkflowApi && typeof rippleDeleteWorkflowApi.createRippleDeleteWorkflowDefinitions === "function") {
+      Object.assign(definitions, rippleDeleteWorkflowApi.createRippleDeleteWorkflowDefinitions({ ppro, locks: trackItemLocks }));
+    }
     let nextWorkflowApi = deps.NextWorkflows || (typeof globalThis !== "undefined" && globalThis.PremiereMcpNextWorkflows);
     if (!nextWorkflowApi && typeof require === "function") nextWorkflowApi = require("./next-workflows.cjs");
     let nextWorkflowRuntime = null;

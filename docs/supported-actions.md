@@ -13,8 +13,8 @@ source catalog may include unreleased actions.
 | Registered core actions | 328 | CEP/local server catalog; host and authority checks still apply |
 | Default-profile core actions | 326 | Advertised with `inspect,edit,export,filesystem` |
 | Restricted core actions | 2 | Require explicit `unsafe-script` authority |
-| Authenticated UXP additions | 79 | Advertised only while a compatible authenticated UXP panel is connected |
-| Default profile with UXP | 405 | 326 core plus 79 UXP tools |
+| Authenticated UXP additions | 80 | Advertised only while a compatible authenticated UXP panel is connected |
+| Default profile with UXP | 406 | 326 core plus 80 UXP tools |
 
 ## How to read support
 
@@ -444,6 +444,7 @@ authenticated and the connected host advertises the required command capabilitie
 | `relink_offline_media_uxp` | Connected UXP | Single operation | Relink one offline clip to a workspace-contained media path after stale-path and capability checks. This Premiere API is non-undoable and requires explicit confirmation. |
 | `remove_video_transition_uxp` | Connected UXP | `position`: `start`, `end` | Remove one unchanged native video-transition edge through one undoable UXP transaction. Requires an exact inspect snapshot, serializes transition updates per sequence, and reads edge absence back; it does not prove rendered appearance or playback. |
 | `rename_track_uxp` | Connected UXP | `track_type`: `audio`, `video`, `caption` | Rename an audio, video, or caption track through Premiere 26.3+ UXP in an undoable transaction with name readback verification. |
+| `ripple_delete_track_item_uxp` | Connected UXP | `inspect`, `apply` | Inspect or perform one guarded ripple delete on an audio or video timeline item using documented UXP SequenceEditor actions. Apply requires complete target and contiguous-successor snapshots, explicit confirmation, and an operation ID; it serializes with guarded slips, slides, and append duplicates on that track, commits one transaction, and reads back the successor at the removed coordinate. It intentionally cannot ripple a final item, a gap, another track, or a linked A/V pair. It does not prove media handles, linked A/V synchronization, rendered frames, playback, persistence, or Undo behavior. |
 | `save_project_uxp` | Connected UXP | Single operation | Save the active project through UXP and require Premiere to confirm success. |
 | `search_clip_transcript_uxp` | Connected UXP | Single operation | Search Premiere's native transcript JSON without modifying the clip or timeline. |
 | `set_source_monitor_position_uxp` | Connected UXP | Single operation | Set and read back the Source Monitor position using Premiere 26.3+ UXP. |
