@@ -7,6 +7,7 @@ const END_OF_CENTRAL_DIRECTORY_SIGNATURE = 0x06054b50;
 const CENTRAL_DIRECTORY_SIGNATURE = 0x02014b50;
 const LOCAL_FILE_SIGNATURE = 0x04034b50;
 const DATA_DESCRIPTOR_SIGNATURE = 0x08074b50;
+const ZIP64_EXTRA_FIELD_ID = 0x0001;
 const MAX_ZIP32_BYTES = 0xffff_ffff;
 const MAX_CENTRAL_DIRECTORY_BYTES = 64 * 1024 * 1024;
 const MAX_ENTRIES = 100_000;
@@ -81,6 +82,18 @@ function findEndOfCentralDirectory(tail, archiveBytes) {
   throw archiveError("CCX archive must contain a conventional ZIP end record");
 }
 
+function validateZipExtraFields(extraFields) {
+  for (let offset = 0; offset < extraFields.length;) {
+    if (offset + 4 > extraFields.length) throw archiveError("CCX archive ZIP extra fields are malformed");
+    const id = extraFields.readUInt16LE(offset);
+    const bytes = extraFields.readUInt16LE(offset + 2);
+    const next = offset + 4 + bytes;
+    if (next > extraFields.length) throw archiveError("CCX archive ZIP extra fields are malformed");
+    if (id === ZIP64_EXTRA_FIELD_ID) throw archiveError("CCX archive ZIP64 extra fields are not supported by this bounded verifier");
+    offset = next;
+  }
+}
+
 function readCentralDirectory(buffer, expectedEntries) {
   const entries = [];
   let offset = 0;
@@ -107,6 +120,8 @@ function readCentralDirectory(buffer, expectedEntries) {
       throw archiveError("CCX archive ZIP64 entry metadata is not supported by this bounded verifier");
     }
     const rawName = buffer.subarray(offset + 46, offset + 46 + nameBytes);
+    const rawExtraFields = buffer.subarray(offset + 46 + nameBytes, offset + 46 + nameBytes + extraBytes);
+    validateZipExtraFields(rawExtraFields);
     if (!(flags & ZIP_FLAG_UTF8) && rawName.some((byte) => byte > 0x7f)) {
       throw archiveError("CCX archive non-ASCII ZIP entry names must declare UTF-8");
     }
@@ -219,6 +234,8 @@ async function localDataRangeFromHandle(handle, entry, maximumOffset) {
   const localExtraBytes = local.readUInt16LE(28);
   const localName = await readExactly(handle, localNameBytes, entry.localOffset + 30, "CCX archive local entry name");
   if (!localName.equals(Buffer.from(entry.name, "utf8"))) throw archiveError("CCX archive local entry name is inconsistent");
+  const localExtraFields = await readExactly(handle, localExtraBytes, entry.localOffset + 30 + localNameBytes, "CCX archive local entry extra fields");
+  validateZipExtraFields(localExtraFields);
   const dataStart = entry.localOffset + 30 + localNameBytes + localExtraBytes;
   const dataEnd = dataStart + entry.compressedBytes;
   if (!Number.isSafeInteger(dataEnd) || dataEnd > maximumOffset) throw archiveError("CCX archive local entry is outside the ZIP bounds");
