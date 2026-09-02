@@ -17,7 +17,7 @@ import {
   canonicalUxpHybridAddonReceiptSha256,
 } from "../scripts/verify-uxp-hybrid-addon-receipt.mjs";
 import {
-  UXP_HYBRID_CCX_RECEIPT_SEMANTICS,
+  UXP_HYBRID_CCX_RECEIPT_LEGACY_SEMANTICS,
 } from "../scripts/uxp-hybrid-ccx-receipt-contract.mjs";
 import {
   canonicalUxpHybridCcxReceiptSha256,
@@ -153,7 +153,7 @@ function ccxReceipt(headerReceipt = sdkHeaderReceipt(), addon = addonReceipt(hea
       addonName: "fixture-addon.uxpaddon",
       enableAddon: true,
     },
-    semantics: UXP_HYBRID_CCX_RECEIPT_SEMANTICS,
+    semantics: UXP_HYBRID_CCX_RECEIPT_LEGACY_SEMANTICS,
     stats: { artifacts: 3, addonBytes: 12, entrypoints: 1, entrypointBytes: 3 },
   };
 }

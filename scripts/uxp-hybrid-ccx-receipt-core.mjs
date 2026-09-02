@@ -13,6 +13,8 @@ import {
 } from "./uxp-hybrid-addon-receipt-contract.mjs";
 import {
   UXP_HYBRID_CCX_AUTHORITY_URL,
+  UXP_HYBRID_CCX_RECEIPT_LEGACY_SCHEMA_VERSION,
+  UXP_HYBRID_CCX_RECEIPT_LEGACY_SEMANTICS,
   UXP_HYBRID_CCX_RECEIPT_SCHEMA_VERSION,
   UXP_HYBRID_CCX_RECEIPT_SEMANTICS,
   compareUxpHybridCcxPaths,
@@ -66,6 +68,13 @@ function sha256(value, label) {
 function positiveInteger(value, label, maximum) {
   if (!Number.isSafeInteger(value) || value <= 0 || value > maximum) {
     throw receiptError(`${label} must be a positive safe integer no larger than ${maximum}`);
+  }
+  return value;
+}
+
+function nonNegativeInteger(value, label, maximum) {
+  if (!Number.isSafeInteger(value) || value < 0 || value > maximum) {
+    throw receiptError(`${label} must be a non-negative safe integer no larger than ${maximum}`);
   }
   return value;
 }
@@ -178,10 +187,23 @@ function verifyArchiveReceiptAgainstAddon(receipt, addonReceipt, sdkHeaderReceip
   return addon;
 }
 
+function validateArchiveContents(value) {
+  const contents = record(value, "contents", ["entries", "files", "directories", "pathSetSha256"]);
+  const entries = positiveInteger(contents.entries, "contents.entries", 100_000);
+  const files = nonNegativeInteger(contents.files, "contents.files", entries);
+  const directories = nonNegativeInteger(contents.directories, "contents.directories", entries);
+  if (files + directories !== entries) throw receiptError("contents file and directory totals must match entries");
+  sha256(contents.pathSetSha256, "contents.pathSetSha256");
+  return Object.freeze({ entries, files, directories, pathSetSha256: contents.pathSetSha256 });
+}
+
 export function verifyUxpHybridCcxReceipt(document, options = {}) {
-  const receipt = record(document, "receipt", ["schemaVersion", "source", "archive", "manifest", "semantics", "stats"]);
-  if (receipt.schemaVersion !== UXP_HYBRID_CCX_RECEIPT_SCHEMA_VERSION) {
-    throw receiptError(`schemaVersion must be ${UXP_HYBRID_CCX_RECEIPT_SCHEMA_VERSION}`);
+  const legacy = document?.schemaVersion === UXP_HYBRID_CCX_RECEIPT_LEGACY_SCHEMA_VERSION;
+  const receipt = record(document, "receipt", legacy
+    ? ["schemaVersion", "source", "archive", "manifest", "semantics", "stats"]
+    : ["schemaVersion", "source", "archive", "contents", "manifest", "semantics", "stats"]);
+  if (!legacy && receipt.schemaVersion !== UXP_HYBRID_CCX_RECEIPT_SCHEMA_VERSION) {
+    throw receiptError(`schemaVersion must be ${UXP_HYBRID_CCX_RECEIPT_LEGACY_SCHEMA_VERSION} or ${UXP_HYBRID_CCX_RECEIPT_SCHEMA_VERSION}`);
   }
   const source = record(receipt.source, "source", ["sdk", "sdkVersion", "sdkHeaderReceiptSha256", "addonReceiptSha256", "authorityUrl"]);
   if (source.sdk !== "uxp-hybrid") throw receiptError("source.sdk must be uxp-hybrid");
@@ -199,8 +221,11 @@ export function verifyUxpHybridCcxReceipt(document, options = {}) {
 
   validateManifestFacts(receipt.manifest, "manifest", true);
 
+  if (!legacy) validateArchiveContents(receipt.contents);
+
   const semantics = record(receipt.semantics, "semantics", ["listed", "doesNotEstablish"]);
-  if (semantics.listed !== UXP_HYBRID_CCX_RECEIPT_SEMANTICS.listed || semantics.doesNotEstablish !== UXP_HYBRID_CCX_RECEIPT_SEMANTICS.doesNotEstablish) {
+  const requiredSemantics = legacy ? UXP_HYBRID_CCX_RECEIPT_LEGACY_SEMANTICS : UXP_HYBRID_CCX_RECEIPT_SEMANTICS;
+  if (semantics.listed !== requiredSemantics.listed || semantics.doesNotEstablish !== requiredSemantics.doesNotEstablish) {
     throw receiptError("semantics must retain the documented evidence boundary");
   }
 
@@ -255,6 +280,7 @@ export async function buildUxpHybridCcxReceipt(options) {
       authorityUrl: UXP_HYBRID_CCX_AUTHORITY_URL,
     },
     archive: { format: "zip", bytes: archive.bytes, sha256: await sha256File(options.ccxPath) },
+    contents: archive.summary,
     manifest,
     semantics: UXP_HYBRID_CCX_RECEIPT_SEMANTICS,
     stats: {

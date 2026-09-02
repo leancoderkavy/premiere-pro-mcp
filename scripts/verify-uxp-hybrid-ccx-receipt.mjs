@@ -8,6 +8,7 @@ import {
   canonicalUxpHybridCcxReceiptSha256,
   verifyUxpHybridCcxReceipt,
 } from "./uxp-hybrid-ccx-receipt-core.mjs";
+import { UXP_HYBRID_CCX_RECEIPT_LEGACY_SEMANTICS } from "./uxp-hybrid-ccx-receipt-contract.mjs";
 
 function receiptError(message) {
   const error = new Error(message);
@@ -48,7 +49,14 @@ async function main() {
   ]);
   verifyUxpHybridCcxReceipt(receipt, { addonReceipt, sdkHeaderReceipt });
   const current = await buildUxpHybridCcxReceipt({ ccxPath: resolve(options.ccxPath), addonReceipt, sdkHeaderReceipt });
-  if (canonicalUxpHybridCcxReceiptSha256(receipt) !== canonicalUxpHybridCcxReceiptSha256(current)) {
+  const expected = receipt.schemaVersion === 1
+    ? (() => {
+      const { contents, ...legacy } = current;
+      void contents;
+      return { ...legacy, schemaVersion: 1, semantics: UXP_HYBRID_CCX_RECEIPT_LEGACY_SEMANTICS };
+    })()
+    : current;
+  if (canonicalUxpHybridCcxReceiptSha256(receipt) !== canonicalUxpHybridCcxReceiptSha256(expected)) {
     throw receiptError("UXP Hybrid CCX receipt does not match the supplied local archive");
   }
   process.stdout.write(`UXP Hybrid CCX receipt is valid: ${receipt.stats.artifacts} addon artifacts and ${receipt.stats.entrypoints} entrypoint.\n`);
