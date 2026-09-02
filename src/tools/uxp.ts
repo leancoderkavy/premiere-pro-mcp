@@ -3,6 +3,7 @@ import { planTranscriptRoughCut, previewTranscriptEdit, transcriptRevision } fro
 import { getUxpAdvancedWorkflowTools } from "./uxp-advanced-workflows.js";
 import { getUxpNextWorkflowTools } from "./uxp-next-workflows.js";
 import { getUxpSlipWorkflowTools } from "./uxp-slip-workflows.js";
+import { getUxpSlideWorkflowTools } from "./uxp-slide-workflows.js";
 import { getUxpWorkflowTools } from "./uxp-workflows.js";
 
 function invoke(
@@ -43,6 +44,7 @@ export function getUxpTools(bridge: UxpWebSocketBridge) {
     ...getUxpNextWorkflowTools(bridge),
     ...getUxpAdvancedWorkflowTools(bridge),
     ...getUxpSlipWorkflowTools(bridge),
+    ...getUxpSlideWorkflowTools(bridge),
     ...getUxpWorkflowTools(bridge),
     get_uxp_capabilities: {
       description: "Report the authenticated local UXP bridge connection and the capabilities advertised by the connected Premiere host.",

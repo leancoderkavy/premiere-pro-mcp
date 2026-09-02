@@ -71,10 +71,20 @@
         ppro, Protocol, workspace, events: deps.events
       }));
     }
+    let trackItemLocksApi = deps.TrackItemMutationLocks || (typeof globalThis !== "undefined" && globalThis.PremiereMcpTrackItemMutationLocks);
+    if (!trackItemLocksApi && typeof require === "function") trackItemLocksApi = require("./track-item-mutation-locks.cjs");
+    const trackItemLocks = trackItemLocksApi && typeof trackItemLocksApi.createTrackItemMutationLocks === "function"
+      ? trackItemLocksApi.createTrackItemMutationLocks()
+      : null;
     let slipWorkflowApi = deps.SlipWorkflows || (typeof globalThis !== "undefined" && globalThis.PremiereMcpSlipWorkflows);
     if (!slipWorkflowApi && typeof require === "function") slipWorkflowApi = require("./slip-workflows.cjs");
     if (slipWorkflowApi && typeof slipWorkflowApi.createSlipWorkflowDefinitions === "function") {
-      Object.assign(definitions, slipWorkflowApi.createSlipWorkflowDefinitions({ ppro }));
+      Object.assign(definitions, slipWorkflowApi.createSlipWorkflowDefinitions({ ppro, locks: trackItemLocks }));
+    }
+    let slideWorkflowApi = deps.SlideWorkflows || (typeof globalThis !== "undefined" && globalThis.PremiereMcpSlideWorkflows);
+    if (!slideWorkflowApi && typeof require === "function") slideWorkflowApi = require("./slide-workflows.cjs");
+    if (slideWorkflowApi && typeof slideWorkflowApi.createSlideWorkflowDefinitions === "function") {
+      Object.assign(definitions, slideWorkflowApi.createSlideWorkflowDefinitions({ ppro, locks: trackItemLocks }));
     }
     let nextWorkflowApi = deps.NextWorkflows || (typeof globalThis !== "undefined" && globalThis.PremiereMcpNextWorkflows);
     if (!nextWorkflowApi && typeof require === "function") nextWorkflowApi = require("./next-workflows.cjs");
