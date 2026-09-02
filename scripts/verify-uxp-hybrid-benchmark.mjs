@@ -182,12 +182,20 @@ function parseArguments(argv) {
 async function main() {
   const args = parseArguments(process.argv.slice(2));
   const [document, sdkHeaderReceipt] = await Promise.all([
-    readFile(args.input, "utf8").then(JSON.parse),
-    readFile(args.sdkHeaderReceipt, "utf8").then(JSON.parse),
+    readEvidenceJson(args.input, "benchmark evidence"),
+    readEvidenceJson(args.sdkHeaderReceipt, "SDK header receipt"),
   ]);
   const result = verifyHybridBenchmarkEvidence(document, { ...args, sdkHeaderReceipt });
   process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
   if (!result.promotionEligible) process.exitCode = 1;
+}
+
+async function readEvidenceJson(path, label) {
+  try {
+    return JSON.parse(await readFile(path, "utf8"));
+  } catch {
+    throw new Error(`${label} must be a readable JSON document.`);
+  }
 }
 
 if (import.meta.url === pathToFileURL(process.argv[1] || "").href) {

@@ -34,6 +34,25 @@ function sdkHeaderReceipt(sdkVersion = "UXP Hybrid SDK test fixture") {
   };
 }
 
+function prsdkHeaderReceipt() {
+  return {
+    schemaVersion: 1,
+    source: {
+      sdk: "premiere-prsdk",
+      sdkVersion: "UXP Hybrid SDK test fixture",
+      authorityUrl: "https://developer.adobe.com/premiere-pro/",
+      archiveSha256: "c".repeat(64),
+      inventoryScope: "header_files_only",
+      includeDirectories: ["Headers"],
+    },
+    semantics: NATIVE_SDK_HEADER_INVENTORY_SEMANTICS,
+    stats: { headers: 1, bytes: 7 },
+    headers: [
+      { path: "Headers/PrSDKFixture.h", bytes: 7, sha256: "d".repeat(64) },
+    ],
+  };
+}
+
 function evidence(headerReceipt = sdkHeaderReceipt()) {
   return {
     schemaVersion: 1,
@@ -103,9 +122,30 @@ describe("UXP hybrid benchmark evidence verifier", () => {
         "sdkHeaderReceiptSha256 does not match the verified SDK header receipt.",
       ]));
 
+    const wrongSdkReceipt = prsdkHeaderReceipt();
+    expect(verifyHybridBenchmarkEvidence(value, { sdkHeaderReceipt: wrongSdkReceipt }).errors)
+      .toEqual(expect.arrayContaining([
+        "SDK header receipt must identify uxp-hybrid.",
+        "sdkHeaderReceiptSha256 does not match the verified SDK header receipt.",
+      ]));
+
     const withExtraField = { ...value, privateSdkPath: "C:Headers" };
     expect(verifyHybridBenchmarkEvidence(withExtraField, { sdkHeaderReceipt: receipt }).errors)
       .toContain("Evidence must contain only the documented benchmark receipt fields.");
+
+    const withExtraRunField = {
+      ...value,
+      runs: [{ ...value.runs[0], localAddonPath: "C:Headers" }, ...value.runs.slice(1)],
+    };
+    expect(verifyHybridBenchmarkEvidence(withExtraRunField, { sdkHeaderReceipt: receipt }).errors)
+      .toContain("runs[0] must contain only the documented benchmark fields.");
+
+    const withExtraMetricField = {
+      ...value,
+      runs: [{ ...value.runs[0], native: { ...value.runs[0].native, rawSamples: [60] } }, ...value.runs.slice(1)],
+    };
+    expect(verifyHybridBenchmarkEvidence(withExtraMetricField, { sdkHeaderReceipt: receipt }).errors)
+      .toContain("runs[0].native must contain only the documented metric fields.");
   });
 
   it("requires the local receipt path from the command-line verifier without printing it", () => {
@@ -124,6 +164,12 @@ describe("UXP hybrid benchmark evidence verifier", () => {
       expect(verified.status).toBe(0);
       expect(verified.stdout).toContain('"promotionEligible": true');
       expect(verified.stdout).not.toContain("UxpAddonShared.h");
+
+      const unreadableReceipt = join(directory, "do-not-disclose-this-receipt.json");
+      const unreadable = spawnSync(process.execPath, ["scripts/verify-uxp-hybrid-benchmark.mjs", "--input", input, "--sdk-header-receipt", unreadableReceipt], { encoding: "utf8" });
+      expect(unreadable.status).not.toBe(0);
+      expect(unreadable.stderr).toContain("SDK header receipt must be a readable JSON document.");
+      expect(unreadable.stderr).not.toContain(unreadableReceipt);
     } finally {
       rmSync(directory, { recursive: true, force: true });
     }
