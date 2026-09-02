@@ -8,6 +8,7 @@ type Tool = { parameters: Schema; handler: (args: Record<string, unknown>) => Pr
 
 const values: Record<string, unknown> = {
   name: "Coverage Name", query: "coverage", preset_path: "/tmp/preset.sqpreset",
+  confirm_non_undoable: true, operation_id: "coverage-operation",
   output_file_path: "/tmp/output.otio", project_item_id: "item-1", track_index: 0,
   start_seconds: 1, end_seconds: 2, transcript_revision: `sha256:${"a".repeat(64)}`,
   sequence_name: "Coverage Stringout", duration_seconds: 10, frame_rate: 30,

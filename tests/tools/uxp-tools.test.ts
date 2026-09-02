@@ -65,6 +65,29 @@ describe("UXP MCP tools", () => {
     });
   });
 
+  it("maps guarded empty sequence creation only after confirmation and with a replay key", async () => {
+    const request = vi.fn().mockResolvedValue({ outcome: "verified" });
+    const bridge = { request, getState: vi.fn() } as unknown as UxpWebSocketBridge;
+    const tool = getUxpTools(bridge).create_empty_sequence_uxp;
+    await expect(tool.handler({
+      name: "Empty Assembly", confirm_non_undoable: false, operation_id: "empty-1",
+    })).resolves.toEqual({ success: false, error: "create_empty_sequence_uxp requires confirm_non_undoable: true" });
+    await expect(tool.handler({
+      name: "Empty Assembly", confirm_non_undoable: true, operation_id: "",
+    })).resolves.toEqual({ success: false, error: "create_empty_sequence_uxp requires operation_id for safe replay" });
+    expect(request).not.toHaveBeenCalled();
+    await expect(tool.handler({
+      name: "Empty Assembly", confirm_non_undoable: true, operation_id: "empty-1",
+    })).resolves.toEqual({ success: true, data: { backend: "uxp", result: { outcome: "verified" } } });
+    expect(request).toHaveBeenCalledWith("sequences.createEmpty", {
+      name: "Empty Assembly", confirmNonUndoable: true, operationId: "empty-1",
+    });
+    expect(tool.parameters).toMatchObject({
+      additionalProperties: false,
+      required: ["name", "confirm_non_undoable", "operation_id"],
+    });
+  });
+
   it("maps native caption-track inspection to its documented UXP command", async () => {
     const request = vi.fn().mockResolvedValue({ trackCount: 0, tracks: [] });
     const bridge = { request, getState: vi.fn() } as unknown as UxpWebSocketBridge;
@@ -282,6 +305,7 @@ describe("UXP MCP tools", () => {
           "manage_sequence_playhead_uxp",
           "save_project_uxp",
           "create_sequence_with_preset_uxp",
+          "create_empty_sequence_uxp",
           "export_interchange_uxp",
           "get_transcript_languages_uxp",
           "get_clip_transcript_uxp",
@@ -311,9 +335,9 @@ describe("UXP MCP tools", () => {
       // bounded native migration adapters, beat-grid marker application, and
       // guarded sequence-playhead control, native sequence-timing inspection, and
       // guarded sequence-display-format updates and guarded Project-panel
-      // insertion-bin inspection add thirty-one consolidated UXP tools;
+      // insertion-bin inspection and guarded empty-sequence creation add thirty-two consolidated UXP tools;
       // connection verification and delivery conformance add two default-profile core tools.
-      expect(tools.tools).toHaveLength(394);
+      expect(tools.tools).toHaveLength(395);
     } finally {
       await client.close();
       await server.close();

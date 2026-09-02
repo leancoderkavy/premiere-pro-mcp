@@ -144,6 +144,17 @@ describe("capability profiles", () => {
     expect(handler).toHaveBeenCalledOnce();
   });
 
+  it("withholds and rejects non-undoable empty sequence creation without edit authority", async () => {
+    const handler = vi.fn(async () => "ok");
+    const inspectOnly = resolveCapabilities("inspect");
+    expect(capabilitiesForToolInvocation("create_empty_sequence_uxp", {})).toEqual(["edit"]);
+    expect(isToolPermitted("create_empty_sequence_uxp", inspectOnly)).toBe(false);
+    await expect(
+      guardToolHandler("create_empty_sequence_uxp", handler, inspectOnly, () => "empty-sequence-create")({}),
+    ).rejects.toMatchObject({ code: "CAPABILITY_DENIED", capability: "edit", operationId: "empty-sequence-create" });
+    expect(handler).not.toHaveBeenCalled();
+  });
+
   it.each([
     ["manage_clip_effects_uxp", "catalog"],
     ["batch_selected_clips_uxp", "inspect"],

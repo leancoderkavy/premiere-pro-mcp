@@ -25,6 +25,7 @@ a failed UXP mutation through CEP.
 | Typed parameter/keyframe automation | `automate_effect_parameters_uxp` | `parameters.inspect`, `parameters.set`, `parameters.keyframeAdd`, `parameters.keyframeRemove`, `parameters.keyframeRemoveRange`, `parameters.keyframeInterpolation` | Parameter value, keyframe time, absence, or interpolation readback |
 | Track-item transformations | `transform_track_item_uxp` | `trackItem.inspect`, `trackItem.update` | Start/end, source in/out, disabled state, and name readback |
 | SequenceEditor timeline layer | `edit_timeline_uxp` | `timeline.insert`, `timeline.overwrite`, `timeline.cloneSelection`, `timeline.removeSelection`, `timeline.mogrtPath`, `timeline.mogrtLibrary` | Action transaction accepted; MOGRT calls return inserted items |
+| Empty sequence creation | `create_empty_sequence_uxp` | `sequences.createEmpty` | New sequence identity from the post-call project collection |
 | Sequence lifecycle and derivatives | `manage_sequences_uxp` | `sequences.inspect`, `sequences.createFromMedia`, `sequences.clone`, `sequences.subsequence`, `sequences.activate`, `sequences.open`, `sequences.close`, `sequences.delete` | Created/cloned identity, host return, or deleted-sequence absence |
 | AME encode controller | `encode_media_uxp` | `encoder.preflight`, `encoder.sequence`, `encoder.projectItem`, `encoder.file` | AME host acceptance only; output-file completion remains unverified |
 
@@ -149,14 +150,24 @@ direct methods and reports the number of returned track items. Transaction-only
 edits and direct MOGRT calls remain `committed_unverified` until a stable returned-item
 identity or exact post-selection mapping is available.
 
+### `create_empty_sequence_uxp`
+
+The tool creates an empty/default sequence without requiring media selection or a
+preset path. It requires `confirm_non_undoable: true` and `operation_id` so its
+receipt can be replayed without creating a duplicate. It serializes the whole
+project-sequence capacity snapshot, host call, and post-call list readback. It is
+`verified` only when the newly returned sequence identity is present in that readback;
+a host rejection, missing identity, or unreadable readback becomes an idempotently
+replayable `committed_unverified` partial receipt.
+
 ### `manage_sequences_uxp`
 
 The tool inspects all project sequences, creates from selected media IDs, clones,
-derives a subsequence, activates, opens, closes, or deletes. Direct create,
+derives a subsequence, activates, opens, closes, or deletes. Direct media create,
 subsequence, and delete calls require `confirm_non_undoable: true`; deletion also
-supports `expected_name` as a stale-target guard.
-Returned objects from direct create/subsequence calls are acceptance evidence only;
-those operations remain `committed_unverified` without an independent project readback.
+supports `expected_name` as a stale-target guard. Returned objects from direct
+media-create/subsequence calls remain acceptance evidence only without an independent
+project readback.
 Adobe introduced `Project.closeSequence` in 26.2; the other lifecycle calls in this
 tool date to 25.6 and remain individually capability gated.
 

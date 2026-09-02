@@ -230,6 +230,11 @@ function advancedHost() {
     importSequences: vi.fn(async () => true),
     importAEComps: vi.fn(async () => true),
     importAllAEComps: vi.fn(async () => true),
+    createSequence: vi.fn(async (name: string) => {
+      const created = { guid: `sequence-empty-${sequences.length}`, name };
+      sequences.push(created);
+      return created;
+    }),
     createSequenceFromMedia: vi.fn(async (name: string) => ({ guid: "sequence-created", name })),
     setActiveSequence: vi.fn(async () => true),
     openSequence: vi.fn(async () => true),
@@ -312,6 +317,7 @@ describe("advanced stable Premiere UXP workflows", () => {
       "bins.inspect", "bins.create", "sequenceSettings.get", "sequenceSettings.update", "sequence.displayFormat.inspect", "sequence.displayFormat.update",
       "project.import", "parameters.inspect", "parameters.keyframeAdd", "trackItem.inspect",
       "trackItem.update", "timeline.insert", "timeline.mogrtPath", "timeline.structure.inspect", "sequences.inspect",
+      "sequences.createEmpty",
       "trackItem.splitEdit",
       "sequences.clone", "encoder.preflight", "encoder.sequence", "encoder.file",
     ]));
@@ -323,6 +329,7 @@ describe("advanced stable Premiere UXP workflows", () => {
     expect(capabilities.commands["encoder.sequence"]).toMatchObject({ supported: true, workspaceRequired: true, undoable: false });
     expect(capabilities.commands["sequence.displayFormat.inspect"]).toMatchObject({ supported: true, readOnly: true, destructive: false });
     expect(capabilities.commands["sequence.displayFormat.update"]).toMatchObject({ supported: true, destructive: true, undoable: true, idempotent: true });
+    expect(capabilities.commands["sequences.createEmpty"]).toMatchObject({ supported: true, destructive: true, undoable: false, idempotent: true, minHostVersion: "26.3.0" });
   });
 
   it("uses Project-view selection and completes marker/bin actions with identity and field readback", async () => {
@@ -1069,6 +1076,52 @@ describe("advanced stable Premiere UXP workflows", () => {
     });
   });
 
+  it("creates an empty sequence only after confirmation, then verifies its identity and replays its receipt", async () => {
+    const value = advancedHost();
+    await expect(value.registry.dispatch("sequences.createEmpty", { name: "Empty Assembly" }))
+      .rejects.toMatchObject({ code: "UXP_CONFIRMATION_REQUIRED" });
+    expect(value.project.createSequence).not.toHaveBeenCalled();
+    await expect(value.registry.dispatch("sequences.createEmpty", {
+      name: "Empty Assembly", confirmNonUndoable: true,
+    })).rejects.toMatchObject({ code: "UXP_INVALID_ARGUMENT" });
+    expect(value.project.createSequence).not.toHaveBeenCalled();
+
+    await expect(value.registry.dispatch("sequences.createEmpty", {
+      name: "Empty Assembly", confirmNonUndoable: true, operationId: "empty-sequence-1",
+    })).resolves.toMatchObject({
+      created: true, partial: false, outcome: "verified", verified: true,
+      verificationBoundary: "create_empty_sequence_identity_readback",
+      sequence: { id: "sequence-empty-1", name: "Empty Assembly" },
+      operation: {
+        mutatesProject: true,
+        verification: { status: "verified", boundary: "create_empty_sequence_identity_readback" },
+        undo: { supported: false },
+        cancellation: { supported: false },
+      },
+    });
+    await expect(value.registry.dispatch("sequences.createEmpty", {
+      name: "Empty Assembly", confirmNonUndoable: true, operationId: "empty-sequence-1",
+    })).resolves.toMatchObject({ replayed: true, sequence: { id: "sequence-empty-1" } });
+    expect(value.project.createSequence).toHaveBeenCalledTimes(1);
+  });
+
+  it("returns an unverified cached receipt if empty creation changes the project before rejecting", async () => {
+    const value = advancedHost();
+    value.project.createSequence.mockImplementationOnce(async (name: string) => {
+      value.sequences.push({ guid: "sequence-empty-after-error", name });
+      throw new Error("host rejected after creation");
+    });
+    const args = { name: "Recovered Empty", confirmNonUndoable: true, operationId: "empty-sequence-error" };
+    await expect(value.registry.dispatch("sequences.createEmpty", args)).resolves.toMatchObject({
+      created: true, partial: true, outcome: "committed_unverified", verified: false,
+      verificationBoundary: "create_empty_sequence_host_reconciliation",
+      sequence: { id: "sequence-empty-after-error", name: "Recovered Empty" },
+      operation: { cancellation: { supported: false } },
+    });
+    await expect(value.registry.dispatch("sequences.createEmpty", args)).resolves.toMatchObject({ replayed: true, partial: true });
+    expect(value.project.createSequence).toHaveBeenCalledTimes(1);
+  });
+
   it("caches partial receipts when direct sequence creation mutates before rejecting or loses identity", async () => {
     const rejected = advancedHost();
     rejected.project.createSequenceFromMedia.mockImplementationOnce(async (name: string) => {
@@ -1250,6 +1303,25 @@ describe("advanced stable Premiere UXP workflows", () => {
     expect(sequenceResults.find((result) => result.status === "rejected")).toMatchObject({ reason: { code: "UXP_PROJECT_TOO_LARGE" } });
     expect(sequenceValue.sequence.createCloneAction).toHaveBeenCalledOnce();
     expect(sequenceValue.sequences).toHaveLength(1024);
+
+    const emptySequenceValue = advancedHost();
+    emptySequenceValue.sequences.push(...Array.from({ length: 1022 }, (_, index) => ({
+      guid: `existing-empty-sequence-${index}`,
+      name: `Existing Empty Sequence ${index}`,
+    })));
+    const emptyResults = await Promise.allSettled([
+      emptySequenceValue.registry.dispatch("sequences.createEmpty", {
+        name: "First Empty", confirmNonUndoable: true, operationId: "empty-first",
+      }),
+      emptySequenceValue.registry.dispatch("sequences.createEmpty", {
+        name: "Second Empty", confirmNonUndoable: true, operationId: "empty-second",
+      }),
+    ]);
+    expect(emptyResults.map((result) => result.status).sort()).toEqual(["fulfilled", "rejected"]);
+    expect(emptyResults.find((result) => result.status === "rejected"))
+      .toMatchObject({ reason: { code: "UXP_PROJECT_TOO_LARGE" } });
+    expect(emptySequenceValue.project.createSequence).toHaveBeenCalledOnce();
+    expect(emptySequenceValue.sequences).toHaveLength(1024);
   });
 
   it("clones sequences with identity readback and gates AME writes on explicit confirmation", async () => {

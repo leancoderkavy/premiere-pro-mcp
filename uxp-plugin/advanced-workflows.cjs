@@ -60,6 +60,7 @@
       "timeline.mogrtLibrary": { destructive: true, undoable: false, minHostVersion: "25.6.0", probe: canUseMogrtLibrary, handler: insertMogrtLibrary },
       "timeline.structure.inspect": { readOnly: true, targetCapabilityProbe: true, minHostVersion: "25.6.0", probe: canInspectTimelineStructure, handler: inspectTimelineStructure },
       "sequences.inspect": { readOnly: true, minHostVersion: "25.6.0", probe: canUseSequences, handler: inspectSequences },
+      "sequences.createEmpty": { destructive: true, undoable: false, idempotent: true, minHostVersion: "26.3.0", probe: canCreateEmptySequence, handler: createEmptySequence },
       "sequences.createFromMedia": { destructive: true, undoable: false, minHostVersion: "25.6.0", probe: canUseSequences, handler: createSequenceFromMedia },
       "silence.deriveSequence": { destructive: true, undoable: false, targetCapabilityProbe: true, minHostVersion: "26.3.0", probe: canDeriveSilenceSequence, handler: deriveSilenceSequence },
       "sequences.clone": { destructive: true, undoable: true, targetCapabilityProbe: true, minHostVersion: "25.6.0", probe: canUseSequences, handler: cloneSequence },
@@ -1149,6 +1150,54 @@
       });
     }
 
+    async function createEmptySequence(args) {
+      assertObject(args); assertOnlyKeys(args, ["name", "confirmNonUndoable", "operationId"]);
+      requireConfirmation(args.confirmNonUndoable, "Creating an empty sequence is a direct Project call without an Action boundary");
+      if (typeof args.operationId !== "string" || !args.operationId) {
+        throw commandError("UXP_INVALID_ARGUMENT", "operationId is required for non-undoable empty sequence creation");
+      }
+      const name = boundedString(args.name, "name", 255), project = await activeProject(false);
+      if (typeof project.createSequence !== "function") throw commandError("UXP_COMMAND_UNAVAILABLE", "This Premiere build does not expose documented empty sequence creation");
+      return withAppendLock(appendLockKey(project, "sequences", "all"), async () => {
+        const before = await listSequences(project);
+        assertAppendCapacity(before, MAX_SEQUENCES, "Empty sequence creation");
+        if (before.some((item) => !item.id)) throw commandError("UXP_SEQUENCE_ID_UNAVAILABLE", "Sequence creation requires stable IDs for every preflight sequence");
+        const beforeIds = new Set(before.map((item) => item.id));
+        const reconcile = async () => {
+          try {
+            const after = await listSequences(project);
+            if (after.some((item) => !item.id)) return { readable: false, added: [], matchingName: [] };
+            const added = after.filter((item) => !beforeIds.has(item.id));
+            return { readable: true, added, matchingName: added.filter((item) => item.name === name) };
+          } catch (_) { return { readable: false, added: [], matchingName: [] }; }
+        };
+        const receipt = (verified, values, boundary) => directSequenceCreationResult(verified, values, boundary);
+        let created;
+        try { created = await project.createSequence(name); }
+        catch (error) {
+          const reconciliation = await reconcile();
+          if (!reconciliation.readable) return receipt(false, { created: false, partial: true, sequence: null }, "create_empty_sequence_reconciliation_readback_failed");
+          if (reconciliation.matchingName.length === 1) return receipt(false, { created: true, partial: true, sequence: reconciliation.matchingName[0] }, "create_empty_sequence_host_reconciliation");
+          throw commandError("UXP_HOST_REJECTED", "Premiere rejected empty sequence creation: " + error.message);
+        }
+        const returned = await safeSequenceSnapshot(created), reconciliation = await reconcile();
+        if (!reconciliation.readable) return receipt(false, { created: !!returned, partial: true, sequence: returned }, "create_empty_sequence_readback_failed");
+        const returnedMatch = returned && returned.id
+          ? reconciliation.added.find((item) => item.id === returned.id) || null
+          : null;
+        if (returnedMatch && returnedMatch.name === name) {
+          return receipt(true, { created: true, partial: false, sequence: returnedMatch }, "create_empty_sequence_identity_readback");
+        }
+        if (!returned?.id && reconciliation.matchingName.length === 1 && reconciliation.added.length === 1) {
+          return receipt(true, { created: true, partial: false, sequence: reconciliation.matchingName[0] }, "create_empty_sequence_identity_readback");
+        }
+        return receipt(false, {
+          created: !!(returned || reconciliation.matchingName.length), partial: true,
+          sequence: returned || reconciliation.matchingName[0] || null
+        }, "create_empty_sequence_identity_readback");
+      });
+    }
+
     async function deriveSilenceSequence(args) {
       assertObject(args); assertOnlyKeys(args, ["sourceProjectItemId", "name", "keepRanges", "targetBinId", "confirmNonUndoable", "operationId"]);
       requireConfirmation(args.confirmNonUndoable, "Derived silence removal creates subclips and a new sequence; the original source is not changed");
@@ -1432,6 +1481,11 @@
         operation: operationSemantics({ mutatesProject: true, verificationStatus: verified ? "verified" : "not_verified", verificationBoundary: boundary, verificationEvidence: [{ type: boundary, verified }], undoSupported: false, cancellationSupported: true }) };
     }
 
+    function directSequenceCreationResult(verified, values, boundary) {
+      return { ...values, outcome: verified ? "verified" : "committed_unverified", verified, verificationBoundary: boundary,
+        operation: operationSemantics({ mutatesProject: true, verificationStatus: verified ? "verified" : "not_verified", verificationBoundary: boundary, verificationEvidence: [{ type: boundary, verified }], undoSupported: false, cancellationSupported: false }) };
+    }
+
     function externalWriteResult(values) {
       return { ...values, outcome: "committed_unverified", verified: false, verificationBoundary: "encoder_host_return",
         operation: operationSemantics({ mutatesProject: false, externalSideEffect: true, verificationStatus: "not_verified", verificationBoundary: "encoder_host_return", verificationEvidence: [{ type: "host_return", accepted: true }], undoSupported: false, cancellationSupported: true }) };
@@ -1630,6 +1684,13 @@
     function canUseMogrtPath() { return canUseSequenceEditor(); }
     function canUseMogrtLibrary() { return canUseSequenceEditor(); }
     function canUseSequences() { return canInspectProject(); }
+    async function canCreateEmptySequence() {
+      if (!canInspectProject()) return false;
+      try {
+        const project = await ppro.Project.getActiveProject();
+        return !!project && typeof project.createSequence === "function";
+      } catch (_) { return false; }
+    }
     async function canDeriveSilenceSequence() {
       if (!canUseSequences() || !canUseSequenceEditor() || !ppro.ClipProjectItem || typeof ppro.ClipProjectItem.cast !== "function"
         || !ppro.FolderItem || typeof ppro.FolderItem.cast !== "function" || !ppro.TickTime || typeof ppro.TickTime.createWithSeconds !== "function") return false;

@@ -50,6 +50,7 @@ describe("Adobe Premiere Pro 26.3 UXP coverage", () => {
       "native-marker-batch-removal",
       "transactional-bin-organizer",
       "bounded-native-project-tree",
+      "guarded-empty-sequence-creation",
       "sequence-settings-profiles",
       "guarded-sequence-display-format",
       "workspace-gated-project-import",
@@ -160,6 +161,17 @@ describe("Adobe Premiere Pro 26.3 UXP coverage", () => {
       "FolderItem.getItems",
       "ProjectItem.getId",
     ]));
+    expect(entries.find((entry) => entry.id === "guarded-empty-sequence-creation")).toMatchObject({
+      uxpCommand: "sequences.createEmpty",
+      mcpTools: ["create_empty_sequence_uxp"],
+      verificationBoundary: "sequence_collection_identity_readback",
+      liveHostVerificationStatus: "not_run",
+    });
+    expect(entries.find((entry) => entry.id === "guarded-empty-sequence-creation")?.adobeApi).toEqual(expect.arrayContaining([
+      "Project.createSequence",
+      "Project.getSequences",
+      "Sequence.guid",
+    ]));
     for (const entry of entries) {
       expect(entry.minimumPremiereVersion).toMatch(/^\d+\.\d+\.\d+$/);
       expect(entry.backend).toBe("uxp");
@@ -175,12 +187,12 @@ describe("Adobe Premiere Pro 26.3 UXP coverage", () => {
   it("keeps unimplemented 26.3 work visibly planned", () => {
     const report = buildAdobeUxpCoverageReport();
     expect(report.summary).toEqual({
-      total: 59,
-      current: 56,
+      total: 60,
+      current: 57,
       planned: 3,
-      implemented: 56,
+      implemented: 57,
       committedUnverified: 8,
-      automatedContractVerified: 48,
+      automatedContractVerified: 49,
       liveHostVerified: 0,
     });
     expect(report.entries.find((entry) => entry.id === "aaf-export")).toMatchObject({
@@ -203,7 +215,7 @@ describe("Adobe Premiere Pro 26.3 UXP coverage", () => {
   it("surfaces the baseline in the platform capability report", () => {
     const report = buildPlatformCapabilityReport(resolveCapabilities("inspect"), "win32");
     expect(report.backends.uxp.apiCoverage.summary).toMatchObject({
-      current: 56,
+      current: 57,
       planned: 3,
       committedUnverified: 8,
     });

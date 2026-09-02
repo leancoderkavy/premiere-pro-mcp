@@ -13,8 +13,8 @@
   },
   "stats": {
     "total": 976,
-    "mapped": 262,
-    "unmapped": 714,
+    "mapped": 264,
+    "unmapped": 712,
     "manifestOnly": 5
   },
   "manifestOnly": [
@@ -2863,7 +2863,7 @@
     {
       "symbol": "Project.createSequence",
       "kind": "method",
-      "coverage": "unmapped"
+      "coverage": "mapped"
     },
     {
       "symbol": "Project.createSequenceFromMedia",
@@ -2925,7 +2925,7 @@
     {
       "symbol": "Project.getSequences",
       "kind": "method",
-      "coverage": "unmapped"
+      "coverage": "mapped"
     },
     {
       "symbol": "Project.guid",

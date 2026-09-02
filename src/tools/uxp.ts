@@ -130,6 +130,40 @@ export function getUxpTools(bridge: UxpWebSocketBridge) {
         ...(args.operation_id ? { operationId: args.operation_id } : {}),
       }),
     },
+    create_empty_sequence_uxp: {
+      description: "Create one empty/default sequence through the documented Premiere 26.3+ UXP API. This direct, non-undoable host call requires explicit confirmation and an operation_id; the host serializes capacity preflight through identity readback and replays the receipt safely.",
+      parameters: {
+        type: "object" as const,
+        additionalProperties: false,
+        properties: {
+          name: { type: "string", minLength: 1, maxLength: 255, description: "Name for the new empty sequence." },
+          confirm_non_undoable: { type: "boolean", description: "Must be true: Adobe exposes this as a direct Project call without an undo transaction." },
+          operation_id: { type: "string", minLength: 1, maxLength: 128, pattern: "^[A-Za-z0-9._:-]+$", description: "Required replay key for this non-undoable creation." },
+        },
+        required: ["name", "confirm_non_undoable", "operation_id"],
+      },
+      operationalCapability: {
+        backend: "UXP" as const,
+        backends: ["uxp" as const],
+        minimumPremiereVersion: "26.3",
+        verificationBoundary: "structured_uxp_readback" as const,
+        hostVerificationRequired: true,
+        notes: ["Available only through an authenticated UXP bridge whose runtime capability handshake advertises sequences.createEmpty."],
+      },
+      handler: async (args: { name: string; confirm_non_undoable: boolean; operation_id: string }) => {
+        if (args.confirm_non_undoable !== true) {
+          return { success: false, error: "create_empty_sequence_uxp requires confirm_non_undoable: true" };
+        }
+        if (!args.operation_id) {
+          return { success: false, error: "create_empty_sequence_uxp requires operation_id for safe replay" };
+        }
+        return invoke(bridge, "sequences.createEmpty", {
+          name: args.name,
+          confirmNonUndoable: true,
+          operationId: args.operation_id,
+        });
+      },
+    },
     manage_sequence_range_uxp: {
       description: "Inspect or update the active sequence's in, out, and zero points through documented Premiere UXP actions. Updates require the complete inspect snapshot, run in one undoable transaction, and return native readback; a runtime capability probe remains authoritative.",
       parameters: {
