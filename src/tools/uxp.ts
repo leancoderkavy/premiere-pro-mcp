@@ -1,6 +1,7 @@
 import type { UxpWebSocketBridge } from "../bridge/uxp-websocket-bridge.js";
 import { planTranscriptRoughCut, previewTranscriptEdit, transcriptRevision } from "./transcript-edits.js";
 import { getUxpAdvancedWorkflowTools } from "./uxp-advanced-workflows.js";
+import { getUxpCloneWorkflowTools } from "./uxp-clone-workflows.js";
 import { getUxpNextWorkflowTools } from "./uxp-next-workflows.js";
 import { getUxpSlipWorkflowTools } from "./uxp-slip-workflows.js";
 import { getUxpSlideWorkflowTools } from "./uxp-slide-workflows.js";
@@ -43,6 +44,7 @@ export function getUxpTools(bridge: UxpWebSocketBridge) {
   return {
     ...getUxpNextWorkflowTools(bridge),
     ...getUxpAdvancedWorkflowTools(bridge),
+    ...getUxpCloneWorkflowTools(bridge),
     ...getUxpSlipWorkflowTools(bridge),
     ...getUxpSlideWorkflowTools(bridge),
     ...getUxpWorkflowTools(bridge),
