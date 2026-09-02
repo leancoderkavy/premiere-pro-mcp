@@ -78,6 +78,7 @@ type ZipOptions = {
   method?: number;
   localNames?: Record<string, string>;
   localMetadata?: Record<string, { flags?: number; method?: number; crc32?: number; compressedBytes?: number; uncompressedBytes?: number }>;
+  crc32Adjustments?: Record<string, number>;
   compressedByteAdjustments?: Record<string, number>;
   dataDescriptors?: Record<string, DataDescriptorMetadata>;
 };
@@ -91,6 +92,7 @@ function createZip(entries: Array<{ path: string; contents: Buffer }>, prefix = 
     const method = options.method ?? (deflate ? 8 : 0);
     const compressed = method === 8 ? deflateRawSync(entry.contents) : entry.contents;
     const flags = 0x800 | (options.flags ?? 0);
+    const declaredCrc32 = (crc32(entry.contents) + (options.crc32Adjustments?.[entry.path] ?? 0)) >>> 0;
     const declaredCompressedBytes = compressed.length + (options.compressedByteAdjustments?.[entry.path] ?? 0);
     const localMetadata = options.localMetadata?.[entry.path] ?? {};
     const local = Buffer.alloc(30);
@@ -98,7 +100,7 @@ function createZip(entries: Array<{ path: string; contents: Buffer }>, prefix = 
     local.writeUInt16LE(20, 4);
     local.writeUInt16LE(localMetadata.flags ?? flags, 6);
     local.writeUInt16LE(localMetadata.method ?? method, 8);
-    local.writeUInt32LE(localMetadata.crc32 ?? crc32(entry.contents), 14);
+    local.writeUInt32LE(localMetadata.crc32 ?? declaredCrc32, 14);
     local.writeUInt32LE(localMetadata.compressedBytes ?? declaredCompressedBytes, 18);
     local.writeUInt32LE(localMetadata.uncompressedBytes ?? entry.contents.length, 22);
     local.writeUInt16LE(name.length, 26);
@@ -111,7 +113,7 @@ function createZip(entries: Array<{ path: string; contents: Buffer }>, prefix = 
     if (descriptor) {
       const offset = descriptor.length === 16 ? 4 : 0;
       if (offset) descriptor.writeUInt32LE(0x08074b50, 0);
-      descriptor.writeUInt32LE(descriptorMetadata.crc32 ?? crc32(entry.contents), offset);
+      descriptor.writeUInt32LE(descriptorMetadata.crc32 ?? declaredCrc32, offset);
       descriptor.writeUInt32LE(descriptorMetadata.compressedBytes ?? declaredCompressedBytes, offset + 4);
       descriptor.writeUInt32LE(descriptorMetadata.uncompressedBytes ?? entry.contents.length, offset + 8);
       locals.push(descriptor);
@@ -123,7 +125,7 @@ function createZip(entries: Array<{ path: string; contents: Buffer }>, prefix = 
     central.writeUInt16LE(20, 6);
     central.writeUInt16LE(flags, 8);
     central.writeUInt16LE(method, 10);
-    central.writeUInt32LE(crc32(entry.contents), 16);
+    central.writeUInt32LE(declaredCrc32, 16);
     central.writeUInt32LE(declaredCompressedBytes, 20);
     central.writeUInt32LE(entry.contents.length, 24);
     central.writeUInt16LE(name.length, 28);
@@ -141,7 +143,7 @@ function createZip(entries: Array<{ path: string; contents: Buffer }>, prefix = 
   return Buffer.concat([...locals, central, end]);
 }
 
-function writeCcx(bundle: string, archive: string, options: { prefix?: string; deflate?: boolean; main?: string; manifest?: Record<string, unknown>; duplicateMain?: boolean; localMainName?: string; extra?: Array<{ path: string; contents: Buffer }>; zipFlags?: number; compressionMethod?: number; localNames?: Record<string, string>; localMetadata?: Record<string, { flags?: number; method?: number; crc32?: number; compressedBytes?: number; uncompressedBytes?: number }>; compressedByteAdjustments?: Record<string, number>; dataDescriptors?: Record<string, DataDescriptorMetadata> } = {}) {
+function writeCcx(bundle: string, archive: string, options: { prefix?: string; deflate?: boolean; main?: string; manifest?: Record<string, unknown>; duplicateMain?: boolean; localMainName?: string; extra?: Array<{ path: string; contents: Buffer }>; zipFlags?: number; compressionMethod?: number; localNames?: Record<string, string>; localMetadata?: Record<string, { flags?: number; method?: number; crc32?: number; compressedBytes?: number; uncompressedBytes?: number }>; crc32Adjustments?: Record<string, number>; compressedByteAdjustments?: Record<string, number>; dataDescriptors?: Record<string, DataDescriptorMetadata> } = {}) {
   const name = "fixture-addon.uxpaddon";
   const manifest = { ...JSON.parse(readFileSync(join(bundle, "manifest.json"), "utf8")), ...(options.manifest ?? {}) };
   const entries = [
@@ -158,6 +160,7 @@ function writeCcx(bundle: string, archive: string, options: { prefix?: string; d
     method: options.compressionMethod,
     localNames: options.localNames,
     localMetadata: options.localMetadata,
+    crc32Adjustments: options.crc32Adjustments,
     compressedByteAdjustments: options.compressedByteAdjustments,
     dataDescriptors: options.dataDescriptors,
   }));
@@ -331,6 +334,9 @@ describe("UXP Hybrid CCX receipt", () => {
         dataDescriptors: { "docs/readme.txt": { crc32: 0 } },
       });
       await expect(buildUxpHybridCcxReceipt({ ccxPath: archive, addonReceipt, sdkHeaderReceipt: headers })).rejects.toThrow("data descriptor is inconsistent");
+
+      writeCcx(bundle, archive, { crc32Adjustments: { "main.js": 1 } });
+      await expect(buildUxpHybridCcxReceipt({ ccxPath: archive, addonReceipt, sdkHeaderReceipt: headers })).rejects.toThrow("required entry checksum is inconsistent");
 
       writeCcx(bundle, archive, { compressedByteAdjustments: { "manifest.json": 1 } });
       await expect(buildUxpHybridCcxReceipt({ ccxPath: archive, addonReceipt, sdkHeaderReceipt: headers })).rejects.toThrow("local entries overlap");

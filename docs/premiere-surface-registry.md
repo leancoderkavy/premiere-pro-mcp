@@ -44,7 +44,9 @@ contents or entry names, while rejecting inconsistent local ZIP headers. It is
 not UDT, portal, installation, or host-runtime proof. Where a ZIP entry uses a
 streamed data descriptor, the local archive verifier also checks its required
 CRC and sizes against the central directory without extracting unselected
-contents.
+contents. The verifier also recomputes ZIP CRC-32 for the already-required
+manifest, entrypoint, and addon payloads; it does not decompress unselected
+entries.
 
 The same registry pins the exact competitor commits reviewed for feature-gap
 work. A competitor feature family becomes an implementation candidate only
