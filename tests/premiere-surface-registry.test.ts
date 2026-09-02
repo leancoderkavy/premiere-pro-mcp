@@ -17,6 +17,9 @@ type Surface = {
   addonReceiptCommand?: string;
   addonReceiptVerificationCommand?: string;
   addonReceiptDocumentation?: string;
+  ccxReceiptCommand?: string;
+  ccxReceiptVerificationCommand?: string;
+  ccxReceiptDocumentation?: string;
   notes: string;
 };
 
@@ -124,9 +127,14 @@ describe("Premiere API and competitor surface registry", () => {
         addonReceiptCommand: "npm run native:hybrid-addon-receipt",
         addonReceiptVerificationCommand: "npm run native:hybrid-addon-receipt:verify",
         addonReceiptDocumentation: "docs/uxp-hybrid-addon-receipt.md",
+        ccxReceiptCommand: "npm run native:hybrid-ccx-receipt",
+        ccxReceiptVerificationCommand: "npm run native:hybrid-ccx-receipt:verify",
+        ccxReceiptDocumentation: "docs/uxp-hybrid-ccx-receipt.md",
       });
     expect(registry.integrationSurfaces.find((surface) => surface.id === "uxp-hybrid-cpp")?.notes)
       .toContain("root main.js entrypoint and three-target bundle layout");
+    expect(registry.integrationSurfaces.find((surface) => surface.id === "uxp-hybrid-cpp")?.notes)
+      .toContain("CCX archive receipt can bind that current layout receipt");
   });
 
   it("pins reviewed competitor sources and explicit safe-adoption boundaries", () => {

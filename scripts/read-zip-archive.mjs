@@ -1,0 +1,187 @@
+import { createHash } from "node:crypto";
+import { createReadStream } from "node:fs";
+import { open, stat } from "node:fs/promises";
+import { createInflateRaw } from "node:zlib";
+
+const END_OF_CENTRAL_DIRECTORY_SIGNATURE = 0x06054b50;
+const CENTRAL_DIRECTORY_SIGNATURE = 0x02014b50;
+const LOCAL_FILE_SIGNATURE = 0x04034b50;
+const MAX_ZIP32_BYTES = 0xffff_ffff;
+const MAX_CENTRAL_DIRECTORY_BYTES = 64 * 1024 * 1024;
+const MAX_ENTRIES = 100_000;
+
+function archiveError(message) {
+  const error = new Error(message);
+  error.code = "UXP_HYBRID_CCX_ARCHIVE_INVALID";
+  return error;
+}
+
+async function readExactly(handle, bytes, position, label) {
+  const buffer = Buffer.alloc(bytes);
+  const { bytesRead } = await handle.read(buffer, 0, bytes, position);
+  if (bytesRead !== bytes) throw archiveError(`${label} is truncated`);
+  return buffer;
+}
+
+function findEndOfCentralDirectory(tail, archiveBytes) {
+  for (let offset = tail.length - 22; offset >= 0; offset -= 1) {
+    if (tail.readUInt32LE(offset) !== END_OF_CENTRAL_DIRECTORY_SIGNATURE) continue;
+    const commentBytes = tail.readUInt16LE(offset + 20);
+    if (offset + 22 + commentBytes !== tail.length) continue;
+    const disk = tail.readUInt16LE(offset + 4);
+    const directoryDisk = tail.readUInt16LE(offset + 6);
+    const entriesOnDisk = tail.readUInt16LE(offset + 8);
+    const entries = tail.readUInt16LE(offset + 10);
+    const directoryBytes = tail.readUInt32LE(offset + 12);
+    const directoryOffset = tail.readUInt32LE(offset + 16);
+    if (disk !== 0 || directoryDisk !== 0 || entriesOnDisk !== entries) {
+      throw archiveError("CCX archive must be a single-disk ZIP");
+    }
+    if (entries === 0xffff || directoryBytes === 0xffff_ffff || directoryOffset === 0xffff_ffff) {
+      throw archiveError("CCX archive ZIP64 metadata is not supported by this bounded verifier");
+    }
+    if (entries > MAX_ENTRIES || directoryBytes > MAX_CENTRAL_DIRECTORY_BYTES) {
+      throw archiveError("CCX archive central directory exceeds the verifier bounds");
+    }
+    const directoryEnd = directoryOffset + directoryBytes;
+    const eocdPosition = archiveBytes - tail.length + offset;
+    if (!Number.isSafeInteger(directoryEnd) || directoryEnd > eocdPosition) {
+      throw archiveError("CCX archive central directory is outside the ZIP bounds");
+    }
+    return { entries, directoryBytes, directoryOffset };
+  }
+  throw archiveError("CCX archive must contain a conventional ZIP end record");
+}
+
+function readCentralDirectory(buffer, expectedEntries) {
+  const entries = [];
+  let offset = 0;
+  while (offset < buffer.length) {
+    if (offset + 46 > buffer.length || buffer.readUInt32LE(offset) !== CENTRAL_DIRECTORY_SIGNATURE) {
+      throw archiveError("CCX archive central directory entry is invalid");
+    }
+    const flags = buffer.readUInt16LE(offset + 8);
+    const method = buffer.readUInt16LE(offset + 10);
+    const compressedBytes = buffer.readUInt32LE(offset + 20);
+    const uncompressedBytes = buffer.readUInt32LE(offset + 24);
+    const nameBytes = buffer.readUInt16LE(offset + 28);
+    const extraBytes = buffer.readUInt16LE(offset + 30);
+    const commentBytes = buffer.readUInt16LE(offset + 32);
+    const disk = buffer.readUInt16LE(offset + 34);
+    const localOffset = buffer.readUInt32LE(offset + 42);
+    const next = offset + 46 + nameBytes + extraBytes + commentBytes;
+    if (next > buffer.length || disk !== 0) throw archiveError("CCX archive central directory entry is invalid");
+    const name = buffer.subarray(offset + 46, offset + 46 + nameBytes).toString("utf8");
+    if (!name || name.includes("\0")) throw archiveError("CCX archive contains an invalid ZIP entry name");
+    entries.push(Object.freeze({ name, flags, method, compressedBytes, uncompressedBytes, localOffset }));
+    offset = next;
+  }
+  if (entries.length !== expectedEntries) throw archiveError("CCX archive central directory count is inconsistent");
+  return entries;
+}
+
+function pathPrefix(name, expectedPath) {
+  if (name === expectedPath) return "";
+  if (!name.endsWith(`/${expectedPath}`)) return null;
+  const prefix = name.slice(0, name.length - expectedPath.length);
+  const segments = prefix.slice(0, -1).split("/");
+  if (!segments.length || segments.some((segment) => !segment || segment === "." || segment === ".." || /^[A-Za-z]:$/.test(segment))) return null;
+  return prefix;
+}
+
+function selectRequiredEntries(entries, expectedPaths) {
+  const selected = new Map();
+  let commonPrefix;
+  for (const expectedPath of expectedPaths) {
+    const matches = entries.map((entry) => ({ entry, prefix: pathPrefix(entry.name, expectedPath) }))
+      .filter((candidate) => candidate.prefix !== null);
+    if (matches.length !== 1) throw archiveError(`CCX archive must contain exactly one ${expectedPath} entry`);
+    const [{ entry, prefix }] = matches;
+    if (commonPrefix === undefined) commonPrefix = prefix;
+    else if (commonPrefix !== prefix) throw archiveError("CCX archive required entries must share one bundle root");
+    selected.set(expectedPath, entry);
+  }
+  return selected;
+}
+
+async function localDataRange(archivePath, entry, archiveBytes) {
+  const handle = await open(archivePath, "r");
+  try {
+    if (entry.localOffset + 30 > archiveBytes) throw archiveError("CCX archive local entry is outside the ZIP bounds");
+    const local = await readExactly(handle, 30, entry.localOffset, "CCX archive local entry");
+    if (local.readUInt32LE(0) !== LOCAL_FILE_SIGNATURE) throw archiveError("CCX archive local entry is invalid");
+    const flags = local.readUInt16LE(6);
+    const method = local.readUInt16LE(8);
+    if (flags !== entry.flags || method !== entry.method) throw archiveError("CCX archive local entry metadata is inconsistent");
+    if (entry.flags & 0x1 || entry.flags & 0x40) throw archiveError("CCX archive required entries must not be encrypted");
+    if (entry.method !== 0 && entry.method !== 8) throw archiveError("CCX archive required entries must use stored or deflate compression");
+    const localNameBytes = local.readUInt16LE(26);
+    const localExtraBytes = local.readUInt16LE(28);
+    const localName = await readExactly(handle, localNameBytes, entry.localOffset + 30, "CCX archive local entry name");
+    if (localName.toString("utf8") !== entry.name) throw archiveError("CCX archive local entry name is inconsistent");
+    const dataStart = entry.localOffset + 30 + localNameBytes + localExtraBytes;
+    const dataEnd = dataStart + entry.compressedBytes;
+    if (!Number.isSafeInteger(dataEnd) || dataEnd > archiveBytes) throw archiveError("CCX archive local entry is outside the ZIP bounds");
+    return { dataStart, dataEnd };
+  } finally {
+    await handle.close();
+  }
+}
+
+async function consumeZipEntry(archivePath, archiveBytes, entry, maximumBytes, collect) {
+  const { dataStart, dataEnd } = await localDataRange(archivePath, entry, archiveBytes);
+  const input = createReadStream(archivePath, { start: dataStart, end: dataEnd - 1 });
+  const stream = entry.method === 8 ? input.pipe(createInflateRaw()) : input;
+  const digest = createHash("sha256");
+  const chunks = [];
+  let bytes = 0;
+  try {
+    for await (const chunk of stream) {
+      bytes += chunk.length;
+      if (!Number.isSafeInteger(bytes) || bytes > maximumBytes) throw archiveError("CCX archive required entry exceeds the verifier bounds");
+      digest.update(chunk);
+      if (collect) chunks.push(chunk);
+    }
+  } catch (error) {
+    if (error?.code === "UXP_HYBRID_CCX_ARCHIVE_INVALID") throw error;
+    throw archiveError("CCX archive required entry cannot be decompressed");
+  }
+  if (bytes !== entry.uncompressedBytes) throw archiveError("CCX archive required entry size is inconsistent");
+  return { bytes, sha256: digest.digest("hex"), buffer: collect ? Buffer.concat(chunks, bytes) : undefined };
+}
+
+export async function inspectZipArchive(archivePath, expectedPaths) {
+  let archive;
+  try { archive = await stat(archivePath); } catch { throw archiveError("CCX archive must be a readable file"); }
+  if (!archive.isFile() || !Number.isSafeInteger(archive.size) || archive.size < 22 || archive.size > MAX_ZIP32_BYTES) {
+    throw archiveError("CCX archive must be a bounded ZIP file");
+  }
+  const tailBytes = Math.min(archive.size, 22 + 0xffff);
+  const handle = await open(archivePath, "r");
+  try {
+    const tail = await readExactly(handle, tailBytes, archive.size - tailBytes, "CCX archive end record");
+    const end = findEndOfCentralDirectory(tail, archive.size);
+    const directory = await readExactly(handle, end.directoryBytes, end.directoryOffset, "CCX archive central directory");
+    return Object.freeze({ bytes: archive.size, selected: selectRequiredEntries(readCentralDirectory(directory, end.entries), expectedPaths) });
+  } finally {
+    await handle.close();
+  }
+}
+
+export async function hashZipEntry(archivePath, archiveBytes, entry, maximumBytes) {
+  return consumeZipEntry(archivePath, archiveBytes, entry, maximumBytes, false);
+}
+
+export async function readZipEntry(archivePath, archiveBytes, entry, maximumBytes) {
+  return consumeZipEntry(archivePath, archiveBytes, entry, maximumBytes, true);
+}
+
+export async function sha256File(archivePath) {
+  const digest = createHash("sha256");
+  try {
+    for await (const chunk of createReadStream(archivePath)) digest.update(chunk);
+  } catch {
+    throw archiveError("CCX archive must be readable");
+  }
+  return digest.digest("hex");
+}

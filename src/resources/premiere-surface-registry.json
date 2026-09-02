@@ -78,7 +78,10 @@
       "addonReceiptCommand": "npm run native:hybrid-addon-receipt",
       "addonReceiptVerificationCommand": "npm run native:hybrid-addon-receipt:verify",
       "addonReceiptDocumentation": "docs/uxp-hybrid-addon-receipt.md",
-      "notes": "The downloadable SDK headers are access-controlled. The header receipt and standalone verifier can account for an authorized artifact without copying it; a local addon-layout receipt can additionally account for the public root main.js entrypoint and three-target bundle layout without copying source or binaries. A candidate benchmark must bind its runs to a matching verified SDK receipt, and remains disabled until exact SDK, reproducible builds, and cross-platform evidence are available."
+      "ccxReceiptCommand": "npm run native:hybrid-ccx-receipt",
+      "ccxReceiptVerificationCommand": "npm run native:hybrid-ccx-receipt:verify",
+      "ccxReceiptDocumentation": "docs/uxp-hybrid-ccx-receipt.md",
+      "notes": "The downloadable SDK headers are access-controlled. The header receipt and standalone verifier can account for an authorized artifact without copying it; a local addon-layout receipt can additionally account for the public root main.js entrypoint and three-target bundle layout without copying source or binaries. A local CCX archive receipt can bind that current layout receipt to the byte-identical required files in a local ZIP-format installer, without copying archive contents. A candidate benchmark must bind its runs to a matching verified SDK receipt, and remains disabled until exact SDK, reproducible builds, and cross-platform evidence are available."
     },
     {
       "id": "premiere-cpp-sdk",

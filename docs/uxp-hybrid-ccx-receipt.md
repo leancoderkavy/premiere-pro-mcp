@@ -1,0 +1,62 @@
+# UXP Hybrid CCX archive receipt
+
+Adobe documents `.ccx` installers as regular ZIP files and recommends creating
+them with UXP Developer Tool (UDT). A Hybrid distribution package must retain
+the Hybrid manifest, root `main.js`, and required platform-specific
+`.uxpaddon` files. This repository does not contain a Hybrid SDK, native source,
+addon binary, UDT installation, or packaged installer.
+
+`npm run native:hybrid-ccx-receipt` is a bounded local verifier for a personally
+authorized archive. It requires the existing schema-v2 Hybrid addon-layout
+receipt and its verified Hybrid SDK header receipt. It reads the ZIP directory
+without extracting any archive contents to disk, then confirms that exactly one
+common bundle root contains these byte-identical required files:
+
+```text
+manifest.json
+main.js
+mac/x64/<addon name>.uxpaddon
+mac/arm64/<addon name>.uxpaddon
+win/x64/<addon name>.uxpaddon
+```
+
+The resulting receipt records only the CCX byte count and SHA-256, a SHA-256
+commitment and length for the manifest's nonempty `id`, minimal manifest facts,
+the canonical addon-layout receipt digest, and aggregate file totals. It does
+not copy the archive, manifest, ID, entrypoint, binaries, SDK headers, absolute
+paths, or signing material.
+
+```powershell
+npm run native:hybrid-ccx-receipt -- `
+  --ccx C:\hybrid-evidence\fixture-hybrid-plugin.ccx `
+  --addon-receipt C:\hybrid-evidence\fixture-addon-layout.json `
+  --sdk-header-receipt C:\sdk-evidence\uxp-hybrid-headers.json `
+  --output C:\hybrid-evidence\fixture-ccx.json
+```
+
+Use `--validate-only` to examine a local archive without writing a receipt, or
+`--check` to compare a regenerated receipt to a reviewed local file. The
+standalone verifier re-reads the archive and fails if its required files, ZIP
+identity, manifest facts, header provenance, or addon-layout receipt binding
+changed:
+
+```powershell
+npm run native:hybrid-ccx-receipt:verify -- `
+  --input C:\hybrid-evidence\fixture-ccx.json `
+  --ccx C:\hybrid-evidence\fixture-hybrid-plugin.ccx `
+  --addon-receipt C:\hybrid-evidence\fixture-addon-layout.json `
+  --sdk-header-receipt C:\sdk-evidence\uxp-hybrid-headers.json `
+  --print-canonical-sha256
+```
+
+This verifies ZIP structure and a content-free local integrity binding. It does
+**not** prove that UDT created the archive, that the manifest ID is valid in or
+matches Adobe's Developer Distribution portal, that a binary was compiled with
+the SDK or has its advertised architecture, code-signing or notarization,
+installation, UDT loading, Marketplace acceptance, MCP exposure, or behavior
+in a licensed Premiere host. Those remain separate build, signing, distribution,
+and licensed-host gates.
+
+Official references: [Package a UXP plugin](https://developer.adobe.com/premiere-pro/uxp/plugins/distribution/package/),
+[Building Hybrid Plugins](https://developer.adobe.com/premiere-pro/uxp/plugins/hybrid-plugins/build/),
+and [Hybrid Plugins](https://developer.adobe.com/premiere-pro/uxp/plugins/hybrid-plugins/).
