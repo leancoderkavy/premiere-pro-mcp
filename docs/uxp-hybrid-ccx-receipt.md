@@ -20,11 +20,14 @@ mac/arm64/<addon name>.uxpaddon
 win/x64/<addon name>.uxpaddon
 ```
 
-The resulting receipt records only the CCX byte count and SHA-256, a SHA-256
-commitment and length for the manifest's nonempty `id`, minimal manifest facts,
-the canonical addon-layout receipt digest, and aggregate file totals. It does
-not copy the archive, manifest, ID, entrypoint, binaries, SDK headers, absolute
-paths, or signing material.
+The current schema-v2 receipt records only the CCX byte count and SHA-256, a
+SHA-256 commitment and length for the manifest's nonempty `id`, minimal
+manifest facts, the canonical addon-layout receipt digest, aggregate ZIP
+entry/file/directory totals, and a one-way digest of the complete safe
+entry-name set. It does not copy the archive, entry names, manifest, ID,
+entrypoint, binaries, SDK headers, absolute paths, or signing material. The
+standalone verifier retains schema-v1 receipt compatibility for historical
+records; new receipts use schema v2.
 
 ```powershell
 npm run native:hybrid-ccx-receipt -- `
@@ -36,9 +39,10 @@ npm run native:hybrid-ccx-receipt -- `
 
 Use `--validate-only` to examine a local archive without writing a receipt, or
 `--check` to compare a regenerated receipt to a reviewed local file. The
-standalone verifier re-reads the archive and fails if its required files, ZIP
-identity, manifest facts, header provenance, or addon-layout receipt binding
-changed:
+standalone verifier re-reads the archive and fails if any ZIP entry is unsafe,
+duplicated, encrypted, or uses unsupported compression, or if its required
+files, ZIP identity, manifest facts, header provenance, addon-layout receipt
+binding, or complete entry-name-set digest changed:
 
 ```powershell
 npm run native:hybrid-ccx-receipt:verify -- `

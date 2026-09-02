@@ -71,13 +71,46 @@ function readCentralDirectory(buffer, expectedEntries) {
     const localOffset = buffer.readUInt32LE(offset + 42);
     const next = offset + 46 + nameBytes + extraBytes + commentBytes;
     if (next > buffer.length || disk !== 0) throw archiveError("CCX archive central directory entry is invalid");
-    const name = buffer.subarray(offset + 46, offset + 46 + nameBytes).toString("utf8");
-    if (!name || name.includes("\0")) throw archiveError("CCX archive contains an invalid ZIP entry name");
+    const rawName = buffer.subarray(offset + 46, offset + 46 + nameBytes);
+    const name = rawName.toString("utf8");
+    if (!name || !rawName.equals(Buffer.from(name, "utf8"))) {
+      throw archiveError("CCX archive contains an invalid ZIP entry name");
+    }
     entries.push(Object.freeze({ name, flags, method, compressedBytes, uncompressedBytes, localOffset }));
     offset = next;
   }
   if (entries.length !== expectedEntries) throw archiveError("CCX archive central directory count is inconsistent");
   return entries;
+}
+
+function validateArchiveEntries(entries) {
+  const names = new Set();
+  let directories = 0;
+  for (const entry of entries) {
+    if (entry.flags & 0x1 || entry.flags & 0x40) throw archiveError("CCX archive entries must not be encrypted");
+    if (entry.method !== 0 && entry.method !== 8) {
+      throw archiveError("CCX archive entries must use stored or deflate compression");
+    }
+    const { name } = entry;
+    if (name.length > 1024 || /[\0-\x1f\x7f]/.test(name) || name.includes("\\") || name.startsWith("/") || /^[A-Za-z]:/.test(name)) {
+      throw archiveError("CCX archive contains an unsafe ZIP entry name");
+    }
+    const isDirectory = name.endsWith("/");
+    const segments = name.split("/");
+    if (isDirectory) segments.pop();
+    if (segments.length === 0 || segments.some((segment) => !segment || segment === "." || segment === ".." || /^[A-Za-z]:$/.test(segment))) {
+      throw archiveError("CCX archive contains an unsafe ZIP entry name");
+    }
+    if (names.has(name)) throw archiveError("CCX archive contains duplicate ZIP entry names");
+    names.add(name);
+    if (isDirectory) directories += 1;
+  }
+  return Object.freeze({
+    entries: entries.length,
+    files: entries.length - directories,
+    directories,
+    pathSetSha256: createHash("sha256").update(JSON.stringify(Array.from(names).sort())).digest("hex"),
+  });
 }
 
 function pathPrefix(name, expectedPath) {
@@ -162,7 +195,12 @@ export async function inspectZipArchive(archivePath, expectedPaths) {
     const tail = await readExactly(handle, tailBytes, archive.size - tailBytes, "CCX archive end record");
     const end = findEndOfCentralDirectory(tail, archive.size);
     const directory = await readExactly(handle, end.directoryBytes, end.directoryOffset, "CCX archive central directory");
-    return Object.freeze({ bytes: archive.size, selected: selectRequiredEntries(readCentralDirectory(directory, end.entries), expectedPaths) });
+    const entries = readCentralDirectory(directory, end.entries);
+    return Object.freeze({
+      bytes: archive.size,
+      summary: validateArchiveEntries(entries),
+      selected: selectRequiredEntries(entries, expectedPaths),
+    });
   } finally {
     await handle.close();
   }

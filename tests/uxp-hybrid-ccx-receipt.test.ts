@@ -6,6 +6,7 @@ import { tmpdir } from "node:os";
 import { deflateRawSync } from "node:zlib";
 import { describe, expect, it } from "vitest";
 import { NATIVE_SDK_HEADER_INVENTORY_SEMANTICS } from "../scripts/native-sdk-header-inventory-contract.mjs";
+import { UXP_HYBRID_CCX_RECEIPT_LEGACY_SEMANTICS } from "../scripts/uxp-hybrid-ccx-receipt-contract.mjs";
 import {
   buildUxpHybridCcxReceipt,
   canonicalUxpHybridCcxReceiptSha256,
@@ -70,18 +71,19 @@ function crc32(buffer: Buffer) {
   return (value ^ 0xffff_ffff) >>> 0;
 }
 
-function createZip(entries: Array<{ path: string; contents: Buffer }>, prefix = "", deflate = true, localNameOverride?: string) {
+function createZip(entries: Array<{ path: string; contents: Buffer }>, prefix = "", deflate = true, localNameOverride?: string, options: { flags?: number; method?: number } = {}) {
   const locals: Buffer[] = [];
   const centrals: Buffer[] = [];
   let localOffset = 0;
   for (const entry of entries) {
     const name = Buffer.from(`${prefix}${entry.path}`, "utf8");
-    const compressed = deflate ? deflateRawSync(entry.contents) : entry.contents;
-    const method = deflate ? 8 : 0;
+    const method = options.method ?? (deflate ? 8 : 0);
+    const compressed = method === 8 ? deflateRawSync(entry.contents) : entry.contents;
+    const flags = 0x800 | (options.flags ?? 0);
     const local = Buffer.alloc(30);
     local.writeUInt32LE(0x04034b50, 0);
     local.writeUInt16LE(20, 4);
-    local.writeUInt16LE(0x800, 6);
+    local.writeUInt16LE(flags, 6);
     local.writeUInt16LE(method, 8);
     local.writeUInt32LE(crc32(entry.contents), 14);
     local.writeUInt32LE(compressed.length, 18);
@@ -95,7 +97,7 @@ function createZip(entries: Array<{ path: string; contents: Buffer }>, prefix = 
     central.writeUInt32LE(0x02014b50, 0);
     central.writeUInt16LE(20, 4);
     central.writeUInt16LE(20, 6);
-    central.writeUInt16LE(0x800, 8);
+    central.writeUInt16LE(flags, 8);
     central.writeUInt16LE(method, 10);
     central.writeUInt32LE(crc32(entry.contents), 16);
     central.writeUInt32LE(compressed.length, 20);
@@ -115,7 +117,7 @@ function createZip(entries: Array<{ path: string; contents: Buffer }>, prefix = 
   return Buffer.concat([...locals, central, end]);
 }
 
-function writeCcx(bundle: string, archive: string, options: { prefix?: string; deflate?: boolean; main?: string; manifest?: Record<string, unknown>; duplicateMain?: boolean; localMainName?: string } = {}) {
+function writeCcx(bundle: string, archive: string, options: { prefix?: string; deflate?: boolean; main?: string; manifest?: Record<string, unknown>; duplicateMain?: boolean; localMainName?: string; extra?: Array<{ path: string; contents: Buffer }>; zipFlags?: number; compressionMethod?: number } = {}) {
   const name = "fixture-addon.uxpaddon";
   const manifest = { ...JSON.parse(readFileSync(join(bundle, "manifest.json"), "utf8")), ...(options.manifest ?? {}) };
   const entries = [
@@ -125,8 +127,12 @@ function writeCcx(bundle: string, archive: string, options: { prefix?: string; d
     { path: `mac/arm64/${name}`, contents: readFileSync(join(bundle, "mac", "arm64", name)) },
     { path: `win/x64/${name}`, contents: readFileSync(join(bundle, "win", "x64", name)) },
   ];
+  entries.push(...(options.extra ?? []));
   if (options.duplicateMain) entries.push({ path: "main.js", contents: Buffer.from("duplicate") });
-  writeFileSync(archive, createZip(entries, options.prefix ?? "", options.deflate ?? true, options.localMainName));
+  writeFileSync(archive, createZip(entries, options.prefix ?? "", options.deflate ?? true, options.localMainName, {
+    flags: options.zipFlags,
+    method: options.compressionMethod,
+  }));
 }
 
 describe("UXP Hybrid CCX receipt", () => {
@@ -143,9 +149,10 @@ describe("UXP Hybrid CCX receipt", () => {
       const receipt = await buildUxpHybridCcxReceipt({ ccxPath: archive, addonReceipt, sdkHeaderReceipt: headers });
 
       expect(receipt).toMatchObject({
-        schemaVersion: 1,
+        schemaVersion: 2,
         source: { sdk: "uxp-hybrid", addonReceiptSha256: expect.stringMatching(/^[a-f0-9]{64}$/) },
         archive: { format: "zip", bytes: expect.any(Number), sha256: expect.stringMatching(/^[a-f0-9]{64}$/) },
+        contents: { entries: 5, files: 5, directories: 0, pathSetSha256: expect.stringMatching(/^[a-f0-9]{64}$/) },
         manifest: { idLength: "fixture-hybrid-plugin".length, idSha256: expect.stringMatching(/^[a-f0-9]{64}$/), addonName: "fixture-addon.uxpaddon" },
         stats: { artifacts: 3, entrypoints: 1 },
       });
@@ -155,8 +162,44 @@ describe("UXP Hybrid CCX receipt", () => {
         entrypoints: 1,
         entrypointBytes: addonReceipt.stats.entrypointBytes,
       });
+      const { contents: ignoredContents, ...legacyReceipt } = receipt;
+      expect(ignoredContents).toBeDefined();
+      expect(verifyUxpHybridCcxReceipt({
+        ...legacyReceipt,
+        schemaVersion: 1,
+        semantics: UXP_HYBRID_CCX_RECEIPT_LEGACY_SEMANTICS,
+      }, { addonReceipt, sdkHeaderReceipt: headers })).toEqual({
+        artifacts: 3,
+        addonBytes: addonReceipt.stats.addonBytes,
+        entrypoints: 1,
+        entrypointBytes: addonReceipt.stats.entrypointBytes,
+      });
+      const legacyPath = join(directory, "legacy-ccx-receipt.json");
+      const legacyHeadersPath = join(directory, "legacy-headers.json");
+      const legacyAddonPath = join(directory, "legacy-addon-receipt.json");
+      writeFileSync(legacyPath, `${JSON.stringify({
+        ...legacyReceipt,
+        schemaVersion: 1,
+        semantics: UXP_HYBRID_CCX_RECEIPT_LEGACY_SEMANTICS,
+      }, null, 2)}\n`);
+      writeFileSync(legacyHeadersPath, `${JSON.stringify(headers, null, 2)}\n`);
+      writeFileSync(legacyAddonPath, `${JSON.stringify(addonReceipt, null, 2)}\n`);
+      const legacyVerified = spawnSync(process.execPath, [
+        "scripts/verify-uxp-hybrid-ccx-receipt.mjs",
+        "--input", legacyPath,
+        "--ccx", archive,
+        "--addon-receipt", legacyAddonPath,
+        "--sdk-header-receipt", legacyHeadersPath,
+      ], { encoding: "utf8" });
+      expect(legacyVerified.status).toBe(0);
+      expect(legacyVerified.stdout).toContain("UXP Hybrid CCX receipt is valid");
+      expect(() => verifyUxpHybridCcxReceipt({
+        ...receipt,
+        contents: { ...receipt.contents, files: receipt.contents.files - 1 },
+      })).toThrow("contents file and directory totals must match entries");
       expect(canonicalUxpHybridCcxReceiptSha256(receipt)).toMatch(/^[a-f0-9]{64}$/);
       expect(JSON.stringify(receipt)).not.toContain("fixture-hybrid-plugin");
+      expect(JSON.stringify(receipt)).not.toContain("mac/x64");
       expect(JSON.stringify(receipt)).not.toContain("const addon");
       expect(JSON.stringify(receipt)).not.toContain("mac intel fixture");
       expect(JSON.stringify(receipt)).not.toContain(directory);
@@ -219,7 +262,7 @@ describe("UXP Hybrid CCX receipt", () => {
     }
   });
 
-  it("fails closed for a missing manifest ID, duplicate or inconsistent entrypoint, or content that differs from the addon receipt", async () => {
+  it("fails closed for malformed manifest, ZIP, entrypoint, and addon content", async () => {
     const directory = mkdtempSync(join(tmpdir(), "premiere-hybrid-ccx-receipt-invalid-"));
     const bundle = join(directory, "bundle");
     const archive = join(directory, "fixture.ccx");
@@ -233,13 +276,22 @@ describe("UXP Hybrid CCX receipt", () => {
       await expect(buildUxpHybridCcxReceipt({ ccxPath: archive, addonReceipt, sdkHeaderReceipt: headers })).rejects.toThrow("manifest.json id must be a non-empty string");
 
       writeCcx(bundle, archive, { duplicateMain: true });
-      await expect(buildUxpHybridCcxReceipt({ ccxPath: archive, addonReceipt, sdkHeaderReceipt: headers })).rejects.toThrow("exactly one main.js entry");
+      await expect(buildUxpHybridCcxReceipt({ ccxPath: archive, addonReceipt, sdkHeaderReceipt: headers })).rejects.toThrow("duplicate ZIP entry names");
 
       writeCcx(bundle, archive, { localMainName: "renamed-main.js" });
       await expect(buildUxpHybridCcxReceipt({ ccxPath: archive, addonReceipt, sdkHeaderReceipt: headers })).rejects.toThrow("local entry name is inconsistent");
 
       writeCcx(bundle, archive, { main: "changed entrypoint" });
       await expect(buildUxpHybridCcxReceipt({ ccxPath: archive, addonReceipt, sdkHeaderReceipt: headers })).rejects.toThrow("CCX archive main.js must match the addon-layout receipt");
+
+      writeCcx(bundle, archive, { extra: [{ path: "C:Headers", contents: Buffer.from("unsafe") }] });
+      await expect(buildUxpHybridCcxReceipt({ ccxPath: archive, addonReceipt, sdkHeaderReceipt: headers })).rejects.toThrow("unsafe ZIP entry name");
+
+      writeCcx(bundle, archive, { zipFlags: 0x1 });
+      await expect(buildUxpHybridCcxReceipt({ ccxPath: archive, addonReceipt, sdkHeaderReceipt: headers })).rejects.toThrow("entries must not be encrypted");
+
+      writeCcx(bundle, archive, { compressionMethod: 12 });
+      await expect(buildUxpHybridCcxReceipt({ ccxPath: archive, addonReceipt, sdkHeaderReceipt: headers })).rejects.toThrow("stored or deflate compression");
     } finally {
       rmSync(directory, { recursive: true, force: true });
     }

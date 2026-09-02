@@ -21,6 +21,7 @@ type Surface = {
   ccxReceiptCommand?: string;
   ccxReceiptVerificationCommand?: string;
   ccxReceiptDocumentation?: string;
+  ccxReceiptSchemaVersion?: number;
   notes: string;
 };
 
@@ -132,11 +133,12 @@ describe("Premiere API and competitor surface registry", () => {
         ccxReceiptCommand: "npm run native:hybrid-ccx-receipt",
         ccxReceiptVerificationCommand: "npm run native:hybrid-ccx-receipt:verify",
         ccxReceiptDocumentation: "docs/uxp-hybrid-ccx-receipt.md",
+        ccxReceiptSchemaVersion: 2,
       });
     expect(registry.integrationSurfaces.find((surface) => surface.id === "uxp-hybrid-cpp")?.notes)
       .toContain("root main.js entrypoint and three-target bundle layout");
     expect(registry.integrationSurfaces.find((surface) => surface.id === "uxp-hybrid-cpp")?.notes)
-      .toContain("CCX archive receipt can bind that current layout receipt");
+      .toContain("schema-v2 local CCX archive receipt can bind that current layout receipt");
     expect(registry.integrationSurfaces.find((surface) => surface.id === "uxp-hybrid-cpp")?.notes)
       .toContain("schema-v3 candidate benchmark");
   });
