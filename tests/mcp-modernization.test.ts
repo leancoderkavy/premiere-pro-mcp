@@ -150,6 +150,17 @@ describe("modern MCP surface", () => {
         "create_editorial_plan",
         "preview_editorial_plan",
       ]));
+      expect(tools.tools.find((tool) => tool.name === "create_editorial_context_pack")?.inputSchema)
+        .toMatchObject({
+          properties: {
+            max_entries: { type: "integer", minimum: 1, maximum: 50 },
+            max_characters: { type: "integer", minimum: 1024, maximum: 24_000 },
+          },
+        });
+      expect(tools.tools.find((tool) => tool.name === "search_project_context")?.inputSchema)
+        .toMatchObject({
+          properties: { max_results: { type: "integer", minimum: 1, maximum: 50 } },
+        });
 
       const capabilities = await client.callTool({
         name: "get_capabilities",

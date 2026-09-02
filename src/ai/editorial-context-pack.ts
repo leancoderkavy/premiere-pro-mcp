@@ -48,7 +48,7 @@ export interface EditorialContextPack {
 export interface BuildEditorialContextPackOptions {
   intent: string;
   results: ProjectContextSearchResult[];
-  /** Bounded callers may provide a one-result overflow probe for honest truncation metadata. */
+  /** Exact pre-limit relevant-match count used for honest truncation metadata. */
   totalResultCount?: number;
   maxEntries?: number;
   maxCharacters?: number;

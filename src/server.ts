@@ -184,8 +184,11 @@ function jsonSchemaPropToZod(prop: Record<string, unknown>): z.ZodTypeAny {
     return z.string();
   }
 
-  if (propType === "number") {
-    return z.number();
+  if (propType === "number" || propType === "integer") {
+    let schema = propType === "integer" ? z.number().int() : z.number();
+    if (typeof prop.minimum === "number") schema = schema.min(prop.minimum);
+    if (typeof prop.maximum === "number") schema = schema.max(prop.maximum);
+    return schema;
   }
 
   if (propType === "boolean") {

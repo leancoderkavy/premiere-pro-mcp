@@ -410,7 +410,7 @@ export function searchProjectContext(
   if (!query) throw new Error("query must not be empty");
   const queryTerms = tokens(query);
   const kindFilter = options.kinds?.length ? new Set(options.kinds) : undefined;
-  const limit = Math.max(1, Math.min(MAX_CONTEXT_RECORDS, Math.trunc(options.limit ?? 12)));
+  const limit = Math.max(1, Math.min(50, Math.trunc(options.limit ?? 12)));
 
   return document.records
     .filter((record) => !options.sequenceId || record.sequenceId === options.sequenceId)
