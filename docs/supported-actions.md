@@ -13,8 +13,8 @@ source catalog may include unreleased actions.
 | Registered core actions | 328 | CEP/local server catalog; host and authority checks still apply |
 | Default-profile core actions | 326 | Advertised with `inspect,edit,export,filesystem` |
 | Restricted core actions | 2 | Require explicit `unsafe-script` authority |
-| Authenticated UXP additions | 78 | Advertised only while a compatible authenticated UXP panel is connected |
-| Default profile with UXP | 404 | 326 core plus 78 UXP tools |
+| Authenticated UXP additions | 79 | Advertised only while a compatible authenticated UXP panel is connected |
+| Default profile with UXP | 405 | 326 core plus 79 UXP tools |
 
 ## How to read support
 
