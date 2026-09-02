@@ -135,6 +135,7 @@ function advancedHost() {
   const trackState = { name: "Interview V", start: 10, end: 20, inPoint: 0, outPoint: 10, disabled: false };
   const trackItem = {
     getComponentChain: vi.fn(async () => chain),
+    getProjectItem: vi.fn(async () => clip),
     getName: vi.fn(async () => trackState.name),
     getStartTime: vi.fn(async () => ({ seconds: trackState.start })),
     getEndTime: vi.fn(async () => ({ seconds: trackState.end })),
@@ -304,7 +305,7 @@ function advancedHost() {
   return {
     registry: Commands.createCommandRegistry({ ppro, Protocol, workspace, events }),
     project, ppro, workspace, markers, markerValues, root, bin, clip,
-    sequence, sequences, settings, settingsState, parameterState, trackState, editor, manager, events,
+    sequence, sequences, settings, settingsState, parameterState, trackState, trackItem, editor, manager, events,
   };
 }
 
@@ -937,8 +938,27 @@ describe("advanced stable Premiere UXP workflows", () => {
       ],
     });
     expect(allSnapshot.trackCounts).toEqual({ video: 1, audio: 1 });
+    expect(value.trackItem.getProjectItem).not.toHaveBeenCalled();
     expect(value.project.lockedAccess).not.toHaveBeenCalled();
     expect(value.project.executeTransaction).not.toHaveBeenCalled();
+
+    const sourceOptIn = advancedHost();
+    const sourceSnapshot = await sourceOptIn.registry.dispatch("timeline.structure.inspect", {
+      mediaType: "video", includeSourceProjectItems: true,
+    });
+    expect(sourceSnapshot.tracks).toMatchObject([
+      { mediaType: "video", trackIndex: 0, items: [{ sourceProjectItemId: "clip-1" }] },
+    ]);
+    expect(sourceOptIn.trackItem.getProjectItem).toHaveBeenCalledTimes(1);
+    expect(sourceOptIn.clip.getId).toHaveBeenCalledTimes(1);
+    expect(sourceOptIn.project.lockedAccess).not.toHaveBeenCalled();
+    expect(sourceOptIn.project.executeTransaction).not.toHaveBeenCalled();
+
+    const unavailableSource = advancedHost();
+    unavailableSource.trackItem.getProjectItem.mockRejectedValueOnce(new Error("source item unavailable"));
+    await expect(unavailableSource.registry.dispatch("timeline.structure.inspect", {
+      mediaType: "video", includeSourceProjectItems: true,
+    })).resolves.toMatchObject({ tracks: [{ items: [{ sourceProjectItemId: null }] }] });
 
     const videoOnly = advancedHost();
     const videoOnlySnapshot = await videoOnly.registry.dispatch("timeline.structure.inspect", { mediaType: "video" });
@@ -955,6 +975,9 @@ describe("advanced stable Premiere UXP workflows", () => {
     })).rejects.toMatchObject({ code: "UXP_STALE_SEQUENCE" });
     await expect(value.registry.dispatch("timeline.structure.inspect", {
       trackIndices: [0, 0],
+    })).rejects.toMatchObject({ code: "UXP_INVALID_ARGUMENT" });
+    await expect(value.registry.dispatch("timeline.structure.inspect", {
+      includeSourceProjectItems: "yes",
     })).rejects.toMatchObject({ code: "UXP_INVALID_ARGUMENT" });
     await expect(value.registry.dispatch("timeline.structure.inspect", {
       mediaType: "all", maxItems: 1,
