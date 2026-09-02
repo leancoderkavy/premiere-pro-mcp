@@ -328,6 +328,12 @@ describe("UXP command registry", () => {
   });
 
   it("fails closed for stale, rejected, unreadable, and unavailable sequence player-position setters", async () => {
+    const staleSequence = host();
+    await expect(staleSequence.registry.dispatch("sequence.playhead.set", {
+      expectedSequenceGuid: "other-sequence", expectedPositionSeconds: 3, positionSeconds: 8,
+    })).rejects.toMatchObject({ code: "UXP_STALE_SEQUENCE" });
+    expect(staleSequence.sequence.setPlayerPosition).not.toHaveBeenCalled();
+
     const staleDuringConversion = host();
     staleDuringConversion.ppro.TickTime.createWithSeconds.mockImplementation((seconds: number) => {
       staleDuringConversion.playhead.positionSeconds = 4;

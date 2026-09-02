@@ -86,8 +86,9 @@ bounded `operation_id` replay key where applicable.
 - `manage_sequence_playhead_uxp`: `inspect` returns the active sequence GUID and
   current player position. `set` requires both exact values plus a requested
   position, each finite and within 0 through 86400 seconds. A changed sequence or
-  position rejects before the setter is called; accepted requests require boolean
-  host confirmation and exact player-position readback. It controls UI player
+  position outside a one-microsecond tolerance rejects before the setter is called;
+  accepted requests require boolean host confirmation and player-position readback
+  within that same tolerance. It controls UI player
   state only, so it does not claim a project save or Undo entry.
 - `has_transcript_uxp`: accepts at most one resolved `project_item_id` or
   `project_item_name`; omitting both requires exactly one Project-panel selection.
