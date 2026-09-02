@@ -19,6 +19,10 @@ const ZIP_FLAG_UTF8 = 0x0800;
 const ZIP_FLAG_CENTRAL_DIRECTORY_ENCRYPTION = 0x2000;
 const ENCRYPTED_ENTRY_FLAGS = ZIP_FLAG_ENCRYPTED | ZIP_FLAG_STRONG_ENCRYPTION | ZIP_FLAG_CENTRAL_DIRECTORY_ENCRYPTION;
 const SUPPORTED_GENERAL_PURPOSE_FLAGS = ZIP_FLAG_MAXIMUM_COMPRESSION | ZIP_FLAG_FAST_COMPRESSION | ZIP_FLAG_DATA_DESCRIPTOR | ZIP_FLAG_UTF8;
+const ZIP_HOST_UNIX = 3;
+const UNIX_FILE_TYPE_MASK = 0o170000;
+const UNIX_FILE_TYPE_DIRECTORY = 0o040000;
+const UNIX_FILE_TYPE_REGULAR = 0o100000;
 const CRC32_TABLE = Uint32Array.from({ length: 256 }, (_, index) => {
   let value = index;
   for (let bit = 0; bit < 8; bit += 1) value = (value >>> 1) ^ (value & 1 ? 0xedb8_8320 : 0);
@@ -81,6 +85,7 @@ function readCentralDirectory(buffer, expectedEntries) {
     if (offset + 46 > buffer.length || buffer.readUInt32LE(offset) !== CENTRAL_DIRECTORY_SIGNATURE) {
       throw archiveError("CCX archive central directory entry is invalid");
     }
+    const versionMadeBy = buffer.readUInt16LE(offset + 4);
     const versionNeeded = buffer.readUInt16LE(offset + 6);
     const flags = buffer.readUInt16LE(offset + 8);
     const method = buffer.readUInt16LE(offset + 10);
@@ -91,6 +96,7 @@ function readCentralDirectory(buffer, expectedEntries) {
     const extraBytes = buffer.readUInt16LE(offset + 30);
     const commentBytes = buffer.readUInt16LE(offset + 32);
     const disk = buffer.readUInt16LE(offset + 34);
+    const externalAttributes = buffer.readUInt32LE(offset + 38);
     const localOffset = buffer.readUInt32LE(offset + 42);
     const next = offset + 46 + nameBytes + extraBytes + commentBytes;
     if (next > buffer.length || disk !== 0) throw archiveError("CCX archive central directory entry is invalid");
@@ -105,7 +111,7 @@ function readCentralDirectory(buffer, expectedEntries) {
     if (!name || !rawName.equals(Buffer.from(name, "utf8"))) {
       throw archiveError("CCX archive contains an invalid ZIP entry name");
     }
-    entries.push(Object.freeze({ name, versionNeeded, flags, method, crc32, compressedBytes, uncompressedBytes, localOffset }));
+    entries.push(Object.freeze({ name, versionMadeBy, versionNeeded, flags, method, crc32, compressedBytes, uncompressedBytes, externalAttributes, localOffset }));
     offset = next;
   }
   if (entries.length !== expectedEntries) throw archiveError("CCX archive central directory count is inconsistent");
@@ -124,6 +130,11 @@ function validateArchiveEntries(entries) {
     }
     if (entry.method !== 0 && entry.method !== 8) {
       throw archiveError("CCX archive entries must use stored or deflate compression");
+    }
+    const createdOnUnix = entry.versionMadeBy >>> 8 === ZIP_HOST_UNIX;
+    const unixFileType = (entry.externalAttributes >>> 16) & UNIX_FILE_TYPE_MASK;
+    if (createdOnUnix && unixFileType !== 0 && unixFileType !== UNIX_FILE_TYPE_REGULAR && unixFileType !== UNIX_FILE_TYPE_DIRECTORY) {
+      throw archiveError("CCX archive Unix entries must be regular files or directories");
     }
     const { name } = entry;
     if (name.length > 1024 || /[\0-\x1f\x7f]/.test(name) || name.includes("\\") || name.startsWith("/") || /^[A-Za-z]:/.test(name)) {

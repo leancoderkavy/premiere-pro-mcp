@@ -52,6 +52,10 @@ any valid data descriptors, must also account for every byte before the central
 directory: the bounded verifier rejects a prefixed archive or an unreferenced
 local header/payload rather than omitting it from the entry-name accounting:
 
+When a central-directory entry declares a Unix origin and a POSIX file type,
+the bounded verifier accepts only a regular file or directory. It rejects
+declared links, devices, FIFOs, and sockets without extracting their contents.
+
 Non-ASCII ZIP entry-name bytes must declare UTF-8 with general-purpose bit 11;
 the verifier accepts unflagged legacy names only when they are ASCII. This keeps
 its entry-name-set accounting independent of legacy ZIP code pages.
