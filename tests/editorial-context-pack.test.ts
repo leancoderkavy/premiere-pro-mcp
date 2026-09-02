@@ -140,6 +140,26 @@ describe("editorial context pack", () => {
     expect(() => buildEditorialContextPack(source, { intent: "budget", results, maxCharacters: MAX_EDITORIAL_CONTEXT_PACK_CHARACTERS + 1 })).toThrow("max_characters");
   });
 
+  it("omits unavailable record metadata from compact evidence", () => {
+    const source = document();
+    const record = source.records[0];
+    delete record.sourceId;
+    delete record.sourceRevision;
+    const results = searchProjectContext(source, { query: "interview" }).filter((result) => result.record.id === record.id);
+
+    const pack = buildEditorialContextPack(source, { intent: "interview", results });
+
+    expect(pack.evidence).toHaveLength(1);
+    expect(pack.evidence[0]).not.toHaveProperty("sequenceId");
+    expect(pack.evidence[0]).not.toHaveProperty("sourceId");
+    expect(pack.evidence[0]).not.toHaveProperty("timelineItemId");
+    expect(pack.evidence[0]).not.toHaveProperty("startSeconds");
+    expect(pack.evidence[0]).not.toHaveProperty("endSeconds");
+    expect(pack.evidence[0]).not.toHaveProperty("sourceRevision");
+    expect(pack.evidence[0]).not.toHaveProperty("timelineRevision");
+    expect(pack.markdown).not.toContain("source source-item-1");
+  });
+
   it("reads only stored local context and rejects invalid tool input", async () => {
     const repository = new ProjectContextRepository({ backend: "memory" });
     const tools = getEditorialContextPackTools({ repository });
@@ -176,6 +196,21 @@ describe("editorial context pack", () => {
       project_id: "p".repeat(513),
       intent: "launch budget",
     })).resolves.toMatchObject({ success: false, error: expect.stringContaining("at most 512") });
+  });
+
+  it("rejects malformed optional filters before searching context", async () => {
+    const repository = new ProjectContextRepository({ backend: "memory" });
+    const tool = getEditorialContextPackTools({ repository }).create_editorial_context_pack;
+    await repository.put(document());
+
+    await expect(tool.handler({ project_id: "project-1", intent: "budget", sequence_id: " " }))
+      .resolves.toMatchObject({ success: false, error: expect.stringContaining("sequence_id") });
+    await expect(tool.handler({ project_id: "project-1", intent: "budget", kinds: [] }))
+      .resolves.toMatchObject({ success: false, error: expect.stringContaining("between 1 and 8") });
+    await expect(tool.handler({ project_id: "project-1", intent: "budget", kinds: ["unsupported"] as any }))
+      .resolves.toMatchObject({ success: false, error: expect.stringContaining("supported project-context kind") });
+    await expect(tool.handler({ project_id: "project-1", intent: "budget", kinds: [1] as any }))
+      .resolves.toMatchObject({ success: false, error: expect.stringContaining("supported project-context kind") });
   });
 
   it("reports entry overflow and excludes records with no matched intent term", async () => {
