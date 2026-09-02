@@ -1,0 +1,96 @@
+{
+  "schemaVersion": 1,
+  "scope": {
+    "declarations": [
+      "premierepro.AAFExportOptions",
+      "AAFExportOptions",
+      "AAFExportOptionsStatic"
+    ],
+    "semantics": "This records the beta AAFExportOptions factory-type migration against the pinned stable package. It is static declaration-drift accounting, not beta API support or a complete package diff.",
+    "mutationBoundary": "AAFExportOptions configures AAF export behavior. This receipt intentionally does not construct options, create an export action, or expose an MCP AAF-export operation.",
+    "doesNotEstablish": "It does not prove a beta host exposes the static factory, that an AAF export can be configured or completed, that export paths or effect settings are accepted, or that any MCP action is supported or licensed-host validated."
+  },
+  "sources": {
+    "stable": {
+      "package": "@adobe/premierepro",
+      "version": "26.3.0",
+      "declarations": "node_modules/@adobe/premierepro/src/premierepro.d.ts",
+      "rootDeclarationSha256": "d5f794b13ebccf5781c4cdcab91fc3188a4a8bf26263f2cf20a1524280988b6e",
+      "optionsDeclarationSha256": "4b2e6391a4dcb63192e077c84e5f3cd89e8c201ad8e6deea0ed62bc9fbb882fe",
+      "staticFactoryPresent": false
+    },
+    "beta": {
+      "package": "@adobe/premierepro-beta",
+      "version": "26.5.0-beta.73",
+      "declarations": "node_modules/@adobe/premierepro-beta/src/premierepro.d.ts",
+      "rootDeclarationSha256": "e546fac5bc471b755db6cb28e74ea43b7c92e60b288a3aa5ce6d572568490a16",
+      "optionsDeclarationSha256": "4f0788e3a6fb14892f578384e3841d1483b91b32e43baba447748afa9b61598f",
+      "staticDeclarationSha256": "5e7306e170c65fde75de752e949744f057407fc545c28100146345f426de37fe",
+      "staticFactoryPresent": true
+    }
+  },
+  "diff": {
+    "betaOnly": [
+      {
+        "symbol": "AAFExportOptionsStatic",
+        "kind": "type",
+        "signature": "{ /** * Construct an object that contains properties for AAF export. * @constructor */ new (): AAFExportOptions; (): AAFExportOptions; }"
+      },
+      {
+        "symbol": "AAFExportOptionsStatic.call",
+        "kind": "call_signature",
+        "signature": "() => AAFExportOptions"
+      },
+      {
+        "symbol": "AAFExportOptionsStatic.new",
+        "kind": "construct_signature",
+        "signature": "() => AAFExportOptions"
+      }
+    ],
+    "stableOnly": [],
+    "changed": [
+      {
+        "symbol": "premierepro.AAFExportOptions",
+        "stable": {
+          "symbol": "premierepro.AAFExportOptions",
+          "kind": "property",
+          "signature": "AAFExportOptions"
+        },
+        "beta": {
+          "symbol": "premierepro.AAFExportOptions",
+          "kind": "property",
+          "signature": "AAFExportOptionsStatic"
+        }
+      },
+      {
+        "symbol": "AAFExportOptions.factorySignatures",
+        "stable": {
+          "owner": "AAFExportOptions",
+          "entries": [
+            {
+              "kind": "call_signature",
+              "signature": "() => AAFExportOptions"
+            },
+            {
+              "kind": "construct_signature",
+              "signature": "() => AAFExportOptions"
+            }
+          ]
+        },
+        "beta": {
+          "owner": "AAFExportOptionsStatic",
+          "entries": [
+            {
+              "kind": "call_signature",
+              "signature": "() => AAFExportOptions"
+            },
+            {
+              "kind": "construct_signature",
+              "signature": "() => AAFExportOptions"
+            }
+          ]
+        }
+      }
+    ]
+  }
+}

@@ -6,6 +6,7 @@ import { describe, expect, it } from "vitest";
 
 const inventory = JSON.parse(readFileSync("src/resources/adobe-api-inventory.json", "utf8"));
 const coverage = JSON.parse(readFileSync("src/resources/adobe-uxp-coverage.json", "utf8"));
+const betaAafExportOptionsDrift = JSON.parse(readFileSync("src/resources/adobe-beta-aaf-export-options-drift.json", "utf8"));
 const betaC2paDrift = JSON.parse(readFileSync("src/resources/adobe-beta-c2pa-drift.json", "utf8"));
 const betaMediaDrift = JSON.parse(readFileSync("src/resources/adobe-beta-media-drift.json", "utf8"));
 const betaMediaManagerDrift = JSON.parse(readFileSync("src/resources/adobe-beta-media-manager-drift.json", "utf8"));
@@ -111,6 +112,84 @@ describe("Adobe declaration API inventory", () => {
       "Media.getStart",
       "Media.getDuration",
     ]));
+  });
+
+  it("accounts for the beta AAFExportOptions factory-type migration without advertising an export action", () => {
+    const stableDeclarations = readFileSync("node_modules/@adobe/premierepro/src/premierepro.d.ts", "utf8");
+    const betaDeclarations = readFileSync("node_modules/@adobe/premierepro-beta/src/premierepro.d.ts", "utf8");
+    expect(stableDeclarations).toContain("AAFExportOptions: AAFExportOptions;");
+    expect(stableDeclarations).not.toContain("export declare type AAFExportOptionsStatic");
+    expect(declarationType(stableDeclarations, "AAFExportOptions")).toContain("new (): AAFExportOptions;");
+    expect(betaDeclarations).toContain("AAFExportOptions: AAFExportOptionsStatic;");
+    expect(declarationType(betaDeclarations, "AAFExportOptions"))
+      .not.toContain("new (): AAFExportOptions;");
+    const betaStatic = declarationType(betaDeclarations, "AAFExportOptionsStatic");
+    expect(betaStatic).toContain("new (): AAFExportOptions;");
+    expect(betaStatic).toContain("(): AAFExportOptions;");
+    expect(betaAafExportOptionsDrift).toMatchObject({
+      schemaVersion: 1,
+      scope: {
+        declarations: ["premierepro.AAFExportOptions", "AAFExportOptions", "AAFExportOptionsStatic"],
+        mutationBoundary: expect.stringContaining("does not construct options"),
+      },
+      sources: {
+        stable: {
+          package: "@adobe/premierepro",
+          version: "26.3.0",
+          staticFactoryPresent: false,
+          rootDeclarationSha256: expect.stringMatching(/^[a-f0-9]{64}$/),
+          optionsDeclarationSha256: expect.stringMatching(/^[a-f0-9]{64}$/),
+        },
+        beta: {
+          package: "@adobe/premierepro-beta",
+          version: "26.5.0-beta.73",
+          staticFactoryPresent: true,
+          rootDeclarationSha256: expect.stringMatching(/^[a-f0-9]{64}$/),
+          optionsDeclarationSha256: expect.stringMatching(/^[a-f0-9]{64}$/),
+          staticDeclarationSha256: expect.stringMatching(/^[a-f0-9]{64}$/),
+        },
+      },
+      diff: {
+        betaOnly: [
+          {
+            symbol: "AAFExportOptionsStatic",
+            kind: "type",
+            signature: expect.stringContaining("new (): AAFExportOptions"),
+          },
+          {
+            symbol: "AAFExportOptionsStatic.call",
+            kind: "call_signature",
+            signature: "() => AAFExportOptions",
+          },
+          {
+            symbol: "AAFExportOptionsStatic.new",
+            kind: "construct_signature",
+            signature: "() => AAFExportOptions",
+          },
+        ],
+        stableOnly: [],
+        changed: [
+          {
+            symbol: "premierepro.AAFExportOptions",
+            stable: { signature: "AAFExportOptions" },
+            beta: { signature: "AAFExportOptionsStatic" },
+          },
+          {
+            symbol: "AAFExportOptions.factorySignatures",
+            stable: { owner: "AAFExportOptions" },
+            beta: { owner: "AAFExportOptionsStatic" },
+          },
+        ],
+      },
+    });
+    expect(spawnSync(process.execPath, ["scripts/generate-adobe-beta-aaf-export-options-drift.mjs", "--check"], {
+      encoding: "utf8",
+    }).status).toBe(0);
+    expect(coverage.entries.flatMap((entry: { adobeApi: string[] }) => entry.adobeApi))
+      .not.toEqual(expect.arrayContaining([
+        "premierepro.AAFExportOptions",
+        "AAFExportOptionsStatic.new",
+      ]));
   });
 
   it("accounts for the beta-only C2PA declaration surface without advertising an action", () => {
@@ -395,6 +474,33 @@ describe("Adobe declaration API inventory", () => {
       });
       expect(result.status).not.toBe(0);
       expect(result.stderr).toContain("must expose premierepro.WorkAreaUtils as WorkAreaUtilsStatic");
+    } finally {
+      rmSync(directory, { recursive: true, force: true });
+    }
+  });
+
+  it("fails closed when the beta AAFExportOptions root binding no longer has its declared static type", () => {
+    const directory = mkdtempSync(join(tmpdir(), "premiere-beta-aaf-export-options-drift-"));
+    const stablePath = join(directory, "stable.d.ts");
+    const betaPath = join(directory, "beta.d.ts");
+    const stableDeclarations = readFileSync("node_modules/@adobe/premierepro/src/premierepro.d.ts", "utf8");
+    const betaDeclarations = readFileSync("node_modules/@adobe/premierepro-beta/src/premierepro.d.ts", "utf8");
+    writeFileSync(stablePath, stableDeclarations);
+    writeFileSync(betaPath, betaDeclarations.replace(
+      "AAFExportOptions: AAFExportOptionsStatic;",
+      "AAFExportOptions: AAFExportOptions;",
+    ));
+    try {
+      const result = spawnSync(process.execPath, ["scripts/generate-adobe-beta-aaf-export-options-drift.mjs", "--validate-only"], {
+        encoding: "utf8",
+        env: {
+          ...process.env,
+          PREMIERE_BETA_AAF_EXPORT_OPTIONS_STABLE_DECLARATIONS_PATH: stablePath,
+          PREMIERE_BETA_AAF_EXPORT_OPTIONS_BETA_DECLARATIONS_PATH: betaPath,
+        },
+      });
+      expect(result.status).not.toBe(0);
+      expect(result.stderr).toContain("must expose premierepro.AAFExportOptions as AAFExportOptionsStatic");
     } finally {
       rmSync(directory, { recursive: true, force: true });
     }

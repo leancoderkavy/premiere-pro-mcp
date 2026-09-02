@@ -12,6 +12,7 @@ describe("npm release package verification", () => {
 
     expect(packageJson.scripts["pack:check"]).toBe("node scripts/verify-npm-package.mjs");
     expect(verifier).toContain("package/docs/premiere-surface-registry.md");
+    expect(verifier).toContain("package/docs/adobe-beta-aaf-export-options-drift.md");
     expect(verifier).toContain("package/docs/adobe-beta-c2pa-drift.md");
     expect(verifier).toContain("package/docs/adobe-beta-media-drift.md");
     expect(verifier).toContain("package/docs/adobe-beta-media-manager-drift.md");
@@ -21,6 +22,7 @@ describe("npm release package verification", () => {
     expect(verifier).toContain("package/docs/uxp-hybrid-addon-receipt.md");
     expect(verifier).toContain("package/docs/uxp-hybrid-ccx-receipt.md");
     expect(verifier).toContain("package/dist/resources/premiere-surface-registry.json");
+    expect(verifier).toContain("package/dist/resources/adobe-beta-aaf-export-options-drift.json");
     expect(verifier).toContain("package/dist/resources/adobe-beta-c2pa-drift.json");
     expect(verifier).toContain("package/dist/resources/adobe-beta-media-drift.json");
     expect(verifier).toContain("package/dist/resources/adobe-beta-media-manager-drift.json");

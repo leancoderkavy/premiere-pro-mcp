@@ -19,6 +19,9 @@ symbol inventories. Adobe's live sitemap supplies a complete page inventory
 for HTML, CSS, Spectrum, plugin guides, and supporting UXP documentation.
 The pinned community Premiere scripting guide also has a complete member
 inventory, explicitly labeled as non-Adobe authority and not runtime proof.
+The [beta AAFExportOptions declaration receipt](adobe-beta-aaf-export-options-drift.md)
+records a beta-only factory-type migration without constructing export options,
+exposing an AAF-export operation, or claiming export behavior in any host.
 The [beta Media drift receipt](adobe-beta-media-drift.md) separately records the
 pinned stable-to-beta `Media` declaration delta. It is deliberately not a beta
 surface inventory or beta-host support claim. The [beta C2PA declaration

@@ -22,6 +22,10 @@ type Surface = {
   ccxReceiptVerificationCommand?: string;
   ccxReceiptDocumentation?: string;
   ccxReceiptSchemaVersion?: number;
+  betaAafExportOptionsDriftArtifact?: string;
+  betaAafExportOptionsDriftCommand?: string;
+  betaAafExportOptionsDriftVerificationCommand?: string;
+  betaAafExportOptionsDriftDocumentation?: string;
   betaC2paDriftArtifact?: string;
   betaC2paDriftCommand?: string;
   betaC2paDriftVerificationCommand?: string;
@@ -110,6 +114,10 @@ describe("Premiere API and competitor surface registry", () => {
       .toMatchObject({
         inventoryState: "complete",
         implementationState: "partial",
+        betaAafExportOptionsDriftArtifact: "dist/resources/adobe-beta-aaf-export-options-drift.json",
+        betaAafExportOptionsDriftCommand: "npm run adobe:beta-aaf-export-options-drift",
+        betaAafExportOptionsDriftVerificationCommand: "npm run adobe:beta-aaf-export-options-drift:check",
+        betaAafExportOptionsDriftDocumentation: "docs/adobe-beta-aaf-export-options-drift.md",
         betaC2paDriftArtifact: "dist/resources/adobe-beta-c2pa-drift.json",
         betaC2paDriftCommand: "npm run adobe:beta-c2pa-drift",
         betaC2paDriftVerificationCommand: "npm run adobe:beta-c2pa-drift:check",
