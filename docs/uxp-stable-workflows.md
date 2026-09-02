@@ -30,6 +30,7 @@ Premiere build.
 | Offline relink repair | `relink_offline_media_uxp` | `media.relink` | Expected old path, offline default, capability check, then media-path and online-state readback |
 | Transactional metadata | `manage_metadata_uxp` | `metadata.get`, `metadata.update` | Project metadata and XMP are committed together and read back; each payload is size bounded |
 | Project-panel metadata inspection | `inspect_project_panel_metadata_uxp` | `metadata.columns.get`, `metadata.projectPanel.get` | Read one native item-column or active-project panel-metadata string, bounded to 350,000 characters and a 900,000-byte serialized result; no schema or metadata writes are exposed |
+| Guarded Project-panel metadata replacement | `manage_project_panel_metadata_uxp` | `metadata.projectPanel.get`, `metadata.projectPanel.update` | Require the exact inspected project GUID and XML, confirmation, operation ID, local per-project serialization, then exact native readback; the direct setter is non-undoable and no atomic compare-and-set is claimed |
 | Guarded app preferences | `manage_app_preferences_uxp` | `preferences.inspect`, `preferences.set` | Inspect only Adobe's three named application preferences; direct string writes require stale value, persistence, confirmation, operation ID, per-key serialization, and exact native-string readback; no transaction or Undo claim |
 | Color and conformance | `manage_color_conformance_uxp` | `color.preflight`, `footage.conform` | Project graphics-white values, embedded/input LUT IDs, and requested footage fields read back |
 | Source Monitor audition | `audition_source_monitor_uxp` | `sourceMonitor.state`, `sourceMonitor.open`, `sourceMonitor.position.set`, `sourceMonitor.play`, `sourceMonitor.close` | Project-item and position readback where Adobe exposes it; file open/play rely on explicit host returns |
@@ -188,6 +189,24 @@ not create metadata schema fields or invoke `setProjectPanelMetadata()`, whose
 documented setter has no project-targeted action or transaction boundary that
 could truthfully guard it across an awaited call. The result is a current-host
 read, not an atomic project revision, persistence, or licensed-host proof.
+
+### `manage_project_panel_metadata_uxp`
+
+`inspect` returns the same active-project panel metadata as the read-only tool.
+`update` requires the exact `expected_project_guid` and
+`expected_project_panel_metadata` returned by inspection, the complete replacement
+`project_panel_metadata`, `confirm_update: true`, and a bounded `operation_id`.
+Both XML strings are limited to 12 KiB UTF-8 at the host boundary because two exact
+XML values can expand when serialized in the bridge request. The panel serializes
+this bridge's updates per project and performs the final async snapshot/stale check
+immediately before it starts the documented direct setter under `lockedAccess()`.
+Premiere exposes no atomic compare-and-set and another extension or the user
+interface may still race that direct call. The setter is non-undoable and has no
+cancellation claim. The result is verified only if an active-project exact XML
+readback matches; a completed call with another project or XML is
+`committed_unverified`. Operation-ID replay is scoped to the connected panel
+session. Automated contracts do not prove host acceptance, persistence, UI effects,
+Undo, or licensed-host behavior.
 
 ### `manage_app_preferences_uxp`
 

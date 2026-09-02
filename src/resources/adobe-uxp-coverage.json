@@ -870,6 +870,31 @@
       "verificationBoundary": "bounded_project_panel_metadata_readback"
     },
     {
+      "id": "guarded-project-panel-metadata-update",
+      "adobeApi": [
+        "Metadata.getProjectPanelMetadata",
+        "Metadata.setProjectPanelMetadata",
+        "Project.guid",
+        "Project.lockedAccess"
+      ],
+      "documentationUrls": [
+        "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/metadata/",
+        "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/project/"
+      ],
+      "minimumPremiereVersion": "25.6.0",
+      "backend": "uxp",
+      "uxpCommand": "metadata.projectPanel.update",
+      "mcpTools": ["manage_project_panel_metadata_uxp"],
+      "availability": "current",
+      "implementationStatus": "implemented",
+      "verificationStatus": "automated_contract_verified",
+      "liveHostVerificationStatus": "not_run",
+      "mutatesProject": true,
+      "undoable": false,
+      "idempotency": "operation_id",
+      "verificationBoundary": "project_panel_metadata_exact_readback"
+    },
+    {
       "id": "color-footage-conformance",
       "adobeApi": [
         "Project.getColorSettings",

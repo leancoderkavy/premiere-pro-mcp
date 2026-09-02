@@ -8,6 +8,11 @@
   const MAX_SELECTION_ITEMS = 64;
   const MAX_METADATA_CHARS = 350000;
   const MAX_METADATA_RESULT_BYTES = 900000;
+  // A Project-panel schema is XML and can expand materially when represented
+  // in the JSON bridge request (quotes and backslashes are escaped). Keep each
+  // exact stale guard and replacement far below the protocol ceiling instead
+  // of accepting a large pair that cannot be safely serialized together.
+  const MAX_PROJECT_PANEL_METADATA_UPDATE_BYTES = 12 * 1024;
 
   function utf8ByteLength(value) {
     let bytes = 0;
@@ -26,6 +31,7 @@
 
   function createWorkflowDefinitions(deps) {
     const ppro = deps.ppro, Protocol = deps.Protocol, workspace = deps.workspace;
+    const projectPanelMetadataUpdateTails = new Map();
     const definitions = {
       "effects.catalog": { readOnly: true, minHostVersion: "25.6.0", probe: canUseEffects, handler: effectCatalog },
       "effects.chain.get": { readOnly: true, targetCapabilityProbe: true, minHostVersion: "25.6.0", probe: canUseEffects, handler: effectChain },
@@ -48,6 +54,7 @@
       "metadata.update": { destructive: true, undoable: true, idempotent: true, minHostVersion: "25.6.0", probe: canUseMetadata, handler: updateMetadata },
       "metadata.columns.get": { readOnly: true, targetCapabilityProbe: true, minHostVersion: "25.6.0", probe: canGetProjectColumnsMetadata, handler: getProjectColumnsMetadata },
       "metadata.projectPanel.get": { readOnly: true, minHostVersion: "25.6.0", probe: canGetProjectPanelMetadata, handler: getProjectPanelMetadata },
+      "metadata.projectPanel.update": { destructive: true, undoable: false, idempotent: true, targetCapabilityProbe: true, minHostVersion: "25.6.0", probe: canSetProjectPanelMetadata, handler: updateProjectPanelMetadata },
       "color.preflight": { readOnly: true, targetCapabilityProbe: true, minHostVersion: "25.6.0", probe: canInspectColor, handler: colorPreflight },
       "environment.inspect": { readOnly: true, targetCapabilityProbe: true, minHostVersion: "25.6.0", probe: canInspectEnvironment, handler: inspectEnvironment },
       "footage.conform": { destructive: true, undoable: true, idempotent: true, targetCapabilityProbe: true, minHostVersion: "25.6.0", probe: canConformFootage, handler: conformFootage },
@@ -962,6 +969,86 @@
       return boundedMetadataResult(result.projectPanelMetadata, "projectPanelMetadata", result);
     }
 
+    async function projectPanelMetadataSnapshot(maximumBytes) {
+      const project = await activeProject(false);
+      const projectGuid = String(project.guid || "");
+      if (!projectGuid) throw commandError("UXP_INVALID_HOST_STATE", "Premiere did not return a project GUID for Project-panel metadata");
+      const projectPanelMetadata = boundedUtf8StringAllowEmpty(
+        await ppro.Metadata.getProjectPanelMetadata(), "projectPanelMetadata", maximumBytes
+      );
+      return { project, projectGuid, projectName: String(project.name || ""), projectPanelMetadata };
+    }
+
+    async function updateProjectPanelMetadata(args) {
+      assertObject(args);
+      assertOnlyKeys(args, ["expectedProjectGuid", "expectedProjectPanelMetadata", "projectPanelMetadata", "confirmUpdate", "operationId"]);
+      const input = {
+        expectedProjectGuid: boundedString(args.expectedProjectGuid, "expectedProjectGuid", 512),
+        expectedProjectPanelMetadata: boundedUtf8StringAllowEmpty(args.expectedProjectPanelMetadata, "expectedProjectPanelMetadata", MAX_PROJECT_PANEL_METADATA_UPDATE_BYTES),
+        projectPanelMetadata: boundedUtf8StringAllowEmpty(args.projectPanelMetadata, "projectPanelMetadata", MAX_PROJECT_PANEL_METADATA_UPDATE_BYTES),
+        operationId: requiredOperationId(args.operationId, "operationId")
+      };
+      if (args.confirmUpdate !== true) {
+        throw commandError("UXP_CONFIRMATION_REQUIRED", "Replacing Project-panel metadata is not undoable; pass confirmUpdate=true after review");
+      }
+      return withProjectPanelMetadataUpdateLock(input.expectedProjectGuid, async () => {
+        // This queue serializes this bridge's competing requests. Premiere does
+        // not expose an atomic compare-and-set for this direct setter, so the
+        // snapshot is deliberately the final asynchronous preflight before the
+        // setter is started; human UI or another extension can still race it.
+        const before = await projectPanelMetadataSnapshot(MAX_PROJECT_PANEL_METADATA_UPDATE_BYTES);
+        if (before.projectGuid !== input.expectedProjectGuid) {
+          throw commandError("UXP_STALE_PROJECT_PANEL_METADATA", "The active project changed before Project-panel metadata was updated; inspect and retry");
+        }
+        if (before.projectPanelMetadata !== input.expectedProjectPanelMetadata) {
+          throw commandError("UXP_STALE_PROJECT_PANEL_METADATA", "Project-panel metadata changed before it was updated; inspect and retry");
+        }
+        if (before.projectPanelMetadata === input.projectPanelMetadata) {
+          return projectPanelMetadataUpdateResult(true, {
+            updated: false, unchanged: true, projectGuid: before.projectGuid,
+            projectName: before.projectName, projectPanelMetadata: before.projectPanelMetadata
+          }, "project_panel_metadata_exact_readback");
+        }
+        let request;
+        before.project.lockedAccess(() => {
+          request = ppro.Metadata.setProjectPanelMetadata(input.projectPanelMetadata);
+        });
+        if (await request !== true) throw commandError("UXP_ACTION_REJECTED", "Premiere did not accept Project-panel metadata replacement");
+        const after = await projectPanelMetadataSnapshot(MAX_PROJECT_PANEL_METADATA_UPDATE_BYTES);
+        const verified = after.projectGuid === before.projectGuid && after.projectPanelMetadata === input.projectPanelMetadata;
+        return projectPanelMetadataUpdateResult(verified, {
+          updated: true, projectGuid: before.projectGuid, projectName: after.projectName,
+          projectPanelMetadata: after.projectPanelMetadata,
+          requestedProjectPanelMetadata: input.projectPanelMetadata,
+          readbackProjectGuid: after.projectGuid
+        }, verified ? "project_panel_metadata_exact_readback" : "project_panel_metadata_active_project_readback");
+      });
+    }
+
+    function withProjectPanelMetadataUpdateLock(projectGuid, operation) {
+      const previous = projectPanelMetadataUpdateTails.get(projectGuid) || Promise.resolve();
+      let release;
+      const gate = new Promise((resolve) => { release = resolve; });
+      const tail = previous.catch(() => undefined).then(() => gate);
+      projectPanelMetadataUpdateTails.set(projectGuid, tail);
+      return previous.catch(() => undefined).then(operation).finally(() => {
+        release();
+        if (projectPanelMetadataUpdateTails.get(projectGuid) === tail) projectPanelMetadataUpdateTails.delete(projectGuid);
+      });
+    }
+
+    function projectPanelMetadataUpdateResult(verified, values, boundary) {
+      return {
+        ...values, outcome: verified ? "verified" : "committed_unverified", verified,
+        verificationBoundary: boundary,
+        operation: operationSemantics({
+          mutatesProject: true, verificationStatus: verified ? "verified" : "not_verified", verificationBoundary: boundary,
+          verificationEvidence: [{ type: boundary, verified }], undoSupported: false,
+          transactionActionGroup: false, cancellationSupported: false
+        })
+      };
+    }
+
     async function updateMetadata(args) {
       assertObject(args);
       assertOnlyKeys(args, ["projectItemId", "projectItemName", "projectMetadata", "xmpMetadata", "updatedFields", "operationId"]);
@@ -1278,6 +1365,13 @@
     function canUseMetadata() { return canUseClipItems() && !!(ppro.Metadata && typeof ppro.Metadata.getProjectMetadata === "function" && typeof ppro.Metadata.getXMPMetadata === "function" && typeof ppro.Metadata.createSetProjectMetadataAction === "function" && typeof ppro.Metadata.createSetXMPMetadataAction === "function"); }
     function canGetProjectColumnsMetadata() { return canUseClipItems() && !!(ppro.Metadata && typeof ppro.Metadata.getProjectColumnsMetadata === "function"); }
     function canGetProjectPanelMetadata() { return canInspectProject() && !!(ppro.Metadata && typeof ppro.Metadata.getProjectPanelMetadata === "function"); }
+    async function canSetProjectPanelMetadata() {
+      if (!canGetProjectPanelMetadata() || !ppro.Metadata || typeof ppro.Metadata.setProjectPanelMetadata !== "function") return false;
+      try {
+        const project = await ppro.Project.getActiveProject();
+        return !project || typeof project.lockedAccess === "function";
+      } catch (_) { return false; }
+    }
     function canInspectColor() { return canUseClipItems(); }
     async function canInspectEnvironment() {
       if (!canInspectProject() || !ppro.Utils || typeof ppro.Utils.isAEInstalled !== "function") return false;
@@ -1442,6 +1536,18 @@
   function assertOnlyKeys(value, allowed) { const unknown = Object.keys(value).filter((key) => !allowed.includes(key)); if (unknown.length) throw commandError("UXP_INVALID_ARGUMENT", "Unknown argument: " + unknown[0]); }
   function boundedString(value, name, maximum) { if (typeof value !== "string" || !value.trim() || value.length > maximum) throw commandError("UXP_INVALID_ARGUMENT", name + " must be a non-empty string of at most " + maximum + " characters"); return value; }
   function boundedStringAllowEmpty(value, name, maximum) { if (typeof value !== "string" || value.length > maximum) throw commandError("UXP_INVALID_ARGUMENT", name + " must be a string of at most " + maximum + " characters"); return value; }
+  function boundedUtf8StringAllowEmpty(value, name, maximumBytes) {
+    if (typeof value !== "string" || utf8ByteLength(value) > maximumBytes) {
+      throw commandError("UXP_INVALID_ARGUMENT", name + " must be a UTF-8 string of at most " + maximumBytes + " bytes");
+    }
+    return value;
+  }
+  function requiredOperationId(value, name) {
+    if (typeof value !== "string" || !/^[A-Za-z0-9._:-]{1,128}$/.test(value)) {
+      throw commandError("UXP_INVALID_ARGUMENT", name + " must be a 1-128 character token for safe replay");
+    }
+    return value;
+  }
   function nonNegativeInt(value, name) { if (!Number.isInteger(value) || value < 0) throw commandError("UXP_INVALID_ARGUMENT", name + " must be a non-negative integer"); return value; }
   function boundedInt(value, name, minimum, maximum) { if (!Number.isInteger(value) || value < minimum || value > maximum) throw commandError("UXP_INVALID_ARGUMENT", name + " must be an integer from " + minimum + " to " + maximum); return value; }
   function finiteNumber(value, name, minimum, maximum) { const number = Number(value); if (!Number.isFinite(number) || number < minimum || number > maximum) throw commandError("UXP_INVALID_ARGUMENT", name + " must be from " + minimum + " to " + maximum); return number; }
