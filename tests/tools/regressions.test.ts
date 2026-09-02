@@ -737,7 +737,10 @@ describe("issue #326 — sequence creation requires project-collection readback"
     const script = await scriptFor(sequence.create_sequence, {
       name: "Verified Sequence", preset_path: "/tmp/sequence.sqpreset",
     });
+    expect(script).toContain("var beforeSequenceIds = {}");
     expect(script).toContain("var sequenceId = String(seq.sequenceID)");
+    expect(script).toContain("if (beforeSequenceIds[sequenceId])");
+    expect(script).toContain("did not create a new sequence");
     expect(script).toContain("var created = __findSequence(sequenceId)");
     expect(script).toContain("no creation success is reported");
     expect(script).toContain("verified: true");

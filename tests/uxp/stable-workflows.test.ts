@@ -233,6 +233,9 @@ describe("stable Premiere UXP workflow expansion", () => {
     expect(capabilities.commands["effects.selection.add"]).toMatchObject({
       supported: true, documented: true, destructive: true, undoable: true,
     });
+    expect(capabilities.commands["sceneEdit.detect"]).toMatchObject({
+      supported: true, minHostVersion: "26.3.0",
+    });
     expect(capabilities.commands["selection.update"]).toMatchObject({
       supported: true, documented: true, readOnly: false, destructive: false,
       undoable: false, idempotent: true, minHostVersion: "25.6.0",

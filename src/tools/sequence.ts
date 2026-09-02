@@ -101,6 +101,10 @@ export function getSequenceTools(bridgeOptions: BridgeOptions) {
         }
 
         const script = buildToolScript(`
+          var beforeSequenceIds = {};
+          for (var i = 0; i < app.project.sequences.numSequences; i++) {
+            beforeSequenceIds[String(app.project.sequences[i].sequenceID)] = true;
+          }
           app.enableQE();
           qe.project.newSequence("${escapeForExtendScript(args.name)}", "${escapeForExtendScript(presetPath)}");
           var seq = app.project.activeSequence;
@@ -108,6 +112,9 @@ export function getSequenceTools(bridgeOptions: BridgeOptions) {
             return __error("Failed to create sequence from preset: ${escapeForExtendScript(presetPath)}");
           }
           var sequenceId = String(seq.sequenceID);
+          if (beforeSequenceIds[sequenceId]) {
+            return __error("Premiere did not create a new sequence; the active sequence already existed before the preset request.");
+          }
           var created = __findSequence(sequenceId);
           if (!created || String(created.sequenceID) !== sequenceId) {
             return __error("Premiere did not add the new sequence to the project collection; no creation success is reported.");

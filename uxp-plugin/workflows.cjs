@@ -37,7 +37,7 @@
       "selection.update": { idempotent: true, minHostVersion: "25.6.0", probe: canManageSelection, handler: updateSelection },
       "effects.selection.add": { destructive: true, undoable: true, targetCapabilityProbe: true, minHostVersion: "25.6.0", probe: canUseEffectsSelection, handler: addEffectToSelection },
       "effects.selection.remove": { destructive: true, undoable: true, targetCapabilityProbe: true, minHostVersion: "25.6.0", probe: canUseEffectsSelection, handler: removeEffectFromSelection },
-      "sceneEdit.detect": { destructive: true, undoable: false, minHostVersion: "25.6.0", probe: canDetectScenes, handler: detectScenes },
+      "sceneEdit.detect": { destructive: true, undoable: false, minHostVersion: "26.3.0", probe: canDetectScenes, handler: detectScenes },
       "proxy.inspect": { readOnly: true, targetCapabilityProbe: true, minHostVersion: "25.6.0", probe: canUseClipItems, handler: inspectProxy },
       "proxy.attach": { destructive: true, undoable: false, idempotent: true, targetCapabilityProbe: true, requiresWorkspace: true, minHostVersion: "25.6.0", probe: canAttachProxy, handler: attachProxy },
       "ingest.get": { readOnly: true, minHostVersion: "25.6.0", probe: canUseIngest, handler: getIngest },
