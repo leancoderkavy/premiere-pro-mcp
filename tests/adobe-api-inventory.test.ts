@@ -11,6 +11,7 @@ const betaProjectOptionsDrift = JSON.parse(readFileSync("src/resources/adobe-bet
 const betaTransitionOptionsDrift = JSON.parse(readFileSync("src/resources/adobe-beta-transition-options-drift.json", "utf8"));
 const betaRectFDrift = JSON.parse(readFileSync("src/resources/adobe-beta-rectf-drift.json", "utf8"));
 const betaColorDrift = JSON.parse(readFileSync("src/resources/adobe-beta-color-drift.json", "utf8"));
+const betaPointFDrift = JSON.parse(readFileSync("src/resources/adobe-beta-pointf-drift.json", "utf8"));
 const betaC2paDrift = JSON.parse(readFileSync("src/resources/adobe-beta-c2pa-drift.json", "utf8"));
 const betaMediaDrift = JSON.parse(readFileSync("src/resources/adobe-beta-media-drift.json", "utf8"));
 const betaMediaManagerDrift = JSON.parse(readFileSync("src/resources/adobe-beta-media-manager-drift.json", "utf8"));
@@ -420,6 +421,70 @@ describe("Adobe declaration API inventory", () => {
       });
       expect(result.status).not.toBe(0);
       expect(result.stderr).toContain("must move premierepro.Color to ColorStatic");
+    } finally {
+      rmSync(temporary, { recursive: true, force: true });
+    }
+  });
+
+  it("accounts for beta PointF factory migration without advertising a beta PointF path", () => {
+    const stableDeclarations = readFileSync("node_modules/@adobe/premierepro/src/premierepro.d.ts", "utf8");
+    const betaDeclarations = readFileSync("node_modules/@adobe/premierepro-beta/src/premierepro.d.ts", "utf8");
+    const pointFactory = "new (x?: number, y?: number): PointF;";
+    expect(stableDeclarations).toContain("PointF: PointF;");
+    expect(stableDeclarations).not.toContain("export declare type PointFStatic");
+    expect(declarationType(stableDeclarations, "PointF")).toContain(pointFactory);
+    expect(betaDeclarations).toContain("PointF: PointFStatic;");
+    expect(declarationType(betaDeclarations, "PointF")).not.toContain(pointFactory);
+    expect(declarationType(betaDeclarations, "PointFStatic")).toContain(pointFactory);
+    expect(betaPointFDrift).toMatchObject({
+      schemaVersion: 1,
+      scope: {
+        declarations: ["premierepro.PointF", "PointF", "PointFStatic"],
+        doesNotEstablish: expect.stringContaining("does not prove"),
+      },
+      sources: {
+        stable: {
+          package: "@adobe/premierepro",
+          version: "26.3.0",
+          staticFactoryPresent: false,
+          pointDeclarationSha256: expect.stringMatching(/^[a-f0-9]{64}$/),
+        },
+        beta: {
+          package: "@adobe/premierepro-beta",
+          version: "26.5.0-beta.73",
+          staticFactoryPresent: true,
+          pointDeclarationSha256: expect.stringMatching(/^[a-f0-9]{64}$/),
+          staticDeclarationSha256: expect.stringMatching(/^[a-f0-9]{64}$/),
+        },
+      },
+      diff: { stableOnly: [] },
+    });
+    expect(betaPointFDrift.diff.betaOnly).toEqual(expect.arrayContaining([
+      { symbol: "PointFStatic.new", kind: "construct_signature", signature: "(x?: number, y?: number) => PointF" },
+      { symbol: "PointFStatic.call", kind: "call_signature", signature: "(x?: number, y?: number) => PointF" },
+    ]));
+    expect(betaPointFDrift.diff.changed.some((entry: { symbol: string; beta: { signature: string } }) => (
+      entry.symbol === "premierepro.PointF" && entry.beta.signature === "PointFStatic"
+    ))).toBe(true);
+    expect(spawnSync(process.execPath, ["scripts/generate-adobe-beta-pointf-drift.mjs", "--check"], { encoding: "utf8" }).status).toBe(0);
+    const claimedApis = coverage.entries.flatMap((entry: { adobeApi: string[] }) => entry.adobeApi);
+    expect(claimedApis).toContain("PointF.[[construct]]");
+    expect(claimedApis).not.toEqual(expect.arrayContaining([
+      "premierepro.PointF", "PointFStatic.new", "PointFStatic.call",
+    ]));
+  });
+
+  it("rejects an unexpected PointF root binding before writing a receipt", () => {
+    const temporary = mkdtempSync(join(tmpdir(), "premiere-beta-pointf-drift-"));
+    try {
+      const betaPath = join(temporary, "premierepro.d.ts");
+      writeFileSync(betaPath, readFileSync("node_modules/@adobe/premierepro-beta/src/premierepro.d.ts", "utf8").replace("PointF: PointFStatic;", "PointF: PointF;"));
+      const result = spawnSync(process.execPath, ["scripts/generate-adobe-beta-pointf-drift.mjs", "--validate-only"], {
+        encoding: "utf8",
+        env: { ...process.env, PREMIERE_BETA_POINTF_BETA_DECLARATIONS_PATH: betaPath },
+      });
+      expect(result.status).not.toBe(0);
+      expect(result.stderr).toContain("must move premierepro.PointF to PointFStatic");
     } finally {
       rmSync(temporary, { recursive: true, force: true });
     }

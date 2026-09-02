@@ -42,6 +42,10 @@ type Surface = {
   betaColorDriftCommand?: string;
   betaColorDriftVerificationCommand?: string;
   betaColorDriftDocumentation?: string;
+  betaPointFDriftArtifact?: string;
+  betaPointFDriftCommand?: string;
+  betaPointFDriftVerificationCommand?: string;
+  betaPointFDriftDocumentation?: string;
   betaC2paDriftArtifact?: string;
   betaC2paDriftCommand?: string;
   betaC2paDriftVerificationCommand?: string;
@@ -150,6 +154,10 @@ describe("Premiere API and competitor surface registry", () => {
         betaColorDriftCommand: "npm run adobe:beta-color-drift",
         betaColorDriftVerificationCommand: "npm run adobe:beta-color-drift:check",
         betaColorDriftDocumentation: "docs/adobe-beta-color-drift.md",
+        betaPointFDriftArtifact: "dist/resources/adobe-beta-pointf-drift.json",
+        betaPointFDriftCommand: "npm run adobe:beta-pointf-drift",
+        betaPointFDriftVerificationCommand: "npm run adobe:beta-pointf-drift:check",
+        betaPointFDriftDocumentation: "docs/adobe-beta-pointf-drift.md",
         betaC2paDriftArtifact: "dist/resources/adobe-beta-c2pa-drift.json",
         betaC2paDriftCommand: "npm run adobe:beta-c2pa-drift",
         betaC2paDriftVerificationCommand: "npm run adobe:beta-c2pa-drift:check",

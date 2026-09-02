@@ -29,6 +29,10 @@
       "betaColorDriftCommand": "npm run adobe:beta-color-drift",
       "betaColorDriftVerificationCommand": "npm run adobe:beta-color-drift:check",
       "betaColorDriftDocumentation": "docs/adobe-beta-color-drift.md",
+      "betaPointFDriftArtifact": "dist/resources/adobe-beta-pointf-drift.json",
+      "betaPointFDriftCommand": "npm run adobe:beta-pointf-drift",
+      "betaPointFDriftVerificationCommand": "npm run adobe:beta-pointf-drift:check",
+      "betaPointFDriftDocumentation": "docs/adobe-beta-pointf-drift.md",
       "betaC2paDriftArtifact": "dist/resources/adobe-beta-c2pa-drift.json",
       "betaC2paDriftCommand": "npm run adobe:beta-c2pa-drift",
       "betaC2paDriftVerificationCommand": "npm run adobe:beta-c2pa-drift:check",
@@ -51,7 +55,7 @@
       "betaWorkAreaDriftDocumentation": "docs/adobe-beta-work-area-drift.md",
       "inventoryState": "complete",
       "implementationState": "partial",
-      "notes": "All stable declaration symbols are inventoried; mapped means classified, not necessarily a standalone MCP tool or live-host proof. Separate AAFExportOptions-only, project-options-only, transition-options-only, RectF-only, Color-only, Media-only, MediaManager-only, TranscriptStatic-only, C2PA-only, and WorkAreaUtils-only receipts watch narrow pinned beta declaration deltas without advertising beta members as supported."
+      "notes": "All stable declaration symbols are inventoried; mapped means classified, not necessarily a standalone MCP tool or live-host proof. Separate AAFExportOptions-only, project-options-only, transition-options-only, RectF-only, Color-only, PointF-only, Media-only, MediaManager-only, TranscriptStatic-only, C2PA-only, and WorkAreaUtils-only receipts watch narrow pinned beta declaration deltas without advertising beta members as supported."
     },
     {
       "id": "uxp-javascript",
