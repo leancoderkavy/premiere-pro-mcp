@@ -48,6 +48,7 @@ verification column describes the required evidence, not a completed test run.
 | `manage_sequence_playhead_uxp` | `sequence.playhead.inspect`, `sequence.playhead.set` | `Sequence.getPlayerPosition()` and `Sequence.setPlayerPosition()` | Sequence player-state mutation; no project-save or Undo claim | Supported when the active sequence, `TickTime`, getter, and setter probe true | Require the inspected sequence GUID and exact current position, serialize competing setters, then read the player position back. |
 | `inspect_sequence_timing_uxp` | `sequence.timing.inspect` | `Sequence.getFrameSize()`, `getTimebase()`, audio/video time-display getters, and `getProjectItem()` | Read-only timing and ownership snapshot | Supported when the active sequence exposes each listed getter; invocation then requires the returned ProjectItem to expose a valid ID | Return bounded native values and reject a different active sequence at read completion. This is not a locked atomic snapshot, does not detect a transient switch back to the same sequence, and is not licensed-host proof. |
 | `manage_sequence_display_format_uxp` | `sequence.displayFormat.inspect`, `sequence.displayFormat.update` | `Sequence.getSettings()`, `createSetSettingsAction()`, and `SequenceSettings` audio/video display-format getters, setters, and constants | One undoable sequence-settings mutation | Supported when the getters, setters, documented constants, and transaction primitives probe true | Require the inspected sequence GUID and complete two-code snapshot, serialize all competing updates for that sequence, commit one native settings action, and read both codes back. Contract coverage is not licensed-host or Undo proof. |
+| `manage_source_media_timing_uxp` | `source.mediaTiming.inspect`, `source.mediaTiming.setStart` | `ClipProjectItem.getMedia()`, stable `Media.start`/`duration`, `Media.createSetStartAction()`, `TickTime`, and Project transaction primitives | One undoable source-media start-time mutation | Supported when the resolved clip's media surface, TickTime factory, and transaction primitives probe true | Require the exact project-item ID and a complete start/duration snapshot, serialize competing updates for that clip, reject a changed synchronous timing snapshot under the action lock, then read back the requested start and unchanged duration. Contract coverage is not licensed-host, timecode-display, persistence, or Undo proof. |
 | `inspect_project_tree_uxp` | `projectTree.inspect` | `Project.getRootItem()`, `FolderItem.getItems()`, and project-item identity accessors | Read-only bounded Project-panel tree snapshot | Supported when the active project exposes a readable root folder and runtime folder casts | Return only stable IDs, names, types, parent IDs, bin state, and optional color-label indexes, capped at 512 items and depth 16. It omits media paths, metadata, and content; depth or item truncation is explicit, and this is not licensed-host proof. |
 | `has_transcript_uxp` | `transcript.has` | `Transcript.hasTranscript()` | Read-only | Native 26.3 support is used when it probes true; the existing 25.6 transcript-export compatibility probe is labeled as a fallback | Return Adobe's native boolean when available; never infer transcript presence from names or transcript text. |
 | `export_aaf_uxp` | `interchange.aaf.export` | `ProjectConverter.exportAAF()` and `AAFExportOptions` | Export side effect; no project undo claim | Supported when converter and option APIs probe true | Record Premiere's boolean result and, in a live host, confirm the intended AAF artifact exists and is usable. |
@@ -116,6 +117,16 @@ bounded `operation_id` replay key where applicable.
   Completed duplicate operation IDs replay through the command registry.
   Cancellation is explicitly unsupported, and the mock contract does not prove
   host acceptance, persistence, or Undo behavior.
+- `manage_source_media_timing_uxp`: `inspect` requires one `project_item_id` and
+  returns that ID plus finite non-negative `start_seconds` and `duration_seconds`.
+  `set_start` requires the same ID, the complete `expected_timing` snapshot, a
+  bounded finite non-negative `start_seconds`, `confirm_set_start: true`, and an
+  optional `operation_id`. The panel serializes the full preflight/action/readback
+  boundary per project and item, rechecks the stable synchronous timing properties
+  inside `lockedAccess`, commits exactly one native action in one transaction, and
+  verifies the requested start and unchanged duration afterward. It neither uses
+  beta-only `Media` getters nor accepts a beta Promise-shaped timing property as a
+  mutation fallback.
 - `inspect_project_tree_uxp`: accepts optional `max_items` from 1 through 512
   (default 256) and `max_depth` from 0 through 16 (default 6). The root item is
   returned separately; only non-root entries count toward `max_items`. Children
@@ -180,6 +191,10 @@ Automated tests may prove these properties:
   boundary, accept only runtime-advertised official constants, commit one
   settings action, replay a completed operation ID, and verify native readback;
   and
+- source-media timing updates require confirmation plus a complete timing snapshot,
+  serialize conflicting requests per project-item ID, reject an old snapshot before
+  action construction, commit one action in one transaction, replay completed
+  operation IDs, and require start/duration readback; and
 - action commands preserve lock/transaction boundaries and operation replay
   behavior in a contract host; and
 - AAF options are bounded before a call reaches the host adapter.
@@ -208,11 +223,14 @@ AAF, or produced a usable Undo entry. Before release, validate on a real Premier
    confirm both codes read back, repeat an `operation_id` without a second
    transaction, confirm a stale full snapshot is rejected, and Undo each accepted
    update.
-9. Check both a transcribed and non-transcribed clip with `transcript.has`.
-10. Export an AAF with representative options; confirm the resulting artifact is
+9. Inspect one source clip's media timing, update its start from the returned
+   snapshot, confirm the requested start and unchanged duration read back, retry the
+   same `operation_id`, exercise a stale snapshot, and Undo the accepted action.
+10. Check both a transcribed and non-transcribed clip with `transcript.has`.
+11. Export an AAF with representative options; confirm the resulting artifact is
    present, opens in the intended downstream workflow, and any requested media
    side effects match the options.
-11. Disconnect/reconnect the panel and exercise duplicate `operation_id` calls;
+12. Disconnect/reconnect the panel and exercise duplicate `operation_id` calls;
    confirm that a completed mutation is replayed rather than repeated in the
    same panel session.
 
@@ -228,6 +246,7 @@ specific Premiere version and platform.
 - [Marker `guid`](https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/marker)
 - [SourceMonitor `setPosition`](https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/sourcemonitor)
 - [Sequence range actions, timing accessors, and display formats](https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/sequence)
+- [ClipProjectItem and Media timing/start actions](https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/media)
 - [Transcript `hasTranscript`](https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/transcript)
 - [ProjectConverter `exportAAF`](https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/projectconverter) and [AAFExportOptions](https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/aafexportoptions)
 - [Adobe official UXP samples](https://github.com/AdobeDocs/uxp-premiere-pro-samples)

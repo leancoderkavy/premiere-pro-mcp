@@ -385,6 +385,110 @@ describe("next-wave UXP event workflows", () => {
     });
   });
 
+  it("guards, serializes, replays, and reads back a source-media start-time action", async () => {
+    let startSeconds = 10, durationSeconds = 60;
+    const media = {
+      get start() { return { seconds: startSeconds }; },
+      get duration() { return { seconds: durationSeconds }; },
+      createSetStartAction: vi.fn((time: { seconds: number }) => ({
+        apply: () => {
+          startSeconds = time.seconds;
+          if (time.seconds === 16) durationSeconds = 59;
+        },
+      })),
+    };
+    const clip = {
+      getId: vi.fn(async () => "clip-1"),
+      getMedia: vi.fn(async () => media),
+    };
+    const root = { getItems: vi.fn(async () => [clip]) };
+    const project = {
+      guid: "project-1",
+      getRootItem: vi.fn(async () => root),
+      lockedAccess: vi.fn((callback: () => void) => callback()),
+      executeTransaction: vi.fn((callback: (compound: { addAction: (action: { apply: () => void }) => boolean }) => void) => {
+        callback({ addAction: (action) => { action.apply(); return true; } });
+        return true;
+      }),
+    };
+    const ppro = {
+      Project: { getActiveProject: vi.fn(async () => project) },
+      ProjectItem: { cast: vi.fn((item: unknown) => item) },
+      ClipProjectItem: { cast: vi.fn((item: unknown) => item) },
+      FolderItem: { cast: vi.fn(() => null) },
+      TickTime: { createWithSeconds: vi.fn((seconds: number) => ({ seconds })) },
+    };
+    const registry = Commands.createCommandRegistry({ ppro, Protocol });
+
+    await expect(registry.dispatch("source.mediaTiming.inspect", { projectItemId: "clip-1" })).resolves.toEqual({
+      projectItemId: "clip-1", startSeconds: 10, durationSeconds: 60,
+      verificationBoundary: "source_media_timing_readback",
+    });
+    await expect(registry.dispatch("source.mediaTiming.setStart", {
+      projectItemId: "clip-1", expectedTiming: { startSeconds: 10, durationSeconds: 60 }, startSeconds: 12,
+    })).rejects.toMatchObject({ code: "UXP_CONFIRMATION_REQUIRED" });
+    expect(media.createSetStartAction).not.toHaveBeenCalled();
+    await expect(registry.dispatch("source.mediaTiming.setStart", {
+      projectItemId: "clip-1", expectedTiming: { startSeconds: 10 }, startSeconds: 12, confirmSetStart: true,
+    })).rejects.toMatchObject({ code: "UXP_INVALID_ARGUMENT" });
+    expect(media.createSetStartAction).not.toHaveBeenCalled();
+
+    const firstArgs = {
+      projectItemId: "clip-1", expectedTiming: { startSeconds: 10, durationSeconds: 60 },
+      startSeconds: 12, confirmSetStart: true, operationId: "source-start-1",
+    };
+    await expect(registry.dispatch("source.mediaTiming.setStart", firstArgs)).resolves.toMatchObject({
+      updated: true, projectItemId: "clip-1", outcome: "verified", operationId: "source-start-1",
+      before: { startSeconds: 10, durationSeconds: 60 }, after: { startSeconds: 12, durationSeconds: 60 },
+    });
+    expect(project.executeTransaction).toHaveBeenCalledWith(expect.any(Function), "Set source media start time");
+    await expect(registry.dispatch("source.mediaTiming.setStart", firstArgs)).resolves.toMatchObject({
+      replayed: true, operationId: "source-start-1",
+    });
+    expect(media.createSetStartAction).toHaveBeenCalledTimes(1);
+
+    const expectedTiming = { startSeconds: 12, durationSeconds: 60 };
+    const concurrentFirst = registry.dispatch("source.mediaTiming.setStart", {
+      projectItemId: "clip-1", expectedTiming, startSeconds: 15, confirmSetStart: true, operationId: "source-start-2",
+    });
+    const concurrentSecond = registry.dispatch("source.mediaTiming.setStart", {
+      projectItemId: "clip-1", expectedTiming, startSeconds: 18, confirmSetStart: true, operationId: "source-start-3",
+    });
+    await expect(concurrentFirst).resolves.toMatchObject({
+      updated: true, after: { startSeconds: 15, durationSeconds: 60 }, operationId: "source-start-2",
+    });
+    await expect(concurrentSecond).rejects.toMatchObject({ code: "UXP_STALE_TARGET" });
+    expect(media.createSetStartAction).toHaveBeenCalledTimes(2);
+    expect(project.executeTransaction).toHaveBeenCalledTimes(2);
+    expect(startSeconds).toBe(15);
+
+    await expect(registry.dispatch("source.mediaTiming.setStart", {
+      projectItemId: "clip-1", expectedTiming: { startSeconds: 12, durationSeconds: 60 },
+      startSeconds: 19, confirmSetStart: true,
+    })).rejects.toMatchObject({ code: "UXP_STALE_TARGET" });
+    expect(media.createSetStartAction).toHaveBeenCalledTimes(2);
+
+    await expect(registry.dispatch("source.mediaTiming.setStart", {
+      projectItemId: "clip-1", expectedTiming: { startSeconds: 15, durationSeconds: 60 },
+      startSeconds: 16, confirmSetStart: true, operationId: "source-start-4",
+    })).rejects.toMatchObject({ code: "UXP_VERIFICATION_FAILED" });
+    expect(project.executeTransaction).toHaveBeenCalledTimes(3);
+    expect(startSeconds).toBe(16);
+    expect(durationSeconds).toBe(59);
+
+    const betaPromiseMedia = {
+      start: Promise.resolve({ seconds: 16 }),
+      duration: Promise.resolve({ seconds: 59 }),
+      createSetStartAction: vi.fn(),
+    };
+    clip.getMedia.mockResolvedValue(betaPromiseMedia);
+    await expect(registry.dispatch("source.mediaTiming.setStart", {
+      projectItemId: "clip-1", expectedTiming: { startSeconds: 16, durationSeconds: 59 },
+      startSeconds: 19, confirmSetStart: true,
+    })).rejects.toMatchObject({ code: "UXP_COMMAND_UNAVAILABLE" });
+    expect(betaPromiseMedia.createSetStartAction).not.toHaveBeenCalled();
+  });
+
   it("sets caption-track mute state through direct host promises and reads it back", async () => {
     let muted = false;
     const captionTrack = {

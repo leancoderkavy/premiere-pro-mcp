@@ -75,6 +75,21 @@ describe("next-wave UXP MCP tools", () => {
         include_media_timing: { type: "boolean" },
       },
     });
+    const sourceMediaTiming = getUxpNextWorkflowTools(bridge).manage_source_media_timing_uxp;
+    expect(sourceMediaTiming.parameters).toMatchObject({
+      additionalProperties: false,
+      required: ["action", "project_item_id"],
+      properties: {
+        action: { enum: ["inspect", "set_start"] },
+        project_item_id: { maxLength: 512 },
+        expected_timing: {
+          additionalProperties: false,
+          required: ["start_seconds", "duration_seconds"],
+        },
+        start_seconds: { maximum: 86400000 },
+        confirm_set_start: { type: "boolean" },
+      },
+    });
     const tracks = getUxpNextWorkflowTools(bridge).manage_track_state_uxp;
     expect(tracks.parameters).toMatchObject({
       additionalProperties: false,
@@ -180,6 +195,14 @@ describe("next-wave UXP MCP tools", () => {
     expect(request).toHaveBeenLastCalledWith("media.health.setOffline", {
       projectItemIds: ["clip-1", "clip-2"], expectedOffline: false,
       confirmSetOffline: true, operationId: "offline-1",
+    });
+
+    const sourceMediaTiming = getUxpNextWorkflowTools(bridge).manage_source_media_timing_uxp;
+    await sourceMediaTiming.handler({ action: "set_start", project_item_id: "clip-1", start_seconds: 12,
+      expected_timing: { start_seconds: 10, duration_seconds: 60 }, confirm_set_start: true, operation_id: "source-time-1" });
+    expect(request).toHaveBeenLastCalledWith("source.mediaTiming.setStart", {
+      projectItemId: "clip-1", expectedTiming: { startSeconds: 10, durationSeconds: 60 },
+      startSeconds: 12, confirmSetStart: true, operationId: "source-time-1",
     });
 
     const tracks = getUxpNextWorkflowTools(bridge).manage_track_state_uxp;
@@ -406,6 +429,27 @@ describe("next-wave UXP MCP tools", () => {
     });
     await expect(tool.handler({ action: "unsupported" }))
       .resolves.toEqual({ success: false, error: "Unsupported media-health action: unsupported" });
+  });
+
+  it("covers source-media timing inspection, guarded start mapping, and rejection", async () => {
+    const request = vi.fn().mockResolvedValue({ ok: true });
+    const bridge = { request, getState: vi.fn() } as unknown as UxpWebSocketBridge;
+    const tool = getUxpNextWorkflowTools(bridge).manage_source_media_timing_uxp;
+
+    await tool.handler({ action: "inspect", project_item_id: "clip-1" });
+    expect(request).toHaveBeenLastCalledWith("source.mediaTiming.inspect", { projectItemId: "clip-1" });
+    await tool.handler({ action: "set_start", project_item_id: "clip-1" });
+    expect(request).toHaveBeenLastCalledWith("source.mediaTiming.setStart", { projectItemId: "clip-1" });
+    await tool.handler({
+      action: "set_start", project_item_id: "clip-1", start_seconds: 12,
+      expected_timing: { start_seconds: 10, duration_seconds: 60 }, confirm_set_start: false,
+    });
+    expect(request).toHaveBeenLastCalledWith("source.mediaTiming.setStart", {
+      projectItemId: "clip-1", expectedTiming: { startSeconds: 10, durationSeconds: 60 },
+      startSeconds: 12, confirmSetStart: false,
+    });
+    await expect(tool.handler({ action: "unsupported", project_item_id: "clip-1" }))
+      .resolves.toEqual({ success: false, error: "Unsupported source-media timing action: unsupported" });
   });
 
   it("covers track-state inspection, mute defaults, and unsupported actions", async () => {

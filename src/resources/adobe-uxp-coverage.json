@@ -1503,6 +1503,36 @@
       "verificationBoundary": "per_track_mute_readback"
     },
     {
+      "id": "guarded-source-media-timing",
+      "adobeApi": [
+        "ClipProjectItem.cast",
+        "ClipProjectItem.getMedia",
+        "Media.start",
+        "Media.duration",
+        "Media.createSetStartAction",
+        "TickTime.createWithSeconds",
+        "Project.lockedAccess",
+        "Project.executeTransaction"
+      ],
+      "documentationUrls": [
+        "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/clipprojectitem/",
+        "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/media/",
+        "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/project/"
+      ],
+      "minimumPremiereVersion": "26.3.0",
+      "backend": "uxp",
+      "uxpCommand": "source.mediaTiming.setStart",
+      "mcpTools": ["manage_source_media_timing_uxp"],
+      "availability": "current",
+      "implementationStatus": "implemented",
+      "verificationStatus": "automated_contract_verified",
+      "liveHostVerificationStatus": "not_run",
+      "mutatesProject": true,
+      "undoable": true,
+      "idempotency": "operation_id",
+      "verificationBoundary": "guarded_source_media_timing_readback"
+    },
+    {
       "id": "transactional-source-trim-framing",
       "adobeApi": [
         "ClipProjectItem.getInPoint",

@@ -215,6 +215,31 @@ automated contract tests cover validation, stale preflight, concurrent setters,
 replay, rejected setters, and failed readback. A licensed Premiere host must still
 validate the behavior on Windows and macOS before it is described as host-verified.
 
+## PR 13 — Guarded source-media start timing
+
+`manage_source_media_timing_uxp` inspects one explicitly identified source clip's
+media start and duration, then can change only its start time through Adobe's
+documented `Media.createSetStartAction()`. Inspection returns the bounded project
+item ID and timing scalars, never a display name, file path, metadata, selection,
+or Project-panel traversal. The mutation requires that complete snapshot, an
+explicit `confirm_set_start`, and an `operation_id` for replay-safe retries.
+
+Updates serialize from snapshot preflight through post-transaction readback per
+project GUID and project-item ID. Under `Project.lockedAccess()` the panel takes a
+fresh synchronous stable-26.3 `Media.start`/`Media.duration` snapshot, rejects any
+stale target before constructing the action, commits exactly one action in one
+`Project.executeTransaction()`, and then requires both the requested start and an
+unchanged duration to read back. A concurrent request with a different operation ID
+therefore cannot apply an old timing snapshot to a changed clip.
+
+The mutation deliberately relies on the stable 26.3 synchronous `Media.start` and
+`Media.duration` declarations inside its action boundary. The later beta Promise
+property shape and beta-only `getStart()`/`getDuration()` methods are not a mutation
+fallback. Contract tests cover confirmation, stale preflight, serialization,
+operation replay, one transaction, and post-readback; they do not prove a licensed
+Premiere host accepted the action, displayed the new timecode, persisted it, or
+provided a usable Undo entry.
+
 ## Primary Adobe references
 
 - [EventManager](https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/eventmanager/)
@@ -225,3 +250,4 @@ validate the behavior on Windows and macOS before it is described as host-verifi
 - [Properties](https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/properties/)
 - [Sequence](https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/sequence/)
 - [ClipProjectItem](https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/clipprojectitem/)
+- [Media](https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/media/)

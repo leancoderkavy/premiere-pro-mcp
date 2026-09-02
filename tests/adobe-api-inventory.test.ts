@@ -72,6 +72,17 @@ describe("Adobe declaration API inventory", () => {
       "Media.getStart",
       "Media.getDuration",
     ]));
+    const sourceTimingCoverage = coverage.entries.find((entry: { id: string }) => entry.id === "guarded-source-media-timing");
+    expect(sourceTimingCoverage.adobeApi).toEqual(expect.arrayContaining([
+      "ClipProjectItem.getMedia",
+      "Media.start",
+      "Media.duration",
+      "Media.createSetStartAction",
+    ]));
+    expect(sourceTimingCoverage.adobeApi).not.toEqual(expect.arrayContaining([
+      "Media.getStart",
+      "Media.getDuration",
+    ]));
   });
 
   it.each([
