@@ -1,0 +1,94 @@
+{
+  "schemaVersion": 1,
+  "scope": {
+    "declarations": [
+      "premierepro.AddTransitionOptions",
+      "AddTransitionOptions",
+      "AddTransitionOptionsStatic"
+    ],
+    "semantics": "This records the beta AddTransitionOptions factory-type migration against the pinned stable package. It is static declaration-drift accounting, not beta API support or a complete package diff.",
+    "mutationBoundary": "AddTransitionOptions configures transition application. This receipt intentionally does not construct options, create a transition action, or expose an MCP transition operation.",
+    "doesNotEstablish": "It does not prove a beta host exposes the static factory, that transition timing or alignment is accepted, that a transition is applied, or that any MCP action is supported or licensed-host validated."
+  },
+  "sources": {
+    "stable": {
+      "package": "@adobe/premierepro",
+      "version": "26.3.0",
+      "declarations": "node_modules/@adobe/premierepro/src/premierepro.d.ts",
+      "optionsDeclarationSha256": "e7f1de43dc60e2ba5fe835c266bde685a675100d946b90b580eb88387af45b17",
+      "staticFactoryPresent": false
+    },
+    "beta": {
+      "package": "@adobe/premierepro-beta",
+      "version": "26.5.0-beta.73",
+      "declarations": "node_modules/@adobe/premierepro-beta/src/premierepro.d.ts",
+      "optionsDeclarationSha256": "085032b80e6ff3f6b78ba74c2c6d08f224d61a7a8b33969092194c0a482a494e",
+      "staticDeclarationSha256": "a3092064287e86c0a7075328c3a9ac669f10e3fe060fb2739c4379e9472530bd",
+      "staticFactoryPresent": true
+    }
+  },
+  "diff": {
+    "betaOnly": [
+      {
+        "symbol": "AddTransitionOptionsStatic",
+        "kind": "type",
+        "signature": "{ /** * Construct an object that contains properties for applying transition. * @constructor */ new (): AddTransitionOptions; (): AddTransitionOptions; }"
+      },
+      {
+        "symbol": "AddTransitionOptionsStatic.call",
+        "kind": "call_signature",
+        "signature": "() => AddTransitionOptions"
+      },
+      {
+        "symbol": "AddTransitionOptionsStatic.new",
+        "kind": "construct_signature",
+        "signature": "() => AddTransitionOptions"
+      }
+    ],
+    "stableOnly": [],
+    "changed": [
+      {
+        "symbol": "premierepro.AddTransitionOptions",
+        "stable": {
+          "symbol": "premierepro.AddTransitionOptions",
+          "kind": "property",
+          "signature": "AddTransitionOptions"
+        },
+        "beta": {
+          "symbol": "premierepro.AddTransitionOptions",
+          "kind": "property",
+          "signature": "AddTransitionOptionsStatic"
+        }
+      },
+      {
+        "symbol": "AddTransitionOptions.factorySignatures",
+        "stable": {
+          "owner": "AddTransitionOptions",
+          "entries": [
+            {
+              "kind": "call_signature",
+              "signature": "() => AddTransitionOptions"
+            },
+            {
+              "kind": "construct_signature",
+              "signature": "() => AddTransitionOptions"
+            }
+          ]
+        },
+        "beta": {
+          "owner": "AddTransitionOptionsStatic",
+          "entries": [
+            {
+              "kind": "call_signature",
+              "signature": "() => AddTransitionOptions"
+            },
+            {
+              "kind": "construct_signature",
+              "signature": "() => AddTransitionOptions"
+            }
+          ]
+        }
+      }
+    ]
+  }
+}
