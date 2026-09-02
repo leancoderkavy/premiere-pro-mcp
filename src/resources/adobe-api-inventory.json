@@ -13,8 +13,8 @@
   },
   "stats": {
     "total": 976,
-    "mapped": 205,
-    "unmapped": 771,
+    "mapped": 219,
+    "unmapped": 757,
     "manifestOnly": 5
   },
   "manifestOnly": [
@@ -3203,7 +3203,7 @@
     {
       "symbol": "ProjectItem.getId",
       "kind": "method",
-      "coverage": "unmapped"
+      "coverage": "mapped"
     },
     {
       "symbol": "ProjectItem.getParentBin",
@@ -3218,7 +3218,7 @@
     {
       "symbol": "ProjectItem.name",
       "kind": "property",
-      "coverage": "unmapped"
+      "coverage": "mapped"
     },
     {
       "symbol": "ProjectItem.type",
@@ -3379,7 +3379,7 @@
     {
       "symbol": "RectF",
       "kind": "type",
-      "coverage": "unmapped"
+      "coverage": "mapped"
     },
     {
       "symbol": "RectF.[[call]]",
@@ -3394,12 +3394,12 @@
     {
       "symbol": "RectF.height",
       "kind": "property",
-      "coverage": "unmapped"
+      "coverage": "mapped"
     },
     {
       "symbol": "RectF.width",
       "kind": "property",
-      "coverage": "unmapped"
+      "coverage": "mapped"
     },
     {
       "symbol": "ScratchDiskSettings",
@@ -3537,7 +3537,7 @@
     {
       "symbol": "Sequence.getFrameSize",
       "kind": "method",
-      "coverage": "unmapped"
+      "coverage": "mapped"
     },
     {
       "symbol": "Sequence.getInPoint",
@@ -3557,7 +3557,7 @@
     {
       "symbol": "Sequence.getProjectItem",
       "kind": "method",
-      "coverage": "unmapped"
+      "coverage": "mapped"
     },
     {
       "symbol": "Sequence.getSelection",
@@ -3567,12 +3567,12 @@
     {
       "symbol": "Sequence.getSequenceAudioTimeDisplayFormat",
       "kind": "method",
-      "coverage": "unmapped"
+      "coverage": "mapped"
     },
     {
       "symbol": "Sequence.getSequenceVideoTimeDisplayFormat",
       "kind": "method",
-      "coverage": "unmapped"
+      "coverage": "mapped"
     },
     {
       "symbol": "Sequence.getSettings",
@@ -3582,7 +3582,7 @@
     {
       "symbol": "Sequence.getTimebase",
       "kind": "method",
-      "coverage": "unmapped"
+      "coverage": "mapped"
     },
     {
       "symbol": "Sequence.getVideoTrack",
@@ -3602,7 +3602,7 @@
     {
       "symbol": "Sequence.guid",
       "kind": "property",
-      "coverage": "unmapped"
+      "coverage": "mapped"
     },
     {
       "symbol": "Sequence.isDoneAnalyzingForVideoEffects",
@@ -3612,7 +3612,7 @@
     {
       "symbol": "Sequence.name",
       "kind": "property",
-      "coverage": "unmapped"
+      "coverage": "mapped"
     },
     {
       "symbol": "Sequence.setPlayerPosition",
@@ -4272,12 +4272,12 @@
     {
       "symbol": "TimeDisplay",
       "kind": "type",
-      "coverage": "unmapped"
+      "coverage": "mapped"
     },
     {
       "symbol": "TimeDisplay.type",
       "kind": "property",
-      "coverage": "unmapped"
+      "coverage": "mapped"
     },
     {
       "symbol": "TrackItemSelection",

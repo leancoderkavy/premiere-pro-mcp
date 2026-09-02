@@ -145,6 +145,19 @@ describe("UXP MCP tools", () => {
     });
   });
 
+  it("maps bounded native sequence-timing inspection to its documented UXP command", async () => {
+    const request = vi.fn().mockResolvedValue({ outcome: "verified" });
+    const bridge = { request, getState: vi.fn() } as unknown as UxpWebSocketBridge;
+    const tools = getUxpTools(bridge);
+    await tools.inspect_sequence_timing_uxp.handler({});
+    expect(request).toHaveBeenCalledWith("sequence.timing.inspect", {});
+    expect(tools.inspect_sequence_timing_uxp.parameters).toMatchObject({
+      type: "object",
+      additionalProperties: false,
+      properties: {},
+    });
+  });
+
   it("maps guarded native transition inspection and mutation arguments to documented UXP commands", async () => {
     const request = vi.fn().mockResolvedValue({ outcome: "committed_unverified" });
     const bridge = { request, getState: vi.fn() } as unknown as UxpWebSocketBridge;
@@ -216,6 +229,7 @@ describe("UXP MCP tools", () => {
           "get_uxp_capabilities",
           "get_uxp_state",
           "inspect_project_uxp",
+          "inspect_sequence_timing_uxp",
           "inspect_caption_tracks_uxp",
           "manage_sequence_range_uxp",
           "manage_sequence_playhead_uxp",
@@ -248,9 +262,10 @@ describe("UXP MCP tools", () => {
       // transcript workflow and documented Premiere 26.3 tools add nineteen. The
       // two stable workflow expansions, confirmed organization application, four
       // bounded native migration adapters, beat-grid marker application, and
-      // guarded sequence-playhead control add twenty-eight consolidated UXP tools;
+      // guarded sequence-playhead control and native sequence-timing inspection add
+      // twenty-nine consolidated UXP tools;
       // connection verification and delivery conformance add two default-profile core tools.
-      expect(tools.tools).toHaveLength(388);
+      expect(tools.tools).toHaveLength(389);
     } finally {
       await client.close();
       await server.close();

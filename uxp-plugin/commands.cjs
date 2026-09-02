@@ -13,6 +13,15 @@
     const transitionUpdateTails = new Map();
     const sequencePlayheadSetTails = new Map();
     const listedVideoTransitionMatchNames = new Set();
+    // Adobe's current Sequence Settings reference caps a sequence at 10,240 x
+    // 8,192 pixels. These bounds make the read-only bridge reject malformed
+    // host data instead of serializing an implausible frame size.
+    const MAX_SEQUENCE_FRAME_WIDTH = 10240;
+    const MAX_SEQUENCE_FRAME_HEIGHT = 8192;
+    // Preserve the native decimal ticks value as a string. Eighteen digits is a
+    // generous bounded protocol representation while avoiding an unbounded
+    // value from the host.
+    const MAX_SEQUENCE_TIMEBASE_DIGITS = 18;
     const definitions = {
       "capabilities.get": { readOnly: true, handler: capabilities },
       "state.get": { readOnly: true, handler: stateSnapshot },
@@ -23,6 +32,7 @@
       "sequence.range.update": { destructive: true, undoable: true, idempotent: true, minHostVersion: "25.6.0", probe: canUpdateSequenceRange, handler: updateSequenceRange },
       "sequence.playhead.inspect": { readOnly: true, minHostVersion: "25.6.0", probe: canInspectSequencePlayhead, handler: inspectSequencePlayhead },
       "sequence.playhead.set": { idempotent: true, minHostVersion: "25.6.0", probe: canSetSequencePlayhead, handler: setSequencePlayhead },
+      "sequence.timing.inspect": { readOnly: true, minHostVersion: "25.6.0", probe: canInspectSequenceTiming, handler: inspectSequenceTiming },
       "interchange.export": { requiresWorkspace: true, minHostVersion: "26.2.0", probe: canExportInterchange, handler: exportInterchange },
       "interchange.aaf.export": { destructive: true, undoable: false, idempotent: true, requiresWorkspace: true, minHostVersion: "26.3.0", probe: canExportAaf, handler: exportAaf },
       "track.rename": { destructive: true, undoable: true, idempotent: true, minHostVersion: "26.3.0", probe: canRenameTracks, handler: renameTrack },
@@ -273,6 +283,22 @@
         verificationBoundary: "sequence_playhead_readback"
       };
     }
+    async function inspectSequenceTiming(args) {
+      assertOnlyKeys(args, []);
+      const context = await activeContext(false);
+      const snapshot = await sequenceTimingSnapshot(context.sequence);
+      // Every timing field is a native asynchronous read. Re-resolve the active
+      // sequence after that read set so the returned snapshot belongs to the
+      // same active sequence at both the start and end of this request. The
+      // documented API does not provide an atomic snapshot or an activation
+      // revision, so a transient switch back to the same sequence is not
+      // distinguishable from an unchanged active sequence.
+      const current = await activeContext(false);
+      if (sequenceGuidRequired(current.sequence) !== snapshot.sequenceGuid) {
+        throw commandError("UXP_STALE_SEQUENCE", "The active sequence no longer matches the timing snapshot; retry the inspection");
+      }
+      return { ...snapshot, verificationBoundary: "sequence_timing_readback" };
+    }
     async function setSequencePlayhead(args) {
       const input = validateSequencePlayheadSetArgs(args);
       // TickTime construction can cross the host boundary. Construct it before
@@ -500,12 +526,82 @@
       return { sequenceGuid, range };
     }
     async function sequencePlayheadSnapshot(sequence) {
-      const sequenceGuid = String(sequence && sequence.guid || "");
-      if (!sequenceGuid) throw commandError("UXP_VERIFICATION_FAILED", "Premiere did not provide a stable active-sequence GUID");
+      const sequenceGuid = sequenceGuidRequired(sequence);
       return {
         sequenceGuid,
         positionSeconds: tickSecondsRequired(await sequence.getPlayerPosition(), "sequence player position")
       };
+    }
+    async function sequenceTimingSnapshot(sequence) {
+      const sequenceGuid = sequenceGuidRequired(sequence);
+      const [frameSize, timebase, audioDisplay, videoDisplay, projectItem] = await Promise.all([
+        sequence.getFrameSize(),
+        sequence.getTimebase(),
+        sequence.getSequenceAudioTimeDisplayFormat(),
+        sequence.getSequenceVideoTimeDisplayFormat(),
+        sequence.getProjectItem()
+      ]);
+      if (!projectItem || typeof projectItem.getId !== "function") {
+        throw commandError("UXP_VERIFICATION_FAILED", "Premiere did not return an identifiable sequence project item");
+      }
+      const projectItemId = await projectItem.getId();
+      if (typeof projectItemId !== "string" || !projectItemId.trim() || projectItemId.length > 512) {
+        throw commandError("UXP_VERIFICATION_FAILED", "Premiere did not return a valid sequence project-item ID");
+      }
+      return {
+        sequenceGuid,
+        sequenceName: snapshotString(sequence.name, "sequence name", 255),
+        frameSize: frameSizeSnapshot(frameSize),
+        timebase: timebaseSnapshot(timebase),
+        audioTimeDisplayFormat: timeDisplaySnapshot(audioDisplay, "sequence audio time display format"),
+        videoTimeDisplayFormat: timeDisplaySnapshot(videoDisplay, "sequence video time display format"),
+        projectItem: {
+          id: projectItemId,
+          name: snapshotString(projectItem.name, "sequence project-item name", 255)
+        }
+      };
+    }
+    function sequenceGuidRequired(sequence) {
+      const rawGuid = sequence && sequence.guid;
+      const isStringGuid = typeof rawGuid === "string";
+      const isGuidObject = rawGuid && typeof rawGuid === "object" &&
+        typeof rawGuid.toString === "function" && rawGuid.toString !== Object.prototype.toString;
+      if (!isStringGuid && !isGuidObject) {
+        throw commandError("UXP_VERIFICATION_FAILED", "Premiere did not provide a stable active-sequence GUID");
+      }
+      let sequenceGuid;
+      try { sequenceGuid = isStringGuid ? rawGuid : rawGuid.toString(); } catch (_) { sequenceGuid = ""; }
+      if (typeof sequenceGuid !== "string" || !sequenceGuid.trim() || sequenceGuid !== sequenceGuid.trim() || sequenceGuid.length > 512) {
+        throw commandError("UXP_VERIFICATION_FAILED", "Premiere did not provide a stable active-sequence GUID");
+      }
+      return sequenceGuid;
+    }
+    function frameSizeSnapshot(value) {
+      if (!value || typeof value.width !== "number" || typeof value.height !== "number" ||
+        !Number.isSafeInteger(value.width) || !Number.isSafeInteger(value.height) ||
+        value.width < 1 || value.height < 1 ||
+        value.width > MAX_SEQUENCE_FRAME_WIDTH || value.height > MAX_SEQUENCE_FRAME_HEIGHT) {
+        throw commandError("UXP_VERIFICATION_FAILED", "Premiere did not return a valid sequence frame size");
+      }
+      return { width: value.width, height: value.height };
+    }
+    function timebaseSnapshot(value) {
+      if (typeof value !== "string" || !new RegExp("^[1-9]\\d{0," + (MAX_SEQUENCE_TIMEBASE_DIGITS - 1) + "}$").test(value)) {
+        throw commandError("UXP_VERIFICATION_FAILED", "Premiere did not return a valid sequence timebase");
+      }
+      return value;
+    }
+    function timeDisplaySnapshot(value, name) {
+      if (!value || typeof value.type !== "number" || !Number.isSafeInteger(value.type) || value.type < 0) {
+        throw commandError("UXP_VERIFICATION_FAILED", "Premiere did not return a valid " + name);
+      }
+      return { type: value.type };
+    }
+    function snapshotString(value, name, maximum) {
+      if (typeof value !== "string" || !value.trim() || value.length > maximum) {
+        throw commandError("UXP_VERIFICATION_FAILED", "Premiere did not return a valid " + name);
+      }
+      return value;
     }
     function validateSequenceRangeUpdateArgs(args) {
       assertObject(args);
@@ -940,6 +1036,12 @@
     }
     function canInspectSequencePlayhead() {
       return activeSequenceHas(["getPlayerPosition"]);
+    }
+    function canInspectSequenceTiming() {
+      return activeSequenceHas([
+        "getFrameSize", "getTimebase", "getSequenceAudioTimeDisplayFormat",
+        "getSequenceVideoTimeDisplayFormat", "getProjectItem"
+      ]);
     }
     async function canSetSequencePlayhead() {
       return !!(ppro.TickTime && typeof ppro.TickTime.createWithSeconds === "function" &&
