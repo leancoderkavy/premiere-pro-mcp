@@ -147,6 +147,9 @@ function validateArchiveEntries(entries) {
     if (isDirectory && (entry.compressedBytes !== 0 || entry.uncompressedBytes !== 0)) {
       throw archiveError("CCX archive directory entries must not contain file data");
     }
+    if (isDirectory && entry.crc32 !== 0) {
+      throw archiveError("CCX archive directory entries must use a zero CRC-32");
+    }
     const segments = name.split("/");
     if (isDirectory) segments.pop();
     if (segments.length === 0 || segments.some((segment) => !segment || segment === "." || segment === ".." || /^[A-Za-z]:$/.test(segment))) {
