@@ -129,9 +129,13 @@ export function getProjectTools(bridgeOptions: BridgeOptions) {
                 var item = bin.children[i];
                 try {
                   var mediaPath = item.getMediaPath();
-                  if (mediaPath) {
-                    if (!pathMap[mediaPath]) pathMap[mediaPath] = 0;
-                    pathMap[mediaPath]++;
+                  var nodeId = String(item.nodeId || "");
+                  if (mediaPath && nodeId) {
+                    if (!pathMap[mediaPath]) pathMap[mediaPath] = { nodeIds: {}, count: 0 };
+                    if (!pathMap[mediaPath].nodeIds[nodeId]) {
+                      pathMap[mediaPath].nodeIds[nodeId] = true;
+                      pathMap[mediaPath].count++;
+                    }
                   }
                 } catch (e) {}
                 if (item.type === 2) scan(item);
@@ -142,9 +146,9 @@ export function getProjectTools(bridgeOptions: BridgeOptions) {
             var duplicateGroupCount = 0;
             var duplicateItemCount = 0;
             for (var path in pathMap) {
-              if (pathMap.hasOwnProperty(path) && pathMap[path] > 1) {
+              if (pathMap.hasOwnProperty(path) && pathMap[path].count > 1) {
                 duplicateGroupCount++;
-                duplicateItemCount += pathMap[path] - 1;
+                duplicateItemCount += pathMap[path].count - 1;
               }
             }
             return {
@@ -430,12 +434,24 @@ export function getProjectTools(bridgeOptions: BridgeOptions) {
 
     start_batch_encode: {
       description:
-        "Start encoding all items in the Adobe Media Encoder render queue",
+        "Request Adobe Media Encoder to start the render queue; reports only accepted handoff, not queue progress or output-file creation.",
       parameters: {},
       handler: async () => {
         const script = buildToolScript(`
-          app.encoder.startBatch();
-          return __result({ started: true });
+          if (!app.encoder || typeof app.encoder.startBatch !== "function") return __error("Adobe Media Encoder is not available");
+          try {
+            var startResult = app.encoder.startBatch();
+            // Premiere reports an accepted batch-start request as 1/true.
+            if (startResult !== 1 && startResult !== true) return __error("Adobe Media Encoder did not accept the start request.");
+          } catch (e) {
+            return __error("Adobe Media Encoder rejected the start request: " + e.message);
+          }
+          return __result({
+            requested: true,
+            verified: false,
+            outcome: "committed_unverified",
+            verificationScope: "Premiere accepted a start request; queue presence, progress, and output-file creation are not verified by this tool."
+          });
         `);
         return sendCommand(script, bridgeOptions);
       },

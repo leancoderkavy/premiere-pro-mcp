@@ -133,6 +133,31 @@
       return { id: await projectItemId(item), name: String(item && item.name || ""), type: item && item.type != null ? item.type : null, colorLabelIndex, parentId };
     }
 
+    async function safeProjectItemSnapshots(items) {
+      const snapshots = [];
+      for (const item of items || []) {
+        try { snapshots.push(await projectItemSnapshot(item)); }
+        catch (_) {
+          let name = "", type = null;
+          try { name = String(item && item.name || ""); } catch (_) {}
+          try { type = item && item.type != null ? item.type : null; } catch (_) {}
+          snapshots.push({ id: "", name, type, colorLabelIndex: null, parentId: null });
+        }
+      }
+      return snapshots;
+    }
+
+    async function safeProjectItemIds(items) {
+      const ids = [];
+      for (const item of items || []) {
+        try {
+          const id = await projectItemId(item);
+          if (id) ids.push(id);
+        } catch (_) {}
+      }
+      return ids;
+    }
+
     function isFolder(item) {
       if (!ppro.FolderItem || typeof ppro.FolderItem.cast !== "function") return false;
       try { return !!ppro.FolderItem.cast(item); } catch (_) { return false; }
@@ -205,6 +230,14 @@
 
     async function sequenceSnapshot(sequence) {
       return { id: guidString(sequence && sequence.guid), name: String(sequence && sequence.name || "") };
+    }
+
+    async function safeSequenceSnapshot(sequence) {
+      if (!sequence) return null;
+      try {
+        if (sequence.guid == null && sequence.id != null) return { id: String(sequence.id), name: String(sequence.name || "") };
+        return await sequenceSnapshot(sequence);
+      } catch (_) { return null; }
     }
 
     async function boundedSequences(project) {
@@ -842,9 +875,37 @@
       requireConfirmation(args.confirmNonUndoable, "Creating a sequence from media is a direct Project call without an Action boundary");
       const project = await activeProject(false), ids = boundedStringArray(args.projectItemIds, "projectItemIds", 64, 512), clips = [];
       for (const id of ids) clips.push(asClip(await findProjectItem(project, id), "projectItemId"));
-      const target = args.targetBinId ? await resolveFolder(project, args.targetBinId, "targetBinId") : undefined, sequence = await project.createSequenceFromMedia(boundedString(args.name, "name", 255), clips, target);
-      if (!sequence) throw commandError("UXP_HOST_REJECTED", "Premiere did not create a sequence");
-      return directMutationResult(false, { created: true, sequence: await sequenceSnapshot(sequence) }, "create_sequence_host_return");
+      const target = args.targetBinId ? await resolveFolder(project, args.targetBinId, "targetBinId") : undefined, name = boundedString(args.name, "name", 255);
+      return withAppendLock(appendLockKey(project, "sequences", "all"), async () => {
+        const before = await listSequences(project);
+        assertAppendCapacity(before, MAX_SEQUENCES, "Sequence creation");
+        const reconciledSequence = async () => {
+          try {
+            const after = await listSequences(project);
+            return { readable: true, sequence: after.find((item) => !before.some((old) => old.id === item.id)) || null };
+          } catch (_) { return { readable: false, sequence: null }; }
+        };
+          const partialReceipt = async (boundary, sequence) => directMutationResult(false, {
+            created: !!sequence, partial: true, sequence: await safeSequenceSnapshot(sequence)
+          }, boundary);
+          let sequence;
+          try { sequence = await project.createSequenceFromMedia(name, clips, target); }
+          catch (error) {
+            const reconciliation = await reconciledSequence();
+            if (reconciliation.sequence) return partialReceipt("create_sequence_host_reconciliation", reconciliation.sequence);
+            if (!reconciliation.readable) return partialReceipt("create_sequence_reconciliation_readback_failed", null);
+            throw commandError("UXP_HOST_REJECTED", "Premiere rejected sequence creation: " + error.message);
+          }
+          if (!sequence) {
+            const reconciliation = await reconciledSequence();
+            if (reconciliation.sequence) return partialReceipt("create_sequence_host_return", reconciliation.sequence);
+            if (!reconciliation.readable) return partialReceipt("create_sequence_reconciliation_readback_failed", null);
+            throw commandError("UXP_HOST_REJECTED", "Premiere did not create a sequence");
+          }
+        const snapshot = await safeSequenceSnapshot(sequence);
+        if (!snapshot || !snapshot.id) return partialReceipt("create_sequence_identity_readback", sequence);
+        return directMutationResult(false, { created: true, partial: false, sequence: snapshot }, "create_sequence_host_return");
+      });
     }
 
     async function deriveSilenceSequence(args) {
@@ -867,40 +928,66 @@
       const target = args.targetBinId ? await resolveFolder(project, args.targetBinId, "targetBinId") : undefined;
       const name = boundedString(args.name, "name", 255), prefix = name + " Keep";
       return withAppendLock(appendLockKey(project, "bin", await projectItemId(parent)), async () => {
-      const lockedBefore = Array.from(await parent.getItems() || []), beforeIds = new Set(); for (const item of lockedBefore) beforeIds.add(await projectItemId(item));
-      let subclipCommitError = false, mutationAttempted = false;
-      try {
-        project.lockedAccess(() => {
-          const actions = ranges.map((range, index) => source.createSubClipAction(prefix + " " + (index + 1), tick(range.startSeconds, "startSeconds"), tick(range.endSeconds, "endSeconds"), true, { takeVideo: true, takeAudio: true }));
-          mutationAttempted = true;
-          commitActions(project, "Create silence-removal subclips", actions);
-        });
-      } catch (error) { if (!mutationAttempted) throw error; subclipCommitError = true; }
-      let createdItems;
-      try {
-        const after = Array.from(await parent.getItems() || []), added = [];
-        for (const item of after) if (!beforeIds.has(await projectItemId(item))) added.push(item);
-        createdItems = ranges.map((_, index) => added.find((item) => String(item.name || "") === prefix + " " + (index + 1))).filter(Boolean);
-      } catch (_) {
-        return directMutationResult(false, { partial: true, createdSubclips: [], sequence: null, originalChanged: false }, "derived_subclip_readback_failed");
-      }
-      if (subclipCommitError || createdItems.length !== ranges.length) return directMutationResult(false, { partial: true, createdSubclips: await Promise.all(createdItems.map(projectItemSnapshot)), sequence: null, originalChanged: false }, subclipCommitError ? "derived_subclip_partial_transaction_receipt" : "derived_subclip_count_readback");
-      let sequence;
-      try { sequence = await project.createSequenceFromMedia(name, [createdItems[0]], target); } catch (_) {}
-      if (!sequence) return directMutationResult(false, { partial: true, createdSubclips: await Promise.all(createdItems.map(projectItemSnapshot)), sequence: null, originalChanged: false }, "derived_sequence_host_return");
-      const inserted = [await projectItemId(createdItems[0])];
-      try {
-        const editor = ppro.SequenceEditor.getEditor(sequence);
-        if (!editor || typeof editor.createInsertProjectItemAction !== "function") throw new Error("editor unavailable");
-        let offset = ranges[0].endSeconds - ranges[0].startSeconds;
-        for (let index = 1; index < createdItems.length; index++) {
-          project.lockedAccess(() => commitActions(project, "Insert silence-removal segment", [editor.createInsertProjectItemAction(createdItems[index], tick(offset, "timeline offset"), 0, 0, false)]));
-          inserted.push(await projectItemId(createdItems[index])); offset += ranges[index].endSeconds - ranges[index].startSeconds;
+        const lockedBefore = Array.from(await parent.getItems() || []), beforeIds = new Set();
+        if (lockedBefore.length + ranges.length > MAX_BIN_CHILDREN) throw commandError("UXP_PROJECT_TOO_LARGE", "Silence-removal subclips would exceed the " + MAX_BIN_CHILDREN + " item bin limit");
+        for (const item of lockedBefore) beforeIds.add(await projectItemId(item));
+        let subclipCommitError = false, mutationAttempted = false;
+        try {
+          project.lockedAccess(() => {
+            const actions = ranges.map((range, index) => source.createSubClipAction(prefix + " " + (index + 1), tick(range.startSeconds, "startSeconds"), tick(range.endSeconds, "endSeconds"), true, { takeVideo: true, takeAudio: true }));
+            mutationAttempted = true;
+            commitActions(project, "Create silence-removal subclips", actions);
+          });
+        } catch (error) { if (!mutationAttempted) throw error; subclipCommitError = true; }
+        let createdItems;
+        try {
+          const after = Array.from(await parent.getItems() || []), added = [];
+          for (const item of after) if (!beforeIds.has(await projectItemId(item))) added.push(item);
+          createdItems = ranges.map((_, index) => added.find((item) => String(item.name || "") === prefix + " " + (index + 1))).filter(Boolean);
+        } catch (_) {
+          return directMutationResult(false, { partial: true, createdSubclips: [], sequence: null, originalChanged: false }, "derived_subclip_readback_failed");
         }
-      } catch (_) {
-        return directMutationResult(false, { partial: true, createdSubclips: await Promise.all(createdItems.map(projectItemSnapshot)), sequence: await sequenceSnapshot(sequence), insertedProjectItemIds: inserted, originalChanged: false }, "derived_sequence_partial_insert_receipt");
-      }
-      return directMutationResult(false, { created: true, partial: false, createdSubclips: await Promise.all(createdItems.map(projectItemSnapshot)), sequence: await sequenceSnapshot(sequence), insertedProjectItemIds: inserted, originalChanged: false }, "derived_sequence_structure_unverified");
+        const partialReceipt = async (boundary, sequence, insertedProjectItemIds) => directMutationResult(false, {
+          partial: true,
+          createdSubclips: await safeProjectItemSnapshots(createdItems),
+          sequence: await safeSequenceSnapshot(sequence),
+          insertedProjectItemIds: insertedProjectItemIds || [],
+          originalChanged: false
+        }, boundary);
+        if (subclipCommitError || createdItems.length !== ranges.length) return partialReceipt(subclipCommitError ? "derived_subclip_partial_transaction_receipt" : "derived_subclip_count_readback", null);
+        return withAppendLock(appendLockKey(project, "sequences", "all"), async () => {
+          let beforeSequences;
+          try { beforeSequences = await listSequences(project); }
+          catch (_) { return partialReceipt("derived_sequence_preflight_readback_failed", null); }
+          if (beforeSequences.length >= MAX_SEQUENCES) return partialReceipt("derived_sequence_capacity_preflight", null);
+          const reconciledSequence = async () => {
+            try {
+              const afterSequences = await listSequences(project);
+              return afterSequences.find((item) => !beforeSequences.some((old) => old.id === item.id)) || null;
+            } catch (_) { return null; }
+          };
+          let sequence;
+          try { sequence = await project.createSequenceFromMedia(name, [createdItems[0]], target); } catch (_) { return partialReceipt("derived_sequence_host_reconciliation", await reconciledSequence()); }
+          if (!sequence) return partialReceipt("derived_sequence_host_return", await reconciledSequence());
+          const inserted = await safeProjectItemIds([createdItems[0]]);
+          try {
+            const editor = ppro.SequenceEditor.getEditor(sequence);
+            if (!editor || typeof editor.createInsertProjectItemAction !== "function") throw new Error("editor unavailable");
+            let offset = ranges[0].endSeconds - ranges[0].startSeconds;
+            for (let index = 1; index < createdItems.length; index++) {
+              project.lockedAccess(() => commitActions(project, "Insert silence-removal segment", [editor.createInsertProjectItemAction(createdItems[index], tick(offset, "timeline offset"), 0, 0, false)]));
+              inserted.push(...await safeProjectItemIds([createdItems[index]])); offset += ranges[index].endSeconds - ranges[index].startSeconds;
+            }
+          } catch (_) {
+            return partialReceipt("derived_sequence_partial_insert_receipt", sequence, inserted);
+          }
+          const createdSubclips = await safeProjectItemSnapshots(createdItems), sequenceSnapshot = await safeSequenceSnapshot(sequence);
+          if (createdSubclips.length !== createdItems.length || createdSubclips.some((item) => !item.id)
+            || !sequenceSnapshot || !sequenceSnapshot.id || inserted.length !== createdItems.length || inserted.some((id) => !id)) {
+            return partialReceipt("derived_sequence_final_identity_readback", sequence, inserted);
+          }
+          return directMutationResult(false, { created: true, partial: false, createdSubclips: createdSubclips, sequence: sequenceSnapshot, insertedProjectItemIds: inserted, originalChanged: false }, "derived_sequence_structure_unverified");
+        });
       });
     }
 
@@ -921,9 +1008,37 @@
     async function createSubsequence(args) {
       assertObject(args); assertOnlyKeys(args, ["sequenceId", "ignoreTrackTargeting", "confirmNonUndoable", "operationId"]);
       requireConfirmation(args.confirmNonUndoable, "Creating a subsequence is a direct Sequence call without an Action boundary");
-      const project = await activeProject(false), sequence = await resolveSequence(project, args.sequenceId), created = await sequence.createSubsequence(optionalBoolean(args.ignoreTrackTargeting, false, "ignoreTrackTargeting"));
-      if (!created) throw commandError("UXP_HOST_REJECTED", "Premiere did not create a subsequence");
-      return directMutationResult(false, { created: true, sequence: await sequenceSnapshot(created) }, "create_subsequence_host_return");
+      const project = await activeProject(false), sequence = await resolveSequence(project, args.sequenceId), ignoreTrackTargeting = optionalBoolean(args.ignoreTrackTargeting, false, "ignoreTrackTargeting");
+      return withAppendLock(appendLockKey(project, "sequences", "all"), async () => {
+        const before = await listSequences(project);
+        assertAppendCapacity(before, MAX_SEQUENCES, "Subsequence creation");
+        const reconciledSequence = async () => {
+          try {
+            const after = await listSequences(project);
+            return { readable: true, sequence: after.find((item) => !before.some((old) => old.id === item.id)) || null };
+          } catch (_) { return { readable: false, sequence: null }; }
+        };
+          const partialReceipt = async (boundary, created) => directMutationResult(false, {
+            created: !!created, partial: true, sequence: await safeSequenceSnapshot(created)
+          }, boundary);
+          let created;
+          try { created = await sequence.createSubsequence(ignoreTrackTargeting); }
+          catch (error) {
+            const reconciliation = await reconciledSequence();
+            if (reconciliation.sequence) return partialReceipt("create_subsequence_host_reconciliation", reconciliation.sequence);
+            if (!reconciliation.readable) return partialReceipt("create_subsequence_reconciliation_readback_failed", null);
+            throw commandError("UXP_HOST_REJECTED", "Premiere rejected subsequence creation: " + error.message);
+          }
+          if (!created) {
+            const reconciliation = await reconciledSequence();
+            if (reconciliation.sequence) return partialReceipt("create_subsequence_host_return", reconciliation.sequence);
+            if (!reconciliation.readable) return partialReceipt("create_subsequence_reconciliation_readback_failed", null);
+            throw commandError("UXP_HOST_REJECTED", "Premiere did not create a subsequence");
+          }
+        const snapshot = await safeSequenceSnapshot(created);
+        if (!snapshot || !snapshot.id) return partialReceipt("create_subsequence_identity_readback", created);
+        return directMutationResult(false, { created: true, partial: false, sequence: snapshot }, "create_subsequence_host_return");
+      });
     }
 
     async function activateSequence(args) { return sequenceDirectAction(args, "activate", "setActiveSequence"); }

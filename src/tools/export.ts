@@ -1068,7 +1068,8 @@ export function getExportTools(bridgeOptions: BridgeOptions) {
     },
 
     add_to_render_queue: {
-      description: "Add the active sequence to the Adobe Media Encoder render queue",
+      description:
+        "Request an Adobe Media Encoder render-queue handoff for the active sequence. Verify queue presence or the output file independently.",
       parameters: {
         type: "object" as const,
         properties: {
@@ -1110,13 +1111,15 @@ export function getExportTools(bridgeOptions: BridgeOptions) {
             0, // workAreaType
             1  // removeOnCompletion
           );
-          if (!jobId || jobId === 0) return __error("Adobe Media Encoder did not queue the sequence export.");
+          if (!jobId || String(jobId) === "0") return __error("Adobe Media Encoder did not queue the sequence export.");
           
           return __result({
-            queued: true,
+            accepted: true,
+            verified: false,
+            outcome: "committed_unverified",
             jobId: String(jobId),
             outputPath: outputPath,
-            verificationScope: "AME accepted a job; this does not prove that asynchronous encoding finished or wrote an output file."
+            verificationScope: "Premiere returned an AME job ID. Queue presence and output-file creation are not verified by this tool."
           });
         `);
         return sendCommand(script, bridgeOptions);
@@ -1326,7 +1329,8 @@ export function getExportTools(bridgeOptions: BridgeOptions) {
     },
 
     encode_project_item: {
-      description: "Encode a specific project item (not a sequence) using Adobe Media Encoder",
+      description:
+        "Request an Adobe Media Encoder encode for a project item. The returned job ID is an unverified handoff; verify queue presence or the output file independently.",
       parameters: {
         type: "object" as const,
         properties: {
@@ -1371,15 +1375,17 @@ export function getExportTools(bridgeOptions: BridgeOptions) {
             app.encoder.ENCODE_IN_TO_OUT,
             ${args.remove_on_completion !== false ? 1 : 0}
           );
-          if (!jobId || jobId === 0) return __error("Adobe Media Encoder did not queue the project-item export.");
+          if (!jobId || String(jobId) === "0") return __error("Adobe Media Encoder did not queue the project-item export.");
           app.encoder.startBatch();
           
           return __result({
-            queued: true,
+            accepted: true,
+            verified: false,
+            outcome: "committed_unverified",
             jobId: String(jobId),
             item: item.name,
             outputPath: outputFile.fsName,
-            verificationScope: "AME accepted and started a job; this does not prove that asynchronous encoding finished or wrote an output file."
+            verificationScope: "Premiere returned an AME job ID. Queue presence and output-file creation are not verified by this tool."
           });
         `);
         return sendCommand(script, bridgeOptions);
@@ -1387,7 +1393,8 @@ export function getExportTools(bridgeOptions: BridgeOptions) {
     },
 
     encode_file: {
-      description: "Encode an external file (not in project) using Adobe Media Encoder",
+      description:
+        "Request an Adobe Media Encoder encode for an external file. The returned job ID is an unverified handoff; verify queue presence or the output file independently.",
       parameters: {
         type: "object" as const,
         properties: {
@@ -1461,16 +1468,18 @@ export function getExportTools(bridgeOptions: BridgeOptions) {
             srcIn,
             srcOut
           );
-          if (!jobId || jobId === 0) return __error("Adobe Media Encoder did not queue the file export.");
+          if (!jobId || String(jobId) === "0") return __error("Adobe Media Encoder did not queue the file export.");
           app.encoder.startBatch();
           
           return __result({
-            queued: true,
+            accepted: true,
+            verified: false,
+            outcome: "committed_unverified",
             jobId: String(jobId),
             inputPath: inputFile.fsName,
             outputPath: outputFile.fsName,
             workArea: ${hasRange ? "IN_TO_OUT" : "ENTIRE"},
-            verificationScope: "AME accepted and started a job; this does not prove that asynchronous encoding finished or wrote an output file."
+            verificationScope: "Premiere returned an AME job ID. Queue presence and output-file creation are not verified by this tool."
           });
         `);
         return sendCommand(script, bridgeOptions);
@@ -1480,8 +1489,8 @@ export function getExportTools(bridgeOptions: BridgeOptions) {
     manage_proxies: {
       description:
         "Create, attach, or toggle proxies for a project item. " +
-        "Note: 'create' queues a proxy encode in Adobe Media Encoder and returns immediately — " +
-        "AME renders in the background. Once it finishes, call this tool again with action 'attach' " +
+        "Note: 'create' only requests a proxy encode from Adobe Media Encoder and returns an unverified handoff. " +
+        "Independently verify the AME queue or output file before calling this tool again with action 'attach' " +
         "and proxy_path set to the output_path you passed here. There is no single-call create-and-attach " +
         "in Premiere's ExtendScript API.",
       parameters: {
@@ -1541,16 +1550,21 @@ export function getExportTools(bridgeOptions: BridgeOptions) {
                  // Adobe Media Encoder; the result is attached in a separate step once
                  // AME has finished writing the file.
                  app.encoder.launchEncoder();
-                 app.encoder.encodeProjectItem(item, outputPath, presetPath, app.encoder.ENCODE_ENTIRE, 1);
+                 var jobId = app.encoder.encodeProjectItem(item, outputPath, presetPath, app.encoder.ENCODE_ENTIRE, 1);
+                 if (!jobId || String(jobId) === "0") return __error("Adobe Media Encoder did not queue the proxy encode.");
                  app.encoder.startBatch();
 
                  return __result({
                    action: "create",
                    item: item.name,
-                   queued: true,
+                   accepted: true,
+                   verified: false,
+                   outcome: "committed_unverified",
+                   jobId: String(jobId),
                    outputPath: outputPath,
                    presetUsed: presetPath,
-                   nextStep: "Wait for Adobe Media Encoder to finish, then call manage_proxies with action 'attach' and proxy_path set to outputPath."
+                   verificationScope: "Premiere returned an AME job ID. Queue presence and proxy-file creation are not verified by this tool.",
+                   nextStep: "Verify the proxy file exists, then call manage_proxies with action 'attach' and proxy_path set to outputPath."
                  });`
             }
           } else if (action === "attach") {
