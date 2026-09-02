@@ -387,6 +387,7 @@ describe("UXP MCP tools", () => {
           "add_video_transition_uxp",
           "remove_video_transition_uxp",
           "inspect_project_panel_metadata_uxp",
+          "slide_track_item_uxp",
           "apply_editorial_organization_plan",
         ]),
       );
@@ -399,9 +400,9 @@ describe("UXP MCP tools", () => {
       // insertion-bin inspection, guarded empty-sequence creation, marker web-link
       // inspection, Project-panel metadata inspection, and guarded app-preference
       // control, source-media interpretation overrides, and direct track-item
-      // identity inspection add thirty-seven consolidated UXP tools;
+      // identity inspection and guarded three-item slides add thirty-eight consolidated UXP tools;
       // connection verification and delivery conformance add two default-profile core tools.
-      expect(tools.tools).toHaveLength(401);
+      expect(tools.tools).toHaveLength(402);
     } finally {
       await client.close();
       await server.close();

@@ -11,7 +11,10 @@
   // preflight/transaction/readback boundary per target.
   function createSlipWorkflowDefinitions(deps) {
     const ppro = deps.ppro;
-    const slipTails = new Map();
+    const fallbackTails = new Map();
+    const locks = deps.locks && typeof deps.locks.withTrackMutationLock === "function"
+      ? deps.locks
+      : { withTrackMutationLock: localLock };
     const definitions = {
       "trackItem.slip.inspect": {
         readOnly: true,
@@ -54,8 +57,11 @@
       if (expected.projectGuid !== initial.projectGuid || expected.sequenceId !== initial.sequenceId) {
         throw commandError("UXP_STALE_TRACK_ITEM", "The active project or sequence no longer matches the reviewed slip snapshot");
       }
-      const key = initial.projectGuid + "\u0000" + initial.sequenceId + "\u0000" + target.mediaType + "\u0000" + target.trackIndex + "\u0000" + target.clipIndex;
-      return withSlipLock(key, async function () {
+      // Slides can trim either immediate neighbour, so slips and slides share
+      // a track-level lock rather than allowing different command families to
+      // pass one another with independently reviewed snapshots.
+      const key = initial.projectGuid + "\u0000" + initial.sequenceId + "\u0000" + target.mediaType + "\u0000" + target.trackIndex;
+      return locks.withTrackMutationLock(key, async function () {
         // Resolve the active target only after entering the per-item tail so
         // a different operation ID cannot reuse a snapshot taken before a
         // prior slip completed.
@@ -218,15 +224,15 @@
         left.mediaType === right.mediaType && left.trackIndex === right.trackIndex && left.clipIndex === right.clipIndex;
     }
 
-    function withSlipLock(key, operation) {
-      const previous = slipTails.get(key) || Promise.resolve();
+    function localLock(key, operation) {
+      const previous = fallbackTails.get(key) || Promise.resolve();
       let release;
       const gate = new Promise(function (resolve) { release = resolve; });
       const tail = previous.catch(function () { return undefined; }).then(function () { return gate; });
-      slipTails.set(key, tail);
+      fallbackTails.set(key, tail);
       return previous.catch(function () { return undefined; }).then(operation).finally(function () {
         release();
-        if (slipTails.get(key) === tail) slipTails.delete(key);
+        if (fallbackTails.get(key) === tail) fallbackTails.delete(key);
       });
     }
 
