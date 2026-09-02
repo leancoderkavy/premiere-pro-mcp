@@ -21,6 +21,7 @@ a failed UXP mutation through CEP.
 | Native marker CRUD | `manage_markers_uxp` | `markers.inspect`, `markers.add`, `markers.update`, `markers.remove` | Marker GUID plus requested-field or absence readback |
 | Transactional bin organizer | `organize_project_items_uxp` | `bins.inspect`, `bins.create`, `bins.createSmart`, `bins.rename`, `bins.move`, `bins.color`, `bins.remove` | Project-item identity, name, parent, color, or absence readback |
 | Sequence settings profiles | `manage_sequence_settings_uxp` | `sequenceSettings.get`, `sequenceSettings.update` | Requested settings read back after one `createSetSettingsAction` transaction |
+| Guarded sequence preview frame | `manage_sequence_preview_frame_uxp` | `sequence.previewFrame.inspect`, `sequence.previewFrame.update` | Explicit sequence GUID, full preview-frame snapshot, confirmation and operation ID; one settings transaction then same-sequence rectangle readback |
 | Workspace-gated imports | `import_project_media_uxp` | `project.import` | New project-item or sequence identities when Premiere exposes them |
 | Typed parameter/keyframe automation | `automate_effect_parameters_uxp` | `parameters.inspect`, `parameters.point.inspect`, `parameters.point.set`, `parameters.color.inspect`, `parameters.color.set`, `parameters.set`, `parameters.keyframe.inspect`, `parameters.keyframeAdd`, `parameters.keyframeRemove`, `parameters.keyframeRemoveRange`, `parameters.keyframeInterpolation`, `parameters.timeVarying.inspect`, `parameters.timeVarying.set` | Scalar parameter, static PointF x/y or raw Color RGBA, keyframe time, absence, interpolation, animation mode, or direct keyframe lookup readback |
 | Track-item transformations | `transform_track_item_uxp` | `trackItem.inspect`, `trackItem.update` | Start/end, source in/out, disabled state, and name readback |
@@ -122,6 +123,16 @@ named fields are changed and all named fields must match readback for `verified`
 Adobe marks video-frame-rate get/set as 26.2; the other profiled settings date to
 25.6. Because the consolidated get/update contract includes those frame-rate fields,
 both commands advertise a 26.2 minimum.
+
+### `manage_sequence_preview_frame_uxp`
+
+`inspect` accepts one exact sequence GUID and double-reads only that sequence's native
+preview-frame width and height. `update` requires the complete inspected snapshot,
+both bounded dimensions, explicit confirmation, and an operation ID. It serializes
+this bridge's changes per reviewed project/sequence, re-resolves before creating one
+`createSetSettingsAction` transaction, then reads that exact sequence back. It does
+not change video frame dimensions or coordinate with Premiere UI or other extensions;
+Adobe exposes no atomic compare-and-set for this settings value.
 
 ### `import_project_media_uxp`
 

@@ -452,6 +452,22 @@ describe("Adobe Premiere Pro 26.3 UXP coverage", () => {
       "Project.lockedAccess",
       "Project.executeTransaction",
     ]));
+    expect(entries.find((entry) => entry.id === "guarded-sequence-preview-frame")).toMatchObject({
+      uxpCommand: "sequence.previewFrame.update",
+      mcpTools: ["manage_sequence_preview_frame_uxp"],
+      verificationBoundary: "sequence_preview_frame_readback",
+      liveHostVerificationStatus: "not_run",
+    });
+    expect(entries.find((entry) => entry.id === "guarded-sequence-preview-frame")?.adobeApi).toEqual(expect.arrayContaining([
+      "Project.getSequences",
+      "Sequence.getSettings",
+      "Sequence.createSetSettingsAction",
+      "SequenceSettings.getPreviewFrameRect",
+      "SequenceSettings.setPreviewFrameRect",
+      "RectF.[[construct]]",
+      "Project.lockedAccess",
+      "Project.executeTransaction",
+    ]));
     for (const entry of entries) {
       expect(entry.minimumPremiereVersion).toMatch(/^\d+\.\d+\.\d+$/);
       expect(entry.backend).toBe("uxp");
@@ -467,12 +483,12 @@ describe("Adobe Premiere Pro 26.3 UXP coverage", () => {
   it("keeps unimplemented 26.3 work visibly planned", () => {
     const report = buildAdobeUxpCoverageReport();
     expect(report.summary).toEqual({
-      total: 81,
-      current: 78,
+      total: 82,
+      current: 79,
       planned: 3,
-      implemented: 78,
+      implemented: 79,
       committedUnverified: 9,
-      automatedContractVerified: 69,
+      automatedContractVerified: 70,
       liveHostVerified: 0,
     });
     expect(report.entries.find((entry) => entry.id === "aaf-export")).toMatchObject({
@@ -495,7 +511,7 @@ describe("Adobe Premiere Pro 26.3 UXP coverage", () => {
   it("surfaces the baseline in the platform capability report", () => {
     const report = buildPlatformCapabilityReport(resolveCapabilities("inspect"), "win32");
     expect(report.backends.uxp.apiCoverage.summary).toMatchObject({
-      current: 78,
+      current: 79,
       planned: 3,
       committedUnverified: 9,
     });

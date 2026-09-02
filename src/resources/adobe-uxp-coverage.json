@@ -2434,6 +2434,42 @@
       "undoable": false,
       "idempotency": "not_applicable",
       "verificationBoundary": "native_tick_time_value_readback"
+    },
+    {
+      "id": "guarded-sequence-preview-frame",
+      "adobeApi": [
+        "Project.getActiveProject",
+        "Project.getSequences",
+        "Project.guid",
+        "Project.lockedAccess",
+        "Project.executeTransaction",
+        "Sequence.guid",
+        "Sequence.getSettings",
+        "Sequence.createSetSettingsAction",
+        "SequenceSettings.getPreviewFrameRect",
+        "SequenceSettings.setPreviewFrameRect",
+        "RectF.[[construct]]",
+        "RectF.width",
+        "RectF.height"
+      ],
+      "documentationUrls": [
+        "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/project/",
+        "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/sequence/",
+        "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/sequencesettings/",
+        "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/rectf/"
+      ],
+      "minimumPremiereVersion": "26.3.0",
+      "backend": "uxp",
+      "uxpCommand": "sequence.previewFrame.update",
+      "mcpTools": ["manage_sequence_preview_frame_uxp"],
+      "availability": "current",
+      "implementationStatus": "implemented",
+      "verificationStatus": "automated_contract_verified",
+      "liveHostVerificationStatus": "not_run",
+      "mutatesProject": true,
+      "undoable": true,
+      "idempotency": "operation_id",
+      "verificationBoundary": "sequence_preview_frame_readback"
     }
   ]
 }
