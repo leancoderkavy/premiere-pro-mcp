@@ -9,9 +9,13 @@
       "authorityUrls": ["https://developer.adobe.com/premiere-pro/uxp/ppro-reference/"],
       "versionSource": "@adobe/premierepro@26.3.0",
       "inventoryArtifact": "dist/resources/adobe-api-inventory.json",
+      "betaMediaDriftArtifact": "dist/resources/adobe-beta-media-drift.json",
+      "betaMediaDriftCommand": "npm run adobe:beta-media-drift",
+      "betaMediaDriftVerificationCommand": "npm run adobe:beta-media-drift:check",
+      "betaMediaDriftDocumentation": "docs/adobe-beta-media-drift.md",
       "inventoryState": "complete",
       "implementationState": "partial",
-      "notes": "All stable declaration symbols are inventoried; mapped means classified, not necessarily a standalone MCP tool or live-host proof."
+      "notes": "All stable declaration symbols are inventoried; mapped means classified, not necessarily a standalone MCP tool or live-host proof. A separate Media-only receipt watches the pinned beta declaration delta without advertising beta members as supported."
     },
     {
       "id": "uxp-javascript",
