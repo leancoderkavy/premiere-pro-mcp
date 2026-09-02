@@ -12,6 +12,9 @@ import {
   verifyUxpHybridCcxReceipt,
 } from "../scripts/uxp-hybrid-ccx-receipt-core.mjs";
 import { generateUxpHybridAddonReceipt } from "../scripts/generate-uxp-hybrid-addon-receipt.mjs";
+import { canonicalUxpHybridAddonReceiptSha256 } from "../scripts/verify-uxp-hybrid-addon-receipt.mjs";
+import { canonicalNativeSdkHeaderInventorySha256 } from "../scripts/verify-native-sdk-header-inventory.mjs";
+import { verifyHybridBenchmarkEvidenceWithLocalCcx } from "../scripts/verify-uxp-hybrid-benchmark.mjs";
 
 const hash = (value: string) => value.repeat(64);
 
@@ -157,6 +160,60 @@ describe("UXP Hybrid CCX receipt", () => {
       expect(JSON.stringify(receipt)).not.toContain("const addon");
       expect(JSON.stringify(receipt)).not.toContain("mac intel fixture");
       expect(JSON.stringify(receipt)).not.toContain(directory);
+
+      const benchmarkEvidence = {
+        schemaVersion: 3,
+        workloadId: "weighted-energy-v1",
+        configuration: { sampleCount: 30, warmupCount: 3, iterations: 4, inputLength: 131072, seed: 1337 },
+        memoryMeasurement: "fixture process monitor",
+        sdkHeaderReceiptSha256: canonicalNativeSdkHeaderInventorySha256(headers),
+        addonReceiptSha256: canonicalUxpHybridAddonReceiptSha256(addonReceipt),
+        ccxReceiptSha256: canonicalUxpHybridCcxReceiptSha256(receipt),
+        runs: addonReceipt.artifacts.map((artifact) => {
+          const [platform, arch] = artifact.target.split("-");
+          return {
+            platform,
+            arch,
+            hostVersion: "26.3.0",
+            sdkVersion: "fixture-sdk",
+            buildMode: "Release",
+            addonLoaded: true,
+            addonSha256: artifact.sha256,
+            sourceCommit: "a".repeat(40),
+            checksumMatch: true,
+            codeSigned: platform === "mac",
+            notarized: platform === "mac",
+            javascript: { sampleCount: 30, p50Ms: 100, p95Ms: 140, peakWorkingSetBytes: 1000 },
+            native: { sampleCount: 30, p50Ms: 60, p95Ms: 80, peakWorkingSetBytes: 1050 },
+          };
+        }),
+      };
+      await expect(verifyHybridBenchmarkEvidenceWithLocalCcx(benchmarkEvidence, {
+        ccxPath: archive,
+        addonReceipt,
+        sdkHeaderReceipt: headers,
+        ccxReceipt: receipt,
+      })).resolves.toMatchObject({ promotionEligible: true, errors: [] });
+
+      const evidencePath = join(directory, "benchmark-evidence.json");
+      const headersPath = join(directory, "headers.json");
+      const addonPath = join(directory, "addon-receipt.json");
+      const ccxReceiptPath = join(directory, "ccx-receipt.json");
+      writeFileSync(evidencePath, `${JSON.stringify(benchmarkEvidence, null, 2)}\n`);
+      writeFileSync(headersPath, `${JSON.stringify(headers, null, 2)}\n`);
+      writeFileSync(addonPath, `${JSON.stringify(addonReceipt, null, 2)}\n`);
+      writeFileSync(ccxReceiptPath, `${JSON.stringify(receipt, null, 2)}\n`);
+      const benchmarkVerified = spawnSync(process.execPath, [
+        "scripts/verify-uxp-hybrid-benchmark.mjs",
+        "--input", evidencePath,
+        "--sdk-header-receipt", headersPath,
+        "--addon-receipt", addonPath,
+        "--ccx-receipt", ccxReceiptPath,
+        "--ccx", archive,
+      ], { encoding: "utf8" });
+      expect(benchmarkVerified.status).toBe(0);
+      expect(benchmarkVerified.stdout).toContain('"promotionEligible": true');
+      expect(benchmarkVerified.stdout).not.toContain(directory);
     } finally {
       rmSync(directory, { recursive: true, force: true });
     }

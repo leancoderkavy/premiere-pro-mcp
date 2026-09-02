@@ -31,9 +31,9 @@ its archive hash and relative header hashes without copying access-controlled
 files into this repository. That receipt leaves both C++ surfaces blocked until
 the relevant declaration classification, reproducible native build, and
 licensed-host evidence are supplied. A future Hybrid benchmark must also bind
-its submitted runs to a matching verified receipt, as described by the
-[Hybrid benchmark gate](uxp-hybrid-benchmark.md); the digest binding is not a
-native-build or host-behavior claim. A temporary development bundle can also
+its submitted runs to matching verified SDK, addon-layout, and current local
+CCX receipts, as described by the [Hybrid benchmark gate](uxp-hybrid-benchmark.md);
+the digest binding is not a native-build or host-behavior claim. A temporary development bundle can also
 produce a [Hybrid addon-layout receipt](uxp-hybrid-addon-receipt.md) for the
 public root `main.js` entrypoint and three target paths without disclosing
 source or binaries; it is still not binary architecture, signing, loading, or

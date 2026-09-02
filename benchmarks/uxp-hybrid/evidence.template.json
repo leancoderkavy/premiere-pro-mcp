@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 2,
+  "schemaVersion": 3,
   "workloadId": "weighted-energy-v1",
   "configuration": {
     "sampleCount": 30,
@@ -10,5 +10,7 @@
   },
   "memoryMeasurement": "Replace with the identical process peak-working-set collection method used on every target",
   "sdkHeaderReceiptSha256": "Replace with the canonical digest printed by native:sdk-header-inventory:verify",
+  "addonReceiptSha256": "Replace with the canonical digest printed by native:hybrid-addon-receipt:verify",
+  "ccxReceiptSha256": "Replace with the canonical digest printed by native:hybrid-ccx-receipt:verify",
   "runs": []
 }
