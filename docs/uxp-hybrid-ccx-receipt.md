@@ -42,7 +42,10 @@ Use `--validate-only` to examine a local archive without writing a receipt, or
 standalone verifier re-reads the archive and fails if any ZIP entry is unsafe,
 duplicated, encrypted, or uses unsupported compression, or if its required
 files, ZIP identity, manifest facts, header provenance, addon-layout receipt
-binding, or complete entry-name-set digest changed:
+binding, or complete entry-name-set digest changed. It also checks every local
+ZIP header against its central-directory entry before reading required payloads,
+so unselected archive entries cannot use a different name, flags, compression
+method, declared size, or an out-of-bounds/overlapping data range:
 
 ```powershell
 npm run native:hybrid-ccx-receipt:verify -- `
