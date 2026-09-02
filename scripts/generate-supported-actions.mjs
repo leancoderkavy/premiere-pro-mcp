@@ -81,14 +81,7 @@ function renderToolRows(tools, availability) {
   )).join("\n");
 }
 
-function assertCount(label, actual, expected) {
-  if (actual !== expected) {
-    throw new Error(`${label} count drifted: expected ${expected}, received ${actual}.`);
-  }
-}
-
 export async function generateSupportedActionsMarkdown() {
-  const metadata = JSON.parse(await readFile(resolve("release-metadata.json"), "utf8"));
   const defaultCore = await collectRegisteredTools(DEFAULT_CAPABILITIES, false);
   const fullCore = await collectRegisteredTools(FULL_CAPABILITIES, false);
   const connectedDefault = await collectRegisteredTools(DEFAULT_CAPABILITIES, true);
@@ -97,11 +90,6 @@ export async function generateSupportedActionsMarkdown() {
   const restrictedCore = fullCore.filter((tool) => !defaultNames.has(tool.name));
   const uxpTools = connectedDefault.filter((tool) => !defaultNames.has(tool.name));
 
-  assertCount("Registered core tool", fullCore.length, metadata.coreTools);
-  assertCount("Default-profile tool", defaultCore.length, metadata.defaultProfileTools);
-  assertCount("Restricted core tool", restrictedCore.length, metadata.coreTools - metadata.defaultProfileTools);
-  assertCount("Connected UXP addition", uxpTools.length, metadata.uxpAdditionalTools);
-  assertCount("Connected default-profile tool", connectedDefault.length, metadata.defaultProfileWithUxpTools);
   if (uxpTools.some((tool) => fullNames.has(tool.name))) {
     throw new Error("The UXP additions overlap the registered core tool names.");
   }
@@ -113,14 +101,16 @@ export async function generateSupportedActionsMarkdown() {
 This is the complete source-derived public action catalog for the current repository.
 The generator reads the same MCP registration surface used by clients, so tool names,
 descriptions, action enums, authority visibility, and counts stay aligned with the code.
+Release metadata and distributed-artifact claims remain versioned separately; this
+source catalog may include unreleased actions.
 
 | Surface | Count | Availability |
 | --- | ---: | --- |
-| Registered core actions | ${metadata.coreTools} | CEP/local server catalog; host and authority checks still apply |
-| Default-profile core actions | ${metadata.defaultProfileTools} | Advertised with \`${DEFAULT_CAPABILITIES}\` |
+| Registered core actions | ${fullCore.length} | CEP/local server catalog; host and authority checks still apply |
+| Default-profile core actions | ${defaultCore.length} | Advertised with \`${DEFAULT_CAPABILITIES}\` |
 | Restricted core actions | ${restrictedCore.length} | Require explicit \`unsafe-script\` authority |
-| Authenticated UXP additions | ${metadata.uxpAdditionalTools} | Advertised only while a compatible authenticated UXP panel is connected |
-| Default profile with UXP | ${metadata.defaultProfileWithUxpTools} | ${metadata.defaultProfileTools} core plus ${metadata.uxpAdditionalTools} UXP tools |
+| Authenticated UXP additions | ${uxpTools.length} | Advertised only while a compatible authenticated UXP panel is connected |
+| Default profile with UXP | ${connectedDefault.length} | ${defaultCore.length} core plus ${uxpTools.length} UXP tools |
 
 ## How to read support
 

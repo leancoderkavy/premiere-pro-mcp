@@ -38,6 +38,12 @@ export const WORKFLOW_CATALOG = [
     recommendedTools: ["manage_project_context", "search_project_context", "create_context_edit_plan", "preview_edit_plan", "apply_edit_plan"],
   },
   {
+    id: "transcript-first-context",
+    title: "Review a transcript-first context pack",
+    summary: "Capture explicit local transcript and media evidence, compact only the passages relevant to the intent, then review stable evidence IDs and revisions before proposing an edit.",
+    recommendedTools: ["manage_project_context", "create_editorial_context_pack", "create_editorial_plan", "preview_editorial_plan"],
+  },
+  {
     id: "transcript-rough-cut",
     title: "Plan a transcript-driven rough cut",
     summary: "Export Premiere's native transcript, select revision-locked source ranges, map them to verified 1x placements in a duplicate sequence, then execute the descending cut plan with re-query verification.",

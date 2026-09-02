@@ -7,10 +7,10 @@ source tree. It does not claim a callable Adobe AI Assistant,
 Media Intelligence, Generative Media Tool, Generative Extend, caption
 translation, Speech-to-Text, Enhance Speech, or Remix API.
 
-`create_editorial_plan` and `preview_editorial_plan` are local planning tools.
-They do not call an LLM, read a private Adobe index, upload media, send a
-provider request, create a bin, create a sequence, or change the active
-Premiere project.
+`create_editorial_context_pack`, `create_editorial_plan`, and
+`preview_editorial_plan` are local planning tools. They do not call an LLM,
+read a private Adobe index, upload media, send a provider request, create a
+bin, create a sequence, or change the active Premiere project.
 
 ## Workflow
 
@@ -20,14 +20,18 @@ Premiere project.
    `action: "enrich"`: Premiere transcript passages, operator-authored shot
    notes, audio observations, or approved analysis results. Do not put secrets,
    native paths, or unrelated customer content in an enrichment.
-3. Call `create_editorial_plan` with an editorial intent and one workflow:
+3. When a model needs a compact reading surface, call
+   `create_editorial_context_pack` with the editorial intent. It returns only
+   matching, bounded local evidence as Markdown, together with stable evidence
+   IDs and captured revisions.
+4. Call `create_editorial_plan` with an editorial intent and one workflow:
    `organize`, `stringout`, `rough_cut`, `caption_review`, or
    `platform_cutdown`.
-4. Call `preview_editorial_plan` with the unchanged plan returned by
+5. Call `preview_editorial_plan` with the unchanged plan returned by
    `create_editorial_plan` from the current server instance. It rejects a plan
    when its saved context or timeline revision is stale and returns an opaque
    review receipt when it is current.
-5. Re-capture context immediately before a mutation. Resolve stable Premiere
+6. Re-capture context immediately before a mutation. Resolve stable Premiere
    identities and use the route stated by the recommendation, for example
    `apply_editorial_organization_plan`, `manage_sequences_uxp`,
    `preview_transcript_edit_uxp`, or `create_caption_track`.
@@ -38,6 +42,22 @@ Premiere project.
 The confirmation token is an opaque review receipt for the exact server-issued
 local plan; it is not permission for an unchecked host mutation and cannot
 bypass the routed tool's own confirmation or capability requirements.
+
+## Transcript-first context packs
+
+`create_editorial_context_pack` is an opt-in, bounded reading view inspired by
+transcript-first editorial workflows. It retrieves only previously captured
+local evidence that matches the supplied intent and emits compact Markdown
+alongside the exact evidence IDs, time ranges, and captured context/source/
+timeline revisions. It is useful for reviewing a long interview without making
+an agent inspect every frame or receive a large, unstructured project dump.
+
+The tool does not transcribe media, infer speakers, parse an undocumented
+Premiere transcript schema, create an edit plan, or grant authority to mutate.
+Transcript passages, shot notes, and audio observations remain explicit local
+enrichments supplied through `manage_project_context`. A returned revision only
+identifies the saved context state; re-capture immediately before mutation and
+keep the routed tool's existing confirmation and readback requirements.
 
 ## Organization plans
 

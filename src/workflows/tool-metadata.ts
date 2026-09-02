@@ -3,6 +3,7 @@ import type { ToolAnnotations } from "@modelcontextprotocol/server";
 const READ_PREFIXES = ["get_", "list_", "inspect_", "find_", "check_", "search_"];
 const READ_ONLY_TOOLS = new Set([
   "create_context_edit_plan",
+  "create_editorial_context_pack",
   "create_editorial_plan",
   "preview_editorial_plan",
   "preview_project_intake",

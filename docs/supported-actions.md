@@ -5,11 +5,13 @@
 This is the complete source-derived public action catalog for the current repository.
 The generator reads the same MCP registration surface used by clients, so tool names,
 descriptions, action enums, authority visibility, and counts stay aligned with the code.
+Release metadata and distributed-artifact claims remain versioned separately; this
+source catalog may include unreleased actions.
 
 | Surface | Count | Availability |
 | --- | ---: | --- |
-| Registered core actions | 327 | CEP/local server catalog; host and authority checks still apply |
-| Default-profile core actions | 325 | Advertised with `inspect,edit,export,filesystem` |
+| Registered core actions | 328 | CEP/local server catalog; host and authority checks still apply |
+| Default-profile core actions | 326 | Advertised with `inspect,edit,export,filesystem` |
 | Restricted core actions | 2 | Require explicit `unsafe-script` authority |
 | Authenticated UXP additions | 60 | Advertised only while a compatible authenticated UXP panel is connected |
 | Default profile with UXP | 385 | 325 core plus 60 UXP tools |
@@ -81,6 +83,7 @@ operation” when the tool has no enum-based mode.
 | `create_bin` | Default profile | Single operation | Create a new bin (folder) in the project panel |
 | `create_caption_track` | Default profile | Single operation | Create a caption/subtitle track in the active sequence from an imported caption file (e.g., .srt, .vtt). Reports structural success only when the host exposes a caption-track readback; otherwise reports an unverified accepted request. |
 | `create_context_edit_plan` | Default profile | `strategy`: `rough_cut`, `select_ranges`, `review` | Create a non-mutating, evidence-backed edit-plan scaffold from indexed Premiere context. It returns ranked source/time candidates and stale-state guards; the model must review them and use preview_edit_plan before any mutation. |
+| `create_editorial_context_pack` | Default profile | Single operation | Create a compact Markdown reading view from already captured local transcript, shot, audio, note, source, or timeline context. It returns stable evidence IDs and context revisions for review, never calls an AI/provider or Premiere, and cannot change the project. |
 | `create_editorial_plan` | Default profile | `workflow`: `organize`, `stringout`, `rough_cut`, `caption_review`, `platform_cutdown` | Create a local, evidence-backed editorial workflow plan from captured project context. It never calls an LLM, uploads media, or changes Premiere. |
 | `create_project` | Default profile | Single operation | Create a new Premiere Pro project at the specified path |
 | `create_project_backup` | Default profile | Single operation | Create a collision-safe, byte-verified backup beside an existing .prproj file without opening or modifying the source project. |

@@ -62,6 +62,7 @@ const INSPECT_TOOL_NAMES = new Set([
   "preview_transcript_edit_uxp",
   "plan_transcript_rough_cut_uxp",
   "create_context_edit_plan",
+  "create_editorial_context_pack",
   "create_editorial_plan",
   "preview_editorial_plan",
   "preview_project_intake",
