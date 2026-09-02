@@ -131,7 +131,7 @@ describe("Adobe Premiere Pro 26.3 UXP coverage", () => {
     expect(entries.find((entry) => entry.id === "typed-parameter-keyframe-automation")).toMatchObject({
       uxpCommand: "parameters.keyframeAdd",
       mcpTools: ["automate_effect_parameters_uxp"],
-      verificationBoundary: "parameter_value_keyframe_or_animation_mode_readback",
+      verificationBoundary: "parameter_value_keyframe_animation_mode_or_lookup_readback",
       liveHostVerificationStatus: "not_run",
     });
     expect(entries.find((entry) => entry.id === "typed-parameter-keyframe-automation")?.adobeApi).toEqual(expect.arrayContaining([
@@ -139,6 +139,11 @@ describe("Adobe Premiere Pro 26.3 UXP coverage", () => {
       "ComponentParam.isTimeVarying",
       "ComponentParam.getKeyframeListAsTickTimes",
       "ComponentParam.createSetTimeVaryingAction",
+      "ComponentParam.getKeyframePtr",
+      "ComponentParam.findNextKeyframe",
+      "ComponentParam.findPreviousKeyframe",
+      "Keyframe.position",
+      "Keyframe.getTemporalInterpolationMode",
     ]));
     expect(entries.find((entry) => entry.id === "guarded-app-preferences")).toMatchObject({
       uxpCommand: "preferences.set",
