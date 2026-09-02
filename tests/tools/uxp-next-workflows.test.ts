@@ -6,6 +6,8 @@ describe("next-wave UXP MCP tools", () => {
   it("publishes a closed and bounded event receipt schema", () => {
     const bridge = { request: vi.fn(), getState: vi.fn() } as unknown as UxpWebSocketBridge;
     const tool = getUxpNextWorkflowTools(bridge).inspect_premiere_events_uxp;
+    expect(tool.description).toContain("timeline.snap.*");
+    expect(tool.description).toContain("raw event payloads are never returned");
     expect(tool.parameters).toMatchObject({
       type: "object",
       additionalProperties: false,

@@ -2040,6 +2040,33 @@
       "verificationBoundary": "conservatively_attributed_encoder_terminal_event"
     },
     {
+      "id": "bounded-timeline-snap-event-journal",
+      "adobeApi": [
+        "SnapEvent.EVENT_SNAP_TO_KEYFRAME",
+        "SnapEvent.EVENT_SNAP_TO_TRACKITEM",
+        "SnapEvent.EVENT_SNAP_TO_GUIDES",
+        "SnapEvent.EVENT_SNAP_RAZOR_TO_PLAYHEAD",
+        "SnapEvent.EVENT_SNAP_RAZOR_TO_MARKER",
+        "SnapEvent.EVENT_SNAP_PLAYHEAD_TO_TRACKITEM_EDGE"
+      ],
+      "documentationUrls": [
+        "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/events/snapevent/",
+        "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/eventmanager/"
+      ],
+      "minimumPremiereVersion": "26.3.0",
+      "backend": "uxp",
+      "uxpCommand": "events.list",
+      "mcpTools": ["inspect_premiere_events_uxp"],
+      "availability": "current",
+      "implementationStatus": "implemented",
+      "verificationStatus": "automated_contract_verified",
+      "liveHostVerificationStatus": "not_run",
+      "mutatesProject": false,
+      "undoable": false,
+      "idempotency": "not_applicable",
+      "verificationBoundary": "bounded_redacted_timeline_snap_event_receipt"
+    },
+    {
       "id": "host-readiness-gates",
       "adobeApi": [
         "Sequence.isDoneAnalyzingForVideoEffects",

@@ -160,7 +160,7 @@ function eventQuery(args: EventArgs, includeTimeout: boolean) {
 export function getUxpNextWorkflowTools(bridge: UxpWebSocketBridge) {
   return {
     inspect_premiere_events_uxp: {
-      description: "List or briefly wait for bounded, redacted Premiere host-event receipts without polling the complete project state.",
+      description: "List or briefly wait for bounded, redacted Premiere host-event receipts without polling the complete project state. Compatible hosts can also emit timeline.snap.* receipts for documented SnapEvent notifications; raw event payloads are never returned.",
       parameters: {
         type: "object" as const,
         additionalProperties: false,

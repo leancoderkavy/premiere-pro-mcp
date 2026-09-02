@@ -18,11 +18,18 @@ cap, a 60-second maximum wait, consecutive progress coalescing, and explicit ove
 signaling. Raw Adobe event objects never cross the bridge; only allowlisted scalar
 state and progress fields can appear in a receipt.
 
+On a compatible 26.3+ host, the documented root `SnapEvent` constants also register
+six passive `timeline.snap.*` notifications: keyframe, track-item, guide, razor-to-
+playhead, razor-to-marker, and playhead-to-track-item-edge. The panel registers only
+non-empty documented constants it can probe, does not invalidate project state for
+those notifications, and records the same bounded redacted receipt shape. It does
+not infer that every host emits each notification or expose the native event object.
+
 Automated tests cover overflow, progress coalescing, filtering, timeouts, shutdown,
-capability discovery, and the public MCP schema. They do not establish that a real
-Premiere build emits every declared event. Windows and macOS host runs must record
-the exact event names and payload shapes before downstream workflows treat them as
-completion evidence.
+capability discovery, the exact SnapEvent mapping and redaction, and the public MCP
+schema. They do not establish that a real Premiere build emits every declared event.
+Windows and macOS host runs must record the exact event names and payload shapes
+before downstream workflows treat them as completion evidence.
 
 ## PR 2 — AME terminal receipts
 
