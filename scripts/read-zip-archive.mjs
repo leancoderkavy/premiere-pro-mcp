@@ -10,11 +10,22 @@ const DATA_DESCRIPTOR_SIGNATURE = 0x08074b50;
 const MAX_ZIP32_BYTES = 0xffff_ffff;
 const MAX_CENTRAL_DIRECTORY_BYTES = 64 * 1024 * 1024;
 const MAX_ENTRIES = 100_000;
+const CRC32_TABLE = Uint32Array.from({ length: 256 }, (_, index) => {
+  let value = index;
+  for (let bit = 0; bit < 8; bit += 1) value = (value >>> 1) ^ (value & 1 ? 0xedb8_8320 : 0);
+  return value >>> 0;
+});
 
 function archiveError(message) {
   const error = new Error(message);
   error.code = "UXP_HYBRID_CCX_ARCHIVE_INVALID";
   return error;
+}
+
+function updateCrc32(value, buffer) {
+  let crc32 = value;
+  for (const byte of buffer) crc32 = (CRC32_TABLE[(crc32 ^ byte) & 0xff] ^ (crc32 >>> 8)) >>> 0;
+  return crc32;
 }
 
 async function readExactly(handle, bytes, position, label) {
@@ -215,11 +226,13 @@ async function consumeZipEntry(archivePath, archiveBytes, entry, maximumBytes, c
   const digest = createHash("sha256");
   const chunks = [];
   let bytes = 0;
+  let crc32 = 0xffff_ffff;
   try {
     for await (const chunk of stream) {
       bytes += chunk.length;
       if (!Number.isSafeInteger(bytes) || bytes > maximumBytes) throw archiveError("CCX archive required entry exceeds the verifier bounds");
       digest.update(chunk);
+      crc32 = updateCrc32(crc32, chunk);
       if (collect) chunks.push(chunk);
     }
   } catch (error) {
@@ -227,6 +240,7 @@ async function consumeZipEntry(archivePath, archiveBytes, entry, maximumBytes, c
     throw archiveError("CCX archive required entry cannot be decompressed");
   }
   if (bytes !== entry.uncompressedBytes) throw archiveError("CCX archive required entry size is inconsistent");
+  if ((crc32 ^ 0xffff_ffff) >>> 0 !== entry.crc32) throw archiveError("CCX archive required entry checksum is inconsistent");
   return { bytes, sha256: digest.digest("hex"), buffer: collect ? Buffer.concat(chunks, bytes) : undefined };
 }
 

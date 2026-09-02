@@ -54,6 +54,12 @@ directory. Both conventional descriptor encodings (with or without the common
 signature) are supported. This remains ZIP-structure validation only; it does
 not extract unselected entry contents.
 
+The manifest, root entrypoint, and three required addon artifacts are already
+read to bind them to the addon-layout receipt. While streaming those required
+payloads, the verifier also recomputes their ZIP CRC-32 values and rejects a
+central-directory checksum that does not match the uncompressed bytes. It does
+not decompress or checksum unselected archive payloads.
+
 ```powershell
 npm run native:hybrid-ccx-receipt:verify -- `
   --input C:\hybrid-evidence\fixture-ccx.json `
