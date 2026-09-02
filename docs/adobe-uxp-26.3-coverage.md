@@ -185,12 +185,16 @@ bounded `operation_id` replay key where applicable.
   media-path/metadata inventory, playback proof, or licensed-host validation.
 - `inspect_sequence_structure_uxp`: `include_source_project_items` is false by
   default. Setting it true returns each bounded timeline clip's stable source ID.
-  `include_source_project_item_classification: true` additionally requires that
-  ID opt-in and returns only documented source flags for sequence, merged-clip,
+  `include_source_project_item_content_type: true` additionally requires that ID
+  opt-in and returns only the documented broad source category `any`, `sequence`,
+  or `media`; unavailable or unrecognized host values are `null`. It does not
+  return a Project-panel type code, source name, media path, metadata, or tree
+  state. `include_source_project_item_classification: true` additionally requires
+  that ID opt-in and returns only documented source flags for sequence, merged-clip,
   multicam-clip, and offline status. A source unavailable to Premiere or an
   unavailable individual getter is represented as `null`; no source name, type,
-  media path, Project-panel metadata, or project-tree traversal is read. Only
-  when explicitly requested by
+  media path, Project-panel metadata, or project-tree traversal is read. Only when
+  explicitly requested by
   `include_source_nested_sequence_identity: true`, which also requires both
   source-ID and classification opt-ins. When and only when `isSequence` is
   exactly `true`, it returns the linked nested sequence's documented GUID; a
