@@ -65,6 +65,7 @@ describe("Adobe Premiere Pro 26.3 UXP coverage", () => {
       "guarded-source-media-timing",
       "guarded-source-media-overrides",
       "guarded-transcript-json-import",
+      "guarded-track-item-append-duplicate",
     ]));
     expect(entries.find((entry) => entry.id === "native-marker-crud")?.mcpTools).toEqual(["manage_markers_uxp"]);
     expect(entries.find((entry) => entry.id === "native-beat-grid-markers")).toMatchObject({
@@ -310,6 +311,19 @@ describe("Adobe Premiere Pro 26.3 UXP coverage", () => {
       "Project.lockedAccess",
       "Project.executeTransaction",
     ]));
+    expect(entries.find((entry) => entry.id === "guarded-track-item-append-duplicate")).toMatchObject({
+      uxpCommand: "trackItem.clone",
+      mcpTools: ["duplicate_track_item_uxp"],
+      verificationBoundary: "guarded_source_and_appended_track_item_readback",
+      liveHostVerificationStatus: "not_run",
+    });
+    expect(entries.find((entry) => entry.id === "guarded-track-item-append-duplicate")?.adobeApi).toEqual(expect.arrayContaining([
+      "SequenceEditor.getEditor",
+      "SequenceEditor.createCloneTrackItemAction",
+      "TickTime.createWithSeconds",
+      "Project.lockedAccess",
+      "Project.executeTransaction",
+    ]));
     for (const entry of entries) {
       expect(entry.minimumPremiereVersion).toMatch(/^\d+\.\d+\.\d+$/);
       expect(entry.backend).toBe("uxp");
@@ -325,12 +339,12 @@ describe("Adobe Premiere Pro 26.3 UXP coverage", () => {
   it("keeps unimplemented 26.3 work visibly planned", () => {
     const report = buildAdobeUxpCoverageReport();
     expect(report.summary).toEqual({
-      total: 69,
-      current: 66,
+      total: 70,
+      current: 67,
       planned: 3,
-      implemented: 66,
+      implemented: 67,
       committedUnverified: 8,
-      automatedContractVerified: 58,
+      automatedContractVerified: 59,
       liveHostVerified: 0,
     });
     expect(report.entries.find((entry) => entry.id === "aaf-export")).toMatchObject({
@@ -353,7 +367,7 @@ describe("Adobe Premiere Pro 26.3 UXP coverage", () => {
   it("surfaces the baseline in the platform capability report", () => {
     const report = buildPlatformCapabilityReport(resolveCapabilities("inspect"), "win32");
     expect(report.backends.uxp.apiCoverage.summary).toMatchObject({
-      current: 66,
+      current: 67,
       planned: 3,
       committedUnverified: 8,
     });

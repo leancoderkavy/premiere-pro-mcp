@@ -13,8 +13,8 @@ source catalog may include unreleased actions.
 | Registered core actions | 328 | CEP/local server catalog; host and authority checks still apply |
 | Default-profile core actions | 326 | Advertised with `inspect,edit,export,filesystem` |
 | Restricted core actions | 2 | Require explicit `unsafe-script` authority |
-| Authenticated UXP additions | 77 | Advertised only while a compatible authenticated UXP panel is connected |
-| Default profile with UXP | 403 | 326 core plus 77 UXP tools |
+| Authenticated UXP additions | 78 | Advertised only while a compatible authenticated UXP panel is connected |
+| Default profile with UXP | 404 | 326 core plus 78 UXP tools |
 
 ## How to read support
 
@@ -385,6 +385,7 @@ authenticated and the connected host advertises the required command capabilitie
 | `create_subclip_uxp` | Connected UXP | Single operation | Create and verify a Premiere 26.3+ subclip in an undoable transaction. Prefer project_item_id; a name must resolve to exactly one media clip. |
 | `detect_object_masks_uxp` | Connected UXP | `scope`: `sequence`, `project` | Detect whether the active project or sequence contains an Object Mask using Premiere 26.3+. |
 | `detect_scene_edits_uxp` | Connected UXP | `mode`: `apply_cuts`, `create_markers`, `create_subclips` | Run Premiere's documented scene-edit detection on the current timeline selection using cuts, markers, or subclips. This direct host mutation is not claimed undoable. |
+| `duplicate_track_item_uxp` | Connected UXP | `inspect`, `apply` | Inspect or append one guarded duplicate of the final audio or video clip on a track using documented UXP SequenceEditor actions. Apply requires the complete source snapshot, explicit confirmation, and an operation ID; it serializes with guarded slips and slides on that track, commits one transaction, and reads back only the original and appended item. It intentionally cannot duplicate into an occupied range, another track, or a linked A/V pair. It does not prove media handles, linked A/V synchronization, rendered frames, playback, persistence, or Undo behavior. |
 | `edit_timeline_uxp` | Connected UXP | `insert`, `overwrite`, `clone_selection`, `remove_selection`, `insert_mogrt_path`, `insert_mogrt_library` | Use the documented SequenceEditor to insert, overwrite, clone, remove, or insert MOGRT content without undocumented QE calls. |
 | `encode_media_uxp` | Connected UXP | `preflight`, `jobs`, `wait`, `sequence`, `project_item`, `file` | Preflight, queue, or inspect and wait for conservatively correlated AME receipts inside the approved workspace. A terminal event is not output-file verification. |
 | `export_aaf_uxp` | Connected UXP | Single operation | Export the active sequence as AAF through Premiere 26.3+ UXP with bounded, typed AAF options. Premiere confirms the request, but arbitrary native output paths cannot be statted by the panel. |

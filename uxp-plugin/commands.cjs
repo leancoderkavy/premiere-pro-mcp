@@ -86,6 +86,11 @@
     if (slideWorkflowApi && typeof slideWorkflowApi.createSlideWorkflowDefinitions === "function") {
       Object.assign(definitions, slideWorkflowApi.createSlideWorkflowDefinitions({ ppro, locks: trackItemLocks }));
     }
+    let cloneWorkflowApi = deps.CloneWorkflows || (typeof globalThis !== "undefined" && globalThis.PremiereMcpCloneWorkflows);
+    if (!cloneWorkflowApi && typeof require === "function") cloneWorkflowApi = require("./clone-workflows.cjs");
+    if (cloneWorkflowApi && typeof cloneWorkflowApi.createCloneWorkflowDefinitions === "function") {
+      Object.assign(definitions, cloneWorkflowApi.createCloneWorkflowDefinitions({ ppro, locks: trackItemLocks }));
+    }
     let nextWorkflowApi = deps.NextWorkflows || (typeof globalThis !== "undefined" && globalThis.PremiereMcpNextWorkflows);
     if (!nextWorkflowApi && typeof require === "function") nextWorkflowApi = require("./next-workflows.cjs");
     let nextWorkflowRuntime = null;

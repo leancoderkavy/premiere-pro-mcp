@@ -21,6 +21,7 @@ const ADOBE_26_3_TOOLS = [
   "manage_source_media_overrides_uxp",
   "inspect_track_item_identity_uxp",
   "slide_track_item_uxp",
+  "duplicate_track_item_uxp",
   "create_empty_sequence_uxp",
   "has_transcript_uxp",
   "export_aaf_uxp",
@@ -47,7 +48,7 @@ describe("Adobe Premiere 26.3 UXP public MCP catalog", () => {
       expect(listed.tools.map((tool) => tool.name)).toEqual(
         expect.arrayContaining(ADOBE_26_3_TOOLS),
       );
-      expect(listed.tools).toHaveLength(403);
+      expect(listed.tools).toHaveLength(404);
     } finally {
       await client.close();
       await server.close();
