@@ -83,9 +83,11 @@ the verifier rejects file data hidden beneath a directory-name suffix without
 extracting it. Because this profile's directories contain no bytes, their
 declared ZIP CRC-32 must also be zero.
 
-Non-ASCII ZIP entry-name bytes must declare UTF-8 with general-purpose bit 11;
-the verifier accepts unflagged legacy names only when they are ASCII. This keeps
-its entry-name-set accounting independent of legacy ZIP code pages.
+Non-ASCII ZIP entry-name bytes must declare UTF-8 with general-purpose bit 11.
+When that bit declares UTF-8, the verifier also requires every central-directory
+file comment to be valid UTF-8; it leaves unflagged legacy comment encodings
+outside this bounded profile. This keeps its entry-name-set accounting
+independent of legacy ZIP code pages.
 
 For a ZIP entry whose general-purpose bit 3 requests a streamed data descriptor,
 the verifier additionally requires that descriptor immediately after the

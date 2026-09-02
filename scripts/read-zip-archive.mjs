@@ -122,6 +122,7 @@ function readCentralDirectory(buffer, expectedEntries) {
     }
     const rawName = buffer.subarray(offset + 46, offset + 46 + nameBytes);
     const rawExtraFields = buffer.subarray(offset + 46 + nameBytes, offset + 46 + nameBytes + extraBytes);
+    const rawComment = buffer.subarray(offset + 46 + nameBytes + extraBytes, next);
     validateZipExtraFields(rawExtraFields);
     if (!(flags & ZIP_FLAG_UTF8) && rawName.some((byte) => byte > 0x7f)) {
       throw archiveError("CCX archive non-ASCII ZIP entry names must declare UTF-8");
@@ -129,6 +130,12 @@ function readCentralDirectory(buffer, expectedEntries) {
     const name = rawName.toString("utf8");
     if (!name || !rawName.equals(Buffer.from(name, "utf8"))) {
       throw archiveError("CCX archive contains an invalid ZIP entry name");
+    }
+    if (flags & ZIP_FLAG_UTF8) {
+      const comment = rawComment.toString("utf8");
+      if (!rawComment.equals(Buffer.from(comment, "utf8"))) {
+        throw archiveError("CCX archive UTF-8 ZIP entry comment is invalid");
+      }
     }
     entries.push(Object.freeze({ name, versionMadeBy, versionNeeded, flags, method, crc32, compressedBytes, uncompressedBytes, externalAttributes, localOffset }));
     offset = next;

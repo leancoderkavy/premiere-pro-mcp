@@ -82,6 +82,7 @@ type ZipOptions = {
   localNames?: Record<string, string>;
   localExtraFields?: Record<string, Buffer>;
   centralExtraFields?: Record<string, Buffer>;
+  centralComments?: Record<string, Buffer>;
   localMetadata?: Record<string, { versionNeeded?: number; flags?: number; method?: number; crc32?: number; compressedBytes?: number; uncompressedBytes?: number }>;
   centralMetadata?: Record<string, { versionMadeBy?: number; versionNeeded?: number; flags?: number; compressedBytes?: number; uncompressedBytes?: number; externalAttributes?: number; localOffset?: number }>;
   crc32Adjustments?: Record<string, number>;
@@ -134,6 +135,7 @@ function createZip(entries: Array<{ path: string; contents: Buffer }>, prefix = 
     const central = Buffer.alloc(46);
     const centralMetadata = options.centralMetadata?.[entry.path] ?? {};
     const centralExtraFields = options.centralExtraFields?.[entry.path] ?? Buffer.alloc(0);
+    const centralComment = options.centralComments?.[entry.path] ?? Buffer.alloc(0);
     central.writeUInt32LE(0x02014b50, 0);
     central.writeUInt16LE(centralMetadata.versionMadeBy ?? 20, 4);
     central.writeUInt16LE(centralMetadata.versionNeeded ?? 20, 6);
@@ -144,9 +146,10 @@ function createZip(entries: Array<{ path: string; contents: Buffer }>, prefix = 
     central.writeUInt32LE(centralMetadata.uncompressedBytes ?? entry.contents.length, 24);
     central.writeUInt16LE(name.length, 28);
     central.writeUInt16LE(centralExtraFields.length, 30);
+    central.writeUInt16LE(centralComment.length, 32);
     central.writeUInt32LE(centralMetadata.externalAttributes ?? 0, 38);
     central.writeUInt32LE(centralMetadata.localOffset ?? localOffset, 42);
-    centrals.push(central, name, centralExtraFields);
+    centrals.push(central, name, centralExtraFields, centralComment);
     localOffset += local.length + localName.length + localExtraFields.length + compressedPayload.length + (descriptor?.length ?? 0);
   }
   if (options.localSuffix) {
@@ -164,7 +167,7 @@ function createZip(entries: Array<{ path: string; contents: Buffer }>, prefix = 
   return Buffer.concat([...locals, central, centralSuffix, end]);
 }
 
-function writeCcx(bundle: string, archive: string, options: { prefix?: string; deflate?: boolean; main?: string; manifest?: Record<string, unknown>; duplicateMain?: boolean; localMainName?: string; extra?: Array<{ path: string; contents: Buffer }>; zipFlags?: number; compressionMethod?: number; localPreamble?: Buffer; localSuffix?: Buffer; centralSuffix?: Buffer; localNames?: Record<string, string>; localExtraFields?: Record<string, Buffer>; centralExtraFields?: Record<string, Buffer>; localMetadata?: Record<string, { versionNeeded?: number; flags?: number; method?: number; crc32?: number; compressedBytes?: number; uncompressedBytes?: number }>; centralMetadata?: Record<string, { versionMadeBy?: number; versionNeeded?: number; flags?: number; compressedBytes?: number; uncompressedBytes?: number; externalAttributes?: number; localOffset?: number }>; crc32Adjustments?: Record<string, number>; compressedDataSuffixes?: Record<string, Buffer>; compressedByteAdjustments?: Record<string, number>; dataDescriptors?: Record<string, DataDescriptorMetadata> } = {}) {
+function writeCcx(bundle: string, archive: string, options: { prefix?: string; deflate?: boolean; main?: string; manifest?: Record<string, unknown>; duplicateMain?: boolean; localMainName?: string; extra?: Array<{ path: string; contents: Buffer }>; zipFlags?: number; compressionMethod?: number; localPreamble?: Buffer; localSuffix?: Buffer; centralSuffix?: Buffer; localNames?: Record<string, string>; localExtraFields?: Record<string, Buffer>; centralExtraFields?: Record<string, Buffer>; centralComments?: Record<string, Buffer>; localMetadata?: Record<string, { versionNeeded?: number; flags?: number; method?: number; crc32?: number; compressedBytes?: number; uncompressedBytes?: number }>; centralMetadata?: Record<string, { versionMadeBy?: number; versionNeeded?: number; flags?: number; compressedBytes?: number; uncompressedBytes?: number; externalAttributes?: number; localOffset?: number }>; crc32Adjustments?: Record<string, number>; compressedDataSuffixes?: Record<string, Buffer>; compressedByteAdjustments?: Record<string, number>; dataDescriptors?: Record<string, DataDescriptorMetadata> } = {}) {
   const name = "fixture-addon.uxpaddon";
   const manifest = { ...JSON.parse(readFileSync(join(bundle, "manifest.json"), "utf8")), ...(options.manifest ?? {}) };
   const entries = [
@@ -185,6 +188,7 @@ function writeCcx(bundle: string, archive: string, options: { prefix?: string; d
     localNames: options.localNames,
     localExtraFields: options.localExtraFields,
     centralExtraFields: options.centralExtraFields,
+    centralComments: options.centralComments,
     localMetadata: options.localMetadata,
     centralMetadata: options.centralMetadata,
     crc32Adjustments: options.crc32Adjustments,
@@ -430,6 +434,32 @@ describe("UXP Hybrid CCX receipt", () => {
         centralMetadata: { [nonAsciiPath]: { flags: 0 } },
       });
       await expect(buildUxpHybridCcxReceipt({ ccxPath: archive, addonReceipt, sdkHeaderReceipt: headers })).rejects.toThrow("non-ASCII ZIP entry names must declare UTF-8");
+
+      const commentPath = "docs/comment.txt";
+      writeCcx(bundle, archive, {
+        extra: [{ path: commentPath, contents: Buffer.from("declared UTF-8 ZIP comment") }],
+        centralComments: { [commentPath]: Buffer.from("Résumé", "utf8") },
+      });
+      await expect(buildUxpHybridCcxReceipt({ ccxPath: archive, addonReceipt, sdkHeaderReceipt: headers })).resolves.toMatchObject({
+        contents: { entries: 6 },
+      });
+
+      writeCcx(bundle, archive, {
+        extra: [{ path: commentPath, contents: Buffer.from("invalid UTF-8 ZIP comment") }],
+        centralComments: { [commentPath]: Buffer.from([0xc3, 0x28]) },
+      });
+      await expect(buildUxpHybridCcxReceipt({ ccxPath: archive, addonReceipt, sdkHeaderReceipt: headers })).rejects.toThrow("UTF-8 ZIP entry comment is invalid");
+
+      writeCcx(bundle, archive, {
+        extra: [{ path: commentPath, contents: Buffer.from("legacy ZIP comment") }],
+        zipFlags: 0,
+        localMetadata: { [commentPath]: { flags: 0 } },
+        centralMetadata: { [commentPath]: { flags: 0 } },
+        centralComments: { [commentPath]: Buffer.from([0xc3, 0x28]) },
+      });
+      await expect(buildUxpHybridCcxReceipt({ ccxPath: archive, addonReceipt, sdkHeaderReceipt: headers })).resolves.toMatchObject({
+        contents: { entries: 6 },
+      });
 
       const unixVersionMadeBy = 0x0314;
       const unixFileAttributes = (fileType: number) => (fileType << 16) >>> 0;
