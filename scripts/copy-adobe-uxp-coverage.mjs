@@ -8,6 +8,7 @@ const resources = [
   "adobe-api-inventory.json",
   "adobe-beta-aaf-export-options-drift.json",
   "adobe-beta-project-options-drift.json",
+  "adobe-beta-transition-options-drift.json",
   "adobe-beta-c2pa-drift.json",
   "adobe-beta-media-drift.json",
   "adobe-beta-media-manager-drift.json",

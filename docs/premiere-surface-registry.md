@@ -25,6 +25,9 @@ exposing an AAF-export operation, or claiming export behavior in any host.
 The [beta project-options declaration receipt](adobe-beta-project-options-drift.md)
 records beta factory-type migrations without constructing project options,
 opening or closing projects, or claiming lifecycle behavior in any host.
+The [beta transition-options declaration receipt](adobe-beta-transition-options-drift.md)
+records its factory migration without constructing options, applying a
+transition, or claiming transition behavior in any host.
 The [beta Media drift receipt](adobe-beta-media-drift.md) separately records the
 pinned stable-to-beta `Media` declaration delta. It is deliberately not a beta
 surface inventory or beta-host support claim. The [beta C2PA declaration

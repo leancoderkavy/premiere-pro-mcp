@@ -30,6 +30,10 @@ type Surface = {
   betaProjectOptionsDriftCommand?: string;
   betaProjectOptionsDriftVerificationCommand?: string;
   betaProjectOptionsDriftDocumentation?: string;
+  betaTransitionOptionsDriftArtifact?: string;
+  betaTransitionOptionsDriftCommand?: string;
+  betaTransitionOptionsDriftVerificationCommand?: string;
+  betaTransitionOptionsDriftDocumentation?: string;
   betaC2paDriftArtifact?: string;
   betaC2paDriftCommand?: string;
   betaC2paDriftVerificationCommand?: string;
@@ -126,6 +130,10 @@ describe("Premiere API and competitor surface registry", () => {
         betaProjectOptionsDriftCommand: "npm run adobe:beta-project-options-drift",
         betaProjectOptionsDriftVerificationCommand: "npm run adobe:beta-project-options-drift:check",
         betaProjectOptionsDriftDocumentation: "docs/adobe-beta-project-options-drift.md",
+        betaTransitionOptionsDriftArtifact: "dist/resources/adobe-beta-transition-options-drift.json",
+        betaTransitionOptionsDriftCommand: "npm run adobe:beta-transition-options-drift",
+        betaTransitionOptionsDriftVerificationCommand: "npm run adobe:beta-transition-options-drift:check",
+        betaTransitionOptionsDriftDocumentation: "docs/adobe-beta-transition-options-drift.md",
         betaC2paDriftArtifact: "dist/resources/adobe-beta-c2pa-drift.json",
         betaC2paDriftCommand: "npm run adobe:beta-c2pa-drift",
         betaC2paDriftVerificationCommand: "npm run adobe:beta-c2pa-drift:check",

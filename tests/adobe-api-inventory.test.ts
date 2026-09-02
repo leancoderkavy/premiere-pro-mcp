@@ -8,6 +8,7 @@ const inventory = JSON.parse(readFileSync("src/resources/adobe-api-inventory.jso
 const coverage = JSON.parse(readFileSync("src/resources/adobe-uxp-coverage.json", "utf8"));
 const betaAafExportOptionsDrift = JSON.parse(readFileSync("src/resources/adobe-beta-aaf-export-options-drift.json", "utf8"));
 const betaProjectOptionsDrift = JSON.parse(readFileSync("src/resources/adobe-beta-project-options-drift.json", "utf8"));
+const betaTransitionOptionsDrift = JSON.parse(readFileSync("src/resources/adobe-beta-transition-options-drift.json", "utf8"));
 const betaC2paDrift = JSON.parse(readFileSync("src/resources/adobe-beta-c2pa-drift.json", "utf8"));
 const betaMediaDrift = JSON.parse(readFileSync("src/resources/adobe-beta-media-drift.json", "utf8"));
 const betaMediaManagerDrift = JSON.parse(readFileSync("src/resources/adobe-beta-media-manager-drift.json", "utf8"));
@@ -234,6 +235,40 @@ describe("Adobe declaration API inventory", () => {
     expect(spawnSync(process.execPath, ["scripts/generate-adobe-beta-project-options-drift.mjs", "--check"], { encoding: "utf8" }).status).toBe(0);
     expect(coverage.entries.flatMap((entry: { adobeApi: string[] }) => entry.adobeApi)).not.toEqual(expect.arrayContaining([
       "premierepro.OpenProjectOptions", "premierepro.CloseProjectOptions",
+    ]));
+  });
+
+  it("accounts for beta transition-option factory migration without advertising a transition action", () => {
+    const stableDeclarations = readFileSync("node_modules/@adobe/premierepro/src/premierepro.d.ts", "utf8");
+    const betaDeclarations = readFileSync("node_modules/@adobe/premierepro-beta/src/premierepro.d.ts", "utf8");
+    expect(stableDeclarations).toContain("AddTransitionOptions: AddTransitionOptions;");
+    expect(stableDeclarations).not.toContain("export declare type AddTransitionOptionsStatic");
+    expect(declarationType(stableDeclarations, "AddTransitionOptions")).toContain("new (): AddTransitionOptions;");
+    expect(betaDeclarations).toContain("AddTransitionOptions: AddTransitionOptionsStatic;");
+    expect(declarationType(betaDeclarations, "AddTransitionOptions")).not.toContain("new (): AddTransitionOptions;");
+    expect(declarationType(betaDeclarations, "AddTransitionOptionsStatic")).toContain("new (): AddTransitionOptions;");
+    expect(betaTransitionOptionsDrift).toMatchObject({
+      schemaVersion: 1,
+      scope: {
+        declarations: ["premierepro.AddTransitionOptions", "AddTransitionOptions", "AddTransitionOptionsStatic"],
+        mutationBoundary: expect.stringContaining("does not construct options"),
+      },
+      sources: {
+        stable: { package: "@adobe/premierepro", version: "26.3.0", staticFactoryPresent: false },
+        beta: { package: "@adobe/premierepro-beta", version: "26.5.0-beta.73", staticFactoryPresent: true },
+      },
+      diff: { stableOnly: [] },
+    });
+    expect(betaTransitionOptionsDrift.diff.betaOnly).toEqual(expect.arrayContaining([
+      { symbol: "AddTransitionOptionsStatic.new", kind: "construct_signature", signature: "() => AddTransitionOptions" },
+      { symbol: "AddTransitionOptionsStatic.call", kind: "call_signature", signature: "() => AddTransitionOptions" },
+    ]));
+    expect(betaTransitionOptionsDrift.diff.changed.some((entry: { symbol: string; beta: { signature: string } }) => (
+      entry.symbol === "premierepro.AddTransitionOptions" && entry.beta.signature === "AddTransitionOptionsStatic"
+    ))).toBe(true);
+    expect(spawnSync(process.execPath, ["scripts/generate-adobe-beta-transition-options-drift.mjs", "--check"], { encoding: "utf8" }).status).toBe(0);
+    expect(coverage.entries.flatMap((entry: { adobeApi: string[] }) => entry.adobeApi)).not.toEqual(expect.arrayContaining([
+      "premierepro.AddTransitionOptions", "AddTransitionOptionsStatic.new",
     ]));
   });
 
