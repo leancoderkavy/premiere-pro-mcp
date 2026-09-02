@@ -6,6 +6,7 @@ import { getUxpNextWorkflowTools } from "./uxp-next-workflows.js";
 import { getUxpRippleDeleteWorkflowTools } from "./uxp-ripple-delete-workflows.js";
 import { getUxpSlipWorkflowTools } from "./uxp-slip-workflows.js";
 import { getUxpSlideWorkflowTools } from "./uxp-slide-workflows.js";
+import { getUxpTimelineSourceLabelWorkflowTools } from "./uxp-timeline-source-label-workflows.js";
 import { getUxpWorkflowTools } from "./uxp-workflows.js";
 
 function invoke(
@@ -49,6 +50,7 @@ export function getUxpTools(bridge: UxpWebSocketBridge) {
     ...getUxpRippleDeleteWorkflowTools(bridge),
     ...getUxpSlipWorkflowTools(bridge),
     ...getUxpSlideWorkflowTools(bridge),
+    ...getUxpTimelineSourceLabelWorkflowTools(bridge),
     ...getUxpWorkflowTools(bridge),
     get_uxp_capabilities: {
       description: "Report the authenticated local UXP bridge connection and the capabilities advertised by the connected Premiere host.",

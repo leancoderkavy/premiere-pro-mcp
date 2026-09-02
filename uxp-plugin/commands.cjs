@@ -65,11 +65,23 @@
     if (workflowApi && typeof workflowApi.createWorkflowDefinitions === "function") {
       Object.assign(definitions, workflowApi.createWorkflowDefinitions({ ppro, Protocol, workspace }));
     }
+    let projectItemColorLabelLocksApi = deps.ProjectItemColorLabelLocks || (typeof globalThis !== "undefined" && globalThis.PremiereMcpProjectItemColorLabelLocks);
+    if (!projectItemColorLabelLocksApi && typeof require === "function") projectItemColorLabelLocksApi = require("./project-item-color-label-locks.cjs");
+    const projectItemColorLabelLocks = projectItemColorLabelLocksApi && typeof projectItemColorLabelLocksApi.createProjectItemColorLabelLocks === "function"
+      ? projectItemColorLabelLocksApi.createProjectItemColorLabelLocks()
+      : null;
     let advancedWorkflowApi = deps.AdvancedWorkflows || (typeof globalThis !== "undefined" && globalThis.PremiereMcpAdvancedWorkflows);
     if (!advancedWorkflowApi && typeof require === "function") advancedWorkflowApi = require("./advanced-workflows.cjs");
     if (advancedWorkflowApi && typeof advancedWorkflowApi.createAdvancedWorkflowDefinitions === "function") {
       Object.assign(definitions, advancedWorkflowApi.createAdvancedWorkflowDefinitions({
-        ppro, Protocol, workspace, events: deps.events
+        ppro, Protocol, workspace, events: deps.events, colorLabelLocks: projectItemColorLabelLocks
+      }));
+    }
+    let timelineSourceLabelWorkflowApi = deps.TimelineSourceLabelWorkflows || (typeof globalThis !== "undefined" && globalThis.PremiereMcpTimelineSourceLabelWorkflows);
+    if (!timelineSourceLabelWorkflowApi && typeof require === "function") timelineSourceLabelWorkflowApi = require("./timeline-source-label-workflows.cjs");
+    if (timelineSourceLabelWorkflowApi && typeof timelineSourceLabelWorkflowApi.createTimelineSourceLabelWorkflowDefinitions === "function") {
+      Object.assign(definitions, timelineSourceLabelWorkflowApi.createTimelineSourceLabelWorkflowDefinitions({
+        ppro, colorLabelLocks: projectItemColorLabelLocks
       }));
     }
     let trackItemLocksApi = deps.TrackItemMutationLocks || (typeof globalThis !== "undefined" && globalThis.PremiereMcpTrackItemMutationLocks);

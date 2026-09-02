@@ -403,6 +403,7 @@ describe("UXP MCP tools", () => {
           "slide_track_item_uxp",
           "duplicate_track_item_uxp",
           "ripple_delete_track_item_uxp",
+          "manage_timeline_source_label_uxp",
           "apply_editorial_organization_plan",
         ]),
       );
@@ -417,10 +418,11 @@ describe("UXP MCP tools", () => {
       // guarded app-preference control, source-media interpretation overrides,
       // direct track-item identity inspection, targeted sequence timing, guarded
       // three-item slides, append-only timeline duplication, guarded Project metadata
-      // schema-field creation, and guarded contiguous ripple deletes add forty-two
+      // schema-field creation, guarded contiguous ripple deletes, and guarded
+      // source-label updates add forty-three
       // consolidated UXP tools;
       // connection verification and delivery conformance add two default-profile core tools.
-      expect(tools.tools).toHaveLength(407);
+        expect(tools.tools).toHaveLength(408);
     } finally {
       await client.close();
       await server.close();
