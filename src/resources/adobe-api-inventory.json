@@ -13,8 +13,8 @@
   },
   "stats": {
     "total": 976,
-    "mapped": 219,
-    "unmapped": 757,
+    "mapped": 239,
+    "unmapped": 737,
     "manifestOnly": 5
   },
   "manifestOnly": [
@@ -360,17 +360,17 @@
     {
       "symbol": "AudioClipTrackItem.getDuration",
       "kind": "method",
-      "coverage": "unmapped"
+      "coverage": "mapped"
     },
     {
       "symbol": "AudioClipTrackItem.getEndTime",
       "kind": "method",
-      "coverage": "unmapped"
+      "coverage": "mapped"
     },
     {
       "symbol": "AudioClipTrackItem.getInPoint",
       "kind": "method",
-      "coverage": "unmapped"
+      "coverage": "mapped"
     },
     {
       "symbol": "AudioClipTrackItem.getIsSelected",
@@ -390,12 +390,12 @@
     {
       "symbol": "AudioClipTrackItem.getName",
       "kind": "method",
-      "coverage": "unmapped"
+      "coverage": "mapped"
     },
     {
       "symbol": "AudioClipTrackItem.getOutPoint",
       "kind": "method",
-      "coverage": "unmapped"
+      "coverage": "mapped"
     },
     {
       "symbol": "AudioClipTrackItem.getProjectItem",
@@ -405,12 +405,12 @@
     {
       "symbol": "AudioClipTrackItem.getSpeed",
       "kind": "method",
-      "coverage": "unmapped"
+      "coverage": "mapped"
     },
     {
       "symbol": "AudioClipTrackItem.getStartTime",
       "kind": "method",
-      "coverage": "unmapped"
+      "coverage": "mapped"
     },
     {
       "symbol": "AudioClipTrackItem.getTrackIndex",
@@ -425,17 +425,17 @@
     {
       "symbol": "AudioClipTrackItem.isAdjustmentLayer",
       "kind": "method",
-      "coverage": "unmapped"
+      "coverage": "mapped"
     },
     {
       "symbol": "AudioClipTrackItem.isDisabled",
       "kind": "method",
-      "coverage": "unmapped"
+      "coverage": "mapped"
     },
     {
       "symbol": "AudioClipTrackItem.isSpeedReversed",
       "kind": "method",
-      "coverage": "unmapped"
+      "coverage": "mapped"
     },
     {
       "symbol": "AudioClipTrackItemStatic",
@@ -565,7 +565,7 @@
     {
       "symbol": "AudioTrack.name",
       "kind": "property",
-      "coverage": "unmapped"
+      "coverage": "mapped"
     },
     {
       "symbol": "AudioTrack.setMute",
@@ -4497,7 +4497,7 @@
     {
       "symbol": "VideoClipTrackItem.getDuration",
       "kind": "method",
-      "coverage": "unmapped"
+      "coverage": "mapped"
     },
     {
       "symbol": "VideoClipTrackItem.getEndTime",
@@ -4507,7 +4507,7 @@
     {
       "symbol": "VideoClipTrackItem.getInPoint",
       "kind": "method",
-      "coverage": "unmapped"
+      "coverage": "mapped"
     },
     {
       "symbol": "VideoClipTrackItem.getIsSelected",
@@ -4527,12 +4527,12 @@
     {
       "symbol": "VideoClipTrackItem.getName",
       "kind": "method",
-      "coverage": "unmapped"
+      "coverage": "mapped"
     },
     {
       "symbol": "VideoClipTrackItem.getOutPoint",
       "kind": "method",
-      "coverage": "unmapped"
+      "coverage": "mapped"
     },
     {
       "symbol": "VideoClipTrackItem.getProjectItem",
@@ -4542,7 +4542,7 @@
     {
       "symbol": "VideoClipTrackItem.getSpeed",
       "kind": "method",
-      "coverage": "unmapped"
+      "coverage": "mapped"
     },
     {
       "symbol": "VideoClipTrackItem.getStartTime",
@@ -4562,17 +4562,17 @@
     {
       "symbol": "VideoClipTrackItem.isAdjustmentLayer",
       "kind": "method",
-      "coverage": "unmapped"
+      "coverage": "mapped"
     },
     {
       "symbol": "VideoClipTrackItem.isDisabled",
       "kind": "method",
-      "coverage": "unmapped"
+      "coverage": "mapped"
     },
     {
       "symbol": "VideoClipTrackItem.isSpeedReversed",
       "kind": "method",
-      "coverage": "unmapped"
+      "coverage": "mapped"
     },
     {
       "symbol": "VideoClipTrackItemStatic",
@@ -4708,7 +4708,7 @@
     {
       "symbol": "VideoTrack.name",
       "kind": "property",
-      "coverage": "unmapped"
+      "coverage": "mapped"
     },
     {
       "symbol": "VideoTrack.setMute",

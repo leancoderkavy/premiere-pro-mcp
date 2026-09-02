@@ -289,7 +289,7 @@ describe("advanced stable Premiere UXP workflows", () => {
       "projectSelection.views", "projectSelection.inspect", "markers.inspect", "markers.add", "markers.addBeatGrid", "markers.removeMany",
       "bins.inspect", "bins.create", "sequenceSettings.get", "sequenceSettings.update",
       "project.import", "parameters.inspect", "parameters.keyframeAdd", "trackItem.inspect",
-      "trackItem.update", "timeline.insert", "timeline.mogrtPath", "sequences.inspect",
+      "trackItem.update", "timeline.insert", "timeline.mogrtPath", "timeline.structure.inspect", "sequences.inspect",
       "trackItem.splitEdit",
       "sequences.clone", "encoder.preflight", "encoder.sequence", "encoder.file",
     ]));
@@ -787,6 +787,81 @@ describe("advanced stable Premiere UXP workflows", () => {
       verificationBoundary: "sequence_editor_host_return",
     });
     expect(value.project.executeTransaction).toHaveBeenCalledTimes(2);
+  });
+
+  it("reads a bounded documented UXP timeline snapshot without falling back to CEP or mutating Premiere", async () => {
+    const value = advancedHost();
+    const allSnapshot = await value.registry.dispatch("timeline.structure.inspect", {
+      expectedSequenceId: "sequence-1", mediaType: "all", includeEmptyTracks: true, maxItems: 2,
+    });
+    expect(allSnapshot).toMatchObject({
+      sequence: { id: "sequence-1", name: "Assembly" }, mediaType: "all", trackCounts: { video: 1, audio: 1 },
+      trackCount: 2, itemCount: 2, emptyTracksOmitted: 0, verificationBoundary: "bounded_track_item_readback",
+      tracks: [
+        { mediaType: "video", trackIndex: 0, itemCount: 1, items: [{ name: "Interview V", startSeconds: 10, endSeconds: 20, speed: 1, reversed: false, disabled: false }] },
+        { mediaType: "audio", trackIndex: 0, itemCount: 1, items: [{ name: "Interview V", startSeconds: 10, endSeconds: 20, speed: 1, reversed: false, disabled: false }] },
+      ],
+    });
+    expect(allSnapshot.trackCounts).toEqual({ video: 1, audio: 1 });
+    expect(value.project.lockedAccess).not.toHaveBeenCalled();
+    expect(value.project.executeTransaction).not.toHaveBeenCalled();
+
+    const videoOnly = advancedHost();
+    const videoOnlySnapshot = await videoOnly.registry.dispatch("timeline.structure.inspect", { mediaType: "video" });
+    expect(videoOnlySnapshot.trackCounts).toEqual({ video: 1 });
+    expect(videoOnly.sequence.getAudioTrackCount).not.toHaveBeenCalled();
+
+    const audioOnly = advancedHost();
+    const audioOnlySnapshot = await audioOnly.registry.dispatch("timeline.structure.inspect", { mediaType: "audio" });
+    expect(audioOnlySnapshot.trackCounts).toEqual({ audio: 1 });
+    expect(audioOnly.sequence.getVideoTrackCount).not.toHaveBeenCalled();
+
+    await expect(value.registry.dispatch("timeline.structure.inspect", {
+      expectedSequenceId: "another-sequence",
+    })).rejects.toMatchObject({ code: "UXP_STALE_SEQUENCE" });
+    await expect(value.registry.dispatch("timeline.structure.inspect", {
+      trackIndices: [0, 0],
+    })).rejects.toMatchObject({ code: "UXP_INVALID_ARGUMENT" });
+    await expect(value.registry.dispatch("timeline.structure.inspect", {
+      mediaType: "all", maxItems: 1,
+    })).rejects.toMatchObject({ code: "UXP_TIMELINE_TOO_LARGE" });
+    expect(value.project.lockedAccess).not.toHaveBeenCalled();
+  });
+
+  it("fails closed before reading a broad unfiltered timeline and advertises the probe boundary", async () => {
+    const large = advancedHost();
+    large.sequence.getVideoTrackCount.mockResolvedValue(65);
+    await expect(large.registry.dispatch("timeline.structure.inspect", { mediaType: "video" }))
+      .rejects.toMatchObject({ code: "UXP_TIMELINE_TOO_LARGE" });
+    expect(large.sequence.getVideoTrack).not.toHaveBeenCalled();
+
+    const combined = advancedHost();
+    combined.sequence.getVideoTrackCount.mockResolvedValue(40);
+    combined.sequence.getAudioTrackCount.mockResolvedValue(25);
+    await expect(combined.registry.dispatch("timeline.structure.inspect", { mediaType: "all" }))
+      .rejects.toMatchObject({ code: "UXP_TIMELINE_TOO_LARGE" });
+    expect(combined.sequence.getVideoTrack).not.toHaveBeenCalled();
+    expect(combined.sequence.getAudioTrack).not.toHaveBeenCalled();
+
+    const outOfRange = advancedHost();
+    outOfRange.sequence.getVideoTrackCount.mockResolvedValue(1);
+    await expect(outOfRange.registry.dispatch("timeline.structure.inspect", {
+      mediaType: "video", trackIndices: [1],
+    })).rejects.toMatchObject({ code: "UXP_TARGET_NOT_FOUND" });
+    expect(outOfRange.sequence.getVideoTrack).not.toHaveBeenCalled();
+
+    const unordered = advancedHost();
+    unordered.sequence.getVideoTrackCount.mockResolvedValue(2);
+    const orderedSnapshot = await unordered.registry.dispatch("timeline.structure.inspect", {
+      mediaType: "video", trackIndices: [1, 0],
+    });
+    expect(orderedSnapshot.tracks.map((track: { trackIndex: number }) => track.trackIndex)).toEqual([0, 1]);
+    expect(unordered.sequence.getVideoTrack.mock.calls.map(([trackIndex]: [number]) => trackIndex)).toEqual([0, 1]);
+
+    const unavailable = advancedHost();
+    unavailable.ppro.Constants.TrackItemType = undefined;
+    const capabilities = await unavailable.registry.capabilities();
+    expect(capabilities.commands["timeline.structure.inspect"]).toMatchObject({ supported: false, readOnly: true });
   });
 
   it("creates an atomic L-cut with synchronized timeline and source edges", async () => {

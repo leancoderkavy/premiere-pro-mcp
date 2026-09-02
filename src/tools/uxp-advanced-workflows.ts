@@ -467,6 +467,30 @@ export function getUxpAdvancedWorkflowTools(bridge: UxpWebSocketBridge) {
       },
     },
 
+    inspect_sequence_structure_uxp: {
+      description: "Read a bounded native UXP timeline structure for one sequence: selected video and/or audio tracks with clip timing and state. track_counts contains only the requested media types, never a zero placeholder for an unqueried type. The response is capped at 64 tracks and 512 items, omits media paths, components, rendered pixels, audio analysis, and caption cues, and is not proof of playback or editorial correctness.",
+      parameters: {
+        type: "object" as const,
+        additionalProperties: false,
+        properties: {
+          sequence_id: { type: "string", minLength: 1, maxLength: 128 },
+          expected_sequence_id: { type: "string", minLength: 1, maxLength: 128, description: "Optional stable sequence ID from a prior UXP snapshot. Rejects an active-sequence request if it changed." },
+          media_type: { type: "string", enum: ["all", "video", "audio"] },
+          track_indices: {
+            type: "array", minItems: 1, maxItems: 64, uniqueItems: true,
+            items: { type: "integer", minimum: 0, maximum: 1023 },
+          },
+          include_empty_tracks: { type: "boolean", description: "Return selected empty tracks instead of omitting them." },
+          max_items: { type: "integer", minimum: 1, maximum: 512, description: "Hard limit for all returned clip snapshots; the request fails rather than returning a partial timeline." },
+        },
+      },
+      handler: async (args: AdvancedArgs) => invoke(bridge, "timeline.structure.inspect", compact({
+        sequenceId: args.sequence_id, expectedSequenceId: args.expected_sequence_id,
+        mediaType: args.media_type, trackIndices: args.track_indices,
+        includeEmptyTracks: args.include_empty_tracks, maxItems: args.max_items,
+      })),
+    },
+
     make_split_edit_uxp: {
       description: "Create an undoable J-cut or L-cut by extending one aligned 1x audio item while preserving source sync, with atomic UXP actions and edge/source readback.",
       parameters: {

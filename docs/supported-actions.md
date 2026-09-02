@@ -13,8 +13,8 @@ source catalog may include unreleased actions.
 | Registered core actions | 328 | CEP/local server catalog; host and authority checks still apply |
 | Default-profile core actions | 326 | Advertised with `inspect,edit,export,filesystem` |
 | Restricted core actions | 2 | Require explicit `unsafe-script` authority |
-| Authenticated UXP additions | 63 | Advertised only while a compatible authenticated UXP panel is connected |
-| Default profile with UXP | 389 | 326 core plus 63 UXP tools |
+| Authenticated UXP additions | 64 | Advertised only while a compatible authenticated UXP panel is connected |
+| Default profile with UXP | 390 | 326 core plus 64 UXP tools |
 
 ## How to read support
 
@@ -401,6 +401,7 @@ authenticated and the connected host advertises the required command capabilitie
 | `inspect_premiere_events_uxp` | Connected UXP | `list`, `wait` | List or briefly wait for bounded, redacted Premiere host-event receipts without polling the complete project state. |
 | `inspect_project_selection_uxp` | Connected UXP | `views`, `selection` | List Premiere Project-panel views or inspect up to 256 selected project items without traversing the complete project tree. |
 | `inspect_project_uxp` | Connected UXP | Single operation | Read a compact, revisioned project and sequence snapshot through documented Premiere UXP APIs. |
+| `inspect_sequence_structure_uxp` | Connected UXP | `media_type`: `all`, `video`, `audio` | Read a bounded native UXP timeline structure for one sequence: selected video and/or audio tracks with clip timing and state. track_counts contains only the requested media types, never a zero placeholder for an unqueried type. The response is capped at 64 tracks and 512 items, omits media paths, components, rendered pixels, audio analysis, and caption cues, and is not proof of playback or editorial correctness. |
 | `inspect_sequence_timing_uxp` | Connected UXP | Single operation | Read the active sequence's native frame size, timebase, audio/video time-display codes, and backing Project-item identity. The command rejects malformed host values or a final active-sequence mismatch; it does not modify Premiere, claim a locked snapshot, or detect a transient switch that returns to the same active sequence. |
 | `inspect_video_transition_uxp` | Connected UXP | `position`: `start`, `end` | Read one bounded native video-transition target, including the active sequence GUID, source item ID, timeline edges, and presence at one requested edge. Copy this snapshot unchanged into add_video_transition_uxp or remove_video_transition_uxp. |
 | `lift_selection_uxp` | Connected UXP | Single operation | Lift the current timeline selection through Premiere's documented UXP SequenceEditor. This removes selected items without ripple in one undoable transaction; transaction acceptance is not a timeline readback. |

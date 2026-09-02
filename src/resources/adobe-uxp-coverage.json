@@ -1438,6 +1438,58 @@
       "undoable": true,
       "idempotency": "operation_id",
       "verificationBoundary": "source_in_out_readback_or_transaction_commit"
+    },
+    {
+      "id": "bounded-native-timeline-structure",
+      "adobeApi": [
+        "Sequence.getVideoTrackCount",
+        "Sequence.getVideoTrack",
+        "Sequence.getAudioTrackCount",
+        "Sequence.getAudioTrack",
+        "VideoTrack.getTrackItems",
+        "AudioTrack.getTrackItems",
+        "VideoTrack.name",
+        "AudioTrack.name",
+        "VideoClipTrackItem.getName",
+        "VideoClipTrackItem.getStartTime",
+        "VideoClipTrackItem.getEndTime",
+        "VideoClipTrackItem.getInPoint",
+        "VideoClipTrackItem.getOutPoint",
+        "VideoClipTrackItem.getDuration",
+        "VideoClipTrackItem.getSpeed",
+        "VideoClipTrackItem.isSpeedReversed",
+        "VideoClipTrackItem.isAdjustmentLayer",
+        "VideoClipTrackItem.isDisabled",
+        "AudioClipTrackItem.getName",
+        "AudioClipTrackItem.getStartTime",
+        "AudioClipTrackItem.getEndTime",
+        "AudioClipTrackItem.getInPoint",
+        "AudioClipTrackItem.getOutPoint",
+        "AudioClipTrackItem.getDuration",
+        "AudioClipTrackItem.getSpeed",
+        "AudioClipTrackItem.isSpeedReversed",
+        "AudioClipTrackItem.isAdjustmentLayer",
+        "AudioClipTrackItem.isDisabled"
+      ],
+      "documentationUrls": [
+        "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/sequence/",
+        "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/videotrack/",
+        "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/audiotrack/",
+        "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/videocliptrackitem/",
+        "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/audiocliptrackitem/"
+      ],
+      "minimumPremiereVersion": "25.6.0",
+      "backend": "uxp",
+      "uxpCommand": "timeline.structure.inspect",
+      "mcpTools": ["inspect_sequence_structure_uxp"],
+      "availability": "current",
+      "implementationStatus": "implemented",
+      "verificationStatus": "automated_contract_verified",
+      "liveHostVerificationStatus": "not_run",
+      "mutatesProject": false,
+      "undoable": false,
+      "idempotency": "not_applicable",
+      "verificationBoundary": "bounded_track_item_readback"
     }
   ]
 }
