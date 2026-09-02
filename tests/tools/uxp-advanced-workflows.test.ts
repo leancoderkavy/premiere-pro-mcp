@@ -225,6 +225,9 @@ describe("advanced stable UXP workflow MCP catalog", () => {
     await expect(tools.manage_markers_uxp.handler({
       action: "remove_many", confirm_destructive: true, marker_snapshots: [snapshot, snapshot],
     })).resolves.toMatchObject({ success: false, error: expect.stringContaining("duplicate marker_guid") });
+    await expect(tools.manage_markers_uxp.handler({
+      action: "remove_many", confirm_destructive: true, marker_snapshots: [null],
+    })).resolves.toMatchObject({ success: false, error: expect.stringContaining("marker_snapshots[0] must be an object") });
     expect(request).not.toHaveBeenCalled();
   });
 
