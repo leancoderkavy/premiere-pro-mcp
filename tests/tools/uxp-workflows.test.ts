@@ -4,6 +4,7 @@ import type { UxpWebSocketBridge } from "../../src/bridge/uxp-websocket-bridge.j
 
 const WORKFLOW_TOOLS = [
   "manage_clip_effects_uxp",
+  "inspect_track_item_identity_uxp",
   "batch_selected_clips_uxp",
   "manage_timeline_selection_uxp",
   "detect_scene_edits_uxp",
@@ -32,6 +33,11 @@ describe("stable UXP workflow MCP catalog", () => {
         effect_id: { maxLength: 256 },
         operation_id: { pattern: expect.any(String) },
       },
+    });
+    expect(tools.inspect_track_item_identity_uxp.parameters).toMatchObject({
+      type: "object", additionalProperties: false,
+      required: ["media_type", "track_index", "clip_index"],
+      properties: { media_type: { enum: ["video", "audio"] }, expected_sequence_guid: { maxLength: 512 } },
     });
     expect(tools.manage_metadata_uxp.parameters).toMatchObject({
       properties: {
@@ -117,6 +123,17 @@ describe("stable UXP workflow MCP catalog", () => {
     });
     expect(request).toHaveBeenNthCalledWith(4, "selection.update", {
       mode: "clear", expectedSequenceGuid: "sequence-1", operationId: "selection-2",
+    });
+  });
+
+  it("maps bounded track-item identity inspection without granting an edit route", async () => {
+    const request = vi.fn().mockResolvedValue({ outcome: "verified" });
+    const bridge = { request, getState: vi.fn() } as unknown as UxpWebSocketBridge;
+    await getUxpTools(bridge).inspect_track_item_identity_uxp.handler({
+      media_type: "audio", track_index: 2, clip_index: 4, expected_sequence_guid: "sequence-1",
+    });
+    expect(request).toHaveBeenCalledWith("trackItem.identity.inspect", {
+      mediaType: "audio", trackIndex: 2, clipIndex: 4, expectedSequenceGuid: "sequence-1",
     });
   });
 

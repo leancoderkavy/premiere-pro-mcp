@@ -5,6 +5,7 @@ type WorkflowArgs = {
   media_type?: string;
   track_index?: number;
   clip_index?: number;
+  expected_sequence_guid?: string;
   effect_id?: string;
   insertion_index?: number;
   component_index?: number;
@@ -43,7 +44,6 @@ type WorkflowArgs = {
   folder_types?: string[];
   destination?: string;
   operation_id?: string;
-  expected_sequence_guid?: string;
   selection_items?: TimelineSelectionItemArgs[];
   selection_targets?: TimelineSelectionTargetArgs[];
 };
@@ -138,6 +138,25 @@ export function getUxpWorkflowTools(bridge: UxpWebSocketBridge) {
         });
         return invalidAction(args.action);
       },
+    },
+
+    inspect_track_item_identity_uxp: {
+      description: "Inspect one active-sequence clip's native match name, item type, media UUID, reported track index, and selection state through documented UXP APIs. It rechecks the active sequence identity before returning and does not expose media paths, effect parameters, or rendered output.",
+      parameters: {
+        type: "object" as const,
+        additionalProperties: false,
+        properties: {
+          media_type: { type: "string", enum: ["video", "audio"] },
+          track_index: { type: "integer", minimum: 0 },
+          clip_index: { type: "integer", minimum: 0 },
+          expected_sequence_guid: { type: "string", minLength: 1, maxLength: 512, description: "Optional stale-snapshot guard from a recent identity inspection." },
+        },
+        required: ["media_type", "track_index", "clip_index"],
+      },
+      handler: async (args: WorkflowArgs) => invoke(bridge, "trackItem.identity.inspect", {
+        mediaType: args.media_type, trackIndex: args.track_index, clipIndex: args.clip_index,
+        ...(args.expected_sequence_guid === undefined ? {} : { expectedSequenceGuid: args.expected_sequence_guid }),
+      }),
     },
 
     batch_selected_clips_uxp: {

@@ -13,8 +13,8 @@
   },
   "stats": {
     "total": 976,
-    "mapped": 296,
-    "unmapped": 680,
+    "mapped": 307,
+    "unmapped": 669,
     "manifestOnly": 5
   },
   "manifestOnly": [
@@ -375,17 +375,17 @@
     {
       "symbol": "AudioClipTrackItem.getIsSelected",
       "kind": "method",
-      "coverage": "unmapped"
+      "coverage": "mapped"
     },
     {
       "symbol": "AudioClipTrackItem.getMatchName",
       "kind": "method",
-      "coverage": "unmapped"
+      "coverage": "mapped"
     },
     {
       "symbol": "AudioClipTrackItem.getMediaType",
       "kind": "method",
-      "coverage": "unmapped"
+      "coverage": "mapped"
     },
     {
       "symbol": "AudioClipTrackItem.getName",
@@ -415,12 +415,12 @@
     {
       "symbol": "AudioClipTrackItem.getTrackIndex",
       "kind": "method",
-      "coverage": "unmapped"
+      "coverage": "mapped"
     },
     {
       "symbol": "AudioClipTrackItem.getType",
       "kind": "method",
-      "coverage": "unmapped"
+      "coverage": "mapped"
     },
     {
       "symbol": "AudioClipTrackItem.isAdjustmentLayer",
@@ -2894,7 +2894,7 @@
     {
       "symbol": "Project.getActiveSequence",
       "kind": "method",
-      "coverage": "unmapped"
+      "coverage": "mapped"
     },
     {
       "symbol": "Project.getColorSettings",
@@ -4512,17 +4512,17 @@
     {
       "symbol": "VideoClipTrackItem.getIsSelected",
       "kind": "method",
-      "coverage": "unmapped"
+      "coverage": "mapped"
     },
     {
       "symbol": "VideoClipTrackItem.getMatchName",
       "kind": "method",
-      "coverage": "unmapped"
+      "coverage": "mapped"
     },
     {
       "symbol": "VideoClipTrackItem.getMediaType",
       "kind": "method",
-      "coverage": "unmapped"
+      "coverage": "mapped"
     },
     {
       "symbol": "VideoClipTrackItem.getName",
@@ -4552,12 +4552,12 @@
     {
       "symbol": "VideoClipTrackItem.getTrackIndex",
       "kind": "method",
-      "coverage": "unmapped"
+      "coverage": "mapped"
     },
     {
       "symbol": "VideoClipTrackItem.getType",
       "kind": "method",
-      "coverage": "unmapped"
+      "coverage": "mapped"
     },
     {
       "symbol": "VideoClipTrackItem.isAdjustmentLayer",

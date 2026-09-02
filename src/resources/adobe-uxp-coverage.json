@@ -1283,6 +1283,47 @@
       "verificationBoundary": "parameter_value_keyframe_animation_mode_or_lookup_readback"
     },
     {
+      "id": "native-track-item-identity",
+      "adobeApi": [
+        "Project.getActiveSequence",
+        "Sequence.guid",
+        "Sequence.getVideoTrackCount",
+        "Sequence.getVideoTrack",
+        "Sequence.getAudioTrackCount",
+        "Sequence.getAudioTrack",
+        "VideoTrack.getTrackItems",
+        "AudioTrack.getTrackItems",
+        "VideoClipTrackItem.getMatchName",
+        "VideoClipTrackItem.getType",
+        "VideoClipTrackItem.getMediaType",
+        "VideoClipTrackItem.getTrackIndex",
+        "VideoClipTrackItem.getIsSelected",
+        "AudioClipTrackItem.getMatchName",
+        "AudioClipTrackItem.getType",
+        "AudioClipTrackItem.getMediaType",
+        "AudioClipTrackItem.getTrackIndex",
+        "AudioClipTrackItem.getIsSelected"
+      ],
+      "documentationUrls": [
+        "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/videocliptrackitem/",
+        "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/audiocliptrackitem/"
+      ],
+      "minimumPremiereVersion": "25.6.0",
+      "backend": "uxp",
+      "uxpCommand": "trackItem.identity.inspect",
+      "mcpTools": [
+        "inspect_track_item_identity_uxp"
+      ],
+      "availability": "current",
+      "implementationStatus": "implemented",
+      "verificationStatus": "automated_contract_verified",
+      "liveHostVerificationStatus": "not_run",
+      "mutatesProject": false,
+      "undoable": false,
+      "idempotency": "not_applicable",
+      "verificationBoundary": "active_sequence_identity_readback"
+    },
+    {
       "id": "track-item-transformations",
       "adobeApi": [
         "VideoClipTrackItem.createMoveAction",

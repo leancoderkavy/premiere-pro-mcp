@@ -63,6 +63,10 @@ function stableHost() {
   const videoItem = {
     name: "Interview V",
     getTrackIndex: vi.fn(async () => 0),
+    getMatchName: vi.fn(async () => "clip-video-match"),
+    getType: vi.fn(async () => 1),
+    getMediaType: vi.fn(async () => "video-media-guid"),
+    getIsSelected: vi.fn(async () => true),
     getComponentChain: vi.fn(async () => chain),
     getProjectItem: vi.fn(async () => sourceClip),
     getStartTime: vi.fn(async () => ({ seconds: 10 })),
@@ -79,6 +83,10 @@ function stableHost() {
   const audioItem = {
     name: "Interview A",
     getTrackIndex: vi.fn(async () => 0),
+    getMatchName: vi.fn(async () => "clip-audio-match"),
+    getType: vi.fn(async () => 1),
+    getMediaType: vi.fn(async () => "audio-media-guid"),
+    getIsSelected: vi.fn(async () => false),
     getComponentChain: vi.fn(async () => audioChain),
     getProjectItem: vi.fn(async () => sourceClip),
     getStartTime: vi.fn(async () => ({ seconds: 10 })),
@@ -227,7 +235,7 @@ describe("stable Premiere UXP workflow expansion", () => {
     const value = stableHost();
     const capabilities = await value.registry.capabilities();
     expect(Object.keys(capabilities.commands)).toEqual(expect.arrayContaining([
-      "effects.catalog", "effects.chain.add", "selection.inspect", "selection.fingerprints.inspect", "selection.targets.inspect", "selection.update", "effects.selection.add",
+      "effects.catalog", "effects.chain.add", "trackItem.identity.inspect", "selection.inspect", "selection.fingerprints.inspect", "selection.targets.inspect", "selection.update", "effects.selection.add",
       "sceneEdit.detect", "proxy.attach", "ingest.configure", "media.relink",
       "metadata.update", "metadata.columns.get", "metadata.projectPanel.get", "color.preflight", "environment.inspect", "footage.conform", "sourceMonitor.open",
       "storage.preflight", "scratch.configure", "workspace.status",
@@ -336,6 +344,36 @@ describe("stable Premiere UXP workflow expansion", () => {
     expect(value.project.executeTransaction).toHaveBeenCalledTimes(4);
     expect(value.components).toHaveLength(2);
     expect(value.audioComponents).toHaveLength(2);
+  });
+
+  it("reads one complete native track-item identity and rejects stale or incomplete snapshots", async () => {
+    const value = stableHost();
+    await expect(value.registry.dispatch("trackItem.identity.inspect", {
+      mediaType: "video", trackIndex: 0, clipIndex: 0, expectedSequenceGuid: "sequence-1",
+    })).resolves.toEqual({
+      sequenceGuid: "sequence-1", mediaType: "video", trackIndex: 0, clipIndex: 0,
+      matchName: "clip-video-match", trackItemType: 1, mediaTypeGuid: "video-media-guid",
+      reportedTrackIndex: 0, selected: true, verificationBoundary: "active_sequence_identity_readback",
+    });
+
+    await expect(value.registry.dispatch("trackItem.identity.inspect", {
+      mediaType: "audio", trackIndex: 0, clipIndex: 0, expectedSequenceGuid: "different-sequence",
+    })).rejects.toMatchObject({ code: "UXP_STALE_SEQUENCE" });
+
+    const incomplete = stableHost();
+    Reflect.deleteProperty(incomplete.videoItem, "getMatchName");
+    await expect(incomplete.registry.dispatch("trackItem.identity.inspect", {
+      mediaType: "video", trackIndex: 0, clipIndex: 0,
+    })).rejects.toMatchObject({ code: "UXP_COMMAND_UNAVAILABLE" });
+
+    const switched = stableHost();
+    switched.videoItem.getMatchName.mockImplementationOnce(async () => {
+      switched.project.getActiveSequence.mockResolvedValueOnce({ guid: "sequence-2" });
+      return "clip-video-match";
+    });
+    await expect(switched.registry.dispatch("trackItem.identity.inspect", {
+      mediaType: "video", trackIndex: 0, clipIndex: 0,
+    })).rejects.toMatchObject({ code: "UXP_STALE_SEQUENCE" });
   });
 
   it("constructs, updates, clears, and replays deterministic timeline selections", async () => {

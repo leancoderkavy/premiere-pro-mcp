@@ -327,6 +327,7 @@ export function buildPlatformCapabilityReport(
           "captions.inspect",
           "effects.catalog",
           "effects.chain.get",
+          "trackItem.identity.inspect",
           "effects.chain.add",
           "effects.chain.remove",
           "selection.inspect",
