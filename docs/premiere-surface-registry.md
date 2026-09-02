@@ -33,7 +33,10 @@ the relevant declaration classification, reproducible native build, and
 licensed-host evidence are supplied. A future Hybrid benchmark must also bind
 its submitted runs to a matching verified receipt, as described by the
 [Hybrid benchmark gate](uxp-hybrid-benchmark.md); the digest binding is not a
-native-build or host-behavior claim.
+native-build or host-behavior claim. A temporary development bundle can also
+produce a [Hybrid addon-layout receipt](uxp-hybrid-addon-receipt.md) for the
+three public target paths without disclosing binaries; it is still not binary
+architecture, signing, loading, or runtime proof.
 
 The same registry pins the exact competitor commits reviewed for feature-gap
 work. A competitor feature family becomes an implementation candidate only

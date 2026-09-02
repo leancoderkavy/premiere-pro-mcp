@@ -14,6 +14,9 @@ type Surface = {
   inventoryVerificationCommand?: string;
   inventoryDocumentation?: string;
   benchmarkEvidenceCommand?: string;
+  addonReceiptCommand?: string;
+  addonReceiptVerificationCommand?: string;
+  addonReceiptDocumentation?: string;
   notes: string;
 };
 
@@ -118,6 +121,9 @@ describe("Premiere API and competitor surface registry", () => {
     expect(registry.integrationSurfaces.find((surface) => surface.id === "uxp-hybrid-cpp"))
       .toMatchObject({
         benchmarkEvidenceCommand: "npm run benchmark:uxp-hybrid:verify",
+        addonReceiptCommand: "npm run native:hybrid-addon-receipt",
+        addonReceiptVerificationCommand: "npm run native:hybrid-addon-receipt:verify",
+        addonReceiptDocumentation: "docs/uxp-hybrid-addon-receipt.md",
       });
   });
 
