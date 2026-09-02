@@ -21,7 +21,10 @@ The pinned community Premiere scripting guide also has a complete member
 inventory, explicitly labeled as non-Adobe authority and not runtime proof.
 The [beta Media drift receipt](adobe-beta-media-drift.md) separately records the
 pinned stable-to-beta `Media` declaration delta. It is deliberately not a beta
-surface inventory or beta-host support claim.
+surface inventory or beta-host support claim. The [beta C2PA declaration
+receipt](adobe-beta-c2pa-drift.md) records only the separate beta-only C2PA
+surface and does not expose a C2PA operation or claim a manifest can be read in
+any host.
 Other remaining surfaces stay visibly partial, not started, externally gated,
 or unavailable from an authoritative source. Both C++ SDK
 inventories remain externally gated because their headers and packaged
