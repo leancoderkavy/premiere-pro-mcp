@@ -376,7 +376,8 @@ describe("UXP command registry", () => {
       guid: "sequence-2",
       getPlayerPosition: vi.fn(async () => ({ seconds: 8 })),
     };
-    changedSequence.sequence.setPlayerPosition.mockImplementationOnce(async () => {
+    changedSequence.sequence.setPlayerPosition.mockImplementationOnce(async (position: { seconds: number }) => {
+      changedSequence.playhead.positionSeconds = position.seconds;
       changedSequence.project.getActiveSequence.mockResolvedValueOnce(newlyActiveSequence);
       return true;
     });

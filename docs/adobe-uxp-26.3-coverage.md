@@ -134,7 +134,7 @@ Automated tests may prove these properties:
   construction;
 - sequence-playhead requests reject stale sequence or position snapshots, serialize
   concurrent setters per sequence, and require boolean acceptance plus position
-  readback; and
+  readback;
 - action commands preserve lock/transaction boundaries and operation replay
   behavior in a contract host; and
 - AAF options are bounded before a call reaches the host adapter.
