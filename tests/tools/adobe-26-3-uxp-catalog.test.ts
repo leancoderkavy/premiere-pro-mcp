@@ -21,6 +21,7 @@ const ADOBE_26_3_TOOLS = [
   "inspect_frame_alignment_uxp",
   "calculate_tick_time_uxp",
   "manage_sequence_preview_frame_uxp",
+  "inspect_source_media_provenance_uxp",
   "manage_source_media_overrides_uxp",
   "inspect_track_item_identity_uxp",
   "slide_track_item_uxp",
@@ -55,7 +56,7 @@ describe("Adobe Premiere 26.3 UXP public MCP catalog", () => {
       expect(listed.tools.map((tool) => tool.name)).toEqual(
         expect.arrayContaining(ADOBE_26_3_TOOLS),
       );
-      expect(listed.tools).toHaveLength(415);
+      expect(listed.tools).toHaveLength(416);
     } finally {
       await client.close();
       await server.close();
@@ -134,6 +135,14 @@ describe("Adobe Premiere 26.3 UXP public MCP catalog", () => {
         preview_height: { type: "integer", minimum: 16, maximum: 8192 },
         expected_snapshot: { type: "object", additionalProperties: false, required: ["project_guid", "sequence_id", "preview_width", "preview_height"] },
         confirm_set_preview_frame: { type: "boolean" }, operation_id: { type: "string" },
+      },
+    });
+    expect(tools.inspect_source_media_provenance_uxp.parameters).toMatchObject({
+      type: "object", additionalProperties: false, required: ["project_item_id"],
+      properties: {
+        project_item_id: { type: "string", minLength: 1, maxLength: 512 },
+        include_media_file_path: { type: "boolean" },
+        include_originating_project_path: { type: "boolean" },
       },
     });
     expect(tools.create_empty_sequence_uxp.parameters).toMatchObject({
@@ -243,6 +252,9 @@ describe("Adobe Premiere 26.3 UXP public MCP catalog", () => {
       expected_snapshot: { project_guid: "project-1", sequence_id: "sequence-1", preview_width: 640, preview_height: 360 },
       confirm_set_preview_frame: true, operation_id: "preview-frame-1",
     });
+    await tools.inspect_source_media_provenance_uxp.handler({
+      project_item_id: "clip-17", include_media_file_path: true, include_originating_project_path: false,
+    });
     await tools.create_empty_sequence_uxp.handler({
       name: "Empty Assembly", confirm_non_undoable: true, operation_id: "empty-1",
     });
@@ -287,17 +299,20 @@ describe("Adobe Premiere 26.3 UXP public MCP catalog", () => {
       sequenceId: "sequence-1", previewWidth: 1920, previewHeight: 1080, confirmSetPreviewFrame: true, operationId: "preview-frame-1",
       expectedSnapshot: { projectGuid: "project-1", sequenceId: "sequence-1", previewWidth: 640, previewHeight: 360 },
     });
-    expect(request).toHaveBeenNthCalledWith(8, "sequences.createEmpty", {
+    expect(request).toHaveBeenNthCalledWith(8, "source.provenance.inspect", {
+      projectItemId: "clip-17", includeMediaFilePath: true, includeOriginatingProjectPath: false,
+    });
+    expect(request).toHaveBeenNthCalledWith(9, "sequences.createEmpty", {
       name: "Empty Assembly", confirmNonUndoable: true, operationId: "empty-1",
     });
-    expect(request).toHaveBeenNthCalledWith(9, "objectMask.audit", {
+    expect(request).toHaveBeenNthCalledWith(10, "objectMask.audit", {
       expectedProjectGuid: "project-1", sequenceIds: ["sequence-2", "sequence-1"],
     });
-    expect(request).toHaveBeenNthCalledWith(10, "trackItem.identity.inspect", {
+    expect(request).toHaveBeenNthCalledWith(11, "trackItem.identity.inspect", {
       mediaType: "video", trackIndex: 1, clipIndex: 2, expectedSequenceGuid: "sequence-1",
     });
-    expect(request).toHaveBeenNthCalledWith(11, "transcript.has", { projectItemName: "Interview A" });
-    expect(request).toHaveBeenNthCalledWith(12, "interchange.aaf.export", {
+    expect(request).toHaveBeenNthCalledWith(12, "transcript.has", { projectItemName: "Interview A" });
+    expect(request).toHaveBeenNthCalledWith(13, "interchange.aaf.export", {
       outputFilePath: "/exports/turnover.aaf",
       options: {
         mixdownVideo: true, explodeToMono: true, embedAudio: false, trimSources: true,

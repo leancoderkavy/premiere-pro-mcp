@@ -13,8 +13,8 @@
   },
   "stats": {
     "total": 976,
-    "mapped": 372,
-    "unmapped": 604,
+    "mapped": 373,
+    "unmapped": 603,
     "manifestOnly": 5
   },
   "manifestOnly": [
@@ -771,7 +771,7 @@
     {
       "symbol": "ClipProjectItem.getMediaFilePath",
       "kind": "method",
-      "coverage": "unmapped"
+      "coverage": "mapped"
     },
     {
       "symbol": "ClipProjectItem.getOriginatingProjectPath",
