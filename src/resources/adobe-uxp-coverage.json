@@ -1324,6 +1324,48 @@
       "verificationBoundary": "active_sequence_identity_readback"
     },
     {
+      "id": "guarded-track-item-slip",
+      "adobeApi": [
+        "AudioClipTrackItem.getStartTime",
+        "AudioClipTrackItem.getEndTime",
+        "AudioClipTrackItem.getInPoint",
+        "AudioClipTrackItem.getOutPoint",
+        "AudioClipTrackItem.getDuration",
+        "AudioClipTrackItem.getSpeed",
+        "AudioClipTrackItem.isSpeedReversed",
+        "AudioClipTrackItem.createSetInPointAction",
+        "AudioClipTrackItem.createSetOutPointAction",
+        "VideoClipTrackItem.getStartTime",
+        "VideoClipTrackItem.getEndTime",
+        "VideoClipTrackItem.getInPoint",
+        "VideoClipTrackItem.getOutPoint",
+        "VideoClipTrackItem.getDuration",
+        "VideoClipTrackItem.getSpeed",
+        "VideoClipTrackItem.isSpeedReversed",
+        "VideoClipTrackItem.createSetInPointAction",
+        "VideoClipTrackItem.createSetOutPointAction",
+        "Project.lockedAccess",
+        "Project.executeTransaction"
+      ],
+      "documentationUrls": [
+        "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/audiocliptrackitem/",
+        "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/videocliptrackitem/",
+        "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/project/"
+      ],
+      "minimumPremiereVersion": "25.6.0",
+      "backend": "uxp",
+      "uxpCommand": "trackItem.slip",
+      "mcpTools": ["slip_track_item_uxp"],
+      "availability": "current",
+      "implementationStatus": "implemented",
+      "verificationStatus": "automated_contract_verified",
+      "liveHostVerificationStatus": "not_run",
+      "mutatesProject": true,
+      "undoable": true,
+      "idempotency": "operation_id",
+      "verificationBoundary": "guarded_track_item_source_and_timeline_readback"
+    },
+    {
       "id": "track-item-transformations",
       "adobeApi": [
         "VideoClipTrackItem.createMoveAction",
