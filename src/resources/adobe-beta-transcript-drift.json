@@ -1,0 +1,105 @@
+{
+  "schemaVersion": 1,
+  "scope": {
+    "declaration": "TranscriptStatic",
+    "semantics": "This compares only the public TranscriptStatic declaration in the pinned stable and beta packages. It is static declaration-drift accounting, not beta API support or a complete package diff.",
+    "mutationBoundary": "transcribeClipProjectItem is a beta transcription-start operation. This receipt intentionally has no production call or user-facing transcription action.",
+    "doesNotEstablish": "It does not prove a beta host exposes either added member, that a language pack is installed or usable, that transcription starts or completes, that transcript content is safe to handle, or that any MCP action is supported or licensed-host validated."
+  },
+  "sources": {
+    "stable": {
+      "package": "@adobe/premierepro",
+      "version": "26.3.0",
+      "declarations": "node_modules/@adobe/premierepro/src/premierepro.d.ts",
+      "transcriptDeclarationSha256": "4a7ed8b0ab1ffd5160410307b51eb359b146419b417e5db640e448412f6f3cad"
+    },
+    "beta": {
+      "package": "@adobe/premierepro-beta",
+      "version": "26.5.0-beta.73",
+      "declarations": "node_modules/@adobe/premierepro-beta/src/premierepro.d.ts",
+      "transcriptDeclarationSha256": "54c8b98102f86f9b15083f6c6148111eb4cd3dae253aa5115b30db49c4f6ec86"
+    }
+  },
+  "members": {
+    "stable": [
+      {
+        "symbol": "TranscriptStatic.createImportTextSegmentsAction",
+        "kind": "method",
+        "signature": "(textSegments: TextSegments, clipProjectItem: ClipProjectItem) => Action"
+      },
+      {
+        "symbol": "TranscriptStatic.exportToJSON",
+        "kind": "method",
+        "signature": "(clipProjectItem: ClipProjectItem) => Promise<string>"
+      },
+      {
+        "symbol": "TranscriptStatic.hasTranscript",
+        "kind": "method",
+        "signature": "(clipProjectItem: ClipProjectItem) => boolean"
+      },
+      {
+        "symbol": "TranscriptStatic.importFromJSON",
+        "kind": "method",
+        "signature": "(jsonString: string) => TextSegments"
+      },
+      {
+        "symbol": "TranscriptStatic.querySupportedLanguages",
+        "kind": "method",
+        "signature": "() => Array<{ displayString: string; languageCode: string; locale: string }>"
+      }
+    ],
+    "beta": [
+      {
+        "symbol": "TranscriptStatic.createImportTextSegmentsAction",
+        "kind": "method",
+        "signature": "(textSegments: TextSegments, clipProjectItem: ClipProjectItem) => Action"
+      },
+      {
+        "symbol": "TranscriptStatic.exportToJSON",
+        "kind": "method",
+        "signature": "(clipProjectItem: ClipProjectItem) => Promise<string>"
+      },
+      {
+        "symbol": "TranscriptStatic.hasTranscript",
+        "kind": "method",
+        "signature": "(clipProjectItem: ClipProjectItem) => boolean"
+      },
+      {
+        "symbol": "TranscriptStatic.importFromJSON",
+        "kind": "method",
+        "signature": "(jsonString: string) => TextSegments"
+      },
+      {
+        "symbol": "TranscriptStatic.isLanguagePackAvailable",
+        "kind": "method",
+        "signature": "(language: string) => boolean"
+      },
+      {
+        "symbol": "TranscriptStatic.querySupportedLanguages",
+        "kind": "method",
+        "signature": "() => Array<{ displayString: string; languageCode: string; locale: string }>"
+      },
+      {
+        "symbol": "TranscriptStatic.transcribeClipProjectItem",
+        "kind": "method",
+        "signature": "(clipProjectItem: ClipProjectItem, options?: { languageCode?: string }) => Promise<boolean>"
+      }
+    ]
+  },
+  "diff": {
+    "betaOnly": [
+      {
+        "symbol": "TranscriptStatic.isLanguagePackAvailable",
+        "kind": "method",
+        "signature": "(language: string) => boolean"
+      },
+      {
+        "symbol": "TranscriptStatic.transcribeClipProjectItem",
+        "kind": "method",
+        "signature": "(clipProjectItem: ClipProjectItem, options?: { languageCode?: string }) => Promise<boolean>"
+      }
+    ],
+    "stableOnly": [],
+    "changed": []
+  }
+}

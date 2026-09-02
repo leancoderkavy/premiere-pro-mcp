@@ -30,6 +30,9 @@ legacy work-area tools or claiming equivalent beta behavior.
 The [beta MediaManager declaration receipt](adobe-beta-media-manager-drift.md)
 records the separate beta-only cache-purge declaration without exposing a
 destructive cache operation or claiming host behavior.
+The [beta TranscriptStatic declaration receipt](adobe-beta-transcript-drift.md)
+records beta transcript additions without exposing transcription or claiming
+language-pack, transcript-content, or host behavior.
 Other remaining surfaces stay visibly partial, not started, externally gated,
 or unavailable from an authoritative source. Both C++ SDK
 inventories remain externally gated because their headers and packaged
