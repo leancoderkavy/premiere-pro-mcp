@@ -19,6 +19,10 @@ type MutableItem = {
   getItems?: ReturnType<typeof vi.fn>;
   getParentBin: ReturnType<typeof vi.fn>;
   getColorLabelIndex: ReturnType<typeof vi.fn>;
+  isSequence?: ReturnType<typeof vi.fn>;
+  isMergedClip?: ReturnType<typeof vi.fn>;
+  isMulticamClip?: ReturnType<typeof vi.fn>;
+  isOffline?: ReturnType<typeof vi.fn>;
   createSetNameAction: ReturnType<typeof vi.fn>;
   createSetColorLabelAction: ReturnType<typeof vi.fn>;
   createBinAction?: ReturnType<typeof vi.fn>;
@@ -72,6 +76,10 @@ function advancedHost() {
   const root = makeItem("root", "Root", { isFolder: true });
   const bin = makeItem("bin-1", "Rushes", { isFolder: true, parent: root });
   const clip = makeItem("clip-1", "Interview.mov", { isClip: true, parent: bin });
+  clip.isSequence = vi.fn(async () => false);
+  clip.isMergedClip = vi.fn(async () => false);
+  clip.isMulticamClip = vi.fn(async () => false);
+  clip.isOffline = vi.fn(async () => false);
   root.children?.push(bin);
   bin.children?.push(clip);
 
@@ -951,14 +959,46 @@ describe("advanced stable Premiere UXP workflows", () => {
     ]);
     expect(sourceOptIn.trackItem.getProjectItem).toHaveBeenCalledTimes(1);
     expect(sourceOptIn.clip.getId).toHaveBeenCalledTimes(1);
+    expect(sourceOptIn.clip.isSequence).not.toHaveBeenCalled();
+    expect(sourceOptIn.clip.isMergedClip).not.toHaveBeenCalled();
+    expect(sourceOptIn.clip.isMulticamClip).not.toHaveBeenCalled();
+    expect(sourceOptIn.clip.isOffline).not.toHaveBeenCalled();
     expect(sourceOptIn.project.lockedAccess).not.toHaveBeenCalled();
     expect(sourceOptIn.project.executeTransaction).not.toHaveBeenCalled();
+
+    const classifiedSource = advancedHost();
+    classifiedSource.clip.isSequence?.mockResolvedValueOnce(true);
+    classifiedSource.clip.isMergedClip?.mockResolvedValueOnce(true);
+    classifiedSource.clip.isMulticamClip?.mockResolvedValueOnce(false);
+    classifiedSource.clip.isOffline?.mockRejectedValueOnce(new Error("offline status unavailable"));
+    await expect(classifiedSource.registry.dispatch("timeline.structure.inspect", {
+      mediaType: "video", includeSourceProjectItems: true, includeSourceProjectItemClassification: true,
+    })).resolves.toMatchObject({
+      tracks: [{ mediaType: "video", trackIndex: 0, items: [{
+        sourceProjectItemId: "clip-1",
+        sourceProjectItemClassification: {
+          isSequence: true, isMergedClip: true, isMulticamClip: false, isOffline: null,
+        },
+      }] }],
+    });
+    expect(classifiedSource.trackItem.getProjectItem).toHaveBeenCalledTimes(1);
+    expect(classifiedSource.clip.getId).toHaveBeenCalledTimes(1);
+    expect(classifiedSource.ppro.ClipProjectItem.cast).toHaveBeenCalledWith(classifiedSource.clip);
+    expect(classifiedSource.clip.isSequence).toHaveBeenCalledTimes(1);
+    expect(classifiedSource.clip.isMergedClip).toHaveBeenCalledTimes(1);
+    expect(classifiedSource.clip.isMulticamClip).toHaveBeenCalledTimes(1);
+    expect(classifiedSource.clip.isOffline).toHaveBeenCalledTimes(1);
+    expect(classifiedSource.project.lockedAccess).not.toHaveBeenCalled();
+    expect(classifiedSource.project.executeTransaction).not.toHaveBeenCalled();
 
     const unavailableSource = advancedHost();
     unavailableSource.trackItem.getProjectItem.mockRejectedValueOnce(new Error("source item unavailable"));
     await expect(unavailableSource.registry.dispatch("timeline.structure.inspect", {
-      mediaType: "video", includeSourceProjectItems: true,
-    })).resolves.toMatchObject({ tracks: [{ items: [{ sourceProjectItemId: null }] }] });
+      mediaType: "video", includeSourceProjectItems: true, includeSourceProjectItemClassification: true,
+    })).resolves.toMatchObject({ tracks: [{ items: [{
+      sourceProjectItemId: null, sourceProjectItemClassification: null,
+    }] }] });
+    expect(unavailableSource.ppro.ClipProjectItem.cast).not.toHaveBeenCalled();
 
     const videoOnly = advancedHost();
     const videoOnlySnapshot = await videoOnly.registry.dispatch("timeline.structure.inspect", { mediaType: "video" });
@@ -978,6 +1018,9 @@ describe("advanced stable Premiere UXP workflows", () => {
     })).rejects.toMatchObject({ code: "UXP_INVALID_ARGUMENT" });
     await expect(value.registry.dispatch("timeline.structure.inspect", {
       includeSourceProjectItems: "yes",
+    })).rejects.toMatchObject({ code: "UXP_INVALID_ARGUMENT" });
+    await expect(value.registry.dispatch("timeline.structure.inspect", {
+      includeSourceProjectItemClassification: true,
     })).rejects.toMatchObject({ code: "UXP_INVALID_ARGUMENT" });
     await expect(value.registry.dispatch("timeline.structure.inspect", {
       mediaType: "all", maxItems: 1,

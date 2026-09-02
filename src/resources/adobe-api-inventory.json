@@ -13,8 +13,8 @@
   },
   "stats": {
     "total": 976,
-    "mapped": 268,
-    "unmapped": 708,
+    "mapped": 269,
+    "unmapped": 707,
     "manifestOnly": 5
   },
   "manifestOnly": [
@@ -821,7 +821,7 @@
     {
       "symbol": "ClipProjectItem.isSequence",
       "kind": "method",
-      "coverage": "unmapped"
+      "coverage": "mapped"
     },
     {
       "symbol": "ClipProjectItem.name",

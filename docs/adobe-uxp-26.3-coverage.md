@@ -148,6 +148,15 @@ bounded `operation_id` replay key where applicable.
   `itemLimitReached` and `depthLimitApplied` explicitly mark a partial traversal.
   This is a read-only structural snapshot, not an atomic project revision,
   media-path/metadata inventory, playback proof, or licensed-host validation.
+- `inspect_sequence_structure_uxp`: `include_source_project_items` is false by
+  default. Setting it true returns each bounded timeline clip's stable source ID.
+  `include_source_project_item_classification: true` additionally requires that
+  ID opt-in and returns only documented source flags for sequence, merged-clip,
+  multicam-clip, and offline status. A source unavailable to Premiere or an
+  unavailable individual getter is represented as `null`; no source name, type,
+  media path, Project-panel metadata, or project-tree traversal is read. This is
+  a current bounded read, not an atomic source/timeline revision, playback proof,
+  or licensed-host validation.
 - `inspect_project_panel_metadata_uxp`: action `panel` reads the active project's
   native Project-panel metadata and `item_columns` resolves one media item using
   the existing ID/name/selection rules before reading its native column metadata.
