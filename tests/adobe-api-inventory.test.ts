@@ -10,6 +10,7 @@ const betaAafExportOptionsDrift = JSON.parse(readFileSync("src/resources/adobe-b
 const betaProjectOptionsDrift = JSON.parse(readFileSync("src/resources/adobe-beta-project-options-drift.json", "utf8"));
 const betaTransitionOptionsDrift = JSON.parse(readFileSync("src/resources/adobe-beta-transition-options-drift.json", "utf8"));
 const betaRectFDrift = JSON.parse(readFileSync("src/resources/adobe-beta-rectf-drift.json", "utf8"));
+const betaColorDrift = JSON.parse(readFileSync("src/resources/adobe-beta-color-drift.json", "utf8"));
 const betaC2paDrift = JSON.parse(readFileSync("src/resources/adobe-beta-c2pa-drift.json", "utf8"));
 const betaMediaDrift = JSON.parse(readFileSync("src/resources/adobe-beta-media-drift.json", "utf8"));
 const betaMediaManagerDrift = JSON.parse(readFileSync("src/resources/adobe-beta-media-manager-drift.json", "utf8"));
@@ -329,6 +330,70 @@ describe("Adobe declaration API inventory", () => {
       });
       expect(result.status).not.toBe(0);
       expect(result.stderr).toContain("must move premierepro.RectF to RectFStatic");
+    } finally {
+      rmSync(temporary, { recursive: true, force: true });
+    }
+  });
+
+  it("accounts for beta Color factory migration without advertising a beta Color path", () => {
+    const stableDeclarations = readFileSync("node_modules/@adobe/premierepro/src/premierepro.d.ts", "utf8");
+    const betaDeclarations = readFileSync("node_modules/@adobe/premierepro-beta/src/premierepro.d.ts", "utf8");
+    const colorFactory = "new (red?: number, green?: number, blue?: number, alpha?: number): Color;";
+    expect(stableDeclarations).toContain("Color: Color;");
+    expect(stableDeclarations).not.toContain("export declare type ColorStatic");
+    expect(declarationType(stableDeclarations, "Color")).toContain(colorFactory);
+    expect(betaDeclarations).toContain("Color: ColorStatic;");
+    expect(declarationType(betaDeclarations, "Color")).not.toContain(colorFactory);
+    expect(declarationType(betaDeclarations, "ColorStatic")).toContain(colorFactory);
+    expect(betaColorDrift).toMatchObject({
+      schemaVersion: 1,
+      scope: {
+        declarations: ["premierepro.Color", "Color", "ColorStatic"],
+        doesNotEstablish: expect.stringContaining("does not prove"),
+      },
+      sources: {
+        stable: {
+          package: "@adobe/premierepro",
+          version: "26.3.0",
+          staticFactoryPresent: false,
+          colorDeclarationSha256: expect.stringMatching(/^[a-f0-9]{64}$/),
+        },
+        beta: {
+          package: "@adobe/premierepro-beta",
+          version: "26.5.0-beta.73",
+          staticFactoryPresent: true,
+          colorDeclarationSha256: expect.stringMatching(/^[a-f0-9]{64}$/),
+          staticDeclarationSha256: expect.stringMatching(/^[a-f0-9]{64}$/),
+        },
+      },
+      diff: { stableOnly: [] },
+    });
+    expect(betaColorDrift.diff.betaOnly).toEqual(expect.arrayContaining([
+      { symbol: "ColorStatic.new", kind: "construct_signature", signature: "(red?: number, green?: number, blue?: number, alpha?: number) => Color" },
+      { symbol: "ColorStatic.call", kind: "call_signature", signature: "(red?: number, green?: number, blue?: number, alpha?: number) => Color" },
+    ]));
+    expect(betaColorDrift.diff.changed.some((entry: { symbol: string; beta: { signature: string } }) => (
+      entry.symbol === "premierepro.Color" && entry.beta.signature === "ColorStatic"
+    ))).toBe(true);
+    expect(spawnSync(process.execPath, ["scripts/generate-adobe-beta-color-drift.mjs", "--check"], { encoding: "utf8" }).status).toBe(0);
+    const claimedApis = coverage.entries.flatMap((entry: { adobeApi: string[] }) => entry.adobeApi);
+    expect(claimedApis).toContain("Color.[[construct]]");
+    expect(claimedApis).not.toEqual(expect.arrayContaining([
+      "premierepro.Color", "ColorStatic.new", "ColorStatic.call",
+    ]));
+  });
+
+  it("rejects an unexpected Color root binding before writing a receipt", () => {
+    const temporary = mkdtempSync(join(tmpdir(), "premiere-beta-color-drift-"));
+    try {
+      const betaPath = join(temporary, "premierepro.d.ts");
+      writeFileSync(betaPath, readFileSync("node_modules/@adobe/premierepro-beta/src/premierepro.d.ts", "utf8").replace("Color: ColorStatic;", "Color: Color;"));
+      const result = spawnSync(process.execPath, ["scripts/generate-adobe-beta-color-drift.mjs", "--validate-only"], {
+        encoding: "utf8",
+        env: { ...process.env, PREMIERE_BETA_COLOR_BETA_DECLARATIONS_PATH: betaPath },
+      });
+      expect(result.status).not.toBe(0);
+      expect(result.stderr).toContain("must move premierepro.Color to ColorStatic");
     } finally {
       rmSync(temporary, { recursive: true, force: true });
     }
