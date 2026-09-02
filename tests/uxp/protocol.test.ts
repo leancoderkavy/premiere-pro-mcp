@@ -56,7 +56,7 @@ describe("UXP bridge protocol", () => {
   });
   it("routes transcript imports through the replay-aware command registry", () => {
     const panel = readFileSync(new URL("../../uxp-plugin/index.cjs", import.meta.url), "utf8");
-    expect(panel).toContain("transcriptImportHandler: importTranscript");
+    expect(panel).toContain("transcriptImportHandler: transcriptImportRuntime && transcriptImportRuntime.importTranscript");
     expect(panel).not.toContain('cmd.command === "transcript.import") result = await importTranscript');
   });
   it("prevents filename path traversal", () => {

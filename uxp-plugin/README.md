@@ -14,10 +14,10 @@ It also exposes documented Premiere 25.6+ video-transition and transcript workfl
 
 - `timeline.selection.lift` removes the current timeline selection without ripple through one undoable transaction; the committed transaction is not a timeline readback
 - `transition.video.list`, `transition.video.add`, and `transition.video.remove`
-- `transcript.export`, `transcript.search`, `transcript.has`, and undoable `transcript.import`
+- `transcript.export`, `transcript.search`, `transcript.has`, and guarded undoable `transcript.import`
 - read-only `captions.inspect`
 
-Transition names must come from `transition.video.list`. Transcript targets can be selected in the Project panel or addressed by project-item ID/name. Caption creation, text/timing mutation, and deletion remain explicitly unsupported because Premiere does not document those UXP APIs.
+Transition names must come from `transition.video.list`. Transcript inspection targets can be selected in the Project panel or addressed by project-item ID/name. Transcript import is stricter: it requires an exact project GUID and project-item ID plus a current transcript SHA-256 (or an explicit absent-transcript precondition), confirmation, and an operation ID; it never uses selection or a name to mutate. Caption creation, text/timing mutation, and deletion remain explicitly unsupported because Premiere does not document those UXP APIs.
 
 The MCP adapter exposes `transcript.export` as `get_clip_transcript_uxp` and adds a
 SHA-256 revision to the result. `search_clip_transcript_uxp` maps to the existing
@@ -25,6 +25,12 @@ read-only search command. `preview_transcript_edit_uxp` re-exports the transcrip
 rejects stale revisions, validates and merges selected source-time deletion ranges,
 and returns a confirmation token. It never changes the transcript or timeline;
 automatic transcript-to-timeline application remains a live-host validation gate.
+`import_transcript_uxp` is the guarded MCP facade for `transcript.import`: it
+caps the replacement JSON at 24 KiB UTF-8, serializes import requests per source
+clip, commits one native transaction, and only calls the result verified after a
+bounded native export has the exact requested SHA-256. A failed post-commit
+readback remains `committed_unverified`; static tests do not prove host acceptance,
+persistence, Undo, or licensed-host behavior.
 
 ## Premiere 26.3 commands
 
@@ -43,6 +49,8 @@ available only when the connected host advertises them through `capabilities.get
   read the position back. It changes monitor state, not project edit history.
 - `transcript.has` — report whether a resolved `ClipProjectItem` has a
   transcript. It is read-only and does not start Speech-to-Text.
+- `transcript.import` — replace one exact clip transcript through a revision-locked,
+  explicitly confirmed 26.3+ transaction with bounded export readback.
 - `interchange.aaf.export` — export the active sequence through
   `ProjectConverter.exportAAF` with a bounded, documented `AAFExportOptions`
   schema. Premiere's boolean result is recorded, but output-file inspection must
@@ -50,7 +58,7 @@ available only when the connected host advertises them through `capabilities.get
 
 These map to MCP tools `rename_track_uxp`, `create_subclip_uxp`,
 `list_markers_uxp`, `set_source_monitor_position_uxp`, `has_transcript_uxp`, and
-`export_aaf_uxp`. See [the 26.3 coverage matrix](../docs/adobe-uxp-26.3-coverage.md)
+`import_transcript_uxp`, and `export_aaf_uxp`. See [the 26.3 coverage matrix](../docs/adobe-uxp-26.3-coverage.md)
 for command arguments, support states, and primary Adobe references.
 
 ## Stable workflow commands

@@ -20,8 +20,7 @@
       "uxpCommand": null,
       "mcpTools": [
         "add_video_transition_uxp",
-        "remove_video_transition_uxp",
-        "import_transcript_uxp"
+        "remove_video_transition_uxp"
       ],
       "availability": "current",
       "implementationStatus": "implemented",
@@ -333,6 +332,44 @@
       "undoable": false,
       "idempotency": "not_applicable",
       "verificationBoundary": "host_return"
+    },
+    {
+      "id": "guarded-transcript-json-import",
+      "adobeApi": [
+        "Project.getActiveProject",
+        "Project.getRootItem",
+        "Project.guid",
+        "Project.lockedAccess",
+        "Project.executeTransaction",
+        "FolderItem.getItems",
+        "ProjectItem.getId",
+        "ClipProjectItem.cast",
+        "Transcript.hasTranscript",
+        "Transcript.exportToJSON",
+        "Transcript.importFromJSON",
+        "Transcript.createImportTextSegmentsAction"
+      ],
+      "documentationUrls": [
+        "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/project/",
+        "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/folderitem/",
+        "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/projectitem/",
+        "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/clipprojectitem/",
+        "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/transcript/"
+      ],
+      "minimumPremiereVersion": "26.3.0",
+      "backend": "uxp",
+      "uxpCommand": "transcript.import",
+      "mcpTools": [
+        "import_transcript_uxp"
+      ],
+      "availability": "current",
+      "implementationStatus": "implemented",
+      "verificationStatus": "automated_contract_verified",
+      "liveHostVerificationStatus": "not_run",
+      "mutatesProject": true,
+      "undoable": true,
+      "idempotency": "operation_id",
+      "verificationBoundary": "guarded_transcript_export_readback"
     },
     {
       "id": "object-mask-inspection",

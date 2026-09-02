@@ -114,14 +114,51 @@ describe("transcript edit planning", () => {
 describe("transcript UXP MCP tools", () => {
   it("exports native transcript JSON with a stable revision", async () => {
     const json = '{"segments":[]}';
-    const request = vi.fn().mockResolvedValue({ projectItemId: "clip-1", projectItemName: "Interview", json });
+    const request = vi.fn().mockResolvedValue({ projectGuid: "project-1", projectItemId: "clip-1", projectItemName: "Interview", json });
     const bridge = { request, getState: vi.fn() } as unknown as UxpWebSocketBridge;
     const result = await getUxpTools(bridge).get_clip_transcript_uxp.handler({ project_item_id: "clip-1" });
     expect(request).toHaveBeenCalledWith("transcript.export", { projectItemId: "clip-1" });
     expect(result).toMatchObject({
       success: true,
-      data: { result: { projectItemId: "clip-1", json, transcriptRevision: transcriptRevision(json) } },
+      data: { result: { projectGuid: "project-1", projectItemId: "clip-1", json, transcriptRevision: transcriptRevision(json) } },
     });
+  });
+
+  it("maps a guarded transcript replacement to the documented UXP command", async () => {
+    const request = vi.fn().mockResolvedValue({ committed: true, verified: true });
+    const bridge = { request, getState: vi.fn() } as unknown as UxpWebSocketBridge;
+    const result = await getUxpTools(bridge).import_transcript_uxp.handler({
+      project_item_id: "clip-1",
+      project_guid: "project-1",
+      expected_transcript_revision: "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      replacement_transcript_json: '{"segments":[]}',
+      confirm_destructive: true,
+      operation_id: "transcript-replace-1",
+    });
+    expect(request).toHaveBeenCalledWith("transcript.import", {
+      projectItemId: "clip-1",
+      expectedProjectGuid: "project-1",
+      expectedTranscriptRevision: "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      json: '{"segments":[]}',
+      confirmDestructive: true,
+      operationId: "transcript-replace-1",
+    });
+    expect(result).toMatchObject({ success: true, data: { result: { committed: true, verified: true } } });
+  });
+
+  it("fails closed before the bridge when destructive confirmation or replay identity is missing", async () => {
+    const request = vi.fn();
+    const bridge = { request, getState: vi.fn() } as unknown as UxpWebSocketBridge;
+    const tool = getUxpTools(bridge).import_transcript_uxp;
+    await expect(tool.handler({
+      project_item_id: "clip-1", project_guid: "project-1", expected_transcript_revision: null,
+      replacement_transcript_json: '{"segments":[]}', confirm_destructive: false, operation_id: "transcript-replace-2",
+    })).resolves.toMatchObject({ success: false, error: expect.stringContaining("confirm_destructive") });
+    await expect(tool.handler({
+      project_item_id: "clip-1", project_guid: "project-1", expected_transcript_revision: null,
+      replacement_transcript_json: '{"segments":[]}', confirm_destructive: true, operation_id: "",
+    })).resolves.toMatchObject({ success: false, error: expect.stringContaining("operation_id") });
+    expect(request).not.toHaveBeenCalled();
   });
 
   it("maps bounded search arguments to the native transcript command", async () => {

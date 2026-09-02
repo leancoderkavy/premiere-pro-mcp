@@ -89,7 +89,9 @@
       definitions["transcript.import"] = {
         destructive: true,
         undoable: true,
-        minHostVersion: "25.6.0",
+        idempotent: true,
+        targetCapabilityProbe: true,
+        minHostVersion: "26.3.0",
         probe: typeof deps.transcriptImportProbe === "function" ? deps.transcriptImportProbe : null,
         handler: deps.transcriptImportHandler
       };

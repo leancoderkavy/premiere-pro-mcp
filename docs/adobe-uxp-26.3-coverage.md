@@ -54,6 +54,7 @@ verification column describes the required evidence, not a completed test run.
 | `inspect_project_tree_uxp` | `projectTree.inspect` | `Project.getRootItem()`, `FolderItem.getItems()`, and project-item identity accessors | Read-only bounded Project-panel tree snapshot | Supported when the active project exposes a readable root folder and runtime folder casts | Return only stable IDs, names, types, parent IDs, bin state, and optional color-label indexes, capped at 512 items and depth 16. It omits media paths, metadata, and content; depth or item truncation is explicit, and this is not licensed-host proof. |
 | `inspect_project_panel_metadata_uxp` | `metadata.columns.get`, `metadata.projectPanel.get` | `Metadata.getProjectColumnsMetadata()` and `Metadata.getProjectPanelMetadata()` | Read-only bounded Project-panel metadata snapshot | Supported when the exact documented accessor probes true; item columns additionally resolve one media item | Return one native metadata string capped at 350,000 characters and 900,000 serialized UTF-8 bytes. It intentionally offers no schema-creation or `setProjectPanelMetadata()` route because the documented setter has no project-targeted action/transaction boundary. This is not an atomic project snapshot or licensed-host proof. |
 | `has_transcript_uxp` | `transcript.has` | `Transcript.hasTranscript()` | Read-only | Native 26.3 support is used when it probes true; the existing 25.6 transcript-export compatibility probe is labeled as a fallback | Return Adobe's native boolean when available; never infer transcript presence from names or transcript text. |
+| `import_transcript_uxp` | `transcript.import` | `Transcript.hasTranscript()`, `exportToJSON()`, `importFromJSON()`, and `createImportTextSegmentsAction()` with Project transaction primitives | One undoable source-transcript replacement | Supported when the exact transcript, project-root traversal, clip-cast, and transaction APIs probe true | Require an exact project GUID, project-item ID, and current transcript SHA-256 (or `null` for an untranscribed clip), explicit confirmation, and an operation ID. Serialize competing imports for that clip; cap input at 24 KiB and snapshots at 1 MiB; re-snapshot before action creation; then require exact export-SHA readback. A committed readback failure is `committed_unverified`, not proof of the imported text, Undo, persistence, or licensed-host behavior. |
 | `export_aaf_uxp` | `interchange.aaf.export` | `ProjectConverter.exportAAF()` and `AAFExportOptions` | Export side effect; no project undo claim | Supported when converter and option APIs probe true | Record Premiere's boolean result and, in a live host, confirm the intended AAF artifact exists and is usable. |
 
 The 26.3 command-registry entries mark their documented status, 26.3 minimum,
@@ -62,7 +63,9 @@ not expose the required API. `transcript.has` is a pre-existing protocol command
 its capability record identifies both its 25.6 export-probe compatibility path and
 whether the 26.3 native check is present. A command failure is never retried
 automatically through CEP or QE: a failed UXP mutation can already have changed
-Premiere state.
+Premiere state. `transcript.import` is intentionally separate from the older 25.6
+export/search compatibility path because its guarded target identity and native
+`hasTranscript()` preflight require the stable 26.3 surface.
 
 ## Public argument contract
 
@@ -187,6 +190,14 @@ bounded `operation_id` replay key where applicable.
   metadata-schema validation, persistence proof, or licensed-host validation.
 - `has_transcript_uxp`: accepts at most one resolved `project_item_id` or
   `project_item_name`; omitting both requires exactly one Project-panel selection.
+- `import_transcript_uxp`: requires exact `project_item_id`, `project_guid`, and
+  `expected_transcript_revision` from a current transcript inspection; only an
+  explicit `null` revision may create a transcript where `has_transcript_uxp`
+  reports absence. It rejects stale project or transcript state before action
+  creation, requires `confirm_destructive: true` and a bounded `operation_id`,
+  accepts at most 24 KiB UTF-8 JSON, and does not accept a selected item or name
+  as a mutation target. A successful transaction is still reported
+  `committed_unverified` when the capped export readback is unavailable or differs.
 - `export_aaf_uxp`: `output_file_path` is non-empty and at most 4096 characters.
   Its optional allow-listed `options` fields are boolean `mixdown_video`,
   `explode_to_mono`, `embed_audio`, `trim_sources`, `render_audio_effects`,
@@ -209,7 +220,7 @@ tests with a mock UXP host, not host integration tests.
    `lockedAccess`/`executeTransaction` boundary. Do not await inside either
    callback or return an action for later use.
 4. Treat `Sequence.setSelection()` as synchronous in 26.3; remove `await` or
-   `.then()` chaining from callers. This change is independent of the six new
+   `.then()` chaining from callers. This change is independent of the guarded
    MCP commands but required for 26.3 compatibility.
 5. Do not silently fall back after a UXP mutation error. Return backend,
    `operationId`, result envelope, and verification state so the caller can
@@ -219,7 +230,7 @@ tests with a mock UXP host, not host integration tests.
 
 Automated tests may prove these properties:
 
-- MCP tools/list exposes the six tools only with a UXP bridge;
+- MCP tools/list exposes documented UXP tools only with a UXP bridge;
 - public schemas reject invalid shapes and translate into the documented protocol
   command names and camelCase arguments;
 - capability probes report unavailable APIs without optimistic version guessing and
@@ -246,6 +257,11 @@ Automated tests may prove these properties:
   serialize conflicting requests per project-item ID, reject an old snapshot before
   action construction, commit one action in one transaction, replay completed
   operation IDs, and require start/duration readback; and
+- transcript import rejects unknown/unbounded input, missing confirmation, stale
+  project or transcript revisions, and oversized project traversal before it
+  creates an action; it serializes distinct operation IDs for one clip, commits
+  exactly one transaction, replays a completed operation ID, and reports only an
+  exact capped transcript-export SHA-256 match as verified; and
 - action commands preserve lock/transaction boundaries and operation replay
   behavior in a contract host; and
 - AAF options are bounded before a call reaches the host adapter.
