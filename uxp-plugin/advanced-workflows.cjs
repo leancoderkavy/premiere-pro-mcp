@@ -934,9 +934,17 @@
 
     async function inspectParameterKeyframe(args) {
       assertObject(args);
-      assertOnlyKeys(args, ["mediaType", "trackIndex", "clipIndex", "componentIndex", "paramIndex", "expectedComponentId", "expectedParamName", "timeSeconds", "direction"]);
-      const direction = enumValue(args.direction, "direction", ["at", "next", "previous"]);
+      assertOnlyKeys(args, ["mediaType", "trackIndex", "clipIndex", "componentIndex", "paramIndex", "expectedComponentId", "expectedParamName", "timeSeconds", "endSeconds", "direction"]);
+      const direction = enumValue(args.direction, "direction", ["at", "next", "previous", "nearest"]);
       const timeSeconds = finiteNumber(args.timeSeconds, "timeSeconds", 0, 86400);
+      const hasEndSeconds = Object.prototype.hasOwnProperty.call(args, "endSeconds");
+      if (direction !== "nearest" && hasEndSeconds) {
+        throw commandError("UXP_INVALID_ARGUMENT", "endSeconds is only supported when direction is nearest");
+      }
+      const endSeconds = direction === "nearest" ? finiteNumber(args.endSeconds, "endSeconds", 0, 86400) : undefined;
+      if (endSeconds != null && endSeconds < timeSeconds) {
+        throw commandError("UXP_INVALID_ARGUMENT", "endSeconds must be greater than or equal to timeSeconds for nearest keyframe lookup");
+      }
       const context = await parameterContext({
         mediaType: args.mediaType, trackIndex: args.trackIndex, clipIndex: args.clipIndex,
         componentIndex: args.componentIndex, paramIndex: args.paramIndex,
@@ -946,12 +954,19 @@
       if (typeof context.param.areKeyframesSupported !== "function" || !await context.param.areKeyframesSupported()) {
         throw commandError("UXP_TARGET_UNSUPPORTED", "This parameter does not support keyframes");
       }
-      const method = direction === "at" ? "getKeyframePtr" : direction === "next" ? "findNextKeyframe" : "findPreviousKeyframe";
+      const method = {
+        at: "getKeyframePtr", next: "findNextKeyframe", previous: "findPreviousKeyframe", nearest: "findNearestKeyframe"
+      }[direction];
       if (typeof context.param[method] !== "function") {
         throw commandError("UXP_COMMAND_UNAVAILABLE", "Premiere cannot locate parameter keyframes in the requested direction");
       }
       let keyframe;
-      try { keyframe = context.param[method](tick(timeSeconds, "timeSeconds")); } catch (_) {
+      try {
+        const inTime = tick(timeSeconds, "timeSeconds");
+        keyframe = direction === "nearest"
+          ? context.param[method](inTime, tick(endSeconds, "endSeconds"))
+          : context.param[method](inTime);
+      } catch (_) {
         throw commandError("UXP_KEYFRAME_LOOKUP_FAILED", "Premiere could not locate the requested parameter keyframe");
       }
       const base = {
@@ -959,6 +974,7 @@
         mediaType: context.mediaType, trackIndex: context.trackIndex, clipIndex: context.clipIndex,
         componentIndex: context.componentIndex, componentId: context.componentId, paramIndex: context.paramIndex,
         paramName: context.paramName, direction, referenceSeconds: timeSeconds,
+        ...(direction === "nearest" ? { rangeEndSeconds: endSeconds } : {}),
       };
       if (!keyframe) return { ...base, found: false, keyframe: null };
       const positionSeconds = tickSeconds(keyframe.position);
