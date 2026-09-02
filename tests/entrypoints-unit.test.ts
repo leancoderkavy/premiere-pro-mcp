@@ -18,7 +18,7 @@ const mocks = vi.hoisted(() => ({
   uxpStop: vi.fn(async () => {}),
   execFileSync: vi.fn(),
   spawnSync: vi.fn(),
-  fetchLatestNpmVersion: vi.fn(async () => "1.14.5"),
+  fetchLatestNpmVersion: vi.fn(async () => "1.14.6"),
   fsExists: vi.fn(() => false),
   fsStat: vi.fn(() => ({ isDirectory: () => false, isFile: () => true })),
   fsCreateReadStream: vi.fn(),
@@ -129,7 +129,7 @@ beforeEach(() => {
   vi.resetModules();
   vi.clearAllMocks();
   mocks.requestHandler = undefined;
-  mocks.fetchLatestNpmVersion.mockResolvedValue("1.14.5");
+  mocks.fetchLatestNpmVersion.mockResolvedValue("1.14.6");
   mocks.spawnSync.mockReturnValue({ status: 1, stdout: "" });
   mocks.fsExists.mockReturnValue(false);
   mocks.fsStat.mockReturnValue({ isDirectory: () => false, isFile: () => true });
@@ -210,15 +210,15 @@ describe("stdio CLI entry point", () => {
 
   it("checks for a newer release and updates a global npm installation", async () => {
     const log = vi.spyOn(console, "log").mockImplementation(() => {});
-    mocks.fetchLatestNpmVersion.mockResolvedValueOnce("1.14.6");
+    mocks.fetchLatestNpmVersion.mockResolvedValueOnce("1.14.7");
     let loaded = await importCli(["--check-update"]);
     await expect(loaded.promise).rejects.toThrow("EXIT:0");
-    expect(log).toHaveBeenCalledWith(expect.stringContaining("1.14.5 → 1.14.6"));
+    expect(log).toHaveBeenCalledWith(expect.stringContaining("1.14.6 → 1.14.7"));
 
     vi.resetModules();
     vi.clearAllMocks();
     log.mockClear();
-    mocks.fetchLatestNpmVersion.mockResolvedValueOnce("1.14.6");
+    mocks.fetchLatestNpmVersion.mockResolvedValueOnce("1.14.7");
     mocks.spawnSync.mockReturnValue({ status: 0, stdout: `${dirname(process.cwd())}\n` });
     loaded = await importCli(["--update"]);
     await expect(loaded.promise).rejects.toThrow("EXIT:0");
@@ -243,7 +243,7 @@ describe("stdio CLI entry point", () => {
     vi.resetModules();
     vi.clearAllMocks();
     const log = vi.spyOn(console, "log").mockImplementation(() => {});
-    mocks.fetchLatestNpmVersion.mockResolvedValueOnce("1.14.5");
+    mocks.fetchLatestNpmVersion.mockResolvedValueOnce("1.14.6");
     loaded = await importCli(["--update"]);
     await expect(loaded.promise).rejects.toThrow("EXIT:0");
     expect(log).toHaveBeenCalledWith(expect.stringContaining("is current"));

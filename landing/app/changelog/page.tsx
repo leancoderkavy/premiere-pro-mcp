@@ -5,23 +5,22 @@ import { product } from "@/lib/product"
 
 const releases = [
   {
-    version: "1.14.5",
-    date: "2026-08-31",
-    label: "Verified mutation and playback hotfixes",
+    version: "1.14.6",
+    date: "2026-09-02",
+    label: "Guarded UXP editing and local review evidence",
     groups: [
       {
-        title: "Fixed",
+        title: "Added",
         items: [
-          "QE razor operations now pass sequence timecode instead of ticks, with regression coverage for split and all-track cuts.",
-          "Batch effect application preflights every target, resolves QE clips without assuming gap-free indexes, and requires component-count readback.",
-          "Legacy playback tools now report request acceptance rather than unverified playhead movement or stoppage.",
-          "Empty QE audio-transition catalogs fail closed, while effect fallback results are explicitly bounded and partial.",
+          "Compatible UXP hosts gain guarded sequence range and playhead control, marker batch removal, native video transitions, caption inventory, silence-cut stringouts, and atomic split edits.",
+          "Local review workflows add delivery conformance, sampled media analysis, Warp Stabilizer status, shot-match planning, and revision-aware editorial context packs.",
+          "The release records UXP, CEP, ExtendScript, and native SDK integration surfaces with source-backed inventories.",
         ],
       },
       {
-        title: "Validation",
+        title: "Safety",
         items: [
-          "Automated contracts cover the repaired behaviors; real licensed-Premiere host execution remains a separate evidence gate.",
+          "Unsupported sequence formats, unavailable readback, incomplete delivery probes, and partial transition writes fail closed. Automated contracts remain distinct from licensed-Premiere host proof.",
         ],
       },
     ],
