@@ -286,7 +286,7 @@ describe("advanced stable Premiere UXP workflows", () => {
     const value = advancedHost();
     const capabilities = await value.registry.capabilities();
     expect(Object.keys(capabilities.commands)).toEqual(expect.arrayContaining([
-      "projectSelection.views", "projectSelection.inspect", "markers.inspect", "markers.add", "markers.addBeatGrid",
+      "projectSelection.views", "projectSelection.inspect", "markers.inspect", "markers.add", "markers.addBeatGrid", "markers.removeMany",
       "bins.inspect", "bins.create", "sequenceSettings.get", "sequenceSettings.update",
       "project.import", "parameters.inspect", "parameters.keyframeAdd", "trackItem.inspect",
       "trackItem.update", "timeline.insert", "timeline.mogrtPath", "sequences.inspect",
@@ -296,6 +296,7 @@ describe("advanced stable Premiere UXP workflows", () => {
     expect(capabilities.commands["projectSelection.inspect"]).toMatchObject({ supported: true, readOnly: true });
     expect(capabilities.commands["markers.add"]).toMatchObject({ supported: true, destructive: true, undoable: true });
     expect(capabilities.commands["markers.addBeatGrid"]).toMatchObject({ supported: true, destructive: true, undoable: true });
+    expect(capabilities.commands["markers.removeMany"]).toMatchObject({ supported: true, destructive: true, undoable: true });
     expect(capabilities.commands["project.import"]).toMatchObject({ supported: true, workspaceRequired: true, undoable: false });
     expect(capabilities.commands["encoder.sequence"]).toMatchObject({ supported: true, workspaceRequired: true, undoable: false });
   });
@@ -333,6 +334,188 @@ describe("advanced stable Premiere UXP workflows", () => {
     await expect(value.registry.dispatch("bins.create", {
       parentBinId: "bin-1", name: "Selects", operationId: "bin-create",
     })).resolves.toMatchObject({ created: true, outcome: "verified", item: { name: "Selects" } });
+  });
+
+  it("removes only explicit reviewed marker snapshots in one transaction and replays the operation id", async () => {
+    const value = advancedHost();
+    await expect(value.registry.dispatch("markers.add", {
+      name: "Remove", startSeconds: 4, durationSeconds: 1.5, operationId: "marker-batch-fixture",
+    })).resolves.toMatchObject({ added: true, marker: { guid: "marker-2" } });
+    const transactionCount = value.project.executeTransaction.mock.calls.length;
+    const args = {
+      confirmDestructive: true,
+      markerSnapshots: [
+        { markerGuid: "marker-1", expectedName: "Beat", expectedStartSeconds: 1, expectedDurationSeconds: 0 },
+        { markerGuid: "marker-2", expectedName: "Remove", expectedStartSeconds: 4, expectedDurationSeconds: 1.5 },
+      ],
+      operationId: "marker-batch-remove",
+    };
+
+    await expect(value.registry.dispatch("markers.removeMany", args)).resolves.toMatchObject({
+      requested: 2, removed: 2, markerGuids: ["marker-1", "marker-2"], remainingTargetGuids: [],
+      remainingCount: 0, outcome: "verified", verified: true, verificationBoundary: "marker_guid_absence_readback",
+    });
+    await expect(value.registry.dispatch("markers.removeMany", args)).resolves.toMatchObject({
+      requested: 2, removed: 2, replayed: true,
+    });
+    expect(value.markers.createRemoveMarkerAction).toHaveBeenCalledTimes(2);
+    expect(value.project.executeTransaction).toHaveBeenCalledTimes(transactionCount + 1);
+  });
+
+  it("rejects unconfirmed, duplicate, and stale marker batches before creating actions", async () => {
+    const value = advancedHost();
+    const snapshot = { markerGuid: "marker-1", expectedName: "Beat", expectedStartSeconds: 0, expectedDurationSeconds: 0 };
+    await expect(value.registry.dispatch("markers.removeMany", { markerSnapshots: [snapshot] }))
+      .rejects.toMatchObject({ code: "UXP_CONFIRMATION_REQUIRED" });
+    await expect(value.registry.dispatch("markers.removeMany", {
+      confirmDestructive: true, markerSnapshots: [snapshot, snapshot],
+    })).rejects.toMatchObject({ code: "UXP_INVALID_ARGUMENT" });
+    await expect(value.registry.dispatch("markers.removeMany", {
+      confirmDestructive: true,
+      markerSnapshots: [{ ...snapshot, expectedName: "Changed elsewhere" }],
+    })).rejects.toMatchObject({ code: "UXP_STALE_MARKER" });
+    expect(value.markers.createRemoveMarkerAction).not.toHaveBeenCalled();
+    expect(value.project.lockedAccess).not.toHaveBeenCalled();
+    expect(value.project.executeTransaction).not.toHaveBeenCalled();
+  });
+
+  it("validates marker batch confirmation and bounds before resolving Premiere state", async () => {
+    const value = advancedHost();
+    const snapshot = { markerGuid: "marker-1", expectedName: "Beat", expectedStartSeconds: 1, expectedDurationSeconds: 0 };
+    await expect(value.registry.dispatch("markers.removeMany", { markerSnapshots: [snapshot] }))
+      .rejects.toMatchObject({ code: "UXP_CONFIRMATION_REQUIRED" });
+    await expect(value.registry.dispatch("markers.removeMany", {
+      confirmDestructive: true, markerSnapshots: Array.from({ length: 129 }, () => snapshot),
+    })).rejects.toMatchObject({ code: "UXP_INVALID_ARGUMENT" });
+    expect(value.ppro.Project.getActiveProject).not.toHaveBeenCalled();
+    expect(value.ppro.Markers.getMarkers).not.toHaveBeenCalled();
+  });
+
+  it("keeps batch-only marker arguments scoped to removeMany", async () => {
+    const value = advancedHost();
+    await expect(value.registry.dispatch("markers.add", { name: "Unexpected", confirmDestructive: true }))
+      .rejects.toMatchObject({ code: "UXP_INVALID_ARGUMENT" });
+    await expect(value.registry.dispatch("markers.update", {
+      markerGuid: "marker-1", name: "Unexpected", markerSnapshots: [],
+    })).rejects.toMatchObject({ code: "UXP_INVALID_ARGUMENT" });
+    await expect(value.registry.dispatch("markers.remove", { markerGuid: "marker-1", confirmDestructive: true }))
+      .rejects.toMatchObject({ code: "UXP_INVALID_ARGUMENT" });
+    expect(value.ppro.Project.getActiveProject).not.toHaveBeenCalled();
+    expect(value.ppro.Markers.getMarkers).not.toHaveBeenCalled();
+  });
+
+  it("serializes marker updates behind a batch removal snapshot and commit", async () => {
+    const value = advancedHost();
+    let releaseNameRead: () => void = () => undefined;
+    const nameRead = new Promise<void>((resolve) => { releaseNameRead = resolve; });
+    const marker = value.markerValues[0];
+    marker.getName.mockImplementationOnce(async () => {
+      await nameRead;
+      return marker.state.name;
+    });
+    const removing = value.registry.dispatch("markers.removeMany", {
+      confirmDestructive: true,
+      markerSnapshots: [{ markerGuid: "marker-1", expectedName: "Beat", expectedStartSeconds: 1, expectedDurationSeconds: 0 }],
+    });
+    await Promise.resolve();
+    const updating = value.registry.dispatch("markers.update", { markerGuid: "marker-1", name: "Changed concurrently" });
+    await Promise.resolve();
+    expect(marker.createSetNameAction).not.toHaveBeenCalled();
+    releaseNameRead();
+    await expect(removing).resolves.toMatchObject({ outcome: "verified", removed: 1 });
+    await expect(updating).rejects.toMatchObject({ code: "UXP_TARGET_NOT_FOUND" });
+    expect(marker.createSetNameAction).not.toHaveBeenCalled();
+  });
+
+  it("reports marker batch deletion as committed-unverified when GUID absence cannot be read back", async () => {
+    const value = advancedHost();
+    value.markers.createRemoveMarkerAction.mockImplementation(() => ({ apply: () => undefined }));
+    await expect(value.registry.dispatch("markers.removeMany", {
+      confirmDestructive: true,
+      markerSnapshots: [{ markerGuid: "marker-1", expectedName: "Beat", expectedStartSeconds: 1, expectedDurationSeconds: 0 }],
+    })).resolves.toMatchObject({
+      requested: 1, removed: null, remainingTargetGuids: ["marker-1"],
+      outcome: "committed_unverified", verified: false, verificationBoundary: "marker_guid_absence_readback",
+    });
+  });
+
+  it("reads removal fields only for requested markers and confirms absence by GUID without unrelated getters", async () => {
+    const value = advancedHost();
+    const target = value.markerValues[0];
+    const unrelated = {
+      ...target,
+      guid: "marker-unrelated",
+      getName: vi.fn(async () => { throw new Error("unrelated name getter"); }),
+      getType: vi.fn(async () => { throw new Error("unrelated type getter"); }),
+      getComments: vi.fn(async () => { throw new Error("unrelated comments getter"); }),
+      getColorIndex: vi.fn(async () => { throw new Error("unrelated color getter"); }),
+      getStart: vi.fn(async () => { throw new Error("unrelated start getter"); }),
+      getDuration: vi.fn(async () => { throw new Error("unrelated duration getter"); }),
+    };
+    value.markerValues.push(unrelated);
+
+    await expect(value.registry.dispatch("markers.removeMany", {
+      confirmDestructive: true,
+      markerSnapshots: [{ markerGuid: "marker-1", expectedName: "Beat", expectedStartSeconds: 1, expectedDurationSeconds: 0 }],
+    })).resolves.toMatchObject({
+      requested: 1, removed: 1, remainingCount: 1, remainingTargetGuids: [], outcome: "verified",
+    });
+    expect(target.getName).toHaveBeenCalledOnce();
+    expect(target.getStart).toHaveBeenCalledOnce();
+    expect(target.getDuration).toHaveBeenCalledOnce();
+    expect(unrelated.getName).not.toHaveBeenCalled();
+    expect(unrelated.getType).not.toHaveBeenCalled();
+    expect(unrelated.getComments).not.toHaveBeenCalled();
+    expect(unrelated.getColorIndex).not.toHaveBeenCalled();
+    expect(unrelated.getStart).not.toHaveBeenCalled();
+    expect(unrelated.getDuration).not.toHaveBeenCalled();
+  });
+
+  it("serializes marker update and batch deletion by owner so changed snapshots fail stale without deletion", async () => {
+    const value = advancedHost();
+    const marker = value.markerValues[0];
+    let releaseUpdate = () => undefined;
+    let enteredUpdate = () => undefined;
+    const updateGate = new Promise<void>((resolve) => { releaseUpdate = resolve; });
+    const updateEntered = new Promise<void>((resolve) => { enteredUpdate = resolve; });
+    let enteredRemovalContext = () => undefined;
+    const removalContextEntered = new Promise<void>((resolve) => { enteredRemovalContext = resolve; });
+    let markerCollectionRequests = 0;
+    value.ppro.Markers.getMarkers.mockImplementation(async () => {
+      markerCollectionRequests += 1;
+      if (markerCollectionRequests === 2) enteredRemovalContext();
+      return value.markers;
+    });
+    let pauseFirstNameRead = true;
+    marker.getName.mockImplementation(async () => {
+      if (pauseFirstNameRead) {
+        pauseFirstNameRead = false;
+        enteredUpdate();
+        await updateGate;
+      }
+      return marker.state.name;
+    });
+
+    const update = value.registry.dispatch("markers.update", {
+      markerGuid: "marker-1", expectedName: "Beat", name: "Renamed", operationId: "marker-update-concurrent",
+    });
+    await updateEntered;
+    const removal = value.registry.dispatch("markers.removeMany", {
+      confirmDestructive: true,
+      markerSnapshots: [{ markerGuid: "marker-1", expectedName: "Beat", expectedStartSeconds: 1, expectedDurationSeconds: 0 }],
+      operationId: "marker-remove-concurrent",
+    });
+    await removalContextEntered;
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(marker.getName).toHaveBeenCalledTimes(1);
+    releaseUpdate();
+
+    await expect(update).resolves.toMatchObject({ updated: true, outcome: "verified", marker: { name: "Renamed" } });
+    await expect(removal).rejects.toMatchObject({ code: "UXP_STALE_MARKER" });
+    expect(value.markers.createRemoveMarkerAction).not.toHaveBeenCalled();
+    expect(value.markerValues).toHaveLength(1);
+    expect(value.markerValues[0].state.name).toBe("Renamed");
   });
 
   it("creates a single-source silence-cut stringout without mutating an existing sequence", async () => {

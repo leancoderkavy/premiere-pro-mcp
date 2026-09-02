@@ -356,6 +356,7 @@ export function buildPlatformCapabilityReport(
           "markers.addBeatGrid",
           "markers.update",
           "markers.remove",
+          "markers.removeMany",
           "bins.inspect",
           "bins.create",
           "bins.createSmart",

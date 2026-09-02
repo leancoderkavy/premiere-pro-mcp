@@ -24,6 +24,7 @@
       "markers.addBeatGrid": { destructive: true, undoable: true, targetCapabilityProbe: true, minHostVersion: "26.3.0", probe: canUseMarkers, handler: addBeatGrid },
       "markers.update": { destructive: true, undoable: true, targetCapabilityProbe: true, minHostVersion: "26.3.0", probe: canUseMarkers, handler: updateMarker },
       "markers.remove": { destructive: true, undoable: true, targetCapabilityProbe: true, minHostVersion: "26.3.0", probe: canUseMarkers, handler: removeMarker },
+      "markers.removeMany": { destructive: true, undoable: true, targetCapabilityProbe: true, minHostVersion: "26.3.0", probe: canUseMarkers, handler: removeManyMarkers },
       "bins.inspect": { readOnly: true, targetCapabilityProbe: true, minHostVersion: "25.6.0", probe: canUseBins, handler: inspectBin },
       "bins.create": { destructive: true, undoable: true, minHostVersion: "25.6.0", probe: canUseBins, handler: createBin },
       "bins.createSmart": { destructive: true, undoable: true, minHostVersion: "25.6.0", probe: canUseBins, handler: createSmartBin },
@@ -325,6 +326,17 @@
       return result;
     }
 
+    async function markerRemovalSnapshot(marker) {
+      return {
+        guid: guidString(marker.guid), name: String(await marker.getName() || ""),
+        startSeconds: tickSeconds(await marker.getStart()), durationSeconds: tickSeconds(await marker.getDuration())
+      };
+    }
+
+    function markerGuids(collection) {
+      return boundedMarkers(collection).map((marker) => guidString(marker.guid));
+    }
+
     async function findMarker(collection, markerGuid, expectedName) {
       const wanted = boundedString(markerGuid, "markerGuid", 128);
       for (const marker of boundedMarkers(collection)) {
@@ -345,8 +357,7 @@
       const markerType = args.markerType == null ? String(ppro.Marker && ppro.Marker.MARKER_TYPE_COMMENT || "Comment") : boundedString(args.markerType, "markerType", 128);
       const start = tick(finiteNumber(args.startSeconds == null ? 0 : args.startSeconds, "startSeconds", 0, 86400), "startSeconds"), duration = tick(finiteNumber(args.durationSeconds == null ? 0 : args.durationSeconds, "durationSeconds", 0, 86400), "durationSeconds");
       const comments = args.comments == null ? "" : boundedStringAllowEmpty(args.comments, "comments", 4000);
-      const ownerId = context.ownerType === "sequence" ? guidString(context.owner && context.owner.guid) : await projectItemId(context.owner);
-      return withAppendLock(appendLockKey(context.project, "markers", context.ownerType + ":" + ownerId), async () => {
+      return withAppendLock(await markerLockKey(context), async () => {
         const before = await markerList(context.collection);
         assertAppendCapacity(before, MAX_MARKERS, "Marker creation");
         context.project.lockedAccess(() => {
@@ -379,8 +390,7 @@
       for (let index = 1; index < times.length; index++) {
         if (times[index] <= times[index - 1]) throw commandError("UXP_INVALID_ARGUMENT", "beatTimesSeconds must be strictly increasing");
       }
-      const ownerId = guidString(context.owner && context.owner.guid);
-      return withAppendLock(appendLockKey(context.project, "markers", "sequence:" + ownerId), async () => {
+      return withAppendLock(await markerLockKey(context), async () => {
         const before = boundedMarkers(context.collection);
         if (before.length + times.length > MAX_MARKERS) throw commandError("UXP_COLLECTION_LIMIT", "Beat marker creation would exceed the " + MAX_MARKERS + " marker limit");
         const beforeGuids = new Set(before.map((marker) => guidString(marker.guid)));
@@ -406,36 +416,86 @@
     }
 
     async function updateMarker(args) {
-      const context = await markerContext(args, true), marker = await findMarker(context.collection, args.markerGuid, args.expectedName);
+      const context = await markerContext(args, true);
       const requested = [args.name, args.comments, args.markerType, args.durationSeconds, args.startSeconds, args.colorIndex].filter((value) => value != null);
       if (!requested.length) throw commandError("UXP_INVALID_ARGUMENT", "Provide at least one marker field to update");
-      context.project.lockedAccess(() => {
-        const actions = [];
-        if (args.name != null) actions.push(marker.createSetNameAction(boundedString(args.name, "name", 255)));
-        if (args.comments != null) actions.push(marker.createSetCommentsAction(boundedStringAllowEmpty(args.comments, "comments", 4000)));
-        if (args.markerType != null) actions.push(marker.createSetTypeAction(boundedString(args.markerType, "markerType", 128)));
-        if (args.durationSeconds != null) actions.push(marker.createSetDurationAction(tick(finiteNumber(args.durationSeconds, "durationSeconds", 0, 86400), "durationSeconds")));
-        if (args.startSeconds != null) actions.push(context.collection.createMoveMarkerAction(marker, tick(finiteNumber(args.startSeconds, "startSeconds", 0, 86400), "startSeconds")));
-        if (args.colorIndex != null) actions.push(marker.createSetColorByIndexAction(boundedInt(args.colorIndex, "colorIndex", 0, 6)));
-        commitActions(context.project, "Update marker", actions);
+      return withAppendLock(await markerLockKey(context), async () => {
+        const marker = await findMarker(context.collection, args.markerGuid, args.expectedName);
+        context.project.lockedAccess(() => {
+          const actions = [];
+          if (args.name != null) actions.push(marker.createSetNameAction(boundedString(args.name, "name", 255)));
+          if (args.comments != null) actions.push(marker.createSetCommentsAction(boundedStringAllowEmpty(args.comments, "comments", 4000)));
+          if (args.markerType != null) actions.push(marker.createSetTypeAction(boundedString(args.markerType, "markerType", 128)));
+          if (args.durationSeconds != null) actions.push(marker.createSetDurationAction(tick(finiteNumber(args.durationSeconds, "durationSeconds", 0, 86400), "durationSeconds")));
+          if (args.startSeconds != null) actions.push(context.collection.createMoveMarkerAction(marker, tick(finiteNumber(args.startSeconds, "startSeconds", 0, 86400), "startSeconds")));
+          if (args.colorIndex != null) actions.push(marker.createSetColorByIndexAction(boundedInt(args.colorIndex, "colorIndex", 0, 6)));
+          commitActions(context.project, "Update marker", actions);
+        });
+        const updated = await findMarker(context.collection, args.markerGuid), snapshot = await markerSnapshot(updated);
+        const verified = (args.name == null || snapshot.name === args.name)
+          && (args.comments == null || snapshot.comments === args.comments)
+          && (args.markerType == null || snapshot.type === args.markerType)
+          && (args.durationSeconds == null || numbersEqual(snapshot.durationSeconds, args.durationSeconds))
+          && (args.startSeconds == null || numbersEqual(snapshot.startSeconds, args.startSeconds))
+          && (args.colorIndex == null || snapshot.colorIndex === args.colorIndex);
+        return mutationResult(verified, { updated: true, marker: snapshot }, "marker_field_readback", "Update marker");
       });
-      const updated = await findMarker(context.collection, args.markerGuid), snapshot = await markerSnapshot(updated);
-      const verified = (args.name == null || snapshot.name === args.name)
-        && (args.comments == null || snapshot.comments === args.comments)
-        && (args.markerType == null || snapshot.type === args.markerType)
-        && (args.durationSeconds == null || numbersEqual(snapshot.durationSeconds, args.durationSeconds))
-        && (args.startSeconds == null || numbersEqual(snapshot.startSeconds, args.startSeconds))
-        && (args.colorIndex == null || snapshot.colorIndex === args.colorIndex);
-      return mutationResult(verified, { updated: true, marker: snapshot }, "marker_field_readback", "Update marker");
     }
 
     async function removeMarker(args) {
-      const context = await markerContext(args, true), marker = await findMarker(context.collection, args.markerGuid, args.expectedName);
-      context.project.lockedAccess(() => {
-        commitActions(context.project, "Remove marker", [context.collection.createRemoveMarkerAction(marker)]);
+      const context = await markerContext(args, true);
+      return withAppendLock(await markerLockKey(context), async () => {
+        const marker = await findMarker(context.collection, args.markerGuid, args.expectedName);
+        context.project.lockedAccess(() => {
+          commitActions(context.project, "Remove marker", [context.collection.createRemoveMarkerAction(marker)]);
+        });
+        const remaining = await markerList(context.collection), verified = !remaining.some((value) => value.guid === args.markerGuid);
+        return mutationResult(verified, { removed: true, markerGuid: args.markerGuid, remainingCount: remaining.length }, "marker_guid_absence_readback", "Remove marker");
       });
-      const remaining = await markerList(context.collection), verified = !remaining.some((value) => value.guid === args.markerGuid);
-      return mutationResult(verified, { removed: true, markerGuid: args.markerGuid, remainingCount: remaining.length }, "marker_guid_absence_readback", "Remove marker");
+    }
+
+    async function removeManyMarkers(args) {
+      assertObject(args); assertOnlyKeys(args, ["ownerType", "sequenceId", "projectItemId", "markerSnapshots", "confirmDestructive", "operationId"]);
+      requireDestructiveConfirmation(args.confirmDestructive);
+      const requested = reviewedMarkerSnapshots(args.markerSnapshots);
+      const targetGuids = requested.map((value) => value.markerGuid);
+      const context = await markerContext({
+        ownerType: args.ownerType,
+        sequenceId: args.sequenceId,
+        projectItemId: args.projectItemId,
+        operationId: args.operationId,
+      }, true);
+      return withAppendLock(await markerLockKey(context), async () => {
+        const currentByGuid = new Map();
+        for (const marker of boundedMarkers(context.collection)) currentByGuid.set(guidString(marker.guid), marker);
+        const targets = [];
+        for (const expected of requested) {
+          const marker = currentByGuid.get(expected.markerGuid);
+          if (!marker) throw commandError("UXP_TARGET_NOT_FOUND", "markerSnapshots contains a markerGuid that was not found");
+          const snapshot = await markerRemovalSnapshot(marker);
+          assertExpected(snapshot.name, expected.expectedName, "UXP_STALE_MARKER", "Marker name");
+          assertExpectedNumber(snapshot.startSeconds, expected.expectedStartSeconds, "UXP_STALE_MARKER", "Marker startSeconds");
+          assertExpectedNumber(snapshot.durationSeconds, expected.expectedDurationSeconds, "UXP_STALE_MARKER", "Marker durationSeconds");
+          targets.push(marker);
+        }
+        context.project.lockedAccess(() => {
+          commitActions(context.project, "Remove reviewed markers", targets.map((marker) => context.collection.createRemoveMarkerAction(marker)));
+        });
+        try {
+          const remainingGuids = markerGuids(context.collection);
+          const remainingTargetGuids = remainingGuids.filter((guid) => targetGuids.includes(guid));
+          const verified = remainingTargetGuids.length === 0;
+          return mutationResult(verified, {
+            requested: targetGuids.length, removed: verified ? targetGuids.length : null, markerGuids: targetGuids,
+            remainingCount: remainingGuids.length, remainingTargetGuids,
+          }, "marker_guid_absence_readback", "Remove reviewed markers");
+        } catch (_) {
+          return mutationResult(false, {
+            requested: targetGuids.length, removed: null, markerGuids: targetGuids,
+            remainingCount: null, remainingTargetGuids: null,
+          }, "marker_guid_absence_readback", "Remove reviewed markers");
+        }
+      });
     }
 
     async function binChildren(folder) {
@@ -1212,6 +1272,11 @@
       return guidString(project && project.guid) + ":" + collectionType + ":" + targetId;
     }
 
+    async function markerLockKey(context) {
+      const ownerId = context.ownerType === "sequence" ? guidString(context.owner && context.owner.guid) : await projectItemId(context.owner);
+      return appendLockKey(context.project, "markers", context.ownerType + ":" + ownerId);
+    }
+
     async function withAppendLock(key, callback) {
       const previous = appendLocks.get(key) || Promise.resolve();
       let release = function () {};
@@ -1312,6 +1377,25 @@
   function optionalBoolean(value, fallback, name) { return value == null ? fallback : requiredBoolean(value, name); }
   function enumValue(value, name, allowed) { if (!allowed.includes(value)) throw commandError("UXP_INVALID_ARGUMENT", name + " must be one of " + allowed.join(", ")); return value; }
   function requireConfirmation(value, message) { if (value !== true) throw commandError("UXP_CONFIRMATION_REQUIRED", message + "; pass confirmNonUndoable=true after review"); }
+  function requireDestructiveConfirmation(value) { if (value !== true) throw commandError("UXP_CONFIRMATION_REQUIRED", "Removing reviewed marker snapshots is destructive; pass confirmDestructive=true after review"); }
+  function reviewedMarkerSnapshots(value) {
+    if (!Array.isArray(value) || !value.length || value.length > 128) throw commandError("UXP_INVALID_ARGUMENT", "markerSnapshots must contain 1-128 reviewed marker snapshots");
+    const seen = new Set(), snapshots = [];
+    for (let index = 0; index < value.length; index += 1) {
+      const snapshot = value[index];
+      assertObject(snapshot); assertOnlyKeys(snapshot, ["markerGuid", "expectedName", "expectedStartSeconds", "expectedDurationSeconds"]);
+      const markerGuid = boundedString(snapshot.markerGuid, "markerSnapshots[" + index + "].markerGuid", 128);
+      if (seen.has(markerGuid)) throw commandError("UXP_INVALID_ARGUMENT", "markerSnapshots must not contain duplicate markerGuid values");
+      seen.add(markerGuid);
+      snapshots.push({
+        markerGuid,
+        expectedName: boundedStringAllowEmpty(snapshot.expectedName, "markerSnapshots[" + index + "].expectedName", 255),
+        expectedStartSeconds: finiteNumber(snapshot.expectedStartSeconds, "markerSnapshots[" + index + "].expectedStartSeconds", 0, 86400),
+        expectedDurationSeconds: finiteNumber(snapshot.expectedDurationSeconds, "markerSnapshots[" + index + "].expectedDurationSeconds", 0, 86400),
+      });
+    }
+    return snapshots;
+  }
   function assertExpected(actual, expected, code, label) { if (expected != null && actual !== expected) throw commandError(code, label + " no longer matches the expected value"); }
   function assertExpectedNumber(actual, expected, code, label) { if (expected != null && !numbersEqual(actual, expected)) throw commandError(code, label + " no longer matches the expected value"); }
   function requireExternalWrite(value) { if (value !== true) throw commandError("UXP_CONFIRMATION_REQUIRED", "Encoding writes external files and may overwrite an existing output; pass confirmExternalWrite=true after review"); }

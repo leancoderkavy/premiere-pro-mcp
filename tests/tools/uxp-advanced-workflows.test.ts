@@ -34,6 +34,16 @@ describe("advanced stable UXP workflow MCP catalog", () => {
     expect(tools.inspect_project_selection_uxp.parameters).toMatchObject({
       properties: { action: { enum: ["views", "selection"] }, view_id: { maxLength: 128 } },
     });
+    expect(tools.manage_markers_uxp.parameters).toMatchObject({
+      properties: {
+        action: { enum: ["inspect", "add", "update", "remove", "remove_many"] },
+        marker_snapshots: {
+          minItems: 1, maxItems: 128,
+          items: { required: ["marker_guid", "expected_name", "expected_start_seconds", "expected_duration_seconds"] },
+        },
+        confirm_destructive: { type: "boolean" },
+      },
+    });
     expect(tools.import_project_media_uxp.parameters).toMatchObject({
       required: ["action", "confirm_non_undoable"],
       properties: { paths: { maxItems: 100 }, confirm_non_undoable: { type: "boolean" } },
@@ -59,6 +69,11 @@ describe("advanced stable UXP workflow MCP catalog", () => {
       action: "update", owner_type: "project_item", project_item_id: "clip-1",
       marker_guid: "marker-1", expected_name: "Old", name: "New", color_index: 3,
       operation_id: "marker-op",
+    });
+    await tools.manage_markers_uxp.handler({
+      action: "remove_many", owner_type: "sequence", sequence_id: "sequence-1", marker_guid: "single-marker", expected_name: "Ignored", confirm_destructive: true,
+      marker_snapshots: [{ marker_guid: "marker-1", expected_name: "Old", expected_start_seconds: 1, expected_duration_seconds: 0 }],
+      operation_id: "marker-batch-op",
     });
     await tools.apply_beat_markers_uxp.handler({
       beat_times_seconds: [0.5, 1, 1.5], sequence_id: "sequence-1", offset_seconds: 2,
@@ -120,6 +135,11 @@ describe("advanced stable UXP workflow MCP catalog", () => {
       ["markers.update", {
         ownerType: "projectItem", projectItemId: "clip-1", markerGuid: "marker-1",
         expectedName: "Old", name: "New", colorIndex: 3, operationId: "marker-op",
+      }],
+      ["markers.removeMany", {
+        ownerType: "sequence", sequenceId: "sequence-1",
+        markerSnapshots: [{ markerGuid: "marker-1", expectedName: "Old", expectedStartSeconds: 1, expectedDurationSeconds: 0 }],
+        confirmDestructive: true, operationId: "marker-batch-op",
       }],
       ["markers.addBeatGrid", {
         beatTimesSeconds: [0.5, 1, 1.5], sequenceId: "sequence-1", offsetSeconds: 2,
@@ -190,6 +210,24 @@ describe("advanced stable UXP workflow MCP catalog", () => {
       success: false,
       error: "Unsupported workflow action: destroy_everything",
     })));
+    expect(request).not.toHaveBeenCalled();
+  });
+
+  it("rejects unreviewed or duplicate marker batch removal before contacting Premiere", async () => {
+    const request = vi.fn();
+    const bridge = { request, getState: vi.fn() } as unknown as UxpWebSocketBridge;
+    const tools = getUxpTools(bridge);
+    const snapshot = { marker_guid: "marker-1", expected_name: "Beat", expected_start_seconds: 0, expected_duration_seconds: 0 };
+
+    await expect(tools.manage_markers_uxp.handler({ action: "remove_many", marker_snapshots: [snapshot] })).resolves.toMatchObject({
+      success: false, error: expect.stringContaining("confirm_destructive=true"),
+    });
+    await expect(tools.manage_markers_uxp.handler({
+      action: "remove_many", confirm_destructive: true, marker_snapshots: [snapshot, snapshot],
+    })).resolves.toMatchObject({ success: false, error: expect.stringContaining("duplicate marker_guid") });
+    await expect(tools.manage_markers_uxp.handler({
+      action: "remove_many", confirm_destructive: true, marker_snapshots: [null],
+    })).resolves.toMatchObject({ success: false, error: expect.stringContaining("marker_snapshots[0] must be an object") });
     expect(request).not.toHaveBeenCalled();
   });
 

@@ -44,6 +44,7 @@ describe("Adobe Premiere Pro 26.3 UXP coverage", () => {
       "project-view-selection-resolver",
       "native-marker-crud",
       "native-beat-grid-markers",
+      "native-marker-batch-removal",
       "transactional-bin-organizer",
       "sequence-settings-profiles",
       "workspace-gated-project-import",
@@ -68,6 +69,17 @@ describe("Adobe Premiere Pro 26.3 UXP coverage", () => {
       "Media.getStart",
       "Media.getDuration",
     ]));
+    expect(entries.find((entry) => entry.id === "native-marker-batch-removal")).toMatchObject({
+      uxpCommand: "markers.removeMany",
+      mcpTools: ["manage_markers_uxp"],
+      verificationBoundary: "marker_guid_absence_readback",
+      liveHostVerificationStatus: "not_run",
+    });
+    expect(entries.find((entry) => entry.id === "native-marker-batch-removal")?.adobeApi).toEqual(expect.arrayContaining([
+      "Marker.getName",
+      "Marker.getStart",
+      "Marker.getDuration",
+    ]));
     for (const entry of entries) {
       expect(entry.minimumPremiereVersion).toMatch(/^\d+\.\d+\.\d+$/);
       expect(entry.backend).toBe("uxp");
@@ -83,12 +95,12 @@ describe("Adobe Premiere Pro 26.3 UXP coverage", () => {
   it("keeps unimplemented 26.3 work visibly planned", () => {
     const report = buildAdobeUxpCoverageReport();
     expect(report.summary).toEqual({
-      total: 50,
-      current: 47,
+      total: 51,
+      current: 48,
       planned: 3,
-      implemented: 47,
+      implemented: 48,
       committedUnverified: 8,
-      automatedContractVerified: 39,
+      automatedContractVerified: 40,
       liveHostVerified: 0,
     });
     expect(report.entries.find((entry) => entry.id === "aaf-export")).toMatchObject({
@@ -111,7 +123,7 @@ describe("Adobe Premiere Pro 26.3 UXP coverage", () => {
   it("surfaces the baseline in the platform capability report", () => {
     const report = buildPlatformCapabilityReport(resolveCapabilities("inspect"), "win32");
     expect(report.backends.uxp.apiCoverage.summary).toMatchObject({
-      current: 47,
+      current: 48,
       planned: 3,
       committedUnverified: 8,
     });

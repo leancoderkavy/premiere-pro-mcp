@@ -13,8 +13,8 @@
   },
   "stats": {
     "total": 976,
-    "mapped": 193,
-    "unmapped": 783,
+    "mapped": 196,
+    "unmapped": 780,
     "manifestOnly": 4
   },
   "manifestOnly": [
@@ -2463,17 +2463,17 @@
     {
       "symbol": "Marker.getDuration",
       "kind": "method",
-      "coverage": "unmapped"
+      "coverage": "mapped"
     },
     {
       "symbol": "Marker.getName",
       "kind": "method",
-      "coverage": "unmapped"
+      "coverage": "mapped"
     },
     {
       "symbol": "Marker.getStart",
       "kind": "method",
-      "coverage": "unmapped"
+      "coverage": "mapped"
     },
     {
       "symbol": "Marker.getTarget",

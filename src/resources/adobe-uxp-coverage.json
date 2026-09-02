@@ -841,6 +841,36 @@
       "verificationBoundary": "beat_marker_guid_and_time_readback"
     },
     {
+      "id": "native-marker-batch-removal",
+      "adobeApi": [
+        "Markers.getMarkers",
+        "Markers.createRemoveMarkerAction",
+        "Marker.guid",
+        "Marker.getName",
+        "Marker.getStart",
+        "Marker.getDuration",
+        "Project.lockedAccess",
+        "Project.executeTransaction"
+      ],
+      "documentationUrls": [
+        "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/markers/",
+        "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/marker/",
+        "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/project/"
+      ],
+      "minimumPremiereVersion": "26.3.0",
+      "backend": "uxp",
+      "uxpCommand": "markers.removeMany",
+      "mcpTools": ["manage_markers_uxp"],
+      "availability": "current",
+      "implementationStatus": "implemented",
+      "verificationStatus": "automated_contract_verified",
+      "liveHostVerificationStatus": "not_run",
+      "mutatesProject": true,
+      "undoable": true,
+      "idempotency": "operation_id",
+      "verificationBoundary": "marker_guid_absence_readback"
+    },
+    {
       "id": "transactional-bin-organizer",
       "adobeApi": [
         "FolderItem.createBinAction",
