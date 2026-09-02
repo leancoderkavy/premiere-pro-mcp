@@ -420,6 +420,37 @@
       "verificationBoundary": "host_return"
     },
     {
+      "id": "bounded-object-mask-audit",
+      "adobeApi": [
+        "ObjectMaskUtils.hasObjectMask",
+        "Project.getSequences",
+        "Project.getSequence",
+        "Guid.fromString",
+        "Project.guid",
+        "Sequence.guid",
+        "Sequence.name"
+      ],
+      "documentationUrls": [
+        "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/objectmaskutils/",
+        "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/project/",
+        "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/sequence/"
+      ],
+      "minimumPremiereVersion": "26.3.0",
+      "backend": "uxp",
+      "uxpCommand": "objectMask.audit",
+      "mcpTools": [
+        "audit_object_masks_uxp"
+      ],
+      "availability": "current",
+      "implementationStatus": "implemented",
+      "verificationStatus": "automated_contract_verified",
+      "liveHostVerificationStatus": "not_run",
+      "mutatesProject": false,
+      "undoable": false,
+      "idempotency": "not_applicable",
+      "verificationBoundary": "bounded_project_and_sequence_object_mask_double_readback"
+    },
+    {
       "id": "media-encoder-configuration",
       "adobeApi": [
         "EncoderManager.launchEncoder",

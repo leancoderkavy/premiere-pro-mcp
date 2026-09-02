@@ -3,6 +3,7 @@ import { planTranscriptRoughCut, previewTranscriptEdit, transcriptRevision } fro
 import { getUxpAdvancedWorkflowTools } from "./uxp-advanced-workflows.js";
 import { getUxpCloneWorkflowTools } from "./uxp-clone-workflows.js";
 import { getUxpNextWorkflowTools } from "./uxp-next-workflows.js";
+import { getUxpObjectMaskAuditWorkflowTools } from "./uxp-object-mask-audit-workflows.js";
 import { getUxpRippleDeleteWorkflowTools } from "./uxp-ripple-delete-workflows.js";
 import { getUxpSlipWorkflowTools } from "./uxp-slip-workflows.js";
 import { getUxpSlideWorkflowTools } from "./uxp-slide-workflows.js";
@@ -45,6 +46,7 @@ export function getUxpTools(bridge: UxpWebSocketBridge) {
   };
   return {
     ...getUxpNextWorkflowTools(bridge),
+    ...getUxpObjectMaskAuditWorkflowTools(bridge),
     ...getUxpAdvancedWorkflowTools(bridge),
     ...getUxpCloneWorkflowTools(bridge),
     ...getUxpRippleDeleteWorkflowTools(bridge),

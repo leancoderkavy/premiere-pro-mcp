@@ -35,6 +35,7 @@ Premiere build.
 | Guarded Project metadata schema field creation | `create_project_metadata_field_uxp` | `metadata.projectSchema.inspect`, `metadata.projectSchema.create` | Require the exact inspected project GUID and bounded panel XML, typed name/label, confirmation, operation ID, and shared per-project serialization; native acceptance and panel-XML change are observable but Adobe exposes no atomic compare-and-set or field-level getter, so creation is always `committed_unverified` |
 | Guarded app preferences | `manage_app_preferences_uxp` | `preferences.inspect`, `preferences.set` | Inspect only Adobe's three named application preferences; direct string writes require stale value, persistence, confirmation, operation ID, per-key serialization, and exact native-string readback; no transaction or Undo claim |
 | Installed MOGRT-directory inspection | `inspect_installed_mogrt_directory_uxp` | `graphics.mogrtPath.inspect` | Return only documented installed-directory availability by default. A caller must explicitly request the bounded native path; the bridge does not enumerate it, read templates, or import MOGRTs. |
+| Bounded Object Mask audit | `audit_object_masks_uxp` | `objectMask.audit` | Up to 64 exact sequences (or an entire project under that cap) are re-resolved with the active-project identity and every yes/no Object Mask result double-read before a response is returned. |
 | Color and conformance | `manage_color_conformance_uxp` | `color.preflight`, `footage.conform` | Project graphics-white values, embedded/input LUT IDs, and requested footage fields read back |
 | Source Monitor audition | `audition_source_monitor_uxp` | `sourceMonitor.state`, `sourceMonitor.open`, `sourceMonitor.position.set`, `sourceMonitor.play`, `sourceMonitor.close` | Project-item and position readback where Adobe exposes it; file open/play rely on explicit host returns |
 | Productions and storage | `preflight_production_storage_uxp` | `storage.preflight`, `scratch.configure` | Project/Production scratch snapshots and project action-transaction result |
@@ -131,6 +132,21 @@ track-item match name, numeric item type, media UUID, reported track index, and
 selected state. It rejects a changed active sequence before returning. It neither
 reads source paths nor effect values and is not visual, playback, persistence, or
 licensed-host proof.
+
+### `audit_object_masks_uxp`
+
+This is a read-only bounded audit over documented `ObjectMaskUtils.hasObjectMask()`
+calls. It accepts an optional active-project GUID and either one to 64 exact sequence
+GUIDs or, if no selectors are supplied, audits the whole active project only when it
+has at most 64 sequences. The bridge sorts stable sequence identities, reads the
+project aggregate and every selected sequence boolean, resolves the same targets a
+second time, and rejects any changed active project, sequence identity/name, aggregate
+boolean, or per-sequence boolean rather than returning a mixed result.
+
+Adobe's API exposes only presence. The audit does not return mask counts, locations,
+selection, tracking state, editability, source items, render output, playback results,
+or licensed-host evidence. The double read is not an atomic host snapshot: a change
+that occurs and returns to the identical values between reads is outside this boundary.
 
 ### `inspect_installed_mogrt_directory_uxp`
 
