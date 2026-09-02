@@ -13,8 +13,8 @@
   },
   "stats": {
     "total": 976,
-    "mapped": 205,
-    "unmapped": 771,
+    "mapped": 212,
+    "unmapped": 764,
     "manifestOnly": 5
   },
   "manifestOnly": [
@@ -3537,7 +3537,7 @@
     {
       "symbol": "Sequence.getFrameSize",
       "kind": "method",
-      "coverage": "unmapped"
+      "coverage": "mapped"
     },
     {
       "symbol": "Sequence.getInPoint",
@@ -3557,7 +3557,7 @@
     {
       "symbol": "Sequence.getProjectItem",
       "kind": "method",
-      "coverage": "unmapped"
+      "coverage": "mapped"
     },
     {
       "symbol": "Sequence.getSelection",
@@ -3567,12 +3567,12 @@
     {
       "symbol": "Sequence.getSequenceAudioTimeDisplayFormat",
       "kind": "method",
-      "coverage": "unmapped"
+      "coverage": "mapped"
     },
     {
       "symbol": "Sequence.getSequenceVideoTimeDisplayFormat",
       "kind": "method",
-      "coverage": "unmapped"
+      "coverage": "mapped"
     },
     {
       "symbol": "Sequence.getSettings",
@@ -3582,7 +3582,7 @@
     {
       "symbol": "Sequence.getTimebase",
       "kind": "method",
-      "coverage": "unmapped"
+      "coverage": "mapped"
     },
     {
       "symbol": "Sequence.getVideoTrack",
@@ -4272,12 +4272,12 @@
     {
       "symbol": "TimeDisplay",
       "kind": "type",
-      "coverage": "unmapped"
+      "coverage": "mapped"
     },
     {
       "symbol": "TimeDisplay.type",
       "kind": "property",
-      "coverage": "unmapped"
+      "coverage": "mapped"
     },
     {
       "symbol": "TrackItemSelection",

@@ -132,6 +132,17 @@ describe("capability profiles", () => {
     expect(handler).toHaveBeenCalledTimes(1);
   });
 
+  it("lists and invokes native sequence-timing inspection with inspect authority only", async () => {
+    const handler = vi.fn(async () => "ok");
+    const inspectOnly = resolveCapabilities("inspect");
+    expect(isToolPermitted("inspect_sequence_timing_uxp", inspectOnly)).toBe(true);
+    expect(capabilitiesForToolInvocation("inspect_sequence_timing_uxp", {})).toEqual(["inspect"]);
+    await expect(
+      guardToolHandler("inspect_sequence_timing_uxp", handler, inspectOnly, () => "timing-inspect")({}),
+    ).resolves.toBe("ok");
+    expect(handler).toHaveBeenCalledOnce();
+  });
+
   it.each([
     ["manage_clip_effects_uxp", "catalog"],
     ["batch_selected_clips_uxp", "inspect"],
@@ -148,6 +159,7 @@ describe("capability profiles", () => {
     ["manage_sequence_settings_uxp", "get"],
     ["manage_sequence_range_uxp", "inspect"],
     ["manage_sequence_playhead_uxp", "inspect"],
+    ["inspect_sequence_timing_uxp", undefined],
     ["automate_effect_parameters_uxp", "inspect"],
     ["transform_track_item_uxp", "inspect"],
     ["manage_sequences_uxp", "inspect"],

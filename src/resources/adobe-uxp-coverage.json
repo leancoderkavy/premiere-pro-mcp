@@ -143,6 +143,35 @@
       "verificationBoundary": "sequence_playhead_readback"
     },
     {
+      "id": "native-sequence-timing-snapshot",
+      "adobeApi": [
+        "Sequence.getFrameSize",
+        "Sequence.getTimebase",
+        "Sequence.getSequenceAudioTimeDisplayFormat",
+        "Sequence.getSequenceVideoTimeDisplayFormat",
+        "Sequence.getProjectItem",
+        "TimeDisplay",
+        "TimeDisplay.type"
+      ],
+      "documentationUrls": [
+        "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/sequence/"
+      ],
+      "minimumPremiereVersion": "25.6.0",
+      "backend": "uxp",
+      "uxpCommand": "sequence.timing.inspect",
+      "mcpTools": [
+        "inspect_sequence_timing_uxp"
+      ],
+      "availability": "current",
+      "implementationStatus": "implemented",
+      "verificationStatus": "automated_contract_verified",
+      "liveHostVerificationStatus": "not_run",
+      "mutatesProject": false,
+      "undoable": false,
+      "idempotency": "not_applicable",
+      "verificationBoundary": "sequence_timing_readback"
+    },
+    {
       "id": "native-caption-track-inventory",
       "adobeApi": [
         "Sequence.getCaptionTrackCount",

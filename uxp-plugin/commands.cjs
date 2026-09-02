@@ -23,6 +23,7 @@
       "sequence.range.update": { destructive: true, undoable: true, idempotent: true, minHostVersion: "25.6.0", probe: canUpdateSequenceRange, handler: updateSequenceRange },
       "sequence.playhead.inspect": { readOnly: true, minHostVersion: "25.6.0", probe: canInspectSequencePlayhead, handler: inspectSequencePlayhead },
       "sequence.playhead.set": { idempotent: true, minHostVersion: "25.6.0", probe: canSetSequencePlayhead, handler: setSequencePlayhead },
+      "sequence.timing.inspect": { readOnly: true, minHostVersion: "25.6.0", probe: canInspectSequenceTiming, handler: inspectSequenceTiming },
       "interchange.export": { requiresWorkspace: true, minHostVersion: "26.2.0", probe: canExportInterchange, handler: exportInterchange },
       "interchange.aaf.export": { destructive: true, undoable: false, idempotent: true, requiresWorkspace: true, minHostVersion: "26.3.0", probe: canExportAaf, handler: exportAaf },
       "track.rename": { destructive: true, undoable: true, idempotent: true, minHostVersion: "26.3.0", probe: canRenameTracks, handler: renameTrack },
@@ -273,6 +274,19 @@
         verificationBoundary: "sequence_playhead_readback"
       };
     }
+    async function inspectSequenceTiming(args) {
+      assertOnlyKeys(args, []);
+      const context = await activeContext(false);
+      const snapshot = await sequenceTimingSnapshot(context.sequence);
+      // Every timing field is a native asynchronous read. Re-resolve the active
+      // sequence after that read set so this command never presents a timing
+      // snapshot for a sequence that the user switched away from mid-request.
+      const current = await activeContext(false);
+      if (sequenceGuidRequired(current.sequence) !== snapshot.sequenceGuid) {
+        throw commandError("UXP_STALE_SEQUENCE", "The active sequence changed while timing was being read; retry the inspection");
+      }
+      return { ...snapshot, verificationBoundary: "sequence_timing_readback" };
+    }
     async function setSequencePlayhead(args) {
       const input = validateSequencePlayheadSetArgs(args);
       // TickTime construction can cross the host boundary. Construct it before
@@ -500,12 +514,64 @@
       return { sequenceGuid, range };
     }
     async function sequencePlayheadSnapshot(sequence) {
-      const sequenceGuid = String(sequence && sequence.guid || "");
-      if (!sequenceGuid) throw commandError("UXP_VERIFICATION_FAILED", "Premiere did not provide a stable active-sequence GUID");
+      const sequenceGuid = sequenceGuidRequired(sequence);
       return {
         sequenceGuid,
         positionSeconds: tickSecondsRequired(await sequence.getPlayerPosition(), "sequence player position")
       };
+    }
+    async function sequenceTimingSnapshot(sequence) {
+      const sequenceGuid = sequenceGuidRequired(sequence);
+      const [frameSize, timebase, audioDisplay, videoDisplay, projectItem] = await Promise.all([
+        sequence.getFrameSize(),
+        sequence.getTimebase(),
+        sequence.getSequenceAudioTimeDisplayFormat(),
+        sequence.getSequenceVideoTimeDisplayFormat(),
+        sequence.getProjectItem()
+      ]);
+      if (!projectItem || typeof projectItem.getId !== "function") {
+        throw commandError("UXP_VERIFICATION_FAILED", "Premiere did not return an identifiable sequence project item");
+      }
+      const projectItemId = String(await projectItem.getId() || "");
+      if (!projectItemId || projectItemId.length > 512) {
+        throw commandError("UXP_VERIFICATION_FAILED", "Premiere did not return a valid sequence project-item ID");
+      }
+      return {
+        sequenceGuid,
+        sequenceName: snapshotString(sequence.name, "sequence name", 255),
+        frameSize: frameSizeSnapshot(frameSize),
+        timebase: snapshotString(timebase, "sequence timebase", 256),
+        audioTimeDisplayFormat: timeDisplaySnapshot(audioDisplay, "sequence audio time display format"),
+        videoTimeDisplayFormat: timeDisplaySnapshot(videoDisplay, "sequence video time display format"),
+        projectItem: {
+          id: projectItemId,
+          name: snapshotString(projectItem.name, "sequence project-item name", 255)
+        }
+      };
+    }
+    function sequenceGuidRequired(sequence) {
+      const sequenceGuid = String(sequence && sequence.guid || "");
+      if (!sequenceGuid || sequenceGuid.length > 512) throw commandError("UXP_VERIFICATION_FAILED", "Premiere did not provide a stable active-sequence GUID");
+      return sequenceGuid;
+    }
+    function frameSizeSnapshot(value) {
+      if (!value || typeof value.width !== "number" || typeof value.height !== "number" ||
+        !Number.isFinite(value.width) || !Number.isFinite(value.height) || value.width <= 0 || value.height <= 0) {
+        throw commandError("UXP_VERIFICATION_FAILED", "Premiere did not return a valid sequence frame size");
+      }
+      return { width: value.width, height: value.height };
+    }
+    function timeDisplaySnapshot(value, name) {
+      if (!value || typeof value.type !== "number" || !Number.isFinite(value.type)) {
+        throw commandError("UXP_VERIFICATION_FAILED", "Premiere did not return a valid " + name);
+      }
+      return { type: value.type };
+    }
+    function snapshotString(value, name, maximum) {
+      if (typeof value !== "string" || !value.trim() || value.length > maximum) {
+        throw commandError("UXP_VERIFICATION_FAILED", "Premiere did not return a valid " + name);
+      }
+      return value;
     }
     function validateSequenceRangeUpdateArgs(args) {
       assertObject(args);
@@ -940,6 +1006,12 @@
     }
     function canInspectSequencePlayhead() {
       return activeSequenceHas(["getPlayerPosition"]);
+    }
+    function canInspectSequenceTiming() {
+      return activeSequenceHas([
+        "getFrameSize", "getTimebase", "getSequenceAudioTimeDisplayFormat",
+        "getSequenceVideoTimeDisplayFormat", "getProjectItem"
+      ]);
     }
     async function canSetSequencePlayhead() {
       return !!(ppro.TickTime && typeof ppro.TickTime.createWithSeconds === "function" &&

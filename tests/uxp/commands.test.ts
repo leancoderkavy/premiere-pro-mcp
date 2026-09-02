@@ -36,6 +36,7 @@ function host(options: { transitions?: boolean; commit?: boolean } = {}) {
   });
   const range = { inSeconds: 1, outSeconds: 100, zeroPointSeconds: 3600, endSeconds: 120 };
   const playhead = { positionSeconds: 3 };
+  const sequenceProjectItem = { name: "Timeline", getId: vi.fn(() => "sequence-project-item-1") };
   const sequence = {
     guid: "sequence-1",
     name: "Timeline",
@@ -48,6 +49,10 @@ function host(options: { transitions?: boolean; commit?: boolean } = {}) {
       return true;
     }),
     getFrameSize: vi.fn(async () => ({ width: 1920, height: 1080 })),
+    getTimebase: vi.fn(async () => "254016000000"),
+    getSequenceAudioTimeDisplayFormat: vi.fn(async () => ({ type: 200 })),
+    getSequenceVideoTimeDisplayFormat: vi.fn(async () => ({ type: 100 })),
+    getProjectItem: vi.fn(async () => sequenceProjectItem),
     getInPoint: vi.fn(async () => ({ seconds: range.inSeconds })),
     getOutPoint: vi.fn(async () => ({ seconds: range.outSeconds })),
     getZeroPoint: vi.fn(async () => ({ seconds: range.zeroPointSeconds })),
@@ -107,7 +112,7 @@ function host(options: { transitions?: boolean; commit?: boolean } = {}) {
     Exporter: { exportSequenceFrame },
     ...transitionApis
   };
-  return { registry: Commands.createCommandRegistry({ ppro, fs: {}, Protocol }), ppro, project, sequence, range, playhead, track, clip, add, remove, addAction, optionValues, selection, createRemoveItemsAction, exportSequenceFrame, exportedFrames, transitionState };
+  return { registry: Commands.createCommandRegistry({ ppro, fs: {}, Protocol }), ppro, project, sequence, sequenceProjectItem, range, playhead, track, clip, add, remove, addAction, optionValues, selection, createRemoveItemsAction, exportSequenceFrame, exportedFrames, transitionState };
 }
 
 function expectedTransition(position: "start" | "end", transitionPresent: boolean) {
@@ -126,6 +131,7 @@ describe("UXP command registry", () => {
     expect(available.commands["sequence.range.update"]).toMatchObject({ supported: true, destructive: true, undoable: true, idempotent: true, minHostVersion: "25.6.0" });
     expect(available.commands["sequence.playhead.inspect"]).toMatchObject({ supported: true, readOnly: true, minHostVersion: "25.6.0" });
     expect(available.commands["sequence.playhead.set"]).toMatchObject({ supported: true, destructive: false, undoable: false, idempotent: true, minHostVersion: "25.6.0" });
+    expect(available.commands["sequence.timing.inspect"]).toMatchObject({ supported: true, readOnly: true, minHostVersion: "25.6.0" });
     for (const command of ["sequence.createPreset", "interchange.export", "interchange.aaf.export", "frame.export"]) {
       expect(available.commands[command]).toMatchObject({ workspaceRequired: true });
     }
@@ -309,6 +315,44 @@ describe("UXP command registry", () => {
     expect(value.project.lockedAccess).not.toHaveBeenCalled();
     await expect(value.registry.dispatch("sequence.playhead.set", args)).resolves.toMatchObject({ replayed: true });
     expect(value.sequence.setPlayerPosition).toHaveBeenCalledOnce();
+  });
+
+  it("returns a bounded native sequence-timing snapshot and rejects a sequence switch during readback", async () => {
+    const value = host();
+    await expect(value.registry.dispatch("sequence.timing.inspect", {})).resolves.toEqual({
+      sequenceGuid: "sequence-1",
+      sequenceName: "Timeline",
+      frameSize: { width: 1920, height: 1080 },
+      timebase: "254016000000",
+      audioTimeDisplayFormat: { type: 200 },
+      videoTimeDisplayFormat: { type: 100 },
+      projectItem: { id: "sequence-project-item-1", name: "Timeline" },
+      verificationBoundary: "sequence_timing_readback",
+    });
+
+    const changed = host();
+    changed.sequence.getTimebase.mockImplementation(async () => {
+      changed.project.getActiveSequence.mockResolvedValueOnce({ ...changed.sequence, guid: "sequence-2" });
+      return "254016000000";
+    });
+    await expect(changed.registry.dispatch("sequence.timing.inspect", {}))
+      .rejects.toMatchObject({ code: "UXP_STALE_SEQUENCE" });
+  });
+
+  it("fails closed for invalid timing data, unknown arguments, and unavailable timing APIs", async () => {
+    const malformed = host();
+    malformed.sequence.getSequenceAudioTimeDisplayFormat.mockResolvedValueOnce({ type: Number.NaN });
+    await expect(malformed.registry.dispatch("sequence.timing.inspect", {}))
+      .rejects.toMatchObject({ code: "UXP_VERIFICATION_FAILED" });
+
+    await expect(host().registry.dispatch("sequence.timing.inspect", { extra: true }))
+      .rejects.toMatchObject({ code: "UXP_INVALID_ARGUMENT" });
+
+    const unavailable = host();
+    unavailable.sequence.getTimebase = undefined;
+    const capabilities = await unavailable.registry.capabilities();
+    expect(capabilities.commands["sequence.timing.inspect"])
+      .toMatchObject({ supported: false, reason: expect.any(String) });
   });
 
   it("serializes concurrent sequence player-position requests with different operation IDs", async () => {
