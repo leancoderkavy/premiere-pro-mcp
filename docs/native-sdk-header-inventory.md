@@ -37,6 +37,20 @@ npm run native:sdk-header-inventory:verify -- `
   --input C:\sdk-evidence\uxp-hybrid-headers.json
 ```
 
+For a Hybrid benchmark candidate, append `--print-canonical-sha256` and copy
+only the resulting lowercase digest into `sdkHeaderReceiptSha256` in the
+benchmark evidence:
+
+```powershell
+npm run native:sdk-header-inventory:verify -- `
+  --input C:\sdk-evidence\uxp-hybrid-headers.json `
+  --print-canonical-sha256
+```
+
+The receipt itself stays in the authorized local evidence location and is
+supplied separately to the benchmark verifier; this repository does not receive
+the SDK extraction or archive.
+
 This checks receipt structure and declared provenance only. It cannot verify
 the private archive bytes, compile the SDK, or establish that an addon can load
 in Premiere.

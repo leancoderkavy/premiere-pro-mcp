@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 
+import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import { resolve } from "node:path";
@@ -126,19 +127,41 @@ export function verifyNativeSdkHeaderInventory(inventory) {
   return Object.freeze({ sdk: source.sdk, headers: headers.length, bytes: totalBytes });
 }
 
-function parseArguments(argv) {
-  if (argv.length !== 2 || argv[0] !== "--input" || !argv[1] || argv[1].startsWith("--")) {
-    throw verificationError("Usage: node scripts/verify-native-sdk-header-inventory.mjs --input <receipt.json>");
+function canonicalize(value) {
+  if (Array.isArray(value)) return value.map(canonicalize);
+  if (value && typeof value === "object") {
+    return Object.fromEntries(Object.keys(value).sort(compareNativeSdkPaths).map((key) => [key, canonicalize(value[key])]));
   }
-  return resolve(argv[1]);
+  return value;
+}
+
+export function canonicalNativeSdkHeaderInventorySha256(inventory) {
+  verifyNativeSdkHeaderInventory(inventory);
+  return createHash("sha256").update(JSON.stringify(canonicalize(inventory))).digest("hex");
+}
+
+function parseArguments(argv) {
+  const options = { input: null, printCanonicalSha256: false };
+  for (let index = 0; index < argv.length; index += 1) {
+    const argument = argv[index];
+    if (argument === "--print-canonical-sha256") options.printCanonicalSha256 = true;
+    else if (argument === "--input") {
+      const value = argv[++index];
+      if (!value || value.startsWith("--")) throw verificationError("--input requires a receipt path");
+      options.input = value;
+    } else throw verificationError(`Unknown argument: ${argument}`);
+  }
+  if (!options.input) throw verificationError("Usage: node scripts/verify-native-sdk-header-inventory.mjs --input <receipt.json> [--print-canonical-sha256]");
+  return { inputPath: resolve(options.input), printCanonicalSha256: options.printCanonicalSha256 };
 }
 
 async function main() {
-  const inputPath = parseArguments(process.argv.slice(2));
+  const options = parseArguments(process.argv.slice(2));
   let inventory;
-  try { inventory = JSON.parse(await readFile(inputPath, "utf8")); } catch { throw verificationError("input must be a readable JSON receipt"); }
+  try { inventory = JSON.parse(await readFile(options.inputPath, "utf8")); } catch { throw verificationError("input must be a readable JSON receipt"); }
   const summary = verifyNativeSdkHeaderInventory(inventory);
   process.stdout.write(`Native SDK header receipt is valid: ${summary.headers} ${summary.sdk} header files, ${summary.bytes} bytes.\n`);
+  if (options.printCanonicalSha256) process.stdout.write(`Canonical receipt SHA-256: ${canonicalNativeSdkHeaderInventorySha256(inventory)}\n`);
 }
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {

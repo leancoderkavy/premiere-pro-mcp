@@ -1,12 +1,12 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://premiere-pro-mcp.com/schemas/uxp-hybrid-benchmark-evidence-v2.json",
-  "title": "Premiere Pro MCP UXP hybrid benchmark evidence v2",
+  "$id": "https://premiere-pro-mcp.com/schemas/uxp-hybrid-benchmark-evidence-v1.json",
+  "title": "Premiere Pro MCP UXP hybrid benchmark evidence v1",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schemaVersion", "workloadId", "configuration", "memoryMeasurement", "sdkHeaderReceiptSha256", "runs"],
+  "required": ["schemaVersion", "workloadId", "configuration", "memoryMeasurement", "runs"],
   "properties": {
-    "schemaVersion": { "const": 2 },
+    "schemaVersion": { "const": 1 },
     "workloadId": { "const": "weighted-energy-v1" },
     "configuration": {
       "type": "object",
@@ -21,7 +21,6 @@
       }
     },
     "memoryMeasurement": { "type": "string", "minLength": 1, "maxLength": 256 },
-    "sdkHeaderReceiptSha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
     "runs": {
       "type": "array",
       "minItems": 3,

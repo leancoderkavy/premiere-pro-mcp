@@ -13,6 +13,7 @@ type Surface = {
   inventoryCommand?: string;
   inventoryVerificationCommand?: string;
   inventoryDocumentation?: string;
+  benchmarkEvidenceCommand?: string;
   notes: string;
 };
 
@@ -114,6 +115,10 @@ describe("Premiere API and competitor surface registry", () => {
         inventoryDocumentation: "docs/native-sdk-header-inventory.md",
       });
     }
+    expect(registry.integrationSurfaces.find((surface) => surface.id === "uxp-hybrid-cpp"))
+      .toMatchObject({
+        benchmarkEvidenceCommand: "npm run benchmark:uxp-hybrid:verify",
+      });
   });
 
   it("pins reviewed competitor sources and explicit safe-adoption boundaries", () => {
