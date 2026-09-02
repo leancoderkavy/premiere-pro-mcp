@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import { runInNewContext } from "node:vm";
 import { getHelpersSource } from "../../src/bridge/script-builder.js";
 import { BridgeOptions } from "../../src/bridge/file-bridge.js";
 
@@ -45,6 +46,14 @@ async function scriptFor(tool: { handler: (args: never) => Promise<unknown> }, a
 async function codeFor(tool: { handler: (args: never) => Promise<unknown> }, args: unknown) {
   const script = await scriptFor(tool, args);
   return script.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^[ \t]*\/\/.*$/gm, "");
+}
+
+async function executePixelAspectRatioScript(sequence: unknown, ratio = "1.4222") {
+  const utility = getUtilityTools(bridgeOptions);
+  const script = await scriptFor(utility.set_sequence_pixel_aspect_ratio, { ratio });
+  return JSON.parse(String(runInNewContext(`${getHelpersSource()}\n${script}`, {
+    app: { project: { activeSequence: sequence } },
+  })));
 }
 
 beforeEach(() => vi.clearAllMocks());
@@ -480,6 +489,79 @@ describe("issue #335 — pixel aspect ratio must fail closed on unsupported CEP 
     expect(script).toContain("observedRatio = String(observed.videoPixelAspectRatio)");
     expect(script.indexOf('typeof currentRatio === "undefined"'))
       .toBeLessThan(script.indexOf("settings.videoPixelAspectRatio = requestedRatio"));
+  });
+
+  it("returns structured failures for unavailable and rejected host settings", async () => {
+    const unavailableSetSettings = vi.fn();
+    await expect(executePixelAspectRatioScript({
+      name: "Unsupported setting",
+      getSettings: () => ({}),
+      setSettings: unavailableSetSettings,
+    })).resolves.toMatchObject({
+      success: false,
+      error: expect.stringContaining("does not expose a writable"),
+    });
+    expect(unavailableSetSettings).not.toHaveBeenCalled();
+
+    const lockedSettings: Record<string, string> = {};
+    Object.defineProperty(lockedSettings, "videoPixelAspectRatio", {
+      get: () => "1.0",
+      set: () => { throw new Error("locked"); },
+    });
+    const rejectedSetSettings = vi.fn();
+    await expect(executePixelAspectRatioScript({
+      name: "Read-only setting",
+      getSettings: () => lockedSettings,
+      setSettings: rejectedSetSettings,
+    })).resolves.toMatchObject({
+      success: false,
+      error: expect.stringContaining("rejected the sequence pixel-aspect-ratio update"),
+    });
+    expect(rejectedSetSettings).not.toHaveBeenCalled();
+
+    await expect(executePixelAspectRatioScript({
+      name: "Apply failure",
+      getSettings: () => ({ videoPixelAspectRatio: "1.0" }),
+      setSettings: () => { throw new Error("host refused"); },
+    })).resolves.toMatchObject({
+      success: false,
+      error: expect.stringContaining("could not apply the sequence pixel-aspect-ratio update"),
+    });
+  });
+
+  it("treats a false host result and mismatched readback as unverified", async () => {
+    await expect(executePixelAspectRatioScript({
+      name: "Rejected return value",
+      getSettings: () => ({ videoPixelAspectRatio: "1.0" }),
+      setSettings: () => false,
+    })).resolves.toMatchObject({
+      success: false,
+      error: expect.stringContaining("rejected the sequence pixel-aspect-ratio update"),
+    });
+
+    const initialSettings = { videoPixelAspectRatio: "1.0" };
+    await expect(executePixelAspectRatioScript({
+      name: "Mismatched readback",
+      getSettings: vi.fn().mockReturnValueOnce(initialSettings).mockReturnValueOnce({ videoPixelAspectRatio: "1.0" }),
+      setSettings: () => undefined,
+    })).resolves.toMatchObject({
+      success: false,
+      error: expect.stringContaining("did not apply the requested sequence pixel aspect ratio"),
+    });
+  });
+
+  it("reports success only after an applied setting reads back exactly", async () => {
+    const settings = { videoPixelAspectRatio: "1.0" };
+    const result = await executePixelAspectRatioScript({
+      name: "Verified sequence",
+      getSettings: () => settings,
+      setSettings: () => true,
+    });
+
+    expect(result).toEqual({
+      success: true,
+      data: { ratio: "1.4222", sequence: "Verified sequence", verified: true },
+    });
   });
 
   it("rejects non-string aspect ratios before sending a Premiere command", async () => {

@@ -525,10 +525,14 @@ export function getUtilityTools(bridgeOptions: BridgeOptions) {
           } catch (eAssign) {
             return __error("This Premiere host rejected the sequence pixel-aspect-ratio update. No sequence settings were changed: " + eAssign.toString());
           }
+          var settingsApplied;
           try {
-            seq.setSettings(settings);
+            settingsApplied = seq.setSettings(settings);
           } catch (eSet) {
             return __error("Premiere could not apply the sequence pixel-aspect-ratio update: " + eSet.toString());
+          }
+          if (settingsApplied === false) {
+            return __error("Premiere rejected the sequence pixel-aspect-ratio update. No sequence settings were changed.");
           }
 
           var observed;
