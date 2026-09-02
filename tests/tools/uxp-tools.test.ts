@@ -401,7 +401,7 @@ describe("UXP MCP tools", () => {
       // control, source-media interpretation overrides, and direct track-item
       // identity inspection add thirty-seven consolidated UXP tools;
       // connection verification and delivery conformance add two default-profile core tools.
-      expect(tools.tools).toHaveLength(400);
+      expect(tools.tools).toHaveLength(401);
     } finally {
       await client.close();
       await server.close();
