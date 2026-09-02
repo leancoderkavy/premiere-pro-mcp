@@ -208,6 +208,32 @@ describe("UXP command registry", () => {
     expect(value.project.executeTransaction).toHaveBeenCalledOnce();
   });
 
+  it("serializes concurrent sequence-range updates with different operation IDs", async () => {
+    const value = host();
+    const expectedRange = { inSeconds: 1, outSeconds: 100, zeroPointSeconds: 3600, endSeconds: 120 };
+    const first = value.registry.dispatch("sequence.range.update", {
+      expectedSequenceGuid: "sequence-1",
+      expectedRange,
+      updates: { inSeconds: 2 },
+      operationId: "range-concurrent-first",
+    });
+    const second = value.registry.dispatch("sequence.range.update", {
+      expectedSequenceGuid: "sequence-1",
+      expectedRange,
+      updates: { outSeconds: 110 },
+      operationId: "range-concurrent-second",
+    });
+
+    await expect(first).resolves.toMatchObject({
+      updated: true,
+      operationId: "range-concurrent-first",
+      range: { inSeconds: 2, outSeconds: 100, zeroPointSeconds: 3600, endSeconds: 120 },
+    });
+    await expect(second).rejects.toMatchObject({ code: "UXP_STALE_RANGE" });
+    expect(value.project.executeTransaction).toHaveBeenCalledOnce();
+    expect(value.range).toEqual({ inSeconds: 2, outSeconds: 100, zeroPointSeconds: 3600, endSeconds: 120 });
+  });
+
   it("fails closed for stale, malformed, and out-of-bounds sequence-range updates", async () => {
     const value = host();
     await expect(value.registry.dispatch("sequence.range.update", {
@@ -220,11 +246,14 @@ describe("UXP command registry", () => {
       expectedRange: { inSeconds: 0, outSeconds: 100, zeroPointSeconds: 3600, endSeconds: 120 },
       updates: { inSeconds: 2 },
     })).rejects.toMatchObject({ code: "UXP_STALE_RANGE" });
-    await expect(value.registry.dispatch("sequence.range.update", {
+    const durationChanged = host();
+    durationChanged.range.endSeconds = 119;
+    await expect(durationChanged.registry.dispatch("sequence.range.update", {
       expectedSequenceGuid: "sequence-1",
-      expectedRange: { inSeconds: 1, outSeconds: 100, zeroPointSeconds: 3600, endSeconds: 119 },
+      expectedRange: { inSeconds: 1, outSeconds: 100, zeroPointSeconds: 3600, endSeconds: 120 },
       updates: { inSeconds: 2 },
     })).rejects.toMatchObject({ code: "UXP_STALE_RANGE" });
+    expect(durationChanged.project.executeTransaction).not.toHaveBeenCalled();
     await expect(value.registry.dispatch("sequence.range.update", {
       expectedSequenceGuid: "sequence-1",
       expectedRange: { inSeconds: 1, outSeconds: 100, zeroPointSeconds: 3600, endSeconds: 120 },

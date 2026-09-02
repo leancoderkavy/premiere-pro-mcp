@@ -100,6 +100,22 @@ describe("capability profiles", () => {
     expect(handler).not.toHaveBeenCalled();
   });
 
+  it("lists sequence-range inspection for inspect authority but requires edit to update", async () => {
+    const handler = vi.fn(async () => "ok");
+    const inspectOnly = resolveCapabilities("inspect");
+    expect(isToolPermitted("manage_sequence_range_uxp", inspectOnly)).toBe(true);
+    expect(capabilitiesForToolInvocation("manage_sequence_range_uxp", { action: "inspect" })).toEqual(["inspect"]);
+    expect(capabilitiesForToolInvocation("manage_sequence_range_uxp", { action: "update" })).toEqual(["edit"]);
+
+    await expect(
+      guardToolHandler("manage_sequence_range_uxp", handler, inspectOnly, () => "range-inspect")({ action: "inspect" }),
+    ).resolves.toBe("ok");
+    await expect(
+      guardToolHandler("manage_sequence_range_uxp", handler, inspectOnly, () => "range-update")({ action: "update" }),
+    ).rejects.toMatchObject({ code: "CAPABILITY_DENIED", capability: "edit", operationId: "range-update" });
+    expect(handler).toHaveBeenCalledTimes(1);
+  });
+
   it.each([
     ["manage_clip_effects_uxp", "catalog"],
     ["batch_selected_clips_uxp", "inspect"],
@@ -114,6 +130,7 @@ describe("capability profiles", () => {
     ["manage_markers_uxp", "inspect"],
     ["organize_project_items_uxp", "inspect_bin"],
     ["manage_sequence_settings_uxp", "get"],
+    ["manage_sequence_range_uxp", "inspect"],
     ["automate_effect_parameters_uxp", "inspect"],
     ["transform_track_item_uxp", "inspect"],
     ["manage_sequences_uxp", "inspect"],
@@ -134,6 +151,7 @@ describe("capability profiles", () => {
     ["manage_markers_uxp", "remove", ["edit"]],
     ["organize_project_items_uxp", "move", ["edit"]],
     ["manage_sequence_settings_uxp", "update", ["edit"]],
+    ["manage_sequence_range_uxp", "update", ["edit"]],
     ["import_project_media_uxp", "files", ["edit", "filesystem"]],
     ["automate_effect_parameters_uxp", "add_keyframe", ["edit"]],
     ["transform_track_item_uxp", "update", ["edit"]],

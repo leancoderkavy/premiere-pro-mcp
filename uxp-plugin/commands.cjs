@@ -9,6 +9,7 @@
     const ppro = deps.ppro, Protocol = deps.Protocol, workspace = deps.workspace;
     const completedOperations = new Map();
     const inFlightOperations = new Map();
+    const sequenceRangeUpdateTails = new Map();
     const listedVideoTransitionMatchNames = new Set();
     const definitions = {
       "capabilities.get": { readOnly: true, handler: capabilities },
@@ -184,64 +185,77 @@
     }
     async function updateSequenceRange(args) {
       const input = validateSequenceRangeUpdateArgs(args);
-      const context = await activeContext(true);
-      const before = await sequenceRangeSnapshot(context.sequence);
-      if (before.sequenceGuid !== input.expectedSequenceGuid) {
-        throw commandError("UXP_STALE_SEQUENCE", "The active sequence changed before the range update; inspect the current range and retry");
-      }
-      assertExpectedSequenceRange(before.range, input.expectedRange);
-      const desired = { ...before.range, ...input.updates };
-      assertValidSequenceRange(desired, "requested sequence range");
-      const ticks = {
-        inPoint: input.updates.inSeconds == null ? null : await tickTime(input.updates.inSeconds, "updates.inSeconds"),
-        outPoint: input.updates.outSeconds == null ? null : await tickTime(input.updates.outSeconds, "updates.outSeconds"),
-        zeroPoint: input.updates.zeroPointSeconds == null ? null : await tickTime(input.updates.zeroPointSeconds, "updates.zeroPointSeconds")
-      };
-      let committed = false;
-      context.project.lockedAccess(() => {
-        committed = context.project.executeTransaction((compoundAction) => {
-          if (ticks.inPoint) {
-            const action = context.sequence.createSetInPointAction(ticks.inPoint);
-            if (!action || compoundAction.addAction(action) === false) {
-              throw commandError("UXP_ACTION_REJECTED", "Premiere rejected the sequence in point action");
+      return withSequenceRangeUpdateLock(input.expectedSequenceGuid, async () => {
+        const context = await activeContext(true);
+        const before = await sequenceRangeSnapshot(context.sequence);
+        if (before.sequenceGuid !== input.expectedSequenceGuid) {
+          throw commandError("UXP_STALE_SEQUENCE", "The active sequence changed before the range update; inspect the current range and retry");
+        }
+        assertExpectedSequenceRange(before.range, input.expectedRange);
+        const desired = { ...before.range, ...input.updates };
+        assertValidSequenceRange(desired, "requested sequence range");
+        const ticks = {
+          inPoint: input.updates.inSeconds == null ? null : await tickTime(input.updates.inSeconds, "updates.inSeconds"),
+          outPoint: input.updates.outSeconds == null ? null : await tickTime(input.updates.outSeconds, "updates.outSeconds"),
+          zeroPoint: input.updates.zeroPointSeconds == null ? null : await tickTime(input.updates.zeroPointSeconds, "updates.zeroPointSeconds")
+        };
+        let committed = false;
+        context.project.lockedAccess(() => {
+          committed = context.project.executeTransaction((compoundAction) => {
+            if (ticks.inPoint) {
+              const action = context.sequence.createSetInPointAction(ticks.inPoint);
+              if (!action || compoundAction.addAction(action) === false) {
+                throw commandError("UXP_ACTION_REJECTED", "Premiere rejected the sequence in point action");
+              }
             }
-          }
-          if (ticks.outPoint) {
-            const action = context.sequence.createSetOutPointAction(ticks.outPoint);
-            if (!action || compoundAction.addAction(action) === false) {
-              throw commandError("UXP_ACTION_REJECTED", "Premiere rejected the sequence out point action");
+            if (ticks.outPoint) {
+              const action = context.sequence.createSetOutPointAction(ticks.outPoint);
+              if (!action || compoundAction.addAction(action) === false) {
+                throw commandError("UXP_ACTION_REJECTED", "Premiere rejected the sequence out point action");
+              }
             }
-          }
-          if (ticks.zeroPoint) {
-            const action = context.sequence.createSetZeroPointAction(ticks.zeroPoint);
-            if (!action || compoundAction.addAction(action) === false) {
-              throw commandError("UXP_ACTION_REJECTED", "Premiere rejected the sequence zero point action");
+            if (ticks.zeroPoint) {
+              const action = context.sequence.createSetZeroPointAction(ticks.zeroPoint);
+              if (!action || compoundAction.addAction(action) === false) {
+                throw commandError("UXP_ACTION_REJECTED", "Premiere rejected the sequence zero point action");
+              }
             }
-          }
-        }, "Update sequence range");
+          }, "Update sequence range");
+        });
+        assertTransactionCommitted(committed, "sequence range update");
+        const after = await sequenceRangeSnapshot(context.sequence);
+        if (after.sequenceGuid !== before.sequenceGuid || !sameSequenceRange(after.range, desired)) {
+          throw commandError("UXP_VERIFICATION_FAILED", "Premiere did not retain the requested sequence range");
+        }
+        return {
+          updated: true,
+          outcome: "verified",
+          sequenceGuid: after.sequenceGuid,
+          range: after.range,
+          verified: "sequence_range_readback",
+          operation: operationSemantics({
+            mutatesProject: true,
+            verificationStatus: "verified",
+            verificationBoundary: "sequence_range_readback",
+            verificationEvidence: [{ type: "sequence_range", sequenceGuid: after.sequenceGuid, range: after.range }],
+            undoSupported: true,
+            undoLabel: "Update sequence range",
+            transactionActionGroup: true,
+            cancellationSupported: true
+          })
+        };
       });
-      assertTransactionCommitted(committed, "sequence range update");
-      const after = await sequenceRangeSnapshot(context.sequence);
-      if (after.sequenceGuid !== before.sequenceGuid || !sameSequenceRange(after.range, desired)) {
-        throw commandError("UXP_VERIFICATION_FAILED", "Premiere did not retain the requested sequence range");
-      }
-      return {
-        updated: true,
-        outcome: "verified",
-        sequenceGuid: after.sequenceGuid,
-        range: after.range,
-        verified: "sequence_range_readback",
-        operation: operationSemantics({
-          mutatesProject: true,
-          verificationStatus: "verified",
-          verificationBoundary: "sequence_range_readback",
-          verificationEvidence: [{ type: "sequence_range", sequenceGuid: after.sequenceGuid, range: after.range }],
-          undoSupported: true,
-          undoLabel: "Update sequence range",
-          transactionActionGroup: true,
-          cancellationSupported: true
-        })
-      };
+    }
+    function withSequenceRangeUpdateLock(sequenceGuid, operation) {
+      const previous = sequenceRangeUpdateTails.get(sequenceGuid) || Promise.resolve();
+      let release;
+      const gate = new Promise((resolve) => { release = resolve; });
+      const tail = previous.catch(() => undefined).then(() => gate);
+      sequenceRangeUpdateTails.set(sequenceGuid, tail);
+      return previous.catch(() => undefined).then(operation).finally(() => {
+        release();
+        if (sequenceRangeUpdateTails.get(sequenceGuid) === tail) sequenceRangeUpdateTails.delete(sequenceGuid);
+      });
     }
     async function exportInterchange(args) {
       assertOnlyKeys(args, ["format", "outputFilePath", "suppressUI", "operationId"]);
