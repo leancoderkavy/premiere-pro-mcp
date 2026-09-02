@@ -13,12 +13,13 @@
   },
   "stats": {
     "total": 976,
-    "mapped": 196,
-    "unmapped": 780,
-    "manifestOnly": 4
+    "mapped": 203,
+    "unmapped": 773,
+    "manifestOnly": 5
   },
   "manifestOnly": [
     "MarkerCollection",
+    "VideoClipTrackItem.hasVideoTransition",
     "storage.localFileSystem.createPersistentToken",
     "storage.localFileSystem.getEntryForPersistentToken",
     "storage.localFileSystem.getFolder"
@@ -167,7 +168,7 @@
     {
       "symbol": "AddTransitionOptions",
       "kind": "type",
-      "coverage": "unmapped"
+      "coverage": "mapped"
     },
     {
       "symbol": "AddTransitionOptions.[[call]]",
@@ -4358,13 +4359,13 @@
       "symbol": "TransitionFactory.createVideoTransition",
       "kind": "method",
       "declarationSymbol": "TransitionFactoryStatic.createVideoTransition",
-      "coverage": "unmapped"
+      "coverage": "mapped"
     },
     {
       "symbol": "TransitionFactory.getVideoTransitionMatchNames",
       "kind": "method",
       "declarationSymbol": "TransitionFactoryStatic.getVideoTransitionMatchNames",
-      "coverage": "unmapped"
+      "coverage": "mapped"
     },
     {
       "symbol": "TransitionFactoryStatic",
@@ -4446,7 +4447,7 @@
     {
       "symbol": "VideoClipTrackItem.createAddVideoTransitionAction",
       "kind": "method",
-      "coverage": "unmapped"
+      "coverage": "mapped"
     },
     {
       "symbol": "VideoClipTrackItem.createMoveAction",
@@ -4456,7 +4457,7 @@
     {
       "symbol": "VideoClipTrackItem.createRemoveVideoTransitionAction",
       "kind": "method",
-      "coverage": "unmapped"
+      "coverage": "mapped"
     },
     {
       "symbol": "VideoClipTrackItem.createSetDisabledAction",
@@ -4501,7 +4502,7 @@
     {
       "symbol": "VideoClipTrackItem.getEndTime",
       "kind": "method",
-      "coverage": "unmapped"
+      "coverage": "mapped"
     },
     {
       "symbol": "VideoClipTrackItem.getInPoint",
@@ -4546,7 +4547,7 @@
     {
       "symbol": "VideoClipTrackItem.getStartTime",
       "kind": "method",
-      "coverage": "unmapped"
+      "coverage": "mapped"
     },
     {
       "symbol": "VideoClipTrackItem.getTrackIndex",

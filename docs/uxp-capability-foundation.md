@@ -16,7 +16,7 @@ in the connected host rather than from the package version alone.
 | `objectMask.has` | 26.3+ | yes | n/a | host response |
 | `encoder.configure` | 26.3+ | no | no | mixed; outcome identifies limits |
 | `frame.export` | 25.6+ | no | no | exporter result and panel file check |
-| `transition.video.*` | 25.6+ | mixed | mutations only | committed transaction |
+| `transition.video.*` | 25.6+ | mixed | mutations only | target snapshot plus requested-edge presence/absence readback |
 
 Mutation commands accept an optional `operationId`. The bridge retains the 256 most
 recent completed operations and returns the saved result with `replayed: true` when

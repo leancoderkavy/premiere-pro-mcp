@@ -10,6 +10,7 @@
     const completedOperations = new Map();
     const inFlightOperations = new Map();
     const sequenceRangeUpdateTails = new Map();
+    const transitionUpdateTails = new Map();
     const listedVideoTransitionMatchNames = new Set();
     const definitions = {
       "capabilities.get": { readOnly: true, handler: capabilities },
@@ -31,8 +32,9 @@
       "frame.export": { requiresWorkspace: true, minHostVersion: "25.6.0", probe: canExportFrame, handler: exportFrame },
       "timeline.selection.lift": { destructive: true, undoable: true, minHostVersion: "25.6.0", probe: canLiftSelection, handler: liftSelection },
       "transition.video.list": { readOnly: true, minHostVersion: "25.6.0", probe: canListTransitions, handler: listTransitions },
-      "transition.video.add": { destructive: true, undoable: true, minHostVersion: "25.6.0", probe: canMutateTransitions, handler: addTransition },
-      "transition.video.remove": { destructive: true, undoable: true, minHostVersion: "25.6.0", probe: canMutateTransitions, handler: removeTransition }
+      "transition.video.inspect": { readOnly: true, targetCapabilityProbe: true, minHostVersion: "25.6.0", probe: canInspectTransitions, handler: inspectTransition },
+      "transition.video.add": { destructive: true, undoable: true, idempotent: true, targetCapabilityProbe: true, minHostVersion: "25.6.0", probe: canMutateTransitions, handler: addTransition },
+      "transition.video.remove": { destructive: true, undoable: true, idempotent: true, targetCapabilityProbe: true, minHostVersion: "25.6.0", probe: canMutateTransitions, handler: removeTransition }
     };
     let workflowApi = deps.Workflows || (typeof globalThis !== "undefined" && globalThis.PremiereMcpWorkflows);
     if (!workflowApi && typeof require === "function") workflowApi = require("./workflows.cjs");
@@ -566,29 +568,44 @@
       const matchNames = await currentVideoTransitionMatchNames();
       return { matchNames, count: matchNames.length };
     }
+    async function inspectTransition(args) {
+      const input = validateInspectTransitionArgs(args), context = await activeContext(false);
+      return {
+        target: await transitionTargetSnapshot(context.sequence, input.videoTrackIndex, input.clipIndex, input.position),
+        verificationBoundary: "video_transition_target_readback"
+      };
+    }
     async function addTransition(args) {
-      const input = validateAddArgs(args), context = await activeContext(true);
-      const target = await videoClipAt(context.sequence, input.videoTrackIndex, input.clipIndex);
-      const available = await currentVideoTransitionMatchNames();
-      if (!available.includes(input.matchName) && !listedVideoTransitionMatchNames.has(input.matchName)) {
-        throw commandError("UXP_TRANSITION_NOT_FOUND", "Unknown video transition matchName: " + input.matchName);
-      }
-      const transition = await ppro.TransitionFactory.createVideoTransition(input.matchName);
-      if (!transition) throw commandError("UXP_TRANSITION_NOT_FOUND", "Premiere could not create video transition: " + input.matchName);
-      const options = ppro.AddTransitionOptions();
-      options.setApplyToStart(input.position === "start");
-      if (input.durationSeconds != null) options.setDuration(await tickTime(input.durationSeconds, "durationSeconds"));
-      if (input.forceSingleSided != null) options.setForceSingleSided(input.forceSingleSided);
-      if (input.transitionAlignment != null) options.setTransitionAlignment(input.transitionAlignment);
-      let committed = false;
-      context.project.lockedAccess(() => {
-        const action = target.createAddVideoTransitionAction(transition, options);
-        committed = context.project.executeTransaction((compoundAction) => {
-          if (!action || compoundAction.addAction(action) === false) throw commandError("UXP_ACTION_REJECTED", "Premiere rejected the transition action");
-        }, "Add video transition");
+      const input = validateAddArgs(args);
+      const duration = input.durationSeconds == null ? null : await tickTime(input.durationSeconds, "durationSeconds");
+      return withTransitionUpdateLock(input.expectedTarget.sequenceGuid, async () => {
+        const context = await guardedTransitionContext(input), target = context.target;
+        if (context.before.transitionPresent) {
+          throw commandError("UXP_STALE_TRANSITION_TARGET", "A transition is already present at the requested edge; inspect and retry");
+        }
+        const available = await currentVideoTransitionMatchNames();
+        if (!available.includes(input.matchName) && !listedVideoTransitionMatchNames.has(input.matchName)) {
+          throw commandError("UXP_TRANSITION_NOT_FOUND", "Unknown video transition matchName: " + input.matchName);
+        }
+        const transition = await ppro.TransitionFactory.createVideoTransition(input.matchName);
+        if (!transition) throw commandError("UXP_TRANSITION_NOT_FOUND", "Premiere could not create video transition: " + input.matchName);
+        const options = ppro.AddTransitionOptions();
+        options.setApplyToStart(input.position === "start");
+        if (duration) options.setDuration(duration);
+        if (input.forceSingleSided != null) options.setForceSingleSided(input.forceSingleSided);
+        if (input.transitionAlignment != null) options.setTransitionAlignment(input.transitionAlignment);
+        let committed = false;
+        context.project.lockedAccess(() => {
+          const action = target.createAddVideoTransitionAction(transition, options);
+          committed = context.project.executeTransaction((compoundAction) => {
+            if (!action || compoundAction.addAction(action) === false) throw commandError("UXP_ACTION_REJECTED", "Premiere rejected the transition action");
+          }, "Add video transition");
+        });
+        assertTransactionCommitted(committed, "transition addition");
+        const after = await transitionTargetSnapshot(context.sequence, input.videoTrackIndex, input.clipIndex, input.position);
+        if (!after.transitionPresent) throw commandError("UXP_VERIFICATION_FAILED", "Premiere committed the transition transaction but no transition is present at the requested edge");
+        return verifiedTransitionResult(true, input, after, "Add video transition");
       });
-      assertTransactionCommitted(committed, "transition addition");
-      return { applied: true, verified: "transaction", matchName: input.matchName, videoTrackIndex: input.videoTrackIndex, clipIndex: input.clipIndex, position: input.position };
     }
     async function currentVideoTransitionMatchNames() {
       const matchNames = Array.from(await ppro.TransitionFactory.getVideoTransitionMatchNames() || []);
@@ -598,20 +615,88 @@
       return matchNames;
     }
     async function removeTransition(args) {
-      const input = validateRemoveArgs(args), context = await activeContext(true);
-      const target = await videoClipAt(context.sequence, input.videoTrackIndex, input.clipIndex);
-      const positions = ppro.Constants && ppro.Constants.TransitionPosition;
-      const position = positions && positions[input.position.toUpperCase()];
-      if (position == null) throw commandError("UXP_COMMAND_UNAVAILABLE", "Premiere transition position constants are unavailable");
-      let committed = false;
-      context.project.lockedAccess(() => {
-        const action = target.createRemoveVideoTransitionAction(position);
-        committed = context.project.executeTransaction((compoundAction) => {
-          if (!action || compoundAction.addAction(action) === false) throw commandError("UXP_ACTION_REJECTED", "Premiere rejected the transition action");
-        }, "Remove video transition");
+      const input = validateRemoveArgs(args);
+      return withTransitionUpdateLock(input.expectedTarget.sequenceGuid, async () => {
+        const context = await guardedTransitionContext(input), target = context.target;
+        if (!context.before.transitionPresent) {
+          throw commandError("UXP_STALE_TRANSITION_TARGET", "No transition is present at the requested edge; inspect and retry");
+        }
+        let committed = false;
+        context.project.lockedAccess(() => {
+          const action = target.createRemoveVideoTransitionAction(context.positionValue);
+          committed = context.project.executeTransaction((compoundAction) => {
+            if (!action || compoundAction.addAction(action) === false) throw commandError("UXP_ACTION_REJECTED", "Premiere rejected the transition action");
+          }, "Remove video transition");
+        });
+        assertTransactionCommitted(committed, "transition removal");
+        const after = await transitionTargetSnapshot(context.sequence, input.videoTrackIndex, input.clipIndex, input.position);
+        if (after.transitionPresent) throw commandError("UXP_VERIFICATION_FAILED", "Premiere committed the transition transaction but the requested edge is still occupied");
+        return verifiedTransitionResult(false, input, after, "Remove video transition");
       });
-      assertTransactionCommitted(committed, "transition removal");
-      return { removed: true, verified: "transaction", videoTrackIndex: input.videoTrackIndex, clipIndex: input.clipIndex, position: input.position };
+    }
+    async function guardedTransitionContext(input) {
+      const context = await activeContext(true), sequenceGuid = String(context.sequence.guid || "");
+      if (!sequenceGuid || sequenceGuid !== input.expectedTarget.sequenceGuid) {
+        throw commandError("UXP_STALE_SEQUENCE", "The active sequence changed before the transition update; inspect and retry");
+      }
+      const positionValue = transitionPositionValue(input.position);
+      const target = await videoClipAt(context.sequence, input.videoTrackIndex, input.clipIndex);
+      const before = await transitionTargetSnapshot(context.sequence, input.videoTrackIndex, input.clipIndex, input.position, target, positionValue);
+      assertExpectedTransitionTarget(before, input.expectedTarget);
+      return { ...context, target, before, positionValue };
+    }
+    async function transitionTargetSnapshot(sequence, videoTrackIndex, clipIndex, position, target, positionValue) {
+      const item = target || await videoClipAt(sequence, videoTrackIndex, clipIndex);
+      const edge = positionValue == null ? transitionPositionValue(position) : positionValue;
+      if (typeof item.getProjectItem !== "function" || typeof item.getStartTime !== "function" || typeof item.getEndTime !== "function" || typeof item.hasVideoTransition !== "function") {
+        throw commandError("UXP_COMMAND_UNAVAILABLE", "This Premiere build cannot read a complete video-transition target snapshot");
+      }
+      const projectItem = await item.getProjectItem();
+      if (!projectItem || typeof projectItem.getId !== "function") throw commandError("UXP_COMMAND_UNAVAILABLE", "This Premiere build cannot identify the selected video clip");
+      const projectItemId = await projectItem.getId();
+      const startSeconds = tickSecondsRequired(await item.getStartTime(), "video transition target start"), endSeconds = tickSecondsRequired(await item.getEndTime(), "video transition target end");
+      if (typeof projectItemId !== "string" || !projectItemId || endSeconds < startSeconds) {
+        throw commandError("UXP_VERIFICATION_FAILED", "Premiere did not return a complete video-transition target snapshot");
+      }
+      const transitionPresent = await item.hasVideoTransition(edge);
+      if (typeof transitionPresent !== "boolean") throw commandError("UXP_VERIFICATION_FAILED", "Premiere did not return a boolean video-transition edge state");
+      const sequenceGuid = String(sequence && sequence.guid || "");
+      if (!sequenceGuid) throw commandError("UXP_VERIFICATION_FAILED", "Premiere did not provide a stable active-sequence GUID");
+      return { sequenceGuid, videoTrackIndex, clipIndex, projectItemId, startSeconds, endSeconds, position, transitionPresent };
+    }
+    function transitionPositionValue(position) {
+      const positions = ppro.Constants && ppro.Constants.TransitionPosition, value = positions && positions[String(position).toUpperCase()];
+      if (value == null) throw commandError("UXP_COMMAND_UNAVAILABLE", "Premiere transition position constants are unavailable");
+      return value;
+    }
+    function assertExpectedTransitionTarget(actual, expected) {
+      if (actual.sequenceGuid !== expected.sequenceGuid || actual.videoTrackIndex !== expected.videoTrackIndex || actual.clipIndex !== expected.clipIndex ||
+        actual.projectItemId !== expected.projectItemId || !sameSeconds(actual.startSeconds, expected.startSeconds) || !sameSeconds(actual.endSeconds, expected.endSeconds) ||
+        actual.position !== expected.position || actual.transitionPresent !== expected.transitionPresent) {
+        throw commandError("UXP_STALE_TRANSITION_TARGET", "The video-transition target changed before the update; inspect and retry");
+      }
+    }
+    function verifiedTransitionResult(applied, input, target, undoLabel) {
+      return {
+        ...(applied ? { applied: true, matchName: input.matchName } : { removed: true }),
+        outcome: "verified", verified: "video_transition_edge_readback", target,
+        operation: operationSemantics({
+          mutatesProject: true, verificationStatus: "verified", verificationBoundary: "video_transition_edge_readback",
+          verificationEvidence: [{ type: "video_transition_edge", target }], undoSupported: true,
+          undoLabel, transactionActionGroup: true, cancellationSupported: false
+        })
+      };
+    }
+    function withTransitionUpdateLock(sequenceGuid, operation) {
+      const previous = transitionUpdateTails.get(sequenceGuid) || Promise.resolve();
+      let release;
+      const gate = new Promise((resolve) => { release = resolve; });
+      const tail = previous.catch(() => undefined).then(() => gate);
+      transitionUpdateTails.set(sequenceGuid, tail);
+      return previous.catch(() => undefined).then(operation).finally(() => {
+        release();
+        if (transitionUpdateTails.get(sequenceGuid) === tail) transitionUpdateTails.delete(sequenceGuid);
+      });
     }
     async function activeSequence(project) {
       const sequence = await project.getActiveSequence();
@@ -813,9 +898,15 @@
         typeof ppro.EncoderManager.startBatchEncode === "function");
     }
     function canListTransitions() { return !!(ppro.TransitionFactory && typeof ppro.TransitionFactory.getVideoTransitionMatchNames === "function"); }
-    function canMutateTransitions() {
-      return canListTransitions() && typeof ppro.TransitionFactory.createVideoTransition === "function" &&
-        typeof ppro.AddTransitionOptions === "function" && !!(ppro.Constants && ppro.Constants.TrackItemType && ppro.Constants.TransitionPosition);
+    function canInspectTransitions() {
+      return activeSequenceHas(["getVideoTrackCount", "getVideoTrack"]);
+    }
+    async function canMutateTransitions() {
+      if (!canListTransitions() || typeof ppro.TransitionFactory.createVideoTransition !== "function" ||
+        typeof ppro.AddTransitionOptions !== "function" || !ppro.TickTime || typeof ppro.TickTime.createWithSeconds !== "function" ||
+        !(ppro.Constants && ppro.Constants.TrackItemType && ppro.Constants.TransitionPosition) || !await canInspectTransitions()) return false;
+      const project = await ppro.Project.getActiveProject();
+      return !project || (typeof project.lockedAccess === "function" && typeof project.executeTransaction === "function");
     }
     async function initialize() {
       return nextWorkflowRuntime && typeof nextWorkflowRuntime.initialize === "function"
@@ -832,10 +923,11 @@
 
   function validateAddArgs(args) {
     assertObject(args);
-    assertOnlyKeys(args, ["videoTrackIndex", "clipIndex", "matchName", "position", "durationSeconds", "forceSingleSided", "transitionAlignment", "operationId"]);
+    assertOnlyKeys(args, ["videoTrackIndex", "clipIndex", "matchName", "position", "durationSeconds", "forceSingleSided", "transitionAlignment", "expectedTarget", "operationId"]);
     const result = targetArgs(args);
     if (typeof args.matchName !== "string" || !args.matchName.trim() || args.matchName.length > 256) throw commandError("UXP_INVALID_ARGUMENT", "matchName must be a non-empty string of at most 256 characters");
     result.matchName = args.matchName; result.position = optionalPosition(args.position);
+    result.expectedTarget = validateExpectedTransitionTarget(args.expectedTarget, result);
     if (args.durationSeconds != null) result.durationSeconds = positiveNumber(args.durationSeconds, "durationSeconds");
     if (args.forceSingleSided != null) {
       if (typeof args.forceSingleSided !== "boolean") throw commandError("UXP_INVALID_ARGUMENT", "forceSingleSided must be a boolean");
@@ -848,8 +940,27 @@
     return result;
   }
   function validateRemoveArgs(args) {
-    assertObject(args); assertOnlyKeys(args, ["videoTrackIndex", "clipIndex", "position", "operationId"]);
+    assertObject(args); assertOnlyKeys(args, ["videoTrackIndex", "clipIndex", "position", "expectedTarget", "operationId"]);
+    const result = targetArgs(args); result.position = optionalPosition(args.position); result.expectedTarget = validateExpectedTransitionTarget(args.expectedTarget, result); return result;
+  }
+  function validateInspectTransitionArgs(args) {
+    assertObject(args); assertOnlyKeys(args, ["videoTrackIndex", "clipIndex", "position"]);
     const result = targetArgs(args); result.position = optionalPosition(args.position); return result;
+  }
+  function validateExpectedTransitionTarget(value, target) {
+    assertObject(value);
+    assertOnlyKeys(value, ["sequenceGuid", "videoTrackIndex", "clipIndex", "projectItemId", "startSeconds", "endSeconds", "position", "transitionPresent"]);
+    const sequenceGuid = boundedString(value.sequenceGuid, "expectedTarget.sequenceGuid", 512);
+    const projectItemId = boundedString(value.projectItemId, "expectedTarget.projectItemId", 512);
+    const videoTrackIndex = nonNegativeInt(value.videoTrackIndex, "expectedTarget.videoTrackIndex"), clipIndex = nonNegativeInt(value.clipIndex, "expectedTarget.clipIndex");
+    if (videoTrackIndex !== target.videoTrackIndex || clipIndex !== target.clipIndex) {
+      throw commandError("UXP_INVALID_ARGUMENT", "expectedTarget coordinates must match videoTrackIndex and clipIndex");
+    }
+    const position = optionalPosition(value.position);
+    if (position !== target.position) throw commandError("UXP_INVALID_ARGUMENT", "expectedTarget.position must match position");
+    const startSeconds = boundedTransitionSeconds(value.startSeconds, "expectedTarget.startSeconds"), endSeconds = boundedTransitionSeconds(value.endSeconds, "expectedTarget.endSeconds");
+    if (endSeconds < startSeconds) throw commandError("UXP_INVALID_ARGUMENT", "expectedTarget.endSeconds must be greater than or equal to startSeconds");
+    return { sequenceGuid, videoTrackIndex, clipIndex, projectItemId, startSeconds, endSeconds, position, transitionPresent: requiredBoolean(value.transitionPresent, "expectedTarget.transitionPresent") };
   }
   function validateLiftArgs(args) {
     assertObject(args); assertOnlyKeys(args, ["expectedSequenceGuid", "operationId"]);
@@ -963,6 +1074,7 @@
   function assertOnlyKeys(value, allowed) { const unknown = Object.keys(value).filter((key) => !allowed.includes(key)); if (unknown.length) throw commandError("UXP_INVALID_ARGUMENT", "Unknown argument: " + unknown[0]); }
   function nonNegativeInt(value, name) { if (!Number.isInteger(value) || value < 0) throw commandError("UXP_INVALID_ARGUMENT", name + " must be a non-negative integer"); return value; }
   function nonNegativeNumber(value, name) { const number = Number(value); if (!Number.isFinite(number) || number < 0) throw commandError("UXP_INVALID_ARGUMENT", name + " must be a non-negative number"); return number; }
+  function boundedTransitionSeconds(value, name) { const number = nonNegativeNumber(value, name); if (number > 86400) throw commandError("UXP_INVALID_ARGUMENT", name + " must be at most 86400"); return number; }
   function positiveNumber(value, name) { const number = Number(value); if (!Number.isFinite(number) || number <= 0) throw commandError("UXP_INVALID_ARGUMENT", name + " must be positive"); return number; }
   function positiveInt(value, fallback, name) { return Math.round(positiveNumber(value == null ? fallback : value, name)); }
   function requiredString(value, name) { if (typeof value !== "string" || !value.trim() || value.length > 4096) throw commandError("UXP_INVALID_ARGUMENT", name + " must be a non-empty string"); return value; }
@@ -973,5 +1085,5 @@
   function validateOperationId(value) { if (value == null) return null; if (typeof value !== "string" || !/^[A-Za-z0-9._:-]{1,128}$/.test(value)) throw commandError("UXP_INVALID_ARGUMENT", "operationId must be 1-128 safe characters"); return value; }
   function simpleRevision(value) { var hash = 2166136261; for (var i = 0; i < value.length; i += 1) { hash ^= value.charCodeAt(i); hash = Math.imul(hash, 16777619); } return "uxp-" + (hash >>> 0).toString(16); }
   function commandError(code, message) { const error = new Error(message); error.code = code; return error; }
-  return { createCommandRegistry, validateAddArgs, validateRemoveArgs, commandError };
+  return { createCommandRegistry, validateAddArgs, validateRemoveArgs, validateInspectTransitionArgs, commandError };
 });
