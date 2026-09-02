@@ -2013,6 +2013,29 @@
       "verificationBoundary": "bounded_redacted_host_event_receipt"
     },
     {
+      "id": "bounded-operation-boundary-event-journal",
+      "adobeApi": [
+        "OperationCompleteEvent.EVENT_CLIP_EXTEND_REACHED",
+        "OperationCompleteEvent.EVENT_EFFECT_DRAG_OVER"
+      ],
+      "documentationUrls": [
+        "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/eventmanager/",
+        "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/operationcompleteevent/"
+      ],
+      "minimumPremiereVersion": "26.3.0",
+      "backend": "uxp",
+      "uxpCommand": "events.list",
+      "mcpTools": ["inspect_premiere_events_uxp"],
+      "availability": "current",
+      "implementationStatus": "implemented",
+      "verificationStatus": "automated_contract_verified",
+      "liveHostVerificationStatus": "not_run",
+      "mutatesProject": false,
+      "undoable": false,
+      "idempotency": "not_applicable",
+      "verificationBoundary": "bounded_redacted_operation_boundary_event_receipt"
+    },
+    {
       "id": "ame-terminal-receipts",
       "adobeApi": [
         "EncoderManager.EVENT_RENDER_QUEUE",

@@ -13,8 +13,8 @@
   },
   "stats": {
     "total": 976,
-    "mapped": 373,
-    "unmapped": 603,
+    "mapped": 375,
+    "unmapped": 601,
     "manifestOnly": 5
   },
   "manifestOnly": [
@@ -2713,13 +2713,13 @@
       "symbol": "OperationCompleteEvent.EVENT_CLIP_EXTEND_REACHED",
       "kind": "property",
       "declarationSymbol": "OperationCompleteEventStatic.EVENT_CLIP_EXTEND_REACHED",
-      "coverage": "unmapped"
+      "coverage": "mapped"
     },
     {
       "symbol": "OperationCompleteEvent.EVENT_EFFECT_DRAG_OVER",
       "kind": "property",
       "declarationSymbol": "OperationCompleteEventStatic.EVENT_EFFECT_DRAG_OVER",
-      "coverage": "unmapped"
+      "coverage": "mapped"
     },
     {
       "symbol": "OperationCompleteEvent.EVENT_EFFECT_DROP_COMPLETE",

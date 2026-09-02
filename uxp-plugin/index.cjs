@@ -414,6 +414,9 @@ function supportedHostEvents() {
   const snapEvents = typeof EventSupport.createTimelineSnapEventDefinitions === "function"
     ? EventSupport.createTimelineSnapEventDefinitions(ppro.SnapEvent)
     : [];
+  const operationBoundaryEvents = typeof EventSupport.createOperationBoundaryEventDefinitions === "function"
+    ? EventSupport.createOperationBoundaryEventDefinitions(ppro.OperationCompleteEvent)
+    : [];
   return [
     hostEvent("project", "project.opened", project.OPENED, true),
     hostEvent("project", "project.closed", project.CLOSED, true),
@@ -432,7 +435,7 @@ function supportedHostEvents() {
     hostEvent("encoder", "encoder.complete", encoder.EVENT_RENDER_COMPLETE, false),
     hostEvent("encoder", "encoder.error", encoder.EVENT_RENDER_ERROR, false),
     hostEvent("encoder", "encoder.cancelled", encoder.EVENT_RENDER_CANCEL, false)
-  ].concat(snapEvents).filter((event) => event.eventName !== undefined && event.eventName !== null);
+  ].concat(snapEvents, operationBoundaryEvents).filter((event) => event.eventName !== undefined && event.eventName !== null);
 }
 function hostEvent(category, name, eventName, stateInvalidating, coalesceKey) {
   return { category, name, eventName, stateInvalidating, coalesceKey: coalesceKey || null };

@@ -498,12 +498,12 @@ describe("Adobe Premiere Pro 26.3 UXP coverage", () => {
   it("keeps unimplemented 26.3 work visibly planned", () => {
     const report = buildAdobeUxpCoverageReport();
     expect(report.summary).toEqual({
-      total: 84,
-      current: 81,
+      total: 85,
+      current: 82,
       planned: 3,
-      implemented: 81,
+      implemented: 82,
       committedUnverified: 9,
-      automatedContractVerified: 72,
+      automatedContractVerified: 73,
       liveHostVerified: 0,
     });
     expect(report.entries.find((entry) => entry.id === "aaf-export")).toMatchObject({
@@ -512,6 +512,15 @@ describe("Adobe Premiere Pro 26.3 UXP coverage", () => {
       verificationStatus: "automated_contract_verified",
       liveHostVerificationStatus: "not_run",
       uxpCommand: "interchange.aaf.export",
+    });
+    expect(report.entries.find((entry) => entry.id === "bounded-operation-boundary-event-journal")).toMatchObject({
+      availability: "current",
+      implementationStatus: "implemented",
+      verificationStatus: "automated_contract_verified",
+      liveHostVerificationStatus: "not_run",
+      uxpCommand: "events.list",
+      mcpTools: ["inspect_premiere_events_uxp"],
+      verificationBoundary: "bounded_redacted_operation_boundary_event_receipt",
     });
     expect(report.entries.every((entry) => entry.liveHostVerificationStatus === "not_run")).toBe(true);
   });
@@ -526,7 +535,7 @@ describe("Adobe Premiere Pro 26.3 UXP coverage", () => {
   it("surfaces the baseline in the platform capability report", () => {
     const report = buildPlatformCapabilityReport(resolveCapabilities("inspect"), "win32");
     expect(report.backends.uxp.apiCoverage.summary).toMatchObject({
-      current: 81,
+      current: 82,
       planned: 3,
       committedUnverified: 9,
     });
