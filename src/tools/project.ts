@@ -440,7 +440,8 @@ export function getProjectTools(bridgeOptions: BridgeOptions) {
         const script = buildToolScript(`
           if (!app.encoder || typeof app.encoder.startBatch !== "function") return __error("Adobe Media Encoder is not available");
           try {
-            app.encoder.startBatch();
+            var startResult = app.encoder.startBatch();
+            if (startResult !== 0) return __error("Adobe Media Encoder did not accept the start request.");
           } catch (e) {
             return __error("Adobe Media Encoder rejected the start request: " + e.message);
           }

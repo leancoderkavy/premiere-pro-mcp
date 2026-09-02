@@ -1469,12 +1469,14 @@ export function getExportTools(bridgeOptions: BridgeOptions) {
           app.encoder.startBatch();
           
           return __result({
-            queued: true,
+            accepted: true,
+            verified: false,
+            outcome: "committed_unverified",
             jobId: String(jobId),
             inputPath: inputFile.fsName,
             outputPath: outputFile.fsName,
             workArea: ${hasRange ? "IN_TO_OUT" : "ENTIRE"},
-            verificationScope: "AME accepted and started a job; this does not prove that asynchronous encoding finished or wrote an output file."
+            verificationScope: "Premiere returned an AME job ID. Queue presence and output-file creation are not verified by this tool."
           });
         `);
         return sendCommand(script, bridgeOptions);

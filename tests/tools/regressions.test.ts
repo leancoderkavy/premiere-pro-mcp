@@ -695,9 +695,12 @@ describe("issue #323 — AME handoffs are unverified until a queue or file readb
     const proxy = await scriptFor(exports.manage_proxies, {
       item_id: "item-1", action: "create", output_path: "/tmp/proxy.mov", preset_path: "/tmp/proxy.epr",
     });
+    const file = await scriptFor(exports.encode_file, {
+      input_path: "/tmp/source.mov", output_path: "/tmp/render.mp4", preset_path: "/tmp/preset.epr",
+    });
     const batch = await scriptFor(project.start_batch_encode, {});
 
-    for (const script of [render, item, proxy]) {
+    for (const script of [render, item, proxy, file]) {
       expect(script).toContain('if (!jobId || String(jobId) === "0") return __error');
       expect(script).toContain("accepted: true");
       expect(script).toContain('outcome: "committed_unverified"');
@@ -706,6 +709,8 @@ describe("issue #323 — AME handoffs are unverified until a queue or file readb
     expect(batch).toContain("requested: true");
     expect(batch).toContain('outcome: "committed_unverified"');
     expect(batch).not.toContain("started: true");
+    expect(batch).toContain("var startResult = app.encoder.startBatch()");
+    expect(batch).toContain("if (startResult !== 0)");
   });
 });
 
