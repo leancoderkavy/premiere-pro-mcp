@@ -86,10 +86,10 @@ development bundle with the separate [Hybrid addon-layout receipt](uxp-hybrid-ad
 then create and verify a [Hybrid CCX archive receipt](uxp-hybrid-ccx-receipt.md).
 The v3 benchmark record commits to all three canonical receipt digests. The
 benchmark verifier re-reads the supplied local `.ccx`, checks its current
-content-free receipt chain including schema-v2 whole-archive ZIP hygiene, and
-requires every platform run's `addonSha256` to match its corresponding attested
-binary. It does not publish source, binaries, the manifest ID, archive contents,
-entry names, or local paths.
+content-free receipt chain including schema-v2 whole-archive ZIP hygiene and
+all-entry local-header consistency, and requires every platform run's
+`addonSha256` to match its corresponding attested binary. It does not publish
+source, binaries, the manifest ID, archive contents, entry names, or local paths.
 
 The frozen `evidence.v1.schema.json` and `evidence.v2.schema.json` plus their
 verifier paths remain available for historical records. v1 has no receipt

@@ -62,6 +62,7 @@ function readCentralDirectory(buffer, expectedEntries) {
     }
     const flags = buffer.readUInt16LE(offset + 8);
     const method = buffer.readUInt16LE(offset + 10);
+    const crc32 = buffer.readUInt32LE(offset + 16);
     const compressedBytes = buffer.readUInt32LE(offset + 20);
     const uncompressedBytes = buffer.readUInt32LE(offset + 24);
     const nameBytes = buffer.readUInt16LE(offset + 28);
@@ -76,7 +77,7 @@ function readCentralDirectory(buffer, expectedEntries) {
     if (!name || !rawName.equals(Buffer.from(name, "utf8"))) {
       throw archiveError("CCX archive contains an invalid ZIP entry name");
     }
-    entries.push(Object.freeze({ name, flags, method, compressedBytes, uncompressedBytes, localOffset }));
+    entries.push(Object.freeze({ name, flags, method, crc32, compressedBytes, uncompressedBytes, localOffset }));
     offset = next;
   }
   if (entries.length !== expectedEntries) throw archiveError("CCX archive central directory count is inconsistent");
@@ -137,25 +138,50 @@ function selectRequiredEntries(entries, expectedPaths) {
   return selected;
 }
 
+async function localDataRangeFromHandle(handle, entry, maximumOffset) {
+  if (entry.localOffset + 30 > maximumOffset) throw archiveError("CCX archive local entry is outside the ZIP bounds");
+  const local = await readExactly(handle, 30, entry.localOffset, "CCX archive local entry");
+  if (local.readUInt32LE(0) !== LOCAL_FILE_SIGNATURE) throw archiveError("CCX archive local entry is invalid");
+  const flags = local.readUInt16LE(6);
+  const method = local.readUInt16LE(8);
+  if (flags !== entry.flags || method !== entry.method) throw archiveError("CCX archive local entry metadata is inconsistent");
+  const localCrc32 = local.readUInt32LE(14);
+  const localCompressedBytes = local.readUInt32LE(18);
+  const localUncompressedBytes = local.readUInt32LE(22);
+  const hasDataDescriptor = Boolean(entry.flags & 0x8);
+  const hasInconsistentDeclaredMetadata = hasDataDescriptor
+    ? (localCrc32 !== 0 && localCrc32 !== entry.crc32) ||
+      (localCompressedBytes !== 0 && localCompressedBytes !== entry.compressedBytes) ||
+      (localUncompressedBytes !== 0 && localUncompressedBytes !== entry.uncompressedBytes)
+    : localCrc32 !== entry.crc32 || localCompressedBytes !== entry.compressedBytes || localUncompressedBytes !== entry.uncompressedBytes;
+  if (hasInconsistentDeclaredMetadata) throw archiveError("CCX archive local entry metadata is inconsistent");
+  const localNameBytes = local.readUInt16LE(26);
+  const localExtraBytes = local.readUInt16LE(28);
+  const localName = await readExactly(handle, localNameBytes, entry.localOffset + 30, "CCX archive local entry name");
+  if (!localName.equals(Buffer.from(entry.name, "utf8"))) throw archiveError("CCX archive local entry name is inconsistent");
+  const dataStart = entry.localOffset + 30 + localNameBytes + localExtraBytes;
+  const dataEnd = dataStart + entry.compressedBytes;
+  if (!Number.isSafeInteger(dataEnd) || dataEnd > maximumOffset) throw archiveError("CCX archive local entry is outside the ZIP bounds");
+  return { dataStart, dataEnd };
+}
+
+async function validateLocalEntries(handle, entries, directoryOffset) {
+  const ranges = [];
+  for (const entry of entries) {
+    ranges.push({ entry, ...(await localDataRangeFromHandle(handle, entry, directoryOffset)) });
+  }
+  ranges.sort((left, right) => left.entry.localOffset - right.entry.localOffset);
+  for (let index = 1; index < ranges.length; index += 1) {
+    if (ranges[index].entry.localOffset < ranges[index - 1].dataEnd) {
+      throw archiveError("CCX archive local entries overlap");
+    }
+  }
+}
+
 async function localDataRange(archivePath, entry, archiveBytes) {
   const handle = await open(archivePath, "r");
   try {
-    if (entry.localOffset + 30 > archiveBytes) throw archiveError("CCX archive local entry is outside the ZIP bounds");
-    const local = await readExactly(handle, 30, entry.localOffset, "CCX archive local entry");
-    if (local.readUInt32LE(0) !== LOCAL_FILE_SIGNATURE) throw archiveError("CCX archive local entry is invalid");
-    const flags = local.readUInt16LE(6);
-    const method = local.readUInt16LE(8);
-    if (flags !== entry.flags || method !== entry.method) throw archiveError("CCX archive local entry metadata is inconsistent");
-    if (entry.flags & 0x1 || entry.flags & 0x40) throw archiveError("CCX archive required entries must not be encrypted");
-    if (entry.method !== 0 && entry.method !== 8) throw archiveError("CCX archive required entries must use stored or deflate compression");
-    const localNameBytes = local.readUInt16LE(26);
-    const localExtraBytes = local.readUInt16LE(28);
-    const localName = await readExactly(handle, localNameBytes, entry.localOffset + 30, "CCX archive local entry name");
-    if (localName.toString("utf8") !== entry.name) throw archiveError("CCX archive local entry name is inconsistent");
-    const dataStart = entry.localOffset + 30 + localNameBytes + localExtraBytes;
-    const dataEnd = dataStart + entry.compressedBytes;
-    if (!Number.isSafeInteger(dataEnd) || dataEnd > archiveBytes) throw archiveError("CCX archive local entry is outside the ZIP bounds");
-    return { dataStart, dataEnd };
+    return await localDataRangeFromHandle(handle, entry, archiveBytes);
   } finally {
     await handle.close();
   }
@@ -196,6 +222,7 @@ export async function inspectZipArchive(archivePath, expectedPaths) {
     const end = findEndOfCentralDirectory(tail, archive.size);
     const directory = await readExactly(handle, end.directoryBytes, end.directoryOffset, "CCX archive central directory");
     const entries = readCentralDirectory(directory, end.entries);
+    await validateLocalEntries(handle, entries, end.directoryOffset);
     return Object.freeze({
       bytes: archive.size,
       summary: validateArchiveEntries(entries),
