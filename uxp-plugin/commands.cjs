@@ -185,6 +185,14 @@
     }
     async function updateSequenceRange(args) {
       const input = validateSequenceRangeUpdateArgs(args);
+      // TickTime construction can cross the host boundary. Do it before the
+      // per-sequence exclusion scope so the guarded snapshot is the final
+      // asynchronous preflight step before action creation.
+      const ticks = {
+        inPoint: input.updates.inSeconds == null ? null : await tickTime(input.updates.inSeconds, "updates.inSeconds"),
+        outPoint: input.updates.outSeconds == null ? null : await tickTime(input.updates.outSeconds, "updates.outSeconds"),
+        zeroPoint: input.updates.zeroPointSeconds == null ? null : await tickTime(input.updates.zeroPointSeconds, "updates.zeroPointSeconds")
+      };
       return withSequenceRangeUpdateLock(input.expectedSequenceGuid, async () => {
         const context = await activeContext(true);
         const before = await sequenceRangeSnapshot(context.sequence);
@@ -194,11 +202,6 @@
         assertExpectedSequenceRange(before.range, input.expectedRange);
         const desired = { ...before.range, ...input.updates };
         assertValidSequenceRange(desired, "requested sequence range");
-        const ticks = {
-          inPoint: input.updates.inSeconds == null ? null : await tickTime(input.updates.inSeconds, "updates.inSeconds"),
-          outPoint: input.updates.outSeconds == null ? null : await tickTime(input.updates.outSeconds, "updates.outSeconds"),
-          zeroPoint: input.updates.zeroPointSeconds == null ? null : await tickTime(input.updates.zeroPointSeconds, "updates.zeroPointSeconds")
-        };
         let committed = false;
         context.project.lockedAccess(() => {
           committed = context.project.executeTransaction((compoundAction) => {
@@ -241,7 +244,7 @@
             undoSupported: true,
             undoLabel: "Update sequence range",
             transactionActionGroup: true,
-            cancellationSupported: true
+            cancellationSupported: false
           })
         };
       });

@@ -191,7 +191,12 @@ describe("UXP command registry", () => {
       outcome: "verified",
       sequenceGuid: "sequence-1",
       range: { inSeconds: 2, outSeconds: 110, zeroPointSeconds: 7200, endSeconds: 120 },
-      operation: { mutatesProject: true, verification: { status: "verified" }, undo: { supported: true } },
+      operation: {
+        mutatesProject: true,
+        verification: { status: "verified" },
+        undo: { supported: true },
+        cancellation: { supported: false },
+      },
       operationId: "range-1",
     });
     expect(value.project.lockedAccess).toHaveBeenCalledOnce();
@@ -232,6 +237,23 @@ describe("UXP command registry", () => {
     await expect(second).rejects.toMatchObject({ code: "UXP_STALE_RANGE" });
     expect(value.project.executeTransaction).toHaveBeenCalledOnce();
     expect(value.range).toEqual({ inSeconds: 2, outSeconds: 100, zeroPointSeconds: 3600, endSeconds: 120 });
+  });
+
+  it("rejects a range change that occurs while TickTime values are being created", async () => {
+    const value = host();
+    value.ppro.TickTime.createWithSeconds.mockImplementation((seconds: number) => {
+      value.range.outSeconds = 99;
+      return { seconds };
+    });
+
+    await expect(value.registry.dispatch("sequence.range.update", {
+      expectedSequenceGuid: "sequence-1",
+      expectedRange: { inSeconds: 1, outSeconds: 100, zeroPointSeconds: 3600, endSeconds: 120 },
+      updates: { inSeconds: 2 },
+    })).rejects.toMatchObject({ code: "UXP_STALE_RANGE" });
+    expect(value.ppro.TickTime.createWithSeconds).toHaveBeenCalledWith(2);
+    expect(value.project.lockedAccess).not.toHaveBeenCalled();
+    expect(value.sequence.createSetInPointAction).not.toHaveBeenCalled();
   });
 
   it("fails closed for stale, malformed, and out-of-bounds sequence-range updates", async () => {
