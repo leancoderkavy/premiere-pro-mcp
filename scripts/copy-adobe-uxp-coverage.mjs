@@ -14,6 +14,7 @@ const resources = [
   "adobe-beta-pointf-drift.json",
   "adobe-beta-guid-drift.json",
   "adobe-beta-frame-rate-drift.json",
+  "adobe-beta-tick-time-drift.json",
   "adobe-beta-c2pa-drift.json",
   "adobe-beta-media-drift.json",
   "adobe-beta-media-manager-drift.json",

@@ -54,6 +54,10 @@ type Surface = {
   betaFrameRateDriftCommand?: string;
   betaFrameRateDriftVerificationCommand?: string;
   betaFrameRateDriftDocumentation?: string;
+  betaTickTimeDriftArtifact?: string;
+  betaTickTimeDriftCommand?: string;
+  betaTickTimeDriftVerificationCommand?: string;
+  betaTickTimeDriftDocumentation?: string;
   betaC2paDriftArtifact?: string;
   betaC2paDriftCommand?: string;
   betaC2paDriftVerificationCommand?: string;
@@ -174,6 +178,10 @@ describe("Premiere API and competitor surface registry", () => {
         betaFrameRateDriftCommand: "npm run adobe:beta-frame-rate-drift",
         betaFrameRateDriftVerificationCommand: "npm run adobe:beta-frame-rate-drift:check",
         betaFrameRateDriftDocumentation: "docs/adobe-beta-frame-rate-drift.md",
+        betaTickTimeDriftArtifact: "dist/resources/adobe-beta-tick-time-drift.json",
+        betaTickTimeDriftCommand: "npm run adobe:beta-tick-time-drift",
+        betaTickTimeDriftVerificationCommand: "npm run adobe:beta-tick-time-drift:check",
+        betaTickTimeDriftDocumentation: "docs/adobe-beta-tick-time-drift.md",
         betaC2paDriftArtifact: "dist/resources/adobe-beta-c2pa-drift.json",
         betaC2paDriftCommand: "npm run adobe:beta-c2pa-drift",
         betaC2paDriftVerificationCommand: "npm run adobe:beta-c2pa-drift:check",

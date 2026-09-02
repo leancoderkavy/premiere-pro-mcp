@@ -44,6 +44,10 @@ The [beta FrameRate declaration receipt](adobe-beta-frame-rate-drift.md) records
 its factory-placement migration without constructing a frame rate, changing
 existing frame-alignment or TickTime workflows, binding it to another API, or
 claiming host behavior.
+The [beta TickTime declaration receipt](adobe-beta-tick-time-drift.md) records
+its factory-placement migration without constructing a time value, changing
+existing TickTime arithmetic or frame-alignment workflows, binding it to
+another API, or claiming host behavior.
 The [beta Media drift receipt](adobe-beta-media-drift.md) separately records the
 pinned stable-to-beta `Media` declaration delta. It is deliberately not a beta
 surface inventory or beta-host support claim. The [beta C2PA declaration
