@@ -723,6 +723,20 @@ describe("advanced stable Premiere UXP workflows", () => {
     });
   });
 
+  it("surfaces direct sequence rejections when no created sequence can be reconciled", async () => {
+    const sequenceCreation = advancedHost();
+    sequenceCreation.project.createSequenceFromMedia.mockRejectedValueOnce(new Error("host rejected"));
+    await expect(sequenceCreation.registry.dispatch("sequences.createFromMedia", {
+      name: "Rejected Assembly", projectItemIds: ["clip-1"], confirmNonUndoable: true,
+    })).rejects.toMatchObject({ code: "UXP_HOST_REJECTED" });
+
+    const subsequenceCreation = advancedHost();
+    subsequenceCreation.sequence.createSubsequence.mockRejectedValueOnce(new Error("host rejected"));
+    await expect(subsequenceCreation.registry.dispatch("sequences.subsequence", {
+      sequenceId: "sequence-1", confirmNonUndoable: true,
+    })).rejects.toMatchObject({ code: "UXP_HOST_REJECTED" });
+  });
+
   it("bounds ID-targeted sequence lookup before invoking the host mutation", async () => {
     const value = advancedHost();
     value.project.getSequences.mockResolvedValue(Array.from({ length: 1025 }, (_, index) => ({

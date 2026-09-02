@@ -885,13 +885,21 @@
             return after.find((item) => !before.some((old) => old.id === item.id)) || null;
           } catch (_) { return null; }
         };
-        const partialReceipt = async (boundary, sequence) => directMutationResult(false, {
-          created: !!sequence, partial: true, sequence: await safeSequenceSnapshot(sequence)
-        }, boundary);
-        let sequence;
-        try { sequence = await project.createSequenceFromMedia(name, clips, target); }
-        catch (_) { return partialReceipt("create_sequence_host_reconciliation", await reconciledSequence()); }
-        if (!sequence) return partialReceipt("create_sequence_host_return", await reconciledSequence());
+          const partialReceipt = async (boundary, sequence) => directMutationResult(false, {
+            created: !!sequence, partial: true, sequence: await safeSequenceSnapshot(sequence)
+          }, boundary);
+          let sequence;
+          try { sequence = await project.createSequenceFromMedia(name, clips, target); }
+          catch (error) {
+            const reconciled = await reconciledSequence();
+            if (reconciled) return partialReceipt("create_sequence_host_reconciliation", reconciled);
+            throw commandError("UXP_HOST_REJECTED", "Premiere rejected sequence creation: " + error.message);
+          }
+          if (!sequence) {
+            const reconciled = await reconciledSequence();
+            if (reconciled) return partialReceipt("create_sequence_host_return", reconciled);
+            throw commandError("UXP_HOST_REJECTED", "Premiere did not create a sequence");
+          }
         const snapshot = await safeSequenceSnapshot(sequence);
         if (!snapshot || !snapshot.id) return partialReceipt("create_sequence_identity_readback", sequence);
         return directMutationResult(false, { created: true, partial: false, sequence: snapshot }, "create_sequence_host_return");
@@ -1008,13 +1016,21 @@
             return after.find((item) => !before.some((old) => old.id === item.id)) || null;
           } catch (_) { return null; }
         };
-        const partialReceipt = async (boundary, created) => directMutationResult(false, {
-          created: !!created, partial: true, sequence: await safeSequenceSnapshot(created)
-        }, boundary);
-        let created;
-        try { created = await sequence.createSubsequence(ignoreTrackTargeting); }
-        catch (_) { return partialReceipt("create_subsequence_host_reconciliation", await reconciledSequence()); }
-        if (!created) return partialReceipt("create_subsequence_host_return", await reconciledSequence());
+          const partialReceipt = async (boundary, created) => directMutationResult(false, {
+            created: !!created, partial: true, sequence: await safeSequenceSnapshot(created)
+          }, boundary);
+          let created;
+          try { created = await sequence.createSubsequence(ignoreTrackTargeting); }
+          catch (error) {
+            const reconciled = await reconciledSequence();
+            if (reconciled) return partialReceipt("create_subsequence_host_reconciliation", reconciled);
+            throw commandError("UXP_HOST_REJECTED", "Premiere rejected subsequence creation: " + error.message);
+          }
+          if (!created) {
+            const reconciled = await reconciledSequence();
+            if (reconciled) return partialReceipt("create_subsequence_host_return", reconciled);
+            throw commandError("UXP_HOST_REJECTED", "Premiere did not create a subsequence");
+          }
         const snapshot = await safeSequenceSnapshot(created);
         if (!snapshot || !snapshot.id) return partialReceipt("create_subsequence_identity_readback", created);
         return directMutationResult(false, { created: true, partial: false, sequence: snapshot }, "create_subsequence_host_return");
