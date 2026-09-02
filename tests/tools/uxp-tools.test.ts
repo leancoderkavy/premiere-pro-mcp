@@ -295,7 +295,7 @@ describe("UXP MCP tools", () => {
       // guarded sequence-playhead control, native sequence-timing inspection, and
       // guarded sequence-display-format updates add thirty consolidated UXP tools;
       // connection verification and delivery conformance add two default-profile core tools.
-      expect(tools.tools).toHaveLength(391);
+      expect(tools.tools).toHaveLength(392);
     } finally {
       await client.close();
       await server.close();

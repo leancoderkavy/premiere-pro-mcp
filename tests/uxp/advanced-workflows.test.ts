@@ -308,7 +308,7 @@ describe("advanced stable Premiere UXP workflows", () => {
     const value = advancedHost();
     const capabilities = await value.registry.capabilities();
     expect(Object.keys(capabilities.commands)).toEqual(expect.arrayContaining([
-      "projectSelection.views", "projectSelection.inspect", "markers.inspect", "markers.add", "markers.addBeatGrid", "markers.removeMany",
+      "projectSelection.views", "projectSelection.inspect", "projectTree.inspect", "markers.inspect", "markers.add", "markers.addBeatGrid", "markers.removeMany",
       "bins.inspect", "bins.create", "sequenceSettings.get", "sequenceSettings.update", "sequence.displayFormat.inspect", "sequence.displayFormat.update",
       "project.import", "parameters.inspect", "parameters.keyframeAdd", "trackItem.inspect",
       "trackItem.update", "timeline.insert", "timeline.mogrtPath", "timeline.structure.inspect", "sequences.inspect",
@@ -358,6 +358,40 @@ describe("advanced stable Premiere UXP workflows", () => {
     await expect(value.registry.dispatch("bins.create", {
       parentBinId: "bin-1", name: "Selects", operationId: "bin-create",
     })).resolves.toMatchObject({ created: true, outcome: "verified", item: { name: "Selects" } });
+  });
+
+  it("walks the native Project root in deterministic bounded order without reading beyond the requested tree", async () => {
+    const value = advancedHost();
+    await expect(value.registry.dispatch("projectTree.inspect", { maxItems: 2, maxDepth: 2 })).resolves.toMatchObject({
+      root: { id: "root", name: "Root", parentId: null, depth: 0, isBin: true },
+      count: 2,
+      items: [
+        { id: "bin-1", name: "Rushes", parentId: "root", depth: 1, isBin: true },
+        { id: "clip-1", name: "Interview.mov", parentId: "bin-1", depth: 2, isBin: false },
+      ],
+      truncated: false,
+      itemLimitReached: false,
+      depthLimitApplied: false,
+      verificationBoundary: "bounded_project_tree_item_readback",
+    });
+    expect(value.project.executeTransaction).not.toHaveBeenCalled();
+
+    const limited = advancedHost();
+    limited.bin.getItems.mockClear();
+    await expect(limited.registry.dispatch("projectTree.inspect", { maxItems: 1, maxDepth: 2 })).resolves.toMatchObject({
+      count: 1, items: [{ id: "bin-1" }], truncated: true, itemLimitReached: true, depthLimitApplied: false,
+    });
+    expect(limited.bin.getItems).not.toHaveBeenCalled();
+
+    const depthLimited = advancedHost();
+    depthLimited.root.getItems.mockClear();
+    await expect(depthLimited.registry.dispatch("projectTree.inspect", { maxDepth: 0 })).resolves.toMatchObject({
+      count: 0, truncated: true, itemLimitReached: false, depthLimitApplied: true,
+    });
+    expect(depthLimited.root.getItems).not.toHaveBeenCalled();
+
+    await expect(value.registry.dispatch("projectTree.inspect", { maxItems: 513 })).rejects.toThrow(/maxItems must be an integer from 1 to 512/);
+    await expect(value.registry.dispatch("projectTree.inspect", { unexpected: true })).rejects.toThrow(/Unknown argument/);
   });
 
   it("removes only explicit reviewed marker snapshots in one transaction and replays the operation id", async () => {

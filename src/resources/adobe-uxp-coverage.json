@@ -991,6 +991,35 @@
       "verificationBoundary": "project_item_identity_and_field_readback"
     },
     {
+      "id": "bounded-native-project-tree",
+      "adobeApi": [
+        "Project.getRootItem",
+        "FolderItem.cast",
+        "FolderItem.getItems",
+        "ProjectItem.getId",
+        "ProjectItem.name",
+        "ProjectItem.type",
+        "ProjectItem.getColorLabelIndex"
+      ],
+      "documentationUrls": [
+        "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/project/",
+        "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/folderitem/",
+        "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/projectitem/"
+      ],
+      "minimumPremiereVersion": "26.3.0",
+      "backend": "uxp",
+      "uxpCommand": "projectTree.inspect",
+      "mcpTools": ["inspect_project_tree_uxp"],
+      "availability": "current",
+      "implementationStatus": "implemented",
+      "verificationStatus": "automated_contract_verified",
+      "liveHostVerificationStatus": "not_run",
+      "mutatesProject": false,
+      "undoable": false,
+      "idempotency": "not_applicable",
+      "verificationBoundary": "bounded_project_tree_item_readback"
+    },
+    {
       "id": "sequence-settings-profiles",
       "adobeApi": [
         "Sequence.getSettings",

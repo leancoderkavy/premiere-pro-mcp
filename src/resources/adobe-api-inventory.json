@@ -13,8 +13,8 @@
   },
   "stats": {
     "total": 976,
-    "mapped": 252,
-    "unmapped": 724,
+    "mapped": 257,
+    "unmapped": 719,
     "manifestOnly": 5
   },
   "manifestOnly": [
@@ -2007,7 +2007,7 @@
       "symbol": "FolderItem.cast",
       "kind": "method",
       "declarationSymbol": "FolderItemStatic.cast",
-      "coverage": "unmapped"
+      "coverage": "mapped"
     },
     {
       "symbol": "FolderItem.createBinAction",
@@ -2052,7 +2052,7 @@
     {
       "symbol": "FolderItem.getItems",
       "kind": "method",
-      "coverage": "unmapped"
+      "coverage": "mapped"
     },
     {
       "symbol": "FolderItem.getProject",
@@ -2915,7 +2915,7 @@
     {
       "symbol": "Project.getRootItem",
       "kind": "method",
-      "coverage": "unmapped"
+      "coverage": "mapped"
     },
     {
       "symbol": "Project.getSequence",
@@ -3198,7 +3198,7 @@
     {
       "symbol": "ProjectItem.getColorLabelIndex",
       "kind": "method",
-      "coverage": "unmapped"
+      "coverage": "mapped"
     },
     {
       "symbol": "ProjectItem.getId",
@@ -3223,7 +3223,7 @@
     {
       "symbol": "ProjectItem.type",
       "kind": "property",
-      "coverage": "unmapped"
+      "coverage": "mapped"
     },
     {
       "symbol": "ProjectItemSelection",
