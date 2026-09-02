@@ -56,6 +56,35 @@
       "verificationBoundary": "created_sequence_guid"
     },
     {
+      "id": "transactional-sequence-range",
+      "adobeApi": [
+        "Sequence.getInPoint",
+        "Sequence.getOutPoint",
+        "Sequence.getZeroPoint",
+        "Sequence.getEndTime",
+        "Sequence.createSetInPointAction",
+        "Sequence.createSetOutPointAction",
+        "Sequence.createSetZeroPointAction"
+      ],
+      "documentationUrls": [
+        "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/sequence/"
+      ],
+      "minimumPremiereVersion": "25.6.0",
+      "backend": "uxp",
+      "uxpCommand": "sequence.range.update",
+      "mcpTools": [
+        "manage_sequence_range_uxp"
+      ],
+      "availability": "current",
+      "implementationStatus": "implemented",
+      "verificationStatus": "automated_contract_verified",
+      "liveHostVerificationStatus": "not_run",
+      "mutatesProject": true,
+      "undoable": true,
+      "idempotency": "operation_id",
+      "verificationBoundary": "sequence_range_readback"
+    },
+    {
       "id": "native-caption-track-inventory",
       "adobeApi": [
         "Sequence.getCaptionTrackCount",

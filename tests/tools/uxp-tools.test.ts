@@ -75,6 +75,43 @@ describe("UXP MCP tools", () => {
     expect(request).toHaveBeenCalledWith("captions.inspect", {});
   });
 
+  it("maps guarded sequence-range inspection and updates to documented UXP commands", async () => {
+    const request = vi.fn().mockResolvedValue({ outcome: "verified" });
+    const bridge = { request, getState: vi.fn() } as unknown as UxpWebSocketBridge;
+    const tools = getUxpTools(bridge);
+    await tools.manage_sequence_range_uxp.handler({ action: "inspect" });
+    await tools.manage_sequence_range_uxp.handler({
+      action: "update",
+      expected_sequence_guid: "sequence-1",
+      expected_range: { in_seconds: 1, out_seconds: 10, zero_point_seconds: 3600 },
+      updates: { in_seconds: 2, zero_point_seconds: 7200 },
+      operation_id: "range-1",
+    });
+    expect(request).toHaveBeenNthCalledWith(1, "sequence.range.inspect", {});
+    expect(request).toHaveBeenNthCalledWith(2, "sequence.range.update", {
+      expectedSequenceGuid: "sequence-1",
+      expectedRange: { inSeconds: 1, outSeconds: 10, zeroPointSeconds: 3600 },
+      updates: { inSeconds: 2, zeroPointSeconds: 7200 },
+      operationId: "range-1",
+    });
+    expect(tools.manage_sequence_range_uxp.parameters).toMatchObject({
+      type: "object",
+      additionalProperties: false,
+      required: ["action"],
+      properties: {
+        action: { type: "string", enum: ["inspect", "update"] },
+        expected_sequence_guid: { type: "string" },
+        expected_range: {
+          type: "object",
+          additionalProperties: false,
+          required: ["in_seconds", "out_seconds", "zero_point_seconds"],
+        },
+        updates: { type: "object", additionalProperties: false },
+        operation_id: { type: "string" },
+      },
+    });
+  });
+
   it("maps selection lift and native transition arguments to documented UXP commands", async () => {
     const request = vi.fn().mockResolvedValue({ outcome: "committed_unverified" });
     const bridge = { request, getState: vi.fn() } as unknown as UxpWebSocketBridge;
@@ -128,6 +165,7 @@ describe("UXP MCP tools", () => {
           "get_uxp_state",
           "inspect_project_uxp",
           "inspect_caption_tracks_uxp",
+          "manage_sequence_range_uxp",
           "save_project_uxp",
           "create_sequence_with_preset_uxp",
           "export_interchange_uxp",
@@ -156,7 +194,7 @@ describe("UXP MCP tools", () => {
       // transcript workflow and documented Premiere 26.3 tools add nineteen,
       // and the two stable workflow expansions, confirmed organization application, four bounded native migration adapters, and beat-grid marker application add twenty-seven consolidated UXP tools;
       // connection verification and delivery conformance add two default-profile core tools.
-      expect(tools.tools).toHaveLength(384);
+      expect(tools.tools).toHaveLength(385);
     } finally {
       await client.close();
       await server.close();

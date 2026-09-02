@@ -16,6 +16,8 @@
       "project.snapshot": { readOnly: true, minHostVersion: "25.6.0", probe: canInspectProject, handler: projectSnapshot },
       "project.save": { idempotent: true, minHostVersion: "25.6.0", probe: canSaveProject, handler: saveProject },
       "sequence.createPreset": { destructive: true, undoable: false, requiresWorkspace: true, minHostVersion: "26.3.0", probe: canCreatePresetSequence, handler: createPresetSequence },
+      "sequence.range.inspect": { readOnly: true, minHostVersion: "25.6.0", probe: canInspectSequenceRange, handler: inspectSequenceRange },
+      "sequence.range.update": { destructive: true, undoable: true, idempotent: true, minHostVersion: "25.6.0", probe: canUpdateSequenceRange, handler: updateSequenceRange },
       "interchange.export": { requiresWorkspace: true, minHostVersion: "26.2.0", probe: canExportInterchange, handler: exportInterchange },
       "interchange.aaf.export": { destructive: true, undoable: false, idempotent: true, requiresWorkspace: true, minHostVersion: "26.3.0", probe: canExportAaf, handler: exportAaf },
       "track.rename": { destructive: true, undoable: true, idempotent: true, minHostVersion: "26.3.0", probe: canRenameTracks, handler: renameTrack },
@@ -171,6 +173,66 @@
       const verified = Array.from(await project.getSequences() || []).some((item) => String(item.guid || "") === String(sequence.guid || ""));
       if (!verified) throw commandError("UXP_VERIFICATION_FAILED", "Created sequence was not present in the project");
       return { created: true, outcome: "verified", sequence: { guid: String(sequence.guid || ""), name: String(sequence.name || name) } };
+    }
+    async function inspectSequenceRange(args) {
+      assertOnlyKeys(args, []);
+      const context = await activeContext(false);
+      return {
+        ...await sequenceRangeSnapshot(context.sequence),
+        verificationBoundary: "sequence_range_readback"
+      };
+    }
+    async function updateSequenceRange(args) {
+      const input = validateSequenceRangeUpdateArgs(args);
+      const context = await activeContext(true);
+      const before = await sequenceRangeSnapshot(context.sequence);
+      if (before.sequenceGuid !== input.expectedSequenceGuid) {
+        throw commandError("UXP_STALE_SEQUENCE", "The active sequence changed before the range update; inspect the current range and retry");
+      }
+      assertExpectedSequenceRange(before.range, input.expectedRange);
+      const desired = { ...before.range, ...input.updates };
+      assertValidSequenceRange(desired, "requested sequence range");
+      const ticks = {
+        inPoint: input.updates.inSeconds == null ? null : await tickTime(input.updates.inSeconds, "updates.inSeconds"),
+        outPoint: input.updates.outSeconds == null ? null : await tickTime(input.updates.outSeconds, "updates.outSeconds"),
+        zeroPoint: input.updates.zeroPointSeconds == null ? null : await tickTime(input.updates.zeroPointSeconds, "updates.zeroPointSeconds")
+      };
+      let committed = false;
+      context.project.lockedAccess(() => {
+        committed = context.project.executeTransaction((compoundAction) => {
+          if (ticks.inPoint && compoundAction.addAction(context.sequence.createSetInPointAction(ticks.inPoint)) === false) {
+            throw commandError("UXP_ACTION_REJECTED", "Premiere rejected the sequence in point action");
+          }
+          if (ticks.outPoint && compoundAction.addAction(context.sequence.createSetOutPointAction(ticks.outPoint)) === false) {
+            throw commandError("UXP_ACTION_REJECTED", "Premiere rejected the sequence out point action");
+          }
+          if (ticks.zeroPoint && compoundAction.addAction(context.sequence.createSetZeroPointAction(ticks.zeroPoint)) === false) {
+            throw commandError("UXP_ACTION_REJECTED", "Premiere rejected the sequence zero point action");
+          }
+        }, "Update sequence range");
+      });
+      assertTransactionCommitted(committed, "sequence range update");
+      const after = await sequenceRangeSnapshot(context.sequence);
+      if (after.sequenceGuid !== before.sequenceGuid || !sameSequenceRange(after.range, desired)) {
+        throw commandError("UXP_VERIFICATION_FAILED", "Premiere did not retain the requested sequence range");
+      }
+      return {
+        updated: true,
+        outcome: "verified",
+        sequenceGuid: after.sequenceGuid,
+        range: after.range,
+        verified: "sequence_range_readback",
+        operation: operationSemantics({
+          mutatesProject: true,
+          verificationStatus: "verified",
+          verificationBoundary: "sequence_range_readback",
+          verificationEvidence: [{ type: "sequence_range", sequenceGuid: after.sequenceGuid, range: after.range }],
+          undoSupported: true,
+          undoLabel: "Update sequence range",
+          transactionActionGroup: true,
+          cancellationSupported: true
+        })
+      };
     }
     async function exportInterchange(args) {
       assertOnlyKeys(args, ["format", "outputFilePath", "suppressUI", "operationId"]);
@@ -331,6 +393,81 @@
       if (!Number.isFinite(value) || value < 0) throw commandError("UXP_INVALID_ARGUMENT", name + " must be a non-negative number");
       if (ppro.TickTime && typeof ppro.TickTime.createWithSeconds === "function") return ppro.TickTime.createWithSeconds(value);
       throw commandError("UXP_COMMAND_UNAVAILABLE", "This Premiere build cannot create TickTime");
+    }
+    async function sequenceRangeSnapshot(sequence) {
+      const sequenceGuid = String(sequence && sequence.guid || "");
+      if (!sequenceGuid) throw commandError("UXP_VERIFICATION_FAILED", "Premiere did not provide a stable active-sequence GUID");
+      const [inPoint, outPoint, zeroPoint, endPoint] = await Promise.all([
+        sequence.getInPoint(), sequence.getOutPoint(), sequence.getZeroPoint(), sequence.getEndTime()
+      ]);
+      const range = {
+        inSeconds: tickSecondsRequired(inPoint, "sequence in point"),
+        outSeconds: tickSecondsRequired(outPoint, "sequence out point"),
+        zeroPointSeconds: tickSecondsRequired(zeroPoint, "sequence zero point"),
+        endSeconds: tickSecondsRequired(endPoint, "sequence end point")
+      };
+      assertValidSequenceRange(range, "Premiere sequence range");
+      return { sequenceGuid, range };
+    }
+    function validateSequenceRangeUpdateArgs(args) {
+      assertObject(args);
+      assertOnlyKeys(args, ["expectedSequenceGuid", "expectedRange", "updates", "operationId"]);
+      if (typeof args.expectedSequenceGuid !== "string" || !args.expectedSequenceGuid || args.expectedSequenceGuid.length > 512) {
+        throw commandError("UXP_INVALID_ARGUMENT", "expectedSequenceGuid is required and must be at most 512 characters");
+      }
+      const expectedRange = validateExpectedSequenceRange(args.expectedRange, "expectedRange", true);
+      const updates = validateExpectedSequenceRange(args.updates, "updates", false);
+      if (updates.inSeconds == null && updates.outSeconds == null && updates.zeroPointSeconds == null) {
+        throw commandError("UXP_INVALID_ARGUMENT", "updates must include at least one sequence range field");
+      }
+      return { expectedSequenceGuid: args.expectedSequenceGuid, expectedRange, updates };
+    }
+    function validateExpectedSequenceRange(value, name, complete) {
+      assertObject(value);
+      assertOnlyKeys(value, ["inSeconds", "outSeconds", "zeroPointSeconds"]);
+      const result = {};
+      for (const key of ["inSeconds", "outSeconds", "zeroPointSeconds"]) {
+        if (value[key] == null) {
+          if (complete) throw commandError("UXP_INVALID_ARGUMENT", name + "." + key + " is required");
+          continue;
+        }
+        result[key] = boundedSeconds(value[key], name + "." + key);
+      }
+      return result;
+    }
+    function assertExpectedSequenceRange(actual, expected) {
+      if (!sameSeconds(actual.inSeconds, expected.inSeconds) || !sameSeconds(actual.outSeconds, expected.outSeconds) ||
+        !sameSeconds(actual.zeroPointSeconds, expected.zeroPointSeconds)) {
+        throw commandError("UXP_STALE_RANGE", "The sequence range changed before the update; inspect the current range and retry");
+      }
+    }
+    function assertValidSequenceRange(range, name) {
+      const inSeconds = boundedSeconds(range.inSeconds, name + ".inSeconds");
+      const outSeconds = boundedSeconds(range.outSeconds, name + ".outSeconds");
+      const endSeconds = boundedSeconds(range.endSeconds, name + ".endSeconds");
+      boundedSeconds(range.zeroPointSeconds, name + ".zeroPointSeconds");
+      if (inSeconds > outSeconds || outSeconds > endSeconds) {
+        throw commandError("UXP_INVALID_ARGUMENT", name + " must satisfy inSeconds <= outSeconds <= endSeconds");
+      }
+    }
+    function sameSequenceRange(actual, expected) {
+      return sameSeconds(actual.inSeconds, expected.inSeconds) && sameSeconds(actual.outSeconds, expected.outSeconds) &&
+        sameSeconds(actual.zeroPointSeconds, expected.zeroPointSeconds);
+    }
+    function sameSeconds(left, right) {
+      return typeof left === "number" && typeof right === "number" && Math.abs(left - right) <= 0.000001;
+    }
+    function tickSecondsRequired(value, name) {
+      if (!value || typeof value.seconds !== "number" || !Number.isFinite(value.seconds) || value.seconds < 0) {
+        throw commandError("UXP_VERIFICATION_FAILED", "Premiere did not return a valid " + name);
+      }
+      return value.seconds;
+    }
+    function boundedSeconds(value, name) {
+      if (typeof value !== "number" || !Number.isFinite(value) || value < 0 || value > 86400) {
+        throw commandError("UXP_INVALID_ARGUMENT", name + " must be a finite number from 0 through 86400");
+      }
+      return value;
     }
     async function activeContext(requireMutationApis) {
       const project = await ppro.Project.getActiveProject();
@@ -597,6 +734,18 @@
     }
     function canSaveProject() { return activeProjectHas("save"); }
     function canCreatePresetSequence() { return activeProjectHas("createSequenceWithPresetPath"); }
+    function canInspectSequenceRange() {
+      return activeSequenceHas(["getInPoint", "getOutPoint", "getZeroPoint", "getEndTime"]);
+    }
+    async function canUpdateSequenceRange() {
+      if (!ppro.TickTime || typeof ppro.TickTime.createWithSeconds !== "function" || !await canInspectSequenceRange()) return false;
+      const project = await ppro.Project.getActiveProject();
+      if (!project) return true;
+      if (typeof project.lockedAccess !== "function" || typeof project.executeTransaction !== "function") return false;
+      const sequence = await project.getActiveSequence();
+      return !sequence || ["createSetInPointAction", "createSetOutPointAction", "createSetZeroPointAction"]
+        .every((method) => typeof sequence[method] === "function");
+    }
     function canExportInterchange() {
       return !!(ppro.ProjectConverter && typeof ppro.ProjectConverter.exportAsOpenTimelineIO === "function" &&
         typeof ppro.ProjectConverter.exportAsFinalCutProXML === "function");

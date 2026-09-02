@@ -80,6 +80,71 @@ export function getUxpTools(bridge: UxpWebSocketBridge) {
         ...(args.operation_id ? { operationId: args.operation_id } : {}),
       }),
     },
+    manage_sequence_range_uxp: {
+      description: "Inspect or update the active sequence's in, out, and zero points through documented Premiere UXP actions. Updates require the complete inspect snapshot, run in one undoable transaction, and return native readback; a runtime capability probe remains authoritative.",
+      parameters: {
+        type: "object" as const,
+        additionalProperties: false,
+        properties: {
+          action: { type: "string", enum: ["inspect", "update"], description: "Read the active range or apply a guarded update." },
+          expected_sequence_guid: { type: "string", minLength: 1, maxLength: 512, description: "Required for update; copy the active sequence GUID returned by inspect." },
+          expected_range: {
+            type: "object",
+            additionalProperties: false,
+            properties: {
+              in_seconds: { type: "number", minimum: 0, maximum: 86400 },
+              out_seconds: { type: "number", minimum: 0, maximum: 86400 },
+              zero_point_seconds: { type: "number", minimum: 0, maximum: 86400 },
+            },
+            required: ["in_seconds", "out_seconds", "zero_point_seconds"],
+            description: "Required for update; complete range returned by inspect. A changed value rejects the request before Premiere actions are created.",
+          },
+          updates: {
+            type: "object",
+            additionalProperties: false,
+            properties: {
+              in_seconds: { type: "number", minimum: 0, maximum: 86400 },
+              out_seconds: { type: "number", minimum: 0, maximum: 86400 },
+              zero_point_seconds: { type: "number", minimum: 0, maximum: 86400 },
+            },
+            description: "For update, provide one or more values. The final in/out range must remain within the sequence end.",
+          },
+          operation_id: operationId,
+        },
+        required: ["action"],
+      },
+      operationalCapability: {
+        backend: "UXP" as const,
+        backends: ["uxp" as const],
+        minimumPremiereVersion: "25.6",
+        verificationBoundary: "structured_uxp_readback" as const,
+        hostVerificationRequired: true,
+        notes: ["Available only through an authenticated UXP bridge whose runtime capability handshake advertises the requested sequence.range command."],
+      },
+      handler: async (args: {
+        action: "inspect" | "update";
+        expected_sequence_guid?: string;
+        expected_range?: { in_seconds: number; out_seconds: number; zero_point_seconds: number };
+        updates?: { in_seconds?: number; out_seconds?: number; zero_point_seconds?: number };
+        operation_id?: string;
+      }) => {
+        if (args.action === "inspect") return invoke(bridge, "sequence.range.inspect");
+        return invoke(bridge, "sequence.range.update", {
+          ...(args.expected_sequence_guid === undefined ? {} : { expectedSequenceGuid: args.expected_sequence_guid }),
+          ...(args.expected_range === undefined ? {} : { expectedRange: {
+            inSeconds: args.expected_range.in_seconds,
+            outSeconds: args.expected_range.out_seconds,
+            zeroPointSeconds: args.expected_range.zero_point_seconds,
+          } }),
+          ...(args.updates === undefined ? {} : { updates: {
+            ...(args.updates.in_seconds === undefined ? {} : { inSeconds: args.updates.in_seconds }),
+            ...(args.updates.out_seconds === undefined ? {} : { outSeconds: args.updates.out_seconds }),
+            ...(args.updates.zero_point_seconds === undefined ? {} : { zeroPointSeconds: args.updates.zero_point_seconds }),
+          } }),
+          ...(args.operation_id ? { operationId: args.operation_id } : {}),
+        });
+      },
+    },
     export_interchange_uxp: {
       description: "Export the active sequence as OpenTimelineIO or Final Cut Pro XML with explicit verification.",
       parameters: {
