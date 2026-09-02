@@ -109,4 +109,11 @@ describe("UXP tool optional argument mappings", () => {
     await tools.list_markers_uxp.handler({ scope: "sequence" });
     expect(request).toHaveBeenCalledWith("marker.list", { scope: "sequence" });
   });
+
+  it("maps an explicit marker web-link read opt-in to the protocol", async () => {
+    const { request, tools } = createTools();
+
+    await tools.list_markers_uxp.handler({ scope: "sequence", include_web_links: true });
+    expect(request).toHaveBeenCalledWith("marker.list", { scope: "sequence", includeWebLinks: true });
+  });
 });

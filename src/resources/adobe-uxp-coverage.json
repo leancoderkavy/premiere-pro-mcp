@@ -435,6 +435,8 @@
       "id": "marker-list-with-guid",
       "adobeApi": [
         "Marker.guid",
+        "Marker.getUrl",
+        "Marker.getTarget",
         "MarkerCollection"
       ],
       "documentationUrls": [

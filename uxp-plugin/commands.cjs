@@ -495,7 +495,7 @@
       if (!collection || typeof collection.getMarkers !== "function") throw commandError("UXP_COMMAND_UNAVAILABLE", "Premiere did not return a marker collection");
       const source = Array.from(await collection.getMarkers(input.filters) || []);
       const markers = [];
-      for (let i = 0; i < source.length; i += 1) markers.push(await markerSnapshot(source[i]));
+      for (let i = 0; i < source.length; i += 1) markers.push(await markerSnapshot(source[i], input.includeWebLinks));
       return {
         scope: input.scope, ownerGuid: input.scope === "sequence" ? stringifyGuid(owner.guid) : null,
         ownerProjectItemId: input.scope === "projectItem" ? await projectItemIdentifier(owner) : null,
@@ -1026,13 +1026,23 @@
       }
       return null;
     }
-    async function markerSnapshot(marker) {
+    async function markerSnapshot(marker, includeWebLinks) {
       const start = await marker.getStart(), duration = await marker.getDuration();
-      return {
+      const snapshot = {
         guid: stringifyGuid(marker.guid), name: String(await marker.getName() || ""),
         comments: String(await marker.getComments() || ""), type: String(await marker.getType() || ""),
         colorIndex: await marker.getColorIndex(), startSeconds: tickSeconds(start), durationSeconds: tickSeconds(duration)
       };
+      if (includeWebLinks) {
+        snapshot.url = await optionalMarkerString(marker, "getUrl");
+        snapshot.target = await optionalMarkerString(marker, "getTarget");
+      }
+      return snapshot;
+    }
+    async function optionalMarkerString(marker, method) {
+      if (!marker || typeof marker[method] !== "function") return null;
+      const value = await marker[method]();
+      return value == null ? "" : String(value);
     }
     function stringifyGuid(value) {
       if (value == null) return "";
@@ -1227,7 +1237,7 @@
     });
   }
   function validateMarkerListArgs(args) {
-    assertObject(args); assertOnlyKeys(args, ["scope", "projectItemId", "projectItemName", "filters"]);
+    assertObject(args); assertOnlyKeys(args, ["scope", "projectItemId", "projectItemName", "filters", "includeWebLinks"]);
     const scope = args.scope == null ? "sequence" : args.scope;
     if (scope !== "sequence" && scope !== "projectItem") throw commandError("UXP_INVALID_ARGUMENT", "scope must be sequence or projectItem");
     if (scope === "sequence" && (args.projectItemId != null || args.projectItemName != null)) {
@@ -1239,7 +1249,7 @@
       if (!Array.isArray(args.filters) || args.filters.length > 16) throw commandError("UXP_INVALID_ARGUMENT", "filters must contain at most 16 marker types");
       filters = args.filters.map((value, index) => boundedString(value, "filters[" + index + "]", 64));
     }
-    return Object.assign({ scope, filters }, target);
+    return Object.assign({ scope, filters, includeWebLinks: optionalBoolean(args.includeWebLinks, false, "includeWebLinks") }, target);
   }
   function validateProjectItemTarget(args) {
     const hasId = args.projectItemId != null, hasName = args.projectItemName != null;
