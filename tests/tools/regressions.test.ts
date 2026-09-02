@@ -465,6 +465,32 @@ describe("issue #37 — sequence frame rate uses ticks per frame", () => {
   });
 });
 
+// https://github.com/leancoderkavy/premiere-pro-mcp/issues/335
+describe("issue #335 — pixel aspect ratio must fail closed on unsupported CEP hosts", () => {
+  const utility = getUtilityTools(bridgeOptions);
+
+  it("checks host support and verifies the readback before reporting success", async () => {
+    const script = await codeFor(utility.set_sequence_pixel_aspect_ratio, { ratio: "1.0" });
+
+    expect(script).toContain("currentRatio = settings.videoPixelAspectRatio");
+    expect(script).toContain('typeof currentRatio === "undefined"');
+    expect(script).toContain("No sequence settings were changed");
+    expect(script).toContain("settings.videoPixelAspectRatio = requestedRatio");
+    expect(script).toContain("observed = seq.getSettings()");
+    expect(script).toContain("observedRatio = String(observed.videoPixelAspectRatio)");
+    expect(script.indexOf('typeof currentRatio === "undefined"'))
+      .toBeLessThan(script.indexOf("settings.videoPixelAspectRatio = requestedRatio"));
+  });
+
+  it("rejects non-string aspect ratios before sending a Premiere command", async () => {
+    mockedSendCommand.mockClear();
+    const result = await utility.set_sequence_pixel_aspect_ratio.handler({ ratio: 1 as never });
+
+    expect(result).toMatchObject({ success: false });
+    expect(mockedSendCommand).not.toHaveBeenCalled();
+  });
+});
+
 // https://github.com/leancoderkavy/premiere-pro-mcp/issues/235
 describe("issue #235 — CEP tool calls use the host's documented argument types", () => {
   const utility = getUtilityTools(bridgeOptions);
@@ -475,7 +501,8 @@ describe("issue #235 — CEP tool calls use the host's documented argument types
     const script = await scriptFor(utility.set_sequence_pixel_aspect_ratio, { ratio: "1.0" });
 
     expect(utility.set_sequence_pixel_aspect_ratio.parameters.properties.ratio).toMatchObject({ type: "string" });
-    expect(script).toContain('settings.videoPixelAspectRatio = "1.0"');
+    expect(script).toContain('var requestedRatio = "1.0"');
+    expect(script).toContain("settings.videoPixelAspectRatio = requestedRatio");
     expect(script).toContain("seq.getSettings()");
     expect(script).toContain("Premiere did not apply the requested sequence pixel aspect ratio");
   });
