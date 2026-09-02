@@ -60,6 +60,7 @@ describe("Adobe Premiere Pro 26.3 UXP coverage", () => {
       "workspace-gated-project-import",
       "typed-parameter-keyframe-automation",
       "native-track-item-identity",
+      "native-tick-time-arithmetic",
       "track-item-transformations",
       "bounded-native-timeline-structure",
       "sequence-editor-timeline-layer",
@@ -307,6 +308,21 @@ describe("Adobe Premiere Pro 26.3 UXP coverage", () => {
       "ClipProjectItem.isMergedClip",
       "ClipProjectItem.isMulticamClip",
       "ClipProjectItem.isOffline",
+    ]));
+    expect(entries.find((entry) => entry.id === "native-tick-time-arithmetic")).toMatchObject({
+      uxpCommand: "time.tickArithmetic.inspect",
+      mcpTools: ["calculate_tick_time_uxp"],
+      verificationBoundary: "native_tick_time_value_readback",
+      liveHostVerificationStatus: "not_run",
+    });
+    expect(entries.find((entry) => entry.id === "native-tick-time-arithmetic")?.adobeApi).toEqual(expect.arrayContaining([
+      "TickTime.createWithTicks",
+      "TickTime.add",
+      "TickTime.subtract",
+      "TickTime.multiply",
+      "TickTime.divide",
+      "TickTime.ticks",
+      "TickTime.seconds",
     ]));
     expect(entries.find((entry) => entry.id === "guarded-empty-sequence-creation")).toMatchObject({
       uxpCommand: "sequences.createEmpty",

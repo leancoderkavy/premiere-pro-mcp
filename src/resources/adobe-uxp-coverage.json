@@ -2371,6 +2371,33 @@
       "undoable": false,
       "idempotency": "not_applicable",
       "verificationBoundary": "bounded_track_item_readback"
+    },
+    {
+      "id": "native-tick-time-arithmetic",
+      "adobeApi": [
+        "TickTime.createWithTicks",
+        "TickTime.add",
+        "TickTime.subtract",
+        "TickTime.multiply",
+        "TickTime.divide",
+        "TickTime.ticks",
+        "TickTime.seconds"
+      ],
+      "documentationUrls": [
+        "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/ticktime/"
+      ],
+      "minimumPremiereVersion": "25.6.0",
+      "backend": "uxp",
+      "uxpCommand": "time.tickArithmetic.inspect",
+      "mcpTools": ["calculate_tick_time_uxp"],
+      "availability": "current",
+      "implementationStatus": "implemented",
+      "verificationStatus": "automated_contract_verified",
+      "liveHostVerificationStatus": "not_run",
+      "mutatesProject": false,
+      "undoable": false,
+      "idempotency": "not_applicable",
+      "verificationBoundary": "native_tick_time_value_readback"
     }
   ]
 }
