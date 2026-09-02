@@ -327,6 +327,7 @@ describe("UXP MCP tools", () => {
           "inspect_video_transition_uxp",
           "add_video_transition_uxp",
           "remove_video_transition_uxp",
+          "inspect_project_panel_metadata_uxp",
           "apply_editorial_organization_plan",
         ]),
       );
@@ -336,9 +337,10 @@ describe("UXP MCP tools", () => {
       // bounded native migration adapters, beat-grid marker application, and
       // guarded sequence-playhead control, native sequence-timing inspection, and
       // guarded sequence-display-format updates and guarded Project-panel
-      // insertion-bin inspection and guarded empty-sequence creation add thirty-two consolidated UXP tools;
+      // insertion-bin inspection, guarded empty-sequence creation, marker web-link
+      // inspection, and Project-panel metadata inspection add thirty-four consolidated UXP tools;
       // connection verification and delivery conformance add two default-profile core tools.
-      expect(tools.tools).toHaveLength(395);
+      expect(tools.tools).toHaveLength(396);
     } finally {
       await client.close();
       await server.close();

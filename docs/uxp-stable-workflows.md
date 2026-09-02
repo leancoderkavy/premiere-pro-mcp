@@ -28,6 +28,7 @@ Premiere build.
 | Proxy and ingest controller | `manage_proxy_ingest_uxp` | `proxy.inspect`, `proxy.attach`, `ingest.get`, `ingest.configure` | Proxy path/attachment readback; ingest state readback after transaction |
 | Offline relink repair | `relink_offline_media_uxp` | `media.relink` | Expected old path, offline default, capability check, then media-path and online-state readback |
 | Transactional metadata | `manage_metadata_uxp` | `metadata.get`, `metadata.update` | Project metadata and XMP are committed together and read back; each payload is size bounded |
+| Project-panel metadata inspection | `inspect_project_panel_metadata_uxp` | `metadata.columns.get`, `metadata.projectPanel.get` | Read one native item-column or active-project panel-metadata string, bounded to 350,000 characters and a 900,000-byte serialized result; no schema or metadata writes are exposed |
 | Color and conformance | `manage_color_conformance_uxp` | `color.preflight`, `footage.conform` | Project graphics-white values, embedded/input LUT IDs, and requested footage fields read back |
 | Source Monitor audition | `audition_source_monitor_uxp` | `sourceMonitor.state`, `sourceMonitor.open`, `sourceMonitor.position.set`, `sourceMonitor.play`, `sourceMonitor.close` | Project-item and position readback where Adobe exposes it; file open/play rely on explicit host returns |
 | Productions and storage | `preflight_production_storage_uxp` | `storage.preflight`, `scratch.configure` | Project/Production scratch snapshots and project action-transaction result |
@@ -164,6 +165,18 @@ Actions are `get` and `update`. Project metadata requires 1-128 exact
 `updated_fields`. Project and XMP strings are each capped at 350,000 characters,
 and their combined serialized UTF-8 readback is capped at 900,000 bytes so the
 complete response remains below the bridge's 1 MiB frame limit.
+
+### `inspect_project_panel_metadata_uxp`
+
+Actions are `panel` and `item_columns`. `panel` returns the active project's
+native Project-panel metadata; `item_columns` uses the established exact
+project-item ID, name, or singleton-selection resolution rules, then returns that
+item's native column metadata. Both strings may be empty but are capped at 350,000
+characters and a 900,000-byte serialized result. This tool is read-only: it does
+not create metadata schema fields or invoke `setProjectPanelMetadata()`, whose
+documented setter has no project-targeted action or transaction boundary that
+could truthfully guard it across an awaited call. The result is a current-host
+read, not an atomic project revision, persistence, or licensed-host proof.
 
 ### `manage_color_conformance_uxp`
 

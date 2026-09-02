@@ -7,7 +7,7 @@ panel through `capabilities.get`; package version, static TypeScript declaration
 and unit tests are insufficient evidence that a particular host supports a command.
 
 The later stable-API expansion is documented separately in the
-[stable UXP workflow matrix](uxp-stable-workflows.md). Its eleven coverage entries
+[stable UXP workflow matrix](uxp-stable-workflows.md). Its thirteen coverage entries
 share this pinned 26.3 declaration baseline and the same pending live-host gate.
 
 ## Source and version policy
@@ -51,6 +51,7 @@ verification column describes the required evidence, not a completed test run.
 | `manage_source_media_timing_uxp` | `source.mediaTiming.inspect`, `source.mediaTiming.setStart` | `ClipProjectItem.getMedia()`, stable `Media.start`/`duration`, `Media.createSetStartAction()`, `TickTime`, and Project transaction primitives | One undoable source-media start-time mutation | Supported when the resolved clip's media surface, TickTime factory, and transaction primitives probe true | Require the exact project-item ID and a complete start/duration snapshot, serialize competing updates for that clip, reject a changed synchronous timing snapshot under the action lock, then read back the requested start and unchanged duration. Contract coverage is not licensed-host, timecode-display, persistence, or Undo proof. |
 | `create_empty_sequence_uxp` | `sequences.createEmpty` | `Project.createSequence()`, `Project.getSequences()`, and sequence identity accessors | Direct project mutation; no Undo or transaction claim | Supported when the active project exposes documented empty-sequence creation | Require explicit confirmation and an operation ID, serialize the complete project-sequence capacity snapshot through creation and post-call collection readback, and verify the returned identity. Contract coverage is not licensed-host proof. |
 | `inspect_project_tree_uxp` | `projectTree.inspect` | `Project.getRootItem()`, `FolderItem.getItems()`, and project-item identity accessors | Read-only bounded Project-panel tree snapshot | Supported when the active project exposes a readable root folder and runtime folder casts | Return only stable IDs, names, types, parent IDs, bin state, and optional color-label indexes, capped at 512 items and depth 16. It omits media paths, metadata, and content; depth or item truncation is explicit, and this is not licensed-host proof. |
+| `inspect_project_panel_metadata_uxp` | `metadata.columns.get`, `metadata.projectPanel.get` | `Metadata.getProjectColumnsMetadata()` and `Metadata.getProjectPanelMetadata()` | Read-only bounded Project-panel metadata snapshot | Supported when the exact documented accessor probes true; item columns additionally resolve one media item | Return one native metadata string capped at 350,000 characters and 900,000 serialized UTF-8 bytes. It intentionally offers no schema-creation or `setProjectPanelMetadata()` route because the documented setter has no project-targeted action/transaction boundary. This is not an atomic project snapshot or licensed-host proof. |
 | `has_transcript_uxp` | `transcript.has` | `Transcript.hasTranscript()` | Read-only | Native 26.3 support is used when it probes true; the existing 25.6 transcript-export compatibility probe is labeled as a fallback | Return Adobe's native boolean when available; never infer transcript presence from names or transcript text. |
 | `export_aaf_uxp` | `interchange.aaf.export` | `ProjectConverter.exportAAF()` and `AAFExportOptions` | Export side effect; no project undo claim | Supported when converter and option APIs probe true | Record Premiere's boolean result and, in a live host, confirm the intended AAF artifact exists and is usable. |
 
@@ -147,6 +148,15 @@ bounded `operation_id` replay key where applicable.
   `itemLimitReached` and `depthLimitApplied` explicitly mark a partial traversal.
   This is a read-only structural snapshot, not an atomic project revision,
   media-path/metadata inventory, playback proof, or licensed-host validation.
+- `inspect_project_panel_metadata_uxp`: action `panel` reads the active project's
+  native Project-panel metadata and `item_columns` resolves one media item using
+  the existing ID/name/selection rules before reading its native column metadata.
+  Each returned string may be empty but is capped at 350,000 characters and the
+  complete serialized result at 900,000 UTF-8 bytes. No schema or metadata setter
+  is exposed: `Metadata.setProjectPanelMetadata()` lacks a project-targeted
+  action/transaction boundary, so an awaited write cannot truthfully be guarded
+  against an active-project switch. This read is not a locked project revision,
+  metadata-schema validation, persistence proof, or licensed-host validation.
 - `has_transcript_uxp`: accepts at most one resolved `project_item_id` or
   `project_item_name`; omitting both requires exactly one Project-panel selection.
 - `export_aaf_uxp`: `output_file_path` is non-empty and at most 4096 characters.

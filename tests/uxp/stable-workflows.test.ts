@@ -251,6 +251,20 @@ describe("stable Premiere UXP workflow expansion", () => {
     expect(capabilities.workspace).toMatchObject({ configured: true, pathDisclosure: "redacted" });
   });
 
+  it("probes Project-panel metadata accessors independently", async () => {
+    const missingPanelMetadata = stableHost();
+    Reflect.deleteProperty(missingPanelMetadata.ppro.Metadata, "getProjectPanelMetadata");
+    const withoutPanelMetadata = await missingPanelMetadata.registry.capabilities();
+    expect(withoutPanelMetadata.commands["metadata.columns.get"]).toMatchObject({ supported: true });
+    expect(withoutPanelMetadata.commands["metadata.projectPanel.get"]).toMatchObject({ supported: false });
+
+    const missingColumnsMetadata = stableHost();
+    Reflect.deleteProperty(missingColumnsMetadata.ppro.Metadata, "getProjectColumnsMetadata");
+    const withoutColumnsMetadata = await missingColumnsMetadata.registry.capabilities();
+    expect(withoutColumnsMetadata.commands["metadata.columns.get"]).toMatchObject({ supported: false });
+    expect(withoutColumnsMetadata.commands["metadata.projectPanel.get"]).toMatchObject({ supported: true });
+  });
+
   it("probes Source Monitor state, play, and close commands independently", async () => {
     const missingPlay = stableHost();
     Reflect.deleteProperty(missingPlay.ppro.SourceMonitor, "play");

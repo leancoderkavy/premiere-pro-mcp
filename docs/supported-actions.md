@@ -13,8 +13,8 @@ source catalog may include unreleased actions.
 | Registered core actions | 328 | CEP/local server catalog; host and authority checks still apply |
 | Default-profile core actions | 326 | Advertised with `inspect,edit,export,filesystem` |
 | Restricted core actions | 2 | Require explicit `unsafe-script` authority |
-| Authenticated UXP additions | 69 | Advertised only while a compatible authenticated UXP panel is connected |
-| Default profile with UXP | 395 | 326 core plus 69 UXP tools |
+| Authenticated UXP additions | 70 | Advertised only while a compatible authenticated UXP panel is connected |
+| Default profile with UXP | 396 | 326 core plus 70 UXP tools |
 
 ## How to read support
 
@@ -401,6 +401,7 @@ authenticated and the connected host advertises the required command capabilitie
 | `inspect_premiere_environment_uxp` | Connected UXP | Single operation | Inspect After Effects interoperability and the active Premiere project's current and supported graphics-white luminance values through documented read-only UXP APIs. |
 | `inspect_premiere_events_uxp` | Connected UXP | `list`, `wait` | List or briefly wait for bounded, redacted Premiere host-event receipts without polling the complete project state. |
 | `inspect_project_insertion_bin_uxp` | Connected UXP | Single operation | Read the current Project-panel insertion bin through documented Premiere UXP APIs. Returns only the active-project GUID and insertion-bin ID, name, and type; it does not traverse project folders, reveal media paths, or change Premiere. The panel target is read twice and the command rejects a project or target change while snapshotting. |
+| `inspect_project_panel_metadata_uxp` | Connected UXP | `panel`, `item_columns` | Read bounded native Project-panel metadata: either the active project's panel schema or one media item's column metadata. This is read-only; it neither creates metadata schema fields nor writes Project-panel state. |
 | `inspect_project_selection_uxp` | Connected UXP | `views`, `selection` | List Premiere Project-panel views or inspect up to 256 selected project items without traversing the complete project tree. |
 | `inspect_project_tree_uxp` | Connected UXP | Single operation | Read a bounded, depth-limited native Project-panel tree rooted at the active project. Returns stable IDs, names, types, parent IDs, bin state, and optional color-label indexes only; it never returns media paths, metadata, or rendered media. |
 | `inspect_project_uxp` | Connected UXP | Single operation | Read a compact, revisioned project and sequence snapshot through documented Premiere UXP APIs. |
