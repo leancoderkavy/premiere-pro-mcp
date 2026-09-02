@@ -895,6 +895,11 @@ describe("advanced stable Premiere UXP workflows", () => {
     })).rejects.toMatchObject({ code: "UXP_STALE_POINT_PARAMETER" });
     expect(value.project.executeTransaction).not.toHaveBeenCalled();
 
+    await expect(value.registry.dispatch("parameters.point.set", {
+      ...target, expectedSnapshot, point: { x: 1100, y: 600 }, confirmSetPoint: true,
+    })).rejects.toMatchObject({ code: "UXP_INVALID_ARGUMENT" });
+    expect(value.project.executeTransaction).not.toHaveBeenCalled();
+
     const animated = advancedHost();
     animated.parameterState.value = { x: 960, y: 540 };
     animated.parameterState.varying = true;

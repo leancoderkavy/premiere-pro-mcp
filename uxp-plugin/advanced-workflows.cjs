@@ -1018,6 +1018,9 @@
       if (args.confirmSetPoint !== true) {
         throw commandError("UXP_CONFIRMATION_REQUIRED", "Setting a PointF parameter requires confirmSetPoint=true after review");
       }
+      if (typeof args.operationId !== "string" || !/^[A-Za-z0-9._:-]{1,128}$/.test(args.operationId)) {
+        throw commandError("UXP_INVALID_ARGUMENT", "operationId is required and must be 1-128 safe characters");
+      }
       return {
         ...args,
         expectedSnapshot: expectedPointParameterSnapshot(args.expectedSnapshot),
