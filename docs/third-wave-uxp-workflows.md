@@ -197,6 +197,24 @@ a licensed host. Real-host validation must exercise one-field and all-field
 updates, stale snapshots, a range at the sequence end, and Undo on Windows and
 macOS.
 
+## PR 12 — Guarded sequence playhead control
+
+`manage_sequence_playhead_uxp` reads or sets the active sequence player position
+through documented `Sequence.getPlayerPosition()` and `Sequence.setPlayerPosition()`
+APIs. A set requires the exact active sequence GUID and player position returned by
+an earlier inspection. TickTime construction occurs before the per-sequence guard;
+inside that guard the panel re-reads both values, rejects stale state, invokes the
+native setter, and then requires boolean acceptance plus microsecond-tolerant
+position readback.
+
+Requests with different operation IDs serialize per sequence, while the existing
+operation-ID replay window coalesces retries of the same completed request. This
+controls player/UI state only: it deliberately does not claim a project save,
+timeline edit, Undo entry, visible timecode accuracy, or playback behavior. The
+automated contract tests cover validation, stale preflight, concurrent setters,
+replay, rejected setters, and failed readback. A licensed Premiere host must still
+validate the behavior on Windows and macOS before it is described as host-verified.
+
 ## Primary Adobe references
 
 - [EventManager](https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/eventmanager/)

@@ -163,6 +163,44 @@ export function getUxpTools(bridge: UxpWebSocketBridge) {
         });
       },
     },
+    manage_sequence_playhead_uxp: {
+      description: "Inspect or set the active sequence player position through documented Premiere UXP APIs. Setting requires the sequence GUID and current position returned by inspect, serializes competing requests for that sequence, and verifies native readback; it changes player state only and makes no project-save or Undo claim.",
+      parameters: {
+        type: "object" as const,
+        additionalProperties: false,
+        properties: {
+          action: { type: "string", enum: ["inspect", "set"], description: "Read the active player position or set it with a guarded request." },
+          expected_sequence_guid: { type: "string", minLength: 1, maxLength: 512, description: "Required for set; copy the active sequence GUID returned by inspect." },
+          expected_position_seconds: { type: "number", minimum: 0, maximum: 86400, description: "Required for set; current player position returned by inspect. A changed value rejects the request before Premiere is called." },
+          position_seconds: { type: "number", minimum: 0, maximum: 86400, description: "Required for set; requested player position in seconds." },
+          operation_id: operationId,
+        },
+        required: ["action"],
+      },
+      operationalCapability: {
+        backend: "UXP" as const,
+        backends: ["uxp" as const],
+        minimumPremiereVersion: "25.6",
+        verificationBoundary: "structured_uxp_readback" as const,
+        hostVerificationRequired: true,
+        notes: ["Available only through an authenticated UXP bridge whose runtime capability handshake advertises the requested sequence.playhead command."],
+      },
+      handler: async (args: {
+        action: "inspect" | "set";
+        expected_sequence_guid?: string;
+        expected_position_seconds?: number;
+        position_seconds?: number;
+        operation_id?: string;
+      }) => {
+        if (args.action === "inspect") return invoke(bridge, "sequence.playhead.inspect");
+        return invoke(bridge, "sequence.playhead.set", {
+          ...(args.expected_sequence_guid === undefined ? {} : { expectedSequenceGuid: args.expected_sequence_guid }),
+          ...(args.expected_position_seconds === undefined ? {} : { expectedPositionSeconds: args.expected_position_seconds }),
+          ...(args.position_seconds === undefined ? {} : { positionSeconds: args.position_seconds }),
+          ...(args.operation_id ? { operationId: args.operation_id } : {}),
+        });
+      },
+    },
     export_interchange_uxp: {
       description: "Export the active sequence as OpenTimelineIO or Final Cut Pro XML with explicit verification.",
       parameters: {

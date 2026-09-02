@@ -11,6 +11,7 @@
     const inFlightOperations = new Map();
     const sequenceRangeUpdateTails = new Map();
     const transitionUpdateTails = new Map();
+    const sequencePlayheadSetTails = new Map();
     const listedVideoTransitionMatchNames = new Set();
     const definitions = {
       "capabilities.get": { readOnly: true, handler: capabilities },
@@ -20,6 +21,8 @@
       "sequence.createPreset": { destructive: true, undoable: false, requiresWorkspace: true, minHostVersion: "26.3.0", probe: canCreatePresetSequence, handler: createPresetSequence },
       "sequence.range.inspect": { readOnly: true, minHostVersion: "25.6.0", probe: canInspectSequenceRange, handler: inspectSequenceRange },
       "sequence.range.update": { destructive: true, undoable: true, idempotent: true, minHostVersion: "25.6.0", probe: canUpdateSequenceRange, handler: updateSequenceRange },
+      "sequence.playhead.inspect": { readOnly: true, minHostVersion: "25.6.0", probe: canInspectSequencePlayhead, handler: inspectSequencePlayhead },
+      "sequence.playhead.set": { idempotent: true, minHostVersion: "25.6.0", probe: canSetSequencePlayhead, handler: setSequencePlayhead },
       "interchange.export": { requiresWorkspace: true, minHostVersion: "26.2.0", probe: canExportInterchange, handler: exportInterchange },
       "interchange.aaf.export": { destructive: true, undoable: false, idempotent: true, requiresWorkspace: true, minHostVersion: "26.3.0", probe: canExportAaf, handler: exportAaf },
       "track.rename": { destructive: true, undoable: true, idempotent: true, minHostVersion: "26.3.0", probe: canRenameTracks, handler: renameTrack },
@@ -262,6 +265,65 @@
         if (sequenceRangeUpdateTails.get(sequenceGuid) === tail) sequenceRangeUpdateTails.delete(sequenceGuid);
       });
     }
+    async function inspectSequencePlayhead(args) {
+      assertOnlyKeys(args, []);
+      const context = await activeContext(false);
+      return {
+        ...await sequencePlayheadSnapshot(context.sequence),
+        verificationBoundary: "sequence_playhead_readback"
+      };
+    }
+    async function setSequencePlayhead(args) {
+      const input = validateSequencePlayheadSetArgs(args);
+      // TickTime construction can cross the host boundary. Construct it before
+      // the per-sequence exclusion scope so the guarded snapshot is the final
+      // asynchronous preflight step before the host setter is invoked.
+      const position = await tickTime(input.positionSeconds, "positionSeconds");
+      return withSequencePlayheadSetLock(input.expectedSequenceGuid, async () => {
+        const context = await activeContext(false);
+        const before = await sequencePlayheadSnapshot(context.sequence);
+        if (before.sequenceGuid !== input.expectedSequenceGuid) {
+          throw commandError("UXP_STALE_SEQUENCE", "The active sequence changed before the player position was set; inspect the current playhead and retry");
+        }
+        if (!sameSeconds(before.positionSeconds, input.expectedPositionSeconds)) {
+          throw commandError("UXP_STALE_PLAYHEAD", "The sequence player position changed before it was set; inspect the current playhead and retry");
+        }
+        const accepted = await context.sequence.setPlayerPosition(position);
+        if (accepted !== true) throw commandError("UXP_VERIFICATION_FAILED", "Premiere did not confirm the sequence player position");
+        // Re-resolve the active sequence for postcondition readback: a user can
+        // switch sequences while Premiere awaits the host setter.
+        const after = await sequencePlayheadSnapshot((await activeContext(false)).sequence);
+        if (after.sequenceGuid !== before.sequenceGuid || !sameSeconds(after.positionSeconds, input.positionSeconds)) {
+          throw commandError("UXP_VERIFICATION_FAILED", "Premiere did not retain the requested sequence player position");
+        }
+        return {
+          positioned: true,
+          outcome: "verified",
+          sequenceGuid: after.sequenceGuid,
+          positionSeconds: after.positionSeconds,
+          verified: "sequence_playhead_readback",
+          operation: operationSemantics({
+            mutatesProject: false,
+            verificationStatus: "verified",
+            verificationBoundary: "sequence_playhead_readback",
+            verificationEvidence: [{ type: "sequence_playhead", sequenceGuid: after.sequenceGuid, positionSeconds: after.positionSeconds }],
+            undoSupported: false,
+            cancellationSupported: false
+          })
+        };
+      });
+    }
+    function withSequencePlayheadSetLock(sequenceGuid, operation) {
+      const previous = sequencePlayheadSetTails.get(sequenceGuid) || Promise.resolve();
+      let release;
+      const gate = new Promise((resolve) => { release = resolve; });
+      const tail = previous.catch(() => undefined).then(() => gate);
+      sequencePlayheadSetTails.set(sequenceGuid, tail);
+      return previous.catch(() => undefined).then(operation).finally(() => {
+        release();
+        if (sequencePlayheadSetTails.get(sequenceGuid) === tail) sequencePlayheadSetTails.delete(sequenceGuid);
+      });
+    }
     async function exportInterchange(args) {
       assertOnlyKeys(args, ["format", "outputFilePath", "suppressUI", "operationId"]);
       const format = requiredString(args.format, "format"), outputFilePath = await allowedPath(args.outputFilePath, "outputFilePath", "file");
@@ -437,6 +499,14 @@
       assertValidSequenceRange(range, "Premiere sequence range");
       return { sequenceGuid, range };
     }
+    async function sequencePlayheadSnapshot(sequence) {
+      const sequenceGuid = String(sequence && sequence.guid || "");
+      if (!sequenceGuid) throw commandError("UXP_VERIFICATION_FAILED", "Premiere did not provide a stable active-sequence GUID");
+      return {
+        sequenceGuid,
+        positionSeconds: tickSecondsRequired(await sequence.getPlayerPosition(), "sequence player position")
+      };
+    }
     function validateSequenceRangeUpdateArgs(args) {
       assertObject(args);
       assertOnlyKeys(args, ["expectedSequenceGuid", "expectedRange", "updates", "operationId"]);
@@ -449,6 +519,18 @@
         throw commandError("UXP_INVALID_ARGUMENT", "updates must include at least one sequence range field");
       }
       return { expectedSequenceGuid: args.expectedSequenceGuid, expectedRange, updates };
+    }
+    function validateSequencePlayheadSetArgs(args) {
+      assertObject(args);
+      assertOnlyKeys(args, ["expectedSequenceGuid", "expectedPositionSeconds", "positionSeconds", "operationId"]);
+      if (typeof args.expectedSequenceGuid !== "string" || !args.expectedSequenceGuid || args.expectedSequenceGuid.length > 512) {
+        throw commandError("UXP_INVALID_ARGUMENT", "expectedSequenceGuid is required and must be at most 512 characters");
+      }
+      return {
+        expectedSequenceGuid: args.expectedSequenceGuid,
+        expectedPositionSeconds: boundedSeconds(args.expectedPositionSeconds, "expectedPositionSeconds"),
+        positionSeconds: boundedSeconds(args.positionSeconds, "positionSeconds")
+      };
     }
     function validateExpectedSequenceRange(value, name) {
       assertObject(value);
@@ -855,6 +937,13 @@
     function canCreatePresetSequence() { return activeProjectHas("createSequenceWithPresetPath"); }
     function canInspectSequenceRange() {
       return activeSequenceHas(["getInPoint", "getOutPoint", "getZeroPoint", "getEndTime"]);
+    }
+    function canInspectSequencePlayhead() {
+      return activeSequenceHas(["getPlayerPosition"]);
+    }
+    async function canSetSequencePlayhead() {
+      return !!(ppro.TickTime && typeof ppro.TickTime.createWithSeconds === "function" &&
+        await canInspectSequencePlayhead() && await activeSequenceHas(["setPlayerPosition"]));
     }
     async function canUpdateSequenceRange() {
       if (!ppro.TickTime || typeof ppro.TickTime.createWithSeconds !== "function" || !await canInspectSequenceRange()) return false;

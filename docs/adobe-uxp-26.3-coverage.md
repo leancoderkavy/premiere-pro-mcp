@@ -45,6 +45,7 @@ verification column describes the required evidence, not a completed test run.
 | `list_markers_uxp` | `marker.list` | `Marker.guid` plus marker accessors | Read-only | Supported when sequence or clip marker APIs probe true | Return marker values and the stable 26.3 `guid`; no project mutation. |
 | `set_source_monitor_position_uxp` | `sourceMonitor.position.set` | `SourceMonitor.setPosition()` | Source Monitor state mutation; no edit-history claim | Supported when `setPosition` and position read-back APIs probe true | Read `SourceMonitor.getPosition()` after setting the requested `TickTime`. |
 | `manage_sequence_range_uxp` | `sequence.range.inspect`, `sequence.range.update` | `Sequence` range accessors plus `createSetInPointAction()`, `createSetOutPointAction()`, and `createSetZeroPointAction()` | Undoable sequence-range mutation | Supported when every accessor, action, `TickTime`, and transaction primitive probes true | Read the complete range after one transaction and require it to match the guarded request; live host must also validate Undo. |
+| `manage_sequence_playhead_uxp` | `sequence.playhead.inspect`, `sequence.playhead.set` | `Sequence.getPlayerPosition()` and `Sequence.setPlayerPosition()` | Sequence player-state mutation; no project-save or Undo claim | Supported when the active sequence, `TickTime`, getter, and setter probe true | Require the inspected sequence GUID and exact current position, serialize competing setters, then read the player position back. |
 | `has_transcript_uxp` | `transcript.has` | `Transcript.hasTranscript()` | Read-only | Native 26.3 support is used when it probes true; the existing 25.6 transcript-export compatibility probe is labeled as a fallback | Return Adobe's native boolean when available; never infer transcript presence from names or transcript text. |
 | `export_aaf_uxp` | `interchange.aaf.export` | `ProjectConverter.exportAAF()` and `AAFExportOptions` | Export side effect; no project undo claim | Supported when converter and option APIs probe true | Record Premiere's boolean result and, in a live host, confirm the intended AAF artifact exists and is usable. |
 
@@ -82,6 +83,13 @@ bounded `operation_id` replay key where applicable.
   Stale snapshots, unknown fields, and a final range outside `0 <= in <= out <= end`
   are rejected before any Premiere action is created. Zero point is independently
   bounded but is not conflated with the sequence in/out export range.
+- `manage_sequence_playhead_uxp`: `inspect` returns the active sequence GUID and
+  current player position. `set` requires both exact values plus a requested
+  position, each finite and within 0 through 86400 seconds. A changed sequence or
+  position outside a one-microsecond tolerance rejects before the setter is called;
+  accepted requests require boolean host confirmation and player-position readback
+  within that same tolerance. It controls UI player
+  state only, so it does not claim a project save or Undo entry.
 - `has_transcript_uxp`: accepts at most one resolved `project_item_id` or
   `project_item_name`; omitting both requires exactly one Project-panel selection.
 - `export_aaf_uxp`: `output_file_path` is non-empty and at most 4096 characters.
@@ -124,6 +132,9 @@ Automated tests may prove these properties:
 - sequence-range updates require the complete read snapshot, place all requested
   actions in one transaction, and reject a changed sequence or range before action
   construction;
+- sequence-playhead requests reject stale sequence or position snapshots, serialize
+  concurrent setters per sequence, and require boolean acceptance plus position
+  readback;
 - action commands preserve lock/transaction boundaries and operation replay
   behavior in a contract host; and
 - AAF options are bounded before a call reaches the host adapter.

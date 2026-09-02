@@ -13,8 +13,8 @@
   },
   "stats": {
     "total": 976,
-    "mapped": 203,
-    "unmapped": 773,
+    "mapped": 205,
+    "unmapped": 771,
     "manifestOnly": 5
   },
   "manifestOnly": [
@@ -3552,7 +3552,7 @@
     {
       "symbol": "Sequence.getPlayerPosition",
       "kind": "method",
-      "coverage": "unmapped"
+      "coverage": "mapped"
     },
     {
       "symbol": "Sequence.getProjectItem",
@@ -3617,7 +3617,7 @@
     {
       "symbol": "Sequence.setPlayerPosition",
       "kind": "method",
-      "coverage": "unmapped"
+      "coverage": "mapped"
     },
     {
       "symbol": "Sequence.setSelection",

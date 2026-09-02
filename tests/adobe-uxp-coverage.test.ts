@@ -22,6 +22,7 @@ describe("Adobe Premiere Pro 26.3 UXP coverage", () => {
       "action-transaction-discipline",
       "project-sequence-create-preset",
       "transactional-sequence-range",
+      "guarded-sequence-playhead-control",
       "native-caption-track-inventory",
       "track-rename",
       "subclip-create",
@@ -95,12 +96,12 @@ describe("Adobe Premiere Pro 26.3 UXP coverage", () => {
   it("keeps unimplemented 26.3 work visibly planned", () => {
     const report = buildAdobeUxpCoverageReport();
     expect(report.summary).toEqual({
-      total: 52,
-      current: 49,
+      total: 53,
+      current: 50,
       planned: 3,
-      implemented: 49,
+      implemented: 50,
       committedUnverified: 8,
-      automatedContractVerified: 41,
+      automatedContractVerified: 42,
       liveHostVerified: 0,
     });
     expect(report.entries.find((entry) => entry.id === "aaf-export")).toMatchObject({
@@ -123,7 +124,7 @@ describe("Adobe Premiere Pro 26.3 UXP coverage", () => {
   it("surfaces the baseline in the platform capability report", () => {
     const report = buildPlatformCapabilityReport(resolveCapabilities("inspect"), "win32");
     expect(report.backends.uxp.apiCoverage.summary).toMatchObject({
-      current: 49,
+      current: 50,
       planned: 3,
       committedUnverified: 8,
     });
