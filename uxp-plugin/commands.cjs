@@ -71,6 +71,11 @@
         ppro, Protocol, workspace, events: deps.events
       }));
     }
+    let slipWorkflowApi = deps.SlipWorkflows || (typeof globalThis !== "undefined" && globalThis.PremiereMcpSlipWorkflows);
+    if (!slipWorkflowApi && typeof require === "function") slipWorkflowApi = require("./slip-workflows.cjs");
+    if (slipWorkflowApi && typeof slipWorkflowApi.createSlipWorkflowDefinitions === "function") {
+      Object.assign(definitions, slipWorkflowApi.createSlipWorkflowDefinitions({ ppro }));
+    }
     let nextWorkflowApi = deps.NextWorkflows || (typeof globalThis !== "undefined" && globalThis.PremiereMcpNextWorkflows);
     if (!nextWorkflowApi && typeof require === "function") nextWorkflowApi = require("./next-workflows.cjs");
     let nextWorkflowRuntime = null;
