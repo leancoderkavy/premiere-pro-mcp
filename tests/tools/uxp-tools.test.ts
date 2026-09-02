@@ -463,9 +463,9 @@ describe("UXP MCP tools", () => {
       // source-label updates, opt-in installed-MOGRT directory inspection, and
       // bounded Object Mask audits, native TickTime arithmetic, and guarded
       // explicit-sequence preview-frame updates plus unique serializable identity
-      // inspection add forty-nine consolidated UXP tools;
+      // inspection add fifty consolidated UXP tools;
       // connection verification and delivery conformance add two default-profile core tools.
-        expect(tools.tools).toHaveLength(416);
+        expect(tools.tools).toHaveLength(417);
     } finally {
       await client.close();
       await server.close();

@@ -22,6 +22,7 @@ const ADOBE_26_3_TOOLS = [
   "calculate_tick_time_uxp",
   "manage_sequence_preview_frame_uxp",
   "inspect_source_media_provenance_uxp",
+  "inspect_source_proxy_uxp",
   "manage_source_media_overrides_uxp",
   "inspect_track_item_identity_uxp",
   "slide_track_item_uxp",
@@ -56,7 +57,7 @@ describe("Adobe Premiere 26.3 UXP public MCP catalog", () => {
       expect(listed.tools.map((tool) => tool.name)).toEqual(
         expect.arrayContaining(ADOBE_26_3_TOOLS),
       );
-      expect(listed.tools).toHaveLength(416);
+      expect(listed.tools).toHaveLength(417);
     } finally {
       await client.close();
       await server.close();
@@ -143,6 +144,13 @@ describe("Adobe Premiere 26.3 UXP public MCP catalog", () => {
         project_item_id: { type: "string", minLength: 1, maxLength: 512 },
         include_media_file_path: { type: "boolean" },
         include_originating_project_path: { type: "boolean" },
+      },
+    });
+    expect(tools.inspect_source_proxy_uxp.parameters).toMatchObject({
+      type: "object", additionalProperties: false, required: ["project_item_id"],
+      properties: {
+        project_item_id: { type: "string", minLength: 1, maxLength: 512 },
+        include_proxy_path: { type: "boolean" },
       },
     });
     expect(tools.create_empty_sequence_uxp.parameters).toMatchObject({
@@ -255,6 +263,7 @@ describe("Adobe Premiere 26.3 UXP public MCP catalog", () => {
     await tools.inspect_source_media_provenance_uxp.handler({
       project_item_id: "clip-17", include_media_file_path: true, include_originating_project_path: false,
     });
+    await tools.inspect_source_proxy_uxp.handler({ project_item_id: "clip-17", include_proxy_path: true });
     await tools.create_empty_sequence_uxp.handler({
       name: "Empty Assembly", confirm_non_undoable: true, operation_id: "empty-1",
     });
@@ -302,17 +311,20 @@ describe("Adobe Premiere 26.3 UXP public MCP catalog", () => {
     expect(request).toHaveBeenNthCalledWith(8, "source.provenance.inspect", {
       projectItemId: "clip-17", includeMediaFilePath: true, includeOriginatingProjectPath: false,
     });
-    expect(request).toHaveBeenNthCalledWith(9, "sequences.createEmpty", {
+    expect(request).toHaveBeenNthCalledWith(9, "source.proxy.inspect", {
+      projectItemId: "clip-17", includeProxyPath: true,
+    });
+    expect(request).toHaveBeenNthCalledWith(10, "sequences.createEmpty", {
       name: "Empty Assembly", confirmNonUndoable: true, operationId: "empty-1",
     });
-    expect(request).toHaveBeenNthCalledWith(10, "objectMask.audit", {
+    expect(request).toHaveBeenNthCalledWith(11, "objectMask.audit", {
       expectedProjectGuid: "project-1", sequenceIds: ["sequence-2", "sequence-1"],
     });
-    expect(request).toHaveBeenNthCalledWith(11, "trackItem.identity.inspect", {
+    expect(request).toHaveBeenNthCalledWith(12, "trackItem.identity.inspect", {
       mediaType: "video", trackIndex: 1, clipIndex: 2, expectedSequenceGuid: "sequence-1",
     });
-    expect(request).toHaveBeenNthCalledWith(12, "transcript.has", { projectItemName: "Interview A" });
-    expect(request).toHaveBeenNthCalledWith(13, "interchange.aaf.export", {
+    expect(request).toHaveBeenNthCalledWith(13, "transcript.has", { projectItemName: "Interview A" });
+    expect(request).toHaveBeenNthCalledWith(14, "interchange.aaf.export", {
       outputFilePath: "/exports/turnover.aaf",
       options: {
         mixdownVideo: true, explodeToMono: true, embedAudio: false, trimSources: true,
