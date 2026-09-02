@@ -135,7 +135,7 @@ export function getUxpAdvancedWorkflowTools(bridge: UxpWebSocketBridge) {
     },
 
     manage_markers_uxp: {
-      description: "Inspect, add, update/move, remove, or explicitly review-then-remove a bounded marker batch by stable GUID using documented, undoable Premiere actions.",
+      description: "Inspect, add, update/move, remove, or explicitly review-then-remove a bounded marker batch by stable GUID using documented, undoable Premiere actions; mutations for one marker owner are serialized through preflight and readback.",
       parameters: {
         type: "object" as const,
         additionalProperties: false,

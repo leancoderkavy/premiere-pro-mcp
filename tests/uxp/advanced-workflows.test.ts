@@ -414,6 +414,53 @@ describe("advanced stable Premiere UXP workflows", () => {
     });
   });
 
+  it("serializes marker update and batch deletion by owner so changed snapshots fail stale without deletion", async () => {
+    const value = advancedHost();
+    const marker = value.markerValues[0];
+    let releaseUpdate = () => undefined;
+    let enteredUpdate = () => undefined;
+    const updateGate = new Promise<void>((resolve) => { releaseUpdate = resolve; });
+    const updateEntered = new Promise<void>((resolve) => { enteredUpdate = resolve; });
+    let enteredRemovalContext = () => undefined;
+    const removalContextEntered = new Promise<void>((resolve) => { enteredRemovalContext = resolve; });
+    let markerCollectionRequests = 0;
+    value.ppro.Markers.getMarkers.mockImplementation(async () => {
+      markerCollectionRequests += 1;
+      if (markerCollectionRequests === 2) enteredRemovalContext();
+      return value.markers;
+    });
+    let pauseFirstNameRead = true;
+    marker.getName.mockImplementation(async () => {
+      if (pauseFirstNameRead) {
+        pauseFirstNameRead = false;
+        enteredUpdate();
+        await updateGate;
+      }
+      return marker.state.name;
+    });
+
+    const update = value.registry.dispatch("markers.update", {
+      markerGuid: "marker-1", expectedName: "Beat", name: "Renamed", operationId: "marker-update-concurrent",
+    });
+    await updateEntered;
+    const removal = value.registry.dispatch("markers.removeMany", {
+      confirmDestructive: true,
+      markerSnapshots: [{ markerGuid: "marker-1", expectedName: "Beat", expectedStartSeconds: 1, expectedDurationSeconds: 0 }],
+      operationId: "marker-remove-concurrent",
+    });
+    await removalContextEntered;
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(marker.getName).toHaveBeenCalledTimes(1);
+    releaseUpdate();
+
+    await expect(update).resolves.toMatchObject({ updated: true, outcome: "verified", marker: { name: "Renamed" } });
+    await expect(removal).rejects.toMatchObject({ code: "UXP_STALE_MARKER" });
+    expect(value.markers.createRemoveMarkerAction).not.toHaveBeenCalled();
+    expect(value.markerValues).toHaveLength(1);
+    expect(value.markerValues[0].state.name).toBe("Renamed");
+  });
+
   it("creates a single-source silence-cut stringout without mutating an existing sequence", async () => {
     const value = advancedHost();
     await expect(value.registry.dispatch("silence.deriveSequence", {
