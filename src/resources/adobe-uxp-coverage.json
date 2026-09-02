@@ -63,10 +63,8 @@
         "CaptionTrack.id",
         "CaptionTrack.name",
         "CaptionTrack.getIndex",
-        "CaptionTrack.id",
         "CaptionTrack.isMuted",
-        "CaptionTrack.getTrackItems",
-        "CaptionTrack.name"
+        "CaptionTrack.getTrackItems"
       ],
       "documentationUrls": [
         "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/sequence/",

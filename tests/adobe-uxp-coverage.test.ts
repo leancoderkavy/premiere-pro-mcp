@@ -62,6 +62,7 @@ describe("Adobe Premiere Pro 26.3 UXP coverage", () => {
       expect(entry.minimumPremiereVersion).toMatch(/^\d+\.\d+\.\d+$/);
       expect(entry.backend).toBe("uxp");
       expect(entry.adobeApi.length).toBeGreaterThan(0);
+      expect(new Set(entry.adobeApi).size).toBe(entry.adobeApi.length);
       expect(entry.mcpTools.length).toBeGreaterThan(0);
       expect(entry.documentationUrls.every((url) =>
         url.startsWith("https://developer.adobe.com/premiere-pro/uxp/"),
