@@ -78,6 +78,7 @@ type ZipOptions = {
   method?: number;
   localNames?: Record<string, string>;
   localMetadata?: Record<string, { flags?: number; method?: number; crc32?: number; compressedBytes?: number; uncompressedBytes?: number }>;
+  centralMetadata?: Record<string, { compressedBytes?: number; uncompressedBytes?: number; localOffset?: number }>;
   crc32Adjustments?: Record<string, number>;
   compressedDataSuffixes?: Record<string, Buffer>;
   compressedByteAdjustments?: Record<string, number>;
@@ -124,16 +125,17 @@ function createZip(entries: Array<{ path: string; contents: Buffer }>, prefix = 
     }
 
     const central = Buffer.alloc(46);
+    const centralMetadata = options.centralMetadata?.[entry.path] ?? {};
     central.writeUInt32LE(0x02014b50, 0);
     central.writeUInt16LE(20, 4);
     central.writeUInt16LE(20, 6);
     central.writeUInt16LE(flags, 8);
     central.writeUInt16LE(method, 10);
     central.writeUInt32LE(declaredCrc32, 16);
-    central.writeUInt32LE(declaredCompressedBytes, 20);
-    central.writeUInt32LE(entry.contents.length, 24);
+    central.writeUInt32LE(centralMetadata.compressedBytes ?? declaredCompressedBytes, 20);
+    central.writeUInt32LE(centralMetadata.uncompressedBytes ?? entry.contents.length, 24);
     central.writeUInt16LE(name.length, 28);
-    central.writeUInt32LE(localOffset, 42);
+    central.writeUInt32LE(centralMetadata.localOffset ?? localOffset, 42);
     centrals.push(central, name);
     localOffset += local.length + localName.length + compressedPayload.length + (descriptor?.length ?? 0);
   }
@@ -147,7 +149,7 @@ function createZip(entries: Array<{ path: string; contents: Buffer }>, prefix = 
   return Buffer.concat([...locals, central, end]);
 }
 
-function writeCcx(bundle: string, archive: string, options: { prefix?: string; deflate?: boolean; main?: string; manifest?: Record<string, unknown>; duplicateMain?: boolean; localMainName?: string; extra?: Array<{ path: string; contents: Buffer }>; zipFlags?: number; compressionMethod?: number; localNames?: Record<string, string>; localMetadata?: Record<string, { flags?: number; method?: number; crc32?: number; compressedBytes?: number; uncompressedBytes?: number }>; crc32Adjustments?: Record<string, number>; compressedDataSuffixes?: Record<string, Buffer>; compressedByteAdjustments?: Record<string, number>; dataDescriptors?: Record<string, DataDescriptorMetadata> } = {}) {
+function writeCcx(bundle: string, archive: string, options: { prefix?: string; deflate?: boolean; main?: string; manifest?: Record<string, unknown>; duplicateMain?: boolean; localMainName?: string; extra?: Array<{ path: string; contents: Buffer }>; zipFlags?: number; compressionMethod?: number; localNames?: Record<string, string>; localMetadata?: Record<string, { flags?: number; method?: number; crc32?: number; compressedBytes?: number; uncompressedBytes?: number }>; centralMetadata?: Record<string, { compressedBytes?: number; uncompressedBytes?: number; localOffset?: number }>; crc32Adjustments?: Record<string, number>; compressedDataSuffixes?: Record<string, Buffer>; compressedByteAdjustments?: Record<string, number>; dataDescriptors?: Record<string, DataDescriptorMetadata> } = {}) {
   const name = "fixture-addon.uxpaddon";
   const manifest = { ...JSON.parse(readFileSync(join(bundle, "manifest.json"), "utf8")), ...(options.manifest ?? {}) };
   const entries = [
@@ -164,6 +166,7 @@ function writeCcx(bundle: string, archive: string, options: { prefix?: string; d
     method: options.compressionMethod,
     localNames: options.localNames,
     localMetadata: options.localMetadata,
+    centralMetadata: options.centralMetadata,
     crc32Adjustments: options.crc32Adjustments,
     compressedDataSuffixes: options.compressedDataSuffixes,
     compressedByteAdjustments: options.compressedByteAdjustments,
@@ -369,6 +372,18 @@ describe("UXP Hybrid CCX receipt", () => {
 
       writeCcx(bundle, archive, { compressionMethod: 12 });
       await expect(buildUxpHybridCcxReceipt({ ccxPath: archive, addonReceipt, sdkHeaderReceipt: headers })).rejects.toThrow("stored or deflate compression");
+
+      for (const zip64Metadata of [
+        { compressedBytes: 0xffff_ffff },
+        { uncompressedBytes: 0xffff_ffff },
+        { localOffset: 0xffff_ffff },
+      ]) {
+        writeCcx(bundle, archive, {
+          extra: [{ path: "docs/readme.txt", contents: Buffer.from("unselected ZIP64 sentinel") }],
+          centralMetadata: { "docs/readme.txt": zip64Metadata },
+        });
+        await expect(buildUxpHybridCcxReceipt({ ccxPath: archive, addonReceipt, sdkHeaderReceipt: headers })).rejects.toThrow("ZIP64 entry metadata is not supported");
+      }
     } finally {
       rmSync(directory, { recursive: true, force: true });
     }

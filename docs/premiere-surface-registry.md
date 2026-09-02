@@ -49,7 +49,8 @@ manifest, entrypoint, and addon payloads; it does not decompress unselected
 entries. Deflated required entries must also consume their exact declared
 compressed-data range, rejecting unused trailing bytes without reading
 unselected entries. The verifier rejects unsupported encrypted-entry and
-central-directory-encryption flags before reading required payloads.
+central-directory-encryption flags and ZIP64 entry metadata before reading
+required payloads.
 
 The same registry pins the exact competitor commits reviewed for feature-gap
 work. A competitor feature family becomes an implementation candidate only
