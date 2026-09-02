@@ -2497,6 +2497,38 @@
       "undoable": true,
       "idempotency": "operation_id",
       "verificationBoundary": "sequence_preview_frame_readback"
+    },
+    {
+      "id": "bounded-source-media-provenance",
+      "adobeApi": [
+        "Project.getActiveProject",
+        "Project.getRootItem",
+        "Project.guid",
+        "ProjectItem.getId",
+        "FolderItem.cast",
+        "FolderItem.getItems",
+        "ClipProjectItem.cast",
+        "ClipProjectItem.getMediaFilePath",
+        "ClipProjectItem.getOriginatingProjectPath"
+      ],
+      "documentationUrls": [
+        "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/project/",
+        "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/projectitem/",
+        "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/folderitem/",
+        "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/clipprojectitem/"
+      ],
+      "minimumPremiereVersion": "26.3.0",
+      "backend": "uxp",
+      "uxpCommand": "source.provenance.inspect",
+      "mcpTools": ["inspect_source_media_provenance_uxp"],
+      "availability": "current",
+      "implementationStatus": "implemented",
+      "verificationStatus": "automated_contract_verified",
+      "liveHostVerificationStatus": "not_run",
+      "mutatesProject": false,
+      "undoable": false,
+      "idempotency": "not_applicable",
+      "verificationBoundary": "bounded_opt_in_source_path_double_readback"
     }
   ]
 }
