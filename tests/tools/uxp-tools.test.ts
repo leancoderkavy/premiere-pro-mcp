@@ -266,6 +266,25 @@ describe("UXP MCP tools", () => {
     });
   });
 
+  it("maps native frame alignment with a closed action-specific argument contract", async () => {
+    const request = vi.fn().mockResolvedValue({ verificationBoundary: "native_ticktime_value_readback" });
+    const bridge = { request, getState: vi.fn() } as unknown as UxpWebSocketBridge;
+    const tools = getUxpTools(bridge);
+    await tools.inspect_frame_alignment_uxp.handler({ action: "align", frame_rate: 30000 / 1001, seconds: 1.03 });
+    await tools.inspect_frame_alignment_uxp.handler({ action: "frame", frame_rate: 24, frame_count: 42 });
+    expect(request).toHaveBeenNthCalledWith(1, "time.frameAlignment.inspect", { action: "align", frameRate: 30000 / 1001, seconds: 1.03 });
+    expect(request).toHaveBeenNthCalledWith(2, "time.frameAlignment.inspect", { action: "frame", frameRate: 24, frameCount: 42 });
+    expect(tools.inspect_frame_alignment_uxp.parameters).toMatchObject({
+      type: "object", additionalProperties: false, required: ["action", "frame_rate"],
+      properties: {
+        action: { enum: ["align", "frame"] },
+        frame_rate: { minimum: 1, maximum: 240 },
+        seconds: { minimum: 0, maximum: 86400 },
+        frame_count: { minimum: 0, maximum: 20736000 },
+      },
+    });
+  });
+
   it("maps non-active native sequence timing inspection to its guarded GUID command", async () => {
     const request = vi.fn().mockResolvedValue({ outcome: "verified" });
     const bridge = { request, getState: vi.fn() } as unknown as UxpWebSocketBridge;
@@ -389,6 +408,7 @@ describe("UXP MCP tools", () => {
           "inspect_project_insertion_bin_uxp",
           "inspect_installed_mogrt_directory_uxp",
           "inspect_sequence_timing_uxp",
+          "inspect_frame_alignment_uxp",
           "inspect_sequence_timing_by_guid_uxp",
           "inspect_caption_tracks_uxp",
           "manage_sequence_display_format_uxp",

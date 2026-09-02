@@ -21,6 +21,7 @@ describe("Adobe Premiere Pro 26.3 UXP coverage", () => {
     expect(entries.map((entry) => entry.id)).toEqual(expect.arrayContaining([
       "action-transaction-discipline",
       "project-sequence-create-preset",
+      "native-ticktime-frame-alignment",
       "native-project-insertion-bin-snapshot",
       "native-installed-mogrt-directory-inspection",
       "transactional-sequence-range",
@@ -73,6 +74,20 @@ describe("Adobe Premiere Pro 26.3 UXP coverage", () => {
       "guarded-timeline-source-color-label",
     ]));
     expect(entries.find((entry) => entry.id === "native-marker-crud")?.mcpTools).toEqual(["manage_markers_uxp"]);
+    expect(entries.find((entry) => entry.id === "native-ticktime-frame-alignment")).toMatchObject({
+      uxpCommand: "time.frameAlignment.inspect",
+      mcpTools: ["inspect_frame_alignment_uxp"],
+      verificationBoundary: "native_ticktime_value_readback",
+      liveHostVerificationStatus: "not_run",
+      mutatesProject: false,
+    });
+    expect(entries.find((entry) => entry.id === "native-ticktime-frame-alignment")?.adobeApi).toEqual(expect.arrayContaining([
+      "FrameRate.createWithValue",
+      "TickTime.createWithSeconds",
+      "TickTime.createWithFrameAndFrameRate",
+      "TickTime.alignToFrame",
+      "TickTime.alignToNearestFrame",
+    ]));
     expect(entries.find((entry) => entry.id === "marker-list-with-guid")?.adobeApi).toEqual(expect.arrayContaining([
       "Marker.guid", "Marker.getColor", "Color.red", "Color.green", "Color.blue", "Color.alpha",
     ]));

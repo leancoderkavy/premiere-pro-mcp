@@ -2258,7 +2258,7 @@
       "symbol": "FrameRate.createWithValue",
       "kind": "method",
       "declarationSymbol": "FrameRateStatic.createWithValue",
-      "coverage": "unmapped"
+      "coverage": "mapped"
     },
     {
       "symbol": "FrameRate.equals",
@@ -2268,12 +2268,12 @@
     {
       "symbol": "FrameRate.ticksPerFrame",
       "kind": "property",
-      "coverage": "unmapped"
+      "coverage": "mapped"
     },
     {
       "symbol": "FrameRate.value",
       "kind": "property",
-      "coverage": "unmapped"
+      "coverage": "mapped"
     },
     {
       "symbol": "FrameRateStatic",
@@ -4204,18 +4204,18 @@
     {
       "symbol": "TickTime.alignToFrame",
       "kind": "method",
-      "coverage": "unmapped"
+      "coverage": "mapped"
     },
     {
       "symbol": "TickTime.alignToNearestFrame",
       "kind": "method",
-      "coverage": "unmapped"
+      "coverage": "mapped"
     },
     {
       "symbol": "TickTime.createWithFrameAndFrameRate",
       "kind": "method",
       "declarationSymbol": "TickTimeStatic.createWithFrameAndFrameRate",
-      "coverage": "unmapped"
+      "coverage": "mapped"
     },
     {
       "symbol": "TickTime.createWithSeconds",
@@ -4247,7 +4247,7 @@
     {
       "symbol": "TickTime.seconds",
       "kind": "property",
-      "coverage": "unmapped"
+      "coverage": "mapped"
     },
     {
       "symbol": "TickTime.subtract",
@@ -4257,7 +4257,7 @@
     {
       "symbol": "TickTime.ticks",
       "kind": "property",
-      "coverage": "unmapped"
+      "coverage": "mapped"
     },
     {
       "symbol": "TickTime.ticksNumber",
