@@ -22,7 +22,7 @@ a failed UXP mutation through CEP.
 | Transactional bin organizer | `organize_project_items_uxp` | `bins.inspect`, `bins.create`, `bins.createSmart`, `bins.rename`, `bins.move`, `bins.color`, `bins.remove` | Project-item identity, name, parent, color, or absence readback |
 | Sequence settings profiles | `manage_sequence_settings_uxp` | `sequenceSettings.get`, `sequenceSettings.update` | Requested settings read back after one `createSetSettingsAction` transaction |
 | Workspace-gated imports | `import_project_media_uxp` | `project.import` | New project-item or sequence identities when Premiere exposes them |
-| Typed parameter/keyframe automation | `automate_effect_parameters_uxp` | `parameters.inspect`, `parameters.point.inspect`, `parameters.point.set`, `parameters.set`, `parameters.keyframe.inspect`, `parameters.keyframeAdd`, `parameters.keyframeRemove`, `parameters.keyframeRemoveRange`, `parameters.keyframeInterpolation`, `parameters.timeVarying.inspect`, `parameters.timeVarying.set` | Scalar parameter, static PointF x/y, keyframe time, absence, interpolation, animation mode, or direct keyframe lookup readback |
+| Typed parameter/keyframe automation | `automate_effect_parameters_uxp` | `parameters.inspect`, `parameters.point.inspect`, `parameters.point.set`, `parameters.color.inspect`, `parameters.color.set`, `parameters.set`, `parameters.keyframe.inspect`, `parameters.keyframeAdd`, `parameters.keyframeRemove`, `parameters.keyframeRemoveRange`, `parameters.keyframeInterpolation`, `parameters.timeVarying.inspect`, `parameters.timeVarying.set` | Scalar parameter, static PointF x/y or raw Color RGBA, keyframe time, absence, interpolation, animation mode, or direct keyframe lookup readback |
 | Track-item transformations | `transform_track_item_uxp` | `trackItem.inspect`, `trackItem.update` | Start/end, source in/out, disabled state, and name readback |
 | SequenceEditor timeline layer | `edit_timeline_uxp` | `timeline.insert`, `timeline.overwrite`, `timeline.cloneSelection`, `timeline.removeSelection`, `timeline.mogrtPath`, `timeline.mogrtLibrary` | Action transaction accepted; MOGRT calls return inserted items |
 | Empty sequence creation | `create_empty_sequence_uxp` | `sequences.createEmpty` | New sequence identity from the post-call project collection |
@@ -133,10 +133,11 @@ when the host reports that After Effects is unavailable.
 
 The tool resolves one audio/video clip, component index, and parameter index. It
 accepts scalar number, string, or boolean values; `inspect_point_value` and
-`set_point_value` separately expose a static `PointF` as explicit x/y fields. The
-point update requires the complete returned snapshot, confirmation, and an operation
-ID; it rejects time-varying parameters, so PointF keyframe edits and all Color values
-remain out of scope.
+`set_point_value` separately expose a static `PointF` as explicit x/y fields, while
+`inspect_color_value` and `set_color_value` expose raw `Color` RGBA components. Each
+static composite update requires the complete returned snapshot, confirmation, and an
+operation ID; it rejects time-varying parameters, so PointF and Color keyframe edits,
+color management, and rendered-appearance claims remain out of scope.
 Keyframe actions support add, remove, inclusive range removal, and interpolation.
 `inspect_keyframe` accepts one bounded reference time with `at`, `next`, or
 `previous`, or `nearest` with an explicit nondecreasing `time_seconds` to

@@ -69,9 +69,11 @@ describe("advanced stable UXP workflow MCP catalog", () => {
     });
     expect(tools.automate_effect_parameters_uxp.parameters).toMatchObject({
       properties: {
-        action: { enum: ["inspect", "inspect_point_value", "set_point_value", "inspect_keyframe", "set_value", "add_keyframe", "remove_keyframe", "remove_keyframe_range", "set_interpolation", "inspect_time_varying", "set_time_varying"] },
+        action: { enum: ["inspect", "inspect_point_value", "set_point_value", "inspect_color_value", "set_color_value", "inspect_keyframe", "set_value", "add_keyframe", "remove_keyframe", "remove_keyframe_range", "set_interpolation", "inspect_time_varying", "set_time_varying"] },
         point: { required: ["x", "y"], additionalProperties: false },
         expected_point_snapshot: { required: ["project_id", "sequence_id", "media_type", "track_index", "clip_index", "component_index", "component_id", "param_index", "param_name", "time_varying", "point"], additionalProperties: false },
+        color: { required: ["red", "green", "blue", "alpha"], additionalProperties: false },
+        expected_color_snapshot: { required: ["project_id", "sequence_id", "media_type", "track_index", "clip_index", "component_index", "component_id", "param_index", "param_name", "time_varying", "color"], additionalProperties: false },
         expected_sequence_id: { maxLength: 128 }, expected_time_varying: { type: "boolean" },
         expected_keyframe_times_seconds: { maxItems: 256, uniqueItems: true },
         keyframe_direction: { enum: ["at", "next", "previous", "nearest"] },
@@ -163,6 +165,45 @@ describe("advanced stable UXP workflow MCP catalog", () => {
           point: { x: 960, y: 540 },
         },
         confirmSetPoint: true, operationId: "point-tool-op",
+      }],
+    ]);
+  });
+
+  it("maps guarded static Color inspection and update actions to the exact UXP commands", async () => {
+    const request = vi.fn().mockResolvedValue({ outcome: "verified" });
+    const bridge = { request, getState: vi.fn() } as unknown as UxpWebSocketBridge;
+    const tools = getUxpTools(bridge);
+    const target = {
+      media_type: "video", track_index: 0, clip_index: 1, component_index: 2, param_index: 3,
+      expected_component_id: "ADBE Lumetri", expected_param_name: "Tint",
+    };
+    const expectedColorSnapshot = {
+      project_id: "project-1", sequence_id: "sequence-1", media_type: "video", track_index: 0, clip_index: 1,
+      component_index: 2, component_id: "ADBE Lumetri", param_index: 3, param_name: "Tint", time_varying: false,
+      color: { red: 0.1, green: 0.2, blue: 0.3, alpha: 1 },
+    };
+
+    await tools.automate_effect_parameters_uxp.handler({ action: "inspect_color_value", ...target });
+    await tools.automate_effect_parameters_uxp.handler({
+      action: "set_color_value", ...target, expected_color_snapshot: expectedColorSnapshot,
+      color: { red: 0.9, green: 0.8, blue: 0.7, alpha: 0.6 }, confirm_set_color: true, operation_id: "color-tool-op",
+    });
+
+    expect(request.mock.calls).toEqual([
+      ["parameters.color.inspect", {
+        mediaType: "video", trackIndex: 0, clipIndex: 1, componentIndex: 2, paramIndex: 3,
+        expectedComponentId: "ADBE Lumetri", expectedParamName: "Tint",
+      }],
+      ["parameters.color.set", {
+        mediaType: "video", trackIndex: 0, clipIndex: 1, componentIndex: 2, paramIndex: 3,
+        expectedComponentId: "ADBE Lumetri", expectedParamName: "Tint",
+        color: { red: 0.9, green: 0.8, blue: 0.7, alpha: 0.6 },
+        expectedSnapshot: {
+          projectId: "project-1", sequenceId: "sequence-1", mediaType: "video", trackIndex: 0, clipIndex: 1,
+          componentIndex: 2, componentId: "ADBE Lumetri", paramIndex: 3, paramName: "Tint", timeVarying: false,
+          color: { red: 0.1, green: 0.2, blue: 0.3, alpha: 1 },
+        },
+        confirmSetColor: true, operationId: "color-tool-op",
       }],
     ]);
   });
