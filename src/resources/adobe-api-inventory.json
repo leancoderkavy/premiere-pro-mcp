@@ -13,8 +13,8 @@
   },
   "stats": {
     "total": 976,
-    "mapped": 355,
-    "unmapped": 621,
+    "mapped": 360,
+    "unmapped": 616,
     "manifestOnly": 5
   },
   "manifestOnly": [
@@ -4199,7 +4199,7 @@
     {
       "symbol": "TickTime.add",
       "kind": "method",
-      "coverage": "unmapped"
+      "coverage": "mapped"
     },
     {
       "symbol": "TickTime.alignToFrame",
@@ -4227,12 +4227,12 @@
       "symbol": "TickTime.createWithTicks",
       "kind": "method",
       "declarationSymbol": "TickTimeStatic.createWithTicks",
-      "coverage": "unmapped"
+      "coverage": "mapped"
     },
     {
       "symbol": "TickTime.divide",
       "kind": "method",
-      "coverage": "unmapped"
+      "coverage": "mapped"
     },
     {
       "symbol": "TickTime.equals",
@@ -4242,7 +4242,7 @@
     {
       "symbol": "TickTime.multiply",
       "kind": "method",
-      "coverage": "unmapped"
+      "coverage": "mapped"
     },
     {
       "symbol": "TickTime.seconds",
@@ -4252,7 +4252,7 @@
     {
       "symbol": "TickTime.subtract",
       "kind": "method",
-      "coverage": "unmapped"
+      "coverage": "mapped"
     },
     {
       "symbol": "TickTime.ticks",
