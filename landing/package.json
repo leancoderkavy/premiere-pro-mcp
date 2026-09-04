@@ -8,7 +8,8 @@
     "performance:check": "node scripts/check-performance-budget.mjs",
     "render:demo-video": "node scripts/render-demo-video.mjs",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "prebuild": "node ../scripts/generate-marketing-reference.mjs --check"
   },
   "dependencies": {
     "@radix-ui/react-slot": "^1.2.4",

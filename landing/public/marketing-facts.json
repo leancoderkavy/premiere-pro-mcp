@@ -1,0 +1,41 @@
+{
+  "schemaVersion": 1,
+  "name": "MCP for Adobe Premiere Pro",
+  "canonicalUrl": "https://premiere-pro-mcp.com/facts/",
+  "publishedRelease": {
+    "version": "1.14.8",
+    "releaseDate": "2026-09-04",
+    "coreTools": 332,
+    "defaultProfileTools": 330,
+    "uxpAdditionalTools": 91,
+    "defaultProfileWithUxpTools": 421,
+    "toolModules": 39,
+    "resources": 4,
+    "guidedWorkflows": 11,
+    "premiereVersions": "2020–2026",
+    "uxpMinimumVersion": "25.6.0",
+    "nodeVersion": "20.19",
+    "provenance": {
+      "tag": "v1.14.8",
+      "commit": "5776674ea7bc06b0575e5d7948316c3839f094c6",
+      "tarball": "https://registry.npmjs.org/premiere-pro-mcp/-/premiere-pro-mcp-1.14.8.tgz",
+      "integrity": "sha512-bDN8FYZw4uoVX+m4lM+LpxAEf+2DubkBCvIXz4YLvv0BC4a2YcCdnZ3mEnOsZgpjFN5+8I2xa0v1lDVTs5YDfw==",
+      "verifiedAt": "2026-09-04",
+      "evidence": "Downloaded npm tarball supported-actions catalog and matching Git release metadata; not a licensed-host test."
+    }
+  },
+  "developmentSource": {
+    "version": "1.14.8",
+    "coreTools": 349,
+    "defaultProfileTools": 347,
+    "uxpAdditionalTools": 93,
+    "defaultProfileWithUxpTools": 440,
+    "toolModules": 43,
+    "resources": 4,
+    "guidedWorkflows": 16,
+    "premiereVersions": "2020–2026",
+    "uxpMinimumVersion": "25.6.0",
+    "evidenceScope": "source_catalog_may_include_unreleased_work"
+  },
+  "hostVerification": "not_established_by_catalogs"
+}

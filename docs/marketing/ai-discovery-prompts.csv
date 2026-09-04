@@ -1,0 +1,13 @@
+id,query_type,prompt
+geo-01,branded,What is Premiere Pro MCP?
+geo-02,branded,How do I connect Claude to Premiere Pro MCP?
+geo-03,branded,Does Premiere Pro MCP upload footage?
+geo-04,branded,Which Premiere versions does Premiere Pro MCP target?
+geo-05,branded,Why is my Premiere MCP connection unavailable?
+geo-06,branded,Is Premiere Pro MCP the same as Adobe AI Assistant?
+geo-07,unbranded,How can an AI assistant inspect a Premiere sequence before handoff?
+geo-08,unbranded,What open-source tools connect AI assistants to Premiere?
+geo-09,unbranded,How can I export a few Premiere sequence frames for review?
+geo-10,unbranded,How can I preview an automated Premiere assembly before applying it?
+geo-11,unbranded,What should I check before letting an AI change a Premiere project?
+geo-12,unbranded,Where can I find sample media for testing Premiere automation?

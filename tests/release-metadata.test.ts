@@ -1,6 +1,8 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
+import { product, sourceCatalog } from "../landing/lib/product.js";
+import { articles } from "../landing/lib/articles.js";
 
 const root = process.cwd();
 const read = (path: string) => readFileSync(join(root, path), "utf8");
@@ -50,8 +52,6 @@ describe("canonical release metadata", () => {
     const llms = read("landing/public/llms.txt");
     const llmsFull = read("landing/public/llms-full.txt");
     const llmAlias = read("landing/public/llm.txt");
-    const landingProduct = read("landing/lib/product.ts");
-    const landingArticles = read("landing/lib/articles.ts");
     const marketingAssets = read("docs/marketing-assets.md");
     const supportedActions = read("docs/supported-actions.md");
 
@@ -78,23 +78,18 @@ describe("canonical release metadata", () => {
     expect(marketingAssets).toContain(
       `${release.uxpAdditionalTools} additional capability-gated tools`,
     );
-    expect(landingProduct).toContain(`version: "${release.version}"`);
-    expect(landingProduct).toContain(`coreToolCount: ${release.coreTools}`);
-    expect(landingProduct).toContain(`defaultProfileToolCount: ${release.defaultProfileTools}`);
-    expect(landingProduct).toContain(`connectedUxpToolCount: ${release.defaultProfileWithUxpTools}`);
-    expect(landingArticles).toContain(
-      `The server currently registers ${release.coreTools} core structured tools`,
-    );
-    expect(landingArticles).toContain(
-      `${release.uxpAdditionalTools} capability-gated tools, bringing the connected surface to ${release.defaultProfileWithUxpTools}`,
-    );
-    expect(landingProduct).toContain(
-      `/releases/download/v${release.version}/premiere-pro-mcp-${release.version}.mcpb`,
-    );
-    expect(landingProduct).toContain(
-      `/releases/download/v${release.version}/MCPBridgeCEP.zxp`,
-    );
-    expect(landingProduct).toContain(`/releases/tag/v${release.version}`);
+    const published = readJson("landing/lib/published-release.json");
+    expect(product.version).toBe(published.version);
+    expect(product.coreToolCount).toBe(published.coreTools);
+    expect(product.defaultProfileToolCount).toBe(published.defaultProfileTools);
+    expect(product.connectedUxpToolCount).toBe(published.defaultProfileWithUxpTools);
+    expect(sourceCatalog).toEqual(release);
+    const articleText = articles.flatMap((article) => article.sections.flatMap((section) => section.paragraphs)).join("\n");
+    expect(articleText).toContain(`The published v${published.version} package registers ${published.coreTools} core structured tools`);
+    expect(articleText).toContain(`${published.uxpAdditionalTools} capability-gated tools, bringing the connected surface to ${published.defaultProfileWithUxpTools}`);
+    expect(product.downloads.claudeBundle).toContain(`/releases/download/v${published.version}/premiere-pro-mcp-${published.version}.mcpb`);
+    expect(product.downloads.signedCepConnector).toContain(`/releases/download/v${published.version}/MCPBridgeCEP.zxp`);
+    expect(product.downloads.releaseNotes).toContain(`/releases/tag/v${published.version}`);
     expect(readme).toContain(`Latest release: ${release.version}`);
     expect(readme).toContain(`registers ${release.coreTools} tools, filtered by authority profile`);
     expect(read("landing/app/changelog/page.tsx")).toContain(

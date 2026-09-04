@@ -1,3 +1,5 @@
+import { product, sourceCatalog } from "./product"
+
 export type ArticleSection = {
   heading: string
   paragraphs: string[]
@@ -22,6 +24,7 @@ export type Article = {
   faqs: ArticleFaq[]
   resources: Array<{ label: string; href: string }>
   relatedSlugs?: string[]
+  workflowKit?: string
 }
 
 export const articles: Article[] = [
@@ -207,12 +210,13 @@ export const articles: Article[] = [
   },
   {
     slug: "premiere-pro-review-frames-and-scene-detection",
+    workflowKit: "review-frames",
     title: "Premiere Pro Review Frames and Scene Detection: Build a Faster Human Review Pass",
     description:
       "Create a bounded Premiere Pro review pass with file-verified sequence frames, clip midpoint samples, and source-relative scene-change candidates—without mistaking samples for editorial approval.",
     eyebrow: "Visual review workflow",
     publishedAt: "2026-08-23",
-    modifiedAt: "2026-08-23",
+    modifiedAt: "2026-09-04",
     readingTime: "7 min read",
     keywords: [
       "Premiere Pro review frames",
@@ -221,6 +225,7 @@ export const articles: Article[] = [
       "Premiere Pro clip review checklist",
     ],
     sections: [
+      { heading: "Try this with disposable sample media", paragraphs: ["The downloadable workflow starter kit contains two synthetic video clips, a caption sample, and step-by-step evaluation prompts. Build a disposable sequence and compare the result with the checklist. The kit is not a recorded demonstration or a verified Premiere project; report any failed or unsupported check accurately."], bullets: ["Install the server and separate Premiere connector before trying the kit.", "Start with a read-only connection check and stop if it is not ready.", "Keep file exports and project changes behind their own explicit confirmation."] },
       {
         heading: "Use sampled frames to focus an editor’s review, not to replace it",
         paragraphs: [
@@ -366,15 +371,17 @@ export const articles: Article[] = [
   },
   {
     slug: "premiere-pro-ai-workflow-checklist",
+    workflowKit: "project-check",
     title: "Premiere Pro AI Workflow Checklist: Evaluate Automation Before It Touches a Project",
     description:
       "Use this practical checklist to evaluate an AI-assisted Adobe Premiere Pro workflow: define the boundary, verify the connection, preview the change, and inspect the result.",
     eyebrow: "Premiere Pro AI workflow checklist",
     publishedAt: "2026-08-22",
-    modifiedAt: "2026-08-22",
+    modifiedAt: "2026-09-04",
     readingTime: "6 min read",
     keywords: ["Premiere Pro AI workflow checklist", "Premiere Pro automation checklist", "AI-assisted video editing workflow"],
     sections: [
+      { heading: "Try this with disposable sample media", paragraphs: ["The downloadable workflow starter kit contains two synthetic video clips, a caption sample, and step-by-step evaluation prompts. Build a disposable sequence and compare the result with the checklist. The kit is not a recorded demonstration or a verified Premiere project; report any failed or unsupported check accurately."], bullets: ["Install the server and separate Premiere connector before trying the kit.", "Start with a read-only connection check and stop if it is not ready.", "Keep file exports and project changes behind their own explicit confirmation."] },
       {
         heading: "Use this checklist before an AI-assisted Premiere workflow",
         paragraphs: [
@@ -487,7 +494,7 @@ export const articles: Article[] = [
       {
         heading: "What can an AI assistant help with in Premiere Pro?",
         paragraphs: [
-          "The server currently registers 349 core structured tools across timeline work, effects and Lumetri color, audio, captions, markers, keyframes, project organization, project-intake preview, media and proxy workflows, local media and interchange preflight analysis, diagnostics, export, review handoff, local editorial planning, and guarded After Effects MOGRT authoring, batch, library, render-queue, source-inspection, and Premiere-handoff workflows. The default capability profile exposes 347 of those tools. An authenticated compatible UXP host can add 93 capability-gated tools, bringing the connected surface to 440.",
+          `The published v${product.version} package registers ${product.coreToolCount} core structured tools across timeline work, effects and Lumetri color, audio, captions, markers, keyframes, project organization, project-intake preview, media and proxy workflows, local media and interchange preflight analysis, diagnostics, export, review handoff, local editorial planning, and guarded After Effects MOGRT authoring, batch, library, render-queue, source-inspection, and Premiere-handoff workflows. The default capability profile exposes ${product.defaultProfileToolCount} of those tools. A compatible UXP host can add ${product.uxpAdditionalToolCount} capability-gated tools, bringing the connected surface to ${product.connectedUxpToolCount}. The development source separately registers ${sourceCatalog.coreTools} core tools and may include unreleased work.`,
           "Those numbers describe discovery, not a blanket promise. A better question is whether the current host can perform the specific task you need. For example, an editor might ask for the active sequence and its clip structure before requesting a preview of a B-roll assembly. A post-production lead might ask for a project inventory before standardizing bins. A workflow developer might use the structured surface as a starting point rather than building and maintaining a bridge from scratch.",
         ],
       },
@@ -570,7 +577,7 @@ export const articles: Article[] = [
       {
         heading: "Where an MCP workflow fits",
         paragraphs: [
-          "MCP for Adobe Premiere Pro is free, MIT-licensed, and designed for local-first use. It registers 349 core tools for project inspection, project-intake preview, timeline editing, effects, color, audio, media management, local media and interchange preflight analysis, diagnostics, export, review handoff, review-only local editorial planning, and guarded After Effects MOGRT authoring, batch, library, render-queue, source-inspection, and Premiere-handoff workflows. The default profile deliberately limits the surface to 347 tools; a compatible authenticated UXP host can add 93 capability-gated tools. These boundaries let the client report what is available rather than pretending that every supported feature is ready at every moment.",
+          `MCP for Adobe Premiere Pro is free, MIT-licensed, and designed for local-first use. Published v${product.version} registers ${product.coreToolCount} core tools for project inspection, project-intake preview, timeline editing, effects, color, audio, media management, local media and interchange preflight analysis, diagnostics, export, review handoff, review-only local editorial planning, and guarded After Effects MOGRT authoring, batch, library, render-queue, source-inspection, and Premiere-handoff workflows. The default profile exposes ${product.defaultProfileToolCount} tools; a compatible authenticated UXP host can add ${product.uxpAdditionalToolCount} capability-gated tools. These boundaries let the client report what is available rather than pretending that every supported feature is ready at every moment.`,
           "For an editor, the key benefit is repeatability without moving the project into a separate hosted editor. For a team, it is a consistent way to ask for and check common operations. For a workflow developer, it is a maintained bridge and structured discovery surface instead of a screen-reading macro.",
         ],
       },
@@ -607,15 +614,17 @@ export const articles: Article[] = [
   },
   {
     slug: "premiere-pro-workflow-automation",
+    workflowKit: "product-spot",
     title: "Premiere Pro Workflow Automation: Repeat the Work, Not the Edit",
     description:
       "See which Adobe Premiere Pro tasks are good candidates for workflow automation, how to keep edits reviewable, and how to verify an AI-assisted result.",
     eyebrow: "Premiere Pro automation",
     publishedAt: "2026-08-19",
-    modifiedAt: "2026-08-19",
+    modifiedAt: "2026-09-04",
     readingTime: "7 min read",
     keywords: ["Premiere Pro workflow automation", "Premiere Pro automation", "automate video editing workflow"],
     sections: [
+      { heading: "Try this with disposable sample media", paragraphs: ["The downloadable workflow starter kit contains two synthetic video clips, a caption sample, and step-by-step evaluation prompts. Build a disposable sequence and compare the result with the checklist. The kit is not a recorded demonstration or a verified Premiere project; report any failed or unsupported check accurately."], bullets: ["Install the server and separate Premiere connector before trying the kit.", "Start with a read-only connection check and stop if it is not ready.", "Keep file exports and project changes behind their own explicit confirmation."] },
       {
         heading: "Automate the repeated parts of post-production",
         paragraphs: [
@@ -646,7 +655,7 @@ export const articles: Article[] = [
         heading: "Why structured tools are better than UI guessing",
         paragraphs: [
           "Traditional macros and screen-driven automation infer state from a changing interface. Panels move, workspaces differ, dialogs steal focus, and a visible click does not always prove the project changed. A structured MCP tool surface can expose specific actions and return data or diagnostics about the request.",
-          "MCP for Adobe Premiere Pro combines that structure with a local-first bridge. The server registers 349 core tools, with capabilities, workflow packs, and authority reported separately from static tool support. That matters when different Premiere versions, permission settings, and connection states change what is safe to run. The correct path is to discover the available surface and verify the particular operation at call time.",
+          `MCP for Adobe Premiere Pro combines that structure with a local-first bridge. Published v${product.version} registers ${product.coreToolCount} core tools, with capabilities, workflow packs, and authority reported separately from static tool support. That matters when different Premiere versions, permission settings, and connection states change what is safe to run. The correct path is to discover the available surface and verify the particular operation at call time.`,
         ],
       },
       {
@@ -765,12 +774,13 @@ export const articles: Article[] = [
   },
   {
     slug: "claude-desktop-premiere-pro-mcp-setup",
+    workflowKit: "project-check",
     title: "Claude Desktop + Premiere Pro: Start with a Safe MCP Workflow",
     description:
       "Connect Claude Desktop to Adobe Premiere Pro with the local bundle and CEP connector, then verify the bridge before requesting any supported edit.",
     eyebrow: "Safe Premiere setup",
     publishedAt: "2026-08-22",
-    modifiedAt: "2026-08-22",
+    modifiedAt: "2026-09-04",
     readingTime: "6 min read",
     keywords: [
       "Claude Desktop Premiere Pro",
@@ -779,6 +789,7 @@ export const articles: Article[] = [
       "Premiere Pro safe connection check",
     ],
     sections: [
+      { heading: "Try this with disposable sample media", paragraphs: ["The downloadable workflow starter kit contains two synthetic video clips, a caption sample, and step-by-step evaluation prompts. Build a disposable sequence and compare the result with the checklist. The kit is not a recorded demonstration or a verified Premiere project; report any failed or unsupported check accurately."], bullets: ["Install the server and separate Premiere connector before trying the kit.", "Start with a read-only connection check and stop if it is not ready.", "Keep file exports and project changes behind their own explicit confirmation."] },
       {
         heading: "The first goal is a verified connection, not an edit",
         paragraphs: [

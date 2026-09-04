@@ -6,7 +6,7 @@ const root = process.cwd();
 const read = (path: string) => readFileSync(join(root, path), "utf8");
 const readJson = (path: string) => JSON.parse(read(path)) as Record<string, unknown>;
 
-const release = readJson("release-metadata.json");
+const release = readJson("landing/lib/published-release.json");
 const registry = readJson("docs/claims-registry.json") as {
   schemaVersion: number;
   authoritativeReleaseMetadata: string;
@@ -26,7 +26,7 @@ const renderReleaseClaim = (claim: string) =>
 describe("product claims registry", () => {
   it("is a unique, versioned registry with explicit boundaries", () => {
     expect(registry.schemaVersion).toBe(1);
-    expect(registry.authoritativeReleaseMetadata).toBe("release-metadata.json");
+    expect(registry.authoritativeReleaseMetadata).toBe("landing/lib/published-release.json");
     expect(registry.claims.map((claim) => claim.id)).toHaveLength(
       new Set(registry.claims.map((claim) => claim.id)).size,
     );
