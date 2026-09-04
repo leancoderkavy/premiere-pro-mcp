@@ -101,6 +101,19 @@ describe("capability profiles", () => {
     expect(handler).not.toHaveBeenCalled();
   });
 
+  it("requires all authority dimensions for guarded MOGRT authoring", async () => {
+    const handler = vi.fn(async () => "ok");
+    expect(capabilitiesForToolInvocation("verify_after_effects_connection", {})).toEqual(["inspect"]);
+    expect(capabilitiesForToolInvocation("preview_mogrt_recipe", {})).toEqual(["inspect", "filesystem"]);
+    expect(capabilitiesForToolInvocation("create_mogrt_recipe", {})).toEqual(["edit", "export", "filesystem"]);
+    expect(capabilitiesForToolInvocation("verify_mogrt_artifact", {})).toEqual(["inspect", "filesystem"]);
+
+    await expect(
+      guardToolHandler("create_mogrt_recipe", handler, resolveCapabilities("edit,export"), () => "mogrt-filesystem")({}),
+    ).rejects.toMatchObject({ code: "CAPABILITY_DENIED", capability: "filesystem", operationId: "mogrt-filesystem" });
+    expect(handler).not.toHaveBeenCalled();
+  });
+
   it("lists sequence-range inspection for inspect authority but requires edit to update", async () => {
     const handler = vi.fn(async () => "ok");
     const inspectOnly = resolveCapabilities("inspect");

@@ -7,7 +7,7 @@
 })(this, function () {
   "use strict";
 
-  var CURRENT_VERSION = "1.14.7";
+  var CURRENT_VERSION = "1.14.8";
   var LATEST_RELEASE_API =
     "https://api.github.com/repos/leancoderkavy/premiere-pro-mcp/releases/latest";
   var RELEASES_URL =

@@ -5,6 +5,26 @@ import { product } from "@/lib/product"
 
 const releases = [
   {
+    version: "1.14.8",
+    date: "2026-09-04",
+    label: "Guarded After Effects MOGRT authoring",
+    groups: [
+      {
+        title: "Added",
+        items: [
+          "An optional, separate After Effects CEP connector can author one approval-gated lower-third Motion Graphics Template in an already saved, workspace-contained project.",
+          "The workflow includes a one-time preview token, explicit export confirmation, isolated local bridge channel, and local ZIP-header artifact check.",
+        ],
+      },
+      {
+        title: "Safety",
+        items: [
+          "The authoring path does not accept arbitrary scripts, create or switch projects, create output folders, overwrite artifacts, or claim that an accepted export is visually or import verified.",
+        ],
+      },
+    ],
+  },
+  {
     version: "1.14.7",
     date: "2026-09-02",
     label: "Desktop protocol fallback and bounded UXP inspection",

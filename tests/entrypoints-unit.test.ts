@@ -19,7 +19,7 @@ const mocks = vi.hoisted(() => ({
   uxpStop: vi.fn(async () => {}),
   execFileSync: vi.fn(),
   spawnSync: vi.fn(),
-  fetchLatestNpmVersion: vi.fn(async () => "1.14.7"),
+  fetchLatestNpmVersion: vi.fn(async () => "1.14.8"),
   fsExists: vi.fn(() => false),
   fsStat: vi.fn(() => ({ isDirectory: () => false, isFile: () => true })),
   fsCreateReadStream: vi.fn(),
@@ -134,7 +134,7 @@ beforeEach(() => {
   vi.resetModules();
   vi.clearAllMocks();
   mocks.requestHandler = undefined;
-  mocks.fetchLatestNpmVersion.mockResolvedValue("1.14.7");
+  mocks.fetchLatestNpmVersion.mockResolvedValue("1.14.8");
   mocks.spawnSync.mockReturnValue({ status: 1, stdout: "" });
   mocks.fsExists.mockReturnValue(false);
   mocks.fsStat.mockReturnValue({ isDirectory: () => false, isFile: () => true });
@@ -215,15 +215,15 @@ describe("stdio CLI entry point", () => {
 
   it("checks for a newer release and updates a global npm installation", async () => {
     const log = vi.spyOn(console, "log").mockImplementation(() => {});
-    mocks.fetchLatestNpmVersion.mockResolvedValueOnce("1.14.8");
+    mocks.fetchLatestNpmVersion.mockResolvedValueOnce("1.14.9");
     let loaded = await importCli(["--check-update"]);
     await expect(loaded.promise).rejects.toThrow("EXIT:0");
-    expect(log).toHaveBeenCalledWith(expect.stringContaining("1.14.7 → 1.14.8"));
+    expect(log).toHaveBeenCalledWith(expect.stringContaining("1.14.8 → 1.14.9"));
 
     vi.resetModules();
     vi.clearAllMocks();
     log.mockClear();
-    mocks.fetchLatestNpmVersion.mockResolvedValueOnce("1.14.8");
+    mocks.fetchLatestNpmVersion.mockResolvedValueOnce("1.14.9");
     mocks.spawnSync.mockReturnValue({ status: 0, stdout: `${dirname(process.cwd())}\n` });
     loaded = await importCli(["--update"]);
     await expect(loaded.promise).rejects.toThrow("EXIT:0");
@@ -248,7 +248,7 @@ describe("stdio CLI entry point", () => {
     vi.resetModules();
     vi.clearAllMocks();
     const log = vi.spyOn(console, "log").mockImplementation(() => {});
-    mocks.fetchLatestNpmVersion.mockResolvedValueOnce("1.14.7");
+    mocks.fetchLatestNpmVersion.mockResolvedValueOnce("1.14.8");
     loaded = await importCli(["--update"]);
     await expect(loaded.promise).rejects.toThrow("EXIT:0");
     expect(log).toHaveBeenCalledWith(expect.stringContaining("is current"));
@@ -381,6 +381,17 @@ describe("stdio CLI entry point", () => {
     ]));
   });
 
+  it("routes After Effects connector actions to the separate host target", async () => {
+    vi.spyOn(process, "platform", "get").mockReturnValue("win32");
+    vi.spyOn(console, "log").mockImplementation(() => {});
+    const loaded = await importCli(["--install-after-effects-cep"]);
+    await expect(loaded.promise).rejects.toThrow("EXIT:0");
+    expect(mocks.execFileSync.mock.calls[0][1]).toEqual(expect.arrayContaining([
+      "-ConnectorHost",
+      "AfterEffects",
+    ]));
+  });
+
   it("runs the macOS CEP diagnostic script", async () => {
     vi.spyOn(process, "platform", "get").mockReturnValue("darwin");
     vi.spyOn(console, "log").mockImplementation(() => {});
@@ -392,6 +403,18 @@ describe("stdio CLI entry point", () => {
       expect.objectContaining({ stdio: "inherit" }),
     );
     expect(loaded.exit).toHaveBeenCalledWith(0);
+  });
+
+  it("runs the macOS After Effects diagnostic script with an isolated host flag", async () => {
+    vi.spyOn(process, "platform", "get").mockReturnValue("darwin");
+    vi.spyOn(console, "log").mockImplementation(() => {});
+    const loaded = await importCli(["--diagnose-after-effects-cep"]);
+    await expect(loaded.promise).rejects.toThrow("EXIT:0");
+    expect(mocks.execFileSync).toHaveBeenCalledWith(
+      "bash",
+      [expect.stringMatching(/install-cep\.sh$/), "--diagnose", "--after-effects"],
+      expect.objectContaining({ stdio: "inherit" }),
+    );
   });
 
   it("runs the macOS CEP uninstaller and rejects conflicting CEP actions", async () => {

@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>MCP for Adobe After Effects</title>
+  <style>
+    body { margin: 0; background: #202124; color: #f3f4f6; font: 13px/1.45 Arial, sans-serif; }
+    main { padding: 18px; } h1 { margin: 0 0 5px; font-size: 16px; } p { color: #c7cbd1; }
+    label { display: block; margin: 16px 0 6px; font-weight: bold; } input { box-sizing: border-box; width: 100%; padding: 8px; border: 1px solid #555; border-radius: 4px; background: #111827; color: white; }
+    button { margin-top: 12px; padding: 8px 12px; border: 0; border-radius: 4px; background: #2563eb; color: white; cursor: pointer; } #status { display: inline-block; margin-left: 9px; color: #86efac; }
+    small { display: block; margin-top: 8px; color: #9ca3af; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>MCP for Adobe After Effects</h1>
+    <p>Local authoring connector for approval-gated MOGRT recipes.</p>
+    <label for="tempDir">After Effects bridge directory</label>
+    <input id="tempDir" spellcheck="false" autocomplete="off" aria-describedby="bridgeHelp">
+    <button id="toggle" type="button">Start connector</button><strong id="status" role="status">Stopped</strong>
+    <small id="bridgeHelp">This must match AFTER_EFFECTS_MCP_TEMP_DIR when that environment variable is set for your MCP client.</small>
+  </main>
+  <script src="CSInterface.js"></script>
+  <script src="main.js"></script>
+</body>
+</html>

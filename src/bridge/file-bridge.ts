@@ -45,11 +45,22 @@ export interface BridgeOptions {
   tempDir?: string;
   timeoutMs?: number;
   /**
+   * Host-specific bootstrap contract. Premiere is the default; companion
+   * bridges (such as After Effects) supply their own narrow helper surface.
+   */
+  helpers?: BridgeHelpers;
+  /**
    * Reject a health-style command without publishing it when a current CEP
    * connector explicitly reports that it is waiting or its heartbeat is stale.
    * A missing heartbeat remains compatible with older installed connectors.
    */
   failFastOnUnreadyHeartbeat?: boolean;
+}
+
+export interface BridgeHelpers {
+  source: string;
+  fileName: string;
+  buildBootstrap: (helpersPath: string) => string;
 }
 
 export interface CommandResult {
@@ -161,12 +172,17 @@ function heartbeatFailure(liveness: BridgeLiveness): CommandResult | null {
  * Make sure this server version's helpers file exists in the temp dir, and return
  * the bootstrap line each command must carry so the CEP-side engine loads it once.
  */
-function ensureHelpers(tempDir: string): string {
-  const helpersPath = join(tempDir, helpersFileName());
+function ensureHelpers(tempDir: string, helpers?: BridgeHelpers): string {
+  const activeHelpers = helpers ?? {
+    source: getHelpersSource(),
+    fileName: helpersFileName(),
+    buildBootstrap,
+  };
+  const helpersPath = join(tempDir, activeHelpers.fileName);
   if (!existsSync(helpersPath)) {
-    writeFileSync(helpersPath, getHelpersSource(), "utf-8");
+    writeFileSync(helpersPath, activeHelpers.source, "utf-8");
   }
-  return buildBootstrap(helpersPath);
+  return activeHelpers.buildBootstrap(helpersPath);
 }
 
 /**
@@ -203,7 +219,7 @@ export async function sendCommand(
   try {
     // Write a complete command before its .jsx name makes it visible to CEP.
     // renameSync is atomic when both paths are in the bridge directory.
-    writeFileSync(stagedCmdFile, `${ensureHelpers(tempDir)}
+    writeFileSync(stagedCmdFile, `${ensureHelpers(tempDir, options?.helpers)}
 ${script}`, "utf-8");
     renameSync(stagedCmdFile, cmdFile);
 
@@ -264,7 +280,7 @@ export async function sendRawCommand(
 
   validateScript(script, true);
   try {
-    writeFileSync(stagedCmdFile, `${ensureHelpers(tempDir)}
+    writeFileSync(stagedCmdFile, `${ensureHelpers(tempDir, options?.helpers)}
 ${script}`, "utf-8");
     renameSync(stagedCmdFile, cmdFile);
     return await pollForResponse(resFile, busyFile, timeoutMs);

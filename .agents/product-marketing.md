@@ -1,7 +1,7 @@
 # Product Marketing Context
 
-**Document version:** v9
-**Last updated:** 2026-08-27
+**Document version:** v10
+**Last updated:** 2026-09-04
 
 ## Product Overview
 
@@ -137,7 +137,7 @@
 
 ## Proof Points
 
-**Release facts:** v1.14.7 registers 328 core tools; the default profile exposes 326; an authenticated compatible UXP host can add 91 capability-gated tools for a 417-tool connected surface. The release also declares 37 modules, 4 MCP resources, and 11 workflow prompts. It adds guarded UXP sequence, marker, transition, caption, and silence-removal workflows alongside bounded read-only Project-panel metadata inspection, guarded Project-panel metadata replacement with exact readback, guarded typed Project metadata schema-field creation with non-field-level readback, guarded named application-preference changes, opt-in installed-MOGRT-directory inspection without filesystem enumeration, targeted sequence timing inspection with double readback, guarded source-transcript replacement with exact export readback, guarded source-media frame-rate/pixel-aspect overrides with effective-value readback, direct active-track-item identity readback, guarded source-only timeline slips, guarded contiguous three-item timeline slides, guarded append-only timeline duplicates, guarded contiguous same-track ripple deletes, guarded source-project-item color-label updates resolved from one timeline coordinate, guarded explicit-sequence preview-frame rectangle updates, explicit opt-in source-media provenance paths with double resolution, bounded source-proxy readiness with an attached-path opt-in, bounded Project/sequence Object Mask presence audits, bounded effect-parameter descriptor catalogs without parameter values, native FrameRate/TickTime frame-alignment inspection with caller-owned inputs and tick readback, native TickTime arithmetic over caller-owned canonical tick strings, and bounded opaque project-item/sequence unique-identity inspection. These are catalog, packaging, and HTTP authorization facts from the repository, not a promise that a particular host operation will work.
+**Release facts:** v1.14.8 registers 332 core tools; the default profile exposes 330; an authenticated compatible UXP host can add 91 capability-gated tools for a 421-tool connected surface. The release also declares 39 modules, 4 MCP resources, and 11 workflow prompts. It adds a separately installed After Effects CEP connector and guarded lower-third MOGRT authoring: a read-only connector check, preview-bound creation with an explicit export confirmation, and local archive-file inspection. The feature requires a user-opened, saved After Effects project and does not claim visual, import, or playback verification. These are catalog, packaging, and HTTP authorization facts from the repository, not a promise that a particular host operation will work.
 
 **Compatibility boundary:** The release targets Premiere Pro 2020–2026; UXP workflows require a compatible Premiere Pro 25.6.0+ host and advertised capabilities. CEP remains the default compatibility route. A compatibility range, package validation, CI pass, HTTP health check, or local build is not real-host proof.
 
@@ -174,6 +174,7 @@
 
 *Newest first. One line per revision: what changed and why.*
 
+- v10 (2026-09-04) — Prepared v1.14.8 guarded After Effects MOGRT-authoring positioning; preserved the licensed-host, visual, and import-verification boundaries.
 - v9 (2026-08-23) — Refreshed the Adobe AI Assistant public-beta scope and added project-backup, visual-review, and delivery-QC guide intents with explicit evidence boundaries.
 - v8 (2026-08-22) — Prepared v1.13.0 release-candidate positioning for preview-only Project Intake while preserving the unpublished and licensed-host evidence boundaries.
 - v7 (2026-08-22) — Added the read-only Project Intake workflow and refreshed source-derived tool, module, and workflow counts; kept release publication and licensed-host proof separate.

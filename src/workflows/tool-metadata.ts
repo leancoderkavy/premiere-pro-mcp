@@ -10,10 +10,12 @@ const READ_ONLY_TOOLS = new Set([
   "preview_motion_graphics_demo",
   "preview_product_spot",
   "preview_brand_spot",
+  "preview_mogrt_recipe",
   "validate_project_for_export",
   "verify_delivery_conformance",
   "read_sequence_captions",
   "plan_silence_review_markers",
+  "verify_mogrt_artifact",
 ]);
 const DESTRUCTIVE_PREFIXES = ["delete_", "remove_", "ripple_delete", "close_"];
 const DESTRUCTIVE_TOOLS = new Set(["manage_project_context"]);

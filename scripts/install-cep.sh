@@ -6,9 +6,26 @@ set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
-PLUGIN_SRC="$PROJECT_DIR/cep-plugin"
-PLUGIN_NAME="MCPBridgeCEP"
-MODE="${1:-}"
+HOST="Premiere"
+MODE=""
+for arg in "$@"; do
+  case "$arg" in
+    --after-effects) HOST="AfterEffects" ;;
+    --diagnose|--copy) MODE="$arg" ;;
+    *) echo "Unknown option: $arg" >&2; exit 1 ;;
+  esac
+done
+if [ "$HOST" = "AfterEffects" ]; then
+  PLUGIN_SRC="$PROJECT_DIR/after-effects-cep-plugin"
+  PLUGIN_NAME="MCPAfterEffectsBridgeCEP"
+  HOST_LABEL="After Effects"
+  HOST_MENU="MCP for Adobe After Effects"
+else
+  PLUGIN_SRC="$PROJECT_DIR/cep-plugin"
+  PLUGIN_NAME="MCPBridgeCEP"
+  HOST_LABEL="Premiere Pro"
+  HOST_MENU="MCP for Adobe Premiere Pro"
+fi
 
 # Detect OS
 if [[ "$OSTYPE" == "darwin"* ]]; then
@@ -20,7 +37,7 @@ else
   exit 1
 fi
 
-echo "=== Premiere MCP Connector ==="
+echo "=== $HOST_LABEL MCP Connector ==="
 echo ""
 echo "Source:      $PLUGIN_SRC"
 echo "Destination: $CEP_DIR/$PLUGIN_NAME"
@@ -47,12 +64,12 @@ if [ "$MODE" = "--diagnose" ]; then
   fi
   if [ "$problems" -ne 0 ]; then
     echo ""
-    echo "Next steps: fully quit Premiere Pro, run the Connector installer again, then reopen Premiere and choose Window > Extensions > MCP for Adobe Premiere Pro." >&2
+    echo "Next steps: fully quit $HOST_LABEL, run the Connector installer again, then reopen it and choose Window > Extensions > $HOST_MENU." >&2
     exit 1
   fi
   echo "Installation verified: Connector files are present."
   echo "This check cannot confirm that Premiere Pro is currently open or connected."
-  echo "Next: Open Premiere Pro and ask your AI assistant to run 'Verify Premiere connection'."
+  echo "Next: Open $HOST_LABEL and ask your AI assistant to run 'Verify After Effects connection' for AE or 'Verify Premiere connection' for Premiere."
   exit 0
 fi
 
@@ -94,10 +111,10 @@ echo ""
 echo "✓ Connector installed"
 echo ""
 echo "Next steps:"
-echo "  1. Fully restart Premiere Pro"
-echo "  2. Go to Window > Extensions > MCP for Adobe Premiere Pro"
+echo "  1. Fully restart $HOST_LABEL"
+echo "  2. Go to Window > Extensions > $HOST_MENU"
 echo "  3. Check that the Connector says it is running"
-echo "  4. Ask your AI assistant to run 'Verify Premiere connection'"
+echo "  4. Ask your AI assistant to run the corresponding host connection check"
 echo ""
 echo "Advanced configuration (only if your AI assistant did not install it for you):"
 echo "     node $PROJECT_DIR/dist/index.js"

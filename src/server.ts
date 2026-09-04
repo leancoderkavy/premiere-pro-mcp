@@ -41,6 +41,7 @@ import { ProjectContextRepository } from "./context/project-context-store.js";
 import { getProjectIntakeTools } from "./tools/project-intake.js";
 import { getCompetitorGapTools } from "./tools/competitor-gaps.js";
 import { getUxpTools } from "./tools/uxp.js";
+import { getMogrtAuthoringTools } from "./tools/mogrt-authoring.js";
 import type { UxpWebSocketBridge } from "./bridge/uxp-websocket-bridge.js";
 import {
   guardToolHandler,
@@ -299,6 +300,7 @@ function collectTools(
     ...getTransitionsTools(bridgeOptions),
     ...getAudioTools(bridgeOptions),
     ...getTextTools(bridgeOptions),
+    ...getMogrtAuthoringTools(bridgeOptions),
     ...getMarkerTools(bridgeOptions),
     ...getTrackTools(bridgeOptions),
     ...getPlayheadTools(bridgeOptions),

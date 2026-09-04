@@ -1,16 +1,19 @@
 param(
-  [switch]$Diagnose
+  [switch]$Diagnose,
+  [ValidateSet("Premiere", "AfterEffects")]
+  [string]$ConnectorHost = "Premiere"
 )
 
 $ErrorActionPreference = "Stop"
 
 $projectDir = Split-Path -Parent $PSScriptRoot
-$pluginSource = Join-Path $projectDir "cep-plugin"
-$signedPackage = Join-Path $projectDir "artifacts\MCPBridgeCEP.zxp"
+$isAfterEffects = $ConnectorHost -eq "AfterEffects"
+$pluginSource = Join-Path $projectDir $(if ($isAfterEffects) { "after-effects-cep-plugin" } else { "cep-plugin" })
+$signedPackage = if ($isAfterEffects) { $null } else { Join-Path $projectDir "artifacts\MCPBridgeCEP.zxp" }
 $packageMetadata = Get-Content -LiteralPath (Join-Path $projectDir "package.json") -Raw | ConvertFrom-Json
 $expectedVersion = [string]$packageMetadata.version
 $cepRoot = Join-Path $env:APPDATA "Adobe\CEP\extensions"
-$pluginDestination = Join-Path $cepRoot "MCPBridgeCEP"
+$pluginDestination = Join-Path $cepRoot $(if ($isAfterEffects) { "MCPAfterEffectsBridgeCEP" } else { "MCPBridgeCEP" })
 $resolvedCepRoot = [System.IO.Path]::GetFullPath($cepRoot).TrimEnd([System.IO.Path]::DirectorySeparatorChar)
 $resolvedDestination = [System.IO.Path]::GetFullPath($pluginDestination)
 
@@ -18,7 +21,7 @@ if (-not $resolvedDestination.StartsWith($resolvedCepRoot + [System.IO.Path]::Di
   throw "Refusing to install outside the CEP extensions directory: $resolvedDestination"
 }
 
-Write-Host "=== Premiere MCP Connector ==="
+Write-Host "=== $(if ($isAfterEffects) { 'After Effects' } else { 'Premiere' }) MCP Connector ==="
 Write-Host "Source:      $pluginSource"
 Write-Host "Destination: $pluginDestination"
 if ($Diagnose) {
@@ -30,7 +33,7 @@ if (-not (Test-Path -LiteralPath (Join-Path $pluginSource "CSXS\manifest.xml")))
 }
 
 $signedPackageMatchesRelease = $false
-if (Test-Path -LiteralPath $signedPackage) {
+if ($signedPackage -and (Test-Path -LiteralPath $signedPackage)) {
   try {
     Add-Type -AssemblyName System.IO.Compression.FileSystem
     $archive = [System.IO.Compression.ZipFile]::OpenRead($signedPackage)
@@ -117,28 +120,28 @@ $signatureFailures = Get-ChildItem -Path $env:TEMP -Filter "CEP*-PPRO.log" -File
   Sort-Object LastWriteTime -Descending |
   Select-Object -First 5 |
   Select-String -Pattern "Signature verification failed for extension com\.mcp\.premiere\.bridge" -ErrorAction SilentlyContinue
-if ($signatureFailures) {
+if (!$isAfterEffects -and $signatureFailures) {
   $latestFailure = $signatureFailures | Select-Object -First 1
   $problems += "Premiere logged a signature failure in $($latestFailure.Path). Reinstall from a release containing artifacts\MCPBridgeCEP.zxp, fully quit Premiere, and relaunch it."
 }
 
 if ($problems.Count -gt 0) {
-  Write-Error ("The Premiere Connector needs attention:`n" + ($problems -join [Environment]::NewLine))
+  Write-Error ("The $(if ($isAfterEffects) { 'After Effects' } else { 'Premiere' }) Connector needs attention:`n" + ($problems -join [Environment]::NewLine))
   Write-Host ""
   Write-Host "Next steps:"
-  Write-Host "  1. Fully quit Premiere Pro."
+  Write-Host "  1. Fully quit $(if ($isAfterEffects) { 'After Effects' } else { 'Premiere Pro' })."
   Write-Host "  2. Run the Connector installer again."
-  Write-Host "  3. Reopen Premiere Pro, then choose Window > Extensions > MCP for Adobe Premiere Pro."
+  Write-Host "  3. Reopen $(if ($isAfterEffects) { 'After Effects, then choose Window > Extensions > MCP for Adobe After Effects.' } else { 'Premiere Pro, then choose Window > Extensions > MCP for Adobe Premiere Pro.' })"
   exit 1
 }
 
 Write-Host ""
 if ($Diagnose) {
   Write-Host "Connector installation looks ready."
-  Write-Host "This check cannot confirm that Premiere Pro is currently open or connected."
-  Write-Host "Next: Open Premiere Pro and ask your AI assistant to run 'Verify Premiere connection'."
+  Write-Host "This check cannot confirm that $(if ($isAfterEffects) { 'After Effects' } else { 'Premiere Pro' }) is currently open or connected."
+  Write-Host "Next: Open $(if ($isAfterEffects) { 'After Effects and run Verify After Effects connection.' } else { 'Premiere Pro and run Verify Premiere connection.' })"
 }
 else {
-  Write-Host "Connector installed. Fully restart Premiere Pro, then open Window > Extensions > MCP for Adobe Premiere Pro."
-  Write-Host "After that, ask your AI assistant to run 'Verify Premiere connection' before editing."
+  Write-Host "Connector installed. Fully restart $(if ($isAfterEffects) { 'After Effects, then open Window > Extensions > MCP for Adobe After Effects.' } else { 'Premiere Pro, then open Window > Extensions > MCP for Adobe Premiere Pro.' })"
+  Write-Host "After that, ask your AI assistant to run '$(if ($isAfterEffects) { 'Verify After Effects connection' } else { 'Verify Premiere connection' })' before editing."
 }
