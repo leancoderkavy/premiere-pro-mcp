@@ -114,7 +114,9 @@ function isAbsolutePortable(value: string): boolean {
 }
 
 function resolvePathFamily(value: string): { api: typeof path.win32; resolved: string; windows: boolean } {
-  if (path.win32.isAbsolute(value)) return { api: path.win32, resolved: path.win32.resolve(value), windows: true };
+  if (path.win32.isAbsolute(value) && !path.posix.isAbsolute(value)) {
+    return { api: path.win32, resolved: path.win32.resolve(value), windows: true };
+  }
   if (path.posix.isAbsolute(value)) return { api: path.posix, resolved: path.posix.resolve(value), windows: false };
   throw new Error("Path must be absolute");
 }

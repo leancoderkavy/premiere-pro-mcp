@@ -74,4 +74,93 @@ describe("MOGRT authoring tools", () => {
       data: { visualVerified: false, importVerified: false, artifact: { zip_header_valid: true } },
     });
   });
+
+  it("rejects unapproved preview inputs before a connector call", async () => {
+    const tools = getMogrtAuthoringTools(bridgeOptions, { directoryExists: () => false });
+    await expect(tools.preview_mogrt_recipe.handler(null)).rejects.toThrow("arguments must be an object");
+    await expect(tools.preview_mogrt_recipe.handler({
+      template_name: "Missing output",
+      headline: "No file",
+      approved_workspace_path: "D:/Approved",
+      output_directory: "D:/Approved/templates",
+    })).rejects.toThrow("must already exist");
+    await expect(tools.preview_mogrt_recipe.handler({
+      template_name: "Bad.",
+      headline: "No file",
+      approved_workspace_path: "D:/Approved",
+      output_directory: "D:/Approved/templates",
+    })).rejects.toThrow("template_name");
+    await expect(tools.preview_mogrt_recipe.handler({
+      template_name: "Safe",
+      headline: "No file",
+      approved_workspace_path: "D:/Approved",
+      output_directory: "D:/Approved/templates",
+      unexpected: true,
+    })).rejects.toThrow("unsupported field");
+
+    const existingDirectory = getMogrtAuthoringTools(bridgeOptions, { directoryExists: () => true });
+    await expect(existingDirectory.preview_mogrt_recipe.handler({
+      recipe: "title_card",
+      template_name: "Safe",
+      headline: "No file",
+      approved_workspace_path: "D:/Approved",
+      output_directory: "D:/Approved/templates",
+    })).rejects.toThrow("recipe must be lower_third");
+    await expect(existingDirectory.preview_mogrt_recipe.handler({
+      template_name: "Safe",
+      headline: "No file",
+      approved_workspace_path: "D:/Approved",
+      output_directory: "/approved/templates",
+    })).rejects.toThrow("same path format");
+    await expect(existingDirectory.preview_mogrt_recipe.handler({
+      template_name: "Safe",
+      headline: "No file",
+      approved_workspace_path: "D:/Approved",
+      output_directory: "D:/Approved/templates",
+      frame_rate: 31,
+    })).rejects.toThrow("frame_rate must be one of");
+  });
+
+  it("requires confirmation, preserves bridge errors, and reports local artifact failures", async () => {
+    let now = 0;
+    const tools = getMogrtAuthoringTools(bridgeOptions, {
+      directoryExists: () => true,
+      now: () => now,
+      tokenFactory: () => "expiring-token",
+      operationIdFactory: () => "operation-error",
+      send: async () => ({ success: false, error: "connector unavailable" }),
+      artifactStatus: () => ({ exists: true, size_bytes: 10, zip_header_valid: false }),
+    });
+    await tools.preview_mogrt_recipe.handler({
+      template_name: "Safe",
+      headline: "A headline",
+      approved_workspace_path: "D:/Approved",
+      output_directory: "D:/Approved/templates",
+    });
+    await expect(tools.create_mogrt_recipe.handler({
+      preview_token: "expiring-token",
+      confirm_export: false,
+    })).rejects.toThrow("confirm_export");
+    await expect(tools.create_mogrt_recipe.handler({
+      preview_token: "expiring-token",
+      confirm_export: true,
+    })).resolves.toMatchObject({ success: false, error: "connector unavailable (operation operation-error)" });
+
+    await expect(tools.verify_mogrt_artifact.handler({
+      approved_workspace_path: "D:/Approved",
+      mogrt_path: "D:/Approved/templates/Launch.mogrt",
+    })).resolves.toMatchObject({ success: false, error: "The artifact is not a recognizable ZIP-based .mogrt file" });
+
+    await tools.preview_mogrt_recipe.handler({
+      template_name: "Expired",
+      headline: "A headline",
+      approved_workspace_path: "D:/Approved",
+      output_directory: "D:/Approved/templates",
+    });
+    now = 10 * 60 * 1000;
+    await expect(tools.create_mogrt_recipe.handler({
+      preview_token: "expiring-token",
+      confirm_export: true,
+    })).rejects.toThrow("expired");
+  });
 });

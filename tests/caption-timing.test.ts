@@ -80,6 +80,38 @@ Opening`, "vtt");
     const unsafe = buildCaptionTimingPlan(SRT, "srt", { observedOffsetSeconds: 1 });
     expect(unsafe).toMatchObject({ status: "review_required", correction: { proposed: false, shiftSeconds: 0 } });
   });
+
+  it("rejects malformed caller input and withholds ambiguous duration scaling", () => {
+    expect(() => parseCaptionArtifact("", "srt")).toThrow("caption_content is required");
+    expect(() => parseCaptionArtifact(SRT, "txt")).toThrow("artifact_format");
+    expect(() => parseCaptionArtifact("00:00:00,000 --> 00:00:01,000\nNo header", "vtt"))
+      .toThrow("begin with WEBVTT");
+    expect(() => parseCaptionArtifact("NOTE an ignored note", "srt")).toThrow("no timed cues");
+    expect(() => buildCaptionTimingPlan(SRT, "srt", { allowProportionalScaling: "yes" as unknown as boolean }))
+      .toThrow("allow_proportional_scaling");
+
+    const leadIn = "1\n00:00:02,000 --> 00:00:04,000\nOpening";
+    expect(buildCaptionTimingPlan(leadIn, "srt", {
+      targetDurationSeconds: 8,
+      allowProportionalScaling: true,
+    })).toMatchObject({ status: "review_required", correction: { proposed: false, kind: "none" } });
+
+    expect(buildCaptionTimingPlan(SRT, "srt", {
+      targetDurationSeconds: 30,
+      allowProportionalScaling: true,
+    })).toMatchObject({ status: "review_required", correction: { proposed: false, kind: "none" } });
+  });
+
+  it("keeps a caller-owned one-cue artifact aligned without optional timing inputs", () => {
+    const plan = buildCaptionTimingPlan("1\n00:00:01,000 --> 00:00:02,000\nOnly cue", "srt");
+    expect(plan).toMatchObject({
+      status: "aligned",
+      samples: [{ position: "beginning", cueNumber: 1 }],
+    });
+    expect(plan).not.toHaveProperty("targetDurationSeconds");
+    expect(plan).not.toHaveProperty("observedOffsetSeconds");
+    expect(plan.samples[0]).not.toHaveProperty("after");
+  });
 });
 
 describe("guided lecture-caption action", () => {
