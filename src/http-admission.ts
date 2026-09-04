@@ -24,6 +24,7 @@ export interface HttpAdmissionSettings {
   keepAliveTimeoutMs: number;
   maxRequestsPerSocket: number;
   maxConcurrentRequests: number;
+  maxConcurrentStreams: number;
   rateLimitPerMinute: number;
   rateLimitBurst: number;
   maxRateLimitKeys: number;
@@ -32,8 +33,12 @@ export interface HttpAdmissionSettings {
 
 export interface AdmissionMetrics {
   activeRequests: number;
+  activeOperationRequests: number;
+  activeStreamRequests: number;
   trackedRateLimitKeys: number;
 }
+
+export type AdmissionLane = "operation" | "stream";
 
 export type AdmissionDecision =
   | { accepted: true; release: () => void }
@@ -76,6 +81,7 @@ export function readHttpAdmissionSettings(env: NodeJS.ProcessEnv): HttpAdmission
     keepAliveTimeoutMs: readBoundedInteger(env, "MCP_KEEP_ALIVE_TIMEOUT_MS", 5_000, 1_000, 60_000),
     maxRequestsPerSocket: readBoundedInteger(env, "MCP_MAX_REQUESTS_PER_SOCKET", 100, 1, 10_000),
     maxConcurrentRequests: readBoundedInteger(env, "MCP_MAX_CONCURRENT_REQUESTS", 8, 1, 128),
+    maxConcurrentStreams: readBoundedInteger(env, "MCP_MAX_CONCURRENT_STREAMS", 32, 1, 1_024),
     rateLimitPerMinute,
     rateLimitBurst,
     maxRateLimitKeys: readBoundedInteger(env, "MCP_MAX_RATE_LIMIT_KEYS", 2_048, 16, 100_000),
@@ -321,14 +327,15 @@ interface TokenBucket {
  */
 export class HttpAdmissionController {
   private readonly buckets = new Map<string, TokenBucket>();
-  private activeRequests = 0;
+  private activeOperationRequests = 0;
+  private activeStreamRequests = 0;
 
   constructor(
-    private readonly settings: Pick<HttpAdmissionSettings, "maxConcurrentRequests" | "rateLimitPerMinute" | "rateLimitBurst" | "maxRateLimitKeys">,
+    private readonly settings: Pick<HttpAdmissionSettings, "maxConcurrentRequests" | "maxConcurrentStreams" | "rateLimitPerMinute" | "rateLimitBurst" | "maxRateLimitKeys">,
     private readonly clock: () => number = Date.now,
   ) {}
 
-  acquire(identity: string): AdmissionDecision {
+  acquire(identity: string, lane: AdmissionLane = "operation"): AdmissionDecision {
     const now = this.clock();
     this.pruneIdleBuckets(now);
 
@@ -347,25 +354,34 @@ export class HttpAdmissionController {
       return { accepted: false, reason: "rate_limited", statusCode: 429, retryAfterSeconds };
     }
 
-    if (this.activeRequests >= this.settings.maxConcurrentRequests) {
+    const activeRequests = lane === "stream" ? this.activeStreamRequests : this.activeOperationRequests;
+    const maximumRequests = lane === "stream" ? this.settings.maxConcurrentStreams : this.settings.maxConcurrentRequests;
+    if (activeRequests >= maximumRequests) {
       return { accepted: false, reason: "at_capacity", statusCode: 503, retryAfterSeconds: 1 };
     }
 
     bucket.tokens -= 1;
-    this.activeRequests += 1;
+    if (lane === "stream") this.activeStreamRequests += 1;
+    else this.activeOperationRequests += 1;
     let released = false;
     return {
       accepted: true,
       release: () => {
         if (released) return;
         released = true;
-        this.activeRequests = Math.max(0, this.activeRequests - 1);
+        if (lane === "stream") this.activeStreamRequests = Math.max(0, this.activeStreamRequests - 1);
+        else this.activeOperationRequests = Math.max(0, this.activeOperationRequests - 1);
       },
     };
   }
 
   metrics(): AdmissionMetrics {
-    return { activeRequests: this.activeRequests, trackedRateLimitKeys: this.buckets.size };
+    return {
+      activeRequests: this.activeOperationRequests + this.activeStreamRequests,
+      activeOperationRequests: this.activeOperationRequests,
+      activeStreamRequests: this.activeStreamRequests,
+      trackedRateLimitKeys: this.buckets.size,
+    };
   }
 
   private getOrCreateBucket(identity: string, now: number): TokenBucket | undefined {

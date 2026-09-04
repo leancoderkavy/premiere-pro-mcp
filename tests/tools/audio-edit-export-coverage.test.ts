@@ -31,6 +31,7 @@ import { confirmationToken, getEditPlanTools, validateEditPlan } from "../../src
 import {
   getExportTools,
   inspectExportPresetFile,
+  MAX_CAPTURE_FRAME_BYTES,
   verifyDeliveryFile,
 } from "../../src/tools/export.js";
 
@@ -283,6 +284,14 @@ describe("export verification and host-result coverage", () => {
       data: { captured: true, mimeType: "image/png", base64: Buffer.from("png bytes").toString("base64") },
     });
     expect(existsSync(frame)).toBe(false);
+
+    const oversizedFrame = temporaryPath("oversized-frame.png", "x".repeat(MAX_CAPTURE_FRAME_BYTES + 1));
+    mockedSendCommand.mockResolvedValueOnce({ success: true, data: { outputPath: oversizedFrame } });
+    await expect(tools.capture_frame.handler({})).resolves.toMatchObject({
+      success: false,
+      error: expect.stringContaining("inline response limit"),
+    });
+    expect(existsSync(oversizedFrame)).toBe(false);
 
     mockedSendCommand.mockResolvedValueOnce({ success: true, data: { outputPath: temporaryDirectory() } });
     await expect(tools.capture_frame.handler({})).resolves.toMatchObject({

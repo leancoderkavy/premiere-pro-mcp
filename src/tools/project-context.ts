@@ -22,6 +22,7 @@ const CORE_CONTEXT_KINDS = new Set<ProjectContextKind>(["project", "sequence", "
 const ENRICHMENT_KINDS = new Set<ProjectContextKind>(["transcript", "shot", "audio", "note"]);
 const MAX_CAPTURED_TIMELINE_ITEMS = 2_000;
 const MAX_ENRICHMENTS_PER_CALL = 512;
+export const MAX_CONCURRENT_SOURCE_FINGERPRINTS = 16;
 
 interface SnapshotClip {
   nodeId: string;
@@ -227,10 +228,18 @@ export async function buildContextDocumentFromSnapshot(
     if (clip.sourceId && !uniqueSources.has(clip.sourceId)) uniqueSources.set(clip.sourceId, clip);
   }
 
+  const sourceEntries = [...uniqueSources.entries()];
   const fingerprints = new Map<string, MediaFingerprint>();
-  await Promise.all([...uniqueSources.entries()].map(async ([sourceId, clip]) => {
-    fingerprints.set(sourceId, await fingerprint(clip.mediaPath));
-  }));
+  let nextSourceIndex = 0;
+  await Promise.all(Array.from(
+    { length: Math.min(MAX_CONCURRENT_SOURCE_FINGERPRINTS, sourceEntries.length) },
+    async () => {
+      while (nextSourceIndex < sourceEntries.length) {
+        const [sourceId, clip] = sourceEntries[nextSourceIndex++]!;
+        fingerprints.set(sourceId, await fingerprint(clip.mediaPath));
+      }
+    },
+  ));
 
   const sourceRecords: ProjectContextRecord[] = [...uniqueSources.entries()].map(([sourceId, clip]) => {
     const media = fingerprints.get(sourceId) ?? {};

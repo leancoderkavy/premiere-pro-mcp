@@ -11,6 +11,7 @@ import { parseEbur128Summary } from "./audio.js";
 const execFileAsync = promisify(execFile);
 const VIDEO_QC_TIMEOUT_MS = 300_000;
 const MAX_FAILURE_DIAGNOSTIC_LENGTH = 4_096;
+export const MAX_CAPTURE_FRAME_BYTES = 8 * 1024 * 1024;
 
 export type ConformanceStatus = "pass" | "fail" | "not_evaluated";
 
@@ -1231,8 +1232,14 @@ export function getExportTools(bridgeOptions: BridgeOptions) {
         }
 
         try {
+          const frameSize = statSync(framePath).size;
+          if (frameSize > MAX_CAPTURE_FRAME_BYTES) {
+            return {
+              success: false,
+              error: `Captured frame exceeds the ${MAX_CAPTURE_FRAME_BYTES}-byte inline response limit`,
+            };
+          }
           const base64 = readFileSync(framePath).toString("base64");
-          try { unlinkSync(framePath); } catch {}
           return {
             success: true,
             data: {
@@ -1243,6 +1250,8 @@ export function getExportTools(bridgeOptions: BridgeOptions) {
           };
         } catch (e) {
           return { success: false, error: `Failed to read captured frame: ${e instanceof Error ? e.message : String(e)}` };
+        } finally {
+          try { unlinkSync(framePath); } catch {}
         }
       },
     },

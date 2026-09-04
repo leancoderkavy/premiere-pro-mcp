@@ -19,6 +19,7 @@ describe("HTTP admission settings", () => {
     expect(readHttpAdmissionSettings({})).toMatchObject({
       maxRequestBytes: 1_048_576,
       maxConcurrentRequests: 8,
+      maxConcurrentStreams: 32,
       rateLimitPerMinute: 120,
       rateLimitBurst: 30,
     });
@@ -154,7 +155,7 @@ describe("HTTP request classification", () => {
 describe("HTTP admission controller", () => {
   it("bounds concurrent requests and makes release idempotent", () => {
     const controller = new HttpAdmissionController({
-      maxConcurrentRequests: 1, rateLimitPerMinute: 100, rateLimitBurst: 10, maxRateLimitKeys: 16,
+      maxConcurrentRequests: 1, maxConcurrentStreams: 2, rateLimitPerMinute: 100, rateLimitBurst: 10, maxRateLimitKeys: 16,
     });
     const first = controller.acquire("credential:a");
     expect(first.accepted).toBe(true);
@@ -171,7 +172,7 @@ describe("HTTP admission controller", () => {
   it("enforces a bounded token bucket with Retry-After", () => {
     let now = 0;
     const controller = new HttpAdmissionController({
-      maxConcurrentRequests: 5, rateLimitPerMinute: 60, rateLimitBurst: 2, maxRateLimitKeys: 16,
+      maxConcurrentRequests: 5, maxConcurrentStreams: 5, rateLimitPerMinute: 60, rateLimitBurst: 2, maxRateLimitKeys: 16,
     }, () => now);
     const first = controller.acquire("credential:a");
     const second = controller.acquire("credential:a");
@@ -185,7 +186,7 @@ describe("HTTP admission controller", () => {
   it("bounds tracked identities and prunes stale buckets", () => {
     let now = 0;
     const controller = new HttpAdmissionController({
-      maxConcurrentRequests: 2, rateLimitPerMinute: 60, rateLimitBurst: 1, maxRateLimitKeys: 1,
+      maxConcurrentRequests: 2, maxConcurrentStreams: 2, rateLimitPerMinute: 60, rateLimitBurst: 1, maxRateLimitKeys: 1,
     }, () => now);
     const first = controller.acquire("credential:a");
     if (first.accepted) first.release();
@@ -195,5 +196,27 @@ describe("HTTP admission controller", () => {
     expect(second.accepted).toBe(true);
     expect(controller.metrics().trackedRateLimitKeys).toBe(1);
     if (second.accepted) second.release();
+  });
+
+  it("reserves SSE capacity without consuming operation capacity", () => {
+    const controller = new HttpAdmissionController({
+      maxConcurrentRequests: 1, maxConcurrentStreams: 2, rateLimitPerMinute: 100, rateLimitBurst: 10, maxRateLimitKeys: 16,
+    });
+    const operation = controller.acquire("credential:a", "operation");
+    const firstStream = controller.acquire("credential:a", "stream");
+    const secondStream = controller.acquire("credential:b", "stream");
+    expect(operation.accepted).toBe(true);
+    expect(firstStream.accepted).toBe(true);
+    expect(secondStream.accepted).toBe(true);
+    expect(controller.acquire("credential:b", "operation")).toMatchObject({ accepted: false, reason: "at_capacity" });
+    expect(controller.acquire("credential:c", "stream")).toMatchObject({ accepted: false, reason: "at_capacity" });
+    expect(controller.metrics()).toMatchObject({
+      activeRequests: 3,
+      activeOperationRequests: 1,
+      activeStreamRequests: 2,
+    });
+    if (operation.accepted) operation.release();
+    if (firstStream.accepted) firstStream.release();
+    if (secondStream.accepted) secondStream.release();
   });
 });

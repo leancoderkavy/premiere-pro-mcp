@@ -38,6 +38,8 @@ export function getDefaultBridgeTempDir(
 const DEFAULT_TEMP_DIR = getDefaultBridgeTempDir();
 const POLL_FALLBACK_MS = 250;
 const DEFAULT_TIMEOUT_MS = 30000;
+export const MAX_QUEUED_BRIDGE_COMMANDS = 32;
+export const MAX_BRIDGE_RESPONSE_BYTES = 1_048_576;
 export const BRIDGE_HEARTBEAT_FILE = "bridge-heartbeat.json";
 export const BRIDGE_HEARTBEAT_STALE_MS = 3_000;
 
@@ -46,6 +48,62 @@ type ResponseListener = () => void;
 interface SharedResponseWatcher {
   watcher?: FSWatcher;
   listeners: Map<string, Set<ResponseListener>>;
+}
+
+interface QueuedBridgeCommand {
+  run: () => Promise<CommandResult>;
+  resolve: (result: CommandResult) => void;
+  reject: (error: unknown) => void;
+}
+
+interface BridgeCommandScheduler {
+  running: boolean;
+  pending: QueuedBridgeCommand[];
+}
+
+// One Premiere scripting engine serves each bridge directory. Serialize command
+// publication per directory so concurrent MCP requests cannot make independent
+// CEP panels issue overlapping host edits. The bounded queue fails fast instead
+// of accumulating unbounded command files and response watchers under load.
+const commandSchedulers = new Map<string, BridgeCommandScheduler>();
+
+function scheduleBridgeCommand(
+  tempDir: string,
+  run: () => Promise<CommandResult>,
+): Promise<CommandResult> {
+  let scheduler = commandSchedulers.get(tempDir);
+  if (!scheduler) {
+    scheduler = { running: false, pending: [] };
+    commandSchedulers.set(tempDir, scheduler);
+  }
+
+  if (scheduler.running && scheduler.pending.length >= MAX_QUEUED_BRIDGE_COMMANDS) {
+    return Promise.resolve({
+      success: false,
+      error: `Bridge command queue is full (${MAX_QUEUED_BRIDGE_COMMANDS} waiting); retry after an active command finishes`,
+    });
+  }
+
+  return new Promise<CommandResult>((resolve, reject) => {
+    scheduler!.pending.push({ run, resolve, reject });
+    runNextBridgeCommand(tempDir, scheduler!);
+  });
+}
+
+function runNextBridgeCommand(tempDir: string, scheduler: BridgeCommandScheduler): void {
+  if (scheduler.running) return;
+  const next = scheduler.pending.shift();
+  if (!next) {
+    commandSchedulers.delete(tempDir);
+    return;
+  }
+  scheduler.running = true;
+  void next.run()
+    .then(next.resolve, next.reject)
+    .finally(() => {
+      scheduler.running = false;
+      runNextBridgeCommand(tempDir, scheduler);
+    });
 }
 
 // CEP commands can be issued concurrently, especially when an MCP client
@@ -261,6 +319,15 @@ export async function sendCommand(
   script: string,
   options?: BridgeOptions
 ): Promise<CommandResult> {
+  validateScript(script);
+  const tempDir = getTempDir(options);
+  return scheduleBridgeCommand(tempDir, () => sendCommandUnchecked(script, options));
+}
+
+async function sendCommandUnchecked(
+  script: string,
+  options?: BridgeOptions,
+): Promise<CommandResult> {
   const tempDir = getTempDir(options);
   const timeoutMs = options?.timeoutMs || DEFAULT_TIMEOUT_MS;
   ensureDir(tempDir);
@@ -275,9 +342,6 @@ export async function sendCommand(
   const stagedCmdFile = `${cmdFile}.staged`;
   const resFile = join(tempDir, `res_${id}.json`);
   const busyFile = join(tempDir, `busy_${id}.json`);
-
-  // Validate script
-  validateScript(script);
 
   try {
     // Write a complete command before its .jsx name makes it visible to CEP.
@@ -326,6 +390,15 @@ export async function sendRawCommand(
   script: string,
   options?: BridgeOptions
 ): Promise<CommandResult> {
+  validateScript(script, true);
+  const tempDir = getTempDir(options);
+  return scheduleBridgeCommand(tempDir, () => sendRawCommandUnchecked(script, options));
+}
+
+async function sendRawCommandUnchecked(
+  script: string,
+  options?: BridgeOptions,
+): Promise<CommandResult> {
   const tempDir = getTempDir(options);
   const timeoutMs = options?.timeoutMs || DEFAULT_TIMEOUT_MS;
   ensureDir(tempDir);
@@ -341,7 +414,6 @@ export async function sendRawCommand(
   const resFile = join(tempDir, `res_${id}.json`);
   const busyFile = join(tempDir, `busy_${id}.json`);
 
-  validateScript(script, true);
   try {
     writeFileSync(stagedCmdFile, `${ensureHelpers(tempDir, options?.helpers)}
 ${script}`, "utf-8");
@@ -405,6 +477,14 @@ async function pollForResponse(
       if (settled) return;
       if (existsSync(resFile)) {
         try {
+          const responseSize = statSync(resFile).size;
+          if (responseSize > MAX_BRIDGE_RESPONSE_BYTES) {
+            finish({
+              success: false,
+              error: `Bridge response exceeds the ${MAX_BRIDGE_RESPONSE_BYTES}-byte limit`,
+            });
+            return;
+          }
           const raw = readFileSync(resFile, "utf-8");
           const result = JSON.parse(raw) as CommandResult;
           if (typeof result !== "object" || result === null || typeof result.success !== "boolean") {
