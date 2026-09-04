@@ -107,6 +107,13 @@ describe("capability profiles", () => {
     expect(capabilitiesForToolInvocation("preview_mogrt_recipe", {})).toEqual(["inspect", "filesystem"]);
     expect(capabilitiesForToolInvocation("create_mogrt_recipe", {})).toEqual(["edit", "export", "filesystem"]);
     expect(capabilitiesForToolInvocation("verify_mogrt_artifact", {})).toEqual(["inspect", "filesystem"]);
+    expect(capabilitiesForToolInvocation("preview_mogrt_batch", {})).toEqual(["inspect", "filesystem"]);
+    expect(capabilitiesForToolInvocation("create_mogrt_batch", {})).toEqual(["edit", "export", "filesystem"]);
+    expect(capabilitiesForToolInvocation("publish_mogrt_to_library", {})).toEqual(["filesystem"]);
+    expect(capabilitiesForToolInvocation("enqueue_after_effects_render", {})).toEqual(["edit", "export", "filesystem"]);
+    expect(capabilitiesForToolInvocation("apply_mogrt_premiere_handoff", {})).toEqual(["edit", "filesystem"]);
+    expect(isToolPermitted("create_mogrt_batch", resolveCapabilities("inspect,edit,filesystem"))).toBe(false);
+    expect(isToolPermitted("enqueue_after_effects_render", resolveCapabilities("edit,export,filesystem"))).toBe(true);
 
     await expect(
       guardToolHandler("create_mogrt_recipe", handler, resolveCapabilities("edit,export"), () => "mogrt-filesystem")({}),

@@ -7,19 +7,19 @@ const releases = [
   {
     version: "1.14.8",
     date: "2026-09-04",
-    label: "Guarded After Effects MOGRT authoring",
+    label: "Guarded After Effects MOGRT studio",
     groups: [
       {
         title: "Added",
         items: [
-          "An optional, separate After Effects CEP connector can author one approval-gated lower-third Motion Graphics Template in an already saved, workspace-contained project.",
-          "The workflow includes a one-time preview token, explicit export confirmation, isolated local bridge channel, and local ZIP-header artifact check.",
+          "An optional, separate After Effects CEP connector can author five approval-gated title, callout, quote, and social Motion Graphics Template recipes in an already saved, workspace-contained project.",
+          "The studio includes brand-kit constraints, bounded JSON/CSV batches, immutable local template libraries, source inspection, queue-only renders, and explicit Premiere handoff verification.",
         ],
       },
       {
         title: "Safety",
         items: [
-          "The authoring path does not accept arbitrary scripts, create or switch projects, create output folders, overwrite artifacts, or claim that an accepted export is visually or import verified.",
+          "The authoring path does not accept arbitrary scripts, create or switch projects, overwrite artifacts, start renders, or claim that host acceptance, archive presence, or import descriptors are visual proof.",
         ],
       },
     ],

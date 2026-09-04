@@ -10,18 +10,22 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
-- Added a separate After Effects CEP bridge and four approval-gated MOGRT
-  authoring tools. The initial `lower_third` recipe only runs in an already
-  saved, workspace-contained AE project and exports to an existing approved
-  directory.
+- Added a separate After Effects CEP bridge and guarded MOGRT studio. Five
+  deterministic title, callout, quote, and social recipes run only in an
+  already saved, workspace-contained AE project and export to an existing
+  approved directory.
 - Added one-time preview tokens, explicit export confirmation, isolated AE
   bridge helpers/temp directory, and local ZIP-header artifact verification.
+- Added optional brand-kit constraints, bounded JSON/CSV batch previews,
+  immutable workspace-contained version libraries, source inspection,
+  queue-only After Effects renders, and an explicit empty-track Premiere
+  handoff that verifies insertion and exposed-control descriptors.
 
 ### Safety
 
-- MOGRT authoring never accepts arbitrary script text, creates or switches AE
-  projects, creates output directories, overwrites artifacts, or treats host
-  acceptance/a ZIP header as import, rendered-frame, or visual proof.
+- MOGRT workflows never accept arbitrary script text, create or switch AE
+  projects, overwrite artifacts, start a render queue, or treat host
+  acceptance/a ZIP header/import descriptor as rendered-frame or visual proof.
 
 ## [1.14.7] - 2026-09-02
 
