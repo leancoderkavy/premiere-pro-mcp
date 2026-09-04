@@ -35,16 +35,31 @@ The AI handles the entire workflow through 332 core tools spanning the supported
 
 ### Latest release: 1.14.8
 
-- **Guarded UXP editing:** compatible hosts can use verified sequence ranges,
-  display formats, playhead, marker, transition, caption, silence-cut, and split-edit workflows.
-- **Review-first evidence:** local delivery checks, sampled media analysis, and
-  editorial context packs remain bounded and avoid unapproved provider writes.
-- **Narrowed host behavior:** unsupported sequence pixel-aspect ratios and
-  partial UXP transition writes fail closed; other mutations retain their
-  documented verified or explicitly `committed_unverified` outcome.
+- **New UXP inspection:** compatible hosts can inspect source-proxy readiness
+  (with an explicit opt-in before an attached proxy path is disclosed) and the
+  endpoint displacement of one animated PointF effect parameter. Both are
+  read-only, bounded inspections—not proof of proxy compatibility or rendered
+  appearance.
+- **Desktop protocol fallback:** if a client cannot negotiate the modern
+  server mode over stdio, set `PREMIERE_MCP_PROTOCOL_MODE=legacy` in that
+  client's server environment and restart it. `auto` remains the default; see
+  [current protocol support](#current-mcp-protocol-support) for the boundary.
+- **Guarded UXP editing from 1.14.6:** compatible hosts can use verified
+  sequence ranges, display formats, playhead, marker batches, transitions,
+  caption-track inventory, silence-cut stringouts, beat-grid markers, and
+  atomic split-edit workflows.
+- **Review and delivery evidence from 1.14.6:** editorial context packs,
+  local delivery conformance, sampled video scopes and motion analysis, Warp
+  Stabilizer status inspection, and shot-match plans remain bounded and avoid
+  unapproved provider writes.
+- **Fail-closed outcomes:** unsupported sequence pixel-aspect ratios, partial
+  UXP transition writes, unavailable media-timing readback, and incomplete
+  delivery probes reject rather than reporting success. Other mutations retain
+  their documented verified or explicitly `committed_unverified` outcome.
 - **Explicit boundary:** the hosted endpoint remains an operator-managed MCP
   service; unauthenticated callers are rejected and it does not pair users to
-  local Premiere processes.
+  local Premiere processes. See the generated [supported action catalog](docs/supported-actions.md)
+  for individual capability and verification contracts.
 - **MOGRT authoring:** an optional, separate After Effects CEP connector can
   create one approval-gated lower-third recipe in an already saved workspace
   project, then report local artifact evidence without claiming visual proof.
