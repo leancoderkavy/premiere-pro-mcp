@@ -144,6 +144,12 @@ caption artifact ending before a sequence may be intentional. See the
 [guided lecture-caption workflow](lecture-caption-workflow.md) for the separate
 duplicate-sequence, structural-readback, playback, and rendered-output steps.
 
+Local installation recovery is separate from editorial work. Use
+`premiere-pro-mcp --doctor --plan-fixes` to review privacy-safe local repair
+guidance before starting a workflow. It cannot establish a Premiere connection;
+see [previewable doctor repair plans](doctor-repair-plans.md) for the explicit
+connector-backup and post-repair boundary.
+
 ## Adobe and provider boundaries
 
 `get_advanced_feature_support` now reports an explicit access mode:

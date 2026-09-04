@@ -14,7 +14,9 @@ export type ReadinessBoundary =
 export type ReadinessState = "ready" | "needs_attention" | "not_checked";
 
 export interface ReadinessComponent {
-  id: "mcp_process" | "premiere_connector" | "premiere_host" | "active_project" | "active_sequence" | "uxp_bridge";
+  id: "mcp_process" | "node_runtime" | "premiere_connector" | "premiere_host" | "active_project" | "active_sequence" | "uxp_bridge";
+  /** Stable, privacy-safe category for support and repair routing. */
+  code: string;
   label: string;
   boundary: ReadinessBoundary;
   state: ReadinessState;
@@ -35,6 +37,26 @@ export interface LocalDoctorReport {
     includes: string[];
     excludes: string[];
   };
+}
+
+export interface DoctorRepairAction {
+  id: "install_cep_connector" | "upgrade_node_runtime" | "configure_uxp_connection" | "verify_live_connection";
+  diagnosticCode: string;
+  title: string;
+  canApplyLocally: boolean;
+  requiresPremiereClosed: boolean;
+  createsBackup: boolean;
+  instruction: string;
+  verification: string;
+}
+
+export interface DoctorRepairPlan {
+  schemaVersion: "premiere-pro-mcp.doctor-repair-plan.v1";
+  generatedAt: string;
+  overall: "ready" | "needs_attention";
+  actions: DoctorRepairAction[];
+  privacy: { excludes: string[] };
+  verificationBoundary: string;
 }
 
 export interface FirstRunReport {
@@ -100,6 +122,7 @@ function installedComponent(installed: boolean): ReadinessComponent {
   return installed
     ? {
         id: "premiere_connector",
+        code: "CEP_CONNECTOR_READY",
         label: "Premiere Connector",
         boundary: "installed",
         state: "ready",
@@ -107,6 +130,7 @@ function installedComponent(installed: boolean): ReadinessComponent {
       }
     : {
         id: "premiere_connector",
+        code: "CEP_CONNECTOR_MISSING",
         label: "Premiere Connector",
         boundary: "installed",
         state: "needs_attention",
@@ -118,6 +142,14 @@ function installedComponent(installed: boolean): ReadinessComponent {
 function nodeMajor(nodeVersion: string): number | null {
   const match = /^v?(\d+)/.exec(nodeVersion);
   return match ? Number(match[1]) : null;
+}
+
+function nodeRuntimeReady(nodeVersion: string): boolean {
+  const match = /^v?(\d+)\.(\d+)\.(\d+)/.exec(nodeVersion);
+  if (!match) return false;
+  const major = Number(match[1]);
+  const minor = Number(match[2]);
+  return major > 20 || (major === 20 && minor >= 19);
 }
 
 function cepManifestPath(platform: NodeJS.Platform, environment: NodeJS.ProcessEnv): string | null {
@@ -147,14 +179,27 @@ export function collectLocalDoctor(options: LocalDoctorOptions = {}): LocalDocto
   const components: ReadinessComponent[] = [
     {
       id: "mcp_process",
+      code: "MCP_SERVER_LOCAL",
       label: "MCP server",
       boundary: "installed",
       state: "ready",
       message: "This copy of Premiere MCP can run on this computer.",
     },
+    {
+      id: "node_runtime",
+      code: nodeRuntimeReady(nodeVersion) ? "NODE_RUNTIME_SUPPORTED" : "NODE_RUNTIME_UNSUPPORTED",
+      label: "Node.js runtime",
+      boundary: "installed",
+      state: nodeRuntimeReady(nodeVersion) ? "ready" : "needs_attention",
+      message: nodeRuntimeReady(nodeVersion)
+        ? "The local Node.js runtime meets Premiere MCP's supported minimum."
+        : "The local Node.js runtime is below the supported Node.js 20.19 minimum or could not be identified.",
+      ...(nodeRuntimeReady(nodeVersion) ? {} : { repair: "Install a supported Node.js runtime, then run the local check again." }),
+    },
     installedComponent(connectorInstalled),
     {
       id: "uxp_bridge",
+      code: uxpConfigured ? "UXP_CONNECTION_CONFIGURED" : "UXP_CONNECTION_NOT_CONFIGURED",
       label: "UXP connection",
       boundary: "configured",
       state: uxpConfigured ? "ready" : "not_checked",
@@ -164,6 +209,7 @@ export function collectLocalDoctor(options: LocalDoctorOptions = {}): LocalDocto
     },
     {
       id: "premiere_host",
+      code: "PREMIERE_HOST_NOT_CHECKED",
       label: "Live Premiere check",
       boundary: "live_verified",
       state: "not_checked",
@@ -179,12 +225,86 @@ export function collectLocalDoctor(options: LocalDoctorOptions = {}): LocalDocto
       platform,
       nodeMajor: nodeMajor(nodeVersion),
     },
-    overall: connectorInstalled ? "ready" : "needs_attention",
+    overall: connectorInstalled && nodeRuntimeReady(nodeVersion) ? "ready" : "needs_attention",
     components,
     privacy: {
       includes: ["component readiness", "operating system", "Node.js major version"],
       excludes: PRIVACY_EXCLUSIONS,
     },
+  };
+}
+
+/**
+ * Build a no-write repair plan from local readiness facts. It intentionally
+ * cannot inspect or repair a running Premiere host, a project, a sequence, or
+ * any secret-bearing configuration.
+ */
+export function createDoctorRepairPlan(report: LocalDoctorReport): DoctorRepairPlan {
+  const actions: DoctorRepairAction[] = [];
+  const runtime = report.components.find((component) => component.id === "node_runtime");
+  const connector = report.components.find((component) => component.id === "premiere_connector");
+  const uxp = report.components.find((component) => component.id === "uxp_bridge");
+  const host = report.components.find((component) => component.id === "premiere_host");
+
+  if (runtime?.state === "needs_attention") {
+    actions.push({
+      id: "upgrade_node_runtime",
+      diagnosticCode: runtime.code,
+      title: "Install a supported Node.js runtime",
+      canApplyLocally: false,
+      requiresPremiereClosed: false,
+      createsBackup: false,
+      instruction: "Install Node.js 20.19 or later using your approved system package process, then rerun premiere-pro-mcp --doctor.",
+      verification: "A new local doctor report must show NODE_RUNTIME_SUPPORTED. This does not verify Premiere.",
+    });
+  }
+  if (connector?.state === "needs_attention") {
+    const canApplyLocally = report.runtime.platform === "win32" || report.runtime.platform === "darwin";
+    actions.push({
+      id: "install_cep_connector",
+      diagnosticCode: connector.code,
+      title: "Install the local Premiere Connector",
+      canApplyLocally,
+      requiresPremiereClosed: true,
+      createsBackup: true,
+      instruction: canApplyLocally
+        ? "Fully quit Premiere Pro. --apply-fixes can back up an incomplete local connector directory, run the existing connector installer, and rerun the local check."
+        : "Install the Premiere Connector on a supported Windows or macOS computer, then rerun the local check.",
+      verification: "A new local doctor report can verify installed connector files only; it cannot verify that Premiere is open or connected.",
+    });
+  }
+  if (uxp?.state === "not_checked") {
+    actions.push({
+      id: "configure_uxp_connection",
+      diagnosticCode: uxp.code,
+      title: "Configure UXP only when you choose that backend",
+      canApplyLocally: false,
+      requiresPremiereClosed: false,
+      createsBackup: false,
+      instruction: "Set up the authenticated local UXP bridge through the documented client and panel flow. Do not paste a token into a support bundle or repair plan.",
+      verification: "A local check can report only that a token is configured, never the token value or a live host connection.",
+    });
+  }
+  if (host?.state === "not_checked") {
+    actions.push({
+      id: "verify_live_connection",
+      diagnosticCode: host.code,
+      title: "Run a safe live connection check",
+      canApplyLocally: false,
+      requiresPremiereClosed: false,
+      createsBackup: false,
+      instruction: "Open Premiere Pro and use your MCP client's safe connection check before editing.",
+      verification: "This is the first step that can establish a client-to-host connection; it still does not verify playback or render quality.",
+    });
+  }
+
+  return {
+    schemaVersion: "premiere-pro-mcp.doctor-repair-plan.v1",
+    generatedAt: report.generatedAt,
+    overall: report.overall,
+    actions,
+    privacy: { excludes: [...report.privacy.excludes] },
+    verificationBoundary: "This no-write plan contains local readiness guidance only. It does not expose paths, tokens, project data, or host state, and it cannot claim a repair or live Premiere connection.",
   };
 }
 
@@ -195,6 +315,7 @@ export function buildFirstRunReport(
 ): FirstRunReport {
   const mcpProcess: ReadinessComponent = {
     id: "mcp_process",
+    code: "MCP_SERVER_CONNECTED",
     label: "AI assistant connection",
     boundary: "connected",
     state: "ready",
@@ -215,6 +336,7 @@ export function buildFirstRunReport(
         mcpProcess,
         {
           id: "premiere_connector",
+          code: "PREMIERE_CONNECTOR_UNREACHABLE",
           label: "Premiere Connector",
           boundary: "connected",
           state: "needs_attention",
@@ -223,6 +345,7 @@ export function buildFirstRunReport(
         },
         {
           id: "active_project",
+          code: "ACTIVE_PROJECT_NOT_CHECKED",
           label: "Active project",
           boundary: "live_verified",
           state: "not_checked",
@@ -230,6 +353,7 @@ export function buildFirstRunReport(
         },
         {
           id: "active_sequence",
+          code: "ACTIVE_SEQUENCE_NOT_CHECKED",
           label: "Active sequence",
           boundary: "live_verified",
           state: "not_checked",
@@ -247,6 +371,7 @@ export function buildFirstRunReport(
     mcpProcess,
     {
       id: "premiere_connector",
+      code: "PREMIERE_CONNECTOR_CONNECTED",
       label: "Premiere Connector",
       boundary: "connected",
       state: "ready",
@@ -254,6 +379,7 @@ export function buildFirstRunReport(
     },
     {
       id: "active_project",
+      code: projectOpen ? "ACTIVE_PROJECT_OPEN" : "ACTIVE_PROJECT_MISSING",
       label: "Active project",
       boundary: "live_verified",
       state: projectOpen ? "ready" : "needs_attention",
@@ -264,6 +390,7 @@ export function buildFirstRunReport(
     },
     {
       id: "active_sequence",
+      code: sequenceOpen ? "ACTIVE_SEQUENCE_OPEN" : "ACTIVE_SEQUENCE_MISSING",
       label: "Active sequence",
       boundary: "live_verified",
       state: sequenceOpen ? "ready" : "needs_attention",
