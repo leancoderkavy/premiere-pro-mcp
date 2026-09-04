@@ -21,8 +21,9 @@
  *                      binds 0.0.0.0 and can drive Premiere.
  *   MCP_OAUTH_*        Alternatively configure an OAuth issuer, JWKS URI,
  *                      audience, public URL, and required scopes for per-user auth.
- *   MCP_MAX_REQUEST_BYTES, MCP_*_TIMEOUT_MS, MCP_RATE_LIMIT_* and
- *   MCP_MAX_CONCURRENT_REQUESTS bound public HTTP resource use. See README.
+ *   MCP_MAX_REQUEST_BYTES, MCP_*_TIMEOUT_MS, MCP_RATE_LIMIT_*,
+ *   MCP_MAX_CONCURRENT_REQUESTS, and MCP_MAX_CONCURRENT_STREAMS bound public
+ *   HTTP resource use. See README.
  */
 
 import http from "node:http";
@@ -37,6 +38,7 @@ import { cleanupTempDir, getTempDir } from "./bridge/file-bridge.js";
 import { getTelemetry } from "./telemetry.js";
 import { applyHttpSecurityHeaders } from "./http-security.js";
 import { OAuthResourceServer } from "./oauth-resource-server.js";
+import { ProjectContextRepository } from "./context/project-context-store.js";
 import {
   HttpAdmissionController,
   MCP_HTTP_METHODS,
@@ -216,8 +218,12 @@ const telemetry = getTelemetry();
 const admission = new HttpAdmissionController(admissionSettings);
 const preAuthAdmission = new HttpAdmissionController(admissionSettings);
 const oauthResourceServer = httpAuth.oauth ? new OAuthResourceServer(httpAuth.oauth) : undefined;
+// Streamable HTTP creates an McpServer for every request. Sharing the repository
+// keeps memory-backed context durable across those request-scoped servers and
+// avoids repeatedly opening the same JSON or SQLite store.
+const projectContextRepository = new ProjectContextRepository();
 const mcpHandler = createMcpHandler(
-  () => createServer(bridgeOptions, { telemetry }),
+  () => createServer(bridgeOptions, { telemetry, contextRepository: projectContextRepository }),
   {
     onerror: (error) => console.error("[premiere-pro-mcp] MCP handler error:", error),
   },
@@ -340,7 +346,10 @@ const httpServer = http.createServer(async (req, res) => {
   const authenticatedIdentity = oauthAuthentication?.authenticated
     ? `oauth:${oauthAuthentication.principal.rateLimitKey}`
     : "credential:shared-operator";
-  const admissionDecision = admission.acquire(authenticatedIdentity);
+  const admissionDecision = admission.acquire(
+    authenticatedIdentity,
+    req.method === "GET" ? "stream" : "operation",
+  );
   if (!admissionDecision.accepted) {
     telemetry.capture("mcp_request_rejected", {
       outcome: admissionDecision.reason,
@@ -435,6 +444,7 @@ async function shutdown(signal: string) {
   console.error(`[premiere-pro-mcp] ${signal} received, shutting down...`);
   httpServer.close();
   await mcpHandler.close();
+  await projectContextRepository.close();
   await telemetry.shutdown();
   process.exit(0);
 }

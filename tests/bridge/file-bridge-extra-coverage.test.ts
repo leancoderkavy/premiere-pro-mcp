@@ -128,7 +128,7 @@ describe("file bridge fallback and cleanup branches", () => {
     expect(fs.unlink).toHaveBeenCalledWith(expect.stringContaining("busy_1.json"));
   });
 
-  it("skips POSIX ownership checks on Windows", async () => {
+  it("skips POSIX ownership changes on Windows while checking response bounds", async () => {
     vi.spyOn(process, "platform", "get").mockReturnValue("win32");
     fs.exists.mockReturnValue(true);
     fs.read.mockReturnValue('{"success":true}');
@@ -136,7 +136,7 @@ describe("file bridge fallback and cleanup branches", () => {
     await expect(sendCommand("var windows = true;", {
       tempDir: "C:\\Temp\\premiere-bridge",
     })).resolves.toEqual({ success: true });
-    expect(fs.stat).not.toHaveBeenCalled();
+    expect(fs.stat).toHaveBeenCalledWith(expect.stringContaining("res_"));
     expect(fs.chmod).not.toHaveBeenCalled();
   });
 });

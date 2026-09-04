@@ -1061,6 +1061,7 @@ user/device authorization are implemented.
 | `MCP_KEEP_ALIVE_TIMEOUT_MS` | Idle keep-alive socket timeout | `5000` |
 | `MCP_MAX_REQUESTS_PER_SOCKET` | Requests permitted on one keep-alive socket | `100` |
 | `MCP_MAX_CONCURRENT_REQUESTS` | In-flight authenticated MCP request ceiling | `8` |
+| `MCP_MAX_CONCURRENT_STREAMS` | Open authenticated SSE stream ceiling; isolated from operation capacity | `32` |
 | `MCP_RATE_LIMIT_PER_MINUTE` | Per-credential token-bucket refill rate | `120` |
 | `MCP_RATE_LIMIT_BURST` | Per-credential short burst allowance | `30` |
 | `MCP_MAX_RATE_LIMIT_KEYS` | In-memory rate-limit identity ceiling | `2048` |

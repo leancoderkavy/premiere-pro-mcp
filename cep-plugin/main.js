@@ -276,16 +276,20 @@ function executeScript(script, callback) {
 
 // ---- Command Processing ----
 function processCommands() {
+  if (commandInFlight) return;
   var cmdFiles = listCommandFiles();
-  for (var i = 0; i < cmdFiles.length; i++) {
-    processOneCommand(cmdFiles[i]);
-  }
+  // Premiere's scripting engine is stateful. Starting every discovered command
+  // at once lets overlapping edits race each other and overload the host. The
+  // atomic claim below still prevents duplicate work across the visible and
+  // headless panels, while this panel dispatches strictly one command at a time.
+  if (cmdFiles.length > 0) processOneCommand(cmdFiles[0]);
 }
 
 // Both the visible panel and the headless auto-start instance run this file.
 // A rename is atomic on the same volume, so whichever engine renames first owns
 // the command; the loser's rename throws and it skips the file.
 var ENGINE_ID = Math.random().toString(36).slice(2, 8);
+var commandInFlight = false;
 
 function processOneCommand(cmdFileName) {
   var cmdFilePath = path.join(tempDir, cmdFileName);
@@ -302,6 +306,8 @@ function processOneCommand(cmdFileName) {
     log("Failed to read: " + cmdFileName, "err");
     return;
   }
+
+  commandInFlight = true;
 
   // Derive response filename: cmd_12345.jsx -> res_12345.json
   var id = cmdFileName.replace("cmd_", "").replace(".jsx", "");
@@ -358,6 +364,10 @@ function processOneCommand(cmdFileName) {
     }
 
     writeResponseFile(resFilePath, response);
+    commandInFlight = false;
+    // Continue without waiting for the next poll interval, preserving FIFO
+    // ordering while minimizing queue handoff latency.
+    if (bridgeRunning) processCommands();
   });
 }
 

@@ -14,6 +14,7 @@ import {
   buildContextDocumentFromSnapshot,
   enrichContextDocument,
   getProjectContextTools,
+  MAX_CONCURRENT_SOURCE_FINGERPRINTS,
   type PremiereContextSnapshot,
 } from "../src/tools/project-context.js";
 
@@ -90,6 +91,26 @@ describe("project context index", () => {
     expect(changedSource.document.sourceRevision).not.toBe(first.document.sourceRevision);
     expect(changedSource.document.records.some((record) => record.kind === "transcript")).toBe(false);
     expect(changedSource.invalidatedRecords).toBe(1);
+  });
+
+  it("bounds concurrent source fingerprint work during a large capture", async () => {
+    const largeSnapshot = snapshot();
+    largeSnapshot.sequence.clips = Array.from({ length: MAX_CONCURRENT_SOURCE_FINGERPRINTS * 3 }, (_, index) => ({
+      ...largeSnapshot.sequence.clips[0]!,
+      nodeId: `timeline-${index}`,
+      sourceId: `source-${index}`,
+      mediaPath: `D:/Media/source-${index}.mov`,
+    }));
+    let active = 0;
+    let peak = 0;
+    await buildContextDocumentFromSnapshot(largeSnapshot, undefined, async () => {
+      active += 1;
+      peak = Math.max(peak, active);
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      active -= 1;
+      return {};
+    });
+    expect(peak).toBe(MAX_CONCURRENT_SOURCE_FINGERPRINTS);
   });
 
   it("ranks bounded transcript and audio evidence while preserving revision provenance", async () => {

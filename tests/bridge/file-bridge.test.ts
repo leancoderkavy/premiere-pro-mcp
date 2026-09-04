@@ -19,6 +19,7 @@ import {
   getTempDir,
   getDefaultBridgeTempDir,
   getBridgeLiveness,
+  MAX_BRIDGE_RESPONSE_BYTES,
   sendCommand,
   sendRawCommand,
   cleanupTempDir,
@@ -149,6 +150,7 @@ describe("sendCommand", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.useFakeTimers();
+    mockedStatSync.mockReturnValue({ uid: myUid, mode: 0o700 } as unknown as ReturnType<typeof statSync>);
   });
 
   afterEach(() => {
@@ -249,6 +251,21 @@ describe("sendCommand", () => {
     expect(result).toEqual({ success: true, data: { version: "24.0" } });
   });
 
+  it("rejects an oversized bridge response before reading it into memory", async () => {
+    mockedExistsSync.mockReturnValue(true);
+    mockedStatSync.mockReturnValue({
+      uid: myUid,
+      mode: 0o700,
+      size: MAX_BRIDGE_RESPONSE_BYTES + 1,
+    } as unknown as ReturnType<typeof statSync>);
+
+    await expect(sendCommand("test", { tempDir: "/tmp/test-bridge" })).resolves.toEqual({
+      success: false,
+      error: `Bridge response exceeds the ${MAX_BRIDGE_RESPONSE_BYTES}-byte limit`,
+    });
+    expect(mockedReadFileSync).not.toHaveBeenCalled();
+  });
+
   it("uses distinct cryptographic IDs for concurrently-created command files", async () => {
     mockedExistsSync.mockReturnValue(true);
     mockedReadFileSync.mockReturnValue('{"success":true}');
@@ -304,11 +321,11 @@ describe("sendCommand", () => {
     expect(fakeWatcher.close).toHaveBeenCalled();
   });
 
-  it("shares one directory watcher across concurrent bridge commands", async () => {
+  it("serializes concurrent bridge commands before they reach CEP", async () => {
     const readyResponses = new Set<string>();
     let onChange: ((event: string, filename: string) => void) | undefined;
     const fakeWatcher = { on: vi.fn().mockReturnThis(), close: vi.fn() };
-    mockedWatch.mockImplementationOnce(((_path, _options, listener) => {
+    mockedWatch.mockImplementation(((_path, _options, listener) => {
       onChange = listener as (event: string, filename: string) => void;
       return fakeWatcher;
     }) as typeof watch);
@@ -323,20 +340,37 @@ describe("sendCommand", () => {
       sendCommand("second", { tempDir: "/tmp/shared-watch-bridge" }),
     ];
     expect(mockedWatch).toHaveBeenCalledTimes(1);
+    expect(mockedRenameSync).toHaveBeenCalledTimes(1);
 
-    for (const [, commandPath] of mockedRenameSync.mock.calls) {
+    const signalResponse = (commandPath: unknown) => {
       const responsePath = String(commandPath)
         .replace(/cmd_/, "res_")
         .replace(/\.jsx$/, ".json");
       readyResponses.add(responsePath);
       onChange?.("rename", responsePath.split(/[\\/]/).pop()!);
-    }
+    };
+    signalResponse(mockedRenameSync.mock.calls[0]?.[1]);
+    await expect(pending[0]).resolves.toEqual({ success: true, data: { shared: true } });
 
-    await expect(Promise.all(pending)).resolves.toEqual([
-      { success: true, data: { shared: true } },
-      { success: true, data: { shared: true } },
-    ]);
-    expect(fakeWatcher.close).toHaveBeenCalledTimes(1);
+    await vi.advanceTimersByTimeAsync(0);
+    expect(mockedRenameSync).toHaveBeenCalledTimes(2);
+    expect(mockedWatch).toHaveBeenCalledTimes(2);
+    signalResponse(mockedRenameSync.mock.calls[1]?.[1]);
+
+    await expect(pending[1]).resolves.toEqual({ success: true, data: { shared: true } });
+    expect(fakeWatcher.close).toHaveBeenCalledTimes(2);
+  });
+
+  it("fails fast when a bridge directory already has the bounded command backlog", async () => {
+    mockedExistsSync.mockImplementation((path) => !String(path).includes("res_"));
+    const commands = Array.from({ length: 34 }, (_, index) => sendCommand(`queued-${index}`, {
+      tempDir: "/tmp/queue-capacity-bridge",
+    }));
+
+    await expect(commands[33]).resolves.toEqual({
+      success: false,
+      error: "Bridge command queue is full (32 waiting); retry after an active command finishes",
+    });
   });
 
   it("keeps polling a malformed response without resending the command", async () => {
