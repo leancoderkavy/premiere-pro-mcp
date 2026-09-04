@@ -61,6 +61,28 @@ describe("MOGRT authoring tools", () => {
     })).rejects.toThrow("inside approved_workspace_path");
   });
 
+  it("supports only the bounded recipe library and applies contained brand-kit defaults", async () => {
+    const tools = getMogrtAuthoringTools(bridgeOptions, { directoryExists: () => true });
+    await expect(tools.preview_mogrt_recipe.handler({
+      recipe: "social_end_card",
+      template_name: "Brand End Card",
+      headline: "Follow us",
+      approved_workspace_path: "D:/Approved",
+      output_directory: "D:/Approved/templates",
+      brand_kit: { name: "Brand", name_prefix: "Brand", accent_color: "#102030", text_color: "#FFFFFF", safe_margin_percent: 0.1 },
+    })).resolves.toMatchObject({
+      success: true,
+      data: { plan: { recipe: "social_end_card", accent_color: "#102030", text_color: "#FFFFFF" } },
+    });
+    await expect(tools.preview_mogrt_recipe.handler({
+      recipe: "arbitrary_script",
+      template_name: "Nope",
+      headline: "Nope",
+      approved_workspace_path: "D:/Approved",
+      output_directory: "D:/Approved/templates",
+    })).rejects.toThrow("recipe must be one of");
+  });
+
   it("does not report a valid ZIP header as visual or import verification", async () => {
     const tools = getMogrtAuthoringTools(bridgeOptions, {
       artifactStatus: () => ({ exists: true, size_bytes: 42, zip_header_valid: true }),
@@ -100,12 +122,12 @@ describe("MOGRT authoring tools", () => {
 
     const existingDirectory = getMogrtAuthoringTools(bridgeOptions, { directoryExists: () => true });
     await expect(existingDirectory.preview_mogrt_recipe.handler({
-      recipe: "title_card",
+      recipe: "not_a_recipe",
       template_name: "Safe",
       headline: "No file",
       approved_workspace_path: "D:/Approved",
       output_directory: "D:/Approved/templates",
-    })).rejects.toThrow("recipe must be lower_third");
+    })).rejects.toThrow("recipe must be one of");
     await expect(existingDirectory.preview_mogrt_recipe.handler({
       template_name: "Safe",
       headline: "No file",

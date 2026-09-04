@@ -47,6 +47,7 @@ import { getProjectIntakeTools } from "./tools/project-intake.js";
 import { getCompetitorGapTools } from "./tools/competitor-gaps.js";
 import { getUxpTools } from "./tools/uxp.js";
 import { getMogrtAuthoringTools } from "./tools/mogrt-authoring.js";
+import { getMogrtStudioTools } from "./tools/mogrt-studio.js";
 import type { UxpWebSocketBridge } from "./bridge/uxp-websocket-bridge.js";
 import {
   guardToolHandler,
@@ -257,6 +258,7 @@ function collectStaticTools(
     ...getAudioTools(bridgeOptions),
     ...getTextTools(bridgeOptions),
     ...getMogrtAuthoringTools(bridgeOptions),
+    ...getMogrtStudioTools(bridgeOptions),
     ...getMarkerTools(bridgeOptions),
     ...getTrackTools(bridgeOptions),
     ...getPlayheadTools(bridgeOptions),

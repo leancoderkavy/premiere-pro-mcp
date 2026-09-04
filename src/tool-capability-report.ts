@@ -124,6 +124,66 @@ export const TOOL_OPERATIONAL_OVERRIDES: Readonly<
       "Checks local file presence and a ZIP header only; it does not establish After Effects controls or Premiere import/render behavior.",
     ],
   },
+  validate_mogrt_brand_kit: {
+    backend: "local", backends: ["local"], status: "supported", minimumPremiereVersion: null,
+    authority: "inspect", verificationBoundary: "local_filesystem", hostVerificationRequired: false,
+    notes: ["Also requires filesystem authority. Validates a declared brand-kit schema and contained logo path; it does not inspect installed fonts or image pixels."],
+  },
+  preview_mogrt_batch: {
+    backend: "local", backends: ["local"], status: "supported", minimumPremiereVersion: null,
+    authority: "inspect", verificationBoundary: "static_metadata_only", hostVerificationRequired: false,
+    notes: ["Also requires filesystem authority. Parses a bounded workspace-contained CSV or JSON file without contacting Adobe or creating files."],
+  },
+  create_mogrt_batch: {
+    backend: "local + CEP/ExtendScript", backends: ["local", "cep", "extendscript"], status: "supported", minimumPremiereVersion: null,
+    authority: "export", verificationBoundary: "output_and_host_response", hostVerificationRequired: true,
+    notes: ["Also requires edit and filesystem authority. Serial exports can leave prior artifacts and AE compositions in place if a later item fails; host acceptance is not visual verification."],
+  },
+  inspect_after_effects_template_source: {
+    backend: "CEP/ExtendScript", backends: ["cep", "extendscript"], status: "supported", minimumPremiereVersion: null,
+    authority: "inspect", verificationBoundary: "host_response", hostVerificationRequired: true,
+    notes: ["Reads a named or active After Effects composition without paths or layer text. On hosts exposing the AE 16.1+ API, it reads controller names; older hosts report that this readback is unavailable."],
+  },
+  preview_mogrt_library_publish: {
+    backend: "local", backends: ["local"], status: "supported", minimumPremiereVersion: null,
+    authority: "inspect", verificationBoundary: "local_filesystem", hostVerificationRequired: false,
+    notes: ["Also requires filesystem authority. Plans an immutable local library version but does not create a directory or copy a MOGRT."],
+  },
+  publish_mogrt_to_library: {
+    backend: "local", backends: ["local"], status: "supported", minimumPremiereVersion: null,
+    authority: "filesystem", verificationBoundary: "local_filesystem", hostVerificationRequired: false,
+    notes: ["Copies one ZIP-checked MOGRT into a newly created version directory and fails instead of overwriting a prior version."],
+  },
+  inspect_mogrt_library: {
+    backend: "local", backends: ["local"], status: "supported", minimumPremiereVersion: null,
+    authority: "inspect", verificationBoundary: "local_filesystem", hostVerificationRequired: false,
+    notes: ["Also requires filesystem authority. Lists bounded template and version names only; it does not read MOGRT contents."],
+  },
+  inspect_after_effects_render_templates: {
+    backend: "CEP/ExtendScript", backends: ["cep", "extendscript"], status: "supported", minimumPremiereVersion: null,
+    authority: "inspect", verificationBoundary: "host_response", hostVerificationRequired: true,
+    notes: ["Reads template names from an existing render-queue item. It never adds an item, changes a template, or starts rendering."],
+  },
+  preview_after_effects_render: {
+    backend: "local", backends: ["local"], status: "supported", minimumPremiereVersion: null,
+    authority: "inspect", verificationBoundary: "static_metadata_only", hostVerificationRequired: false,
+    notes: ["Also requires filesystem authority. Validates a bounded no-overwrite render queue request but cannot prove the named composition or templates exist."],
+  },
+  enqueue_after_effects_render: {
+    backend: "local + CEP/ExtendScript", backends: ["local", "cep", "extendscript"], status: "supported", minimumPremiereVersion: null,
+    authority: "export", verificationBoundary: "host_response", hostVerificationRequired: true,
+    notes: ["Also requires edit and filesystem authority. Queues one render and saves the project; it does not start the queue or verify an output file."],
+  },
+  preview_mogrt_premiere_handoff: {
+    backend: "local", backends: ["local"], status: "supported", minimumPremiereVersion: null,
+    authority: "inspect", verificationBoundary: "local_filesystem", hostVerificationRequired: false,
+    notes: ["Also requires filesystem authority. Validates the artifact and explicit disposable-sequence target locally; it does not contact Premiere."],
+  },
+  apply_mogrt_premiere_handoff: {
+    backend: "CEP/ExtendScript", backends: ["cep", "extendscript"], status: "supported", minimumPremiereVersion: "2020",
+    authority: "edit", verificationBoundary: "local_and_host_response", hostVerificationRequired: true,
+    notes: ["Also requires filesystem authority. Rechecks an explicit disposable sequence name and empty track, then verifies insertion and MOGRT control descriptors; rendered-frame correctness remains separate."],
+  },
   verify_delivery_file: {
     backend: "local",
     backends: ["local"],

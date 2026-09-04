@@ -8,7 +8,7 @@
 
 **Give compatible AI assistants structured control over supported Adobe Premiere Pro workflows.**
 
-332 core tools across 39 modules, 4 resources, and 11 guided workflows. A connected UXP host adds 91 capability-gated tools.
+344 core tools across 40 modules, 4 resources, and 11 guided workflows. A connected UXP host adds 91 capability-gated tools.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Node.js](https://img.shields.io/badge/Node.js-20.19%2B-green.svg)](https://nodejs.org)
@@ -31,13 +31,14 @@ An [MCP (Model Context Protocol)](https://modelcontextprotocol.io) server that l
 "Add the B-roll clips to V2, apply a cross dissolve between each, color correct them to match the A-roll, and export a 1080p ProRes."
 ```
 
-The AI handles the entire workflow through 332 core tools spanning the supported ExtendScript, QE DOM, local media and interchange analysis, revisioned project-context retrieval, safe edit-planning, project-intake preview, review handoff, connection verification, and guarded After Effects MOGRT authoring. A compatible, authenticated UXP panel adds 91 documented, capability-gated tools without replacing the production CEP bridge.
+The AI handles the entire workflow through 344 core tools spanning the supported ExtendScript, QE DOM, local media and interchange analysis, revisioned project-context retrieval, safe edit-planning, project-intake preview, review handoff, connection verification, and guarded After Effects MOGRT authoring, batch, library, render-queue, inspection, and Premiere-handoff workflows. A compatible, authenticated UXP panel adds 91 documented, capability-gated tools without replacing the production CEP bridge.
 
 ### Latest release: 1.14.8
 
-- **MOGRT authoring:** an optional, separate After Effects CEP connector can
-  create one approval-gated lower-third recipe in an already saved workspace
-  project, then report local artifact evidence without claiming visual proof.
+- **MOGRT studio:** an optional, separate After Effects CEP connector can
+  author approval-gated title, callout, quote, and social recipes; constrain
+  them with local brand kits; batch, publish, queue, inspect, and hand them to
+  Premiere without claiming visual or completed-render proof.
 - **Global-update handoff:** a global npm installation can show its server and
    connector update state in the Windows CEP panel and, after explicit
    confirmation, update only after Premiere has been quit; it never changes a
@@ -56,9 +57,9 @@ The AI handles the entire workflow through 332 core tools spanning the supported
   mobile-first workflow view plus current machine-readable facts and crawl
   guidance for its public pages.
 - **Explicit boundary:** the hosted endpoint remains an operator-managed MCP
-   service; unauthenticated callers are rejected and it does not pair users to
-   local Premiere processes. See the generated [supported action catalog](docs/supported-actions.md)
-   for individual capability and verification contracts.
+  service; unauthenticated callers are rejected and it does not pair users to
+  local Premiere processes. See the generated [supported action catalog](docs/supported-actions.md)
+  for individual capability and verification contracts.
 
 See the [v1.14.8 release notes](https://github.com/leancoderkavy/premiere-pro-mcp/releases/tag/v1.14.8)
 for complete details. Live installation in Premiere Pro still requires host verification.
@@ -470,7 +471,7 @@ installed separately.
 QE-backed tools are reported as `experimental` because QE is undocumented and can vary between Premiere builds. Authority availability is reported separately from implementation support, so disabling `edit`, for example, does not incorrectly label editing tools as unsupported. Static metadata never claims that a Premiere operation succeeded; use `ping` and inspect each tool result for runtime evidence.
 
 MCP `tools/list` is filtered to the active authority profile. The default
-`inspect,edit,export,filesystem` profile advertises 330 of the 332 registered
+`inspect,edit,export,filesystem` profile advertises 342 of the 344 registered
 tools and omits `execute_extendscript` and `evaluate_expression`, which require
 explicit `unsafe-script` authority. `ping` and `get_capabilities` remain visible
 under every profile so a restricted or misconfigured server can still explain
@@ -493,7 +494,7 @@ The tool-specific `data` shape remains versioned by the individual tool result,
 so clients can reliably distinguish transport success from a Premiere or local
 operation failure without parsing the text block.
 
-### After Effects MOGRT authoring
+### After Effects MOGRT studio
 
 This is a narrow authoring path, not an arbitrary After Effects script runner.
 Install the separate local connector, fully restart After Effects, and open
@@ -506,18 +507,38 @@ premiere-pro-mcp --install-after-effects-cep
 Then open a saved `.aep` project inside an approved workspace and use this order:
 
 1. `verify_after_effects_connection` — read-only connector and saved-project check.
-2. `preview_mogrt_recipe` — produces an expiring, one-time plan for the supported
-   `lower_third` recipe; it never creates directories or contacts Adobe.
+2. `preview_mogrt_recipe` — produces an expiring, one-time plan for one of five
+   supported recipes: `lower_third`, `title_card`, `callout`, `quote_card`, or
+   `social_end_card`; it never creates directories or contacts Adobe.
 3. `create_mogrt_recipe` with that token and `confirm_export: true` — creates one
    composition, saves the open project, and requests one `.mogrt` export.
 4. `verify_mogrt_artifact` — checks only local file existence and its ZIP header.
+
+Optional studio paths retain the same preview-and-confirm boundary:
+
+- `validate_mogrt_brand_kit` validates local name-prefix, accent/text colors,
+  font request, safe-margin, and workspace-contained logo values before they
+  are passed into a recipe.
+- `preview_mogrt_batch` / `create_mogrt_batch` export up to 20 JSON/CSV rows
+  serially; batches stop on a host error and do not promise rollback.
+- `preview_mogrt_library_publish` / `publish_mogrt_to_library` write a new,
+  immutable `v001`, `v002`, … copy under an already-existing local library.
+- `inspect_after_effects_template_source` returns source-comp dimensions,
+  duration, fonts, layer kinds, and controller names on AE 16.1+, while
+  `inspect_after_effects_render_templates` lists host template names from an
+  existing queue item.
+- `preview_after_effects_render` / `enqueue_after_effects_render` queue one
+  exact render but never start it. `preview_mogrt_premiere_handoff` /
+  `apply_mogrt_premiere_handoff` import into an explicitly named empty
+  `MOGRT Verify - …` Premiere sequence and read back insertion/control
+  descriptors.
 
 The authoring connector uses `AFTER_EFFECTS_MCP_TEMP_DIR` (default: the OS temp
 directory plus `after-effects-mcp-bridge`), completely separate from
 `PREMIERE_TEMP_DIR`. The tool will not create, replace, or switch projects; it
 requires the already-open AE project and output directory to be contained by the
-same approved workspace. A valid local artifact still needs import into a
-disposable Premiere sequence and rendered-frame review before delivery.
+same approved workspace. An import/control readback still needs rendered-frame
+review before delivery; use `capture_frame` or a separate approved export path.
 
 `inspect_sequence_review_report` creates one read-only handoff report from
 Premiere timeline readback: sequence structure, primary-track gaps, disabled
@@ -696,7 +717,7 @@ opaque `UniqueSerializeable` identity twice, and rejects drift without retaining
 the value or treating it as edit authority. See the [unique-identity workflow
 notes](docs/uxp-unique-identity-workflows.md) for its bounds and proof boundary.
 
-## Tools (332 core total; 330 under the default profile; 421 with a connected UXP bridge)
+## Tools (344 core total; 342 under the default profile; 433 with a connected UXP bridge)
 
 The [complete supported-actions catalog](docs/supported-actions.md) lists every
 registered core tool, the two tools restricted behind explicit `unsafe-script`
@@ -1072,11 +1093,11 @@ premiere-pro-mcp/
 ├── src/
 │   ├── index.ts                 # Entry point — stdio transport setup
 │   ├── http-server.ts           # Entry point — HTTP/SSE transport (Fly.io / remote)
-│   ├── server.ts                # MCP server — registers 332 tools, filtered by authority profile
+│   ├── server.ts                # MCP server — registers 344 tools, filtered by authority profile
 │   ├── bridge/
 │   │   ├── file-bridge.ts       # File-based IPC (write .jsx, poll .json)
 │   │   └── script-builder.ts    # ExtendScript generator with ES3 helpers
-│   ├── tools/                   # 39 tool modules
+│   ├── tools/                   # 40 tool modules
 │   │   ├── discovery.ts         # Project discovery and queries
 │   │   ├── recovery.ts          # Read-only autosave discovery and private bridge telemetry
 │   │   ├── project.ts           # Project management and import

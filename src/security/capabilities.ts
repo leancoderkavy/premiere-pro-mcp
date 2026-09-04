@@ -117,6 +117,18 @@ const TOOL_CAPABILITY_REQUIREMENTS: Readonly<Record<string, readonly Capability[
   preview_mogrt_recipe: ["inspect", "filesystem"],
   create_mogrt_recipe: ["edit", "export", "filesystem"],
   verify_mogrt_artifact: ["inspect", "filesystem"],
+  validate_mogrt_brand_kit: ["inspect", "filesystem"],
+  preview_mogrt_batch: ["inspect", "filesystem"],
+  create_mogrt_batch: ["edit", "export", "filesystem"],
+  inspect_after_effects_template_source: ["inspect"],
+  preview_mogrt_library_publish: ["inspect", "filesystem"],
+  publish_mogrt_to_library: ["filesystem"],
+  inspect_mogrt_library: ["inspect", "filesystem"],
+  inspect_after_effects_render_templates: ["inspect"],
+  preview_after_effects_render: ["inspect", "filesystem"],
+  enqueue_after_effects_render: ["edit", "export", "filesystem"],
+  preview_mogrt_premiere_handoff: ["inspect", "filesystem"],
+  apply_mogrt_premiere_handoff: ["edit", "filesystem"],
 };
 
 const ACTION_CAPABILITIES: Readonly<Record<string, Readonly<Record<string, readonly Capability[]>>>> = {
