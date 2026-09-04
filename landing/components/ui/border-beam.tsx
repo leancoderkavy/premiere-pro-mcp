@@ -1,6 +1,4 @@
-"use client"
-
-import { motion, MotionStyle, Transition } from "motion/react"
+import type { CSSProperties } from "react"
 import { cn } from "@/lib/utils"
 
 interface BorderBeamProps {
@@ -9,59 +7,38 @@ interface BorderBeamProps {
   delay?: number
   colorFrom?: string
   colorTo?: string
-  transition?: Transition
   className?: string
-  style?: React.CSSProperties
+  style?: CSSProperties
   reverse?: boolean
   initialOffset?: number
   borderWidth?: number
 }
 
-export const BorderBeam = ({
+export function BorderBeam({
   className,
   size = 50,
   delay = 0,
   duration = 6,
   colorFrom = "#ffaa40",
   colorTo = "#9c40ff",
-  transition,
   style,
   reverse = false,
   initialOffset = 0,
   borderWidth = 1,
-}: BorderBeamProps) => {
+}: BorderBeamProps) {
   return (
-    <div
-      className="pointer-events-none absolute inset-0 rounded-[inherit] border border-transparent"
+    <span
+      aria-hidden="true"
+      className={cn("border-beam", reverse && "border-beam-reverse", className)}
       style={{
-        WebkitMask: "linear-gradient(transparent,transparent), linear-gradient(#000,#000)",
-        WebkitMaskClip: "padding-box, border-box",
-        WebkitMaskComposite: "destination-out",
-        borderWidth: `${borderWidth}px`,
-      } as React.CSSProperties}
-    >
-      <motion.div
-        className={cn("absolute aspect-square", className)}
-        style={{
-          width: size,
-          offsetPath: `rect(0 auto auto 0 round ${size}px)`,
-          background: `linear-gradient(to left, ${colorFrom}, ${colorTo}, transparent)`,
-          ...style,
-        } as MotionStyle}
-        initial={{ offsetDistance: `${initialOffset}%` }}
-        animate={{
-          offsetDistance: reverse
-            ? [`${100 - initialOffset}%`, `${-initialOffset}%`]
-            : [`${initialOffset}%`, `${100 + initialOffset}%`],
-        }}
-        transition={{
-          repeat: Infinity,
-          ease: "linear",
-          duration,
-          delay: -delay,
-          ...transition,
-        }}
-      />
-    </div>
+        "--border-beam-size": `${size}px`,
+        "--border-beam-duration": `${duration}s`,
+        "--border-beam-delay": `${-delay - (duration * initialOffset) / 100}s`,
+        "--border-beam-from": colorFrom,
+        "--border-beam-to": colorTo,
+        "--border-beam-width": `${borderWidth}px`,
+        ...style,
+      } as CSSProperties}
+    />
   )
 }

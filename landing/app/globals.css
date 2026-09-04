@@ -125,7 +125,7 @@
     font-feature-settings: "ss01" 1, "cv02" 1;
   }
   ::selection {
-    background: rgb(139 124 255 / 35%);
+    background: rgb(196 181 253 / 35%);
     color: white;
   }
 }
@@ -139,27 +139,56 @@
 }
 
 .hero-glow {
-  background: radial-gradient(circle, rgb(139 124 255 / 0.14), transparent 65%);
-  filter: blur(60px);
+  background: radial-gradient(ellipse at 50% 0%, rgb(139 124 255 / 0.11), transparent 68%);
 }
 
-.hero-depth-scene {
-  mask-image: linear-gradient(to bottom, black 0%, black 58%, transparent 88%);
+.hero-timeline {
+  height: 14rem;
+  opacity: 0.42;
+  mask-image: linear-gradient(to bottom, black, transparent 88%);
+}
+
+.timeline-rule,
+.timeline-clip {
+  position: absolute;
+  display: block;
+}
+
+.timeline-rule {
+  left: 8%;
+  right: 8%;
+  height: 1px;
+  background: rgb(255 255 255 / 0.08);
+}
+
+.timeline-rule-one { top: 5.5rem; }
+.timeline-rule-two { top: 9.5rem; }
+
+.timeline-clip {
+  height: 1.3rem;
+  border: 1px solid rgb(196 181 253 / 0.22);
+  background: rgb(139 124 255 / 0.09);
   opacity: 0;
-  animation: scene-reveal 1.4s 350ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  transform: scaleX(0.82);
+  transform-origin: left;
+  animation: timeline-settle 800ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
 }
 
-.hero-depth-vignette {
-  background:
-    radial-gradient(circle at 50% 24%, transparent 0%, rgb(0 0 0 / 0.2) 43%, rgb(0 0 0 / 0.76) 82%),
-    linear-gradient(to bottom, rgb(0 0 0 / 0.18), transparent 38%, rgb(0 0 0 / 0.45));
-  pointer-events: none;
+.timeline-clip-one { left: 15%; top: 4.8rem; width: 19%; animation-delay: 300ms; }
+.timeline-clip-two { left: 42%; top: 4.8rem; width: 30%; animation-delay: 440ms; }
+.timeline-clip-three { left: 28%; top: 8.8rem; width: 38%; animation-delay: 580ms; }
+
+.timeline-clip::after {
+  position: absolute;
+  inset-block: 0;
+  left: 20%;
+  width: 1px;
+  background: rgb(255 255 255 / 0.18);
+  content: "";
 }
 
 .accent-text {
-  background: linear-gradient(100deg, #a99cff 10%, #ee78ba 90%);
-  background-clip: text;
-  color: transparent;
+  color: #c4b5fd;
 }
 
 section[id] {
@@ -223,15 +252,102 @@ section[id] {
   50% { box-shadow: 0 0 0 5px rgb(16 185 129 / 0.12); }
 }
 
-@keyframes scene-reveal {
+@keyframes timeline-settle {
   from {
     opacity: 0;
-    transform: scale(1.04);
+    transform: scaleX(0.82);
   }
   to {
-    opacity: 0.48;
-    transform: scale(1);
+    opacity: 1;
+    transform: scaleX(1);
   }
+}
+
+@keyframes timeline-copy-enter {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes timeline-clip-enter {
+  from {
+    opacity: 0;
+    transform: scaleX(0.45);
+  }
+  to {
+    opacity: 1;
+    transform: scaleX(1);
+  }
+}
+
+@keyframes waveform-pulse {
+  0%, 100% { transform: scaleY(0.68); }
+  50% { transform: scaleY(1); }
+}
+
+@keyframes timeline-playhead {
+  from { left: 4%; }
+  to { left: 96%; }
+}
+
+@keyframes border-beam-spin {
+  from { transform: translate(-50%, -50%) rotate(0); }
+  to { transform: translate(-50%, -50%) rotate(1turn); }
+}
+
+.timeline-copy-enter {
+  opacity: 0;
+  animation: timeline-copy-enter 650ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+.timeline-clip-enter {
+  opacity: 0;
+  animation: timeline-clip-enter 650ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+.timeline-waveform-bar {
+  transform-origin: center;
+  animation-name: waveform-pulse;
+  animation-iteration-count: infinite;
+  animation-timing-function: ease-in-out;
+  animation-direction: alternate;
+}
+
+.timeline-playhead {
+  animation: timeline-playhead 6.5s linear infinite;
+}
+
+.border-beam {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+  border-radius: inherit;
+}
+
+.border-beam::before {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: max(160%, var(--border-beam-size));
+  aspect-ratio: 1;
+  padding: var(--border-beam-width);
+  border-radius: inherit;
+  background: conic-gradient(from 0deg, transparent 0 42%, var(--border-beam-from) 47%, var(--border-beam-to) 52%, transparent 57% 100%);
+  content: "";
+  mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  mask-composite: exclude;
+  transform: translate(-50%, -50%);
+  animation: border-beam-spin var(--border-beam-duration) linear var(--border-beam-delay) infinite;
+}
+
+.border-beam-reverse::before {
+  animation-direction: reverse;
 }
 
 .hero-enter {
@@ -273,7 +389,13 @@ section[id] {
 @media (prefers-reduced-motion: reduce) {
   .hero-enter,
   .terminal-float,
-  .status-pulse {
+  .status-pulse,
+  .timeline-clip,
+  .timeline-copy-enter,
+  .timeline-clip-enter,
+  .timeline-waveform-bar,
+  .timeline-playhead,
+  .border-beam::before {
     animation: none;
     opacity: 1;
   }
