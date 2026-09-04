@@ -1,6 +1,7 @@
 import { buildToolScript } from "../bridge/script-builder.js";
 import { getTempDir, sendCommand, BridgeOptions } from "../bridge/file-bridge.js";
 import { resolveCapabilities, type CapabilityConfig } from "../security/capabilities.js";
+import { isToolPermitted } from "../security/index.js";
 import { buildPlatformCapabilityReport } from "../platform-capabilities.js";
 import { buildAdvancedFeatureSupport, type AdvancedFeatureBackend } from "../advanced-feature-support.js";
 import type { CatalogToolDefinition } from "../tool-capability-report.js";
@@ -9,6 +10,7 @@ import { captureActivationEvent, type Telemetry } from "../telemetry.js";
 import type { UxpWebSocketBridge } from "../bridge/uxp-websocket-bridge.js";
 import {
   buildToolPackReport,
+  isToolInSelectedPacks,
   resolveToolPacks,
   type ToolPackSelection,
 } from "../workflows/tool-packs.js";
@@ -85,11 +87,22 @@ export function getHealthTools(
       },
     },
     get_capabilities: {
-      description: "Report Windows/macOS support, Premiere Pro backend coverage, enabled authority, and whether live host verification is still required. Use tool_names or tool_offset/tool_limit to return a bounded tool catalog.",
+      description: "Discover Premiere operations and report backend coverage, authority, and verification requirements. Use tool_query with task keywords (for example transcript, captions, or review frames) for ranked, bounded matches available in this session. Use tool_names for exact lookups or tool_offset/tool_limit for paging. Discovery never grants authority or proves a live host is ready.",
       parameters: {
         type: "object" as const,
         additionalProperties: false,
         properties: {
+          tool_query: {
+            type: "string",
+            minLength: 1,
+            maxLength: 256,
+            pattern: "\\S",
+            description: "Optional case-insensitive keywords matched against tool names and descriptions. Exact names rank first. Search defaults to 20 results with descriptions and session availability; page with tool_offset/tool_limit.",
+          },
+          available_only: {
+            type: "boolean",
+            description: "Filter to tools registered under this session's authority and tool packs. Defaults to true for tool_query, false otherwise. Set false to diagnose unavailable matches; this does not enable them.",
+          },
           tool_names: {
             type: "array",
             items: { type: "string", minLength: 1, maxLength: 256 },
@@ -111,33 +124,83 @@ export function getHealthTools(
           },
         },
       },
-      handler: async (args: { tool_names?: string[]; tool_offset?: number; tool_limit?: number } = {}) => {
+      handler: async (args: { tool_query?: string; available_only?: boolean; tool_names?: string[]; tool_offset?: number; tool_limit?: number } = {}) => {
+        if (args.tool_query !== undefined && (
+          typeof args.tool_query !== "string" || !args.tool_query.trim() || args.tool_query.length > 256
+        )) {
+          return { success: false, error: "tool_query must contain 1 through 256 characters and at least one non-whitespace character" };
+        }
+        const catalog = getToolCatalog();
+        const selection = options.toolPacks ?? resolveToolPacks();
         const report = buildPlatformCapabilityReport(
           capabilities,
           process.platform,
           getTempDir(bridgeOptions),
-          getToolCatalog(),
-          buildToolPackReport(options.toolPacks ?? resolveToolPacks()),
+          catalog,
+          buildToolPackReport(selection),
         );
+        const query = args.tool_query?.trim().toLowerCase();
+        const terms = query?.split(/[\s_\-]+/u).filter(Boolean) ?? [];
+        const availableOnly = args.available_only ?? (query !== undefined);
         const names = Array.isArray(args.tool_names) ? new Set(args.tool_names) : undefined;
-        const matchingTools = names
-          ? report.tools.tools.filter((tool) => names.has(tool.name))
-          : report.tools.tools;
+        const matchingTools = report.tools.tools.flatMap((tool) => {
+          if (names && !names.has(tool.name)) return [];
+          const registered = isToolPermitted(tool.name, capabilities) && isToolInSelectedPacks(tool.name, selection);
+          if (availableOnly && !registered) return [];
+          const description = catalog[tool.name]?.description ?? "";
+          const name = tool.name.toLowerCase();
+          const searchableDescription = description.toLowerCase();
+          const score = query === name ? 1000 : terms.reduce((sum, term) =>
+            sum + (name.includes(term) ? 3 : searchableDescription.includes(term) ? 1 : 0), 0);
+          if (query !== undefined && score === 0) return [];
+          return [{ tool, description, registered, score }];
+        });
+        if (query !== undefined) {
+          // Deterministic tie ordering keeps offset pagination stable.
+          matchingTools.sort((a, b) => b.score - a.score ||
+            (a.tool.name < b.tool.name ? -1 : a.tool.name > b.tool.name ? 1 : 0));
+        }
         const offset = Number.isInteger(args.tool_offset) && (args.tool_offset as number) >= 0 ? args.tool_offset as number : 0;
-        const hasExplicitPage = args.tool_limit !== undefined || args.tool_offset !== undefined;
+        const hasExplicitPage = query !== undefined || args.tool_limit !== undefined || args.tool_offset !== undefined;
         const limit = Number.isInteger(args.tool_limit) && (args.tool_limit as number) > 0
           ? Math.min(args.tool_limit as number, 128)
-          : matchingTools.length;
-        const page = hasExplicitPage ? matchingTools.slice(offset, offset + limit) : matchingTools;
+          : query !== undefined ? 20 : matchingTools.length;
+        const page = (hasExplicitPage ? matchingTools.slice(offset, offset + limit) : matchingTools)
+          .map(({ tool, description, registered }) => query !== undefined || args.available_only !== undefined
+            ? { ...tool, description, registered }
+            : tool);
 
         return {
           success: true,
           data: {
             ...report,
+            ...(query !== undefined ? {
+              // The full Adobe inventories dominate the legacy response. A
+              // task search needs backend prerequisites, not every API symbol.
+              backends: {
+                cep: {
+                  status: report.backends.cep.status,
+                  platforms: report.backends.cep.platforms,
+                  premiereVersions: report.backends.cep.premiereVersions,
+                  hostVerificationRequired: report.premiere.hostVerificationRequired,
+                },
+                uxp: {
+                  status: report.backends.uxp.status,
+                  platforms: report.backends.uxp.platforms,
+                  premiereVersions: report.backends.uxp.premiereVersions,
+                  hostVerificationRequired: report.backends.uxp.hostVerificationRequired,
+                },
+              },
+              discovery: {
+                mode: "keyword_search",
+                detail: "summary",
+                note: "Detailed backend inventories are omitted from search. Omit tool_query to request the full report. Registered tools still require live prerequisites and action-level authority.",
+              },
+            } : {}),
             tools: {
               ...report.tools,
               tools: page,
-              ...(names || hasExplicitPage
+              ...(names || hasExplicitPage || args.available_only !== undefined
                 ? {
                     pagination: {
                       offset,
