@@ -1,0 +1,101 @@
+{
+  "schemaVersion": "premiere-pro-mcp.public-product.v1",
+  "generatedFrom": {
+    "releaseMetadata": "release-metadata.json",
+    "packageMetadata": "package.json",
+    "registryMetadata": "registry/server.json"
+  },
+  "product": {
+    "name": "Premiere Pro MCP",
+    "mcpName": "io.github.leancoderkavy/premiere-pro",
+    "npmPackage": "premiere-pro-mcp",
+    "version": "1.14.7",
+    "repository": "https://github.com/leancoderkavy/premiere-pro-mcp",
+    "homepage": "https://premiere-pro-mcp.com/",
+    "license": "MIT",
+    "localFirst": true,
+    "transport": "stdio"
+  },
+  "compatibility": {
+    "node": ">=20.19.0",
+    "premiere": "2020–2026",
+    "uxpMinimumVersion": "25.6.0",
+    "operatingSystems": [
+      "Windows",
+      "macOS"
+    ]
+  },
+  "capabilitySurface": {
+    "registeredCoreTools": 328,
+    "defaultProfileTools": 326,
+    "authenticatedUxpAdditions": 91,
+    "defaultProfileWithUxp": 417,
+    "toolModules": 37,
+    "guidedWorkflows": 11
+  },
+  "workflows": [
+    {
+      "id": "safe-project-intake",
+      "title": "Inspect and organize a project safely",
+      "documentation": "docs/ai-editorial-workflows.md",
+      "firstTools": [
+        "get_project_info",
+        "manage_project_context",
+        "create_editorial_plan",
+        "preview_editorial_plan"
+      ],
+      "mutationBoundary": "Planning is local and review-only; any later Premiere mutation has its own capability, confirmation, and readback contract."
+    },
+    {
+      "id": "transcript-backed-rough-cut",
+      "title": "Build a transcript-backed rough-cut proposal",
+      "documentation": "docs/ai-editorial-workflows.md",
+      "firstTools": [
+        "manage_project_context",
+        "create_editorial_context_pack",
+        "create_editorial_plan",
+        "preview_editorial_plan"
+      ],
+      "mutationBoundary": "Context packs and plans never transcribe, call an AI provider, or remove timeline media."
+    },
+    {
+      "id": "caption-review",
+      "title": "Import and structurally review captions",
+      "documentation": "docs/ai-editorial-workflows.md",
+      "firstTools": [
+        "create_caption_track",
+        "get_sequence_structure"
+      ],
+      "mutationBoundary": "Caption-track readback is structural acceptance only; playback, readability, and render verification remain separate."
+    },
+    {
+      "id": "verified-delivery",
+      "title": "Prepare and verify a delivery",
+      "documentation": "docs/supported-actions.md",
+      "firstTools": [
+        "export_sequence",
+        "verify_export",
+        "analyze_video_qc"
+      ],
+      "mutationBoundary": "An export request, file check, and quality review establish different evidence levels and do not publish a delivery."
+    }
+  ],
+  "verification": {
+    "automated": "Tests and generated catalogs prove package behavior, schemas, routing, bounds, and documented readback contracts.",
+    "host": "A real supported Premiere host is required to establish host behavior; this manifest contains no licensed-host claim.",
+    "playbackAndRender": "Structural readback does not establish playback, visual quality, audio quality, caption readability, or final render quality.",
+    "details": "docs/editorial-workflow-host-validation.md"
+  },
+  "proofKit": {
+    "status": "runbook_and_redacted_template_only",
+    "runbook": "docs/workflow-proof-runbook.md",
+    "receiptTemplate": "docs/workflow-proof-receipt.template.json",
+    "video": null,
+    "note": "No walkthrough video or licensed-host receipt is claimed until a fixture-only run is recorded and reviewed."
+  },
+  "communityCoverage": {
+    "status": "independent_historical_reports",
+    "documentation": "docs/community-coverage.md",
+    "note": "External reports are historical user experiences, not current compatibility or support claims."
+  }
+}

@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
+import { normalizeGeneratedManifest } from "../scripts/generate-public-product-manifest.mjs";
 
 const root = process.cwd();
 const read = (path: string) => readFileSync(join(root, path), "utf8");
@@ -123,5 +124,32 @@ describe("canonical release metadata", () => {
     expect(read("src/index.ts")).toContain(
       `(${release.defaultProfileTools} default-profile tools)`,
     );
+  });
+
+  it("keeps the generated public product manifest aligned with current release metadata", () => {
+    const manifest = readJson("public-product-manifest.json");
+    expect(manifest.schemaVersion).toBe("premiere-pro-mcp.public-product.v1");
+    expect(manifest.product.version).toBe(release.version);
+    expect(manifest.product.mcpName).toBe(readJson("package.json").mcpName);
+    expect(manifest.capabilitySurface).toMatchObject({
+      registeredCoreTools: release.coreTools,
+      defaultProfileTools: release.defaultProfileTools,
+      authenticatedUxpAdditions: release.uxpAdditionalTools,
+      defaultProfileWithUxp: release.defaultProfileWithUxpTools,
+      guidedWorkflows: release.guidedWorkflows,
+    });
+    expect(manifest.proofKit.status).toBe("runbook_and_redacted_template_only");
+    expect(manifest.proofKit.video).toBeNull();
+    expect(manifest.workflows.map((workflow: { id: string }) => workflow.id)).toEqual([
+      "safe-project-intake",
+      "transcript-backed-rough-cut",
+      "caption-review",
+      "verified-delivery",
+    ]);
+  });
+
+  it("compares the generated manifest independently of Windows checkout line endings", () => {
+    const manifest = read("public-product-manifest.json");
+    expect(normalizeGeneratedManifest(manifest.replace(/\n/g, "\r\n"))).toBe(manifest);
   });
 });
