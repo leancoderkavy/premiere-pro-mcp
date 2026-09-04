@@ -1,0 +1,37 @@
+{
+  "schemaVersion": "premiere-pro-mcp.workflow-proof-receipt.v1",
+  "status": "not_run",
+  "sourceCommit": "<40-character git SHA>",
+  "package": {
+    "name": "premiere-pro-mcp",
+    "version": "<version>",
+    "connectorBuild": "<fixture-only hash or version>"
+  },
+  "host": {
+    "operatingSystem": "Windows|macOS",
+    "premiereVersion": "<version>",
+    "mcpClient": "<client and version>",
+    "backend": "cep|uxp"
+  },
+  "fixture": {
+    "id": "<opaque fixture ID>",
+    "sha256": "<64-character SHA-256>",
+    "containsCustomerContent": false
+  },
+  "workflow": {
+    "id": "safe-project-intake|transcript-backed-rough-cut|caption-review|verified-delivery",
+    "promptOrCommandReference": "<redacted local reference>",
+    "mutatedProject": false
+  },
+  "evidence": {
+    "localInstall": "not_run",
+    "safeConnection": "not_run",
+    "preview": "not_run",
+    "structuralReadback": "not_run",
+    "playbackReview": "not_run",
+    "renderedOutputReview": "not_run",
+    "undoOrReopen": "not_run"
+  },
+  "artifacts": [],
+  "verificationBoundary": "A template receipt does not establish licensed-host support, playback, visual quality, audio quality, caption readability, or delivery success."
+}

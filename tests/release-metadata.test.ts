@@ -124,4 +124,26 @@ describe("canonical release metadata", () => {
       `(${release.defaultProfileTools} default-profile tools)`,
     );
   });
+
+  it("keeps the generated public product manifest aligned with current release metadata", () => {
+    const manifest = readJson("public-product-manifest.json");
+    expect(manifest.schemaVersion).toBe("premiere-pro-mcp.public-product.v1");
+    expect(manifest.product.version).toBe(release.version);
+    expect(manifest.product.mcpName).toBe(readJson("package.json").mcpName);
+    expect(manifest.capabilitySurface).toMatchObject({
+      registeredCoreTools: release.coreTools,
+      defaultProfileTools: release.defaultProfileTools,
+      authenticatedUxpAdditions: release.uxpAdditionalTools,
+      defaultProfileWithUxp: release.defaultProfileWithUxpTools,
+      guidedWorkflows: release.guidedWorkflows,
+    });
+    expect(manifest.proofKit.status).toBe("runbook_and_redacted_template_only");
+    expect(manifest.proofKit.video).toBeNull();
+    expect(manifest.workflows.map((workflow: { id: string }) => workflow.id)).toEqual([
+      "safe-project-intake",
+      "transcript-backed-rough-cut",
+      "caption-review",
+      "verified-delivery",
+    ]);
+  });
 });
