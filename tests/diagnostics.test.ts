@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   buildFirstRunReport,
   collectLocalDoctor,
+  createDoctorRepairPlan,
   createSupportBundle,
   renderDoctorHuman,
 } from "../src/diagnostics.js";
@@ -19,9 +20,30 @@ describe("non-technical diagnostics", () => {
     expect(report.overall).toBe("ready");
     expect(report.runtime).toEqual({ platform: "win32", nodeMajor: 22 });
     expect(report.components).toEqual(expect.arrayContaining([
-      expect.objectContaining({ id: "premiere_connector", boundary: "installed", state: "ready" }),
-      expect.objectContaining({ id: "premiere_host", boundary: "live_verified", state: "not_checked" }),
+      expect.objectContaining({ id: "premiere_connector", code: "CEP_CONNECTOR_READY", boundary: "installed", state: "ready" }),
+      expect.objectContaining({ id: "premiere_host", code: "PREMIERE_HOST_NOT_CHECKED", boundary: "live_verified", state: "not_checked" }),
     ]));
+  });
+
+  it("creates a privacy-safe, no-write repair plan with stable diagnostic codes", () => {
+    const report = collectLocalDoctor({
+      platform: "win32",
+      nodeVersion: "v22.12.0",
+      environment: { APPDATA: "C:\\Users\\Example\\AppData" },
+      exists: () => false,
+      now: () => new Date("2026-09-04T00:00:00.000Z"),
+    });
+    const plan = createDoctorRepairPlan(report);
+    expect(plan).toMatchObject({
+      schemaVersion: "premiere-pro-mcp.doctor-repair-plan.v1",
+      actions: expect.arrayContaining([
+        expect.objectContaining({ id: "install_cep_connector", diagnosticCode: "CEP_CONNECTOR_MISSING", canApplyLocally: true, createsBackup: true }),
+        expect.objectContaining({ id: "verify_live_connection", diagnosticCode: "PREMIERE_HOST_NOT_CHECKED", canApplyLocally: false }),
+      ]),
+    });
+    const serialized = JSON.stringify(plan);
+    expect(serialized).not.toContain("C:\\Users\\Example");
+    expect(serialized).not.toContain("APPDATA");
   });
 
   it("proves the complete first-run lane with booleans only", () => {
@@ -84,6 +106,7 @@ describe("non-technical diagnostics", () => {
     expect(report.overall).toBe("needs_attention");
     expect(report.runtime.nodeMajor).toBeNull();
     expect(report.components).toEqual(expect.arrayContaining([
+      expect.objectContaining({ id: "node_runtime", code: "NODE_RUNTIME_UNSUPPORTED", state: "needs_attention" }),
       expect.objectContaining({ id: "premiere_connector", state: "needs_attention", repair: expect.any(String) }),
       expect.objectContaining({ id: "uxp_bridge", state: "not_checked" }),
     ]));

@@ -213,6 +213,24 @@ describe("stdio CLI entry point", () => {
     });
   });
 
+  it("prints a no-write doctor repair plan and applies no writes without the closure confirmation", async () => {
+    const log = vi.spyOn(console, "log").mockImplementation(() => {});
+    let loaded = await importCli(["--doctor", "--plan-fixes"]);
+    await expect(loaded.promise).rejects.toThrow("EXIT:0");
+    expect(JSON.parse(String(log.mock.calls[0][0]))).toMatchObject({
+      schemaVersion: "premiere-pro-mcp.doctor-repair-plan.v1",
+    });
+
+    vi.resetModules();
+    log.mockClear();
+    loaded = await importCli(["--doctor", "--apply-fixes"]);
+    await expect(loaded.promise).rejects.toThrow("EXIT:0");
+    expect(JSON.parse(String(log.mock.calls[0][0]))).toMatchObject({
+      schemaVersion: "premiere-pro-mcp.doctor-repair-result.v1",
+    });
+    expect(JSON.parse(String(log.mock.calls[0][0])).applied).toBe(false);
+  });
+
   it("checks for a newer release and updates a global npm installation", async () => {
     const log = vi.spyOn(console, "log").mockImplementation(() => {});
     mocks.fetchLatestNpmVersion.mockResolvedValueOnce("1.14.8");

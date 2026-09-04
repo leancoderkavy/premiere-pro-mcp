@@ -11,9 +11,11 @@ import path from "path";
 import { UxpWebSocketBridge } from "./bridge/uxp-websocket-bridge.js";
 import {
   collectLocalDoctor,
+  createDoctorRepairPlan,
   createSupportBundle,
   renderDoctorHuman,
 } from "./diagnostics.js";
+import { applyDoctorRepairPlan } from "./doctor-repairs.js";
 import { compareVersions, fetchLatestNpmVersion } from "./update.js";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -143,6 +145,9 @@ Usage:
   premiere-pro-mcp --diagnose-cep  Check the CEP install, debug keys, and Premiere signature logs
   premiere-pro-mcp --doctor        Check local install/configuration without reading a project
   premiere-pro-mcp --doctor --json Print the same local check as machine-readable JSON
+  premiere-pro-mcp --doctor --plan-fixes Show a no-write, privacy-safe local repair plan
+  premiere-pro-mcp --doctor --apply-fixes Apply only safe planned local fixes; requires explicit Premiere-closed confirmation where needed
+  premiere-pro-mcp --doctor --apply-fixes --confirm-premiere-closed Confirm Premiere is fully closed before a connector repair
   premiere-pro-mcp --support-bundle  Print a privacy-safe, machine-readable support bundle
   premiere-pro-mcp --check-update    Check npm for a newer released local server
   premiere-pro-mcp --update          Update an npm global install and refresh the CEP connector
@@ -182,7 +187,27 @@ if (args.includes("--version") || args.includes("-v")) {
   process.exit(0);
 }
 
+const doctorPlanRequested = args.includes("--plan-fixes");
+const doctorApplyRequested = args.includes("--apply-fixes");
+const premiereClosedConfirmed = args.includes("--confirm-premiere-closed");
+if ((doctorPlanRequested || doctorApplyRequested) && !args.includes("--doctor")) {
+  console.error("--plan-fixes and --apply-fixes require --doctor.");
+  process.exit(1);
+}
+if (doctorPlanRequested && doctorApplyRequested) {
+  console.error("Use either --plan-fixes or --apply-fixes, not both.");
+  process.exit(1);
+}
+if (premiereClosedConfirmed && !doctorApplyRequested) {
+  console.error("--confirm-premiere-closed is only valid with --doctor --apply-fixes.");
+  process.exit(1);
+}
+
 if (args.includes("--doctor") || args.includes("--support-bundle")) {
+  if (args.includes("--support-bundle") && (doctorPlanRequested || doctorApplyRequested)) {
+    console.error("--support-bundle cannot be combined with --plan-fixes or --apply-fixes.");
+    process.exit(1);
+  }
   const pkg = await import("../package.json", { with: { type: "json" } }).catch(
     () => ({ default: { version: "unknown" } }),
   );
@@ -193,9 +218,20 @@ if (args.includes("--doctor") || args.includes("--support-bundle")) {
     console.log(JSON.stringify(createSupportBundle({ version: pkg.default.version }), null, 2));
   } else {
     const report = collectLocalDoctor();
-    console.log(args.includes("--json")
-      ? JSON.stringify(report, null, 2)
-      : renderDoctorHuman(report));
+    if (doctorPlanRequested) {
+      console.log(JSON.stringify(createDoctorRepairPlan(report), null, 2));
+    } else if (doctorApplyRequested) {
+      const result = applyDoctorRepairPlan(createDoctorRepairPlan(report), {
+        projectRoot,
+        confirmPremiereClosed: premiereClosedConfirmed,
+      });
+      console.log(JSON.stringify(result, null, 2));
+      if (result.actions.some((action) => action.status === "failed")) process.exit(1);
+    } else {
+      console.log(args.includes("--json")
+        ? JSON.stringify(report, null, 2)
+        : renderDoctorHuman(report));
+    }
   }
   process.exit(0);
 }
