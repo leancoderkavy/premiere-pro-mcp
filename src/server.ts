@@ -1,4 +1,9 @@
-import { McpServer } from "@modelcontextprotocol/server";
+import {
+  fromJsonSchema,
+  McpServer,
+  type JsonSchemaType,
+  type StandardSchemaWithJSON,
+} from "@modelcontextprotocol/server";
 import { BridgeOptions } from "./bridge/file-bridge.js";
 import { getDiscoveryTools } from "./tools/discovery.js";
 import { getProjectTools } from "./tools/project.js";
@@ -154,16 +159,39 @@ interface ToolDef {
 }
 
 const toolCatalogCache = new Map<string, Record<string, ToolDef>>();
-const schemaCache = new WeakMap<
+const inputSchemaCache = new WeakMap<
   Record<string, unknown>,
-  Record<string, z.ZodTypeAny>
+  StandardSchemaWithJSON<unknown, unknown>
 >();
-const toolResultOutputSchema = z.object({
-  ok: z.boolean().describe("Whether the tool completed successfully."),
-  tool: z.string().min(1).describe("The registered MCP tool name."),
-  data: z.unknown().optional().describe("Tool-specific result data when ok is true."),
-  error: z.string().optional().describe("Failure detail when ok is false."),
-});
+const inputSchemaContentCache = new Map<
+  string,
+  StandardSchemaWithJSON<unknown, unknown>
+>();
+const JSON_SCHEMA_DRAFT_2020_12 = "https://json-schema.org/draft/2020-12/schema";
+const toolResultOutputSchema = fromJsonSchema({
+  $schema: JSON_SCHEMA_DRAFT_2020_12,
+  type: "object",
+  additionalProperties: false,
+  properties: {
+    ok: {
+      type: "boolean",
+      description: "Whether the tool completed successfully.",
+    },
+    tool: {
+      type: "string",
+      minLength: 1,
+      description: "The registered MCP tool name.",
+    },
+    data: {
+      description: "Tool-specific result data when ok is true.",
+    },
+    error: {
+      type: "string",
+      description: "Failure detail when ok is false.",
+    },
+  },
+  required: ["ok", "tool"],
+} as JsonSchemaType);
 const debugEnabled = /^(1|true|yes|on|debug)$/i.test(
   process.env.PREMIERE_MCP_DEBUG ?? "",
 );
@@ -174,120 +202,48 @@ function debugLog(message: string): void {
   }
 }
 
-function jsonSchemaPropToZod(prop: Record<string, unknown>): z.ZodTypeAny {
-  const propType = prop.type as string | undefined;
-
-  if (propType === "string") {
-    if (prop.enum && Array.isArray(prop.enum) && prop.enum.length > 0) {
-      const enumValues = prop.enum as [string, ...string[]];
-      return z.enum(enumValues);
-    }
-    return z.string();
-  }
-
-  if (propType === "number" || propType === "integer") {
-    let schema = propType === "integer" ? z.number().int() : z.number();
-    if (typeof prop.minimum === "number") schema = schema.min(prop.minimum);
-    if (typeof prop.maximum === "number") schema = schema.max(prop.maximum);
-    return schema;
-  }
-
-  if (propType === "boolean") {
-    return z.boolean();
-  }
-
-  if (propType === "array") {
-    const itemSchema = (prop.items ?? {}) as Record<string, unknown>;
-    // Use unknown as a safe fallback while still emitting a concrete items schema.
-    const itemZod =
-      Object.keys(itemSchema).length > 0
-        ? jsonSchemaPropToZod(itemSchema)
-        : z.unknown();
-    return z.array(itemZod);
-  }
-
-  if (propType === "object") {
-    const nestedProperties = (prop.properties ?? {}) as Record<
-      string,
-      Record<string, unknown>
-    >;
-    const nestedRequired = new Set((prop.required ?? []) as string[]);
-
-    if (Object.keys(nestedProperties).length === 0) {
-      return z.record(z.string(), z.unknown());
-    }
-
-    const nestedShape: Record<string, z.ZodTypeAny> = {};
-    for (const [nestedKey, nestedProp] of Object.entries(nestedProperties)) {
-      let nestedZod = jsonSchemaPropToZod(nestedProp);
-      if (nestedProp.description) {
-        nestedZod = nestedZod.describe(nestedProp.description as string);
-      }
-      if (!nestedRequired.has(nestedKey)) {
-        nestedZod = nestedZod.optional();
-      }
-      nestedShape[nestedKey] = nestedZod;
-    }
-
-    return z.object(nestedShape).passthrough();
-  }
-
-  return z.unknown();
-}
-
 /**
- * Convert a JSON Schema-style parameters object to a Zod shape for MCP SDK registration.
+ * Reuse the source JSON Schema directly. The MCP SDK's adapter supplies both
+ * AJV validation and the exact schema needed for tools/list, avoiding a costly
+ * Zod-to-JSON-Schema conversion for every stateless HTTP request.
  */
-function jsonSchemaToZodShape(
+function jsonSchemaToInputSchema(
   params: Record<string, unknown>,
-): Record<string, z.ZodTypeAny> {
-  const cached = schemaCache.get(params);
+): StandardSchemaWithJSON<unknown, unknown> {
+  const cached = inputSchemaCache.get(params);
   if (cached) return cached;
-  const shape: Record<string, z.ZodTypeAny> = {};
-  const properties = (params.properties ?? {}) as Record<
-    string,
-    Record<string, unknown>
-  >;
-  const required = (params.required ?? []) as string[];
 
-  for (const [key, prop] of Object.entries(properties)) {
-    let zodType = jsonSchemaPropToZod(prop);
-
-    if (prop.description) {
-      zodType = zodType.describe(prop.description as string);
-    }
-
-    if (!required.includes(key)) {
-      zodType = zodType.optional();
-    }
-
-    shape[key] = zodType;
+  // Context-aware tools are intentionally re-created for each server, so their
+  // parameter objects have new identities even though their JSON Schema is
+  // unchanged. Reuse the compiled adapter by schema content as well.
+  const cacheKey = JSON.stringify(params);
+  const contentCached = inputSchemaContentCache.get(cacheKey);
+  if (contentCached) {
+    inputSchemaCache.set(params, contentCached);
+    return contentCached;
   }
 
-  schemaCache.set(params, shape);
-  return shape;
+  const sourceSchema = params.$schema === undefined
+    ? { $schema: JSON_SCHEMA_DRAFT_2020_12, ...params }
+    : params;
+  const schema = fromJsonSchema(sourceSchema as JsonSchemaType);
+  inputSchemaCache.set(params, schema);
+  inputSchemaContentCache.set(cacheKey, schema);
+  return schema;
 }
 
-function collectTools(
+function collectStaticTools(
   bridgeOptions: BridgeOptions,
   capabilities: ReturnType<typeof resolveCapabilities>,
-  uxpBridge?: UxpWebSocketBridge,
-  telemetry?: Telemetry,
-  toolPacks?: ToolPackSelection,
-  cacheable = false,
-  projectContextRepository = new ProjectContextRepository(),
 ): Record<string, ToolDef> {
   const cacheKey = JSON.stringify({
     tempDir: bridgeOptions.tempDir ?? process.env.PREMIERE_TEMP_DIR ?? null,
     timeoutMs:
       bridgeOptions.timeoutMs ?? process.env.PREMIERE_TIMEOUT_MS ?? null,
+    failFastOnUnreadyHeartbeat: bridgeOptions.failFastOnUnreadyHeartbeat ?? false,
     capabilities: [...capabilities.capabilities].sort(),
-    toolPacks: toolPacks ?? null,
   });
-  // Health tools close over the telemetry sink and UXP adapter. The default
-  // sink is a singleton and may be cached; a caller-supplied sink or UXP bridge
-  // must remain instance-specific.
-  const cached = !uxpBridge && cacheable ? toolCatalogCache.get(cacheKey) : undefined;
+  const cached = toolCatalogCache.get(cacheKey);
   if (cached) return cached;
 
   const tools: Record<string, ToolDef> = {
@@ -325,10 +281,29 @@ function collectTools(
     ...getSpotWorkflowTools(bridgeOptions, { capabilities }),
     ...getAvSettingsTools(bridgeOptions),
     ...getRecoveryTools(bridgeOptions),
+    ...getProjectIntakeTools(bridgeOptions),
+  };
+  toolCatalogCache.set(cacheKey, tools);
+  return tools;
+}
+
+function collectTools(
+  bridgeOptions: BridgeOptions,
+  capabilities: ReturnType<typeof resolveCapabilities>,
+  uxpBridge?: UxpWebSocketBridge,
+  telemetry?: Telemetry,
+  toolPacks?: ToolPackSelection,
+  projectContextRepository = new ProjectContextRepository(),
+): Record<string, ToolDef> {
+  // Streamable HTTP creates an independent McpServer for every request. Most
+  // tool definitions are immutable, while context, telemetry, and UXP tools
+  // close over server-specific state. Reuse only the former so initialization
+  // stays fast without ever leaking one request's project context or bridge.
+  const tools: Record<string, ToolDef> = {
+    ...collectStaticTools(bridgeOptions, capabilities),
     ...getProjectContextTools(bridgeOptions, { repository: projectContextRepository }),
     ...getEditorialContextPackTools({ repository: projectContextRepository }),
     ...getEditorialPlanTools({ repository: projectContextRepository, uxpBridge }),
-    ...getProjectIntakeTools(bridgeOptions),
     ...getCompetitorGapTools(bridgeOptions, uxpBridge),
     ...(uxpBridge ? getUxpTools(uxpBridge) : {}),
   };
@@ -340,7 +315,6 @@ function collectTools(
       toolPacks,
     }),
   );
-  if (!uxpBridge && cacheable) toolCatalogCache.set(cacheKey, tools);
   return tools;
 }
 
@@ -400,10 +374,6 @@ export function createServer(
     serverOptions.uxpBridge,
     telemetry,
     toolPacks,
-    // Every server owns stateful project-context handlers. Reusing a catalog
-    // would capture the first server's repository, particularly incorrect for
-    // the in-memory backend, so do not cache the assembled tool closures.
-    false,
     projectContextRepository,
   );
 
@@ -427,7 +397,7 @@ export function createServer(
       continue;
     }
 
-    const zodShape = jsonSchemaToZodShape(tool.parameters);
+    const inputSchema = jsonSchemaToInputSchema(tool.parameters);
     const guardedHandler = guardToolHandler(name, tool.handler, capabilities);
 
     const annotations = annotationsForTool(name);
@@ -436,14 +406,14 @@ export function createServer(
       {
         title: annotations.title,
         description: tool.description,
-        inputSchema: z.object(zodShape),
+        inputSchema,
         outputSchema: toolResultOutputSchema,
         annotations,
       },
-      async (args: Record<string, unknown>) => {
+      async (args: unknown) => {
         const startedAt = Date.now();
         try {
-          const result = await guardedHandler(args);
+          const result = await guardedHandler(args as Record<string, unknown>);
           telemetry.capture("mcp_tool_call", {
             tool: name,
             outcome: result.success ? "succeeded" : "failed",
