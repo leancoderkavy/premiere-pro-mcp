@@ -111,7 +111,10 @@ async function main() {
   const expected = render(await buildPublicProductManifest());
   if (checkOnly) {
     const current = await readFile(OUTPUT_PATH, "utf8").catch(() => "");
-    if (current !== expected) {
+    // Git may materialize text files with CRLF on Windows while generators
+    // deliberately emit LF. Compare content, not the checkout's line-ending
+    // convention, so the release gate remains portable.
+    if (current.replace(/\r\n?/g, "\n") !== expected) {
       throw new Error("public-product-manifest.json is stale. Run npm run product-manifest.");
     }
     console.log("Public product manifest is current.");

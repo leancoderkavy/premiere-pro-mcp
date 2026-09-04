@@ -28,6 +28,18 @@ describe("Adobe Premiere UXP documentation inventory", () => {
     }
   });
 
+  it("validates the committed snapshot without refetching the live sitemap", () => {
+    const result = spawnSync(process.execPath, ["scripts/generate-premiere-doc-inventory.mjs", "--check"], {
+      encoding: "utf8",
+      env: {
+        ...process.env,
+        PREMIERE_DOC_SITEMAP_PATH: join(tmpdir(), "missing-premiere-doc-sitemap.xml"),
+      },
+    });
+    expect(result.status).toBe(0);
+    expect(result.stdout).toContain("Premiere documentation inventory is current:");
+  });
+
   it.each([
     ["empty", "<urlset></urlset>", "no URL entries"],
     ["missing location", "<urlset><url><lastmod>2026-09-01</lastmod></url></urlset>", "no location"],

@@ -39,55 +39,98 @@ function isCalendarDate(value) {
   return !Number.isNaN(parsed.valueOf()) && parsed.toISOString().slice(0, 10) === value;
 }
 
-const sitemap = await loadSitemap();
-const urlBlocks = [...sitemap.matchAll(/<url>\s*([\s\S]*?)\s*<\/url>/g)].map((match) => match[1]);
-if (urlBlocks.length === 0) throw new Error("Adobe sitemap contained no URL entries");
-const pages = [];
-for (const block of urlBlocks) {
-  const location = block.match(/<loc>([\s\S]*?)<\/loc>/)?.[1]?.trim();
-  if (!location) throw new Error("Adobe sitemap URL entry has no location");
-  const url = decodeXml(location);
-  if (!url.startsWith("https://developer.adobe.com/premiere-pro/uxp/")) continue;
-  const lastModified = block.match(/<lastmod>([\s\S]*?)<\/lastmod>/)?.[1]?.trim() ?? null;
-  if (lastModified !== null && !isCalendarDate(lastModified)) {
-    throw new Error(`Invalid Adobe sitemap lastmod for ${url}: ${lastModified}`);
+function validateCommittedInventory(inventory) {
+  if (inventory?.schemaVersion !== 1 || inventory?.source?.sitemapUrl !== sitemapUrl) {
+    throw new Error("Premiere documentation inventory has an unsupported schema or source.");
   }
-  pages.push({ url, surface: classify(url), lastModified });
+  if (!Array.isArray(inventory.pages) || inventory.pages.length === 0) {
+    throw new Error("Premiere documentation inventory contains no pages.");
+  }
+  const counts = {};
+  let previousUrl = "";
+  for (const page of inventory.pages) {
+    if (typeof page?.url !== "string" || !page.url.startsWith("https://developer.adobe.com/premiere-pro/uxp/")) {
+      throw new Error("Premiere documentation inventory contains an invalid page URL.");
+    }
+    if (page.url <= previousUrl || typeof page.surface !== "string" || classify(page.url) !== page.surface) {
+      throw new Error("Premiere documentation inventory pages are not uniquely sorted or classified.");
+    }
+    if (page.lastModified !== null && !isCalendarDate(page.lastModified)) {
+      throw new Error(`Invalid Adobe sitemap lastmod for ${page.url}: ${page.lastModified}`);
+    }
+    previousUrl = page.url;
+    counts[page.surface] = (counts[page.surface] ?? 0) + 1;
+  }
+  const orderedCounts = Object.fromEntries(Object.entries(counts).sort(([left], [right]) => left.localeCompare(right)));
+  if (inventory.stats?.total !== inventory.pages.length || JSON.stringify(inventory.stats?.bySurface) !== JSON.stringify(orderedCounts)) {
+    throw new Error("Premiere documentation inventory statistics are stale.");
+  }
 }
-pages.sort((left, right) => left.url.localeCompare(right.url));
-if (pages.length === 0) throw new Error("Adobe sitemap contained no Premiere UXP pages");
-if (new Set(pages.map((page) => page.url)).size !== pages.length) {
-  throw new Error("Adobe sitemap contains duplicate Premiere UXP URLs");
-}
-const counts = Object.fromEntries(
-  [...new Set(pages.map((page) => page.surface))].sort().map((surface) => [
-    surface,
-    pages.filter((page) => page.surface === surface).length,
-  ]),
-);
-const inventory = {
-  schemaVersion: 1,
-  source: { sitemapUrl },
-  semantics: {
-    listed: "The page appears in Adobe's live developer sitemap; this inventories documentation and does not prove API implementation or host behavior.",
-  },
-  stats: { total: pages.length, bySurface: counts },
-  pages,
-};
-const rendered = `${JSON.stringify(inventory, null, 2)}\n`;
 
-if (validateOnly) {
-  console.log(`Validated ${pages.length} Adobe Premiere UXP documentation pages.`);
-} else if (check) {
+if (check) {
   let current = "";
   try { current = await readFile(outputPath, "utf8"); } catch {}
-  if (current.replaceAll("\r\n", "\n") !== rendered) {
+  let inventory;
+  let validationFailed = false;
+  try {
+    inventory = JSON.parse(current);
+    validateCommittedInventory(inventory);
+  } catch (error) {
+    console.error(error instanceof Error ? error.message : String(error));
+    process.exitCode = 1;
+    validationFailed = true;
+  }
+  const rendered = inventory ? `${JSON.stringify(inventory, null, 2)}\n` : "";
+  if (validationFailed) {
+    // The validation error above is the actionable result.
+  } else if (current.replace(/\r\n?/g, "\n") !== rendered) {
     console.error("Premiere documentation inventory is stale. Run npm run premiere:docs-inventory.");
     process.exitCode = 1;
   } else {
-    console.log(`Premiere documentation inventory is current: ${pages.length} pages.`);
+    console.log(`Premiere documentation inventory is current: ${inventory.stats.total} pages.`);
   }
 } else {
-  await writeFile(outputPath, rendered);
-  console.log(`Wrote ${pages.length} Adobe Premiere UXP documentation pages.`);
+  const sitemap = await loadSitemap();
+  const urlBlocks = [...sitemap.matchAll(/<url>\s*([\s\S]*?)\s*<\/url>/g)].map((match) => match[1]);
+  if (urlBlocks.length === 0) throw new Error("Adobe sitemap contained no URL entries");
+  const pages = [];
+  for (const block of urlBlocks) {
+    const location = block.match(/<loc>([\s\S]*?)<\/loc>/)?.[1]?.trim();
+    if (!location) throw new Error("Adobe sitemap URL entry has no location");
+    const url = decodeXml(location);
+    if (!url.startsWith("https://developer.adobe.com/premiere-pro/uxp/")) continue;
+    const lastModified = block.match(/<lastmod>([\s\S]*?)<\/lastmod>/)?.[1]?.trim() ?? null;
+    if (lastModified !== null && !isCalendarDate(lastModified)) {
+      throw new Error(`Invalid Adobe sitemap lastmod for ${url}: ${lastModified}`);
+    }
+    pages.push({ url, surface: classify(url), lastModified });
+  }
+  pages.sort((left, right) => left.url.localeCompare(right.url));
+  if (pages.length === 0) throw new Error("Adobe sitemap contained no Premiere UXP pages");
+  if (new Set(pages.map((page) => page.url)).size !== pages.length) {
+    throw new Error("Adobe sitemap contains duplicate Premiere UXP URLs");
+  }
+  const counts = Object.fromEntries(
+    [...new Set(pages.map((page) => page.surface))].sort().map((surface) => [
+      surface,
+      pages.filter((page) => page.surface === surface).length,
+    ]),
+  );
+  const inventory = {
+    schemaVersion: 1,
+    source: { sitemapUrl },
+    semantics: {
+      listed: "The page appears in Adobe's live developer sitemap; this inventories documentation and does not prove API implementation or host behavior.",
+    },
+    stats: { total: pages.length, bySurface: counts },
+    pages,
+  };
+  const rendered = `${JSON.stringify(inventory, null, 2)}\n`;
+
+  if (validateOnly) {
+    console.log(`Validated ${pages.length} Adobe Premiere UXP documentation pages.`);
+  } else {
+    await writeFile(outputPath, rendered);
+    console.log(`Wrote ${pages.length} Adobe Premiere UXP documentation pages.`);
+  }
 }

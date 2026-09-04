@@ -7,9 +7,9 @@
     "listed": "The page appears in Adobe's live developer sitemap; this inventories documentation and does not prove API implementation or host behavior."
   },
   "stats": {
-    "total": 444,
+    "total": 447,
     "bySurface": {
-      "premiere-dom": 72,
+      "premiere-dom": 75,
       "premiere-uxp-supporting-docs": 33,
       "spectrum-web-components": 27,
       "uxp-css": 114,
@@ -197,7 +197,7 @@
     {
       "url": "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/aafexportoptions",
       "surface": "premiere-dom",
-      "lastModified": "2026-07-08"
+      "lastModified": "2026-09-03"
     },
     {
       "url": "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/action",
@@ -207,7 +207,7 @@
     {
       "url": "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/addtransitionoptions",
       "surface": "premiere-dom",
-      "lastModified": "2026-07-08"
+      "lastModified": "2026-09-03"
     },
     {
       "url": "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/application",
@@ -242,27 +242,32 @@
     {
       "url": "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/audiotrack",
       "surface": "premiere-dom",
-      "lastModified": "2026-07-08"
+      "lastModified": "2026-09-03"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/c2paservice",
+      "surface": "premiere-dom",
+      "lastModified": "2026-09-03"
     },
     {
       "url": "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/captiontrack",
       "surface": "premiere-dom",
-      "lastModified": "2026-07-08"
+      "lastModified": "2026-09-03"
     },
     {
       "url": "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/clipprojectitem",
       "surface": "premiere-dom",
-      "lastModified": "2026-07-08"
+      "lastModified": "2026-09-03"
     },
     {
       "url": "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/closeprojectoptions",
       "surface": "premiere-dom",
-      "lastModified": "2026-07-08"
+      "lastModified": "2026-09-03"
     },
     {
       "url": "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/color",
       "surface": "premiere-dom",
-      "lastModified": "2026-07-08"
+      "lastModified": "2026-09-03"
     },
     {
       "url": "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/component",
@@ -282,7 +287,7 @@
     {
       "url": "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/encodermanager",
       "surface": "premiere-dom",
-      "lastModified": "2026-07-08"
+      "lastModified": "2026-09-03"
     },
     {
       "url": "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/eventmanager",
@@ -297,22 +302,22 @@
     {
       "url": "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/folderitem",
       "surface": "premiere-dom",
-      "lastModified": "2026-07-08"
+      "lastModified": "2026-09-03"
     },
     {
       "url": "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/footageinterpretation",
       "surface": "premiere-dom",
-      "lastModified": "2026-07-08"
+      "lastModified": "2026-09-03"
     },
     {
       "url": "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/framerate",
       "surface": "premiere-dom",
-      "lastModified": "2026-07-08"
+      "lastModified": "2026-09-03"
     },
     {
       "url": "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/guid",
       "surface": "premiere-dom",
-      "lastModified": "2026-07-08"
+      "lastModified": "2026-09-03"
     },
     {
       "url": "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/ingestsettings",
@@ -337,7 +342,12 @@
     {
       "url": "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/media",
       "surface": "premiere-dom",
-      "lastModified": "2026-07-08"
+      "lastModified": "2026-09-03"
+    },
+    {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/mediamanager",
+      "surface": "premiere-dom",
+      "lastModified": "2026-09-03"
     },
     {
       "url": "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/metadata",
@@ -352,22 +362,22 @@
     {
       "url": "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/openprojectoptions",
       "surface": "premiere-dom",
-      "lastModified": "2026-07-08"
+      "lastModified": "2026-09-03"
     },
     {
       "url": "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/pointf",
       "surface": "premiere-dom",
-      "lastModified": "2026-07-08"
+      "lastModified": "2026-09-03"
     },
     {
       "url": "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/pointkeyframe",
       "surface": "premiere-dom",
-      "lastModified": "2026-07-08"
+      "lastModified": "2026-09-03"
     },
     {
       "url": "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/project",
       "surface": "premiere-dom",
-      "lastModified": "2026-07-22"
+      "lastModified": "2026-09-03"
     },
     {
       "url": "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/projectcolorsettings",
@@ -382,7 +392,7 @@
     {
       "url": "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/projectitem",
       "surface": "premiere-dom",
-      "lastModified": "2026-07-08"
+      "lastModified": "2026-09-03"
     },
     {
       "url": "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/projectitemselection",
@@ -412,7 +422,7 @@
     {
       "url": "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/rectf",
       "surface": "premiere-dom",
-      "lastModified": "2026-07-08"
+      "lastModified": "2026-09-03"
     },
     {
       "url": "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/scratchdisksettings",
@@ -452,7 +462,7 @@
     {
       "url": "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/ticktime",
       "surface": "premiere-dom",
-      "lastModified": "2026-07-08"
+      "lastModified": "2026-09-03"
     },
     {
       "url": "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/timedisplay",
@@ -467,7 +477,7 @@
     {
       "url": "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/transcript",
       "surface": "premiere-dom",
-      "lastModified": "2026-07-08"
+      "lastModified": "2026-09-03"
     },
     {
       "url": "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/transitionfactory",
@@ -507,7 +517,7 @@
     {
       "url": "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/videotrack",
       "surface": "premiere-dom",
-      "lastModified": "2026-07-08"
+      "lastModified": "2026-09-03"
     },
     {
       "url": "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/videotransition",
@@ -515,9 +525,14 @@
       "lastModified": "2026-07-08"
     },
     {
+      "url": "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/workareautils",
+      "surface": "premiere-dom",
+      "lastModified": "2026-09-03"
+    },
+    {
       "url": "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/constants/",
       "surface": "premiere-dom",
-      "lastModified": "2026-07-08"
+      "lastModified": "2026-09-03"
     },
     {
       "url": "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/events/",
@@ -527,22 +542,22 @@
     {
       "url": "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/events/operationcompleteevent",
       "surface": "premiere-dom",
-      "lastModified": "2026-07-08"
+      "lastModified": "2026-09-03"
     },
     {
       "url": "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/events/projectclosedevent",
       "surface": "premiere-dom",
-      "lastModified": "2026-07-08"
+      "lastModified": "2026-09-03"
     },
     {
       "url": "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/events/projectevent",
       "surface": "premiere-dom",
-      "lastModified": "2026-07-08"
+      "lastModified": "2026-09-03"
     },
     {
       "url": "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/events/snapevent",
       "surface": "premiere-dom",
-      "lastModified": "2026-07-08"
+      "lastModified": "2026-09-03"
     },
     {
       "url": "https://developer.adobe.com/premiere-pro/uxp/resources/",
@@ -627,7 +642,7 @@
     {
       "url": "https://developer.adobe.com/premiere-pro/uxp/resources/recipes/host-info/",
       "surface": "premiere-uxp-supporting-docs",
-      "lastModified": "2026-05-28"
+      "lastModified": "2026-09-03"
     },
     {
       "url": "https://developer.adobe.com/premiere-pro/uxp/resources/recipes/html-elements/",
@@ -1902,7 +1917,7 @@
     {
       "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-js/modules/uxp/host-information/host",
       "surface": "uxp-javascript",
-      "lastModified": "2026-05-28"
+      "lastModified": "2026-09-03"
     },
     {
       "url": "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-js/modules/uxp/key-value-storage/",
