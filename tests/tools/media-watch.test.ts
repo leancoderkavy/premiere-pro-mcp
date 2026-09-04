@@ -1,4 +1,4 @@
-import { mkdtempSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, utimesSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
@@ -79,5 +79,13 @@ describe("media watch", () => {
     const registry = new MediaWatchRegistry(); registries.push(registry);
     const started = registry.start({ approved_workspace_path: root, watch_path: root, allowed_extensions: ["mp4"] }) as any;
     expect((registry.preview({ watch_id: started.watch_id }) as any).proposed_count).toBe(0);
+  });
+  it("detects same-size timestamp changes and recursively scans subfolders", () => {
+    const root = mkdtempSync(path.join(tmpdir(), "premiere-watch-")), nested = path.join(root, "nested"); mkdirSync(nested);
+    const file = path.join(nested, "clip.mp4"); writeFileSync(file, "same");
+    const registry = new MediaWatchRegistry(); registries.push(registry);
+    const started = registry.start({ approved_workspace_path: root, watch_path: root, allowed_extensions: ["mp4"], recursive: true }) as any;
+    const changed = new Date(Date.now() + 10_000); utimesSync(file, changed, changed);
+    expect((registry.preview({ watch_id: started.watch_id }) as any).proposed_count).toBe(1);
   });
 });
