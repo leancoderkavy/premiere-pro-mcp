@@ -49,6 +49,7 @@ describe("canonical release metadata", () => {
     const readme = read("README.md");
     const llms = read("landing/public/llms.txt");
     const llmsFull = read("landing/public/llms-full.txt");
+    const llmAlias = read("landing/public/llm.txt");
     const landingProduct = read("landing/lib/product.ts");
     const landingArticles = read("landing/lib/articles.ts");
     const marketingAssets = read("docs/marketing-assets.md");
@@ -73,6 +74,7 @@ describe("canonical release metadata", () => {
     expect(llmsFull).toContain(
       `${release.defaultProfileWithUxpTools} connected tools`,
     );
+    expect(llmAlias).toContain("https://premiere-pro-mcp.com/llms.txt");
     expect(marketingAssets).toContain(
       `${release.uxpAdditionalTools} additional capability-gated tools`,
     );

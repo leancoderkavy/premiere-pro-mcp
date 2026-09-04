@@ -38,6 +38,9 @@ export const metadata: Metadata = {
   },
   keywords: [
     "MCP for Adobe Premiere Pro",
+    "Premiere Pro MCP",
+    "Premiere Pro MCP server",
+    "Model Context Protocol for Premiere Pro",
     "Adobe Premiere Pro AI",
     "Model Context Protocol",
     "AI video editing",
@@ -101,6 +104,20 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className="scroll-smooth" data-scroll-behavior="smooth">
+      <head>
+        <link
+          rel="alternate"
+          type="text/plain"
+          href="/llms.txt"
+          title="Machine-readable reference for MCP for Adobe Premiere Pro"
+        />
+        <link
+          rel="alternate"
+          type="text/plain"
+          href="/llms-full.txt"
+          title="Complete machine-readable reference for MCP for Adobe Premiere Pro"
+        />
+      </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >

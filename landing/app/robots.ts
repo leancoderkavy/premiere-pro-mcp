@@ -2,6 +2,19 @@ import type { MetadataRoute } from "next"
 
 export const dynamic = "force-static"
 
+const aiCrawlerUserAgents = [
+  "OAI-SearchBot",
+  "ChatGPT-User",
+  "GPTBot",
+  "ClaudeBot",
+  "Claude-SearchBot",
+  "PerplexityBot",
+  "Google-Extended",
+  "Applebot-Extended",
+  "Meta-ExternalAgent",
+  "Meta-ExternalFetcher",
+]
+
 export default function robots(): MetadataRoute.Robots {
   return {
     rules: [
@@ -11,13 +24,7 @@ export default function robots(): MetadataRoute.Robots {
         disallow: ["/mcp", "/health"],
       },
       {
-        userAgent: [
-          "OAI-SearchBot",
-          "ChatGPT-User",
-          "ClaudeBot",
-          "Claude-SearchBot",
-          "PerplexityBot",
-        ],
+        userAgent: aiCrawlerUserAgents,
         allow: "/",
         disallow: ["/mcp", "/health"],
       },

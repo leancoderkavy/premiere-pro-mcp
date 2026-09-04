@@ -1,0 +1,9 @@
+# MCP for Adobe Premiere Pro
+
+> Compatibility entry point for systems that request `llm.txt`.
+
+The canonical, current machine-readable product reference is https://premiere-pro-mcp.com/llms.txt.
+
+For detailed capability categories, setup examples, privacy and security boundaries, and compatibility notes, use https://premiere-pro-mcp.com/llms-full.txt.
+
+For concise, source-linked product facts, use https://premiere-pro-mcp.com/facts/.
