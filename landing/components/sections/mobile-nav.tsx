@@ -1,8 +1,7 @@
 "use client"
 
-import { AnimatePresence, motion, useReducedMotion } from "motion/react"
 import { Menu, X } from "lucide-react"
-import { useState } from "react"
+import { useEffect, useState } from "react"
 
 const mobileLinks = [
   { label: "Demo", href: "#demo" },
@@ -18,7 +17,17 @@ const mobileLinks = [
 
 export function MobileNav() {
   const [open, setOpen] = useState(false)
-  const reduceMotion = useReducedMotion()
+
+  useEffect(() => {
+    if (!open) return
+
+    function closeOnEscape(event: KeyboardEvent) {
+      if (event.key === "Escape") setOpen(false)
+    }
+
+    window.addEventListener("keydown", closeOnEscape)
+    return () => window.removeEventListener("keydown", closeOnEscape)
+  }, [open])
 
   return (
     <div className="relative lg:hidden">
@@ -32,29 +41,25 @@ export function MobileNav() {
       >
         {open ? <X className="h-4 w-4" /> : <Menu className="h-4 w-4" />}
       </button>
-      <AnimatePresence>
-        {open ? (
-          <motion.div
-            id="mobile-navigation"
-            initial={reduceMotion ? false : { opacity: 0, y: -8, scale: 0.98 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={reduceMotion ? undefined : { opacity: 0, y: -6, scale: 0.98 }}
-            transition={{ duration: 0.18, ease: [0.22, 1, 0.36, 1] }}
-            className="absolute right-0 top-12 w-56 overflow-hidden rounded-lg border border-zinc-800 bg-[#0b0b0e] p-2 shadow-2xl"
+      <div
+        id="mobile-navigation"
+        aria-hidden={!open}
+        className={`absolute right-0 top-12 w-56 origin-top-right overflow-hidden rounded-lg border border-zinc-800 bg-[#0b0b0e] p-2 shadow-2xl transition-[opacity,transform,visibility] duration-200 ease-out motion-reduce:transition-none ${
+          open ? "visible scale-100 opacity-100" : "invisible scale-[0.98] opacity-0 pointer-events-none"
+        }`}
+      >
+        {mobileLinks.map((item) => (
+          <a
+            key={item.href}
+            href={item.href}
+            onClick={() => setOpen(false)}
+            tabIndex={open ? 0 : -1}
+            className="block min-h-11 rounded-md px-3 py-2.5 text-sm text-zinc-300 transition-colors hover:bg-zinc-900 hover:text-white"
           >
-            {mobileLinks.map((item) => (
-              <a
-                key={item.href}
-                href={item.href}
-                onClick={() => setOpen(false)}
-                className="block rounded-md px-3 py-2.5 text-sm text-zinc-300 transition-colors hover:bg-zinc-900 hover:text-white"
-              >
-                {item.label}
-              </a>
-            ))}
-          </motion.div>
-        ) : null}
-      </AnimatePresence>
+            {item.label}
+          </a>
+        ))}
+      </div>
     </div>
   )
 }

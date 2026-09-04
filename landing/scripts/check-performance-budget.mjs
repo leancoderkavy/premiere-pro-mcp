@@ -4,7 +4,7 @@ import { gzipSync } from "node:zlib";
 
 const outputDirectory = path.resolve(process.cwd(), "out");
 const homeDocument = path.join(outputDirectory, "index.html");
-const initialJavaScriptGzipBudget = 360_000;
+const initialJavaScriptGzipBudget = 240_000;
 const homeDocumentGzipBudget = 75_000;
 
 if (!fs.existsSync(homeDocument)) {

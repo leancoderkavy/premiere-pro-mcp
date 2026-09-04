@@ -8,21 +8,21 @@ export function FinalCtaSection() {
       <div className="mx-auto max-w-6xl">
         <div className="grid items-end gap-10 border-b border-zinc-800 pb-12 lg:grid-cols-[1fr_auto]">
           <div className="max-w-3xl">
-            <p className="font-mono text-xs font-semibold uppercase tracking-[0.18em] text-purple-300">
+            <p className="font-mono text-xs font-semibold uppercase tracking-[0.18em] text-violet-200">
               Free · open source · local-first
             </p>
             <h2 className="mt-4 text-balance text-4xl font-bold tracking-[-0.04em] text-white md:text-6xl">
-              Start with a safe Premiere check.
+              Start with a connection you can verify.
             </h2>
             <p className="mt-5 max-w-2xl text-lg leading-8 text-zinc-400">
-              Connect your assistant, safely verify the Premiere connection without changes, then preview your first edit.
+              Connect your assistant, verify the local bridge without making changes, then preview the first edit before you apply it.
             </p>
           </div>
           <TrackedLink
             href="#install"
             trackingLocation="final_cta"
             trackingDestination="safe_connection_check"
-            className="inline-flex h-12 items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-[#8b7cff] to-[#ef76b9] px-6 text-sm font-semibold text-white shadow-[0_12px_40px_rgba(139,124,255,0.2)] transition-transform hover:-translate-y-0.5"
+            className="inline-flex min-h-12 items-center justify-center gap-2 rounded-md bg-violet-200 px-6 text-sm font-semibold text-black transition-colors hover:bg-white"
           >
             Choose your assistant
             <ArrowRight className="h-4 w-4" />
@@ -30,7 +30,7 @@ export function FinalCtaSection() {
         </div>
         <div className="flex flex-col gap-3 pt-6 text-sm text-zinc-500 sm:flex-row sm:items-center sm:gap-8">
           <span className="inline-flex items-center gap-2">
-            <ShieldCheck className="h-4 w-4 text-purple-300" />
+            <ShieldCheck className="h-4 w-4 text-violet-200" />
             Your media stays local
           </span>
           <a
