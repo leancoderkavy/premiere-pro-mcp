@@ -188,6 +188,19 @@ premiere-pro-mcp --update
 client configuration and projects untouched. Restart Premiere and your MCP
 client afterward, then run `verify_premiere_connection` before editing.
 
+**From the MCP for Adobe Premiere Pro panel (Windows global npm install):**
+
+The **MCP updates** card compares the installed global server and connector
+with npm `latest`. Choose **Update after quit**, review the confirmation, then
+quit Premiere normally. A per-user helper waits for Premiere to exit; it never
+force-quits the app, then installs the published npm package and refreshes its
+matching connector. This also supports older global installs that predate the
+`--update` command.
+When you reopen Premiere, the panel reports the result and reminds you to
+restart your MCP client and verify the connection. This flow never changes a
+project or MCP client configuration. It deliberately will not update a Git
+checkout, a custom npm prefix, or a Claude Desktop `.mcpb` bundle.
+
 **Installed from a Git clone:**
 
 ```bash
