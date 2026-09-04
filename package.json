@@ -93,6 +93,7 @@
     "test:coverage": "vitest run --coverage",
     "validate:host-report": "node scripts/validate-licensed-host-report.mjs",
     "validate:mcp-registry-metadata": "node scripts/validate-mcp-registry-metadata.mjs",
+    "preflight:mcp-registry": "node scripts/preflight-mcp-registry-submission.mjs",
     "product-manifest": "node scripts/generate-public-product-manifest.mjs",
     "product-manifest:check": "node scripts/generate-public-product-manifest.mjs --check",
     "validate:project-intake-host-report": "node scripts/validate-project-intake-host-report.mjs",
