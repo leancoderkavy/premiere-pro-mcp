@@ -121,6 +121,11 @@ If a bridge, project, or active sequence is missing, fix that setup state before
 
 Cursor, VS Code/Copilot, Windsurf, and other MCP clients do not currently have a project-provided one-click installer. Use their MCP settings with the advanced npm route below. Keep the assistant, server, connector, and Premiere on the same computer.
 
+For a portable reference users can download and attach to any AI assistant, see
+the [Premiere Pro MCP setup guide for AI assistants](premiere-mcp-setup-guide.md).
+Attaching the guide provides assistant context; the local server and Premiere
+connector still need to be installed separately.
+
 <details>
 <summary><strong>Advanced setup: npm or source</strong></summary>
 
