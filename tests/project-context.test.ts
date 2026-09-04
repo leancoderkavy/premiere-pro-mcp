@@ -284,6 +284,111 @@ describe("project context index", () => {
     expect(cleared).toEqual({ success: true, data: { projectId: built.document.projectId, cleared: true } });
   });
 
+  it("imports explicit revision-bound editorial evidence without opening frames or calling a provider", async () => {
+    const repository = new ProjectContextRepository({ backend: "memory" });
+    const built = await buildContextDocumentFromSnapshot(snapshot(), undefined, async () => ({ mediaPathHash: "hash" }));
+    await repository.put(built.document);
+    const source = built.document.records.find((record) => record.kind === "source")!;
+    const tools = getProjectContextTools({}, { repository });
+
+    const result = await (tools.manage_project_context.handler as any)({
+      action: "import_evidence",
+      project_id: built.document.projectId,
+      evidence: [
+        {
+          type: "transcript_passage",
+          text: "The budget needs approval by Friday.",
+          speaker_label: "Presenter",
+          source_id: "source-1",
+          source_revision: source.sourceRevision,
+          sequence_id: "sequence-1",
+          timeline_item_id: "timeline-1",
+          timeline_revision: built.document.timelineRevision,
+          start_seconds: 31,
+          end_seconds: 35,
+          metadata: { confidence: 0.97, source_path: "D:/private.mov", api_token: "secret" },
+        },
+        {
+          type: "shot_log",
+          text: "Medium interview framing with a visible product sample.",
+          source_id: "source-1",
+          source_revision: source.sourceRevision,
+        },
+        {
+          type: "audio_observation",
+          text: "Clean dialogue; brief room-tone gap before the answer.",
+        },
+        {
+          type: "operator_note",
+          text: "Prefer this explanation after the opening question.",
+        },
+        {
+          type: "frame_reference",
+          frame_reference_id: "contact-sheet-003",
+          sequence_id: "sequence-1",
+          timeline_revision: built.document.timelineRevision,
+        },
+        {
+          type: "speaker_label",
+          speaker_label: "Presenter",
+          source_id: "source-1",
+          source_revision: source.sourceRevision,
+        },
+      ],
+    });
+
+    expect(result).toMatchObject({
+      success: true,
+      data: {
+        applied: false,
+        upserted: 6,
+        importedEvidenceTypes: expect.arrayContaining(["transcript_passage", "frame_reference"]),
+      },
+    });
+    const current = await repository.get(built.document.projectId);
+    const transcript = current!.records.find((record) => record.kind === "transcript")!;
+    const frame = current!.records.find((record) => record.metadata?.frameReferenceId === "contact-sheet-003")!;
+    expect(transcript).toMatchObject({
+      sourceRevision: source.sourceRevision,
+      timelineRevision: built.document.timelineRevision,
+      metadata: { evidenceType: "transcript_passage", speakerLabel: "Presenter", confidence: 0.97 },
+    });
+    expect(transcript.metadata).not.toHaveProperty("source_path");
+    expect(transcript.metadata).not.toHaveProperty("api_token");
+    expect(frame).toMatchObject({ kind: "shot", timelineRevision: built.document.timelineRevision });
+
+    const moved = await buildContextDocumentFromSnapshot(
+      snapshot({ startSeconds: 45, endSeconds: 55 }),
+      current,
+      async () => ({ mediaPathHash: "hash" }),
+    );
+    expect(moved.document.records.some((record) => record.metadata?.evidenceType === "transcript_passage")).toBe(false);
+    expect(moved.document.records.some((record) => record.metadata?.evidenceType === "frame_reference")).toBe(false);
+    expect(moved.document.records.some((record) => record.metadata?.evidenceType === "shot_log")).toBe(true);
+    expect(moved.invalidatedRecords).toBeGreaterThanOrEqual(2);
+  });
+
+  it("rejects unguarded, stale, unknown, and path-shaped editorial evidence references", async () => {
+    const repository = new ProjectContextRepository({ backend: "memory" });
+    const built = await buildContextDocumentFromSnapshot(snapshot(), undefined, async () => ({ mediaPathHash: "hash" }));
+    await repository.put(built.document);
+    const tools = getProjectContextTools({}, { repository });
+    const importEvidence = (evidence: unknown[]) => (tools.manage_project_context.handler as any)({
+      action: "import_evidence",
+      project_id: built.document.projectId,
+      evidence,
+    });
+
+    await expect(importEvidence([{ type: "shot_log", text: "Shot", source_id: "source-1" }]))
+      .resolves.toMatchObject({ success: false, error: expect.stringContaining("source_revision") });
+    await expect(importEvidence([{ type: "operator_note", text: "Note", sequence_id: "sequence-1" }]))
+      .resolves.toMatchObject({ success: false, error: expect.stringContaining("timeline_revision") });
+    await expect(importEvidence([{ type: "frame_reference", frame_reference_id: "D:/private/frame.png" }]))
+      .resolves.toMatchObject({ success: false, error: expect.stringContaining("opaque identifier") });
+    await expect(importEvidence([{ type: "operator_note", text: "Note", timeline_revision: "stale" }]))
+      .resolves.toMatchObject({ success: false, error: expect.stringContaining("requires sequence_id") });
+  });
+
   it("captures through the MCP contract and preserves bridge failures", async () => {
     const repository = new ProjectContextRepository({ backend: "memory" });
     const captureSnapshot = vi.fn().mockResolvedValue({ success: true, data: snapshot() });
