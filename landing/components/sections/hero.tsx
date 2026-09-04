@@ -78,7 +78,7 @@ export function HeroSection() {
               Open source · local-first · reviewable workflows
             </p>
             <h1 className="hero-enter hero-enter-1 text-balance text-4xl font-bold leading-[1.02] tracking-[-0.045em] text-white sm:text-6xl md:text-7xl">
-              Make repeatable edits a <span className="accent-text">reviewed workflow.</span>
+              MCP for Adobe Premiere Pro: <span className="accent-text">reviewable workflows.</span>
             </h1>
             <p className="hero-enter hero-enter-2 mx-auto mt-7 max-w-2xl text-balance text-lg leading-8 text-zinc-400 md:text-xl">
               Use the MCP-compatible client your team already trusts to capture local project context, prepare a non-mutating plan, and verify supported Premiere work before you rely on it.
