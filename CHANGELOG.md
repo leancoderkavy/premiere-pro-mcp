@@ -16,12 +16,31 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   directory.
 - Added one-time preview tokens, explicit export confirmation, isolated AE
   bridge helpers/temp directory, and local ZIP-header artifact verification.
+- Added a local SRT/VTT timing-review plan for lecture and interview captions,
+  including bounded correction previews and a separate structural/playback/
+  rendered-output verification checklist.
+- Added revision-bound, opt-in editorial evidence import for caller-supplied
+  transcript, shot, audio, note, and opaque frame-reference data; it remains
+  local and rejects stale source or timeline revisions.
+- Added no-write `premiere-pro-mcp --doctor --plan-fixes` repair guidance and a
+  narrowly scoped, confirmation-gated local connector recovery path.
+- Added a generated public workflow manifest, workflow-proof receipt/runbook,
+  and a universal client setup guide with explicit distribution boundaries.
+
+### Changed
+
+- Added an in-panel global npm/CEP connector update handoff for Windows. It
+  requires confirmation, waits for Premiere to close without forcing it, and
+  uses the published-package update path.
 
 ### Safety
 
 - MOGRT authoring never accepts arbitrary script text, creates or switches AE
   projects, creates output directories, overwrites artifacts, or treats host
   acceptance/a ZIP header as import, rendered-frame, or visual proof.
+- Caption timing plans, editorial evidence import, doctor repair plans, and
+  public workflow materials remain distinct from licensed-host, playback,
+  rendered-output, provider, or marketplace verification.
 
 ## [1.14.7] - 2026-09-02
 

@@ -35,34 +35,26 @@ The AI handles the entire workflow through 332 core tools spanning the supported
 
 ### Latest release: 1.14.8
 
-- **New UXP inspection:** compatible hosts can inspect source-proxy readiness
-  (with an explicit opt-in before an attached proxy path is disclosed) and the
-  endpoint displacement of one animated PointF effect parameter. Both are
-  read-only, bounded inspections—not proof of proxy compatibility or rendered
-  appearance.
-- **Desktop protocol fallback:** if a client cannot negotiate the modern
-  server mode over stdio, set `PREMIERE_MCP_PROTOCOL_MODE=legacy` in that
-  client's server environment and restart it. `auto` remains the default; see
-  [current protocol support](#current-mcp-protocol-support) for the boundary.
-- **Guarded UXP editing from 1.14.6:** compatible hosts can use verified
-  sequence ranges, display formats, playhead, marker batches, transitions,
-  caption-track inventory, silence-cut stringouts, beat-grid markers, and
-  atomic split-edit workflows.
-- **Review and delivery evidence from 1.14.6:** editorial context packs,
-  local delivery conformance, sampled video scopes and motion analysis, Warp
-  Stabilizer status inspection, and shot-match plans remain bounded and avoid
-  unapproved provider writes.
-- **Fail-closed outcomes:** unsupported sequence pixel-aspect ratios, partial
-  UXP transition writes, unavailable media-timing readback, and incomplete
-  delivery probes reject rather than reporting success. Other mutations retain
-  their documented verified or explicitly `committed_unverified` outcome.
-- **Explicit boundary:** the hosted endpoint remains an operator-managed MCP
-  service; unauthenticated callers are rejected and it does not pair users to
-  local Premiere processes. See the generated [supported action catalog](docs/supported-actions.md)
-  for individual capability and verification contracts.
 - **MOGRT authoring:** an optional, separate After Effects CEP connector can
   create one approval-gated lower-third recipe in an already saved workspace
   project, then report local artifact evidence without claiming visual proof.
+- **Global-update handoff:** a global npm installation can show its server and
+   connector update state in the Windows CEP panel and, after explicit
+   confirmation, update only after Premiere has been quit; it never changes a
+   project, client configuration, source checkout, or custom npm prefix.
+- **Local review planning:** caption timing previews parse caller-supplied
+   SRT/VTT without writing or importing it, while revision-bound editorial
+   evidence stays in the opt-in local context index without provider calls.
+- **Repair preview:** `premiere-pro-mcp --doctor --plan-fixes` produces a
+   privacy-safe, no-write repair plan; the narrowly eligible connector repair
+   still requires an explicit confirmation that Premiere is closed.
+- **Auditable guidance:** the universal setup guide, generated public workflow
+   manifest, and proof runbook make workflow and verification boundaries
+   inspectable without claiming a licensed-host walkthrough occurred.
+- **Explicit boundary:** the hosted endpoint remains an operator-managed MCP
+   service; unauthenticated callers are rejected and it does not pair users to
+   local Premiere processes. See the generated [supported action catalog](docs/supported-actions.md)
+   for individual capability and verification contracts.
 
 See the [v1.14.8 release notes](https://github.com/leancoderkavy/premiere-pro-mcp/releases/tag/v1.14.8)
 for complete details. Live installation in Premiere Pro still requires host verification.

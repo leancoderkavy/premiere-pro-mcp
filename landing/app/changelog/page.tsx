@@ -14,12 +14,21 @@ const releases = [
         items: [
           "An optional, separate After Effects CEP connector can author one approval-gated lower-third Motion Graphics Template in an already saved, workspace-contained project.",
           "The workflow includes a one-time preview token, explicit export confirmation, isolated local bridge channel, and local ZIP-header artifact check.",
+          "Caption timing review plans parse caller-supplied SRT/VTT locally, while revision-bound editorial evidence import accepts only caller-supplied, opt-in context data.",
+          "A generated public workflow manifest, proof-receipt runbook, universal setup guide, and no-write doctor repair-plan preview make the supported path and its evidence boundaries inspectable.",
+        ],
+      },
+      {
+        title: "Changed",
+        items: [
+          "Global npm installations can use the Windows CEP panel to review the server and connector update state, then explicitly hand off the published-package update after Premiere closes. It does not force-close Premiere or alter projects, client configuration, source checkouts, or custom npm-prefix installs.",
         ],
       },
       {
         title: "Safety",
         items: [
           "The authoring path does not accept arbitrary scripts, create or switch projects, create output folders, overwrite artifacts, or claim that an accepted export is visually or import verified.",
+          "Local timing plans, editorial evidence, repair plans, and public workflow materials remain separate from licensed-host, playback, rendered-output, provider, and marketplace verification.",
         ],
       },
     ],

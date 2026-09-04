@@ -9,7 +9,7 @@
     "name": "Premiere Pro MCP",
     "mcpName": "io.github.leancoderkavy/premiere-pro",
     "npmPackage": "premiere-pro-mcp",
-    "version": "1.14.7",
+    "version": "1.14.8",
     "repository": "https://github.com/leancoderkavy/premiere-pro-mcp",
     "homepage": "https://premiere-pro-mcp.com/",
     "license": "MIT",
@@ -26,11 +26,11 @@
     ]
   },
   "capabilitySurface": {
-    "registeredCoreTools": 328,
-    "defaultProfileTools": 326,
+    "registeredCoreTools": 332,
+    "defaultProfileTools": 330,
     "authenticatedUxpAdditions": 91,
-    "defaultProfileWithUxp": 417,
-    "toolModules": 37,
+    "defaultProfileWithUxp": 421,
+    "toolModules": 39,
     "guidedWorkflows": 11
   },
   "workflows": [
