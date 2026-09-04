@@ -13,6 +13,9 @@ describe("CLI flags", () => {
     expect(output).toContain("--install-cep");
     expect(output).toContain("--uninstall-cep");
     expect(output).toContain("--diagnose-cep");
+    expect(output).toContain("--install-after-effects-cep");
+    expect(output).toContain("--uninstall-after-effects-cep");
+    expect(output).toContain("--diagnose-after-effects-cep");
     expect(output).toContain("PREMIERE_TEMP_DIR");
     expect(output).toContain("PREMIERE_TIMEOUT_MS");
     expect(output).toContain("PREMIERE_MCP_CAPABILITIES");

@@ -134,13 +134,16 @@ const args = process.argv.slice(2);
 
 if (args.includes("--help") || args.includes("-h")) {
   console.log(`
-premiere-pro-mcp — MCP server for Adobe Premiere Pro (326 default-profile tools)
+premiere-pro-mcp — MCP server for Adobe Premiere Pro (330 default-profile tools)
 
 Usage:
   premiere-pro-mcp              Start the MCP server (stdio transport)
   premiere-pro-mcp --install-cep   Install the CEP plugin into Premiere Pro
   premiere-pro-mcp --uninstall-cep Remove this CEP plugin from Premiere Pro
   premiere-pro-mcp --diagnose-cep  Check the CEP install, debug keys, and Premiere signature logs
+  premiere-pro-mcp --install-after-effects-cep   Install the dedicated CEP plugin into After Effects
+  premiere-pro-mcp --uninstall-after-effects-cep Remove this CEP plugin from After Effects
+  premiere-pro-mcp --diagnose-after-effects-cep  Check the After Effects CEP install and debug keys
   premiere-pro-mcp --doctor        Check local install/configuration without reading a project
   premiere-pro-mcp --doctor --json Print the same local check as machine-readable JSON
   premiere-pro-mcp --support-bundle  Print a privacy-safe, machine-readable support bundle
@@ -158,6 +161,7 @@ Environment variables:
   PREMIERE_MCP_PROTOCOL_MODE  auto (default) or legacy; use legacy only when a client cannot complete modern MCP negotiation
   PREMIERE_UXP_TOKEN    Enable the authenticated local UXP bridge (minimum 16 characters)
   PREMIERE_UXP_PORT     UXP loopback WebSocket port (default: 7777)
+  AFTER_EFFECTS_MCP_TEMP_DIR  Shared AE bridge directory (default: OS temp + /after-effects-mcp-bridge)
 
 More info: https://github.com/leancoderkavy/premiere-pro-mcp
 `);
@@ -200,19 +204,24 @@ if (args.includes("--doctor") || args.includes("--support-bundle")) {
   process.exit(0);
 }
 
-const cepActions = ["--install-cep", "--uninstall-cep", "--diagnose-cep"].filter((flag) => args.includes(flag));
+const cepActions = [
+  "--install-cep", "--uninstall-cep", "--diagnose-cep",
+  "--install-after-effects-cep", "--uninstall-after-effects-cep", "--diagnose-after-effects-cep",
+].filter((flag) => args.includes(flag));
 if (cepActions.length > 1) {
-  console.error("Use only one CEP action at a time: --install-cep, --uninstall-cep, or --diagnose-cep.");
+  console.error("Use only one CEP action at a time.");
   process.exit(1);
 }
 
 if (cepActions.length === 1) {
   const action = cepActions[0];
-  const diagnose = action === "--diagnose-cep";
-  const uninstall = action === "--uninstall-cep";
+  const diagnose = action === "--diagnose-cep" || action === "--diagnose-after-effects-cep";
+  const afterEffects = action.includes("after-effects");
+  const uninstall = action === "--uninstall-cep" || action === "--uninstall-after-effects-cep";
+  const hostLabel = afterEffects ? "After Effects" : "Premiere Pro";
   console.log(uninstall
-    ? "Removing CEP plugin...\n"
-    : diagnose ? "Diagnosing CEP plugin...\n" : "Installing CEP plugin...\n");
+    ? `Removing ${hostLabel} CEP plugin...\n`
+    : diagnose ? `Diagnosing ${hostLabel} CEP plugin...\n` : `Installing ${hostLabel} CEP plugin...\n`);
   const isWindows = process.platform === "win32";
   const isMacOS = process.platform === "darwin";
   if (!isWindows && !isMacOS) {
@@ -233,6 +242,7 @@ if (cepActions.length === 1) {
       if (uninstall) {
         powershellArgs[4] = path.join(projectRoot, "scripts", "uninstall-cep.ps1");
       }
+      if (afterEffects) powershellArgs.push("-ConnectorHost", "AfterEffects");
       execFileSync(
         "powershell.exe",
         powershellArgs,
@@ -242,18 +252,20 @@ if (cepActions.length === 1) {
       const macosScriptPath = uninstall
         ? path.join(projectRoot, "scripts", "uninstall-cep.sh")
         : scriptPath;
-      execFileSync("bash", [macosScriptPath, uninstall ? "--user" : diagnose ? "--diagnose" : "--copy"], {
+      const connectorArgs = [macosScriptPath, uninstall ? "--user" : diagnose ? "--diagnose" : "--copy"];
+      if (afterEffects) connectorArgs.push("--after-effects");
+      execFileSync("bash", connectorArgs, {
         stdio: "inherit",
         cwd: projectRoot,
       });
     }
   } catch {
     const operation = uninstall ? "uninstallation" : diagnose ? "diagnostics" : "installation";
-    console.error(`CEP ${operation} failed. Try running manually:`);
+    console.error(`${hostLabel} CEP ${operation} failed. Try running manually:`);
     console.error(
       isWindows
-        ? `  powershell -ExecutionPolicy Bypass -File "${uninstall ? path.join(projectRoot, "scripts", "uninstall-cep.ps1") : scriptPath}"${diagnose ? " -Diagnose" : ""}`
-        : `  bash "${uninstall ? path.join(projectRoot, "scripts", "uninstall-cep.sh") : scriptPath}" ${uninstall ? "--user" : diagnose ? "--diagnose" : "--copy"}`,
+        ? `  powershell -ExecutionPolicy Bypass -File "${uninstall ? path.join(projectRoot, "scripts", "uninstall-cep.ps1") : scriptPath}"${diagnose ? " -Diagnose" : ""}${afterEffects ? " -ConnectorHost AfterEffects" : ""}`
+        : `  bash "${uninstall ? path.join(projectRoot, "scripts", "uninstall-cep.sh") : scriptPath}" ${uninstall ? "--user" : diagnose ? "--diagnose" : "--copy"}${afterEffects ? " --after-effects" : ""}`,
     );
     process.exit(1);
   }

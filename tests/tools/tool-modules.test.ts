@@ -56,6 +56,7 @@ import { getEditorialPlanTools } from "../../src/tools/editorial-plans.js";
 import { getProjectIntakeTools } from "../../src/tools/project-intake.js";
 import { getCompetitorGapTools } from "../../src/tools/competitor-gaps.js";
 import { getSpotWorkflowTools } from "../../src/tools/spot-workflows.js";
+import { getMogrtAuthoringTools } from "../../src/tools/mogrt-authoring.js";
 import type { Telemetry, TelemetryProperties } from "../../src/telemetry.js";
 
 interface ToolDef {
@@ -110,6 +111,7 @@ const ALL_MODULES: Array<{
   { name: "project-intake", getter: getProjectIntakeTools, minTools: 1 },
   { name: "competitor-gaps", getter: getCompetitorGapTools, minTools: 8 },
   { name: "spot-workflows", getter: getSpotWorkflowTools, minTools: 4 },
+  { name: "mogrt-authoring", getter: getMogrtAuthoringTools, minTools: 4 },
 ];
 
 describe("Tool Module Structure", () => {
@@ -194,16 +196,16 @@ describe("Tool Module Structure", () => {
 });
 
 describe("Total Tool Count", () => {
-  it("all modules together have 326 tools", () => {
+  it("all modules together have 330 tools", () => {
     let total = 0;
     for (const mod of ALL_MODULES) {
       total += Object.keys(mod.getter(bridgeOptions)).length;
     }
-    expect(total).toBe(326);
+    expect(total).toBe(330);
   });
 
-  it("there are 38 directly enumerated modules", () => {
-    expect(ALL_MODULES.length).toBe(38);
+  it("there are 39 directly enumerated modules", () => {
+    expect(ALL_MODULES.length).toBe(39);
   });
 });
 
@@ -938,8 +940,8 @@ describe("Script Generation Patterns", () => {
 
         if (mockedSendCommand.mock.calls.length > 0) {
           const script = mockedSendCommand.mock.calls[0][0];
-          const hasResult = script.includes("__result") || script.includes("__error");
-          expect(hasResult, `${mod.name}.${name} script should use __result or __error`).toBe(true);
+          const hasResult = script.includes("__result") || script.includes("__error") || script.includes("__aeResult") || script.includes("__aeError");
+          expect(hasResult, `${mod.name}.${name} script should use a host result helper`).toBe(true);
         }
         if (mockedSendRawCommand.mock.calls.length > 0) {
           // Raw commands (scripting module) may not follow the pattern

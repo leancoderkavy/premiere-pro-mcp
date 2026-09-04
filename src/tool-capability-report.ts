@@ -76,6 +76,54 @@ const ORCHESTRATOR_TOOLS = new Set(["apply_edit_plan", "apply_spot_workflow_plan
 export const TOOL_OPERATIONAL_OVERRIDES: Readonly<
   Record<string, ToolOperationalOverride>
 > = {
+  verify_after_effects_connection: {
+    backend: "CEP/ExtendScript",
+    backends: ["cep", "extendscript"],
+    status: "supported",
+    minimumPremiereVersion: null,
+    authority: "inspect",
+    verificationBoundary: "host_response",
+    hostVerificationRequired: true,
+    notes: [
+      "Uses the separate local After Effects CEP bridge and returns no project names, paths, or media details.",
+    ],
+  },
+  preview_mogrt_recipe: {
+    backend: "local",
+    backends: ["local"],
+    status: "supported",
+    minimumPremiereVersion: null,
+    authority: "inspect",
+    verificationBoundary: "static_metadata_only",
+    hostVerificationRequired: false,
+    notes: [
+      "Also requires filesystem authority to validate an existing approved output directory; it does not contact Adobe or write files.",
+    ],
+  },
+  create_mogrt_recipe: {
+    backend: "local + CEP/ExtendScript",
+    backends: ["local", "cep", "extendscript"],
+    status: "supported",
+    minimumPremiereVersion: null,
+    authority: "export",
+    verificationBoundary: "output_and_host_response",
+    hostVerificationRequired: true,
+    notes: [
+      "Also requires edit and filesystem authority. The isolated AE bridge creates only a previewed recipe in an already saved, workspace-contained project; host acceptance is not visual verification.",
+    ],
+  },
+  verify_mogrt_artifact: {
+    backend: "local",
+    backends: ["local"],
+    status: "supported",
+    minimumPremiereVersion: null,
+    authority: "filesystem",
+    verificationBoundary: "local_filesystem",
+    hostVerificationRequired: false,
+    notes: [
+      "Checks local file presence and a ZIP header only; it does not establish After Effects controls or Premiere import/render behavior.",
+    ],
+  },
   verify_delivery_file: {
     backend: "local",
     backends: ["local"],

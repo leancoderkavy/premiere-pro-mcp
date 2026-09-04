@@ -81,6 +81,8 @@ const INSPECT_TOOL_NAMES = new Set([
 // changes nothing in Premiere, so classifying it as "edit" would overstate what
 // it does; filesystem is the authority it actually needs.
 const FILESYSTEM_TOOL_NAMES = new Set([
+  "preview_mogrt_recipe",
+  "verify_mogrt_artifact",
   "apply_lut",
   "set_scratch_disk_path",
   "verify_delivery_file",
@@ -106,6 +108,16 @@ const FILESYSTEM_TOOL_NAMES = new Set([
   "inspect_fcpxml_interchange",
   "verify_fcpxml_media_references",
 ]);
+
+// These tools have deliberately mixed authority requirements that cannot be
+// inferred safely from their names. Keep them explicit: a preview reads an
+// approved folder, authoring mutates a saved AE project and exports a file.
+const TOOL_CAPABILITY_REQUIREMENTS: Readonly<Record<string, readonly Capability[]>> = {
+  verify_after_effects_connection: ["inspect"],
+  preview_mogrt_recipe: ["inspect", "filesystem"],
+  create_mogrt_recipe: ["edit", "export", "filesystem"],
+  verify_mogrt_artifact: ["inspect", "filesystem"],
+};
 
 const ACTION_CAPABILITIES: Readonly<Record<string, Readonly<Record<string, readonly Capability[]>>>> = {
   manage_project_context: {
@@ -283,7 +295,7 @@ export function capabilityForTool(toolName: string): Capability {
 /** Resolve authority at the action level for consolidated multi-action tools. */
 export function capabilitiesForToolInvocation(toolName: string, args: unknown): readonly Capability[] {
   const actionMap = ACTION_CAPABILITIES[toolName];
-  if (!actionMap) return [capabilityForTool(toolName)];
+  if (!actionMap) return TOOL_CAPABILITY_REQUIREMENTS[toolName] ?? [capabilityForTool(toolName)];
   const input = args && typeof args === "object" && !Array.isArray(args)
     ? args as Record<string, unknown>
     : undefined;
@@ -317,6 +329,10 @@ export function isToolPermitted(
   config: CapabilityConfig,
 ): boolean {
   if (ALWAYS_LISTED_TOOL_NAMES.has(toolName)) return true;
+  const exactRequirements = TOOL_CAPABILITY_REQUIREMENTS[toolName];
+  if (exactRequirements) {
+    return exactRequirements.every((capability) => config.capabilities.has(capability));
+  }
   const actionMap = ACTION_CAPABILITIES[toolName];
   if (actionMap) {
     return Object.values(actionMap).some((required) => required.every((capability) => config.capabilities.has(capability)));

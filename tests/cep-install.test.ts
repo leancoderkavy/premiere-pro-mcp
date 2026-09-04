@@ -22,6 +22,21 @@ describe("CEP installation metadata", () => {
     expect(manifest).not.toMatch(/<Host Name="PPRO" Version="[[(]/);
   });
 
+  it("ships a separately addressed After Effects authoring connector", () => {
+    const pkg = JSON.parse(readFileSync(join(root, "package.json"), "utf8"));
+    const manifest = readFileSync(join(root, "after-effects-cep-plugin", "CSXS", "manifest.xml"), "utf8");
+    const panel = readFileSync(join(root, "after-effects-cep-plugin", "main.js"), "utf8");
+    const cli = readFileSync(join(root, "src", "index.ts"), "utf8");
+
+    expect(pkg.files).toContain("after-effects-cep-plugin");
+    expect(manifest).toContain(`ExtensionBundleVersion="${pkg.version}"`);
+    expect(manifest).toContain('<Host Name="AEFT" Version="15.0"/>');
+    expect(panel).toContain("after-effects-mcp-bridge");
+    expect(panel).toContain("AFTER_EFFECTS_MCP_TEMP_DIR");
+    expect(cli).toContain("--install-after-effects-cep");
+    expect(cli).toContain('powershellArgs.push("-ConnectorHost", "AfterEffects")');
+  });
+
   it("documents the Windows unsigned-extension value as REG_SZ", () => {
     const readme = readFileSync(join(root, "README.md"), "utf8");
     const installer = readFileSync(join(root, "scripts", "install-cep.ps1"), "utf8");
@@ -73,7 +88,9 @@ describe("CEP installation metadata", () => {
     const cli = readFileSync(join(root, "src", "index.ts"), "utf8");
     const installer = readFileSync(join(root, "scripts", "install-cep.sh"), "utf8");
     expect(cli).toContain('diagnose ? "--diagnose" : "--copy"');
-    expect(installer).toContain('MODE="${1:-}"');
+    expect(installer).toContain('HOST="Premiere"');
+    expect(installer).toContain('for arg in "$@"; do');
+    expect(installer).toContain("--after-effects");
     expect(installer).toContain('if [ "$MODE" = "--diagnose" ]');
     expect(installer).toContain("Installation verified");
   });

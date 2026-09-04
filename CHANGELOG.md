@@ -6,6 +6,23 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [1.14.8] - 2026-09-04
+
+### Added
+
+- Added a separate After Effects CEP bridge and four approval-gated MOGRT
+  authoring tools. The initial `lower_third` recipe only runs in an already
+  saved, workspace-contained AE project and exports to an existing approved
+  directory.
+- Added one-time preview tokens, explicit export confirmation, isolated AE
+  bridge helpers/temp directory, and local ZIP-header artifact verification.
+
+### Safety
+
+- MOGRT authoring never accepts arbitrary script text, creates or switches AE
+  projects, creates output directories, overwrites artifacts, or treats host
+  acceptance/a ZIP header as import, rendered-frame, or visual proof.
+
 ## [1.14.7] - 2026-09-02
 
 ### Added
