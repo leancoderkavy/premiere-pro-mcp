@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from "vitest";
 import { z } from "zod";
 
-// We need to test jsonSchemaToZodShape which is not exported directly.
+// We need to test jsonSchemaToInputSchema which is not exported directly.
 // We'll test it indirectly by importing createServer with mocked tool modules
 // that exercise various parameter types.
 
@@ -12,7 +12,7 @@ vi.mock("../src/bridge/file-bridge.js", () => ({
   cleanupTempDir: vi.fn(),
 }));
 
-// Create a mock module with all parameter types to exercise the schema converter
+// Create a mock module with all parameter types to exercise the schema adapter.
 const ALL_TYPES_TOOL = {
   test_all_types: {
     description: "Tests all parameter types",
@@ -104,7 +104,7 @@ vi.mock("../src/resources/extendscript-reference.js", () => ({
 
 import { createServer } from "../src/server.js";
 
-describe("Schema Conversion (jsonSchemaToZodShape)", () => {
+describe("Schema registration (jsonSchemaToInputSchema)", () => {
   it("registers tools with all parameter types without error", () => {
     // If the schema conversion fails, createServer will throw
     expect(() => createServer({})).not.toThrow();

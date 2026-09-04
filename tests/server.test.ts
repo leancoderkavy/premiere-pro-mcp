@@ -5,18 +5,8 @@ import { join } from "node:path";
 import { z } from "zod";
 import { Client, InMemoryTransport } from "@modelcontextprotocol/client";
 
-// Mock all tool modules to return simple tool definitions
-vi.mock("../src/bridge/file-bridge.js", () => ({
-  sendCommand: vi.fn().mockResolvedValue({ success: true, data: {} }),
-  sendRawCommand: vi.fn().mockResolvedValue({ success: true, data: {} }),
-  getTempDir: vi.fn().mockReturnValue("/tmp/test"),
-  cleanupTempDir: vi.fn(),
-}));
-
-// We need the real tool modules to verify registration,
-// but mock sendCommand so handlers don't actually do file I/O
-vi.mock("../src/tools/discovery.js", () => ({
-  getDiscoveryTools: () => ({
+const { getDiscoveryTools } = vi.hoisted(() => ({
+  getDiscoveryTools: vi.fn(() => ({
     mock_discovery_tool: {
       description: "A mock discovery tool",
       parameters: {
@@ -28,7 +18,21 @@ vi.mock("../src/tools/discovery.js", () => ({
       },
       handler: vi.fn().mockResolvedValue({ success: true, data: { found: true } }),
     },
-  }),
+  })),
+}));
+
+// Mock all tool modules to return simple tool definitions
+vi.mock("../src/bridge/file-bridge.js", () => ({
+  sendCommand: vi.fn().mockResolvedValue({ success: true, data: {} }),
+  sendRawCommand: vi.fn().mockResolvedValue({ success: true, data: {} }),
+  getTempDir: vi.fn().mockReturnValue("/tmp/test"),
+  cleanupTempDir: vi.fn(),
+}));
+
+// We need the real tool modules to verify registration,
+// but mock sendCommand so handlers don't actually do file I/O
+vi.mock("../src/tools/discovery.js", () => ({
+  getDiscoveryTools,
 }));
 
 vi.mock("../src/tools/project.js", () => ({ getProjectTools: () => ({}) }));
@@ -93,6 +97,16 @@ describe("createServer", () => {
     ).not.toThrow();
   });
 
+  it("reuses immutable tool definitions for equivalent server configurations", () => {
+    getDiscoveryTools.mockClear();
+    const bridgeOptions = { tempDir: "/tmp/server-static-catalog-cache" };
+
+    createServer(bridgeOptions);
+    createServer(bridgeOptions);
+
+    expect(getDiscoveryTools).toHaveBeenCalledTimes(1);
+  });
+
   it("registers and serves the bounded live context resources", async () => {
     const server = createServer({});
     const client = new Client({ name: "live-resource-test", version: "1.0.0" });
@@ -127,8 +141,8 @@ describe("createServer", () => {
   });
 });
 
-describe("jsonSchemaToZodShape (tested via createServer)", () => {
-  // We test the schema conversion indirectly by verifying the server
+describe("jsonSchemaToInputSchema (tested via createServer)", () => {
+  // We test the schema adapter indirectly by verifying the server
   // successfully registers tools with different parameter types.
   // The function is private, so we test through the public API.
 

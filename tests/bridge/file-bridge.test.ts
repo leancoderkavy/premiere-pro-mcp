@@ -304,6 +304,41 @@ describe("sendCommand", () => {
     expect(fakeWatcher.close).toHaveBeenCalled();
   });
 
+  it("shares one directory watcher across concurrent bridge commands", async () => {
+    const readyResponses = new Set<string>();
+    let onChange: ((event: string, filename: string) => void) | undefined;
+    const fakeWatcher = { on: vi.fn().mockReturnThis(), close: vi.fn() };
+    mockedWatch.mockImplementationOnce(((_path, _options, listener) => {
+      onChange = listener as (event: string, filename: string) => void;
+      return fakeWatcher;
+    }) as typeof watch);
+    mockedExistsSync.mockImplementation((path) => {
+      const value = String(path);
+      return value.includes("res_") ? readyResponses.has(value) : true;
+    });
+    mockedReadFileSync.mockReturnValue('{"success":true,"data":{"shared":true}}');
+
+    const pending = [
+      sendCommand("first", { tempDir: "/tmp/shared-watch-bridge" }),
+      sendCommand("second", { tempDir: "/tmp/shared-watch-bridge" }),
+    ];
+    expect(mockedWatch).toHaveBeenCalledTimes(1);
+
+    for (const [, commandPath] of mockedRenameSync.mock.calls) {
+      const responsePath = String(commandPath)
+        .replace(/cmd_/, "res_")
+        .replace(/\.jsx$/, ".json");
+      readyResponses.add(responsePath);
+      onChange?.("rename", responsePath.split(/[\\/]/).pop()!);
+    }
+
+    await expect(Promise.all(pending)).resolves.toEqual([
+      { success: true, data: { shared: true } },
+      { success: true, data: { shared: true } },
+    ]);
+    expect(fakeWatcher.close).toHaveBeenCalledTimes(1);
+  });
+
   it("keeps polling a malformed response without resending the command", async () => {
     mockedExistsSync.mockImplementation((path) => {
       if (String(path).includes("res_")) return true;
