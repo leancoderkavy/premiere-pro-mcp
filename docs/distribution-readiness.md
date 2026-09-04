@@ -43,11 +43,20 @@ For a global npm installation, users can run `premiere-pro-mcp --check-update`
 to see the current npm `latest` version. After fully quitting Premiere,
 `premiere-pro-mcp --update` installs that published package and refreshes the
 per-user CEP connector. It does not alter MCP client configuration or project
-files. Source users can run `npm run check-update:source` and then
-`npm run update:source`; the source path refuses dirty or locally-ahead
-checkouts and uses a fast-forward-only update before rebuilding and refreshing
-the connector. Claude Desktop `.mcpb` bundles remain user-installed extension
-packages and must be replaced from the matching release asset.
+files. On Windows, a global npm installation can instead select **Update after
+quit** in the MCP for Adobe Premiere Pro panel. The panel shows the global server and connector
+versions, requires confirmation, and launches a detached per-user helper. That
+helper waits for Premiere to close without forcing it, invokes the same
+published npm installation and connector-refresh path, and records only a
+bounded completion state for the panel's next launch. This keeps upgrades
+working for older global versions that do not expose `--update`. It never
+changes a project, MCP client
+configuration, source checkout, or custom npm-prefix install. Source users can
+run `npm run check-update:source` and then `npm run update:source`; the source
+path refuses dirty or locally-ahead checkouts and uses a fast-forward-only
+update before rebuilding and refreshing the connector. Claude Desktop `.mcpb`
+bundles remain user-installed extension packages and must be replaced from the
+matching release asset.
 
 ## Connector removal
 

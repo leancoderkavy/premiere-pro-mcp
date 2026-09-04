@@ -41,15 +41,89 @@ const DEFAULT_TIMEOUT_MS = 30000;
 export const BRIDGE_HEARTBEAT_FILE = "bridge-heartbeat.json";
 export const BRIDGE_HEARTBEAT_STALE_MS = 3_000;
 
+type ResponseListener = () => void;
+
+interface SharedResponseWatcher {
+  watcher?: FSWatcher;
+  listeners: Map<string, Set<ResponseListener>>;
+}
+
+// CEP commands can be issued concurrently, especially when an MCP client
+// inspects several independent surfaces. A watcher is attached to the bridge
+// directory rather than to an individual response so one OS handle wakes all
+// matching in-flight commands. Timers below remain the correctness fallback
+// for filesystems where fs.watch drops or coalesces events.
+const responseWatchers = new Map<string, SharedResponseWatcher>();
+
+function watchResponseFile(resFile: string, listener: ResponseListener): () => void {
+  const directory = dirname(resFile);
+  const responseName = basename(resFile);
+  let shared = responseWatchers.get(directory);
+  if (!shared) {
+    shared = { listeners: new Map() };
+    responseWatchers.set(directory, shared);
+  }
+
+  let listeners = shared.listeners.get(responseName);
+  if (!listeners) {
+    listeners = new Set();
+    shared.listeners.set(responseName, listeners);
+  }
+  listeners.add(listener);
+
+  if (!shared.watcher) {
+    try {
+      const watcher = watch(directory, { persistent: false }, (_event, filename) => {
+        const names = filename
+          ? [filename.toString()]
+          : Array.from(shared!.listeners.keys());
+        for (const name of names) {
+          for (const callback of shared!.listeners.get(name) ?? []) callback();
+        }
+      });
+      shared.watcher = watcher;
+      watcher.on("error", () => {
+        if (shared!.watcher !== watcher) return;
+        shared!.watcher = undefined;
+        watcher.close();
+        if (shared!.listeners.size === 0) responseWatchers.delete(directory);
+      });
+    } catch {
+      // The polling fallback below remains active when a filesystem does not
+      // support notifications (for example some network or virtual drives).
+    }
+  }
+
+  return () => {
+    const registered = shared!.listeners.get(responseName);
+    registered?.delete(listener);
+    if (registered?.size === 0) shared!.listeners.delete(responseName);
+    if (shared!.listeners.size > 0) return;
+    shared!.watcher?.close();
+    responseWatchers.delete(directory);
+  };
+}
+
 export interface BridgeOptions {
   tempDir?: string;
   timeoutMs?: number;
+  /**
+   * Host-specific bootstrap contract. Premiere is the default; companion
+   * bridges (such as After Effects) supply their own narrow helper surface.
+   */
+  helpers?: BridgeHelpers;
   /**
    * Reject a health-style command without publishing it when a current CEP
    * connector explicitly reports that it is waiting or its heartbeat is stale.
    * A missing heartbeat remains compatible with older installed connectors.
    */
   failFastOnUnreadyHeartbeat?: boolean;
+}
+
+export interface BridgeHelpers {
+  source: string;
+  fileName: string;
+  buildBootstrap: (helpersPath: string) => string;
 }
 
 export interface CommandResult {
@@ -161,12 +235,17 @@ function heartbeatFailure(liveness: BridgeLiveness): CommandResult | null {
  * Make sure this server version's helpers file exists in the temp dir, and return
  * the bootstrap line each command must carry so the CEP-side engine loads it once.
  */
-function ensureHelpers(tempDir: string): string {
-  const helpersPath = join(tempDir, helpersFileName());
+function ensureHelpers(tempDir: string, helpers?: BridgeHelpers): string {
+  const activeHelpers = helpers ?? {
+    source: getHelpersSource(),
+    fileName: helpersFileName(),
+    buildBootstrap,
+  };
+  const helpersPath = join(tempDir, activeHelpers.fileName);
   if (!existsSync(helpersPath)) {
-    writeFileSync(helpersPath, getHelpersSource(), "utf-8");
+    writeFileSync(helpersPath, activeHelpers.source, "utf-8");
   }
-  return buildBootstrap(helpersPath);
+  return activeHelpers.buildBootstrap(helpersPath);
 }
 
 /**
@@ -203,7 +282,7 @@ export async function sendCommand(
   try {
     // Write a complete command before its .jsx name makes it visible to CEP.
     // renameSync is atomic when both paths are in the bridge directory.
-    writeFileSync(stagedCmdFile, `${ensureHelpers(tempDir)}
+    writeFileSync(stagedCmdFile, `${ensureHelpers(tempDir, options?.helpers)}
 ${script}`, "utf-8");
     renameSync(stagedCmdFile, cmdFile);
 
@@ -264,7 +343,7 @@ export async function sendRawCommand(
 
   validateScript(script, true);
   try {
-    writeFileSync(stagedCmdFile, `${ensureHelpers(tempDir)}
+    writeFileSync(stagedCmdFile, `${ensureHelpers(tempDir, options?.helpers)}
 ${script}`, "utf-8");
     renameSync(stagedCmdFile, cmdFile);
     return await pollForResponse(resFile, busyFile, timeoutMs);
@@ -304,14 +383,14 @@ async function pollForResponse(
   return new Promise((resolve) => {
     let settled = false;
     let timer: NodeJS.Timeout | undefined;
-    let watcher: FSWatcher | undefined;
+    let stopWatching = () => {};
     let fallbackDelay = 100;
 
     const finish = (result: CommandResult) => {
       if (settled) return;
       settled = true;
       if (timer) clearTimeout(timer);
-      watcher?.close();
+      stopWatching();
       resolve(result);
     };
 
@@ -368,22 +447,10 @@ async function pollForResponse(
       scheduleFallback();
     };
 
-    // Prefer event-driven notification for low response latency without constant stat calls.
-    // fs.watch is not reliable on every network/virtual filesystem, so the slower timer above
-    // remains the correctness fallback and also protects against missed/coalesced events.
-    try {
-      const responseName = basename(resFile);
-      watcher = watch(dirname(resFile), { persistent: false }, (_event, filename) => {
-        if (!filename || filename.toString() === responseName) check();
-      });
-      watcher.on("error", () => {
-        watcher?.close();
-        watcher = undefined;
-      });
-    } catch {
-      watcher = undefined;
-    }
-
+    // Prefer event-driven notification for low response latency without
+    // allocating one fs.watch handle per concurrent command. The timer above
+    // still protects against missed or coalesced filesystem events.
+    stopWatching = watchResponseFile(resFile, check);
     check();
   });
 }

@@ -16,9 +16,9 @@ const geistMono = Geist_Mono({
 });
 
 const siteUrl = "https://premiere-pro-mcp.com";
-const title = "Premiere Pro Workflow Automation | Local MCP Server";
+const title = "MCP for Adobe Premiere Pro | Reviewable Workflow Automation";
 const description =
-  "Use a compatible AI client to inspect local Premiere projects, preview bounded work, and verify supported workflow results before you rely on them.";
+  "Premiere Pro MCP connects compatible AI clients to local, reviewable Adobe Premiere Pro workflows with explicit previews, confirmation, and returned diagnostics.";
 const googleAnalyticsId =
   process.env.NEXT_PUBLIC_GOOGLE_ANALYTICS_ID ?? "G-XSH74T16E4";
 
@@ -38,6 +38,9 @@ export const metadata: Metadata = {
   },
   keywords: [
     "MCP for Adobe Premiere Pro",
+    "Premiere Pro MCP",
+    "Premiere Pro MCP server",
+    "Model Context Protocol for Premiere Pro",
     "Adobe Premiere Pro AI",
     "Model Context Protocol",
     "AI video editing",
@@ -101,6 +104,20 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className="scroll-smooth" data-scroll-behavior="smooth">
+      <head>
+        <link
+          rel="alternate"
+          type="text/plain"
+          href="/llms.txt"
+          title="Machine-readable reference for MCP for Adobe Premiere Pro"
+        />
+        <link
+          rel="alternate"
+          type="text/plain"
+          href="/llms-full.txt"
+          title="Complete machine-readable reference for MCP for Adobe Premiere Pro"
+        />
+      </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >

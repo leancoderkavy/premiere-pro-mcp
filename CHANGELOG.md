@@ -6,6 +6,49 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [1.14.8] - 2026-09-04
+
+### Added
+
+- Added a separate After Effects CEP bridge and four approval-gated MOGRT
+  authoring tools. The initial `lower_third` recipe only runs in an already
+  saved, workspace-contained AE project and exports to an existing approved
+  directory.
+- Added one-time preview tokens, explicit export confirmation, isolated AE
+  bridge helpers/temp directory, and local ZIP-header artifact verification.
+- Added a local SRT/VTT timing-review plan for lecture and interview captions,
+  including bounded correction previews and a separate structural/playback/
+  rendered-output verification checklist.
+- Added revision-bound, opt-in editorial evidence import for caller-supplied
+  transcript, shot, audio, note, and opaque frame-reference data; it remains
+  local and rejects stale source or timeline revisions.
+- Added no-write `premiere-pro-mcp --doctor --plan-fixes` repair guidance and a
+  narrowly scoped, confirmation-gated local connector recovery path.
+- Added a generated public workflow manifest, workflow-proof receipt/runbook,
+  and a universal client setup guide with explicit distribution boundaries.
+
+### Changed
+
+- Added an in-panel global npm/CEP connector update handoff for Windows. It
+  requires confirmation, waits for Premiere to close without forcing it, and
+  uses the published-package update path.
+- Reused immutable MCP registration descriptors and JSON Schema adapters across
+  stateless server construction, while retaining per-request context, telemetry,
+  and UXP state. Concurrent CEP commands now share a response-directory watcher
+  with polling retained as the correctness fallback.
+- Refined the public landing for mobile and reduced motion, removed the deferred
+  3D dependency path, and refreshed its facts, structured data, sitemap, public
+  crawl policy, and machine-readable reference files.
+
+### Safety
+
+- MOGRT authoring never accepts arbitrary script text, creates or switches AE
+  projects, creates output directories, overwrites artifacts, or treats host
+  acceptance/a ZIP header as import, rendered-frame, or visual proof.
+- Caption timing plans, editorial evidence import, doctor repair plans, and
+  public workflow materials remain distinct from licensed-host, playback,
+  rendered-output, provider, or marketplace verification.
+
 ## [1.14.7] - 2026-09-02
 
 ### Added

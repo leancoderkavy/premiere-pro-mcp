@@ -49,6 +49,7 @@ describe("canonical release metadata", () => {
     const readme = read("README.md");
     const llms = read("landing/public/llms.txt");
     const llmsFull = read("landing/public/llms-full.txt");
+    const llmAlias = read("landing/public/llm.txt");
     const landingProduct = read("landing/lib/product.ts");
     const landingArticles = read("landing/lib/articles.ts");
     const marketingAssets = read("docs/marketing-assets.md");
@@ -73,6 +74,7 @@ describe("canonical release metadata", () => {
     expect(llmsFull).toContain(
       `${release.defaultProfileWithUxpTools} connected tools`,
     );
+    expect(llmAlias).toContain("https://premiere-pro-mcp.com/llms.txt");
     expect(marketingAssets).toContain(
       `${release.uxpAdditionalTools} additional capability-gated tools`,
     );
@@ -123,5 +125,27 @@ describe("canonical release metadata", () => {
     expect(read("src/index.ts")).toContain(
       `(${release.defaultProfileTools} default-profile tools)`,
     );
+  });
+
+  it("keeps the generated public product manifest aligned with current release metadata", () => {
+    const manifest = readJson("public-product-manifest.json");
+    expect(manifest.schemaVersion).toBe("premiere-pro-mcp.public-product.v1");
+    expect(manifest.product.version).toBe(release.version);
+    expect(manifest.product.mcpName).toBe(readJson("package.json").mcpName);
+    expect(manifest.capabilitySurface).toMatchObject({
+      registeredCoreTools: release.coreTools,
+      defaultProfileTools: release.defaultProfileTools,
+      authenticatedUxpAdditions: release.uxpAdditionalTools,
+      defaultProfileWithUxp: release.defaultProfileWithUxpTools,
+      guidedWorkflows: release.guidedWorkflows,
+    });
+    expect(manifest.proofKit.status).toBe("runbook_and_redacted_template_only");
+    expect(manifest.proofKit.video).toBeNull();
+    expect(manifest.workflows.map((workflow: { id: string }) => workflow.id)).toEqual([
+      "safe-project-intake",
+      "transcript-backed-rough-cut",
+      "caption-review",
+      "verified-delivery",
+    ]);
   });
 });

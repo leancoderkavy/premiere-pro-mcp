@@ -8,7 +8,7 @@
 
 **Give compatible AI assistants structured control over supported Adobe Premiere Pro workflows.**
 
-328 core tools across 37 modules, 4 resources, and 11 guided workflows. A connected UXP host adds 91 capability-gated tools.
+332 core tools across 39 modules, 4 resources, and 11 guided workflows. A connected UXP host adds 91 capability-gated tools.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Node.js](https://img.shields.io/badge/Node.js-20.19%2B-green.svg)](https://nodejs.org)
@@ -31,22 +31,36 @@ An [MCP (Model Context Protocol)](https://modelcontextprotocol.io) server that l
 "Add the B-roll clips to V2, apply a cross dissolve between each, color correct them to match the A-roll, and export a 1080p ProRes."
 ```
 
-The AI handles the entire workflow through 328 core tools spanning the supported ExtendScript, QE DOM, local media and interchange analysis, revisioned project-context retrieval, safe edit-planning, project-intake preview, review handoff, and connection-verification surfaces. A compatible, authenticated UXP panel adds 91 documented, capability-gated tools without replacing the production CEP bridge.
+The AI handles the entire workflow through 332 core tools spanning the supported ExtendScript, QE DOM, local media and interchange analysis, revisioned project-context retrieval, safe edit-planning, project-intake preview, review handoff, connection verification, and guarded After Effects MOGRT authoring. A compatible, authenticated UXP panel adds 91 documented, capability-gated tools without replacing the production CEP bridge.
 
-### Latest release: 1.14.7
+### Latest release: 1.14.8
 
-- **Guarded UXP editing:** compatible hosts can use verified sequence ranges,
-  display formats, playhead, marker, transition, caption, silence-cut, and split-edit workflows.
-- **Review-first evidence:** local delivery checks, sampled media analysis, and
-  editorial context packs remain bounded and avoid unapproved provider writes.
-- **Narrowed host behavior:** unsupported sequence pixel-aspect ratios and
-  partial UXP transition writes fail closed; other mutations retain their
-  documented verified or explicitly `committed_unverified` outcome.
+- **MOGRT authoring:** an optional, separate After Effects CEP connector can
+  create one approval-gated lower-third recipe in an already saved workspace
+  project, then report local artifact evidence without claiming visual proof.
+- **Global-update handoff:** a global npm installation can show its server and
+   connector update state in the Windows CEP panel and, after explicit
+   confirmation, update only after Premiere has been quit; it never changes a
+   project, client configuration, source checkout, or custom npm prefix.
+- **Local review planning:** caption timing previews parse caller-supplied
+   SRT/VTT without writing or importing it, while revision-bound editorial
+   evidence stays in the opt-in local context index without provider calls.
+- **Repair preview:** `premiere-pro-mcp --doctor --plan-fixes` produces a
+   privacy-safe, no-write repair plan; the narrowly eligible connector repair
+   still requires an explicit confirmation that Premiere is closed.
+- **Auditable guidance:** the universal setup guide, generated public workflow
+  manifest, and proof runbook make workflow and verification boundaries
+  inspectable without claiming a licensed-host walkthrough occurred.
+- **Faster, clearer delivery:** immutable MCP registration work is reused
+  safely across stateless requests, and the landing now has a lighter,
+  mobile-first workflow view plus current machine-readable facts and crawl
+  guidance for its public pages.
 - **Explicit boundary:** the hosted endpoint remains an operator-managed MCP
-  service; unauthenticated callers are rejected and it does not pair users to
-  local Premiere processes.
+   service; unauthenticated callers are rejected and it does not pair users to
+   local Premiere processes. See the generated [supported action catalog](docs/supported-actions.md)
+   for individual capability and verification contracts.
 
-See the [v1.14.7 release notes](https://github.com/leancoderkavy/premiere-pro-mcp/releases/tag/v1.14.7)
+See the [v1.14.8 release notes](https://github.com/leancoderkavy/premiere-pro-mcp/releases/tag/v1.14.8)
 for complete details. Live installation in Premiere Pro still requires host verification.
 
 ### Current MCP protocol support
@@ -93,9 +107,9 @@ their bins, media rules, and organization rules before a facility uses one.
 
 ### Easiest supported path: Claude Desktop
 
-1. Download the current [Claude Desktop bundle (`.mcpb`)](https://github.com/leancoderkavy/premiere-pro-mcp/releases/download/v1.14.7/premiere-pro-mcp-1.14.7.mcpb).
+1. Download the current [Claude Desktop bundle (`.mcpb`)](https://github.com/leancoderkavy/premiere-pro-mcp/releases/download/v1.14.8/premiere-pro-mcp-1.14.8.mcpb).
 2. In Claude Desktop, open **Settings > Extensions > Advanced settings > Install Extension**, select the downloaded bundle, and restart Claude Desktop.
-3. Download the separate [signed Premiere connector (`.zxp`)](https://github.com/leancoderkavy/premiere-pro-mcp/releases/download/v1.14.7/MCPBridgeCEP.zxp). Open it with your trusted ZXP installer. If your computer has no ZXP installer, use the npm connector installer in **Advanced setup** below.
+3. Download the separate [signed Premiere connector (`.zxp`)](https://github.com/leancoderkavy/premiere-pro-mcp/releases/download/v1.14.8/MCPBridgeCEP.zxp). Open it with your trusted ZXP installer. If your computer has no ZXP installer, use the npm connector installer in **Advanced setup** below.
 4. Restart Premiere, open a project, then open **Window > Extensions > MCP for Adobe Premiere Pro**.
 5. In Claude, enter: `Safely check my Premiere connection with verify_premiere_connection. Make no changes.`
 
@@ -117,6 +131,11 @@ If a bridge, project, or active sequence is missing, fix that setup state before
 ### Other AI assistants
 
 Cursor, VS Code/Copilot, Windsurf, and other MCP clients do not currently have a project-provided one-click installer. Use their MCP settings with the advanced npm route below. Keep the assistant, server, connector, and Premiere on the same computer.
+
+For a portable reference users can download and attach to any AI assistant, see
+the [MCP for Adobe Premiere Pro setup guide for AI assistants](premiere-mcp-setup-guide.md).
+Attaching the guide provides assistant context; the local server and Premiere
+connector still need to be installed separately.
 
 <details>
 <summary><strong>Advanced setup: npm or source</strong></summary>
@@ -187,6 +206,19 @@ premiere-pro-mcp --update
 `latest` package, refreshes the bundled CEP connector, and leaves your MCP
 client configuration and projects untouched. Restart Premiere and your MCP
 client afterward, then run `verify_premiere_connection` before editing.
+
+**From the MCP for Adobe Premiere Pro panel (Windows global npm install):**
+
+The **MCP updates** card compares the installed global server and connector
+with npm `latest`. Choose **Update after quit**, review the confirmation, then
+quit Premiere normally. A per-user helper waits for Premiere to exit; it never
+force-quits the app, then installs the published npm package and refreshes its
+matching connector. This also supports older global installs that predate the
+`--update` command.
+When you reopen Premiere, the panel reports the result and reminds you to
+restart your MCP client and verify the connection. This flow never changes a
+project or MCP client configuration. It deliberately will not update a Git
+checkout, a custom npm prefix, or a Claude Desktop `.mcpb` bundle.
 
 **Installed from a Git clone:**
 
@@ -374,11 +406,11 @@ From a clone of this repository:
 ```bash
 codex plugin marketplace add .
 codex plugin add premiere-pro@premiere-pro-mcp
-npx -y premiere-pro-mcp@1.14.7 --install-cep
+npx -y premiere-pro-mcp@1.14.8 --install-cep
 ```
 
 Restart Premiere Pro and start a new Codex session after installation. The plugin
-launches `premiere-pro-mcp@1.14.7` through `npx`; the separate CEP installation is
+launches `premiere-pro-mcp@1.14.8` through `npx`; the separate CEP installation is
 required because the MCP server communicates with the running Premiere host through
 the local bridge.
 
@@ -398,7 +430,7 @@ For Claude Code, add this repository as a marketplace and install the plugin:
 Then install the Premiere bridge and start a new Claude Code session:
 
 ```bash
-npx -y premiere-pro-mcp@1.14.7 --install-cep
+npx -y premiere-pro-mcp@1.14.8 --install-cep
 ```
 
 The Claude Code package lives in
@@ -423,6 +455,7 @@ installed separately.
 | CEP production bridge | Premiere Pro 2020–2026 | Premiere Pro 2020–2026 | Run `get_capabilities`, then `ping` with Premiere open |
 | UXP preview bridge | Premiere Pro 25.6+ | Premiere Pro 25.6+ | Live loopback WebSocket and host API verification required |
 | npm CEP installer | Copies plugin and verifies `REG_SZ` debug keys | Copies plugin and verifies the installed manifest/debug settings | Restart Premiere after installation |
+| AE MOGRT authoring CEP bridge | After Effects 2018+ | After Effects 2018+ | Opens only a saved, workspace-contained AE project; a local ZIP check is not import, playback, or visual verification |
 | CI build and unit tests | Node 20, 22, and 24 | Node 20, 22, and 24 | GitHub-hosted OS runners; no Adobe host is available in CI |
 
 `get_capabilities` reports the current operating system, temp directory, CEP/UXP coverage, enabled authority profile, and any live-host verification still required. It also includes the full `tools` catalog generated from the tools registered by the server, including tools disabled by the active profile. Every entry identifies:
@@ -437,7 +470,7 @@ installed separately.
 QE-backed tools are reported as `experimental` because QE is undocumented and can vary between Premiere builds. Authority availability is reported separately from implementation support, so disabling `edit`, for example, does not incorrectly label editing tools as unsupported. Static metadata never claims that a Premiere operation succeeded; use `ping` and inspect each tool result for runtime evidence.
 
 MCP `tools/list` is filtered to the active authority profile. The default
-`inspect,edit,export,filesystem` profile advertises 326 of the 328 registered
+`inspect,edit,export,filesystem` profile advertises 330 of the 332 registered
 tools and omits `execute_extendscript` and `evaluate_expression`, which require
 explicit `unsafe-script` authority. `ping` and `get_capabilities` remain visible
 under every profile so a restricted or misconfigured server can still explain
@@ -459,6 +492,32 @@ MCP `outputSchema`: `ok`, `tool`, plus `data` on success or `error` on failure.
 The tool-specific `data` shape remains versioned by the individual tool result,
 so clients can reliably distinguish transport success from a Premiere or local
 operation failure without parsing the text block.
+
+### After Effects MOGRT authoring
+
+This is a narrow authoring path, not an arbitrary After Effects script runner.
+Install the separate local connector, fully restart After Effects, and open
+**Window > Extensions > MCP for Adobe After Effects**:
+
+```bash
+premiere-pro-mcp --install-after-effects-cep
+```
+
+Then open a saved `.aep` project inside an approved workspace and use this order:
+
+1. `verify_after_effects_connection` — read-only connector and saved-project check.
+2. `preview_mogrt_recipe` — produces an expiring, one-time plan for the supported
+   `lower_third` recipe; it never creates directories or contacts Adobe.
+3. `create_mogrt_recipe` with that token and `confirm_export: true` — creates one
+   composition, saves the open project, and requests one `.mogrt` export.
+4. `verify_mogrt_artifact` — checks only local file existence and its ZIP header.
+
+The authoring connector uses `AFTER_EFFECTS_MCP_TEMP_DIR` (default: the OS temp
+directory plus `after-effects-mcp-bridge`), completely separate from
+`PREMIERE_TEMP_DIR`. The tool will not create, replace, or switch projects; it
+requires the already-open AE project and output directory to be contained by the
+same approved workspace. A valid local artifact still needs import into a
+disposable Premiere sequence and rendered-frame review before delivery.
 
 `inspect_sequence_review_report` creates one read-only handoff report from
 Premiere timeline readback: sequence structure, primary-track gaps, disabled
@@ -637,7 +696,7 @@ opaque `UniqueSerializeable` identity twice, and rejects drift without retaining
 the value or treating it as edit authority. See the [unique-identity workflow
 notes](docs/uxp-unique-identity-workflows.md) for its bounds and proof boundary.
 
-## Tools (328 core total; 326 under the default profile; 417 with a connected UXP bridge)
+## Tools (332 core total; 330 under the default profile; 421 with a connected UXP bridge)
 
 The [complete supported-actions catalog](docs/supported-actions.md) lists every
 registered core tool, the two tools restricted behind explicit `unsafe-script`
@@ -1013,11 +1072,11 @@ premiere-pro-mcp/
 ├── src/
 │   ├── index.ts                 # Entry point — stdio transport setup
 │   ├── http-server.ts           # Entry point — HTTP/SSE transport (Fly.io / remote)
-│   ├── server.ts                # MCP server — registers 328 tools, filtered by authority profile
+│   ├── server.ts                # MCP server — registers 332 tools, filtered by authority profile
 │   ├── bridge/
 │   │   ├── file-bridge.ts       # File-based IPC (write .jsx, poll .json)
 │   │   └── script-builder.ts    # ExtendScript generator with ES3 helpers
-│   ├── tools/                   # 31 tool modules
+│   ├── tools/                   # 39 tool modules
 │   │   ├── discovery.ts         # Project discovery and queries
 │   │   ├── recovery.ts          # Read-only autosave discovery and private bridge telemetry
 │   │   ├── project.ts           # Project management and import
@@ -1056,6 +1115,7 @@ premiere-pro-mcp/
 │   ├── main.js                  # Bridge polling and script execution
 │   ├── host.jsx                 # ExtendScript entry point
 │   └── CSInterface.js           # Adobe CEP interface library
+├── after-effects-cep-plugin/    # Separate AE CEP bridge for guarded MOGRT recipes
 ├── scripts/
 │   ├── install-cep.sh           # macOS CEP installer (symlink + debug mode)
 │   └── install-cep.ps1          # Windows CEP installer (copy + REG_SZ debug mode)

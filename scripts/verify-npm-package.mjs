@@ -17,8 +17,10 @@ const requiredFiles = [
   "package/dist/index.js",
   "package/dist/index.d.ts",
   "package/cep-plugin/CSXS/manifest.xml",
+  "package/after-effects-cep-plugin/CSXS/manifest.xml",
   "package/uxp-plugin/manifest.json",
   "package/docs/supported-actions.md",
+  "package/docs/mogrt-authoring.md",
   "package/docs/premiere-surface-registry.md",
   "package/docs/adobe-beta-aaf-export-options-drift.md",
   "package/docs/adobe-beta-project-options-drift.md",
@@ -63,6 +65,8 @@ const requiredFiles = [
   "package/dist/resources/extendscript-api-inventory.json",
   "package/scripts/install-cep.ps1",
   "package/scripts/install-cep.sh",
+  "package/scripts/uninstall-cep.ps1",
+  "package/scripts/uninstall-cep.sh",
 ];
 
 function tarEntries(tarball) {

@@ -33,7 +33,7 @@ const structuredData = {
       description:
         "Installation and technical reference for connecting AI assistants to Adobe Premiere Pro with MCP for Adobe Premiere Pro.",
       url: "https://premiere-pro-mcp.com/docs/",
-      dateModified: "2026-08-01",
+      dateModified: product.releaseDate,
       inLanguage: "en-US",
       about: { "@id": "https://premiere-pro-mcp.com/#software" },
       isPartOf: { "@id": "https://premiere-pro-mcp.com/#website" },

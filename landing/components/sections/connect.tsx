@@ -131,10 +131,10 @@ export function ConnectSection() {
       <div className="mx-auto max-w-6xl">
         <div className="max-w-3xl">
           <h2 id="setup-heading" className="text-balance text-3xl font-bold tracking-tight text-white md:text-5xl">
-            Start with your <span className="text-purple-400">AI assistant.</span>
+            Connect the <span className="text-violet-300">assistant you already use.</span>
           </h2>
           <p className="mt-5 text-lg leading-8 text-zinc-400">
-            Choose the assistant you already use. We&apos;ll keep the first check simple: connect it to Premiere, confirm the connection, and make no changes.
+            Pick your client. The first step only checks that it can reach Premiere; it makes no edits.
           </p>
         </div>
 
@@ -182,7 +182,7 @@ export function ConnectSection() {
 
         <div className="mt-14 grid gap-12 lg:grid-cols-[minmax(0,1fr)_22rem]">
           <div>
-            <h3 className="text-xl font-semibold text-white">You&apos;ll be ready in four clear steps.</h3>
+            <h3 className="text-xl font-semibold text-white">Set up in four steps.</h3>
             <ol className="mt-8 grid gap-7 sm:grid-cols-2">
               <li className="border-t border-purple-400/35 pt-5">
                 <span className="font-mono text-sm text-purple-300">01</span>
@@ -228,7 +228,7 @@ export function ConnectSection() {
 
           <aside className="space-y-5" aria-label="Setup help and privacy">
             <div className="rounded-xl border border-zinc-800 bg-[#08080a] p-5">
-              <p className="flex items-center gap-2 text-sm font-semibold text-zinc-100"><MonitorCog className="h-4 w-4 text-purple-300" aria-hidden="true" /> Compatibility, without guesswork</p>
+              <p className="flex items-center gap-2 text-sm font-semibold text-zinc-100"><MonitorCog className="h-4 w-4 text-violet-200" aria-hidden="true" /> Compatibility details</p>
               <p className="mt-3 text-sm leading-6 text-zinc-400">The signed CEP connector is the default compatibility route for Premiere Pro {product.premiereCompatibility} on Windows and macOS.</p>
               <p className="mt-3 text-sm leading-6 text-zinc-400">The modern UXP bridge is capability-gated for compatible Premiere {product.uxpMinimumVersion}+ workflows. It is not a Creative Cloud Marketplace install and does not replace CEP in the default path.</p>
               <a href="/docs/#compatibility-heading" className="mt-4 inline-flex min-h-11 items-center gap-2 text-sm font-semibold text-purple-200 transition-colors hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-300 focus-visible:ring-offset-2 focus-visible:ring-offset-[#08080a]">

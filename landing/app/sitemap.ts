@@ -1,5 +1,6 @@
 import type { MetadataRoute } from "next"
 import { articles } from "@/lib/articles"
+import { product } from "@/lib/product"
 
 export const dynamic = "force-static"
 
@@ -7,18 +8,19 @@ const siteUrl = "https://premiere-pro-mcp.com"
 const latestArticleDate = new Date(
   `${articles.reduce((latest, article) => article.modifiedAt > latest ? article.modifiedAt : latest, articles[0].modifiedAt)}T00:00:00Z`,
 )
+const productContentDate = new Date(`${product.releaseDate}T00:00:00Z`)
 
 export default function sitemap(): MetadataRoute.Sitemap {
   return [
     {
       url: `${siteUrl}/`,
-      lastModified: latestArticleDate,
+      lastModified: productContentDate,
       changeFrequency: "weekly",
       priority: 1,
     },
     {
       url: `${siteUrl}/docs/`,
-      lastModified: latestArticleDate,
+      lastModified: productContentDate,
       changeFrequency: "weekly",
       priority: 0.8,
     },
@@ -48,13 +50,13 @@ export default function sitemap(): MetadataRoute.Sitemap {
     })),
     {
       url: `${siteUrl}/facts/`,
-      lastModified: latestArticleDate,
+      lastModified: productContentDate,
       changeFrequency: "weekly",
       priority: 0.9,
     },
     {
       url: `${siteUrl}/changelog/`,
-      lastModified: latestArticleDate,
+      lastModified: productContentDate,
       changeFrequency: "monthly",
       priority: 0.7,
     },
