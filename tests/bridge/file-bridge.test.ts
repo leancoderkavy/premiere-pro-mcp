@@ -361,6 +361,18 @@ describe("sendCommand", () => {
     expect(fakeWatcher.close).toHaveBeenCalledTimes(2);
   });
 
+  it("fails fast when a bridge directory already has the bounded command backlog", async () => {
+    mockedExistsSync.mockImplementation((path) => !String(path).includes("res_"));
+    const commands = Array.from({ length: 34 }, (_, index) => sendCommand(`queued-${index}`, {
+      tempDir: "/tmp/queue-capacity-bridge",
+    }));
+
+    await expect(commands[33]).resolves.toEqual({
+      success: false,
+      error: "Bridge command queue is full (32 waiting); retry after an active command finishes",
+    });
+  });
+
   it("keeps polling a malformed response without resending the command", async () => {
     mockedExistsSync.mockImplementation((path) => {
       if (String(path).includes("res_")) return true;
