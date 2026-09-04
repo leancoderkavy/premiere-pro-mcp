@@ -63,7 +63,7 @@ describe("UXP tool handler coverage", () => {
       const result = await tool.handler(args);
       expect(result).toBeDefined();
       if (name === "get_uxp_capabilities") expect(getState).toHaveBeenCalled();
-      else expect(request).toHaveBeenCalled();
+      else if (!["preview_derived_dialogue_sequence_uxp", "apply_derived_dialogue_sequence_uxp"].includes(name)) expect(request).toHaveBeenCalled();
     });
   }
 

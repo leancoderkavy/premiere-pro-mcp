@@ -45,6 +45,9 @@ import { getEditorialContextPackTools } from "./tools/editorial-context-pack.js"
 import { ProjectContextRepository } from "./context/project-context-store.js";
 import { getProjectIntakeTools } from "./tools/project-intake.js";
 import { getCompetitorGapTools } from "./tools/competitor-gaps.js";
+import { getDialogueAnalysisTools } from "./tools/dialogue-analysis.js";
+import { MediaWatchRegistry, getMediaWatchTools } from "./tools/media-watch.js";
+import { getWorkflowRecipeTools } from "./tools/workflow-recipes.js";
 import { getUxpTools } from "./tools/uxp.js";
 import { getMogrtAuthoringTools } from "./tools/mogrt-authoring.js";
 import { getMogrtStudioTools } from "./tools/mogrt-studio.js";
@@ -284,6 +287,8 @@ function collectStaticTools(
     ...getAvSettingsTools(bridgeOptions),
     ...getRecoveryTools(bridgeOptions),
     ...getProjectIntakeTools(bridgeOptions),
+    ...getDialogueAnalysisTools(),
+    ...getWorkflowRecipeTools(),
   };
   toolCatalogCache.set(cacheKey, tools);
   return tools;
@@ -296,6 +301,7 @@ function collectTools(
   telemetry?: Telemetry,
   toolPacks?: ToolPackSelection,
   projectContextRepository = new ProjectContextRepository(),
+  mediaWatchRegistry = new MediaWatchRegistry(),
 ): Record<string, ToolDef> {
   // Streamable HTTP creates an independent McpServer for every request. Most
   // tool definitions are immutable, while context, telemetry, and UXP tools
@@ -307,6 +313,7 @@ function collectTools(
     ...getEditorialContextPackTools({ repository: projectContextRepository }),
     ...getEditorialPlanTools({ repository: projectContextRepository, uxpBridge }),
     ...getCompetitorGapTools(bridgeOptions, uxpBridge),
+    ...getMediaWatchTools(mediaWatchRegistry),
     ...(uxpBridge ? getUxpTools(uxpBridge) : {}),
   };
   Object.assign(
@@ -325,6 +332,8 @@ export interface ServerOptions {
   telemetry?: Telemetry;
   /** Allows embedded hosts to share an explicitly configured context backend. */
   contextRepository?: ProjectContextRepository;
+  /** Shares session-scoped watched-folder state across request-scoped servers. */
+  mediaWatchRegistry?: MediaWatchRegistry;
   /** Overrides PREMIERE_MCP_TOOL_PACKS for this server instance. */
   toolPacks?: string;
 }
@@ -368,6 +377,7 @@ export function createServer(
   // durable backends; independent repository instances would otherwise make
   // a just-captured memory context invisible to plans and reading packs.
   const projectContextRepository = serverOptions.contextRepository ?? new ProjectContextRepository();
+  const mediaWatchRegistry = serverOptions.mediaWatchRegistry ?? new MediaWatchRegistry();
 
   // Collect all tools from each module
   const toolModules = collectTools(
@@ -377,6 +387,7 @@ export function createServer(
     telemetry,
     toolPacks,
     projectContextRepository,
+    mediaWatchRegistry,
   );
 
   // Register each tool with the MCP server

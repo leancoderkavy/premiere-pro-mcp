@@ -76,6 +76,8 @@ const INSPECT_TOOL_NAMES = new Set([
   "validate_project_for_export",
   "read_sequence_captions",
   "plan_silence_review_markers",
+  "analyze_dialogue_edit_candidates",
+  "preview_derived_dialogue_sequence_uxp",
 ]);
 // detect_silence reads a media file from disk and shells out to ffmpeg. It
 // changes nothing in Premiere, so classifying it as "edit" would overstate what
@@ -107,6 +109,10 @@ const FILESYSTEM_TOOL_NAMES = new Set([
   "compare_cmx3600_edls",
   "inspect_fcpxml_interchange",
   "verify_fcpxml_media_references",
+  "search_workflow_recipes",
+  "preview_workflow_recipe",
+  "manage_media_watch",
+  "preview_watched_media_import",
 ]);
 
 // These tools have deliberately mixed authority requirements that cannot be

@@ -39,6 +39,7 @@ import { getTelemetry } from "./telemetry.js";
 import { applyHttpSecurityHeaders } from "./http-security.js";
 import { OAuthResourceServer } from "./oauth-resource-server.js";
 import { ProjectContextRepository } from "./context/project-context-store.js";
+import { MediaWatchRegistry } from "./tools/media-watch.js";
 import {
   HttpAdmissionController,
   MCP_HTTP_METHODS,
@@ -222,8 +223,9 @@ const oauthResourceServer = httpAuth.oauth ? new OAuthResourceServer(httpAuth.oa
 // keeps memory-backed context durable across those request-scoped servers and
 // avoids repeatedly opening the same JSON or SQLite store.
 const projectContextRepository = new ProjectContextRepository();
+const mediaWatchRegistry = new MediaWatchRegistry();
 const mcpHandler = createMcpHandler(
-  () => createServer(bridgeOptions, { telemetry, contextRepository: projectContextRepository }),
+  () => createServer(bridgeOptions, { telemetry, contextRepository: projectContextRepository, mediaWatchRegistry }),
   {
     onerror: (error) => console.error("[premiere-pro-mcp] MCP handler error:", error),
   },

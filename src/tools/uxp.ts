@@ -1,6 +1,7 @@
 import type { UxpWebSocketBridge } from "../bridge/uxp-websocket-bridge.js";
 import { planTranscriptRoughCut, previewTranscriptEdit, transcriptRevision } from "./transcript-edits.js";
 import { getUxpAdvancedWorkflowTools } from "./uxp-advanced-workflows.js";
+import { getUxpDialogueWorkflowTools } from "./uxp-dialogue-workflows.js";
 import { getUxpCloneWorkflowTools } from "./uxp-clone-workflows.js";
 import { getUxpEffectParameterCatalogWorkflowTools } from "./uxp-effect-parameter-catalog-workflows.js";
 import { getUxpNextWorkflowTools } from "./uxp-next-workflows.js";
@@ -51,6 +52,7 @@ export function getUxpTools(bridge: UxpWebSocketBridge) {
     description: "Exact snapshot returned by inspect_video_transition_uxp. Mutations reject any changed sequence, clip identity, timing, edge, or transition presence.",
   };
   return {
+    ...getUxpDialogueWorkflowTools(bridge),
     ...getUxpNextWorkflowTools(bridge),
     ...getUxpObjectMaskAuditWorkflowTools(bridge),
     ...getUxpUniqueIdentityWorkflowTools(bridge),
