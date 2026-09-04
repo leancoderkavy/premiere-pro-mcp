@@ -1,7 +1,7 @@
-# Premiere Pro MCP Setup Guide for AI Assistants
+# MCP for Adobe Premiere Pro Setup Guide for AI Assistants
 
-Use this file as a portable, client-neutral setup and operating guide for [Premiere Pro
-MCP](https://github.com/leancoderkavy/premiere-pro-mcp). Download it, attach it
+Use this file as a portable, client-neutral setup and operating guide for [MCP for
+Adobe Premiere Pro](https://github.com/leancoderkavy/premiere-pro-mcp). Download it, attach it
 to any AI conversation that accepts files or project instructions, and ask the
 assistant to follow the **Assistant operating rules** below.
 
@@ -152,7 +152,7 @@ must confirm that it will:
 Suggested acknowledgment:
 
 ```text
-I have read the Premiere Pro MCP setup guide. I will first verify the local
+I have read the MCP for Adobe Premiere Pro setup guide. I will first verify the local
 connection without making changes, propose a bounded plan before any edit, and
 wait for your explicit approval. I will report what Premiere verifies and any
 remaining limitations.

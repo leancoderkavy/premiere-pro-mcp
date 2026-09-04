@@ -6,7 +6,7 @@
     "registryMetadata": "registry/server.json"
   },
   "product": {
-    "name": "Premiere Pro MCP",
+    "name": "MCP for Adobe Premiere Pro",
     "mcpName": "io.github.leancoderkavy/premiere-pro",
     "npmPackage": "premiere-pro-mcp",
     "version": "1.14.8",

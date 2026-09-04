@@ -23,7 +23,7 @@ export async function buildPublicProductManifest() {
       registryMetadata: "registry/server.json",
     },
     product: {
-      name: "Premiere Pro MCP",
+      name: "MCP for Adobe Premiere Pro",
       mcpName: packageJson.mcpName,
       npmPackage: packageJson.name,
       version: release.version,
