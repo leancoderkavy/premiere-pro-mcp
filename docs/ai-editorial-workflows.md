@@ -121,6 +121,15 @@ structural acceptance only. Verify playback or exported frames before delivery.
 There is no supported raw-caption, translation, or transcription invocation in
 this MCP server.
 
+For an existing lecture or interview SRT/VTT, the `plan_lecture_workflow`
+action of `create_caption_track` creates a local-only timing preview and guided
+review checklist before import. It detects malformed/overlapping cues and can
+show a safe constant-offset proposal from an editor-supplied observation. A
+proportional correction is withheld unless explicitly authorized, because a
+caption artifact ending before a sequence may be intentional. See the
+[guided lecture-caption workflow](lecture-caption-workflow.md) for the separate
+duplicate-sequence, structural-readback, playback, and rendered-output steps.
+
 ## Adobe and provider boundaries
 
 `get_advanced_feature_support` now reports an explicit access mode:
