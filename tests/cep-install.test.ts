@@ -71,7 +71,14 @@ describe("CEP installation metadata", () => {
     expect(workflow).toContain("release:");
     expect(workflow).toContain("artifacts/MCPBridgeCEP.zxp");
     expect(panel).toContain('src="updater.cjs"');
-    expect(panelLogic).toContain("Download update");
+    expect(panel).toContain("MCP updates");
+    expect(panel).toContain('aria-describedby="updateDetail"');
+    expect(panelLogic).toContain("Update after quit");
+    expect(panelLogic).toContain("scheduleWindowsGlobalUpdate");
+    expect(panelLogic).toContain("window.confirm");
+    expect(panelLogic).toContain("getPerUserGlobalInstall");
+    expect(panelLogic).toContain("LATEST_PACKAGE_API");
+    expect(panelLogic).toContain("This panel will not modify a source checkout.");
     expect(panelLogic).toContain("writeResponseFile(resFilePath, response)");
     expect(panelLogic).toContain("fs.renameSync(stagedPath, filePath)");
     expect(panelLogic).toContain('"bridge-heartbeat.json"');
