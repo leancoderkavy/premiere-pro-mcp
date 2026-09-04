@@ -7,7 +7,7 @@ const mobileLinks = [
   { label: "Demo", href: "#demo" },
   { label: "Features", href: "#features" },
   { label: "How it works", href: "#how-it-works" },
-  { label: "Project Intake", href: "/project-intake/" },
+  { label: "Workflows", href: "/workflows/" },
   { label: "Install", href: "#install" },
   { label: "FAQ", href: "#faq" },
   { label: "Guides", href: "/blog/" },

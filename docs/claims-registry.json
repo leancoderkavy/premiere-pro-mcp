@@ -1,8 +1,9 @@
 {
   "schemaVersion": 1,
-  "lastReviewed": "2026-08-22",
+  "lastReviewed": "2026-09-04",
   "purpose": "Canonical governance record for product and release claims. It distinguishes release-metadata facts, positioning, external research, unvalidated hypotheses, and prohibited claims.",
-  "authoritativeReleaseMetadata": "release-metadata.json",
+  "authoritativeReleaseMetadata": "landing/lib/published-release.json",
+  "authoritativeSourceMetadata": "release-metadata.json",
   "claims": [
     {
       "id": "release-capability-surface",

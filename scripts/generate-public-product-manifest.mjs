@@ -18,6 +18,7 @@ export async function buildPublicProductManifest() {
   return {
     schemaVersion: "premiere-pro-mcp.public-product.v1",
     generatedFrom: {
+      evidenceScope: "source_checkout_not_published_package",
       releaseMetadata: "release-metadata.json",
       packageMetadata: "package.json",
       registryMetadata: "registry/server.json",

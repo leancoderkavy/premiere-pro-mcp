@@ -12,6 +12,8 @@ const productContentDate = new Date(`${product.releaseDate}T00:00:00Z`)
 
 export default function sitemap(): MetadataRoute.Sitemap {
   return [
+    { url: `${siteUrl}/workflows/`, lastModified: new Date("2026-09-04T00:00:00Z"), changeFrequency: "monthly", priority: 0.9 },
+    { url: `${siteUrl}/docs/troubleshooting/`, lastModified: new Date("2026-09-04T00:00:00Z"), changeFrequency: "monthly", priority: 0.8 },
     {
       url: `${siteUrl}/`,
       lastModified: productContentDate,

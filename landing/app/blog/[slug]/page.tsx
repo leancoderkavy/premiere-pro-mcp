@@ -184,6 +184,7 @@ export default async function ArticlePage({ params }: ArticlePageProps) {
             </ul>
           </section>
 
+          {article.workflowKit && <section className="mb-8 rounded-lg border border-zinc-700 p-7"><h2 className="text-2xl font-semibold">Try the workflow starter kit</h2><p className="mt-3 leading-7 text-zinc-300">Use synthetic clips and a disposable project. Download the evaluation kit, follow this recipe, and compare the result yourself.</p><TrackedLink href={`/workflows/#${article.workflowKit}`} trackingLocation={`guide:${article.slug}`} trackingDestination="workflow_starter_kit" className="mt-5 inline-flex min-h-12 items-center rounded-md bg-violet-200 px-5 py-3 font-semibold text-black hover:bg-white">Get the sample media and prompt</TrackedLink><Link href="/docs/troubleshooting/" className="mt-3 flex min-h-11 items-center text-violet-200 underline">Need setup help?</Link></section>}
           <section className="border border-purple-300/40 bg-purple-300/10 p-7 sm:p-9" aria-labelledby="start-heading">
             <p className="font-mono text-xs font-medium uppercase tracking-[0.15em] text-purple-200">A practical next step</p>
             <h2 id="start-heading" className="mt-3 text-2xl font-semibold tracking-tight text-white">Start with a safe Premiere connection check.</h2>

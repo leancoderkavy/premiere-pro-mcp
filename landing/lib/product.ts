@@ -1,19 +1,25 @@
+import published from "./published-release.json"
+export { default as sourceCatalog } from "./source-catalog.json"
+
+// Public downloads and software metadata describe the inspected published package.
+// Development counts are generated separately from the current source catalog.
 export const product = {
   name: "MCP for Adobe Premiere Pro",
-  version: "1.14.8",
-  releaseDate: "2026-09-04",
-  coreToolCount: 349,
-  defaultProfileToolCount: 347,
-  connectedUxpToolCount: 440,
-  nodeVersion: "20.19",
-  premiereCompatibility: "2020–2026",
-  uxpMinimumVersion: "25.6",
+  version: published.version,
+  releaseDate: published.releaseDate,
+  coreToolCount: published.coreTools,
+  defaultProfileToolCount: published.defaultProfileTools,
+  connectedUxpToolCount: published.defaultProfileWithUxpTools,
+  uxpAdditionalToolCount: published.uxpAdditionalTools,
+  nodeVersion: published.nodeVersion,
+  premiereCompatibility: published.premiereVersions,
+  uxpMinimumVersion: published.uxpMinimumVersion,
   downloads: {
     claudeBundle:
-      "https://github.com/leancoderkavy/premiere-pro-mcp/releases/download/v1.14.8/premiere-pro-mcp-1.14.8.mcpb",
+      `https://github.com/leancoderkavy/premiere-pro-mcp/releases/download/v${published.version}/premiere-pro-mcp-${published.version}.mcpb`,
     signedCepConnector:
-      "https://github.com/leancoderkavy/premiere-pro-mcp/releases/download/v1.14.8/MCPBridgeCEP.zxp",
-    releaseNotes: "https://github.com/leancoderkavy/premiere-pro-mcp/releases/tag/v1.14.8",
+      `https://github.com/leancoderkavy/premiere-pro-mcp/releases/download/v${published.version}/MCPBridgeCEP.zxp`,
+    releaseNotes: `https://github.com/leancoderkavy/premiere-pro-mcp/releases/tag/v${published.version}`,
   },
   links: {
     repository: "https://github.com/leancoderkavy/premiere-pro-mcp",

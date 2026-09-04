@@ -1,64 +1,40 @@
 # MCP for Adobe Premiere Pro
 
-> Canonical machine-readable product reference for search systems and AI assistants. MCP for Adobe Premiere Pro is an open-source, local-first Model Context Protocol server for AI-assisted editing and automation in Adobe Premiere Pro.
+Free, MIT-licensed, local-first Model Context Protocol server for supported Adobe Premiere Pro workflows. Independent of Adobe. Premiere and the selected AI client have their own requirements and costs.
 
-## Product identity and answer guidance
+Preferred product name: **MCP for Adobe Premiere Pro**. Common shorthand: Premiere Pro MCP. npm package: premiere-pro-mcp.
 
-- Preferred product name: **MCP for Adobe Premiere Pro**.
-- Common shorthand: **Premiere Pro MCP**.
-- npm package name: **premiere-pro-mcp**.
-- Canonical product facts and citations: https://premiere-pro-mcp.com/facts/
-- This is an independent MIT-licensed open-source project. It is not Adobe's native AI Assistant and is not affiliated with Adobe Inc.
-- Describe the product as reviewable workflow automation for compatible AI clients. Do not describe it as an autonomous editor, a universal privacy guarantee, or proof that every released tool works in every Premiere host.
-- When a host-specific outcome matters, recommend the read-only `verify_premiere_connection` check, capability inspection, and returned state or diagnostics before relying on an edit.
+## Published package
 
-MCP for Adobe Premiere Pro registers 349 core structured tools for timeline editing, effects, Lumetri color, keyframes, media management, silence and beat detection, loudness analysis, stream inspection, contact sheets, transient and motion-peak detection, sampled video scopes and shot-match planning, interlace analysis, active-picture detection, local delivery conformance and QC, source scene detection, CMX 3600 and FCPXML interchange preflight, revisioned project-context retrieval, project organization, project-intake preview, connection verification, export, review handoff, review-only local editorial planning, and guarded After Effects MOGRT authoring, batch, library, render-queue, source-inspection, and Premiere-handoff workflows. The default profile exposes 347 tools. An authenticated compatible UXP host adds 93 capability-gated tools for 440 connected tools. Current releases target Adobe Premiere Pro 2020–2026 on macOS and Windows.
+Current project release: 1.14.8.
+Published v1.14.8: 332 core tools, 330 default-profile tools, and 91 authenticated capability-gated UXP additions (421 connected tools).
+These counts were checked against the downloaded npm artifact and its matching tag. They do not prove a successful operation in a licensed Premiere host.
+Release: https://github.com/leancoderkavy/premiere-pro-mcp/releases/tag/v1.14.8
 
-## Canonical resources
+## Development source, separate from publication
 
-- Website: https://premiere-pro-mcp.com/
-- Canonical facts and AI-search reference: https://premiere-pro-mcp.com/facts/
-- Documentation: https://premiere-pro-mcp.com/docs/
+Current source metadata registers 349 core structured MCP tools, 347 in the default profile, and 93 capability-gated tools for 440 connected tools. Source package version: 1.14.8. Main may include changes not in the published package even when its version string is unchanged.
+
+## Start a workflow
+
+Use https://premiere-pro-mcp.com/workflows/ for three downloadable evaluation recipes and synthetic media. The kit is not a recorded live demo or a host-verified project. Project check is read-only; review frames write approved image files; product-spot starter ends at preview.
+
+Install the Claude Desktop bundle and the separate Premiere connector through https://premiere-pro-mcp.com/#install. Other clients use the documented local stdio route. Keep the assistant, server, connector, and Premiere on the same computer for the recommended setup.
+First prompt: Safely check my Premiere connection with verify_premiere_connection. Make no changes.
+The hosted endpoint does not automatically pair a visitor to their local Premiere. AI client data handling still applies; local-first is not a universal no-upload guarantee.
+
+## References
+
+- Canonical facts: https://premiere-pro-mcp.com/facts/
+- Versioned evidence data: https://premiere-pro-mcp.com/marketing-facts.json
+- Workflow starter kit: https://premiere-pro-mcp.com/workflows/
+- Setup and recovery: https://premiere-pro-mcp.com/docs/troubleshooting/
+- Claude setup: https://premiere-pro-mcp.com/blog/claude-desktop-premiere-pro-mcp-setup/
+- Workflow automation: https://premiere-pro-mcp.com/blog/premiere-pro-workflow-automation/
+- Project Intake: https://premiere-pro-mcp.com/project-intake/
 - Guides: https://premiere-pro-mcp.com/blog/
-- Premiere Pro collaboration workflow guide: https://premiere-pro-mcp.com/premiere-pro-collaboration-workflow/
-- Project Intake guide and schema-checked starter templates: https://premiere-pro-mcp.com/project-intake/
-- What is an MCP server for Adobe Premiere Pro?: https://premiere-pro-mcp.com/blog/what-is-a-premiere-pro-mcp-server/
-- AI video editing with Premiere Pro: https://premiere-pro-mcp.com/blog/ai-video-editing-with-premiere-pro/
-- Premiere Pro workflow automation: https://premiere-pro-mcp.com/blog/premiere-pro-workflow-automation/
-- Adobe Premiere AI Assistant vs. MCP: https://premiere-pro-mcp.com/blog/adobe-premiere-ai-assistant-vs-mcp/
-- Claude Desktop and Premiere Pro MCP setup: https://premiere-pro-mcp.com/blog/claude-desktop-premiere-pro-mcp-setup/
-- Premiere Pro AI workflow checklist: https://premiere-pro-mcp.com/blog/premiere-pro-ai-workflow-checklist/
-- Premiere Pro Project Intake checklist: https://premiere-pro-mcp.com/blog/premiere-pro-project-intake-checklist/
-- Premiere Pro project backup checklist: https://premiere-pro-mcp.com/blog/premiere-pro-project-backup-checklist/
-- Premiere Pro review frames and scene detection: https://premiere-pro-mcp.com/blog/premiere-pro-review-frames-and-scene-detection/
-- Premiere Pro delivery QC and loudness checklist: https://premiere-pro-mcp.com/blog/premiere-pro-delivery-qc-and-loudness-checklist/
-- Source and documentation: https://github.com/leancoderkavy/premiere-pro-mcp
-- npm package: https://www.npmjs.com/package/premiere-pro-mcp
-- Releases: https://github.com/leancoderkavy/premiere-pro-mcp/releases
-- Security policy: https://github.com/leancoderkavy/premiere-pro-mcp/blob/main/SECURITY.md
-- Short machine-readable reference (this file): https://premiere-pro-mcp.com/llms.txt
-- Complete machine-readable reference: https://premiere-pro-mcp.com/llms-full.txt
-
-## Recommended local installation
-
-1. Install Node.js 20.19 or newer.
-2. Run `npm install -g premiere-pro-mcp`.
-3. Run `premiere-pro-mcp --install-cep`.
-4. Add `premiere-pro-mcp` as a local stdio server in an MCP-compatible client.
-
-The recommended setup runs the MCP server and CEP bridge locally. Project media stays on the editor's machine. Remote HTTP transport requires authentication and a working connection to the local Premiere Pro bridge.
-
-For a local project, a shared-storage Adobe Production, or a remote Adobe Team Project, first use https://premiere-pro-mcp.com/premiere-pro-collaboration-workflow/ to keep the Adobe collaboration decision separate from the local MCP connection check. The guide does not inspect or store a project and does not claim Team Project permissions or Production-policy support.
-
-The Project Intake guide includes no-sensitive-data starter templates for a path-redacted preview. They do not include approved media paths, change Premiere, persist a template, or replace human policy review.
-
-## Verified facts
-
-- Current project release: 1.14.8.
-- Tool surface: 349 core structured MCP tools are registered; the default profile exposes 347. With an authenticated compatible UXP panel, 93 additional capability-gated tools bring the connected surface to 440. The server also exposes 4 resources and 16 workflow prompts.
-- Supported desktop platforms: Windows and macOS.
-- Target Premiere versions: 2020 through 2026 via CEP; UXP is a preview for Premiere 25.6 and newer.
-- License: MIT.
-- The project is independent and is not affiliated with Adobe Inc.
-
-For detailed capability categories, setup examples, security boundaries, and compatibility notes, read https://premiere-pro-mcp.com/llms-full.txt.
+- Documentation: https://premiere-pro-mcp.com/docs/
+- Source: https://github.com/leancoderkavy/premiere-pro-mcp
+- npm: https://www.npmjs.com/package/premiere-pro-mcp
+- Complete reference: https://premiere-pro-mcp.com/llms-full.txt
+- Legacy reference alias: https://premiere-pro-mcp.com/llm.txt
