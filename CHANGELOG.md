@@ -32,6 +32,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Added an in-panel global npm/CEP connector update handoff for Windows. It
   requires confirmation, waits for Premiere to close without forcing it, and
   uses the published-package update path.
+- Reused immutable MCP registration descriptors and JSON Schema adapters across
+  stateless server construction, while retaining per-request context, telemetry,
+  and UXP state. Concurrent CEP commands now share a response-directory watcher
+  with polling retained as the correctness fallback.
+- Refined the public landing for mobile and reduced motion, removed the deferred
+  3D dependency path, and refreshed its facts, structured data, sitemap, public
+  crawl policy, and machine-readable reference files.
 
 ### Safety
 

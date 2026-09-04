@@ -22,6 +22,8 @@ const releases = [
         title: "Changed",
         items: [
           "Global npm installations can use the Windows CEP panel to review the server and connector update state, then explicitly hand off the published-package update after Premiere closes. It does not force-close Premiere or alter projects, client configuration, source checkouts, or custom npm-prefix installs.",
+          "Stateless MCP construction reuses immutable descriptors and schemas while retaining isolated context, telemetry, and UXP state. Concurrent CEP commands share a response-directory watcher with polling retained as the correctness fallback.",
+          "The public landing now uses a lighter mobile-first workflow treatment, explicit reduced-motion behavior, and current facts, structured data, sitemap, crawl policy, and machine-readable references for public pages.",
         ],
       },
       {

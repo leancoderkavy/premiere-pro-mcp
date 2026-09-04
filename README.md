@@ -49,8 +49,12 @@ The AI handles the entire workflow through 332 core tools spanning the supported
    privacy-safe, no-write repair plan; the narrowly eligible connector repair
    still requires an explicit confirmation that Premiere is closed.
 - **Auditable guidance:** the universal setup guide, generated public workflow
-   manifest, and proof runbook make workflow and verification boundaries
-   inspectable without claiming a licensed-host walkthrough occurred.
+  manifest, and proof runbook make workflow and verification boundaries
+  inspectable without claiming a licensed-host walkthrough occurred.
+- **Faster, clearer delivery:** immutable MCP registration work is reused
+  safely across stateless requests, and the landing now has a lighter,
+  mobile-first workflow view plus current machine-readable facts and crawl
+  guidance for its public pages.
 - **Explicit boundary:** the hosted endpoint remains an operator-managed MCP
    service; unauthenticated callers are rejected and it does not pair users to
    local Premiere processes. See the generated [supported action catalog](docs/supported-actions.md)
