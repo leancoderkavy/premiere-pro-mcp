@@ -122,12 +122,12 @@ describe("MOGRT authoring tools", () => {
 
     const existingDirectory = getMogrtAuthoringTools(bridgeOptions, { directoryExists: () => true });
     await expect(existingDirectory.preview_mogrt_recipe.handler({
-      recipe: "title_card",
+      recipe: "not_a_recipe",
       template_name: "Safe",
       headline: "No file",
       approved_workspace_path: "D:/Approved",
       output_directory: "D:/Approved/templates",
-    })).rejects.toThrow("recipe must be lower_third");
+    })).rejects.toThrow("recipe must be one of");
     await expect(existingDirectory.preview_mogrt_recipe.handler({
       template_name: "Safe",
       headline: "No file",

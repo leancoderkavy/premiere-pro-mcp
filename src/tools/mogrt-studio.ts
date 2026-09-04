@@ -114,7 +114,9 @@ function wholeNumber(value: unknown, field: string, fallback: number, min: numbe
 }
 
 function resolvePath(value: string): { api: typeof path.win32; resolved: string; windows: boolean } {
-  if (path.win32.isAbsolute(value)) return { api: path.win32, resolved: path.win32.resolve(value), windows: true };
+  if (/^[A-Za-z]:[\\/]/.test(value) || value.startsWith("\\\\")) {
+    return { api: path.win32, resolved: path.win32.resolve(value), windows: true };
+  }
   if (path.posix.isAbsolute(value)) return { api: path.posix, resolved: path.posix.resolve(value), windows: false };
   throw new Error("Path must be absolute");
 }
