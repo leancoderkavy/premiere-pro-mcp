@@ -14,6 +14,7 @@ export type ArticleFaq = {
 export type Article = {
   slug: string
   title: string
+  seoTitle?: string
   description: string
   eyebrow: string
   publishedAt: string
@@ -775,14 +776,17 @@ export const articles: Article[] = [
   {
     slug: "claude-desktop-premiere-pro-mcp-setup",
     workflowKit: "project-check",
-    title: "Claude Desktop + Premiere Pro: Start with a Safe MCP Workflow",
+    title: "How to Set Up Claude with Premiere Pro MCP",
+    seoTitle: "Claude Premiere Pro MCP Setup",
     description:
-      "Connect Claude Desktop to Adobe Premiere Pro with the local bundle and CEP connector, then verify the bridge before requesting any supported edit.",
-    eyebrow: "Safe Premiere setup",
+      "Set up Claude with Adobe Premiere Pro using the local MCP bundle and CEP connector, then verify the bridge before requesting any supported edit.",
+    eyebrow: "Claude Premiere Pro setup",
     publishedAt: "2026-08-22",
     modifiedAt: "2026-09-04",
     readingTime: "6 min read",
     keywords: [
+      "Claude Premiere Pro",
+      "how to set up Claude Premiere Pro",
       "Claude Desktop Premiere Pro",
       "Claude Premiere Pro MCP setup",
       "Premiere Pro MCP Claude Desktop",
@@ -852,6 +856,329 @@ export const articles: Article[] = [
       { label: "Open the Premiere setup guide", href: "/#install" },
       { label: "Read full technical setup documentation", href: "/docs/" },
       { label: "Understand reviewable Premiere workflows", href: "/blog/premiere-pro-workflow-automation/" },
+    ],
+    relatedSlugs: ["how-to-set-up-premiere-pro-mcp", "codex-premiere-pro-mcp-setup"],
+  },
+  {
+    slug: "how-to-set-up-premiere-pro-mcp",
+    title: "How to Set Up Premiere Pro MCP Safely",
+    seoTitle: "How to Set Up Premiere Pro MCP",
+    description:
+      "Set up Premiere Pro MCP: install the local server and connector, configure a compatible AI client, and verify the live bridge before your first edit.",
+    eyebrow: "Premiere Pro MCP setup",
+    publishedAt: "2026-09-04",
+    modifiedAt: "2026-09-04",
+    readingTime: "8 min read",
+    keywords: [
+      "how to setup Premiere Pro MCP",
+      "how to set up Premiere Pro MCP",
+      "Premiere Pro MCP setup",
+      "Premiere Pro AI MCP server",
+    ],
+    sections: [
+      {
+        heading: "What you need before you set up Premiere Pro MCP",
+        paragraphs: [
+          "Premiere Pro MCP connects a compatible AI client to a running Adobe Premiere Pro session through a local server and a separate Premiere connector. The recommended arrangement keeps the AI client, MCP server, connector, Premiere, and project media on the same computer. It is not a hosted editing service and it does not make a cloud deployment control the Premiere project open on your workstation.",
+          `For the supported local path, use Windows or macOS, Premiere Pro ${product.premiereCompatibility}, and Node.js ${product.nodeVersion}+ when your chosen client does not use the released Claude Desktop bundle. Keep a duplicate project or small test sequence available for the first supported change. Compatibility and a successful installation do not prove every host operation on every machine.`,
+        ],
+      },
+      {
+        heading: "1. Install the local server and Premiere connector",
+        paragraphs: [
+          "For a compatible client without its own bundle, install the published package with npm, then run the connector installer: npm install -g premiere-pro-mcp, followed by premiere-pro-mcp --install-cep. The installer puts the per-user CEP connector in Premiere's extensions location and enables the required local debug setting. If you use Claude Desktop, the release bundle supplies the server, but the signed Premiere connector is still a separate install.",
+          "Restart Premiere after the connector is installed. With a project open, use Window > Extensions > MCP for Adobe Premiere Pro to open the connector. Do not move on to an edit request until the connector is available in the live host.",
+        ],
+      },
+      {
+        heading: "2. Configure one compatible AI client",
+        paragraphs: [
+          "Your AI client needs a local MCP-server entry that launches premiere-pro-mcp. The common shape is a server named premiere-pro with command premiere-pro-mcp, but client configuration screens and file locations differ. Use the client's own MCP setup instructions rather than copying a configuration intended for another app.",
+          "Choose one client for the first check. Claude Desktop has a release bundle; Codex has a repository plugin; other clients may use the npm-based local configuration. Keep the client on the same machine as Premiere for this local setup. A public operator-managed HTTP endpoint is not a desktop relay for your local Premiere project.",
+        ],
+      },
+      {
+        heading: "3. Verify the connection before asking for an edit",
+        paragraphs: [
+          "Fully restart the AI client and Premiere, open a project, and select an active sequence. Then send this exact first request: Safely check my Premiere connection with verify_premiere_connection. Make no changes. It is deliberately read-only, so it separates an installation or bridge problem from an editing problem without requesting a project mutation.",
+          "If the check returns a diagnostic, resolve the reported connection, host, project, sequence, or capability condition first. If it succeeds, inspect the active project or sequence, then ask for a small bounded plan or preview before applying a supported operation. A tool being listed or called is not proof that a Premiere change completed.",
+        ],
+        bullets: [
+          "Start with inspection or a plan, not a large timeline rewrite.",
+          "Name the target sequence, tracks, source clips, and no-change boundaries for a supported edit.",
+          "Review returned state or diagnostics after every meaningful operation.",
+        ],
+      },
+      {
+        heading: "Troubleshoot the setup without sharing media or secrets",
+        paragraphs: [
+          "When the read-only check fails, reopen both applications, confirm the correct Premiere project and active sequence are open, and confirm the connector appears under Premiere's Extensions menu. Share the returned diagnostic with support instead of screenshots of sensitive footage, project names, media paths, prompts, or credentials.",
+          "The local-first Premiere path does not change how your chosen AI client handles conversations or data. Review that client's privacy controls independently. Do not expose the MCP HTTP transport to the public internet without the authentication and edge controls documented for an operator-managed deployment.",
+        ],
+      },
+    ],
+    faqs: [
+      {
+        question: "Do I need to know how to code to set up Premiere Pro MCP?",
+        answer:
+          "No for the Claude Desktop bundle path, although you still install the separate Premiere connector. The npm path is an advanced setup that needs Node.js and an MCP-server entry in your chosen client.",
+      },
+      {
+        question: "Can I set up Premiere Pro MCP without changing a project?",
+        answer:
+          "Yes. Use verify_premiere_connection first, then inspect the project or active sequence. Ask for a preview or plan before approving a supported change.",
+      },
+      {
+        question: "Does the setup upload my Premiere footage?",
+        answer:
+          "The recommended MCP server and connector setup is local. Your selected AI client's data handling and privacy settings remain separate and should be reviewed before you share project context.",
+      },
+    ],
+    resources: [
+      { label: "Read the technical setup reference", href: "/docs/" },
+      { label: "Set up Claude with Premiere Pro MCP", href: "/blog/claude-desktop-premiere-pro-mcp-setup/" },
+      { label: "Set up Codex with Premiere Pro MCP", href: "/blog/codex-premiere-pro-mcp-setup/" },
+      { label: "Read the full project README", href: "https://github.com/leancoderkavy/premiere-pro-mcp#quick-start" },
+    ],
+    relatedSlugs: [
+      "set-up-ai-in-premiere-pro",
+      "claude-desktop-premiere-pro-mcp-setup",
+      "codex-premiere-pro-mcp-setup",
+    ],
+  },
+  {
+    slug: "set-up-ai-in-premiere-pro",
+    title: "How to Set Up AI in Premiere Pro: A Practical Guide",
+    seoTitle: "Set Up AI in Premiere Pro",
+    description:
+      "Set up AI in Premiere Pro with native Adobe features or a compatible MCP assistant, then use a reviewable workflow that keeps creative control.",
+    eyebrow: "AI Premiere Pro setup",
+    publishedAt: "2026-09-04",
+    modifiedAt: "2026-09-04",
+    readingTime: "8 min read",
+    keywords: [
+      "AI Premiere Pro",
+      "Premiere Pro AI",
+      "how to setup Premiere Pro AI",
+      "how to set up AI in Premiere Pro",
+    ],
+    sections: [
+      {
+        heading: "AI in Premiere Pro starts with the workflow, not a prompt",
+        paragraphs: [
+          "People searching for AI Premiere Pro tools are often looking for different things: Adobe's native AI features, a conversational assistant inside Premiere, or an external AI client that can help with a local project. Decide which job you want to improve before installing anything. Generative media, transcript-based editing, media organization, and structured workflow automation are different control paths with different privacy, availability, and review requirements.",
+          "A useful AI setup protects the existing edit. Start with a clear input, a named target, and a way to inspect the outcome. Avoid treating a fluent response, a listed feature, or an attempted tool call as evidence that a timeline is ready for delivery.",
+        ],
+      },
+      {
+        heading: "Set up Adobe's native AI features when they fit the task",
+        paragraphs: [
+          "Premiere's native AI capabilities and beta features change over time, so begin with Adobe's current documentation for the exact Premiere version and feature you use. Adobe's AI Assistant is a first-party, in-app beta for documented organization, footage preparation, and initial-assembly tasks. Generative and assistive tools can have their own availability, model, credit, or cloud-processing conditions.",
+          "Use a duplicate project or test sequence for a new native AI workflow. Confirm what media, frames, prompts, or metadata the feature can send or retain, then inspect the result in the active sequence. Native AI can be the right choice when its documented workflow directly matches your edit; it does not need to be replaced by an external assistant.",
+        ],
+      },
+      {
+        heading: "Set up a compatible AI assistant for structured Premiere work",
+        paragraphs: [
+          "An MCP-based setup is a separate option for editors who want a compatible AI client to use named Premiere tools through a local connection. Install the Premiere MCP server and CEP connector, configure one client, restart the client and Premiere, then run the read-only connection check. The recommended path keeps Premiere, its connector, the server, and project media on the local computer.",
+          "Use the assistant for bounded work that can be checked: inspect a sequence, inventory a project, propose a B-roll assembly, prepare a marker plan, or preflight a delivery. Use names, tracks, time ranges, output expectations, and no-change boundaries. Smaller steps make it easier to identify whether a problem comes from the setup, host capabilities, or the request itself.",
+        ],
+      },
+      {
+        heading: "Use the inspect, plan, preview, and verify loop",
+        paragraphs: [
+          "The first AI request should be read-only: Safely check my Premiere connection with verify_premiere_connection. Make no changes. Once it succeeds, ask to inspect the active sequence. For a possible edit, request a plan or preview, confirm the exact target, and then inspect returned state or diagnostics after the supported operation.",
+          "This approach preserves the editor's role in story, performance, timing, and creative taste. AI can make repeatable setup and verification work more legible, but it does not provide a universal shortcut to editorial judgment.",
+        ],
+        bullets: [
+          "Use Adobe's documented feature when the native AI workflow fits your task.",
+          "Use a compatible MCP client when you need a structured local control path into Premiere.",
+          "Keep client privacy settings and Premiere's local connection as separate decisions.",
+        ],
+      },
+    ],
+    faqs: [
+      {
+        question: "Does Premiere Pro already have AI features?",
+        answer:
+          "Yes. Adobe offers native AI-assisted features and beta workflows whose scope changes by release. Check Adobe's current documentation for the exact feature and conditions before relying on it in a project.",
+      },
+      {
+        question: "Can I use ChatGPT, Claude, or Codex with Premiere Pro?",
+        answer:
+          "They need an appropriate connection path. Claude Desktop has a released bundle, Codex has a repository plugin, and ChatGPT's custom MCP path is remote rather than direct local stdio. Read the client-specific guide before connecting a live project.",
+      },
+      {
+        question: "Is an AI-assisted Premiere result automatically safe to use?",
+        answer:
+          "No. Verify the specific host behavior and returned result. Use a duplicate project or test sequence for a new workflow and keep meaningful changes reviewable.",
+      },
+    ],
+    resources: [
+      { label: "Read Adobe's current Premiere AI Assistant overview", href: "https://helpx.adobe.com/premiere/desktop/premiere-ai-assistant/overview.html" },
+      { label: "Compare Adobe AI Assistant with MCP", href: "/blog/adobe-premiere-ai-assistant-vs-mcp/" },
+      { label: "Learn how to set up Premiere Pro MCP", href: "/blog/how-to-set-up-premiere-pro-mcp/" },
+      { label: "Read the Premiere Pro AI workflow checklist", href: "/blog/premiere-pro-ai-workflow-checklist/" },
+    ],
+    relatedSlugs: [
+      "ai-video-editing-with-premiere-pro",
+      "adobe-premiere-ai-assistant-vs-mcp",
+      "how-to-set-up-premiere-pro-mcp",
+    ],
+  },
+  {
+    slug: "chatgpt-premiere-pro-mcp",
+    title: "ChatGPT + Premiere Pro: Connect MCP the Safe Way",
+    seoTitle: "ChatGPT Premiere Pro MCP Guide",
+    description:
+      "Learn what ChatGPT can do with Premiere Pro, why it cannot connect directly to a local stdio MCP server, and how to evaluate a secure remote MCP setup.",
+    eyebrow: "ChatGPT Premiere Pro guide",
+    publishedAt: "2026-09-04",
+    modifiedAt: "2026-09-04",
+    readingTime: "7 min read",
+    keywords: [
+      "ChatGPT Premiere Pro",
+      "ChatGPT Premiere Pro MCP",
+      "connect ChatGPT to Premiere Pro",
+      "Premiere Pro ChatGPT setup",
+    ],
+    sections: [
+      {
+        heading: "What ChatGPT can and cannot do with Premiere Pro",
+        paragraphs: [
+          "ChatGPT can help you reason about an edit, draft a workflow, or work with tools exposed through a suitable MCP connection. It does not automatically see an open Premiere project, control the Premiere interface, or receive a local project's media just because you mention the project in a chat. Live Premiere access requires an explicit tool connection and a running bridge that exposes only the actions you intend to allow.",
+          "That distinction matters for both setup and security. Use ChatGPT for planning without a live connection when you only need ideas or a review checklist. Use an MCP connection only after you understand what server, tools, credentials, and confirmation boundaries are involved.",
+        ],
+      },
+      {
+        heading: "ChatGPT does not connect directly to a local stdio server",
+        paragraphs: [
+          "ChatGPT's custom MCP-app route uses remote MCP servers; it does not directly attach to a local stdio server running beside Premiere. OpenAI documents Secure MCP Tunnel for a server on a private network, on-premises, or a developer machine. Availability, workspace permissions, and write access vary by ChatGPT plan and are currently evolving, so check the current official documentation before configuring a connector.",
+          "Do not reinterpret a public HTTP endpoint as a way to control the Premiere project open on your computer. The operator-managed Premiere Pro MCP instance is not a desktop relay for public users. A remote design needs explicit pairing or a secure tunnel to the machine that runs the Premiere bridge, not an exposed token pasted into a chat or a URL.",
+        ],
+      },
+      {
+        heading: "Evaluate a remote MCP design before you connect it",
+        paragraphs: [
+          "Start with a narrow read-only tool surface. Confirm the organization and administrator controls required for your ChatGPT workspace, the endpoint and authentication model, the tool list ChatGPT scans, and the way each write or modify action asks for confirmation. Only connect a server you trust and have reviewed for prompt-injection and credential risks.",
+          "For Premiere Pro MCP, the recommended initial setup remains local stdio in an MCP-compatible desktop client. If your organization is evaluating ChatGPT's remote connector path, use a test project, enforce authentication and edge controls, and do not expose raw project paths, media, prompts, or tokens just to make the integration convenient.",
+        ],
+      },
+      {
+        heading: "Keep the first live Premiere task read-only",
+        paragraphs: [
+          "Once a secure connection is genuinely in place, start by checking the bridge and reading current capabilities. Ask for a Premiere connection check with no changes, then inspect the active project or sequence. Do not start with timeline deletion, batch media changes, or an export you cannot independently review.",
+          "A connected assistant can make a workflow easier to direct, but it cannot replace a host-specific verification step. Treat returned state or diagnostics as the evidence to review before you rely on an operation.",
+        ],
+      },
+    ],
+    faqs: [
+      {
+        question: "Can ChatGPT directly control Premiere Pro on my computer?",
+        answer:
+          "Not through a direct local stdio connection. A live setup needs an explicit remote MCP connection path, such as the secure private-server approach described in current OpenAI documentation, and a running local Premiere bridge.",
+      },
+      {
+        question: "Can I use ChatGPT to plan a Premiere edit without connecting a tool?",
+        answer:
+          "Yes. You can discuss a workflow, prompt, or review checklist without granting access to a live project. ChatGPT cannot inspect the actual project state unless you explicitly provide context or connect an approved tool.",
+      },
+      {
+        question: "Should I expose Premiere Pro MCP's HTTP server to the internet?",
+        answer:
+          "No. The HTTP transport requires authentication and documented edge protections. A secure tunnel or organization-approved remote setup should be designed and reviewed before it is used with a live Premiere project.",
+      },
+    ],
+    resources: [
+      { label: "Read OpenAI's current ChatGPT developer-mode and MCP guidance", href: "https://help.openai.com/en/articles/12584461-developer-mode-apps-and-full-mcp-connectors-in-chatgpt-beta" },
+      { label: "Read the Premiere Pro MCP HTTP security boundary", href: "https://github.com/leancoderkavy/premiere-pro-mcp#security" },
+      { label: "Set up Premiere Pro MCP locally first", href: "/blog/how-to-set-up-premiere-pro-mcp/" },
+      { label: "Set up Codex with Premiere Pro MCP", href: "/blog/codex-premiere-pro-mcp-setup/" },
+    ],
+    relatedSlugs: [
+      "how-to-set-up-premiere-pro-mcp",
+      "codex-premiere-pro-mcp-setup",
+      "set-up-ai-in-premiere-pro",
+    ],
+  },
+  {
+    slug: "codex-premiere-pro-mcp-setup",
+    title: "How to Set Up Codex with Premiere Pro MCP",
+    seoTitle: "Codex Premiere Pro MCP Setup",
+    description:
+      "Connect Codex to Adobe Premiere Pro through the repository's MCP plugin and local CEP bridge, then verify the live connection before requesting an edit.",
+    eyebrow: "Codex Premiere Pro setup",
+    publishedAt: "2026-09-04",
+    modifiedAt: "2026-09-04",
+    readingTime: "7 min read",
+    keywords: [
+      "Codex Premiere Pro",
+      "Codex Premiere Pro MCP",
+      "how to set up Codex with Premiere Pro",
+      "Premiere Pro MCP Codex plugin",
+    ],
+    sections: [
+      {
+        heading: "What the Codex plugin connects",
+        paragraphs: [
+          "Codex does not control Adobe Premiere Pro by default. This repository includes an installable Codex plugin that bundles the local Premiere Pro MCP server configuration with a safety-oriented editing skill. The plugin still needs the separate CEP connector because that connector carries supported requests between the local server and the open Premiere session.",
+          "Use this setup from a clone of the repository, on the same computer as Codex and Premiere. The first goal is a live, read-only connection check, not a complex edit. Have a duplicate project or a small test sequence ready before you approve any supported mutation.",
+        ],
+      },
+      {
+        heading: "Install the Codex plugin and local Premiere connector",
+        paragraphs: [
+          "From a local clone of the Premiere Pro MCP repository, add the repository as a Codex plugin marketplace, then install the Premiere plugin: codex plugin marketplace add . followed by codex plugin add premiere-pro@premiere-pro-mcp. This registers the packaged MCP configuration for Codex; do not copy a configuration from an unrelated Premiere bridge.",
+          `Next, install the local CEP connector with the versioned package command from the current project README. The current release command is npx -y premiere-pro-mcp@${product.version} --install-cep. The CEP installer is separate from the Codex plugin and is required for the local MCP server to communicate with the running Premiere host.`,
+        ],
+      },
+      {
+        heading: "Restart both applications and open the bridge",
+        paragraphs: [
+          "Restart Premiere Pro, open the project you intend to inspect, and open Window > Extensions > MCP for Adobe Premiere Pro. Then begin a new Codex session so it picks up the installed plugin configuration. Keep the initial connection local; the public operator-managed HTTP service is not a general relay to the project open on your workstation.",
+          "The default CEP route targets Premiere Pro 2020–2026 on Windows and macOS. UXP functionality is capability-gated on compatible hosts and does not replace the CEP setup needed for this first connection.",
+        ],
+      },
+      {
+        heading: "Use a safe first Codex request",
+        paragraphs: [
+          "First ask Codex to inspect the available capabilities, then ask: Safely check my Premiere connection with verify_premiere_connection. Make no changes. When it succeeds, inspect the active project or sequence before proposing an edit. If it returns a diagnostic, resolve that specific condition instead of retrying a mutating request.",
+          "For a later supported change, name the sequence, target tracks, source clips, expected output, and no-change boundaries. Ask for a plan or preview where available, approve only the exact target you reviewed, and inspect returned state or diagnostics afterward. The plugin provides an integration path; it does not turn every operation into a host-proven result.",
+        ],
+        bullets: [
+          "Run the plugin and CEP connector on the same machine as Premiere.",
+          "Begin a new Codex session after installing the plugin.",
+          "Check capabilities and connection state before an edit request.",
+        ],
+      },
+    ],
+    faqs: [
+      {
+        question: "Can Codex edit Premiere Pro without a plugin or bridge?",
+        answer:
+          "No. Codex needs the Premiere Pro MCP plugin configuration and the local CEP connector to communicate with a running Premiere session.",
+      },
+      {
+        question: "Does the Codex plugin prove an edit worked?",
+        answer:
+          "No. It makes the local MCP connection available. Verify the specific Premiere operation with returned state, diagnostics, and your own project review.",
+      },
+      {
+        question: "Can I use the Codex plugin with a production project?",
+        answer:
+          "Use a duplicate project or test sequence for a new workflow. Start read-only, review plans, and keep destructive or version-sensitive operations bounded and verifiable.",
+      },
+    ],
+    resources: [
+      { label: "Read the Codex plugin instructions in the project README", href: "https://github.com/leancoderkavy/premiere-pro-mcp#codex-plugin" },
+      { label: "Learn how to set up Premiere Pro MCP", href: "/blog/how-to-set-up-premiere-pro-mcp/" },
+      { label: "Set up Claude with Premiere Pro MCP", href: "/blog/claude-desktop-premiere-pro-mcp-setup/" },
+      { label: "Read the technical documentation", href: "/docs/" },
+    ],
+    relatedSlugs: [
+      "how-to-set-up-premiere-pro-mcp",
+      "chatgpt-premiere-pro-mcp",
+      "claude-desktop-premiere-pro-mcp-setup",
     ],
   },
 ]
