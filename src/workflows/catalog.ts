@@ -73,6 +73,30 @@ export const WORKFLOW_CATALOG = [
     summary: "Capture source-sequence context, propose bounded platform dimensions, review derivative sequence routes, then create and verify each cutdown deliberately.",
     recommendedTools: ["manage_project_context", "create_editorial_plan", "preview_editorial_plan", "manage_sequences_uxp", "auto_reframe_sequence", "get_sequence_structure", "export_sequence"],
   },
+  {
+    id: "dialogue-first-cut",
+    title: "Review a dialogue-first cut",
+    summary: "Analyze supplied transcript evidence locally, review deterministic candidates, lock source revisions, then create and structurally verify a new ordinary sequence.",
+    recommendedTools: ["get_clip_transcript_uxp", "analyze_dialogue_edit_candidates", "preview_derived_dialogue_sequence_uxp", "apply_derived_dialogue_sequence_uxp", "get_sequence_structure"],
+  },
+  {
+    id: "podcast-first-cut",
+    title: "Review a podcast first cut",
+    summary: "Review speaker and synchronization assignments, bind every camera segment to a transcript revision and master-audio range, then create a new ordinary sequence without changing sources.",
+    recommendedTools: ["get_clip_transcript_uxp", "analyze_dialogue_edit_candidates", "preview_derived_dialogue_sequence_uxp", "apply_derived_dialogue_sequence_uxp", "inspect_sequence_review_report"],
+  },
+  {
+    id: "watched-media-intake",
+    title: "Review watched media intake",
+    summary: "Start a session-scoped local watcher, inspect its path-redacted candidate set, then deliberately import only approved files.",
+    recommendedTools: ["manage_media_watch", "preview_watched_media_import", "import_project_media_uxp", "get_project_info"],
+  },
+  {
+    id: "recipe-driven-edit",
+    title: "Preview a workflow recipe",
+    summary: "Select a built-in or workspace-local declarative recipe, review its allowlisted tool manifest, then execute each step through the normal guarded tools.",
+    recommendedTools: ["search_workflow_recipes", "preview_workflow_recipe", "get_premiere_state"],
+  },
 ] as const;
 
 export const WORKFLOW_RESOURCE = JSON.stringify(

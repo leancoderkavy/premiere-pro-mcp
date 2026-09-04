@@ -24,6 +24,10 @@ const READ_ONLY_TOOLS = new Set([
   "read_sequence_captions",
   "plan_silence_review_markers",
   "verify_mogrt_artifact",
+  "analyze_dialogue_edit_candidates",
+  "preview_derived_dialogue_sequence_uxp",
+  "preview_workflow_recipe",
+  "preview_watched_media_import",
 ]);
 const DESTRUCTIVE_PREFIXES = ["delete_", "remove_", "ripple_delete", "close_"];
 const DESTRUCTIVE_TOOLS = new Set(["manage_project_context"]);

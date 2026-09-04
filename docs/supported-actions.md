@@ -10,11 +10,11 @@ source catalog may include unreleased actions.
 
 | Surface | Count | Availability |
 | --- | ---: | --- |
-| Registered core actions | 344 | CEP/local server catalog; host and authority checks still apply |
-| Default-profile core actions | 342 | Advertised with `inspect,edit,export,filesystem` |
+| Registered core actions | 349 | CEP/local server catalog; host and authority checks still apply |
+| Default-profile core actions | 347 | Advertised with `inspect,edit,export,filesystem` |
 | Restricted core actions | 2 | Require explicit `unsafe-script` authority |
-| Authenticated UXP additions | 91 | Advertised only while a compatible authenticated UXP panel is connected |
-| Default profile with UXP | 433 | 342 core plus 91 UXP tools |
+| Authenticated UXP additions | 93 | Advertised only while a compatible authenticated UXP panel is connected |
+| Default profile with UXP | 440 | 347 core plus 93 UXP tools |
 
 ## How to read support
 
@@ -51,6 +51,7 @@ operation” when the tool has no enum-based mode.
 | `add_transition` | Default profile | Single operation | Add a video transition between two clips at a cut point. Uses QE DOM. |
 | `add_transition_to_clip` | Default profile | `position`: `start`, `end`, `both` | Add a transition to a specific clip's start or end |
 | `adjust_audio_levels` | Default profile | Single operation | Adjust a clip's Volume > Level in dB. Does not read or change Essential Sound Amplify automation. |
+| `analyze_dialogue_edit_candidates` | Default profile | Single operation | Analyze caller-supplied, revision-bound transcript segments and optional local silence ranges for deterministic dialogue-edit candidates. It never calls a model, persists transcript text, or changes Premiere. |
 | `analyze_loudness` | Default profile | Single operation | Measure integrated loudness (LUFS), loudness range (LU), and true peak (dBFS) from a local media file using FFmpeg's EBU R128 filter. Analysis only: it does not normalize audio or change Premiere. |
 | `analyze_video_interlacing` | Default profile | Single operation | Classify decoded video frames as progressive, top-field-first, bottom-field-first, mixed, or undetermined using FFmpeg idet. Read-only delivery preflight. |
 | `analyze_video_qc` | Default profile | Single operation | Analyze a local video delivery for sustained black and frozen sections with FFmpeg. Read-only: it does not contact Premiere or modify the file. |
@@ -233,6 +234,7 @@ operation” when the tool has no enum-based mode.
 | `list_sequence_tracks` | Default profile | Single operation | List all tracks (video and audio) in a sequence |
 | `list_sequences` | Default profile | Single operation | List all sequences in the project |
 | `lock_track` | Default profile | Single operation | Lock or unlock a video track |
+| `manage_media_watch` | Default profile | `start`, `status`, `scan`, `stop` | Start, inspect, rescan, or stop one session-scoped local media-folder monitor. It records bounded file-change signals and never imports media automatically. |
 | `manage_project_context` | Default profile | `capture`, `enrich`, `import_evidence`, `status`, `clear` | Capture, enrich, import revision-bound editorial evidence, inspect, or clear a durable local Premiere project-context index. Capture stores bounded active-sequence/source metadata; local enrichment and evidence import add caller-approved transcripts, speaker labels, shots, audio observations, notes, or opaque frame references without re-analyzing media. Never include secrets or unrelated customer data. |
 | `manage_proxies` | Default profile | `create`, `attach`, `toggle` | Create, attach, or toggle proxies for a project item. Note: 'create' only requests a proxy encode from Adobe Media Encoder and returns an unverified handoff. Independently verify the AME queue or output file before calling this tool again with action 'attach' and proxy_path set to the output_path you passed here. There is no single-call create-and-attach in Premiere's ExtendScript API. |
 | `match_frame` | Default profile | `track_type`: `video`, `audio` | Get source media info for the frame at the current playhead on a specific track. Useful for match frame operations. |
@@ -265,6 +267,8 @@ operation” when the tool has no enum-based mode.
 | `preview_motion_graphics_demo` | Default profile | Single operation | Preview a contained motion-graphics demo assembly from existing project items. It never creates demo assets, imports files, creates a sequence, or changes Premiere; apply requires an exact confirmation token. |
 | `preview_product_spot` | Default profile | `motion_style`: `none`, `push_in`, `pull_out`, `alternate` | Preview a product-spot assembly from existing project items. The eventual apply is limited to explicit empty tracks, revalidates item IDs, and reports host readback without claiming visual delivery verification. |
 | `preview_project_intake` | Default profile | Single operation | Inspect a bounded Premiere project against an explicit facility intake template and return a path-redacted report plus a non-mutating organization proposal. It never changes Premiere or persists the template. |
+| `preview_watched_media_import` | Default profile | Single operation | Compare the active watch baseline with a fresh contained scan and return a path-redacted import proposal. It never imports or changes Premiere. |
+| `preview_workflow_recipe` | Default profile | Single operation | Validate and expand one declarative workflow recipe into guarded MCP routes. It does not invoke any route or change Premiere. |
 | `publish_mogrt_to_library` | Default profile | Single operation | Publish the exact previewed MOGRT as an immutable local-library version. Requires explicit confirmation and will fail instead of replacing an existing version. |
 | `razor_all_tracks` | Default profile | `track_type`: `video`, `audio`, `both` | Razor (split) all clips at the playhead position across all tracks, or at a specific time. |
 | `read_sequence_captions` | Default profile | Single operation | Diagnose whether the active Premiere scripting host can enumerate caption tracks. It never treats an empty result as proof that the sequence has no captions, because most CEP builds expose caption creation but not caption reads. |
@@ -293,6 +297,7 @@ operation” when the tool has no enum-based mode.
 | `scene_edit_detection` | Default profile | `CreateMarkers`, `ApplyCuts` | Perform scene edit detection on the selected clips in the active sequence. Defaults to creating markers rather than cutting. |
 | `search_project_context` | Default profile | Single operation | Search a durable Premiere project-context index for relevant sources, timeline placements, transcript passages, shots, audio observations, and notes. Returns bounded evidence with stable IDs and revisions; it never changes Premiere. |
 | `search_project_items` | Default profile | `item_type`: `clip`, `bin`, `all` | Search for project items by name, media file extension, offline status, or color label. Returns matching items with full details. |
+| `search_workflow_recipes` | Default profile | Single operation | Search audited built-in and explicitly supplied workspace-local workflow recipes. Recipes are declarative previews and cannot execute arbitrary tools or scripts. |
 | `select_all_clips` | Default profile | `track_type`: `video`, `audio`, `both` | Select all clips in the active sequence, or all clips on a specific track. |
 | `select_clips_by_color` | Default profile | Single operation | Select all clips whose source project item has a specific color label. |
 | `select_clips_by_name` | Default profile | `track_type`: `video`, `audio`, `both` | Select all clips in the active sequence that match a name (substring match). Optionally filter by track type and index. |
@@ -390,6 +395,7 @@ authenticated and the connected host advertises the required command capabilitie
 | --- | --- | --- | --- |
 | `add_video_transition_uxp` | Connected UXP | `position`: `start`, `end` | Add an installed native video transition to one unchanged video-clip edge through one undoable UXP transaction. Requires an exact inspect snapshot, serializes transition updates per sequence, and reads edge presence back; it does not prove handles, rendered appearance, or playback. |
 | `apply_beat_markers_uxp` | Connected UXP | Single operation | Apply a reviewed beat grid as native sequence markers in one undoable Premiere 26.3+ UXP transaction, with bounded inputs and GUID/time readback for every marker. |
+| `apply_derived_dialogue_sequence_uxp` | Connected UXP | Single operation | Create a new ordinary dialogue derivative from an exact reviewed plan. It revalidates every transcript and never edits or deletes an original source or sequence. |
 | `apply_editorial_organization_plan` | Connected UXP | Single operation | Apply selected organization recommendations through documented UXP bin transactions only. Requires the unchanged server-issued plan, its opaque preview confirmation token, and stable source/parent guards; individual host transactions may be partially committed and are never silently retried or rolled back. |
 | `audit_object_masks_uxp` | Connected UXP | Single operation | Audit documented Object Mask presence across up to 64 Premiere sequences without changing the project. Omit sequence_ids only when the entire active project has at most 64 sequences; otherwise pass explicit exact GUIDs. The bridge double-reads the active-project identity, aggregate result, and every selected sequence result, rejecting drift instead of returning a mixed audit. It reports only yes/no presence—not mask count, location, tracking, editability, rendered pixels, or playback correctness. |
 | `audition_source_monitor_uxp` | Connected UXP | `state`, `open_project_item`, `open_file`, `set_position`, `play`, `close`, `close_all` | Open a selected project item or approved file, inspect/set position, play at bounded speed, or close Source Monitor media through documented UXP APIs. |
@@ -467,6 +473,7 @@ authenticated and the connected host advertises the required command capabilitie
 | `organize_project_items_uxp` | Connected UXP | `inspect_bin`, `create_bin`, `create_smart_bin`, `rename`, `move`, `set_color`, `remove` | Inspect a bin or transactionally create, rename, move, color-label, and remove project items with stable-ID guards. |
 | `plan_transcript_rough_cut_uxp` | Connected UXP | Single operation | Build a revision-locked, non-mutating rough-cut plan from Premiere's native transcript and verified 1x sequence placements. The plan orders cuts from the end of the timeline, requires a duplicate sequence, and requires re-query after every mutation. |
 | `preflight_production_storage_uxp` | Connected UXP | `preflight`, `configure_project` | Inspect project/Production scratch disks and ingest state, or set supported project scratch categories to Premiere's symbolic destinations in one undoable transaction. |
+| `preview_derived_dialogue_sequence_uxp` | Connected UXP | `mode`: `talking_head`, `podcast` | Validate transcript revisions and preview a talking-head or speaker-reviewed podcast derivative. It creates nothing and returns an exact confirmation token. |
 | `preview_transcript_edit_uxp` | Connected UXP | Single operation | Validate and merge source-time ranges selected from Premiere's native transcript. Returns a confirmation token and never changes the timeline. Automatic timeline application remains withheld until the source-to-sequence mapping is live-host verified. |
 | `relink_offline_media_uxp` | Connected UXP | Single operation | Relink one offline clip to a workspace-contained media path after stale-path and capability checks. This Premiere API is non-undoable and requires explicit confirmation. |
 | `remove_video_transition_uxp` | Connected UXP | `position`: `start`, `end` | Remove one unchanged native video-transition edge through one undoable UXP transaction. Requires an exact inspect snapshot, serializes transition updates per sequence, and reads edge absence back; it does not prove rendered appearance or playback. |

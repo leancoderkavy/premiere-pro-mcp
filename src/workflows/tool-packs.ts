@@ -8,6 +8,8 @@ export const WORKFLOW_TOOL_PACK_NAMES = [
   "inspection",
   "delivery",
   "captions",
+  "assistant-edit",
+  "intake",
 ] as const;
 
 export type WorkflowToolPackName = (typeof WORKFLOW_TOOL_PACK_NAMES)[number];
@@ -128,6 +130,27 @@ export const WORKFLOW_TOOL_PACKS: readonly WorkflowToolPack[] = [
       "inspect_sequence_review_report",
       "export_sequence_review_frames",
       "export_sequence_clip_review_frames",
+    ],
+  },
+  {
+    name: "assistant-edit",
+    title: "Reviewed assistant editing",
+    description: "Transcript-locked dialogue analysis, preview, derivative assembly, captions, reframing, and structural review.",
+    tools: [
+      "verify_premiere_connection", "get_clip_transcript_uxp", "search_clip_transcript_uxp",
+      "detect_silence", "analyze_dialogue_edit_candidates", "preview_derived_dialogue_sequence_uxp",
+      "apply_derived_dialogue_sequence_uxp", "create_caption_track", "auto_reframe_sequence",
+      "get_sequence_structure", "inspect_sequence_review_report",
+    ],
+  },
+  {
+    name: "intake",
+    title: "Watched media intake",
+    description: "Session-scoped watched-folder monitoring, path-redacted proposals, deliberate import, and project inspection.",
+    tools: [
+      "verify_premiere_connection", "manage_media_watch", "preview_watched_media_import",
+      "import_project_media_uxp", "get_project_info", "get_premiere_state",
+      "search_workflow_recipes", "preview_workflow_recipe",
     ],
   },
 ];

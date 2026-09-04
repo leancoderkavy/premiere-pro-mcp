@@ -81,6 +81,11 @@
         ppro, Protocol, workspace, events: deps.events, colorLabelLocks: projectItemColorLabelLocks
       }));
     }
+    let dialogueWorkflowApi = deps.DialogueWorkflows || (typeof globalThis !== "undefined" && globalThis.PremiereMcpDialogueWorkflows);
+    if (!dialogueWorkflowApi && typeof require === "function") dialogueWorkflowApi = require("./dialogue-workflows.cjs");
+    if (dialogueWorkflowApi && typeof dialogueWorkflowApi.createDialogueWorkflowDefinitions === "function") {
+      Object.assign(definitions, dialogueWorkflowApi.createDialogueWorkflowDefinitions({ ppro }));
+    }
     let timelineSourceLabelWorkflowApi = deps.TimelineSourceLabelWorkflows || (typeof globalThis !== "undefined" && globalThis.PremiereMcpTimelineSourceLabelWorkflows);
     if (!timelineSourceLabelWorkflowApi && typeof require === "function") timelineSourceLabelWorkflowApi = require("./timeline-source-label-workflows.cjs");
     if (timelineSourceLabelWorkflowApi && typeof timelineSourceLabelWorkflowApi.createTimelineSourceLabelWorkflowDefinitions === "function") {
