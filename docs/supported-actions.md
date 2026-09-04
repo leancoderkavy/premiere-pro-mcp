@@ -10,11 +10,11 @@ source catalog may include unreleased actions.
 
 | Surface | Count | Availability |
 | --- | ---: | --- |
-| Registered core actions | 332 | CEP/local server catalog; host and authority checks still apply |
-| Default-profile core actions | 330 | Advertised with `inspect,edit,export,filesystem` |
+| Registered core actions | 344 | CEP/local server catalog; host and authority checks still apply |
+| Default-profile core actions | 342 | Advertised with `inspect,edit,export,filesystem` |
 | Restricted core actions | 2 | Require explicit `unsafe-script` authority |
 | Authenticated UXP additions | 91 | Advertised only while a compatible authenticated UXP panel is connected |
-| Default profile with UXP | 421 | 330 core plus 91 UXP tools |
+| Default profile with UXP | 433 | 342 core plus 91 UXP tools |
 
 ## How to read support
 
@@ -58,6 +58,7 @@ operation” when the tool has no enum-based mode.
 | `apply_edit_plan` | Default profile | Single operation | Apply a previously previewed compound edit after revalidating every target. Requires the edit capability and exact preview confirmation token. |
 | `apply_effect` | Default profile | Single operation | Apply a video effect to a clip. Uses QE DOM catalog lookup, with an exact-name QE probe when Premiere's catalog enumeration is empty. |
 | `apply_lut` | Default profile | Single operation | Apply a LUT file to a clip via Lumetri Color |
+| `apply_mogrt_premiere_handoff` | Default profile | Single operation | Import exactly one previewed MOGRT into the empty track of the explicit disposable Premiere verification sequence, then read back insertion and control descriptors. Requires explicit confirmation; no rendered-frame claim is made. |
 | `apply_spot_workflow_plan` | Default profile | Single operation | Apply one exact previewed motion-demo, product-spot, or brand-spot plan. Requires edit authority, requires filesystem authority for a MOGRT, and only targets empty explicitly named tracks. Host readback is not playback or render verification. |
 | `attach_custom_property` | Default profile | Single operation | Attach a custom property (key/value pair) to the active sequence |
 | `auto_reframe_sequence` | Default profile | `motion_preset`: `slower`, `default`, `faster` | Auto-reframe a sequence for a different aspect ratio |
@@ -85,7 +86,8 @@ operation” when the tool has no enum-based mode.
 | `create_context_edit_plan` | Default profile | `strategy`: `rough_cut`, `select_ranges`, `review` | Create a non-mutating, evidence-backed edit-plan scaffold from indexed Premiere context. It returns ranked source/time candidates and stale-state guards; the model must review them and use preview_edit_plan before any mutation. |
 | `create_editorial_context_pack` | Default profile | Single operation | Create a compact Markdown reading view from already captured local transcript, shot, audio, note, source, or timeline context. It returns stable evidence IDs and context revisions for review, never calls an AI/provider or Premiere, and cannot change the project. |
 | `create_editorial_plan` | Default profile | `workflow`: `organize`, `stringout`, `rough_cut`, `caption_review`, `platform_cutdown` | Create a local, evidence-backed editorial workflow plan from captured project context. It never calls an LLM, uploads media, or changes Premiere. |
-| `create_mogrt_recipe` | Default profile | Single operation | Create exactly one previewed lower-third MOGRT in a saved After Effects project inside the approved workspace. Requires explicit export confirmation; it never creates projects or output folders. |
+| `create_mogrt_batch` | Default profile | Single operation | Create the exact MOGRT recipes from a one-time batch preview. Requires explicit export confirmation and stops on the first After Effects failure without claiming rollback. |
+| `create_mogrt_recipe` | Default profile | Single operation | Create exactly one previewed MOGRT recipe in a saved After Effects project inside the approved workspace. Requires explicit export confirmation; it never creates projects or output folders. |
 | `create_project` | Default profile | Single operation | Create a new Premiere Pro project at the specified path |
 | `create_project_backup` | Default profile | Single operation | Create a collision-safe, byte-verified backup beside an existing .prproj file without opening or modifying the source project. |
 | `create_sequence` | Default profile | Single operation | Create a new sequence in the project |
@@ -116,6 +118,7 @@ operation” when the tool has no enum-based mode.
 | `enable_disable_clip` | Default profile | Single operation | Enable or disable a clip on the timeline |
 | `encode_file` | Default profile | Single operation | Request an Adobe Media Encoder encode for an external file. The returned job ID is an unverified handoff; verify queue presence or the output file independently. |
 | `encode_project_item` | Default profile | Single operation | Request an Adobe Media Encoder encode for a project item. The returned job ID is an unverified handoff; verify queue presence or the output file independently. |
+| `enqueue_after_effects_render` | Default profile | Single operation | Queue exactly one previewed After Effects render with named host templates. Requires explicit confirmation; it saves the open project but never starts rendering or overwrites output. |
 | `export_aaf` | Default profile | Single operation | Unavailable on the CEP backend. Use export_aaf_uxp with an authenticated Premiere 26.3+ UXP bridge. |
 | `export_as_fcp_xml` | Default profile | Single operation | Export the active sequence as a Final Cut Pro XML file |
 | `export_as_project` | Default profile | Single operation | Export a sequence as a standalone Premiere Pro project file |
@@ -203,11 +206,14 @@ operation” when the tool has no enum-based mode.
 | `import_mogrt_from_library` | Default profile | Single operation | Import a MOGRT from a named Adobe Creative Cloud Library. |
 | `import_sequences` | Default profile | Single operation | Import sequences from another Premiere Pro project file |
 | `insert_from_source` | Default profile | Single operation | Insert the clip from the Source Monitor at the playhead position (insert edit — shifts existing clips). |
+| `inspect_after_effects_render_templates` | Default profile | Single operation | Read available render and output-module template names from the first existing After Effects render-queue item. It never queues or renders a composition. |
+| `inspect_after_effects_template_source` | Default profile | Single operation | Inspect a saved After Effects source composition for MOGRT-relevant dimensions, duration, text fonts, layer-source kinds, and Essential Graphics controller names when the host exposes the AE 16.1+ readback API. It never creates a composition or returns asset paths. |
 | `inspect_cmx3600_edl` | Default profile | Single operation | Parse a local CMX 3600 EDL into bounded event, reel, track, transition, and timecode facts without importing it into Premiere. |
 | `inspect_dom_object` | Default profile | Single operation | Inspect a Premiere Pro DOM object and list its properties, methods, and values. Useful for exploring the API and debugging. Examples: - "app.project" → project properties - "app.project.activeSequence" → sequence properties - "app.project.activeSequence.videoTracks[0].clips[0]" → first clip on V1 - "app.project.activeSequence.videoTracks[0].clips[0].components[0]" → first component of a clip |
 | `inspect_edit_readiness` | Default profile | Single operation | Audit the active sequence in one read-only bridge request for empty timelines, primary-track gaps, disabled clips, muted tracks, and excessive Motion scale. Structural diagnostics only; it cannot judge story, framing, sound, or final delivery. |
 | `inspect_fcpxml_interchange` | Default profile | Single operation | Inspect a local FCPXML document's root version, sequence/clip counts, bounded asset declarations, and text-only parser warnings before deliberate Premiere import. |
 | `inspect_media_streams` | Default profile | Single operation | Inspect a local media file with ffprobe and return container, stream, codec, time-base, channel, and chapter metadata. Read-only and independent of Premiere. |
+| `inspect_mogrt_library` | Default profile | Single operation | List bounded top-level template names and version directories in an existing workspace-contained local MOGRT library. It never reads MOGRT contents or changes the library. |
 | `inspect_project_item_av_metadata` | Default profile | Single operation | Inspect a project item's documented effective/original color space, LUT IDs, available color-space overrides, and audio channel shape. |
 | `inspect_project_recovery` | Default profile | Single operation | Read-only recovery inspection: diagnose the active project path and list adjacent Premiere Auto-Save project candidates without opening, copying, or restoring anything. |
 | `inspect_sequence_av_settings` | Default profile | Single operation | Inspect documented audio, tone-mapping, linear-compositing, bit-depth, render-quality, and display settings for the active sequence. |
@@ -248,13 +254,18 @@ operation” when the tool has no enum-based mode.
 | `plan_silence_review_markers` | Default profile | Single operation | Create a bounded, non-mutating review plan that maps FFmpeg-detected source-media silences onto one known 1x timeline placement. It clips candidates to the supplied source in/out span, redacts the source path, and never adds markers, cuts clips, or changes Premiere. |
 | `play_source_monitor` | Default profile | Single operation | Request playback of the clip in the Source Monitor. The legacy API does not provide a same-call position readback, so movement is not reported as verified. |
 | `play_timeline` | Default profile | Single operation | Request playback of the active sequence timeline through QE. The legacy API does not provide a same-call playhead readback, so movement is not reported as verified. |
+| `preview_after_effects_render` | Default profile | Single operation | Preview a bounded queue-only After Effects render request for one named composition and existing workspace output directory. It does not contact Adobe, enqueue, or render. |
 | `preview_brand_spot` | Default profile | `motion_style`: `none`, `push_in`, `pull_out`, `alternate` | Preview a brand-spot assembly from existing project items with an optional workspace-contained MOGRT overlay. Preview is local-only; it does not read or import the MOGRT file. |
 | `preview_edit_plan` | Default profile | Single operation | Validate and preview a compound timeline edit without changing Premiere. Returns a confirmation token required by apply_edit_plan. |
 | `preview_editorial_plan` | Default profile | Single operation | Revalidate an exact server-issued editorial plan against the saved project-context revisions and return an opaque confirmation token. This tool is read-only and cannot apply the plan. |
-| `preview_mogrt_recipe` | Default profile | `recipe`: `lower_third`; `frame_rate`: `23.976`, `24`, `25`, `29.97`, `30`, `50`, `59.94`, `60` | Preview a bounded After Effects lower-third MOGRT recipe. It validates one existing workspace output directory but does not contact Adobe or write any files. |
+| `preview_mogrt_batch` | Default profile | Single operation | Preview up to 20 bounded MOGRT recipe exports from a workspace-contained JSON or CSV data file. It does not contact Adobe or create any compositions or files. |
+| `preview_mogrt_library_publish` | Default profile | Single operation | Preview a no-overwrite publish of a validated MOGRT into a workspace-contained, versioned local library. The library root must already exist; no file or directory is created during preview. |
+| `preview_mogrt_premiere_handoff` | Default profile | Single operation | Preview a contained MOGRT import into one explicitly named disposable Premiere verification sequence and empty video track. It does not contact Premiere or alter a sequence. |
+| `preview_mogrt_recipe` | Default profile | `recipe`: `lower_third`, `title_card`, `callout`, `quote_card`, `social_end_card` | Preview a bounded After Effects MOGRT recipe from the supported title, callout, quote, and social template library. It validates one existing workspace output directory but does not contact Adobe or write any files. |
 | `preview_motion_graphics_demo` | Default profile | Single operation | Preview a contained motion-graphics demo assembly from existing project items. It never creates demo assets, imports files, creates a sequence, or changes Premiere; apply requires an exact confirmation token. |
 | `preview_product_spot` | Default profile | `motion_style`: `none`, `push_in`, `pull_out`, `alternate` | Preview a product-spot assembly from existing project items. The eventual apply is limited to explicit empty tracks, revalidates item IDs, and reports host readback without claiming visual delivery verification. |
 | `preview_project_intake` | Default profile | Single operation | Inspect a bounded Premiere project against an explicit facility intake template and return a path-redacted report plus a non-mutating organization proposal. It never changes Premiere or persists the template. |
+| `publish_mogrt_to_library` | Default profile | Single operation | Publish the exact previewed MOGRT as an immutable local-library version. Requires explicit confirmation and will fail instead of replacing an existing version. |
 | `razor_all_tracks` | Default profile | `track_type`: `video`, `audio`, `both` | Razor (split) all clips at the playhead position across all tracks, or at a specific time. |
 | `read_sequence_captions` | Default profile | Single operation | Diagnose whether the active Premiere scripting host can enumerate caption tracks. It never treats an empty result as proof that the sequence has no captions, because most CEP builds expose caption creation but not caption reads. |
 | `read_video_scopes` | Default profile | Single operation | Read waveform percentiles, RGB parade percentiles, saturation, and near-black/near-white RGB occupancy from one bounded decoded local-media frame. Read-only; this is a sampled analytical proxy, not Premiere's rendered scopes. |
@@ -359,6 +370,7 @@ operation” when the tool has no enum-based mode.
 | `update_marker` | Default profile | Single operation | Update an existing marker's properties |
 | `validate_cmx3600_edl` | Default profile | Single operation | Validate a local CMX 3600 EDL's supported event grammar, timecodes, durations, duplicate event IDs, record overlaps, and record gaps before user-assisted Premiere interchange. |
 | `validate_export_preset` | Default profile | Single operation | Validate that an Adobe Media Encoder .epr preset exists and ask the active Premiere sequence which output extension it produces |
+| `validate_mogrt_brand_kit` | Default profile | Single operation | Validate an operator-approved local MOGRT brand kit before using it in a template or batch preview. It never reads font inventories, image pixels, or writes files. |
 | `validate_project_for_export` | Default profile | Single operation | Run a non-mutating export readiness audit for an active or named sequence. It reports blocking offline media, empty timelines, inaccessible preset/output paths, duration, and optional timeline gaps without queuing an export. |
 | `verify_after_effects_connection` | Default profile | Single operation | Read-only check that the dedicated After Effects CEP connector is running. It never reads project names, media, or paths. |
 | `verify_delivery_conformance` | Default profile | Single operation | Verify a local exported file against an explicit delivery contract using ffprobe and optional EBU R128 analysis. Returns pass, fail, or not_evaluated per check; it does not prove Premiere render lineage or visual approval. |

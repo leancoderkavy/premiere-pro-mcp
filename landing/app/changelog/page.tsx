@@ -7,13 +7,13 @@ const releases = [
   {
     version: "1.14.8",
     date: "2026-09-04",
-    label: "Guarded After Effects MOGRT authoring",
+    label: "Guarded After Effects MOGRT studio",
     groups: [
       {
         title: "Added",
         items: [
-          "An optional, separate After Effects CEP connector can author one approval-gated lower-third Motion Graphics Template in an already saved, workspace-contained project.",
-          "The workflow includes a one-time preview token, explicit export confirmation, isolated local bridge channel, and local ZIP-header artifact check.",
+          "An optional, separate After Effects CEP connector can author five approval-gated title, callout, quote, and social Motion Graphics Template recipes in an already saved, workspace-contained project.",
+          "The studio includes brand-kit constraints, bounded JSON/CSV batches, immutable local template libraries, source inspection, queue-only renders, and explicit Premiere handoff verification.",
           "Caption timing review plans parse caller-supplied SRT/VTT locally, while revision-bound editorial evidence import accepts only caller-supplied, opt-in context data.",
           "A generated public workflow manifest, proof-receipt runbook, universal setup guide, and no-write doctor repair-plan preview make the supported path and its evidence boundaries inspectable.",
         ],
@@ -29,7 +29,7 @@ const releases = [
       {
         title: "Safety",
         items: [
-          "The authoring path does not accept arbitrary scripts, create or switch projects, create output folders, overwrite artifacts, or claim that an accepted export is visually or import verified.",
+          "The authoring path does not accept arbitrary scripts, create or switch projects, create output folders, overwrite artifacts, start renders, or claim that host acceptance, archive presence, or import descriptors are visual proof.",
           "Local timing plans, editorial evidence, repair plans, and public workflow materials remain separate from licensed-host, playback, rendered-output, provider, and marketplace verification.",
         ],
       },

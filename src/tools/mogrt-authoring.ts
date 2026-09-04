@@ -14,9 +14,27 @@ import {
   resolveCapabilities,
 } from "../security/index.js";
 
-type Recipe = "lower_third";
+export const MOGRT_RECIPES = [
+  "lower_third",
+  "title_card",
+  "callout",
+  "quote_card",
+  "social_end_card",
+] as const;
 
-interface MogrtPlan {
+export type Recipe = (typeof MOGRT_RECIPES)[number];
+
+export interface MogrtBrandKit {
+  name: string;
+  name_prefix?: string;
+  font_family?: string;
+  logo_path?: string;
+  accent_color?: string;
+  text_color?: string;
+  safe_margin_percent: number;
+}
+
+export interface MogrtPlan {
   schema_version: 1;
   recipe: Recipe;
   template_name: string;
@@ -31,6 +49,7 @@ interface MogrtPlan {
   approved_workspace_path: string;
   output_directory: string;
   output_path: string;
+  brand_kit?: MogrtBrandKit;
 }
 
 interface IssuedPlan {
@@ -58,6 +77,7 @@ const MAX_TEXT = 160;
 const MAX_PATH = 4096;
 const PLAN_TTL_MS = 10 * 60 * 1000;
 const FRAME_RATES = new Set([23.976, 24, 25, 29.97, 30, 50, 59.94, 60]);
+const RECIPE_SET = new Set<Recipe>(MOGRT_RECIPES);
 
 function asObject(value: unknown, field: string): Record<string, unknown> {
   if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error(`${field} must be an object`);
@@ -109,6 +129,35 @@ function color(value: unknown, field: string, fallback: string): string {
   return selected.toUpperCase();
 }
 
+export function validateMogrtBrandKit(value: unknown, workspacePath: string): MogrtBrandKit | undefined {
+  if (value === undefined) return undefined;
+  const input = asObject(value, "brand_kit");
+  assertOnlyKeys(input, ["name", "name_prefix", "font_family", "logo_path", "accent_color", "text_color", "safe_margin_percent"], "brand_kit");
+  const name = requiredText(input.name, "brand_kit.name", 80);
+  const namePrefix = optionalText(input.name_prefix, "brand_kit.name_prefix", 40);
+  if (namePrefix && !/^[A-Za-z0-9][A-Za-z0-9_-]*$/.test(namePrefix)) {
+    throw new Error("brand_kit.name_prefix must use letters, numbers, underscores, or hyphens");
+  }
+  const fontFamily = optionalText(input.font_family, "brand_kit.font_family", 120);
+  const logoPath = optionalText(input.logo_path, "brand_kit.logo_path", MAX_PATH);
+  if (logoPath) {
+    if (!/\.(?:png|jpe?g)$/i.test(logoPath)) throw new Error("brand_kit.logo_path must point to a PNG or JPEG file");
+    const contained = workspaceOutput(workspacePath, resolvePathFamily(logoPath).api.dirname(logoPath), "brand-kit-logo");
+    if (contained.root !== resolvePathFamily(workspacePath).resolved) {
+      throw new Error("brand_kit.logo_path must be inside approved_workspace_path");
+    }
+  }
+  return {
+    name,
+    ...(namePrefix ? { name_prefix: namePrefix } : {}),
+    ...(fontFamily ? { font_family: fontFamily } : {}),
+    ...(logoPath ? { logo_path: logoPath } : {}),
+    ...(input.accent_color === undefined ? {} : { accent_color: color(input.accent_color, "brand_kit.accent_color", "#2563EB") }),
+    ...(input.text_color === undefined ? {} : { text_color: color(input.text_color, "brand_kit.text_color", "#FFFFFF") }),
+    safe_margin_percent: finiteNumber(input.safe_margin_percent, "brand_kit.safe_margin_percent", 0.1, 0.02, 0.25),
+  };
+}
+
 function isAbsolutePortable(value: string): boolean {
   return path.win32.isAbsolute(value) || path.posix.isAbsolute(value);
 }
@@ -141,14 +190,16 @@ function workspaceOutput(root: string, outputDirectory: string, name: string): {
   };
 }
 
-function buildPlan(value: unknown, directoryExists: (candidate: string) => boolean): MogrtPlan {
+export function buildMogrtPlan(value: unknown, directoryExists: (candidate: string) => boolean): MogrtPlan {
   const input = asObject(value, "arguments");
   assertOnlyKeys(input, [
     "recipe", "template_name", "headline", "subtitle", "accent_color", "text_color",
-    "duration_seconds", "width", "height", "frame_rate", "approved_workspace_path", "output_directory",
+    "duration_seconds", "width", "height", "frame_rate", "approved_workspace_path", "output_directory", "brand_kit",
   ], "arguments");
   const recipe = input.recipe === undefined ? "lower_third" : input.recipe;
-  if (recipe !== "lower_third") throw new Error("recipe must be lower_third");
+  if (typeof recipe !== "string" || !RECIPE_SET.has(recipe as Recipe)) {
+    throw new Error(`recipe must be one of ${MOGRT_RECIPES.join(", ")}`);
+  }
   const name = templateName(input.template_name);
   const output = workspaceOutput(
     requiredText(input.approved_workspace_path, "approved_workspace_path", MAX_PATH),
@@ -158,18 +209,22 @@ function buildPlan(value: unknown, directoryExists: (candidate: string) => boole
   if (!directoryExists(output.directory)) {
     throw new Error("output_directory must already exist; this workflow never creates output folders");
   }
+  const brandKit = validateMogrtBrandKit(input.brand_kit, output.root);
+  if (brandKit?.name_prefix && !name.startsWith(brandKit.name_prefix)) {
+    throw new Error("template_name must begin with brand_kit.name_prefix");
+  }
   const frameRate = finiteNumber(input.frame_rate, "frame_rate", 30, 1, 120);
   if (!FRAME_RATES.has(frameRate)) {
     throw new Error("frame_rate must be one of 23.976, 24, 25, 29.97, 30, 50, 59.94, or 60");
   }
   return {
     schema_version: 1,
-    recipe,
+    recipe: recipe as Recipe,
     template_name: name,
     headline: requiredText(input.headline, "headline"),
     subtitle: optionalText(input.subtitle, "subtitle"),
-    accent_color: color(input.accent_color, "accent_color", "#2563EB"),
-    text_color: color(input.text_color, "text_color", "#FFFFFF"),
+    accent_color: color(input.accent_color, "accent_color", brandKit?.accent_color ?? "#2563EB"),
+    text_color: color(input.text_color, "text_color", brandKit?.text_color ?? "#FFFFFF"),
     duration_seconds: finiteNumber(input.duration_seconds, "duration_seconds", 5, 2, 30),
     width: wholeNumber(input.width, "width", 1920, 320, 7680),
     height: wholeNumber(input.height, "height", 1080, 240, 4320),
@@ -177,6 +232,7 @@ function buildPlan(value: unknown, directoryExists: (candidate: string) => boole
     approved_workspace_path: output.root,
     output_directory: output.directory,
     output_path: output.output,
+    ...(brandKit ? { brand_kit: brandKit } : {}),
   };
 }
 
@@ -188,9 +244,28 @@ function rgb(value: string): [number, number, number] {
   ];
 }
 
-function scriptForPlan(plan: MogrtPlan): string {
+export function buildMogrtRecipeScript(plan: MogrtPlan): string {
   const accent = rgb(plan.accent_color).join(", ");
   const text = rgb(plan.text_color).join(", ");
+  const layouts: Record<Recipe, { backingWidth: number; backingHeight: number; backingX: number; backingY: number; headlineX: number; headlineY: number; subtitleX: number; subtitleY: number }> = {
+    lower_third: { backingWidth: 0.78, backingHeight: 0.2, backingX: 0.45, backingY: 0.79, headlineX: 0.12, headlineY: 0.75, subtitleX: 0.12, subtitleY: 0.83 },
+    title_card: { backingWidth: 0.86, backingHeight: 0.3, backingX: 0.5, backingY: 0.5, headlineX: 0.18, headlineY: 0.46, subtitleX: 0.18, subtitleY: 0.56 },
+    callout: { backingWidth: 0.42, backingHeight: 0.18, backingX: 0.76, backingY: 0.22, headlineX: 0.58, headlineY: 0.19, subtitleX: 0.58, subtitleY: 0.27 },
+    quote_card: { backingWidth: 0.8, backingHeight: 0.42, backingX: 0.5, backingY: 0.5, headlineX: 0.14, headlineY: 0.44, subtitleX: 0.14, subtitleY: 0.6 },
+    social_end_card: { backingWidth: 0.9, backingHeight: 0.9, backingX: 0.5, backingY: 0.5, headlineX: 0.15, headlineY: 0.45, subtitleX: 0.15, subtitleY: 0.56 },
+  };
+  const layout = layouts[plan.recipe];
+  const safeMargin = plan.brand_kit?.safe_margin_percent ?? 0.1;
+  const headlineX = Math.max(layout.headlineX, safeMargin);
+  const subtitleX = Math.max(layout.subtitleX, safeMargin);
+  const logoX = Math.max(safeMargin, 1 - safeMargin * 1.5);
+  const fontAssignment = plan.brand_kit?.font_family
+    ? `try { headlineDocument.font = "${escapeForAfterEffects(plan.brand_kit.font_family)}"; } catch (fontError) {}`
+    : "";
+  const subtitleFontAssignment = plan.brand_kit?.font_family
+    ? `try { subtitleDocument.font = "${escapeForAfterEffects(plan.brand_kit.font_family)}"; } catch (subtitleFontError) {}`
+    : "";
+  const logoPath = plan.brand_kit?.logo_path ?? "";
   const subtitleLayer = plan.subtitle
     ? `
       var subtitleLayer = comp.layers.addText("${escapeForAfterEffects(plan.subtitle)}");
@@ -200,8 +275,9 @@ function scriptForPlan(plan: MogrtPlan): string {
       subtitleDocument.fontSize = ${Math.max(24, Math.round(plan.height * 0.032))};
       subtitleDocument.fillColor = [${text}];
       subtitleDocument.applyFill = true;
+      ${subtitleFontAssignment}
       subtitleSource.setValue(subtitleDocument);
-      subtitleLayer.property("ADBE Transform Group").property("ADBE Position").setValue([${Math.round(plan.width * 0.12)}, ${Math.round(plan.height * 0.83)}]);
+      subtitleLayer.property("ADBE Transform Group").property("ADBE Position").setValue([${Math.round(plan.width * subtitleX)}, ${Math.round(plan.height * layout.subtitleY)}]);
       subtitleExposed = expose(subtitleSource);
     `
     : "";
@@ -227,6 +303,7 @@ function scriptForPlan(plan: MogrtPlan): string {
     var workspacePath = "${escapeForAfterEffects(plan.approved_workspace_path)}";
     var outputDirectory = "${escapeForAfterEffects(plan.output_directory)}";
     var outputPath = "${escapeForAfterEffects(plan.output_path)}";
+    var logoPath = "${escapeForAfterEffects(logoPath)}";
     var project = app.project;
     if (!project || !project.file) return __aeError("Open a saved After Effects project inside approved_workspace_path before creating a MOGRT; this workflow never creates or replaces projects");
     if (!isInside(workspacePath, project.file.fsName)) return __aeError("The open After Effects project is outside approved_workspace_path; no composition was created");
@@ -234,6 +311,8 @@ function scriptForPlan(plan: MogrtPlan): string {
     if (!destination.exists) return __aeError("The approved output directory no longer exists; no composition was created");
     var existing = new File(outputPath);
     if (existing.exists) return __aeError("A MOGRT already exists at the planned output path; preview a new plan only after moving or deliberately replacing it");
+    var logoFile = logoPath ? new File(logoPath) : null;
+    if (logoFile && !logoFile.exists) return __aeError("The approved brand-kit logo no longer exists; preview the recipe again after restoring it");
     app.beginUndoGroup("Create ${escapeForAfterEffects(plan.template_name)} MOGRT");
     try {
       var comp = project.items.addComp("${escapeForAfterEffects(plan.template_name)}", ${plan.width}, ${plan.height}, 1, ${plan.duration_seconds}, ${plan.frame_rate});
@@ -242,11 +321,11 @@ function scriptForPlan(plan: MogrtPlan): string {
       backing.name = "Accent bar";
       var shapeContents = backing.property("ADBE Root Vectors Group");
       var rect = shapeContents.addProperty("ADBE Vector Shape - Rect");
-      rect.property("ADBE Vector Rect Size").setValue([${Math.round(plan.width * 0.78)}, ${Math.round(plan.height * 0.2)}]);
+      rect.property("ADBE Vector Rect Size").setValue([${Math.round(plan.width * layout.backingWidth)}, ${Math.round(plan.height * layout.backingHeight)}]);
       var fill = shapeContents.addProperty("ADBE Vector Graphic - Fill");
       var fillColor = fill.property("ADBE Vector Fill Color");
       fillColor.setValue([${accent}]);
-      backing.property("ADBE Transform Group").property("ADBE Position").setValue([${Math.round(plan.width * 0.45)}, ${Math.round(plan.height * 0.79)}]);
+      backing.property("ADBE Transform Group").property("ADBE Position").setValue([${Math.round(plan.width * layout.backingX)}, ${Math.round(plan.height * layout.backingY)}]);
       var accentControl = backing.property("ADBE Effect Parade").addProperty("ADBE Color Control");
       accentControl.name = "Accent Color";
       var accentProperty = accentControl.property(1);
@@ -259,12 +338,21 @@ function scriptForPlan(plan: MogrtPlan): string {
       headlineDocument.fontSize = ${Math.max(32, Math.round(plan.height * 0.06))};
       headlineDocument.fillColor = [${text}];
       headlineDocument.applyFill = true;
+      ${fontAssignment}
       headlineSource.setValue(headlineDocument);
-      headlineLayer.property("ADBE Transform Group").property("ADBE Position").setValue([${Math.round(plan.width * 0.12)}, ${Math.round(plan.height * 0.75)}]);
+      headlineLayer.property("ADBE Transform Group").property("ADBE Position").setValue([${Math.round(plan.width * headlineX)}, ${Math.round(plan.height * layout.headlineY)}]);
       var headlineExposed = expose(headlineSource);
       var accentExposed = expose(accentProperty);
       var subtitleExposed = false;
       ${subtitleLayer}
+      var logoImported = false;
+      if (logoFile) {
+        var logoItem = project.importFile(new ImportOptions(logoFile));
+        var logoLayer = comp.layers.add(logoItem);
+        logoLayer.name = "Brand logo";
+        logoLayer.property("ADBE Transform Group").property("ADBE Position").setValue([${Math.round(plan.width * logoX)}, ${Math.round(plan.height * safeMargin * 1.7)}]);
+        logoImported = true;
+      }
       project.save(project.file);
       var hostExportReturn = comp.exportAsMotionGraphicsTemplate(false, outputDirectory);
       return __aeResult({
@@ -272,8 +360,9 @@ function scriptForPlan(plan: MogrtPlan): string {
         hostExportReturn: hostExportReturn === true,
         artifactExistsAtHostReturn: new File(outputPath).exists,
         outputPath: outputPath,
-        recipe: "lower_third",
+        recipe: "${plan.recipe}",
         projectMutated: true,
+        brandKit: ${plan.brand_kit ? `{ name: "${escapeForAfterEffects(plan.brand_kit.name)}", fontRequested: ${JSON.stringify(plan.brand_kit.font_family ?? null)}, logoImported: logoImported, safeMarginPercent: ${plan.brand_kit.safe_margin_percent} }` : "null"},
         exposedControls: { headline: headlineExposed, subtitle: subtitleExposed, accentColor: accentExposed },
         visualVerified: false,
         verificationScope: "After Effects accepted the authoring request. Verify the local .mogrt artifact, import it into a disposable Premiere sequence, and inspect a rendered frame before delivery."
@@ -370,12 +459,12 @@ export function getMogrtAuthoringTools(
       },
     },
     preview_mogrt_recipe: {
-      description: "Preview a bounded After Effects lower-third MOGRT recipe. It validates one existing workspace output directory but does not contact Adobe or write any files.",
+      description: "Preview a bounded After Effects MOGRT recipe from the supported title, callout, quote, and social template library. It validates one existing workspace output directory but does not contact Adobe or write any files.",
       parameters: {
         type: "object" as const,
         additionalProperties: false,
         properties: {
-          recipe: { type: "string", enum: ["lower_third"], description: "The only currently supported authored template recipe." },
+          recipe: { type: "string", enum: MOGRT_RECIPES, description: "Supported authored template recipe; defaults to lower_third." },
           template_name: { type: "string", description: "Safe template file stem; the generated artifact is template_name.mogrt." },
           headline: { type: "string", description: "Primary lower-third text, at most 160 characters." },
           subtitle: { type: "string", description: "Optional secondary lower-third text, at most 160 characters." },
@@ -387,6 +476,21 @@ export function getMogrtAuthoringTools(
           frame_rate: { type: "number", enum: [23.976, 24, 25, 29.97, 30, 50, 59.94, 60], description: "Composition frame rate; defaults to 30." },
           approved_workspace_path: { type: "string", description: "Absolute operator-approved workspace root containing the saved AE project and output directory." },
           output_directory: { type: "string", description: "Existing absolute output directory inside approved_workspace_path; this workflow never creates directories." },
+          brand_kit: {
+            type: "object",
+            additionalProperties: false,
+            description: "Optional approved local brand kit. It can constrain naming, request an installed font, place a workspace-contained PNG/JPEG logo, and enforce a safe margin.",
+            properties: {
+              name: { type: "string" },
+              name_prefix: { type: "string" },
+              font_family: { type: "string" },
+              logo_path: { type: "string" },
+              accent_color: { type: "string" },
+              text_color: { type: "string" },
+              safe_margin_percent: { type: "number" },
+            },
+            required: ["name"],
+          },
         },
         required: ["template_name", "headline", "approved_workspace_path", "output_directory"],
       },
@@ -394,7 +498,7 @@ export function getMogrtAuthoringTools(
         const operationId = nextOperationId();
         requireCapability(capabilities, "inspect", operationId);
         requireCapability(capabilities, "filesystem", operationId);
-        const plan = buildPlan(args, directoryExists);
+        const plan = buildMogrtPlan(args, directoryExists);
         const token = tokenFactory();
         plans.set(token, { plan, expiresAt: now() + PLAN_TTL_MS });
         return {
@@ -406,7 +510,7 @@ export function getMogrtAuthoringTools(
             previewToken: token,
             expiresInSeconds: PLAN_TTL_MS / 1000,
             changes: [
-              "Create one lower-third composition in the open saved After Effects project.",
+              `Create one ${plan.recipe.replaceAll("_", " ")} composition in the open saved After Effects project.`,
               "Expose the bounded headline, optional subtitle, and accent-color controls.",
               "Save the open project and request a .mogrt export at the planned output path.",
             ],
@@ -416,7 +520,7 @@ export function getMogrtAuthoringTools(
       },
     },
     create_mogrt_recipe: {
-      description: "Create exactly one previewed lower-third MOGRT in a saved After Effects project inside the approved workspace. Requires explicit export confirmation; it never creates projects or output folders.",
+      description: "Create exactly one previewed MOGRT recipe in a saved After Effects project inside the approved workspace. Requires explicit export confirmation; it never creates projects or output folders.",
       parameters: {
         type: "object" as const,
         additionalProperties: false,
@@ -435,7 +539,7 @@ export function getMogrtAuthoringTools(
         assertOnlyKeys(input, ["preview_token", "confirm_export"], "arguments");
         if (input.confirm_export !== true) throw new Error("confirm_export must be true to create the MOGRT");
         const plan = takePlan(input.preview_token);
-        const result = await send(scriptForPlan(plan), bridgeOptions);
+        const result = await send(buildMogrtRecipeScript(plan), bridgeOptions);
         if (!result.success) {
           return { ...result, error: `${result.error ?? "MOGRT authoring failed"} (operation ${operationId})` };
         }
