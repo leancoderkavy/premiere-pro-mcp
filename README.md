@@ -419,6 +419,17 @@ The plugin source lives in [`plugins/premiere-pro`](plugins/premiere-pro), and t
 repository marketplace manifest lives in
 [`.agents/plugins/marketplace.json`](.agents/plugins/marketplace.json).
 
+### GPT-6 Astra and agent tool discovery
+
+Use the Codex plugin with `codex --model gpt-6-astra` when your account has access.
+The server supplies session-aware workflow instructions and bounded tool discovery:
+call `get_capabilities` with `{"tool_query":"transcript","tool_limit":10}` to
+find relevant operations, their descriptions, and backend requirements. Searches
+default to tools registered under the current authority and tool packs.
+
+See [GPT-6 Astra workflows](docs/gpt-6-astra.md) for evidence retrieval, visual
+review, execution ordering, and the division between MCP and client capabilities.
+
 ### Claude
 
 For Claude Code, add this repository as a marketplace and install the plugin:
