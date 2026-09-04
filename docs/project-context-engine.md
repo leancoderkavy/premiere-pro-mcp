@@ -26,6 +26,11 @@ secrets, or API keys are discarded.
 2. Analyze only the required sources. Add transcript passages, shot descriptions,
    audio observations, or editor notes through `action: "enrich"`. Include the
    returned source revision to reject stale analysis.
+   For a structured, caller-approved bundle, use `action: "import_evidence"`.
+   It accepts transcript passages and speaker labels, shot logs, audio
+   observations, operator notes, and opaque frame-reference IDs. An attachment
+   to a source requires the exact current source revision; an attachment to a
+   sequence or timeline item requires the exact current timeline revision.
 3. Call `search_project_context` with the current editing intent and optional
    sequence/kind filters. Results contain evidence, stable Premiere identities,
    source time ranges, and revision provenance.
@@ -58,6 +63,11 @@ loudness, or send footage to a model. Those analyses are explicit enrichments so
 operators can choose Premiere transcript export, local software, or an approved
 provider. Premiere's documented transcript APIs support transcript import/export;
 they do not expose a stable operation for starting Speech-to-Text.
+
+`import_evidence` does not read the referenced frame, resolve a file path, or
+call vision, ASR, LLM, Adobe, or a third-party provider. A frame reference is
+restricted to an opaque identifier, and metadata resembling a path, credential,
+or secret is removed before the local context index is saved.
 
 Automated tests validate storage, privacy, invalidation, retrieval, and plan
 contracts. They do not replace validation against a licensed Premiere host.

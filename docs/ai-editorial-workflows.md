@@ -20,6 +20,13 @@ bin, create a sequence, or change the active Premiere project.
    `action: "enrich"`: Premiere transcript passages, operator-authored shot
    notes, audio observations, or approved analysis results. Do not put secrets,
    native paths, or unrelated customer content in an enrichment.
+   Use `action: "import_evidence"` when the caller has a structured evidence
+   bundle: transcript passages with editor-supplied speaker labels, shot logs,
+   audio observations, operator notes, or opaque review-frame/contact-sheet
+   references. It requires the exact captured source revision for a source
+   attachment and the exact captured timeline revision for a sequence or
+   timeline attachment. It stores no native frame path and never opens a frame,
+   invokes vision/ASR/LLM/Adobe services, or changes Premiere.
 3. When a model needs a compact reading surface, call
    `create_editorial_context_pack` with the editorial intent. It returns only
    matching, bounded local evidence as Markdown, together with stable evidence
@@ -58,6 +65,13 @@ Transcript passages, shot notes, and audio observations remain explicit local
 enrichments supplied through `manage_project_context`. A returned revision only
 identifies the saved context state; re-capture immediately before mutation and
 keep the routed tool's existing confirmation and readback requirements.
+
+`import_evidence` is a stricter typed counterpart to generic enrichment for
+approved editorial evidence. A speaker label is caller-supplied attribution, a
+frame reference is only an opaque identifier, and a shot or audio record is not
+semantic analysis performed by this server. The current context revision is
+stored with each attachment so a changed source or timeline invalidates the
+evidence in the same way as other local context records.
 
 ## Organization plans
 

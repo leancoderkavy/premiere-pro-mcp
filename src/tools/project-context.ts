@@ -69,6 +69,37 @@ export interface ContextEnrichmentInput {
   metadata?: Record<string, unknown>;
 }
 
+export const EDITORIAL_EVIDENCE_TYPES = [
+  "transcript_passage",
+  "speaker_label",
+  "shot_log",
+  "audio_observation",
+  "operator_note",
+  "frame_reference",
+] as const;
+
+export type EditorialEvidenceType = (typeof EDITORIAL_EVIDENCE_TYPES)[number];
+
+export interface EditorialEvidenceInput {
+  id?: string;
+  type: EditorialEvidenceType;
+  name?: string;
+  text?: string;
+  keywords?: string[];
+  speaker_label?: string;
+  frame_reference_id?: string;
+  sequence_id?: string;
+  source_id?: string;
+  timeline_item_id?: string;
+  start_seconds?: number;
+  end_seconds?: number;
+  track_type?: "video" | "audio";
+  track_index?: number;
+  source_revision?: string;
+  timeline_revision?: string;
+  metadata?: Record<string, unknown>;
+}
+
 interface MediaFingerprint {
   mediaPathHash?: string;
   size?: number;
@@ -282,7 +313,8 @@ export async function buildContextDocumentFromSnapshot(
     if (CORE_CONTEXT_KINDS.has(record.kind)) continue;
     const currentSourceRevision = record.sourceId ? sourceRevisionById.get(record.sourceId) : undefined;
     const sourceStillValid = !record.sourceId || (currentSourceRevision && record.sourceRevision === currentSourceRevision);
-    if (sourceStillValid) retained.push(record);
+    const timelineStillValid = !record.timelineRevision || record.timelineRevision === timelineRevision;
+    if (sourceStillValid && timelineStillValid) retained.push(record);
     else invalidatedRecords++;
   }
 
@@ -393,7 +425,7 @@ export function enrichContextDocument(
       trackType: input.track_type,
       trackIndex: finiteNumber(input.track_index),
       sourceRevision,
-      timelineRevision: input.timeline_item_id ? document.timelineRevision : undefined,
+      timelineRevision: input.timeline_item_id || input.sequence_id ? document.timelineRevision : undefined,
       metadata: sanitizeMetadata(input.metadata),
       indexedAt: now,
     };
@@ -449,6 +481,145 @@ function enrichmentSchema() {
   };
 }
 
+function editorialEvidenceSchema() {
+  return {
+    type: "object",
+    additionalProperties: false,
+    properties: {
+      id: { type: "string", maxLength: 256, description: "Optional stable evidence ID for deterministic replacement." },
+      type: { type: "string", enum: EDITORIAL_EVIDENCE_TYPES, description: "Evidence shape: transcript passage, speaker label, shot log, audio observation, operator note, or an opaque frame reference." },
+      name: { type: "string", maxLength: 512, description: "Optional bounded display name for the local evidence record." },
+      text: { type: "string", maxLength: 20000, description: "Caller-approved local evidence text. Required except for speaker_label and frame_reference, which can derive a bounded local note." },
+      keywords: { type: "array", maxItems: 64, items: { type: "string", maxLength: 256, description: "One local search keyword." }, description: "Optional local search keywords." },
+      speaker_label: { type: "string", maxLength: 160, description: "For transcript_passage or speaker_label, an editor-supplied speaker label. It is not inferred by this server." },
+      frame_reference_id: { type: "string", maxLength: 256, description: "For frame_reference, an opaque fixture or review-frame identifier, never a native file path or URL." },
+      sequence_id: { type: "string", maxLength: 512, description: "Optional captured sequence ID. Requires the exact current timeline_revision." },
+      source_id: { type: "string", maxLength: 512, description: "Optional captured source ID. Requires the exact current source_revision." },
+      timeline_item_id: { type: "string", maxLength: 512, description: "Optional captured timeline item ID. Requires the exact current timeline_revision." },
+      start_seconds: { type: "number", minimum: 0, description: "Optional non-negative source or sequence start in seconds." },
+      end_seconds: { type: "number", minimum: 0, description: "Optional end in seconds at or after start_seconds." },
+      track_type: { type: "string", enum: ["video", "audio"], description: "Optional recorded track type when the evidence is tied to a timeline item." },
+      track_index: { type: "number", minimum: 0, description: "Optional recorded track index when the evidence is tied to a timeline item." },
+      source_revision: { type: "string", maxLength: 256, description: "Required exact source revision whenever source_id is supplied." },
+      timeline_revision: { type: "string", maxLength: 256, description: "Required exact timeline revision whenever sequence_id or timeline_item_id is supplied." },
+      metadata: { type: "object", description: "Optional small scalar metadata. Credential-like and path-like keys are discarded before local storage." },
+    },
+    required: ["type"],
+  };
+}
+
+function evidenceText(value: unknown, field: string, required: boolean): string | undefined {
+  if (value === undefined && !required) return undefined;
+  const normalized = normalizeContextText(value);
+  if (!normalized && required) throw new Error(`${field} is required`);
+  if (normalized.length > 20_000) throw new Error(`${field} must be at most 20000 characters`);
+  return normalized || undefined;
+}
+
+function evidenceLabel(value: unknown, field: string): string | undefined {
+  if (value === undefined) return undefined;
+  const normalized = normalizeContextText(value);
+  if (!normalized || normalized.length > 160) throw new Error(`${field} must be a non-empty string of at most 160 characters`);
+  return normalized;
+}
+
+function opaqueReference(value: unknown): string {
+  if (typeof value !== "string" || !/^[A-Za-z0-9][A-Za-z0-9._-]{0,255}$/.test(value)) {
+    throw new Error("frame_reference_id must be an opaque identifier using letters, numbers, dots, underscores, or hyphens; paths and URLs are not accepted");
+  }
+  return value;
+}
+
+function requireExactRevision(value: unknown, expected: string, field: string): void {
+  if (typeof value !== "string" || value !== expected) {
+    throw new Error(`${field} must match the currently captured revision; capture context again before importing evidence`);
+  }
+}
+
+function editorialEvidenceToEnrichment(
+  document: ProjectContextDocument,
+  inputs: EditorialEvidenceInput[],
+): ContextEnrichmentInput[] {
+  if (!Array.isArray(inputs) || inputs.length < 1 || inputs.length > MAX_ENRICHMENTS_PER_CALL) {
+    throw new Error(`evidence must contain between 1 and ${MAX_ENRICHMENTS_PER_CALL} entries`);
+  }
+  const sourceRevisionById = new Map(
+    document.records
+      .filter((record) => record.kind === "source" && record.sourceId && record.sourceRevision)
+      .map((record) => [record.sourceId!, record.sourceRevision!]),
+  );
+  const sequenceIds = new Set(document.records.filter((record) => record.kind === "sequence").map((record) => record.sequenceId));
+  const timelineItemIds = new Set(document.records.filter((record) => record.kind === "timeline").map((record) => record.timelineItemId));
+
+  return inputs.map((input, index): ContextEnrichmentInput => {
+    if (!input || typeof input !== "object" || Array.isArray(input) || !EDITORIAL_EVIDENCE_TYPES.includes(input.type)) {
+      throw new Error(`evidence[${index}].type must be a supported editorial evidence type`);
+    }
+    if (input.source_id) {
+      const expectedSourceRevision = sourceRevisionById.get(input.source_id);
+      if (!expectedSourceRevision) throw new Error(`evidence[${index}] references an unknown source_id`);
+      requireExactRevision(input.source_revision, expectedSourceRevision, `evidence[${index}].source_revision`);
+    } else if (input.source_revision !== undefined) {
+      throw new Error(`evidence[${index}].source_revision requires source_id`);
+    }
+    if (input.sequence_id || input.timeline_item_id) {
+      requireExactRevision(input.timeline_revision, document.timelineRevision, `evidence[${index}].timeline_revision`);
+    } else if (input.timeline_revision !== undefined) {
+      throw new Error(`evidence[${index}].timeline_revision requires sequence_id or timeline_item_id`);
+    }
+    if (input.sequence_id && !sequenceIds.has(input.sequence_id)) {
+      throw new Error(`evidence[${index}] references an unknown sequence_id`);
+    }
+    if (input.timeline_item_id && !timelineItemIds.has(input.timeline_item_id)) {
+      throw new Error(`evidence[${index}] references an unknown timeline_item_id`);
+    }
+
+    const speakerLabel = evidenceLabel(input.speaker_label, `evidence[${index}].speaker_label`);
+    const explicitText = evidenceText(input.text, `evidence[${index}].text`, input.type !== "speaker_label" && input.type !== "frame_reference");
+    const frameReferenceId = input.type === "frame_reference"
+      ? opaqueReference(input.frame_reference_id)
+      : undefined;
+    const mapped = {
+      transcript_passage: "transcript",
+      speaker_label: "note",
+      shot_log: "shot",
+      audio_observation: "audio",
+      operator_note: "note",
+      frame_reference: "shot",
+    } as const;
+    const type = input.type as EditorialEvidenceType;
+    const text = explicitText
+      ?? (type === "speaker_label"
+        ? `Speaker label: ${speakerLabel ?? "unspecified"}.`
+        : `Frame reference: ${frameReferenceId}.`);
+    const metadata = input.metadata && typeof input.metadata === "object" && !Array.isArray(input.metadata)
+      ? input.metadata
+      : {};
+    return {
+      id: input.id,
+      kind: mapped[type],
+      name: input.name,
+      text,
+      keywords: input.keywords,
+      sequence_id: input.sequence_id,
+      source_id: input.source_id,
+      timeline_item_id: input.timeline_item_id,
+      start_seconds: input.start_seconds,
+      end_seconds: input.end_seconds,
+      track_type: input.track_type,
+      track_index: input.track_index,
+      source_revision: input.source_revision,
+      timeline_revision: input.timeline_revision,
+      metadata: {
+        ...metadata,
+        evidenceType: type,
+        ...(speakerLabel ? { speakerLabel } : {}),
+        ...(frameReferenceId ? { frameReferenceId } : {}),
+      },
+    };
+  });
+}
+
 export interface ProjectContextToolDependencies {
   repository?: ProjectContextRepository;
   repositoryOptions?: ProjectContextRepositoryOptions;
@@ -463,22 +634,24 @@ export function getProjectContextTools(
   const loadSnapshot = dependencies.captureSnapshot ?? (() => sendCommand(captureScript(), bridgeOptions));
   return {
     manage_project_context: {
-      description: "Capture, enrich, inspect, or clear a durable local Premiere project-context index. Capture stores bounded active-sequence/source metadata; enrich adds transcripts, shots, audio observations, or notes without re-analyzing unchanged sources. Never include secrets or unrelated customer data.",
+      description: "Capture, enrich, import revision-bound editorial evidence, inspect, or clear a durable local Premiere project-context index. Capture stores bounded active-sequence/source metadata; local enrichment and evidence import add caller-approved transcripts, speaker labels, shots, audio observations, notes, or opaque frame references without re-analyzing media. Never include secrets or unrelated customer data.",
       parameters: {
         type: "object" as const,
         properties: {
-          action: { type: "string", enum: ["capture", "enrich", "status", "clear"], description: "Capture active context, enrich it, inspect status, or clear one local project index" },
+          action: { type: "string", enum: ["capture", "enrich", "import_evidence", "status", "clear"], description: "Capture active context, enrich it, import revision-bound editorial evidence, inspect status, or clear one local project index." },
           project_id: { type: "string", description: "Project context ID returned by capture; optional for status to list projects" },
           replace: { type: "boolean", description: "For enrich, replace prior enrichments while retaining captured core records" },
           records: { type: "array", items: enrichmentSchema(), description: "For enrich, up to 512 transcript, shot, audio, or note records" },
+          evidence: { type: "array", items: editorialEvidenceSchema(), description: "For import_evidence, up to 512 caller-approved records with strict source/timeline revision guards. The server does not read referenced frame files, invoke analysis, or contact a provider." },
         },
         required: ["action"],
       },
       handler: async (args: {
-        action: "capture" | "enrich" | "status" | "clear";
+        action: "capture" | "enrich" | "import_evidence" | "status" | "clear";
         project_id?: string;
         replace?: boolean;
         records?: ContextEnrichmentInput[];
+        evidence?: EditorialEvidenceInput[];
       }) => {
         if (args.action === "capture") {
           const result = await loadSnapshot();
@@ -553,6 +726,33 @@ export function getProjectContextTools(
               upserted: enriched.upserted,
             },
           };
+        }
+        if (args.action === "import_evidence") {
+          const projectId = requireProjectId(args.project_id);
+          const current = await repository.get(projectId);
+          if (!current) return { success: false, error: "Project context not found; capture it before importing editorial evidence" };
+          try {
+            const inputs = editorialEvidenceToEnrichment(current, args.evidence ?? []);
+            const enriched = enrichContextDocument(current, inputs, args.replace === true);
+            await repository.put(enriched.document);
+            return {
+              success: true,
+              data: {
+                backend: await repository.backendName(),
+                projectId,
+                revision: enriched.document.revision,
+                sourceRevision: enriched.document.sourceRevision,
+                timelineRevision: enriched.document.timelineRevision,
+                recordCount: enriched.document.records.length,
+                upserted: enriched.upserted,
+                importedEvidenceTypes: [...new Set(args.evidence!.map((entry) => entry.type))],
+                applied: false,
+                verificationBoundary: "Evidence was stored only in the local project-context index. The server did not open a frame, invoke vision/ASR/LLM/Adobe services, or mutate Premiere.",
+              },
+            };
+          } catch (error) {
+            return { success: false, error: error instanceof Error ? error.message : String(error) };
+          }
         }
         return { success: false, error: `Unsupported project context action: ${String(args.action)}` };
       },
