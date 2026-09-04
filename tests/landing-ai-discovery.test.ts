@@ -8,12 +8,17 @@ const read = (path: string) => readFileSync(join(root, path), "utf8");
 describe("landing AI and search discovery", () => {
   it("keeps machine-readable references discoverable and unambiguous", () => {
     const layout = read("landing/app/layout.tsx");
+    const home = read("landing/app/page.tsx");
+    const hero = read("landing/components/sections/hero.tsx");
     const llms = read("landing/public/llms.txt");
     const llmsFull = read("landing/public/llms-full.txt");
     const llmAlias = read("landing/public/llm.txt");
 
     expect(layout).toContain('href="/llms.txt"');
     expect(layout).toContain('href="/llms-full.txt"');
+    expect(layout).toContain("MCP for Adobe Premiere Pro | Reviewable Workflow Automation");
+    expect(home).toContain('alternateName: ["Premiere Pro MCP", "premiere-pro-mcp"]');
+    expect(hero).toContain("MCP for Adobe Premiere Pro:");
     expect(llms).toContain("Preferred product name: **MCP for Adobe Premiere Pro**");
     expect(llms).toContain("https://premiere-pro-mcp.com/facts/");
     expect(llmsFull).toContain("https://premiere-pro-mcp.com/llm.txt");
