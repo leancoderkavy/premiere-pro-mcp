@@ -5,17 +5,44 @@ import { product } from "@/lib/product"
 
 const releases = [
   {
-    version: "1.14.8",
+    version: "1.14.9",
     date: "2026-09-04",
-    label: "Guarded After Effects MOGRT studio",
+    label: "Guarded After Effects MOGRT studio and assistant workflows",
     groups: [
       {
         title: "Added",
         items: [
           "An optional, separate After Effects CEP connector can author five approval-gated title, callout, quote, and social Motion Graphics Template recipes in an already saved, workspace-contained project.",
-          "The studio includes brand-kit constraints, bounded JSON/CSV batches, immutable local template libraries, source inspection, queue-only renders, and explicit Premiere handoff verification.",
-          "Caption timing review plans parse caller-supplied SRT/VTT locally, while revision-bound editorial evidence import accepts only caller-supplied, opt-in context data.",
-          "A generated public workflow manifest, proof-receipt runbook, universal setup guide, and no-write doctor repair-plan preview make the supported path and its evidence boundaries inspectable.",
+          "The studio adds brand-kit constraints, bounded JSON/CSV batches, immutable local template libraries, source inspection, queue-only renders, and explicit Premiere handoff verification.",
+          "Capability-aware assistant-editor workflows and GPT-6 Astra guidance help compatible clients inspect the authorized tool surface before proposing a workflow.",
+        ],
+      },
+      {
+        title: "Changed",
+        items: [
+          "The MCP transport now applies bounded bridge-command backlog limits, and the public registry metadata and machine-readable references match the expanded tool surface.",
+        ],
+      },
+      {
+        title: "Safety",
+        items: [
+          "The authoring path does not accept arbitrary scripts, create or switch projects, create output folders, overwrite artifacts, start renders, or claim that host acceptance, archive presence, or import descriptors are visual proof.",
+          "Capability discovery does not grant authority or turn a catalog, host acceptance, archive presence, or import descriptor into playback, render, or visual proof.",
+        ],
+      },
+    ],
+  },
+  {
+    version: "1.14.8",
+    date: "2026-09-04",
+    label: "Guarded After Effects MOGRT authoring and safer updates",
+    groups: [
+      {
+        title: "Added",
+        items: [
+          "An optional, separate After Effects CEP connector can author one approval-gated lower-third Motion Graphics Template in an already saved, workspace-contained project.",
+          "The workflow includes a one-time preview token, explicit export confirmation, isolated local bridge channel, and local ZIP-header artifact check.",
+          "Caption timing review plans, revision-bound editorial evidence import, a no-write doctor repair-plan preview, and inspectable public workflow materials add bounded local guidance.",
         ],
       },
       {
@@ -23,13 +50,13 @@ const releases = [
         items: [
           "Global npm installations can use the Windows CEP panel to review the server and connector update state, then explicitly hand off the published-package update after Premiere closes. It does not force-close Premiere or alter projects, client configuration, source checkouts, or custom npm-prefix installs.",
           "Stateless MCP construction reuses immutable descriptors and schemas while retaining isolated context, telemetry, and UXP state. Concurrent CEP commands share a response-directory watcher with polling retained as the correctness fallback.",
-          "The public landing now uses a lighter mobile-first workflow treatment, explicit reduced-motion behavior, and current facts, structured data, sitemap, crawl policy, and machine-readable references for public pages.",
+          "The public landing uses a lighter mobile-first workflow treatment, explicit reduced-motion behavior, and current facts, structured data, sitemap, crawl policy, and machine-readable references for public pages.",
         ],
       },
       {
         title: "Safety",
         items: [
-          "The authoring path does not accept arbitrary scripts, create or switch projects, create output folders, overwrite artifacts, start renders, or claim that host acceptance, archive presence, or import descriptors are visual proof.",
+          "The authoring path does not accept arbitrary scripts, create or switch projects, create output folders, overwrite artifacts, or claim that host acceptance or archive presence is import, rendered-frame, or visual proof.",
           "Local timing plans, editorial evidence, repair plans, and public workflow materials remain separate from licensed-host, playback, rendered-output, provider, and marketplace verification.",
         ],
       },

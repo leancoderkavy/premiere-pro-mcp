@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<ExtensionManifest Version="7.0" ExtensionBundleId="com.mcp.aftereffects.bridge" ExtensionBundleVersion="1.14.8" ExtensionBundleName="MCP for Adobe After Effects">
+<ExtensionManifest Version="7.0" ExtensionBundleId="com.mcp.aftereffects.bridge" ExtensionBundleVersion="1.14.9" ExtensionBundleName="MCP for Adobe After Effects">
   <ExtensionList>
-    <Extension Id="com.mcp.aftereffects.bridge.panel" Version="1.14.8"/>
+    <Extension Id="com.mcp.aftereffects.bridge.panel" Version="1.14.9"/>
   </ExtensionList>
   <ExecutionEnvironment>
     <HostList>
