@@ -31,7 +31,7 @@ Compatibility alias: https://premiere-pro-mcp.com/llm.txt
 Source: https://github.com/leancoderkavy/premiere-pro-mcp
 npm: https://www.npmjs.com/package/premiere-pro-mcp
 License: MIT
-Current release: 1.14.8
+Current release: 1.14.9
 
 ## What it does
 

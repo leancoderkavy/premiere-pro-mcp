@@ -1,6 +1,6 @@
 # Product Marketing Context
 
-**Document version:** v10
+**Document version:** v11
 **Last updated:** 2026-09-04
 
 ## Product Overview
@@ -137,7 +137,7 @@
 
 ## Proof Points
 
-**Release facts:** v1.14.8 registers 349 core tools; the default profile exposes 347; an authenticated compatible UXP host can add 93 capability-gated tools for a 440-tool connected surface. The release also declares 43 modules, 4 MCP resources, and 16 workflow prompts. It adds a separately installed After Effects CEP connector and guarded MOGRT studio: five bounded recipes, optional brand-kit constraints, JSON/CSV batch previews, immutable local-library publishing, source inspection, queue-only renders, and explicit Premiere verification handoff. The feature requires a user-opened, saved After Effects project and does not claim visual, import, playback, or completed-render verification. These are catalog, packaging, and HTTP authorization facts from the repository, not a promise that a particular host operation will work.
+**Release facts:** v1.14.9 registers 349 core tools; the default profile exposes 347; an authenticated compatible UXP host can add 93 capability-gated tools for a 440-tool connected surface. The release also declares 43 modules, 4 MCP resources, and 16 workflow prompts. It adds a separately installed After Effects CEP connector and guarded MOGRT studio: five bounded recipes, optional brand-kit constraints, JSON/CSV batch previews, immutable local-library publishing, source inspection, queue-only renders, and explicit Premiere verification handoff. The feature requires a user-opened, saved After Effects project and does not claim visual, import, playback, or completed-render verification. These are catalog, packaging, and HTTP authorization facts from the repository, not a promise that a particular host operation will work.
 
 **Compatibility boundary:** The release targets Premiere Pro 2020–2026; UXP workflows require a compatible Premiere Pro 25.6.0+ host and advertised capabilities. CEP remains the default compatibility route. A compatibility range, package validation, CI pass, HTTP health check, or local build is not real-host proof.
 
@@ -174,6 +174,7 @@
 
 *Newest first. One line per revision: what changed and why.*
 
+- v11 (2026-09-04) — Aligned the public release facts with v1.14.9's guarded MOGRT studio, assistant workflows, and explicit host-proof boundaries.
 - v10 (2026-09-04) — Prepared v1.14.8 guarded After Effects MOGRT-authoring positioning; preserved the licensed-host, visual, and import-verification boundaries.
 - v9 (2026-08-23) — Refreshed the Adobe AI Assistant public-beta scope and added project-backup, visual-review, and delivery-QC guide intents with explicit evidence boundaries.
 - v8 (2026-08-22) — Prepared v1.13.0 release-candidate positioning for preview-only Project Intake while preserving the unpublished and licensed-host evidence boundaries.
