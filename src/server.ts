@@ -48,6 +48,7 @@ import { getCompetitorGapTools } from "./tools/competitor-gaps.js";
 import { getDialogueAnalysisTools } from "./tools/dialogue-analysis.js";
 import { MediaWatchRegistry, getMediaWatchTools } from "./tools/media-watch.js";
 import { getWorkflowRecipeTools } from "./tools/workflow-recipes.js";
+import { getPlatformDeliveryTools } from "./tools/platform-delivery.js";
 import { getUxpTools } from "./tools/uxp.js";
 import { getMogrtAuthoringTools } from "./tools/mogrt-authoring.js";
 import { getMogrtStudioTools } from "./tools/mogrt-studio.js";
@@ -229,6 +230,7 @@ function collectStaticTools(
     ...getProjectIntakeTools(bridgeOptions),
     ...getDialogueAnalysisTools(),
     ...getWorkflowRecipeTools(),
+    ...getPlatformDeliveryTools(),
   };
   toolCatalogCache.set(cacheKey, tools);
   return tools;

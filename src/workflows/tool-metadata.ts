@@ -28,6 +28,8 @@ const READ_ONLY_TOOLS = new Set([
   "preview_derived_dialogue_sequence_uxp",
   "preview_workflow_recipe",
   "preview_watched_media_import",
+  "plan_platform_delivery_matrix",
+  "validate_platform_publish_package",
 ]);
 const DESTRUCTIVE_PREFIXES = ["delete_", "remove_", "ripple_delete", "close_"];
 const DESTRUCTIVE_TOOLS = new Set(["manage_project_context"]);

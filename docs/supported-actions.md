@@ -10,11 +10,11 @@ source catalog may include unreleased actions.
 
 | Surface | Count | Availability |
 | --- | ---: | --- |
-| Registered core actions | 349 | CEP/local server catalog; host and authority checks still apply |
-| Default-profile core actions | 347 | Advertised with `inspect,edit,export,filesystem` |
+| Registered core actions | 351 | CEP/local server catalog; host and authority checks still apply |
+| Default-profile core actions | 349 | Advertised with `inspect,edit,export,filesystem` |
 | Restricted core actions | 2 | Require explicit `unsafe-script` authority |
 | Authenticated UXP additions | 93 | Advertised only while a compatible authenticated UXP panel is connected |
-| Default profile with UXP | 440 | 347 core plus 93 UXP tools |
+| Default profile with UXP | 442 | 349 core plus 93 UXP tools |
 
 ## How to read support
 
@@ -252,6 +252,7 @@ operation” when the tool has no enum-based mode.
 | `overwrite_clip` | Default profile | Single operation | Overwrite a project item onto validated timeline tracks and verify a new source placement at the requested time |
 | `overwrite_from_source` | Default profile | Single operation | Overwrite the clip from the Source Monitor at the playhead position (overwrite edit — replaces existing clips). |
 | `ping` | Default profile | Single operation | Health check — verify the CEP plugin is running and connected to Premiere Pro. Call this before other tools to confirm connectivity. |
+| `plan_platform_delivery_matrix` | Default profile | `strategy`: `auto_reframe`, `pad_blur`, `center_crop`, `letterbox` | Plan multi-ratio delivery of one source sequence to TikTok, Reels, Shorts, YouTube, LinkedIn, X, and Facebook from a local spec table: sequence settings, reframe scale math, duration and file-size fit, caption safe zones, and ordered apply routes. Local-only; never changes Premiere. |
 | `plan_shot_match` | Default profile | Single operation | Compare two bounded local-media frame samples and return measured waveform/parade/saturation deltas plus coarse correction directions. Read-only planning only; it does not grade Premiere or claim that primaries alone can match the shots. |
 | `plan_silence_review_markers` | Default profile | Single operation | Create a bounded, non-mutating review plan that maps FFmpeg-detected source-media silences onto one known 1x timeline placement. It clips candidates to the supplied source in/out span, redacts the source path, and never adds markers, cuts clips, or changes Premiere. |
 | `play_source_monitor` | Default profile | Single operation | Request playback of the clip in the Source Monitor. The legacy API does not provide a same-call position readback, so movement is not reported as verified. |
@@ -376,6 +377,7 @@ operation” when the tool has no enum-based mode.
 | `validate_cmx3600_edl` | Default profile | Single operation | Validate a local CMX 3600 EDL's supported event grammar, timecodes, durations, duplicate event IDs, record overlaps, and record gaps before user-assisted Premiere interchange. |
 | `validate_export_preset` | Default profile | Single operation | Validate that an Adobe Media Encoder .epr preset exists and ask the active Premiere sequence which output extension it produces |
 | `validate_mogrt_brand_kit` | Default profile | Single operation | Validate an operator-approved local MOGRT brand kit before using it in a template or batch preview. It never reads font inventories, image pixels, or writes files. |
+| `validate_platform_publish_package` | Default profile | `platform`: `tiktok`, `instagram_reels`, `instagram_feed`, `instagram_story`, `youtube_shorts`, `youtube`, `linkedin`, `x`, `facebook_reels` | Validate a rendered file plus title, description, hashtags, and content flags against one platform's approximate 2026 publish limits. Returns hard violations, soft warnings, normalized hashtags, and character counts. Local-only; never uploads or changes Premiere. |
 | `validate_project_for_export` | Default profile | Single operation | Run a non-mutating export readiness audit for an active or named sequence. It reports blocking offline media, empty timelines, inaccessible preset/output paths, duration, and optional timeline gaps without queuing an export. |
 | `verify_after_effects_connection` | Default profile | Single operation | Read-only check that the dedicated After Effects CEP connector is running. It never reads project names, media, or paths. |
 | `verify_delivery_conformance` | Default profile | Single operation | Verify a local exported file against an explicit delivery contract using ffprobe and optional EBU R128 analysis. Returns pass, fail, or not_evaluated per check; it does not prove Premiere render lineage or visual approval. |

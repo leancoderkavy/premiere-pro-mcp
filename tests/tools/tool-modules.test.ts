@@ -58,6 +58,7 @@ import { getCompetitorGapTools } from "../../src/tools/competitor-gaps.js";
 import { getSpotWorkflowTools } from "../../src/tools/spot-workflows.js";
 import { getMogrtAuthoringTools } from "../../src/tools/mogrt-authoring.js";
 import { getMogrtStudioTools } from "../../src/tools/mogrt-studio.js";
+import { getPlatformDeliveryTools } from "../../src/tools/platform-delivery.js";
 import type { Telemetry, TelemetryProperties } from "../../src/telemetry.js";
 
 interface ToolDef {
@@ -114,6 +115,7 @@ const ALL_MODULES: Array<{
   { name: "spot-workflows", getter: getSpotWorkflowTools, minTools: 4 },
   { name: "mogrt-authoring", getter: getMogrtAuthoringTools, minTools: 4 },
   { name: "mogrt-studio", getter: getMogrtStudioTools, minTools: 11 },
+  { name: "platform-delivery", getter: getPlatformDeliveryTools, minTools: 2 },
 ];
 
 describe("Tool Module Structure", () => {
@@ -198,16 +200,16 @@ describe("Tool Module Structure", () => {
 });
 
 describe("Total Tool Count", () => {
-  it("all modules together have 342 tools", () => {
+  it("all modules together have 344 tools", () => {
     let total = 0;
     for (const mod of ALL_MODULES) {
       total += Object.keys(mod.getter(bridgeOptions)).length;
     }
-    expect(total).toBe(342);
+    expect(total).toBe(344);
   });
 
-  it("there are 40 directly enumerated modules", () => {
-    expect(ALL_MODULES.length).toBe(40);
+  it("there are 41 directly enumerated modules", () => {
+    expect(ALL_MODULES.length).toBe(41);
   });
 });
 

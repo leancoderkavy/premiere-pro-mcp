@@ -8,7 +8,7 @@
 
 **Give compatible AI assistants structured control over supported Adobe Premiere Pro workflows.**
 
-349 core tools across 43 modules, 4 resources, and 16 guided workflows. A connected UXP host adds 93 capability-gated tools.
+351 core tools across 44 modules, 4 resources, and 16 guided workflows. A connected UXP host adds 93 capability-gated tools.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Node.js](https://img.shields.io/badge/Node.js-20.19%2B-green.svg)](https://nodejs.org)
@@ -31,7 +31,7 @@ An [MCP (Model Context Protocol)](https://modelcontextprotocol.io) server that l
 "Add the B-roll clips to V2, apply a cross dissolve between each, color correct them to match the A-roll, and export a 1080p ProRes."
 ```
 
-The AI handles the entire workflow through 349 core tools spanning the supported ExtendScript, QE DOM, local media and interchange analysis, revisioned project-context retrieval, safe edit-planning, project-intake preview, review handoff, connection verification, and guarded After Effects MOGRT authoring, batch, library, render-queue, inspection, and Premiere-handoff workflows. A compatible, authenticated UXP panel adds 93 documented, capability-gated tools without replacing the production CEP bridge.
+The AI handles the entire workflow through 351 core tools spanning the supported ExtendScript, QE DOM, local media and interchange analysis, revisioned project-context retrieval, safe edit-planning, project-intake preview, review handoff, connection verification, and guarded After Effects MOGRT authoring, batch, library, render-queue, inspection, and Premiere-handoff workflows. A compatible, authenticated UXP panel adds 93 documented, capability-gated tools without replacing the production CEP bridge.
 
 ### Latest release: 1.14.9
 
@@ -482,7 +482,7 @@ installed separately.
 QE-backed tools are reported as `experimental` because QE is undocumented and can vary between Premiere builds. Authority availability is reported separately from implementation support, so disabling `edit`, for example, does not incorrectly label editing tools as unsupported. Static metadata never claims that a Premiere operation succeeded; use `ping` and inspect each tool result for runtime evidence.
 
 MCP `tools/list` is filtered to the active authority profile. The default
-`inspect,edit,export,filesystem` profile advertises 347 of the 349 registered
+`inspect,edit,export,filesystem` profile advertises 349 of the 351 registered
 tools and omits `execute_extendscript` and `evaluate_expression`, which require
 explicit `unsafe-script` authority. `ping` and `get_capabilities` remain visible
 under every profile so a restricted or misconfigured server can still explain
@@ -728,7 +728,7 @@ opaque `UniqueSerializeable` identity twice, and rejects drift without retaining
 the value or treating it as edit authority. See the [unique-identity workflow
 notes](docs/uxp-unique-identity-workflows.md) for its bounds and proof boundary.
 
-## Tools (349 core total; 347 under the default profile; 440 with a connected UXP bridge)
+## Tools (351 core total; 349 under the default profile; 442 with a connected UXP bridge)
 
 The [complete supported-actions catalog](docs/supported-actions.md) lists every
 registered core tool, the two tools restricted behind explicit `unsafe-script`
@@ -913,6 +913,13 @@ than presenting UI-only operations as available tools.
 | :--- | :---------- |
 | `get_workspaces` / `set_workspace` | Switch workspace layouts |
 | `create_caption_track` | Create caption/subtitle tracks |
+
+### Platform Delivery Planning (2)
+
+| Tool | Description |
+| :--- | :---------- |
+| `plan_platform_delivery_matrix` | Per-platform sequence settings, fit/fill reframe math, duration and file-size fit, caption safe zones, and an ordered clone → reframe → caption → export → verify route |
+| `validate_platform_publish_package` | Validate a rendered file plus title, description, hashtags, and content flags against approximate TikTok, Reels, Shorts, YouTube, LinkedIn, X, and Facebook limits |
 
 ### Scripting (2)
 
@@ -1105,11 +1112,11 @@ premiere-pro-mcp/
 ├── src/
 │   ├── index.ts                 # Entry point — stdio transport setup
 │   ├── http-server.ts           # Entry point — HTTP/SSE transport (Fly.io / remote)
-│   ├── server.ts                # MCP server — registers 349 tools, filtered by authority profile
+│   ├── server.ts                # MCP server — registers 351 tools, filtered by authority profile
 │   ├── bridge/
 │   │   ├── file-bridge.ts       # File-based IPC (write .jsx, poll .json)
 │   │   └── script-builder.ts    # ExtendScript generator with ES3 helpers
-│   ├── tools/                   # 43 tool modules
+│   ├── tools/                   # 44 tool modules
 │   │   ├── discovery.ts         # Project discovery and queries
 │   │   ├── recovery.ts          # Read-only autosave discovery and private bridge telemetry
 │   │   ├── project.ts           # Project management and import

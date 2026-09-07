@@ -6,6 +6,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+
+- Added local platform-delivery planning: `plan_platform_delivery_matrix`
+  turns one source sequence into per-platform sequence settings, exact
+  fit/fill reframe math, duration and file-size fit, caption safe zones, and
+  an ordered route through existing clone, reframe, caption, export, and
+  delivery-verification tools. `validate_platform_publish_package` checks a
+  rendered file plus title, description, hashtags, and content flags against
+  approximate TikTok, Reels, Shorts, YouTube, LinkedIn, X, and Facebook limits.
+  Both are read-only and never change Premiere.
+
 ## [1.14.9] - 2026-09-04
 
 ### Added
