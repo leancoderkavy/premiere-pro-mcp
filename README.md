@@ -8,7 +8,7 @@
 
 **Give compatible AI assistants structured control over supported Adobe Premiere Pro workflows.**
 
-Commonly searched as **Premiere Pro MCP**. Free, MIT licensed, local-first, and published to npm as [`premiere-pro-mcp`](https://www.npmjs.com/package/premiere-pro-mcp).
+Free, MIT licensed, local-first, and published to npm as [`premiere-pro-mcp`](https://www.npmjs.com/package/premiere-pro-mcp) — the only package name that installs this project.
 
 Development source: 365 core tools across 50 modules, 4 resources, and 16 guided workflows. A connected UXP host adds 93 capability-gated tools.
 
@@ -58,7 +58,7 @@ Development source: 365 core tools across 50 modules, 4 resources, and 16 guided
 - [Environment Variables](#environment-variables)
 - [Project Structure](#project-structure)
 - [Technical Details](#technical-details)
-- [Premiere Pro MCP FAQ](#premiere-pro-mcp-faq)
+- [Frequently asked questions](#frequently-asked-questions)
 - [Troubleshooting](#troubleshooting)
 - [Star history](#star-history)
 - [Support the project](#support-the-project)
@@ -74,12 +74,11 @@ An [MCP (Model Context Protocol)](https://modelcontextprotocol.io) server that l
 "Add the B-roll clips to V2, apply a cross dissolve between each, color correct them to match the A-roll, and export a 1080p ProRes."
 ```
 
-### Premiere Pro MCP at a glance
+### At a glance
 
 | | |
 | --- | --- |
-| Common name | Premiere Pro MCP |
-| Canonical project name | MCP for Adobe Premiere Pro |
+| Display name | MCP for Adobe Premiere Pro |
 | npm package | `premiere-pro-mcp` |
 | Install (npm route) | `npm install -g premiere-pro-mcp` |
 | Connector install | `premiere-pro-mcp --install-cep` |
@@ -90,9 +89,9 @@ An [MCP (Model Context Protocol)](https://modelcontextprotocol.io) server that l
 | Hosts | Windows and macOS, Premiere Pro 2020-2026 |
 
 This project is independent and is not affiliated with or endorsed by Adobe Inc.
-It is also a separate project from other Premiere Pro MCP servers; the only npm
-package published by this repository is `premiere-pro-mcp`, and no other package
-name installs it.
+It is also separate from other MCP servers for Premiere Pro. The only npm package
+published from this repository is `premiere-pro-mcp`, and no other package name
+installs it.
 
 The current source exposes 365 core tools for supported workflow steps spanning the supported ExtendScript, QE DOM, local media and interchange analysis, revisioned project-context retrieval, safe edit-planning, project-intake preview, review handoff, connection verification, and guarded After Effects MOGRT authoring, batch, library, render-queue, inspection, and Premiere-handoff workflows. A compatible, authenticated UXP panel adds 93 documented, capability-gated tools without replacing the production CEP bridge.
 
@@ -1343,48 +1342,48 @@ Many tools use the undocumented QE DOM (enabled via `app.enableQE()`). These too
 
 ---
 
-## Premiere Pro MCP FAQ
+## Frequently asked questions
 
-**What is Premiere Pro MCP?**
-Premiere Pro MCP is an open-source [Model Context Protocol](https://modelcontextprotocol.io)
-server that gives a compatible AI assistant structured, reviewable control over
-supported Adobe Premiere Pro workflows on your own computer. The canonical project
-name is MCP for Adobe Premiere Pro; the npm package is `premiere-pro-mcp`.
+**What is an MCP server for Adobe Premiere Pro?**
+It is a [Model Context Protocol](https://modelcontextprotocol.io) server that gives a
+compatible AI assistant structured, reviewable control over supported Adobe Premiere
+Pro workflows on your own computer. This project's display name is MCP for Adobe
+Premiere Pro; its npm package is `premiere-pro-mcp`.
 
-**How do I use Premiere Pro MCP with Claude?**
+**How do I use it with Claude?**
 Install the [Claude Desktop bundle](#easiest-supported-path-claude-desktop), install
 the separate signed Premiere connector, restart Premiere, then ask Claude to run
 `verify_premiere_connection` with no changes. That first prompt is read-only.
 
-**Where is the Premiere Pro MCP GitHub repository?**
+**Where is the GitHub repository?**
 <https://github.com/leancoderkavy/premiere-pro-mcp>. Releases, the signed `.zxp`
-connector, and the Claude `.mcpb` bundle are published on that repository's
+connector, and the Claude `.mcpb` bundle are on that repository's
 [Releases](https://github.com/leancoderkavy/premiere-pro-mcp/releases) page.
 
-**What is the MCP bridge in Premiere Pro?**
-The bridge is a local CEP panel (`Window > Extensions > MCP for Adobe Premiere Pro`)
-that connects the MCP server to a running Premiere Pro instance. "Running" in the
-panel means the local bridge is available; it does not by itself show that an edit
-completed. An authenticated UXP panel is an additional, capability-gated route.
+**What is the bridge panel in Premiere Pro?**
+A local CEP panel (`Window > Extensions > MCP for Adobe Premiere Pro`) that connects
+the server to a running Premiere Pro instance. "Running" in the panel means the local
+bridge is available; it does not by itself show that an edit completed. An
+authenticated UXP panel is an additional, capability-gated route.
 
-**Is there a Premiere Pro MCP setup guide?**
-Yes - [`premiere-mcp-setup-guide.md`](premiere-mcp-setup-guide.md) is a portable
-guide you can attach to any AI assistant, and
-<https://premiere-pro-mcp.com/docs/> hosts the published documentation.
+**Is there a setup guide?**
+Yes - [`premiere-mcp-setup-guide.md`](premiere-mcp-setup-guide.md) is a portable guide
+you can attach to any AI assistant, and <https://premiere-pro-mcp.com/docs/> hosts the
+published documentation.
 
-**Does Premiere Pro MCP run on Windows and macOS?**
+**Does it run on Windows and macOS?**
 Both. Node.js 20.19 or newer and Premiere Pro 2020-2026 are required, and the
 assistant, server, connector, and Premiere should stay on the same computer.
 Individual tool support remains capability- and host-dependent.
 
-**Is Premiere Pro MCP the same as Adobe's AI Assistant?**
-No. This is an independent MIT-licensed project, not an Adobe product and not
-Adobe's native AI Assistant. It is also distinct from other Premiere Pro MCP
-servers; `premiere-pro-mcp` is the only npm package published from this repository.
+**Is this Adobe's AI Assistant?**
+No. This is an independent MIT-licensed project, not an Adobe product and not Adobe's
+native AI Assistant. It is also distinct from other MCP servers for Premiere Pro;
+`premiere-pro-mcp` is the only npm package published from this repository.
 
-**Is Premiere Pro MCP free?**
-Yes. The server, the CEP connector, and the documentation are MIT licensed and
-free to use.
+**Is it free?**
+Yes. The server, the CEP connector, and the documentation are MIT licensed and free
+to use.
 
 ---
 

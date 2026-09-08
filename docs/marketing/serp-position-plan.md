@@ -31,30 +31,46 @@ age, link and engagement signals, and exact-phrase coverage.
 
 ## Gaps found
 
-1. **Exact query phrase absent from the README.** Before this plan the string
-   "Premiere Pro MCP" appeared zero times in `README.md`; every mention used
-   the canonical inversion "MCP for Adobe Premiere Pro". The canonical name is
-   worth keeping, but the searched phrase needs to appear as a stated alias.
-2. **Not published to the official MCP Registry.** A registry query for
+1. **Not published to the official MCP Registry.** A registry query for
    `io.github.leancoderkavy` returns `count: 0`. Two other Premiere servers are
    listed. The registry is the upstream source for several directory sites that
    already rank on this query, so the absence costs both listings and links.
-3. **Stale tool count in the GitHub repository description.** The description
+   This is the largest remaining gap.
+2. **Stale tool count in the GitHub repository description.** The description
    reads 344 tools while the published npm artifact exposes 349 and the
    development source exposes 365. The description is also what Google renders
    as the result title for the repository page.
-4. **AI Overview attributes the wrong install command.** The Overview shown on
+3. **AI Overview attributes the wrong install command.** The Overview shown on
    this query pairs `npm install -g adobe-premiere-pro-mcp` with this project's
    `premiere-pro-mcp --install-cep`, blending two separate projects. The only
    npm package published from this repository is `premiere-pro-mcp`.
 
+## Constraint: the searched phrase is a retired display name
+
+The query string itself is a retired display name under the naming boundary in
+[`adobe-marketplace-resubmission.md`](../adobe-marketplace-resubmission.md), and
+`scripts/validate-adobe-marketplace-branding.mjs` fails the build if it appears
+in `README.md`, either plugin manifest, the Claude manifest, or
+`landing/lib/product.ts`. The display name describes compatibility instead of
+presenting an Adobe product name as this project's brand.
+
+Keyword work therefore cannot raise exact-phrase density on customer-facing
+surfaces, and should not try to. Two observations bound how much that costs:
+
+- The site already reached position 2 on this query while using only the
+  compliant display name, so the match does not depend on the literal string.
+- Package and repository identifiers such as `premiere-pro-mcp` are stable
+  technical identifiers and remain available for npm keywords and URLs.
+
+Treat the naming boundary as fixed. Route ranking effort to registry
+publication, directory listings, and answer accuracy instead.
+
 ## Actions taken in the repository
 
-- README: alias line under the title, a "Premiere Pro MCP at a glance"
-  identity table naming the canonical package and install commands, and a FAQ
-  section answering the related queries Google lists for this term.
-- `package.json`: added exact-phrase and alias keywords.
-- `landing/app/layout.tsx`: home page title now leads with the searched phrase.
+- README: an at-a-glance identity table naming the canonical package and the
+  exact install commands, plus a FAQ section covering the related queries
+  Google lists for this term. Both use the compliant display name.
+- `package.json`: added hyphenated identifier keywords.
 
 ## Actions that require owner authorization
 
@@ -65,8 +81,9 @@ These are outward-facing and are not performed automatically.
    `npm run validate:mcp-registry-metadata` and `npm run preflight:mcp-registry`,
    then `mcp-publisher login github` and
    `mcp-publisher publish registry/server.json`.
-2. **Update the GitHub repository description** so it leads with the searched
-   phrase and carries a current tool count.
+2. **Update the GitHub repository description** so it carries a current tool
+   count. Keep the compliant display name; the naming boundary applies to this
+   customer-facing field as well.
 3. **Submit to the directory sites already ranking on this query** once the
    registry listing exists, using only the evidence-bounded facts listed in
    `mcp-registry-readiness.md`.

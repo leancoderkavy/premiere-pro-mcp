@@ -16,7 +16,7 @@ describe("landing AI and search discovery", () => {
 
     expect(layout).toContain('href="/llms.txt"');
     expect(layout).toContain('href="/llms-full.txt"');
-    expect(layout).toContain("Premiere Pro MCP - MCP Server for Adobe Premiere Pro");
+    expect(layout).toContain("MCP for Adobe Premiere Pro | Reviewable Workflow Automation");
     expect(home).toContain('alternateName: ["Premiere Pro MCP", "premiere-pro-mcp"]');
     expect(hero).toContain("MCP for Adobe Premiere Pro:");
     expect(llms).toContain("Preferred product name: **MCP for Adobe Premiere Pro**");

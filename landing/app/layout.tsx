@@ -16,7 +16,7 @@ const geistMono = Geist_Mono({
 });
 
 const siteUrl = "https://premiere-pro-mcp.com";
-const title = "Premiere Pro MCP - MCP Server for Adobe Premiere Pro";
+const title = "MCP for Adobe Premiere Pro | Reviewable Workflow Automation";
 const description =
   "Premiere Pro MCP connects compatible AI clients to local, reviewable Adobe Premiere Pro workflows with explicit previews, confirmation, and returned diagnostics.";
 const googleAnalyticsId =
