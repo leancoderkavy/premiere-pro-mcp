@@ -10,11 +10,11 @@ source catalog may include unreleased actions.
 
 | Surface | Count | Availability |
 | --- | ---: | --- |
-| Registered core actions | 365 | CEP/local server catalog; host and authority checks still apply |
-| Default-profile core actions | 363 | Advertised with `inspect,edit,export,filesystem` |
+| Registered core actions | 366 | CEP/local server catalog; host and authority checks still apply |
+| Default-profile core actions | 364 | Advertised with `inspect,edit,export,filesystem` |
 | Restricted core actions | 2 | Require explicit `unsafe-script` authority |
 | Authenticated UXP additions | 93 | Advertised only while a compatible authenticated UXP panel is connected |
-| Default profile with UXP | 456 | 363 core plus 93 UXP tools |
+| Default profile with UXP | 457 | 364 core plus 93 UXP tools |
 
 ## How to read support
 
@@ -218,6 +218,7 @@ operation” when the tool has no enum-based mode.
 | `inspect_dom_object` | Default profile | Single operation | Inspect a Premiere Pro DOM object and list its properties, methods, and values. Useful for exploring the API and debugging. Examples: - "app.project" → project properties - "app.project.activeSequence" → sequence properties - "app.project.activeSequence.videoTracks[0].clips[0]" → first clip on V1 - "app.project.activeSequence.videoTracks[0].clips[0].components[0]" → first component of a clip |
 | `inspect_edit_readiness` | Default profile | Single operation | Audit the active sequence in one read-only bridge request for empty timelines, primary-track gaps, disabled clips, muted tracks, and excessive Motion scale. Structural diagnostics only; it cannot judge story, framing, sound, or final delivery. |
 | `inspect_fcpxml_interchange` | Default profile | Single operation | Inspect a local FCPXML document's root version, sequence/clip counts, bounded asset declarations, and text-only parser warnings before deliberate Premiere import. |
+| `inspect_film_editorial_workflow` | Default profile | Single operation | Validate a revision-bound film editorial manifest against captured source and timeline identities. Build complete declared coverage review groups, independent picture/audio preferences, screening-note exceptions, story dependencies, VFX state, change impact and a department turnover manifest. Local inspection only: no host edits, exports, automatic creative decisions or verified host claims. |
 | `inspect_media_streams` | Default profile | Single operation | Inspect a local media file with ffprobe and return container, stream, codec, time-base, channel, and chapter metadata. Read-only and independent of Premiere. |
 | `inspect_mogrt_library` | Default profile | Single operation | List bounded top-level template names and version directories in an existing workspace-contained local MOGRT library. It never reads MOGRT contents or changes the library. |
 | `inspect_project_item_av_metadata` | Default profile | Single operation | Inspect a project item's documented effective/original color space, LUT IDs, available color-space overrides, and audio channel shape. |

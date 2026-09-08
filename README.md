@@ -10,7 +10,7 @@
 
 Free, MIT licensed, local-first, and published to npm as [`premiere-pro-mcp`](https://www.npmjs.com/package/premiere-pro-mcp) — the only package name that installs this project.
 
-Development source: 365 core tools across 50 modules, 4 resources, and 16 guided workflows. A connected UXP host adds 93 capability-gated tools.
+Development source: 366 core tools across 51 modules, 4 resources, and 17 guided workflows. A connected UXP host adds 93 capability-gated tools.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Node.js](https://img.shields.io/badge/Node.js-20.19%2B-green.svg)](https://nodejs.org)
@@ -93,7 +93,7 @@ It is also separate from other MCP servers for Premiere Pro. The only npm packag
 published from this repository is `premiere-pro-mcp`, and no other package name
 installs it.
 
-The current source exposes 365 core tools for supported workflow steps spanning the supported ExtendScript, QE DOM, local media and interchange analysis, revisioned project-context retrieval, safe edit-planning, project-intake preview, review handoff, connection verification, and guarded After Effects MOGRT authoring, batch, library, render-queue, inspection, and Premiere-handoff workflows. A compatible, authenticated UXP panel adds 93 documented, capability-gated tools without replacing the production CEP bridge.
+The current source exposes 366 core tools for supported workflow steps spanning the supported ExtendScript, QE DOM, local media and interchange analysis, revisioned project-context retrieval, safe edit-planning, project-intake preview, review handoff, connection verification, and guarded After Effects MOGRT authoring, batch, library, render-queue, inspection, and Premiere-handoff workflows. A compatible, authenticated UXP panel adds 93 documented, capability-gated tools without replacing the production CEP bridge.
 
 <a id="latest-release"></a>
 
@@ -561,7 +561,7 @@ installed separately.
 QE-backed tools are reported as `experimental` because QE is undocumented and can vary between Premiere builds. Authority availability is reported separately from implementation support, so disabling `edit`, for example, does not incorrectly label editing tools as unsupported. Static metadata never claims that a Premiere operation succeeded; use `ping` and inspect each tool result for runtime evidence.
 
 MCP `tools/list` is filtered to the active authority profile. The default
-`inspect,edit,export,filesystem` profile advertises 363 of the 365 registered
+`inspect,edit,export,filesystem` profile advertises 364 of the 366 registered
 tools and omits `execute_extendscript` and `evaluate_expression`, which require
 explicit `unsafe-script` authority. `ping` and `get_capabilities` remain visible
 under every profile so a restricted or misconfigured server can still explain
@@ -809,7 +809,15 @@ opaque `UniqueSerializeable` identity twice, and rejects drift without retaining
 the value or treating it as edit authority. See the [unique-identity workflow
 notes](docs/uxp-unique-identity-workflows.md) for its bounds and proof boundary.
 
-## Tools (365 core total; 363 under the default profile; 456 with a connected UXP bridge)
+## Film editorial review
+
+`inspect_film_editorial_workflow` validates captured identities and explicit
+source/scene coverage, builds marker/stringout/line/beat review artifacts, and
+reports revision-bound notes, VFX state, change impact and turnover exceptions.
+It performs local inspection; host edits and exports use separate guarded tools.
+See [usage, example and remaining execution adapters](docs/film-editorial-workflows.md).
+
+## Tools (366 core total; 364 under the default profile; 457 with a connected UXP bridge)
 
 The [complete supported-actions catalog](docs/supported-actions.md) lists every
 registered core tool, the two tools restricted behind explicit `unsafe-script`
@@ -1237,7 +1245,7 @@ premiere-pro-mcp/
 ├── src/
 │   ├── index.ts                 # Entry point — stdio transport setup
 │   ├── http-server.ts           # Entry point — HTTP/SSE transport (Fly.io / remote)
-│   ├── server.ts                # MCP server — registers 365 tools, filtered by authority profile
+│   ├── server.ts                # MCP server — registers 366 tools, filtered by authority profile
 │   ├── bridge/
 │   │   ├── file-bridge.ts       # File-based IPC (write .jsx, poll .json)
 │   │   └── script-builder.ts    # ExtendScript generator with ES3 helpers

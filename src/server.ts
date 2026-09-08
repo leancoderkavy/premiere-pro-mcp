@@ -42,6 +42,7 @@ import { getRecoveryTools } from "./tools/recovery.js";
 import { getProjectContextTools } from "./tools/project-context.js";
 import { getEditorialPlanTools } from "./tools/editorial-plans.js";
 import { getEditorialContextPackTools } from "./tools/editorial-context-pack.js";
+import { getFilmEditorialTools } from "./tools/film-editorial.js";
 import { ProjectContextRepository } from "./context/project-context-store.js";
 import { getProjectIntakeTools } from "./tools/project-intake.js";
 import { getCompetitorGapTools } from "./tools/competitor-gaps.js";
@@ -265,6 +266,7 @@ function collectTools(
     ...collectStaticTools(bridgeOptions, capabilities),
     ...getProjectContextTools(bridgeOptions, { repository: projectContextRepository }),
     ...getEditorialContextPackTools({ repository: projectContextRepository }),
+    ...getFilmEditorialTools({ repository: projectContextRepository }),
     ...getEditorialPlanTools({ repository: projectContextRepository, uxpBridge }),
     ...getCompetitorGapTools(bridgeOptions, uxpBridge),
     ...getMediaWatchTools(mediaWatchRegistry),

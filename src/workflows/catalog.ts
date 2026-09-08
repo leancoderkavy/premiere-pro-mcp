@@ -2,6 +2,12 @@ import { z } from "zod";
 
 export const WORKFLOW_CATALOG = [
   {
+    id: "film-editorial",
+    title: "Review film editorial coverage and handoff",
+    summary: "Capture source and timeline context, supply an explicit film manifest, inspect coverage and review layouts, resolve revision-bound notes and turnover exceptions, then use separately guarded host tools for approved edits and exports.",
+    recommendedTools: ["manage_project_context", "inspect_film_editorial_workflow", "create_editorial_plan", "preview_editorial_plan", "diff_sequence_snapshots"],
+  },
+  {
     id: "rough-cut",
     title: "Assemble a rough cut",
     summary: "Inspect the project, import media, create or select a sequence, assemble clips, then verify and save.",
