@@ -1,0 +1,40 @@
+{
+  "project_id": "p",
+  "expected_context_revision": "c1",
+  "expected_source_revision": "s1",
+  "expected_timeline_revision": "t1",
+  "script_revision": "script1",
+  "profile": {
+    "name": "Dialogue review",
+    "reviewMode": "line_comparison",
+    "overlapFrames": 0,
+    "trackRoles": [
+      { "name": "Picture", "type": "video", "index": 0 },
+      { "name": "Dialogue", "type": "audio", "index": 0 }
+    ]
+  },
+  "scenes": [{ "id": "scene1", "label": "Kitchen" }],
+  "sources": [{
+    "evidenceId": "source-e", "sourceId": "source", "sourceRevision": "s1",
+    "durationFrames": 240, "timebase": { "numerator": 24000, "denominator": 1001 },
+    "sync": "checked", "channels": ["Boom", "Lav"]
+  }],
+  "coverage": [{
+    "id": "cov1", "sourceId": "source", "sceneIds": ["scene1"],
+    "range": { "inFrame": 24, "outFrame": 124 },
+    "setup": "Wide", "take": "1", "lineId": "line1",
+    "picture": { "reviewer": "Editor", "revision": "review1", "rank": 1, "reason": "Selected performance for review" }
+  }],
+  "occurrences": [{
+    "id": "occ", "evidenceId": "timeline-e", "timelineRevision": "t1", "sourceId": "source", "coverageId": "cov1",
+    "sequenceId": "seq", "reelId": "reel1",
+    "sourceRange": { "inFrame": 24, "outFrame": 124 },
+    "timelineRange": { "inFrame": 0, "outFrame": 100 },
+    "timebase": { "numerator": 24000, "denominator": 1001 }, "speed": "1x"
+  }],
+  "notes": [],
+  "vfx": [],
+  "storyCards": [{ "id": "card1", "title": "Kitchen", "coverageIds": ["cov1"], "dependsOn": [] }],
+  "turnover": { "department": "sound", "handlesFrames": 24, "format": "AAF", "settings": "48kHz separate audio; verify export settings in host" },
+  "viewing": { "purpose": "screening", "burnIns": false, "roughVfx": true, "tempAudio": true }
+}

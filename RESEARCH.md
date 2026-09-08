@@ -2,6 +2,13 @@
 
 ## Sources Researched
 
+Film editor and assistant-editor workflow research is implemented as the local
+`inspect_film_editorial_workflow` coverage/handoff packet tool. See
+[usage and execution boundaries](docs/film-editorial-workflows.md) and
+[research PR #476](https://github.com/leancoderkavy/premiere-pro-mcp/pull/476).
+The packet verifies captured identities and revisions; it does not establish
+live host timing, creative acceptance, vendor acknowledgement, or export success.
+
 1. **ExtendScript Scripting Guide** (ppro-scripting.docsforadobe.dev) — Complete official reference
 2. **QE DOM API** (vakago-tools.com, community.adobe.com) — Undocumented internal API via `app.enableQE()`
 3. **UXP API Reference** (developer.adobe.com/premiere-pro/uxp/) — Modern API (v25.6+), action-based

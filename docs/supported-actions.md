@@ -10,11 +10,11 @@ source catalog may include unreleased actions.
 
 | Surface | Count | Availability |
 | --- | ---: | --- |
-| Registered core actions | 366 | CEP/local server catalog; host and authority checks still apply |
-| Default-profile core actions | 364 | Advertised with `inspect,edit,export,filesystem` |
+| Registered core actions | 369 | CEP/local server catalog; host and authority checks still apply |
+| Default-profile core actions | 367 | Advertised with `inspect,edit,export,filesystem` |
 | Restricted core actions | 2 | Require explicit `unsafe-script` authority |
 | Authenticated UXP additions | 93 | Advertised only while a compatible authenticated UXP panel is connected |
-| Default profile with UXP | 457 | 364 core plus 93 UXP tools |
+| Default profile with UXP | 460 | 367 core plus 93 UXP tools |
 
 ## How to read support
 
@@ -55,6 +55,7 @@ operation” when the tool has no enum-based mode.
 | `analyze_loudness` | Default profile | Single operation | Measure integrated loudness (LUFS), loudness range (LU), and true peak (dBFS) from a local media file using FFmpeg's EBU R128 filter. Analysis only: it does not normalize audio or change Premiere. |
 | `analyze_video_interlacing` | Default profile | Single operation | Classify decoded video frames as progressive, top-field-first, bottom-field-first, mixed, or undetermined using FFmpeg idet. Read-only delivery preflight. |
 | `analyze_video_qc` | Default profile | Single operation | Analyze a local video delivery for sustained black and frozen sections with FFmpeg. Read-only: it does not contact Premiere or modify the file. |
+| `apply_after_effects_render_handoff` | Default profile | Single operation | Import exactly one previewed completed AE render into its approved Premiere bin after rechecking both hosts and file metadata. Requires confirmation and consumes the token before dispatch. Does not save, render, or change a timeline. |
 | `apply_audio_effect` | Default profile | Single operation | Apply an audio effect to a clip. Uses QE catalog lookup, with an exact-name QE probe when enumeration is empty. |
 | `apply_edit_plan` | Default profile | Single operation | Apply a previously previewed compound edit after revalidating every target. Requires the edit capability and exact preview confirmation token. |
 | `apply_effect` | Default profile | Single operation | Apply a video effect to a clip. Uses QE DOM catalog lookup, with an exact-name QE probe when Premiere's catalog enumeration is empty. |
@@ -218,6 +219,7 @@ operation” when the tool has no enum-based mode.
 | `inspect_dom_object` | Default profile | Single operation | Inspect a Premiere Pro DOM object and list its properties, methods, and values. Useful for exploring the API and debugging. Examples: - "app.project" → project properties - "app.project.activeSequence" → sequence properties - "app.project.activeSequence.videoTracks[0].clips[0]" → first clip on V1 - "app.project.activeSequence.videoTracks[0].clips[0].components[0]" → first component of a clip |
 | `inspect_edit_readiness` | Default profile | Single operation | Audit the active sequence in one read-only bridge request for empty timelines, primary-track gaps, disabled clips, muted tracks, and excessive Motion scale. Structural diagnostics only; it cannot judge story, framing, sound, or final delivery. |
 | `inspect_fcpxml_interchange` | Default profile | Single operation | Inspect a local FCPXML document's root version, sequence/clip counts, bounded asset declarations, and text-only parser warnings before deliberate Premiere import. |
+| `inspect_film_editorial_workflow` | Default profile | Single operation | Validate a revision-bound film editorial manifest against captured source and timeline identities. Build complete declared coverage review groups, independent picture/audio preferences, screening-note exceptions, story dependencies, VFX state, change impact and a department turnover manifest. Local inspection only: no host edits, exports, automatic creative decisions or verified host claims. |
 | `inspect_media_streams` | Default profile | Single operation | Inspect a local media file with ffprobe and return container, stream, codec, time-base, channel, and chapter metadata. Read-only and independent of Premiere. |
 | `inspect_mogrt_library` | Default profile | Single operation | List bounded top-level template names and version directories in an existing workspace-contained local MOGRT library. It never reads MOGRT contents or changes the library. |
 | `inspect_project_item_av_metadata` | Default profile | Single operation | Inspect a project item's documented effective/original color space, LUT IDs, available color-space overrides, and audio channel shape. |
@@ -272,6 +274,7 @@ operation” when the tool has no enum-based mode.
 | `play_source_monitor` | Default profile | Single operation | Request playback of the clip in the Source Monitor. The legacy API does not provide a same-call position readback, so movement is not reported as verified. |
 | `play_timeline` | Default profile | Single operation | Request playback of the active sequence timeline through QE. The legacy API does not provide a same-call playhead readback, so movement is not reported as verified. |
 | `preview_after_effects_render` | Default profile | Single operation | Preview a bounded queue-only After Effects render request for one named composition and existing workspace output directory. It does not contact Adobe, enqueue, or render. |
+| `preview_after_effects_render_handoff` | Default profile | Single operation | Preview import of one completed After Effects single-file render into an existing Premiere bin. Reads both connected hosts and binds approval to file metadata and project/bin identity. Does not render, import, or edit a timeline. |
 | `preview_brand_spot` | Default profile | `motion_style`: `none`, `push_in`, `pull_out`, `alternate` | Preview a brand-spot assembly from existing project items with an optional workspace-contained MOGRT overlay. Preview is local-only; it does not read or import the MOGRT file. |
 | `preview_edit_plan` | Default profile | Single operation | Validate and preview a compound timeline edit without changing Premiere. Returns a confirmation token required by apply_edit_plan. |
 | `preview_editorial_plan` | Default profile | Single operation | Revalidate an exact server-issued editorial plan against the saved project-context revisions and return an opaque confirmation token. This tool is read-only and cannot apply the plan. |

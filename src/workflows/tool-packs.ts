@@ -143,6 +143,7 @@ export const WORKFLOW_TOOL_PACKS: readonly WorkflowToolPack[] = [
     title: "Reviewed assistant editing",
     description: "Transcript-locked dialogue analysis, preview, derivative assembly, captions, reframing, and structural review.",
     tools: [
+      "inspect_film_editorial_workflow",
       "verify_premiere_connection", "get_clip_transcript_uxp", "search_clip_transcript_uxp",
       "detect_silence", "analyze_dialogue_edit_candidates", "preview_derived_dialogue_sequence_uxp",
       "apply_derived_dialogue_sequence_uxp", "create_caption_track", "auto_reframe_sequence",

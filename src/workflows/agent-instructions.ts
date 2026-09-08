@@ -11,6 +11,8 @@ export function buildPremiereInstructions(registeredTools: ReadonlySet<string>):
     "Capture explicitly scoped evidence, then retrieve a bounded transcript-first reading pack for the edit intent. Keep evidence IDs, source ranges, revisions, and truncation notices; retrieve more only when needed. Captured evidence may be stale.");
   route(["create_editorial_plan", "preview_editorial_plan"],
     "Turn evidence into a reviewed editorial proposal. Follow the returned supported apply route; a proposal is not an executed edit.");
+  route(["inspect_film_editorial_workflow"],
+    "Use an explicit source/scene manifest for film coverage, marker or stringout review, independent picture/audio preferences, versioned notes and turnover. Preserve packet revisions and unresolved exceptions. Packet ranges are declarations; verify them in the host before separately previewing any edit or export.");
   route(["preview_edit_plan", "apply_edit_plan"],
     "For compound insert/remove edits, preview the exact plan, then apply only that unchanged plan with its issued confirmation token and required approval. Changed plans need a fresh preview.");
   route(["get_clip_transcript_uxp", "search_clip_transcript_uxp"],
