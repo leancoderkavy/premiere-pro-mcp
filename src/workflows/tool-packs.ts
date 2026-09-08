@@ -151,6 +151,8 @@ export const WORKFLOW_TOOL_PACKS: readonly WorkflowToolPack[] = [
       "detect_repeated_takes",
       "rank_short_form_candidates",
       "plan_chapter_markers",
+      "plan_emphasis_zoom_keyframes",
+      "plan_beat_montage",
     ],
   },
   {

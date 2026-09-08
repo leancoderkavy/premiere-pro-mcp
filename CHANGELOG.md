@@ -8,6 +8,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- Added rhythm planning: `plan_emphasis_zoom_keyframes` turns sentence
+  starts, emphasis words, a fixed interval, or supplied trigger times into
+  Motion Scale and subject-anchored Position keyframes with easing, hold,
+  cooldown, and alternate-return options, shaped for `add_keyframe` and
+  `automate_effect_parameters_uxp`. `plan_beat_montage` carves a detected beat
+  grid into shots every N beats, assigns clips in order, priority, or
+  round-robin, and returns `add_to_timeline_batch` chunks, a trim plan, and
+  beat markers.
 - Added shorts intelligence: `rank_short_form_candidates` scores
   sentence-aligned windows of a word timeline with explainable hook,
   completeness, density, evidence, keyword, duration-fit, and

@@ -10,11 +10,11 @@ source catalog may include unreleased actions.
 
 | Surface | Count | Availability |
 | --- | ---: | --- |
-| Registered core actions | 359 | CEP/local server catalog; host and authority checks still apply |
-| Default-profile core actions | 357 | Advertised with `inspect,edit,export,filesystem` |
+| Registered core actions | 361 | CEP/local server catalog; host and authority checks still apply |
+| Default-profile core actions | 359 | Advertised with `inspect,edit,export,filesystem` |
 | Restricted core actions | 2 | Require explicit `unsafe-script` authority |
 | Authenticated UXP additions | 93 | Advertised only while a compatible authenticated UXP panel is connected |
-| Default profile with UXP | 450 | 357 core plus 93 UXP tools |
+| Default profile with UXP | 452 | 359 core plus 93 UXP tools |
 
 ## How to read support
 
@@ -255,7 +255,9 @@ operation” when the tool has no enum-based mode.
 | `overwrite_clip` | Default profile | Single operation | Overwrite a project item onto validated timeline tracks and verify a new source placement at the requested time |
 | `overwrite_from_source` | Default profile | Single operation | Overwrite the clip from the Source Monitor at the playhead position (overwrite edit — replaces existing clips). |
 | `ping` | Default profile | Single operation | Health check — verify the CEP plugin is running and connected to Premiere Pro. Call this before other tools to confirm connectivity. |
+| `plan_beat_montage` | Default profile | `order`: `as_given`, `priority`, `round_robin` | Plan a beat-synced montage: carve a detect_beats grid into shots every N beats (merging short and splitting long spans), assign clips in order, and emit add_to_timeline_batch chunks, trim ranges, and cut markers. Local-only and deterministic; never changes Premiere. |
 | `plan_chapter_markers` | Default profile | Single operation | Plan YouTube-style chapters from a word-timed transcript using local TextTiling-lite topic-shift detection, titling each chapter from its distinctive tokens. Returns chapters, a youtube_timestamps block and add_marker-ready Chapter markers. Local-only plan; never changes Premiere. |
+| `plan_emphasis_zoom_keyframes` | Default profile | `trigger`: `sentence_start`, `emphasis_words`, `every_n_seconds`, `supplied` | Plan CapCut-style punch-in zoom keyframes (Motion Scale + subject-anchored Position) from a word timeline or supplied trigger times, with cooldown, easing, and hold controls. Local-only and deterministic; returns a keyframe plan for automate_effect_parameters_uxp or add_keyframe and never changes Premiere. |
 | `plan_filler_word_removal` | Default profile | Single operation | Plan word-level filler removal (um, uh, you know...) from a revision-bound word timeline. Returns frame-snapped removal and keep ranges plus apply routes. Local-only; never changes Premiere. |
 | `plan_pause_tightening` | Default profile | Single operation | Plan shortening (not deleting) of inter-word pauses longer than max_pause_seconds down to a target, respecting sentence boundaries. Returns centered removal ranges, keep ranges, savings and apply routes. Local-only; never changes Premiere. |
 | `plan_platform_delivery_matrix` | Default profile | `strategy`: `auto_reframe`, `pad_blur`, `center_crop`, `letterbox` | Plan multi-ratio delivery of one source sequence to TikTok, Reels, Shorts, YouTube, LinkedIn, X, and Facebook from a local spec table: sequence settings, reframe scale math, duration and file-size fit, caption safe zones, and ordered apply routes. Local-only; never changes Premiere. |
