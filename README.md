@@ -17,11 +17,51 @@
 [![Fly.io](https://img.shields.io/badge/Fly.io-deployed-7C3AED.svg)](https://premiere-pro-mcp.fly.dev)
 [![Premiere Pro](https://img.shields.io/badge/Premiere%20Pro-2020--2026-9999FF.svg)](https://www.adobe.com/products/premiere.html)
 
+[![npm downloads](https://img.shields.io/npm/dm/premiere-pro-mcp.svg?label=npm%20downloads)](https://www.npmjs.com/package/premiere-pro-mcp)
+[![GitHub stars](https://img.shields.io/github/stars/leancoderkavy/premiere-pro-mcp?style=flat&logo=github)](https://github.com/leancoderkavy/premiere-pro-mcp/stargazers)
+[![GitHub forks](https://img.shields.io/github/forks/leancoderkavy/premiere-pro-mcp?style=flat&logo=github)](https://github.com/leancoderkavy/premiere-pro-mcp/network/members)
+[![Open issues](https://img.shields.io/github/issues/leancoderkavy/premiere-pro-mcp.svg)](https://github.com/leancoderkavy/premiere-pro-mcp/issues)
+[![Last commit](https://img.shields.io/github/last-commit/leancoderkavy/premiere-pro-mcp.svg)](https://github.com/leancoderkavy/premiere-pro-mcp/commits)
+[![Buy Me A Coffee](https://img.shields.io/badge/Buy%20Me%20A%20Coffee-support%20the%20project-FFDD00?logo=buymeacoffee&logoColor=000000)](https://buymeacoffee.com/leancoderkavy)
+
 </div>
 
 ---
 
 ![MCP for Adobe Premiere Pro turns a structured AI request into an organized local editing workflow](landing/public/marketing/premiere-pro-mcp-campaign-hero-v1.png)
+
+<details>
+<summary><strong>Table of contents</strong></summary>
+
+- [What is this?](#what-is-this)
+  - [Latest release](#latest-release)
+  - [Current MCP protocol support](#current-mcp-protocol-support)
+- [For editors evaluating an AI workflow](#for-editors-evaluating-an-ai-workflow)
+- [Quick Start](#quick-start)
+  - [Easiest supported path: Claude Desktop](#easiest-supported-path-claude-desktop)
+  - [First proof, before the first edit](#first-proof-before-the-first-edit)
+  - [Other AI assistants](#other-ai-assistants)
+  - [Configure your MCP client](#3-configure-your-mcp-client)
+  - [Verify the bridge in Premiere Pro](#4-verify-the-bridge-in-premiere-pro)
+- [Clients and capability coverage](#codex-plugin)
+  - [Codex plugin](#codex-plugin) · [Claude](#claude) · [GPT-6 Astra tool discovery](#gpt-6-astra-and-agent-tool-discovery)
+  - [Windows and macOS capability coverage](#windows-and-macos-capability-coverage)
+  - [After Effects MOGRT studio](#after-effects-mogrt-studio)
+  - [Collaboration and AI feature boundaries](#collaboration-and-ai-feature-boundaries)
+  - [Authenticated UXP connection](#authenticated-uxp-connection)
+- [Architecture](#architecture)
+- [Tools](#tools)
+- [MCP Resources](#mcp-resources)
+- [Remote Deployment (Fly.io)](#remote-deployment-flyio)
+- [Environment Variables](#environment-variables)
+- [Project Structure](#project-structure)
+- [Technical Details](#technical-details)
+- [Troubleshooting](#troubleshooting)
+- [Star history](#star-history)
+- [Support the project](#support-the-project)
+- [Contributing](#contributing) · [License](#license)
+
+</details>
 
 ## What is this?
 
@@ -32,6 +72,8 @@ An [MCP (Model Context Protocol)](https://modelcontextprotocol.io) server that l
 ```
 
 The AI handles the entire workflow through 365 core tools spanning the supported ExtendScript, QE DOM, local media and interchange analysis, revisioned project-context retrieval, safe edit-planning, project-intake preview, review handoff, connection verification, and guarded After Effects MOGRT authoring, batch, library, render-queue, inspection, and Premiere-handoff workflows. A compatible, authenticated UXP panel adds 93 documented, capability-gated tools without replacing the production CEP bridge.
+
+<a id="latest-release"></a>
 
 ### Latest release: 1.14.9
 
@@ -722,6 +764,8 @@ The file-based IPC bridge is simple, reliable, and works across macOS and Window
 
 ---
 
+<a id="tools"></a>
+
 `inspect_unique_object_identity_uxp` is a separate read-only native identity
 inspection route. It resolves exactly one project item or sequence, reads the
 opaque `UniqueSerializeable` identity twice, and rejects drift without retaining
@@ -1311,6 +1355,42 @@ npm version, fully quit every Premiere process, run `premiere-pro-mcp --install-
 3. Re-query the sequence structure after QE operations
 
 </details>
+
+---
+
+## Star history
+
+If this project saves you time in Premiere, a star helps other editors find it.
+
+<a href="https://star-history.com/#leancoderkavy/premiere-pro-mcp&Date">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=leancoderkavy/premiere-pro-mcp&type=Date&theme=dark" />
+    <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=leancoderkavy/premiere-pro-mcp&type=Date" />
+    <img alt="Star history chart for leancoderkavy/premiere-pro-mcp" src="https://api.star-history.com/svg?repos=leancoderkavy/premiere-pro-mcp&type=Date" width="600" />
+  </picture>
+</a>
+
+---
+
+## Support the project
+
+This is an independently maintained, MIT-licensed project with no company behind it.
+Every release is tested against real Premiere versions on both Windows and macOS,
+which takes hardware, licenses, and time.
+
+<a href="https://buymeacoffee.com/leancoderkavy">
+  <img alt="Buy Me A Coffee" src="https://img.shields.io/badge/Buy%20Me%20A%20Coffee-support%20this%20project-FFDD00?style=for-the-badge&logo=buymeacoffee&logoColor=000000" />
+</a>
+
+Free ways to help, in order of usefulness:
+
+- ⭐ **Star the repo** — the main way editors discover it
+- 🐛 **File a bug** with your Premiere version, OS, and the tool name that failed
+- 📝 **Report what worked** on a host version not yet in the [capability coverage table](#windows-and-macos-capability-coverage)
+- 🔧 **Open a PR** — see [CONTRIBUTING.md](CONTRIBUTING.md)
+
+Sponsorship funds host verification, signing certificates, and hosting. It does not
+buy prioritized support, roadmap influence, or any claim about unverified host behavior.
 
 ---
 
