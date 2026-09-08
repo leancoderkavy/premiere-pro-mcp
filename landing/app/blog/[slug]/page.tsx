@@ -35,7 +35,7 @@ export async function generateMetadata({ params }: ArticlePageProps): Promise<Me
   }
 
   return {
-    title: article.title,
+    title: article.seoTitle ?? article.title,
     description: article.description,
     keywords: article.keywords,
     alternates: { canonical: `/blog/${article.slug}/` },
@@ -134,25 +134,36 @@ export default async function ArticlePage({ params }: ArticlePageProps) {
             <p className="font-mono text-sm font-medium uppercase tracking-[0.15em] text-purple-300">{article.eyebrow}</p>
             <h1 className="mt-5 text-balance text-4xl font-bold tracking-tight text-white sm:text-6xl">{article.title}</h1>
             <p className="mt-6 text-lg leading-8 text-zinc-400">{article.description}</p>
-            <div className="mt-7 flex items-center gap-3 text-sm text-zinc-500">
+            <div className="mt-7 flex flex-wrap items-center gap-3 text-sm text-zinc-500">
               <time dateTime={article.publishedAt}>Published {formatArticleDate(article.publishedAt)}</time>
               <span aria-hidden="true">·</span>
               <span>{article.readingTime}</span>
+              {article.modifiedAt !== article.publishedAt && <time dateTime={article.modifiedAt}>Updated {formatArticleDate(article.modifiedAt)}</time>}
             </div>
           </header>
 
+          <nav aria-label="On this page" className="border-b border-zinc-800 py-6">
+            <p className="text-sm font-semibold text-zinc-100">On this page</p>
+            <ol className="mt-3 grid gap-x-6 sm:grid-cols-2">
+              {article.sections.map((section, index) => <li key={section.heading}><a href={`#step-${index + 1}`} className="inline-flex min-h-11 items-center py-2 text-sm text-purple-200 underline underline-offset-4 hover:text-white">{section.heading}</a></li>)}
+            </ol>
+          </nav>
+
           <div className="py-10 sm:py-14">
-            {article.sections.map((section) => (
-              <section key={section.heading} className="border-b border-zinc-900 py-9 first:pt-0 last:border-b-0">
+            {article.sections.map((section, index) => (
+              <section id={`step-${index + 1}`} key={section.heading} className="scroll-mt-8 border-b border-zinc-900 py-9 first:pt-0 last:border-b-0">
                 <h2 className="text-2xl font-semibold tracking-tight text-white sm:text-3xl">{section.heading}</h2>
                 <div className="mt-5 space-y-5 text-[1.0625rem] leading-8 text-zinc-300">
                   {section.paragraphs.map((paragraph) => <p key={paragraph}>{paragraph}</p>)}
                 </div>
+                {section.steps && <ol className="mt-6 list-decimal space-y-4 pl-6 leading-8 text-zinc-300 marker:font-semibold marker:text-purple-300">{section.steps.map((step) => <li key={step}>{step}</li>)}</ol>}
+                {section.codeBlocks?.map((block) => <figure key={block.label} className="mt-6 min-w-0"><figcaption className="mb-2 text-sm font-medium text-zinc-200">{block.label}</figcaption><pre tabIndex={0} aria-label={block.label} className="whitespace-pre-wrap break-words overflow-x-auto rounded-lg border border-zinc-800 bg-zinc-950 p-4 text-sm leading-7 text-emerald-200 focus-visible:outline-2 focus-visible:outline-purple-300"><code>{block.code}</code></pre></figure>)}
                 {section.bullets ? (
                   <ul className="mt-6 list-disc space-y-3 pl-5 leading-7 text-zinc-300 marker:text-purple-300">
                     {section.bullets.map((item) => <li key={item}>{item}</li>)}
                   </ul>
                 ) : null}
+                {section.links && <ul className="mt-5 flex flex-wrap gap-x-6 gap-y-2">{section.links.map((link) => <li key={link.href}><a href={link.href} className="inline-flex min-h-11 items-center py-2 font-medium text-purple-200 underline underline-offset-4 hover:text-white">{link.label}</a></li>)}</ul>}
               </section>
             ))}
           </div>

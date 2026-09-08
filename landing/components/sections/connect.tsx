@@ -18,6 +18,7 @@ import {
 } from "lucide-react"
 
 import { product, safeFirstPrompt } from "@/lib/product"
+import { SetupGuides } from "@/components/sections/setup-guides"
 import { trackOnboardingEvent } from "@/lib/onboarding-events"
 
 type AssistantRoute = {
@@ -138,6 +139,7 @@ export function ConnectSection() {
           </p>
         </div>
 
+        <SetupGuides />
         <div className="mt-12 grid gap-3 sm:grid-cols-2 lg:grid-cols-4" role="list" aria-label="AI assistant setup routes">
           {assistantRoutes.map((route) => {
             const selected = activeId === route.id

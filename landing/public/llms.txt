@@ -13,7 +13,7 @@ Release: https://github.com/leancoderkavy/premiere-pro-mcp/releases/tag/v1.14.9
 
 ## Development source, separate from publication
 
-Current source metadata registers 366 core structured MCP tools, 364 in the default profile, and 93 capability-gated tools for 457 connected tools. Source package version: 1.14.9. Main may include changes not in the published package even when its version string is unchanged.
+Current source metadata registers 369 core structured MCP tools, 367 in the default profile, and 93 capability-gated tools for 460 connected tools. Source package version: 1.14.9. Main may include changes not in the published package even when its version string is unchanged.
 
 ## Start a workflow
 
@@ -30,6 +30,10 @@ The hosted endpoint does not automatically pair a visitor to their local Premier
 - Workflow starter kit: https://premiere-pro-mcp.com/workflows/
 - Setup and recovery: https://premiere-pro-mcp.com/docs/troubleshooting/
 - Claude setup: https://premiere-pro-mcp.com/blog/claude-desktop-premiere-pro-mcp-setup/
+- Codex setup: https://premiere-pro-mcp.com/blog/codex-premiere-pro-mcp-setup/
+- MCP setup: https://premiere-pro-mcp.com/blog/how-to-set-up-premiere-pro-mcp/
+- AI in Premiere: https://premiere-pro-mcp.com/blog/set-up-ai-in-premiere-pro/
+- ChatGPT connection options: https://premiere-pro-mcp.com/blog/chatgpt-premiere-pro-mcp/
 - Workflow automation: https://premiere-pro-mcp.com/blog/premiere-pro-workflow-automation/
 - Project Intake: https://premiere-pro-mcp.com/project-intake/
 - Guides: https://premiere-pro-mcp.com/blog/

@@ -8,7 +8,7 @@ import { WorkflowChooser } from "./workflow-chooser"
 const pageUrl = "https://premiere-pro-mcp.com/premiere-pro-collaboration-workflow/"
 
 export const metadata: Metadata = {
-  title: "Premiere Pro Collaboration Workflow: Choose a Safe MCP Starting Point",
+  title: { absolute: "Premiere Pro Collaboration: Productions vs. Team Projects" },
   description: "Choose a cautious first step for a local Premiere project, a shared-storage Production, or a remote Team Project before evaluating a reviewable MCP workflow.",
   alternates: { canonical: "/premiere-pro-collaboration-workflow/" },
   keywords: ["Premiere Pro Team Projects vs Productions", "Premiere Pro collaboration workflow", "Premiere Pro shared storage workflow", "Premiere Pro MCP workflow"],
@@ -70,6 +70,18 @@ export default function PremiereProCollaborationWorkflowPage() {
           </div>
         </section>
 
+        <section className="border-b border-zinc-900 px-5 py-12" aria-labelledby="handoff-questions-heading">
+          <div className="mx-auto max-w-4xl">
+            <h2 id="handoff-questions-heading" className="text-2xl font-semibold sm:text-3xl">Answer these questions before a handoff</h2>
+            <dl className="mt-6 space-y-6 text-zinc-300">
+              <div><dt className="font-semibold text-white">Working in a local project?</dt><dd className="mt-2 leading-8">Confirm which copy is current, who can change it, and where its media lives. Verify the local MCP connection, then inspect that exact project before making a plan.</dd></div>
+              <div><dt className="font-semibold text-white">Working in an Adobe Production?</dt><dd className="mt-2 leading-8">Agree on shared-storage access, project ownership, and the team&apos;s locking and handoff procedure. A local connector response does not establish permission to modify another editor&apos;s project.</dd></div>
+              <div><dt className="font-semibold text-white">Working in a Team Project?</dt><dd className="mt-2 leading-8">Check who is collaborating, whether the intended changes have been shared, and whether each editor can access the media. Verify Adobe&apos;s collaboration state separately from the MCP connection.</dd></div>
+            </dl>
+            <p className="mt-6 leading-8 text-zinc-400">Record the project or revision, media-access requirements, intended change, and reviewer. Resolve conflicts or uncertain ownership in the team&apos;s established Adobe workflow before continuing with automation.</p>
+            <div className="mt-5 flex flex-wrap gap-x-6 gap-y-2"><Link href="/project-intake/" className="inline-flex min-h-11 items-center text-purple-200 underline underline-offset-4 hover:text-white">Prepare the Project Intake review</Link><Link href="/docs/" className="inline-flex min-h-11 items-center text-purple-200 underline underline-offset-4 hover:text-white">Install and verify a local connector</Link></div>
+          </div>
+        </section>
         <section className="px-5 py-14 sm:py-20" aria-labelledby="principles-heading">
           <div className="mx-auto max-w-6xl">
             <div className="max-w-3xl"><p className="font-mono text-xs font-semibold uppercase tracking-[0.16em] text-purple-300">The boundary that prevents bad automation</p><h2 id="principles-heading" className="mt-4 text-3xl font-bold tracking-tight text-white sm:text-5xl">Pick the operating model. Then test one observable step.</h2></div>

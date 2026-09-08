@@ -1,0 +1,73 @@
+name: Publish MCP Registry listing
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: mcp-registry-publication
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    if: github.repository == 'leancoderkavy/premiere-pro-mcp' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: 24
+          package-manager-cache: false
+      - name: Validate the reviewed manifest and published npm metadata
+        run: |
+          node scripts/validate-mcp-registry-metadata.mjs
+          node scripts/preflight-mcp-registry-submission.mjs
+      - name: Inspect the released npm tarball without executing it
+        shell: bash
+        run: |
+          set -euo pipefail
+          PACKAGE_SPEC="$(node -p "const m=require('./registry/server.json'); m.packages[0].identifier+'@'+m.packages[0].version")"
+          npm pack "$PACKAGE_SPEC" --ignore-scripts --pack-destination "$RUNNER_TEMP" --json > "$RUNNER_TEMP/package-pack.json"
+          ARCHIVE="$(node -p "JSON.parse(require('fs').readFileSync(process.env.RUNNER_TEMP+'/package-pack.json','utf8'))[0].filename")"
+          tar -xOf "$RUNNER_TEMP/$ARCHIVE" package/package.json > "$RUNNER_TEMP/published-package.json"
+          tar -xOf "$RUNNER_TEMP/$ARCHIVE" package/README.md > "$RUNNER_TEMP/published-readme.md"
+          node --input-type=module <<'NODE'
+          import { readFileSync } from 'node:fs';
+          const manifest = JSON.parse(readFileSync('registry/server.json', 'utf8'));
+          const pkg = JSON.parse(readFileSync(process.env.RUNNER_TEMP + '/published-package.json', 'utf8'));
+          const readme = readFileSync(process.env.RUNNER_TEMP + '/published-readme.md', 'utf8');
+          if (pkg.name !== manifest.packages[0].identifier || pkg.version !== manifest.version || pkg.mcpName !== manifest.name || !readme.includes(`<!-- mcp-name: ${manifest.name} -->`)) throw new Error('Released tarball identity does not match the manifest');
+          console.log(`Verified tarball identity: ${pkg.name}@${pkg.version}`);
+          NODE
+      - name: Check whether this exact version is already published
+        id: existing
+        run: node scripts/verify-mcp-registry-record.mjs --allow-missing
+      - name: Install the pinned official publisher
+        if: steps.existing.outputs.published != 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --fail --location --retry 3 --output "$RUNNER_TEMP/mcp-publisher.tar.gz" https://github.com/modelcontextprotocol/registry/releases/download/v1.8.1/mcp-publisher_linux_amd64.tar.gz
+          echo "a06c9096dcb9727c13555b6be26c7effa707b01f06a4c561ba7a3635443cf2cc  $RUNNER_TEMP/mcp-publisher.tar.gz" | sha256sum --check
+          tar -xzf "$RUNNER_TEMP/mcp-publisher.tar.gz" -C "$RUNNER_TEMP" mcp-publisher
+      - name: Validate with the official publisher
+        if: steps.existing.outputs.published != 'true'
+        run: '"$RUNNER_TEMP/mcp-publisher" validate registry/server.json'
+      - name: Authenticate using the repository's short-lived OIDC identity
+        if: steps.existing.outputs.published != 'true'
+        working-directory: registry
+        run: '"$RUNNER_TEMP/mcp-publisher" login github-oidc'
+      - name: Publish the reviewed local stdio listing
+        if: steps.existing.outputs.published != 'true'
+        working-directory: registry
+        run: '"$RUNNER_TEMP/mcp-publisher" publish'
+      - name: Verify the published record
+        run: node scripts/verify-mcp-registry-record.mjs

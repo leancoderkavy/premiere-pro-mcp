@@ -4,14 +4,14 @@ import { TrackedLink } from "@/components/ui/tracked-link"
 import { articles } from "@/lib/articles"
 
 export const metadata: Metadata = {
-  title: "Premiere Pro AI Editing & Automation Guides",
+  title: "Premiere Pro MCP Setup & AI Editing Guides",
   description:
-    "Practical guides to AI-assisted video editing, Premiere Pro workflow automation, and using a local MCP server without giving up creative control.",
+    "Practical guides to setting up Premiere Pro MCP, AI-assisted editing, and Claude, ChatGPT, or Codex workflows without giving up creative control.",
   alternates: { canonical: "/blog/" },
   openGraph: {
-    title: "Premiere Pro AI Editing & Automation Guides",
+    title: "Premiere Pro MCP Setup & AI Editing Guides",
     description:
-      "Practical, local-first guides to AI-assisted video editing and Adobe Premiere Pro workflow automation.",
+      "Practical guides to Premiere Pro MCP setup, AI-assisted video editing, and reviewable Adobe Premiere Pro workflows.",
     url: "/blog/",
     type: "website",
   },
@@ -64,11 +64,11 @@ export default function BlogPage() {
           <header className="max-w-3xl border-b border-zinc-800 pb-12 pt-10 sm:pb-16">
             <p className="font-mono text-sm font-medium tracking-[0.16em] text-purple-300">MCP FOR ADOBE PREMIERE PRO GUIDES</p>
             <h1 className="mt-5 text-balance text-4xl font-bold tracking-tight text-white sm:text-6xl">
-              Practical guides for AI-assisted Premiere workflows.
+              Set up AI-assisted Premiere workflows with confidence.
             </h1>
             <p className="mt-6 text-lg leading-8 text-zinc-400">
-              Learn where an AI assistant can help, how structured MCP tools fit into Adobe Premiere Pro,
-              and how to keep every workflow local-first, bounded, and reviewable.
+              Learn how to set up Premiere Pro MCP, where AI can help, and how Claude, ChatGPT, and Codex
+              fit into local-first, bounded, and reviewable Adobe Premiere Pro workflows.
             </p>
           </header>
 

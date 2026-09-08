@@ -9,7 +9,7 @@ import { ProjectIntakeTemplateBuilder } from "./project-intake-template-builder"
 const pageUrl = "https://premiere-pro-mcp.com/project-intake/"
 
 export const metadata: Metadata = {
-  title: "Premiere Pro Project Intake: Run a Read-Only Workflow Review",
+  title: { absolute: "Premiere Pro Project Intake: Checklist & Starter Templates" },
   description:
     "Prepare a bounded, read-only Premiere Pro Project Intake preview with a safe connection check, a schema-valid starter or approved template, and a path-redacted review report.",
   alternates: { canonical: "/project-intake/" },
@@ -153,6 +153,20 @@ export default function ProjectIntakePage() {
           </div>
         </section>
 
+        <section className="border-b border-zinc-900 px-5 py-12" aria-labelledby="intake-checklist-heading">
+          <div className="mx-auto max-w-4xl">
+            <h2 id="intake-checklist-heading" className="text-2xl font-semibold sm:text-3xl">Prepare a useful intake review</h2>
+            <p className="mt-4 leading-8 text-zinc-300">Use this checklist when an assistant editor receives a project or a post supervisor needs to review its organization. Complete the connection check first; the browser guide does not inspect your open project.</p>
+            <ol className="mt-6 list-decimal space-y-4 pl-6 leading-8 text-zinc-300">
+              <li>Identify the project copy, active sequence, intended deliverable, and the person who will review exceptions.</li>
+              <li>Choose a starter template below and replace its example bins, media rules, and organization rules with the team&apos;s approved requirements.</li>
+              <li>Request only an intake preview. Review missing information, proposed organization actions, and checks the tool could not complete.</li>
+              <li>Assign each exception to a human owner. Decide whether to stop, investigate, or separately approve a specific change.</li>
+              <li>Keep the reviewed template and findings with that project version so the next handoff can explain what was checked.</li>
+            </ol>
+            <div className="mt-6 flex flex-wrap gap-x-6 gap-y-2"><Link href="/blog/claude-desktop-premiere-pro-mcp-setup/" className="inline-flex min-h-11 items-center text-purple-200 underline underline-offset-4 hover:text-white">Connect Claude before your review</Link><Link href="/premiere-pro-collaboration-workflow/" className="inline-flex min-h-11 items-center text-purple-200 underline underline-offset-4 hover:text-white">Choose the collaboration context</Link></div>
+          </div>
+        </section>
         <section className="px-5 py-14 sm:py-20" aria-labelledby="workflow-heading">
           <div className="mx-auto max-w-6xl">
             <div className="max-w-3xl">

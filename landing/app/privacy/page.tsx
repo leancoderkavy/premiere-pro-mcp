@@ -9,7 +9,7 @@ export const metadata: Metadata = {
 
 export default function PrivacyPage() {
   return (
-    <main className="min-h-screen bg-black px-5 py-16 text-zinc-300">
+    <main id="main-content" className="min-h-screen bg-black px-5 py-16 text-zinc-300">
       <article className="mx-auto max-w-3xl">
         <Link href="/" className="text-sm text-purple-300 hover:text-purple-200">← Back to MCP for Adobe Premiere Pro</Link>
         <h1 className="mt-8 text-4xl font-semibold tracking-tight text-white">Privacy Policy</h1>

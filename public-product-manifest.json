@@ -27,12 +27,12 @@
     ]
   },
   "capabilitySurface": {
-    "registeredCoreTools": 366,
-    "defaultProfileTools": 364,
+    "registeredCoreTools": 369,
+    "defaultProfileTools": 367,
     "authenticatedUxpAdditions": 93,
-    "defaultProfileWithUxp": 457,
-    "toolModules": 51,
-    "guidedWorkflows": 16
+    "defaultProfileWithUxp": 460,
+    "toolModules": 53,
+    "guidedWorkflows": 17
   },
   "workflows": [
     {

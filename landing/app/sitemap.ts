@@ -9,6 +9,7 @@ const latestArticleDate = new Date(
   `${articles.reduce((latest, article) => article.modifiedAt > latest ? article.modifiedAt : latest, articles[0].modifiedAt)}T00:00:00Z`,
 )
 const productContentDate = new Date(`${product.releaseDate}T00:00:00Z`)
+const setupContentDate = new Date("2026-09-08T00:00:00Z")
 
 export default function sitemap(): MetadataRoute.Sitemap {
   return [
@@ -16,25 +17,25 @@ export default function sitemap(): MetadataRoute.Sitemap {
     { url: `${siteUrl}/docs/troubleshooting/`, lastModified: new Date("2026-09-04T00:00:00Z"), changeFrequency: "monthly", priority: 0.8 },
     {
       url: `${siteUrl}/`,
-      lastModified: productContentDate,
+      lastModified: setupContentDate,
       changeFrequency: "weekly",
       priority: 1,
     },
     {
       url: `${siteUrl}/docs/`,
-      lastModified: productContentDate,
+      lastModified: setupContentDate,
       changeFrequency: "weekly",
       priority: 0.8,
     },
     {
       url: `${siteUrl}/project-intake/`,
-      lastModified: new Date("2026-08-26T00:00:00Z"),
+      lastModified: setupContentDate,
       changeFrequency: "weekly",
       priority: 0.9,
     },
     {
       url: `${siteUrl}/premiere-pro-collaboration-workflow/`,
-      lastModified: new Date("2026-08-27T00:00:00Z"),
+      lastModified: setupContentDate,
       changeFrequency: "weekly",
       priority: 0.9,
     },

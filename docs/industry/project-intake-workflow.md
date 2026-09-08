@@ -13,10 +13,10 @@ organization and metadata changes, applying only an approved subset, and
 recording what is known about the result. It is deliberately a workflow around
 existing MCP actions, not a claim that an AI can make editorial decisions.
 
-There is **no current `project_intake` MCP tool, facility-template schema, or
-production-ready end-to-end intake workflow** in this repository. This document
-is the contract for building one. The current source provides useful, narrower
-building blocks:
+The current source includes `preview_project_intake` and its facility-template
+schema, plus the separate guarded editorial organization apply route. There is
+no production-verified end-to-end `project_intake` workflow. This document
+describes the broader contract; current narrower building blocks include:
 
 - `verify_premiere_connection` is a read-only connection check that avoids
   returning project names, paths, and media details.
