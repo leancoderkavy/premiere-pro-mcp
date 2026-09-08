@@ -39,6 +39,8 @@ const READ_ONLY_TOOLS = new Set([
   "plan_chapter_markers",
   "plan_emphasis_zoom_keyframes",
   "plan_beat_montage",
+  "plan_speaker_checkerboard",
+  "plan_active_speaker_reframe",
 ]);
 const DESTRUCTIVE_PREFIXES = ["delete_", "remove_", "ripple_delete", "close_"];
 const DESTRUCTIVE_TOOLS = new Set(["manage_project_context"]);

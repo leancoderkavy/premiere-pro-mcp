@@ -8,6 +8,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- Added speaker layout planning: `plan_speaker_checkerboard` turns
+  speaker-labelled words into frame-snapped per-speaker segments, split
+  points, and track assignments for checkerboarded dialogue, and
+  `plan_active_speaker_reframe` computes per-speaker crop, Scale, and
+  Position framings for a vertical target with hold or eased keyframes at
+  each speaker switch, or static stacked and side-by-side two-speaker
+  layouts. Both route to existing track, razor, transform, crop, and keyframe
+  tools and fall back to `auto_reframe_sequence`.
 - Added rhythm planning: `plan_emphasis_zoom_keyframes` turns sentence
   starts, emphasis words, a fixed interval, or supplied trigger times into
   Motion Scale and subject-anchored Position keyframes with easing, hold,
