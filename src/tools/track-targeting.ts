@@ -1386,20 +1386,14 @@ export function getTrackTargetingTools(bridgeOptions: BridgeOptions) {
     },
 
     redo: {
-      description: "Redo the last undone action in Premiere Pro.",
+      description:
+        "Unavailable: Premiere exposes no supported, observable redo-stack API, so a scripted redo cannot be performed or verified.",
       parameters: {},
-      handler: async () => {
-        const script = buildToolScript(`
-          app.enableQE();
-          try {
-            qe.project.redo();
-            return __result({ redone: true });
-          } catch(e) {
-            return __error("Redo failed: " + e.message);
-          }
-        `);
-        return sendCommand(script, bridgeOptions);
-      },
+      handler: async () => ({
+        success: false,
+        error:
+          "redo is unavailable because Premiere exposes no supported redo API that can be verified: qe.project.redo() returns nothing observable and no undo/redo-stack query exists to check it against, so a reported success would be unfounded. No mutation was attempted. Redo the action from Premiere's Edit menu instead.",
+      }),
     },
 
     multiple_undo: {

@@ -102,7 +102,15 @@
         }
         const after = await slipSnapshot(afterContext);
         if (!sameSlipResult(before, after, desired)) {
-          throw commandError("UXP_VERIFICATION_FAILED", "Premiere did not retain the requested source-only slip");
+          // The transaction already committed, so this is not a "nothing
+          // happened" failure. Say what actually landed and forbid a retry:
+          // re-issuing the slip would apply a second offset to a moved item.
+          throw commandError(
+            "UXP_COMMITTED_UNVERIFIED",
+            "Premiere committed the slip transaction, so the project has already changed, but the result is not the requested source-only slip: " +
+              describeSlipDivergence(before, after, desired) +
+              ". Do not retry this call. Inspect the item and undo the edit in Premiere if the result is unwanted."
+          );
         }
         return {
           slipped: true,
@@ -207,6 +215,32 @@
         numbersEqual(after.speed, before.speed) && after.reversed === before.reversed &&
         numbersEqual(after.inSeconds, desired.inSeconds) && numbersEqual(after.outSeconds, desired.outSeconds) &&
         numbersEqual(after.outSeconds - after.inSeconds, desired.sourceDuration);
+    }
+
+    function describeSlipDivergence(before, after, desired) {
+      const notes = [];
+      if (!sameSnapshotIdentity(before, after)) {
+        notes.push("the coordinate no longer resolves the same project, sequence, or track");
+      }
+      if (!numbersEqual(after.startSeconds, before.startSeconds) || !numbersEqual(after.endSeconds, before.endSeconds)) {
+        notes.push("the timeline position moved (start " + seconds(before.startSeconds) + " -> " + seconds(after.startSeconds) +
+          ", end " + seconds(before.endSeconds) + " -> " + seconds(after.endSeconds) + ") when a slip must leave it fixed");
+      }
+      if (!numbersEqual(after.inSeconds, desired.inSeconds) || !numbersEqual(after.outSeconds, desired.outSeconds)) {
+        notes.push("the source range is " + seconds(after.inSeconds) + "-" + seconds(after.outSeconds) +
+          " instead of the requested " + seconds(desired.inSeconds) + "-" + seconds(desired.outSeconds));
+      }
+      if (!numbersEqual(after.durationSeconds, before.durationSeconds)) {
+        notes.push("the duration changed from " + seconds(before.durationSeconds) + " to " + seconds(after.durationSeconds));
+      }
+      if (!numbersEqual(after.speed, before.speed) || after.reversed !== before.reversed) {
+        notes.push("the clip speed or direction changed");
+      }
+      return notes.length ? notes.join("; ") : "the readback did not match the requested slip";
+    }
+
+    function seconds(value) {
+      return (Math.round(value * 1000) / 1000) + "s";
     }
 
     function sameSnapshot(left, right) {

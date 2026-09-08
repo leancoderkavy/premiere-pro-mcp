@@ -64,6 +64,55 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   approximate TikTok, Reels, Shorts, YouTube, LinkedIn, X, and Facebook limits.
   Both are read-only and never change Premiere.
 
+### Fixed
+
+- `inspect_video_transition_uxp` now resolves the documented
+  `VideoClipTrackItem` surface through `VideoClipTrackItem.cast()` before
+  reporting a capability gap, so it returns a target snapshot again on
+  Premiere 26.3 and `add_video_transition_uxp` / `remove_video_transition_uxp`
+  are reachable. A genuine gap now names the missing methods. (#454)
+- `ripple_delete_track_item_uxp` and `slip_track_item_uxp` no longer report a
+  bare failure after the host has already committed the transaction. A
+  divergent result now fails with `UXP_COMMITTED_UNVERIFIED`, states that the
+  project has already changed, describes what actually landed (for example a
+  delete that left a gap instead of rippling), and tells the caller not to
+  retry. (#455)
+- `inspect_source_proxy_uxp`, `manage_timeline_source_label_uxp`, and
+  `inspect_source_media_provenance_uxp` now read project-item identity through
+  the documented `ProjectItem.cast()` and await it, instead of failing
+  universally with "Premiere does not expose getId for this target". Bins that
+  expose no readable ID are traversed rather than rejected. (#456)
+- `roll_edit` now moves the source out point and the incoming clip's in point
+  with the visible cut and verifies all four values, so the timeline and the
+  clips' in/out metadata can no longer disagree after a reported success. (#457)
+- `import_fcp_xml` now passes both arguments `app.openFCPXML(path, projPath)`
+  requires. It takes a new required `project_path`, checks that the XML exists,
+  refuses to overwrite an existing project, and verifies the destination
+  project was created. (#458)
+- `manage_sequences_uxp` now forwards only the parameters each action accepts
+  instead of blanket-forwarding every documented field, and explains locally
+  which parameters an action takes when given one it does not. (#459)
+- `attach_custom_property` now reads the sequence project item's XMP packet
+  before and after the write and fails when the property never lands in XMP,
+  instead of reporting an unverified success. (#460)
+- `undo` and `redo` now fail closed with a named capability error, matching the
+  fix already shipped for `multiple_undo`. `undo` no longer throws
+  `ReferenceError: app.project.undo is not a function`, and `redo` no longer
+  reports an unverifiable success. (#462)
+- `set_effect_property` now accepts array values for 2D vector properties such
+  as Motion > Position and Anchor Point, and verifies an array readback
+  component by component instead of with strict equality. (#463)
+- `import_ae_comps` now fails closed when the `.aep` file does not exist and
+  when the target bin gains no items, instead of reporting success for a
+  nonexistent path. (#464)
+- `add_tracks` now fingerprints every existing track before the call and
+  locates those fingerprints afterwards, so it reports explicitly when QE
+  inserted the new tracks at index 0 and shifted every existing track up. A
+  matching total count alone no longer implies success. (#465)
+- `get_render_queue_status` now returns a capability error naming
+  `app.encoder.isRunning` when the host does not expose it, instead of an
+  `isRunning: "unknown"` string that reads as a legitimate status. (#466)
+
 ## [1.14.9] - 2026-09-04
 
 ### Added

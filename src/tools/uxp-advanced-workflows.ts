@@ -862,7 +862,7 @@ export function getUxpAdvancedWorkflowTools(bridge: UxpWebSocketBridge) {
     },
 
     manage_sequences_uxp: {
-      description: "Inspect, create-from-media, clone, derive, activate, open, close, or explicitly delete sequences through documented stable UXP APIs.",
+      description: "Inspect, create-from-media, clone, derive, activate, open, close, or explicitly delete sequences through documented stable UXP APIs. Each action accepts only its own parameters: inspect takes none and lists every sequence; clone/subsequence/activate/open/close/delete take sequence_id; create_from_media takes name and project_item_ids.",
       parameters: {
         type: "object" as const,
         additionalProperties: false,
@@ -880,18 +880,56 @@ export function getUxpAdvancedWorkflowTools(bridge: UxpWebSocketBridge) {
         required: ["action"],
       },
       handler: async (args: AdvancedArgs) => {
-        const common = compact({
-          sequenceId: args.sequence_id, expectedName: args.expected_name, name: args.name,
-          projectItemIds: args.project_item_ids, targetBinId: args.target_bin_id,
-          ignoreTrackTargeting: args.ignore_track_targeting, confirmNonUndoable: args.confirm_non_undoable,
-        });
         const commands: Record<string, string> = {
           inspect: "sequences.inspect", create_from_media: "sequences.createFromMedia", clone: "sequences.clone",
           subsequence: "sequences.subsequence", activate: "sequences.activate", open: "sequences.open",
           close: "sequences.close", delete: "sequences.delete",
         };
         if (!args.action || !commands[args.action]) return invalidAction(args.action);
-        return invoke(bridge, commands[args.action], { ...common, ...operation(args) });
+
+        // Each sequence command accepts a different argument set and rejects
+        // anything else, so forward only what the chosen action takes instead of
+        // blanket-forwarding every documented parameter.
+        const supplied: Record<string, unknown> = compact({
+          sequence_id: args.sequence_id, expected_name: args.expected_name, name: args.name,
+          project_item_ids: args.project_item_ids, target_bin_id: args.target_bin_id,
+          ignore_track_targeting: args.ignore_track_targeting, confirm_non_undoable: args.confirm_non_undoable,
+          operation_id: args.operation_id,
+        });
+        const hostNames: Record<string, string> = {
+          sequence_id: "sequenceId", expected_name: "expectedName", name: "name",
+          project_item_ids: "projectItemIds", target_bin_id: "targetBinId",
+          ignore_track_targeting: "ignoreTrackTargeting", confirm_non_undoable: "confirmNonUndoable",
+          operation_id: "operationId",
+        };
+        const accepted: Record<string, readonly string[]> = {
+          inspect: [],
+          create_from_media: ["name", "project_item_ids", "target_bin_id", "confirm_non_undoable", "operation_id"],
+          clone: ["sequence_id", "operation_id"],
+          subsequence: ["sequence_id", "ignore_track_targeting", "confirm_non_undoable", "operation_id"],
+          activate: ["sequence_id", "operation_id"],
+          open: ["sequence_id", "operation_id"],
+          close: ["sequence_id", "operation_id"],
+          delete: ["sequence_id", "expected_name", "confirm_non_undoable", "operation_id"],
+        };
+        const allowed = accepted[args.action];
+        const rejected = Object.keys(supplied).filter((key) => !allowed.includes(key));
+        if (rejected.length) {
+          return {
+            success: false,
+            error: allowed.length
+              ? `manage_sequences_uxp action "${args.action}" does not accept ${rejected.join(", ")}. It accepts: ${allowed.join(", ")}.`
+              : `manage_sequences_uxp action "${args.action}" takes no other parameters, so ${rejected.join(", ")} cannot be used. Call it with action alone; it returns every sequence in the active project with its ID and name.`,
+          };
+        }
+
+        return invoke(
+          bridge,
+          commands[args.action],
+          Object.fromEntries(allowed
+            .filter((key) => key in supplied)
+            .map((key) => [hostNames[key], supplied[key]])),
+        );
       },
     },
 
