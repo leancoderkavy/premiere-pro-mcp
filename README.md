@@ -10,7 +10,7 @@
 
 Free, MIT licensed, local-first, and published to npm as [`premiere-pro-mcp`](https://www.npmjs.com/package/premiere-pro-mcp) — the only package name that installs this project.
 
-Development source: 367 core tools across 51 modules, 4 resources, and 16 guided workflows. A connected UXP host adds 93 capability-gated tools.
+Development source: 368 core tools across 52 modules, 4 resources, and 16 guided workflows. A connected UXP host adds 93 capability-gated tools.
 
 The [completed AE render handoff](docs/after-effects-render-handoff.md) previews and confirms importing one finished render into an existing Premiere bin, with host and file rechecks and an import receipt.
 
@@ -95,7 +95,7 @@ It is also separate from other MCP servers for Premiere Pro. The only npm packag
 published from this repository is `premiere-pro-mcp`, and no other package name
 installs it.
 
-The current source exposes 367 core tools for supported workflow steps spanning the supported ExtendScript, QE DOM, local media and interchange analysis, revisioned project-context retrieval, safe edit-planning, project-intake preview, review handoff, connection verification, and guarded After Effects MOGRT authoring, batch, library, render-queue, inspection, and Premiere-handoff workflows. A compatible, authenticated UXP panel adds 93 documented, capability-gated tools without replacing the production CEP bridge.
+The current source exposes 368 core tools for supported workflow steps spanning the supported ExtendScript, QE DOM, local media and interchange analysis, revisioned project-context retrieval, safe edit-planning, project-intake preview, review handoff, connection verification, and guarded After Effects MOGRT authoring, batch, library, render-queue, inspection, and Premiere-handoff workflows. A compatible, authenticated UXP panel adds 93 documented, capability-gated tools without replacing the production CEP bridge.
 
 <a id="latest-release"></a>
 
@@ -563,7 +563,7 @@ installed separately.
 QE-backed tools are reported as `experimental` because QE is undocumented and can vary between Premiere builds. Authority availability is reported separately from implementation support, so disabling `edit`, for example, does not incorrectly label editing tools as unsupported. Static metadata never claims that a Premiere operation succeeded; use `ping` and inspect each tool result for runtime evidence.
 
 MCP `tools/list` is filtered to the active authority profile. The default
-`inspect,edit,export,filesystem` profile advertises 365 of the 367 registered
+`inspect,edit,export,filesystem` profile advertises 366 of the 368 registered
 tools and omits `execute_extendscript` and `evaluate_expression`, which require
 explicit `unsafe-script` authority. `ping` and `get_capabilities` remain visible
 under every profile so a restricted or misconfigured server can still explain
@@ -811,7 +811,7 @@ opaque `UniqueSerializeable` identity twice, and rejects drift without retaining
 the value or treating it as edit authority. See the [unique-identity workflow
 notes](docs/uxp-unique-identity-workflows.md) for its bounds and proof boundary.
 
-## Tools (367 core total; 365 under the default profile; 458 with a connected UXP bridge)
+## Tools (368 core total; 366 under the default profile; 459 with a connected UXP bridge)
 
 The [complete supported-actions catalog](docs/supported-actions.md) lists every
 registered core tool, the two tools restricted behind explicit `unsafe-script`
@@ -1239,11 +1239,11 @@ premiere-pro-mcp/
 ├── src/
 │   ├── index.ts                 # Entry point — stdio transport setup
 │   ├── http-server.ts           # Entry point — HTTP/SSE transport (Fly.io / remote)
-│   ├── server.ts                # MCP server — registers 367 tools, filtered by authority profile
+│   ├── server.ts                # MCP server — registers 368 tools, filtered by authority profile
 │   ├── bridge/
 │   │   ├── file-bridge.ts       # File-based IPC (write .jsx, poll .json)
 │   │   └── script-builder.ts    # ExtendScript generator with ES3 helpers
-│   ├── tools/                   # 50 tool modules
+│   ├── tools/                   # 51 tool modules
 │   │   ├── discovery.ts         # Project discovery and queries
 │   │   ├── recovery.ts          # Read-only autosave discovery and private bridge telemetry
 │   │   ├── project.ts           # Project management and import

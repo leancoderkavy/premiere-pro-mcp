@@ -155,6 +155,7 @@ export const WORKFLOW_TOOL_PACKS: readonly WorkflowToolPack[] = [
       "plan_chapter_markers",
       "plan_emphasis_zoom_keyframes",
       "plan_beat_montage",
+      "plan_cross_app_workflow",
       "plan_speaker_checkerboard",
       "plan_active_speaker_reframe",
     ],

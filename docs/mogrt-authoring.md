@@ -52,6 +52,10 @@ The studio tools extend this without widening authority:
 
 ## Install and host preparation
 
+For an ordered checklist connecting these tools, use
+[`plan_cross_app_workflow`](cross-app-workflows.md). It identifies separate
+approvals, required evidence, and manual rendering steps without executing them.
+
 Install the dedicated connector—not the Premiere connector—and fully restart
 After Effects:
 
