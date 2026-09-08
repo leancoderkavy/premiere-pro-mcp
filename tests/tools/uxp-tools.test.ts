@@ -465,7 +465,7 @@ describe("UXP MCP tools", () => {
       // explicit-sequence preview-frame updates plus unique serializable identity
       // inspection add fifty consolidated UXP tools;
       // connection verification and delivery conformance add two default-profile core tools.
-        expect(tools.tools).toHaveLength(452);
+        expect(tools.tools).toHaveLength(454);
     } finally {
       await client.close();
       await server.close();
