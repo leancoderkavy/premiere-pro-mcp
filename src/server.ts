@@ -58,6 +58,7 @@ import { getPlatformDeliveryTools } from "./tools/platform-delivery.js";
 import { getUxpTools } from "./tools/uxp.js";
 import { getMogrtAuthoringTools } from "./tools/mogrt-authoring.js";
 import { getMogrtStudioTools } from "./tools/mogrt-studio.js";
+import { getRenderHandoffTools } from "./tools/render-handoff.js";
 import type { UxpWebSocketBridge } from "./bridge/uxp-websocket-bridge.js";
 import {
   guardToolHandler,
@@ -209,6 +210,7 @@ function collectStaticTools(
     ...getTextTools(bridgeOptions),
     ...getMogrtAuthoringTools(bridgeOptions),
     ...getMogrtStudioTools(bridgeOptions),
+    ...getRenderHandoffTools(bridgeOptions),
     ...getMarkerTools(bridgeOptions),
     ...getTrackTools(bridgeOptions),
     ...getPlayheadTools(bridgeOptions),

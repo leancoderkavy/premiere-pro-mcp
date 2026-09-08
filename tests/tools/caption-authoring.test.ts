@@ -128,7 +128,7 @@ describe("build_caption_artifact handler", () => {
   it("rejects symlinked parents that resolve outside the workspace", async () => {
     const outside = mkdtempSync(join(tmpdir(), "caption-symlink-"));
     try {
-      symlinkSync(outside, join(workspace, "link"));
+      symlinkSync(outside, join(workspace, "link"), process.platform === "win32" ? "junction" : "dir");
       const result = await tools.build_caption_artifact.handler({ word_timeline: FIXTURE, format: "srt", output_path: join(workspace, "link", "captions.srt"), approved_workspace_path: workspace });
       expect(result).toMatchObject({ success: false, error: expect.stringMatching(/contained within/) });
       expect(existsSync(join(outside, "captions.srt"))).toBe(false);

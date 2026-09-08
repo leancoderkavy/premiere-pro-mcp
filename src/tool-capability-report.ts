@@ -169,6 +169,16 @@ export const TOOL_OPERATIONAL_OVERRIDES: Readonly<
     authority: "inspect", verificationBoundary: "static_metadata_only", hostVerificationRequired: false,
     notes: ["Also requires filesystem authority. Validates a bounded no-overwrite render queue request but cannot prove the named composition or templates exist."],
   },
+  preview_after_effects_render_handoff: {
+    backend: "local + CEP/ExtendScript", backends: ["local", "cep", "extendscript"], status: "supported", minimumPremiereVersion: null,
+    authority: "inspect", verificationBoundary: "local_and_host_response", hostVerificationRequired: true,
+    notes: ["Also requires filesystem authority. Reads AE render completion and the exact Premiere target bin; no import or render is performed. File metadata is not media-content validation."],
+  },
+  apply_after_effects_render_handoff: {
+    backend: "local + CEP/ExtendScript", backends: ["local", "cep", "extendscript"], status: "supported", minimumPremiereVersion: null,
+    authority: "edit", verificationBoundary: "local_and_host_response", hostVerificationRequired: true,
+    notes: ["Also requires inspect and filesystem authority. Consumes explicit approval before dispatch; rechecks render/file/project/bin evidence and verifies a new media item. No timeline placement or visual verification."],
+  },
   enqueue_after_effects_render: {
     backend: "local + CEP/ExtendScript", backends: ["local", "cep", "extendscript"], status: "supported", minimumPremiereVersion: null,
     authority: "export", verificationBoundary: "host_response", hostVerificationRequired: true,
