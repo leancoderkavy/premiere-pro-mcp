@@ -164,6 +164,10 @@
   "bugs": {
     "url": "https://github.com/leancoderkavy/premiere-pro-mcp/issues"
   },
+  "funding": {
+    "type": "buymeacoffee",
+    "url": "https://buymeacoffee.com/leancoderkavy"
+  },
   "author": "MCP for Adobe Premiere Pro contributors",
   "keywords": [
     "mcp",
