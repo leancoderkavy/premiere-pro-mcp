@@ -30,6 +30,10 @@ const READ_ONLY_TOOLS = new Set([
   "preview_watched_media_import",
   "plan_platform_delivery_matrix",
   "validate_platform_publish_package",
+  "plan_filler_word_removal",
+  "plan_pause_tightening",
+  "plan_word_mute_ranges",
+  "detect_repeated_takes",
 ]);
 const DESTRUCTIVE_PREFIXES = ["delete_", "remove_", "ripple_delete", "close_"];
 const DESTRUCTIVE_TOOLS = new Set(["manage_project_context"]);

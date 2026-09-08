@@ -8,6 +8,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- Added word-level transcript cleanup planning from a revision-bound word
+  timeline: `plan_filler_word_removal`, `plan_pause_tightening`,
+  `plan_word_mute_ranges` (mute or bleep listed words with ready audio
+  keyframes and redacted text), and `detect_repeated_takes`. Plans return
+  frame-snapped removal and keep ranges and route to the existing derived
+  dialogue sequence preview/apply tools; nothing is applied.
 - Added local platform-delivery planning: `plan_platform_delivery_matrix`
   turns one source sequence into per-platform sequence settings, exact
   fit/fill reframe math, duration and file-size fit, caption safe zones, and

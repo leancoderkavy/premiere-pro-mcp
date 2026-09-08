@@ -80,6 +80,10 @@ const INSPECT_TOOL_NAMES = new Set([
   "preview_derived_dialogue_sequence_uxp",
   "plan_platform_delivery_matrix",
   "validate_platform_publish_package",
+  "plan_filler_word_removal",
+  "plan_pause_tightening",
+  "plan_word_mute_ranges",
+  "detect_repeated_takes",
 ]);
 // detect_silence reads a media file from disk and shells out to ffmpeg. It
 // changes nothing in Premiere, so classifying it as "edit" would overstate what
