@@ -149,6 +149,8 @@ export const WORKFLOW_TOOL_PACKS: readonly WorkflowToolPack[] = [
       "plan_pause_tightening",
       "plan_word_mute_ranges",
       "detect_repeated_takes",
+      "rank_short_form_candidates",
+      "plan_chapter_markers",
     ],
   },
   {

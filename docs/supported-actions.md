@@ -10,11 +10,11 @@ source catalog may include unreleased actions.
 
 | Surface | Count | Availability |
 | --- | ---: | --- |
-| Registered core actions | 357 | CEP/local server catalog; host and authority checks still apply |
-| Default-profile core actions | 355 | Advertised with `inspect,edit,export,filesystem` |
+| Registered core actions | 359 | CEP/local server catalog; host and authority checks still apply |
+| Default-profile core actions | 357 | Advertised with `inspect,edit,export,filesystem` |
 | Restricted core actions | 2 | Require explicit `unsafe-script` authority |
 | Authenticated UXP additions | 93 | Advertised only while a compatible authenticated UXP panel is connected |
-| Default profile with UXP | 448 | 355 core plus 93 UXP tools |
+| Default profile with UXP | 450 | 357 core plus 93 UXP tools |
 
 ## How to read support
 
@@ -255,6 +255,7 @@ operation” when the tool has no enum-based mode.
 | `overwrite_clip` | Default profile | Single operation | Overwrite a project item onto validated timeline tracks and verify a new source placement at the requested time |
 | `overwrite_from_source` | Default profile | Single operation | Overwrite the clip from the Source Monitor at the playhead position (overwrite edit — replaces existing clips). |
 | `ping` | Default profile | Single operation | Health check — verify the CEP plugin is running and connected to Premiere Pro. Call this before other tools to confirm connectivity. |
+| `plan_chapter_markers` | Default profile | Single operation | Plan YouTube-style chapters from a word-timed transcript using local TextTiling-lite topic-shift detection, titling each chapter from its distinctive tokens. Returns chapters, a youtube_timestamps block and add_marker-ready Chapter markers. Local-only plan; never changes Premiere. |
 | `plan_filler_word_removal` | Default profile | Single operation | Plan word-level filler removal (um, uh, you know...) from a revision-bound word timeline. Returns frame-snapped removal and keep ranges plus apply routes. Local-only; never changes Premiere. |
 | `plan_pause_tightening` | Default profile | Single operation | Plan shortening (not deleting) of inter-word pauses longer than max_pause_seconds down to a target, respecting sentence boundaries. Returns centered removal ranges, keep ranges, savings and apply routes. Local-only; never changes Premiere. |
 | `plan_platform_delivery_matrix` | Default profile | `strategy`: `auto_reframe`, `pad_blur`, `center_crop`, `letterbox` | Plan multi-ratio delivery of one source sequence to TikTok, Reels, Shorts, YouTube, LinkedIn, X, and Facebook from a local spec table: sequence settings, reframe scale math, duration and file-size fit, caption safe zones, and ordered apply routes. Local-only; never changes Premiere. |
@@ -277,6 +278,7 @@ operation” when the tool has no enum-based mode.
 | `preview_watched_media_import` | Default profile | Single operation | Compare the active watch baseline with a fresh contained scan and return a path-redacted import proposal. It never imports or changes Premiere. |
 | `preview_workflow_recipe` | Default profile | Single operation | Validate and expand one declarative workflow recipe into guarded MCP routes. It does not invoke any route or change Premiere. |
 | `publish_mogrt_to_library` | Default profile | Single operation | Publish the exact previewed MOGRT as an immutable local-library version. Requires explicit confirmation and will fail instead of replacing an existing version. |
+| `rank_short_form_candidates` | Default profile | Single operation | Rank long-video transcript windows as short-form clip candidates using explainable local heuristics (hook, completeness, density, supplied evidence peaks, keywords, duration fit, speaker consistency) with overlap suppression. Local-only plan; not a virality prediction and never changes Premiere. |
 | `razor_all_tracks` | Default profile | `track_type`: `video`, `audio`, `both` | Razor (split) all clips at the playhead position across all tracks, or at a specific time. |
 | `read_sequence_captions` | Default profile | Single operation | Diagnose whether the active Premiere scripting host can enumerate caption tracks. It never treats an empty result as proof that the sequence has no captions, because most CEP builds expose caption creation but not caption reads. |
 | `read_video_scopes` | Default profile | Single operation | Read waveform percentiles, RGB parade percentiles, saturation, and near-black/near-white RGB occupancy from one bounded decoded local-media frame. Read-only; this is a sampled analytical proxy, not Premiere's rendered scopes. |
