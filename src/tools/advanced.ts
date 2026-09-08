@@ -50,7 +50,7 @@ export function getAdvancedTools(bridgeOptions: BridgeOptions) {
 
     roll_edit: {
       description:
-        "Perform a verified roll edit at the outgoing cut of a clip using the public timeline DOM.",
+        "Perform a verified roll edit at the outgoing cut of a clip using the public timeline DOM, moving both visible edges and their source in/out points and verifying all four.",
       parameters: {
         type: "object" as const,
         properties: {
@@ -85,23 +85,50 @@ export function getAdvancedTools(bridgeOptions: BridgeOptions) {
           if (newCutTicks <= parseFloat(result.clip.start.ticks) || newCutTicks >= parseFloat(outgoing.end.ticks)) {
             return __error("The requested roll offset would create a zero- or negative-duration clip.");
           }
+          // A roll moves the shared cut, so the source in/out points must move with
+          // the visible edges. Writing only start/end leaves inPoint/outPoint stale
+          // and inconsistent with what the timeline shows.
+          var offsetTicks = Math.round(__secondsToTicks(${args.offset_seconds}));
+          var beforeOut = String(result.clip.outPoint.ticks);
+          var beforeIncomingIn = String(outgoing.inPoint.ticks);
+          var expectedOut = String(Math.round(parseFloat(beforeOut) + offsetTicks));
+          var expectedIncomingIn = String(Math.round(parseFloat(beforeIncomingIn) + offsetTicks));
+
           var newCut = new Time();
           newCut.ticks = String(Math.round(newCutTicks));
           result.clip.end = newCut;
           outgoing.start = newCut;
+          try {
+            result.clip.outPoint = expectedOut;
+            outgoing.inPoint = expectedIncomingIn;
+          } catch (sourceRangeError) {
+            return __error("Premiere moved the visible cut but rejected the matching source in/out change, so the clips' in/out metadata no longer matches the timeline: " + sourceRangeError.toString());
+          }
+
           var after = __findClip("${escapeForExtendScript(args.node_id)}");
           if (!after) return __error("Clip could not be found after the roll edit");
           if (String(after.clip.start.ticks) === beforeStart && String(after.clip.end.ticks) === beforeEnd) {
             return __error("The roll edit returned without an observable timeline change; no successful edit is reported.");
           }
           if (String(after.clip.end.ticks) !== String(outgoing.start.ticks)) return __error("The roll edit left a gap or overlap at the edited cut.");
+          var afterOut = String(after.clip.outPoint.ticks);
+          var afterIncomingIn = String(outgoing.inPoint.ticks);
+          if (afterOut !== expectedOut || afterIncomingIn !== expectedIncomingIn) {
+            return __error("Premiere moved the visible cut but the source in/out metadata did not follow: outgoing outPoint is " + afterOut + " (expected " + expectedOut + ") and the incoming clip's inPoint is " + afterIncomingIn + " (expected " + expectedIncomingIn + "). The timeline is now inconsistent with the clips' in/out points; undo this edit in Premiere before continuing.");
+          }
           return __result({
             rolled: true,
             verified: true,
             clipName: after.clip.name,
             offsetSeconds: ${args.offset_seconds},
-            before: { startTicks: beforeStart, endTicks: beforeEnd },
-            after: { startTicks: String(after.clip.start.ticks), endTicks: String(after.clip.end.ticks) }
+            before: { startTicks: beforeStart, endTicks: beforeEnd, outPointTicks: beforeOut, incomingInPointTicks: beforeIncomingIn },
+            after: {
+              startTicks: String(after.clip.start.ticks),
+              endTicks: String(after.clip.end.ticks),
+              outPointTicks: afterOut,
+              incomingInPointTicks: afterIncomingIn
+            },
+            verification: "timeline_edge_and_source_in_out_readback"
           });
         `);
         return sendCommand(script, bridgeOptions);
@@ -972,7 +999,7 @@ export function getAdvancedTools(bridgeOptions: BridgeOptions) {
 
     add_tracks: {
       description:
-        "Add video and/or audio tracks through QE and verify the active sequence gained the exact requested counts",
+        "Add video and/or audio tracks through QE, verify the active sequence gained the exact requested counts, and report explicitly when QE inserted the new tracks at index 0 and shifted every existing track up.",
       parameters: {
         type: "object" as const,
         properties: {
@@ -1023,8 +1050,45 @@ export function getAdvancedTools(bridgeOptions: BridgeOptions) {
         const script = buildToolScript(`
           var seq = app.project.activeSequence;
           if (!seq) return __error("No active sequence");
+
+          // A total-count check cannot tell "appended at the end" apart from
+          // "inserted at index 0 and every existing track shifted up", so
+          // fingerprint each existing track and locate those fingerprints again
+          // after the call.
+          function __trackFingerprints(collection) {
+            var fingerprints = [];
+            for (var t = 0; t < collection.numTracks; t++) {
+              var track = collection[t];
+              var clipCount = -1;
+              var firstClipNodeId = "";
+              try {
+                clipCount = track.clips.numItems;
+                if (clipCount > 0) firstClipNodeId = String(track.clips[0].nodeId || "");
+              } catch (clipError) {}
+              var trackId = "";
+              try { trackId = String(track.id); } catch (idError) { trackId = ""; }
+              fingerprints.push(trackId + "|" + String(track.name) + "|" + clipCount + "|" + firstClipNodeId);
+            }
+            return fingerprints;
+          }
+          function __offsetOfExistingTracks(before, after, added) {
+            // Returns the index the pre-existing tracks start at afterwards, or
+            // -1 when they cannot be located as a contiguous run.
+            if (before.length === 0) return 0;
+            for (var offset = 0; offset <= added; offset++) {
+              var matches = true;
+              for (var i = 0; i < before.length; i++) {
+                if (after[offset + i] !== before[i]) { matches = false; break; }
+              }
+              if (matches) return offset;
+            }
+            return -1;
+          }
+
           var beforeVideo = seq.videoTracks.numTracks;
           var beforeAudio = seq.audioTracks.numTracks;
+          var beforeVideoFingerprints = __trackFingerprints(seq.videoTracks);
+          var beforeAudioFingerprints = __trackFingerprints(seq.audioTracks);
           var expectedVideo = beforeVideo + ${v};
           var expectedAudio = beforeAudio + ${a + aMono + a51};
 
@@ -1049,15 +1113,30 @@ export function getAdvancedTools(bridgeOptions: BridgeOptions) {
             return __error("QE addTracks did not add the requested tracks: video " + beforeVideo + " -> " + afterVideo + " (expected " + expectedVideo + "), audio " + beforeAudio + " -> " + afterAudio + " (expected " + expectedAudio + ").");
           }
 
+          var videoOffset = __offsetOfExistingTracks(beforeVideoFingerprints, __trackFingerprints(seq.videoTracks), ${v});
+          var audioOffset = __offsetOfExistingTracks(beforeAudioFingerprints, __trackFingerprints(seq.audioTracks), ${a + aMono + a51});
+          var videoShifted = videoOffset > 0;
+          var audioShifted = audioOffset > 0;
+          var existingTracksUnlocatable = videoOffset === -1 || audioOffset === -1;
+
           return __result({
             added: true,
-            verified: true,
+            verified: !existingTracksUnlocatable,
             videoTracks: ${v},
             audioTracks: ${a},
             audioMonoTracks: ${aMono},
             audio51Tracks: ${a51},
             totalVideoTracks: afterVideo,
-            totalAudioTracks: afterAudio
+            totalAudioTracks: afterAudio,
+            newTracksInsertedAtStart: videoShifted || audioShifted,
+            existingVideoTracksShiftedBy: videoOffset === -1 ? null : videoOffset,
+            existingAudioTracksShiftedBy: audioOffset === -1 ? null : audioOffset,
+            existingTracksUnlocatable: existingTracksUnlocatable,
+            trackShiftWarning: existingTracksUnlocatable
+              ? "The pre-existing tracks could not be matched by fingerprint after the call, so their new indices are unknown. Re-read the sequence structure before addressing any track by index."
+              : (videoShifted || audioShifted
+                ? "QE inserted the new tracks at index 0 and shifted every pre-existing track up (video +" + videoOffset + ", audio +" + audioOffset + "). Clips that were on Video 1 are now on Video " + (1 + videoOffset) + ". Re-read the sequence structure before addressing any track by index."
+                : null)
           });
         `);
         return sendCommand(script, bridgeOptions);

@@ -89,6 +89,8 @@ export const WORKFLOW_TOOL_PACKS: readonly WorkflowToolPack[] = [
       "get_offline_media",
       "get_used_media_report",
       "get_render_queue_status",
+      "diff_sequence_snapshots",
+      "audit_timeline_health",
     ],
   },
   {
@@ -115,6 +117,8 @@ export const WORKFLOW_TOOL_PACKS: readonly WorkflowToolPack[] = [
       "verify_delivery_file",
       "verify_delivery_conformance",
       "analyze_video_qc",
+      "plan_platform_delivery_matrix",
+      "validate_platform_publish_package",
     ],
   },
   {
@@ -130,6 +134,8 @@ export const WORKFLOW_TOOL_PACKS: readonly WorkflowToolPack[] = [
       "inspect_sequence_review_report",
       "export_sequence_review_frames",
       "export_sequence_clip_review_frames",
+      "build_caption_artifact",
+      "check_caption_safe_zone",
     ],
   },
   {
@@ -141,6 +147,16 @@ export const WORKFLOW_TOOL_PACKS: readonly WorkflowToolPack[] = [
       "detect_silence", "analyze_dialogue_edit_candidates", "preview_derived_dialogue_sequence_uxp",
       "apply_derived_dialogue_sequence_uxp", "create_caption_track", "auto_reframe_sequence",
       "get_sequence_structure", "inspect_sequence_review_report",
+      "plan_filler_word_removal",
+      "plan_pause_tightening",
+      "plan_word_mute_ranges",
+      "detect_repeated_takes",
+      "rank_short_form_candidates",
+      "plan_chapter_markers",
+      "plan_emphasis_zoom_keyframes",
+      "plan_beat_montage",
+      "plan_speaker_checkerboard",
+      "plan_active_speaker_reframe",
     ],
   },
   {

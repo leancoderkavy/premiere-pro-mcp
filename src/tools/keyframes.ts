@@ -63,7 +63,8 @@ export function getKeyframeTools(bridgeOptions: BridgeOptions) {
     },
 
     set_effect_property: {
-      description: "Set the value of a specific effect property on a clip",
+      description:
+        "Set the value of a specific effect property on a clip. Accepts scalar, boolean, string, and array-shaped vector values (for example Motion > Position as [x, y]) and verifies the readback component by component.",
       parameters: {
         type: "object" as const,
         properties: {
@@ -80,17 +81,33 @@ export function getKeyframeTools(bridgeOptions: BridgeOptions) {
             description: "Display name of the property (e.g., 'Scale', 'Position', 'Opacity')",
           },
           value: {
-            type: ["number", "string"],
+            type: ["number", "string", "boolean", "array"],
             maxLength: 8192,
-            description: "Number or string value to set. Use the exact JSON string reported for a MOGRT text or graphic parameter.",
+            items: { type: "number" },
+            minItems: 1,
+            maxItems: 4,
+            description:
+              "Value to set. Use a number for scalar properties, an array of numbers for vector properties such as Motion > Position or Anchor Point ([x, y]), a boolean for checkbox properties, or the exact JSON string reported for a MOGRT text or graphic parameter.",
           },
         },
         required: ["node_id", "effect_name", "property_name", "value"],
       },
-      handler: async (args: { node_id: string; effect_name: string; property_name: string; value: number | string }) => {
-        const requestedValue = typeof args.value === "string"
-          ? `"${escapeForExtendScript(args.value)}"`
-          : String(args.value);
+      handler: async (args: { node_id: string; effect_name: string; property_name: string; value: number | string | boolean | number[] }) => {
+        if (Array.isArray(args.value)) {
+          if (!args.value.length || args.value.length > 4) {
+            return { success: false, error: "value must be an array of 1 to 4 numbers for a vector property" };
+          }
+          if (args.value.some((component) => typeof component !== "number" || !Number.isFinite(component))) {
+            return { success: false, error: "every component of a vector value must be a finite number" };
+          }
+        } else if (typeof args.value === "number" && !Number.isFinite(args.value)) {
+          return { success: false, error: "value must be a finite number" };
+        }
+        const requestedValue = Array.isArray(args.value)
+          ? `[${args.value.map((component) => String(component)).join(", ")}]`
+          : typeof args.value === "string"
+            ? `"${escapeForExtendScript(args.value)}"`
+            : String(args.value);
         const script = buildToolScript(`
           var result = __findClip("${escapeForExtendScript(args.node_id)}");
           if (!result) return __error("Clip not found");
@@ -128,13 +145,33 @@ export function getKeyframeTools(bridgeOptions: BridgeOptions) {
           } catch (eReadback) {
             readbackAvailable = false;
           }
+          // Array-shaped properties (Position, Anchor Point, and other vector
+          // parameters) are never === equal to the written value, so compare
+          // element by element with the same tolerance used for scalars.
+          function __sameParameterValue(actual, expected) {
+            var tolerance = 0.0001;
+            var actualIsArray = actual instanceof Array;
+            var expectedIsArray = expected instanceof Array;
+            if (actualIsArray !== expectedIsArray) return false;
+            if (actualIsArray) {
+              if (actual.length !== expected.length) return false;
+              for (var index = 0; index < expected.length; index++) {
+                if (!__sameParameterValue(actual[index], expected[index])) return false;
+              }
+              return true;
+            }
+            if (typeof actual === "number" && typeof expected === "number") {
+              return Math.abs(actual - expected) <= tolerance;
+            }
+            return actual === expected;
+          }
           return __result({
             set: true,
             effect: "${escapeForExtendScript(args.effect_name)}",
             property: "${escapeForExtendScript(args.property_name)}",
             value: readbackAvailable ? readbackValue : requestedValue,
             requestedValue: requestedValue,
-            readbackVerified: readbackAvailable && readbackValue === requestedValue,
+            readbackVerified: readbackAvailable && __sameParameterValue(readbackValue, requestedValue),
             verification: readbackAvailable
               ? "Premiere parameter readback only; verify playback or exported frames before delivery."
               : "Premiere accepted the parameter write, but this property did not expose a readback value. Verify playback or exported frames before delivery."

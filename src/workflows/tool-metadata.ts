@@ -28,6 +28,21 @@ const READ_ONLY_TOOLS = new Set([
   "preview_derived_dialogue_sequence_uxp",
   "preview_workflow_recipe",
   "preview_watched_media_import",
+  "plan_platform_delivery_matrix",
+  "validate_platform_publish_package",
+  "plan_filler_word_removal",
+  "plan_pause_tightening",
+  "plan_word_mute_ranges",
+  "detect_repeated_takes",
+  "check_caption_safe_zone",
+  "rank_short_form_candidates",
+  "plan_chapter_markers",
+  "plan_emphasis_zoom_keyframes",
+  "plan_beat_montage",
+  "plan_speaker_checkerboard",
+  "plan_active_speaker_reframe",
+  "diff_sequence_snapshots",
+  "audit_timeline_health",
 ]);
 const DESTRUCTIVE_PREFIXES = ["delete_", "remove_", "ripple_delete", "close_"];
 const DESTRUCTIVE_TOOLS = new Set(["manage_project_context"]);

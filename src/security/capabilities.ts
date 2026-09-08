@@ -78,6 +78,21 @@ const INSPECT_TOOL_NAMES = new Set([
   "plan_silence_review_markers",
   "analyze_dialogue_edit_candidates",
   "preview_derived_dialogue_sequence_uxp",
+  "plan_platform_delivery_matrix",
+  "validate_platform_publish_package",
+  "plan_filler_word_removal",
+  "plan_pause_tightening",
+  "plan_word_mute_ranges",
+  "detect_repeated_takes",
+  "check_caption_safe_zone",
+  "rank_short_form_candidates",
+  "plan_chapter_markers",
+  "plan_emphasis_zoom_keyframes",
+  "plan_beat_montage",
+  "plan_speaker_checkerboard",
+  "plan_active_speaker_reframe",
+  "diff_sequence_snapshots",
+  "audit_timeline_health",
 ]);
 // detect_silence reads a media file from disk and shells out to ffmpeg. It
 // changes nothing in Premiere, so classifying it as "edit" would overstate what
@@ -113,6 +128,7 @@ const FILESYSTEM_TOOL_NAMES = new Set([
   "preview_workflow_recipe",
   "manage_media_watch",
   "preview_watched_media_import",
+  "build_caption_artifact",
 ]);
 
 // These tools have deliberately mixed authority requirements that cannot be

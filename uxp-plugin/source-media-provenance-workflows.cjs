@@ -67,12 +67,12 @@
       if (!projectItem) {
         throw commandError("UXP_TARGET_NOT_FOUND", "projectItemId does not identify an item in the active project");
       }
-      const resolvedId = requiredText(requiredMethod(projectItem, "getId")(), "resolved project item ID", 512);
+      const resolvedId = await requiredProjectItemId(projectItem, "resolved project item ID");
       if (resolvedId !== request.projectItemId) {
         throw commandError("UXP_STALE_SOURCE_PROVENANCE", "The resolved project item ID changed during provenance inspection");
       }
       const clipProjectItem = castClipProjectItem(projectItem);
-      const readbackId = requiredText(requiredMethod(projectItem, "getId")(), "resolved project item ID", 512);
+      const readbackId = await requiredProjectItemId(projectItem, "resolved project item ID");
       if (readbackId !== request.projectItemId) {
         throw commandError("UXP_STALE_SOURCE_PROVENANCE", "The resolved project item changed before provenance getters ran");
       }
@@ -84,6 +84,45 @@
         snapshot.originatingProjectPath = boundedPath(await requiredMethod(clipProjectItem, "getOriginatingProjectPath")(), "originating project path");
       }
       return snapshot;
+    }
+
+    // getId() is documented on ProjectItem. A project item reached through
+    // Project.getRootItem()/FolderItem.getItems() is not guaranteed to expose it
+    // directly, so identity has to be read through the documented ProjectItem
+    // cast before the method can be treated as unavailable.
+    function identityView(item) {
+      if (item && typeof item.getId === "function") return item;
+      if (item && ppro.ProjectItem && typeof ppro.ProjectItem.cast === "function") {
+        try {
+          const cast = ppro.ProjectItem.cast(item);
+          if (cast && typeof cast.getId === "function") return cast;
+        } catch (_) {
+          // An item that cannot be cast simply cannot answer for its identity.
+        }
+      }
+      return null;
+    }
+
+    async function requiredProjectItemId(item, name) {
+      const identity = identityView(item);
+      if (!identity) {
+        throw commandError("UXP_COMMAND_UNAVAILABLE", "Premiere does not expose getId for this target, directly or through ProjectItem.cast");
+      }
+      return requiredText(await identity.getId(), name, 512);
+    }
+
+    async function optionalProjectItemId(item) {
+      const identity = identityView(item);
+      if (!identity) return null;
+      let value;
+      try {
+        value = await identity.getId();
+      } catch (_) {
+        return null;
+      }
+      return typeof value === "string" && value.length && value.length <= 512 && value.indexOf("\u0000") === -1
+        ? value
+        : null;
     }
 
     async function activeProject() {
@@ -103,13 +142,15 @@
       const visited = new Set();
       while (pending.length) {
         const candidate = pending.shift();
-        const candidateId = requiredText(requiredMethod(candidate, "getId")(), "project item ID", 512);
-        if (visited.has(candidateId)) continue;
-        visited.add(candidateId);
+        if (!candidate || typeof candidate !== "object" || visited.has(candidate)) continue;
+        visited.add(candidate);
         if (visited.size > 4096) {
           throw commandError("UXP_TARGET_TOO_LARGE", "The active project has more than 4096 reachable project items");
         }
-        if (candidateId === expectedId) return candidate;
+        // A bin or root folder that exposes no readable ID is still traversed;
+        // only the requested target has to be identifiable.
+        const candidateId = await optionalProjectItemId(candidate);
+        if (candidateId && candidateId === expectedId) return candidate;
         const folder = castFolderItem(candidate);
         if (!folder) continue;
         const children = await requiredMethod(folder, "getItems")();

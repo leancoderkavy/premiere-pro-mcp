@@ -48,6 +48,13 @@ import { getCompetitorGapTools } from "./tools/competitor-gaps.js";
 import { getDialogueAnalysisTools } from "./tools/dialogue-analysis.js";
 import { MediaWatchRegistry, getMediaWatchTools } from "./tools/media-watch.js";
 import { getWorkflowRecipeTools } from "./tools/workflow-recipes.js";
+import { getTimelineQaTools } from "./tools/timeline-qa.js";
+import { getSpeakerLayoutTools } from "./tools/speaker-layout.js";
+import { getRhythmPlanTools } from "./tools/rhythm-plans.js";
+import { getShortsIntelligenceTools } from "./tools/shorts-intelligence.js";
+import { getCaptionAuthoringTools } from "./tools/caption-authoring.js";
+import { getTranscriptWordEditTools } from "./tools/transcript-word-edits.js";
+import { getPlatformDeliveryTools } from "./tools/platform-delivery.js";
 import { getUxpTools } from "./tools/uxp.js";
 import { getMogrtAuthoringTools } from "./tools/mogrt-authoring.js";
 import { getMogrtStudioTools } from "./tools/mogrt-studio.js";
@@ -229,6 +236,13 @@ function collectStaticTools(
     ...getProjectIntakeTools(bridgeOptions),
     ...getDialogueAnalysisTools(),
     ...getWorkflowRecipeTools(),
+    ...getTimelineQaTools(),
+    ...getSpeakerLayoutTools(),
+    ...getRhythmPlanTools(),
+    ...getShortsIntelligenceTools(),
+    ...getCaptionAuthoringTools(),
+    ...getTranscriptWordEditTools(),
+    ...getPlatformDeliveryTools(),
   };
   toolCatalogCache.set(cacheKey, tools);
   return tools;

@@ -58,6 +58,13 @@ import { getCompetitorGapTools } from "../../src/tools/competitor-gaps.js";
 import { getSpotWorkflowTools } from "../../src/tools/spot-workflows.js";
 import { getMogrtAuthoringTools } from "../../src/tools/mogrt-authoring.js";
 import { getMogrtStudioTools } from "../../src/tools/mogrt-studio.js";
+import { getPlatformDeliveryTools } from "../../src/tools/platform-delivery.js";
+import { getTimelineQaTools } from "../../src/tools/timeline-qa.js";
+import { getSpeakerLayoutTools } from "../../src/tools/speaker-layout.js";
+import { getRhythmPlanTools } from "../../src/tools/rhythm-plans.js";
+import { getShortsIntelligenceTools } from "../../src/tools/shorts-intelligence.js";
+import { getCaptionAuthoringTools } from "../../src/tools/caption-authoring.js";
+import { getTranscriptWordEditTools } from "../../src/tools/transcript-word-edits.js";
 import type { Telemetry, TelemetryProperties } from "../../src/telemetry.js";
 
 interface ToolDef {
@@ -114,6 +121,13 @@ const ALL_MODULES: Array<{
   { name: "spot-workflows", getter: getSpotWorkflowTools, minTools: 4 },
   { name: "mogrt-authoring", getter: getMogrtAuthoringTools, minTools: 4 },
   { name: "mogrt-studio", getter: getMogrtStudioTools, minTools: 11 },
+  { name: "platform-delivery", getter: getPlatformDeliveryTools, minTools: 2 },
+  { name: "transcript-word-edits", getter: getTranscriptWordEditTools, minTools: 4 },
+  { name: "caption-authoring", getter: getCaptionAuthoringTools, minTools: 2 },
+  { name: "shorts-intelligence", getter: getShortsIntelligenceTools, minTools: 2 },
+  { name: "rhythm-plans", getter: getRhythmPlanTools, minTools: 2 },
+  { name: "speaker-layout", getter: getSpeakerLayoutTools, minTools: 2 },
+  { name: "timeline-qa", getter: getTimelineQaTools, minTools: 2 },
 ];
 
 describe("Tool Module Structure", () => {
@@ -198,16 +212,16 @@ describe("Tool Module Structure", () => {
 });
 
 describe("Total Tool Count", () => {
-  it("all modules together have 342 tools", () => {
+  it("all modules together have 358 tools", () => {
     let total = 0;
     for (const mod of ALL_MODULES) {
       total += Object.keys(mod.getter(bridgeOptions)).length;
     }
-    expect(total).toBe(342);
+    expect(total).toBe(358);
   });
 
-  it("there are 40 directly enumerated modules", () => {
-    expect(ALL_MODULES.length).toBe(40);
+  it("there are 47 directly enumerated modules", () => {
+    expect(ALL_MODULES.length).toBe(47);
   });
 });
 

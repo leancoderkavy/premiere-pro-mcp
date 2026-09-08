@@ -6,14 +6,153 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+
+- Added timeline QA: `diff_sequence_snapshots` compares two sequence
+  snapshots (normalized, `get_sequence_structure`, or
+  `inspect_sequence_structure_uxp` shapes) into added, removed, moved,
+  trimmed, retimed, renamed, and enabled changes with frame deltas and
+  EDL-like timecode lines, and `audit_timeline_health` scores a snapshot for
+  flash frames, gaps, overlaps, disabled clips, repeated shots, missing
+  audio or video coverage, overlength, extreme speed, invalid times, and
+  leading or trailing black with review-frame suggestions. Media paths are
+  reduced to a basename and hash in every output.
+- Added speaker layout planning: `plan_speaker_checkerboard` turns
+  speaker-labelled words into frame-snapped per-speaker segments, split
+  points, and track assignments for checkerboarded dialogue, and
+  `plan_active_speaker_reframe` computes per-speaker crop, Scale, and
+  Position framings for a vertical target with hold or eased keyframes at
+  each speaker switch, or static stacked and side-by-side two-speaker
+  layouts. Both route to existing track, razor, transform, crop, and keyframe
+  tools and fall back to `auto_reframe_sequence`.
+- Added rhythm planning: `plan_emphasis_zoom_keyframes` turns sentence
+  starts, emphasis words, a fixed interval, or supplied trigger times into
+  Motion Scale and subject-anchored Position keyframes with easing, hold,
+  cooldown, and alternate-return options, shaped for `add_keyframe` and
+  `automate_effect_parameters_uxp`. `plan_beat_montage` carves a detected beat
+  grid into shots every N beats, assigns clips in order, priority, or
+  round-robin, and returns `add_to_timeline_batch` chunks, a trim plan, and
+  beat markers.
+- Added shorts intelligence: `rank_short_form_candidates` scores
+  sentence-aligned windows of a word timeline with explainable hook,
+  completeness, density, evidence, keyword, duration-fit, and
+  speaker-consistency components, suppresses overlapping candidates, and
+  routes to the existing subclip, derived-sequence, reframe, and caption
+  tools. `plan_chapter_markers` segments a transcript into chapters with
+  TextTiling-style lexical cohesion, titles each chapter from distinctive
+  terms, and returns YouTube timestamps and ready `add_marker` payloads.
+- Added dynamic caption authoring: `build_caption_artifact` turns a word
+  timeline into an SRT or VTT artifact with per-cue word grouping, line
+  wrapping, minimum and maximum cue durations, flicker-suppressing merge gaps,
+  optional VTT karaoke word timestamps, emphasis markup, speaker prefixes, and
+  documented style presets, written only inside an approved workspace or
+  returned inline. `check_caption_safe_zone` reports overlaps between caption
+  or graphic rectangles and approximate TikTok, Reels, Shorts, feed, YouTube,
+  LinkedIn, and X interface zones with a suggested clear position.
+- Added word-level transcript cleanup planning from a revision-bound word
+  timeline: `plan_filler_word_removal`, `plan_pause_tightening`,
+  `plan_word_mute_ranges` (mute or bleep listed words with ready audio
+  keyframes and redacted text), and `detect_repeated_takes`. Plans return
+  frame-snapped removal and keep ranges and route to the existing derived
+  dialogue sequence preview/apply tools; nothing is applied.
+- Added local platform-delivery planning: `plan_platform_delivery_matrix`
+  turns one source sequence into per-platform sequence settings, exact
+  fit/fill reframe math, duration and file-size fit, caption safe zones, and
+  an ordered route through existing clone, reframe, caption, export, and
+  delivery-verification tools. `validate_platform_publish_package` checks a
+  rendered file plus title, description, hashtags, and content flags against
+  approximate TikTok, Reels, Shorts, YouTube, LinkedIn, X, and Facebook limits.
+  Both are read-only and never change Premiere.
+
+### Fixed
+
+- `inspect_video_transition_uxp` now resolves the documented
+  `VideoClipTrackItem` surface through `VideoClipTrackItem.cast()` before
+  reporting a capability gap, so it returns a target snapshot again on
+  Premiere 26.3 and `add_video_transition_uxp` / `remove_video_transition_uxp`
+  are reachable. A genuine gap now names the missing methods. (#454)
+- `ripple_delete_track_item_uxp` and `slip_track_item_uxp` no longer report a
+  bare failure after the host has already committed the transaction. A
+  divergent result now fails with `UXP_COMMITTED_UNVERIFIED`, states that the
+  project has already changed, describes what actually landed (for example a
+  delete that left a gap instead of rippling), and tells the caller not to
+  retry. (#455)
+- `inspect_source_proxy_uxp`, `manage_timeline_source_label_uxp`, and
+  `inspect_source_media_provenance_uxp` now read project-item identity through
+  the documented `ProjectItem.cast()` and await it, instead of failing
+  universally with "Premiere does not expose getId for this target". Bins that
+  expose no readable ID are traversed rather than rejected. (#456)
+- `roll_edit` now moves the source out point and the incoming clip's in point
+  with the visible cut and verifies all four values, so the timeline and the
+  clips' in/out metadata can no longer disagree after a reported success. (#457)
+- `import_fcp_xml` now passes both arguments `app.openFCPXML(path, projPath)`
+  requires. It takes a new required `project_path`, checks that the XML exists,
+  refuses to overwrite an existing project, and verifies the destination
+  project was created. (#458)
+- `manage_sequences_uxp` now forwards only the parameters each action accepts
+  instead of blanket-forwarding every documented field, and explains locally
+  which parameters an action takes when given one it does not. (#459)
+- `attach_custom_property` now reads the sequence project item's XMP packet
+  before and after the write and fails when the property never lands in XMP,
+  instead of reporting an unverified success. (#460)
+- `undo` and `redo` now fail closed with a named capability error, matching the
+  fix already shipped for `multiple_undo`. `undo` no longer throws
+  `ReferenceError: app.project.undo is not a function`, and `redo` no longer
+  reports an unverifiable success. (#462)
+- `set_effect_property` now accepts array values for 2D vector properties such
+  as Motion > Position and Anchor Point, and verifies an array readback
+  component by component instead of with strict equality. (#463)
+- `import_ae_comps` now fails closed when the `.aep` file does not exist and
+  when the target bin gains no items, instead of reporting success for a
+  nonexistent path. (#464)
+- `add_tracks` now fingerprints every existing track before the call and
+  locates those fingerprints afterwards, so it reports explicitly when QE
+  inserted the new tracks at index 0 and shifted every existing track up. A
+  matching total count alone no longer implies success. (#465)
+- `get_render_queue_status` now returns a capability error naming
+  `app.encoder.isRunning` when the host does not expose it, instead of an
+  `isRunning: "unknown"` string that reads as a legitimate status. (#466)
+
+## [1.14.9] - 2026-09-04
+
+### Added
+
+- Expanded the separate After Effects CEP bridge into a guarded MOGRT studio.
+  Five deterministic title, callout, quote, and social recipes run only in an
+  already saved, workspace-contained After Effects project and export to an
+  existing approved directory.
+- Added optional brand-kit constraints, bounded JSON/CSV batch previews,
+  immutable workspace-contained version libraries, source inspection,
+  queue-only renders, and an explicit empty-track Premiere handoff that
+  verifies insertion and exposed-control descriptors.
+- Added capability-aware assistant-editor workflows and GPT-6 Astra discovery
+  guidance so clients can inspect the current, authorized tool surface before
+  proposing an editing workflow.
+
+### Changed
+
+- Hardened the MCP transport's bounded bridge-command backlog and refreshed
+  public tool counts, workflow documentation, registry metadata, and the
+  landing's machine-readable release references.
+
+### Safety
+
+- MOGRT workflows never accept arbitrary script text, create or switch After
+  Effects projects, overwrite artifacts, start a render queue, or treat host
+  acceptance, a ZIP header, or an import descriptor as rendered-frame or
+  visual proof.
+- Capability discovery and workflow guidance describe the current host surface;
+  they do not grant authority or establish licensed-host, playback, render, or
+  marketplace verification.
+
 ## [1.14.8] - 2026-09-04
 
 ### Added
 
-- Added a separate After Effects CEP bridge and guarded MOGRT studio. Five
-  deterministic title, callout, quote, and social recipes run only in an
-  already saved, workspace-contained AE project and export to an existing
-  approved directory.
+- Added a separate After Effects CEP bridge and four approval-gated MOGRT
+  authoring tools. The initial `lower_third` recipe only runs in an already
+  saved, workspace-contained AE project and exports to an existing approved
+  directory.
 - Added one-time preview tokens, explicit export confirmation, isolated AE
   bridge helpers/temp directory, and local ZIP-header artifact verification.
 - Added a local SRT/VTT timing-review plan for lecture and interview captions,
@@ -48,13 +187,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Caption timing plans, editorial evidence import, doctor repair plans, and
   public workflow materials remain distinct from licensed-host, playback,
   rendered-output, provider, or marketplace verification.
-- Added optional brand-kit constraints, bounded JSON/CSV batch previews,
-  immutable workspace-contained version libraries, source inspection,
-  queue-only After Effects renders, and an explicit empty-track Premiere
-  handoff that verifies insertion and exposed-control descriptors.
-- MOGRT workflows never accept arbitrary script text, create or switch AE
-  projects, overwrite artifacts, start a render queue, or treat host
-  acceptance/a ZIP header/import descriptor as rendered-frame or visual proof.
 
 ## [1.14.7] - 2026-09-02
 

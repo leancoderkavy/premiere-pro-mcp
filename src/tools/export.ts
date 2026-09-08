@@ -1128,16 +1128,32 @@ export function getExportTools(bridgeOptions: BridgeOptions) {
     },
 
     get_render_queue_status: {
-      description: "Get the current status of the Adobe Media Encoder render queue",
+      description:
+        "Report the Adobe Media Encoder queue running state, or fail closed with a named capability error when this Premiere build exposes no queue-status method on app.encoder.",
       parameters: {},
       handler: async () => {
         const script = buildToolScript(`
           var encoder = app.encoder;
           if (!encoder) return __error("Adobe Media Encoder not available");
-          
+
+          if (typeof encoder.isRunning !== "function") {
+            return __error("This Premiere build does not expose app.encoder.isRunning, and app.encoder exposes no other documented queue-status method, so the Adobe Media Encoder queue state cannot be read. Check the Adobe Media Encoder application directly. Exporting through export_sequence or encode_project_item is a separate code path and is unaffected.");
+          }
+
+          var isRunning;
+          try {
+            isRunning = encoder.isRunning();
+          } catch (encoderStatusError) {
+            return __error("app.encoder.isRunning exists but Premiere could not read the queue state: " + encoderStatusError.toString());
+          }
+          if (typeof isRunning !== "boolean") {
+            return __error("app.encoder.isRunning did not return a boolean queue state, so the Adobe Media Encoder queue status cannot be trusted.");
+          }
+
           return __result({
-            isRunning: encoder.isRunning ? encoder.isRunning() : "unknown",
-            info: "Check Adobe Media Encoder application for detailed queue status"
+            isRunning: isRunning,
+            source: "app.encoder.isRunning",
+            info: "Check Adobe Media Encoder application for detailed per-job queue status."
           });
         `);
         return sendCommand(script, bridgeOptions);

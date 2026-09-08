@@ -118,7 +118,15 @@
         }
         const after = await rippleReadback(afterContext, before);
         if (!sameRippleResult(before, after)) {
-          throw commandError("UXP_VERIFICATION_FAILED", "Premiere did not retain the requested contiguous ripple-delete result");
+          // The remove transaction already committed, so the project has
+          // changed even though the ripple result is wrong. Reporting a bare
+          // failure would invite a retry that deletes a second clip.
+          throw commandError(
+            "UXP_COMMITTED_UNVERIFIED",
+            "Premiere committed the remove transaction, so the project has already changed, but the result is not the requested contiguous ripple delete: " +
+              describeRippleDivergence(before, after) +
+              ". Do not retry this call. Inspect the track and undo the edit in Premiere if the result is unwanted."
+          );
         }
         return {
           rippleDeleted: true,
@@ -250,6 +258,40 @@
         numbersEqual(successor.inSeconds, following.inSeconds) && numbersEqual(successor.outSeconds, following.outSeconds) &&
         numbersEqual(successor.durationSeconds, following.durationSeconds) &&
         numbersEqual(successor.speed, following.speed) && successor.reversed === following.reversed;
+    }
+
+    function describeRippleDivergence(before, after) {
+      const notes = [];
+      const targetTimelineDuration = before.target.endSeconds - before.target.startSeconds;
+      const following = before.following, successor = after.successor;
+      if (after.projectGuid !== before.projectGuid || after.sequenceId !== before.sequenceId ||
+        after.mediaType !== before.mediaType || after.trackIndex !== before.trackIndex) {
+        notes.push("the coordinate no longer resolves the same project, sequence, or track");
+      }
+      if (after.trackItemCount === before.trackItemCount) {
+        notes.push("the track still holds " + after.trackItemCount + " clip items, so nothing was removed");
+      } else if (after.trackItemCount !== before.trackItemCount - 1) {
+        notes.push("the track holds " + after.trackItemCount + " clip items instead of the expected " + (before.trackItemCount - 1));
+      }
+      if (successor.projectItemId !== following.projectItemId) {
+        notes.push("a different clip now occupies the removed item's index");
+      } else if (!numbersEqual(successor.startSeconds, following.startSeconds - targetTimelineDuration)) {
+        notes.push(numbersEqual(successor.startSeconds, following.startSeconds)
+          ? "the following clip did not move, so the delete left a gap of " + seconds(targetTimelineDuration) +
+            " instead of rippling the track closed"
+          : "the following clip starts at " + seconds(successor.startSeconds) + " instead of the expected " +
+            seconds(following.startSeconds - targetTimelineDuration));
+      }
+      if (successor.projectItemId === following.projectItemId &&
+        (!numbersEqual(successor.inSeconds, following.inSeconds) || !numbersEqual(successor.outSeconds, following.outSeconds) ||
+          !numbersEqual(successor.durationSeconds, following.durationSeconds))) {
+        notes.push("the following clip's source range or duration changed, which a ripple delete must leave untouched");
+      }
+      return notes.length ? notes.join("; ") : "the readback did not match the requested ripple delete";
+    }
+
+    function seconds(value) {
+      return (Math.round(value * 1000) / 1000) + "s";
     }
 
     function sameSnapshot(left, right) {

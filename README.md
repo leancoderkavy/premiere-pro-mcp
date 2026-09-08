@@ -8,7 +8,7 @@
 
 **Give compatible AI assistants structured control over supported Adobe Premiere Pro workflows.**
 
-Development source: 349 core tools across 43 modules, 4 resources, and 16 guided workflows. A connected UXP host adds 93 capability-gated tools.
+Development source: 365 core tools across 50 modules, 4 resources, and 16 guided workflows. A connected UXP host adds 93 capability-gated tools.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Node.js](https://img.shields.io/badge/Node.js-20.19%2B-green.svg)](https://nodejs.org)
@@ -17,11 +17,51 @@ Development source: 349 core tools across 43 modules, 4 resources, and 16 guided
 [![Fly.io](https://img.shields.io/badge/Fly.io-deployed-7C3AED.svg)](https://premiere-pro-mcp.fly.dev)
 [![Premiere Pro](https://img.shields.io/badge/Premiere%20Pro-2020--2026-9999FF.svg)](https://www.adobe.com/products/premiere.html)
 
+[![npm downloads](https://img.shields.io/npm/dm/premiere-pro-mcp.svg?label=npm%20downloads)](https://www.npmjs.com/package/premiere-pro-mcp)
+[![GitHub stars](https://img.shields.io/github/stars/leancoderkavy/premiere-pro-mcp?style=flat&logo=github)](https://github.com/leancoderkavy/premiere-pro-mcp/stargazers)
+[![GitHub forks](https://img.shields.io/github/forks/leancoderkavy/premiere-pro-mcp?style=flat&logo=github)](https://github.com/leancoderkavy/premiere-pro-mcp/network/members)
+[![Open issues](https://img.shields.io/github/issues/leancoderkavy/premiere-pro-mcp.svg)](https://github.com/leancoderkavy/premiere-pro-mcp/issues)
+[![Last commit](https://img.shields.io/github/last-commit/leancoderkavy/premiere-pro-mcp.svg)](https://github.com/leancoderkavy/premiere-pro-mcp/commits)
+[![Buy Me A Coffee](https://img.shields.io/badge/Buy%20Me%20A%20Coffee-support%20the%20project-FFDD00?logo=buymeacoffee&logoColor=000000)](https://buymeacoffee.com/leancoderkavy)
+
 </div>
 
 ---
 
 ![MCP for Adobe Premiere Pro turns a structured AI request into an organized local editing workflow](landing/public/marketing/premiere-pro-mcp-campaign-hero-v1.png)
+
+<details>
+<summary><strong>Table of contents</strong></summary>
+
+- [What is this?](#what-is-this)
+  - [Latest release](#latest-release)
+  - [Current MCP protocol support](#current-mcp-protocol-support)
+- [For editors evaluating an AI workflow](#for-editors-evaluating-an-ai-workflow)
+- [Quick Start](#quick-start)
+  - [Easiest supported path: Claude Desktop](#easiest-supported-path-claude-desktop)
+  - [First proof, before the first edit](#first-proof-before-the-first-edit)
+  - [Other AI assistants](#other-ai-assistants)
+  - [Configure your MCP client](#3-configure-your-mcp-client)
+  - [Verify the bridge in Premiere Pro](#4-verify-the-bridge-in-premiere-pro)
+- [Clients and capability coverage](#codex-plugin)
+  - [Codex plugin](#codex-plugin) · [Claude](#claude) · [GPT-6 Astra tool discovery](#gpt-6-astra-and-agent-tool-discovery)
+  - [Windows and macOS capability coverage](#windows-and-macos-capability-coverage)
+  - [After Effects MOGRT studio](#after-effects-mogrt-studio)
+  - [Collaboration and AI feature boundaries](#collaboration-and-ai-feature-boundaries)
+  - [Authenticated UXP connection](#authenticated-uxp-connection)
+- [Architecture](#architecture)
+- [Tools](#tools)
+- [MCP Resources](#mcp-resources)
+- [Remote Deployment (Fly.io)](#remote-deployment-flyio)
+- [Environment Variables](#environment-variables)
+- [Project Structure](#project-structure)
+- [Technical Details](#technical-details)
+- [Troubleshooting](#troubleshooting)
+- [Star history](#star-history)
+- [Support the project](#support-the-project)
+- [Contributing](#contributing) · [License](#license)
+
+</details>
 
 ## What is this?
 
@@ -31,12 +71,14 @@ An [MCP (Model Context Protocol)](https://modelcontextprotocol.io) server that l
 "Add the B-roll clips to V2, apply a cross dissolve between each, color correct them to match the A-roll, and export a 1080p ProRes."
 ```
 
-The current source exposes 349 core tools for supported workflow steps spanning the supported ExtendScript, QE DOM, local media and interchange analysis, revisioned project-context retrieval, safe edit-planning, project-intake preview, review handoff, connection verification, and guarded After Effects MOGRT authoring, batch, library, render-queue, inspection, and Premiere-handoff workflows. A compatible, authenticated UXP panel adds 93 documented, capability-gated tools without replacing the production CEP bridge.
+The current source exposes 365 core tools for supported workflow steps spanning the supported ExtendScript, QE DOM, local media and interchange analysis, revisioned project-context retrieval, safe edit-planning, project-intake preview, review handoff, connection verification, and guarded After Effects MOGRT authoring, batch, library, render-queue, inspection, and Premiere-handoff workflows. A compatible, authenticated UXP panel adds 93 documented, capability-gated tools without replacing the production CEP bridge.
 
-### Latest release: 1.14.8
+<a id="latest-release"></a>
 
-The published npm artifact contains **332 core tools**, 330 in its default profile,
-and 421 with a compatible UXP connection. The development catalog above can include
+### Latest release: 1.14.9
+
+The published npm artifact contains **349 core tools**, 347 in its default profile,
+and 440 with a compatible UXP connection. The development catalog above can include
 unreleased work. See the [versioned facts and package provenance](https://premiere-pro-mcp.com/facts/).
 
 ### Try a bounded workflow
@@ -76,7 +118,7 @@ if the connection is unavailable.
   local Premiere processes. See the generated [supported action catalog](docs/supported-actions.md)
   for individual capability and verification contracts.
 
-See the [v1.14.8 release notes](https://github.com/leancoderkavy/premiere-pro-mcp/releases/tag/v1.14.8)
+See the [v1.14.9 release notes](https://github.com/leancoderkavy/premiere-pro-mcp/releases/tag/v1.14.9)
 for complete details. Live installation in Premiere Pro still requires host verification.
 
 ### Current MCP protocol support
@@ -123,9 +165,9 @@ their bins, media rules, and organization rules before a facility uses one.
 
 ### Easiest supported path: Claude Desktop
 
-1. Download the current [Claude Desktop bundle (`.mcpb`)](https://github.com/leancoderkavy/premiere-pro-mcp/releases/download/v1.14.8/premiere-pro-mcp-1.14.8.mcpb).
+1. Download the current [Claude Desktop bundle (`.mcpb`)](https://github.com/leancoderkavy/premiere-pro-mcp/releases/download/v1.14.9/premiere-pro-mcp-1.14.9.mcpb).
 2. In Claude Desktop, open **Settings > Extensions > Advanced settings > Install Extension**, select the downloaded bundle, and restart Claude Desktop.
-3. Download the separate [signed Premiere connector (`.zxp`)](https://github.com/leancoderkavy/premiere-pro-mcp/releases/download/v1.14.8/MCPBridgeCEP.zxp). Open it with your trusted ZXP installer. If your computer has no ZXP installer, use the npm connector installer in **Advanced setup** below.
+3. Download the separate [signed Premiere connector (`.zxp`)](https://github.com/leancoderkavy/premiere-pro-mcp/releases/download/v1.14.9/MCPBridgeCEP.zxp). Open it with your trusted ZXP installer. If your computer has no ZXP installer, use the npm connector installer in **Advanced setup** below.
 4. Restart Premiere, open a project, then open **Window > Extensions > MCP for Adobe Premiere Pro**.
 5. In Claude, enter: `Safely check my Premiere connection with verify_premiere_connection. Make no changes.`
 
@@ -422,11 +464,11 @@ From a clone of this repository:
 ```bash
 codex plugin marketplace add .
 codex plugin add premiere-pro@premiere-pro-mcp
-npx -y premiere-pro-mcp@1.14.8 --install-cep
+npx -y premiere-pro-mcp@1.14.9 --install-cep
 ```
 
 Restart Premiere Pro and start a new Codex session after installation. The plugin
-launches `premiere-pro-mcp@1.14.8` through `npx`; the separate CEP installation is
+launches `premiere-pro-mcp@1.14.9` through `npx`; the separate CEP installation is
 required because the MCP server communicates with the running Premiere host through
 the local bridge.
 
@@ -457,7 +499,7 @@ For Claude Code, add this repository as a marketplace and install the plugin:
 Then install the Premiere bridge and start a new Claude Code session:
 
 ```bash
-npx -y premiere-pro-mcp@1.14.8 --install-cep
+npx -y premiere-pro-mcp@1.14.9 --install-cep
 ```
 
 The Claude Code package lives in
@@ -497,7 +539,7 @@ installed separately.
 QE-backed tools are reported as `experimental` because QE is undocumented and can vary between Premiere builds. Authority availability is reported separately from implementation support, so disabling `edit`, for example, does not incorrectly label editing tools as unsupported. Static metadata never claims that a Premiere operation succeeded; use `ping` and inspect each tool result for runtime evidence.
 
 MCP `tools/list` is filtered to the active authority profile. The default
-`inspect,edit,export,filesystem` profile advertises 347 of the 349 registered
+`inspect,edit,export,filesystem` profile advertises 363 of the 365 registered
 tools and omits `execute_extendscript` and `evaluate_expression`, which require
 explicit `unsafe-script` authority. `ping` and `get_capabilities` remain visible
 under every profile so a restricted or misconfigured server can still explain
@@ -737,13 +779,15 @@ The file-based IPC bridge is simple, reliable, and works across macOS and Window
 
 ---
 
+<a id="tools"></a>
+
 `inspect_unique_object_identity_uxp` is a separate read-only native identity
 inspection route. It resolves exactly one project item or sequence, reads the
 opaque `UniqueSerializeable` identity twice, and rejects drift without retaining
 the value or treating it as edit authority. See the [unique-identity workflow
 notes](docs/uxp-unique-identity-workflows.md) for its bounds and proof boundary.
 
-## Tools (349 core total; 347 under the default profile; 440 with a connected UXP bridge)
+## Tools (365 core total; 363 under the default profile; 456 with a connected UXP bridge)
 
 The [complete supported-actions catalog](docs/supported-actions.md) lists every
 registered core tool, the two tools restricted behind explicit `unsafe-script`
@@ -928,6 +972,57 @@ than presenting UI-only operations as available tools.
 | :--- | :---------- |
 | `get_workspaces` / `set_workspace` | Switch workspace layouts |
 | `create_caption_track` | Create caption/subtitle tracks |
+
+### Timeline QA (2)
+
+| Tool | Description |
+| :--- | :---------- |
+| `diff_sequence_snapshots` | Added / removed / moved / trimmed / retimed / renamed / enabled changes between two sequence snapshots with frame deltas and EDL-like lines |
+| `audit_timeline_health` | Health score with flash-frame, gap, overlap, repeated-shot, coverage, overlength, and speed findings plus review-frame suggestions |
+
+### Speaker Layout (2)
+
+| Tool | Description |
+| :--- | :---------- |
+| `plan_speaker_checkerboard` | Per-speaker segments, split points, and track assignments for checkerboarded dialogue |
+| `plan_active_speaker_reframe` | Active-speaker vertical reframe keyframes, or static stacked / side-by-side two-speaker layouts |
+
+### Rhythm Plans (2)
+
+| Tool | Description |
+| :--- | :---------- |
+| `plan_emphasis_zoom_keyframes` | Punch-in zoom keyframes (Motion Scale + subject-anchored Position) from sentence starts, emphasis words, intervals, or supplied triggers |
+| `plan_beat_montage` | Beat-grid shot assignment for a clip list with `add_to_timeline_batch` chunks, trim plan, and beat markers |
+
+### Shorts Intelligence (2)
+
+| Tool | Description |
+| :--- | :---------- |
+| `rank_short_form_candidates` | Rank sentence-aligned windows as short-form candidates with explainable hook, completeness, density, evidence, and duration-fit scores |
+| `plan_chapter_markers` | Lexical-cohesion chapter segmentation with titles, YouTube timestamps, and ready Chapter marker payloads |
+
+### Caption Authoring (2)
+
+| Tool | Description |
+| :--- | :---------- |
+| `build_caption_artifact` | Word-grouped SRT/VTT captions with karaoke timestamps, emphasis markup, speaker prefixes, and style presets, written inside an approved workspace |
+| `check_caption_safe_zone` | Overlap check for caption and graphic rectangles against approximate platform UI zones, with a suggested clear position |
+
+### Transcript Word Edits (4)
+
+| Tool | Description |
+| :--- | :---------- |
+| `plan_filler_word_removal` | Word-level filler removal plan (um, uh, you know…) with frame-snapped removal and keep ranges |
+| `plan_pause_tightening` | Shorten long pauses to a target length without deleting speech |
+| `plan_word_mute_ranges` | Mute or bleep listed words: padded ranges, ready audio keyframes, redacted text |
+| `detect_repeated_takes` | Group near-duplicate retakes and plan removal of all but the kept take |
+
+### Platform Delivery Planning (2)
+
+| Tool | Description |
+| :--- | :---------- |
+| `plan_platform_delivery_matrix` | Per-platform sequence settings, fit/fill reframe math, duration and file-size fit, caption safe zones, and an ordered clone → reframe → caption → export → verify route |
+| `validate_platform_publish_package` | Validate a rendered file plus title, description, hashtags, and content flags against approximate TikTok, Reels, Shorts, YouTube, LinkedIn, X, and Facebook limits |
 
 ### Scripting (2)
 
@@ -1120,11 +1215,11 @@ premiere-pro-mcp/
 ├── src/
 │   ├── index.ts                 # Entry point — stdio transport setup
 │   ├── http-server.ts           # Entry point — HTTP/SSE transport (Fly.io / remote)
-│   ├── server.ts                # MCP server — registers 349 tools, filtered by authority profile
+│   ├── server.ts                # MCP server — registers 365 tools, filtered by authority profile
 │   ├── bridge/
 │   │   ├── file-bridge.ts       # File-based IPC (write .jsx, poll .json)
 │   │   └── script-builder.ts    # ExtendScript generator with ES3 helpers
-│   ├── tools/                   # 43 tool modules
+│   ├── tools/                   # 50 tool modules
 │   │   ├── discovery.ts         # Project discovery and queries
 │   │   ├── recovery.ts          # Read-only autosave discovery and private bridge telemetry
 │   │   ├── project.ts           # Project management and import
@@ -1275,6 +1370,42 @@ npm version, fully quit every Premiere process, run `premiere-pro-mcp --install-
 3. Re-query the sequence structure after QE operations
 
 </details>
+
+---
+
+## Star history
+
+If this project saves you time in Premiere, a star helps other editors find it.
+
+<a href="https://star-history.com/#leancoderkavy/premiere-pro-mcp&Date">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=leancoderkavy/premiere-pro-mcp&type=Date&theme=dark" />
+    <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=leancoderkavy/premiere-pro-mcp&type=Date" />
+    <img alt="Star history chart for leancoderkavy/premiere-pro-mcp" src="https://api.star-history.com/svg?repos=leancoderkavy/premiere-pro-mcp&type=Date" width="600" />
+  </picture>
+</a>
+
+---
+
+## Support the project
+
+This is an independently maintained, MIT-licensed project with no company behind it.
+Every release is tested against real Premiere versions on both Windows and macOS,
+which takes hardware, licenses, and time.
+
+<a href="https://buymeacoffee.com/leancoderkavy">
+  <img alt="Buy Me A Coffee" src="https://img.shields.io/badge/Buy%20Me%20A%20Coffee-support%20this%20project-FFDD00?style=for-the-badge&logo=buymeacoffee&logoColor=000000" />
+</a>
+
+Free ways to help, in order of usefulness:
+
+- ⭐ **Star the repo** — the main way editors discover it
+- 🐛 **File a bug** with your Premiere version, OS, and the tool name that failed
+- 📝 **Report what worked** on a host version not yet in the [capability coverage table](#windows-and-macos-capability-coverage)
+- 🔧 **Open a PR** — see [CONTRIBUTING.md](CONTRIBUTING.md)
+
+Sponsorship funds host verification, signing certificates, and hosting. It does not
+buy prioritized support, roadmap influence, or any claim about unverified host behavior.
 
 ---
 
