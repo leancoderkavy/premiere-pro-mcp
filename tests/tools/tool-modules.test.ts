@@ -59,6 +59,7 @@ import { getSpotWorkflowTools } from "../../src/tools/spot-workflows.js";
 import { getMogrtAuthoringTools } from "../../src/tools/mogrt-authoring.js";
 import { getMogrtStudioTools } from "../../src/tools/mogrt-studio.js";
 import { getPlatformDeliveryTools } from "../../src/tools/platform-delivery.js";
+import { getRhythmPlanTools } from "../../src/tools/rhythm-plans.js";
 import { getShortsIntelligenceTools } from "../../src/tools/shorts-intelligence.js";
 import { getCaptionAuthoringTools } from "../../src/tools/caption-authoring.js";
 import { getTranscriptWordEditTools } from "../../src/tools/transcript-word-edits.js";
@@ -122,6 +123,7 @@ const ALL_MODULES: Array<{
   { name: "transcript-word-edits", getter: getTranscriptWordEditTools, minTools: 4 },
   { name: "caption-authoring", getter: getCaptionAuthoringTools, minTools: 2 },
   { name: "shorts-intelligence", getter: getShortsIntelligenceTools, minTools: 2 },
+  { name: "rhythm-plans", getter: getRhythmPlanTools, minTools: 2 },
 ];
 
 describe("Tool Module Structure", () => {
@@ -206,16 +208,16 @@ describe("Tool Module Structure", () => {
 });
 
 describe("Total Tool Count", () => {
-  it("all modules together have 352 tools", () => {
+  it("all modules together have 354 tools", () => {
     let total = 0;
     for (const mod of ALL_MODULES) {
       total += Object.keys(mod.getter(bridgeOptions)).length;
     }
-    expect(total).toBe(352);
+    expect(total).toBe(354);
   });
 
-  it("there are 44 directly enumerated modules", () => {
-    expect(ALL_MODULES.length).toBe(44);
+  it("there are 45 directly enumerated modules", () => {
+    expect(ALL_MODULES.length).toBe(45);
   });
 });
 
