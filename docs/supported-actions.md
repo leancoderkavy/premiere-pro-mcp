@@ -10,11 +10,11 @@ source catalog may include unreleased actions.
 
 | Surface | Count | Availability |
 | --- | ---: | --- |
-| Registered core actions | 366 | CEP/local server catalog; host and authority checks still apply |
-| Default-profile core actions | 364 | Advertised with `inspect,edit,export,filesystem` |
+| Registered core actions | 369 | CEP/local server catalog; host and authority checks still apply |
+| Default-profile core actions | 367 | Advertised with `inspect,edit,export,filesystem` |
 | Restricted core actions | 2 | Require explicit `unsafe-script` authority |
 | Authenticated UXP additions | 93 | Advertised only while a compatible authenticated UXP panel is connected |
-| Default profile with UXP | 457 | 364 core plus 93 UXP tools |
+| Default profile with UXP | 460 | 367 core plus 93 UXP tools |
 
 ## How to read support
 
@@ -55,6 +55,7 @@ operation” when the tool has no enum-based mode.
 | `analyze_loudness` | Default profile | Single operation | Measure integrated loudness (LUFS), loudness range (LU), and true peak (dBFS) from a local media file using FFmpeg's EBU R128 filter. Analysis only: it does not normalize audio or change Premiere. |
 | `analyze_video_interlacing` | Default profile | Single operation | Classify decoded video frames as progressive, top-field-first, bottom-field-first, mixed, or undetermined using FFmpeg idet. Read-only delivery preflight. |
 | `analyze_video_qc` | Default profile | Single operation | Analyze a local video delivery for sustained black and frozen sections with FFmpeg. Read-only: it does not contact Premiere or modify the file. |
+| `apply_after_effects_render_handoff` | Default profile | Single operation | Import exactly one previewed completed AE render into its approved Premiere bin after rechecking both hosts and file metadata. Requires confirmation and consumes the token before dispatch. Does not save, render, or change a timeline. |
 | `apply_audio_effect` | Default profile | Single operation | Apply an audio effect to a clip. Uses QE catalog lookup, with an exact-name QE probe when enumeration is empty. |
 | `apply_edit_plan` | Default profile | Single operation | Apply a previously previewed compound edit after revalidating every target. Requires the edit capability and exact preview confirmation token. |
 | `apply_effect` | Default profile | Single operation | Apply a video effect to a clip. Uses QE DOM catalog lookup, with an exact-name QE probe when Premiere's catalog enumeration is empty. |
@@ -261,6 +262,7 @@ operation” when the tool has no enum-based mode.
 | `plan_active_speaker_reframe` | Default profile | `layout`: `active_speaker`, `stacked`, `split_left_right`, `auto` | Plan an active-speaker vertical reframe (Motion Scale/Position keyframes that follow whoever is talking) or a static stacked/split layout from a word timeline and static speaker regions. Returns framings, switches, keyframes, and apply routes. Local-only; never changes Premiere. |
 | `plan_beat_montage` | Default profile | `order`: `as_given`, `priority`, `round_robin` | Plan a beat-synced montage: carve a detect_beats grid into shots every N beats (merging short and splitting long spans), assign clips in order, and emit add_to_timeline_batch chunks, trim ranges, and cut markers. Local-only and deterministic; never changes Premiere. |
 | `plan_chapter_markers` | Default profile | Single operation | Plan YouTube-style chapters from a word-timed transcript using local TextTiling-lite topic-shift detection, titling each chapter from its distinctive tokens. Returns chapters, a youtube_timestamps block and add_marker-ready Chapter markers. Local-only plan; never changes Premiere. |
+| `plan_cross_app_workflow` | Default profile | `workflow`: `ae_mogrt_to_premiere`, `ae_render_to_premiere` | Plan an After Effects MOGRT or rendered-file handoff to Premiere using existing tools. Returns ordered dependencies, separate approvals, required evidence, and manual render stops. Local-only planning; never executes steps, issues approval tokens, or claims host readiness. |
 | `plan_emphasis_zoom_keyframes` | Default profile | `trigger`: `sentence_start`, `emphasis_words`, `every_n_seconds`, `supplied` | Plan CapCut-style punch-in zoom keyframes (Motion Scale + subject-anchored Position) from a word timeline or supplied trigger times, with cooldown, easing, and hold controls. Local-only and deterministic; returns a keyframe plan for automate_effect_parameters_uxp or add_keyframe and never changes Premiere. |
 | `plan_filler_word_removal` | Default profile | Single operation | Plan word-level filler removal (um, uh, you know...) from a revision-bound word timeline. Returns frame-snapped removal and keep ranges plus apply routes. Local-only; never changes Premiere. |
 | `plan_pause_tightening` | Default profile | Single operation | Plan shortening (not deleting) of inter-word pauses longer than max_pause_seconds down to a target, respecting sentence boundaries. Returns centered removal ranges, keep ranges, savings and apply routes. Local-only; never changes Premiere. |
@@ -272,6 +274,7 @@ operation” when the tool has no enum-based mode.
 | `play_source_monitor` | Default profile | Single operation | Request playback of the clip in the Source Monitor. The legacy API does not provide a same-call position readback, so movement is not reported as verified. |
 | `play_timeline` | Default profile | Single operation | Request playback of the active sequence timeline through QE. The legacy API does not provide a same-call playhead readback, so movement is not reported as verified. |
 | `preview_after_effects_render` | Default profile | Single operation | Preview a bounded queue-only After Effects render request for one named composition and existing workspace output directory. It does not contact Adobe, enqueue, or render. |
+| `preview_after_effects_render_handoff` | Default profile | Single operation | Preview import of one completed After Effects single-file render into an existing Premiere bin. Reads both connected hosts and binds approval to file metadata and project/bin identity. Does not render, import, or edit a timeline. |
 | `preview_brand_spot` | Default profile | `motion_style`: `none`, `push_in`, `pull_out`, `alternate` | Preview a brand-spot assembly from existing project items with an optional workspace-contained MOGRT overlay. Preview is local-only; it does not read or import the MOGRT file. |
 | `preview_edit_plan` | Default profile | Single operation | Validate and preview a compound timeline edit without changing Premiere. Returns a confirmation token required by apply_edit_plan. |
 | `preview_editorial_plan` | Default profile | Single operation | Revalidate an exact server-issued editorial plan against the saved project-context revisions and return an opaque confirmation token. This tool is read-only and cannot apply the plan. |

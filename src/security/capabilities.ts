@@ -89,6 +89,7 @@ const INSPECT_TOOL_NAMES = new Set([
   "plan_chapter_markers",
   "plan_emphasis_zoom_keyframes",
   "plan_beat_montage",
+  "plan_cross_app_workflow",
   "plan_speaker_checkerboard",
   "plan_active_speaker_reframe",
   "diff_sequence_snapshots",
@@ -135,6 +136,8 @@ const FILESYSTEM_TOOL_NAMES = new Set([
 // inferred safely from their names. Keep them explicit: a preview reads an
 // approved folder, authoring mutates a saved AE project and exports a file.
 const TOOL_CAPABILITY_REQUIREMENTS: Readonly<Record<string, readonly Capability[]>> = {
+  preview_after_effects_render_handoff: ["inspect", "filesystem"],
+  apply_after_effects_render_handoff: ["inspect", "edit", "filesystem"],
   verify_after_effects_connection: ["inspect"],
   preview_mogrt_recipe: ["inspect", "filesystem"],
   create_mogrt_recipe: ["edit", "export", "filesystem"],

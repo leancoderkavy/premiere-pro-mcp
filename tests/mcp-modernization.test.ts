@@ -126,7 +126,9 @@ describe("modern MCP surface", () => {
       // unsafe-script, so the two scripting tools are not advertised.
       expect(tools.tools.map((tool) => tool.name)).not.toContain("execute_extendscript");
       expect(tools.tools.map((tool) => tool.name)).not.toContain("evaluate_expression");
-      expect(tools.tools).toHaveLength(364);
+      expect(tools.tools).toHaveLength(367);
+      expect(tools.tools.find((tool) => tool.name === "preview_after_effects_render_handoff")?.annotations?.readOnlyHint).toBe(true);
+      expect(tools.tools.find((tool) => tool.name === "apply_after_effects_render_handoff")?.annotations?.readOnlyHint).toBe(false);
       const capabilityTool = tools.tools.find((tool) => tool.name === "get_capabilities");
       expect(capabilityTool?.outputSchema).toMatchObject({
         type: "object",
