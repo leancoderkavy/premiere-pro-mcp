@@ -1,10 +1,11 @@
 import type { Metadata } from "next"
 import Link from "next/link"
 import { product, safeFirstPrompt } from "@/lib/product"
+import { SetupGuides } from "@/components/sections/setup-guides"
 
 export const metadata: Metadata = {
-  title: "MCP for Adobe Premiere Pro Setup, Tools, Compatibility & Security",
-  description: `Choose an AI assistant, connect MCP for Adobe Premiere Pro, explore ${product.coreToolCount} AI video editing tools, and understand Windows, macOS, CEP, UXP, and security support.`,
+  title: { absolute: "MCP for Adobe Premiere Pro: Setup & Troubleshooting" },
+  description: "Install the local Premiere connector, connect Claude or Codex, verify the bridge, and troubleshoot setup on Windows and macOS. Includes client-specific guides.",
   alternates: { canonical: "/docs/" },
   openGraph: {
     title: "MCP for Adobe Premiere Pro Documentation",
@@ -98,6 +99,16 @@ export default function DocsPage() {
           </details>
         </section>
 
+        <SetupGuides />
+        <nav aria-label="Workflow guides" className="py-8">
+          <h2 className="text-xl font-semibold">After your connection check</h2>
+          <ul className="mt-3 space-y-2 text-purple-200">
+            <li><Link className="inline-flex min-h-11 items-center underline underline-offset-4 hover:text-white" href="/workflows/">Try a workflow with disposable sample media</Link></li>
+            <li><Link className="inline-flex min-h-11 items-center underline underline-offset-4 hover:text-white" href="/project-intake/">Review a project with the Project Intake checklist</Link></li>
+            <li><Link className="inline-flex min-h-11 items-center underline underline-offset-4 hover:text-white" href="/premiere-pro-collaboration-workflow/">Compare local projects, Productions, and Team Projects</Link></li>
+            <li><Link className="inline-flex min-h-11 items-center underline underline-offset-4 hover:text-white" href="/docs/troubleshooting/">Resolve connector and client setup problems</Link></li>
+          </ul>
+        </nav>
         <section className="border-t border-zinc-800 py-12" aria-labelledby="tools-heading">
           <h2 id="tools-heading" className="text-3xl font-semibold">What can an AI assistant do in Premiere Pro?</h2>
           <div className="mt-8 grid gap-6 sm:grid-cols-2">

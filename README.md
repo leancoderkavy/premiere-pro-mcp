@@ -105,6 +105,11 @@ unreleased work. See the [versioned facts and package provenance](https://premie
 
 ### Try a bounded workflow
 
+Choose a setup guide: [Claude Desktop](https://premiere-pro-mcp.com/blog/claude-desktop-premiere-pro-mcp-setup/),
+[Codex](https://premiere-pro-mcp.com/blog/codex-premiere-pro-mcp-setup/),
+[other local MCP clients](https://premiere-pro-mcp.com/blog/how-to-set-up-premiere-pro-mcp/),
+or [ChatGPT connection options](https://premiere-pro-mcp.com/blog/chatgpt-premiere-pro-mcp/).
+
 Download the [workflow starter kit](https://premiere-pro-mcp.com/workflows/) for
 synthetic media and three evaluation recipes: a read-only sequence check, an
 explicitly confirmed review-frame export, and a product-spot preview. No email is

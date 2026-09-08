@@ -30,6 +30,10 @@ The hosted endpoint does not automatically pair a visitor to their local Premier
 - Workflow starter kit: https://premiere-pro-mcp.com/workflows/
 - Setup and recovery: https://premiere-pro-mcp.com/docs/troubleshooting/
 - Claude setup: https://premiere-pro-mcp.com/blog/claude-desktop-premiere-pro-mcp-setup/
+- Codex setup: https://premiere-pro-mcp.com/blog/codex-premiere-pro-mcp-setup/
+- MCP setup: https://premiere-pro-mcp.com/blog/how-to-set-up-premiere-pro-mcp/
+- AI in Premiere: https://premiere-pro-mcp.com/blog/set-up-ai-in-premiere-pro/
+- ChatGPT connection options: https://premiere-pro-mcp.com/blog/chatgpt-premiere-pro-mcp/
 - Workflow automation: https://premiere-pro-mcp.com/blog/premiere-pro-workflow-automation/
 - Project Intake: https://premiere-pro-mcp.com/project-intake/
 - Guides: https://premiere-pro-mcp.com/blog/
@@ -38,10 +42,3 @@ The hosted endpoint does not automatically pair a visitor to their local Premier
 - npm: https://www.npmjs.com/package/premiere-pro-mcp
 - Complete reference: https://premiere-pro-mcp.com/llms-full.txt
 - Legacy reference alias: https://premiere-pro-mcp.com/llm.txt
-
-## Client setup guides
-- Installation: https://premiere-pro-mcp.com/blog/how-to-set-up-premiere-pro-mcp/
-- Native AI and MCP: https://premiere-pro-mcp.com/blog/set-up-ai-in-premiere-pro/
-- Claude Desktop: https://premiere-pro-mcp.com/blog/claude-desktop-premiere-pro-mcp-setup/
-- Codex: https://premiere-pro-mcp.com/blog/codex-premiere-pro-mcp-setup/
-- ChatGPT connection requirements: https://premiere-pro-mcp.com/blog/chatgpt-premiere-pro-mcp/
