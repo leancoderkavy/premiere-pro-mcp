@@ -1200,13 +1200,15 @@
       return { ...context, target, before, positionValue };
     }
     async function transitionTargetSnapshot(sequence, videoTrackIndex, clipIndex, position, target, positionValue) {
-      const item = target || await videoClipAt(sequence, videoTrackIndex, clipIndex);
+      const item = videoClipView(target) || await videoClipAt(sequence, videoTrackIndex, clipIndex);
       const edge = positionValue == null ? transitionPositionValue(position) : positionValue;
-      if (typeof item.getProjectItem !== "function" || typeof item.getStartTime !== "function" || typeof item.getEndTime !== "function" || typeof item.hasVideoTransition !== "function") {
-        throw commandError("UXP_COMMAND_UNAVAILABLE", "This Premiere build cannot read a complete video-transition target snapshot");
+      const missing = ["getProjectItem", "getStartTime", "getEndTime", "hasVideoTransition"]
+        .filter((method) => typeof item[method] !== "function");
+      if (missing.length) {
+        throw commandError("UXP_COMMAND_UNAVAILABLE", "This Premiere build cannot read a complete video-transition target snapshot: VideoClipTrackItem." + missing.join(", VideoClipTrackItem.") + " is unavailable on the resolved clip");
       }
-      const projectItem = await item.getProjectItem();
-      if (!projectItem || typeof projectItem.getId !== "function") throw commandError("UXP_COMMAND_UNAVAILABLE", "This Premiere build cannot identify the selected video clip");
+      const projectItem = projectItemIdentityView(await item.getProjectItem());
+      if (!projectItem) throw commandError("UXP_COMMAND_UNAVAILABLE", "This Premiere build cannot identify the selected video clip: getId is unavailable directly and through ProjectItem.cast");
       const projectItemId = await projectItem.getId();
       const startSeconds = tickSecondsRequired(await item.getStartTime(), "video transition target start"), endSeconds = tickSecondsRequired(await item.getEndTime(), "video transition target end");
       if (typeof projectItemId !== "string" || !projectItemId || endSeconds < startSeconds) {
@@ -1401,7 +1403,37 @@
       if (!track || !types || types.CLIP == null) throw commandError("UXP_COMMAND_UNAVAILABLE", "Premiere video track APIs are unavailable");
       const clips = await track.getTrackItems(types.CLIP, false);
       if (!clips || !clips[clipIndex]) throw commandError("UXP_TARGET_NOT_FOUND", "clipIndex " + clipIndex + " is out of range on video track " + trackIndex);
-      return clips[clipIndex];
+      return videoClipView(clips[clipIndex]);
+    }
+    // The transition, timing, and identity getters below are documented on
+    // VideoClipTrackItem. A track item returned by Track.getTrackItems() is not
+    // guaranteed to expose them directly, so read them through the documented
+    // cast before treating the build as incapable.
+    function videoClipView(item) {
+      if (!item) return item;
+      if (typeof item.hasVideoTransition === "function") return item;
+      if (ppro.VideoClipTrackItem && typeof ppro.VideoClipTrackItem.cast === "function") {
+        try {
+          const cast = ppro.VideoClipTrackItem.cast(item);
+          if (cast && typeof cast.hasVideoTransition === "function") return cast;
+        } catch (_) {
+          // A track item that cannot be cast simply has no transition surface.
+        }
+      }
+      return item;
+    }
+    function projectItemIdentityView(item) {
+      if (!item) return null;
+      if (typeof item.getId === "function") return item;
+      if (ppro.ProjectItem && typeof ppro.ProjectItem.cast === "function") {
+        try {
+          const cast = ppro.ProjectItem.cast(item);
+          if (cast && typeof cast.getId === "function") return cast;
+        } catch (_) {
+          // An item that cannot be cast simply cannot answer for its identity.
+        }
+      }
+      return null;
     }
     function assertTransactionCommitted(committed, operation) {
       if (!committed) throw commandError("UXP_TRANSACTION_FAILED", "Premiere did not commit the " + operation + " transaction");

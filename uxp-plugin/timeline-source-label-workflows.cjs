@@ -34,6 +34,27 @@
       }
     };
 
+    // getId() is documented on ProjectItem, not on the ClipProjectItem or track
+    // item a caller resolves, so the identity read has to happen through the
+    // documented ProjectItem cast before it can be treated as unavailable.
+    function identityView(...candidates) {
+      for (const candidate of candidates) {
+        if (candidate && typeof candidate.getId === "function") return candidate;
+      }
+      if (ppro.ProjectItem && typeof ppro.ProjectItem.cast === "function") {
+        for (const candidate of candidates) {
+          if (!candidate) continue;
+          try {
+            const cast = ppro.ProjectItem.cast(candidate);
+            if (cast && typeof cast.getId === "function") return cast;
+          } catch (_) {
+            // A candidate that cannot be cast simply cannot answer for identity.
+          }
+        }
+      }
+      return candidates.find(Boolean) || null;
+    }
+
     function canUseTimelineSourceLabels() {
       return !!(ppro.Project && typeof ppro.Project.getActiveProject === "function" &&
         ppro.Constants && ppro.Constants.TrackItemType && ppro.ClipProjectItem && typeof ppro.ClipProjectItem.cast === "function");
@@ -127,7 +148,7 @@
       let source;
       try { source = ppro.ClipProjectItem.cast(sourceItem); } catch (_) { source = null; }
       if (!source) throw commandError("UXP_TARGET_UNSUPPORTED", "The resolved timeline item has no ClipProjectItem color-label surface");
-      const sourceProjectItemId = requiredIdentifier(await requiredMethod(source, "getId")(), "source project-item ID");
+      const sourceProjectItemId = requiredIdentifier(await requiredMethod(identityView(sourceItem, source), "getId")(), "source project-item ID");
       return {
         project,
         sequence,

@@ -324,7 +324,7 @@ describe("track creation verification", () => {
     expect(script).toContain("var expectedAudio = beforeAudio + 4");
     expect(script).toContain("typeof qeSeq.addTracks !== \"function\"");
     expect(script).toContain("afterVideo !== expectedVideo || afterAudio !== expectedAudio");
-    expect(script).toContain("verified: true");
+    expect(script).toContain("verified: !existingTracksUnlocatable");
   });
 
   it("rejects an empty add_tracks request locally rather than returning a successful no-op", async () => {

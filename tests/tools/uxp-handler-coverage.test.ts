@@ -60,6 +60,14 @@ describe("UXP tool handler coverage", () => {
     it.each([["required", false], ["all", true]])(`${name} handles %s arguments`, async (_label, all) => {
       const args = argsFor(tool.parameters, all);
       if (name === "manage_timeline_selection_uxp" && all) args.action = "replace";
+      // Each manage_sequences_uxp action accepts only its own parameters, so the
+      // "all properties" sweep has to narrow to one action's argument set.
+      if (name === "manage_sequences_uxp" && all) {
+        args.action = "delete";
+        for (const unsupported of ["name", "project_item_ids", "target_bin_id", "ignore_track_targeting"]) {
+          delete args[unsupported];
+        }
+      }
       const result = await tool.handler(args);
       expect(result).toBeDefined();
       if (name === "get_uxp_capabilities") expect(getState).toHaveBeenCalled();

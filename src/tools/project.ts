@@ -94,7 +94,8 @@ export function getProjectTools(bridgeOptions: BridgeOptions) {
     },
 
     undo: {
-      description: "Undo the last action in Premiere Pro",
+      description:
+        "Unavailable: Premiere exposes no supported, observable undo-stack API, so a scripted undo cannot be performed or verified.",
       parameters: {
         type: "object" as const,
         properties: {
@@ -105,14 +106,15 @@ export function getProjectTools(bridgeOptions: BridgeOptions) {
         },
       },
       handler: async (args: { count?: number }) => {
-        const count = args.count || 1;
-        const script = buildToolScript(`
-          for (var i = 0; i < ${count}; i++) {
-            app.project.undo();
-          }
-          return __result({ undone: ${count} });
-        `);
-        return sendCommand(script, bridgeOptions);
+        const count = args.count ?? 1;
+        if (!Number.isInteger(count) || count < 1 || count > 100) {
+          return { success: false, error: "count must be an integer from 1 through 100" };
+        }
+        return {
+          success: false,
+          error:
+            "undo is unavailable because Premiere exposes no supported undo API: app.project.undo is not a function on current Premiere builds, and no undo-stack query exists to verify an undo against. No mutation was attempted. Undo the action from Premiere's Edit menu instead.",
+        };
       },
     },
 
@@ -265,7 +267,8 @@ export function getProjectTools(bridgeOptions: BridgeOptions) {
     },
 
     import_ae_comps: {
-      description: "Import After Effects compositions from an .aep file",
+      description:
+        "Import After Effects compositions from an .aep file, failing closed when the file does not exist or when the target bin gains no items.",
       parameters: {
         type: "object" as const,
         properties: {
@@ -291,25 +294,75 @@ export function getProjectTools(bridgeOptions: BridgeOptions) {
         comp_names?: string[];
         target_bin?: string;
       }) => {
+        if (typeof args.ae_project_path !== "string" || !args.ae_project_path.trim()) {
+          return { success: false, error: "ae_project_path must be a non-empty path to an After Effects .aep file" };
+        }
+        const aePath = escapeForExtendScript(args.ae_project_path);
         const binLookup = args.target_bin
           ? `var targetBin = __findProjectItem("${escapeForExtendScript(args.target_bin)}"); if (!targetBin) return __error("Bin not found");`
           : `var targetBin = app.project.rootItem;`;
+        // The After Effects import calls report nothing observable, so the file must
+        // exist before the call and the target bin must actually gain items after it.
+        const preflight = `
+            ${binLookup}
+            var aeFile = new File("${aePath}");
+            if (!aeFile.exists) {
+              return __error("After Effects project not found on disk: ${aePath}. No compositions were imported.");
+            }
+            if (!targetBin.children) {
+              return __error("The target bin does not expose a children collection, so an After Effects import cannot be verified.");
+            }
+            var beforeItems = targetBin.children.numItems;
+        `;
+        const verify = (importedDescription: string) => `
+            var afterItems = targetBin.children.numItems;
+            var addedItems = afterItems - beforeItems;
+            if (addedItems <= 0) {
+              return __error("Premiere reported no error, but the target bin gained no items, so ${importedDescription} were not imported from ${aePath}.");
+            }
+        `;
 
         if (args.comp_names && args.comp_names.length > 0) {
           const comps = args.comp_names
             .map((c) => `"${escapeForExtendScript(c)}"`)
             .join(", ");
           const script = buildToolScript(`
-            ${binLookup}
-            app.project.importAEComps("${escapeForExtendScript(args.ae_project_path)}", [${comps}], targetBin);
-            return __result({ imported: true, comps: [${comps}] });
+            ${preflight}
+            try {
+              app.project.importAEComps("${aePath}", [${comps}], targetBin);
+            } catch (importError) {
+              return __error("Premiere could not import the requested After Effects compositions: " + importError.toString());
+            }
+            ${verify("the requested compositions")}
+            return __result({
+              imported: true,
+              verified: true,
+              comps: [${comps}],
+              addedItems: addedItems,
+              binItemsBefore: beforeItems,
+              binItemsAfter: afterItems,
+              verification: "Target-bin item-count increase only; composition identity and rendered content are not verified."
+            });
           `);
           return sendCommand(script, bridgeOptions);
         } else {
           const script = buildToolScript(`
-            ${binLookup}
-            app.project.importAllAEComps("${escapeForExtendScript(args.ae_project_path)}", targetBin);
-            return __result({ imported: true, allComps: true });
+            ${preflight}
+            try {
+              app.project.importAllAEComps("${aePath}", targetBin);
+            } catch (importError) {
+              return __error("Premiere could not import the After Effects compositions: " + importError.toString());
+            }
+            ${verify("any compositions")}
+            return __result({
+              imported: true,
+              verified: true,
+              allComps: true,
+              addedItems: addedItems,
+              binItemsBefore: beforeItems,
+              binItemsAfter: afterItems,
+              verification: "Target-bin item-count increase only; composition identity and rendered content are not verified."
+            });
           `);
           return sendCommand(script, bridgeOptions);
         }
@@ -640,21 +693,67 @@ export function getProjectTools(bridgeOptions: BridgeOptions) {
     },
 
     import_fcp_xml: {
-      description: "Import a Final Cut Pro XML file into the current project",
+      description:
+        "Open a Final Cut Pro XML file as a new Premiere project. app.openFCPXML(path, projPath) requires a destination project path; it does not merge the XML into the currently open project.",
       parameters: {
         type: "object" as const,
         properties: {
           path: {
             type: "string",
-            description: "Full path to the FCP XML file",
+            description: "Full path to the FCP XML file to read",
+          },
+          project_path: {
+            type: "string",
+            description:
+              "Full path of the new .prproj file Premiere should create for the imported timeline. Required: app.openFCPXML takes both a source and a destination path.",
           },
         },
-        required: ["path"],
+        required: ["path", "project_path"],
       },
-      handler: async (args: { path: string }) => {
+      handler: async (args: { path: string; project_path: string }) => {
+        if (typeof args.path !== "string" || !args.path.trim()) {
+          return { success: false, error: "path must be a non-empty path to an FCP XML file" };
+        }
+        if (typeof args.project_path !== "string" || !args.project_path.trim()) {
+          return {
+            success: false,
+            error:
+              "project_path must be a non-empty destination .prproj path. app.openFCPXML(path, projPath) needs both arguments; passing only path fails with \"Not Enough Parameters\".",
+          };
+        }
+        const xmlPath = escapeForExtendScript(args.path);
+        const projectPath = escapeForExtendScript(args.project_path);
         const script = buildToolScript(`
-          app.openFCPXML("${escapeForExtendScript(args.path)}");
-          return __result({ imported: true, path: "${escapeForExtendScript(args.path)}" });
+          var xmlFile = new File("${xmlPath}");
+          if (!xmlFile.exists) return __error("FCP XML file not found on disk: ${xmlPath}");
+          var destinationFile = new File("${projectPath}");
+          if (destinationFile.exists) {
+            return __error("A project already exists at ${projectPath}. Choose a destination project_path that does not exist so an existing project is not overwritten.");
+          }
+
+          if (typeof app.openFCPXML !== "function") {
+            return __error("This Premiere build does not expose app.openFCPXML, so FCP XML cannot be imported.");
+          }
+          try {
+            app.openFCPXML("${xmlPath}", "${projectPath}");
+          } catch (importError) {
+            return __error("Premiere could not open the FCP XML file: " + importError.toString());
+          }
+
+          var openedPath = "";
+          try { openedPath = String(app.project.path); } catch (pathError) { openedPath = ""; }
+          if (!destinationFile.exists && !openedPath) {
+            return __error("Premiere returned without an error, but no project was created at ${projectPath} and no project path is readable, so the FCP XML import is not verified.");
+          }
+
+          return __result({
+            imported: true,
+            verified: destinationFile.exists,
+            path: "${xmlPath}",
+            projectPath: "${projectPath}",
+            openedProjectPath: openedPath,
+            verification: "Destination project file existence only; timeline, media links, and effect fidelity are not verified."
+          });
         `);
         return sendCommand(script, bridgeOptions);
       },

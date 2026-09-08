@@ -369,7 +369,7 @@ describe("issue #194 — string-backed MOGRT effect properties", () => {
 
   it("accepts and safely serializes the JSON string exposed by MOGRT text properties", async () => {
     expect(keyframes.set_effect_property.parameters.properties.value).toMatchObject({
-      type: ["number", "string"],
+      type: ["number", "string", "boolean", "array"],
     });
 
     const script = await scriptFor(keyframes.set_effect_property, {
@@ -381,7 +381,7 @@ describe("issue #194 — string-backed MOGRT effect properties", () => {
 
     expect(script).toContain('var requestedValue = "{\\"textEditValue\\":\\"Hello \\\\\\\"editor\\\\\\\"\\"}";');
     expect(script).toContain("prop.setValue(requestedValue, true)");
-    expect(script).toContain("readbackVerified: readbackAvailable && readbackValue === requestedValue");
+    expect(script).toContain("readbackVerified: readbackAvailable && __sameParameterValue(readbackValue, requestedValue)");
   });
 });
 

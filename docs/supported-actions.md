@@ -47,7 +47,7 @@ operation” when the tool has no enum-based mode.
 | `add_to_timeline` | Default profile | Single operation | Insert a project item at a timeline position and verify Premiere added no unexpected same-track fragments. |
 | `add_to_timeline_batch` | Default profile | Single operation | Insert up to 32 project items in one validated CEP request. All items and target tracks are preflighted before the first insertion; every requested placement is read back, and the tool fails closed if Premiere cannot verify one. |
 | `add_track` | Default profile | `track_type`: `video`, `audio` | Add verified video or audio tracks to the active sequence. Returns an error if Premiere cannot add the exact requested count. |
-| `add_tracks` | Default profile | Single operation | Add video and/or audio tracks through QE and verify the active sequence gained the exact requested counts |
+| `add_tracks` | Default profile | Single operation | Add video and/or audio tracks through QE, verify the active sequence gained the exact requested counts, and report explicitly when QE inserted the new tracks at index 0 and shifted every existing track up. |
 | `add_transition` | Default profile | Single operation | Add a video transition between two clips at a cut point. Uses QE DOM. |
 | `add_transition_to_clip` | Default profile | `position`: `start`, `end`, `both` | Add a transition to a specific clip's start or end |
 | `adjust_audio_levels` | Default profile | Single operation | Adjust a clip's Volume > Level in dB. Does not read or change Essential Sound Amplify automation. |
@@ -61,7 +61,7 @@ operation” when the tool has no enum-based mode.
 | `apply_lut` | Default profile | Single operation | Apply a LUT file to a clip via Lumetri Color |
 | `apply_mogrt_premiere_handoff` | Default profile | Single operation | Import exactly one previewed MOGRT into the empty track of the explicit disposable Premiere verification sequence, then read back insertion and control descriptors. Requires explicit confirmation; no rendered-frame claim is made. |
 | `apply_spot_workflow_plan` | Default profile | Single operation | Apply one exact previewed motion-demo, product-spot, or brand-spot plan. Requires edit authority, requires filesystem authority for a MOGRT, and only targets empty explicitly named tracks. Host readback is not playback or render verification. |
-| `attach_custom_property` | Default profile | Single operation | Attach a custom property (key/value pair) to the active sequence |
+| `attach_custom_property` | Default profile | Single operation | Attach a custom property (key/value pair) to the active sequence and confirm it against the sequence project item's XMP packet. Reports failure when the property never lands in XMP. |
 | `audit_timeline_health` | Default profile | Single operation | Audit one sequence snapshot for flash frames, gaps, overlaps, disabled clips, repeated shots, video without audio, extreme speed, invalid times, empty tracks, leading black, and trailing gaps; returns a 0..100 score, findings with timecodes, and fix routes. Local-only; never changes Premiere. |
 | `auto_reframe_sequence` | Default profile | `motion_preset`: `slower`, `default`, `faster` | Auto-reframe a sequence for a different aspect ratio |
 | `batch_add_transitions` | Default profile | Single operation | Add the same transition to all cut points on a track |
@@ -180,7 +180,7 @@ operation” when the tool has no enum-based mode.
 | `get_project_panel_metadata` | Default profile | Single operation | Get the current project panel metadata/column configuration as XML |
 | `get_project_scratch_disks` | Default profile | Single operation | Get the current scratch disk paths for the project. |
 | `get_qe_clip_info` | Default profile | `track_type`: `video`, `audio` | Get QE DOM information about a clip, including properties not available through the standard API. |
-| `get_render_queue_status` | Default profile | Single operation | Get the current status of the Adobe Media Encoder render queue |
+| `get_render_queue_status` | Default profile | Single operation | Report the Adobe Media Encoder queue running state, or fail closed with a named capability error when this Premiere build exposes no queue-status method on app.encoder. |
 | `get_selected_clips` | Default profile | Single operation | Get the currently selected clips in the active sequence |
 | `get_sequence_count` | Default profile | Single operation | Get the total number of sequences in the project. |
 | `get_sequence_in_out_points` | Default profile | Single operation | Get the current sequence in and out points |
@@ -202,9 +202,9 @@ operation” when the tool has no enum-based mode.
 | `get_workspaces` | Default profile | Single operation | List all available workspace layouts in Premiere Pro |
 | `get_xmp_metadata` | Default profile | Single operation | Get the raw XMP metadata for a project item (includes EXIF, IPTC, Dublin Core, etc.) |
 | `has_proxy` | Default profile | Single operation | Check if a project item has a proxy attached |
-| `import_ae_comps` | Default profile | Single operation | Import After Effects compositions from an .aep file |
+| `import_ae_comps` | Default profile | Single operation | Import After Effects compositions from an .aep file, failing closed when the file does not exist or when the target bin gains no items. |
 | `import_edl` | Default profile | Single operation | Unavailable by design: CMX 3600 EDL import opens Premiere UI that can block the CEP bridge. No import is attempted; convert the EDL to FCP7 XML and use import_fcp_xml for unattended interchange. |
-| `import_fcp_xml` | Default profile | Single operation | Import a Final Cut Pro XML file into the current project |
+| `import_fcp_xml` | Default profile | Single operation | Open a Final Cut Pro XML file as a new Premiere project. app.openFCPXML(path, projPath) requires a destination project path; it does not merge the XML into the currently open project. |
 | `import_folder` | Default profile | Single operation | Import an entire folder of media into the project |
 | `import_image_sequence` | Default profile | Single operation | Import a numbered image sequence as a single video clip. |
 | `import_media` | Default profile | Single operation | Import media files into the project |
@@ -288,7 +288,7 @@ operation” when the tool has no enum-based mode.
 | `razor_all_tracks` | Default profile | `track_type`: `video`, `audio`, `both` | Razor (split) all clips at the playhead position across all tracks, or at a specific time. |
 | `read_sequence_captions` | Default profile | Single operation | Diagnose whether the active Premiere scripting host can enumerate caption tracks. It never treats an empty result as proof that the sequence has no captions, because most CEP builds expose caption creation but not caption reads. |
 | `read_video_scopes` | Default profile | Single operation | Read waveform percentiles, RGB parade percentiles, saturation, and near-black/near-white RGB occupancy from one bounded decoded local-media frame. Read-only; this is a sampled analytical proxy, not Premiere's rendered scopes. |
-| `redo` | Default profile | Single operation | Redo the last undone action in Premiere Pro. |
+| `redo` | Default profile | Single operation | Unavailable: Premiere exposes no supported, observable redo-stack API, so a scripted redo cannot be performed or verified. |
 | `refresh_media` | Default profile | Single operation | Refresh a project item to pick up changes to the source file |
 | `relink_media` | Default profile | Single operation | Relink an offline media item to a new file path |
 | `remove_all_effects` | Default profile | Single operation | Remove ALL effects from a clip. Uses QE DOM. |
@@ -306,7 +306,7 @@ operation” when the tool has no enum-based mode.
 | `replace_clip_media` | Default profile | Single operation | Unavailable by design: the legacy ExtendScript overwrite route cannot prove that replacing media preserves the original clip's trim, position, linked audio, or adjacent clips, so this tool performs no mutation. |
 | `reverse_clip` | Default profile | Single operation | Unavailable: Premiere does not expose a supported scripting API for reversing a timeline clip's playback direction. |
 | `ripple_delete` | Default profile | Single operation | Ripple delete a clip (removes clip and closes the gap). Uses QE DOM. |
-| `roll_edit` | Default profile | Single operation | Perform a verified roll edit at the outgoing cut of a clip using the public timeline DOM. |
+| `roll_edit` | Default profile | Single operation | Perform a verified roll edit at the outgoing cut of a clip using the public timeline DOM, moving both visible edges and their source in/out points and verifying all four. |
 | `save_project` | Default profile | Single operation | Save the current Premiere Pro project |
 | `save_project_as` | Default profile | Single operation | Save the current project to a new location |
 | `scene_edit_detection` | Default profile | `CreateMarkers`, `ApplyCuts` | Perform scene edit detection on the selected clips in the active sequence. Defaults to creating markers rather than cutting. |
@@ -338,7 +338,7 @@ operation” when the tool has no enum-based mode.
 | `set_clips_volume` | Default profile | Single operation | Set the volume (in dB) on every audio clip of a track, or on a list of clip indices. One round trip instead of one call per clip - essential for sequences with dozens of clips. |
 | `set_color_label` | Default profile | Single operation | Set the color label on a project item or clip |
 | `set_color_value` | Default profile | Single operation | Set a color value on an effect property (e.g., tint color, fill color) |
-| `set_effect_property` | Default profile | Single operation | Set the value of a specific effect property on a clip |
+| `set_effect_property` | Default profile | Single operation | Set the value of a specific effect property on a clip. Accepts scalar, boolean, string, and array-shaped vector values (for example Motion > Position as [x, y]) and verifies the readback component by component. |
 | `set_footage_interpretation` | Default profile | Single operation | Set footage interpretation settings for a project item |
 | `set_frame_blend` | Default profile | Single operation | Enable or disable frame blending on a clip. Uses QE DOM. |
 | `set_graphics_white_luminance` | Default profile | Single operation | Set the graphics white luminance value (HDR setting) for the project |
@@ -384,7 +384,7 @@ operation” when the tool has no enum-based mode.
 | `stop_playback` | Default profile | Single operation | Request that active-sequence timeline playback stop through QE. The legacy API does not provide a same-call playhead readback, so stopped state is not reported as verified. |
 | `toggle_track_visibility` | Default profile | Single operation | Toggle a video track's visibility (eye icon) |
 | `trim_clip` | Default profile | `keyframe_policy`: `reject`, `preserve` | Trim exactly one source in/out point and verify the corresponding visible timeline edge. Refuses retimed clips and, by default, trims that would leave effect keyframes outside the visible clip. |
-| `undo` | Default profile | Single operation | Undo the last action in Premiere Pro |
+| `undo` | Default profile | Single operation | Unavailable: Premiere exposes no supported, observable undo-stack API, so a scripted undo cannot be performed or verified. |
 | `unlink_selection` | Default profile | Single operation | Unlink the currently selected video and audio clips in the active sequence |
 | `unnest_sequence` | Default profile | Single operation | Unnest a nested sequence on the timeline, replacing it with the contents of the nested sequence |
 | `update_marker` | Default profile | Single operation | Update an existing marker's properties |
@@ -478,7 +478,7 @@ authenticated and the connected host advertises the required command capabilitie
 | `manage_sequence_preview_frame_uxp` | Connected UXP | `inspect`, `update` | Inspect or set one explicit sequence's documented preview-frame rectangle. Update requires the complete inspected snapshot, explicit confirmation, and an operation ID; it serializes preview-frame updates by reviewed project and sequence, commits one undoable settings transaction, then reads the same sequence back. It does not set sequence video dimensions, alter media or exports, prove rendered preview output, persistence, Undo behavior, or coordinate with Premiere UI or other extensions between native calls. |
 | `manage_sequence_range_uxp` | Connected UXP | `inspect`, `update` | Inspect or update the active sequence's in, out, and zero points through documented Premiere UXP actions. Updates require the complete inspect snapshot, run in one undoable transaction, and return native readback; a runtime capability probe remains authoritative. |
 | `manage_sequence_settings_uxp` | Connected UXP | `get`, `update` | Inspect sequence settings or apply a bounded settings profile in one documented, undoable UXP transaction with readback. |
-| `manage_sequences_uxp` | Connected UXP | `inspect`, `create_from_media`, `clone`, `subsequence`, `activate`, `open`, `close`, `delete` | Inspect, create-from-media, clone, derive, activate, open, close, or explicitly delete sequences through documented stable UXP APIs. |
+| `manage_sequences_uxp` | Connected UXP | `inspect`, `create_from_media`, `clone`, `subsequence`, `activate`, `open`, `close`, `delete` | Inspect, create-from-media, clone, derive, activate, open, close, or explicitly delete sequences through documented stable UXP APIs. Each action accepts only its own parameters: inspect takes none and lists every sequence; clone/subsequence/activate/open/close/delete take sequence_id; create_from_media takes name and project_item_ids. |
 | `manage_source_clip_uxp` | Connected UXP | `inspect`, `update` | Inspect or transactionally update source-clip in/out points and request scale-to-frame for up to 64 media items. In/out values are read back; Adobe exposes no getter for clear or scale state, so those requests remain committed-unverified. |
 | `manage_source_media_overrides_uxp` | Connected UXP | `inspect`, `update` | Inspect or transactionally set one source media item's explicit frame-rate and/or pixel-aspect-ratio override through stable Premiere 26.3 UXP actions. Updates require the complete effective-interpretation snapshot, explicit confirmation, an operation_id, per-item serialization, one undoable transaction, and native effective-value readback. Premiere does not expose an override-presence getter, so this tool cannot clear or distinguish an explicit override from matching file-native interpretation. |
 | `manage_source_media_timing_uxp` | Connected UXP | `inspect`, `set_start` | Inspect or transactionally set one source media item's timecode start through stable Premiere 26.3 UXP APIs. Setting requires the exact bounded timing snapshot, explicit confirmation, one undoable transaction, per-item serialization, and native readback. |
