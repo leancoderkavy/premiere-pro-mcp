@@ -1,6 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { readFileSync } from "node:fs";
 import { dirname } from "node:path";
 import { RequestBodyTooLargeError } from "../src/http-admission.js";
+
+const currentVersion = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")).version as string;
+const nextVersion = `${Number(currentVersion.split(".")[0]) + 1}.0.0`;
 
 const mocks = vi.hoisted(() => ({
   requestHandler: undefined as undefined | ((req: any, res: any) => Promise<void>),
@@ -233,15 +237,15 @@ describe("stdio CLI entry point", () => {
 
   it("checks for a newer release and updates a global npm installation", async () => {
     const log = vi.spyOn(console, "log").mockImplementation(() => {});
-    mocks.fetchLatestNpmVersion.mockResolvedValueOnce("1.15.0");
+    mocks.fetchLatestNpmVersion.mockResolvedValueOnce(nextVersion);
     let loaded = await importCli(["--check-update"]);
     await expect(loaded.promise).rejects.toThrow("EXIT:0");
-    expect(log).toHaveBeenCalledWith(expect.stringContaining("1.14.9 → 1.15.0"));
+    expect(log).toHaveBeenCalledWith(expect.stringContaining(`${currentVersion} → ${nextVersion}`));
 
     vi.resetModules();
     vi.clearAllMocks();
     log.mockClear();
-    mocks.fetchLatestNpmVersion.mockResolvedValueOnce("1.15.0");
+    mocks.fetchLatestNpmVersion.mockResolvedValueOnce(nextVersion);
     mocks.spawnSync.mockReturnValue({ status: 0, stdout: `${dirname(process.cwd())}\n` });
     loaded = await importCli(["--update"]);
     await expect(loaded.promise).rejects.toThrow("EXIT:0");
@@ -266,7 +270,7 @@ describe("stdio CLI entry point", () => {
     vi.resetModules();
     vi.clearAllMocks();
     const log = vi.spyOn(console, "log").mockImplementation(() => {});
-    mocks.fetchLatestNpmVersion.mockResolvedValueOnce("1.14.9");
+    mocks.fetchLatestNpmVersion.mockResolvedValueOnce(currentVersion);
     loaded = await importCli(["--update"]);
     await expect(loaded.promise).rejects.toThrow("EXIT:0");
     expect(log).toHaveBeenCalledWith(expect.stringContaining("is current"));

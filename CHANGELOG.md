@@ -6,7 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [1.15.0] - 2026-09-08
+
 ### Added
+
+- Added film editorial evidence, cross-app workflow planning, and verified After Effects render handoff workflows.
+- Improved setup discovery, troubleshooting documentation, and MCP Registry publication validation.
 
 - Added timeline QA: `diff_sequence_snapshots` compares two sequence
   snapshots (normalized, `get_sequence_structure`, or

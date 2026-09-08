@@ -63,11 +63,11 @@ describe("canonical release metadata", () => {
       `${release.defaultProfileWithUxpTools} with a connected UXP bridge`,
     );
     expect(readme).toContain(`${release.uxpAdditionalTools} capability-gated tools`);
-    expect(llms).toContain(`Current project release: ${release.version}`);
+    expect(llms).toContain(`Current project release: ${readJson("landing/lib/published-release.json").version}`);
     expect(llms).toContain(
       `${release.coreTools} core structured MCP tools`,
     );
-    expect(llmsFull).toContain(`Current release: ${release.version}`);
+    expect(llmsFull).toContain(`Current release: ${readJson("landing/lib/published-release.json").version}`);
     expect(llmsFull).toContain(
       `${release.uxpAdditionalTools} capability-gated tools`,
     );
