@@ -70,8 +70,8 @@ export function getCaptionAuthoringTools() {
           word_timeline: WORD_TIMELINE_PARAMETER,
           format: { type: "string", enum: ["srt", "vtt"], description: "Artifact format. SRT uses HH:MM:SS,mmm; VTT starts with WEBVTT and uses HH:MM:SS.mmm." },
           words_per_cue: { type: "integer", minimum: 1, maximum: 12, description: "Target words per cue (default 4); sentences are split into balanced groups of at most this many words." },
-          max_chars_per_line: { type: "integer", minimum: 8, maximum: 80, description: "Maximum characters per rendered line (default 32); words are never split." },
-          max_lines: { type: "integer", minimum: 1, maximum: 3, description: "Maximum lines per cue (default 1)." },
+          max_chars_per_line: { type: "integer", minimum: 8, maximum: 80, description: "Maximum characters per line of plain caption text (default 32); words are never split. Wrapping counts unescaped words only, so VTT escaping, karaoke timestamps, emphasis tags, and speaker prefixes can make the rendered line longer." },
+          max_lines: { type: "integer", minimum: 1, maximum: 3, description: "Maximum lines of plain caption text per cue (default 1); markup does not add lines." },
           min_cue_seconds: { type: "number", minimum: 0.2, maximum: 5, description: "Minimum cue duration (default 0.5); short cues are extended but never past the next cue start." },
           max_cue_seconds: { type: "number", minimum: 0.5, maximum: 15, description: "Maximum cue duration (default 5)." },
           merge_gap_seconds: { type: "number", minimum: 0, maximum: 5, description: "Extend a cue to the next cue start when the gap is smaller than this (default 0.3) so captions do not flicker." },
@@ -88,7 +88,7 @@ export function getCaptionAuthoringTools() {
       },
       handler: async (args: Record<string, unknown>) => {
         try {
-          if (!args || typeof args !== "object") throw new Error("arguments must be an object");
+          if (!args || typeof args !== "object" || Array.isArray(args)) throw new Error("arguments must be an object");
           const hasOutput = args.output_path !== undefined;
           if (hasOutput && args.approved_workspace_path === undefined) throw new Error("approved_workspace_path is required when output_path is provided");
           if (!hasOutput && args.approved_workspace_path !== undefined) throw new Error("approved_workspace_path is only accepted together with output_path");
@@ -176,7 +176,7 @@ export function getCaptionAuthoringTools() {
       },
       handler: async (args: Record<string, unknown>) => {
         try {
-          if (!args || typeof args !== "object") throw new Error("arguments must be an object");
+          if (!args || typeof args !== "object" || Array.isArray(args)) throw new Error("arguments must be an object");
           const report = checkCaptionSafeZone({ platform: args.platform, frame: args.frame, elements: args.elements });
           return {
             success: true,

@@ -221,11 +221,13 @@ describe("check_caption_safe_zone handler", () => {
   });
 
   it("never throws on hostile argument shapes", async () => {
-    for (const args of [null, undefined, 42, "text", []]) {
+    for (const args of [null, undefined, 42, "text", [], [FIXTURE]]) {
       const result = await tools.check_caption_safe_zone.handler(args as never);
       expect(result.success).toBe(false);
+      expect(result.error).toBe("arguments must be an object");
       const build = await tools.build_caption_artifact.handler(args as never);
       expect(build.success).toBe(false);
+      expect(build.error).toBe("arguments must be an object");
     }
   });
 });
