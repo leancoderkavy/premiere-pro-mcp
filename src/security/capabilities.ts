@@ -84,6 +84,7 @@ const INSPECT_TOOL_NAMES = new Set([
   "plan_pause_tightening",
   "plan_word_mute_ranges",
   "detect_repeated_takes",
+  "check_caption_safe_zone",
 ]);
 // detect_silence reads a media file from disk and shells out to ffmpeg. It
 // changes nothing in Premiere, so classifying it as "edit" would overstate what
@@ -119,6 +120,7 @@ const FILESYSTEM_TOOL_NAMES = new Set([
   "preview_workflow_recipe",
   "manage_media_watch",
   "preview_watched_media_import",
+  "build_caption_artifact",
 ]);
 
 // These tools have deliberately mixed authority requirements that cannot be

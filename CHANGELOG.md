@@ -8,6 +8,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- Added dynamic caption authoring: `build_caption_artifact` turns a word
+  timeline into an SRT or VTT artifact with per-cue word grouping, line
+  wrapping, minimum and maximum cue durations, flicker-suppressing merge gaps,
+  optional VTT karaoke word timestamps, emphasis markup, speaker prefixes, and
+  documented style presets, written only inside an approved workspace or
+  returned inline. `check_caption_safe_zone` reports overlaps between caption
+  or graphic rectangles and approximate TikTok, Reels, Shorts, feed, YouTube,
+  LinkedIn, and X interface zones with a suggested clear position.
 - Added word-level transcript cleanup planning from a revision-bound word
   timeline: `plan_filler_word_removal`, `plan_pause_tightening`,
   `plan_word_mute_ranges` (mute or bleep listed words with ready audio

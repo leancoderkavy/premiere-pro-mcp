@@ -132,6 +132,8 @@ export const WORKFLOW_TOOL_PACKS: readonly WorkflowToolPack[] = [
       "inspect_sequence_review_report",
       "export_sequence_review_frames",
       "export_sequence_clip_review_frames",
+      "build_caption_artifact",
+      "check_caption_safe_zone",
     ],
   },
   {

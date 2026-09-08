@@ -19,7 +19,7 @@ Supporting proof:
 
 - Free and MIT licensed
 - Recommended local-first setup
-- 355 registered core tools; 353 in the default profile
+- 357 registered core tools; 355 in the default profile
 - 93 additional capability-gated tools with an authenticated compatible UXP host
 - Windows and macOS packaging for supported Premiere versions
 
