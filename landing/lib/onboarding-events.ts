@@ -1,4 +1,6 @@
 export type OnboardingEvent =
+  | "onboarding_workflow_prompt_copied"
+  | "onboarding_workflow_link_copied"
   | "marketing_viewed"
   | "primary_cta_clicked"
   | "onboarding_assistant_selected"

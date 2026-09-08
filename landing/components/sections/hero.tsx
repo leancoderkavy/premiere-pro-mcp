@@ -9,7 +9,7 @@ const navItems = [
   { label: "Demo", href: "#demo" },
   { label: "Features", href: "#features" },
   { label: "How it works", href: "#how-it-works" },
-  { label: "Project Intake", href: "/project-intake/" },
+  { label: "Workflows", href: "/workflows/" },
   { label: "Install", href: "#install" },
   { label: "FAQ", href: "#faq" },
   { label: "Guides", href: "/blog/" },
@@ -97,12 +97,12 @@ export function HeroSection() {
                 <Package className="h-4 w-4" /> Verify your connection
               </TrackedLink>
               <TrackedLink
-                href="/project-intake/"
+                href="/workflows/"
                 trackingLocation="hero"
-                trackingDestination="project_intake_workflow"
+                trackingDestination="workflow_starter_kit"
                 className="inline-flex min-h-12 items-center justify-center gap-2 rounded-md border border-zinc-700 bg-zinc-950/80 px-6 text-sm font-semibold text-zinc-100 transition-colors hover:border-zinc-500 hover:bg-zinc-900"
               >
-                <ShieldCheck className="h-4 w-4" /> See Project Intake
+                <ShieldCheck className="h-4 w-4" /> Try a workflow
               </TrackedLink>
             </div>
             <p className="hero-enter hero-enter-3 mt-4 text-sm text-zinc-500">

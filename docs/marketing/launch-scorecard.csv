@@ -1,0 +1,13 @@
+week_start,metric,value,denominator,measurement_window,evidence,state
+,github_stars,234,,2026-09-04,GitHub API snapshot,observed
+,github_unique_visitors,1552,,2026-08-21 through 2026-09-03,GitHub traffic API,observed
+,npm_downloads,6769,,2026-08-05 through 2026-09-03,npm downloads API,observed
+,kit_download_actions,,,,,not_measured
+,starter_prompt_copies,,,,,not_measured
+,recipe_link_copies,,,,,not_measured
+,external_install_completions,,testers_attempting_install,,,not_run
+,observed_workflow_completions,,testers_attempting_workflow,,,not_run
+,seven_day_repeat_completers,,consented_initial_completers,,,not_run
+,search_clicks,,,,,not_measured
+,accurate_ai_citations,,sampled_answers,,,not_run
+,independent_reproductions,,,,,not_run

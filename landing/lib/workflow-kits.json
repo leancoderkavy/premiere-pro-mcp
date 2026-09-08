@@ -1,0 +1,38 @@
+[
+  {
+    "id": "project-check",
+    "title": "Check a sequence before handoff",
+    "summary": "Inspect timeline structure, gaps, disabled clips, muted tracks, and offline-source evidence without changing the edit.",
+    "output": "A sequence review report for you to compare with Premiere.",
+    "boundary": "Read-only in Premiere. The report does not establish visual quality, rights, caption correctness, or delivery approval.",
+    "tools": ["verify_premiere_connection", "inspect_sequence_review_report"],
+    "prompt": "Run verify_premiere_connection and stop if it is not ready. On my active disposable test sequence, run inspect_sequence_review_report with default privacy settings. Summarize its findings and limitations. Do not include marker comments or change Premiere.",
+    "steps": ["Import the kit's blue and violet clips into a new disposable Premiere project.", "Create a sequence from blue.mp4. Place violet.mp4 after it and leave a visible gap between the clips.", "Run the connection check, then copy the project-check prompt. If a required capability is missing, stop and follow troubleshooting.", "Compare the report with the visible timeline. Confirm the gap has not been closed and no clip has moved."],
+    "guide": "/blog/premiere-pro-ai-workflow-checklist/",
+    "availability": "Tools documented in v1.14.8. This kit has not been verified inside Premiere."
+  },
+  {
+    "id": "review-frames",
+    "title": "Export a small visual review pack",
+    "summary": "Ask for a few evenly spaced frames from a bounded sequence range, then compare the files with your timeline.",
+    "output": "A small set of image files for your own review.",
+    "boundary": "Writes image files to an approved output folder. It does not change the timeline or prove playback and audio quality.",
+    "tools": ["verify_premiere_connection", "export_sequence_review_frames"],
+    "prompt": "Run verify_premiere_connection and stop if it is not ready. Help me prepare export_sequence_review_frames for four evenly spaced frames from my disposable active sequence. Ask me for the sequence range and an approved local output folder first. Show the arguments and wait for my confirmation before writing files. Do not upload images or change Premiere.",
+    "steps": ["Use the disposable sequence created for the project check.", "Choose a short range containing both colored clips and an existing empty local output folder.", "Copy the prompt, inspect the proposed arguments, and explicitly confirm the file export.", "Open every returned image and compare it with the corresponding Premiere position. Record missing or incorrect output as a failure."],
+    "guide": "/blog/premiere-pro-review-frames-and-scene-detection/",
+    "availability": "Tools documented in v1.14.8. File-export and host verification remain pending."
+  },
+  {
+    "id": "product-spot",
+    "title": "Preview a product-spot assembly",
+    "summary": "Use existing project items to prepare a short assembly and inspect its targets before deciding whether to apply it.",
+    "output": "A proposed assembly for an explicitly chosen disposable sequence.",
+    "boundary": "The starter prompt requests preview only. Application, playback, and final export are separate steps with their own checks.",
+    "tools": ["verify_premiere_connection", "preview_product_spot"],
+    "prompt": "Run verify_premiere_connection and stop if it is not ready. Help me prepare preview_product_spot using the two imported kit clips and a disposable sequence with empty target tracks. Inspect the current tool schema and ask me for missing inputs. Show only the preview and affected targets. Do not apply, render, upload, or export anything.",
+    "steps": ["Import both kit clips into a disposable project; create a separate empty test sequence.", "Copy the preview prompt. Let the assistant resolve current item identities and ask for required inputs.", "Compare every proposed clip and target track with Premiere. Stop if any target is wrong or unsupported.", "The kit ends at preview. Use the linked workflow runbook for any separately confirmed application and real-host evidence."],
+    "guide": "/blog/premiere-pro-workflow-automation/",
+    "availability": "Preview tool documented in v1.14.8. No completed product-ad or host-tested assembly is claimed."
+  }
+]

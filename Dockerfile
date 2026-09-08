@@ -17,7 +17,11 @@ RUN npm run build
 # ── Stage 2: Build Next.js landing page (→ landing/.next/out/) ───────────────
 FROM node:20-alpine AS landing-builder
 
-WORKDIR /landing
+WORKDIR /app
+COPY release-metadata.json ./release-metadata.json
+COPY scripts/generate-marketing-reference.mjs ./scripts/generate-marketing-reference.mjs
+
+WORKDIR /app/landing
 
 COPY landing/package*.json ./
 RUN npm ci
@@ -41,7 +45,7 @@ RUN npm ci --omit=dev
 COPY --from=mcp-builder /app/dist ./dist
 
 # Copy Next.js static export to landing-dist (referenced in http-server.ts)
-COPY --from=landing-builder /landing/out ./landing-dist
+COPY --from=landing-builder /app/landing/out ./landing-dist
 
 EXPOSE 3000
 

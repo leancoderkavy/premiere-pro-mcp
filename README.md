@@ -8,7 +8,7 @@
 
 **Give compatible AI assistants structured control over supported Adobe Premiere Pro workflows.**
 
-365 core tools across 50 modules, 4 resources, and 16 guided workflows. A connected UXP host adds 93 capability-gated tools.
+Development source: 365 core tools across 50 modules, 4 resources, and 16 guided workflows. A connected UXP host adds 93 capability-gated tools.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Node.js](https://img.shields.io/badge/Node.js-20.19%2B-green.svg)](https://nodejs.org)
@@ -71,11 +71,26 @@ An [MCP (Model Context Protocol)](https://modelcontextprotocol.io) server that l
 "Add the B-roll clips to V2, apply a cross dissolve between each, color correct them to match the A-roll, and export a 1080p ProRes."
 ```
 
-The AI handles the entire workflow through 365 core tools spanning the supported ExtendScript, QE DOM, local media and interchange analysis, revisioned project-context retrieval, safe edit-planning, project-intake preview, review handoff, connection verification, and guarded After Effects MOGRT authoring, batch, library, render-queue, inspection, and Premiere-handoff workflows. A compatible, authenticated UXP panel adds 93 documented, capability-gated tools without replacing the production CEP bridge.
+The current source exposes 365 core tools for supported workflow steps spanning the supported ExtendScript, QE DOM, local media and interchange analysis, revisioned project-context retrieval, safe edit-planning, project-intake preview, review handoff, connection verification, and guarded After Effects MOGRT authoring, batch, library, render-queue, inspection, and Premiere-handoff workflows. A compatible, authenticated UXP panel adds 93 documented, capability-gated tools without replacing the production CEP bridge.
 
 <a id="latest-release"></a>
 
 ### Latest release: 1.14.9
+
+The published npm artifact contains **349 core tools**, 347 in its default profile,
+and 440 with a compatible UXP connection. The development catalog above can include
+unreleased work. See the [versioned facts and package provenance](https://premiere-pro-mcp.com/facts/).
+
+### Try a bounded workflow
+
+Download the [workflow starter kit](https://premiere-pro-mcp.com/workflows/) for
+synthetic media and three evaluation recipes: a read-only sequence check, an
+explicitly confirmed review-frame export, and a product-spot preview. No email is
+required. The kit has no recorded Premiere demo or verified host result. Start with
+a disposable project and use [setup and recovery](https://premiere-pro-mcp.com/docs/troubleshooting/)
+if the connection is unavailable.
+
+### Release highlights
 
 - **MOGRT studio:** an optional, separate After Effects CEP connector can
   author approval-gated title, callout, quote, and social recipes; constrain

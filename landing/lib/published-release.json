@@ -1,0 +1,22 @@
+{
+  "version": "1.14.9",
+  "releaseDate": "2026-09-05",
+  "coreTools": 349,
+  "defaultProfileTools": 347,
+  "uxpAdditionalTools": 93,
+  "defaultProfileWithUxpTools": 440,
+  "toolModules": 43,
+  "resources": 4,
+  "guidedWorkflows": 16,
+  "premiereVersions": "2020–2026",
+  "uxpMinimumVersion": "25.6.0",
+  "nodeVersion": "20.19",
+  "provenance": {
+    "tag": "v1.14.9",
+    "commit": "6f4b4866596d689fb8d59ccce417ca81d6ea2312",
+    "tarball": "https://registry.npmjs.org/premiere-pro-mcp/-/premiere-pro-mcp-1.14.9.tgz",
+    "integrity": "sha512-6Ehe+LFIsosbuob/NyJVI3ROzLWKl4LRpJQwbz2scpUJ0lGspU8pbzFtewtStT/lG9rVvV6iPhK0v1lV+fhgmA==",
+    "verifiedAt": "2026-09-07",
+    "evidence": "Downloaded npm tarball public-product-manifest and supported-actions catalog and matching Git release tag; not a licensed-host test."
+  }
+}
