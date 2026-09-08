@@ -49,6 +49,7 @@ import { getDialogueAnalysisTools } from "./tools/dialogue-analysis.js";
 import { MediaWatchRegistry, getMediaWatchTools } from "./tools/media-watch.js";
 import { getWorkflowRecipeTools } from "./tools/workflow-recipes.js";
 import { getTimelineQaTools } from "./tools/timeline-qa.js";
+import { getCrossAppWorkflowTools } from "./tools/cross-app-workflow.js";
 import { getSpeakerLayoutTools } from "./tools/speaker-layout.js";
 import { getRhythmPlanTools } from "./tools/rhythm-plans.js";
 import { getShortsIntelligenceTools } from "./tools/shorts-intelligence.js";
@@ -237,6 +238,7 @@ function collectStaticTools(
     ...getDialogueAnalysisTools(),
     ...getWorkflowRecipeTools(),
     ...getTimelineQaTools(),
+    ...getCrossAppWorkflowTools(),
     ...getSpeakerLayoutTools(),
     ...getRhythmPlanTools(),
     ...getShortsIntelligenceTools(),

@@ -10,11 +10,11 @@ source catalog may include unreleased actions.
 
 | Surface | Count | Availability |
 | --- | ---: | --- |
-| Registered core actions | 365 | CEP/local server catalog; host and authority checks still apply |
-| Default-profile core actions | 363 | Advertised with `inspect,edit,export,filesystem` |
+| Registered core actions | 366 | CEP/local server catalog; host and authority checks still apply |
+| Default-profile core actions | 364 | Advertised with `inspect,edit,export,filesystem` |
 | Restricted core actions | 2 | Require explicit `unsafe-script` authority |
 | Authenticated UXP additions | 93 | Advertised only while a compatible authenticated UXP panel is connected |
-| Default profile with UXP | 456 | 363 core plus 93 UXP tools |
+| Default profile with UXP | 457 | 364 core plus 93 UXP tools |
 
 ## How to read support
 
@@ -260,6 +260,7 @@ operation” when the tool has no enum-based mode.
 | `plan_active_speaker_reframe` | Default profile | `layout`: `active_speaker`, `stacked`, `split_left_right`, `auto` | Plan an active-speaker vertical reframe (Motion Scale/Position keyframes that follow whoever is talking) or a static stacked/split layout from a word timeline and static speaker regions. Returns framings, switches, keyframes, and apply routes. Local-only; never changes Premiere. |
 | `plan_beat_montage` | Default profile | `order`: `as_given`, `priority`, `round_robin` | Plan a beat-synced montage: carve a detect_beats grid into shots every N beats (merging short and splitting long spans), assign clips in order, and emit add_to_timeline_batch chunks, trim ranges, and cut markers. Local-only and deterministic; never changes Premiere. |
 | `plan_chapter_markers` | Default profile | Single operation | Plan YouTube-style chapters from a word-timed transcript using local TextTiling-lite topic-shift detection, titling each chapter from its distinctive tokens. Returns chapters, a youtube_timestamps block and add_marker-ready Chapter markers. Local-only plan; never changes Premiere. |
+| `plan_cross_app_workflow` | Default profile | `workflow`: `ae_mogrt_to_premiere`, `ae_render_to_premiere` | Plan an After Effects MOGRT or rendered-file handoff to Premiere using existing tools. Returns ordered dependencies, separate approvals, required evidence, and manual render stops. Local-only planning; never executes steps, issues approval tokens, or claims host readiness. |
 | `plan_emphasis_zoom_keyframes` | Default profile | `trigger`: `sentence_start`, `emphasis_words`, `every_n_seconds`, `supplied` | Plan CapCut-style punch-in zoom keyframes (Motion Scale + subject-anchored Position) from a word timeline or supplied trigger times, with cooldown, easing, and hold controls. Local-only and deterministic; returns a keyframe plan for automate_effect_parameters_uxp or add_keyframe and never changes Premiere. |
 | `plan_filler_word_removal` | Default profile | Single operation | Plan word-level filler removal (um, uh, you know...) from a revision-bound word timeline. Returns frame-snapped removal and keep ranges plus apply routes. Local-only; never changes Premiere. |
 | `plan_pause_tightening` | Default profile | Single operation | Plan shortening (not deleting) of inter-word pauses longer than max_pause_seconds down to a target, respecting sentence boundaries. Returns centered removal ranges, keep ranges, savings and apply routes. Local-only; never changes Premiere. |
