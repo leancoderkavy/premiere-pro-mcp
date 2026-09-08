@@ -89,6 +89,8 @@ export const WORKFLOW_TOOL_PACKS: readonly WorkflowToolPack[] = [
       "get_offline_media",
       "get_used_media_report",
       "get_render_queue_status",
+      "diff_sequence_snapshots",
+      "audit_timeline_health",
     ],
   },
   {

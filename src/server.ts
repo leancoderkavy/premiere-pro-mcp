@@ -48,6 +48,7 @@ import { getCompetitorGapTools } from "./tools/competitor-gaps.js";
 import { getDialogueAnalysisTools } from "./tools/dialogue-analysis.js";
 import { MediaWatchRegistry, getMediaWatchTools } from "./tools/media-watch.js";
 import { getWorkflowRecipeTools } from "./tools/workflow-recipes.js";
+import { getTimelineQaTools } from "./tools/timeline-qa.js";
 import { getSpeakerLayoutTools } from "./tools/speaker-layout.js";
 import { getRhythmPlanTools } from "./tools/rhythm-plans.js";
 import { getShortsIntelligenceTools } from "./tools/shorts-intelligence.js";
@@ -235,6 +236,7 @@ function collectStaticTools(
     ...getProjectIntakeTools(bridgeOptions),
     ...getDialogueAnalysisTools(),
     ...getWorkflowRecipeTools(),
+    ...getTimelineQaTools(),
     ...getSpeakerLayoutTools(),
     ...getRhythmPlanTools(),
     ...getShortsIntelligenceTools(),

@@ -8,6 +8,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- Added timeline QA: `diff_sequence_snapshots` compares two sequence
+  snapshots (normalized, `get_sequence_structure`, or
+  `inspect_sequence_structure_uxp` shapes) into added, removed, moved,
+  trimmed, retimed, renamed, and enabled changes with frame deltas and
+  EDL-like timecode lines, and `audit_timeline_health` scores a snapshot for
+  flash frames, gaps, overlaps, disabled clips, repeated shots, missing
+  audio or video coverage, overlength, extreme speed, invalid times, and
+  leading or trailing black with review-frame suggestions. Media paths are
+  reduced to a basename and hash in every output.
 - Added speaker layout planning: `plan_speaker_checkerboard` turns
   speaker-labelled words into frame-snapped per-speaker segments, split
   points, and track assignments for checkerboarded dialogue, and
