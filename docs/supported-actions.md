@@ -10,11 +10,11 @@ source catalog may include unreleased actions.
 
 | Surface | Count | Availability |
 | --- | ---: | --- |
-| Registered core actions | 351 | CEP/local server catalog; host and authority checks still apply |
-| Default-profile core actions | 349 | Advertised with `inspect,edit,export,filesystem` |
+| Registered core actions | 355 | CEP/local server catalog; host and authority checks still apply |
+| Default-profile core actions | 353 | Advertised with `inspect,edit,export,filesystem` |
 | Restricted core actions | 2 | Require explicit `unsafe-script` authority |
 | Authenticated UXP additions | 93 | Advertised only while a compatible authenticated UXP panel is connected |
-| Default profile with UXP | 442 | 349 core plus 93 UXP tools |
+| Default profile with UXP | 446 | 353 core plus 93 UXP tools |
 
 ## How to read support
 
@@ -111,6 +111,7 @@ operation” when the tool has no enum-based mode.
 | `detect_audio_transients` | Default profile | Single operation | Find probable beat or edit-point transients from decoded audio peaks. Returns candidates for editorial review; it does not claim musical beat-grid accuracy or change a timeline. |
 | `detect_beats` | Default profile | Single operation | Estimate a steady beat grid from a local audio or video file without changing Premiere. FFmpeg decodes at most 30 minutes to a bounded mono analysis stream; local onset autocorrelation returns BPM, phase-aligned beat times, confidence, and half/double-time alternatives. |
 | `detect_motion_peaks` | Default profile | Single operation | Find probable high-motion moments in a bounded local video sample from decoded frame differences. Read-only editorial candidates; camera movement, flashes, cuts, and subject motion are not semantically distinguished. |
+| `detect_repeated_takes` | Default profile | `keep`: `last`, `first` | Detect repeated sentence takes (retakes) in a word timeline using token similarity within a time window, and plan removal of all but the kept take. Returns take groups, removal and keep ranges, and apply routes. Local-only; never changes Premiere. |
 | `detect_scene_edits` | Default profile | `mode`: `apply_cuts`, `create_markers`, `create_subclips` | Safe scene-edit facade. It uses the authenticated Premiere UXP bridge when connected and explicitly confirmed; CEP fallback is intentionally withheld because synchronous scene detection can block the panel. |
 | `detect_silence` | Default profile | Single operation | Find silent ranges in a media file and return both the silences and the complementary segments worth keeping. Analysis only — nothing in the project or on the timeline is modified. Requires ffmpeg on PATH: Premiere's scripting API exposes no audio-level or waveform data, so silence cannot be measured through the bridge. |
 | `detect_source_scene_changes` | Default profile | Single operation | Detect probable visual cuts in a local source file using FFmpeg scene scores. Read-only and source-relative; it does not cut a Premiere timeline. |
@@ -252,9 +253,12 @@ operation” when the tool has no enum-based mode.
 | `overwrite_clip` | Default profile | Single operation | Overwrite a project item onto validated timeline tracks and verify a new source placement at the requested time |
 | `overwrite_from_source` | Default profile | Single operation | Overwrite the clip from the Source Monitor at the playhead position (overwrite edit — replaces existing clips). |
 | `ping` | Default profile | Single operation | Health check — verify the CEP plugin is running and connected to Premiere Pro. Call this before other tools to confirm connectivity. |
+| `plan_filler_word_removal` | Default profile | Single operation | Plan word-level filler removal (um, uh, you know...) from a revision-bound word timeline. Returns frame-snapped removal and keep ranges plus apply routes. Local-only; never changes Premiere. |
+| `plan_pause_tightening` | Default profile | Single operation | Plan shortening (not deleting) of inter-word pauses longer than max_pause_seconds down to a target, respecting sentence boundaries. Returns centered removal ranges, keep ranges, savings and apply routes. Local-only; never changes Premiere. |
 | `plan_platform_delivery_matrix` | Default profile | `strategy`: `auto_reframe`, `pad_blur`, `center_crop`, `letterbox` | Plan multi-ratio delivery of one source sequence to TikTok, Reels, Shorts, YouTube, LinkedIn, X, and Facebook from a local spec table: sequence settings, reframe scale math, duration and file-size fit, caption safe zones, and ordered apply routes. Local-only; never changes Premiere. |
 | `plan_shot_match` | Default profile | Single operation | Compare two bounded local-media frame samples and return measured waveform/parade/saturation deltas plus coarse correction directions. Read-only planning only; it does not grade Premiere or claim that primaries alone can match the shots. |
 | `plan_silence_review_markers` | Default profile | Single operation | Create a bounded, non-mutating review plan that maps FFmpeg-detected source-media silences onto one known 1x timeline placement. It clips candidates to the supplied source in/out span, redacts the source path, and never adds markers, cuts clips, or changes Premiere. |
+| `plan_word_mute_ranges` | Default profile | `mode`: `mute`, `bleep` | Plan mute or bleep ranges for listed words/phrases in a word timeline. Returns redacted, frame-snapped mute ranges, ready-to-apply audio keyframes and (for bleep) tone placements. Local-only; never changes Premiere. |
 | `play_source_monitor` | Default profile | Single operation | Request playback of the clip in the Source Monitor. The legacy API does not provide a same-call position readback, so movement is not reported as verified. |
 | `play_timeline` | Default profile | Single operation | Request playback of the active sequence timeline through QE. The legacy API does not provide a same-call playhead readback, so movement is not reported as verified. |
 | `preview_after_effects_render` | Default profile | Single operation | Preview a bounded queue-only After Effects render request for one named composition and existing workspace output directory. It does not contact Adobe, enqueue, or render. |

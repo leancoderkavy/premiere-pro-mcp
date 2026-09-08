@@ -143,6 +143,10 @@ export const WORKFLOW_TOOL_PACKS: readonly WorkflowToolPack[] = [
       "detect_silence", "analyze_dialogue_edit_candidates", "preview_derived_dialogue_sequence_uxp",
       "apply_derived_dialogue_sequence_uxp", "create_caption_track", "auto_reframe_sequence",
       "get_sequence_structure", "inspect_sequence_review_report",
+      "plan_filler_word_removal",
+      "plan_pause_tightening",
+      "plan_word_mute_ranges",
+      "detect_repeated_takes",
     ],
   },
   {
