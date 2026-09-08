@@ -10,11 +10,11 @@ source catalog may include unreleased actions.
 
 | Surface | Count | Availability |
 | --- | ---: | --- |
-| Registered core actions | 363 | CEP/local server catalog; host and authority checks still apply |
-| Default-profile core actions | 361 | Advertised with `inspect,edit,export,filesystem` |
+| Registered core actions | 365 | CEP/local server catalog; host and authority checks still apply |
+| Default-profile core actions | 363 | Advertised with `inspect,edit,export,filesystem` |
 | Restricted core actions | 2 | Require explicit `unsafe-script` authority |
 | Authenticated UXP additions | 93 | Advertised only while a compatible authenticated UXP panel is connected |
-| Default profile with UXP | 454 | 361 core plus 93 UXP tools |
+| Default profile with UXP | 456 | 363 core plus 93 UXP tools |
 
 ## How to read support
 
@@ -62,6 +62,7 @@ operation” when the tool has no enum-based mode.
 | `apply_mogrt_premiere_handoff` | Default profile | Single operation | Import exactly one previewed MOGRT into the empty track of the explicit disposable Premiere verification sequence, then read back insertion and control descriptors. Requires explicit confirmation; no rendered-frame claim is made. |
 | `apply_spot_workflow_plan` | Default profile | Single operation | Apply one exact previewed motion-demo, product-spot, or brand-spot plan. Requires edit authority, requires filesystem authority for a MOGRT, and only targets empty explicitly named tracks. Host readback is not playback or render verification. |
 | `attach_custom_property` | Default profile | Single operation | Attach a custom property (key/value pair) to the active sequence |
+| `audit_timeline_health` | Default profile | Single operation | Audit one sequence snapshot for flash frames, gaps, overlaps, disabled clips, repeated shots, video without audio, extreme speed, invalid times, empty tracks, leading black, and trailing gaps; returns a 0..100 score, findings with timecodes, and fix routes. Local-only; never changes Premiere. |
 | `auto_reframe_sequence` | Default profile | `motion_preset`: `slower`, `default`, `faster` | Auto-reframe a sequence for a different aspect ratio |
 | `batch_add_transitions` | Default profile | Single operation | Add the same transition to all cut points on a track |
 | `batch_apply_effect` | Default profile | `target`: `selected`, `track`, `all`; `track_type`: `video`, `audio` | Apply one audio or video effect to compatible selected clips, a compatible track, or all compatible clips. Every target is preflighted and then checked by component-count readback. |
@@ -117,6 +118,7 @@ operation” when the tool has no enum-based mode.
 | `detect_scene_edits` | Default profile | `mode`: `apply_cuts`, `create_markers`, `create_subclips` | Safe scene-edit facade. It uses the authenticated Premiere UXP bridge when connected and explicitly confirmed; CEP fallback is intentionally withheld because synchronous scene detection can block the panel. |
 | `detect_silence` | Default profile | Single operation | Find silent ranges in a media file and return both the silences and the complementary segments worth keeping. Analysis only — nothing in the project or on the timeline is modified. Requires ffmpeg on PATH: Premiere's scripting API exposes no audio-level or waveform data, so silence cannot be measured through the bridge. |
 | `detect_source_scene_changes` | Default profile | Single operation | Detect probable visual cuts in a local source file using FFmpeg scene scores. Read-only and source-relative; it does not cut a Premiere timeline. |
+| `diff_sequence_snapshots` | Default profile | Single operation | Diff two sequence snapshots (from get_sequence_structure or inspect_sequence_structure_uxp) into added, removed, moved, trimmed, retimed, enabled, and renamed clip changes with frame deltas, per-track counts, and EDL-like timecode lines. Local-only; never reads or changes Premiere. |
 | `duplicate_clip` | Default profile | Single operation | Duplicate a clip on the timeline (copy to same position on next available track) |
 | `duplicate_sequence` | Default profile | Single operation | Duplicate an existing sequence |
 | `enable_disable_clip` | Default profile | Single operation | Enable or disable a clip on the timeline |
