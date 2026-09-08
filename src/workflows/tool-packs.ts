@@ -115,6 +115,8 @@ export const WORKFLOW_TOOL_PACKS: readonly WorkflowToolPack[] = [
       "verify_delivery_file",
       "verify_delivery_conformance",
       "analyze_video_qc",
+      "plan_platform_delivery_matrix",
+      "validate_platform_publish_package",
     ],
   },
   {
