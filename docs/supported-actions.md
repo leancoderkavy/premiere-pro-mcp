@@ -10,11 +10,11 @@ source catalog may include unreleased actions.
 
 | Surface | Count | Availability |
 | --- | ---: | --- |
-| Registered core actions | 355 | CEP/local server catalog; host and authority checks still apply |
-| Default-profile core actions | 353 | Advertised with `inspect,edit,export,filesystem` |
+| Registered core actions | 357 | CEP/local server catalog; host and authority checks still apply |
+| Default-profile core actions | 355 | Advertised with `inspect,edit,export,filesystem` |
 | Restricted core actions | 2 | Require explicit `unsafe-script` authority |
 | Authenticated UXP additions | 93 | Advertised only while a compatible authenticated UXP panel is connected |
-| Default profile with UXP | 446 | 353 core plus 93 UXP tools |
+| Default profile with UXP | 448 | 355 core plus 93 UXP tools |
 
 ## How to read support
 
@@ -67,7 +67,9 @@ operation” when the tool has no enum-based mode.
 | `batch_apply_effect` | Default profile | `target`: `selected`, `track`, `all`; `track_type`: `video`, `audio` | Apply one audio or video effect to compatible selected clips, a compatible track, or all compatible clips. Every target is preflighted and then checked by component-count readback. |
 | `batch_enable_disable` | Default profile | `target`: `selected`, `track`, `all`; `track_type`: `video`, `audio` | Enable or disable multiple clips at once (selected, track, or all). |
 | `batch_rename_clips` | Default profile | `track_type`: `video`, `audio` | Rename multiple clips on the timeline using a pattern. Supports sequential numbering. |
+| `build_caption_artifact` | Default profile | `format`: `srt`, `vtt`; `style_preset`: `clean`, `bold_pop`, `karaoke`, `podcast`, `lecture` | Build a CapCut/Submagic-style SRT or VTT caption artifact from a caller-supplied word timeline: balanced word groups, sentence-aware breaks, min/max cue durations, optional karaoke word timestamps (VTT), emphasis and speaker markup. Local-only; returns the artifact inline or writes it inside an approved workspace and never changes Premiere. |
 | `capture_frame` | Default profile | Single operation | Capture the current frame and return it as inline image data for the LLM to see. This lets the AI visually inspect the current state of the timeline. |
+| `check_caption_safe_zone` | Default profile | `platform`: `tiktok`, `instagram_reels`, `youtube_shorts`, `instagram_feed`, `youtube`, `linkedin`, `x` | Check caption, title, logo, and graphic rectangles against approximate platform UI overlay zones (TikTok, Reels, Shorts, feed, YouTube, LinkedIn, X) and suggest the nearest clear position. Local-only geometry on caller-supplied normalized rects; it never reads or changes Premiere. |
 | `check_offline_media` | Default profile | Single operation | Check for offline (missing) media in the project |
 | `clear_item_in_out` | Default profile | Single operation | Clear in and/or out points on a project item (reset to full duration). |
 | `clear_sequence_in_out` | Default profile | Single operation | Clear the in and/or out points on the active sequence. |
