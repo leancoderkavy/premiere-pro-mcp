@@ -8,6 +8,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- Added shorts intelligence: `rank_short_form_candidates` scores
+  sentence-aligned windows of a word timeline with explainable hook,
+  completeness, density, evidence, keyword, duration-fit, and
+  speaker-consistency components, suppresses overlapping candidates, and
+  routes to the existing subclip, derived-sequence, reframe, and caption
+  tools. `plan_chapter_markers` segments a transcript into chapters with
+  TextTiling-style lexical cohesion, titles each chapter from distinctive
+  terms, and returns YouTube timestamps and ready `add_marker` payloads.
 - Added dynamic caption authoring: `build_caption_artifact` turns a word
   timeline into an SRT or VTT artifact with per-cue word grouping, line
   wrapping, minimum and maximum cue durations, flicker-suppressing merge gaps,
