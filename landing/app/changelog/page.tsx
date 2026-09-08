@@ -5,6 +5,23 @@ import { product } from "@/lib/product"
 
 const releases = [
   {
+    version: "1.15.0",
+    date: "2026-09-08",
+    label: "Editorial planning, cross-app handoff, and verified editing fixes",
+    groups: [
+      { title: "Added", items: [
+        "Film editorial evidence, cross-app workflow planning, and After Effects render handoff workflows.",
+        "Transcript cleanup, dynamic captions, short-form candidate ranking, chapter markers, rhythm and speaker layout plans, timeline QA, and platform delivery planning.",
+        "369 core tools, 367 default-profile tools, and 93 capability-gated UXP additions for 460 connected tools."
+      ] },
+      { title: "Fixed", items: [
+        "More accurate transition and project-item inspection, editing readback, FCP XML import, effect arrays, track insertion reporting, and explicit committed-but-unverified outcomes.",
+        "Clearer setup discovery, troubleshooting guides, and registry metadata validation."
+      ] },
+      { title: "Verification scope", items: ["Plans and automated checks do not establish licensed-host playback or rendered-output verification."] }
+    ],
+  },
+  {
     version: "1.14.9",
     date: "2026-09-04",
     label: "Guarded After Effects MOGRT studio and assistant workflows",
