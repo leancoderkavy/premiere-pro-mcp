@@ -137,7 +137,7 @@
 
 ## Proof Points
 
-**Published release facts:** v1.14.9 registers 349 core tools; the default profile exposes 347; an authenticated compatible UXP host can add 93 capability-gated tools for a 440-tool connected surface. The release also declares 43 modules, 4 MCP resources, and 16 workflow prompts. It adds a separately installed After Effects CEP connector and guarded MOGRT studio: five bounded recipes, optional brand-kit constraints, JSON/CSV batch previews, immutable local-library publishing, source inspection, queue-only renders, and explicit Premiere verification handoff. That feature requires a user-opened, saved After Effects project and does not claim visual, import, playback, or completed-render verification. The downloaded npm artifact and matching tag were inspected; provenance is recorded in `landing/lib/published-release.json`. These are catalog and packaging facts and do not establish a successful host operation.
+**Published release facts:** v1.15.0 registers 369 core tools; the default profile exposes 367; an authenticated compatible UXP host can add 93 capability-gated tools for a 460-tool connected surface. The release also declares 53 modules, 4 MCP resources, and 17 workflow prompts. It adds a separately installed After Effects CEP connector and guarded MOGRT studio: five bounded recipes, optional brand-kit constraints, JSON/CSV batch previews, immutable local-library publishing, source inspection, queue-only renders, and explicit Premiere verification handoff. That feature requires a user-opened, saved After Effects project and does not claim visual, import, playback, or completed-render verification. The downloaded npm artifact and matching tag were inspected; provenance is recorded in `landing/lib/published-release.json`. These are catalog and packaging facts and do not establish a successful host operation.
 
 **Development source:** The separate source catalog currently has 365 core tools, 363 default-profile tools, 93 UXP additions, and 456 connected tools across 50 modules and 16 guided workflows. The source version string can match the public release while containing unreleased changes. Regenerate AI references with `npm run marketing:generate`; do not replace published facts merely because main changed.
 
@@ -178,7 +178,7 @@
 
 *Newest first. One line per revision: what changed and why.*
 
-- v11 (2026-09-04) — Separated inspected published-package facts from development-source counts, aligned the published facts with the inspected v1.14.9 artifact, and added the workflow-kit launch and measurement boundaries.
+- v11 (2026-09-04) — Separated inspected published-package facts from development-source counts, aligned the published facts with the inspected v1.15.0 artifact, and added the workflow-kit launch and measurement boundaries.
 - v10 (2026-09-04) — Prepared v1.14.8 guarded After Effects MOGRT-authoring positioning; preserved the licensed-host, visual, and import-verification boundaries.
 - v9 (2026-08-23) — Refreshed the Adobe AI Assistant public-beta scope and added project-backup, visual-review, and delivery-QC guide intents with explicit evidence boundaries.
 - v8 (2026-08-22) — Prepared v1.13.0 release-candidate positioning for preview-only Project Intake while preserving the unpublished and licensed-host evidence boundaries.

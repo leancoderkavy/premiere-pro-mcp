@@ -6,10 +6,10 @@ Preferred product name: **MCP for Adobe Premiere Pro**. Common shorthand: Premie
 
 ## Published package
 
-Current project release: 1.14.9.
-Published v1.14.9: 349 core tools, 347 default-profile tools, and 93 authenticated capability-gated UXP additions (440 connected tools).
+Current project release: 1.15.0.
+Published v1.15.0: 369 core tools, 367 default-profile tools, and 93 authenticated capability-gated UXP additions (460 connected tools).
 These counts were checked against the downloaded npm artifact and its matching tag. They do not prove a successful operation in a licensed Premiere host.
-Release: https://github.com/leancoderkavy/premiere-pro-mcp/releases/tag/v1.14.9
+Release: https://github.com/leancoderkavy/premiere-pro-mcp/releases/tag/v1.15.0
 
 ## Development source, separate from publication
 
@@ -45,7 +45,7 @@ The hosted endpoint does not automatically pair a visitor to their local Premier
 
 ## Compatibility and limitations
 
-Current release: 1.14.9. Targets Premiere Pro 2020–2026 through CEP on Windows and macOS; UXP needs compatible 25.6.0+ hosts and advertised capabilities. Node.js 20.19+ is required for npm setup; the Claude bundle contains its server runtime.
+Current release: 1.15.0. Targets Premiere Pro 2020–2026 through CEP on Windows and macOS; UXP needs compatible 25.6.0+ hosts and advertised capabilities. Node.js 20.19+ is required for npm setup; the Claude bundle contains its server runtime.
 Editorial context and planning tools do not themselves transcribe media, invoke an LLM, or apply edits. A preview is not an applied operation. A ready connection is not a completed edit. Playback and rendered output require separate inspection.
 
 ## Evaluation recipes
