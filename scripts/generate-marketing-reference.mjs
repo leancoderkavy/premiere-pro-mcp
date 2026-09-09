@@ -55,6 +55,7 @@ The hosted endpoint does not automatically pair a visitor to their local Premier
 - Claude setup: ${origin}/blog/claude-desktop-premiere-pro-mcp-setup/
 - Codex setup: ${origin}/blog/codex-premiere-pro-mcp-setup/
 - MCP setup: ${origin}/blog/how-to-set-up-premiere-pro-mcp/
+- Package comparison: ${origin}/blog/premiere-pro-mcp-vs-adobe-premiere-pro-mcp/
 - AI in Premiere: ${origin}/blog/set-up-ai-in-premiere-pro/
 - ChatGPT connection options: ${origin}/blog/chatgpt-premiere-pro-mcp/
 - Workflow automation: ${origin}/blog/premiere-pro-workflow-automation/
