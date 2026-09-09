@@ -252,7 +252,8 @@ function advancedHost() {
     getRootItem: vi.fn(async () => root),
     lockedAccess: vi.fn((callback: () => void) => callback()),
     executeTransaction: vi.fn((callback: (compound: { addAction: typeof addAction }) => void) => { callback({ addAction }); return true; }),
-    importFiles: vi.fn(async (paths: string[], _suppress: boolean, target?: MutableItem) => {
+    importFiles: vi.fn(async (paths: string[], _suppress: boolean, target?: MutableItem | null) => {
+      if (target === undefined) throw new Error("Root file imports require null");
       const parent = target || root;
       for (const path of paths) parent.children?.push(makeItem(`import-${nextItem++}`, path.split("/").at(-1) || path, { isClip: true, parent }));
       return true;
@@ -836,6 +837,18 @@ describe("advanced stable Premiere UXP workflows", () => {
     await expect(getterFailure.registry.dispatch("markers.addBeatGrid", getterFailureArgs))
       .resolves.toMatchObject({ outcome: "committed_unverified", verified: false });
     expect(getterFailure.project.executeTransaction).toHaveBeenCalledTimes(1);
+  });
+
+  it("imports files into the root with Adobe's null default and preserves explicit bins", async () => {
+    const value = advancedHost();
+    for (const targetBinId of [undefined, "bin-1"]) {
+      await expect(value.registry.dispatch("project.import", {
+        mode: "files", paths: ["D:/Approved/broll.mov"], targetBinId,
+        confirmNonUndoable: true, operationId: `import-${targetBinId || "root"}`,
+      })).resolves.toMatchObject({ imported: true, observedAddedCount: 1, verified: false });
+    }
+    expect(value.project.importFiles).toHaveBeenNthCalledWith(1, ["D:/Approved/broll.mov"], true, null, false);
+    expect(value.project.importFiles).toHaveBeenNthCalledWith(2, ["D:/Approved/broll.mov"], true, expect.objectContaining({ id: "bin-1" }), false);
   });
 
   it("updates sequence settings, imports workspace media, and automates a typed effect parameter", async () => {

@@ -869,7 +869,7 @@
       let accepted = false, requested = 0;
       if (mode === "files") {
         const paths = await boundedPathArray(args.paths, "paths", 100, "file"); requested = paths.length;
-        accepted = await project.importFiles(paths, optionalBoolean(args.suppressUI, true, "suppressUI"), targetBin, optionalBoolean(args.asNumberedStills, false, "asNumberedStills"));
+        accepted = await project.importFiles(paths, optionalBoolean(args.suppressUI, true, "suppressUI"), targetBin || null, optionalBoolean(args.asNumberedStills, false, "asNumberedStills"));
       } else if (mode === "sequences") {
         const projectPath = await allowedPath(args.projectPath, "projectPath", "file"), ids = args.sequenceIds == null ? undefined : boundedStringArray(args.sequenceIds, "sequenceIds", 64, 128).map((id) => guidFromString(id, "sequenceId"));
         requested = ids ? ids.length : 0; accepted = await project.importSequences(projectPath, ids);
