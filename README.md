@@ -97,6 +97,13 @@ It is also separate from other MCP servers for Premiere Pro. The only npm packag
 published from this repository is `premiere-pro-mcp`, and no other package name
 installs it.
 
+**Comparing similarly named packages?** Both this package and
+`adobe-premiere-pro-mcp` declare a `premiere-pro-mcp` executable. Verify the package
+and repository before configuring a client. The new
+[local configuration helper](docs/client-configuration.md) prints Claude, Cursor,
+VS Code, or Codex settings that point directly to this installation. It is a
+development-source feature; the published v1.15.0 package does not include it.
+
 The current source exposes 369 core tools for supported workflow steps spanning the supported ExtendScript, QE DOM, local media and interchange analysis, revisioned project-context retrieval, safe edit-planning, project-intake preview, review handoff, connection verification, and guarded After Effects MOGRT authoring, batch, library, render-queue, inspection, and Premiere-handoff workflows. A compatible, authenticated UXP panel adds 93 documented, capability-gated tools without replacing the production CEP bridge.
 
 <a id="latest-release"></a>

@@ -1,0 +1,67 @@
+{
+  "schemaVersion": "premiere-pro-mcp.competitive-scorecard.v1",
+  "observedAt": "2026-09-09T07:07:26.476Z",
+  "projects": [
+    {
+      "role": "ours",
+      "repository": "leancoderkavy/premiere-pro-mcp",
+      "package": "premiere-pro-mcp",
+      "github": {
+        "state": "observed",
+        "source": "https://api.github.com/repos/leancoderkavy/premiere-pro-mcp",
+        "reason": null,
+        "stars": 240,
+        "forks": 39
+      },
+      "npm": {
+        "state": "observed",
+        "source": "https://api.npmjs.org/downloads/point/last-week/premiere-pro-mcp",
+        "reason": null,
+        "downloads": 1897,
+        "start": "2026-08-31",
+        "end": "2026-09-06"
+      }
+    },
+    {
+      "role": "comparison",
+      "repository": "hetpatel-11/Adobe_Premiere_Pro_MCP",
+      "package": "adobe-premiere-pro-mcp",
+      "github": {
+        "state": "observed",
+        "source": "https://api.github.com/repos/hetpatel-11/Adobe_Premiere_Pro_MCP",
+        "reason": null,
+        "stars": 530,
+        "forks": 110
+      },
+      "npm": {
+        "state": "observed",
+        "source": "https://api.npmjs.org/downloads/point/last-week/adobe-premiere-pro-mcp",
+        "reason": null,
+        "downloads": 1123,
+        "start": "2026-08-31",
+        "end": "2026-09-06"
+      }
+    }
+  ],
+  "comparison": {
+    "starsToLead": 291,
+    "starLead": -290,
+    "npmDownloadLead": 774,
+    "npmWindowsComparable": true
+  },
+  "search": {
+    "state": "not_measured",
+    "googlePosition": null,
+    "githubSearchPosition": null
+  },
+  "workflowSuccess": {
+    "state": "not_measured",
+    "licensedHostRuns": null
+  },
+  "boundaries": [
+    "Stars and forks are public repository signals, not active editors or workflow quality.",
+    "npm counts include CI, repeat downloads, and automation; they do not establish unique installs or users.",
+    "The star target changes when either repository gains or loses stars.",
+    "Unknown or failed measurements remain null. Search results require a separately dated query, engine, locale, and method."
+  ]
+}
