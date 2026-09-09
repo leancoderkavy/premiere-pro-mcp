@@ -36,3 +36,8 @@ npm-debug.log*
 
 # Temp bridge files (runtime)
 *.jsx.response.json
+
+# Local landing previews and browser verification artifacts
+landing-dist/
+.playwright-cli/
+output/playwright/

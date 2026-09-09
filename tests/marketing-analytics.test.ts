@@ -9,7 +9,7 @@ function loader(privacy: { doNotTrack?: string; globalPrivacyControl?: boolean }
   let idle: (() => void) | undefined;
   const window = { dataLayer: [] as unknown[], requestIdleCallback: (callback: () => void) => { idle = callback; } };
   const document = { currentScript: { dataset: { googleAnalyticsId: "G-EXAMPLE" } }, createElement: () => ({}), head: { appendChild: (element: unknown) => appended.push(element) } };
-  runInNewContext(script, { window, document, navigator: privacy });
+  runInNewContext(script, { window, document, navigator: privacy, URLSearchParams });
   return { appended, window, idle: () => idle?.() };
 }
 
