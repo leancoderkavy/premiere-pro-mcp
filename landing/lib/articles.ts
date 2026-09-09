@@ -33,6 +33,89 @@ export type Article = {
 
 export const articles: Article[] = [
   {
+    slug: "premiere-pro-mcp-vs-adobe-premiere-pro-mcp",
+    seoTitle: "Compare Two Premiere MCP Packages",
+    title: "premiere-pro-mcp vs adobe-premiere-pro-mcp: Packages, Setup, and Workflows",
+    description: "Compare leancoderkavy and hetpatel-11's separate Premiere MCP projects, verify the npm package, and evaluate the same workflow before switching.",
+    eyebrow: "Package comparison",
+    publishedAt: "2026-09-09",
+    modifiedAt: "2026-09-09",
+    readingTime: "6 min read",
+    keywords: ["premiere-pro-mcp vs adobe-premiere-pro-mcp", "Premiere MCP comparison", "hetpatel Premiere MCP", "Premiere MCP package setup"],
+    sections: [
+      {
+        heading: "Two repositories, two packages, one command name",
+        paragraphs: [
+          "MCP for Adobe Premiere Pro is maintained at leancoderkavy/premiere-pro-mcp and published as premiere-pro-mcp. The separate hetpatel-11/Adobe_Premiere_Pro_MCP repository publishes adobe-premiere-pro-mcp. Installing one package does not install the other project.",
+          "Both packages declare an executable named premiere-pro-mcp. A copied command or an existing global executable can therefore be ambiguous. Check the package identity and use the matching connector and client instructions. This comparison is written by the maintainers of the leancoderkavy project. We inspected the other project's README and package metadata at commit ee31c3d on September 9, 2026; we did not run its tools inside Premiere.",
+        ],
+        codeBlocks: [{ label: "Read public package identity without installing either package", code: "npm view premiere-pro-mcp name version repository.url bin --json\nnpm view adobe-premiere-pro-mcp name version repository.url bin --json" }],
+        links: [
+          { label: "leancoderkavy repository", href: product.links.repository },
+          { label: "hetpatel-11 package at the inspected commit", href: "https://github.com/hetpatel-11/Adobe_Premiere_Pro_MCP/blob/ee31c3def7c3ca1c68662ea7737a9f8e5a2b634f/package.json" },
+        ],
+      },
+      {
+        heading: "Compare workflow scope and evidence",
+        paragraphs: [
+          `Our published v${product.version} artifact contains ${product.coreToolCount} core tools. Its source includes revision-bound editorial planning, a project-intake preview, review-frame workflows, local media and delivery analysis, and guarded After Effects handoff routes. Those are different kinds of capabilities: a local plan is not a timeline mutation, and an import receipt is not playback or render proof.`,
+          "At the inspected commit, hetpatel-11's README describes 283 catalog tools, including search_tools, get_tool_schema, and invoke_tool, plus 13 resources and 10 guided prompts. It emphasizes CEP workflows including product-spot assembly and a live tool sweep. It reports active use and testing on Premiere 26.0 and calls UXP experimental. These are the maintainer's documented claims, not our independent host test results.",
+          "The catalog counts use different groupings and are not a feature-quality score. Both projects offer a local CEP route and require a compatible Premiere installation. Evaluate the operations you need, their prerequisites, and what their returned results actually establish.",
+        ],
+        links: [
+          { label: "Our published package facts and provenance", href: "/facts/" },
+          { label: "Our supported action contracts", href: `${product.links.repository}/blob/main/docs/supported-actions.md` },
+          { label: "Other project's README at the inspected commit", href: "https://github.com/hetpatel-11/Adobe_Premiere_Pro_MCP/blob/ee31c3def7c3ca1c68662ea7737a9f8e5a2b634f/README.md" },
+        ],
+      },
+      {
+        heading: "Evaluate the same small project in each",
+        paragraphs: ["Use a copied project and the same source media, requested outcome, host version, and operating system for each evaluation. Record the installed package version and connector. Never turn a planned operation or an accepted host response into a completed-edit claim."],
+        steps: [
+          "Start with verify_premiere_connection and request no changes. Record whether the intended project and sequence are ready.",
+          "Inspect one sequence. Compare the report with Premiere and note omissions, stale state, or unsupported operations.",
+          "Request one product-spot preview or another bounded workflow. Check source ranges, tracks, prerequisites, and whether approval is required before any writes.",
+          "If testing an edit, explicitly approve the exact change in the disposable project. Inspect the timeline, Undo behavior, save/reopen result, and playback separately.",
+          "If testing delivery, inspect the exported file separately. Record elapsed time and failures for this fixture; a single run is not a general speed benchmark.",
+        ],
+        links: [{ label: "Download our synthetic workflow starter kit", href: "/workflows/" }],
+      },
+      {
+        heading: "Switch without mixing configurations",
+        paragraphs: [
+          "Save a copy of your client configuration and note which package and connector it starts. Stop that MCP entry and its panel before testing a replacement. Follow the chosen repository's installation instructions; do not assume the connectors, environment variables, or tool names are interchangeable.",
+          "For this project, the Claude Desktop bundle and its separate Premiere connector are the documented release route. For source users, the new --print-client-config helper emits a client entry pointing at the current Node executable and server file. It writes no files. This helper is a development-source feature and is absent from the published v1.15.0 package.",
+          "Merge the generated entry into existing settings and preserve other servers. Its local paths may contain your user name; keep the output private. A moved checkout or Node installation requires a refreshed entry. Restart your client and repeat the read-only connection check before editing.",
+        ],
+        links: [
+          { label: "Release setup guide", href: "/blog/how-to-set-up-premiere-pro-mcp/" },
+          { label: "Source configuration helper and commands", href: `${product.links.repository}/blob/main/docs/client-configuration.md` },
+          { label: "Connection troubleshooting", href: "/docs/troubleshooting/" },
+        ],
+      },
+      {
+        heading: "Share a reproducible result",
+        paragraphs: [
+          "After a successful evaluation, a useful contribution is a short account of the workflow, package version, OS, Premiere build, expected result, and observed result. Use synthetic material; exclude client media, paths, tokens, and private transcripts from public reports.",
+          "If this project is useful to you, a GitHub star helps others discover it. The starter kit, installation, and contribution process remain available without a star. Independent workflow reports are more informative than catalog size alone.",
+        ],
+        links: [{ label: "View or star our repository", href: product.links.repository }],
+      },
+    ],
+    faqs: [
+      { question: "Are premiere-pro-mcp and adobe-premiere-pro-mcp the same package?", answer: "No. premiere-pro-mcp belongs to leancoderkavy/premiere-pro-mcp; adobe-premiere-pro-mcp belongs to hetpatel-11/Adobe_Premiere_Pro_MCP. They both declare a premiere-pro-mcp command, so verify the package and repository before installation." },
+      { question: "Does the larger catalog prove that one works better?", answer: "No. Catalog registrations, sub-actions, local plans, and host operations have different scopes. Compare the same workflow on your intended Premiere version and verify the result." },
+      { question: "Can either hosted website edit the Premiere project on my computer?", answer: "A website or repository alone cannot establish a local Premiere connection. Follow the selected project's local server and connector setup. This project's hosted endpoint does not automatically pair with a visitor's computer." },
+    ],
+    resources: [
+      { label: "Our npm package", href: product.links.npm },
+      { label: "Other project's npm package", href: "https://www.npmjs.com/package/adobe-premiere-pro-mcp" },
+      { label: "Our package facts", href: "/facts/" },
+      { label: "npm executable mapping", href: "https://docs.npmjs.com/cli/v11/configuring-npm/package-json/#bin" },
+    ],
+    relatedSlugs: ["how-to-set-up-premiere-pro-mcp", "premiere-pro-ai-workflow-checklist"],
+  },
+  {
     slug: "premiere-pro-project-intake-checklist",
     seoTitle: "Project Intake Checklist",
     title: "Premiere Pro Project Intake Checklist: Prepare a Read-Only Review Before Organizing Media",

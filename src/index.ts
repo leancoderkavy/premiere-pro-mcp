@@ -17,6 +17,7 @@ import {
 } from "./diagnostics.js";
 import { applyDoctorRepairPlan } from "./doctor-repairs.js";
 import { compareVersions, fetchLatestNpmVersion } from "./update.js";
+import { parseClientConfigAction, renderClientConfig } from "./client-config.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -134,6 +135,17 @@ async function runPackageUpdate(apply: boolean): Promise<void> {
 // Handle CLI flags
 const args = process.argv.slice(2);
 
+try {
+  const client = parseClientConfigAction(args);
+  if (client) {
+    process.stdout.write(renderClientConfig(client, process.execPath, __filename));
+    process.exit(0);
+  }
+} catch (error) {
+  console.error(error instanceof Error ? error.message : "Could not generate client configuration.");
+  process.exit(1);
+}
+
 if (args.includes("--help") || args.includes("-h")) {
   console.log(`
 premiere-pro-mcp — MCP server for Adobe Premiere Pro (367 default-profile tools)
@@ -152,6 +164,7 @@ Usage:
   premiere-pro-mcp --doctor --apply-fixes Apply only safe planned local fixes; requires explicit Premiere-closed confirmation where needed
   premiere-pro-mcp --doctor --apply-fixes --confirm-premiere-closed Confirm Premiere is fully closed before a connector repair
   premiere-pro-mcp --support-bundle  Print a privacy-safe, machine-readable support bundle
+  premiere-pro-mcp --print-client-config <claude|cursor|vscode|codex> Print configuration for this installed copy; writes no files
   premiere-pro-mcp --check-update    Check npm for a newer released local server
   premiere-pro-mcp --update          Update an npm global install and refresh the CEP connector
   premiere-pro-mcp --help          Show this help message
