@@ -12,12 +12,14 @@ Status: source review and public API measurements; no comparative live-host test
 | INS-004 | Editors comparing features | Know what succeeds in their host | Broad documented catalogs use different groupings and verification boundaries | SRC-003–004 | Source evidence only | Compare common workflow fixtures and outcomes | inference |
 | INS-005 | Maintainer | Avoid duplicate distribution work | Official v1.15.0 registry entry is already active/latest | SRC-005 | Direct API | Verify downstream identity rather than republish blindly | verified |
 | INS-006 | Maintainer | Understand adoption beyond GitHub | Our npm download count is larger in the same full week | SRC-008–009 | Direct API; no unique-user semantics | Prioritize successful installation and workflow proof | inference |
+| INS-007 | Maintainer | Track a specific discovery gap | GitHub API best-match search returns theirs first, ours second | SRC-012, later saved snapshot | Direct API sample | Repeat the same query and method; track Google separately | verified |
 
 The public search tool returned both projects and our existing guides, but its
 ordered results do not establish a Google or GitHub search position. No Ahrefs or
 Search Console connector was callable in this task. Prior rank and Ahrefs notes
-are historical only. We have no fresh exact rank, keyword volume, CTR, or conversion
-rate. No community anecdotes were treated as customer interviews.
+are historical only. A separate GitHub REST sample now records positions 2 vs 1
+for `premiere pro mcp`; we have no fresh Google rank, keyword volume, CTR, or
+conversion rate. No community anecdotes were treated as customer interviews.
 
 Next actions: obtain comparable search/activation evidence and run the same workflow fixture.
 Owner: maintainer and workflow reviewer.

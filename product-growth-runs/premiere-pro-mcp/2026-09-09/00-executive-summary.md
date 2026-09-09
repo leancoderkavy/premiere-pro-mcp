@@ -8,11 +8,17 @@ The objective is to overtake `hetpatel-11/Adobe_Premiere_Pro_MCP` in relevant
 discovery, demonstrated workflow quality, and stars. This run delivers a first
 implementation toward that objective; it does not establish that we have won.
 
-The latest [saved public snapshot](../../../docs/marketing/competitive-baseline-2026-09-09.json)
+The initial [saved public snapshot](../../../docs/marketing/competitive-baseline-2026-09-09.json)
 has **240 vs 530 stars**, **39 vs 110 forks**, and **1,897 vs 1,123 npm downloads**
 for August 31–September 6. We need **291 additional stars relative to their current
 count** to lead. Their stars rose from 529 to 530 during this research, illustrating
 why the target must move. Downloads are not unique users. [Sources](sources.md)
+
+The later [search-enabled snapshot](../../../docs/marketing/competitive-search-baseline-2026-09-09.json)
+at 07:21 UTC records **241 vs 530 stars** (290 relative additions to lead) and
+**GitHub API best-match positions 2 vs 1** for `premiere pro mcp`. It returned all
+47 matches without an incomplete-results warning. This is one unauthenticated API
+query sample; Google rankings remain unmeasured.
 
 The strongest verified opportunity is package confusion: both packages declare
 the same executable. The new configuration helper selects this installation by

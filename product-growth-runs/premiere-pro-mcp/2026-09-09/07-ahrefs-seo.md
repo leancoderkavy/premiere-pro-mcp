@@ -17,6 +17,11 @@ on main. This change adds one distinct comparison intent rather than another
 generic setup article. Existing article templates supply its canonical, metadata,
 Article/FAQ structured data, sitemap and guide-index discovery.
 
+The scorecard's separate GitHub REST best-match sample reports positions 2 vs 1
+for `premiere pro mcp` at 07:21 UTC. It repeats that exact unauthenticated query,
+retains returned/total result counts, and withholds positions for incomplete or
+missing results. It cannot substitute for Google measurements. (INS-007.)
+
 Measure US English desktop and mobile separately, documenting engine, exact query,
 time, login state and result types. Treat each SERP as a sample. Prefer authorized
 Search Console page/query reports over anecdotal observations; retain country,

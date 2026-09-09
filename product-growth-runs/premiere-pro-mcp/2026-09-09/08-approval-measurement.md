@@ -8,7 +8,8 @@ Local evidence for this implementation:
 
 - `npm run check`: 171 files, 3,224 tests passed, including build, inventories,
   source/release metadata, branding, registry metadata, and documentation checks.
-- Focused configuration/measurement checks: 22 tests passed. A generated entry
+- Focused configuration/measurement checks: 24 tests passed after adding the
+  GitHub search sample and incomplete/missing-result cases. A generated entry
   launched this package's `--version`; generated Codex TOML also parsed with an
   independent TOML parser. No real AI-client acceptance is claimed.
 - Landing lint, production build and performance budget passed. SEO export check:
@@ -32,17 +33,19 @@ npm run growth:scorecard -- --output docs/marketing/competitive-baseline-YYYY-MM
 ```
 
 Choose a new filename for every run. Existing snapshots are never overwritten.
-The script reads public GitHub repository counts and npm downloads only, records
+The script reads public GitHub repository counts, a fixed GitHub search and npm downloads, records
 their sources and date ranges, and exits unsuccessfully if a required measurement
 is unavailable. Failed requests leave nulls, never fabricated zeroes. It makes no
-search-engine, user-count, or licensed-host claims.
+Google-ranking, user-count, or licensed-host claims. GitHub search is explicitly a
+single unauthenticated best-match query sample, capped at 100 returned results.
 
 | Outcome | Baseline | Decision rule |
 | --- | --- | --- |
-| Stars | 240 vs 530; relative lead -290 | Overtake by at least one and sustain the lead across weekly snapshots |
+| Stars | Initial 240 vs 530; later 241 vs 530, relative lead -289 | Overtake by at least one and sustain the lead across weekly snapshots |
 | Growth pace | No same-method weekly trend established | Working target: improve relative lead by at least 25/week; 12 such weeks would overcome today's gap. This is an experimental target, not a forecast |
 | npm distribution | 1,897 vs 1,123, August 31–September 6 | Compare only equal API date ranges; do not infer unique installs |
-| Search | No fresh controlled rank or GSC baseline | Compare full equal windows and documented query/locale/device samples |
+| GitHub search | API best-match positions 2 vs 1 for `premiere pro mcp` | Repeat exact unauthenticated query; omit incomplete or missing positions |
+| Google search | No fresh controlled rank or GSC baseline | Compare full equal windows and documented query/locale/device samples |
 | Activation | No current first-run completion rate measured | Measure successful connection and first useful workflow; do not divide downloads by stars |
 | Workflow quality | No comparative licensed-host runs in this task | Same fixture; exact versions; expected vs observed result; Undo, reopen and output inspection |
 

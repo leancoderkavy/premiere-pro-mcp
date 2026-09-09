@@ -13,10 +13,11 @@ Date: September 9, 2026. Scope: competitive claims. Status: evidence recorded.
 | Our v1.15.0 official registry record is active and latest | SRC-005, checked live | High / verified registry response | Publication status; no downstream listing or ranking claim |
 | Our local config helper is development source | `src/client-config.ts` and `src/index.ts` | Verified local code | Source setup only until released |
 | 240 vs 530 stars; 1,897 vs 1,123 npm downloads in equal dates | Saved baseline, SRC-006–009 | Verified API snapshot | Dated repository/download signals only |
+| Later snapshot: 241 vs 530 stars; GitHub API search positions 2 vs 1 | Saved search baseline, SRC-012 | Verified API sample | Exact query and method only; no Google claim |
 
 | Unverified claim | Required evidence |
 | --- | --- |
-| We rank above the other project | Dated query/engine/locale/device observations and comparable Search Console reports |
+| We rank above the other project | Current GitHub sample instead places us second; require repeated observations and comparable Google Search Console reports |
 | We have more active editors | Direct, consent-respecting activation/retention evidence |
 | Our workflows are faster or more reliable | Same fixture, package versions, OS/Premiere/client conditions, repeated host runs |
 | This configuration was accepted by all four real clients | Individual client discovery and local host checks |

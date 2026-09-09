@@ -15,6 +15,7 @@ Status: checked during this run; linked moving APIs will change after this date.
 - SRC-009: [Other exact npm window](https://api.npmjs.org/downloads/point/2026-08-31:2026-09-06/adobe-premiere-pro-mcp).
 - SRC-010: Live web search sample, queries `Premiere Pro MCP` and `Adobe Premiere Pro MCP server AI video editing`. Returned both repositories and [our workflow guide](https://premiere-pro-mcp.com/blog/ai-video-editing-with-premiere-pro/), [our explainer](https://premiere-pro-mcp.com/blog/what-is-a-premiere-pro-mcp-server/), and [their website](https://premiere-mcp.com/). Engine-specific rank and locale were not available; no position inferred.
 - SRC-011: [npm bin mapping](https://docs.npmjs.com/cli/v11/configuring-npm/package-json/#bin), [VS Code configuration](https://code.visualstudio.com/docs/agent-customization/mcp-servers), [Cursor configuration](https://cursor.com/docs/mcp), [Codex configuration](https://developers.openai.com/codex/mcp).
+- SRC-012: [GitHub repository search API sample](https://api.github.com/search/repositories?q=premiere%20pro%20mcp&per_page=100&page=1) and [GitHub's best-match semantics](https://docs.github.com/en/rest/search/search#ranking-search-results). Exact query `premiere pro mcp`, unauthenticated, page 1, limit 100; 47 returned, incomplete_results false; ours second, named competitor first at 07:21 UTC.
 
 Next actions: refresh changing facts before reusing public comparison claims.
 Owner: maintainer.
