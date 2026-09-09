@@ -156,6 +156,31 @@ function serveLanding(req: http.IncomingMessage, res: http.ServerResponse, scrip
   }
   if (!fileStats.isFile()) return false;
 
+  // Consolidate only real exported pages, after containment and file checks.
+  // Keep assets, missing routes, MCP, health and OAuth discovery untouched.
+  if (path.basename(filePath) === "index.html") {
+    const pageDirectory = path.relative(LANDING_DIR, path.dirname(filePath));
+    const canonicalPath = pageDirectory
+      ? `/${pageDirectory.split(path.sep).map(encodeURIComponent).join("/")}/`
+      : "/";
+    const rawPath = req.url!.split("?")[0];
+    const queryIndex = req.url!.indexOf("?");
+    const query = queryIndex >= 0 ? req.url!.slice(queryIndex) : "";
+    const hostname = req.headers.host?.toLowerCase();
+    const publicAlias = hostname === "www.premiere-pro-mcp.com" || hostname === "premiere-pro-mcp.fly.dev";
+    if (publicAlias || rawPath !== canonicalPath) {
+      // Never derive a redirect origin from Host or forwarded headers. Local and
+      // self-hosted installs retain their origin; known public aliases use HTTPS.
+      const origin = publicAlias ? "https://premiere-pro-mcp.com" : "";
+      res.writeHead(308, {
+        "Location": `${origin}${canonicalPath}${query}`,
+        "Cache-Control": "public, max-age=3600",
+      });
+      res.end();
+      return true;
+    }
+  }
+
   const ext = path.extname(filePath);
   const contentType = MIME[ext] ?? "application/octet-stream";
   const headers = {
