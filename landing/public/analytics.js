@@ -2,6 +2,7 @@
   const script = document.currentScript;
   const measurementId = script?.dataset.googleAnalyticsId;
   if (!measurementId || !/^G-[A-Z0-9]+$/i.test(measurementId)) return;
+  if (window.location?.pathname?.startsWith("/design-preview") || new URLSearchParams(window.location?.search ?? "").has("design")) return;
   const analyticsPermitted = () =>
     !["1", "yes"].includes(navigator.doNotTrack ?? "") && !navigator.globalPrivacyControl;
   if (!analyticsPermitted()) return;

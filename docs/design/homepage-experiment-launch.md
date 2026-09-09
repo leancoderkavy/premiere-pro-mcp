@@ -1,0 +1,59 @@
+# Homepage design experiment
+
+Status: implemented and verified locally; **not created or launched in the production PostHog project**. The connected PostHog account exposes only Tradewink's Default project, Reglora, and Kinora. The Premiere project must be resolved before any provider mutation. No experiment has been created in those unrelated projects.
+
+A direct connector lookup of Premiere's previously recorded project returned 404 under the connected Tradewink organization. Browser verification also stopped because Computer Use could not verify whether the current browser URL was allowed. The design and collector remain available for local review while project access is unresolved.
+
+## Definition
+
+| Setting | Value |
+| --- | --- |
+| Name | Premiere homepage — cinematic studio |
+| Feature flag key | `homepage-cinematic-2026` |
+| Control | `control`: existing homepage |
+| Treatment | `test`: complete cinematic studio homepage |
+| Intended split | Equal control/test split across eligible homepage visitors |
+| Exposure | `$feature_flag_called`, sent only after visible rendering |
+| Primary metric | Exposed visitors who click a real setup download, measured by `homepage_setup_downloaded` |
+| Secondary metric | Exposed visitors who successfully copy the read-only first prompt, measured by `homepage_safe_prompt_copied` |
+| Metric interpretation | Setup intent; neither metric verifies installation or a working Premiere host |
+| Product filter | `product = premiere-pro-mcp` |
+
+Hypothesis: the clearer visual workflow and client-specific installer increase setup intent without compromising accessibility, privacy, or loading performance. Use visitor-level conversion, not total event counts: a visitor can click more than one download or copy the prompt repeatedly. Select and document the conversion window before launch, using the project's actual traffic baseline.
+
+The two outcome names are newly implemented events, verified against a local PostHog HTTP fixture. They have **not** been verified in the production project's schema. Read that schema before configuring provider metrics. Do not silently allow unknown events, fabricate production ingestion, or create a duplicate experiment.
+
+## Runtime configuration
+
+The existing `POSTHOG_API_KEY` and `POSTHOG_HOST` select the PostHog destination. Confirm that destination independently before enabling this test. The browser never receives the project key or signing secret.
+
+- `HOMEPAGE_EXPERIMENT_ENABLED=true` enables assignment only when the other configuration is valid.
+- `HOMEPAGE_EXPERIMENT_SECRET` must contain at least 32 characters of cryptographically random secret material. Use the same value on every running machine. Generate and store it through the deployment provider's secret mechanism; do not commit it.
+- A false, missing, unknown, or unavailable flag serves the existing control without recording exposure. Flag evaluation is limited to 450 ms, with a bounded 60-second decision cache. A disabled runtime gate takes effect when processes restart; flag changes propagate after cached decisions expire.
+- The signed `premiere_homepage_v1` cookie is HTTP-only, Secure, SameSite=Lax, and valid for 30 days. It contains only a random visitor ID, assignment, timestamp, and exposure acknowledgement.
+- Events use a separate visitor identity, not the MCP server's operational identity. The collector accepts a small explicit event/value allowlist, validates origin and signed assignment, limits payloads to 1 KB, and applies a per-visitor rate limit.
+- DNT, GPC, known crawlers, and headless automation do not enroll. Both assignment and events fail closed when analytics is disabled. Preview routes are excluded from Google Analytics and the experiment.
+
+## Review and launch sequence
+
+1. Reconnect PostHog to the organization/project used by Premiere Pro MCP and verify the runtime token's destination. Search for the exact flag key and any existing experiment first.
+2. Create the draft experiment with `control` and `test`. Let PostHog create its linked flag. Verify the intended equal split and existing-event requirements before adding conversion metrics.
+3. Deploy the reviewed code with the runtime gate off. Verify both complete documents, existing root behavior, security headers, canonical/JSON-LD, downloads, keyboard/mobile behavior, and byte budgets on the deployed host.
+4. Configure the shared signing secret and runtime gate. Keep the flag inactive until the provider setup and controlled ingestion checks are ready. Configure the conversion metrics and test-account exclusions against the verified project schema.
+5. Launch through PostHog, then verify assignment and exposure-to-conversion ordering on production. Record the exact deployment SHA, PostHog experiment URL, and provider ingestion evidence. Local fixture evidence does not replace this step.
+6. Evaluate visitor-level results after an appropriate sample and observation window. Do not call a winner from a handful of downloads or early fluctuations.
+
+## Review URLs
+
+- `/?design=test` renders the new complete page without experiment enrollment.
+- `/?design=control` renders the original page without experiment enrollment.
+- `/design-preview/` is the exported treatment document, with noindex metadata.
+- `/` uses normal PostHog assignment when configured; otherwise it serves control.
+
+Root assignment is private and non-cacheable. The exported treatment's preview-only noindex is removed when serving an actual assigned root response. Both variants share the same canonical URL and Organization/WebSite/SoftwareApplication/FAQ structured data.
+
+## Rollback
+
+Disable the experiment flag, or set `HOMEPAGE_EXPERIMENT_ENABLED=false` and restart the deployment. The original homepage is still present. Allow up to 60 seconds for flag-decision cache expiry. Preserve experiment records so results can be interpreted against the actual stop time.
+
+References: [PostHog experiment exposures](https://posthog.com/docs/experiments/exposures), [adding experiment code](https://posthog.com/docs/experiments/adding-experiment-code).

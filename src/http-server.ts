@@ -30,12 +30,15 @@ import http from "node:http";
 import fs from "node:fs";
 import path from "node:path";
 import { randomBytes } from "node:crypto";
+import { createGzip, gzipSync } from "node:zlib";
 import { fileURLToPath } from "node:url";
 import { toNodeHandler } from "@modelcontextprotocol/node";
 import { createMcpHandler } from "@modelcontextprotocol/server";
 import { createServer } from "./server.js";
 import { cleanupTempDir, getTempDir } from "./bridge/file-bridge.js";
 import { getTelemetry } from "./telemetry.js";
+import { createHomepageExperiment, type HomepageVariant } from "./homepage-experiment.js";
+import { shouldGzipLanding } from "./landing-compression.js";
 import { applyHttpSecurityHeaders } from "./http-security.js";
 import { OAuthResourceServer } from "./oauth-resource-server.js";
 import { ProjectContextRepository } from "./context/project-context-store.js";
@@ -63,6 +66,7 @@ const MIME: Record<string, string> = {
   ".css":  "text/css; charset=utf-8",
   ".json": "application/json",
   ".png":  "image/png",
+  ".webp": "image/webp",
   ".mp4":  "video/mp4",
   ".svg":  "image/svg+xml",
   ".ico":  "image/x-icon",
@@ -83,7 +87,7 @@ function injectScriptNonce(document: string, nonce: string): string {
   return document.replace(/<script(?=\s|>)/gi, `<script nonce="${nonce}"`);
 }
 
-function serveLanding(req: http.IncomingMessage, res: http.ServerResponse, scriptNonce: string): boolean {
+function serveLanding(req: http.IncomingMessage, res: http.ServerResponse, scriptNonce: string, homepageVariant?: HomepageVariant): boolean {
   if (req.method !== "GET" && req.method !== "HEAD") return false;
   if (!fs.existsSync(LANDING_DIR)) return false;
 
@@ -181,11 +185,22 @@ function serveLanding(req: http.IncomingMessage, res: http.ServerResponse, scrip
     }
   }
 
+  // Both variants are complete static documents. Select before sending HTML so
+  // the control cannot flash, shift layout, or hydrate over the treatment.
+  if (urlPath === "/" && homepageVariant === "test") {
+    const treatmentPath = path.join(LANDING_DIR, "design-preview", "index.html");
+    if (!fs.existsSync(treatmentPath)) return false;
+    filePath = treatmentPath;
+  }
+  const preview = new URL(req.url ?? "/", "http://localhost").searchParams.has("design") || urlPath.startsWith("/design-preview/");
+  if (preview) res.setHeader("X-Robots-Tag", "noindex, follow");
+  res.setHeader("Vary", urlPath === "/" ? "Cookie, DNT, Sec-GPC, Accept-Encoding" : "Accept-Encoding");
   const ext = path.extname(filePath);
   const contentType = MIME[ext] ?? "application/octet-stream";
-  const headers = {
+  const compress = shouldGzipLanding(req.headers["accept-encoding"], contentType);
+  const headers: Record<string, string> = {
     "Content-Type": contentType,
-    "Cache-Control": cacheControlForLandingAsset(urlPath, contentType),
+    "Cache-Control": urlPath === "/" || preview ? "private, no-store" : cacheControlForLandingAsset(urlPath, contentType),
   };
 
   // A static export cannot generate per-request nonces itself. Add the nonce
@@ -193,9 +208,12 @@ function serveLanding(req: http.IncomingMessage, res: http.ServerResponse, scrip
   // executable without retaining script-src 'unsafe-inline'.
   if (contentType.startsWith("text/html")) {
     try {
-      const document = injectScriptNonce(fs.readFileSync(filePath, "utf8"), scriptNonce);
+      let document = injectScriptNonce(fs.readFileSync(filePath, "utf8"), scriptNonce);
+      if (urlPath === "/" && homepageVariant === "test" && !preview) document = document.replace(/(<meta name="robots" content=")noindex, follow("\s*\/?>)/g, "$1index, follow$2");
+      const body = compress ? gzipSync(document, { level: 6 }) : document;
+      if (compress) headers["Content-Encoding"] = "gzip";
       res.writeHead(200, headers);
-      res.end(req.method === "HEAD" ? undefined : document);
+      res.end(req.method === "HEAD" ? undefined : body);
       return true;
     } catch (error) {
       console.error("[premiere-pro-mcp] Landing document read failed:", error);
@@ -205,7 +223,14 @@ function serveLanding(req: http.IncomingMessage, res: http.ServerResponse, scrip
     }
   }
 
+  if (compress) headers["Content-Encoding"] = "gzip";
+  if (req.method === "HEAD") {
+    res.writeHead(200, headers);
+    res.end();
+    return true;
+  }
   const stream = fs.createReadStream(filePath);
+  res.once("close", () => stream.destroy());
   stream.once("error", (error) => {
     console.error("[premiere-pro-mcp] Landing asset read failed:", error);
     if (!res.headersSent) {
@@ -216,8 +241,12 @@ function serveLanding(req: http.IncomingMessage, res: http.ServerResponse, scrip
     res.destroy();
   });
   res.writeHead(200, headers);
-  if (req.method === "HEAD") res.end();
-  else stream.pipe(res);
+  if (compress) {
+    const gzip = createGzip({ level: 6 });
+    res.once("close", () => gzip.destroy());
+    gzip.once("error", () => res.destroy());
+    stream.pipe(gzip).pipe(res);
+  } else stream.pipe(res);
   return true;
 }
 
@@ -264,6 +293,8 @@ console.error(`[premiere-pro-mcp] Starting HTTP server on port ${PORT}...`);
 console.error(`[premiere-pro-mcp] Temp directory: ${tempDir}`);
 cleanupTempDir(bridgeOptions);
 
+const homepageExperiment = createHomepageExperiment();
+
 // Each request gets its own transport+server instance (stateless per-request model)
 const httpServer = http.createServer(async (req, res) => {
   const scriptNonce = randomBytes(18).toString("base64");
@@ -273,6 +304,11 @@ const httpServer = http.createServer(async (req, res) => {
   if (!pathname) {
     res.writeHead(400, { "Content-Type": "application/json", "Cache-Control": "no-store" });
     res.end(JSON.stringify({ error: "Malformed request URL" }));
+    return;
+  }
+
+  if (pathname === "/api/landing-events") {
+    await homepageExperiment.handleEvent(req, res);
     return;
   }
 
@@ -299,7 +335,13 @@ const httpServer = http.createServer(async (req, res) => {
 
   // Only handle /mcp endpoint; everything else goes to the landing page
   if (pathname !== "/mcp") {
-    if (serveLanding(req, res, scriptNonce)) return;
+    let variant: HomepageVariant | undefined;
+    if (pathname === "/" && req.method === "GET") {
+      const preview = new URL(req.url ?? "/", "http://localhost").searchParams;
+      if (preview.has("design")) variant = preview.get("design") === "test" ? "test" : "control";
+      else if (fs.existsSync(path.join(LANDING_DIR, "design-preview", "index.html"))) variant = await homepageExperiment.assign(req, res);
+    }
+    if (serveLanding(req, res, scriptNonce, variant)) return;
     res.writeHead(404);
     res.end("Not found");
     return;
@@ -473,6 +515,7 @@ async function shutdown(signal: string) {
   await mcpHandler.close();
   await projectContextRepository.close();
   await telemetry.shutdown();
+  await homepageExperiment.shutdown();
   process.exit(0);
 }
 

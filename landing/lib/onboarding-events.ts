@@ -81,6 +81,7 @@ function attributionParameters(): OnboardingEventParameters {
 
 function analyticsPermitted() {
   if (typeof window === "undefined") return false
+  if (window.location.pathname.startsWith("/design-preview") || new URLSearchParams(window.location.search).has("design")) return false
   const nav = navigator as Navigator & { globalPrivacyControl?: boolean }
   return !["1", "yes"].includes(nav.doNotTrack ?? "") && !nav.globalPrivacyControl
 }
