@@ -89,6 +89,10 @@ rejected before the relevant host call. Native paths and persistent folder token
 remain inside the panel and are not returned by workspace status.
 
 `import_project_media_uxp` requires `confirm_non_undoable: true` for every mode.
+For file imports without a target bin, the panel passes `null` to select the
+project root, following [Adobe's corrected import sample](https://github.com/AdobeDocs/uxp-premiere-pro-samples/commit/d34e8016dafb36e45df3066017bec13451ed36bc).
+Explicit bins retain their resolved folder object. Mocked contract tests do not
+establish successful import behavior in a licensed Premiere host.
 Path-based MOGRT insertion requires the same confirmation. Encode actions require
 `confirm_external_write: true` because an output can be created or overwritten.
 
