@@ -699,7 +699,7 @@ describe("HTTP entry point", () => {
     expect(mocks.fsReadFileSync).toHaveBeenCalledOnce();
   });
 
-  it("serves extensionless landing routes from their index file", async () => {
+  it("redirects extensionless landing routes to their canonical directory", async () => {
     mocks.fsExists.mockReturnValue(true);
     mocks.fsStat
       .mockReturnValueOnce({ isDirectory: () => true, isFile: () => false })
@@ -707,11 +707,49 @@ describe("HTTP entry point", () => {
     const handler = await loadHttp();
     const res = response();
     await handler({ method: "GET", url: "/changelog", headers: {} }, res);
-    expect(mocks.fsReadFileSync).toHaveBeenCalledWith(
-      expect.stringMatching(/[\\/]changelog[\\/]index\.html$/),
-      "utf8",
-    );
-    expect(res.statusCode).toBe(200);
+    expect(res.writeHead).toHaveBeenCalledWith(308, expect.objectContaining({ Location: "/changelog/" }));
+    expect(mocks.fsReadFileSync).not.toHaveBeenCalled();
+  });
+
+  it("consolidates index files and public host aliases in one hop, preserving queries", async () => {
+    mocks.fsExists.mockReturnValue(true);
+    const handler = await loadHttp();
+    for (const [url, host, expected] of [
+      ["/index.html", "localhost:3000", "/"],
+      ["/docs/index.html?utm_source=github&x=%2F", "localhost:3000", "/docs/?utm_source=github&x=%2F"],
+      ["/docs/index.html?utm_source=github", "www.premiere-pro-mcp.com", "https://premiere-pro-mcp.com/docs/?utm_source=github"],
+      ["/docs/", "premiere-pro-mcp.fly.dev", "https://premiere-pro-mcp.com/docs/"],
+      ["/", "WWW.PREMIERE-PRO-MCP.COM", "https://premiere-pro-mcp.com/"],
+      ["//untrusted.example/index.html", "localhost:3000", "/untrusted.example/"],
+    ]) {
+      for (const method of ["GET", "HEAD"]) {
+        const res = response();
+        await handler({ method, url, headers: { host } }, res);
+        expect(res.writeHead).toHaveBeenCalledWith(308, expect.objectContaining({ Location: expected }));
+        expect(res.body).toBe("");
+      }
+    }
+    expect(mocks.fsReadFileSync).not.toHaveBeenCalled();
+  });
+
+  it("does not redirect canonical pages or trust forwarded host names", async () => {
+    mocks.fsExists.mockReturnValue(true);
+    const handler = await loadHttp();
+    for (const host of ["premiere-pro-mcp.com", "localhost:3000", "self-hosted.example", "www.premiere-pro-mcp.com.attacker.example"]) {
+      const res = response();
+      await handler({ method: "GET", url: "/docs/?ref=readme", headers: { host, "x-forwarded-host": "www.premiere-pro-mcp.com" } }, res);
+      expect(res.statusCode).toBe(200);
+    }
+  });
+
+  it("keeps public alias assets and API endpoints outside page redirects", async () => {
+    mocks.fsExists.mockReturnValue(true);
+    const handler = await loadHttp();
+    for (const [url, status] of [["/robots.txt", 200], ["/health", 200], ["/mcp", 401]] as const) {
+      const res = response();
+      await handler({ method: "GET", url, headers: { host: "www.premiere-pro-mcp.com" } }, res);
+      expect(res.statusCode).toBe(status);
+    }
   });
 
   it("marks hashed Next static assets immutable", async () => {
