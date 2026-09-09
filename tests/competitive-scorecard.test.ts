@@ -4,8 +4,10 @@ import { collectCompetitiveScorecard } from "../scripts/competitive-scorecard.mj
 const now = () => new Date("2026-09-09T08:00:00Z");
 function publicApi(options: { failGithub?: boolean; mismatchedWindow?: boolean; wrongIdentity?: boolean; missingStars?: boolean; incompleteSearch?: boolean; missingSearchEntry?: boolean } = {}) {
   return async (url: string) => {
-    const ours = !url.includes("hetpatel") && !url.includes("last-week/adobe-");
-    if (url.includes("/search/repositories")) return { ok: true, json: async () => ({
+    const requestUrl = new URL(url);
+    const ours = requestUrl.pathname === "/repos/leancoderkavy/premiere-pro-mcp" ||
+      requestUrl.pathname === "/downloads/point/last-week/premiere-pro-mcp";
+    if (requestUrl.hostname === "api.github.com" && requestUrl.pathname === "/search/repositories") return { ok: true, json: async () => ({
       incomplete_results: options.incompleteSearch ?? false,
       total_count: 47,
       items: [
@@ -13,7 +15,7 @@ function publicApi(options: { failGithub?: boolean; mismatchedWindow?: boolean; 
         ...(options.missingSearchEntry ? [] : [{ full_name: "leancoderkavy/premiere-pro-mcp" }]),
       ],
     }) };
-    if (url.includes("api.github.com")) {
+    if (requestUrl.hostname === "api.github.com") {
       if (options.failGithub) return { ok: false, status: 403 };
       return { ok: true, json: async () => ({
         full_name: options.wrongIdentity ? "someone/else" : ours ? "leancoderkavy/premiere-pro-mcp" : "hetpatel-11/Adobe_Premiere_Pro_MCP",
