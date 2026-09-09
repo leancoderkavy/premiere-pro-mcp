@@ -1,30 +1,48 @@
-# Landing-page design QA
+# Cinematic homepage QA
 
-## Visual reference
+Local design result: **passed**. Production experiment status: **not launched; correct PostHog project access is unavailable**.
 
-- **Selected visual target:** `C:\Users\kavyr\.codex\generated_images\01a01ad5-9dbc-7b90-b12e-769808bfde9c\exec-9d3c1ac2-9811-4c61-ad43-ddfb93beec10.png`
-- **Implementation preview:** `http://127.0.0.1:4173/`
-- **Scope:** the landing-page hero and the interactive project-context proof panel.
+The public homepage is the only redesigned surface. Documentation, guides, privacy, workflow, and product-intake routes retain their existing interfaces. The original homepage remains the control. Original user edits in the main checkout were preserved by using the isolated `codex/cinematic-homepage-ab-20260909` worktree at base `dcafe7a`.
 
-## Fidelity review
+## Visual evidence
 
-The implementation preserves the selected target's dark editorial layout, compact top navigation, purple-to-pink emphasis, proof-oriented hero, and inspectable four-step workflow. The implementation deliberately substitutes real MCP tool names and stated boundaries for the reference's illustrative fictional edit details; it identifies the panel as an illustration rather than live Premiere evidence.
+- Direction and composition: [design specification](docs/design/cinematic-homepage.md).
+- Desktop: [1440px capture](docs/design/cinematic-desktop.webp).
+- Mobile: [390px capture](docs/design/cinematic-mobile.webp).
+- Original artwork, optimized assets, and generation prompt: [asset notes](docs/design/cinematic-assets.md).
+- All seven full-page captures and browser scripts remain in the local `output/playwright/` folder. The baseline capture was taken directly from the public root before implementation.
 
-## Functional and accessibility checks
+The rendered design follows the studio target across the hero, workflow chapters, walkthrough, local bridge diagram, installer, FAQs, final CTA, and footer. The hero combines original cinematic artwork, spatial film/timeline layers, a real Three.js scene on capable desktop devices, and accessible HTML annotations. Mobile uses a smaller image and a perspective composition. No customer proof or live Premiere recording was invented.
 
-- Desktop preview: the hero and workflow panel render with the selected visual hierarchy.
-- Mobile, 390 x 844: no horizontal overflow (`scrollWidth: 375`, `viewportWidth: 390`); navigation and primary CTAs remain visible.
-- Interaction: selecting **Find evidence** updates the active state and detail panel; Space activates the focused workflow button.
-- Semantics: the workflow has four native buttons, `aria-pressed` state, `aria-controls`, and an `aria-live="polite"` detail region.
-- Documentation CTA: `/docs/#project-context-heading` resolves to **Project context: a reviewable editing workflow**.
-- Browser console: no error-level messages in the local preview.
+## Verification
 
-## Build checks
+| Check | Result |
+| --- | --- |
+| Repository checks | `npm run check` passed, including the TypeScript build, reference inventories, marketing/public manifests, and all 3,235 tests across 171 files |
+| Landing checks | ESLint and production static-export build passed |
+| Responsive widths | 320, 360, 390, 430, 768, 1024, and 1440px; no horizontal overflow; one main and one H1 |
+| Workflow controls | Three Radix tab panels; keyboard activation verified |
+| Installer | Client routes, actual download destinations, successful clipboard contents, advanced setup, and recovery |
+| Mobile navigation | Dialog opens; Escape closes it; focus returns to the trigger |
+| FAQ | Accordion answers and keyboard controls verified |
+| Motion | Global pause, reduced-motion default, and offscreen/hidden suspension |
+| Fallbacks | Forced WebGL context loss restores the HTML artwork; no-JavaScript content remains readable |
+| Video | User-initiated illustrated walkthrough played; 10-second video, readyState 4, muted |
+| Console | No application errors in the final browser passes; normal WebGL disposal notices are informational |
+| Axe | Zero violations in desktop and mobile scans; visible-label/accessibility-name refinements also verified with Lighthouse |
+| SEO export | 24 canonical pages, valid JSON-LD, unique metadata, and 410 internal links/anchors passed |
+| Initial JavaScript | Control 211,675 bytes gzip; treatment 223,443 bytes gzip; both below the unchanged 240,000-byte budget |
+| Text delivery | Negotiated gzip for HTML/CSS/JS; nonce injected before HTML compression; images/video/fonts preserved |
+| Local mobile Lighthouse | Performance 91; accessibility 100; best practices 100; SEO 100; LCP 3.5s; TBT 40ms; CLS reported as 0 |
 
-- `npm run lint` in `landing/` passed.
-- `npm run build` in `landing/` passed (14 generated routes).
-- `git diff --check` passed.
+The Lighthouse JSON report completed successfully, but its CLI exited with a Windows EPERM error during temporary-profile cleanup. The reported scores are local simulated-mobile evidence, not production measurements. Raw report: `output/playwright/lighthouse-compressed-final.json`. No live Premiere host execution was part of this website test.
 
-## Final result
+## Experiment verification
 
-Passed. No P0, P1, or P2 visual, responsive, interaction, or accessibility issues remain in the implemented scope.
+A local HTTP PostHog fixture received real SDK flag requests and captures from the production Node server. Browser visits to `/` received both complete assigned documents, with private/no-store caching, the root canonical, indexable metadata, and all four JSON-LD entities. Both variants emitted `$feature_flag_called` after rendering, followed by successful safe-prompt conversion events under the same anonymous visitor identity. The fixture is separate from production analytics.
+
+Automated checks cover signing, identity stability, disabled/unknown flags, provider timeouts, stale-cookie enrollment revocation, exposure-before-conversion ordering, exact action allowlists, real-download classification, privacy signals, bots, cross-origin rejection, wrong variants, oversized bodies, and compression negotiation. DNT/GPC browser visits received control without an experiment cookie.
+
+Live provider configuration, production deployment, and actual production ingestion remain unverified. See the [experiment definition and launch sequence](docs/design/homepage-experiment-launch.md). Do not interpret local fixture events as live PostHog project data.
+
+The connector returned 404 when asked for the previously recorded Premiere project under its current Tradewink organization. A separate browser access check ended when Computer Use could not verify whether the current browser URL was allowed. No further browser input or PostHog mutation was attempted after that stop.

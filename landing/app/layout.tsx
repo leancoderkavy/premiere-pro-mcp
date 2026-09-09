@@ -84,8 +84,8 @@ export const metadata: Metadata = {
     images: ["/marketing/premiere-pro-mcp-social-square-v1.png"],
   },
   icons: {
-    icon: "/marketing/premiere-pro-mcp-mark-v1.png",
-    apple: "/marketing/premiere-pro-mcp-mark-v1.png",
+    icon: "/marketing/premiere-pro-mcp-icon-180.png",
+    apple: "/marketing/premiere-pro-mcp-icon-180.png",
   },
   robots: {
     index: true,

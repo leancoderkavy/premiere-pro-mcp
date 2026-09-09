@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { readFileSync } from "node:fs";
 import { dirname } from "node:path";
+import { gunzipSync } from "node:zlib";
 import { RequestBodyTooLargeError } from "../src/http-admission.js";
 
 const currentVersion = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")).version as string;
@@ -142,7 +143,7 @@ beforeEach(() => {
   mocks.spawnSync.mockReturnValue({ status: 1, stdout: "" });
   mocks.fsExists.mockReturnValue(false);
   mocks.fsStat.mockReturnValue({ isDirectory: () => false, isFile: () => true });
-  mocks.fsCreateReadStream.mockReturnValue({ once: mocks.streamOnce, pipe: mocks.pipe });
+  mocks.fsCreateReadStream.mockReturnValue({ once: mocks.streamOnce, pipe: mocks.pipe, destroy: vi.fn() });
   mocks.fsReadFileSync.mockReturnValue("<html><head><script>bootstrap()</script></head></html>");
   mocks.readBoundedBody.mockResolvedValue(Buffer.from("{}"));
   mocks.serveStdio.mockImplementation((factory: () => unknown) => {
@@ -166,10 +167,14 @@ afterEach(() => {
 function response() {
   const res: any = {
     statusCode: 200, headersSent: false, body: "", closeHandler: undefined,
+    headers: {} as Record<string, string>,
+    setHeader: vi.fn((name: string, value: string) => { res.headers[name.toLowerCase()] = value; }),
+    getHeader: vi.fn((name: string) => res.headers[name.toLowerCase()]),
     writeHead: vi.fn((status: number) => { res.statusCode = status; res.headersSent = true; }),
     end: vi.fn((body = "") => { res.body = body; }),
     destroy: vi.fn(),
     on: vi.fn((name: string, handler: () => void) => { if (name === "close") res.closeHandler = handler; }),
+    once: vi.fn((name: string, handler: () => void) => { if (name === "close") res.closeHandler = handler; }),
   };
   return res;
 }
@@ -697,6 +702,29 @@ describe("HTTP entry point", () => {
     expect(res.statusCode).toBe(200);
     expect(res.body).toBe("");
     expect(mocks.fsReadFileSync).toHaveBeenCalledOnce();
+  });
+
+  it("compresses landing HTML after inserting the per-response script nonce", async () => {
+    mocks.fsExists.mockReturnValue(true);
+    const handler = await loadHttp();
+    const res = response();
+    await handler({ method: "GET", url: "/docs/", headers: { "accept-encoding": "br, gzip" } }, res);
+    expect(res.writeHead).toHaveBeenCalledWith(200, expect.objectContaining({
+      "Content-Encoding": "gzip",
+      "Content-Type": "text/html; charset=utf-8",
+    }));
+    expect(res.headers.vary).toBe("Accept-Encoding");
+    expect(gunzipSync(res.body).toString("utf8")).toMatch(/<script nonce="[^"]+">bootstrap\(\)<\/script>/);
+  });
+
+  it("does not open an asset stream for a compressed HEAD response", async () => {
+    mocks.fsExists.mockReturnValue(true);
+    const handler = await loadHttp();
+    const res = response();
+    await handler({ method: "HEAD", url: "/_next/static/chunks/app.js", headers: { "accept-encoding": "gzip" } }, res);
+    expect(res.writeHead).toHaveBeenCalledWith(200, expect.objectContaining({ "Content-Encoding": "gzip" }));
+    expect(res.body).toBe("");
+    expect(mocks.fsCreateReadStream).not.toHaveBeenCalled();
   });
 
   it("redirects extensionless landing routes to their canonical directory", async () => {
