@@ -41,3 +41,5 @@ npm-debug.log*
 landing-dist/
 .playwright-cli/
 output/playwright/
+landing/test-results/
+landing/playwright-report/

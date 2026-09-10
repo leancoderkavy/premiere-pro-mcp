@@ -22,6 +22,7 @@ import {
 } from "lucide-react"
 import Image from "next/image"
 import { product, safeFirstPrompt } from "@/lib/product"
+import { connectorSetup, localMcpEntry } from "@/lib/client-setup"
 import { trackOnboardingEvent } from "@/lib/onboarding-events"
 import { faqItems } from "@/components/sections/faq"
 
@@ -255,6 +256,16 @@ const clients = [
     href: product.downloads.claudeBundle
   },
   {
+    id: "codex",
+    name: "Codex",
+    tag: "REPOSITORY PLUGIN",
+    title: "Bring your agent to the timeline.",
+    detail:
+      "Install this repository’s Codex plugin from a local clone. It includes the MCP configuration and editing skill; the Premiere connector is installed separately.",
+    action: "Open Codex setup guide",
+    href: "/blog/codex-premiere-pro-mcp-setup/"
+  },
+  {
     id: "cursor",
     name: "Cursor",
     tag: "GUIDED SETUP",
@@ -468,19 +479,15 @@ export function StudioInstaller() {
                   For manual clients, install Node.js {product.nodeVersion}+ and
                   run:
                 </p>
-                <pre>
-                  npm install -g premiere-pro-mcp{"\n"}premiere-pro-mcp
-                  --install-cep
-                </pre>
+                <pre>{connectorSetup}</pre>
                 <CopyPrompt
-                  text={
-                    "npm install -g premiere-pro-mcp\npremiere-pro-mcp --install-cep"
-                  }
+                  text={connectorSetup}
                   command
                 />
                 <p>
                   Set the local MCP server command to{" "}
-                  <code>premiere-pro-mcp</code>.
+                  <code>{localMcpEntry.command}</code> with arguments{" "}
+                  <code>{localMcpEntry.args.join(" ")}</code>.
                 </p>
               </div>
               <div>

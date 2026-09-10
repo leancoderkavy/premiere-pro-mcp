@@ -1,5 +1,6 @@
 import type { Metadata } from "next"
 import Link from "next/link"
+import { HomeLink } from "@/components/ui/home-link"
 import { notFound } from "next/navigation"
 import { TrackedLink } from "@/components/ui/tracked-link"
 import { articleBySlug, articles } from "@/lib/articles"
@@ -124,7 +125,7 @@ export default async function ArticlePage({ params }: ArticlePageProps) {
       <main id="main-content" className="min-h-screen bg-black px-5 py-12 text-zinc-100 sm:py-20">
         <article className="mx-auto max-w-3xl">
           <nav aria-label="Breadcrumb" className="text-sm text-zinc-500">
-            <Link href="/" className="hover:text-purple-200">MCP for Adobe Premiere Pro</Link>{" "}
+            <HomeLink href="/" className="hover:text-purple-200">MCP for Adobe Premiere Pro</HomeLink>{" "}
             <span aria-hidden="true">/</span>{" "}
             <Link href="/blog/" className="hover:text-purple-200">Guides</Link>{" "}
             <span aria-hidden="true">/</span> <span className="text-zinc-400">{article.eyebrow}</span>

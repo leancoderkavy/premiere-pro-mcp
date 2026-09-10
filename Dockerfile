@@ -37,6 +37,9 @@ FROM node:20-alpine AS runner
 
 WORKDIR /app
 
+ARG VCS_REF=unknown
+LABEL org.opencontainers.image.revision=$VCS_REF
+
 ENV NODE_ENV=production
 
 RUN apk add --no-cache ffmpeg

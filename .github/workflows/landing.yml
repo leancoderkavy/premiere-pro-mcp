@@ -20,6 +20,20 @@ jobs:
           cache: npm
           cache-dependency-path: landing/package-lock.json
       - run: npm ci --prefix landing
+      - run: npm ci
+      - run: npm run build
       - run: npm --prefix landing run lint
       - run: npm --prefix landing run build
       - run: node landing/scripts/check-seo-export.mjs
+      - run: npx playwright install --with-deps chromium
+        working-directory: landing
+      - run: npm run test:e2e
+        working-directory: landing
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        if: failure()
+        with:
+          name: homepage-e2e-report
+          path: |
+            landing/playwright-report/
+            landing/test-results/
+          retention-days: 7

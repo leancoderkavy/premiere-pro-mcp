@@ -1,5 +1,6 @@
 import type { Metadata } from "next"
 import Link from "next/link"
+import { HomeLink } from "@/components/ui/home-link"
 import { TrackedLink } from "@/components/ui/tracked-link"
 import { WorkflowKitActions } from "@/components/workflow-kit-actions"
 import kits from "@/lib/workflow-kits.json"
@@ -56,12 +57,12 @@ export default function WorkflowsPage() {
             aria-label="Breadcrumb"
             className="flex flex-wrap gap-x-3 text-sm text-zinc-300"
           >
-            <Link
+            <HomeLink
               className="inline-flex min-h-11 items-center hover:text-white"
               href="/"
             >
               MCP for Adobe Premiere Pro
-            </Link>
+            </HomeLink>
             <span className="inline-flex items-center" aria-hidden="true">
               /
             </span>

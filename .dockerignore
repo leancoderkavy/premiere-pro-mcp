@@ -6,4 +6,10 @@ coverage
 landing/node_modules
 landing/.next
 landing/out
+landing/e2e
+landing/playwright.config.ts
+landing/playwright-report
+landing/test-results
+landing-dist
+output
 *.log

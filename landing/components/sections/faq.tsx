@@ -20,7 +20,7 @@ export const faqItems = [
   {
     question: "Which AI clients can connect to it?",
     answer:
-      "Claude Desktop has a released self-contained bundle and is the recommended starting point. Cursor, VS Code / Copilot, Windsurf, and other MCP-compatible clients can use the local server route. A native one-click installer for every client is not currently shipped.",
+      "Claude Desktop has a released self-contained bundle and is the recommended starting point. Codex has an installable plugin in this repository. Cursor, VS Code / Copilot, Windsurf, and other MCP-compatible clients can use the local server route. The Premiere connector is installed separately; a native one-click installer for every client is not currently shipped.",
   },
   {
     question: "Can I use the MCP server remotely?",

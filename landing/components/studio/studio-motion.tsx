@@ -105,7 +105,7 @@ export function StudioStage() {
   const [visible, setVisible] = useState(true)
   const [ready, setReady] = useState(false)
   const [failed, setFailed] = useState(false)
-  const onReady = useCallback(() => setReady(true), [])
+  const onReady = useCallback((value: boolean) => setReady(value), [])
   const onError = useCallback(() => {
     setReady(false)
     setFailed(true)

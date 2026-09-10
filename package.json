@@ -92,6 +92,7 @@
     "start:http": "node dist/http-server.js",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:landing:e2e": "npm run build && npm --prefix landing run build && npm --prefix landing run test:e2e",
     "test:coverage": "vitest run --coverage",
     "validate:host-report": "node scripts/validate-licensed-host-report.mjs",
     "validate:mcp-registry-metadata": "node scripts/validate-mcp-registry-metadata.mjs",

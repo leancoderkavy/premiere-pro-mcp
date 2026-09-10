@@ -46,6 +46,7 @@ describe("modern MCP surface", () => {
     expect(annotationsForTool("create_editorial_plan")).toMatchObject({ readOnlyHint: true, idempotentHint: true });
     expect(annotationsForTool("preview_editorial_plan")).toMatchObject({ readOnlyHint: true, idempotentHint: true });
     expect(annotationsForTool("verify_delivery_conformance")).toMatchObject({ readOnlyHint: true, idempotentHint: true, openWorldHint: false });
+    expect(annotationsForTool("verify_premiere_connection")).toMatchObject({ readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false });
     expect(annotationsForTool("apply_editorial_organization_plan")).toMatchObject({
       readOnlyHint: false,
       destructiveHint: false,

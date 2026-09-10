@@ -4,8 +4,9 @@ import { Suspense, useEffect, useMemo, useRef } from "react"
 import { Canvas, useFrame, useLoader, useThree } from "@react-three/fiber"
 import { Group, SRGBColorSpace, TextureLoader } from "three"
 
-function FilmAssembly({ onReady }: { onReady: () => void }) {
+function FilmAssembly({ onReady }: { onReady: (ready: boolean) => void }) {
   const assembly = useRef<Group>(null)
+  const renderedFrames = useRef(0)
   const source = useLoader(TextureLoader, "/marketing/cinematic-portal.webp")
   const texture = useMemo(() => {
     const copy = source.clone()
@@ -14,11 +15,18 @@ function FilmAssembly({ onReady }: { onReady: () => void }) {
     return copy
   }, [source])
   useEffect(() => {
-    onReady()
-    return () => texture.dispose()
+    renderedFrames.current = 0
+    return () => {
+      onReady(false)
+      texture.dispose()
+    }
   }, [onReady, texture])
 
-  useFrame(({ clock, pointer }, delta) => {
+  useFrame(({ clock, pointer, gl }, delta) => {
+    if (gl.getContext().isContextLost()) return
+    // Announce this canvas only after a frame has rendered. A previous canvas's
+    // ready state must not hide the fallback while a replacement initializes.
+    if (++renderedFrames.current === 2) onReady(true)
     if (!assembly.current) return
     const ease = Math.min(delta * 3, 1)
     assembly.current.rotation.x +=
@@ -92,9 +100,10 @@ export default function StudioCanvas({
   onReady,
   onError
 }: {
-  onReady: () => void
+  onReady: (ready: boolean) => void
   onError: () => void
 }) {
+  useEffect(() => () => onReady(false), [onReady])
   return (
     <Canvas
       orthographic

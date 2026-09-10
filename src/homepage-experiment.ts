@@ -10,14 +10,15 @@ export const HOMEPAGE_FLAG = "homepage-cinematic-2026";
 const COOKIE = "premiere_homepage_v1";
 const MAX_AGE = 60 * 60 * 24 * 30;
 const PARAMETER_VALUES: Record<string, readonly string[]> = {
-  route: ["claude", "cursor", "vscode", "other", "cep_connector"],
-  assistant: ["claude", "cursor", "vscode", "other"],
+  route: ["claude", "codex", "cursor", "vscode", "other", "cep_connector"],
+  assistant: ["claude", "codex", "cursor", "vscode", "other"],
   location: ["hero", "navigation", "final_cta", "final-cta", "install", "demo"],
   destination: [
     "safe_connection_check",
     "workflow_starter_kit",
     "github",
     "claude",
+    "codex",
     "cursor",
     "vscode",
     "other",
@@ -261,8 +262,10 @@ export class HomepageExperiment {
         $geoip_disable: true,
       };
       if (input.event === "homepage_experiment_exposed") {
+        // Matches the draft's resolved_exposure_event in PostHog. Emit only
+        // after the browser confirms visible rendering, never during assignment.
         if (!assignment.exposed)
-          this.client!.capture(assignment.id, "$feature_flag_called", {
+          this.client!.capture(assignment.id, "$experiment_exposure", {
             ...props,
             $feature_flag: HOMEPAGE_FLAG,
             $feature_flag_response: assignment.variant,
@@ -362,8 +365,13 @@ export function createHomepageExperiment(
             disableGeoip: true,
           })
         )[HOMEPAGE_FLAG],
-      capture: (distinctId, event, properties) =>
-        client.capture({ distinctId, event, properties, disableGeoip: true }),
+      capture: (distinctId, event, properties) => {
+        client.capture({ distinctId, event, properties, disableGeoip: true });
+        // capture() prepares events asynchronously. Explicit flush includes that
+        // pending preparation, including sparse events arriving during a flush.
+        // Delivery stays asynchronous so analytics cannot block the visitor.
+        void client.flush().catch(() => {});
+      },
       shutdown: () => client.shutdown(),
     };
   }
