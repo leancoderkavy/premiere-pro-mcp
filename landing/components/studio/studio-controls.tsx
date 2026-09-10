@@ -125,15 +125,9 @@ export function WorkflowChapters() {
             key={chapter.id}
             value={chapter.id}
             className="studio-chapter"
+            aria-label={`${chapter.number} ${chapter.title}`}
           >
-            <span className="studio-chapter-number">{chapter.number}</span>
-            <span>
-              <strong>{chapter.title}</strong>
-              <span className="studio-chapter-description">
-                {chapter.description}
-              </span>
-            </span>
-            <ArrowUpRight size={20} />
+            {chapter.title}
           </Tabs.Trigger>
         ))}
       </Tabs.List>
@@ -143,48 +137,55 @@ export function WorkflowChapters() {
           key={chapter.id}
           className="studio-chapter-panel"
         >
-          <div className="studio-panel-toolbar">
-            <span>
-              <chapter.icon size={14} />
-              {chapter.titleLabel}
-            </span>
-            <span className="studio-live-dot">ILLUSTRATED WORKFLOW</span>
+          <div className="studio-chapter-summary">
+            <chapter.icon size={28} strokeWidth={1.5} />
+            <h3>{chapter.title}</h3>
+            <p>{chapter.description}</p>
           </div>
-          <div className="studio-workflow-frame">
-            <Image
-              src="/marketing/cinematic-portal-premiere.webp"
-              alt="Cinematic sample artwork for the illustrated editing workflow"
-              width={1280}
-              height={736}
-              sizes="(max-width: 768px) 90vw, 650px"
-            />
-            <span className="studio-frame-corner">IN / 00:00:00:00</span>
-            <span className="studio-frame-corner studio-frame-out">
-              OUT / 00:00:32:00
-            </span>
+          <div className="studio-dark studio-chapter-preview">
+            <div className="studio-panel-toolbar">
+              <span>
+                <chapter.icon size={14} />
+                {chapter.titleLabel}
+              </span>
+              <span className="studio-live-dot">ILLUSTRATED WORKFLOW</span>
+            </div>
+            <div className="studio-workflow-frame">
+              <Image
+                src="/marketing/cinematic-portal-premiere.webp"
+                alt="Cinematic sample artwork for the illustrated editing workflow"
+                width={1280}
+                height={736}
+                sizes="(max-width: 768px) 90vw, 650px"
+              />
+              <span className="studio-frame-corner">IN / 00:00:00:00</span>
+              <span className="studio-frame-corner studio-frame-out">
+                OUT / 00:00:32:00
+              </span>
+            </div>
+            <div
+              className={`studio-workflow-tracks studio-workflow-${chapter.id}`}
+              aria-hidden="true"
+            >
+              {chapter.tracks.map((track, i) => (
+                <div key={track}>
+                  <span>{i + 1}</span>
+                  <div>{track}</div>
+                </div>
+              ))}
+            </div>
+            <div className="studio-workflow-prompt">
+              <span className="studio-prompt-glyph">
+                <Terminal size={17} />
+              </span>
+              <p>{chapter.prompt}</p>
+              <ArrowRight size={18} />
+            </div>
+            <p className="studio-workflow-response">
+              <ShieldCheck size={15} />
+              {chapter.response}
+            </p>
           </div>
-          <div
-            className={`studio-workflow-tracks studio-workflow-${chapter.id}`}
-            aria-hidden="true"
-          >
-            {chapter.tracks.map((track, i) => (
-              <div key={track}>
-                <span>{i + 1}</span>
-                <div>{track}</div>
-              </div>
-            ))}
-          </div>
-          <div className="studio-workflow-prompt">
-            <span className="studio-prompt-glyph">
-              <Terminal size={17} />
-            </span>
-            <p>{chapter.prompt}</p>
-            <ArrowRight size={18} />
-          </div>
-          <p className="studio-workflow-response">
-            <ShieldCheck size={15} />
-            {chapter.response}
-          </p>
         </Tabs.Content>
       ))}
     </Tabs.Root>
@@ -480,10 +481,7 @@ export function StudioInstaller() {
                   run:
                 </p>
                 <pre>{connectorSetup}</pre>
-                <CopyPrompt
-                  text={connectorSetup}
-                  command
-                />
+                <CopyPrompt text={connectorSetup} command />
                 <p>
                   Set the local MCP server command to{" "}
                   <code>{localMcpEntry.command}</code> with arguments{" "}

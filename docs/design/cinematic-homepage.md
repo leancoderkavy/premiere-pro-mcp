@@ -1,5 +1,7 @@
 # Cinematic homepage experiment
 
+The current visual refinement is documented in [Apple-inspired homepage refinement](apple-homepage.md). It supersedes the split-hero composition below while preserving the experiment contract. The original direction and palette verification are retained here as design history.
+
 The user's brief is a complete 3D, animated homepage with a PostHog A/B test. The implementation direction is a cinematic editing studio: near-black indigo canvas, titanium surfaces, Premiere violet actions, film frames suspended in depth, and precise timeline typography. The existing homepage remains the control. No product application or documentation routes are redesigned.
 
 ## Visual target

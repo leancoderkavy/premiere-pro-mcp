@@ -12,7 +12,7 @@ import {
   useState,
   type ReactNode
 } from "react"
-import { ArrowUpRight, Check, Pause, Play, ScanLine } from "lucide-react"
+import { ArrowUpRight, Check, Pause, Play } from "lucide-react"
 
 const StudioCanvas = dynamic(() => import("./studio-canvas"), { ssr: false })
 const MotionContext = createContext({ paused: true, toggle: () => {} })
@@ -142,10 +142,6 @@ export function StudioStage() {
       data-enhanced={enhanced && !paused && visible && ready}
       aria-label="Illustrative film frame and editing timeline in three dimensions"
     >
-      <div className="studio-stage-grid" aria-hidden="true" />
-      <div className="studio-stage-label">
-        <ScanLine size={13} /> A NEW PERSPECTIVE ON YOUR WORKFLOW
-      </div>
       <div className="studio-film-plane">
         <picture>
           <source
@@ -204,7 +200,7 @@ export function StudioStage() {
           <ArrowUpRight size={19} />
         </span>
         <div>
-          <span className="studio-label">YOUR DIRECTION. STRUCTURED.</span>
+          <span className="studio-label">Your direction. Structured.</span>
           <p>
             “Prepare the assembly.
             <br />
@@ -212,14 +208,11 @@ export function StudioStage() {
           </p>
         </div>
         <span className="studio-command-status">
-          <Check size={12} /> PREVIEW FIRST
+          <Check size={12} /> Preview first
         </span>
       </div>
       <div className="studio-stage-foot">
-        <span>
-          <i /> WORKFLOW ILLUSTRATION
-        </span>
-        <span>SCROLL TO EXPLORE ↓</span>
+        <span>Illustrative workflow. You review every plan.</span>
       </div>
     </div>
   )
