@@ -33,6 +33,7 @@ const footerLinks = {
   ],
   Resources: [
     ["Documentation", "/docs/"],
+    ["Tool reference", "/tools/"],
     ["Guides", "/blog/"],
     ["Changelog", "/changelog/"],
     ["Product facts", "/facts/"]

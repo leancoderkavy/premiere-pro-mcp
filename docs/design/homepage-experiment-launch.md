@@ -2,7 +2,7 @@
 
 Status: implemented and verified locally; **draft created, inactive, and not launched** in owner organization `leancoderkavy`, project `528794`. [Open the experiment](https://us.posthog.com/project/528794/experiments/462966).
 
-The connector's organization inventory resolved the earlier access problem. Experiment `462966` and its automatically linked flag `876869` were read back after creation: status `draft`, flag `active: false`, no start date, and equal control/test variants. Production deployment, runtime token destination, conversion metrics, and homepage-event ingestion still require verification before launch.
+The connector's organization inventory resolved the earlier access problem. Experiment `462966` and its automatically linked flag `876869` were read back after creation: status `draft`, flag `active: false`, no start date, and equal control/test variants. The production capture token's SHA-256 fingerprint matches project `528794`, and the production runtime gate is currently off. The requested launch follows merge, deployment, controlled production ingestion, and metric configuration.
 
 ## Definition
 
@@ -19,7 +19,7 @@ The connector's organization inventory resolved the earlier access problem. Expe
 | Metric interpretation | Setup intent; neither metric verifies installation or a working Premiere host |
 | Product filter | `product = premiere-pro-mcp` |
 
-Hypothesis: the clearer visual workflow and client-specific installer increase setup intent without compromising accessibility, privacy, or loading performance. Use visitor-level conversion, not total event counts: a visitor can click more than one download or copy the prompt repeatedly. Select and document the conversion window before launch, using the project's actual traffic baseline.
+Hypothesis: the clearer visual workflow and client-specific installer increase setup intent without compromising accessibility, privacy, or loading performance. Use visitor-level conversion, not total event counts: a visitor can click more than one download or copy the prompt repeatedly. The planned conversion window is 24 hours from exposure for both setup-intent outcomes. Production traffic has no measured homepage-conversion baseline yet; do not infer a sample size or winner from prelaunch QA.
 
 The two outcome names are newly implemented events, verified against a local PostHog HTTP fixture. They were **absent** from the production project's schema during the September 10 UTC check, so the draft has no configured metrics yet. Recheck the schema after controlled production ingestion, reuse any equivalent saved metrics, and configure visitor-level conversion metrics before launch. Do not silently allow unknown events, fabricate production ingestion, or create a duplicate experiment.
 
@@ -55,7 +55,7 @@ Root assignment is private and non-cacheable. Preview exclusion uses the Node se
 
 ## Repeatable local end-to-end test
 
-After installing root and landing dependencies, run `npm exec --prefix landing -- playwright install chromium` once, then `npm run test:landing:e2e` from the repository root. The command builds the actual Node server and static site, then runs 32 Playwright tests. `npm --prefix landing run test:e2e` reuses those compiled outputs for a faster rerun.
+After installing root and landing dependencies, run `npm exec --prefix landing -- playwright install chromium` once, then `npm run test:landing:e2e` from the repository root. The command builds the actual Node server and static site, then runs 34 Playwright tests. `npm --prefix landing run test:e2e` reuses those compiled outputs for a faster rerun.
 
 On Windows installations that require the system certificate store for Adobe reference fetches, set `$env:NODE_OPTIONS='--use-system-ca'` before running repository checks.
 

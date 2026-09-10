@@ -1,5 +1,6 @@
 import type { Metadata } from "next"
 import Link from "next/link"
+import { HomeLink } from "@/components/ui/home-link"
 import { ToolExplorer } from "@/components/tool-explorer"
 import { TrackedLink } from "@/components/ui/tracked-link"
 import catalog from "@/public/tool-catalog.json"
@@ -29,7 +30,7 @@ export default function ToolsPage() {
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }} />
       <main id="main-content" className="min-h-screen bg-black px-5 py-16 text-zinc-100">
         <div className="mx-auto max-w-5xl">
-          <nav aria-label="Breadcrumb" className="text-sm text-zinc-400"><Link href="/" className="text-purple-200 hover:underline">{product.name}</Link> <span aria-hidden="true">/</span> Tool reference</nav>
+          <nav aria-label="Breadcrumb" className="text-sm text-zinc-400"><HomeLink className="text-purple-200 hover:underline">{product.name}</HomeLink> <span aria-hidden="true">/</span> Tool reference</nav>
           <header className="border-b border-zinc-800 py-8">
             <p className="font-mono text-sm text-purple-300">PREMIERE PRO MCP TOOL REFERENCE</p>
             <h1 className="mt-4 text-balance text-4xl font-bold tracking-tight sm:text-5xl">Find the tool for your Premiere workflow.</h1>

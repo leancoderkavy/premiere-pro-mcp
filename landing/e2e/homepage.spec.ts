@@ -64,7 +64,7 @@ for (const variant of ["control", "test"]) {
     await expect.poll(async () => (await state(request)).events.some(event => event.event === "homepage_setup_downloaded")).toBe(true)
   })
 
-  for (const destination of ["/docs/", "/workflows/", "/project-intake/", "/blog/", "/facts/", "/changelog/", "/privacy/"]) {
+  for (const destination of ["/docs/", "/tools/", "/workflows/", "/project-intake/", "/blog/", "/facts/", "/changelog/", "/privacy/"]) {
     test(`${variant}: returns from ${destination} to the same assigned homepage`, async ({ page, request }) => {
       await setVariant(request, variant)
       const exposed = page.waitForResponse(response =>
@@ -144,7 +144,7 @@ test("treatment: workflow chapters, Codex guide, manual setup, FAQs, and clipboa
   expect((await state(request)).events.filter(event => event.event === "homepage_setup_downloaded")).toHaveLength(0)
   await page.getByRole("button", { name: "Advanced setup & compatibility" }).click()
   await page.getByRole("button", { name: "Copy installation commands" }).click()
-  expect((await page.evaluate(() => navigator.clipboard.readText())).replace(/\r\n/g, "\n")).toBe("npm install -g premiere-pro-mcp\npremiere-pro-mcp --install-cep")
+  expect((await page.evaluate(() => navigator.clipboard.readText())).replace(/\r\n/g, "\n")).toBe(`npx --yes premiere-pro-mcp@${published.version} --install-cep\nnpx --yes premiere-pro-mcp@${published.version} --doctor`)
   await expect(page.locator("body")).toContainText(`Node.js ${published.nodeVersion}+`)
   await page.getByRole("button", { name: "Does MCP for Adobe Premiere Pro upload my footage?" }).click()
   await expect(page.locator("body")).toContainText("Your AI assistant’s separate privacy settings still apply.")
