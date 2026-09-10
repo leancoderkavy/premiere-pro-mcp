@@ -1,6 +1,6 @@
 # Cinematic homepage experiment
 
-The user's brief is a complete 3D, animated homepage with a PostHog A/B test. The implementation direction is a cinematic editing studio: near-black canvas, titanium surfaces, acid-green actions, film frames suspended in depth, and precise timeline typography. The existing homepage remains the control. No product application or documentation routes are redesigned.
+The user's brief is a complete 3D, animated homepage with a PostHog A/B test. The implementation direction is a cinematic editing studio: near-black indigo canvas, titanium surfaces, Premiere violet actions, film frames suspended in depth, and precise timeline typography. The existing homepage remains the control. No product application or documentation routes are redesigned.
 
 ## Visual target
 
@@ -10,7 +10,7 @@ Continue with an interactive three-chapter workflow, an illustrated video walkth
 
 ## System
 
-- Canvas #0a0c0b; surfaces #111511 and #19201b; text #f2f5ee; secondary #a5ada4; line #2c342d; accent #d2ff5a; accent text #161e08.
+- Premiere palette, refined September 10, 2026 at the user's request: accent #9999ff and accent text #00005b match [Adobe's official Premiere icon](https://main--cc--adobecom.aem.live/cc-shared/assets/img/product-icons/svg/premiere-pro.svg). Supporting indigo neutrals: canvas #080811; surfaces #111120 and #1b1b32; text #f4f3ff; secondary #afafc7; line #30304b. Semantic CSS tokens also scope the portaled mobile menu. The WebGL scene and original artwork use the same violet direction.
 - Geist Sans for editorial type; Geist Mono for timeline/timecode and labels. Hero 52–88px, section titles 36–56px, body 16–18px. Small labels at least 11px.
 - Four/eight-pixel spacing rhythm, 8px control radius, 16px major viewport radius. Subtle borders; depth reserved for the film stage.
 - Motion: spring pointer parallax on fine pointers, slow timeline drift, short scroll reveals. Global pause control. Reduced motion and save-data use still compositions. Suspend rendering when hidden or offscreen. No scroll hijacking or custom cursor.
@@ -29,3 +29,5 @@ Continue with an interactive three-chapter workflow, an illustrated video walkth
 ## Verification
 
 Production build and existing byte budgets; server assignment/exposure/privacy/tamper tests; desktop and 320–1440px browser captures; keyboard navigation, installer tabs/copy/error states, dialog close/focus restoration, FAQ, motion pause/reduced motion, console inspection, and accessibility scan. Test the root route through the actual HTTP server, including nonce CSP, rather than treating the standalone preview as root-route evidence.
+
+September 10, 2026 palette verification: landing lint and production build passed, including the existing JavaScript/HTML byte budgets. All 34 existing Playwright end-to-end tests passed against the actual local HTTP server and local PostHog fixture. SEO export validation passed for 27 canonical pages and 926 links/anchors. Visually checked the full desktop page, animated scene, 390px hero, and portaled mobile menu in the local preview; no browser errors were reported. This palette revision was verified locally; these checks do not constitute a production deployment.

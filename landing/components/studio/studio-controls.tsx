@@ -152,7 +152,7 @@ export function WorkflowChapters() {
           </div>
           <div className="studio-workflow-frame">
             <Image
-              src="/marketing/cinematic-portal.webp"
+              src="/marketing/cinematic-portal-premiere.webp"
               alt="Cinematic sample artwork for the illustrated editing workflow"
               width={1280}
               height={736}
@@ -221,7 +221,7 @@ export function WalkthroughPlayer() {
           aria-label="Play the walkthrough — illustrated product workflow"
         >
           <Image
-            src="/marketing/cinematic-portal.webp"
+            src="/marketing/cinematic-portal-premiere.webp"
             alt=""
             fill
             sizes="(max-width: 768px) 95vw, 1280px"
@@ -379,7 +379,7 @@ export function StudioInstaller() {
           className="studio-client-content"
         >
           <div className="studio-client-intro">
-            <span className="studio-label studio-green">{client.tag}</span>
+            <span className="studio-label studio-accent">{client.tag}</span>
             <h3>{client.title}</h3>
             <p>{client.detail}</p>
             <a

@@ -150,10 +150,10 @@ export function StudioStage() {
         <picture>
           <source
             media="(max-width: 767px)"
-            srcSet="/marketing/cinematic-portal-mobile.webp"
+            srcSet="/marketing/cinematic-portal-premiere-mobile.webp"
           />
           <Image
-            src="/marketing/cinematic-portal.webp"
+            src="/marketing/cinematic-portal-premiere.webp"
             alt="Original cinematic artwork: an explorer faces a monumental silver portal in a volcanic landscape"
             width={1280}
             height={736}

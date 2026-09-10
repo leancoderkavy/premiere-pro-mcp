@@ -7,6 +7,14 @@ Generated with the built-in image-generation tool for this homepage. It is origi
 | `landing/public/marketing/cinematic-portal.webp` | 1600 × 914 | 162,358 bytes |
 | `landing/public/marketing/cinematic-portal-mobile.webp` | 720 × 411 | 38,512 bytes |
 | `landing/public/marketing/premiere-pro-mcp-icon-180.png` | 180 × 180 | 22,586 bytes |
+| `landing/public/marketing/cinematic-portal-premiere.webp` | 1600 × 914 | 111,950 bytes |
+| `landing/public/marketing/cinematic-portal-premiere-mobile.webp` | 720 × 411 | 34,332 bytes |
+
+The treatment now uses the `-premiere` artwork pair. The original files are retained as source references. The September 10, 2026 palette refinement used the built-in image-generation tool to edit the original artwork, followed by Sharp resizing and WebP encoding. Versioned URLs prevent browsers from retaining the earlier green artwork after a build refresh.
+
+Palette edit prompt:
+
+> Edit target: the supplied original cinematic portal artwork for the existing Premiere Pro MCP homepage. Make ONLY a restrained palette change: replace the chartreuse/lime-green light on the portal's inner rim, small accents, and corresponding ground reflections with luminous periwinkle violet, anchored to Adobe Premiere Pro #9999FF with deep indigo #00005B in the shaded colored reflections. Preserve exactly the existing composition, aspect ratio, huge silver titanium ring, explorer placement and scale, volcanic terrain, mountains, mist, overcast sky, framing, fine textures, photorealism, exposure and neutral charcoal/silver palette. Do not redesign or add objects. Keep the glow subtle and physically plausible, with no remaining green/yellow accents. No lettering, logos, watermarks or UI. This is a recolor of existing artwork, not a new scene.
 
 Generation prompt:
 
