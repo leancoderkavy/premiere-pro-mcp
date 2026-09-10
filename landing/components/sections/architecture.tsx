@@ -65,7 +65,7 @@ export function ArchitectureSection() {
                   </span>
                   <div>
                     <h3 className="text-base font-semibold text-zinc-100">{step.title}</h3>
-                    <p className="mt-2 text-sm leading-6 text-zinc-500">{step.description}</p>
+                    <p className="mt-2 text-sm leading-6 text-zinc-400">{step.description}</p>
                   </div>
                 </div>
               ))}
@@ -83,7 +83,7 @@ export function ArchitectureSection() {
                   <item.icon className="mt-0.5 h-6 w-6 shrink-0 text-purple-300" strokeWidth={1.5} />
                   <div>
                     <h3 className="text-base font-semibold text-zinc-100">{item.title}</h3>
-                    <p className="mt-2 text-sm leading-6 text-zinc-500">{item.description}</p>
+                    <p className="mt-2 text-sm leading-6 text-zinc-400">{item.description}</p>
                   </div>
                 </article>
               ))}
@@ -99,7 +99,7 @@ export function ArchitectureSection() {
         <div className="mt-16 flex flex-col gap-4 rounded-xl border border-zinc-800 bg-black px-5 py-5 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <p className="text-sm font-medium text-zinc-200">Need the full tool list, schemas, or troubleshooting guide?</p>
-            <p className="mt-1 text-sm text-zinc-500">The README documents every setup path and known security boundary.</p>
+            <p className="mt-1 text-sm text-zinc-400">The README documents every setup path and known security boundary.</p>
           </div>
           <a
             href="https://github.com/leancoderkavy/premiere-pro-mcp#readme"

@@ -380,10 +380,16 @@ section[id] {
 
 @supports (animation-timeline: view()) {
   .reveal-section > div {
-    animation: hero-enter linear both;
+    animation: section-enter linear both;
     animation-timeline: view();
     animation-range: entry 8% cover 24%;
   }
+}
+
+/* Keep text readable while a section enters the viewport. */
+@keyframes section-enter {
+  from { transform: translateY(16px); }
+  to { transform: translateY(0); }
 }
 
 @media (prefers-reduced-motion: reduce) {

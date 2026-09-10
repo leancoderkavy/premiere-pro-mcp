@@ -1,7 +1,6 @@
 "use client"
 
 import { Clapperboard, Film, WandSparkles } from "lucide-react"
-import Image from "next/image"
 import { useState } from "react"
 import { product } from "@/lib/product"
 import { trackOnboardingEvent } from "@/lib/onboarding-events"
@@ -45,7 +44,7 @@ export function DemoVideoSection() {
               loop
               playsInline
               preload="metadata"
-              poster="/premiere-pro-mcp-demo-poster.png"
+              poster="/premiere-pro-mcp-demo-poster-1280.webp"
               aria-label="MCP for Adobe Premiere Pro inserts B-roll, applies a color grade and title, then queues a ProRes export"
             >
               <source src="/premiere-pro-mcp-demo.mp4" type="video/mp4" />
@@ -58,12 +57,16 @@ export function DemoVideoSection() {
               className="group relative block aspect-video w-full overflow-hidden bg-[#060608] text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-300 focus-visible:ring-inset"
               aria-label="Play the illustrated MCP for Adobe Premiere Pro workflow walkthrough"
             >
-              <Image
-                src="/premiere-pro-mcp-demo-poster.png"
+              {/* Static export uses pre-sized files instead of a runtime image service. */}
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src="/premiere-pro-mcp-demo-poster-1280.webp"
+                srcSet="/premiere-pro-mcp-demo-poster-640.webp 640w, /premiere-pro-mcp-demo-poster-1280.webp 1280w"
                 alt=""
                 aria-hidden="true"
-                fill
-                sizes="(max-width: 768px) 100vw, 1152px"
+                width={1280}
+                height={720}
+                sizes="(max-width: 1192px) calc(100vw - 40px), 1152px"
                 className="h-full w-full object-cover opacity-85 transition duration-300 group-hover:scale-[1.01] group-hover:opacity-100"
                 loading="lazy"
               />
@@ -85,7 +88,7 @@ export function DemoVideoSection() {
             <div key={outcome.label} className="flex items-center gap-4 border-b border-zinc-800 py-5 sm:border-b-0 sm:border-r sm:px-6 first:sm:pl-0 last:sm:border-r-0">
               <outcome.icon className="h-5 w-5 shrink-0 text-purple-300" strokeWidth={1.6} />
               <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.14em] text-zinc-500">{outcome.label}</p>
+                <p className="text-xs font-semibold uppercase tracking-[0.14em] text-zinc-400">{outcome.label}</p>
                 <p className="mt-1 text-sm text-zinc-200">{outcome.detail}</p>
               </div>
             </div>

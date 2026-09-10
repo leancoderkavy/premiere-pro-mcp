@@ -31,7 +31,7 @@ export function HeroSection() {
         <nav className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4 sm:px-5" aria-label="Primary navigation">
           <a href="#top" className="flex items-center gap-3 text-sm font-semibold text-white">
             <Image
-              src="/marketing/premiere-pro-mcp-mark-v1.png"
+              src="/marketing/premiere-pro-mcp-mark-96.webp"
               alt=""
               width={32}
               height={32}
@@ -105,7 +105,7 @@ export function HeroSection() {
                 <ShieldCheck className="h-4 w-4" /> Try a workflow
               </TrackedLink>
             </div>
-            <p className="hero-enter hero-enter-3 mt-4 text-sm text-zinc-500">
+            <p className="hero-enter hero-enter-3 mt-4 text-sm text-zinc-400">
               Project context is opt-in and local. Applied plans require current targets and confirmation.
             </p>
           </div>
@@ -114,13 +114,13 @@ export function HeroSection() {
             <WorkflowProof />
           </div>
 
-          <div className="hero-enter hero-enter-5 mt-6 flex snap-x overflow-x-auto rounded-xl border border-zinc-800 bg-zinc-950/75 sm:mt-8 sm:grid sm:grid-cols-2 sm:overflow-hidden lg:grid-cols-4">
+          <div role="region" aria-label="Product facts" tabIndex={0} className="hero-enter hero-enter-5 mt-6 flex snap-x overflow-x-auto rounded-xl border border-zinc-800 bg-zinc-950/75 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-purple-300 sm:mt-8 sm:grid sm:grid-cols-2 sm:overflow-hidden lg:grid-cols-4">
             {proofItems.map((item) => (
               <div key={item.title} className="flex min-w-[13rem] snap-start items-center gap-3 border-r border-zinc-800 px-5 py-4 last:border-r-0 sm:min-w-0 sm:border-b sm:even:border-l lg:border-b-0 lg:border-l first:lg:border-l-0">
                 <item.icon className="h-5 w-5 shrink-0 text-purple-400" strokeWidth={1.7} />
                 <div>
                   <p className="text-sm font-semibold text-zinc-100">{item.title}</p>
-                  <p className="mt-0.5 text-xs text-zinc-500">{item.detail}</p>
+                  <p className="mt-0.5 text-xs text-zinc-400">{item.detail}</p>
                 </div>
               </div>
             ))}

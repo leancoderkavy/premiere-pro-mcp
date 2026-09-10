@@ -3,6 +3,15 @@ import path from "node:path";
 import { gzipSync } from "node:zlib";
 
 const outputDirectory = path.resolve(process.cwd(), "out");
+for (const [asset, budget] of [
+  ["marketing/premiere-pro-mcp-mark-96.webp", 6_000],
+  ["premiere-pro-mcp-demo-poster-640.webp", 16_000],
+  ["premiere-pro-mcp-demo-poster-1280.webp", 35_000],
+]) {
+  const bytes = fs.statSync(path.join(outputDirectory, asset)).size;
+  if (bytes > budget) throw new Error(`Image budget exceeded: ${asset}: ${bytes} > ${budget}`);
+  console.log(`[landing-image] ${asset}: ${bytes} / ${budget} bytes`);
+}
 for (const page of ["index.html", "design-preview/index.html"]) {
   const homeDocument = path.join(outputDirectory, page);
   const initialJavaScriptGzipBudget = 240_000;

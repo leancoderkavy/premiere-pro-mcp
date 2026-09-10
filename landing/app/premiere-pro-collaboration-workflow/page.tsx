@@ -55,7 +55,7 @@ export default function PremiereProCollaborationWorkflowPage() {
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }} />
       <header className="border-b border-zinc-800 bg-black/90 px-5 py-4 backdrop-blur">
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-4">
-          <HomeLink href="/" className="inline-flex items-center gap-3 text-sm font-semibold text-white"><Image src="/marketing/premiere-pro-mcp-mark-v1.png" alt="" width={32} height={32} className="h-8 w-8 object-contain" /><span>premiere-pro-mcp</span></HomeLink>
+          <HomeLink href="/" className="inline-flex items-center gap-3 text-sm font-semibold text-white"><Image src="/marketing/premiere-pro-mcp-mark-96.webp" alt="" width={32} height={32} className="h-8 w-8 object-contain" /><span>premiere-pro-mcp</span></HomeLink>
           <HomeLink href="/#install" className="inline-flex min-h-11 items-center rounded-md border border-zinc-700 px-4 py-2 text-sm font-semibold text-zinc-100 transition-colors hover:border-zinc-500 hover:bg-zinc-900">Install first</HomeLink>
         </div>
       </header>

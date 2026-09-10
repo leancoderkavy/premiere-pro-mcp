@@ -112,11 +112,11 @@ export function WorkflowProof() {
                     active ? "border-purple-400/70 bg-purple-400/[0.09]" : "border-zinc-800 bg-black hover:border-zinc-600"
                   }`}
                 >
-                  <span className={`font-mono text-xs ${active ? "text-purple-200" : "text-zinc-500"}`}>{step.number}</span>
-                  <Icon className={`h-4 w-4 shrink-0 ${active ? "text-purple-200" : "text-zinc-500"}`} aria-hidden="true" />
+                  <span className={`font-mono text-xs ${active ? "text-purple-200" : "text-zinc-400"}`}>{step.number}</span>
+                  <Icon className={`h-4 w-4 shrink-0 ${active ? "text-purple-200" : "text-zinc-400"}`} aria-hidden="true" />
                   <span>
                     <span className="block text-sm font-semibold text-zinc-100">{step.title}</span>
-                    <span className="mt-1 block font-mono text-[0.65rem] text-zinc-500">{step.tool}</span>
+                    <span className="mt-1 block font-mono text-[0.65rem] text-zinc-400">{step.tool}</span>
                   </span>
                 </button>
               </li>

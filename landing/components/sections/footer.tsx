@@ -11,7 +11,7 @@ export function Footer() {
           <div className="max-w-sm">
             <div className="flex items-center gap-3">
               <Image
-                src="/marketing/premiere-pro-mcp-mark-v1.png"
+                src="/marketing/premiere-pro-mcp-mark-96.webp"
                 alt=""
                 width={32}
                 height={32}
@@ -19,10 +19,10 @@ export function Footer() {
               />
               <span className="text-sm font-semibold text-white">premiere-pro-mcp</span>
             </div>
-            <p className="mt-4 text-sm leading-6 text-zinc-500">Open-source, local-first structured AI control for supported Adobe Premiere Pro workflows.</p>
+            <p className="mt-4 text-sm leading-6 text-zinc-400">Open-source, local-first structured AI control for supported Adobe Premiere Pro workflows.</p>
           </div>
           <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-zinc-600">Product</p>
+            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-zinc-400">Product</p>
             <div className="mt-4 flex flex-col gap-3 text-sm text-zinc-400">
               <HomeLink href="/#demo" className="hover:text-white">Demo</HomeLink>
               <HomeLink href="/#features" className="hover:text-white">Features</HomeLink>
@@ -41,7 +41,7 @@ export function Footer() {
             </div>
           </div>
           <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-zinc-600">Resources</p>
+            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-zinc-400">Resources</p>
             <div className="mt-4 flex flex-col gap-3 text-sm text-zinc-400">
               <a href="https://github.com/leancoderkavy/premiere-pro-mcp" target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 hover:text-white"><Github className="h-4 w-4" /> GitHub</a>
               <a href="https://www.npmjs.com/package/premiere-pro-mcp" target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 hover:text-white"><Package className="h-4 w-4" /> npm package</a>
@@ -50,7 +50,7 @@ export function Footer() {
             </div>
           </div>
         </div>
-        <div className="flex flex-col gap-2 pt-6 text-xs text-zinc-600 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-col gap-2 pt-6 text-xs text-zinc-400 sm:flex-row sm:items-center sm:justify-between">
           <p>© 2026 premiere-pro-mcp contributors. MIT licensed.</p>
           <p>Not affiliated with Adobe Inc. Adobe Premiere Pro is a trademark of Adobe Inc.</p>
         </div>
