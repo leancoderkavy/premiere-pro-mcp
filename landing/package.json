@@ -9,6 +9,7 @@
     "render:demo-video": "node scripts/render-demo-video.mjs",
     "start": "next start",
     "lint": "eslint",
+    "test:e2e": "playwright test",
     "prebuild": "node ../scripts/generate-marketing-reference.mjs --check"
   },
   "dependencies": {
@@ -25,6 +26,8 @@
     "three": "0.180.0"
   },
   "devDependencies": {
+    "@axe-core/playwright": "4.13.0",
+    "@playwright/test": "1.63.0",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/react": "^19",

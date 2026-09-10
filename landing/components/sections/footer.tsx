@@ -1,6 +1,7 @@
 import { Github, Package } from "lucide-react"
 import Image from "next/image"
 import Link from "next/link"
+import { HomeLink } from "@/components/ui/home-link"
 
 export function Footer() {
   return (
@@ -23,11 +24,11 @@ export function Footer() {
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.16em] text-zinc-600">Product</p>
             <div className="mt-4 flex flex-col gap-3 text-sm text-zinc-400">
-              <Link href="/#demo" className="hover:text-white">Demo</Link>
-              <Link href="/#features" className="hover:text-white">Features</Link>
-              <Link href="/#how-it-works" className="hover:text-white">How it works</Link>
-              <Link href="/#install" className="hover:text-white">Install</Link>
-              <Link href="/#faq" className="hover:text-white">FAQ</Link>
+              <HomeLink href="/#demo" className="hover:text-white">Demo</HomeLink>
+              <HomeLink href="/#features" className="hover:text-white">Features</HomeLink>
+              <HomeLink href="/#how-it-works" className="hover:text-white">How it works</HomeLink>
+              <HomeLink href="/#install" className="hover:text-white">Install</HomeLink>
+              <HomeLink href="/#faq" className="hover:text-white">FAQ</HomeLink>
               <Link href="/premiere-pro-collaboration-workflow/" className="hover:text-white">Workflow fit guide</Link>
               <Link href="/project-intake/" className="hover:text-white">Project Intake</Link>
               <Link href="/workflows/" className="hover:text-white">Workflow starter kit</Link>

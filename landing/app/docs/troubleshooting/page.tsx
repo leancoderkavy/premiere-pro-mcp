@@ -1,5 +1,6 @@
 import type { Metadata } from "next"
 import Link from "next/link"
+import { HomeLink } from "@/components/ui/home-link"
 import { product, safeFirstPrompt } from "@/lib/product"
 
 export const metadata: Metadata = {
@@ -74,9 +75,9 @@ export default function TroubleshootingPage() {
           aria-label="Breadcrumb"
           className="flex flex-wrap gap-3 text-sm text-zinc-300"
         >
-          <Link className="inline-flex min-h-11 items-center" href="/">
+          <HomeLink className="inline-flex min-h-11 items-center" href="/">
             MCP for Adobe Premiere Pro
-          </Link>
+          </HomeLink>
           <Link
             className="inline-flex min-h-11 items-center text-violet-200"
             href="/workflows/"

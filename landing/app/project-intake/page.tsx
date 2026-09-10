@@ -1,6 +1,7 @@
 import type { Metadata } from "next"
 import Image from "next/image"
 import Link from "next/link"
+import { HomeLink } from "@/components/ui/home-link"
 import { ArrowRight, CheckCircle2, ClipboardCheck, FileSearch, ShieldCheck } from "lucide-react"
 import { Footer } from "@/components/sections/footer"
 import { ProjectIntakePrompts } from "./project-intake-prompts"
@@ -124,20 +125,20 @@ export default function ProjectIntakePage() {
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }} />
       <header className="border-b border-zinc-800 bg-black/90 px-5 py-4 backdrop-blur">
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-4">
-          <Link href="/" className="inline-flex items-center gap-3 text-sm font-semibold text-white">
+          <HomeLink href="/" className="inline-flex items-center gap-3 text-sm font-semibold text-white">
             <Image src="/marketing/premiere-pro-mcp-mark-v1.png" alt="" width={32} height={32} className="h-8 w-8 object-contain" />
             <span>premiere-pro-mcp</span>
-          </Link>
-          <Link href="/#install" className="inline-flex min-h-11 items-center rounded-md border border-zinc-700 px-4 py-2 text-sm font-semibold text-zinc-100 transition-colors hover:border-zinc-500 hover:bg-zinc-900">
+          </HomeLink>
+          <HomeLink href="/#install" className="inline-flex min-h-11 items-center rounded-md border border-zinc-700 px-4 py-2 text-sm font-semibold text-zinc-100 transition-colors hover:border-zinc-500 hover:bg-zinc-900">
             Install first
-          </Link>
+          </HomeLink>
         </div>
       </header>
       <main id="main-content" className="min-h-screen bg-black text-zinc-100">
         <section className="border-b border-zinc-900 px-5 pb-16 pt-14 sm:pb-24 sm:pt-20">
           <div className="mx-auto max-w-4xl">
             <nav aria-label="Breadcrumb" className="text-sm text-zinc-500">
-              <Link href="/" className="hover:text-purple-200">MCP for Adobe Premiere Pro</Link> <span aria-hidden="true">/</span> Project Intake
+              <HomeLink href="/" className="hover:text-purple-200">MCP for Adobe Premiere Pro</HomeLink> <span aria-hidden="true">/</span> Project Intake
             </nav>
             <p className="mt-10 font-mono text-xs font-semibold uppercase tracking-[0.18em] text-purple-300">Project Intake · preview-only workflow</p>
             <h1 className="mt-5 max-w-4xl text-balance text-4xl font-bold tracking-[-0.045em] text-white sm:text-6xl">

@@ -7,8 +7,9 @@ export const metadata: Metadata = {
   title: { absolute: "Your vision. In the timeline. | Premiere Pro MCP" },
   description:
     "Connect your AI assistant to Adobe Premiere Pro for structured, reviewable editing workflows. Free, open source, and local first.",
-  alternates: { canonical: "https://premiere-pro-mcp.com/" },
-  robots: { index: false, follow: true }
+  // Both assignments hydrate this document. Preview exclusion belongs in the
+  // Node server's X-Robots-Tag header, so hydration cannot noindex a live root.
+  alternates: { canonical: "https://premiere-pro-mcp.com/" }
 }
 
 export default function DesignPreview() {

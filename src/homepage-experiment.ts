@@ -10,14 +10,15 @@ export const HOMEPAGE_FLAG = "homepage-cinematic-2026";
 const COOKIE = "premiere_homepage_v1";
 const MAX_AGE = 60 * 60 * 24 * 30;
 const PARAMETER_VALUES: Record<string, readonly string[]> = {
-  route: ["claude", "cursor", "vscode", "other", "cep_connector"],
-  assistant: ["claude", "cursor", "vscode", "other"],
+  route: ["claude", "codex", "cursor", "vscode", "other", "cep_connector"],
+  assistant: ["claude", "codex", "cursor", "vscode", "other"],
   location: ["hero", "navigation", "final_cta", "final-cta", "install", "demo"],
   destination: [
     "safe_connection_check",
     "workflow_starter_kit",
     "github",
     "claude",
+    "codex",
     "cursor",
     "vscode",
     "other",

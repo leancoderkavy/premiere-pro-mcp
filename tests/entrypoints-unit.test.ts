@@ -494,8 +494,10 @@ describe("HTTP entry point", () => {
     return mocks.requestHandler!;
   }
 
-  it("serves health and rejects missing bearer credentials", async () => {
+  it("can bind to loopback, serves health, and rejects missing bearer credentials", async () => {
+    process.env.MCP_HTTP_HOST = "127.0.0.1";
     const handler = await loadHttp();
+    expect(mocks.listen).toHaveBeenCalledWith(expect.any(Number), "127.0.0.1", expect.any(Function));
     const health = response();
     await handler({ method: "GET", url: "/health", headers: {} }, health);
     expect(health.statusCode).toBe(200);

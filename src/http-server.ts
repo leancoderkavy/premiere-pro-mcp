@@ -14,11 +14,12 @@
  *
  * Environment variables:
  *   PORT               HTTP port to listen on (default: 3000)
+ *   MCP_HTTP_HOST      Listen address (default: 0.0.0.0; use 127.0.0.1 for local tests)
  *   PREMIERE_TEMP_DIR  Shared temp directory for the file bridge
  *   PREMIERE_TIMEOUT_MS Command timeout in ms (default: 30000)
  *   MCP_AUTH_TOKEN     Bearer token required on every /mcp request. REQUIRED — the
  *                      server refuses to start without it, because this transport
- *                      binds 0.0.0.0 and can drive Premiere.
+ *                      binds 0.0.0.0 by default and can drive Premiere.
  *   MCP_OAUTH_*        Alternatively configure an OAuth issuer, JWKS URI,
  *                      audience, public URL, and required scopes for per-user auth.
  *   MCP_MAX_REQUEST_BYTES, MCP_*_TIMEOUT_MS, MCP_RATE_LIMIT_*,
@@ -208,8 +209,7 @@ function serveLanding(req: http.IncomingMessage, res: http.ServerResponse, scrip
   // executable without retaining script-src 'unsafe-inline'.
   if (contentType.startsWith("text/html")) {
     try {
-      let document = injectScriptNonce(fs.readFileSync(filePath, "utf8"), scriptNonce);
-      if (urlPath === "/" && homepageVariant === "test" && !preview) document = document.replace(/(<meta name="robots" content=")noindex, follow("\s*\/?>)/g, "$1index, follow$2");
+      const document = injectScriptNonce(fs.readFileSync(filePath, "utf8"), scriptNonce);
       const body = compress ? gzipSync(document, { level: 6 }) : document;
       if (compress) headers["Content-Encoding"] = "gzip";
       res.writeHead(200, headers);
@@ -251,6 +251,7 @@ function serveLanding(req: http.IncomingMessage, res: http.ServerResponse, scrip
 }
 
 const PORT = parseInt(process.env.PORT ?? "3000", 10);
+const HTTP_HOST = process.env.MCP_HTTP_HOST || "0.0.0.0";
 let httpAuth: ReturnType<typeof readHttpAuthConfiguration>;
 let admissionSettings: ReturnType<typeof readHttpAdmissionSettings>;
 try {
@@ -497,9 +498,9 @@ httpServer.requestTimeout = admissionSettings.requestTimeoutMs;
 httpServer.keepAliveTimeout = admissionSettings.keepAliveTimeoutMs;
 httpServer.maxRequestsPerSocket = admissionSettings.maxRequestsPerSocket;
 
-httpServer.listen(PORT, "0.0.0.0", () => {
-  console.error(`[premiere-pro-mcp] HTTP server listening on 0.0.0.0:${PORT}`);
-  console.error(`[premiere-pro-mcp] MCP endpoint: http://0.0.0.0:${PORT}/mcp`);
+httpServer.listen(PORT, HTTP_HOST, () => {
+  console.error(`[premiere-pro-mcp] HTTP server listening on ${HTTP_HOST}:${PORT}`);
+  console.error(`[premiere-pro-mcp] MCP endpoint: http://${HTTP_HOST}:${PORT}/mcp`);
   if (oauthResourceServer) {
     console.error(`[premiere-pro-mcp] Auth: OAuth bearer tokens required`);
   } else if (httpAuth.authToken) {

@@ -142,7 +142,7 @@ export function StudioHome() {
             <div className="studio-compatible">
               <span>WORKS WITH YOUR MCP CLIENT</span>
               <div>
-                <Command size={15} /> Claude <span>/</span> Cursor{" "}
+                <Command size={15} /> Claude <span>/</span> Codex <span>/</span> Cursor{" "}
                 <span>/</span> Copilot <span>/</span> & more
               </div>
             </div>
@@ -241,9 +241,9 @@ export function StudioHome() {
                 </h2>
               </div>
               <p>
-                Your assistant, the MCP bridge, and Premiere work together on
-                your machine. You choose the context and confirm supported
-                changes.
+                The MCP bridge runs alongside Premiere on your machine. Your
+                assistant sends structured requests; you choose the context
+                and confirm supported changes.
               </p>
             </div>
             <div

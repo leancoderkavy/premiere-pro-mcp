@@ -19,6 +19,7 @@ The rendered design follows the studio target across the hero, workflow chapters
 | Check | Result |
 | --- | --- |
 | Repository checks | `npm run check` passed, including the TypeScript build, reference inventories, marketing/public manifests, and all 3,235 tests across 171 files |
+| Repeatable end-to-end suite | 31 Playwright tests passed in 42.2s against the compiled Node server, static site, actual MCP discovery, and local PostHog HTTP fixture |
 | Landing checks | ESLint and production static-export build passed |
 | Responsive widths | 320, 360, 390, 430, 768, 1024, and 1440px; no horizontal overflow; one main and one H1 |
 | Workflow controls | Three Radix tab panels; keyboard activation verified |
@@ -31,11 +32,24 @@ The rendered design follows the studio target across the hero, workflow chapters
 | Console | No application errors in the final browser passes; normal WebGL disposal notices are informational |
 | Axe | Zero violations in desktop and mobile scans; visible-label/accessibility-name refinements also verified with Lighthouse |
 | SEO export | 24 canonical pages, valid JSON-LD, unique metadata, and 410 internal links/anchors passed |
-| Initial JavaScript | Control 211,675 bytes gzip; treatment 223,443 bytes gzip; both below the unchanged 240,000-byte budget |
+| Initial JavaScript | Control 211,675 bytes gzip; treatment 223,579 bytes gzip; both below the unchanged 240,000-byte budget |
 | Text delivery | Negotiated gzip for HTML/CSS/JS; nonce injected before HTML compression; images/video/fonts preserved |
-| Local mobile Lighthouse | Performance 91; accessibility 100; best practices 100; SEO 100; LCP 3.5s; TBT 40ms; CLS reported as 0 |
+| Initial design mobile Lighthouse | Performance 91; accessibility 100; best practices 100; SEO 100; LCP 3.5s; TBT 40ms; CLS reported as 0 |
 
-The Lighthouse JSON report completed successfully, but its CLI exited with a Windows EPERM error during temporary-profile cleanup. The reported scores are local simulated-mobile evidence, not production measurements. Raw report: `output/playwright/lighthouse-compressed-final.json`. No live Premiere host execution was part of this website test.
+The Lighthouse JSON report completed successfully, but its CLI exited with a Windows EPERM error during temporary-profile cleanup. These are local simulated-mobile scores from the initial design pass, before the subsequent end-to-end fixes. The final pass reran responsive/axe checks, SEO export, and unchanged byte budgets. Raw Lighthouse report: `output/playwright/lighthouse-compressed-final.json`. No live Premiere host execution was part of this website test.
+
+## Repository-focused end-to-end findings
+
+The follow-up test reproduced and fixed four issues:
+
+1. Next client navigation from other pages returned the exported control to visitors assigned treatment. `HomeLink` now requests the server-selected document. Both variants retain identity, layout, and conversion tracking after return visits from Docs, Workflows, Project Intake, Blog, Facts, Changelog, and Privacy.
+2. Pause/resume could reuse a previous canvas's ready state before its replacement finished initializing. Readiness now resets on disposal and waits for a rendered frame; forced context loss after resuming restores the HTML artwork without an uncaught error.
+3. Hydration could reinsert the preview's `noindex` metadata into an assigned homepage. Preview exclusion now resides in the HTTP response header, while both hydrated documents remain indexable at the root.
+4. The documented safe first prompt names `verify_premiere_connection`, but the server's MCP discovery hints previously marked it non-read-only. The verified read-only handler now receives matching metadata. The E2E client confirms that tool and every workflow starter-kit tool exist in the actual local server catalog.
+
+The treatment now includes the repository's Codex plugin route, links to its existing setup guide, and clearly distinguishes the local bridge from the assistant's separate processing/privacy settings. Published version, tool count, release download paths, and copied prompts are checked against the repository's own metadata and README.
+
+Run `npm run test:landing:e2e` from the repository root. The suite also covers touch navigation, keyboard tabs, clipboard success/failure, download intent, disabled/unavailable flags, DNT/GPC/crawlers, preview exclusion, no-JavaScript content, exposure-before-conversion ordering, gzip/CSP, and collector rejection paths. Final local logs: `output/playwright/e2e-final-pass.log` and `output/playwright/e2e-final-repository-check.log`.
 
 ## Experiment verification
 

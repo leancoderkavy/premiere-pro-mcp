@@ -1,5 +1,6 @@
 import type { Metadata } from "next"
 import Link from "next/link"
+import { HomeLink } from "@/components/ui/home-link"
 import { ArrowLeft, ArrowUpRight, Github, Package } from "lucide-react"
 import { product } from "@/lib/product"
 
@@ -871,12 +872,12 @@ export default function ChangelogPage() {
           className="mx-auto flex h-16 max-w-6xl items-center justify-between px-5"
           aria-label="Changelog navigation"
         >
-          <Link href="/" className="flex items-center gap-3 text-sm font-semibold text-white">
+          <HomeLink href="/" className="flex items-center gap-3 text-sm font-semibold text-white">
             <span className="grid h-8 w-8 place-items-center rounded-md border border-purple-400/30 bg-purple-500/15 font-mono text-sm text-purple-200">
               Pr
             </span>
             <span>premiere-pro-mcp</span>
-          </Link>
+          </HomeLink>
           <div className="flex items-center gap-5 text-sm">
             <Link href="/docs/" className="hidden text-zinc-400 hover:text-white sm:block">
               Docs
@@ -896,13 +897,13 @@ export default function ChangelogPage() {
 
       <section className="border-b border-zinc-900 px-5 py-16 md:py-24">
         <div className="mx-auto max-w-6xl">
-          <Link
+          <HomeLink
             href="/"
             className="inline-flex items-center gap-2 text-sm text-zinc-500 transition-colors hover:text-zinc-200"
           >
             <ArrowLeft className="h-4 w-4" />
             Home
-          </Link>
+          </HomeLink>
           <div className="mt-10 grid gap-10 lg:grid-cols-[minmax(0,1fr)_19rem] lg:items-end">
             <div>
               <p className="font-mono text-xs uppercase tracking-[0.2em] text-purple-300">

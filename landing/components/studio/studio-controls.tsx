@@ -255,6 +255,16 @@ const clients = [
     href: product.downloads.claudeBundle
   },
   {
+    id: "codex",
+    name: "Codex",
+    tag: "REPOSITORY PLUGIN",
+    title: "Bring your agent to the timeline.",
+    detail:
+      "Install this repository’s Codex plugin from a local clone. It includes the MCP configuration and editing skill; the Premiere connector is installed separately.",
+    action: "Open Codex setup guide",
+    href: "/blog/codex-premiere-pro-mcp-setup/"
+  },
+  {
     id: "cursor",
     name: "Cursor",
     tag: "GUIDED SETUP",

@@ -1,5 +1,6 @@
 import type { Metadata } from "next"
 import Link from "next/link"
+import { HomeLink } from "@/components/ui/home-link"
 import { TrackedLink } from "@/components/ui/tracked-link"
 import { articles } from "@/lib/articles"
 
@@ -58,7 +59,7 @@ export default function BlogPage() {
       <main id="main-content" className="min-h-screen bg-black px-5 py-16 text-zinc-100 sm:py-24">
         <div className="mx-auto max-w-6xl">
           <nav aria-label="Breadcrumb" className="text-sm text-zinc-500">
-            <Link href="/" className="hover:text-purple-200">MCP for Adobe Premiere Pro</Link>{" "}
+            <HomeLink href="/" className="hover:text-purple-200">MCP for Adobe Premiere Pro</HomeLink>{" "}
             <span aria-hidden="true">/</span> Guides
           </nav>
           <header className="max-w-3xl border-b border-zinc-800 pb-12 pt-10 sm:pb-16">

@@ -47,10 +47,18 @@ The existing `POSTHOG_API_KEY` and `POSTHOG_HOST` select the PostHog destination
 
 - `/?design=test` renders the new complete page without experiment enrollment.
 - `/?design=control` renders the original page without experiment enrollment.
-- `/design-preview/` is the exported treatment document, with noindex metadata.
+- `/design-preview/` is the exported treatment document, served with a `noindex` response header.
 - `/` uses normal PostHog assignment when configured; otherwise it serves control.
 
-Root assignment is private and non-cacheable. The exported treatment's preview-only noindex is removed when serving an actual assigned root response. Both variants share the same canonical URL and Organization/WebSite/SoftwareApplication/FAQ structured data.
+Root assignment is private and non-cacheable. Preview exclusion uses the Node server's `X-Robots-Tag` header; both exported documents contain indexable metadata so hydration cannot accidentally noindex the assigned root. Both variants share the same canonical URL and Organization/WebSite/SoftwareApplication/FAQ structured data. Return links use `HomeLink` to load the server-selected document; Next's static root Flight payload always contains the control.
+
+## Repeatable local end-to-end test
+
+After installing root and landing dependencies, run `npm exec --prefix landing -- playwright install chromium` once, then `npm run test:landing:e2e` from the repository root. The command builds the actual Node server and static site, then runs 31 Playwright tests. `npm --prefix landing run test:e2e` reuses those compiled outputs for a faster rerun.
+
+The test harness owns loopback ports 3160 and 3161 by default, with optional `LANDING_E2E_PORT` and `LANDING_E2E_POSTHOG_PORT` overrides. It sets `MCP_HTTP_HOST=127.0.0.1`, refuses to reuse an already running server, uses a temporary bridge directory and an in-memory context store, and sends analytics only to its local HTTP fixture. Download responses contain a harmless fixture payload. MCP discovery uses the actual authenticated local server and does not invoke Premiere tools.
+
+The landing CI job runs the same suite after the build. Failed runs retain the Playwright HTML report, screenshots, and traces for seven days.
 
 ## Rollback
 

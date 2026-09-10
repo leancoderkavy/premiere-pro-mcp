@@ -1,5 +1,6 @@
 import type { Metadata } from "next"
 import Link from "next/link"
+import { HomeLink } from "@/components/ui/home-link"
 import { product, safeFirstPrompt, sourceCatalog } from "@/lib/product"
 
 const pageUrl = "https://premiere-pro-mcp.com/facts/"
@@ -166,7 +167,7 @@ export default function FactsPage() {
       <main id="main-content" className="min-h-screen bg-black px-5 py-16 text-zinc-100 sm:py-24">
         <article className="mx-auto max-w-4xl">
           <nav aria-label="Breadcrumb" className="text-sm text-zinc-500">
-            <Link href="/" className="hover:text-purple-200">MCP for Adobe Premiere Pro</Link>{" "}
+            <HomeLink href="/" className="hover:text-purple-200">MCP for Adobe Premiere Pro</HomeLink>{" "}
             <span aria-hidden="true">/</span> Canonical facts
           </nav>
 

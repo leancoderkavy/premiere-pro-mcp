@@ -1,5 +1,5 @@
 import type { Metadata } from "next"
-import Link from "next/link"
+import { HomeLink } from "@/components/ui/home-link"
 
 export const metadata: Metadata = {
   title: "Privacy Policy",
@@ -11,7 +11,7 @@ export default function PrivacyPage() {
   return (
     <main id="main-content" className="min-h-screen bg-black px-5 py-16 text-zinc-300">
       <article className="mx-auto max-w-3xl">
-        <Link href="/" className="text-sm text-purple-300 hover:text-purple-200">← Back to MCP for Adobe Premiere Pro</Link>
+        <HomeLink href="/" className="text-sm text-purple-300 hover:text-purple-200">← Back to MCP for Adobe Premiere Pro</HomeLink>
         <h1 className="mt-8 text-4xl font-semibold tracking-tight text-white">Privacy Policy</h1>
         <p className="mt-3 text-sm text-zinc-500">Last updated: September 9, 2026</p>
 

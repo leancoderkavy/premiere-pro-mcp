@@ -1,5 +1,6 @@
 import type { Metadata } from "next"
 import Link from "next/link"
+import { HomeLink } from "@/components/ui/home-link"
 import { product, safeFirstPrompt } from "@/lib/product"
 import { SetupGuides } from "@/components/sections/setup-guides"
 import { connectorSetup, localMcpConfig } from "@/lib/client-setup"
@@ -71,7 +72,7 @@ export default function DocsPage() {
       <main id="main-content" className="min-h-screen bg-black px-5 py-16 text-zinc-100">
       <article className="mx-auto max-w-4xl">
         <nav aria-label="Breadcrumb" className="text-sm text-zinc-500">
-          <Link href="/" className="hover:text-purple-300">MCP for Adobe Premiere Pro</Link> <span aria-hidden="true">/</span> Documentation
+          <HomeLink href="/" className="hover:text-purple-300">MCP for Adobe Premiere Pro</HomeLink> <span aria-hidden="true">/</span> Documentation
         </nav>
 
         <header className="border-b border-zinc-800 pb-12 pt-12">
