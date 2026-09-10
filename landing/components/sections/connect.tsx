@@ -142,7 +142,7 @@ export function ConnectSection() {
         </div>
 
         <SetupGuides />
-        <div className="mt-12 grid gap-3 sm:grid-cols-2 lg:grid-cols-4" role="list" aria-label="AI assistant setup routes">
+        <div className="mt-12 grid gap-3 sm:grid-cols-2 lg:grid-cols-4" role="group" aria-label="AI assistant setup routes">
           {assistantRoutes.map((route) => {
             const selected = activeId === route.id
             return (
@@ -157,7 +157,7 @@ export function ConnectSection() {
               >
                 <span className="flex items-center justify-between gap-3">
                   {route.status === "recommended" ? <Sparkles className="h-5 w-5 text-purple-300" aria-hidden="true" /> : <Laptop className="h-5 w-5 text-zinc-400" aria-hidden="true" />}
-                  <span className="text-xs font-semibold uppercase tracking-[0.14em] text-zinc-500">{route.availability}</span>
+                  <span className="text-xs font-semibold uppercase tracking-[0.14em] text-zinc-400">{route.availability}</span>
                 </span>
                 <span className="mt-7 text-lg font-semibold text-white">{route.name}</span>
                 <span className="mt-3 text-sm leading-6 text-zinc-400">{route.shortDescription}</span>
@@ -243,7 +243,7 @@ export function ConnectSection() {
             <div className="rounded-xl border border-zinc-800 bg-[#08080a] p-5">
               <p className="flex items-center gap-2 text-sm font-semibold text-zinc-100"><LockKeyhole className="h-4 w-4 text-purple-300" aria-hidden="true" /> What the first check shares</p>
               <p className="mt-3 text-sm leading-6 text-zinc-400">The prompt runs a connection check; it makes no edits and does not ask for footage to be uploaded.</p>
-              <p className="mt-3 text-sm leading-6 text-zinc-500">Your assistant&apos;s own privacy settings still apply. If site analytics is enabled, setup clicks record only a route and action—not prompts, media, project names, or file paths.</p>
+              <p className="mt-3 text-sm leading-6 text-zinc-400">Your assistant&apos;s own privacy settings still apply. If site analytics is enabled, setup clicks record only a route and action—not prompts, media, project names, or file paths.</p>
             </div>
 
             <details
@@ -283,7 +283,7 @@ export function ConnectSection() {
         >
           <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-5 text-sm font-semibold text-zinc-300 marker:content-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-300">
             <span>Advanced setup for npm, manual configuration, and other MCP clients</span>
-            <ChevronDown className="h-4 w-4 text-zinc-500 transition-transform group-open:rotate-180" aria-hidden="true" />
+            <ChevronDown className="h-4 w-4 text-zinc-400 transition-transform group-open:rotate-180" aria-hidden="true" />
           </summary>
           <div className="mt-5 grid gap-6 rounded-xl border border-zinc-800 bg-[#08080a] p-5 lg:grid-cols-2 lg:p-7">
             <div>

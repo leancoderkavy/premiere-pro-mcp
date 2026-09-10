@@ -101,8 +101,9 @@ test("treatment: all homepage anchors and local footer destinations resolve", as
   expect(missing).toEqual([])
 })
 
-test("treatment: responsive layout, semantic structure, and accessible controls", async ({ page, request }) => {
-  await setVariant(request, "test")
+for (const variant of ["control", "test"]) {
+test(`${variant}: responsive layout, semantic structure, and accessible controls`, async ({ page, request }) => {
+  await setVariant(request, variant)
   await page.goto("/")
   for (const width of [320, 360, 390, 430, 768, 1024, 1440]) {
     await page.setViewportSize({ width, height: width < 768 ? 844 : 1000 })
@@ -113,10 +114,11 @@ test("treatment: responsive layout, semantic structure, and accessible controls"
     if (width === 390 || width === 1440) {
       const audit = await new AxeBuilder({ page }).analyze()
       expect(audit.violations).toEqual([])
-      await page.screenshot({ path: test.info().outputPath(`homepage-${width}.png`), fullPage: true })
+      await page.screenshot({ path: test.info().outputPath(`homepage-${variant}-${width}.png`), fullPage: true })
     }
   }
 })
+}
 
 test("treatment: workflow chapters, Codex guide, manual setup, FAQs, and clipboard recovery", async ({ page, request }) => {
   await setVariant(request, "test")

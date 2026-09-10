@@ -202,7 +202,7 @@ export function WalkthroughPlayer() {
           muted
           playsInline
           preload="metadata"
-          poster="/premiere-pro-mcp-demo-poster.png"
+          poster="/premiere-pro-mcp-demo-poster-1280.webp"
           aria-label="Illustrated workflow animation; not a live Premiere recording"
         >
           <source src="/premiere-pro-mcp-demo.mp4" type="video/mp4" />

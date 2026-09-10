@@ -28,7 +28,7 @@ export function FinalCtaSection() {
             <ArrowRight className="h-4 w-4" />
           </TrackedLink>
         </div>
-        <div className="flex flex-col gap-3 pt-6 text-sm text-zinc-500 sm:flex-row sm:items-center sm:gap-8">
+        <div className="flex flex-col gap-3 pt-6 text-sm text-zinc-400 sm:flex-row sm:items-center sm:gap-8">
           <span className="inline-flex items-center gap-2">
             <ShieldCheck className="h-4 w-4 text-violet-200" />
             Your media stays local
