@@ -114,7 +114,7 @@ export function HeroSection() {
             <WorkflowProof />
           </div>
 
-          <div className="hero-enter hero-enter-5 mt-6 flex snap-x overflow-x-auto rounded-xl border border-zinc-800 bg-zinc-950/75 sm:mt-8 sm:grid sm:grid-cols-2 sm:overflow-hidden lg:grid-cols-4">
+          <div role="region" aria-label="Product facts" tabIndex={0} className="hero-enter hero-enter-5 mt-6 flex snap-x overflow-x-auto rounded-xl border border-zinc-800 bg-zinc-950/75 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-purple-300 sm:mt-8 sm:grid sm:grid-cols-2 sm:overflow-hidden lg:grid-cols-4">
             {proofItems.map((item) => (
               <div key={item.title} className="flex min-w-[13rem] snap-start items-center gap-3 border-r border-zinc-800 px-5 py-4 last:border-r-0 sm:min-w-0 sm:border-b sm:even:border-l lg:border-b-0 lg:border-l first:lg:border-l-0">
                 <item.icon className="h-5 w-5 shrink-0 text-purple-400" strokeWidth={1.7} />
