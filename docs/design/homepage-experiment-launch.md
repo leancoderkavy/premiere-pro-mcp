@@ -1,8 +1,8 @@
 # Homepage design experiment
 
-Status: implemented and verified locally; **not created or launched in the production PostHog project**. The connected PostHog account exposes only Tradewink's Default project, Reglora, and Kinora. The Premiere project must be resolved before any provider mutation. No experiment has been created in those unrelated projects.
+Status: implemented and verified locally; **draft created, inactive, and not launched** in owner organization `leancoderkavy`, project `528794`. [Open the experiment](https://us.posthog.com/project/528794/experiments/462966).
 
-A direct connector lookup of Premiere's previously recorded project returned 404 under the connected Tradewink organization. Browser verification also stopped because Computer Use could not verify whether the current browser URL was allowed. The design and collector remain available for local review while project access is unresolved.
+The connector's organization inventory resolved the earlier access problem. Experiment `462966` and its automatically linked flag `876869` were read back after creation: status `draft`, flag `active: false`, no start date, and equal control/test variants. Production deployment, runtime token destination, conversion metrics, and homepage-event ingestion still require verification before launch.
 
 ## Definition
 
@@ -13,7 +13,7 @@ A direct connector lookup of Premiere's previously recorded project returned 404
 | Control | `control`: existing homepage |
 | Treatment | `test`: complete cinematic studio homepage |
 | Intended split | Equal control/test split across eligible homepage visitors |
-| Exposure | `$feature_flag_called`, sent only after visible rendering |
+| Exposure | `$experiment_exposure`, matching the draft's verified `resolved_exposure_event`; sent only after visible rendering |
 | Primary metric | Exposed visitors who click a real setup download, measured by `homepage_setup_downloaded` |
 | Secondary metric | Exposed visitors who successfully copy the read-only first prompt, measured by `homepage_safe_prompt_copied` |
 | Metric interpretation | Setup intent; neither metric verifies installation or a working Premiere host |
@@ -21,7 +21,7 @@ A direct connector lookup of Premiere's previously recorded project returned 404
 
 Hypothesis: the clearer visual workflow and client-specific installer increase setup intent without compromising accessibility, privacy, or loading performance. Use visitor-level conversion, not total event counts: a visitor can click more than one download or copy the prompt repeatedly. Select and document the conversion window before launch, using the project's actual traffic baseline.
 
-The two outcome names are newly implemented events, verified against a local PostHog HTTP fixture. They have **not** been verified in the production project's schema. Read that schema before configuring provider metrics. Do not silently allow unknown events, fabricate production ingestion, or create a duplicate experiment.
+The two outcome names are newly implemented events, verified against a local PostHog HTTP fixture. They were **absent** from the production project's schema during the September 10 UTC check, so the draft has no configured metrics yet. Recheck the schema after controlled production ingestion, reuse any equivalent saved metrics, and configure visitor-level conversion metrics before launch. Do not silently allow unknown events, fabricate production ingestion, or create a duplicate experiment.
 
 ## Runtime configuration
 
@@ -32,12 +32,13 @@ The existing `POSTHOG_API_KEY` and `POSTHOG_HOST` select the PostHog destination
 - A false, missing, unknown, or unavailable flag serves the existing control without recording exposure. Flag evaluation is limited to 450 ms, with a bounded 60-second decision cache. A disabled runtime gate takes effect when processes restart; flag changes propagate after cached decisions expire.
 - The signed `premiere_homepage_v1` cookie is HTTP-only, Secure, SameSite=Lax, and valid for 30 days. It contains only a random visitor ID, assignment, timestamp, and exposure acknowledgement.
 - Events use a separate visitor identity, not the MCP server's operational identity. The collector accepts a small explicit event/value allowlist, validates origin and signed assignment, limits payloads to 1 KB, and applies a per-visitor rate limit.
+- Each capture explicitly requests an asynchronous SDK flush, including pending event preparation. The collector acknowledgement does not wait for PostHog ingestion; visitors are not blocked by the analytics provider.
 - DNT, GPC, known crawlers, and headless automation do not enroll. Both assignment and events fail closed when analytics is disabled. Preview routes are excluded from Google Analytics and the experiment.
 
 ## Review and launch sequence
 
-1. Reconnect PostHog to the organization/project used by Premiere Pro MCP and verify the runtime token's destination. Search for the exact flag key and any existing experiment first.
-2. Create the draft experiment with `control` and `test`. Let PostHog create its linked flag. Verify the intended equal split and existing-event requirements before adding conversion metrics.
+1. Select owner organization `leancoderkavy`, project `528794`, and verify the runtime token's destination independently. This project also contains other MCP products' events; preserve the `product = premiere-pro-mcp` boundary.
+2. Reuse draft experiment `462966` and flag `876869`. Read back the equal split, inactive flag, and resolved exposure event before adding conversion metrics. Do not create another experiment for the same key.
 3. Deploy the reviewed code with the runtime gate off. Verify both complete documents, existing root behavior, security headers, canonical/JSON-LD, downloads, keyboard/mobile behavior, and byte budgets on the deployed host.
 4. Configure the shared signing secret and runtime gate. Keep the flag inactive until the provider setup and controlled ingestion checks are ready. Configure the conversion metrics and test-account exclusions against the verified project schema.
 5. Launch through PostHog, then verify assignment and exposure-to-conversion ordering on production. Record the exact deployment SHA, PostHog experiment URL, and provider ingestion evidence. Local fixture evidence does not replace this step.
@@ -54,7 +55,9 @@ Root assignment is private and non-cacheable. Preview exclusion uses the Node se
 
 ## Repeatable local end-to-end test
 
-After installing root and landing dependencies, run `npm exec --prefix landing -- playwright install chromium` once, then `npm run test:landing:e2e` from the repository root. The command builds the actual Node server and static site, then runs 31 Playwright tests. `npm --prefix landing run test:e2e` reuses those compiled outputs for a faster rerun.
+After installing root and landing dependencies, run `npm exec --prefix landing -- playwright install chromium` once, then `npm run test:landing:e2e` from the repository root. The command builds the actual Node server and static site, then runs 32 Playwright tests. `npm --prefix landing run test:e2e` reuses those compiled outputs for a faster rerun.
+
+On Windows installations that require the system certificate store for Adobe reference fetches, set `$env:NODE_OPTIONS='--use-system-ca'` before running repository checks.
 
 The test harness owns loopback ports 3160 and 3161 by default, with optional `LANDING_E2E_PORT` and `LANDING_E2E_POSTHOG_PORT` overrides. It sets `MCP_HTTP_HOST=127.0.0.1`, refuses to reuse an already running server, uses a temporary bridge directory and an in-memory context store, and sends analytics only to its local HTTP fixture. Download responses contain a harmless fixture payload. MCP discovery uses the actual authenticated local server and does not invoke Premiere tools.
 

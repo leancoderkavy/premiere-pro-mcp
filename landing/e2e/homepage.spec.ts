@@ -32,8 +32,8 @@ for (const variant of ["control", "test"]) {
     const response = await page.goto("/")
     expect(response?.status()).toBe(200)
     expect(response?.headers()["cache-control"]).toContain("no-store")
-    await expect(page.locator("h1")).toHaveText(variant === "test" ? /Your vision.*timeline/s : /MCP for Adobe Premiere Pro:/)
-    await expect.poll(async () => (await state(request)).events.filter(event => event.event === "$feature_flag_called").length).toBe(1)
+    await expect(page.locator("h1")).toHaveText(variant === "test" ? /Your vision[\s\S]*timeline/ : /MCP for Adobe Premiere Pro:/)
+    await expect.poll(async () => (await state(request)).events.filter(event => event.event === "$experiment_exposure").length).toBe(1)
     expect(published.version).toBe(manifest.product.version)
     expect(published.coreTools).toBe(manifest.capabilitySurface.registeredCoreTools)
     await expect(page.locator("body")).toContainText(String(published.coreTools))
@@ -45,7 +45,7 @@ for (const variant of ["control", "test"]) {
     expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(safeFirstPrompt)
     await expect.poll(async () => (await state(request)).events.some(event => event.event === "homepage_safe_prompt_copied")).toBe(true)
     const events = (await state(request)).events
-    const exposure = events.find(event => event.event === "$feature_flag_called")!
+    const exposure = events.find(event => event.event === "$experiment_exposure")!
     const conversion = events.find(event => event.event === "homepage_safe_prompt_copied")!
     expect(exposure.distinct_id).toBe(conversion.distinct_id)
     expect(exposure.properties.$feature_flag).toBe(flag)
@@ -67,14 +67,19 @@ for (const variant of ["control", "test"]) {
   for (const destination of ["/docs/", "/workflows/", "/project-intake/", "/blog/", "/facts/", "/changelog/", "/privacy/"]) {
     test(`${variant}: returns from ${destination} to the same assigned homepage`, async ({ page, request }) => {
       await setVariant(request, variant)
+      const exposed = page.waitForResponse(response =>
+        response.url().endsWith("/api/landing-events") &&
+        response.request().postDataJSON()?.event === "homepage_experiment_exposed"
+      )
       await page.goto("/")
-      await expect.poll(async () => (await state(request)).events.some(event => event.event === "$feature_flag_called")).toBe(true)
+      expect((await exposed).status()).toBe(204)
+      await expect.poll(async () => (await state(request)).events.some(event => event.event === "$experiment_exposure")).toBe(true)
       const identity = (await page.context().cookies()).find(cookie => cookie.name === "premiere_homepage_v1")!.value.split(".")[0]
       await page.locator(`a[href="${destination}"]`).first().click()
       await expect(page).toHaveURL(new RegExp(`${destination}$`))
       await page.locator('a[href="/"]').first().click()
       await expect(page).toHaveURL(/\/$/)
-      await expect(page.locator("h1")).toHaveText(variant === "test" ? /Your vision.*timeline/s : /MCP for Adobe Premiere Pro:/)
+      await expect(page.locator("h1")).toHaveText(variant === "test" ? /Your vision[\s\S]*timeline/ : /MCP for Adobe Premiere Pro:/)
       expect((await page.context().cookies()).find(cookie => cookie.name === "premiere_homepage_v1")!.value.split(".")[0]).toBe(identity)
       await copyButton(page).click()
       await expect.poll(async () => (await state(request)).events.some(event => event.event === "homepage_safe_prompt_copied" && event.properties.variant === variant)).toBe(true)
@@ -134,7 +139,7 @@ test("treatment: workflow chapters, Codex guide, manual setup, FAQs, and clipboa
   await page.getByRole("link", { name: "Open Codex setup guide" }).click()
   await expect(page.locator("main")).toContainText("codex plugin add premiere-pro@premiere-pro-mcp")
   await page.locator('a[href="/"]').first().click()
-  await expect(page.locator("h1")).toHaveText(/Your vision.*timeline/s)
+  await expect(page.locator("h1")).toHaveText(/Your vision[\s\S]*timeline/)
   await expect.poll(async () => (await state(request)).events.some(event => event.event === "primary_cta_clicked" && event.properties.destination === "codex")).toBe(true)
   expect((await state(request)).events.filter(event => event.event === "homepage_setup_downloaded")).toHaveLength(0)
   await page.getByRole("button", { name: "Advanced setup & compatibility" }).click()
@@ -201,7 +206,7 @@ for (const [label, headers] of [["DNT", { DNT: "1" }], ["GPC", { "Sec-GPC": "1" 
     await copyButton(page).click()
     expect((await context.cookies()).some(cookie => cookie.name === "premiere_homepage_v1")).toBe(false)
     expect((await state(request)).evaluations).toHaveLength(0)
-    expect((await state(request)).events.filter(event => event.event.startsWith("homepage_") || event.event === "$feature_flag_called")).toHaveLength(0)
+    expect((await state(request)).events.filter(event => event.event.startsWith("homepage_") || event.event === "$experiment_exposure")).toHaveLength(0)
   })
   })
 }
@@ -213,14 +218,14 @@ for (const variant of [false, "unavailable"]) {
     await expect(page.locator("h1")).toHaveText(/MCP for Adobe Premiere Pro:/)
     await copyButton(page).click()
     expect((await context.cookies()).some(cookie => cookie.name === "premiere_homepage_v1")).toBe(false)
-    expect((await state(request)).events.filter(event => event.event.startsWith("homepage_") || event.event === "$feature_flag_called")).toHaveLength(0)
+    expect((await state(request)).events.filter(event => event.event.startsWith("homepage_") || event.event === "$experiment_exposure")).toHaveLength(0)
   })
 }
 
 test("preview URLs never enroll or replace an existing assignment", async ({ page, context, request }) => {
   await setVariant(request, "control")
   await page.goto("/")
-  await expect.poll(async () => (await state(request)).events.filter(event => event.event === "$feature_flag_called").length).toBe(1)
+  await expect.poll(async () => (await state(request)).events.filter(event => event.event === "$experiment_exposure").length).toBe(1)
   const cookie = (await context.cookies()).find(cookie => cookie.name === "premiere_homepage_v1")!.value
   for (const path of ["/?design=test", "/design-preview/", "/?design=control"]) {
     const response = await page.goto(path)
@@ -228,7 +233,7 @@ test("preview URLs never enroll or replace an existing assignment", async ({ pag
     await copyButton(page).click()
     expect((await context.cookies()).find(cookie => cookie.name === "premiere_homepage_v1")!.value).toBe(cookie)
   }
-  expect((await state(request)).events.filter(event => event.event === "$feature_flag_called")).toHaveLength(1)
+  expect((await state(request)).events.filter(event => event.event === "$experiment_exposure")).toHaveLength(1)
   expect((await state(request)).events.filter(event => event.event === "homepage_safe_prompt_copied")).toHaveLength(0)
 })
 
@@ -237,12 +242,12 @@ test("no JavaScript: treatment content, setup downloads, and document links rema
   const context = await browser.newContext({ javaScriptEnabled: false, baseURL, userAgent: "Mozilla/5.0 Chrome/145.0.0.0 Safari/537.36" })
   const page = await context.newPage()
   await page.goto("/")
-  await expect(page.locator("h1")).toHaveText(/Your vision.*timeline/s)
+  await expect(page.locator("h1")).toHaveText(/Your vision[\s\S]*timeline/)
   await expect(page.locator(`a[href="${product.downloads.claudeBundle}"]`)).toBeVisible()
   await page.locator('a[href="/docs/"]').first().click()
   await page.locator('a[href="/"]').first().click()
-  await expect(page.locator("h1")).toHaveText(/Your vision.*timeline/s)
-  expect((await state(request)).events.filter(event => event.event === "$feature_flag_called")).toHaveLength(0)
+  await expect(page.locator("h1")).toHaveText(/Your vision[\s\S]*timeline/)
+  expect((await state(request)).events.filter(event => event.event === "$experiment_exposure")).toHaveLength(0)
   await context.close()
 })
 
@@ -269,7 +274,7 @@ test("a fast copy waits for exposure acknowledgement before recording a conversi
     releaseExposure()
     await expect.poll(async () => (await state(request)).events.some(event => event.event === "homepage_safe_prompt_copied")).toBe(true)
     const events = (await state(request)).events
-    expect(events.findIndex(event => event.event === "$feature_flag_called")).toBeLessThan(events.findIndex(event => event.event === "homepage_safe_prompt_copied"))
+    expect(events.findIndex(event => event.event === "$experiment_exposure")).toBeLessThan(events.findIndex(event => event.event === "homepage_safe_prompt_copied"))
   } finally {
     releaseExposure()
   }
@@ -282,7 +287,7 @@ test("the production collector rejects wrong variants, foreign origins, oversize
   expect(response?.headers()["content-encoding"]).toBe("gzip")
   await expect(page.locator('link[rel="canonical"]')).toHaveAttribute("href", "https://premiere-pro-mcp.com/")
   await expect(page.locator('meta[name="robots"]')).toHaveAttribute("content", "index, follow")
-  await expect.poll(async () => (await state(request)).events.some(event => event.event === "$feature_flag_called")).toBe(true)
+  await expect.poll(async () => (await state(request)).events.some(event => event.event === "$experiment_exposure")).toBe(true)
   await expect.poll(async () => (await page.context().cookies()).find(cookie => cookie.name === "premiere_homepage_v1")?.value.split(".")[3]).toBe("1")
   const signedCookie = (await page.context().cookies()).find(cookie => cookie.name === "premiere_homepage_v1")!
   // Chromium permits Secure localhost cookies. Playwright's separate HTTP
@@ -294,4 +299,42 @@ test("the production collector rejects wrong variants, foreign origins, oversize
   expect((await post({ event: "private_project_uploaded", variant: "test" })).status()).toBe(400)
   expect((await post({ event: "onboarding_safe_prompt_copied", variant: "test" }, { Cookie: "premiere_homepage_v1=forged" })).status()).toBe(204)
   expect((await state(request)).events.filter(event => event.event === "homepage_safe_prompt_copied")).toHaveLength(0)
+})
+
+test("concurrent visitors receive exposure and conversion delivery without another event to flush the queue", async ({ playwright, request, baseURL }) => {
+  await setVariant(request, "test")
+  const clients = await Promise.all(Array.from({ length: 12 }, () => playwright.request.newContext({
+    baseURL,
+    userAgent: "Mozilla/5.0 Chrome/145.0.0.0 Safari/537.36",
+  })))
+  try {
+    const identities = await Promise.all(clients.map(async client => {
+      const document = await client.get("/")
+      const cookie = document.headers()["set-cookie"].split(";")[0]
+      const exposed = await client.post("/api/landing-events", {
+        headers: { Origin: baseURL!, Cookie: cookie },
+        data: { event: "homepage_experiment_exposed", variant: "test" },
+      })
+      expect(exposed.status()).toBe(204)
+      const converted = await client.post("/api/landing-events", {
+        headers: { Origin: baseURL!, Cookie: exposed.headers()["set-cookie"].split(";")[0] },
+        data: { event: "onboarding_safe_prompt_copied", variant: "test" },
+      })
+      expect(converted.status()).toBe(204)
+      return cookie.split("=")[1].split(".")[0]
+    }))
+    await expect.poll(async () => {
+      const events = (await state(request)).events
+      return identities.filter(id => events.some(event => event.distinct_id === id && event.event === "homepage_safe_prompt_copied")).length
+    }).toBe(12)
+    const events = (await state(request)).events
+    for (const id of identities) {
+      const exposure = events.findIndex(event => event.distinct_id === id && event.event === "$experiment_exposure")
+      const conversion = events.findIndex(event => event.distinct_id === id && event.event === "homepage_safe_prompt_copied")
+      expect(exposure).toBeGreaterThanOrEqual(0)
+      expect(exposure).toBeLessThan(conversion)
+    }
+  } finally {
+    await Promise.all(clients.map(client => client.dispose()))
+  }
 })

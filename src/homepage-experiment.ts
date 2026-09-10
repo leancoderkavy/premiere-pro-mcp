@@ -262,8 +262,10 @@ export class HomepageExperiment {
         $geoip_disable: true,
       };
       if (input.event === "homepage_experiment_exposed") {
+        // Matches the draft's resolved_exposure_event in PostHog. Emit only
+        // after the browser confirms visible rendering, never during assignment.
         if (!assignment.exposed)
-          this.client!.capture(assignment.id, "$feature_flag_called", {
+          this.client!.capture(assignment.id, "$experiment_exposure", {
             ...props,
             $feature_flag: HOMEPAGE_FLAG,
             $feature_flag_response: assignment.variant,
@@ -363,8 +365,13 @@ export function createHomepageExperiment(
             disableGeoip: true,
           })
         )[HOMEPAGE_FLAG],
-      capture: (distinctId, event, properties) =>
-        client.capture({ distinctId, event, properties, disableGeoip: true }),
+      capture: (distinctId, event, properties) => {
+        client.capture({ distinctId, event, properties, disableGeoip: true });
+        // capture() prepares events asynchronously. Explicit flush includes that
+        // pending preparation, including sparse events arriving during a flush.
+        // Delivery stays asynchronous so analytics cannot block the visitor.
+        void client.flush().catch(() => {});
+      },
       shutdown: () => client.shutdown(),
     };
   }

@@ -162,7 +162,7 @@ describe("homepage experiment assignment and exposure", () => {
     ).toBe(204);
     const calls = f.capture.mock.calls;
     expect(calls.map((call) => call[1])).toEqual([
-      "$feature_flag_called",
+      "$experiment_exposure",
       "onboarding_download_started",
       "homepage_setup_downloaded",
     ]);
