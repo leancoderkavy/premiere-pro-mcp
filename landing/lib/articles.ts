@@ -1,4 +1,5 @@
 import { product, sourceCatalog } from "./product"
+import { connectorSetup, localMcpConfig, localMcpEntry } from "./client-setup"
 
 export type ArticleSection = {
   heading: string
@@ -33,13 +34,79 @@ export type Article = {
 
 export const articles: Article[] = [
   {
+    slug: "cursor-premiere-pro-mcp-setup",
+    title: "How to Set Up Cursor with Premiere Pro MCP",
+    seoTitle: "Cursor Premiere Pro MCP Setup",
+    description: "Connect Cursor to local Premiere Pro with a versioned MCP configuration, install the CEP connector, and verify the bridge before editing a project.",
+    eyebrow: "Cursor Premiere Pro setup",
+    publishedAt: "2026-09-10",
+    modifiedAt: "2026-09-10",
+    readingTime: "5 min read",
+    keywords: ["Cursor Premiere Pro MCP", "Cursor Premiere Pro", "Premiere Pro MCP tools", "Cursor mcp.json"],
+    sections: [
+      {
+        heading: "Use Cursor on the computer running Premiere",
+        paragraphs: [
+          "Cursor can call this project's local MCP server, which passes supported operations to the separate Premiere connector. Install Cursor, Node.js, the MCP server, and the connector on the computer running your licensed Premiere application. Begin with a disposable project and an active sequence.",
+          "This guide uses a local stdio process. A Cursor cloud agent or a remote development environment does not automatically have access to the Premiere project on your desktop. The public product website is not a relay to your workstation.",
+        ],
+        links: [{ label: "Check release requirements and package provenance", href: "/facts/" }],
+      },
+      {
+        heading: "Install and diagnose the Premiere connector",
+        paragraphs: [
+          `Use Node.js ${product.nodeVersion}+ and run these commands in a local terminal. Fully quit Premiere before installing its connector. The versioned npm command selects premiere-pro-mcp from leancoderkavy; adobe-premiere-pro-mcp is a separate package whose global executable has the same name.`,
+          "Restart Premiere, open Window > Extensions > MCP for Adobe Premiere Pro, and open your test project. The doctor command reports setup diagnostics; it does not prove that Cursor has reached the current Premiere session.",
+        ],
+        codeBlocks: [{ label: "Install the CEP connector and inspect diagnostics", code: connectorSetup }],
+        links: [{ label: "Compare the two Premiere MCP packages", href: "/blog/premiere-pro-mcp-vs-adobe-premiere-pro-mcp/" }],
+      },
+      {
+        heading: "Add one MCP entry to Cursor",
+        paragraphs: [
+          "Cursor supports project settings in .cursor/mcp.json and user-wide settings in ~/.cursor/mcp.json. Choose one scope. Merge this entry with existing mcpServers rather than replacing the whole file, then enable the server from Cursor's Customize page.",
+          "The first run may download the pinned npm release. If you already configured a different Premiere MCP entry, disable it while evaluating this one so the assistant does not receive two overlapping tool sets. Keep each project's connector and configuration together.",
+        ],
+        codeBlocks: [{ label: "Cursor mcp.json entry for this published package", code: JSON.stringify({ mcpServers: { "premiere-pro-leancoderkavy": { type: "stdio", ...localMcpEntry } } }, null, 2) }],
+        links: [{ label: "Cursor's official MCP configuration reference", href: "https://cursor.com/docs/mcp" }],
+      },
+      {
+        heading: "Verify the connection before a timeline edit",
+        paragraphs: [
+          "In a local Cursor Agent conversation, request the connection tool explicitly. Inspect the returned project, active sequence, connector, and readiness diagnostics. A tool listed by Cursor has been advertised by the server; it is not evidence that the corresponding host action has succeeded.",
+          "After the read-only check succeeds, choose a small inspection or preview workflow from the starter kit. Review arguments and results before approving a mutation. The tool reference explains source action names and availability, while your running session determines which calls are available.",
+        ],
+        codeBlocks: [{ label: "First request in Cursor", code: "Safely check my Premiere connection with verify_premiere_connection. Make no changes." }],
+        links: [{ label: "Search tool names and availability", href: "/tools/" }, { label: "Evaluate with synthetic starter media", href: "/workflows/" }],
+      },
+      {
+        heading: "Resolve setup failures from the returned evidence",
+        paragraphs: ["Check the failing layer before retrying. Keep screenshots and reports free of private project paths, tokens, and client footage."],
+        bullets: [
+          "Server cannot start: confirm Node.js and npx are available to the local Cursor process. Restart Cursor after installing Node, and inspect the MCP startup output.",
+          "Invalid configuration: check JSON syntax, preserve existing entries, and confirm you edited the intended user or project settings file.",
+          "Tools appear but Premiere is disconnected: restart the CEP panel, open a project, and rerun the read-only connection check.",
+          "A UXP tool is absent: it requires an authenticated compatible UXP panel with the required host capability. The default CEP setup does not advertise every UXP addition.",
+        ],
+        links: [{ label: "Follow the connection recovery checklist", href: "/docs/troubleshooting/" }],
+      },
+    ],
+    faqs: [
+      { question: "Does Cursor need a remote MCP URL to edit local Premiere?", answer: "No. This guide uses local stdio so Cursor starts the server beside Premiere. The separate CEP connector is still required." },
+      { question: "Where does the Cursor MCP configuration go?", answer: "Use .cursor/mcp.json in the project or ~/.cursor/mcp.json for user-wide settings. Choose one scope and preserve existing server entries." },
+      { question: "Will the configuration change my Premiere project?", answer: "Adding the server does not itself request an edit. Later tool calls can change a project, so start with verify_premiere_connection and review each proposed operation." },
+    ],
+    resources: [{ label: "Official Cursor MCP documentation", href: "https://cursor.com/docs/mcp" }, { label: "npm versioned package execution", href: "https://docs.npmjs.com/cli/v11/commands/npx/" }, { label: "Our source repository", href: product.links.repository }],
+    relatedSlugs: ["how-to-set-up-premiere-pro-mcp", "codex-premiere-pro-mcp-setup", "premiere-pro-mcp-vs-adobe-premiere-pro-mcp"],
+  },
+  {
     slug: "premiere-pro-mcp-vs-adobe-premiere-pro-mcp",
     seoTitle: "Compare Two Premiere MCP Packages",
     title: "premiere-pro-mcp vs adobe-premiere-pro-mcp: Packages, Setup, and Workflows",
     description: "Compare leancoderkavy and hetpatel-11's separate Premiere MCP projects, verify the npm package, and evaluate the same workflow before switching.",
     eyebrow: "Package comparison",
     publishedAt: "2026-09-09",
-    modifiedAt: "2026-09-09",
+    modifiedAt: "2026-09-10",
     readingTime: "6 min read",
     keywords: ["premiere-pro-mcp vs adobe-premiere-pro-mcp", "Premiere MCP comparison", "hetpatel Premiere MCP", "Premiere MCP package setup"],
     sections: [
@@ -64,7 +131,7 @@ export const articles: Article[] = [
         ],
         links: [
           { label: "Our published package facts and provenance", href: "/facts/" },
-          { label: "Our supported action contracts", href: `${product.links.repository}/blob/main/docs/supported-actions.md` },
+          { label: "Search our supported action contracts", href: "/tools/" },
           { label: "Other project's README at the inspected commit", href: "https://github.com/hetpatel-11/Adobe_Premiere_Pro_MCP/blob/ee31c3def7c3ca1c68662ea7737a9f8e5a2b634f/README.md" },
         ],
       },
@@ -877,7 +944,7 @@ export const articles: Article[] = [
       "Set up Claude with Adobe Premiere Pro using the local MCP bundle and CEP connector, then verify the bridge before requesting any supported edit.",
     eyebrow: "Claude Premiere Pro setup",
     publishedAt: "2026-08-22",
-    modifiedAt: "2026-09-08",
+    modifiedAt: "2026-09-10",
     readingTime: "9 min read",
     keywords: [
       "Claude Premiere Pro",
@@ -942,7 +1009,7 @@ export const articles: Article[] = [
         "codeBlocks": [
             {
                 "label": "Install the published server and CEP connector",
-                "code": `npm install -g premiere-pro-mcp@${product.version}\npremiere-pro-mcp --install-cep\npremiere-pro-mcp --doctor`
+                "code": connectorSetup
             }
         ],
         "links": [
@@ -1072,7 +1139,7 @@ export const articles: Article[] = [
       "Set up Premiere Pro MCP: install the local server and connector, configure a compatible AI client, and verify the live bridge before your first edit.",
     eyebrow: "Premiere Pro MCP setup",
     publishedAt: "2026-09-08",
-    modifiedAt: "2026-09-08",
+    modifiedAt: "2026-09-10",
     readingTime: "8 min read",
     keywords: [
       "how to setup Premiere Pro MCP",
@@ -1091,16 +1158,19 @@ export const articles: Article[] = [
       {
         heading: "1. Install the local server and Premiere connector",
         paragraphs: [
-          "For a compatible client without its own bundle, install the published package with npm, then run the connector installer: npm install -g premiere-pro-mcp, followed by premiere-pro-mcp --install-cep. The installer puts the per-user CEP connector in Premiere's extensions location and enables the required local debug setting. If you use Claude Desktop, the release bundle supplies the server, but the signed Premiere connector is still a separate install.",
+          "For a compatible client without its own bundle, use the versioned npm commands below. They select this project's package instead of relying on a global executable shared with another Premiere MCP package. The installer puts the per-user CEP connector in Premiere's extensions location and enables the required local debug setting. If you use Claude Desktop, the release bundle supplies the server, but the signed Premiere connector is still a separate install.",
           "Restart Premiere after the connector is installed. With a project open, use Window > Extensions > MCP for Adobe Premiere Pro to open the connector. Do not move on to an edit request until the connector is available in the live host.",
         ],
+        codeBlocks: [{ label: "Install and diagnose the versioned connector", code: connectorSetup }],
       },
       {
         heading: "2. Configure one compatible AI client",
         paragraphs: [
-          "Your AI client needs a local MCP-server entry that launches premiere-pro-mcp. The common shape is a server named premiere-pro with command premiere-pro-mcp, but client configuration screens and file locations differ. Use the client's own MCP setup instructions rather than copying a configuration intended for another app.",
+          "Your AI client needs a local MCP-server entry for this package. The JSON below works as an entry for clients using mcpServers; Codex uses its own configuration format. Merge the entry into existing settings and keep other servers. Follow the specific setup guide for your client.",
           "Choose one client for the first check. Claude Desktop has a release bundle; Codex has a repository plugin; other clients may use the npm-based local configuration. Keep the client on the same machine as Premiere for this local setup. A public operator-managed HTTP endpoint is not a desktop relay for your local Premiere project.",
         ],
+        codeBlocks: [{ label: "Versioned local entry for clients using mcpServers", code: localMcpConfig }],
+        links: [{ label: "Cursor configuration and connection check", href: "/blog/cursor-premiere-pro-mcp-setup/" }, { label: "Codex configuration", href: "/blog/codex-premiere-pro-mcp-setup/" }],
       },
       {
         heading: "3. Verify the connection before asking for an edit",
@@ -1314,7 +1384,7 @@ export const articles: Article[] = [
       "Connect Codex to Adobe Premiere Pro with a local MCP command or the repository plugin, install the CEP bridge, and verify the connection before editing.",
     eyebrow: "Codex Premiere Pro setup",
     publishedAt: "2026-09-08",
-    modifiedAt: "2026-09-08",
+    modifiedAt: "2026-09-10",
     readingTime: "7 min read",
     keywords: [
       "Codex Premiere Pro",
@@ -1331,7 +1401,7 @@ export const articles: Article[] = [
     "codeBlocks": [
         {
             "label": "Install, diagnose, and register the local server",
-            "code": `npm install -g premiere-pro-mcp@${product.version}\npremiere-pro-mcp --install-cep\npremiere-pro-mcp --doctor\ncodex mcp add premiere-pro -- premiere-pro-mcp\ncodex mcp list`
+            "code": `${connectorSetup}\ncodex mcp add premiere-pro-leancoderkavy -- npx --yes premiere-pro-mcp@${product.version}\ncodex mcp list`
         }
     ],
     "steps": [

@@ -1,5 +1,7 @@
 "use client"
 
+import { connectorSetup, localMcpConfig } from "@/lib/client-setup"
+
 import { useState } from "react"
 import {
   ArrowUpRight,
@@ -287,12 +289,13 @@ export function ConnectSection() {
             <div>
               <h3 className="text-base font-semibold text-white">Install from npm</h3>
               <p className="mt-2 text-sm leading-6 text-zinc-400">Use this route if your assistant does not support a native bundle. It requires Node.js {product.nodeVersion}+.</p>
-              <pre className="mt-4 overflow-x-auto rounded-lg border border-zinc-800 bg-black p-4 text-xs leading-6 text-emerald-300"><code>npm install -g premiere-pro-mcp{`\n`}premiere-pro-mcp --install-cep</code></pre>
+              <pre className="mt-4 overflow-x-auto rounded-lg border border-zinc-800 bg-black p-4 text-xs leading-6 text-emerald-300"><code>{connectorSetup}</code></pre>
             </div>
             <div>
               <h3 className="text-base font-semibold text-white">Manual server configuration</h3>
               <p className="mt-2 text-sm leading-6 text-zinc-400">Only use this when your client asks for a command. Keep Premiere, the connector, and the client on the same computer.</p>
-              <pre className="mt-4 overflow-x-auto rounded-lg border border-zinc-800 bg-black p-4 text-xs leading-6 text-zinc-300"><code>{`{\n  "mcpServers": {\n    "premiere-pro": {\n      "command": "premiere-pro-mcp"\n    }\n  }\n}`}</code></pre>
+              <pre className="mt-4 overflow-x-auto rounded-lg border border-zinc-800 bg-black p-4 text-xs leading-6 text-zinc-300"><code>{localMcpConfig}</code></pre>
+              <p className="mt-3 text-sm leading-6 text-zinc-400">Merge the entry into existing settings. It selects this project&apos;s versioned npm package instead of relying on the shared global command name.</p>
             </div>
             <div className="lg:col-span-2">
               <a href={product.links.readme} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 items-center gap-2 text-sm font-semibold text-purple-200 transition-colors hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-300 focus-visible:ring-offset-2 focus-visible:ring-offset-[#08080a]">

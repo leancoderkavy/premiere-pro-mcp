@@ -2,6 +2,7 @@ import type { Metadata } from "next"
 import Link from "next/link"
 import { product, safeFirstPrompt } from "@/lib/product"
 import { SetupGuides } from "@/components/sections/setup-guides"
+import { connectorSetup, localMcpConfig } from "@/lib/client-setup"
 
 export const metadata: Metadata = {
   title: { absolute: "MCP for Adobe Premiere Pro: Setup & Troubleshooting" },
@@ -34,7 +35,7 @@ const structuredData = {
       description:
         "Installation and technical reference for connecting AI assistants to Adobe Premiere Pro with MCP for Adobe Premiere Pro.",
       url: "https://premiere-pro-mcp.com/docs/",
-      dateModified: product.releaseDate,
+      dateModified: "2026-09-10",
       inLanguage: "en-US",
       about: { "@id": "https://premiere-pro-mcp.com/#software" },
       isPartOf: { "@id": "https://premiere-pro-mcp.com/#website" },
@@ -94,8 +95,9 @@ export default function DocsPage() {
           <details className="mt-8 rounded-xl border border-zinc-800 bg-zinc-950 p-5">
             <summary className="cursor-pointer text-sm font-semibold text-zinc-100">Advanced: npm and manual configuration</summary>
             <p className="mt-4 text-sm leading-7 text-zinc-400">This route requires Node.js {product.nodeVersion}+ and is intended for clients without a native bundle.</p>
-            <pre className="mt-4 overflow-x-auto rounded-lg bg-black p-4 text-sm text-emerald-300"><code>npm install -g premiere-pro-mcp{`\n`}premiere-pro-mcp --install-cep</code></pre>
-            <pre className="mt-4 overflow-x-auto rounded-lg bg-black p-4 text-sm text-zinc-300"><code>{`{\n  "mcpServers": {\n    "premiere-pro": { "command": "premiere-pro-mcp" }\n  }\n}`}</code></pre>
+            <pre className="mt-4 overflow-x-auto rounded-lg bg-black p-4 text-sm text-emerald-300"><code>{connectorSetup}</code></pre>
+            <pre className="mt-4 overflow-x-auto rounded-lg bg-black p-4 text-sm text-zinc-300"><code>{localMcpConfig}</code></pre>
+            <p className="mt-4 text-sm leading-7 text-zinc-400">Merge this entry into your client settings and preserve other servers. The versioned package selects this project; another Premiere MCP package uses the same global command name. <Link href="/blog/premiere-pro-mcp-vs-adobe-premiere-pro-mcp/" className="text-purple-200 underline">Check package identity</Link> before switching.</p>
           </details>
         </section>
 
@@ -103,6 +105,7 @@ export default function DocsPage() {
         <nav aria-label="Workflow guides" className="py-8">
           <h2 className="text-xl font-semibold">After your connection check</h2>
           <ul className="mt-3 space-y-2 text-purple-200">
+            <li><Link className="inline-flex min-h-11 items-center underline underline-offset-4 hover:text-white" href="/tools/">Search tool names, actions, and availability</Link></li>
             <li><Link className="inline-flex min-h-11 items-center underline underline-offset-4 hover:text-white" href="/workflows/">Try a workflow with disposable sample media</Link></li>
             <li><Link className="inline-flex min-h-11 items-center underline underline-offset-4 hover:text-white" href="/project-intake/">Review a project with the Project Intake checklist</Link></li>
             <li><Link className="inline-flex min-h-11 items-center underline underline-offset-4 hover:text-white" href="/premiere-pro-collaboration-workflow/">Compare local projects, Productions, and Team Projects</Link></li>

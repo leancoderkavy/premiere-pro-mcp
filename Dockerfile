@@ -20,6 +20,8 @@ FROM node:20-alpine AS landing-builder
 WORKDIR /app
 COPY release-metadata.json ./release-metadata.json
 COPY scripts/generate-marketing-reference.mjs ./scripts/generate-marketing-reference.mjs
+COPY scripts/tool-reference-data.mjs ./scripts/tool-reference-data.mjs
+COPY docs/supported-actions.md ./docs/supported-actions.md
 
 WORKDIR /app/landing
 
