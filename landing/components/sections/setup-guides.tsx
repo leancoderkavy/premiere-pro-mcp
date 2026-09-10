@@ -8,6 +8,7 @@ export function SetupGuides() {
         {[
           ["Claude Desktop: install and verify", "/blog/claude-desktop-premiere-pro-mcp-setup/"],
           ["Codex: configure the local MCP server", "/blog/codex-premiere-pro-mcp-setup/"],
+          ["Cursor: configure and check local tools", "/blog/cursor-premiere-pro-mcp-setup/"],
           ["Installation and connector requirements", "/blog/how-to-set-up-premiere-pro-mcp/"],
           ["ChatGPT: check connection requirements", "/blog/chatgpt-premiere-pro-mcp/"],
         ].map(([label, href]) => <li key={href}><Link href={href} className="inline-flex min-h-11 items-center py-2 text-sm text-purple-200 underline underline-offset-4 hover:text-white">{label}</Link></li>)}

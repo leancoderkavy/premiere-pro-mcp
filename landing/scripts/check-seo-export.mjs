@@ -51,5 +51,12 @@ for (const [path, html] of pages) {
   }
 }
 const robots = readFileSync(resolve(output, "robots.txt"), "utf8");
+const toolCatalog = JSON.parse(readFileSync(resolve(output, "tool-catalog.json"), "utf8"));
+const toolsHtml = pages.get("/tools/");
+assert(toolsHtml, "Tool reference must be in the canonical sitemap");
+for (const tool of toolCatalog.tools) {
+  assert(toolsHtml.includes(`id="tool-${tool.name}"`), `Tool missing from initial HTML: ${tool.name}`);
+}
+assert.equal(tags(toolsHtml, "article").length, toolCatalog.tools.length, "Tool reference must render every tool without JavaScript");
 assert(robots.includes(`Sitemap: ${origin}/sitemap.xml`), "robots.txt must reference the canonical sitemap");
 console.log(`SEO export verified: ${pages.size} canonical pages, unique titles/descriptions, indexable metadata, valid JSON-LD, ${checkedLinks} internal links and anchors.`);

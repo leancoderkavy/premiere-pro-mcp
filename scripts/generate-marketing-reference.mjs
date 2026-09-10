@@ -1,6 +1,7 @@
 import { readFile, writeFile, mkdir } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import { resolve, dirname } from "node:path";
+import { buildToolReference } from "./tool-reference-data.mjs";
 
 const root = fileURLToPath(new URL("../", import.meta.url));
 const readJson = async (name) => JSON.parse(await readFile(resolve(root, name), "utf8"));
@@ -12,6 +13,7 @@ export async function marketingReferenceFiles() {
   for (const catalog of [published, source]) {
     if (catalog.defaultProfileTools + catalog.uxpAdditionalTools !== catalog.defaultProfileWithUxpTools) throw new Error("Invalid capability count relationship");
   }
+  const toolReference = buildToolReference(await readFile(resolve(root, "docs/supported-actions.md"), "utf8"), source);
   const origin = "https://premiere-pro-mcp.com";
   const facts = {
     schemaVersion: 1,
@@ -51,9 +53,12 @@ The hosted endpoint does not automatically pair a visitor to their local Premier
 - Canonical facts: ${origin}/facts/
 - Versioned evidence data: ${origin}/marketing-facts.json
 - Workflow starter kit: ${origin}/workflows/
+- Searchable source tool reference: ${origin}/tools/
+- Source tool reference JSON: ${origin}/tool-catalog.json
 - Setup and recovery: ${origin}/docs/troubleshooting/
 - Claude setup: ${origin}/blog/claude-desktop-premiere-pro-mcp-setup/
 - Codex setup: ${origin}/blog/codex-premiere-pro-mcp-setup/
+- Cursor setup: ${origin}/blog/cursor-premiere-pro-mcp-setup/
 - MCP setup: ${origin}/blog/how-to-set-up-premiere-pro-mcp/
 - Package comparison: ${origin}/blog/premiere-pro-mcp-vs-adobe-premiere-pro-mcp/
 - AI in Premiere: ${origin}/blog/set-up-ai-in-premiere-pro/
@@ -93,6 +98,7 @@ Privacy: ${origin}/privacy/
 Security: https://github.com/leancoderkavy/premiere-pro-mcp/blob/main/SECURITY.md
 `;
   return {
+    "landing/public/tool-catalog.json": `${JSON.stringify(toolReference, null, 2)}\n`,
     "landing/lib/source-catalog.json": `${JSON.stringify(source, null, 2)}\n`,
     "landing/public/marketing-facts.json": `${JSON.stringify(facts, null, 2)}\n`,
     "landing/public/llms.txt": short,

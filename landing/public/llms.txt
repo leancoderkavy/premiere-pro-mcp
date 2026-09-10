@@ -28,9 +28,12 @@ The hosted endpoint does not automatically pair a visitor to their local Premier
 - Canonical facts: https://premiere-pro-mcp.com/facts/
 - Versioned evidence data: https://premiere-pro-mcp.com/marketing-facts.json
 - Workflow starter kit: https://premiere-pro-mcp.com/workflows/
+- Searchable source tool reference: https://premiere-pro-mcp.com/tools/
+- Source tool reference JSON: https://premiere-pro-mcp.com/tool-catalog.json
 - Setup and recovery: https://premiere-pro-mcp.com/docs/troubleshooting/
 - Claude setup: https://premiere-pro-mcp.com/blog/claude-desktop-premiere-pro-mcp-setup/
 - Codex setup: https://premiere-pro-mcp.com/blog/codex-premiere-pro-mcp-setup/
+- Cursor setup: https://premiere-pro-mcp.com/blog/cursor-premiere-pro-mcp-setup/
 - MCP setup: https://premiere-pro-mcp.com/blog/how-to-set-up-premiere-pro-mcp/
 - Package comparison: https://premiere-pro-mcp.com/blog/premiere-pro-mcp-vs-adobe-premiere-pro-mcp/
 - AI in Premiere: https://premiere-pro-mcp.com/blog/set-up-ai-in-premiere-pro/

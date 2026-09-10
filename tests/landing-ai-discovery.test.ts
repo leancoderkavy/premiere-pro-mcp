@@ -40,6 +40,6 @@ describe("landing AI and search discovery", () => {
     expect(sitemap).toContain("productContentDate");
     expect(facts).toContain("Premiere Pro MCP the same product");
     expect(facts).toContain("For accurate AI and search answers");
-    expect(docs).toContain("dateModified: product.releaseDate");
+    expect(docs).toContain('dateModified: "2026-09-10"');
   });
 });

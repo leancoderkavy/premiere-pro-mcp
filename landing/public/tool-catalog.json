@@ -1,0 +1,2787 @@
+{
+  "schemaVersion": 1,
+  "evidenceScope": "source_catalog_may_include_unreleased_work",
+  "sourceVersion": "1.15.0",
+  "sourcePath": "docs/supported-actions.md",
+  "sourceSha256": "37832b4cc93726dda3c8964a200a520ccd0aa426ff5451dfded0657d758de7d9",
+  "hostVerification": "not_established_by_catalogs",
+  "counts": {
+    "default": 367,
+    "uxp": 93,
+    "restricted": 2
+  },
+  "tools": [
+    {
+      "name": "add_adjustment_layer",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Add an adjustment layer to the active sequence via QE DOM. The layer is added at the playhead position on the specified track."
+    },
+    {
+      "name": "add_audio_keyframes",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Add audio level keyframes to create fades or level changes"
+    },
+    {
+      "name": "add_custom_metadata_field",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Add a custom metadata field to the project's metadata schema. This creates a schema/column definition only; it does not set a per-item value. Use set_metadata with complete Project Metadata XML and readback to update a value."
+    },
+    {
+      "name": "add_keyframe",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Add and read back a keyframe on an effect property. This verifies stored parameter data only; render/playback verification remains host-dependent."
+    },
+    {
+      "name": "add_marker",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Add a marker to the active sequence or a clip"
+    },
+    {
+      "name": "add_marker_to_project_item",
+      "surface": "default",
+      "modes": "type: Comment, Chapter, Segmentation, WebLink",
+      "description": "Add a marker to a project item (source clip marker)."
+    },
+    {
+      "name": "add_text_overlay",
+      "surface": "default",
+      "modes": "caption_format: subtitle, 608, 708, teletext",
+      "description": "Unavailable: Premiere does not expose a supported scripting API to create caption clips directly from raw text. Import an .srt/.vtt and use create_caption_track, or use a MOGRT/PNG overlay for title graphics."
+    },
+    {
+      "name": "add_to_render_queue",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Request an Adobe Media Encoder render-queue handoff for the active sequence. Verify queue presence or the output file independently."
+    },
+    {
+      "name": "add_to_timeline",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Insert a project item at a timeline position and verify Premiere added no unexpected same-track fragments."
+    },
+    {
+      "name": "add_to_timeline_batch",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Insert up to 32 project items in one validated CEP request. All items and target tracks are preflighted before the first insertion; every requested placement is read back, and the tool fails closed if Premiere cannot verify one."
+    },
+    {
+      "name": "add_track",
+      "surface": "default",
+      "modes": "track_type: video, audio",
+      "description": "Add verified video or audio tracks to the active sequence. Returns an error if Premiere cannot add the exact requested count."
+    },
+    {
+      "name": "add_tracks",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Add video and/or audio tracks through QE, verify the active sequence gained the exact requested counts, and report explicitly when QE inserted the new tracks at index 0 and shifted every existing track up."
+    },
+    {
+      "name": "add_transition",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Add a video transition between two clips at a cut point. Uses QE DOM."
+    },
+    {
+      "name": "add_transition_to_clip",
+      "surface": "default",
+      "modes": "position: start, end, both",
+      "description": "Add a transition to a specific clip's start or end"
+    },
+    {
+      "name": "add_video_transition_uxp",
+      "surface": "uxp",
+      "modes": "position: start, end",
+      "description": "Add an installed native video transition to one unchanged video-clip edge through one undoable UXP transaction. Requires an exact inspect snapshot, serializes transition updates per sequence, and reads edge presence back; it does not prove handles, rendered appearance, or playback."
+    },
+    {
+      "name": "adjust_audio_levels",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Adjust a clip's Volume > Level in dB. Does not read or change Essential Sound Amplify automation."
+    },
+    {
+      "name": "analyze_dialogue_edit_candidates",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Analyze caller-supplied, revision-bound transcript segments and optional local silence ranges for deterministic dialogue-edit candidates. It never calls a model, persists transcript text, or changes Premiere."
+    },
+    {
+      "name": "analyze_loudness",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Measure integrated loudness (LUFS), loudness range (LU), and true peak (dBFS) from a local media file using FFmpeg's EBU R128 filter. Analysis only: it does not normalize audio or change Premiere."
+    },
+    {
+      "name": "analyze_video_interlacing",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Classify decoded video frames as progressive, top-field-first, bottom-field-first, mixed, or undetermined using FFmpeg idet. Read-only delivery preflight."
+    },
+    {
+      "name": "analyze_video_qc",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Analyze a local video delivery for sustained black and frozen sections with FFmpeg. Read-only: it does not contact Premiere or modify the file."
+    },
+    {
+      "name": "apply_after_effects_render_handoff",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Import exactly one previewed completed AE render into its approved Premiere bin after rechecking both hosts and file metadata. Requires confirmation and consumes the token before dispatch. Does not save, render, or change a timeline."
+    },
+    {
+      "name": "apply_audio_effect",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Apply an audio effect to a clip. Uses QE catalog lookup, with an exact-name QE probe when enumeration is empty."
+    },
+    {
+      "name": "apply_beat_markers_uxp",
+      "surface": "uxp",
+      "modes": "Single operation",
+      "description": "Apply a reviewed beat grid as native sequence markers in one undoable Premiere 26.3+ UXP transaction, with bounded inputs and GUID/time readback for every marker."
+    },
+    {
+      "name": "apply_derived_dialogue_sequence_uxp",
+      "surface": "uxp",
+      "modes": "Single operation",
+      "description": "Create a new ordinary dialogue derivative from an exact reviewed plan. It revalidates every transcript and never edits or deletes an original source or sequence."
+    },
+    {
+      "name": "apply_edit_plan",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Apply a previously previewed compound edit after revalidating every target. Requires the edit capability and exact preview confirmation token."
+    },
+    {
+      "name": "apply_editorial_organization_plan",
+      "surface": "uxp",
+      "modes": "Single operation",
+      "description": "Apply selected organization recommendations through documented UXP bin transactions only. Requires the unchanged server-issued plan, its opaque preview confirmation token, and stable source/parent guards; individual host transactions may be partially committed and are never silently retried or rolled back."
+    },
+    {
+      "name": "apply_effect",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Apply a video effect to a clip. Uses QE DOM catalog lookup, with an exact-name QE probe when Premiere's catalog enumeration is empty."
+    },
+    {
+      "name": "apply_lut",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Apply a LUT file to a clip via Lumetri Color"
+    },
+    {
+      "name": "apply_mogrt_premiere_handoff",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Import exactly one previewed MOGRT into the empty track of the explicit disposable Premiere verification sequence, then read back insertion and control descriptors. Requires explicit confirmation; no rendered-frame claim is made."
+    },
+    {
+      "name": "apply_spot_workflow_plan",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Apply one exact previewed motion-demo, product-spot, or brand-spot plan. Requires edit authority, requires filesystem authority for a MOGRT, and only targets empty explicitly named tracks. Host readback is not playback or render verification."
+    },
+    {
+      "name": "attach_custom_property",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Attach a custom property (key/value pair) to the active sequence and confirm it against the sequence project item's XMP packet. Reports failure when the property never lands in XMP."
+    },
+    {
+      "name": "audit_object_masks_uxp",
+      "surface": "uxp",
+      "modes": "Single operation",
+      "description": "Audit documented Object Mask presence across up to 64 Premiere sequences without changing the project. Omit sequence_ids only when the entire active project has at most 64 sequences; otherwise pass explicit exact GUIDs. The bridge double-reads the active-project identity, aggregate result, and every selected sequence result, rejecting drift instead of returning a mixed audit. It reports only yes/no presence—not mask count, location, tracking, editability, rendered pixels, or playback correctness."
+    },
+    {
+      "name": "audit_timeline_health",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Audit one sequence snapshot for flash frames, gaps, overlaps, disabled clips, repeated shots, video without audio, extreme speed, invalid times, empty tracks, leading black, and trailing gaps; returns a 0..100 score, findings with timecodes, and fix routes. Local-only; never changes Premiere."
+    },
+    {
+      "name": "audition_source_monitor_uxp",
+      "surface": "uxp",
+      "modes": "state, open_project_item, open_file, set_position, play, close, close_all",
+      "description": "Open a selected project item or approved file, inspect/set position, play at bounded speed, or close Source Monitor media through documented UXP APIs."
+    },
+    {
+      "name": "auto_reframe_sequence",
+      "surface": "default",
+      "modes": "motion_preset: slower, default, faster",
+      "description": "Auto-reframe a sequence for a different aspect ratio"
+    },
+    {
+      "name": "automate_effect_parameters_uxp",
+      "surface": "uxp",
+      "modes": "inspect, inspect_point_value, inspect_point_displacement, set_point_value, inspect_color_value, set_color_value, inspect_keyframe, set_value, add_keyframe, remove_keyframe, remove_keyframe_range, set_interpolation, inspect_time_varying, set_time_varying",
+      "description": "Inspect or transactionally set scalar effect parameters; inspect or guardedly set static PointF x/y and Color RGBA parameters; locate individual keyframes including a bounded native nearest-range lookup; adjust keyframes/interpolation; and control explicit time-varying animation mode through documented UXP actions. Disabling animation requires a complete inspected keyframe-time snapshot and confirmation."
+    },
+    {
+      "name": "batch_add_transitions",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Add the same transition to all cut points on a track"
+    },
+    {
+      "name": "batch_apply_effect",
+      "surface": "default",
+      "modes": "target: selected, track, all; track_type: video, audio",
+      "description": "Apply one audio or video effect to compatible selected clips, a compatible track, or all compatible clips. Every target is preflighted and then checked by component-count readback."
+    },
+    {
+      "name": "batch_enable_disable",
+      "surface": "default",
+      "modes": "target: selected, track, all; track_type: video, audio",
+      "description": "Enable or disable multiple clips at once (selected, track, or all)."
+    },
+    {
+      "name": "batch_rename_clips",
+      "surface": "default",
+      "modes": "track_type: video, audio",
+      "description": "Rename multiple clips on the timeline using a pattern. Supports sequential numbering."
+    },
+    {
+      "name": "batch_selected_clips_uxp",
+      "surface": "uxp",
+      "modes": "inspect, add_effect, remove_effect",
+      "description": "Inspect the current timeline selection or apply one native effect add/remove across up to 64 same-type selected clips as a single compound transaction."
+    },
+    {
+      "name": "build_caption_artifact",
+      "surface": "default",
+      "modes": "format: srt, vtt; style_preset: clean, bold_pop, karaoke, podcast, lecture",
+      "description": "Build a CapCut/Submagic-style SRT or VTT caption artifact from a caller-supplied word timeline: balanced word groups, sentence-aware breaks, min/max cue durations, optional karaoke word timestamps (VTT), emphasis and speaker markup. Local-only; returns the artifact inline or writes it inside an approved workspace and never changes Premiere."
+    },
+    {
+      "name": "calculate_tick_time_uxp",
+      "surface": "uxp",
+      "modes": "operation: add, subtract, multiply, divide",
+      "description": "Calculate one bounded add, subtract, multiply, or divide operation using Premiere's documented native TickTime arithmetic over canonical tick integers. It returns native ticks and seconds readback only. It deliberately does not accept seconds or frame rates, align to frames, infer timecode, inspect any Premiere project object, mutate Premiere, or prove a licensed host."
+    },
+    {
+      "name": "capture_frame",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Capture the current frame and return it as inline image data for the LLM to see. This lets the AI visually inspect the current state of the timeline."
+    },
+    {
+      "name": "check_caption_safe_zone",
+      "surface": "default",
+      "modes": "platform: tiktok, instagram_reels, youtube_shorts, instagram_feed, youtube, linkedin, x",
+      "description": "Check caption, title, logo, and graphic rectangles against approximate platform UI overlay zones (TikTok, Reels, Shorts, feed, YouTube, LinkedIn, X) and suggest the nearest clear position. Local-only geometry on caller-supplied normalized rects; it never reads or changes Premiere."
+    },
+    {
+      "name": "check_offline_media",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Check for offline (missing) media in the project"
+    },
+    {
+      "name": "clear_item_in_out",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Clear in and/or out points on a project item (reset to full duration)."
+    },
+    {
+      "name": "clear_sequence_in_out",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Clear the in and/or out points on the active sequence."
+    },
+    {
+      "name": "close_all_source_clips",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Close all clips in the Source Monitor."
+    },
+    {
+      "name": "close_project",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Close the current Premiere Pro project"
+    },
+    {
+      "name": "close_sequence",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Close a sequence tab in the timeline"
+    },
+    {
+      "name": "close_source_monitor",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Close the clip currently open in the Source Monitor."
+    },
+    {
+      "name": "color_correct",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Apply basic color correction to a clip using Lumetri Color"
+    },
+    {
+      "name": "compare_cmx3600_edls",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Compare two local CMX 3600 EDLs by event number and report bounded added, removed, and changed editorial events. Read-only; it does not alter either interchange file or Premiere."
+    },
+    {
+      "name": "configure_encoder_uxp",
+      "surface": "uxp",
+      "modes": "Single operation",
+      "description": "Launch or configure Adobe Media Encoder and optionally start its queued batch using Premiere 26.3+."
+    },
+    {
+      "name": "consolidate_and_transfer",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Consolidate, copy, or transcode project media using the Project Manager. Reports success only after a new destination folder contains a copied Premiere project."
+    },
+    {
+      "name": "consolidate_duplicates",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Consolidate duplicate project items and report success only when duplicate media groups decrease."
+    },
+    {
+      "name": "copy_effect_values",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Copy verified scalar effect-property values from one effect to the matching effect on another clip. Both clips must already have the same effect applied. Legacy CEP deliberately refuses Blend Mode because Premiere can corrupt its enum value on cross-clip writes."
+    },
+    {
+      "name": "copy_effects_between_clips",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Copy all effects (or a specific effect) from one clip to another. Does not copy intrinsic properties like Motion/Opacity unless specified."
+    },
+    {
+      "name": "create_bars_and_tone",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Create a Bars and Tone synthetic media item in the project (useful for leader/calibration)"
+    },
+    {
+      "name": "create_bin",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Create a new bin (folder) in the project panel"
+    },
+    {
+      "name": "create_caption_track",
+      "surface": "default",
+      "modes": "import, plan_lecture_workflow",
+      "description": "Import an already reviewed caption artifact into the active sequence, or create a local lecture-caption timing and review workflow plan. Import reports structural success only when the host exposes a caption-track readback; the planning action never contacts Premiere or changes an artifact."
+    },
+    {
+      "name": "create_context_edit_plan",
+      "surface": "default",
+      "modes": "strategy: rough_cut, select_ranges, review",
+      "description": "Create a non-mutating, evidence-backed edit-plan scaffold from indexed Premiere context. It returns ranked source/time candidates and stale-state guards; the model must review them and use preview_edit_plan before any mutation."
+    },
+    {
+      "name": "create_editorial_context_pack",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Create a compact Markdown reading view from already captured local transcript, shot, audio, note, source, or timeline context. It returns stable evidence IDs and context revisions for review, never calls an AI/provider or Premiere, and cannot change the project."
+    },
+    {
+      "name": "create_editorial_plan",
+      "surface": "default",
+      "modes": "workflow: organize, stringout, rough_cut, caption_review, platform_cutdown",
+      "description": "Create a local, evidence-backed editorial workflow plan from captured project context. It never calls an LLM, uploads media, or changes Premiere."
+    },
+    {
+      "name": "create_empty_sequence_uxp",
+      "surface": "uxp",
+      "modes": "Single operation",
+      "description": "Create one empty/default sequence through the documented Premiere 26.3+ UXP API. This direct, non-undoable host call requires explicit confirmation and an operation_id; the host serializes capacity preflight through identity readback and replays the receipt safely."
+    },
+    {
+      "name": "create_mogrt_batch",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Create the exact MOGRT recipes from a one-time batch preview. Requires explicit export confirmation and stops on the first After Effects failure without claiming rollback."
+    },
+    {
+      "name": "create_mogrt_recipe",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Create exactly one previewed MOGRT recipe in a saved After Effects project inside the approved workspace. Requires explicit export confirmation; it never creates projects or output folders."
+    },
+    {
+      "name": "create_project",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Create a new Premiere Pro project at the specified path"
+    },
+    {
+      "name": "create_project_backup",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Create a collision-safe, byte-verified backup beside an existing .prproj file without opening or modifying the source project."
+    },
+    {
+      "name": "create_project_metadata_field_uxp",
+      "surface": "uxp",
+      "modes": "inspect, create",
+      "description": "Inspect a bounded native Project-panel schema or request one typed Project metadata field through Adobe's documented direct UXP API. Creation requires the exact inspected project GUID/XML, explicit confirmation, and a replay key; it is non-undoable and reports host acceptance plus schema-change readback without claiming field-level verification or atomic compare-and-set semantics."
+    },
+    {
+      "name": "create_sequence",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Create a new sequence in the project"
+    },
+    {
+      "name": "create_sequence_from_clips",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Create a new sequence by automatically placing project items in order"
+    },
+    {
+      "name": "create_sequence_from_preset",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Create a new sequence from a specific preset file (.sqpreset)"
+    },
+    {
+      "name": "create_sequence_with_preset_uxp",
+      "surface": "uxp",
+      "modes": "Single operation",
+      "description": "Create and verify a sequence from a preset path using the documented Premiere 26.3+ UXP API."
+    },
+    {
+      "name": "create_silence_cut_source_stringout_uxp",
+      "surface": "uxp",
+      "modes": "Single operation",
+      "description": "Create a new single-source rough-cut stringout from reviewed silence ranges using documented Premiere 26.3+ hard-bounded linked A/V subclips. It does not preserve or modify an existing edited timeline."
+    },
+    {
+      "name": "create_smart_bin",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Create a smart bin (search bin) in the project panel"
+    },
+    {
+      "name": "create_subclip",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Create a subclip from a project item with in/out points"
+    },
+    {
+      "name": "create_subclip_uxp",
+      "surface": "uxp",
+      "modes": "Single operation",
+      "description": "Create and verify a Premiere 26.3+ subclip in an undoable transaction. Prefer project_item_id; a name must resolve to exactly one media clip."
+    },
+    {
+      "name": "create_subsequence",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Create a separate subsequence from selected clips or a time range. This Premiere API does not replace the original timeline clips with a nested-sequence reference."
+    },
+    {
+      "name": "crop_clip",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Apply or update Premiere's Crop effect on one video clip and read back every requested value. Adding Crop uses the legacy QE catalog only when the clip does not already contain it."
+    },
+    {
+      "name": "delete_bin",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Delete a bin (folder) from the project panel"
+    },
+    {
+      "name": "delete_marker",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Delete a marker at a specific time position"
+    },
+    {
+      "name": "delete_multiple_project_items",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Delete multiple project items at once from the project panel."
+    },
+    {
+      "name": "delete_preview_files",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Delete all preview/render cache files for the project. Uses QE DOM."
+    },
+    {
+      "name": "delete_project_item",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Delete a project item (clip, bin, etc.) from the project panel. This removes it from the project but does not affect timeline instances."
+    },
+    {
+      "name": "delete_sequence",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Delete a sequence from the project"
+    },
+    {
+      "name": "delete_track",
+      "surface": "default",
+      "modes": "track_type: video, audio",
+      "description": "Delete a video or audio track from the active sequence"
+    },
+    {
+      "name": "deselect_all_clips",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Deselect all clips in the active sequence."
+    },
+    {
+      "name": "detach_proxy",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Detach/remove the proxy from a project item"
+    },
+    {
+      "name": "detect_active_picture_bounds",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Detect the most frequent active-picture crop rectangle in decoded video, exposing probable letterbox or pillarbox bars without modifying the source."
+    },
+    {
+      "name": "detect_audio_transients",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Find probable beat or edit-point transients from decoded audio peaks. Returns candidates for editorial review; it does not claim musical beat-grid accuracy or change a timeline."
+    },
+    {
+      "name": "detect_beats",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Estimate a steady beat grid from a local audio or video file without changing Premiere. FFmpeg decodes at most 30 minutes to a bounded mono analysis stream; local onset autocorrelation returns BPM, phase-aligned beat times, confidence, and half/double-time alternatives."
+    },
+    {
+      "name": "detect_motion_peaks",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Find probable high-motion moments in a bounded local video sample from decoded frame differences. Read-only editorial candidates; camera movement, flashes, cuts, and subject motion are not semantically distinguished."
+    },
+    {
+      "name": "detect_object_masks_uxp",
+      "surface": "uxp",
+      "modes": "scope: sequence, project",
+      "description": "Detect whether the active project or sequence contains an Object Mask using Premiere 26.3+."
+    },
+    {
+      "name": "detect_repeated_takes",
+      "surface": "default",
+      "modes": "keep: last, first",
+      "description": "Detect repeated sentence takes (retakes) in a word timeline using token similarity within a time window, and plan removal of all but the kept take. Returns take groups, removal and keep ranges, and apply routes. Local-only; never changes Premiere."
+    },
+    {
+      "name": "detect_scene_edits",
+      "surface": "default",
+      "modes": "mode: apply_cuts, create_markers, create_subclips",
+      "description": "Safe scene-edit facade. It uses the authenticated Premiere UXP bridge when connected and explicitly confirmed; CEP fallback is intentionally withheld because synchronous scene detection can block the panel."
+    },
+    {
+      "name": "detect_scene_edits_uxp",
+      "surface": "uxp",
+      "modes": "mode: apply_cuts, create_markers, create_subclips",
+      "description": "Run Premiere's documented scene-edit detection on the current timeline selection using cuts, markers, or subclips. This direct host mutation is not claimed undoable."
+    },
+    {
+      "name": "detect_silence",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Find silent ranges in a media file and return both the silences and the complementary segments worth keeping. Analysis only — nothing in the project or on the timeline is modified. Requires ffmpeg on PATH: Premiere's scripting API exposes no audio-level or waveform data, so silence cannot be measured through the bridge."
+    },
+    {
+      "name": "detect_source_scene_changes",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Detect probable visual cuts in a local source file using FFmpeg scene scores. Read-only and source-relative; it does not cut a Premiere timeline."
+    },
+    {
+      "name": "diff_sequence_snapshots",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Diff two sequence snapshots (from get_sequence_structure or inspect_sequence_structure_uxp) into added, removed, moved, trimmed, retimed, enabled, and renamed clip changes with frame deltas, per-track counts, and EDL-like timecode lines. Local-only; never reads or changes Premiere."
+    },
+    {
+      "name": "duplicate_clip",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Duplicate a clip on the timeline (copy to same position on next available track)"
+    },
+    {
+      "name": "duplicate_sequence",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Duplicate an existing sequence"
+    },
+    {
+      "name": "duplicate_track_item_uxp",
+      "surface": "uxp",
+      "modes": "inspect, apply",
+      "description": "Inspect or append one guarded duplicate of the final audio or video clip on a track using documented UXP SequenceEditor actions. Apply requires the complete source snapshot, explicit confirmation, and an operation ID; it serializes with guarded slips and slides on that track, commits one transaction, and reads back only the original and appended item. It intentionally cannot duplicate into an occupied range, another track, or a linked A/V pair. It does not prove media handles, linked A/V synchronization, rendered frames, playback, persistence, or Undo behavior."
+    },
+    {
+      "name": "edit_timeline_uxp",
+      "surface": "uxp",
+      "modes": "insert, overwrite, clone_selection, remove_selection, insert_mogrt_path, insert_mogrt_library",
+      "description": "Use the documented SequenceEditor to insert, overwrite, clone, remove, or insert MOGRT content without undocumented QE calls."
+    },
+    {
+      "name": "enable_disable_clip",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Enable or disable a clip on the timeline"
+    },
+    {
+      "name": "encode_file",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Request an Adobe Media Encoder encode for an external file. The returned job ID is an unverified handoff; verify queue presence or the output file independently."
+    },
+    {
+      "name": "encode_media_uxp",
+      "surface": "uxp",
+      "modes": "preflight, jobs, wait, sequence, project_item, file",
+      "description": "Preflight, queue, or inspect and wait for conservatively correlated AME receipts inside the approved workspace. A terminal event is not output-file verification."
+    },
+    {
+      "name": "encode_project_item",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Request an Adobe Media Encoder encode for a project item. The returned job ID is an unverified handoff; verify queue presence or the output file independently."
+    },
+    {
+      "name": "enqueue_after_effects_render",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Queue exactly one previewed After Effects render with named host templates. Requires explicit confirmation; it saves the open project but never starts rendering or overwrites output."
+    },
+    {
+      "name": "evaluate_expression",
+      "surface": "restricted",
+      "modes": "Single operation",
+      "description": "Evaluate a simple ExtendScript expression and return its value. Use for quick queries like checking a property, getting a count, or reading state. The expression should be a single value/call — NOT a full script. Examples: - \"app.project.name\" → project name - \"app.project.activeSequence.name\" → active sequence name - \"app.project.rootItem.children.numItems\" → number of root items - \"app.project.activeSequence.videoTracks.numTracks\" → number of video tracks - \"app.version\" → Premiere Pro version"
+    },
+    {
+      "name": "execute_extendscript",
+      "surface": "restricted",
+      "modes": "Single operation",
+      "description": "Execute custom ExtendScript code in Premiere Pro. The code runs inside an IIFE with helper functions available. IMPORTANT: You MUST write ES3 syntax (var instead of let/const, no arrow functions, no template literals, no destructuring). Available helpers (auto-prepended): - __ticksToSeconds(ticks) / __secondsToTicks(seconds) — time conversion - __ticksToTimecode(ticks, fps) — timecode string - __findSequence(idOrName) — find sequence by name or ID - __findProjectItem(nodeIdOrName) — find project item recursively - __findClip(nodeId) — find clip in active sequence, returns {clip, trackIndex, clipIndex, trackType} - __getAllClips(seq) — get all clips in a sequence - __result(data) — return success with data (MUST call this or __error) - __error(msg) — return error message - TICKS_PER_SECOND — constant 254016000000 - app.enableQE() — enable QE DOM access Your code MUST end with: return __result({...}) or return __error(\"message\") Example: Set opacity to 50% on all video clips var seq = app.project.activeSequence; if (!seq) return __error(\"No active sequence\"); var count = 0; for (var t = 0; t < seq.videoTracks.numTracks; t++) { var track = seq.videoTracks[t]; for (var c = 0; c < track.clips.numItems; c++) { var clip = track.clips[c]; for (var i = 0; i < clip.components.numItems; i++) { var comp = clip.components[i]; if (comp.displayName === \"Opacity\") { for (var p = 0; p < comp.properties.numItems; p++) { if (comp.properties[p].displayName === \"Opacity\") { comp.properties[p].setValue(50, true); count++; } } } } } } return __result({updated: count});"
+    },
+    {
+      "name": "export_aaf",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Unavailable on the CEP backend. Use export_aaf_uxp with an authenticated Premiere 26.3+ UXP bridge."
+    },
+    {
+      "name": "export_aaf_uxp",
+      "surface": "uxp",
+      "modes": "Single operation",
+      "description": "Export the active sequence as AAF through Premiere 26.3+ UXP with bounded, typed AAF options. Premiere confirms the request, but arbitrary native output paths cannot be statted by the panel."
+    },
+    {
+      "name": "export_as_fcp_xml",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Export the active sequence as a Final Cut Pro XML file"
+    },
+    {
+      "name": "export_as_project",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Export a sequence as a standalone Premiere Pro project file"
+    },
+    {
+      "name": "export_frame",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Export the current frame as an image file"
+    },
+    {
+      "name": "export_frame_uxp",
+      "surface": "uxp",
+      "modes": "Single operation",
+      "description": "Export a sequence frame through Premiere's supported UXP Exporter and verify the output file in the host panel."
+    },
+    {
+      "name": "export_interchange_uxp",
+      "surface": "uxp",
+      "modes": "format: otio, fcpxml",
+      "description": "Export the active sequence as OpenTimelineIO or Final Cut Pro XML with explicit verification."
+    },
+    {
+      "name": "export_omf",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Export the active sequence as an OMF file (Open Media Framework, for audio post-production)"
+    },
+    {
+      "name": "export_sequence",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Export the active sequence using Adobe Media Encoder"
+    },
+    {
+      "name": "export_sequence_clip_review_frames",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Export one file-verified composite frame at the midpoint of each clip on a chosen video track in one bridge request. Read-only in Premiere; it does not mute tracks or claim visual quality."
+    },
+    {
+      "name": "export_sequence_marker_review_frames",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Export up to 24 file-verified composite frames at active-sequence marker positions in one bridge request for marker-driven review. It reads markers and writes image files only; it does not add, update, or remove Premiere markers."
+    },
+    {
+      "name": "export_sequence_review_frames",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Export 2-24 evenly spaced, file-verified frames from an active-sequence range in one bridge round trip for visual review. This samples rendered output; it does not prove playback, audio, or editorial quality."
+    },
+    {
+      "name": "extract_selection",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Extract (remove and close gap) the content between sequence in/out points."
+    },
+    {
+      "name": "find_items_by_media_path",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Find project items whose media path contains the given search string"
+    },
+    {
+      "name": "find_project_item_by_name",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Find a project item by name (searches recursively through bins)"
+    },
+    {
+      "name": "freeze_frame",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Create a freeze frame from a clip at a specific time. Exports the frame and imports it back as a still image."
+    },
+    {
+      "name": "generate_media_contact_sheet",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Generate a new, disk-verified PNG contact sheet from evenly sampled source frames. Refuses to overwrite an existing output and does not modify Premiere or the source."
+    },
+    {
+      "name": "get_active_sequence",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Get detailed information about the currently active sequence"
+    },
+    {
+      "name": "get_advanced_feature_support",
+      "surface": "default",
+      "modes": "backend: cep, uxp",
+      "description": "Report public-API support, prerequisites, entitlements, and user-assisted boundaries for Premiere collaboration and AI features"
+    },
+    {
+      "name": "get_all_project_paths",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Get all unique media file paths used in the project. Useful for asset management and archiving."
+    },
+    {
+      "name": "get_av_feature_support",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Report the documented automation boundary for advanced audio and modern color management, including actionable reasons for UI-only features."
+    },
+    {
+      "name": "get_bin_contents",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Get detailed contents of a specific bin (folder) including all nested items, media paths, offline status, color labels, and metadata. Searches by bin name or node ID."
+    },
+    {
+      "name": "get_bridge_telemetry",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Inspect privacy-preserving aggregate bridge health: pending command/response counts, busy operations, queue age, and CEP heartbeat state without returning project or personal data."
+    },
+    {
+      "name": "get_capabilities",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Discover Premiere operations and report backend coverage, authority, and verification requirements. Use tool_query with task keywords (for example transcript, captions, or review frames) for ranked, bounded matches available in this session. Use tool_names for exact lookups or tool_offset/tool_limit for paging. Discovery never grants authority or proves a live host is ready."
+    },
+    {
+      "name": "get_clip_adjustment_layer",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Check if a clip is an adjustment layer"
+    },
+    {
+      "name": "get_clip_at_playhead",
+      "surface": "default",
+      "modes": "track_type: video, audio, both",
+      "description": "Get all clips at the current playhead position across all tracks."
+    },
+    {
+      "name": "get_clip_at_position",
+      "surface": "default",
+      "modes": "track_type: video, audio",
+      "description": "Get the clip at a specific time position on a track"
+    },
+    {
+      "name": "get_clip_links",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Get information about linked clips (audio/video linked together) for a given clip."
+    },
+    {
+      "name": "get_clip_markers",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Get all markers on a specific project item (source clip markers, not sequence markers)."
+    },
+    {
+      "name": "get_clip_properties",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Get detailed properties of a specific clip by its node ID"
+    },
+    {
+      "name": "get_clip_speed",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Get the playback speed and reverse state of a clip"
+    },
+    {
+      "name": "get_clip_transcript_uxp",
+      "surface": "uxp",
+      "modes": "Single operation",
+      "description": "Export Premiere's native transcript JSON for one source media clip. Returns a revision hash that must be used when previewing transcript edits. This is read-only and does not run Speech-to-Text."
+    },
+    {
+      "name": "get_clip_volume",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Read an audio clip's Volume > Level in dB. Use this to verify a level actually applied - setValue() clamps silently. Does not report Essential Sound Amplify automation."
+    },
+    {
+      "name": "get_color_label",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Get the color label of a project item"
+    },
+    {
+      "name": "get_color_space",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Get the color space information for a project item"
+    },
+    {
+      "name": "get_duplicate_media",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Find project items that reference the same source media file. Useful for consolidation."
+    },
+    {
+      "name": "get_effect_properties",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "List all properties of a specific effect on a clip, including current values"
+    },
+    {
+      "name": "get_encoder_presets",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "List available Adobe Media Encoder export presets, with the .epr path of each so it can be passed to export_sequence or encode_project_item. Presets are discovered by scanning the .epr files Adobe ships on disk (Premiere's ExtendScript API exposes no preset enumeration)."
+    },
+    {
+      "name": "get_export_file_extension",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Get the file extension that would be used when exporting the active sequence with a given preset"
+    },
+    {
+      "name": "get_footage_interpretation",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Get footage interpretation settings for a project item"
+    },
+    {
+      "name": "get_full_clip_info",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Get exhaustive information about a specific clip: all effects with every property value, source media details, footage interpretation, metadata, markers, speed, enabled state, color label, linked clips, and proxy status."
+    },
+    {
+      "name": "get_full_project_overview",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Get a comprehensive overview of the project. Use include_bin_tree false or sequence_offset/sequence_limit for a bounded response on large projects."
+    },
+    {
+      "name": "get_full_sequence_info",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Get exhaustive information about a sequence: settings, all tracks with lock/mute/target state, all clips with positions/effects/speed/enabled state, all markers, transitions, in/out points, and work area."
+    },
+    {
+      "name": "get_graphics_white_luminance",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Get the graphics white luminance value (HDR setting) for the project"
+    },
+    {
+      "name": "get_insertion_bin",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Get the current target bin for new imports (the bin that is currently focused in the Project panel)"
+    },
+    {
+      "name": "get_item_info",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Get detailed type info about a project item (is it a sequence, multicam, merged clip, etc.)"
+    },
+    {
+      "name": "get_keyframes",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Get all keyframes for a specific effect property on a clip"
+    },
+    {
+      "name": "get_linked_items",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Get all clips in the sequence that are linked to the same source as a given clip"
+    },
+    {
+      "name": "get_metadata",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Get metadata for a project item. Disable either XML payload when a bounded identity/path response is sufficient."
+    },
+    {
+      "name": "get_mogrt_component",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Get MOGRT (Motion Graphics Template) component parameters from a clip"
+    },
+    {
+      "name": "get_next_edit_point",
+      "surface": "default",
+      "modes": "direction: next, previous; track_type: video, audio, both",
+      "description": "Find the next or previous edit point (clip boundary) from the playhead position."
+    },
+    {
+      "name": "get_offline_media",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Find all offline/missing media in the project with their expected file paths. Essential for diagnosing broken links."
+    },
+    {
+      "name": "get_playhead_position",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Get the current playhead (CTI) position in the active sequence"
+    },
+    {
+      "name": "get_premiere_state",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Get a comprehensive snapshot of the current Premiere Pro state: project info, active sequence, playhead position, selected clips, and available sequences. The best first call to understand the current context."
+    },
+    {
+      "name": "get_project_info",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Get information about the currently open Premiere Pro project"
+    },
+    {
+      "name": "get_project_item_info",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Get detailed information about a project item (media file in the project panel): media path, resolution, duration, frame rate, codec info, metadata, color label, offline status, in/out points, and proxy status."
+    },
+    {
+      "name": "get_project_panel_metadata",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Get the current project panel metadata/column configuration as XML"
+    },
+    {
+      "name": "get_project_scratch_disks",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Get the current scratch disk paths for the project."
+    },
+    {
+      "name": "get_qe_clip_info",
+      "surface": "default",
+      "modes": "track_type: video, audio",
+      "description": "Get QE DOM information about a clip, including properties not available through the standard API."
+    },
+    {
+      "name": "get_render_queue_status",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Report the Adobe Media Encoder queue running state, or fail closed with a named capability error when this Premiere build exposes no queue-status method on app.encoder."
+    },
+    {
+      "name": "get_selected_clips",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Get the currently selected clips in the active sequence"
+    },
+    {
+      "name": "get_sequence_count",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Get the total number of sequences in the project."
+    },
+    {
+      "name": "get_sequence_in_out_points",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Get the current sequence in and out points"
+    },
+    {
+      "name": "get_sequence_markers_by_type",
+      "surface": "default",
+      "modes": "marker_type: Comment, Chapter, Segmentation, WebLink, FlashCuePoint",
+      "description": "Get all markers of a specific type (comment, chapter, web link, etc.) from a sequence."
+    },
+    {
+      "name": "get_sequence_settings",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Get the settings (resolution, frame rate, etc.) of a sequence"
+    },
+    {
+      "name": "get_sequence_structure",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Get a complete structural overview of the active sequence: all tracks, all clips with positions, gaps, and clip metadata. Essential for understanding timeline state before making edits."
+    },
+    {
+      "name": "get_source_monitor_info",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Get information about the clip currently loaded in the Source Monitor."
+    },
+    {
+      "name": "get_source_monitor_position",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Get the current time indicator position in the Source Monitor"
+    },
+    {
+      "name": "get_target_tracks",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Get which tracks are currently targeted for editing."
+    },
+    {
+      "name": "get_timeline_gaps",
+      "surface": "default",
+      "modes": "track_type: video, audio, both",
+      "description": "Find all gaps (empty spaces) on the timeline between clips. Useful for identifying where content is missing or where clips can be tightened."
+    },
+    {
+      "name": "get_timeline_summary",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Get a human-readable summary of the timeline: total duration, clip count per track, total gaps, coverage percentage, used media files, effect usage, and marker overview. Great for a quick understanding of sequence state."
+    },
+    {
+      "name": "get_total_clip_count",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Get the total number of clips across all tracks in the active sequence."
+    },
+    {
+      "name": "get_track_info",
+      "surface": "default",
+      "modes": "track_type: video, audio",
+      "description": "Get detailed information about a specific track: name, clip count, muted, locked, targeted, and list of all clips."
+    },
+    {
+      "name": "get_transcript_languages_uxp",
+      "surface": "uxp",
+      "modes": "Single operation",
+      "description": "List transcription languages supported by the connected Premiere 26.3+ host."
+    },
+    {
+      "name": "get_unused_media",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Find all project items that are NOT used in any sequence. Useful for cleaning up projects."
+    },
+    {
+      "name": "get_used_media_report",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Get a report of all media files used in a sequence: which source files are used, how many times each appears, on which tracks, and whether any sources are offline."
+    },
+    {
+      "name": "get_uxp_capabilities",
+      "surface": "uxp",
+      "modes": "Single operation",
+      "description": "Report the authenticated local UXP bridge connection and the capabilities advertised by the connected Premiere host."
+    },
+    {
+      "name": "get_uxp_state",
+      "surface": "uxp",
+      "modes": "Single operation",
+      "description": "Read the active project, sequence, and playhead state through the connected Premiere UXP bridge."
+    },
+    {
+      "name": "get_uxp_workspace_access",
+      "surface": "uxp",
+      "modes": "Single operation",
+      "description": "Report whether the Premiere panel has an operator-approved persistent workspace folder. The native path and persistent token are never returned."
+    },
+    {
+      "name": "get_value_at_time",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Get the interpolated value of an effect property at a specific time"
+    },
+    {
+      "name": "get_version_info",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Get Premiere Pro version and build information."
+    },
+    {
+      "name": "get_work_area",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Get the current work area in and out points"
+    },
+    {
+      "name": "get_workspaces",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "List all available workspace layouts in Premiere Pro"
+    },
+    {
+      "name": "get_xmp_metadata",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Get the raw XMP metadata for a project item (includes EXIF, IPTC, Dublin Core, etc.)"
+    },
+    {
+      "name": "has_proxy",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Check if a project item has a proxy attached"
+    },
+    {
+      "name": "has_transcript_uxp",
+      "surface": "uxp",
+      "modes": "Single operation",
+      "description": "Check whether a source media clip has a transcript, preferring Premiere 26.3's documented native API when available."
+    },
+    {
+      "name": "import_ae_comps",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Import After Effects compositions from an .aep file, failing closed when the file does not exist or when the target bin gains no items."
+    },
+    {
+      "name": "import_edl",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Unavailable by design: CMX 3600 EDL import opens Premiere UI that can block the CEP bridge. No import is attempted; convert the EDL to FCP7 XML and use import_fcp_xml for unattended interchange."
+    },
+    {
+      "name": "import_fcp_xml",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Open a Final Cut Pro XML file as a new Premiere project. app.openFCPXML(path, projPath) requires a destination project path; it does not merge the XML into the currently open project."
+    },
+    {
+      "name": "import_folder",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Import an entire folder of media into the project"
+    },
+    {
+      "name": "import_image_sequence",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Import a numbered image sequence as a single video clip."
+    },
+    {
+      "name": "import_media",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Import media files into the project"
+    },
+    {
+      "name": "import_mogrt",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Import a Motion Graphics Template (.mogrt) file and add it to the timeline"
+    },
+    {
+      "name": "import_mogrt_from_library",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Import a MOGRT from a named Adobe Creative Cloud Library."
+    },
+    {
+      "name": "import_project_media_uxp",
+      "surface": "uxp",
+      "modes": "files, sequences, ae_comps, all_ae_comps",
+      "description": "Import workspace-contained media files, sequences, or After Effects compositions through documented Project APIs with post-state evidence."
+    },
+    {
+      "name": "import_sequences",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Import sequences from another Premiere Pro project file"
+    },
+    {
+      "name": "import_transcript_uxp",
+      "surface": "uxp",
+      "modes": "Single operation",
+      "description": "Replace one source media clip's native transcript JSON through documented Premiere 26.3+ UXP APIs. Use project_guid and transcript_revision returned by get_clip_transcript_uxp, or project_guid plus a null expected_transcript_revision from has_transcript_uxp for an untranscribed clip. This destructive import requires explicit confirmation and an operation_id, serializes competing imports for the same project item, runs one undoable transaction, and reports exact bounded export SHA-256 readback rather than claiming a licensed-host result."
+    },
+    {
+      "name": "insert_from_source",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Insert the clip from the Source Monitor at the playhead position (insert edit — shifts existing clips)."
+    },
+    {
+      "name": "inspect_after_effects_render_templates",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Read available render and output-module template names from the first existing After Effects render-queue item. It never queues or renders a composition."
+    },
+    {
+      "name": "inspect_after_effects_template_source",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Inspect a saved After Effects source composition for MOGRT-relevant dimensions, duration, text fonts, layer-source kinds, and Essential Graphics controller names when the host exposes the AE 16.1+ readback API. It never creates a composition or returns asset paths."
+    },
+    {
+      "name": "inspect_caption_tracks_uxp",
+      "surface": "uxp",
+      "modes": "Single operation",
+      "description": "Inventory native caption tracks on the active sequence through documented Premiere UXP APIs. Returns track identity, name, mute state, and item count only; it does not inspect cue text, timing, rendered appearance, or caption correctness."
+    },
+    {
+      "name": "inspect_cmx3600_edl",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Parse a local CMX 3600 EDL into bounded event, reel, track, transition, and timecode facts without importing it into Premiere."
+    },
+    {
+      "name": "inspect_dom_object",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Inspect a Premiere Pro DOM object and list its properties, methods, and values. Useful for exploring the API and debugging. Examples: - \"app.project\" → project properties - \"app.project.activeSequence\" → sequence properties - \"app.project.activeSequence.videoTracks[0].clips[0]\" → first clip on V1 - \"app.project.activeSequence.videoTracks[0].clips[0].components[0]\" → first component of a clip"
+    },
+    {
+      "name": "inspect_edit_readiness",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Audit the active sequence in one read-only bridge request for empty timelines, primary-track gaps, disabled clips, muted tracks, and excessive Motion scale. Structural diagnostics only; it cannot judge story, framing, sound, or final delivery."
+    },
+    {
+      "name": "inspect_effect_parameter_catalog_uxp",
+      "surface": "uxp",
+      "modes": "media_type: video, audio",
+      "description": "Inspect the bounded native descriptor catalog for one effect component on one active-sequence audio or video clip. The returned parameter index and display name can be used with existing parameter automation. It returns only animation capability/state, never raw parameter values (including Color or PointF), media paths, rendered pixels, or playback results. The bridge reads the complete catalog twice and rejects a changed project, active sequence, component identity, or parameter descriptor set."
+    },
+    {
+      "name": "inspect_fcpxml_interchange",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Inspect a local FCPXML document's root version, sequence/clip counts, bounded asset declarations, and text-only parser warnings before deliberate Premiere import."
+    },
+    {
+      "name": "inspect_film_editorial_workflow",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Validate a revision-bound film editorial manifest against captured source and timeline identities. Build complete declared coverage review groups, independent picture/audio preferences, screening-note exceptions, story dependencies, VFX state, change impact and a department turnover manifest. Local inspection only: no host edits, exports, automatic creative decisions or verified host claims."
+    },
+    {
+      "name": "inspect_frame_alignment_uxp",
+      "surface": "uxp",
+      "modes": "align, frame",
+      "description": "Use Premiere's documented native TickTime and FrameRate APIs to either align one bounded requested time down or to the nearest frame boundary, or construct the exact TickTime for one frame count. This is read-only, uses only caller-owned inputs, and returns native seconds and tick-string readback; it does not inspect a sequence, infer its frame rate, change Premiere, or prove a licensed host."
+    },
+    {
+      "name": "inspect_installed_mogrt_directory_uxp",
+      "surface": "uxp",
+      "modes": "Single operation",
+      "description": "Inspect whether Premiere exposes its documented installed MOGRT directory. The native path is redacted unless include_path is explicitly true. This tool never enumerates the directory, reads its files, imports a template, or changes Premiere; a returned path is not proof that templates are usable or compatible."
+    },
+    {
+      "name": "inspect_media_streams",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Inspect a local media file with ffprobe and return container, stream, codec, time-base, channel, and chapter metadata. Read-only and independent of Premiere."
+    },
+    {
+      "name": "inspect_mogrt_library",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "List bounded top-level template names and version directories in an existing workspace-contained local MOGRT library. It never reads MOGRT contents or changes the library."
+    },
+    {
+      "name": "inspect_premiere_environment_uxp",
+      "surface": "uxp",
+      "modes": "Single operation",
+      "description": "Inspect After Effects interoperability and the active Premiere project's current and supported graphics-white luminance values through documented read-only UXP APIs."
+    },
+    {
+      "name": "inspect_premiere_events_uxp",
+      "surface": "uxp",
+      "modes": "list, wait",
+      "description": "List or briefly wait for bounded, redacted Premiere host-event receipts without polling the complete project state. Compatible hosts can also emit timeline.snap.* receipts plus operation.clip.extend.reached and coalesced operation.effect.drag.over receipts for documented root notifications; raw event payloads are never returned."
+    },
+    {
+      "name": "inspect_project_insertion_bin_uxp",
+      "surface": "uxp",
+      "modes": "Single operation",
+      "description": "Read the current Project-panel insertion bin through documented Premiere UXP APIs. Returns only the active-project GUID and insertion-bin ID, name, and type; it does not traverse project folders, reveal media paths, or change Premiere. The panel target is read twice and the command rejects a project or target change while snapshotting."
+    },
+    {
+      "name": "inspect_project_item_av_metadata",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Inspect a project item's documented effective/original color space, LUT IDs, available color-space overrides, and audio channel shape."
+    },
+    {
+      "name": "inspect_project_panel_metadata_uxp",
+      "surface": "uxp",
+      "modes": "panel, item_columns",
+      "description": "Read bounded native Project-panel metadata: either the active project's panel schema or one media item's column metadata. This is read-only; it neither creates metadata schema fields nor writes Project-panel state."
+    },
+    {
+      "name": "inspect_project_recovery",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Read-only recovery inspection: diagnose the active project path and list adjacent Premiere Auto-Save project candidates without opening, copying, or restoring anything."
+    },
+    {
+      "name": "inspect_project_selection_uxp",
+      "surface": "uxp",
+      "modes": "views, selection",
+      "description": "List Premiere Project-panel views or inspect up to 256 selected project items without traversing the complete project tree."
+    },
+    {
+      "name": "inspect_project_tree_uxp",
+      "surface": "uxp",
+      "modes": "Single operation",
+      "description": "Read a bounded, depth-limited native Project-panel tree rooted at the active project. Returns stable IDs, names, types, parent IDs, bin state, and optional color-label indexes only; it never returns media paths, metadata, or rendered media."
+    },
+    {
+      "name": "inspect_project_uxp",
+      "surface": "uxp",
+      "modes": "Single operation",
+      "description": "Read a compact, revisioned project and sequence snapshot through documented Premiere UXP APIs."
+    },
+    {
+      "name": "inspect_sequence_av_settings",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Inspect documented audio, tone-mapping, linear-compositing, bit-depth, render-quality, and display settings for the active sequence."
+    },
+    {
+      "name": "inspect_sequence_review_report",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Build one read-only sequence handoff report with timeline structure, primary-track gaps, disabled clips, muted tracks, marker timing, and offline-source evidence. Media paths are never returned; marker comments require an explicit opt-in. It does not prove rendered pixels, audio quality, caption correctness, rights, or editorial approval."
+    },
+    {
+      "name": "inspect_sequence_structure_uxp",
+      "surface": "uxp",
+      "modes": "media_type: all, video, audio",
+      "description": "Read a bounded native UXP timeline structure for one sequence: selected video and/or audio tracks with clip timing and state. Opt in to source Project-item IDs only when needed, then optionally classify those sources as sequence, merged, multicam, or offline or return their documented broad content category (any, sequence, or media); a further opt-in returns only a nested source sequence GUID when that classification is exactly sequence. No Project-panel metadata, names, type codes, paths, nested timeline content, or traversal are read. track_counts contains only the requested media types, never a zero placeholder for an unqueried type. The response is capped at 64 tracks and 512 items, omits components, rendered pixels, audio analysis, and caption cues, and is not a locked cross-object snapshot or proof of playback or editorial correctness."
+    },
+    {
+      "name": "inspect_sequence_timing_by_guid_uxp",
+      "surface": "uxp",
+      "modes": "Single operation",
+      "description": "Read one known sequence's bounded native timing and backing Project-item identity, including a non-active sequence without activating it. It resolves the exact GUID through the documented Project API, requires a matching project/sequence identity after the asynchronous reads, and rejects any timing change between complete first and final snapshots. It does not modify Premiere, prove an atomic host snapshot, or validate a licensed host."
+    },
+    {
+      "name": "inspect_sequence_timing_uxp",
+      "surface": "uxp",
+      "modes": "Single operation",
+      "description": "Read the active sequence's native frame size, timebase, audio/video time-display codes, and backing Project-item identity. The command rejects malformed host values or a final active-sequence mismatch; it does not modify Premiere, claim a locked snapshot, or detect a transient switch that returns to the same active sequence."
+    },
+    {
+      "name": "inspect_source_media_provenance_uxp",
+      "surface": "uxp",
+      "modes": "Single operation",
+      "description": "Read selected documented source-media provenance paths for one explicit media-backed Project item. At least one explicit include flag is required before either native path is queried or returned. The command resolves the requested item through a bounded Project-item tree twice and rejects a changed project, target item, or requested path; it does not enumerate folders in its response, access the filesystem, inspect media contents or metadata, validate a path's existence, modify Premiere, prove an atomic snapshot, origin lineage, rights, persistence, or licensed-host behavior."
+    },
+    {
+      "name": "inspect_source_proxy_uxp",
+      "surface": "uxp",
+      "modes": "Single operation",
+      "description": "Read documented proxy-readiness state for one explicit media-backed Project item. Proxy attachment state, offline state, and native capability booleans are read twice through a bounded Project-item tree; a native proxy path is queried and returned only when include_proxy_path is true and a proxy is reported attached. The command rejects changed project, target, or selected proxy state. It does not enumerate folders in its response, does not access the filesystem, validate a path's existence, inspect media contents, attach or relink proxy media, modify Premiere, prove an atomic snapshot, proxy compatibility, playback, persistence, Undo, or licensed-host behavior."
+    },
+    {
+      "name": "inspect_stabilizer_status",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Read Warp Stabilizer presence, exposed status properties, and conservative analysis state for one clip or every video clip in the active sequence. Read-only: unknown or localized host values remain unknown rather than being reported as solved."
+    },
+    {
+      "name": "inspect_track_item_identity_uxp",
+      "surface": "uxp",
+      "modes": "media_type: video, audio",
+      "description": "Inspect one active-sequence clip's native match name, item type, media UUID, reported track index, and selection state through documented UXP APIs. It rechecks the active sequence identity before returning and does not expose media paths, effect parameters, or rendered output."
+    },
+    {
+      "name": "inspect_unique_object_identity_uxp",
+      "surface": "uxp",
+      "modes": "Single operation",
+      "description": "Read the opaque documented Premiere unique serializable identity for exactly one existing project item or sequence, without changing the project. Select exactly one locator. The bridge independently resolves and reads the target twice, rejecting an active-project, locator, or unique-identity change rather than returning a mixed snapshot. It does not expose paths, metadata, content, timeline placement, editability, rendering, playback, persistence guarantees, or a licensed-host result."
+    },
+    {
+      "name": "inspect_video_transition_uxp",
+      "surface": "uxp",
+      "modes": "position: start, end",
+      "description": "Read one bounded native video-transition target, including the active sequence GUID, source item ID, timeline edges, and presence at one requested edge. Copy this snapshot unchanged into add_video_transition_uxp or remove_video_transition_uxp."
+    },
+    {
+      "name": "invert_selection",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Invert the current clip selection in the active sequence (selected become deselected and vice versa)."
+    },
+    {
+      "name": "is_work_area_enabled",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Check whether the work area bar is enabled on the active sequence"
+    },
+    {
+      "name": "lift_selection",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Lift (remove without closing gap) the content between sequence in/out points or selected clips."
+    },
+    {
+      "name": "lift_selection_uxp",
+      "surface": "uxp",
+      "modes": "Single operation",
+      "description": "Lift the current timeline selection through Premiere's documented UXP SequenceEditor. This removes selected items without ripple in one undoable transaction; transaction acceptance is not a timeline readback."
+    },
+    {
+      "name": "link_selection",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Link the currently selected video and audio clips in the active sequence"
+    },
+    {
+      "name": "list_available_audio_effects",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "List all available audio effects in Premiere Pro. Uses QE DOM."
+    },
+    {
+      "name": "list_available_audio_transitions",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "List all available audio transitions. Uses QE DOM and reports an unavailable or empty legacy catalog as an error rather than an assumed usable list."
+    },
+    {
+      "name": "list_available_effects",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "List available video effects in Premiere Pro. Uses the full QE catalog when exposed; otherwise returns a verified, explicitly partial set of common effects resolved by exact name."
+    },
+    {
+      "name": "list_available_transitions",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "List all available video transitions. Uses QE DOM. Returns a hint set on PPro 2026 where the transition registry list is empty even though by-name lookup works."
+    },
+    {
+      "name": "list_clip_effects",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "List all effects/components on a clip with their properties and current values. Essential for debugging effect issues."
+    },
+    {
+      "name": "list_markers",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "List all markers on the active sequence or a specific clip"
+    },
+    {
+      "name": "list_markers_uxp",
+      "surface": "uxp",
+      "modes": "scope: sequence, project_item",
+      "description": "List Premiere markers with stable 26.3+ GUIDs from the active sequence or one source media clip. Web-link URLs/frame targets and raw marker RGBA components are returned only with explicit opt-in; URLs can contain sensitive query data, and color components are host values without a color-profile or rendered-appearance claim."
+    },
+    {
+      "name": "list_project_items",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "List all items in the project panel (clips, bins, sequences)"
+    },
+    {
+      "name": "list_sequence_tracks",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "List all tracks (video and audio) in a sequence"
+    },
+    {
+      "name": "list_sequences",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "List all sequences in the project"
+    },
+    {
+      "name": "list_video_transitions_uxp",
+      "surface": "uxp",
+      "modes": "Single operation",
+      "description": "List the installed native video-transition match names from the connected Premiere UXP host."
+    },
+    {
+      "name": "lock_track",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Lock or unlock a video track"
+    },
+    {
+      "name": "maintain_media_health_uxp",
+      "surface": "uxp",
+      "modes": "inspect, refresh, set_offline, find_by_media_path",
+      "description": "Inspect up to 64 source media items, refresh them serially, transactionally set them offline, or find project items matching an approved media path. Native paths are redacted unless explicitly requested; opt-in media timing is read-only, bounded, and runtime-compatible."
+    },
+    {
+      "name": "make_split_edit_uxp",
+      "surface": "uxp",
+      "modes": "kind: j_cut, l_cut",
+      "description": "Create an undoable J-cut or L-cut by extending one aligned 1x audio item while preserving source sync, with atomic UXP actions and edge/source readback."
+    },
+    {
+      "name": "manage_app_preferences_uxp",
+      "surface": "uxp",
+      "modes": "inspect, set",
+      "description": "Inspect or explicitly set one of Premiere's three documented AppPreference keys. Setting is a direct, non-undoable application-state change: copy the native string returned by inspect, choose persistence deliberately, confirm the change, and provide an operation_id for replay-safe dispatch. Competing writes to the same named preference serialize and are read back exactly."
+    },
+    {
+      "name": "manage_clip_effects_uxp",
+      "surface": "uxp",
+      "modes": "catalog, inspect, add, remove",
+      "description": "List native audio/video effects, inspect one clip's component chain, or add/remove one effect in a locked Premiere UXP transaction."
+    },
+    {
+      "name": "manage_color_conformance_uxp",
+      "surface": "uxp",
+      "modes": "preflight, update",
+      "description": "Preflight project graphics-white/LUT/footage interpretation state, or update bounded footage-conformance fields in one undoable UXP transaction."
+    },
+    {
+      "name": "manage_growing_media_uxp",
+      "surface": "uxp",
+      "modes": "status, pause, resume",
+      "description": "Inspect, pause under a bounded lease, or resume Premiere growing-media swaps. Pause expires within ten minutes and is resumed on ordinary panel or bridge shutdown; status is panel-local and never claims a host readback."
+    },
+    {
+      "name": "manage_markers_uxp",
+      "surface": "uxp",
+      "modes": "inspect, add, update, remove, remove_many",
+      "description": "Inspect, add, update/move, remove, or explicitly review-then-remove a bounded marker batch by stable GUID using documented, undoable Premiere actions; mutations for one marker owner are serialized through preflight and readback."
+    },
+    {
+      "name": "manage_media_watch",
+      "surface": "default",
+      "modes": "start, status, scan, stop",
+      "description": "Start, inspect, rescan, or stop one session-scoped local media-folder monitor. It records bounded file-change signals and never imports media automatically."
+    },
+    {
+      "name": "manage_metadata_uxp",
+      "surface": "uxp",
+      "modes": "get, update",
+      "description": "Read bounded project/XMP metadata or update either form together in one locked, undoable Premiere transaction with readback evidence."
+    },
+    {
+      "name": "manage_project_context",
+      "surface": "default",
+      "modes": "capture, enrich, import_evidence, status, clear",
+      "description": "Capture, enrich, import revision-bound editorial evidence, inspect, or clear a durable local Premiere project-context index. Capture stores bounded active-sequence/source metadata; local enrichment and evidence import add caller-approved transcripts, speaker labels, shots, audio observations, notes, or opaque frame references without re-analyzing media. Never include secrets or unrelated customer data."
+    },
+    {
+      "name": "manage_project_panel_metadata_uxp",
+      "surface": "uxp",
+      "modes": "inspect, update",
+      "description": "Inspect or guardedly replace native Project-panel metadata. Update requires the exact inspected project GUID and XML, explicit confirmation, a replay key, local per-project serialization, and exact native readback; Premiere does not expose an atomic compare-and-set for this direct non-undoable setter."
+    },
+    {
+      "name": "manage_project_sessions_uxp",
+      "surface": "uxp",
+      "modes": "list, validate, create, open, save, save_as, branch_copies, close",
+      "description": "List or explicitly create, open, save, branch, and close Premiere project sessions. Path writes stay inside the approved UXP workspace; Save As handle changes are read back and branch copies reopen the source after every copy."
+    },
+    {
+      "name": "manage_proxies",
+      "surface": "default",
+      "modes": "create, attach, toggle",
+      "description": "Create, attach, or toggle proxies for a project item. Note: 'create' only requests a proxy encode from Adobe Media Encoder and returns an unverified handoff. Independently verify the AME queue or output file before calling this tool again with action 'attach' and proxy_path set to the output_path you passed here. There is no single-call create-and-attach in Premiere's ExtendScript API."
+    },
+    {
+      "name": "manage_proxy_ingest_uxp",
+      "surface": "uxp",
+      "modes": "inspect_proxy, attach_proxy, get_ingest, set_ingest",
+      "description": "Inspect or attach proxy/high-resolution media for one clip, or read/update project ingest state. Attach operations are non-undoable and workspace-contained."
+    },
+    {
+      "name": "manage_sequence_display_format_uxp",
+      "surface": "uxp",
+      "modes": "inspect, update",
+      "description": "Inspect or update a sequence's native audio/video time-display formats. Updates require the exact inspected sequence GUID and complete display-format snapshot, serialize competing updates per sequence, commit one undoable UXP transaction, and verify native readback. Cancellation is not supported after dispatch."
+    },
+    {
+      "name": "manage_sequence_playhead_uxp",
+      "surface": "uxp",
+      "modes": "inspect, set",
+      "description": "Inspect or set the active sequence player position through documented Premiere UXP APIs. Setting requires the sequence GUID and current position returned by inspect, serializes competing requests for that sequence, and verifies native readback; it changes player state only and makes no project-save or Undo claim."
+    },
+    {
+      "name": "manage_sequence_preview_frame_uxp",
+      "surface": "uxp",
+      "modes": "inspect, update",
+      "description": "Inspect or set one explicit sequence's documented preview-frame rectangle. Update requires the complete inspected snapshot, explicit confirmation, and an operation ID; it serializes preview-frame updates by reviewed project and sequence, commits one undoable settings transaction, then reads the same sequence back. It does not set sequence video dimensions, alter media or exports, prove rendered preview output, persistence, Undo behavior, or coordinate with Premiere UI or other extensions between native calls."
+    },
+    {
+      "name": "manage_sequence_range_uxp",
+      "surface": "uxp",
+      "modes": "inspect, update",
+      "description": "Inspect or update the active sequence's in, out, and zero points through documented Premiere UXP actions. Updates require the complete inspect snapshot, run in one undoable transaction, and return native readback; a runtime capability probe remains authoritative."
+    },
+    {
+      "name": "manage_sequence_settings_uxp",
+      "surface": "uxp",
+      "modes": "get, update",
+      "description": "Inspect sequence settings or apply a bounded settings profile in one documented, undoable UXP transaction with readback."
+    },
+    {
+      "name": "manage_sequences_uxp",
+      "surface": "uxp",
+      "modes": "inspect, create_from_media, clone, subsequence, activate, open, close, delete",
+      "description": "Inspect, create-from-media, clone, derive, activate, open, close, or explicitly delete sequences through documented stable UXP APIs. Each action accepts only its own parameters: inspect takes none and lists every sequence; clone/subsequence/activate/open/close/delete take sequence_id; create_from_media takes name and project_item_ids."
+    },
+    {
+      "name": "manage_source_clip_uxp",
+      "surface": "uxp",
+      "modes": "inspect, update",
+      "description": "Inspect or transactionally update source-clip in/out points and request scale-to-frame for up to 64 media items. In/out values are read back; Adobe exposes no getter for clear or scale state, so those requests remain committed-unverified."
+    },
+    {
+      "name": "manage_source_media_overrides_uxp",
+      "surface": "uxp",
+      "modes": "inspect, update",
+      "description": "Inspect or transactionally set one source media item's explicit frame-rate and/or pixel-aspect-ratio override through stable Premiere 26.3 UXP actions. Updates require the complete effective-interpretation snapshot, explicit confirmation, an operation_id, per-item serialization, one undoable transaction, and native effective-value readback. Premiere does not expose an override-presence getter, so this tool cannot clear or distinguish an explicit override from matching file-native interpretation."
+    },
+    {
+      "name": "manage_source_media_timing_uxp",
+      "surface": "uxp",
+      "modes": "inspect, set_start",
+      "description": "Inspect or transactionally set one source media item's timecode start through stable Premiere 26.3 UXP APIs. Setting requires the exact bounded timing snapshot, explicit confirmation, one undoable transaction, per-item serialization, and native readback."
+    },
+    {
+      "name": "manage_timeline_selection_uxp",
+      "surface": "uxp",
+      "modes": "inspect, inspect_targets, replace, add, remove, clear",
+      "description": "Inspect, replace, add to, remove from, or clear the active sequence's native UXP clip selection with sequence and clip fingerprint stale-state guards."
+    },
+    {
+      "name": "manage_timeline_source_label_uxp",
+      "surface": "uxp",
+      "modes": "inspect, update",
+      "description": "Inspect or set the documented source Project-item color label resolved from one active audio or video timeline coordinate. Update requires the complete reviewed snapshot, explicit confirmation, and an operation ID; it serializes color-label changes by source item, commits one undoable transaction, then re-reads the coordinate and source label. A source label is project-global: another use of the same source can reflect the change. It does not label a timeline-only instance, change clip timing, prove rendered appearance, playback, persistence, or Undo behavior."
+    },
+    {
+      "name": "manage_track_state_uxp",
+      "surface": "uxp",
+      "modes": "inspect, set_mute",
+      "description": "Inspect audio, video, and caption track mute state or set one media type serially with stale-state preflight and per-track readback. Adobe exposes this as direct promises, so no undo transaction is claimed."
+    },
+    {
+      "name": "manage_workflow_checkpoints_uxp",
+      "surface": "uxp",
+      "modes": "has, get, set, clear",
+      "description": "Read or transactionally write small, namespaced workflow checkpoints on the active project or a targeted sequence. Persistent values may sync with cloud projects; never store secrets, native paths, transcripts, or media names."
+    },
+    {
+      "name": "match_frame",
+      "surface": "default",
+      "modes": "track_type: video, audio",
+      "description": "Get source media info for the frame at the current playhead on a specific track. Useful for match frame operations."
+    },
+    {
+      "name": "move_clip",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Move a clip to a new position on the timeline"
+    },
+    {
+      "name": "move_clip_to_track",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Move a clip to a different track. Uses QE DOM."
+    },
+    {
+      "name": "move_item_to_bin",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Move a project item to a different bin"
+    },
+    {
+      "name": "move_items_to_bin",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Move multiple project items to a target bin at once."
+    },
+    {
+      "name": "move_playhead_to_edit",
+      "surface": "default",
+      "modes": "direction: next, previous",
+      "description": "Move the playhead to the next or previous edit point."
+    },
+    {
+      "name": "multiple_undo",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Unavailable: Premiere exposes no supported, observable undo-stack API for multiple scripted undo steps."
+    },
+    {
+      "name": "mute_track",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Mute or unmute an audio track"
+    },
+    {
+      "name": "nest_clips",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Unavailable on the legacy CEP backend: Premiere's documented createSubsequence API only creates a separate sequence and cannot safely replace the selected timeline clips with a nested-sequence reference."
+    },
+    {
+      "name": "normalize_loudness_file",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Create a new loudness-normalized media derivative with FFmpeg, then remeasure that exact output using EBU R128. Never overwrites the input or an existing output file."
+    },
+    {
+      "name": "open_in_source",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Open a project item in the Source Monitor for preview and trimming."
+    },
+    {
+      "name": "open_project",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Open a Premiere Pro project file"
+    },
+    {
+      "name": "organize_project_items_uxp",
+      "surface": "uxp",
+      "modes": "inspect_bin, create_bin, create_smart_bin, rename, move, set_color, remove",
+      "description": "Inspect a bin or transactionally create, rename, move, color-label, and remove project items with stable-ID guards."
+    },
+    {
+      "name": "overwrite_clip",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Overwrite a project item onto validated timeline tracks and verify a new source placement at the requested time"
+    },
+    {
+      "name": "overwrite_from_source",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Overwrite the clip from the Source Monitor at the playhead position (overwrite edit — replaces existing clips)."
+    },
+    {
+      "name": "ping",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Health check — verify the CEP plugin is running and connected to Premiere Pro. Call this before other tools to confirm connectivity."
+    },
+    {
+      "name": "plan_active_speaker_reframe",
+      "surface": "default",
+      "modes": "layout: active_speaker, stacked, split_left_right, auto",
+      "description": "Plan an active-speaker vertical reframe (Motion Scale/Position keyframes that follow whoever is talking) or a static stacked/split layout from a word timeline and static speaker regions. Returns framings, switches, keyframes, and apply routes. Local-only; never changes Premiere."
+    },
+    {
+      "name": "plan_beat_montage",
+      "surface": "default",
+      "modes": "order: as_given, priority, round_robin",
+      "description": "Plan a beat-synced montage: carve a detect_beats grid into shots every N beats (merging short and splitting long spans), assign clips in order, and emit add_to_timeline_batch chunks, trim ranges, and cut markers. Local-only and deterministic; never changes Premiere."
+    },
+    {
+      "name": "plan_chapter_markers",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Plan YouTube-style chapters from a word-timed transcript using local TextTiling-lite topic-shift detection, titling each chapter from its distinctive tokens. Returns chapters, a youtube_timestamps block and add_marker-ready Chapter markers. Local-only plan; never changes Premiere."
+    },
+    {
+      "name": "plan_cross_app_workflow",
+      "surface": "default",
+      "modes": "workflow: ae_mogrt_to_premiere, ae_render_to_premiere",
+      "description": "Plan an After Effects MOGRT or rendered-file handoff to Premiere using existing tools. Returns ordered dependencies, separate approvals, required evidence, and manual render stops. Local-only planning; never executes steps, issues approval tokens, or claims host readiness."
+    },
+    {
+      "name": "plan_emphasis_zoom_keyframes",
+      "surface": "default",
+      "modes": "trigger: sentence_start, emphasis_words, every_n_seconds, supplied",
+      "description": "Plan CapCut-style punch-in zoom keyframes (Motion Scale + subject-anchored Position) from a word timeline or supplied trigger times, with cooldown, easing, and hold controls. Local-only and deterministic; returns a keyframe plan for automate_effect_parameters_uxp or add_keyframe and never changes Premiere."
+    },
+    {
+      "name": "plan_filler_word_removal",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Plan word-level filler removal (um, uh, you know...) from a revision-bound word timeline. Returns frame-snapped removal and keep ranges plus apply routes. Local-only; never changes Premiere."
+    },
+    {
+      "name": "plan_pause_tightening",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Plan shortening (not deleting) of inter-word pauses longer than max_pause_seconds down to a target, respecting sentence boundaries. Returns centered removal ranges, keep ranges, savings and apply routes. Local-only; never changes Premiere."
+    },
+    {
+      "name": "plan_platform_delivery_matrix",
+      "surface": "default",
+      "modes": "strategy: auto_reframe, pad_blur, center_crop, letterbox",
+      "description": "Plan multi-ratio delivery of one source sequence to TikTok, Reels, Shorts, YouTube, LinkedIn, X, and Facebook from a local spec table: sequence settings, reframe scale math, duration and file-size fit, caption safe zones, and ordered apply routes. Local-only; never changes Premiere."
+    },
+    {
+      "name": "plan_shot_match",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Compare two bounded local-media frame samples and return measured waveform/parade/saturation deltas plus coarse correction directions. Read-only planning only; it does not grade Premiere or claim that primaries alone can match the shots."
+    },
+    {
+      "name": "plan_silence_review_markers",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Create a bounded, non-mutating review plan that maps FFmpeg-detected source-media silences onto one known 1x timeline placement. It clips candidates to the supplied source in/out span, redacts the source path, and never adds markers, cuts clips, or changes Premiere."
+    },
+    {
+      "name": "plan_speaker_checkerboard",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Plan a speaker checkerboard (each speaker's turns on their own video/audio track) from a caller-supplied word timeline. Returns frame-snapped segments, split points, track assignments, and the add_track/razor_all_tracks/move_clip_to_track routes. Local-only; never changes Premiere."
+    },
+    {
+      "name": "plan_transcript_rough_cut_uxp",
+      "surface": "uxp",
+      "modes": "Single operation",
+      "description": "Build a revision-locked, non-mutating rough-cut plan from Premiere's native transcript and verified 1x sequence placements. The plan orders cuts from the end of the timeline, requires a duplicate sequence, and requires re-query after every mutation."
+    },
+    {
+      "name": "plan_word_mute_ranges",
+      "surface": "default",
+      "modes": "mode: mute, bleep",
+      "description": "Plan mute or bleep ranges for listed words/phrases in a word timeline. Returns redacted, frame-snapped mute ranges, ready-to-apply audio keyframes and (for bleep) tone placements. Local-only; never changes Premiere."
+    },
+    {
+      "name": "play_source_monitor",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Request playback of the clip in the Source Monitor. The legacy API does not provide a same-call position readback, so movement is not reported as verified."
+    },
+    {
+      "name": "play_timeline",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Request playback of the active sequence timeline through QE. The legacy API does not provide a same-call playhead readback, so movement is not reported as verified."
+    },
+    {
+      "name": "preflight_production_storage_uxp",
+      "surface": "uxp",
+      "modes": "preflight, configure_project",
+      "description": "Inspect project/Production scratch disks and ingest state, or set supported project scratch categories to Premiere's symbolic destinations in one undoable transaction."
+    },
+    {
+      "name": "preview_after_effects_render",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Preview a bounded queue-only After Effects render request for one named composition and existing workspace output directory. It does not contact Adobe, enqueue, or render."
+    },
+    {
+      "name": "preview_after_effects_render_handoff",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Preview import of one completed After Effects single-file render into an existing Premiere bin. Reads both connected hosts and binds approval to file metadata and project/bin identity. Does not render, import, or edit a timeline."
+    },
+    {
+      "name": "preview_brand_spot",
+      "surface": "default",
+      "modes": "motion_style: none, push_in, pull_out, alternate",
+      "description": "Preview a brand-spot assembly from existing project items with an optional workspace-contained MOGRT overlay. Preview is local-only; it does not read or import the MOGRT file."
+    },
+    {
+      "name": "preview_derived_dialogue_sequence_uxp",
+      "surface": "uxp",
+      "modes": "mode: talking_head, podcast",
+      "description": "Validate transcript revisions and preview a talking-head or speaker-reviewed podcast derivative. It creates nothing and returns an exact confirmation token."
+    },
+    {
+      "name": "preview_edit_plan",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Validate and preview a compound timeline edit without changing Premiere. Returns a confirmation token required by apply_edit_plan."
+    },
+    {
+      "name": "preview_editorial_plan",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Revalidate an exact server-issued editorial plan against the saved project-context revisions and return an opaque confirmation token. This tool is read-only and cannot apply the plan."
+    },
+    {
+      "name": "preview_mogrt_batch",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Preview up to 20 bounded MOGRT recipe exports from a workspace-contained JSON or CSV data file. It does not contact Adobe or create any compositions or files."
+    },
+    {
+      "name": "preview_mogrt_library_publish",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Preview a no-overwrite publish of a validated MOGRT into a workspace-contained, versioned local library. The library root must already exist; no file or directory is created during preview."
+    },
+    {
+      "name": "preview_mogrt_premiere_handoff",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Preview a contained MOGRT import into one explicitly named disposable Premiere verification sequence and empty video track. It does not contact Premiere or alter a sequence."
+    },
+    {
+      "name": "preview_mogrt_recipe",
+      "surface": "default",
+      "modes": "recipe: lower_third, title_card, callout, quote_card, social_end_card; frame_rate: 23.976, 24, 25, 29.97, 30, 50, 59.94, 60",
+      "description": "Preview a bounded After Effects MOGRT recipe from the supported title, callout, quote, and social template library. It validates one existing workspace output directory but does not contact Adobe or write any files."
+    },
+    {
+      "name": "preview_motion_graphics_demo",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Preview a contained motion-graphics demo assembly from existing project items. It never creates demo assets, imports files, creates a sequence, or changes Premiere; apply requires an exact confirmation token."
+    },
+    {
+      "name": "preview_product_spot",
+      "surface": "default",
+      "modes": "motion_style: none, push_in, pull_out, alternate",
+      "description": "Preview a product-spot assembly from existing project items. The eventual apply is limited to explicit empty tracks, revalidates item IDs, and reports host readback without claiming visual delivery verification."
+    },
+    {
+      "name": "preview_project_intake",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Inspect a bounded Premiere project against an explicit facility intake template and return a path-redacted report plus a non-mutating organization proposal. It never changes Premiere or persists the template."
+    },
+    {
+      "name": "preview_transcript_edit_uxp",
+      "surface": "uxp",
+      "modes": "Single operation",
+      "description": "Validate and merge source-time ranges selected from Premiere's native transcript. Returns a confirmation token and never changes the timeline. Automatic timeline application remains withheld until the source-to-sequence mapping is live-host verified."
+    },
+    {
+      "name": "preview_watched_media_import",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Compare the active watch baseline with a fresh contained scan and return a path-redacted import proposal. It never imports or changes Premiere."
+    },
+    {
+      "name": "preview_workflow_recipe",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Validate and expand one declarative workflow recipe into guarded MCP routes. It does not invoke any route or change Premiere."
+    },
+    {
+      "name": "publish_mogrt_to_library",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Publish the exact previewed MOGRT as an immutable local-library version. Requires explicit confirmation and will fail instead of replacing an existing version."
+    },
+    {
+      "name": "rank_short_form_candidates",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Rank long-video transcript windows as short-form clip candidates using explainable local heuristics (hook, completeness, density, supplied evidence peaks, keywords, duration fit, speaker consistency) with overlap suppression. Local-only plan; not a virality prediction and never changes Premiere."
+    },
+    {
+      "name": "razor_all_tracks",
+      "surface": "default",
+      "modes": "track_type: video, audio, both",
+      "description": "Razor (split) all clips at the playhead position across all tracks, or at a specific time."
+    },
+    {
+      "name": "read_sequence_captions",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Diagnose whether the active Premiere scripting host can enumerate caption tracks. It never treats an empty result as proof that the sequence has no captions, because most CEP builds expose caption creation but not caption reads."
+    },
+    {
+      "name": "read_video_scopes",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Read waveform percentiles, RGB parade percentiles, saturation, and near-black/near-white RGB occupancy from one bounded decoded local-media frame. Read-only; this is a sampled analytical proxy, not Premiere's rendered scopes."
+    },
+    {
+      "name": "redo",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Unavailable: Premiere exposes no supported, observable redo-stack API, so a scripted redo cannot be performed or verified."
+    },
+    {
+      "name": "refresh_media",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Refresh a project item to pick up changes to the source file"
+    },
+    {
+      "name": "relink_media",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Relink an offline media item to a new file path"
+    },
+    {
+      "name": "relink_offline_media_uxp",
+      "surface": "uxp",
+      "modes": "Single operation",
+      "description": "Relink one offline clip to a workspace-contained media path after stale-path and capability checks. This Premiere API is non-undoable and requires explicit confirmation."
+    },
+    {
+      "name": "remove_all_effects",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Remove ALL effects from a clip. Uses QE DOM."
+    },
+    {
+      "name": "remove_effect",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Remove an effect from a clip by its index or name. Returns a capability error when the host cannot remove an individual component."
+    },
+    {
+      "name": "remove_effect_by_name",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Remove all instances of a specific effect from a clip by display name. Returns a capability error when the host cannot remove individual components."
+    },
+    {
+      "name": "remove_from_timeline",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Remove a clip from the timeline"
+    },
+    {
+      "name": "remove_keyframe",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Remove a keyframe at a specific time from an effect property"
+    },
+    {
+      "name": "remove_keyframe_range",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Remove all keyframes in a time range from an effect property"
+    },
+    {
+      "name": "remove_selected_clips",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Remove all currently selected clips from the timeline."
+    },
+    {
+      "name": "remove_video_transition_uxp",
+      "surface": "uxp",
+      "modes": "position: start, end",
+      "description": "Remove one unchanged native video-transition edge through one undoable UXP transaction. Requires an exact inspect snapshot, serializes transition updates per sequence, and reads edge absence back; it does not prove rendered appearance or playback."
+    },
+    {
+      "name": "rename_bin",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Rename a bin (folder) in the project panel"
+    },
+    {
+      "name": "rename_clip",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Rename a clip on the timeline. Uses QE DOM."
+    },
+    {
+      "name": "rename_project_item",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Rename a project item in the project panel."
+    },
+    {
+      "name": "rename_track",
+      "surface": "default",
+      "modes": "track_type: video, audio",
+      "description": "Rename a video or audio track."
+    },
+    {
+      "name": "rename_track_uxp",
+      "surface": "uxp",
+      "modes": "track_type: audio, video, caption",
+      "description": "Rename an audio, video, or caption track through Premiere 26.3+ UXP in an undoable transaction with name readback verification."
+    },
+    {
+      "name": "replace_clip",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Replace a clip on the timeline with a different project item, preserving position and duration"
+    },
+    {
+      "name": "replace_clip_media",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Unavailable by design: the legacy ExtendScript overwrite route cannot prove that replacing media preserves the original clip's trim, position, linked audio, or adjacent clips, so this tool performs no mutation."
+    },
+    {
+      "name": "reverse_clip",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Unavailable: Premiere does not expose a supported scripting API for reversing a timeline clip's playback direction."
+    },
+    {
+      "name": "ripple_delete",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Ripple delete a clip (removes clip and closes the gap). Uses QE DOM."
+    },
+    {
+      "name": "ripple_delete_track_item_uxp",
+      "surface": "uxp",
+      "modes": "inspect, apply",
+      "description": "Inspect or perform one guarded ripple delete on an audio or video timeline item using documented UXP SequenceEditor actions. Apply requires complete target and contiguous-successor snapshots, explicit confirmation, and an operation ID; it serializes with guarded slips, slides, and append duplicates on that track, commits one transaction, and reads back the successor at the removed coordinate. It intentionally cannot ripple a final item, a gap, another track, or a linked A/V pair. It does not prove media handles, linked A/V synchronization, rendered frames, playback, persistence, or Undo behavior."
+    },
+    {
+      "name": "roll_edit",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Perform a verified roll edit at the outgoing cut of a clip using the public timeline DOM, moving both visible edges and their source in/out points and verifying all four."
+    },
+    {
+      "name": "save_project",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Save the current Premiere Pro project"
+    },
+    {
+      "name": "save_project_as",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Save the current project to a new location"
+    },
+    {
+      "name": "save_project_uxp",
+      "surface": "uxp",
+      "modes": "Single operation",
+      "description": "Save the active project through UXP and require Premiere to confirm success."
+    },
+    {
+      "name": "scene_edit_detection",
+      "surface": "default",
+      "modes": "CreateMarkers, ApplyCuts",
+      "description": "Perform scene edit detection on the selected clips in the active sequence. Defaults to creating markers rather than cutting."
+    },
+    {
+      "name": "search_clip_transcript_uxp",
+      "surface": "uxp",
+      "modes": "Single operation",
+      "description": "Search Premiere's native transcript JSON without modifying the clip or timeline."
+    },
+    {
+      "name": "search_project_context",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Search a durable Premiere project-context index for relevant sources, timeline placements, transcript passages, shots, audio observations, and notes. Returns bounded evidence with stable IDs and revisions; it never changes Premiere."
+    },
+    {
+      "name": "search_project_items",
+      "surface": "default",
+      "modes": "item_type: clip, bin, all",
+      "description": "Search for project items by name, media file extension, offline status, or color label. Returns matching items with full details."
+    },
+    {
+      "name": "search_workflow_recipes",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Search audited built-in and explicitly supplied workspace-local workflow recipes. Recipes are declarative previews and cannot execute arbitrary tools or scripts."
+    },
+    {
+      "name": "select_all_clips",
+      "surface": "default",
+      "modes": "track_type: video, audio, both",
+      "description": "Select all clips in the active sequence, or all clips on a specific track."
+    },
+    {
+      "name": "select_clips_by_color",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Select all clips whose source project item has a specific color label."
+    },
+    {
+      "name": "select_clips_by_name",
+      "surface": "default",
+      "modes": "track_type: video, audio, both",
+      "description": "Select all clips in the active sequence that match a name (substring match). Optionally filter by track type and index."
+    },
+    {
+      "name": "select_clips_in_range",
+      "surface": "default",
+      "modes": "track_type: video, audio, both",
+      "description": "Select all clips that overlap a time range in the active sequence."
+    },
+    {
+      "name": "select_disabled_clips",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Select all disabled clips in the active sequence."
+    },
+    {
+      "name": "select_item",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Select a project item in the Project panel"
+    },
+    {
+      "name": "set_active_sequence",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Set the active sequence by name or ID"
+    },
+    {
+      "name": "set_all_tracks_targeted",
+      "surface": "default",
+      "modes": "track_type: video, audio, both",
+      "description": "Set all tracks targeted or untargeted. Useful before insert/overwrite edits."
+    },
+    {
+      "name": "set_anti_alias_quality",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Set the anti-alias quality on a clip's Motion effect (useful for scaled/rotated clips)."
+    },
+    {
+      "name": "set_blend_mode",
+      "surface": "default",
+      "modes": "blend_mode: Normal, Dissolve, Darken, Multiply, Color Burn, Linear Burn, Darker Color, Lighten, Screen, Color Dodge, Linear Dodge, Lighter Color, Overlay, Soft Light, Hard Light, Vivid Light, Linear Light, Pin Light, Hard Mix, Difference, Exclusion, Subtract, Divide, Hue, Saturation, Color, Luminosity",
+      "description": "Set the blend mode on a video clip. Uses the Opacity effect's Blend Mode property."
+    },
+    {
+      "name": "set_clip_anchor_point",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Set the Anchor Point property on a video clip's Motion effect."
+    },
+    {
+      "name": "set_clip_opacity",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Set the opacity of a video clip (0-100)."
+    },
+    {
+      "name": "set_clip_pan",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Set and read back the pan (left/right balance) on an audio clip, including Channel Volume layouts."
+    },
+    {
+      "name": "set_clip_position",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Set the Position property on a video clip's Motion effect. Values are in pixels."
+    },
+    {
+      "name": "set_clip_properties",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Set supported clip properties (opacity, scale, position, rotation). Clip speed is unsupported and fails before mutation."
+    },
+    {
+      "name": "set_clip_properties_batch",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Apply Motion/Opacity values to up to 16 clips after preflighting every target property. The handler reads each requested value back and never reports a partial batch as verified."
+    },
+    {
+      "name": "set_clip_rotation",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Set the Rotation property on a video clip's Motion effect."
+    },
+    {
+      "name": "set_clip_scale",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Set the Scale property on a video clip's Motion effect."
+    },
+    {
+      "name": "set_clip_selection",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Select or deselect a clip in the active sequence"
+    },
+    {
+      "name": "set_clip_speed_qe",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Unavailable: Premiere does not expose a supported scripting API for changing a timeline clip's speed."
+    },
+    {
+      "name": "set_clip_start_time",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Set the start time (timecode offset) of a project item. This shifts where timecode begins for the source media."
+    },
+    {
+      "name": "set_clip_volume",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Set an audio clip's Volume > Level in dB. Does not read or change Essential Sound Amplify automation."
+    },
+    {
+      "name": "set_clips_volume",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Set the volume (in dB) on every audio clip of a track, or on a list of clip indices. One round trip instead of one call per clip - essential for sequences with dozens of clips."
+    },
+    {
+      "name": "set_color_label",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Set the color label on a project item or clip"
+    },
+    {
+      "name": "set_color_value",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Set a color value on an effect property (e.g., tint color, fill color)"
+    },
+    {
+      "name": "set_effect_property",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Set the value of a specific effect property on a clip. Accepts scalar, boolean, string, and array-shaped vector values (for example Motion > Position as [x, y]) and verifies the readback component by component."
+    },
+    {
+      "name": "set_footage_interpretation",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Set footage interpretation settings for a project item"
+    },
+    {
+      "name": "set_frame_blend",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Enable or disable frame blending on a clip. Uses QE DOM."
+    },
+    {
+      "name": "set_graphics_white_luminance",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Set the graphics white luminance value (HDR setting) for the project"
+    },
+    {
+      "name": "set_item_in_out",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Set in and/or out points on a project item in the project panel (marks source range for editing)."
+    },
+    {
+      "name": "set_keyframe_interpolation",
+      "surface": "default",
+      "modes": "interpolation: linear, hold, bezier",
+      "description": "Set the interpolation type of a keyframe (Linear, Hold, or Bezier)"
+    },
+    {
+      "name": "set_metadata",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Replace project metadata XML on a project item and verify the exact readback. Partial field/value writes are intentionally rejected because Premiere requires a complete Project Metadata XML payload."
+    },
+    {
+      "name": "set_offline",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Set a project item offline, or ask Premiere to refresh it back online when offline is false."
+    },
+    {
+      "name": "set_override_frame_rate",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Override the frame rate of a project item (useful for image sequences or misinterpreted media)"
+    },
+    {
+      "name": "set_override_pixel_aspect_ratio",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Override the pixel aspect ratio of a project item"
+    },
+    {
+      "name": "set_playhead_position",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Set the playhead (CTI) position in the active sequence"
+    },
+    {
+      "name": "set_poster_frame",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Set the poster frame (thumbnail) for a project item at a specific time."
+    },
+    {
+      "name": "set_project_item_audio_channel_mapping",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Map one output audio channel of a project item to a source channel using Premiere's documented AudioChannelMapping API."
+    },
+    {
+      "name": "set_project_panel_metadata",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Set the project panel metadata/column configuration from XML and verify that Premiere reads back the exact XML"
+    },
+    {
+      "name": "set_project_scratch_disk",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Set the project's scratch disk paths for captured video, audio, and previews."
+    },
+    {
+      "name": "set_scale_to_frame_size",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Enable 'Scale to Frame Size' on a project item so it fills the sequence frame"
+    },
+    {
+      "name": "set_scale_width_height",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Set independent Scale Width and Scale Height on a clip (requires Uniform Scale to be OFF)."
+    },
+    {
+      "name": "set_scratch_disk_path",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Set the scratch disk path for a specific media type"
+    },
+    {
+      "name": "set_sequence_audio_settings",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Change audio settings of the active sequence (sample rate, channel type)."
+    },
+    {
+      "name": "set_sequence_display_format",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Set the timecode display format for the active sequence."
+    },
+    {
+      "name": "set_sequence_field_type",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Set the field order of the active sequence."
+    },
+    {
+      "name": "set_sequence_frame_rate",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Change the frame rate of the active sequence."
+    },
+    {
+      "name": "set_sequence_in_out_points",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Set the sequence in and out points (for export range, etc.)"
+    },
+    {
+      "name": "set_sequence_pixel_aspect_ratio",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Change the pixel aspect ratio of the active sequence, or return a capability error when the legacy host does not expose a writable setting."
+    },
+    {
+      "name": "set_sequence_resolution",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Change the resolution (frame size) of the active sequence."
+    },
+    {
+      "name": "set_sequence_settings",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Modify and read back sequence frame-size settings."
+    },
+    {
+      "name": "set_source_in_out",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Set in and/or out points on the clip currently open in the Source Monitor."
+    },
+    {
+      "name": "set_source_monitor_position_uxp",
+      "surface": "uxp",
+      "modes": "Single operation",
+      "description": "Set and read back the Source Monitor position using Premiere 26.3+ UXP."
+    },
+    {
+      "name": "set_start_time",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Set the start time (timecode offset) for a project item"
+    },
+    {
+      "name": "set_target_track",
+      "surface": "default",
+      "modes": "track_type: video, audio",
+      "description": "Set a track as targeted (active for insert/overwrite edits). Only one video and one audio track can be targeted at a time."
+    },
+    {
+      "name": "set_time_interpolation",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Set time interpolation type for a clip (Frame Sampling, Frame Blending, Optical Flow). Uses QE DOM."
+    },
+    {
+      "name": "set_transcode_on_ingest",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Enable or disable transcoding on ingest for the project"
+    },
+    {
+      "name": "set_uniform_scale",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Toggle uniform scale on a clip's Motion effect. When enabled, Scale Width and Scale Height are linked."
+    },
+    {
+      "name": "set_work_area",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Set the work area (bar) in and out points"
+    },
+    {
+      "name": "set_workspace",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Switch to a specific workspace layout (e.g., 'Editing', 'Color', 'Audio', 'Effects', 'Graphics')"
+    },
+    {
+      "name": "set_xmp_metadata",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Merge a raw XMP XML patch into a project item's existing XMP metadata without removing unrelated fields."
+    },
+    {
+      "name": "set_zero_point",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Set the starting timecode (zero point) of a sequence"
+    },
+    {
+      "name": "setup_ducking",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Build a verified Volume > Level keyframe curve for one audio clip. Ducking-window times are relative to that clip's start; overlapping or out-of-range windows are rejected before any keyframe write."
+    },
+    {
+      "name": "slide_edit",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Perform a verified slide edit on a clip using adjacent clips from the public timeline DOM."
+    },
+    {
+      "name": "slide_track_item_uxp",
+      "surface": "uxp",
+      "modes": "inspect, apply",
+      "description": "Inspect or perform one guarded slide on an audio or video timeline item using documented UXP track-item actions. Apply requires the complete three-item snapshot, explicit confirmation, and an operation ID; it serializes slides and source-only slips on the affected track, commits one transaction, and verifies every affected source and timeline boundary. Only contiguous forward 1x clips are supported. It does not prove source handles, linked A/V synchronization, rendered frames, playback, persistence, or Undo behavior."
+    },
+    {
+      "name": "slip_edit",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Perform a verified slip edit on a clip using public source in/out properties."
+    },
+    {
+      "name": "slip_track_item_uxp",
+      "surface": "uxp",
+      "modes": "inspect, apply",
+      "description": "Inspect or perform one guarded source-only slip on an audio or video timeline item. Apply requires the complete inspected snapshot, explicit confirmation, and an operation ID; it serializes slip operations per target, creates the documented source in/out actions in one undoable transaction, and reads back unchanged timeline timing plus the exact shifted source range. It supports only forward 1x clips, does not infer available media handles, and does not prove rendered frames, playback, linked-item sync, persistence, or Undo behavior."
+    },
+    {
+      "name": "speed_change",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Unavailable: Premiere does not expose a supported scripting API for changing a timeline clip's speed."
+    },
+    {
+      "name": "split_clip",
+      "surface": "default",
+      "modes": "track_type: video, audio",
+      "description": "Split every clip on one track that spans a timeline time, then verify both resulting boundaries. Requires QE DOM; effect-keyframe redistribution remains unverified."
+    },
+    {
+      "name": "stabilize_clip",
+      "surface": "default",
+      "modes": "method: Subspace Warp, Position, Position, Scale, Rotation",
+      "description": "Apply the Warp Stabilizer effect to a clip for video stabilization. Uses QE DOM."
+    },
+    {
+      "name": "start_batch_encode",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Request Adobe Media Encoder to start the render queue; reports only accepted handoff, not queue progress or output-file creation."
+    },
+    {
+      "name": "stop_playback",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Request that active-sequence timeline playback stop through QE. The legacy API does not provide a same-call playhead readback, so stopped state is not reported as verified."
+    },
+    {
+      "name": "toggle_track_visibility",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Toggle a video track's visibility (eye icon)"
+    },
+    {
+      "name": "transform_track_item_uxp",
+      "surface": "uxp",
+      "modes": "inspect, update",
+      "description": "Inspect or atomically move, trim, rename, and enable/disable one audio or video track item with stale-position guards and readback."
+    },
+    {
+      "name": "trim_clip",
+      "surface": "default",
+      "modes": "keyframe_policy: reject, preserve",
+      "description": "Trim exactly one source in/out point and verify the corresponding visible timeline edge. Refuses retimed clips and, by default, trims that would leave effect keyframes outside the visible clip."
+    },
+    {
+      "name": "undo",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Unavailable: Premiere exposes no supported, observable undo-stack API, so a scripted undo cannot be performed or verified."
+    },
+    {
+      "name": "unlink_selection",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Unlink the currently selected video and audio clips in the active sequence"
+    },
+    {
+      "name": "unnest_sequence",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Unnest a nested sequence on the timeline, replacing it with the contents of the nested sequence"
+    },
+    {
+      "name": "update_marker",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Update an existing marker's properties"
+    },
+    {
+      "name": "validate_cmx3600_edl",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Validate a local CMX 3600 EDL's supported event grammar, timecodes, durations, duplicate event IDs, record overlaps, and record gaps before user-assisted Premiere interchange."
+    },
+    {
+      "name": "validate_export_preset",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Validate that an Adobe Media Encoder .epr preset exists and ask the active Premiere sequence which output extension it produces"
+    },
+    {
+      "name": "validate_mogrt_brand_kit",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Validate an operator-approved local MOGRT brand kit before using it in a template or batch preview. It never reads font inventories, image pixels, or writes files."
+    },
+    {
+      "name": "validate_platform_publish_package",
+      "surface": "default",
+      "modes": "platform: tiktok, instagram_reels, instagram_feed, instagram_story, youtube_shorts, youtube, linkedin, x, facebook_reels",
+      "description": "Validate a rendered file plus title, description, hashtags, and content flags against one platform's approximate 2026 publish limits. Returns hard violations, soft warnings, normalized hashtags, and character counts. Local-only; never uploads or changes Premiere."
+    },
+    {
+      "name": "validate_project_for_export",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Run a non-mutating export readiness audit for an active or named sequence. It reports blocking offline media, empty timelines, inaccessible preset/output paths, duration, and optional timeline gaps without queuing an export."
+    },
+    {
+      "name": "verify_after_effects_connection",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Read-only check that the dedicated After Effects CEP connector is running. It never reads project names, media, or paths."
+    },
+    {
+      "name": "verify_delivery_conformance",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Verify a local exported file against an explicit delivery contract using ffprobe and optional EBU R128 analysis. Returns pass, fail, or not_evaluated per check; it does not prove Premiere render lineage or visual approval."
+    },
+    {
+      "name": "verify_delivery_file",
+      "surface": "default",
+      "modes": "checksum_algorithm: sha256, sha512",
+      "description": "Verify that an exported delivery is a non-empty regular file and calculate a SHA-256 or SHA-512 checksum; optionally compare expected size and checksum"
+    },
+    {
+      "name": "verify_fcpxml_media_references",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Verify FCPXML file:// media references only inside caller-approved existing roots. References outside those roots are never statted or exposed as local paths."
+    },
+    {
+      "name": "verify_mogrt_artifact",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Verify that a workspace-contained .mogrt artifact exists locally and has a ZIP header. This does not prove controls, import compatibility, playback, or visual correctness."
+    },
+    {
+      "name": "verify_premiere_connection",
+      "surface": "default",
+      "modes": "backend: cep, uxp",
+      "description": "Run a safe, read-only first-run check. It proves that this MCP server, the selected Premiere bridge, an active project, and an active sequence are connected without returning project names, paths, or media details."
+    },
+    {
+      "name": "wait_for_host_readiness_uxp",
+      "surface": "uxp",
+      "modes": "snapshot, analysis, operation",
+      "description": "Capture a pre-dispatch readiness revision or wait, without retrying, for video-effect analysis or one documented operation-completion receipt."
+    }
+  ]
+}
