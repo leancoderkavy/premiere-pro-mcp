@@ -6,6 +6,22 @@ import { product } from "@/lib/product"
 
 const releases = [
   {
+    version: "1.15.1",
+    date: "2026-09-11",
+    label: "UXP import fix, searchable tools, and clearer setup",
+    groups: [
+      { title: "Fixed", items: [
+        "UXP project-root file imports now use the null destination required by the Premiere API.",
+        "Improved homepage accessibility, image delivery, installation journeys, and canonical page redirects."
+      ] },
+      { title: "Changed", items: [
+        "Searchable tool reference, precise client configuration, and competitive evaluation guidance.",
+        "Updated homepage experiment with Premiere artwork and gallery layouts, backed by end-to-end journey coverage."
+      ] },
+      { title: "Verification scope", items: ["Automated checks do not establish licensed-host playback or rendered-output verification."] }
+    ],
+  },
+  {
     version: "1.15.0",
     date: "2026-09-08",
     label: "Editorial planning, cross-app handoff, and verified editing fixes",

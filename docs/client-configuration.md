@@ -1,8 +1,6 @@
 # Configure an exact local server installation
 
-Development source feature, added September 9, 2026. The published v1.15.0 package
-does **not** include `--print-client-config`; use a built checkout containing this
-change until a release includes it.
+The `--print-client-config` helper is included in v1.15.1 and later.
 
 The `premiere-pro-mcp` and `adobe-premiere-pro-mcp` npm packages belong to separate
 repositories, but both declare a `premiere-pro-mcp` command. A command name alone
