@@ -1,5 +1,5 @@
 {
-  "version": "1.15.0",
+  "version": "1.15.1",
   "coreTools": 369,
   "defaultProfileTools": 367,
   "uxpAdditionalTools": 93,
@@ -9,14 +9,14 @@
   "guidedWorkflows": 17,
   "premiereVersions": "2020–2026",
   "uxpMinimumVersion": "25.6.0",
-  "releaseDate": "2026-09-08",
+  "releaseDate": "2026-09-11",
   "nodeVersion": "20.19",
   "provenance": {
-    "tag": "v1.15.0",
-    "commit": "265691d789f0e04b86e5b3388e1962896da09960",
-    "tarball": "https://registry.npmjs.org/premiere-pro-mcp/-/premiere-pro-mcp-1.15.0.tgz",
-    "integrity": "sha512-mFwcHRXZxdWj3UOD6qwE+kRna5FxSGra1o8GBrmJAQt90hfWxVj0cCsrEvftRKApsJNtDwF7d/8pD59oMqHUdQ==",
-    "verifiedAt": "2026-09-08",
+    "tag": "v1.15.1",
+    "commit": "2353a1c95fa32b7b9b8202f92bebaa4d5bc5c90a",
+    "tarball": "https://registry.npmjs.org/premiere-pro-mcp/-/premiere-pro-mcp-1.15.1.tgz",
+    "integrity": "sha512-gjvPZVhyv6PpvLc/froH+DSIz7Fp2CqTCG/mGS9F8VhEcBj8Zd2KYpKTFDDffr+7HzO1BUXfjFDWYAEZWln/hQ==",
+    "verifiedAt": "2026-09-11",
     "evidence": "Downloaded npm tarball public-product-manifest and supported-actions catalog and matching Git release tag; not a licensed-host test."
   }
 }
