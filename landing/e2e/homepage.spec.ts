@@ -34,7 +34,7 @@ for (const variant of ["control", "test"]) {
     expect(response?.headers()["cache-control"]).toContain("no-store")
     await expect(page.locator("h1")).toHaveText(variant === "test" ? /Your vision[\s\S]*timeline/ : /MCP for Adobe Premiere Pro:/)
     await expect.poll(async () => (await state(request)).events.filter(event => event.event === "$experiment_exposure").length).toBe(1)
-    expect(published.version).toBe(manifest.product.version)
+    expect(product.version).toBe(published.version)
     expect(published.coreTools).toBe(manifest.capabilitySurface.registeredCoreTools)
     await expect(page.locator("body")).toContainText(String(published.coreTools))
     await expect(page.locator("body")).toContainText(safeFirstPrompt)

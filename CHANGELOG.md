@@ -6,6 +6,21 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [1.15.1] - 2026-09-11
+
+### Fixed
+
+- Use a null destination for UXP project-root file imports, matching the Premiere API contract.
+- Consolidate exported page aliases with permanent redirects and improve homepage accessibility, image delivery, and installation journeys.
+
+### Changed
+
+- Add a searchable tool reference, precise client configuration, and clearer competitive evaluation guidance.
+- Refresh the homepage experiment with Premiere artwork and gallery layouts, with end-to-end journey coverage.
+- Update landing dependencies and comparable GitHub search measurement.
+
+Automated checks do not establish licensed Premiere or After Effects playback or rendered-output verification.
+
 ## [1.15.0] - 2026-09-08
 
 ### Added
