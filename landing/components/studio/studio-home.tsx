@@ -24,6 +24,7 @@ import {
 import { MotionToggle, StudioMotion, StudioStage } from "./studio-motion"
 import "./studio.css"
 import "./studio-editorial.css"
+import "./studio-gallery.css"
 
 const footerLinks = {
   Explore: [
@@ -92,6 +93,12 @@ export function StudioHome() {
         </nav>
       </header>
       <main id="main-content">
+        <div className="studio-announcement">
+          <span>A new connection for your creative workflow.</span>
+          <a href="/changelog/">
+            Explore v{product.version} <ArrowRight size={13} />
+          </a>
+        </div>
         <section id="top" className="studio-container studio-hero">
           <div className="studio-hero-copy">
             <p className="studio-product-name">Premiere Pro MCP</p>
@@ -101,9 +108,9 @@ export function StudioHome() {
               In the <span>timeline.</span>
             </h1>
             <p className="studio-hero-description">
-              Your AI assistant. Your favorite editing space.
-              <br className="studio-desktop-break" /> Bring structured,
-              reviewable edits to Adobe Premiere Pro.
+              Connect your AI assistant to Adobe Premiere Pro.
+              <br className="studio-desktop-break" /> Plan, review, and shape your
+              next edit.
             </p>
             <div className="studio-hero-actions">
               <TrackedLink
@@ -135,9 +142,6 @@ export function StudioHome() {
               Copilot <span>·</span> & more
             </div>
           </div>
-          <a className="studio-release" href="/changelog/">
-            Explore what’s new in v{product.version} <ArrowUpRight size={13} />
-          </a>
         </section>
         <div
           className="studio-container studio-facts"
@@ -171,10 +175,10 @@ export function StudioHome() {
             className="studio-container studio-section"
             data-studio-reveal
           >
-            <div className="studio-section-heading">
+            <div className="studio-section-heading studio-editorial-heading">
               <div>
                 <p className="studio-eyebrow">
-                  <span>Made for your creative flow.</span>
+                  <span>The creative toolkit.</span>
                 </p>
                 <h2>
                   Less repetition.
@@ -183,8 +187,8 @@ export function StudioHome() {
                 </h2>
               </div>
               <p>
-                From the first selects to the final details, give repetitive
-                work a structured path. Keep the creative decisions yours.
+                From the first selects to the finishing touches. Give repetitive
+                work a clear instruction, and keep the creative decisions yours.
               </p>
             </div>
             <WorkflowChapters />
@@ -203,9 +207,13 @@ export function StudioHome() {
             className="studio-container studio-demo"
             data-studio-reveal
           >
-            <div className="studio-demo-heading">
-              <h2>See the flow.</h2>
-              <p>A request. A plan. A result you can review.</p>
+            <div className="studio-demo-heading studio-editorial-heading">
+              <h2>
+                From a request
+                <br />
+                <span>to a reviewable result.</span>
+              </h2>
+              <p>See how your direction becomes a plan you can inspect.</p>
             </div>
             <WalkthroughPlayer />
             <div className="studio-demo-caption">
@@ -226,11 +234,11 @@ export function StudioHome() {
           <div className="studio-container">
             <div className="studio-section-heading">
               <div>
-                <p className="studio-eyebrow">Connected. On your terms.</p>
+                <p className="studio-eyebrow">Designed around your control.</p>
                 <h2>
-                  A powerful connection.
+                  Your assistant. Your edit.
                   <br />
-                  <span>A local foundation.</span>
+                  <span>One thoughtful connection.</span>
                 </h2>
               </div>
               <p>
@@ -310,21 +318,18 @@ export function StudioHome() {
             className="studio-container studio-section"
             data-studio-reveal
           >
-            <div className="studio-section-heading">
+            <div className="studio-section-heading studio-editorial-heading">
               <div>
-                <p className="studio-eyebrow">A great place to start.</p>
+                <p className="studio-eyebrow">Make the connection.</p>
                 <h2>
-                  Your next great edit
+                  Ready when
                   <br />
-                  <span>starts right here.</span>
+                  <span>you are.</span>
                 </h2>
               </div>
               <p>
-                Choose your assistant.
-                <br />{" "}
-                Connect it to Premiere.
-                <br />{" "}
-                Start with a check that changes nothing.
+                Choose your assistant. Connect it to Premiere.
+                Start with a safe, read-only check.
               </p>
             </div>
             <StudioInstaller />
@@ -338,9 +343,9 @@ export function StudioHome() {
             <div>
               <p className="studio-eyebrow">A few things to know.</p>
               <h2>
-                Clear answers.
+                A little clarity.
                 <br />
-                <span>Then, create.</span>
+                <span>Before you begin.</span>
               </h2>
               <a className="studio-text-link" href="/docs/">
                 Read the documentation <ArrowUpRight size={16} />

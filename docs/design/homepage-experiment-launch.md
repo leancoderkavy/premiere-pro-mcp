@@ -57,7 +57,7 @@ Root assignment is private and non-cacheable. Preview exclusion uses the Node se
 
 ## Repeatable local end-to-end test
 
-After installing root and landing dependencies, run `npm exec --prefix landing -- playwright install chromium` once, then `npm run test:landing:e2e` from the repository root. The command builds the actual Node server and static site, then runs 34 Playwright tests. `npm --prefix landing run test:e2e` reuses those compiled outputs for a faster rerun.
+After installing root and landing dependencies, run `npm exec --prefix landing -- playwright install chromium` once, then `npm run test:landing:e2e` from the repository root. The command builds the actual Node server and static site, then runs 35 Playwright tests. `npm --prefix landing run test:e2e` reuses those compiled outputs for a faster rerun.
 
 On Windows installations that require the system certificate store for Adobe reference fetches, set `$env:NODE_OPTIONS='--use-system-ca'` before running repository checks.
 

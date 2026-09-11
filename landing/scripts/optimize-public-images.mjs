@@ -7,6 +7,10 @@ const images = [
   ["marketing/premiere-pro-mcp-mark-v1.png", "marketing/premiere-pro-mcp-mark-96.webp", 96],
   ["premiere-pro-mcp-demo-poster.png", "premiere-pro-mcp-demo-poster-640.webp", 640],
   ["premiere-pro-mcp-demo-poster.png", "premiere-pro-mcp-demo-poster-1280.webp", 1280],
+  ...["sequence", "collection", "finish"].flatMap((name) => [
+    [`../../docs/design/marketing-artwork-v2/${name}-v2.png`, `marketing/${name}-v2.webp`, 1600],
+    [`../../docs/design/marketing-artwork-v2/${name}-v2.png`, `marketing/${name}-v2-mobile.webp`, 720],
+  ]),
 ]
 
 for (const [source, destination, width] of images) {

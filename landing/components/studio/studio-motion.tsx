@@ -12,7 +12,8 @@ import {
   useState,
   type ReactNode
 } from "react"
-import { ArrowUpRight, Check, Pause, Play } from "lucide-react"
+import { Pause, Play } from "lucide-react"
+import { studioArtwork } from "@/lib/studio-artwork"
 
 const StudioCanvas = dynamic(() => import("./studio-canvas"), { ssr: false })
 const MotionContext = createContext({ paused: true, toggle: () => {} })
@@ -138,7 +139,7 @@ export function StudioStage() {
   return (
     <div
       ref={stage}
-      className="studio-stage"
+      className="studio-stage studio-art-stage"
       data-enhanced={enhanced && !paused && visible && ready}
       aria-label="Illustrative film frame and editing timeline in three dimensions"
     >
@@ -146,47 +147,18 @@ export function StudioStage() {
         <picture>
           <source
             media="(max-width: 767px)"
-            srcSet="/marketing/cinematic-portal-premiere-mobile.webp"
+            srcSet={studioArtwork.sequence.mobileSrc}
           />
           <Image
-            src="/marketing/cinematic-portal-premiere.webp"
-            alt="Original cinematic artwork: an explorer faces a monumental silver portal in a volcanic landscape"
-            width={1280}
-            height={736}
+            src={studioArtwork.sequence.src}
+            alt={studioArtwork.sequence.alt}
+            width={1600}
+            height={914}
             fetchPriority="high"
             loading="eager"
-            sizes="(max-width: 768px) 94vw, 700px"
+            sizes="(max-width: 768px) 100vw, 1100px"
           />
         </picture>
-        <div className="studio-film-meta">
-          <span>SEQUENCE 01 / THE UNKNOWN</span>
-          <span>00:00:24:08</span>
-        </div>
-      </div>
-      <div className="studio-mini-timeline" aria-hidden="true">
-        <div className="studio-ruler">
-          <span>00:00</span>
-          <span>00:08</span>
-          <span>00:16</span>
-          <span>00:24</span>
-          <span>00:32</span>
-        </div>
-        <div className="studio-track">
-          <i>V2</i>
-          <span>OPENING</span>
-          <span>THE JOURNEY</span>
-          <span>DISCOVERY</span>
-        </div>
-        <div className="studio-track">
-          <i>V1</i>
-          <span>ATMOSPHERE</span>
-          <span>THE UNKNOWN</span>
-        </div>
-        <div className="studio-track studio-audio">
-          <i>A1</i>
-          <span>AMBIENCE / ORIGINAL SCORE</span>
-        </div>
-        <div className="studio-playhead" />
       </div>
       {enhanced && !paused && visible && !failed ? (
         <div className="studio-webgl">
@@ -195,24 +167,8 @@ export function StudioStage() {
           </SceneBoundary>
         </div>
       ) : null}
-      <div className="studio-command">
-        <span className="studio-command-icon">
-          <ArrowUpRight size={19} />
-        </span>
-        <div>
-          <span className="studio-label">Your direction. Structured.</span>
-          <p>
-            “Prepare the assembly.
-            <br />
-            Let me review the changes.”
-          </p>
-        </div>
-        <span className="studio-command-status">
-          <Check size={12} /> Preview first
-        </span>
-      </div>
       <div className="studio-stage-foot">
-        <span>Illustrative workflow. You review every plan.</span>
+        <span>Original campaign illustration. Every edit starts with your direction.</span>
       </div>
     </div>
   )

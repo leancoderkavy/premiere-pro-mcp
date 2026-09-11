@@ -50,7 +50,7 @@
 }
 .studio-container {
   width: calc(100% - 96px);
-  max-width: 1120px;
+  max-width: 1200px;
 }
 .studio :is(section, [id]) {
   scroll-margin-top: 88px;
@@ -60,7 +60,7 @@
   backdrop-filter: saturate(140%) blur(24px);
 }
 .studio-navigation {
-  height: 64px;
+  height: 56px;
   justify-content: start;
   gap: 32px;
 }
@@ -136,7 +136,7 @@
   flex-direction: column;
   align-items: center;
   min-height: 0;
-  padding-block: 70px 0;
+  padding-block: 44px 0;
   gap: 0;
   text-align: center;
 }
@@ -145,28 +145,28 @@
   padding-bottom: 0;
 }
 .studio-product-name {
-  font-size: 24px;
+  font-size: 20px;
   font-weight: 600;
   letter-spacing: -0.5px;
 }
 .studio h1 {
   margin-top: 18px;
-  font-size: clamp(64px, 7.4vw, 106px);
+  font-size: clamp(60px, 7vw, 96px);
   font-weight: 600;
-  letter-spacing: -0.065em;
+  letter-spacing: -0.06em;
   line-height: 1.02;
 }
 .studio-hero-description {
-  max-width: 700px;
-  margin: 25px auto 0;
-  font-size: 23px;
+  max-width: 620px;
+  margin: 20px auto 0;
+  font-size: 21px;
   line-height: 1.4;
   letter-spacing: -0.4px;
 }
 .studio-hero-actions {
   justify-content: center;
   gap: 24px;
-  margin-top: 28px;
+  margin-top: 24px;
 }
 .studio-hero-note {
   display: block;
@@ -174,7 +174,7 @@
   font-size: 13px;
 }
 .studio-compatible {
-  margin-top: 36px;
+  margin-top: 24px;
 }
 .studio-compatible > span {
   font-family: inherit;
@@ -305,7 +305,7 @@
 }
 .studio-facts {
   grid-template-columns: repeat(4, 1fr);
-  padding-block: 74px 82px;
+  padding-block: 56px 64px;
   border: 0;
 }
 .studio-facts > div {
@@ -338,7 +338,7 @@
 }
 
 .studio-section {
-  padding-block: 112px;
+  padding-block: 104px;
 }
 .studio-section-heading {
   display: block;
@@ -355,7 +355,7 @@
   margin-bottom: 20px;
 }
 .studio h2 {
-  font-size: clamp(40px, 4.5vw, 64px);
+  font-size: clamp(40px, 4.5vw, 56px);
   line-height: 1.08;
   font-weight: 600;
   letter-spacing: -0.052em;
@@ -453,7 +453,7 @@
 }
 .studio-workflow-frame img {
   display: block;
-  aspect-ratio: 2.1;
+  aspect-ratio: 1.75;
 }
 .studio-frame-corner {
   font-size: 8px;
@@ -516,10 +516,10 @@
   aspect-ratio: 2.1;
   min-height: 340px;
 }
-.studio-video-cover > img {
+.studio-video-cover img {
   filter: brightness(0.78);
 }
-.studio-video-cover:hover > img {
+.studio-video-cover:hover img {
   transform: scale(1.02);
 }
 .studio-video-shade {
@@ -797,7 +797,7 @@
   margin-bottom: 44px;
 }
 .studio-faq-section h2 {
-  font-size: clamp(40px, 4.5vw, 64px);
+  font-size: clamp(40px, 4.5vw, 56px);
 }
 .studio-text-link {
   color: var(--s-accent);
@@ -1454,13 +1454,19 @@
     font-size: 14px;
   }
   .studio-client-tabs {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    overflow: visible;
     padding: 18px 16px;
-    gap: 4px;
+    gap: 6px;
   }
   .studio-client-tabs > button {
-    flex: 0 0 auto;
-    padding: 11px 17px;
-    font-size: 13px;
+    min-width: 0;
+    padding: 11px 8px;
+    font-size: 12px;
+  }
+  .studio-client-tabs > button:last-child {
+    grid-column: 1 / -1;
   }
   .studio-installer {
     border-radius: 22px;
@@ -1664,7 +1670,7 @@
 }
 @media (prefers-reduced-motion: reduce) {
   .studio-button:hover,
-  .studio-video-cover:hover > img {
+  .studio-video-cover:hover img {
     transform: none;
   }
 }

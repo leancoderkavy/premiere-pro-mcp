@@ -125,8 +125,7 @@ test("treatment: workflow chapters, Codex guide, manual setup, FAQs, and clipboa
   await page.goto("/")
   await page.getByRole("tab", { name: /02 Find your focus/ }).click()
   await expect(page.getByRole("tabpanel", { name: /02 Find your focus/ })).toBeVisible()
-  await page.getByRole("tab", { name: /03 Sweat the details/ }).focus()
-  await page.keyboard.press("Enter")
+  await page.keyboard.press("ArrowRight")
   await expect(page.getByRole("tab", { name: /03 Sweat the details/ })).toHaveAttribute("aria-selected", "true")
   for (const [name, href] of [
     ["Codex", "/blog/codex-premiere-pro-mcp-setup/"],
@@ -192,7 +191,7 @@ test("treatment: reduced motion, animated WebGL, pause, context loss, and video 
     context.getExtension("WEBGL_lose_context")!.loseContext()
   })
   await expect(page.locator(".studio-stage")).toHaveAttribute("data-enhanced", "false")
-  await expect(page.getByRole("img", { name: /Original cinematic artwork/ })).toBeVisible()
+  await expect(page.locator(".studio-film-plane").getByRole("img", { name: /three coastal film shots/ })).toBeVisible()
   await page.getByRole("button", { name: /Play the walkthrough/ }).click()
   await expect.poll(async () => page.locator("video").evaluate(video => ({ ready: (video as HTMLVideoElement).readyState >= 2, playing: !(video as HTMLVideoElement).paused, time: (video as HTMLVideoElement).currentTime > 0 }))).toEqual({ ready: true, playing: true, time: true })
   await expect(page.locator("video")).toHaveAttribute("aria-label", /not a live Premiere recording/)
