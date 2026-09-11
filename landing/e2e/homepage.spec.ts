@@ -192,7 +192,7 @@ test("treatment: reduced motion, animated WebGL, pause, context loss, and video 
     context.getExtension("WEBGL_lose_context")!.loseContext()
   })
   await expect(page.locator(".studio-stage")).toHaveAttribute("data-enhanced", "false")
-  await expect(page.getByRole("img", { name: /Original cinematic artwork/ })).toBeVisible()
+  await expect(page.locator(".studio-film-plane").getByRole("img", { name: /three coastal film shots/ })).toBeVisible()
   await page.getByRole("button", { name: /Play the walkthrough/ }).click()
   await expect.poll(async () => page.locator("video").evaluate(video => ({ ready: (video as HTMLVideoElement).readyState >= 2, playing: !(video as HTMLVideoElement).paused, time: (video as HTMLVideoElement).currentTime > 0 }))).toEqual({ ready: true, playing: true, time: true })
   await expect(page.locator("video")).toHaveAttribute("aria-label", /not a live Premiere recording/)

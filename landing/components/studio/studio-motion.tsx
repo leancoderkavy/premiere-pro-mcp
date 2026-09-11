@@ -13,6 +13,7 @@ import {
   type ReactNode
 } from "react"
 import { ArrowUpRight, Check, Pause, Play } from "lucide-react"
+import { studioArtwork } from "@/lib/studio-artwork"
 
 const StudioCanvas = dynamic(() => import("./studio-canvas"), { ssr: false })
 const MotionContext = createContext({ paused: true, toggle: () => {} })
@@ -146,20 +147,20 @@ export function StudioStage() {
         <picture>
           <source
             media="(max-width: 767px)"
-            srcSet="/marketing/cinematic-portal-premiere-mobile.webp"
+            srcSet={studioArtwork.sequence.mobileSrc}
           />
           <Image
-            src="/marketing/cinematic-portal-premiere.webp"
-            alt="Original cinematic artwork: an explorer faces a monumental silver portal in a volcanic landscape"
-            width={1280}
-            height={736}
+            src={studioArtwork.sequence.src}
+            alt={studioArtwork.sequence.alt}
+            width={1600}
+            height={914}
             fetchPriority="high"
             loading="eager"
             sizes="(max-width: 768px) 94vw, 700px"
           />
         </picture>
         <div className="studio-film-meta">
-          <span>SEQUENCE 01 / THE UNKNOWN</span>
+          <span>SEQUENCE 01 / THE COAST</span>
           <span>00:00:24:08</span>
         </div>
       </div>
@@ -180,7 +181,7 @@ export function StudioStage() {
         <div className="studio-track">
           <i>V1</i>
           <span>ATMOSPHERE</span>
-          <span>THE UNKNOWN</span>
+          <span>THE COAST</span>
         </div>
         <div className="studio-track studio-audio">
           <i>A1</i>

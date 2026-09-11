@@ -25,6 +25,7 @@ import { product, safeFirstPrompt } from "@/lib/product"
 import { connectorSetup, localMcpEntry } from "@/lib/client-setup"
 import { trackOnboardingEvent } from "@/lib/onboarding-events"
 import { faqItems } from "@/components/sections/faq"
+import { studioArtwork } from "@/lib/studio-artwork"
 
 export function StudioMobileNav() {
   const [open, setOpen] = useState(false)
@@ -75,6 +76,7 @@ const chapters = [
     description:
       "Build assemblies, work with timeline clips, and prepare edits from a clear instruction. Review the plan before supported changes reach Premiere.",
     icon: Scissors,
+    artwork: studioArtwork.sequence,
     titleLabel: "TIMELINE / ASSEMBLY",
     prompt: "Prepare a rough assembly from these selects.",
     response:
@@ -88,6 +90,7 @@ const chapters = [
     description:
       "Inspect project media, organize bins, and prepare an intake report. Keep project context local and include it only when you choose.",
     icon: FolderOpen,
+    artwork: studioArtwork.collection,
     titleLabel: "PROJECT / ORGANIZATION",
     prompt: "Inspect this project and propose a bin structure.",
     response:
@@ -101,6 +104,7 @@ const chapters = [
     description:
       "Work with effects, keyframes, color, and export workflows. Inspect host capabilities and returned diagnostics before relying on the result.",
     icon: SlidersHorizontal,
+    artwork: studioArtwork.finish,
     titleLabel: "FINISH / DELIVERY",
     prompt: "Check this sequence before delivery.",
     response:
@@ -151,13 +155,19 @@ export function WorkflowChapters() {
               <span className="studio-live-dot">ILLUSTRATED WORKFLOW</span>
             </div>
             <div className="studio-workflow-frame">
-              <Image
-                src="/marketing/cinematic-portal-premiere.webp"
-                alt="Cinematic sample artwork for the illustrated editing workflow"
-                width={1280}
-                height={736}
-                sizes="(max-width: 768px) 90vw, 650px"
-              />
+              <picture>
+                <source
+                  media="(max-width: 767px)"
+                  srcSet={chapter.artwork.mobileSrc}
+                />
+                <Image
+                  src={chapter.artwork.src}
+                  alt={chapter.artwork.alt}
+                  width={1600}
+                  height={914}
+                  sizes="(max-width: 768px) 90vw, 650px"
+                />
+              </picture>
               <span className="studio-frame-corner">IN / 00:00:00:00</span>
               <span className="studio-frame-corner studio-frame-out">
                 OUT / 00:00:32:00
@@ -221,12 +231,18 @@ export function WalkthroughPlayer() {
           }}
           aria-label="Play the walkthrough — illustrated product workflow"
         >
-          <Image
-            src="/marketing/cinematic-portal-premiere.webp"
-            alt=""
-            fill
-            sizes="(max-width: 768px) 95vw, 1280px"
-          />
+          <picture>
+            <source
+              media="(max-width: 767px)"
+              srcSet={studioArtwork.sequence.mobileSrc}
+            />
+            <Image
+              src={studioArtwork.sequence.src}
+              alt=""
+              fill
+              sizes="(max-width: 768px) 95vw, 1280px"
+            />
+          </picture>
           <span className="studio-video-shade" />
           <span className="studio-video-top" aria-hidden="true">
             A REQUEST. A PLAN. A REVIEWABLE RESULT.

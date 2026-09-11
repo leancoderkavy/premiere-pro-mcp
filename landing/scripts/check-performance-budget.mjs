@@ -7,6 +7,12 @@ for (const [asset, budget] of [
   ["marketing/premiere-pro-mcp-mark-96.webp", 6_000],
   ["premiere-pro-mcp-demo-poster-640.webp", 16_000],
   ["premiere-pro-mcp-demo-poster-1280.webp", 35_000],
+  ["marketing/sequence-v2.webp", 180_000],
+  ["marketing/sequence-v2-mobile.webp", 45_000],
+  ["marketing/collection-v2.webp", 180_000],
+  ["marketing/collection-v2-mobile.webp", 45_000],
+  ["marketing/finish-v2.webp", 220_000],
+  ["marketing/finish-v2-mobile.webp", 50_000],
 ]) {
   const bytes = fs.statSync(path.join(outputDirectory, asset)).size;
   if (bytes > budget) throw new Error(`Image budget exceeded: ${asset}: ${bytes} > ${budget}`);

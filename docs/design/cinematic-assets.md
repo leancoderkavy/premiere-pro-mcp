@@ -1,5 +1,11 @@
 # Original cinematic artwork
 
+The September 10 coastal edit campaign is documented in
+[marketing-artwork-v2/README.md](marketing-artwork-v2/README.md), with original
+PNGs, exact prompts, usage guidance, and optimized desktop/mobile assets. It
+provides distinct artwork for the treatment's editing, organization, and
+finishing chapters. The portal artwork below is retained as the previous revision.
+
 Generated with the built-in image-generation tool for this homepage. It is original illustrative artwork, not a real movie still, customer project, or Premiere screenshot. No private product or customer data was supplied. WebP files are optimized encodings of the generated source; the site icon is a resized copy of the existing project mark.
 
 | Asset | Dimensions | Size |

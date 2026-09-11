@@ -453,7 +453,7 @@
 }
 .studio-workflow-frame img {
   display: block;
-  aspect-ratio: 2.1;
+  aspect-ratio: 1.75;
 }
 .studio-frame-corner {
   font-size: 8px;
@@ -516,10 +516,10 @@
   aspect-ratio: 2.1;
   min-height: 340px;
 }
-.studio-video-cover > img {
+.studio-video-cover img {
   filter: brightness(0.78);
 }
-.studio-video-cover:hover > img {
+.studio-video-cover:hover img {
   transform: scale(1.02);
 }
 .studio-video-shade {
@@ -1664,7 +1664,7 @@
 }
 @media (prefers-reduced-motion: reduce) {
   .studio-button:hover,
-  .studio-video-cover:hover > img {
+  .studio-video-cover:hover img {
     transform: none;
   }
 }

@@ -3,14 +3,12 @@
 import { Suspense, useEffect, useMemo, useRef } from "react"
 import { Canvas, useFrame, useLoader, useThree } from "@react-three/fiber"
 import { Group, OrthographicCamera, SRGBColorSpace, TextureLoader } from "three"
+import { studioArtwork } from "@/lib/studio-artwork"
 
 function FilmAssembly({ onReady }: { onReady: (ready: boolean) => void }) {
   const assembly = useRef<Group>(null)
   const renderedFrames = useRef(0)
-  const source = useLoader(
-    TextureLoader,
-    "/marketing/cinematic-portal-premiere.webp"
-  )
+  const source = useLoader(TextureLoader, studioArtwork.sequence.src)
   const texture = useMemo(() => {
     const copy = source.clone()
     copy.colorSpace = SRGBColorSpace
