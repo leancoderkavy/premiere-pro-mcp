@@ -57,5 +57,7 @@ design and functional checks.
 
 Actual local page captures: [desktop](apple-webpage-refinement-desktop.webp)
 (1440 × 7647) and [phone](apple-webpage-refinement-mobile.webp) (390 × 8180).
-These document the application, not an image-generated mockup. This revision
-has not been deployed, and no production experiment settings were changed.
+These document the application, not an image-generated mockup. At the time of
+these local captures, this revision had not been deployed and no production
+experiment settings had been changed. Subsequent release evidence belongs in
+the release PR and the running experiment's dated revision history.
