@@ -151,7 +151,7 @@ export const articles: Article[] = [
         heading: "Switch without mixing configurations",
         paragraphs: [
           "Save a copy of your client configuration and note which package and connector it starts. Stop that MCP entry and its panel before testing a replacement. Follow the chosen repository's installation instructions; do not assume the connectors, environment variables, or tool names are interchangeable.",
-          "For this project, the Claude Desktop bundle and its separate Premiere connector are the documented release route. For source users, the new --print-client-config helper emits a client entry pointing at the current Node executable and server file. It writes no files. This helper is a development-source feature and is absent from the published v1.15.0 package.",
+          "For this project, the Claude Desktop bundle and its separate Premiere connector are the documented release route. In v1.15.1 and later, the --print-client-config helper emits a client entry pointing at the current Node executable and server file. It writes no files. Use it to configure an exact local installation for your client.",
           "Merge the generated entry into existing settings and preserve other servers. Its local paths may contain your user name; keep the output private. A moved checkout or Node installation requires a refreshed entry. Restart your client and repeat the read-only connection check before editing.",
         ],
         links: [
