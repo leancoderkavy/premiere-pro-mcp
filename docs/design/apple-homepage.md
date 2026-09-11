@@ -17,12 +17,12 @@ September 10, 2026. The user requested an Apple-like website after selecting Pre
 
 The existing control page, server-side assignment, signed visitor identity, exposure/conversion ordering, privacy exclusions, and preview exclusion remain integrated. Client setup routes, versioned downloads, Codex guide, safe connection prompt, troubleshooting, and footer destinations use the existing repository data and controls.
 
-This revision is locally verified and has not been deployed or substituted into the running production experiment. The earlier experiment launch and this design revision are separate release states.
+This document records local verification. Remote CI and production deployment are separate evidence layers, recorded in the release PR and the [PostHog experiment](https://us.posthog.com/project/528794/experiments/462966). The existing experiment runs with an equal control/test split; a deployed treatment revision must be dated in its description because results spanning that date include both designs.
 
 ## Local verification
 
-- Landing ESLint and production build passed. Treatment initial JavaScript is 209,451 bytes gzip against a 240,000-byte budget; control remains 199,542 bytes gzip.
-- All 34 Playwright end-to-end tests passed against the actual Node HTTP server and local PostHog fixture. Coverage includes both variants, repository facts and tool availability, setup destinations, clipboard recovery, navigation, accessible controls, responsive widths from 320 to 1440px, reduced motion, WebGL pause/recovery, video, and experiment safeguards.
+- Rebased onto main `f53956a`, retaining PR #491's image-delivery and accessibility improvements. Landing ESLint and production build passed. Treatment initial JavaScript is 209,617 bytes gzip against a 240,000-byte budget; control is 199,428 bytes gzip.
+- The rebased suite contains 35 Playwright end-to-end tests against the actual Node HTTP server and local PostHog fixture. Coverage includes both variants, repository facts and tool availability, setup destinations, clipboard recovery, navigation, accessible controls, responsive widths from 320 to 1440px, reduced motion, WebGL pause/recovery, video, and experiment safeguards.
 - Automated accessibility scans reported no violations at 390px and 1440px. This is automated coverage, not a comprehensive assistive-technology audit.
 - SEO export validation passed for 27 canonical pages and 926 internal links and anchors.
 - Browser inspection covered the animated desktop hero, full-page desktop/mobile captures, mobile menu, and mobile installer. No browser errors were reported.
