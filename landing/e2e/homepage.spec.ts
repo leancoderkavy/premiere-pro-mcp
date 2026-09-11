@@ -125,8 +125,7 @@ test("treatment: workflow chapters, Codex guide, manual setup, FAQs, and clipboa
   await page.goto("/")
   await page.getByRole("tab", { name: /02 Find your focus/ }).click()
   await expect(page.getByRole("tabpanel", { name: /02 Find your focus/ })).toBeVisible()
-  await page.getByRole("tab", { name: /03 Sweat the details/ }).focus()
-  await page.keyboard.press("Enter")
+  await page.keyboard.press("ArrowRight")
   await expect(page.getByRole("tab", { name: /03 Sweat the details/ })).toHaveAttribute("aria-selected", "true")
   for (const [name, href] of [
     ["Codex", "/blog/codex-premiere-pro-mcp-setup/"],

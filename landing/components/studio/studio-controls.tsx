@@ -4,7 +4,6 @@ import { useEffect, useRef, useState } from "react"
 import { Accordion, Dialog, Tabs } from "radix-ui"
 import {
   ArrowDown,
-  ArrowRight,
   ArrowUpRight,
   Check,
   ChevronDown,
@@ -73,43 +72,40 @@ const chapters = [
     id: "edit",
     number: "01",
     title: "Shape the story.",
+    label: "Editing",
     description:
       "Build assemblies, work with timeline clips, and prepare edits from a clear instruction. Review the plan before supported changes reach Premiere.",
     icon: Scissors,
     artwork: studioArtwork.sequence,
-    titleLabel: "TIMELINE / ASSEMBLY",
     prompt: "Prepare a rough assembly from these selects.",
     response:
-      "Review the sequence, clip order, and target tracks before applying.",
-    tracks: ["SELECTS / OPENING", "BUILD THE MOMENT", "THE REVEAL"]
+      "Review the sequence, clip order, and target tracks before applying."
   },
   {
     id: "organize",
     number: "02",
     title: "Find your focus.",
+    label: "Organization",
     description:
       "Inspect project media, organize bins, and prepare an intake report. Keep project context local and include it only when you choose.",
     icon: FolderOpen,
     artwork: studioArtwork.collection,
-    titleLabel: "PROJECT / ORGANIZATION",
     prompt: "Inspect this project and propose a bin structure.",
     response:
-      "Read-only intake first. Review proposed organization actions next.",
-    tracks: ["01 / PICTURE", "02 / SOUND", "03 / GRAPHICS"]
+      "Read-only intake first. Review proposed organization actions next."
   },
   {
     id: "finish",
     number: "03",
     title: "Sweat the details.",
+    label: "Finishing",
     description:
       "Work with effects, keyframes, color, and export workflows. Inspect host capabilities and returned diagnostics before relying on the result.",
     icon: SlidersHorizontal,
     artwork: studioArtwork.finish,
-    titleLabel: "FINISH / DELIVERY",
     prompt: "Check this sequence before delivery.",
     response:
-      "Inspect supported settings and diagnostics. Confirm the export target.",
-    tracks: ["COLOR / REVIEW", "AUDIO / CHECK", "DELIVERY / PREFLIGHT"]
+      "Inspect supported settings and diagnostics. Confirm the export target."
   }
 ]
 
@@ -117,21 +113,21 @@ export function WorkflowChapters() {
   return (
     <Tabs.Root
       defaultValue="edit"
-      orientation="vertical"
-      className="studio-chapters"
+      orientation="horizontal"
+      className="studio-feature-tabs"
     >
       <Tabs.List
-        className="studio-chapter-list"
+        className="studio-feature-navigation"
         aria-label="Explore editing workflows"
       >
         {chapters.map((chapter) => (
           <Tabs.Trigger
             key={chapter.id}
             value={chapter.id}
-            className="studio-chapter"
-            aria-label={`${chapter.number} ${chapter.title}`}
+            className="studio-feature-tab"
+            aria-label={`${chapter.number} ${chapter.title} ${chapter.label}`}
           >
-            {chapter.title}
+            {chapter.label}
           </Tabs.Trigger>
         ))}
       </Tabs.List>
@@ -139,59 +135,35 @@ export function WorkflowChapters() {
         <Tabs.Content
           value={chapter.id}
           key={chapter.id}
-          className="studio-chapter-panel"
+          className="studio-dark studio-feature-panel"
         >
-          <div className="studio-chapter-summary">
+          <div className="studio-feature-summary">
             <chapter.icon size={28} strokeWidth={1.5} />
             <h3>{chapter.title}</h3>
             <p>{chapter.description}</p>
           </div>
-          <div className="studio-dark studio-chapter-preview">
-            <div className="studio-panel-toolbar">
-              <span>
-                <chapter.icon size={14} />
-                {chapter.titleLabel}
-              </span>
-              <span className="studio-live-dot">ILLUSTRATED WORKFLOW</span>
+          <figure className="studio-feature-art">
+            <picture>
+              <source
+                media="(max-width: 767px)"
+                srcSet={chapter.artwork.mobileSrc}
+              />
+              <Image
+                src={chapter.artwork.src}
+                alt={chapter.artwork.alt}
+                width={1600}
+                height={914}
+                sizes="(max-width: 900px) 94vw, 780px"
+              />
+            </picture>
+            <figcaption>Illustrated workflow</figcaption>
+          </figure>
+          <div className="studio-feature-request">
+            <div>
+              <span>Try asking</span>
+              <p>“{chapter.prompt}”</p>
             </div>
-            <div className="studio-workflow-frame">
-              <picture>
-                <source
-                  media="(max-width: 767px)"
-                  srcSet={chapter.artwork.mobileSrc}
-                />
-                <Image
-                  src={chapter.artwork.src}
-                  alt={chapter.artwork.alt}
-                  width={1600}
-                  height={914}
-                  sizes="(max-width: 768px) 90vw, 650px"
-                />
-              </picture>
-              <span className="studio-frame-corner">IN / 00:00:00:00</span>
-              <span className="studio-frame-corner studio-frame-out">
-                OUT / 00:00:32:00
-              </span>
-            </div>
-            <div
-              className={`studio-workflow-tracks studio-workflow-${chapter.id}`}
-              aria-hidden="true"
-            >
-              {chapter.tracks.map((track, i) => (
-                <div key={track}>
-                  <span>{i + 1}</span>
-                  <div>{track}</div>
-                </div>
-              ))}
-            </div>
-            <div className="studio-workflow-prompt">
-              <span className="studio-prompt-glyph">
-                <Terminal size={17} />
-              </span>
-              <p>{chapter.prompt}</p>
-              <ArrowRight size={18} />
-            </div>
-            <p className="studio-workflow-response">
+            <p className="studio-feature-response">
               <ShieldCheck size={15} />
               {chapter.response}
             </p>
@@ -231,29 +203,32 @@ export function WalkthroughPlayer() {
           }}
           aria-label="Play the walkthrough — illustrated product workflow"
         >
-          <picture>
-            <source
-              media="(max-width: 767px)"
-              srcSet={studioArtwork.sequence.mobileSrc}
-            />
-            <Image
-              src={studioArtwork.sequence.src}
-              alt=""
-              fill
-              sizes="(max-width: 768px) 95vw, 1280px"
-            />
-          </picture>
+          <div className="studio-demo-wordmark" aria-hidden="true">
+            <span>You direct.</span>
+            <span>You decide.</span>
+          </div>
+          <div className="studio-demo-still">
+            <picture>
+              <source
+                media="(max-width: 767px)"
+                srcSet={studioArtwork.finish.mobileSrc}
+              />
+              <Image
+                src={studioArtwork.finish.src}
+                alt=""
+                width={1600}
+                height={914}
+                sizes="(max-width: 768px) 90vw, 720px"
+              />
+            </picture>
+          </div>
           <span className="studio-video-shade" />
           <span className="studio-video-top" aria-hidden="true">
-            A REQUEST. A PLAN. A REVIEWABLE RESULT.
+            A CLOSER LOOK AT THE WORKFLOW
           </span>
           <span className="studio-video-play">
             <Play size={24} fill="currentColor" />
             <span>Play the walkthrough</span>
-          </span>
-          <span className="studio-video-bottom" aria-hidden="true">
-            <span>SEE THE POSSIBILITIES.</span>
-            <ArrowUpRight size={30} />
           </span>
         </button>
       )}
