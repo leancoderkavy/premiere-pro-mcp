@@ -23,6 +23,7 @@ import {
 } from "./studio-controls"
 import { MotionToggle, StudioMotion, StudioStage } from "./studio-motion"
 import "./studio.css"
+import "./studio-editorial.css"
 
 const footerLinks = {
   Explore: [
@@ -78,20 +79,13 @@ export function StudioHome() {
           </div>
           <div className="studio-nav-actions">
             <MotionToggle />
-            <a
-              className="studio-github"
-              href={product.links.repository}
-              aria-label="View source on GitHub"
-            >
-              <Github size={19} />
-            </a>
             <TrackedLink
               href="#install"
               trackingLocation="navigation"
               trackingDestination="safe_connection_check"
               className="studio-button studio-button-small"
             >
-              Get connected <ArrowUpRight size={14} />
+              Get connected
             </TrackedLink>
             <StudioMobileNav />
           </div>
@@ -100,23 +94,16 @@ export function StudioHome() {
       <main id="main-content">
         <section id="top" className="studio-container studio-hero">
           <div className="studio-hero-copy">
-            <a className="studio-release" href="/changelog/">
-              <span className="studio-status-dot" /> OPEN SOURCE. OPEN
-              POSSIBILITIES.
-              <span>
-                V{product.version}
-                <ArrowUpRight size={11} />
-              </span>
-            </a>
+            <p className="studio-product-name">Premiere Pro MCP</p>
             <h1>
               Your vision.
               <br />
               In the <span>timeline.</span>
             </h1>
             <p className="studio-hero-description">
-              An AI connection for Adobe Premiere Pro.
-              <br className="studio-desktop-break" /> Turn your direction into
-              structured, reviewable edits—right where your story takes shape.
+              Your AI assistant. Your favorite editing space.
+              <br className="studio-desktop-break" /> Bring structured,
+              reviewable edits to Adobe Premiere Pro.
             </p>
             <div className="studio-hero-actions">
               <TrackedLink
@@ -125,7 +112,7 @@ export function StudioHome() {
                 trackingDestination="safe_connection_check"
                 className="studio-button studio-button-primary"
               >
-                Connect to Premiere <ArrowUpRight size={17} />
+                Connect to Premiere
               </TrackedLink>
               <TrackedLink
                 href="#features"
@@ -137,18 +124,20 @@ export function StudioHome() {
               </TrackedLink>
             </div>
             <p className="studio-hero-note">
-              <ShieldCheck size={14} /> Local media. Reviewable plans. Your
-              final say.
+              Free and open source. Your media stays local.
             </p>
-            <div className="studio-compatible">
-              <span>WORKS WITH YOUR MCP CLIENT</span>
-              <div>
-                <Command size={15} /> Claude <span>/</span> Codex <span>/</span> Cursor{" "}
-                <span>/</span> Copilot <span>/</span> & more
-              </div>
-            </div>
           </div>
           <StudioStage />
+          <div className="studio-compatible">
+            <span>Works with the assistant you already use.</span>
+            <div>
+              Claude <span>·</span> Codex <span>·</span> Cursor <span>·</span>
+              Copilot <span>·</span> & more
+            </div>
+          </div>
+          <a className="studio-release" href="/changelog/">
+            Explore what’s new in v{product.version} <ArrowUpRight size={13} />
+          </a>
         </section>
         <div
           className="studio-container studio-facts"
@@ -176,55 +165,58 @@ export function StudioHome() {
           </div>
         </div>
 
-        <section
-          id="features"
-          className="studio-container studio-section"
-          data-studio-reveal
-        >
-          <div className="studio-section-heading">
-            <div>
-              <p className="studio-eyebrow">
-                <span>01 / THE CREATIVE WORKFLOW</span>
+        <div className="studio-light studio-workflow-surface">
+          <section
+            id="features"
+            className="studio-container studio-section"
+            data-studio-reveal
+          >
+            <div className="studio-section-heading">
+              <div>
+                <p className="studio-eyebrow">
+                  <span>Made for your creative flow.</span>
+                </p>
+                <h2>
+                  Less repetition.
+                  <br />
+                  <span>More room to create.</span>
+                </h2>
+              </div>
+              <p>
+                From the first selects to the final details, give repetitive
+                work a structured path. Keep the creative decisions yours.
               </p>
-              <h2>
-                Less repetition.
-                <br />
-                <span>More room to create.</span>
-              </h2>
             </div>
-            <p>
-              Keep the creative decisions.
-              <br />
-              Give the repetitive work a structured path.
-              <br />
-              From the first selects to the final details.
-            </p>
-          </div>
-          <WorkflowChapters />
-          <div className="studio-section-foot">
-            <span>
-              <Check size={14} /> Preview. Confirm. Inspect the result.
-            </span>
-            <a href="/workflows/">
-              Find your next workflow <ArrowUpRight size={16} />
-            </a>
-          </div>
-        </section>
+            <WorkflowChapters />
+            <div className="studio-section-foot">
+              <span>
+                <Check size={14} /> Preview. Confirm. Inspect the result.
+              </span>
+              <a href="/workflows/">
+                Find your next workflow <ArrowUpRight size={16} />
+              </a>
+            </div>
+          </section>
 
-        <section
-          id="demo"
-          className="studio-container studio-demo"
-          data-studio-reveal
-        >
-          <WalkthroughPlayer />
-          <div className="studio-demo-caption">
-            <span>AN ILLUSTRATED PRODUCT WALKTHROUGH</span>
-            <p>
-              A visual explanation of the request-to-result flow. This animation
-              is not a recording of a live Premiere host session.
-            </p>
-          </div>
-        </section>
+          <section
+            id="demo"
+            className="studio-container studio-demo"
+            data-studio-reveal
+          >
+            <div className="studio-demo-heading">
+              <h2>See the flow.</h2>
+              <p>A request. A plan. A result you can review.</p>
+            </div>
+            <WalkthroughPlayer />
+            <div className="studio-demo-caption">
+              <span>AN ILLUSTRATED PRODUCT WALKTHROUGH</span>
+              <p>
+                A visual explanation of the request-to-result flow. This
+                animation is not a recording of a live Premiere host session.
+              </p>
+            </div>
+          </section>
+        </div>
 
         <section
           id="how-it-works"
@@ -234,7 +226,7 @@ export function StudioHome() {
           <div className="studio-container">
             <div className="studio-section-heading">
               <div>
-                <p className="studio-eyebrow">02 / CONNECTED. ON YOUR TERMS.</p>
+                <p className="studio-eyebrow">Connected. On your terms.</p>
                 <h2>
                   A powerful connection.
                   <br />
@@ -243,8 +235,8 @@ export function StudioHome() {
               </div>
               <p>
                 The MCP bridge runs alongside Premiere on your machine. Your
-                assistant sends structured requests; you choose the context
-                and confirm supported changes.
+                assistant sends structured requests; you choose the context and
+                confirm supported changes.
               </p>
             </div>
             <div
@@ -312,55 +304,62 @@ export function StudioHome() {
           </div>
         </section>
 
-        <section
-          id="install"
-          className="studio-container studio-section"
-          data-studio-reveal
-        >
-          <div className="studio-section-heading">
-            <div>
-              <p className="studio-eyebrow">03 / MAKE THE CONNECTION</p>
-              <h2>
-                Your next great edit
-                <br />
-                <span>starts right here.</span>
-              </h2>
+        <div className="studio-light studio-setup-surface">
+          <section
+            id="install"
+            className="studio-container studio-section"
+            data-studio-reveal
+          >
+            <div className="studio-section-heading">
+              <div>
+                <p className="studio-eyebrow">A great place to start.</p>
+                <h2>
+                  Your next great edit
+                  <br />
+                  <span>starts right here.</span>
+                </h2>
+              </div>
+              <p>
+                Choose your assistant.
+                <br />{" "}
+                Connect it to Premiere.
+                <br />{" "}
+                Start with a check that changes nothing.
+              </p>
             </div>
-            <p>
-              Choose your assistant.
-              <br />
-              Connect it to Premiere.
-              <br />
-              Start with a check that changes nothing.
-            </p>
-          </div>
-          <StudioInstaller />
-        </section>
+            <StudioInstaller />
+          </section>
 
-        <section
-          id="faq"
-          className="studio-container studio-faq-section"
-          data-studio-reveal
-        >
-          <div>
-            <p className="studio-eyebrow">A FEW THINGS TO KNOW</p>
-            <h2>
-              Clear answers.
-              <br />
-              <span>Then, create.</span>
-            </h2>
-            <a className="studio-text-link" href="/docs/">
-              Read the documentation <ArrowUpRight size={16} />
-            </a>
-          </div>
-          <StudioFaq />
-        </section>
+          <section
+            id="faq"
+            className="studio-container studio-faq-section"
+            data-studio-reveal
+          >
+            <div>
+              <p className="studio-eyebrow">A few things to know.</p>
+              <h2>
+                Clear answers.
+                <br />
+                <span>Then, create.</span>
+              </h2>
+              <a className="studio-text-link" href="/docs/">
+                Read the documentation <ArrowUpRight size={16} />
+              </a>
+            </div>
+            <StudioFaq />
+          </section>
+        </div>
 
         <section className="studio-final" data-studio-reveal>
           <div className="studio-container">
-            <span className="studio-eyebrow">
-              <span className="studio-status-dot" /> THE NEXT FRAME IS YOURS.
-            </span>
+            <Image
+              className="studio-final-mark"
+              src="/marketing/premiere-pro-mcp-mark-v2.svg"
+              width={64}
+              height={64}
+              alt=""
+            />
+            <span className="studio-eyebrow">The next frame is yours.</span>
             <div>
               <h2>
                 Make room
@@ -374,7 +373,7 @@ export function StudioHome() {
                   trackingDestination="safe_connection_check"
                   className="studio-button studio-button-primary"
                 >
-                  Connect to Premiere <ArrowUpRight size={18} />
+                  Connect to Premiere
                 </TrackedLink>
                 <p>
                   Free & open source.
@@ -383,55 +382,52 @@ export function StudioHome() {
                 </p>
               </div>
             </div>
-            <div className="studio-final-rule" aria-hidden="true">
-              {Array.from({ length: 36 }, (_, i) => (
-                <i key={i} />
-              ))}
-            </div>
           </div>
         </section>
       </main>
-      <footer className="studio-container studio-footer">
-        <div className="studio-footer-top">
-          <div>
-            <a className="studio-brand" href="#top">
-              <Image
-                src="/marketing/premiere-pro-mcp-mark-v2.svg"
-                width={30}
-                height={30}
-                alt=""
-              />
-              <span>
-                premiere<span className="studio-brand-divider">/</span>mcp
-              </span>
-            </a>
-            <p>
-              Structured AI control.
-              <br />
-              Creative freedom.
-            </p>
-          </div>
-          {Object.entries(footerLinks).map(([title, links]) => (
-            <div key={title}>
-              <h2>{title}</h2>
-              {links.map(([label, href]) => (
-                <a key={label} href={href}>
-                  {label}
-                </a>
-              ))}
+      <div className="studio-light">
+        <footer className="studio-container studio-footer">
+          <div className="studio-footer-top">
+            <div>
+              <a className="studio-brand" href="#top">
+                <Image
+                  src="/marketing/premiere-pro-mcp-mark-v2.svg"
+                  width={30}
+                  height={30}
+                  alt=""
+                />
+                <span>
+                  premiere<span className="studio-brand-divider">/</span>mcp
+                </span>
+              </a>
+              <p>
+                Structured AI control.
+                <br />
+                Creative freedom.
+              </p>
             </div>
-          ))}
-        </div>
-        <div className="studio-footer-bottom">
-          <span>© 2026 Premiere Pro MCP contributors. MIT licensed.</span>
-          <a href="/privacy/">Privacy</a>
-          <a href="#top">Back to top ↑</a>
-        </div>
-        <p className="studio-trademark">
-          Independent open-source project. Not affiliated with Adobe Inc. Adobe
-          Premiere Pro is a trademark of Adobe Inc.
-        </p>
-      </footer>
+            {Object.entries(footerLinks).map(([title, links]) => (
+              <div key={title}>
+                <h2>{title}</h2>
+                {links.map(([label, href]) => (
+                  <a key={label} href={href}>
+                    {label}
+                  </a>
+                ))}
+              </div>
+            ))}
+          </div>
+          <div className="studio-footer-bottom">
+            <span>© 2026 Premiere Pro MCP contributors. MIT licensed.</span>
+            <a href="/privacy/">Privacy</a>
+            <a href="#top">Back to top ↑</a>
+          </div>
+          <p className="studio-trademark">
+            Independent open-source project. Not affiliated with Adobe Inc.
+            Adobe Premiere Pro is a trademark of Adobe Inc.
+          </p>
+        </footer>
+      </div>
     </StudioMotion>
   )
 }

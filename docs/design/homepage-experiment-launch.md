@@ -1,8 +1,8 @@
 # Homepage design experiment
 
-Status: implemented and verified locally; **draft created, inactive, and not launched** in owner organization `leancoderkavy`, project `528794`. [Open the experiment](https://us.posthog.com/project/528794/experiments/462966).
+Status verified September 10, 2026: **running**, with 100% overall eligibility and equal control/test allocation in owner organization `leancoderkavy`, project `528794`. [Open the experiment](https://us.posthog.com/project/528794/experiments/462966). Runtime exclusions below still apply.
 
-The connector's organization inventory resolved the earlier access problem. Experiment `462966` and its automatically linked flag `876869` were read back after creation: status `draft`, flag `active: false`, no start date, and equal control/test variants. The production capture token's SHA-256 fingerprint matches project `528794`, and the production runtime gate is currently off. The requested launch follows merge, deployment, controlled production ingestion, and metric configuration.
+Experiment `462966` and linked flag `876869` launched after PR #490 (`5c592f72fa7d8a5e499d253c63dc399233fa2552`) deployed. The live experiment records verified production ingestion, configured setup-download and safe-prompt conversion metrics, and a start time of September 10, 2026 at 07:55 UTC. Its running state and allocation were checked again before the Apple-inspired treatment release. Preserve the experiment history and record each treatment deployment time in its description; results spanning a visual revision contain multiple treatment versions.
 
 ## Definition
 
@@ -21,7 +21,7 @@ The connector's organization inventory resolved the earlier access problem. Expe
 
 Hypothesis: the clearer visual workflow and client-specific installer increase setup intent without compromising accessibility, privacy, or loading performance. Use visitor-level conversion, not total event counts: a visitor can click more than one download or copy the prompt repeatedly. The planned conversion window is 24 hours from exposure for both setup-intent outcomes. Production traffic has no measured homepage-conversion baseline yet; do not infer a sample size or winner from prelaunch QA.
 
-The two outcome names are newly implemented events, verified against a local PostHog HTTP fixture. They were **absent** from the production project's schema during the September 10 UTC check, so the draft has no configured metrics yet. Recheck the schema after controlled production ingestion, reuse any equivalent saved metrics, and configure visitor-level conversion metrics before launch. Do not silently allow unknown events, fabricate production ingestion, or create a duplicate experiment.
+The two outcome events were verified against a local PostHog HTTP fixture and subsequently in the production project before launch. The running experiment has a primary setup-download metric and a secondary safe-prompt metric, both using a 24-hour conversion window. Recheck actual event delivery after deployments; local fixture results do not establish production ingestion.
 
 ## Runtime configuration
 
@@ -35,7 +35,9 @@ The existing `POSTHOG_API_KEY` and `POSTHOG_HOST` select the PostHog destination
 - Each capture explicitly requests an asynchronous SDK flush, including pending event preparation. The collector acknowledgement does not wait for PostHog ingestion; visitors are not blocked by the analytics provider.
 - DNT, GPC, known crawlers, and headless automation do not enroll. Both assignment and events fail closed when analytics is disabled. Preview routes are excluded from Google Analytics and the experiment.
 
-## Review and launch sequence
+## Original review and launch sequence
+
+The sequence below documents the initial launch procedure. For a treatment-only design update, retain the running flag, allocation, metrics, and shared signing secret, verify the deployed code, and append a dated revision note to the experiment. Do not reset or relaunch the experiment as an incidental part of a visual release.
 
 1. Select owner organization `leancoderkavy`, project `528794`, and verify the runtime token's destination independently. This project also contains other MCP products' events; preserve the `product = premiere-pro-mcp` boundary.
 2. Reuse draft experiment `462966` and flag `876869`. Read back the equal split, inactive flag, and resolved exposure event before adding conversion metrics. Do not create another experiment for the same key.

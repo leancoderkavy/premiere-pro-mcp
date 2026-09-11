@@ -1,5 +1,7 @@
 # Cinematic homepage QA
 
+Latest local visual revision: [Apple-inspired homepage refinement](docs/design/apple-homepage.md), September 10, 2026. Its checks and screenshots cover the Premiere palette, centered hero, light feature/setup sections, and responsive composition. The report below records the earlier pre-launch QA state; its production status is historical and must not be read as the current provider state.
+
 Local design result: **passed**. Production experiment status: **draft created; inactive and not launched**. [PostHog experiment](https://us.posthog.com/project/528794/experiments/462966).
 
 The public homepage is the only redesigned surface. Documentation, guides, privacy, workflow, and product-intake routes retain their existing interfaces. The original homepage remains the control. Original user edits in the main checkout were preserved by using an isolated worktree. The initial design landed in PR #486; the follow-up QA fixes use `codex/homepage-e2e-repo-fixes-20260909`, rebased onto main `bf06352`, including Next.js 16.3.3 and PR #489's searchable tool reference and versioned setup commands.
