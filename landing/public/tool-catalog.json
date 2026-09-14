@@ -3,11 +3,11 @@
   "evidenceScope": "source_catalog_may_include_unreleased_work",
   "sourceVersion": "1.15.2",
   "sourcePath": "docs/supported-actions.md",
-  "sourceSha256": "37832b4cc93726dda3c8964a200a520ccd0aa426ff5451dfded0657d758de7d9",
+  "sourceSha256": "7f056777aa3e2d0e1997246c05f0e00587ce467acc19ad4168422c792b04df11",
   "hostVerification": "not_established_by_catalogs",
   "counts": {
-    "default": 367,
-    "uxp": 93,
+    "default": 368,
+    "uxp": 95,
     "restricted": 2
   },
   "tools": [
@@ -828,6 +828,12 @@
       "description": "Discover Premiere operations and report backend coverage, authority, and verification requirements. Use tool_query with task keywords (for example transcript, captions, or review frames) for ranked, bounded matches available in this session. Use tool_names for exact lookups or tool_offset/tool_limit for paging. Discovery never grants authority or proves a live host is ready."
     },
     {
+      "name": "get_caption_style_guidance",
+      "surface": "default",
+      "modes": "preset: clean, bold_pop, karaoke, podcast, lecture",
+      "description": "Returns caption style presets (clean, bold_pop, karaoke, podcast, lecture) with font, position, and styling recommendations, plus Premiere UI steps for applying styles. Read-only guidance; NEVER modifies caption tracks. Use build_caption_artifact for SRT/VTT timing, then import via create_caption_track and apply styles manually in Premiere's UI."
+    },
+    {
       "name": "get_clip_adjustment_layer",
       "surface": "default",
       "modes": "Single operation",
@@ -1474,6 +1480,12 @@
       "surface": "default",
       "modes": "Single operation",
       "description": "Invert the current clip selection in the active sequence (selected become deselected and vice versa)."
+    },
+    {
+      "name": "is_language_pack_available_uxp",
+      "surface": "uxp",
+      "modes": "Single operation",
+      "description": "Check if a transcript language pack is available through documented Premiere 26.3+ UXP APIs. This is a read-only availability check; it does not download language packs or change Premiere."
     },
     {
       "name": "is_work_area_enabled",
@@ -2674,6 +2686,12 @@
       "surface": "default",
       "modes": "Single operation",
       "description": "Toggle a video track's visibility (eye icon)"
+    },
+    {
+      "name": "transcribe_clip_uxp",
+      "surface": "uxp",
+      "modes": "Single operation",
+      "description": "Start Adobe Speech-to-Text transcription for one exact source clip through documented Premiere 26.3+ UXP APIs. Requires exact project_item_id (or name), explicit confirmation, and operation_id. This is a guarded, privacy-aware transcript-start boundary; it does not claim transcript completion, playback, or licensed-host verification. Transcription may use Adobe cloud services per host preferences; verify data-handling policies before use."
     },
     {
       "name": "transform_track_item_uxp",
