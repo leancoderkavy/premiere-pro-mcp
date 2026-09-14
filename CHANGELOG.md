@@ -6,6 +6,24 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Fixed
+
+- `export_frame`, `capture_frame`, `freeze_frame`, and the
+  `export_sequence_*_review_frames` tools now write the requested frame on
+  macOS Premiere Pro 26.5 / 27 beta. The QE still exporters take
+  `(timecodeString, pathWithoutExtension)`; the previous
+  `(path, width, height)` call returned `false` without writing a file, so
+  every frame export fell through to the Media Encoder fallback. The frame
+  time is now formatted with `Time.getFormatted()` in the sequence's display
+  format (drop-frame included), the editor's playhead is no longer moved, and
+  the result reports the timecode and frame index that were rendered.
+- Preset discovery (`get_encoder_presets`, the default `export_sequence`
+  preset, proxy ingest presets, and the still-image fallback) now looks
+  inside the `.app` bundle that lives one level below
+  `/Applications/Adobe Media Encoder <version>/` on macOS. Previously only the
+  user's own presets under `~/Documents/Adobe/Adobe Media Encoder/*/Presets`
+  were found.
+
 ## [1.15.1] - 2026-09-11
 
 ### Fixed

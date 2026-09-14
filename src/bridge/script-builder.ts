@@ -290,9 +290,21 @@ function __collectEprFiles(folder, out) {
 
 // macOS applications are bundles: AME/Premiere resources live below Contents,
 // whereas the Windows installers put the same folders directly below the app root.
+// On macOS the /Applications entry is normally a plain folder that holds the bundle
+// ("/Applications/Adobe Media Encoder 2026/Adobe Media Encoder 2026.app"), so when
+// Contents is not directly there, look one level down for the ".app".
 function __adobeApplicationResourceFolder(appFolder, relativePath) {
-  var prefix = appFolder.fsName + (__isMacOS() ? "/Contents/" : "/");
-  return new Folder(prefix + relativePath);
+  if (!__isMacOS()) return new Folder(appFolder.fsName + "/" + relativePath);
+
+  var direct = new Folder(appFolder.fsName + "/Contents/" + relativePath);
+  if (direct.exists) return direct;
+
+  var bundles = appFolder.getFiles(function(f) { return /\\.app$/i.test(f.name); });
+  for (var i = 0; i < bundles.length; i++) {
+    var nested = new Folder(bundles[i].fsName + "/Contents/" + relativePath);
+    if (nested.exists) return nested;
+  }
+  return direct;
 }
 
 // All export presets AME ships, plus the user's own saved presets.
@@ -371,7 +383,8 @@ function __findProxyPreset() {
 
 function __findStillPreset(outputPath) {
   var wantJpeg = /\\.jpe?g$/i.test(outputPath);
-  var needles = wantJpeg ? ["jpeg", "jpg"] : ["png"];
+  var wantTiff = /\\.tiff?$/i.test(outputPath);
+  var needles = wantJpeg ? ["jpeg", "jpg"] : (wantTiff ? ["tiff", "tif"] : ["png"]);
   var presets = __collectAllPresets();
 
   for (var n = 0; n < needles.length; n++) {
@@ -417,63 +430,102 @@ function __firstWrittenFile(outputPath) {
   }
 }
 
-// Export a single frame to disk. Returns { ok, method, path, notes } / { ok:false, error, notes }.
+// Premiere's own timecode string for a tick position, in the sequence's display
+// format (drop-frame sequences get semicolons, a "frames" display gets a bare frame
+// count). The QE still exporters take (timecodeString, pathWithoutExtension): a ticks
+// string is silently read as frame 0, a bare frame number is read as a timecode, and
+// the (path, width, height) call returns false without writing anything.
+function __qeTimecodeForTicks(seq, ticks) {
+  var tb = parseFloat(seq.timebase); // ticks per frame
+  var frameIdx = Math.floor(parseFloat(ticks) / tb + 0.000001);
+  if (!(frameIdx >= 0)) frameIdx = 0;
+  var frameTicks = frameIdx * tb;
+
+  var displayFormat = 100;
+  try { displayFormat = seq.getSettings().videoDisplayFormat; } catch (e) {}
+  try {
+    var fr = new Time(); fr.ticks = String(tb);
+    var t = new Time(); t.ticks = String(frameTicks);
+    if (typeof t.getFormatted === "function") {
+      return { timecode: t.getFormatted(fr, displayFormat), frame: frameIdx };
+    }
+  } catch (e2) {}
+
+  // Fallback: non-drop timecode at the nominal integer base (24 for 23.976, 30 for 29.97).
+  var nominal = Math.round(TICKS_PER_SECOND / tb);
+  var ff = frameIdx % nominal;
+  var s = Math.floor(frameIdx / nominal) % 60;
+  var m = Math.floor(frameIdx / (nominal * 60)) % 60;
+  var h = Math.floor(frameIdx / (nominal * 3600));
+  return { timecode: __pad(h) + ":" + __pad(m) + ":" + __pad(s) + ":" + __pad(ff), frame: frameIdx };
+}
+
+// Export a single frame to disk. Returns { ok, method, path, notes, timecode, frame }
+// / { ok:false, error, notes }.
 //
 // exportFramePNG/exportFrameJPEG do NOT exist on the public DOM sequence — only on
-// the QE sequence — and even there they return false and write nothing on some
-// builds. So we try QE first, verify against the filesystem rather than the return
-// value, and fall back to a one-frame Media Encoder export.
+// the QE sequence — where they take a timecode string and a path WITHOUT extension
+// (they append .png / .jpg themselves). The playhead is never moved: the timecode
+// argument alone selects the frame. We verify against the filesystem rather than the
+// return value, and fall back to a one-frame Media Encoder export.
 function __exportStillFrame(outputPath, ticks) {
   var seq = app.project.activeSequence;
   if (!seq) return { ok: false, error: "No active sequence", notes: [] };
 
   var notes = [];
-  var savedPos = null;
-  try { savedPos = seq.getPlayerPosition().ticks; } catch (e) {}
-
-  if (ticks) {
-    try { seq.setPlayerPosition(String(ticks)); } catch (e) { notes.push("setPlayerPosition: " + e.toString()); }
-  }
   var atTicks = ticks;
   if (!atTicks) {
     try { atTicks = seq.getPlayerPosition().ticks; } catch (e) { atTicks = "0"; }
   }
 
-  // Clear any stale file so that a file existing afterwards proves we wrote it.
+  var dot = outputPath.lastIndexOf(".");
+  var slash = Math.max(outputPath.lastIndexOf("/"), outputPath.lastIndexOf("\\\\"));
+  var ext = dot > slash ? outputPath.substring(dot).toLowerCase() : "";
+  if (ext === "") { outputPath = outputPath + ".png"; ext = ".png"; }
+  var basePath = outputPath.substring(0, outputPath.length - ext.length);
+  var wantJpeg = ext === ".jpg" || ext === ".jpeg";
+  var qeCanWrite = wantJpeg || ext === ".png";
+  var qePath = basePath + (wantJpeg ? ".jpg" : ".png");
+
+  // Clear any stale file (under either name) so that a file existing afterwards proves we wrote it.
   var stale = new File(outputPath);
   if (stale.exists) { try { stale.remove(); } catch (e) {} }
+  var staleQe = new File(qePath);
+  if (staleQe.exists) { try { staleQe.remove(); } catch (e) {} }
 
-  var wantJpeg = /\\.jpe?g$/i.test(outputPath);
-
-  // --- Path 1: QE DOM. Signature is (path, width, height) with string args. ---
-  try {
-    app.enableQE();
-    var qeSeq = qe.project.getActiveSequence();
-    if (!qeSeq) {
-      notes.push("QE: no active sequence");
-    } else {
-      var fn = wantJpeg ? qeSeq.exportFrameJPEG : qeSeq.exportFramePNG;
-      if (typeof fn !== "function") {
-        notes.push("QE: exportFrame" + (wantJpeg ? "JPEG" : "PNG") + " unavailable on this build");
+  // --- Path 1: QE DOM. Signature is (timecodeString, pathWithoutExtension). ---
+  var at = null;
+  if (!qeCanWrite) {
+    notes.push("QE: no still exporter for " + ext + "; using Media Encoder");
+  } else {
+    try {
+      app.enableQE();
+      var qeSeq = qe.project.getActiveSequence();
+      if (!qeSeq) {
+        notes.push("QE: no active sequence");
       } else {
-        var w = String(seq.frameSizeHorizontal);
-        var h = String(seq.frameSizeVertical);
-        try {
-          notes.push("QE returned " + fn.call(qeSeq, outputPath, w, h));
-        } catch (eArgs) {
-          try { notes.push("QE returned " + fn.call(qeSeq, outputPath, w)); }
-          catch (eArgs2) { notes.push("QE: " + eArgs2.toString()); }
+        var fn = wantJpeg ? qeSeq.exportFrameJPEG : qeSeq.exportFramePNG;
+        if (typeof fn !== "function") {
+          notes.push("QE: exportFrame" + (wantJpeg ? "JPEG" : "PNG") + " unavailable on this build");
+        } else {
+          at = __qeTimecodeForTicks(seq, atTicks);
+          notes.push("QE " + qeSeq.name + " @ " + at.timecode + " (frame " + at.frame + ") returned " + fn.call(qeSeq, at.timecode, basePath));
         }
       }
+    } catch (eQE) {
+      notes.push("QE: " + eQE.toString());
     }
-  } catch (eQE) {
-    notes.push("QE: " + eQE.toString());
+  }
+
+  // QE always names the file base + ".png"/".jpg"; give the caller the name they asked for.
+  var produced = new File(qePath);
+  if (qePath !== outputPath && produced.exists && produced.length > 0) {
+    try { produced.rename(decodeURI(new File(outputPath).name)); } catch (e) {}
   }
 
   var written = __firstWrittenFile(outputPath);
   if (written) {
-    if (savedPos) { try { seq.setPlayerPosition(savedPos); } catch (e) {} }
-    return { ok: true, method: "qe", path: written, notes: notes };
+    return { ok: true, method: "qe", path: written, notes: notes, timecode: at ? at.timecode : null, frame: at ? at.frame : null };
   }
   notes.push("QE wrote no file; falling back to Media Encoder");
 
@@ -512,10 +564,8 @@ function __exportStillFrame(outputPath, ticks) {
     notes.push("AME: " + eAME.toString());
   }
 
-  if (savedPos) { try { seq.setPlayerPosition(savedPos); } catch (e) {} }
-
   written = __firstWrittenFile(outputPath);
-  if (written) return { ok: true, method: "ame", path: written, notes: notes };
+  if (written) return { ok: true, method: "ame", path: written, notes: notes, timecode: null, frame: null };
 
   return {
     ok: false,

@@ -869,3 +869,28 @@ describe("issue #327 — legacy media replacement is fail-closed", () => {
     expect(mockedSendCommand).not.toHaveBeenCalled();
   });
 });
+
+// QE still-frame export on Premiere 26.5 / 27 (macOS, verified 2026-09-12 against a
+// hold-keyframe camera switch): exportFramePNG/exportFrameJPEG take
+// (timecodeString, pathWithoutExtension). A (path, width, height) call returns false
+// and writes nothing; a ticks string exports frame 0. And /Applications/<Adobe app>/
+// is a plain folder holding the .app bundle, so Contents lives one level down.
+describe("QE still frames are addressed by timecode and macOS bundles are resolved one level down", () => {
+  it("formats the frame with Time.getFormatted in the sequence display format and strips the extension", () => {
+    const helpers = getHelpersSource();
+
+    expect(helpers).toContain("function __qeTimecodeForTicks(");
+    expect(helpers).toContain("getFormatted(fr, displayFormat)");
+    expect(helpers).toContain("fn.call(qeSeq, at.timecode, basePath)");
+    expect(helpers).not.toContain("fn.call(qeSeq, outputPath, w, h)");
+    // The timecode argument alone selects the frame; the editor's playhead is left alone.
+    expect(helpers).not.toContain("seq.setPlayerPosition(String(ticks))");
+  });
+
+  it("looks for Contents inside <app folder>/<name>.app on macOS", () => {
+    const helpers = getHelpersSource();
+
+    expect(helpers).toContain("/\\.app$/i");
+    expect(helpers).toContain('"/Contents/" + relativePath');
+  });
+});
