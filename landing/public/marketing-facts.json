@@ -3,7 +3,7 @@
   "name": "MCP for Adobe Premiere Pro",
   "canonicalUrl": "https://premiere-pro-mcp.com/facts/",
   "publishedRelease": {
-    "version": "1.15.2",
+    "version": "1.15.1",
     "coreTools": 369,
     "defaultProfileTools": 367,
     "uxpAdditionalTools": 93,
