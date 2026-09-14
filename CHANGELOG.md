@@ -6,23 +6,22 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [1.15.2] - 2026-09-14
+
 ### Fixed
 
-- `export_frame`, `capture_frame`, `freeze_frame`, and the
-  `export_sequence_*_review_frames` tools now write the requested frame on
-  macOS Premiere Pro 26.5 / 27 beta. The QE still exporters take
-  `(timecodeString, pathWithoutExtension)`; the previous
-  `(path, width, height)` call returned `false` without writing a file, so
-  every frame export fell through to the Media Encoder fallback. The frame
-  time is now formatted with `Time.getFormatted()` in the sequence's display
-  format (drop-frame included), the editor's playhead is no longer moved, and
-  the result reports the timecode and frame index that were rendered.
-- Preset discovery (`get_encoder_presets`, the default `export_sequence`
-  preset, proxy ingest presets, and the still-image fallback) now looks
-  inside the `.app` bundle that lives one level below
-  `/Applications/Adobe Media Encoder <version>/` on macOS. Previously only the
-  user's own presets under `~/Documents/Adobe/Adobe Media Encoder/*/Presets`
-  were found.
+- `trim_clip` now rolls back source metadata to prevent clip corruption when a partial write occurs (source points changed but timeline edge didn't move). Previously these clips entered a permanently-stuck state. (#509, #503)
+- `export_frame`, `capture_frame`, `freeze_frame`, and the `export_sequence_*_review_frames` tools now write the requested frame on macOS Premiere Pro 26.5 / 27 beta. QE still exporters take `(timecodeString, pathWithoutExtension)`; the previous `(path, width, height)` call returned `false` without writing a file, so every frame export fell through to the Media Encoder fallback. Frame time is now formatted with `Time.getFormatted()` in the sequence's display format (drop-frame included), the editor's playhead is no longer moved, and the result reports the timecode and frame index that were rendered. (#510)
+- Preset discovery (`get_encoder_presets`, the default `export_sequence` preset, proxy ingest presets, and the still-image fallback) now looks inside the `.app` bundle that lives one level below `/Applications/Adobe Media Encoder <version>/` on macOS. Previously only the user's own presets under `~/Documents/Adobe/Adobe Media Encoder/*/Presets` were found. (#510)
+- `verify_premiere_connection` now aligns panel and active sequence identity checks. (#501)
+- `create_mogrt_recipe` now exposes composition parameter controls correctly. (#504)
+- `apply_mogrt` now surfaces buildToolScript and importMGT error details. (#505)
+- `inspect_color_value` argument unwrapping no longer fails. (#506)
+
+### Changed
+
+- Removed orphaned chat-plugin directory and build scripts. (#502)
+- Pinned Adobe type definitions at 26.3 until drift receipts are rewritten for stable 26.5. (#508)
 
 ## [1.15.1] - 2026-09-11
 
