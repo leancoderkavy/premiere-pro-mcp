@@ -278,7 +278,7 @@ export function buildMogrtRecipeScript(plan: MogrtPlan): string {
       ${subtitleFontAssignment}
       subtitleSource.setValue(subtitleDocument);
       subtitleLayer.property("ADBE Transform Group").property("ADBE Position").setValue([${Math.round(plan.width * subtitleX)}, ${Math.round(plan.height * layout.subtitleY)}]);
-      subtitleExposed = expose(subtitleSource);
+      subtitleExposed = expose(subtitleSource, comp);
     `
     : "";
 
@@ -291,11 +291,12 @@ export function buildMogrtRecipeScript(plan: MogrtPlan): string {
       var normalizedCandidate = normalizedPath(candidate);
       return normalizedCandidate === normalizedRoot || normalizedCandidate.indexOf(normalizedRoot + "/") === 0;
     }
-    function expose(property) {
+    function expose(property, comp) {
       try {
         if (!property || typeof property.addToMotionGraphicsTemplate !== "function") return false;
-        if (typeof property.canAddToMotionGraphicsTemplate === "function" && !property.canAddToMotionGraphicsTemplate()) return false;
-        return property.addToMotionGraphicsTemplate() === true;
+        // AE API requires the CompItem argument for both canAdd and add calls
+        if (typeof property.canAddToMotionGraphicsTemplate === "function" && !property.canAddToMotionGraphicsTemplate(comp)) return false;
+        return property.addToMotionGraphicsTemplate(comp) === true;
       } catch (exposeError) {
         return false;
       }
@@ -341,8 +342,8 @@ export function buildMogrtRecipeScript(plan: MogrtPlan): string {
       ${fontAssignment}
       headlineSource.setValue(headlineDocument);
       headlineLayer.property("ADBE Transform Group").property("ADBE Position").setValue([${Math.round(plan.width * headlineX)}, ${Math.round(plan.height * layout.headlineY)}]);
-      var headlineExposed = expose(headlineSource);
-      var accentExposed = expose(accentProperty);
+      var headlineExposed = expose(headlineSource, comp);
+      var accentExposed = expose(accentProperty, comp);
       var subtitleExposed = false;
       ${subtitleLayer}
       var logoImported = false;

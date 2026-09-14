@@ -397,7 +397,20 @@ export function getTimelineTools(bridgeOptions: BridgeOptions) {
           // A source-point trim can only have an exact CEP postcondition when
           // the source and visible durations agree. Retimed/reversed clips need
           // host-specific semantics, so refusing them is safer than guessing.
-          if (Math.abs((before.end - before.start) - (before.outPoint - before.inPoint)) > tolerance) {
+          var durationMismatch = Math.abs((before.end - before.start) - (before.outPoint - before.inPoint));
+          if (durationMismatch > tolerance) {
+            // Check if this looks like a partial write (source metadata changed but timeline didn't)
+            // by seeing if the clip appears to be at 100% speed but has mismatched durations.
+            // A truly retimed clip would show consistent metadata; a corrupted one won't.
+            try {
+              var playbackSpeed = clip.getSpeed ? clip.getSpeed() : null;
+              // If speed is exactly 100 or unreadable, this is likely a partial-write corruption, not a retime.
+              if (playbackSpeed === null || Math.abs(playbackSpeed - 100) < 0.01) {
+                return __error("Clip has inconsistent source/timeline durations (source: " + (before.outPoint - before.inPoint).toFixed(3) + "s, timeline: " + (before.end - before.start).toFixed(3) + "s) at 100% speed. This can happen after a partial trim write. Undo the previous edit or use the host UI to restore consistency before retrying trim_clip.");
+              }
+            } catch(speedError) {
+              // clip.getSpeed() might not be available on all Premiere versions; fall through to generic check
+            }
             return __error("trim_clip does not support retimed or otherwise non-1x clips because CEP cannot prove the requested source trim maps to the correct timeline edge. Use a host-verified workflow instead.");
           }
 

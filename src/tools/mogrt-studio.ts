@@ -12,6 +12,7 @@ import path from "node:path";
 import { sendAfterEffectsCommand } from "../bridge/after-effects-bridge.js";
 import { buildAfterEffectsScript, escapeForAfterEffects } from "../bridge/after-effects-script-builder.js";
 import { sendCommand, type BridgeOptions, type CommandResult } from "../bridge/file-bridge.js";
+import { buildToolScript, escapeForExtendScript } from "../bridge/script-builder.js";
 import {
   buildMogrtPlan,
   buildMogrtRecipeScript,
@@ -240,15 +241,19 @@ function premiereHandoffPlan(value: unknown, artifactStatus: (candidate: string)
 }
 
 function buildPremiereHandoffScript(plan: PremiereHandoffPlan): string {
-  return `
-    var seq = __findSequence("${escapeForAfterEffects(plan.sequenceId)}");
+  return buildToolScript(`
+    var seq = __findSequence("${escapeForExtendScript(plan.sequenceId)}");
     if (!seq) return __error("The previewed verification sequence no longer exists");
-    if (String(seq.name) !== "${escapeForAfterEffects(plan.disposableSequenceName)}") return __error("The sequence name no longer matches the explicit disposable verification target");
+    if (String(seq.name) !== "${escapeForExtendScript(plan.disposableSequenceName)}") return __error("The sequence name no longer matches the explicit disposable verification target");
     var titleTrack = seq.videoTracks[${plan.videoTrackIndex}];
     if (!titleTrack) return __error("The requested verification video track does not exist");
     if (titleTrack.clips.numItems !== 0) return __error("The requested verification video track is not empty; no MOGRT was imported");
     var before = titleTrack.clips.numItems;
-    var imported = seq.importMGT("${escapeForAfterEffects(plan.mogrtPath)}", __secondsToTicks(${plan.startSeconds}).toString(), ${plan.videoTrackIndex}, ${plan.audioTrackIndex});
+    try {
+      var imported = seq.importMGT("${escapeForExtendScript(plan.mogrtPath)}", __secondsToTicks(${plan.startSeconds}).toString(), ${plan.videoTrackIndex}, ${plan.audioTrackIndex});
+    } catch (importError) {
+      return __error("Premiere could not import the MOGRT: " + String(importError));
+    }
     var after = titleTrack.clips.numItems;
     if (after <= before) return __error("Premiere returned from importMGT without inserting a verification track item");
     var inserted = titleTrack.clips[after - 1];
@@ -269,7 +274,7 @@ function buildPremiereHandoffScript(plan: PremiereHandoffPlan): string {
       visualVerified: false,
       verificationScope: "Premiere inserted the MOGRT into the explicit empty verification track and returned control descriptors. Capture and inspect a rendered frame before delivery."
     });
-  `;
+  `);
 }
 
 export function getMogrtStudioTools(bridgeOptions: BridgeOptions, dependencies: MogrtStudioDependencies = {}) {

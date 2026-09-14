@@ -1191,8 +1191,10 @@
     }
 
     async function inspectColorParameter(args) {
-      const firstContext = await colorParameterContext(args, false), first = await colorParameterSnapshot(firstContext);
-      const finalContext = await colorParameterContext(args, false), final = await colorParameterSnapshot(finalContext);
+      // Unwrap args if they're nested (e.g., { args: {...} } instead of {...})
+      const input = args && typeof args === "object" && !Array.isArray(args) && args.args ? args.args : args;
+      const firstContext = await colorParameterContext(input, false), first = await colorParameterSnapshot(firstContext);
+      const finalContext = await colorParameterContext(input, false), final = await colorParameterSnapshot(finalContext);
       if (!colorSnapshotMatches(first, final)) {
         throw commandError("UXP_STALE_COLOR_PARAMETER", "The Color parameter changed while it was being inspected; retry the inspection");
       }

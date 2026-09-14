@@ -282,8 +282,13 @@ export function getHealthTools(
           try {
             const script = buildToolScript(`
               var projectOpen = !!(app && app.project && typeof app.project.name !== "undefined");
-              var sequenceOpen = !!(projectOpen && __getCurrentActiveSequence());
-              return __result({ projectOpen: projectOpen, sequenceOpen: sequenceOpen });
+              // Use the same simple check the panel uses rather than __getCurrentActiveSequence(),
+              // which validates sequence presence in the project collection. The panel (which shares
+              // this host.jsx) and headless extension contexts can diverge on that stricter check
+              // even when Premiere truly has an active sequence. Align with the panel's boundary.
+              var sequenceOpen = !!(projectOpen && app.project.activeSequence);
+              var context = "cep_" + (typeof CSInterface !== "undefined" && CSInterface.getExtensionID ? String(CSInterface.getExtensionID()).split(".").pop() : "unknown");
+              return __result({ projectOpen: projectOpen, sequenceOpen: sequenceOpen, extensionContext: context });
             `);
             const response = await sendCommand(script, {
               ...bridgeOptions,
