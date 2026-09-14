@@ -83,7 +83,7 @@ describe("trim_clip verification", () => {
     expect(script).toContain("var expectedStart = before.start");
     expect(script).toContain("var expectedEnd = before.end + (actualOut - before.outPoint)");
     expect(script).toContain("visible timeline duration does not match the applied source range");
-    expect(script).toContain("source metadata may have changed, but this is not reported as success");
+    expect(script).toContain("source metadata was rolled back");
   });
 
   it("fails closed for retimed clips and unhandled out-of-range keyframes", async () => {
