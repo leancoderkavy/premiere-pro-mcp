@@ -2,28 +2,21 @@
 
 Audit date: 2026-07-29  
 Audited revision: `7a075870217ab495b001a38473cc652247edded4` (`main`, matching `origin/main`)  
-Scope: MCP server, CEP/UXP/chat plugins, landing application, dependencies, container/deployment configuration, and GitHub Actions.
+Scope: MCP server, CEP/UXP plugins, landing application, dependencies, container/deployment configuration, and GitHub Actions.
 
 ## Executive summary
 
 The remote MCP server has a sound basic authentication posture: it fails closed when `MCP_AUTH_TOKEN` is absent, compares bearer tokens in constant time, limits UXP WebSocket payloads, binds the UXP bridge to loopback, validates MCP tool arguments with schemas, and gates raw scripting behind an explicit capability. Production dependency audits for both the MCP package and landing app found zero known vulnerabilities, the tracked-file scan found no high-confidence committed secrets, and GitHub currently reports zero open code-scanning alerts.
 
-The most important issue is outside the guarded MCP tool path: the bundled AI chat panel enables automatic execution by default and directly executes code blocks returned by a remote language model. A prompt-injected model response can therefore edit a project or access the host capabilities available to ExtendScript without a per-script user decision. Release workflows also use mutable GitHub Action tags while holding release-write or npm trusted-publishing authority, creating a supply-chain path if a referenced action tag is compromised.
+The most important issue is in the release workflows: they use mutable GitHub Action tags while holding release-write or npm trusted-publishing authority, creating a supply-chain path if a referenced action tag is compromised.
 
 No critical findings were identified. This was a read-only audit; no fixes were applied.
 
+**Note:** The bundled AI chat panel (`chat-plugin/`) and its associated build scripts were removed in a subsequent cleanup as they were orphaned and not integrated with the main MCP server.
+
 ## High severity
 
-### SEC-001 — AI-generated ExtendScript executes by default without per-script approval
-
-- **Location:** `chat-plugin/main.js:10-22`, `chat-plugin/main.js:272-287`, `chat-plugin/main.js:397-419`, `chat-plugin/main.js:434-447`
-- **Evidence:** `state.autoExec` defaults to `true`; every fenced `extendscript`, `jsx`, or `javascript` block in the provider response is queued and passed to `cs.evalScript`. This path does not call the MCP server's capability guard or its script validator.
-- **Impact:** Content supplied by a user, project metadata, or another untrusted source can prompt-inject the remote model into returning hostile ExtendScript. The panel then runs it inside Premiere without showing the script or asking the user. Depending on CEP/ExtendScript host capabilities, this can corrupt projects, overwrite edits, export data, or access local resources.
-- **Fix:** Default `autoExec` to `false`; require an explicit confirmation for each generated script and show the exact script plus a concise capability/risk summary. Keep an optional session-scoped auto-run mode only behind a prominent unsafe-mode acknowledgement. Apply an allowlist/capability policy to chat-generated scripts; do not treat regex blocking as a sandbox.
-- **Mitigation:** Run on copies of projects, restrict CEP/Node privileges where possible, and ensure project-derived context is explicitly treated as untrusted in the system prompt.
-- **False-positive notes:** This behavior is intentional product functionality, but intent does not remove the prompt-injection boundary. The risk is lower only if the chat plugin is not shipped or users always disable auto-execution before supplying any untrusted context.
-
-### SEC-002 — Mutable action tags hold release and package-publishing authority
+### SEC-001 — Mutable action tags hold release and package-publishing authority
 
 - **Location:** `.github/workflows/cep-release.yml:7-18`, `.github/workflows/claude-desktop-bundle.yml:8-32`, `.github/workflows/npm-publish.yml:19-68`, `.github/workflows/cross-platform.yml:7-24`
 - **Evidence:** Workflows use mutable references such as `actions/checkout@v7`, `actions/setup-node@v7`, `actions/upload-artifact@v6`, and `actions/download-artifact@v7`. Release jobs grant `contents: write`; the npm workflow grants `id-token: write`.
@@ -34,7 +27,7 @@ No critical findings were identified. This was a read-only audit; no fixes were 
 
 ## Medium severity
 
-### SEC-003 — Internet-facing MCP endpoint lacks application-level abuse limits
+### SEC-002 — Internet-facing MCP endpoint lacks application-level abuse limits
 
 - **Location:** `src/http-server.ts:119-185`, `fly.toml:9-21`
 - **Evidence:** Every authorized `/mcp` request constructs a new MCP server and transport. The application sets no request body limit, connection/header/request timeout, concurrency limit, or rate limit. Unauthorized attempts are also not throttled. Fly enforces HTTPS but no repository-visible edge rate policy is configured.
@@ -43,7 +36,7 @@ No critical findings were identified. This was a read-only audit; no fixes were 
 - **Mitigation:** Keep `ALLOW_UNAUTHENTICATED` disabled, rotate a strong token, set Fly proxy/firewall limits, and alert on sustained unauthorized or high-concurrency traffic.
 - **False-positive notes:** Fly may provide undocumented/account-level controls; verify them in the live configuration. Transport-library parsing may impose an internal body limit, but no explicit application guarantee is visible here.
 
-### SEC-004 — Landing static-file containment check is not canonical or separator-aware
+### SEC-003 — Landing static-file containment check is not canonical or separator-aware
 
 - **Location:** `src/http-server.ts:54-71`
 - **Evidence:** The requested path is joined directly from the raw URL path and authorized with `filePath.startsWith(LANDING_DIR)`. The code does not decode and normalize the URL first, and string-prefix containment allows sibling names that merely begin with the same characters.
@@ -54,7 +47,7 @@ No critical findings were identified. This was a read-only audit; no fixes were 
 
 ## Low severity
 
-### SEC-005 — HTTP responses lack explicit security headers
+### SEC-004 — HTTP responses lack explicit security headers
 
 - **Location:** `src/http-server.ts:54-71`, `src/http-server.ts:120-184`, `landing/next.config.ts:1-10`
 - **Evidence:** Static and API responses set content type but no CSP, `X-Content-Type-Options`, clickjacking protection, or referrer policy. No equivalent header policy is visible in the repository.
@@ -63,7 +56,7 @@ No critical findings were identified. This was a read-only audit; no fixes were 
 - **Mitigation:** Configure and verify equivalent headers at Fly's trusted edge.
 - **False-positive notes:** Edge-added headers were not live-tested in this source audit.
 
-### SEC-006 — Development dependency advisories can affect CI availability
+### SEC-005 — Development dependency advisories can affect CI availability
 
 - **Location:** `landing/package.json`, `landing/package-lock.json`
 - **Evidence:** Full `npm audit` reports nine high-severity advisory paths through ESLint, minimatch, and brace-expansion, including `GHSA-mh99-v99m-4gvg` (unbounded brace expansion). `npm audit --omit=dev` reports zero findings.
