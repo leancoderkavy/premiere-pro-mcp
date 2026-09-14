@@ -2,7 +2,7 @@ import { test, expect, type Page, type APIRequestContext } from "@playwright/tes
 import { readFileSync } from "node:fs"
 import published from "../lib/published-release.json"
 import manifest from "../../public-product-manifest.json"
-import { safeFirstPrompt, product } from "../lib/product"
+import { safeFirstPrompt, product, sourceCatalog } from "../lib/product"
 import AxeBuilder from "@axe-core/playwright"
 
 const fixtureURL = `http://127.0.0.1:${process.env.LANDING_E2E_POSTHOG_PORT || 3161}`
@@ -35,7 +35,9 @@ for (const variant of ["control", "test"]) {
     await expect(page.locator("h1")).toHaveText(variant === "test" ? /Your vision[\s\S]*timeline/ : /MCP for Adobe Premiere Pro:/)
     await expect.poll(async () => (await state(request)).events.filter(event => event.event === "$experiment_exposure").length).toBe(1)
     expect(product.version).toBe(published.version)
-    expect(published.coreTools).toBe(manifest.capabilitySurface.registeredCoreTools)
+    expect(product.coreToolCount).toBe(published.coreTools)
+    expect(manifest.generatedFrom.evidenceScope).toBe("source_checkout_not_published_package")
+    expect(manifest.capabilitySurface.registeredCoreTools).toBe(sourceCatalog.coreTools)
     await expect(page.locator("body")).toContainText(String(published.coreTools))
     await expect(page.locator("body")).toContainText(safeFirstPrompt)
     expect(readFileSync("../README.md", "utf8")).toContain(safeFirstPrompt)
