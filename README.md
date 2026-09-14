@@ -108,7 +108,7 @@ The current source exposes 369 core tools for supported workflow steps spanning 
 
 <a id="latest-release"></a>
 
-### Latest release: 1.15.1
+### Latest release: 1.15.2
 
 The published v1.15.1 npm artifact contains **369 core tools**, 367 in its default profile,
 and 460 with a compatible UXP connection. The development catalog above can include
