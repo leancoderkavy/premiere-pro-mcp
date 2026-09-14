@@ -431,6 +431,10 @@ export function getTimelineTools(bridgeOptions: BridgeOptions) {
             return __error("Refusing trim before mutation: " + beforeKeyframes.outside.length + " effect keyframe(s) would remain outside the visible clip. Use keyframe_policy: preserve only if retaining those keyframes is intentional, or adjust them explicitly with the keyframe tools.");
           }
 
+          // Capture original source points as tick strings for potential rollback
+          var originalInPointTicks = clip.inPoint;
+          var originalOutPointTicks = clip.outPoint;
+
           ${args.new_in_seconds !== undefined ? `clip.inPoint = __secondsToTicks(${args.new_in_seconds}).toString();` : "clip.outPoint = __secondsToTicks(" + args.new_out_seconds + ").toString();"}
 
           // Re-find the TrackItem after the write. Premiere can replace stale
@@ -478,7 +482,34 @@ export function getTimelineTools(bridgeOptions: BridgeOptions) {
           }
 
           if (drift.length) {
-            return __error("Premiere did not apply a verified timeline trim: " + drift.join("; ") + ". The source metadata may have changed, but this is not reported as success. Structural clip edits are known to no-op on some Premiere Pro 26.x installations.");
+            // Detect partial write: source metadata changed but timeline didn't move
+            var sourceMetadataChanged = (Math.abs(actualIn - before.inPoint) > tolerance) ||
+                                        (Math.abs(actualOut - before.outPoint) > tolerance);
+
+            if (sourceMetadataChanged) {
+              // Partial write detected - roll back source metadata to prevent clip corruption
+              afterResult.clip.inPoint = originalInPointTicks;
+              afterResult.clip.outPoint = originalOutPointTicks;
+
+              // Verify rollback
+              var rolledBack = __findClip("${escapeForExtendScript(args.node_id)}");
+              if (rolledBack) {
+                var rolled = __snapshotTrimGeometry(rolledBack.clip);
+                var rollbackSucceeded = Math.abs(rolled.inPoint - before.inPoint) <= tolerance &&
+                                        Math.abs(rolled.outPoint - before.outPoint) <= tolerance;
+
+                if (rollbackSucceeded) {
+                  return __error("Premiere did not apply a verified timeline trim: " + drift.join("; ") + ". The write partially changed source metadata without moving the timeline edge, which would poison the clip for future trims. The source metadata was rolled back to its original state. Structural clip edits are known to no-op on some Premiere Pro 26.x installations. Use the workaround (set in/out on Source Monitor before placing via create_sequence_from_clips) or undo and retry in the Premiere UI.");
+                } else {
+                  return __error("Premiere did not apply a verified timeline trim: " + drift.join("; ") + ". A partial write occurred and rollback of source metadata could not be verified. The clip may be in an inconsistent state. Use Undo to restore it.");
+                }
+              } else {
+                return __error("Premiere did not apply a verified timeline trim: " + drift.join("; ") + ". A partial write occurred but the clip could not be re-found for rollback. The clip may be in an inconsistent state. Use Undo to restore it.");
+              }
+            } else {
+              // Timeline didn't move but source also didn't change - just a no-op
+              return __error("Premiere did not apply a verified timeline trim: " + drift.join("; ") + ". The source metadata was unchanged, so the clip remains consistent. Structural clip edits are known to no-op on some Premiere Pro 26.x installations.");
+            }
           }
 
           var afterKeyframes = __findOutOfRangeKeyframes(afterResult.clip, after.end - after.start);

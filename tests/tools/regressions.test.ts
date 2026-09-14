@@ -894,3 +894,72 @@ describe("QE still frames are addressed by timecode and macOS bundles are resolv
     expect(helpers).toContain('"/Contents/" + relativePath');
   });
 });
+
+// https://github.com/leancoderkavy/premiere-pro-mcp/issues/503
+describe("issue #503 — trim_clip partial write rollback prevents clip corruption", () => {
+  const timeline = getTimelineTools(bridgeOptions);
+
+  it("captures original source points before attempting trim", async () => {
+    const script = await scriptFor(timeline.trim_clip, { node_id: "clip-1", new_in_seconds: 0.3 });
+
+    expect(script).toContain("var originalInPointTicks = clip.inPoint");
+    expect(script).toContain("var originalOutPointTicks = clip.outPoint");
+  });
+
+  it("detects partial write when source metadata changed but timeline didn't move", async () => {
+    const script = await scriptFor(timeline.trim_clip, { node_id: "clip-1", new_in_seconds: 0.3 });
+
+    expect(script).toContain("var sourceMetadataChanged = (Math.abs(actualIn - before.inPoint) > tolerance) ||");
+    expect(script).toContain("(Math.abs(actualOut - before.outPoint) > tolerance)");
+  });
+
+  it("rolls back source metadata when partial write is detected", async () => {
+    const script = await scriptFor(timeline.trim_clip, { node_id: "clip-1", new_in_seconds: 0.3 });
+
+    expect(script).toContain("if (sourceMetadataChanged)");
+    expect(script).toContain("afterResult.clip.inPoint = originalInPointTicks");
+    expect(script).toContain("afterResult.clip.outPoint = originalOutPointTicks");
+  });
+
+  it("verifies rollback succeeded before reporting the error", async () => {
+    const script = await scriptFor(timeline.trim_clip, { node_id: "clip-1", new_in_seconds: 0.3 });
+
+    expect(script).toContain("var rolledBack = __findClip");
+    expect(script).toContain("var rolled = __snapshotTrimGeometry(rolledBack.clip)");
+    expect(script).toContain("var rollbackSucceeded = Math.abs(rolled.inPoint - before.inPoint) <= tolerance");
+  });
+
+  it("explains partial write with rollback and provides workaround guidance", async () => {
+    const script = await scriptFor(timeline.trim_clip, { node_id: "clip-1", new_in_seconds: 0.3 });
+
+    expect(script).toContain("The write partially changed source metadata without moving the timeline edge");
+    expect(script).toContain("would poison the clip for future trims");
+    expect(script).toContain("The source metadata was rolled back to its original state");
+    expect(script).toContain("set in/out on Source Monitor before placing via create_sequence_from_clips");
+  });
+
+  it("distinguishes between partial write (rollback) and no-op (no rollback needed)", async () => {
+    const script = await scriptFor(timeline.trim_clip, { node_id: "clip-1", new_in_seconds: 0.3 });
+
+    // Partial write path: sourceMetadataChanged is true
+    expect(script).toContain("if (sourceMetadataChanged)");
+    expect(script).toContain("rolled back to its original state");
+
+    // No-op path: sourceMetadataChanged is false
+    expect(script).toContain("The source metadata was unchanged, so the clip remains consistent");
+  });
+
+  it("reports rollback verification failure distinctly", async () => {
+    const script = await scriptFor(timeline.trim_clip, { node_id: "clip-1", new_in_seconds: 0.3 });
+
+    expect(script).toContain("rollback of source metadata could not be verified");
+    expect(script).toContain("The clip may be in an inconsistent state");
+    expect(script).toContain("Use Undo to restore it");
+  });
+
+  it("handles clip not found after partial write", async () => {
+    const script = await scriptFor(timeline.trim_clip, { node_id: "clip-1", new_in_seconds: 0.3 });
+
+    expect(script).toContain("the clip could not be re-found for rollback");
+  });
+});
