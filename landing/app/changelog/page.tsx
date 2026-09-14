@@ -6,6 +6,26 @@ import { product } from "@/lib/product"
 
 const releases = [
   {
+    version: "1.15.2",
+    date: "2026-09-14",
+    label: "Export frames, trim rollback, MOGRT, and connection fixes",
+    groups: [
+      { title: "Fixed", items: [
+        "trim_clip now rolls back source metadata to prevent clip corruption when a partial write occurs. Previously these clips entered a permanently-stuck state.",
+        "export_frame, capture_frame, freeze_frame, and review_frames tools now write the requested frame on macOS Premiere Pro 26.5 / 27 beta.",
+        "Preset discovery now finds Adobe's built-in presets inside .app bundles on macOS.",
+        "verify_premiere_connection now aligns panel and active sequence identity checks.",
+        "create_mogrt_recipe now exposes composition parameter controls correctly.",
+        "apply_mogrt now surfaces buildToolScript and importMGT error details.",
+        "inspect_color_value argument unwrapping no longer fails."
+      ] },
+      { title: "Changed", items: [
+        "Removed orphaned chat-plugin directory and build scripts.",
+        "Pinned Adobe type definitions at 26.3 until drift receipts are rewritten for stable 26.5."
+      ] }
+    ],
+  },
+  {
     version: "1.15.1",
     date: "2026-09-11",
     label: "UXP import fix, searchable tools, and clearer setup",
