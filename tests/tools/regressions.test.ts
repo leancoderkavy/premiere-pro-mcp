@@ -902,8 +902,8 @@ describe("issue #503 — trim_clip partial write rollback prevents clip corrupti
   it("captures original source points before attempting trim", async () => {
     const script = await scriptFor(timeline.trim_clip, { node_id: "clip-1", new_in_seconds: 0.3 });
 
-    expect(script).toContain("var originalInPointTicks = clip.inPoint");
-    expect(script).toContain("var originalOutPointTicks = clip.outPoint");
+    expect(script).toContain("var originalInPointTicks = String(clip.inPoint.ticks)");
+    expect(script).toContain("var originalOutPointTicks = String(clip.outPoint.ticks)");
   });
 
   it("detects partial write when source metadata changed but timeline didn't move", async () => {
@@ -917,8 +917,10 @@ describe("issue #503 — trim_clip partial write rollback prevents clip corrupti
     const script = await scriptFor(timeline.trim_clip, { node_id: "clip-1", new_in_seconds: 0.3 });
 
     expect(script).toContain("if (sourceMetadataChanged)");
-    expect(script).toContain("afterResult.clip.inPoint = originalInPointTicks");
-    expect(script).toContain("afterResult.clip.outPoint = originalOutPointTicks");
+    expect(script).toContain("restoredIn.ticks = originalInPointTicks");
+    expect(script).toContain("restoredOut.ticks = originalOutPointTicks");
+    expect(script).toContain("afterResult.clip.inPoint = restoredIn");
+    expect(script).toContain("afterResult.clip.outPoint = restoredOut");
   });
 
   it("verifies rollback succeeded before reporting the error", async () => {

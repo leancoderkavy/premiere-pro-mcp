@@ -431,9 +431,10 @@ export function getTimelineTools(bridgeOptions: BridgeOptions) {
             return __error("Refusing trim before mutation: " + beforeKeyframes.outside.length + " effect keyframe(s) would remain outside the visible clip. Use keyframe_policy: preserve only if retaining those keyframes is intentional, or adjust them explicitly with the keyframe tools.");
           }
 
-          // Capture original source points as tick strings for potential rollback
-          var originalInPointTicks = clip.inPoint;
-          var originalOutPointTicks = clip.outPoint;
+          // Capture original source ticks as strings. Do not keep the Time
+          // object references — Premiere can mutate the same instance on write.
+          var originalInPointTicks = String(clip.inPoint.ticks);
+          var originalOutPointTicks = String(clip.outPoint.ticks);
 
           ${args.new_in_seconds !== undefined ? `clip.inPoint = __secondsToTicks(${args.new_in_seconds}).toString();` : "clip.outPoint = __secondsToTicks(" + args.new_out_seconds + ").toString();"}
 
@@ -488,8 +489,12 @@ export function getTimelineTools(bridgeOptions: BridgeOptions) {
 
             if (sourceMetadataChanged) {
               // Partial write detected - roll back source metadata to prevent clip corruption
-              afterResult.clip.inPoint = originalInPointTicks;
-              afterResult.clip.outPoint = originalOutPointTicks;
+              var restoredIn = new Time();
+              restoredIn.ticks = originalInPointTicks;
+              var restoredOut = new Time();
+              restoredOut.ticks = originalOutPointTicks;
+              afterResult.clip.inPoint = restoredIn;
+              afterResult.clip.outPoint = restoredOut;
 
               // Verify rollback
               var rolledBack = __findClip("${escapeForExtendScript(args.node_id)}");
