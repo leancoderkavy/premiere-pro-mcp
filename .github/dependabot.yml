@@ -9,6 +9,18 @@ updates:
         update-types:
           - minor
           - patch
+    ignore:
+      # Stable 26.5 adopted the beta Static factory types; bumping it requires
+      # rewriting the adobe-beta-*-drift receipts, not a grouped Dependabot PR.
+      - dependency-name: "@adobe/premierepro"
+        versions: [">=26.5.0"]
+      - dependency-name: "@adobe/eslint-plugin-premierepro"
+        versions: [">=26.5.0"]
+      # Vitest 5 requires Node 22+ and a paired @vitest/coverage-v8 bump.
+      - dependency-name: "vitest"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "@vitest/coverage-v8"
+        update-types: ["version-update:semver-major"]
 
   - package-ecosystem: github-actions
     directory: /
