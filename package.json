@@ -225,8 +225,8 @@
   },
   "devDependencies": {
     "@adobe/cc-ext-uxp-types": "7.3.1",
-    "@adobe/eslint-plugin-premierepro": "26.5.0",
-    "@adobe/premierepro": "26.5.0",
+    "@adobe/eslint-plugin-premierepro": "26.3.0",
+    "@adobe/premierepro": "26.3.0",
     "@adobe/premierepro-beta": "npm:@adobe/premierepro@26.5.0-beta.73",
     "@modelcontextprotocol/client": "^2.0.0",
     "@types/node": "^26.3.0",
