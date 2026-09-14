@@ -40,6 +40,8 @@ verification column describes the required evidence, not a completed test run.
 
 | MCP tool | UXP protocol command | Adobe API | Operation | Capability state | Verification evidence |
 | --- | --- | --- | --- | --- | --- |
+| `transcribe_clip_uxp` | `transcript.start` | `Transcript.transcribeClipProjectItem()` | Speech-to-Text start invocation; no completion claim | Supported when the exact project-item identity and action APIs probe true | Request Adobe's Speech-to-Text API for one exact source clip; it does not prove transcript completion, accuracy, or licensed-host validation. Privacy boundary: transcription may use Adobe cloud services per host preferences. |
+| `is_language_pack_available_uxp` | `transcript.languagePack.check` | `Transcript.isLanguagePackAvailable()` | Read-only language-pack availability check | Supported when the documented API probes true | Return Adobe's boolean availability for one language code; does not download language packs or change Premiere. |
 | `rename_track_uxp` | `track.rename` | `AudioTrack`, `VideoTrack`, and `CaptionTrack` `createSetNameAction()` | Undoable project mutation | Supported when the selected track type and action APIs probe true | Read back the target track's name after the committed transaction; live host must also validate Undo. |
 | `create_subclip_uxp` | `subclip.create` | `ClipProjectItem.createSubClipAction()` | Undoable project mutation | Supported when the resolved item is a clip and action APIs probe true | Return and re-resolve the created subclip identity; live host must validate hard boundaries and audio/video options. |
 | `list_markers_uxp` | `marker.list` | `Marker.guid`, `getColor()`, `getUrl()`, `getTarget()`, plus marker accessors | Read-only | Supported when sequence or clip marker APIs probe true | Return marker values and the stable 26.3 `guid`; optional web-link URL/target and raw RGBA component fields require explicit caller opt-in and do not mutate Premiere. |
@@ -281,6 +283,19 @@ bounded `operation_id` replay key where applicable.
   `committed_unverified` even when the post-call panel XML changed. UI/extension
   races, field presence, persistence, UI results, Undo, cancellation, and
   licensed-host behavior are not claimed.
+- `transcribe_clip_uxp`: requires one `project_item_id` (512 characters maximum) or
+  `project_item_name` (255 maximum); `language` is an optional bounded string from
+  `get_transcript_languages_uxp` or `is_language_pack_available_uxp`. Requires
+  `confirm_destructive: true` and a bounded `operation_id`. The panel matches the
+  exact clip identity, invokes `Transcript.transcribeClipProjectItem()`, and returns
+  `committed_unverified` success with a privacy disclosure. This is a guarded
+  Speech-to-Text start boundary; it does not claim transcript completion, accuracy,
+  rendered appearance, playback, or licensed-host validation. Transcription may use
+  Adobe cloud services per host preferences; verify data-handling policies before use.
+- `is_language_pack_available_uxp`: requires one bounded `language` string. The panel
+  invokes `Transcript.isLanguagePackAvailable()` and returns Adobe's boolean
+  availability. This is read-only and does not download language packs or change
+  Premiere.
 - `has_transcript_uxp`: accepts at most one resolved `project_item_id` or
   `project_item_name`; omitting both requires exactly one Project-panel selection.
 - `import_transcript_uxp`: requires exact `project_item_id`, `project_guid`, and
@@ -401,6 +416,8 @@ specific Premiere version and platform.
 ## Primary references
 
 - [Premiere Pro UXP 26.3 changelog](https://developer.adobe.com/premiere-pro/uxp/changelog/)
+- [Transcript `transcribeClipProjectItem`](https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/transcript) (26.3+, documented since 25.6 beta)
+- [Transcript `isLanguagePackAvailable`](https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/transcript)
 - [AudioTrack `createSetNameAction`](https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/audiotrack), with matching `VideoTrack` and `CaptionTrack` methods
 - [ClipProjectItem `createSubClipAction`](https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/clipprojectitem)
 - [Marker `guid`](https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/marker)

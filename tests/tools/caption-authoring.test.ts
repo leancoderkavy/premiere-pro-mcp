@@ -30,8 +30,8 @@ function assertSchema(schema: Schema, path: string) {
 const tools = getCaptionAuthoringTools();
 
 describe("caption authoring tool schemas", () => {
-  it("exposes exactly the two expected tools", () => {
-    expect(Object.keys(tools).sort()).toEqual(["build_caption_artifact", "check_caption_safe_zone"]);
+  it("exposes exactly the three expected tools", () => {
+    expect(Object.keys(tools).sort()).toEqual(["build_caption_artifact", "check_caption_safe_zone", "get_caption_style_guidance"]);
   });
 
   it.each(Object.entries(tools))("%s has a bounded, fully described schema", (name, tool) => {
@@ -40,7 +40,14 @@ describe("caption authoring tool schemas", () => {
     expect(tool.parameters.type).toBe("object");
     expect(tool.parameters.additionalProperties).toBe(false);
     assertSchema(tool.parameters as Schema, name);
-    expect(tool.parameters.required.length).toBeGreaterThan(0);
+    expect(tool.parameters.required).toBeDefined();
+    if (name === "get_caption_style_guidance") {
+      // This tool has no required parameters (preset is optional)
+      expect(tool.parameters.required ?? []).toHaveLength(0);
+    } else {
+      // Other tools have at least one required parameter
+      expect(tool.parameters.required.length).toBeGreaterThan(0);
+    }
   });
 
   it("bounds every array and enum", () => {
@@ -52,6 +59,37 @@ describe("caption authoring tool schemas", () => {
     const check = tools.check_caption_safe_zone.parameters.properties;
     expect(check.elements.maxItems).toBe(64);
     expect(check.platform.enum).toEqual(["tiktok", "instagram_reels", "youtube_shorts", "instagram_feed", "youtube", "linkedin", "x"]);
+  });
+});
+
+describe("get_caption_style_guidance tool", () => {
+  it("returns style descriptors and Premiere UI steps for a preset", async () => {
+    const result = await tools.get_caption_style_guidance.handler({ preset: "karaoke" });
+    expect(result.success).toBe(true);
+    if (!result.success) return;
+    expect(result.data.style.preset).toBe("karaoke");
+    expect(result.data.style.word_highlight).toBe(true);
+    expect(result.data.style.uppercase_recommended).toBe(true);
+    expect(result.data.workflow).toContain("Step 1: Generate caption SRT/VTT with build_caption_artifact (timing/text only)");
+    expect(result.data.premiere_ui_steps).toContain("1. Select the caption track in the timeline");
+    expect(result.data.mutation_refused).toContain("This tool provides guidance only");
+    expect(result.data.mutation_refused).toContain("does not expose a CaptionTrack style mutation API");
+  });
+
+  it("defaults to clean preset", async () => {
+    const result = await tools.get_caption_style_guidance.handler({});
+    expect(result.success).toBe(true);
+    if (!result.success) return;
+    expect(result.data.style.preset).toBe("clean");
+    expect(result.data.style.background).toBe(true);
+    expect(result.data.style.stroke).toBe(false);
+  });
+
+  it("rejects invalid presets", async () => {
+    const result = await tools.get_caption_style_guidance.handler({ preset: "invalid" as any });
+    expect(result.success).toBe(false);
+    if (result.success) return;
+    expect(result.error).toContain("preset must be one of:");
   });
 });
 

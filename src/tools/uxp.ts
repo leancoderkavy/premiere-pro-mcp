@@ -439,6 +439,75 @@ export function getUxpTools(bridge: UxpWebSocketBridge) {
       parameters: {},
       handler: async () => invoke(bridge, "transcript.languages"),
     },
+    transcribe_clip_uxp: {
+      description: "Start Adobe Speech-to-Text transcription for one exact source clip through documented Premiere 26.3+ UXP APIs. Requires exact project_item_id (or name), explicit confirmation, and operation_id. This is a guarded, privacy-aware transcript-start boundary; it does not claim transcript completion, playback, or licensed-host verification. Transcription may use Adobe cloud services per host preferences; verify data-handling policies before use.",
+      parameters: {
+        type: "object" as const,
+        additionalProperties: false,
+        properties: {
+          project_item_id: { type: "string", minLength: 1, maxLength: 512, description: "Exact project-item ID of the source clip to transcribe." },
+          project_item_name: { type: "string", minLength: 1, maxLength: 255, description: "Exact project-item name when ID is unavailable. Only one of ID or name is accepted." },
+          language: { type: "string", minLength: 1, maxLength: 64, description: "Optional language code from get_transcript_languages_uxp or is_language_pack_available_uxp." },
+          confirm_destructive: { type: "boolean", description: "Must be true to start transcription." },
+          operation_id: operationId,
+        },
+        required: ["confirm_destructive", "operation_id"],
+      },
+      operationalCapability: {
+        backend: "UXP" as const,
+        backends: ["uxp" as const],
+        minimumPremiereVersion: "26.3",
+        verificationBoundary: "transcript_start_requested" as const,
+        hostVerificationRequired: true,
+        notes: [
+          "Available only through an authenticated UXP bridge whose runtime capability handshake advertises transcript.start.",
+          "Guarded Speech-to-Text start: requires exact identity, explicit confirmation, and operation_id.",
+          "Privacy boundary: transcription may use Adobe cloud services per host preferences.",
+          "Does not claim transcript completion, accuracy, or licensed-host validation.",
+        ],
+      },
+      handler: async (args: {
+        project_item_id?: string;
+        project_item_name?: string;
+        language?: string;
+        confirm_destructive: boolean;
+        operation_id: string;
+      }) => {
+        if (!args.confirm_destructive) {
+          return { success: false, error: "transcribe_clip_uxp requires confirm_destructive: true" };
+        }
+        if (!args.operation_id || typeof args.operation_id !== "string" || args.operation_id.length === 0) {
+          return { success: false, error: "transcribe_clip_uxp requires operation_id for safe replay" };
+        }
+        return invoke(bridge, "transcript.start", {
+          ...(args.project_item_id ? { projectItemId: args.project_item_id } : {}),
+          ...(args.project_item_name ? { projectItemName: args.project_item_name } : {}),
+          ...(args.language ? { language: args.language } : {}),
+          confirmDestructive: args.confirm_destructive,
+          operationId: args.operation_id,
+        });
+      },
+    },
+    is_language_pack_available_uxp: {
+      description: "Check if a transcript language pack is available through documented Premiere 26.3+ UXP APIs. This is a read-only availability check; it does not download language packs or change Premiere.",
+      parameters: {
+        type: "object" as const,
+        additionalProperties: false,
+        properties: {
+          language: { type: "string", minLength: 1, maxLength: 64, description: "Language code to check (e.g. from get_transcript_languages_uxp)." },
+        },
+        required: ["language"],
+      },
+      operationalCapability: {
+        backend: "UXP" as const,
+        backends: ["uxp" as const],
+        minimumPremiereVersion: "26.3",
+        verificationBoundary: "structured_uxp_readback" as const,
+        hostVerificationRequired: true,
+        notes: ["Available only through an authenticated UXP bridge whose runtime capability handshake advertises transcript.languagePack.check."],
+      },
+      handler: async (args: { language: string }) => invoke(bridge, "transcript.languagePack.check", { language: args.language }),
+    },
     get_clip_transcript_uxp: {
       description: "Export Premiere's native transcript JSON for one source media clip. Returns a revision hash that must be used when previewing transcript edits. This is read-only and does not run Speech-to-Text.",
       parameters: {

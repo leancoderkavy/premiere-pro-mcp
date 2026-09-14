@@ -14,6 +14,8 @@ type UxpTool = {
 };
 
 const ADOBE_26_3_TOOLS = [
+  "transcribe_clip_uxp",
+  "is_language_pack_available_uxp",
   "rename_track_uxp",
   "create_subclip_uxp",
   "list_markers_uxp",
@@ -57,7 +59,7 @@ describe("Adobe Premiere 26.3 UXP public MCP catalog", () => {
       expect(listed.tools.map((tool) => tool.name)).toEqual(
         expect.arrayContaining(ADOBE_26_3_TOOLS),
       );
-      expect(listed.tools).toHaveLength(460);
+      expect(listed.tools).toHaveLength(463);
     } finally {
       await client.close();
       await server.close();
@@ -202,6 +204,24 @@ describe("Adobe Premiere 26.3 UXP public MCP catalog", () => {
         media_type: { enum: ["video", "audio"] },
         track_index: { maximum: 511 }, clip_index: { maximum: 511 }, component_index: { maximum: 511 },
         expected_sequence_guid: { maxLength: 512 }, expected_component_id: { maxLength: 512 },
+      },
+    });
+    expect(tools.transcribe_clip_uxp.parameters).toMatchObject({
+      type: "object",
+      required: ["confirm_destructive", "operation_id"],
+      properties: {
+        project_item_id: { type: "string", minLength: 1, maxLength: 512 },
+        project_item_name: { type: "string", minLength: 1, maxLength: 255 },
+        language: { type: "string", minLength: 1, maxLength: 64 },
+        confirm_destructive: { type: "boolean" },
+        operation_id: { type: "string" },
+      },
+    });
+    expect(tools.is_language_pack_available_uxp.parameters).toMatchObject({
+      type: "object",
+      required: ["language"],
+      properties: {
+        language: { type: "string", minLength: 1, maxLength: 64 },
       },
     });
     expect(tools.has_transcript_uxp.parameters).toMatchObject({
