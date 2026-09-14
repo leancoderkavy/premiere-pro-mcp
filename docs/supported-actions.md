@@ -10,11 +10,11 @@ source catalog may include unreleased actions.
 
 | Surface | Count | Availability |
 | --- | ---: | --- |
-| Registered core actions | 369 | CEP/local server catalog; host and authority checks still apply |
-| Default-profile core actions | 367 | Advertised with `inspect,edit,export,filesystem` |
+| Registered core actions | 370 | CEP/local server catalog; host and authority checks still apply |
+| Default-profile core actions | 368 | Advertised with `inspect,edit,export,filesystem` |
 | Restricted core actions | 2 | Require explicit `unsafe-script` authority |
-| Authenticated UXP additions | 93 | Advertised only while a compatible authenticated UXP panel is connected |
-| Default profile with UXP | 460 | 367 core plus 93 UXP tools |
+| Authenticated UXP additions | 95 | Advertised only while a compatible authenticated UXP panel is connected |
+| Default profile with UXP | 463 | 368 core plus 95 UXP tools |
 
 ## How to read support
 
@@ -147,6 +147,7 @@ operation” when the tool has no enum-based mode.
 | `get_bin_contents` | Default profile | Single operation | Get detailed contents of a specific bin (folder) including all nested items, media paths, offline status, color labels, and metadata. Searches by bin name or node ID. |
 | `get_bridge_telemetry` | Default profile | Single operation | Inspect privacy-preserving aggregate bridge health: pending command/response counts, busy operations, queue age, and CEP heartbeat state without returning project or personal data. |
 | `get_capabilities` | Default profile | Single operation | Discover Premiere operations and report backend coverage, authority, and verification requirements. Use tool_query with task keywords (for example transcript, captions, or review frames) for ranked, bounded matches available in this session. Use tool_names for exact lookups or tool_offset/tool_limit for paging. Discovery never grants authority or proves a live host is ready. |
+| `get_caption_style_guidance` | Default profile | `preset`: `clean`, `bold_pop`, `karaoke`, `podcast`, `lecture` | Returns caption style presets (clean, bold_pop, karaoke, podcast, lecture) with font, position, and styling recommendations, plus Premiere UI steps for applying styles. Read-only guidance; NEVER modifies caption tracks. Use build_caption_artifact for SRT/VTT timing, then import via create_caption_track and apply styles manually in Premiere's UI. |
 | `get_clip_adjustment_layer` | Default profile | Single operation | Check if a clip is an adjustment layer |
 | `get_clip_at_playhead` | Default profile | `track_type`: `video`, `audio`, `both` | Get all clips at the current playhead position across all tracks. |
 | `get_clip_at_position` | Default profile | `track_type`: `video`, `audio` | Get the clip at a specific time position on a track |
@@ -463,6 +464,7 @@ authenticated and the connected host advertises the required command capabilitie
 | `inspect_track_item_identity_uxp` | Connected UXP | `media_type`: `video`, `audio` | Inspect one active-sequence clip's native match name, item type, media UUID, reported track index, and selection state through documented UXP APIs. It rechecks the active sequence identity before returning and does not expose media paths, effect parameters, or rendered output. |
 | `inspect_unique_object_identity_uxp` | Connected UXP | Single operation | Read the opaque documented Premiere unique serializable identity for exactly one existing project item or sequence, without changing the project. Select exactly one locator. The bridge independently resolves and reads the target twice, rejecting an active-project, locator, or unique-identity change rather than returning a mixed snapshot. It does not expose paths, metadata, content, timeline placement, editability, rendering, playback, persistence guarantees, or a licensed-host result. |
 | `inspect_video_transition_uxp` | Connected UXP | `position`: `start`, `end` | Read one bounded native video-transition target, including the active sequence GUID, source item ID, timeline edges, and presence at one requested edge. Copy this snapshot unchanged into add_video_transition_uxp or remove_video_transition_uxp. |
+| `is_language_pack_available_uxp` | Connected UXP | Single operation | Check if a transcript language pack is available through documented Premiere 26.3+ UXP APIs. This is a read-only availability check; it does not download language packs or change Premiere. |
 | `lift_selection_uxp` | Connected UXP | Single operation | Lift the current timeline selection through Premiere's documented UXP SequenceEditor. This removes selected items without ripple in one undoable transaction; transaction acceptance is not a timeline readback. |
 | `list_markers_uxp` | Connected UXP | `scope`: `sequence`, `project_item` | List Premiere markers with stable 26.3+ GUIDs from the active sequence or one source media clip. Web-link URLs/frame targets and raw marker RGBA components are returned only with explicit opt-in; URLs can contain sensitive query data, and color components are host values without a color-profile or rendered-appearance claim. |
 | `list_video_transitions_uxp` | Connected UXP | Single operation | List the installed native video-transition match names from the connected Premiere UXP host. |
@@ -504,6 +506,7 @@ authenticated and the connected host advertises the required command capabilitie
 | `set_source_monitor_position_uxp` | Connected UXP | Single operation | Set and read back the Source Monitor position using Premiere 26.3+ UXP. |
 | `slide_track_item_uxp` | Connected UXP | `inspect`, `apply` | Inspect or perform one guarded slide on an audio or video timeline item using documented UXP track-item actions. Apply requires the complete three-item snapshot, explicit confirmation, and an operation ID; it serializes slides and source-only slips on the affected track, commits one transaction, and verifies every affected source and timeline boundary. Only contiguous forward 1x clips are supported. It does not prove source handles, linked A/V synchronization, rendered frames, playback, persistence, or Undo behavior. |
 | `slip_track_item_uxp` | Connected UXP | `inspect`, `apply` | Inspect or perform one guarded source-only slip on an audio or video timeline item. Apply requires the complete inspected snapshot, explicit confirmation, and an operation ID; it serializes slip operations per target, creates the documented source in/out actions in one undoable transaction, and reads back unchanged timeline timing plus the exact shifted source range. It supports only forward 1x clips, does not infer available media handles, and does not prove rendered frames, playback, linked-item sync, persistence, or Undo behavior. |
+| `transcribe_clip_uxp` | Connected UXP | Single operation | Start Adobe Speech-to-Text transcription for one exact source clip through documented Premiere 26.3+ UXP APIs. Requires exact project_item_id (or name), explicit confirmation, and operation_id. This is a guarded, privacy-aware transcript-start boundary; it does not claim transcript completion, playback, or licensed-host verification. Transcription may use Adobe cloud services per host preferences; verify data-handling policies before use. |
 | `transform_track_item_uxp` | Connected UXP | `inspect`, `update` | Inspect or atomically move, trim, rename, and enable/disable one audio or video track item with stale-position guards and readback. |
 | `wait_for_host_readiness_uxp` | Connected UXP | `snapshot`, `analysis`, `operation` | Capture a pre-dispatch readiness revision or wait, without retrying, for video-effect analysis or one documented operation-completion receipt. |
 
