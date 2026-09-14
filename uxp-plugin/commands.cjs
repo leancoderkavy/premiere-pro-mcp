@@ -55,6 +55,8 @@
       "marker.list": { readOnly: true, minHostVersion: "26.3.0", probe: canListMarkers, handler: listMarkers },
       "sourceMonitor.position.set": { idempotent: true, minHostVersion: "26.3.0", probe: canSetSourceMonitorPosition, handler: setSourceMonitorPosition },
       "transcript.languages": { readOnly: true, minHostVersion: "26.3.0", probe: canQueryTranscriptLanguages, handler: transcriptLanguages },
+      "transcript.start": { destructive: true, undoable: false, idempotent: true, minHostVersion: "26.3.0", probe: canTranscribeClip, handler: transcribeClip },
+      "transcript.languagePack.check": { readOnly: true, minHostVersion: "26.3.0", probe: canCheckLanguagePack, handler: checkLanguagePack },
       "objectMask.has": { readOnly: true, minHostVersion: "26.3.0", probe: canInspectObjectMasks, handler: hasObjectMask },
       "encoder.configure": { minHostVersion: "26.3.0", probe: canConfigureEncoder, handler: configureEncoder },
       "frame.export": { requiresWorkspace: true, minHostVersion: "25.6.0", probe: canExportFrame, handler: exportFrame },
@@ -805,6 +807,43 @@
       const languages = Array.from(await ppro.Transcript.querySupportedLanguages() || []);
       return { languages, count: languages.length };
     }
+    async function transcribeClip(args) {
+      assertOnlyKeys(args, ["projectItemId", "projectItemName", "language", "confirmDestructive", "operationId"]);
+      const wantedId = typeof args.projectItemId === "string" && args.projectItemId.trim() ? args.projectItemId.trim() : null;
+      const wantedName = !wantedId && typeof args.projectItemName === "string" && args.projectItemName.trim() ? args.projectItemName.trim() : null;
+      if (!wantedId && !wantedName) throw commandError("UXP_INVALID_ARGUMENT", "One project_item_id or project_item_name is required");
+      if (wantedId && wantedId.length > 512) throw commandError("UXP_INVALID_ARGUMENT", "project_item_id must be at most 512 characters");
+      if (wantedName && wantedName.length > 255) throw commandError("UXP_INVALID_ARGUMENT", "project_item_name must be at most 255 characters");
+      const language = typeof args.language === "string" && args.language.trim() ? args.language.trim() : null;
+      if (language && language.length > 64) throw commandError("UXP_INVALID_ARGUMENT", "language must be at most 64 characters");
+      if (!args.confirmDestructive) throw commandError("UXP_CONFIRMATION_REQUIRED", "confirm_destructive must be true to start transcription");
+      const operationId = validateOperationId(args.operationId);
+      if (!operationId) throw commandError("UXP_INVALID_ARGUMENT", "operation_id is required for safe replay");
+      const project = await ppro.Project.getActiveProject();
+      if (!project) throw commandError("UXP_NO_ACTIVE_PROJECT", "No active project");
+      const rootItem = await project.getRootItem();
+      if (!rootItem) throw commandError("UXP_PROJECT_TOO_LARGE", "Project root unavailable");
+      const transcript = Transcript || (typeof require === "function" && require("./transcript.cjs"));
+      const { matched, clip } = transcript.matchingClipCandidate(rootItem, wantedId || wantedName, wantedId, wantedName, ppro.ClipProjectItem.cast);
+      if (!matched) return { started: false, outcome: "not_found", projectItemId: wantedId, projectItemName: wantedName };
+      if (!clip) return { started: false, outcome: "not_a_clip", projectItemId: wantedId, projectItemName: wantedName };
+      const itemId = await clip.getId();
+      await ppro.Transcript.transcribeClipProjectItem(clip, language || undefined);
+      return {
+        started: true, outcome: "committed_unverified", projectItemId: itemId, language: language || null,
+        verification: "Adobe Speech-to-Text API invoked; transcript appearance or completion is not claimed",
+        privacy: "Transcription may use Adobe cloud services per host preferences; verify data-handling policies before use",
+        operation: operationSemantics({ mutatesProject: false, verificationStatus: "committed_unverified", verificationBoundary: "transcript_start_requested" })
+      };
+    }
+    async function checkLanguagePack(args) {
+      assertOnlyKeys(args, ["language"]);
+      if (typeof args.language !== "string" || !args.language.trim() || args.language.length > 64) {
+        throw commandError("UXP_INVALID_ARGUMENT", "language is required and must be at most 64 characters");
+      }
+      const available = await ppro.Transcript.isLanguagePackAvailable(args.language);
+      return { language: args.language, available: !!available };
+    }
     async function hasObjectMask(args) {
       assertOnlyKeys(args, ["scope"]);
       const scope = args.scope == null ? "sequence" : args.scope;
@@ -1534,6 +1573,8 @@
         ppro.TickTime && typeof ppro.TickTime.createWithSeconds === "function");
     }
     function canQueryTranscriptLanguages() { return !!(ppro.Transcript && typeof ppro.Transcript.querySupportedLanguages === "function"); }
+    function canTranscribeClip() { return !!(ppro.Transcript && typeof ppro.Transcript.transcribeClipProjectItem === "function"); }
+    function canCheckLanguagePack() { return !!(ppro.Transcript && typeof ppro.Transcript.isLanguagePackAvailable === "function"); }
     function canInspectObjectMasks() { return !!(ppro.ObjectMaskUtils && typeof ppro.ObjectMaskUtils.hasObjectMask === "function"); }
     function canConfigureEncoder() {
       return !!(ppro.EncoderManager && typeof ppro.EncoderManager.launchEncoder === "function" &&

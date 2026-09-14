@@ -6,6 +6,7 @@ import {
   CAPTION_AUTHORING_ROUTES,
   CAPTION_STYLE_PRESETS,
   checkCaptionSafeZone,
+  describeCaptionStyle,
   MAX_EMPHASIS_WORDS,
   MAX_FILLER_TOKENS,
   MAX_FRAME_DIMENSION,
@@ -188,6 +189,63 @@ export function getCaptionAuthoringTools() {
                 "Move unsafe elements with set_clip_position or transform_track_item_uxp using the suggested_position values (normalized top-left).",
                 "Export review frames with export_sequence_review_frames and compare against the current platform overlay guide before delivery.",
               ],
+            },
+          };
+        } catch (error) {
+          return { success: false, error: error instanceof Error ? error.message : String(error) };
+        }
+      },
+    },
+    get_caption_style_guidance: {
+      description:
+        "Returns caption style presets (clean, bold_pop, karaoke, podcast, lecture) with font, position, and styling recommendations, plus Premiere UI steps for applying styles. Read-only guidance; NEVER modifies caption tracks. Use build_caption_artifact for SRT/VTT timing, then import via create_caption_track and apply styles manually in Premiere's UI.",
+      parameters: {
+        type: "object" as const,
+        additionalProperties: false,
+        required: [],
+        properties: {
+          preset: { type: "string", enum: [...CAPTION_STYLE_PRESETS], description: "Style preset to describe (default clean)." },
+        },
+      },
+      handler: async (args: { preset?: string }) => {
+        try {
+          const preset = (args.preset ?? "clean") as any;
+          if (!CAPTION_STYLE_PRESETS.includes(preset)) {
+            throw new Error(`preset must be one of: ${CAPTION_STYLE_PRESETS.join(", ")}`);
+          }
+          const style = describeCaptionStyle(preset);
+          return {
+            success: true,
+            data: {
+              style,
+              workflow: [
+                "Step 1: Generate caption SRT/VTT with build_caption_artifact (timing/text only)",
+                "Step 2: Import the caption file into Premiere project",
+                "Step 3: Call create_caption_track with action:import and the imported item_id",
+                "Step 4: Inspect the track with read_sequence_captions or inspect_caption_tracks_uxp",
+                "Step 5: Apply font/color/position/background styles manually in Premiere UI",
+              ],
+              premiere_ui_steps: [
+                `1. Select the caption track in the timeline`,
+                `2. Open Essential Graphics panel (Window > Essential Graphics)`,
+                `3. In the Edit tab, adjust Text properties:`,
+                `   - Font Family: ${style.font_family_suggestion}`,
+                `   - Font Weight: ${style.font_weight}`,
+                `   - Font Size: approximately ${style.font_size_percent_of_height}% of frame height`,
+                `   - Position: x=${style.position.x * 100}%, y=${style.position.y * 100}% (normalized, center-anchored)`,
+                `   - Alignment: ${style.alignment}`,
+                `   - Stroke: ${style.stroke ? "enabled" : "disabled"}`,
+                `   - Background: ${style.background ? "enabled with opacity" : "disabled"}`,
+                ...(style.word_highlight
+                  ? ["   - Word Highlight: enabled for karaoke-style progressive reveal"]
+                  : []),
+                ...(style.uppercase_recommended
+                  ? ["   - Transform: uppercase recommended for this preset"]
+                  : []),
+              ],
+              mutation_refused: "This tool provides guidance only. MCP for Adobe Premiere Pro does not expose a CaptionTrack style mutation API because Premiere does not expose one through documented ExtendScript, QE DOM, or UXP surfaces. Apply caption styles manually in the Essential Graphics panel.",
+              safe_zones: style.safe_zone_recommendation,
+              routes: [...CAPTION_AUTHORING_ROUTES, ...SAFE_ZONE_ROUTES],
             },
           };
         } catch (error) {

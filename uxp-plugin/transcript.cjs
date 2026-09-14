@@ -172,6 +172,14 @@
     return typeof json === "string" && json.length > 0;
   }
 
+  function probeTranscriptStart(transcribe) {
+    return typeof transcribe === "function";
+  }
+
+  function probeLanguagePackCheck(isLanguagePackAvailable) {
+    return typeof isLanguagePackAvailable === "function";
+  }
+
   return {
     MAX_TRANSCRIPT_JSON_BYTES,
     utf8ByteLength,
@@ -180,6 +188,8 @@
     transcriptRevision,
     versionAtLeast,
     matchingClipCandidate,
-    probeTranscriptExport
+    probeTranscriptExport,
+    probeTranscriptStart,
+    probeLanguagePackCheck
   };
 });
