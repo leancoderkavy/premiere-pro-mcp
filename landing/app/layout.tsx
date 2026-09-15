@@ -34,6 +34,7 @@ export const metadata: Metadata = {
   creator: "MCP for Adobe Premiere Pro contributors",
   publisher: product.name,
   verification: {
+    other: { "ahrefs-site-verification": "433e9794fce9fecdaa8a314a3b3c3f1d14d146a9a65442cfdc794dfeb38066aa" },
     google: "DYKtInlwQzKguGVKyDbZY55-7gKySyg3N9yl9fERiho",
   },
   keywords: [
