@@ -821,14 +821,10 @@
       if (!operationId) throw commandError("UXP_INVALID_ARGUMENT", "operation_id is required for safe replay");
       const project = await ppro.Project.getActiveProject();
       if (!project) throw commandError("UXP_NO_ACTIVE_PROJECT", "No active project");
-      const rootItem = await project.getRootItem();
-      if (!rootItem) throw commandError("UXP_PROJECT_TOO_LARGE", "Project root unavailable");
-      const transcript = Transcript || (typeof require === "function" && require("./transcript.cjs"));
-      const { matched, clip } = transcript.matchingClipCandidate(rootItem, wantedId || wantedName, wantedId, wantedName, ppro.ClipProjectItem.cast);
-      if (!matched) return { started: false, outcome: "not_found", projectItemId: wantedId, projectItemName: wantedName };
-      if (!clip) return { started: false, outcome: "not_a_clip", projectItemId: wantedId, projectItemName: wantedName };
+      const clip = await resolveClipProjectItem(project, { projectItemId: wantedId, projectItemName: wantedName });
       const itemId = await clip.getId();
-      await ppro.Transcript.transcribeClipProjectItem(clip, language || undefined);
+      const accepted = await ppro.Transcript.transcribeClipProjectItem(clip, language ? { language } : undefined);
+      if (accepted !== true) throw commandError("UXP_VERIFICATION_FAILED", "Premiere did not confirm the transcription start request");
       return {
         started: true, outcome: "committed_unverified", projectItemId: itemId, language: language || null,
         verification: "Adobe Speech-to-Text API invoked; transcript appearance or completion is not claimed",

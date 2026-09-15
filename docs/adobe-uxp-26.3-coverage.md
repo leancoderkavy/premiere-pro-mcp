@@ -292,6 +292,13 @@ bounded `operation_id` replay key where applicable.
   Speech-to-Text start boundary; it does not claim transcript completion, accuracy,
   rendered appearance, playback, or licensed-host validation. Transcription may use
   Adobe cloud services per host preferences; verify data-handling policies before use.
+  The command resolves nested project items, rejects ambiguous names, and requires
+  Adobe to return `true` before reporting a start request. Per the
+  [official Transcript reference](https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/transcript/)
+  (checked September 15, 2026), an explicit language is passed as `{ language }`;
+  omitting it uses host preferences. Adobe's auto-detect preference may override
+  the requested language. This contract is also declared in Apache-2.0 package
+  `@adobe/premierepro@26.5.1`; neither source establishes licensed-host execution.
 - `is_language_pack_available_uxp`: requires one bounded `language` string. The panel
   invokes `Transcript.isLanguagePackAvailable()` and returns Adobe's boolean
   availability. This is read-only and does not download language packs or change
