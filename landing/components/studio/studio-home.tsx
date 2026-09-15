@@ -21,10 +21,13 @@ import {
   WalkthroughPlayer,
   WorkflowChapters
 } from "./studio-controls"
-import { MotionToggle, StudioMotion, StudioStage } from "./studio-motion"
+import { MotionToggle, StudioMotion } from "./studio-motion"
+import { StudioStage } from "./cinema-stage"
 import "./studio.css"
 import "./studio-editorial.css"
 import "./studio-gallery.css"
+import "./cinema-stage.css"
+import "./cinema-timeline.css"
 
 const footerLinks = {
   Explore: [

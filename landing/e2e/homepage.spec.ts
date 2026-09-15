@@ -193,10 +193,121 @@ test("treatment: reduced motion, animated WebGL, pause, context loss, and video 
     context.getExtension("WEBGL_lose_context")!.loseContext()
   })
   await expect(page.locator(".studio-stage")).toHaveAttribute("data-enhanced", "false")
-  await expect(page.locator(".studio-film-plane").getByRole("img", { name: /three coastal film shots/ })).toBeVisible()
+  await expect(page.getByRole("img", { name: /Three coastal film shots/ })).toBeVisible()
   await page.getByRole("button", { name: /Play the walkthrough/ }).click()
   await expect.poll(async () => page.locator("video").evaluate(video => ({ ready: (video as HTMLVideoElement).readyState >= 2, playing: !(video as HTMLVideoElement).paused, time: (video as HTMLVideoElement).currentTime > 0 }))).toEqual({ ready: true, playing: true, time: true })
   await expect(page.locator("video")).toHaveAttribute("aria-label", /not a live Premiere recording/)
+})
+
+test("cutting room: chapters work with keyboard, reduced motion, and a lost WebGL context", async ({ page, request }) => {
+  await setVariant(request, "test")
+  await page.goto("/")
+  const first = page.getByRole("button", { name: "01 The first frame" })
+  await first.focus()
+  await page.keyboard.press("Enter")
+  await expect(first).toHaveAttribute("aria-pressed", "true")
+  await expect(page.locator(".cinema-caption")).toContainText("Find the feeling.")
+  await expect(page.locator("canvas")).toHaveCount(0)
+  await page.keyboard.press("Tab")
+  await page.keyboard.press("Tab")
+  await page.keyboard.press("Space")
+  await expect(page.getByRole("button", { name: "03 The final look" })).toHaveAttribute("aria-pressed", "true")
+  await expect(page.locator(".cinema-caption")).toContainText("Make it yours.")
+  await page.emulateMedia({ reducedMotion: "no-preference" })
+  await expect(page.locator(".studio-stage")).toHaveAttribute("data-enhanced", "true")
+  await page.locator("canvas").evaluate(canvas => {
+    (canvas as HTMLCanvasElement).getContext("webgl2")!.getExtension("WEBGL_lose_context")!.loseContext()
+  })
+  await expect(page.getByRole("img", { name: /Three coastal film shots/ })).toBeVisible()
+  await first.click()
+  await expect(page.locator(".cinema-caption")).toContainText("Find the feeling.")
+})
+
+test("editing timeline: keyboard scrubbing, playback, replay, and clip selection stay synchronized", async ({ page, request }) => {
+  await setVariant(request, "test")
+  await page.goto("/")
+  const scrubber = page.getByRole("slider", { name: "Scrub editing timeline" })
+  const time = page.getByLabel("Current timecode")
+  await scrubber.focus()
+  await page.keyboard.press("Home")
+  await expect(time).toHaveText("00:00:00:00")
+  await page.keyboard.press("ArrowRight")
+  await expect(time).toHaveText("00:00:00:01")
+  await page.keyboard.press("End")
+  await expect(time).toHaveText("00:00:23:23")
+  await expect(page.getByRole("button", { name: "Select clip 03: Into the blue" })).toHaveAttribute("aria-pressed", "true")
+  await page.getByRole("button", { name: "Replay sequence", exact: true }).click()
+  await expect.poll(async () => Number(await scrubber.inputValue())).toBeLessThan(48)
+  await expect.poll(async () => Number(await scrubber.inputValue())).toBeGreaterThan(2)
+  await page.getByRole("button", { name: "Pause sequence", exact: true }).click()
+  const stopped = await scrubber.inputValue()
+  await page.waitForTimeout(150)
+  await expect(scrubber).toHaveValue(stopped)
+  await page.getByRole("button", { name: "Select clip 02: Follow the coastline" }).click()
+  await expect(time).toHaveText("00:00:10:00")
+  await expect(page.locator(".cinema-caption")).toContainText("Shape the story.")
+})
+
+test("editing timeline: mouse dragging and separated 3D layers remain clickable", async ({ page, request }) => {
+  await setVariant(request, "test")
+  await page.goto("/")
+  await page.emulateMedia({ reducedMotion: "no-preference" })
+  await page.locator(".cinema-editing-desk").scrollIntoViewIfNeeded()
+  await page.getByRole("button", { name: "Separate layers", exact: true }).click()
+  await expect(page.locator(".cinema-editing-desk")).toHaveAttribute("data-exploded", "true")
+  for (const [name, value] of [["Select clip 01: A moment of stillness", "00:00:02:00"], ["Select clip 03: Into the blue", "00:00:18:00"]]) {
+    await page.getByRole("button", { name, exact: true }).click()
+    await expect(page.getByLabel("Current timecode")).toHaveText(value)
+  }
+  await page.getByRole("button", { name: "Bring layers together", exact: true }).click()
+  const scrubber = page.getByRole("slider", { name: "Scrub editing timeline" })
+  await scrubber.scrollIntoViewIfNeeded()
+  await scrubber.focus()
+  await page.keyboard.press("Home")
+  // Chromium's projected quad keeps the drag on the actual tilted ruler.
+  // An axis-aligned bounding box can put the pointer outside a 3D control.
+  const cdp = await page.context().newCDPSession(page)
+  try {
+    const { root } = await cdp.send("DOM.getDocument")
+    const { nodeId } = await cdp.send("DOM.querySelector", { nodeId: root.nodeId, selector: ".cinema-scrubber" })
+    const quad = async () => (await cdp.send("DOM.getContentQuads", { nodeId })).quads[0]
+    const point = (q: number[], t: number) => ({
+      x: (q[0] + q[6]) * .5 * (1 - t) + (q[2] + q[4]) * .5 * t,
+      y: (q[1] + q[7]) * .5 * (1 - t) + (q[3] + q[5]) * .5 * t
+    })
+    let corners = await quad()
+    let from = point(corners, .007)
+    await page.mouse.move(from.x, from.y)
+    await page.waitForTimeout(700) // Let pointer parallax settle before gripping the thumb.
+    corners = await quad()
+    from = point(corners, .007)
+    const to = point(corners, .82)
+    await page.mouse.move(from.x, from.y)
+    await page.mouse.down()
+    await page.mouse.move(to.x, to.y, { steps: 24 })
+    await page.mouse.up()
+  } finally {
+    await cdp.detach()
+  }
+  await expect.poll(async () => Number(await scrubber.inputValue())).toBeGreaterThan(400)
+  await expect(page.getByRole("button", { name: "Select clip 03: Into the blue" })).toHaveAttribute("aria-pressed", "true")
+})
+
+test.describe("touch editing timeline", () => {
+  test.use({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true })
+  test("touch clips and layer controls work without WebGL", async ({ page, request }) => {
+    await setVariant(request, "test")
+    await page.goto("/")
+    await page.getByRole("button", { name: "Separate layers", exact: true }).tap()
+    await page.getByRole("button", { name: "Select clip 01: A moment of stillness" }).tap()
+    await expect(page.getByLabel("Current timecode")).toHaveText("00:00:02:00")
+    await page.getByRole("button", { name: "Select clip 03: Into the blue" }).tap()
+    await expect(page.getByLabel("Current timecode")).toHaveText("00:00:18:00")
+    await expect(page.locator("canvas")).toHaveCount(0)
+    const desk = (await page.locator(".cinema-deck").boundingBox())!
+    expect(desk.x).toBeGreaterThanOrEqual(0)
+    expect(desk.x + desk.width).toBeLessThanOrEqual(390)
+  })
 })
 
 for (const [label, headers] of [["DNT", { DNT: "1" }], ["GPC", { "Sec-GPC": "1" }], ["crawler", { "User-Agent": "Googlebot" }]] as const) {
