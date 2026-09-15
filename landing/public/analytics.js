@@ -10,8 +10,16 @@
   const analyticsPermitted = () =>
     !["1", "yes"].includes(navigator.doNotTrack ?? "") && !navigator.globalPrivacyControl;
 
-  const allowedPosthogHost = (host) =>
-    host === "https://us.i.posthog.com" || host === "https://eu.i.posthog.com";
+  const posthogHosts = {
+    "https://us.i.posthog.com": {
+      assetHost: "https://us-assets.i.posthog.com",
+      uiHost: "https://us.posthog.com",
+    },
+    "https://eu.i.posthog.com": {
+      assetHost: "https://eu-assets.i.posthog.com",
+      uiHost: "https://eu.posthog.com",
+    },
+  };
 
   if (designPreview || !analyticsPermitted()) return;
 
@@ -43,21 +51,20 @@
   };
 
   const loadPosthog = () => {
+    const hosts = posthogHosts[posthogHost];
     if (!posthogProjectToken || !/^phc_[A-Za-z0-9]+$/.test(posthogProjectToken)) return;
-    if (!allowedPosthogHost(posthogHost)) return;
+    if (!hosts) return;
     if (!analyticsPermitted()) return;
 
     const tag = document.createElement("script");
     tag.async = true;
     tag.crossOrigin = "anonymous";
-    tag.src = `${posthogHost.replace(".i.posthog.com", "-assets.i.posthog.com")}/static/array.js`;
+    tag.src = `${hosts.assetHost}/static/array.js`;
     tag.onload = () => {
       if (!window.posthog || typeof window.posthog.init !== "function") return;
       window.posthog.init(posthogProjectToken, {
         api_host: posthogHost,
-        ui_host: posthogHost.includes("eu.i.posthog.com")
-          ? "https://eu.posthog.com"
-          : "https://us.posthog.com",
+        ui_host: hosts.uiHost,
         defaults: "2026-05-30",
         person_profiles: "identified_only",
         autocapture: false,

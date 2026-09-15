@@ -13,7 +13,8 @@ describe("landing PostHog analytics", () => {
 
     expect(layout).toContain("data-posthog-project-token={posthogProjectToken}");
     expect(layout).toContain("NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN");
-    expect(loader).toContain('posthogHost.replace(".i.posthog.com", "-assets.i.posthog.com")');
+    expect(loader).toContain('"https://us-assets.i.posthog.com"');
+    expect(loader).toContain("posthogHosts[posthogHost]");
     expect(loader).toContain("autocapture: false");
     expect(loader).toContain("capture_pageview: false");
     expect(loader).toContain("disable_session_recording: true");
