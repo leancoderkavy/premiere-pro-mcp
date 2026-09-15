@@ -312,6 +312,11 @@
 .cinema-video-layer {
   transform: translateZ(15px);
 }
+/* Transparent 3D containers must not intercept hits on the clip faces. */
+.cinema-video-layer,
+.cinema-video-clips {
+  pointer-events: none;
+}
 .cinema-color-layer {
   transform: translateZ(8px);
 }
@@ -322,6 +327,7 @@
   transform-style: preserve-3d;
 }
 .cinema-clip {
+  pointer-events: auto;
   min-width: 0;
   position: relative;
   height: 76px;
