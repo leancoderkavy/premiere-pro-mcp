@@ -371,30 +371,23 @@ test("MCP demo: guided edits change the sequence, show tool calls, and undo inde
   await expect(page.getByRole("button", { name: "Undo last edit", exact: true })).toBeDisabled()
 })
 
-test("MCP demo: drag clips in 3D, reorder by keyboard, trim, and reset", async ({ page, request }) => {
+test("MCP demo: reorder by keyboard, ripple trim, and reset", async ({ page, request }) => {
   await setVariant(request, "test")
   await page.goto("/")
   await page.emulateMedia({ reducedMotion: "no-preference" })
   const clips = page.locator(".cinema-clip")
   const order = () => clips.evaluateAll(items => items.map(item => item.getAttribute("data-shot")))
-  await clips.first().scrollIntoViewIfNeeded()
-  const from = (await clips.first().boundingBox())!
-  const to = (await clips.last().boundingBox())!
-  await page.mouse.move(from.x + from.width / 2, from.y + from.height / 2)
-  await page.mouse.down()
-  await page.mouse.move(to.x + to.width / 2, to.y + to.height / 2, { steps: 20 })
-  await page.mouse.up()
-  await expect.poll(order).toEqual(["1", "2", "0"])
   const firstShot = page.getByRole("button", { name: "Select clip 01: A moment of stillness", exact: true })
+  await firstShot.click()
   await expect(firstShot).toHaveAttribute("aria-pressed", "true")
   await firstShot.focus()
-  await page.keyboard.press("Alt+ArrowLeft")
+  await page.keyboard.press("Alt+ArrowRight")
   await expect.poll(order).toEqual(["1", "0", "2"])
   const trim = page.getByRole("slider", { name: "Selected clip duration", exact: true })
   await trim.focus()
   await page.keyboard.press("Home")
-  await expect(trim).toHaveValue("48")
-  await expect(page.getByLabel("Sequence duration")).toHaveText("/ 00:00:18:00")
+  await expect(trim).toHaveValue("24")
+  await expect(page.getByLabel("Sequence duration")).toHaveText("/ 00:00:17:00")
   await page.getByRole("button", { name: "Undo last edit", exact: true }).click()
   await expect(page.getByLabel("Sequence duration")).toHaveText("/ 00:00:24:00")
   await expect.poll(order).toEqual(["1", "0", "2"])
@@ -405,7 +398,7 @@ test("MCP demo: drag clips in 3D, reorder by keyboard, trim, and reset", async (
   await page.mouse.down()
   await page.mouse.move(range.x + 8, range.y + range.height / 2, { steps: 18 })
   await page.mouse.up()
-  await expect(page.getByLabel("Sequence duration")).toHaveText("/ 00:00:18:00")
+  await expect(page.getByLabel("Sequence duration")).toHaveText("/ 00:00:17:00")
   await page.getByRole("button", { name: "Undo last edit", exact: true }).click()
   await expect(page.getByLabel("Sequence duration")).toHaveText("/ 00:00:24:00")
   await page.getByRole("button", { name: "Reset demo sequence", exact: true }).click()
@@ -447,13 +440,13 @@ test.describe("touch editing timeline", () => {
     await expect(page.locator("canvas")).toHaveCount(0)
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390)
     await page.getByRole("button", { name: "Reset demo sequence", exact: true }).tap()
-    await page.locator(".cinema-clip").first().scrollIntoViewIfNeeded()
+    await page.locator(".nle-workspace").scrollIntoViewIfNeeded()
     const from = (await page.locator(".cinema-clip").first().boundingBox())!
-    const to = (await page.locator(".cinema-clip").last().boundingBox())!
+    const to = (await page.getByRole("group", { name: "Video track 2", exact: true }).boundingBox())!
     const cdp = await page.context().newCDPSession(page)
     try {
       const start = { x: from.x + from.width / 2, y: from.y + from.height / 2 }
-      const end = { x: to.x + to.width / 2, y: to.y + to.height / 2 }
+      const end = { x: start.x, y: to.y + to.height / 2 }
       await cdp.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [start] })
       for (let step = 1; step <= 12; step++) {
         await cdp.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: [{ x: start.x + (end.x - start.x) * step / 12, y: start.y + (end.y - start.y) * step / 12 }] })
@@ -462,7 +455,8 @@ test.describe("touch editing timeline", () => {
     } finally {
       await cdp.detach()
     }
-    await expect.poll(() => page.locator(".cinema-clip").evaluateAll(clips => clips.map(clip => clip.getAttribute("data-shot")))).toEqual(["1", "2", "0"])
+    await expect(page.getByRole("group", { name: "Video track 2", exact: true }).locator('.cinema-clip[data-shot="0"]')).toHaveCount(1)
+    await expect(page.getByRole("button", { name: "Undo last edit", exact: true })).toBeEnabled()
   })
 })
 

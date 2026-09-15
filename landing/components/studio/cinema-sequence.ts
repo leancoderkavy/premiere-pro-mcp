@@ -1,42 +1,105 @@
-export type CinemaClip = { shot: number; duration: number }
+export type CinemaClip = {
+  shot: number
+  start: number
+  track: number
+  sourceIn: number
+  duration: number
+}
 export type CinemaMarker = { frame: number; name: string }
 export type CinemaSequence = { clips: CinemaClip[]; markers: CinemaMarker[] }
 
 export const clipNames = ["A moment of stillness", "Follow the coastline", "Into the blue"]
-export const initialClips: CinemaClip[] = [0, 1, 2].map((shot) => ({ shot, duration: 192 }))
+export const sourceFrames = 192
+export const maxTimelineFrames = 1440
+export const initialClips: CinemaClip[] = [0, 1, 2].map((shot) => ({
+  shot,
+  start: shot * 192,
+  track: 0,
+  sourceIn: 0,
+  duration: 192
+}))
 export const initialSequence: CinemaSequence = { clips: initialClips, markers: [] }
 export const totalFrames = (clips: CinemaClip[]) =>
-  clips.reduce((sum, clip) => sum + clip.duration, 0)
+  Math.max(24, ...clips.map((clip) => clip.start + clip.duration))
 export const clipStart = (clips: CinemaClip[], shot: number) => {
-  const index = clips.findIndex((clip) => clip.shot === shot)
-  return totalFrames(clips.slice(0, Math.max(0, index)))
+  return clips.find((clip) => clip.shot === shot)?.start ?? 0
 }
 export function shotAtFrame(clips: CinemaClip[], frame: number) {
-  let end = 0
   return (
-    clips.find((clip) => {
-      end += clip.duration
-      return frame < end
-    }) ?? clips[clips.length - 1]
-  ).shot
+    [...clips]
+      .sort((a, b) => b.track - a.track)
+      .find((clip) => frame >= clip.start && frame < clip.start + clip.duration)?.shot ?? null
+  )
 }
 export function reorderClips(clips: CinemaClip[], shot: number, destination: number) {
   const next = [...clips]
   const from = next.findIndex((clip) => clip.shot === shot)
   const [clip] = next.splice(from, 1)
   next.splice(Math.max(0, Math.min(next.length, destination)), 0, clip)
-  return next
+  const cursors = [0, 0]
+  return next.map((item) => {
+    if (item.track !== clip.track) return item
+    const start = cursors[item.track]
+    cursors[item.track] += item.duration
+    return { ...item, start }
+  })
+}
+
+export function canPlaceClip(clips: CinemaClip[], candidate: CinemaClip) {
+  return (
+    candidate.start >= 0 &&
+    candidate.start + candidate.duration <= maxTimelineFrames &&
+    candidate.duration >= 24 &&
+    candidate.sourceIn >= 0 &&
+    candidate.sourceIn + candidate.duration <= sourceFrames &&
+    [0, 1].includes(candidate.track) &&
+    !clips.some(
+      (other) =>
+        other.shot !== candidate.shot &&
+        other.track === candidate.track &&
+        candidate.start < other.start + other.duration &&
+        candidate.start + candidate.duration > other.start
+    )
+  )
+}
+
+export function placeClip(sequence: CinemaSequence, candidate: CinemaClip): CinemaSequence | null {
+  if (!canPlaceClip(sequence.clips, candidate)) return null
+  const clips = sequence.clips
+    .map((clip) => (clip.shot === candidate.shot ? candidate : clip))
+    .sort((a, b) => a.start - b.start || b.track - a.track)
+  return {
+    clips,
+    markers: sequence.markers.map((marker) => ({
+      ...marker,
+      frame: Math.min(marker.frame, totalFrames(clips) - 1)
+    }))
+  }
+}
+
+export function snapFrame(value: number, anchors: number[], tolerance: number) {
+  const nearest = anchors.reduce(
+    (best, frame) => (Math.abs(frame - value) < Math.abs(best - value) ? frame : best),
+    Infinity
+  )
+  return Math.abs(nearest - value) <= tolerance ? nearest : null
 }
 export function resizeClip(
   sequence: CinemaSequence,
   shot: number,
   duration: number
 ): CinemaSequence {
+  const original = sequence.clips.find((clip) => clip.shot === shot)!
+  const bounded = Math.max(24, Math.min(sourceFrames - original.sourceIn, Math.round(duration)))
+  const delta = bounded - original.duration
   const clips = sequence.clips.map((clip) =>
     clip.shot === shot
-      ? { ...clip, duration: Math.max(48, Math.min(192, Math.round(duration))) }
-      : clip
+      ? { ...clip, duration: bounded }
+      : clip.track === original.track && clip.start >= original.start + original.duration
+        ? { ...clip, start: clip.start + delta }
+        : clip
   )
+  if (totalFrames(clips) > maxTimelineFrames) return sequence
   // Review markers remain within the shortened demo sequence.
   const end = totalFrames(clips) - 1
   return {
@@ -70,7 +133,18 @@ export function planDemoRequest(
   if (kind === "trim") {
     prompt = "Trim the opening shot to 4 seconds and close the gap."
     const first = sequence.clips[0]
-    next = resizeClip(sequence, first.shot, 96)
+    const sourceReset = {
+      ...sequence,
+      clips: sequence.clips.map((clip) =>
+        clip.shot === first.shot ? { ...clip, sourceIn: 0 } : clip
+      )
+    }
+    next = resizeClip(sourceReset, first.shot, 96)
+    if (first.sourceIn !== 0)
+      calls.push({
+        tool: "trim_clip",
+        arguments: { node_id: `demo-shot-${first.shot + 1}`, new_in_seconds: 0 }
+      })
     calls.push({
       tool: "trim_clip",
       arguments: { node_id: `demo-shot-${first.shot + 1}`, new_out_seconds: 4 }
@@ -93,18 +167,28 @@ export function planDemoRequest(
         })
       }
     })
-    focus = 48
+    focus = first.start + 48
     summary = `Opening trimmed to 4s. Following shots moved to close the gap.${sequence.markers.some((marker, index) => marker.frame !== next.markers[index].frame) ? " End markers moved inside the new duration." : ""}`
     tools = "Read sequence → trim & move → read sequence"
   } else if (kind === "reorder") {
     prompt = "Put the blue shot first. Keep all three shots."
-    next = { ...sequence, clips: reorderClips(sequence.clips, 2, 0) }
+    next = {
+      ...sequence,
+      clips: reorderClips(
+        sequence.clips.map((clip) => ({ ...clip, track: 0 })),
+        2,
+        0
+      )
+    }
     next.clips.forEach((clip) =>
       calls.push({
         tool: "move_clip",
         arguments: {
           node_id: `demo-shot-${clip.shot + 1}`,
-          new_start_seconds: clipStart(next.clips, clip.shot) / 24
+          new_start_seconds: clipStart(next.clips, clip.shot) / 24,
+          ...(sequence.clips.find((item) => item.shot === clip.shot)?.track === 1
+            ? { new_track_index: 0 }
+            : {})
         }
       })
     )
