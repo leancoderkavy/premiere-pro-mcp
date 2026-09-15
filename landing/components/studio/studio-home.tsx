@@ -24,12 +24,14 @@ import {
 } from "./studio-controls"
 import { MotionToggle, StudioMotion } from "./studio-motion"
 import { StudioStage } from "./cinema-stage"
+import { ScrollStory } from "./scroll-story"
 import "./studio.css"
 import "./studio-editorial.css"
 import "./studio-gallery.css"
 import "./cinema-stage.css"
 import "./cinema-timeline.css"
 import "./cinema-workflow.css"
+import "./studio-scroll.css"
 
 export function StudioHome() {
   return (
@@ -43,7 +45,7 @@ export function StudioHome() {
           </a>
         </div>
         <section id="top" className="studio-container studio-hero">
-          <div className="studio-hero-copy">
+          <div className="studio-hero-copy" data-scroll-scene>
             <p className="studio-product-name">Premiere Pro MCP</p>
             <h1>
               Your vision.
@@ -112,9 +114,11 @@ export function StudioHome() {
           </div>
         </div>
 
+        <ScrollStory />
         <div className="studio-light studio-workflow-surface">
           <section
             id="features"
+            data-scroll-scene
             className="studio-container studio-section"
             data-studio-reveal
           >
@@ -147,6 +151,7 @@ export function StudioHome() {
 
           <section
             id="demo"
+            data-scroll-scene
             className="studio-container studio-demo"
             data-studio-reveal
           >
@@ -171,6 +176,7 @@ export function StudioHome() {
 
         <section
           id="how-it-works"
+          data-scroll-scene
           className="studio-bridge-section"
           data-studio-reveal
         >
@@ -258,6 +264,7 @@ export function StudioHome() {
         <div className="studio-light studio-setup-surface">
           <section
             id="install"
+            data-scroll-scene
             className="studio-container studio-section"
             data-studio-reveal
           >
@@ -280,6 +287,7 @@ export function StudioHome() {
 
           <section
             id="faq"
+            data-scroll-scene
             className="studio-container studio-faq-section"
             data-studio-reveal
           >
@@ -298,7 +306,7 @@ export function StudioHome() {
           </section>
         </div>
 
-        <section className="studio-final" data-studio-reveal>
+        <section className="studio-final" data-studio-reveal data-scroll-scene>
           <div className="studio-container">
             <Image
               className="studio-final-mark"

@@ -97,13 +97,11 @@ watermarks. Maintain three precise horizontal bands in a landscape 3:2 atlas.
 
 ## Verification
 
-The MCP playground refinement passes the root build, landing build and lint,
-SEO export checks, and all 41 homepage browser tests. The treatment's initial
-gzipped JavaScript is 224,897 bytes against the 240,000-byte budget. Added runtime
-coverage verifies composed requests, example tool details, duplicate markers,
+The MCP playground's runtime coverage verifies composed requests, example tool details, duplicate markers,
 independent undo, mouse and touch clip dragging, keyboard ordering, duration
 changes, one undo entry per slider drag, and reset. Responsive and accessibility
 checks cover the new controls alongside the existing motion and experiment cases.
+The landing build enforces the 240,000-byte initial gzipped JavaScript budget.
 
 Run from `landing`: `npm run build`, the targeted ESLint check, and
 `npx playwright test e2e/homepage.spec.ts` after the root `npm run build`.

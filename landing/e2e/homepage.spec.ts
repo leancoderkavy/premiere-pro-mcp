@@ -7,6 +7,29 @@ import AxeBuilder from "@axe-core/playwright"
 
 const fixtureURL = `http://127.0.0.1:${process.env.LANDING_E2E_POSTHOG_PORT || 3161}`
 const flag = "homepage-cinematic-2026"
+
+test("page scroll scenes move with scrolling and reset when motion is paused", async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: "no-preference" })
+  await page.goto("/design-preview/")
+  const studio = page.locator(".studio")
+  await expect(studio).toHaveAttribute("data-motion", "playing")
+  const story = page.locator(".studio-scroll-story")
+  await story.scrollIntoViewIfNeeded()
+  const frame = page.locator(".studio-story-frame-2")
+  const transform = () => frame.evaluate(node => getComputedStyle(node).transform)
+  await expect.poll(() => story.evaluate(node => node.style.getPropertyValue("--scene-progress"))).not.toBe("")
+  const before = await transform()
+  await page.mouse.wheel(0, 300)
+  await expect.poll(transform).not.toBe(before)
+  const toggle = page.getByRole("button", { name: "Motion on. Pause page animation", exact: true })
+  await toggle.click()
+  await expect(studio).toHaveAttribute("data-motion", "paused")
+  await expect.poll(() => story.evaluate(node => node.style.getPropertyValue("--scene-progress"))).toBe("")
+  const paused = await transform()
+  await page.mouse.wheel(0, 200)
+  expect(await transform()).toBe(paused)
+  await expect(page.getByRole("heading", { name: "From first thought. To final frame." })).toBeVisible()
+})
 type CapturedEvent = { event: string; distinct_id: string; properties: Record<string, unknown> }
 const state = async (request: APIRequestContext) => (await (await request.get(`${fixtureURL}/__state`)).json()) as { events: CapturedEvent[]; evaluations: unknown[] }
 const setVariant = (request: APIRequestContext, variant: string | boolean) => request.post(`${fixtureURL}/__state`, { data: { variant } })
