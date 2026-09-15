@@ -1,3 +1,4 @@
+import { PublicPage } from "@/components/site/public-page"
 import type { Metadata } from "next"
 import Link from "next/link"
 import { HomeLink } from "@/components/ui/home-link"
@@ -117,25 +118,26 @@ export default async function ArticlePage({ params }: ArticlePageProps) {
   }
 
   return (
+    <PublicPage>
     <>
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }}
       />
-      <main id="main-content" className="min-h-screen bg-black px-5 py-12 text-zinc-100 sm:py-20">
+      <main id="main-content" className="min-h-screen bg-site-bg px-5 py-12 text-site-text sm:py-20">
         <article className="mx-auto max-w-3xl">
-          <nav aria-label="Breadcrumb" className="text-sm text-zinc-500">
-            <HomeLink href="/" className="hover:text-purple-200">MCP for Adobe Premiere Pro</HomeLink>{" "}
+          <nav aria-label="Breadcrumb" className="text-sm text-site-muted">
+            <HomeLink href="/" className="hover:text-site-accent">MCP for Adobe Premiere Pro</HomeLink>{" "}
             <span aria-hidden="true">/</span>{" "}
-            <Link href="/blog/" className="hover:text-purple-200">Guides</Link>{" "}
-            <span aria-hidden="true">/</span> <span className="text-zinc-400">{article.eyebrow}</span>
+            <Link href="/blog/" className="hover:text-site-accent">Guides</Link>{" "}
+            <span aria-hidden="true">/</span> <span className="text-site-muted">{article.eyebrow}</span>
           </nav>
 
-          <header className="border-b border-zinc-800 pb-10 pt-10 sm:pb-14 sm:pt-14">
-            <p className="font-mono text-sm font-medium uppercase tracking-[0.15em] text-purple-300">{article.eyebrow}</p>
-            <h1 className="mt-5 text-balance text-4xl font-bold tracking-tight text-white sm:text-6xl">{article.title}</h1>
-            <p className="mt-6 text-lg leading-8 text-zinc-400">{article.description}</p>
-            <div className="mt-7 flex flex-wrap items-center gap-3 text-sm text-zinc-500">
+          <header className="border-b border-site-line pb-10 pt-10 sm:pb-14 sm:pt-14">
+            <p className="font-mono text-sm font-medium uppercase tracking-[0.15em] text-site-accent">{article.eyebrow}</p>
+            <h1 className="mt-5 text-balance text-4xl font-bold tracking-tight text-site-text sm:text-6xl">{article.title}</h1>
+            <p className="mt-6 text-lg leading-8 text-site-muted">{article.description}</p>
+            <div className="mt-7 flex flex-wrap items-center gap-3 text-sm text-site-muted">
               <time dateTime={article.publishedAt}>Published {formatArticleDate(article.publishedAt)}</time>
               <span aria-hidden="true">·</span>
               <span>{article.readingTime}</span>
@@ -143,52 +145,52 @@ export default async function ArticlePage({ params }: ArticlePageProps) {
             </div>
           </header>
 
-          <nav aria-label="On this page" className="border-b border-zinc-800 py-6">
-            <p className="text-sm font-semibold text-zinc-100">On this page</p>
+          <nav aria-label="On this page" className="border-b border-site-line py-6">
+            <p className="text-sm font-semibold text-site-text">On this page</p>
             <ol className="mt-3 grid gap-x-6 sm:grid-cols-2">
-              {article.sections.map((section, index) => <li key={section.heading}><a href={`#step-${index + 1}`} className="inline-flex min-h-11 items-center py-2 text-sm text-purple-200 underline underline-offset-4 hover:text-white">{section.heading}</a></li>)}
+              {article.sections.map((section, index) => <li key={section.heading}><a href={`#step-${index + 1}`} className="inline-flex min-h-11 items-center py-2 text-sm text-site-accent underline underline-offset-4 hover:text-site-text">{section.heading}</a></li>)}
             </ol>
           </nav>
 
           <div className="py-10 sm:py-14">
             {article.sections.map((section, index) => (
-              <section id={`step-${index + 1}`} key={section.heading} className="scroll-mt-8 border-b border-zinc-900 py-9 first:pt-0 last:border-b-0">
-                <h2 className="text-2xl font-semibold tracking-tight text-white sm:text-3xl">{section.heading}</h2>
-                <div className="mt-5 space-y-5 text-[1.0625rem] leading-8 text-zinc-300">
+              <section id={`step-${index + 1}`} key={section.heading} className="scroll-mt-8 border-b border-site-line py-9 first:pt-0 last:border-b-0">
+                <h2 className="text-2xl font-semibold tracking-tight text-site-text sm:text-3xl">{section.heading}</h2>
+                <div className="mt-5 space-y-5 text-[1.0625rem] leading-8 text-site-detail">
                   {section.paragraphs.map((paragraph) => <p key={paragraph}>{paragraph}</p>)}
                 </div>
-                {section.steps && <ol className="mt-6 list-decimal space-y-4 pl-6 leading-8 text-zinc-300 marker:font-semibold marker:text-purple-300">{section.steps.map((step) => <li key={step}>{step}</li>)}</ol>}
-                {section.codeBlocks?.map((block) => <figure key={block.label} className="mt-6 min-w-0"><figcaption className="mb-2 text-sm font-medium text-zinc-200">{block.label}</figcaption><pre tabIndex={0} aria-label={block.label} className="whitespace-pre-wrap break-words overflow-x-auto rounded-lg border border-zinc-800 bg-zinc-950 p-4 text-sm leading-7 text-emerald-200 focus-visible:outline-2 focus-visible:outline-purple-300"><code>{block.code}</code></pre></figure>)}
+                {section.steps && <ol className="mt-6 list-decimal space-y-4 pl-6 leading-8 text-site-detail marker:font-semibold marker:text-site-accent">{section.steps.map((step) => <li key={step}>{step}</li>)}</ol>}
+                {section.codeBlocks?.map((block) => <figure key={block.label} className="mt-6 min-w-0"><figcaption className="mb-2 text-sm font-medium text-site-text">{block.label}</figcaption><pre tabIndex={0} aria-label={block.label} className="whitespace-pre-wrap break-words overflow-x-auto rounded-lg border border-site-line bg-site-panel p-4 text-sm leading-7 text-emerald-200 focus-visible:outline-2 focus-visible:outline-purple-300"><code>{block.code}</code></pre></figure>)}
                 {section.bullets ? (
-                  <ul className="mt-6 list-disc space-y-3 pl-5 leading-7 text-zinc-300 marker:text-purple-300">
+                  <ul className="mt-6 list-disc space-y-3 pl-5 leading-7 text-site-detail marker:text-site-accent">
                     {section.bullets.map((item) => <li key={item}>{item}</li>)}
                   </ul>
                 ) : null}
-                {section.links && <ul className="mt-5 flex flex-wrap gap-x-6 gap-y-2">{section.links.map((link) => <li key={link.href}><a href={link.href} className="inline-flex min-h-11 items-center py-2 font-medium text-purple-200 underline underline-offset-4 hover:text-white">{link.label}</a></li>)}</ul>}
+                {section.links && <ul className="mt-5 flex flex-wrap gap-x-6 gap-y-2">{section.links.map((link) => <li key={link.href}><a href={link.href} className="inline-flex min-h-11 items-center py-2 font-medium text-site-accent underline underline-offset-4 hover:text-site-text">{link.label}</a></li>)}</ul>}
               </section>
             ))}
           </div>
 
-          <section className="border-y border-zinc-800 py-10" aria-labelledby="faq-heading">
-            <h2 id="faq-heading" className="text-2xl font-semibold tracking-tight text-white">Questions editors ask</h2>
+          <section className="border-y border-site-line py-10" aria-labelledby="faq-heading">
+            <h2 id="faq-heading" className="text-2xl font-semibold tracking-tight text-site-text">Questions editors ask</h2>
             <div className="mt-6 divide-y divide-zinc-800">
               {article.faqs.map((faq) => (
                 <details key={faq.question} className="group py-5">
-                  <summary className="cursor-pointer list-none pr-8 font-medium text-zinc-100 marker:content-none group-open:text-purple-200">
+                  <summary className="cursor-pointer list-none pr-8 font-medium text-site-text marker:content-none group-open:text-site-accent">
                     {faq.question}
                   </summary>
-                  <p className="mt-3 leading-7 text-zinc-400">{faq.answer}</p>
+                  <p className="mt-3 leading-7 text-site-muted">{faq.answer}</p>
                 </details>
               ))}
             </div>
           </section>
 
           <section className="py-10" aria-labelledby="resources-heading">
-            <h2 id="resources-heading" className="text-2xl font-semibold tracking-tight text-white">Keep learning</h2>
+            <h2 id="resources-heading" className="text-2xl font-semibold tracking-tight text-site-text">Keep learning</h2>
             <ul className="mt-5 space-y-3">
               {article.resources.map((resource) => (
                 <li key={resource.href}>
-                  <a href={resource.href} className="font-medium text-purple-200 hover:text-white">
+                  <a href={resource.href} className="font-medium text-site-accent hover:text-site-text">
                     {resource.label} <span aria-hidden="true">→</span>
                   </a>
                 </li>
@@ -196,30 +198,30 @@ export default async function ArticlePage({ params }: ArticlePageProps) {
             </ul>
           </section>
 
-          {article.workflowKit && <section className="mb-8 rounded-lg border border-zinc-700 p-7"><h2 className="text-2xl font-semibold">Try the workflow starter kit</h2><p className="mt-3 leading-7 text-zinc-300">Use synthetic clips and a disposable project. Download the evaluation kit, follow this recipe, and compare the result yourself.</p><TrackedLink href={`/workflows/#${article.workflowKit}`} trackingLocation={`guide:${article.slug}`} trackingDestination="workflow_starter_kit" className="mt-5 inline-flex min-h-12 items-center rounded-md bg-violet-200 px-5 py-3 font-semibold text-black hover:bg-white">Get the sample media and prompt</TrackedLink><Link href="/docs/troubleshooting/" className="mt-3 flex min-h-11 items-center text-violet-200 underline">Need setup help?</Link></section>}
-          <section className="border border-purple-300/40 bg-purple-300/10 p-7 sm:p-9" aria-labelledby="start-heading">
-            <p className="font-mono text-xs font-medium uppercase tracking-[0.15em] text-purple-200">A practical next step</p>
-            <h2 id="start-heading" className="mt-3 text-2xl font-semibold tracking-tight text-white">Start with a safe Premiere connection check.</h2>
-            <p className="mt-3 max-w-2xl leading-7 text-zinc-300">
+          {article.workflowKit && <section className="mb-8 rounded-lg border border-site-line p-7"><h2 className="text-2xl font-semibold">Try the workflow starter kit</h2><p className="mt-3 leading-7 text-site-detail">Use synthetic clips and a disposable project. Download the evaluation kit, follow this recipe, and compare the result yourself.</p><TrackedLink href={`/workflows/#${article.workflowKit}`} trackingLocation={`guide:${article.slug}`} trackingDestination="workflow_starter_kit" className="mt-5 inline-flex min-h-12 items-center rounded-md bg-site-accent px-5 py-3 font-semibold text-black hover:bg-white">Get the sample media and prompt</TrackedLink><Link href="/docs/troubleshooting/" className="mt-3 flex min-h-11 items-center text-site-accent underline">Need setup help?</Link></section>}
+          <section className="border border-site-accent/40 bg-site-accent/10 p-7 sm:p-9" aria-labelledby="start-heading">
+            <p className="font-mono text-xs font-medium uppercase tracking-[0.15em] text-site-accent">A practical next step</p>
+            <h2 id="start-heading" className="mt-3 text-2xl font-semibold tracking-tight text-site-text">Start with a safe Premiere connection check.</h2>
+            <p className="mt-3 max-w-2xl leading-7 text-site-detail">
               Connect your assistant, verify the local bridge without changing a project, then inspect the active sequence before requesting a supported edit.
             </p>
             <TrackedLink
               href="/#install"
               trackingLocation={`guide:${article.slug}`}
               trackingDestination="safe_connection_check"
-              className="mt-6 inline-flex bg-purple-300 px-5 py-3 font-medium text-black transition-colors hover:bg-white"
+              className="mt-6 inline-flex bg-site-accent px-5 py-3 font-medium text-black transition-colors hover:bg-white"
             >
               Run a safe connection check <span aria-hidden="true" className="ml-2">→</span>
             </TrackedLink>
           </section>
 
-          <aside className="border-t border-zinc-800 py-10" aria-labelledby="related-heading">
-            <h2 id="related-heading" className="text-xl font-semibold text-white">Related guides</h2>
+          <aside className="border-t border-site-line py-10" aria-labelledby="related-heading">
+            <h2 id="related-heading" className="text-xl font-semibold text-site-text">Related guides</h2>
             <div className="mt-5 grid gap-4 sm:grid-cols-2">
               {relatedArticles.map((related) => (
-                <Link key={related.slug} href={`/blog/${related.slug}/`} className="border border-zinc-800 p-5 transition-colors hover:border-purple-400/60">
-                  <p className="font-mono text-xs uppercase tracking-[0.12em] text-purple-300">{related.eyebrow}</p>
-                  <p className="mt-3 font-semibold text-zinc-100">{related.title}</p>
+                <Link key={related.slug} href={`/blog/${related.slug}/`} className="border border-site-line p-5 transition-colors hover:border-site-accent/60">
+                  <p className="font-mono text-xs uppercase tracking-[0.12em] text-site-accent">{related.eyebrow}</p>
+                  <p className="mt-3 font-semibold text-site-text">{related.title}</p>
                 </Link>
               ))}
             </div>
@@ -227,5 +229,6 @@ export default async function ArticlePage({ params }: ArticlePageProps) {
         </article>
       </main>
     </>
+    </PublicPage>
   )
 }

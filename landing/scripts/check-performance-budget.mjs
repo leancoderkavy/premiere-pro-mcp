@@ -9,6 +9,8 @@ for (const [asset, budget] of [
   ["premiere-pro-mcp-demo-poster-1280.webp", 35_000],
   ["marketing/sequence-v2.webp", 180_000],
   ["marketing/sequence-v2-mobile.webp", 45_000],
+  ["marketing/cinema-coast-atlas.webp", 200_000],
+  ["marketing/cinema-coast-atlas-mobile.webp", 50_000],
   ["marketing/collection-v2.webp", 180_000],
   ["marketing/collection-v2-mobile.webp", 45_000],
   ["marketing/finish-v2.webp", 220_000],

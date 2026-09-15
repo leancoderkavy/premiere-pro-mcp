@@ -9,7 +9,6 @@ export default [
       "dist/**",
       "node_modules/**",
       "landing/**",
-      "uxp-spike/**",
     ],
   },
   {

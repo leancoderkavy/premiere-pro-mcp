@@ -1,3 +1,4 @@
+import { SiteHeader } from "@/components/site/site-header"
 import { HeroSection } from "@/components/sections/hero"
 import { FeaturesSection } from "@/components/sections/features"
 import { ConnectSection } from "@/components/sections/connect"
@@ -14,6 +15,7 @@ export default function Home() {
     <>
       <LandingExperiment variant="control" />
       <HomeStructuredData />
+      <SiteHeader homepage />
       <main id="main-content" className="min-h-screen overflow-x-hidden bg-black text-white">
         <HeroSection />
         <DemoVideoSection />
@@ -22,8 +24,8 @@ export default function Home() {
         <ArchitectureSection />
         <FaqSection />
         <FinalCtaSection />
-        <Footer />
       </main>
+      <Footer />
     </>
   )
 }

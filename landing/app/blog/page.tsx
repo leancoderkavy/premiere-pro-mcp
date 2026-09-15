@@ -1,3 +1,4 @@
+import { PublicPage } from "@/components/site/public-page"
 import type { Metadata } from "next"
 import Link from "next/link"
 import { HomeLink } from "@/components/ui/home-link"
@@ -51,23 +52,24 @@ function formatArticleDate(date: string) {
 
 export default function BlogPage() {
   return (
+    <PublicPage>
     <>
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }}
       />
-      <main id="main-content" className="min-h-screen bg-black px-5 py-16 text-zinc-100 sm:py-24">
+      <main id="main-content" className="min-h-screen bg-site-bg px-5 py-16 text-site-text sm:py-24">
         <div className="mx-auto max-w-6xl">
-          <nav aria-label="Breadcrumb" className="text-sm text-zinc-500">
-            <HomeLink href="/" className="hover:text-purple-200">MCP for Adobe Premiere Pro</HomeLink>{" "}
+          <nav aria-label="Breadcrumb" className="text-sm text-site-muted">
+            <HomeLink href="/" className="hover:text-site-accent">MCP for Adobe Premiere Pro</HomeLink>{" "}
             <span aria-hidden="true">/</span> Guides
           </nav>
-          <header className="max-w-3xl border-b border-zinc-800 pb-12 pt-10 sm:pb-16">
-            <p className="font-mono text-sm font-medium tracking-[0.16em] text-purple-300">MCP FOR ADOBE PREMIERE PRO GUIDES</p>
-            <h1 className="mt-5 text-balance text-4xl font-bold tracking-tight text-white sm:text-6xl">
+          <header className="max-w-3xl border-b border-site-line pb-12 pt-10 sm:pb-16">
+            <p className="font-mono text-sm font-medium tracking-[0.16em] text-site-accent">MCP FOR ADOBE PREMIERE PRO GUIDES</p>
+            <h1 className="mt-5 text-balance text-4xl font-bold tracking-tight text-site-text sm:text-6xl">
               Set up AI-assisted Premiere workflows with confidence.
             </h1>
-            <p className="mt-6 text-lg leading-8 text-zinc-400">
+            <p className="mt-6 text-lg leading-8 text-site-muted">
               Learn how to set up Premiere Pro MCP, where AI can help, and how Claude, ChatGPT, and Codex
               fit into local-first, bounded, and reviewable Adobe Premiere Pro workflows.
             </p>
@@ -75,15 +77,15 @@ export default function BlogPage() {
 
           <section className="grid gap-6 py-12 md:grid-cols-2" aria-label="MCP for Adobe Premiere Pro guides">
             {articles.map((article, index) => (
-              <article key={article.slug} className="flex min-h-full flex-col border border-zinc-800 bg-zinc-950 p-6 transition-colors hover:border-purple-400/60 sm:p-7">
-                <p className="font-mono text-xs font-medium uppercase tracking-[0.14em] text-purple-300">0{index + 1} · {article.eyebrow}</p>
-                <h2 className="mt-5 text-2xl font-semibold tracking-tight text-white">
-                  <Link href={`/blog/${article.slug}/`} className="hover:text-purple-200">{article.title}</Link>
+              <article key={article.slug} className="flex min-h-full flex-col border border-site-line bg-site-panel p-6 transition-colors hover:border-site-accent/60 sm:p-7">
+                <p className="font-mono text-xs font-medium uppercase tracking-[0.14em] text-site-accent">0{index + 1} · {article.eyebrow}</p>
+                <h2 className="mt-5 text-2xl font-semibold tracking-tight text-site-text">
+                  <Link href={`/blog/${article.slug}/`} className="hover:text-site-accent">{article.title}</Link>
                 </h2>
-                <p className="mt-4 flex-1 leading-7 text-zinc-400">{article.description}</p>
-                <div className="mt-7 flex items-center justify-between border-t border-zinc-800 pt-5 text-sm">
-                  <time dateTime={article.publishedAt} className="text-zinc-500">{formatArticleDate(article.publishedAt)}</time>
-                  <Link href={`/blog/${article.slug}/`} className="font-medium text-purple-200 hover:text-white">
+                <p className="mt-4 flex-1 leading-7 text-site-muted">{article.description}</p>
+                <div className="mt-7 flex items-center justify-between border-t border-site-line pt-5 text-sm">
+                  <time dateTime={article.publishedAt} className="text-site-muted">{formatArticleDate(article.publishedAt)}</time>
+                  <Link href={`/blog/${article.slug}/`} className="font-medium text-site-accent hover:text-site-text">
                     Read guide <span aria-hidden="true">→</span>
                   </Link>
                 </div>
@@ -91,17 +93,17 @@ export default function BlogPage() {
             ))}
           </section>
 
-          <section className="border-t border-zinc-800 py-12 sm:py-16">
-            <p className="font-mono text-sm tracking-[0.14em] text-purple-300">READY TO TRY A BOUNDED WORKFLOW?</p>
-            <h2 className="mt-4 text-3xl font-semibold tracking-tight text-white sm:text-4xl">Start with a read-only Premiere connection check.</h2>
-            <p className="mt-4 max-w-2xl leading-7 text-zinc-400">
+          <section className="border-t border-site-line py-12 sm:py-16">
+            <p className="font-mono text-sm tracking-[0.14em] text-site-accent">READY TO TRY A BOUNDED WORKFLOW?</p>
+            <h2 className="mt-4 text-3xl font-semibold tracking-tight text-site-text sm:text-4xl">Start with a read-only Premiere connection check.</h2>
+            <p className="mt-4 max-w-2xl leading-7 text-site-muted">
               Install the local server and connector, verify the live bridge without changing a project, then inspect your first sequence.
             </p>
             <TrackedLink
               href="/#install"
               trackingLocation="blog_hub"
               trackingDestination="safe_connection_check"
-              className="mt-6 inline-flex border border-purple-300 bg-purple-300 px-5 py-3 font-medium text-black transition-colors hover:bg-white"
+              className="mt-6 inline-flex border border-site-accent bg-site-accent px-5 py-3 font-medium text-black transition-colors hover:bg-white"
             >
               Run a safe connection check <span aria-hidden="true" className="ml-2">→</span>
             </TrackedLink>
@@ -109,5 +111,6 @@ export default function BlogPage() {
         </div>
       </main>
     </>
+    </PublicPage>
   )
 }

@@ -86,11 +86,37 @@ function analyticsPermitted() {
   return !["1", "yes"].includes(nav.doNotTrack ?? "") && !nav.globalPrivacyControl
 }
 
+type PosthogEventProperties = {
+  surface: "website"
+  $process_person_profile: false
+  [key: string]: string | boolean
+}
+
+type QueuedPosthogEvent = {
+  eventName: string
+  properties: PosthogEventProperties
+}
+
 declare global {
   interface Window {
     dataLayer?: unknown[]
     gtag?: (...args: unknown[]) => void
+    posthog?: {
+      capture: (event: string, properties?: Record<string, unknown>) => void
+    }
+    __premierePosthogQueue?: QueuedPosthogEvent[]
+    __premierePosthogReady?: boolean
   }
+}
+
+function capturePosthogEvent(eventName: string, properties: PosthogEventProperties) {
+  if (window.__premierePosthogReady && typeof window.posthog?.capture === "function") {
+    window.posthog.capture(eventName, properties)
+    return
+  }
+
+  window.__premierePosthogQueue = window.__premierePosthogQueue ?? []
+  window.__premierePosthogQueue.push({ eventName, properties })
 }
 
 /**
@@ -124,4 +150,14 @@ export function trackOnboardingEvent(
     window.dataLayer?.push(args)
   })
   window.gtag("event", eventName, safeParameters)
+
+  const posthogProperties: PosthogEventProperties = {
+    ...safeParameters,
+    surface: "website",
+    $process_person_profile: false,
+  }
+  capturePosthogEvent(eventName, posthogProperties)
+  if (eventName === "marketing_viewed") {
+    capturePosthogEvent("$pageview", posthogProperties)
+  }
 }

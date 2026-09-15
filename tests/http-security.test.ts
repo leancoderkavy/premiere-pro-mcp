@@ -33,8 +33,10 @@ describe("HTTP security headers", () => {
     applyHttpSecurityHeaders({ setHeader } as never, { scriptNonce: "nonce-value" });
     expect(setHeader).toHaveBeenCalledWith(
       "Content-Security-Policy",
-      expect.stringContaining("script-src 'self' 'nonce-nonce-value' https://www.googletagmanager.com"),
+      expect.stringContaining("script-src 'self' 'nonce-nonce-value' https://www.googletagmanager.com https://us-assets.i.posthog.com https://eu-assets.i.posthog.com"),
     );
+    expect(buildContentSecurityPolicy()).toContain("https://us.i.posthog.com");
+    expect(buildContentSecurityPolicy()).toContain("https://us-assets.i.posthog.com");
     expect(buildContentSecurityPolicy()).not.toContain("'unsafe-inline' https://www.googletagmanager.com");
   });
 });

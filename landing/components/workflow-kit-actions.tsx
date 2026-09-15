@@ -38,14 +38,14 @@ export function WorkflowKitActions({
         <button
           type="button"
           onClick={() => copy(prompt, "prompt")}
-          className="min-h-12 rounded-md bg-violet-200 px-5 py-3 font-semibold text-black hover:bg-white focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-violet-300"
+          className="min-h-12 rounded-md bg-site-accent px-5 py-3 font-semibold text-black hover:bg-white focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-violet-300"
         >
           Copy starter prompt
         </button>
         <button
           type="button"
           onClick={() => copy(recipeUrl, "link")}
-          className="min-h-12 rounded-md border border-zinc-600 px-5 py-3 font-medium text-zinc-100 hover:border-violet-200 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-violet-300"
+          className="min-h-12 rounded-md border border-zinc-600 px-5 py-3 font-medium text-site-text hover:border-site-accent focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-violet-300"
         >
           Copy recipe link
         </button>
@@ -53,21 +53,21 @@ export function WorkflowKitActions({
       <p
         role="status"
         aria-live="polite"
-        className="mt-3 min-h-12 text-sm leading-6 text-violet-200"
+        className="mt-3 min-h-12 text-sm leading-6 text-site-accent"
       >
         {message}
       </p>
-      <details className="rounded-lg border border-zinc-700 p-4">
-        <summary className="flex min-h-11 cursor-pointer items-center font-medium text-zinc-100">
+      <details className="rounded-lg border border-site-line p-4">
+        <summary className="flex min-h-11 cursor-pointer items-center font-medium text-site-text">
           Read the starter prompt
         </summary>
-        <p className="mt-3 select-text whitespace-pre-wrap break-words leading-7 text-zinc-300">
+        <p className="mt-3 select-text whitespace-pre-wrap break-words leading-7 text-site-detail">
           {prompt}
         </p>
       </details>
       <a
         href={recipeUrl}
-        className="mt-2 inline-flex min-h-11 items-center text-sm text-violet-200 underline underline-offset-4"
+        className="mt-2 inline-flex min-h-11 items-center text-sm text-site-accent underline underline-offset-4"
       >
         Permanent recipe link
       </a>

@@ -21,6 +21,11 @@ const description =
   "Premiere Pro MCP connects compatible AI clients to local, reviewable Adobe Premiere Pro workflows with explicit previews, confirmation, and returned diagnostics.";
 const googleAnalyticsId =
   process.env.NEXT_PUBLIC_GOOGLE_ANALYTICS_ID ?? "G-XSH74T16E4";
+const posthogProjectToken =
+  process.env.NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN ??
+  "phc_ua4YCP5MJnrHUgWryu23xyuKYMuyVfwPacgYJYRwBVXb";
+const posthogHost =
+  process.env.NEXT_PUBLIC_POSTHOG_HOST ?? "https://us.i.posthog.com";
 
 export const metadata: Metadata = {
   title: {
@@ -131,14 +136,14 @@ export default function RootLayout({
         <a className="skip-link" href="#main-content">Skip to main content</a>
         <MarketingPageView />
         {children}
-        {googleAnalyticsId ? (
-          <>
-            <Script
-              src="/analytics.js"
-              strategy="lazyOnload"
-              data-google-analytics-id={googleAnalyticsId}
-            />
-          </>
+        {googleAnalyticsId || posthogProjectToken ? (
+          <Script
+            src="/analytics.js"
+            strategy="lazyOnload"
+            data-google-analytics-id={googleAnalyticsId}
+            data-posthog-project-token={posthogProjectToken}
+            data-posthog-host={posthogHost}
+          />
         ) : null}
       </body>
     </html>

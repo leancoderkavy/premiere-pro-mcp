@@ -9,6 +9,8 @@ export function buildContentSecurityPolicy(options: HttpSecurityHeaderOptions = 
     "'self'",
     ...(options.scriptNonce ? [`'nonce-${options.scriptNonce}'`] : []),
     "https://www.googletagmanager.com",
+    "https://us-assets.i.posthog.com",
+    "https://eu-assets.i.posthog.com",
   ].join(" ");
 
   return [
@@ -22,7 +24,7 @@ export function buildContentSecurityPolicy(options: HttpSecurityHeaderOptions = 
     "font-src 'self'",
     "style-src 'self' 'unsafe-inline'",
     `script-src ${scriptSource}`,
-    "connect-src 'self' https://www.google.com https://www.google-analytics.com https://www.googletagmanager.com https://us.i.posthog.com https://*.posthog.com",
+    "connect-src 'self' https://www.google.com https://www.google-analytics.com https://www.googletagmanager.com https://us.i.posthog.com https://eu.i.posthog.com https://*.posthog.com",
     "upgrade-insecure-requests",
   ].join("; ");
 }

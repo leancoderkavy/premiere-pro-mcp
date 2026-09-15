@@ -6,6 +6,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+
+- Merged open landing and UXP PRs: transcription language options (#515),
+  uxp-spike cleanup (#520), cinematic 3D timeline (#518), public-page styling
+  (#517), and the studio install/Name-check callout (#521).
+- The Fly landing page now sends the existing bounded website events to PostHog
+  as well as Google Analytics, without autocapture, session replay, or person
+  profiles.
+
 ## [1.15.2] - 2026-09-14
 
 ### Fixed
