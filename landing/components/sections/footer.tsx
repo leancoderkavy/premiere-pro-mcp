@@ -12,7 +12,7 @@ export function Footer() {
             <Image src="/marketing/premiere-pro-mcp-mark-v2.svg" width={28} height={28} alt="" />
             <span>premiere<span className="site-brand-divider">/</span>mcp</span>
           </HomeLink>
-          <p>Structured AI control. Creative freedom.<br />Free, open source, and local first.</p>
+          <p>Connect your AI assistant to Premiere Pro.<br />Free, open source, and locally installed.</p>
         </div>
         <nav className="site-footer-links" aria-label="Footer navigation">
           {siteNavigation.map(group => (

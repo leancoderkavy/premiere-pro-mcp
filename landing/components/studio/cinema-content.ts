@@ -4,20 +4,20 @@ export const cinemaAtlasMobile = "/marketing/cinema-coast-atlas-mobile.webp"
 export const cinemaChapters = [
   {
     label: "The first frame",
-    title: "Find the feeling.",
-    detail: "Every story begins with a point of view.",
+    title: "Review your selects.",
+    detail: "Choose a shot to inspect it in the preview.",
     shot: "01"
   },
   {
     label: "The assembly",
-    title: "Shape the story.",
-    detail: "Bring your selects into a sequence. Keep the vision yours.",
+    title: "Arrange the sequence.",
+    detail: "Scrub the timeline to move between shots.",
     shot: "02"
   },
   {
     label: "The final look",
-    title: "Make it yours.",
-    detail: "The rhythm. The color. The details that make a film.",
+    title: "Review the final look.",
+    detail: "Play the sequence to check its pacing.",
     shot: "03"
   }
 ] as const

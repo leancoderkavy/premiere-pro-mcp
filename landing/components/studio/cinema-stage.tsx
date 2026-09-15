@@ -80,7 +80,7 @@ export function StudioStage() {
         <span>
           <i /> THE CUTTING ROOM
         </span>
-        <span>YOUR WORDS. YOUR TIMELINE.</span>
+        <span>INTERACTIVE EDITING DEMO</span>
       </div>
       <div className="cinema-monitor-space">
         <div className="cinema-viewport">
