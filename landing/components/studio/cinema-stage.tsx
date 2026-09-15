@@ -5,7 +5,9 @@ import { Component, useCallback, useEffect, useRef, useState, type ReactNode } f
 import { cinemaChapters } from "./cinema-content"
 import { CinemaFallback } from "./cinema-fallback"
 import { CinemaTimeline } from "./cinema-timeline"
-import { useCinemaParallax, useSequenceTransport } from "./cinema-interaction"
+import { useCinemaParallax } from "./cinema-interaction"
+import { useCinemaEditor } from "./cinema-editor"
+import { CinemaWorkflow } from "./cinema-workflow"
 import { MotionToggle, useStudioMotion } from "./studio-motion"
 
 const StudioCanvas = dynamic(() => import("./studio-canvas"), { ssr: false })
@@ -34,7 +36,7 @@ export function StudioStage() {
   const [ready, setReady] = useState(false)
   const [failed, setFailed] = useState(false)
   const [exploded, setExploded] = useState(false)
-  const transport = useSequenceTransport(visible)
+  const transport = useCinemaEditor(visible)
   const parallax = useCinemaParallax(stage, paused || !enhanced || !visible)
   const onReady = useCallback((value: boolean) => setReady(value), [])
   const onError = useCallback(() => {
@@ -78,7 +80,7 @@ export function StudioStage() {
         <span>
           <i /> THE CUTTING ROOM
         </span>
-        <span>YOUR STORY. IN EVERY DIMENSION.</span>
+        <span>YOUR WORDS. YOUR TIMELINE.</span>
       </div>
       <div className="cinema-monitor-space">
         <div className="cinema-viewport">
@@ -115,14 +117,10 @@ export function StudioStage() {
           <span>SELECTED SHOT</span>
         </div>
       </div>
+      <CinemaWorkflow editor={transport} />
       <CinemaTimeline
-        frame={transport.frame}
-        chapter={transport.chapter}
-        playing={transport.playing}
+        editor={transport}
         exploded={exploded}
-        onSeek={transport.seek}
-        onSelect={transport.selectShot}
-        onPlay={transport.toggle}
         onExplode={() => setExploded((value) => !value)}
       />
       <div className="cinema-chapters" role="group" aria-label="Choose a film chapter">
@@ -139,7 +137,7 @@ export function StudioStage() {
         ))}
       </div>
       <div className="cinema-stage-footer">
-        <span>An interactive film study. Imagine what you’ll make in Premiere.</span>
+        <span>A browser demo of the MCP workflow. Your real edit happens in Premiere.</span>
         <div className="cinema-stage-motion">
           <MotionToggle location="scene" />
         </div>

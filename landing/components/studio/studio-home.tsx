@@ -29,6 +29,7 @@ import "./studio-editorial.css"
 import "./studio-gallery.css"
 import "./cinema-stage.css"
 import "./cinema-timeline.css"
+import "./cinema-workflow.css"
 
 export function StudioHome() {
   return (

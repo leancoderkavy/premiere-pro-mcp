@@ -1,16 +1,22 @@
 "use client"
 
 import { useCallback, useEffect, useRef, useState, type RefObject } from "react"
+import {
+  clipStart,
+  initialClips,
+  shotAtFrame,
+  totalFrames,
+  type CinemaClip
+} from "./cinema-sequence"
 
-export const sequenceFrames = 24 * 24
-export const shotFrames = 8 * 24
 export type ParallaxPosition = { x: number; y: number; scroll: number }
 
 export function timecode(frame: number) {
   return `00:00:${String(Math.floor(frame / 24)).padStart(2, "0")}:${String(frame % 24).padStart(2, "0")}`
 }
 
-export function useSequenceTransport(visible: boolean) {
+export function useSequenceTransport(visible: boolean, clips: CinemaClip[] = initialClips) {
+  const duration = totalFrames(clips)
   const [frame, setFrame] = useState(240)
   const [playing, setPlaying] = useState(false)
   const current = useRef(frame)
@@ -23,21 +29,32 @@ export function useSequenceTransport(visible: boolean) {
     const first = current.current
     let handle = 0
     const tick = (now: number) => {
-      const next = Math.min(sequenceFrames - 1, first + Math.floor(((now - start) * 24) / 1000))
+      const next = Math.min(duration - 1, first + Math.floor(((now - start) * 24) / 1000))
       setFrame(next)
-      if (next === sequenceFrames - 1) setPlaying(false)
+      if (next === duration - 1) setPlaying(false)
       else handle = requestAnimationFrame(tick)
     }
     handle = requestAnimationFrame(tick)
     return () => cancelAnimationFrame(handle)
-  }, [playing, visible])
-  const seek = useCallback((next: number) => {
-    setPlaying(false)
-    setFrame(Math.max(0, Math.min(sequenceFrames - 1, Math.round(next))))
-  }, [])
-  const selectShot = useCallback((shot: number) => seek(shot * shotFrames + 48), [seek])
+  }, [playing, visible, duration])
+  const seek = useCallback(
+    (next: number, length = duration) => {
+      setPlaying(false)
+      const bounded = Math.max(0, Math.min(length - 1, Math.round(next)))
+      current.current = bounded
+      setFrame(bounded)
+    },
+    [duration]
+  )
+  const selectShot = useCallback(
+    (shot: number) => {
+      const clip = clips.find((item) => item.shot === shot)!
+      seek(clipStart(clips, shot) + Math.min(48, clip.duration - 1))
+    },
+    [clips, seek]
+  )
   const toggle = () => {
-    if (current.current >= sequenceFrames - 1) {
+    if (current.current >= duration - 1) {
       current.current = 0
       setFrame(0)
       setPlaying(true)
@@ -51,7 +68,8 @@ export function useSequenceTransport(visible: boolean) {
     seek,
     selectShot,
     toggle,
-    chapter: Math.max(0, Math.min(2, Math.floor(frame / shotFrames) || 0)),
+    chapter: shotAtFrame(clips, frame),
+    duration
   }
 }
 
