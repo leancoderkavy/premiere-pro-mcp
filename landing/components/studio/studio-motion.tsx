@@ -2,12 +2,14 @@
 
 import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from "react"
 import { Pause, Play } from "lucide-react"
+import { useScrollScenes } from "./use-scroll-scenes"
 
 const MotionContext = createContext({ paused: true, toggle: () => {} })
 
 export function StudioMotion({ children }: { children: ReactNode }) {
   const [paused, setPaused] = useState(true)
   const wrapper = useRef<HTMLDivElement>(null)
+  useScrollScenes(wrapper, paused)
   useEffect(() => {
     const preference = window.matchMedia("(prefers-reduced-motion: reduce)")
     const connection = (navigator as Navigator & { connection?: { saveData?: boolean } }).connection
