@@ -13,7 +13,7 @@ Experiment `462966` and linked flag `876869` launched after PR #490 (`5c592f72fa
 | Control | `control`: existing homepage |
 | Treatment | `test`: complete cinematic studio homepage |
 | Intended split | Equal control/test split across eligible homepage visitors |
-| Exposure | `$experiment_exposure`, matching the draft's verified `resolved_exposure_event`; sent only after visible rendering |
+| Exposure | `$experiment_exposure` after first-paint visibility of the assigned document; React remains a backup. Server `homepage_experiment_assigned` is diagnostic only |
 | Primary metric | Exposed visitors who click a real setup download, measured by `homepage_setup_downloaded` |
 | Secondary metric | Exposed visitors who successfully copy the read-only first prompt, measured by `homepage_safe_prompt_copied` |
 | Metric interpretation | Setup intent; neither metric verifies installation or a working Premiere host |
@@ -45,6 +45,36 @@ The sequence below documents the initial launch procedure. For a treatment-only 
 4. Configure the shared signing secret and runtime gate. Keep the flag inactive until the provider setup and controlled ingestion checks are ready. Configure the conversion metrics and test-account exclusions against the verified project schema.
 5. Launch through PostHog, then verify assignment and exposure-to-conversion ordering on production. Record the exact deployment SHA, PostHog experiment URL, and provider ingestion evidence. Local fixture evidence does not replace this step.
 6. Evaluate visitor-level results after an appropriate sample and observation window. Do not call a winner from a handful of downloads or early fluctuations.
+
+## Power, significance, and stopping rule
+
+Checked 15 September 2026 against experiment `462966`. Do not reset or relaunch this experiment to chase a p-value. Do not promote a new primary metric mid-flight.
+
+| Observation | Value |
+| --- | --- |
+| Status | Running since 10 September 2026 07:55 UTC |
+| Cumulative exposures | Control 187, test 160 |
+| Sample-ratio mismatch | p = 0.15; not a mismatch, but test is under-exposed |
+| Primary (setup download, 24h, matured sample) | Control 17/142 (12.0%), test 19/128 (14.8%) |
+| Chance test beats control | 73%, not significant; 95% credible interval about −52% to +99% |
+| Secondary (safe prompt copy) | Control 4, test 1; too few events |
+| Unique setup-download visitors, no 24h gate | Control 21, test 23 |
+| Exploratory CTA clicks (`primary_cta_clicked`) | Control 43/187 visitors, test 63/160. Higher volume, but not the pre-registered primary |
+
+The test variant currently loses exposures relative to control. Exposure used to wait for React `requestAnimationFrame` after hydration. The treatment document is heavier (WebGL, larger JS), so more assigned visitors can leave before `$experiment_exposure`. That both shrinks n and can bias remaining treatment visitors toward people who waited. First-paint exposure, plus a server `homepage_experiment_assigned` diagnostic that is not an experiment exposure, exists to close that gap without changing the primary metric.
+
+### Required sample, not peeking
+
+At a ~12% control setup-download rate, detecting a 20–25% relative lift at 80% power / 95% confidence needs on the order of **2,300–3,100 exposures per variant**. Traffic is about 35 exposures per variant per day. From the 15 September totals that is roughly **two more months**, not days. A 10% relative lift needs far more.
+
+Do not stop when chance-to-win first crosses 95%. Re-evaluate only after:
+
+1. About 2,300 matured exposures per variant, or
+2. Assignment and exposure counts stay within a 50/50 split after the first-paint change has been live for at least one week, and the credible interval for the primary metric excludes zero.
+
+Keep `homepage_setup_downloaded` as the only decision metric. Treat `primary_cta_clicked` as exploratory: it can explain *why* intent moved, but switching primary after seeing the data would make a later “significant” result untrustworthy.
+
+After deploy, confirm `homepage_experiment_assigned` arrives without creating extra `$experiment_exposure` rows, and that test exposures catch up toward control.
 
 ## Review URLs
 

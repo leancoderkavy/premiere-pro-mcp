@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   HOMEPAGE_FLAG,
   HomepageExperiment,
+  injectFirstPaintExposure,
   type HomepageAnalytics,
 } from "../src/homepage-experiment.js";
 
@@ -76,12 +77,14 @@ describe("homepage experiment assignment and exposure", () => {
     const inactive = f.cookie(fallback);
     await f.post(inactive, { event: "homepage_experiment_exposed", variant: "control" });
     await f.post(inactive, { event: "onboarding_safe_prompt_copied", variant: "control" });
-    expect(f.capture).not.toHaveBeenCalled();
+    expect(f.capture.mock.calls.map((call) => call[1])).toEqual([
+      "homepage_experiment_assigned",
+    ]);
     now += 61_000;
     expect(await (await f.get({ Cookie: inactive })).text()).toBe("control");
     expect(new Set(f.evaluator.mock.calls.map(([id]) => id)).size).toBe(1);
   });
-  it("keeps the anonymous assignment stable and records no exposure during evaluation", async () => {
+  it("keeps the anonymous assignment stable and records a diagnostic assignment without exposure", async () => {
     const f = await fixture();
     const first = await f.get();
     expect(await first.text()).toBe("test");
@@ -91,7 +94,26 @@ describe("homepage experiment assignment and exposure", () => {
     const second = await f.get({ Cookie: f.cookie(first) });
     expect(await second.text()).toBe("test");
     expect(f.evaluator).toHaveBeenCalledTimes(1);
-    expect(f.capture).not.toHaveBeenCalled();
+    expect(f.capture).toHaveBeenCalledTimes(1);
+    expect(f.capture.mock.calls[0][1]).toBe("homepage_experiment_assigned");
+    expect(f.capture.mock.calls[0][2]).toMatchObject({
+      product: "premiere-pro-mcp",
+      variant: "test",
+    });
+    expect(f.capture.mock.calls[0][2]).not.toHaveProperty("$feature_flag");
+  });
+
+  it("injects a nonce first-paint exposure script only for assigned root documents", () => {
+    const html = "<html><head><title>home</title></head><body></body></html>";
+    const assigned = injectFirstPaintExposure(html, "abc+nonce", "test", false);
+    expect(assigned).toContain('<script nonce="abc+nonce">');
+    expect(assigned).toContain('\\"variant\\":\\"test\\"');
+    expect(assigned).toContain("homepage_experiment_exposed");
+    expect(assigned.indexOf("<script")).toBeLessThan(assigned.indexOf("</head>"));
+    expect(injectFirstPaintExposure(html, "abc+nonce", "test", true)).toBe(html);
+    expect(injectFirstPaintExposure(html, "abc+nonce", undefined, false)).toBe(
+      html,
+    );
   });
 
   it.each([
@@ -162,12 +184,14 @@ describe("homepage experiment assignment and exposure", () => {
     ).toBe(204);
     const calls = f.capture.mock.calls;
     expect(calls.map((call) => call[1])).toEqual([
+      "homepage_experiment_assigned",
       "$experiment_exposure",
       "onboarding_download_started",
       "homepage_setup_downloaded",
     ]);
     expect(new Set(calls.map((call) => call[0])).size).toBe(1);
-    expect(calls[0][2]).toMatchObject({
+    expect(calls[0][2]).not.toHaveProperty("$feature_flag");
+    expect(calls[1][2]).toMatchObject({
       $feature_flag: HOMEPAGE_FLAG,
       $feature_flag_response: "test",
       $process_person_profile: false,
@@ -179,7 +203,7 @@ describe("homepage experiment assignment and exposure", () => {
       event: "homepage_experiment_exposed",
       variant: "test",
     });
-    expect(f.capture).toHaveBeenCalledTimes(3);
+    expect(f.capture).toHaveBeenCalledTimes(4);
   });
 
   it("does not mistake guided setup links for downloads", async () => {
@@ -226,7 +250,9 @@ describe("homepage experiment assignment and exposure", () => {
       (await f.post(assigned, { ...body, junk: "x".repeat(2000) })).status,
     ).toBe(413);
     expect((await f.post(assigned, body, { "Sec-GPC": "1" })).status).toBe(204);
-    expect(f.capture).not.toHaveBeenCalled();
+    expect(f.capture.mock.calls.map((call) => call[1])).toEqual([
+      "homepage_experiment_assigned",
+    ]);
   });
 
   it("does not contact PostHog when disabled", async () => {

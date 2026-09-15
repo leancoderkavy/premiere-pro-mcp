@@ -38,7 +38,7 @@ import { createMcpHandler } from "@modelcontextprotocol/server";
 import { createServer } from "./server.js";
 import { cleanupTempDir, getTempDir } from "./bridge/file-bridge.js";
 import { getTelemetry } from "./telemetry.js";
-import { createHomepageExperiment, type HomepageVariant } from "./homepage-experiment.js";
+import { createHomepageExperiment, injectFirstPaintExposure, type HomepageVariant } from "./homepage-experiment.js";
 import { shouldGzipLanding } from "./landing-compression.js";
 import { applyHttpSecurityHeaders } from "./http-security.js";
 import { OAuthResourceServer } from "./oauth-resource-server.js";
@@ -209,7 +209,12 @@ function serveLanding(req: http.IncomingMessage, res: http.ServerResponse, scrip
   // executable without retaining script-src 'unsafe-inline'.
   if (contentType.startsWith("text/html")) {
     try {
-      const document = injectScriptNonce(fs.readFileSync(filePath, "utf8"), scriptNonce);
+      const document = injectFirstPaintExposure(
+        injectScriptNonce(fs.readFileSync(filePath, "utf8"), scriptNonce),
+        scriptNonce,
+        urlPath === "/" ? homepageVariant : undefined,
+        preview,
+      );
       const body = compress ? gzipSync(document, { level: 6 }) : document;
       if (compress) headers["Content-Encoding"] = "gzip";
       res.writeHead(200, headers);
