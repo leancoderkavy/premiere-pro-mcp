@@ -465,6 +465,38 @@ export function StudioInstaller() {
             </Accordion.Trigger>
           </Accordion.Header>
           <Accordion.Content>
+            <div className="studio-install-callout">
+              <p className="studio-install-callout-title">
+                Install the correct package
+              </p>
+              <p>Use the exact npm package name for this project:</p>
+              <pre>npm i -g premiere-pro-mcp@{product.version}</pre>
+              <p>
+                <strong>Name check:</strong> this project&apos;s package is{" "}
+                <code>premiere-pro-mcp</code>, not{" "}
+                <code>adobe-premiere-pro-mcp</code>. Both can expose a{" "}
+                <code>premiere-pro-mcp</code> command, so confirm the package
+                name before you configure a client.
+              </p>
+              <p className="studio-install-callout-title">
+                Verify you have the right install
+              </p>
+              <pre>
+                npm list -g premiere-pro-mcp{"\n"}premiere-pro-mcp --version
+              </pre>
+              <p>
+                Expect version <strong>{product.version}</strong>. Homepage
+                should be{" "}
+                <a href="https://premiere-pro-mcp.com/">
+                  premiere-pro-mcp.com
+                </a>
+                ; source is{" "}
+                <a href="https://github.com/leancoderkavy/premiere-pro-mcp">
+                  github.com/leancoderkavy/premiere-pro-mcp
+                </a>
+                .
+              </p>
+            </div>
             <div className="studio-advanced-grid">
               <div>
                 <p>
