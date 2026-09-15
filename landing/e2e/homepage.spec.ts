@@ -258,6 +258,18 @@ test("editing timeline: mouse dragging and separated 3D layers remain clickable"
   await page.goto("/")
   await page.emulateMedia({ reducedMotion: "no-preference" })
   await page.locator(".cinema-editing-desk").scrollIntoViewIfNeeded()
+  // Exercise adjacent clip faces while pointer parallax moves the compact desk.
+  // A transparent track container previously intercepted intermittent clicks.
+  for (let pass = 0; pass < 4; pass++) {
+    for (const [name, value] of [
+      ["Select clip 01: A moment of stillness", "00:00:02:00"],
+      ["Select clip 02: Follow the coastline", "00:00:10:00"],
+      ["Select clip 03: Into the blue", "00:00:18:00"]
+    ]) {
+      await page.getByRole("button", { name, exact: true }).click()
+      await expect(page.getByLabel("Current timecode")).toHaveText(value)
+    }
+  }
   await page.getByRole("button", { name: "Separate layers", exact: true }).click()
   await expect(page.locator(".cinema-editing-desk")).toHaveAttribute("data-exploded", "true")
   for (const [name, value] of [["Select clip 01: A moment of stillness", "00:00:02:00"], ["Select clip 03: Into the blue", "00:00:18:00"]]) {
