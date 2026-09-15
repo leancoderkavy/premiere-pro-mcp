@@ -25,6 +25,7 @@ import { MotionToggle, StudioMotion, StudioStage } from "./studio-motion"
 import "./studio.css"
 import "./studio-editorial.css"
 import "./studio-gallery.css"
+import "./cinema-stage.css"
 
 const footerLinks = {
   Explore: [
