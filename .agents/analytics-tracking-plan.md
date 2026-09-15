@@ -1,6 +1,6 @@
 # Premiere Pro MCP Tracking Plan
 
-**Last updated:** 2026-08-23
+**Last updated:** 2026-09-15
 
 ## Decisions this data should inform
 
@@ -11,8 +11,8 @@
 
 ## Tools and boundaries
 
-- The public landing uses GA4 for page views and bounded setup interactions.
-- The MCP server uses PostHog only when a production key is configured.
+- The public landing uses GA4 and PostHog for page views and bounded setup interactions. PostHog website events are tagged `surface=website` and do not create person profiles.
+- The MCP server uses PostHog only when a production key is configured. Server events are tagged `service=premiere-pro-mcp` and use a server identifier, not a browser identifier.
 - Never send prompts, arguments, tool results, project or media names, file paths, tokens, IP addresses, or profile contents.
 - Website analytics and server activation are separate datasets unless an explicit privacy-reviewed anonymous correlation mechanism is introduced later.
 
@@ -20,6 +20,7 @@
 
 | Event | Properties | Trigger | Decision |
 | --- | --- | --- | --- |
+| `marketing_viewed` | path, allowlisted UTM fields | Acquisition or workflow page load | Which pages and campaigns earn attention? PostHog also records `$pageview`. |
 | `primary_cta_clicked` | `location`, `destination` | Hero, final, and guide CTA | Which top-level path earns intent? |
 | `marketing_demo_played` | `demo` | First playback per page view | Does the walkthrough support evaluation? |
 | `onboarding_assistant_selected` | `assistant` | Assistant route selected | Which setup path is demanded? |
@@ -54,6 +55,7 @@ There is no privacy-safe way to identify an editor's or client-side installation
 ## Validation checklist
 
 - Confirm each browser event once in GA4 DebugView without duplicate firing.
+- Confirm the same bounded events arrive in PostHog with `surface=website`, including `$pageview` for `marketing_viewed`.
 - Confirm no analytics payload includes user content or local paths.
 - Verify server events in the intended PostHog project after deployment.
 - Segment server outcomes by client, OS, Premiere major version, and tool only when those fields are bounded and available.

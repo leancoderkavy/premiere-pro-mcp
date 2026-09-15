@@ -15,7 +15,7 @@ export default function PrivacyPage() {
       <article className="mx-auto max-w-3xl">
         <nav aria-label="Breadcrumb"><HomeLink>MCP for Adobe Premiere Pro</HomeLink> <span aria-hidden="true">/</span> Privacy</nav>
         <h1 className="mt-8 text-4xl font-semibold tracking-tight text-site-text">Privacy Policy</h1>
-        <p className="mt-3 text-sm text-site-muted">Last updated: September 9, 2026</p>
+        <p className="mt-3 text-sm text-site-muted">Last updated: September 15, 2026</p>
 
         <div className="mt-10 space-y-9 leading-7">
           <section>
@@ -29,12 +29,12 @@ export default function PrivacyPage() {
           </section>
           <section>
             <h2 className="text-xl font-semibold text-site-text">Website analytics</h2>
-            <p className="mt-3">The public website loads Google Analytics after the page is interactive and idle, with IP anonymization. It records page views and bounded setup interactions such as the route, selected assistant, download action, or help panel opened. These events are designed not to include prompts, project details, media names, or file paths. Google may process device, browser, approximate location, and interaction information under its own policies.</p>
+            <p className="mt-3">The public website loads Google Analytics and PostHog after the page is interactive and idle. Google Analytics uses IP anonymization. PostHog is configured without autocapture, session replay, or person profiles, and does not include IP-address properties. Both record page views and bounded setup interactions such as the route, selected assistant, download action, or help panel opened. These events are designed not to include prompts, project details, media names, or file paths. Analytics providers may process device, browser, approximate location, and interaction information under their own policies.</p>
             <p className="mt-3">When a homepage experiment is enabled, PostHog assigns an anonymous visitor to a page design. After that design is displayed, the website records the variant and a limited set of setup actions, including download clicks and successful copies of the safe connection prompt. The prompt text, your clipboard contents, project data, footage, IP-address properties, and person profiles are not included in these experiment events. Download clicks measure interest in setup; they do not establish that installation or a Premiere connection succeeded.</p>
           </section>
           <section>
             <h2 className="text-xl font-semibold text-site-text">Cookies and choices</h2>
-            <p className="mt-3">Analytics services may use cookies or similar browser storage. You can block or clear them using your browser controls or content-blocking tools. Local MCP operators can keep operational telemetry off by leaving <code>POSTHOG_API_KEY</code> unset.</p>
+            <p className="mt-3">Analytics services may use cookies or similar browser storage. You can block or clear them using your browser controls or content-blocking tools. PostHog is not loaded when the browser sends Do Not Track or Global Privacy Control. Local MCP operators can keep operational telemetry off by leaving <code>POSTHOG_API_KEY</code> unset.</p>
             <p className="mt-3">The homepage experiment uses a first-party, signed, HTTP-only cookie named <code>premiere_homepage_v1</code> to keep an anonymous visitor’s assignment consistent and connect subsequent setup actions to that exposure. It expires after 30 days without renewal. Website analytics and experimentation respect Do Not Track and Global Privacy Control signals. Direct design previews do not enter the experiment.</p>
           </section>
           <section>

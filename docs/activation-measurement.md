@@ -5,7 +5,8 @@ project data or linking a browser to an editor's Premiere project.
 
 ## Browser events
 
-The public landing sends only route/action events and allowlisted campaign values:
+The public landing sends only route/action events and allowlisted campaign values
+to Google Analytics and PostHog:
 
 1. assistant route selected;
 2. versioned download started;
