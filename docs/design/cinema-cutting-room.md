@@ -5,7 +5,9 @@
 The cinematic homepage becomes a floating editing desk. Three photographic film
 frames sit above a dimensional timeline, with a curved perforated filmstrip,
 projector haze, and drifting particles. Pointer and scroll parallax move the
-WebGL camera and CSS perspective together. Premiere violet, charcoal, warm amber,
+film preview above a fixed perspective timeline. The timeline retains its 3D angle
+and controls without following the pointer or shifting on scroll. Premiere violet,
+charcoal, warm amber,
 and original coastal artwork connect the scene to the product's editing workflow.
 
 The timeline uses real HTML controls:

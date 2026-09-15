@@ -258,7 +258,7 @@ test("editing timeline: mouse dragging and separated 3D layers remain clickable"
   await page.goto("/")
   await page.emulateMedia({ reducedMotion: "no-preference" })
   await page.locator(".cinema-editing-desk").scrollIntoViewIfNeeded()
-  // Exercise adjacent clip faces while pointer parallax moves the compact desk.
+  // Exercise adjacent clip faces on the fixed perspective desk.
   // A transparent track container previously intercepted intermittent clicks.
   for (let pass = 0; pass < 4; pass++) {
     for (const [name, value] of [
