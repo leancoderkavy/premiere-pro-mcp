@@ -24,7 +24,6 @@ import {
 } from "./studio-controls"
 import { MotionToggle, StudioMotion } from "./studio-motion"
 import { StudioStage } from "./cinema-stage"
-import { ScrollStory } from "./scroll-story"
 import "./studio.css"
 import "./studio-editorial.css"
 import "./studio-gallery.css"
@@ -39,23 +38,22 @@ export function StudioHome() {
       <SiteHeader homepage actions={<MotionToggle />} />
       <main id="main-content">
         <div className="studio-announcement">
-          <span>A new connection for your creative workflow.</span>
+          <span>Free, open-source tools for Premiere Pro.</span>
           <a href="/changelog/">
-            Explore v{product.version} <ArrowRight size={13} />
+            Release notes · v{product.version} <ArrowRight size={13} />
           </a>
         </div>
         <section id="top" className="studio-container studio-hero">
           <div className="studio-hero-copy" data-scroll-scene>
             <p className="studio-product-name">Premiere Pro MCP</p>
             <h1>
-              Your vision.
+              Your assistant.
               <br />
-              In the <span>timeline.</span>
+              Connected to <span>Premiere.</span>
             </h1>
             <p className="studio-hero-description">
-              Connect your AI assistant to Adobe Premiere Pro.
-              <br className="studio-desktop-break" /> Plan, review, and shape your
-              next edit.
+              Inspect projects, organize media, and prepare edits.
+              <br className="studio-desktop-break" /> Review the plan before changing your timeline.
             </p>
             <div className="studio-hero-actions">
               <TrackedLink
@@ -72,7 +70,7 @@ export function StudioHome() {
                 trackingDestination="workflow_starter_kit"
                 className="studio-button studio-button-text"
               >
-                Explore the workflow <ArrowDown size={16} />
+                See what it can do <ArrowDown size={16} />
               </TrackedLink>
             </div>
             <p className="studio-hero-note">
@@ -81,7 +79,7 @@ export function StudioHome() {
           </div>
           <StudioStage />
           <div className="studio-compatible">
-            <span>Works with the assistant you already use.</span>
+            <span>Connect through a compatible MCP client.</span>
             <div>
               Claude <span>·</span> Codex <span>·</span> Cursor <span>·</span>
               Copilot <span>·</span> & more
@@ -114,7 +112,6 @@ export function StudioHome() {
           </div>
         </div>
 
-        <ScrollStory />
         <div className="studio-light studio-workflow-surface">
           <section
             id="features"
@@ -125,17 +122,17 @@ export function StudioHome() {
             <div className="studio-section-heading studio-editorial-heading">
               <div>
                 <p className="studio-eyebrow">
-                  <span>The creative toolkit.</span>
+                  <span>Editing workflows</span>
                 </p>
                 <h2>
-                  Less repetition.
+                  Organize. Assemble.
                   <br />
-                  <span>More room to create.</span>
+                  <span>Check the details.</span>
                 </h2>
               </div>
               <p>
-                From the first selects to the finishing touches. Give repetitive
-                work a clear instruction, and keep the creative decisions yours.
+                Start with a specific task. Inspect the project, review the proposed
+                changes, then check the result in Premiere.
               </p>
             </div>
             <WorkflowChapters />
@@ -144,7 +141,7 @@ export function StudioHome() {
                 <Check size={14} /> Preview. Confirm. Inspect the result.
               </span>
               <a href="/workflows/">
-                Find your next workflow <ArrowUpRight size={16} />
+                Browse workflow examples <ArrowUpRight size={16} />
               </a>
             </div>
           </section>
@@ -157,18 +154,17 @@ export function StudioHome() {
           >
             <div className="studio-demo-heading studio-editorial-heading">
               <h2>
-                From a request
+                See the workflow
                 <br />
-                <span>to a reviewable result.</span>
+                <span>before you install.</span>
               </h2>
-              <p>See how your direction becomes a plan you can inspect.</p>
+              <p>A short illustration of how a request becomes a plan, a confirmed action, and a result to check.</p>
             </div>
             <WalkthroughPlayer />
             <div className="studio-demo-caption">
               <span>AN ILLUSTRATED PRODUCT WALKTHROUGH</span>
               <p>
-                A visual explanation of the request-to-result flow. This
-                animation is not a recording of a live Premiere host session.
+                Illustrated example; not a recording of a live Premiere session.
               </p>
             </div>
           </section>
@@ -183,11 +179,11 @@ export function StudioHome() {
           <div className="studio-container">
             <div className="studio-section-heading">
               <div>
-                <p className="studio-eyebrow">Designed around your control.</p>
+                <p className="studio-eyebrow">How it connects</p>
                 <h2>
-                  Your assistant. Your edit.
+                  Three parts.
                   <br />
-                  <span>One thoughtful connection.</span>
+                  <span>One local setup.</span>
                 </h2>
               </div>
               <p>
@@ -205,7 +201,7 @@ export function StudioHome() {
                   <Command size={34} strokeWidth={1.3} />
                 </span>
                 <h3>Your assistant</h3>
-                <p>You set the direction.</p>
+                <p>Describe the task.</p>
               </div>
               <div className="studio-bridge-wire" aria-hidden="true">
                 <span>STRUCTURED REQUEST</span>
@@ -222,7 +218,7 @@ export function StudioHome() {
                   />
                 </span>
                 <h3>The MCP bridge</h3>
-                <p>A reviewable plan.</p>
+                <p>Routes supported requests.</p>
                 <span className="studio-bridge-local">
                   <LockKeyhole size={11} /> ON YOUR COMPUTER
                 </span>
@@ -237,24 +233,22 @@ export function StudioHome() {
                   Pr
                 </span>
                 <h3>Adobe Premiere Pro</h3>
-                <p>The edit stays here.</p>
+                <p>Review changes in your project.</p>
               </div>
             </div>
             <div className="studio-bridge-notes">
               <p>
                 <ShieldCheck size={18} />
                 <span>
-                  <strong>Start with verification.</strong> The first prompt is
-                  read-only. Applied plans require current targets and your
-                  confirmation.
+                  <strong>Check the connection first.</strong> The starter prompt inspects
+                  your project without changing it.
                 </span>
               </p>
               <p>
                 <Laptop size={18} />
                 <span>
-                  <strong>Know what’s supported.</strong> Capabilities vary by
-                  host and bridge. Returned diagnostics help you inspect the
-                  outcome.
+                  <strong>Check host compatibility.</strong> Available actions depend on
+                  your Premiere version and connector. Inspect diagnostics after each operation.
                 </span>
               </p>
             </div>
@@ -270,11 +264,11 @@ export function StudioHome() {
           >
             <div className="studio-section-heading studio-editorial-heading">
               <div>
-                <p className="studio-eyebrow">Make the connection.</p>
+                <p className="studio-eyebrow">Installation</p>
                 <h2>
-                  Ready when
+                  Choose your
                   <br />
-                  <span>you are.</span>
+                  <span>assistant.</span>
                 </h2>
               </div>
               <p>
@@ -292,11 +286,11 @@ export function StudioHome() {
             data-studio-reveal
           >
             <div>
-              <p className="studio-eyebrow">A few things to know.</p>
+              <p className="studio-eyebrow">Before you install</p>
               <h2>
-                A little clarity.
+                Questions
                 <br />
-                <span>Before you begin.</span>
+                <span>and answers.</span>
               </h2>
               <a className="studio-text-link" href="/docs/">
                 Read the documentation <ArrowUpRight size={16} />
@@ -315,12 +309,12 @@ export function StudioHome() {
               height={64}
               alt=""
             />
-            <span className="studio-eyebrow">The next frame is yours.</span>
+            <span className="studio-eyebrow">Get started</span>
             <div>
               <h2>
-                Make room
+                Connect your assistant
                 <br />
-                for <span>your vision.</span>
+                to <span>Premiere.</span>
               </h2>
               <div>
                 <TrackedLink
@@ -334,7 +328,7 @@ export function StudioHome() {
                 <p>
                   Free & open source.
                   <br />
-                  Built for the way you create.
+                  No account required.
                 </p>
               </div>
             </div>
