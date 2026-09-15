@@ -83,7 +83,7 @@ export function StudioStage() {
         <span>YOUR WORDS. YOUR TIMELINE.</span>
       </div>
       <div className="cinema-monitor-space">
-        <div className="cinema-viewport">
+        <div className="cinema-viewport" data-gap={transport.activeShot === null}>
           <CinemaFallback chapter={transport.chapter} />
           {enhanced && !paused && visible && !failed ? (
             <div className="studio-webgl">
@@ -99,10 +99,21 @@ export function StudioStage() {
               </SceneBoundary>
             </div>
           ) : null}
+          {transport.activeShot === null ? (
+            <div className="cinema-gap">
+              <strong>NO PICTURE</strong>
+              <span>Move a clip here to fill the gap.</span>
+            </div>
+          ) : null}
           <div className="cinema-gate cinema-gate-left" aria-hidden="true" />
           <div className="cinema-gate cinema-gate-right" aria-hidden="true" />
           <div className="cinema-frame-label" aria-hidden="true">
-            <span>PROGRAM / SELECT {cinemaChapters[transport.chapter].shot}</span>
+            <span>
+              PROGRAM /{" "}
+              {transport.activeShot === null
+                ? "GAP"
+                : `SELECT ${cinemaChapters[transport.chapter].shot}`}
+            </span>
             <span>2.39:1 / 24 FPS</span>
           </div>
         </div>
@@ -111,10 +122,16 @@ export function StudioStage() {
           aria-live="polite"
           aria-atomic="true"
         >
-          <span>{cinemaChapters[transport.chapter].shot}</span>
-          <p>{cinemaChapters[transport.chapter].title}</p>
+          <span>
+            {transport.activeShot === null ? "—" : cinemaChapters[transport.chapter].shot}
+          </span>
+          <p>
+            {transport.activeShot === null
+              ? "No picture at the playhead."
+              : cinemaChapters[transport.chapter].title}
+          </p>
           <i />
-          <span>SELECTED SHOT</span>
+          <span>PROGRAM MONITOR</span>
         </div>
       </div>
       <CinemaWorkflow editor={transport} />
@@ -128,7 +145,7 @@ export function StudioStage() {
           <button
             key={item.shot}
             type="button"
-            aria-pressed={transport.chapter === index}
+            aria-pressed={transport.activeShot === index}
             onClick={() => transport.selectShot(index)}
           >
             <span>{item.shot}</span>

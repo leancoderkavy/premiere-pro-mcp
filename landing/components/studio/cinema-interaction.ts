@@ -12,7 +12,8 @@ import {
 export type ParallaxPosition = { x: number; y: number; scroll: number }
 
 export function timecode(frame: number) {
-  return `00:00:${String(Math.floor(frame / 24)).padStart(2, "0")}:${String(frame % 24).padStart(2, "0")}`
+  const seconds = Math.floor(frame / 24)
+  return `00:${String(Math.floor(seconds / 60)).padStart(2, "0")}:${String(seconds % 60).padStart(2, "0")}:${String(frame % 24).padStart(2, "0")}`
 }
 
 export function useSequenceTransport(visible: boolean, clips: CinemaClip[] = initialClips) {
@@ -68,7 +69,8 @@ export function useSequenceTransport(visible: boolean, clips: CinemaClip[] = ini
     seek,
     selectShot,
     toggle,
-    chapter: shotAtFrame(clips, frame),
+    chapter: shotAtFrame(clips, frame) ?? 0,
+    activeShot: shotAtFrame(clips, frame),
     duration
   }
 }

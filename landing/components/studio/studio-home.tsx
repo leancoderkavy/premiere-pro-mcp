@@ -32,6 +32,7 @@ import "./cinema-stage.css"
 import "./cinema-timeline.css"
 import "./cinema-workflow.css"
 import "./studio-scroll.css"
+import "./cinema-nle.css"
 
 export function StudioHome() {
   return (
