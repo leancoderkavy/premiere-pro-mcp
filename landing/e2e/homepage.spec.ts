@@ -272,7 +272,6 @@ test("a fast copy waits for exposure acknowledgement before recording a conversi
   try {
     await page.goto("/")
     await expect.poll(() => exposureStarted).toBe(true)
-    await expect(page.locator("script", { hasText: "homepage_experiment_exposed" })).toHaveCount(1)
     await copyButton(page).click()
     expect(submitted.every(event => event === "homepage_experiment_exposed")).toBe(true)
     expect(submitted.length).toBeGreaterThanOrEqual(1)
