@@ -198,11 +198,9 @@ if (updateActions.length === 1) {
 
 if (args.includes("--version") || args.includes("-v")) {
   const pkg = await import("../package.json", { with: { type: "json" } }).catch(
-    () => ({ default: { name: "premiere-pro-mcp", version: "unknown", homepage: "https://premiere-pro-mcp.com/" } }),
+    () => ({ default: { version: "unknown" } }),
   );
-  console.log("MCP for Adobe Premiere Pro");
-  console.log(`package: ${pkg.default.name}@${pkg.default.version}`);
-  console.log(`homepage: ${pkg.default.homepage}`);
+  console.log(pkg.default.version);
   process.exit(0);
 }
 
