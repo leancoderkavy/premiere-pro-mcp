@@ -28,7 +28,7 @@ const chapters = [
   {
     id: "edit",
     number: "01",
-    title: "Shape the story.",
+    title: "Build an assembly.",
     label: "Editing",
     description:
       "Build assemblies, work with timeline clips, and prepare edits from a clear instruction. Review the plan before supported changes reach Premiere.",
@@ -41,7 +41,7 @@ const chapters = [
   {
     id: "organize",
     number: "02",
-    title: "Find your focus.",
+    title: "Organize project media.",
     label: "Organization",
     description:
       "Inspect project media, organize bins, and prepare an intake report. Keep project context local and include it only when you choose.",
@@ -54,7 +54,7 @@ const chapters = [
   {
     id: "finish",
     number: "03",
-    title: "Sweat the details.",
+    title: "Check effects and exports.",
     label: "Finishing",
     description:
       "Work with effects, keyframes, color, and export workflows. Inspect host capabilities and returned diagnostics before relying on the result.",
@@ -161,8 +161,8 @@ export function WalkthroughPlayer() {
           aria-label="Play the walkthrough — illustrated product workflow"
         >
           <div className="studio-demo-wordmark" aria-hidden="true">
-            <span>You direct.</span>
-            <span>You decide.</span>
+            <span>Request. Review.</span>
+            <span>Confirm.</span>
           </div>
           <div className="studio-demo-still">
             <picture>
@@ -198,7 +198,7 @@ const clients = [
     id: "claude",
     name: "Claude Desktop",
     tag: "RECOMMENDED",
-    title: "A familiar assistant. A new connection.",
+    title: "Install the Claude Desktop bundle.",
     detail:
       "The self-contained Claude bundle includes the local MCP server. Add the Premiere connector below to complete the bridge.",
     action: "Download Claude bundle",
@@ -208,7 +208,7 @@ const clients = [
     id: "codex",
     name: "Codex",
     tag: "REPOSITORY PLUGIN",
-    title: "Bring your agent to the timeline.",
+    title: "Set up the Codex plugin.",
     detail:
       "Install this repository’s Codex plugin from a local clone. It includes the MCP configuration and editing skill; the Premiere connector is installed separately.",
     action: "Open Codex setup guide",
@@ -218,7 +218,7 @@ const clients = [
     id: "cursor",
     name: "Cursor",
     tag: "GUIDED SETUP",
-    title: "Bring your editor into the edit.",
+    title: "Configure Cursor’s MCP connection.",
     detail:
       "Use Cursor’s MCP settings with the local server. This guided route requires Node.js and the separate Premiere connector.",
     action: "Open Cursor setup guide",
@@ -228,7 +228,7 @@ const clients = [
     id: "vscode",
     name: "VS Code / Copilot",
     tag: "GUIDED SETUP",
-    title: "Your workspace. Connected to Premiere.",
+    title: "Connect VS Code or Copilot.",
     detail:
       "Connect the local MCP server through your editor’s MCP settings. Install the Premiere connector on the same computer.",
     action: "Read the setup documentation",
@@ -238,7 +238,7 @@ const clients = [
     id: "other",
     name: "Another client",
     tag: "LOCAL MCP",
-    title: "Choose the assistant that fits.",
+    title: "Configure another MCP client.",
     detail:
       "Other compatible MCP clients can use the local server command. Follow the client’s configuration guide; a native installer is not shipped for every client.",
     action: "Check client compatibility",
