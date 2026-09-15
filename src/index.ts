@@ -228,7 +228,7 @@ if (args.includes("--doctor") || args.includes("--support-bundle")) {
     process.exit(1);
   }
   const pkg = await import("../package.json", { with: { type: "json" } }).catch(
-    () => ({ default: { version: "unknown" } }),
+    () => ({ default: { name: "premiere-pro-mcp", version: "unknown", homepage: "https://premiere-pro-mcp.com/" } }),
   );
   if (args.includes("--support-bundle")) {
     // A support bundle is JSON by default so it can be attached to an issue or
@@ -248,9 +248,9 @@ if (args.includes("--doctor") || args.includes("--support-bundle")) {
       if (result.actions.some((action) => action.status === "failed")) process.exit(1);
     } else {
       const identity = {
-        name: String(pkg.default.name ?? "premiere-pro-mcp"),
-        version: String(pkg.default.version ?? "unknown"),
-        homepage: String(pkg.default.homepage ?? "https://premiere-pro-mcp.com/"),
+        name: String(pkg.default.name),
+        version: String(pkg.default.version),
+        homepage: String(pkg.default.homepage),
       };
       console.log(args.includes("--json")
         ? JSON.stringify(report, null, 2)
