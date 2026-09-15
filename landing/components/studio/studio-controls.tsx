@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useRef, useState } from "react"
-import { Accordion, Dialog, Tabs } from "radix-ui"
+import { Accordion, Tabs } from "radix-ui"
 import {
   ArrowDown,
   ArrowUpRight,
@@ -11,13 +11,11 @@ import {
   Copy,
   Download,
   FolderOpen,
-  Menu,
   Play,
   Scissors,
   ShieldCheck,
   SlidersHorizontal,
-  Terminal,
-  X
+  Terminal
 } from "lucide-react"
 import Image from "next/image"
 import { product, safeFirstPrompt } from "@/lib/product"
@@ -25,47 +23,6 @@ import { connectorSetup, localMcpEntry } from "@/lib/client-setup"
 import { trackOnboardingEvent } from "@/lib/onboarding-events"
 import { faqItems } from "@/components/sections/faq"
 import { studioArtwork } from "@/lib/studio-artwork"
-
-export function StudioMobileNav() {
-  const [open, setOpen] = useState(false)
-  return (
-    <Dialog.Root open={open} onOpenChange={setOpen}>
-      <Dialog.Trigger asChild>
-        <button className="studio-menu" aria-label="Open navigation">
-          <Menu size={21} />
-        </button>
-      </Dialog.Trigger>
-      <Dialog.Portal>
-        <Dialog.Overlay className="studio-dialog-overlay" />
-        <Dialog.Content className="studio-nav-dialog">
-          <Dialog.Title>Explore Premiere Pro MCP</Dialog.Title>
-          <Dialog.Description className="studio-sr-only">
-            Homepage sections and product resources.
-          </Dialog.Description>
-          <Dialog.Close
-            className="studio-dialog-close"
-            aria-label="Close navigation"
-          >
-            <X />
-          </Dialog.Close>
-          {[
-            ["The workflow", "#features"],
-            ["How it works", "#how-it-works"],
-            ["Connect to Premiere", "#install"],
-            ["Questions", "#faq"],
-            ["Documentation", "/docs/"],
-            ["Guides", "/blog/"]
-          ].map(([label, href]) => (
-            <a key={href} href={href} onClick={() => setOpen(false)}>
-              {label}
-              <ArrowUpRight size={20} />
-            </a>
-          ))}
-        </Dialog.Content>
-      </Dialog.Portal>
-    </Dialog.Root>
-  )
-}
 
 const chapters = [
   {

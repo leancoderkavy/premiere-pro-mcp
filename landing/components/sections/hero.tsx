@@ -1,21 +1,7 @@
 import { Github, Monitor, Package, ShieldCheck } from "lucide-react"
-import Image from "next/image"
-import { MobileNav } from "@/components/sections/mobile-nav"
 import { WorkflowProof } from "@/components/sections/workflow-proof"
 import { TrackedLink } from "@/components/ui/tracked-link"
 import { product } from "@/lib/product"
-
-const navItems = [
-  { label: "Demo", href: "#demo" },
-  { label: "Features", href: "#features" },
-  { label: "How it works", href: "#how-it-works" },
-  { label: "Workflows", href: "/workflows/" },
-  { label: "Install", href: "#install" },
-  { label: "FAQ", href: "#faq" },
-  { label: "Guides", href: "/blog/" },
-  { label: "Docs", href: "/docs/" },
-  { label: "Changelog", href: "/changelog/" },
-]
 
 const proofItems = [
   { icon: Package, title: `v${product.version}`, detail: "Current release" },
@@ -27,45 +13,7 @@ const proofItems = [
 export function HeroSection() {
   return (
     <>
-      <header className="fixed inset-x-0 top-0 z-50 border-b border-white/10 bg-black/95">
-        <nav className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4 sm:px-5" aria-label="Primary navigation">
-          <a href="#top" className="flex items-center gap-3 text-sm font-semibold text-white">
-            <Image
-              src="/marketing/premiere-pro-mcp-mark-96.webp"
-              alt=""
-              width={32}
-              height={32}
-              className="h-8 w-8 object-contain"
-              priority
-            />
-            <span>premiere-pro-mcp</span>
-          </a>
-          <div className="flex items-center gap-5">
-            <div className="hidden items-center gap-5 lg:flex">
-              {navItems.map((item) => (
-                <a key={item.href} href={item.href} className="text-sm text-zinc-400 transition-colors hover:text-white">
-                  {item.label}
-                </a>
-              ))}
-            </div>
-            <MobileNav />
-            <TrackedLink
-              href="https://github.com/leancoderkavy/premiere-pro-mcp"
-              target="_blank"
-              rel="noopener noreferrer"
-              trackingLocation="navigation"
-              trackingDestination="github"
-              aria-label="premiere-pro-mcp on GitHub"
-              className="inline-flex min-h-11 items-center gap-2 rounded-md border border-zinc-700 px-3 py-2 text-sm font-medium text-zinc-200 transition-colors hover:border-zinc-500 hover:bg-zinc-900"
-            >
-              <Github className="h-4 w-4" />
-              <span className="hidden sm:inline">GitHub</span>
-            </TrackedLink>
-          </div>
-        </nav>
-      </header>
-
-      <section id="top" className="relative overflow-hidden px-4 pb-16 pt-28 sm:px-5 md:pb-28 md:pt-40">
+      <section id="top" className="relative overflow-hidden px-4 pb-16 pt-12 sm:px-5 md:pb-28 md:pt-24">
         <div className="hero-grid absolute inset-0" aria-hidden="true" />
         <div className="hero-glow absolute left-1/2 top-0 h-[30rem] w-full max-w-[52rem] -translate-x-1/2" aria-hidden="true" />
         <div className="hero-timeline absolute inset-x-0 top-24 mx-auto hidden max-w-5xl md:block" aria-hidden="true">

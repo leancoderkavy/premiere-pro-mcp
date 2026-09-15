@@ -1,3 +1,5 @@
+import { SiteHeader } from "@/components/site/site-header"
+import { Footer } from "@/components/sections/footer"
 import Image from "next/image"
 import {
   ArrowDown,
@@ -17,7 +19,6 @@ import { TrackedLink } from "@/components/ui/tracked-link"
 import {
   StudioFaq,
   StudioInstaller,
-  StudioMobileNav,
   WalkthroughPlayer,
   WorkflowChapters
 } from "./studio-controls"
@@ -26,72 +27,10 @@ import "./studio.css"
 import "./studio-editorial.css"
 import "./studio-gallery.css"
 
-const footerLinks = {
-  Explore: [
-    ["Workflow starter kit", "/workflows/"],
-    ["Project intake", "/project-intake/"],
-    ["Workflow fit guide", "/premiere-pro-collaboration-workflow/"],
-    ["Setup & recovery", "/docs/troubleshooting/"]
-  ],
-  Resources: [
-    ["Documentation", "/docs/"],
-    ["Tool reference", "/tools/"],
-    ["Guides", "/blog/"],
-    ["Changelog", "/changelog/"],
-    ["Product facts", "/facts/"]
-  ],
-  "Open source": [
-    ["GitHub", product.links.repository],
-    ["npm package", product.links.npm],
-    ["Report an issue", product.links.issues],
-    ["Security", `${product.links.repository}/security/policy`]
-  ]
-}
-
 export function StudioHome() {
   return (
     <StudioMotion>
-      <header className="studio-header">
-        <nav
-          className="studio-container studio-navigation"
-          aria-label="Primary navigation"
-        >
-          <a
-            className="studio-brand"
-            href="#top"
-            aria-label="premiere/mcp home — Premiere Pro MCP"
-          >
-            <Image
-              src="/marketing/premiere-pro-mcp-mark-v2.svg"
-              width={30}
-              height={30}
-              alt=""
-            />
-            <span>
-              premiere<span className="studio-brand-divider">/</span>mcp
-            </span>
-          </a>
-          <div className="studio-desktop-nav">
-            <a href="#features">The workflow</a>
-            <a href="#how-it-works">How it works</a>
-            <a href="/docs/">
-              Docs <ArrowUpRight size={12} />
-            </a>
-          </div>
-          <div className="studio-nav-actions">
-            <MotionToggle />
-            <TrackedLink
-              href="#install"
-              trackingLocation="navigation"
-              trackingDestination="safe_connection_check"
-              className="studio-button studio-button-small"
-            >
-              Get connected
-            </TrackedLink>
-            <StudioMobileNav />
-          </div>
-        </nav>
-      </header>
+      <SiteHeader homepage actions={<MotionToggle />} />
       <main id="main-content">
         <div className="studio-announcement">
           <span>A new connection for your creative workflow.</span>
@@ -390,49 +329,7 @@ export function StudioHome() {
           </div>
         </section>
       </main>
-      <div className="studio-light">
-        <footer className="studio-container studio-footer">
-          <div className="studio-footer-top">
-            <div>
-              <a className="studio-brand" href="#top">
-                <Image
-                  src="/marketing/premiere-pro-mcp-mark-v2.svg"
-                  width={30}
-                  height={30}
-                  alt=""
-                />
-                <span>
-                  premiere<span className="studio-brand-divider">/</span>mcp
-                </span>
-              </a>
-              <p>
-                Structured AI control.
-                <br />
-                Creative freedom.
-              </p>
-            </div>
-            {Object.entries(footerLinks).map(([title, links]) => (
-              <div key={title}>
-                <h2>{title}</h2>
-                {links.map(([label, href]) => (
-                  <a key={label} href={href}>
-                    {label}
-                  </a>
-                ))}
-              </div>
-            ))}
-          </div>
-          <div className="studio-footer-bottom">
-            <span>© 2026 Premiere Pro MCP contributors. MIT licensed.</span>
-            <a href="/privacy/">Privacy</a>
-            <a href="#top">Back to top ↑</a>
-          </div>
-          <p className="studio-trademark">
-            Independent open-source project. Not affiliated with Adobe Inc.
-            Adobe Premiere Pro is a trademark of Adobe Inc.
-          </p>
-        </footer>
-      </div>
+      <Footer />
     </StudioMotion>
   )
 }

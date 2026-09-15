@@ -77,7 +77,7 @@ for (const variant of ["control", "test"]) {
       expect((await exposed).status()).toBe(204)
       await expect.poll(async () => (await state(request)).events.some(event => event.event === "$experiment_exposure")).toBe(true)
       const identity = (await page.context().cookies()).find(cookie => cookie.name === "premiere_homepage_v1")!.value.split(".")[0]
-      await page.locator(`a[href="${destination}"]`).first().click()
+      await page.getByRole("navigation", { name: "Footer navigation" }).locator(`a[href="${destination}"]`).click()
       await expect(page).toHaveURL(new RegExp(`${destination}$`))
       await page.locator('a[href="/"]').first().click()
       await expect(page).toHaveURL(/\/$/)
@@ -247,7 +247,8 @@ test("no JavaScript: treatment content, setup downloads, and document links rema
   await page.goto("/")
   await expect(page.locator("h1")).toHaveText(/Your vision[\s\S]*timeline/)
   await expect(page.locator(`a[href="${product.downloads.claudeBundle}"]`)).toBeVisible()
-  await page.locator('a[href="/docs/"]').first().click()
+  await page.locator(".site-desktop-nav summary").filter({ hasText: "Get started" }).click()
+  await page.locator('.site-desktop-nav a[href="/docs/"]').click()
   await page.locator('a[href="/"]').first().click()
   await expect(page.locator("h1")).toHaveText(/Your vision[\s\S]*timeline/)
   expect((await state(request)).events.filter(event => event.event === "$experiment_exposure")).toHaveLength(0)

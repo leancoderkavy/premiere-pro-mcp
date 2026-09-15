@@ -1,7 +1,7 @@
+import { PublicPage } from "@/components/site/public-page"
 import type { Metadata } from "next"
-import Link from "next/link"
 import { HomeLink } from "@/components/ui/home-link"
-import { ArrowLeft, ArrowUpRight, Github, Package } from "lucide-react"
+import { ArrowLeft, ArrowUpRight } from "lucide-react"
 import { product } from "@/lib/product"
 
 const releases = [
@@ -897,66 +897,40 @@ const structuredData = {
 
 export default function ChangelogPage() {
   return (
-    <main id="main-content" className="min-h-screen bg-black text-zinc-100">
+    <PublicPage>
+    <main id="main-content" className="min-h-screen bg-site-bg text-site-text">
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }}
       />
 
-      <header className="border-b border-zinc-900">
-        <nav
-          className="mx-auto flex h-16 max-w-6xl items-center justify-between px-5"
-          aria-label="Changelog navigation"
-        >
-          <HomeLink href="/" className="flex items-center gap-3 text-sm font-semibold text-white">
-            <span className="grid h-8 w-8 place-items-center rounded-md border border-purple-400/30 bg-purple-500/15 font-mono text-sm text-purple-200">
-              Pr
-            </span>
-            <span>premiere-pro-mcp</span>
-          </HomeLink>
-          <div className="flex items-center gap-5 text-sm">
-            <Link href="/docs/" className="hidden text-zinc-400 hover:text-white sm:block">
-              Docs
-            </Link>
-            <a
-              href="https://github.com/leancoderkavy/premiere-pro-mcp"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 text-zinc-300 hover:text-white"
-            >
-              <Github className="h-4 w-4" />
-              GitHub
-            </a>
-          </div>
-        </nav>
-      </header>
 
-      <section className="border-b border-zinc-900 px-5 py-16 md:py-24">
+      <section className="border-b border-site-line px-5 py-16 md:py-24">
         <div className="mx-auto max-w-6xl">
           <HomeLink
             href="/"
-            className="inline-flex items-center gap-2 text-sm text-zinc-500 transition-colors hover:text-zinc-200"
+            className="inline-flex items-center gap-2 text-sm text-site-muted transition-colors hover:text-site-text"
           >
             <ArrowLeft className="h-4 w-4" />
             Home
           </HomeLink>
           <div className="mt-10 grid gap-10 lg:grid-cols-[minmax(0,1fr)_19rem] lg:items-end">
             <div>
-              <p className="font-mono text-xs uppercase tracking-[0.2em] text-purple-300">
+              <p className="font-mono text-xs uppercase tracking-[0.2em] text-site-accent">
                 Release history
               </p>
-              <h1 className="mt-4 text-5xl font-bold tracking-[-0.045em] text-white sm:text-6xl">
+              <h1 className="mt-4 text-5xl font-bold tracking-[-0.045em] text-site-text sm:text-6xl">
                 Changelog
               </h1>
-              <p className="mt-6 max-w-2xl text-lg leading-8 text-zinc-400">
+              <p className="mt-6 max-w-2xl text-lg leading-8 text-site-muted">
                 What&apos;s new in premiere-pro-mcp—from editing tools and connector
                 upgrades to reliability fixes.
               </p>
             </div>
-            <div className="border-l border-purple-400/40 pl-5">
-              <p className="text-xs uppercase tracking-[0.18em] text-zinc-600">Latest release</p>
-              <p className="mt-2 font-mono text-2xl text-white">v{product.version}</p>
-              <time className="mt-1 block text-sm text-zinc-500" dateTime={product.releaseDate}>
+            <div className="border-l border-site-accent/40 pl-5">
+              <p className="text-xs uppercase tracking-[0.18em] text-site-muted">Latest release</p>
+              <p className="mt-2 font-mono text-2xl text-site-text">v{product.version}</p>
+              <time className="mt-1 block text-sm text-site-muted" dateTime={product.releaseDate}>
                 {new Intl.DateTimeFormat("en-US", {
                   dateStyle: "long",
                   timeZone: "UTC",
@@ -973,14 +947,14 @@ export default function ChangelogPage() {
             aria-label="Release navigation"
             className="flex max-w-full gap-2 overflow-x-auto pb-3 lg:sticky lg:top-8 lg:flex-col lg:overflow-visible lg:pb-0"
           >
-            <span className="mb-3 hidden text-xs font-semibold uppercase tracking-[0.18em] text-zinc-600 lg:block">
+            <span className="mb-3 hidden text-xs font-semibold uppercase tracking-[0.18em] text-site-muted lg:block">
               Versions
             </span>
             {releases.map((release) => (
               <a
                 key={release.version}
                 href={`#v${release.version.replaceAll(".", "-")}`}
-                className="shrink-0 border border-zinc-800 px-3 py-2 font-mono text-xs text-zinc-500 transition-colors hover:border-purple-400/50 hover:text-purple-200 lg:border-0 lg:border-l lg:px-4 lg:py-1.5"
+                className="shrink-0 border border-site-line px-3 py-2 font-mono text-xs text-site-muted transition-colors hover:border-site-accent/50 hover:text-site-accent lg:border-0 lg:border-l lg:px-4 lg:py-1.5"
               >
                 v{release.version}
               </a>
@@ -993,12 +967,12 @@ export default function ChangelogPage() {
             <article
               key={release.version}
               id={`v${release.version.replaceAll(".", "-")}`}
-              className="scroll-mt-8 border-t border-zinc-800 py-12 first:border-t-0 first:pt-0"
+              className="scroll-mt-8 border-t border-site-line py-12 first:border-t-0 first:pt-0"
             >
               <div className="grid gap-5 sm:grid-cols-[9rem_minmax(0,1fr)]">
                 <div>
-                  <p className="font-mono text-2xl font-medium text-white">v{release.version}</p>
-                  <time dateTime={release.date} className="mt-2 block text-sm text-zinc-600">
+                  <p id={`release-${release.version}`} className="font-mono text-2xl font-medium text-site-text">v{release.version}</p>
+                  <time dateTime={release.date} className="mt-2 block text-sm text-site-muted">
                     {new Intl.DateTimeFormat("en-US", {
                       month: "long",
                       day: "numeric",
@@ -1007,21 +981,21 @@ export default function ChangelogPage() {
                     }).format(new Date(`${release.date}T00:00:00Z`))}
                   </time>
                   {index === 0 && (
-                    <span className="mt-4 inline-flex rounded-full border border-purple-400/30 bg-purple-500/10 px-2.5 py-1 text-xs font-medium text-purple-200">
+                    <span className="mt-4 inline-flex rounded-full border border-site-accent/30 bg-purple-500/10 px-2.5 py-1 text-xs font-medium text-site-accent">
                       Latest
                     </span>
                   )}
                 </div>
                 <div>
-                  <h2 className="text-2xl font-semibold tracking-tight text-zinc-100">
+                  <h2 className="text-2xl font-semibold tracking-tight text-site-text">
                     {release.label}
                   </h2>
                   <div className="mt-8 space-y-8">
                     {release.groups.map((group) => (
-                      <section key={group.title} aria-labelledby={`${release.version}-${group.title}`}>
+                      <section key={group.title} aria-labelledby={`release-${release.version} ${release.version}-${group.title}`}>
                         <h3
                           id={`${release.version}-${group.title}`}
-                          className="font-mono text-xs uppercase tracking-[0.18em] text-purple-300"
+                          className="font-mono text-xs uppercase tracking-[0.18em] text-site-accent"
                         >
                           {group.title}
                         </h3>
@@ -1029,7 +1003,7 @@ export default function ChangelogPage() {
                           {group.items.map((item) => (
                             <li
                               key={item}
-                              className="relative pl-5 text-[15px] leading-7 text-zinc-400 before:absolute before:left-0 before:top-[0.7rem] before:h-px before:w-2 before:bg-zinc-700"
+                              className="relative pl-5 text-[15px] leading-7 text-site-muted before:absolute before:left-0 before:top-[0.7rem] before:h-px before:w-2 before:bg-zinc-700"
                             >
                               {item}
                             </li>
@@ -1042,7 +1016,7 @@ export default function ChangelogPage() {
                     href={`https://github.com/leancoderkavy/premiere-pro-mcp/releases/tag/v${release.version}`}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="mt-8 inline-flex items-center gap-1.5 text-sm text-zinc-500 transition-colors hover:text-white"
+                    className="mt-8 inline-flex items-center gap-1.5 text-sm text-site-muted transition-colors hover:text-site-text"
                   >
                     View release
                     <ArrowUpRight className="h-3.5 w-3.5" />
@@ -1054,25 +1028,7 @@ export default function ChangelogPage() {
         </div>
       </div>
 
-      <footer className="border-t border-zinc-900 px-5 py-12">
-        <div className="mx-auto flex max-w-6xl flex-col gap-5 text-sm text-zinc-500 sm:flex-row sm:items-center sm:justify-between">
-          <p>Ready to automate your next Premiere Pro edit?</p>
-          <div className="flex gap-5">
-            <a
-              href="https://www.npmjs.com/package/premiere-pro-mcp"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 text-zinc-300 hover:text-white"
-            >
-              <Package className="h-4 w-4" />
-              Install from npm
-            </a>
-            <Link href="/docs/" className="text-zinc-300 hover:text-white">
-              Read the docs
-            </Link>
-          </div>
-        </div>
-      </footer>
     </main>
+    </PublicPage>
   )
 }
