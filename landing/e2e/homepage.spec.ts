@@ -273,7 +273,9 @@ test("a fast copy waits for exposure acknowledgement before recording a conversi
     await page.goto("/")
     await expect.poll(() => exposureStarted).toBe(true)
     await copyButton(page).click()
-    expect(submitted).toEqual(["homepage_experiment_exposed"])
+    expect(submitted.every(event => event === "homepage_experiment_exposed")).toBe(true)
+    expect(submitted.length).toBeGreaterThanOrEqual(1)
+    expect(submitted).not.toContain("onboarding_safe_prompt_copied")
     releaseExposure()
     await expect.poll(async () => (await state(request)).events.some(event => event.event === "homepage_safe_prompt_copied")).toBe(true)
     const events = (await state(request)).events

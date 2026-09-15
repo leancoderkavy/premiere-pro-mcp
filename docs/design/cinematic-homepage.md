@@ -24,7 +24,7 @@ Continue with an interactive three-chapter workflow, an illustrated video walkth
 - Flag: `homepage-cinematic-2026`; variants `control` and `test`, intended equal split.
 - Assignment belongs to an anonymous signed visitor cookie and PostHog's flag evaluator. Server chooses the complete HTML before rendering; no client layout swap.
 - Primary outcome: actual setup-download clicks (`homepage_setup_downloaded`); secondary: successful safe-prompt copies (`homepage_safe_prompt_copied`). These are onboarding intent, not verified installation or activation.
-- Expose only after the selected root page becomes visible. Direct preview routes, preview query parameters, bots, DNT/GPC, disabled configuration, and unavailable flag decisions do not emit exposures.
+- Expose once the assigned root document is visible at first paint, not after React or WebGL. Direct preview routes, preview query parameters, bots, DNT/GPC, disabled configuration, and unavailable flag decisions do not emit exposures. Server assignment emits `homepage_experiment_assigned` as a diagnostic only; it is not `$experiment_exposure`.
 - Keep GA's existing bounded onboarding events. Send only allowlisted actions and variants to PostHog, using visitor identity rather than the MCP server's operational identity.
 - Control fallback on configuration/network failure; do not enable the experiment until the deployed variant and the correct PostHog project are verified.
 

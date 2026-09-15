@@ -7,6 +7,24 @@ import {
 } from "./http-admission.js";
 
 export const HOMEPAGE_FLAG = "homepage-cinematic-2026";
+export type HomepageVariant = "control" | "test";
+
+/** First-paint exposure, before React or WebGL, so the heavier treatment does not drop enrolled visitors. */
+export function injectFirstPaintExposure(
+  document: string,
+  nonce: string,
+  variant: HomepageVariant | undefined,
+  preview: boolean,
+): string {
+  if (!variant || preview || !document.includes("</head>")) return document;
+  const payload = JSON.stringify({
+    event: "homepage_experiment_exposed",
+    variant,
+  });
+  const script = `<script nonce="${nonce}">(()=>{try{const n=navigator;if(document.visibilityState!=="visible")return;if(new URLSearchParams(location.search).has("design"))return;if(["1","yes"].includes(n.doNotTrack||"")||n.globalPrivacyControl)return;fetch("/api/landing-events",{method:"POST",headers:{"Content-Type":"application/json"},credentials:"same-origin",keepalive:true,body:${JSON.stringify(payload)}})}catch{}})()</script>`;
+  return document.replace("</head>", `${script}</head>`);
+}
+
 const COOKIE = "premiere_homepage_v1";
 const MAX_AGE = 60 * 60 * 24 * 30;
 const PARAMETER_VALUES: Record<string, readonly string[]> = {
@@ -25,7 +43,6 @@ const PARAMETER_VALUES: Record<string, readonly string[]> = {
   ],
   demo: ["illustrated_workflow"],
 };
-export type HomepageVariant = "control" | "test";
 type Assignment = {
   id: string;
   variant: HomepageVariant;
@@ -177,6 +194,16 @@ export class HomepageExperiment {
       this.decisions.set(id, { value: variant, until: Date.now() + 60_000 });
     }
     if (!variant) return fallback();
+    if (!prior) {
+      this.client!.capture(id, "homepage_experiment_assigned", {
+        product: "premiere-pro-mcp",
+        path: "/",
+        variant,
+        [`$feature/${HOMEPAGE_FLAG}`]: variant,
+        $process_person_profile: false,
+        $geoip_disable: true,
+      });
+    }
     this.cookie(res, { id, variant, issued: Date.now(), exposed: false, eligible: true });
     return variant;
   }
