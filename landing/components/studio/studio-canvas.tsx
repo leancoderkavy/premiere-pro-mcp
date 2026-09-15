@@ -1,9 +1,10 @@
 "use client"
 
-import { Suspense, useEffect, useMemo, useRef } from "react"
+import { Suspense, useEffect, useMemo, useRef, type RefObject } from "react"
 import { Canvas, useFrame, useThree } from "@react-three/fiber"
 import { Group, PerspectiveCamera } from "three"
-import { EditTimeline, FilmFrame, FilmRibbon } from "./cinema-geometry"
+import { FilmFrame, FilmRibbon } from "./cinema-geometry"
+import type { ParallaxPosition } from "./cinema-interaction"
 
 function Atmosphere() {
   const dust = useMemo(
@@ -54,10 +55,16 @@ function Atmosphere() {
 
 function FilmAssembly({
   onReady,
-  chapter
+  chapter,
+  parallax,
+  exploded,
+  onSelect
 }: {
   onReady: (ready: boolean) => void
   chapter: number
+  parallax: RefObject<ParallaxPosition>
+  exploded: boolean
+  onSelect: (shot: number) => void
 }) {
   const assembly = useRef<Group>(null)
   const renderedFrames = useRef(0)
@@ -65,41 +72,47 @@ function FilmAssembly({
     renderedFrames.current = 0
     return () => onReady(false)
   }, [onReady])
-  useFrame(({ clock, pointer, gl, camera }, delta) => {
+  useFrame(({ clock, gl, camera }, delta) => {
     if (gl.getContext().isContextLost()) return
     if (++renderedFrames.current === 2) onReady(true)
     const ease = Math.min(delta * 2, 1)
+    const pointer = parallax.current
     if (assembly.current) {
       assembly.current.rotation.y +=
-        (pointer.x * 0.065 +
+        (pointer.x * 0.12 +
           Math.sin(clock.elapsedTime * 0.12) * 0.025 -
           assembly.current.rotation.y) *
         ease
-      assembly.current.position.y = Math.sin(clock.elapsedTime * 0.32) * 0.035
+      assembly.current.position.y =
+        Math.sin(clock.elapsedTime * 0.32) * 0.035 + pointer.scroll * 0.2
     }
-    camera.position.x += (pointer.x * 0.24 - camera.position.x) * ease
-    camera.position.y += (0.65 + pointer.y * 0.12 - camera.position.y) * ease
-    camera.lookAt(0, -0.2, 0)
+    camera.position.x += (pointer.x * 0.65 - camera.position.x) * ease
+    camera.position.y += (0.65 + pointer.y * 0.35 - camera.position.y) * ease
+    camera.lookAt(0, 0.3, 0)
   })
   return (
     <>
       <Atmosphere />
       <group ref={assembly}>
         <FilmRibbon />
-        <FilmFrame
-          shot={(chapter + 2) % 3}
-          position={[-4.05, 0.4, -1.65]}
-          rotation={[0.06, 0.35, -0.075]}
-          scale={0.7}
-        />
-        <FilmFrame
-          shot={(chapter + 1) % 3}
-          position={[4.15, 0.8, -2]}
-          rotation={[-0.03, -0.36, 0.07]}
-          scale={0.7}
-        />
-        <FilmFrame shot={chapter} position={[0, 0.75, 0.35]} rotation={[0.025, -0.03, -0.015]} />
-        <EditTimeline chapter={chapter} />
+        {[0, 1, 2].map((shot) => {
+          const offset = (shot - chapter + 3) % 3
+          const side = offset === 1 ? 1 : -1
+          return (
+            <FilmFrame
+              key={shot}
+              shot={shot}
+              onSelect={onSelect}
+              position={
+                offset === 0
+                  ? [0, 0.45, exploded ? 0.75 : 0.35]
+                  : [side * (exploded ? 4.85 : 4.15), 0.3 + side * 0.2, exploded ? -1 : -2]
+              }
+              rotation={offset === 0 ? [0.025, -0.03, -0.015] : [0.03, side * -0.36, side * 0.045]}
+              scale={offset === 0 ? 1 : 0.68}
+            />
+          )
+        })}
       </group>
       <ambientLight intensity={1.4} />
       <pointLight position={[-4, 4, 5]} color="#aaa1ff" intensity={55} distance={15} />
@@ -116,7 +129,7 @@ function SceneFraming() {
     const { camera } = get()
     if (!(camera instanceof PerspectiveCamera)) return
     camera.position.z = Math.max(
-      8.2,
+      6.8,
       7.1 / (Math.tan((21 * Math.PI) / 180) * (size.width / size.height))
     )
     camera.updateProjectionMatrix()
@@ -136,11 +149,17 @@ function ContextRecovery({ onError }: { onError: () => void }) {
 export default function StudioCanvas({
   onReady,
   onError,
-  chapter
+  chapter,
+  parallax,
+  exploded,
+  onSelect
 }: {
   onReady: (ready: boolean) => void
   onError: () => void
   chapter: number
+  parallax: RefObject<ParallaxPosition>
+  exploded: boolean
+  onSelect: (shot: number) => void
 }) {
   useEffect(() => () => onReady(false), [onReady])
   return (
@@ -153,7 +172,13 @@ export default function StudioCanvas({
       <SceneFraming />
       <ContextRecovery onError={onError} />
       <Suspense fallback={null}>
-        <FilmAssembly onReady={onReady} chapter={chapter} />
+        <FilmAssembly
+          onReady={onReady}
+          chapter={chapter}
+          parallax={parallax}
+          exploded={exploded}
+          onSelect={onSelect}
+        />
       </Suspense>
     </Canvas>
   )

@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useMemo, useRef } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { useFrame, useLoader } from "@react-three/fiber"
 import {
   BufferAttribute,
@@ -18,13 +18,30 @@ export function FilmFrame({
   shot,
   position,
   rotation,
-  scale = 1
+  scale = 1,
+  onSelect
 }: {
   shot: number
   position: [number, number, number]
   rotation: [number, number, number]
   scale?: number
+  onSelect: (shot: number) => void
 }) {
+  const group = useRef<Group>(null)
+  const [initial] = useState({ position, rotation, scale })
+  useFrame(({ clock }, delta) => {
+    const mesh = group.current
+    if (!mesh) return
+    const ease = Math.min(1, delta * 4)
+    mesh.position.x += (position[0] - mesh.position.x) * ease
+    mesh.position.y +=
+      (position[1] + Math.sin(clock.elapsedTime * 0.45 + shot * 2) * 0.035 - mesh.position.y) * ease
+    mesh.position.z += (position[2] - mesh.position.z) * ease
+    mesh.rotation.x += (rotation[0] - mesh.rotation.x) * ease
+    mesh.rotation.y += (rotation[1] - mesh.rotation.y) * ease
+    mesh.rotation.z += (rotation[2] - mesh.rotation.z) * ease
+    mesh.scale.setScalar(mesh.scale.x + (scale - mesh.scale.x) * ease)
+  })
   const source = useLoader(TextureLoader, cinemaAtlas)
   const texture = useMemo(() => {
     const copy = source.clone()
@@ -36,7 +53,16 @@ export function FilmFrame({
   }, [source, shot])
   useEffect(() => () => texture.dispose(), [texture])
   return (
-    <group position={position} rotation={rotation} scale={scale}>
+    <group
+      ref={group}
+      position={initial.position}
+      rotation={initial.rotation}
+      scale={initial.scale}
+      onClick={(event) => {
+        event.stopPropagation()
+        onSelect(shot)
+      }}
+    >
       <mesh>
         <boxGeometry args={[6.2, 2.9, 0.1]} />
         <meshStandardMaterial color="#181820" metalness={0.8} roughness={0.29} />
@@ -64,73 +90,6 @@ export function FilmFrame({
           </mesh>
         </group>
       ))}
-    </group>
-  )
-}
-
-export function EditTimeline({ chapter }: { chapter: number }) {
-  const playhead = useRef<Group>(null)
-  useFrame(({ clock }, delta) => {
-    if (!playhead.current) return
-    const target = -3.7 + chapter * 3.3 + Math.sin(clock.elapsedTime * 0.23) * 0.6
-    playhead.current.position.x += (target - playhead.current.position.x) * Math.min(delta * 2, 1)
-  })
-  return (
-    <group position={[0, -1.8, 0.8]} rotation={[-0.62, -0.07, -0.015]}>
-      <mesh>
-        <boxGeometry args={[10.5, 1.82, 0.16]} />
-        <meshStandardMaterial color="#14121f" metalness={0.75} roughness={0.34} />
-      </mesh>
-      <mesh position={[0, 0.9, 0.1]}>
-        <boxGeometry args={[10.5, 0.015, 0.02]} />
-        <meshBasicMaterial color="#8e7bcc" />
-      </mesh>
-      <mesh position={[0, 0.69, 0.095]}>
-        <planeGeometry args={[10.1, 0.16]} />
-        <shaderMaterial
-          vertexShader={surfaceVertex}
-          fragmentShader={`varying vec2 vUv;void main(){float tick=floor(vUv.x*49.);if(fract(vUv.x*49.)>.05)discard;if(mod(tick,4.)>.5&&vUv.y>.375)discard;gl_FragColor=vec4(.55,.52,.62,1.);}`}
-        />
-      </mesh>
-      {[0, 1, 2].map((row) => (
-        <group key={row} position={[0, 0.32 - row * 0.45, 0.13]}>
-          {Array.from({ length: row === 2 ? 4 : 6 }, (_, i) => {
-            const width = row === 2 ? 2.4 : 1.5
-            const x = row === 2 ? -3.78 + i * 2.53 : -4.2 + i * 1.68
-            return (
-              <mesh key={i} position={[x, 0, 0]}>
-                <boxGeometry args={[width, 0.31, 0.07]} />
-                <meshStandardMaterial
-                  color={row === 2 ? "#426d70" : row === 1 ? "#635186" : "#9980db"}
-                  emissive={row === 2 ? "#29585a" : "#65518e"}
-                  emissiveIntensity={0.2}
-                  metalness={0.25}
-                  roughness={0.5}
-                />
-              </mesh>
-            )
-          })}
-          {row === 2 && (
-            <mesh position={[0, 0, 0.045]}>
-              <planeGeometry args={[9.8, 0.27]} />
-              <shaderMaterial
-                vertexShader={surfaceVertex}
-                fragmentShader={`varying vec2 vUv;void main(){float i=floor(vUv.x*100.);float amplitude=.13+abs(sin(i*2.31)*cos(i*.43))*.82;if(fract(vUv.x*100.)>.19||abs(vUv.y-.5)*2.>amplitude)discard;gl_FragColor=vec4(.576,.753,.737,1.);}`}
-              />
-            </mesh>
-          )}
-        </group>
-      ))}
-      <group ref={playhead} position={[-3.7, 0, 0.24]}>
-        <mesh>
-          <boxGeometry args={[0.018, 1.68, 0.015]} />
-          <meshBasicMaterial color="#f6d3a6" />
-        </mesh>
-        <mesh position={[0, 0.8, 0]} rotation={[0, 0, Math.PI]}>
-          <coneGeometry args={[0.09, 0.15, 3]} />
-          <meshBasicMaterial color="#f6d3a6" />
-        </mesh>
-      </group>
     </group>
   )
 }

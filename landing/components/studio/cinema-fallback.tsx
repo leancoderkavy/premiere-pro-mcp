@@ -33,22 +33,6 @@ export function CinemaFallback({ chapter }: { chapter: number }) {
           </span>
         </div>
       ))}
-      <div className="cinema-fallback-timeline">
-        <div className="cinema-fallback-ruler">
-          <span>00:00</span>
-          <span>00:08</span>
-          <span>00:16</span>
-          <span>00:24</span>
-        </div>
-        {[0, 1, 2].map((row) => (
-          <div className={`cinema-fallback-track cinema-fallback-track-${row}`} key={row}>
-            {[0, 1, 2, 3, 4].map((clip) => (
-              <i key={clip} />
-            ))}
-          </div>
-        ))}
-        <div className="cinema-fallback-playhead" />
-      </div>
     </div>
   )
 }

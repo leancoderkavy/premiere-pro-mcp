@@ -1,27 +1,46 @@
-# The cutting room — cinematic 3D landing section
+# The cutting room — interactive 3D parallax timeline
 
 ## Design
 
-The cinematic homepage's former WebGL scene tilted a single campaign illustration.
-The replacement uses three separate film frames, a curved perforated filmstrip,
-an extruded editing timeline, an animated playhead, projector haze, and drifting
-particles. A perspective camera follows the pointer gently and drifts slowly.
-Premiere violet, charcoal, warm amber, and original coastal film artwork connect
-the scene to the product's editing workflow.
+The cinematic homepage becomes a floating editing desk. Three photographic film
+frames sit above a dimensional timeline, with a curved perforated filmstrip,
+projector haze, and drifting particles. Pointer and scroll parallax move the
+WebGL camera and CSS perspective together. Premiere violet, charcoal, warm amber,
+and original coastal artwork connect the scene to the product's editing workflow.
 
-Three keyboard-accessible chapter buttons change the featured shot and caption.
-This is an illustrative scene, not a live Premiere recording or an interactive
-editor. Product links, installation flows, and experiment assignment are unchanged.
+The timeline uses real HTML controls:
+
+- Drag the playhead or use arrow keys, Home, and End to scrub a 24-second sequence
+  at 24 frames per second. Timecode, selected clip, caption, and featured film
+  frame share the same state.
+- Select a timeline clip, floating film frame, or chapter button to bring that
+  shot forward. The three film frames move smoothly to their new positions.
+- Play, pause, rewind, and replay advance through the three still-image shots.
+- “Separate layers” lifts picture, color, and sound into separate depth planes.
+  “Bring layers together” restores the compact desk.
+
+This is an interactive film study using still images. The waveform is decorative;
+there is no audio playback, live Premiere session, or media-editing backend.
+Product links, installation flows, and experiment assignment are unchanged.
 
 ## Runtime
 
 - WebGL loads separately on fine-pointer viewports at least 900px wide.
 - Rendering stops offscreen, in hidden tabs, and when motion is paused.
+- Parallax updates CSS variables and a shared WebGL ref without React rerenders.
+  Pointer dragging holds the parallax target steady so the ruler stays underhand.
+- Sequence playback begins only on request and suspends offscreen or in hidden
+  tabs. The page motion toggle controls decorative motion; explicit transport
+  controls remain usable with reduced motion.
 - Reduced-motion and Save-Data preferences default to the HTML still composition.
 - Mobile, no-JavaScript, loading, and WebGL failure states retain a layered HTML
-  composition using the same artwork. The mobile image is under 50 KB.
-- A single texture atlas is reused across the three frames. Shader patterns render
-  perforations, ruler ticks, and waveforms together instead of hundreds of meshes.
+  composition using the same artwork. The mobile image is under 50 KB. Mobile
+  timeline controls use a flat layout with touch targets and no WebGL dependency.
+- The native range input and buttons provide keyboard and touch interaction.
+  Caption announcements occur on shot changes; timecode updates are not live
+  screen-reader announcements. Without JavaScript, the scene remains static.
+- A single texture atlas is reused across the three frames. Shader patterns draw
+  film perforations; CSS and one SVG path draw the ruler and waveform.
 - Pixel ratio is capped at 1.5; no postprocessing or additional runtime dependency.
 
 ## Asset provenance
@@ -48,23 +67,32 @@ watermarks. Maintain three precise horizontal bands in a landscape 3:2 atlas.
 Run from `landing`: `npm run build`, the targeted ESLint check, and
 `npx playwright test e2e/homepage.spec.ts` after the root `npm run build`.
 The browser suite covers both homepage variants, seven responsive widths from
-320 to 1440px, accessibility, keyboard chapters, motion, context loss, navigation,
-installation actions, no-JavaScript content, and the existing analytics contract.
+320 to 1440px, accessibility, keyboard scrubbing and chapters, transport playback,
+mouse dragging on the projected 3D ruler, clip selection with separated layers,
+touch controls, motion, context loss, navigation, installation actions,
+no-JavaScript content, and the existing analytics contract.
 
 Preview the built treatment at `/design-preview/` through the repository HTTP
 server. This change has not been deployed to production.
 
-Local results: root build, landing production build, targeted ESLint, and all 35
-homepage browser tests passed. After the shader optimization, the five affected
-responsive/accessibility, motion, chapter, and no-JavaScript tests passed again.
-The cinematic page loads 210,259 bytes of initial gzipped JavaScript against the
-existing 240,000-byte limit. Browser checks also confirmed offscreen disposal and
-successful WebGL re-entry. Mobile at 390px has no overflow and loads no canvas.
+Local results: root build, landing production build, targeted ESLint, and all 38
+homepage browser tests passed. After the final spacing and visibility adjustments,
+all eight affected responsive, accessibility, motion, interaction, touch, and
+no-JavaScript checks passed again, including the projected 3D pointer drag.
+The cinematic page loads 214,446 bytes of initial
+gzipped JavaScript against the existing 240,000-byte limit. Browser checks also
+confirmed offscreen disposal and successful WebGL re-entry. Mobile at 390px has
+no overflow and loads no canvas. These are Chromium checks; Safari and Firefox
+have not been verified in this run.
 
 ### Desktop
 
 ![Cinematic 3D cutting room](cinema-3d-desktop.webp)
 
+### Separated layers
+
+![Picture, color, and audio layers floating above the editing desk](cinema-3d-layers.webp)
+
 ### Mobile
 
-![Layered mobile film composition](cinema-3d-mobile.webp)
+![Touch-friendly mobile film study and timeline](cinema-3d-mobile.webp)
