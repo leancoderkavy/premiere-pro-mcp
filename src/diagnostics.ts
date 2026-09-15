@@ -439,11 +439,20 @@ export function createSupportBundle(options: SupportBundleOptions): SupportBundl
   };
 }
 
-export function renderDoctorHuman(report: LocalDoctorReport): string {
-  const lines = [
-    report.overall === "ready" ? "Premiere MCP local check: ready" : "Premiere MCP local check: needs attention",
-    "",
-  ];
+export function renderDoctorHuman(report: LocalDoctorReport, identity?: { name: string; version: string; homepage: string }): string {
+  const lines = [];
+  
+  // Identity header
+  if (identity) {
+    lines.push("MCP for Adobe Premiere Pro");
+    lines.push(`package: ${identity.name}@${identity.version}`);
+    lines.push(`homepage: ${identity.homepage}`);
+    lines.push("");
+  }
+  
+  lines.push(report.overall === "ready" ? "Premiere MCP local check: ready" : "Premiere MCP local check: needs attention");
+  lines.push("");
+  
   for (const component of report.components) {
     const status = component.state === "ready" ? "Ready" : component.state === "not_checked" ? "Not checked" : "Needs attention";
     lines.push(`${status}: ${component.label} — ${component.message}`);

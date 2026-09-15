@@ -286,6 +286,23 @@ export function ConnectSection() {
             <ChevronDown className="h-4 w-4 text-zinc-400 transition-transform group-open:rotate-180" aria-hidden="true" />
           </summary>
           <div className="mt-5 grid gap-6 rounded-xl border border-zinc-800 bg-[#08080a] p-5 lg:grid-cols-2 lg:p-7">
+            <div className="lg:col-span-2">
+              <div className="rounded-lg border border-amber-500/30 bg-amber-500/[0.06] p-4">
+                <p className="text-sm font-semibold text-amber-100">Install the correct package</p>
+                <p className="mt-2 text-sm leading-6 text-zinc-300">
+                  Use the exact npm package name for this project:
+                </p>
+                <pre className="mt-3 overflow-x-auto rounded-lg border border-zinc-800 bg-black p-3 text-xs leading-6 text-emerald-300"><code>npm i -g premiere-pro-mcp@{product.version}</code></pre>
+                <p className="mt-3 text-sm leading-6 text-zinc-300">
+                  <strong className="text-zinc-100">Name check:</strong> this project&apos;s package is <code className="rounded bg-zinc-900 px-1.5 py-0.5 text-purple-200">premiere-pro-mcp</code>, not <code className="rounded bg-zinc-900 px-1.5 py-0.5 text-zinc-400">adobe-premiere-pro-mcp</code>. Both can expose a <code className="rounded bg-zinc-900 px-1.5 py-0.5 text-zinc-300">premiere-pro-mcp</code> command, so confirm the package name before you configure a client.
+                </p>
+                <p className="mt-3 text-sm font-semibold text-amber-100">Verify you have the right install</p>
+                <pre className="mt-2 overflow-x-auto rounded-lg border border-zinc-800 bg-black p-3 text-xs leading-6 text-zinc-300"><code>npm list -g premiere-pro-mcp{"\n"}premiere-pro-mcp --version</code></pre>
+                <p className="mt-3 text-sm leading-6 text-zinc-300">
+                  Expect version <strong className="text-white">{product.version}</strong>. Homepage should be <a href="https://premiere-pro-mcp.com/" className="text-purple-200 hover:text-white">premiere-pro-mcp.com</a>; source is <a href="https://github.com/leancoderkavy/premiere-pro-mcp" className="text-purple-200 hover:text-white">github.com/leancoderkavy/premiere-pro-mcp</a>.
+                </p>
+              </div>
+            </div>
             <div>
               <h3 className="text-base font-semibold text-white">Install from npm</h3>
               <p className="mt-2 text-sm leading-6 text-zinc-400">Use this route if your assistant does not support a native bundle. It requires Node.js {product.nodeVersion}+.</p>
