@@ -198,9 +198,11 @@ if (updateActions.length === 1) {
 
 if (args.includes("--version") || args.includes("-v")) {
   const pkg = await import("../package.json", { with: { type: "json" } }).catch(
-    () => ({ default: { version: "unknown" } }),
+    () => ({ default: { name: "premiere-pro-mcp", version: "unknown", homepage: "https://premiere-pro-mcp.com/" } }),
   );
-  console.log(pkg.default.version);
+  console.log("MCP for Adobe Premiere Pro");
+  console.log(`package: ${pkg.default.name}@${pkg.default.version}`);
+  console.log(`homepage: ${pkg.default.homepage}`);
   process.exit(0);
 }
 
@@ -245,9 +247,14 @@ if (args.includes("--doctor") || args.includes("--support-bundle")) {
       console.log(JSON.stringify(result, null, 2));
       if (result.actions.some((action) => action.status === "failed")) process.exit(1);
     } else {
+      const identity = {
+        name: String(pkg.default.name ?? "premiere-pro-mcp"),
+        version: String(pkg.default.version ?? "unknown"),
+        homepage: String(pkg.default.homepage ?? "https://premiere-pro-mcp.com/"),
+      };
       console.log(args.includes("--json")
         ? JSON.stringify(report, null, 2)
-        : renderDoctorHuman(report));
+        : renderDoctorHuman(report, identity));
     }
   }
   process.exit(0);

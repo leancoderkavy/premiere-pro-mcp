@@ -205,6 +205,28 @@ their bins, media rules, and organization rules before a facility uses one.
 
 ## Quick Start
 
+> ### Install the published package (verify the name)
+>
+> ```bash
+> npm i -g premiere-pro-mcp@1.15.2
+> ```
+>
+> This repository publishes only **`premiere-pro-mcp`**. A differently named package (`adobe-premiere-pro-mcp`) may also declare a `premiere-pro-mcp` executable. Before configuring a client, confirm:
+>
+> | Check | Expected |
+> | --- | --- |
+> | Package name | `premiere-pro-mcp` (not `adobe-premiere-pro-mcp`) |
+> | Version | `1.15.2` |
+> | Homepage / repo | https://premiere-pro-mcp.com/ · https://github.com/leancoderkavy/premiere-pro-mcp |
+>
+> ```bash
+> npm list -g premiere-pro-mcp
+> premiere-pro-mcp --version
+> npm view premiere-pro-mcp homepage repository.url
+> ```
+>
+> Then continue with `--install-cep`, `--doctor`, and the read-only `verify_premiere_connection` prompt.
+
 ### Easiest supported path: Claude Desktop
 
 1. Download the current [Claude Desktop bundle (`.mcpb`)](https://github.com/leancoderkavy/premiere-pro-mcp/releases/download/v1.15.1/premiere-pro-mcp-1.15.1.mcpb).
