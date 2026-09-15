@@ -352,7 +352,7 @@ test("MCP demo: guided edits change the sequence, show tool calls, and undo inde
   await page.getByRole("button", { name: "Put the blue shot first", exact: true }).click()
   await expect(status).toContainText("Into the blue now opens the film")
   expect(await order()).toEqual(["2", "0", "1"])
-  await expect(page.locator(".cinema-caption")).toContainText("Make it yours.")
+  await expect(page.locator(".cinema-caption")).toContainText("Review the final look.")
   await expect(page.getByLabel("Current timecode")).toHaveText("00:00:02:00")
   await page.getByRole("button", { name: "Mark this frame", exact: true }).click()
   await expect(status).toContainText("Review marker added")
