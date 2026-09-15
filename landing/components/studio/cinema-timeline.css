@@ -152,8 +152,7 @@
 .cinema-deck {
   position: relative;
   transform-style: preserve-3d;
-  transform: translate3d(0, var(--scroll-depth), 0) rotateX(calc(27deg + var(--orbit-y)))
-    rotateY(calc(-4deg + var(--orbit-x))) rotateZ(-1deg);
+  transform: rotateX(27deg) rotateY(-4deg) rotateZ(-1deg);
   transform-origin: center 30%;
   padding: 0 20px 8px;
   border: 1px solid #77628e;
