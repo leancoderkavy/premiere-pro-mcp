@@ -40,7 +40,7 @@ test("clips move in time and between tracks with one undo step, redo, gaps, and 
   await shot(page, 1).locator(".nle-clip-body").click()
   await scrub.focus()
   await page.keyboard.press("ArrowLeft")
-  await expect(page.locator(".cinema-caption")).toContainText("Find the feeling.")
+  await expect(page.locator(".cinema-caption")).toContainText("Review your selects.")
   await page.getByRole("button", { name: "Undo last edit", exact: true }).click()
   await expect(shot(page, 0)).toHaveAttribute("data-start", "0")
   await expect(track(page, 0).locator('.cinema-clip[data-shot="0"]')).toHaveCount(1)

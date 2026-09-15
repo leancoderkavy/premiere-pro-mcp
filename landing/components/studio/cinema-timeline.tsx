@@ -117,11 +117,38 @@ export function CinemaTimeline({
   return (
     <div
       ref={root}
+      id="editing-timeline"
       className="cinema-editing-desk cinema-nle"
       data-exploded={exploded}
       data-dragging={Boolean(drag.preview)}
       onPointerMove={drag.move}
-      onPointerUp={drag.finish}
+      onPointerUp={(event) => {
+        drag.finish(event)
+        if (event.pointerType !== "touch" || !event.isPrimary) return
+        const target = event.target as Element
+        const button = target.closest("button")
+        if (!button || button.disabled || target.closest(".nle-clip")) return
+        const bounds = button.getBoundingClientRect()
+        if (
+          event.clientX < bounds.left ||
+          event.clientX > bounds.right ||
+          event.clientY < bounds.top ||
+          event.clientY > bounds.bottom
+        )
+          return
+        // Activate touch controls on release. Chromium can suppress the first
+        // compatibility click after a drag; keyboard and mouse keep native clicks.
+        event.preventDefault()
+        button.click()
+      }}
+      onClickCapture={(event) => {
+        if ((event.nativeEvent as PointerEvent).pointerType !== "touch") return
+        const target = event.target as Element
+        if (target.closest("button") && !target.closest(".nle-clip")) {
+          event.preventDefault()
+          event.stopPropagation()
+        }
+      }}
       onPointerCancel={drag.cancel}
       onLostPointerCapture={drag.cancel}
       onKeyDown={shortcut}

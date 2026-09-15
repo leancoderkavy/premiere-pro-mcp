@@ -1,6 +1,9 @@
 /* Keep the editing plane stable while the film above it moves in depth. */
-:where(.cinema-interactive) button { touch-action: manipulation; }
+:where(.cinema-interactive) button {
+  touch-action: manipulation;
+}
 .cinema-nle {
+  scroll-margin-top: 90px;
   --nle-ruler: 38px;
   --nle-video: 88px;
   --nle-fx: 32px;
