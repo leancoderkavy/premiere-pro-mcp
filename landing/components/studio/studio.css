@@ -1216,6 +1216,51 @@
   font-size: 12px;
   line-height: 1.9;
 }
+.studio-install-callout {
+  background: color-mix(in srgb, #ffb84d 6%, var(--s-raised));
+  border: 1px solid color-mix(in srgb, #ffb84d 30%, transparent);
+  border-radius: 8px;
+  padding: 16px 18px;
+  margin-bottom: 24px;
+}
+.studio-install-callout-title {
+  color: #ffcc80;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+.studio-install-callout p {
+  margin-bottom: 12px;
+}
+.studio-install-callout p:last-child {
+  margin-bottom: 0;
+}
+.studio-install-callout pre {
+  background: var(--s-surface-deep);
+  border-radius: 5px;
+  padding: 12px 14px;
+  margin: 10px 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  color: #b8f5b8;
+  font-size: 11px;
+  line-height: 1.8;
+}
+.studio-install-callout code {
+  background: var(--s-surface-deep);
+  border-radius: 3px;
+  padding: 2px 6px;
+  font-size: 11px;
+  color: var(--s-accent-hover);
+}
+.studio-install-callout a {
+  color: var(--s-accent-hover);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.studio-install-callout strong {
+  color: var(--s-text);
+  font-weight: 600;
+}
 .studio-advanced a {
   display: inline-flex;
   align-items: center;
@@ -2596,6 +2641,17 @@
     padding-inline: 16px;
   }
   .studio-advanced h3 {
+    font-size: 10px;
+  }
+  .studio-install-callout {
+    padding: 12px 14px;
+    margin-bottom: 18px;
+  }
+  .studio-install-callout pre {
+    font-size: 10px;
+    padding: 10px 12px;
+  }
+  .studio-install-callout code {
     font-size: 10px;
   }
   .studio-faq-section h2 {
