@@ -37,7 +37,12 @@ export function useSequenceTransport(visible: boolean) {
   }, [])
   const selectShot = useCallback((shot: number) => seek(shot * shotFrames + 48), [seek])
   const toggle = () => {
-    if (frame >= sequenceFrames - 1) setFrame(0)
+    if (current.current >= sequenceFrames - 1) {
+      current.current = 0
+      setFrame(0)
+      setPlaying(true)
+      return
+    }
     setPlaying((value) => !value)
   }
   return {
@@ -46,7 +51,7 @@ export function useSequenceTransport(visible: boolean) {
     seek,
     selectShot,
     toggle,
-    chapter: Math.min(2, Math.floor(frame / shotFrames))
+    chapter: Math.max(0, Math.min(2, Math.floor(frame / shotFrames) || 0)),
   }
 }
 
