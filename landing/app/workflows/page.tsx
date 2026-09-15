@@ -1,3 +1,4 @@
+import { PublicPage } from "@/components/site/public-page"
 import type { Metadata } from "next"
 import Link from "next/link"
 import { HomeLink } from "@/components/ui/home-link"
@@ -43,6 +44,7 @@ const structuredData = {
 
 export default function WorkflowsPage() {
   return (
+    <PublicPage>
     <>
       <script
         type="application/ld+json"
@@ -50,15 +52,15 @@ export default function WorkflowsPage() {
       />
       <main
         id="main-content"
-        className="min-h-screen bg-black px-5 py-10 text-zinc-100 sm:py-16"
+        className="min-h-screen bg-site-bg px-5 py-10 text-site-text sm:py-16"
       >
         <div className="mx-auto max-w-5xl">
           <nav
             aria-label="Breadcrumb"
-            className="flex flex-wrap gap-x-3 text-sm text-zinc-300"
+            className="flex flex-wrap gap-x-3 text-sm text-site-detail"
           >
             <HomeLink
-              className="inline-flex min-h-11 items-center hover:text-white"
+              className="inline-flex min-h-11 items-center hover:text-site-text"
               href="/"
             >
               MCP for Adobe Premiere Pro
@@ -70,14 +72,14 @@ export default function WorkflowsPage() {
               Workflow starter kit
             </span>
           </nav>
-          <header className="border-b border-zinc-800 pb-10 pt-9">
-            <p className="font-mono text-xs uppercase tracking-[0.16em] text-violet-200">
+          <header className="border-b border-site-line pb-10 pt-9">
+            <p className="font-mono text-xs uppercase tracking-[0.16em] text-site-accent">
               Sample media · three recipes · your assistant
             </p>
             <h1 className="mt-5 max-w-3xl text-balance text-4xl font-semibold tracking-tight sm:text-6xl">
               Try a Premiere workflow you can inspect.
             </h1>
-            <p className="mt-6 max-w-2xl text-lg leading-8 text-zinc-300">
+            <p className="mt-6 max-w-2xl text-lg leading-8 text-site-detail">
               Check a sequence, prepare review frames, or preview an assembly.
               Start with synthetic clips and a disposable project before using
               your own edit.
@@ -87,15 +89,15 @@ export default function WorkflowsPage() {
               download
               trackingLocation="workflow_kit"
               trackingDestination="starter_kit_download"
-              className="mt-7 inline-flex min-h-12 items-center justify-center rounded-md bg-violet-200 px-6 py-3 font-semibold text-black hover:bg-white"
+              className="mt-7 inline-flex min-h-12 items-center justify-center rounded-md bg-site-accent px-6 py-3 font-semibold text-black hover:bg-white"
             >
               Download starter kit
             </TrackedLink>
-            <p className="mt-3 text-sm leading-6 text-zinc-300">
+            <p className="mt-3 text-sm leading-6 text-site-detail">
               Free ZIP · no email · two synthetic MP4 clips, a caption sample,
               instructions, and evaluation prompts.
             </p>
-            <p className="mt-3 max-w-2xl text-sm leading-6 text-zinc-400">
+            <p className="mt-3 max-w-2xl text-sm leading-6 text-site-muted">
               Requires Premiere, a compatible AI client, and the local
               connector. This is an evaluation kit, not a recorded demo or a
               host-verified Premiere project. Media files are generated
@@ -103,7 +105,7 @@ export default function WorkflowsPage() {
             </p>
           </header>
           <section
-            className="grid gap-5 border-b border-zinc-800 py-9 md:grid-cols-3"
+            className="grid gap-5 border-b border-site-line py-9 md:grid-cols-3"
             aria-label="Get started"
           >
             {[
@@ -130,12 +132,12 @@ export default function WorkflowsPage() {
               ],
             ].map(([number, title, text, href, label]) => (
               <div key={number}>
-                <p className="font-mono text-sm text-violet-200">{number}</p>
+                <p className="font-mono text-sm text-site-accent">{number}</p>
                 <h2 className="mt-2 text-lg font-semibold">{title}</h2>
-                <p className="mt-3 leading-7 text-zinc-300">{text}</p>
+                <p className="mt-3 leading-7 text-site-detail">{text}</p>
                 <Link
                   href={href}
-                  className="mt-2 inline-flex min-h-11 items-center text-violet-200 underline underline-offset-4"
+                  className="mt-2 inline-flex min-h-11 items-center text-site-accent underline underline-offset-4"
                 >
                   {label}
                 </Link>
@@ -151,33 +153,33 @@ export default function WorkflowsPage() {
               >
                 <div className="grid gap-7 md:grid-cols-[1fr_1.1fr]">
                   <div>
-                    <p className="font-mono text-xs uppercase tracking-wider text-violet-200">
+                    <p className="font-mono text-xs uppercase tracking-wider text-site-accent">
                       Recipe {index + 1}
                     </p>
                     <h2 className="mt-3 text-3xl font-semibold tracking-tight">
                       {kit.title}
                     </h2>
-                    <p className="mt-4 leading-7 text-zinc-300">
+                    <p className="mt-4 leading-7 text-site-detail">
                       {kit.summary}
                     </p>
                     <p className="mt-4 leading-7">
                       <strong>Expected output:</strong> {kit.output}
                     </p>
-                    <p className="mt-4 text-sm leading-6 text-zinc-400">
+                    <p className="mt-4 text-sm leading-6 text-site-muted">
                       {kit.boundary}
                     </p>
-                    <p className="mt-3 text-sm leading-6 text-zinc-400">
+                    <p className="mt-3 text-sm leading-6 text-site-muted">
                       {kit.availability}
                     </p>
                     <Link
                       href={kit.guide}
-                      className="mt-3 inline-flex min-h-11 items-center text-violet-200 underline underline-offset-4"
+                      className="mt-3 inline-flex min-h-11 items-center text-site-accent underline underline-offset-4"
                     >
                       Read the workflow guide
                     </Link>
                   </div>
-                  <div className="rounded-xl border border-zinc-800 bg-zinc-950 p-5 sm:p-6">
-                    <ol className="list-decimal space-y-4 pl-5 leading-7 text-zinc-300">
+                  <div className="rounded-xl border border-site-line bg-site-panel p-5 sm:p-6">
+                    <ol className="list-decimal space-y-4 pl-5 leading-7 text-site-detail">
                       {kit.steps.map((step) => (
                         <li key={step}>{step}</li>
                       ))}
@@ -188,11 +190,11 @@ export default function WorkflowsPage() {
               </section>
             ))}
           </div>
-          <section className="rounded-xl border border-zinc-700 p-6 sm:p-8">
+          <section className="rounded-xl border border-site-line p-6 sm:p-8">
             <h2 className="text-2xl font-semibold">
               Make the next attempt easier.
             </h2>
-            <p className="mt-4 max-w-3xl leading-7 text-zinc-300">
+            <p className="mt-4 max-w-3xl leading-7 text-site-detail">
               Share the public recipe link or contribute an improved checklist.
               Keep footage, project names, paths, transcripts, and tokens out of
               public reports. A copied prompt or download is not a completed
@@ -201,19 +203,19 @@ export default function WorkflowsPage() {
             <div className="mt-4 flex flex-wrap gap-x-6">
               <Link
                 href="/facts/"
-                className="inline-flex min-h-11 items-center text-violet-200 underline"
+                className="inline-flex min-h-11 items-center text-site-accent underline"
               >
                 Release facts and compatibility
               </Link>
               <a
                 href={`${product.links.repository}/blob/main/docs/workflow-proof-runbook.md`}
-                className="inline-flex min-h-11 items-center text-violet-200 underline"
+                className="inline-flex min-h-11 items-center text-site-accent underline"
               >
                 Host test runbook
               </a>
               <a
                 href={`${product.links.repository}/discussions`}
-                className="inline-flex min-h-11 items-center text-violet-200 underline"
+                className="inline-flex min-h-11 items-center text-site-accent underline"
               >
                 Community discussions
               </a>
@@ -222,5 +224,6 @@ export default function WorkflowsPage() {
         </div>
       </main>
     </>
+    </PublicPage>
   )
 }

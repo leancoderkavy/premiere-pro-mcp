@@ -1,58 +1,38 @@
-import { Github, Package } from "lucide-react"
 import Image from "next/image"
-import Link from "next/link"
 import { HomeLink } from "@/components/ui/home-link"
+import { siteNavigation } from "@/lib/site-navigation"
+import { product } from "@/lib/product"
 
 export function Footer() {
   return (
-    <footer className="bg-black px-5 py-12">
-      <div className="mx-auto max-w-6xl">
-        <div className="grid gap-10 border-b border-zinc-900 pb-10 md:grid-cols-[1fr_auto_auto] md:gap-16">
-          <div className="max-w-sm">
-            <div className="flex items-center gap-3">
-              <Image
-                src="/marketing/premiere-pro-mcp-mark-96.webp"
-                alt=""
-                width={32}
-                height={32}
-                className="h-8 w-8 object-contain"
-              />
-              <span className="text-sm font-semibold text-white">premiere-pro-mcp</span>
-            </div>
-            <p className="mt-4 text-sm leading-6 text-zinc-400">Open-source, local-first structured AI control for supported Adobe Premiere Pro workflows.</p>
-          </div>
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-zinc-400">Product</p>
-            <div className="mt-4 flex flex-col gap-3 text-sm text-zinc-400">
-              <HomeLink href="/#demo" className="hover:text-white">Demo</HomeLink>
-              <HomeLink href="/#features" className="hover:text-white">Features</HomeLink>
-              <HomeLink href="/#how-it-works" className="hover:text-white">How it works</HomeLink>
-              <HomeLink href="/#install" className="hover:text-white">Install</HomeLink>
-              <HomeLink href="/#faq" className="hover:text-white">FAQ</HomeLink>
-              <Link href="/premiere-pro-collaboration-workflow/" className="hover:text-white">Workflow fit guide</Link>
-              <Link href="/project-intake/" className="hover:text-white">Project Intake</Link>
-              <Link href="/workflows/" className="hover:text-white">Workflow starter kit</Link>
-              <Link href="/tools/" className="hover:text-white">Search tool reference</Link>
-              <Link href="/docs/troubleshooting/" className="hover:text-white">Setup and recovery</Link>
-              <Link href="/facts/" className="hover:text-white">Canonical facts</Link>
-              <Link href="/blog/" className="hover:text-white">Guides</Link>
-              <a href="/docs/" className="hover:text-white">Documentation</a>
-              <a href="/changelog/" className="hover:text-white">Changelog</a>
-            </div>
-          </div>
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-zinc-400">Resources</p>
-            <div className="mt-4 flex flex-col gap-3 text-sm text-zinc-400">
-              <a href="https://github.com/leancoderkavy/premiere-pro-mcp" target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 hover:text-white"><Github className="h-4 w-4" /> GitHub</a>
-              <a href="https://www.npmjs.com/package/premiere-pro-mcp" target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 hover:text-white"><Package className="h-4 w-4" /> npm package</a>
-              <a href="https://github.com/leancoderkavy/premiere-pro-mcp/blob/main/SECURITY.md" target="_blank" rel="noopener noreferrer" className="hover:text-white">Security</a>
-              <a href="/privacy/" className="hover:text-white">Privacy</a>
-            </div>
-          </div>
+    <footer className="site-footer">
+      <div className="site-container">
+        <div className="site-footer-intro">
+          <HomeLink className="site-brand" aria-label="Premiere Pro MCP home">
+            <Image src="/marketing/premiere-pro-mcp-mark-v2.svg" width={28} height={28} alt="" />
+            <span>premiere<span className="site-brand-divider">/</span>mcp</span>
+          </HomeLink>
+          <p>Structured AI control. Creative freedom.<br />Free, open source, and local first.</p>
         </div>
-        <div className="flex flex-col gap-2 pt-6 text-xs text-zinc-400 sm:flex-row sm:items-center sm:justify-between">
-          <p>© 2026 premiere-pro-mcp contributors. MIT licensed.</p>
-          <p>Not affiliated with Adobe Inc. Adobe Premiere Pro is a trademark of Adobe Inc.</p>
+        <nav className="site-footer-links" aria-label="Footer navigation">
+          {siteNavigation.map(group => (
+            <div key={group.label}>
+              <h2>{group.label}</h2>
+              {group.links.map(link => <a key={link.href} href={link.href}>{link.label}</a>)}
+            </div>
+          ))}
+          <div>
+            <h2>Open source</h2>
+            <a href={product.links.repository}>GitHub</a>
+            <a href={product.links.npm}>npm package</a>
+            <a href={product.links.issues}>Report an issue</a>
+            <a href={product.links.repository + "/security/policy"}>Security</a>
+            <a href="/privacy/">Privacy</a>
+          </div>
+        </nav>
+        <div className="site-footer-bottom">
+          <p>© 2026 Premiere Pro MCP contributors. MIT licensed.</p>
+          <p>Independent open-source project. Not affiliated with Adobe Inc.<br />Adobe Premiere Pro is a trademark of Adobe Inc.</p>
         </div>
       </div>
     </footer>

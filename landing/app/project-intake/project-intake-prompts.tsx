@@ -31,16 +31,16 @@ function PromptCard({ description, label, prompt, promptKind, title }: PromptCar
   }
 
   return (
-    <article className="rounded-xl border border-zinc-800 bg-[#08080a] p-5 sm:p-6">
-      <p className="font-mono text-xs font-semibold uppercase tracking-[0.15em] text-purple-300">{label}</p>
-      <h3 className="mt-3 text-xl font-semibold tracking-tight text-white">{title}</h3>
-      <p className="mt-3 max-w-2xl leading-7 text-zinc-400">{description}</p>
-      <code className="mt-5 block overflow-x-auto rounded-lg border border-zinc-800 bg-black px-4 py-4 text-sm leading-7 text-zinc-200 whitespace-pre-wrap">{prompt}</code>
+    <article className="rounded-xl border border-site-line bg-site-panel p-5 sm:p-6">
+      <p className="font-mono text-xs font-semibold uppercase tracking-[0.15em] text-site-accent">{label}</p>
+      <h3 className="mt-3 text-xl font-semibold tracking-tight text-site-text">{title}</h3>
+      <p className="mt-3 max-w-2xl leading-7 text-site-muted">{description}</p>
+      <code className="mt-5 block overflow-x-auto rounded-lg border border-site-line bg-site-bg px-4 py-4 text-sm leading-7 text-site-text whitespace-pre-wrap">{prompt}</code>
       <div className="mt-4 flex flex-col items-start gap-3 sm:flex-row sm:items-center">
         <button
           type="button"
           onClick={copyPrompt}
-          className="inline-flex min-h-11 items-center gap-2 rounded-md border border-purple-300 bg-purple-300 px-4 py-2 text-sm font-semibold text-black transition-colors hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-300 focus-visible:ring-offset-2 focus-visible:ring-offset-[#08080a]"
+          className="inline-flex min-h-11 items-center gap-2 rounded-md border border-site-accent bg-site-accent px-4 py-2 text-sm font-semibold text-black transition-colors hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-site-accent focus-visible:ring-offset-2 focus-visible:ring-offset-[#08080a]"
         >
           {copyState === "copied" ? <Check className="h-4 w-4" aria-hidden="true" /> : <Copy className="h-4 w-4" aria-hidden="true" />}
           <span>{copyState === "copied" ? "Copied" : "Copy prompt"}</span>

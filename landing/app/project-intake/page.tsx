@@ -1,9 +1,8 @@
+import { PublicPage } from "@/components/site/public-page"
 import type { Metadata } from "next"
-import Image from "next/image"
 import Link from "next/link"
 import { HomeLink } from "@/components/ui/home-link"
 import { ArrowRight, CheckCircle2, ClipboardCheck, FileSearch, ShieldCheck } from "lucide-react"
-import { Footer } from "@/components/sections/footer"
 import { ProjectIntakePrompts } from "./project-intake-prompts"
 import { ProjectIntakeTemplateBuilder } from "./project-intake-template-builder"
 
@@ -121,78 +120,68 @@ const steps = [
 
 export default function ProjectIntakePage() {
   return (
+    <PublicPage>
     <>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }} />
-      <header className="border-b border-zinc-800 bg-black/90 px-5 py-4 backdrop-blur">
-        <div className="mx-auto flex max-w-6xl items-center justify-between gap-4">
-          <HomeLink href="/" className="inline-flex items-center gap-3 text-sm font-semibold text-white">
-            <Image src="/marketing/premiere-pro-mcp-mark-96.webp" alt="" width={32} height={32} className="h-8 w-8 object-contain" />
-            <span>premiere-pro-mcp</span>
-          </HomeLink>
-          <HomeLink href="/#install" className="inline-flex min-h-11 items-center rounded-md border border-zinc-700 px-4 py-2 text-sm font-semibold text-zinc-100 transition-colors hover:border-zinc-500 hover:bg-zinc-900">
-            Install first
-          </HomeLink>
-        </div>
-      </header>
-      <main id="main-content" className="min-h-screen bg-black text-zinc-100">
-        <section className="border-b border-zinc-900 px-5 pb-16 pt-14 sm:pb-24 sm:pt-20">
+      <main id="main-content" className="min-h-screen bg-site-bg text-site-text">
+        <section className="border-b border-site-line px-5 pb-16 pt-14 sm:pb-24 sm:pt-20">
           <div className="mx-auto max-w-4xl">
-            <nav aria-label="Breadcrumb" className="text-sm text-zinc-500">
-              <HomeLink href="/" className="hover:text-purple-200">MCP for Adobe Premiere Pro</HomeLink> <span aria-hidden="true">/</span> Project Intake
+            <nav aria-label="Breadcrumb" className="text-sm text-site-muted">
+              <HomeLink href="/" className="hover:text-site-accent">MCP for Adobe Premiere Pro</HomeLink> <span aria-hidden="true">/</span> Project Intake
             </nav>
-            <p className="mt-10 font-mono text-xs font-semibold uppercase tracking-[0.18em] text-purple-300">Project Intake · preview-only workflow</p>
-            <h1 className="mt-5 max-w-4xl text-balance text-4xl font-bold tracking-[-0.045em] text-white sm:text-6xl">
-              Turn a project handoff into a <span className="text-purple-300">reviewable intake.</span>
+            <p className="mt-10 font-mono text-xs font-semibold uppercase tracking-[0.18em] text-site-accent">Project Intake · preview-only workflow</p>
+            <h1 className="mt-5 max-w-4xl text-balance text-4xl font-bold tracking-[-0.045em] text-site-text sm:text-6xl">
+              Turn a project handoff into a <span className="text-site-accent">reviewable intake.</span>
             </h1>
-            <p className="mt-6 max-w-3xl text-lg leading-8 text-zinc-400 sm:text-xl">
+            <p className="mt-6 max-w-3xl text-lg leading-8 text-site-muted sm:text-xl">
               For assistant editors and post leads who need to inspect an open Premiere project against an approved template before anyone reorganizes it.
             </p>
-            <a href="#try" className="mt-8 inline-flex min-h-12 items-center gap-2 rounded-lg bg-purple-300 px-5 py-3 text-sm font-semibold text-black transition-colors hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-300 focus-visible:ring-offset-2 focus-visible:ring-offset-black">
+            <a href="#try" className="mt-8 inline-flex min-h-12 items-center gap-2 rounded-lg bg-site-accent px-5 py-3 text-sm font-semibold text-black transition-colors hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-site-accent focus-visible:ring-offset-2 focus-visible:ring-offset-black">
               Copy the safe first prompt <ArrowRight className="h-4 w-4" aria-hidden="true" />
             </a>
-            <p className="mt-4 text-sm text-zinc-500">Free, local-first setup · no account or card required · use a copied test project first</p>
+            <p className="mt-4 text-sm text-site-muted">Free, local-first setup · no account or card required · use a copied test project first</p>
           </div>
         </section>
 
-        <section className="border-b border-zinc-900 px-5 py-12" aria-labelledby="intake-checklist-heading">
+        <section className="border-b border-site-line px-5 py-12" aria-labelledby="intake-checklist-heading">
           <div className="mx-auto max-w-4xl">
             <h2 id="intake-checklist-heading" className="text-2xl font-semibold sm:text-3xl">Prepare a useful intake review</h2>
-            <p className="mt-4 leading-8 text-zinc-300">Use this checklist when an assistant editor receives a project or a post supervisor needs to review its organization. Complete the connection check first; the browser guide does not inspect your open project.</p>
-            <ol className="mt-6 list-decimal space-y-4 pl-6 leading-8 text-zinc-300">
+            <p className="mt-4 leading-8 text-site-detail">Use this checklist when an assistant editor receives a project or a post supervisor needs to review its organization. Complete the connection check first; the browser guide does not inspect your open project.</p>
+            <ol className="mt-6 list-decimal space-y-4 pl-6 leading-8 text-site-detail">
               <li>Identify the project copy, active sequence, intended deliverable, and the person who will review exceptions.</li>
               <li>Choose a starter template below and replace its example bins, media rules, and organization rules with the team&apos;s approved requirements.</li>
               <li>Request only an intake preview. Review missing information, proposed organization actions, and checks the tool could not complete.</li>
               <li>Assign each exception to a human owner. Decide whether to stop, investigate, or separately approve a specific change.</li>
               <li>Keep the reviewed template and findings with that project version so the next handoff can explain what was checked.</li>
             </ol>
-            <div className="mt-6 flex flex-wrap gap-x-6 gap-y-2"><Link href="/blog/claude-desktop-premiere-pro-mcp-setup/" className="inline-flex min-h-11 items-center text-purple-200 underline underline-offset-4 hover:text-white">Connect Claude before your review</Link><Link href="/premiere-pro-collaboration-workflow/" className="inline-flex min-h-11 items-center text-purple-200 underline underline-offset-4 hover:text-white">Choose the collaboration context</Link></div>
+            <div className="mt-6 flex flex-wrap gap-x-6 gap-y-2"><Link href="/blog/claude-desktop-premiere-pro-mcp-setup/" className="inline-flex min-h-11 items-center text-site-accent underline underline-offset-4 hover:text-site-text">Connect Claude before your review</Link><Link href="/premiere-pro-collaboration-workflow/" className="inline-flex min-h-11 items-center text-site-accent underline underline-offset-4 hover:text-site-text">Choose the collaboration context</Link></div>
           </div>
         </section>
         <section className="px-5 py-14 sm:py-20" aria-labelledby="workflow-heading">
           <div className="mx-auto max-w-6xl">
             <div className="max-w-3xl">
-              <p className="font-mono text-xs font-semibold uppercase tracking-[0.16em] text-purple-300">What the workflow does</p>
-              <h2 id="workflow-heading" className="mt-4 text-3xl font-bold tracking-tight text-white sm:text-5xl">A clear decision before a project changes.</h2>
-              <p className="mt-5 text-lg leading-8 text-zinc-400">The review gives a supervisor and assistant editor a common record of what the template checked, what needs attention, and what must remain a human decision.</p>
+              <p className="font-mono text-xs font-semibold uppercase tracking-[0.16em] text-site-accent">What the workflow does</p>
+              <h2 id="workflow-heading" className="mt-4 text-3xl font-bold tracking-tight text-site-text sm:text-5xl">A clear decision before a project changes.</h2>
+              <p className="mt-5 text-lg leading-8 text-site-muted">The review gives a supervisor and assistant editor a common record of what the template checked, what needs attention, and what must remain a human decision.</p>
             </div>
             <div className="mt-10 grid gap-4 md:grid-cols-3">
               {steps.map((step, index) => (
-                <article key={step.title} className="border border-zinc-800 bg-[#08080a] p-6 sm:p-7">
-                  <p className="font-mono text-xs font-semibold tracking-[0.14em] text-zinc-500">0{index + 1}</p>
-                  <step.icon className="mt-8 h-6 w-6 text-purple-300" strokeWidth={1.6} aria-hidden="true" />
-                  <h3 className="mt-5 text-xl font-semibold tracking-tight text-white">{step.title}</h3>
-                  <p className="mt-3 leading-7 text-zinc-400">{step.description}</p>
+                <article key={step.title} className="border border-site-line bg-site-panel p-6 sm:p-7">
+                  <p className="font-mono text-xs font-semibold tracking-[0.14em] text-site-muted">0{index + 1}</p>
+                  <step.icon className="mt-8 h-6 w-6 text-site-accent" strokeWidth={1.6} aria-hidden="true" />
+                  <h3 className="mt-5 text-xl font-semibold tracking-tight text-site-text">{step.title}</h3>
+                  <p className="mt-3 leading-7 text-site-muted">{step.description}</p>
                 </article>
               ))}
             </div>
           </div>
         </section>
 
-        <section id="try" className="border-y border-zinc-900 bg-[#050506] px-5 py-14 sm:py-20" aria-labelledby="try-heading">
+        <section id="try" className="border-y border-site-line bg-[#050506] px-5 py-14 sm:py-20" aria-labelledby="try-heading">
           <div className="mx-auto max-w-4xl">
-            <p className="font-mono text-xs font-semibold uppercase tracking-[0.16em] text-purple-300">Try the read-only path</p>
-            <h2 id="try-heading" className="mt-4 text-3xl font-bold tracking-tight text-white sm:text-5xl">Copy the safe prompt. Then choose a starter policy.</h2>
-            <p className="mt-5 max-w-3xl text-lg leading-8 text-zinc-400">The first prompt checks the connection only. Then choose a schema-valid starter policy or use your approved template for a path-redacted intake preview.</p>
+            <p className="font-mono text-xs font-semibold uppercase tracking-[0.16em] text-site-accent">Try the read-only path</p>
+            <h2 id="try-heading" className="mt-4 text-3xl font-bold tracking-tight text-site-text sm:text-5xl">Copy the safe prompt. Then choose a starter policy.</h2>
+            <p className="mt-5 max-w-3xl text-lg leading-8 text-site-muted">The first prompt checks the connection only. Then choose a schema-valid starter policy or use your approved template for a path-redacted intake preview.</p>
             <div className="mt-10"><ProjectIntakePrompts /></div>
             <div id="starter-template"><ProjectIntakeTemplateBuilder /></div>
           </div>
@@ -201,10 +190,10 @@ export default function ProjectIntakePage() {
         <section className="px-5 py-14 sm:py-20" aria-labelledby="boundary-heading">
           <div className="mx-auto grid max-w-6xl gap-10 lg:grid-cols-[1fr_1.25fr] lg:items-start">
             <div>
-              <p className="font-mono text-xs font-semibold uppercase tracking-[0.16em] text-purple-300">Before you rely on it</p>
-              <h2 id="boundary-heading" className="mt-4 text-3xl font-bold tracking-tight text-white sm:text-5xl">A report is evidence, not an editorial approval.</h2>
+              <p className="font-mono text-xs font-semibold uppercase tracking-[0.16em] text-site-accent">Before you rely on it</p>
+              <h2 id="boundary-heading" className="mt-4 text-3xl font-bold tracking-tight text-site-text sm:text-5xl">A report is evidence, not an editorial approval.</h2>
             </div>
-            <ul className="space-y-4 text-zinc-300">
+            <ul className="space-y-4 text-site-detail">
               {[
                 "Use a copied or non-sensitive project while you evaluate a new client, connector, or template.",
                 "Starter templates deliberately omit approved media paths. Add any path policy only after a human owner reviews and approves it.",
@@ -212,8 +201,8 @@ export default function ProjectIntakePage() {
                 "Review every finding and exception with a human owner. A proposed action is not permission to apply it.",
                 "Keep preview, structural verification, playback review, and exported-frame verification as separate evidence classes.",
               ].map((item) => (
-                <li key={item} className="flex gap-3 border-b border-zinc-900 pb-4 last:border-b-0">
-                  <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-purple-300" aria-hidden="true" />
+                <li key={item} className="flex gap-3 border-b border-site-line pb-4 last:border-b-0">
+                  <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-site-accent" aria-hidden="true" />
                   <span className="leading-7">{item}</span>
                 </li>
               ))}
@@ -221,25 +210,25 @@ export default function ProjectIntakePage() {
           </div>
         </section>
 
-        <section className="border-y border-zinc-900 bg-[#050506] px-5 py-14 sm:py-20" aria-labelledby="faq-heading">
+        <section className="border-y border-site-line bg-[#050506] px-5 py-14 sm:py-20" aria-labelledby="faq-heading">
           <div className="mx-auto max-w-4xl">
-            <p className="font-mono text-xs font-semibold uppercase tracking-[0.16em] text-purple-300">Questions before a handoff</p>
-            <h2 id="faq-heading" className="mt-4 text-3xl font-bold tracking-tight text-white sm:text-5xl">Straight answers about the preview boundary.</h2>
-            <div className="mt-10 divide-y divide-zinc-800 border-y border-zinc-800">
+            <p className="font-mono text-xs font-semibold uppercase tracking-[0.16em] text-site-accent">Questions before a handoff</p>
+            <h2 id="faq-heading" className="mt-4 text-3xl font-bold tracking-tight text-site-text sm:text-5xl">Straight answers about the preview boundary.</h2>
+            <div className="mt-10 divide-y divide-zinc-800 border-y border-site-line">
               {faqs.map((faq) => (
                 <details key={faq.question} className="group py-5">
-                  <summary className="cursor-pointer list-none pr-8 font-medium text-zinc-100 marker:content-none group-open:text-purple-200">{faq.question}</summary>
-                  <p className="mt-3 max-w-3xl leading-7 text-zinc-400">{faq.answer}</p>
+                  <summary className="cursor-pointer list-none pr-8 font-medium text-site-text marker:content-none group-open:text-site-accent">{faq.question}</summary>
+                  <p className="mt-3 max-w-3xl leading-7 text-site-muted">{faq.answer}</p>
                 </details>
               ))}
             </div>
-            <Link href="/blog/premiere-pro-project-intake-checklist/" className="mt-8 inline-flex items-center gap-2 font-medium text-purple-200 hover:text-white">
+            <Link href="/blog/premiere-pro-project-intake-checklist/" className="mt-8 inline-flex items-center gap-2 font-medium text-site-accent hover:text-site-text">
               Read the full Project Intake checklist <ArrowRight className="h-4 w-4" aria-hidden="true" />
             </Link>
           </div>
         </section>
       </main>
-      <Footer />
     </>
+    </PublicPage>
   )
 }

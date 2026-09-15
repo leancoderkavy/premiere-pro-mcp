@@ -1,3 +1,4 @@
+import { PublicPage } from "@/components/site/public-page"
 import type { Metadata } from "next"
 import Link from "next/link"
 import { HomeLink } from "@/components/ui/home-link"
@@ -66,35 +67,37 @@ const problems = [
 ]
 export default function TroubleshootingPage() {
   return (
+    <PublicPage>
     <main
       id="main-content"
-      className="min-h-screen bg-black px-5 py-12 text-zinc-100"
+      className="min-h-screen bg-site-bg px-5 py-12 text-site-text"
     >
       <article className="mx-auto max-w-3xl">
         <nav
           aria-label="Breadcrumb"
-          className="flex flex-wrap gap-3 text-sm text-zinc-300"
+          className="flex flex-wrap gap-3 text-sm text-site-detail"
         >
           <HomeLink className="inline-flex min-h-11 items-center" href="/">
             MCP for Adobe Premiere Pro
           </HomeLink>
           <Link
-            className="inline-flex min-h-11 items-center text-violet-200"
-            href="/workflows/"
+            className="inline-flex min-h-11 items-center text-site-accent"
+            href="/docs/"
           >
-            Workflow starter kit
+            Documentation
           </Link>
+          <span aria-hidden="true">/</span><span>Setup &amp; recovery</span>
         </nav>
         <header className="py-9">
-          <p className="text-sm text-violet-200">Setup and recovery</p>
+          <p className="text-sm text-site-accent">Setup and recovery</p>
           <h1 className="mt-4 text-4xl font-semibold tracking-tight sm:text-5xl">
             Premiere Pro MCP not connecting?
           </h1>
-          <p className="mt-5 text-lg leading-8 text-zinc-300">
+          <p className="mt-5 text-lg leading-8 text-site-detail">
             Find the failing step before trying another edit. Start with a
             disposable project and the read-only check.
           </p>
-          <p className="mt-5 break-words rounded-lg border border-zinc-700 p-5 font-mono text-sm leading-7">
+          <p className="mt-5 break-words rounded-lg border border-site-line p-5 font-mono text-sm leading-7">
             {safeFirstPrompt}
           </p>
         </header>
@@ -102,7 +105,7 @@ export default function TroubleshootingPage() {
           {problems.map((problem) => (
             <section key={problem.title} className="py-8">
               <h2 className="text-2xl font-semibold">{problem.title}</h2>
-              <ol className="mt-5 list-decimal space-y-4 pl-5 leading-7 text-zinc-300">
+              <ol className="mt-5 list-decimal space-y-4 pl-5 leading-7 text-site-detail">
                 {problem.steps.map((step) => (
                   <li key={step}>{step}</li>
                 ))}
@@ -110,28 +113,28 @@ export default function TroubleshootingPage() {
             </section>
           ))}
         </div>
-        <section className="mt-6 rounded-xl border border-zinc-700 p-6">
+        <section className="mt-6 rounded-xl border border-site-line p-6">
           <h2 className="text-2xl font-semibold">Retry a bounded workflow</h2>
-          <p className="mt-4 leading-7 text-zinc-300">
+          <p className="mt-4 leading-7 text-site-detail">
             Once the connection reports ready, start with the sequence check. Do
             not treat readiness as proof that an edit completed.
           </p>
           <div className="mt-5 flex flex-wrap gap-4">
             <Link
               href="/workflows/#project-check"
-              className="inline-flex min-h-12 items-center rounded-md bg-violet-200 px-5 font-semibold text-black"
+              className="inline-flex min-h-12 items-center rounded-md bg-site-accent px-5 font-semibold text-black"
             >
               Try the project check
             </Link>
             <a
               href={product.links.readme}
-              className="inline-flex min-h-12 items-center text-violet-200 underline"
+              className="inline-flex min-h-12 items-center text-site-accent underline"
             >
               Installation reference
             </a>
             <a
               href={product.links.issues}
-              className="inline-flex min-h-12 items-center text-violet-200 underline"
+              className="inline-flex min-h-12 items-center text-site-accent underline"
             >
               Report a setup issue
             </a>
@@ -139,5 +142,6 @@ export default function TroubleshootingPage() {
         </section>
       </article>
     </main>
+    </PublicPage>
   )
 }
