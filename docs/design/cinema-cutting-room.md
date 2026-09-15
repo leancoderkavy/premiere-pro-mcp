@@ -25,6 +25,37 @@ This is an interactive film study using still images. The waveform is decorative
 there is no audio playback, live Premiere session, or media-editing backend.
 Product links, installation flows, and experiment assignment are unchanged.
 
+## MCP editing playground — September 15 refinement
+
+The cutting room now explains the connection between an assistant, MCP and the
+local bridge, and Adobe Premiere Pro. Three guided requests show the read, edit,
+and readback stages while changing the sample sequence:
+
+- Trim the opening to four seconds and close the gap.
+- Move the blue shot to the beginning, keeping all three shots.
+- Add a review marker at the current playhead position.
+
+Visitors can also drag shots into a new order, adjust the selected clip's duration
+between two and eight seconds, and undo or reset edits. The ruler, clip widths,
+timecode, playback endpoint, selected shot, and film preview share the edited
+sequence. Continuous duration drags create a single undo entry. Markers stay within
+the sequence when it gets shorter; duplicate markers and edits do not create
+extra undo entries. The demo keeps up to 12 markers and 30 undo entries.
+
+Keyboard users can move clips with Alt + left/right, use the Earlier/Later buttons,
+or adjust the native duration slider. Touch supports horizontal clip dragging and
+the same explicit buttons. The lower desk keeps its fixed perspective; pointer
+parallax moves only the film composition above it.
+
+The browser simulates these requests locally. It does not send a prompt, upload
+media, or connect to an installed Premiere session. The interface labels this as
+an interactive demo with sample media. Optional tool details use the repository's
+real `get_sequence_structure`, `trim_clip`, `move_clip`, `add_marker`,
+`delete_marker`, and `get_sequence_markers_by_type` schemas with fictional clip
+IDs. The examples illustrate the protocol flow, not a guarantee of support on a
+particular installed Premiere version. The waveform and color track remain visual
+context; the film frames are generated stills.
+
 ## Runtime
 
 - WebGL loads separately on fine-pointer viewports at least 900px wide.
@@ -66,6 +97,12 @@ watermarks. Maintain three precise horizontal bands in a landscape 3:2 atlas.
 
 ## Verification
 
+The MCP playground's runtime coverage verifies composed requests, example tool details, duplicate markers,
+independent undo, mouse and touch clip dragging, keyboard ordering, duration
+changes, one undo entry per slider drag, and reset. Responsive and accessibility
+checks cover the new controls alongside the existing motion and experiment cases.
+The landing build enforces the 240,000-byte initial gzipped JavaScript budget.
+
 Run from `landing`: `npm run build`, the targeted ESLint check, and
 `npx playwright test e2e/homepage.spec.ts` after the root `npm run build`.
 The browser suite covers both homepage variants, seven responsive widths from
@@ -75,7 +112,7 @@ touch controls, motion, context loss, navigation, installation actions,
 no-JavaScript content, and the existing analytics contract.
 
 Preview the built treatment at `/design-preview/` through the repository HTTP
-server. This change has not been deployed to production.
+server. The original cutting-room design was deployed before this refinement.
 
 Local results: root build, landing production build, targeted ESLint, and all 38
 homepage browser tests passed. After the final spacing and visibility adjustments,
