@@ -44,6 +44,9 @@ const READ_ONLY_TOOLS = new Set([
   "plan_cross_app_workflow",
   "plan_speaker_checkerboard",
   "plan_active_speaker_reframe",
+  "plan_reaction_captions",
+  "plan_short_subscribe_cta",
+  "plan_short_export_folder",
   "diff_sequence_snapshots",
   "audit_timeline_health",
 ]);

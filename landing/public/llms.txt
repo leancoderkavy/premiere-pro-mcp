@@ -13,7 +13,7 @@ Release: https://github.com/leancoderkavy/premiere-pro-mcp/releases/tag/v1.15.2
 
 ## Development source, separate from publication
 
-Current source metadata registers 370 core structured MCP tools, 368 in the default profile, and 95 capability-gated tools for 463 connected tools. Source package version: 1.15.2. Main may include changes not in the published package even when its version string is unchanged.
+Current source metadata registers 373 core structured MCP tools, 371 in the default profile, and 95 capability-gated tools for 466 connected tools. Source package version: 1.15.2. Main may include changes not in the published package even when its version string is unchanged.
 
 ## Start a workflow
 

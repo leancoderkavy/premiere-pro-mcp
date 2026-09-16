@@ -23,6 +23,8 @@ export function buildPremiereInstructions(registeredTools: ReadonlySet<string>):
     "Create scoped review images when requested. Inspect the resulting images in a client that can view local artifacts; distinguish image review from playback and audio review.");
   route(["export_sequence", "verify_delivery_file", "verify_delivery_conformance"],
     "Preflight the requested destination and preset, export, then verify the actual file and delivery requirements. Queue acceptance is not render completion.");
+  route(["plan_reaction_captions", "plan_short_subscribe_cta", "plan_short_export_folder"],
+    "For reaction Shorts, plan stacked speaker-colored captions without guessing unknown colors, place a subscribe overlay about two-thirds through, and export into a series-named folder created if missing. Caption-track import cannot encode speaker colors; apply reviewed graphics or a MOGRT, and keep Cafe styling off Watch Club kits.");
 
   return `Control Adobe Premiere Pro through the tools registered in this MCP session.
 

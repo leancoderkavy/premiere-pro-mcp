@@ -74,6 +74,12 @@ export const WORKFLOW_CATALOG = [
     recommendedTools: ["manage_project_context", "create_editorial_plan", "preview_editorial_plan", "import_media", "create_caption_track", "get_sequence_structure"],
   },
   {
+    id: "reaction-shorts",
+    title: "Caption and deliver reaction Shorts",
+    summary: "Plan stacked speaker-colored captions without guessing unknown speakers, place a mid-video subscribe overlay, export into a series-named folder, then verify review frames before delivery.",
+    recommendedTools: ["plan_reaction_captions", "plan_short_subscribe_cta", "plan_short_export_folder", "import_mogrt", "export_sequence_review_frames", "export_sequence"],
+  },
+  {
     id: "platform-cutdown",
     title: "Plan platform cutdowns",
     summary: "Capture source-sequence context, propose bounded platform dimensions, review derivative sequence routes, then create and verify each cutdown deliberately.",

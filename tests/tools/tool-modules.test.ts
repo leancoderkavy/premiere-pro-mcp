@@ -64,6 +64,7 @@ import { getSpeakerLayoutTools } from "../../src/tools/speaker-layout.js";
 import { getRhythmPlanTools } from "../../src/tools/rhythm-plans.js";
 import { getShortsIntelligenceTools } from "../../src/tools/shorts-intelligence.js";
 import { getCaptionAuthoringTools } from "../../src/tools/caption-authoring.js";
+import { getReactionShortsTools } from "../../src/tools/reaction-shorts.js";
 import { getTranscriptWordEditTools } from "../../src/tools/transcript-word-edits.js";
 import type { Telemetry, TelemetryProperties } from "../../src/telemetry.js";
 
@@ -124,6 +125,7 @@ const ALL_MODULES: Array<{
   { name: "platform-delivery", getter: getPlatformDeliveryTools, minTools: 2 },
   { name: "transcript-word-edits", getter: getTranscriptWordEditTools, minTools: 4 },
   { name: "caption-authoring", getter: getCaptionAuthoringTools, minTools: 2 },
+  { name: "reaction-shorts", getter: getReactionShortsTools, minTools: 3 },
   { name: "shorts-intelligence", getter: getShortsIntelligenceTools, minTools: 2 },
   { name: "rhythm-plans", getter: getRhythmPlanTools, minTools: 2 },
   { name: "speaker-layout", getter: getSpeakerLayoutTools, minTools: 2 },
@@ -212,16 +214,16 @@ describe("Tool Module Structure", () => {
 });
 
 describe("Total Tool Count", () => {
-  it("all modules together have 359 tools", () => {
+  it("all modules together have 362 tools", () => {
     let total = 0;
     for (const mod of ALL_MODULES) {
       total += Object.keys(mod.getter(bridgeOptions)).length;
     }
-    expect(total).toBe(359);
+    expect(total).toBe(362);
   });
 
-  it("there are 47 directly enumerated modules", () => {
-    expect(ALL_MODULES.length).toBe(47);
+  it("there are 48 directly enumerated modules", () => {
+    expect(ALL_MODULES.length).toBe(48);
   });
 });
 

@@ -136,6 +136,9 @@ export const WORKFLOW_TOOL_PACKS: readonly WorkflowToolPack[] = [
       "export_sequence_clip_review_frames",
       "build_caption_artifact",
       "check_caption_safe_zone",
+      "plan_reaction_captions",
+      "plan_short_subscribe_cta",
+      "plan_short_export_folder",
     ],
   },
   {
@@ -159,6 +162,9 @@ export const WORKFLOW_TOOL_PACKS: readonly WorkflowToolPack[] = [
       "plan_cross_app_workflow",
       "plan_speaker_checkerboard",
       "plan_active_speaker_reframe",
+      "plan_reaction_captions",
+      "plan_short_subscribe_cta",
+      "plan_short_export_folder",
     ],
   },
   {

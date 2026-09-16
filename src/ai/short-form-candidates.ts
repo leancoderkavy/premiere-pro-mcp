@@ -290,7 +290,9 @@ export const SHORT_FORM_ROUTES = Object.freeze([
   { step: "preview_derivative", routes: ["preview_derived_dialogue_sequence_uxp"], note: "Preview a derivative sequence from the approved candidate segments before applying." },
   { step: "recipe", routes: ["search_workflow_recipes", "preview_workflow_recipe"], recipe_id: "shorts-cutdown", note: "Expand the shorts-cutdown recipe for the reframe, caption and delivery steps." },
   { step: "reframe", routes: ["auto_reframe_sequence"], note: "Reframe the derivative to the vertical target." },
-  { step: "captions", routes: ["build_caption_artifact", "create_caption_track"], note: "Build a caption artifact from the same word timeline and attach it." },
+  { step: "captions", routes: ["build_caption_artifact", "create_caption_track", "plan_reaction_captions"], note: "Build a caption artifact from the same word timeline, or plan stacked speaker-colored reaction captions before attaching it." },
+  { step: "subscribe_cta", routes: ["plan_short_subscribe_cta", "import_mogrt"], note: "Place a brief subscribe overlay about two-thirds through the Short." },
+  { step: "export_folder", routes: ["plan_short_export_folder", "export_sequence"], note: "Export into a series-named folder, creating it when missing." },
 ]);
 
 export function rankShortFormCandidates(options: ShortFormCandidateOptions) {
