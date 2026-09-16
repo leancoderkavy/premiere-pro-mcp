@@ -10,7 +10,7 @@ No confirmed leaked credentials were found in the scans performed. This is not a
 
 The dependency audit reports three distinct affected packages across the two lockfiles: Hono, js-yaml, and sharp. Their advisory severity and actual application exposure differ; details follow.
 
-This review produced a report only. No application fixes, dependency updates, commits, deployments, or credential rotations were performed.
+The original audit produced a report only. The PR remediation section below records subsequent fixes and validation; the numbered findings preserve the original evidence. No deployment or credential rotation is included in the remediation PR.
 
 ## Scope and evidence
 
@@ -149,3 +149,22 @@ The competitive release catches malformed UXP upgrade URLs, returns HTTP 400,
 and includes a real-socket regression proving an authenticated host can still
 connect afterward. This addresses the malformed-URL process crash below. The
 remaining findings retain their original audit scope and are not marked fixed.
+
+## PR remediation
+
+The follow-up branch starts from `6980cc884307258ef16686f33c3564f59a9b2140`, which already contains the malformed UXP upgrade fix and its real-socket regression. The remaining findings are addressed as follows:
+
+| Finding | Remediation |
+| --- | --- |
+| 1 — CEP directory trust | Server and both panels validate directory ownership, symlinks, permissions and ancestor replacement rights before command publication, cleanup, heartbeat or polling. Existing group/other-writable POSIX directories are rejected. Windows ACL checks reject untrusted write grants, including inherited ones; inspection uses an encoded command and passes the path as data. |
+| 2 — malformed UXP upgrade | Retained the upstream 400 response and regression proving a subsequent authenticated connection still succeeds. |
+| 3 — public HTML work | Bounded asynchronous source reads, bounded source cache, asynchronous gzip and a separate HTML concurrency cap. Per-response nonces remain fresh; HEAD skips rendering and compression. |
+| 4 — media traversal | Asynchronous traversal with entry, file, directory, depth, queue and cooperative elapsed-time budgets; incomplete scans are explicitly reported and stopping cancels active traversal. |
+| 5 — backups | Streamed copy/checksums, a default 2 GiB configurable budget, one active backup per process, exclusive destination creation, source verification and failure cleanup. |
+| 6 — dependency advisories | Locked Hono 4.13.8, js-yaml 4.3.2 and sharp 0.35.4. Added dependency audit gates to CI. |
+| 7 — container privileges | Production runs as `node` (UID 1000), with a private writable context directory. |
+| 8 — secret exclusions | Git ignores local environment variants and credential/key files; Docker additionally excludes all such files and nested worktrees. |
+
+Compatibility notes: cached HTML is immutable for the process lifetime, so replacing an export requires a restart. Unsafe existing bridge directories require an operator-selected private directory; the fix does not trust or execute commands already staged in a writable directory. Media scan elapsed limits are checked between asynchronous OS operations, not a deadline that can interrupt a stalled filesystem call. Backup and media-watch library methods are now asynchronous; MCP handler results retain their existing JSON shape with additional scan-completeness fields.
+
+Validation details are recorded in the PR. Local tests do not establish licensed Premiere/After Effects execution or deployed production behavior.

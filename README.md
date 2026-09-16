@@ -1255,6 +1255,10 @@ user/device authorization are implemented.
 | `MCP_MAX_REQUESTS_PER_SOCKET` | Requests permitted on one keep-alive socket | `100` |
 | `MCP_MAX_CONCURRENT_REQUESTS` | In-flight authenticated MCP request ceiling | `8` |
 | `MCP_MAX_CONCURRENT_STREAMS` | Open authenticated SSE stream ceiling; isolated from operation capacity | `32` |
+| `MCP_MAX_CONCURRENT_LANDING_DOCUMENTS` | Concurrent HTML reads, nonce injection and asynchronous compression; excess work returns `503` | `4` |
+| `MCP_LANDING_MAX_HTML_BYTES` | Maximum source HTML document bytes | `4194304` (4 MiB) |
+| `MCP_LANDING_HTML_CACHE_BYTES` | Source HTML cache memory budget; must be at least the document byte limit | `16777216` (16 MiB) |
+| `PREMIERE_MCP_PROJECT_BACKUP_MAX_BYTES` | Positive integer byte budget for one project backup | `2147483648` (2 GiB) |
 | `MCP_RATE_LIMIT_PER_MINUTE` | Per-credential token-bucket refill rate | `120` |
 | `MCP_RATE_LIMIT_BURST` | Per-credential short burst allowance | `30` |
 | `MCP_MAX_RATE_LIMIT_KEYS` | In-memory rate-limit identity ceiling | `2048` |
@@ -1372,9 +1376,33 @@ by default. Enable them only by setting
   upstream rate limit and request-size limit too; process-local counters do not protect a multi-machine deployment.
 - **The landing CSP uses a per-response nonce for scripts**, and its static assets use explicit cache policies.
   Keep the server in front of the exported landing so those controls are not bypassed by a separate static host.
-- The bridge temp directory is created private to your user (mode `0700`), and the server
-  refuses to use one owned by another user — relevant on shared machines, where the CEP
-  panel would otherwise execute any `cmd_*.jsx` staged there.
+  Source HTML is cached as immutable build output; restart the HTTP process after replacing
+  an export. Each response still gets a fresh nonce. HEAD requests skip body rendering.
+- **Media scans yield between asynchronous filesystem operations** and bound total traversal:
+  25,000 entries, 5,000 matching files, 2,000 directories, depth 32, a 1,000-directory
+  pending queue, and a cooperative five-second budget. A stalled OS call can exceed that
+  elapsed budget. Inspect `scan_incomplete` and `scan_limit_reasons` before treating a
+  watch baseline as complete; import previews also report `incomplete`.
+- **Project backups stream their copy and checksum work** with a configurable byte budget.
+  Only one backup runs per process; concurrent requests fail promptly. Failed or cancelled
+  copies are removed without replacing an existing backup.
+- **The Docker runner uses the unprivileged `node` user (UID 1000).** Custom bridge or
+  context volume mounts must be writable by that user and private to the operator.
+  The default context directory is under `/home/node/.local/state/premiere-pro-mcp`.
+- Dependency audits run in CI for both lockfiles. Keep local `.env*`, `.npmrc`, and
+  private key/certificate files out of commits and Docker build contexts; only
+  placeholder `.env.example` and `.env.template` files are eligible for Git tracking.
+- Both CEP panels validate the bridge directory before writing a heartbeat or polling
+  commands. Symlinks and directories owned by another user are refused. On POSIX,
+  directories writable by group/other users are refused by both the server and panels;
+  tightening permissions alone cannot make previously staged commands trustworthy.
+  On Windows, only the current user, SYSTEM and Administrators may have write access,
+  including inherited grants. ACL inspection failures also stop startup. Ancestors must
+  also prevent other users from replacing the bridge path; a private child inside a
+  broadly writable parent is insufficient (POSIX sticky temp directories are supported).
+  Choose a new directory under a private user-owned location if the connector rejects
+  a shared temp folder, and configure the same path on the server and panel. Do not
+  copy pending commands from the rejected folder into the new one.
 - There is a 500 KB script size limit, and a small regex check that rejects `eval()`,
   `new Function()`, and `System.callSystem()` in tool-generated scripts. **This is a guard
   rail, not a sandbox** — it is trivially bypassable and is not a security boundary. Do not
