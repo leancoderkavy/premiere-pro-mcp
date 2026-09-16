@@ -3,7 +3,7 @@
   "evidenceScope": "source_catalog_may_include_unreleased_work",
   "sourceVersion": "1.15.2",
   "sourcePath": "docs/supported-actions.md",
-  "sourceSha256": "e62278168ca803e4cd7755a25980117d7a6742471c60a088691f0360375e5731",
+  "sourceSha256": "5d6e33077f3db65375484dbd3de39b7ea92b653ff14b55fac42e8a5faddcac10",
   "hostVerification": "not_established_by_catalogs",
   "counts": {
     "default": 368,
@@ -57,7 +57,7 @@
       "name": "add_to_render_queue",
       "surface": "default",
       "modes": "Single operation",
-      "description": "Request an Adobe Media Encoder render-queue handoff for the active sequence. Verify queue presence or the output file independently."
+      "description": "Request an Adobe Media Encoder render-queue handoff for the active sequence. Requires a saved project and an .epr preset_path. Verify queue presence or the output file independently; Same as Project presets can still ignore the absolute output_path."
     },
     {
       "name": "add_to_timeline",
@@ -597,7 +597,7 @@
       "name": "detect_scene_edits_uxp",
       "surface": "uxp",
       "modes": "mode: apply_cuts, create_markers, create_subclips",
-      "description": "Run Premiere's documented scene-edit detection on the current timeline selection using cuts, markers, or subclips. This direct host mutation is not claimed undoable."
+      "description": "Run Premiere's documented scene-edit detection on the current timeline selection using cuts, markers, or subclips. create_markers still runs when a selected item has no marker collection and reports committed_unverified if no markers can be read back. This direct host mutation is not claimed undoable."
     },
     {
       "name": "detect_silence",
@@ -1221,7 +1221,7 @@
       "name": "import_fcp_xml",
       "surface": "default",
       "modes": "Single operation",
-      "description": "Open a Final Cut Pro XML file as a new Premiere project. app.openFCPXML(path, projPath) requires a destination project path; it does not merge the XML into the currently open project."
+      "description": "Open a Final Cut Pro XML file as a new Premiere project. app.openFCPXML(path, projPath) requires a destination project path; it does not merge the XML into the currently open project. verified is true only when that destination exists as a file and Premiere has that exact path open."
     },
     {
       "name": "import_folder",
@@ -1269,7 +1269,7 @@
       "name": "import_transcript_uxp",
       "surface": "uxp",
       "modes": "Single operation",
-      "description": "Replace one source media clip's native transcript JSON through documented Premiere 26.3+ UXP APIs. Use project_guid and transcript_revision returned by get_clip_transcript_uxp, or project_guid plus a null expected_transcript_revision from has_transcript_uxp for an untranscribed clip. This destructive import requires explicit confirmation and an operation_id, serializes competing imports for the same project item, runs one undoable transaction, and reports exact bounded export SHA-256 readback rather than claiming a licensed-host result."
+      "description": "Replace one source media clip's native transcript JSON through documented Premiere 26.3+ UXP APIs. Use project_guid and transcript_revision returned by get_clip_transcript_uxp, or omit expected_transcript_revision (or pass null) from has_transcript_uxp for an untranscribed clip. This destructive import requires explicit confirmation and an operation_id, serializes competing imports for the same project item, runs one undoable transaction, and reports exact bounded export SHA-256 readback rather than claiming a licensed-host result."
     },
     {
       "name": "insert_from_source",
@@ -1401,7 +1401,7 @@
       "name": "inspect_project_tree_uxp",
       "surface": "uxp",
       "modes": "Single operation",
-      "description": "Read a bounded, depth-limited native Project-panel tree rooted at the active project. Returns stable IDs, names, types, parent IDs, bin state, and optional color-label indexes only; it never returns media paths, metadata, or rendered media."
+      "description": "Read a bounded, depth-limited native Project-panel tree rooted at the active project. Returns stable IDs, names, types, parent IDs, bin state, and optional color-label indexes only; it never returns media paths, metadata, or rendered media. Items without a stable ID are skipped rather than failing the whole tree."
     },
     {
       "name": "inspect_project_uxp",
@@ -1545,7 +1545,7 @@
       "name": "list_markers",
       "surface": "default",
       "modes": "Single operation",
-      "description": "List all markers on the active sequence or a specific clip"
+      "description": "List markers on the active sequence, or on a source project item that exposes a marker collection. A timeline-clip node_id returns a clean error instead of a raw TypeError."
     },
     {
       "name": "list_markers_uxp",
@@ -2403,7 +2403,7 @@
       "name": "set_effect_property",
       "surface": "default",
       "modes": "Single operation",
-      "description": "Set the value of a specific effect property on a clip. Accepts scalar, boolean, string, and array-shaped vector values (for example Motion > Position as [x, y]) and verifies the readback component by component."
+      "description": "Set the value of a specific effect property on a clip. Accepts scalar, boolean, string, array-shaped vector values (for example Motion > Position as [x, y]), and MOGRT JSON objects or strings, and verifies the readback component by component."
     },
     {
       "name": "set_footage_interpretation",

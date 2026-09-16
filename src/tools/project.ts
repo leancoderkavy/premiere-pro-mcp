@@ -694,7 +694,7 @@ export function getProjectTools(bridgeOptions: BridgeOptions) {
 
     import_fcp_xml: {
       description:
-        "Open a Final Cut Pro XML file as a new Premiere project. app.openFCPXML(path, projPath) requires a destination project path; it does not merge the XML into the currently open project.",
+        "Open a Final Cut Pro XML file as a new Premiere project. app.openFCPXML(path, projPath) requires a destination project path; it does not merge the XML into the currently open project. verified is true only when that destination exists as a file and Premiere has that exact path open.",
       parameters: {
         type: "object" as const,
         properties: {
@@ -727,6 +727,10 @@ export function getProjectTools(bridgeOptions: BridgeOptions) {
           var xmlFile = new File("${xmlPath}");
           if (!xmlFile.exists) return __error("FCP XML file not found on disk: ${xmlPath}");
           var destinationFile = new File("${projectPath}");
+          var destinationFolder = new Folder("${projectPath}");
+          if (destinationFolder.exists) {
+            return __error("project_path exists as a directory, not a .prproj file: ${projectPath}. Choose a destination file path that does not already exist as a folder.");
+          }
           if (destinationFile.exists) {
             return __error("A project already exists at ${projectPath}. Choose a destination project_path that does not exist so an existing project is not overwritten.");
           }
@@ -742,17 +746,27 @@ export function getProjectTools(bridgeOptions: BridgeOptions) {
 
           var openedPath = "";
           try { openedPath = String(app.project.path); } catch (pathError) { openedPath = ""; }
-          if (!destinationFile.exists && !openedPath) {
-            return __error("Premiere returned without an error, but no project was created at ${projectPath} and no project path is readable, so the FCP XML import is not verified.");
+          destinationFile = new File("${projectPath}");
+          destinationFolder = new Folder("${projectPath}");
+          var destExistsAsFile = destinationFile.exists && !destinationFolder.exists;
+          function __normalizeProjectPath(value) {
+            return String(value || "").replace(/\\\\/g, "/").toLowerCase();
+          }
+          var openedMatches = destExistsAsFile && openedPath
+            && __normalizeProjectPath(openedPath) === __normalizeProjectPath(destinationFile.fsName);
+          if (!destExistsAsFile && !openedPath) {
+            return __error("Premiere returned without an error, but no project file was created at ${projectPath} and no project path is readable, so the FCP XML import is not verified.");
           }
 
           return __result({
             imported: true,
-            verified: destinationFile.exists,
+            verified: destExistsAsFile && openedMatches,
             path: "${xmlPath}",
             projectPath: "${projectPath}",
             openedProjectPath: openedPath,
-            verification: "Destination project file existence only; timeline, media links, and effect fidelity are not verified."
+            verification: openedMatches
+              ? "Destination project file exists and Premiere has that exact path open. Timeline, media links, and effect fidelity are not verified."
+              : "Premiere did not open the requested destination project_path. An empty folder or a different project is not treated as verified."
           });
         `);
         return sendCommand(script, bridgeOptions);
