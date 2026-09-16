@@ -1,8 +1,14 @@
 import { closeSync, existsSync, ftruncateSync, mkdirSync, mkdtempSync, openSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { describe, expect, it } from "vitest";
+import { open } from "node:fs/promises";
+import { describe, expect, it, vi } from "vitest";
 import { createProjectBackup, getRecoveryTools } from "../src/tools/recovery.js";
+
+vi.mock("node:fs/promises", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("node:fs/promises")>();
+  return { ...actual, open: vi.fn(actual.open) };
+});
 
 describe("createProjectBackup", () => {
   it("streams a byte-identical recovery copy and leaves the source unchanged", async () => {
@@ -78,7 +84,7 @@ describe("createProjectBackup", () => {
     expect(existsSync(`${source}.backup-2026-08-23T17-00-00-000Z`)).toBe(false);
   });
 
-  it.skipIf(process.platform === "win32" && Number(process.versions.node.split(".")[0]) === 20)("removes a partial backup when streaming is cancelled", async () => {
+  it("removes a partial backup when streaming is cancelled", async () => {
     const directory = mkdtempSync(join(tmpdir(), "premiere-project-backup-"));
     const source = join(directory, "large.prproj");
     const now = new Date("2026-08-23T17:00:00.000Z");
@@ -90,22 +96,41 @@ describe("createProjectBackup", () => {
 
     try {
       const backup = createProjectBackup(source, now, { signal: controller.signal });
-      for (let attempt = 0; attempt < 200 && !existsSync(backupPath); attempt++) {
-        await new Promise<void>((resolve) => setImmediate(resolve));
-      }
-      expect(existsSync(backupPath)).toBe(true);
+      await vi.waitFor(() => expect(existsSync(backupPath)).toBe(true), { interval: 1, timeout: 2000 });
       controller.abort();
 
       await expect(backup).rejects.toThrow(/cancelled|AbortError|aborted/i);
       expect(existsSync(backupPath)).toBe(false);
     } finally {
-      try {
-        rmSync(directory, { recursive: true, force: true, maxRetries: 20, retryDelay: 100 });
-      } catch (error) {
-        if ((error as NodeJS.ErrnoException).code !== "ENOTEMPTY" && (error as NodeJS.ErrnoException).code !== "EBUSY") {
-          throw error;
-        }
-      }
+      // Rejection must mean file handles are closed, not just that copying has
+      // stopped. Windows cannot remove the directory with a pending source handle.
+      rmSync(directory, { recursive: true, force: true });
+    }
+  });
+
+  it("closes both files when cancellation happens while the destination opens", async () => {
+    const directory = mkdtempSync(join(tmpdir(), "premiere-project-backup-"));
+    const source = join(directory, "opening.prproj");
+    const now = new Date("2026-08-23T17:00:00.000Z");
+    const backupPath = `${source}.backup-2026-08-23T17-00-00-000Z`;
+    const controller = new AbortController();
+    writeFileSync(source, "fixture");
+    const actual = await vi.importActual<typeof import("node:fs/promises")>("node:fs/promises");
+    vi.mocked(open).mockImplementationOnce(async (...args) => {
+      const handle = await actual.open(...args);
+      controller.abort();
+      return handle;
+    });
+
+    try {
+      await expect(createProjectBackup(source, now, { signal: controller.signal }))
+        .rejects.toThrow(/cancelled|AbortError|aborted/i);
+      expect(existsSync(backupPath)).toBe(false);
+      expect(readFileSync(source, "utf8")).toBe("fixture");
+    } finally {
+      vi.mocked(open).mockReset().mockImplementation(actual.open);
+      // No retries: a rejected operation must have released its file handles.
+      rmSync(directory, { recursive: true, force: true });
     }
   });
 
