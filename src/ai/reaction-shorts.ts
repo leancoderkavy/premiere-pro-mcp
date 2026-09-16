@@ -252,15 +252,16 @@ export function parseShotChanges(value: unknown): ShotChange[] {
 
 function groupSpeakerCues(words: readonly TranscriptWord[], mergeGapSeconds: number): DraftCue[] {
   const cues: DraftCue[] = [];
+  const lastBySpeaker = new Map<string, DraftCue>();
   for (const word of words) {
     const speaker = word.speaker_label?.trim() || UNKNOWN_SPEAKER;
-    const previous = cues[cues.length - 1];
-    if (previous && previous.speaker_label === speaker && word.start_seconds - previous.end_seconds <= mergeGapSeconds + EPSILON) {
+    const previous = lastBySpeaker.get(speaker);
+    if (previous && word.start_seconds - previous.end_seconds <= mergeGapSeconds + EPSILON) {
       previous.words.push(word);
       previous.end_seconds = Math.max(previous.end_seconds, word.end_seconds);
       continue;
     }
-    cues.push({
+    const cue: DraftCue = {
       speaker_label: speaker,
       words: [word],
       start_seconds: word.start_seconds,
@@ -269,20 +270,28 @@ function groupSpeakerCues(words: readonly TranscriptWord[], mergeGapSeconds: num
       aligned_to_shot: false,
       stack_slot: 0,
       review_stack: false,
-    });
+    };
+    cues.push(cue);
+    lastBySpeaker.set(speaker, cue);
   }
   return cues;
+}
+
+function lastSameSpeakerCue(cues: readonly DraftCue[], speaker: string): DraftCue | undefined {
+  for (let index = cues.length - 1; index >= 0; index -= 1) {
+    if (cues[index].speaker_label === speaker) return cues[index];
+  }
+  return undefined;
 }
 
 function mergeMicroCues(cues: DraftCue[], minSoloSeconds: number, combineGapSeconds: number): DraftCue[] {
   const merged: DraftCue[] = [];
   for (const cue of cues) {
-    const previous = merged[merged.length - 1];
+    const previous = lastSameSpeakerCue(merged, cue.speaker_label);
     const duration = cue.end_seconds - cue.start_seconds;
     const previousDuration = previous ? previous.end_seconds - previous.start_seconds : Number.POSITIVE_INFINITY;
-    const sameSpeaker = previous?.speaker_label === cue.speaker_label;
     const gap = previous ? cue.start_seconds - previous.end_seconds : Number.POSITIVE_INFINITY;
-    if (sameSpeaker && gap <= combineGapSeconds + EPSILON && (previousDuration < minSoloSeconds || duration < minSoloSeconds)) {
+    if (previous && gap <= combineGapSeconds + EPSILON && (previousDuration < minSoloSeconds || duration < minSoloSeconds)) {
       previous.words.push(...cue.words);
       previous.end_seconds = Math.max(previous.end_seconds, cue.end_seconds);
       previous.merged_cue_count += cue.merged_cue_count;
@@ -500,7 +509,7 @@ export function planShortSubscribeCta(input: Record<string, unknown>): ShortSubs
 
 function sanitizePathSegment(value: string, label: string): string {
   if (/[\\/]/.test(value) || value === "." || value === "..") fail(`${label} must be a single folder or file name, not a path`);
-  if (!/^[\p{L}\p{N} _.'"!?-]+$/u.test(value)) fail(`${label} may contain letters, numbers, spaces, and _.'\"!?- only`);
+  if (!/^[\p{L}\p{N} _.'"!?:+,&~×-]+$/u.test(value)) fail(`${label} may contain letters, numbers, spaces, and typical title punctuation`);
   return value;
 }
 

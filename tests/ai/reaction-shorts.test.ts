@@ -1,3 +1,5 @@
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
   planReactionCaptions,
@@ -39,6 +41,22 @@ describe("planReactionCaptions", () => {
     expect(plan.cues[0].position.y).toBe(0.7);
     expect(plan.cues[1].position.y).toBe(0.62);
     expect(plan.uncertain_speakers).toEqual([]);
+  });
+
+  it("combines same-speaker flashes across an interleaved talker", () => {
+    const plan = planReactionCaptions({
+      word_timeline: timeline([
+        word("no", 12.0, 12.2, "Nanda"),
+        word("wait", 12.1, 12.6, "YYQ"),
+        word("please", 12.35, 13.1, "Nanda"),
+      ]),
+      speaker_palette: palette,
+    });
+    expect(plan.cues.map((cue) => [cue.speaker_label, cue.text, cue.merged_cue_count])).toEqual([
+      ["Nanda", "No, please", 2],
+      ["YYQ", "Wait", 1],
+    ]);
+    expect(plan.stacked_overlap_count).toBeGreaterThan(0);
   });
 
   it("combines a flash word with the next same-speaker line", () => {
@@ -123,23 +141,38 @@ describe("planShortSubscribeCta", () => {
 });
 
 describe("planShortExportFolder", () => {
+  const exportRoot = join(tmpdir(), "all-shorts");
+
   it("nests the file under a series folder and asks to create it", () => {
     const plan = planShortExportFolder({
-      export_root: "D:/Exports/ALL Shorts",
+      export_root: exportRoot,
       series_name: "Dorohedoro",
       title: "Chota Troll",
       brand: "watch_club",
     });
-    expect(plan.recommended_directory).toBe("D:/Exports/ALL Shorts/Dorohedoro");
-    expect(plan.recommended_path).toBe("D:/Exports/ALL Shorts/Dorohedoro/Chota Troll.mp4");
+    expect(plan.recommended_directory).toBe(join(exportRoot, "Dorohedoro"));
+    expect(plan.recommended_path).toBe(join(exportRoot, "Dorohedoro", "Chota Troll.mp4"));
     expect(plan.create_directory_if_missing).toBe(true);
     expect(plan.brand_isolation).toMatch(/Watch Club/);
     expect(plan.applied).toBe(false);
   });
 
+  it("allows typical series punctuation while rejecting path segments", () => {
+    expect(planShortExportFolder({
+      export_root: exportRoot,
+      series_name: "Re:Zero",
+      title: "SPY×FAMILY",
+    }).recommended_directory).toBe(join(exportRoot, "Re:Zero"));
+    expect(() => planShortExportFolder({
+      export_root: exportRoot,
+      series_name: "Fate/stay night",
+      title: "Nope",
+    })).toThrow(/single folder/);
+  });
+
   it("rejects path traversal in the series name", () => {
     expect(() => planShortExportFolder({
-      export_root: "D:/Exports/ALL Shorts",
+      export_root: exportRoot,
       series_name: "../escape",
       title: "Nope",
     })).toThrow(/single folder/);
