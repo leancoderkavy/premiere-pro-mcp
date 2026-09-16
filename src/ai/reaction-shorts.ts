@@ -368,8 +368,8 @@ export function planReactionCaptions(input: Record<string, unknown>): ReactionCa
 
   const grouped = groupSpeakerCues(timeline.words, mergeGap);
   const combined = mergeMicroCues(grouped, minSolo, combineGap);
-  const stackedOverlapCount = assignStacks(combined, warnings);
   alignCuesToShots(combined, shots, minHold, warnings);
+  const stackedOverlapCount = assignStacks(combined, warnings);
 
   const uncertain = new Set<string>();
   const cues: ReactionCaptionCue[] = combined.map((cue, index) => {
@@ -442,7 +442,8 @@ function subscribeCopy(value: unknown, selectedBrand: ShortBrand): string {
 export function planShortSubscribeCta(input: Record<string, unknown>): ShortSubscribeCtaPlan {
   if (!isRecord(input)) fail("arguments must be an object");
   rejectUnknownKeys(input, ["duration_seconds", "at_ratio", "hold_seconds", "hook_end_seconds", "frame_rate", "brand", "copy", "platform"], "arguments");
-  const duration = boundedNumber(input.duration_seconds, "duration_seconds", 3, 180, NaN);
+  if (input.duration_seconds === undefined) fail("duration_seconds is required");
+  const duration = boundedNumber(input.duration_seconds, "duration_seconds", 3, 180, 3);
   const atRatio = boundedNumber(input.at_ratio, "at_ratio", 0.4, 0.9, 2 / 3);
   const hold = boundedNumber(input.hold_seconds, "hold_seconds", 1, 5, 2);
   const hookEnd = input.hook_end_seconds === undefined
@@ -508,22 +509,32 @@ export function planShortSubscribeCta(input: Record<string, unknown>): ShortSubs
 }
 
 function sanitizePathSegment(value: string, label: string): string {
-  if (/[\\/]/.test(value) || value === "." || value === "..") fail(`${label} must be a single folder or file name, not a path`);
-  if (!/^[\p{L}\p{N} _.'"!?:+,&~×-]+$/u.test(value)) fail(`${label} may contain letters, numbers, spaces, and typical title punctuation`);
-  return value;
+  const trimmed = value.trim();
+  if (!trimmed || /[\\/]/.test(trimmed) || trimmed === "." || trimmed === "..") fail(`${label} must be a single folder or file name, not a path`);
+  if (!/^[\p{L}\p{N} _.'"!?:+,&~×()[\]-]+$/u.test(trimmed)) fail(`${label} may contain letters, numbers, spaces, and typical title punctuation`);
+  return trimmed;
+}
+
+function isAbsoluteExportRoot(value: string): boolean {
+  return path.win32.isAbsolute(value) || path.posix.isAbsolute(value);
+}
+
+function pathApiFor(root: string): typeof path.win32 | typeof path.posix {
+  if (/^[A-Za-z]:[\\/]/.test(root) || root.startsWith("\\\\")) return path.win32;
+  return path.posix;
 }
 
 export function planShortExportFolder(input: Record<string, unknown>): ShortExportFolderPlan {
   if (!isRecord(input)) fail("arguments must be an object");
   rejectUnknownKeys(input, ["export_root", "series_name", "title", "brand", "extension"], "arguments");
   const exportRoot = requiredText(input.export_root, "export_root", 4096);
-  if (!path.isAbsolute(exportRoot)) fail("export_root must be an absolute path");
+  if (!isAbsoluteExportRoot(exportRoot)) fail("export_root must be an absolute path");
   const series = sanitizePathSegment(requiredText(input.series_name, "series_name", 80), "series_name");
   const title = sanitizePathSegment(requiredText(input.title, "title", 120), "title");
   const selectedBrand = brand(input.brand);
   const extension = (optionalText(input.extension, "extension", 8) ?? "mp4").replace(/^\./, "").toLocaleLowerCase();
   if (!/^[a-z0-9]{2,8}$/.test(extension)) fail("extension must be 2-8 alphanumeric characters");
-  const api = /\\/.test(exportRoot) ? path.win32 : path.posix;
+  const api = pathApiFor(exportRoot);
   const recommendedDirectory = api.join(exportRoot, series);
   const recommendedFilename = `${title}.${extension}`;
   const recommendedPath = api.join(recommendedDirectory, recommendedFilename);

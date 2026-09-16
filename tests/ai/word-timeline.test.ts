@@ -45,6 +45,14 @@ describe("validateWordTimeline", () => {
     expect(timeline.speakers).toEqual(["Nanda", "YYQ"]);
   });
 
+  it("rejects same-speaker overlap even when another speaker is in between", () => {
+    expect(() => validateWordTimeline(base([
+      word("no", 0, 10, { speaker_label: "Nanda" }),
+      word("oops", 1, 2, { speaker_label: "YYQ" }),
+      word("please", 3, 4, { speaker_label: "Nanda" }),
+    ]))).toThrow(/overlaps/);
+  });
+
   it.each([
     [null, /must be an object/],
     [[], /must be an object/],

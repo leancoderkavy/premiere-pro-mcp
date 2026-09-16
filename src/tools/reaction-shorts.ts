@@ -42,7 +42,7 @@ export function getReactionShortsTools() {
               additionalProperties: false,
               properties: {
                 speaker_label: { type: "string", minLength: 1, maxLength: 128, description: "Speaker label exactly as used in word_timeline." },
-                color: { type: "string", minLength: 7, maxLength: 7, description: "Caption color as #RRGGBB." },
+                color: { type: "string", minLength: 7, maxLength: 7, pattern: "^#[0-9A-Fa-f]{6}$", description: "Caption color as #RRGGBB." },
               },
               required: ["speaker_label", "color"],
             },
