@@ -96,6 +96,9 @@ async function removePartialBackup(backupPath: string): Promise<void> {
 }
 
 async function sha256File(path: string, maxBytes: number, signal?: AbortSignal): Promise<{ checksum: string; bytes: number }> {
+  // Node 20 can open a leaked descriptor after emitting close when a filesystem
+  // stream is constructed with an already-aborted signal.
+  throwIfBackupCancelled(signal);
   const digest = createHash("sha256");
   let bytes = 0;
   const stream = createReadStream(path, { signal });
@@ -152,7 +155,9 @@ export async function createProjectBackup(
     });
     try {
       await pipeline(
-        createReadStream(sourcePath, { signal: options.signal }),
+        // Let pipeline attach cancellation after stream construction. Passing
+        // an already-aborted signal to ReadStream leaks a handle on Node 20.
+        createReadStream(sourcePath),
         byteLimiter,
         backupHandle.createWriteStream(),
         { signal: options.signal },
