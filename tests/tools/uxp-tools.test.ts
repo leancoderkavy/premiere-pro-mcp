@@ -50,6 +50,7 @@ describe("UXP MCP tools", () => {
     await tools.create_sequence_with_preset_uxp.handler({
       name: "Delivery",
       preset_path: "/presets/hd.sqpreset",
+      confirm_non_undoable: true,
       operation_id: "sequence-1",
     });
     await tools.export_interchange_uxp.handler({
@@ -58,10 +59,48 @@ describe("UXP MCP tools", () => {
       operation_id: "export-1",
     });
     expect(request).toHaveBeenNthCalledWith(1, "sequence.createPreset", {
-      name: "Delivery", presetPath: "/presets/hd.sqpreset", operationId: "sequence-1",
+      name: "Delivery",
+      presetPath: "/presets/hd.sqpreset",
+      confirmNonUndoable: true,
+      operationId: "sequence-1",
     });
     expect(request).toHaveBeenNthCalledWith(2, "interchange.export", {
       format: "otio", outputFilePath: "/exports/edit.otio", operationId: "export-1",
+    });
+  });
+
+  it("maps guarded preset sequence creation only after confirmation and with a replay key", async () => {
+    const request = vi.fn().mockResolvedValue({ outcome: "verified" });
+    const bridge = { request, getState: vi.fn() } as unknown as UxpWebSocketBridge;
+    const tool = getUxpTools(bridge).create_sequence_with_preset_uxp;
+    await expect(tool.handler({
+      name: "Delivery",
+      preset_path: "/presets/hd.sqpreset",
+      confirm_non_undoable: false,
+      operation_id: "sequence-1",
+    })).resolves.toEqual({ success: false, error: "create_sequence_with_preset_uxp requires confirm_non_undoable: true" });
+    await expect(tool.handler({
+      name: "Delivery",
+      preset_path: "/presets/hd.sqpreset",
+      confirm_non_undoable: true,
+      operation_id: "",
+    })).resolves.toEqual({ success: false, error: "create_sequence_with_preset_uxp requires operation_id for safe replay" });
+    expect(request).not.toHaveBeenCalled();
+    await expect(tool.handler({
+      name: "Delivery",
+      preset_path: "/presets/hd.sqpreset",
+      confirm_non_undoable: true,
+      operation_id: "sequence-1",
+    })).resolves.toEqual({ success: true, data: { backend: "uxp", result: { outcome: "verified" } } });
+    expect(request).toHaveBeenCalledWith("sequence.createPreset", {
+      name: "Delivery",
+      presetPath: "/presets/hd.sqpreset",
+      confirmNonUndoable: true,
+      operationId: "sequence-1",
+    });
+    expect(tool.parameters).toMatchObject({
+      additionalProperties: false,
+      required: ["name", "preset_path", "confirm_non_undoable", "operation_id"],
     });
   });
 

@@ -47,12 +47,12 @@
       ],
       "availability": "current",
       "implementationStatus": "implemented",
-      "verificationStatus": "committed_unverified",
+      "verificationStatus": "automated_contract_verified",
       "liveHostVerificationStatus": "not_run",
       "mutatesProject": true,
       "undoable": false,
       "idempotency": "operation_id",
-      "verificationBoundary": "created_sequence_guid"
+      "verificationBoundary": "create_sequence_with_preset_identity_readback"
     },
     {
       "id": "native-ticktime-frame-alignment",
