@@ -1,0 +1,350 @@
+.cinema-editor-workspace {
+  width: 92%;
+  margin: 24px auto 0;
+  scroll-margin-top: 88px;
+}
+.cinema-editor-workspace .cinema-nle {
+  width: 100%;
+  margin-top: 0;
+}
+.cinema-editor-workspace .cinema-deck-space {
+  padding-top: 6px;
+}
+.cinema-editor-workspace .cinema-deck {
+  border-radius: 0 0 6px 6px;
+}
+.cinema-editor-workspace .cinema-layers-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 36px;
+  font-size: 9px;
+  padding-block: 4px;
+}
+.cinema-program-monitor {
+  background: #242226;
+  border: 1px solid #665775;
+  border-bottom-color: #3b363f;
+  border-radius: 6px 6px 0 0;
+  position: relative;
+  color: #d3cfd8;
+}
+.program-panel-header {
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 14px;
+  border-bottom: 1px solid #3a363f;
+  background: #29262c;
+}
+.program-panel-header h2 {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  font-weight: 500;
+  height: 100%;
+  border-bottom: 2px solid #b69ddd;
+}
+.program-panel-header h2 span {
+  color: #aba3b3;
+}
+.program-panel-header > div {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.program-demo-tag {
+  font:
+    7px var(--font-geist-mono),
+    monospace;
+  letter-spacing: 0.08em;
+  color: #b5acbf;
+}
+.program-panel-grip {
+  color: #93879f;
+  font-size: 15px;
+}
+.program-picture-well {
+  position: relative;
+  height: clamp(170px, 21vw, 260px);
+  background: #08080a;
+  overflow: hidden;
+  display: grid;
+  place-items: center;
+}
+.program-picture {
+  position: relative;
+  height: 100%;
+  aspect-ratio: 2.39;
+  max-width: 100%;
+  overflow: hidden;
+}
+.program-picture-image {
+  position: absolute;
+  inset: 0;
+  background-image: url("/marketing/cinema-coast-atlas.webp");
+  background-size: 190% 300%;
+  background-repeat: no-repeat;
+}
+.program-picture[data-shot="0"] .program-picture-image {
+  background-position: center top;
+}
+.program-picture[data-shot="1"] .program-picture-image {
+  background-position: center center;
+}
+.program-picture[data-shot="2"] .program-picture-image {
+  background-position: center bottom;
+}
+.program-picture[data-zoom="125"] {
+  transform: scale(1.25);
+}
+.program-picture[data-zoom="150"] {
+  transform: scale(1.5);
+}
+.program-safe-margins {
+  position: absolute;
+  inset: 5%;
+  border: 1px solid #ffffffa6;
+  pointer-events: none;
+}
+.program-safe-margins i {
+  position: absolute;
+  inset: 5.55%;
+  border: 1px solid #ffffffa6;
+}
+.program-safe-margins b {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  color: #fffc;
+  font-size: 20px;
+  font-weight: 300;
+}
+.program-picture-label {
+  position: absolute;
+  bottom: 8px;
+  left: 10px;
+  z-index: 3;
+  padding: 3px 5px;
+  background: #08080ac4;
+  color: #d7cce2;
+  font:
+    7px var(--font-geist-mono),
+    monospace;
+  pointer-events: none;
+}
+.program-readouts {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-height: 34px;
+  padding: 0 12px;
+}
+.program-readouts .cinema-timecode {
+  font-size: 12px;
+  color: #b9a0f1;
+}
+.program-fit select {
+  background: transparent;
+  color: #c6bdce;
+  font-size: 10px;
+  padding: 5px;
+  cursor: pointer;
+}
+.program-fit select option {
+  background: #242226;
+}
+.program-source-time,
+.program-frame-rate {
+  color: #b0a7ba;
+  font:
+    8px var(--font-geist-mono),
+    monospace;
+}
+.program-source-time {
+  flex: 1;
+}
+.program-readouts .cinema-duration {
+  display: inline;
+  font-size: 11px;
+  color: #cfc4db;
+}
+.program-jog {
+  height: 17px;
+  margin-inline: 12px;
+  position: relative;
+  border-top: 1px solid #62556e;
+  background: repeating-linear-gradient(90deg, #b1a4bc66 0 1px, transparent 1px calc(100% / 48))
+    left top / 100% 4px no-repeat;
+}
+.program-jog input {
+  position: absolute;
+  inset: -8px 0 0;
+  height: 24px;
+  width: 100%;
+  margin: 0;
+  appearance: none;
+  background: transparent;
+  cursor: ew-resize;
+  touch-action: none;
+}
+.program-jog input::-webkit-slider-runnable-track {
+  height: 1px;
+  background: transparent;
+}
+.program-jog input::-webkit-slider-thumb {
+  appearance: none;
+  width: 10px;
+  height: 13px;
+  margin-top: -2px;
+  background: #b9a0f1;
+  clip-path: polygon(0 0, 100% 0, 100% 65%, 50% 100%, 0 65%);
+}
+.program-jog input::-moz-range-track {
+  height: 1px;
+  background: transparent;
+}
+.program-jog input::-moz-range-thumb {
+  border: 0;
+  border-radius: 0;
+  width: 10px;
+  height: 13px;
+  background: #b9a0f1;
+  clip-path: polygon(0 0, 100% 0, 100% 65%, 50% 100%, 0 65%);
+}
+.program-controls {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  min-height: 44px;
+  padding: 0 10px 4px;
+  gap: 12px;
+}
+.program-clip-name {
+  color: #bdb3c7;
+  font-size: 9px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.program-transport,
+.program-view-controls {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+.program-view-controls {
+  justify-content: flex-end;
+}
+.cinema-program-monitor button {
+  min-width: 36px;
+  min-height: 40px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  color: #d4ccd9;
+  cursor: pointer;
+  border-radius: 3px;
+  font-size: 9px;
+}
+.cinema-program-monitor button:hover:not(:disabled) {
+  background: #ffffff0f;
+  color: white;
+}
+.cinema-program-monitor button[aria-pressed="true"] {
+  color: #d0b4ff;
+  background: #41354e;
+}
+.cinema-program-monitor button:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+.cinema-program-monitor :is(input, select, .program-picture-well):focus-visible {
+  outline: 2px solid #c8b7ff;
+  outline-offset: -2px;
+}
+.cinema-program-monitor .cinema-viewport {
+  position: absolute;
+  inset: 0;
+  height: 100%;
+  aspect-ratio: auto;
+}
+.cinema-program-monitor .cinema-gap {
+  background: #08080a;
+}
+@media (max-width: 600px) {
+  .cinema-editor-workspace {
+    width: 96%;
+    margin-top: 18px;
+  }
+  .program-picture-well {
+    height: clamp(125px, 40vw, 190px);
+  }
+  .program-picture {
+    height: auto;
+    width: 100%;
+  }
+  .program-picture-image {
+    background-image: url("/marketing/cinema-coast-atlas-mobile.webp");
+  }
+  .program-readouts {
+    gap: 8px;
+    padding-inline: 8px;
+  }
+  .program-readouts .cinema-timecode,
+  .program-readouts .cinema-duration {
+    font-size: 10px;
+  }
+  .program-source-time {
+    display: none;
+  }
+  .program-frame-rate {
+    flex: 1;
+    text-align: right;
+    font-size: 7px;
+  }
+  .program-controls {
+    grid-template-columns: 1fr auto;
+    gap: 0;
+    padding-inline: 5px;
+  }
+  .program-clip-name {
+    display: none;
+  }
+  .program-transport {
+    justify-content: center;
+  }
+  .cinema-program-monitor button {
+    min-width: 32px;
+    min-height: 44px;
+  }
+  .program-view-controls {
+    gap: 0;
+  }
+  .program-view-controls button:last-child {
+    padding-inline: 4px;
+  }
+  .program-panel-header {
+    padding-inline: 10px;
+  }
+  .program-demo-tag {
+    font-size: 6px;
+  }
+  .cinema-editor-workspace .cinema-deck-header {
+    height: auto;
+    min-height: 40px;
+    gap: 8px;
+  }
+  .cinema-editor-workspace .cinema-layers-toggle {
+    font-size: 8px;
+    padding-inline: 5px;
+  }
+  .cinema-editor-workspace .cinema-deck-header > span:last-child {
+    display: none;
+  }
+}

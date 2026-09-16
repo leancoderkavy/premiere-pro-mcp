@@ -209,6 +209,7 @@ test("treatment: reduced motion, animated WebGL, pause, context loss, and video 
   await page.goto("/")
   await expect(page.locator(".studio")).toHaveAttribute("data-motion", "paused")
   await expect(page.locator("canvas")).toHaveCount(0)
+  await page.getByRole("button", { name: "3D overview", exact: true }).click()
   await page.emulateMedia({ reducedMotion: "no-preference" })
   await expect(page.locator(".studio-stage")).toHaveAttribute("data-enhanced", "true")
   await page.getByRole("button", { name: /Pause page animation/ }).click()
@@ -241,6 +242,7 @@ test("cutting room: chapters work with keyboard, reduced motion, and a lost WebG
   await page.keyboard.press("Space")
   await expect(page.getByRole("button", { name: "03 The final look" })).toHaveAttribute("aria-pressed", "true")
   await expect(page.locator(".cinema-caption")).toContainText("Review the final look.")
+  await page.getByRole("button", { name: "3D overview", exact: true }).click()
   await page.emulateMedia({ reducedMotion: "no-preference" })
   await expect(page.locator(".studio-stage")).toHaveAttribute("data-enhanced", "true")
   await page.locator("canvas").evaluate(canvas => {
