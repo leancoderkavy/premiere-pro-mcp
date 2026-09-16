@@ -146,7 +146,7 @@ export function getAdvancedTools(bridgeOptions: BridgeOptions) {
                 } else if (${rangeDelete ? "true" : "false"}) {
                   insiders.push({ domTrack: t.domTrack, nodeId: String(c.nodeId), label: t.type + " " + t.index, startSeconds: __ticksToSeconds(cs), endSeconds: __ticksToSeconds(ce), name: c.name });
                 } else {
-                  problems.push("a clip on " + t.type + " track " + t.index + " (" + __ticksToSeconds(cs) + "-" + __ticksToSeconds(ce) + "s) sits inside the range being closed, so shifting later clips earlier would overlap it");
+                  problems.push("a clip on " + t.type + " track " + t.index + " (" + __ticksToSeconds(cs) + "-" + __ticksToSeconds(ce) + "s) sits inside the range being closed, so shifting later clips earlier would overlap it (pass range_content 'delete' to remove it as part of the ripple; this is the normal case for a linked audio clip)");
                 }
                 continue;
               }
@@ -157,7 +157,7 @@ export function getAdvancedTools(bridgeOptions: BridgeOptions) {
           }
 
           if (problems.length) {
-            return __error("Ripple delete refused; nothing was changed. " + problems.join("; ") + ". Trim or move the offending clip(s) first, or use scope 'own_track' if desyncing other tracks is acceptable.");
+            return __error("Ripple delete refused; nothing was changed. " + problems.join("; ") + ". Trim or move the offending clip(s) first, use range_content 'delete' to also remove clips that sit entirely inside the range, or use scope 'own_track' if desyncing other tracks is acceptable.");
           }
 
           var planSummary = [];
@@ -208,7 +208,13 @@ export function getAdvancedTools(bridgeOptions: BridgeOptions) {
             for (var xi = 0; xi < ins.domTrack.clips.numItems; xi++) {
               if (String(ins.domTrack.clips[xi].nodeId) === ins.nodeId) { victim = ins.domTrack.clips[xi]; break; }
             }
-            if (!victim) { failuresEarly.push(ins.label + ": clip " + ins.nodeId + " vanished before it could be removed"); continue; }
+            if (!victim) {
+              // Premiere may already have taken the clip out with the target
+              // (linked audio). The range is being lifted either way, so an
+              // insider that is already gone is the intended end state.
+              removedInRange.push({ track: ins.label, name: ins.name, startSeconds: ins.startSeconds, endSeconds: ins.endSeconds, removedWithTarget: true });
+              continue;
+            }
             try {
               victim.remove(false, false);
               removedInRange.push({ track: ins.label, name: ins.name, startSeconds: ins.startSeconds, endSeconds: ins.endSeconds });

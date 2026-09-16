@@ -704,6 +704,10 @@ describe("Tool Handler Behavior", () => {
       // Sync-locked tracks participate, and a locked one refuses before mutating.
       expect(script).toContain("isSyncLocked()");
       expect(script).toContain("Ripple delete refused; nothing was changed.");
+      // The refusal names the remedy for the common linked-audio case.
+      expect(script).toContain("use range_content 'delete' to also remove clips that sit entirely inside the range");
+      // An insider Premiere already removed with the target is not a failure.
+      expect(script).toContain("removedWithTarget: true");
       // Every shifted clip is re-found and checked for position and duration.
       expect(script).toContain("var verifyProblems = []");
       expect(script).toContain("duration changed from");
