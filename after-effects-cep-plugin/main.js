@@ -6,6 +6,16 @@
   var fs = nodeRequire("fs");
   var path = nodeRequire("path");
   var os = nodeRequire("os");
+  var nodeProcess = nodeRequire("process");
+  var childProcess = nodeRequire("child_process");
+  var bridgeDirectorySecurity = MCPBridgeDirectorySecurity.createBridgeDirectorySecurity({
+    fs: fs,
+    path: path,
+    platform: os.platform(),
+    process: nodeProcess,
+    childProcess: childProcess,
+    Buffer: Buffer,
+  });
   var pollTimer = null;
   var heartbeatTimer = null;
   var running = false;
@@ -101,8 +111,13 @@
   function start() {
     tempDir = document.getElementById("tempDir").value.trim();
     if (!tempDir) { setStatus("Set a bridge directory", false); return; }
-    try { fs.mkdirSync(tempDir, { recursive: true, mode: 0o700 }); }
-    catch (error) { setStatus("Cannot create bridge directory", false); return; }
+    try {
+      tempDir = bridgeDirectorySecurity.ensurePrivateBridgeDirectory(tempDir);
+      document.getElementById("tempDir").value = tempDir;
+    } catch (error) {
+      setStatus("Connector needs attention: " + error.message, false);
+      return;
+    }
     running = true;
     heartbeat();
     if (pollTimer) clearInterval(pollTimer);

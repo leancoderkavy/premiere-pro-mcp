@@ -8,6 +8,8 @@ import {
   readdirSync,
   renameSync,
   statSync,
+  lstatSync,
+  realpathSync,
   chmodSync,
   watch,
 } from "node:fs";
@@ -19,6 +21,7 @@ import {
   getTempDir,
   getDefaultBridgeTempDir,
   getBridgeLiveness,
+  ensurePrivateBridgeDirectory,
   MAX_BRIDGE_RESPONSE_BYTES,
   sendCommand,
   sendRawCommand,
@@ -35,6 +38,8 @@ vi.mock("node:fs", () => ({
   readdirSync: vi.fn(),
   renameSync: vi.fn(),
   statSync: vi.fn(),
+  lstatSync: vi.fn(),
+  realpathSync: vi.fn(),
   chmodSync: vi.fn(),
   watch: vi.fn(() => {
     throw new Error("watch unavailable in unit-test fallback");
@@ -53,6 +58,8 @@ const mockedUnlinkSync = vi.mocked(unlinkSync);
 const mockedReaddirSync = vi.mocked(readdirSync);
 const mockedRenameSync = vi.mocked(renameSync);
 const mockedStatSync = vi.mocked(statSync);
+const mockedLstatSync = vi.mocked(lstatSync);
+const mockedRealpathSync = vi.mocked(realpathSync);
 const mockedChmodSync = vi.mocked(chmodSync);
 const mockedWatch = vi.mocked(watch);
 const mockedExecFileSync = vi.mocked(execFileSync);
@@ -61,6 +68,12 @@ const mockedExecFileSync = vi.mocked(execFileSync);
 // with safe perms so the existing tests exercise the happy path.
 const myUid = typeof process.getuid === "function" ? process.getuid() : 0;
 mockedStatSync.mockReturnValue({ uid: myUid, mode: 0o700 } as unknown as ReturnType<typeof statSync>);
+mockedLstatSync.mockReturnValue({
+  uid: myUid,
+  mode: 0o700,
+  isDirectory: () => true,
+  isSymbolicLink: () => false,
+} as unknown as ReturnType<typeof lstatSync>);
 
 describe("getTempDir", () => {
   const originalEnv = process.env.PREMIERE_TEMP_DIR;
@@ -150,7 +163,21 @@ describe("sendCommand", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.useFakeTimers();
+    mockedMkdirSync.mockReturnValue(undefined);
+    mockedReaddirSync.mockReturnValue([]);
+    mockedRealpathSync.mockImplementation((value) => String(value));
     mockedStatSync.mockReturnValue({ uid: myUid, mode: 0o700 } as unknown as ReturnType<typeof statSync>);
+    mockedLstatSync.mockReturnValue({
+      uid: myUid,
+      mode: 0o700,
+      isDirectory: () => true,
+      isSymbolicLink: () => false,
+    } as unknown as ReturnType<typeof lstatSync>);
+    mockedExecFileSync.mockReturnValue(JSON.stringify({
+      ownerSid: "S-1-5-21-1000",
+      currentUserSid: "S-1-5-21-1000",
+      unsafeWriteAces: [],
+    }) as never);
   });
 
   afterEach(() => {
@@ -188,9 +215,11 @@ describe("sendCommand", () => {
   it("refuses to use an existing temp dir owned by another user", async () => {
     if (typeof process.getuid !== "function") return; // POSIX-only guard
     mockedExistsSync.mockReturnValue(true); // dir already exists
-    mockedStatSync.mockReturnValueOnce({
+    mockedLstatSync.mockReturnValueOnce({
       uid: process.getuid!() + 1, // someone else owns it
       mode: 0o700,
+      isDirectory: () => true,
+      isSymbolicLink: () => false,
     } as unknown as ReturnType<typeof statSync>);
 
     await expect(sendCommand("var x = 1;", { tempDir: "/tmp/evil-bridge" })).rejects.toThrow(
@@ -201,10 +230,19 @@ describe("sendCommand", () => {
   it("clamps a group/world-accessible existing temp dir back to 0700", async () => {
     if (typeof process.getuid !== "function") return;
     mockedExistsSync.mockImplementation((p) => (String(p).includes("res_") ? true : true));
-    mockedStatSync.mockReturnValueOnce({
+    mockedLstatSync
+      .mockReturnValueOnce({
       uid: process.getuid!(),
       mode: 0o755, // ours, but world-readable
-    } as unknown as ReturnType<typeof statSync>);
+      isDirectory: () => true,
+      isSymbolicLink: () => false,
+    } as unknown as ReturnType<typeof lstatSync>)
+      .mockReturnValueOnce({
+        uid: process.getuid!(),
+        mode: 0o700,
+        isDirectory: () => true,
+        isSymbolicLink: () => false,
+      } as unknown as ReturnType<typeof lstatSync>);
     mockedReadFileSync.mockReturnValue('{"success":true,"data":{}}');
 
     const promise = sendCommand("var x = 1;", { tempDir: "/tmp/test-bridge" });
@@ -212,6 +250,138 @@ describe("sendCommand", () => {
     await promise;
 
     expect(mockedChmodSync).toHaveBeenCalledWith("/tmp/test-bridge", 0o700);
+  });
+
+  it("refuses an existing temp dir that was writable by other users", async () => {
+    if (typeof process.getuid !== "function") return;
+    mockedExistsSync.mockReturnValue(true);
+    mockedLstatSync.mockReturnValueOnce({
+      uid: process.getuid!(),
+      mode: 0o777,
+      isDirectory: () => true,
+      isSymbolicLink: () => false,
+    } as unknown as ReturnType<typeof lstatSync>);
+
+    await expect(sendCommand("var x = 1;", { tempDir: "/tmp/unsafe-bridge" }))
+      .rejects.toThrow(/was writable by other users/i);
+    expect(mockedWriteFileSync).not.toHaveBeenCalled();
+  });
+
+  it("validates preexisting POSIX write permissions independent of the test host", () => {
+    mockedMkdirSync.mockReturnValue(undefined);
+    mockedLstatSync.mockReturnValueOnce({
+      uid: 1000,
+      mode: 0o777,
+      isDirectory: () => true,
+      isSymbolicLink: () => false,
+    } as unknown as ReturnType<typeof lstatSync>);
+
+    expect(() => ensurePrivateBridgeDirectory("/tmp/unsafe-bridge", "linux", 1000))
+      .toThrow(/was writable by other users/i);
+  });
+
+  it("refuses a Windows directory with an untrusted effective writer", () => {
+    mockedMkdirSync.mockReturnValue(undefined);
+    mockedLstatSync.mockReturnValueOnce({
+      uid: 0,
+      mode: 0,
+      isDirectory: () => true,
+      isSymbolicLink: () => false,
+    } as unknown as ReturnType<typeof lstatSync>);
+
+    expect(() => ensurePrivateBridgeDirectory(
+      "C:\\shared\\premiere-mcp-bridge",
+      "win32",
+      undefined,
+      () => ({
+        ownerSid: "S-1-5-21-1000",
+        currentUserSid: "S-1-5-21-1000",
+        unsafeWriteAces: [{ sid: "S-1-5-21-2000", isInherited: false }],
+      }),
+    )).toThrow(/write access to untrusted identities/i);
+  });
+
+  it("refuses a Windows path with a replaceable ancestor", () => {
+    mockedMkdirSync.mockReturnValue(undefined);
+    mockedLstatSync.mockReturnValueOnce({
+      uid: 0,
+      mode: 0,
+      isDirectory: () => true,
+      isSymbolicLink: () => false,
+    } as unknown as ReturnType<typeof lstatSync>);
+
+    expect(() => ensurePrivateBridgeDirectory(
+      "C:\\shared\\premiere-mcp-bridge",
+      "win32",
+      undefined,
+      () => ({
+        ownerSid: "S-1-5-21-1000",
+        currentUserSid: "S-1-5-21-1000",
+        unsafeWriteAces: [],
+        unsafeAncestorEntries: [{
+          sid: "S-1-5-21-2000",
+          path: "C:\\shared",
+          reason: "replacement_rights",
+        }],
+      }),
+    )).toThrow(/replaceable ancestor.*C:\\shared/i);
+  });
+
+  it("refuses a POSIX path beneath an untrusted replaceable parent", () => {
+    mockedMkdirSync.mockReturnValue(undefined);
+    mockedLstatSync
+      .mockReturnValueOnce({
+        uid: 1000,
+        mode: 0o700,
+        isDirectory: () => true,
+        isSymbolicLink: () => false,
+      } as unknown as ReturnType<typeof lstatSync>)
+      .mockReturnValueOnce({
+        uid: 0,
+        mode: 0o777,
+        isDirectory: () => true,
+        isSymbolicLink: () => false,
+      } as unknown as ReturnType<typeof lstatSync>);
+
+    expect(() => ensurePrivateBridgeDirectory("/shared/premiere-mcp-bridge", "linux", 1000))
+      .toThrow(/replaceable ancestor.*\/shared/i);
+  });
+
+  it("refuses commands staged during new Windows directory ACL initialization", () => {
+    const directory = "C:\\Users\\editor\\Temp\\premiere-mcp-bridge";
+    mockedMkdirSync.mockReturnValue(directory);
+    mockedLstatSync.mockReturnValueOnce({
+      uid: 0,
+      mode: 0,
+      isDirectory: () => true,
+      isSymbolicLink: () => false,
+    } as unknown as ReturnType<typeof lstatSync>);
+    mockedReaddirSync.mockReturnValue(["cmd_attacker.jsx"] as never);
+
+    expect(() => ensurePrivateBridgeDirectory(
+      directory,
+      "win32",
+      undefined,
+      () => ({
+        ownerSid: "S-1-5-21-1000",
+        currentUserSid: "S-1-5-21-1000",
+        unsafeWriteAces: [],
+      }),
+    )).toThrow(/unexpected contents appeared during creation/i);
+  });
+
+  it("refuses a symbolic-link temp dir before publishing commands", async () => {
+    mockedExistsSync.mockReturnValue(true);
+    mockedLstatSync.mockReturnValueOnce({
+      uid: myUid,
+      mode: 0o700,
+      isDirectory: () => true,
+      isSymbolicLink: () => true,
+    } as unknown as ReturnType<typeof lstatSync>);
+
+    await expect(sendCommand("var x = 1;", { tempDir: "/tmp/link-bridge" }))
+      .rejects.toThrow(/symbolic link/i);
+    expect(mockedWriteFileSync).not.toHaveBeenCalled();
   });
 
   it("atomically publishes a complete command file as .jsx", async () => {
@@ -598,6 +768,22 @@ describe("cleanupTempDir", () => {
     mockedExistsSync.mockReturnValue(false);
     cleanupTempDir({ tempDir: "/tmp/nonexistent" });
     expect(mockedReaddirSync).not.toHaveBeenCalled();
+  });
+
+  it("refuses a symbolic-link bridge directory before deleting protocol files", () => {
+    mockedExistsSync.mockReturnValue(true);
+    mockedMkdirSync.mockReturnValue(undefined);
+    mockedLstatSync.mockReturnValueOnce({
+      uid: myUid,
+      mode: 0o700,
+      isDirectory: () => true,
+      isSymbolicLink: () => true,
+    } as unknown as ReturnType<typeof lstatSync>);
+
+    expect(() => cleanupTempDir({ tempDir: "/tmp/link-bridge" }))
+      .toThrow(/symbolic link/i);
+    expect(mockedReaddirSync).not.toHaveBeenCalled();
+    expect(mockedUnlinkSync).not.toHaveBeenCalled();
   });
 
   it("handles errors gracefully", () => {
