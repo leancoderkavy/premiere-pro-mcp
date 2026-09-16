@@ -37,7 +37,7 @@ export const articles: Article[] = [
     slug: "install-premiere-pro-mcp-npm",
     title: "How to Install premiere-pro-mcp from npm (Package Name Check)",
     seoTitle: "Install premiere-pro-mcp from npm — Package Name Verification",
-    description: "Install the exact npm package premiere-pro-mcp@1.15.2, confirm you did not get adobe-premiere-pro-mcp, install the CEP connector, and run a safe Premiere connection check.",
+    description: "Install premiere-pro-mcp@1.15.2 from npm, verify its package identity, connect the local CEP panel, and run a read-only Premiere connection check.",
     eyebrow: "npm install guide",
     publishedAt: "2026-09-15",
     modifiedAt: "2026-09-15",
@@ -72,22 +72,22 @@ export const articles: Article[] = [
         ],
       },
       {
-        heading: "Name check (collision)",
+        heading: "Verify the package behind the command",
         paragraphs: [
           "This project's package is premiere-pro-mcp, not adobe-premiere-pro-mcp.",
           "Both packages can expose a command named premiere-pro-mcp. A copied install tip or an older global binary can therefore start the wrong project. Before you configure a client:",
         ],
         steps: [
           "Confirm the package name is premiere-pro-mcp.",
-          "Prefer versioned npx … premiere-pro-mcp@1.15.2 in client config instead of a bare global command.",
+          "Use npx --yes premiere-pro-mcp@1.15.2 in client configuration to select the intended package and version.",
           "Expect version 1.15.2, homepage premiere-pro-mcp.com, and source leancoderkavy/premiere-pro-mcp.",
         ],
         bullets: [
-          "Calm verify only — both projects are separate open-source efforts.",
+          "Both projects are separate open-source efforts; choose the package that matches the documentation you are following.",
           "For a side-by-side package comparison, see premiere-pro-mcp vs adobe-premiere-pro-mcp.",
         ],
         codeBlocks: [
-          { label: "Verify package identity without guessing", code: "npm view premiere-pro-mcp name version homepage repository.url bin --json\nnpm list -g premiere-pro-mcp\npremiere-pro-mcp --version" },
+          { label: "Verify the pinned package identity", code: "npm view premiere-pro-mcp@1.15.2 name version homepage repository.url bin --json\nnpx --yes premiere-pro-mcp@1.15.2 --version" },
         ],
         links: [
           { label: "Compare packages side-by-side", href: "/blog/premiere-pro-mcp-vs-adobe-premiere-pro-mcp/" },
@@ -114,14 +114,12 @@ export const articles: Article[] = [
       {
         heading: "Install the Premiere connector (CEP-first)",
         paragraphs: [
-          "Your assistant talks to Premiere through a separate local connector. For npm users:",
+          "Your assistant talks to Premiere through a separate local connector. Fully quit Premiere before running the versioned installer below.",
+          "Alternatively, download the signed CEP package from the v1.15.2 release and open it with a trusted ZXP installer.",
+          "Then reopen Premiere and restart your assistant. Open a disposable project with an active sequence. In Premiere, confirm Window → Extensions → MCP for Adobe Premiere Pro.",
         ],
         codeBlocks: [
           { label: "Install CEP connector with versioned command", code: "npx --yes premiere-pro-mcp@1.15.2 --install-cep" },
-        ],
-        paragraphs: [
-          "Alternatively, download the signed CEP package from the v1.15.2 release and open it with a trusted ZXP installer.",
-          "Then fully quit and reopen Premiere and your assistant. Open a project with an active sequence. In Premiere, confirm Window → Extensions → MCP for Adobe Premiere Pro.",
         ],
         links: [
           { label: "v1.15.2 release", href: "https://github.com/leancoderkavy/premiere-pro-mcp/releases/tag/v1.15.2" },
@@ -130,7 +128,8 @@ export const articles: Article[] = [
       {
         heading: "Configure the MCP client (versioned command)",
         paragraphs: [
-          "When your client asks for a command, merge an entry that pins this package — do not rely on a shared global binary name alone:",
+          "For clients that use an mcpServers JSON object, merge this entry into the existing configuration. Preserve other server entries. Other clients, including Codex, use their own configuration format; follow the linked client guide.",
+          "Keep Premiere, the connector, and the client on the same computer. Restart the client after saving settings.",
         ],
         codeBlocks: [
           {
@@ -145,20 +144,15 @@ export const articles: Article[] = [
 }`,
           },
         ],
-        paragraphs: [
-          "Keep Premiere, the connector, and the client on the same computer. Restart the client after saving settings.",
-        ],
       },
       {
         heading: "Safe first prompt (no edits)",
         paragraphs: [
           "Open a project and ask:",
+          "A verified connection still depends on a live local host bridge. Preview supported edits before you apply them.",
         ],
         codeBlocks: [
           { label: "First request", code: "Safely check my Premiere connection with verify_premiere_connection. Make no changes." },
-        ],
-        paragraphs: [
-          "A verified connection still depends on a live local host bridge. Preview supported edits before you apply them.",
         ],
       },
       {
@@ -186,8 +180,8 @@ export const articles: Article[] = [
         answer: "The recommended setup is local-first. The bridge exchanges commands and structured results; your assistant's separate privacy settings still apply.",
       },
       {
-        question: "Is speech-to-text / STT included in 1.15.2?",
-        answer: "Do not assume unreleased features. Pin marketing and install docs to what is on public npm (1.15.2).",
+        question: "Does this guide install unreleased tools from main?",
+        answer: "No. These commands select the published 1.15.2 package. Check the product facts page for the separate released and development catalogs.",
       },
     ],
     resources: [
