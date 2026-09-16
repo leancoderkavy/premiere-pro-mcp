@@ -1,4 +1,5 @@
 import { once } from "node:events";
+import { connect } from "node:net";
 import {
   chmodSync,
   existsSync,
@@ -205,6 +206,27 @@ afterEach(async () => {
 });
 
 describe("UXP WebSocket bridge rejected-message and cleanup paths", () => {
+  it("rejects malformed upgrade URLs and still accepts an authenticated host", async () => {
+    const bridge = await startBridge();
+    const address = bridge.address();
+    const socket = connect(address.port, address.host);
+    try {
+      await once(socket, "connect");
+      const closed = once(socket, "close");
+      let response = "";
+      socket.on("data", chunk => { response += chunk.toString(); });
+      socket.write("GET http://[ HTTP/1.1\r\nHost: localhost\r\nConnection: Upgrade\r\nUpgrade: websocket\r\n\r\n");
+      await closed;
+      expect(response).toContain("400 Bad Request");
+      const client = await connectHost(bridge);
+      expect(bridge.getState().connected).toBe(true);
+      client.close();
+      await once(client, "close");
+    } finally {
+      socket.destroy();
+    }
+  });
+
   it("serves a 404 for regular HTTP traffic and ignores duplicate starts", async () => {
     const bridge = await startBridge();
     const listening = vi.fn();

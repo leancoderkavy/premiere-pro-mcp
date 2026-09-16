@@ -2,6 +2,8 @@ export const siteNavigation = [
   {
     label: "Product",
     links: [
+      { label: "Recorded demo", href: "/demo/", description: "Watch an edit and inspect its verification receipt." },
+      { label: "Compare MCP servers", href: "/compare/", description: "Choose by setup, workflow, and evidence." },
       { label: "The workflow", href: "/#features", description: "See how your assistant works with Premiere." },
       { label: "How it works", href: "/#how-it-works", description: "Understand the local connection." },
       { label: "Questions & answers", href: "/#faq", description: "Compatibility, privacy, and getting started." },
