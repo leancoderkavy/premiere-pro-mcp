@@ -1,9 +1,42 @@
 import { createHash } from "node:crypto";
-import { readdirSync, realpathSync, statSync, watch, type FSWatcher } from "node:fs";
+import { watch, type FSWatcher } from "node:fs";
+import { opendir, realpath, stat } from "node:fs/promises";
 import path from "node:path";
+import { performance } from "node:perf_hooks";
 
 const MAX_PENDING_EVENTS = 1_000;
-const MAX_SCAN_FILES = 5_000;
+interface ScanLimits {
+  maxFiles: number;
+  maxEntries: number;
+  maxDirectories: number;
+  maxDepth: number;
+  maxQueue: number;
+  maxElapsedMs: number;
+  yieldEveryEntries: number;
+}
+
+const DEFAULT_SCAN_LIMITS: ScanLimits = {
+  maxFiles: 5_000,
+  maxEntries: 25_000,
+  maxDirectories: 2_000,
+  maxDepth: 32,
+  maxQueue: 1_000,
+  maxElapsedMs: 5_000,
+  yieldEveryEntries: 64,
+};
+
+type ScanLimitReason = "file_limit" | "entry_limit" | "directory_limit" | "depth_limit" | "queue_limit" | "time_limit";
+type ScanResult = {
+  files: Map<string, Snapshot>;
+  incomplete: boolean;
+  limitReasons: ScanLimitReason[];
+  visitedEntries: number;
+  visitedDirectories: number;
+};
+
+export interface MediaWatchRegistryOptions {
+  scanLimits?: Partial<ScanLimits>;
+}
 
 type Snapshot = { relativePath: string; pathHash: string; size: number; modifiedMs: number; extension: string };
 type WatchState = {
@@ -14,6 +47,10 @@ type WatchState = {
   recursive: boolean;
   targetBinId?: string;
   baseline: Map<string, Snapshot>;
+  scanIncomplete: boolean;
+  scanLimitReasons: ScanLimitReason[];
+  scanVisitedEntries: number;
+  scanVisitedDirectories: number;
   pending: Set<string>;
   overflow: boolean;
   watcher: FSWatcher;
@@ -40,45 +77,175 @@ function extensionSet(value: unknown): Set<string> {
   return new Set(values);
 }
 
-function scan(root: string, extensions: Set<string>, recursive: boolean): Map<string, Snapshot> {
+function scanLimits(overrides: Partial<ScanLimits> = {}): ScanLimits {
+  const limits = { ...DEFAULT_SCAN_LIMITS, ...overrides };
+  for (const [name, value] of Object.entries(limits)) {
+    const permitsZero = name === "maxElapsedMs";
+    if (!Number.isSafeInteger(value) || (permitsZero ? value < 0 : value < 1)) {
+      throw new Error(`${name} must be ${permitsZero ? "a non-negative" : "a positive"} safe integer`);
+    }
+    const maximum = DEFAULT_SCAN_LIMITS[name as keyof ScanLimits];
+    if (value > maximum) throw new Error(`${name} cannot exceed the production limit of ${maximum}`);
+  }
+  return limits;
+}
+
+function cancellationError(): Error {
+  const error = new Error("media scan cancelled");
+  error.name = "AbortError";
+  return error;
+}
+
+async function yieldToEventLoop(): Promise<void> {
+  await new Promise<void>((resolve) => setImmediate(resolve));
+}
+
+async function scan(
+  root: string,
+  extensions: Set<string>,
+  recursive: boolean,
+  limits: ScanLimits,
+  signal: AbortSignal,
+): Promise<ScanResult> {
   const output = new Map<string, Snapshot>();
-  const queue = [root];
-  while (queue.length) {
-    const directory = queue.shift() as string;
-    for (const entry of readdirSync(directory, { withFileTypes: true })) {
+  const queue: Array<{ directory: string; depth: number }> = [{ directory: root, depth: 0 }];
+  const reasons = new Set<ScanLimitReason>();
+  const startedAt = performance.now();
+  let queueIndex = 0;
+  let scheduledDirectories = 1;
+  let visitedEntries = 0;
+  let visitedDirectories = 0;
+  let stopTraversal = false;
+
+  while (queueIndex < queue.length && !stopTraversal) {
+    if (signal.aborted) throw cancellationError();
+    if (performance.now() - startedAt >= limits.maxElapsedMs) {
+      reasons.add("time_limit");
+      break;
+    }
+    const { directory, depth } = queue[queueIndex++];
+    visitedDirectories++;
+    const handle = await opendir(directory);
+    for await (const entry of handle) {
+      if (signal.aborted) throw cancellationError();
+      if (performance.now() - startedAt >= limits.maxElapsedMs) {
+        reasons.add("time_limit");
+        stopTraversal = true;
+        break;
+      }
+      if (visitedEntries >= limits.maxEntries) {
+        reasons.add("entry_limit");
+        stopTraversal = true;
+        break;
+      }
+      visitedEntries++;
+      if (visitedEntries % limits.yieldEveryEntries === 0) await yieldToEventLoop();
       const candidate = path.join(directory, entry.name);
-      const resolved = realpathSync(candidate);
+      const resolved = await realpath(candidate);
       if (!contained(root, resolved)) continue;
-      if (entry.isDirectory()) { if (recursive) queue.push(resolved); continue; }
+      if (entry.isDirectory()) {
+        if (!recursive) continue;
+        if (depth + 1 > limits.maxDepth) {
+          reasons.add("depth_limit");
+          continue;
+        }
+        if (scheduledDirectories >= limits.maxDirectories) {
+          reasons.add("directory_limit");
+          continue;
+        }
+        if (queue.length - queueIndex >= limits.maxQueue) {
+          reasons.add("queue_limit");
+          continue;
+        }
+        queue.push({ directory: resolved, depth: depth + 1 });
+        scheduledDirectories++;
+        continue;
+      }
       if (!entry.isFile()) continue;
       const extension = path.extname(entry.name).slice(1).toLocaleLowerCase();
       if (!extensions.has(extension)) continue;
-      const details = statSync(resolved);
+      if (output.size >= limits.maxFiles) {
+        reasons.add("file_limit");
+        continue;
+      }
+      const details = await stat(resolved);
       const relativePath = path.relative(root, resolved).replace(/\\/g, "/");
       output.set(relativePath, { relativePath, pathHash: hash(resolved.normalize("NFC").toLocaleLowerCase()), size: details.size, modifiedMs: details.mtimeMs, extension });
-      if (output.size > MAX_SCAN_FILES) throw new Error(`watched folder exceeds the ${MAX_SCAN_FILES} file scan limit`);
     }
   }
-  return output;
+  if (signal.aborted) throw cancellationError();
+  return {
+    files: output,
+    incomplete: reasons.size > 0,
+    limitReasons: [...reasons].sort(),
+    visitedEntries,
+    visitedDirectories,
+  };
 }
 
 export class MediaWatchRegistry {
   private state?: WatchState;
+  private readonly limits: ScanLimits;
+  private scanController?: AbortController;
 
-  start(args: Record<string, unknown>) {
+  constructor(options: MediaWatchRegistryOptions = {}) {
+    this.limits = scanLimits(options.scanLimits);
+  }
+
+  private async runScan(root: string, extensions: Set<string>, recursive: boolean): Promise<ScanResult> {
+    if (this.scanController) throw new Error("a media scan is already in progress");
+    const controller = new AbortController();
+    this.scanController = controller;
+    try {
+      return await scan(root, extensions, recursive, this.limits, controller.signal);
+    } finally {
+      if (this.scanController === controller) this.scanController = undefined;
+    }
+  }
+
+  async start(args: Record<string, unknown>) {
     if (this.state) throw new Error("a media watch is already active; stop it before starting another");
-    const workspaceRoot = realpathSync(requiredPath(args.approved_workspace_path, "approved_workspace_path"));
-    const watchRoot = realpathSync(requiredPath(args.watch_path, "watch_path"));
-    if (!statSync(workspaceRoot).isDirectory() || !statSync(watchRoot).isDirectory()) throw new Error("approved workspace and watch path must be directories");
-    if (!contained(workspaceRoot, watchRoot)) throw new Error("watch_path must be contained within approved_workspace_path");
+    const workspacePath = requiredPath(args.approved_workspace_path, "approved_workspace_path");
+    const watchPath = requiredPath(args.watch_path, "watch_path");
     const extensions = extensionSet(args.allowed_extensions);
     const recursive = args.recursive === true;
     if (args.recursive !== undefined && typeof args.recursive !== "boolean") throw new Error("recursive must be a boolean");
     const targetBinId = args.target_bin_id === undefined ? undefined : String(args.target_bin_id);
     if (targetBinId !== undefined && (!targetBinId.trim() || targetBinId.length > 512)) throw new Error("target_bin_id must be 1-512 characters");
-    const baseline = scan(watchRoot, extensions, recursive);
+    if (this.scanController) throw new Error("a media scan is already in progress");
+    const controller = new AbortController();
+    this.scanController = controller;
+    let workspaceRoot: string;
+    let watchRoot: string;
+    let baseline: ScanResult;
+    try {
+      [workspaceRoot, watchRoot] = await Promise.all([realpath(workspacePath), realpath(watchPath)]);
+      if (controller.signal.aborted) throw cancellationError();
+      const [workspaceDetails, watchDetails] = await Promise.all([stat(workspaceRoot), stat(watchRoot)]);
+      if (!workspaceDetails.isDirectory() || !watchDetails.isDirectory()) throw new Error("approved workspace and watch path must be directories");
+      if (!contained(workspaceRoot, watchRoot)) throw new Error("watch_path must be contained within approved_workspace_path");
+      baseline = await scan(watchRoot, extensions, recursive, this.limits, controller.signal);
+      if (controller.signal.aborted) throw cancellationError();
+    } finally {
+      if (this.scanController === controller) this.scanController = undefined;
+    }
     const pending = new Set<string>();
-    const state = { id: hash(`${watchRoot}:${Date.now()}`).slice(7, 39), workspaceRoot, watchRoot, extensions, recursive, targetBinId, baseline, pending, overflow: false, watcher: undefined as unknown as FSWatcher };
+    const state = {
+      id: hash(`${watchRoot}:${Date.now()}`).slice(7, 39),
+      workspaceRoot,
+      watchRoot,
+      extensions,
+      recursive,
+      targetBinId,
+      baseline: baseline.files,
+      scanIncomplete: baseline.incomplete,
+      scanLimitReasons: baseline.limitReasons,
+      scanVisitedEntries: baseline.visitedEntries,
+      scanVisitedDirectories: baseline.visitedDirectories,
+      pending,
+      overflow: false,
+      watcher: undefined as unknown as FSWatcher,
+    };
     const watcher = watch(watchRoot, { recursive }, (_event, filename) => {
       if (!filename) state.overflow = true;
       else if (state.pending.size >= MAX_PENDING_EVENTS) state.overflow = true;
@@ -93,10 +260,10 @@ export class MediaWatchRegistry {
 
   status() {
     const state = this.state;
-    return state ? { active: true, watch_id: state.id, recursive: state.recursive, allowed_extensions: [...state.extensions].sort(), baseline_file_count: state.baseline.size, pending_event_count: state.pending.size, overflow: state.overflow, target_bin_id: state.targetBinId ?? null, paths_redacted: true } : { active: false, paths_redacted: true };
+    return state ? { active: true, watch_id: state.id, recursive: state.recursive, allowed_extensions: [...state.extensions].sort(), baseline_file_count: state.baseline.size, pending_event_count: state.pending.size, overflow: state.overflow, scan_incomplete: state.scanIncomplete, scan_limit_reasons: state.scanLimitReasons, scan_visited_entry_count: state.scanVisitedEntries, scan_visited_directory_count: state.scanVisitedDirectories, target_bin_id: state.targetBinId ?? null, paths_redacted: true } : { active: false, paths_redacted: true };
   }
 
-  preview(args: Record<string, unknown>) {
+  async preview(args: Record<string, unknown>) {
     const state = this.state;
     if (!state) throw new Error("no media watch is active");
     if (args.watch_id !== state.id) throw new Error("watch_id does not match the active media watch");
@@ -110,24 +277,33 @@ export class MediaWatchRegistry {
         known.add(value);
       }
     }
-    const current = scan(state.watchRoot, state.extensions, state.recursive);
-    const proposed = [...current.values()].filter((item) => {
+    const current = await this.runScan(state.watchRoot, state.extensions, state.recursive);
+    if (this.state !== state) throw cancellationError();
+    const proposed = [...current.files.values()].filter((item) => {
       const prior = state.baseline.get(item.relativePath);
       return (!prior || prior.size !== item.size || prior.modifiedMs !== item.modifiedMs) && !known.has(item.pathHash);
     }).sort((a, b) => a.relativePath.localeCompare(b.relativePath));
     const plan = proposed.map((item) => ({ path_hash: item.pathHash, extension: item.extension, size: item.size, modified_ms: item.modifiedMs, target_bin_id: state.targetBinId ?? null, ...(includePaths ? { media_path: path.join(state.watchRoot, item.relativePath) } : {}) }));
-    return { watch_id: state.id, plan_digest: hash(JSON.stringify(plan)), proposed_count: plan.length, proposed_imports: plan, incomplete: state.overflow, pending_event_count: state.pending.size, applied: false, paths_disclosed: includePaths, limitations: ["This preview does not import media.", "Files may still change after preview; revalidate them immediately before import."] };
+    const scanLimitReasons = [...new Set([...state.scanLimitReasons, ...current.limitReasons])].sort();
+    return { watch_id: state.id, plan_digest: hash(JSON.stringify(plan)), proposed_count: plan.length, proposed_imports: plan, incomplete: state.overflow || state.scanIncomplete || current.incomplete, scan_limit_reasons: scanLimitReasons, scan_visited_entry_count: current.visitedEntries, scan_visited_directory_count: current.visitedDirectories, pending_event_count: state.pending.size, applied: false, paths_disclosed: includePaths, limitations: ["This preview does not import media.", "Files may still change after preview; revalidate them immediately before import."] };
   }
 
-  rescan() {
+  async rescan() {
     const state = this.state;
     if (!state) throw new Error("no media watch is active");
-    state.baseline = scan(state.watchRoot, state.extensions, state.recursive);
+    const baseline = await this.runScan(state.watchRoot, state.extensions, state.recursive);
+    if (this.state !== state) throw cancellationError();
+    state.baseline = baseline.files;
+    state.scanIncomplete = baseline.incomplete;
+    state.scanLimitReasons = baseline.limitReasons;
+    state.scanVisitedEntries = baseline.visitedEntries;
+    state.scanVisitedDirectories = baseline.visitedDirectories;
     state.pending.clear(); state.overflow = false;
     return this.status();
   }
 
   close() {
+    this.scanController?.abort();
     if (this.state) this.state.watcher.close();
     this.state = undefined;
   }
@@ -147,9 +323,9 @@ export function getMediaWatchTools(registry: MediaWatchRegistry) {
       }, required: ["action"] },
       handler: async (args: Record<string, unknown>) => {
         try {
-          if (args.action === "start") return { success: true, data: registry.start(args) };
+          if (args.action === "start") return { success: true, data: await registry.start(args) };
           if (args.action === "status") return { success: true, data: registry.status() };
-          if (args.action === "scan") return { success: true, data: registry.rescan() };
+          if (args.action === "scan") return { success: true, data: await registry.rescan() };
           if (args.action === "stop") { registry.close(); return { success: true, data: registry.status() }; }
           return { success: false, error: `Unsupported media-watch action: ${String(args.action)}` };
         } catch (error) { return { success: false, error: error instanceof Error ? error.message : String(error) }; }
@@ -163,7 +339,7 @@ export function getMediaWatchTools(registry: MediaWatchRegistry) {
         include_paths: { type: "boolean", description: "Explicitly disclose contained paths for selected imports; defaults to false." },
       }, required: ["watch_id"] },
       handler: async (args: Record<string, unknown>) => {
-        try { return { success: true, data: registry.preview(args) }; }
+        try { return { success: true, data: await registry.preview(args) }; }
         catch (error) { return { success: false, error: error instanceof Error ? error.message : String(error) }; }
       },
     },
