@@ -6,8 +6,6 @@ import {
   Layers3,
   Magnet,
   Minus,
-  Pause,
-  Play,
   Plus,
   Redo2,
   RotateCcw,
@@ -40,7 +38,7 @@ export function CinemaTimeline({
   const canvas = useRef<HTMLDivElement>(null)
   const [zoom, setZoom] = useState(1)
   const [snapping, setSnapping] = useState(true)
-  const { frame, playing, duration, sequence, busy, selectedShot } = editor
+  const { frame, duration, sequence, busy, selectedShot } = editor
   const span = Math.max(720, Math.ceil((duration + 96) / 96) * 96)
   const drag = useClipDrag(editor, root, scroll, canvas, span, snapping)
   const selected =
@@ -117,95 +115,31 @@ export function CinemaTimeline({
   return (
     <div
       ref={root}
-      id="editing-timeline"
       className="cinema-editing-desk cinema-nle"
       data-exploded={exploded}
       data-dragging={Boolean(drag.preview)}
       onPointerMove={drag.move}
-      onPointerUp={(event) => {
-        drag.finish(event)
-        if (event.pointerType !== "touch" || !event.isPrimary) return
-        const target = event.target as Element
-        const button = target.closest("button")
-        if (!button || button.disabled || target.closest(".nle-clip")) return
-        const bounds = button.getBoundingClientRect()
-        if (
-          event.clientX < bounds.left ||
-          event.clientX > bounds.right ||
-          event.clientY < bounds.top ||
-          event.clientY > bounds.bottom
-        )
-          return
-        // Activate touch controls on release. Chromium can suppress the first
-        // compatibility click after a drag; keyboard and mouse keep native clicks.
-        event.preventDefault()
-        button.click()
-      }}
-      onClickCapture={(event) => {
-        if ((event.nativeEvent as PointerEvent).pointerType !== "touch") return
-        const target = event.target as Element
-        if (target.closest("button") && !target.closest(".nle-clip")) {
-          event.preventDefault()
-          event.stopPropagation()
-        }
-      }}
+      onPointerUp={drag.finish}
       onPointerCancel={drag.cancel}
       onLostPointerCapture={drag.cancel}
       onKeyDown={shortcut}
     >
-      <div className="cinema-transport">
-        <div className="cinema-transport-left">
-          <button
-            type="button"
-            className="cinema-play"
-            onClick={editor.toggle}
-            aria-label={
-              playing
-                ? "Pause sequence"
-                : frame === duration - 1
-                  ? "Replay sequence"
-                  : "Play sequence"
-            }
-            aria-pressed={playing}
-          >
-            {playing ? (
-              <Pause size={17} fill="currentColor" />
-            ) : (
-              <Play size={17} fill="currentColor" />
-            )}
-          </button>
-          <button
-            type="button"
-            className="cinema-rewind"
-            onClick={() => editor.seek(0)}
-            aria-label="Return to first frame"
-          >
-            <RotateCcw size={15} />
-          </button>
-          <output className="cinema-timecode" aria-label="Current timecode" aria-live="off">
-            {timecode(frame)}
-          </output>
-          <span className="cinema-duration" aria-label="Sequence duration">
-            / {timecode(duration)}
-          </span>
-        </div>
-        <button
-          type="button"
-          className="cinema-layers-toggle"
-          onClick={onExplode}
-          aria-pressed={exploded}
-          disabled={disabled}
-        >
-          <Layers3 size={16} />
-          <span>{exploded ? "Bring layers together" : "Separate layers"}</span>
-        </button>
-      </div>
       <div className="cinema-deck-space">
         <div className="cinema-deck">
           <div className="cinema-deck-header">
             <span>
               <i /> PACIFIC / YOUR EDIT
             </span>
+            <button
+              type="button"
+              className="cinema-layers-toggle"
+              onClick={onExplode}
+              aria-pressed={exploded}
+              disabled={disabled}
+            >
+              <Layers3 size={14} />
+              <span>{exploded ? "Bring layers together" : "Separate layers"}</span>
+            </button>
             <span>
               SEQUENCE 01 <b>24 FPS</b>
             </span>
