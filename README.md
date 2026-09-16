@@ -1403,6 +1403,9 @@ by default. Enable them only by setting
   Choose a new directory under a private user-owned location if the connector rejects
   a shared temp folder, and configure the same path on the server and panel. Do not
   copy pending commands from the rejected folder into the new one.
+  Windows checks invoke PowerShell synchronously before publishing commands, with a
+  five-second timeout and 64 KiB output cap; this adds command latency rather than
+  caching a permission decision that could become stale.
 - There is a 500 KB script size limit, and a small regex check that rejects `eval()`,
   `new Function()`, and `System.callSystem()` in tool-generated scripts. **This is a guard
   rail, not a sandbox** — it is trivially bypassable and is not a security boundary. Do not
