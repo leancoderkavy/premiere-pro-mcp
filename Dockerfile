@@ -52,6 +52,13 @@ COPY --from=mcp-builder /app/dist ./dist
 # Copy Next.js static export to landing-dist (referenced in http-server.ts)
 COPY --from=landing-builder /app/landing/out ./landing-dist
 
+# Keep the editor control plane and media subprocesses unprivileged. Runtime
+# bridge files use this user's private temp directory; context lives in HOME.
+RUN mkdir -p /home/node/.local/state/premiere-pro-mcp/context \
+    && chown -R node:node /home/node/.local \
+    && chmod 700 /home/node/.local/state/premiere-pro-mcp/context
+USER node
+
 EXPOSE 3000
 
 CMD ["node", "dist/http-server.js"]

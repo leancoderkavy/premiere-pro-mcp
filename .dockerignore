@@ -13,3 +13,10 @@ landing/test-results
 landing-dist
 output
 *.log
+.worktrees
+**/.env*
+**/*.pem
+**/*.key
+**/*.pfx
+**/*.p12
+**/.npmrc
