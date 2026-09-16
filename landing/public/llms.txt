@@ -25,6 +25,8 @@ The hosted endpoint does not automatically pair a visitor to their local Premier
 
 ## References
 
+- Recorded workflow, transcript, and verification receipt: https://premiere-pro-mcp.com/demo/
+- Source-linked Premiere MCP comparison: https://premiere-pro-mcp.com/compare/
 - Canonical facts: https://premiere-pro-mcp.com/facts/
 - Versioned evidence data: https://premiere-pro-mcp.com/marketing-facts.json
 - Workflow starter kit: https://premiere-pro-mcp.com/workflows/

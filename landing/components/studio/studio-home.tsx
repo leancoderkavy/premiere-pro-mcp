@@ -160,13 +160,15 @@ export function StudioHome() {
                 <br />
                 <span>before you install.</span>
               </h2>
-              <p>A short illustration of how a request becomes a plan, a confirmed action, and a result to check.</p>
+              <p>Watch three clips become a sequence you can inspect in Premiere Pro.</p>
             </div>
             <WalkthroughPlayer />
             <div className="studio-demo-caption">
-              <span>AN ILLUSTRATED PRODUCT WALKTHROUGH</span>
+              <span>A CLOSER LOOK · 30 SECONDS · SOUND ON</span>
               <p>
-                Illustrated example; not a recording of a live Premiere session.
+                Real Premiere footage, cinematic sample artwork, an original
+                score, and AI narration. See a request become an editable
+                timeline you can review. <a href="/demo/">Watch the full workflow and inspect its receipt.</a>
               </p>
             </div>
           </section>

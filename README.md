@@ -10,7 +10,7 @@
 
 Free, MIT licensed, local-first, and published to npm as [`premiere-pro-mcp`](https://www.npmjs.com/package/premiere-pro-mcp) — the only package name that installs this project.
 
-[Website](https://premiere-pro-mcp.com/) · [Setup guides](https://premiere-pro-mcp.com/blog/how-to-set-up-premiere-pro-mcp/) · [Search tools](https://premiere-pro-mcp.com/tools/) · [Troubleshooting](https://premiere-pro-mcp.com/docs/troubleshooting/) · [Release facts](https://premiere-pro-mcp.com/facts/)
+[Website](https://premiere-pro-mcp.com/) · [Recorded demo](https://premiere-pro-mcp.com/demo/) · [Compare servers](https://premiere-pro-mcp.com/compare/) · [Setup guides](https://premiere-pro-mcp.com/blog/how-to-set-up-premiere-pro-mcp/) · [Search tools](https://premiere-pro-mcp.com/tools/) · [Troubleshooting](https://premiere-pro-mcp.com/docs/troubleshooting/) · [Release facts](https://premiere-pro-mcp.com/facts/)
 
 Development source: 370 core tools across 53 modules, 4 resources, and 17 guided workflows. A connected UXP host adds 95 capability-gated tools.
 

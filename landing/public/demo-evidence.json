@@ -1,0 +1,45 @@
+{
+  "host": "Premiere Pro 26.5.0",
+  "verification": {
+    "success": true,
+    "data": {
+      "sequence": "COAST - 15 second review",
+      "clips": [
+        {
+          "name": "01 - Coast sunrise.mp4",
+          "start": 0,
+          "end": 5
+        },
+        {
+          "name": "02 - Forest and sea.mp4",
+          "start": 5,
+          "end": 10
+        },
+        {
+          "name": "03 - Blue hour.mp4",
+          "start": 10,
+          "end": 15
+        }
+      ],
+      "markers": [
+        {
+          "name": "OPEN - establish the coast",
+          "seconds": 0
+        },
+        {
+          "name": "MIDDLE - forest and sea",
+          "seconds": 5
+        },
+        {
+          "name": "CLOSE - blue hour",
+          "seconds": 10
+        }
+      ],
+      "saved": true
+    }
+  },
+  "bridge": "CEP",
+  "scope": "Single recorded assembly workflow; not a certification of other tools or hosts.",
+  "recordedAt": "2026-09-15T18:27:52.89Z",
+  "redaction": "Local project paths and identifiers omitted."
+}

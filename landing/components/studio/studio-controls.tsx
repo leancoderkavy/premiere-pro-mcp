@@ -139,15 +139,15 @@ export function WalkthroughPlayer() {
         <video
           controls
           autoPlay
-          muted
           playsInline
           preload="metadata"
-          poster="/premiere-pro-mcp-demo-poster-1280.webp"
-          aria-label="Illustrated workflow animation; not a live Premiere recording"
+          poster="/premiere-pro-mcp-ad-v3-poster-1280.webp"
+          aria-label="Live Premiere Pro recording: assemble three clips, add review markers, and inspect the saved timeline"
         >
-          <source src="/premiere-pro-mcp-demo.mp4" type="video/mp4" />
+          <source src="/premiere-pro-mcp-ad-v3.mp4" type="video/mp4" />
+          <track kind="captions" src="/premiere-pro-mcp-ad-v3.vtt" srcLang="en" label="English" />
           Your browser cannot play this video.{" "}
-          <a href="/premiere-pro-mcp-demo.mp4">Open the walkthrough</a>.
+          <a href="/premiere-pro-mcp-ad-v3.mp4">Open the walkthrough</a>.
         </video>
       ) : (
         <button
@@ -155,10 +155,10 @@ export function WalkthroughPlayer() {
           onClick={() => {
             setPlaying(true)
             trackOnboardingEvent("marketing_demo_played", {
-              demo: "illustrated_workflow"
+              demo: "cinematic_ad_v3"
             })
           }}
-          aria-label="Play the walkthrough — illustrated product workflow"
+          aria-label="Play the walkthrough — live Premiere Pro recording"
         >
           <div className="studio-demo-wordmark" aria-hidden="true">
             <span>Request. Review.</span>
@@ -168,10 +168,10 @@ export function WalkthroughPlayer() {
             <picture>
               <source
                 media="(max-width: 767px)"
-                srcSet={studioArtwork.finish.mobileSrc}
+                srcSet="/premiere-pro-mcp-ad-v3-poster-640.webp"
               />
               <Image
-                src={studioArtwork.finish.src}
+                src="/premiere-pro-mcp-ad-v3-poster-1280.webp"
                 alt=""
                 width={1600}
                 height={914}
@@ -181,11 +181,11 @@ export function WalkthroughPlayer() {
           </div>
           <span className="studio-video-shade" />
           <span className="studio-video-top" aria-hidden="true">
-            A CLOSER LOOK AT THE WORKFLOW
+            RECORDED IN PREMIERE PRO
           </span>
           <span className="studio-video-play">
             <Play size={24} fill="currentColor" />
-            <span>Play the walkthrough</span>
+            <span>Play the walkthrough · 30 sec</span>
           </span>
         </button>
       )}
