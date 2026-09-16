@@ -68,8 +68,8 @@ export function validateClaudeManifest(manifest, packageJson) {
   assert(
     tokenConfig?.type === "string" &&
       tokenConfig?.sensitive === true &&
-      tokenConfig?.required === true,
-    "Claude bundle must require a sensitive Premiere UXP token configuration",
+      tokenConfig?.required === false,
+    "Claude bundle must expose an optional sensitive Premiere UXP token for UXP hosts",
   );
   assert(
     manifest.server?.mcp_config?.env?.PREMIERE_UXP_TOKEN ===
