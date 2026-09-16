@@ -48,6 +48,23 @@ function __secondsToTicks(seconds) {
   return Math.round(parseFloat(seconds) * TICKS_PER_SECOND);
 }
 
+// TrackItem.start and TrackItem.end are independent writes on Premiere Pro
+// 26.x: writing start never carries end along, and a start write that would
+// pass the clip's current end is rejected silently. Write the two edges in the
+// order that keeps start < end at every intermediate step (issue #550).
+function __writeClipSpan(item, startTicks, endTicks) {
+  var wantedStart = parseFloat(startTicks);
+  var wantedEnd = parseFloat(endTicks);
+  if (!(wantedEnd > wantedStart)) throw new Error("clip span must end after it starts");
+  if (wantedStart > parseFloat(item.start.ticks)) {
+    item.end = String(wantedEnd);
+    item.start = String(wantedStart);
+  } else {
+    item.start = String(wantedStart);
+    item.end = String(wantedEnd);
+  }
+}
+
 function __ticksToTimecode(ticks, fps) {
   var totalSeconds = __ticksToSeconds(ticks);
   var hours = Math.floor(totalSeconds / 3600);
