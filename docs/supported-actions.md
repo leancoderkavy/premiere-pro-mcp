@@ -320,7 +320,7 @@ operation” when the tool has no enum-based mode.
 | `replace_clip` | Default profile | Single operation | Replace a clip on the timeline with a different project item, preserving position and duration |
 | `replace_clip_media` | Default profile | Single operation | Unavailable by design: the legacy ExtendScript overwrite route cannot prove that replacing media preserves the original clip's trim, position, linked audio, or adjacent clips, so this tool performs no mutation. |
 | `reverse_clip` | Default profile | Single operation | Unavailable: Premiere does not expose a supported scripting API for reversing a timeline clip's playback direction. |
-| `ripple_delete` | Default profile | Single operation | Ripple delete a clip (removes clip and closes the gap). Uses QE DOM. |
+| `ripple_delete` | Default profile | `scope`: `sync_locked`, `own_track`; `range_content`: `refuse`, `delete` | Remove a clip and close the gap it leaves, shifting later clips earlier on the clip's own track and on every sync-locked track so audio stays in sync. Premiere's QE rippleDelete() and the DOM's rippleEdit flag are both non-functional on 26.x, so this is done explicitly and verified. Refuses without changing anything if a clip on a participating track straddles the ripple point or sits inside the range being closed. |
 | `roll_edit` | Default profile | Single operation | Perform a verified roll edit at the outgoing cut of a clip using the public timeline DOM, moving both visible edges and their source in/out points and verifying all four. |
 | `save_project` | Default profile | Single operation | Save the current Premiere Pro project |
 | `save_project_as` | Default profile | Single operation | Save the current project to a new location |

@@ -3,7 +3,7 @@
   "evidenceScope": "source_catalog_may_include_unreleased_work",
   "sourceVersion": "1.16.0",
   "sourcePath": "docs/supported-actions.md",
-  "sourceSha256": "55b5e98a07abd879dd2a3be63804bddf331a9eecd132ddc2d63103819937bea7",
+  "sourceSha256": "8ceae0a79bf8ba3165b2bb14844180a2c068616b0fd50244b5ab428667c35177",
   "hostVerification": "not_established_by_catalogs",
   "counts": {
     "default": 379,
@@ -2246,8 +2246,8 @@
     {
       "name": "ripple_delete",
       "surface": "default",
-      "modes": "Single operation",
-      "description": "Ripple delete a clip (removes clip and closes the gap). Uses QE DOM."
+      "modes": "scope: sync_locked, own_track; range_content: refuse, delete",
+      "description": "Remove a clip and close the gap it leaves, shifting later clips earlier on the clip's own track and on every sync-locked track so audio stays in sync. Premiere's QE rippleDelete() and the DOM's rippleEdit flag are both non-functional on 26.x, so this is done explicitly and verified. Refuses without changing anything if a clip on a participating track straddles the ripple point or sits inside the range being closed."
     },
     {
       "name": "ripple_delete_track_item_uxp",
