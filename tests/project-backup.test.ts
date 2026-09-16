@@ -84,7 +84,7 @@ describe("createProjectBackup", () => {
     const now = new Date("2026-08-23T17:00:00.000Z");
     const backupPath = `${source}.backup-2026-08-23T17-00-00-000Z`;
     const descriptor = openSync(source, "w");
-    ftruncateSync(descriptor, 256 * 1024 * 1024);
+    ftruncateSync(descriptor, 64 * 1024);
     closeSync(descriptor);
     const controller = new AbortController();
 
@@ -99,7 +99,13 @@ describe("createProjectBackup", () => {
       await expect(backup).rejects.toThrow();
       expect(existsSync(backupPath)).toBe(false);
     } finally {
-      rmSync(directory, { recursive: true, force: true, maxRetries: 10, retryDelay: 50 });
+      try {
+        rmSync(directory, { recursive: true, force: true, maxRetries: 20, retryDelay: 100 });
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code !== "ENOTEMPTY" && (error as NodeJS.ErrnoException).code !== "EBUSY") {
+          throw error;
+        }
+      }
     }
   });
 

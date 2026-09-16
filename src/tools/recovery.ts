@@ -146,14 +146,18 @@ export async function createProjectBackup(
         else callback(null, chunk);
       },
     });
+    const sourceStream = createReadStream(sourcePath, { signal: options.signal });
+    const backupStream = backupHandle.createWriteStream();
     try {
       await pipeline(
-        createReadStream(sourcePath, { signal: options.signal }),
+        sourceStream,
         byteLimiter,
-        backupHandle.createWriteStream(),
+        backupStream,
         { signal: options.signal },
       );
     } finally {
+      sourceStream.destroy();
+      backupStream.destroy();
       await backupHandle.close().catch(() => undefined);
     }
 
