@@ -84,19 +84,19 @@ describe("createProjectBackup", () => {
     const now = new Date("2026-08-23T17:00:00.000Z");
     const backupPath = `${source}.backup-2026-08-23T17-00-00-000Z`;
     const descriptor = openSync(source, "w");
-    ftruncateSync(descriptor, 64 * 1024);
+    ftruncateSync(descriptor, 16 * 1024 * 1024);
     closeSync(descriptor);
     const controller = new AbortController();
 
     try {
       const backup = createProjectBackup(source, now, { signal: controller.signal });
-      for (let attempt = 0; attempt < 100 && !existsSync(backupPath); attempt++) {
+      for (let attempt = 0; attempt < 200 && !existsSync(backupPath); attempt++) {
         await new Promise<void>((resolve) => setImmediate(resolve));
       }
       expect(existsSync(backupPath)).toBe(true);
       controller.abort();
 
-      await expect(backup).rejects.toThrow();
+      await expect(backup).rejects.toThrow(/cancelled|AbortError|aborted/i);
       expect(existsSync(backupPath)).toBe(false);
     } finally {
       try {

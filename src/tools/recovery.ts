@@ -141,23 +141,23 @@ export async function createProjectBackup(
     let copiedBytes = 0;
     const byteLimiter = new Transform({
       transform(chunk: Buffer, _encoding, callback) {
+        if (options.signal?.aborted) {
+          callback(Object.assign(new Error("project backup cancelled"), { name: "AbortError" }));
+          return;
+        }
         copiedBytes += chunk.length;
         if (copiedBytes > maxBytes) callback(new Error(`Project file exceeds the ${maxBytes}-byte backup budget`));
         else callback(null, chunk);
       },
     });
-    const sourceStream = createReadStream(sourcePath, { signal: options.signal });
-    const backupStream = backupHandle.createWriteStream();
     try {
       await pipeline(
-        sourceStream,
+        createReadStream(sourcePath, { signal: options.signal }),
         byteLimiter,
-        backupStream,
+        backupHandle.createWriteStream(),
         { signal: options.signal },
       );
     } finally {
-      sourceStream.destroy();
-      backupStream.destroy();
       await backupHandle.close().catch(() => undefined);
     }
 
