@@ -6,19 +6,50 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [1.16.0] - 2026-09-16
+
 ### Added
 
 - Local reaction-Shorts planners: `plan_reaction_captions` stacks overlapping
   speaker colors without guessing unknown speakers, `plan_short_subscribe_cta`
   places a mid-video subscribe overlay, and `plan_short_export_folder` names a
   series folder to create before export. Different labeled speakers may now
-  overlap in a word timeline.
-- Merged open landing and UXP PRs: transcription language options (#515),
-  uxp-spike cleanup (#520), cinematic 3D timeline (#518), public-page styling
-  (#517), and the studio install/Name-check callout (#521).
-- The Fly landing page now sends the existing bounded website events to PostHog
-  as well as Google Analytics, without autocapture, session replay, or person
-  profiles.
+  overlap in a word timeline. (#543)
+- Guarded Speech-to-Text start, caption style guidance, and UXP transcription
+  language options. (#513, #515)
+- Install collision-defense identity output for `--version` and `--doctor`, plus
+  a verified npm installation guide and package-identity checks. (#516, #533,
+  #534)
+- Recorded workflow evidence and a source-linked Premiere MCP comparison. (#532)
+- Interactive cinematic landing: 3D timeline, draggable trims, a program
+  monitor, public-page styling, studio install/Name-check callout, Ahrefs
+  verification, and a female-narration advertisement. (#517–#521, #524–#531,
+  #546)
+- Bounded Fly landing events now go to PostHog as well as Google Analytics,
+  without autocapture, session replay, or person profiles. (#522)
+
+### Fixed
+
+- Host-reported tool crashes and false verification for clip markers, MOGRT JSON
+  values, first transcript import, FCP XML destination checks, and UXP tree
+  IDs. (#544)
+- Security audit findings: HTTP and filesystem work is bounded, and bridge
+  directories fail closed when ownership, symlinks, or ancestor replacement
+  rights are untrusted. (#545)
+- AME handoff tools require a saved project so Same as Project preset
+  destinations cannot resolve against a scratch folder. (#535)
+- Homepage overflow and cinematic timeline replay after the landing merge.
+  (#523)
+
+### Changed
+
+- Creating a UXP preset sequence now requires explicit confirmation. (#542)
+- The Claude Desktop bundle no longer requires a UXP token for CEP-only setups.
+- Homepage experiment assignment is exposed at first paint. (#514)
+- Removed the throwaway `uxp-spike` directory. (#520)
+
+Automated checks do not establish licensed Premiere or After Effects playback or
+rendered-output verification.
 
 ## [1.15.2] - 2026-09-14
 
