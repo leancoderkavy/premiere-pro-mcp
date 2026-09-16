@@ -38,7 +38,7 @@
       "project.insertionBin.inspect": { readOnly: true, minHostVersion: "25.6.0", probe: canInspectProjectInsertionBin, handler: inspectProjectInsertionBin },
       "graphics.mogrtPath.inspect": { readOnly: true, minHostVersion: "25.6.0", probe: canInspectInstalledMogrtDirectory, handler: inspectInstalledMogrtDirectory },
       "project.save": { idempotent: true, minHostVersion: "25.6.0", probe: canSaveProject, handler: saveProject },
-      "sequence.createPreset": { destructive: true, undoable: false, requiresWorkspace: true, minHostVersion: "26.3.0", probe: canCreatePresetSequence, handler: createPresetSequence },
+      "sequence.createPreset": { destructive: true, undoable: false, idempotent: true, requiresWorkspace: true, minHostVersion: "26.3.0", probe: canCreatePresetSequence, handler: createPresetSequence },
       "sequence.range.inspect": { readOnly: true, minHostVersion: "25.6.0", probe: canInspectSequenceRange, handler: inspectSequenceRange },
       "sequence.range.update": { destructive: true, undoable: true, idempotent: true, minHostVersion: "25.6.0", probe: canUpdateSequenceRange, handler: updateSequenceRange },
       "sequence.playhead.inspect": { readOnly: true, minHostVersion: "25.6.0", probe: canInspectSequencePlayhead, handler: inspectSequencePlayhead },
@@ -337,15 +337,26 @@
       return { saved: true, outcome: "verified", projectGuid: String(project.guid || "") };
     }
     async function createPresetSequence(args) {
-      assertOnlyKeys(args, ["name", "presetPath", "operationId"]);
-      const name = requiredString(args.name, "name"), presetPath = await allowedPath(args.presetPath, "presetPath", "file");
+      assertOnlyKeys(args, ["name", "presetPath", "confirmNonUndoable", "operationId"]);
+      requireConfirmation(args.confirmNonUndoable, "Creating a sequence from a preset is a direct Project call without an Action boundary");
+      requiredOperationId(args.operationId);
+      const name = boundedString(args.name, "name", 255);
+      const presetPath = await allowedPath(args.presetPath, "presetPath", "file");
       const project = await ppro.Project.getActiveProject();
       if (!project) throw commandError("UXP_NO_ACTIVE_PROJECT", "No active project");
+      if (typeof project.createSequenceWithPresetPath !== "function") {
+        throw commandError("UXP_COMMAND_UNAVAILABLE", "This Premiere build does not expose documented preset sequence creation");
+      }
       const sequence = await project.createSequenceWithPresetPath(name, presetPath);
       if (!sequence) throw commandError("UXP_VERIFICATION_FAILED", "Premiere did not return the created sequence");
       const verified = Array.from(await project.getSequences() || []).some((item) => String(item.guid || "") === String(sequence.guid || ""));
       if (!verified) throw commandError("UXP_VERIFICATION_FAILED", "Created sequence was not present in the project");
-      return { created: true, outcome: "verified", sequence: { guid: String(sequence.guid || ""), name: String(sequence.name || name) } };
+      return {
+        created: true,
+        outcome: "verified",
+        sequence: { guid: String(sequence.guid || ""), name: String(sequence.name || name) },
+        verificationBoundary: "create_sequence_with_preset_identity_readback"
+      };
     }
     async function inspectSequenceRange(args) {
       assertOnlyKeys(args, []);
@@ -1788,6 +1799,7 @@
   function requiredBoolean(value, name) { if (typeof value !== "boolean") throw commandError("UXP_INVALID_ARGUMENT", name + " must be a boolean"); return value; }
   function optionalBoolean(value, fallback, name) { return value == null ? fallback : requiredBoolean(value, name); }
   function oneOfInt(value, name, allowed) { if (!Number.isInteger(value) || !allowed.includes(value)) throw commandError("UXP_INVALID_ARGUMENT", name + " must be one of " + allowed.join(", ")); return value; }
+  function requireConfirmation(value, message) { if (value !== true) throw commandError("UXP_CONFIRMATION_REQUIRED", message + "; pass confirmNonUndoable=true after review"); }
   function requiredOperationId(value) { if (typeof value !== "string" || !/^[A-Za-z0-9._:-]{1,128}$/.test(value)) throw commandError("UXP_INVALID_ARGUMENT", "operationId is required and must be 1-128 safe characters"); return value; }
   function validateOperationId(value) { if (value == null) return null; if (typeof value !== "string" || !/^[A-Za-z0-9._:-]{1,128}$/.test(value)) throw commandError("UXP_INVALID_ARGUMENT", "operationId must be 1-128 safe characters"); return value; }
   function simpleRevision(value) { var hash = 2166136261; for (var i = 0; i < value.length; i += 1) { hash ^= value.charCodeAt(i); hash = Math.imul(hash, 16777619); } return "uxp-" + (hash >>> 0).toString(16); }

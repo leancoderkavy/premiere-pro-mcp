@@ -204,6 +204,17 @@ describe("capability profiles", () => {
     expect(handler).toHaveBeenCalledTimes(2);
   });
 
+  it("withholds and rejects non-undoable preset sequence creation without edit authority", async () => {
+    const handler = vi.fn(async () => "ok");
+    const inspectOnly = resolveCapabilities("inspect");
+    expect(capabilitiesForToolInvocation("create_sequence_with_preset_uxp", {})).toEqual(["edit"]);
+    expect(isToolPermitted("create_sequence_with_preset_uxp", inspectOnly)).toBe(false);
+    await expect(
+      guardToolHandler("create_sequence_with_preset_uxp", handler, inspectOnly, () => "preset-sequence-create")({}),
+    ).rejects.toMatchObject({ code: "CAPABILITY_DENIED", capability: "edit", operationId: "preset-sequence-create" });
+    expect(handler).not.toHaveBeenCalled();
+  });
+
   it("withholds and rejects non-undoable empty sequence creation without edit authority", async () => {
     const handler = vi.fn(async () => "ok");
     const inspectOnly = resolveCapabilities("inspect");

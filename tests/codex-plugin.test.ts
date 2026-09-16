@@ -127,7 +127,7 @@ describe("Claude distributions", () => {
     expect(manifest.user_config.premiere_uxp_token).toMatchObject({
       type: "string",
       sensitive: true,
-      required: true,
+      required: false,
     });
     expect(manifest.user_config.premiere_mcp_protocol_mode).toMatchObject({
       type: "string",

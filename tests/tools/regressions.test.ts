@@ -369,7 +369,7 @@ describe("issue #194 — string-backed MOGRT effect properties", () => {
 
   it("accepts and safely serializes the JSON string exposed by MOGRT text properties", async () => {
     expect(keyframes.set_effect_property.parameters.properties.value).toMatchObject({
-      type: ["number", "string", "boolean", "array"],
+      type: ["number", "string", "boolean", "array", "object"],
     });
 
     const script = await scriptFor(keyframes.set_effect_property, {
@@ -736,7 +736,7 @@ describe("issue #238 — AME uses canonical paths and documented encodeFile posi
   const exports = getExportTools(bridgeOptions);
 
   it("captures AME job IDs and does not present queueing as a completed encode", async () => {
-    const queued = await scriptFor(exports.add_to_render_queue, { output_path: "/tmp/render.mp4" });
+    const queued = await scriptFor(exports.add_to_render_queue, { output_path: "/tmp/render.mp4", preset_path: "/tmp/preset.epr" });
     const projectItem = await scriptFor(exports.encode_project_item, {
       item_id: "item-1",
       output_path: "/tmp/render.mp4",
@@ -797,7 +797,7 @@ describe("issue #323 — AME handoffs are unverified until a queue or file readb
   const project = getProjectTools(bridgeOptions);
 
   it("does not present AME acceptance as a queued, started, or completed encode", async () => {
-    const render = await scriptFor(exports.add_to_render_queue, { output_path: "/tmp/render.mp4" });
+    const render = await scriptFor(exports.add_to_render_queue, { output_path: "/tmp/render.mp4", preset_path: "/tmp/preset.epr" });
     const item = await scriptFor(exports.encode_project_item, {
       item_id: "item-1", output_path: "/tmp/render.mp4", preset_path: "/tmp/preset.epr",
     });

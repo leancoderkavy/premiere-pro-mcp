@@ -172,11 +172,56 @@ describe("UXP command registry", () => {
     expect(available.commands["preferences.inspect"]).toMatchObject({ supported: true, readOnly: true, minHostVersion: "25.6.0" });
     expect(available.commands["preferences.set"]).toMatchObject({ supported: true, destructive: false, undoable: false, idempotent: true, minHostVersion: "25.6.0" });
     expect(available.commands["project.insertionBin.inspect"]).toMatchObject({ supported: true, readOnly: true, minHostVersion: "25.6.0" });
+    expect(available.commands["sequence.createPreset"]).toMatchObject({
+      destructive: true, undoable: false, idempotent: true, workspaceRequired: true, minHostVersion: "26.3.0",
+    });
     for (const command of ["sequence.createPreset", "interchange.export", "interchange.aaf.export", "frame.export"]) {
       expect(available.commands[command]).toMatchObject({ workspaceRequired: true });
     }
     const unavailable = await host({ transitions: false }).registry.capabilities();
     expect(unavailable.commands["transition.video.add"]).toMatchObject({ supported: false, reason: expect.any(String) });
+  });
+
+  it("creates a preset sequence only after confirmation and verifies the returned identity", async () => {
+    const value = host();
+    const created = { guid: "sequence-2", name: "Delivery" };
+    value.project.createSequenceWithPresetPath.mockImplementationOnce(async (name: string) => {
+      value.project.getSequences.mockResolvedValueOnce([value.sequence, created]);
+      return created;
+    });
+    await expect(value.registry.dispatch("sequence.createPreset", {
+      name: "Delivery",
+      presetPath: "/presets/hd.sqpreset",
+    })).rejects.toMatchObject({ code: "UXP_CONFIRMATION_REQUIRED" });
+    await expect(value.registry.dispatch("sequence.createPreset", {
+      name: "Delivery",
+      presetPath: "/presets/hd.sqpreset",
+      confirmNonUndoable: true,
+    })).rejects.toMatchObject({ code: "UXP_INVALID_ARGUMENT" });
+    expect(value.project.createSequenceWithPresetPath).not.toHaveBeenCalled();
+    await expect(value.registry.dispatch("sequence.createPreset", {
+      name: "Delivery",
+      presetPath: "/presets/hd.sqpreset",
+      confirmNonUndoable: true,
+      operationId: "preset-sequence-1",
+    })).resolves.toMatchObject({
+      created: true,
+      outcome: "verified",
+      sequence: { guid: "sequence-2", name: "Delivery" },
+      verificationBoundary: "create_sequence_with_preset_identity_readback",
+    });
+    expect(value.project.createSequenceWithPresetPath).toHaveBeenCalledWith("Delivery", "/presets/hd.sqpreset");
+    await expect(value.registry.dispatch("sequence.createPreset", {
+      name: "Delivery",
+      presetPath: "/presets/hd.sqpreset",
+      confirmNonUndoable: true,
+      operationId: "preset-sequence-1",
+    })).resolves.toMatchObject({
+      created: true,
+      replayed: true,
+      sequence: { guid: "sequence-2", name: "Delivery" },
+    });
+    expect(value.project.createSequenceWithPresetPath).toHaveBeenCalledTimes(1);
   });
 
   it("requires an explicit available canonical-path state for path command discovery", async () => {

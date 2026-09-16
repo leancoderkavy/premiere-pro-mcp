@@ -1070,7 +1070,7 @@ export function getExportTools(bridgeOptions: BridgeOptions) {
 
     add_to_render_queue: {
       description:
-        "Request an Adobe Media Encoder render-queue handoff for the active sequence. Verify queue presence or the output file independently.",
+        "Request an Adobe Media Encoder render-queue handoff for the active sequence. Requires a saved project and an .epr preset_path. Verify queue presence or the output file independently; Same as Project presets can still ignore the absolute output_path.",
       parameters: {
         type: "object" as const,
         properties: {
@@ -1080,18 +1080,29 @@ export function getExportTools(bridgeOptions: BridgeOptions) {
           },
           preset_path: {
             type: "string",
-            description: "Path to an AME preset file (.epr)",
+            description: "Required path to an AME preset file (.epr). Omitting this raises an Illegal Parameter error on current Premiere hosts.",
           },
         },
-        required: ["output_path"],
+        required: ["output_path", "preset_path"],
       },
       handler: async (args: { output_path: string; preset_path?: string }) => {
+        if (typeof args.preset_path !== "string" || !args.preset_path.trim()) {
+          return {
+            success: false,
+            error: "preset_path is required. Pass a .epr file; omitting it falls through to an Illegal Parameter error on this host.",
+          };
+        }
         const script = buildToolScript(`
           var seq = app.project.activeSequence;
           if (!seq) return __error("No active sequence");
           
           var encoder = app.encoder;
           if (!encoder) return __error("Adobe Media Encoder not available");
+          var savedProjectPath = "";
+          try { savedProjectPath = String(app.project.path || ""); } catch (projectPathError) { savedProjectPath = ""; }
+          if (!savedProjectPath || savedProjectPath === "undefined") {
+            return __error("Save the Premiere project to a real .prproj path before AME handoff. Unsaved or scratch projects make Adobe Media Encoder resolve a Same as Project output token against a disposable folder.");
+          }
           
           encoder.launchEncoder();
           
@@ -1100,10 +1111,7 @@ export function getExportTools(bridgeOptions: BridgeOptions) {
             return __error("The requested AME output directory does not exist: " + outputFile.parent);
           }
           var outputPath = outputFile.fsName;
-          ${args.preset_path
-            ? `var presetPath = "${escapeForExtendScript(args.preset_path)}";`
-            : `var presetPath = encoder.ENCODE_MATCH_SEQUENCE;`
-          }
+          var presetPath = "${escapeForExtendScript(args.preset_path)}";
           
           var jobId = encoder.encodeSequence(
             seq,
@@ -1120,7 +1128,8 @@ export function getExportTools(bridgeOptions: BridgeOptions) {
             outcome: "committed_unverified",
             jobId: String(jobId),
             outputPath: outputPath,
-            verificationScope: "Premiere returned an AME job ID. Queue presence and output-file creation are not verified by this tool."
+            savedProjectPath: savedProjectPath,
+            verificationScope: "Premiere returned an AME job ID. Queue presence and output-file creation are not verified by this tool. If the .epr output destination is Same as Project, AME may ignore this absolute output_path when it encodes from a scratch project copy."
           });
         `);
         return sendCommand(script, bridgeOptions);
@@ -1387,6 +1396,11 @@ export function getExportTools(bridgeOptions: BridgeOptions) {
         const script = buildToolScript(`
           var item = __findProjectItem("${escapeForExtendScript(args.item_id)}");
           if (!item) return __error("Project item not found: ${escapeForExtendScript(args.item_id)}");
+          var savedProjectPath = "";
+          try { savedProjectPath = String(app.project.path || ""); } catch (projectPathError) { savedProjectPath = ""; }
+          if (!savedProjectPath || savedProjectPath === "undefined") {
+            return __error("Save the Premiere project to a real .prproj path before AME handoff. Unsaved or scratch projects make Adobe Media Encoder resolve a Same as Project output token against a disposable folder.");
+          }
           var outputFile = new File("${escapeForExtendScript(args.output_path)}");
           if (!outputFile.parent || !outputFile.parent.exists) {
             return __error("The requested AME output directory does not exist: " + outputFile.parent);
@@ -1472,6 +1486,11 @@ export function getExportTools(bridgeOptions: BridgeOptions) {
         const script = buildToolScript(`
           var inputFile = new File("${escapeForExtendScript(args.input_path)}");
           if (!inputFile.exists) return __error("Input file does not exist: " + inputFile.fsName);
+          var savedProjectPath = "";
+          try { savedProjectPath = String(app.project.path || ""); } catch (projectPathError) { savedProjectPath = ""; }
+          if (!savedProjectPath || savedProjectPath === "undefined") {
+            return __error("Save the Premiere project to a real .prproj path before AME handoff. Unsaved or scratch projects make Adobe Media Encoder resolve a Same as Project output token against a disposable folder.");
+          }
           var outputFile = new File("${escapeForExtendScript(args.output_path)}");
           if (!outputFile.parent || !outputFile.parent.exists) {
             return __error("The requested AME output directory does not exist: " + outputFile.parent);

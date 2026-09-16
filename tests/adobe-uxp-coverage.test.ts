@@ -536,8 +536,8 @@ describe("Adobe Premiere Pro 26.3 UXP coverage", () => {
       current: 84,
       planned: 3,
       implemented: 84,
-      committedUnverified: 9,
-      automatedContractVerified: 75,
+      committedUnverified: 8,
+      automatedContractVerified: 76,
       liveHostVerified: 0,
     });
     expect(report.entries.find((entry) => entry.id === "aaf-export")).toMatchObject({
@@ -571,7 +571,7 @@ describe("Adobe Premiere Pro 26.3 UXP coverage", () => {
     expect(report.backends.uxp.apiCoverage.summary).toMatchObject({
       current: 84,
       planned: 3,
-      committedUnverified: 9,
+      committedUnverified: 8,
     });
   });
 });

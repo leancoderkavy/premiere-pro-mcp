@@ -819,6 +819,18 @@ describe("stable Premiere UXP workflow expansion", () => {
     }
   });
 
+  it("still runs createMarkers when a selected project item has no marker collection", async () => {
+    const value = stableHost();
+    value.ppro.Markers.getMarkers.mockResolvedValue(null);
+    value.ppro.SequenceUtils.performSceneEditDetectionOnSelection.mockImplementationOnce(async () => true);
+    await expect(value.registry.dispatch("sceneEdit.detect", { mode: "createMarkers" })).resolves.toMatchObject({
+      detected: true,
+      mode: "createMarkers",
+      outcome: "committed_unverified",
+    });
+    expect(value.ppro.SequenceUtils.performSceneEditDetectionOnSelection).toHaveBeenCalled();
+  });
+
   it("refuses to report scene-marker detection when marker readback is unchanged", async () => {
     const value = stableHost();
     value.ppro.SequenceUtils.performSceneEditDetectionOnSelection.mockImplementationOnce(async () => true);
