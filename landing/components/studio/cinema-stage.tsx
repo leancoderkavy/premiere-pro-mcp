@@ -8,6 +8,8 @@ import { CinemaTimeline } from "./cinema-timeline"
 import { useCinemaParallax } from "./cinema-interaction"
 import { useCinemaEditor } from "./cinema-editor"
 import { CinemaWorkflow } from "./cinema-workflow"
+import { CinemaMonitor } from "./cinema-monitor"
+import { activateTouchControl, suppressNativeTouchClick } from "./cinema-touch-controls"
 import { MotionToggle, useStudioMotion } from "./studio-motion"
 
 const StudioCanvas = dynamic(() => import("./studio-canvas"), { ssr: false })
@@ -36,8 +38,9 @@ export function StudioStage() {
   const [ready, setReady] = useState(false)
   const [failed, setFailed] = useState(false)
   const [exploded, setExploded] = useState(false)
+  const [cinematic, setCinematic] = useState(false)
   const transport = useCinemaEditor(visible)
-  const parallax = useCinemaParallax(stage, paused || !enhanced || !visible)
+  const parallax = useCinemaParallax(stage, paused || !enhanced || !visible || !cinematic)
   const onReady = useCallback((value: boolean) => setReady(value), [])
   const onError = useCallback(() => {
     setReady(false)
@@ -72,7 +75,7 @@ export function StudioStage() {
     <section
       ref={stage}
       className="studio-stage cinema-stage cinema-interactive"
-      data-enhanced={enhanced && !paused && visible && ready}
+      data-enhanced={cinematic && enhanced && !paused && visible && ready}
       data-exploded={exploded}
       aria-label="The cutting room — an interactive cinematic illustration"
     >
@@ -82,64 +85,53 @@ export function StudioStage() {
         </span>
         <span>INTERACTIVE EDITING DEMO</span>
       </div>
-      <div className="cinema-monitor-space">
-        <div className="cinema-viewport" data-gap={transport.activeShot === null}>
-          <CinemaFallback chapter={transport.chapter} />
-          {enhanced && !paused && visible && !failed ? (
-            <div className="studio-webgl">
-              <SceneBoundary onError={onError}>
-                <StudioCanvas
-                  onReady={onReady}
-                  onError={onError}
-                  chapter={transport.chapter}
-                  parallax={parallax}
-                  exploded={exploded}
-                  onSelect={transport.selectShot}
-                />
-              </SceneBoundary>
-            </div>
-          ) : null}
-          {transport.activeShot === null ? (
-            <div className="cinema-gap">
-              <strong>NO PICTURE</strong>
-              <span>Move a clip here to fill the gap.</span>
-            </div>
-          ) : null}
-          <div className="cinema-gate cinema-gate-left" aria-hidden="true" />
-          <div className="cinema-gate cinema-gate-right" aria-hidden="true" />
-          <div className="cinema-frame-label" aria-hidden="true">
-            <span>
-              PROGRAM /{" "}
-              {transport.activeShot === null
-                ? "GAP"
-                : `SELECT ${cinemaChapters[transport.chapter].shot}`}
-            </span>
-            <span>2.39:1 / 24 FPS</span>
-          </div>
-        </div>
-        <div
-          className="cinema-monitor-caption cinema-caption"
-          aria-live="polite"
-          aria-atomic="true"
-        >
-          <span>
-            {transport.activeShot === null ? "—" : cinemaChapters[transport.chapter].shot}
-          </span>
-          <p>
-            {transport.activeShot === null
-              ? "No picture at the playhead."
-              : cinemaChapters[transport.chapter].title}
-          </p>
-          <i />
-          <span>PROGRAM MONITOR</span>
-        </div>
-      </div>
       <CinemaWorkflow editor={transport} />
-      <CinemaTimeline
-        editor={transport}
-        exploded={exploded}
-        onExplode={() => setExploded((value) => !value)}
-      />
+      <div
+        className="cinema-editor-workspace"
+        id="editing-timeline"
+        onPointerUp={activateTouchControl}
+        onClickCapture={suppressNativeTouchClick}
+      >
+        <CinemaMonitor
+          editor={transport}
+          cinematic={cinematic}
+          onCinematic={() => setCinematic((value) => !value)}
+        >
+          <div className="cinema-viewport" data-gap={transport.activeShot === null}>
+            <CinemaFallback chapter={transport.chapter} />
+            {cinematic && enhanced && !paused && visible && !failed ? (
+              <div className="studio-webgl">
+                <SceneBoundary onError={onError}>
+                  <StudioCanvas
+                    onReady={onReady}
+                    onError={onError}
+                    chapter={transport.chapter}
+                    parallax={parallax}
+                    exploded={exploded}
+                    onSelect={transport.selectShot}
+                  />
+                </SceneBoundary>
+              </div>
+            ) : null}
+            <div className="cinema-gate cinema-gate-left" aria-hidden="true" />
+            <div className="cinema-gate cinema-gate-right" aria-hidden="true" />
+            <div className="cinema-frame-label" aria-hidden="true">
+              <span>
+                PROGRAM /{" "}
+                {transport.activeShot === null
+                  ? "GAP"
+                  : `SELECT ${cinemaChapters[transport.chapter].shot}`}
+              </span>
+              <span>2.39:1 / 24 FPS</span>
+            </div>
+          </div>
+        </CinemaMonitor>
+        <CinemaTimeline
+          editor={transport}
+          exploded={exploded}
+          onExplode={() => setExploded((value) => !value)}
+        />
+      </div>
       <div className="cinema-chapters" role="group" aria-label="Choose a film chapter">
         {cinemaChapters.map((item, index) => (
           <button
