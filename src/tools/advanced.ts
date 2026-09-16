@@ -325,8 +325,14 @@ export function getAdvancedTools(bridgeOptions: BridgeOptions) {
           // QE moveToTrack takes track *deltas*, not an absolute index.
           var videoDelta = result.trackType === "video" ? (${args.target_track_index} - result.trackIndex) : 0;
           var audioDelta = result.trackType === "audio" ? (${args.target_track_index} - result.trackIndex) : 0;
+          // Capture the span and source range as tick strings; Premiere can
+          // mutate the same Time instance on write, so never keep references.
           var beforeMoveStartTicks = String(result.clip.start.ticks);
           var beforeMoveEndTicks = String(result.clip.end.ticks);
+          var beforeMoveInTicks = String(result.clip.inPoint.ticks);
+          var beforeMoveOutTicks = String(result.clip.outPoint.ticks);
+          var spanTicks = parseFloat(beforeMoveEndTicks) - parseFloat(beforeMoveStartTicks);
+          if (!(spanTicks > 0)) return __error("Clip has an empty or inverted timeline range; track move was not attempted.");
           try {
             qeClip.moveToTrack(videoDelta, audioDelta, "0", false);
           } catch (moveErr) {
@@ -339,20 +345,36 @@ export function getAdvancedTools(bridgeOptions: BridgeOptions) {
           if (after.trackIndex !== ${args.target_track_index}) {
             return __error("Premiere accepted the moveToTrack call but the clip is still on track " + after.trackIndex + " rather than ${args.target_track_index}. Structural QE edits are known to no-op on some Premiere Pro 26.x installations (confirmed on 26.2.2).");
           }
+          // moveToTrack can rewrite end independently of start (#550). Re-assert
+          // the original span before verifying, then fail closed if it did not hold.
+          if (String(after.clip.start.ticks) !== beforeMoveStartTicks || String(after.clip.end.ticks) !== beforeMoveEndTicks) {
+            try {
+              __writeClipSpan(after.clip, beforeMoveStartTicks, beforeMoveEndTicks);
+            } catch (spanErr) {
+              return __error("Premiere changed the clip's timeline range during the track move and it could not be restored (" + spanErr.toString() + "). Use Undo and retry in the Premiere UI.");
+            }
+            after = __findClip("${nodeId}");
+            if (!after) return __error("Clip ${nodeId} could not be found after restoring its timeline range; the timeline may be in an unexpected state.");
+          }
           var afterMoveStartTicks = String(after.clip.start.ticks);
           var afterMoveEndTicks = String(after.clip.end.ticks);
           if (parseFloat(afterMoveStartTicks) >= parseFloat(afterMoveEndTicks)) {
             return __error("Premiere left clip ${nodeId} with an inverted or empty timeline range after the track move. Use Undo and retry in the Premiere UI.");
           }
-          if (Math.abs((parseFloat(afterMoveEndTicks) - parseFloat(afterMoveStartTicks)) - (parseFloat(beforeMoveEndTicks) - parseFloat(beforeMoveStartTicks))) > 1) {
+          if (Math.abs((parseFloat(afterMoveEndTicks) - parseFloat(afterMoveStartTicks)) - spanTicks) > 1) {
             return __error("Premiere changed the clip duration during the track move. Use Undo and retry in the Premiere UI.");
+          }
+          if (String(after.clip.inPoint.ticks) !== beforeMoveInTicks || String(after.clip.outPoint.ticks) !== beforeMoveOutTicks) {
+            return __error("Premiere changed the clip's source in/out points during the track move. Use Undo and retry in the Premiere UI.");
           }
 
           return __result({
             moved: true,
             verified: true,
             clipName: after.clip.name,
-            newTrackIndex: after.trackIndex
+            newTrackIndex: after.trackIndex,
+            startSeconds: __ticksToSeconds(afterMoveStartTicks),
+            endSeconds: __ticksToSeconds(afterMoveEndTicks)
           });
         `);
         return sendCommand(script, bridgeOptions);

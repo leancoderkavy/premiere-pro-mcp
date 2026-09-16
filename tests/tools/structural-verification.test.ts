@@ -1,3 +1,4 @@
+import { runInNewContext } from "node:vm";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("../../src/bridge/file-bridge.js", () => ({
@@ -5,6 +6,7 @@ vi.mock("../../src/bridge/file-bridge.js", () => ({
 }));
 
 import { sendCommand } from "../../src/bridge/file-bridge.js";
+import { getHelpersSource } from "../../src/bridge/script-builder.js";
 import { getTimelineTools } from "../../src/tools/timeline.js";
 import { getTrackTargetingTools } from "../../src/tools/track-targeting.js";
 import { getAdvancedTools } from "../../src/tools/advanced.js";
@@ -169,10 +171,37 @@ describe("move_clip verification", () => {
     });
     const script = mockedSendCommand.mock.calls[0][0];
     const trackMoveAt = script.indexOf("qeClip.moveToTrack");
-    const startWriteAt = script.indexOf("clip.start = __secondsToTicks");
+    const startWriteAt = script.indexOf("__writeClipSpan(clip, newStartTicks, newEndTicks)");
     expect(trackMoveAt).toBeGreaterThan(-1);
     expect(startWriteAt).toBeGreaterThan(-1);
     expect(trackMoveAt).toBeLessThan(startWriteAt);
+    // A silent moveToTrack no-op must stop before the time write, not after it.
+    const trackCheckAt = script.indexOf("afterMove.trackIndex !== 1");
+    expect(trackCheckAt).toBeGreaterThan(trackMoveAt);
+    expect(trackCheckAt).toBeLessThan(startWriteAt);
+  });
+
+  it("writes both timeline edges and verifies duration and source in/out (#550)", async () => {
+    await timeline.move_clip.handler({ node_id: "abc", new_start_seconds: 5 });
+    const script = mockedSendCommand.mock.calls[0][0];
+    expect(script).not.toContain("clip.start = __secondsToTicks");
+    expect(script).toContain("var newEndTicks = newStartTicks + spanTicks");
+    expect(script).toContain("__writeClipSpan(clip, newStartTicks, newEndTicks)");
+    expect(script).toContain("visible duration changed from");
+    expect(script).toContain("source in/out points changed, so the clip was trimmed or slipped rather than moved");
+    // Without a track change the vacated range is safe to write back.
+    expect(script).toContain("__writeClipSpan(after.clip, originalStartTicks, originalEndTicks)");
+    expect(script).toContain("The clip was restored to its original timeline range.");
+  });
+
+  it("does not rewrite the original range onto the new track after a failed combined move", async () => {
+    await timeline.move_clip.handler({ node_id: "abc", new_start_seconds: 5, new_track_index: 1 });
+    const script = mockedSendCommand.mock.calls[0][0];
+    expect(script).not.toContain("__writeClipSpan(after.clip, originalStartTicks, originalEndTicks)");
+    expect(script).toContain("its original range is not rewritten automatically");
+    // moveToTrack may corrupt end on its own; the span is re-asserted first.
+    expect(script).toContain("__writeClipSpan(afterMove.clip, originalStartTicks, originalEndTicks)");
+    expect(script).toContain("Premiere changed the clip duration during the track move");
   });
 
   it("matches the QE clip by start time because QE item indices include gaps", async () => {
@@ -283,6 +312,19 @@ describe("move_clip_to_track verification", () => {
     expect(script).toContain("inverted or empty timeline range");
   });
 
+  it("re-asserts the original span after moveToTrack and fails closed on duration or source drift (#550)", async () => {
+    await advanced.move_clip_to_track.handler({
+      node_id: "abc",
+      target_track_index: 1,
+    });
+    const script = mockedSendCommand.mock.calls[0][0];
+    expect(script).toContain("__writeClipSpan(after.clip, beforeMoveStartTicks, beforeMoveEndTicks)");
+    expect(script).toContain("Premiere changed the clip duration during the track move");
+    expect(script).toContain("Premiere changed the clip's source in/out points during the track move");
+    // The span is only re-asserted once the DOM confirms the clip changed track.
+    expect(script.indexOf("after.trackIndex !== 1")).toBeLessThan(script.indexOf("__writeClipSpan(after.clip"));
+  });
+
   it("explains the QE rejection instead of surfacing a raw parameter error", async () => {
     await advanced.move_clip_to_track.handler({
       node_id: "abc",
@@ -379,5 +421,39 @@ describe("overwrite_clip verification", () => {
     expect(script).toContain("if (!videoPlaced && !audioPlaced)");
     expect(script).toContain("produced no verifiable new placement");
     expect(script).toContain("verified: true");
+  });
+});
+
+describe("__writeClipSpan write ordering (#550)", () => {
+  // Premiere rejects a start write that would pass the clip's current end and
+  // never carries end along with start, so the edge order decides whether the
+  // clip moves or is silently stretched/trimmed.
+  function writeSpan(currentStart: number, currentEnd: number, wantedStart: number, wantedEnd: number) {
+    const writes: string[] = [];
+    const item = {
+      _start: String(currentStart),
+      _end: String(currentEnd),
+      get start() { return { ticks: this._start }; },
+      set start(value: unknown) { writes.push("start"); this._start = String(value); },
+      get end() { return { ticks: this._end }; },
+      set end(value: unknown) { writes.push("end"); this._end = String(value); },
+    };
+    runInNewContext(`${getHelpersSource()}\n__writeClipSpan(item, ${wantedStart}, ${wantedEnd});`, { item });
+    return { writes, start: item._start, end: item._end };
+  }
+
+  it("writes end before start when moving later", () => {
+    const result = writeSpan(100, 200, 500, 600);
+    expect(result.writes).toEqual(["end", "start"]);
+    expect(result).toMatchObject({ start: "500", end: "600" });
+  });
+
+  it("writes start before end when moving earlier or staying in place", () => {
+    expect(writeSpan(500, 600, 100, 200).writes).toEqual(["start", "end"]);
+    expect(writeSpan(500, 600, 500, 700).writes).toEqual(["start", "end"]);
+  });
+
+  it("refuses an inverted or empty span before touching the clip", () => {
+    expect(() => writeSpan(100, 200, 300, 300)).toThrow("must end after it starts");
   });
 });
