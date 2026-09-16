@@ -699,7 +699,35 @@ describe("Tool Handler Behavior", () => {
     it("verifies ripple delete and passes QE razor a sequence timecode", async () => {
       await (getAdvancedTools(bridgeOptions).ripple_delete.handler as any)({ node_id: "clip-1" });
       let script = mockedSendCommand.mock.calls[0][0];
-      expect(script).toContain("if (__findClip(deletedNodeId))");
+      // Ripple is implemented explicitly: QE rippleDelete() is never called.
+      expect(script).not.toContain("rippleDelete()");
+      // Sync-locked tracks participate, and a locked one refuses before mutating.
+      expect(script).toContain("isSyncLocked()");
+      expect(script).toContain("Ripple delete refused; nothing was changed.");
+      // The refusal names the remedy for the common linked-audio case.
+      expect(script).toContain("use range_content 'delete' to also remove clips that sit entirely inside the range");
+      // An insider Premiere already removed with the target is not a failure.
+      expect(script).toContain("removedWithTarget: true");
+      // Every shifted clip is re-found and checked for position and duration.
+      expect(script).toContain("var verifyProblems = []");
+      expect(script).toContain("duration changed from");
+
+      vi.clearAllMocks();
+      await (getAdvancedTools(bridgeOptions).ripple_delete.handler as any)({
+        node_id: "clip-1",
+        scope: "own_track",
+      });
+      script = mockedSendCommand.mock.calls[0][0];
+      expect(script).not.toContain("isSyncLocked()");
+
+      vi.clearAllMocks();
+      await (getAdvancedTools(bridgeOptions).ripple_delete.handler as any)({
+        node_id: "clip-1",
+        dry_run: true,
+      });
+      script = mockedSendCommand.mock.calls[0][0];
+      expect(script).toContain("dryRun: true");
+      expect(script).not.toContain("target.remove(");
 
       vi.clearAllMocks();
       await (getTimelineTools(bridgeOptions).split_clip.handler as any)({ time_seconds: 2 });
