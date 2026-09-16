@@ -50,6 +50,8 @@ The hosted endpoint does not automatically pair a visitor to their local Premier
 
 ## References
 
+- Recorded workflow, transcript, and verification receipt: ${origin}/demo/
+- Source-linked Premiere MCP comparison: ${origin}/compare/
 - Canonical facts: ${origin}/facts/
 - Versioned evidence data: ${origin}/marketing-facts.json
 - Workflow starter kit: ${origin}/workflows/

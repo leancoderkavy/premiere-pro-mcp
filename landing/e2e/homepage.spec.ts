@@ -225,7 +225,8 @@ test("treatment: reduced motion, animated WebGL, pause, context loss, and video 
   await expect(page.getByRole("img", { name: /Three coastal film shots/ })).toBeVisible()
   await page.getByRole("button", { name: /Play the walkthrough/ }).click()
   await expect.poll(async () => page.locator("video").evaluate(video => ({ ready: (video as HTMLVideoElement).readyState >= 2, playing: !(video as HTMLVideoElement).paused, time: (video as HTMLVideoElement).currentTime > 0 }))).toEqual({ ready: true, playing: true, time: true })
-  await expect(page.locator("video")).toHaveAttribute("aria-label", /not a live Premiere recording/)
+  await expect(page.locator("video")).toHaveAttribute("aria-label", /Live Premiere Pro recording/)
+  await expect.poll(async () => page.locator("video").evaluate(video => ({ muted: (video as HTMLVideoElement).muted, duration: Math.round((video as HTMLVideoElement).duration) }))).toEqual({ muted: false, duration: 30 })
 })
 
 test("cutting room: chapters work with keyboard, reduced motion, and a lost WebGL context", async ({ page, request }) => {

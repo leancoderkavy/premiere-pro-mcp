@@ -1,0 +1,23 @@
+WEBVTT
+
+00:00.000 --> 00:04.000
+Request: assemble three coastal shots into a 15-second edit.
+Add a review marker at each cut. Save the project.
+
+00:04.000 --> 00:09.000
+Import three original sample clips into Premiere Pro.
+Each clip is five seconds long.
+
+00:09.000 --> 00:13.000
+Assemble the clips in order in a named sequence.
+
+00:13.000 --> 00:16.000
+Add review markers at the opening and each cut.
+
+00:16.000 --> 00:29.000
+Inspect each shot in Premiere's Program Monitor
+and review the native timeline.
+
+00:29.000 --> 00:34.000
+Verified: three clips, 15 seconds, three review markers.
+Saved as an editable Premiere project.

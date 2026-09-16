@@ -112,7 +112,13 @@ export class UxpWebSocketBridge extends EventEmitter {
     const wsServer = new WebSocketServer({ noServer: true, maxPayload: 1_048_576 });
 
     httpServer.on("upgrade", (request, socket, head) => {
-      const url = new URL(request.url ?? "/", `http://${LOOPBACK_HOST}`);
+      let url: URL;
+      try {
+        url = new URL(request.url ?? "/", `http://${LOOPBACK_HOST}`);
+      } catch {
+        socket.end("HTTP/1.1 400 Bad Request\r\nConnection: close\r\n\r\n");
+        return;
+      }
       const authorized =
         url.pathname === this.options.path &&
         secureTokenEqual(url.searchParams.get("token") ?? "", this.options.token);
