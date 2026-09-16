@@ -27,9 +27,30 @@ describe("validateWordTimeline", () => {
     expect(timeline.speakers).toEqual(["amy", "zed"]);
   });
 
-  it("tolerates small overlaps but rejects large ones", () => {
+  it("tolerates small overlaps but rejects large same-speaker overlaps", () => {
     expect(validateWordTimeline(base([word("a", 0, 0.5), word("b", 0.46, 0.9)])).words).toHaveLength(2);
     expect(() => validateWordTimeline(base([word("a", 0, 0.5), word("b", 0.3, 0.9)]))).toThrow(/overlaps/);
+    expect(() => validateWordTimeline(base([
+      word("a", 0, 1, { speaker_label: "Nanda" }),
+      word("b", 0.2, 1, { speaker_label: "Nanda" }),
+    ]))).toThrow(/overlaps/);
+  });
+
+  it("allows overlapping words when labeled speakers differ", () => {
+    const timeline = validateWordTimeline(base([
+      word("No!", 14.8, 16.2, { speaker_label: "Nanda" }),
+      word("No!", 14.85, 16.1, { speaker_label: "YYQ" }),
+    ]));
+    expect(timeline.words).toHaveLength(2);
+    expect(timeline.speakers).toEqual(["Nanda", "YYQ"]);
+  });
+
+  it("rejects same-speaker overlap even when another speaker is in between", () => {
+    expect(() => validateWordTimeline(base([
+      word("no", 0, 10, { speaker_label: "Nanda" }),
+      word("oops", 1, 2, { speaker_label: "YYQ" }),
+      word("please", 3, 4, { speaker_label: "Nanda" }),
+    ]))).toThrow(/overlaps/);
   });
 
   it.each([

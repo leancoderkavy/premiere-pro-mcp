@@ -227,7 +227,7 @@ describe("rankShortFormCandidates", () => {
   it("includes apply routes and evidence bound to the transcript", () => {
     const plan = fixture();
     const routeNames = plan.routes.flatMap((route) => route.routes);
-    for (const name of ["create_subclip_uxp", "create_subclip", "preview_derived_dialogue_sequence_uxp", "search_workflow_recipes", "auto_reframe_sequence", "build_caption_artifact"]) expect(routeNames).toContain(name);
+    for (const name of ["create_subclip_uxp", "create_subclip", "preview_derived_dialogue_sequence_uxp", "search_workflow_recipes", "auto_reframe_sequence", "build_caption_artifact", "plan_reaction_captions", "plan_short_subscribe_cta", "plan_short_export_folder"]) expect(routeNames).toContain(name);
     expect(plan.routes.find((route) => route.step === "recipe")?.recipe_id).toBe("shorts-cutdown");
     expect(plan.evidence.transcript_revision).toBe(REVISION);
     expect(plan.evidence.source_project_item_id).toBe("item-long-video");

@@ -33,7 +33,7 @@ export const WORD_TIMELINE_PARAMETER = {
   type: "object",
   additionalProperties: false,
   description:
-    "Caller-supplied word-timed transcript for one Premiere source item. Words must be ordered by start time and bound to the transcript revision returned by get_clip_transcript_uxp.",
+    "Caller-supplied word-timed transcript for one Premiere source item. Words must be ordered by start time and bound to the transcript revision returned by get_clip_transcript_uxp. Different labeled speakers may overlap; same-speaker words may not, even when another speaker is between them.",
   properties: {
     source_project_item_id: { type: "string", minLength: 1, maxLength: 512, description: "Exact Premiere source project-item ID." },
     transcript_revision: { type: "string", pattern: "^sha256:[a-f0-9]{64}$", description: "Revision returned by get_clip_transcript_uxp." },
@@ -82,6 +82,7 @@ export function validateWordTimeline(input: unknown, options: { maxWords?: numbe
 
   const words: TranscriptWord[] = [];
   const speakers = new Set<string>();
+  const lastEndBySpeaker = new Map<string, number>();
   let previousStart = -1;
   let previousEnd = 0;
   raw.words.forEach((entry, index) => {
@@ -97,12 +98,20 @@ export function validateWordTimeline(input: unknown, options: { maxWords?: numbe
     if (start < 0 || end > MAX_WORD_SECONDS) fail(`${label} must lie within 0 and ${MAX_WORD_SECONDS} seconds`);
     if (end <= start) fail(`${label}.end_seconds must be greater than start_seconds`);
     if (start < previousStart) fail(`${label} is out of order; words must be sorted by start_seconds`);
-    if (start + OVERLAP_TOLERANCE_SECONDS < previousEnd) fail(`${label} overlaps the previous word by more than ${OVERLAP_TOLERANCE_SECONDS} seconds`);
+    const previousSpeaker = words.length ? words[words.length - 1].speaker_label : undefined;
+    const nextSpeaker = typeof word.speaker_label === "string" && word.speaker_label.trim() ? word.speaker_label.trim() : undefined;
+    const lastSameSpeakerEnd = nextSpeaker === undefined ? undefined : lastEndBySpeaker.get(nextSpeaker);
+    if (lastSameSpeakerEnd !== undefined && start + OVERLAP_TOLERANCE_SECONDS < lastSameSpeakerEnd) {
+      fail(`${label} overlaps an earlier ${nextSpeaker} word by more than ${OVERLAP_TOLERANCE_SECONDS} seconds`);
+    }
+    const differentLabeledSpeakers = Boolean(previousSpeaker && nextSpeaker && previousSpeaker !== nextSpeaker);
+    if (!differentLabeledSpeakers && start + OVERLAP_TOLERANCE_SECONDS < previousEnd) fail(`${label} overlaps the previous word by more than ${OVERLAP_TOLERANCE_SECONDS} seconds`);
     const normalized: TranscriptWord = { text: word.text.trim(), start_seconds: start, end_seconds: end };
     if (word.speaker_label !== undefined) {
       if (typeof word.speaker_label !== "string" || !word.speaker_label.trim() || word.speaker_label.length > 128) fail(`${label}.speaker_label must be a non-empty string of at most 128 characters`);
       normalized.speaker_label = word.speaker_label.trim();
       speakers.add(normalized.speaker_label);
+      lastEndBySpeaker.set(normalized.speaker_label, Math.max(lastEndBySpeaker.get(normalized.speaker_label) ?? 0, end));
     }
     if (word.confidence !== undefined) {
       const confidence = finiteNumber(word.confidence, `${label}.confidence`);

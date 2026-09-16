@@ -8,6 +8,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- Local reaction-Shorts planners: `plan_reaction_captions` stacks overlapping
+  speaker colors without guessing unknown speakers, `plan_short_subscribe_cta`
+  places a mid-video subscribe overlay, and `plan_short_export_folder` names a
+  series folder to create before export. Different labeled speakers may now
+  overlap in a word timeline.
 - Merged open landing and UXP PRs: transcription language options (#515),
   uxp-spike cleanup (#520), cinematic 3D timeline (#518), public-page styling
   (#517), and the studio install/Name-check callout (#521).

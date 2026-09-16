@@ -55,6 +55,7 @@ import { getSpeakerLayoutTools } from "./tools/speaker-layout.js";
 import { getRhythmPlanTools } from "./tools/rhythm-plans.js";
 import { getShortsIntelligenceTools } from "./tools/shorts-intelligence.js";
 import { getCaptionAuthoringTools } from "./tools/caption-authoring.js";
+import { getReactionShortsTools } from "./tools/reaction-shorts.js";
 import { getTranscriptWordEditTools } from "./tools/transcript-word-edits.js";
 import { getPlatformDeliveryTools } from "./tools/platform-delivery.js";
 import { getUxpTools } from "./tools/uxp.js";
@@ -246,6 +247,7 @@ function collectStaticTools(
     ...getRhythmPlanTools(),
     ...getShortsIntelligenceTools(),
     ...getCaptionAuthoringTools(),
+    ...getReactionShortsTools(),
     ...getTranscriptWordEditTools(),
     ...getPlatformDeliveryTools(),
   };

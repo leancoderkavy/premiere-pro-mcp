@@ -3,10 +3,10 @@
   "evidenceScope": "source_catalog_may_include_unreleased_work",
   "sourceVersion": "1.15.2",
   "sourcePath": "docs/supported-actions.md",
-  "sourceSha256": "5d6e33077f3db65375484dbd3de39b7ea92b653ff14b55fac42e8a5faddcac10",
+  "sourceSha256": "2b234e70a4dd16a34294eb1cbac17580e7a964555d88a77ae5f85823f09ee2ee",
   "hostVerification": "not_established_by_catalogs",
   "counts": {
-    "default": 368,
+    "default": 371,
     "uxp": 95,
     "restricted": 2
   },
@@ -1888,6 +1888,24 @@
       "surface": "default",
       "modes": "strategy: auto_reframe, pad_blur, center_crop, letterbox",
       "description": "Plan multi-ratio delivery of one source sequence to TikTok, Reels, Shorts, YouTube, LinkedIn, X, and Facebook from a local spec table: sequence settings, reframe scale math, duration and file-size fit, caption safe zones, and ordered apply routes. Local-only; never changes Premiere."
+    },
+    {
+      "name": "plan_reaction_captions",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Plan stacked, speaker-colored reaction captions from a word timeline and an explicit speaker palette. Flash-length words merge, overlaps stack, and unknown speakers stay uncolored. Local-only; never changes Premiere."
+    },
+    {
+      "name": "plan_short_export_folder",
+      "surface": "default",
+      "modes": "brand: watch_club, cafe, other",
+      "description": "Plan a series-named export folder inside an approved Shorts root and remind the caller to create it when missing. Local-only; never writes files or changes Premiere."
+    },
+    {
+      "name": "plan_short_subscribe_cta",
+      "surface": "default",
+      "modes": "brand: watch_club, cafe, other; platform: tiktok, instagram_reels, youtube_shorts, instagram_feed, youtube, linkedin, x",
+      "description": "Plan a brief subscribe overlay about two-thirds through a Short, after an optional hook, in a platform-safe lower-third. Local-only; never changes Premiere."
     },
     {
       "name": "plan_shot_match",

@@ -10,11 +10,11 @@ source catalog may include unreleased actions.
 
 | Surface | Count | Availability |
 | --- | ---: | --- |
-| Registered core actions | 370 | CEP/local server catalog; host and authority checks still apply |
-| Default-profile core actions | 368 | Advertised with `inspect,edit,export,filesystem` |
+| Registered core actions | 373 | CEP/local server catalog; host and authority checks still apply |
+| Default-profile core actions | 371 | Advertised with `inspect,edit,export,filesystem` |
 | Restricted core actions | 2 | Require explicit `unsafe-script` authority |
 | Authenticated UXP additions | 95 | Advertised only while a compatible authenticated UXP panel is connected |
-| Default profile with UXP | 463 | 368 core plus 95 UXP tools |
+| Default profile with UXP | 466 | 371 core plus 95 UXP tools |
 
 ## How to read support
 
@@ -268,6 +268,9 @@ operation” when the tool has no enum-based mode.
 | `plan_filler_word_removal` | Default profile | Single operation | Plan word-level filler removal (um, uh, you know...) from a revision-bound word timeline. Returns frame-snapped removal and keep ranges plus apply routes. Local-only; never changes Premiere. |
 | `plan_pause_tightening` | Default profile | Single operation | Plan shortening (not deleting) of inter-word pauses longer than max_pause_seconds down to a target, respecting sentence boundaries. Returns centered removal ranges, keep ranges, savings and apply routes. Local-only; never changes Premiere. |
 | `plan_platform_delivery_matrix` | Default profile | `strategy`: `auto_reframe`, `pad_blur`, `center_crop`, `letterbox` | Plan multi-ratio delivery of one source sequence to TikTok, Reels, Shorts, YouTube, LinkedIn, X, and Facebook from a local spec table: sequence settings, reframe scale math, duration and file-size fit, caption safe zones, and ordered apply routes. Local-only; never changes Premiere. |
+| `plan_reaction_captions` | Default profile | Single operation | Plan stacked, speaker-colored reaction captions from a word timeline and an explicit speaker palette. Flash-length words merge, overlaps stack, and unknown speakers stay uncolored. Local-only; never changes Premiere. |
+| `plan_short_export_folder` | Default profile | `brand`: `watch_club`, `cafe`, `other` | Plan a series-named export folder inside an approved Shorts root and remind the caller to create it when missing. Local-only; never writes files or changes Premiere. |
+| `plan_short_subscribe_cta` | Default profile | `brand`: `watch_club`, `cafe`, `other`; `platform`: `tiktok`, `instagram_reels`, `youtube_shorts`, `instagram_feed`, `youtube`, `linkedin`, `x` | Plan a brief subscribe overlay about two-thirds through a Short, after an optional hook, in a platform-safe lower-third. Local-only; never changes Premiere. |
 | `plan_shot_match` | Default profile | Single operation | Compare two bounded local-media frame samples and return measured waveform/parade/saturation deltas plus coarse correction directions. Read-only planning only; it does not grade Premiere or claim that primaries alone can match the shots. |
 | `plan_silence_review_markers` | Default profile | Single operation | Create a bounded, non-mutating review plan that maps FFmpeg-detected source-media silences onto one known 1x timeline placement. It clips candidates to the supplied source in/out span, redacts the source path, and never adds markers, cuts clips, or changes Premiere. |
 | `plan_speaker_checkerboard` | Default profile | Single operation | Plan a speaker checkerboard (each speaker's turns on their own video/audio track) from a caller-supplied word timeline. Returns frame-snapped segments, split points, track assignments, and the add_track/razor_all_tracks/move_clip_to_track routes. Local-only; never changes Premiere. |
