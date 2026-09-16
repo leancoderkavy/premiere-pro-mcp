@@ -155,14 +155,15 @@ export function StudioHome() {
                 <br />
                 <span>to a reviewable result.</span>
               </h2>
-              <p>See how your direction becomes a plan you can inspect.</p>
+              <p>Watch three clips become a sequence you can inspect in Premiere Pro.</p>
             </div>
             <WalkthroughPlayer />
             <div className="studio-demo-caption">
-              <span>AN ILLUSTRATED PRODUCT WALKTHROUGH</span>
+              <span>A CLOSER LOOK · 30 SECONDS · SOUND ON</span>
               <p>
-                A visual explanation of the request-to-result flow. This
-                animation is not a recording of a live Premiere host session.
+                Real Premiere footage, cinematic sample artwork, an original
+                score, and AI narration. See a request become an editable
+                timeline you can review.
               </p>
             </div>
           </section>

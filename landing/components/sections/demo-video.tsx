@@ -6,9 +6,9 @@ import { product } from "@/lib/product"
 import { trackOnboardingEvent } from "@/lib/onboarding-events"
 
 const outcomes = [
-  { icon: Film, label: "Timeline", detail: "B-roll inserted on V2" },
-  { icon: WandSparkles, label: "Finish", detail: "Grade and title applied" },
-  { icon: Clapperboard, label: "Delivery", detail: "ProRes export queued" },
+  { icon: Film, label: "Timeline", detail: "Three clips assembled" },
+  { icon: WandSparkles, label: "Finish", detail: "Review markers added" },
+  { icon: Clapperboard, label: "Delivery", detail: "Editable project saved" },
 ]
 
 export function DemoVideoSection() {
@@ -16,7 +16,7 @@ export function DemoVideoSection() {
 
   function startDemo() {
     setIsPlaying(true)
-    trackOnboardingEvent("marketing_demo_played", { demo: "illustrated_workflow" })
+    trackOnboardingEvent("marketing_demo_played", { demo: "cinematic_ad_v3" })
   }
 
   return (
@@ -24,13 +24,13 @@ export function DemoVideoSection() {
       <div className="mx-auto max-w-6xl">
         <div className="grid items-end gap-8 md:grid-cols-[1fr_auto]">
           <div className="max-w-3xl">
-            <p className="font-mono text-xs font-semibold uppercase tracking-[0.18em] text-purple-300">Illustrated product walkthrough</p>
+            <p className="font-mono text-xs font-semibold uppercase tracking-[0.18em] text-purple-300">Recorded in Premiere Pro</p>
             <h2 className="mt-4 text-balance text-4xl font-bold tracking-[-0.035em] text-white md:text-6xl">
               From prompt to an explicit result.
             </h2>
           </div>
           <p className="max-w-sm text-sm leading-7 text-zinc-400 md:text-right">
-            See the intended request-to-result flow. This animation is not a recording of a live Premiere host session.
+            Watch three coastal clips become a 15-second sequence with review markers and a saved project. Recorded in Premiere Pro using original sample artwork.
           </p>
         </div>
 
@@ -40,14 +40,14 @@ export function DemoVideoSection() {
               className="aspect-video w-full bg-[#060608]"
               controls
               autoPlay
-              muted
-              loop
+                  loop
               playsInline
               preload="metadata"
-              poster="/premiere-pro-mcp-demo-poster-1280.webp"
-              aria-label="MCP for Adobe Premiere Pro inserts B-roll, applies a color grade and title, then queues a ProRes export"
+              poster="/premiere-pro-mcp-ad-v3-poster-1280.webp"
+              aria-label="Live Premiere Pro recording: three clips assembled, review markers added, and project saved"
             >
-              <source src="/premiere-pro-mcp-demo.mp4" type="video/mp4" />
+              <source src="/premiere-pro-mcp-ad-v3.mp4" type="video/mp4" />
+              <track kind="captions" src="/premiere-pro-mcp-ad-v3.vtt" srcLang="en" label="English" />
               Your browser does not support embedded video. The demo shows an AI request becoming a structured Premiere Pro edit.
             </video>
           ) : (
@@ -55,13 +55,13 @@ export function DemoVideoSection() {
               type="button"
               onClick={startDemo}
               className="group relative block aspect-video w-full overflow-hidden bg-[#060608] text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-300 focus-visible:ring-inset"
-              aria-label="Play the illustrated MCP for Adobe Premiere Pro workflow walkthrough"
+              aria-label="Play the live MCP for Adobe Premiere Pro workflow walkthrough"
             >
               {/* Static export uses pre-sized files instead of a runtime image service. */}
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
-                src="/premiere-pro-mcp-demo-poster-1280.webp"
-                srcSet="/premiere-pro-mcp-demo-poster-640.webp 640w, /premiere-pro-mcp-demo-poster-1280.webp 1280w"
+                src="/premiere-pro-mcp-ad-v3-poster-1280.webp"
+                srcSet="/premiere-pro-mcp-ad-v3-poster-640.webp 640w, /premiere-pro-mcp-ad-v3-poster-1280.webp 1280w"
                 alt=""
                 aria-hidden="true"
                 width={1280}
@@ -72,7 +72,7 @@ export function DemoVideoSection() {
               />
               <span className="absolute inset-0 grid place-items-center bg-black/20">
                 <span className="rounded-full border border-white/30 bg-black/75 px-5 py-3 text-sm font-semibold text-white shadow-lg backdrop-blur transition group-hover:border-purple-300 group-hover:bg-black/90">
-                  Play illustrated walkthrough
+                  Play live walkthrough · 30 sec
                 </span>
               </span>
             </button>

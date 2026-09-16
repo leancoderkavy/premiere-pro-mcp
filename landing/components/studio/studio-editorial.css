@@ -174,7 +174,7 @@
   font-size: 13px;
 }
 .studio-compatible {
-  margin-top: 24px;
+  margin: 24px 0 32px;
 }
 .studio-compatible > span {
   font-family: inherit;
