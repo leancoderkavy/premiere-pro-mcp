@@ -40,12 +40,16 @@ directory listing or an organization allowlist is controlled by Anthropic and
 is outside this repository's CI; the workflow never submits or publishes a
 bundle there.
 
-During installation, Claude Desktop prompts for a sensitive **Premiere UXP
-Token**. Enter a random value of at least 16 characters, then enter that same
-value in the Premiere UXP panel. The MCPB maps the saved value to
-`PREMIERE_UXP_TOKEN` for the child server process; setting a Windows or macOS
-login-shell environment variable alone is not reliable because Claude Desktop
-controls the extension process environment.
+During installation, Claude Desktop may prompt for a **Premiere UXP Token**.
+That field is optional. CEP-only setups (the Connector panel under
+**Window → Extensions**) do not use a token and have no token field — leave
+the Claude Desktop value blank. For the UXP plugin, generate any secret of at
+least 16 characters yourself, enter it in Claude Desktop, then enter the same
+value in Premiere under **Window → UXP Plugins → MCP for Adobe Premiere Pro →
+Bridge token**. The MCPB maps the saved value to `PREMIERE_UXP_TOKEN` for the
+child server process; setting a Windows or macOS login-shell environment
+variable alone is not reliable because Claude Desktop controls the extension
+process environment.
 
 The CI artifact is structurally validated but unsigned. A release owner must
 provide and protect an appropriate signing certificate and private key before

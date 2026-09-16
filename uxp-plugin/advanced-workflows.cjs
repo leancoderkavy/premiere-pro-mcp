@@ -147,9 +147,18 @@
     }
 
     async function projectItemId(item) {
-      if (!item || typeof item.getId !== "function") return "";
-      const value = await item.getId();
-      return value == null ? "" : String(value);
+      if (!item) return "";
+      if (typeof item.getId === "function") {
+        try {
+          const value = await item.getId();
+          if (value != null && String(value)) return String(value);
+        } catch (_) {}
+      }
+      try {
+        const guid = guidString(item.guid);
+        if (guid) return guid;
+      } catch (_) {}
+      return "";
     }
 
     async function projectItemSnapshot(item) {
@@ -404,13 +413,12 @@
 
     async function projectTreeSnapshot(item, parentId, depth) {
       const id = await projectItemId(item);
-      if (!id) throw commandError("UXP_ITEM_ID_UNAVAILABLE", "A project-tree item did not expose a stable ID");
       let colorLabelIndex = null;
       try { if (typeof item.getColorLabelIndex === "function") colorLabelIndex = await item.getColorLabelIndex(); } catch (_) {}
       let name = "", type = null;
       try { name = String(item && item.name || ""); } catch (_) {}
       try { type = item && item.type != null ? item.type : null; } catch (_) {}
-      return { id, name, type, colorLabelIndex, parentId, depth, isBin: isFolder(item) };
+      return { id, name, type, colorLabelIndex, parentId, depth, isBin: isFolder(item), idUnavailable: !id };
     }
 
     async function inspectProjectTree(args) {
@@ -420,28 +428,33 @@
       const project = await activeProject(false), root = await project.getRootItem();
       if (!root) throw commandError("UXP_COMMAND_UNAVAILABLE", "Premiere did not return a project root item");
       const rootSnapshot = await projectTreeSnapshot(root, null, 0);
+      if (!rootSnapshot.id) throw commandError("UXP_ITEM_ID_UNAVAILABLE", "The project root did not expose a stable ID");
       if (!rootSnapshot.isBin || typeof root.getItems !== "function") {
         throw commandError("UXP_COMMAND_UNAVAILABLE", "Premiere did not expose a readable project-root folder");
       }
       const pending = [{ folder: root, id: rootSnapshot.id, depth: 0 }], items = [];
-      let itemLimitReached = false, depthLimitApplied = false;
+      let itemLimitReached = false, depthLimitApplied = false, skippedWithoutId = 0;
       while (pending.length && items.length < maxItems) {
         const current = pending.shift();
         if (current.depth >= maxDepth) { depthLimitApplied = true; continue; }
         const children = Array.from(await current.folder.getItems() || []);
         for (let index = 0; index < children.length; index += 1) {
           if (items.length >= maxItems) { itemLimitReached = true; break; }
-          const child = children[index], snapshot = await projectTreeSnapshot(child, current.id, current.depth + 1);
+          const child = children[index];
+          let snapshot;
+          try { snapshot = await projectTreeSnapshot(child, current.id, current.depth + 1); }
+          catch (_) { skippedWithoutId += 1; continue; }
           items.push(snapshot);
+          if (snapshot.idUnavailable) skippedWithoutId += 1;
           if (snapshot.isBin) {
-            if (snapshot.depth < maxDepth && typeof child.getItems === "function") pending.push({ folder: child, id: snapshot.id, depth: snapshot.depth });
+            if (snapshot.depth < maxDepth && typeof child.getItems === "function") pending.push({ folder: child, id: snapshot.id || current.id, depth: snapshot.depth });
             else if (snapshot.depth >= maxDepth) depthLimitApplied = true;
           }
         }
         if (items.length >= maxItems && pending.length) itemLimitReached = true;
       }
       return {
-        root: rootSnapshot, count: items.length, items, maxItems, maxDepth,
+        root: rootSnapshot, count: items.length, items, maxItems, maxDepth, skippedWithoutId,
         truncated: itemLimitReached || depthLimitApplied, itemLimitReached, depthLimitApplied,
         verificationBoundary: "bounded_project_tree_item_readback"
       };

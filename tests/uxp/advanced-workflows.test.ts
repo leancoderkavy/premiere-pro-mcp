@@ -439,6 +439,21 @@ describe("advanced stable Premiere UXP workflows", () => {
     });
     expect(depthLimited.root.getItems).not.toHaveBeenCalled();
 
+    const namelessHost = advancedHost();
+    namelessHost.bin.children?.push({
+      name: "Some Comp/Some Project.aep",
+      type: 1,
+      getId: vi.fn(async () => ""),
+      getColorLabelIndex: vi.fn(async () => 0),
+    } as never);
+    await expect(namelessHost.registry.dispatch("projectTree.inspect", { maxItems: 8, maxDepth: 3 })).resolves.toMatchObject({
+      items: expect.arrayContaining([
+        expect.objectContaining({ id: "clip-1", name: "Interview.mov" }),
+        expect.objectContaining({ name: "Some Comp/Some Project.aep", idUnavailable: true }),
+      ]),
+      skippedWithoutId: 1,
+    });
+
     await expect(value.registry.dispatch("projectTree.inspect", { maxItems: 513 })).rejects.toThrow(/maxItems must be an integer from 1 to 512/);
     await expect(value.registry.dispatch("projectTree.inspect", { unexpected: true })).rejects.toThrow(/Unknown argument/);
   });

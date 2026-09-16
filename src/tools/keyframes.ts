@@ -64,7 +64,7 @@ export function getKeyframeTools(bridgeOptions: BridgeOptions) {
 
     set_effect_property: {
       description:
-        "Set the value of a specific effect property on a clip. Accepts scalar, boolean, string, and array-shaped vector values (for example Motion > Position as [x, y]) and verifies the readback component by component.",
+        "Set the value of a specific effect property on a clip. Accepts scalar, boolean, string, array-shaped vector values (for example Motion > Position as [x, y]), and MOGRT JSON objects or strings, and verifies the readback component by component.",
       parameters: {
         type: "object" as const,
         properties: {
@@ -81,18 +81,19 @@ export function getKeyframeTools(bridgeOptions: BridgeOptions) {
             description: "Display name of the property (e.g., 'Scale', 'Position', 'Opacity')",
           },
           value: {
-            type: ["number", "string", "boolean", "array"],
+            type: ["number", "string", "boolean", "array", "object"],
             maxLength: 8192,
             items: { type: "number" },
             minItems: 1,
             maxItems: 4,
+            additionalProperties: true,
             description:
-              "Value to set. Use a number for scalar properties, an array of numbers for vector properties such as Motion > Position or Anchor Point ([x, y]), a boolean for checkbox properties, or the exact JSON string reported for a MOGRT text or graphic parameter.",
+              "Value to set. Use a number for scalar properties, an array of numbers for vector properties such as Motion > Position or Anchor Point ([x, y]), a boolean for checkbox properties, the exact JSON string reported for a MOGRT text or graphic parameter, or that same JSON object if the client parsed it.",
           },
         },
         required: ["node_id", "effect_name", "property_name", "value"],
       },
-      handler: async (args: { node_id: string; effect_name: string; property_name: string; value: number | string | boolean | number[] }) => {
+      handler: async (args: { node_id: string; effect_name: string; property_name: string; value: number | string | boolean | number[] | Record<string, unknown> }) => {
         if (Array.isArray(args.value)) {
           if (!args.value.length || args.value.length > 4) {
             return { success: false, error: "value must be an array of 1 to 4 numbers for a vector property" };
@@ -105,9 +106,11 @@ export function getKeyframeTools(bridgeOptions: BridgeOptions) {
         }
         const requestedValue = Array.isArray(args.value)
           ? `[${args.value.map((component) => String(component)).join(", ")}]`
-          : typeof args.value === "string"
-            ? `"${escapeForExtendScript(args.value)}"`
-            : String(args.value);
+          : args.value !== null && typeof args.value === "object"
+            ? `"${escapeForExtendScript(JSON.stringify(args.value))}"`
+            : typeof args.value === "string"
+              ? `"${escapeForExtendScript(args.value)}"`
+              : String(args.value);
         const script = buildToolScript(`
           var result = __findClip("${escapeForExtendScript(args.node_id)}");
           if (!result) return __error("Clip not found");
