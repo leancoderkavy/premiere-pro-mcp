@@ -18,7 +18,7 @@ describe("modern MCP surface", () => {
   it("exposes a machine-readable workflow resource", () => {
     const resource = JSON.parse(WORKFLOW_RESOURCE);
     expect(resource.version).toBe(1);
-    expect(resource.workflows).toHaveLength(17);
+    expect(resource.workflows).toHaveLength(18);
     expect(resource.workflows.find((workflow: { id: string }) => workflow.id === "rough-cut").recommendedTools).toContain("get_premiere_state");
     expect(resource.workflows.find((workflow: { id: string }) => workflow.id === "film-editorial").recommendedTools).toContain("inspect_film_editorial_workflow");
     const organization = resource.workflows.find((workflow: { id: string }) => workflow.id === "project-organization");
@@ -127,7 +127,7 @@ describe("modern MCP surface", () => {
       // unsafe-script, so the two scripting tools are not advertised.
       expect(tools.tools.map((tool) => tool.name)).not.toContain("execute_extendscript");
       expect(tools.tools.map((tool) => tool.name)).not.toContain("evaluate_expression");
-      expect(tools.tools).toHaveLength(368);
+      expect(tools.tools).toHaveLength(371);
       expect(tools.tools.find((tool) => tool.name === "preview_after_effects_render_handoff")?.annotations?.readOnlyHint).toBe(true);
       expect(tools.tools.find((tool) => tool.name === "apply_after_effects_render_handoff")?.annotations?.readOnlyHint).toBe(false);
       const capabilityTool = tools.tools.find((tool) => tool.name === "get_capabilities");

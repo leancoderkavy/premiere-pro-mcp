@@ -12,7 +12,7 @@ Free, MIT licensed, local-first, and published to npm as [`premiere-pro-mcp`](ht
 
 [Website](https://premiere-pro-mcp.com/) · [Recorded demo](https://premiere-pro-mcp.com/demo/) · [Compare servers](https://premiere-pro-mcp.com/compare/) · [Setup guides](https://premiere-pro-mcp.com/blog/how-to-set-up-premiere-pro-mcp/) · [Search tools](https://premiere-pro-mcp.com/tools/) · [Troubleshooting](https://premiere-pro-mcp.com/docs/troubleshooting/) · [Release facts](https://premiere-pro-mcp.com/facts/)
 
-Development source: 370 core tools across 53 modules, 4 resources, and 17 guided workflows. A connected UXP host adds 95 capability-gated tools.
+Development source: 373 core tools across 54 modules, 4 resources, and 18 guided workflows. A connected UXP host adds 95 capability-gated tools.
 
 The [completed AE render handoff](docs/after-effects-render-handoff.md) previews and confirms importing one finished render into an existing Premiere bin, with host and file rechecks and an import receipt.
 
@@ -104,7 +104,7 @@ and repository before configuring a client. The new
 VS Code, or Codex settings that point directly to this installation. It is a
 feature included in v1.15.1 and later.
 
-The current source exposes 370 core tools for supported workflow steps spanning the supported ExtendScript, QE DOM, local media and interchange analysis, revisioned project-context retrieval, safe edit-planning, project-intake preview, review handoff, connection verification, and guarded After Effects MOGRT authoring, batch, library, render-queue, inspection, and Premiere-handoff workflows. A compatible, authenticated UXP panel adds 95 documented, capability-gated tools without replacing the production CEP bridge.
+The current source exposes 373 core tools for supported workflow steps spanning the supported ExtendScript, QE DOM, local media and interchange analysis, revisioned project-context retrieval, safe edit-planning, project-intake preview, review handoff, connection verification, and guarded After Effects MOGRT authoring, batch, library, render-queue, inspection, and Premiere-handoff workflows. A compatible, authenticated UXP panel adds 95 documented, capability-gated tools without replacing the production CEP bridge.
 
 <a id="latest-release"></a>
 
@@ -859,7 +859,7 @@ reports revision-bound notes, VFX state, change impact and turnover exceptions.
 It performs local inspection; host edits and exports use separate guarded tools.
 See [usage, example and remaining execution adapters](docs/film-editorial-workflows.md).
 
-## Tools (370 core total; 368 under the default profile; 463 with a connected UXP bridge)
+## Tools (373 core total; 371 under the default profile; 466 with a connected UXP bridge)
 
 The [complete supported-actions catalog](docs/supported-actions.md) lists every
 registered core tool, the two tools restricted behind explicit `unsafe-script`
@@ -1080,6 +1080,14 @@ than presenting UI-only operations as available tools.
 | `build_caption_artifact` | Word-grouped SRT/VTT captions with karaoke timestamps, emphasis markup, speaker prefixes, and style presets, written inside an approved workspace |
 | `check_caption_safe_zone` | Overlap check for caption and graphic rectangles against approximate platform UI zones, with a suggested clear position |
 
+### Reaction Shorts (3)
+
+| Tool | Description |
+| :--- | :---------- |
+| `plan_reaction_captions` | Stacked speaker-colored caption plan from a word timeline and explicit palette; flash words merge, overlaps stack, unknown speakers stay uncolored |
+| `plan_short_subscribe_cta` | Brief subscribe overlay placed about two-thirds through a Short, after an optional hook, with brand-safe styling notes |
+| `plan_short_export_folder` | Series-named export path under an approved Shorts root; create the folder when it is missing and keep Cafe and Watch Club assets separate |
+
 ### Transcript Word Edits (4)
 
 | Tool | Description |
@@ -1287,7 +1295,7 @@ premiere-pro-mcp/
 ├── src/
 │   ├── index.ts                 # Entry point — stdio transport setup
 │   ├── http-server.ts           # Entry point — HTTP/SSE transport (Fly.io / remote)
-│   ├── server.ts                # MCP server — registers 370 tools, filtered by authority profile
+│   ├── server.ts                # MCP server — registers 373 tools, filtered by authority profile
 │   ├── bridge/
 │   │   ├── file-bridge.ts       # File-based IPC (write .jsx, poll .json)
 │   │   └── script-builder.ts    # ExtendScript generator with ES3 helpers

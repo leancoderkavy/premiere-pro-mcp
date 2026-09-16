@@ -97,3 +97,18 @@ For other mutations:
   machine verification from subjective editorial approval.
 - Treat file paths as local to the Premiere host. Never expose unrelated files or
   secrets from the machine in the response.
+
+## Reaction Shorts
+
+Use the Premiere MCP planners before styling captions in the host UI.
+
+1. Call `plan_reaction_captions` with the clip's word timeline and an explicit
+   speaker palette. Stack overlapping talkers. Combine flash-length words with
+   the next same-speaker line. Do not assign a color to `uncertain_speakers`.
+2. Call `plan_short_subscribe_cta` for a brief overlay about two-thirds through
+   the Short. This is burned-in graphics, not a YouTube Studio end screen.
+3. Call `plan_short_export_folder` and create the series folder when it is
+   missing. Keep Cafe typography and colors off Watch Club kits, and the reverse.
+4. Premiere cannot create speaker-colored stacked captions from raw text. Apply
+   reviewed colors and stack positions in Essential Graphics or a MOGRT, then
+   inspect `export_sequence_review_frames` before export.
