@@ -180,8 +180,8 @@ export const articles: Article[] = [
         answer: "The recommended setup is local-first. The bridge exchanges commands and structured results; your assistant's separate privacy settings still apply.",
       },
       {
-        question: "Does this guide install unreleased tools from main?",
-        answer: "No. These commands select the published 1.15.2 package. Check the product facts page for the separate released and development catalogs.",
+        question: "Is speech-to-text / STT included in 1.15.2?",
+        answer: "No. STT is not in public npm 1.15.2. Do not assume unreleased features are available in the published package.",
       },
     ],
     resources: [
