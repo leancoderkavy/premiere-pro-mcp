@@ -72,7 +72,7 @@ describe("issue #458 — import_fcp_xml supplies both openFCPXML arguments", () 
     expect(script).toContain('var xmlFile = new File("/tmp/edit.xml");');
     expect(script).toContain("if (!xmlFile.exists)");
     expect(script).toContain("A project already exists at /tmp/imported.prproj");
-    expect(script).toContain("verified: destinationFile.exists");
+    expect(script).toContain("verified: destExistsAsFile && openedMatches");
   });
 });
 
@@ -133,7 +133,7 @@ describe("issue #462 — undo and redo fail closed like multiple_undo", () => {
 describe("issue #463 — set_effect_property handles 2D vector properties", () => {
   it("accepts an array value for Position and Anchor Point", async () => {
     expect(keyframes.set_effect_property.parameters.properties.value.type)
-      .toEqual(["number", "string", "boolean", "array"]);
+      .toEqual(["number", "string", "boolean", "array", "object"]);
 
     const script = await scriptFor(keyframes.set_effect_property, {
       node_id: "clip-1",
