@@ -78,7 +78,7 @@ describe("stable UXP workflow MCP catalog", () => {
       properties: {
         action: { enum: ["inspect", "create"] },
         expected_project_guid: { minLength: 1, maxLength: 512 },
-        expected_project_panel_metadata: { maxLength: 12288 },
+        expected_project_panel_metadata: { maxLength: 350000 },
         field_name: { minLength: 1, maxLength: 128, pattern: expect.any(String) },
         field_label: { minLength: 1, maxLength: 255 },
         schema_field_type: { enum: ["integer", "real", "text", "boolean"] },

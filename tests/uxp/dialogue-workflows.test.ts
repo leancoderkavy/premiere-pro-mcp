@@ -30,4 +30,24 @@ describe("UXP dialogue command module", () => {
     expect(result.createdSubclips).toHaveLength(2);
     expect(result.insertedProjectItemIds).toHaveLength(2);
   });
+  it("walks the project tree when the cast clip has no getParentBin", async () => {
+    const children: any[] = [];
+    const parent = { name: "Media", getId: async () => "bin", getItems: async () => children };
+    const source = { name: "Source", getId: async () => "clip", isMulticamClip: async () => false,
+      createSubClipAction: (name: string) => ({ apply: () => children.push({ name, getId: async () => `sub-${children.length + 1}` }) }) };
+    children.push(source);
+    const root = { getId: async () => "root", getItems: async () => [parent] };
+    const createdSequences: any[] = [];
+    const project = { getGuid: async () => "project", getRootItem: async () => root, getSequences: async () => createdSequences,
+      lockedAccess: (fn: () => void) => fn(), executeTransaction: (fn: (compound: any) => void) => { fn({ addAction: (action: any) => { action.apply(); return true; } }); return true; },
+      createSequenceFromMedia: async (name: string) => { const sequence = { name, getGuid: async () => "sequence" }; createdSequences.push(sequence); return sequence; } };
+    const ppro = { Project: { getActiveProject: async () => project }, ClipProjectItem: { cast: (item: any) => item.createSubClipAction ? item : null }, FolderItem: { cast: (item: any) => item.getItems ? item : null },
+      TickTime: { createWithSeconds: (seconds: number) => ({ seconds }) }, SequenceEditor: { getEditor: () => ({ createInsertProjectItemAction: () => ({ apply() {} }) }) } };
+    const command = api.createDialogueWorkflowDefinitions({ ppro })["dialogue.deriveSequence"];
+    const result = await command.handler({ operationId: "op-walk", plan: { schema_version: 1, project_guid: "project", mode: "talking_head", sequence_name: "Walked", segments: [
+      { id: "one", source_project_item_id: "clip", transcript_revision: `sha256:${"a".repeat(64)}`, source_start_seconds: 0, source_end_seconds: 1 },
+    ], output_duration_seconds: 1, original_sources_unchanged: true, render_verified: false } });
+    expect(result).toMatchObject({ outcome: "committed_unverified", partial: false });
+    expect(result.createdSubclips).toHaveLength(1);
+  });
 });

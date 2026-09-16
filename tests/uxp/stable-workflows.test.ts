@@ -1029,6 +1029,21 @@ describe("stable Premiere UXP workflow expansion", () => {
     });
   });
 
+  it("inspects Project metadata schemas larger than the 12 KiB write bound", async () => {
+    const value = stableHost();
+    const large = "<panel>" + "x".repeat(20000) + "</panel>";
+    value.setProjectPanelMetadataValue(large);
+    await expect(value.registry.dispatch("metadata.projectSchema.inspect", {})).resolves.toMatchObject({
+      projectGuid: "project-1", projectPanelMetadata: large,
+      verificationBoundary: "bounded_project_panel_metadata_readback",
+    });
+    await expect(value.registry.dispatch("metadata.projectSchema.create", {
+      expectedProjectGuid: "project-1", expectedProjectPanelMetadata: large,
+      fieldName: "McpLargeSchema", fieldLabel: "MCP Large Schema", fieldType: "text",
+      confirmCreate: true, operationId: "schema-large-inspect-1",
+    })).resolves.toMatchObject({ creationRequested: true, hostAccepted: true });
+  });
+
   it("fails closed for malformed or oversized native Project-panel metadata", async () => {
     const value = stableHost();
     value.ppro.Metadata.getProjectColumnsMetadata.mockResolvedValueOnce(null);

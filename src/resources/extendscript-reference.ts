@@ -198,7 +198,7 @@ export const EXTENDSCRIPT_REFERENCE = [
   "qeClip.setFrameBlend(bool)",
   "qeClip.setTimeInterpolationType(type) - 0=sampling, 1=blending, 2=optical flow",
   "qeClip.setName(name)",
-  "qeClip.moveToTrack(trackIndex)",
+  "qeClip.moveToTrack(videoDelta, audioDelta, timeOffset, alignToInPoint)",
   "",
   "## Constants",
   "TICKS_PER_SECOND = 254016000000",

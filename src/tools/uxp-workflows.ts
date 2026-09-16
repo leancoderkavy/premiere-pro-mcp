@@ -463,7 +463,7 @@ export function getUxpWorkflowTools(bridge: UxpWebSocketBridge) {
         properties: {
           action: { type: "string", enum: ["inspect", "create"] },
           expected_project_guid: { type: "string", minLength: 1, maxLength: 512, description: "Required for create; must exactly match inspect's active-project GUID." },
-          expected_project_panel_metadata: { type: "string", maxLength: 12288, description: "Required for create; exact inspected Project-panel XML. The UXP host enforces a 12 KiB UTF-8 bound." },
+          expected_project_panel_metadata: { type: "string", maxLength: 350000, description: "Required for create; exact inspected Project-panel XML. Inspect uses the same 350,000-character / 900 KiB serialized read bound as inspect_project_panel_metadata_uxp." },
           field_name: { type: "string", minLength: 1, maxLength: 128, pattern: "^[A-Za-z][A-Za-z0-9_.-]{0,127}$", description: "Required stable metadata field identifier. Starts with a letter; only letters, digits, periods, underscores, and hyphens are accepted." },
           field_label: { type: "string", minLength: 1, maxLength: 255, description: "Required user-visible label for the new metadata field." },
           schema_field_type: { type: "string", enum: ["integer", "real", "text", "boolean"], description: "Required documented Premiere metadata-field type." },

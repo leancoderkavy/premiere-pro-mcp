@@ -77,6 +77,16 @@ describe("UXP bridge protocol", () => {
     expect(protocol.joinPath("C:/temp", "a.png")).toBe("C:/temp/a.png");
     expect(protocol.joinPath("C:/temp/", "a.png")).toBe("C:/temp/a.png");
   });
+  it("persists a successful bridge URL and token before the next auto-connect", () => {
+    const panel = readFileSync(new URL("../../uxp-plugin/index.cjs", import.meta.url), "utf8");
+    expect(panel).toContain("function persistBridgeSession");
+    expect(panel).toContain("function restoreBridgeSession");
+    const restoreAt = panel.indexOf("restoreBridgeSession()");
+    const autoConnectAt = panel.indexOf("startFallbackPolling()");
+    expect(restoreAt).toBeGreaterThan(-1);
+    expect(restoreAt).toBeLessThan(autoConnectAt);
+    expect(panel).toContain("persistBridgeSession(configuredUrl, token)");
+  });
   it("keeps the one-extension normalization in the panel's direct frame-export path", () => {
     const panel = readFileSync(new URL("../../uxp-plugin/index.cjs", import.meta.url), "utf8");
     expect(panel).toContain("const exporterFilename = Protocol.exporterFrameName(filename);");
