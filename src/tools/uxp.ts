@@ -210,20 +210,40 @@ export function getUxpTools(bridge: UxpWebSocketBridge) {
       }),
     },
     create_sequence_with_preset_uxp: {
-      description: "Create and verify a sequence from a preset path using the documented Premiere 26.3+ UXP API.",
+      description: "Create one sequence from a workspace-gated .sqpreset path through the documented Premiere 26.3+ UXP API. This direct, non-undoable host call requires explicit confirmation and an operation_id; the host verifies the created sequence identity and replays the receipt safely.",
       parameters: {
         type: "object" as const,
+        additionalProperties: false,
         properties: {
-          name: { type: "string", description: "New sequence name." },
-          preset_path: { type: "string", description: "Local Premiere sequence preset path." },
-          operation_id: operationId,
+          name: { type: "string", minLength: 1, maxLength: 255, description: "Name for the new sequence." },
+          preset_path: { type: "string", minLength: 1, maxLength: 4096, description: "Approved-workspace path to one Premiere .sqpreset file." },
+          confirm_non_undoable: { type: "boolean", description: "Must be true: Adobe exposes createSequenceWithPresetPath as a direct Project call without an undo transaction." },
+          operation_id: { type: "string", minLength: 1, maxLength: 128, pattern: "^[A-Za-z0-9._:-]+$", description: "Required replay key for this non-undoable creation." },
         },
-        required: ["name", "preset_path"],
+        required: ["name", "preset_path", "confirm_non_undoable", "operation_id"],
       },
-      handler: async (args: { name: string; preset_path: string; operation_id?: string }) => invoke(bridge, "sequence.createPreset", {
-        name: args.name, presetPath: args.preset_path,
-        ...(args.operation_id ? { operationId: args.operation_id } : {}),
-      }),
+      operationalCapability: {
+        backend: "UXP" as const,
+        backends: ["uxp" as const],
+        minimumPremiereVersion: "26.3",
+        verificationBoundary: "structured_uxp_readback" as const,
+        hostVerificationRequired: true,
+        notes: ["Available only through an authenticated UXP bridge whose runtime capability handshake advertises sequence.createPreset."],
+      },
+      handler: async (args: { name: string; preset_path: string; confirm_non_undoable: boolean; operation_id: string }) => {
+        if (args.confirm_non_undoable !== true) {
+          return { success: false, error: "create_sequence_with_preset_uxp requires confirm_non_undoable: true" };
+        }
+        if (!args.operation_id) {
+          return { success: false, error: "create_sequence_with_preset_uxp requires operation_id for safe replay" };
+        }
+        return invoke(bridge, "sequence.createPreset", {
+          name: args.name,
+          presetPath: args.preset_path,
+          confirmNonUndoable: true,
+          operationId: args.operation_id,
+        });
+      },
     },
     create_empty_sequence_uxp: {
       description: "Create one empty/default sequence through the documented Premiere 26.3+ UXP API. This direct, non-undoable host call requires explicit confirmation and an operation_id; the host serializes capacity preflight through identity readback and replays the receipt safely.",

@@ -3,7 +3,7 @@
   "evidenceScope": "source_catalog_may_include_unreleased_work",
   "sourceVersion": "1.15.2",
   "sourcePath": "docs/supported-actions.md",
-  "sourceSha256": "7f056777aa3e2d0e1997246c05f0e00587ce467acc19ad4168422c792b04df11",
+  "sourceSha256": "e62278168ca803e4cd7755a25980117d7a6742471c60a088691f0360375e5731",
   "hostVerification": "not_established_by_catalogs",
   "counts": {
     "default": 368,
@@ -459,7 +459,7 @@
       "name": "create_sequence_with_preset_uxp",
       "surface": "uxp",
       "modes": "Single operation",
-      "description": "Create and verify a sequence from a preset path using the documented Premiere 26.3+ UXP API."
+      "description": "Create one sequence from a workspace-gated .sqpreset path through the documented Premiere 26.3+ UXP API. This direct, non-undoable host call requires explicit confirmation and an operation_id; the host verifies the created sequence identity and replays the receipt safely."
     },
     {
       "name": "create_silence_cut_source_stringout_uxp",

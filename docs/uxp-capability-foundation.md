@@ -10,7 +10,7 @@ in the connected host rather than from the package version alone.
 |---|---:|---:|---:|---|
 | `project.snapshot` | 25.6+ | yes | n/a | revisioned host snapshot |
 | `project.save` | 25.6+ | no | no | Premiere return value |
-| `sequence.createPreset` | 26.3+ | no | no | created GUID found in project |
+| `sequence.createPreset` | 26.3+ | no | no | created GUID found in project after explicit confirmation |
 | `interchange.export` | 26.2+ | no | no | Premiere return value |
 | `transcript.languages` | 26.3+ | yes | n/a | host response |
 | `objectMask.has` | 26.3+ | yes | n/a | host response |
@@ -18,10 +18,12 @@ in the connected host rather than from the package version alone.
 | `frame.export` | 25.6+ | no | no | exporter result and panel file check |
 | `transition.video.*` | 25.6+ | mixed | mutations only | target snapshot plus requested-edge presence/absence readback |
 
-Mutation commands accept an optional `operationId`. The bridge retains the 256 most
-recent completed operations and returns the saved result with `replayed: true` when
-the same identifier is received again. This prevents a reconnect or client retry
-from repeating a completed edit during one panel session.
+Mutation commands accept an `operationId`. `sequence.createPreset` requires one
+together with `confirmNonUndoable=true` because Adobe documents preset sequence
+creation as a direct Project call without an undo transaction. The bridge retains
+the 256 most recent completed operations and returns the saved result with
+`replayed: true` when the same identifier is received again. This prevents a
+reconnect or client retry from repeating a completed edit during one panel session.
 
 ## Outcome vocabulary
 
