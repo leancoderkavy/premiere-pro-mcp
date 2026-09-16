@@ -34,6 +34,171 @@ export type Article = {
 
 export const articles: Article[] = [
   {
+    slug: "install-premiere-pro-mcp-npm",
+    title: "How to Install premiere-pro-mcp from npm (Package Name Check)",
+    seoTitle: "Install premiere-pro-mcp from npm — Package Name Verification",
+    description: "Install premiere-pro-mcp@1.15.2 from npm, verify its package identity, connect the local CEP panel, and run a read-only Premiere connection check.",
+    eyebrow: "npm install guide",
+    publishedAt: "2026-09-15",
+    modifiedAt: "2026-09-15",
+    readingTime: "6 min read",
+    keywords: [
+      "premiere pro mcp install",
+      "how to install premiere pro mcp",
+      "npm premiere-pro-mcp",
+      "premiere-pro-mcp install",
+      "premiere pro mcp npm",
+      "adobe-premiere-pro-mcp package",
+    ],
+    sections: [
+      {
+        heading: "Who this guide is for",
+        paragraphs: [
+          "Use this guide when your MCP client needs a local npm server for Adobe Premiere Pro — Cursor, VS Code / Copilot, Windsurf, or another desktop client that accepts a command entry. If you can use the Claude Desktop bundle, prefer that path on the homepage install section; this page is the exact package route for npm.",
+          "Current public package: premiere-pro-mcp@1.15.2 (MIT, free).",
+        ],
+        links: [
+          { label: "Homepage install section", href: "/#install" },
+          { label: "Check release requirements", href: "/facts/" },
+        ],
+      },
+      {
+        heading: "Exact package name",
+        paragraphs: [
+          "Install this project with the unscoped name. Run these checks from a directory outside an existing source checkout: npm can otherwise prefer a local installation over the downloaded executable.",
+        ],
+        codeBlocks: [
+          { label: "Install the package with version pin", code: "npm i -g premiere-pro-mcp@1.15.2" },
+        ],
+      },
+      {
+        heading: "Verify the package behind the command",
+        paragraphs: [
+          "This project's package is premiere-pro-mcp, not adobe-premiere-pro-mcp.",
+          "Both packages can expose a command named premiere-pro-mcp. A copied install tip or an older global binary can therefore start the wrong project. Before you configure a client:",
+        ],
+        steps: [
+          "Confirm the package name is premiere-pro-mcp.",
+          "Use npx --yes premiere-pro-mcp@1.15.2 in client configuration to select the intended package and version.",
+          "Expect version 1.15.2, homepage premiere-pro-mcp.com, and source leancoderkavy/premiere-pro-mcp.",
+        ],
+        bullets: [
+          "Both projects are separate open-source efforts; choose the package that matches the documentation you are following.",
+          "For a side-by-side package comparison, see premiere-pro-mcp vs adobe-premiere-pro-mcp.",
+        ],
+        codeBlocks: [
+          { label: "Verify the pinned package identity", code: "npm view premiere-pro-mcp@1.15.2 name version homepage repository.url bin --json\nnpx --yes premiere-pro-mcp@1.15.2 --version" },
+        ],
+        links: [
+          { label: "Compare packages side-by-side", href: "/blog/premiere-pro-mcp-vs-adobe-premiere-pro-mcp/" },
+        ],
+      },
+      {
+        heading: "Prerequisites",
+        bullets: [
+          "Node.js 20.19+ for the npm/npx route",
+          "Adobe Premiere Pro 2020–2026 on macOS or Windows",
+          "CEP connector as the default public first-run path (signed CEP package or --install-cep)",
+          "UXP is capability-gated for compatible Premiere 25.6.0+ workflows; it is not the default installer and does not replace CEP for first setup",
+        ],
+        paragraphs: [
+          "Claude Desktop remains the recommended easiest start when you want a self-contained bundle.",
+        ],
+        links: [
+          { label: "Claude Desktop setup", href: "/blog/claude-desktop-premiere-pro-mcp-setup/" },
+          { label: "Cursor setup", href: "/blog/cursor-premiere-pro-mcp-setup/" },
+          { label: "Codex setup", href: "/blog/codex-premiere-pro-mcp-setup/" },
+          { label: "Full safe setup guide", href: "/blog/how-to-set-up-premiere-pro-mcp/" },
+        ],
+      },
+      {
+        heading: "Install the Premiere connector (CEP-first)",
+        paragraphs: [
+          "Your assistant talks to Premiere through a separate local connector. Fully quit Premiere before running the versioned installer below.",
+          "Alternatively, download the signed CEP package from the v1.15.2 release and open it with a trusted ZXP installer.",
+          "Then reopen Premiere and restart your assistant. Open a disposable project with an active sequence. In Premiere, confirm Window → Extensions → MCP for Adobe Premiere Pro.",
+        ],
+        codeBlocks: [
+          { label: "Install CEP connector with versioned command", code: "npx --yes premiere-pro-mcp@1.15.2 --install-cep" },
+        ],
+        links: [
+          { label: "v1.15.2 release", href: "https://github.com/leancoderkavy/premiere-pro-mcp/releases/tag/v1.15.2" },
+        ],
+      },
+      {
+        heading: "Configure the MCP client (versioned command)",
+        paragraphs: [
+          "For clients that use an mcpServers JSON object, merge this entry into the existing configuration. Preserve other server entries. Other clients, including Codex, use their own configuration format; follow the linked client guide.",
+          "Keep Premiere, the connector, and the client on the same computer. Restart the client after saving settings.",
+        ],
+        codeBlocks: [
+          {
+            label: "Client MCP configuration example",
+            code: `{
+  "mcpServers": {
+    "premiere-pro-leancoderkavy": {
+      "command": "npx",
+      "args": ["--yes", "premiere-pro-mcp@1.15.2"]
+    }
+  }
+}`,
+          },
+        ],
+      },
+      {
+        heading: "Safe first prompt (no edits)",
+        paragraphs: [
+          "Open a project and ask:",
+          "A verified connection still depends on a live local host bridge. Preview supported edits before you apply them.",
+        ],
+        codeBlocks: [
+          { label: "First request", code: "Safely check my Premiere connection with verify_premiere_connection. Make no changes." },
+        ],
+      },
+      {
+        heading: "If it does not connect",
+        paragraphs: [
+          "Work through Setup & recovery: restart both apps, confirm an active sequence, confirm the CEP panel is available, then re-run the safe prompt. Share connection state with support — not project media.",
+          "If the version command reports something other than 1.15.2, repeat it outside any existing repository or Node project. Also check the MCP client's working directory for an older local installation before trusting its tool list.",
+        ],
+        links: [
+          { label: "Connection troubleshooting", href: "/docs/troubleshooting/" },
+        ],
+      },
+    ],
+    faqs: [
+      {
+        question: "Is premiere-pro-mcp the same as adobe-premiere-pro-mcp?",
+        answer: "No. Different packages and repositories. Both may register a premiere-pro-mcp command — verify the package name.",
+      },
+      {
+        question: "Should I install from Creative Cloud Marketplace?",
+        answer: "No Marketplace listing is required for this project's CEP default path. Follow the release connector or --install-cep.",
+      },
+      {
+        question: "Does install upload my footage?",
+        answer: "The recommended setup is local-first. The bridge exchanges commands and structured results; your assistant's separate privacy settings still apply.",
+      },
+      {
+        question: "Does this guide install unreleased tools from main?",
+        answer: "No. These commands select the published 1.15.2 package. Check the product facts page for the separate released and development catalogs.",
+      },
+    ],
+    resources: [
+      { label: "Homepage install", href: "/#install" },
+      { label: "Documentation", href: "/docs/" },
+      { label: "Product facts", href: "/facts/" },
+      { label: "Tool reference", href: "/tools/" },
+      { label: "npm package", href: "https://www.npmjs.com/package/premiere-pro-mcp" },
+      { label: "GitHub repository", href: "https://github.com/leancoderkavy/premiere-pro-mcp" },
+    ],
+    relatedSlugs: [
+      "premiere-pro-mcp-vs-adobe-premiere-pro-mcp",
+      "how-to-set-up-premiere-pro-mcp",
+      "claude-desktop-premiere-pro-mcp-setup",
+    ],
+  },
+  {
     slug: "cursor-premiere-pro-mcp-setup",
     title: "How to Set Up Cursor with Premiere Pro MCP",
     seoTitle: "Cursor Premiere Pro MCP Setup",
