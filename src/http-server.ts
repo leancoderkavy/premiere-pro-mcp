@@ -31,7 +31,7 @@ import http from "node:http";
 import fs from "node:fs";
 import path from "node:path";
 import { randomBytes } from "node:crypto";
-import { createGzip, gzipSync } from "node:zlib";
+import { createGzip } from "node:zlib";
 import { fileURLToPath } from "node:url";
 import { toNodeHandler } from "@modelcontextprotocol/node";
 import { createMcpHandler } from "@modelcontextprotocol/server";
@@ -40,6 +40,12 @@ import { cleanupTempDir, getTempDir } from "./bridge/file-bridge.js";
 import { getTelemetry } from "./telemetry.js";
 import { createHomepageExperiment, injectFirstPaintExposure, type HomepageVariant } from "./homepage-experiment.js";
 import { shouldGzipLanding } from "./landing-compression.js";
+import {
+  LandingDocumentRenderer,
+  assertLandingDocumentSize,
+  readBoundedUtf8,
+  readLandingDocumentSettings,
+} from "./landing-documents.js";
 import { applyHttpSecurityHeaders } from "./http-security.js";
 import { OAuthResourceServer } from "./oauth-resource-server.js";
 import { ProjectContextRepository } from "./context/project-context-store.js";
@@ -88,7 +94,7 @@ function injectScriptNonce(document: string, nonce: string): string {
   return document.replace(/<script(?=\s|>)/gi, `<script nonce="${nonce}"`);
 }
 
-function serveLanding(req: http.IncomingMessage, res: http.ServerResponse, scriptNonce: string, homepageVariant?: HomepageVariant): boolean {
+async function serveLanding(req: http.IncomingMessage, res: http.ServerResponse, scriptNonce: string, homepageVariant?: HomepageVariant): Promise<boolean> {
   if (req.method !== "GET" && req.method !== "HEAD") return false;
   if (!fs.existsSync(LANDING_DIR)) return false;
 
@@ -192,6 +198,11 @@ function serveLanding(req: http.IncomingMessage, res: http.ServerResponse, scrip
     const treatmentPath = path.join(LANDING_DIR, "design-preview", "index.html");
     if (!fs.existsSync(treatmentPath)) return false;
     filePath = treatmentPath;
+    try {
+      fileStats = fs.statSync(filePath);
+    } catch {
+      return false;
+    }
   }
   const preview = new URL(req.url ?? "/", "http://localhost").searchParams.has("design") || urlPath.startsWith("/design-preview/");
   if (preview) res.setHeader("X-Robots-Tag", "noindex, follow");
@@ -204,24 +215,62 @@ function serveLanding(req: http.IncomingMessage, res: http.ServerResponse, scrip
     "Cache-Control": urlPath === "/" || preview ? "private, no-store" : cacheControlForLandingAsset(urlPath, contentType),
   };
 
+  if (contentType.startsWith("text/html")) {
+    try {
+      assertLandingDocumentSize(
+        Number.isFinite(fileStats.size) ? fileStats.size : undefined,
+        landingDocumentSettings.maxDocumentBytes,
+      );
+    } catch (error) {
+      console.error("[premiere-pro-mcp] Landing document read failed:", error);
+      res.writeHead(500, { "Content-Type": "text/plain; charset=utf-8", "Cache-Control": "no-store" });
+      res.end(req.method === "HEAD" ? undefined : "Internal server error");
+      return true;
+    }
+  }
+
+  // HEAD validates the same trusted path and returns the same representation
+  // headers, but never reads, injects, or compresses the response body.
+  if (req.method === "HEAD") {
+    if (compress) headers["Content-Encoding"] = "gzip";
+    res.writeHead(200, headers);
+    res.end();
+    return true;
+  }
+
   // A static export cannot generate per-request nonces itself. Add the nonce
   // at the trusted server boundary so Next bootstrap and JSON-LD scripts remain
   // executable without retaining script-src 'unsafe-inline'.
   if (contentType.startsWith("text/html")) {
     try {
-      const document = injectFirstPaintExposure(
-        injectScriptNonce(fs.readFileSync(filePath, "utf8"), scriptNonce),
-        scriptNonce,
-        urlPath === "/" ? homepageVariant : undefined,
-        preview,
+      const rendered = await landingDocuments.render(
+        filePath,
+        Number.isFinite(fileStats.size) ? fileStats.size : undefined,
+        (source) => injectFirstPaintExposure(
+          injectScriptNonce(source, scriptNonce),
+          scriptNonce,
+          urlPath === "/" ? homepageVariant : undefined,
+          preview,
+        ),
+        compress,
       );
-      const body = compress ? gzipSync(document, { level: 6 }) : document;
+      if (!rendered.accepted) {
+        res.writeHead(503, {
+          "Content-Type": "text/plain; charset=utf-8",
+          "Cache-Control": "no-store",
+          "Retry-After": "1",
+        });
+        res.end("Service busy");
+        return true;
+      }
+      if (res.destroyed || res.writableEnded) return true;
       if (compress) headers["Content-Encoding"] = "gzip";
       res.writeHead(200, headers);
-      res.end(req.method === "HEAD" ? undefined : body);
+      res.end(rendered.body);
       return true;
     } catch (error) {
       console.error("[premiere-pro-mcp] Landing document read failed:", error);
+      if (res.destroyed || res.writableEnded) return true;
       res.writeHead(500, { "Content-Type": "text/plain; charset=utf-8", "Cache-Control": "no-store" });
       res.end("Internal server error");
       return true;
@@ -229,11 +278,6 @@ function serveLanding(req: http.IncomingMessage, res: http.ServerResponse, scrip
   }
 
   if (compress) headers["Content-Encoding"] = "gzip";
-  if (req.method === "HEAD") {
-    res.writeHead(200, headers);
-    res.end();
-    return true;
-  }
   const stream = fs.createReadStream(filePath);
   res.once("close", () => stream.destroy());
   stream.once("error", (error) => {
@@ -259,9 +303,11 @@ const PORT = parseInt(process.env.PORT ?? "3000", 10);
 const HTTP_HOST = process.env.MCP_HTTP_HOST || "0.0.0.0";
 let httpAuth: ReturnType<typeof readHttpAuthConfiguration>;
 let admissionSettings: ReturnType<typeof readHttpAdmissionSettings>;
+let landingDocumentSettings: ReturnType<typeof readLandingDocumentSettings>;
 try {
   httpAuth = readHttpAuthConfiguration(process.env);
   admissionSettings = readHttpAdmissionSettings(process.env);
+  landingDocumentSettings = readLandingDocumentSettings(process.env);
 } catch (error) {
   console.error("[premiere-pro-mcp] Refusing to start:", error instanceof Error ? error.message : error);
   process.exit(1);
@@ -278,6 +324,10 @@ process.env.PREMIERE_MCP_TRANSPORT = "http";
 const telemetry = getTelemetry();
 const admission = new HttpAdmissionController(admissionSettings);
 const preAuthAdmission = new HttpAdmissionController(admissionSettings);
+const landingDocuments = new LandingDocumentRenderer(
+  landingDocumentSettings,
+  readBoundedUtf8,
+);
 const oauthResourceServer = httpAuth.oauth ? new OAuthResourceServer(httpAuth.oauth) : undefined;
 // Streamable HTTP creates an McpServer for every request. Sharing the repository
 // keeps memory-backed context durable across those request-scoped servers and
@@ -347,7 +397,7 @@ const httpServer = http.createServer(async (req, res) => {
       if (preview.has("design")) variant = preview.get("design") === "test" ? "test" : "control";
       else if (fs.existsSync(path.join(LANDING_DIR, "design-preview", "index.html"))) variant = await homepageExperiment.assign(req, res);
     }
-    if (serveLanding(req, res, scriptNonce, variant)) return;
+    if (await serveLanding(req, res, scriptNonce, variant)) return;
     res.writeHead(404);
     res.end("Not found");
     return;

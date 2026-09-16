@@ -20,6 +20,7 @@ jobs:
           cache: npm
           cache-dependency-path: landing/package-lock.json
       - run: npm ci --prefix landing
+      - run: npm audit --prefix landing --audit-level=moderate
       - run: npm ci
       - run: npm run build
       - run: npm --prefix landing run lint

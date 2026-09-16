@@ -1,13 +1,15 @@
 import {
-  copyFileSync,
-  constants,
+  createReadStream,
   existsSync,
-  readFileSync,
   readdirSync,
   statSync,
+  type Stats,
 } from "node:fs";
+import { open, rm, stat } from "node:fs/promises";
 import { createHash } from "node:crypto";
 import { basename, dirname, extname, join, resolve } from "node:path";
+import { Transform } from "node:stream";
+import { pipeline } from "node:stream/promises";
 import { buildToolScript } from "../bridge/script-builder.js";
 import {
   getTempDir,
@@ -18,6 +20,8 @@ import {
 } from "../bridge/file-bridge.js";
 
 const MAX_CANDIDATES = 50;
+const DEFAULT_PROJECT_BACKUP_MAX_BYTES = 2 * 1024 * 1024 * 1024;
+const PROJECT_BACKUP_MAX_BYTES_ENV = "PREMIERE_MCP_PROJECT_BACKUP_MAX_BYTES";
 const AUTOSAVE_DIR_NAMES = [
   "Adobe Premiere Pro Auto-Save",
   "Premiere Pro Auto-Save",
@@ -46,41 +50,153 @@ export interface ProjectBackupReceipt {
   byteIdentical: true;
 }
 
-function sha256File(path: string): string {
-  return createHash("sha256").update(readFileSync(path)).digest("hex");
+export interface ProjectBackupOptions {
+  maxBytes?: number;
+  signal?: AbortSignal;
 }
 
-export function createProjectBackup(projectPath: string, now = new Date()): ProjectBackupReceipt {
+let projectBackupInProgress = false;
+
+function projectBackupMaxBytes(override?: number): number {
+  const configured = override ?? (process.env[PROJECT_BACKUP_MAX_BYTES_ENV] === undefined
+    ? DEFAULT_PROJECT_BACKUP_MAX_BYTES
+    : Number(process.env[PROJECT_BACKUP_MAX_BYTES_ENV]));
+  if (!Number.isSafeInteger(configured) || configured <= 0) {
+    throw new Error(`${PROJECT_BACKUP_MAX_BYTES_ENV} must be a positive safe integer`);
+  }
+  return configured;
+}
+
+function sameFileVersion(left: Stats, right: Stats): boolean {
+  return left.dev === right.dev &&
+    left.ino === right.ino &&
+    left.size === right.size &&
+    left.mtimeMs === right.mtimeMs &&
+    left.ctimeMs === right.ctimeMs;
+}
+
+function throwIfBackupCancelled(signal?: AbortSignal): void {
+  if (!signal?.aborted) return;
+  const error = new Error("project backup cancelled");
+  error.name = "AbortError";
+  throw error;
+}
+
+async function removePartialBackup(backupPath: string): Promise<void> {
+  for (let attempt = 0; attempt < 8; attempt += 1) {
+    try {
+      await rm(backupPath, { force: true, maxRetries: 8, retryDelay: 25 });
+      return;
+    } catch (error) {
+      const code = (error as NodeJS.ErrnoException).code;
+      if (code !== "EBUSY" && code !== "EPERM" && code !== "ENOTEMPTY") throw error;
+      await new Promise((resolve) => setTimeout(resolve, 25 * (attempt + 1)));
+    }
+  }
+}
+
+async function sha256File(path: string, maxBytes: number, signal?: AbortSignal): Promise<{ checksum: string; bytes: number }> {
+  // Node 20 can open a leaked descriptor after emitting close when a filesystem
+  // stream is constructed with an already-aborted signal.
+  throwIfBackupCancelled(signal);
+  const digest = createHash("sha256");
+  let bytes = 0;
+  const stream = createReadStream(path, { signal });
+  for await (const chunk of stream) {
+    bytes += chunk.length;
+    if (bytes > maxBytes) throw new Error(`Project file exceeds the ${maxBytes}-byte backup budget`);
+    digest.update(chunk);
+  }
+  return { checksum: digest.digest("hex"), bytes };
+}
+
+export async function createProjectBackup(
+  projectPath: string,
+  now = new Date(),
+  options: ProjectBackupOptions = {},
+): Promise<ProjectBackupReceipt> {
   const sourcePath = resolve(projectPath);
   if (extname(sourcePath).toLowerCase() !== ".prproj") {
     throw new Error("project_path must point to an Adobe Premiere .prproj file");
   }
-  if (!existsSync(sourcePath)) throw new Error(`Project file does not exist: ${sourcePath}`);
-  const before = statSync(sourcePath);
-  if (!before.isFile()) throw new Error(`Project path is not a regular file: ${sourcePath}`);
+  if (projectBackupInProgress) throw new Error("another project backup is already in progress");
+  projectBackupInProgress = true;
+  let backupPath: string | undefined;
+  let backupCreated = false;
+  try {
+    throwIfBackupCancelled(options.signal);
+    const maxBytes = projectBackupMaxBytes(options.maxBytes);
+    let before: Stats;
+    try {
+      before = await stat(sourcePath);
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === "ENOENT") throw new Error(`Project file does not exist: ${sourcePath}`);
+      throw error;
+    }
+    if (!before.isFile()) throw new Error(`Project path is not a regular file: ${sourcePath}`);
+    if (before.size > maxBytes) throw new Error(`Project file exceeds the ${maxBytes}-byte backup budget`);
+    throwIfBackupCancelled(options.signal);
 
-  const stamp = now.toISOString().replace(/[:.]/g, "-");
-  const backupPath = `${sourcePath}.backup-${stamp}`;
-  copyFileSync(sourcePath, backupPath, constants.COPYFILE_EXCL);
+    const stamp = now.toISOString().replace(/[:.]/g, "-");
+    backupPath = `${sourcePath}.backup-${stamp}`;
+    const backupHandle = await open(backupPath, "wx", before.mode & 0o777);
+    backupCreated = true;
+    let copiedBytes = 0;
+    const byteLimiter = new Transform({
+      transform(chunk: Buffer, _encoding, callback) {
+        if (options.signal?.aborted) {
+          callback(Object.assign(new Error("project backup cancelled"), { name: "AbortError" }));
+          return;
+        }
+        copiedBytes += chunk.length;
+        if (copiedBytes > maxBytes) callback(new Error(`Project file exceeds the ${maxBytes}-byte backup budget`));
+        else callback(null, chunk);
+      },
+    });
+    try {
+      await pipeline(
+        // Let pipeline attach cancellation after stream construction. Passing
+        // an already-aborted signal to ReadStream leaks a handle on Node 20.
+        createReadStream(sourcePath),
+        byteLimiter,
+        backupHandle.createWriteStream(),
+        { signal: options.signal },
+      );
+    } finally {
+      await backupHandle.close().catch(() => undefined);
+    }
 
-  const after = statSync(sourcePath);
-  const backup = statSync(backupPath);
-  if (before.size !== after.size || before.mtimeMs !== after.mtimeMs) {
-    throw new Error("Project file changed while its backup was being created; do not rely on this copy");
+    const [afterCopy, backupAfterCopy] = await Promise.all([stat(sourcePath), stat(backupPath)]);
+    if (!sameFileVersion(before, afterCopy)) {
+      throw new Error("Project file changed while its backup was being created; do not rely on this copy");
+    }
+    const sourceHash = await sha256File(sourcePath, maxBytes, options.signal);
+    const backupHash = await sha256File(backupPath, maxBytes, options.signal);
+    const [afterHash, backupAfterHash] = await Promise.all([stat(sourcePath), stat(backupPath)]);
+    if (!sameFileVersion(before, afterHash)) {
+      throw new Error("Project file changed while its backup was being verified; do not rely on this copy");
+    }
+    if (!sameFileVersion(backupAfterCopy, backupAfterHash) ||
+        copiedBytes !== before.size ||
+        sourceHash.bytes !== before.size ||
+        backupHash.bytes !== before.size ||
+        backupHash.checksum !== sourceHash.checksum) {
+      throw new Error("Project backup verification failed: copied bytes do not match the source");
+    }
+    return {
+      sourcePath,
+      backupPath,
+      sizeBytes: backupAfterHash.size,
+      checksumSha256: backupHash.checksum,
+      sourceUnchanged: true,
+      byteIdentical: true,
+    };
+  } catch (error) {
+    if (backupCreated && backupPath) await removePartialBackup(backupPath).catch(() => undefined);
+    throw error;
+  } finally {
+    projectBackupInProgress = false;
   }
-  const sourceChecksum = sha256File(sourcePath);
-  const backupChecksum = sha256File(backupPath);
-  if (backup.size !== before.size || backupChecksum !== sourceChecksum) {
-    throw new Error("Project backup verification failed: copied bytes do not match the source");
-  }
-  return {
-    sourcePath,
-    backupPath,
-    sizeBytes: backup.size,
-    checksumSha256: backupChecksum,
-    sourceUnchanged: true,
-    byteIdentical: true,
-  };
 }
 
 export function discoverAdjacentRecoveryCandidates(
@@ -209,7 +325,7 @@ export function getRecoveryTools(bridgeOptions: BridgeOptions) {
       },
       handler: async (args: { project_path: string }) => {
         try {
-          return { success: true, data: createProjectBackup(args.project_path) };
+          return { success: true, data: await createProjectBackup(args.project_path) };
         } catch (error) {
           return { success: false, error: error instanceof Error ? error.message : String(error) };
         }

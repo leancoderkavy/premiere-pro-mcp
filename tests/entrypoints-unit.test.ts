@@ -29,6 +29,8 @@ const mocks = vi.hoisted(() => ({
   fsStat: vi.fn(() => ({ isDirectory: () => false, isFile: () => true })),
   fsCreateReadStream: vi.fn(),
   fsReadFileSync: vi.fn(),
+  fsReadFile: vi.fn(async () => "<html><head><script>bootstrap()</script></head></html>"),
+  fsOpen: vi.fn(),
   streamOnce: vi.fn(),
   pipe: vi.fn(),
   readBoundedBody: vi.fn(async () => Buffer.from("{}")),
@@ -127,6 +129,7 @@ vi.mock("node:fs", async (original) => {
     },
   };
 });
+vi.mock("node:fs/promises", () => ({ open: mocks.fsOpen }));
 
 const originalArgv = process.argv;
 const env = { ...process.env };
@@ -145,6 +148,18 @@ beforeEach(() => {
   mocks.fsStat.mockReturnValue({ isDirectory: () => false, isFile: () => true });
   mocks.fsCreateReadStream.mockReturnValue({ once: mocks.streamOnce, pipe: mocks.pipe, destroy: vi.fn() });
   mocks.fsReadFileSync.mockReturnValue("<html><head><script>bootstrap()</script></head></html>");
+  mocks.fsReadFile.mockResolvedValue("<html><head><script>bootstrap()</script></head></html>");
+  mocks.fsOpen.mockImplementation(async (filePath: string) => {
+    const source = Buffer.from(await mocks.fsReadFile(filePath, "utf8"));
+    return {
+      read: vi.fn(async (target: Buffer, offset: number, length: number, position: number) => {
+        const bytesRead = Math.min(length, Math.max(0, source.length - position));
+        if (bytesRead > 0) source.copy(target, offset, position, position + bytesRead);
+        return { bytesRead, buffer: target };
+      }),
+      close: vi.fn(async () => {}),
+    };
+  });
   mocks.readBoundedBody.mockResolvedValue(Buffer.from("{}"));
   mocks.serveStdio.mockImplementation((factory: () => unknown) => {
     factory();
@@ -703,7 +718,8 @@ describe("HTTP entry point", () => {
     await handler({ method: "HEAD", url: "/docs/", headers: {} }, res);
     expect(res.statusCode).toBe(200);
     expect(res.body).toBe("");
-    expect(mocks.fsReadFileSync).toHaveBeenCalledOnce();
+    expect(mocks.fsReadFileSync).not.toHaveBeenCalled();
+    expect(mocks.fsReadFile).not.toHaveBeenCalled();
   });
 
   it("compresses landing HTML after inserting the per-response script nonce", async () => {
@@ -717,6 +733,107 @@ describe("HTTP entry point", () => {
     }));
     expect(res.headers.vary).toBe("Accept-Encoding");
     expect(gunzipSync(res.body).toString("utf8")).toMatch(/<script nonce="[^"]+">bootstrap\(\)<\/script>/);
+  });
+
+  it("caches only trusted source HTML and injects a fresh nonce for every response", async () => {
+    mocks.fsExists.mockReturnValue(true);
+    const handler = await loadHttp();
+    const first = response();
+    const second = response();
+
+    await handler({ method: "GET", url: "/docs/", headers: {} }, first);
+    await handler({ method: "GET", url: "/docs/", headers: {} }, second);
+
+    expect(mocks.fsReadFile).toHaveBeenCalledOnce();
+    const firstNonce = String(first.body).match(/<script nonce="([^"]+)">/)?.[1];
+    const secondNonce = String(second.body).match(/<script nonce="([^"]+)">/)?.[1];
+    expect(firstNonce).toBeTruthy();
+    expect(secondNonce).toBeTruthy();
+    expect(secondNonce).not.toBe(firstNonce);
+  });
+
+  it("keeps an HTML work slot occupied until an aborted request's read finishes", async () => {
+    process.env.MCP_MAX_CONCURRENT_LANDING_DOCUMENTS = "1";
+    mocks.fsExists.mockReturnValue(true);
+    let finishRead!: (document: string) => void;
+    mocks.fsReadFile.mockImplementationOnce(() => new Promise((resolve) => { finishRead = resolve; }));
+    const handler = await loadHttp();
+    const abandoned = response();
+    const firstRequest = handler({ method: "GET", url: "/docs/", headers: {} }, abandoned);
+    await vi.waitFor(() => expect(mocks.fsReadFile).toHaveBeenCalledOnce());
+
+    abandoned.destroyed = true;
+    abandoned.closeHandler?.();
+    const rejected = response();
+    await handler({ method: "GET", url: "/docs/", headers: {} }, rejected);
+    expect(rejected.statusCode).toBe(503);
+    expect(rejected.writeHead).toHaveBeenCalledWith(503, expect.objectContaining({ "Retry-After": "1" }));
+
+    const health = response();
+    await handler({ method: "GET", url: "/health", headers: {} }, health);
+    expect(health.statusCode).toBe(200);
+    const asset = response();
+    await handler({ method: "GET", url: "/_next/static/chunks/app.js", headers: {} }, asset);
+    expect(asset.statusCode).toBe(200);
+    expect(mocks.fsCreateReadStream).toHaveBeenCalledOnce();
+
+    finishRead("<html><head><script>bootstrap()</script></head></html>");
+    await firstRequest;
+    expect(abandoned.writeHead).not.toHaveBeenCalled();
+  });
+
+  it("evicts cached source documents before the configured memory budget is exceeded", async () => {
+    process.env.MCP_LANDING_HTML_CACHE_BYTES = "2048";
+    process.env.MCP_LANDING_MAX_HTML_BYTES = "1024";
+    mocks.fsExists.mockReturnValue(true);
+    mocks.fsStat.mockReturnValue({ isDirectory: () => false, isFile: () => true, size: 600 });
+    mocks.fsReadFile.mockResolvedValue(`<html><script>bootstrap()</script>${"x".repeat(550)}</html>`);
+    const handler = await loadHttp();
+
+    for (const url of ["/docs/", "/about/", "/docs/"]) {
+      await handler({ method: "GET", url, headers: {} }, response());
+    }
+
+    expect(mocks.fsReadFile).toHaveBeenCalledTimes(3);
+  });
+
+  it("rejects an oversized trusted HTML document before allocating its body", async () => {
+    process.env.MCP_LANDING_MAX_HTML_BYTES = "1024";
+    process.env.MCP_LANDING_HTML_CACHE_BYTES = "2048";
+    mocks.fsExists.mockReturnValue(true);
+    mocks.fsStat.mockReturnValue({ isDirectory: () => false, isFile: () => true, size: 1025 });
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    const handler = await loadHttp();
+    const res = response();
+
+    await handler({ method: "GET", url: "/docs/", headers: {} }, res);
+
+    expect(res.statusCode).toBe(500);
+    expect(mocks.fsReadFile).not.toHaveBeenCalled();
+    expect(error).toHaveBeenCalledWith(
+      "[premiere-pro-mcp] Landing document read failed:",
+      expect.objectContaining({ name: "LandingDocumentTooLargeError" }),
+    );
+  });
+
+  it("rejects oversized HTML consistently for HEAD without reading its body", async () => {
+    process.env.MCP_LANDING_MAX_HTML_BYTES = "1024";
+    process.env.MCP_LANDING_HTML_CACHE_BYTES = "2048";
+    mocks.fsExists.mockReturnValue(true);
+    mocks.fsStat.mockReturnValue({ isDirectory: () => false, isFile: () => true, size: 1025 });
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    const handler = await loadHttp();
+    const res = response();
+
+    await handler({ method: "HEAD", url: "/docs/", headers: {} }, res);
+
+    expect(res.statusCode).toBe(500);
+    expect(res.body).toBe("");
+    expect(mocks.fsReadFile).not.toHaveBeenCalled();
+    expect(error).toHaveBeenCalledWith(
+      "[premiere-pro-mcp] Landing document read failed:",
+      expect.objectContaining({ name: "LandingDocumentTooLargeError" }),
+    );
   });
 
   it("does not open an asset stream for a compressed HEAD response", async () => {

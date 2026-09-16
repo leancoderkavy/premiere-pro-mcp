@@ -27,8 +27,14 @@ Thumbs.db
 *~
 
 # Environment
-.env
-.env.local
+.env*
+!.env.example
+!.env.template
+*.pem
+*.key
+*.pfx
+*.p12
+.npmrc
 
 # Logs
 *.log

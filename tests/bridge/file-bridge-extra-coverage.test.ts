@@ -3,6 +3,8 @@ import {
   chmodSync,
   existsSync,
   mkdirSync,
+  lstatSync,
+  realpathSync,
   readFileSync,
   readdirSync,
   renameSync,
@@ -11,11 +13,14 @@ import {
   watch,
   writeFileSync,
 } from "node:fs";
+import { execFileSync } from "node:child_process";
 import { cleanupTempDir, sendCommand } from "../../src/bridge/file-bridge.js";
 
 vi.mock("node:fs", () => ({
   existsSync: vi.fn(),
   mkdirSync: vi.fn(),
+  lstatSync: vi.fn(),
+  realpathSync: vi.fn(),
   writeFileSync: vi.fn(),
   readFileSync: vi.fn(),
   unlinkSync: vi.fn(),
@@ -26,9 +31,15 @@ vi.mock("node:fs", () => ({
   watch: vi.fn(),
 }));
 
+vi.mock("node:child_process", () => ({
+  execFileSync: vi.fn(),
+}));
+
 const fs = {
   exists: vi.mocked(existsSync),
   mkdir: vi.mocked(mkdirSync),
+  lstat: vi.mocked(lstatSync),
+  realpath: vi.mocked(realpathSync),
   write: vi.mocked(writeFileSync),
   read: vi.mocked(readFileSync),
   unlink: vi.mocked(unlinkSync),
@@ -37,12 +48,26 @@ const fs = {
   stat: vi.mocked(statSync),
   chmod: vi.mocked(chmodSync),
   watch: vi.mocked(watch),
+  execFile: vi.mocked(execFileSync),
 };
 
 describe("file bridge fallback and cleanup branches", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.useFakeTimers();
+    fs.mkdir.mockReturnValue(undefined);
+    fs.realpath.mockImplementation((value) => String(value));
+    fs.lstat.mockReturnValue({
+      uid: typeof process.getuid === "function" ? process.getuid() : 0,
+      mode: 0o700,
+      isDirectory: () => true,
+      isSymbolicLink: () => false,
+    } as ReturnType<typeof lstatSync>);
+    fs.execFile.mockReturnValue(JSON.stringify({
+      ownerSid: "S-1-5-21-1000",
+      currentUserSid: "S-1-5-21-1000",
+      unsafeWriteAces: [],
+    }) as never);
     fs.stat.mockReturnValue({
       uid: typeof process.getuid === "function" ? process.getuid() : 0,
       mode: 0o700,

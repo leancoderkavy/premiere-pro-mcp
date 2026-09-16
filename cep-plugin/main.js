@@ -97,6 +97,16 @@ var fs = nodeRequire("fs");
 var path = nodeRequire("path");
 var os = nodeRequire("os");
 var https = nodeRequire("https");
+var nodeProcess = nodeRequire("process");
+var childProcess = nodeRequire("child_process");
+var bridgeDirectorySecurity = MCPBridgeDirectorySecurity.createBridgeDirectorySecurity({
+  fs: fs,
+  path: path,
+  platform: os.platform(),
+  process: nodeProcess,
+  childProcess: childProcess,
+  Buffer: Buffer,
+});
 function defaultBridgeDirectory() {
   try {
     var nodeProcess = nodeRequire("process");
@@ -175,13 +185,7 @@ function readScheduledUpdateStatus() {
 }
 
 function ensureDir(dir) {
-  try {
-    if (!fs.existsSync(dir)) {
-      fs.mkdirSync(dir, { recursive: true, mode: 0o700 });
-    }
-  } catch (e) {
-    log("Error creating dir: " + e.message, "err");
-  }
+  return bridgeDirectorySecurity.ensurePrivateBridgeDirectory(dir);
 }
 
 function listCommandFiles() {
@@ -380,7 +384,15 @@ function startBridge() {
     return;
   }
 
-  ensureDir(tempDir);
+  try {
+    tempDir = ensureDir(tempDir);
+    document.getElementById("tempDir").value = tempDir;
+  } catch (e) {
+    bridgeRunning = false;
+    setStatus("error", "Connector needs attention");
+    log("Bridge directory rejected: " + e.message, "err");
+    return;
+  }
   bridgeRunning = true;
   startBridgeHeartbeat();
   setStatus("waiting", "Connector running");
@@ -668,7 +680,14 @@ function handleUpdateClick() {
   // Always auto-start. The headless instance (StartOn ApplicationActivate) has no
   // one to click Start, and macOS periodically purges the temp dir — so create it
   // rather than gating auto-start on its existence.
-  ensureDir(tempDir);
+  try {
+    tempDir = ensureDir(tempDir);
+    document.getElementById("tempDir").value = tempDir;
+  } catch (e) {
+    setStatus("error", "Connector needs attention");
+    log("Bridge directory rejected: " + e.message, "err");
+    return;
+  }
   startBridgeHeartbeat();
   log("Auto-starting bridge...");
   setTimeout(startBridge, 500);

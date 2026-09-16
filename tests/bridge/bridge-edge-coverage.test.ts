@@ -4,6 +4,8 @@ import {
   chmodSync,
   existsSync,
   mkdirSync,
+  lstatSync,
+  realpathSync,
   readFileSync,
   readdirSync,
   renameSync,
@@ -14,7 +16,7 @@ import {
 } from "node:fs";
 import { WebSocket } from "ws";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { sendCommand } from "../../src/bridge/file-bridge.js";
+import { cleanupTempDir, sendCommand } from "../../src/bridge/file-bridge.js";
 import {
   UxpWebSocketBridge,
   type UxpHello,
@@ -23,6 +25,8 @@ import {
 vi.mock("node:fs", () => ({
   existsSync: vi.fn(),
   mkdirSync: vi.fn(),
+  lstatSync: vi.fn(),
+  realpathSync: vi.fn(),
   writeFileSync: vi.fn(),
   readFileSync: vi.fn(),
   unlinkSync: vi.fn(),
@@ -36,6 +40,8 @@ vi.mock("node:fs", () => ({
 const fs = {
   exists: vi.mocked(existsSync),
   mkdir: vi.mocked(mkdirSync),
+  lstat: vi.mocked(lstatSync),
+  realpath: vi.mocked(realpathSync),
   write: vi.mocked(writeFileSync),
   read: vi.mocked(readFileSync),
   unlink: vi.mocked(unlinkSync),
@@ -54,6 +60,15 @@ function ownedStat(mode = 0o700): ReturnType<typeof statSync> {
     mode,
     mtimeMs: Date.now(),
   } as unknown as ReturnType<typeof statSync>;
+}
+
+function ownedLstat(mode = 0o700): ReturnType<typeof lstatSync> {
+  return {
+    uid: 4242,
+    mode,
+    isDirectory: () => true,
+    isSymbolicLink: () => false,
+  } as unknown as ReturnType<typeof lstatSync>;
 }
 
 function usePosixProcess(uid = 4242): void {
@@ -80,6 +95,8 @@ describe("file bridge uncovered security and fallback paths", () => {
       throw new Error("watch unavailable");
     });
     fs.stat.mockReturnValue(ownedStat());
+    fs.lstat.mockReturnValue(ownedLstat());
+    fs.realpath.mockImplementation((value) => String(value));
   });
 
   afterEach(() => {
@@ -91,12 +108,12 @@ describe("file bridge uncovered security and fallback paths", () => {
   it("rejects a pre-existing POSIX directory owned by another user", async () => {
     usePosixProcess();
     fs.exists.mockReturnValue(true);
-    fs.stat.mockReturnValue(ownedStat());
-    fs.stat.mockReturnValueOnce({
+    fs.lstat.mockReturnValueOnce({
       uid: 31337,
       mode: 0o700,
-      mtimeMs: Date.now(),
-    } as unknown as ReturnType<typeof statSync>);
+      isDirectory: () => true,
+      isSymbolicLink: () => false,
+    } as unknown as ReturnType<typeof lstatSync>);
 
     await expect(sendCommand("var unsafe = true;", {
       tempDir: "/tmp/untrusted-bridge",
@@ -106,7 +123,9 @@ describe("file bridge uncovered security and fallback paths", () => {
   it("restores private POSIX permissions on an owned directory", async () => {
     usePosixProcess();
     fs.exists.mockReturnValue(true);
-    fs.stat.mockReturnValueOnce(ownedStat(0o755));
+    fs.lstat
+      .mockReturnValueOnce(ownedLstat(0o755))
+      .mockReturnValueOnce(ownedLstat(0o700));
     fs.read.mockReturnValue('{"success":true,"data":{"repaired":true}}');
 
     await expect(sendCommand("var repair = true;", {
@@ -114,6 +133,18 @@ describe("file bridge uncovered security and fallback paths", () => {
     })).resolves.toEqual({ success: true, data: { repaired: true } });
 
     expect(fs.chmod).toHaveBeenCalledWith("/tmp/owned-bridge", 0o700);
+  });
+
+  it("refuses cleanup of a preexisting POSIX directory writable by other users", () => {
+    usePosixProcess();
+    fs.exists.mockReturnValue(true);
+    fs.lstat.mockReturnValueOnce(ownedLstat(0o777));
+    fs.readdir.mockReturnValue(["cmd_attacker.jsx"] as never);
+
+    expect(() => cleanupTempDir({ tempDir: "/tmp/untrusted-cleanup-bridge" }))
+      .toThrow(/was writable by other users/i);
+    expect(fs.readdir).not.toHaveBeenCalled();
+    expect(fs.unlink).not.toHaveBeenCalled();
   });
 
   it("reports a busy Premiere operation when its heartbeat cannot be statted", async () => {
