@@ -222,12 +222,15 @@ function elementaryIntervals(segments: readonly Segment[], start: number, end: n
   return intervals;
 }
 
+/**
+ * Cover choice: for crosstalk, a two-shot that frames everyone talking beats a
+ * wide; for a general cover (no speakers), the wide comes first.
+ */
 function pickCoverCamera(cameras: readonly Camera[], speakers: readonly string[]): Camera | null {
+  const wide = cameras.find((camera) => camera.role === "wide") ?? null;
+  if (speakers.length === 0) return wide ?? cameras.find((camera) => camera.role === "two_shot") ?? null;
   const twoShot = cameras.find((camera) => camera.role === "two_shot" && speakers.every((speaker) => camera.speakers.includes(speaker)));
-  if (twoShot) return twoShot;
-  const wide = cameras.find((camera) => camera.role === "wide");
-  if (wide) return wide;
-  return cameras.find((camera) => camera.role === "two_shot") ?? null;
+  return twoShot ?? wide ?? cameras.find((camera) => camera.role === "two_shot") ?? null;
 }
 
 function pickSpeakerCamera(cameras: readonly Camera[], speaker: string): Camera | null {

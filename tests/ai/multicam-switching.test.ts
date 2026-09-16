@@ -132,6 +132,81 @@ describe("planMulticamAngleSwitches", () => {
     expect(() => planMulticamAngleSwitches({ speaker_segments: SEGMENTS, cameras: CAMERAS, start_seconds: 50, total_duration_seconds: 40 })).toThrow(/greater than start_seconds/);
   });
 
+  it("rejects malformed segments, cameras, and option types", () => {
+    const base = { speaker_segments: SEGMENTS, cameras: CAMERAS };
+    expect(() => planMulticamAngleSwitches({ ...base, speaker_segments: ["nope"] })).toThrow(/must be an object/);
+    expect(() => planMulticamAngleSwitches({ ...base, speaker_segments: [{ speaker: "A", start_seconds: 1 }] })).toThrow(/requires start_seconds and end_seconds/);
+    expect(() => planMulticamAngleSwitches({ ...base, speaker_segments: [{ speaker: "", start_seconds: 0, end_seconds: 1 }] })).toThrow(/speaker must be/);
+    expect(() => planMulticamAngleSwitches({ ...base, speaker_segments: [{ speaker: "A", start_seconds: "0", end_seconds: 1 }] })).toThrow(/finite number/);
+    expect(() => planMulticamAngleSwitches({ ...base, cameras: ["nope"] })).toThrow(/must be an object/);
+    expect(() => planMulticamAngleSwitches({ ...base, cameras: [{ camera_id: "A", role: 7 }] })).toThrow(/role must be one of/);
+    expect(() => planMulticamAngleSwitches({ ...base, cameras: [{ camera_id: "A", speakers: "Alice" }] })).toThrow(/speakers must be an array/);
+    expect(() => planMulticamAngleSwitches({ ...base, cameras: [{ camera_id: "A", video_track_index: 1.5 }] })).toThrow(/must be an integer/);
+    expect(() => planMulticamAngleSwitches({ ...base, cameras: [{ camera_id: "A", label: "" }] })).toThrow(/label must be/);
+    expect(() => planMulticamAngleSwitches({ ...base, cover_on_overlap: "yes" })).toThrow(/cover_on_overlap must be a boolean/);
+    expect(() => planMulticamAngleSwitches({ ...base, min_hold_seconds: 0 })).toThrow(/min_hold_seconds/);
+    expect(() => planMulticamAngleSwitches({ ...base, marker_color: 2.5 })).toThrow(/marker_color must be an integer/);
+  });
+
+  it("prefers a matching two-shot over a wide, and a lone two-shot as the cover", () => {
+    const segments = [
+      { speaker: "Alice", start_seconds: 0, end_seconds: 10 },
+      { speaker: "Bob", start_seconds: 5, end_seconds: 15 },
+      { speaker: "Carol", start_seconds: 20, end_seconds: 30 },
+    ];
+    const cameras = [
+      { camera_id: "A", speakers: ["Alice"], role: "single" },
+      { camera_id: "B", speakers: ["Bob"] },
+      { camera_id: "AB", speakers: ["Alice", "Bob"], role: "two_shot" },
+      { camera_id: "W", role: "wide" },
+    ];
+    const plan = planMulticamAngleSwitches({ speaker_segments: segments, cameras, min_hold_seconds: 1 });
+    expect(plan.cuts.find((cut) => cut.reason === "overlap_cover")!.camera_id).toBe("AB");
+    // Carol has no camera: the wide is the fallback and the two-shot stays a two_shot.
+    expect(plan.cuts.find((cut) => cut.reason === "unmapped_speaker_fallback")!.camera_id).toBe("W");
+    expect(plan.cameras.find((camera) => camera.camera_id === "AB")!.role).toBe("two_shot");
+
+    const onlyTwoShot = planMulticamAngleSwitches({
+      speaker_segments: segments,
+      cameras: [{ camera_id: "A", speakers: ["Alice"] }, { camera_id: "B", speakers: ["Bob"] }, { camera_id: "BC", speakers: ["Bob", "Carol"], role: "two_shot" }],
+      min_hold_seconds: 1,
+    });
+    // No camera frames both Alice and Bob, so crosstalk falls back to the dominant speaker while the
+    // lone two_shot serves as the general cover for the unmapped speaker.
+    expect(onlyTwoShot.cuts.some((cut) => cut.reason === "overlap_cover")).toBe(true);
+    expect(onlyTwoShot.stats.unmapped_speakers).toEqual([]);
+    expect(onlyTwoShot.warnings.some((warning) => warning.includes("no video_track_index"))).toBe(true);
+  });
+
+  it("holds through leading silence on the first camera and skips lead-ins that would break a hold", () => {
+    const cameras = [{ camera_id: "A", speakers: ["Alice"] }, { camera_id: "B", speakers: ["Bob"] }];
+    const silenceFirst = planMulticamAngleSwitches({
+      speaker_segments: [
+        { speaker: "Alice", start_seconds: 5, end_seconds: 8 },
+        { speaker: "Bob", start_seconds: 8, end_seconds: 20 },
+      ],
+      cameras,
+      min_hold_seconds: 3,
+      cutaway_every_seconds: 30,
+      cutaway_seconds: 3,
+    });
+    expect(silenceFirst.cuts[0]).toMatchObject({ camera_id: "A", start_seconds: 0, end_seconds: 8, reason: "speaker" });
+    expect(silenceFirst.warnings.some((warning) => warning.includes("no wide or two_shot camera"))).toBe(true);
+    expect(silenceFirst.stats.cutaway_count).toBe(0);
+
+    const tightHold = planMulticamAngleSwitches({
+      speaker_segments: [
+        { speaker: "Alice", start_seconds: 0, end_seconds: 3 },
+        { speaker: "Bob", start_seconds: 3, end_seconds: 20 },
+      ],
+      cameras,
+      min_hold_seconds: 3,
+      lead_switch_seconds: 2,
+    });
+    expect(tightHold.cuts[1]).toMatchObject({ camera_id: "B", start_seconds: 3, reason: "speaker" });
+    expect(tightHold.cuts.some((cut) => cut.reason === "lead_in")).toBe(false);
+  });
+
   it("is deterministic", () => {
     const first = planMulticamAngleSwitches({ speaker_segments: SEGMENTS, cameras: CAMERAS });
     const second = planMulticamAngleSwitches({ speaker_segments: [...SEGMENTS].reverse(), cameras: CAMERAS });

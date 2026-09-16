@@ -135,6 +135,65 @@ describe("buildCmx3600Edl", () => {
     expect(result.events[0].speed_percent).toBe(100);
   });
 
+  it("accepts alternate snapshot keys, string numbers, and raw-array track lookup", () => {
+    const alternate = {
+      name: "  ",
+      id: 9,
+      frame_rate: "25",
+      tracks: [
+        { mediaType: "video", trackIndex: 0, clips: [] },
+        {
+          mediaType: "video",
+          trackIndex: 1,
+          clips: [
+            { id: "alt-1", start_seconds: 0, end_seconds: 2, in_seconds: 1, out_seconds: 3, disabled: false, speed_percent: 100, projectItemName: "From Item" },
+            { start_seconds: 2, end_seconds: 3, disabled: true },
+            { start_seconds: 3, end_seconds: 4, speed: -1 },
+          ],
+        },
+      ],
+    };
+    const result = buildCmx3600Edl(alternate, { track_index: 1, include_disabled: true, title: "ALT" });
+    expect(result.sequence_name).toBeNull();
+    expect(result.sequence_id).toBe("9");
+    expect(result.timecode_rate).toBe(25);
+    expect(result.events[0].node_id).toBe("alt-1");
+    expect(result.events[0].clip_name).toBe("From Item");
+    expect(result.events[1].clip_name).toBe("CLIP 2");
+    expect(result.events[1].disabled).toBe(true);
+    expect(result.events[2].speed_percent).toBe(-100);
+    expect(result.events[2].motion_line).toMatch(/^M2\s+CLIP3\s+-025\.0\s+/);
+
+    const rawFallback = { frameRate: 30, videoTracks: [{ clips: [{ startSeconds: 0, endSeconds: 1 }] }], audioTracks: [] };
+    expect(buildCmx3600Edl(rawFallback).event_count).toBe(1);
+    expect(() => buildCmx3600Edl({ frameRate: 30, videoTracks: [], audioTracks: [] })).toThrow(/No video track with index 0/);
+    expect(() => buildCmx3600Edl({ frameRate: 30 })).toThrow(/must include tracks/);
+    expect(() => buildCmx3600Edl({ frameRate: 30, tracks: [{ type: "video", index: 0, clips: "nope" }] })).toThrow(/clips must be an array/);
+    expect(() => buildCmx3600Edl({ frameRate: 30, tracks: [{ type: "video", index: 0, clips: ["nope"] }] })).toThrow(/must be an object/);
+    expect(() => buildCmx3600Edl({ frameRate: 30, tracks: [{ type: "video", index: 0, clips: [{ startSeconds: 1, endSeconds: 1 }] }] })).toThrow(/end after it starts/);
+    expect(() => buildCmx3600Edl({ frameRate: 30, tracks: [{ type: "video", index: 0, clips: [{ startSeconds: "x", endSeconds: 1 }] }] })).toThrow(/finite number/);
+    expect(() => buildCmx3600Edl({ frameRate: 30, tracks: [{ type: "video", index: 0, clips: [{ endSeconds: 1 }] }] })).toThrow(/startSeconds is required/);
+  });
+
+  it("validates option types and frame-rate edge cases", () => {
+    expect(() => buildCmx3600Edl(SNAPSHOT, { include_disabled: "yes" })).toThrow(/include_disabled must be a boolean/);
+    expect(() => buildCmx3600Edl(SNAPSHOT, { track_index: 1.5 })).toThrow(/track_index must be an integer/);
+    expect(() => buildCmx3600Edl(SNAPSHOT, { record_start_seconds: -1 })).toThrow(/record_start_seconds/);
+    expect(() => buildCmx3600Edl({ ...SNAPSHOT, frameRate: 0 })).toThrow(/between 0 and 240/);
+    expect(() => buildCmx3600Edl(SNAPSHOT, { title: 42 })).toThrow(/title must be/);
+    expect(() => buildCmx3600Edl(SNAPSHOT, { title: "x".repeat(80) })).toThrow(/title must be/);
+    const overridden = buildCmx3600Edl(SNAPSHOT, { frame_rate: 30 });
+    expect(overridden.warnings.some((warning) => warning.includes("overrides the sequence rate"))).toBe(true);
+    expect(buildCmx3600Edl({ ...SNAPSHOT, frameRate: 47.952 }).warnings.some((warning) => warning.includes("47.952"))).toBe(true);
+    // Sub-frame clips collapse at the timecode rate and are refused rather than written as zero-length events.
+    const tiny = { ...SNAPSHOT, tracks: [{ type: "video", index: 0, clips: [{ name: "Tiny", startSeconds: 0, endSeconds: 0.01, inPointSeconds: 0, outPointSeconds: 0.01 }] }] };
+    expect(() => buildCmx3600Edl(tiny)).toThrow(/collapses to zero frames/);
+    // A retimed clip whose host out point precedes its in point still gets a positive source span.
+    const inverted = { ...SNAPSHOT, tracks: [{ type: "video", index: 0, clips: [{ name: "Rev", startSeconds: 0, endSeconds: 2, inPointSeconds: 10, outPointSeconds: 9, speed: 150 }] }] };
+    const fixed = buildCmx3600Edl(inverted);
+    expect(fixed.events[0].source_out).toBe("00:00:12:00");
+  });
+
   it("fails closed on overlapping clips, empty tracks, and bad options", () => {
     const overlapping = structuredClone(SNAPSHOT);
     overlapping.tracks[0].clips[1].startSeconds = 3;

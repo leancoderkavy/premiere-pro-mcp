@@ -39,6 +39,15 @@ describe("parseTimecodeToken", () => {
   it("rejects impossible fields", () => {
     expect(parseTimecodeToken("1:75", 30, "auto")).toBeNull();
     expect(parseTimecodeToken("00:00:10:30", 30, "auto")).toBeNull();
+    expect(parseTimecodeToken("1m75s", 30, "auto")).toBeNull();
+    expect(parseTimecodeToken("00:75:10", 30, "auto")).toBeNull();
+    expect(parseTimecodeToken("00:10:75", 30, "clock")).toBeNull();
+    expect(parseTimecodeToken("00:75:10:00", 30, "auto")).toBeNull();
+    expect(parseTimecodeToken("1:2:3:4:5", 30, "auto")).toBeNull();
+    expect(parseTimecodeToken("12:34:10", 30, "frames")).toBeCloseTo(12 * 60 + 34 + 10 / 30, 6);
+    expect(parseTimecodeToken("01:02:03.25", 30, "auto")).toBeCloseTo(3723.25, 6);
+    expect(parseTimecodeToken("00:01:02:03.5", 30, "auto")).toBeNull();
+    expect(parseTimecodeToken("00:75:02.5", 30, "auto")).toBeNull();
   });
 });
 
@@ -156,6 +165,38 @@ describe("planClientNotesChecklist", () => {
     expect(plan.items[1].reviewer).toBe("Marcus");
     expect(plan.items[2].reviewer).toBe("Marcus");
     expect(plan.items[1].category).toBe("cut");
+  });
+
+  it("keeps impossible or reversed timecodes out of the anchor and warns about ambiguous forms", () => {
+    const plan = planClientNotesChecklist({ notes: "at 1:99 the 1:30-1:20 title flickers, also 0:45\n00:01:02 check the ending", frame_rate: 24 });
+    const flicker = plan.items[0];
+    // 1:99 is not a timecode and stays in the text; the reversed range keeps 1:30 as the anchor.
+    expect(flicker.text).toContain("1:99");
+    expect(flicker.time_seconds).toBe(90);
+    expect(flicker.end_seconds).toBeNull();
+    expect(flicker.also_mentioned_seconds).toEqual([80, 45]);
+    expect(plan.items[1].time_seconds).toBe(62);
+    expect(plan.warnings.some((warning) => warning.includes("timecode_style=frames"))).toBe(true);
+    const clock = planClientNotesChecklist({ notes: "00:01:02 check the ending", timecode_style: "clock" });
+    expect(clock.warnings.some((warning) => warning.includes("timecode_style=frames"))).toBe(false);
+  });
+
+  it("validates option types", () => {
+    expect(() => planClientNotesChecklist({ notes: "1:00 fix", frame_rate: "30" })).toThrow(/frame_rate must be/);
+    expect(() => planClientNotesChecklist({ notes: "1:00 fix", max_items: 2.5 })).toThrow(/max_items must be an integer/);
+    expect(() => planClientNotesChecklist({ notes: "1:00 fix", include_approvals_as_markers: "yes" })).toThrow(/must be a boolean/);
+    expect(() => planClientNotesChecklist({ notes: "1:00 fix", marker_name_prefix: "x".repeat(40) })).toThrow(/marker_name_prefix/);
+    expect(() => planClientNotesChecklist({ notes: 42 })).toThrow(/non-empty string/);
+  });
+
+  it("truncates long marker names, tags approvals as done, and ignores empty bullets", () => {
+    const long = `0:05 ${"please tighten the pacing of this whole section considerably ".repeat(3)}`;
+    const plan = planClientNotesChecklist({ notes: `${long}\n- \n0:09 approved, no notes`, include_approvals_as_markers: true });
+    expect(plan.items[0].marker!.name.length).toBeLessThanOrEqual(60);
+    expect(plan.items[0].marker!.name.endsWith("…")).toBe(true);
+    expect(plan.items[1].kind).toBe("approval");
+    expect(plan.items[1].marker).not.toBeNull();
+    expect(plan.checklist_markdown).toContain("- [x] 00:00:09:00 (approval)");
   });
 
   it("caps items and reports the truncation", () => {

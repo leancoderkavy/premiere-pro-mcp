@@ -1,4 +1,4 @@
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -83,6 +83,25 @@ describe("editor-request tools", () => {
       expect(script).toContain("__result(");
     });
 
+    it("rejects malformed names, comments, and durations", async () => {
+      expect((await tools.add_markers_batch.handler({ markers: [{ time_seconds: 1, name: 5 as never }] })).error).toMatch(/name must be a string/);
+      expect((await tools.add_markers_batch.handler({ markers: [{ time_seconds: 1, comments: "x".repeat(2001) }] })).error).toMatch(/comments must be a string/);
+      expect((await tools.add_markers_batch.handler({ markers: [{ time_seconds: 1, duration_seconds: -2 }] })).error).toMatch(/duration_seconds/);
+      expect((await tools.add_markers_batch.handler({ markers: [null as never] })).error).toMatch(/time_seconds/);
+      expect(mockedSendCommand).not.toHaveBeenCalled();
+    });
+
+    it("passes through a plain result when nothing was deduplicated and honours allow_beyond_end", async () => {
+      mockedSendCommand.mockResolvedValue({ success: true, data: { createdCount: 1 } });
+      const result = await tools.add_markers_batch.handler({ markers: [{ time_seconds: 1 }], sequence_id: "Seq A", allow_beyond_end: true });
+      expect(result.data).toEqual({ createdCount: 1 });
+      const script = mockedSendCommand.mock.calls[0][0];
+      expect(script).toContain('__findSequence("Seq A")');
+      expect(script).toContain("var allowBeyondEnd = true");
+      mockedSendCommand.mockResolvedValue({ success: false, error: "No active sequence" });
+      expect(await tools.add_markers_batch.handler({ markers: [{ time_seconds: 1 }, { time_seconds: 1 }] })).toEqual({ success: false, error: "No active sequence" });
+    });
+
     it("targets a clip when node_id is given", async () => {
       await tools.add_markers_batch.handler({ markers: [{ time_seconds: 1 }], node_id: "clip-9" });
       const script = mockedSendCommand.mock.calls[0][0];
@@ -124,6 +143,21 @@ describe("editor-request tools", () => {
       expect(script).toContain('new RegExp("^A00\\\\d+", "i")');
       expect(script).toContain("candidatesFrom(seq.audioTracks");
     });
+
+    it("emits null filters by default and validates numeric filters", async () => {
+      await tools.select_clips_by_pattern.handler({ track_type: "audio", add_to_selection: true, min_duration_seconds: 1, max_duration_seconds: 4, start_seconds: 0, end_seconds: 9 });
+      const script = mockedSendCommand.mock.calls[0][0];
+      expect(script).toContain("var nameContains = null");
+      expect(script).toContain("var nameRegex = null");
+      expect(script).toContain("var trackIndexFilter = null");
+      expect(script).toContain("var addToSelection = true");
+      expect(script).toContain("var minDuration = 1");
+      expect(script).toContain("var rangeEnd = 9");
+      expect(script).not.toContain("candidatesFrom(seq.videoTracks");
+      expect((await tools.select_clips_by_pattern.handler({ track_index: 2.5 })).error).toMatch(/track_index/);
+      expect((await tools.select_clips_by_pattern.handler({ min_duration_seconds: -1 })).error).toMatch(/min_duration_seconds/);
+      expect((await tools.select_clips_by_pattern.handler({ name_regex: "x".repeat(256) })).error).toMatch(/name_regex/);
+    });
   });
 
   describe("navigate_playhead", () => {
@@ -131,6 +165,19 @@ describe("editor-request tools", () => {
       expect((await tools.navigate_playhead.handler({ action: "sideways" as never })).error).toMatch(/action must be one of/);
       expect((await tools.navigate_playhead.handler({ action: "step_forward", frames: 0 })).error).toMatch(/frames/);
       expect(mockedSendCommand).not.toHaveBeenCalled();
+    });
+
+    it("defaults to all tracks and one frame, and validates track_index", async () => {
+      await tools.navigate_playhead.handler({ action: "next_edit" });
+      const script = mockedSendCommand.mock.calls[0][0];
+      expect(script).toContain("var frames = 1");
+      expect(script).toContain("var trackIndexFilter = null");
+      expect(script).toContain("scan(seq.videoTracks);");
+      expect(script).toContain("scan(seq.audioTracks);");
+      expect((await tools.navigate_playhead.handler({ action: "next_edit", track_index: -1 })).error).toMatch(/track_index/);
+      vi.clearAllMocks();
+      await tools.navigate_playhead.handler({ action: "previous_edit", track_type: "audio" });
+      expect(mockedSendCommand.mock.calls[0][0]).not.toContain("scan(seq.videoTracks);");
     });
 
     it("moves and reads back for every action", async () => {
@@ -171,7 +218,13 @@ describe("editor-request tools", () => {
 
     it("can omit the snapshot and lists checkpoints read-only", async () => {
       await tools.create_sequence_checkpoint.handler({ include_snapshot: false });
-      expect(mockedSendCommand.mock.calls[0][0]).toContain("snapshot: null");
+      const createScript = mockedSendCommand.mock.calls[0][0];
+      expect(createScript).toContain("snapshot: null");
+      expect(createScript).toContain(" - checkpoint - ");
+      expect(createScript).toContain("__getCurrentActiveSequence()");
+      vi.clearAllMocks();
+      await tools.list_sequence_checkpoints.handler({});
+      expect(mockedSendCommand.mock.calls[0][0]).not.toContain("filterSeq");
       vi.clearAllMocks();
       await tools.list_sequence_checkpoints.handler({ sequence_id: "Podcast 12" });
       const script = mockedSendCommand.mock.calls[0][0];
@@ -229,7 +282,8 @@ describe("editor-request tools", () => {
       expect(result.success).toBe(true);
       const data = result.data as Record<string, unknown>;
       expect(data.written).toBe(true);
-      expect(data.output_path).toBe(target);
+      // macOS resolves /var to /private/var through realpath; compare canonical paths.
+      expect(data.output_path).toBe(path.join(realpathSync(workspace), "podcast.edl"));
       expect(readFileSync(target, "utf8")).toContain("FCM: NON-DROP FRAME");
       expect(data.edl).toBeUndefined();
       const again = await tools.export_sequence_edl.handler({ output_path: target, approved_workspace_path: workspace });
@@ -243,6 +297,35 @@ describe("editor-request tools", () => {
       mockedSendCommand.mockResolvedValue({ success: true, data: { ...READBACK, frameRate: 17 } });
       expect((await tools.export_sequence_edl.handler({})).error).toMatch(/no CMX 3600 timecode rate/);
       writeFileSync(path.join(workspace, "keep.txt"), "x");
+    });
+
+    it("reads audio tracks without the tape-name XMP probe and rejects bad track types", async () => {
+      mockedSendCommand.mockResolvedValue({ success: true, data: { ...READBACK, tracks: [{ ...READBACK.tracks[0], type: "audio", index: 1 }] } });
+      const result = await tools.export_sequence_edl.handler({ track_type: "audio", track_index: 1, reel_mode: "numbered" });
+      expect(result.success).toBe(true);
+      const script = mockedSendCommand.mock.calls[0][0];
+      expect(script).toContain("seq.audioTracks");
+      expect(script).toContain("var trackIndex = 1");
+      expect(script).not.toContain("xmpDM:tapeName");
+      expect((result.data as Record<string, unknown>).events).toHaveLength(2);
+      expect((await tools.export_sequence_edl.handler({ track_type: "captions" as never })).error).toMatch(/track_type/);
+    });
+
+    it("refuses inline output above the size limit", async () => {
+      const clips = Array.from({ length: 1900 }, (_, index) => ({
+        nodeId: `c${index}`,
+        name: `Clip ${index} ${"long name padding ".repeat(12)}`,
+        startSeconds: index,
+        endSeconds: index + 1,
+        inPointSeconds: 0,
+        outPointSeconds: 1,
+        enabled: true,
+        speed: 100,
+      }));
+      mockedSendCommand.mockResolvedValue({ success: true, data: { ...READBACK, frameRate: 25, dropFrame: false, tracks: [{ type: "video", index: 0, clips }] } });
+      const result = await tools.export_sequence_edl.handler({});
+      expect(result.success).toBe(false);
+      expect(result.error).toMatch(/above the .* inline limit/);
     });
   });
 });
