@@ -49,6 +49,8 @@ const READ_ONLY_TOOLS = new Set([
   "plan_short_export_folder",
   "diff_sequence_snapshots",
   "audit_timeline_health",
+  "plan_client_notes_checklist",
+  "plan_multicam_angle_switches",
 ]);
 const DESTRUCTIVE_PREFIXES = ["delete_", "remove_", "ripple_delete", "close_"];
 const DESTRUCTIVE_TOOLS = new Set(["manage_project_context"]);

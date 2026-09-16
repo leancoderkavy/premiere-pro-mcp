@@ -59,6 +59,7 @@ export const WORKFLOW_TOOL_PACKS: readonly WorkflowToolPack[] = [
       "inspect_edit_readiness",
       "inspect_sequence_review_report",
       "preview_edit_plan",
+      "create_sequence_checkpoint",
       "save_project",
       "validate_project_for_export",
       "export_sequence",
@@ -91,6 +92,7 @@ export const WORKFLOW_TOOL_PACKS: readonly WorkflowToolPack[] = [
       "get_render_queue_status",
       "diff_sequence_snapshots",
       "audit_timeline_health",
+      "list_sequence_checkpoints",
     ],
   },
   {
@@ -119,6 +121,7 @@ export const WORKFLOW_TOOL_PACKS: readonly WorkflowToolPack[] = [
       "analyze_video_qc",
       "plan_platform_delivery_matrix",
       "validate_platform_publish_package",
+      "export_sequence_edl",
     ],
   },
   {
@@ -165,6 +168,12 @@ export const WORKFLOW_TOOL_PACKS: readonly WorkflowToolPack[] = [
       "plan_reaction_captions",
       "plan_short_subscribe_cta",
       "plan_short_export_folder",
+      "plan_client_notes_checklist",
+      "plan_multicam_angle_switches",
+      "create_sequence_checkpoint",
+      "add_markers_batch",
+      "select_clips_by_pattern",
+      "navigate_playhead",
     ],
   },
   {

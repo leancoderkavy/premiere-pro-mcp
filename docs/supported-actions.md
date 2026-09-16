@@ -10,11 +10,11 @@ source catalog may include unreleased actions.
 
 | Surface | Count | Availability |
 | --- | ---: | --- |
-| Registered core actions | 373 | CEP/local server catalog; host and authority checks still apply |
-| Default-profile core actions | 371 | Advertised with `inspect,edit,export,filesystem` |
+| Registered core actions | 381 | CEP/local server catalog; host and authority checks still apply |
+| Default-profile core actions | 379 | Advertised with `inspect,edit,export,filesystem` |
 | Restricted core actions | 2 | Require explicit `unsafe-script` authority |
 | Authenticated UXP additions | 95 | Advertised only while a compatible authenticated UXP panel is connected |
-| Default profile with UXP | 466 | 371 core plus 95 UXP tools |
+| Default profile with UXP | 474 | 379 core plus 95 UXP tools |
 
 ## How to read support
 
@@ -42,6 +42,7 @@ operation” when the tool has no enum-based mode.
 | `add_keyframe` | Default profile | Single operation | Add and read back a keyframe on an effect property. This verifies stored parameter data only; render/playback verification remains host-dependent. |
 | `add_marker` | Default profile | Single operation | Add a marker to the active sequence or a clip |
 | `add_marker_to_project_item` | Default profile | `type`: `Comment`, `Chapter`, `Segmentation`, `WebLink` | Add a marker to a project item (source clip marker). |
+| `add_markers_batch` | Default profile | Single operation | Add up to 200 sequence or clip markers in one verified CEP request (beat grids, chapters, silence reviews, client notes). Every marker is validated and range-checked before the first write; the tool reads back the marker count and each created marker's time and fails closed on any mismatch. |
 | `add_text_overlay` | Default profile | `caption_format`: `subtitle`, `608`, `708`, `teletext` | Unavailable: Premiere does not expose a supported scripting API to create caption clips directly from raw text. Import an .srt/.vtt and use create_caption_track, or use a MOGRT/PNG overlay for title graphics. |
 | `add_to_render_queue` | Default profile | Single operation | Request an Adobe Media Encoder render-queue handoff for the active sequence. Requires a saved project and an .epr preset_path. Verify queue presence or the output file independently; Same as Project presets can still ignore the absolute output_path. |
 | `add_to_timeline` | Default profile | Single operation | Insert a project item at a timeline position and verify Premiere added no unexpected same-track fragments. |
@@ -96,6 +97,7 @@ operation” when the tool has no enum-based mode.
 | `create_project` | Default profile | Single operation | Create a new Premiere Pro project at the specified path |
 | `create_project_backup` | Default profile | Single operation | Create a collision-safe, byte-verified backup beside an existing .prproj file without opening or modifying the source project. |
 | `create_sequence` | Default profile | Single operation | Create a new sequence in the project |
+| `create_sequence_checkpoint` | Default profile | Single operation | Clone a sequence into a named '[checkpoint]' copy before a risky edit and return a diff_sequence_snapshots-compatible snapshot of the original. Verifies the clone exists with matching track and clip counts, re-activates the original, and never deletes or overwrites anything. |
 | `create_sequence_from_clips` | Default profile | Single operation | Create a new sequence by automatically placing project items in order |
 | `create_sequence_from_preset` | Default profile | Single operation | Create a new sequence from a specific preset file (.sqpreset) |
 | `create_smart_bin` | Default profile | Single operation | Create a smart bin (search bin) in the project panel |
@@ -133,6 +135,7 @@ operation” when the tool has no enum-based mode.
 | `export_omf` | Default profile | Single operation | Export the active sequence as an OMF file (Open Media Framework, for audio post-production) |
 | `export_sequence` | Default profile | Single operation | Export the active sequence using Adobe Media Encoder |
 | `export_sequence_clip_review_frames` | Default profile | Single operation | Export one file-verified composite frame at the midpoint of each clip on a chosen video track in one bridge request. Read-only in Premiere; it does not mute tracks or claim visual quality. |
+| `export_sequence_edl` | Default profile | `track_type`: `video`, `audio`; `frame_rate`: `24`, `25`, `29.97`, `30`, `50`, `59.94`, `60`; `reel_mode`: `clip_name`, `tape_name`, `numbered` | Generate a CMX 3600 EDL for one video or audio track of a sequence from Premiere timeline readback (cuts, reels, source/record timecode, M2 lines for retimed clips), self-validate it, and return it inline or write it inside an approved workspace. Premiere is only read; this is not a Premiere-native export. |
 | `export_sequence_marker_review_frames` | Default profile | Single operation | Export up to 24 file-verified composite frames at active-sequence marker positions in one bridge request for marker-driven review. It reads markers and writes image files only; it does not add, update, or remove Premiere markers. |
 | `export_sequence_review_frames` | Default profile | Single operation | Export 2-24 evenly spaced, file-verified frames from an active-sequence range in one bridge round trip for visual review. This samples rendered output; it does not prove playback, audio, or editorial quality. |
 | `extract_selection` | Default profile | Single operation | Extract (remove and close gap) the content between sequence in/out points. |
@@ -239,6 +242,7 @@ operation” when the tool has no enum-based mode.
 | `list_clip_effects` | Default profile | Single operation | List all effects/components on a clip with their properties and current values. Essential for debugging effect issues. |
 | `list_markers` | Default profile | Single operation | List markers on the active sequence, or on a source project item that exposes a marker collection. A timeline-clip node_id returns a clean error instead of a raw TypeError. |
 | `list_project_items` | Default profile | Single operation | List all items in the project panel (clips, bins, sequences) |
+| `list_sequence_checkpoints` | Default profile | Single operation | List '[checkpoint]' sequences created by create_sequence_checkpoint, optionally only those cloned from one sequence, with their labels, timestamps, track and clip counts. Read-only. |
 | `list_sequence_tracks` | Default profile | Single operation | List all tracks (video and audio) in a sequence |
 | `list_sequences` | Default profile | Single operation | List all sequences in the project |
 | `lock_track` | Default profile | Single operation | Lock or unlock a video track |
@@ -253,6 +257,7 @@ operation” when the tool has no enum-based mode.
 | `move_playhead_to_edit` | Default profile | `direction`: `next`, `previous` | Move the playhead to the next or previous edit point. |
 | `multiple_undo` | Default profile | Single operation | Unavailable: Premiere exposes no supported, observable undo-stack API for multiple scripted undo steps. |
 | `mute_track` | Default profile | Single operation | Mute or unmute an audio track |
+| `navigate_playhead` | Default profile | `start`, `end`, `in_point`, `out_point`, `work_area_in`, `work_area_out`, `next_edit`, `previous_edit`, `next_marker`, `previous_marker`, `step_forward`, `step_backward` | Move the active-sequence playhead to the start, end, in/out point, work-area bound, next/previous edit or marker, or step a number of frames, then read back the resulting position. Navigation only; it never changes clips. |
 | `nest_clips` | Default profile | Single operation | Unavailable on the legacy CEP backend: Premiere's documented createSubsequence API only creates a separate sequence and cannot safely replace the selected timeline clips with a nested-sequence reference. |
 | `normalize_loudness_file` | Default profile | Single operation | Create a new loudness-normalized media derivative with FFmpeg, then remeasure that exact output using EBU R128. Never overwrites the input or an existing output file. |
 | `open_in_source` | Default profile | Single operation | Open a project item in the Source Monitor for preview and trimming. |
@@ -263,9 +268,11 @@ operation” when the tool has no enum-based mode.
 | `plan_active_speaker_reframe` | Default profile | `layout`: `active_speaker`, `stacked`, `split_left_right`, `auto` | Plan an active-speaker vertical reframe (Motion Scale/Position keyframes that follow whoever is talking) or a static stacked/split layout from a word timeline and static speaker regions. Returns framings, switches, keyframes, and apply routes. Local-only; never changes Premiere. |
 | `plan_beat_montage` | Default profile | `order`: `as_given`, `priority`, `round_robin` | Plan a beat-synced montage: carve a detect_beats grid into shots every N beats (merging short and splitting long spans), assign clips in order, and emit add_to_timeline_batch chunks, trim ranges, and cut markers. Local-only and deterministic; never changes Premiere. |
 | `plan_chapter_markers` | Default profile | Single operation | Plan YouTube-style chapters from a word-timed transcript using local TextTiling-lite topic-shift detection, titling each chapter from its distinctive tokens. Returns chapters, a youtube_timestamps block and add_marker-ready Chapter markers. Local-only plan; never changes Premiere. |
+| `plan_client_notes_checklist` | Default profile | `timecode_style`: `auto`, `clock`, `frames`; `marker_color_mode`: `priority`, `category`, `fixed` | Turn pasted client or reviewer feedback into a prioritized checklist: finds timecodes and ranges, classifies each note (audio, color, graphics, text, timing, cut, legal, delivery), infers must/should/nice priority, separates approvals and questions, and emits an add_markers_batch payload. Local-only and deterministic; never changes Premiere. |
 | `plan_cross_app_workflow` | Default profile | `workflow`: `ae_mogrt_to_premiere`, `ae_render_to_premiere` | Plan an After Effects MOGRT or rendered-file handoff to Premiere using existing tools. Returns ordered dependencies, separate approvals, required evidence, and manual render stops. Local-only planning; never executes steps, issues approval tokens, or claims host readiness. |
 | `plan_emphasis_zoom_keyframes` | Default profile | `trigger`: `sentence_start`, `emphasis_words`, `every_n_seconds`, `supplied` | Plan CapCut-style punch-in zoom keyframes (Motion Scale + subject-anchored Position) from a word timeline or supplied trigger times, with cooldown, easing, and hold controls. Local-only and deterministic; returns a keyframe plan for automate_effect_parameters_uxp or add_keyframe and never changes Premiere. |
 | `plan_filler_word_removal` | Default profile | Single operation | Plan word-level filler removal (um, uh, you know...) from a revision-bound word timeline. Returns frame-snapped removal and keep ranges plus apply routes. Local-only; never changes Premiere. |
+| `plan_multicam_angle_switches` | Default profile | Single operation | Plan active-speaker camera switching for stacked, synced camera tracks: from speaker segments and a camera-to-speaker map it produces an angle cut list with minimum holds, crosstalk cover shots, optional lead-in cuts and periodic cutaways, plus razor times, per-camera enable/disable ranges, and markers. Local-only and deterministic; never changes Premiere. |
 | `plan_pause_tightening` | Default profile | Single operation | Plan shortening (not deleting) of inter-word pauses longer than max_pause_seconds down to a target, respecting sentence boundaries. Returns centered removal ranges, keep ranges, savings and apply routes. Local-only; never changes Premiere. |
 | `plan_platform_delivery_matrix` | Default profile | `strategy`: `auto_reframe`, `pad_blur`, `center_crop`, `letterbox` | Plan multi-ratio delivery of one source sequence to TikTok, Reels, Shorts, YouTube, LinkedIn, X, and Facebook from a local spec table: sequence settings, reframe scale math, duration and file-size fit, caption safe zones, and ordered apply routes. Local-only; never changes Premiere. |
 | `plan_reaction_captions` | Default profile | Single operation | Plan stacked, speaker-colored reaction captions from a word timeline and an explicit speaker palette. Flash-length words merge, overlaps stack, and unknown speakers stay uncolored. Local-only; never changes Premiere. |
@@ -324,6 +331,7 @@ operation” when the tool has no enum-based mode.
 | `select_all_clips` | Default profile | `track_type`: `video`, `audio`, `both` | Select all clips in the active sequence, or all clips on a specific track. |
 | `select_clips_by_color` | Default profile | Single operation | Select all clips whose source project item has a specific color label. |
 | `select_clips_by_name` | Default profile | `track_type`: `video`, `audio`, `both` | Select all clips in the active sequence that match a name (substring match). Optionally filter by track type and index. |
+| `select_clips_by_pattern` | Default profile | `track_type`: `video`, `audio`, `both`; `count_scope`: `per_track`, `across_tracks` | Select every Nth clip (with an offset) among clips that match optional name, duration, time-range, track, and enabled filters, then read back the selection count. Covers 'select every other clip on V1' and similar repetitive selections without changing the timeline. |
 | `select_clips_in_range` | Default profile | `track_type`: `video`, `audio`, `both` | Select all clips that overlap a time range in the active sequence. |
 | `select_disabled_clips` | Default profile | Single operation | Select all disabled clips in the active sequence. |
 | `select_item` | Default profile | Single operation | Select a project item in the Project panel |

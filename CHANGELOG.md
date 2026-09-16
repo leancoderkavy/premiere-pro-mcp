@@ -6,6 +6,31 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+
+- Editor-request tools on the production CEP bridge, each with preflight and
+  readback: `add_markers_batch` (up to 200 verified sequence or clip markers per
+  call for beat grids, chapters, silence reviews, and client notes),
+  `select_clips_by_pattern` (every-Nth selection with offset, name/regex,
+  duration, range, track, and enabled filters), `navigate_playhead`
+  (start/end/in/out/work-area/edit/marker/frame stepping),
+  `create_sequence_checkpoint` and `list_sequence_checkpoints` (named
+  `[checkpoint]` sequence clones plus a diff-ready snapshot), and
+  `export_sequence_edl` (CMX 3600 EDL generated from timeline readback with
+  drop-frame support, reel mapping, M2 motion lines, and self-validation through
+  the existing CMX parser, returned inline or written inside an approved
+  workspace).
+- Local review planners: `plan_client_notes_checklist` turns pasted reviewer
+  feedback into a categorized, prioritized checklist with timecodes, ranges,
+  approvals, questions, and an `add_markers_batch` payload;
+  `plan_multicam_angle_switches` plans active-speaker angle cuts for stacked
+  camera tracks with minimum holds, crosstalk cover shots, lead-in cuts,
+  periodic cutaways, razor times, per-camera enable ranges, and markers.
+- The `essential`, `inspection`, `delivery`, and `assistant-edit` tool packs
+  include the relevant new tools; both planners are classified as `inspect`
+  authority. See [docs/editor-requests.md](docs/editor-requests.md) for the
+  community and competitor evidence and verification boundaries.
+
 ## [1.16.0] - 2026-09-16
 
 ### Added
