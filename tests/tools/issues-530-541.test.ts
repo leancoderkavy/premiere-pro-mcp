@@ -1,4 +1,7 @@
-import { describe, expect, it, vi } from "vitest";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import type { UxpWebSocketBridge } from "../../src/bridge/uxp-websocket-bridge.js";
 import { getExportTools } from "../../src/tools/export.js";
 import { getKeyframeTools } from "../../src/tools/keyframes.js";
@@ -18,6 +21,25 @@ import { sendCommand } from "../../src/bridge/file-bridge.js";
 
 const mockedSendCommand = vi.mocked(sendCommand);
 const bridgeOptions = { tempDir: "/tmp/issue-fixes", timeoutMs: 5000 };
+const temporaryDirectories: string[] = [];
+
+function temporaryPreset(): string {
+  const directory = mkdtempSync(join(tmpdir(), "premiere-ame-preset-"));
+  temporaryDirectories.push(directory);
+  const path = join(directory, "delivery.epr");
+  writeFileSync(path, "<preset />");
+  return path;
+}
+
+afterEach(() => {
+  for (const directory of temporaryDirectories.splice(0)) {
+    try {
+      rmSync(directory, { recursive: true, force: true, maxRetries: 20, retryDelay: 50 });
+    } catch {
+      // Windows can leave a locked temp dir after the test already observed the script.
+    }
+  }
+});
 
 async function scriptFor(tool: { handler: (args: never) => Promise<unknown> }, args: unknown) {
   mockedSendCommand.mockClear();
@@ -118,10 +140,24 @@ describe("issue #535 — AME handoff requires a preset and a saved project", () 
     expect(mockedSendCommand).not.toHaveBeenCalled();
   });
 
+  it("refuses Same as Project presets before calling Premiere", async () => {
+    mockedSendCommand.mockClear();
+    const directory = mkdtempSync(join(tmpdir(), "premiere-ame-preset-"));
+    temporaryDirectories.push(directory);
+    const path = join(directory, "same-as-project.epr");
+    writeFileSync(path, "<Exporter Dest=\"SameAsProject\" />");
+    const result = await getExportTools(bridgeOptions).add_to_render_queue.handler({
+      output_path: "/tmp/out.mp4",
+      preset_path: path,
+    });
+    expect(result).toMatchObject({ success: false, error: expect.stringContaining("Same as Project") });
+    expect(mockedSendCommand).not.toHaveBeenCalled();
+  });
+
   it("refuses AME handoff when the Premiere project has no saved path", async () => {
     const script = await scriptFor(getExportTools(bridgeOptions).add_to_render_queue, {
       output_path: "/tmp/out.mp4",
-      preset_path: "/tmp/delivery.epr",
+      preset_path: temporaryPreset(),
     });
     expect(script).toContain("Save the Premiere project");
     expect(script).toContain("Same as Project");

@@ -1,4 +1,7 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { runInNewContext } from "node:vm";
 import { getHelpersSource } from "../../src/bridge/script-builder.js";
 import { BridgeOptions } from "../../src/bridge/file-bridge.js";
@@ -29,6 +32,25 @@ import { getPlayheadTools } from "../../src/tools/playhead.js";
 
 const mockedSendCommand = vi.mocked(sendCommand);
 const bridgeOptions: BridgeOptions = { tempDir: "/tmp/test-bridge", timeoutMs: 5000 };
+const temporaryDirectories: string[] = [];
+
+function temporaryPreset(): string {
+  const directory = mkdtempSync(join(tmpdir(), "premiere-ame-preset-"));
+  temporaryDirectories.push(directory);
+  const path = join(directory, "preset.epr");
+  writeFileSync(path, "<preset />");
+  return path;
+}
+
+afterEach(() => {
+  for (const directory of temporaryDirectories.splice(0)) {
+    try {
+      rmSync(directory, { recursive: true, force: true, maxRetries: 20, retryDelay: 50 });
+    } catch {
+      // Windows can leave a locked temp dir after the test already observed the script.
+    }
+  }
+});
 
 /** Run a tool handler and return the ExtendScript it generated. */
 async function scriptFor(tool: { handler: (args: never) => Promise<unknown> }, args: unknown) {
@@ -736,7 +758,7 @@ describe("issue #238 — AME uses canonical paths and documented encodeFile posi
   const exports = getExportTools(bridgeOptions);
 
   it("captures AME job IDs and does not present queueing as a completed encode", async () => {
-    const queued = await scriptFor(exports.add_to_render_queue, { output_path: "/tmp/render.mp4", preset_path: "/tmp/preset.epr" });
+    const queued = await scriptFor(exports.add_to_render_queue, { output_path: "/tmp/render.mp4", preset_path: temporaryPreset() });
     const projectItem = await scriptFor(exports.encode_project_item, {
       item_id: "item-1",
       output_path: "/tmp/render.mp4",
@@ -797,7 +819,7 @@ describe("issue #323 — AME handoffs are unverified until a queue or file readb
   const project = getProjectTools(bridgeOptions);
 
   it("does not present AME acceptance as a queued, started, or completed encode", async () => {
-    const render = await scriptFor(exports.add_to_render_queue, { output_path: "/tmp/render.mp4", preset_path: "/tmp/preset.epr" });
+    const render = await scriptFor(exports.add_to_render_queue, { output_path: "/tmp/render.mp4", preset_path: temporaryPreset() });
     const item = await scriptFor(exports.encode_project_item, {
       item_id: "item-1", output_path: "/tmp/render.mp4", preset_path: "/tmp/preset.epr",
     });
@@ -909,8 +931,8 @@ describe("issue #503 — trim_clip partial write rollback prevents clip corrupti
   it("detects partial write when source metadata changed but timeline didn't move", async () => {
     const script = await scriptFor(timeline.trim_clip, { node_id: "clip-1", new_in_seconds: 0.3 });
 
-    expect(script).toContain("var sourceMetadataChanged = (Math.abs(actualIn - before.inPoint) > tolerance) ||");
-    expect(script).toContain("(Math.abs(actualOut - before.outPoint) > tolerance)");
+    expect(script).toContain("var sourceMetadataChanged = afterInTicks !== originalInPointTicks || afterOutTicks !== originalOutPointTicks");
+    expect(script).toContain("var timelineMoved = afterStartTicks !== originalStartTicks || afterEndTicks !== originalEndTicks");
   });
 
   it("rolls back source metadata when partial write is detected", async () => {
@@ -927,8 +949,8 @@ describe("issue #503 — trim_clip partial write rollback prevents clip corrupti
     const script = await scriptFor(timeline.trim_clip, { node_id: "clip-1", new_in_seconds: 0.3 });
 
     expect(script).toContain("var rolledBack = __findClip");
-    expect(script).toContain("var rolled = __snapshotTrimGeometry(rolledBack.clip)");
-    expect(script).toContain("var rollbackSucceeded = Math.abs(rolled.inPoint - before.inPoint) <= tolerance");
+    expect(script).toContain("var rollbackSucceeded = String(rolledBack.clip.inPoint.ticks) === originalInPointTicks");
+    expect(script).toContain("String(rolledBack.clip.outPoint.ticks) === originalOutPointTicks");
   });
 
   it("explains partial write with rollback and provides workaround guidance", async () => {

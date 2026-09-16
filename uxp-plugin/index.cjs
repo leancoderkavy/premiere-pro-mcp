@@ -40,6 +40,27 @@ entrypoints.setup({
     }
   }
 });
+const BRIDGE_SESSION_KEY = "premiere-mcp.bridge-session";
+
+function persistBridgeSession(url, token) {
+  const storage = typeof globalThis !== "undefined" ? globalThis.localStorage : null;
+  if (!storage || typeof storage.setItem !== "function") return;
+  try { storage.setItem(BRIDGE_SESSION_KEY, JSON.stringify({ url: url || "", token: token || "" })); } catch (_) {}
+}
+
+function restoreBridgeSession() {
+  const storage = typeof globalThis !== "undefined" ? globalThis.localStorage : null;
+  if (!storage || typeof storage.getItem !== "function") return;
+  try {
+    const value = JSON.parse(storage.getItem(BRIDGE_SESSION_KEY) || "null");
+    if (!value || typeof value !== "object") return;
+    const urlEl = document.getElementById("bridge-url");
+    const tokenEl = document.getElementById("bridge-token");
+    if (urlEl && typeof value.url === "string" && value.url) urlEl.value = value.url;
+    if (tokenEl && typeof value.token === "string") tokenEl.value = value.token;
+  } catch (_) {}
+}
+
 document.addEventListener("DOMContentLoaded", async () => {
   document.getElementById("connect").addEventListener("click", connect);
   document.getElementById("refresh").addEventListener("click", () => publishState("manual"));
@@ -48,6 +69,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   try { await workspaceBroker.initialize(); } catch (error) { setStatus(error.message || String(error)); }
   try { await commandRegistry.initialize(); } catch (error) { setStatus(error.message || String(error)); }
   renderWorkspaceStatus();
+  restoreBridgeSession();
   subscribeHostEvents();
   connect();
   startFallbackPolling();
@@ -383,7 +405,12 @@ function connect() {
   }
   setStatus("Connecting to " + url.origin + url.pathname);
   try { socket = new WebSocket(url); } catch (e) { return scheduleReconnect(e.message); }
-  socket.onopen = async () => { setStatus("Connected"); send(Protocol.envelope("hello", await capabilities())); publishState("connected"); };
+  socket.onopen = async () => {
+    persistBridgeSession(configuredUrl, token);
+    setStatus("Connected");
+    send(Protocol.envelope("hello", await capabilities()));
+    publishState("connected");
+  };
   socket.onmessage = (event) => dispatch(event.data);
   socket.onerror = () => setStatus("Bridge connection error");
   socket.onclose = () => { void commandRegistry.dispose(); scheduleReconnect("Disconnected"); };

@@ -322,10 +322,15 @@ export function getAdvancedTools(bridgeOptions: BridgeOptions) {
           }
           if (!qeClip) return __error("Could not locate the clip among the QE track's items; cannot change track.");
 
+          // QE moveToTrack takes track *deltas*, not an absolute index.
+          var videoDelta = result.trackType === "video" ? (${args.target_track_index} - result.trackIndex) : 0;
+          var audioDelta = result.trackType === "audio" ? (${args.target_track_index} - result.trackIndex) : 0;
+          var beforeMoveStartTicks = String(result.clip.start.ticks);
+          var beforeMoveEndTicks = String(result.clip.end.ticks);
           try {
-            qeClip.moveToTrack(${args.target_track_index});
+            qeClip.moveToTrack(videoDelta, audioDelta, "0", false);
           } catch (moveErr) {
-            return __error("Could not move the clip to track ${args.target_track_index}: the QE moveToTrack API rejected the call (" + moveErr.toString() + "). It takes three parameters whose types are undocumented, and no combination tried was accepted on Premiere Pro 26.2.2. The clip was left untouched. Reconstructing the move with Track.overwriteClip would mint a new node ID and drop applied effects and keyframes, so it is not done automatically -- move the clip manually if you need it on another track.");
+            return __error("Could not move the clip to track ${args.target_track_index}: the QE moveToTrack API rejected the call (" + moveErr.toString() + "). The clip was left untouched. Reconstructing the move with Track.overwriteClip would mint a new node ID and drop applied effects and keyframes, so it is not done automatically -- move the clip manually if you need it on another track.");
           }
 
           // QE reports nothing useful on success, so confirm against the DOM.
@@ -333,6 +338,14 @@ export function getAdvancedTools(bridgeOptions: BridgeOptions) {
           if (!after) return __error("Clip ${nodeId} could not be found after the track move; the timeline may be in an unexpected state.");
           if (after.trackIndex !== ${args.target_track_index}) {
             return __error("Premiere accepted the moveToTrack call but the clip is still on track " + after.trackIndex + " rather than ${args.target_track_index}. Structural QE edits are known to no-op on some Premiere Pro 26.x installations (confirmed on 26.2.2).");
+          }
+          var afterMoveStartTicks = String(after.clip.start.ticks);
+          var afterMoveEndTicks = String(after.clip.end.ticks);
+          if (parseFloat(afterMoveStartTicks) >= parseFloat(afterMoveEndTicks)) {
+            return __error("Premiere left clip ${nodeId} with an inverted or empty timeline range after the track move. Use Undo and retry in the Premiere UI.");
+          }
+          if (Math.abs((parseFloat(afterMoveEndTicks) - parseFloat(afterMoveStartTicks)) - (parseFloat(beforeMoveEndTicks) - parseFloat(beforeMoveStartTicks))) > 1) {
+            return __error("Premiere changed the clip duration during the track move. Use Undo and retry in the Premiere UI.");
           }
 
           return __result({

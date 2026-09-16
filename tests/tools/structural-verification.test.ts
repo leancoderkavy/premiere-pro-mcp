@@ -83,6 +83,7 @@ describe("trim_clip verification", () => {
     expect(script).toContain("var expectedStart = before.start");
     expect(script).toContain("var expectedEnd = before.end + (actualOut - before.outPoint)");
     expect(script).toContain("visible timeline duration does not match the applied source range");
+    expect(script).toContain("visible timeline start/end ticks did not move");
     expect(script).toContain("source metadata was rolled back");
   });
 
@@ -193,6 +194,7 @@ describe("move_clip verification", () => {
     });
     const script = mockedSendCommand.mock.calls[0][0];
     expect(script).toContain("after.trackIndex !== 1");
+    expect(script).toContain("qeClip.moveToTrack(videoDelta, audioDelta, \"0\", false)");
   });
 
   it("does not emit any track-move code when no track change was requested", async () => {
@@ -277,6 +279,8 @@ describe("move_clip_to_track verification", () => {
     expect(script).toContain('var after = __findClip("abc")');
     expect(script).toContain("after.trackIndex !== 1");
     expect(script).toContain("verified: true");
+    expect(script).toContain("qeClip.moveToTrack(videoDelta, audioDelta, \"0\", false)");
+    expect(script).toContain("inverted or empty timeline range");
   });
 
   it("explains the QE rejection instead of surfacing a raw parameter error", async () => {

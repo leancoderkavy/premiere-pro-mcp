@@ -660,6 +660,20 @@ describe("advanced stable Premiere UXP workflows", () => {
     expect(value.sequence.createCloneAction).not.toHaveBeenCalled();
   });
 
+  it("finds the source parent bin when getParentBin is missing on the cast clip", async () => {
+    const value = advancedHost();
+    value.clip.getParentBin = undefined as never;
+    await expect(value.registry.dispatch("silence.deriveSequence", {
+      sourceProjectItemId: "clip-1", name: "Interview Walk", confirmNonUndoable: true,
+      operationId: "silence-parent-walk", keepRanges: [
+        { startSeconds: 0, endSeconds: 2, startFrame: 0, endFrame: 60 },
+      ],
+    })).resolves.toMatchObject({
+      created: true, partial: false, createdSubclips: [{ name: "Interview Walk Keep 1" }],
+    });
+    expect(value.bin.children?.some((item) => item.name === "Interview Walk Keep 1")).toBe(true);
+  });
+
   it("caches a partial subclip transaction receipt so retry cannot duplicate artifacts", async () => {
     const value = advancedHost();
     value.clip.createSubClipAction
@@ -1472,6 +1486,18 @@ describe("advanced stable Premiere UXP workflows", () => {
       after: { endSeconds: 22, outSeconds: 12 },
     });
     expect(value.project.executeTransaction).toHaveBeenCalledTimes(1);
+  });
+
+  it("verifies an L-cut from the re-fetched audio timeline edge when source-out readback lags", async () => {
+    const value = advancedHost();
+    value.trackItem.createSetOutPointAction = vi.fn(() => ({ apply: () => undefined }));
+    await expect(value.registry.dispatch("trackItem.splitEdit", {
+      kind: "l_cut", audioTrackIndex: 0, audioClipIndex: 0, videoTrackIndex: 0, videoClipIndex: 0,
+      extensionSeconds: 2, operationId: "l-cut-stale-source",
+    })).resolves.toMatchObject({
+      splitEdit: "l_cut", outcome: "verified", timelineMatched: true, sourceReadbackMatched: false,
+      after: { endSeconds: 22, outSeconds: 10 },
+    });
   });
 
   it("uses complete keyframe preflight/readback and reports absent removals as no-ops", async () => {

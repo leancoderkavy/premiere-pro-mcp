@@ -13,6 +13,10 @@
   // exact stale guard and replacement far below the protocol ceiling instead
   // of accepting a large pair that cannot be safely serialized together.
   const MAX_PROJECT_PANEL_METADATA_UPDATE_BYTES = 12 * 1024;
+  // Inspect/readback can return a real Premiere schema. Keep the 12 KiB cap
+  // only on create/update write payloads and their paired stale guards that
+  // travel together in one mutation request.
+  const MAX_PROJECT_PANEL_METADATA_INSPECT_BYTES = MAX_METADATA_RESULT_BYTES;
 
   function utf8ByteLength(value) {
     let bytes = 0;
@@ -1088,7 +1092,7 @@
 
     async function inspectProjectMetadataSchema(args) {
       assertObject(args); assertOnlyKeys(args, []);
-      const snapshot = await projectPanelMetadataSnapshot(MAX_PROJECT_PANEL_METADATA_UPDATE_BYTES);
+      const snapshot = await projectPanelMetadataSnapshot(MAX_PROJECT_PANEL_METADATA_INSPECT_BYTES);
       return {
         projectGuid: snapshot.projectGuid, projectName: snapshot.projectName,
         projectPanelMetadata: snapshot.projectPanelMetadata,
@@ -1101,7 +1105,7 @@
       assertOnlyKeys(args, ["expectedProjectGuid", "expectedProjectPanelMetadata", "fieldName", "fieldLabel", "fieldType", "confirmCreate", "operationId"]);
       const input = {
         expectedProjectGuid: boundedString(args.expectedProjectGuid, "expectedProjectGuid", 512),
-        expectedProjectPanelMetadata: boundedUtf8StringAllowEmpty(args.expectedProjectPanelMetadata, "expectedProjectPanelMetadata", MAX_PROJECT_PANEL_METADATA_UPDATE_BYTES),
+        expectedProjectPanelMetadata: boundedUtf8StringAllowEmpty(args.expectedProjectPanelMetadata, "expectedProjectPanelMetadata", MAX_PROJECT_PANEL_METADATA_INSPECT_BYTES),
         fieldName: metadataSchemaFieldName(args.fieldName),
         fieldLabel: boundedString(args.fieldLabel, "fieldLabel", 255),
         fieldType: enumValue(args.fieldType, "fieldType", ["integer", "real", "text", "boolean"]),
@@ -1119,7 +1123,7 @@
         // replacement requests. Adobe provides no atomic compare-and-set or
         // schema-field getter, so UI and other-extension races remain outside
         // this protocol's proof boundary.
-        const before = await projectPanelMetadataSnapshot(MAX_PROJECT_PANEL_METADATA_UPDATE_BYTES);
+        const before = await projectPanelMetadataSnapshot(MAX_PROJECT_PANEL_METADATA_INSPECT_BYTES);
         if (before.projectGuid !== input.expectedProjectGuid) {
           throw commandError("UXP_STALE_PROJECT_METADATA_SCHEMA", "The active project changed before the metadata schema field was created; inspect and retry");
         }
@@ -1131,7 +1135,7 @@
           request = ppro.Metadata.addPropertyToProjectMetadataSchema(input.fieldName, input.fieldLabel, metadataType);
         });
         if (await request !== true) throw commandError("UXP_ACTION_REJECTED", "Premiere did not accept Project metadata schema field creation");
-        const after = await projectPanelMetadataSnapshot(MAX_PROJECT_PANEL_METADATA_UPDATE_BYTES);
+        const after = await projectPanelMetadataSnapshot(MAX_PROJECT_PANEL_METADATA_INSPECT_BYTES);
         const activeProjectRetained = after.projectGuid === before.projectGuid;
         const panelMetadataChanged = activeProjectRetained && after.projectPanelMetadata !== before.projectPanelMetadata;
         return {
