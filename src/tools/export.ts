@@ -6,6 +6,7 @@ import { execFile } from "node:child_process";
 import { extname, join, resolve } from "node:path";
 import { tmpdir } from "node:os";
 import { promisify } from "node:util";
+import { gunzipSync } from "node:zlib";
 import { parseEbur128Summary } from "./audio.js";
 
 const execFileAsync = promisify(execFile);
@@ -301,6 +302,24 @@ export async function verifyDeliveryFile(
   };
 }
 
+const SAME_AS_PROJECT_RE = /SameAsProject|Same\s+as\s+Project/i;
+const MAX_EXPORT_PRESET_BYTES = 8 * 1024 * 1024;
+
+export function decodeExportPresetContents(contents: Buffer): string {
+  if (contents.length >= 2 && contents[0] === 0x1f && contents[1] === 0x8b) {
+    try {
+      return gunzipSync(contents).toString("utf8");
+    } catch {
+      // Fall through to a raw scan when the gzip payload is truncated.
+    }
+  }
+  return contents.toString("utf8");
+}
+
+export function exportPresetUsesSameAsProject(contents: Buffer): boolean {
+  return SAME_AS_PROJECT_RE.test(decodeExportPresetContents(contents));
+}
+
 export function inspectExportPresetFile(presetPath: string) {
   const path = resolve(presetPath);
   if (extname(path).toLowerCase() !== ".epr") throw new Error("Export preset must use the .epr extension");
@@ -308,6 +327,13 @@ export function inspectExportPresetFile(presetPath: string) {
   const stats = statSync(path);
   if (!stats.isFile()) throw new Error(`Export preset path is not a regular file: ${path}`);
   if (stats.size === 0) throw new Error(`Export preset is empty: ${path}`);
+  if (stats.size > MAX_EXPORT_PRESET_BYTES) throw new Error(`Export preset exceeds ${MAX_EXPORT_PRESET_BYTES} bytes`);
+  const contents = readFileSync(path);
+  if (exportPresetUsesSameAsProject(contents)) {
+    throw new Error(
+      "This Adobe Media Encoder preset uses a Same as Project output destination. Premiere copies the project to a scratch folder for AME, so the encoded file will not land at the requested output_path. Use a preset with an explicit output location.",
+    );
+  }
   return { path, exists: true as const, regularFile: true as const, sizeBytes: stats.size, modifiedAt: stats.mtime.toISOString() };
 }
 
@@ -667,6 +693,13 @@ export function getExportTools(bridgeOptions: BridgeOptions) {
         required: ["output_path"],
       },
       handler: async (args: { output_path: string; preset_path?: string; work_area_only?: boolean }) => {
+        if (args.preset_path) {
+          try {
+            inspectExportPresetFile(args.preset_path);
+          } catch (error) {
+            return { success: false, error: error instanceof Error ? error.message : String(error) };
+          }
+        }
         const script = buildToolScript(`
           var seq = app.project.activeSequence;
           if (!seq) return __error("No active sequence");
@@ -1070,7 +1103,7 @@ export function getExportTools(bridgeOptions: BridgeOptions) {
 
     add_to_render_queue: {
       description:
-        "Request an Adobe Media Encoder render-queue handoff for the active sequence. Requires a saved project and an .epr preset_path. Verify queue presence or the output file independently; Same as Project presets can still ignore the absolute output_path.",
+        "Request an Adobe Media Encoder render-queue handoff for the active sequence. Requires a saved project and an .epr preset_path. Same as Project presets are refused before Premiere is contacted because AME encodes from a scratch project copy.",
       parameters: {
         type: "object" as const,
         properties: {
@@ -1091,6 +1124,11 @@ export function getExportTools(bridgeOptions: BridgeOptions) {
             success: false,
             error: "preset_path is required. Pass a .epr file; omitting it falls through to an Illegal Parameter error on this host.",
           };
+        }
+        try {
+          inspectExportPresetFile(args.preset_path);
+        } catch (error) {
+          return { success: false, error: error instanceof Error ? error.message : String(error) };
         }
         const script = buildToolScript(`
           var seq = app.project.activeSequence;
@@ -1129,7 +1167,7 @@ export function getExportTools(bridgeOptions: BridgeOptions) {
             jobId: String(jobId),
             outputPath: outputPath,
             savedProjectPath: savedProjectPath,
-            verificationScope: "Premiere returned an AME job ID. Queue presence and output-file creation are not verified by this tool. If the .epr output destination is Same as Project, AME may ignore this absolute output_path when it encodes from a scratch project copy."
+            verificationScope: "Premiere returned an AME job ID. Queue presence and output-file creation are not verified by this tool."
           });
         `);
         return sendCommand(script, bridgeOptions);

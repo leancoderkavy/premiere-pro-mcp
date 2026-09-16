@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import { cp, copyFile, mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import { cp, copyFile, mkdir, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { spawn } from "node:child_process";
 import path from "node:path";
@@ -47,6 +47,26 @@ function runMcpb(args) {
   );
 }
 
+const TEXT_EXTENSIONS = new Set([".js", ".mjs", ".cjs", ".json", ".md", ".txt", ".map"]);
+
+async function normalizeTextNewlines(directory) {
+  const entries = await readdir(directory, { withFileTypes: true });
+  for (const entry of entries) {
+    const full = path.join(directory, entry.name);
+    if (entry.isDirectory()) {
+      await normalizeTextNewlines(full);
+      continue;
+    }
+    if (!TEXT_EXTENSIONS.has(path.extname(entry.name))) continue;
+    const text = await readFile(full, "utf8");
+    const normalized = text.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
+    if (normalized !== text) await writeFile(full, normalized);
+    if (normalized.includes("\r")) {
+      throw new Error(`Claude bundle stage still contains CR line endings: ${path.relative(root, full)}`);
+    }
+  }
+}
+
 await validateClaudeSource();
 await rm(stage, { recursive: true, force: true });
 await mkdir(path.join(stage, "server"), { recursive: true });
@@ -79,6 +99,15 @@ await writeFile(
 );
 
 await runNpm(["ci", "--omit=dev", "--ignore-scripts"], stage);
+await normalizeTextNewlines(path.join(stage, "server", "dist"));
+await Promise.all(
+  ["manifest.json", "package.json", "package-lock.json"].map(async (name) => {
+    const file = path.join(stage, name);
+    const text = await readFile(file, "utf8");
+    const normalized = text.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
+    if (normalized !== text) await writeFile(file, normalized);
+  }),
+);
 await validateClaudeStage(stage);
 await runMcpb(["validate", path.join(stage, "manifest.json")]);
 

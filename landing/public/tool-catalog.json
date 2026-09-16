@@ -3,7 +3,7 @@
   "evidenceScope": "source_catalog_may_include_unreleased_work",
   "sourceVersion": "1.16.0",
   "sourcePath": "docs/supported-actions.md",
-  "sourceSha256": "55b5e98a07abd879dd2a3be63804bddf331a9eecd132ddc2d63103819937bea7",
+  "sourceSha256": "664f75a0399b2ac794ddf896edd2a61672e2b7ea9bd6e936ca003beb67b0a55c",
   "hostVerification": "not_established_by_catalogs",
   "counts": {
     "default": 379,
@@ -63,7 +63,7 @@
       "name": "add_to_render_queue",
       "surface": "default",
       "modes": "Single operation",
-      "description": "Request an Adobe Media Encoder render-queue handoff for the active sequence. Requires a saved project and an .epr preset_path. Verify queue presence or the output file independently; Same as Project presets can still ignore the absolute output_path."
+      "description": "Request an Adobe Media Encoder render-queue handoff for the active sequence. Requires a saved project and an .epr preset_path. Same as Project presets are refused before Premiere is contacted because AME encodes from a scratch project copy."
     },
     {
       "name": "add_to_timeline",

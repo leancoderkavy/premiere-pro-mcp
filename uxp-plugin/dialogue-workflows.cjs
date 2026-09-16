@@ -24,7 +24,7 @@
       const target = plan.target_bin_id ? asFolder(await find(project, plan.target_bin_id), "target_bin_id") : undefined;
       const parents = new Map(), beforeIds = new Set();
       for (const [itemId, item] of items) {
-        const parent = asFolder(await asClip(item, itemId).getParentBin(), "source parent");
+        const parent = await parentBin(project, item, itemId);
         const parentId = await id(parent); parents.set(parentId || itemId, parent);
       }
       for (const parent of parents.values()) for (const item of Array.from(await parent.getItems() || [])) beforeIds.add(await id(item));
@@ -78,6 +78,32 @@
     }
     function asClip(item, name) { try { const cast = ppro.ClipProjectItem.cast(item); if (cast) return cast; } catch (_) {} fail("UXP_INVALID_PROJECT_ITEM", name + " is not a clip"); }
     function asFolder(item, name) { if (ppro.FolderItem && ppro.FolderItem.cast) try { const cast = ppro.FolderItem.cast(item); if (cast) return cast; } catch (_) {} if (item && item.getItems) return item; fail("UXP_INVALID_PROJECT_ITEM", name + " is not a folder"); }
+    async function parentBin(project, item, itemId) {
+      const clip = asClip(item, itemId);
+      if (clip && typeof clip.getParentBin === "function") {
+        try { return asFolder(await clip.getParentBin(), "source parent"); } catch (_) {}
+      }
+      if (item && typeof item.getParentBin === "function") {
+        try { return asFolder(await item.getParentBin(), "source parent"); } catch (_) {}
+      }
+      if (item && typeof item.getParent === "function") {
+        try { return asFolder(await item.getParent(), "source parent"); } catch (_) {}
+      }
+      const wanted = await id(item) || itemId;
+      const queue = [await project.getRootItem()];
+      let count = 0;
+      while (queue.length) {
+        const folder = queue.shift();
+        if (++count > 4096) fail("UXP_PROJECT_TOO_LARGE", "Parent-bin lookup exceeded 4096 items");
+        const children = folder && folder.getItems ? Array.from(await folder.getItems() || []) : [];
+        for (let i = 0; i < children.length; i += 1) {
+          const child = children[i];
+          if ((await id(child)) === wanted) return asFolder(folder, "source parent");
+          if (child && child.getItems) queue.push(child);
+        }
+      }
+      fail("UXP_TARGET_UNSUPPORTED", "Could not resolve source parent; Premiere did not expose getParentBin for " + itemId);
+    }
     function tick(value) { return ppro.TickTime.createWithSeconds(secs(value)); }
     async function id(item) { if (!item) return ""; if (item.getId) return String(await item.getId()); if (item.getGuid) return String(await item.getGuid()); return ""; }
     async function snap(item) { return item ? { id: await id(item), name: String(item.name || "") } : null; }

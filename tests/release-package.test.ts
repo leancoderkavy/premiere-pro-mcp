@@ -76,4 +76,12 @@ describe("npm release package verification", () => {
     expect(validator).toContain("node_modules\", dependency, \"package.json");
     expect(validator).not.toContain('"@modelcontextprotocol", "sdk"');
   });
+
+  it("normalizes Claude Desktop MCPB text files to LF", () => {
+    const attributes = read(".gitattributes");
+    const builder = read("scripts/build-claude-desktop.mjs");
+    expect(attributes).toContain("text=auto eol=lf");
+    expect(builder).toContain("normalizeTextNewlines");
+    expect(builder).toContain("replace(/\\r\\n/g, \"\\n\")");
+  });
 });

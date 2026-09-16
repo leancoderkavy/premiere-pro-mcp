@@ -216,6 +216,39 @@
       throw commandError("UXP_TARGET_UNSUPPORTED", label + " is not a media clip");
     }
 
+    async function parentBinOf(project, item, label) {
+      if (item && typeof item.getParentBin === "function") {
+        try {
+          const parent = await item.getParentBin();
+          if (parent) return asFolder(parent, label);
+        } catch (_) {}
+      }
+      if (item && typeof item.getParent === "function") {
+        try {
+          const parent = await item.getParent();
+          if (parent) return asFolder(parent, label);
+        } catch (_) {}
+      }
+      const wantedId = await projectItemId(item);
+      const root = await project.getRootItem();
+      if (!wantedId) {
+        throw commandError("UXP_TARGET_UNSUPPORTED", "Could not resolve " + label + "; Premiere did not expose getParentBin for this clip");
+      }
+      const queue = root ? [root] : [];
+      let visited = 0;
+      while (queue.length) {
+        const folder = queue.shift();
+        const children = folder && typeof folder.getItems === "function" ? Array.from(await folder.getItems() || []) : [];
+        for (const child of children) {
+          visited += 1;
+          if (visited > MAX_PROJECT_ITEMS) throw commandError("UXP_PROJECT_TOO_LARGE", "Parent-bin lookup exceeded " + MAX_PROJECT_ITEMS + " entries");
+          if (await projectItemId(child) === wantedId) return asFolder(folder, label);
+          if (isFolder(child)) queue.push(child);
+        }
+      }
+      throw commandError("UXP_TARGET_UNSUPPORTED", "Could not resolve " + label + "; Premiere did not expose getParentBin for this clip");
+    }
+
     async function selectedProjectItems(project, viewId) {
       if (!ppro.ProjectUtils) throw commandError("UXP_COMMAND_UNAVAILABLE", "Project panel selection APIs are unavailable");
       let selection;
@@ -1618,8 +1651,16 @@
           : [audioContext.item.createSetEndAction(tick(timelineValue)), audioContext.item.createSetOutPointAction(tick(sourceValue))];
         commitActions(context.project, kind === "j_cut" ? "Create J-cut" : "Create L-cut", actions);
       });
-      const after = await trackItemSnapshot(audioContext), verified = numbersEqual(after[edge], timelineValue) && numbersEqual(after[sourceField], sourceValue);
-      return mutationResult(verified, { splitEdit: kind, extensionSeconds: extension, before, after }, "split_edit_audio_edge_and_source_readback", kind === "j_cut" ? "Create J-cut" : "Create L-cut");
+      const afterItem = await trackItemAt(context.sequence, "audio", nonNegativeInt(args.audioTrackIndex, "audioTrackIndex"), nonNegativeInt(args.audioClipIndex, "audioClipIndex"));
+      const after = await trackItemSnapshot({ ...audioContext, item: afterItem });
+      const timelineMatched = numbersEqual(after[edge], timelineValue);
+      const sourceMatched = numbersEqual(after[sourceField], sourceValue);
+      // The user-visible result is the audio timeline edge. Source-out readback
+      // can lag or stay stale after a successful SetEnd; do not false-negative
+      // a completed L/J-cut when that edge moved to the requested time.
+      return mutationResult(timelineMatched, {
+        splitEdit: kind, extensionSeconds: extension, before, after, timelineMatched, sourceReadbackMatched: sourceMatched
+      }, "split_edit_audio_edge_and_source_readback", kind === "j_cut" ? "Create J-cut" : "Create L-cut");
     }
 
     async function editorContext(requireTransactions) {
@@ -1786,9 +1827,9 @@
         if (endFrame <= startFrame) throw commandError("UXP_INVALID_ARGUMENT", "keepRanges frame bounds must have positive duration");
         return { startSeconds, endSeconds, startFrame, endFrame };
       });
-      const project = await activeProject(true), source = asClip(await findProjectItem(project, args.sourceProjectItemId), "sourceProjectItemId");
+      const project = await activeProject(true), sourceItem = await findProjectItem(project, args.sourceProjectItemId), source = asClip(sourceItem, "sourceProjectItemId");
       if (typeof source.createSubClipAction !== "function") throw commandError("UXP_COMMAND_UNAVAILABLE", "Premiere cannot create documented subclips for silence removal");
-      const parent = asFolder(await source.getParentBin(), "source parent");
+      const parent = await parentBinOf(project, sourceItem, "source parent");
       const target = args.targetBinId ? await resolveFolder(project, args.targetBinId, "targetBinId") : undefined;
       const name = boundedString(args.name, "name", 255), prefix = name + " Keep";
       return withAppendLock(appendLockKey(project, "bin", await projectItemId(parent)), async () => {
