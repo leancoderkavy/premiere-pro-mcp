@@ -82,6 +82,19 @@ function throwIfBackupCancelled(signal?: AbortSignal): void {
   throw error;
 }
 
+async function removePartialBackup(backupPath: string): Promise<void> {
+  for (let attempt = 0; attempt < 8; attempt += 1) {
+    try {
+      await rm(backupPath, { force: true, maxRetries: 8, retryDelay: 25 });
+      return;
+    } catch (error) {
+      const code = (error as NodeJS.ErrnoException).code;
+      if (code !== "EBUSY" && code !== "EPERM" && code !== "ENOTEMPTY") throw error;
+      await new Promise((resolve) => setTimeout(resolve, 25 * (attempt + 1)));
+    }
+  }
+}
+
 async function sha256File(path: string, maxBytes: number, signal?: AbortSignal): Promise<{ checksum: string; bytes: number }> {
   const digest = createHash("sha256");
   let bytes = 0;
@@ -170,7 +183,7 @@ export async function createProjectBackup(
       byteIdentical: true,
     };
   } catch (error) {
-    if (backupCreated && backupPath) await rm(backupPath, { force: true }).catch(() => undefined);
+    if (backupCreated && backupPath) await removePartialBackup(backupPath).catch(() => undefined);
     throw error;
   } finally {
     projectBackupInProgress = false;

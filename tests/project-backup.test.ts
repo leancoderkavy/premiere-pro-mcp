@@ -99,7 +99,7 @@ describe("createProjectBackup", () => {
       await expect(backup).rejects.toThrow();
       expect(existsSync(backupPath)).toBe(false);
     } finally {
-      rmSync(directory, { recursive: true, force: true });
+      rmSync(directory, { recursive: true, force: true, maxRetries: 10, retryDelay: 50 });
     }
   });
 
