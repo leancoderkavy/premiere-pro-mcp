@@ -65,7 +65,7 @@ export const articles: Article[] = [
       {
         heading: "Exact package name",
         paragraphs: [
-          "Install this project with the unscoped name:",
+          "Install this project with the unscoped name. Run these checks from a directory outside an existing source checkout: npm can otherwise prefer a local installation over the downloaded executable.",
         ],
         codeBlocks: [
           { label: "Install the package with version pin", code: "npm i -g premiere-pro-mcp@1.15.2" },
@@ -159,7 +159,7 @@ export const articles: Article[] = [
         heading: "If it does not connect",
         paragraphs: [
           "Work through Setup & recovery: restart both apps, confirm an active sequence, confirm the CEP panel is available, then re-run the safe prompt. Share connection state with support — not project media.",
-          "Also re-check package identity if tools look unfamiliar or the version is not 1.15.2.",
+          "If the version command reports something other than 1.15.2, repeat it outside any existing repository or Node project. Also check the MCP client's working directory for an older local installation before trusting its tool list.",
         ],
         links: [
           { label: "Connection troubleshooting", href: "/docs/troubleshooting/" },
