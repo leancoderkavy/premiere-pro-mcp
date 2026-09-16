@@ -108,7 +108,7 @@ The current source exposes 373 core tools for supported workflow steps spanning 
 
 <a id="latest-release"></a>
 
-### Latest release: 1.15.2
+### Latest release: 1.16.0
 
 The published v1.15.2 npm artifact contains **369 core tools**, 367 in its default profile,
 and 460 with a compatible UXP connection. The development catalog above can include
@@ -160,7 +160,7 @@ if the connection is unavailable.
   local Premiere processes. See the generated [supported action catalog](docs/supported-actions.md)
   for individual capability and verification contracts.
 
-See the [v1.15.1 release notes](https://github.com/leancoderkavy/premiere-pro-mcp/releases/tag/v1.15.1)
+See the [v1.16.0 release notes](https://github.com/leancoderkavy/premiere-pro-mcp/releases/tag/v1.16.0)
 for complete details. Live installation in Premiere Pro still requires host verification.
 
 ### Current MCP protocol support
@@ -208,7 +208,7 @@ their bins, media rules, and organization rules before a facility uses one.
 > ### Install the published package (verify the name)
 >
 > ```bash
-> npm i -g premiere-pro-mcp@1.15.2
+> npm i -g premiere-pro-mcp@1.16.0
 > ```
 >
 > This repository publishes only **`premiere-pro-mcp`**. A differently named package (`adobe-premiere-pro-mcp`) may also declare a `premiere-pro-mcp` executable. Before configuring a client, confirm:
@@ -216,7 +216,7 @@ their bins, media rules, and organization rules before a facility uses one.
 > | Check | Expected |
 > | --- | --- |
 > | Package name | `premiere-pro-mcp` (not `adobe-premiere-pro-mcp`) |
-> | Version | `1.15.2` |
+> | Version | `1.16.0` |
 > | Homepage / repo | https://premiere-pro-mcp.com/ · https://github.com/leancoderkavy/premiere-pro-mcp |
 >
 > ```bash
@@ -229,9 +229,9 @@ their bins, media rules, and organization rules before a facility uses one.
 
 ### Easiest supported path: Claude Desktop
 
-1. Download the current [Claude Desktop bundle (`.mcpb`)](https://github.com/leancoderkavy/premiere-pro-mcp/releases/download/v1.15.1/premiere-pro-mcp-1.15.1.mcpb).
+1. Download the current [Claude Desktop bundle (`.mcpb`)](https://github.com/leancoderkavy/premiere-pro-mcp/releases/download/v1.16.0/premiere-pro-mcp-1.16.0.mcpb).
 2. In Claude Desktop, open **Settings > Extensions > Advanced settings > Install Extension**, select the downloaded bundle, and restart Claude Desktop.
-3. Download the separate [signed Premiere connector (`.zxp`)](https://github.com/leancoderkavy/premiere-pro-mcp/releases/download/v1.15.1/MCPBridgeCEP.zxp). Open it with your trusted ZXP installer. If your computer has no ZXP installer, use the npm connector installer in **Advanced setup** below.
+3. Download the separate [signed Premiere connector (`.zxp`)](https://github.com/leancoderkavy/premiere-pro-mcp/releases/download/v1.16.0/MCPBridgeCEP.zxp). Open it with your trusted ZXP installer. If your computer has no ZXP installer, use the npm connector installer in **Advanced setup** below.
 4. Restart Premiere, open a project, then open **Window > Extensions > MCP for Adobe Premiere Pro**.
 5. In Claude, enter: `Safely check my Premiere connection with verify_premiere_connection. Make no changes.`
 

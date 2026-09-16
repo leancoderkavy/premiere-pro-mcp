@@ -6,6 +6,28 @@ import { product } from "@/lib/product"
 
 const releases = [
   {
+    version: "1.16.0",
+    date: "2026-09-16",
+    label: "Reaction-Shorts planners, STT, landing studio, and host-tool fixes",
+    groups: [
+      { title: "Added", items: [
+        "plan_reaction_captions, plan_short_subscribe_cta, and plan_short_export_folder for stacked speaker captions, subscribe CTAs, and series export folders.",
+        "Guarded Speech-to-Text start, caption style guidance, and UXP transcription language options.",
+        "Install collision-defense identity output and a verified npm installation guide.",
+        "Interactive cinematic landing with a draggable 3D timeline, program monitor, and recorded workflow evidence."
+      ] },
+      { title: "Fixed", items: [
+        "Host-reported crashes and false verification for clip markers, MOGRT JSON, first transcript import, FCP XML destinations, and UXP tree IDs.",
+        "Bounded HTTP and filesystem work, with bridge directories failing closed on untrusted ownership or symlink replacement.",
+        "AME handoff now requires a saved project so Same as Project presets do not resolve against a scratch folder."
+      ] },
+      { title: "Changed", items: [
+        "UXP preset sequence creation requires confirmation, and the Claude Desktop bundle no longer requires a UXP token for CEP-only setups."
+      ] },
+      { title: "Verification scope", items: ["Automated checks do not establish licensed-host playback or rendered-output verification."] }
+    ],
+  },
+  {
     version: "1.15.2",
     date: "2026-09-14",
     label: "Export frames, trim rollback, MOGRT, and connection fixes",
