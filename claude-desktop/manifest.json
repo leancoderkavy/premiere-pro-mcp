@@ -33,9 +33,9 @@
     "premiere_uxp_token": {
       "type": "string",
       "title": "Premiere UXP Token",
-      "description": "Shared secret used to authenticate the local Premiere UXP bridge. Use the same value in the Premiere panel (minimum 16 characters).",
+      "description": "Optional. Only needed for the UXP plugin (Premiere: Window → UXP Plugins → MCP for Adobe Premiere Pro → Bridge token). Generate any 16+ character secret yourself and enter the same value here. The CEP Connector panel does not show or need a token. Leave blank to use CEP only.",
       "sensitive": true,
-      "required": true
+      "required": false
     },
     "premiere_mcp_protocol_mode": {
       "type": "string",

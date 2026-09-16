@@ -185,7 +185,7 @@ export function getUxpAdvancedWorkflowTools(bridge: UxpWebSocketBridge) {
     },
 
     inspect_project_tree_uxp: {
-      description: "Read a bounded, depth-limited native Project-panel tree rooted at the active project. Returns stable IDs, names, types, parent IDs, bin state, and optional color-label indexes only; it never returns media paths, metadata, or rendered media.",
+      description: "Read a bounded, depth-limited native Project-panel tree rooted at the active project. Returns stable IDs, names, types, parent IDs, bin state, and optional color-label indexes only; it never returns media paths, metadata, or rendered media. Items without a stable ID are skipped rather than failing the whole tree.",
       parameters: {
         type: "object" as const,
         additionalProperties: false,

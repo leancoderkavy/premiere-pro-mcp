@@ -287,7 +287,7 @@ export function getUxpWorkflowTools(bridge: UxpWebSocketBridge) {
     },
 
     detect_scene_edits_uxp: {
-      description: "Run Premiere's documented scene-edit detection on the current timeline selection using cuts, markers, or subclips. This direct host mutation is not claimed undoable.",
+      description: "Run Premiere's documented scene-edit detection on the current timeline selection using cuts, markers, or subclips. create_markers still runs when a selected item has no marker collection and reports committed_unverified if no markers can be read back. This direct host mutation is not claimed undoable.",
       parameters: {
         type: "object" as const,
         additionalProperties: false,

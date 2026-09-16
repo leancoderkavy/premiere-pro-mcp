@@ -746,23 +746,45 @@
       assertObject(args); assertOnlyKeys(args, ["mode", "operationId"]);
       const mode = enumValue(args.mode, "mode", ["applyCuts", "createMarkers", "createSubclips"]);
       const context = await activeContext(false), selected = await selectedTrackItems(context.sequence);
-      const markerSnapshot = async () => {
-        if (!ppro.Markers || typeof ppro.Markers.getMarkers !== "function") throw commandError("UXP_COMMAND_UNAVAILABLE", "Premiere marker readback is required before scene-marker detection can run");
-        const ownerIds = new Set(), markerIds = new Set();
-        for (const trackItem of selected.items) {
-          if (!trackItem || typeof trackItem.getProjectItem !== "function") throw commandError("UXP_COMMAND_UNAVAILABLE", "Selected timeline items must expose project-item marker owners for scene-marker readback");
-          const owner = await trackItem.getProjectItem(), ownerId = await projectItemIdentifier(owner);
-          if (!ownerId || ownerIds.has(ownerId)) continue;
-          ownerIds.add(ownerId);
-          const collection = await ppro.Markers.getMarkers(castProjectItem(owner));
-          if (!collection || typeof collection.getMarkers !== "function") throw commandError("UXP_COMMAND_UNAVAILABLE", "Premiere did not expose a marker collection for a selected scene-edit item");
-          for (const marker of Array.from(await collection.getMarkers() || [])) {
-            let markerId = "";
-            try { markerId = marker && marker.guid != null ? String(marker.guid) : ""; } catch (_) {}
-            if (markerId) markerIds.add(ownerId + ":" + markerId);
-          }
+      const markerIdsForOwner = async (owner, ownerKey) => {
+        if (!ppro.Markers || typeof ppro.Markers.getMarkers !== "function" || !owner) return { ids: [], readable: false };
+        let collection = null;
+        try { collection = await ppro.Markers.getMarkers(owner); } catch (_) { collection = null; }
+        if (!collection || typeof collection.getMarkers !== "function") return { ids: [], readable: false };
+        const ids = [];
+        for (const marker of Array.from(await collection.getMarkers() || [])) {
+          let markerId = "";
+          try { markerId = marker && marker.guid != null ? String(marker.guid) : ""; } catch (_) {}
+          if (markerId) ids.push(ownerKey + ":" + markerId);
         }
-        return { ownerIds: Array.from(ownerIds), markerIds: Array.from(markerIds) };
+        return { ids, readable: true };
+      };
+      const markerSnapshot = async () => {
+        const ownerIds = [], markerIds = [];
+        const seen = new Set();
+        let readable = false;
+        const sequenceGuid = context.sequence && context.sequence.guid != null ? String(context.sequence.guid) : "";
+        if (sequenceGuid) {
+          const key = "sequence:" + sequenceGuid;
+          seen.add(key);
+          ownerIds.push(key);
+          const sequenceMarkers = await markerIdsForOwner(context.sequence, key);
+          readable = readable || sequenceMarkers.readable;
+          markerIds.push(...sequenceMarkers.ids);
+        }
+        for (const trackItem of selected.items) {
+          if (!trackItem || typeof trackItem.getProjectItem !== "function") continue;
+          let owner = null;
+          try { owner = await trackItem.getProjectItem(); } catch (_) { owner = null; }
+          const ownerId = await projectItemIdentifier(owner);
+          if (!ownerId || seen.has(ownerId)) continue;
+          seen.add(ownerId);
+          ownerIds.push(ownerId);
+          const itemMarkers = await markerIdsForOwner(castProjectItem(owner), ownerId);
+          readable = readable || itemMarkers.readable;
+          markerIds.push(...itemMarkers.ids);
+        }
+        return { ownerIds, markerIds, readable };
       };
       let markersBefore = null;
       if (mode === "createMarkers") {
@@ -779,16 +801,29 @@
       if (!detected) throw commandError("UXP_VERIFICATION_FAILED", "Premiere did not confirm scene-edit detection");
       if (mode === "createMarkers") {
         const markersAfter = await markerSnapshot(), addedMarkerIds = markersAfter.markerIds.filter((id) => markersBefore.markerIds.indexOf(id) < 0);
-        if (!addedMarkerIds.length) throw commandError("UXP_VERIFICATION_FAILED", "Premiere reported scene-marker detection but did not add observable selected-item markers");
-        return {
-          detected: true, verified: true, mode, selectedItemCount: selected.items.length,
-          markerOwnerCount: markersAfter.ownerIds.length, addedMarkerCount: addedMarkerIds.length,
-          outcome: "verified", verificationBoundary: "selected_project_item_marker_guid_readback",
-          operation: operationSemantics({
-            mutatesProject: true, verificationStatus: "verified", verificationBoundary: "selected_project_item_marker_guid_readback",
-            verificationEvidence: [{ type: "selected_project_item_marker_guid_delta", addedMarkerCount: addedMarkerIds.length }], undoSupported: false, cancellationSupported: true
-          })
-        };
+        if (addedMarkerIds.length) {
+          return {
+            detected: true, verified: true, mode, selectedItemCount: selected.items.length,
+            markerOwnerCount: markersAfter.ownerIds.length, addedMarkerCount: addedMarkerIds.length,
+            outcome: "verified", verificationBoundary: "selected_project_item_marker_guid_readback",
+            operation: operationSemantics({
+              mutatesProject: true, verificationStatus: "verified", verificationBoundary: "selected_project_item_marker_guid_readback",
+              verificationEvidence: [{ type: "selected_project_item_marker_guid_delta", addedMarkerCount: addedMarkerIds.length }], undoSupported: false, cancellationSupported: true
+            })
+          };
+        }
+        if (!markersBefore.readable && !markersAfter.readable) {
+          return {
+            detected: true, outcome: "committed_unverified", mode, selectedItemCount: selected.items.length,
+            verificationBoundary: "sequence_utils_host_return",
+            warning: "Premiere accepted scene-marker detection, but no marker collection was readable on the selected items or active sequence.",
+            operation: operationSemantics({
+              mutatesProject: true, verificationStatus: "not_verified", verificationBoundary: "sequence_utils_host_return",
+              verificationEvidence: [{ type: "host_return", value: true }], undoSupported: false, cancellationSupported: true
+            })
+          };
+        }
+        throw commandError("UXP_VERIFICATION_FAILED", "Premiere reported scene-marker detection but did not add observable selected-item or sequence markers");
       }
       return {
         detected: true, outcome: "committed_unverified", mode, selectedItemCount: selected.items.length,

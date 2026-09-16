@@ -40,7 +40,7 @@
         </div>
         <button class="save-link" type="button" onclick="refreshConnectionCenter()" aria-controls="connectionChecks">Refresh</button>
       </div>
-      <p class="connection-intro">This panel only checks Premiere. In your AI assistant, run <strong>Verify Premiere connection</strong> for the complete safe check.</p>
+      <p class="connection-intro">This CEP connector does not use a UXP token. Claude Desktop's Premiere UXP Token field is only for <strong>Window → UXP Plugins</strong>. Leave it blank for CEP, or generate any 16+ character secret and enter the same value in Claude Desktop and the UXP panel Bridge token field.</p>
       <ul class="connection-checks" id="connectionChecks">
         <li id="checkConnector" data-state="waiting"><span class="check-dot" aria-hidden="true"></span><span><strong>Connector</strong><small>Starting…</small></span></li>
         <li id="checkProject" data-state="waiting"><span class="check-dot" aria-hidden="true"></span><span><strong>Project</strong><small>Checking…</small></span></li>

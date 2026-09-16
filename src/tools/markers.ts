@@ -166,7 +166,7 @@ export function getMarkerTools(bridgeOptions: BridgeOptions) {
     },
 
     list_markers: {
-      description: "List all markers on the active sequence or a specific clip",
+      description: "List markers on the active sequence, or on a source project item that exposes a marker collection. A timeline-clip node_id returns a clean error instead of a raw TypeError.",
       parameters: {
         type: "object" as const,
         properties: {
@@ -180,10 +180,19 @@ export function getMarkerTools(bridgeOptions: BridgeOptions) {
         const markerTarget = args.node_id
           ? `var clipResult = __findClip("${escapeForExtendScript(args.node_id)}");
              if (!clipResult) return __error("Clip not found");
-             var markers = clipResult.clip.markers;`
+             var markers = clipResult.clip && clipResult.clip.markers;
+             if (!markers && clipResult.clip && clipResult.clip.projectItem) {
+               markers = clipResult.clip.projectItem.markers;
+             }
+             if (!markers || typeof markers.getFirstMarker !== "function") {
+               return __error("This node_id resolved to a timeline clip that does not expose a marker collection. list_markers(node_id) only reads source project-item markers; omit node_id to list active-sequence markers, or use list_markers_uxp with scope project_item.");
+             }`
           : `var seq = app.project.activeSequence;
              if (!seq) return __error("No active sequence");
-             var markers = seq.markers;`;
+             var markers = seq.markers;
+             if (!markers || typeof markers.getFirstMarker !== "function") {
+               return __error("The active sequence does not expose a marker collection.");
+             }`;
 
         const script = buildToolScript(`
           ${markerTarget}
