@@ -3,10 +3,10 @@
   "evidenceScope": "source_catalog_may_include_unreleased_work",
   "sourceVersion": "1.16.0",
   "sourcePath": "docs/supported-actions.md",
-  "sourceSha256": "2b234e70a4dd16a34294eb1cbac17580e7a964555d88a77ae5f85823f09ee2ee",
+  "sourceSha256": "55b5e98a07abd879dd2a3be63804bddf331a9eecd132ddc2d63103819937bea7",
   "hostVerification": "not_established_by_catalogs",
   "counts": {
-    "default": 371,
+    "default": 379,
     "uxp": 95,
     "restricted": 2
   },
@@ -46,6 +46,12 @@
       "surface": "default",
       "modes": "type: Comment, Chapter, Segmentation, WebLink",
       "description": "Add a marker to a project item (source clip marker)."
+    },
+    {
+      "name": "add_markers_batch",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Add up to 200 sequence or clip markers in one verified CEP request (beat grids, chapters, silence reviews, client notes). Every marker is validated and range-checked before the first write; the tool reads back the marker count and each created marker's time and fails closed on any mismatch."
     },
     {
       "name": "add_text_overlay",
@@ -444,6 +450,12 @@
       "description": "Create a new sequence in the project"
     },
     {
+      "name": "create_sequence_checkpoint",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Clone a sequence into a named '[checkpoint]' copy before a risky edit and return a diff_sequence_snapshots-compatible snapshot of the original. Verifies the clone exists with matching track and clip counts, re-activates the original, and never deletes or overwrites anything."
+    },
+    {
       "name": "create_sequence_from_clips",
       "surface": "default",
       "modes": "Single operation",
@@ -742,6 +754,12 @@
       "surface": "default",
       "modes": "Single operation",
       "description": "Export one file-verified composite frame at the midpoint of each clip on a chosen video track in one bridge request. Read-only in Premiere; it does not mute tracks or claim visual quality."
+    },
+    {
+      "name": "export_sequence_edl",
+      "surface": "default",
+      "modes": "track_type: video, audio; frame_rate: 24, 25, 29.97, 30, 50, 59.94, 60; reel_mode: clip_name, tape_name, numbered",
+      "description": "Generate a CMX 3600 EDL for one video or audio track of a sequence from Premiere timeline readback (cuts, reels, source/record timecode, M2 lines for retimed clips), self-validate it, and return it inline or write it inside an approved workspace. Premiere is only read; this is not a Premiere-native export."
     },
     {
       "name": "export_sequence_marker_review_frames",
@@ -1560,6 +1578,12 @@
       "description": "List all items in the project panel (clips, bins, sequences)"
     },
     {
+      "name": "list_sequence_checkpoints",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "List '[checkpoint]' sequences created by create_sequence_checkpoint, optionally only those cloned from one sequence, with their labels, timestamps, track and clip counts. Read-only."
+    },
+    {
       "name": "list_sequence_tracks",
       "surface": "default",
       "modes": "Single operation",
@@ -1794,6 +1818,12 @@
       "description": "Mute or unmute an audio track"
     },
     {
+      "name": "navigate_playhead",
+      "surface": "default",
+      "modes": "start, end, in_point, out_point, work_area_in, work_area_out, next_edit, previous_edit, next_marker, previous_marker, step_forward, step_backward",
+      "description": "Move the active-sequence playhead to the start, end, in/out point, work-area bound, next/previous edit or marker, or step a number of frames, then read back the resulting position. Navigation only; it never changes clips."
+    },
+    {
       "name": "nest_clips",
       "surface": "default",
       "modes": "Single operation",
@@ -1860,6 +1890,12 @@
       "description": "Plan YouTube-style chapters from a word-timed transcript using local TextTiling-lite topic-shift detection, titling each chapter from its distinctive tokens. Returns chapters, a youtube_timestamps block and add_marker-ready Chapter markers. Local-only plan; never changes Premiere."
     },
     {
+      "name": "plan_client_notes_checklist",
+      "surface": "default",
+      "modes": "timecode_style: auto, clock, frames; marker_color_mode: priority, category, fixed",
+      "description": "Turn pasted client or reviewer feedback into a prioritized checklist: finds timecodes and ranges, classifies each note (audio, color, graphics, text, timing, cut, legal, delivery), infers must/should/nice priority, separates approvals and questions, and emits an add_markers_batch payload. Local-only and deterministic; never changes Premiere."
+    },
+    {
       "name": "plan_cross_app_workflow",
       "surface": "default",
       "modes": "workflow: ae_mogrt_to_premiere, ae_render_to_premiere",
@@ -1876,6 +1912,12 @@
       "surface": "default",
       "modes": "Single operation",
       "description": "Plan word-level filler removal (um, uh, you know...) from a revision-bound word timeline. Returns frame-snapped removal and keep ranges plus apply routes. Local-only; never changes Premiere."
+    },
+    {
+      "name": "plan_multicam_angle_switches",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Plan active-speaker camera switching for stacked, synced camera tracks: from speaker segments and a camera-to-speaker map it produces an angle cut list with minimum holds, crosstalk cover shots, optional lead-in cuts and periodic cutaways, plus razor times, per-camera enable/disable ranges, and markers. Local-only and deterministic; never changes Premiere."
     },
     {
       "name": "plan_pause_tightening",
@@ -2284,6 +2326,12 @@
       "surface": "default",
       "modes": "track_type: video, audio, both",
       "description": "Select all clips in the active sequence that match a name (substring match). Optionally filter by track type and index."
+    },
+    {
+      "name": "select_clips_by_pattern",
+      "surface": "default",
+      "modes": "track_type: video, audio, both; count_scope: per_track, across_tracks",
+      "description": "Select every Nth clip (with an offset) among clips that match optional name, duration, time-range, track, and enabled filters, then read back the selection count. Covers 'select every other clip on V1' and similar repetitive selections without changing the timeline."
     },
     {
       "name": "select_clips_in_range",

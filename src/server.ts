@@ -58,6 +58,8 @@ import { getCaptionAuthoringTools } from "./tools/caption-authoring.js";
 import { getReactionShortsTools } from "./tools/reaction-shorts.js";
 import { getTranscriptWordEditTools } from "./tools/transcript-word-edits.js";
 import { getPlatformDeliveryTools } from "./tools/platform-delivery.js";
+import { getEditorRequestTools } from "./tools/editor-requests.js";
+import { getReviewPlanTools } from "./tools/review-plans.js";
 import { getUxpTools } from "./tools/uxp.js";
 import { getMogrtAuthoringTools } from "./tools/mogrt-authoring.js";
 import { getMogrtStudioTools } from "./tools/mogrt-studio.js";
@@ -250,6 +252,8 @@ function collectStaticTools(
     ...getReactionShortsTools(),
     ...getTranscriptWordEditTools(),
     ...getPlatformDeliveryTools(),
+    ...getEditorRequestTools(bridgeOptions),
+    ...getReviewPlanTools(),
   };
   toolCatalogCache.set(cacheKey, tools);
   return tools;

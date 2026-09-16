@@ -12,7 +12,7 @@ Free, MIT licensed, local-first, and published to npm as [`premiere-pro-mcp`](ht
 
 [Website](https://premiere-pro-mcp.com/) · [Recorded demo](https://premiere-pro-mcp.com/demo/) · [Compare servers](https://premiere-pro-mcp.com/compare/) · [Setup guides](https://premiere-pro-mcp.com/blog/how-to-set-up-premiere-pro-mcp/) · [Search tools](https://premiere-pro-mcp.com/tools/) · [Troubleshooting](https://premiere-pro-mcp.com/docs/troubleshooting/) · [Release facts](https://premiere-pro-mcp.com/facts/)
 
-Development source: 373 core tools across 54 modules, 4 resources, and 18 guided workflows. A connected UXP host adds 95 capability-gated tools.
+Development source: 381 core tools across 56 modules, 4 resources, and 18 guided workflows. A connected UXP host adds 95 capability-gated tools.
 
 The [completed AE render handoff](docs/after-effects-render-handoff.md) previews and confirms importing one finished render into an existing Premiere bin, with host and file rechecks and an import receipt.
 
@@ -104,7 +104,7 @@ and repository before configuring a client. The new
 VS Code, or Codex settings that point directly to this installation. It is a
 feature included in v1.15.1 and later.
 
-The current source exposes 373 core tools for supported workflow steps spanning the supported ExtendScript, QE DOM, local media and interchange analysis, revisioned project-context retrieval, safe edit-planning, project-intake preview, review handoff, connection verification, and guarded After Effects MOGRT authoring, batch, library, render-queue, inspection, and Premiere-handoff workflows. A compatible, authenticated UXP panel adds 95 documented, capability-gated tools without replacing the production CEP bridge.
+The current source exposes 381 core tools for supported workflow steps spanning the supported ExtendScript, QE DOM, local media and interchange analysis, revisioned project-context retrieval, safe edit-planning, project-intake preview, review handoff, connection verification, and guarded After Effects MOGRT authoring, batch, library, render-queue, inspection, and Premiere-handoff workflows. A compatible, authenticated UXP panel adds 95 documented, capability-gated tools without replacing the production CEP bridge.
 
 <a id="latest-release"></a>
 
@@ -859,7 +859,7 @@ reports revision-bound notes, VFX state, change impact and turnover exceptions.
 It performs local inspection; host edits and exports use separate guarded tools.
 See [usage, example and remaining execution adapters](docs/film-editorial-workflows.md).
 
-## Tools (373 core total; 371 under the default profile; 466 with a connected UXP bridge)
+## Tools (381 core total; 379 under the default profile; 474 with a connected UXP bridge)
 
 The [complete supported-actions catalog](docs/supported-actions.md) lists every
 registered core tool, the two tools restricted behind explicit `unsafe-script`
@@ -983,7 +983,7 @@ Premiere Pro 26.x host.
 | `get_value_at_time` | Query interpolated value at any time |
 | `set_color_value` | Set color properties on effects |
 
-### Export & Encoding (16)
+### Export & Encoding (17)
 
 | Tool | Description |
 | :--- | :---------- |
@@ -992,13 +992,17 @@ Premiere Pro 26.x host.
 | `verify_delivery_file` | Verify output size and calculate SHA-256/SHA-512 checksums |
 | `capture_frame` | Export frame as PNG, return as base64 image |
 | `export_as_fcp_xml` / `export_aaf` / `export_omf` | Interchange formats |
+| `export_sequence_edl` | CMX 3600 EDL for one track, generated from timeline readback and self-validated (cuts, reels, drop/non-drop timecode, M2 lines for retimed clips) |
 | `encode_project_item` / `encode_file` | Direct encoding |
 | `start_batch_encode` | Start render queue |
 
-Premiere's documented automation surfaces do not currently expose OTIO or EDL
-interchange, Render and Replace, cloud publishing, or Content Credentials export
-configuration. `get_capabilities` reports these delivery gaps explicitly rather
-than presenting UI-only operations as available tools.
+Premiere's documented automation surfaces do not currently expose OTIO or native
+EDL interchange, Render and Replace, cloud publishing, or Content Credentials
+export configuration. `export_sequence_edl` therefore builds the CMX 3600 list
+locally from the clips Premiere reads back and validates it with the same parser
+used by `inspect_cmx3600_edl`; it is not a Premiere-native export.
+`get_capabilities` reports the remaining delivery gaps explicitly rather than
+presenting UI-only operations as available tools.
 
 ### Source Monitor & Playback (7 + 4)
 
@@ -1051,6 +1055,30 @@ than presenting UI-only operations as available tools.
 | :--- | :---------- |
 | `diff_sequence_snapshots` | Added / removed / moved / trimmed / retimed / renamed / enabled changes between two sequence snapshots with frame deltas and EDL-like lines |
 | `audit_timeline_health` | Health score with flash-frame, gap, overlap, repeated-shot, coverage, overlength, and speed findings plus review-frame suggestions |
+
+### Editor Requests: markers, selection, checkpoints, navigation (5)
+
+| Tool | Description |
+| :--- | :---------- |
+| `add_markers_batch` | Up to 200 sequence or clip markers in one verified request; feed it beat grids from `detect_beats`, chapters from `plan_chapter_markers`, or client notes from `plan_client_notes_checklist` |
+| `select_clips_by_pattern` | "Select every other clip": every-Nth selection with offset, name/regex, duration, range, track, and enabled filters, read back after selecting |
+| `create_sequence_checkpoint` / `list_sequence_checkpoints` | Named `[checkpoint]` sequence clone before a risky edit, plus a `diff_sequence_snapshots`-ready snapshot of the original |
+| `navigate_playhead` | Start, end, in/out, work area, next/previous edit or marker, or frame stepping with position readback |
+
+### Review and Conversation Planning (2)
+
+| Tool | Description |
+| :--- | :---------- |
+| `plan_client_notes_checklist` | Pasted client or reviewer feedback → prioritized checklist (category, must/should/nice, approvals, questions, timecodes and ranges) and an `add_markers_batch` payload |
+| `plan_multicam_angle_switches` | Active-speaker angle switching for stacked camera tracks: minimum holds, crosstalk cover shots, lead-in cuts, cutaways, razor times, per-camera enable ranges, and markers |
+
+Both planners are local and deterministic. Premiere exposes no scripting API
+for switching angles inside a multicam source sequence, so the multicam plan
+targets synced clips stacked on separate video tracks and is applied through
+`razor_all_tracks`, `select_clips_in_range`, `batch_enable_disable`, and
+`add_markers_batch` on a checkpointed sequence. See
+[editor requests](docs/editor-requests.md) for the community and competitor
+evidence behind these tools and their verification boundaries.
 
 ### Speaker Layout (2)
 
@@ -1299,7 +1327,7 @@ premiere-pro-mcp/
 ├── src/
 │   ├── index.ts                 # Entry point — stdio transport setup
 │   ├── http-server.ts           # Entry point — HTTP/SSE transport (Fly.io / remote)
-│   ├── server.ts                # MCP server — registers 373 tools, filtered by authority profile
+│   ├── server.ts                # MCP server — registers 381 tools, filtered by authority profile
 │   ├── bridge/
 │   │   ├── file-bridge.ts       # File-based IPC (write .jsx, poll .json)
 │   │   └── script-builder.ts    # ExtendScript generator with ES3 helpers
