@@ -163,7 +163,10 @@ export async function createProjectBackup(
         { signal: options.signal },
       );
     } finally {
-      await backupHandle.close().catch(() => undefined);
+      await Promise.race([
+        backupHandle.close().catch(() => undefined),
+        new Promise((resolve) => setTimeout(resolve, 1000)),
+      ]);
     }
 
     const [afterCopy, backupAfterCopy] = await Promise.all([stat(sourcePath), stat(backupPath)]);
