@@ -36,6 +36,7 @@ for(const w of words){
   }
 }
 if(current.length)cues.push({start:current[0].start/.92+.65,end:current.at(-1).end/.92+.85,text:current.map(x=>x.word).join('').trim()})
+for(let i=0;i<cues.length-1;i++) cues[i].end=Math.min(cues[i].end,cues[i+1].start)
 const vttTime=s=>`00:${String(Math.floor(s/60)).padStart(2,'0')}:${(s%60).toFixed(3).padStart(6,'0')}`
 writeFileSync(path.join(pub,'premiere-pro-mcp-ad-v3.vtt'),'WEBVTT\n\n'+cues.map(c=>`${vttTime(c.start)} --> ${vttTime(c.end)}\n${c.text}\n`).join('\n'))
 const assTime=s=>`0:${String(Math.floor(s/60)).padStart(2,'0')}:${(s%60).toFixed(2).padStart(5,'0')}`
