@@ -22,8 +22,8 @@ export success, customer endorsement, or Adobe affiliation is invented.
 
 ## Sound and provenance
 
-The voice is an original generation using Runway's preset **Benjamin**, not a
-clone of a person. Generation ID: `ab28b05c-4512-42ba-8ecb-610fff0debe8`.
+The voice is an original generation using Runway's preset **Leslie** (professional female narration), not a
+clone of a person. Generation ID: `f349ef44-2f7c-4648-9acd-ea82dfe95e66`.
 The retained source is `landing/video-src/audio/premiere-ad-v3-narration.mp3`.
 Delivery was slowed to 92 percent and begins 650 milliseconds into the cut.
 Local speech recognition checked the words and supplied caption timing.
@@ -35,7 +35,7 @@ third-party sample, or artist imitation is used. Runway music generation was
 unavailable on the connected plan; no upgrade was purchased.
 
 The mix lowers the music under narration and fades to a clean ending. Measured
-on the final AAC export: **−16.01 LUFS integrated, −2.19 dBTP**, 30 seconds.
+on the final AAC export: **−16.01 LUFS integrated, −2.42 dBTP**, 30 seconds.
 Separate voice, music, effects, and lossless mix files live in the ignored
 `artifacts/ad-production/` directory. Automated checks do not replace a human
 listening review on the eventual playback device.
