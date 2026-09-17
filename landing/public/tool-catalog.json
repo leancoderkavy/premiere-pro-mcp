@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "evidenceScope": "source_catalog_may_include_unreleased_work",
-  "sourceVersion": "1.16.0",
+  "sourceVersion": "1.16.1",
   "sourcePath": "docs/supported-actions.md",
   "sourceSha256": "c36aee780368c74d2387f02e04c9a2383ba6667f560d45b9849ac1f367ab2112",
   "hostVerification": "not_established_by_catalogs",
