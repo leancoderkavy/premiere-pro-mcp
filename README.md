@@ -110,8 +110,8 @@ The current source exposes 381 core tools for supported workflow steps spanning 
 
 ### Latest release: 1.16.1
 
-The published v1.16.0 npm artifact contains **373 core tools**, 371 in its default profile,
-and 466 with a compatible UXP connection. The development catalog above can include
+The published v1.16.1 npm artifact contains **381 core tools**, 379 in its default profile,
+and 474 with a compatible UXP connection. The development catalog above can include
 unreleased work. See the [versioned facts and package provenance](https://premiere-pro-mcp.com/facts/).
 
 ### Try a bounded workflow
