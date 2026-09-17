@@ -190,7 +190,10 @@ export function getCompetitorGapTools(
             }
 
             try {
-              seq.insertClip(placement.item, __secondsToTicks(placement.startSeconds).toString(), placement.trackIndex, placement.audioTrackIndex);
+              var outcome = __insertClipHonoringSyncLock(seq, placement.item, __secondsToTicks(placement.startSeconds).toString(), placement.trackIndex, placement.audioTrackIndex, "sync_locked");
+              if (!outcome.ok) {
+                return __error("Batch insertion " + i + " failed after " + results.length + " verified placement(s): " + outcome.error);
+              }
             } catch (insertError) {
               return __error("Batch insertion " + i + " threw after " + results.length + " verified placement(s): " + insertError.toString());
             }

@@ -3,7 +3,7 @@
   "evidenceScope": "source_catalog_may_include_unreleased_work",
   "sourceVersion": "1.16.0",
   "sourcePath": "docs/supported-actions.md",
-  "sourceSha256": "9634bcd4c2b9a79d6b012270497f1e87b19a9536a05ad8abb5aeb61c73e76d5b",
+  "sourceSha256": "c36aee780368c74d2387f02e04c9a2383ba6667f560d45b9849ac1f367ab2112",
   "hostVerification": "not_established_by_catalogs",
   "counts": {
     "default": 379,
@@ -68,8 +68,8 @@
     {
       "name": "add_to_timeline",
       "surface": "default",
-      "modes": "Single operation",
-      "description": "Insert a project item at a timeline position and verify Premiere added no unexpected same-track fragments."
+      "modes": "scope: sync_locked, target_tracks",
+      "description": "Insert a project item at a timeline position, ripple QE sync-locked tracks to match Premiere's insert, and verify Premiere added no unexpected same-track fragments. Pass scope 'target_tracks' to ripple only the named pair (this will desync other tracks)."
     },
     {
       "name": "add_to_timeline_batch",
@@ -1292,8 +1292,8 @@
     {
       "name": "insert_from_source",
       "surface": "default",
-      "modes": "Single operation",
-      "description": "Insert the clip from the Source Monitor at the playhead position (insert edit — shifts existing clips)."
+      "modes": "scope: sync_locked, target_tracks",
+      "description": "Insert the clip from the Source Monitor at the playhead (insert edit). Sequence.insertClip only ripples the named tracks; by default this then razors and shifts every QE sync-locked track so they stay in sync, and verifies the result. Pass scope 'target_tracks' to ripple only the named pair (this will desync other tracks)."
     },
     {
       "name": "inspect_after_effects_render_templates",

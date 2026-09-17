@@ -591,6 +591,351 @@ function __exportStillFrame(outputPath, ticks) {
   };
 }
 
+// Sequence.insertClip(item, time, vTrack, aTrack) only ripples the two named
+// tracks. Premiere's UI insert also razors and shifts every sync-locked track;
+// the public DOM Track object has no isSyncLocked. QE exposes it. Default
+// scope "sync_locked" matches the UI; "target_tracks" is an explicit desync.
+function __insertClipHonoringSyncLock(seq, item, timeTicks, videoTrackIndex, audioTrackIndex, scope) {
+  if (!seq) return { ok: false, error: "No active sequence" };
+  if (!item) return { ok: false, error: "No clip to insert" };
+
+  var targetOnly = scope === "target_tracks";
+  var vTrackIndex = parseInt(videoTrackIndex, 10);
+  var aTrackIndex = parseInt(audioTrackIndex, 10);
+  if (isNaN(vTrackIndex) || vTrackIndex < 0 || isNaN(aTrackIndex) || aTrackIndex < 0) {
+    return { ok: false, error: "video_track_index and audio_track_index must be non-negative integers" };
+  }
+
+  var videoTrack = seq.videoTracks[vTrackIndex];
+  var audioTrack = seq.audioTracks[aTrackIndex];
+  if (!videoTrack) return { ok: false, error: "Video track index " + vTrackIndex + " is out of range" };
+  if (!audioTrack) return { ok: false, error: "Audio track index " + aTrackIndex + " is out of range" };
+
+  var insertTicks = parseFloat(timeTicks);
+  if (isNaN(insertTicks)) return { ok: false, error: "Insert time is not a valid tick value" };
+
+  if (!targetOnly) {
+    var activeSeq = null;
+    try { activeSeq = app.project.activeSequence; } catch (eAct) { activeSeq = null; }
+    if (!activeSeq) {
+      return { ok: false, error: "Insert refused; nothing was changed. There is no active sequence, so QE cannot razor the same timeline. Activate the target sequence and retry, or pass scope 'target_tracks' to ripple only the named tracks (this will desync other tracks)." };
+    }
+    var activeId = "";
+    var seqId = "";
+    try { activeId = String(activeSeq.sequenceID); } catch (eId1) {}
+    try { seqId = String(seq.sequenceID); } catch (eId2) {}
+    if (!seqId || activeId !== seqId) {
+      return { ok: false, error: "Insert refused; nothing was changed. The target sequence is not the active sequence, so QE would razor a different timeline. Activate it and retry, or pass scope 'target_tracks' to ripple only the named tracks (this will desync other tracks)." };
+    }
+  }
+
+  var frameTicks = seq.timebase ? parseFloat(seq.timebase) : NaN;
+  if (!frameTicks || isNaN(frameTicks)) frameTicks = TICKS_PER_SECOND / 24;
+  var tol = frameTicks;
+
+  var durationTicks = NaN;
+  try { durationTicks = parseFloat(item.getOutPoint().ticks) - parseFloat(item.getInPoint().ticks); } catch (eDur) {}
+  if (!(durationTicks > 0)) {
+    try { durationTicks = parseFloat(item.getOutPoint(4).ticks) - parseFloat(item.getInPoint(4).ticks); } catch (eDur4) {}
+  }
+  if (!(durationTicks > 0)) {
+    return { ok: false, error: "The source clip has no positive in/out duration, so an insert cannot be verified." };
+  }
+
+  function domTrackFor(type, idx) {
+    return type === "video" ? seq.videoTracks[idx] : seq.audioTracks[idx];
+  }
+
+  var qeSeq = null;
+  if (!targetOnly) {
+    try {
+      if (typeof app === "undefined" || typeof app.enableQE !== "function") {
+        return { ok: false, error: "QE is unavailable, so sync-lock state cannot be read and the insert was not attempted. Pass scope 'target_tracks' to ripple only the named tracks (this will desync other tracks)." };
+      }
+      app.enableQE();
+    } catch (eQE) {
+      return { ok: false, error: "Premiere could not enable QE, so sync-lock state cannot be read and the insert was not attempted. Pass scope 'target_tracks' to ripple only the named tracks (this will desync other tracks)." };
+    }
+    try { qeSeq = (typeof qe !== "undefined" && qe.project) ? qe.project.getActiveSequence() : null; } catch (eSeq) { qeSeq = null; }
+    if (!qeSeq) {
+      return { ok: false, error: "No active sequence (QE); cannot read sync-lock state, so the insert was not attempted. Pass scope 'target_tracks' to ripple only the named tracks (this will desync other tracks)." };
+    }
+  }
+
+  function qeTrackFor(type, idx) {
+    if (!qeSeq) return null;
+    return type === "video" ? qeSeq.getVideoTrackAt(idx) : qeSeq.getAudioTrackAt(idx);
+  }
+
+  var parts = [];
+  function addPart(type, idx, isTarget) {
+    var dt = domTrackFor(type, idx);
+    if (!dt) return;
+    parts.push({ type: type, index: idx, domTrack: dt, isTarget: isTarget });
+  }
+
+  addPart("video", vTrackIndex, true);
+  addPart("audio", aTrackIndex, true);
+
+  if (!targetOnly) {
+    var vN = seq.videoTracks.numTracks;
+    var aN = seq.audioTracks.numTracks;
+    var ti;
+    for (ti = 0; ti < vN; ti++) {
+      if (ti === vTrackIndex) continue;
+      var slv = null;
+      try {
+        var qv = qeTrackFor("video", ti);
+        if (qv && typeof qv.isSyncLocked === "function") slv = !!qv.isSyncLocked();
+      } catch (e1) { slv = null; }
+      if (slv === null) {
+        return { ok: false, error: "Insert refused; nothing was changed. Could not read isSyncLocked() on video track " + ti + ". Pass scope 'target_tracks' to ripple only the named tracks (this will desync other tracks)." };
+      }
+      if (slv) addPart("video", ti, false);
+    }
+    for (ti = 0; ti < aN; ti++) {
+      if (ti === aTrackIndex) continue;
+      var sla = null;
+      try {
+        var qa = qeTrackFor("audio", ti);
+        if (qa && typeof qa.isSyncLocked === "function") sla = !!qa.isSyncLocked();
+      } catch (e2) { sla = null; }
+      if (sla === null) {
+        return { ok: false, error: "Insert refused; nothing was changed. Could not read isSyncLocked() on audio track " + ti + ". Pass scope 'target_tracks' to ripple only the named tracks (this will desync other tracks)." };
+      }
+      if (sla) addPart("audio", ti, false);
+    }
+  }
+
+  var lockedList = [];
+  var pi;
+  for (pi = 0; pi < parts.length; pi++) {
+    var lk = null;
+    try {
+      if (typeof parts[pi].domTrack.isLocked === "function") lk = !!parts[pi].domTrack.isLocked();
+    } catch (eDomLock) { lk = null; }
+    if (lk === null) {
+      try {
+        var ql = qeTrackFor(parts[pi].type, parts[pi].index);
+        if (ql && typeof ql.isLocked === "function") lk = !!ql.isLocked();
+      } catch (e3) { lk = null; }
+    }
+    if (!targetOnly && lk === null) {
+      return { ok: false, error: "Insert refused; nothing was changed. Could not read isLocked() on " + parts[pi].type + " track " + parts[pi].index + ". Pass scope 'target_tracks' to ripple only the named tracks (this will desync other tracks)." };
+    }
+    if (lk) lockedList.push(parts[pi].type + " track " + parts[pi].index);
+  }
+  if (lockedList.length) {
+    return { ok: false, error: "Insert refused; nothing was changed. These tracks must shift but are locked: " + lockedList.join(", ") + ". Unlock them or use scope 'target_tracks' (which will desync other tracks)." };
+  }
+
+  var shiftPlan = [];
+  for (pi = 0; pi < parts.length; pi++) {
+    var t = parts[pi];
+    if (t.isTarget) continue;
+    var straddlers = [];
+    var movers = [];
+    var ci;
+    for (ci = 0; ci < t.domTrack.clips.numItems; ci++) {
+      var c = t.domTrack.clips[ci];
+      var cs = parseFloat(c.start.ticks);
+      var ce = parseFloat(c.end.ticks);
+      if (cs < insertTicks - tol && ce > insertTicks + tol) {
+        straddlers.push({ nodeId: String(c.nodeId), start: cs, end: ce });
+        continue;
+      }
+      if (cs >= insertTicks - tol) {
+        movers.push({ nodeId: String(c.nodeId), start: cs, end: ce });
+      }
+    }
+    shiftPlan.push({ type: t.type, index: t.index, domTrack: t.domTrack, movers: movers, straddlers: straddlers });
+  }
+
+  var needRazor = false;
+  for (pi = 0; pi < shiftPlan.length; pi++) {
+    if (shiftPlan[pi].straddlers.length) needRazor = true;
+  }
+  if (needRazor) {
+    var razorAt = null;
+    try { razorAt = __qeTimecodeForTicks(seq, insertTicks); } catch (eTc) {}
+    if (!razorAt || !razorAt.timecode) {
+      return { ok: false, error: "Insert refused; nothing was changed. Could not format a QE razor timecode for the insert point." };
+    }
+    for (pi = 0; pi < shiftPlan.length; pi++) {
+      if (!shiftPlan[pi].straddlers.length) continue;
+      var razorTrack = null;
+      try { razorTrack = qeTrackFor(shiftPlan[pi].type, shiftPlan[pi].index); } catch (eProbe) {}
+      if (!razorTrack || typeof razorTrack.razor !== "function") {
+        return { ok: false, error: "Insert refused; nothing was changed. Sync-locked " + shiftPlan[pi].type + " track " + shiftPlan[pi].index + " has a clip spanning the insert point and QE razor is unavailable, so those tracks cannot be rippled without slicing through them. Razor them first or pass scope 'target_tracks' (which will desync other tracks)." };
+      }
+    }
+    var razored = [];
+    for (pi = 0; pi < shiftPlan.length; pi++) {
+      if (!shiftPlan[pi].straddlers.length) continue;
+      try {
+        qeTrackFor(shiftPlan[pi].type, shiftPlan[pi].index).razor(razorAt.timecode);
+        razored.push(shiftPlan[pi].type + " " + shiftPlan[pi].index);
+      } catch (razorErr) {
+        return { ok: false, error: "QE razor failed on " + shiftPlan[pi].type + " track " + shiftPlan[pi].index + (razored.length ? " after already razoring " + razored.join(", ") : "") + ", so the timeline is partially changed: " + razorErr.toString() };
+      }
+      shiftPlan[pi].movers = [];
+      var stillSpan = false;
+      for (ci = 0; ci < shiftPlan[pi].domTrack.clips.numItems; ci++) {
+        var rc = shiftPlan[pi].domTrack.clips[ci];
+        var rcs = parseFloat(rc.start.ticks);
+        var rce = parseFloat(rc.end.ticks);
+        if (rcs < insertTicks - tol && rce > insertTicks + tol) stillSpan = true;
+        if (rcs >= insertTicks - tol) {
+          shiftPlan[pi].movers.push({ nodeId: String(rc.nodeId), start: rcs, end: rce });
+        }
+      }
+      if (stillSpan) {
+        return { ok: false, error: "QE razor did not split a spanning clip on " + shiftPlan[pi].type + " track " + shiftPlan[pi].index + ", so the timeline is partially changed. Razor that track at the insert point or pass scope 'target_tracks' (which will desync other tracks)." };
+      }
+    }
+  }
+
+  var beforeVideoIds = {};
+  var beforeAudioIds = {};
+  var i;
+  var beforeVideoCount = videoTrack.clips.numItems;
+  var beforeAudioCount = audioTrack.clips.numItems;
+  for (i = 0; i < beforeVideoCount; i++) beforeVideoIds[String(videoTrack.clips[i].nodeId)] = true;
+  for (i = 0; i < beforeAudioCount; i++) beforeAudioIds[String(audioTrack.clips[i].nodeId)] = true;
+
+  function expectedAddedForTrack(track) {
+    var ci2;
+    for (ci2 = 0; ci2 < track.clips.numItems; ci2++) {
+      var cs2 = parseFloat(track.clips[ci2].start.ticks);
+      var ce2 = parseFloat(track.clips[ci2].end.ticks);
+      if (cs2 < insertTicks - tol && ce2 > insertTicks + tol) return 2;
+    }
+    return 1;
+  }
+  var expectedVideoAdded = expectedAddedForTrack(videoTrack);
+  var expectedAudioAdded = expectedAddedForTrack(audioTrack);
+  var afterRazorNote = needRazor
+    ? " after sync-locked tracks were razored at the insert point, so the timeline is partially changed"
+    : "";
+
+  try {
+    seq.insertClip(item, String(timeTicks), vTrackIndex, aTrackIndex);
+  } catch (insErr) {
+    return { ok: false, error: "Premiere rejected Sequence.insertClip" + afterRazorNote + ": " + insErr.toString() };
+  }
+
+  var afterVideoCount = videoTrack.clips.numItems;
+  var afterAudioCount = audioTrack.clips.numItems;
+  if (afterVideoCount > beforeVideoCount + expectedVideoAdded || afterAudioCount > beforeAudioCount + expectedAudioAdded) {
+    return { ok: false, error: "Premiere inserted more clips on a targeted track than a split-plus-insert accounts for" + afterRazorNote + ". This can leave a residual frame fragment at an exact boundary; the insertion is not reported as verified." };
+  }
+
+  var insertedClips = [];
+  for (i = 0; i < afterVideoCount; i++) {
+    if (!beforeVideoIds[String(videoTrack.clips[i].nodeId)]) insertedClips.push(videoTrack.clips[i]);
+  }
+  for (i = 0; i < afterAudioCount; i++) {
+    if (!beforeAudioIds[String(audioTrack.clips[i].nodeId)]) insertedClips.push(audioTrack.clips[i]);
+  }
+  if (!insertedClips.length) {
+    return { ok: false, error: "Premiere did not add a new track item at the requested insertion point" + afterRazorNote + "." };
+  }
+
+  var matched = false;
+  var actualDuration = durationTicks;
+  var bestDiff = null;
+  for (i = 0; i < insertedClips.length; i++) {
+    var ic = insertedClips[i];
+    if (!(ic.projectItem && String(ic.projectItem.nodeId) === String(item.nodeId))) continue;
+    var insertedStart = parseFloat(ic.start.ticks);
+    if (Math.abs(insertedStart - insertTicks) > tol) continue;
+    var insertedDuration = parseFloat(ic.end.ticks) - insertedStart;
+    var durationDiff = Math.abs(insertedDuration - durationTicks);
+    if (bestDiff === null || durationDiff < bestDiff) {
+      bestDiff = durationDiff;
+      matched = true;
+      actualDuration = insertedDuration;
+    }
+  }
+  if (!matched) {
+    return { ok: false, error: "Premiere changed the target track but the requested project item was not found after insertion" + afterRazorNote + "." };
+  }
+  if (!(actualDuration > 0)) actualDuration = durationTicks;
+
+  var moved = 0;
+  var failures = [];
+  if (!targetOnly) {
+    for (pi = 0; pi < shiftPlan.length; pi++) {
+      var tp = shiftPlan[pi];
+      tp.movers.sort(function (a, b) { return b.start - a.start; });
+      for (var mi = 0; mi < tp.movers.length; mi++) {
+        var want = tp.movers[mi];
+        var found = null;
+        for (var fi = 0; fi < tp.domTrack.clips.numItems; fi++) {
+          if (String(tp.domTrack.clips[fi].nodeId) === want.nodeId) { found = tp.domTrack.clips[fi]; break; }
+        }
+        if (!found) { failures.push(tp.type + " " + tp.index + ": clip " + want.nodeId + " vanished before it could be shifted"); continue; }
+        try {
+          __writeClipSpan(found, want.start + actualDuration, want.end + actualDuration);
+          moved++;
+        } catch (shiftErr) {
+          failures.push(tp.type + " " + tp.index + ": " + want.nodeId + " -> " + shiftErr.toString());
+        }
+      }
+    }
+  }
+
+  var verifyProblems = [];
+  if (!targetOnly) {
+    for (pi = 0; pi < shiftPlan.length; pi++) {
+      var tv = shiftPlan[pi];
+      for (var vi = 0; vi < tv.movers.length; vi++) {
+        var w = tv.movers[vi];
+        var got = null;
+        for (var gi = 0; gi < tv.domTrack.clips.numItems; gi++) {
+          if (String(tv.domTrack.clips[gi].nodeId) === w.nodeId) { got = tv.domTrack.clips[gi]; break; }
+        }
+        if (!got) { verifyProblems.push(tv.type + " " + tv.index + ": " + w.nodeId + " not found after shifting"); continue; }
+        var gs = parseFloat(got.start.ticks);
+        var gd = parseFloat(got.end.ticks) - gs;
+        if (Math.abs(gs - (w.start + actualDuration)) > tol) {
+          verifyProblems.push(tv.type + " " + tv.index + ": expected start " + __ticksToSeconds(w.start + actualDuration) + "s, got " + __ticksToSeconds(gs) + "s");
+        }
+        if (Math.abs(gd - (w.end - w.start)) > tol) {
+          verifyProblems.push(tv.type + " " + tv.index + ": duration changed from " + __ticksToSeconds(w.end - w.start) + "s to " + __ticksToSeconds(gd) + "s");
+        }
+      }
+    }
+  }
+
+  if (failures.length || verifyProblems.length) {
+    return { ok: false, error: "The clip was inserted on the named tracks but sync-locked tracks were not rippled cleanly, so the timeline is now partially desynced and needs checking. " + failures.concat(verifyProblems).join("; ") + "." };
+  }
+
+  var tracksAffected = [];
+  for (pi = 0; pi < parts.length; pi++) tracksAffected.push(parts[pi].type + " " + parts[pi].index);
+
+  var data = {
+    inserted: true,
+    added: true,
+    verified: true,
+    syncLockHonored: !targetOnly,
+    item: item.name,
+    atSeconds: __ticksToSeconds(insertTicks),
+    durationSeconds: __ticksToSeconds(actualDuration),
+    videoTrackIndex: vTrackIndex,
+    audioTrackIndex: aTrackIndex,
+    clipsShifted: moved,
+    tracksAffected: tracksAffected,
+    scope: targetOnly ? "target_tracks" : "sync_locked",
+    insertedTrackItems: insertedClips.length
+  };
+  if (targetOnly) {
+    data.warning = "Only the named tracks were rippled. Other tracks were left in place and may be out of sync. This will desync any sync-locked neighbours.";
+  }
+  return { ok: true, data: data };
+}
+
 function __jsonStringify(obj) {
   // ES3-compatible JSON stringify. Never delegate to JSON.stringify here: the
   // global JSON polyfill above is a wrapper around THIS function, so delegating

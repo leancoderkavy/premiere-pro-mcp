@@ -132,7 +132,7 @@ if the connection is unavailable.
 
 - **Editorial planning:** film evidence, transcript cleanup, caption authoring, shorts and chapter planning, rhythm and speaker layouts, timeline QA, and platform delivery plans.
 - **Cross-app handoff:** capability-aware workflow routes and guarded After Effects render-to-Premiere handoff.
-- **Editing correctness:** verified readback and explicit capability or committed-but-unverified failures across transition, import, effects, source identity, and track operations.
+- **Editing correctness:** verified readback and explicit capability or committed-but-unverified failures across transition, import, effects, source identity, and track operations. Insert edits ripple QE sync-locked tracks instead of silently desyncing neighbours.
 
 - **MOGRT studio:** an optional, separate After Effects CEP connector can
   author approval-gated title, callout, quote, and social recipes; constrain

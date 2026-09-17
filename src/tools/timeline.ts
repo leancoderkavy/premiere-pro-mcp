@@ -5,7 +5,7 @@ export function getTimelineTools(bridgeOptions: BridgeOptions) {
   return {
     add_to_timeline: {
       description:
-        "Insert a project item at a timeline position and verify Premiere added no unexpected same-track fragments.",
+        "Insert a project item at a timeline position, ripple QE sync-locked tracks to match Premiere's insert, and verify Premiere added no unexpected same-track fragments. Pass scope 'target_tracks' to ripple only the named pair (this will desync other tracks).",
       parameters: {
         type: "object" as const,
         properties: {
@@ -25,13 +25,26 @@ export function getTimelineTools(bridgeOptions: BridgeOptions) {
             type: "number",
             description: "Audio track index for the audio portion (default: 0)",
           },
+          scope: {
+            type: "string",
+            enum: ["sync_locked", "target_tracks"],
+            description:
+              "Which tracks shift: 'sync_locked' (default) matches Premiere's insert; 'target_tracks' ripples only the named pair and WILL desync other tracks.",
+          },
       },
       required: ["item_id"],
       },
-      handler: async (args: { item_id: string; track_index?: number; start_seconds?: number; audio_track_index?: number }) => {
+      handler: async (args: {
+        item_id: string;
+        track_index?: number;
+        start_seconds?: number;
+        audio_track_index?: number;
+        scope?: "sync_locked" | "target_tracks";
+      }) => {
         const trackIndex = args.track_index ?? 0;
         const startSeconds = args.start_seconds ?? 0;
         const audioTrackIndex = args.audio_track_index ?? 0;
+        const scope = args.scope === "target_tracks" ? "target_tracks" : "sync_locked";
         if (!Number.isInteger(trackIndex) || trackIndex < 0 ||
             !Number.isInteger(audioTrackIndex) || audioTrackIndex < 0 ||
             !Number.isFinite(startSeconds) || startSeconds < 0) {
@@ -44,72 +57,22 @@ export function getTimelineTools(bridgeOptions: BridgeOptions) {
         const script = buildToolScript(`
           var seq = app.project.activeSequence;
           if (!seq) return __error("No active sequence");
-          var videoTrack = seq.videoTracks[${trackIndex}];
-          if (!videoTrack) return __error("Video track index ${trackIndex} is out of range");
-          var audioTrack = seq.audioTracks[${audioTrackIndex}];
-          
           var item = __findProjectItem("${escapeForExtendScript(args.item_id)}");
           if (!item) return __error("Project item not found: ${escapeForExtendScript(args.item_id)}");
-          
-          var beforeVideoCount = videoTrack.clips.numItems;
-          var beforeAudioCount = audioTrack ? audioTrack.clips.numItems : 0;
-          var beforeVideoIds = {};
-          var beforeAudioIds = {};
-          var i;
-          for (i = 0; i < beforeVideoCount; i++) beforeVideoIds[videoTrack.clips[i].nodeId] = true;
-          if (audioTrack) {
-            for (i = 0; i < beforeAudioCount; i++) beforeAudioIds[audioTrack.clips[i].nodeId] = true;
-          }
-
           var startTicks = __secondsToTicks(${startSeconds}).toString();
-          seq.insertClip(item, startTicks, ${trackIndex}, ${audioTrackIndex});
-
-          var afterVideoCount = videoTrack.clips.numItems;
-          var afterAudioCount = audioTrack ? audioTrack.clips.numItems : 0;
-          if (afterVideoCount > beforeVideoCount + 1 || (audioTrack && afterAudioCount > beforeAudioCount + 1)) {
-            return __error("Premiere inserted more than one clip on a targeted track. This can leave a residual frame fragment at an exact boundary; the insertion may be partial, but is not reported as verified.");
-          }
-
-          var inserted = [];
-          for (i = 0; i < afterVideoCount; i++) {
-            var videoClip = videoTrack.clips[i];
-            if (!beforeVideoIds[videoClip.nodeId]) inserted.push({ clip: videoClip, trackType: "video" });
-          }
-          if (audioTrack) {
-            for (i = 0; i < afterAudioCount; i++) {
-              var audioClip = audioTrack.clips[i];
-              if (!beforeAudioIds[audioClip.nodeId]) inserted.push({ clip: audioClip, trackType: "audio" });
-            }
-          }
-          if (!inserted.length) {
-            return __error("Premiere did not add a new track item at the requested insertion point.");
-          }
-
-          var frameTicks = parseFloat(seq.timebase);
-          if (!frameTicks || isNaN(frameTicks)) frameTicks = TICKS_PER_SECOND / 24;
-          var tolerance = __ticksToSeconds(frameTicks);
-          var matchedItem = false;
-          for (i = 0; i < inserted.length; i++) {
-            var insertedClip = inserted[i].clip;
-            if (insertedClip.projectItem && insertedClip.projectItem.nodeId === item.nodeId) {
-              matchedItem = true;
-              if (Math.abs(__ticksToSeconds(insertedClip.start.ticks) - ${startSeconds}) > tolerance) {
-                return __error("Premiere added the requested item but not at the requested timeline frame; the insertion is not reported as verified.");
-              }
-            }
-          }
-          if (!matchedItem) {
-            return __error("Premiere changed the target track but the requested project item was not found after insertion.");
-          }
-          
-          return __result({
+          var outcome = __insertClipHonoringSyncLock(seq, item, startTicks, ${trackIndex}, ${audioTrackIndex}, "${scope}");
+          if (!outcome.ok) return __error(outcome.error);
+          var payload = {
             added: true,
-            verified: true,
-            item: item.name,
+            verified: outcome.data.verified,
+            syncLockHonored: outcome.data.syncLockHonored,
+            item: outcome.data.item,
             trackIndex: ${trackIndex},
             startSeconds: ${startSeconds},
-            insertedTrackItems: inserted.length
-          });
+            insertedTrackItems: outcome.data.insertedTrackItems
+          };
+          if (outcome.data.warning) payload.warning = outcome.data.warning;
+          return __result(payload);
         `);
         return sendCommand(script, bridgeOptions);
       },

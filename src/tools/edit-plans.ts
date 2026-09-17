@@ -99,7 +99,7 @@ function buildApplyScript(plan: EditPlan): string {
   plan.operations.forEach((operation, index) => {
     if (operation.type === "insert_clip") {
       validation.push(`var item${index} = __findProjectItem("${escapeForExtendScript(operation.item_id)}"); if (!item${index}) return __error("Project item not found for operation ${index}");`);
-      mutations.push(`seq.insertClip(item${index}, __secondsToTicks(${operation.start_seconds}).toString(), ${operation.video_track_index ?? 0}, ${operation.audio_track_index ?? 0}); results.push({index:${index}, type:"insert_clip", applied:true});`);
+      mutations.push(`var outcome${index} = __insertClipHonoringSyncLock(seq, item${index}, __secondsToTicks(${operation.start_seconds}).toString(), ${operation.video_track_index ?? 0}, ${operation.audio_track_index ?? 0}, "sync_locked"); if (!outcome${index}.ok) return __error("Insert operation ${index}: " + outcome${index}.error); results.push({index:${index}, type:"insert_clip", applied:true, verified:true, syncLockHonored: outcome${index}.data.syncLockHonored});`);
     } else {
       validation.push(`var found${index} = __planFindClip(seq, "${escapeForExtendScript(operation.node_id)}"); if (!found${index}) return __error("Clip not found for operation ${index}");`);
       mutations.push(`found${index}.remove(${operation.ripple === true ? "true" : "false"}, true); results.push({index:${index}, type:"remove_clip", applied:true});`);

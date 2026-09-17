@@ -22,6 +22,7 @@ describe("buildScript", () => {
     expect(result).toContain("function __findSequence(idOrName)");
     expect(result).toContain("function __findProjectItem(nodeIdOrName, rootItem)");
     expect(result).toContain("function __findClip(nodeId)");
+    expect(result).toContain("function __insertClipHonoringSyncLock(seq, item, timeTicks, videoTrackIndex, audioTrackIndex, scope)");
     expect(result).toContain("function __getAllClips(seq)");
     expect(result).toContain("function __jsonStringify(obj)");
     expect(result).toContain("function __result(data)");

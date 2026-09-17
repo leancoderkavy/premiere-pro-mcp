@@ -377,11 +377,12 @@ describe("issue #189 — Premiere 26.3 capability boundaries and macOS presets",
     const script = await scriptFor(timeline.add_to_timeline, {
       item_id: "clip-1", track_index: 0, audio_track_index: 0, start_seconds: 3.4,
     });
-    expect(script).toContain("beforeVideoCount");
-    expect(script).toContain("afterVideoCount > beforeVideoCount + 1");
-    expect(script).toContain("residual frame fragment");
-    expect(script).toContain("matchedItem");
-    expect(script).toContain("verified: true");
+    expect(script).toContain("__insertClipHonoringSyncLock(");
+    expect(getHelpersSource()).toContain("beforeVideoCount");
+    expect(getHelpersSource()).toContain("afterVideoCount > beforeVideoCount + expectedVideoAdded");
+    expect(getHelpersSource()).toContain("residual frame fragment");
+    expect(getHelpersSource()).toContain("matched");
+    expect(script).toContain("verified: outcome.data.verified");
   });
 });
 

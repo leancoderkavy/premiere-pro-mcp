@@ -93,7 +93,8 @@ export function getSourceMonitorTools(bridgeOptions: BridgeOptions) {
     },
 
     insert_from_source: {
-      description: "Insert the clip from the Source Monitor at the playhead position (insert edit — shifts existing clips).",
+      description:
+        "Insert the clip from the Source Monitor at the playhead (insert edit). Sequence.insertClip only ripples the named tracks; by default this then razors and shifts every QE sync-locked track so they stay in sync, and verifies the result. Pass scope 'target_tracks' to ripple only the named pair (this will desync other tracks).",
       parameters: {
         type: "object" as const,
         properties: {
@@ -105,11 +106,28 @@ export function getSourceMonitorTools(bridgeOptions: BridgeOptions) {
             type: "number",
             description: "Target audio track index (default: 0)",
           },
+          scope: {
+            type: "string",
+            enum: ["sync_locked", "target_tracks"],
+            description:
+              "Which tracks shift: 'sync_locked' (default) matches Premiere's insert and keeps sync-locked tracks in sync; 'target_tracks' ripples only the named pair and WILL desync other tracks.",
+          },
         },
       },
-      handler: async (args: { video_track_index?: number; audio_track_index?: number }) => {
+      handler: async (args: {
+        video_track_index?: number;
+        audio_track_index?: number;
+        scope?: "sync_locked" | "target_tracks";
+      }) => {
         const vTrack = args.video_track_index ?? 0;
         const aTrack = args.audio_track_index ?? 0;
+        const scope = args.scope === "target_tracks" ? "target_tracks" : "sync_locked";
+        if (!Number.isInteger(vTrack) || vTrack < 0 || !Number.isInteger(aTrack) || aTrack < 0) {
+          return {
+            success: false,
+            error: "video_track_index and audio_track_index must be non-negative integers.",
+          };
+        }
         const script = buildToolScript(`
           var seq = app.project.activeSequence;
           if (!seq) return __error("No active sequence");
@@ -118,9 +136,9 @@ export function getSourceMonitorTools(bridgeOptions: BridgeOptions) {
           if (!item) return __error("No clip open in Source Monitor");
 
           var pos = seq.getPlayerPosition().ticks;
-          seq.insertClip(item, pos, ${vTrack}, ${aTrack});
-
-          return __result({ inserted: true, item: item.name, atSeconds: __ticksToSeconds(pos) });
+          var outcome = __insertClipHonoringSyncLock(seq, item, pos, ${vTrack}, ${aTrack}, "${scope}");
+          if (!outcome.ok) return __error(outcome.error);
+          return __result(outcome.data);
         `);
         return sendCommand(script, bridgeOptions);
       },
