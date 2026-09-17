@@ -15,6 +15,7 @@ import { getSourceMonitorTools } from "../../src/tools/source-monitor.js";
 import { getTimelineTools } from "../../src/tools/timeline.js";
 import { confirmationToken, getEditPlanTools } from "../../src/tools/edit-plans.js";
 import { getCompetitorGapTools } from "../../src/tools/competitor-gaps.js";
+import { getSpotWorkflowTools, spotWorkflowConfirmationToken } from "../../src/tools/spot-workflows.js";
 
 const mockedSendCommand = vi.mocked(sendCommand);
 const bridgeOptions: BridgeOptions = { tempDir: "/tmp/issue-562", timeoutMs: 5000 };
@@ -114,7 +115,14 @@ function insertOnTrack(
   track._reindex();
 }
 
-function issue562Host(options: { qe?: boolean; allLocked?: boolean } = {}) {
+function issue562Host(options: {
+  qe?: boolean;
+  allLocked?: boolean;
+  playheadSeconds?: number;
+  lockedVideo?: number[];
+  unlockedVideo?: number[];
+  omitIsLocked?: boolean;
+} = {}) {
   const source = {
     nodeId: "src",
     name: "src",
@@ -135,11 +143,19 @@ function issue562Host(options: { qe?: boolean; allLocked?: boolean } = {}) {
   const a3 = makeTrack([makeClip("a3", 2, 36, "cam3")]);
   const videoTracks = { 0: v1, 1: v2, 2: v3, get numTracks() { return 3; } };
   const audioTracks = { 0: a1, 1: a2, 2: a3, get numTracks() { return 3; } };
+  (options.lockedVideo ?? []).forEach((index) => {
+    [v1, v2, v3][index]._locked = true;
+    [a1, a2, a3][index]._locked = true;
+  });
+  (options.unlockedVideo ?? []).forEach((index) => {
+    [v1, v2, v3][index]._syncLocked = false;
+    [a1, a2, a3][index]._syncLocked = false;
+  });
   const seq = {
     timebase: String(TICKS / 24),
     videoTracks,
     audioTracks,
-    getPlayerPosition() { return { ticks: ticksOf(8) }; },
+    getPlayerPosition() { return { ticks: ticksOf(options.playheadSeconds ?? 8) }; },
     insertClip(item: typeof source, time: string | number, vTrack: number, aTrack: number) {
       insertOnTrack(videoTracks[vTrack as 0 | 1 | 2], item, time, `ins-v-${vTrack}`);
       insertOnTrack(audioTracks[aTrack as 0 | 1 | 2], item, time, `ins-a-${aTrack}`);
@@ -147,9 +163,12 @@ function issue562Host(options: { qe?: boolean; allLocked?: boolean } = {}) {
   };
 
   function qeTrackFor(track: ReturnType<typeof makeTrack>) {
-    return {
+    const qeTrack: {
+      isSyncLocked: () => boolean;
+      isLocked?: () => boolean;
+      razor: (timecode: string) => void;
+    } = {
       isSyncLocked() { return options.allLocked === false ? false : track._syncLocked; },
-      isLocked() { return track._locked; },
       razor(timecode: string) {
         const at = parseQeTimecode(timecode, 24);
         const spawned: ReturnType<typeof makeClip>[] = [];
@@ -165,6 +184,10 @@ function issue562Host(options: { qe?: boolean; allLocked?: boolean } = {}) {
         track._reindex();
       },
     };
+    if (!options.omitIsLocked) {
+      qeTrack.isLocked = () => track._locked;
+    }
+    return qeTrack;
   }
 
   const qeSeq = {
@@ -215,6 +238,8 @@ describe("issue #562 — insert_from_source honors sync lock", () => {
     const helpers = getHelpersSource();
     expect(helpers).toContain("function __insertClipHonoringSyncLock(");
     expect(helpers).toContain("isSyncLocked()");
+    expect(helpers).toContain("__writeClipSpan(");
+    expect(helpers).toContain("expectedVideoAdded");
     const script = await scriptFor(source.insert_from_source, {});
     expect(script).toContain('__insertClipHonoringSyncLock(seq, item, pos, 0, 0, "sync_locked")');
     expect(script).not.toMatch(/seq\.insertClip\([^)]+\);\s*return __result\(\{\s*inserted:\s*true/);
@@ -235,6 +260,48 @@ describe("issue #562 — insert_from_source honors sync lock", () => {
     expect(rangesOf(seq.audioTracks[1])).toEqual([[6, 8], [10, 12]]);
     expect(rangesOf(seq.videoTracks[2])).toEqual([[2, 8], [10, 38]]);
     expect(rangesOf(seq.audioTracks[2])).toEqual([[2, 8], [10, 38]]);
+  });
+
+  it("ripples sync-locked neighbours when the playhead splits a clip on the target track", async () => {
+    const script = await scriptFor(source.insert_from_source, {
+      video_track_index: 0,
+      audio_track_index: 0,
+    });
+    const { sandbox, seq } = issue562Host({ playheadSeconds: 6 });
+    const result = runScript(script, sandbox);
+    expect(result).toMatchObject({ success: true, data: { inserted: true, verified: true, syncLockHonored: true } });
+    expect(rangesOf(seq.videoTracks[0])).toEqual([[0, 4], [4, 6], [6, 8], [8, 10], [10, 14], [14, 20]]);
+    expect(rangesOf(seq.videoTracks[1])).toEqual([[8, 12]]);
+    expect(rangesOf(seq.videoTracks[2])).toEqual([[2, 6], [8, 38]]);
+  });
+
+  it("refuses before mutation when a participating track is locked", async () => {
+    const script = await scriptFor(source.insert_from_source, {});
+    const { sandbox, seq } = issue562Host({ lockedVideo: [1] });
+    const result = runScript(script, sandbox);
+    expect(result.success).toBe(false);
+    expect(result.error).toMatch(/locked/i);
+    expect(rangesOf(seq.videoTracks[0])).toEqual([[0, 4], [4, 8], [8, 12], [12, 18]]);
+    expect(rangesOf(seq.videoTracks[1])).toEqual([[6, 10]]);
+  });
+
+  it("leaves unlocked neighbours in place while rippling locked ones", async () => {
+    const script = await scriptFor(source.insert_from_source, {});
+    const { sandbox, seq } = issue562Host({ unlockedVideo: [1] });
+    const result = runScript(script, sandbox);
+    expect(result).toMatchObject({ success: true, data: { verified: true, syncLockHonored: true } });
+    expect(rangesOf(seq.videoTracks[1])).toEqual([[6, 10]]);
+    expect(rangesOf(seq.audioTracks[1])).toEqual([[6, 10]]);
+    expect(rangesOf(seq.videoTracks[2])).toEqual([[2, 8], [10, 38]]);
+  });
+
+  it("refuses before mutation when QE cannot report track lock", async () => {
+    const script = await scriptFor(source.insert_from_source, {});
+    const { sandbox, seq } = issue562Host({ omitIsLocked: true });
+    const result = runScript(script, sandbox);
+    expect(result.success).toBe(false);
+    expect(result.error).toMatch(/isLocked/i);
+    expect(rangesOf(seq.videoTracks[1])).toEqual([[6, 10]]);
   });
 
   it("refuses before mutation when QE cannot report sync lock", async () => {
@@ -295,5 +362,23 @@ describe("issue #562 — other Sequence.insertClip callers use the same helper",
       clips: [{ item_id: "src", track_index: 0, start_seconds: 8, audio_track_index: 0 }],
     });
     expect(String(mockedSendCommand.mock.calls[0][0])).toContain("__insertClipHonoringSyncLock(");
+
+    mockedSendCommand.mockClear();
+    const spots = getSpotWorkflowTools(bridgeOptions, {
+      capabilities: { capabilities: new Set(["inspect", "edit"]), source: "explicit" },
+      auditSink: vi.fn(),
+      operationIdFactory: () => "spot-562",
+    });
+    const preview = await spots.preview_motion_graphics_demo.handler({
+      sequence_id: "sequence-1",
+      asset_item_ids: ["item-a"],
+    });
+    await spots.apply_spot_workflow_plan.handler({
+      plan: preview.data.plan,
+      confirmation_token: spotWorkflowConfirmationToken(preview.data.plan),
+    });
+    const spotScript = String(mockedSendCommand.mock.calls[0][0]);
+    expect(spotScript).toContain("__insertClipHonoringSyncLock(");
+    expect(spotScript).toContain("__secondsToTicks(targetStart).toString()");
   });
 });

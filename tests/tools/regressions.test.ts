@@ -379,7 +379,7 @@ describe("issue #189 — Premiere 26.3 capability boundaries and macOS presets",
     });
     expect(script).toContain("__insertClipHonoringSyncLock(");
     expect(getHelpersSource()).toContain("beforeVideoCount");
-    expect(getHelpersSource()).toContain("afterVideoCount > beforeVideoCount + 1");
+    expect(getHelpersSource()).toContain("afterVideoCount > beforeVideoCount + expectedVideoAdded");
     expect(getHelpersSource()).toContain("residual frame fragment");
     expect(getHelpersSource()).toContain("matched");
     expect(script).toContain("verified: outcome.data.verified");

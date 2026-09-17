@@ -360,7 +360,8 @@ function buildApplyScript(plan: SpotWorkflowPlan): string {
       var targetStart = placementIndex * ${plan.clip_duration_seconds};
       var targetEnd = targetStart + ${plan.clip_duration_seconds};
       var audioCountBefore = audioTrack.clips.numItems;
-      seq.insertClip(requestedItems[placementIndex], __secondsToTicks(targetStart).toString(), ${plan.video_track_index}, ${plan.audio_track_index});
+      var ins = __insertClipHonoringSyncLock(seq, requestedItems[placementIndex], __secondsToTicks(targetStart).toString(), ${plan.video_track_index}, ${plan.audio_track_index}, "sync_locked");
+      if (!ins.ok) return __error(ins.error);
       var placedClip = findPlacedClip(videoTrack, requestedItemIds[placementIndex], targetStart);
       if (!placedClip) return __error("Premiere did not add the requested video item at the planned frame; the assembly is not reported as verified");
       if (!trimPlacedClip(placedClip, targetEnd)) return __error("Premiere did not trim the placed video item to the previewed duration; the assembly is not reported as verified");

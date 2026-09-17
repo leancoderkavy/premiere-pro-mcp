@@ -8,15 +8,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
-- `insert_from_source`, `add_to_timeline`, `add_to_timeline_batch`, and
-  `apply_edit_plan` insert operations no longer report `inserted: true` after
-  `Sequence.insertClip` ripples only the named tracks. The public DOM has no
-  sync-lock API; these tools now read QE `isSyncLocked()`, razor spanning clips
-  on locked neighbours, shift later clips, and verify the result. Default
+- `insert_from_source`, `add_to_timeline`, `add_to_timeline_batch`,
+  `apply_edit_plan`, and `apply_spot_workflow_plan` insert operations no longer
+  report success after `Sequence.insertClip` ripples only the named tracks. The
+  public DOM has no sync-lock API; these tools now read QE `isSyncLocked()`,
+  razor spanning clips on locked neighbours, shift later clips with
+  `__writeClipSpan`, and verify the result. Mid-clip inserts on a target track
+  are treated as a split-plus-insert (two new items), not a failure. Default
   `scope` is `sync_locked`. Pass `target_tracks` to opt in to the old
   target-only ripple; that path still verifies the named pair and warns that
-  other tracks may desync. If QE is unavailable the sync-locked path refuses
-  before mutating. (#562)
+  other tracks may desync. If QE or lock state is unavailable the sync-locked
+  path refuses before mutating. (#562)
 
 ### Added
 
