@@ -614,6 +614,21 @@ function __insertClipHonoringSyncLock(seq, item, timeTicks, videoTrackIndex, aud
   var insertTicks = parseFloat(timeTicks);
   if (isNaN(insertTicks)) return { ok: false, error: "Insert time is not a valid tick value" };
 
+  if (!targetOnly) {
+    var activeSeq = null;
+    try { activeSeq = app.project.activeSequence; } catch (eAct) { activeSeq = null; }
+    if (!activeSeq) {
+      return { ok: false, error: "Insert refused; nothing was changed. There is no active sequence, so QE cannot razor the same timeline. Activate the target sequence and retry, or pass scope 'target_tracks' to ripple only the named tracks (this will desync other tracks)." };
+    }
+    var activeId = "";
+    var seqId = "";
+    try { activeId = String(activeSeq.sequenceID); } catch (eId1) {}
+    try { seqId = String(seq.sequenceID); } catch (eId2) {}
+    if (!seqId || activeId !== seqId) {
+      return { ok: false, error: "Insert refused; nothing was changed. The target sequence is not the active sequence, so QE would razor a different timeline. Activate it and retry, or pass scope 'target_tracks' to ripple only the named tracks (this will desync other tracks)." };
+    }
+  }
+
   var frameTicks = seq.timebase ? parseFloat(seq.timebase) : NaN;
   if (!frameTicks || isNaN(frameTicks)) frameTicks = TICKS_PER_SECOND / 24;
   var tol = frameTicks;
@@ -697,9 +712,14 @@ function __insertClipHonoringSyncLock(seq, item, timeTicks, videoTrackIndex, aud
   for (pi = 0; pi < parts.length; pi++) {
     var lk = null;
     try {
-      var ql = qeTrackFor(parts[pi].type, parts[pi].index);
-      if (ql && typeof ql.isLocked === "function") lk = !!ql.isLocked();
-    } catch (e3) { lk = null; }
+      if (typeof parts[pi].domTrack.isLocked === "function") lk = !!parts[pi].domTrack.isLocked();
+    } catch (eDomLock) { lk = null; }
+    if (lk === null) {
+      try {
+        var ql = qeTrackFor(parts[pi].type, parts[pi].index);
+        if (ql && typeof ql.isLocked === "function") lk = !!ql.isLocked();
+      } catch (e3) { lk = null; }
+    }
     if (!targetOnly && lk === null) {
       return { ok: false, error: "Insert refused; nothing was changed. Could not read isLocked() on " + parts[pi].type + " track " + parts[pi].index + ". Pass scope 'target_tracks' to ripple only the named tracks (this will desync other tracks)." };
     }
@@ -759,12 +779,18 @@ function __insertClipHonoringSyncLock(seq, item, timeTicks, videoTrackIndex, aud
         return { ok: false, error: "QE razor failed on " + shiftPlan[pi].type + " track " + shiftPlan[pi].index + (razored.length ? " after already razoring " + razored.join(", ") : "") + ", so the timeline is partially changed: " + razorErr.toString() };
       }
       shiftPlan[pi].movers = [];
+      var stillSpan = false;
       for (ci = 0; ci < shiftPlan[pi].domTrack.clips.numItems; ci++) {
         var rc = shiftPlan[pi].domTrack.clips[ci];
         var rcs = parseFloat(rc.start.ticks);
+        var rce = parseFloat(rc.end.ticks);
+        if (rcs < insertTicks - tol && rce > insertTicks + tol) stillSpan = true;
         if (rcs >= insertTicks - tol) {
-          shiftPlan[pi].movers.push({ nodeId: String(rc.nodeId), start: rcs, end: parseFloat(rc.end.ticks) });
+          shiftPlan[pi].movers.push({ nodeId: String(rc.nodeId), start: rcs, end: rce });
         }
+      }
+      if (stillSpan) {
+        return { ok: false, error: "QE razor did not split a spanning clip on " + shiftPlan[pi].type + " track " + shiftPlan[pi].index + ", so the timeline is partially changed. Razor that track at the insert point or pass scope 'target_tracks' (which will desync other tracks)." };
       }
     }
   }
@@ -788,17 +814,20 @@ function __insertClipHonoringSyncLock(seq, item, timeTicks, videoTrackIndex, aud
   }
   var expectedVideoAdded = expectedAddedForTrack(videoTrack);
   var expectedAudioAdded = expectedAddedForTrack(audioTrack);
+  var afterRazorNote = needRazor
+    ? " after sync-locked tracks were razored at the insert point, so the timeline is partially changed"
+    : "";
 
   try {
     seq.insertClip(item, String(timeTicks), vTrackIndex, aTrackIndex);
   } catch (insErr) {
-    return { ok: false, error: "Premiere rejected Sequence.insertClip" + (needRazor ? " after sync-locked tracks were razored at the insert point, so the timeline is partially changed" : "") + ": " + insErr.toString() };
+    return { ok: false, error: "Premiere rejected Sequence.insertClip" + afterRazorNote + ": " + insErr.toString() };
   }
 
   var afterVideoCount = videoTrack.clips.numItems;
   var afterAudioCount = audioTrack.clips.numItems;
   if (afterVideoCount > beforeVideoCount + expectedVideoAdded || afterAudioCount > beforeAudioCount + expectedAudioAdded) {
-    return { ok: false, error: "Premiere inserted more clips on a targeted track than a split-plus-insert accounts for. This can leave a residual frame fragment at an exact boundary; the insertion may be partial, but is not reported as verified." };
+    return { ok: false, error: "Premiere inserted more clips on a targeted track than a split-plus-insert accounts for" + afterRazorNote + ". This can leave a residual frame fragment at an exact boundary; the insertion is not reported as verified." };
   }
 
   var insertedClips = [];
@@ -809,7 +838,7 @@ function __insertClipHonoringSyncLock(seq, item, timeTicks, videoTrackIndex, aud
     if (!beforeAudioIds[String(audioTrack.clips[i].nodeId)]) insertedClips.push(audioTrack.clips[i]);
   }
   if (!insertedClips.length) {
-    return { ok: false, error: "Premiere did not add a new track item at the requested insertion point." };
+    return { ok: false, error: "Premiere did not add a new track item at the requested insertion point" + afterRazorNote + "." };
   }
 
   var matched = false;
@@ -829,7 +858,7 @@ function __insertClipHonoringSyncLock(seq, item, timeTicks, videoTrackIndex, aud
     }
   }
   if (!matched) {
-    return { ok: false, error: "Premiere changed the target track but the requested project item was not found after insertion." };
+    return { ok: false, error: "Premiere changed the target track but the requested project item was not found after insertion" + afterRazorNote + "." };
   }
   if (!(actualDuration > 0)) actualDuration = durationTicks;
 

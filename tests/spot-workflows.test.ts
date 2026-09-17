@@ -102,6 +102,8 @@ describe("spot workflow plans", () => {
     expect(script).toContain("function trimPlacedClip(clip, targetEnd)");
     expect(script).toContain("__insertClipHonoringSyncLock(");
     expect(script).toContain("__secondsToTicks(targetStart).toString()");
+    expect(script).toContain('"target_tracks"');
+    expect(script).not.toContain('"sync_locked"');
     expect(script).not.toMatch(/seq\.insertClip\(/);
     expect(script).toContain("var audioCountBefore = audioTrack.clips.numItems");
     expect(script).toContain("if (audioCountAfter > audioCountBefore)");

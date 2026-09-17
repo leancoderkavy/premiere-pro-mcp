@@ -60,6 +60,7 @@ function makeClip(id: string, startSeconds: number, endSeconds: number, itemId =
     nodeId: id,
     name: id,
     projectItem: { nodeId: itemId, name: itemId },
+    components: { numItems: 0 },
     get start() { return { ticks: String(startT) }; },
     set start(value: unknown) { startT = assign(value); },
     get end() { return { ticks: String(endT) }; },
@@ -77,7 +78,16 @@ function makeTrack(clips: ReturnType<typeof makeClip>[], syncLocked = true, lock
     arr.forEach((clip, index) => { clipsCol[index] = clip; });
   };
   reindex();
-  return { clips: clipsCol, _arr: arr, _reindex: reindex, _syncLocked: syncLocked, _locked: locked };
+  const track = {
+    clips: clipsCol,
+    transitions: { get numItems() { return 0; } },
+    isLocked() { return track._locked; },
+    _arr: arr,
+    _reindex: reindex,
+    _syncLocked: syncLocked,
+    _locked: locked,
+  };
+  return track;
 }
 
 function parseQeTimecode(value: string, fps: number) {
@@ -122,24 +132,31 @@ function issue562Host(options: {
   lockedVideo?: number[];
   unlockedVideo?: number[];
   omitIsLocked?: boolean;
+  noopRazor?: boolean;
+  insertNoop?: boolean;
+  sequenceID?: string;
+  emptyTargets?: boolean;
+  overlaySeconds?: [number, number];
+  sourceDurationSeconds?: number;
 } = {}) {
   const source = {
     nodeId: "src",
     name: "src",
     getInPoint() { return { ticks: ticksOf(0) }; },
-    getOutPoint() { return { ticks: ticksOf(2) }; },
+    getOutPoint() { return { ticks: ticksOf(options.sourceDurationSeconds ?? 2) }; },
   };
-  const v1 = makeTrack([
+  const overlay = options.overlaySeconds ?? [6, 10];
+  const v1 = makeTrack(options.emptyTargets ? [] : [
     makeClip("v1a", 0, 4, "a"), makeClip("v1b", 4, 8, "b"),
     makeClip("v1c", 8, 12, "c"), makeClip("v1d", 12, 18, "d"),
   ]);
-  const v2 = makeTrack([makeClip("v2", 6, 10, "cam2")]);
+  const v2 = makeTrack([makeClip("v2", overlay[0], overlay[1], "cam2")]);
   const v3 = makeTrack([makeClip("v3", 2, 36, "cam3")]);
-  const a1 = makeTrack([
+  const a1 = makeTrack(options.emptyTargets ? [] : [
     makeClip("a1a", 0, 4, "a"), makeClip("a1b", 4, 8, "b"),
     makeClip("a1c", 8, 12, "c"), makeClip("a1d", 12, 18, "d"),
   ]);
-  const a2 = makeTrack([makeClip("a2", 6, 10, "cam2")]);
+  const a2 = makeTrack([makeClip("a2", overlay[0], overlay[1], "cam2")]);
   const a3 = makeTrack([makeClip("a3", 2, 36, "cam3")]);
   const videoTracks = { 0: v1, 1: v2, 2: v3, get numTracks() { return 3; } };
   const audioTracks = { 0: a1, 1: a2, 2: a3, get numTracks() { return 3; } };
@@ -151,12 +168,20 @@ function issue562Host(options: {
     [v1, v2, v3][index]._syncLocked = false;
     [a1, a2, a3][index]._syncLocked = false;
   });
+  if (options.omitIsLocked) {
+    [v1, v2, v3, a1, a2, a3].forEach((track) => {
+      delete (track as { isLocked?: unknown }).isLocked;
+    });
+  }
   const seq = {
+    sequenceID: options.sequenceID ?? "seq-562",
+    name: options.sequenceID ?? "seq-562",
     timebase: String(TICKS / 24),
     videoTracks,
     audioTracks,
     getPlayerPosition() { return { ticks: ticksOf(options.playheadSeconds ?? 8) }; },
     insertClip(item: typeof source, time: string | number, vTrack: number, aTrack: number) {
+      if (options.insertNoop) return;
       insertOnTrack(videoTracks[vTrack as 0 | 1 | 2], item, time, `ins-v-${vTrack}`);
       insertOnTrack(audioTracks[aTrack as 0 | 1 | 2], item, time, `ins-a-${aTrack}`);
     },
@@ -170,6 +195,7 @@ function issue562Host(options: {
     } = {
       isSyncLocked() { return options.allLocked === false ? false : track._syncLocked; },
       razor(timecode: string) {
+        if (options.noopRazor) return;
         const at = parseQeTimecode(timecode, 24);
         const spawned: ReturnType<typeof makeClip>[] = [];
         for (const clip of track._arr.slice()) {
@@ -198,7 +224,11 @@ function issue562Host(options: {
   const sandbox: Record<string, unknown> = {
     app: {
       enableQE() {},
-      project: { activeSequence: seq },
+      project: {
+        activeSequence: seq,
+        sequences: { 0: seq, get numSequences() { return 1; } },
+        rootItem: { children: { numItems: 1, 0: source } },
+      },
       sourceMonitor: { getProjectItem() { return source; } },
     },
     Time: function Time(this: { ticks: string; getFormatted?: () => string }) {
@@ -213,6 +243,21 @@ function issue562Host(options: {
 
 function runScript(script: string, sandbox: Record<string, unknown>) {
   return JSON.parse(String(runInNewContext(`${getHelpersSource()}\n${script}`, sandbox)));
+}
+
+function runHelper(
+  sandbox: Record<string, unknown>,
+  seq: unknown,
+  item: unknown,
+  timeSeconds: number,
+  scope = "sync_locked",
+) {
+  sandbox.seq = seq;
+  sandbox.item = item;
+  return JSON.parse(String(runInNewContext(
+    `${getHelpersSource()}\nJSON.stringify(__insertClipHonoringSyncLock(seq, item, "${ticksOf(timeSeconds)}", 0, 0, "${scope}"));`,
+    sandbox,
+  )));
 }
 
 beforeEach(() => vi.clearAllMocks());
@@ -328,6 +373,50 @@ describe("issue #562 — insert_from_source honors sync lock", () => {
     expect(rangesOf(seq.videoTracks[1])).toEqual([[6, 10]]);
     expect(rangesOf(seq.videoTracks[2])).toEqual([[2, 36]]);
   });
+
+  it("refuses a DOM-locked named track even for target_tracks", async () => {
+    const script = await scriptFor(source.insert_from_source, { scope: "target_tracks" });
+    const { sandbox, seq } = issue562Host({ qe: false, lockedVideo: [0] });
+    const result = runScript(script, sandbox);
+    expect(result.success).toBe(false);
+    expect(result.error).toMatch(/locked/i);
+    expect(rangesOf(seq.videoTracks[0])).toEqual([[0, 4], [4, 8], [8, 12], [12, 18]]);
+  });
+
+  it("refuses before mutation when the target sequence is not active", () => {
+    const target = issue562Host({ sequenceID: "target-seq" });
+    const active = issue562Host({ sequenceID: "active-seq" });
+    const sandbox = {
+      ...target.sandbox,
+      app: {
+        enableQE() {},
+        project: { activeSequence: active.seq, sequences: { 0: active.seq, 1: target.seq, get numSequences() { return 2; } } },
+      },
+      qe: active.sandbox.qe,
+    };
+    const result = runHelper(sandbox, target.seq, target.source, 8);
+    expect(result.ok).toBe(false);
+    expect(result.error).toMatch(/active/i);
+    expect(rangesOf(target.seq.videoTracks[0])).toEqual([[0, 4], [4, 8], [8, 12], [12, 18]]);
+    expect(rangesOf(active.seq.videoTracks[2])).toEqual([[2, 36]]);
+  });
+
+  it("fails closed when QE razor does not split a spanning neighbour", () => {
+    const { sandbox, seq, source: item } = issue562Host({ noopRazor: true });
+    const result = runHelper(sandbox, seq, item, 8);
+    expect(result.ok).toBe(false);
+    expect(result.error).toMatch(/razor|split|partial/i);
+    expect(rangesOf(seq.videoTracks[2])).toEqual([[2, 36]]);
+  });
+
+  it("says razors already landed if insertClip then adds nothing", () => {
+    const { sandbox, seq, source: item } = issue562Host({ insertNoop: true });
+    const beforeV3 = rangesOf(seq.videoTracks[2]);
+    const result = runHelper(sandbox, seq, item, 8);
+    expect(result.ok).toBe(false);
+    expect(result.error).toMatch(/razored|partially changed/i);
+    expect(rangesOf(seq.videoTracks[2])).not.toEqual(beforeV3);
+  });
 });
 
 describe("issue #562 — other Sequence.insertClip callers use the same helper", () => {
@@ -380,5 +469,36 @@ describe("issue #562 — other Sequence.insertClip callers use the same helper",
     const spotScript = String(mockedSendCommand.mock.calls[0][0]);
     expect(spotScript).toContain("__insertClipHonoringSyncLock(");
     expect(spotScript).toContain("__secondsToTicks(targetStart).toString()");
+    expect(spotScript).toContain('"target_tracks"');
+    expect(spotScript).not.toContain('"sync_locked"');
+  });
+
+  it("apply_spot_workflow_plan insert-then-trim leaves a title overlay in place", async () => {
+    const spots = getSpotWorkflowTools(bridgeOptions, {
+      capabilities: { capabilities: new Set(["inspect", "edit"]), source: "explicit" },
+      auditSink: vi.fn(),
+      operationIdFactory: () => "spot-overlay-562",
+    });
+    const preview = await spots.preview_motion_graphics_demo.handler({
+      sequence_id: "sequence-1",
+      asset_item_ids: ["src"],
+      clip_duration_seconds: 5,
+      transition_name: "none",
+    });
+    await spots.apply_spot_workflow_plan.handler({
+      plan: preview.data.plan,
+      confirmation_token: spotWorkflowConfirmationToken(preview.data.plan),
+    });
+    const script = String(mockedSendCommand.mock.calls[0][0]);
+    const { sandbox, seq } = issue562Host({
+      sequenceID: "sequence-1",
+      emptyTargets: true,
+      overlaySeconds: [0.4, 2],
+      sourceDurationSeconds: 10,
+    });
+    const result = runScript(script, sandbox);
+    expect(result).toMatchObject({ success: true, data: { applied: true } });
+    expect(rangesOf(seq.videoTracks[1])).toEqual([[0.4, 2]]);
+    expect(rangesOf(seq.videoTracks[0])[0]).toEqual([0, 5]);
   });
 });
