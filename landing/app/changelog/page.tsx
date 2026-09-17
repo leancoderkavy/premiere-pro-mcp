@@ -6,6 +6,22 @@ import { product } from "@/lib/product"
 
 const releases = [
   {
+    version: "1.16.1",
+    date: "2026-09-17",
+    label: "Sync-locked insert and ripple delete, plus editor-request tools",
+    groups: [
+      { title: "Added", items: [
+        "Editor-request tools: add_markers_batch, select_clips_by_pattern, navigate_playhead, sequence checkpoints, and export_sequence_edl.",
+        "Local review planners for client-notes checklists and multicam angle switches."
+      ] },
+      { title: "Fixed", items: [
+        "Insert edits now razor and shift QE sync-locked tracks instead of desyncing neighbours and reporting unverified success.",
+        "ripple_delete closes the gap on every sync-locked track and refuses when a neighbour would be left straddling the hole."
+      ] },
+      { title: "Verification scope", items: ["Automated checks do not establish licensed-host playback or rendered-output verification."] }
+    ],
+  },
+  {
     version: "1.16.0",
     date: "2026-09-16",
     label: "Reaction-Shorts planners, STT, landing studio, and host-tool fixes",
