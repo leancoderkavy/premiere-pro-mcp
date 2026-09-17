@@ -56,7 +56,7 @@ describe("competitor-gap default-profile tools", () => {
     });
     const script = mockedSendCommand.mock.calls[0][0];
     expect(script).toContain("Preflight every mutable dependency");
-    expect(script).toContain("seq.insertClip");
+    expect(script).toContain("__insertClipHonoringSyncLock(");
     expect(script).toContain("actualStart");
     expect(script.indexOf('itemId: "first"')).toBeLessThan(script.indexOf('itemId: "later"'));
   });

@@ -6,6 +6,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Fixed
+
+- `insert_from_source`, `add_to_timeline`, `add_to_timeline_batch`, and
+  `apply_edit_plan` insert operations no longer report `inserted: true` after
+  `Sequence.insertClip` ripples only the named tracks. The public DOM has no
+  sync-lock API; these tools now read QE `isSyncLocked()`, razor spanning clips
+  on locked neighbours, shift later clips, and verify the result. Default
+  `scope` is `sync_locked`. Pass `target_tracks` to opt in to the old
+  target-only ripple; that path still verifies the named pair and warns that
+  other tracks may desync. If QE is unavailable the sync-locked path refuses
+  before mutating. (#562)
+
 ### Added
 
 - Editor-request tools on the production CEP bridge, each with preflight and
