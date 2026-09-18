@@ -41,6 +41,27 @@ function u32(value) {
   return value;
 }
 
+function unixExternalAttributes(kind) {
+  const mode = kind === "directory" ? 0o040755 : 0o100644;
+  const dos = kind === "directory" ? 0x10 : 0x20;
+  return u32(((mode * 0x10000) + dos) >>> 0);
+}
+
+function withBundleRoot(files, pluginId) {
+  const prefix = `${pluginId}/`;
+  const directories = new Set([prefix]);
+  const prefixed = files.map((file) => {
+    const name = `${prefix}${file.name.replaceAll("\\", "/")}`;
+    const segments = name.split("/");
+    for (let index = 1; index < segments.length; index += 1) {
+      directories.add(`${segments.slice(0, index).join("/")}/`);
+    }
+    return { name, data: file.data, kind: "file" };
+  });
+  const dirEntries = [...directories].map((name) => ({ name, data: Buffer.alloc(0), kind: "directory" }));
+  return [...dirEntries, ...prefixed].sort((left, right) => left.name.localeCompare(right.name));
+}
+
 async function collectFiles(directory, relative = "") {
   const entries = await readdir(directory, { withFileTypes: true });
   const files = [];
@@ -66,8 +87,10 @@ function buildStoredZip(files) {
   let offset = 0;
 
   for (const file of files) {
+    const isDirectory = file.kind === "directory" || file.name.endsWith("/");
+    const data = isDirectory ? Buffer.alloc(0) : file.data;
     const name = Buffer.from(file.name, "utf8");
-    const checksum = crc32(file.data);
+    const checksum = crc32(data);
     const local = Buffer.alloc(30);
     local.writeUInt32LE(0x04034b50, 0);
     local.writeUInt16LE(20, 4);
@@ -76,8 +99,8 @@ function buildStoredZip(files) {
     local.writeUInt16LE(0, 10);
     local.writeUInt16LE(0x0021, 12);
     local.writeUInt32LE(u32(checksum), 14);
-    local.writeUInt32LE(u32(file.data.length), 18);
-    local.writeUInt32LE(u32(file.data.length), 22);
+    local.writeUInt32LE(u32(data.length), 18);
+    local.writeUInt32LE(u32(data.length), 22);
     local.writeUInt16LE(u16(name.length), 26);
     local.writeUInt16LE(0, 28);
 
@@ -90,19 +113,19 @@ function buildStoredZip(files) {
     central.writeUInt16LE(0, 12);
     central.writeUInt16LE(0x0021, 14);
     central.writeUInt32LE(u32(checksum), 16);
-    central.writeUInt32LE(u32(file.data.length), 20);
-    central.writeUInt32LE(u32(file.data.length), 24);
+    central.writeUInt32LE(u32(data.length), 20);
+    central.writeUInt32LE(u32(data.length), 24);
     central.writeUInt16LE(u16(name.length), 28);
     central.writeUInt16LE(0, 30);
     central.writeUInt16LE(0, 32);
     central.writeUInt16LE(0, 34);
     central.writeUInt16LE(0, 36);
-    central.writeUInt32LE(0, 38);
+    central.writeUInt32LE(unixExternalAttributes(isDirectory ? "directory" : "file"), 38);
     central.writeUInt32LE(u32(offset), 42);
 
-    localRecords.push(local, name, file.data);
+    localRecords.push(local, name, data);
     centralRecords.push(central, name);
-    offset += local.length + name.length + file.data.length;
+    offset += local.length + name.length + data.length;
   }
 
   const centralDirectory = Buffer.concat(centralRecords);
@@ -118,7 +141,7 @@ function buildStoredZip(files) {
   return Buffer.concat([...localRecords, centralDirectory, end]);
 }
 
-function verifyStoredZip(archive, expectedNames) {
+function verifyStoredZip(archive, expectedNames, pluginId) {
   const endOffset = archive.length - 22;
   assert(endOffset >= 0 && archive.readUInt32LE(endOffset) === 0x06054b50, "archive is missing a ZIP end record");
   assert(archive.readUInt16LE(endOffset + 20) === 0, "archive must not contain a ZIP comment");
@@ -128,20 +151,33 @@ function verifyStoredZip(archive, expectedNames) {
   assert(cursor + centralSize === endOffset, "archive central directory has an unexpected length");
   assert(entryCount === expectedNames.length, "archive entry count does not match the staged plugin files");
   const names = [];
+  const bundleRoot = `${pluginId}/`;
 
   for (let index = 0; index < entryCount; index += 1) {
     assert(archive.readUInt32LE(cursor) === 0x02014b50, "archive central directory entry is invalid");
     assert(archive.readUInt16LE(cursor + 10) === 0, "archive must use stored ZIP entries");
+    assert((archive.readUInt16LE(cursor + 4) >>> 8) === 3, "archive entries must declare a Unix origin");
     const checksum = archive.readUInt32LE(cursor + 16);
     const compressedSize = archive.readUInt32LE(cursor + 20);
     const uncompressedSize = archive.readUInt32LE(cursor + 24);
     const nameLength = archive.readUInt16LE(cursor + 28);
     const extraLength = archive.readUInt16LE(cursor + 30);
     const commentLength = archive.readUInt16LE(cursor + 32);
+    const externalAttributes = archive.readUInt32LE(cursor + 38);
     const localOffset = archive.readUInt32LE(cursor + 42);
     const name = archive.subarray(cursor + 46, cursor + 46 + nameLength).toString("utf8");
     assert(!names.includes(name), `archive contains duplicate entry ${name}`);
     names.push(name);
+    assert(name === bundleRoot || name.startsWith(bundleRoot), `archive entry ${name} must stay under ${bundleRoot}`);
+    const unixMode = externalAttributes >>> 16;
+    const isDirectory = name.endsWith("/");
+    if (isDirectory) {
+      assert((unixMode & 0o170000) === 0o040000, `archive directory ${name} must use Unix directory bits`);
+      assert((unixMode & 0o777) === 0o755, `archive directory ${name} must be mode 755`);
+    } else {
+      assert((unixMode & 0o170000) === 0o100000, `archive file ${name} must use Unix regular-file bits`);
+      assert((unixMode & 0o777) === 0o644, `archive file ${name} must be mode 644`);
+    }
     assert(archive.readUInt32LE(localOffset) === 0x04034b50, `archive local entry is invalid for ${name}`);
     const localNameLength = archive.readUInt16LE(localOffset + 26);
     const localExtraLength = archive.readUInt16LE(localOffset + 28);
@@ -157,6 +193,7 @@ function verifyStoredZip(archive, expectedNames) {
     cursor += 46 + nameLength + extraLength + commentLength;
   }
 
+  assert(names.includes(bundleRoot), `archive must contain the ${bundleRoot} directory`);
   assert(
     JSON.stringify(names.sort()) === JSON.stringify([...expectedNames].sort()),
     "archive contents do not match the staged plugin files",
@@ -193,11 +230,13 @@ async function main() {
     data: Buffer.from(`${JSON.stringify(manifest, null, 2)}\n`, "utf8"),
   };
   files.sort((left, right) => left.name.localeCompare(right.name));
+  const packaged = withBundleRoot(files, pluginId);
 
-  const archive = buildStoredZip(files);
+  const archive = buildStoredZip(packaged);
   verifyStoredZip(
     archive,
-    files.map((file) => file.name),
+    packaged.map((file) => file.name),
+    pluginId,
   );
   await mkdir(artifacts, { recursive: true });
   const output = path.join(

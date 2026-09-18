@@ -21,13 +21,19 @@ This writes:
 artifacts/premiere-pro-mcp-uxp-<version>-direct.ccx
 ```
 
-The builder uses a fixed ZIP timestamp, lexical file order, and stored entries,
-then reads the generated central directory and checks every entry and CRC. The
-result is reproducible for identical source bytes. It also rejects symlinks,
-requires the UXP v5 Premiere manifest, checks the version against
-`package.json`. Adobe's Premiere 26.3 runtime requires the compatible `domains: "all"`
+The builder uses a fixed ZIP timestamp, lexical file order, and stored entries
+under a single bundle root (`<plugin-id>/manifest.json`), with Unix file mode
+644 and directory mode 755. It then reads the generated central directory and
+checks every entry, CRC, bundle prefix, and permission bits. The result is
+reproducible for identical source bytes. It also rejects symlinks, requires
+the UXP v5 Premiere manifest, and checks the version against `package.json`.
+Adobe's Premiere 26.3 runtime requires the compatible `domains: "all"`
 manifest form for the WebSocket connection; `workspace.cjs` remains the enforced authority and
 accepts only `ws://127.0.0.1:<port>/uxp` or `ws://localhost:<port>/uxp`.
+
+Adobe's Unified Plugin Installer accepts `--install <path>`. The
+`--install="<path>"` form can exit 0 without installing; use the space-separated
+form when diagnosing a local CCX.
 
 For an Adobe Creative Cloud Marketplace submission, Adobe Developer
 Distribution must first create the Marketplace plugin ID. Build a separate
