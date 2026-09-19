@@ -6,6 +6,18 @@ import { product } from "@/lib/product"
 
 const releases = [
   {
+    version: "1.16.3",
+    date: "2026-09-18",
+    label: "Changelog spacing and dependency updates",
+    groups: [
+      { title: "Changed", items: [
+        "Changelog intro no longer stacks a large vertical pad on the shared public-content main padding.",
+        "npm minor and patch updates for PostHog, zod, and @types/node."
+      ] },
+      { title: "Verification scope", items: ["Automated checks do not establish licensed-host playback or rendered-output verification."] }
+    ],
+  },
+  {
     version: "1.16.2",
     date: "2026-09-18",
     label: "Installable UXP CCX packages and restored path commands",
@@ -955,7 +967,7 @@ export default function ChangelogPage() {
       />
 
 
-      <section className="border-b border-site-line px-5 py-16 md:py-24">
+      <section className="border-b border-site-line px-5 pb-12 md:pb-16">
         <div className="mx-auto max-w-6xl">
           <HomeLink
             href="/"

@@ -6,6 +6,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [1.16.3] - 2026-09-18
+
+### Changed
+
+- Changelog landing intro no longer stacks a large vertical pad on the shared
+  public-content main padding.
+- npm minor and patch updates: `@posthog/core` 1.54.2, `@posthog/types` 1.412.1,
+  `posthog-node` 5.52.4, `zod` 4.6.5, and `@types/node` 26.6.1.
+
+Automated checks do not establish licensed Premiere or After Effects playback or
+rendered-output verification.
+
 ## [1.16.2] - 2026-09-18
 
 ### Fixed

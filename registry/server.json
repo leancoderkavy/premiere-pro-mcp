@@ -7,12 +7,12 @@
     "url": "https://github.com/leancoderkavy/premiere-pro-mcp",
     "source": "github"
   },
-  "version": "1.16.2",
+  "version": "1.16.3",
   "packages": [
     {
       "registryType": "npm",
       "identifier": "premiere-pro-mcp",
-      "version": "1.16.2",
+      "version": "1.16.3",
       "transport": {
         "type": "stdio"
       }
