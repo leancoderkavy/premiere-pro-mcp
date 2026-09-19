@@ -34,6 +34,118 @@ export type Article = {
 
 export const articles: Article[] = [
   {
+    slug: "claude-fable-5-1-premiere-pro-mcp",
+    title: "How to Use Claude Fable 5.1 with Premiere Pro MCP",
+    seoTitle: "Claude Fable 5.1 Premiere Pro MCP",
+    description:
+      "Select Claude Fable 5.1 in Cursor or another compatible client after the local Premiere Pro MCP connection is verified. Discover tools, serialize timeline changes, and keep image review separate from playback proof.",
+    eyebrow: "Claude Fable 5.1 workflows",
+    publishedAt: "2026-09-18",
+    modifiedAt: "2026-09-18",
+    readingTime: "7 min read",
+    workflowKit: "project-check",
+    keywords: [
+      "Claude Fable 5.1 Premiere Pro",
+      "Claude Fable 5.1 Premiere Pro MCP",
+      "Cursor Fable 5.1 Premiere",
+      "claude-fable-5-1 MCP",
+    ],
+    sections: [
+      {
+        heading: "Choose Fable 5.1 after the local connection exists",
+        paragraphs: [
+          "Claude Fable 5.1 is a client model you can use with Premiere Pro MCP. It does not replace the local server, the Premiere connector, or the read-only connection check. Install Cursor, Claude Desktop, or Claude Code with this project's published package, then select Claude Fable 5.1 (`claude-fable-5-1`) when your account has access.",
+          "Fable 5.1 is optional. Other Claude models can call the same MCP tools. Use it for longer-horizon inspect, plan, and verify sessions. A model switch does not prove that Premiere is ready, and this server does not run an Anthropic model itself.",
+        ],
+        links: [
+          { label: "Set up Cursor with Premiere Pro MCP", href: "/blog/cursor-premiere-pro-mcp-setup/" },
+          { label: "Set up Claude Desktop", href: "/blog/claude-desktop-premiere-pro-mcp-setup/" },
+          { label: "Install the published npm package", href: "/blog/install-premiere-pro-mcp-npm/" },
+        ],
+      },
+      {
+        heading: "Enable the model without confusing it for a privacy guarantee",
+        paragraphs: [
+          "Keep the assistant, MCP server, connector, and Premiere on the same computer. A Cursor cloud agent or remote environment does not automatically reach the Premiere project on your desktop. The public website is not a relay to your workstation.",
+          "If Cursor Privacy Mode is on, or you are on an Enterprise plan, an admin must approve Fable 5.1's Anthropic data-retention policy in the Cursor Dashboard before the model appears. Enabling the model does not change Cursor Privacy Mode. Local-first still means tool arguments and results travel through the client to the model provider, including review frames, transcripts, and project context you allow the assistant to send.",
+        ],
+        steps: [
+          "Complete the Cursor or Claude setup for this package and enable one Premiere Pro MCP entry.",
+          "Approve the Fable 5.1 data-retention policy if Cursor requires it for your account.",
+          "Select Claude Fable 5.1. Use the client's thinking or high-effort option only if you want it; the MCP server does not turn thinking on.",
+          "Start a new local Agent conversation and run the read-only connection check below.",
+        ],
+        links: [
+          { label: "Cursor Claude Fable 5.1 documentation", href: "https://cursor.com/docs/models/claude-fable-5-1" },
+          { label: "Anthropic Claude Fable 5.1 overview", href: "https://platform.claude.com/docs/en/models/fable-5-1/overview" },
+        ],
+      },
+      {
+        heading: "Discover the authorized tools before proposing an edit",
+        paragraphs: [
+          "Ask Fable 5.1 to inspect the tools registered for this session. `get_capabilities` is lexical search over names and descriptions, not semantic search. Exact names rank first. Results report registration, backend support, authority requirements, and the verification boundary. A listed tool is not proof that the matching host action succeeded.",
+          "Search defaults to registered tools. Set available_only to false only when diagnosing withheld tools; that response cannot enable them. Packs narrow registration and do not load hidden operations.",
+        ],
+        codeBlocks: [
+          {
+            label: "First request in Cursor",
+            code: "Safely check my Premiere connection with verify_premiere_connection. Make no changes.",
+          },
+          {
+            label: "Compact tool discovery",
+            code: 'Call get_capabilities with {"tool_query":"transcript","tool_limit":10}. Summarize registered tools, backend requirements, and anything still unverified. Make no Premiere changes.',
+          },
+        ],
+        links: [{ label: "Search tool names and availability", href: "/tools/" }],
+      },
+      {
+        heading: "Keep a long Fable 5.1 session reviewable",
+        paragraphs: [
+          "Fable 5.1 is built for multi-step work. Premiere still has one live project state. Serialize operations that change selection, playhead, or the timeline. After an uncertain result, inspect before retrying. Re-check project and sequence identity if Premiere restarted or the session ran a long time.",
+          "Use captured context and preview/apply routes with their exact plan, token, and approval requirements. Transcripts and metadata are evidence, not permission to widen scope. Cursor may fall back to Claude Opus when Fable 5.1's safeguards refuse a request. That is a client routing decision, not a Premiere connection failure. Check which model ran before treating the rest of the session as one verified Fable 5.1 pass.",
+        ],
+        bullets: [
+          "Name the sequence, tracks, clips, and no-change boundary in every mutating request.",
+          "Preview where the tool supports it, then approve only the exact change you reviewed.",
+          "Inspect returned timeline state after each write. Image review of exported frames is not playback, audio, or delivery proof.",
+          "Do not enable unsafe scripting or bypass existing edit guards to \"keep the agent moving.\"",
+        ],
+        links: [
+          { label: "Evaluate with synthetic starter media", href: "/workflows/" },
+          { label: "Follow the connection recovery checklist", href: "/docs/troubleshooting/" },
+        ],
+      },
+    ],
+    faqs: [
+      {
+        question: "Does Premiere Pro MCP require Claude Fable 5.1?",
+        answer:
+          "No. Fable 5.1 is an optional client model. Cursor, Claude Desktop, and Claude Code can use other available Claude models with the same local MCP tools after the connector is installed and the read-only connection check succeeds.",
+      },
+      {
+        question: "Does local-first mean Anthropic never sees my project?",
+        answer:
+          "No. Premiere, the connector, and media stay on your computer, but tool calls still send structured results through the client. Review Cursor's and Anthropic's Fable 5.1 data-retention terms before including transcripts, review frames, or project context.",
+      },
+      {
+        question: "What if Cursor switches to Opus during a Premiere task?",
+        answer:
+          "Cursor can route a refused Fable 5.1 request to Claude Opus so the chat continues. Re-read the tool result, confirm the target sequence, and do not treat the fallback as proof that the original Premiere operation succeeded.",
+      },
+    ],
+    resources: [
+      { label: "Cursor setup for this package", href: "/blog/cursor-premiere-pro-mcp-setup/" },
+      { label: "Claude Desktop setup", href: "/blog/claude-desktop-premiere-pro-mcp-setup/" },
+      { label: "Repository Fable 5.1 workflow notes", href: `${product.links.repository}/blob/main/docs/claude-fable-5-1.md` },
+      { label: "Cursor Claude Fable 5.1 documentation", href: "https://cursor.com/docs/models/claude-fable-5-1" },
+    ],
+    relatedSlugs: [
+      "cursor-premiere-pro-mcp-setup",
+      "claude-desktop-premiere-pro-mcp-setup",
+      "how-to-set-up-premiere-pro-mcp",
+    ],
+  },
+  {
     slug: "install-premiere-pro-mcp-npm",
     title: "How to Install premiere-pro-mcp from npm (Package Name Check)",
     seoTitle: "Install premiere-pro-mcp from npm — Package Name Verification",
@@ -200,6 +312,7 @@ export const articles: Article[] = [
       "premiere-pro-mcp-vs-adobe-premiere-pro-mcp",
       "how-to-set-up-premiere-pro-mcp",
       "claude-desktop-premiere-pro-mcp-setup",
+      "claude-fable-5-1-premiere-pro-mcp",
     ],
   },
   {
@@ -264,9 +377,15 @@ export const articles: Article[] = [
       { question: "Does Cursor need a remote MCP URL to edit local Premiere?", answer: "No. This guide uses local stdio so Cursor starts the server beside Premiere. The separate CEP connector is still required." },
       { question: "Where does the Cursor MCP configuration go?", answer: "Use .cursor/mcp.json in the project or ~/.cursor/mcp.json for user-wide settings. Choose one scope and preserve existing server entries." },
       { question: "Will the configuration change my Premiere project?", answer: "Adding the server does not itself request an edit. Later tool calls can change a project, so start with verify_premiere_connection and review each proposed operation." },
+      { question: "Can I use Claude Fable 5.1 after this setup?", answer: "Yes, when your Cursor account can select Claude Fable 5.1. Complete this local connection first, then follow the Fable 5.1 workflow guide. The model is optional and does not replace the connector or the read-only check." },
     ],
-    resources: [{ label: "Official Cursor MCP documentation", href: "https://cursor.com/docs/mcp" }, { label: "npm versioned package execution", href: "https://docs.npmjs.com/cli/v11/commands/npx/" }, { label: "Our source repository", href: product.links.repository }],
-    relatedSlugs: ["how-to-set-up-premiere-pro-mcp", "codex-premiere-pro-mcp-setup", "premiere-pro-mcp-vs-adobe-premiere-pro-mcp"],
+    resources: [
+      { label: "Official Cursor MCP documentation", href: "https://cursor.com/docs/mcp" },
+      { label: "Use Claude Fable 5.1 with this connection", href: "/blog/claude-fable-5-1-premiere-pro-mcp/" },
+      { label: "npm versioned package execution", href: "https://docs.npmjs.com/cli/v11/commands/npx/" },
+      { label: "Our source repository", href: product.links.repository },
+    ],
+    relatedSlugs: ["claude-fable-5-1-premiere-pro-mcp", "how-to-set-up-premiere-pro-mcp", "codex-premiere-pro-mcp-setup", "premiere-pro-mcp-vs-adobe-premiere-pro-mcp"],
   },
   {
     slug: "premiere-pro-mcp-vs-adobe-premiere-pro-mcp",
@@ -1298,7 +1417,7 @@ export const articles: Article[] = [
       { label: "Read full technical setup documentation", href: "/docs/" },
       { label: "Understand reviewable Premiere workflows", href: "/blog/premiere-pro-workflow-automation/" },
     ],
-    relatedSlugs: ["how-to-set-up-premiere-pro-mcp", "codex-premiere-pro-mcp-setup"],
+    relatedSlugs: ["claude-fable-5-1-premiere-pro-mcp", "how-to-set-up-premiere-pro-mcp", "codex-premiere-pro-mcp-setup"],
   },
   {
     slug: "how-to-set-up-premiere-pro-mcp",
@@ -1381,6 +1500,7 @@ export const articles: Article[] = [
     resources: [
       { label: "Read the technical setup reference", href: "/docs/" },
       { label: "Set up Claude with Premiere Pro MCP", href: "/blog/claude-desktop-premiere-pro-mcp-setup/" },
+      { label: "Use Claude Fable 5.1 with Premiere Pro MCP", href: "/blog/claude-fable-5-1-premiere-pro-mcp/" },
       { label: "Set up Codex with Premiere Pro MCP", href: "/blog/codex-premiere-pro-mcp-setup/" },
       { label: "Read the full project README", href: "https://github.com/leancoderkavy/premiere-pro-mcp#quick-start" },
     ],
@@ -1388,6 +1508,7 @@ export const articles: Article[] = [
       "set-up-ai-in-premiere-pro",
       "claude-desktop-premiere-pro-mcp-setup",
       "codex-premiere-pro-mcp-setup",
+      "claude-fable-5-1-premiere-pro-mcp",
     ],
   },
   {
