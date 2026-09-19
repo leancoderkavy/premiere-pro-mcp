@@ -36,6 +36,11 @@ describe("landing SEO intent cluster", () => {
         phrase: "Codex Premiere Pro",
         title: "How to Set Up Codex with Premiere Pro MCP",
       },
+      {
+        slug: "claude-fable-5-1-premiere-pro-mcp",
+        phrase: "Claude Fable 5.1 Premiere Pro",
+        title: "How to Use Claude Fable 5.1 with Premiere Pro MCP",
+      },
     ];
 
     for (const guide of guides) {

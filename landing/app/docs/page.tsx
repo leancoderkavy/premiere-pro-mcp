@@ -37,7 +37,7 @@ const structuredData = {
       description:
         "Installation and technical reference for connecting AI assistants to Adobe Premiere Pro with MCP for Adobe Premiere Pro.",
       url: "https://premiere-pro-mcp.com/docs/",
-      dateModified: "2026-09-10",
+      dateModified: "2026-09-18",
       inLanguage: "en-US",
       about: { "@id": "https://premiere-pro-mcp.com/#software" },
       isPartOf: { "@id": "https://premiere-pro-mcp.com/#website" },
@@ -112,6 +112,7 @@ export default function DocsPage() {
             <li><Link className="inline-flex min-h-11 items-center underline underline-offset-4 hover:text-site-text" href="/workflows/">Try a workflow with disposable sample media</Link></li>
             <li><Link className="inline-flex min-h-11 items-center underline underline-offset-4 hover:text-site-text" href="/project-intake/">Review a project with the Project Intake checklist</Link></li>
             <li><Link className="inline-flex min-h-11 items-center underline underline-offset-4 hover:text-site-text" href="/premiere-pro-collaboration-workflow/">Compare local projects, Productions, and Team Projects</Link></li>
+            <li><Link className="inline-flex min-h-11 items-center underline underline-offset-4 hover:text-site-text" href="/blog/claude-fable-5-1-premiere-pro-mcp/">Use Claude Fable 5.1 after the connection check</Link></li>
             <li><Link className="inline-flex min-h-11 items-center underline underline-offset-4 hover:text-site-text" href="/docs/troubleshooting/">Resolve connector and client setup problems</Link></li>
           </ul>
         </nav>
