@@ -602,7 +602,7 @@ returned frames is not playback or delivery proof.
 See [Claude Fable 5.1 workflows](docs/claude-fable-5-1.md) for connection order,
 privacy boundaries, evidence retrieval, Cursor's Opus fallback, and the division
 between MCP and client capabilities. The public walkthrough is
-[How to Use Claude Fable 5.1 with Premiere Pro MCP](https://premiere-pro-mcp.com/blog/claude-fable-5-1-premiere-pro-mcp/).
+[How to Use Claude Fable 5.1 with MCP for Adobe Premiere Pro](https://premiere-pro-mcp.com/blog/claude-fable-5-1-premiere-pro-mcp/).
 
 ### Windows and macOS capability coverage
 
