@@ -34,7 +34,7 @@ Premiere build.
 | Scene-edit detection | `detect_scene_edits_uxp` | `sceneEdit.detect` | `createMarkers` requires selected project-item marker-GUID growth; cut/subclip modes return only Adobe's host result and selected-item count |
 | Proxy and ingest controller | `manage_proxy_ingest_uxp` | `proxy.inspect`, `proxy.attach`, `ingest.get`, `ingest.configure` | Proxy path/attachment readback; ingest state readback after transaction |
 | Offline relink repair | `relink_offline_media_uxp` | `media.relink` | Expected old path, offline default, capability check, then media-path and online-state readback |
-| Transactional metadata | `manage_metadata_uxp` | `metadata.get`, `metadata.update` | Project metadata and XMP are committed together and read back; each payload is size bounded |
+| Transactional metadata | `manage_metadata_uxp` | `metadata.get`, `metadata.update`, `metadata.fields.inspect`, `metadata.fields.update` | Named fields from column JSON and XMP; GPS/serials omitted unless requested; one-field updates serialize a complete packet, commit in a locked transaction, and read the field back |
 | Project-panel metadata inspection | `inspect_project_panel_metadata_uxp` | `metadata.columns.get`, `metadata.projectPanel.get` | Read one native item-column or active-project panel-metadata string, bounded to 350,000 characters and a 900,000-byte serialized result; no schema or metadata writes are exposed |
 | Guarded Project-panel metadata replacement | `manage_project_panel_metadata_uxp` | `metadata.projectPanel.get`, `metadata.projectPanel.update` | Require the exact inspected project GUID and XML, confirmation, operation ID, local per-project serialization, then exact native readback; the direct setter is non-undoable and no atomic compare-and-set is claimed |
 | Guarded Project metadata schema field creation | `create_project_metadata_field_uxp` | `metadata.projectSchema.inspect`, `metadata.projectSchema.create` | Require the exact inspected project GUID and bounded panel XML, typed name/label, confirmation, operation ID, and shared per-project serialization; native acceptance and panel-XML change are observable but Adobe exposes no atomic compare-and-set or field-level getter, so creation is always `committed_unverified` |
@@ -220,10 +220,14 @@ Ingest updates use `ProjectSettings.createSetIngestSettingsAction()`.
 
 ### `manage_metadata_uxp`
 
-Actions are `get` and `update`. Project metadata requires 1-128 exact
-`updated_fields`. Project and XMP strings are each capped at 350,000 characters,
-and their combined serialized UTF-8 readback is capped at 900,000 bytes so the
-complete response remains below the bridge's 1 MiB frame limit.
+Actions are `get`, `update`, `inspect_fields`, and `update_field`. Project metadata
+requires 1-128 exact `updated_fields` for packet replacement. `inspect_fields`
+parses column JSON plus `uxp.XMPMeta` leaves (cap 256), omitting GPS/serials unless
+`include_sensitive` is true. `update_field` sets one property, serializes the
+complete packet, and verifies field readback. Project and XMP strings are each
+capped at 350,000 characters, and their combined serialized UTF-8 readback is
+capped at 900,000 bytes so the complete response remains below the bridge's 1 MiB
+frame limit.
 
 ### `inspect_project_panel_metadata_uxp`
 

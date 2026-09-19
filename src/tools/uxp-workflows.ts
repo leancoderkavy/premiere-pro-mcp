@@ -32,6 +32,13 @@ type WorkflowArgs = {
   confirm_update?: boolean;
   field_name?: string;
   field_label?: string;
+  field_namespace?: string;
+  packet?: string;
+  include_sensitive?: boolean;
+  namespaces?: string[];
+  packets?: string[];
+  expected_value?: string;
+  value?: string;
   schema_field_type?: string;
   confirm_create?: boolean;
   frame_rate?: number;
@@ -363,22 +370,44 @@ export function getUxpWorkflowTools(bridge: UxpWebSocketBridge) {
     },
 
     manage_metadata_uxp: {
-      description: "Read bounded project/XMP metadata or update either form together in one locked, undoable Premiere transaction with readback evidence.",
+      description: "Read bounded project/XMP metadata, inspect named fields from column JSON and XMP, or update one field/packet together in a locked undoable Premiere transaction with readback. Prefer inspect_fields or item_columns before requesting full XML. GPS and camera serials are omitted unless include_sensitive is true.",
       parameters: {
         type: "object" as const,
         additionalProperties: false,
         properties: {
-          action: { type: "string", enum: ["get", "update"] },
+          action: { type: "string", enum: ["get", "update", "inspect_fields", "update_field"] },
           ...projectItemProperties,
           project_metadata: { type: "string", maxLength: 350000, description: "Project metadata; combined readback is limited to a 900,000-byte serialized UTF-8 result." },
           xmp_metadata: { type: "string", maxLength: 350000, description: "XMP metadata; combined readback is limited to a 900,000-byte serialized UTF-8 result." },
           updated_fields: { type: "array", minItems: 1, maxItems: 128, items: { type: "string", minLength: 1, maxLength: 512 } },
+          include_sensitive: { type: "boolean", description: "For inspect_fields, include GPS, serials, and similar EXIF. Default false." },
+          namespaces: {
+            type: "array", minItems: 1, maxItems: 8,
+            items: { type: "string", minLength: 1, maxLength: 512 },
+            description: "Optional inspect_fields filter: namespace URI or alias (premiere, dc, xmp, xmpDM, exif, iptc, photoshop).",
+          },
+          packets: {
+            type: "array", minItems: 1, maxItems: 3,
+            items: { type: "string", enum: ["columns", "project", "xmp"] },
+            description: "Optional inspect_fields packet selection. Default is columns, project, and xmp.",
+          },
+          packet: { type: "string", enum: ["project", "xmp"], description: "Required for update_field. project is Premiere-private metadata; xmp is the file/clip packet." },
+          field_namespace: { type: "string", minLength: 1, maxLength: 512, description: "XMP namespace URI or alias. Default premiere for project updates; required for xmp updates." },
+          field_name: { type: "string", minLength: 1, maxLength: 512, description: "Required for update_field. Example: Column.Intrinsic.LogNote or dc description." },
+          value: { type: "string", maxLength: 4096, description: "Required replacement value for update_field." },
+          expected_value: { type: "string", maxLength: 4096, description: "Optional compare-and-set guard for update_field." },
           operation_id: operationId,
         },
         required: ["action"],
       },
       handler: async (args: WorkflowArgs) => {
         if (args.action === "get") return invoke(bridge, "metadata.get", target(args));
+        if (args.action === "inspect_fields") return invoke(bridge, "metadata.fields.inspect", {
+          ...target(args),
+          ...(args.include_sensitive === undefined ? {} : { includeSensitive: args.include_sensitive }),
+          ...(args.namespaces === undefined ? {} : { namespaces: args.namespaces }),
+          ...(args.packets === undefined ? {} : { packets: args.packets }),
+        });
         if (args.action === "update") return invoke(bridge, "metadata.update", {
             ...target(args),
             ...(args.project_metadata === undefined ? {} : { projectMetadata: args.project_metadata }),
@@ -386,12 +415,21 @@ export function getUxpWorkflowTools(bridge: UxpWebSocketBridge) {
             ...(args.updated_fields === undefined ? {} : { updatedFields: args.updated_fields }),
             ...operation(args),
           });
+        if (args.action === "update_field") return invoke(bridge, "metadata.fields.update", {
+          ...target(args),
+          packet: args.packet,
+          ...(args.field_namespace === undefined ? {} : { namespace: args.field_namespace }),
+          name: args.field_name,
+          value: args.value,
+          ...(args.expected_value === undefined ? {} : { expectedValue: args.expected_value }),
+          ...operation(args),
+        });
         return invalidAction(args.action);
       },
     },
 
     inspect_project_panel_metadata_uxp: {
-      description: "Read bounded native Project-panel metadata: either the active project's panel schema or one media item's column metadata. This is read-only; it neither creates metadata schema fields nor writes Project-panel state.",
+      description: "Read bounded native Project-panel metadata: panel layout XML, or one media item's visible columns as JSON (ColumnName, ColumnValue, ColumnID, ColumnPath). Column JSON is the current view, not every XMP namespace. This is read-only; it neither creates schema fields nor writes Project-panel state.",
       parameters: {
         type: "object" as const,
         additionalProperties: false,

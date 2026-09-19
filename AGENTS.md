@@ -65,6 +65,17 @@ AI client  --stdio MCP-->  Node server (src/server.ts)
 - `tests/` — Vitest. Mocks the bridge; does not prove live Premiere behavior.
 - `scripts/` — inventories, catalogs, installers, publish helpers.
 
+Premiere metadata is several host surfaces. Documented UXP `Metadata.*` methods
+are already mapped. Project-panel column JSON, Premiere-private project metadata
+XML, and file/clip XMP are distinct; `premiere://project/metadata` is only a
+path-redacted project/timeline summary. Field-level inspect/update uses
+`uxp.XMPMeta` / AdobeXMPScript with a 256-field cap, sensitive-EXIF omit, and
+field readback; CEP can still accept a complete XML payload plus `updatedFields`.
+Do not dump unbounded packets, wrap undocumented QE metadata, or promote C2PA
+into production tools without a bounded contract and a stable host pin. Keep MCP
+`agent-instructions.ts`, the workflow catalog, and both `edit-premiere-project`
+skill copies in sync when this surface changes.
+
 ### How a CEP tool call works
 
 1. Handler validates arguments in TypeScript.

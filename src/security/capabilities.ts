@@ -195,7 +195,9 @@ const ACTION_CAPABILITIES: Readonly<Record<string, Readonly<Record<string, reado
   },
   manage_metadata_uxp: {
     get: ["inspect"],
+    inspect_fields: ["inspect"],
     update: ["edit"],
+    update_field: ["edit"],
   },
   inspect_project_panel_metadata_uxp: {
     panel: ["inspect"],

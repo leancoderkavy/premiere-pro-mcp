@@ -1004,6 +1004,58 @@
       "verificationBoundary": "metadata_readback"
     },
     {
+      "id": "bounded-xmp-field-inspection",
+      "adobeApi": [
+        "Metadata.getProjectMetadata",
+        "Metadata.getXMPMetadata",
+        "Metadata.getProjectColumnsMetadata"
+      ],
+      "documentationUrls": [
+        "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/metadata/",
+        "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-js/modules/uxp/xmp/xmp-classes/xmp-meta"
+      ],
+      "minimumPremiereVersion": "25.6.0",
+      "backend": "uxp",
+      "uxpCommand": "metadata.fields.inspect",
+      "mcpTools": ["manage_metadata_uxp"],
+      "availability": "current",
+      "implementationStatus": "implemented",
+      "verificationStatus": "automated_contract_verified",
+      "liveHostVerificationStatus": "not_run",
+      "mutatesProject": false,
+      "undoable": false,
+      "idempotency": "not_applicable",
+      "verificationBoundary": "bounded_metadata_field_readback"
+    },
+    {
+      "id": "guarded-xmp-field-update",
+      "adobeApi": [
+        "Metadata.getProjectMetadata",
+        "Metadata.getXMPMetadata",
+        "Metadata.createSetProjectMetadataAction",
+        "Metadata.createSetXMPMetadataAction",
+        "Project.lockedAccess",
+        "Project.executeTransaction"
+      ],
+      "documentationUrls": [
+        "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/metadata/",
+        "https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/project/",
+        "https://developer.adobe.com/premiere-pro/uxp/uxp-api/reference-js/modules/uxp/xmp/xmp-classes/xmp-meta"
+      ],
+      "minimumPremiereVersion": "25.6.0",
+      "backend": "uxp",
+      "uxpCommand": "metadata.fields.update",
+      "mcpTools": ["manage_metadata_uxp"],
+      "availability": "current",
+      "implementationStatus": "implemented",
+      "verificationStatus": "automated_contract_verified",
+      "liveHostVerificationStatus": "not_run",
+      "mutatesProject": true,
+      "undoable": true,
+      "idempotency": "operation_id",
+      "verificationBoundary": "metadata_field_readback"
+    },
+    {
       "id": "bounded-project-columns-metadata-inspection",
       "adobeApi": [
         "Metadata.getProjectColumnsMetadata"

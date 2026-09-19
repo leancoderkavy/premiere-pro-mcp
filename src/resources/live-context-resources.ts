@@ -559,7 +559,7 @@ export function getLiveContextResources(
     {
       name: "premiere-project-metadata",
       uri: "premiere://project/metadata",
-      description: "Read-only project and active-timeline metadata summary with paths and timestamps withheld.",
+      description: "Read-only path-redacted project and active-timeline summary. Not Premiere project-metadata XML or XMP; use get_metadata parse_fields, manage_metadata_uxp inspect_fields, or inspect_project_panel_metadata_uxp for named clip fields.",
       read: (uri) => projectMetadata(uri, "premiere://project/metadata"),
     },
   ];

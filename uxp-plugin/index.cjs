@@ -1,5 +1,6 @@
 "use strict";
-const { entrypoints, host, storage } = require("uxp");
+const uxp = require("uxp");
+const { entrypoints, host, storage } = uxp;
 const ppro = require("premierepro");
 const Protocol = globalThis.PremiereMcpProtocol;
 const TranscriptSupport = globalThis.PremiereMcpTranscript;
@@ -18,6 +19,9 @@ const commandRegistry = Commands.createCommandRegistry({
   workspace: workspaceBroker,
   events: eventJournal,
   storage: typeof globalThis !== "undefined" ? globalThis.localStorage : null,
+  xmp: uxp.xmp && typeof uxp.xmp.XMPMeta === "function"
+    ? uxp.xmp
+    : { XMPMeta: uxp.XMPMeta, XMPConst: uxp.XMPConst },
   transcriptImportHandler: transcriptImportRuntime && transcriptImportRuntime.importTranscript,
   transcriptImportProbe: transcriptImportRuntime && transcriptImportRuntime.canImportTranscript
 });

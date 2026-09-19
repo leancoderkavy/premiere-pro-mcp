@@ -37,6 +37,18 @@ Premiere Pro host.
 - Prefer documented Premiere APIs. Label QE DOM behavior experimental.
 - Verify mutation postconditions. Do not treat a host API return value alone as proof of
   success, and do not silently fall back from failed UXP work to CEP or QE.
+- Premiere metadata is several documented surfaces, not one blob: Project-panel
+  column JSON (`getProjectColumnsMetadata`), Premiere-private project metadata XML,
+  file/clip XMP, panel-layout/schema XML, plus adjacent color-label, interpretation,
+  marker, and transcript tools. Documented `ppro.Metadata.*` methods are already
+  mapped. Do not wrap undocumented QE metadata, dump unbounded packets, or treat
+  `premiere://project/metadata` as XMP. Field-level inspect/update is bounded
+  (`uxp.XMPMeta` / AdobeXMPScript, 256 fields, sensitive EXIF omitted by default,
+  field readback). CEP still accepts a complete XML payload plus `updatedFields`.
+  Adobe exposes no field-level schema enumerator. Keep C2PA as beta until a
+  stable host pin exists. When adding metadata behavior, update
+  `src/workflows/agent-instructions.ts`, the workflow catalog prompt, and both
+  `edit-premiere-project` skill copies together.
 - Preserve private-directory ownership checks, authentication, size limits, secret
   handling, and telemetry privacy. Never collect prompts, arguments, results, tokens,
   IP addresses, project paths, media names, or person profiles.

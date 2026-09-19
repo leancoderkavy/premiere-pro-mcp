@@ -12,7 +12,7 @@ Free, MIT licensed, local-first, and published to npm as [`premiere-pro-mcp`](ht
 
 [Website](https://premiere-pro-mcp.com/) · [Recorded demo](https://premiere-pro-mcp.com/demo/) · [Compare servers](https://premiere-pro-mcp.com/compare/) · [Setup guides](https://premiere-pro-mcp.com/blog/how-to-set-up-premiere-pro-mcp/) · [Search tools](https://premiere-pro-mcp.com/tools/) · [Troubleshooting](https://premiere-pro-mcp.com/docs/troubleshooting/) · [Release facts](https://premiere-pro-mcp.com/facts/)
 
-Development source: 381 core tools across 56 modules, 4 resources, and 18 guided workflows. A connected UXP host adds 95 capability-gated tools.
+Development source: 381 core tools across 56 modules, 4 resources, and 19 guided workflows. A connected UXP host adds 95 capability-gated tools.
 
 The [completed AE render handoff](docs/after-effects-render-handoff.md) previews and confirms importing one finished render into an existing Premiere bin, with host and file rechecks and an import receipt.
 
@@ -1147,13 +1147,13 @@ Track targeting, batch operations, markers, audio levels, motion/transform, meta
 
 ## MCP Resources
 
-The server exposes fourteen LLM context resources and eleven workflow prompts:
+The server exposes fourteen LLM context resources and nineteen workflow prompts:
 
 | Resource URI | Description |
 | :----------- | :---------- |
-| `config://premiere-instructions` | Best practices: workflow order, timeline rules, effect tips, error handling |
+| `config://premiere-instructions` | Best practices: workflow order, metadata layers, timeline rules, error handling |
 | `config://extendscript-reference` | Complete ExtendScript API reference for writing custom scripts |
-| `config://premiere-workflows` | Machine-readable catalog for rough cuts, dialogue cleanup, captions, and delivery |
+| `config://premiere-workflows` | Machine-readable catalog for rough cuts, metadata review, dialogue cleanup, captions, and delivery |
 | `config://premiere-project-context` | Revisioned local project-context indexing and retrieval workflow |
 | `premiere://project/info` | Fresh, path-redacted current-project and active-sequence summary |
 | `premiere://project/sequences` | Bounded sequence inventory with stable Premiere IDs |
@@ -1164,7 +1164,7 @@ The server exposes fourteen LLM context resources and eleven workflow prompts:
 | `premiere://effects/applied` | Bounded active-timeline component inventory |
 | `premiere://transitions/available` | Bounded video/audio transition catalog for planning |
 | `premiere://export/presets` | Bounded export-preset names and formats, without native paths |
-| `premiere://project/metadata` | Read-only project and active-timeline summary, without paths or timestamps |
+| `premiere://project/metadata` | Path-redacted project and active-timeline summary — not XMP or Project Metadata XML |
 
 The ten `premiere://` snapshots are read-only CEP bridge requests. They include a
 revision token for stale-state detection and omit native media, project-tree, preset,

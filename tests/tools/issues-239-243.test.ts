@@ -30,14 +30,29 @@ describe("issue #239 — metadata writes require a readback-capable payload", ()
   const metadata = getMetadataTools(bridgeOptions);
   const project = getProjectTools(bridgeOptions);
 
-  it("refuses the old field/value form before it reaches Premiere", async () => {
-    const result = await metadata.set_metadata.handler({
+  it("turns field/value writes into a complete XMP property update with field readback", async () => {
+    const script = await scriptFor(metadata.set_metadata, {
       item_id: "clip-1",
-      field_name: "Column.Intrinsic.Description",
+      field_name: "Column.Intrinsic.LogNote",
       value: "unique value",
     });
 
-    expect(result).toMatchObject({ success: false, error: expect.stringContaining("partial field_name/value") });
+    expect(script).toContain("new XMPMeta");
+    expect(script).toContain("setProperty");
+    expect(script).toContain("item.setProjectMetadata");
+    expect(script).toContain("field_value_readback");
+    expect(script).not.toContain("partial field_name/value");
+  });
+
+  it("rejects mixing a complete XML payload with field/value arguments", async () => {
+    const result = await metadata.set_metadata.handler({
+      item_id: "clip-1",
+      field_name: "Column.Intrinsic.LogNote",
+      value: "unique value",
+      metadata_xml: "<xmpmeta />",
+      updated_fields: ["Column.Intrinsic.LogNote"],
+    });
+    expect(result).toMatchObject({ success: false, error: expect.stringContaining("cannot combine") });
     expect(mockedSendCommand).not.toHaveBeenCalled();
   });
 

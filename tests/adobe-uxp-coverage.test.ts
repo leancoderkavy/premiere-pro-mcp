@@ -44,6 +44,8 @@ describe("Adobe Premiere Pro 26.3 UXP coverage", () => {
       "proxy-ingest-controller",
       "offline-media-relink-repair",
       "transactional-metadata-xmp",
+      "bounded-xmp-field-inspection",
+      "guarded-xmp-field-update",
       "color-footage-conformance",
       "source-monitor-audition",
       "productions-storage-preflight",
@@ -370,6 +372,21 @@ describe("Adobe Premiere Pro 26.3 UXP coverage", () => {
       "Project.getSequences",
       "Sequence.guid",
     ]));
+    expect(entries.find((entry) => entry.id === "bounded-xmp-field-inspection")).toMatchObject({
+      uxpCommand: "metadata.fields.inspect",
+      mcpTools: ["manage_metadata_uxp"],
+      verificationBoundary: "bounded_metadata_field_readback",
+      liveHostVerificationStatus: "not_run",
+      mutatesProject: false,
+    });
+    expect(entries.find((entry) => entry.id === "guarded-xmp-field-update")).toMatchObject({
+      uxpCommand: "metadata.fields.update",
+      mcpTools: ["manage_metadata_uxp"],
+      verificationBoundary: "metadata_field_readback",
+      liveHostVerificationStatus: "not_run",
+      mutatesProject: true,
+      undoable: true,
+    });
     expect(entries.find((entry) => entry.id === "bounded-project-columns-metadata-inspection")).toMatchObject({
       uxpCommand: "metadata.columns.get",
       mcpTools: ["inspect_project_panel_metadata_uxp"],
@@ -532,12 +549,12 @@ describe("Adobe Premiere Pro 26.3 UXP coverage", () => {
   it("keeps unimplemented 26.3 work visibly planned", () => {
     const report = buildAdobeUxpCoverageReport();
     expect(report.summary).toEqual({
-      total: 87,
-      current: 84,
+      total: 89,
+      current: 86,
       planned: 3,
-      implemented: 84,
+      implemented: 86,
       committedUnverified: 8,
-      automatedContractVerified: 76,
+      automatedContractVerified: 78,
       liveHostVerified: 0,
     });
     expect(report.entries.find((entry) => entry.id === "aaf-export")).toMatchObject({
@@ -569,7 +586,7 @@ describe("Adobe Premiere Pro 26.3 UXP coverage", () => {
   it("surfaces the baseline in the platform capability report", () => {
     const report = buildPlatformCapabilityReport(resolveCapabilities("inspect"), "win32");
     expect(report.backends.uxp.apiCoverage.summary).toMatchObject({
-      current: 84,
+      current: 86,
       planned: 3,
       committedUnverified: 8,
     });

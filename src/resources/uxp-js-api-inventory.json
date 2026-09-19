@@ -13,8 +13,8 @@
   },
   "stats": {
     "total": 3406,
-    "mapped": 12,
-    "unmapped": 3394,
+    "mapped": 20,
+    "unmapped": 3386,
     "manifestOnly": 0
   },
   "manifestOnly": [],
@@ -16257,7 +16257,7 @@
     {
       "symbol": "uxp.XMPConst",
       "kind": "class",
-      "coverage": "unmapped"
+      "coverage": "mapped"
     },
     {
       "symbol": "uxp.XMPDateTime",
@@ -16402,12 +16402,12 @@
     {
       "symbol": "uxp.XMPMeta",
       "kind": "class",
-      "coverage": "unmapped"
+      "coverage": "mapped"
     },
     {
       "symbol": "uxp.XMPMeta.[[construct]]",
       "kind": "constructor",
-      "coverage": "unmapped"
+      "coverage": "mapped"
     },
     {
       "symbol": "uxp.XMPMeta.appendArrayItem",
@@ -16497,7 +16497,7 @@
     {
       "symbol": "uxp.XMPMeta.getProperty",
       "kind": "method",
-      "coverage": "unmapped"
+      "coverage": "mapped"
     },
     {
       "symbol": "uxp.XMPMeta.getQualifier",
@@ -16517,7 +16517,7 @@
     {
       "symbol": "uxp.XMPMeta.iterator",
       "kind": "method",
-      "coverage": "unmapped"
+      "coverage": "mapped"
     },
     {
       "symbol": "uxp.XMPMeta.registerNamespace",
@@ -16527,7 +16527,7 @@
     {
       "symbol": "uxp.XMPMeta.serialize",
       "kind": "method",
-      "coverage": "unmapped"
+      "coverage": "mapped"
     },
     {
       "symbol": "uxp.XMPMeta.serializeToArray",
@@ -16547,7 +16547,7 @@
     {
       "symbol": "uxp.XMPMeta.setProperty",
       "kind": "method",
-      "coverage": "unmapped"
+      "coverage": "mapped"
     },
     {
       "symbol": "uxp.XMPMeta.setQualifier",
@@ -17047,7 +17047,7 @@
     {
       "symbol": "uxp.xmp",
       "kind": "variable",
-      "coverage": "unmapped"
+      "coverage": "mapped"
     }
   ]
 }

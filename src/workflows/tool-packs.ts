@@ -71,7 +71,7 @@ export const WORKFLOW_TOOL_PACKS: readonly WorkflowToolPack[] = [
     name: "inspection",
     title: "Project and review inspection",
     description:
-      "Read-only project, sequence, timeline, review, and render-queue inspection before an editorial or delivery handoff.",
+      "Read-only project, sequence, timeline, review, render-queue, and clip-metadata inspection before an editorial or delivery handoff.",
     tools: [
       "verify_premiere_connection",
       "get_premiere_state",
@@ -89,6 +89,10 @@ export const WORKFLOW_TOOL_PACKS: readonly WorkflowToolPack[] = [
       "plan_silence_review_markers",
       "get_offline_media",
       "get_used_media_report",
+      "get_metadata",
+      "get_xmp_metadata",
+      "get_project_panel_metadata",
+      "inspect_project_panel_metadata_uxp",
       "get_render_queue_status",
       "diff_sequence_snapshots",
       "audit_timeline_health",

@@ -43,9 +43,12 @@ describe("stable UXP workflow MCP catalog", () => {
     });
     expect(tools.manage_metadata_uxp.parameters).toMatchObject({
       properties: {
+        action: { enum: ["get", "update", "inspect_fields", "update_field"] },
         project_metadata: { maxLength: 350000, description: expect.stringContaining("900,000-byte") },
         xmp_metadata: { maxLength: 350000, description: expect.stringContaining("900,000-byte") },
         updated_fields: { maxItems: 128 },
+        field_name: { minLength: 1, maxLength: 512 },
+        value: { maxLength: 4096 },
       },
     });
     expect(tools.inspect_project_panel_metadata_uxp.parameters).toMatchObject({
@@ -221,6 +224,13 @@ describe("stable UXP workflow MCP catalog", () => {
     await tools.manage_metadata_uxp.handler({
       action: "update", project_item_id: "clip-1", project_metadata: "metadata", updated_fields: ["LogNote"], operation_id: "meta-1",
     });
+    await tools.manage_metadata_uxp.handler({
+      action: "inspect_fields", project_item_id: "clip-1", include_sensitive: false, namespaces: ["premiere"],
+    });
+    await tools.manage_metadata_uxp.handler({
+      action: "update_field", project_item_id: "clip-1", packet: "project",
+      field_name: "Column.Intrinsic.LogNote", value: "slate-2", expected_value: "slate-1", operation_id: "field-1",
+    });
     await tools.manage_project_panel_metadata_uxp.handler({
       action: "update", expected_project_guid: "project-1", expected_project_panel_metadata: "<before/>",
       project_panel_metadata: "<after/>", confirm_update: true, operation_id: "panel-1",
@@ -250,19 +260,26 @@ describe("stable UXP workflow MCP catalog", () => {
     expect(request).toHaveBeenNthCalledWith(6, "metadata.update", {
       projectItemId: "clip-1", projectMetadata: "metadata", updatedFields: ["LogNote"], operationId: "meta-1",
     });
-    expect(request).toHaveBeenNthCalledWith(7, "metadata.projectPanel.update", {
+    expect(request).toHaveBeenNthCalledWith(7, "metadata.fields.inspect", {
+      projectItemId: "clip-1", includeSensitive: false, namespaces: ["premiere"],
+    });
+    expect(request).toHaveBeenNthCalledWith(8, "metadata.fields.update", {
+      projectItemId: "clip-1", packet: "project", name: "Column.Intrinsic.LogNote",
+      value: "slate-2", expectedValue: "slate-1", operationId: "field-1",
+    });
+    expect(request).toHaveBeenNthCalledWith(9, "metadata.projectPanel.update", {
       expectedProjectGuid: "project-1", expectedProjectPanelMetadata: "<before/>", projectPanelMetadata: "<after/>",
       confirmUpdate: true, operationId: "panel-1",
     });
-    expect(request).toHaveBeenNthCalledWith(8, "footage.conform", {
+    expect(request).toHaveBeenNthCalledWith(10, "footage.conform", {
       projectItemId: "clip-1", frameRate: 24, inputLutId: "lut-guid", operationId: "color-1",
     });
-    expect(request).toHaveBeenNthCalledWith(9, "sourceMonitor.open", { filePath: "D:/Approved/take.mov", operationId: "monitor-1" });
-    expect(request).toHaveBeenNthCalledWith(10, "scratch.configure", {
+    expect(request).toHaveBeenNthCalledWith(11, "sourceMonitor.open", { filePath: "D:/Approved/take.mov", operationId: "monitor-1" });
+    expect(request).toHaveBeenNthCalledWith(12, "scratch.configure", {
       folderTypes: ["capture", "autoSave"], destination: "sameAsProject", operationId: "scratch-1",
     });
-    expect(request).toHaveBeenNthCalledWith(11, "environment.inspect", {});
-    expect(request).toHaveBeenNthCalledWith(12, "workspace.status", {});
+    expect(request).toHaveBeenNthCalledWith(13, "environment.inspect", {});
+    expect(request).toHaveBeenNthCalledWith(14, "workspace.status", {});
   });
 
   it("maps Project-panel metadata reads and guarded writes to separate authority routes", async () => {
