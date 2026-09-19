@@ -1,0 +1,22 @@
+---
+description: UXP bridge and capability-gated Premiere 25.6+ tools
+globs:
+  - uxp-plugin/**
+  - src/bridge/uxp-websocket-bridge.ts
+  - src/tools/uxp*.ts
+  - tests/uxp/**
+  - docs/uxp*.md
+  - docs/adobe-uxp-26.3-coverage.md
+alwaysApply: false
+---
+
+# UXP
+
+`uxp-plugin/` is a capability-aware Premiere 25.6+ backend. CEP remains the production compatibility path.
+
+- Honor the runtime capability probe. Do not call APIs the connected host did not advertise.
+- Keep panel code in CommonJS (`.cjs`). `npm run lint` applies `@adobe/eslint-plugin-premierepro` to `uxp-plugin/**/*.cjs`.
+- Mutations need undoable transactions where Adobe documents them, plus native readback. Failed post-commit readback is `committed_unverified`, not success.
+- Never fall back from a failed UXP mutation to CEP or the QE DOM.
+- Path-based commands stay inside the operator-approved workspace folder. Do not send the folder token or native root path to the MCP server.
+- Map new panel commands to MCP tools in `src/tools/uxp*.ts` and update the matching docs/coverage matrix.

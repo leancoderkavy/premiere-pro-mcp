@@ -1,0 +1,31 @@
+---
+description: ES3 ExtendScript generation and string escaping for CEP/AE host scripts
+globs:
+  - src/bridge/**/*.ts
+  - src/tools/**/*.ts
+  - cep-plugin/**
+  - after-effects-cep-plugin/**
+alwaysApply: false
+---
+
+# ExtendScript
+
+Generated Premiere/AE scripts must be ECMAScript 3.
+
+```javascript
+// BAD
+const name = item.name;
+items.forEach((x) => doWork(x));
+
+// GOOD
+var name = item.name;
+for (var i = 0; i < items.length; i++) {
+  doWork(items[i]);
+}
+```
+
+Forbidden in generated host code: `let`, `const`, arrows, template literals, destructuring, spread, default parameters, `forEach`/`map`/`filter`.
+
+Escape every user-controlled string with `escapeForExtendScript` before embedding. Never interpolate raw paths, names, expressions, or prompts.
+
+Use `buildToolScript` / `buildScript` and existing helpers (`__result`, `__error`, `__findProjectItem`, `__findSequence`). Prefer documented Premiere APIs; label QE DOM (`app.enableQE()`) as experimental.

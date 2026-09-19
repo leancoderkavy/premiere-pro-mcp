@@ -1,0 +1,22 @@
+---
+description: Evidence-gated product claims, counts, and compatibility language
+globs:
+  - README.md
+  - CHANGELOG.md
+  - docs/**
+  - landing/**
+  - release-metadata.json
+  - docs/claims-registry.json
+alwaysApply: false
+---
+
+# Claims
+
+`docs/claims-registry.json` governs public claims. Keep qualifications next to the number.
+
+- Source catalog: `docs/supported-actions.md` (may include unreleased work).
+- Published package: `landing/lib/published-release.json`.
+- A connected-tool count is not a promise that a host supports a given operation.
+- Automated tests ≠ licensed-host verification. Say `committed_unverified` when readback is missing.
+- Do not invent Marketplace status, testimonials, rankings, revenue, or host results.
+- When changing a version, search package, lockfile, CEP/UXP manifests, marketplace, MCP config, updater, landing, and installers together.
