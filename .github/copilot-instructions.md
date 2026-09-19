@@ -1,10 +1,12 @@
 # GitHub Copilot repository instructions
 
+Canonical agent map: `AGENTS.md`. Follow it for architecture, commands, and constraints.
+
 ## Project and architecture
 
 - This repository is the TypeScript MCP server for Adobe Premiere Pro. The production path is a local Node.js server communicating with the CEP bridge through private file-based IPC. The UXP bridge is a capability-aware preview for supported Premiere 25.6+ APIs.
 - `src/server.ts` assembles the MCP surface. Tool modules live in `src/tools/`, bridge code in `src/bridge/`, the production CEP extension in `cep-plugin/`, and the preview backend in `uxp-plugin/`.
-- Treat `README.md`, `SECURITY.md`, `CONTRIBUTING.md`, and `RESEARCH.md` as the canonical product, trust-model, contribution, and compatibility references.
+- Treat `AGENTS.md`, `README.md`, `SECURITY.md`, `CONTRIBUTING.md`, and `RESEARCH.md` as the canonical agent, product, trust-model, contribution, and compatibility references. Current source and release metadata beat dated research snapshots.
 
 ## Development workflow
 

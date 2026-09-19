@@ -1377,6 +1377,7 @@ premiere-pro-mcp/
 ├── Dockerfile                   # Multi-stage Docker build for Fly.io
 ├── fly.toml                     # Fly.io deployment config
 ├── RESEARCH.md                  # API research and implementation status
+├── AGENTS.md                    # IDE / coding-agent map
 ├── CONTRIBUTING.md              # Contribution guidelines
 ├── CHANGELOG.md                 # Version history
 └── LICENSE                      # MIT License
@@ -1596,6 +1597,7 @@ buy prioritized support, roadmap influence, or any claim about unverified host b
 ## Contributing
 
 Contributions are welcome! See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
+AI agents and IDE assistants should read [AGENTS.md](AGENTS.md).
 
 The evidence-backed [next improvement pull-request roadmap](docs/next-improvement-pr-roadmap.md)
 breaks the proposed feature, protocol, reliability, and performance work into ten

@@ -1,0 +1,16 @@
+---
+description: Next.js 16 marketing site conventions and public-claim rules
+globs: landing/**
+alwaysApply: false
+---
+
+# Landing site
+
+This is Next.js 16 under `landing/`. Read `landing/node_modules/next/dist/docs/` before writing app code; do not assume older Next.js APIs.
+
+Keep the `BEGIN:nextjs-agent-rules` / `END:nextjs-agent-rules` block in `landing/AGENTS.md`. `next dev` rewrites it.
+
+- Public tool counts and release facts come from generated sources (`landing/lib/published-release.json`, `npm run marketing:check`). Do not hand-edit `landing/public/llms.txt`.
+- Qualify claims per `docs/claims-registry.md`. Do not mix development-source catalogs with published-package facts.
+- Do not market the hosted `/mcp` endpoint as remote control of an editor's local Premiere (`docs/hosted-mcp-product-boundary.md`).
+- Verify user-visible UI in the browser when behavior or layout changes.
