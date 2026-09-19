@@ -98,8 +98,65 @@ describe("least-privilege UXP workspace broker", () => {
 
     const unavailable = Workspace.createWorkspaceBroker({ fs: fixture.fs });
     await unavailable.requestRoot();
+    expect(unavailable.status()).toMatchObject({ canonicalPathValidation: "unavailable" });
     await expect(unavailable.assertPathAllowed("D:/Projects/Film/media.mov", { label: "media", kind: "file" }))
-      .rejects.toMatchObject({ code: "UXP_CANONICAL_PATH_UNAVAILABLE" });
+      .rejects.toMatchObject({
+        code: "UXP_CANONICAL_PATH_UNAVAILABLE",
+        message: expect.stringContaining("not implemented in this build"),
+      });
+  });
+
+  it("walks granted folder entries to resolve native paths when no resolver is injected", async () => {
+    const fixture = storageFixture();
+    const media = { isFolder: false, name: "media.mov", nativePath: "D:\\Projects\\Film\\media.mov" };
+    const escaped = { isFolder: false, name: "outside.mov", nativePath: "D:\\Secrets\\outside.mov" };
+    const linked = {
+      isFolder: true,
+      name: "linked",
+      nativePath: "D:\\Projects\\Film\\linked",
+      getEntry: vi.fn(async (name: string) => {
+        if (name === "outside.mov") return escaped;
+        throw new Error("missing");
+      }),
+    };
+    const root = {
+      isFolder: true,
+      name: "Approved Media",
+      nativePath: "D:\\Projects\\Film",
+      getEntry: vi.fn(async (name: string) => {
+        if (name === "media.mov") return media;
+        if (name === "linked") return linked;
+        throw new Error("missing");
+      }),
+    };
+    fixture.fs.getFolder.mockResolvedValue(root);
+    const broker = Workspace.createWorkspaceBroker({ fs: fixture.fs });
+    await broker.requestRoot();
+    expect(broker.status()).toMatchObject({ canonicalPathValidation: "available" });
+    await expect(broker.assertPathAllowed("D:\\Projects\\Film\\media.mov", { label: "media", kind: "file" }))
+      .resolves.toBe("D:/Projects/Film/media.mov");
+    await expect(broker.assertPathAllowed("D:\\Projects\\Film\\linked\\outside.mov", { label: "media", kind: "file" }))
+      .rejects.toMatchObject({ code: "UXP_PATH_OUTSIDE_WORKSPACE" });
+  });
+
+  it("uses localFileSystem.getEntryWithUrl when that host primitive is present", async () => {
+    const fixture = storageFixture();
+    fixture.fs.getEntryWithUrl = vi.fn(async (url: string) => {
+      if (url.includes("linked")) return { isFolder: false, nativePath: "D:\\Secrets\\outside.mov" };
+      const nativePath = url.replace(/^file:\/*/, "").replace(/\//g, "\\");
+      return { isFolder: !nativePath.toLowerCase().endsWith(".mov"), nativePath };
+    });
+    const broker = Workspace.createWorkspaceBroker({
+      fs: fixture.fs,
+      resolveCanonicalPath: Workspace.createCanonicalPathResolver({ fs: fixture.fs }),
+    });
+    await broker.requestRoot();
+    expect(broker.status()).toMatchObject({ canonicalPathValidation: "available" });
+    await expect(broker.assertPathAllowed("D:\\Projects\\Film\\media.mov", { label: "media", kind: "file" }))
+      .resolves.toBe("D:/Projects/Film/media.mov");
+    await expect(broker.assertPathAllowed("D:\\Projects\\Film\\linked\\outside.mov", { label: "media", kind: "file" }))
+      .rejects.toMatchObject({ code: "UXP_PATH_OUTSIDE_WORKSPACE" });
+    expect(fixture.fs.getEntryWithUrl).toHaveBeenCalled();
   });
 
   it("restores and revokes a persisted folder capability", async () => {

@@ -239,7 +239,7 @@
         if (definition.conditionalWorkspace) commands[name].workspaceRequired = "path_variant_only";
         if (definition.targetCapabilityProbe) commands[name].targetCapabilityProbe = "invocation";
         if (!apiSupported) commands[name].reason = "Required Premiere UXP API is unavailable in this host";
-        else if (!pathValidationSupported) commands[name].reason = "This UXP host cannot canonically validate native paths; use the CEP fallback for path-based workflows";
+        else if (!pathValidationSupported) commands[name].reason = "canonical path validation is not implemented in this build; use the CEP fallback for path-based workflows";
       }
       return {
         backend: "uxp", protocolVersion: Protocol.PROTOCOL_VERSION, hostMinVersion: "25.6.0",

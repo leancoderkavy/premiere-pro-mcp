@@ -232,7 +232,13 @@ describe("UXP command registry", () => {
       workspace: { status: () => ({ configured: true }), assertPathAllowed: (path: string) => path },
     });
     await expect(missingState.capabilities()).resolves.toMatchObject({
-      commands: { "sequence.createPreset": { supported: false, workspaceRequired: true } },
+      commands: {
+        "sequence.createPreset": {
+          supported: false,
+          workspaceRequired: true,
+          reason: "canonical path validation is not implemented in this build; use the CEP fallback for path-based workflows",
+        },
+      },
     });
 
     const availableState = Commands.createCommandRegistry({

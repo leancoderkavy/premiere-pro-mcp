@@ -74,6 +74,45 @@
     return url;
   }
 
+  function nativePathOf(fs, entry) {
+    if (entry && typeof entry.nativePath === "string" && entry.nativePath) return entry.nativePath;
+    if (entry && fs && typeof fs.getNativePath === "function") return fs.getNativePath(entry);
+    return "";
+  }
+
+  function toFileUrl(nativePath) {
+    const parsed = parseAbsolutePath(nativePath, "path");
+    if (parsed.kind === "windows") return "file:/" + parsed.normalized;
+    return "file:" + parsed.normalized;
+  }
+
+  function createCanonicalPathResolver(deps) {
+    const fs = deps && deps.fs;
+    if (!fs || typeof fs.getEntryWithUrl !== "function") return undefined;
+    return async function resolveCanonicalPath(value, options) {
+      const label = options && options.label || "path";
+      const kind = options && options.kind || "file";
+      let entry;
+      try {
+        entry = await fs.getEntryWithUrl(toFileUrl(value));
+      } catch (error) {
+        if (error && /^UXP_[A-Z0-9_]+$/.test(error.code || "")) throw error;
+        throw workspaceError("UXP_CANONICAL_PATH_UNAVAILABLE", "This UXP host could not resolve " + label + " to a canonical filesystem path");
+      }
+      const native = nativePathOf(fs, entry);
+      if (!native) {
+        throw workspaceError("UXP_CANONICAL_PATH_UNAVAILABLE", "This UXP host could not resolve " + label + " to a canonical filesystem path");
+      }
+      if (kind === "directory" && entry && entry.isFile) {
+        throw workspaceError("UXP_INVALID_ARGUMENT", label + " must be a directory");
+      }
+      if (kind === "file" && entry && entry.isFolder) {
+        throw workspaceError("UXP_INVALID_ARGUMENT", label + " must be a file");
+      }
+      return parseAbsolutePath(native, label).normalized;
+    };
+  }
+
   function createWorkspaceBroker(deps) {
     const fs = deps && deps.fs;
     const resolveCanonicalPath = deps && deps.resolveCanonicalPath;
@@ -82,9 +121,7 @@
     let initialized = false;
 
     function nativePathFor(entry) {
-      if (entry && typeof entry.nativePath === "string" && entry.nativePath) return entry.nativePath;
-      if (entry && fs && typeof fs.getNativePath === "function") return fs.getNativePath(entry);
-      return "";
+      return nativePathOf(fs, entry);
     }
 
     async function dataFolder() {
@@ -168,6 +205,10 @@
       return status();
     }
 
+    function canWalkGrantedFolder() {
+      return !!(rootEntry && typeof rootEntry.getEntry === "function");
+    }
+
     function status() {
       return {
         configured: !!rootEntry,
@@ -175,8 +216,44 @@
         rootName: rootEntry && typeof rootEntry.name === "string" ? rootEntry.name : null,
         persistent: !!persistentToken,
         pathDisclosure: "redacted",
-        canonicalPathValidation: typeof resolveCanonicalPath === "function" ? "available" : "unavailable"
+        canonicalPathValidation: typeof resolveCanonicalPath === "function" || canWalkGrantedFolder() ? "available" : "unavailable"
       };
+    }
+
+    function relativeSegments(rootPath, candidatePath, label) {
+      const root = parseAbsolutePath(rootPath, "workspace root");
+      const candidate = parseAbsolutePath(candidatePath, label);
+      if (candidate.comparison === root.comparison) return [];
+      if (candidate.comparison.indexOf(root.comparison + "/") !== 0) {
+        throw workspaceError("UXP_PATH_OUTSIDE_WORKSPACE", label + " must stay inside the approved workspace folder");
+      }
+      return candidate.normalized.slice(root.normalized.length).replace(/^\//, "").split("/").filter(Boolean);
+    }
+
+    async function resolveThroughGrantedFolder(candidatePath, options) {
+      const label = options && options.label || "path";
+      if (!canWalkGrantedFolder()) {
+        throw workspaceError("UXP_CANONICAL_PATH_UNAVAILABLE", "Canonical path validation is not implemented in this build; use the CEP fallback for path-based workflows");
+      }
+      const rootPath = nativePathFor(rootEntry);
+      const segments = relativeSegments(rootPath, candidatePath, label);
+      let entry = rootEntry;
+      for (let index = 0; index < segments.length; index += 1) {
+        if (!entry || typeof entry.getEntry !== "function") {
+          throw workspaceError("UXP_CANONICAL_PATH_UNAVAILABLE", "Canonical path validation is not implemented in this build; use the CEP fallback for path-based workflows");
+        }
+        try {
+          entry = await entry.getEntry(segments[index]);
+        } catch (error) {
+          if (error && /^UXP_[A-Z0-9_]+$/.test(error.code || "")) throw error;
+          throw workspaceError("UXP_CANONICAL_PATH_UNAVAILABLE", "This UXP host could not resolve " + label + " to a canonical filesystem path");
+        }
+      }
+      const native = nativePathFor(entry);
+      if (!native) {
+        throw workspaceError("UXP_CANONICAL_PATH_UNAVAILABLE", "This UXP host could not resolve " + label + " to a canonical filesystem path");
+      }
+      return parseAbsolutePath(native, label).normalized;
     }
 
     async function assertPathAllowed(value, options) {
@@ -190,17 +267,18 @@
       if (!isContained(rootPath, candidate.normalized, kind === "directory")) {
         throw workspaceError("UXP_PATH_OUTSIDE_WORKSPACE", label + " must stay inside the approved workspace folder");
       }
-      // A lexical prefix check cannot detect symlinks, Windows junctions, or
-      // other reparse points. Adobe's request-scoped UXP filesystem API does
-      // not expose a documented realpath/link-inspection primitive, so raw
-      // native paths must fail closed unless the embedding host supplies one.
-      if (typeof resolveCanonicalPath !== "function") {
-        throw workspaceError("UXP_CANONICAL_PATH_UNAVAILABLE", "This UXP host cannot prove that " + label + " stays inside the approved workspace after resolving filesystem links");
-      }
+      // Lexical containment cannot detect symlink, junction, or reparse-point
+      // escapes. Prefer an embedder-supplied resolver; otherwise walk from the
+      // granted folder Entry so nativePath reflects the host's resolved target.
       let canonicalRootValue, canonicalCandidateValue;
       try {
-        canonicalRootValue = await resolveCanonicalPath(rootPath, { label: "workspace root", kind: "directory" });
-        canonicalCandidateValue = await resolveCanonicalPath(candidate.normalized, { label, kind });
+        if (typeof resolveCanonicalPath === "function") {
+          canonicalRootValue = await resolveCanonicalPath(rootPath, { label: "workspace root", kind: "directory" });
+          canonicalCandidateValue = await resolveCanonicalPath(candidate.normalized, { label, kind });
+        } else {
+          canonicalRootValue = await resolveThroughGrantedFolder(rootPath, { label: "workspace root", kind: "directory" });
+          canonicalCandidateValue = await resolveThroughGrantedFolder(candidate.normalized, { label, kind });
+        }
       } catch (error) {
         if (error && /^UXP_[A-Z0-9_]+$/.test(error.code || "")) throw error;
         throw workspaceError("UXP_CANONICAL_PATH_UNAVAILABLE", "This UXP host could not resolve " + label + " to a canonical filesystem path");
@@ -216,5 +294,5 @@
     return { initialize, requestRoot, revoke, status, assertPathAllowed };
   }
 
-  return { createWorkspaceBroker, parseAbsolutePath, isContained, validateLoopbackBridgeUrl, workspaceError };
+  return { createWorkspaceBroker, createCanonicalPathResolver, parseAbsolutePath, isContained, validateLoopbackBridgeUrl, workspaceError };
 });
