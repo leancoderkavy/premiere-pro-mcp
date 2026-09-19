@@ -3,6 +3,7 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { product, sourceCatalog } from "../landing/lib/product.js";
 import { articles } from "../landing/lib/articles.js";
+import { WORKFLOW_CATALOG } from "../src/workflows/catalog.js";
 
 const root = process.cwd();
 const read = (path: string) => readFileSync(join(root, path), "utf8");
@@ -114,6 +115,7 @@ describe("canonical release metadata", () => {
       release.defaultProfileWithUxpTools,
     );
     expect(release.coreTools - release.defaultProfileTools).toBe(2);
+    expect(release.guidedWorkflows).toBe(WORKFLOW_CATALOG.length);
   });
 
   it("keeps the CLI help count aligned with the default profile", () => {

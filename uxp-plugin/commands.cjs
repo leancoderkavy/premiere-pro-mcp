@@ -69,7 +69,7 @@
     let workflowApi = deps.Workflows || (typeof globalThis !== "undefined" && globalThis.PremiereMcpWorkflows);
     if (!workflowApi && typeof require === "function") workflowApi = require("./workflows.cjs");
     if (workflowApi && typeof workflowApi.createWorkflowDefinitions === "function") {
-      Object.assign(definitions, workflowApi.createWorkflowDefinitions({ ppro, Protocol, workspace }));
+      Object.assign(definitions, workflowApi.createWorkflowDefinitions({ ppro, Protocol, workspace, xmp: deps.xmp }));
     }
     let projectItemColorLabelLocksApi = deps.ProjectItemColorLabelLocks || (typeof globalThis !== "undefined" && globalThis.PremiereMcpProjectItemColorLabelLocks);
     if (!projectItemColorLabelLocksApi && typeof require === "function") projectItemColorLabelLocksApi = require("./project-item-color-label-locks.cjs");

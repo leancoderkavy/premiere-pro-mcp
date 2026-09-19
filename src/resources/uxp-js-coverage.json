@@ -18,6 +18,20 @@
         "globalThis.WebSocket.send"
       ],
       "evidence": "Static panel source mapping only; runtime availability remains host- and manifest-dependent."
+    },
+    {
+      "implementation": "uxp-plugin/workflows.cjs",
+      "uxpApi": [
+        "uxp.xmp",
+        "uxp.XMPMeta",
+        "uxp.XMPMeta.[[construct]]",
+        "uxp.XMPMeta.getProperty",
+        "uxp.XMPMeta.setProperty",
+        "uxp.XMPMeta.iterator",
+        "uxp.XMPMeta.serialize",
+        "uxp.XMPConst"
+      ],
+      "evidence": "Bounded project/XMP field inspect and update; runtime availability is probed and is host-dependent."
     }
   ]
 }

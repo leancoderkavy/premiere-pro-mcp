@@ -18,9 +18,13 @@ describe("modern MCP surface", () => {
   it("exposes a machine-readable workflow resource", () => {
     const resource = JSON.parse(WORKFLOW_RESOURCE);
     expect(resource.version).toBe(1);
-    expect(resource.workflows).toHaveLength(18);
+    expect(resource.workflows).toHaveLength(WORKFLOW_CATALOG.length);
     expect(resource.workflows.find((workflow: { id: string }) => workflow.id === "rough-cut").recommendedTools).toContain("get_premiere_state");
     expect(resource.workflows.find((workflow: { id: string }) => workflow.id === "film-editorial").recommendedTools).toContain("inspect_film_editorial_workflow");
+    expect(resource.guidance).toContain("Prefer visible Project-panel column JSON over dumping full XMP or project-metadata packets.");
+    const metadataReview = resource.workflows.find((workflow: { id: string }) => workflow.id === "metadata-review");
+    expect(metadataReview.recommendedTools).toContain("inspect_project_panel_metadata_uxp");
+    expect(metadataReview.promptNotes).toContain("item_columns");
     const organization = resource.workflows.find((workflow: { id: string }) => workflow.id === "project-organization");
     expect(organization.recommendedTools).toContain("apply_editorial_organization_plan");
     expect(organization.recommendedTools).not.toContain("organize_project_items_uxp");
@@ -101,6 +105,7 @@ describe("modern MCP surface", () => {
     try {
       const prompts = await client.listPrompts();
       expect(prompts.prompts.map((prompt) => prompt.name)).toContain("premiere-rough-cut");
+      expect(prompts.prompts.map((prompt) => prompt.name)).toContain("premiere-metadata-review");
 
       const resources = await client.listResources();
       expect(resources.resources.map((resource) => resource.uri)).toContain("config://premiere-workflows");

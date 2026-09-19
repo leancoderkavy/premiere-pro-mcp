@@ -3,7 +3,7 @@
   "evidenceScope": "source_catalog_may_include_unreleased_work",
   "sourceVersion": "1.16.3",
   "sourcePath": "docs/supported-actions.md",
-  "sourceSha256": "c36aee780368c74d2387f02e04c9a2383ba6667f560d45b9849ac1f367ab2112",
+  "sourceSha256": "0314e8e2133b4aa90de00143e2a1d502ae977deade99d7c64be2d7ed56eadd8b",
   "hostVerification": "not_established_by_catalogs",
   "counts": {
     "default": 379,
@@ -27,7 +27,7 @@
       "name": "add_custom_metadata_field",
       "surface": "default",
       "modes": "Single operation",
-      "description": "Add a custom metadata field to the project's metadata schema. This creates a schema/column definition only; it does not set a per-item value. Use set_metadata with complete Project Metadata XML and readback to update a value."
+      "description": "Add a custom metadata field to the project's metadata schema. This creates a schema/column definition only; it does not set a per-item value. Use set_metadata field_name/value or complete Project Metadata XML with readback to update a value."
     },
     {
       "name": "add_keyframe",
@@ -999,7 +999,7 @@
       "name": "get_metadata",
       "surface": "default",
       "modes": "Single operation",
-      "description": "Get metadata for a project item. Disable either XML payload when a bounded identity/path response is sufficient."
+      "description": "Get metadata for a project item. Use parse_fields to return named XMP/project fields instead of raw XML. Project metadata XML and file/clip XMP are separate packets; disable either when identity/path is enough. Prefer inspect_project_panel_metadata_uxp item_columns or manage_metadata_uxp inspect_fields for visible columns. This is not the premiere://project/metadata resource. GPS and serials are omitted from parse_fields unless include_sensitive is true."
     },
     {
       "name": "get_mogrt_component",
@@ -1047,7 +1047,7 @@
       "name": "get_project_panel_metadata",
       "surface": "default",
       "modes": "Single operation",
-      "description": "Get the current project panel metadata/column configuration as XML"
+      "description": "Get the current Project-panel column layout as XML. This is schema/layout configuration, not per-item Scene/Shot/Take values; use inspect_project_panel_metadata_uxp item_columns or get_metadata for those."
     },
     {
       "name": "get_project_scratch_disks",
@@ -1209,7 +1209,7 @@
       "name": "get_xmp_metadata",
       "surface": "default",
       "modes": "Single operation",
-      "description": "Get the raw XMP metadata for a project item (includes EXIF, IPTC, Dublin Core, etc.)"
+      "description": "Get the raw file/clip XMP packet for a project item (Dublin Core, EXIF, IPTC, xmpDM, and other namespaces). Distinct from Premiere-private project metadata. Omit GPS and camera serials from user-facing reports unless requested."
     },
     {
       "name": "has_proxy",
@@ -1401,7 +1401,7 @@
       "name": "inspect_project_panel_metadata_uxp",
       "surface": "uxp",
       "modes": "panel, item_columns",
-      "description": "Read bounded native Project-panel metadata: either the active project's panel schema or one media item's column metadata. This is read-only; it neither creates metadata schema fields nor writes Project-panel state."
+      "description": "Read bounded native Project-panel metadata: panel layout XML, or one media item's visible columns as JSON (ColumnName, ColumnValue, ColumnID, ColumnPath). Column JSON is the current view, not every XMP namespace. This is read-only; it neither creates schema fields nor writes Project-panel state."
     },
     {
       "name": "inspect_project_recovery",
@@ -1658,8 +1658,8 @@
     {
       "name": "manage_metadata_uxp",
       "surface": "uxp",
-      "modes": "get, update",
-      "description": "Read bounded project/XMP metadata or update either form together in one locked, undoable Premiere transaction with readback evidence."
+      "modes": "get, update, inspect_fields, update_field",
+      "description": "Read bounded project/XMP metadata, inspect named fields from column JSON and XMP, or update one field/packet together in a locked undoable Premiere transaction with readback. Prefer inspect_fields or item_columns before requesting full XML. GPS and camera serials are omitted unless include_sensitive is true."
     },
     {
       "name": "manage_project_context",
@@ -2504,8 +2504,8 @@
     {
       "name": "set_metadata",
       "surface": "default",
-      "modes": "Single operation",
-      "description": "Replace project metadata XML on a project item and verify the exact readback. Partial field/value writes are intentionally rejected because Premiere requires a complete Project Metadata XML payload."
+      "modes": "packet: project, xmp",
+      "description": "Update project metadata on a project item. Supply complete metadata_xml plus updated_fields, or field_name and value to read-modify-write one XMP/project property through AdobeXMPScript with field readback."
     },
     {
       "name": "set_offline",

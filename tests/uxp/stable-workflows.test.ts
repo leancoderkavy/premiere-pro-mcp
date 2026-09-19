@@ -5,7 +5,50 @@ const require = createRequire(import.meta.url);
 const Commands = require("../../uxp-plugin/commands.cjs");
 const Protocol = require("../../uxp-plugin/protocol.cjs");
 
-function stableHost() {
+const PREMIERE_METADATA_NS = "http://ns.adobe.com/premierePrivateProjectMetaData/1.0/";
+const DC_NS = "http://purl.org/dc/elements/1.1/";
+const EXIF_NS = "http://ns.adobe.com/exif/1.0/";
+
+function createFakeXmp() {
+  function parsePacket(packet: string) {
+    return String(packet || "").split("\n").filter(Boolean).map((line) => {
+      const [namespace, name, ...rest] = line.split("\t");
+      return { namespace: namespace || "", name: name || "", value: rest.join("\t") };
+    }).filter((field) => field.namespace && field.name);
+  }
+  class XMPMeta {
+    fields: Array<{ namespace: string; name: string; value: string }>;
+    constructor(packet = "") {
+      this.fields = parsePacket(packet);
+    }
+    iterator() {
+      let index = 0;
+      const fields = this.fields;
+      return {
+        next() {
+          if (index >= fields.length) return null;
+          const field = fields[index++];
+          return { namespace: field.namespace, path: field.name, value: field.value };
+        },
+      };
+    }
+    getProperty(namespace: string, name: string) {
+      const field = this.fields.find((item) => item.namespace === namespace && item.name === name);
+      return field ? { value: field.value } : undefined;
+    }
+    setProperty(namespace: string, name: string, value: string) {
+      const field = this.fields.find((item) => item.namespace === namespace && item.name === name);
+      if (field) field.value = String(value);
+      else this.fields.push({ namespace, name, value: String(value) });
+    }
+    serialize() {
+      return this.fields.map((field) => `${field.namespace}\t${field.name}\t${field.value}`).join("\n");
+    }
+  }
+  return { XMPMeta };
+}
+
+function stableHost(options: { xmp?: { XMPMeta: unknown } | null } = {}) {
   const makeComponent = (matchName: string, displayName = matchName) => ({
     getMatchName: vi.fn(async () => matchName),
     getDisplayName: vi.fn(async () => displayName),
@@ -232,10 +275,16 @@ function stableHost() {
     status: vi.fn(() => ({ configured: true, accessMode: "request", rootName: "Approved", persistent: true, pathDisclosure: "redacted", canonicalPathValidation: "available" })),
     assertPathAllowed: vi.fn((path: string) => path.replace(/\\/g, "/")),
   };
+  const xmp = options.xmp === undefined ? createFakeXmp() : options.xmp;
   return {
-    registry: Commands.createCommandRegistry({ ppro, Protocol, workspace }),
+    registry: Commands.createCommandRegistry({ ppro, Protocol, workspace, xmp }),
     ppro, project, sequence, videoItem, audioItem, components, audioComponents, sourceClip, workspace, metadataSchemaFields,
     setProjectPanelMetadataValue: (value: string) => { projectPanelMetadata = value; },
+    setMetadataPackets: (packets: { project?: string; xmp?: string; columns?: string }) => {
+      if (packets.project !== undefined) projectMetadata = packets.project;
+      if (packets.xmp !== undefined) xmpMetadata = packets.xmp;
+      if (packets.columns !== undefined) projectColumnsMetadata = packets.columns;
+    },
     selectedItems: () => [...selectedItems],
     selectMany: (count: number) => { selectedItems = Array.from({ length: count }, () => videoItem); },
     selectAudio: () => { selectedItems = [audioItem]; },
@@ -249,7 +298,7 @@ describe("stable Premiere UXP workflow expansion", () => {
     expect(Object.keys(capabilities.commands)).toEqual(expect.arrayContaining([
       "effects.catalog", "effects.chain.add", "trackItem.identity.inspect", "selection.inspect", "selection.fingerprints.inspect", "selection.targets.inspect", "selection.update", "effects.selection.add",
       "sceneEdit.detect", "proxy.attach", "ingest.configure", "media.relink",
-      "metadata.update", "metadata.columns.get", "metadata.projectPanel.get", "metadata.projectPanel.update", "metadata.projectSchema.inspect", "metadata.projectSchema.create", "color.preflight", "environment.inspect", "footage.conform", "sourceMonitor.open",
+      "metadata.update", "metadata.fields.inspect", "metadata.fields.update", "metadata.columns.get", "metadata.projectPanel.get", "metadata.projectPanel.update", "metadata.projectSchema.inspect", "metadata.projectSchema.create", "color.preflight", "environment.inspect", "footage.conform", "sourceMonitor.open",
       "storage.preflight", "scratch.configure", "workspace.status",
     ]));
     expect(capabilities.commands["effects.selection.add"]).toMatchObject({
@@ -287,6 +336,11 @@ describe("stable Premiere UXP workflow expansion", () => {
     expect(withoutColumnsMetadata.commands["metadata.columns.get"]).toMatchObject({ supported: false });
     expect(withoutColumnsMetadata.commands["metadata.projectPanel.get"]).toMatchObject({ supported: true });
     expect(withoutColumnsMetadata.commands["metadata.projectPanel.update"]).toMatchObject({ supported: true });
+
+    const withoutXmp = await stableHost({ xmp: null }).registry.capabilities();
+    expect(withoutXmp.commands["metadata.get"]).toMatchObject({ supported: true });
+    expect(withoutXmp.commands["metadata.fields.inspect"]).toMatchObject({ supported: false });
+    expect(withoutXmp.commands["metadata.fields.update"]).toMatchObject({ supported: false });
 
     const missingPanelSetter = stableHost();
     Reflect.deleteProperty(missingPanelSetter.ppro.Metadata, "setProjectPanelMetadata");
@@ -857,6 +911,81 @@ describe("stable Premiere UXP workflow expansion", () => {
       expectedCurrentPath: "D:/Approved/missing.mov", confirmNonUndoable: true,
     })).resolves.toMatchObject({ relinked: true, outcome: "verified", after: { offline: false } });
     expect(value.workspace.assertPathAllowed).toHaveBeenCalledTimes(3);
+  });
+
+  it("inspects named metadata fields and omits sensitive EXIF unless requested", async () => {
+    const value = stableHost();
+    value.setMetadataPackets({
+      project: `${PREMIERE_METADATA_NS}\tColumn.Intrinsic.LogNote\tslate-1`,
+      xmp: `${DC_NS}\tdescription\tA clip\n${EXIF_NS}\tGPSLatitude\t37.7`,
+      columns: JSON.stringify([
+        { ColumnName: "Log Note", ColumnValue: "slate-1", ColumnID: "log", ColumnPath: "Column.Intrinsic.LogNote" },
+      ]),
+    });
+    const redacted = await value.registry.dispatch("metadata.fields.inspect", { projectItemId: "source-1" });
+    expect(redacted.columns).toEqual([
+      expect.objectContaining({ source: "columns", name: "Log Note", value: "slate-1", path: "Column.Intrinsic.LogNote" }),
+    ]);
+    expect(redacted.fields).toEqual(expect.arrayContaining([
+      expect.objectContaining({ packet: "project", name: "Column.Intrinsic.LogNote", value: "slate-1" }),
+      expect.objectContaining({ packet: "xmp", name: "description", value: "A clip" }),
+      expect.objectContaining({ packet: "xmp", name: "GPSLatitude", omitted: "sensitive" }),
+    ]));
+    expect(redacted.fields.find((field: { name: string }) => field.name === "GPSLatitude")).not.toHaveProperty("value");
+    expect(redacted.omittedSensitiveCount).toBe(1);
+
+    const disclosed = await value.registry.dispatch("metadata.fields.inspect", {
+      projectItemId: "source-1", includeSensitive: true, namespaces: ["exif"],
+    });
+    expect(disclosed.fields).toEqual([
+      expect.objectContaining({ packet: "xmp", name: "GPSLatitude", value: "37.7" }),
+    ]);
+    expect(disclosed.omittedSensitiveCount).toBe(0);
+  });
+
+  it("updates one metadata field through a complete packet write with field readback", async () => {
+    const value = stableHost();
+    value.setMetadataPackets({
+      project: `${PREMIERE_METADATA_NS}\tColumn.Intrinsic.LogNote\tslate-1`,
+      xmp: `${DC_NS}\tdescription\tA clip`,
+    });
+    await expect(value.registry.dispatch("metadata.fields.update", {
+      projectItemId: "source-1",
+      packet: "project",
+      name: "Column.Intrinsic.LogNote",
+      value: "slate-2",
+      expectedValue: "slate-1",
+    })).resolves.toMatchObject({
+      updated: true,
+      outcome: "verified",
+      verified: true,
+      packet: "project",
+      name: "Column.Intrinsic.LogNote",
+      value: "slate-2",
+      verificationBoundary: "metadata_field_readback",
+    });
+    await expect(value.registry.dispatch("metadata.fields.update", {
+      projectItemId: "source-1",
+      packet: "project",
+      name: "Column.Intrinsic.LogNote",
+      value: "slate-3",
+      expectedValue: "slate-1",
+    })).rejects.toMatchObject({ code: "UXP_STALE_METADATA_FIELD" });
+    await expect(value.registry.dispatch("metadata.fields.update", {
+      projectItemId: "source-1",
+      packet: "xmp",
+      name: "description",
+      value: "Updated clip",
+    })).rejects.toMatchObject({ code: "UXP_INVALID_ARGUMENT" });
+    await expect(value.registry.dispatch("metadata.fields.update", {
+      projectItemId: "source-1",
+      packet: "xmp",
+      namespace: "dc",
+      name: "description",
+      value: "Updated clip",
+    })).resolves.toMatchObject({
+      updated: true, outcome: "verified", packet: "xmp", name: "description", value: "Updated clip",
+    });
   });
 
   it("updates metadata and footage conformance transactionally with readback", async () => {

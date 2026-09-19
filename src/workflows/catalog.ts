@@ -56,6 +56,13 @@ export const WORKFLOW_CATALOG = [
     recommendedTools: ["get_clip_transcript_uxp", "search_clip_transcript_uxp", "preview_transcript_edit_uxp", "plan_transcript_rough_cut_uxp", "manage_sequences_uxp", "split_clip", "get_sequence_structure"],
   },
   {
+    id: "metadata-review",
+    title: "Review and update clip metadata",
+    summary: "Inspect visible Project-panel columns first, then named project/XMP fields. Request full XML only when needed. Writes use field_name/value or complete XML, or a locked UXP field/packet transaction with readback; schema creation does not set per-item values.",
+    recommendedTools: ["get_metadata", "get_xmp_metadata", "inspect_project_panel_metadata_uxp", "manage_metadata_uxp", "set_metadata", "set_xmp_metadata"],
+    promptNotes: "Prefer inspect_project_panel_metadata_uxp action item_columns or manage_metadata_uxp inspect_fields / get_metadata parse_fields. Request full project-metadata XML or XMP only when a named field is missing. Premiere-private project metadata is not file XMP. Do not treat premiere://project/metadata as a packet dump. Writes use field_name/value or complete XML, or a UXP update_field/update with readback; never fall back from a failed UXP write to CEP.",
+  },
+  {
     id: "project-organization",
     title: "Plan project organization",
     summary: "Capture project context, supply explicit editorial categories, create and preview a review-only organization plan, then use its guarded apply route with stable-ID bin operations. Direct organize_project_items_uxp use is advanced/manual only.",
@@ -117,6 +124,7 @@ export const WORKFLOW_RESOURCE = JSON.stringify(
     guidance: [
       "Inspect current state before mutating the project.",
       "Re-query clip identifiers after timeline edits.",
+      "Prefer visible Project-panel column JSON over dumping full XMP or project-metadata packets.",
       "Ask for confirmation before destructive edits or final exports when intent is ambiguous.",
       "Verify the resulting sequence and save only after successful edits.",
     ],
@@ -147,6 +155,7 @@ export const WORKFLOW_PROMPTS = WORKFLOW_CATALOG.map((workflow) => ({
             `Use the ${workflow.title.toLowerCase()} workflow to accomplish: ${goal}`,
             constraints ? `Constraints: ${constraints}` : undefined,
             `Begin with project inspection. Prefer these tools when applicable: ${workflow.recommendedTools.join(", ")}.`,
+            "promptNotes" in workflow ? workflow.promptNotes : undefined,
             "Before each mutation, validate the active project/sequence and relevant identifiers. After editing, inspect the result and clearly report completed, skipped, and failed steps.",
           ].filter(Boolean).join("\n"),
         },

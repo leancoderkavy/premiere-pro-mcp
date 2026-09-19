@@ -1,10 +1,83 @@
 import { buildToolScript, escapeForExtendScript } from "../bridge/script-builder.js";
 import { sendCommand, BridgeOptions } from "../bridge/file-bridge.js";
 
+const CEP_XMP_FIELD_HELPERS = `
+          function __loadAdobeXmp() {
+            try {
+              if (ExternalObject.AdobeXMPScript === undefined) {
+                ExternalObject.AdobeXMPScript = new ExternalObject("lib:AdobeXMPScript");
+              }
+            } catch (eLoad) {
+              return "Premiere could not load the Adobe XMP library: " + eLoad.toString();
+            }
+            if (typeof XMPMeta !== "function") return "Premiere's XMPMeta API is unavailable";
+            return "";
+          }
+          function __xmpNamespace(alias, packet) {
+            var aliases = {
+              premiere: "http://ns.adobe.com/premierePrivateProjectMetaData/1.0/",
+              project: "http://ns.adobe.com/premierePrivateProjectMetaData/1.0/",
+              dc: "http://purl.org/dc/elements/1.1/",
+              xmp: "http://ns.adobe.com/xap/1.0/",
+              xmpDM: "http://ns.adobe.com/xmp/1.0/DynamicMedia/",
+              xmpMM: "http://ns.adobe.com/xap/1.0/mm/",
+              photoshop: "http://ns.adobe.com/photoshop/1.0/",
+              exif: "http://ns.adobe.com/exif/1.0/",
+              iptc: "http://iptc.org/std/Iptc4xmpCore/1.0/xmlns/"
+            };
+            if (!alias) return packet === "project" ? aliases.premiere : "";
+            if (aliases[alias]) return aliases[alias];
+            return String(alias);
+          }
+          function __xmpPropertyString(prop) {
+            if (prop == null) return "";
+            if (typeof prop === "string" || typeof prop === "number" || typeof prop === "boolean") return String(prop);
+            if (typeof prop.value !== "undefined" && prop.value != null) return String(prop.value);
+            return String(prop);
+          }
+          function __xmpIsSensitive(ns, name) {
+            var compact = (String(ns || "") + String(name || "")).toLowerCase().replace(/[^a-z0-9]/g, "");
+            return compact.indexOf("gps") !== -1 || compact.indexOf("serialnumber") !== -1
+              || compact.indexOf("lensserial") !== -1 || compact.indexOf("bodyserial") !== -1
+              || compact.indexOf("cameraserial") !== -1;
+          }
+          function __collectXmpFields(packet, packetName, includeSensitive, fields) {
+            if (!packet) return 0;
+            var omitted = 0;
+            try {
+              var meta = new XMPMeta(packet);
+              var options = 0;
+              try {
+                if (typeof XMPConst !== "undefined" && XMPConst.ITERATOR_JUST_LEAFNODES) {
+                  options = XMPConst.ITERATOR_JUST_LEAFNODES;
+                }
+              } catch (eOpt) {}
+              var iter = meta.iterator(options, "", "");
+              var item = iter.next();
+              while (item && fields.length < 256) {
+                var ns = String(item.namespace || "");
+                var name = String(item.path || item.name || "");
+                if (name && name !== "rdf:type") {
+                  if (__xmpIsSensitive(ns, name) && !includeSensitive) {
+                    fields.push({ packet: packetName, namespace: ns, name: name, omitted: "sensitive" });
+                    omitted += 1;
+                  } else {
+                    var value = __xmpPropertyString(item.value);
+                    if (value.length > 4096) value = value.substring(0, 4096);
+                    fields.push({ packet: packetName, namespace: ns, name: name, value: value });
+                  }
+                }
+                item = iter.next();
+              }
+            } catch (eCollect) {}
+            return omitted;
+          }
+`;
+
 export function getMetadataTools(bridgeOptions: BridgeOptions) {
   return {
     get_metadata: {
-      description: "Get metadata for a project item. Disable either XML payload when a bounded identity/path response is sufficient.",
+      description: "Get metadata for a project item. Use parse_fields to return named XMP/project fields instead of raw XML. Project metadata XML and file/clip XMP are separate packets; disable either when identity/path is enough. Prefer inspect_project_panel_metadata_uxp item_columns or manage_metadata_uxp inspect_fields for visible columns. This is not the premiere://project/metadata resource. GPS and serials are omitted from parse_fields unless include_sensitive is true.",
       parameters: {
         type: "object" as const,
         properties: {
@@ -12,42 +85,77 @@ export function getMetadataTools(bridgeOptions: BridgeOptions) {
             type: "string",
             description: "Node ID or name of the project item",
           },
+          parse_fields: {
+            type: "boolean",
+            description: "Parse project metadata and XMP into named fields (default false). When true, raw XML is omitted unless include_project_metadata or include_xmp_metadata is explicitly true.",
+          },
+          include_sensitive: {
+            type: "boolean",
+            description: "When parse_fields is true, include GPS, serials, and similar EXIF. Default false.",
+          },
           include_project_metadata: {
             type: "boolean",
-            description: "Include the potentially large Project Metadata XML payload (default: true). Set false for a bounded identity/path response.",
+            description: "Include the potentially large Project Metadata XML payload (default: true unless parse_fields is true).",
           },
           include_xmp_metadata: {
             type: "boolean",
-            description: "Include the potentially large XMP XML payload (default: true). Set false for a bounded identity/path response.",
+            description: "Include the potentially large XMP XML payload (default: true unless parse_fields is true).",
           },
         },
         required: ["item_id"],
       },
-      handler: async (args: { item_id: string; include_project_metadata?: boolean; include_xmp_metadata?: boolean }) => {
-        const includeProjectMetadata = args.include_project_metadata !== false;
-        const includeXmpMetadata = args.include_xmp_metadata !== false;
+      handler: async (args: {
+        item_id: string;
+        parse_fields?: boolean;
+        include_sensitive?: boolean;
+        include_project_metadata?: boolean;
+        include_xmp_metadata?: boolean;
+      }) => {
+        const parseFields = args.parse_fields === true;
+        const includeProjectMetadata = parseFields
+          ? args.include_project_metadata === true
+          : args.include_project_metadata !== false;
+        const includeXmpMetadata = parseFields
+          ? args.include_xmp_metadata === true
+          : args.include_xmp_metadata !== false;
+        const includeSensitive = args.include_sensitive === true;
         const script = buildToolScript(`
           var item = __findProjectItem("${escapeForExtendScript(args.item_id)}");
           if (!item) return __error("Item not found");
-          
+
           var metadata = {};
+          ${parseFields ? `${CEP_XMP_FIELD_HELPERS}
+          var loadError = __loadAdobeXmp();
+          if (loadError) return __error(loadError);
+          var fields = [];
+          var omittedSensitiveCount = 0;
+          var projectPacket = "";
+          var xmpPacket = "";
+          try { projectPacket = String(item.getProjectMetadata() || ""); } catch (eProject) {}
+          try { xmpPacket = String(item.getXMPMetadata() || ""); } catch (eXmp) {}
+          omittedSensitiveCount += __collectXmpFields(projectPacket, "project", ${includeSensitive ? "true" : "false"}, fields);
+          omittedSensitiveCount += __collectXmpFields(xmpPacket, "xmp", ${includeSensitive ? "true" : "false"}, fields);
+          metadata.parse_fields = true;
+          metadata.fields = fields;
+          metadata.omittedSensitiveCount = omittedSensitiveCount;
+          ${includeProjectMetadata ? "metadata.projectMetadata = projectPacket;" : ""}
+          ${includeXmpMetadata ? "metadata.xmpMetadata = xmpPacket;" : ""}` : `
           ${includeProjectMetadata ? `try {
             var xmpBlob = item.getProjectMetadata();
             metadata.projectMetadata = xmpBlob;
           } catch(e) {}` : ""}
-          
           ${includeXmpMetadata ? `try {
             var xmpBlob2 = item.getXMPMetadata();
             metadata.xmpMetadata = xmpBlob2;
-          } catch(e) {}` : ""}
-          
+          } catch(e) {}` : ""}`}
+
           metadata.name = item.name;
           metadata.nodeId = item.nodeId;
-          
+
           try {
             metadata.mediaPath = item.getMediaPath();
           } catch(e) {}
-          
+
           return __result(metadata);
         `);
         return sendCommand(script, bridgeOptions);
@@ -56,7 +164,7 @@ export function getMetadataTools(bridgeOptions: BridgeOptions) {
 
     set_metadata: {
       description:
-        "Replace project metadata XML on a project item and verify the exact readback. Partial field/value writes are intentionally rejected because Premiere requires a complete Project Metadata XML payload.",
+        "Update project metadata on a project item. Supply complete metadata_xml plus updated_fields, or field_name and value to read-modify-write one XMP/project property through AdobeXMPScript with field readback.",
       parameters: {
         type: "object" as const,
         properties: {
@@ -67,12 +175,24 @@ export function getMetadataTools(bridgeOptions: BridgeOptions) {
           field_name: {
             type: "string",
             description:
-              "Legacy partial-write argument. It is no longer executed because it cannot form a valid Project Metadata XML payload; use metadata_xml and updated_fields instead.",
+              "Named field to update (for example Column.Intrinsic.LogNote). Used with value; cannot be combined with metadata_xml.",
           },
           value: {
             type: "string",
-            description:
-              "Legacy partial-write argument. It is no longer executed; read projectMetadata first, update the complete XML, then supply metadata_xml and updated_fields.",
+            description: "Replacement value for field_name. Maximum 4096 characters.",
+          },
+          packet: {
+            type: "string",
+            enum: ["project", "xmp"],
+            description: "Packet for field_name writes. Default project (Premiere-private metadata).",
+          },
+          field_namespace: {
+            type: "string",
+            description: "XMP namespace URI or alias (premiere, dc, xmp, exif). Default premiere for project packet; required for xmp.",
+          },
+          expected_value: {
+            type: "string",
+            description: "Optional compare-and-set guard for field_name writes.",
           },
           metadata_xml: {
             type: "string",
@@ -93,14 +213,98 @@ export function getMetadataTools(bridgeOptions: BridgeOptions) {
         item_id: string;
         field_name?: string;
         value?: string;
+        packet?: string;
+        field_namespace?: string;
+        expected_value?: string;
         metadata_xml?: string;
         updated_fields?: string[];
       }) => {
-        if (!args.metadata_xml || !args.metadata_xml.trim()) {
+        const hasXml = Boolean(args.metadata_xml && args.metadata_xml.trim());
+        const hasField = Boolean(args.field_name && args.field_name.trim());
+        const hasValue = args.value !== undefined;
+        if (hasXml && (hasField || hasValue)) {
+          return {
+            success: false,
+            error: "set_metadata cannot combine metadata_xml with field_name/value. Use one write form.",
+          };
+        }
+        if (hasField !== hasValue) {
+          return {
+            success: false,
+            error: "field_name and value must be supplied together.",
+          };
+        }
+        if (hasField) {
+          if (args.value !== undefined && args.value.length > 4096) {
+            return { success: false, error: "value must be at most 4096 characters." };
+          }
+          const packet = args.packet ?? "project";
+          if (packet !== "project" && packet !== "xmp") {
+            return { success: false, error: "packet must be project or xmp." };
+          }
+          if (packet === "xmp" && !(args.field_namespace && args.field_namespace.trim())) {
+            return { success: false, error: "field_namespace is required for xmp packet updates." };
+          }
+          const expectedLiteral = args.expected_value === undefined
+            ? "null"
+            : `"${escapeForExtendScript(args.expected_value)}"`;
+          const namespaceLiteral = args.field_namespace
+            ? `"${escapeForExtendScript(args.field_namespace)}"`
+            : "\"\"";
+          const script = buildToolScript(`
+          var item = __findProjectItem("${escapeForExtendScript(args.item_id)}");
+          if (!item) return __error("Item not found");
+          ${CEP_XMP_FIELD_HELPERS}
+          var loadError = __loadAdobeXmp();
+          if (loadError) return __error(loadError);
+          var packet = "${escapeForExtendScript(packet)}";
+          var name = "${escapeForExtendScript(args.field_name!)}";
+          var requestedValue = "${escapeForExtendScript(args.value ?? "")}";
+          var expectedValue = ${expectedLiteral};
+          var ns = __xmpNamespace(${namespaceLiteral}, packet);
+          if (!ns) return __error("field_namespace is required for xmp packet updates");
+          var packetXml = "";
+          try {
+            packetXml = String(packet === "xmp" ? item.getXMPMetadata() : item.getProjectMetadata() || "");
+          } catch (eRead) {
+            return __error("The project item has no readable metadata packet: " + eRead.toString());
+          }
+          var meta = new XMPMeta(packetXml || "");
+          var current = __xmpPropertyString(meta.getProperty(ns, name));
+          if (expectedValue !== null && current !== expectedValue) {
+            return __error("The field value changed before it was updated; inspect and retry.");
+          }
+          meta.setProperty(ns, name, requestedValue);
+          var serialized = String(meta.serialize() || "");
+          ${packet === "xmp" ? `item.setXMPMetadata(serialized);` : `var accepted = item.setProjectMetadata(serialized, [name]);
+          if (accepted === false) return __error("Premiere rejected the project metadata update");`}
+          var writtenXml = "";
+          try {
+            writtenXml = String(${packet === "xmp" ? "item.getXMPMetadata()" : "item.getProjectMetadata()"} || "");
+          } catch (eWritten) {
+            return __error("Premiere wrote no readable metadata packet: " + eWritten.toString());
+          }
+          var readback = __xmpPropertyString(new XMPMeta(writtenXml || "").getProperty(ns, name));
+          if (readback !== requestedValue) {
+            return __error("Premiere did not return the requested field value after the write. Inspect get_metadata before retrying.");
+          }
+          return __result({
+            updated: true,
+            verified: true,
+            item: item.name,
+            packet: packet,
+            fieldName: name,
+            value: readback,
+            verification: "field_value_readback"
+          });
+          `);
+          return sendCommand(script, bridgeOptions);
+        }
+        if (!hasXml) {
           return {
             success: false,
             error:
-              "set_metadata no longer accepts partial field_name/value writes because Premiere does not persist that form reliably. Call get_metadata, modify its complete projectMetadata XML, then pass metadata_xml with updated_fields; or use manage_metadata_uxp when the authenticated UXP bridge is connected.",
+              "set_metadata requires metadata_xml with updated_fields, or field_name and value for a single-field XMP/project write.",
           };
         }
         if (!Array.isArray(args.updated_fields) || args.updated_fields.length === 0 ||
@@ -115,7 +319,7 @@ export function getMetadataTools(bridgeOptions: BridgeOptions) {
           var item = __findProjectItem("${escapeForExtendScript(args.item_id)}");
           if (!item) return __error("Item not found");
 
-          var requestedMetadata = "${escapeForExtendScript(args.metadata_xml)}";
+          var requestedMetadata = "${escapeForExtendScript(args.metadata_xml!)}";
           var updatedFields = ${updatedFields};
           var accepted = item.setProjectMetadata(requestedMetadata, updatedFields);
           if (accepted === false) return __error("Premiere rejected the project metadata update");
@@ -258,7 +462,7 @@ export function getMetadataTools(bridgeOptions: BridgeOptions) {
       },
     },
     get_xmp_metadata: {
-      description: "Get the raw XMP metadata for a project item (includes EXIF, IPTC, Dublin Core, etc.)",
+      description: "Get the raw file/clip XMP packet for a project item (Dublin Core, EXIF, IPTC, xmpDM, and other namespaces). Distinct from Premiere-private project metadata. Omit GPS and camera serials from user-facing reports unless requested.",
       parameters: {
         type: "object" as const,
         properties: {

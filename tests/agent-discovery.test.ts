@@ -107,6 +107,10 @@ describe("agent guidance over MCP", () => {
       }
       if (pack === "inspection") expect(routes).not.toContain("apply_edit_plan");
       else expect(routes).toContain("create_editorial_context_pack");
+      expect(instructions).toContain("METADATA:");
+      expect(instructions).toContain("premiere://project/metadata");
+      if (pack === "inspection") expect(routes).toContain("get_metadata -> get_xmp_metadata");
+      else expect(routes).toContain("get_metadata -> set_metadata");
       if (pack === "full") {
         const legacy = await client.callTool({ name: "get_capabilities", arguments: {} });
         const search = await client.callTool({ name: "get_capabilities", arguments: {
