@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [1.16.2] - 2026-09-18
+
 ### Fixed
 
 - Direct UXP `.ccx` packages now use a plugin-id bundle root and Unix 644/755
@@ -13,6 +15,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Path-based UXP commands now resolve native paths through the granted
   workspace folder instead of advertising them as unsupported on every host.
   (#567)
+
+Automated checks do not establish licensed Premiere or After Effects playback or
+rendered-output verification.
 
 ## [1.16.1] - 2026-09-17
 
