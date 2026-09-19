@@ -37,10 +37,10 @@ export const articles: Article[] = [
     slug: "install-premiere-pro-mcp-npm",
     title: "How to Install premiere-pro-mcp from npm (Package Name Check)",
     seoTitle: "Install premiere-pro-mcp from npm — Package Name Verification",
-    description: "Install premiere-pro-mcp@1.16.1 from npm, verify its package identity, connect the local CEP panel, and run a read-only Premiere connection check.",
+    description: "Install premiere-pro-mcp@1.16.2 from npm, verify its package identity, connect the local CEP panel, and run a read-only Premiere connection check.",
     eyebrow: "npm install guide",
     publishedAt: "2026-09-15",
-    modifiedAt: "2026-09-17",
+    modifiedAt: "2026-09-18",
     readingTime: "6 min read",
     keywords: [
       "premiere pro mcp install",
@@ -55,7 +55,7 @@ export const articles: Article[] = [
         heading: "Who this guide is for",
         paragraphs: [
           "Use this guide when your MCP client needs a local npm server for Adobe Premiere Pro — Cursor, VS Code / Copilot, Windsurf, or another desktop client that accepts a command entry. If you can use the Claude Desktop bundle, prefer that path on the homepage install section; this page is the exact package route for npm.",
-          "Current public package: premiere-pro-mcp@1.16.1 (MIT, free).",
+          "Current public package: premiere-pro-mcp@1.16.2 (MIT, free).",
         ],
         links: [
           { label: "Homepage install section", href: "/#install" },
@@ -68,7 +68,7 @@ export const articles: Article[] = [
           "Install this project with the unscoped name. Run these checks from a directory outside an existing source checkout: npm can otherwise prefer a local installation over the downloaded executable.",
         ],
         codeBlocks: [
-          { label: "Install the package with version pin", code: "npm i -g premiere-pro-mcp@1.16.1" },
+          { label: "Install the package with version pin", code: "npm i -g premiere-pro-mcp@1.16.2" },
         ],
       },
       {
@@ -79,15 +79,15 @@ export const articles: Article[] = [
         ],
         steps: [
           "Confirm the package name is premiere-pro-mcp.",
-          "Use npx --yes premiere-pro-mcp@1.16.1 in client configuration to select the intended package and version.",
-          "Expect version 1.16.1, homepage premiere-pro-mcp.com, and source leancoderkavy/premiere-pro-mcp.",
+          "Use npx --yes premiere-pro-mcp@1.16.2 in client configuration to select the intended package and version.",
+          "Expect version 1.16.2, homepage premiere-pro-mcp.com, and source leancoderkavy/premiere-pro-mcp.",
         ],
         bullets: [
           "Both projects are separate open-source efforts; choose the package that matches the documentation you are following.",
           "For a side-by-side package comparison, see premiere-pro-mcp vs adobe-premiere-pro-mcp.",
         ],
         codeBlocks: [
-          { label: "Verify the pinned package identity", code: "npm view premiere-pro-mcp@1.16.1 name version homepage repository.url bin --json\nnpx --yes premiere-pro-mcp@1.16.1 --version" },
+          { label: "Verify the pinned package identity", code: "npm view premiere-pro-mcp@1.16.2 name version homepage repository.url bin --json\nnpx --yes premiere-pro-mcp@1.16.2 --version" },
         ],
         links: [
           { label: "Compare packages side-by-side", href: "/blog/premiere-pro-mcp-vs-adobe-premiere-pro-mcp/" },
@@ -115,14 +115,14 @@ export const articles: Article[] = [
         heading: "Install the Premiere connector (CEP-first)",
         paragraphs: [
           "Your assistant talks to Premiere through a separate local connector. Fully quit Premiere before running the versioned installer below.",
-          "Alternatively, download the signed CEP package from the v1.16.1 release and open it with a trusted ZXP installer.",
+          "Alternatively, download the signed CEP package from the v1.16.2 release and open it with a trusted ZXP installer.",
           "Then reopen Premiere and restart your assistant. Open a disposable project with an active sequence. In Premiere, confirm Window → Extensions → MCP for Adobe Premiere Pro.",
         ],
         codeBlocks: [
-          { label: "Install CEP connector with versioned command", code: "npx --yes premiere-pro-mcp@1.16.1 --install-cep" },
+          { label: "Install CEP connector with versioned command", code: "npx --yes premiere-pro-mcp@1.16.2 --install-cep" },
         ],
         links: [
-          { label: "v1.16.1 release", href: "https://github.com/leancoderkavy/premiere-pro-mcp/releases/tag/v1.16.1" },
+          { label: "v1.16.2 release", href: "https://github.com/leancoderkavy/premiere-pro-mcp/releases/tag/v1.16.2" },
         ],
       },
       {
@@ -138,7 +138,7 @@ export const articles: Article[] = [
   "mcpServers": {
     "premiere-pro-leancoderkavy": {
       "command": "npx",
-      "args": ["--yes", "premiere-pro-mcp@1.16.1"]
+      "args": ["--yes", "premiere-pro-mcp@1.16.2"]
     }
   }
 }`,
@@ -159,7 +159,7 @@ export const articles: Article[] = [
         heading: "If it does not connect",
         paragraphs: [
           "Work through Setup & recovery: restart both apps, confirm an active sequence, confirm the CEP panel is available, then re-run the safe prompt. Share connection state with support — not project media.",
-          "If the version command reports something other than 1.16.1, repeat it outside any existing repository or Node project. Also check the MCP client's working directory for an older local installation before trusting its tool list.",
+          "If the version command reports something other than 1.16.2, repeat it outside any existing repository or Node project. Also check the MCP client's working directory for an older local installation before trusting its tool list.",
         ],
         links: [
           { label: "Connection troubleshooting", href: "/docs/troubleshooting/" },
@@ -180,12 +180,12 @@ export const articles: Article[] = [
         answer: "The recommended setup is local-first. The bridge exchanges commands and structured results; your assistant's separate privacy settings still apply.",
       },
       {
-        question: "Is speech-to-text / STT included in 1.16.1?",
-        answer: "Guarded Speech-to-Text start and caption style guidance are in public npm 1.16.1. They do not establish a completed transcription or a licensed-host result.",
+        question: "Is speech-to-text / STT included in 1.16.2?",
+        answer: "Guarded Speech-to-Text start and caption style guidance are in public npm 1.16.2. They do not establish a completed transcription or a licensed-host result.",
       },
       {
         question: "Does this guide install unreleased tools from main?",
-        answer: "No. These commands select the published 1.16.1 package. Check the product facts page for the separate released and development catalogs.",
+        answer: "No. These commands select the published 1.16.2 package. Check the product facts page for the separate released and development catalogs.",
       },
     ],
     resources: [
