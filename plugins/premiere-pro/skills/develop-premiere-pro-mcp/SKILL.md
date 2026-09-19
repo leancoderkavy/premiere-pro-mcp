@@ -11,9 +11,9 @@ Premiere Pro host.
 
 ## Orient to the repository
 
-1. Read `README.md`, `SECURITY.md`, `CONTRIBUTING.md`, and `RESEARCH.md` only as needed
-   for the task. Treat current source and release metadata as authoritative over dated
-   snapshots.
+1. Read `AGENTS.md` first, then `README.md`, `SECURITY.md`, `CONTRIBUTING.md`, and
+   `RESEARCH.md` only as needed for the task. Treat current source and release metadata
+   as authoritative over dated snapshots.
 2. Inspect `git status` before editing. Do not stage, rewrite, or remove unrelated work.
 3. Trace the relevant path before changing it:
    - `src/server.ts` assembles the MCP surface.

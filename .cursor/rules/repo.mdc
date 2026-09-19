@@ -1,0 +1,15 @@
+---
+description: Core Premiere Pro MCP repository guidance for every session
+alwaysApply: true
+---
+
+# Premiere Pro MCP
+
+Read `AGENTS.md` before editing. This repo is the TypeScript MCP server for Adobe Premiere Pro (`premiere-pro-mcp`). Production path: local stdio server plus CEP file-IPC. UXP is a capability-aware preview, not a silent CEP fallback.
+
+- Use Node.js 24 for repo work; runtime floor is Node.js 20.19. Install with `npm ci`.
+- Iterate with the narrowest Vitest file; finish with `npm run check`. Coverage-sensitive changes also need `npm run test:coverage`.
+- Keep diffs focused. Do not rewrite unrelated files, lockfiles, or generated inventories unless the task requires it.
+- Automated tests are package evidence only. Do not claim live Premiere, npm publish, Marketplace, or deploy success without that layer's proof.
+- Telemetry stays operational metadata. Never collect prompts, arguments, results, tokens, IPs, paths, or media/project names.
+- Do not commit secrets, `dist/`, coverage, Premiere project/media files, or `.worktrees/`.

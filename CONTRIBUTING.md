@@ -2,11 +2,13 @@
 
 Thanks for your interest in contributing! This guide covers how to get set up and submit changes.
 
+AI agents should start with [`AGENTS.md`](AGENTS.md). That file is the current architecture map, command list, and implementation constraints. Some module counts in this guide may lag the generated catalog in `docs/supported-actions.md`.
+
 ## Development Setup
 
 ### Prerequisites
 
-- Node.js 18+
+- Node.js 20.19+ (Node.js 24 for repository work when available)
 - Adobe Premiere Pro 2020+ (for testing)
 - An MCP-compatible client (Claude Desktop, Windsurf, Cursor, GitHub Copilot, etc.)
 
