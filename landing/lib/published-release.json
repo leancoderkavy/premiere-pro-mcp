@@ -1,5 +1,5 @@
 {
-  "version": "1.16.2",
+  "version": "1.16.3",
   "coreTools": 381,
   "defaultProfileTools": 379,
   "uxpAdditionalTools": 95,
@@ -12,10 +12,10 @@
   "releaseDate": "2026-09-18",
   "nodeVersion": "20.19",
   "provenance": {
-    "tag": "v1.16.2",
-    "commit": "ab84feaba1eaac47e0dbdb2de93ec5d180cbcb77",
-    "tarball": "https://registry.npmjs.org/premiere-pro-mcp/-/premiere-pro-mcp-1.16.2.tgz",
-    "integrity": "sha512-hsq1SkrmI3Cyrew1U/3Veo3RZvKK8aeB10EU7F9zkrCU+6R8ImMUZaqzNJpmDTcTe1Vu0uuGGSZnl5n4/D8yTw==",
+    "tag": "v1.16.3",
+    "commit": "23097f4b02b630c5a9f00a24c70d5ab6b008d15d",
+    "tarball": "https://registry.npmjs.org/premiere-pro-mcp/-/premiere-pro-mcp-1.16.3.tgz",
+    "integrity": "sha512-S6niG9+u1gTVmoQUfEjSrab/VlIhJmwgCteSt0/yAklQ41EyKpAS0kGrlPkuTXjQ81pSxxt28BRZ0+lvH8XPLw==",
     "verifiedAt": "2026-09-18",
     "evidence": "Downloaded npm tarball public-product-manifest and supported-actions catalog and matching Git release tag; not a licensed-host test."
   }
