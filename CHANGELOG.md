@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+
+- Claude Fable 5.1 client workflow guidance for Cursor and other compatible MCP
+  clients, covering model selection, data-retention opt-in, tool discovery, and
+  serialized Premiere verification.
+
 ## [1.16.3] - 2026-09-18
 
 ### Changed

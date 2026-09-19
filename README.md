@@ -50,7 +50,7 @@ The [completed AE render handoff](docs/after-effects-render-handoff.md) previews
   - [Configure your MCP client](#3-configure-your-mcp-client)
   - [Verify the bridge in Premiere Pro](#4-verify-the-bridge-in-premiere-pro)
 - [Clients and capability coverage](#codex-plugin)
-  - [Codex plugin](#codex-plugin) · [Claude](#claude) · [GPT-6 Astra tool discovery](#gpt-6-astra-and-agent-tool-discovery)
+  - [Codex plugin](#codex-plugin) · [Claude](#claude) · [GPT-6 Astra tool discovery](#gpt-6-astra-and-agent-tool-discovery) · [Claude Fable 5.1](#claude-fable-51)
   - [Windows and macOS capability coverage](#windows-and-macos-capability-coverage)
   - [After Effects MOGRT studio](#after-effects-mogrt-studio)
   - [Collaboration and AI feature boundaries](#collaboration-and-ai-feature-boundaries)
@@ -488,6 +488,9 @@ Add to `.cursor/mcp.json` in your project or global config:
 }
 ```
 
+After the server is enabled, select Claude Fable 5.1 in Cursor when you want a
+longer-horizon session. See [Claude Fable 5.1 workflows](docs/claude-fable-5-1.md).
+
 </details>
 
 <details>
@@ -580,6 +583,26 @@ npm run build:claude
 Install the resulting file from `artifacts/` through **Settings > Extensions >
 Advanced settings > Install Extension**. The Premiere CEP bridge must still be
 installed separately.
+
+### Claude Fable 5.1
+
+Use Cursor, Claude Desktop, or Claude Code with Claude Fable 5.1
+(`claude-fable-5-1`) when your account has access. Model selection belongs to the
+client; this server does not run an Anthropic model. Fable 5.1 is optional:
+other Claude models can call the same MCP tools. If Cursor Privacy Mode or an
+Enterprise plan is enabled, an admin must approve Anthropic's Fable data-retention
+policy before the model is available.
+
+The server supplies session-aware workflow instructions and bounded tool discovery:
+call `get_capabilities` with `{"tool_query":"transcript","tool_limit":10}` to
+find relevant operations, their descriptions, and backend requirements. Keep
+Premiere mutations serialized even in a long Fable 5.1 session. Image review of
+returned frames is not playback or delivery proof.
+
+See [Claude Fable 5.1 workflows](docs/claude-fable-5-1.md) for connection order,
+privacy boundaries, evidence retrieval, Cursor's Opus fallback, and the division
+between MCP and client capabilities. The public walkthrough is
+[How to Use Claude Fable 5.1 with Premiere Pro MCP](https://premiere-pro-mcp.com/blog/claude-fable-5-1-premiere-pro-mcp/).
 
 ### Windows and macOS capability coverage
 
@@ -1472,6 +1495,8 @@ Premiere Pro; its npm package is `premiere-pro-mcp`.
 Install the [Claude Desktop bundle](#easiest-supported-path-claude-desktop), install
 the separate signed Premiere connector, restart Premiere, then ask Claude to run
 `verify_premiere_connection` with no changes. That first prompt is read-only.
+Claude Fable 5.1 is an optional client model for Cursor, Claude Desktop, or Claude
+Code; see [Claude Fable 5.1 workflows](docs/claude-fable-5-1.md).
 
 **Where is the GitHub repository?**
 <https://github.com/leancoderkavy/premiere-pro-mcp>. Releases, the signed `.zxp`
