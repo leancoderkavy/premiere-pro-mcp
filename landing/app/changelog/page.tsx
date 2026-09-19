@@ -6,6 +6,18 @@ import { product } from "@/lib/product"
 
 const releases = [
   {
+    version: "1.16.2",
+    date: "2026-09-18",
+    label: "Installable UXP CCX packages and restored path commands",
+    groups: [
+      { title: "Fixed", items: [
+        "Direct UXP .ccx packages now use a plugin-id bundle root and Unix 644/755 permission bits so Creative Cloud / UPI can extract plugin metadata.",
+        "Path-based UXP commands now resolve native paths through the granted workspace folder instead of advertising them as unsupported on every host."
+      ] },
+      { title: "Verification scope", items: ["Automated checks do not establish licensed-host playback or rendered-output verification."] }
+    ],
+  },
+  {
     version: "1.16.1",
     date: "2026-09-17",
     label: "Sync-locked insert and ripple delete, plus editor-request tools",
