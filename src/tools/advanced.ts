@@ -91,14 +91,26 @@ export function getAdvancedTools(bridgeOptions: BridgeOptions) {
           var ti;
           for (ti = 0; ti < vN; ti++) {
             if (result.trackType === "video" && ti === result.trackIndex) continue;
-            var slv = false;
-            try { slv = !!qeTrackFor("video", ti).isSyncLocked(); } catch (e1) {}
+            var slv = null;
+            try {
+              var qv = qeTrackFor("video", ti);
+              if (qv && typeof qv.isSyncLocked === "function") slv = !!qv.isSyncLocked();
+            } catch (e1) { slv = null; }
+            if (slv === null) {
+              return __error("Ripple delete refused; nothing was changed. Could not read isSyncLocked() on video track " + ti + ". Pass scope 'own_track' to shift only the clip's track (this will desync other tracks).");
+            }
             if (slv) addPart("video", ti, false);
           }
           for (ti = 0; ti < aN; ti++) {
             if (result.trackType === "audio" && ti === result.trackIndex) continue;
-            var sla = false;
-            try { sla = !!qeTrackFor("audio", ti).isSyncLocked(); } catch (e2) {}
+            var sla = null;
+            try {
+              var qa = qeTrackFor("audio", ti);
+              if (qa && typeof qa.isSyncLocked === "function") sla = !!qa.isSyncLocked();
+            } catch (e2) { sla = null; }
+            if (sla === null) {
+              return __error("Ripple delete refused; nothing was changed. Could not read isSyncLocked() on audio track " + ti + ". Pass scope 'own_track' to shift only the clip's track (this will desync other tracks).");
+            }
             if (sla) addPart("audio", ti, false);
           }
           `
@@ -107,11 +119,23 @@ export function getAdvancedTools(bridgeOptions: BridgeOptions) {
 
           // A locked participating track cannot be edited; shifting the others
           // without it would silently desync, so refuse rather than half-ripple.
+          // Unreadable lock state is the same risk as an unread sync lock.
           var lockedList = [];
           var pi;
           for (pi = 0; pi < parts.length; pi++) {
-            var lk = false;
-            try { lk = !!qeTrackFor(parts[pi].type, parts[pi].index).isLocked(); } catch (e3) {}
+            var lk = null;
+            try {
+              if (typeof parts[pi].domTrack.isLocked === "function") lk = !!parts[pi].domTrack.isLocked();
+            } catch (eDomLock) { lk = null; }
+            if (lk === null) {
+              try {
+                var ql = qeTrackFor(parts[pi].type, parts[pi].index);
+                if (ql && typeof ql.isLocked === "function") lk = !!ql.isLocked();
+              } catch (e3) { lk = null; }
+            }
+            if (lk === null) {
+              return __error("Ripple delete refused; nothing was changed. Could not read isLocked() on " + parts[pi].type + " track " + parts[pi].index + ". Unlock them or use scope 'own_track' (which will desync other tracks).");
+            }
             if (lk) lockedList.push(parts[pi].type + " track " + parts[pi].index);
           }
           if (lockedList.length) {
