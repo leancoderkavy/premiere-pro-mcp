@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { runInNewContext } from "node:vm";
 import { getHelpersSource } from "../../src/bridge/script-builder.js";
 
 vi.mock("../../src/bridge/file-bridge.js", () => ({
@@ -12,6 +13,7 @@ import { getHealthTools } from "../../src/tools/health.js";
 import { getMetadataTools } from "../../src/tools/metadata.js";
 import { getProjectTools } from "../../src/tools/project.js";
 import { getSequenceTools } from "../../src/tools/sequence.js";
+import { getTrackTargetingTools } from "../../src/tools/track-targeting.js";
 import { getUtilityTools } from "../../src/tools/utility.js";
 
 const mockedSendCommand = vi.mocked(sendCommand);
@@ -25,6 +27,33 @@ async function scriptFor(tool: { handler: (args: any) => Promise<unknown> }, arg
 }
 
 beforeEach(() => vi.clearAllMocks());
+
+describe("project-item source range units", () => {
+  it("passes seconds to both setters and still verifies tick readback", async () => {
+    const tool = getTrackTargetingTools(bridgeOptions).set_item_in_out;
+    const script = await scriptFor(tool, { item_id: "media", in_seconds: 1.5, out_seconds: 5.25 });
+    class MockTime {
+      seconds = 0;
+      get ticks() { return String(Math.round(this.seconds * 254016000000)); }
+    }
+    const inPoint = new MockTime();
+    const outPoint = new MockTime();
+    const item = {
+      nodeId: "media", name: "Media",
+      setInPoint: vi.fn((seconds: number) => { inPoint.seconds = seconds; }),
+      setOutPoint: vi.fn((seconds: number) => { outPoint.seconds = seconds; }),
+      getInPoint: () => inPoint,
+      getOutPoint: () => outPoint,
+    };
+    const result = JSON.parse(runInNewContext(getHelpersSource() + "\n" + script, {
+      Time: MockTime,
+      app: { project: { rootItem: { children: { 0: item, numItems: 1 } } } },
+    }));
+    expect(item.setInPoint).toHaveBeenCalledWith(1.5, 4);
+    expect(item.setOutPoint).toHaveBeenCalledWith(5.25, 4);
+    expect(result).toMatchObject({ success: true, data: { verified: true, inSet: true, outSet: true } });
+  });
+});
 
 describe("issue #239 — metadata writes require a readback-capable payload", () => {
   const metadata = getMetadataTools(bridgeOptions);
@@ -109,12 +138,37 @@ describe("issue #240 — legacy structural tools verify or refuse the operation"
     const subsequenceScript = await scriptFor(sequence.create_subsequence, {});
     expect(subsequenceScript).toContain("nested: false");
     expect(subsequenceScript).toContain("The source timeline selection is intentionally unchanged");
-    expect(subsequenceScript).toContain("before.indexOf(newId) !== -1");
+    expect(subsequenceScript).toContain("before[newId] === true");
+    expect(subsequenceScript).not.toContain("before.indexOf");
 
     mockedSendCommand.mockClear();
     const result = await utility.nest_clips.handler({ name: "Verified nest" });
     expect(result).toMatchObject({ success: false, error: expect.stringContaining("does not replace the original clips") });
     expect(mockedSendCommand).not.toHaveBeenCalled();
+  });
+
+  it.each(["new", "existing", "missing"])("verifies a %s subsequence without ES5 Array.indexOf", async (outcome) => {
+    const script = await scriptFor(sequence.create_subsequence, {});
+    const original = { sequenceID: "original", name: "Original" };
+    const created = { sequenceID: "created", name: "Created" };
+    const sequences: any = { 0: original, numSequences: 1 };
+    const activeSequence = Object.assign(original, {
+      createSubsequence: () => {
+        if (outcome === "existing") return original;
+        if (outcome === "new") {
+          sequences[1] = created;
+          sequences.numSequences = 2;
+        }
+        return created;
+      },
+    });
+    const result = JSON.parse(runInNewContext(
+      "Array.prototype.indexOf = undefined;\n" + getHelpersSource() + "\n" + script,
+      { app: { project: { activeSequence, sequences } } },
+    ));
+    expect(result.success).toBe(outcome === "new");
+    if (outcome === "new") expect(result.data).toMatchObject({ created: true, verified: true, id: "created" });
+    else expect(result.error).toContain("newly created subsequence");
   });
 
   it("refuses a linked A/V unnest before it can leave an audio reference behind", async () => {

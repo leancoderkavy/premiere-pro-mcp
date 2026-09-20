@@ -497,7 +497,7 @@ export function getTrackTargetingTools(bridgeOptions: BridgeOptions) {
               ? `
           var inTime = new Time();
           inTime.seconds = ${args.in_seconds};
-          item.setInPoint(inTime.ticks, ${mediaType});
+          item.setInPoint(inTime.seconds, ${mediaType});
           var observedIn = item.getInPoint(${mediaType});
           if (!observedIn || String(observedIn.ticks) !== String(inTime.ticks)) {
             return __error("Premiere did not apply the requested project-item in point.");
@@ -511,7 +511,7 @@ export function getTrackTargetingTools(bridgeOptions: BridgeOptions) {
               ? `
           var outTime = new Time();
           outTime.seconds = ${args.out_seconds};
-          item.setOutPoint(outTime.ticks, ${mediaType});
+          item.setOutPoint(outTime.seconds, ${mediaType});
           var observedOut = item.getOutPoint(${mediaType});
           if (!observedOut || String(observedOut.ticks) !== String(outTime.ticks)) {
             return __error("Premiere did not apply the requested project-item out point.");
