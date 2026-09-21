@@ -14,7 +14,9 @@ import { getMetadataTools } from "../../src/tools/metadata.js";
 import { getProjectTools } from "../../src/tools/project.js";
 import { getSequenceTools } from "../../src/tools/sequence.js";
 import { getTrackTargetingTools } from "../../src/tools/track-targeting.js";
+import { getSourceMonitorTools } from "../../src/tools/source-monitor.js";
 import { getUtilityTools } from "../../src/tools/utility.js";
+import { EXTENDSCRIPT_REFERENCE } from "../../src/resources/extendscript-reference.js";
 
 const mockedSendCommand = vi.mocked(sendCommand);
 const bridgeOptions = { tempDir: "/tmp/test-bridge", timeoutMs: 5_000 };
@@ -52,6 +54,40 @@ describe("project-item source range units", () => {
     expect(item.setInPoint).toHaveBeenCalledWith(1.5, 4);
     expect(item.setOutPoint).toHaveBeenCalledWith(5.25, 4);
     expect(result).toMatchObject({ success: true, data: { verified: true, inSet: true, outSet: true } });
+  });
+
+  it("passes seconds from the Source Monitor tool and still verifies tick readback", async () => {
+    const tool = getSourceMonitorTools(bridgeOptions).set_source_in_out;
+    const script = await scriptFor(tool, { in_seconds: 1.5, out_seconds: 5.25 });
+    expect(script).not.toContain("setInPoint(inTime.ticks");
+    expect(script).not.toContain("setOutPoint(outTime.ticks");
+    class MockTime {
+      seconds = 0;
+      get ticks() { return String(Math.round(this.seconds * 254016000000)); }
+    }
+    const inPoint = new MockTime();
+    const outPoint = new MockTime();
+    const item = {
+      name: "Media",
+      setInPoint: vi.fn((seconds: number) => { inPoint.seconds = seconds; }),
+      setOutPoint: vi.fn((seconds: number) => { outPoint.seconds = seconds; }),
+      getInPoint: () => inPoint,
+      getOutPoint: () => outPoint,
+    };
+    const result = JSON.parse(runInNewContext(getHelpersSource() + "\n" + script, {
+      Time: MockTime,
+      app: { sourceMonitor: { getProjectItem: () => item } },
+    }));
+    expect(item.setInPoint).toHaveBeenCalledWith(1.5, 4);
+    expect(item.setOutPoint).toHaveBeenCalledWith(5.25, 4);
+    expect(result).toMatchObject({ success: true, data: { verified: true, inSet: true, outSet: true } });
+  });
+
+  it("documents ProjectItem in/out setters as seconds", () => {
+    expect(EXTENDSCRIPT_REFERENCE).toContain("item.setInPoint(seconds, mediaType)");
+    expect(EXTENDSCRIPT_REFERENCE).toContain("item.setOutPoint(seconds, mediaType)");
+    expect(EXTENDSCRIPT_REFERENCE).not.toContain("item.setInPoint(ticks, mediaType)");
+    expect(EXTENDSCRIPT_REFERENCE).not.toContain("item.setOutPoint(ticks, mediaType)");
   });
 });
 

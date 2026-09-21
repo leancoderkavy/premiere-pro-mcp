@@ -12,6 +12,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   clients, covering model selection, data-retention opt-in, tool discovery, and
   serialized Premiere verification.
 
+### Fixed
+
+- `set_source_in_out` passes seconds to `ProjectItem.setInPoint`/`setOutPoint`
+  and verifies tick readback, matching `set_item_in_out`. The ExtendScript
+  reference now documents those setter arguments as seconds. (#579)
+
 ## [1.16.3] - 2026-09-18
 
 ### Changed

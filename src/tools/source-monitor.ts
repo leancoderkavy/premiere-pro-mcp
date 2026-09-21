@@ -66,6 +66,13 @@ export function getSourceMonitorTools(bridgeOptions: BridgeOptions) {
         },
       },
       handler: async (args: { in_seconds?: number; out_seconds?: number }) => {
+        if (args.in_seconds === undefined && args.out_seconds === undefined) {
+          return { success: false, error: "Provide in_seconds, out_seconds, or both." };
+        }
+        if ((args.in_seconds !== undefined && (!Number.isFinite(args.in_seconds) || args.in_seconds < 0))
+          || (args.out_seconds !== undefined && (!Number.isFinite(args.out_seconds) || args.out_seconds < 0))) {
+          return { success: false, error: "in_seconds and out_seconds must be finite, non-negative numbers." };
+        }
         const script = buildToolScript(`
           var item = app.sourceMonitor.getProjectItem();
           if (!item) return __error("No clip open in Source Monitor");
@@ -73,19 +80,28 @@ export function getSourceMonitorTools(bridgeOptions: BridgeOptions) {
           ${args.in_seconds !== undefined ? `
           var inTime = new Time();
           inTime.seconds = ${args.in_seconds};
-          item.setInPoint(inTime.ticks, 4);
+          item.setInPoint(inTime.seconds, 4);
+          var observedIn = item.getInPoint(4);
+          if (!observedIn || String(observedIn.ticks) !== String(inTime.ticks)) {
+            return __error("Premiere did not apply the requested Source Monitor in point.");
+          }
           ` : ""}
 
           ${args.out_seconds !== undefined ? `
           var outTime = new Time();
           outTime.seconds = ${args.out_seconds};
-          item.setOutPoint(outTime.ticks, 4);
+          item.setOutPoint(outTime.seconds, 4);
+          var observedOut = item.getOutPoint(4);
+          if (!observedOut || String(observedOut.ticks) !== String(outTime.ticks)) {
+            return __error("Premiere did not apply the requested Source Monitor out point.");
+          }
           ` : ""}
 
           return __result({
             item: item.name,
             inSet: ${args.in_seconds !== undefined},
-            outSet: ${args.out_seconds !== undefined}
+            outSet: ${args.out_seconds !== undefined},
+            verified: true
           });
         `);
         return sendCommand(script, bridgeOptions);
