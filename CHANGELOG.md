@@ -14,9 +14,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
-- `set_source_in_out` passes seconds to `ProjectItem.setInPoint`/`setOutPoint`
-  and verifies tick readback, matching `set_item_in_out`. The ExtendScript
-  reference now documents those setter arguments as seconds. (#579)
+- `set_item_in_out` and `set_source_in_out` pass seconds, not ticks, to
+  `ProjectItem.setInPoint`/`setOutPoint` and verify tick readback. A Source
+  Monitor readback mismatch restores original marks when possible and otherwise
+  reports a partial state. The ExtendScript reference documents those setter
+  arguments as seconds. (#579)
+- CEP `create_subsequence` verifies the new sequence without ES5
+  `Array.indexOf`, which ExtendScript does not provide. (#579)
 
 ## [1.16.3] - 2026-09-18
 

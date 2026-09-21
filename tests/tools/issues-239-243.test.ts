@@ -56,6 +56,27 @@ describe("project-item source range units", () => {
     expect(result).toMatchObject({ success: true, data: { verified: true, inSet: true, outSet: true } });
   });
 
+  it("advertises non-negative in/out seconds and requires at least one field", () => {
+    const tool = getSourceMonitorTools(bridgeOptions).set_source_in_out;
+    expect(tool.parameters.properties.in_seconds).toMatchObject({ type: "number", minimum: 0 });
+    expect(tool.parameters.properties.out_seconds).toMatchObject({ type: "number", minimum: 0 });
+    expect(tool.parameters.anyOf).toEqual([
+      { required: ["in_seconds"] },
+      { required: ["out_seconds"] },
+    ]);
+  });
+
+  it.each([
+    ["an empty object", {}],
+    ["a negative in point", { in_seconds: -1 }],
+    ["a negative out point", { out_seconds: -0.25 }],
+  ])("rejects %s without contacting Premiere", async (_label, args) => {
+    const tool = getSourceMonitorTools(bridgeOptions).set_source_in_out;
+    const result = await tool.handler(args);
+    expect(result).toMatchObject({ success: false, error: expect.stringMatching(/in_seconds|out_seconds/) });
+    expect(mockedSendCommand).not.toHaveBeenCalled();
+  });
+
   it("passes seconds from the Source Monitor tool and still verifies tick readback", async () => {
     const tool = getSourceMonitorTools(bridgeOptions).set_source_in_out;
     const script = await scriptFor(tool, { in_seconds: 1.5, out_seconds: 5.25 });
@@ -81,6 +102,40 @@ describe("project-item source range units", () => {
     expect(item.setInPoint).toHaveBeenCalledWith(1.5, 4);
     expect(item.setOutPoint).toHaveBeenCalledWith(5.25, 4);
     expect(result).toMatchObject({ success: true, data: { verified: true, inSet: true, outSet: true } });
+  });
+
+  it("restores original marks when Source Monitor setter readback mismatches", async () => {
+    const tool = getSourceMonitorTools(bridgeOptions).set_source_in_out;
+    const script = await scriptFor(tool, { in_seconds: 1.5, out_seconds: 5.25 });
+    class MockTime {
+      seconds = 0;
+      get ticks() { return String(Math.round(this.seconds * 254016000000)); }
+    }
+    const inPoint = new MockTime();
+    inPoint.seconds = 0.25;
+    const outPoint = new MockTime();
+    outPoint.seconds = 8;
+    const item = {
+      name: "Media",
+      setInPoint: vi.fn((seconds: number) => {
+        inPoint.seconds = item.setInPoint.mock.calls.length === 1 ? 9.99 : seconds;
+      }),
+      setOutPoint: vi.fn((seconds: number) => { outPoint.seconds = seconds; }),
+      getInPoint: () => inPoint,
+      getOutPoint: () => outPoint,
+    };
+    const result = JSON.parse(runInNewContext(getHelpersSource() + "\n" + script, {
+      Time: MockTime,
+      app: { sourceMonitor: { getProjectItem: () => item } },
+    }));
+    expect(item.setInPoint).toHaveBeenNthCalledWith(1, 1.5, 4);
+    expect(item.setInPoint).toHaveBeenNthCalledWith(2, 0.25, 4);
+    expect(item.setOutPoint).toHaveBeenCalledWith(8, 4);
+    expect(item.setOutPoint).not.toHaveBeenCalledWith(5.25, 4);
+    expect(result).toMatchObject({
+      success: false,
+      error: expect.stringContaining("Original marks were restored"),
+    });
   });
 
   it("documents ProjectItem in/out setters as seconds", () => {
