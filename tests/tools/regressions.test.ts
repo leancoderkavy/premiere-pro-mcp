@@ -249,6 +249,10 @@ describe("issue #9 — frame export uses the QE DOM and verifies the file landed
     expect(helpers).toContain("seq.setInPoint(__ticksToSeconds(savedIn))");
     expect(helpers).toContain("seq.setOutPoint(__ticksToSeconds(savedOut))");
     expect(helpers).not.toContain("seq.setInPoint(String(startTicks))");
+    // If either in or out cannot be read, refuse the one-frame mutation rather
+    // than leaving the sequence pinned to the still-export range.
+    expect(helpers).toContain("savedIn === null || savedIn === undefined || savedOut === null || savedOut === undefined");
+    expect(helpers).toContain("could not read sequence in/out points, so they were not changed");
   });
 });
 
