@@ -248,9 +248,9 @@ export function getSequenceTools(bridgeOptions: BridgeOptions) {
           var seq = __getCurrentActiveSequence();
           if (!seq) return __error("No active sequence");
 
-          var before = [];
+          var before = {};
           for (var i = 0; i < app.project.sequences.numSequences; i++) {
-            before.push(String(app.project.sequences[i].sequenceID));
+            before[String(app.project.sequences[i].sequenceID)] = true;
           }
           var newSeq = seq.createSubsequence(${args.ignore_track_targeting ? "true" : "false"});
           if (!newSeq) return __error("Failed to create subsequence");
@@ -262,7 +262,7 @@ export function getSequenceTools(bridgeOptions: BridgeOptions) {
               break;
             }
           }
-          if (!exists || before.indexOf(newId) !== -1) {
+          if (!exists || before[newId] === true) {
             return __error("Premiere did not expose a newly created subsequence in the current project");
           }
           return __result({

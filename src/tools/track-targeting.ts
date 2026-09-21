@@ -492,15 +492,50 @@ export function getTrackTargetingTools(bridgeOptions: BridgeOptions) {
           var item = __findProjectItem("${escapeForExtendScript(args.item_id)}");
           if (!item) return __error("Item not found");
 
+          var originalIn = item.getInPoint(${mediaType});
+          var originalOut = item.getOutPoint(${mediaType});
+          var hadOriginalIn = !!originalIn;
+          var hadOriginalOut = !!originalOut;
+          var originalInSeconds = hadOriginalIn ? Number(originalIn.seconds) : 0;
+          var originalOutSeconds = hadOriginalOut ? Number(originalOut.seconds) : 0;
+          var originalInTicks = hadOriginalIn ? String(originalIn.ticks) : "";
+          var originalOutTicks = hadOriginalOut ? String(originalOut.ticks) : "";
+
+          function restoreOriginalMarks() {
+            try {
+              if (hadOriginalIn) item.setInPoint(originalInSeconds, ${mediaType});
+              if (hadOriginalOut) item.setOutPoint(originalOutSeconds, ${mediaType});
+            } catch (restoreErr) {}
+          }
+
+          function marksRestored() {
+            var restoredIn = item.getInPoint(${mediaType});
+            var restoredOut = item.getOutPoint(${mediaType});
+            return (!hadOriginalIn || (restoredIn && String(restoredIn.ticks) === originalInTicks))
+              && (!hadOriginalOut || (restoredOut && String(restoredOut.ticks) === originalOutTicks));
+          }
+
+          function failAfterMarkUpdate(message) {
+            restoreOriginalMarks();
+            if (marksRestored()) {
+              return __error(message + " Original marks were restored.");
+            }
+            return __error(message + " Marks may be in a partial state; use Undo instead of retrying.");
+          }
+
           ${
             args.in_seconds !== undefined
               ? `
           var inTime = new Time();
           inTime.seconds = ${args.in_seconds};
-          item.setInPoint(inTime.ticks, ${mediaType});
+          try {
+            item.setInPoint(inTime.seconds, ${mediaType});
+          } catch (setInErr) {
+            return failAfterMarkUpdate("Premiere rejected the requested project-item in point (" + setInErr.toString() + ").");
+          }
           var observedIn = item.getInPoint(${mediaType});
           if (!observedIn || String(observedIn.ticks) !== String(inTime.ticks)) {
-            return __error("Premiere did not apply the requested project-item in point.");
+            return failAfterMarkUpdate("Premiere did not apply the requested project-item in point.");
           }
           `
               : ""
@@ -511,10 +546,14 @@ export function getTrackTargetingTools(bridgeOptions: BridgeOptions) {
               ? `
           var outTime = new Time();
           outTime.seconds = ${args.out_seconds};
-          item.setOutPoint(outTime.ticks, ${mediaType});
+          try {
+            item.setOutPoint(outTime.seconds, ${mediaType});
+          } catch (setOutErr) {
+            return failAfterMarkUpdate("Premiere rejected the requested project-item out point (" + setOutErr.toString() + ").");
+          }
           var observedOut = item.getOutPoint(${mediaType});
           if (!observedOut || String(observedOut.ticks) !== String(outTime.ticks)) {
-            return __error("Premiere did not apply the requested project-item out point.");
+            return failAfterMarkUpdate("Premiere did not apply the requested project-item out point.");
           }
           `
               : ""

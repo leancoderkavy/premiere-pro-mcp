@@ -12,6 +12,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   clients, covering model selection, data-retention opt-in, tool discovery, and
   serialized Premiere verification.
 
+### Fixed
+
+- `set_item_in_out` and `set_source_in_out` pass seconds, not ticks, to
+  `ProjectItem.setInPoint`/`setOutPoint` and verify tick readback. A Source
+  Monitor readback mismatch restores original marks when possible and otherwise
+  reports a partial state. The ExtendScript reference documents those setter
+  arguments as seconds. (#579)
+- CEP `create_subsequence` verifies the new sequence without ES5
+  `Array.indexOf`, which ExtendScript does not provide. (#579)
+
 ## [1.16.3] - 2026-09-18
 
 ### Changed
