@@ -1,0 +1,15 @@
+---
+description: Score premiere-pro-mcp file candidates by product surface before reading more than three files
+alwaysApply: false
+---
+
+# Context surfaces
+
+When scoring file candidates, use these exclusive surfaces:
+
+- `src/tools`, `src/server.ts`, `src/workflows` — MCP tools, schemas, client instructions
+- `src/bridge`, `cep-plugin` — production CEP / ExtendScript
+- `uxp-plugin`, `src/tools/uxp*` — preview UXP only; no silent CEP fallback
+- `landing` — marketing site; generated facts, not source tool counts
+- `docs/claims-registry.*`, `landing/lib/published-release.json` — public claims
+- `plugins/**/SKILL.md`, `claude-plugins/**/SKILL.md` — keep both copies identical

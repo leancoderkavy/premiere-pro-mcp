@@ -531,11 +531,11 @@ From a clone of this repository:
 ```bash
 codex plugin marketplace add .
 codex plugin add premiere-pro@premiere-pro-mcp
-npx -y premiere-pro-mcp@1.15.1 --install-cep
+npx -y premiere-pro-mcp@1.16.3 --install-cep
 ```
 
 Restart Premiere Pro and start a new Codex session after installation. The plugin
-launches `premiere-pro-mcp@1.15.1` through `npx`; the separate CEP installation is
+launches `premiere-pro-mcp@1.16.3` through `npx`; the separate CEP installation is
 required because the MCP server communicates with the running Premiere host through
 the local bridge.
 
@@ -566,7 +566,7 @@ For Claude Code, add this repository as a marketplace and install the plugin:
 Then install the Premiere bridge and start a new Claude Code session:
 
 ```bash
-npx -y premiere-pro-mcp@1.15.1 --install-cep
+npx -y premiere-pro-mcp@1.16.3 --install-cep
 ```
 
 The Claude Code package lives in
@@ -1457,7 +1457,9 @@ by default. Enable them only by setting
   directories writable by group/other users are refused by both the server and panels;
   tightening permissions alone cannot make previously staged commands trustworthy.
   On Windows, only the current user, SYSTEM and Administrators may have write access,
-  including inherited grants. ACL inspection failures also stop startup. Ancestors must
+  including inherited grants. Windows capability and app-container SIDs (`S-1-15-*`)
+  are ignored: they are not logon principals and appear as inherited FullControl on
+  stock `%LOCALAPPDATA%` paths. ACL inspection failures also stop startup. Ancestors must
   also prevent other users from replacing the bridge path; a private child inside a
   broadly writable parent is insufficient (POSIX sticky temp directories are supported).
   Choose a new directory under a private user-owned location if the connector rejects
