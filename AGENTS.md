@@ -5,7 +5,7 @@ Cursor, GitHub Copilot, Codex, Claude Code, Gemini CLI, Windsurf, and similar to
 
 This is **not** the product website LLM crawl file. That generated file is `landing/public/llms.txt`.
 
-Adapter stubs (`CLAUDE.md`, `GEMINI.md`, `CONVENTIONS.md`, `.github/copilot-instructions.md`, `.cursor/rules/`, `.windsurf/rules/`, `.clinerules`, `.continue/rules/`, `.junie/guidelines.md`) point here. Keep those stubs thin; put durable guidance in this file or in a focused Cursor/Copilot path rule.
+Adapter stubs (`CLAUDE.md`, `GEMINI.md`, `CONVENTIONS.md`, `.github/copilot-instructions.md`, `.cursor/rules/`, `.windsurf/rules/`, `.clinerules`, `.continue/rules/`, `.junie/guidelines.md`) point here. Keep those stubs thin; put durable guidance in this file or in a focused Cursor/Copilot path rule. Optional Cursor rule `.cursor/rules/jev-surfaces.mdc` scores CEP / UXP / landing / claims file candidates. It is not a TypeSafe Jev sidecar protocol; do not add one here.
 
 ## What this repository is
 
