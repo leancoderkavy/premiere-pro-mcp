@@ -557,24 +557,26 @@ function __exportStillFrame(outputPath, ticks) {
         savedIn = seq.getInPointAsTime().ticks;
         savedOut = seq.getOutPointAsTime().ticks;
       } catch (e) {}
-
-      // seq.timebase is ticks-per-frame, but Sequence.setInPoint/setOutPoint take
-      // seconds (unlike setPlayerPosition, which takes ticks). Convert before
-      // setting the one-frame range or Premiere targets an astronomically large
-      // interval and the still export produces no file.
-      var frameTicks = parseFloat(seq.timebase);
-      var startTicks = parseFloat(atTicks);
-      seq.setInPoint(__ticksToSeconds(startTicks));
-      seq.setOutPoint(__ticksToSeconds(startTicks + frameTicks));
-
-      try {
-        seq.exportAsMediaDirect(outputPath, preset, app.encoder.ENCODE_IN_TO_OUT);
-        notes.push("AME preset: " + preset);
-      } finally {
+      // Unreadable in/out cannot be restored. Changing them anyway left the
+      // sequence pinned to a one-frame export range after QE-to-AME fallback.
+      if (savedIn === null || savedIn === undefined || savedOut === null || savedOut === undefined) {
+        notes.push("AME: could not read sequence in/out points, so they were not changed for a one-frame export");
+      } else {
+        // seq.timebase is ticks-per-frame, but Sequence.setInPoint/setOutPoint take
+        // seconds (unlike setPlayerPosition, which takes ticks). Convert before
+        // setting the one-frame range or Premiere targets an astronomically large
+        // interval and the still export produces no file.
+        var frameTicks = parseFloat(seq.timebase);
+        var startTicks = parseFloat(atTicks);
         try {
-          if (savedIn !== null) seq.setInPoint(__ticksToSeconds(savedIn));
-          if (savedOut !== null) seq.setOutPoint(__ticksToSeconds(savedOut));
-        } catch (e) {}
+          seq.setInPoint(__ticksToSeconds(startTicks));
+          seq.setOutPoint(__ticksToSeconds(startTicks + frameTicks));
+          seq.exportAsMediaDirect(outputPath, preset, app.encoder.ENCODE_IN_TO_OUT);
+          notes.push("AME preset: " + preset);
+        } finally {
+          try { seq.setInPoint(__ticksToSeconds(savedIn)); } catch (eIn) {}
+          try { seq.setOutPoint(__ticksToSeconds(savedOut)); } catch (eOut) {}
+        }
       }
     }
   } catch (eAME) {

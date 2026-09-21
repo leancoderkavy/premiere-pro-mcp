@@ -175,3 +175,91 @@ describe("helpers execute correctly in an ES3-like engine", () => {
     expect(json.stringify({ ok: 1 })).toBe('{"ok":1}');
   });
 });
+
+describe("__exportStillFrame AME fallback restores sequence in/out", () => {
+  const TICKS = 254016000000;
+
+  function FileStub(this: { fsName: string; exists: boolean; length: number; name: string; parent: { exists: boolean; getFiles: () => unknown[] }; remove: () => void; rename: () => void }, path: string) {
+    this.fsName = path;
+    this.exists = false;
+    this.length = 0;
+    this.name = path.split("/").pop() || path;
+    this.parent = { exists: false, getFiles: () => [] };
+    this.remove = () => undefined;
+    this.rename = () => undefined;
+  }
+
+  function runExport(sequence: Record<string, unknown>) {
+    const sandbox: Record<string, unknown> = {
+      File: FileStub,
+      Folder: function Folder() { return {}; },
+      Time: function Time() { return { ticks: "0", getFormatted: () => "00:00:00:00" }; },
+      app: {
+        enableQE() { throw new Error("QE unavailable"); },
+        encoder: { ENCODE_IN_TO_OUT: 1 },
+        project: { activeSequence: sequence },
+      },
+    };
+    return runInNewContext(
+      `${getHelpersSource()}
+      __findStillPreset = function () { return "/tmp/still.epr"; };
+      __exportStillFrame("/tmp/frame.png", "${TICKS * 5}");`,
+      sandbox,
+    ) as { ok: boolean; notes?: string[]; error?: string };
+  }
+
+  it("does not change in/out when Premiere cannot read them", () => {
+    const marks = { inPoint: 10, outPoint: 20 };
+    const result = runExport({
+      name: "Seq",
+      timebase: String(TICKS / 24),
+      getPlayerPosition() { return { ticks: String(TICKS * 5) }; },
+      getInPointAsTime() { throw new Error("getInPointAsTime unavailable"); },
+      getOutPointAsTime() { throw new Error("getOutPointAsTime unavailable"); },
+      setInPoint(value: number) { marks.inPoint = value; },
+      setOutPoint(value: number) { marks.outPoint = value; },
+      exportAsMediaDirect() { throw new Error("export should not run"); },
+    });
+    expect(result.ok).toBe(false);
+    expect(result.notes?.join(" ")).toMatch(/could not read sequence in\/out points/);
+    expect(marks).toEqual({ inPoint: 10, outPoint: 20 });
+  });
+
+  it("restores both marks when setOutPoint throws after setInPoint", () => {
+    const marks = { inPoint: 10, outPoint: 20 };
+    const result = runExport({
+      name: "Seq",
+      timebase: String(TICKS / 24),
+      getPlayerPosition() { return { ticks: String(TICKS * 5) }; },
+      getInPointAsTime() { return { ticks: String(TICKS * 10) }; },
+      getOutPointAsTime() { return { ticks: String(TICKS * 20) }; },
+      setInPoint(value: number) { marks.inPoint = value; },
+      setOutPoint(value: number) {
+        if (value < 10) throw new Error("rejected one-frame out point");
+        marks.outPoint = value;
+      },
+      exportAsMediaDirect() { throw new Error("export should not run"); },
+    });
+    expect(result.ok).toBe(false);
+    expect(marks.inPoint).toBe(10);
+    expect(marks.outPoint).toBe(20);
+  });
+
+  it("restores the original in/out after a successful AME still export", () => {
+    const marks = { inPoint: 10, outPoint: 20 };
+    let exported = false;
+    const result = runExport({
+      name: "Seq",
+      timebase: String(TICKS / 24),
+      getPlayerPosition() { return { ticks: String(TICKS * 5) }; },
+      getInPointAsTime() { return { ticks: String(TICKS * 10) }; },
+      getOutPointAsTime() { return { ticks: String(TICKS * 20) }; },
+      setInPoint(value: number) { marks.inPoint = value; },
+      setOutPoint(value: number) { marks.outPoint = value; },
+      exportAsMediaDirect() { exported = true; },
+    });
+    expect(exported).toBe(true);
+    expect(result.notes?.join(" ")).toMatch(/AME preset/);
+    expect(marks).toEqual({ inPoint: 10, outPoint: 20 });
+  });
+});
