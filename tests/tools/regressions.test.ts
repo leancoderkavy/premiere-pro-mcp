@@ -253,6 +253,7 @@ describe("issue #9 — frame export uses the QE DOM and verifies the file landed
     // than leaving the sequence pinned to the still-export range.
     expect(helpers).toContain("savedIn === null || savedIn === undefined || savedOut === null || savedOut === undefined");
     expect(helpers).toContain("could not read sequence in/out points, so they were not changed");
+    expect(helpers).toContain("sequence in/out could not be restored after the one-frame export");
   });
 });
 

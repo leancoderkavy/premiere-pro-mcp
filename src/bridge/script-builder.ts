@@ -568,14 +568,36 @@ function __exportStillFrame(outputPath, ticks) {
         // interval and the still export produces no file.
         var frameTicks = parseFloat(seq.timebase);
         var startTicks = parseFloat(atTicks);
+        var ameMutatedMarks = false;
         try {
           seq.setInPoint(__ticksToSeconds(startTicks));
+          ameMutatedMarks = true;
           seq.setOutPoint(__ticksToSeconds(startTicks + frameTicks));
           seq.exportAsMediaDirect(outputPath, preset, app.encoder.ENCODE_IN_TO_OUT);
           notes.push("AME preset: " + preset);
         } finally {
           try { seq.setInPoint(__ticksToSeconds(savedIn)); } catch (eIn) {}
           try { seq.setOutPoint(__ticksToSeconds(savedOut)); } catch (eOut) {}
+        }
+        // Premiere 26.x setters can throw or silently no-op. A still file is
+        // not success if the sequence is still pinned to the one-frame range.
+        if (ameMutatedMarks) {
+          var restoredIn = null, restoredOut = null;
+          try { restoredIn = seq.getInPointAsTime().ticks; } catch (eRi) {}
+          try { restoredOut = seq.getOutPointAsTime().ticks; } catch (eRo) {}
+          var restoreTol = (frameTicks && !isNaN(frameTicks)) ? frameTicks : (TICKS_PER_SECOND / 24);
+          var inRestored = restoredIn != null && !isNaN(parseFloat(restoredIn))
+            && Math.abs(parseFloat(restoredIn) - parseFloat(savedIn)) <= restoreTol;
+          var outRestored = restoredOut != null && !isNaN(parseFloat(restoredOut))
+            && Math.abs(parseFloat(restoredOut) - parseFloat(savedOut)) <= restoreTol;
+          if (!inRestored || !outRestored) {
+            notes.push("AME: sequence in/out could not be restored after the one-frame export");
+            return {
+              ok: false,
+              error: "Media Encoder still export left the sequence in/out points unrestored. The sequence may still be pinned to a one-frame range; restore the marks in Premiere or Undo before exporting again.",
+              notes: notes
+            };
+          }
         }
       }
     }
