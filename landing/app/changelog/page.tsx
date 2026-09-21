@@ -6,6 +6,24 @@ import { product } from "@/lib/product"
 
 const releases = [
   {
+    version: "1.16.4",
+    date: "2026-09-20",
+    label: "Source-range units, subsequence verification, and named metadata fields",
+    groups: [
+      { title: "Added", items: [
+        "Claude Fable 5.1 client workflow guidance.",
+        "Named Premiere metadata field inspect and update with field readback."
+      ] },
+      { title: "Fixed", items: [
+        "Project-item and Source Monitor in/out setters pass seconds and restore original marks on mismatch or thrown setters.",
+        "CEP create_subsequence verification no longer uses ES5 Array.indexOf.",
+        "ripple_delete fails closed when QE sync-lock state cannot be read.",
+        "Still-image capture/export AME fallback cannot leave the sequence pinned to one frame."
+      ] },
+      { title: "Verification scope", items: ["Automated checks do not establish licensed-host playback or rendered-output verification."] }
+    ],
+  },
+  {
     version: "1.16.3",
     date: "2026-09-18",
     label: "Changelog spacing and dependency updates",

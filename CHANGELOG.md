@@ -6,11 +6,20 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [1.16.4] - 2026-09-20
+
 ### Added
 
 - Claude Fable 5.1 client workflow guidance for Cursor and other compatible MCP
   clients, covering model selection, data-retention opt-in, tool discovery, and
-  serialized Premiere verification.
+  serialized Premiere verification. (#576)
+- Named Premiere metadata field inspect and update through existing CEP and UXP
+  tools, with field readback instead of requiring complete packet dumps. (#577)
+
+### Changed
+
+- Shared `AGENTS.md` as the canonical repo map for IDE and coding-agent stubs,
+  and pin client CEP install commands to the published package. (#582)
 
 ### Fixed
 
@@ -21,6 +30,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   arguments as seconds. (#579)
 - CEP `create_subsequence` verifies the new sequence without ES5
   `Array.indexOf`, which ExtendScript does not provide. (#579)
+- `ripple_delete` now fails closed when QE sync-lock state cannot be read,
+  instead of omitting neighbours and reporting a verified ripple. (#578)
+- Still-image `capture_frame` / `export_frame` AME fallback restores sequence
+  in/out only after those marks can be read, so a failed restore cannot leave
+  the sequence pinned to one frame. (#580)
+
+Automated checks do not establish licensed Premiere or After Effects playback or
+rendered-output verification.
 
 ## [1.16.3] - 2026-09-18
 
