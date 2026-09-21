@@ -138,6 +138,41 @@ describe("project-item source range units", () => {
     });
   });
 
+  it("restores original marks when the Source Monitor out-point setter throws", async () => {
+    const tool = getSourceMonitorTools(bridgeOptions).set_source_in_out;
+    const script = await scriptFor(tool, { in_seconds: 1.5, out_seconds: 5.25 });
+    class MockTime {
+      seconds = 0;
+      get ticks() { return String(Math.round(this.seconds * 254016000000)); }
+    }
+    const inPoint = new MockTime();
+    inPoint.seconds = 0.25;
+    const outPoint = new MockTime();
+    outPoint.seconds = 8;
+    const item = {
+      name: "Media",
+      setInPoint: vi.fn((seconds: number) => { inPoint.seconds = seconds; }),
+      setOutPoint: vi.fn((seconds: number) => {
+        if (seconds === 5.25) throw new Error("host rejected out");
+        outPoint.seconds = seconds;
+      }),
+      getInPoint: () => inPoint,
+      getOutPoint: () => outPoint,
+    };
+    const result = JSON.parse(runInNewContext(getHelpersSource() + "\n" + script, {
+      Time: MockTime,
+      app: { sourceMonitor: { getProjectItem: () => item } },
+    }));
+    expect(item.setInPoint).toHaveBeenNthCalledWith(1, 1.5, 4);
+    expect(item.setInPoint).toHaveBeenNthCalledWith(2, 0.25, 4);
+    expect(item.setOutPoint).toHaveBeenNthCalledWith(1, 5.25, 4);
+    expect(item.setOutPoint).toHaveBeenNthCalledWith(2, 8, 4);
+    expect(result).toMatchObject({
+      success: false,
+      error: expect.stringContaining("Original marks were restored"),
+    });
+  });
+
   it("documents ProjectItem in/out setters as seconds", () => {
     expect(EXTENDSCRIPT_REFERENCE).toContain("item.setInPoint(seconds, mediaType)");
     expect(EXTENDSCRIPT_REFERENCE).toContain("item.setOutPoint(seconds, mediaType)");

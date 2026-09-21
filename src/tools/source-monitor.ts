@@ -117,7 +117,11 @@ export function getSourceMonitorTools(bridgeOptions: BridgeOptions) {
           ${args.in_seconds !== undefined ? `
           var inTime = new Time();
           inTime.seconds = ${args.in_seconds};
-          item.setInPoint(inTime.seconds, 4);
+          try {
+            item.setInPoint(inTime.seconds, 4);
+          } catch (setInErr) {
+            return failAfterMarkUpdate("Premiere rejected the requested Source Monitor in point (" + setInErr.toString() + ").");
+          }
           var observedIn = item.getInPoint(4);
           if (!observedIn || String(observedIn.ticks) !== String(inTime.ticks)) {
             return failAfterMarkUpdate("Premiere did not apply the requested Source Monitor in point.");
@@ -127,7 +131,11 @@ export function getSourceMonitorTools(bridgeOptions: BridgeOptions) {
           ${args.out_seconds !== undefined ? `
           var outTime = new Time();
           outTime.seconds = ${args.out_seconds};
-          item.setOutPoint(outTime.seconds, 4);
+          try {
+            item.setOutPoint(outTime.seconds, 4);
+          } catch (setOutErr) {
+            return failAfterMarkUpdate("Premiere rejected the requested Source Monitor out point (" + setOutErr.toString() + ").");
+          }
           var observedOut = item.getOutPoint(4);
           if (!observedOut || String(observedOut.ticks) !== String(outTime.ticks)) {
             return failAfterMarkUpdate("Premiere did not apply the requested Source Monitor out point.");
