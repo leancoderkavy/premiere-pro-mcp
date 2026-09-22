@@ -3,10 +3,10 @@
   "evidenceScope": "source_catalog_may_include_unreleased_work",
   "sourceVersion": "1.16.4",
   "sourcePath": "docs/supported-actions.md",
-  "sourceSha256": "0314e8e2133b4aa90de00143e2a1d502ae977deade99d7c64be2d7ed56eadd8b",
+  "sourceSha256": "f32afae6a585cc5884c5fb84b0021d58a23f4161b3de9e159b098c6709e6fcb2",
   "hostVerification": "not_established_by_catalogs",
   "counts": {
-    "default": 379,
+    "default": 380,
     "uxp": 95,
     "restricted": 2
   },
@@ -340,6 +340,12 @@
       "surface": "default",
       "modes": "Single operation",
       "description": "Compare two local CMX 3600 EDLs by event number and report bounded added, removed, and changed editorial events. Read-only; it does not alter either interchange file or Premiere."
+    },
+    {
+      "name": "compute_mask_fit_motion",
+      "surface": "default",
+      "modes": "mask_space: sequence, clip; fit_axis: height, width",
+      "description": "Inspect only. Compute the Motion Scale (%) and Position that place a still image's subject inside an existing Rounded Crop, Crop, or similar mask effect. Reads the sequence frame size, the source frame size, current Motion values, and the mask effect's parameters, then solves the geometry deterministically from a caller-supplied subject box (fractions of the source image, for example head-top to chin). No image analysis and no changes to Premiere. Apply the result with set_clip_scale and set_clip_position (or set_effect_property), then verify with capture_frame. Assumes Rotation 0 and uniform scale; mask geometry is treated as fixed in the sequence frame (mask_space 'sequence')."
     },
     {
       "name": "configure_encoder_uxp",

@@ -19,6 +19,8 @@ export function buildPremiereInstructions(registeredTools: ReadonlySet<string>):
     "Retrieve native transcript evidence when this UXP backend is connected. Preserve source timing and speaker evidence; do not infer speech from filenames.");
   route(["capture_frame"],
     "Inspect the returned image when composition, text, or visual continuity matters. A path or a successful capture alone is not visual verification.");
+  route(["compute_mask_fit_motion", "set_clip_scale", "set_clip_position", "capture_frame"],
+    "To frame a still inside an existing Rounded Crop or Crop mask, give the subject box as source-image fractions, apply the returned Scale and Position in the host units it reports, then inspect a captured frame. The computation reads no pixels.");
   route(["export_sequence_review_frames"],
     "Create scoped review images when requested. Inspect the resulting images in a client that can view local artifacts; distinguish image review from playback and audio review.");
   route(["export_sequence", "verify_delivery_file", "verify_delivery_conformance"],

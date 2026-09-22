@@ -52,6 +52,7 @@ import { getWorkflowRecipeTools } from "./tools/workflow-recipes.js";
 import { getTimelineQaTools } from "./tools/timeline-qa.js";
 import { getCrossAppWorkflowTools } from "./tools/cross-app-workflow.js";
 import { getSpeakerLayoutTools } from "./tools/speaker-layout.js";
+import { getMaskFitTools } from "./tools/mask-fit.js";
 import { getRhythmPlanTools } from "./tools/rhythm-plans.js";
 import { getShortsIntelligenceTools } from "./tools/shorts-intelligence.js";
 import { getCaptionAuthoringTools } from "./tools/caption-authoring.js";
@@ -246,6 +247,7 @@ function collectStaticTools(
     ...getTimelineQaTools(),
     ...getCrossAppWorkflowTools(),
     ...getSpeakerLayoutTools(),
+    ...getMaskFitTools(bridgeOptions),
     ...getRhythmPlanTools(),
     ...getShortsIntelligenceTools(),
     ...getCaptionAuthoringTools(),

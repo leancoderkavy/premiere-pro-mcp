@@ -51,6 +51,7 @@ const READ_ONLY_TOOLS = new Set([
   "audit_timeline_health",
   "plan_client_notes_checklist",
   "plan_multicam_angle_switches",
+  "compute_mask_fit_motion",
 ]);
 const DESTRUCTIVE_PREFIXES = ["delete_", "remove_", "ripple_delete", "close_"];
 const DESTRUCTIVE_TOOLS = new Set(["manage_project_context"]);
