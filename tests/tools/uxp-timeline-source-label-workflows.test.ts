@@ -28,6 +28,31 @@ describe("public guarded timeline source-label MCP tool", () => {
     });
   });
 
+  it("forwards an explicit sequence_id for inspect and update (issue #590)", async () => {
+    const request = vi.fn().mockResolvedValue({ outcome: "verified" });
+    const tool = getUxpTimelineSourceLabelWorkflowTools({ request } as unknown as UxpWebSocketBridge).manage_timeline_source_label_uxp;
+    expect(tool.parameters.properties.sequence_id).toMatchObject({ type: "string", minLength: 1, maxLength: 128 });
+    await tool.handler({ action: "inspect", media_type: "video", track_index: 0, clip_index: 0, sequence_id: "sequence-2" });
+    expect(request).toHaveBeenLastCalledWith("timeline.sourceLabel.inspect", { mediaType: "video", trackIndex: 0, clipIndex: 0, sequenceId: "sequence-2" });
+    await tool.handler({ action: "inspect", media_type: "video", track_index: 0, clip_index: 0 });
+    expect(request).toHaveBeenLastCalledWith("timeline.sourceLabel.inspect", { mediaType: "video", trackIndex: 0, clipIndex: 0 });
+    await tool.handler({
+      action: "update", media_type: "video", track_index: 0, clip_index: 0, sequence_id: "sequence-1", color_index: 9,
+      expected_snapshot: snapshot, confirm_set_label: true, operation_id: "source-label-tool-seq",
+    });
+    expect(request).toHaveBeenLastCalledWith("timeline.sourceLabel.update", expect.objectContaining({ sequenceId: "sequence-1" }));
+  });
+
+  it("rejects an update whose sequence_id differs from the reviewed snapshot without calling the bridge", async () => {
+    const request = vi.fn();
+    const tool = getUxpTimelineSourceLabelWorkflowTools({ request } as unknown as UxpWebSocketBridge).manage_timeline_source_label_uxp;
+    await expect(tool.handler({
+      action: "update", media_type: "video", track_index: 0, clip_index: 0, sequence_id: "sequence-2", color_index: 9,
+      expected_snapshot: snapshot, confirm_set_label: true, operation_id: "source-label-tool-mismatch",
+    })).resolves.toMatchObject({ success: false, error: expect.stringContaining("sequence_id must exactly match") });
+    expect(request).not.toHaveBeenCalled();
+  });
+
   it("does not silently drop unknown reviewed source fields", async () => {
     const request = vi.fn();
     const tool = getUxpTimelineSourceLabelWorkflowTools({ request } as unknown as UxpWebSocketBridge).manage_timeline_source_label_uxp;

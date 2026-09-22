@@ -3,7 +3,7 @@
   "evidenceScope": "source_catalog_may_include_unreleased_work",
   "sourceVersion": "1.16.4",
   "sourcePath": "docs/supported-actions.md",
-  "sourceSha256": "0314e8e2133b4aa90de00143e2a1d502ae977deade99d7c64be2d7ed56eadd8b",
+  "sourceSha256": "049e2766064130b5db76a716dcd422c6525bd8dfcef85f2d080b24881e9aa6b9",
   "hostVerification": "not_established_by_catalogs",
   "counts": {
     "default": 379,
@@ -1755,7 +1755,7 @@
       "name": "manage_timeline_source_label_uxp",
       "surface": "uxp",
       "modes": "inspect, update",
-      "description": "Inspect or set the documented source Project-item color label resolved from one active audio or video timeline coordinate. Update requires the complete reviewed snapshot, explicit confirmation, and an operation ID; it serializes color-label changes by source item, commits one undoable transaction, then re-reads the coordinate and source label. A source label is project-global: another use of the same source can reflect the change. It does not label a timeline-only instance, change clip timing, prove rendered appearance, playback, persistence, or Undo behavior."
+      "description": "Inspect or set the documented source Project-item color label resolved from one audio or video timeline coordinate in the sequence named by sequence_id (inspect falls back to the active sequence only when sequence_id is omitted; update always targets expected_snapshot.sequence_id). Update requires the complete reviewed snapshot, explicit confirmation, and an operation ID; it serializes color-label changes by source item, commits one undoable transaction, then re-reads the coordinate and source label. A source label is project-global: another use of the same source can reflect the change. It does not label a timeline-only instance, change clip timing, prove rendered appearance, playback, persistence, or Undo behavior."
     },
     {
       "name": "manage_track_state_uxp",
