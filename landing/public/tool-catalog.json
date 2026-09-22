@@ -3,7 +3,7 @@
   "evidenceScope": "source_catalog_may_include_unreleased_work",
   "sourceVersion": "1.16.4",
   "sourcePath": "docs/supported-actions.md",
-  "sourceSha256": "f1c50bf2501dba994e7b85d928aa8ab43f9b5585d765be1aeec8e3a7714d0336",
+  "sourceSha256": "18578a8b21ab637458656c90a02bac4b546cf2f11a8d58c4ce041edf8224b048",
   "hostVerification": "not_established_by_catalogs",
   "counts": {
     "default": 379,
@@ -375,13 +375,13 @@
       "name": "create_bars_and_tone",
       "surface": "default",
       "modes": "Single operation",
-      "description": "Create a Bars and Tone synthetic media item in the project (useful for leader/calibration)"
+      "description": "Create a Bars and Tone synthetic media item in the project (useful for leader/calibration). Returns the created item's name, nodeId, and treePath, found by reading the project back."
     },
     {
       "name": "create_bin",
       "surface": "default",
       "modes": "Single operation",
-      "description": "Create a new bin (folder) in the project panel"
+      "description": "Create a new bin (folder) in the project panel, optionally nested inside an existing bin. Reads the project back: verified is true only when the new bin is a direct child of the requested parent; otherwise the result reports outcome committed_unverified."
     },
     {
       "name": "create_caption_track",
