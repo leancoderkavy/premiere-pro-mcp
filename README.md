@@ -12,7 +12,7 @@ Free, MIT licensed, local-first, and published to npm as [`premiere-pro-mcp`](ht
 
 [Website](https://premiere-pro-mcp.com/) · [Recorded demo](https://premiere-pro-mcp.com/demo/) · [Compare servers](https://premiere-pro-mcp.com/compare/) · [Setup guides](https://premiere-pro-mcp.com/blog/how-to-set-up-premiere-pro-mcp/) · [Search tools](https://premiere-pro-mcp.com/tools/) · [Troubleshooting](https://premiere-pro-mcp.com/docs/troubleshooting/) · [Release facts](https://premiere-pro-mcp.com/facts/)
 
-Development source: 381 core tools across 56 modules, 4 resources, and 19 guided workflows. A connected UXP host adds 95 capability-gated tools.
+Development source: 382 core tools across 56 modules, 4 resources, and 19 guided workflows. A connected UXP host adds 95 capability-gated tools.
 
 The [completed AE render handoff](docs/after-effects-render-handoff.md) previews and confirms importing one finished render into an existing Premiere bin, with host and file rechecks and an import receipt.
 
@@ -104,7 +104,7 @@ and repository before configuring a client. The new
 VS Code, or Codex settings that point directly to this installation. It is a
 feature included in v1.15.1 and later.
 
-The current source exposes 381 core tools for supported workflow steps spanning the supported ExtendScript, QE DOM, local media and interchange analysis, revisioned project-context retrieval, safe edit-planning, project-intake preview, review handoff, connection verification, and guarded After Effects MOGRT authoring, batch, library, render-queue, inspection, and Premiere-handoff workflows. A compatible, authenticated UXP panel adds 95 documented, capability-gated tools without replacing the production CEP bridge.
+The current source exposes 382 core tools for supported workflow steps spanning the supported ExtendScript, QE DOM, local media and interchange analysis, revisioned project-context retrieval, safe edit-planning, project-intake preview, review handoff, connection verification, and guarded After Effects MOGRT authoring, batch, library, render-queue, inspection, and Premiere-handoff workflows. A compatible, authenticated UXP panel adds 95 documented, capability-gated tools without replacing the production CEP bridge.
 
 <a id="latest-release"></a>
 
@@ -882,7 +882,7 @@ reports revision-bound notes, VFX state, change impact and turnover exceptions.
 It performs local inspection; host edits and exports use separate guarded tools.
 See [usage, example and remaining execution adapters](docs/film-editorial-workflows.md).
 
-## Tools (381 core total; 379 under the default profile; 474 with a connected UXP bridge)
+## Tools (382 core total; 380 under the default profile; 475 with a connected UXP bridge)
 
 The [complete supported-actions catalog](docs/supported-actions.md) lists every
 registered core tool, the two tools restricted behind explicit `unsafe-script`
@@ -1036,12 +1036,13 @@ presenting UI-only operations as available tools.
 | `play_timeline` / `stop_playback` | Playback control (QE) |
 | `play_source_monitor` | Play in source monitor |
 
-### Selection & Clipboard (7 + 6)
+### Selection & Clipboard (7 + 7)
 
 | Tool | Description |
 | :--- | :---------- |
 | `select_clips_by_name` / `select_clips_in_range` | Smart selection |
 | `copy_effects_between_clips` | Copy effects via QE |
+| `paste_clip_attributes` | Paste Attributes: effect stack, values, and keyframes with per-property readback; masks and differing Blend Mode are reported, not copied |
 | `batch_apply_effect` | Apply effect to multiple clips |
 | `set_blend_mode` | 27 blend modes |
 
@@ -1350,7 +1351,7 @@ premiere-pro-mcp/
 ├── src/
 │   ├── index.ts                 # Entry point — stdio transport setup
 │   ├── http-server.ts           # Entry point — HTTP/SSE transport (Fly.io / remote)
-│   ├── server.ts                # MCP server — registers 381 tools, filtered by authority profile
+│   ├── server.ts                # MCP server — registers 382 tools, filtered by authority profile
 │   ├── bridge/
 │   │   ├── file-bridge.ts       # File-based IPC (write .jsx, poll .json)
 │   │   └── script-builder.ts    # ExtendScript generator with ES3 helpers
