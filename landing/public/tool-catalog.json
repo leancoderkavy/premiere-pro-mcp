@@ -3,7 +3,7 @@
   "evidenceScope": "source_catalog_may_include_unreleased_work",
   "sourceVersion": "1.16.4",
   "sourcePath": "docs/supported-actions.md",
-  "sourceSha256": "02cf48a9c7cc8684fd5c42b24bcbd67d0037922012b03e9c0076ffdc0ab68a73",
+  "sourceSha256": "18578a8b21ab637458656c90a02bac4b546cf2f11a8d58c4ce041edf8224b048",
   "hostVerification": "not_established_by_catalogs",
   "counts": {
     "default": 379,
@@ -1119,7 +1119,7 @@
       "name": "get_target_tracks",
       "surface": "default",
       "modes": "Single operation",
-      "description": "Get which tracks are currently targeted for editing."
+      "description": "Get which tracks are currently targeted for editing. Premiere allows several video or audio tracks to be targeted at the same time; every targeted track is listed. Tracks whose state cannot be read are listed under unreadable."
     },
     {
       "name": "get_timeline_gaps",
@@ -1755,7 +1755,7 @@
       "name": "manage_timeline_source_label_uxp",
       "surface": "uxp",
       "modes": "inspect, update",
-      "description": "Inspect or set the documented source Project-item color label resolved from one active audio or video timeline coordinate. Update requires the complete reviewed snapshot, explicit confirmation, and an operation ID; it serializes color-label changes by source item, commits one undoable transaction, then re-reads the coordinate and source label. A source label is project-global: another use of the same source can reflect the change. It does not label a timeline-only instance, change clip timing, prove rendered appearance, playback, persistence, or Undo behavior."
+      "description": "Inspect or set the documented source Project-item color label resolved from one audio or video timeline coordinate in the sequence named by sequence_id (inspect falls back to the active sequence only when sequence_id is omitted; update always targets expected_snapshot.sequence_id). Update requires the complete reviewed snapshot, explicit confirmation, and an operation ID; it serializes color-label changes by source item, commits one undoable transaction, then re-reads the coordinate and source label. A source label is project-global: another use of the same source can reflect the change. It does not label a timeline-only instance, change clip timing, prove rendered appearance, playback, persistence, or Undo behavior."
     },
     {
       "name": "manage_track_state_uxp",
@@ -2361,7 +2361,7 @@
       "name": "set_all_tracks_targeted",
       "surface": "default",
       "modes": "track_type: video, audio, both",
-      "description": "Set all tracks targeted or untargeted. Useful before insert/overwrite edits."
+      "description": "Set all tracks targeted or untargeted. Useful before insert/overwrite edits. Reads back every affected track and reports verified only when all match the requested state."
     },
     {
       "name": "set_anti_alias_quality",
@@ -2643,7 +2643,7 @@
       "name": "set_target_track",
       "surface": "default",
       "modes": "track_type: video, audio",
-      "description": "Set a track as targeted (active for insert/overwrite edits). Only one video and one audio track can be targeted at a time."
+      "description": "Target or untarget one video or audio track for source-patched insert/overwrite edits. Premiere allows several tracks of a type to be targeted at once, so by default (exclusive=true) targeting a track also untargets every other track of the same type. Reads back every track of that type and reports verified only when the readback matches the requested state; otherwise committed_unverified or an error."
     },
     {
       "name": "set_time_interpolation",

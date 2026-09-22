@@ -27,11 +27,44 @@ export function premiereLevelToDb(level: number): number | null {
   return 20 * Math.log10(level) + PREMIERE_MAX_LEVEL_DB;
 }
 
+/**
+ * ES3 helper that reads isTargeted() for every track in a collection.
+ * states[i] is true/false, or null when the host threw while reading it.
+ */
+const TARGET_READBACK_SOURCE = `
+          function __readTargetStates(tracks) {
+            var out = { states: [], targeted: [], unreadable: [] };
+            for (var i = 0; i < tracks.numTracks; i++) {
+              var state = null;
+              try { state = tracks[i].isTargeted() === true; } catch (readErr) { state = null; }
+              out.states.push(state);
+              if (state === true) out.targeted.push(i);
+              else if (state === null) out.unreadable.push(i);
+            }
+            return out;
+          }
+`;
+
+function validateTrackTargetArgs(args: {
+  track_type: string;
+  track_index: number;
+  targeted: boolean;
+}): string | null {
+  if (args.track_type !== "video" && args.track_type !== "audio") {
+    return "track_type must be video or audio";
+  }
+  if (!Number.isInteger(args.track_index) || args.track_index < 0) {
+    return "track_index must be a non-negative integer";
+  }
+  if (typeof args.targeted !== "boolean") return "targeted must be a boolean";
+  return null;
+}
+
 export function getTrackTargetingTools(bridgeOptions: BridgeOptions) {
   return {
     set_target_track: {
       description:
-        "Set a track as targeted (active for insert/overwrite edits). Only one video and one audio track can be targeted at a time.",
+        "Target or untarget one video or audio track for source-patched insert/overwrite edits. Premiere allows several tracks of a type to be targeted at once, so by default (exclusive=true) targeting a track also untargets every other track of the same type. Reads back every track of that type and reports verified only when the readback matches the requested state; otherwise committed_unverified or an error.",
       parameters: {
         type: "object" as const,
         properties: {
@@ -49,6 +82,11 @@ export function getTrackTargetingTools(bridgeOptions: BridgeOptions) {
             description:
               "Whether to target (true) or untarget (false) the track",
           },
+          exclusive: {
+            type: "boolean",
+            description:
+              "When targeting (targeted=true), also untarget every other track of the same type so only this track is targeted (default: true). Ignored when targeted=false.",
+          },
         },
         required: ["track_type", "track_index", "targeted"],
       },
@@ -56,22 +94,71 @@ export function getTrackTargetingTools(bridgeOptions: BridgeOptions) {
         track_type: string;
         track_index: number;
         targeted: boolean;
+        exclusive?: boolean;
       }) => {
+        const validationError = validateTrackTargetArgs(args);
+        if (validationError) return { success: false, error: validationError };
+        const isVideo = args.track_type === "video";
+        const targeted = args.targeted === true;
+        const exclusive = targeted && args.exclusive !== false;
         const script = buildToolScript(`
           var seq = app.project.activeSequence;
           if (!seq) return __error("No active sequence");
 
-          var tracks = ${args.track_type === "video" ? "seq.videoTracks" : "seq.audioTracks"};
-          if (${args.track_index} >= tracks.numTracks) return __error("Track index out of range");
+          var tracks = ${isVideo ? "seq.videoTracks" : "seq.audioTracks"};
+          var requestedIndex = ${args.track_index};
+          if (requestedIndex >= tracks.numTracks) return __error("Track index out of range");
 
-          var track = tracks[${args.track_index}];
-          track.setTargeted(${args.targeted}, ${args.track_type === "video"});
+          var track = tracks[requestedIndex];
+          var untargeted = [];
+          try {
+            track.setTargeted(${targeted}, true);
+          } catch (e) {
+            return __error("Premiere rejected the targeting change: " + e.message);
+          }
+          if (${exclusive}) {
+            for (var t = 0; t < tracks.numTracks; t++) {
+              if (t === requestedIndex) continue;
+              try {
+                if (tracks[t].isTargeted()) {
+                  tracks[t].setTargeted(false, true);
+                  untargeted.push(t);
+                }
+              } catch (e2) {}
+            }
+          }
+
+          ${TARGET_READBACK_SOURCE}
+          var readback = __readTargetStates(tracks);
+          var requestedState = readback.states[requestedIndex];
+          var unverifiedTracks = [];
+          if (requestedState === null) {
+            unverifiedTracks.push(requestedIndex);
+          } else if (requestedState !== ${targeted}) {
+            return __error("Readback shows track " + requestedIndex + " targeted=" + requestedState + " after requesting targeted=${targeted}");
+          }
+          if (${exclusive}) {
+            for (var r = 0; r < readback.states.length; r++) {
+              if (r === requestedIndex) continue;
+              if (readback.states[r] === true) {
+                return __error("Readback shows other ${isVideo ? "video" : "audio"} tracks still targeted after exclusive targeting: " + readback.targeted.join(", "));
+              }
+              if (readback.states[r] === null) unverifiedTracks.push(r);
+            }
+          }
+          var verified = unverifiedTracks.length === 0;
 
           return __result({
-            trackType: "${args.track_type}",
-            trackIndex: ${args.track_index},
+            trackType: "${isVideo ? "video" : "audio"}",
+            trackIndex: requestedIndex,
             trackName: track.name,
-            targeted: ${args.targeted}
+            targeted: ${targeted},
+            exclusive: ${exclusive},
+            untargetedTracks: untargeted,
+            targetedTracks: readback.targeted,
+            unreadableTracks: readback.unreadable,
+            verified: verified,
+            outcome: verified ? "verified" : "committed_unverified"
           });
         `);
         return sendCommand(script, bridgeOptions);
@@ -79,29 +166,23 @@ export function getTrackTargetingTools(bridgeOptions: BridgeOptions) {
     },
 
     get_target_tracks: {
-      description: "Get which tracks are currently targeted for editing.",
+      description:
+        "Get which tracks are currently targeted for editing. Premiere allows several video or audio tracks to be targeted at the same time; every targeted track is listed. Tracks whose state cannot be read are listed under unreadable.",
       parameters: {},
       handler: async () => {
         const script = buildToolScript(`
           var seq = app.project.activeSequence;
           if (!seq) return __error("No active sequence");
 
-          var targets = { video: [], audio: [] };
-          for (var t = 0; t < seq.videoTracks.numTracks; t++) {
-            var track = seq.videoTracks[t];
-            try {
-              if (track.isTargeted()) {
-                targets.video.push({ index: t, name: track.name });
-              }
-            } catch(e) {}
+          ${TARGET_READBACK_SOURCE}
+          var video = __readTargetStates(seq.videoTracks);
+          var audio = __readTargetStates(seq.audioTracks);
+          var targets = { video: [], audio: [], unreadable: { video: video.unreadable, audio: audio.unreadable } };
+          for (var v = 0; v < video.targeted.length; v++) {
+            targets.video.push({ index: video.targeted[v], name: seq.videoTracks[video.targeted[v]].name });
           }
-          for (var t = 0; t < seq.audioTracks.numTracks; t++) {
-            var track = seq.audioTracks[t];
-            try {
-              if (track.isTargeted()) {
-                targets.audio.push({ index: t, name: track.name });
-              }
-            } catch(e) {}
+          for (var a = 0; a < audio.targeted.length; a++) {
+            targets.audio.push({ index: audio.targeted[a], name: seq.audioTracks[audio.targeted[a]].name });
           }
 
           return __result(targets);
@@ -112,7 +193,7 @@ export function getTrackTargetingTools(bridgeOptions: BridgeOptions) {
 
     set_all_tracks_targeted: {
       description:
-        "Set all tracks targeted or untargeted. Useful before insert/overwrite edits.",
+        "Set all tracks targeted or untargeted. Useful before insert/overwrite edits. Reads back every affected track and reports verified only when all match the requested state.",
       parameters: {
         type: "object" as const,
         properties: {
@@ -130,24 +211,41 @@ export function getTrackTargetingTools(bridgeOptions: BridgeOptions) {
         required: ["targeted"],
       },
       handler: async (args: { targeted: boolean; track_type?: string }) => {
-        const trackType = args.track_type || "both";
+        const trackType = args.track_type ?? "both";
+        if (!["video", "audio", "both"].includes(trackType)) {
+          return { success: false, error: "track_type must be video, audio, or both" };
+        }
+        const targeted = args.targeted === true;
         const script = buildToolScript(`
           var seq = app.project.activeSequence;
           if (!seq) return __error("No active sequence");
 
+          ${TARGET_READBACK_SOURCE}
           var count = 0;
-          if ("${trackType}" !== "audio") {
-            for (var t = 0; t < seq.videoTracks.numTracks; t++) {
-              try { seq.videoTracks[t].setTargeted(${args.targeted}, true); count++; } catch(e) {}
+          var wrong = [];
+          var unreadable = [];
+          function __applyAll(tracks, label) {
+            for (var t = 0; t < tracks.numTracks; t++) {
+              try { tracks[t].setTargeted(${targeted}, true); count++; } catch(e) {}
+            }
+            var readback = __readTargetStates(tracks);
+            for (var r = 0; r < readback.states.length; r++) {
+              if (readback.states[r] === null) unreadable.push(label + r);
+              else if (readback.states[r] !== ${targeted}) wrong.push(label + r);
             }
           }
-          if ("${trackType}" !== "video") {
-            for (var t = 0; t < seq.audioTracks.numTracks; t++) {
-              try { seq.audioTracks[t].setTargeted(${args.targeted}, false); count++; } catch(e) {}
-            }
-          }
+          ${trackType !== "audio" ? '__applyAll(seq.videoTracks, "V");' : ""}
+          ${trackType !== "video" ? '__applyAll(seq.audioTracks, "A");' : ""}
+          if (wrong.length > 0) return __error("Readback shows tracks not ${targeted ? "targeted" : "untargeted"}: " + wrong.join(", "));
+          var verified = unreadable.length === 0;
 
-          return __result({ tracksAffected: count, targeted: ${args.targeted} });
+          return __result({
+            tracksAffected: count,
+            targeted: ${targeted},
+            unreadableTracks: unreadable,
+            verified: verified,
+            outcome: verified ? "verified" : "committed_unverified"
+          });
         `);
         return sendCommand(script, bridgeOptions);
       },
