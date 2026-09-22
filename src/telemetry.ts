@@ -12,6 +12,14 @@ export interface Telemetry {
   shutdown(): Promise<void>;
 }
 
+/** Error names are mutable and may contain host data; never transmit them raw. */
+export function telemetryErrorType(error: unknown): string {
+  if (!(error instanceof Error)) return "UnknownError";
+  return ["Error", "TypeError", "RangeError", "SyntaxError", "ReferenceError", "URIError", "EvalError", "AggregateError"].includes(error.name)
+    ? error.name
+    : "Error";
+}
+
 /**
  * Activation telemetry is deliberately narrower than operational tool
  * telemetry. Emit it only after the read-only connection check has confirmed
@@ -80,6 +88,7 @@ export function getTelemetry(): Telemetry {
     `server-${randomUUID()}`;
   const client = new PostHog(apiKey, {
     host,
+    disableGeoip: true,
     // MCP servers may be idle for long stretches. Flush each bounded operational
     // event promptly so a low-volume deployment remains observable.
     flushAt: 1,

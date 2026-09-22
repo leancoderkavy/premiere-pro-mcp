@@ -269,6 +269,7 @@ function CopyPrompt({
       if (reset.current) clearTimeout(reset.current)
       reset.current = setTimeout(() => setStatus("idle"), 2500)
     } catch {
+      trackOnboardingEvent("onboarding_copy_failed", { action: command ? "install_command" : "safe_prompt" })
       setStatus("error")
     }
   }

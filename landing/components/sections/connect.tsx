@@ -91,6 +91,7 @@ function CopyButton({ text, label }: { text: string; label: string }) {
       trackOnboardingEvent("onboarding_safe_prompt_copied")
       window.setTimeout(() => setCopied(false), 1800)
     } catch {
+      trackOnboardingEvent("onboarding_copy_failed", { action: "safe_prompt" })
       setCopied(false)
     }
   }

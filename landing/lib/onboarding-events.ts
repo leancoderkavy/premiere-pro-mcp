@@ -6,6 +6,7 @@ export type OnboardingEvent =
   | "onboarding_assistant_selected"
   | "onboarding_download_started"
   | "onboarding_safe_prompt_copied"
+  | "onboarding_copy_failed"
   | "onboarding_project_intake_prompt_copied"
   | "onboarding_project_intake_template_selected"
   | "onboarding_project_intake_template_copied"
@@ -16,6 +17,17 @@ export type OnboardingEvent =
   | "marketing_demo_played"
 
 type OnboardingEventParameters = Record<string, string>
+
+// Keep arbitrary 404 paths and dynamic blog slugs out of analytics.
+export function analyticsPath(pathname: string): string {
+  const path = pathname.replace(/\/$/, "") || "/"
+  if (path.startsWith("/blog/")) return "/blog/[slug]"
+  return ["/", "/docs", "/docs/troubleshooting", "/workflows", "/changelog",
+    "/what-is-premiere-pro-mcp", "/how-premiere-pro-mcp-works", "/privacy",
+    "/facts", "/blog", "/tools", "/project-intake",
+    "/premiere-pro-collaboration-workflow", "/demo", "/compare"].includes(path)
+    ? path : "/other"
+}
 
 const firstTouchStorageKey = "premiere-pro-mcp:first-touch"
 
@@ -132,7 +144,7 @@ export function trackOnboardingEvent(
     product: "premiere-pro-mcp",
     event: eventName,
     occurred_at: new Date().toISOString(),
-    path: window.location.pathname,
+    path: analyticsPath(window.location.pathname),
     ...attributionParameters(),
     ...parameters,
   }

@@ -85,7 +85,7 @@ import {
   resolveToolPacks,
   type ToolPackSelection,
 } from "./workflows/tool-packs.js";
-import { getTelemetry, type Telemetry } from "./telemetry.js";
+import { getTelemetry, telemetryErrorType, type Telemetry } from "./telemetry.js";
 import { z } from "zod";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
@@ -461,7 +461,7 @@ export function createServer(
             tool: name,
             outcome: "failed",
             duration_ms: Date.now() - startedAt,
-            error_type: err instanceof Error ? err.name : "UnknownError",
+            error_type: telemetryErrorType(err),
           });
           return {
             structuredContent: structuredToolResult(

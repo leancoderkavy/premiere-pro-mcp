@@ -37,7 +37,7 @@ import { toNodeHandler } from "@modelcontextprotocol/node";
 import { createMcpHandler } from "@modelcontextprotocol/server";
 import { createServer } from "./server.js";
 import { cleanupTempDir, getTempDir } from "./bridge/file-bridge.js";
-import { getTelemetry } from "./telemetry.js";
+import { getTelemetry, telemetryErrorType } from "./telemetry.js";
 import { createHomepageExperiment, injectFirstPaintExposure, type HomepageVariant } from "./homepage-experiment.js";
 import { shouldGzipLanding } from "./landing-compression.js";
 import {
@@ -538,7 +538,7 @@ const httpServer = http.createServer(async (req, res) => {
       method: req.method ?? "unknown",
       status_code: 500,
       duration_ms: Date.now() - requestStartedAt,
-      error_type: err instanceof Error ? err.name : "UnknownError",
+      error_type: telemetryErrorType(err),
     });
     console.error("[premiere-pro-mcp] Request error:", err);
     if (!res.headersSent) {
