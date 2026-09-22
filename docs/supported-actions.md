@@ -10,11 +10,11 @@ source catalog may include unreleased actions.
 
 | Surface | Count | Availability |
 | --- | ---: | --- |
-| Registered core actions | 383 | CEP/local server catalog; host and authority checks still apply |
-| Default-profile core actions | 381 | Advertised with `inspect,edit,export,filesystem` |
+| Registered core actions | 384 | CEP/local server catalog; host and authority checks still apply |
+| Default-profile core actions | 382 | Advertised with `inspect,edit,export,filesystem` |
 | Restricted core actions | 2 | Require explicit `unsafe-script` authority |
 | Authenticated UXP additions | 95 | Advertised only while a compatible authenticated UXP panel is connected |
-| Default profile with UXP | 476 | 381 core plus 95 UXP tools |
+| Default profile with UXP | 477 | 382 core plus 95 UXP tools |
 
 ## How to read support
 
@@ -82,6 +82,7 @@ operation” when the tool has no enum-based mode.
 | `close_source_monitor` | Default profile | Single operation | Close the clip currently open in the Source Monitor. |
 | `color_correct` | Default profile | Single operation | Apply basic color correction to a clip using Lumetri Color |
 | `compare_cmx3600_edls` | Default profile | Single operation | Compare two local CMX 3600 EDLs by event number and report bounded added, removed, and changed editorial events. Read-only; it does not alter either interchange file or Premiere. |
+| `compute_mask_fit_motion` | Default profile | `mask_space`: `sequence`, `clip`; `fit_axis`: `height`, `width` | Inspect only. Compute the Motion Scale (%) and Position that place a still image's subject inside an existing Rounded Crop, Crop, or similar mask effect. Reads the sequence frame size, the source frame size, current Motion values, and the mask effect's parameters, then solves the geometry deterministically from a caller-supplied subject box (fractions of the source image, for example head-top to chin). No image analysis and no changes to Premiere. Apply the result with set_clip_scale and set_clip_position (or set_effect_property), then verify with capture_frame. Assumes Rotation 0 and uniform scale; mask geometry is treated as fixed in the sequence frame (mask_space 'sequence'). |
 | `consolidate_and_transfer` | Default profile | Single operation | Consolidate, copy, or transcode project media using the Project Manager. Reports success only after a new destination folder contains a copied Premiere project. |
 | `consolidate_duplicates` | Default profile | Single operation | Consolidate duplicate project items and report success only when duplicate media groups decrease. |
 | `copy_effect_values` | Default profile | Single operation | Copy verified scalar effect-property values from one effect to the matching effect on another clip. Both clips must already have the same effect applied. Legacy CEP deliberately refuses Blend Mode because Premiere can corrupt its enum value on cross-clip writes. |
