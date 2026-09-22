@@ -170,8 +170,8 @@ export default function WhatIsPremiereProMcpPage() {
                   <li className="flex gap-3">
                     <span className="font-bold text-site-accent">1.</span>
                     <span>
-                      You tell Claude: "Split all clips at 5 seconds and add a cross dissolve between
-                      them"
+                      You tell Claude: &quot;Split all clips at 5 seconds and add a cross dissolve between
+                      them&quot;
                     </span>
                   </li>
                   <li className="flex gap-3">
@@ -398,7 +398,7 @@ export default function WhatIsPremiereProMcpPage() {
                   </summary>
                   <p className="mt-3 leading-7 text-site-muted">
                     No, Premiere Pro MCP is an independent open-source project and is not affiliated with,
-                    endorsed by, or supported by Adobe. It uses Adobe's public APIs (CEP and UXP) to
+                    endorsed by, or supported by Adobe. It uses Adobe&apos;s public APIs (CEP and UXP) to
                     communicate with Premiere Pro.
                   </p>
                 </details>
@@ -419,7 +419,7 @@ export default function WhatIsPremiereProMcpPage() {
                   <p className="mt-3 leading-7 text-site-muted">
                     Yes. Premiere Pro MCP works with any Premiere Pro project (versions{" "}
                     {product.premiereCompatibility} supported). It operates on your active sequence just
-                    like manual editing would. All changes go through Premiere Pro's native undo system.
+                    like manual editing would. All changes go through Premiere Pro&apos;s native undo system.
                   </p>
                 </details>
               </div>
