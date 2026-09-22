@@ -30,10 +30,21 @@ export function HeroSection() {
               Open source · local bridge · explicit confirmation
             </p>
             <h1 className="hero-enter hero-enter-1 text-balance text-4xl font-bold leading-[1.02] tracking-[-0.045em] text-white sm:text-6xl md:text-7xl">
-              MCP for Adobe Premiere Pro: make Premiere changes you can <span className="accent-text">inspect before you apply.</span>
+              Automate Adobe Premiere Pro with AI: <span className="accent-text">Preview edits before you apply them.</span>
             </h1>
             <p className="hero-enter hero-enter-2 mx-auto mt-7 max-w-2xl text-balance text-lg leading-8 text-zinc-400 md:text-xl">
-              Connect the MCP-compatible client you already use to a local Premiere bridge. Review the target and plan first, then confirm supported work with current project state.
+              Free, open-source bridge that connects AI assistants (Claude, Cursor, ChatGPT) to Adobe Premiere Pro. Make timeline edits, apply effects, and export—all with local-first privacy and explicit confirmation.
+            </p>
+            <p className="hero-enter hero-enter-2 mx-auto mt-4 text-sm text-zinc-500">
+              New here?{" "}
+              <TrackedLink
+                href="/what-is-premiere-pro-mcp/"
+                trackingLocation="hero"
+                trackingDestination="what_is_page"
+                className="text-purple-300 hover:text-purple-200 underline underline-offset-4"
+              >
+                Learn what Premiere Pro MCP is
+              </TrackedLink>
             </p>
             <div className="hero-enter hero-enter-3 mt-9 flex flex-col items-center justify-center gap-3 sm:flex-row">
               <TrackedLink

@@ -12,11 +12,22 @@ export function FinalCtaSection() {
               Free · open source · local-first
             </p>
             <h2 className="mt-4 text-balance text-4xl font-bold tracking-[-0.04em] text-white md:text-6xl">
-              Start with a connection you can verify.
+              Get started in 3 steps
             </h2>
-            <p className="mt-5 max-w-2xl text-lg leading-8 text-zinc-400">
-              Connect your assistant, verify the local bridge without making changes, then preview the first edit before you apply it.
-            </p>
+            <ol className="mt-5 max-w-2xl space-y-3 text-lg leading-8 text-zinc-400">
+              <li className="flex gap-3">
+                <span className="font-bold text-purple-300">1.</span>
+                <span>Install the MCP server for your AI assistant (Claude, Cursor, etc.)</span>
+              </li>
+              <li className="flex gap-3">
+                <span className="font-bold text-purple-300">2.</span>
+                <span>Install the Premiere Pro connector (CEP plugin)</span>
+              </li>
+              <li className="flex gap-3">
+                <span className="font-bold text-purple-300">3.</span>
+                <span>Verify your connection with a safe first prompt—no edits applied</span>
+              </li>
+            </ol>
           </div>
           <TrackedLink
             href="#install"

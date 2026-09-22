@@ -13,6 +13,8 @@ const setupContentDate = new Date("2026-09-10T00:00:00Z")
 
 export default function sitemap(): MetadataRoute.Sitemap {
   return [
+    { url: `${siteUrl}/what-is-premiere-pro-mcp/`, lastModified: new Date("2026-09-22T00:00:00Z"), changeFrequency: "monthly", priority: 0.95 },
+    { url: `${siteUrl}/how-premiere-pro-mcp-works/`, lastModified: new Date("2026-09-22T00:00:00Z"), changeFrequency: "monthly", priority: 0.95 },
     { url: `${siteUrl}/demo/`, lastModified: new Date("2026-09-15T00:00:00Z"), changeFrequency: "monthly", priority: 0.9 },
     { url: `${siteUrl}/compare/`, lastModified: new Date("2026-09-15T00:00:00Z"), changeFrequency: "monthly", priority: 0.8 },
     { url: `${siteUrl}/tools/`, lastModified: setupContentDate, changeFrequency: "weekly", priority: 0.9 },
