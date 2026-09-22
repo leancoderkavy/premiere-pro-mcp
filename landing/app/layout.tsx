@@ -16,9 +16,9 @@ const geistMono = Geist_Mono({
 });
 
 const siteUrl = "https://premiere-pro-mcp.com";
-const title = "MCP for Adobe Premiere Pro | Reviewable Workflow Automation";
+const title = "Premiere Pro MCP: AI Automation for Adobe Premiere Pro | Free & Open Source";
 const description =
-  "Premiere Pro MCP connects compatible AI clients to local, reviewable Adobe Premiere Pro workflows with explicit previews, confirmation, and returned diagnostics.";
+  "Connect AI assistants like Claude, Cursor, and ChatGPT to Adobe Premiere Pro. Free, open-source MCP server for automated video editing with local-first privacy. Works on Mac and Windows.";
 const googleAnalyticsId =
   process.env.NEXT_PUBLIC_GOOGLE_ANALYTICS_ID ?? "G-XSH74T16E4";
 const posthogProjectToken =

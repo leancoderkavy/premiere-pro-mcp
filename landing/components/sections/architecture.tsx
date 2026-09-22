@@ -96,19 +96,33 @@ export function ArchitectureSection() {
           </div>
         </div>
 
-        <div className="mt-16 flex flex-col gap-4 rounded-xl border border-zinc-800 bg-black px-5 py-5 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <p className="text-sm font-medium text-zinc-200">Need the full tool list, schemas, or troubleshooting guide?</p>
-            <p className="mt-1 text-sm text-zinc-400">The README documents every setup path and known security boundary.</p>
+        <div className="mt-16 space-y-4">
+          <div className="flex flex-col gap-4 rounded-xl border border-zinc-800 bg-black px-5 py-5 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="text-sm font-medium text-zinc-200">Want a deeper technical dive into the architecture?</p>
+              <p className="mt-1 text-sm text-zinc-400">Learn about file-based IPC, security model, and verification workflow.</p>
+            </div>
+            <a
+              href="/how-premiere-pro-mcp-works/"
+              className="inline-flex shrink-0 items-center gap-2 text-sm font-semibold text-purple-300 transition-colors hover:text-purple-200"
+            >
+              How it works <ArrowDown className="h-4 w-4 -rotate-90" />
+            </a>
           </div>
-          <a
-            href="https://github.com/leancoderkavy/premiere-pro-mcp#readme"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex shrink-0 items-center gap-2 text-sm font-semibold text-purple-300 transition-colors hover:text-purple-200"
-          >
-            Read the documentation <ArrowDown className="h-4 w-4 -rotate-90" />
-          </a>
+          <div className="flex flex-col gap-4 rounded-xl border border-zinc-800 bg-black px-5 py-5 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="text-sm font-medium text-zinc-200">Need the full tool list, schemas, or troubleshooting guide?</p>
+              <p className="mt-1 text-sm text-zinc-400">The README documents every setup path and known security boundary.</p>
+            </div>
+            <a
+              href="https://github.com/leancoderkavy/premiere-pro-mcp#readme"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex shrink-0 items-center gap-2 text-sm font-semibold text-purple-300 transition-colors hover:text-purple-200"
+            >
+              Read the documentation <ArrowDown className="h-4 w-4 -rotate-90" />
+            </a>
+          </div>
         </div>
       </div>
     </section>
