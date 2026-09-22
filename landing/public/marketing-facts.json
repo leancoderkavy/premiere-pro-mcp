@@ -26,10 +26,10 @@
   },
   "developmentSource": {
     "version": "1.16.4",
-    "coreTools": 382,
-    "defaultProfileTools": 380,
+    "coreTools": 383,
+    "defaultProfileTools": 381,
     "uxpAdditionalTools": 95,
-    "defaultProfileWithUxpTools": 475,
+    "defaultProfileWithUxpTools": 476,
     "toolModules": 56,
     "resources": 4,
     "guidedWorkflows": 19,

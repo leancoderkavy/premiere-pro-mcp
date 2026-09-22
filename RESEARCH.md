@@ -341,8 +341,8 @@ Publish `premiere-pro-mcp@1.2.0` from `main` with a current npm authenticator OT
 | `qeClip.roll(newTime)` | Roll edit | ✅ |
 | `qeClip.slide(offset)` | Slide edit | ✅ |
 | `qeClip.slip(offset)` | Slip edit | ✅ |
-| `qeClip.setSpeed(speed, ...)` | Set playback speed | ✅ |
-| `qeClip.setReverse(reverse)` | Reverse playback | ✅ |
+| `qeClip.setSpeed(speed, ...)` | Set playback speed | ⛔ reflected but deliberately unused (#295/#299, #593) |
+| `qeClip.setReverse(reverse)` | Reverse playback | ⛔ reflected but deliberately unused (#295/#299, #593) |
 | `qeClip.setName(name)` | Rename clip | ✅ |
 | `qeClip.setScaleToFrameSize()` | Scale to frame | ❌ |
 | `qeClip.setFrameBlend(enable)` | Frame blending | ✅ |
@@ -401,8 +401,8 @@ untouched.
 4. ✅ **`ripple_delete`** — QE DOM (advanced.ts)
 5. ✅ **`close_gaps`** — QE DOM ripple delete approach (advanced.ts)
 6. ✅ **`get_clip_speed`** — `clip.getSpeed()` + `isSpeedReversed()` (advanced.ts)
-7. ✅ **`set_clip_speed_qe`** — `qeClip.setSpeed()` (advanced.ts)
-8. ✅ **`reverse_clip`** — `qeClip.setReverse()` (advanced.ts)
+7. ⛔ **`set_clip_speed_qe`** — registered but always fails before mutation; no documented ExtendScript or UXP speed setter exists (#593). Use `set_clip_duration` (`TrackItem.end`) for timeline length.
+8. ⛔ **`reverse_clip`** — registered but always fails before mutation; no documented direction setter exists.
 
 ### P1 — Important for full LLM control ✅ ALL IMPLEMENTED
 9. ✅ **`link_selection` / `unlink_selection`** — (advanced.ts)

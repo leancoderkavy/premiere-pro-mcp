@@ -10,11 +10,11 @@ source catalog may include unreleased actions.
 
 | Surface | Count | Availability |
 | --- | ---: | --- |
-| Registered core actions | 382 | CEP/local server catalog; host and authority checks still apply |
-| Default-profile core actions | 380 | Advertised with `inspect,edit,export,filesystem` |
+| Registered core actions | 383 | CEP/local server catalog; host and authority checks still apply |
+| Default-profile core actions | 381 | Advertised with `inspect,edit,export,filesystem` |
 | Restricted core actions | 2 | Require explicit `unsafe-script` authority |
 | Authenticated UXP additions | 95 | Advertised only while a compatible authenticated UXP panel is connected |
-| Default profile with UXP | 475 | 380 core plus 95 UXP tools |
+| Default profile with UXP | 476 | 381 core plus 95 UXP tools |
 
 ## How to read support
 
@@ -341,15 +341,16 @@ operation” when the tool has no enum-based mode.
 | `set_anti_alias_quality` | Default profile | Single operation | Set the anti-alias quality on a clip's Motion effect (useful for scaled/rotated clips). |
 | `set_blend_mode` | Default profile | `blend_mode`: `Normal`, `Dissolve`, `Darken`, `Multiply`, `Color Burn`, `Linear Burn`, `Darker Color`, `Lighten`, `Screen`, `Color Dodge`, `Linear Dodge`, `Lighter Color`, `Overlay`, `Soft Light`, `Hard Light`, `Vivid Light`, `Linear Light`, `Pin Light`, `Hard Mix`, `Difference`, `Exclusion`, `Subtract`, `Divide`, `Hue`, `Saturation`, `Color`, `Luminosity` | Set the blend mode on a video clip. Uses the Opacity effect's Blend Mode property. |
 | `set_clip_anchor_point` | Default profile | Single operation | Set the Anchor Point property on a video clip's Motion effect. |
+| `set_clip_duration` | Default profile | `keyframe_policy`: `reject`, `preserve` | Set one timeline clip's visible duration by moving only its timeline end (TrackItem.end) while keeping its start fixed. Pass exactly one of duration_seconds or end_seconds. Works for extending still images past their import length. Refuses to overlap the next clip on the same track, rejects shortening that would strand effect keyframes unless keyframe_policy is preserve, reads start/end back, and restores the original end if Premiere clamps or ignores the write (for example when video media has no handle left). Linked audio/video partners are not adjusted. Use this instead of speed changes, which Premiere does not expose to scripting. |
 | `set_clip_opacity` | Default profile | Single operation | Set the opacity of a video clip (0-100). |
 | `set_clip_pan` | Default profile | Single operation | Set and read back the pan (left/right balance) on an audio clip, including Channel Volume layouts. |
 | `set_clip_position` | Default profile | Single operation | Set the Position property on a video clip's Motion effect. Values are in pixels. |
-| `set_clip_properties` | Default profile | Single operation | Set supported clip properties (opacity, scale, position, rotation). Clip speed is unsupported and fails before mutation. |
+| `set_clip_properties` | Default profile | Single operation | Set supported clip properties (opacity, scale, position, rotation). Clip speed is unsupported and fails before mutation; use set_clip_duration to change a clip's timeline length. |
 | `set_clip_properties_batch` | Default profile | Single operation | Apply Motion/Opacity values to up to 16 clips after preflighting every target property. The handler reads each requested value back and never reports a partial batch as verified. |
 | `set_clip_rotation` | Default profile | Single operation | Set the Rotation property on a video clip's Motion effect. |
 | `set_clip_scale` | Default profile | Single operation | Set the Scale property on a video clip's Motion effect. |
 | `set_clip_selection` | Default profile | Single operation | Select or deselect a clip in the active sequence |
-| `set_clip_speed_qe` | Default profile | Single operation | Unavailable: Premiere does not expose a supported scripting API for changing a timeline clip's speed. |
+| `set_clip_speed_qe` | Default profile | Single operation | Unavailable: Premiere's documented ExtendScript and UXP APIs have no setter for a timeline clip's speed (only getters), and the undocumented QE setSpeed is deliberately not used. Always fails before mutation. To change how long a clip runs on the timeline, use set_clip_duration. |
 | `set_clip_start_time` | Default profile | Single operation | Set the start time (timecode offset) of a project item. This shifts where timecode begins for the source media. |
 | `set_clip_volume` | Default profile | Single operation | Set an audio clip's Volume > Level in dB. Does not read or change Essential Sound Amplify automation. |
 | `set_clips_volume` | Default profile | Single operation | Set the volume (in dB) on every audio clip of a track, or on a list of clip indices. One round trip instead of one call per clip - essential for sequences with dozens of clips. |
@@ -394,13 +395,13 @@ operation” when the tool has no enum-based mode.
 | `setup_ducking` | Default profile | Single operation | Build a verified Volume > Level keyframe curve for one audio clip. Ducking-window times are relative to that clip's start; overlapping or out-of-range windows are rejected before any keyframe write. |
 | `slide_edit` | Default profile | Single operation | Perform a verified slide edit on a clip using adjacent clips from the public timeline DOM. |
 | `slip_edit` | Default profile | Single operation | Perform a verified slip edit on a clip using public source in/out properties. |
-| `speed_change` | Default profile | Single operation | Unavailable: Premiere does not expose a supported scripting API for changing a timeline clip's speed. |
+| `speed_change` | Default profile | Single operation | Unavailable: Premiere's documented ExtendScript and UXP APIs have no setter for a timeline clip's speed (only getters), and the undocumented QE setSpeed is deliberately not used. Always fails before mutation. To change how long a clip runs on the timeline, use set_clip_duration. |
 | `split_clip` | Default profile | `track_type`: `video`, `audio` | Split every clip on one track that spans a timeline time, then verify both resulting boundaries. Requires QE DOM; effect-keyframe redistribution remains unverified. |
 | `stabilize_clip` | Default profile | `method`: `Subspace Warp`, `Position`, `Position, Scale, Rotation` | Apply the Warp Stabilizer effect to a clip for video stabilization. Uses QE DOM. |
 | `start_batch_encode` | Default profile | Single operation | Request Adobe Media Encoder to start the render queue; reports only accepted handoff, not queue progress or output-file creation. |
 | `stop_playback` | Default profile | Single operation | Request that active-sequence timeline playback stop through QE. The legacy API does not provide a same-call playhead readback, so stopped state is not reported as verified. |
 | `toggle_track_visibility` | Default profile | Single operation | Toggle a video track's visibility (eye icon) |
-| `trim_clip` | Default profile | `keyframe_policy`: `reject`, `preserve` | Trim exactly one source in/out point and verify the corresponding visible timeline edge. Refuses retimed clips and, by default, trims that would leave effect keyframes outside the visible clip. |
+| `trim_clip` | Default profile | `keyframe_policy`: `reject`, `preserve` | Trim exactly one source in/out point and verify the corresponding visible timeline edge. Refuses retimed clips and, by default, trims that would leave effect keyframes outside the visible clip. To set a clip's timeline length or extend a still image, use set_clip_duration. |
 | `undo` | Default profile | Single operation | Unavailable: Premiere exposes no supported, observable undo-stack API, so a scripted undo cannot be performed or verified. |
 | `unlink_selection` | Default profile | Single operation | Unlink the currently selected video and audio clips in the active sequence |
 | `unnest_sequence` | Default profile | Single operation | Unnest a nested sequence on the timeline, replacing it with the contents of the nested sequence |
