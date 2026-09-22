@@ -3,10 +3,10 @@
   "evidenceScope": "source_catalog_may_include_unreleased_work",
   "sourceVersion": "1.16.4",
   "sourcePath": "docs/supported-actions.md",
-  "sourceSha256": "0314e8e2133b4aa90de00143e2a1d502ae977deade99d7c64be2d7ed56eadd8b",
+  "sourceSha256": "086a7f109482693d0fccfc405fdf950a61f26981fd420a3575f29d6412f2c18e",
   "hostVerification": "not_established_by_catalogs",
   "counts": {
-    "default": 379,
+    "default": 380,
     "uxp": 95,
     "restricted": 2
   },
@@ -2382,6 +2382,12 @@
       "description": "Set the Anchor Point property on a video clip's Motion effect."
     },
     {
+      "name": "set_clip_duration",
+      "surface": "default",
+      "modes": "keyframe_policy: reject, preserve",
+      "description": "Set one timeline clip's visible duration by moving only its timeline end (TrackItem.end) while keeping its start fixed. Pass exactly one of duration_seconds or end_seconds. Works for extending still images past their import length. Refuses to overlap the next clip on the same track, rejects shortening that would strand effect keyframes unless keyframe_policy is preserve, reads start/end back, and restores the original end if Premiere clamps or ignores the write (for example when video media has no handle left). Linked audio/video partners are not adjusted. Use this instead of speed changes, which Premiere does not expose to scripting."
+    },
+    {
       "name": "set_clip_opacity",
       "surface": "default",
       "modes": "Single operation",
@@ -2403,7 +2409,7 @@
       "name": "set_clip_properties",
       "surface": "default",
       "modes": "Single operation",
-      "description": "Set supported clip properties (opacity, scale, position, rotation). Clip speed is unsupported and fails before mutation."
+      "description": "Set supported clip properties (opacity, scale, position, rotation). Clip speed is unsupported and fails before mutation; use set_clip_duration to change a clip's timeline length."
     },
     {
       "name": "set_clip_properties_batch",
@@ -2433,7 +2439,7 @@
       "name": "set_clip_speed_qe",
       "surface": "default",
       "modes": "Single operation",
-      "description": "Unavailable: Premiere does not expose a supported scripting API for changing a timeline clip's speed."
+      "description": "Unavailable: Premiere's documented ExtendScript and UXP APIs have no setter for a timeline clip's speed (only getters), and the undocumented QE setSpeed is deliberately not used. Always fails before mutation. To change how long a clip runs on the timeline, use set_clip_duration."
     },
     {
       "name": "set_clip_start_time",
@@ -2721,7 +2727,7 @@
       "name": "speed_change",
       "surface": "default",
       "modes": "Single operation",
-      "description": "Unavailable: Premiere does not expose a supported scripting API for changing a timeline clip's speed."
+      "description": "Unavailable: Premiere's documented ExtendScript and UXP APIs have no setter for a timeline clip's speed (only getters), and the undocumented QE setSpeed is deliberately not used. Always fails before mutation. To change how long a clip runs on the timeline, use set_clip_duration."
     },
     {
       "name": "split_clip",
@@ -2769,7 +2775,7 @@
       "name": "trim_clip",
       "surface": "default",
       "modes": "keyframe_policy: reject, preserve",
-      "description": "Trim exactly one source in/out point and verify the corresponding visible timeline edge. Refuses retimed clips and, by default, trims that would leave effect keyframes outside the visible clip."
+      "description": "Trim exactly one source in/out point and verify the corresponding visible timeline edge. Refuses retimed clips and, by default, trims that would leave effect keyframes outside the visible clip. To set a clip's timeline length or extend a still image, use set_clip_duration."
     },
     {
       "name": "undo",

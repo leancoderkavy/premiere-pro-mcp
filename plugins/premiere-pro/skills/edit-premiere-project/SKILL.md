@@ -98,6 +98,11 @@ For other mutations:
   machine verification from subjective editorial approval.
 - Treat file paths as local to the Premiere host. Never expose unrelated files or
   secrets from the machine in the response.
+- To change a placed clip's timeline length or extend a still image, use
+  `set_clip_duration` when it is registered; it keeps the start, refuses overlaps
+  with the next clip, and reports verified or restored results. Clip speed has no
+  documented scripting setter: `speed_change` and `set_clip_speed_qe` always fail
+  before mutation, so retime in the Speed/Duration dialog or pre-render the media.
 
 ## Clip metadata and XMP
 

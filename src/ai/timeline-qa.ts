@@ -544,7 +544,7 @@ const FIX_ROUTES: Record<HealthCheck, string[]> = {
   video_without_audio: ["add_to_timeline", "get_sequence_structure"],
   audio_without_video: ["add_to_timeline", "get_sequence_structure"],
   beyond_expected_duration: ["trim_clip", "ripple_delete"],
-  extreme_speed: ["speed_change"],
+  extreme_speed: ["get_clip_speed", "set_clip_duration"],
   empty_track: ["get_sequence_structure"],
   unnamed_clip: ["transform_track_item_uxp"],
   leading_black: ["ripple_delete", "get_timeline_gaps"],

@@ -506,7 +506,7 @@ describe("UXP MCP tools", () => {
       // connection verification and delivery conformance add two default-profile core tools.
       // Guarded Speech-to-Text start (transcribe_clip_uxp, is_language_pack_available_uxp)
       // and caption style guidance (get_caption_style_guidance) add three more tools.
-        expect(tools.tools).toHaveLength(474);
+        expect(tools.tools).toHaveLength(475);
     } finally {
       await client.close();
       await server.close();

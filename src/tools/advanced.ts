@@ -3,6 +3,7 @@ import {
   escapeForExtendScript,
 } from "../bridge/script-builder.js";
 import { sendCommand, BridgeOptions } from "../bridge/file-bridge.js";
+import { SPEED_UNAVAILABLE_DESCRIPTION, SPEED_UNAVAILABLE_ERROR } from "./timeline.js";
 
 export function getAdvancedTools(bridgeOptions: BridgeOptions) {
   return {
@@ -690,7 +691,7 @@ export function getAdvancedTools(bridgeOptions: BridgeOptions) {
 
     set_clip_speed_qe: {
       description:
-        "Unavailable: Premiere does not expose a supported scripting API for changing a timeline clip's speed.",
+        SPEED_UNAVAILABLE_DESCRIPTION,
       parameters: {
         type: "object" as const,
         properties: {
@@ -719,7 +720,7 @@ export function getAdvancedTools(bridgeOptions: BridgeOptions) {
         return {
           success: false,
           error:
-            "Changing a timeline clip's speed is not exposed by Premiere's supported ExtendScript or UXP APIs. No mutation was attempted. Use Premiere's Speed/Duration UI or pre-render retimed media before import.",
+            SPEED_UNAVAILABLE_ERROR,
         };
       },
     },
