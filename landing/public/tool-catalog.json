@@ -3,10 +3,10 @@
   "evidenceScope": "source_catalog_may_include_unreleased_work",
   "sourceVersion": "1.16.4",
   "sourcePath": "docs/supported-actions.md",
-  "sourceSha256": "18578a8b21ab637458656c90a02bac4b546cf2f11a8d58c4ce041edf8224b048",
+  "sourceSha256": "ca80dc40a69654d2c84971ff93dd477c5a29d8727bed5a3137af5323bc71efb1",
   "hostVerification": "not_established_by_catalogs",
   "counts": {
-    "default": 379,
+    "default": 380,
     "uxp": 95,
     "restricted": 2
   },
@@ -1864,6 +1864,12 @@
       "surface": "default",
       "modes": "Single operation",
       "description": "Overwrite the clip from the Source Monitor at the playhead position (overwrite edit — replaces existing clips)."
+    },
+    {
+      "name": "paste_clip_attributes",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Paste Attributes for one timeline clip: copy the source clip's effect stack (Motion, Opacity, other intrinsic components, and every applied effect) onto a target clip of the same track type, including keyframes. Components are matched by match name and occurrence; a missing non-intrinsic effect is applied through the experimental legacy QE DOM (disable with apply_missing_effects=false). Every written parameter and keyframe value is read back and reported per property as verified, committed_unverified, or failed, with an overall status. Not copied, and listed in notCopied with a reason: parameters whose values ExtendScript cannot read as numbers, booleans, strings, or numeric arrays; Opacity > Blend Mode when it differs (legacy cross-clip enum writes can corrupt it; use set_blend_mode and verify); and keyframe interpolation (no getter exists, so pasted keys use Premiere's default interpolation). MASKS ARE NOT COPIED: neither ExtendScript, QE, nor documented Premiere UXP exposes mask shapes, paths, feather, expansion, or mask keyframes, and masks are invisible to this bridge, so recreate or paste masks manually in Effect Controls. Time Remapping is excluded unless named in components."
     },
     {
       "name": "ping",
