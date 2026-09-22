@@ -63,6 +63,7 @@ import { getEditorRequestTools } from "../../src/tools/editor-requests.js";
 import { getReviewPlanTools } from "../../src/tools/review-plans.js";
 import { getTimelineQaTools } from "../../src/tools/timeline-qa.js";
 import { getSpeakerLayoutTools } from "../../src/tools/speaker-layout.js";
+import { getMaskFitTools } from "../../src/tools/mask-fit.js";
 import { getRhythmPlanTools } from "../../src/tools/rhythm-plans.js";
 import { getShortsIntelligenceTools } from "../../src/tools/shorts-intelligence.js";
 import { getCaptionAuthoringTools } from "../../src/tools/caption-authoring.js";
@@ -131,6 +132,7 @@ const ALL_MODULES: Array<{
   { name: "shorts-intelligence", getter: getShortsIntelligenceTools, minTools: 2 },
   { name: "rhythm-plans", getter: getRhythmPlanTools, minTools: 2 },
   { name: "speaker-layout", getter: getSpeakerLayoutTools, minTools: 2 },
+  { name: "mask-fit", getter: getMaskFitTools, minTools: 1 },
   { name: "timeline-qa", getter: getTimelineQaTools, minTools: 2 },
   { name: "editor-requests", getter: getEditorRequestTools, minTools: 6 },
   { name: "review-plans", getter: getReviewPlanTools, minTools: 2 },
@@ -218,16 +220,16 @@ describe("Tool Module Structure", () => {
 });
 
 describe("Total Tool Count", () => {
-  it("all modules together have 372 tools", () => {
+  it("all modules together have 373 tools", () => {
     let total = 0;
     for (const mod of ALL_MODULES) {
       total += Object.keys(mod.getter(bridgeOptions)).length;
     }
-    expect(total).toBe(372);
+    expect(total).toBe(373);
   });
 
-  it("there are 50 directly enumerated modules", () => {
-    expect(ALL_MODULES.length).toBe(50);
+  it("there are 51 directly enumerated modules", () => {
+    expect(ALL_MODULES.length).toBe(51);
   });
 });
 
