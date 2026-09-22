@@ -45,6 +45,27 @@ it("keeps the Premiere, After Effects, and server Windows ACL policy in sync", (
     .toBeLessThan(WINDOWS_BRIDGE_ACL_SCRIPT.indexOf("SetAccessControl($path"));
 });
 
+it("skips only Windows capability SIDs in the ancestor and directory ACL scans", () => {
+  const lines = WINDOWS_BRIDGE_ACL_SCRIPT.split("\n");
+  const capabilityFilter = '$_.IdentityReference.Value -notlike "S-1-15-*"';
+  const ancestorFilter = lines.find((line) => line.includes("-band $replacement) -ne 0)"));
+  const directoryFilter = lines.find((line) => line.includes("-notin $trusted "));
+  expect(ancestorFilter).toContain(`-notin $trustedAncestors -and ${capabilityFilter}`);
+  expect(directoryFilter).toContain(`-notin $trusted -and ${capabilityFilter}`);
+  expect(WINDOWS_BRIDGE_ACL_SCRIPT.split(capabilityFilter)).toHaveLength(3);
+  // Owner checks and the SIDs granted on initialize stay unchanged.
+  expect(WINDOWS_BRIDGE_ACL_SCRIPT).toContain("if ($ancestorOwner -notin $trustedAncestors)");
+  expect(WINDOWS_BRIDGE_ACL_SCRIPT).toContain('foreach ($sid in @($current, "S-1-5-18", "S-1-5-32-544"))');
+});
+
+it("reports each unsafe ancestor path, reason, and SID from the ACL script", () => {
+  const throwLine = WINDOWS_BRIDGE_ACL_SCRIPT.split("\n")
+    .find((line) => line.includes("Bridge directory ancestry is unsafe"));
+  expect(throwLine).toContain('"Bridge directory ancestry is unsafe: "');
+  expect(throwLine).toContain('"{0} ({1}: {2})" -f $_.path, $_.reason, $_.sid');
+  expect(throwLine).toContain('-join "; "');
+});
+
 describe.each(pluginDirectories)("%s bridge directory security", (pluginDirectory) => {
   it("refuses an existing symbolic-link bridge directory", () => {
     const security = loadSecurity(pluginDirectory).createBridgeDirectorySecurity({
@@ -158,6 +179,89 @@ describe.each(pluginDirectories)("%s bridge directory security", (pluginDirector
 
     expect(() => security.ensurePrivateBridgeDirectory("C:\\shared\\premiere-mcp-bridge"))
       .toThrow(/replaceable ancestor.*C:\\shared/i);
+  });
+
+  it("lists every unsafe Windows ancestor with its SID", () => {
+    const security = loadSecurity(pluginDirectory).createBridgeDirectorySecurity({
+      fs: { mkdirSync: vi.fn(), lstatSync: vi.fn(() => status()), chmodSync: vi.fn() },
+      path: win32,
+      platform: "win32",
+      inspectWindowsAcl: vi.fn(() => ({
+        ownerSid: "S-1-5-21-1000",
+        currentUserSid: "S-1-5-21-1000",
+        unsafeWriteAces: [],
+        unsafeAncestorEntries: [
+          { sid: "S-1-5-21-2000", path: "C:\\shared", reason: "replacement_rights" },
+          { sid: "", path: "C:\\link", reason: "reparse_point" },
+        ],
+      })),
+    });
+
+    expect(() => security.ensurePrivateBridgeDirectory("C:\\link\\shared\\premiere-mcp-bridge"))
+      .toThrow(
+        "Bridge path has a replaceable ancestor C:\\shared (replacement_rights: S-1-5-21-2000); " +
+          "C:\\link (reparse_point: none)",
+      );
+  });
+
+  it("ignores Windows capability and app-container SIDs inherited on AppData", () => {
+    const security = loadSecurity(pluginDirectory).createBridgeDirectorySecurity({
+      fs: { mkdirSync: vi.fn(), lstatSync: vi.fn(() => status()), chmodSync: vi.fn() },
+      path: win32,
+      platform: "win32",
+      inspectWindowsAcl: vi.fn(() => ({
+        ownerSid: "S-1-5-21-1000",
+        currentUserSid: "S-1-5-21-1000",
+        unsafeWriteAces: [
+          { sid: "S-1-15-3-3557520199-3666692283-3112367039", isInherited: true },
+          { sid: "S-1-15-2-1", isInherited: true },
+        ],
+        unsafeAncestorEntries: [{
+          sid: "S-1-15-3-3557520199-3666692283-3112367039",
+          path: "C:\\Users\\editor\\AppData",
+          reason: "replacement_rights",
+        }],
+      })),
+    });
+
+    expect(security.ensurePrivateBridgeDirectory("C:\\Users\\editor\\AppData\\Local\\Temp\\premiere-mcp-bridge"))
+      .toBe("C:\\Users\\editor\\AppData\\Local\\Temp\\premiere-mcp-bridge");
+  });
+
+  it("still refuses account SIDs listed beside a capability SID", () => {
+    const security = loadSecurity(pluginDirectory).createBridgeDirectorySecurity({
+      fs: { mkdirSync: vi.fn(), lstatSync: vi.fn(() => status()), chmodSync: vi.fn() },
+      path: win32,
+      platform: "win32",
+      inspectWindowsAcl: vi.fn(() => ({
+        ownerSid: "S-1-5-21-1000",
+        currentUserSid: "S-1-5-21-1000",
+        unsafeWriteAces: [
+          { sid: "S-1-15-3-1", isInherited: true },
+          { sid: "S-1-5-21-2000", isInherited: true },
+        ],
+      })),
+    });
+
+    expect(() => security.ensurePrivateBridgeDirectory("C:\\Temp\\premiere-mcp-bridge"))
+      .toThrow("Bridge directory grants write access to untrusted identities (S-1-5-21-2000): C:\\Temp\\premiere-mcp-bridge");
+  });
+
+  it("still refuses an ancestor owned by a capability SID", () => {
+    const security = loadSecurity(pluginDirectory).createBridgeDirectorySecurity({
+      fs: { mkdirSync: vi.fn(), lstatSync: vi.fn(() => status()), chmodSync: vi.fn() },
+      path: win32,
+      platform: "win32",
+      inspectWindowsAcl: vi.fn(() => ({
+        ownerSid: "S-1-5-21-1000",
+        currentUserSid: "S-1-5-21-1000",
+        unsafeWriteAces: [],
+        unsafeAncestorEntries: [{ sid: "S-1-15-3-1", path: "C:\\odd", reason: "owner" }],
+      })),
+    });
+
+    expect(() => security.ensurePrivateBridgeDirectory("C:\\odd\\premiere-mcp-bridge"))
+      .toThrow("Bridge path has a replaceable ancestor C:\\odd (owner: S-1-15-3-1)");
   });
 
   it("accepts a private Windows directory owned by the current user", () => {

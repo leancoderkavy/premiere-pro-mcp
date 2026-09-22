@@ -12,6 +12,7 @@ type SourceLabelArgs = {
   media_type: "video" | "audio";
   track_index: number;
   clip_index: number;
+  sequence_id?: string;
   color_index?: number;
   expected_snapshot?: SourceLabelSnapshot;
   confirm_set_label?: boolean;
@@ -51,11 +52,11 @@ function strictSnapshot(value: SourceLabelArgs["expected_snapshot"]) {
   };
 }
 
-/** A bounded documented-UXP source-label workflow resolved from one active timeline coordinate. */
+/** A bounded documented-UXP source-label workflow resolved from one timeline coordinate in an explicit or active sequence. */
 export function getUxpTimelineSourceLabelWorkflowTools(bridge: UxpWebSocketBridge) {
   return {
     manage_timeline_source_label_uxp: {
-      description: "Inspect or set the documented source Project-item color label resolved from one active audio or video timeline coordinate. Update requires the complete reviewed snapshot, explicit confirmation, and an operation ID; it serializes color-label changes by source item, commits one undoable transaction, then re-reads the coordinate and source label. A source label is project-global: another use of the same source can reflect the change. It does not label a timeline-only instance, change clip timing, prove rendered appearance, playback, persistence, or Undo behavior.",
+      description: "Inspect or set the documented source Project-item color label resolved from one audio or video timeline coordinate in the sequence named by sequence_id (inspect falls back to the active sequence only when sequence_id is omitted; update always targets expected_snapshot.sequence_id). Update requires the complete reviewed snapshot, explicit confirmation, and an operation ID; it serializes color-label changes by source item, commits one undoable transaction, then re-reads the coordinate and source label. A source label is project-global: another use of the same source can reflect the change. It does not label a timeline-only instance, change clip timing, prove rendered appearance, playback, persistence, or Undo behavior.",
       parameters: {
         type: "object" as const,
         additionalProperties: false,
@@ -64,6 +65,7 @@ export function getUxpTimelineSourceLabelWorkflowTools(bridge: UxpWebSocketBridg
           media_type: { type: "string", enum: ["video", "audio"] },
           track_index: { type: "integer", minimum: 0, maximum: 511 },
           clip_index: { type: "integer", minimum: 0, maximum: 511 },
+          sequence_id: { type: "string", minLength: 1, maxLength: 128, description: "Optional exact sequence ID to resolve the coordinate in. When given it is resolved by ID and never falls back to the active sequence; an unknown ID fails. Update always targets expected_snapshot.sequence_id, and a given sequence_id must match it." },
           color_index: { type: "integer", minimum: 0, maximum: 15, description: "Requested native source color-label index." },
           expected_snapshot: { type: "object", additionalProperties: false, required: snapshotRequired, properties: snapshotProperties },
           confirm_set_label: { type: "boolean", description: "Must be true for action: update after reviewing expected_snapshot." },
@@ -77,12 +79,21 @@ export function getUxpTimelineSourceLabelWorkflowTools(bridge: UxpWebSocketBridg
         notes: ["Requires an authenticated UXP bridge whose runtime capability handshake advertises timeline.sourceLabel.inspect and timeline.sourceLabel.update.", "Source labels are project-item state rather than timeline-instance state; an unrelated use of the same source can reflect a successful update."],
       },
       handler: async (args: SourceLabelArgs) => {
-        const target = { mediaType: args.media_type, trackIndex: args.track_index, clipIndex: args.clip_index };
+        const target = {
+          mediaType: args.media_type, trackIndex: args.track_index, clipIndex: args.clip_index,
+          ...(args.sequence_id === undefined ? {} : { sequenceId: args.sequence_id }),
+        };
         if (args.action === "inspect") return invoke(bridge, "timeline.sourceLabel.inspect", target);
-        if (args.action === "update") return invoke(bridge, "timeline.sourceLabel.update", {
-          ...target, colorIndex: args.color_index, expectedSnapshot: strictSnapshot(args.expected_snapshot),
-          confirmSetLabel: args.confirm_set_label, operationId: args.operation_id,
-        });
+        if (args.action === "update") {
+          const expectedSnapshot = strictSnapshot(args.expected_snapshot);
+          if (args.sequence_id !== undefined && args.sequence_id !== expectedSnapshot.sequenceId) {
+            return { success: false, error: "sequence_id must exactly match expected_snapshot.sequence_id; nothing was changed" };
+          }
+          return invoke(bridge, "timeline.sourceLabel.update", {
+            ...target, colorIndex: args.color_index, expectedSnapshot,
+            confirmSetLabel: args.confirm_set_label, operationId: args.operation_id,
+          });
+        }
         return { success: false, error: `Unsupported workflow action: ${String(args.action)}` };
       },
     },

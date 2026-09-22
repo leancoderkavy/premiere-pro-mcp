@@ -3,10 +3,10 @@
   "evidenceScope": "source_catalog_may_include_unreleased_work",
   "sourceVersion": "1.16.4",
   "sourcePath": "docs/supported-actions.md",
-  "sourceSha256": "086a7f109482693d0fccfc405fdf950a61f26981fd420a3575f29d6412f2c18e",
+  "sourceSha256": "751391d48aa58bfc42ebde259a6d028ef9d14e49db65fb5448efb212749ccf23",
   "hostVerification": "not_established_by_catalogs",
   "counts": {
-    "default": 380,
+    "default": 381,
     "uxp": 95,
     "restricted": 2
   },
@@ -375,13 +375,13 @@
       "name": "create_bars_and_tone",
       "surface": "default",
       "modes": "Single operation",
-      "description": "Create a Bars and Tone synthetic media item in the project (useful for leader/calibration)"
+      "description": "Create a Bars and Tone synthetic media item in the project (useful for leader/calibration). Returns the created item's name, nodeId, and treePath, found by reading the project back."
     },
     {
       "name": "create_bin",
       "surface": "default",
       "modes": "Single operation",
-      "description": "Create a new bin (folder) in the project panel"
+      "description": "Create a new bin (folder) in the project panel, optionally nested inside an existing bin. Reads the project back: verified is true only when the new bin is a direct child of the requested parent; otherwise the result reports outcome committed_unverified."
     },
     {
       "name": "create_caption_track",
@@ -1119,7 +1119,7 @@
       "name": "get_target_tracks",
       "surface": "default",
       "modes": "Single operation",
-      "description": "Get which tracks are currently targeted for editing."
+      "description": "Get which tracks are currently targeted for editing. Premiere allows several video or audio tracks to be targeted at the same time; every targeted track is listed. Tracks whose state cannot be read are listed under unreadable."
     },
     {
       "name": "get_timeline_gaps",
@@ -1755,7 +1755,7 @@
       "name": "manage_timeline_source_label_uxp",
       "surface": "uxp",
       "modes": "inspect, update",
-      "description": "Inspect or set the documented source Project-item color label resolved from one active audio or video timeline coordinate. Update requires the complete reviewed snapshot, explicit confirmation, and an operation ID; it serializes color-label changes by source item, commits one undoable transaction, then re-reads the coordinate and source label. A source label is project-global: another use of the same source can reflect the change. It does not label a timeline-only instance, change clip timing, prove rendered appearance, playback, persistence, or Undo behavior."
+      "description": "Inspect or set the documented source Project-item color label resolved from one audio or video timeline coordinate in the sequence named by sequence_id (inspect falls back to the active sequence only when sequence_id is omitted; update always targets expected_snapshot.sequence_id). Update requires the complete reviewed snapshot, explicit confirmation, and an operation ID; it serializes color-label changes by source item, commits one undoable transaction, then re-reads the coordinate and source label. A source label is project-global: another use of the same source can reflect the change. It does not label a timeline-only instance, change clip timing, prove rendered appearance, playback, persistence, or Undo behavior."
     },
     {
       "name": "manage_track_state_uxp",
@@ -1864,6 +1864,12 @@
       "surface": "default",
       "modes": "Single operation",
       "description": "Overwrite the clip from the Source Monitor at the playhead position (overwrite edit — replaces existing clips)."
+    },
+    {
+      "name": "paste_clip_attributes",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Paste Attributes for one timeline clip: copy the source clip's effect stack (Motion, Opacity, other intrinsic components, and every applied effect) onto a target clip of the same track type, including keyframes. Components are matched by match name and occurrence; a missing non-intrinsic effect is applied through the experimental legacy QE DOM (disable with apply_missing_effects=false). Every written parameter and keyframe value is read back and reported per property as verified, committed_unverified, or failed, with an overall status. Not copied, and listed in notCopied with a reason: parameters whose values ExtendScript cannot read as numbers, booleans, strings, or numeric arrays; Opacity > Blend Mode when it differs (legacy cross-clip enum writes can corrupt it; use set_blend_mode and verify); and keyframe interpolation (no getter exists, so pasted keys use Premiere's default interpolation). MASKS ARE NOT COPIED: neither ExtendScript, QE, nor documented Premiere UXP exposes mask shapes, paths, feather, expansion, or mask keyframes, and masks are invisible to this bridge, so recreate or paste masks manually in Effect Controls. Time Remapping is excluded unless named in components."
     },
     {
       "name": "ping",
@@ -2361,7 +2367,7 @@
       "name": "set_all_tracks_targeted",
       "surface": "default",
       "modes": "track_type: video, audio, both",
-      "description": "Set all tracks targeted or untargeted. Useful before insert/overwrite edits."
+      "description": "Set all tracks targeted or untargeted. Useful before insert/overwrite edits. Reads back every affected track and reports verified only when all match the requested state."
     },
     {
       "name": "set_anti_alias_quality",
@@ -2649,7 +2655,7 @@
       "name": "set_target_track",
       "surface": "default",
       "modes": "track_type: video, audio",
-      "description": "Set a track as targeted (active for insert/overwrite edits). Only one video and one audio track can be targeted at a time."
+      "description": "Target or untarget one video or audio track for source-patched insert/overwrite edits. Premiere allows several tracks of a type to be targeted at once, so by default (exclusive=true) targeting a track also untargets every other track of the same type. Reads back every track of that type and reports verified only when the readback matches the requested state; otherwise committed_unverified or an error."
     },
     {
       "name": "set_time_interpolation",

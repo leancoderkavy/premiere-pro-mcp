@@ -607,7 +607,7 @@ export function getProjectTools(bridgeOptions: BridgeOptions) {
 
     create_bars_and_tone: {
       description:
-        "Create a Bars and Tone synthetic media item in the project (useful for leader/calibration)",
+        "Create a Bars and Tone synthetic media item in the project (useful for leader/calibration). Returns the created item's name, nodeId, and treePath, found by reading the project back.",
       parameters: {
         type: "object" as const,
         properties: {
@@ -667,21 +667,39 @@ export function getProjectTools(bridgeOptions: BridgeOptions) {
           var seq = app.project.activeSequence;
           var timebase = parseFloat(${args.timebase ? `"${escapeForExtendScript(args.timebase)}"` : `seq ? seq.timebase : "254016000000"`});
           if (!isFinite(timebase) || timebase <= 0) return __error("A positive sequence timebase is required to create bars and tone.");
-          var item = app.project.newBarsAndTone(
+          var requestedName = "${escapeForExtendScript(name)}";
+          // newBarsAndTone does not reliably return a ProjectItem with name and
+          // nodeId (issue #588), so diff the project tree to find what it made.
+          var beforeIds = __collectNodeIds(app.project.rootItem, {});
+          var returned = app.project.newBarsAndTone(
             ${w},
             ${h},
             timebase,
             ${parNum},
             ${parDen},
             ${audioSampleRate},
-            "${escapeForExtendScript(name)}"
+            requestedName
           );
-          if (!item) return __error("Premiere did not create the Bars and Tone project item.");
+          var item = null;
+          var returnedId = returned ? __nodeIdOf(returned) : "";
+          if (returnedId) item = __findProjectItemByNodeId(returnedId);
+          if (!item) item = __findNewProjectItem(beforeIds, requestedName);
+          if (!item) {
+            return __error(returned
+              ? "Premiere reported Bars and Tone creation, but readback found no new project item."
+              : "Premiere did not create the Bars and Tone project item.");
+          }
+          var itemName = requestedName;
+          try { itemName = item.name; } catch (eName) {}
+          var treePath = null;
+          try { treePath = item.treePath; } catch (eTreePath) {}
           return __result({
             created: true,
             verified: true,
-            name: item.name,
-            nodeId: item.nodeId,
+            outcome: "verified",
+            name: itemName,
+            nodeId: __nodeIdOf(item),
+            treePath: treePath,
             width: ${w},
             height: ${h},
             pixelAspectRatio: "${parNum}:${parDen}",

@@ -120,7 +120,9 @@ describe("generated script structure", () => {
 
   it("__findProjectItem recursively searches bins", () => {
     const result = getHelpersSource();
-    expect(result).toContain("if (item.type === 2)");
+    expect(result).toContain("if (__isBinItem(item))");
+    expect(result).toContain("function __findProjectItemByNodeId(nodeId, rootItem)");
+    expect(result).toContain("var count = __childCount(rootItem);");
     expect(result).toContain("var found = __findProjectItem(nodeIdOrName, item);");
   });
 

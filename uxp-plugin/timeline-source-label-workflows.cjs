@@ -6,7 +6,9 @@
   "use strict";
 
   // This is deliberately a source-project-item label action resolved from one
-  // active timeline coordinate. It does not claim to label a timeline-only
+  // timeline coordinate. The sequence is the explicit sequenceId when one is
+  // given (inspect) or the reviewed snapshot's sequenceId (update); only an
+  // inspect without sequenceId reads the active UI sequence. It does not claim to label a timeline-only
   // instance: Premiere's documented color-label action belongs to the source
   // ClipProjectItem, so other uses of that source can reflect the change.
   function createTimelineSourceLabelWorkflowDefinitions(deps) {
@@ -61,16 +63,23 @@
     }
 
     async function inspectTimelineSourceLabel(args) {
-      assertOnlyKeys(args, ["mediaType", "trackIndex", "clipIndex"]);
-      return sourceLabelSnapshot(await activeTarget(args, false));
+      assertOnlyKeys(args, ["mediaType", "trackIndex", "clipIndex", "sequenceId"]);
+      const sequenceId = args.sequenceId === undefined ? null : requestedSequenceId(args.sequenceId, "sequenceId");
+      return sourceLabelSnapshot(await activeTarget({ ...targetCoordinates(args), sequenceId }, false));
     }
 
     async function updateTimelineSourceLabel(args) {
-      assertOnlyKeys(args, ["mediaType", "trackIndex", "clipIndex", "colorIndex", "expectedSnapshot", "confirmSetLabel", "operationId"]);
+      assertOnlyKeys(args, ["mediaType", "trackIndex", "clipIndex", "sequenceId", "colorIndex", "expectedSnapshot", "confirmSetLabel", "operationId"]);
       requireConfirmation(args.confirmSetLabel);
       requireOperationId(args.operationId);
-      const target = targetCoordinates(args), colorIndex = labelColorIndex(args.colorIndex);
+      const colorIndex = labelColorIndex(args.colorIndex);
       const expected = requiredSnapshot(args.expectedSnapshot);
+      if (args.sequenceId !== undefined && requestedSequenceId(args.sequenceId, "sequenceId") !== expected.sequenceId) {
+        throw commandError("UXP_INVALID_ARGUMENT", "sequenceId must exactly match expectedSnapshot.sequenceId");
+      }
+      // An update always targets the reviewed sequence by ID, never whichever
+      // sequence happens to be active in the UI.
+      const target = { ...targetCoordinates(args), sequenceId: expected.sequenceId };
       assertExpectedTarget(expected, target);
       const initial = await activeTarget(target, true);
       const initialSnapshot = await sourceLabelSnapshot(initial);
@@ -138,9 +147,11 @@
       if (requireTransaction && (typeof project.lockedAccess !== "function" || typeof project.executeTransaction !== "function")) {
         throw commandError("UXP_COMMAND_UNAVAILABLE", "This Premiere build does not expose locked undoable transactions");
       }
-      if (typeof project.getActiveSequence !== "function") throw commandError("UXP_COMMAND_UNAVAILABLE", "Premiere cannot resolve the active sequence");
-      const sequence = await project.getActiveSequence();
-      if (!sequence) throw commandError("UXP_NO_ACTIVE_SEQUENCE", "No active sequence");
+      const sequence = await targetSequence(project, args.sequenceId);
+      const sequenceId = requiredGuid(sequence.guid, "target sequence GUID");
+      if (args.sequenceId && sequenceId !== args.sequenceId) {
+        throw commandError("UXP_TARGET_NOT_FOUND", "The resolved sequence does not match the requested sequenceId");
+      }
       const target = targetCoordinates(args), items = await clipItemsAt(sequence, target);
       const item = items[target.clipIndex];
       if (!item) throw commandError("UXP_TARGET_NOT_FOUND", "clipIndex is out of range");
@@ -153,13 +164,33 @@
         project,
         sequence,
         projectGuid: requiredGuid(project.guid, "active project GUID"),
-        sequenceId: requiredGuid(sequence.guid, "active sequence GUID"),
+        sequenceId,
         source,
         sourceProjectItemId,
         trackItem: item,
         trackItemCount: items.length,
         ...target
       };
+    }
+
+    // An explicit sequenceId is resolved only through the documented
+    // Project.getSequences() collection and never falls back to the active UI
+    // sequence, so a background sequence cannot be confused with the active one.
+    async function targetSequence(project, sequenceId) {
+      if (!sequenceId) {
+        if (typeof project.getActiveSequence !== "function") throw commandError("UXP_COMMAND_UNAVAILABLE", "Premiere cannot resolve the active sequence");
+        const active = await project.getActiveSequence();
+        if (!active) throw commandError("UXP_NO_ACTIVE_SEQUENCE", "No active sequence");
+        return active;
+      }
+      if (typeof project.getSequences !== "function") {
+        throw commandError("UXP_COMMAND_UNAVAILABLE", "Premiere cannot resolve a sequence by ID");
+      }
+      const sequences = Array.from(await project.getSequences() || []);
+      if (sequences.length > 1024) throw commandError("UXP_TARGET_TOO_LARGE", "The active project has more than 1024 sequences");
+      const matches = sequences.filter(function (candidate) { return candidate && guidString(candidate.guid) === sequenceId; });
+      if (matches.length !== 1) throw commandError("UXP_TARGET_NOT_FOUND", "sequenceId does not identify exactly one sequence in the active project");
+      return matches[0];
     }
 
     async function clipItemsAt(sequence, target) {
@@ -300,6 +331,12 @@
   }
   function validSeconds(value) { return Number.isFinite(value) && value >= 0 && value <= 86400; }
   function sameNumber(left, right) { return Math.abs(Number(left) - Number(right)) <= 0.000001; }
+  function requestedSequenceId(value, name) {
+    if (typeof value !== "string" || !value || value.length > 128 || value.indexOf(" ") !== -1) {
+      throw commandError("UXP_INVALID_ARGUMENT", name + " must be a non-empty sequence ID of at most 128 characters");
+    }
+    return value;
+  }
   function requireConfirmation(value) {
     if (value !== true) throw commandError("UXP_CONFIRMATION_REQUIRED", "timeline.sourceLabel.update requires confirmSetLabel: true after reviewing the complete snapshot");
   }
