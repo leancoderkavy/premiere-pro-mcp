@@ -194,7 +194,7 @@ operation” when the tool has no enum-based mode.
 | `get_sequence_structure` | Default profile | Single operation | Get a complete structural overview of the active sequence: all tracks, all clips with positions, gaps, and clip metadata. Essential for understanding timeline state before making edits. |
 | `get_source_monitor_info` | Default profile | Single operation | Get information about the clip currently loaded in the Source Monitor. |
 | `get_source_monitor_position` | Default profile | Single operation | Get the current time indicator position in the Source Monitor |
-| `get_target_tracks` | Default profile | Single operation | Get which tracks are currently targeted for editing. |
+| `get_target_tracks` | Default profile | Single operation | Get which tracks are currently targeted for editing. Premiere allows several video or audio tracks to be targeted at the same time; every targeted track is listed. Tracks whose state cannot be read are listed under unreadable. |
 | `get_timeline_gaps` | Default profile | `track_type`: `video`, `audio`, `both` | Find all gaps (empty spaces) on the timeline between clips. Useful for identifying where content is missing or where clips can be tightened. |
 | `get_timeline_summary` | Default profile | Single operation | Get a human-readable summary of the timeline: total duration, clip count per track, total gaps, coverage percentage, used media files, effect usage, and marker overview. Great for a quick understanding of sequence state. |
 | `get_total_clip_count` | Default profile | Single operation | Get the total number of clips across all tracks in the active sequence. |
@@ -336,7 +336,7 @@ operation” when the tool has no enum-based mode.
 | `select_disabled_clips` | Default profile | Single operation | Select all disabled clips in the active sequence. |
 | `select_item` | Default profile | Single operation | Select a project item in the Project panel |
 | `set_active_sequence` | Default profile | Single operation | Set the active sequence by name or ID |
-| `set_all_tracks_targeted` | Default profile | `track_type`: `video`, `audio`, `both` | Set all tracks targeted or untargeted. Useful before insert/overwrite edits. |
+| `set_all_tracks_targeted` | Default profile | `track_type`: `video`, `audio`, `both` | Set all tracks targeted or untargeted. Useful before insert/overwrite edits. Reads back every affected track and reports verified only when all match the requested state. |
 | `set_anti_alias_quality` | Default profile | Single operation | Set the anti-alias quality on a clip's Motion effect (useful for scaled/rotated clips). |
 | `set_blend_mode` | Default profile | `blend_mode`: `Normal`, `Dissolve`, `Darken`, `Multiply`, `Color Burn`, `Linear Burn`, `Darker Color`, `Lighten`, `Screen`, `Color Dodge`, `Linear Dodge`, `Lighter Color`, `Overlay`, `Soft Light`, `Hard Light`, `Vivid Light`, `Linear Light`, `Pin Light`, `Hard Mix`, `Difference`, `Exclusion`, `Subtract`, `Divide`, `Hue`, `Saturation`, `Color`, `Luminosity` | Set the blend mode on a video clip. Uses the Opacity effect's Blend Mode property. |
 | `set_clip_anchor_point` | Default profile | Single operation | Set the Anchor Point property on a video clip's Motion effect. |
@@ -382,7 +382,7 @@ operation” when the tool has no enum-based mode.
 | `set_sequence_settings` | Default profile | Single operation | Modify and read back sequence frame-size settings. |
 | `set_source_in_out` | Default profile | Single operation | Set in and/or out points on the clip currently open in the Source Monitor. |
 | `set_start_time` | Default profile | Single operation | Set the start time (timecode offset) for a project item |
-| `set_target_track` | Default profile | `track_type`: `video`, `audio` | Set a track as targeted (active for insert/overwrite edits). Only one video and one audio track can be targeted at a time. |
+| `set_target_track` | Default profile | `track_type`: `video`, `audio` | Target or untarget one video or audio track for source-patched insert/overwrite edits. Premiere allows several tracks of a type to be targeted at once, so by default (exclusive=true) targeting a track also untargets every other track of the same type. Reads back every track of that type and reports verified only when the readback matches the requested state; otherwise committed_unverified or an error. |
 | `set_time_interpolation` | Default profile | Single operation | Set time interpolation type for a clip (Frame Sampling, Frame Blending, Optical Flow). Uses QE DOM. |
 | `set_transcode_on_ingest` | Default profile | Single operation | Enable or disable transcoding on ingest for the project |
 | `set_uniform_scale` | Default profile | Single operation | Toggle uniform scale on a clip's Motion effect. When enabled, Scale Width and Scale Height are linked. |
