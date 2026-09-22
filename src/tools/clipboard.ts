@@ -1,6 +1,448 @@
 import { buildToolScript, escapeForExtendScript } from "../bridge/script-builder.js";
 import { sendCommand, BridgeOptions } from "../bridge/file-bridge.js";
 
+type PasteClipAttributesArgs = {
+  source_node_id: string;
+  target_node_id: string;
+  components?: string[];
+  copy_keyframes?: boolean;
+  apply_missing_effects?: boolean;
+};
+
+/** Maximum keyframes copied per property; larger curves are reported instead of truncated. */
+const PASTE_ATTRIBUTES_MAX_KEYS_PER_PROPERTY = 500;
+
+function validatePasteClipAttributesArgs(args: PasteClipAttributesArgs): string | null {
+  if (!args || typeof args !== "object") return "arguments must be an object";
+  for (const field of ["source_node_id", "target_node_id"] as const) {
+    const value = args[field];
+    if (typeof value !== "string" || !value.trim()) return `${field} must be a non-empty string`;
+    if (value.length > 512) return `${field} must be at most 512 characters`;
+  }
+  if (args.source_node_id === args.target_node_id) return "source_node_id and target_node_id must name different clips";
+  if (args.components !== undefined) {
+    if (!Array.isArray(args.components) || args.components.length < 1 || args.components.length > 64) {
+      return "components must be an array of 1 to 64 component names";
+    }
+    const seen = new Set<string>();
+    for (const name of args.components) {
+      if (typeof name !== "string" || !name.trim() || name.length > 256) {
+        return "every components entry must be a non-empty string of at most 256 characters";
+      }
+      if (seen.has(name)) return `components contains a duplicate entry: ${name}`;
+      seen.add(name);
+    }
+  }
+  for (const field of ["copy_keyframes", "apply_missing_effects"] as const) {
+    if (args[field] !== undefined && typeof args[field] !== "boolean") return `${field} must be a boolean`;
+  }
+  return null;
+}
+
+function buildPasteClipAttributesScript(args: PasteClipAttributesArgs): string {
+  const filterLiteral = args.components
+    ? `[${args.components.map((name) => `"${escapeForExtendScript(name)}"`).join(", ")}]`
+    : "null";
+  return buildToolScript(`
+    var SOURCE_ID = "${escapeForExtendScript(args.source_node_id)}";
+    var TARGET_ID = "${escapeForExtendScript(args.target_node_id)}";
+    var componentFilter = ${filterLiteral};
+    var copyKeyframes = ${args.copy_keyframes === false ? "false" : "true"};
+    var applyMissingEffects = ${args.apply_missing_effects === false ? "false" : "true"};
+    var MAX_KEYS = ${PASTE_ATTRIBUTES_MAX_KEYS_PER_PROPERTY};
+    var INTRINSIC = ["Motion", "Opacity", "Time Remapping", "Volume", "Channel Volume", "Panner"];
+    var MASK_REASON = "Masks are not exposed by ExtendScript, QE, or documented Premiere UXP; recreate or paste them manually in Effect Controls.";
+    var OPAQUE_REASON = "Premiere did not expose this parameter as a readable number, boolean, string, or numeric array, so it cannot be copied or verified (masks, curves, and custom effect data fall in this group).";
+
+    var srcFound = __findClip(SOURCE_ID);
+    if (!srcFound) return __error("Source clip not found in the active sequence: " + SOURCE_ID);
+    var tgtFound = __findClip(TARGET_ID);
+    if (!tgtFound) return __error("Target clip not found in the active sequence: " + TARGET_ID);
+    if (srcFound.trackType !== tgtFound.trackType) {
+      return __error("Source is on a " + srcFound.trackType + " track but target is on a " + tgtFound.trackType + " track; paste_clip_attributes only copies between clips of the same track type. No changes were made.");
+    }
+    var trackType = srcFound.trackType;
+    var src = srcFound.clip;
+
+    function refreshTarget() {
+      var found = __findClip(TARGET_ID);
+      return found ? found.clip : null;
+    }
+    var tgt = tgtFound.clip;
+
+    function inList(list, value) {
+      for (var li = 0; li < list.length; li++) {
+        if (list[li] === value) return true;
+      }
+      return false;
+    }
+    function isIntrinsic(name) { return inList(INTRINSIC, name); }
+    function isWanted(comp) {
+      if (componentFilter) return inList(componentFilter, comp.displayName) || inList(componentFilter, comp.matchName);
+      return comp.displayName !== "Time Remapping";
+    }
+    function sameValue(actual, expected) {
+      var actualIsArray = actual instanceof Array;
+      var expectedIsArray = expected instanceof Array;
+      if (actualIsArray !== expectedIsArray) return false;
+      if (actualIsArray) {
+        if (actual.length !== expected.length) return false;
+        for (var ai = 0; ai < expected.length; ai++) {
+          if (!sameValue(actual[ai], expected[ai])) return false;
+        }
+        return true;
+      }
+      if (typeof actual === "number" && typeof expected === "number") return Math.abs(actual - expected) <= 0.0001;
+      return actual === expected;
+    }
+    function isCopyable(value) {
+      if (typeof value === "number") return isFinite(value);
+      if (typeof value === "boolean" || typeof value === "string") return true;
+      if (value instanceof Array) {
+        if (value.length < 1 || value.length > 16) return false;
+        for (var vi = 0; vi < value.length; vi++) {
+          if (typeof value[vi] !== "number" || !isFinite(value[vi])) return false;
+        }
+        return true;
+      }
+      return false;
+    }
+    function occurrenceOf(clip, index) {
+      var matchName = clip.components[index].matchName;
+      var n = 0;
+      for (var oi = 0; oi < index; oi++) {
+        if (clip.components[oi].matchName === matchName) n++;
+      }
+      return n;
+    }
+    function findNth(clip, matchName, occurrence) {
+      var n = 0;
+      for (var fi = 0; fi < clip.components.numItems; fi++) {
+        if (clip.components[fi].matchName === matchName) {
+          if (n === occurrence) return clip.components[fi];
+          n++;
+        }
+      }
+      return null;
+    }
+    function countMatch(clip, matchName) {
+      var n = 0;
+      for (var ci = 0; ci < clip.components.numItems; ci++) {
+        if (clip.components[ci].matchName === matchName) n++;
+      }
+      return n;
+    }
+    function findTargetProperty(tgtComp, srcProp, index) {
+      if (index < tgtComp.properties.numItems && tgtComp.properties[index].displayName === srcProp.displayName) {
+        return tgtComp.properties[index];
+      }
+      var match = null;
+      for (var pi = 0; pi < tgtComp.properties.numItems; pi++) {
+        if (tgtComp.properties[pi].displayName === srcProp.displayName) {
+          if (match) return null;
+          match = tgtComp.properties[pi];
+        }
+      }
+      return match;
+    }
+    function readTimeVarying(prop) {
+      try { return !!prop.isTimeVarying(); } catch (eTv) { return false; }
+    }
+    function makeTime(ticks) {
+      var t = new Time();
+      t.ticks = String(ticks);
+      return t;
+    }
+
+    var qeClip = null;
+    var qeResolved = false;
+    function resolveQeClip() {
+      if (qeResolved) return qeClip;
+      qeResolved = true;
+      try {
+        app.enableQE();
+        var qeSeq = qe.project.getActiveSequence();
+        var qeTrack = trackType === "video" ? qeSeq.getVideoTrackAt(tgtFound.trackIndex) : qeSeq.getAudioTrackAt(tgtFound.trackIndex);
+        qeClip = __findQeClipByDomClip(qeTrack, tgt);
+      } catch (eQe) {
+        qeClip = null;
+      }
+      return qeClip;
+    }
+    function lookupQeEffect(name) {
+      var effect = null;
+      try {
+        effect = trackType === "video" ? qe.project.getVideoEffectByName(name) : qe.project.getAudioEffectByName(name);
+      } catch (eByName) {}
+      if (effect) return effect;
+      var catalog = __getQeEffectCatalog(trackType);
+      if (!catalog.ok) return null;
+      for (var ei = 0; ei < catalog.effects.numItems; ei++) {
+        if (catalog.effects[ei].name === name) return catalog.effects[ei];
+      }
+      return null;
+    }
+
+    var srcIn = parseFloat(src.inPoint.ticks);
+    var tgtIn = parseFloat(tgt.inPoint.ticks);
+    var componentsReport = [];
+    var properties = [];
+    var notCopied = [];
+    var skippedComponents = [];
+    var counts = { verified: 0, committedUnverified: 0, failed: 0, notCopied: 0, unchanged: 0 };
+
+    function record(entry) {
+      properties.push(entry);
+      if (entry.status === "verified") counts.verified++;
+      else if (entry.status === "committed_unverified") counts.committedUnverified++;
+      else counts.failed++;
+      if (entry.action === "unchanged") counts.unchanged++;
+    }
+    function skip(entry) {
+      notCopied.push(entry);
+      counts.notCopied++;
+    }
+
+    function copyKeyframed(componentName, srcProp, tgtProp, base) {
+      if (!copyKeyframes) {
+        base.reason = "Source property is keyframed and copy_keyframes is false; the target was left unchanged.";
+        return skip(base);
+      }
+      var supported = true;
+      try { supported = !!tgtProp.areKeyframesSupported(); } catch (eSupported) {}
+      if (!supported) {
+        base.reason = "The target property does not support keyframes.";
+        return skip(base);
+      }
+      var keys = null;
+      try { keys = srcProp.getKeys(); } catch (eKeys) {}
+      if (!keys || !keys.length) {
+        base.reason = "Premiere reported the source property as keyframed but returned no readable keyframes.";
+        return skip(base);
+      }
+      if (keys.length > MAX_KEYS) {
+        base.reason = "Source property has " + keys.length + " keyframes, above the " + MAX_KEYS + " keyframe limit.";
+        return skip(base);
+      }
+      var plan = [];
+      for (var k = 0; k < keys.length; k++) {
+        var value;
+        try { value = srcProp.getValueAtKey(keys[k]); } catch (eValue) { value = undefined; }
+        if (!isCopyable(value)) {
+          base.reason = OPAQUE_REASON;
+          return skip(base);
+        }
+        var mapped = parseFloat(keys[k].ticks) - srcIn + tgtIn;
+        if (isNaN(mapped) || mapped < 0) {
+          base.reason = "A source keyframe maps before the target media start, so the curve cannot be reproduced.";
+          return skip(base);
+        }
+        plan.push({ ticks: mapped, value: value });
+      }
+      base.kind = "keyframes";
+      base.keyframes = plan.length;
+      base.interpolation = "not_copied";
+      try {
+        if (readTimeVarying(tgtProp)) tgtProp.setTimeVarying(false);
+        tgtProp.setTimeVarying(true);
+        for (var w = 0; w < plan.length; w++) {
+          var writeTime = makeTime(plan[w].ticks);
+          tgtProp.addKey(writeTime);
+          tgtProp.setValueAtKey(writeTime, plan[w].value, true);
+        }
+      } catch (eWrite) {
+        base.status = "failed";
+        base.action = "written";
+        base.reason = "Premiere rejected a keyframe write: " + eWrite.toString() + ". The target property may be partially changed.";
+        return record(base);
+      }
+      base.action = "written";
+      var readbackKeys = null;
+      try { readbackKeys = tgtProp.getKeys(); } catch (eReadKeys) {}
+      if (!readbackKeys) {
+        base.status = "committed_unverified";
+        base.reason = "Premiere accepted the keyframes but did not return them for readback.";
+        return record(base);
+      }
+      if (readbackKeys.length !== plan.length) {
+        base.status = "failed";
+        base.reason = "Target has " + readbackKeys.length + " keyframes after the write; expected " + plan.length + ".";
+        return record(base);
+      }
+      for (var r = 0; r < plan.length; r++) {
+        var readValue;
+        try { readValue = tgtProp.getValueAtKey(makeTime(plan[r].ticks)); } catch (eReadValue) { readValue = undefined; }
+        if (!sameValue(readValue, plan[r].value)) {
+          base.status = "failed";
+          base.reason = "Keyframe " + (r + 1) + " did not read back with the source value.";
+          return record(base);
+        }
+      }
+      base.status = "verified";
+      return record(base);
+    }
+
+    function copyStatic(componentName, srcProp, tgtProp, base) {
+      var value;
+      try { value = srcProp.getValue(); } catch (eGet) { value = undefined; }
+      if (!isCopyable(value)) {
+        base.reason = OPAQUE_REASON;
+        return skip(base);
+      }
+      base.kind = "value";
+      var targetAnimated = readTimeVarying(tgtProp);
+      var current;
+      try { current = tgtProp.getValue(); } catch (eCurrent) { current = undefined; }
+      if (!targetAnimated && sameValue(current, value)) {
+        base.status = "verified";
+        base.action = "unchanged";
+        return record(base);
+      }
+      if (componentName === "Opacity" && srcProp.displayName === "Blend Mode") {
+        base.reason = "Source and target Blend Mode differ, and legacy CEP cross-clip enum writes can corrupt Blend Mode (issue #243); no write was attempted. Use set_blend_mode, then confirm with get_effect_properties.";
+        return skip(base);
+      }
+      try {
+        if (targetAnimated) tgtProp.setTimeVarying(false);
+        tgtProp.setValue(value, true);
+      } catch (eSet) {
+        base.status = "failed";
+        base.action = "written";
+        base.reason = "Premiere rejected the value write: " + eSet.toString();
+        return record(base);
+      }
+      base.action = "written";
+      var readback;
+      var readbackOk = true;
+      try { readback = tgtProp.getValue(); } catch (eReadback) { readbackOk = false; }
+      if (!readbackOk) {
+        base.status = "committed_unverified";
+        base.reason = "Premiere accepted the write but did not return a readback value.";
+      } else if (sameValue(readback, value)) {
+        base.status = "verified";
+      } else {
+        base.status = "failed";
+        base.reason = "Target value did not match the source value after the write.";
+      }
+      return record(base);
+    }
+
+    var sourceCount = src.components.numItems;
+    for (var i = 0; i < sourceCount; i++) {
+      var comp = src.components[i];
+      var componentName = comp.displayName;
+      var matchName = comp.matchName;
+      if (!isWanted(comp)) {
+        skippedComponents.push({
+          component: componentName,
+          reason: componentFilter ? "Not named in components." : "Time Remapping is excluded unless named in components because it changes clip timing."
+        });
+        continue;
+      }
+      var occurrence = occurrenceOf(src, i);
+      tgt = refreshTarget();
+      if (!tgt) return __error("Target clip disappeared from the active sequence during the paste.");
+      var tgtComp = findNth(tgt, matchName, occurrence);
+      var componentEntry = { component: componentName, matchName: matchName, occurrence: occurrence, action: "matched_existing", status: "ok" };
+      if (!tgtComp) {
+        if (isIntrinsic(componentName)) {
+          componentEntry.action = "none";
+          componentEntry.status = "not_copied";
+          componentEntry.reason = "Intrinsic component is not present on the target clip and cannot be added.";
+        } else if (!applyMissingEffects) {
+          componentEntry.action = "none";
+          componentEntry.status = "not_copied";
+          componentEntry.reason = "Effect is missing on the target and apply_missing_effects is false.";
+        } else {
+          componentEntry.action = "applied_via_qe";
+          var qeTarget = resolveQeClip();
+          var qeEffect = qeTarget ? lookupQeEffect(componentName) : null;
+          if (!qeTarget) {
+            componentEntry.status = "failed";
+            componentEntry.reason = "The experimental QE DOM did not resolve the target clip, so the missing effect could not be applied.";
+          } else if (!qeEffect) {
+            componentEntry.status = "failed";
+            componentEntry.reason = "The experimental QE DOM did not resolve an installed effect named \\"" + componentName + "\\".";
+          } else {
+            var before = countMatch(tgt, matchName);
+            try {
+              if (trackType === "video") qeTarget.addVideoEffect(qeEffect);
+              else qeTarget.addAudioEffect(qeEffect);
+            } catch (eAdd) {
+              componentEntry.status = "failed";
+              componentEntry.reason = "QE could not apply the effect: " + eAdd.toString();
+            }
+            if (componentEntry.status === "ok") {
+              tgt = refreshTarget();
+              if (!tgt || countMatch(tgt, matchName) <= before) {
+                componentEntry.status = "failed";
+                componentEntry.reason = "QE returned, but the target component count did not increase.";
+              } else {
+                tgtComp = findNth(tgt, matchName, occurrence);
+                if (!tgtComp) {
+                  componentEntry.status = "failed";
+                  componentEntry.reason = "The applied effect could not be matched to this source occurrence.";
+                }
+              }
+            }
+          }
+        }
+      }
+      componentsReport.push(componentEntry);
+      if (componentEntry.status !== "ok") {
+        if (componentEntry.status === "failed") counts.failed++;
+        else skip({ component: componentName, property: null, reason: componentEntry.reason });
+        continue;
+      }
+
+      for (var p = 0; p < comp.properties.numItems; p++) {
+        var srcProp = comp.properties[p];
+        var base = { component: componentName, occurrence: occurrence, property: srcProp.displayName, index: p };
+        var tgtProp = findTargetProperty(tgtComp, srcProp, p);
+        if (!tgtProp) {
+          base.reason = "No unambiguous matching property exists on the target component.";
+          skip(base);
+          continue;
+        }
+        if (readTimeVarying(srcProp)) copyKeyframed(componentName, srcProp, tgtProp, base);
+        else copyStatic(componentName, srcProp, tgtProp, base);
+      }
+    }
+
+    var written = counts.verified + counts.committedUnverified - counts.unchanged;
+    var status;
+    if (counts.failed === 0 && counts.notCopied === 0) {
+      status = counts.committedUnverified > 0 ? "committed_unverified" : "verified";
+    } else if (counts.verified + counts.committedUnverified > 0) {
+      status = "partial";
+    } else {
+      status = "failed";
+    }
+
+    return __result({
+      status: status,
+      source: { nodeId: SOURCE_ID, name: src.name },
+      target: { nodeId: TARGET_ID, name: tgt ? tgt.name : null },
+      trackType: trackType,
+      summary: {
+        verified: counts.verified,
+        committedUnverified: counts.committedUnverified,
+        failed: counts.failed,
+        notCopied: counts.notCopied,
+        unchanged: counts.unchanged,
+        written: written
+      },
+      components: componentsReport,
+      skippedComponents: skippedComponents,
+      properties: properties,
+      notCopied: notCopied,
+      masks: { copied: false, detectable: false, reason: MASK_REASON },
+      keyframeTiming: "Keyframe times are offset by the difference between the source and target in points; interpolation is not copied because ExtendScript has no interpolation getter.",
+      verificationScope: "Premiere parameter readback only. Effect order on the target may differ from the source when effects were added. Verify playback or exported frames before delivery."
+    });
+  `);
+}
+
 export function getClipboardTools(bridgeOptions: BridgeOptions) {
   return {
     copy_effects_between_clips: {
@@ -77,6 +519,68 @@ export function getClipboardTools(bridgeOptions: BridgeOptions) {
           return __result({ copiedEffects: copied, source: src.name, target: tgt.name });
         `);
         return sendCommand(script, bridgeOptions);
+      },
+    },
+
+    paste_clip_attributes: {
+      description:
+        "Paste Attributes for one timeline clip: copy the source clip's effect stack (Motion, Opacity, other intrinsic components, and every applied effect) onto a target clip of the same track type, including keyframes. Components are matched by match name and occurrence; a missing non-intrinsic effect is applied through the experimental legacy QE DOM (disable with apply_missing_effects=false). Every written parameter and keyframe value is read back and reported per property as verified, committed_unverified, or failed, with an overall status. Not copied, and listed in notCopied with a reason: parameters whose values ExtendScript cannot read as numbers, booleans, strings, or numeric arrays; Opacity > Blend Mode when it differs (legacy cross-clip enum writes can corrupt it; use set_blend_mode and verify); and keyframe interpolation (no getter exists, so pasted keys use Premiere's default interpolation). MASKS ARE NOT COPIED: neither ExtendScript, QE, nor documented Premiere UXP exposes mask shapes, paths, feather, expansion, or mask keyframes, and masks are invisible to this bridge, so recreate or paste masks manually in Effect Controls. Time Remapping is excluded unless named in components.",
+      parameters: {
+        type: "object" as const,
+        additionalProperties: false,
+        properties: {
+          source_node_id: {
+            type: "string",
+            minLength: 1,
+            maxLength: 512,
+            description: "Node ID of the source timeline clip in the active sequence whose attributes are copied",
+          },
+          target_node_id: {
+            type: "string",
+            minLength: 1,
+            maxLength: 512,
+            description: "Node ID of the target timeline clip in the active sequence that receives the attributes; must be on the same track type (video or audio) as the source",
+          },
+          components: {
+            type: "array",
+            minItems: 1,
+            maxItems: 64,
+            uniqueItems: true,
+            items: { type: "string", minLength: 1, maxLength: 256 },
+            description: "Optional component display names or match names to copy (for example ['Motion', 'Opacity', 'Gaussian Blur']). Omit to copy every source component except Time Remapping.",
+          },
+          copy_keyframes: {
+            type: "boolean",
+            description: "Copy keyframes of animated source properties (default true). Key times keep their offset from each clip's in point. When false, animated source properties are reported in notCopied and left unchanged on the target.",
+          },
+          apply_missing_effects: {
+            type: "boolean",
+            description: "Apply source effects that the target lacks through the experimental legacy QE DOM before copying values (default true). When false, missing effects are reported in notCopied.",
+          },
+        },
+        required: ["source_node_id", "target_node_id"],
+      },
+      handler: async (args: PasteClipAttributesArgs) => {
+        const validationError = validatePasteClipAttributesArgs(args);
+        if (validationError) return { success: false, error: validationError };
+        const response = await sendCommand(buildPasteClipAttributesScript(args), bridgeOptions) as {
+          success: boolean;
+          error?: string;
+          data?: { status?: string; summary?: Record<string, number> };
+        };
+        if (!response || !response.success || !response.data) return response;
+        const status = response.data.status;
+        if (status === "verified" || status === "committed_unverified") return response;
+        const summary = response.data.summary ?? {};
+        return {
+          success: false,
+          error:
+            `paste_clip_attributes was ${status === "partial" ? "only partially applied" : "not applied"}: ` +
+            `${summary.verified ?? 0} verified, ${summary.committedUnverified ?? 0} committed_unverified, ` +
+            `${summary.failed ?? 0} failed, ${summary.notCopied ?? 0} not copied. ` +
+            "Inspect data.properties and data.notCopied, and check Effect Controls before retrying. Re-running reuses components that already exist on the target instead of adding duplicates. Masks are never copied by this tool.",
+          data: response.data,
+        };
       },
     },
 
