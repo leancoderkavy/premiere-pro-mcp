@@ -109,7 +109,7 @@ export const EXTENDSCRIPT_REFERENCE = [
   "track.isLocked()               - Boolean",
   "track.setLocked(locked)",
   "track.isTargeted()             - Boolean",
-  "track.setTargeted(targeted, isVideo)",
+  "track.setTargeted(targeted, shouldBroadcast) - several tracks per type may be targeted",
   "track.overwriteClip(projectItem, position)",
   "track.insertClip(projectItem, position)",
   "",

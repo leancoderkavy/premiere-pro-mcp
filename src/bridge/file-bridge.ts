@@ -209,6 +209,16 @@ export type WindowsBridgeDirectoryAclInspector = (
   initialize: boolean,
 ) => WindowsBridgeDirectoryAcl;
 
+/**
+ * Windows capability SIDs (S-1-15-3-*) and app-container package SIDs (S-1-15-2-*)
+ * are not logon principals: no other user can act as one to stage or read bridge
+ * files. Stock profiles inherit a FullControl capability ACE on %USERPROFILE%\AppData,
+ * so treating these as untrusted rejects every path under %LOCALAPPDATA% (issue #581).
+ */
+export function isWindowsCapabilitySid(sid: string | undefined): boolean {
+  return typeof sid === "string" && sid.toUpperCase().startsWith("S-1-15-");
+}
+
 export const WINDOWS_BRIDGE_ACL_SCRIPT = [
   '$ErrorActionPreference = "Stop"',
   '$path = [Environment]::GetEnvironmentVariable("PREMIERE_MCP_ACL_PATH", "Process")',
@@ -227,12 +237,12 @@ export const WINDOWS_BRIDGE_ACL_SCRIPT = [
   '  $ancestorOwner = $ancestorAcl.GetOwner([System.Security.Principal.SecurityIdentifier]).Value',
   '  if ($ancestorOwner -notin $trustedAncestors) { $unsafeAncestors += [pscustomobject]@{ sid = $ancestorOwner; path = $ancestor.FullName; reason = "owner" } }',
   '  $unsafeAncestors += @($ancestorAcl.GetAccessRules($true, $true, [System.Security.Principal.SecurityIdentifier]) | Where-Object {',
-  '    $_.AccessControlType -eq [System.Security.AccessControl.AccessControlType]::Allow -and (($_.PropagationFlags -band [System.Security.AccessControl.PropagationFlags]::InheritOnly) -eq 0) -and (($_.FileSystemRights -band $replacement) -ne 0) -and $_.IdentityReference.Value -notin $trustedAncestors',
+  '    $_.AccessControlType -eq [System.Security.AccessControl.AccessControlType]::Allow -and (($_.PropagationFlags -band [System.Security.AccessControl.PropagationFlags]::InheritOnly) -eq 0) -and (($_.FileSystemRights -band $replacement) -ne 0) -and $_.IdentityReference.Value -notin $trustedAncestors -and $_.IdentityReference.Value -notlike "S-1-15-*"',
   '  } | ForEach-Object { [pscustomobject]@{ sid = $_.IdentityReference.Value; path = $ancestor.FullName; reason = "replacement_rights" } })',
   '  $ancestor = $ancestor.Parent',
   '}',
   'if ($initialize) {',
-  '  if ($unsafeAncestors.Count -ne 0) { throw "Bridge directory ancestry is unsafe" }',
+  '  if ($unsafeAncestors.Count -ne 0) { throw ("Bridge directory ancestry is unsafe: " + (($unsafeAncestors | ForEach-Object { "{0} ({1}: {2})" -f $_.path, $_.reason, $_.sid }) -join "; ")) }',
   '  $acl.SetAccessRuleProtection($true, $false)',
   '  $inheritance = [System.Security.AccessControl.InheritanceFlags]::ContainerInherit -bor [System.Security.AccessControl.InheritanceFlags]::ObjectInherit',
   '  $propagation = [System.Security.AccessControl.PropagationFlags]::None',
@@ -250,7 +260,7 @@ export const WINDOWS_BRIDGE_ACL_SCRIPT = [
   '$unsafe = @($acl.GetAccessRules($true, $true, [System.Security.Principal.SecurityIdentifier]) | Where-Object {',
   '  $_.AccessControlType -eq [System.Security.AccessControl.AccessControlType]::Allow -and (($_.FileSystemRights -band $mutating) -ne 0)',
   '} | ForEach-Object {',
-  '  if ($_.IdentityReference.Value -notin $trusted) { [pscustomobject]@{ sid = $_.IdentityReference.Value; isInherited = [bool]$_.IsInherited } }',
+  '  if ($_.IdentityReference.Value -notin $trusted -and $_.IdentityReference.Value -notlike "S-1-15-*") { [pscustomobject]@{ sid = $_.IdentityReference.Value; isInherited = [bool]$_.IsInherited } }',
   '})',
   '[pscustomobject]@{ ownerSid = $owner; currentUserSid = $current; unsafeWriteAces = $unsafe; unsafeAncestorEntries = $unsafeAncestors } | ConvertTo-Json -Compress',
 ].join("\n");
@@ -369,17 +379,21 @@ export function ensurePrivateBridgeDirectory(
     if (!acl.ownerSid || !acl.currentUserSid || acl.ownerSid !== acl.currentUserSid) {
       throw new Error(`Bridge temp dir ${dir} is not owned by the current Windows user.`);
     }
-    if (acl.unsafeWriteAces.length > 0) {
-      const identities = acl.unsafeWriteAces.map((ace) => ace.sid || "unknown");
+    const unsafeWriteAces = acl.unsafeWriteAces.filter((ace) => !isWindowsCapabilitySid(ace.sid));
+    if (unsafeWriteAces.length > 0) {
+      const identities = unsafeWriteAces.map((ace) => ace.sid || "unknown");
       throw new Error(
         `Bridge temp dir ${dir} grants write access to untrusted identities (${identities.join(", ")}).`,
       );
     }
-    if (acl.unsafeAncestorEntries && acl.unsafeAncestorEntries.length > 0) {
-      const unsafe = acl.unsafeAncestorEntries[0];
-      throw new Error(
-        `Bridge path has a replaceable ancestor ${unsafe.path} (${unsafe.sid}).`,
-      );
+    const unsafeAncestors = (acl.unsafeAncestorEntries ?? []).filter(
+      (entry) => entry.reason !== "replacement_rights" || !isWindowsCapabilitySid(entry.sid),
+    );
+    if (unsafeAncestors.length > 0) {
+      const details = unsafeAncestors
+        .map((entry) => `${entry.path} (${entry.reason}: ${entry.sid || "none"})`)
+        .join("; ");
+      throw new Error(`Bridge path has a replaceable ancestor ${details}.`);
     }
     if (newlyCreated && readdirSync(dir).length > 0) {
       throw new Error(

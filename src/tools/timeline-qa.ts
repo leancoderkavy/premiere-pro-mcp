@@ -77,7 +77,7 @@ export function getTimelineQaTools() {
           const before = normalizeSequenceSnapshot(args.before, { frameRateOverride: args.frame_rate, label: "before" });
           const after = normalizeSequenceSnapshot(args.after, { frameRateOverride: args.frame_rate, label: "after" });
           const data = diffSequenceSnapshots(before, after, { frameRate: args.frame_rate, toleranceFrames: args.tolerance_frames });
-          return { success: true as const, data: { ...data, routes: { inspect: ["get_sequence_structure", "inspect_sequence_structure_uxp"], review: ["inspect_sequence_review_report", "export_sequence_review_frames"], apply: ["transform_track_item_uxp", "move_clip_to_track", "trim_clip", "enable_disable_clip", "speed_change"] }, next_steps: ["inspect_sequence_review_report", "export_sequence_review_frames"] } };
+          return { success: true as const, data: { ...data, routes: { inspect: ["get_sequence_structure", "inspect_sequence_structure_uxp"], review: ["inspect_sequence_review_report", "export_sequence_review_frames"], apply: ["transform_track_item_uxp", "move_clip_to_track", "trim_clip", "enable_disable_clip", "set_clip_duration"] }, next_steps: ["inspect_sequence_review_report", "export_sequence_review_frames"] } };
         } catch (error) { return failure(error); }
       },
     },

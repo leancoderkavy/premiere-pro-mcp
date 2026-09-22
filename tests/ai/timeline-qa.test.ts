@@ -349,7 +349,7 @@ describe("auditTimelineHealth", () => {
     const result = audit(input);
     expect(codes(result)).toEqual(["extreme_speed"]);
     expect(result.findings[0]).toMatchObject({ severity: "warning", clip_id: "v1" });
-    expect(result.routes.extreme_speed).toEqual(["speed_change"]);
+    expect(result.routes.extreme_speed).toEqual(["get_clip_speed", "set_clip_duration"]);
     expect(codes(audit(input, { maxSpeedPercent: 1000 }))).toEqual([]);
     expect(codes(audit(input, { maxSpeedPercent: 40 }))).toEqual(["extreme_speed", "extreme_speed"]);
   });

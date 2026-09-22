@@ -6,6 +6,21 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+
+- `set_clip_duration` sets a placed timeline clip's duration or absolute end by
+  moving only `TrackItem.end`, so still images can be extended past their import
+  length. It refuses overlaps with the next clip, guards effect keyframes when
+  shortening, reads start/end back, and restores the original end when Premiere
+  clamps the write. (#592)
+
+### Changed
+
+- Clip speed messaging is consistent across `speed_change`, `set_clip_speed_qe`,
+  `set_clip_properties`, agent instructions, docs, and skills: documented
+  ExtendScript and UXP (through 26.3) expose only speed getters, the QE setter
+  stays unused, and `set_clip_duration` is the supported timing alternative. (#593)
+
 ## [1.16.4] - 2026-09-20
 
 ### Added

@@ -3,10 +3,10 @@
   "evidenceScope": "source_catalog_may_include_unreleased_work",
   "sourceVersion": "1.16.4",
   "sourcePath": "docs/supported-actions.md",
-  "sourceSha256": "f32afae6a585cc5884c5fb84b0021d58a23f4161b3de9e159b098c6709e6fcb2",
+  "sourceSha256": "585794d41804da44d8bf1d33744a7cb056edf230c3b676d25c82b138bb8d08da",
   "hostVerification": "not_established_by_catalogs",
   "counts": {
-    "default": 380,
+    "default": 382,
     "uxp": 95,
     "restricted": 2
   },
@@ -381,13 +381,13 @@
       "name": "create_bars_and_tone",
       "surface": "default",
       "modes": "Single operation",
-      "description": "Create a Bars and Tone synthetic media item in the project (useful for leader/calibration)"
+      "description": "Create a Bars and Tone synthetic media item in the project (useful for leader/calibration). Returns the created item's name, nodeId, and treePath, found by reading the project back."
     },
     {
       "name": "create_bin",
       "surface": "default",
       "modes": "Single operation",
-      "description": "Create a new bin (folder) in the project panel"
+      "description": "Create a new bin (folder) in the project panel, optionally nested inside an existing bin. Reads the project back: verified is true only when the new bin is a direct child of the requested parent; otherwise the result reports outcome committed_unverified."
     },
     {
       "name": "create_caption_track",
@@ -1125,7 +1125,7 @@
       "name": "get_target_tracks",
       "surface": "default",
       "modes": "Single operation",
-      "description": "Get which tracks are currently targeted for editing."
+      "description": "Get which tracks are currently targeted for editing. Premiere allows several video or audio tracks to be targeted at the same time; every targeted track is listed. Tracks whose state cannot be read are listed under unreadable."
     },
     {
       "name": "get_timeline_gaps",
@@ -1761,7 +1761,7 @@
       "name": "manage_timeline_source_label_uxp",
       "surface": "uxp",
       "modes": "inspect, update",
-      "description": "Inspect or set the documented source Project-item color label resolved from one active audio or video timeline coordinate. Update requires the complete reviewed snapshot, explicit confirmation, and an operation ID; it serializes color-label changes by source item, commits one undoable transaction, then re-reads the coordinate and source label. A source label is project-global: another use of the same source can reflect the change. It does not label a timeline-only instance, change clip timing, prove rendered appearance, playback, persistence, or Undo behavior."
+      "description": "Inspect or set the documented source Project-item color label resolved from one audio or video timeline coordinate in the sequence named by sequence_id (inspect falls back to the active sequence only when sequence_id is omitted; update always targets expected_snapshot.sequence_id). Update requires the complete reviewed snapshot, explicit confirmation, and an operation ID; it serializes color-label changes by source item, commits one undoable transaction, then re-reads the coordinate and source label. A source label is project-global: another use of the same source can reflect the change. It does not label a timeline-only instance, change clip timing, prove rendered appearance, playback, persistence, or Undo behavior."
     },
     {
       "name": "manage_track_state_uxp",
@@ -1870,6 +1870,12 @@
       "surface": "default",
       "modes": "Single operation",
       "description": "Overwrite the clip from the Source Monitor at the playhead position (overwrite edit — replaces existing clips)."
+    },
+    {
+      "name": "paste_clip_attributes",
+      "surface": "default",
+      "modes": "Single operation",
+      "description": "Paste Attributes for one timeline clip: copy the source clip's effect stack (Motion, Opacity, other intrinsic components, and every applied effect) onto a target clip of the same track type, including keyframes. Components are matched by match name and occurrence; a missing non-intrinsic effect is applied through the experimental legacy QE DOM (disable with apply_missing_effects=false). Every written parameter and keyframe value is read back and reported per property as verified, committed_unverified, or failed, with an overall status. Not copied, and listed in notCopied with a reason: parameters whose values ExtendScript cannot read as numbers, booleans, strings, or numeric arrays; Opacity > Blend Mode when it differs (legacy cross-clip enum writes can corrupt it; use set_blend_mode and verify); and keyframe interpolation (no getter exists, so pasted keys use Premiere's default interpolation). MASKS ARE NOT COPIED: neither ExtendScript, QE, nor documented Premiere UXP exposes mask shapes, paths, feather, expansion, or mask keyframes, and masks are invisible to this bridge, so recreate or paste masks manually in Effect Controls. Time Remapping is excluded unless named in components."
     },
     {
       "name": "ping",
@@ -2367,7 +2373,7 @@
       "name": "set_all_tracks_targeted",
       "surface": "default",
       "modes": "track_type: video, audio, both",
-      "description": "Set all tracks targeted or untargeted. Useful before insert/overwrite edits."
+      "description": "Set all tracks targeted or untargeted. Useful before insert/overwrite edits. Reads back every affected track and reports verified only when all match the requested state."
     },
     {
       "name": "set_anti_alias_quality",
@@ -2386,6 +2392,12 @@
       "surface": "default",
       "modes": "Single operation",
       "description": "Set the Anchor Point property on a video clip's Motion effect."
+    },
+    {
+      "name": "set_clip_duration",
+      "surface": "default",
+      "modes": "keyframe_policy: reject, preserve",
+      "description": "Set one timeline clip's visible duration by moving only its timeline end (TrackItem.end) while keeping its start fixed. Pass exactly one of duration_seconds or end_seconds. Works for extending still images past their import length. Refuses to overlap the next clip on the same track, rejects shortening that would strand effect keyframes unless keyframe_policy is preserve, reads start/end back, and restores the original end if Premiere clamps or ignores the write (for example when video media has no handle left). Linked audio/video partners are not adjusted. Use this instead of speed changes, which Premiere does not expose to scripting."
     },
     {
       "name": "set_clip_opacity",
@@ -2409,7 +2421,7 @@
       "name": "set_clip_properties",
       "surface": "default",
       "modes": "Single operation",
-      "description": "Set supported clip properties (opacity, scale, position, rotation). Clip speed is unsupported and fails before mutation."
+      "description": "Set supported clip properties (opacity, scale, position, rotation). Clip speed is unsupported and fails before mutation; use set_clip_duration to change a clip's timeline length."
     },
     {
       "name": "set_clip_properties_batch",
@@ -2439,7 +2451,7 @@
       "name": "set_clip_speed_qe",
       "surface": "default",
       "modes": "Single operation",
-      "description": "Unavailable: Premiere does not expose a supported scripting API for changing a timeline clip's speed."
+      "description": "Unavailable: Premiere's documented ExtendScript and UXP APIs have no setter for a timeline clip's speed (only getters), and the undocumented QE setSpeed is deliberately not used. Always fails before mutation. To change how long a clip runs on the timeline, use set_clip_duration."
     },
     {
       "name": "set_clip_start_time",
@@ -2649,7 +2661,7 @@
       "name": "set_target_track",
       "surface": "default",
       "modes": "track_type: video, audio",
-      "description": "Set a track as targeted (active for insert/overwrite edits). Only one video and one audio track can be targeted at a time."
+      "description": "Target or untarget one video or audio track for source-patched insert/overwrite edits. Premiere allows several tracks of a type to be targeted at once, so by default (exclusive=true) targeting a track also untargets every other track of the same type. Reads back every track of that type and reports verified only when the readback matches the requested state; otherwise committed_unverified or an error."
     },
     {
       "name": "set_time_interpolation",
@@ -2727,7 +2739,7 @@
       "name": "speed_change",
       "surface": "default",
       "modes": "Single operation",
-      "description": "Unavailable: Premiere does not expose a supported scripting API for changing a timeline clip's speed."
+      "description": "Unavailable: Premiere's documented ExtendScript and UXP APIs have no setter for a timeline clip's speed (only getters), and the undocumented QE setSpeed is deliberately not used. Always fails before mutation. To change how long a clip runs on the timeline, use set_clip_duration."
     },
     {
       "name": "split_clip",
@@ -2775,7 +2787,7 @@
       "name": "trim_clip",
       "surface": "default",
       "modes": "keyframe_policy: reject, preserve",
-      "description": "Trim exactly one source in/out point and verify the corresponding visible timeline edge. Refuses retimed clips and, by default, trims that would leave effect keyframes outside the visible clip."
+      "description": "Trim exactly one source in/out point and verify the corresponding visible timeline edge. Refuses retimed clips and, by default, trims that would leave effect keyframes outside the visible clip. To set a clip's timeline length or extend a still image, use set_clip_duration."
     },
     {
       "name": "undo",

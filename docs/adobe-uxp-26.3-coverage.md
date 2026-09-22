@@ -348,6 +348,14 @@ tests with a mock UXP host, not host integration tests.
 5. Do not silently fall back after a UXP mutation error. Return backend,
    `operationId`, result envelope, and verification state so the caller can
    inspect the host before deliberately choosing another operation.
+6. Clip speed has no documented setter. The 26.3 UXP inventory exposes only
+   `VideoClipTrackItem.getSpeed` / `isSpeedReversed` (and the audio
+   equivalents); classic ExtendScript likewise exposes only `TrackItem.getSpeed()`
+   / `isSpeedReversed()`. `speed_change`, `set_clip_speed_qe`, and `reverse_clip`
+   therefore fail before mutation, and the reflected QE `setSpeed` / `setReverse`
+   stay unused (#295/#299, #593). To change a clip's timeline length, use the
+   CEP `set_clip_duration` tool (documented `TrackItem.end`). The documented UXP
+   `createSetEndAction` could back a future UXP variant; none is registered yet.
 
 ## Automated evidence and live-host gate
 
