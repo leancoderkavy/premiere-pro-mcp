@@ -161,67 +161,26 @@ export function getInspectionTools(bridgeOptions: BridgeOptions) {
         const limit = Number.isInteger(args.limit) && (args.limit as number) > 0 ? Math.min(args.limit as number, 500) : -1;
         const maxDepth = Number.isInteger(args.max_depth) ? Math.min(Math.max(args.max_depth as number, 0), 10) : -1;
         const script = buildToolScript(`
-          var root = app.project.rootItem;
-          var target = null;
-
-          // Try by node ID first
-          function findById(parent, id) {
-            for (var i = 0; i < parent.children.numItems; i++) {
-              var item = parent.children[i];
-              if (item.nodeId === id) return item;
-              if (item.type === 2) {
-                var found = findById(item, id);
-                if (found) return found;
-              }
-            }
-            return null;
-          }
-
-          target = findById(root, "${escapeForExtendScript(args.bin_id)}");
-
-          // Try by path
+          if (!app.project || !app.project.rootItem) return __error("No project is open");
+          var requestedBin = "${escapeForExtendScript(args.bin_id)}";
+          // Node ID (recursive, string-normalized), then bin path, then bin name.
+          var target = __findBin(requestedBin);
           if (!target) {
-            var parts = "${escapeForExtendScript(args.bin_id)}".split("/");
-            var current = root;
-            for (var p = 0; p < parts.length; p++) {
-              var found = false;
-              for (var i = 0; i < current.children.numItems; i++) {
-                if (current.children[i].name === parts[p] && current.children[i].type === 2) {
-                  current = current.children[i];
-                  found = true;
-                  break;
-                }
-              }
-              if (!found) { current = null; break; }
-            }
-            if (current && current !== root) target = current;
+            var nonBin = __findProjectItemByNodeId(requestedBin);
+            if (nonBin) return __error("Project item " + requestedBin + " is not a bin. Pass a bin node ID, bin path, or bin name; use get_project_item_info for other item types.");
+            return __error("Bin not found: " + requestedBin + ". Pass a bin node ID from list_project_items, a slash-separated bin path, or an exact bin name.");
           }
-
-          // Try by name
-          if (!target) {
-            function findByName(parent, name) {
-              for (var i = 0; i < parent.children.numItems; i++) {
-                var item = parent.children[i];
-                if (item.name === name && item.type === 2) return item;
-                if (item.type === 2) {
-                  var found = findByName(item, name);
-                  if (found) return found;
-                }
-              }
-              return null;
-            }
-            target = findByName(root, "${escapeForExtendScript(args.bin_id)}");
-          }
-
-          if (!target) return __error("Bin not found: ${escapeForExtendScript(args.bin_id)}");
 
           function getItemDetails(item) {
+            var itemType = null;
+            try { itemType = item.type; } catch(e) {}
             var info = {
-              nodeId: item.nodeId,
-              name: item.name,
-              type: item.type === 1 ? "clip" : item.type === 2 ? "bin" : item.type === 4 ? "file" : "unknown",
-              treePath: item.treePath
+              nodeId: __nodeIdOf(item),
+              name: "",
+              type: itemType === 1 ? "clip" : itemType === 2 ? "bin" : itemType === 4 ? "file" : "unknown"
             };
+            try { info.name = item.name; } catch(e) {}
+            try { info.treePath = item.treePath; } catch(e) {}
             try { info.mediaPath = item.getMediaPath(); } catch(e) {}
             try { info.offline = item.isOffline(); } catch(e) {}
             try { info.colorLabel = item.getColorLabel(); } catch(e) {}
@@ -241,10 +200,12 @@ export function getInspectionTools(bridgeOptions: BridgeOptions) {
 
           function walkItems(bin, recurse, depth) {
             var items = [];
-            for (var i = 0; i < bin.children.numItems; i++) {
-              var item = bin.children[i];
+            var count = __childCount(bin);
+            for (var i = 0; i < count; i++) {
+              var item = __childAt(bin, i);
+              if (!item) continue;
               var info = getItemDetails(item);
-              if (item.type === 2 && recurse && (${maxDepth} < 0 || depth < ${maxDepth})) {
+              if (__isBinItem(item) && recurse && (${maxDepth} < 0 || depth < ${maxDepth})) {
                 info.children = walkItems(item, true, depth + 1);
                 info.childCount = info.children.length;
               }
@@ -259,8 +220,8 @@ export function getInspectionTools(bridgeOptions: BridgeOptions) {
           var contents = limit < 0 ? allContents.slice(offset) : allContents.slice(offset, offset + limit);
           return __result({
             binName: target.name,
-            binNodeId: target.nodeId,
-            binPath: target.treePath,
+            binNodeId: __nodeIdOf(target),
+            binPath: (function () { try { return target.treePath; } catch (e) { return null; } })(),
             itemCount: contents.length,
             totalDirectItems: allContents.length,
             items: contents,

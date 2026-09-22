@@ -643,7 +643,8 @@ describe("issue #235 — CEP tool calls use the host's documented argument types
     expect(script).toContain("1,");
     expect(script).toContain("48000,");
     expect(script).toContain('"Bars"');
-    expect(script).toContain("if (!item) return __error");
+    expect(script).toContain("var beforeIds = __collectNodeIds(");
+    expect(script).toContain("__findNewProjectItem(beforeIds, requestedName)");
   });
 
   it("writes the Anti-flicker numeric stream value and verifies it", async () => {
