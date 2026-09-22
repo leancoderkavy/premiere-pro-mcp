@@ -181,7 +181,7 @@ export default function HowPremiereProMcpWorksPage() {
                 <div className="rounded-xl border border-site-line bg-site-panel p-6">
                   <h3 className="text-lg font-semibold text-site-accent">The Premiere Connector</h3>
                   <p className="mt-2 leading-7 text-site-muted">
-                    A CEP plugin running inside Adobe Premiere Pro that polls for command files in a private temp directory, executes them via Premiere's ExtendScript API, and writes structured JSON results back.
+                    A CEP plugin running inside Adobe Premiere Pro that polls for command files in a private temp directory, executes them via Premiere&apos;s ExtendScript API, and writes structured JSON results back.
                   </p>
                 </div>
               </div>
@@ -192,7 +192,7 @@ export default function HowPremiereProMcpWorksPage() {
                 Step-by-step workflow
               </h2>
               <p className="mt-5 leading-8 text-site-muted">
-                Here's what happens when you ask your AI assistant to edit something in Premiere Pro:
+                Here&apos;s what happens when you ask your AI assistant to edit something in Premiere Pro:
               </p>
               <div className="mt-8 space-y-6">
                 {workflowSteps.map((step) => (
@@ -285,13 +285,13 @@ export default function HowPremiereProMcpWorksPage() {
                 <div className="rounded-xl border border-site-line bg-site-panel p-6">
                   <h3 className="text-lg font-semibold text-site-accent">CEP (Default)</h3>
                   <p className="mt-2 leading-7 text-site-muted">
-                    The signed CEP connector is the default and production route for Premiere Pro {product.premiereCompatibility} on macOS and Windows. It uses Adobe's ExtendScript API and the QE DOM (undocumented, but widely used).
+                    The signed CEP connector is the default and production route for Premiere Pro {product.premiereCompatibility} on macOS and Windows. It uses Adobe&apos;s ExtendScript API and the QE DOM (undocumented, but widely used).
                   </p>
                 </div>
                 <div className="rounded-xl border border-site-line bg-site-panel p-6">
                   <h3 className="text-lg font-semibold text-site-accent">UXP (Preview)</h3>
                   <p className="mt-2 leading-7 text-site-muted">
-                    The UXP bridge adds capability-gated workflows for Premiere {product.uxpMinimumVersion}+ hosts using documented Premiere UXP APIs. It's not yet the default installer or a replacement for CEP. UXP tools honor runtime capability probes and never fall back to CEP or undocumented APIs.
+                    The UXP bridge adds capability-gated workflows for Premiere {product.uxpMinimumVersion}+ hosts using documented Premiere UXP APIs. It&apos;s not yet the default installer or a replacement for CEP. UXP tools honor runtime capability probes and never fall back to CEP or undocumented APIs.
                   </p>
                 </div>
               </div>
@@ -361,7 +361,7 @@ export default function HowPremiereProMcpWorksPage() {
                 >
                   <h3 className="text-lg font-semibold text-site-accent">What is Premiere Pro MCP?</h3>
                   <p className="mt-2 text-sm leading-6 text-site-muted">
-                    A beginner-friendly introduction to what Premiere Pro MCP is and who it's for.
+                    A beginner-friendly introduction to what Premiere Pro MCP is and who it&apos;s for.
                   </p>
                 </Link>
                 <a

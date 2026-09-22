@@ -13,6 +13,7 @@
   line-height: 1.06;
 }
 .studio .studio-hero-description { margin-top: 24px; }
+.studio .studio-compatible { margin-bottom: 32px; padding-bottom: 24px; }
 .studio .studio-facts {
   padding-block: 32px;
   border-top: 1px solid var(--s-line);
@@ -61,6 +62,7 @@
 .studio[data-motion="playing"] [data-scroll-scene].studio-revealed { animation: none; }
 @media (max-width: 767px) {
   .studio .studio-hero { padding-top: 40px; }
+  .studio .studio-compatible { margin-bottom: 24px; padding-bottom: 16px; }
   .studio .studio-hero h1 { font-size: clamp(40px, 8.5vw, 60px); }
   .studio .studio-section, .studio .studio-bridge-section, .studio .studio-final { padding-block: 56px; }
   .studio .studio-demo, .studio .studio-faq-section { padding-bottom: 56px; }
