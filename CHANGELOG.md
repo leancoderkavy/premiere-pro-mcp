@@ -6,8 +6,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [1.17.0] - 2026-09-21
+
 ### Added
 
+- `paste_clip_attributes` copies a source clip's effect stack, values, and
+  keyframes onto a target clip with per-property readback. Masks and a differing
+  Blend Mode are reported as not copied because no documented scripting surface
+  exposes them. (#595)
+- `compute_mask_fit_motion` computes Motion Scale/Position that place a still's
+  subject inside an existing Rounded Crop, Crop, or similar mask. Inspect only.
+  (#594)
 - `set_clip_duration` sets a placed timeline clip's duration or absolute end by
   moving only `TrackItem.end`, so still images can be extended past their import
   length. It refuses overlaps with the next clip, guards effect keyframes when
@@ -20,6 +29,22 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   `set_clip_properties`, agent instructions, docs, and skills: documented
   ExtendScript and UXP (through 26.3) expose only speed getters, the QE setter
   stays unused, and `set_clip_duration` is the supported timing alternative. (#593)
+
+### Fixed
+
+- `set_target_track` targets exclusively by default (`exclusive: false` keeps
+  other tracks targeted) and reads every track back; `get_target_tracks` lists
+  every targeted track and unreadable tracks. (#587)
+- `create_bars_and_tone` returns the created item's name, node ID, and tree path.
+  (#588)
+- `get_bin_contents` resolves nested bins by node ID with guarded child access and
+  clean errors instead of a raw TypeError. (#589)
+- `manage_timeline_source_label_uxp` accepts `sequence_id` and resolves it by GUID,
+  failing closed instead of targeting the active sequence. (#590)
+- `create_bin` honors `parent_bin_id` and reads back the new bin's parent. (#591)
+- Windows bridge-directory ACL checks ignore capability and app-container SIDs
+  (`S-1-15-*`), so the default location under `%LOCALAPPDATA%` no longer fails at
+  startup; the ancestry error names each offending path and SID. (#581)
 
 ## [1.16.4] - 2026-09-20
 

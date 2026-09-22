@@ -6,6 +6,25 @@ import { product } from "@/lib/product"
 
 const releases = [
   {
+    version: "1.17.0",
+    date: "2026-09-21",
+    label: "Clip duration, paste attributes, mask fit, and targeting fixes",
+    groups: [
+      { title: "Added", items: [
+        "set_clip_duration extends or shortens a placed clip by its timeline end, with overlap and keyframe guards.",
+        "paste_clip_attributes copies an effect stack, values, and keyframes with per-property readback; masks are reported, not copied.",
+        "compute_mask_fit_motion computes Motion Scale/Position to fit a subject inside an existing crop mask."
+      ] },
+      { title: "Fixed", items: [
+        "Windows startup no longer rejects the default bridge directory because of capability SIDs on AppData.",
+        "set_target_track targets exclusively by default and reads every track back.",
+        "create_bin honors parent_bin_id; get_bin_contents resolves nested bins; create_bars_and_tone returns the new item's ID.",
+        "The UXP source-label tool resolves sequence_id instead of using the active sequence."
+      ] },
+      { title: "Verification scope", items: ["Automated checks do not establish licensed-host playback or rendered-output verification."] }
+    ],
+  },
+  {
     version: "1.16.4",
     date: "2026-09-20",
     label: "Source-range units, subsequence verification, and named metadata fields",
