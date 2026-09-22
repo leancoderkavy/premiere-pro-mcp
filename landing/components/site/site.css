@@ -33,6 +33,7 @@
 .site-nav-panel a span { display: flex; align-items: center; justify-content: space-between; gap: 12px; font-size: 14px; font-weight: 600; color: var(--color-site-text); }
 .site-nav-panel small { display: block; margin-top: 5px; font-size: 12px; line-height: 1.6; color: var(--color-site-muted); }
 .site-nav-actions { display: flex; align-items: center; gap: 12px; }
+.site-nav-actions .studio-motion-toggle { margin: 0; align-self: center; }
 .site-connect { display: inline-flex; align-items: center; justify-content: center; min-height: 40px; padding: 9px 16px; border: 1px solid var(--color-site-line); border-radius: 999px; background: var(--color-site-panel); color: var(--color-site-text); font-size: 12px; font-weight: 500; text-decoration: none; white-space: nowrap; }
 .site-connect:hover { background: var(--color-site-raised); border-color: var(--color-site-muted); }
 .site-menu-button { display: none; }
