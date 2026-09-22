@@ -2,7 +2,7 @@ import { PublicPage } from "@/components/site/public-page"
 import type { Metadata } from "next"
 import Link from "next/link"
 import { HomeLink } from "@/components/ui/home-link"
-import { product } from "@/lib/product"
+import { product, safeFirstPrompt } from "@/lib/product"
 import Image from "next/image"
 import { ArrowRight, CheckCircle2, AlertTriangle, ShieldCheck, Zap } from "lucide-react"
 
@@ -320,7 +320,7 @@ export default function HowPremiereProMcpWorksPage() {
                 <li className="flex gap-3 leading-7 text-site-detail">
                   <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-site-accent" />
                   <span>
-                    <strong className="text-site-text">Connection verification:</strong> The safe first prompt (<code className="rounded bg-site-raised px-2 py-1 text-site-accent">{product.safeFirstPrompt || "show me the active sequence name"}</code>) runs a connection check without making any edits.
+                    <strong className="text-site-text">Connection verification:</strong> The safe first prompt (<code className="rounded bg-site-raised px-2 py-1 text-site-accent">{safeFirstPrompt}</code>) runs a connection check without making any edits.
                   </span>
                 </li>
               </ul>
