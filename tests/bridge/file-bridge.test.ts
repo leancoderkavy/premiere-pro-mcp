@@ -22,6 +22,7 @@ import {
   getDefaultBridgeTempDir,
   getBridgeLiveness,
   ensurePrivateBridgeDirectory,
+  isWindowsCapabilitySid,
   MAX_BRIDGE_RESPONSE_BYTES,
   sendCommand,
   sendRawCommand,
@@ -325,6 +326,104 @@ describe("sendCommand", () => {
         }],
       }),
     )).toThrow(/replaceable ancestor.*C:\\shared/i);
+  });
+
+  function mockWindowsDirectoryStatus(): void {
+    mockedMkdirSync.mockReturnValue(undefined);
+    mockedLstatSync.mockReturnValueOnce({
+      uid: 0,
+      mode: 0,
+      isDirectory: () => true,
+      isSymbolicLink: () => false,
+    } as unknown as ReturnType<typeof lstatSync>);
+  }
+
+  it("lists every unsafe Windows ancestor with its reason and SID", () => {
+    mockWindowsDirectoryStatus();
+
+    expect(() => ensurePrivateBridgeDirectory(
+      "C:\\link\\shared\\premiere-mcp-bridge",
+      "win32",
+      undefined,
+      () => ({
+        ownerSid: "S-1-5-21-1000",
+        currentUserSid: "S-1-5-21-1000",
+        unsafeWriteAces: [],
+        unsafeAncestorEntries: [
+          { sid: "S-1-5-21-2000", path: "C:\\shared", reason: "replacement_rights" },
+          { sid: "", path: "C:\\link", reason: "reparse_point" },
+        ],
+      }),
+    )).toThrow(
+      "Bridge path has a replaceable ancestor C:\\shared (replacement_rights: S-1-5-21-2000); " +
+        "C:\\link (reparse_point: none).",
+    );
+  });
+
+  it("ignores Windows capability and app-container SIDs inherited on AppData", () => {
+    mockWindowsDirectoryStatus();
+
+    expect(() => ensurePrivateBridgeDirectory(
+      "C:\\Users\\editor\\AppData\\Local\\Temp\\premiere-mcp-bridge",
+      "win32",
+      undefined,
+      () => ({
+        ownerSid: "S-1-5-21-1000",
+        currentUserSid: "S-1-5-21-1000",
+        unsafeWriteAces: [
+          { sid: "S-1-15-3-3557520199-3666692283-3112367039", isInherited: true },
+          { sid: "s-1-15-2-1", isInherited: true },
+        ],
+        unsafeAncestorEntries: [{
+          sid: "S-1-15-3-3557520199-3666692283-3112367039",
+          path: "C:\\Users\\editor\\AppData",
+          reason: "replacement_rights",
+        }],
+      }),
+    )).not.toThrow();
+  });
+
+  it("still refuses account SIDs listed beside a capability SID", () => {
+    mockWindowsDirectoryStatus();
+
+    expect(() => ensurePrivateBridgeDirectory(
+      "C:\\Temp\\premiere-mcp-bridge",
+      "win32",
+      undefined,
+      () => ({
+        ownerSid: "S-1-5-21-1000",
+        currentUserSid: "S-1-5-21-1000",
+        unsafeWriteAces: [
+          { sid: "S-1-15-3-1", isInherited: true },
+          { sid: "S-1-5-21-2000", isInherited: true },
+        ],
+      }),
+    )).toThrow("Bridge temp dir C:\\Temp\\premiere-mcp-bridge grants write access to untrusted identities (S-1-5-21-2000).");
+  });
+
+  it("still refuses an ancestor owned by a capability SID", () => {
+    mockWindowsDirectoryStatus();
+
+    expect(() => ensurePrivateBridgeDirectory(
+      "C:\\odd\\premiere-mcp-bridge",
+      "win32",
+      undefined,
+      () => ({
+        ownerSid: "S-1-5-21-1000",
+        currentUserSid: "S-1-5-21-1000",
+        unsafeWriteAces: [],
+        unsafeAncestorEntries: [{ sid: "S-1-15-3-1", path: "C:\\odd", reason: "owner" }],
+      }),
+    )).toThrow("Bridge path has a replaceable ancestor C:\\odd (owner: S-1-15-3-1).");
+  });
+
+  it("recognizes only S-1-15-* SIDs as Windows capability SIDs", () => {
+    expect(isWindowsCapabilitySid("S-1-15-3-1024-1")).toBe(true);
+    expect(isWindowsCapabilitySid("S-1-15-2-1")).toBe(true);
+    expect(isWindowsCapabilitySid("S-1-5-21-2000")).toBe(false);
+    expect(isWindowsCapabilitySid("S-1-150-1")).toBe(false);
+    expect(isWindowsCapabilitySid("")).toBe(false);
+    expect(isWindowsCapabilitySid(undefined)).toBe(false);
   });
 
   it("refuses a POSIX path beneath an untrusted replaceable parent", () => {
