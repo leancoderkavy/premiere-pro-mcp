@@ -1604,7 +1604,9 @@ export function getExportTools(bridgeOptions: BridgeOptions) {
             type: "string",
             description:
               "Path to a proxy ingest preset (.epr) for 'create'. " +
-              "If omitted, the first preset found in Premiere's IngestPresets/Proxy folder is used.",
+              "If omitted, the server lists Premiere's IngestPresets/Proxy presets and AME H.264 system presets, " +
+              "skips every preset whose output destination is Same as Project (Adobe's shipped proxy presets are), " +
+              "and uses the first remaining one. Fails with a clear error when none qualify.",
           },
         },
         required: ["item_id", "action"],
@@ -1616,6 +1618,38 @@ export function getExportTools(bridgeOptions: BridgeOptions) {
         output_path?: string;
         preset_path?: string;
       }) => {
+        let presetPath = args.preset_path;
+        const skippedPresets: string[] = [];
+        if (args.action === "create" && args.output_path && !presetPath) {
+          const listing = await sendCommand(
+            buildToolScript(`return __result({ candidates: __listProxyPresetCandidates() });`),
+            bridgeOptions,
+          );
+          if (!listing.success) return listing;
+          const rawCandidates = (listing.data as { candidates?: unknown } | undefined)?.candidates;
+          const candidates = Array.isArray(rawCandidates)
+            ? rawCandidates.filter((value): value is string => typeof value === "string" && value.length > 0)
+            : [];
+          for (const candidate of candidates) {
+            try {
+              presetPath = inspectExportPresetFile(candidate).path;
+              break;
+            } catch {
+              skippedPresets.push(candidate);
+            }
+          }
+          if (!presetPath) {
+            return {
+              success: false,
+              error:
+                candidates.length === 0
+                  ? "Could not locate any proxy or H.264 export preset. Pass preset_path explicitly (an .epr with an explicit output destination)."
+                  : `All ${candidates.length} auto-discovered presets use a Same as Project output destination or could not be read, so AME would not write the proxy to output_path. Pass preset_path explicitly (an .epr with an explicit output destination).`,
+              skippedPresetCount: skippedPresets.length,
+            };
+          }
+        }
+        const autoDiscovered = presetPath !== args.preset_path;
         const script = buildToolScript(`
           var item = __findProjectItem("${escapeForExtendScript(args.item_id)}");
           if (!item) return __error("Item not found");
@@ -1626,12 +1660,7 @@ export function getExportTools(bridgeOptions: BridgeOptions) {
             ${!args.output_path
               ? `return __error("output_path is required for the 'create' action");`
               : `var outputPath = "${escapeForExtendScript(args.output_path)}";
-                 ${args.preset_path
-                   ? `var presetPath = "${escapeForExtendScript(args.preset_path)}";`
-                   : `var presetPath = __findProxyPreset();
-                      if (!presetPath) {
-                        return __error("Could not locate a proxy ingest preset. Pass preset_path explicitly (an .epr under Premiere's Settings/IngestPresets/Proxy folder).");
-                      }`}
+                 var presetPath = "${escapeForExtendScript(presetPath ?? "")}";
 
                  // ProjectItem has no createProxy(). Proxy generation must go through
                  // Adobe Media Encoder; the result is attached in a separate step once
@@ -1650,6 +1679,8 @@ export function getExportTools(bridgeOptions: BridgeOptions) {
                    jobId: String(jobId),
                    outputPath: outputPath,
                    presetUsed: presetPath,
+                   presetAutoDiscovered: ${autoDiscovered ? "true" : "false"},
+                   skippedSameAsProjectPresets: ${skippedPresets.length},
                    verificationScope: "Premiere returned an AME job ID. Queue presence and proxy-file creation are not verified by this tool.",
                    nextStep: "Verify the proxy file exists, then call manage_proxies with action 'attach' and proxy_path set to outputPath."
                  });`
