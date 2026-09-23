@@ -3,7 +3,7 @@
   "evidenceScope": "source_catalog_may_include_unreleased_work",
   "sourceVersion": "1.17.0",
   "sourcePath": "docs/supported-actions.md",
-  "sourceSha256": "585794d41804da44d8bf1d33744a7cb056edf230c3b676d25c82b138bb8d08da",
+  "sourceSha256": "bb4b80aef68cc9c5249098d8048dc55dcd3bf78e585e6565462f1b5c68678a31",
   "hostVerification": "not_established_by_catalogs",
   "counts": {
     "default": 382,
@@ -2577,7 +2577,7 @@
       "name": "set_scale_to_frame_size",
       "surface": "default",
       "modes": "Single operation",
-      "description": "Enable 'Scale to Frame Size' on a project item so it fills the sequence frame"
+      "description": "Enable 'Scale to Frame Size' so media fills the sequence frame. Accepts a timeline clip node ID (active sequence, same IDs as get_clip_properties) or a project item node ID or name. A timeline clip is resolved first and its source project item is updated through ProjectItem.setScaleToFrameSize(). ExtendScript exposes no getter for this flag, so the result is committed_unverified unless the timeline clip's Motion > Scale reads back changed (verified). Check with get_clip_properties."
     },
     {
       "name": "set_scale_width_height",

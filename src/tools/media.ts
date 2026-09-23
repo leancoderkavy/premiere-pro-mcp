@@ -476,23 +476,76 @@ export function getMediaTools(bridgeOptions: BridgeOptions) {
     },
 
     set_scale_to_frame_size: {
-      description: "Enable 'Scale to Frame Size' on a project item so it fills the sequence frame",
+      description:
+        "Enable 'Scale to Frame Size' so media fills the sequence frame. Accepts a timeline clip node ID " +
+        "(active sequence, same IDs as get_clip_properties) or a project item node ID or name. A timeline " +
+        "clip is resolved first and its source project item is updated through ProjectItem.setScaleToFrameSize(). " +
+        "ExtendScript exposes no getter for this flag, so the result is committed_unverified unless the timeline " +
+        "clip's Motion > Scale reads back changed (verified). Check with get_clip_properties.",
       parameters: {
         type: "object" as const,
         properties: {
           item_id: {
             type: "string",
-            description: "Node ID or name of the project item",
+            description: "Timeline clip node ID in the active sequence, or project item node ID or name",
           },
         },
         required: ["item_id"],
       },
       handler: async (args: { item_id: string }) => {
         const script = buildToolScript(`
-          var item = __findProjectItem("${escapeForExtendScript(args.item_id)}");
-          if (!item) return __error("Item not found");
+          var requestedId = "${escapeForExtendScript(args.item_id)}";
+          function __motionScale(trackItem) {
+            try {
+              var comps = trackItem.components;
+              for (var ci = 0; ci < comps.numItems; ci++) {
+                var comp = comps[ci];
+                if (comp.displayName !== "Motion" && comp.matchName !== "AE.ADBE Motion") continue;
+                for (var pi = 0; pi < comp.properties.numItems; pi++) {
+                  var prop = comp.properties[pi];
+                  if (prop.displayName === "Scale") return prop.getValue();
+                }
+              }
+            } catch (e) {}
+            return null;
+          }
+          var target = "projectItem";
+          var trackItem = null;
+          var trackInfo = null;
+          var item = null;
+          var found = __findClip(requestedId);
+          if (found) {
+            target = "timelineClip";
+            trackItem = found.clip;
+            trackInfo = { trackType: found.trackType, trackIndex: found.trackIndex, clipIndex: found.clipIndex };
+            try { item = trackItem.projectItem; } catch (e) { item = null; }
+            if (!item) return __error("Timeline clip " + requestedId + " has no source project item");
+          } else {
+            item = __findProjectItem(requestedId);
+          }
+          if (!item) return __error("Item not found: no timeline clip in the active sequence or project item matches " + requestedId);
+          var scaleBefore = trackItem ? __motionScale(trackItem) : null;
           item.setScaleToFrameSize();
-          return __result({ set: true, item: item.name });
+          var scaleAfter = trackItem ? __motionScale(trackItem) : null;
+          var changed = scaleBefore !== null && scaleAfter !== null && scaleBefore !== scaleAfter;
+          var out = {
+            set: true,
+            target: target,
+            item: item.name,
+            projectItemNodeId: __nodeIdOf(item),
+            status: changed ? "verified" : "committed_unverified",
+            motionScaleBefore: scaleBefore,
+            motionScaleAfter: scaleAfter
+          };
+          if (trackItem) {
+            out.clipNodeId = String(trackItem.nodeId);
+            out.clipName = trackItem.name;
+            out.trackType = trackInfo.trackType;
+            out.trackIndex = trackInfo.trackIndex;
+            out.clipIndex = trackInfo.clipIndex;
+          }
+          if (!changed) out.note = "ExtendScript has no getter for Scale to Frame Size; confirm with get_clip_properties.";
+          return __result(out);
         `);
         return sendCommand(script, bridgeOptions);
       },
