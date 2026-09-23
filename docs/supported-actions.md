@@ -372,7 +372,7 @@ operation” when the tool has no enum-based mode.
 | `set_project_item_audio_channel_mapping` | Default profile | Single operation | Map one output audio channel of a project item to a source channel using Premiere's documented AudioChannelMapping API. |
 | `set_project_panel_metadata` | Default profile | Single operation | Set the project panel metadata/column configuration from XML and verify that Premiere reads back the exact XML |
 | `set_project_scratch_disk` | Default profile | Single operation | Set the project's scratch disk paths for captured video, audio, and previews. |
-| `set_scale_to_frame_size` | Default profile | Single operation | Enable 'Scale to Frame Size' on a project item so it fills the sequence frame |
+| `set_scale_to_frame_size` | Default profile | Single operation | Enable 'Scale to Frame Size' so media fills the sequence frame. Accepts a timeline clip node ID (active sequence, same IDs as get_clip_properties) or a project item node ID or name. A timeline clip is resolved first and its source project item is updated through ProjectItem.setScaleToFrameSize(). ExtendScript exposes no getter for this flag, so the result is committed_unverified unless the timeline clip's Motion > Scale reads back changed (verified). Check with get_clip_properties. |
 | `set_scale_width_height` | Default profile | Single operation | Set independent Scale Width and Scale Height on a clip (requires Uniform Scale to be OFF). |
 | `set_scratch_disk_path` | Default profile | Single operation | Set the scratch disk path for a specific media type |
 | `set_sequence_audio_settings` | Default profile | Single operation | Change audio settings of the active sequence (sample rate, channel type). |
