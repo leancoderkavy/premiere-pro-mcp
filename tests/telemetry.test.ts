@@ -34,6 +34,16 @@ afterEach(() => {
 });
 
 describe("telemetry", () => {
+  it("bounds error categories without leaking names, messages, or thrown payloads", async () => {
+    const { telemetryErrorType } = await import("../src/telemetry.js");
+    const sensitive = new Error("token=secret /Users/editor/private.mov");
+    sensitive.name = "editor@example.com /Users/editor/private.mov";
+    expect(telemetryErrorType(sensitive)).toBe("Error");
+    expect(telemetryErrorType(new TypeError("secret"))).toBe("TypeError");
+    expect(telemetryErrorType({ name: "TypeError", token: "secret" })).toBe("UnknownError");
+    expect(telemetryErrorType(null)).toBe("UnknownError");
+  });
+
   it("is a stable no-op when no API key is configured", async () => {
     delete process.env.POSTHOG_API_KEY;
     const { getTelemetry } = await import("../src/telemetry.js");
@@ -61,7 +71,7 @@ describe("telemetry", () => {
     telemetry.capture("tool_called", { service: "override", ok: true });
 
     expect(posthog.constructor).toHaveBeenCalledWith("test-key", {
-      host: "https://example.invalid", flushAt: 1, flushInterval: 10_000,
+      host: "https://example.invalid", disableGeoip: true, flushAt: 1, flushInterval: 10_000,
     });
     expect(posthog.capture).toHaveBeenCalledWith({
       distinctId: "installation-1",

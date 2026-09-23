@@ -18,7 +18,7 @@ describe("landing PostHog analytics", () => {
     expect(loader).toContain("autocapture: false");
     expect(loader).toContain("capture_pageview: false");
     expect(loader).toContain("disable_session_recording: true");
-    expect(loader).toContain('person_profiles: "identified_only"');
+    expect(loader).toContain('person_profiles: "never"');
     expect(loader).toContain("advanced_disable_flags: true");
     expect(loader).toContain("analyticsPermitted");
     expect(events).toContain('surface: "website"');

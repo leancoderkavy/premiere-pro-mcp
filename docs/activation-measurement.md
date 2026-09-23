@@ -21,9 +21,13 @@ identifiers, or opaque click IDs to this contract.
 
 ## Product activation evidence
 
-The local MCP runtime separately emits two aggregate, privacy-bounded events when
-`POSTHOG_API_KEY` is configured: a first-run check started and finished. The finished
-event records only the CEP/UXP backend and `ready` or `needs_attention` outcome.
+When `POSTHOG_API_KEY` is configured, the local MCP runtime emits
+`premiere_mcp_activation_completed` only after `verify_premiere_connection`
+confirms the selected bridge, an open project, and an active sequence. It records
+only `backend` (CEP/UXP) and `activation_stage=verified_connection`, plus common
+operational metadata. Repeated successful checks can emit repeated activations;
+this is not a unique-install count. An incomplete diagnostic can still be a
+successful `mcp_tool_call`; it is not activation. See [the event audit](posthog-events.md).
 
 Browser acquisition events and local activation telemetry deliberately have no shared
 user identifier. Use aggregate funnel trends and voluntary support feedback; do not

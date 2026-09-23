@@ -21,6 +21,32 @@
     },
   };
 
+  // The SDK adds URL, referrer, campaign, and stored person properties even to
+  // manual captures. Keep only our bounded action fields and SDK routing IDs.
+  const posthogPropertyNames = new Set([
+    "token", "distinct_id", "$device_id", "$session_id", "$window_id",
+    "$lib", "$lib_version", "$insert_id", "$time", "$is_identified",
+    "product", "event", "occurred_at", "path", "surface", "$process_person_profile",
+    "route", "assistant", "location", "destination", "demo", "workflow",
+    "prompt_kind", "template_kind", "workflow_type", "action",
+    ...["utm_source", "utm_medium", "utm_campaign", "utm_term", "utm_content"]
+      .flatMap((name) => [name, `latest_${name}`]),
+  ]);
+  const beforeSend = (event) => {
+    if (!analyticsPermitted() || !event || event.properties?.surface !== "website") return null;
+    event.properties = Object.fromEntries(
+      Object.entries(event.properties).filter(([key, value]) =>
+        posthogPropertyNames.has(key) &&
+        (!/^(latest_)?utm_/.test(key) ||
+          (typeof value === "string" && value.length <= 80 && /^[a-z0-9._~-]+$/i.test(value))),
+      ),
+    );
+    event.properties.$process_person_profile = false;
+    event.properties.$ip = "0";
+    event.properties.$geoip_disable = true;
+    return event;
+  };
+
   if (designPreview || !analyticsPermitted()) return;
 
   window.dataLayer = window.dataLayer || [];
@@ -61,18 +87,26 @@
     tag.crossOrigin = "anonymous";
     tag.src = `${hosts.assetHost}/static/array.js`;
     tag.onload = () => {
+      if (!analyticsPermitted()) return;
       if (!window.posthog || typeof window.posthog.init !== "function") return;
       window.posthog.init(posthogProjectToken, {
         api_host: posthogHost,
         ui_host: hosts.uiHost,
         defaults: "2026-05-30",
-        person_profiles: "identified_only",
+        person_profiles: "never",
         autocapture: false,
+        capture_exceptions: false,
+        capture_dead_clicks: false,
+        capture_performance: false,
+        capture_heatmaps: false,
+        save_campaign_params: false,
+        save_referrer: false,
         capture_pageview: false,
         capture_pageleave: false,
         disable_session_recording: true,
         advanced_disable_flags: true,
         ip: false,
+        before_send: beforeSend,
         loaded: flushPosthogQueue,
       });
     };
