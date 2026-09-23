@@ -3,7 +3,7 @@
   "evidenceScope": "source_catalog_may_include_unreleased_work",
   "sourceVersion": "1.17.0",
   "sourcePath": "docs/supported-actions.md",
-  "sourceSha256": "bb4b80aef68cc9c5249098d8048dc55dcd3bf78e585e6565462f1b5c68678a31",
+  "sourceSha256": "c9afb01f21bdd2a3b0fa53ea2fea3b32f56f565ad707f620a817247e7705af3f",
   "hostVerification": "not_established_by_catalogs",
   "counts": {
     "default": 382,
@@ -2066,8 +2066,8 @@
     {
       "name": "preview_mogrt_recipe",
       "surface": "default",
-      "modes": "recipe: lower_third, title_card, callout, quote_card, social_end_card; frame_rate: 23.976, 24, 25, 29.97, 30, 50, 59.94, 60",
-      "description": "Preview a bounded After Effects MOGRT recipe from the supported title, callout, quote, and social template library. It validates one existing workspace output directory but does not contact Adobe or write any files."
+      "modes": "recipe: lower_third, title_card, callout, quote_card, social_end_card, media_placeholder; frame_rate: 23.976, 24, 25, 29.97, 30, 50, 59.94, 60; text_controls: full, text_only",
+      "description": "Preview a bounded After Effects MOGRT recipe from the supported title, callout, quote, social, and media-placeholder template library. It validates one existing workspace output directory but does not contact Adobe or write any files."
     },
     {
       "name": "preview_motion_graphics_demo",

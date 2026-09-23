@@ -20,9 +20,16 @@ export const MOGRT_RECIPES = [
   "callout",
   "quote_card",
   "social_end_card",
+  "media_placeholder",
 ] as const;
 
 export type Recipe = (typeof MOGRT_RECIPES)[number];
+
+export const MOGRT_TEXT_CONTROL_MODES = ["full", "text_only"] as const;
+
+export type MogrtTextControlMode = (typeof MOGRT_TEXT_CONTROL_MODES)[number];
+
+const PLACEHOLDER_MEDIA_PATTERN = /\.(?:png|jpe?g|mov|mp4)$/i;
 
 export interface MogrtBrandKit {
   name: string;
@@ -38,8 +45,13 @@ export interface MogrtPlan {
   schema_version: 1;
   recipe: Recipe;
   template_name: string;
-  headline: string;
+  /** Required for text recipes; optional caption for media_placeholder. */
+  headline?: string;
   subtitle?: string;
+  /** "full" exposes font size, fill, stroke, and transform controls (#618); "text_only" keeps the legacy text-string controls. */
+  text_controls: MogrtTextControlMode;
+  /** Workspace-contained PNG/JPEG/MOV/MP4 used as the swappable media placeholder (#619). */
+  placeholder_media_path?: string;
   accent_color: string;
   text_color: string;
   duration_seconds: number;
@@ -142,10 +154,7 @@ export function validateMogrtBrandKit(value: unknown, workspacePath: string): Mo
   const logoPath = optionalText(input.logo_path, "brand_kit.logo_path", MAX_PATH);
   if (logoPath) {
     if (!/\.(?:png|jpe?g)$/i.test(logoPath)) throw new Error("brand_kit.logo_path must point to a PNG or JPEG file");
-    const contained = workspaceOutput(workspacePath, resolvePathFamily(logoPath).api.dirname(logoPath), "brand-kit-logo");
-    if (contained.root !== resolvePathFamily(workspacePath).resolved) {
-      throw new Error("brand_kit.logo_path must be inside approved_workspace_path");
-    }
+    containedFile(logoPath, workspacePath, "brand_kit.logo_path");
   }
   return {
     name,
@@ -156,6 +165,13 @@ export function validateMogrtBrandKit(value: unknown, workspacePath: string): Mo
     ...(input.text_color === undefined ? {} : { text_color: color(input.text_color, "brand_kit.text_color", "#FFFFFF") }),
     safe_margin_percent: finiteNumber(input.safe_margin_percent, "brand_kit.safe_margin_percent", 0.1, 0.02, 0.25),
   };
+}
+
+function containedFile(candidate: string, workspacePath: string, field: string): void {
+  const contained = workspaceOutput(workspacePath, resolvePathFamily(candidate).api.dirname(candidate), "contained-file");
+  if (contained.root !== resolvePathFamily(workspacePath).resolved) {
+    throw new Error(`${field} must be inside approved_workspace_path`);
+  }
 }
 
 function isAbsolutePortable(value: string): boolean {
@@ -195,6 +211,7 @@ export function buildMogrtPlan(value: unknown, directoryExists: (candidate: stri
   assertOnlyKeys(input, [
     "recipe", "template_name", "headline", "subtitle", "accent_color", "text_color",
     "duration_seconds", "width", "height", "frame_rate", "approved_workspace_path", "output_directory", "brand_kit",
+    "text_controls", "placeholder_media_path",
   ], "arguments");
   const recipe = input.recipe === undefined ? "lower_third" : input.recipe;
   if (typeof recipe !== "string" || !RECIPE_SET.has(recipe as Recipe)) {
@@ -217,11 +234,28 @@ export function buildMogrtPlan(value: unknown, directoryExists: (candidate: stri
   if (!FRAME_RATES.has(frameRate)) {
     throw new Error("frame_rate must be one of 23.976, 24, 25, 29.97, 30, 50, 59.94, or 60");
   }
+  const textControls = input.text_controls === undefined ? "full" : input.text_controls;
+  if (typeof textControls !== "string" || !(MOGRT_TEXT_CONTROL_MODES as readonly string[]).includes(textControls)) {
+    throw new Error(`text_controls must be one of ${MOGRT_TEXT_CONTROL_MODES.join(", ")}`);
+  }
+  const isMedia = recipe === "media_placeholder";
+  let placeholderMediaPath: string | undefined;
+  if (isMedia) {
+    placeholderMediaPath = requiredText(input.placeholder_media_path, "placeholder_media_path", MAX_PATH);
+    if (!isAbsolutePortable(placeholderMediaPath)) throw new Error("placeholder_media_path must be an absolute path");
+    if (!PLACEHOLDER_MEDIA_PATTERN.test(placeholderMediaPath)) {
+      throw new Error("placeholder_media_path must point to a PNG, JPEG, MOV, or MP4 file");
+    }
+    containedFile(placeholderMediaPath, output.root, "placeholder_media_path");
+  } else if (input.placeholder_media_path !== undefined) {
+    throw new Error("placeholder_media_path is only supported by the media_placeholder recipe");
+  }
+  const headline = isMedia ? optionalText(input.headline, "headline") : requiredText(input.headline, "headline");
   return {
     schema_version: 1,
     recipe: recipe as Recipe,
     template_name: name,
-    headline: requiredText(input.headline, "headline"),
+    ...(headline ? { headline } : {}),
     subtitle: optionalText(input.subtitle, "subtitle"),
     accent_color: color(input.accent_color, "accent_color", brandKit?.accent_color ?? "#2563EB"),
     text_color: color(input.text_color, "text_color", brandKit?.text_color ?? "#FFFFFF"),
@@ -229,6 +263,8 @@ export function buildMogrtPlan(value: unknown, directoryExists: (candidate: stri
     width: wholeNumber(input.width, "width", 1920, 320, 7680),
     height: wholeNumber(input.height, "height", 1080, 240, 4320),
     frame_rate: frameRate,
+    text_controls: textControls as MogrtTextControlMode,
+    ...(placeholderMediaPath ? { placeholder_media_path: resolvePathFamily(placeholderMediaPath).resolved } : {}),
     approved_workspace_path: output.root,
     output_directory: output.directory,
     output_path: output.output,
@@ -244,6 +280,23 @@ function rgb(value: string): [number, number, number] {
   ];
 }
 
+/**
+ * AE Source Text expression that drives font size, fill, and stroke from
+ * exposed Slider/Color Controls while keeping the Essential Graphics text value.
+ * Uses the AE 17.0+ text style expression API. Labels are fixed internal
+ * strings ("Headline", "Subtitle"), never user input.
+ */
+export function buildTextStyleExpression(label: string): string {
+  return [
+    `var size = effect("${label} Font Size")("Slider");`,
+    `var fill = effect("${label} Fill Color")("Color");`,
+    `var strokeColor = effect("${label} Stroke Color")("Color");`,
+    `var strokeWidth = effect("${label} Stroke Width")("Slider");`,
+    "text.sourceText.style.setFontSize(size).setApplyFill(true).setFillColor([fill[0], fill[1], fill[2]])",
+    ".setStrokeColor([strokeColor[0], strokeColor[1], strokeColor[2]]).setStrokeWidth(strokeWidth).setApplyStroke(strokeWidth > 0);",
+  ].join(" ");
+}
+
 export function buildMogrtRecipeScript(plan: MogrtPlan): string {
   const accent = rgb(plan.accent_color).join(", ");
   const text = rgb(plan.text_color).join(", ");
@@ -253,12 +306,17 @@ export function buildMogrtRecipeScript(plan: MogrtPlan): string {
     callout: { backingWidth: 0.42, backingHeight: 0.18, backingX: 0.76, backingY: 0.22, headlineX: 0.58, headlineY: 0.19, subtitleX: 0.58, subtitleY: 0.27 },
     quote_card: { backingWidth: 0.8, backingHeight: 0.42, backingX: 0.5, backingY: 0.5, headlineX: 0.14, headlineY: 0.44, subtitleX: 0.14, subtitleY: 0.6 },
     social_end_card: { backingWidth: 0.9, backingHeight: 0.9, backingX: 0.5, backingY: 0.5, headlineX: 0.15, headlineY: 0.45, subtitleX: 0.15, subtitleY: 0.56 },
+    media_placeholder: { backingWidth: 0, backingHeight: 0, backingX: 0.5, backingY: 0.5, headlineX: 0.1, headlineY: 0.88, subtitleX: 0.1, subtitleY: 0.94 },
   };
   const layout = layouts[plan.recipe];
+  const isMedia = plan.recipe === "media_placeholder";
+  const fullControls = plan.text_controls === "full";
   const safeMargin = plan.brand_kit?.safe_margin_percent ?? 0.1;
   const headlineX = Math.max(layout.headlineX, safeMargin);
   const subtitleX = Math.max(layout.subtitleX, safeMargin);
   const logoX = Math.max(safeMargin, 1 - safeMargin * 1.5);
+  const headlineFontSize = Math.max(32, Math.round(plan.height * 0.06));
+  const subtitleFontSize = Math.max(24, Math.round(plan.height * 0.032));
   const fontAssignment = plan.brand_kit?.font_family
     ? `try { headlineDocument.font = "${escapeForAfterEffects(plan.brand_kit.font_family)}"; } catch (fontError) {}`
     : "";
@@ -266,58 +324,14 @@ export function buildMogrtRecipeScript(plan: MogrtPlan): string {
     ? `try { subtitleDocument.font = "${escapeForAfterEffects(plan.brand_kit.font_family)}"; } catch (subtitleFontError) {}`
     : "";
   const logoPath = plan.brand_kit?.logo_path ?? "";
-  const subtitleLayer = plan.subtitle
-    ? `
-      var subtitleLayer = comp.layers.addText("${escapeForAfterEffects(plan.subtitle)}");
-      subtitleLayer.name = "Subtitle";
-      var subtitleSource = subtitleLayer.property("ADBE Text Properties").property("ADBE Text Document");
-      var subtitleDocument = subtitleSource.value;
-      subtitleDocument.fontSize = ${Math.max(24, Math.round(plan.height * 0.032))};
-      subtitleDocument.fillColor = [${text}];
-      subtitleDocument.applyFill = true;
-      ${subtitleFontAssignment}
-      subtitleSource.setValue(subtitleDocument);
-      subtitleLayer.property("ADBE Transform Group").property("ADBE Position").setValue([${Math.round(plan.width * subtitleX)}, ${Math.round(plan.height * layout.subtitleY)}]);
-      subtitleExposed = expose(subtitleSource, comp);
-    `
+  const placeholderPath = plan.placeholder_media_path ?? "";
+  const styleControls = (label: string, layerVar: string, fontSize: number): string => fullControls
+    ? `exposedControls.${label.toLowerCase()}Style = addTextStyleControls(${layerVar}, comp, "${label}", ${fontSize}, [${text}], "${escapeForAfterEffects(buildTextStyleExpression(label))}");
+      exposedControls.${label.toLowerCase()}Transform = exposeTransform(${layerVar}, comp, "${label}");`
     : "";
-
-  return buildAfterEffectsScript(`
-    function normalizedPath(value) {
-      return String(value).replace(/\\\\/g, "/").replace(/\\/+$/, "").toLowerCase();
-    }
-    function isInside(root, candidate) {
-      var normalizedRoot = normalizedPath(root);
-      var normalizedCandidate = normalizedPath(candidate);
-      return normalizedCandidate === normalizedRoot || normalizedCandidate.indexOf(normalizedRoot + "/") === 0;
-    }
-    function expose(property, comp) {
-      try {
-        if (!property || typeof property.addToMotionGraphicsTemplate !== "function") return false;
-        // AE API requires the CompItem argument for both canAdd and add calls
-        if (typeof property.canAddToMotionGraphicsTemplate === "function" && !property.canAddToMotionGraphicsTemplate(comp)) return false;
-        return property.addToMotionGraphicsTemplate(comp) === true;
-      } catch (exposeError) {
-        return false;
-      }
-    }
-    var workspacePath = "${escapeForAfterEffects(plan.approved_workspace_path)}";
-    var outputDirectory = "${escapeForAfterEffects(plan.output_directory)}";
-    var outputPath = "${escapeForAfterEffects(plan.output_path)}";
-    var logoPath = "${escapeForAfterEffects(logoPath)}";
-    var project = app.project;
-    if (!project || !project.file) return __aeError("Open a saved After Effects project inside approved_workspace_path before creating a MOGRT; this workflow never creates or replaces projects");
-    if (!isInside(workspacePath, project.file.fsName)) return __aeError("The open After Effects project is outside approved_workspace_path; no composition was created");
-    var destination = new Folder(outputDirectory);
-    if (!destination.exists) return __aeError("The approved output directory no longer exists; no composition was created");
-    var existing = new File(outputPath);
-    if (existing.exists) return __aeError("A MOGRT already exists at the planned output path; preview a new plan only after moving or deliberately replacing it");
-    var logoFile = logoPath ? new File(logoPath) : null;
-    if (logoFile && !logoFile.exists) return __aeError("The approved brand-kit logo no longer exists; preview the recipe again after restoring it");
-    app.beginUndoGroup("Create ${escapeForAfterEffects(plan.template_name)} MOGRT");
-    try {
-      var comp = project.items.addComp("${escapeForAfterEffects(plan.template_name)}", ${plan.width}, ${plan.height}, 1, ${plan.duration_seconds}, ${plan.frame_rate});
-      comp.motionGraphicsTemplateName = "${escapeForAfterEffects(plan.template_name)}";
+  const backingSection = isMedia
+    ? ""
+    : `
       var backing = comp.layers.addShape();
       backing.name = "Accent bar";
       var shapeContents = backing.property("ADBE Root Vectors Group");
@@ -332,20 +346,145 @@ export function buildMogrtRecipeScript(plan: MogrtPlan): string {
       var accentProperty = accentControl.property(1);
       accentProperty.setValue([${accent}]);
       try { fillColor.expression = 'effect("Accent Color")("Color")'; } catch (expressionError) {}
+      exposedControls.accentColor = expose(accentProperty, comp);
+    `;
+  const mediaSection = isMedia
+    ? `
+      var mediaItem = project.importFile(new ImportOptions(placeholderFile));
+      var mediaLayer = comp.layers.add(mediaItem);
+      mediaLayer.name = "Media Placeholder";
+      if (mediaItem.width > 0 && mediaItem.height > 0) {
+        var fitScale = Math.min(comp.width / mediaItem.width, comp.height / mediaItem.height) * 100;
+        mediaLayer.property("ADBE Transform Group").property("ADBE Scale").setValue([fitScale, fitScale]);
+      }
+      var mediaReplaceable = false;
+      try {
+        if (typeof mediaLayer.addToMotionGraphicsTemplateAs === "function" && (typeof mediaLayer.canAddToMotionGraphicsTemplate !== "function" || mediaLayer.canAddToMotionGraphicsTemplate(comp))) {
+          mediaReplaceable = mediaLayer.addToMotionGraphicsTemplateAs(comp, "Media") === true;
+        } else if (typeof mediaLayer.addToMotionGraphicsTemplate === "function" && (typeof mediaLayer.canAddToMotionGraphicsTemplate !== "function" || mediaLayer.canAddToMotionGraphicsTemplate(comp))) {
+          mediaReplaceable = mediaLayer.addToMotionGraphicsTemplate(comp) === true;
+        }
+      } catch (mediaExposeError) {}
+      exposedControls.media = mediaReplaceable;
+      exposedControls.mediaTransform = exposeTransform(mediaLayer, comp, "Media");
+    `
+    : "";
+  const headlineSection = plan.headline
+    ? `
       var headlineLayer = comp.layers.addText("${escapeForAfterEffects(plan.headline)}");
       headlineLayer.name = "Headline";
       var headlineSource = headlineLayer.property("ADBE Text Properties").property("ADBE Text Document");
       var headlineDocument = headlineSource.value;
-      headlineDocument.fontSize = ${Math.max(32, Math.round(plan.height * 0.06))};
+      headlineDocument.fontSize = ${headlineFontSize};
       headlineDocument.fillColor = [${text}];
       headlineDocument.applyFill = true;
       ${fontAssignment}
       headlineSource.setValue(headlineDocument);
       headlineLayer.property("ADBE Transform Group").property("ADBE Position").setValue([${Math.round(plan.width * headlineX)}, ${Math.round(plan.height * layout.headlineY)}]);
-      var headlineExposed = expose(headlineSource, comp);
-      var accentExposed = expose(accentProperty, comp);
-      var subtitleExposed = false;
-      ${subtitleLayer}
+      exposedControls.headline = expose(headlineSource, comp);
+      ${styleControls("Headline", "headlineLayer", headlineFontSize)}
+    `
+    : "";
+  const subtitleSection = plan.subtitle
+    ? `
+      var subtitleLayer = comp.layers.addText("${escapeForAfterEffects(plan.subtitle)}");
+      subtitleLayer.name = "Subtitle";
+      var subtitleSource = subtitleLayer.property("ADBE Text Properties").property("ADBE Text Document");
+      var subtitleDocument = subtitleSource.value;
+      subtitleDocument.fontSize = ${subtitleFontSize};
+      subtitleDocument.fillColor = [${text}];
+      subtitleDocument.applyFill = true;
+      ${subtitleFontAssignment}
+      subtitleSource.setValue(subtitleDocument);
+      subtitleLayer.property("ADBE Transform Group").property("ADBE Position").setValue([${Math.round(plan.width * subtitleX)}, ${Math.round(plan.height * layout.subtitleY)}]);
+      exposedControls.subtitle = expose(subtitleSource, comp);
+      ${styleControls("Subtitle", "subtitleLayer", subtitleFontSize)}
+    `
+    : "";
+
+  return buildAfterEffectsScript(`
+    function normalizedPath(value) {
+      return String(value).replace(/\\\\/g, "/").replace(/\\/+$/, "").toLowerCase();
+    }
+    function isInside(root, candidate) {
+      var normalizedRoot = normalizedPath(root);
+      var normalizedCandidate = normalizedPath(candidate);
+      return normalizedCandidate === normalizedRoot || normalizedCandidate.indexOf(normalizedRoot + "/") === 0;
+    }
+    function expose(property, comp, controlName) {
+      try {
+        if (!property || typeof property.addToMotionGraphicsTemplate !== "function") return false;
+        // AE API requires the CompItem argument for both canAdd and add calls
+        if (typeof property.canAddToMotionGraphicsTemplate === "function" && !property.canAddToMotionGraphicsTemplate(comp)) return false;
+        if (controlName && typeof property.addToMotionGraphicsTemplateAs === "function") return property.addToMotionGraphicsTemplateAs(comp, controlName) === true;
+        return property.addToMotionGraphicsTemplate(comp) === true;
+      } catch (exposeError) {
+        return false;
+      }
+    }
+    function exposeTransform(layer, comp, label) {
+      var transform = layer.property("ADBE Transform Group");
+      return {
+        position: expose(transform.property("ADBE Position"), comp, label + " Position"),
+        scale: expose(transform.property("ADBE Scale"), comp, label + " Scale"),
+        rotation: expose(transform.property("ADBE Rotate Z"), comp, label + " Rotation"),
+        anchorPoint: expose(transform.property("ADBE Anchor Point"), comp, label + " Anchor Point"),
+        opacity: expose(transform.property("ADBE Opacity"), comp, label + " Opacity")
+      };
+    }
+    function addControl(effects, matchName, name, value) {
+      var control = effects.addProperty(matchName);
+      control.name = name;
+      control.property(1).setValue(value);
+      return control.property(1);
+    }
+    function addTextStyleControls(layer, comp, label, fontSize, fillValue, styleExpression) {
+      var effects = layer.property("ADBE Effect Parade");
+      var sizeProperty = addControl(effects, "ADBE Slider Control", label + " Font Size", fontSize);
+      var fillProperty = addControl(effects, "ADBE Color Control", label + " Fill Color", fillValue);
+      var strokeColorProperty = addControl(effects, "ADBE Color Control", label + " Stroke Color", [0, 0, 0]);
+      var strokeWidthProperty = addControl(effects, "ADBE Slider Control", label + " Stroke Width", 0);
+      var expressionApplied = false;
+      try {
+        var source = layer.property("ADBE Text Properties").property("ADBE Text Document");
+        source.expression = styleExpression;
+        expressionApplied = source.expressionEnabled !== false && !source.expressionError;
+      } catch (styleExpressionError) {}
+      return {
+        styleExpressionApplied: expressionApplied,
+        fontSize: expose(sizeProperty, comp, label + " Font Size"),
+        fillColor: expose(fillProperty, comp, label + " Fill Color"),
+        strokeColor: expose(strokeColorProperty, comp, label + " Stroke Color"),
+        strokeWidth: expose(strokeWidthProperty, comp, label + " Stroke Width"),
+        fontFamilyEditable: false
+      };
+    }
+    var workspacePath = "${escapeForAfterEffects(plan.approved_workspace_path)}";
+    var outputDirectory = "${escapeForAfterEffects(plan.output_directory)}";
+    var outputPath = "${escapeForAfterEffects(plan.output_path)}";
+    var logoPath = "${escapeForAfterEffects(logoPath)}";
+    var placeholderPath = "${escapeForAfterEffects(placeholderPath)}";
+    var project = app.project;
+    if (!project || !project.file) return __aeError("Open a saved After Effects project inside approved_workspace_path before creating a MOGRT; this workflow never creates or replaces projects");
+    if (!isInside(workspacePath, project.file.fsName)) return __aeError("The open After Effects project is outside approved_workspace_path; no composition was created");
+    var destination = new Folder(outputDirectory);
+    if (!destination.exists) return __aeError("The approved output directory no longer exists; no composition was created");
+    var existing = new File(outputPath);
+    if (existing.exists) return __aeError("A MOGRT already exists at the planned output path; preview a new plan only after moving or deliberately replacing it");
+    var logoFile = logoPath ? new File(logoPath) : null;
+    if (logoFile && !logoFile.exists) return __aeError("The approved brand-kit logo no longer exists; preview the recipe again after restoring it");
+    var placeholderFile = placeholderPath ? new File(placeholderPath) : null;
+    if (placeholderFile && !placeholderFile.exists) return __aeError("The approved placeholder media no longer exists; preview the recipe again after restoring it");
+    if (placeholderFile && !isInside(workspacePath, placeholderFile.fsName)) return __aeError("The placeholder media resolved outside approved_workspace_path; no composition was created");
+    app.beginUndoGroup("Create ${escapeForAfterEffects(plan.template_name)} MOGRT");
+    try {
+      var comp = project.items.addComp("${escapeForAfterEffects(plan.template_name)}", ${plan.width}, ${plan.height}, 1, ${plan.duration_seconds}, ${plan.frame_rate});
+      comp.motionGraphicsTemplateName = "${escapeForAfterEffects(plan.template_name)}";
+      var exposedControls = { headline: false, subtitle: false, accentColor: false };
+      ${backingSection}
+      ${mediaSection}
+      ${headlineSection}
+      ${subtitleSection}
       var logoImported = false;
       if (logoFile) {
         var logoItem = project.importFile(new ImportOptions(logoFile));
@@ -353,6 +492,13 @@ export function buildMogrtRecipeScript(plan: MogrtPlan): string {
         logoLayer.name = "Brand logo";
         logoLayer.property("ADBE Transform Group").property("ADBE Position").setValue([${Math.round(plan.width * logoX)}, ${Math.round(plan.height * safeMargin * 1.7)}]);
         logoImported = true;
+      }
+      var controllerNames = [];
+      var controllerReadbackAvailable = typeof comp.motionGraphicsTemplateControllerCount === "number" && typeof comp.getMotionGraphicsTemplateControllerName === "function";
+      if (controllerReadbackAvailable) {
+        for (var controllerIndex = 1; controllerIndex <= comp.motionGraphicsTemplateControllerCount && controllerIndex <= 100; controllerIndex++) {
+          try { controllerNames.push(String(comp.getMotionGraphicsTemplateControllerName(controllerIndex))); } catch (controllerReadError) { controllerNames.push("<unreadable controller>"); }
+        }
       }
       project.save(project.file);
       var hostExportReturn = comp.exportAsMotionGraphicsTemplate(false, outputDirectory);
@@ -362,11 +508,15 @@ export function buildMogrtRecipeScript(plan: MogrtPlan): string {
         artifactExistsAtHostReturn: new File(outputPath).exists,
         outputPath: outputPath,
         recipe: "${plan.recipe}",
+        textControls: "${plan.text_controls}",
         projectMutated: true,
         brandKit: ${plan.brand_kit ? `{ name: "${escapeForAfterEffects(plan.brand_kit.name)}", fontRequested: ${JSON.stringify(plan.brand_kit.font_family ?? null)}, logoImported: logoImported, safeMarginPercent: ${plan.brand_kit.safe_margin_percent} }` : "null"},
-        exposedControls: { headline: headlineExposed, subtitle: subtitleExposed, accentColor: accentExposed },
+        exposedControls: exposedControls,
+        exposedControlNames: controllerNames,
+        exposedControlsReadbackAvailable: controllerReadbackAvailable,
+        fontFamilyEditNote: "The documented AE scripting API has no call that enables the Essential Graphics font-family or font-style edit flags; enable them in the AE Essential Graphics panel if required.",
         visualVerified: false,
-        verificationScope: "After Effects accepted the authoring request. Verify the local .mogrt artifact, import it into a disposable Premiere sequence, and inspect a rendered frame before delivery."
+        verificationScope: "After Effects accepted the authoring request and reported source-comp controller names. Verify the local .mogrt artifact, import it into a disposable Premiere sequence, and inspect the Essential Graphics panel and a rendered frame before delivery."
       });
     } finally {
       app.endUndoGroup();
@@ -460,14 +610,14 @@ export function getMogrtAuthoringTools(
       },
     },
     preview_mogrt_recipe: {
-      description: "Preview a bounded After Effects MOGRT recipe from the supported title, callout, quote, and social template library. It validates one existing workspace output directory but does not contact Adobe or write any files.",
+      description: "Preview a bounded After Effects MOGRT recipe from the supported title, callout, quote, social, and media-placeholder template library. It validates one existing workspace output directory but does not contact Adobe or write any files.",
       parameters: {
         type: "object" as const,
         additionalProperties: false,
         properties: {
           recipe: { type: "string", enum: MOGRT_RECIPES, description: "Supported authored template recipe; defaults to lower_third." },
           template_name: { type: "string", description: "Safe template file stem; the generated artifact is template_name.mogrt." },
-          headline: { type: "string", description: "Primary lower-third text, at most 160 characters." },
+          headline: { type: "string", description: "Primary headline text, at most 160 characters. Required for text recipes; optional caption for media_placeholder." },
           subtitle: { type: "string", description: "Optional secondary lower-third text, at most 160 characters." },
           accent_color: { type: "string", description: "Optional accent fill color as #RRGGBB; defaults to #2563EB." },
           text_color: { type: "string", description: "Optional text color as #RRGGBB; defaults to #FFFFFF." },
@@ -477,6 +627,8 @@ export function getMogrtAuthoringTools(
           frame_rate: { type: "number", enum: [23.976, 24, 25, 29.97, 30, 50, 59.94, 60], description: "Composition frame rate; defaults to 30." },
           approved_workspace_path: { type: "string", description: "Absolute operator-approved workspace root containing the saved AE project and output directory." },
           output_directory: { type: "string", description: "Existing absolute output directory inside approved_workspace_path; this workflow never creates directories." },
+          text_controls: { type: "string", enum: MOGRT_TEXT_CONTROL_MODES, description: "full (default) also exposes per-text-layer Font Size, Fill Color, Stroke Color, Stroke Width, Position, Scale, Rotation, Anchor Point, and Opacity controls; text_only exposes only the text strings." },
+          placeholder_media_path: { type: "string", description: "Required for media_placeholder: absolute workspace-contained PNG, JPEG, MOV, or MP4 placed as the swappable Essential Graphics media slot." },
           brand_kit: {
             type: "object",
             additionalProperties: false,
@@ -512,7 +664,10 @@ export function getMogrtAuthoringTools(
             expiresInSeconds: PLAN_TTL_MS / 1000,
             changes: [
               `Create one ${plan.recipe.replaceAll("_", " ")} composition in the open saved After Effects project.`,
-              "Expose the bounded headline, optional subtitle, and accent-color controls.",
+              plan.recipe === "media_placeholder"
+                ? "Import the approved placeholder media, request a replaceable Essential Graphics media slot, and expose its transform controls."
+                : "Expose the bounded headline, optional subtitle, and accent-color controls.",
+              ...(plan.text_controls === "full" && plan.headline ? ["Expose font size, fill, stroke, position, scale, rotation, anchor point, and opacity controls for each text layer."] : []),
               "Save the open project and request a .mogrt export at the planned output path.",
             ],
             verificationScope: "This is a local preview only. It does not connect to After Effects, inspect the active project, or create a composition or file.",
