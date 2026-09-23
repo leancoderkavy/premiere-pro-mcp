@@ -1323,7 +1323,7 @@
       const wantedId = input.projectItemId || "", wantedName = input.projectItemName || "";
       if (!wantedId && !wantedName) return selectedClipProjectItem(project);
       if (typeof project.getRootItem !== "function") throw commandError("UXP_COMMAND_UNAVAILABLE", "This Premiere build cannot enumerate project items");
-      const root = await project.getRootItem();
+      const root = folderView(await project.getRootItem());
       const queue = root ? [root] : [], nameMatches = [];
       while (queue.length) {
         const folder = queue.shift();
@@ -1335,7 +1335,9 @@
           if (!wantedId && wantedName && String(item.name || "") === wantedName) {
             try { nameMatches.push(castClipProjectItem(item)); } catch (_) {}
           }
-          if (isFolderItem(item)) queue.push(item);
+          // Items from getItems() are ProjectItems; nested bins only expose getItems() after FolderItem.cast.
+          const folderItem = folderView(item);
+          if (folderItem) queue.push(folderItem);
         }
       }
       if (wantedId) throw commandError("UXP_TARGET_NOT_FOUND", "projectItemId was not found or is not a media clip");
@@ -1364,22 +1366,30 @@
       } catch (_) {}
       throw commandError("UXP_TARGET_NOT_FOUND", "Resolved project item is not a media clip");
     }
-    function isFolderItem(item) {
-      if (!ppro.FolderItem || typeof ppro.FolderItem.cast !== "function") return false;
-      try { return !!ppro.FolderItem.cast(item); } catch (_) { return false; }
+    function folderView(item) {
+      if (!item) return null;
+      if (ppro.FolderItem && typeof ppro.FolderItem.cast === "function") {
+        try {
+          const folder = ppro.FolderItem.cast(item);
+          if (folder && typeof folder.getItems === "function") return folder;
+        } catch (_) {}
+      }
+      return typeof item.getItems === "function" ? item : null;
     }
     async function projectItemIdentifier(item) {
-      let projectItem = item;
-      if (ppro.ProjectItem && typeof ppro.ProjectItem.cast === "function") {
-        try { projectItem = ppro.ProjectItem.cast(item) || item; } catch (_) {}
+      // Match the sibling source/proxy lookups: prefer a direct getId, then ProjectItem.cast.
+      let projectItem = item && typeof item.getId === "function" ? item : null;
+      if (!projectItem && item && ppro.ProjectItem && typeof ppro.ProjectItem.cast === "function") {
+        try { projectItem = ppro.ProjectItem.cast(item) || null; } catch (_) {}
       }
       if (!projectItem || typeof projectItem.getId !== "function") return "";
-      const id = await projectItem.getId();
+      let id;
+      try { id = await projectItem.getId(); } catch (_) { return ""; }
       return id == null ? "" : String(id);
     }
     async function projectItemInventory(project) {
       if (typeof project.getRootItem !== "function") throw commandError("UXP_COMMAND_UNAVAILABLE", "This Premiere build cannot enumerate project items for subclip verification");
-      const root = await project.getRootItem(), queue = root ? [root] : [], items = [];
+      const root = folderView(await project.getRootItem()), queue = root ? [root] : [], items = [];
       while (queue.length) {
         const folder = queue.shift();
         if (!folder || typeof folder.getItems !== "function") continue;
@@ -1387,7 +1397,8 @@
         for (let i = 0; i < children.length; i += 1) {
           const item = children[i];
           items.push({ id: await projectItemIdentifier(item), name: String(item.name || ""), item });
-          if (isFolderItem(item)) queue.push(item);
+          const folderItem = folderView(item);
+          if (folderItem) queue.push(folderItem);
         }
       }
       return items;
