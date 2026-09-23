@@ -943,6 +943,25 @@ describe("stable Premiere UXP workflow expansion", () => {
     expect(disclosed.omittedSensitiveCount).toBe(0);
   });
 
+  it("resolves metadata field targets inside nested bins by id and name through FolderItem.cast (#612)", async () => {
+    const value = stableHost();
+    value.setMetadataPackets({ xmp: `${DC_NS}\tdescription\tA clip` });
+    // Nested bins come back from getItems() as ProjectItem views without getItems().
+    const binFolder = { isFolder: true, getItems: vi.fn(async () => [value.sourceClip]) };
+    const binItem = { name: "Selects", getId: vi.fn(async () => "bin-1") };
+    const root = { isFolder: true, getItems: vi.fn(async () => [binItem]) };
+    value.project.getRootItem.mockResolvedValue(root);
+    value.ppro.FolderItem.cast.mockImplementation((item: { isFolder?: boolean }) => {
+      if (item === binItem) return binFolder;
+      if (item.isFolder) return item;
+      throw new Error("not folder");
+    });
+    await expect(value.registry.dispatch("metadata.fields.inspect", { projectItemId: "source-1" }))
+      .resolves.toMatchObject({ fields: expect.arrayContaining([expect.objectContaining({ name: "description" })]) });
+    await expect(value.registry.dispatch("metadata.fields.inspect", { projectItemName: "Interview.mov" }))
+      .resolves.toMatchObject({ fields: expect.arrayContaining([expect.objectContaining({ name: "description" })]) });
+  });
+
   it("updates one metadata field through a complete packet write with field readback", async () => {
     const value = stableHost();
     value.setMetadataPackets({

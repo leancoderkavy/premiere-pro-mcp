@@ -87,6 +87,31 @@ describe("Adobe Premiere Pro 26.3 UXP commands", () => {
     );
   });
 
+  it("resolves subclip sources inside nested bins by id and name through FolderItem.cast (#613)", async () => {
+    const nestedHost = async () => {
+      const value = adobe263Host();
+      // Premiere returns nested bins from getItems() as ProjectItem views without getItems();
+      // only the FolderItem.cast view can enumerate the bin's children.
+      const binFolder = { isFolder: true, getItems: vi.fn(async () => [value.source]) };
+      const binItem = { name: "Selects", getId: vi.fn(() => "bin-1") };
+      const rootItems = await (await value.project.getRootItem()).getItems() as unknown[];
+      rootItems.splice(0, rootItems.length, binItem);
+      value.ppro.FolderItem.cast.mockImplementation((item: unknown) => {
+        if (item === binItem) return binFolder;
+        if ((item as { isFolder?: boolean }).isFolder) return item;
+        throw new Error("not a folder");
+      });
+      return value;
+    };
+    for (const target of [{ projectItemId: "source-1" }, { projectItemName: "Interview" }]) {
+      const value = await nestedHost();
+      await expect(value.registry.dispatch("subclip.create", {
+        ...target, name: "Nested Select", startSeconds: 1, endSeconds: 2,
+      })).resolves.toMatchObject({ created: true, outcome: "verified", subclip: { projectItemId: "subclip-1" } });
+      expect(value.source.createSubClipAction).toHaveBeenCalledTimes(1);
+    }
+  });
+
   it("returns stable marker GUIDs, redacts optional values by default, and opts in to documented link and raw color readback", async () => {
     const value = adobe263Host();
     await expect(value.registry.dispatch("marker.list", {})).resolves.toMatchObject({
