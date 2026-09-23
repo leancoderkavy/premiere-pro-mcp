@@ -32,11 +32,11 @@ if (!npmPackage || manifest.name !== packageJson.mcpName) {
     const [npmResponse, registryResponse] = await Promise.all([
       fetch(npmUrl, {
         headers: { accept: "application/json" },
-        signal: AbortSignal.timeout(10_000),
+        signal: AbortSignal.timeout(30_000),
       }),
       fetch(registryUrl, {
         headers: { accept: "application/json" },
-        signal: AbortSignal.timeout(10_000),
+        signal: AbortSignal.timeout(30_000),
       }),
     ]);
 
