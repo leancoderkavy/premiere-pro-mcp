@@ -830,6 +830,15 @@ describe("issue #615 — encode_file passes natively typed arguments", () => {
     expect(range).toContain("srcOut.seconds = 3;");
   });
 
+  it("passes a Boolean removal flag to encodeProjectItem", async () => {
+    const item = { item_id: "item-1", output_path: "/tmp/render.mp4", preset_path: "/tmp/preset.epr" };
+    const keep = await scriptFor(exports.encode_project_item, { ...item, remove_on_completion: false });
+    const remove = await scriptFor(exports.encode_project_item, item);
+
+    expect(keep).toMatch(/ENCODE_IN_TO_OUT,\s*false\s*\)/);
+    expect(remove).toMatch(/ENCODE_IN_TO_OUT,\s*true\s*\)/);
+  });
+
   it("escapes a user preset path before embedding it", async () => {
     const script = await scriptFor(exports.encode_file, { ...base, preset_path: 'C:\\p\\a"b.epr' });
     expect(script).toContain('new File("C:\\\\p\\\\a\\"b.epr")');

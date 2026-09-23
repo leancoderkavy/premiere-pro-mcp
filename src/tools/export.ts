@@ -1450,7 +1450,7 @@ export function getExportTools(bridgeOptions: BridgeOptions) {
             outputFile.fsName,
             "${escapeForExtendScript(args.preset_path)}",
             app.encoder.ENCODE_IN_TO_OUT,
-            ${args.remove_on_completion !== false ? 1 : 0}
+            ${args.remove_on_completion !== false ? "true" : "false"}
           );
           if (!jobId || String(jobId) === "0") return __error("Adobe Media Encoder did not queue the project-item export.");
           app.encoder.startBatch();
