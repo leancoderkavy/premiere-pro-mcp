@@ -514,7 +514,8 @@ export function getMetadataTools(bridgeOptions: BridgeOptions) {
           } catch (e) {
             return __error("Premiere could not load the Adobe XMP library; no metadata was changed: " + e.toString());
           }
-          if (typeof XMPMeta !== "function" || typeof XMPUtils === "undefined" || typeof XMPUtils.appendProperties !== "function") {
+          if (typeof XMPMeta !== "function" || typeof XMPUtils === "undefined" || typeof XMPUtils.appendProperties !== "function" ||
+              typeof XMPConst === "undefined" || typeof XMPConst.APPEND_ALL_PROPERTIES !== "number" || typeof XMPConst.APPEND_REPLACE_OLD_VALUES !== "number") {
             return __error("Premiere's XMP merge APIs are unavailable; no metadata was changed.");
           }
 
@@ -525,7 +526,9 @@ export function getMetadataTools(bridgeOptions: BridgeOptions) {
             var patchXmp = new XMPMeta("${escapeForExtendScript(args.xmp_xml)}");
             // Copy every supplied top-level field into the existing packet, replacing
             // only fields named by the patch and retaining unrelated metadata.
-            XMPUtils.appendProperties(patchXmp, existingXmp, true, true, false);
+            // AdobeXMPScript signature: appendProperties(source, dest, options: Number).
+            var appendOptions = XMPConst.APPEND_ALL_PROPERTIES | XMPConst.APPEND_REPLACE_OLD_VALUES;
+            XMPUtils.appendProperties(patchXmp, existingXmp, appendOptions);
             item.setXMPMetadata(existingXmp.serialize());
 
             // Reparse the host readback so a malformed or rejected packet never
