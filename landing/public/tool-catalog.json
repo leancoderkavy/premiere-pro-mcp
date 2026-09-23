@@ -3,7 +3,7 @@
   "evidenceScope": "source_catalog_may_include_unreleased_work",
   "sourceVersion": "1.17.0",
   "sourcePath": "docs/supported-actions.md",
-  "sourceSha256": "c9afb01f21bdd2a3b0fa53ea2fea3b32f56f565ad707f620a817247e7705af3f",
+  "sourceSha256": "b8fe0219e86a9c5767c07945254eb340c7d66d030fc021b75e2b111f56c8cf10",
   "hostVerification": "not_established_by_catalogs",
   "counts": {
     "default": 382,
@@ -1011,7 +1011,7 @@
       "name": "get_mogrt_component",
       "surface": "default",
       "modes": "Single operation",
-      "description": "Get MOGRT (Motion Graphics Template) component parameters from a clip"
+      "description": "Get MOGRT (Motion Graphics Template) component parameters from a clip. Each parameter includes textValue (visible text extracted from textEditValue when present). Pass expected_values to audit text controls such as Headline; the result flags verified, mismatch, or missing_property per field. Reads the stored property, not the Essential Graphics panel display, which Premiere can show stale (host UI behavior this tool cannot refresh)."
     },
     {
       "name": "get_next_edit_point",
@@ -1269,7 +1269,7 @@
       "name": "import_mogrt",
       "surface": "default",
       "modes": "Single operation",
-      "description": "Import a Motion Graphics Template (.mogrt) file and add it to the timeline"
+      "description": "Import a Motion Graphics Template (.mogrt) file and add it to the timeline. Pass text_values (for example { \"Headline\": \"...\" }) to write each text control explicitly after insertion and verify it by readback, so a template default or stale value is never left in place silently."
     },
     {
       "name": "import_mogrt_from_library",

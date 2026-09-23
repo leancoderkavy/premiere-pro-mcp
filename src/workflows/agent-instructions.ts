@@ -29,6 +29,8 @@ export function buildPremiereInstructions(registeredTools: ReadonlySet<string>):
     "Preflight the requested destination and preset, export, then verify the actual file and delivery requirements. Queue acceptance is not render completion.");
   route(["plan_reaction_captions", "plan_short_subscribe_cta", "plan_short_export_folder"],
     "For reaction Shorts, plan stacked speaker-colored captions without guessing unknown colors, place a subscribe overlay about two-thirds through, and export into a series-named folder created if missing. Caption-track import cannot encode speaker colors; apply reviewed graphics or a MOGRT, and keep Cafe styling off Watch Club kits.");
+  route(["import_mogrt", "get_mogrt_component"],
+    "When building MOGRT title cards, pass text_values so every text control (for example Headline) is written explicitly and read back; never rely on template defaults or a prior build. Audit a series with get_mogrt_component expected_values. The Essential Graphics panel can display stale text; trust the stored-property readback and a captured frame, not the panel.");
   route(["inspect_project_panel_metadata_uxp"],
     "Read visible Project-panel columns as JSON (item_columns) or the panel layout XML (panel). Column JSON is the current view, not every XMP namespace.");
   route(["get_metadata", "get_xmp_metadata"],

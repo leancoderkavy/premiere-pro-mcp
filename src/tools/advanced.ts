@@ -3,6 +3,7 @@ import {
   escapeForExtendScript,
 } from "../bridge/script-builder.js";
 import { sendCommand, BridgeOptions } from "../bridge/file-bridge.js";
+import { compareMogrtText, extractMogrtText, summarizeMogrtText, validateMogrtTextMap } from "./mogrt-text.js";
 import { SPEED_UNAVAILABLE_DESCRIPTION, SPEED_UNAVAILABLE_ERROR } from "./timeline.js";
 
 export function getAdvancedTools(bridgeOptions: BridgeOptions) {
@@ -1605,7 +1606,7 @@ export function getAdvancedTools(bridgeOptions: BridgeOptions) {
 
     get_mogrt_component: {
       description:
-        "Get MOGRT (Motion Graphics Template) component parameters from a clip",
+        "Get MOGRT (Motion Graphics Template) component parameters from a clip. Each parameter includes textValue (visible text extracted from textEditValue when present). Pass expected_values to audit text controls such as Headline; the result flags verified, mismatch, or missing_property per field. Reads the stored property, not the Essential Graphics panel display, which Premiere can show stale (host UI behavior this tool cannot refresh).",
       parameters: {
         type: "object" as const,
         properties: {
@@ -1613,10 +1614,17 @@ export function getAdvancedTools(bridgeOptions: BridgeOptions) {
             type: "string",
             description: "Node ID of the MOGRT clip on the timeline",
           },
+          expected_values: {
+            type: "object",
+            description:
+              "Optional read-only audit map of MOGRT text parameter display names to the text each should contain (for example { \"Headline\": \"Chapter 3\" }). Result audit.status is verified, mismatch, or missing_property.",
+            additionalProperties: { type: "string" },
+          },
         },
         required: ["node_id"],
       },
-      handler: async (args: { node_id: string }) => {
+      handler: async (args: { node_id: string; expected_values?: Record<string, string> }) => {
+        const expected = validateMogrtTextMap(args.expected_values, "expected_values");
         const script = buildToolScript(`
           var result = __findClip("${escapeForExtendScript(args.node_id)}");
           if (!result) return __error("Clip not found");
@@ -1635,7 +1643,25 @@ export function getAdvancedTools(bridgeOptions: BridgeOptions) {
           
           return __result({ clipName: result.clip.name, parameters: params });
         `);
-        return sendCommand(script, bridgeOptions);
+        const response = await sendCommand(script, bridgeOptions);
+        if (!response.success) return response;
+        const data = (response.data ?? {}) as Record<string, unknown>;
+        const rawParams = Array.isArray(data.parameters) ? (data.parameters as Array<Record<string, unknown>>) : [];
+        const parameters: Array<Record<string, unknown>> = rawParams.map((p) => ({ ...p, textValue: extractMogrtText(p.value) }));
+        if (!expected) return { ...response, data: { ...data, parameters } };
+        const checks = compareMogrtText(expected, parameters);
+        return {
+          ...response,
+          data: {
+            ...data,
+            parameters,
+            audit: {
+              status: summarizeMogrtText(checks),
+              checks,
+              scope: "Stored MOGRT property values only; the Essential Graphics panel display is not read.",
+            },
+          },
+        };
       },
     },
   };
