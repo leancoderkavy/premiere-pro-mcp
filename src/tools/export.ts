@@ -1155,8 +1155,8 @@ export function getExportTools(bridgeOptions: BridgeOptions) {
             seq,
             outputPath,
             presetPath,
-            0, // workAreaType
-            1  // removeOnCompletion
+            0, // workAreaType (Number)
+            true // removeUponCompletion (Boolean; Premiere type-checks this natively)
           );
           if (!jobId || String(jobId) === "0") return __error("Adobe Media Encoder did not queue the sequence export.");
           
@@ -1666,7 +1666,7 @@ export function getExportTools(bridgeOptions: BridgeOptions) {
                  // Adobe Media Encoder; the result is attached in a separate step once
                  // AME has finished writing the file.
                  app.encoder.launchEncoder();
-                 var jobId = app.encoder.encodeProjectItem(item, outputPath, presetPath, app.encoder.ENCODE_ENTIRE, 1);
+                 var jobId = app.encoder.encodeProjectItem(item, outputPath, presetPath, app.encoder.ENCODE_ENTIRE, true);
                  if (!jobId || String(jobId) === "0") return __error("Adobe Media Encoder did not queue the proxy encode.");
                  app.encoder.startBatch();
 

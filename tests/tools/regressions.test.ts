@@ -840,6 +840,25 @@ describe("issue #615 — encode_file passes natively typed arguments", () => {
     expect(remove).toMatch(/ENCODE_IN_TO_OUT,\s*true\s*\)/);
   });
 
+  it("passes a Boolean removal flag from manage_proxies create and encodeSequence", async () => {
+    const proxy = await scriptFor(exports.manage_proxies, {
+      item_id: "item-1",
+      action: "create",
+      output_path: "/tmp/proxy.mov",
+      preset_path: "/tmp/proxy.epr",
+    });
+    const queued = await scriptFor(exports.add_to_render_queue, {
+      output_path: "/tmp/render.mp4",
+      preset_path: temporaryPreset(),
+    });
+
+    expect(proxy).toMatch(/ENCODE_ENTIRE,\s*true\s*\)/);
+    expect(proxy).not.toMatch(/ENCODE_ENTIRE,\s*1\s*\)/);
+    expect(queued).toContain("encoder.encodeSequence(");
+    expect(queued).toContain("true // removeUponCompletion");
+    expect(queued).not.toMatch(/encodeSequence\([\s\S]*\b1\s*\/\/\s*removeOnCompletion/);
+  });
+
   it("escapes a user preset path before embedding it", async () => {
     const script = await scriptFor(exports.encode_file, { ...base, preset_path: 'C:\\p\\a"b.epr' });
     expect(script).toContain('new File("C:\\\\p\\\\a\\"b.epr")');
