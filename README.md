@@ -50,7 +50,7 @@ The [completed AE render handoff](docs/after-effects-render-handoff.md) previews
   - [Configure your MCP client](#3-configure-your-mcp-client)
   - [Verify the bridge in Premiere Pro](#4-verify-the-bridge-in-premiere-pro)
 - [Clients and capability coverage](#codex-plugin)
-  - [Codex plugin](#codex-plugin) · [Claude](#claude) · [GPT-6 Astra tool discovery](#gpt-6-astra-and-agent-tool-discovery) · [Claude Fable 5.1](#claude-fable-51)
+  - [Codex plugin](#codex-plugin) · [Claude](#claude) · [GPT-6 Astra tool discovery](#gpt-6-astra-and-agent-tool-discovery) · [GPT-6 Sol and Luna](#gpt-6-sol-and-gpt-6-luna) · [Claude Fable 5.1](#claude-fable-51) · [Claude Opus 5.5](#claude-opus-55)
   - [Windows and macOS capability coverage](#windows-and-macos-capability-coverage)
   - [After Effects MOGRT studio](#after-effects-mogrt-studio)
   - [Collaboration and AI feature boundaries](#collaboration-and-ai-feature-boundaries)
@@ -554,6 +554,13 @@ default to tools registered under the current authority and tool packs.
 See [GPT-6 Astra workflows](docs/gpt-6-astra.md) for evidence retrieval, visual
 review, execution ordering, and the division between MCP and client capabilities.
 
+### GPT-6 Sol and GPT-6 Luna
+
+Use the Codex plugin with `codex --model gpt-6-sol` for multi-step agentic edits,
+or `codex --model gpt-6-luna` for focused, high-volume inspection passes, when
+your account has access. Both call the same MCP tools under the same authority,
+preview, and readback rules. See [GPT-6 Sol and Luna workflows](docs/gpt-6-sol-luna.md).
+
 ### Claude
 
 For Claude Code, add this repository as a marketplace and install the plugin:
@@ -603,6 +610,14 @@ See [Claude Fable 5.1 workflows](docs/claude-fable-5-1.md) for connection order,
 privacy boundaries, evidence retrieval, Cursor's Opus fallback, and the division
 between MCP and client capabilities. The public walkthrough is
 [How to Use Claude Fable 5.1 with MCP for Adobe Premiere Pro](https://premiere-pro-mcp.com/blog/claude-fable-5-1-premiere-pro-mcp/).
+
+### Claude Opus 5.5
+
+Use Claude Code, Claude Desktop, or Cursor with Claude Opus 5.5
+(`claude-opus-5-5`) when your account has access. Model selection belongs to the
+client; this server does not run an Anthropic model. Opus 5.5 is optional. Keep
+Premiere mutations serialized and preview before apply. See
+[Claude Opus 5.5 workflows](docs/claude-opus-5-5.md).
 
 ### Windows and macOS capability coverage
 
