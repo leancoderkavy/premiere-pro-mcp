@@ -802,6 +802,40 @@ describe("issue #238 — AME uses canonical paths and documented encodeFile posi
   });
 });
 
+// https://github.com/leancoderkavy/premiere-pro-mcp/issues/615
+describe("issue #615 — encode_file passes natively typed arguments", () => {
+  const exports = getExportTools(bridgeOptions);
+  const base = { input_path: "/tmp/source.mov", output_path: "/tmp/render.mp4", preset_path: "/tmp/preset.epr" };
+
+  it("passes String paths, a Boolean removal flag, and Time in/out points", async () => {
+    const script = await scriptFor(exports.encode_file, base);
+
+    expect(script).toContain('var presetFile = new File("/tmp/preset.epr")');
+    expect(script).toContain("if (!presetFile.exists) return __error");
+    expect(script).toContain("var removeUponCompletion = true;");
+    expect(script).toMatch(
+      /encodeFile\(\s*String\(inputFile\.fsName\),\s*String\(outputFile\.fsName\),\s*String\(presetFile\.fsName\),\s*workArea,\s*removeUponCompletion,\s*srcIn,\s*srcOut\s*\)/,
+    );
+    expect(script).not.toMatch(/workArea,\s*[01],/);
+  });
+
+  it("emits a false Boolean when remove_on_completion is false, with or without a range", async () => {
+    const noRange = await scriptFor(exports.encode_file, { ...base, remove_on_completion: false });
+    const range = await scriptFor(exports.encode_file, { ...base, remove_on_completion: false, in_seconds: 1, out_seconds: 3 });
+
+    for (const script of [noRange, range]) {
+      expect(script).toContain("var removeUponCompletion = false;");
+    }
+    expect(range).toContain("srcIn.seconds = 1;");
+    expect(range).toContain("srcOut.seconds = 3;");
+  });
+
+  it("escapes a user preset path before embedding it", async () => {
+    const script = await scriptFor(exports.encode_file, { ...base, preset_path: 'C:\\p\\a"b.epr' });
+    expect(script).toContain('new File("C:\\\\p\\\\a\\"b.epr")');
+  });
+});
+
 // https://github.com/leancoderkavy/premiere-pro-mcp/issues/322
 describe("issue #322 — marker filtering retains the requested sequence collection", () => {
   const utility = getUtilityTools(bridgeOptions);
