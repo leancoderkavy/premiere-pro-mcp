@@ -6,6 +6,28 @@ import { product } from "@/lib/product"
 
 const releases = [
   {
+    version: "1.18.0",
+    date: "2026-09-23",
+    label: "MOGRT text and media controls, export and metadata fixes",
+    groups: [
+      { title: "Added", items: [
+        "MOGRT text recipes expose Font Size, Stroke Width, Fill and Stroke Color, and named transform controls by default; text_only keeps the old behavior.",
+        "media_placeholder MOGRT recipe with a replaceable media slot and transform controls. Not verified on a live host.",
+        "import_mogrt text_values writes and reads back each text control; get_mogrt_component audits stale Headline values."
+      ] },
+      { title: "Fixed", items: [
+        "encode_file and encode_project_item pass native argument types instead of failing with Illegal Parameter type.",
+        "set_xmp_metadata no longer fails with Bad argument list.",
+        "manage_proxies skips Same as Project presets during auto-discovery.",
+        "UXP metadata and subclip tools find items inside nested bins; set_scale_to_frame_size accepts timeline clip IDs."
+      ] },
+      { title: "Known limitations", items: [
+        "The Essential Graphics panel can show a stale Headline after a text write (#616 open). Font-family editing is not scriptable."
+      ] },
+      { title: "Verification scope", items: ["Fixes are covered by mocked automated tests only; no licensed-host verification."] }
+    ],
+  },
+  {
     version: "1.17.0",
     date: "2026-09-21",
     label: "Clip duration, paste attributes, mask fit, and targeting fixes",

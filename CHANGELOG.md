@@ -6,6 +6,49 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [1.18.0] - 2026-09-23
+
+### Added
+
+- MOGRT text recipes default to `text_controls: "full"`: each text layer exposes
+  Font Size, Stroke Width, Fill Color, and Stroke Color controls plus named
+  Position, Scale, Rotation, Anchor Point, and Opacity Essential Graphics
+  controls. The create result reads back source-comp controller names.
+  `text_only` keeps the previous behavior. Font-family editing is not scriptable
+  and is reported as a known gap. (#618)
+- `media_placeholder` MOGRT recipe imports a workspace-contained PNG, JPEG, MOV,
+  or MP4, requests a replaceable Essential Graphics media slot, and exposes its
+  transform controls. Not verified on a live After Effects or Premiere host.
+  (#619)
+- `import_mogrt` accepts `text_values`, writes each named text control after
+  insertion (replacing only the text value so styling is kept), and reports
+  `verified`, `mismatch`, `missing_property`, or `committed_unverified` per
+  field. `get_mogrt_component` returns `textValue` for every parameter and an
+  optional `expected_values` audit that flags stale Headline text. (#617)
+
+### Fixed
+
+- `encode_file` and `encode_project_item` pass natively typed arguments (String
+  paths, Boolean removal flag, Time in/out), fixing "Illegal Parameter type";
+  `encode_file` fails early when the preset file is missing. (#615)
+- `set_xmp_metadata` passes numeric `XMPConst` options to
+  `XMPUtils.appendProperties`, fixing "Bad argument list". (#611)
+- `manage_proxies` auto-discovery skips "Same as Project" proxy presets whose
+  output never reached `output_path`, and asks for `preset_path` when no safe
+  preset exists. (#610)
+- `manage_metadata_uxp` and `create_subclip_uxp` find items inside nested bins.
+  (#612, #613)
+- `set_scale_to_frame_size` accepts timeline clip IDs and reports `verified` or
+  `committed_unverified`. (#614)
+
+### Known limitations
+
+- The Essential Graphics panel can display a stale Headline after a MOGRT text
+  write. The tools read stored values and cannot refresh the host panel (#616
+  remains open).
+- These fixes are covered by mocked automated tests only; they are not verified
+  on a licensed Premiere or After Effects host.
+
 ## [1.17.0] - 2026-09-21
 
 ### Added
