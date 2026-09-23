@@ -179,6 +179,7 @@ describe("issue #7 — no calls to nonexistent ExtendScript methods", () => {
       item_id: "clip1",
       action: "create",
       output_path: "/tmp/proxy.mov",
+      preset_path: "/tmp/proxy.epr",
     });
 
     // ProjectItem has no createProxy(); proxies must go through Media Encoder.
@@ -306,7 +307,7 @@ describe("script-builder helpers used by the fixes are actually defined", () => 
       "function __firstWrittenFile(",
       "function __findStillPreset(",
       "function __collectAllPresets(",
-      "function __findProxyPreset(",
+      "function __listProxyPresetCandidates(",
       "function __findH264Preset(",
       "function __adobeAppFolders(",
       "function __collectEprFiles(",
@@ -799,6 +800,49 @@ describe("issue #238 — AME uses canonical paths and documented encodeFile posi
     expect(range).toContain("workArea,");
     expect(range).not.toContain("var srcIn = undefined");
     expect(range).toContain("var jobId = app.encoder.encodeFile");
+  });
+});
+
+// https://github.com/leancoderkavy/premiere-pro-mcp/issues/615
+describe("issue #615 — encode_file passes natively typed arguments", () => {
+  const exports = getExportTools(bridgeOptions);
+  const base = { input_path: "/tmp/source.mov", output_path: "/tmp/render.mp4", preset_path: "/tmp/preset.epr" };
+
+  it("passes String paths, a Boolean removal flag, and Time in/out points", async () => {
+    const script = await scriptFor(exports.encode_file, base);
+
+    expect(script).toContain('var presetFile = new File("/tmp/preset.epr")');
+    expect(script).toContain("if (!presetFile.exists) return __error");
+    expect(script).toContain("var removeUponCompletion = true;");
+    expect(script).toMatch(
+      /encodeFile\(\s*String\(inputFile\.fsName\),\s*String\(outputFile\.fsName\),\s*String\(presetFile\.fsName\),\s*workArea,\s*removeUponCompletion,\s*srcIn,\s*srcOut\s*\)/,
+    );
+    expect(script).not.toMatch(/workArea,\s*[01],/);
+  });
+
+  it("emits a false Boolean when remove_on_completion is false, with or without a range", async () => {
+    const noRange = await scriptFor(exports.encode_file, { ...base, remove_on_completion: false });
+    const range = await scriptFor(exports.encode_file, { ...base, remove_on_completion: false, in_seconds: 1, out_seconds: 3 });
+
+    for (const script of [noRange, range]) {
+      expect(script).toContain("var removeUponCompletion = false;");
+    }
+    expect(range).toContain("srcIn.seconds = 1;");
+    expect(range).toContain("srcOut.seconds = 3;");
+  });
+
+  it("passes a Boolean removal flag to encodeProjectItem", async () => {
+    const item = { item_id: "item-1", output_path: "/tmp/render.mp4", preset_path: "/tmp/preset.epr" };
+    const keep = await scriptFor(exports.encode_project_item, { ...item, remove_on_completion: false });
+    const remove = await scriptFor(exports.encode_project_item, item);
+
+    expect(keep).toMatch(/ENCODE_IN_TO_OUT,\s*false\s*\)/);
+    expect(remove).toMatch(/ENCODE_IN_TO_OUT,\s*true\s*\)/);
+  });
+
+  it("escapes a user preset path before embedding it", async () => {
+    const script = await scriptFor(exports.encode_file, { ...base, preset_path: 'C:\\p\\a"b.epr' });
+    expect(script).toContain('new File("C:\\\\p\\\\a\\"b.epr")');
   });
 });
 
