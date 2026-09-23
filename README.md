@@ -110,7 +110,7 @@ The current source exposes 384 core tools for supported workflow steps spanning 
 
 ### Latest release: 1.18.0
 
-The published v1.17.0 npm artifact contains **384 core tools**, 382 in its default profile,
+The published v1.18.0 npm artifact contains **384 core tools**, 382 in its default profile,
 and 477 with a compatible UXP connection. The development catalog above can include
 unreleased work. See the [versioned facts and package provenance](https://premiere-pro-mcp.com/facts/).
 
@@ -531,11 +531,11 @@ From a clone of this repository:
 ```bash
 codex plugin marketplace add .
 codex plugin add premiere-pro@premiere-pro-mcp
-npx -y premiere-pro-mcp@1.17.0 --install-cep
+npx -y premiere-pro-mcp@1.18.0 --install-cep
 ```
 
 Restart Premiere Pro and start a new Codex session after installation. The plugin
-launches `premiere-pro-mcp@1.17.0` through `npx`; the separate CEP installation is
+launches `premiere-pro-mcp@1.18.0` through `npx`; the separate CEP installation is
 required because the MCP server communicates with the running Premiere host through
 the local bridge.
 
@@ -566,7 +566,7 @@ For Claude Code, add this repository as a marketplace and install the plugin:
 Then install the Premiere bridge and start a new Claude Code session:
 
 ```bash
-npx -y premiere-pro-mcp@1.17.0 --install-cep
+npx -y premiere-pro-mcp@1.18.0 --install-cep
 ```
 
 The Claude Code package lives in
