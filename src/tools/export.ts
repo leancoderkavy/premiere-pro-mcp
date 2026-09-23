@@ -1450,7 +1450,7 @@ export function getExportTools(bridgeOptions: BridgeOptions) {
             outputFile.fsName,
             "${escapeForExtendScript(args.preset_path)}",
             app.encoder.ENCODE_IN_TO_OUT,
-            ${args.remove_on_completion !== false ? 1 : 0}
+            ${args.remove_on_completion !== false ? "true" : "false"}
           );
           if (!jobId || String(jobId) === "0") return __error("Adobe Media Encoder did not queue the project-item export.");
           app.encoder.startBatch();
@@ -1540,13 +1540,18 @@ export function getExportTools(bridgeOptions: BridgeOptions) {
           var srcOut = new Time();
           srcOut.seconds = ${outSeconds};
           var workArea = ${hasRange ? 1 : 0};
-          
+          var removeUponCompletion = ${args.remove_on_completion !== false ? "true" : "false"};
+          var presetFile = new File("${escapeForExtendScript(args.preset_path)}");
+          if (!presetFile.exists) return __error("AME preset file does not exist: " + presetFile.fsName);
+
+          // Premiere type-checks encodeFile natively: paths must be Strings,
+          // workArea a Number, removeUponCompletion a Boolean, and in/out Time objects.
           var jobId = app.encoder.encodeFile(
-            inputFile.fsName,
-            outputFile.fsName,
-            "${escapeForExtendScript(args.preset_path)}",
+            String(inputFile.fsName),
+            String(outputFile.fsName),
+            String(presetFile.fsName),
             workArea,
-            ${args.remove_on_completion !== false ? 1 : 0},
+            removeUponCompletion,
             srcIn,
             srcOut
           );
