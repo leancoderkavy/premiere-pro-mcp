@@ -179,6 +179,7 @@ describe("issue #7 — no calls to nonexistent ExtendScript methods", () => {
       item_id: "clip1",
       action: "create",
       output_path: "/tmp/proxy.mov",
+      preset_path: "/tmp/proxy.epr",
     });
 
     // ProjectItem has no createProxy(); proxies must go through Media Encoder.
@@ -306,7 +307,7 @@ describe("script-builder helpers used by the fixes are actually defined", () => 
       "function __firstWrittenFile(",
       "function __findStillPreset(",
       "function __collectAllPresets(",
-      "function __findProxyPreset(",
+      "function __listProxyPresetCandidates(",
       "function __findH264Preset(",
       "function __adobeAppFolders(",
       "function __collectEprFiles(",
