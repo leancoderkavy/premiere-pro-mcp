@@ -394,7 +394,11 @@ describe("Tool Handler Behavior", () => {
       const script = mockedSendCommand.mock.calls[0][0];
       expect(script).toContain('new ExternalObject("lib:AdobeXMPScript")');
       expect(script).toContain("var existingXmp = new XMPMeta(existingPacket)");
-      expect(script).toContain("XMPUtils.appendProperties(patchXmp, existingXmp, true, true, false)");
+      expect(script).toContain("var appendOptions = XMPConst.APPEND_ALL_PROPERTIES | XMPConst.APPEND_REPLACE_OLD_VALUES;");
+      expect(script).toContain("XMPUtils.appendProperties(patchXmp, existingXmp, appendOptions);");
+      expect(script).toContain('typeof XMPConst.APPEND_REPLACE_OLD_VALUES !== "number"');
+      // Regression for #611: the boolean-flag form throws "Bad argument list" in AdobeXMPScript.
+      expect(script).not.toMatch(/appendProperties\([^)]*(true|false)/);
       expect(script).toContain("var writtenPacket = String(item.getXMPMetadata() || \"\")");
       expect(script).toContain('verification: "readback_xmp_packet_reparsed"');
     });
