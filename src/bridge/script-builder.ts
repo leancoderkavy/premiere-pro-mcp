@@ -521,17 +521,29 @@ function __findH264Preset() {
   return candidates[0].path;
 }
 
-function __findProxyPreset() {
+// Candidate presets for manage_proxies auto-discovery, in preference order:
+// Premiere's IngestPresets/Proxy files first, then AME's H.264 system presets.
+// Adobe ships the Proxy folder presets with a "Same as Project" destination, so
+// the TypeScript handler must content-scan every candidate (gzip-aware) before
+// using one. ExtendScript cannot inflate gzipped .epr files, so no filtering here.
+function __listProxyPresetCandidates() {
+  var out = [];
   var ppro = __adobeAppFolders("Adobe Premiere Pro");
   for (var i = 0; i < ppro.length; i++) {
     var proxyDir = __adobeApplicationResourceFolder(ppro[i], "Settings/IngestPresets/Proxy");
     var eprs = __collectEprFiles(proxyDir, []);
-    if (eprs.length) {
-      eprs.sort(function(a, b) { return a.displayName < b.displayName ? -1 : 1; });
-      return eprs[0].fsName;
+    eprs.sort(function(a, b) { return a.displayName < b.displayName ? -1 : 1; });
+    for (var e = 0; e < eprs.length; e++) out.push(eprs[e].fsName);
+  }
+  var presets = __collectAllPresets();
+  for (var p = 0; p < presets.length; p++) {
+    var haystack = (presets[p].name + " " + presets[p].format).toLowerCase();
+    if (presets[p].path.indexOf("IngestPresets") !== -1) continue;
+    if (haystack.indexOf("h264") !== -1 || haystack.indexOf("h.264") !== -1 || haystack.indexOf("48323634") !== -1) {
+      out.push(presets[p].path);
     }
   }
-  return "";
+  return out;
 }
 
 function __findStillPreset(outputPath) {

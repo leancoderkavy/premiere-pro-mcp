@@ -3,7 +3,7 @@
   "evidenceScope": "source_catalog_may_include_unreleased_work",
   "sourceVersion": "1.17.0",
   "sourcePath": "docs/supported-actions.md",
-  "sourceSha256": "60499871abd466213f0a2633fc9c347d41149de5f45842d069b2a2082878bf6f",
+  "sourceSha256": "b8fe0219e86a9c5767c07945254eb340c7d66d030fc021b75e2b111f56c8cf10",
   "hostVerification": "not_established_by_catalogs",
   "counts": {
     "default": 382,
@@ -2066,8 +2066,8 @@
     {
       "name": "preview_mogrt_recipe",
       "surface": "default",
-      "modes": "recipe: lower_third, title_card, callout, quote_card, social_end_card; frame_rate: 23.976, 24, 25, 29.97, 30, 50, 59.94, 60",
-      "description": "Preview a bounded After Effects MOGRT recipe from the supported title, callout, quote, and social template library. It validates one existing workspace output directory but does not contact Adobe or write any files."
+      "modes": "recipe: lower_third, title_card, callout, quote_card, social_end_card, media_placeholder; frame_rate: 23.976, 24, 25, 29.97, 30, 50, 59.94, 60; text_controls: full, text_only",
+      "description": "Preview a bounded After Effects MOGRT recipe from the supported title, callout, quote, social, and media-placeholder template library. It validates one existing workspace output directory but does not contact Adobe or write any files."
     },
     {
       "name": "preview_motion_graphics_demo",
@@ -2577,7 +2577,7 @@
       "name": "set_scale_to_frame_size",
       "surface": "default",
       "modes": "Single operation",
-      "description": "Enable 'Scale to Frame Size' on a project item so it fills the sequence frame"
+      "description": "Enable 'Scale to Frame Size' so media fills the sequence frame. Accepts a timeline clip node ID (active sequence, same IDs as get_clip_properties) or a project item node ID or name. A timeline clip is resolved first and its source project item is updated through ProjectItem.setScaleToFrameSize(). ExtendScript exposes no getter for this flag, so the result is committed_unverified unless the timeline clip's Motion > Scale reads back changed (verified). Check with get_clip_properties."
     },
     {
       "name": "set_scale_width_height",

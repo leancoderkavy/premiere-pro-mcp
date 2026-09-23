@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { getMogrtAuthoringTools } from "../../src/tools/mogrt-authoring.js";
+import { buildMogrtPlan, buildMogrtRecipeScript, buildTextStyleExpression, getMogrtAuthoringTools } from "../../src/tools/mogrt-authoring.js";
 
 const bridgeOptions = { tempDir: "D:/PremiereBridge", timeoutMs: 5000 };
 
@@ -184,5 +184,103 @@ describe("MOGRT authoring tools", () => {
       preview_token: "expiring-token",
       confirm_export: true,
     })).rejects.toThrow("expired");
+  });
+
+  it("exposes full text style and transform controls on headline layers by default (#618)", () => {
+    const plan = buildMogrtPlan({
+      recipe: "title_card",
+      template_name: "Styled Title",
+      headline: "Say \"hi\"",
+      subtitle: "Sub",
+      approved_workspace_path: "D:/Approved",
+      output_directory: "D:/Approved/templates",
+    }, () => true);
+    expect(plan.text_controls).toBe("full");
+    const script = buildMogrtRecipeScript(plan);
+    for (const name of ["Font Size", "Fill Color", "Stroke Color", "Stroke Width"]) {
+      expect(script).toContain(`addTextStyleControls(headlineLayer, comp, "Headline"`);
+      expect(script).toContain(`label + " ${name}"`);
+    }
+    for (const name of ["Position", "Scale", "Rotation", "Anchor Point", "Opacity"]) {
+      expect(script).toContain(`label + " ${name}"`);
+    }
+    expect(script).toContain("ADBE Rotate Z");
+    expect(script).toContain("ADBE Anchor Point");
+    expect(script).toContain("exposeTransform(subtitleLayer, comp, \"Subtitle\")");
+    expect(script).toContain("addToMotionGraphicsTemplateAs");
+    expect(script).toContain("getMotionGraphicsTemplateControllerName");
+    expect(script).toContain("Say \\\"hi\\\"");
+    expect(script).toContain("fontFamilyEditable: false");
+    expect(script).not.toMatch(/\b(?:let|const)\s|=>/);
+
+    const expression = buildTextStyleExpression("Headline");
+    expect(expression).toContain('effect("Headline Font Size")("Slider")');
+    expect(expression).toContain("setFillColor");
+    expect(expression).toContain("setApplyStroke(strokeWidth > 0)");
+  });
+
+  it("keeps legacy text-only controls when text_controls is text_only and rejects unknown modes", () => {
+    const base = {
+      template_name: "Plain",
+      headline: "Plain",
+      approved_workspace_path: "D:/Approved",
+      output_directory: "D:/Approved/templates",
+    };
+    const script = buildMogrtRecipeScript(buildMogrtPlan({ ...base, text_controls: "text_only" }, () => true));
+    expect(script).not.toContain("addTextStyleControls(headlineLayer");
+    expect(script).toContain("exposedControls.headline = expose(headlineSource, comp)");
+    expect(() => buildMogrtPlan({ ...base, text_controls: "everything" }, () => true)).toThrow("text_controls must be one of");
+    expect(() => buildMogrtPlan({ ...base, placeholder_media_path: "D:/Approved/logo.png" }, () => true)).toThrow("only supported by the media_placeholder recipe");
+  });
+
+  it("builds a media-placeholder recipe with a replaceable media slot and transform controls (#619)", async () => {
+    const scripts: string[] = [];
+    const tools = getMogrtAuthoringTools(bridgeOptions, {
+      directoryExists: () => true,
+      tokenFactory: () => "media-token",
+      operationIdFactory: () => "operation-media",
+      artifactStatus: () => ({ exists: true, size_bytes: 10, zip_header_valid: true }),
+      send: async (script) => {
+        scripts.push(script);
+        return { success: true, data: { exposedControls: { media: true }, exposedControlNames: ["Media"] } };
+      },
+    });
+    const preview = await tools.preview_mogrt_recipe.handler({
+      recipe: "media_placeholder",
+      template_name: "Logo Slot",
+      placeholder_media_path: "D:/Approved/media/logo.png",
+      approved_workspace_path: "D:/Approved",
+      output_directory: "D:/Approved/templates",
+    });
+    expect(preview).toMatchObject({
+      success: true,
+      data: { plan: { recipe: "media_placeholder", placeholder_media_path: "D:\\Approved\\media\\logo.png" } },
+    });
+    expect((preview.data.plan as { headline?: string }).headline).toBeUndefined();
+    await expect(tools.create_mogrt_recipe.handler({ preview_token: "media-token", confirm_export: true }))
+      .resolves.toMatchObject({ success: true, data: { exposedControlNames: ["Media"], operationId: "operation-media" } });
+    const script = scripts[0];
+    expect(script).toContain("mediaLayer.addToMotionGraphicsTemplateAs(comp, \"Media\")");
+    expect(script).toContain("exposeTransform(mediaLayer, comp, \"Media\")");
+    expect(script).toContain("The approved placeholder media no longer exists");
+    expect(script).not.toContain("Accent bar");
+    expect(script).not.toContain("headlineLayer");
+  });
+
+  it("validates media-placeholder paths before contacting After Effects", () => {
+    const base = {
+      recipe: "media_placeholder",
+      template_name: "Slot",
+      approved_workspace_path: "D:/Approved",
+      output_directory: "D:/Approved/templates",
+    };
+    expect(() => buildMogrtPlan(base, () => true)).toThrow("placeholder_media_path is required");
+    expect(() => buildMogrtPlan({ ...base, placeholder_media_path: "D:/Approved/clip.exe" }, () => true)).toThrow("PNG, JPEG, MOV, or MP4");
+    expect(() => buildMogrtPlan({ ...base, placeholder_media_path: "media/clip.mp4" }, () => true)).toThrow("absolute path");
+    expect(() => buildMogrtPlan({ ...base, placeholder_media_path: "D:/Elsewhere/clip.mp4" }, () => true)).toThrow("inside approved_workspace_path");
+    const captioned = buildMogrtPlan({ ...base, headline: "Caption", placeholder_media_path: "D:/Approved/clip.mov" }, () => true);
+    const script = buildMogrtRecipeScript(captioned);
+    expect(script).toContain("exposeTransform(headlineLayer, comp, \"Headline\")");
+    expect(script).toContain("exposeTransform(mediaLayer, comp, \"Media\")");
   });
 });

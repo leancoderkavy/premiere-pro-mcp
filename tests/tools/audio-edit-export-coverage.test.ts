@@ -301,11 +301,72 @@ describe("export verification and host-result coverage", () => {
 
     await tools.manage_proxies.handler({ item_id: "item", action: "create" });
     expect(mockedSendCommand.mock.calls.at(-1)?.[0]).toContain("output_path is required");
-    await tools.manage_proxies.handler({ item_id: "item", action: "create", output_path: "proxy.mov" });
-    expect(mockedSendCommand.mock.calls.at(-1)?.[0]).toContain("__findProxyPreset()");
+    mockedSendCommand.mockResolvedValueOnce({ success: true, data: { candidates: [] } });
+    await expect(tools.manage_proxies.handler({ item_id: "item", action: "create", output_path: "proxy.mov" }))
+      .resolves.toMatchObject({ success: false, error: expect.stringContaining("Pass preset_path explicitly") });
     await tools.manage_proxies.handler({ item_id: "item", action: "create", output_path: "proxy.mov", preset_path: "proxy.epr" });
     expect(mockedSendCommand.mock.calls.at(-1)?.[0]).toContain('var presetPath = "proxy.epr"');
     await tools.manage_proxies.handler({ item_id: "item", action: "attach" });
     expect(mockedSendCommand.mock.calls.at(-1)?.[0]).toContain("proxy_path is required for attach action");
+  });
+});
+
+// https://github.com/leancoderkavy/premiere-pro-mcp/issues/610
+describe("issue #610 — manage_proxies auto-discovery skips Same as Project presets", () => {
+  const tools = getExportTools(bridgeOptions);
+
+  it("skips Same as Project candidates (plain and gzipped) and encodes with the first safe preset", async () => {
+    const { gzipSync } = await import("node:zlib");
+    const dir = temporaryDirectory();
+    const sameAsProject = join(dir, "Proxy 1.epr");
+    writeFileSync(sameAsProject, "<Preset><Dest>SameAsProject</Dest></Preset>");
+    const gzippedSameAsProject = join(dir, "Proxy 2.epr");
+    writeFileSync(gzippedSameAsProject, gzipSync(Buffer.from("<Dest>Same as Project</Dest>")));
+    const safe = join(dir, "Match Source.epr");
+    writeFileSync(safe, "<Preset><Dest>Custom</Dest></Preset>");
+
+    mockedSendCommand.mockReset();
+    mockedSendCommand
+      .mockResolvedValueOnce({ success: true, data: { candidates: [sameAsProject, gzippedSameAsProject, 42, safe] } })
+      .mockResolvedValueOnce({ success: true, data: { accepted: true } });
+
+    await tools.manage_proxies.handler({ item_id: "item", action: "create", output_path: "C:/out/proxy.mp4" });
+    expect(mockedSendCommand).toHaveBeenCalledTimes(2);
+    expect(mockedSendCommand.mock.calls[0]?.[0]).toContain("__listProxyPresetCandidates()");
+    const encodeScript = mockedSendCommand.mock.calls[1]?.[0] as string;
+    expect(encodeScript).toContain("Match Source.epr");
+    expect(encodeScript).not.toContain("Proxy 1.epr");
+    expect(encodeScript).toContain("presetAutoDiscovered: true");
+    expect(encodeScript).toContain("skippedSameAsProjectPresets: 2");
+  });
+
+  it("fails clearly without encoding when every candidate is Same as Project", async () => {
+    const dir = temporaryDirectory();
+    const sameAsProject = join(dir, "Proxy.epr");
+    writeFileSync(sameAsProject, "SameAsProject");
+    mockedSendCommand.mockReset();
+    mockedSendCommand.mockResolvedValueOnce({ success: true, data: { candidates: [sameAsProject] } });
+
+    await expect(tools.manage_proxies.handler({ item_id: "item", action: "create", output_path: "proxy.mp4" }))
+      .resolves.toMatchObject({
+        success: false,
+        error: expect.stringContaining("Same as Project"),
+        skippedPresetCount: 1,
+      });
+    expect(mockedSendCommand).toHaveBeenCalledTimes(1);
+  });
+
+  it("propagates a failed candidate listing and leaves explicit preset_path untouched", async () => {
+    mockedSendCommand.mockReset();
+    mockedSendCommand.mockResolvedValueOnce({ success: false, error: "bridge down" });
+    await expect(tools.manage_proxies.handler({ item_id: "item", action: "create", output_path: "proxy.mp4" }))
+      .resolves.toMatchObject({ success: false, error: "bridge down" });
+
+    mockedSendCommand.mockResolvedValueOnce({ success: true, data: {} });
+    await tools.manage_proxies.handler({ item_id: "item", action: "create", output_path: "proxy.mp4", preset_path: "mine.epr" });
+    const script = mockedSendCommand.mock.calls.at(-1)?.[0] as string;
+    expect(script).toContain('var presetPath = "mine.epr"');
+    expect(script).toContain("presetAutoDiscovered: false");
+    expect(script).not.toContain("__listProxyPresetCandidates()");
   });
 });

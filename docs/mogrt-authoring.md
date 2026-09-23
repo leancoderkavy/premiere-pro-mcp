@@ -8,11 +8,35 @@ quality, or completed-render output.
 
 ## What is supported
 
-The template library provides five deterministic recipes: `lower_third`,
-`title_card`, `callout`, `quote_card`, and `social_end_card`. Each creates one
+The template library provides six deterministic recipes: `lower_third`,
+`title_card`, `callout`, `quote_card`, `social_end_card`, and
+`media_placeholder`. Each text recipe creates one
 comp in the already open, saved After Effects project, adds bounded headline and
 optional subtitle text plus an accent Color Control, then attempts to expose
 those controls in Essential Graphics before requesting the MOGRT export.
+
+By default (`text_controls: "full"`), each text layer also gets `<Layer> Font
+Size` and `<Layer> Stroke Width` Slider Controls plus `<Layer> Fill Color` and
+`<Layer> Stroke Color` Color Controls, wired to the Source Text through an AE
+17.0+ text-style expression, and its Position, Scale, Rotation, Anchor Point,
+and Opacity are requested as named Essential Graphics controls. The documented
+AE scripting API has no call for the Essential Graphics font-family or
+font-style edit flags (`capPropFontEdit`), so those stay off and the result
+reports `fontFamilyEditable: false`; enable them manually in AE if needed.
+`text_controls: "text_only"` keeps the older text-string-only exposure.
+
+The `media_placeholder` recipe imports one workspace-contained PNG, JPEG, MOV,
+or MP4 (`placeholder_media_path`), fits it to the comp, requests a replaceable
+Essential Graphics media slot named `Media` through the AE 18.0+
+`AVLayer.addToMotionGraphicsTemplateAs` API, and exposes its transform
+controls. `headline` is an optional caption for this recipe. Fit/fill/stretch
+modes and crop bounds are not implemented.
+
+The create result returns per-control exposure booleans and, when the AE 16.1+
+readback API exists, the source comp's controller names. This behavior has only
+been checked by mocked unit tests. It has not been verified against a live
+After Effects or Premiere host, so import each artifact into a disposable
+Premiere sequence and inspect the Essential Graphics panel before delivery.
 
 An optional `brand_kit` can constrain template naming with a prefix, supply
 approved accent/text colors, request a font by name, position content within a
