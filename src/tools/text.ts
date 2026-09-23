@@ -1,5 +1,6 @@
 import { buildToolScript, escapeForExtendScript } from "../bridge/script-builder.js";
 import { sendCommand, BridgeOptions } from "../bridge/file-bridge.js";
+import { buildMogrtTextWriteScript, compareMogrtText, MOGRT_TEXT_WRITE_HELPER, summarizeMogrtText, validateMogrtTextMap } from "./mogrt-text.js";
 
 export function getTextTools(bridgeOptions: BridgeOptions) {
   return {
@@ -46,7 +47,8 @@ export function getTextTools(bridgeOptions: BridgeOptions) {
     },
 
     import_mogrt: {
-      description: "Import a Motion Graphics Template (.mogrt) file and add it to the timeline",
+      description:
+        "Import a Motion Graphics Template (.mogrt) file and add it to the timeline. Pass text_values (for example { \"Headline\": \"...\" }) to write each text control explicitly after insertion and verify it by readback, so a template default or stale value is never left in place silently.",
       parameters: {
         type: "object" as const,
         properties: {
@@ -66,6 +68,12 @@ export function getTextTools(bridgeOptions: BridgeOptions) {
             type: "number",
             description: "Duration in seconds (default: 5)",
           },
+          text_values: {
+            type: "object",
+            description:
+              "Optional map of MOGRT text parameter display names to the exact text to write (for example { \"Headline\": \"Chapter 3\" }). Each value is written explicitly after import and read back; the result reports verified, mismatch, missing_property, or committed_unverified per field.",
+            additionalProperties: { type: "string" },
+          },
         },
         required: ["mogrt_path"],
       },
@@ -74,7 +82,9 @@ export function getTextTools(bridgeOptions: BridgeOptions) {
         track_index?: number;
         start_seconds?: number;
         duration_seconds?: number;
+        text_values?: Record<string, string>;
       }) => {
+        const textValues = validateMogrtTextMap(args.text_values, "text_values");
         const trackIndex = args.track_index ?? 0;
         const startSeconds = args.start_seconds ?? 0;
         const durationSeconds = args.duration_seconds ?? 5;
@@ -95,16 +105,57 @@ export function getTextTools(bridgeOptions: BridgeOptions) {
           );
           
           if (!success) return __error("Failed to import MOGRT");
-          
+          ${textValues ? MOGRT_TEXT_WRITE_HELPER : ""}
+          var textReadback = null;
+          var textWriteError = null;
+          ${textValues ? `
+          textReadback = [];
+          var mgtComp = null;
+          try { mgtComp = success.getMGTComponent ? success.getMGTComponent() : null; } catch (mgtError) { mgtComp = null; }
+          if (!mgtComp) {
+            textReadback = null;
+            textWriteError = "Imported clip exposes no MGT component; text values were not written";
+          } else {
+            ${buildMogrtTextWriteScript("mgtComp", "textReadback", textValues)}
+          }
+          ` : ""}
+
           return __result({
             imported: true,
+            textReadback: textReadback,
+            textWriteError: textWriteError,
             mogrtPath: mogrtPath,
             trackIndex: ${trackIndex},
             startSeconds: ${startSeconds},
             durationSeconds: ${durationSeconds}
           });
         `);
-        return sendCommand(script, bridgeOptions);
+        const result = await sendCommand(script, bridgeOptions);
+        if (!textValues || !result.success) return result;
+        const { textReadback, textWriteError, ...data } = (result.data ?? {}) as Record<string, unknown>;
+        if (!Array.isArray(textReadback)) {
+          return {
+            ...result,
+            data: {
+              ...data,
+              textVerification: "committed_unverified",
+              warnings: [String(textWriteError ?? "MOGRT text values could not be written or read back")],
+            },
+          };
+        }
+        const checks = compareMogrtText(textValues, textReadback as Array<Record<string, unknown>>);
+        const status = summarizeMogrtText(checks);
+        return {
+          ...result,
+          data: {
+            ...data,
+            textVerification: status,
+            textChecks: checks,
+            ...(status === "verified"
+              ? {}
+              : { warnings: ["One or more MOGRT text values did not read back as written; inspect textChecks before delivery."] }),
+          },
+        };
       },
     },
 

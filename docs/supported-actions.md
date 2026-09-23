@@ -176,7 +176,7 @@ operation” when the tool has no enum-based mode.
 | `get_keyframes` | Default profile | Single operation | Get all keyframes for a specific effect property on a clip |
 | `get_linked_items` | Default profile | Single operation | Get all clips in the sequence that are linked to the same source as a given clip |
 | `get_metadata` | Default profile | Single operation | Get metadata for a project item. Use parse_fields to return named XMP/project fields instead of raw XML. Project metadata XML and file/clip XMP are separate packets; disable either when identity/path is enough. Prefer inspect_project_panel_metadata_uxp item_columns or manage_metadata_uxp inspect_fields for visible columns. This is not the premiere://project/metadata resource. GPS and serials are omitted from parse_fields unless include_sensitive is true. |
-| `get_mogrt_component` | Default profile | Single operation | Get MOGRT (Motion Graphics Template) component parameters from a clip |
+| `get_mogrt_component` | Default profile | Single operation | Get MOGRT (Motion Graphics Template) component parameters from a clip. Each parameter includes textValue (visible text extracted from textEditValue when present). Pass expected_values to audit text controls such as Headline; the result flags verified, mismatch, or missing_property per field. Reads the stored property, not the Essential Graphics panel display, which Premiere can show stale (host UI behavior this tool cannot refresh). |
 | `get_next_edit_point` | Default profile | `direction`: `next`, `previous`; `track_type`: `video`, `audio`, `both` | Find the next or previous edit point (clip boundary) from the playhead position. |
 | `get_offline_media` | Default profile | Single operation | Find all offline/missing media in the project with their expected file paths. Essential for diagnosing broken links. |
 | `get_playhead_position` | Default profile | Single operation | Get the current playhead (CTI) position in the active sequence |
@@ -214,7 +214,7 @@ operation” when the tool has no enum-based mode.
 | `import_folder` | Default profile | Single operation | Import an entire folder of media into the project |
 | `import_image_sequence` | Default profile | Single operation | Import a numbered image sequence as a single video clip. |
 | `import_media` | Default profile | Single operation | Import media files into the project |
-| `import_mogrt` | Default profile | Single operation | Import a Motion Graphics Template (.mogrt) file and add it to the timeline |
+| `import_mogrt` | Default profile | Single operation | Import a Motion Graphics Template (.mogrt) file and add it to the timeline. Pass text_values (for example { "Headline": "..." }) to write each text control explicitly after insertion and verify it by readback, so a template default or stale value is never left in place silently. |
 | `import_mogrt_from_library` | Default profile | Single operation | Import a MOGRT from a named Adobe Creative Cloud Library. |
 | `import_sequences` | Default profile | Single operation | Import sequences from another Premiere Pro project file |
 | `insert_from_source` | Default profile | `scope`: `sync_locked`, `target_tracks` | Insert the clip from the Source Monitor at the playhead (insert edit). Sequence.insertClip only ripples the named tracks; by default this then razors and shifts every QE sync-locked track so they stay in sync, and verifies the result. Pass scope 'target_tracks' to ripple only the named pair (this will desync other tracks). |
