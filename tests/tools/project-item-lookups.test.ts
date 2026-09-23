@@ -232,3 +232,68 @@ describe("create_bars_and_tone readback (#588)", () => {
     expect(script).toContain('var requestedName = "Bars \\"A\\"";');
   });
 });
+
+describe("set_scale_to_frame_size target resolution (#614)", () => {
+  const media = getMediaTools(bridgeOptions);
+
+  function timelineApp(root: FakeItem, source: FakeItem, scaleAfter = 100) {
+    const calls: string[] = [];
+    let scale = 100;
+    (source as unknown as { setScaleToFrameSize: () => void }).setScaleToFrameSize = () => {
+      calls.push(source.nodeId);
+      scale = scaleAfter;
+    };
+    const scaleProp = { displayName: "Scale", getValue: () => scale };
+    const motion = { displayName: "Motion", matchName: "AE.ADBE Motion", properties: { numItems: 1, 0: scaleProp } };
+    const clip = { nodeId: "000f4242", name: "Timeline Clip", projectItem: source, components: { numItems: 1, 0: motion } };
+    const seq = {
+      videoTracks: { numTracks: 1, 0: { clips: { numItems: 1, 0: clip } } },
+      audioTracks: { numTracks: 0 },
+    };
+    return { app: { project: { rootItem: root, activeSequence: seq } }, calls };
+  }
+
+  it("resolves a timeline clip node ID and applies to its source project item", async () => {
+    const { root } = project();
+    const source = root.kids.find((k) => k.name === "Selects")!;
+    const { app, calls } = timelineApp(root, source);
+    const result = run(await scriptFor(media.set_scale_to_frame_size, { item_id: "000f4242" }), app);
+    expect(result.success).toBe(true);
+    expect(calls).toEqual([source.nodeId]);
+    expect(result.data).toMatchObject({
+      target: "timelineClip",
+      clipNodeId: "000f4242",
+      projectItemNodeId: source.nodeId,
+      trackType: "video",
+      status: "committed_unverified",
+    });
+  });
+
+  it("reports verified when the timeline clip Motion scale reads back changed", async () => {
+    const { root } = project();
+    const source = root.kids.find((k) => k.name === "Selects")!;
+    const { app } = timelineApp(root, source, 50);
+    const result = run(await scriptFor(media.set_scale_to_frame_size, { item_id: "000f4242" }), app);
+    expect(result.data).toMatchObject({ status: "verified", motionScaleBefore: 100, motionScaleAfter: 50 });
+  });
+
+  it("still accepts a project item node ID", async () => {
+    const { root } = project();
+    const source = root.kids.find((k) => k.name === "Selects")!;
+    const { app, calls } = timelineApp(root, source);
+    const result = run(await scriptFor(media.set_scale_to_frame_size, { item_id: source.nodeId }), app);
+    expect(calls).toEqual([source.nodeId]);
+    expect(result.data).toMatchObject({ target: "projectItem", status: "committed_unverified" });
+  });
+
+  it("returns a clear error when nothing matches, and escapes the identifier", async () => {
+    const { root } = project();
+    const source = root.kids.find((k) => k.name === "Selects")!;
+    const { app, calls } = timelineApp(root, source);
+    const result = run(await scriptFor(media.set_scale_to_frame_size, { item_id: "missing" }), app);
+    expect(result).toEqual({ success: false, error: expect.stringContaining("Item not found") });
+    expect(calls).toEqual([]);
+    const script = await scriptFor(media.set_scale_to_frame_size, { item_id: 'a"b\\c' });
+    expect(script).toContain('var requestedId = "a\\"b\\\\c";');
+  });
+});
