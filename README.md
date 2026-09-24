@@ -108,7 +108,7 @@ The current source exposes 384 core tools for supported workflow steps spanning 
 
 <a id="latest-release"></a>
 
-### Latest release: 1.18.0
+### Latest release: 1.18.1
 
 The published v1.18.0 npm artifact contains **384 core tools**, 382 in its default profile,
 and 477 with a compatible UXP connection. The development catalog above can include
@@ -160,7 +160,7 @@ if the connection is unavailable.
   local Premiere processes. See the generated [supported action catalog](docs/supported-actions.md)
   for individual capability and verification contracts.
 
-See the [v1.18.0 release notes](https://github.com/leancoderkavy/premiere-pro-mcp/releases/tag/v1.18.0)
+See the [v1.18.1 release notes](https://github.com/leancoderkavy/premiere-pro-mcp/releases/tag/v1.18.1)
 for complete details. Live installation in Premiere Pro still requires host verification.
 
 ### Current MCP protocol support
