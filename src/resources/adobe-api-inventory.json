@@ -15,11 +15,14 @@
     "total": 976,
     "mapped": 377,
     "unmapped": 599,
-    "manifestOnly": 5
+    "manifestOnly": 8
   },
   "manifestOnly": [
     "MarkerCollection",
     "VideoClipTrackItem.hasVideoTransition",
+    "WorkAreaUtilsStatic.getWorkAreaInPoint",
+    "WorkAreaUtilsStatic.getWorkAreaOutPoint",
+    "WorkAreaUtilsStatic.setWorkAreaInOutPoints",
     "storage.localFileSystem.createPersistentToken",
     "storage.localFileSystem.getEntryForPersistentToken",
     "storage.localFileSystem.getFolder"

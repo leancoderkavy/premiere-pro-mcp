@@ -171,6 +171,38 @@ describe("UXP MCP tools", () => {
     });
   });
 
+  it("maps guarded Premiere 26.5 work-area inspection and updates to UXP commands", async () => {
+    const request = vi.fn().mockResolvedValue({ outcome: "verified" });
+    const bridge = { request, getState: vi.fn() } as unknown as UxpWebSocketBridge;
+    const tools = getUxpTools(bridge);
+    await tools.manage_work_area_uxp.handler({ action: "inspect" });
+    await tools.manage_work_area_uxp.handler({
+      action: "set",
+      expected_sequence_guid: "sequence-1",
+      expected_work_area: { in_seconds: 0, out_seconds: 30 },
+      in_seconds: 5,
+      out_seconds: 20,
+      operation_id: "work-area-1",
+    });
+    await tools.manage_work_area_uxp.handler({ action: "set" });
+    expect(request).toHaveBeenNthCalledWith(1, "workArea.inspect", {});
+    expect(request).toHaveBeenNthCalledWith(2, "workArea.set", {
+      expectedSequenceGuid: "sequence-1",
+      expectedWorkArea: { inSeconds: 0, outSeconds: 30 },
+      inSeconds: 5,
+      outSeconds: 20,
+      operationId: "work-area-1",
+    });
+    expect(request).toHaveBeenNthCalledWith(3, "workArea.set", {});
+    expect(tools.manage_work_area_uxp.parameters).toMatchObject({
+      type: "object",
+      additionalProperties: false,
+      required: ["action"],
+      properties: { action: { type: "string", enum: ["inspect", "set"] } },
+    });
+    expect(tools.manage_work_area_uxp.operationalCapability).toMatchObject({ minimumPremiereVersion: "26.5", hostVerificationRequired: true });
+  });
+
   it("maps guarded sequence-range inspection and updates to documented UXP commands", async () => {
     const request = vi.fn().mockResolvedValue({ outcome: "verified" });
     const bridge = { request, getState: vi.fn() } as unknown as UxpWebSocketBridge;
@@ -454,6 +486,7 @@ describe("UXP MCP tools", () => {
           "manage_sequence_display_format_uxp",
           "manage_sequence_range_uxp",
           "manage_sequence_playhead_uxp",
+          "manage_work_area_uxp",
           "manage_app_preferences_uxp",
           "save_project_uxp",
           "create_sequence_with_preset_uxp",
@@ -506,7 +539,8 @@ describe("UXP MCP tools", () => {
       // connection verification and delivery conformance add two default-profile core tools.
       // Guarded Speech-to-Text start (transcribe_clip_uxp, is_language_pack_available_uxp)
       // and caption style guidance (get_caption_style_guidance) add three more tools; paste_clip_attributes, set_clip_duration, and compute_mask_fit_motion each add one core tool.
-        expect(tools.tools).toHaveLength(477);
+      // Premiere 26.5 WorkAreaUtils adds manage_work_area_uxp.
+        expect(tools.tools).toHaveLength(478);
     } finally {
       await client.close();
       await server.close();

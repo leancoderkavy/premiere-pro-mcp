@@ -203,7 +203,13 @@
     "adobe-premiere-mcp",
     "premiere-mcp",
     "video-editing-mcp",
-    "uxp"
+    "uxp",
+    "adobe-uxp",
+    "premiere-pro-uxp",
+    "premiere-pro-ai",
+    "premiere-pro-automation",
+    "claude-premiere-pro",
+    "premiere-pro-extendscript"
   ],
   "license": "MIT",
   "publishConfig": {

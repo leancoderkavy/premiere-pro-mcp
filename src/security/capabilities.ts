@@ -261,6 +261,10 @@ const ACTION_CAPABILITIES: Readonly<Record<string, Readonly<Record<string, reado
     inspect: ["inspect"],
     update: ["edit"],
   },
+  manage_work_area_uxp: {
+    inspect: ["inspect"],
+    set: ["edit"],
+  },
   manage_sequence_playhead_uxp: {
     inspect: ["inspect"],
     set: ["edit"],
