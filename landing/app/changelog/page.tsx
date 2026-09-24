@@ -6,6 +6,20 @@ import { product } from "@/lib/product"
 
 const releases = [
   {
+    version: "1.18.1",
+    date: "2026-09-23",
+    label: "Media Encoder handoff fix and new model guides",
+    groups: [
+      { title: "Fixed", items: [
+        "manage_proxies create and add_to_render_queue no longer fail with Illegal Parameter type when handing off to Media Encoder."
+      ] },
+      { title: "Documentation", items: [
+        "Client guides for GPT-6 Sol, GPT-6 Luna, and Claude Opus 5.5."
+      ] },
+      { title: "Verification scope", items: ["The fix is covered by mocked automated tests only; no licensed-host verification."] }
+    ],
+  },
+  {
     version: "1.18.0",
     date: "2026-09-23",
     label: "MOGRT text and media controls, export and metadata fixes",

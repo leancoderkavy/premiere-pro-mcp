@@ -6,6 +6,24 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [1.18.1] - 2026-09-23
+
+### Fixed
+
+- `manage_proxies` create and `add_to_render_queue` pass a Boolean
+  `removeUponCompletion` to Adobe Media Encoder, fixing "Illegal Parameter type"
+  on those handoffs. (#630)
+
+### Documentation
+
+- Client guides for GPT-6 Sol and GPT-6 Luna (Codex) and Claude Opus 5.5
+  (Claude Code, Claude Desktop, Cursor). (#631)
+
+### Verification scope
+
+- The fix is covered by mocked automated tests only; it is not verified on a
+  licensed Premiere host.
+
 ## [1.18.0] - 2026-09-23
 
 ### Added
