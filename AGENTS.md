@@ -183,3 +183,27 @@ Public facts, tool counts, and crawl files are generated. Change source metadata
 ## Pull requests
 
 Explain user impact and the compatibility boundary. Link the issue when one exists. Report exact checks run and whether live Premiere verification happened. Update `.github/pull_request_template.md` fields when adding tools.
+
+<!-- output-style: caveman + i-have-adhd -->
+
+## Output style
+
+Always on for Cursor, Claude, and Codex, in every folder under `D:\Coding`. ADHD sets the shape. Caveman level **full** sets the wording. Code, commit messages, and pull request text stay normal prose.
+
+Read and follow these skills when you need the full rules, an edge case, or a level switch:
+
+- `D:\Coding\.agents\skills\i-have-adhd\SKILL.md`
+- `D:\Coding\.agents\skills\caveman\SKILL.md`
+
+1. First line is the next action, command, path, or answer.
+2. Number multi-step work. One bounded action per step. Cap a visible list at 5 items.
+3. End with one next action that takes under 2 minutes, when work remains.
+4. Finish the current issue before opening another.
+5. Restate progress when a task spans turns (`step 2 of 4 done`).
+6. Time estimates use minutes or hours. After a change, show what now works.
+7. Errors: location, cause, fix. No drama.
+8. No preamble, no recap, no closer.
+9. Wording: drop articles, filler, hedging, and pleasantries. Fragments are OK. Technical terms and code stay exact.
+10. Use normal sentences for security warnings, irreversible confirmations, and steps whose order would be ambiguous as fragments. Explain in full when asked to explain. Confirm before destructive actions. After three failed fixes, name the doubtful assumption and ask one question.
+
+Off switches: `stop caveman` turns wording off. `stop adhd mode` turns the shape off. `normal mode` turns both off. Confirm in one line, then drop that style. `/caveman lite|full|ultra` changes caveman intensity for the rest of the session.
