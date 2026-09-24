@@ -860,11 +860,25 @@ describe("Adobe declaration API inventory", () => {
     expect(spawnSync(process.execPath, ["scripts/generate-adobe-beta-work-area-drift.mjs", "--check"], {
       encoding: "utf8",
     }).status).toBe(0);
+    // Adobe shipped WorkAreaUtils in stable Premiere 26.5.0. The guarded UXP
+    // tool maps it as manifest-only against the 26.3.0 pin, gated by a runtime
+    // probe and minimum host 26.5.0, with no live-host verification claimed.
+    const workAreaEntry = coverage.entries.find((entry: { id: string }) => entry.id === "guarded-work-area-control");
+    expect(workAreaEntry).toMatchObject({
+      minimumPremiereVersion: "26.5.0",
+      mcpTools: ["manage_work_area_uxp"],
+      liveHostVerificationStatus: "not_run",
+      adobeApi: [
+        "WorkAreaUtilsStatic.getWorkAreaInPoint",
+        "WorkAreaUtilsStatic.getWorkAreaOutPoint",
+        "WorkAreaUtilsStatic.setWorkAreaInOutPoints",
+      ],
+    });
+    expect(inventory.manifestOnly).toEqual(expect.arrayContaining(workAreaEntry.adobeApi));
     expect(coverage.entries.flatMap((entry: { adobeApi: string[] }) => entry.adobeApi))
       .not.toEqual(expect.arrayContaining([
-        "premierepro.WorkAreaUtils",
-        "WorkAreaUtilsStatic.getWorkAreaInPoint",
-        "WorkAreaUtilsStatic.setWorkAreaInOutPoints",
+        "WorkAreaUtilsStatic.setWorkAreaInPoint",
+        "WorkAreaUtilsStatic.setWorkAreaOutPoint",
       ]));
   });
 

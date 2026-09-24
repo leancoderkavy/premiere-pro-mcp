@@ -41,6 +41,8 @@
       "sequence.createPreset": { destructive: true, undoable: false, idempotent: true, requiresWorkspace: true, minHostVersion: "26.3.0", probe: canCreatePresetSequence, handler: createPresetSequence },
       "sequence.range.inspect": { readOnly: true, minHostVersion: "25.6.0", probe: canInspectSequenceRange, handler: inspectSequenceRange },
       "sequence.range.update": { destructive: true, undoable: true, idempotent: true, minHostVersion: "25.6.0", probe: canUpdateSequenceRange, handler: updateSequenceRange },
+      "workArea.inspect": { readOnly: true, minHostVersion: "26.5.0", probe: canInspectWorkArea, handler: inspectWorkArea },
+      "workArea.set": { idempotent: true, minHostVersion: "26.5.0", probe: canSetWorkArea, handler: setWorkArea },
       "sequence.playhead.inspect": { readOnly: true, minHostVersion: "25.6.0", probe: canInspectSequencePlayhead, handler: inspectSequencePlayhead },
       "sequence.playhead.set": { idempotent: true, minHostVersion: "25.6.0", probe: canSetSequencePlayhead, handler: setSequencePlayhead },
       "time.frameAlignment.inspect": { readOnly: true, minHostVersion: "25.6.0", probe: canInspectFrameAlignment, handler: inspectFrameAlignment },
@@ -441,6 +443,84 @@
       return previous.catch(() => undefined).then(operation).finally(() => {
         release();
         if (sequenceRangeUpdateTails.get(sequenceGuid) === tail) sequenceRangeUpdateTails.delete(sequenceGuid);
+      });
+    }
+    async function workAreaSnapshot(sequence) {
+      const sequenceGuid = sequenceGuidRequired(sequence);
+      const utils = ppro.WorkAreaUtils;
+      const [inPoint, outPoint] = await Promise.all([utils.getWorkAreaInPoint(sequence), utils.getWorkAreaOutPoint(sequence)]);
+      const workArea = {
+        inSeconds: tickSecondsRequired(inPoint, "work area in point"),
+        outSeconds: tickSecondsRequired(outPoint, "work area out point")
+      };
+      if (workArea.outSeconds < workArea.inSeconds) {
+        throw commandError("UXP_VERIFICATION_FAILED", "Premiere returned a work area whose out point precedes its in point");
+      }
+      return { sequenceGuid, workArea };
+    }
+    async function inspectWorkArea(args) {
+      assertOnlyKeys(args, []);
+      const context = await activeContext(false);
+      return { ...await workAreaSnapshot(context.sequence), verificationBoundary: "work_area_readback" };
+    }
+    function validateWorkAreaSetArgs(args) {
+      assertObject(args);
+      assertOnlyKeys(args, ["expectedSequenceGuid", "expectedWorkArea", "inSeconds", "outSeconds", "operationId"]);
+      if (typeof args.expectedSequenceGuid !== "string" || !args.expectedSequenceGuid || args.expectedSequenceGuid.length > 512) {
+        throw commandError("UXP_INVALID_ARGUMENT", "expectedSequenceGuid is required and must be at most 512 characters");
+      }
+      assertObject(args.expectedWorkArea);
+      assertOnlyKeys(args.expectedWorkArea, ["inSeconds", "outSeconds"]);
+      const expectedWorkArea = {
+        inSeconds: boundedSeconds(args.expectedWorkArea.inSeconds, "expectedWorkArea.inSeconds"),
+        outSeconds: boundedSeconds(args.expectedWorkArea.outSeconds, "expectedWorkArea.outSeconds")
+      };
+      const inSeconds = boundedSeconds(args.inSeconds, "inSeconds");
+      const outSeconds = boundedSeconds(args.outSeconds, "outSeconds");
+      if (outSeconds <= inSeconds) throw commandError("UXP_INVALID_ARGUMENT", "outSeconds must be greater than inSeconds");
+      return { expectedSequenceGuid: args.expectedSequenceGuid, expectedWorkArea, desired: { inSeconds, outSeconds } };
+    }
+    async function setWorkArea(args) {
+      const input = validateWorkAreaSetArgs(args);
+      const inTick = await tickTime(input.desired.inSeconds, "inSeconds");
+      const outTick = await tickTime(input.desired.outSeconds, "outSeconds");
+      return withSequenceRangeUpdateLock("workArea:" + input.expectedSequenceGuid, async () => {
+        const context = await activeContext(false);
+        const before = await workAreaSnapshot(context.sequence);
+        if (before.sequenceGuid !== input.expectedSequenceGuid) {
+          throw commandError("UXP_STALE_SEQUENCE", "The active sequence changed before the work-area update; inspect and retry");
+        }
+        if (!sameSeconds(before.workArea.inSeconds, input.expectedWorkArea.inSeconds) ||
+          !sameSeconds(before.workArea.outSeconds, input.expectedWorkArea.outSeconds)) {
+          throw commandError("UXP_STALE_RANGE", "The work area changed before the update; inspect the current work area and retry");
+        }
+        const endSeconds = tickSecondsRequired(await context.sequence.getEndTime(), "sequence end point");
+        if (input.desired.outSeconds > endSeconds + 0.000001) {
+          throw commandError("UXP_INVALID_ARGUMENT", "outSeconds must not exceed the sequence end");
+        }
+        const accepted = await ppro.WorkAreaUtils.setWorkAreaInOutPoints(context.sequence, inTick, outTick);
+        if (accepted !== true) throw commandError("UXP_ACTION_REJECTED", "Premiere rejected the work-area update");
+        const after = await workAreaSnapshot(context.sequence);
+        if (after.sequenceGuid !== before.sequenceGuid ||
+          !sameSeconds(after.workArea.inSeconds, input.desired.inSeconds) ||
+          !sameSeconds(after.workArea.outSeconds, input.desired.outSeconds)) {
+          throw commandError("UXP_VERIFICATION_FAILED", "Premiere did not retain the requested work area");
+        }
+        return {
+          updated: true,
+          outcome: "verified",
+          sequenceGuid: after.sequenceGuid,
+          workArea: after.workArea,
+          verified: "work_area_readback",
+          operation: operationSemantics({
+            mutatesProject: true,
+            verificationStatus: "verified",
+            verificationBoundary: "work_area_readback",
+            verificationEvidence: [{ type: "work_area", sequenceGuid: after.sequenceGuid, workArea: after.workArea }],
+            undoSupported: false,
+            cancellationSupported: false
+          })
+        };
       });
     }
     async function inspectSequencePlayhead(args) {
@@ -1523,6 +1603,14 @@
     function canCreatePresetSequence() { return activeProjectHas("createSequenceWithPresetPath"); }
     function canInspectSequenceRange() {
       return activeSequenceHas(["getInPoint", "getOutPoint", "getZeroPoint", "getEndTime"]);
+    }
+    function canInspectWorkArea() {
+      return !!(ppro.WorkAreaUtils && typeof ppro.WorkAreaUtils.getWorkAreaInPoint === "function" &&
+        typeof ppro.WorkAreaUtils.getWorkAreaOutPoint === "function");
+    }
+    async function canSetWorkArea() {
+      return !!(canInspectWorkArea() && typeof ppro.WorkAreaUtils.setWorkAreaInOutPoints === "function" &&
+        ppro.TickTime && typeof ppro.TickTime.createWithSeconds === "function" && await activeSequenceHas(["getEndTime"]));
     }
     function canInspectSequencePlayhead() {
       return activeSequenceHas(["getPlayerPosition"]);

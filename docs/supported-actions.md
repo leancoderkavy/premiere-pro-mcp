@@ -13,8 +13,8 @@ source catalog may include unreleased actions.
 | Registered core actions | 384 | CEP/local server catalog; host and authority checks still apply |
 | Default-profile core actions | 382 | Advertised with `inspect,edit,export,filesystem` |
 | Restricted core actions | 2 | Require explicit `unsafe-script` authority |
-| Authenticated UXP additions | 95 | Advertised only while a compatible authenticated UXP panel is connected |
-| Default profile with UXP | 477 | 382 core plus 95 UXP tools |
+| Authenticated UXP additions | 96 | Advertised only while a compatible authenticated UXP panel is connected |
+| Default profile with UXP | 478 | 382 core plus 96 UXP tools |
 
 ## How to read support
 
@@ -505,6 +505,7 @@ authenticated and the connected host advertises the required command capabilitie
 | `manage_timeline_selection_uxp` | Connected UXP | `inspect`, `inspect_targets`, `replace`, `add`, `remove`, `clear` | Inspect, replace, add to, remove from, or clear the active sequence's native UXP clip selection with sequence and clip fingerprint stale-state guards. |
 | `manage_timeline_source_label_uxp` | Connected UXP | `inspect`, `update` | Inspect or set the documented source Project-item color label resolved from one audio or video timeline coordinate in the sequence named by sequence_id (inspect falls back to the active sequence only when sequence_id is omitted; update always targets expected_snapshot.sequence_id). Update requires the complete reviewed snapshot, explicit confirmation, and an operation ID; it serializes color-label changes by source item, commits one undoable transaction, then re-reads the coordinate and source label. A source label is project-global: another use of the same source can reflect the change. It does not label a timeline-only instance, change clip timing, prove rendered appearance, playback, persistence, or Undo behavior. |
 | `manage_track_state_uxp` | Connected UXP | `inspect`, `set_mute` | Inspect audio, video, and caption track mute state or set one media type serially with stale-state preflight and per-track readback. Adobe exposes this as direct promises, so no undo transaction is claimed. |
+| `manage_work_area_uxp` | Connected UXP | `inspect`, `set` | Inspect or set the active sequence work area through Premiere 26.5+ documented UXP WorkAreaUtils. Setting requires the sequence GUID and complete work area returned by inspect, keeps out within the sequence end, serializes competing requests, and verifies native in/out readback. WorkAreaUtils is a direct call, not an undoable transaction; a runtime capability probe remains authoritative and live-host behavior is not yet verified. |
 | `manage_workflow_checkpoints_uxp` | Connected UXP | `has`, `get`, `set`, `clear` | Read or transactionally write small, namespaced workflow checkpoints on the active project or a targeted sequence. Persistent values may sync with cloud projects; never store secrets, native paths, transcripts, or media names. |
 | `organize_project_items_uxp` | Connected UXP | `inspect_bin`, `create_bin`, `create_smart_bin`, `rename`, `move`, `set_color`, `remove` | Inspect a bin or transactionally create, rename, move, color-label, and remove project items with stable-ID guards. |
 | `plan_transcript_rough_cut_uxp` | Connected UXP | Single operation | Build a revision-locked, non-mutating rough-cut plan from Premiere's native transcript and verified 1x sequence placements. The plan orders cuts from the end of the timeline, requires a duplicate sequence, and requires re-query after every mutation. |

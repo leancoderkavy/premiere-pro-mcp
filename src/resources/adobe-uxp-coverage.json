@@ -224,6 +224,31 @@
       "verificationBoundary": "sequence_playhead_readback"
     },
     {
+      "id": "guarded-work-area-control",
+      "adobeApi": [
+        "WorkAreaUtilsStatic.getWorkAreaInPoint",
+        "WorkAreaUtilsStatic.getWorkAreaOutPoint",
+        "WorkAreaUtilsStatic.setWorkAreaInOutPoints"
+      ],
+      "documentationUrls": [
+        "https://developer.adobe.com/premiere-pro/uxp/changelog/"
+      ],
+      "minimumPremiereVersion": "26.5.0",
+      "backend": "uxp",
+      "uxpCommand": "workArea.set",
+      "mcpTools": [
+        "manage_work_area_uxp"
+      ],
+      "availability": "current",
+      "implementationStatus": "implemented",
+      "verificationStatus": "automated_contract_verified",
+      "liveHostVerificationStatus": "not_run",
+      "mutatesProject": true,
+      "undoable": false,
+      "idempotency": "operation_id",
+      "verificationBoundary": "work_area_readback"
+    },
+    {
       "id": "guarded-app-preferences",
       "adobeApi": [
         "AppPreference.getValue",

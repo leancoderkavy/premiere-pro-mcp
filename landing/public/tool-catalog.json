@@ -3,11 +3,11 @@
   "evidenceScope": "source_catalog_may_include_unreleased_work",
   "sourceVersion": "1.18.1",
   "sourcePath": "docs/supported-actions.md",
-  "sourceSha256": "b8fe0219e86a9c5767c07945254eb340c7d66d030fc021b75e2b111f56c8cf10",
+  "sourceSha256": "736f743dc1ed3e83e935a278d464ea54818c656b3636d7bdb37317a09d064ac9",
   "hostVerification": "not_established_by_catalogs",
   "counts": {
     "default": 382,
-    "uxp": 95,
+    "uxp": 96,
     "restricted": 2
   },
   "tools": [
@@ -1768,6 +1768,12 @@
       "surface": "uxp",
       "modes": "inspect, set_mute",
       "description": "Inspect audio, video, and caption track mute state or set one media type serially with stale-state preflight and per-track readback. Adobe exposes this as direct promises, so no undo transaction is claimed."
+    },
+    {
+      "name": "manage_work_area_uxp",
+      "surface": "uxp",
+      "modes": "inspect, set",
+      "description": "Inspect or set the active sequence work area through Premiere 26.5+ documented UXP WorkAreaUtils. Setting requires the sequence GUID and complete work area returned by inspect, keeps out within the sequence end, serializes competing requests, and verifies native in/out readback. WorkAreaUtils is a direct call, not an undoable transaction; a runtime capability probe remains authoritative and live-host behavior is not yet verified."
     },
     {
       "name": "manage_workflow_checkpoints_uxp",

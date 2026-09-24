@@ -346,6 +346,59 @@ export function getUxpTools(bridge: UxpWebSocketBridge) {
         });
       },
     },
+    manage_work_area_uxp: {
+      description: "Inspect or set the active sequence work area through Premiere 26.5+ documented UXP WorkAreaUtils. Setting requires the sequence GUID and complete work area returned by inspect, keeps out within the sequence end, serializes competing requests, and verifies native in/out readback. WorkAreaUtils is a direct call, not an undoable transaction; a runtime capability probe remains authoritative and live-host behavior is not yet verified.",
+      parameters: {
+        type: "object" as const,
+        additionalProperties: false,
+        properties: {
+          action: { type: "string", enum: ["inspect", "set"], description: "Read the active work area or apply a guarded update." },
+          expected_sequence_guid: { type: "string", minLength: 1, maxLength: 512, description: "Required for set; copy the active sequence GUID returned by inspect." },
+          expected_work_area: {
+            type: "object",
+            additionalProperties: false,
+            properties: {
+              in_seconds: { type: "number", minimum: 0, maximum: 86400, description: "Work-area in point returned by inspect." },
+              out_seconds: { type: "number", minimum: 0, maximum: 86400, description: "Work-area out point returned by inspect." },
+            },
+            required: ["in_seconds", "out_seconds"],
+            description: "Required for set; complete work area returned by inspect. A changed value rejects the request before Premiere is called.",
+          },
+          in_seconds: { type: "number", minimum: 0, maximum: 86400, description: "Required for set; new work-area in point in seconds." },
+          out_seconds: { type: "number", minimum: 0, maximum: 86400, description: "Required for set; new work-area out point in seconds. Must exceed in_seconds and stay within the sequence end." },
+          operation_id: operationId,
+        },
+        required: ["action"],
+      },
+      operationalCapability: {
+        backend: "UXP" as const,
+        backends: ["uxp" as const],
+        minimumPremiereVersion: "26.5",
+        verificationBoundary: "structured_uxp_readback" as const,
+        hostVerificationRequired: true,
+        notes: ["Available only through an authenticated UXP bridge whose runtime capability handshake advertises the requested workArea command (Premiere 26.5+ WorkAreaUtils)."],
+      },
+      handler: async (args: {
+        action: "inspect" | "set";
+        expected_sequence_guid?: string;
+        expected_work_area?: { in_seconds: number; out_seconds: number };
+        in_seconds?: number;
+        out_seconds?: number;
+        operation_id?: string;
+      }) => {
+        if (args.action === "inspect") return invoke(bridge, "workArea.inspect");
+        return invoke(bridge, "workArea.set", {
+          ...(args.expected_sequence_guid === undefined ? {} : { expectedSequenceGuid: args.expected_sequence_guid }),
+          ...(args.expected_work_area === undefined ? {} : { expectedWorkArea: {
+            inSeconds: args.expected_work_area.in_seconds,
+            outSeconds: args.expected_work_area.out_seconds,
+          } }),
+          ...(args.in_seconds === undefined ? {} : { inSeconds: args.in_seconds }),
+          ...(args.out_seconds === undefined ? {} : { outSeconds: args.out_seconds }),
+          ...(args.operation_id ? { operationId: args.operation_id } : {}),
+        });
+      },
+    },
     manage_sequence_playhead_uxp: {
       description: "Inspect or set the active sequence player position through documented Premiere UXP APIs. Setting requires the sequence GUID and current position returned by inspect, serializes competing requests for that sequence, and verifies native readback; it changes player state only and makes no project-save or Undo claim.",
       parameters: {

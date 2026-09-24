@@ -314,6 +314,8 @@ export function buildPlatformCapabilityReport(
           "frame.export",
           "sequence.playhead.inspect",
           "sequence.playhead.set",
+          "workArea.inspect",
+          "workArea.set",
           "sequence.timing.inspect",
           "graphics.mogrtPath.inspect",
           "timeline.selection.lift",

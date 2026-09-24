@@ -10,8 +10,12 @@ and the
 
 The generated receipt covers only the beta root binding
 `premierepro.WorkAreaUtils`, the empty `WorkAreaUtils` instance type, and the
-five methods of `WorkAreaUtilsStatic`. It has no MCP action and makes no
-production call to that beta surface.
+five methods of `WorkAreaUtilsStatic`. Adobe has since shipped
+`WorkAreaUtils` in stable Premiere 26.5.0. The capability-gated
+`manage_work_area_uxp` tool calls the get/set-in-out methods only when the
+connected host probes them, and requires Premiere 26.5+; see
+[Adobe UXP 26.5 coverage](adobe-uxp-26.5-coverage.md). This receipt still
+accounts only for the pinned declarations.
 
 The repository's existing `get_work_area` and `set_work_area` tools use
 established legacy host paths. This receipt does not change those paths or
