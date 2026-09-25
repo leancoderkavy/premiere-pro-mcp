@@ -220,12 +220,12 @@
     "node": ">=20.19.0"
   },
   "dependencies": {
-    "@posthog/core": "1.54.2",
-    "@posthog/types": "1.412.1",
+    "@posthog/core": "1.55.1",
+    "@posthog/types": "1.412.4",
     "@modelcontextprotocol/node": "^2.0.0",
     "@modelcontextprotocol/server": "^2.0.0",
     "jose": "^6.2.10",
-    "posthog-node": "5.52.4",
+    "posthog-node": "5.52.5",
     "ws": "^8.21.1",
     "zod": "^4.4.3"
   },
