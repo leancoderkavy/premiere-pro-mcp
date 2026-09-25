@@ -3,7 +3,7 @@
   "evidenceScope": "source_catalog_may_include_unreleased_work",
   "sourceVersion": "1.18.1",
   "sourcePath": "docs/supported-actions.md",
-  "sourceSha256": "736f743dc1ed3e83e935a278d464ea54818c656b3636d7bdb37317a09d064ac9",
+  "sourceSha256": "d5c9f143d546fd94f8c9db15567d90144b74a7fbd5b400cc59d1f63f98fe89e3",
   "hostVerification": "not_established_by_catalogs",
   "counts": {
     "default": 382,
@@ -1329,7 +1329,7 @@
       "name": "inspect_dom_object",
       "surface": "default",
       "modes": "Single operation",
-      "description": "Inspect a Premiere Pro DOM object and list its properties, methods, and values. Useful for exploring the API and debugging. Examples: - \"app.project\" → project properties - \"app.project.activeSequence\" → sequence properties - \"app.project.activeSequence.videoTracks[0].clips[0]\" → first clip on V1 - \"app.project.activeSequence.videoTracks[0].clips[0].components[0]\" → first component of a clip"
+      "description": "Inspect a Premiere Pro DOM object and list its properties, methods, and values. Useful for exploring the API and debugging. object_path must be a property path starting with app or qe (identifiers and numeric indexes only). Function calls, operators, and statements are rejected; use evaluate_expression with unsafe-script for those. Examples: - \"app.project\" → project properties - \"app.project.activeSequence\" → sequence properties - \"app.project.activeSequence.videoTracks[0].clips[0]\" → first clip on V1 - \"app.project.activeSequence.videoTracks[0].clips[0].components[0]\" → first component of a clip"
     },
     {
       "name": "inspect_edit_readiness",

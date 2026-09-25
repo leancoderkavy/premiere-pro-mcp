@@ -1,6 +1,23 @@
 import { buildToolScript, buildScript, escapeForExtendScript } from "../bridge/script-builder.js";
 import { sendCommand, sendRawCommand, BridgeOptions } from "../bridge/file-bridge.js";
 
+/** Property walk only: app/qe, identifiers, and numeric indexes. No calls or statements. */
+const SAFE_DOM_OBJECT_PATH = /^(?:app|qe)(?:\.[A-Za-z_][A-Za-z0-9_]*|\[\d+\])*$/;
+
+function safeDomObjectPath(objectPath: unknown): { ok: true; path: string } | { ok: false; error: string } {
+  if (typeof objectPath !== "string" || objectPath.length === 0 || objectPath.length > 512) {
+    return { ok: false, error: "object_path must be a non-empty Premiere DOM path of at most 512 characters." };
+  }
+  if (!SAFE_DOM_OBJECT_PATH.test(objectPath)) {
+    return {
+      ok: false,
+      error:
+        "object_path must be a property path starting with app or qe (for example app.project.activeSequence.videoTracks[0]). Function calls, operators, and statements are rejected because inspect_dom_object is not an unsafe-script tool.",
+    };
+  }
+  return { ok: true, path: objectPath };
+}
+
 export function getScriptingTools(bridgeOptions: BridgeOptions) {
   return {
     execute_extendscript: {
@@ -101,7 +118,7 @@ Examples:
     },
 
     inspect_dom_object: {
-      description: `Inspect a Premiere Pro DOM object and list its properties, methods, and values. Useful for exploring the API and debugging.
+      description: `Inspect a Premiere Pro DOM object and list its properties, methods, and values. Useful for exploring the API and debugging. object_path must be a property path starting with app or qe (identifiers and numeric indexes only). Function calls, operators, and statements are rejected; use evaluate_expression with unsafe-script for those.
 
 Examples:
 - "app.project" → project properties
@@ -113,7 +130,9 @@ Examples:
         properties: {
           object_path: {
             type: "string",
-            description: "Dot-path to the DOM object to inspect (e.g., 'app.project.activeSequence')",
+            minLength: 1,
+            maxLength: 512,
+            description: "Property path starting with app or qe (e.g. 'app.project.activeSequence.videoTracks[0]'). Function calls and statements are rejected.",
           },
           max_depth: {
             type: "number",
@@ -123,7 +142,10 @@ Examples:
         required: ["object_path"],
       },
       handler: async (args: { object_path: string; max_depth?: number }) => {
+        const objectPath = safeDomObjectPath(args.object_path);
+        if (!objectPath.ok) return { success: false, error: objectPath.error };
         const maxDepth = Math.min(args.max_depth ?? 1, 3);
+        const quotedPath = escapeForExtendScript(objectPath.path);
         const script = buildToolScript(`
           function inspectObj(obj, depth, maxD) {
             if (depth > maxD) return "<max depth>";
@@ -177,19 +199,19 @@ Examples:
           }
           
           try {
-            var obj = ${args.object_path};
-            if (obj === null || obj === undefined) return __error("Object is null or undefined: ${args.object_path}");
+            var obj = ${objectPath.path};
+            if (obj === null || obj === undefined) return __error("Object is null or undefined: ${quotedPath}");
             var inspection = inspectObj(obj, 0, ${maxDepth});
             return __result({
-              path: "${args.object_path}",
+              path: "${quotedPath}",
               type: typeof obj,
               inspection: inspection
             });
           } catch(e) {
-            return __error("Cannot access: ${args.object_path} — " + e.toString());
+            return __error("Cannot access: ${quotedPath} — " + e.toString());
           }
         `);
-        return sendRawCommand(script, bridgeOptions);
+        return sendCommand(script, bridgeOptions);
       },
     },
 
@@ -257,13 +279,15 @@ Examples:
         properties: {
           sequence_id: {
             type: "string",
+            minLength: 1,
+            maxLength: 512,
             description: "Sequence name or ID. Uses active sequence if omitted.",
           },
         },
       },
       handler: async (args: { sequence_id?: string }) => {
         const seqLookup = args.sequence_id
-          ? `var seq = __findSequence("${args.sequence_id}"); if (!seq) return __error("Sequence not found");`
+          ? `var seq = __findSequence("${escapeForExtendScript(args.sequence_id)}"); if (!seq) return __error("Sequence not found");`
           : `var seq = app.project.activeSequence; if (!seq) return __error("No active sequence");`;
 
         const script = buildToolScript(`
