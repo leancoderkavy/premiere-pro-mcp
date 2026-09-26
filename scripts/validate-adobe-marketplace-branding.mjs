@@ -58,8 +58,12 @@ for (const surface of surfaces) {
       errors.push(`${surface.file} is missing required display name evidence: ${required}`);
     }
   }
+  // The README can use the full search phrase without treating its suffix as a display name.
+  const brandingText = surface.file === "README.md"
+    ? source.replaceAll("Adobe Premiere Pro MCP", "")
+    : source;
   for (const retired of retiredDisplayNames) {
-    if (source.includes(retired)) {
+    if (brandingText.includes(retired)) {
       errors.push(`${surface.file} still exposes retired display name: ${retired}`);
     }
   }

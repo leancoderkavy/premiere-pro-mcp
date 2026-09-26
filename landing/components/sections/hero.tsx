@@ -27,10 +27,10 @@ export function HeroSection() {
         <div className="relative mx-auto max-w-6xl">
           <div className="mx-auto max-w-4xl text-center">
             <p className="hero-enter hero-enter-1 mb-5 font-mono text-xs font-semibold uppercase tracking-[0.18em] text-violet-200">
-              Open source · local bridge · explicit confirmation
+              Independent · open source · local bridge
             </p>
             <h1 className="hero-enter hero-enter-1 text-balance text-4xl font-bold leading-[1.02] tracking-[-0.045em] text-white sm:text-6xl md:text-7xl">
-              Automate Adobe Premiere Pro with AI: <span className="accent-text">Preview edits before you apply them.</span>
+              Adobe Premiere Pro MCP: <span className="accent-text">Preview edits before you apply them.</span>
             </h1>
             <p className="hero-enter hero-enter-2 mx-auto mt-7 max-w-2xl text-balance text-lg leading-8 text-zinc-400 md:text-xl">
               Free, open-source bridge that connects AI assistants (Claude, Cursor, ChatGPT) to Adobe Premiere Pro. Make timeline edits, apply effects, and export—all with local-first privacy and explicit confirmation.

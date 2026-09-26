@@ -6,7 +6,7 @@
 
 [![MCP Toplist](https://mcptoplist.com/badge/glama%2Fleancoderkavy%2Fpremiere-pro-mcp.svg)](https://mcptoplist.com/server/glama%2Fleancoderkavy%2Fpremiere-pro-mcp)
 
-**Give compatible AI assistants structured control over supported Adobe Premiere Pro workflows.**
+**Adobe Premiere Pro MCP server for reviewable, local-first workflows with compatible AI assistants.**
 
 Premiere Pro automation for Claude, Cursor, Codex, and other MCP clients: AI-assisted editing, project organization, and export checks through Adobe's documented UXP and CEP/ExtendScript APIs.
 
