@@ -110,10 +110,10 @@ The current source exposes 384 core tools for supported workflow steps spanning 
 
 <a id="latest-release"></a>
 
-### Latest release: 1.18.1
+### Latest release: 1.18.2
 
-The published v1.18.1 npm artifact contains **384 core tools**, 382 in its default profile,
-and 477 with a compatible UXP connection. The development catalog above can include
+The published v1.18.2 npm artifact contains **384 core tools**, 382 in its default profile,
+and 478 with a compatible UXP connection. The development catalog above can include
 unreleased work. See the [versioned facts and package provenance](https://premiere-pro-mcp.com/facts/).
 
 ### Try a bounded workflow
@@ -162,7 +162,7 @@ if the connection is unavailable.
   local Premiere processes. See the generated [supported action catalog](docs/supported-actions.md)
   for individual capability and verification contracts.
 
-See the [v1.18.1 release notes](https://github.com/leancoderkavy/premiere-pro-mcp/releases/tag/v1.18.1)
+See the [v1.18.2 release notes](https://github.com/leancoderkavy/premiere-pro-mcp/releases/tag/v1.18.2)
 for complete details. Live installation in Premiere Pro still requires host verification.
 
 ### Current MCP protocol support
@@ -210,7 +210,7 @@ their bins, media rules, and organization rules before a facility uses one.
 > ### Install the published package (verify the name)
 >
 > ```bash
-> npm i -g premiere-pro-mcp@1.18.1
+> npm i -g premiere-pro-mcp@1.18.2
 > ```
 >
 > This repository publishes only **`premiere-pro-mcp`**. A differently named package (`adobe-premiere-pro-mcp`) may also declare a `premiere-pro-mcp` executable. Before configuring a client, confirm:
@@ -218,7 +218,7 @@ their bins, media rules, and organization rules before a facility uses one.
 > | Check | Expected |
 > | --- | --- |
 > | Package name | `premiere-pro-mcp` (not `adobe-premiere-pro-mcp`) |
-> | Version | `1.18.1` |
+> | Version | `1.18.2` |
 > | Homepage / repo | https://premiere-pro-mcp.com/ · https://github.com/leancoderkavy/premiere-pro-mcp |
 >
 > ```bash
@@ -231,9 +231,9 @@ their bins, media rules, and organization rules before a facility uses one.
 
 ### Easiest supported path: Claude Desktop
 
-1. Download the current [Claude Desktop bundle (`.mcpb`)](https://github.com/leancoderkavy/premiere-pro-mcp/releases/download/v1.18.1/premiere-pro-mcp-1.18.1.mcpb).
+1. Download the current [Claude Desktop bundle (`.mcpb`)](https://github.com/leancoderkavy/premiere-pro-mcp/releases/download/v1.18.2/premiere-pro-mcp-1.18.2.mcpb).
 2. In Claude Desktop, open **Settings > Extensions > Advanced settings > Install Extension**, select the downloaded bundle, and restart Claude Desktop.
-3. Download the separate [signed Premiere connector (`.zxp`)](https://github.com/leancoderkavy/premiere-pro-mcp/releases/download/v1.18.1/MCPBridgeCEP.zxp). Open it with your trusted ZXP installer. If your computer has no ZXP installer, use the npm connector installer in **Advanced setup** below.
+3. Download the separate [signed Premiere connector (`.zxp`)](https://github.com/leancoderkavy/premiere-pro-mcp/releases/download/v1.18.2/MCPBridgeCEP.zxp). Open it with your trusted ZXP installer. If your computer has no ZXP installer, use the npm connector installer in **Advanced setup** below.
 4. Restart Premiere, open a project, then open **Window > Extensions > MCP for Adobe Premiere Pro**.
 5. In Claude, enter: `Safely check my Premiere connection with verify_premiere_connection. Make no changes.`
 
@@ -533,11 +533,11 @@ From a clone of this repository:
 ```bash
 codex plugin marketplace add .
 codex plugin add premiere-pro@premiere-pro-mcp
-npx -y premiere-pro-mcp@1.18.1 --install-cep
+npx -y premiere-pro-mcp@1.18.2 --install-cep
 ```
 
 Restart Premiere Pro and start a new Codex session after installation. The plugin
-launches `premiere-pro-mcp@1.18.1` through `npx`; the separate CEP installation is
+launches `premiere-pro-mcp@1.18.2` through `npx`; the separate CEP installation is
 required because the MCP server communicates with the running Premiere host through
 the local bridge.
 
@@ -575,7 +575,7 @@ For Claude Code, add this repository as a marketplace and install the plugin:
 Then install the Premiere bridge and start a new Claude Code session:
 
 ```bash
-npx -y premiere-pro-mcp@1.18.1 --install-cep
+npx -y premiere-pro-mcp@1.18.2 --install-cep
 ```
 
 The Claude Code package lives in

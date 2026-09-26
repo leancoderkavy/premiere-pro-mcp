@@ -6,6 +6,23 @@ import { product } from "@/lib/product"
 
 const releases = [
   {
+    version: "1.18.2",
+    date: "2026-09-26",
+    label: "UXP work area coverage, inspect safety, and clearer search presentation",
+    groups: [
+      { title: "Added", items: [
+        "Capability-gated UXP tool for documented Premiere 26.5 WorkAreaUtils coverage."
+      ] },
+      { title: "Fixed", items: [
+        "Inspect tools no longer evaluate unescaped ExtendScript."
+      ] },
+      { title: "Documentation", items: [
+        "Clarified the independent Adobe Premiere Pro MCP presentation on GitHub and the project site."
+      ] },
+      { title: "Verification scope", items: ["Automated checks validate package behavior; the new UXP operation has not been verified on a licensed Premiere host."] }
+    ],
+  },
+  {
     version: "1.18.1",
     date: "2026-09-23",
     label: "Media Encoder handoff fix and new model guides",
