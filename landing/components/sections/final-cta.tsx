@@ -51,7 +51,7 @@ export function FinalCtaSection() {
             className="inline-flex items-center gap-2 transition-colors hover:text-white"
           >
             <Github className="h-4 w-4" />
-            MIT licensed on GitHub
+            Adobe Premiere Pro MCP on GitHub
           </a>
           <span>Premiere Pro {product.premiereCompatibility} · macOS and Windows</span>
         </div>

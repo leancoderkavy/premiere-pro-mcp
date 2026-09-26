@@ -17,11 +17,11 @@ describe("landing AI and search discovery", () => {
 
     expect(layout).toContain('href="/llms.txt"');
     expect(layout).toContain('href="/llms-full.txt"');
-    expect(layout).toContain("Premiere Pro MCP: AI Automation for Adobe Premiere Pro | Free & Open Source");
+    expect(layout).toContain("Adobe Premiere Pro MCP | Free, Independent & Local");
     expect(home).toContain("<HomeStructuredData />");
     expect(read("landing/app/design-preview/page.tsx")).toContain("<HomeStructuredData />");
     expect(homeSchema).toContain('alternateName: ["Premiere Pro MCP", "premiere-pro-mcp"]');
-    expect(hero).toContain("Automate Adobe Premiere Pro with AI:");
+    expect(hero).toContain("Adobe Premiere Pro MCP:");
     expect(llms).toContain("Preferred product name: **MCP for Adobe Premiere Pro**");
     expect(llms).toContain("https://premiere-pro-mcp.com/facts/");
     expect(llmsFull).toContain("https://premiere-pro-mcp.com/llm.txt");
