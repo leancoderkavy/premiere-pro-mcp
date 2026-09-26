@@ -33,6 +33,15 @@ for (const url of urls) {
   assert.equal(tags(html, "h1").length, 1, `Expected one H1: ${url}`);
   for (const match of html.matchAll(/<script[^>]*type="application\/ld\+json"[^>]*>(.*?)<\/script>/gs)) JSON.parse(match[1]);
 }
+const homepage = pages.get("/");
+const treatment = readFileSync(htmlFile("/design-preview/"), "utf8");
+const titleOf = (html) => html.match(/<title>(.*?)<\/title>/s)?.[1];
+const descriptionOf = (html) => attr(tags(html, "meta").find((tag) => attr(tag, "name") === "description") ?? "", "content");
+const h1Of = (html) => html.match(/<h1\b[^>]*>(.*?)<\/h1>/s)?.[1]?.replace(/<[^>]+>/g, "").trim();
+assert(titleOf(homepage)?.startsWith("Adobe Premiere Pro MCP"), "Control homepage title must lead with Adobe Premiere Pro MCP");
+assert.equal(titleOf(treatment), titleOf(homepage), "Both homepage experiment variants must use the same title");
+assert.equal(descriptionOf(treatment), descriptionOf(homepage), "Both homepage experiment variants must use the same description");
+assert(h1Of(treatment)?.startsWith("Adobe Premiere Pro MCP"), "Treatment H1 must lead with Adobe Premiere Pro MCP");
 let checkedLinks = 0;
 for (const [path, html] of pages) {
   for (const tag of tags(html, "a")) {
