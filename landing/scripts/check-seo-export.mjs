@@ -37,11 +37,11 @@ const homepage = pages.get("/");
 const treatment = readFileSync(htmlFile("/design-preview/"), "utf8");
 const titleOf = (html) => html.match(/<title>(.*?)<\/title>/s)?.[1];
 const descriptionOf = (html) => attr(tags(html, "meta").find((tag) => attr(tag, "name") === "description") ?? "", "content");
-const h1Of = (html) => html.match(/<h1\b[^>]*>(.*?)<\/h1>/s)?.[1]?.replace(/<[^>]+>/g, "").trim();
+const h1MarkupOf = (html) => html.match(/<h1\b[^>]*>(.*?)<\/h1>/s)?.[1];
 assert(titleOf(homepage)?.startsWith("Adobe Premiere Pro MCP"), "Control homepage title must lead with Adobe Premiere Pro MCP");
 assert.equal(titleOf(treatment), titleOf(homepage), "Both homepage experiment variants must use the same title");
 assert.equal(descriptionOf(treatment), descriptionOf(homepage), "Both homepage experiment variants must use the same description");
-assert(h1Of(treatment)?.startsWith("Adobe Premiere Pro MCP"), "Treatment H1 must lead with Adobe Premiere Pro MCP");
+assert.match(h1MarkupOf(treatment) ?? "", /^\s*(?:<[^>]+>)*Adobe Premiere Pro MCP/, "Treatment H1 must lead with Adobe Premiere Pro MCP");
 let checkedLinks = 0;
 for (const [path, html] of pages) {
   for (const tag of tags(html, "a")) {
