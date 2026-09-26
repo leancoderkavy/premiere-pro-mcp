@@ -3,12 +3,17 @@
   padding-top: 32px;
 }
 .studio-hero .studio-product-name {
+  display: block;
   font-size: 14px;
+  font-weight: 600;
   letter-spacing: 0.08em;
+  line-height: 1.4;
+  color: var(--s-text);
+  margin-bottom: 14px;
 }
 .studio-hero h1 {
   font-size: clamp(48px, 5.4vw, 72px);
-  margin-top: 14px;
+  margin-top: 0;
 }
 .studio-hero-description {
   font-size: 19px;

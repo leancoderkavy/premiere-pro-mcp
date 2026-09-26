@@ -47,8 +47,8 @@ export function StudioHome() {
         </div>
         <section id="top" className="studio-container studio-hero">
           <div className="studio-hero-copy" data-scroll-scene>
-            <p className="studio-product-name">Premiere Pro MCP</p>
             <h1>
+              <span className="studio-product-name">Adobe Premiere Pro MCP:</span>{" "}
               Your assistant.
               <br />
               Connected to <span>Premiere.</span>
