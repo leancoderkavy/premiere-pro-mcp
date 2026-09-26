@@ -6,6 +6,24 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [1.18.2] - 2026-09-26
+
+### Added
+
+- Documented Premiere 26.5 WorkAreaUtils coverage with a capability-gated UXP tool. (#637)
+
+### Fixed
+
+- Prevented inspect tools from evaluating unescaped ExtendScript. (#639)
+
+### Documentation
+
+- Clarified the independent Adobe Premiere Pro MCP search presentation on GitHub and the project site. (#643)
+
+### Verification scope
+
+- Automated checks validate package behavior. The new UXP operation has not been verified on a licensed Premiere host in this release.
+
 ## [1.18.1] - 2026-09-23
 
 ### Fixed
