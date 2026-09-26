@@ -32,11 +32,12 @@ describe("canonical release metadata", () => {
       release.version,
     );
 
+    const publishedVersion = readJson("landing/lib/published-release.json").version;
     for (const path of [
       "plugins/premiere-pro/.mcp.json",
       "claude-plugins/premiere-pro/.mcp.json",
     ]) {
-      expect(read(path)).toContain(`premiere-pro-mcp@${release.version}`);
+      expect(read(path)).toContain(`premiere-pro-mcp@${publishedVersion}`);
     }
 
     const cepManifest = read("cep-plugin/CSXS/manifest.xml");
@@ -91,10 +92,10 @@ describe("canonical release metadata", () => {
     expect(product.downloads.claudeBundle).toContain(`/releases/download/v${published.version}/premiere-pro-mcp-${published.version}.mcpb`);
     expect(product.downloads.signedCepConnector).toContain(`/releases/download/v${published.version}/MCPBridgeCEP.zxp`);
     expect(product.downloads.releaseNotes).toContain(`/releases/tag/v${published.version}`);
-    expect(readme).toContain(`Latest release: ${release.version}`);
+    expect(readme).toContain(`Latest release: ${published.version}`);
     expect(readme).toContain(`registers ${release.coreTools} tools, filtered by authority profile`);
     expect(read("landing/app/changelog/page.tsx")).toContain(
-      `version: "${release.version}"`,
+      `version: "${published.version}"`,
     );
     expect(supportedActions).toContain(
       `| Registered core actions | ${release.coreTools} |`,
