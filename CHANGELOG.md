@@ -6,6 +6,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Fixed
+
+- `export_sequence` now fails when Premiere rejects the render or writes no file. (#647)
+- UXP source-media timing reads Premiere 26.5's documented synchronous `Media.getStart()` / `getDuration()` before the deprecated Promise-returning `start` / `duration` properties, so `manage_source_media_timing_uxp` can set a start time on 26.5 hosts instead of reporting the command unavailable.
+
+### Verification scope
+
+- Automated checks validate package behavior. The UXP media timing change has not been verified on a licensed Premiere host.
+
 ## [1.18.2] - 2026-09-26
 
 ### Added
