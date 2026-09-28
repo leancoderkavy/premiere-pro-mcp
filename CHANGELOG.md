@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Security
+
+- UXP path arguments are now checked in the MCP server process before a command is sent. Any absolute path that goes through a symbolic link or directory junction is refused with `UXP_PATH_SYMLINK_REFUSED`. Premiere 26.5 UXP reports a link's own path and cannot `lstat`, so the panel's workspace check could be bypassed through a link inside the approved folder. (#640)
+
 ## [1.18.2] - 2026-09-26
 
 ### Added
