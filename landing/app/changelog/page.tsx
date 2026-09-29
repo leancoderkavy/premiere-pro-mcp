@@ -6,6 +6,21 @@ import { product } from "@/lib/product"
 
 const releases = [
   {
+    version: "1.18.5",
+    date: "2026-09-28",
+    label: "Timeline edits that stay in place, and exports checked on disk",
+    groups: [
+      { title: "Fixed", items: [
+        "unnest_sequence and replace_clip overwrite in place instead of pushing later clips down the track, and refuse trimmed nests, locked tracks, and occupied ranges before changing anything.",
+        "move_clip_to_track refuses locked or occupied targets and reads the moved clip back.",
+        "export_frame_uxp checks that the PNG exists, and MOGRT inserts confirm where the clip landed.",
+        "encode_media_uxp says when Media Encoder's queue may not have started; project-item removal is confirmed from the project tree.",
+        "refresh_media repairs a corrupted frame rate, and media reports are paged and bounded for large projects."
+      ] },
+      { title: "Verification scope", items: ["Automated checks validate package behavior; these changes have not been re-verified on a licensed Premiere host."] }
+    ],
+  },
+  {
     version: "1.18.4",
     date: "2026-09-28",
     label: "Right-clip QE lookups, a working apply_effect, and honest UXP results",
