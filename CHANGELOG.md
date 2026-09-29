@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [1.18.6] - 2026-09-29
+
 ### Fixed
 
 - `set_scale_width_height` never set the height. It wrote to a "Scale Height" property that Premiere's Motion effect does not have, then reported success. With Uniform Scale off, Premiere keeps the height in Motion > Scale. The tool now writes the width to Scale Width and the height to Scale, reads all three values back, fails when any does not match, and rejects values outside 0-10000 before building a script. (#642)
@@ -14,6 +16,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 - The website moved to its own repository, [leancoderkavy/premiere-pro-mcp-site](https://github.com/leancoderkavy/premiere-pro-mcp-site), and is served at `https://premiere-pro-mcp.com`. It reads versions and tool counts from the published npm package and syncs them on its own, so releases here no longer update website files.
 - The HTTP transport no longer serves website pages, the homepage experiment, or `/api/landing-events`. It answers `/mcp`, `/health`, and OAuth protected-resource metadata only. Other `GET` and `HEAD` paths on `premiere-pro-mcp.fly.dev` or a `*.premiere-pro-mcp.com` host redirect (`308`) to the same path on `https://premiere-pro-mcp.com`; any other host gets a JSON `404`. Its Content Security Policy is now deny-all, `/health` reports the running package `version`, and the `MCP_MAX_CONCURRENT_LANDING_DOCUMENTS`, `MCP_LANDING_MAX_HTML_BYTES`, and `MCP_LANDING_HTML_CACHE_BYTES` settings are gone. The Docker image no longer builds the site.
+
+### Verification scope
+
+- Automated checks validate package behavior. The `set_scale_width_height` fix follows a live report from Premiere 26.5.1 but has not been re-verified on a licensed Premiere host. The website move was verified live: premiere-pro-mcp.com serves from Vercel, and the Fly deployment answers `/health` and redirects other paths to the website.
 
 ## [1.18.5] - 2026-09-28
 
