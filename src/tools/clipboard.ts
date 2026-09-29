@@ -475,17 +475,39 @@ export function getClipboardTools(bridgeOptions: BridgeOptions) {
 
           var src = srcResult.clip;
           var tgt = tgtResult.clip;
-          var copied = 0;
+          var copied = [];
+          var unverified = [];
+          var failed = [];
           var effectFilter = ${args.effect_name ? `"${escapeForExtendScript(args.effect_name)}"` : "null"};
           var intrinsic = ["Motion", "Opacity", "Time Remapping", "Volume", "Channel Volume", "Panner"];
 
           // Use QE to copy effects by name
           var qeSeq = qe.project.getActiveSequence();
+          if (!qeSeq) return __error("No active sequence (QE); nothing was changed.");
           var tgtTrackType = tgtResult.trackType;
-          var tgtTrack = tgtTrackType === "video" 
-            ? qeSeq.getVideoTrackAt(tgtResult.trackIndex) 
+          var tgtTrack = tgtTrackType === "video"
+            ? qeSeq.getVideoTrackAt(tgtResult.trackIndex)
             : qeSeq.getAudioTrackAt(tgtResult.trackIndex);
-          var qeTgtClip = tgtTrack.getItemAt(tgtResult.clipIndex);
+          if (!tgtTrack) return __error("QE target track not found; nothing was changed.");
+          // QE track items include gaps, so the DOM clip index is not a QE index.
+          var qeTgtClip = __findQeClipByDomClip(tgtTrack, tgt);
+          if (!qeTgtClip) return __error("Could not match the QE clip for target " + tgt.name + " by timeline start; nothing was changed.");
+
+          function countTargetComponents(wanted) {
+            var n = 0;
+            for (var ci = 0; ci < tgt.components.numItems; ci++) {
+              if (tgt.components[ci].displayName === wanted) n++;
+            }
+            return n;
+          }
+
+          function listNames(entries) {
+            var out = [];
+            for (var li = 0; li < entries.length; li++) {
+              out.push(typeof entries[li] === "string" ? entries[li] : entries[li].effect + " (" + entries[li].reason + ")");
+            }
+            return out.join(", ");
+          }
 
           for (var i = 0; i < src.components.numItems; i++) {
             var comp = src.components[i];
@@ -500,23 +522,61 @@ export function getClipboardTools(bridgeOptions: BridgeOptions) {
               if (skip) continue;
             }
 
-            // Apply effect via QE
+            // Apply effect via QE, then read the target component list back.
+            var beforeCount = null;
+            try { beforeCount = countTargetComponents(name); } catch (beforeErr) {}
+            var qeEffect = null;
             try {
-              var qeEffect = tgtTrackType === "video"
+              qeEffect = tgtTrackType === "video"
                 ? qe.project.getVideoEffectByName(name)
                 : qe.project.getAudioEffectByName(name);
-              if (qeEffect) {
-                if (tgtTrackType === "video") {
-                  qeTgtClip.addVideoEffect(qeEffect);
-                } else {
-                  qeTgtClip.addAudioEffect(qeEffect);
-                }
-                copied++;
+            } catch (lookupErr) {
+              failed.push({ effect: name, reason: "QE effect lookup failed: " + lookupErr.toString() });
+              continue;
+            }
+            if (!qeEffect) {
+              failed.push({ effect: name, reason: "QE did not resolve a " + tgtTrackType + " effect with this name" });
+              continue;
+            }
+            try {
+              if (tgtTrackType === "video") {
+                qeTgtClip.addVideoEffect(qeEffect);
+              } else {
+                qeTgtClip.addAudioEffect(qeEffect);
               }
-            } catch(e) {}
+            } catch (addErr) {
+              failed.push({ effect: name, reason: "Premiere rejected the effect: " + addErr.toString() });
+              continue;
+            }
+            var afterCount = null;
+            try { afterCount = countTargetComponents(name); } catch (afterErr) {}
+            if (beforeCount !== null && afterCount !== null && afterCount > beforeCount) {
+              copied.push(name);
+            } else {
+              unverified.push({ effect: name, reason: "Premiere accepted the call but the target component list did not show a new " + name + " component" });
+            }
           }
 
-          return __result({ copiedEffects: copied, source: src.name, target: tgt.name });
+          if (failed.length > 0) {
+            var partial = copied.length + unverified.length > 0;
+            return __error((partial ? "copy_effects_between_clips was only partially applied" : "No effects were copied") +
+              " to " + tgt.name + ". Verified: [" + listNames(copied) + "]; committed_unverified: [" + listNames(unverified) +
+              "]; failed: [" + listNames(failed) + "]. Check Effect Controls before retrying.");
+          }
+
+          var status = copied.length + unverified.length === 0
+            ? "unchanged"
+            : (unverified.length > 0 ? "committed_unverified" : "verified");
+          return __result({
+            status: status,
+            verified: status === "verified",
+            copiedEffects: copied.length,
+            copied: copied,
+            committedUnverified: unverified,
+            failed: failed,
+            source: src.name,
+            target: tgt.name
+          });
         `);
         return sendCommand(script, bridgeOptions);
       },

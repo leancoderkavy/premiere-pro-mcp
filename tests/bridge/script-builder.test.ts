@@ -175,6 +175,35 @@ describe("helpers execute correctly in an ES3-like engine", () => {
     expect(out).toBe("4|12.5|4||");
   });
 
+  it("matches a QE clip by DOM start time past a leading gap and never returns a neighbour (#642)", () => {
+    const T = 254016000000;
+    const items = [
+      { type: "Empty", name: "gap", start: { ticks: "0" } },
+      { type: "Clip", name: "A", start: { ticks: String(5 * T) } },
+      { type: "Empty", name: "gap2", start: { ticks: String(8 * T) } },
+      { type: "Clip", name: "B", start: { ticks: String(10 * T) } },
+    ];
+    const sandbox = {
+      qeTrack: { numItems: items.length, getItemAt: (i: number) => items[i] },
+      domA: { start: { ticks: String(5 * T) } },
+      domB: { start: { ticks: String(10 * T) } },
+      domMissing: { start: { ticks: String(6 * T) } },
+      domBroken: { start: null },
+    };
+    const out = runInNewContext(
+      getHelpersSource() + `
+      var r = [];
+      r.push(__findQeClipByDomClip(qeTrack, domA).name);
+      r.push(__findQeClipByDomClip(qeTrack, domB).name);
+      r.push(__findQeClipByDomClip(qeTrack, domMissing) === null);
+      r.push(__findQeClipByDomClip(qeTrack, domBroken) === null);
+      r.push(__findQeClipByDomClip(null, domA) === null);
+      r.join("|");`,
+      sandbox,
+    );
+    expect(out).toBe("A|B|true|true|true");
+  });
+
   it("a stale wrapper from an older helpers version gets replaced", () => {
     // Simulate a polluted long-lived engine: JSON.stringify is our old-style wrapper.
     const stale = { stringify: function badWrapper(o: unknown) { return "__jsonStringify" + String(o); } };

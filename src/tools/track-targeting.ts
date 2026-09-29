@@ -1225,16 +1225,27 @@ export function getTrackTargetingTools(bridgeOptions: BridgeOptions) {
           var num = ${startNum};
           var pattern = "${escapeForExtendScript(args.pattern)}";
 
+          // QE track items include gaps, so the DOM clip index is not a QE
+          // index. Match every target by timeline start before renaming any.
+          if (!qeTrack) return __error("QE track not found; nothing was changed.");
+          var targets = [];
           for (var c = 0; c < track.clips.numItems; c++) {
             var clip = track.clips[c];
             ${args.selected_only ? `if (!clip.isSelected()) continue;` : ""}
+            var matchedQeClip = __findQeClipByDomClip(qeTrack, clip);
+            if (!matchedQeClip) return __error("Could not match the QE clip for " + clip.name + " by timeline start; nothing was changed.");
+            targets.push({ clip: clip, qeClip: matchedQeClip });
+          }
+
+          for (var t = 0; t < targets.length; t++) {
+            var clip = targets[t].clip;
 
             var sequenceNumber = "" + num;
             var paddedSequenceNumber = sequenceNumber;
             while (paddedSequenceNumber.length < 2) paddedSequenceNumber = "0" + paddedSequenceNumber;
             var newName = pattern.split("{n}").join(sequenceNumber).split("##").join(paddedSequenceNumber).split("{name}").join(clip.name);
             try {
-              var qeClip = qeTrack.getItemAt(c);
+              var qeClip = targets[t].qeClip;
               qeClip.setName(newName);
               renamed++;
             } catch(e) {}
@@ -1482,8 +1493,16 @@ export function getTrackTargetingTools(bridgeOptions: BridgeOptions) {
           };
           if (!qeTrack) return __error("Track not found");
 
-          var qeClip = qeTrack.getItemAt(${args.clip_index});
-          if (!qeClip) return __error("Clip not found at index ${args.clip_index}");
+          // clip_index addresses the DOM clip list; QE track items also include
+          // gaps, so resolve the DOM clip and match its QE item by start time.
+          var seq = app.project.activeSequence;
+          if (!seq) return __error("No active sequence");
+          var domTracks = ${args.track_type === "video" ? "seq.videoTracks" : "seq.audioTracks"};
+          if (${args.track_index} >= domTracks.numTracks) return __error("Track not found");
+          var domClips = domTracks[${args.track_index}].clips;
+          if (${args.clip_index} >= domClips.numItems) return __error("Clip not found at index ${args.clip_index}");
+          var qeClip = __findQeClipByDomClip(qeTrack, domClips[${args.clip_index}]);
+          if (!qeClip) return __error("Could not match the QE clip for clip index ${args.clip_index} by timeline start");
 
           var info = { trackType: "${args.track_type}", trackIndex: ${args.track_index}, clipIndex: ${args.clip_index} };
 

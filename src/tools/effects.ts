@@ -35,10 +35,11 @@ export function getEffectsTools(bridgeOptions: BridgeOptions) {
             : qeSeq.getAudioTrackAt(result.trackIndex);
           
           if (!qeTrack) return __error("QE track not found");
-          
-          var qeClip = qeTrack.getItemAt(result.clipIndex);
-          if (!qeClip) return __error("QE clip not found");
-          
+
+          // QE track items include gaps, so the DOM clip index is not a QE index.
+          var qeClip = __findQeClipByDomClip(qeTrack, result.clip);
+          if (!qeClip) return __error("Could not match the QE clip for " + result.clip.name + " by timeline start; nothing was changed.");
+
           // Premiere 26 can expose direct by-name lookup while returning an
           // empty QE catalog. Probe the requested name before consulting the
           // catalog so a known installed effect remains usable.
@@ -47,7 +48,7 @@ export function getEffectsTools(bridgeOptions: BridgeOptions) {
           var lookupSource = qeEffect ? "qe.byName" : "qe.catalog";
           if (!qeEffect) {
             var effectCatalog = __getQeEffectCatalog("video");
-            if (!effectCatalog.ok) return __error(effectCatalog.error + " Direct QE lookup for \"" + effectName + "\" also did not resolve an effect.");
+            if (!effectCatalog.ok) return __error(effectCatalog.error + " Direct QE lookup for \\"" + effectName + "\\" also did not resolve an effect.");
             var effects = effectCatalog.effects;
             for (var i = 0; i < effects.numItems; i++) {
               if (effects[i].name === effectName) {
@@ -92,16 +93,17 @@ export function getEffectsTools(bridgeOptions: BridgeOptions) {
           var effectName = "${escapeForExtendScript(args.effect_name)}";
           var qeTrack = qeSeq.getAudioTrackAt(result.trackIndex);
           if (!qeTrack) return __error("QE audio track not found");
-          
-          var qeClip = qeTrack.getItemAt(result.clipIndex);
-          if (!qeClip) return __error("QE clip not found");
+
+          // QE track items include gaps, so the DOM clip index is not a QE index.
+          var qeClip = __findQeClipByDomClip(qeTrack, result.clip);
+          if (!qeClip) return __error("Could not match the QE clip for " + result.clip.name + " by timeline start; nothing was changed.");
           
           var qeEffect = null;
           try { qeEffect = qe.project.getAudioEffectByName(effectName); } catch (byNameError) {}
           var lookupSource = qeEffect ? "qe.byName" : "qe.catalog";
           if (!qeEffect) {
             var effectCatalog = __getQeEffectCatalog("audio");
-            if (!effectCatalog.ok) return __error(effectCatalog.error + " Direct QE lookup for \"" + effectName + "\" also did not resolve an effect.");
+            if (!effectCatalog.ok) return __error(effectCatalog.error + " Direct QE lookup for \\"" + effectName + "\\" also did not resolve an effect.");
             var effects = effectCatalog.effects;
             for (var i = 0; i < effects.numItems; i++) {
               if (effects[i].name === effectName) {
@@ -329,7 +331,9 @@ export function getEffectsTools(bridgeOptions: BridgeOptions) {
           
           if (!hasLumetri) {
             var qeTrack = qeSeq.getVideoTrackAt(result.trackIndex);
-            var qeClip = qeTrack.getItemAt(result.clipIndex);
+            // QE track items include gaps, so the DOM clip index is not a QE index.
+            var qeClip = __findQeClipByDomClip(qeTrack, clip);
+            if (!qeClip) return __error("Could not match the QE clip for " + clip.name + " by timeline start; nothing was changed.");
             var effectCatalog = __getQeEffectCatalog("video");
             if (!effectCatalog.ok) return __error(effectCatalog.error);
             var effects = effectCatalog.effects;
@@ -340,7 +344,7 @@ export function getEffectsTools(bridgeOptions: BridgeOptions) {
               }
             }
           }
-          
+
           // A single unsettable property must not abort the script with "Invalid
           // parameter" and lose every other change, so each write is guarded.
           // The taken map is a separate set of flags rather than a truthiness check on
@@ -403,8 +407,11 @@ export function getEffectsTools(bridgeOptions: BridgeOptions) {
           
           if (!lumetriComp) {
             var qeSeq = qe.project.getActiveSequence();
+            if (!qeSeq) return __error("No active sequence (QE); nothing was changed.");
             var qeTrack = qeSeq.getVideoTrackAt(result.trackIndex);
-            var qeClip = qeTrack.getItemAt(result.clipIndex);
+            // QE track items include gaps, so the DOM clip index is not a QE index.
+            var qeClip = __findQeClipByDomClip(qeTrack, clip);
+            if (!qeClip) return __error("Could not match the QE clip for " + clip.name + " by timeline start; nothing was changed.");
             var effectCatalog = __getQeEffectCatalog("video");
             if (!effectCatalog.ok) return __error(effectCatalog.error);
             var effects = effectCatalog.effects;
@@ -561,9 +568,10 @@ export function getEffectsTools(bridgeOptions: BridgeOptions) {
             : null;
           if (!qeTrack) return __error("Warp Stabilizer can only be applied to video clips");
           
-          var qeClip = qeTrack.getItemAt(result.clipIndex);
-          if (!qeClip) return __error("QE clip not found");
-          
+          // QE track items include gaps, so the DOM clip index is not a QE index.
+          var qeClip = __findQeClipByDomClip(qeTrack, result.clip);
+          if (!qeClip) return __error("Could not match the QE clip for " + result.clip.name + " by timeline start; nothing was changed.");
+
           // Find and apply Warp Stabilizer
           var effectCatalog = __getQeEffectCatalog("video");
           if (!effectCatalog.ok) return __error(effectCatalog.error);

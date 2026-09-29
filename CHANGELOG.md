@@ -6,6 +6,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Fixed
+
+- CEP tools that act on a timeline clip through the QE DOM no longer pass the DOM clip index to `qeTrack.getItemAt()`. QE counts gaps as track items, so on a track with a leading or intermediate gap these tools renamed, re-effected, or retimed the wrong clip. `rename_clip`, `remove_all_effects`, `set_frame_blend`, `set_time_interpolation`, `apply_effect`, `apply_audio_effect`, `color_correct`, `apply_lut`, `stabilize_clip`, `copy_effects_between_clips`, `batch_rename_clips`, and `get_qe_clip_info` now match the QE clip by timeline start and fail before any change when no clip matches. `copy_effects_between_clips` reports each effect as verified, committed_unverified, or failed from a readback of the target's components instead of silently dropping errors. `apply_effect` and `apply_audio_effect` also no longer emit a malformed error string that stopped the generated script from parsing. (#642)
+
+### Verification scope
+
+- Automated checks validate package behavior. The QE clip lookup change has not been verified on a licensed Premiere host.
+
 ## [1.18.3] - 2026-09-28
 
 ### Security

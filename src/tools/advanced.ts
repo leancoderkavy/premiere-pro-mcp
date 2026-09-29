@@ -680,9 +680,11 @@ export function getAdvancedTools(bridgeOptions: BridgeOptions) {
           var qeTrack = result.trackType === "video"
             ? qeSeq.getVideoTrackAt(result.trackIndex)
             : qeSeq.getAudioTrackAt(result.trackIndex);
-          var qeClip = qeTrack.getItemAt(result.clipIndex);
-          if (!qeClip) return __error("QE clip not found");
-          
+          if (!qeTrack) return __error("QE track not found; nothing was changed.");
+          // QE track items include gaps, so the DOM clip index is not a QE index.
+          var qeClip = __findQeClipByDomClip(qeTrack, result.clip);
+          if (!qeClip) return __error("Could not match the QE clip for " + result.clip.name + " by timeline start; nothing was changed.");
+
           qeClip.removeEffects();
           return __result({ removed: true, clipName: result.clip.name });
         `);
@@ -781,9 +783,11 @@ export function getAdvancedTools(bridgeOptions: BridgeOptions) {
           var qeTrack = result.trackType === "video"
             ? qeSeq.getVideoTrackAt(result.trackIndex)
             : qeSeq.getAudioTrackAt(result.trackIndex);
-          var qeClip = qeTrack.getItemAt(result.clipIndex);
-          if (!qeClip) return __error("QE clip not found");
-          
+          if (!qeTrack) return __error("QE track not found; nothing was changed.");
+          // QE track items include gaps, so the DOM clip index is not a QE index.
+          var qeClip = __findQeClipByDomClip(qeTrack, result.clip);
+          if (!qeClip) return __error("Could not match the QE clip for " + result.clip.name + " by timeline start; nothing was changed.");
+
           qeClip.setFrameBlend(${args.enabled});
           return __result({ frameBlend: ${args.enabled}, clipName: result.clip.name });
         `);
@@ -824,9 +828,11 @@ export function getAdvancedTools(bridgeOptions: BridgeOptions) {
           var qeTrack = result.trackType === "video"
             ? qeSeq.getVideoTrackAt(result.trackIndex)
             : qeSeq.getAudioTrackAt(result.trackIndex);
-          var qeClip = qeTrack.getItemAt(result.clipIndex);
-          if (!qeClip) return __error("QE clip not found");
-          
+          if (!qeTrack) return __error("QE track not found; nothing was changed.");
+          // QE track items include gaps, so the DOM clip index is not a QE index.
+          var qeClip = __findQeClipByDomClip(qeTrack, result.clip);
+          if (!qeClip) return __error("Could not match the QE clip for " + result.clip.name + " by timeline start; nothing was changed.");
+
           qeClip.setTimeInterpolationType(${args.interpolation_type});
           var typeNames = ["Frame Sampling", "Frame Blending", "Optical Flow"];
           return __result({
@@ -867,9 +873,11 @@ export function getAdvancedTools(bridgeOptions: BridgeOptions) {
           var qeTrack = result.trackType === "video"
             ? qeSeq.getVideoTrackAt(result.trackIndex)
             : qeSeq.getAudioTrackAt(result.trackIndex);
-          var qeClip = qeTrack.getItemAt(result.clipIndex);
-          if (!qeClip) return __error("QE clip not found");
-          
+          if (!qeTrack) return __error("QE track not found; nothing was changed.");
+          // QE track items include gaps, so the DOM clip index is not a QE index.
+          var qeClip = __findQeClipByDomClip(qeTrack, result.clip);
+          if (!qeClip) return __error("Could not match the QE clip for " + result.clip.name + " by timeline start; nothing was changed.");
+
           var oldName = result.clip.name;
           qeClip.setName("${escapeForExtendScript(args.new_name)}");
           return __result({ renamed: true, oldName: oldName, newName: "${escapeForExtendScript(args.new_name)}" });
