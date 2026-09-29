@@ -21,9 +21,28 @@ export function getPlaybackTools(bridgeOptions: BridgeOptions) {
     },
 
     stop_playback: {
-      description: "Request that active-sequence timeline playback stop through QE. The legacy API does not provide a same-call playhead readback, so stopped state is not reported as verified.",
-      parameters: {},
-      handler: async () => {
+      description: "Request that active-sequence timeline playback stop through QE. The legacy API does not provide a same-call playhead readback, so stopped state is not reported as verified. Only the timeline can be stopped: Premiere's scripting APIs have no documented call that stops the Source Monitor alone, so target \"source\" returns an error instead of stopping the timeline.",
+      parameters: {
+        type: "object" as const,
+        properties: {
+          target: {
+            type: "string",
+            enum: ["timeline", "source"],
+            description: "What to stop. Default \"timeline\". \"source\" is refused because no documented API stops only the Source Monitor.",
+          },
+        },
+      },
+      handler: async (args: { target?: string } = {}) => {
+        const target = args?.target ?? "timeline";
+        if (target === "source") {
+          return {
+            success: false,
+            error: "Premiere's ExtendScript and UXP APIs have no documented call that stops only the Source Monitor, so nothing was stopped. Pause it in Premiere, or close the clip with close_source_monitor.",
+          };
+        }
+        if (target !== "timeline") {
+          return { success: false, error: "target must be \"timeline\" or \"source\"." };
+        }
         const script = buildToolScript(`
           app.enableQE();
           qe.stopPlayback();

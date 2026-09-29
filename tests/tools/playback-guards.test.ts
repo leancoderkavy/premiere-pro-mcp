@@ -56,3 +56,21 @@ describe("play_source_monitor guards (#642)", () => {
     expect(mockedSendCommand).not.toHaveBeenCalled();
   });
 });
+
+describe("stop_playback target (#642)", () => {
+  it("refuses target source without stopping anything", async () => {
+    mockedSendCommand.mockClear();
+    const result = await getPlaybackTools(bridgeOptions).stop_playback.handler({ target: "source" });
+    expect(result).toMatchObject({ success: false, error: expect.stringContaining("no documented call that stops only the Source Monitor") });
+    expect(mockedSendCommand).not.toHaveBeenCalled();
+  });
+
+  it("rejects an unknown target and still stops the timeline by default", async () => {
+    mockedSendCommand.mockClear();
+    const tools = getPlaybackTools(bridgeOptions);
+    expect(await tools.stop_playback.handler({ target: "program" })).toMatchObject({ success: false });
+    expect(mockedSendCommand).not.toHaveBeenCalled();
+    await tools.stop_playback.handler({});
+    expect(mockedSendCommand.mock.calls[0][0]).toContain("qe.stopPlayback()");
+  });
+});
