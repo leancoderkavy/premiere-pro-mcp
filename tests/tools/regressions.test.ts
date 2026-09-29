@@ -958,9 +958,9 @@ describe("issue #324 — duplicate media requires distinct project-item node IDs
     const script = await scriptFor(utility.get_duplicate_media, {});
 
     expect(script).toContain("var nodeId = String(item.nodeId || \"\")");
-    expect(script).toContain("pathMap[mp] = { items: [], nodeIds: {} }");
-    expect(script).toContain("if (!pathMap[mp].nodeIds[nodeId])");
-    expect(script).toContain("pathMap[path].items.length > 1");
+    expect(script).toContain("items: [], nodeIds: {} }");
+    expect(script).toContain("if (!pathMap[key].nodeIds[nodeId])");
+    expect(script).toContain("group.items.length > 1");
     expect(script).not.toContain("pathMap[path].length > 1");
   });
 });

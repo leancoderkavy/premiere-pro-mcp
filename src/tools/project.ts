@@ -4,6 +4,10 @@ import {
 } from "../bridge/script-builder.js";
 import { sendCommand, BridgeOptions } from "../bridge/file-bridge.js";
 
+const PROJECT_PANEL_METADATA_MIN_CHARS = 256;
+const PROJECT_PANEL_METADATA_MAX_CHARS = 200000;
+const PROJECT_PANEL_METADATA_DEFAULT_CHARS = 20000;
+
 export function getProjectTools(bridgeOptions: BridgeOptions) {
   return {
     save_project: {
@@ -847,13 +851,48 @@ export function getProjectTools(bridgeOptions: BridgeOptions) {
 
     get_project_panel_metadata: {
       description:
-        "Get the current Project-panel column layout as XML. This is schema/layout configuration, not per-item Scene/Shot/Take values; use inspect_project_panel_metadata_uxp item_columns or get_metadata for those.",
-      parameters: {},
-      handler: async () => {
+        "Get the current Project-panel column layout as XML. This is schema/layout configuration, not per-item Scene/Shot/Take values; use inspect_project_panel_metadata_uxp item_columns or get_metadata for those. Output is capped by max_chars (default 20000); when truncated is true the XML is incomplete and must not be passed to set_project_panel_metadata.",
+      parameters: {
+        type: "object" as const,
+        properties: {
+          max_chars: {
+            type: "integer",
+            minimum: PROJECT_PANEL_METADATA_MIN_CHARS,
+            maximum: PROJECT_PANEL_METADATA_MAX_CHARS,
+            description: `Maximum characters of metadata XML to return (${PROJECT_PANEL_METADATA_MIN_CHARS}-${PROJECT_PANEL_METADATA_MAX_CHARS}, default ${PROJECT_PANEL_METADATA_DEFAULT_CHARS}). Longer XML is cut at this length and reported with truncated: true and totalChars.`,
+          },
+        },
+      },
+      handler: async (args: { max_chars?: number } = {}) => {
+        const maxChars = args?.max_chars ?? PROJECT_PANEL_METADATA_DEFAULT_CHARS;
+        if (
+          typeof maxChars !== "number" ||
+          !Number.isInteger(maxChars) ||
+          maxChars < PROJECT_PANEL_METADATA_MIN_CHARS ||
+          maxChars > PROJECT_PANEL_METADATA_MAX_CHARS
+        ) {
+          return {
+            success: false,
+            error: `max_chars must be an integer between ${PROJECT_PANEL_METADATA_MIN_CHARS} and ${PROJECT_PANEL_METADATA_MAX_CHARS}`,
+          };
+        }
         const script = buildToolScript(`
           var meta = app.project.getProjectPanelMetadata();
           if (!meta) return __error("Could not retrieve project panel metadata");
-          return __result({ metadata: meta });
+          var text = String(meta);
+          var maxChars = ${maxChars};
+          var totalChars = text.length;
+          if (totalChars > maxChars) {
+            return __result({
+              metadata: text.substring(0, maxChars),
+              truncated: true,
+              totalChars: totalChars,
+              returnedChars: maxChars,
+              maxChars: maxChars,
+              note: "Metadata XML was truncated and is not well-formed. Raise max_chars (up to ${PROJECT_PANEL_METADATA_MAX_CHARS}) to read more; do not pass truncated XML to set_project_panel_metadata."
+            });
+          }
+          return __result({ metadata: text, truncated: false, totalChars: totalChars, returnedChars: totalChars, maxChars: maxChars });
         `);
         return sendCommand(script, bridgeOptions);
       },

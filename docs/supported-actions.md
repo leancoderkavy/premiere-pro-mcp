@@ -162,7 +162,7 @@ operation” when the tool has no enum-based mode.
 | `get_clip_volume` | Default profile | Single operation | Read an audio clip's Volume > Level in dB. Use this to verify a level actually applied - setValue() clamps silently. Does not report Essential Sound Amplify automation. |
 | `get_color_label` | Default profile | Single operation | Get the color label of a project item |
 | `get_color_space` | Default profile | Single operation | Get the color space information for a project item |
-| `get_duplicate_media` | Default profile | Single operation | Find project items that reference the same source media file. Useful for consolidation. |
+| `get_duplicate_media` | Default profile | Single operation | Find project items that reference the same source media file. Useful for consolidation. After Effects compositions imported from the same .aep/.aepx are only grouped when their comp names also match. Groups are paged (default 100) and can be filtered by a case-insensitive item-name substring; follow nextOffset while truncated is true. |
 | `get_effect_properties` | Default profile | Single operation | List all properties of a specific effect on a clip, including current values |
 | `get_encoder_presets` | Default profile | Single operation | List available Adobe Media Encoder export presets, with the .epr path of each so it can be passed to export_sequence or encode_project_item. Presets are discovered by scanning the .epr files Adobe ships on disk (Premiere's ExtendScript API exposes no preset enumeration). |
 | `get_export_file_extension` | Default profile | Single operation | Get the file extension that would be used when exporting the active sequence with a given preset |
@@ -183,7 +183,7 @@ operation” when the tool has no enum-based mode.
 | `get_premiere_state` | Default profile | Single operation | Get a comprehensive snapshot of the current Premiere Pro state: project info, active sequence, playhead position, selected clips, and available sequences. The best first call to understand the current context. |
 | `get_project_info` | Default profile | Single operation | Get information about the currently open Premiere Pro project |
 | `get_project_item_info` | Default profile | Single operation | Get detailed information about a project item (media file in the project panel): media path, resolution, duration, frame rate, codec info, metadata, color label, offline status, in/out points, and proxy status. |
-| `get_project_panel_metadata` | Default profile | Single operation | Get the current Project-panel column layout as XML. This is schema/layout configuration, not per-item Scene/Shot/Take values; use inspect_project_panel_metadata_uxp item_columns or get_metadata for those. |
+| `get_project_panel_metadata` | Default profile | Single operation | Get the current Project-panel column layout as XML. This is schema/layout configuration, not per-item Scene/Shot/Take values; use inspect_project_panel_metadata_uxp item_columns or get_metadata for those. Output is capped by max_chars (default 20000); when truncated is true the XML is incomplete and must not be passed to set_project_panel_metadata. |
 | `get_project_scratch_disks` | Default profile | Single operation | Get the current scratch disk paths for the project. |
 | `get_qe_clip_info` | Default profile | `track_type`: `video`, `audio` | Get QE DOM information about a clip, including properties not available through the standard API. |
 | `get_render_queue_status` | Default profile | Single operation | Report the Adobe Media Encoder queue running state, or fail closed with a named capability error when this Premiere build exposes no queue-status method on app.encoder. |
@@ -200,7 +200,7 @@ operation” when the tool has no enum-based mode.
 | `get_timeline_summary` | Default profile | Single operation | Get a human-readable summary of the timeline: total duration, clip count per track, total gaps, coverage percentage, used media files, effect usage, and marker overview. Great for a quick understanding of sequence state. |
 | `get_total_clip_count` | Default profile | Single operation | Get the total number of clips across all tracks in the active sequence. |
 | `get_track_info` | Default profile | `track_type`: `video`, `audio` | Get detailed information about a specific track: name, clip count, muted, locked, targeted, and list of all clips. |
-| `get_unused_media` | Default profile | Single operation | Find all project items that are NOT used in any sequence. Useful for cleaning up projects. |
+| `get_unused_media` | Default profile | Single operation | Find project items that are NOT used in any sequence. Useful for cleaning up projects. Results are paged (default 100 items) and can be filtered by a case-insensitive name substring; follow nextOffset while truncated is true. |
 | `get_used_media_report` | Default profile | Single operation | Get a report of all media files used in a sequence: which source files are used, how many times each appears, on which tracks, and whether any sources are offline. |
 | `get_value_at_time` | Default profile | Single operation | Get the interpolated value of an effect property at a specific time |
 | `get_version_info` | Default profile | Single operation | Get Premiere Pro version and build information. |

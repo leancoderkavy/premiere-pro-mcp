@@ -4,6 +4,51 @@ import {
 } from "../bridge/script-builder.js";
 import { sendCommand, BridgeOptions } from "../bridge/file-bridge.js";
 
+const MEDIA_REPORT_DEFAULT_LIMIT = 100;
+const MEDIA_REPORT_MAX_LIMIT = 500;
+const MEDIA_REPORT_MAX_CONTAINS = 256;
+
+type MediaReportPagingArgs = { offset?: number; limit?: number; contains?: string };
+type MediaReportPaging = { offset: number; limit: number; contains: string };
+
+function mediaReportPagingProperties(subject: string) {
+  return {
+    offset: {
+      type: "integer",
+      minimum: 0,
+      description: `Zero-based index of the first ${subject} entry to return (default 0). Pass the previous response's nextOffset to read the next page.`,
+    },
+    limit: {
+      type: "integer",
+      minimum: 1,
+      maximum: MEDIA_REPORT_MAX_LIMIT,
+      description: `Maximum ${subject} entries to return (1-${MEDIA_REPORT_MAX_LIMIT}, default ${MEDIA_REPORT_DEFAULT_LIMIT}).`,
+    },
+    contains: {
+      type: "string",
+      maxLength: MEDIA_REPORT_MAX_CONTAINS,
+      description: `Optional case-insensitive substring matched against project item names before paging. Omit or pass an empty string to include every entry.`,
+    },
+  };
+}
+
+function parseMediaReportPaging(args: MediaReportPagingArgs | undefined): MediaReportPaging | { error: string } {
+  const input = args ?? {};
+  const offset = input.offset ?? 0;
+  if (typeof offset !== "number" || !Number.isSafeInteger(offset) || offset < 0) {
+    return { error: "offset must be an integer greater than or equal to 0" };
+  }
+  const limit = input.limit ?? MEDIA_REPORT_DEFAULT_LIMIT;
+  if (typeof limit !== "number" || !Number.isInteger(limit) || limit < 1 || limit > MEDIA_REPORT_MAX_LIMIT) {
+    return { error: `limit must be an integer between 1 and ${MEDIA_REPORT_MAX_LIMIT}` };
+  }
+  const contains = input.contains ?? "";
+  if (typeof contains !== "string" || contains.length > MEDIA_REPORT_MAX_CONTAINS) {
+    return { error: `contains must be a string of at most ${MEDIA_REPORT_MAX_CONTAINS} characters` };
+  }
+  return { offset, limit, contains };
+}
+
 export function getUtilityTools(bridgeOptions: BridgeOptions) {
   return {
     delete_project_item: {
@@ -638,50 +683,91 @@ export function getUtilityTools(bridgeOptions: BridgeOptions) {
 
     get_unused_media: {
       description:
-        "Find all project items that are NOT used in any sequence. Useful for cleaning up projects.",
-      parameters: {},
-      handler: async () => {
+        "Find project items that are NOT used in any sequence. Useful for cleaning up projects. Results are paged (default 100 items) and can be filtered by a case-insensitive name substring; follow nextOffset while truncated is true.",
+      parameters: {
+        type: "object" as const,
+        properties: mediaReportPagingProperties("unused project items"),
+      },
+      handler: async (args: MediaReportPagingArgs = {}) => {
+        const paging = parseMediaReportPaging(args);
+        if ("error" in paging) return { success: false, error: paging.error };
         const script = buildToolScript(`
           // First, collect all project item nodeIds used in any sequence
           var usedIds = {};
-          for (var s = 0; s < app.project.sequences.numSequences; s++) {
-            var seq = app.project.sequences[s];
-            function scanTracks(tracks) {
-              for (var t = 0; t < tracks.numTracks; t++) {
-                for (var c = 0; c < tracks[t].clips.numItems; c++) {
-                  try {
-                    var src = tracks[t].clips[c].projectItem;
-                    if (src) usedIds[src.nodeId] = true;
-                  } catch(e) {}
-                }
+          function scanTracks(tracks) {
+            var trackCount = 0;
+            try { trackCount = tracks.numTracks; } catch(e) {}
+            for (var t = 0; t < trackCount; t++) {
+              var clipCount = 0;
+              try { clipCount = tracks[t].clips.numItems; } catch(e) {}
+              for (var c = 0; c < clipCount; c++) {
+                try {
+                  var src = tracks[t].clips[c].projectItem;
+                  var srcId = __nodeIdOf(src);
+                  if (src && srcId) usedIds[srcId] = true;
+                } catch(e) {}
               }
             }
+          }
+          for (var s = 0; s < app.project.sequences.numSequences; s++) {
+            var seq = app.project.sequences[s];
             scanTracks(seq.videoTracks);
             scanTracks(seq.audioTracks);
           }
 
-          // Then find items not in usedIds
+          var needle = "${escapeForExtendScript(paging.contains)}".toLowerCase();
+          var offset = ${paging.offset};
+          var limit = ${paging.limit};
+          function nameMatches(name) {
+            if (!needle) return true;
+            var text = name === undefined || name === null ? "" : String(name);
+            return text.toLowerCase().indexOf(needle) >= 0;
+          }
+
+          // Then find items not in usedIds. Only items inside the requested page
+          // are materialized so large projects stay bounded.
+          var total = 0;
           var unused = [];
           function findUnused(bin) {
-            for (var i = 0; i < bin.children.numItems; i++) {
-              var item = bin.children[i];
-              if (item.type === 1 || item.type === 4) { // clips and files
-                if (!usedIds[item.nodeId]) {
-                  var entry = {
-                    nodeId: item.nodeId,
-                    name: item.name,
-                    treePath: item.treePath
-                  };
-                  try { entry.mediaPath = item.getMediaPath(); } catch(e) {}
-                  unused.push(entry);
+            var count = __childCount(bin);
+            for (var i = 0; i < count; i++) {
+              var item = __childAt(bin, i);
+              if (!item) continue;
+              var itemType = null;
+              try { itemType = item.type; } catch(e) {}
+              if ((itemType === 1 || itemType === 4) && !usedIds[__nodeIdOf(item)]) { // clips and files
+                var itemName = "";
+                try { itemName = item.name; } catch(e) {}
+                if (nameMatches(itemName)) {
+                  if (total >= offset && unused.length < limit) {
+                    var entry = {
+                      nodeId: item.nodeId,
+                      name: itemName,
+                      treePath: item.treePath
+                    };
+                    try { entry.mediaPath = item.getMediaPath(); } catch(e) {}
+                    unused.push(entry);
+                  }
+                  total++;
                 }
               }
-              if (item.type === 2) findUnused(item);
+              if (__isBinItem(item)) findUnused(item);
             }
           }
           findUnused(app.project.rootItem);
 
-          return __result({ unusedCount: unused.length, items: unused });
+          var nextOffset = offset + unused.length < total ? offset + unused.length : null;
+          return __result({
+            unusedCount: total,
+            total: total,
+            offset: offset,
+            limit: limit,
+            returned: unused.length,
+            truncated: nextOffset !== null,
+            nextOffset: nextOffset,
+            contains: needle || null,
+            items: unused
+          });
         `);
         return sendCommand(script, bridgeOptions);
       },
@@ -689,40 +775,86 @@ export function getUtilityTools(bridgeOptions: BridgeOptions) {
 
     get_duplicate_media: {
       description:
-        "Find project items that reference the same source media file. Useful for consolidation.",
-      parameters: {},
-      handler: async () => {
+        "Find project items that reference the same source media file. Useful for consolidation. After Effects compositions imported from the same .aep/.aepx are only grouped when their comp names also match. Groups are paged (default 100) and can be filtered by a case-insensitive item-name substring; follow nextOffset while truncated is true.",
+      parameters: {
+        type: "object" as const,
+        properties: mediaReportPagingProperties("duplicate media groups (a group matches contains when any item name matches)"),
+      },
+      handler: async (args: MediaReportPagingArgs = {}) => {
+        const paging = parseMediaReportPaging(args);
+        if ("error" in paging) return { success: false, error: paging.error };
         const script = buildToolScript(`
           var pathMap = {};
+          var groupKeys = [];
           function scan(bin) {
-            for (var i = 0; i < bin.children.numItems; i++) {
-              var item = bin.children[i];
+            var count = __childCount(bin);
+            for (var i = 0; i < count; i++) {
+              var item = __childAt(bin, i);
+              if (!item) continue;
               try {
                 var mp = item.getMediaPath();
                 var nodeId = String(item.nodeId || "");
+                var itemName = "";
+                try { itemName = String(item.name); } catch(nameError) {}
+                // After Effects comps imported from one project share the .aep
+                // media path. They are distinct media unless the comp names match.
+                var aeCompName = mp && /\\.aepx?$/i.test(String(mp)) ? itemName : null;
+                var key = aeCompName === null ? "path:" + mp : "aecomp:" + mp + "|" + aeCompName;
                 // A project item can be exposed more than once while Premiere walks
                 // bins. Only distinct, stable node IDs can establish a duplicate.
                 if (mp && nodeId) {
-                  if (!pathMap[mp]) pathMap[mp] = { items: [], nodeIds: {} };
-                  if (!pathMap[mp].nodeIds[nodeId]) {
-                    pathMap[mp].nodeIds[nodeId] = true;
-                    pathMap[mp].items.push({ nodeId: nodeId, name: item.name, treePath: item.treePath });
+                  if (!pathMap.hasOwnProperty(key)) {
+                    pathMap[key] = { mediaPath: String(mp), aeCompName: aeCompName, items: [], nodeIds: {} };
+                    groupKeys.push(key);
+                  }
+                  if (!pathMap[key].nodeIds[nodeId]) {
+                    pathMap[key].nodeIds[nodeId] = true;
+                    pathMap[key].items.push({ nodeId: nodeId, name: itemName, treePath: item.treePath });
                   }
                 }
               } catch(e) {}
-              if (item.type === 2) scan(item);
+              if (__isBinItem(item)) scan(item);
             }
           }
           scan(app.project.rootItem);
 
+          var needle = "${escapeForExtendScript(paging.contains)}".toLowerCase();
+          var offset = ${paging.offset};
+          var limit = ${paging.limit};
+          function groupMatches(group) {
+            if (!needle) return true;
+            for (var m = 0; m < group.items.length; m++) {
+              if (String(group.items[m].name).toLowerCase().indexOf(needle) >= 0) return true;
+            }
+            return false;
+          }
+
+          var total = 0;
           var duplicates = [];
-          for (var path in pathMap) {
-            if (pathMap.hasOwnProperty(path) && pathMap[path].items.length > 1) {
-              duplicates.push({ mediaPath: path, count: pathMap[path].items.length, items: pathMap[path].items });
+          for (var g = 0; g < groupKeys.length; g++) {
+            var group = pathMap[groupKeys[g]];
+            if (group.items.length > 1 && groupMatches(group)) {
+              if (total >= offset && duplicates.length < limit) {
+                var entry = { mediaPath: group.mediaPath, count: group.items.length, items: group.items };
+                if (group.aeCompName !== null) entry.aeCompName = group.aeCompName;
+                duplicates.push(entry);
+              }
+              total++;
             }
           }
 
-          return __result({ duplicateGroupCount: duplicates.length, duplicates: duplicates });
+          var nextOffset = offset + duplicates.length < total ? offset + duplicates.length : null;
+          return __result({
+            duplicateGroupCount: total,
+            total: total,
+            offset: offset,
+            limit: limit,
+            returned: duplicates.length,
+            truncated: nextOffset !== null,
+            nextOffset: nextOffset,
+            contains: needle || null,
+            duplicates: duplicates
+          });
         `);
         return sendCommand(script, bridgeOptions);
       },
