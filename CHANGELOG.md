@@ -16,6 +16,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - `set_sequence_pixel_aspect_ratio` compares the read-back ratio as a number, so a host that formats it as `1`, `1:1`, or `1.42222` no longer fails a correct update. A real mismatch reports the value Premiere read back. (#642)
 - `play_source_monitor` fails with "No clip is loaded in the Source Monitor" instead of reporting a playback request that does nothing, names the loaded clip, and rejects a `speed` that is zero, not finite, or outside -64 to 64 before building a script. (#642)
 - `create_bars_and_tone` takes an optional `bin_id`. The bin is resolved before anything is created, the new item is moved there, and its location is read back; the result is `committed_unverified` when the move cannot be confirmed. (#642)
+- `get_unused_media` and `get_duplicate_media` page their output with `offset`, `limit` (1-500, default 100), and a case-insensitive `contains` name filter, and return `total`, `returned`, `truncated`, and `nextOffset`. Large projects no longer return unbounded lists. (#642)
+- `get_duplicate_media` no longer groups different After Effects compositions imported from the same `.aep` or `.aepx` as duplicates. The same composition imported twice is still reported. (#642)
+- `get_project_panel_metadata` caps the returned XML at `max_chars` (256-200000, default 20000) and reports `truncated` and `totalChars`. Truncated XML is marked as unsafe to pass back to `set_project_panel_metadata`. (#642)
 
 ## [1.18.4] - 2026-09-28
 
