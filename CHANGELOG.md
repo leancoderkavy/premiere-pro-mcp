@@ -22,6 +22,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- `export_as_project` and `export_as_fcp_xml` no longer report `exported: true` after a host call that writes no file. They require a real parent directory, then fail when the output is missing, empty, or identical to a pre-existing file. (#673)
 - EXPERIMENTAL (QE DOM): `remove_effect`, `remove_effect_by_name`, and `remove_all_effects` could not remove anything on Premiere 25.2, which has no DOM `Component.remove()`. They now fall back to QE removal, resolve every target's removal path before removing anything, never remove built-in components (Motion, Opacity, Volume, Channel Volume), and verify the result against the clip's component list. On hosts whose built-in component names are localized they refuse with nothing removed until the match names are known (#674). (#654)
 - `remove_from_timeline` and edit plans ripple through Premiere's sync-locked ripple instead of `TrackItem.remove(true, …)`, which never rippled and left gaps and stray audio while reporting success. Every linked partner is checked for locks before anything is removed. (#648)
 - Linked audio and video stay in sync across razor, trim, slip, roll, slide, and duration edits: partner positions are snapshotted before any write, and a trim or duration change applies the main clip's offset to each partner from that snapshot. (#648)

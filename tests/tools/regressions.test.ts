@@ -344,6 +344,53 @@ describe("PR #3 follow-ups — color_correct and export_sequence", () => {
     expect(script).toContain("if (!written.exists || written.length <= 0)");
     expect(script).toContain("verified: true");
   });
+
+  it("export_as_fcp_xml fails closed when Premiere writes no file or leaves the old file unchanged", async () => {
+    const script = await scriptFor(exportTools.export_as_fcp_xml, { output_path: "/tmp/export.xml" });
+
+    expect(script).toContain("seq.exportAsFinalCutProXML(outputFile.fsName)");
+    expect(script).toContain('if (!outputFile.exists || !(outputFile.length > 0)) return __error("Premiere did not write the requested FCP XML file.")');
+    expect(script).toContain("the existing output was unchanged");
+    expect(script).toContain("verified: true");
+  });
+
+  it("treats a missing or unchanged export file as failure, not success", async () => {
+    const advanced = getAdvancedTools(bridgeOptions);
+    const projectScript = await scriptFor(advanced.export_as_project, { output_path: "/tmp/export.prproj" });
+    const xmlScript = await scriptFor(exportTools.export_as_fcp_xml, { output_path: "/tmp/export.xml" });
+    const sequenceScript = await scriptFor(exportTools.export_sequence, {
+      output_path: "/tmp/out.mp4",
+      preset_path: temporaryPreset(),
+    });
+
+    function run(script: string, file: { exists: boolean; length: number; modified: string }, sequence: Record<string, unknown>) {
+      function FileStub(this: { fsName: string; parent: { exists: boolean } }, path: string) {
+        this.fsName = path;
+        Object.defineProperty(this, "exists", { get: () => file.exists });
+        Object.defineProperty(this, "length", { get: () => file.length });
+        Object.defineProperty(this, "modified", { get: () => file.modified });
+        this.parent = { exists: true, toString() { return "/tmp"; } };
+      }
+      return JSON.parse(String(runInNewContext(`${getHelpersSource()}\n${script}`, {
+        File: FileStub,
+        app: { project: { activeSequence: sequence }, encoder: { ENCODE_ENTIRE: 1, ENCODE_WORKAREA: 2 } },
+      })));
+    }
+
+    const stale = { exists: true, length: 42, modified: "old" };
+    expect(run(projectScript, stale, { exportAsProject() {} }).error).toMatch(/existing output was unchanged/);
+    expect(run(xmlScript, stale, { exportAsFinalCutProXML() {} }).error).toMatch(/existing output was unchanged/);
+    expect(run(sequenceScript, stale, { exportAsMediaDirect() { return undefined; } }).error).toMatch(/existing output was unchanged/);
+
+    const missing = { exists: false, length: 0, modified: "" };
+    expect(run(projectScript, missing, { exportAsProject() {} }).error).toMatch(/did not write the requested project file/);
+    expect(run(xmlScript, missing, { exportAsFinalCutProXML() {} }).error).toMatch(/did not write the requested FCP XML file/);
+    expect(run(sequenceScript, missing, { exportAsMediaDirect() { return true; } }).error).toMatch(/did not write the requested export file/);
+
+    const written = { exists: false, length: 0, modified: "" };
+    const write = () => { written.exists = true; written.length = 99; written.modified = "new"; };
+    expect(run(projectScript, written, { exportAsProject: write })).toMatchObject({ success: true, data: { exported: true, verified: true } });
+  });
 });
 
 describe("script-builder helpers used by the fixes are actually defined", () => {
@@ -946,6 +993,15 @@ describe("issue #237 — reported mutations must be observable or fail", () => {
     expect(omf).toContain("outputFile.exists");
     expect(omf).toContain("Premiere did not write the requested OMF file");
     expect(exports.export_omf.parameters.properties.include_pan).toMatchObject({ type: "boolean" });
+  });
+
+  it("export_as_project fails closed when Premiere writes no file or leaves the old file unchanged", async () => {
+    const script = await scriptFor(advanced.export_as_project, { output_path: "/tmp/export.prproj" });
+
+    expect(script).toContain("seq.exportAsProject(outputFile.fsName)");
+    expect(script).toContain('if (!outputFile.exists || !(outputFile.length > 0)) return __error("Premiere did not write the requested project file.")');
+    expect(script).toContain("the existing output was unchanged");
+    expect(script).toContain("verified: true");
   });
 });
 

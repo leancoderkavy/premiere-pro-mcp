@@ -1007,7 +1007,7 @@ export function getAdvancedTools(bridgeOptions: BridgeOptions) {
 
     export_as_project: {
       description:
-        "Export a sequence as a standalone Premiere Pro project file",
+        "Export a sequence as a standalone Premiere Pro project file. Fails when Premiere writes no file or leaves a pre-existing output unchanged.",
       parameters: {
         type: "object" as const,
         properties: {
@@ -1030,8 +1030,22 @@ export function getAdvancedTools(bridgeOptions: BridgeOptions) {
 
         const script = buildToolScript(`
           ${seqLookup}
-          seq.exportAsProject("${escapeForExtendScript(args.output_path)}");
-          return __result({ exported: true, path: "${escapeForExtendScript(args.output_path)}" });
+          var outputFile = new File("${escapeForExtendScript(args.output_path)}");
+          if (!outputFile.parent || !outputFile.parent.exists) {
+            return __error("The project export directory does not exist: " + outputFile.parent);
+          }
+          var existedBefore = !!outputFile.exists;
+          var lengthBefore = existedBefore ? Number(outputFile.length) : -1;
+          var modifiedBefore = "";
+          try { if (existedBefore) modifiedBefore = String(outputFile.modified); } catch (eSnap) {}
+          seq.exportAsProject(outputFile.fsName);
+          if (!outputFile.exists || !(outputFile.length > 0)) return __error("Premiere did not write the requested project file.");
+          var modifiedAfter = "";
+          try { modifiedAfter = String(outputFile.modified); } catch (eAfter) {}
+          if (existedBefore && Number(outputFile.length) === lengthBefore && modifiedAfter === modifiedBefore) {
+            return __error("Premiere did not write a new project file (the existing output was unchanged).");
+          }
+          return __result({ exported: true, verified: true, path: outputFile.fsName });
         `);
         return sendCommand(script, bridgeOptions);
       },

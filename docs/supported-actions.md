@@ -131,8 +131,8 @@ operation” when the tool has no enum-based mode.
 | `encode_project_item` | Default profile | Single operation | Request an Adobe Media Encoder encode for a project item. The returned job ID is an unverified handoff; verify queue presence or the output file independently. |
 | `enqueue_after_effects_render` | Default profile | Single operation | Queue exactly one previewed After Effects render with named host templates. Requires explicit confirmation; it saves the open project but never starts rendering or overwrites output. |
 | `export_aaf` | Default profile | Single operation | Unavailable on the CEP backend. Use export_aaf_uxp with an authenticated Premiere 26.3+ UXP bridge. |
-| `export_as_fcp_xml` | Default profile | Single operation | Export the active sequence as a Final Cut Pro XML file |
-| `export_as_project` | Default profile | Single operation | Export a sequence as a standalone Premiere Pro project file |
+| `export_as_fcp_xml` | Default profile | Single operation | Export the active sequence as a Final Cut Pro XML file. Fails when Premiere writes no file or leaves a pre-existing output unchanged. |
+| `export_as_project` | Default profile | Single operation | Export a sequence as a standalone Premiere Pro project file. Fails when Premiere writes no file or leaves a pre-existing output unchanged. |
 | `export_frame` | Default profile | Single operation | Export the current frame as an image file |
 | `export_omf` | Default profile | Single operation | Export the active sequence as an OMF file (Open Media Framework, for audio post-production) |
 | `export_sequence` | Default profile | `range`: `entire`, `in_to_out`, `work_area` | Export the active sequence directly (Premiere renders it; blocks until done) with an Adobe Media Encoder preset. The output extension must match what the preset writes (an H.264 preset in AME's QuickTime folder writes .mov); a missing extension is added. Refuses an output_path that already exists unless overwrite is true. Fails if Premiere rejects the render, and verifies a non-empty file was written (for an overwrite, that the file changed). |

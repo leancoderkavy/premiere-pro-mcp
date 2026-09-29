@@ -1123,7 +1123,7 @@ export function getExportTools(bridgeOptions: BridgeOptions) {
     },
 
     export_as_fcp_xml: {
-      description: "Export the active sequence as a Final Cut Pro XML file",
+      description: "Export the active sequence as a Final Cut Pro XML file. Fails when Premiere writes no file or leaves a pre-existing output unchanged.",
       parameters: {
         type: "object" as const,
         properties: {
@@ -1138,9 +1138,23 @@ export function getExportTools(bridgeOptions: BridgeOptions) {
         const script = buildToolScript(`
           var seq = app.project.activeSequence;
           if (!seq) return __error("No active sequence");
+          var outputFile = new File("${escapeForExtendScript(args.output_path)}");
+          if (!outputFile.parent || !outputFile.parent.exists) {
+            return __error("The FCP XML export directory does not exist: " + outputFile.parent);
+          }
+          var existedBefore = !!outputFile.exists;
+          var lengthBefore = existedBefore ? Number(outputFile.length) : -1;
+          var modifiedBefore = "";
+          try { if (existedBefore) modifiedBefore = String(outputFile.modified); } catch (eSnap) {}
           
-          seq.exportAsFinalCutProXML("${escapeForExtendScript(args.output_path)}");
-          return __result({ exported: true, outputPath: "${escapeForExtendScript(args.output_path)}", format: "FCP XML" });
+          seq.exportAsFinalCutProXML(outputFile.fsName);
+          if (!outputFile.exists || !(outputFile.length > 0)) return __error("Premiere did not write the requested FCP XML file.");
+          var modifiedAfter = "";
+          try { modifiedAfter = String(outputFile.modified); } catch (eAfter) {}
+          if (existedBefore && Number(outputFile.length) === lengthBefore && modifiedAfter === modifiedBefore) {
+            return __error("Premiere did not write a new FCP XML file (the existing output was unchanged).");
+          }
+          return __result({ exported: true, verified: true, outputPath: outputFile.fsName, format: "FCP XML" });
         `);
         return sendCommand(script, bridgeOptions);
       },
