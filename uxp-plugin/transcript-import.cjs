@@ -185,6 +185,12 @@
       return serialize(input.expectedProjectGuid + ":" + input.projectItemId, async function () {
         const beforeTarget = await resolveTarget(input), before = await transcriptSnapshot(beforeTarget.clip);
         requireExpectedSnapshot(before, input.expectedTranscriptRevision);
+        // Overwriting cannot be undone reliably: on Premiere 26.5.1 a live import
+        // cleared an existing transcript and it could not be restored (#642).
+        // Only import onto clips with no transcript until a verified restore exists.
+        if (before.hasTranscript) {
+          throw commandError("UXP_TRANSCRIPT_OVERWRITE_REFUSED", "This clip already has a transcript. Importing over it is disabled because a failed import can clear the existing transcript with no restore. Nothing was changed.");
+        }
 
         // Resolve and snapshot a second time immediately before action creation.
         // The per-owner queue prevents a different operation ID in this panel

@@ -6,6 +6,8 @@ import { assertNoSymlinkedPaths, SymlinkPathError } from "../security/path-guard
 
 const LOOPBACK_HOST = "127.0.0.1";
 const SUPPORTED_PROTOCOLS = new Set([1, 2]);
+/** Must match MAX_COMMAND_BYTES in uxp-plugin/protocol.cjs. */
+export const MAX_UXP_COMMAND_BYTES = 64 * 1024;
 
 export interface UxpBridgeOptions {
   token: string;
@@ -203,19 +205,28 @@ export class UxpWebSocketBridge extends EventEmitter {
     }
     const requestTimeoutMs = Math.max(this.options.requestTimeoutMs, minimumTimeoutMs);
     const requestId = randomUUID();
+    const frame = JSON.stringify({
+      protocolVersion: hello.protocolVersion,
+      type: "command",
+      requestId,
+      command,
+      args,
+    });
+    // The panel drops frames over 64 KiB before it can read the requestId, so an
+    // oversized command would only surface as a timeout. Refuse it here instead.
+    if (Buffer.byteLength(frame, "utf8") > MAX_UXP_COMMAND_BYTES) {
+      throw new UxpBridgeError(
+        "UXP_COMMAND_TOO_LARGE",
+        `UXP command '${command}' is larger than the panel's 64 KiB limit. Send less data (for example a narrower metadata update). No command was sent to Premiere.`,
+      );
+    }
     return new Promise((resolve, reject) => {
       const timer = setTimeout(() => {
         this.pending.delete(requestId);
         reject(new UxpBridgeError("UXP_TIMEOUT", `UXP command '${command}' timed out`));
       }, requestTimeoutMs);
       this.pending.set(requestId, { command, resolve, reject, timer });
-      socket.send(JSON.stringify({
-        protocolVersion: hello.protocolVersion,
-        type: "command",
-        requestId,
-        command,
-        args,
-      }), (error) => {
+      socket.send(frame, (error) => {
         if (!error) return;
         const pending = this.pending.get(requestId);
         if (!pending) return;

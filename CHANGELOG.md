@@ -6,6 +6,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Fixed
+
+- `import_transcript_uxp` refuses to import over an existing transcript (`UXP_TRANSCRIPT_OVERWRITE_REFUSED`). On Premiere 26.5.1 a failed import cleared an existing transcript that could not be restored. (#642)
+- UXP commands larger than the panel's 64 KiB frame limit are refused by the server with `UXP_COMMAND_TOO_LARGE` instead of timing out after 30 seconds. (#642)
+- `manage_metadata_uxp` update and field update fail with `UXP_METADATA_NOT_APPLIED` when Premiere commits the transaction but the metadata reads back unchanged, instead of reporting `updated: true`. (#642)
+- UXP project Save As, create, and branch copies ask for `confirmOverwrite` only when the destination file exists. Premiere 26.5.1's `Project.isProject` reports true for any `.prproj` path. (#642)
+
+### Verification scope
+
+- Automated checks validate package behavior. These changes follow live reports from Premiere 26.5.1 but have not been re-verified on a licensed Premiere host.
+
 ## [1.18.3] - 2026-09-28
 
 ### Security

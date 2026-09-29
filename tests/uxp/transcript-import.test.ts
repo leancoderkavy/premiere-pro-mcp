@@ -16,7 +16,7 @@ function revision(json: string) {
 }
 
 function fixture(options: { initialJson?: string | null; apply?: boolean; itemCount?: number; readbackFailure?: boolean } = {}) {
-  const state = { json: options.initialJson === undefined ? beforeJson : options.initialJson };
+  const state = { json: options.initialJson === undefined ? null : options.initialJson };
   const clip = { kind: "clip", getId: vi.fn(async () => "clip-1") };
   const filler = Array.from({ length: options.itemCount ?? 1 }, (_, index) => ({
     kind: "clip", getId: vi.fn(async () => index === (options.itemCount ?? 1) - 1 ? "clip-1" : `other-${index}`),
@@ -45,7 +45,7 @@ function fixture(options: { initialJson?: string | null; apply?: boolean; itemCo
       hasTranscript: vi.fn(() => state.json !== null),
       exportToJSON: vi.fn(async () => {
         exportCalls += 1;
-        if (options.readbackFailure && exportCalls > 2) throw new Error("post-commit export unavailable");
+        if (options.readbackFailure && exportCalls > (options.initialJson ? 2 : 0)) throw new Error("post-commit export unavailable");
         if (state.json === null) throw new Error("no transcript");
         return state.json;
       }),
@@ -63,7 +63,7 @@ function args(overrides: Record<string, unknown> = {}) {
   return {
     projectItemId: "clip-1",
     expectedProjectGuid: "project-1",
-    expectedTranscriptRevision: revision(beforeJson),
+    expectedTranscriptRevision: null,
     json: replacementJson,
     confirmDestructive: true,
     operationId: "transcript-import-1",
@@ -72,6 +72,16 @@ function args(overrides: Record<string, unknown> = {}) {
 }
 
 describe("guarded UXP transcript import", () => {
+  it("refuses to import over an existing transcript and changes nothing (#642)", async () => {
+    const { state, runtime, project, ppro } = fixture({ initialJson: beforeJson });
+    await expect(runtime.importTranscript(args({ expectedTranscriptRevision: revision(beforeJson) }))).rejects.toMatchObject({
+      code: "UXP_TRANSCRIPT_OVERWRITE_REFUSED",
+    });
+    expect(state.json).toBe(beforeJson);
+    expect(project.executeTransaction).not.toHaveBeenCalled();
+    expect(ppro.Transcript.importFromJSON).not.toHaveBeenCalled();
+  });
+
   it("matches Node's UTF-8 SHA-256 revision for non-ASCII transcript text", () => {
     const json = '{"segments":[{"text":"café 🎬"}]}';
     expect(Transcript.transcriptRevision(json)).toBe(revision(json));

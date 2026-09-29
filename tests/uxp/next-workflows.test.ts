@@ -142,6 +142,37 @@ describe("next-wave UXP event workflows", () => {
     });
   });
 
+  it("asks for confirmOverwrite only when the Save As destination file exists (#642)", async () => {
+    const project = {
+      guid: "project-1", name: "Edit", path: "C:/work/source.prproj",
+      saveAs: vi.fn(async (path: string) => { project.path = path; return true; }),
+    };
+    const existing = new Set(["C:/work/existing.prproj"]);
+    const ppro = {
+      Project: {
+        getActiveProject: vi.fn(async () => project),
+        getProject: vi.fn(() => project),
+        open: vi.fn(), createProject: vi.fn(),
+        // Premiere 26.5.1 reports true for any *.prproj path, even a missing one.
+        isProject: vi.fn(() => true),
+      },
+      Guid: { fromString: vi.fn((value: string) => value) },
+    };
+    const definitions = NextWorkflows.createNextWorkflowDefinitions({
+      ppro,
+      events: Events.createEventJournal({ capacity: 16 }),
+      workspace: { assertPathAllowed: vi.fn(async (path: string) => path) },
+      fileExists: vi.fn(async (path: string) => existing.has(path)),
+    });
+
+    await expect(definitions["project.sessions.saveAs"].handler({
+      path: "C:/work/new-branch.prproj", expectedPath: "C:/work/source.prproj", confirmExternalWrite: true,
+    })).resolves.toMatchObject({ action: "saved_as", path: "C:/work/new-branch.prproj" });
+    await expect(definitions["project.sessions.saveAs"].handler({
+      path: "C:/work/existing.prproj", expectedPath: "C:/work/new-branch.prproj", confirmExternalWrite: true,
+    })).rejects.toMatchObject({ code: "UXP_CONFIRMATION_REQUIRED" });
+  });
+
   it("bounds growing-media pauses with a persisted lease and resumes on disposal", async () => {
     const values = new Map<string, string>();
     const storage = {

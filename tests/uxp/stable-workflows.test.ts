@@ -1007,6 +1007,21 @@ describe("stable Premiere UXP workflow expansion", () => {
     });
   });
 
+  it("fails when Premiere commits a metadata write that reads back unchanged (#642)", async () => {
+    const value = stableHost();
+    value.setMetadataPackets({
+      project: `${PREMIERE_METADATA_NS}	Column.Intrinsic.LogNote	slate-1`,
+      xmp: `${DC_NS}	description	A clip`,
+    });
+    value.ppro.Metadata.createSetProjectMetadataAction.mockImplementation(() => ({ apply: () => undefined }));
+    await expect(value.registry.dispatch("metadata.fields.update", {
+      projectItemId: "source-1", packet: "project", name: "Column.Intrinsic.LogNote", value: "slate-2",
+    })).rejects.toMatchObject({ code: "UXP_METADATA_NOT_APPLIED" });
+    await expect(value.registry.dispatch("metadata.update", {
+      projectItemId: "source-1", projectMetadata: "project-after", updatedFields: ["Column.Intrinsic.LogNote"],
+    })).rejects.toMatchObject({ code: "UXP_METADATA_NOT_APPLIED" });
+  });
+
   it("updates metadata and footage conformance transactionally with readback", async () => {
     const value = stableHost();
     await expect(value.registry.dispatch("metadata.update", {
