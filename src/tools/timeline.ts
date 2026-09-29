@@ -1157,7 +1157,10 @@ ${KEYFRAME_SCAN_HELPERS}
     },
 
     replace_clip: {
-      description: "Replace a clip on the timeline with a different project item, preserving position and duration",
+      description:
+        "Replace one timeline clip with a different project item on the same track, keeping the exact timeline start and end. " +
+        "The replacement plays from its own In mark for the original clip's duration; neighbouring clips do not ripple, and a linked partner clip on another track is left in place. " +
+        "Refuses without changing anything when the track is locked. Reads the track back: verified when the new clip covers the same span, committed_unverified when the span holds but the source In point cannot be confirmed, otherwise failure with Undo guidance.",
       parameters: {
         type: "object" as const,
         properties: {
@@ -1183,29 +1186,102 @@ ${KEYFRAME_SCAN_HELPERS}
           var newItem = __findProjectItem("${escapeForExtendScript(args.new_item_id)}");
           if (!newItem) return __error("Replacement project item not found: ${escapeForExtendScript(args.new_item_id)}");
           
+          if (__isBinItem(newItem)) return __error("Replace refused; nothing was changed. " + newItem.name + " is a bin, not a clip.");
+
           var clip = result.clip;
           var oldName = clip.name;
-          var startTicks = clip.start.ticks;
+          var oldNodeId = String(clip.nodeId);
           var trackIndex = result.trackIndex;
           var trackType = result.trackType;
-          
-          // Remove old clip
-          clip.remove(false, false);
-          
-          // Insert new clip at same position
-          if (trackType === "video") {
-            seq.insertClip(newItem, startTicks, trackIndex, trackIndex);
-          } else {
-            seq.insertClip(newItem, startTicks, 0, trackIndex);
+          var mediaType = trackType === "video" ? 1 : 2;
+          var trackList = trackType === "video" ? seq.videoTracks : seq.audioTracks;
+          var track = trackList[trackIndex];
+          var oldStart = parseFloat(clip.start.ticks);
+          var oldEnd = parseFloat(clip.end.ticks);
+          var span = oldEnd - oldStart;
+          if (!(span > 0)) return __error("Replace refused; nothing was changed. The clip has an empty or inverted timeline range.");
+          if (__isTrackLocked(track)) {
+            return __error("Replace refused; nothing was changed. " + trackType + " track " + trackIndex + " is locked.");
           }
-          
-          return __result({
+          if (typeof track.overwriteClip !== "function" || typeof newItem.setInPoint !== "function" || typeof newItem.setOutPoint !== "function") {
+            return __error("Replace refused; nothing was changed. This Premiere build does not expose Track.overwriteClip or project item In/Out marks, so the clip span could not be preserved.");
+          }
+          var newIn = NaN;
+          try { newIn = parseFloat(newItem.getInPoint(mediaType).ticks); } catch (eNewIn) {}
+          if (isNaN(newIn)) return __error("Replace refused; nothing was changed. Could not read the In point of " + newItem.name + ".");
+          var newOut = newIn + span;
+
+          function countClips(list) {
+            var counts = [];
+            for (var ti = 0; ti < list.numTracks; ti++) counts[ti] = list[ti].clips.numItems;
+            return counts;
+          }
+          var beforeVideoCounts = countClips(seq.videoTracks);
+          var beforeAudioCounts = countClips(seq.audioTracks);
+          var beforeIds = {};
+          for (var bi = 0; bi < track.clips.numItems; bi++) beforeIds[String(track.clips[bi].nodeId)] = true;
+
+          // Lift the old clip and overwrite exactly its span on the same track.
+          // Sequence.insertClip would ripple later clips and use the new item's
+          // full length, which is what changed the span before (#642).
+          try {
+            clip.remove(false, false);
+          } catch (removeErr) {
+            return __error("Premiere rejected removing the original clip (" + removeErr.toString() + "). The timeline may have changed; inspect it and use Undo if it did.");
+          }
+          var placed = __overwriteRangeOnTrack(track, newItem, oldStart, newIn, newOut, mediaType);
+          var markNote = placed.marksRestored ? "" : " The In/Out marks of " + newItem.name + " could not be restored.";
+          if (!placed.ok) {
+            return __error("The timeline changed: the original clip was removed but Premiere could not place " + newItem.name + " (" + placed.error + "). Use Undo to restore it; this replace did not succeed." + markNote);
+          }
+
+          var replacement = null;
+          for (var ri = 0; ri < track.clips.numItems && !replacement; ri++) {
+            var cand = track.clips[ri];
+            if (beforeIds[String(cand.nodeId)]) continue;
+            var candSource = "";
+            try { candSource = cand.projectItem ? String(cand.projectItem.nodeId) : ""; } catch (eSource) {}
+            if (candSource !== String(newItem.nodeId)) continue;
+            if (Math.abs(parseFloat(cand.start.ticks) - oldStart) > __TICK_MATCH_TOL) continue;
+            replacement = cand;
+          }
+          var problems = [];
+          if (!replacement) {
+            problems.push(newItem.name + " was not found at " + __ticksToSeconds(oldStart) + "s on " + trackType + " track " + trackIndex);
+          } else if (Math.abs(parseFloat(replacement.end.ticks) - oldEnd) > __TICK_MATCH_TOL) {
+            problems.push("the replacement spans " + __ticksToSeconds(replacement.start.ticks) + "s-" + __ticksToSeconds(replacement.end.ticks) + "s instead of " + __ticksToSeconds(oldStart) + "s-" + __ticksToSeconds(oldEnd) + "s");
+          }
+          if (__findClip(oldNodeId)) problems.push("the original clip is still on the timeline");
+          var afterVideoCounts = countClips(seq.videoTracks);
+          var afterAudioCounts = countClips(seq.audioTracks);
+          for (var vc = 0; vc < afterVideoCounts.length; vc++) {
+            if (afterVideoCounts[vc] !== beforeVideoCounts[vc]) problems.push("video track " + vc + " changed from " + beforeVideoCounts[vc] + " to " + afterVideoCounts[vc] + " clip(s)");
+          }
+          for (var ac = 0; ac < afterAudioCounts.length; ac++) {
+            if (afterAudioCounts[ac] !== beforeAudioCounts[ac]) problems.push("audio track " + ac + " changed from " + beforeAudioCounts[ac] + " to " + afterAudioCounts[ac] + " clip(s)");
+          }
+          if (problems.length) {
+            return __error("The timeline changed but the replace did not verify: " + problems.join("; ") + ". Use Undo to restore the original clip; this is not reported as success." + markNote);
+          }
+
+          var sourceMatches = false;
+          try { sourceMatches = Math.abs(parseFloat(replacement.inPoint.ticks) - newIn) <= __TICK_MATCH_TOL; } catch (eSourceRead) {}
+          var replaceResult = {
             replaced: true,
+            verified: sourceMatches,
+            outcome: sourceMatches ? "verified" : "committed_unverified",
             oldClip: oldName,
             newClip: newItem.name,
             trackIndex: trackIndex,
-            trackType: trackType
-          });
+            trackType: trackType,
+            startSeconds: __ticksToSeconds(oldStart),
+            endSeconds: __ticksToSeconds(oldEnd)
+          };
+          var warnings = [];
+          if (!sourceMatches) warnings.push("The replacement keeps the original span, but its source In point could not be confirmed to match the In mark of " + newItem.name + ".");
+          if (!placed.marksRestored) warnings.push("The In/Out marks of " + newItem.name + " could not be restored.");
+          if (warnings.length) replaceResult.warning = warnings.join(" ");
+          return __result(replaceResult);
         `);
         return sendCommand(script, bridgeOptions);
       },

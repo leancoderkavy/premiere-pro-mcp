@@ -3,7 +3,7 @@
   "evidenceScope": "source_catalog_may_include_unreleased_work",
   "sourceVersion": "1.18.4",
   "sourcePath": "docs/supported-actions.md",
-  "sourceSha256": "34f405a5e5d304c2051d05a2f26f4ee24c8fb517dfb022483e2edb37d379fcf0",
+  "sourceSha256": "c991ae5f7a6f7c642d7c9ac2baa80972343bc8516df9c143466c6e87cde16482",
   "hostVerification": "not_established_by_catalogs",
   "counts": {
     "default": 382,
@@ -1797,7 +1797,7 @@
       "name": "move_clip_to_track",
       "surface": "default",
       "modes": "Single operation",
-      "description": "Move a clip to a different track. Uses QE DOM."
+      "description": "Move a clip to a different track of the same type, keeping its start, duration, and source in/out. EXPERIMENTAL: uses the undocumented QE DOM moveToTrack. Refuses without changing anything when the origin or destination track is locked or the destination range is occupied. Reads the timeline back: verified only when the clip is on the destination track with the same span and source range and is gone from the origin track; committed_unverified when the source range cannot be read; otherwise failure with Undo guidance."
     },
     {
       "name": "move_item_to_bin",
@@ -2247,7 +2247,7 @@
       "name": "replace_clip",
       "surface": "default",
       "modes": "Single operation",
-      "description": "Replace a clip on the timeline with a different project item, preserving position and duration"
+      "description": "Replace one timeline clip with a different project item on the same track, keeping the exact timeline start and end. The replacement plays from its own In mark for the original clip's duration; neighbouring clips do not ripple, and a linked partner clip on another track is left in place. Refuses without changing anything when the track is locked. Reads the track back: verified when the new clip covers the same span, committed_unverified when the span holds but the source In point cannot be confirmed, otherwise failure with Undo guidance."
     },
     {
       "name": "replace_clip_media",
@@ -2811,7 +2811,7 @@
       "name": "unnest_sequence",
       "surface": "default",
       "modes": "Single operation",
-      "description": "Unnest a nested sequence on the timeline, replacing it with the contents of the nested sequence"
+      "description": "Unnest a nested sequence clip, replacing it with the nested sequence's clips at their exact source in/out and timeline positions. Refuses without changing anything when the nest is trimmed, retimed, linked to a partner clip, or when the destination range is occupied or locked. Re-reads every placed clip and reports failure with Undo guidance if any start or source range differs. Nested clips are re-placed from their project items, so effects, keyframes, and transitions inside the nest are not carried over."
     },
     {
       "name": "update_marker",

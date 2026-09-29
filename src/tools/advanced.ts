@@ -542,7 +542,10 @@ export function getAdvancedTools(bridgeOptions: BridgeOptions) {
     },
 
     move_clip_to_track: {
-      description: "Move a clip to a different track. Uses QE DOM.",
+      description:
+        "Move a clip to a different track of the same type, keeping its start, duration, and source in/out. EXPERIMENTAL: uses the undocumented QE DOM moveToTrack. " +
+        "Refuses without changing anything when the origin or destination track is locked or the destination range is occupied. " +
+        "Reads the timeline back: verified only when the clip is on the destination track with the same span and source range and is gone from the origin track; committed_unverified when the source range cannot be read; otherwise failure with Undo guidance.",
       parameters: {
         type: "object" as const,
         properties: {
@@ -561,6 +564,9 @@ export function getAdvancedTools(bridgeOptions: BridgeOptions) {
         node_id: string;
         target_track_index: number;
       }) => {
+        if (!Number.isSafeInteger(args.target_track_index) || args.target_track_index < 0) {
+          return { success: false, error: "target_track_index must be a non-negative integer" };
+        }
         const nodeId = escapeForExtendScript(args.node_id);
         const script = buildToolScript(`
           app.enableQE();
@@ -577,6 +583,47 @@ export function getAdvancedTools(bridgeOptions: BridgeOptions) {
           }
           if (result.trackIndex === ${args.target_track_index}) {
             return __result({ moved: false, verified: true, alreadyOnTrack: true, clipName: result.clip.name, trackIndex: result.trackIndex });
+          }
+
+          // Preflight: refuse before any QE call when either track is locked or
+          // the destination range holds another clip (QE would overwrite it).
+          var originTrack = targetTracks[result.trackIndex];
+          var destTrack = targetTracks[${args.target_track_index}];
+          if (__isTrackLocked(originTrack)) {
+            return __error("Move refused; nothing was changed. Origin " + result.trackType + " track " + result.trackIndex + " is locked.");
+          }
+          if (__isTrackLocked(destTrack)) {
+            return __error("Move refused; nothing was changed. Destination " + result.trackType + " track ${args.target_track_index} is locked.");
+          }
+          var moveStart = parseFloat(result.clip.start.ticks);
+          var moveEnd = parseFloat(result.clip.end.ticks);
+          for (var oi = 0; oi < destTrack.clips.numItems; oi++) {
+            var occupant = destTrack.clips[oi];
+            var occupantStart = parseFloat(occupant.start.ticks);
+            var occupantEnd = parseFloat(occupant.end.ticks);
+            if (occupantStart < moveEnd - __TICK_MATCH_TOL && occupantEnd > moveStart + __TICK_MATCH_TOL) {
+              return __error("Move refused; nothing was changed. The destination range " + __ticksToSeconds(moveStart) + "s-" + __ticksToSeconds(moveEnd) + "s on " + result.trackType + " track ${args.target_track_index} is already occupied by " + occupant.name + ", and moving there would overwrite it.");
+            }
+          }
+          var movedName = result.clip.name;
+          var movedSourceId = "";
+          try { movedSourceId = result.clip.projectItem ? String(result.clip.projectItem.nodeId) : ""; } catch (eMovedSource) {}
+
+          // Premiere can mint a new node ID when a clip changes track, so fall
+          // back to matching the same source item, name, and start on a track.
+          function findMovedOn(trackIndex) {
+            var track = targetTracks[trackIndex];
+            for (var fi = 0; fi < track.clips.numItems; fi++) {
+              var cand = track.clips[fi];
+              if (String(cand.nodeId) === "${nodeId}") return { clip: cand, trackIndex: trackIndex, trackType: result.trackType };
+              var candSource = "";
+              try { candSource = cand.projectItem ? String(cand.projectItem.nodeId) : ""; } catch (eCandSource) {}
+              if (movedSourceId && candSource === movedSourceId && cand.name === movedName &&
+                  Math.abs(parseFloat(cand.start.ticks) - moveStart) <= __TICK_MATCH_TOL) {
+                return { clip: cand, trackIndex: trackIndex, trackType: result.trackType };
+              }
+            }
+            return null;
           }
 
           var qeTrack = result.trackType === "video"
@@ -616,9 +663,16 @@ export function getAdvancedTools(bridgeOptions: BridgeOptions) {
 
           // QE reports nothing useful on success, so confirm against the DOM.
           var after = __findClip("${nodeId}");
-          if (!after) return __error("Clip ${nodeId} could not be found after the track move; the timeline may be in an unexpected state.");
+          if (!after) after = findMovedOn(${args.target_track_index});
+          if (!after) return __error("The timeline changed: clip " + movedName + " could not be found on its original or destination track after the track move. Use Undo and check the timeline.");
           if (after.trackIndex !== ${args.target_track_index}) {
+            if (findMovedOn(${args.target_track_index})) {
+              return __error("The timeline changed: Premiere placed a copy of " + movedName + " on track ${args.target_track_index} but the original is still on track " + after.trackIndex + ". Use Undo and move the clip in the Premiere UI.");
+            }
             return __error("Premiere accepted the moveToTrack call but the clip is still on track " + after.trackIndex + " rather than ${args.target_track_index}. Structural QE edits are known to no-op on some Premiere Pro 26.x installations (confirmed on 26.2.2).");
+          }
+          if (findMovedOn(result.trackIndex)) {
+            return __error("The timeline changed: " + movedName + " now exists on both track " + result.trackIndex + " and track ${args.target_track_index}. Use Undo and move the clip in the Premiere UI.");
           }
           // moveToTrack can rewrite end independently of start (#550). Re-assert
           // the original span before verifying, then fail closed if it did not hold.
@@ -626,31 +680,47 @@ export function getAdvancedTools(bridgeOptions: BridgeOptions) {
             try {
               __writeClipSpan(after.clip, beforeMoveStartTicks, beforeMoveEndTicks);
             } catch (spanErr) {
-              return __error("Premiere changed the clip's timeline range during the track move and it could not be restored (" + spanErr.toString() + "). Use Undo and retry in the Premiere UI.");
+              return __error("The timeline changed: Premiere changed the clip's timeline range during the track move and it could not be restored (" + spanErr.toString() + "). Use Undo and retry in the Premiere UI.");
             }
-            after = __findClip("${nodeId}");
-            if (!after) return __error("Clip ${nodeId} could not be found after restoring its timeline range; the timeline may be in an unexpected state.");
+            var restored = __findClip("${nodeId}");
+            after = restored || findMovedOn(${args.target_track_index});
+            if (!after) return __error("The timeline changed: clip " + movedName + " could not be found after restoring its timeline range. Use Undo and check the timeline.");
           }
           var afterMoveStartTicks = String(after.clip.start.ticks);
           var afterMoveEndTicks = String(after.clip.end.ticks);
           if (parseFloat(afterMoveStartTicks) >= parseFloat(afterMoveEndTicks)) {
-            return __error("Premiere left clip ${nodeId} with an inverted or empty timeline range after the track move. Use Undo and retry in the Premiere UI.");
+            return __error("The timeline changed: Premiere left clip " + movedName + " with an inverted or empty timeline range after the track move. Use Undo and retry in the Premiere UI.");
+          }
+          if (Math.abs(parseFloat(afterMoveStartTicks) - parseFloat(beforeMoveStartTicks)) > 1) {
+            return __error("The timeline changed: Premiere moved the clip to " + __ticksToSeconds(afterMoveStartTicks) + "s instead of keeping its start at " + __ticksToSeconds(beforeMoveStartTicks) + "s. Use Undo and retry in the Premiere UI.");
           }
           if (Math.abs((parseFloat(afterMoveEndTicks) - parseFloat(afterMoveStartTicks)) - spanTicks) > 1) {
-            return __error("Premiere changed the clip duration during the track move. Use Undo and retry in the Premiere UI.");
+            return __error("The timeline changed: Premiere changed the clip duration during the track move. Use Undo and retry in the Premiere UI.");
           }
-          if (String(after.clip.inPoint.ticks) !== beforeMoveInTicks || String(after.clip.outPoint.ticks) !== beforeMoveOutTicks) {
-            return __error("Premiere changed the clip's source in/out points during the track move. Use Undo and retry in the Premiere UI.");
+          var sourceReadable = true;
+          var afterInTicks = "";
+          var afterOutTicks = "";
+          try {
+            afterInTicks = String(after.clip.inPoint.ticks);
+            afterOutTicks = String(after.clip.outPoint.ticks);
+          } catch (eSourceRead) {
+            sourceReadable = false;
+          }
+          if (sourceReadable && (afterInTicks !== beforeMoveInTicks || afterOutTicks !== beforeMoveOutTicks)) {
+            return __error("The timeline changed: Premiere changed the clip's source in/out points during the track move. Use Undo and retry in the Premiere UI.");
           }
 
-          return __result({
+          var moveResult = {
             moved: true,
-            verified: true,
+            verified: sourceReadable,
+            outcome: sourceReadable ? "verified" : "committed_unverified",
             clipName: after.clip.name,
             newTrackIndex: after.trackIndex,
             startSeconds: __ticksToSeconds(afterMoveStartTicks),
             endSeconds: __ticksToSeconds(afterMoveEndTicks)
-          });
+          };
+          if (!sourceReadable) moveResult.warning = "The clip is on the destination track with the same start and duration, but its source in/out points could not be read back.";
+          return __result(moveResult);
         `);
         return sendCommand(script, bridgeOptions);
       },

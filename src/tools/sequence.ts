@@ -354,7 +354,10 @@ export function getSequenceTools(bridgeOptions: BridgeOptions) {
     },
 
     unnest_sequence: {
-      description: "Unnest a nested sequence on the timeline, replacing it with the contents of the nested sequence",
+      description:
+        "Unnest a nested sequence clip, replacing it with the nested sequence's clips at their exact source in/out and timeline positions. " +
+        "Refuses without changing anything when the nest is trimmed, retimed, linked to a partner clip, or when the destination range is occupied or locked. " +
+        "Re-reads every placed clip and reports failure with Undo guidance if any start or source range differs. Nested clips are re-placed from their project items, so effects, keyframes, and transitions inside the nest are not carried over.",
       parameters: {
         type: "object" as const,
         properties: {
@@ -382,7 +385,13 @@ export function getSequenceTools(bridgeOptions: BridgeOptions) {
           // Check if the project item is a sequence (type 3 = sequence)
           // For nested sequences, the projectItem should reference another sequence
           var nestedSeq = null;
-          for (var i = 0; i < app.project.sequences.numSequences; i++) {
+          for (var si = 0; si < app.project.sequences.numSequences && !nestedSeq; si++) {
+            var byItem = app.project.sequences[si];
+            try {
+              if (byItem.projectItem && String(byItem.projectItem.nodeId) === String(projectItem.nodeId)) nestedSeq = byItem;
+            } catch (eSeqItem) {}
+          }
+          for (var i = 0; i < app.project.sequences.numSequences && !nestedSeq; i++) {
             var s = app.project.sequences[i];
             if (s.name === projectItem.name || s.sequenceID === projectItem.nodeId) {
               nestedSeq = s;
@@ -422,63 +431,212 @@ export function getSequenceTools(bridgeOptions: BridgeOptions) {
           }
 
           var reference = linkedReferences[0];
+          var mediaType = reference.mediaType === "video" ? 1 : 2;
           var tracks = reference.mediaType === "video" ? nestedSeq.videoTracks : nestedSeq.audioTracks;
           var targetTracks = reference.mediaType === "video" ? seq.videoTracks : seq.audioTracks;
+          var frameTicks = seq.timebase ? parseFloat(seq.timebase) : NaN;
+          if (!frameTicks || isNaN(frameTicks)) frameTicks = TICKS_PER_SECOND / 24;
+          var refStart = parseFloat(startTicks);
+          var refIn = parseFloat(reference.clip.inPoint.ticks);
+          var refOut = parseFloat(reference.clip.outPoint.ticks);
+          var refNodeId = String(reference.clip.nodeId);
+
+          function isRetimed(trackItem) {
+            try {
+              if (typeof trackItem.getSpeed === "function" && Math.abs(trackItem.getSpeed() - 1) > 0.0001) return true;
+              if (typeof trackItem.isSpeedReversed === "function" && trackItem.isSpeedReversed()) return true;
+            } catch (eSpeed) {}
+            return false;
+          }
+          function secondsLabel(ticks) {
+            return String(Math.round(__ticksToSeconds(ticks) * 1000) / 1000) + "s";
+          }
+
+          if (isRetimed(reference.clip)) {
+            return __error("Unnest refused; nothing was changed. The nested clip has a speed change or is reversed, so placing its contents at normal speed would change what plays.");
+          }
+          if (__isTrackLocked(targetTracks[reference.trackIndex])) {
+            return __error("Unnest refused; nothing was changed. The nested clip's " + reference.mediaType + " track " + reference.trackIndex + " is locked.");
+          }
+
+          // Preflight: plan every placement and prove it is safe before touching
+          // the timeline. Every refusal below returns before any mutation.
           var planned = [];
           var expectedByTrack = [];
+          var contentStart = null;
+          var contentEnd = null;
           for (var t = 0; t < tracks.numTracks; t++) {
             var targetTrackIndex = reference.trackIndex + t;
-            if (targetTrackIndex >= targetTracks.numTracks) {
-              return __error("Cannot unnest safely because the destination " + reference.mediaType + " track " + targetTrackIndex + " does not exist. No clips were changed.");
-            }
             expectedByTrack[t] = 0;
             for (var c = 0; c < tracks[t].clips.numItems; c++) {
               var nestedClip = tracks[t].clips[c];
+              if (targetTrackIndex >= targetTracks.numTracks) {
+                return __error("Cannot unnest safely because the destination " + reference.mediaType + " track " + targetTrackIndex + " does not exist. No clips were changed.");
+              }
               if (!nestedClip.projectItem) {
                 return __error("Cannot unnest safely because a nested " + reference.mediaType + " clip has no project item. No clips were changed.");
               }
+              if (isRetimed(nestedClip)) {
+                return __error("Unnest refused; nothing was changed. Nested clip " + nestedClip.name + " has a speed change or is reversed, so it cannot be re-placed with the same timing.");
+              }
+              var nestedStart = parseFloat(nestedClip.start.ticks);
+              var nestedEnd = parseFloat(nestedClip.end.ticks);
+              if (contentStart === null || nestedStart < contentStart) contentStart = nestedStart;
+              if (contentEnd === null || nestedEnd > contentEnd) contentEnd = nestedEnd;
               planned.push({
                 projectItem: nestedClip.projectItem,
-                insertTime: (parseFloat(startTicks) + parseFloat(nestedClip.start.ticks)).toString(),
-                sourceTrackIndex: t,
-                name: nestedClip.name
+                name: nestedClip.name,
+                targetTrackIndex: targetTrackIndex,
+                expectedStart: refStart + (nestedStart - refIn),
+                expectedEnd: refStart + (nestedEnd - refIn),
+                inTicks: parseFloat(nestedClip.inPoint.ticks),
+                outTicks: parseFloat(nestedClip.outPoint.ticks)
               });
               expectedByTrack[t]++;
             }
           }
           if (planned.length === 0) return __error("Nested sequence has no " + reference.mediaType + " clips to unnest. No clips were changed.");
 
-          var beforeCounts = [];
-          for (var b = 0; b < tracks.numTracks; b++) {
-            beforeCounts[b] = targetTracks[reference.trackIndex + b].clips.numItems;
+          // A trimmed nest plays only part of the nested content; unnesting would
+          // bring back the hidden head or tail and change what plays.
+          var trimTol = frameTicks / 2;
+          if (refIn > contentStart + trimTol || refOut < contentEnd - trimTol) {
+            return __error(
+              "Unnest refused; nothing was changed. The nested clip is trimmed: it plays " + secondsLabel(refIn) + "-" + secondsLabel(refOut) +
+              " of " + nestedSeq.name + ", whose " + reference.mediaType + " content spans " + secondsLabel(contentStart) + "-" + secondsLabel(contentEnd) +
+              ". Unnesting would change what plays. Extend the nested clip to its full content first, or unnest it manually in Premiere."
+            );
           }
 
-          // The existing implementation only changed one lane of a linked clip.
-          // This route runs only when preflight has proven there is exactly one
-          // unlinked reference, so it cannot report a partial A/V unnest as success.
-          reference.clip.remove(false, false);
+          for (var q = 0; q < planned.length; q++) {
+            var pre = planned[q];
+            var destTrack = targetTracks[pre.targetTrackIndex];
+            if (__isTrackLocked(destTrack)) {
+              return __error("Unnest refused; nothing was changed. Destination " + reference.mediaType + " track " + pre.targetTrackIndex + " is locked.");
+            }
+            for (var d = 0; d < destTrack.clips.numItems; d++) {
+              var occupant = destTrack.clips[d];
+              if (String(occupant.nodeId) === refNodeId) continue;
+              var occupantStart = parseFloat(occupant.start.ticks);
+              var occupantEnd = parseFloat(occupant.end.ticks);
+              if (occupantStart < pre.expectedEnd - __TICK_MATCH_TOL && occupantEnd > pre.expectedStart + __TICK_MATCH_TOL) {
+                return __error(
+                  "Unnest refused; nothing was changed. The destination range " + secondsLabel(pre.expectedStart) + "-" + secondsLabel(pre.expectedEnd) +
+                  " on " + reference.mediaType + " track " + pre.targetTrackIndex + " is already occupied by " + occupant.name +
+                  ". Clear that range or move the nested clip, then retry."
+                );
+              }
+            }
+          }
+
+          function trackCounts(list) {
+            var counts = [];
+            for (var ti = 0; ti < list.numTracks; ti++) counts[ti] = list[ti].clips.numItems;
+            return counts;
+          }
+          var beforeVideoCounts = trackCounts(seq.videoTracks);
+          var beforeAudioCounts = trackCounts(seq.audioTracks);
+          var beforeIds = {};
+          for (var bt = 0; bt < targetTracks.numTracks; bt++) {
+            for (var bc = 0; bc < targetTracks[bt].clips.numItems; bc++) beforeIds[String(targetTracks[bt].clips[bc].nodeId)] = true;
+          }
+
+          var markWarnings = [];
+          function markNote() {
+            return markWarnings.length ? " Project item In/Out marks could not be restored on: " + markWarnings.join(", ") + "." : "";
+          }
+
+          // Mutation. Track.overwriteClip places each nested clip's exact source
+          // range on one track without rippling neighbours (the range is empty).
+          try {
+            reference.clip.remove(false, false);
+          } catch (removeErr) {
+            return __error("Premiere rejected removing the nested clip (" + removeErr.toString() + "). The timeline may have changed; inspect it and use Undo if it did.");
+          }
           var addedClips = [];
           for (var p = 0; p < planned.length; p++) {
             var placement = planned[p];
-            var targetTrack = targetTracks[reference.trackIndex + placement.sourceTrackIndex];
-            targetTrack.insertClip(placement.projectItem, placement.insertTime);
+            var placed = __overwriteRangeOnTrack(
+              targetTracks[placement.targetTrackIndex], placement.projectItem,
+              placement.expectedStart, placement.inTicks, placement.outTicks, mediaType
+            );
+            if (!placed.marksRestored) markWarnings.push(placement.projectItem.name);
+            if (!placed.ok) {
+              return __error(
+                "The timeline changed: the nested clip was removed and " + addedClips.length + " of " + planned.length +
+                " clip(s) were placed before Premiere failed on " + placement.name + " (" + placed.error + "). " +
+                "Use Undo to restore the nested clip; this unnest did not succeed." + markNote()
+              );
+            }
             addedClips.push(placement.name);
           }
-          for (var a = 0; a < tracks.numTracks; a++) {
-            var actualCount = targetTracks[reference.trackIndex + a].clips.numItems;
-            if (actualCount !== beforeCounts[a] - (a === 0 ? 1 : 0) + expectedByTrack[a]) {
-              return __error("Premiere did not place every nested " + reference.mediaType + " clip. Inspect the timeline before retrying.");
+
+          // Readback: every placed clip must sit at its planned start with the
+          // nested clip's exact source in/out, and no other track may change.
+          var problems = [];
+          var claimed = {};
+          for (var r = 0; r < planned.length; r++) {
+            var want = planned[r];
+            var readTrack = targetTracks[want.targetTrackIndex];
+            var match = null;
+            for (var k = 0; k < readTrack.clips.numItems && !match; k++) {
+              var cand = readTrack.clips[k];
+              var candId = String(cand.nodeId);
+              if (beforeIds[candId] || claimed[candId]) continue;
+              var candSource = "";
+              try { candSource = cand.projectItem ? String(cand.projectItem.nodeId) : ""; } catch (eSource) {}
+              if (candSource !== String(want.projectItem.nodeId)) continue;
+              if (Math.abs(parseFloat(cand.start.ticks) - want.expectedStart) > __TICK_MATCH_TOL) continue;
+              match = cand;
+            }
+            if (!match) {
+              problems.push(want.name + " is not at " + secondsLabel(want.expectedStart) + " on " + reference.mediaType + " track " + want.targetTrackIndex);
+              continue;
+            }
+            claimed[String(match.nodeId)] = true;
+            var gotEnd = parseFloat(match.end.ticks);
+            if (Math.abs(gotEnd - want.expectedEnd) > __TICK_MATCH_TOL) {
+              problems.push(want.name + " ends at " + secondsLabel(gotEnd) + " instead of " + secondsLabel(want.expectedEnd));
+            }
+            var gotIn = parseFloat(match.inPoint.ticks);
+            var gotOut = parseFloat(match.outPoint.ticks);
+            if (Math.abs(gotIn - want.inTicks) > __TICK_MATCH_TOL || Math.abs(gotOut - want.outTicks) > __TICK_MATCH_TOL) {
+              problems.push(want.name + " uses source " + secondsLabel(gotIn) + "-" + secondsLabel(gotOut) + " instead of " + secondsLabel(want.inTicks) + "-" + secondsLabel(want.outTicks));
             }
           }
-          
-          return __result({
+          if (__findClip(refNodeId)) problems.push("the nested clip is still on the timeline");
+          function checkCounts(list, before, isTargetType, label) {
+            for (var ci = 0; ci < list.numTracks; ci++) {
+              var expected = before[ci];
+              if (isTargetType) {
+                if (ci === reference.trackIndex) expected -= 1;
+                var offset = ci - reference.trackIndex;
+                if (offset >= 0 && offset < expectedByTrack.length) expected += expectedByTrack[offset];
+              }
+              var actual = list[ci].clips.numItems;
+              if (actual !== expected) problems.push(label + " track " + ci + " has " + actual + " clip(s), expected " + expected);
+            }
+          }
+          checkCounts(seq.videoTracks, beforeVideoCounts, reference.mediaType === "video", "video");
+          checkCounts(seq.audioTracks, beforeAudioCounts, reference.mediaType === "audio", "audio");
+          if (problems.length) {
+            return __error(
+              "The timeline changed but the unnest did not verify: " + problems.join("; ") +
+              ". Use Undo to restore the nested clip before retrying; this is not reported as success." + markNote()
+            );
+          }
+
+          var unnestResult = {
             unnested: true,
             verified: true,
+            outcome: "verified",
             nestedSequence: clipName,
             mediaType: reference.mediaType,
             clipsAdded: addedClips.length,
             clips: addedClips
-          });
+          };
+          if (markWarnings.length) unnestResult.warning = "Project item In/Out marks could not be restored on: " + markWarnings.join(", ") + ".";
+          return __result(unnestResult);
         `);
         return sendCommand(script, bridgeOptions);
       },

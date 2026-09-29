@@ -73,6 +73,70 @@ function __writeClipSpan(item, startTicks, endTicks) {
   }
 }
 
+// Tick comparisons for values that round-trip through seconds (ProjectItem
+// marks take seconds). Far below one frame at any frame rate.
+var __TICK_MATCH_TOL = 16;
+
+function __isTrackLocked(track) {
+  try {
+    if (track && typeof track.isLocked === "function") return !!track.isLocked();
+  } catch (eLocked) {}
+  return false;
+}
+
+// Place exactly [inTicks, outTicks) of a project item on ONE track at
+// startTicks without rippling. Track.overwriteClip places the item's In/Out
+// range, so set those marks first and restore the item's own marks afterwards.
+// mediaType: 1 = video, 2 = audio. Callers must prove the destination range is
+// empty first; overwrite never shifts neighbours but would replace them.
+// Returns { ok, attempted, marksRestored, error }. attempted=true means the
+// overwrite call ran (or threw), so the timeline may have changed.
+function __overwriteRangeOnTrack(track, item, startTicks, inTicks, outTicks, mediaType) {
+  if (!track || typeof track.overwriteClip !== "function") {
+    return { ok: false, attempted: false, marksRestored: true, error: "Track.overwriteClip is unavailable on this Premiere build" };
+  }
+  if (!item || typeof item.getInPoint !== "function" || typeof item.getOutPoint !== "function" ||
+      typeof item.setInPoint !== "function" || typeof item.setOutPoint !== "function") {
+    return { ok: false, attempted: false, marksRestored: true, error: "Project item In/Out marks cannot be set on this Premiere build" };
+  }
+  var originalIn = null;
+  var originalOut = null;
+  try {
+    originalIn = String(item.getInPoint(mediaType).ticks);
+    originalOut = String(item.getOutPoint(mediaType).ticks);
+  } catch (eMarks) {
+    return { ok: false, attempted: false, marksRestored: true, error: "Could not read the project item's In/Out marks" };
+  }
+  function setMarks(wantIn, wantOut) {
+    var currentOut = parseFloat(item.getOutPoint(mediaType).ticks);
+    if (parseFloat(wantIn) >= currentOut) {
+      item.setOutPoint(__ticksToSeconds(wantOut), mediaType);
+      item.setInPoint(__ticksToSeconds(wantIn), mediaType);
+    } else {
+      item.setInPoint(__ticksToSeconds(wantIn), mediaType);
+      item.setOutPoint(__ticksToSeconds(wantOut), mediaType);
+    }
+    return Math.abs(parseFloat(item.getInPoint(mediaType).ticks) - parseFloat(wantIn)) <= __TICK_MATCH_TOL &&
+      Math.abs(parseFloat(item.getOutPoint(mediaType).ticks) - parseFloat(wantOut)) <= __TICK_MATCH_TOL;
+  }
+  function restore() {
+    try { return setMarks(originalIn, originalOut); } catch (eRestore) { return false; }
+  }
+  var applied = false;
+  try { applied = setMarks(inTicks, outTicks); } catch (eSet) { applied = false; }
+  if (!applied) {
+    return { ok: false, attempted: false, marksRestored: restore(), error: "Premiere did not apply the source In/Out range to project item " + item.name };
+  }
+  var at = new Time();
+  at.ticks = String(startTicks);
+  try {
+    track.overwriteClip(item, at);
+  } catch (eOverwrite) {
+    return { ok: false, attempted: true, marksRestored: restore(), error: "Track.overwriteClip rejected project item " + item.name + ": " + eOverwrite.toString() };
+  }
+  return { ok: true, attempted: true, marksRestored: restore(), error: "" };
+}
+
 function __ticksToTimecode(ticks, fps) {
   var totalSeconds = __ticksToSeconds(ticks);
   var hours = Math.floor(totalSeconds / 3600);
