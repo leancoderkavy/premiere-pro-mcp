@@ -6,6 +6,20 @@ import { product } from "@/lib/product"
 
 const releases = [
   {
+    version: "1.18.4",
+    date: "2026-09-28",
+    label: "Right-clip QE lookups, a working apply_effect, and honest UXP results",
+    groups: [
+      { title: "Fixed", items: [
+        "apply_effect and apply_audio_effect no longer generate a script that fails to parse.",
+        "Twelve CEP tools match the QE clip by timeline start, so tracks with gaps no longer edit the wrong clip.",
+        "import_transcript_uxp refuses to import over an existing transcript.",
+        "Oversized UXP commands fail fast, metadata no-op writes fail honestly, and project Save As checks whether the destination exists."
+      ] },
+      { title: "Verification scope", items: ["Automated checks validate package behavior; these changes have not been re-verified on a licensed Premiere host."] }
+    ],
+  },
+  {
     version: "1.18.3",
     date: "2026-09-28",
     label: "Symlink path guard, fail-closed export, and Premiere 26.5 timing fixes",
