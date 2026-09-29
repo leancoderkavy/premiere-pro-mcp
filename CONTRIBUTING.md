@@ -130,6 +130,19 @@ Add workspace.ts module with get/set workspace tools
 - Use TypeScript types for handler arguments
 - Don't add comments unless they explain non-obvious behavior
 
+## Releases and the website
+
+The website (`premiere-pro-mcp.com`) lives in
+[leancoderkavy/premiere-pro-mcp-site](https://github.com/leancoderkavy/premiere-pro-mcp-site).
+It syncs version, tool counts, and provenance from the published npm package on its own
+(every 6 hours, or sooner when the publish workflow dispatches `package-published`), so
+releases need no website pull request. Site copy, design, and analytics changes go to that
+repository.
+
+After a release is published, update the client pins that stay here in one change: the
+README `### Latest release:` heading and install commands, both plugin `.mcp.json` files,
+and both `edit-premiere-project` skills. `npm test` checks that they agree.
+
 ## Reporting Issues
 
 When filing an issue, please include:

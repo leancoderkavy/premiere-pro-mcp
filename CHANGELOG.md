@@ -6,6 +6,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Changed
+
+- The website moved to its own repository, [leancoderkavy/premiere-pro-mcp-site](https://github.com/leancoderkavy/premiere-pro-mcp-site), and is served at `https://premiere-pro-mcp.com`. It reads versions and tool counts from the published npm package and syncs them on its own, so releases here no longer update website files.
+- The HTTP transport no longer serves website pages, the homepage experiment, or `/api/landing-events`. It answers `/mcp`, `/health`, and OAuth protected-resource metadata only. Other `GET` and `HEAD` paths on `premiere-pro-mcp.fly.dev` or a `*.premiere-pro-mcp.com` host redirect (`308`) to the same path on `https://premiere-pro-mcp.com`; any other host gets a JSON `404`. Its Content Security Policy is now deny-all, `/health` reports the running package `version`, and the `MCP_MAX_CONCURRENT_LANDING_DOCUMENTS`, `MCP_LANDING_MAX_HTML_BYTES`, and `MCP_LANDING_HTML_CACHE_BYTES` settings are gone. The Docker image no longer builds the site.
+
 ## [1.18.5] - 2026-09-28
 
 ### Fixed

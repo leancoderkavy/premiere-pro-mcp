@@ -2,13 +2,15 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 describe("Docker release build context", () => {
-  it("provides the source metadata and generator used by the landing prebuild", () => {
+  it("builds only the MCP server; the website ships from its own repository", () => {
     const dockerfile = readFileSync("Dockerfile", "utf8");
-    expect(dockerfile).toContain("COPY release-metadata.json ./release-metadata.json");
-    expect(dockerfile).toContain("COPY scripts/generate-marketing-reference.mjs ./scripts/generate-marketing-reference.mjs");
-    expect(dockerfile).toContain("WORKDIR /app/landing");
-    expect(dockerfile).toContain("COPY --from=landing-builder /app/landing/out ./landing-dist");
+    expect(dockerfile).not.toMatch(/landing/i);
+    expect(dockerfile).not.toContain("generate-marketing-reference");
+    expect(dockerfile).toContain("COPY --from=mcp-builder /app/dist ./dist");
+    expect(dockerfile).toContain('CMD ["node", "dist/http-server.js"]');
+    expect(dockerfile).toContain("USER node");
   });
+
   it("copies every repository script required by the package build", () => {
     const dockerfile = readFileSync("Dockerfile", "utf8");
     const packageJson = JSON.parse(readFileSync("package.json", "utf8")) as {
@@ -28,5 +30,11 @@ describe("Docker release build context", () => {
     for (const generator of buildScripts.filter((script) => script.includes("/generate-"))) {
       expect(packageJson.scripts.build).toContain(`${generator} --check`);
     }
+  });
+
+  it("keeps secret files in the Docker ignore list without stale website entries", () => {
+    const dockerignore = readFileSync(".dockerignore", "utf8");
+    expect(dockerignore).not.toMatch(/landing/);
+    expect(dockerignore).toMatch(/^\*\*\/\.env\*$/m);
   });
 });

@@ -36,14 +36,6 @@ const surfaces = [
     required: [`\"display_name\": \"${displayName}\"`],
   },
   {
-    file: "landing/lib/product.ts",
-    required: [`name: \"${displayName}\"`],
-  },
-  {
-    file: "landing/app/manifest.ts",
-    required: [`name: \"${displayName}\"`],
-  },
-  {
     file: "README.md",
     required: [`# ${displayName}`],
   },

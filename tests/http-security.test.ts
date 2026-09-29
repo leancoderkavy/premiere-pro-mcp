@@ -16,27 +16,16 @@ describe("HTTP security headers", () => {
       "Permissions-Policy",
       "camera=(), microphone=(), geolocation=()",
     );
+    expect(setHeader).toHaveBeenCalledWith("Content-Security-Policy", buildContentSecurityPolicy());
   });
 
-  it("blocks framing, plugins, and unlisted network destinations", () => {
+  it("denies every document capability because the transport serves no pages", () => {
     const policy = HTTP_SECURITY_HEADERS["Content-Security-Policy"];
+    expect(policy).toContain("default-src 'none'");
     expect(policy).toContain("frame-ancestors 'none'");
-    expect(policy).toContain("object-src 'none'");
-    expect(policy).toContain("connect-src 'self'");
-    expect(policy).toContain("https://www.google.com");
-    expect(policy).not.toContain("connect-src *");
-    expect(policy).not.toContain("script-src 'self' 'unsafe-inline'");
-  });
-
-  it("uses a per-response nonce instead of allowing inline scripts", () => {
-    const setHeader = vi.fn();
-    applyHttpSecurityHeaders({ setHeader } as never, { scriptNonce: "nonce-value" });
-    expect(setHeader).toHaveBeenCalledWith(
-      "Content-Security-Policy",
-      expect.stringContaining("script-src 'self' 'nonce-nonce-value' https://www.googletagmanager.com https://us-assets.i.posthog.com https://eu-assets.i.posthog.com"),
-    );
-    expect(buildContentSecurityPolicy()).toContain("https://us.i.posthog.com");
-    expect(buildContentSecurityPolicy()).toContain("https://us-assets.i.posthog.com");
-    expect(buildContentSecurityPolicy()).not.toContain("'unsafe-inline' https://www.googletagmanager.com");
+    expect(policy).toContain("form-action 'none'");
+    expect(policy).not.toContain("script-src");
+    expect(policy).not.toContain("connect-src");
+    expect(policy).not.toContain("'unsafe-inline'");
   });
 });

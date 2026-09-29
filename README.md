@@ -22,7 +22,7 @@ The [completed AE render handoff](docs/after-effects-render-handoff.md) previews
 [![Node.js](https://img.shields.io/badge/Node.js-20.19%2B-green.svg)](https://nodejs.org)
 [![MCP](https://img.shields.io/badge/MCP-2026--07--28-purple.svg)](https://modelcontextprotocol.io/specification/2026-07-28)
 [![npm](https://img.shields.io/npm/v/premiere-pro-mcp.svg)](https://www.npmjs.com/package/premiere-pro-mcp)
-[![Fly.io](https://img.shields.io/badge/Fly.io-deployed-7C3AED.svg)](https://premiere-pro-mcp.fly.dev)
+[![Website](https://img.shields.io/badge/website-premiere--pro--mcp.com-7C3AED.svg)](https://premiere-pro-mcp.com/)
 [![Premiere Pro](https://img.shields.io/badge/Premiere%20Pro-2020--2026-9999FF.svg)](https://www.adobe.com/products/premiere.html)
 
 [![npm downloads](https://img.shields.io/npm/dm/premiere-pro-mcp.svg?label=npm%20downloads)](https://www.npmjs.com/package/premiere-pro-mcp)
@@ -36,7 +36,7 @@ The [completed AE render handoff](docs/after-effects-render-handoff.md) previews
 
 ---
 
-![MCP for Adobe Premiere Pro turns a structured AI request into an organized local editing workflow](landing/public/marketing/premiere-pro-mcp-campaign-hero-v1.png)
+![MCP for Adobe Premiere Pro turns a structured AI request into an organized local editing workflow](https://premiere-pro-mcp.com/marketing/premiere-pro-mcp-campaign-hero-v1.png)
 
 <details>
 <summary><strong>Table of contents</strong></summary>
@@ -154,7 +154,7 @@ if the connection is unavailable.
   manifest, and proof runbook make workflow and verification boundaries
   inspectable without claiming a licensed-host walkthrough occurred.
 - **Faster, clearer delivery:** immutable MCP registration work is reused
-  safely across stateless requests, and the landing now has a lighter,
+  safely across stateless requests, and the website gained a lighter,
   mobile-first workflow view plus current machine-readable facts and crawl
   guidance for its public pages.
 - **Explicit boundary:** the hosted endpoint remains an operator-managed MCP
@@ -241,7 +241,7 @@ The Claude bundle contains the local MCP server, so this route does not require 
 
 ### First proof, before the first edit
 
-![Illustrated local Premiere MCP workflow](landing/public/premiere-pro-mcp-demo-poster.png)
+![Illustrated local Premiere MCP workflow](https://premiere-pro-mcp.com/premiere-pro-mcp-demo-poster.png)
 
 *This is an illustrated workflow, not a Premiere panel screenshot or licensed-host proof.*
 
@@ -843,7 +843,7 @@ argument, undo, confirmation, and live-host boundaries.
 
 ## Architecture
 
-![Local-first MCP for Adobe Premiere Pro workflow from AI assistant through the MCP bridge to a verified Premiere result](landing/public/marketing/premiere-pro-mcp-workflow-v1.png)
+![Local-first MCP for Adobe Premiere Pro workflow from AI assistant through the MCP bridge to a verified Premiere result](https://premiere-pro-mcp.com/marketing/premiere-pro-mcp-workflow-v1.png)
 
 **Local (stdio):**
 
@@ -1235,8 +1235,10 @@ feature coverage, playback, rendering, or editorial correctness.
 
 The server includes an HTTP/SSE transport (`src/http-server.ts`) for remote access via [mcp-remote](https://github.com/geelen/mcp-remote) or any MCP client that supports Streamable HTTP.
 
-A live operator-managed instance is running at **https://premiere-pro-mcp.fly.dev**.
-It is not a public desktop relay: it cannot connect an authenticated user to
+An operator-managed MCP endpoint runs at **https://premiere-pro-mcp.fly.dev/mcp**
+(health check: `/health`). The website is **https://premiere-pro-mcp.com**, served
+from a separate repository; other paths on the Fly host redirect there.
+The endpoint is not a public desktop relay: it cannot connect an authenticated user to
 Premiere on that user's computer. Public users should use the local stdio setup
 until the separate device-pairing relay is available.
 
@@ -1349,9 +1351,6 @@ user/device authorization are implemented.
 | `MCP_MAX_REQUESTS_PER_SOCKET` | Requests permitted on one keep-alive socket | `100` |
 | `MCP_MAX_CONCURRENT_REQUESTS` | In-flight authenticated MCP request ceiling | `8` |
 | `MCP_MAX_CONCURRENT_STREAMS` | Open authenticated SSE stream ceiling; isolated from operation capacity | `32` |
-| `MCP_MAX_CONCURRENT_LANDING_DOCUMENTS` | Concurrent HTML reads, nonce injection and asynchronous compression; excess work returns `503` | `4` |
-| `MCP_LANDING_MAX_HTML_BYTES` | Maximum source HTML document bytes | `4194304` (4 MiB) |
-| `MCP_LANDING_HTML_CACHE_BYTES` | Source HTML cache memory budget; must be at least the document byte limit | `16777216` (16 MiB) |
 | `PREMIERE_MCP_PROJECT_BACKUP_MAX_BYTES` | Positive integer byte budget for one project backup | `2147483648` (2 GiB) |
 | `MCP_RATE_LIMIT_PER_MINUTE` | Per-credential token-bucket refill rate | `120` |
 | `MCP_RATE_LIMIT_BURST` | Per-credential short burst allowance | `30` |
@@ -1469,10 +1468,10 @@ by default. Enable them only by setting
   body/socket/request limits, and applies a bounded in-process per-credential rate and concurrency limit before
   MCP request parsing or Premiere bridge work begins. It returns `413`, `429`, or `503` on containment failures. Configure an
   upstream rate limit and request-size limit too; process-local counters do not protect a multi-machine deployment.
-- **The landing CSP uses a per-response nonce for scripts**, and its static assets use explicit cache policies.
-  Keep the server in front of the exported landing so those controls are not bypassed by a separate static host.
-  Source HTML is cached as immutable build output; restart the HTTP process after replacing
-  an export. Each response still gets a fresh nonce. HEAD requests skip body rendering.
+- **The HTTP transport serves no web pages.** It answers only `/mcp`, `/health`, and OAuth
+  protected-resource metadata under a deny-all Content Security Policy. Other `GET`/`HEAD` paths on
+  `premiere-pro-mcp.fly.dev` or a `*.premiere-pro-mcp.com` host redirect (`308`) to
+  `https://premiere-pro-mcp.com`; every other host receives a JSON `404`.
 - **Media scans yield between asynchronous filesystem operations** and bound total traversal:
   25,000 entries, 5,000 matching files, 2,000 directories, depth 32, a 1,000-directory
   pending queue, and a cooperative five-second budget. A stalled OS call can exceed that

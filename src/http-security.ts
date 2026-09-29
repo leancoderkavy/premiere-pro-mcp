@@ -1,31 +1,15 @@
 import type http from "node:http";
 
-export interface HttpSecurityHeaderOptions {
-  scriptNonce?: string;
-}
-
-export function buildContentSecurityPolicy(options: HttpSecurityHeaderOptions = {}): string {
-  const scriptSource = [
-    "'self'",
-    ...(options.scriptNonce ? [`'nonce-${options.scriptNonce}'`] : []),
-    "https://www.googletagmanager.com",
-    "https://us-assets.i.posthog.com",
-    "https://eu-assets.i.posthog.com",
-  ].join(" ");
-
+/**
+ * The HTTP transport serves JSON, redirects, and MCP streams only. It never
+ * returns an HTML document, so the policy denies every fetch, frame, and form.
+ */
+export function buildContentSecurityPolicy(): string {
   return [
-    "default-src 'self'",
-    "base-uri 'self'",
+    "default-src 'none'",
+    "base-uri 'none'",
     "frame-ancestors 'none'",
-    "object-src 'none'",
-    "form-action 'self'",
-    "img-src 'self' data: https:",
-    "media-src 'self'",
-    "font-src 'self'",
-    "style-src 'self' 'unsafe-inline'",
-    `script-src ${scriptSource}`,
-    "connect-src 'self' https://www.google.com https://www.google-analytics.com https://www.googletagmanager.com https://us.i.posthog.com https://eu.i.posthog.com https://*.posthog.com",
-    "upgrade-insecure-requests",
+    "form-action 'none'",
   ].join("; ");
 }
 
@@ -39,12 +23,8 @@ export const HTTP_SECURITY_HEADERS = Object.freeze({
   "Cross-Origin-Opener-Policy": "same-origin",
 });
 
-export function applyHttpSecurityHeaders(res: http.ServerResponse, options: HttpSecurityHeaderOptions = {}): void {
-  const headers = {
-    ...HTTP_SECURITY_HEADERS,
-    "Content-Security-Policy": buildContentSecurityPolicy(options),
-  };
-  for (const [name, value] of Object.entries(headers)) {
+export function applyHttpSecurityHeaders(res: http.ServerResponse): void {
+  for (const [name, value] of Object.entries(HTTP_SECURITY_HEADERS)) {
     res.setHeader(name, value);
   }
 }

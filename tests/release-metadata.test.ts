@@ -1,9 +1,8 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { product, sourceCatalog } from "../landing/lib/product.js";
-import { articles } from "../landing/lib/articles.js";
 import { WORKFLOW_CATALOG } from "../src/workflows/catalog.js";
+import { compareSemver, readPublishedVersion } from "./helpers/published-version.js";
 
 const root = process.cwd();
 const read = (path: string) => readFileSync(join(root, path), "utf8");
@@ -32,7 +31,10 @@ describe("canonical release metadata", () => {
       release.version,
     );
 
-    const publishedVersion = readJson("landing/lib/published-release.json").version;
+    // Client pins name the published npm package, which can trail the source
+    // version while a release is being prepared but can never be ahead of it.
+    const publishedVersion = readPublishedVersion();
+    expect(compareSemver(publishedVersion, release.version)).toBeLessThanOrEqual(0);
     for (const path of [
       "plugins/premiere-pro/.mcp.json",
       "claude-plugins/premiere-pro/.mcp.json",
@@ -49,13 +51,10 @@ describe("canonical release metadata", () => {
     expect(read("cep-plugin/index.html")).toContain(`Version ${release.version}`);
   });
 
-  it("aligns public release and capability claims", () => {
+  it("aligns README release and capability claims", () => {
     const readme = read("README.md");
-    const llms = read("landing/public/llms.txt");
-    const llmsFull = read("landing/public/llms-full.txt");
-    const llmAlias = read("landing/public/llm.txt");
-    const marketingAssets = read("docs/marketing-assets.md");
     const supportedActions = read("docs/supported-actions.md");
+    const publishedVersion = readPublishedVersion();
 
     expect(readme).toContain(`${release.coreTools} core tools`);
     expect(readme).toContain(
@@ -65,38 +64,11 @@ describe("canonical release metadata", () => {
       `${release.defaultProfileWithUxpTools} with a connected UXP bridge`,
     );
     expect(readme).toContain(`${release.uxpAdditionalTools} capability-gated tools`);
-    expect(llms).toContain(`Current project release: ${readJson("landing/lib/published-release.json").version}`);
-    expect(llms).toContain(
-      `${release.coreTools} core structured MCP tools`,
-    );
-    expect(llmsFull).toContain(`Current release: ${readJson("landing/lib/published-release.json").version}`);
-    expect(llmsFull).toContain(
-      `${release.uxpAdditionalTools} capability-gated tools`,
-    );
-    expect(llmsFull).toContain(
-      `${release.defaultProfileWithUxpTools} connected tools`,
-    );
-    expect(llmAlias).toContain("https://premiere-pro-mcp.com/llms.txt");
-    expect(marketingAssets).toContain(
-      `${release.uxpAdditionalTools} additional capability-gated tools`,
-    );
-    const published = readJson("landing/lib/published-release.json");
-    expect(product.version).toBe(published.version);
-    expect(product.coreToolCount).toBe(published.coreTools);
-    expect(product.defaultProfileToolCount).toBe(published.defaultProfileTools);
-    expect(product.connectedUxpToolCount).toBe(published.defaultProfileWithUxpTools);
-    expect(sourceCatalog).toEqual(release);
-    const articleText = articles.flatMap((article) => article.sections.flatMap((section) => section.paragraphs)).join("\n");
-    expect(articleText).toContain(`The published v${published.version} package registers ${published.coreTools} core structured tools`);
-    expect(articleText).toContain(`${published.uxpAdditionalTools} capability-gated tools, bringing the connected surface to ${published.defaultProfileWithUxpTools}`);
-    expect(product.downloads.claudeBundle).toContain(`/releases/download/v${published.version}/premiere-pro-mcp-${published.version}.mcpb`);
-    expect(product.downloads.signedCepConnector).toContain(`/releases/download/v${published.version}/MCPBridgeCEP.zxp`);
-    expect(product.downloads.releaseNotes).toContain(`/releases/tag/v${published.version}`);
-    expect(readme).toContain(`Latest release: ${published.version}`);
+    expect(readme).toContain(`The published v${publishedVersion} npm artifact`);
     expect(readme).toContain(`registers ${release.coreTools} tools, filtered by authority profile`);
-    expect(read("landing/app/changelog/page.tsx")).toContain(
-      `version: "${published.version}"`,
-    );
+    // Website facts are synced from the published npm tarball by the separate
+    // site repository; the README links to them instead of restating provenance.
+    expect(readme).toContain("https://premiere-pro-mcp.com/facts/");
     expect(supportedActions).toContain(
       `| Registered core actions | ${release.coreTools} |`,
     );

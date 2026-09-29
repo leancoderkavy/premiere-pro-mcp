@@ -1,5 +1,9 @@
 # Premiere Pro MCP Tracking Plan
 
+> Website events are implemented in
+> [leancoderkavy/premiere-pro-mcp-site](https://github.com/leancoderkavy/premiere-pro-mcp-site).
+> Server events are implemented here in `src/telemetry.ts` and the HTTP transport.
+
 **Last updated:** 2026-09-15
 
 ## Decisions this data should inform

@@ -67,3 +67,25 @@ jobs:
           fi
       - name: Publish to npm
         run: npm publish --provenance --access public --tag "${{ inputs.tag }}"
+      # The website (leancoderkavy/premiere-pro-mcp-site) syncs published facts
+      # from npm every 6 hours. This dispatch only makes that sync start sooner.
+      # The package is already published here, so a missing token or a failed
+      # dispatch is reported without failing the release.
+      - name: Ask the website to sync the published facts
+        if: ${{ inputs.tag == 'latest' }}
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.SITE_REPO_DISPATCH_TOKEN }}
+        run: |
+          VERSION="$(node -p "require('./package.json').version")"
+          if [ -z "$GH_TOKEN" ]; then
+            echo "::notice::SITE_REPO_DISPATCH_TOKEN is not set; premiere-pro-mcp.com will pick up v${VERSION} on its next scheduled sync."
+            exit 0
+          fi
+          if gh api --method POST repos/leancoderkavy/premiere-pro-mcp-site/dispatches \
+            -f event_type=package-published \
+            -f "client_payload[version]=${VERSION}" >/dev/null; then
+            echo "Requested a website facts sync for v${VERSION}."
+          else
+            echo "::warning::Website sync dispatch failed; premiere-pro-mcp.com will pick up v${VERSION} on its next scheduled sync."
+          fi

@@ -18,15 +18,6 @@ steps:
           - docker#v5.11.0:
               image: "node:20-alpine"
 
-      - label: ":nextjs: Landing Page Build"
-        command: |
-          cd landing
-          npm ci
-          npm run build
-        plugins:
-          - docker#v5.11.0:
-              image: "node:20-alpine"
-
   - wait
 
   - block: ":fly: Deploy to Fly.io"

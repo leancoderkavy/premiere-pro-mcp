@@ -1,15 +1,14 @@
-name: Deploy site to Fly
+name: Deploy MCP server to Fly
 
 on:
   push:
     branches: [main]
     paths:
-      - "landing/**"
       - "src/**"
-      - "docs/supported-actions.md"
-      - "release-metadata.json"
-      - "scripts/generate-marketing-reference.mjs"
-      - "scripts/tool-reference-data.mjs"
+      - "scripts/copy-adobe-uxp-coverage.mjs"
+      - "scripts/generate-adobe-api-inventory.mjs"
+      - "scripts/generate-uxp-js-api-inventory.mjs"
+      - "tsconfig.json"
       - "package.json"
       - "package-lock.json"
       - "Dockerfile"
@@ -26,7 +25,7 @@ concurrency:
 
 jobs:
   deploy:
-    name: Deploy premiere-pro-mcp.com
+    name: Deploy premiere-pro-mcp.fly.dev MCP server
     runs-on: ubuntu-latest
     timeout-minutes: 20
     environment: production
@@ -48,15 +47,26 @@ jobs:
           echo "$HOME/.fly/bin" >> "$GITHUB_PATH"
       - name: Deploy
         run: flyctl deploy --remote-only --app premiere-pro-mcp --build-arg VCS_REF=${{ github.sha }}
-      - name: Verify live release metadata
+      - name: Verify live health endpoint
         run: |
           expected=$(node -p "require('./package.json').version")
           for attempt in 1 2 3 4 5 6; do
-            if curl -fsS https://premiere-pro-mcp.com/llms.txt | grep -q "Source package version: ${expected}."; then
-              echo "Live site reports source version ${expected}."
+            body=$(curl -fsS --max-time 10 https://premiere-pro-mcp.fly.dev/health || true)
+            if [ -n "$body" ] && printf '%s' "$body" | EXPECTED="$expected" node -e '
+              let raw = "";
+              process.stdin.on("data", (chunk) => { raw += chunk; });
+              process.stdin.on("end", () => {
+                let health = {};
+                try { health = JSON.parse(raw); } catch {}
+                const ok = health.status === "ok" && health.service === "premiere-pro-mcp" && health.version === process.env.EXPECTED;
+                process.exit(ok ? 0 : 1);
+              });
+            '; then
+              echo "premiere-pro-mcp.fly.dev/health reports version ${expected}."
               exit 0
             fi
+            echo "Attempt ${attempt}: health did not report version ${expected}: ${body}"
             sleep 10
           done
-          echo "::error::Live site does not report source version ${expected}."
+          echo "::error::https://premiere-pro-mcp.fly.dev/health did not return status ok for version ${expected}."
           exit 1

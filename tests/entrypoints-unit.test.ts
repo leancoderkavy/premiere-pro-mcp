@@ -1,7 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { readFileSync } from "node:fs";
 import { dirname } from "node:path";
-import { gunzipSync } from "node:zlib";
 import { RequestBodyTooLargeError } from "../src/http-admission.js";
 
 const currentVersion = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")).version as string;
@@ -27,12 +26,7 @@ const mocks = vi.hoisted(() => ({
   fetchLatestNpmVersion: vi.fn(async () => "1.14.8"),
   fsExists: vi.fn(() => false),
   fsStat: vi.fn(() => ({ isDirectory: () => false, isFile: () => true })),
-  fsCreateReadStream: vi.fn(),
   fsReadFileSync: vi.fn(),
-  fsReadFile: vi.fn(async () => "<html><head><script>bootstrap()</script></head></html>"),
-  fsOpen: vi.fn(),
-  streamOnce: vi.fn(),
-  pipe: vi.fn(),
   readBoundedBody: vi.fn(async () => Buffer.from("{}")),
   oauthAuthenticate: vi.fn(async () => ({
     authenticated: true,
@@ -49,6 +43,7 @@ vi.mock("node:http", () => ({
   },
 }));
 vi.mock("../src/server.js", () => ({
+  SERVER_VERSION: "9.9.9-test",
   createServer: vi.fn(() => ({ connect: mocks.connect, close: mocks.closeMcp })),
 }));
 vi.mock("../src/bridge/file-bridge.js", () => ({
@@ -124,12 +119,10 @@ vi.mock("node:fs", async (original) => {
       ...actual,
       existsSync: mocks.fsExists,
       statSync: mocks.fsStat,
-      createReadStream: mocks.fsCreateReadStream,
       readFileSync: mocks.fsReadFileSync,
     },
   };
 });
-vi.mock("node:fs/promises", () => ({ open: mocks.fsOpen }));
 
 const originalArgv = process.argv;
 const env = { ...process.env };
@@ -146,20 +139,7 @@ beforeEach(() => {
   mocks.spawnSync.mockReturnValue({ status: 1, stdout: "" });
   mocks.fsExists.mockReturnValue(false);
   mocks.fsStat.mockReturnValue({ isDirectory: () => false, isFile: () => true });
-  mocks.fsCreateReadStream.mockReturnValue({ once: mocks.streamOnce, pipe: mocks.pipe, destroy: vi.fn() });
   mocks.fsReadFileSync.mockReturnValue("<html><head><script>bootstrap()</script></head></html>");
-  mocks.fsReadFile.mockResolvedValue("<html><head><script>bootstrap()</script></head></html>");
-  mocks.fsOpen.mockImplementation(async (filePath: string) => {
-    const source = Buffer.from(await mocks.fsReadFile(filePath, "utf8"));
-    return {
-      read: vi.fn(async (target: Buffer, offset: number, length: number, position: number) => {
-        const bytesRead = Math.min(length, Math.max(0, source.length - position));
-        if (bytesRead > 0) source.copy(target, offset, position, position + bytesRead);
-        return { bytesRead, buffer: target };
-      }),
-      close: vi.fn(async () => {}),
-    };
-  });
   mocks.readBoundedBody.mockResolvedValue(Buffer.from("{}"));
   mocks.serveStdio.mockImplementation((factory: () => unknown) => {
     factory();
@@ -699,175 +679,22 @@ describe("HTTP entry point", () => {
     expect(mocks.capture).toHaveBeenCalledWith("mcp_request", expect.objectContaining({ error_type: "UnknownError" }));
   });
 
-  it("serves a landing asset with its MIME type", async () => {
-    mocks.fsExists.mockReturnValue(true);
+  it("reports the running package version from the health endpoint", async () => {
     const handler = await loadHttp();
     const res = response();
-    await handler({ method: "GET", url: "/docs/", headers: {} }, res);
-    expect(res.writeHead).toHaveBeenCalledWith(200, expect.objectContaining({
-      "Content-Type": "text/html; charset=utf-8",
-      "Cache-Control": "no-cache, must-revalidate",
-    }));
-    expect(res.body).toContain("<script nonce=");
+    await handler({ method: "GET", url: "/health", headers: {} }, res);
+    expect(JSON.parse(res.body)).toEqual({ status: "ok", service: "premiere-pro-mcp", version: "9.9.9-test" });
   });
 
-  it("serves landing document headers without a body for HEAD", async () => {
-    mocks.fsExists.mockReturnValue(true);
-    const handler = await loadHttp();
-    const res = response();
-    await handler({ method: "HEAD", url: "/docs/", headers: {} }, res);
-    expect(res.statusCode).toBe(200);
-    expect(res.body).toBe("");
-    expect(mocks.fsReadFileSync).not.toHaveBeenCalled();
-    expect(mocks.fsReadFile).not.toHaveBeenCalled();
-  });
-
-  it("compresses landing HTML after inserting the per-response script nonce", async () => {
-    mocks.fsExists.mockReturnValue(true);
-    const handler = await loadHttp();
-    const res = response();
-    await handler({ method: "GET", url: "/docs/", headers: { "accept-encoding": "br, gzip" } }, res);
-    expect(res.writeHead).toHaveBeenCalledWith(200, expect.objectContaining({
-      "Content-Encoding": "gzip",
-      "Content-Type": "text/html; charset=utf-8",
-    }));
-    expect(res.headers.vary).toBe("Accept-Encoding");
-    expect(gunzipSync(res.body).toString("utf8")).toMatch(/<script nonce="[^"]+">bootstrap\(\)<\/script>/);
-  });
-
-  it("caches only trusted source HTML and injects a fresh nonce for every response", async () => {
-    mocks.fsExists.mockReturnValue(true);
-    const handler = await loadHttp();
-    const first = response();
-    const second = response();
-
-    await handler({ method: "GET", url: "/docs/", headers: {} }, first);
-    await handler({ method: "GET", url: "/docs/", headers: {} }, second);
-
-    expect(mocks.fsReadFile).toHaveBeenCalledOnce();
-    const firstNonce = String(first.body).match(/<script nonce="([^"]+)">/)?.[1];
-    const secondNonce = String(second.body).match(/<script nonce="([^"]+)">/)?.[1];
-    expect(firstNonce).toBeTruthy();
-    expect(secondNonce).toBeTruthy();
-    expect(secondNonce).not.toBe(firstNonce);
-  });
-
-  it("keeps an HTML work slot occupied until an aborted request's read finishes", async () => {
-    process.env.MCP_MAX_CONCURRENT_LANDING_DOCUMENTS = "1";
-    mocks.fsExists.mockReturnValue(true);
-    let finishRead!: (document: string) => void;
-    mocks.fsReadFile.mockImplementationOnce(() => new Promise((resolve) => { finishRead = resolve; }));
-    const handler = await loadHttp();
-    const abandoned = response();
-    const firstRequest = handler({ method: "GET", url: "/docs/", headers: {} }, abandoned);
-    await vi.waitFor(() => expect(mocks.fsReadFile).toHaveBeenCalledOnce());
-
-    abandoned.destroyed = true;
-    abandoned.closeHandler?.();
-    const rejected = response();
-    await handler({ method: "GET", url: "/docs/", headers: {} }, rejected);
-    expect(rejected.statusCode).toBe(503);
-    expect(rejected.writeHead).toHaveBeenCalledWith(503, expect.objectContaining({ "Retry-After": "1" }));
-
-    const health = response();
-    await handler({ method: "GET", url: "/health", headers: {} }, health);
-    expect(health.statusCode).toBe(200);
-    const asset = response();
-    await handler({ method: "GET", url: "/_next/static/chunks/app.js", headers: {} }, asset);
-    expect(asset.statusCode).toBe(200);
-    expect(mocks.fsCreateReadStream).toHaveBeenCalledOnce();
-
-    finishRead("<html><head><script>bootstrap()</script></head></html>");
-    await firstRequest;
-    expect(abandoned.writeHead).not.toHaveBeenCalled();
-  });
-
-  it("evicts cached source documents before the configured memory budget is exceeded", async () => {
-    process.env.MCP_LANDING_HTML_CACHE_BYTES = "2048";
-    process.env.MCP_LANDING_MAX_HTML_BYTES = "1024";
-    mocks.fsExists.mockReturnValue(true);
-    mocks.fsStat.mockReturnValue({ isDirectory: () => false, isFile: () => true, size: 600 });
-    mocks.fsReadFile.mockResolvedValue(`<html><script>bootstrap()</script>${"x".repeat(550)}</html>`);
-    const handler = await loadHttp();
-
-    for (const url of ["/docs/", "/about/", "/docs/"]) {
-      await handler({ method: "GET", url, headers: {} }, response());
-    }
-
-    expect(mocks.fsReadFile).toHaveBeenCalledTimes(3);
-  });
-
-  it("rejects an oversized trusted HTML document before allocating its body", async () => {
-    process.env.MCP_LANDING_MAX_HTML_BYTES = "1024";
-    process.env.MCP_LANDING_HTML_CACHE_BYTES = "2048";
-    mocks.fsExists.mockReturnValue(true);
-    mocks.fsStat.mockReturnValue({ isDirectory: () => false, isFile: () => true, size: 1025 });
-    const error = vi.spyOn(console, "error").mockImplementation(() => {});
-    const handler = await loadHttp();
-    const res = response();
-
-    await handler({ method: "GET", url: "/docs/", headers: {} }, res);
-
-    expect(res.statusCode).toBe(500);
-    expect(mocks.fsReadFile).not.toHaveBeenCalled();
-    expect(error).toHaveBeenCalledWith(
-      "[premiere-pro-mcp] Landing document read failed:",
-      expect.objectContaining({ name: "LandingDocumentTooLargeError" }),
-    );
-  });
-
-  it("rejects oversized HTML consistently for HEAD without reading its body", async () => {
-    process.env.MCP_LANDING_MAX_HTML_BYTES = "1024";
-    process.env.MCP_LANDING_HTML_CACHE_BYTES = "2048";
-    mocks.fsExists.mockReturnValue(true);
-    mocks.fsStat.mockReturnValue({ isDirectory: () => false, isFile: () => true, size: 1025 });
-    const error = vi.spyOn(console, "error").mockImplementation(() => {});
-    const handler = await loadHttp();
-    const res = response();
-
-    await handler({ method: "HEAD", url: "/docs/", headers: {} }, res);
-
-    expect(res.statusCode).toBe(500);
-    expect(res.body).toBe("");
-    expect(mocks.fsReadFile).not.toHaveBeenCalled();
-    expect(error).toHaveBeenCalledWith(
-      "[premiere-pro-mcp] Landing document read failed:",
-      expect.objectContaining({ name: "LandingDocumentTooLargeError" }),
-    );
-  });
-
-  it("does not open an asset stream for a compressed HEAD response", async () => {
-    mocks.fsExists.mockReturnValue(true);
-    const handler = await loadHttp();
-    const res = response();
-    await handler({ method: "HEAD", url: "/_next/static/chunks/app.js", headers: { "accept-encoding": "gzip" } }, res);
-    expect(res.writeHead).toHaveBeenCalledWith(200, expect.objectContaining({ "Content-Encoding": "gzip" }));
-    expect(res.body).toBe("");
-    expect(mocks.fsCreateReadStream).not.toHaveBeenCalled();
-  });
-
-  it("redirects extensionless landing routes to their canonical directory", async () => {
-    mocks.fsExists.mockReturnValue(true);
-    mocks.fsStat
-      .mockReturnValueOnce({ isDirectory: () => true, isFile: () => false })
-      .mockReturnValueOnce({ isDirectory: () => false, isFile: () => true });
-    const handler = await loadHttp();
-    const res = response();
-    await handler({ method: "GET", url: "/changelog", headers: {} }, res);
-    expect(res.writeHead).toHaveBeenCalledWith(308, expect.objectContaining({ Location: "/changelog/" }));
-    expect(mocks.fsReadFileSync).not.toHaveBeenCalled();
-  });
-
-  it("consolidates index files and public host aliases in one hop, preserving queries", async () => {
-    mocks.fsExists.mockReturnValue(true);
+  it("redirects website paths on public aliases to premiere-pro-mcp.com, preserving path and query", async () => {
     const handler = await loadHttp();
     for (const [url, host, expected] of [
-      ["/index.html", "localhost:3000", "/"],
-      ["/docs/index.html?utm_source=github&x=%2F", "localhost:3000", "/docs/?utm_source=github&x=%2F"],
-      ["/docs/index.html?utm_source=github", "www.premiere-pro-mcp.com", "https://premiere-pro-mcp.com/docs/?utm_source=github"],
-      ["/docs/", "premiere-pro-mcp.fly.dev", "https://premiere-pro-mcp.com/docs/"],
-      ["/", "WWW.PREMIERE-PRO-MCP.COM", "https://premiere-pro-mcp.com/"],
-      ["//untrusted.example/index.html", "localhost:3000", "/untrusted.example/"],
+      ["/", "premiere-pro-mcp.fly.dev", "https://premiere-pro-mcp.com/"],
+      ["/docs/?utm_source=github&x=%2F", "premiere-pro-mcp.fly.dev", "https://premiere-pro-mcp.com/docs/?utm_source=github&x=%2F"],
+      ["/llms.txt", "PREMIERE-PRO-MCP.FLY.DEV:443", "https://premiere-pro-mcp.com/llms.txt"],
+      ["/changelog", "www.premiere-pro-mcp.com", "https://premiere-pro-mcp.com/changelog"],
+      ["//untrusted.example/path?q=1", "premiere-pro-mcp.fly.dev", "https://premiere-pro-mcp.com/path?q=1"],
+      ["http://untrusted.example/path", "premiere-pro-mcp.fly.dev", "https://premiere-pro-mcp.com/path"],
     ]) {
       for (const method of ["GET", "HEAD"]) {
         const res = response();
@@ -876,85 +703,55 @@ describe("HTTP entry point", () => {
         expect(res.body).toBe("");
       }
     }
-    expect(mocks.fsReadFileSync).not.toHaveBeenCalled();
+    expect(mocks.connect).not.toHaveBeenCalled();
   });
 
-  it("does not redirect canonical pages or trust forwarded host names", async () => {
-    mocks.fsExists.mockReturnValue(true);
+  it("returns a small 404 for other hosts and never trusts forwarded host names", async () => {
     const handler = await loadHttp();
-    for (const host of ["premiere-pro-mcp.com", "localhost:3000", "self-hosted.example", "www.premiere-pro-mcp.com.attacker.example"]) {
+    for (const host of [
+      undefined,
+      "localhost:3000",
+      "self-hosted.example",
+      "premiere-pro-mcp.com",
+      "www.premiere-pro-mcp.com.attacker.example",
+      "premiere-pro-mcp.fly.dev.attacker.example",
+    ]) {
       const res = response();
-      await handler({ method: "GET", url: "/docs/?ref=readme", headers: { host, "x-forwarded-host": "www.premiere-pro-mcp.com" } }, res);
-      expect(res.statusCode).toBe(200);
+      await handler({ method: "GET", url: "/docs/", headers: { host, "x-forwarded-host": "premiere-pro-mcp.fly.dev" } }, res);
+      expect(res.statusCode).toBe(404);
+      expect(JSON.parse(res.body)).toEqual({ error: "Not found" });
+      expect(res.writeHead).toHaveBeenCalledWith(404, expect.objectContaining({ "Cache-Control": "no-store" }));
     }
+
+    const head = response();
+    await handler({ method: "HEAD", url: "/missing", headers: { host: "localhost:3000" } }, head);
+    expect(head.statusCode).toBe(404);
+    expect(head.body).toBe("");
   });
 
-  it("keeps public alias assets and API endpoints outside page redirects", async () => {
-    mocks.fsExists.mockReturnValue(true);
-    const handler = await loadHttp();
-    for (const [url, status] of [["/robots.txt", 200], ["/health", 200], ["/mcp", 401]] as const) {
+  it("keeps MCP, health, and OAuth discovery outside website redirects on public aliases", async () => {
+    const handler = await loadOAuth();
+    for (const [url, status] of [
+      ["/health", 200],
+      ["/.well-known/oauth-protected-resource", 200],
+      ["/.well-known/oauth-protected-resource/mcp", 200],
+    ] as const) {
       const res = response();
-      await handler({ method: "GET", url, headers: { host: "www.premiere-pro-mcp.com" } }, res);
+      await handler({ method: "GET", url, headers: { host: "premiere-pro-mcp.fly.dev" } }, res);
       expect(res.statusCode).toBe(status);
     }
+
+    mocks.oauthAuthenticate.mockResolvedValueOnce({ authenticated: false, error: "missing_token" });
+    const mcp = response();
+    await handler({ method: "GET", url: "/mcp", headers: { host: "premiere-pro-mcp.fly.dev" } }, mcp);
+    expect(mcp.statusCode).toBe(401);
   });
 
-  it("marks hashed Next static assets immutable", async () => {
-    mocks.fsExists.mockReturnValue(true);
+  it("does not redirect non-GET requests to website paths", async () => {
     const handler = await loadHttp();
     const res = response();
-    await handler({ method: "GET", url: "/_next/static/chunks/app.js", headers: {} }, res);
-    expect(res.writeHead).toHaveBeenCalledWith(200, expect.objectContaining({
-      "Cache-Control": "public, max-age=31536000, immutable",
-    }));
-  });
-
-  it("serves nested static-export Flight payloads requested with Next's flattened path", async () => {
-    mocks.fsExists.mockImplementation((candidate) => (
-      String(candidate).endsWith("landing-dist") ||
-      /[\\/]blog[\\/]guide[\\/]__next\.blog[\\/]\$d\$slug[\\/]__PAGE__\.txt$/.test(String(candidate))
-    ));
-    const handler = await loadHttp();
-    const res = response();
-    await handler({ method: "GET", url: "/blog/guide/__next.blog.$d$slug.__PAGE__.txt?_rsc=test", headers: {} }, res);
-    expect(mocks.fsCreateReadStream).toHaveBeenCalledWith(
-      expect.stringMatching(/[\\/]blog[\\/]guide[\\/]__next\.blog[\\/]\$d\$slug[\\/]__PAGE__\.txt$/),
-    );
-    expect(res.statusCode).toBe(200);
-  });
-
-  it("does not crash when a landing asset read fails after validation", async () => {
-    mocks.fsExists.mockReturnValue(true);
-    const error = vi.spyOn(console, "error").mockImplementation(() => {});
-    const handler = await loadHttp();
-    const res = response();
-    await handler({ method: "GET", url: "/analytics.js", headers: {} }, res);
-    const streamError = mocks.streamOnce.mock.calls.find(([event]) => event === "error")?.[1];
-    expect(streamError).toBeTypeOf("function");
-    streamError(new Error("read failed"));
-    expect(res.destroy).toHaveBeenCalledOnce();
-    expect(error).toHaveBeenCalledWith(
-      "[premiere-pro-mcp] Landing asset read failed:",
-      expect.any(Error),
-    );
-  });
-
-  it("rejects landing paths that escape the static root", async () => {
-    mocks.fsExists.mockReturnValue(true);
-    const handler = await loadHttp();
-    for (const url of ["/../outside.txt", "/%2e%2e/outside.txt", "/..\\outside.txt"]) {
-      const res = response();
-      await handler({ method: "GET", url, headers: {} }, res);
-      expect(res.statusCode).toBe(404);
-    }
-    expect(mocks.fsCreateReadStream).not.toHaveBeenCalled();
-  });
-
-  it("returns 404 when no landing asset matches", async () => {
-    const handler = await loadHttp();
-    const res = response();
-    await handler({ method: "GET", url: "/missing", headers: {} }, res);
+    await handler({ method: "POST", url: "/api/landing-events", headers: { host: "premiere-pro-mcp.fly.dev" } }, res);
     expect(res.statusCode).toBe(404);
-    expect(res.body).toBe("Not found");
+    expect(mocks.readBoundedBody).not.toHaveBeenCalled();
   });
 });

@@ -10,6 +10,5 @@ When scoring file candidates, use these exclusive surfaces:
 - `src/tools`, `src/server.ts`, `src/workflows` — MCP tools, schemas, client instructions
 - `src/bridge`, `cep-plugin` — production CEP / ExtendScript
 - `uxp-plugin`, `src/tools/uxp*` — preview UXP only; no silent CEP fallback
-- `landing` — marketing site; generated facts, not source tool counts
-- `docs/claims-registry.*`, `landing/lib/published-release.json` — public claims
+- `docs/claims-registry.*`, `README.md` — public claims (the website lives in `leancoderkavy/premiere-pro-mcp-site`)
 - `plugins/**/SKILL.md`, `claude-plugins/**/SKILL.md` — keep both copies identical

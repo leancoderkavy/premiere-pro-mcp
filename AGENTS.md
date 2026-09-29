@@ -3,9 +3,9 @@
 Canonical instructions for any IDE or coding agent working in this repository.
 Cursor, GitHub Copilot, Codex, Claude Code, Gemini CLI, Windsurf, and similar tools should start here.
 
-This is **not** the product website LLM crawl file. That generated file is `landing/public/llms.txt`.
+This is **not** the product website LLM crawl file. That file is <https://premiere-pro-mcp.com/llms.txt>, generated in the separate website repository.
 
-Adapter stubs (`CLAUDE.md`, `GEMINI.md`, `CONVENTIONS.md`, `.github/copilot-instructions.md`, `.cursor/rules/`, `.windsurf/rules/`, `.clinerules`, `.continue/rules/`, `.junie/guidelines.md`) point here. Keep those stubs thin; put durable guidance in this file or in a focused Cursor/Copilot path rule. Optional Cursor rule `.cursor/rules/jev-surfaces.mdc` scores CEP / UXP / landing / claims file candidates. It is not a TypeSafe Jev sidecar protocol; do not add one here.
+Adapter stubs (`CLAUDE.md`, `GEMINI.md`, `CONVENTIONS.md`, `.github/copilot-instructions.md`, `.cursor/rules/`, `.windsurf/rules/`, `.clinerules`, `.continue/rules/`, `.junie/guidelines.md`) point here. Keep those stubs thin; put durable guidance in this file or in a focused Cursor/Copilot path rule. Optional Cursor rule `.cursor/rules/jev-surfaces.mdc` scores CEP / UXP / claims file candidates. It is not a TypeSafe Jev sidecar protocol; do not add one here.
 
 ## What this repository is
 
@@ -30,14 +30,14 @@ Read only what the task needs. Current source and release metadata beat dated sn
 | API research (dated; not live counts) | `RESEARCH.md` |
 | Registered tool catalog | `docs/supported-actions.md` (generated) |
 | Product claims governance | `docs/claims-registry.md`, `docs/claims-registry.json` |
-| Published-package facts | `landing/lib/published-release.json` |
+| Published-package facts | npm tarball, synced by [`leancoderkavy/premiere-pro-mcp-site`](https://github.com/leancoderkavy/premiere-pro-mcp-site) to <https://premiere-pro-mcp.com/facts/> |
 | Development source metadata | `release-metadata.json` |
 | MCP runtime instructions for clients | `src/workflows/agent-instructions.ts` |
 | Hosted HTTP boundary | `docs/hosted-mcp-product-boundary.md` |
 | UXP 26.3 coverage | `docs/adobe-uxp-26.3-coverage.md` |
 | Claude Code develop skill | `claude-plugins/premiere-pro/skills/develop-premiere-pro-mcp/SKILL.md` |
 
-Do not mix published-package counts with development-source counts. `docs/supported-actions.md` is the source catalog; `landing/lib/published-release.json` is the inspected npm artifact. A listed tool is not proof that a particular Premiere host supports it.
+Do not mix published-package counts with development-source counts. `docs/supported-actions.md` is the source catalog; the published npm artifact is what the website reports. In this repo the README `### Latest release:` heading anchors client version pins. A listed tool is not proof that a particular Premiere host supports it.
 
 ## Architecture
 
@@ -61,7 +61,6 @@ AI client  --stdio MCP-->  Node server (src/server.ts)
 - `cep-plugin/` — production Premiere CEP panel.
 - `uxp-plugin/` — Premiere 25.6+ UXP panel (CommonJS, Adobe ESLint plugin).
 - `after-effects-cep-plugin/` — separate AE connector for guarded MOGRT recipes.
-- `landing/` — Next.js 16 marketing site (`premiere-pro-mcp.com`).
 - `tests/` — Vitest. Mocks the bridge; does not prove live Premiere behavior.
 - `scripts/` — inventories, catalogs, installers, publish helpers.
 
@@ -98,12 +97,10 @@ Use Node.js 24 for repository work. Package engines floor: **Node.js 20.19+**. I
 | Coverage (when changing coverage-sensitive code) | `npm run test:coverage` |
 | Full gate (lint, inventories, build, tests) | `npm run check` |
 | Install CEP panel | `npm run build` then `npm run install-cep` |
-| Landing site | `npm --prefix landing ci` then `npm --prefix landing run dev` |
-| Landing e2e | `npm run test:landing:e2e` |
 
 CI (`.github/workflows/cross-platform.yml`) runs `npm ci` and `npm run check` on Windows and macOS for Node 20, 22, and 24. Coverage is enforced on Windows / Node 22.
 
-`npm run lint` currently lints `uxp-plugin/**/*.cjs` only. Landing has its own ESLint via `npm --prefix landing run lint`.
+`npm run lint` currently lints `uxp-plugin/**/*.cjs` only.
 
 ## Hard constraints
 
@@ -165,19 +162,14 @@ Reuse existing helpers and module patterns. Do not rewrite unrelated files or bu
 - Coverage thresholds live in `vitest.config.ts` (statements 91, branches 90, functions 94, lines 93).
 - Prefer the narrowest test file while iterating; run `npm run check` before calling the work done.
 
-## Landing site (`landing/`)
+## Website
 
-Next.js 16 app. APIs and file conventions may differ from older Next.js. Before editing it, read the guide in `landing/node_modules/next/dist/docs/` (not the repo root `node_modules`).
-
-`landing/AGENTS.md` and `landing/CLAUDE.md` are Next.js agent stubs plus a short project pointer. Do not delete the `BEGIN:nextjs-agent-rules` / `END:nextjs-agent-rules` block; `next dev` rewrites it.
-
-Public facts, tool counts, and crawl files are generated. Change source metadata or generators rather than hand-editing `landing/public/llms.txt`. Qualify every public claim per `docs/claims-registry.md`.
+The marketing site (`premiere-pro-mcp.com`) lives in [`leancoderkavy/premiere-pro-mcp-site`](https://github.com/leancoderkavy/premiere-pro-mcp-site). It syncs published npm facts automatically (every 6 hours, or sooner when `npm-publish.yml` sends a `package-published` dispatch), so a release here needs no website change. This repo only serves the operator-managed MCP endpoint on `premiere-pro-mcp.fly.dev`; non-MCP paths there redirect to the site. Qualify README and docs claims per `docs/claims-registry.md`.
 
 ## What not to touch casually
 
 - Generated inventories under `src/resources/*.json` and matching `docs/*-inventory.md` / drift docs — use the `npm run …:check` / generate scripts.
-- `landing/public/llms.txt` and other marketing reference outputs — `npm run marketing:check`.
-- Version strings: search package, lockfile, CEP/UXP manifests, marketplace, MCP config, updater, landing, and installer files together.
+- Version strings: search package, lockfile, CEP/UXP manifests, marketplace, MCP config, updater, README and plugin pins, and installer files together.
 - `.worktrees/` — local checkouts; do not commit.
 
 ## Pull requests

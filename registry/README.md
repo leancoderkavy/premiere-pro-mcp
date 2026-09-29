@@ -23,5 +23,5 @@ published version already contains the required identity metadata. Do not claim
 publication from a preflight or a successful login. Registry version metadata is
 immutable; review changes before publishing a new version.
 
-See [official publishing instructions](https://modelcontextprotocol.io/registry/github-actions)
-and the [directory facts and outreach draft](../docs/marketing/mcp-registry-readiness.md).
+See [official publishing instructions](https://modelcontextprotocol.io/registry/github-actions).
+Versioned package facts for directory listings are at <https://premiere-pro-mcp.com/facts/>.

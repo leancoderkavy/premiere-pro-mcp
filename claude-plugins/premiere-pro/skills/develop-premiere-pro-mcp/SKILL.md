@@ -68,7 +68,12 @@ Premiere Pro host.
 ## Handle releases and compatibility claims
 
 - Search all version-bearing package, lock, manifest, marketplace, MCP configuration,
-  updater, landing, and installation files when changing a version.
+  updater, and installation files when changing a version.
+- After an npm release is verified, update the README `### Latest release:` heading, README
+  install commands, both plugin `.mcp.json` pins, and both `edit-premiere-project` skill pins
+  together; `tests/release-metadata.test.ts` and `tests/codex-plugin.test.ts` guard them.
+- The website lives in `leancoderkavy/premiere-pro-mcp-site` and syncs published npm facts
+  automatically. Do not edit site facts from this repository.
 - Verify the exact commit, checks, registry artifact, release assets, deployment health,
   and host state separately when the task includes those outcomes.
 - Never claim a commit, push, merge, publication, deployment, or live Premiere result

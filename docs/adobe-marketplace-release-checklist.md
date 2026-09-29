@@ -9,8 +9,9 @@ and customer-facing listing copy.
 
 ## Repository evidence required before submission
 
-- [ ] The candidate commit has green cross-platform CI, dependency audit, release
-  package validation, and the landing performance budget.
+- [ ] The candidate commit has green cross-platform CI, dependency audit, and release
+  package validation. The website's performance budget is checked in
+  `leancoderkavy/premiere-pro-mcp-site`.
 - [ ] `npm run validate:marketplace-branding` passed at the exact candidate commit.
 - [ ] The signed direct artifact and the Marketplace-targeted CCX are built from the
   exact release commit, with artifact hashes recorded in the release notes.

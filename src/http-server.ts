@@ -28,24 +28,11 @@
  */
 
 import http from "node:http";
-import fs from "node:fs";
-import path from "node:path";
-import { randomBytes } from "node:crypto";
-import { createGzip } from "node:zlib";
-import { fileURLToPath } from "node:url";
 import { toNodeHandler } from "@modelcontextprotocol/node";
 import { createMcpHandler } from "@modelcontextprotocol/server";
-import { createServer } from "./server.js";
+import { createServer, SERVER_VERSION } from "./server.js";
 import { cleanupTempDir, getTempDir } from "./bridge/file-bridge.js";
 import { getTelemetry, telemetryErrorType } from "./telemetry.js";
-import { createHomepageExperiment, injectFirstPaintExposure, type HomepageVariant } from "./homepage-experiment.js";
-import { shouldGzipLanding } from "./landing-compression.js";
-import {
-  LandingDocumentRenderer,
-  assertLandingDocumentSize,
-  readBoundedUtf8,
-  readLandingDocumentSettings,
-} from "./landing-documents.js";
 import { applyHttpSecurityHeaders } from "./http-security.js";
 import { OAuthResourceServer } from "./oauth-resource-server.js";
 import { ProjectContextRepository } from "./context/project-context-store.js";
@@ -64,250 +51,35 @@ import {
   RequestBodyTooLargeError,
 } from "./http-admission.js";
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const LANDING_DIR = path.resolve(__dirname, "../landing-dist");
+/**
+ * The product website lives in its own repository and is served from
+ * https://premiere-pro-mcp.com. This process only serves MCP, health, and
+ * OAuth discovery. Browser traffic that reaches a known public alias of the
+ * hosted deployment is sent to the website; every other host gets a plain 404.
+ */
+const PUBLIC_SITE_ORIGIN = "https://premiere-pro-mcp.com";
 
-const MIME: Record<string, string> = {
-  ".html": "text/html; charset=utf-8",
-  ".js":   "application/javascript; charset=utf-8",
-  ".css":  "text/css; charset=utf-8",
-  ".json": "application/json",
-  ".png":  "image/png",
-  ".webp": "image/webp",
-  ".mp4":  "video/mp4",
-  ".svg":  "image/svg+xml",
-  ".ico":  "image/x-icon",
-  ".woff2":"font/woff2",
-  ".woff": "font/woff",
-  ".ttf":  "font/ttf",
-  ".txt":  "text/plain",
-  ".xml":  "application/xml",
-};
-
-function cacheControlForLandingAsset(urlPath: string, contentType: string): string {
-  if (contentType.startsWith("text/html")) return "no-cache, must-revalidate";
-  if (urlPath.startsWith("/_next/static/")) return "public, max-age=31536000, immutable";
-  return "public, max-age=86400, stale-while-revalidate=604800";
+function isPublicSiteAlias(hostHeader: string | undefined): boolean {
+  // Only the Host header is consulted; forwarded host headers are never trusted.
+  const hostname = hostHeader?.trim().toLowerCase().replace(/:\d+$/, "");
+  if (!hostname) return false;
+  return hostname === "premiere-pro-mcp.fly.dev" || hostname.endsWith(".premiere-pro-mcp.com");
 }
 
-function injectScriptNonce(document: string, nonce: string): string {
-  return document.replace(/<script(?=\s|>)/gi, `<script nonce="${nonce}"`);
-}
-
-async function serveLanding(req: http.IncomingMessage, res: http.ServerResponse, scriptNonce: string, homepageVariant?: HomepageVariant): Promise<boolean> {
-  if (req.method !== "GET" && req.method !== "HEAD") return false;
-  if (!fs.existsSync(LANDING_DIR)) return false;
-
-  let urlPath: string;
-  try {
-    urlPath = decodeURIComponent(req.url?.split("?")[0] ?? "/");
-  } catch {
-    return false;
-  }
-  const requestedSegments = urlPath.split("/").filter(Boolean);
-  const safeSegments = requestedSegments.map((segment) => path.basename(segment));
-  if (safeSegments.some((segment, index) => (
-    segment !== requestedSegments[index] ||
-    segment === "." ||
-    segment === ".." ||
-    segment.includes("\\") ||
-    segment.includes("\0")
-  ))) return false;
-  // Next.js trailingSlash exports /about/ as /about/index.html.
-  if (urlPath.endsWith("/") || safeSegments.length === 0) safeSegments.push("index.html");
-
-  let filePath = path.join(LANDING_DIR, ...safeSegments);
-  // Security: ensure we stay within LANDING_DIR
-  const relativePath = path.relative(LANDING_DIR, filePath);
-  if (
-    relativePath === ".." ||
-    relativePath.startsWith(`..${path.sep}`) ||
-    path.isAbsolute(relativePath)
-  ) return false;
-
-  if (!fs.existsSync(filePath)) {
-    // Next static exports store dynamic-route Flight payloads in nested folders
-    // (for example, __next.blog/$d$slug/__PAGE__.txt), while the client asks
-    // for a flattened filename (__next.blog.$d$slug.__PAGE__.txt). Map only
-    // that generated shape after every original URL segment has passed the
-    // containment check above. Without this, guide-to-guide navigation falls
-    // back to a full-document load and emits avoidable 404s.
-    const requestedFlightFile = safeSegments.at(-1);
-    const flightParts = requestedFlightFile?.split(".") ?? [];
-    const isNestedFlightPayload =
-      flightParts.length >= 4 &&
-      flightParts[0] === "__next" &&
-      flightParts.at(-1) === "txt";
-    if (!isNestedFlightPayload) return false;
-
-    const remappedFlightPath = path.join(
-      LANDING_DIR,
-      ...safeSegments.slice(0, -1),
-      `${flightParts[0]}.${flightParts[1]}`,
-      ...flightParts.slice(2, -2),
-      `${flightParts.at(-2)}.txt`,
-    );
-    if (!fs.existsSync(remappedFlightPath)) return false;
-    filePath = remappedFlightPath;
-  }
-
-  let fileStats: fs.Stats;
-  try {
-    fileStats = fs.statSync(filePath);
-    // Accept extensionless Next.js routes such as /changelog without trying to
-    // stream the directory itself. Streaming a directory emits an unhandled
-    // EISDIR error on Linux and previously restarted the production process.
-    if (fileStats.isDirectory()) {
-      filePath = path.join(filePath, "index.html");
-      if (!fs.existsSync(filePath)) return false;
-      fileStats = fs.statSync(filePath);
-    }
-  } catch {
-    return false;
-  }
-  if (!fileStats.isFile()) return false;
-
-  // Consolidate only real exported pages, after containment and file checks.
-  // Keep assets, missing routes, MCP, health and OAuth discovery untouched.
-  if (path.basename(filePath) === "index.html") {
-    const pageDirectory = path.relative(LANDING_DIR, path.dirname(filePath));
-    const canonicalPath = pageDirectory
-      ? `/${pageDirectory.split(path.sep).map(encodeURIComponent).join("/")}/`
-      : "/";
-    const rawPath = req.url!.split("?")[0];
-    const queryIndex = req.url!.indexOf("?");
-    const query = queryIndex >= 0 ? req.url!.slice(queryIndex) : "";
-    const hostname = req.headers.host?.toLowerCase();
-    const publicAlias = hostname === "www.premiere-pro-mcp.com" || hostname === "premiere-pro-mcp.fly.dev";
-    if (publicAlias || rawPath !== canonicalPath) {
-      // Never derive a redirect origin from Host or forwarded headers. Local and
-      // self-hosted installs retain their origin; known public aliases use HTTPS.
-      const origin = publicAlias ? "https://premiere-pro-mcp.com" : "";
-      res.writeHead(308, {
-        "Location": `${origin}${canonicalPath}${query}`,
-        "Cache-Control": "public, max-age=3600",
-      });
-      res.end();
-      return true;
-    }
-  }
-
-  // Both variants are complete static documents. Select before sending HTML so
-  // the control cannot flash, shift layout, or hydrate over the treatment.
-  if (urlPath === "/" && homepageVariant === "test") {
-    const treatmentPath = path.join(LANDING_DIR, "design-preview", "index.html");
-    if (!fs.existsSync(treatmentPath)) return false;
-    filePath = treatmentPath;
-    try {
-      fileStats = fs.statSync(filePath);
-    } catch {
-      return false;
-    }
-  }
-  const preview = new URL(req.url ?? "/", "http://localhost").searchParams.has("design") || urlPath.startsWith("/design-preview/");
-  if (preview) res.setHeader("X-Robots-Tag", "noindex, follow");
-  res.setHeader("Vary", urlPath === "/" ? "Cookie, DNT, Sec-GPC, Accept-Encoding" : "Accept-Encoding");
-  const ext = path.extname(filePath);
-  const contentType = MIME[ext] ?? "application/octet-stream";
-  const compress = shouldGzipLanding(req.headers["accept-encoding"], contentType);
-  const headers: Record<string, string> = {
-    "Content-Type": contentType,
-    "Cache-Control": urlPath === "/" || preview ? "private, no-store" : cacheControlForLandingAsset(urlPath, contentType),
-  };
-
-  if (contentType.startsWith("text/html")) {
-    try {
-      assertLandingDocumentSize(
-        Number.isFinite(fileStats.size) ? fileStats.size : undefined,
-        landingDocumentSettings.maxDocumentBytes,
-      );
-    } catch (error) {
-      console.error("[premiere-pro-mcp] Landing document read failed:", error);
-      res.writeHead(500, { "Content-Type": "text/plain; charset=utf-8", "Cache-Control": "no-store" });
-      res.end(req.method === "HEAD" ? undefined : "Internal server error");
-      return true;
-    }
-  }
-
-  // HEAD validates the same trusted path and returns the same representation
-  // headers, but never reads, injects, or compresses the response body.
-  if (req.method === "HEAD") {
-    if (compress) headers["Content-Encoding"] = "gzip";
-    res.writeHead(200, headers);
-    res.end();
-    return true;
-  }
-
-  // A static export cannot generate per-request nonces itself. Add the nonce
-  // at the trusted server boundary so Next bootstrap and JSON-LD scripts remain
-  // executable without retaining script-src 'unsafe-inline'.
-  if (contentType.startsWith("text/html")) {
-    try {
-      const rendered = await landingDocuments.render(
-        filePath,
-        Number.isFinite(fileStats.size) ? fileStats.size : undefined,
-        (source) => injectFirstPaintExposure(
-          injectScriptNonce(source, scriptNonce),
-          scriptNonce,
-          urlPath === "/" ? homepageVariant : undefined,
-          preview,
-        ),
-        compress,
-      );
-      if (!rendered.accepted) {
-        res.writeHead(503, {
-          "Content-Type": "text/plain; charset=utf-8",
-          "Cache-Control": "no-store",
-          "Retry-After": "1",
-        });
-        res.end("Service busy");
-        return true;
-      }
-      if (res.destroyed || res.writableEnded) return true;
-      if (compress) headers["Content-Encoding"] = "gzip";
-      res.writeHead(200, headers);
-      res.end(rendered.body);
-      return true;
-    } catch (error) {
-      console.error("[premiere-pro-mcp] Landing document read failed:", error);
-      if (res.destroyed || res.writableEnded) return true;
-      res.writeHead(500, { "Content-Type": "text/plain; charset=utf-8", "Cache-Control": "no-store" });
-      res.end("Internal server error");
-      return true;
-    }
-  }
-
-  if (compress) headers["Content-Encoding"] = "gzip";
-  const stream = fs.createReadStream(filePath);
-  res.once("close", () => stream.destroy());
-  stream.once("error", (error) => {
-    console.error("[premiere-pro-mcp] Landing asset read failed:", error);
-    if (!res.headersSent) {
-      res.writeHead(500, { "Content-Type": "text/plain; charset=utf-8" });
-      res.end("Internal server error");
-      return;
-    }
-    res.destroy();
-  });
-  res.writeHead(200, headers);
-  if (compress) {
-    const gzip = createGzip({ level: 6 });
-    res.once("close", () => gzip.destroy());
-    gzip.once("error", () => res.destroy());
-    stream.pipe(gzip).pipe(res);
-  } else stream.pipe(res);
-  return true;
+function publicSiteLocation(rawUrl: string): string {
+  // Parse against a fixed base so absolute-form and protocol-relative request
+  // targets can never change the redirect origin.
+  const url = new URL(rawUrl, "http://localhost");
+  return `${PUBLIC_SITE_ORIGIN}${url.pathname}${url.search}`;
 }
 
 const PORT = parseInt(process.env.PORT ?? "3000", 10);
 const HTTP_HOST = process.env.MCP_HTTP_HOST || "0.0.0.0";
 let httpAuth: ReturnType<typeof readHttpAuthConfiguration>;
 let admissionSettings: ReturnType<typeof readHttpAdmissionSettings>;
-let landingDocumentSettings: ReturnType<typeof readLandingDocumentSettings>;
 try {
   httpAuth = readHttpAuthConfiguration(process.env);
   admissionSettings = readHttpAdmissionSettings(process.env);
-  landingDocumentSettings = readLandingDocumentSettings(process.env);
 } catch (error) {
   console.error("[premiere-pro-mcp] Refusing to start:", error instanceof Error ? error.message : error);
   process.exit(1);
@@ -324,10 +96,6 @@ process.env.PREMIERE_MCP_TRANSPORT = "http";
 const telemetry = getTelemetry();
 const admission = new HttpAdmissionController(admissionSettings);
 const preAuthAdmission = new HttpAdmissionController(admissionSettings);
-const landingDocuments = new LandingDocumentRenderer(
-  landingDocumentSettings,
-  readBoundedUtf8,
-);
 const oauthResourceServer = httpAuth.oauth ? new OAuthResourceServer(httpAuth.oauth) : undefined;
 // Streamable HTTP creates an McpServer for every request. Sharing the repository
 // keeps memory-backed context durable across those request-scoped servers and
@@ -349,12 +117,9 @@ console.error(`[premiere-pro-mcp] Starting HTTP server on port ${PORT}...`);
 console.error(`[premiere-pro-mcp] Temp directory: ${tempDir}`);
 cleanupTempDir(bridgeOptions);
 
-const homepageExperiment = createHomepageExperiment();
-
 // Each request gets its own transport+server instance (stateless per-request model)
 const httpServer = http.createServer(async (req, res) => {
-  const scriptNonce = randomBytes(18).toString("base64");
-  applyHttpSecurityHeaders(res, { scriptNonce });
+  applyHttpSecurityHeaders(res);
   const pathname = getRequestPathname(req.url);
 
   if (!pathname) {
@@ -363,15 +128,10 @@ const httpServer = http.createServer(async (req, res) => {
     return;
   }
 
-  if (pathname === "/api/landing-events") {
-    await homepageExperiment.handleEvent(req, res);
-    return;
-  }
-
   // Health check
   if (req.method === "GET" && pathname === "/health") {
     res.writeHead(200, { "Content-Type": "application/json", "Cache-Control": "no-store" });
-    res.end(JSON.stringify({ status: "ok", service: "premiere-pro-mcp" }));
+    res.end(JSON.stringify({ status: "ok", service: "premiere-pro-mcp", version: SERVER_VERSION }));
     return;
   }
 
@@ -389,17 +149,19 @@ const httpServer = http.createServer(async (req, res) => {
     return;
   }
 
-  // Only handle /mcp endpoint; everything else goes to the landing page
+  // Only /mcp reaches the MCP transport. Website paths on a public alias go to
+  // the website; everything else is a small 404.
   if (pathname !== "/mcp") {
-    let variant: HomepageVariant | undefined;
-    if (pathname === "/" && req.method === "GET") {
-      const preview = new URL(req.url ?? "/", "http://localhost").searchParams;
-      if (preview.has("design")) variant = preview.get("design") === "test" ? "test" : "control";
-      else if (fs.existsSync(path.join(LANDING_DIR, "design-preview", "index.html"))) variant = await homepageExperiment.assign(req, res);
+    if ((req.method === "GET" || req.method === "HEAD") && isPublicSiteAlias(req.headers.host)) {
+      res.writeHead(308, {
+        "Location": publicSiteLocation(req.url!),
+        "Cache-Control": "public, max-age=3600",
+      });
+      res.end();
+      return;
     }
-    if (await serveLanding(req, res, scriptNonce, variant)) return;
-    res.writeHead(404);
-    res.end("Not found");
+    res.writeHead(404, { "Content-Type": "application/json", "Cache-Control": "no-store" });
+    res.end(req.method === "HEAD" ? undefined : JSON.stringify({ error: "Not found" }));
     return;
   }
 
@@ -571,7 +333,6 @@ async function shutdown(signal: string) {
   await mcpHandler.close();
   await projectContextRepository.close();
   await telemetry.shutdown();
-  await homepageExperiment.shutdown();
   process.exit(0);
 }
 

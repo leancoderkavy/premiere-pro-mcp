@@ -1,5 +1,9 @@
 # Activation measurement boundary
 
+> **Website moved (2026-09-29):** the landing and its browser events now live in
+> [leancoderkavy/premiere-pro-mcp-site](https://github.com/leancoderkavy/premiere-pro-mcp-site).
+> This repository keeps the MCP activation telemetry described below.
+
 The landing measures a bounded, anonymous acquisition funnel without collecting
 project data or linking a browser to an editor's Premiere project.
 

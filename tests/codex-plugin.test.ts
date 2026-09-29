@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
+import { readPublishedVersion } from "./helpers/published-version.js";
 
 const root = process.cwd();
 const readJson = (path: string) =>
@@ -9,7 +10,7 @@ const readJson = (path: string) =>
 describe("Codex plugin package", () => {
   it("keeps the plugin and MCP package versions aligned", () => {
     const pkg = readJson("package.json");
-    const published = readJson("landing/lib/published-release.json");
+    const publishedVersion = readPublishedVersion();
     const plugin = readJson("plugins/premiere-pro/.codex-plugin/plugin.json");
     const mcp = readJson("plugins/premiere-pro/.mcp.json");
 
@@ -18,7 +19,7 @@ describe("Codex plugin package", () => {
     expect(plugin.skills).toBe("./skills/");
     expect(plugin.mcpServers).toBe("./.mcp.json");
     expect(mcp.mcpServers["premiere-pro"].args).toContain(
-      `premiere-pro-mcp@${published.version}`,
+      `premiere-pro-mcp@${publishedVersion}`,
     );
   });
 
@@ -62,7 +63,7 @@ describe("Codex plugin package", () => {
 describe("Claude distributions", () => {
   it("keeps Claude Code metadata aligned with the npm package", () => {
     const pkg = readJson("package.json");
-    const published = readJson("landing/lib/published-release.json");
+    const publishedVersion = readPublishedVersion();
     const marketplace = readJson(".claude-plugin/marketplace.json");
     const plugin = readJson(
       "claude-plugins/premiere-pro/.claude-plugin/plugin.json",
@@ -78,7 +79,7 @@ describe("Claude distributions", () => {
     expect(plugin.version).toBe(pkg.version);
     expect(plugin.mcpServers).toBe("./.mcp.json");
     expect(mcp.mcpServers["premiere-pro"].args).toContain(
-      `premiere-pro-mcp@${published.version}`,
+      `premiere-pro-mcp@${publishedVersion}`,
     );
   });
 

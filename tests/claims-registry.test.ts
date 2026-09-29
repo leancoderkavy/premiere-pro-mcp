@@ -6,10 +6,14 @@ const root = process.cwd();
 const read = (path: string) => readFileSync(join(root, path), "utf8");
 const readJson = (path: string) => JSON.parse(read(path)) as Record<string, unknown>;
 
-const release = readJson("landing/lib/published-release.json");
+// The published npm manifest is generated from release-metadata.json at release
+// time, so template fields must exist there. The website repository syncs the
+// published values from npm and guards its own copy.
+const sourceRelease = readJson("release-metadata.json");
 const registry = readJson("docs/claims-registry.json") as {
   schemaVersion: number;
   authoritativeReleaseMetadata: string;
+  authoritativeSourceMetadata: string;
   claims: Array<{
     id: string;
     status: string;
@@ -20,13 +24,12 @@ const registry = readJson("docs/claims-registry.json") as {
   prohibitedUntilEvidenceExists: string[];
 };
 
-const renderReleaseClaim = (claim: string) =>
-  claim.replaceAll(/\{([^}]+)\}/g, (_match, field: string) => String(release[field]));
-
 describe("product claims registry", () => {
   it("is a unique, versioned registry with explicit boundaries", () => {
     expect(registry.schemaVersion).toBe(1);
-    expect(registry.authoritativeReleaseMetadata).toBe("landing/lib/published-release.json");
+    expect(registry.authoritativeReleaseMetadata).toContain("premiere-pro-mcp-site");
+    expect(registry.authoritativeReleaseMetadata).toContain("public-product-manifest.json");
+    expect(registry.authoritativeSourceMetadata).toBe("release-metadata.json");
     expect(registry.claims.map((claim) => claim.id)).toHaveLength(
       new Set(registry.claims.map((claim) => claim.id)).size,
     );
@@ -34,51 +37,33 @@ describe("product claims registry", () => {
     expect(registry.prohibitedUntilEvidenceExists.length).toBeGreaterThan(0);
   });
 
-  it("derives every release-backed claim from canonical release metadata", () => {
+  it("derives every release-backed claim from release metadata fields", () => {
     const releaseClaims = registry.claims.filter((claim) => claim.status === "release_metadata");
     expect(releaseClaims).toHaveLength(2);
 
     for (const claim of releaseClaims) {
       expect(claim.fields?.length).toBeGreaterThan(0);
       for (const field of claim.fields ?? []) {
-        expect(release).toHaveProperty(field);
+        expect(sourceRelease).toHaveProperty(field);
         expect(claim.claim).toContain(`{${field}}`);
       }
     }
   });
 
-  it("keeps the product-marketing context aligned with the rendered release facts", () => {
-    const marketingContext = read(".agents/product-marketing.md");
-    const releaseSurface = registry.claims.find((claim) => claim.id === "release-capability-surface");
-    const compatibility = registry.claims.find((claim) => claim.id === "release-compatibility");
-
-    expect(releaseSurface).toBeDefined();
-    expect(compatibility).toBeDefined();
-    expect(marketingContext).toContain(renderReleaseClaim(releaseSurface!.claim));
-    expect(marketingContext).toContain(renderReleaseClaim(compatibility!.claim));
-  });
-
-  it("labels commercial pricing as a hypothesis and records evidence-gated boundaries", () => {
+  it("labels commercial pricing as a hypothesis", () => {
     const pricing = registry.claims.find((claim) => claim.id === "commercial-companion-pricing");
-    const marketingContext = read(".agents/product-marketing.md");
 
     expect(pricing?.status).toBe("hypothesis");
     expect(pricing?.claim.toLowerCase()).toContain("hypotheses");
-    expect(marketingContext).toContain("unvalidated pricing hypotheses");
-    expect(marketingContext).toContain("No approved customer-logo claims, adoption claims, case studies, or public testimonials are currently documented.");
-    expect(marketingContext).toContain("Current production activation, retention, support, conversion, and revenue metrics have not been queried");
-    expect(marketingContext).toContain("Do not claim current Adobe Marketplace approval");
+    expect(registry.prohibitedUntilEvidenceExists).toContain(
+      "Current Adobe Marketplace approval or publication",
+    );
   });
 
-  it("rejects known stale or unsupported marketing phrases on governed public surfaces", () => {
-    const governedSurfaces = [
-      ".agents/product-marketing.md",
-      "README.md",
-      "landing/lib/articles.ts",
-    ].map(read);
-    const governedContent = governedSurfaces.join("\n");
+  it("rejects known stale or unsupported marketing phrases in the README", () => {
+    const readme = read("README.md");
 
-    expect(governedContent).not.toMatch(/49 (?:documented, )?capability-gated tools/i);
-    expect(read("landing/components/sections/hero.tsx")).not.toMatch(/editor approved/i);
+    expect(readme).not.toMatch(/49 (?:documented, )?capability-gated tools/i);
+    expect(readme).not.toMatch(/editor approved/i);
   });
 });

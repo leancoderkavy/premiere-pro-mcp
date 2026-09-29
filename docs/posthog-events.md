@@ -1,5 +1,11 @@
 # PostHog critical-path setup audit
 
+> **Website moved (2026-09-29):** browser analytics, the homepage experiment, and
+> `/api/landing-events` now live in
+> [leancoderkavy/premiere-pro-mcp-site](https://github.com/leancoderkavy/premiere-pro-mcp-site).
+> `landing/…` and `src/homepage-experiment.ts` paths below describe that code before the
+> move. This repository keeps only MCP server telemetry (`src/telemetry.ts`).
+
 Source audit: 2026-09-22. Draft review only; no deployment, project configuration
 changes, purchases, or live Premiere validation. Tests use mocks/local fixtures,
 not production ingestion. The local stdio MCP server remains the product; HTTP

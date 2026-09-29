@@ -1,10 +1,10 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
+import { readPublishedVersion } from "./helpers/published-version.js";
 
 const root = process.cwd();
 const read = (path: string) => readFileSync(join(root, path), "utf8");
-const readJson = (path: string) => JSON.parse(read(path));
 
 const STUBS = [
   "CLAUDE.md",
@@ -31,7 +31,7 @@ describe("coding-agent instruction stubs", () => {
   it("keeps the Jev surface map optional and protocol-free", () => {
     const rule = read(".cursor/rules/jev-surfaces.mdc");
     expect(rule).toMatch(/alwaysApply:\s*false/);
-    expect(rule).toContain("landing");
+    expect(rule).not.toContain("landing");
     expect(rule).toContain("uxp-plugin");
     expect(rule).not.toMatch(/first tool/i);
     expect(rule).not.toContain("jev-orchestrate");
@@ -39,7 +39,7 @@ describe("coding-agent instruction stubs", () => {
   });
 
   it("pins client CEP install commands to the published package", () => {
-    const version = readJson("landing/lib/published-release.json").version as string;
+    const version = readPublishedVersion();
     const pin = `npx -y premiere-pro-mcp@${version} --install-cep`;
     for (const path of [
       "plugins/premiere-pro/skills/edit-premiere-project/SKILL.md",

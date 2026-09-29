@@ -14,25 +14,7 @@ COPY scripts/generate-uxp-js-api-inventory.mjs ./scripts/generate-uxp-js-api-inv
 
 RUN npm run build
 
-# ── Stage 2: Build Next.js landing page (→ landing/.next/out/) ───────────────
-FROM node:20-alpine AS landing-builder
-
-WORKDIR /app
-COPY release-metadata.json ./release-metadata.json
-COPY scripts/generate-marketing-reference.mjs ./scripts/generate-marketing-reference.mjs
-COPY scripts/tool-reference-data.mjs ./scripts/tool-reference-data.mjs
-COPY docs/supported-actions.md ./docs/supported-actions.md
-
-WORKDIR /app/landing
-
-COPY landing/package*.json ./
-RUN npm ci
-
-COPY landing/ ./
-
-RUN npm run build
-
-# ── Stage 3: Production runner ────────────────────────────────────────────────
+# ── Stage 2: Production runner ────────────────────────────────────────────────
 FROM node:20-alpine AS runner
 
 WORKDIR /app
@@ -48,9 +30,6 @@ COPY package*.json ./
 RUN npm ci --omit=dev
 
 COPY --from=mcp-builder /app/dist ./dist
-
-# Copy Next.js static export to landing-dist (referenced in http-server.ts)
-COPY --from=landing-builder /app/landing/out ./landing-dist
 
 # Keep the editor control plane and media subprocesses unprivileged. Runtime
 # bridge files use this user's private temp directory; context lives in HOME.

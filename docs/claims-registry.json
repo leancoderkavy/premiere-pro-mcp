@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "lastReviewed": "2026-09-04",
   "purpose": "Canonical governance record for product and release claims. It distinguishes release-metadata facts, positioning, external research, unvalidated hypotheses, and prohibited claims.",
-  "authoritativeReleaseMetadata": "landing/lib/published-release.json",
+  "authoritativeReleaseMetadata": "Published npm package premiere-pro-mcp (public-product-manifest.json in the tarball), synced automatically into leancoderkavy/premiere-pro-mcp-site lib/published-release.json",
   "authoritativeSourceMetadata": "release-metadata.json",
   "claims": [
     {
@@ -61,9 +61,9 @@
     "Adobe affiliation, endorsement, or certification"
   ],
   "maintenance": {
-    "whenReleaseMetadataChanges": "Update release-metadata.json first, then resolve the template claims and affected public surfaces in the same change.",
+    "whenReleaseMetadataChanges": "Update release-metadata.json first, then resolve the template claims and affected README and docs surfaces in the same change. The website syncs published-package facts from npm on its own; do not hand-copy them.",
     "whenExternalResearchChanges": "Update reviewedOn, source, wording, and boundaries; do not turn an external fact into a product claim without evidence.",
     "whenCommercialDecisionChanges": "Replace a hypothesis only after the offer, pricing, terms, billing, and support scope are approved and published.",
-    "validation": "tests/claims-registry.test.ts validates the metadata relationship, the marketing-context rendering, pricing labeling, and known stale marketing claims."
+    "validation": "tests/claims-registry.test.ts validates the registry structure, the release-metadata fields behind template claims, pricing labeling, and known stale claims in README.md. Website surfaces are guarded by the site repository."
   }
 }
