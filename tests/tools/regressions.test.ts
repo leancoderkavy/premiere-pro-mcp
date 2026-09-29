@@ -380,12 +380,13 @@ describe("PR #3 follow-ups — color_correct and export_sequence", () => {
     const stale = { exists: true, length: 42, modified: "old" };
     expect(run(projectScript, stale, { exportAsProject() {} }).error).toMatch(/existing output was unchanged/);
     expect(run(xmlScript, stale, { exportAsFinalCutProXML() {} }).error).toMatch(/existing output was unchanged/);
-    expect(run(sequenceScript, stale, { exportAsMediaDirect() { return undefined; } }).error).toMatch(/existing output was unchanged/);
+    // export_sequence refuses an existing output unless overwrite is true (#648).
+    expect(run(sequenceScript, stale, { exportAsMediaDirect() { return undefined; } }).error).toMatch(/A file already exists at \/tmp\/out\.mp4/);
 
     const missing = { exists: false, length: 0, modified: "" };
     expect(run(projectScript, missing, { exportAsProject() {} }).error).toMatch(/did not write the requested project file/);
     expect(run(xmlScript, missing, { exportAsFinalCutProXML() {} }).error).toMatch(/did not write the requested FCP XML file/);
-    expect(run(sequenceScript, missing, { exportAsMediaDirect() { return true; } }).error).toMatch(/did not write the requested export file/);
+    expect(run(sequenceScript, missing, { exportAsMediaDirect() { return true; } }).error).toMatch(/Premiere did not write \/tmp\/out\.mp4/);
 
     const written = { exists: false, length: 0, modified: "" };
     const write = () => { written.exists = true; written.length = 99; written.modified = "new"; };
