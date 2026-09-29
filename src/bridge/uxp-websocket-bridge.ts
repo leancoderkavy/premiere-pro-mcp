@@ -2,6 +2,7 @@ import { randomUUID, timingSafeEqual } from "node:crypto";
 import { EventEmitter } from "node:events";
 import { createServer, type Server } from "node:http";
 import { WebSocket, WebSocketServer } from "ws";
+import { assertNoSymlinkedPaths, SymlinkPathError } from "../security/path-guard.js";
 
 const LOOPBACK_HOST = "127.0.0.1";
 const SUPPORTED_PROTOCOLS = new Set([1, 2]);
@@ -185,6 +186,15 @@ export class UxpWebSocketBridge extends EventEmitter {
         "UXP_COMMAND_UNSUPPORTED",
         `Connected Premiere host does not support UXP command '${command}'`,
       );
+    }
+
+    // The panel cannot see through links on Premiere 26.5 UXP (#640), so refuse
+    // symlinked path segments here, before anything reaches the host.
+    try {
+      assertNoSymlinkedPaths(args);
+    } catch (error) {
+      if (error instanceof SymlinkPathError) throw new UxpBridgeError(error.code, error.message);
+      throw error;
     }
 
     const minimumTimeoutMs = requestOptions.minimumTimeoutMs ?? 0;

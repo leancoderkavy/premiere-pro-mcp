@@ -326,34 +326,42 @@ describe("next-wave UXP event workflows", () => {
       }],
     });
 
-    const betaPropertyMedia = {
-      getStart: vi.fn(async () => ({ seconds: 99 })),
-      getDuration: vi.fn(async () => ({ seconds: 99 })),
-      start: Promise.resolve({ seconds: 3 }),
-      duration: Promise.resolve({ seconds: 12 }),
+    // Premiere 26.5 documents synchronous getStart()/getDuration() and deprecates
+    // the Promise-returning start/duration properties, so the getters win.
+    const documentedGetterMedia = {
+      getStart: vi.fn(() => ({ seconds: 3 })),
+      getDuration: vi.fn(() => ({ seconds: 12 })),
+      start: Promise.resolve({ seconds: 99 }),
+      duration: Promise.resolve({ seconds: 99 }),
     };
-    media = betaPropertyMedia;
+    media = documentedGetterMedia;
     await expect(definitions["media.health.inspect"].handler({ includeMediaTiming: true })).resolves.toMatchObject({
       items: [{
         mediaTiming: {
           available: true,
           startSeconds: 3,
           durationSeconds: 12,
-          startAccessor: "start",
-          durationAccessor: "duration",
+          startAccessor: "getStart()",
+          durationAccessor: "getDuration()",
         },
       }],
     });
-    expect(betaPropertyMedia.getStart).not.toHaveBeenCalled();
-    expect(betaPropertyMedia.getDuration).not.toHaveBeenCalled();
+    expect(documentedGetterMedia.getStart).toHaveBeenCalledOnce();
+    expect(documentedGetterMedia.getDuration).toHaveBeenCalledOnce();
 
-    const failedPropertyMedia = {
-      getStart: vi.fn(async () => ({ seconds: 99 })),
-      getDuration: vi.fn(async () => ({ seconds: 99 })),
+    // Older hosts expose only the Promise-shaped properties.
+    media = { start: Promise.resolve({ seconds: 4 }), duration: Promise.resolve({ seconds: 8 }) };
+    await expect(definitions["media.health.inspect"].handler({ includeMediaTiming: true })).resolves.toMatchObject({
+      items: [{ mediaTiming: { available: true, startSeconds: 4, durationSeconds: 8, startAccessor: "start", durationAccessor: "duration" } }],
+    });
+
+    // A throwing getter falls back to the property; a throwing property with no getter stays unavailable.
+    const failedGetterMedia = {
+      getStart: vi.fn(() => { throw new Error("getter unavailable"); }),
       get start() { throw new Error("start unavailable"); },
       duration: { seconds: 7 },
     };
-    media = failedPropertyMedia;
+    media = failedGetterMedia;
     await expect(definitions["media.health.inspect"].handler({ includeMediaTiming: true })).resolves.toMatchObject({
       items: [{
         mediaTiming: {
@@ -365,8 +373,7 @@ describe("next-wave UXP event workflows", () => {
         },
       }],
     });
-    expect(failedPropertyMedia.getStart).not.toHaveBeenCalled();
-    expect(failedPropertyMedia.getDuration).not.toHaveBeenCalled();
+    expect(failedGetterMedia.getStart).toHaveBeenCalledOnce();
 
     media = { start: { seconds: -1 }, duration: { seconds: 86400001 } };
     await expect(definitions["media.health.inspect"].handler({ includeMediaTiming: true })).resolves.toMatchObject({
@@ -487,6 +494,45 @@ describe("next-wave UXP event workflows", () => {
       startSeconds: 19, confirmSetStart: true,
     })).rejects.toMatchObject({ code: "UXP_COMMAND_UNAVAILABLE" });
     expect(betaPromiseMedia.createSetStartAction).not.toHaveBeenCalled();
+  });
+
+  it("sets source-media start on Premiere 26.5 media whose deprecated properties return promises", async () => {
+    let startSeconds = 10;
+    const media = {
+      get start() { return Promise.resolve({ seconds: startSeconds }); },
+      get duration() { return Promise.resolve({ seconds: 60 }); },
+      getStart: vi.fn(() => ({ seconds: startSeconds })),
+      getDuration: vi.fn(() => ({ seconds: 60 })),
+      createSetStartAction: vi.fn((time: { seconds: number }) => ({ apply: () => { startSeconds = time.seconds; } })),
+    };
+    const clip = { getId: vi.fn(async () => "clip-1"), getMedia: vi.fn(async () => media) };
+    const root = { getItems: vi.fn(async () => [clip]) };
+    const project = {
+      guid: "project-1",
+      getRootItem: vi.fn(async () => root),
+      lockedAccess: vi.fn((callback: () => void) => callback()),
+      executeTransaction: vi.fn((callback: (compound: { addAction: (action: { apply: () => void }) => boolean }) => void) => {
+        callback({ addAction: (action) => { action.apply(); return true; } });
+        return true;
+      }),
+    };
+    const ppro = {
+      Project: { getActiveProject: vi.fn(async () => project) },
+      ProjectItem: { cast: vi.fn((item: unknown) => item) },
+      ClipProjectItem: { cast: vi.fn((item: unknown) => item) },
+      FolderItem: { cast: vi.fn(() => null) },
+      TickTime: { createWithSeconds: vi.fn((seconds: number) => ({ seconds })) },
+    };
+    const registry = Commands.createCommandRegistry({ ppro, Protocol });
+
+    await expect(registry.dispatch("source.mediaTiming.setStart", {
+      projectItemId: "clip-1", expectedTiming: { startSeconds: 10, durationSeconds: 60 },
+      startSeconds: 12, confirmSetStart: true, operationId: "source-start-265",
+    })).resolves.toMatchObject({
+      updated: true, outcome: "verified", before: { startSeconds: 10 }, after: { startSeconds: 12, durationSeconds: 60 },
+    });
+    expect(media.createSetStartAction).toHaveBeenCalledTimes(1);
+    expect(media.getStart).toHaveBeenCalled();
   });
 
   it("guards, serializes, replays, and reads back source-media interpretation overrides", async () => {

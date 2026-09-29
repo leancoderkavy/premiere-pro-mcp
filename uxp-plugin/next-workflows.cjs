@@ -1196,9 +1196,17 @@
       return { projectItemId, startSeconds: start, durationSeconds: duration };
     }
 
+    // Premiere 26.5 documents synchronous Media.getStart()/getDuration() and
+    // deprecates the start/duration properties, which return Promise<TickTime>.
+    function mediaTimingGetter(media, propertyName) {
+      const getterName = propertyName === "start" ? "getStart" : "getDuration";
+      return media && typeof media[getterName] === "function" ? getterName : null;
+    }
+
     function synchronousMediaTimingValue(media, propertyName) {
       try {
-        const value = media[propertyName];
+        const getterName = mediaTimingGetter(media, propertyName);
+        const value = getterName ? media[getterName]() : media[propertyName];
         if (value && typeof value.then === "function") return null;
         return boundedMediaTimingSeconds(value);
       } catch (_) { return null; }
@@ -1332,6 +1340,13 @@
     }
 
     async function mediaTimingValue(media, propertyName) {
+      const getterName = mediaTimingGetter(media, propertyName);
+      if (getterName) {
+        try {
+          const seconds = boundedMediaTimingSeconds(await media[getterName]());
+          if (seconds != null) return { accessor: getterName + "()", seconds };
+        } catch (_) { /* fall back to the deprecated property */ }
+      }
       try {
         return { accessor: propertyName, seconds: boundedMediaTimingSeconds(await media[propertyName]) };
       } catch (_) {

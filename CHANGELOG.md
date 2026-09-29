@@ -6,9 +6,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Security
+
+- UXP path arguments are now checked in the MCP server process before a command is sent. Any absolute path that goes through a symbolic link or directory junction is refused with `UXP_PATH_SYMLINK_REFUSED`. Premiere 26.5 UXP reports a link's own path and cannot `lstat`, so the panel's workspace check could be bypassed through a link inside the approved folder. (#640)
+
 ### Fixed
 
 - `get_work_area` now reads work-area points as seconds, as live Premiere 25.2 and 26.5.1 hosts return them. It had divided them by ticks-per-second and reported values near zero. `set_work_area` writes seconds and reads the result back; it fails honestly when a build ignores the write. (#642)
+- `export_sequence` now fails when Premiere rejects the render or writes no file. (#647)
+- UXP source-media timing reads Premiere 26.5's documented synchronous `Media.getStart()` / `getDuration()` before the deprecated Promise-returning `start` / `duration` properties, so `manage_source_media_timing_uxp` can set a start time on 26.5 hosts instead of reporting the command unavailable.
+
+### Verification scope
+
+- Automated checks validate package behavior. The UXP media timing change and the server-side symlink guard have not been verified on a licensed Premiere host.
 
 ## [1.18.2] - 2026-09-26
 
