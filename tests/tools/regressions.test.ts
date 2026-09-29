@@ -116,6 +116,14 @@ describe("real-host social sequence regressions", () => {
     expect(workArea).toContain("seq.getWorkAreaOutPoint()");
     expect(workArea).not.toContain("seq.workInPoint");
     expect(workArea).not.toContain("seq.workOutPoint");
+    expect(workArea).toContain("inSeconds: __workAreaSeconds(inPoint)");
+    expect(workArea).not.toContain("__ticksToSeconds(inPoint)");
+
+    const setArea = await codeFor(playhead.set_work_area, { in_seconds: 4, out_seconds: 12 });
+    expect(setArea).toContain("seq.setWorkAreaInPoint(requestedIn)");
+    expect(setArea).not.toContain("__secondsToTicks(4)");
+    expect(setArea).toContain("Premiere did not apply the work area");
+    expect(setArea).toContain("verified: true");
 
     const enabled = await codeFor(sequence.is_work_area_enabled, {});
     expect(enabled).toContain("seq.isWorkAreaEnabled()");

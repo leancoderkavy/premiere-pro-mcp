@@ -44,6 +44,14 @@ function __ticksToSeconds(ticks) {
   return parseFloat(ticks) / TICKS_PER_SECOND;
 }
 
+// Sequence work-area getters return seconds (often as a string) on live 25.x
+// and 26.x hosts. Values above 1e6 can only be ticks, so convert those.
+function __workAreaSeconds(value) {
+  var number = parseFloat(value);
+  if (!isFinite(number) || number <= -399999) return null;
+  return number > 1000000 ? number / TICKS_PER_SECOND : number;
+}
+
 function __secondsToTicks(seconds) {
   return Math.round(parseFloat(seconds) * TICKS_PER_SECOND);
 }

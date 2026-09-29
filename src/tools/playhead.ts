@@ -68,10 +68,21 @@ export function getPlayheadTools(bridgeOptions: BridgeOptions) {
           var seq = app.project.activeSequence;
           if (!seq) return __error("No active sequence");
           
-          seq.setWorkAreaInPoint(__secondsToTicks(${args.in_seconds}).toString());
-          seq.setWorkAreaOutPoint(__secondsToTicks(${args.out_seconds}).toString());
-          
-          return __result({ workAreaIn: ${args.in_seconds}, workAreaOut: ${args.out_seconds} });
+          // Live hosts (25.2, 26.5.1) read and write work-area points in seconds,
+          // not ticks. Write seconds, then read back: some builds ignore the write.
+          var requestedIn = ${Number(args.in_seconds)};
+          var requestedOut = ${Number(args.out_seconds)};
+          if (!(requestedOut > requestedIn)) return __error("out_seconds must be greater than in_seconds.");
+          seq.setWorkAreaInPoint(requestedIn);
+          seq.setWorkAreaOutPoint(requestedOut);
+          var observedIn = __workAreaSeconds(seq.getWorkAreaInPoint());
+          var observedOut = __workAreaSeconds(seq.getWorkAreaOutPoint());
+          var frameSeconds = seq.timebase ? __ticksToSeconds(seq.timebase) : 1 / 24;
+          if (observedIn === null || observedOut === null ||
+              Math.abs(observedIn - requestedIn) > frameSeconds || Math.abs(observedOut - requestedOut) > frameSeconds) {
+            return __error("Premiere did not apply the work area (read back " + observedIn + " to " + observedOut + " s). Use set_sequence_in_out_points to mark an export range instead.");
+          }
+          return __result({ workAreaIn: observedIn, workAreaOut: observedOut, verified: true });
         `);
         return sendCommand(script, bridgeOptions);
       },
@@ -87,8 +98,10 @@ export function getPlayheadTools(bridgeOptions: BridgeOptions) {
           var inPoint = seq.getWorkAreaInPoint();
           var outPoint = seq.getWorkAreaOutPoint();
           return __result({
-            inSeconds: __ticksToSeconds(inPoint),
-            outSeconds: __ticksToSeconds(outPoint)
+            inSeconds: __workAreaSeconds(inPoint),
+            outSeconds: __workAreaSeconds(outPoint),
+            rawIn: String(inPoint),
+            rawOut: String(outPoint)
           });
         `);
         return sendCommand(script, bridgeOptions);

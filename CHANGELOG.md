@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Fixed
+
+- `get_work_area` now reads work-area points as seconds, as live Premiere 25.2 and 26.5.1 hosts return them. It had divided them by ticks-per-second and reported values near zero. `set_work_area` writes seconds and reads the result back; it fails honestly when a build ignores the write. (#642)
+
 ## [1.18.2] - 2026-09-26
 
 ### Added

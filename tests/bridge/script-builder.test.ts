@@ -167,6 +167,14 @@ describe("helpers execute correctly in an ES3-like engine", () => {
     expect(out).toBe('{"success":true,"data":{"connected":true,"nested":{"n":1,"arr":[1,"a",false,null]}}}');
   });
 
+  it("reads work-area points as seconds and converts only tick-sized values (#642)", () => {
+    const out = runInNewContext(
+      getHelpersSource() + '\n[__workAreaSeconds("4"), __workAreaSeconds(12.5), __workAreaSeconds("1016064000000"), __workAreaSeconds("-400000"), __workAreaSeconds("n/a")].join("|");',
+      {},
+    );
+    expect(out).toBe("4|12.5|4||");
+  });
+
   it("a stale wrapper from an older helpers version gets replaced", () => {
     // Simulate a polluted long-lived engine: JSON.stringify is our old-style wrapper.
     const stale = { stringify: function badWrapper(o: unknown) { return "__jsonStringify" + String(o); } };
