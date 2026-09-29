@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [1.18.4] - 2026-09-28
+
 ### Fixed
 
 - `import_transcript_uxp` refuses to import over an existing transcript (`UXP_TRANSCRIPT_OVERWRITE_REFUSED`). On Premiere 26.5.1 a failed import cleared an existing transcript that could not be restored. (#642)
