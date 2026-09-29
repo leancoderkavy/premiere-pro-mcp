@@ -6,6 +6,22 @@ import { product } from "@/lib/product"
 
 const releases = [
   {
+    version: "1.18.3",
+    date: "2026-09-28",
+    label: "Symlink path guard, fail-closed export, and Premiere 26.5 timing fixes",
+    groups: [
+      { title: "Security", items: [
+        "The MCP server refuses UXP path arguments that go through a symbolic link or directory junction, before anything reaches Premiere."
+      ] },
+      { title: "Fixed", items: [
+        "export_sequence fails when Premiere rejects the render or writes no file.",
+        "UXP source-media timing uses Premiere 26.5's documented Media.getStart() and getDuration().",
+        "get_work_area reads work-area points as seconds; set_work_area verifies by readback."
+      ] },
+      { title: "Verification scope", items: ["Automated checks validate package behavior; these changes have not been verified on a licensed Premiere host."] }
+    ],
+  },
+  {
     version: "1.18.2",
     date: "2026-09-26",
     label: "UXP work area coverage, inspect safety, and clearer search presentation",
