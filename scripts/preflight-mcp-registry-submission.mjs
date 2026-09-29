@@ -15,6 +15,29 @@ function fail(message) {
   process.exitCode = 1;
 }
 
+// The official registry search has taken over 45 seconds to answer, which
+// failed two releases in a row at a 30 second limit. Allow 90 seconds per
+// attempt and retry timeouts and server errors twice before failing.
+const FETCH_TIMEOUT_MS = 90_000;
+const FETCH_ATTEMPTS = 3;
+
+async function fetchWithRetry(url) {
+  for (let attempt = 1; ; attempt++) {
+    try {
+      const response = await fetch(url, {
+        headers: { accept: "application/json" },
+        signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+      });
+      if (response.status < 500 || attempt >= FETCH_ATTEMPTS) return response;
+      console.warn(`${url} answered ${response.status} (attempt ${attempt}/${FETCH_ATTEMPTS}); retrying.`);
+    } catch (error) {
+      if (attempt >= FETCH_ATTEMPTS) throw error;
+      console.warn(`${url} failed (${error instanceof Error ? error.message : String(error)}; attempt ${attempt}/${FETCH_ATTEMPTS}); retrying.`);
+    }
+    await new Promise((resolveDelay) => setTimeout(resolveDelay, 5_000 * attempt));
+  }
+}
+
 if (!npmPackage || manifest.name !== packageJson.mcpName) {
   fail("local registry metadata does not match package.json; run validate:mcp-registry-metadata first.");
 } else if (
@@ -30,14 +53,8 @@ if (!npmPackage || manifest.name !== packageJson.mcpName) {
 
   try {
     const [npmResponse, registryResponse] = await Promise.all([
-      fetch(npmUrl, {
-        headers: { accept: "application/json" },
-        signal: AbortSignal.timeout(30_000),
-      }),
-      fetch(registryUrl, {
-        headers: { accept: "application/json" },
-        signal: AbortSignal.timeout(30_000),
-      }),
+      fetchWithRetry(npmUrl),
+      fetchWithRetry(registryUrl),
     ]);
 
     if (!npmResponse.ok) {
