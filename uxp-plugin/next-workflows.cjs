@@ -489,7 +489,7 @@
       assertOnlyKeys(args, ["path", "confirmExternalWrite", "confirmOverwrite", "operationId"]);
       requireConfirmation(args.confirmExternalWrite, "confirmExternalWrite", "Creating a project writes a new file");
       const path = await allowedWorkspacePath(args.path, "path");
-      rejectExistingProject(path, args.confirmOverwrite);
+      await rejectExistingProject(path, args.confirmOverwrite);
       const project = await ppro.Project.createProject(path);
       assertProjectPath(project, path, "created project");
       return projectMutationReceipt("created", project, path);
@@ -520,7 +520,7 @@
       const project = await targetProject(args.projectId);
       if (args.expectedPath != null) assertProjectPath(project, requiredPath(args.expectedPath, "expectedPath"), "target project");
       const path = await allowedWorkspacePath(args.path, "path");
-      rejectExistingProject(path, args.confirmOverwrite);
+      await rejectExistingProject(path, args.confirmOverwrite);
       if (typeof project.saveAs !== "function" || !await project.saveAs(path)) {
         throw commandError("UXP_VERIFICATION_FAILED", "Premiere did not confirm Save As");
       }
@@ -543,7 +543,7 @@
         if (samePath(path, sourcePath) || paths.some(function (item) { return samePath(item, path); })) {
           throw commandError("UXP_INVALID_ARGUMENT", "Branch paths must be distinct from the source and each other");
         }
-        rejectExistingProject(path, args.confirmOverwrite);
+        await rejectExistingProject(path, args.confirmOverwrite);
         paths.push(path);
       }
       const branches = [];
@@ -1734,9 +1734,32 @@
       return deps.workspace.assertPathAllowed(path, { label, kind: "file" });
     }
 
-    function rejectExistingProject(path, confirmation) {
-      if (ppro.Project.isProject(path) && confirmation !== true) {
-        throw commandError("UXP_CONFIRMATION_REQUIRED", "confirmOverwrite is required when the destination is already a Premiere project");
+    // Premiere 26.5.1's Project.isProject(path) is true for any *.prproj path,
+    // even a missing one (#642), so check the file itself when UXP storage can.
+    async function destinationFileExists(path) {
+      if (typeof deps.fileExists === "function") return !!(await deps.fileExists(path));
+      let fs = null;
+      try {
+        const uxp = require("uxp");
+        fs = uxp && uxp.storage && uxp.storage.localFileSystem;
+      } catch (_) { return null; }
+      if (!fs || typeof fs.getEntryWithUrl !== "function") return null;
+      const normalized = String(path).replace(/\\/g, "/");
+      const url = /^[A-Za-z]:\//.test(normalized) ? "file:/" + normalized : "file:" + normalized;
+      try {
+        const entry = await fs.getEntryWithUrl(url);
+        return !!entry;
+      } catch (_) {
+        return false;
+      }
+    }
+
+    async function rejectExistingProject(path, confirmation) {
+      if (confirmation === true) return;
+      const exists = await destinationFileExists(path);
+      const existing = exists === null ? ppro.Project.isProject(path) : exists;
+      if (existing) {
+        throw commandError("UXP_CONFIRMATION_REQUIRED", "confirmOverwrite is required when the destination file already exists");
       }
     }
 

@@ -1232,6 +1232,11 @@
       assertCommitted(committed, "metadata update");
       const after = await metadataSnapshot(clip);
       const verified = (!hasProject || after.projectMetadata === projectMetadata) && (!hasXmp || after.xmpMetadata === xmpMetadata);
+      // Premiere 26.5.1 can commit the transaction yet leave the packet untouched
+      // (#642). A readback identical to the snapshot is a failure, not success.
+      if (!verified && after.projectMetadata === before.projectMetadata && after.xmpMetadata === before.xmpMetadata) {
+        throw commandError("UXP_METADATA_NOT_APPLIED", "Premiere committed the metadata transaction but the metadata read back unchanged. The update was not applied.");
+      }
       return mutationResult(verified, { updated: true, updatedFields, metadata: after }, "metadata_readback", "Update clip metadata");
     }
 
@@ -1464,6 +1469,9 @@
       let readback = "";
       try { readback = propertyString(new xmp.XMPMeta(afterXml || "").getProperty(namespace, name)); } catch (_) {}
       const verified = readback === value;
+      if (!verified && readback === current) {
+        throw commandError("UXP_METADATA_NOT_APPLIED", "Premiere committed the metadata field transaction but " + name + " still reads back its previous value. The update was not applied.");
+      }
       return mutationResult(verified, {
         updated: true, packet, namespace, name, value: readback, requestedValue: value
       }, "metadata_field_readback", "Update clip metadata field");

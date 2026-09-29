@@ -8,11 +8,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- `import_transcript_uxp` refuses to import over an existing transcript (`UXP_TRANSCRIPT_OVERWRITE_REFUSED`). On Premiere 26.5.1 a failed import cleared an existing transcript that could not be restored. (#642)
+- UXP commands larger than the panel's 64 KiB frame limit are refused by the server with `UXP_COMMAND_TOO_LARGE` instead of timing out after 30 seconds. (#642)
+- `manage_metadata_uxp` update and field update fail with `UXP_METADATA_NOT_APPLIED` when Premiere commits the transaction but the metadata reads back unchanged, instead of reporting `updated: true`. (#642)
+- UXP project Save As, create, and branch copies ask for `confirmOverwrite` only when the destination file exists. Premiere 26.5.1's `Project.isProject` reports true for any `.prproj` path. (#642)
 - CEP tools that act on a timeline clip through the QE DOM no longer pass the DOM clip index to `qeTrack.getItemAt()`. QE counts gaps as track items, so on a track with a leading or intermediate gap these tools renamed, re-effected, or retimed the wrong clip. `rename_clip`, `remove_all_effects`, `set_frame_blend`, `set_time_interpolation`, `apply_effect`, `apply_audio_effect`, `color_correct`, `apply_lut`, `stabilize_clip`, `copy_effects_between_clips`, `batch_rename_clips`, and `get_qe_clip_info` now match the QE clip by timeline start and fail before any change when no clip matches. `copy_effects_between_clips` reports each effect as verified, committed_unverified, or failed from a readback of the target's components instead of silently dropping errors. `apply_effect` and `apply_audio_effect` also no longer emit a malformed error string that stopped the generated script from parsing. (#642)
 
 ### Verification scope
 
-- Automated checks validate package behavior. The QE clip lookup change has not been verified on a licensed Premiere host.
+- Automated checks validate package behavior. These changes follow live reports from Premiere 26.5.1 but have not been re-verified on a licensed Premiere host. The QE clip lookup change has not been verified on a licensed Premiere host either.
 
 ## [1.18.3] - 2026-09-28
 

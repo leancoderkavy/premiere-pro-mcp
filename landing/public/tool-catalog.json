@@ -3,7 +3,7 @@
   "evidenceScope": "source_catalog_may_include_unreleased_work",
   "sourceVersion": "1.18.3",
   "sourcePath": "docs/supported-actions.md",
-  "sourceSha256": "d5c9f143d546fd94f8c9db15567d90144b74a7fbd5b400cc59d1f63f98fe89e3",
+  "sourceSha256": "2ece573898d87e05ee2f70513e15eabd8f687e25441397fbda515c60706624f9",
   "hostVerification": "not_established_by_catalogs",
   "counts": {
     "default": 382,
@@ -1293,7 +1293,7 @@
       "name": "import_transcript_uxp",
       "surface": "uxp",
       "modes": "Single operation",
-      "description": "Replace one source media clip's native transcript JSON through documented Premiere 26.3+ UXP APIs. Use project_guid and transcript_revision returned by get_clip_transcript_uxp, or omit expected_transcript_revision (or pass null) from has_transcript_uxp for an untranscribed clip. This destructive import requires explicit confirmation and an operation_id, serializes competing imports for the same project item, runs one undoable transaction, and reports exact bounded export SHA-256 readback rather than claiming a licensed-host result."
+      "description": "Import native transcript JSON onto one untranscribed source media clip through documented Premiere 26.3+ UXP APIs. Check has_transcript_uxp first and omit expected_transcript_revision (or pass null). Importing over an existing transcript is refused (UXP_TRANSCRIPT_OVERWRITE_REFUSED): on Premiere 26.5.1 a failed import cleared an existing transcript that could not be restored. This destructive import requires explicit confirmation and an operation_id, serializes competing imports for the same project item, runs one undoable transaction, and reports exact bounded export SHA-256 readback rather than claiming a licensed-host result."
     },
     {
       "name": "insert_from_source",
