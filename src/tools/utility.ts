@@ -549,11 +549,21 @@ export function getUtilityTools(bridgeOptions: BridgeOptions) {
           } catch (eObserved) {
             return __error("Premiere did not expose the applied sequence pixel-aspect ratio for verification: " + eObserved.toString());
           }
-          if (observedRatio !== requestedRatio) {
-            return __error("Premiere did not apply the requested sequence pixel aspect ratio.");
+          // Hosts format the ratio differently ("1", "1.0", "1:1", "1.42222"), so
+          // compare the numeric value instead of the string (#642).
+          var parseRatio = function (value) {
+            var text = String(value);
+            var pair = /^\\s*([0-9]+(?:\\.[0-9]+)?)\\s*[:\\/]\\s*([0-9]+(?:\\.[0-9]+)?)\\s*$/.exec(text);
+            if (pair) return Number(pair[2]) > 0 ? Number(pair[1]) / Number(pair[2]) : NaN;
+            return parseFloat(text);
+          };
+          var requestedValue = parseRatio(requestedRatio);
+          var observedValue = parseRatio(observedRatio);
+          if (!isFinite(observedValue) || Math.abs(observedValue - requestedValue) > 0.001) {
+            return __error("Premiere did not apply the requested sequence pixel aspect ratio " + requestedRatio + "; it reads back as " + observedRatio + ".");
           }
 
-          return __result({ ratio: requestedRatio, sequence: seq.name, verified: true });
+          return __result({ ratio: requestedRatio, observedRatio: observedRatio, sequence: seq.name, verified: true });
         `);
         return sendCommand(script, bridgeOptions);
       },

@@ -606,8 +606,26 @@ describe("issue #335 — pixel aspect ratio must fail closed on unsupported CEP 
 
     expect(result).toEqual({
       success: true,
-      data: { ratio: "1.4222", sequence: "Verified sequence", verified: true },
+      data: { ratio: "1.4222", observedRatio: "1.4222", sequence: "Verified sequence", verified: true },
     });
+  });
+
+  it("compares the ratio numerically so host formatting does not fail a correct update (#642)", async () => {
+    for (const [requested, hostFormat] of [["1.0", "1"], ["1.0", "1:1"], ["1.4222", "1.42222"], ["2", "2.0"]]) {
+      const readback = { videoPixelAspectRatio: "0.9" };
+      const result = await executePixelAspectRatioScript({
+        name: "Formatted",
+        getSettings: vi.fn().mockReturnValueOnce(readback).mockReturnValueOnce({ videoPixelAspectRatio: hostFormat }),
+        setSettings: () => true,
+      }, requested);
+      expect(result).toMatchObject({ success: true, data: { ratio: requested, observedRatio: hostFormat, verified: true } });
+    }
+    const wrong = await executePixelAspectRatioScript({
+      name: "Wrong",
+      getSettings: vi.fn().mockReturnValueOnce({ videoPixelAspectRatio: "1.0" }).mockReturnValueOnce({ videoPixelAspectRatio: "0.9091" }),
+      setSettings: () => true,
+    }, "1.0");
+    expect(wrong).toMatchObject({ success: false, error: expect.stringContaining("reads back as 0.9091") });
   });
 
   it("rejects non-string aspect ratios before sending a Premiere command", async () => {

@@ -227,6 +227,30 @@ describe("create_bars_and_tone readback (#588)", () => {
     expect(run(script, app)).toEqual({ success: false, error: expect.stringContaining("readback found no new project item") });
   });
 
+  it("moves the item into bin_id and reads the location back (#642)", async () => {
+    const { root, footage } = project();
+    const script = await scriptFor(projectTools.create_bars_and_tone, { name: "Leader", bin_id: "Footage" });
+    const result = run(script, hostApp(root, (item) => item));
+    expect(result.data).toMatchObject({ verified: true, outcome: "verified", bin: { bin: "Footage", moved: true }, treePath: "\\Project\\Footage\\Leader" });
+    expect(footage.kids.some((kid) => kid.name === "Leader")).toBe(true);
+  });
+
+  it("refuses an unknown bin_id before creating anything", async () => {
+    const { root } = project();
+    const script = await scriptFor(projectTools.create_bars_and_tone, { bin_id: "Missing" });
+    const created = vi.fn();
+    const app = { project: { rootItem: root, activeSequence: null, newBarsAndTone: created } };
+    expect(run(script, app)).toEqual({ success: false, error: expect.stringContaining("Bin not found: Missing. Nothing was created.") });
+    expect(created).not.toHaveBeenCalled();
+  });
+
+  it("reports committed_unverified when the move does not take", async () => {
+    const { root } = project();
+    const script = await scriptFor(projectTools.create_bars_and_tone, { name: "Leader", bin_id: "Footage" });
+    const result = run(script, hostApp(root, (item) => { item.moveBin = () => undefined; return item; }));
+    expect(result.data).toMatchObject({ verified: false, outcome: "committed_unverified", bin: { moved: false } });
+  });
+
   it("escapes the requested name", async () => {
     const script = await scriptFor(projectTools.create_bars_and_tone, { name: 'Bars "A"' });
     expect(script).toContain('var requestedName = "Bars \\"A\\"";');

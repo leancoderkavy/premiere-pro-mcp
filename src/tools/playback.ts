@@ -38,7 +38,7 @@ export function getPlaybackTools(bridgeOptions: BridgeOptions) {
     },
 
     play_source_monitor: {
-      description: "Request playback of the clip in the Source Monitor. The legacy API does not provide a same-call position readback, so movement is not reported as verified.",
+      description: "Request playback of the clip in the Source Monitor. Fails when no clip is loaded. The legacy API does not provide a same-call position readback, so movement is not reported as verified.",
       parameters: {
         type: "object" as const,
         properties: {
@@ -50,12 +50,23 @@ export function getPlaybackTools(bridgeOptions: BridgeOptions) {
       },
       handler: async (args: { speed?: number }) => {
         const speed = args.speed ?? 1.0;
+        if (typeof speed !== "number" || !Number.isFinite(speed) || speed === 0 || Math.abs(speed) > 64) {
+          return { success: false, error: "speed must be a non-zero number from -64 to 64." };
+        }
         const script = buildToolScript(`
+          // Premiere accepts play() with nothing loaded and does nothing (#642).
+          var loaded = null;
+          try {
+            if (typeof app.sourceMonitor.getProjectItem === "function") loaded = app.sourceMonitor.getProjectItem();
+            else loaded = undefined;
+          } catch (eLoaded) { loaded = undefined; }
+          if (loaded === null) return __error("No clip is loaded in the Source Monitor. Open one with open_in_source first.");
           app.sourceMonitor.play(${speed});
           return __result({
             playbackRequested: true,
             playbackVerified: false,
             speed: ${speed},
+            clip: loaded ? loaded.name : null,
             verificationScope: "Premiere accepted the source-monitor playback request only; poll get_source_monitor_position before treating movement as confirmed."
           });
         `);

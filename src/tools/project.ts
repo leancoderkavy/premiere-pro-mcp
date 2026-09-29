@@ -641,9 +641,15 @@ export function getProjectTools(bridgeOptions: BridgeOptions) {
             description:
               "Name for the bars and tone item (default: 'Bars and Tone')",
           },
+          bin_id: {
+            type: "string",
+            description:
+              "Optional destination bin: node ID, slash-separated bin path from the project root, or bin name. The bin is resolved before anything is created; the item is moved there and its location read back.",
+          },
         },
       },
       handler: async (args: {
+        bin_id?: string;
         width?: number;
         height?: number;
         timebase?: string;
@@ -668,6 +674,9 @@ export function getProjectTools(bridgeOptions: BridgeOptions) {
           var timebase = parseFloat(${args.timebase ? `"${escapeForExtendScript(args.timebase)}"` : `seq ? seq.timebase : "254016000000"`});
           if (!isFinite(timebase) || timebase <= 0) return __error("A positive sequence timebase is required to create bars and tone.");
           var requestedName = "${escapeForExtendScript(name)}";
+          var targetBin = null;
+          ${args.bin_id !== undefined ? `targetBin = __findBin("${escapeForExtendScript(String(args.bin_id))}");
+          if (!targetBin) return __error("Bin not found: ${escapeForExtendScript(String(args.bin_id))}. Nothing was created.");` : ""}
           // newBarsAndTone does not reliably return a ProjectItem with name and
           // nodeId (issue #588), so diff the project tree to find what it made.
           var beforeIds = __collectNodeIds(app.project.rootItem, {});
@@ -691,12 +700,22 @@ export function getProjectTools(bridgeOptions: BridgeOptions) {
           }
           var itemName = requestedName;
           try { itemName = item.name; } catch (eName) {}
+          var binPlacement = null;
+          if (targetBin) {
+            try { item.moveBin(targetBin); } catch (eMove) {}
+            var inBin = false;
+            try { inBin = String(item.treePath).indexOf(String(targetBin.treePath) + "\\\\") === 0; } catch (eInBin) {}
+            binPlacement = { bin: targetBin.name, moved: inBin };
+          }
           var treePath = null;
           try { treePath = item.treePath; } catch (eTreePath) {}
+          var placedOk = !binPlacement || binPlacement.moved;
           return __result({
             created: true,
-            verified: true,
-            outcome: "verified",
+            verified: placedOk,
+            outcome: placedOk ? "verified" : "committed_unverified",
+            bin: binPlacement,
+            note: placedOk ? null : "The item was created but could not be confirmed in the requested bin; move it with move_item_to_bin.",
             name: itemName,
             nodeId: __nodeIdOf(item),
             treePath: treePath,

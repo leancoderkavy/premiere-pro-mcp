@@ -3,7 +3,7 @@
   "evidenceScope": "source_catalog_may_include_unreleased_work",
   "sourceVersion": "1.18.4",
   "sourcePath": "docs/supported-actions.md",
-  "sourceSha256": "a2562d5ece9e62d2d6e3fad6b98938f46390f782948c6c4928999fe0916bfc98",
+  "sourceSha256": "49e629e81290641dc3c5295576e46108a73f92b81062195de4196e8af2d506ad",
   "hostVerification": "not_established_by_catalogs",
   "counts": {
     "default": 382,
@@ -2001,7 +2001,7 @@
       "name": "play_source_monitor",
       "surface": "default",
       "modes": "Single operation",
-      "description": "Request playback of the clip in the Source Monitor. The legacy API does not provide a same-call position readback, so movement is not reported as verified."
+      "description": "Request playback of the clip in the Source Monitor. Fails when no clip is loaded. The legacy API does not provide a same-call position readback, so movement is not reported as verified."
     },
     {
       "name": "play_timeline",
