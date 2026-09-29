@@ -815,7 +815,7 @@ export function getUxpAdvancedWorkflowTools(bridge: UxpWebSocketBridge) {
     },
 
     edit_timeline_uxp: {
-      description: "Use the documented SequenceEditor to insert, overwrite, clone, remove, or insert MOGRT content without undocumented QE calls.",
+      description: "Use the documented SequenceEditor to insert, overwrite, clone, remove, or insert MOGRT content without undocumented QE calls. MOGRT inserts act on the active sequence and read the placement back: verified when a returned item starts at time_seconds (within one frame) on the requested video track, failed when nothing is there.",
       parameters: {
         type: "object" as const,
         additionalProperties: false,

@@ -3,7 +3,7 @@
   "evidenceScope": "source_catalog_may_include_unreleased_work",
   "sourceVersion": "1.18.4",
   "sourcePath": "docs/supported-actions.md",
-  "sourceSha256": "7a41fdfc4e61959bdaa8d7effdb6615687b5fc87f53f61a2592c837287e505de",
+  "sourceSha256": "a2562d5ece9e62d2d6e3fad6b98938f46390f782948c6c4928999fe0916bfc98",
   "hostVerification": "not_established_by_catalogs",
   "counts": {
     "default": 382,
@@ -657,7 +657,7 @@
       "name": "edit_timeline_uxp",
       "surface": "uxp",
       "modes": "insert, overwrite, clone_selection, remove_selection, insert_mogrt_path, insert_mogrt_library",
-      "description": "Use the documented SequenceEditor to insert, overwrite, clone, remove, or insert MOGRT content without undocumented QE calls."
+      "description": "Use the documented SequenceEditor to insert, overwrite, clone, remove, or insert MOGRT content without undocumented QE calls. MOGRT inserts act on the active sequence and read the placement back: verified when a returned item starts at time_seconds (within one frame) on the requested video track, failed when nothing is there."
     },
     {
       "name": "enable_disable_clip",

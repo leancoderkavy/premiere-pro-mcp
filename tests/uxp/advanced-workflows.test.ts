@@ -1262,13 +1262,47 @@ describe("advanced stable Premiere UXP workflows", () => {
       operation: { mutatesProject: true, undo: { supported: true } },
     });
     await expect(value.registry.dispatch("timeline.mogrtLibrary", {
-      libraryName: "Brand", elementName: "Lower Third", timeSeconds: 5,
+      libraryName: "Brand", elementName: "Lower Third", timeSeconds: 12,
       videoTrackIndex: 0, audioTrackIndex: 0, confirmNonUndoable: true,
     })).resolves.toMatchObject({
-      inserted: 1, source: "library", outcome: "committed_unverified", verified: false,
-      verificationBoundary: "sequence_editor_host_return",
+      inserted: 1, source: "library", outcome: "verified", verified: true,
+      verificationBoundary: "mogrt_placement_readback",
+      requested: { timeSeconds: 12, videoTrackIndex: 0 },
+      placements: [{ name: "Interview V", startSeconds: 12, endSeconds: 22 }],
     });
     expect(value.project.executeTransaction).toHaveBeenCalledTimes(2);
+  });
+
+  describe("MOGRT insert placement readback (#642)", () => {
+    it("verifies a path insert that lands at the requested time and track", async () => {
+      const value = advancedHost();
+      await expect(value.registry.dispatch("timeline.mogrtPath", {
+        filePath: "D:/Approved/lower-third.mogrt", timeSeconds: 10, videoTrackIndex: 0, audioTrackIndex: 0, confirmNonUndoable: true,
+      })).resolves.toMatchObject({ inserted: 1, source: "path", outcome: "verified", verificationBoundary: "mogrt_placement_readback" });
+    });
+
+    it("fails when nothing starts at the requested time", async () => {
+      const value = advancedHost();
+      await expect(value.registry.dispatch("timeline.mogrtPath", {
+        filePath: "D:/Approved/lower-third.mogrt", timeSeconds: 4, videoTrackIndex: 0, audioTrackIndex: 0, confirmNonUndoable: true,
+      })).rejects.toMatchObject({ code: "UXP_VERIFICATION_FAILED", message: expect.stringMatching(/no clip starts at 4 s on video track 0/) });
+    });
+
+    it("fails when Premiere returns no items and the track has nothing there", async () => {
+      const value = advancedHost();
+      value.ppro.SequenceEditor.getEditor().insertMogrtFromPath.mockReturnValueOnce([]);
+      await expect(value.registry.dispatch("timeline.mogrtPath", {
+        filePath: "D:/Approved/lower-third.mogrt", timeSeconds: 3, videoTrackIndex: 0, audioTrackIndex: 0, confirmNonUndoable: true,
+      })).rejects.toMatchObject({ code: "UXP_VERIFICATION_FAILED" });
+    });
+
+    it("stays committed_unverified when the track cannot be read back", async () => {
+      const value = advancedHost();
+      value.sequence.getVideoTrack.mockRejectedValueOnce(new Error("track read failed"));
+      await expect(value.registry.dispatch("timeline.mogrtPath", {
+        filePath: "D:/Approved/lower-third.mogrt", timeSeconds: 10, videoTrackIndex: 0, audioTrackIndex: 0, confirmNonUndoable: true,
+      })).resolves.toMatchObject({ outcome: "committed_unverified", note: expect.stringMatching(/could not be read back/) });
+    });
   });
 
   it("reads a bounded documented UXP timeline snapshot without falling back to CEP or mutating Premiere", async () => {

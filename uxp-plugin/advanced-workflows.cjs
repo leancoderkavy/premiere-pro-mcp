@@ -15,6 +15,7 @@
   const MAX_SEQUENCES = 1024;
   const MAX_BIN_CHILDREN = 1024;
   const MAX_TIMELINE_TRACKS = 64;
+  const MAX_TRACK_ITEMS_FOR_PLACEMENT = 2048;
   const MAX_TIMELINE_ITEMS = 512;
   const MAX_DISPLAY_FORMAT_CODE = 2147483647;
 
@@ -1716,15 +1717,72 @@
     async function insertMogrtPath(args) {
       assertObject(args); assertOnlyKeys(args, ["filePath", "timeSeconds", "videoTrackIndex", "audioTrackIndex", "confirmNonUndoable", "operationId"]);
       requireConfirmation(args.confirmNonUndoable, "MOGRT insertion is a direct SequenceEditor call without an Action boundary");
-      const context = await editorContext(false), path = await allowedPath(args.filePath, "filePath", "file"), values = Array.from(await context.editor.insertMogrtFromPath(path, tick(finiteNumber(args.timeSeconds, "timeSeconds", 0, 86400), "timeSeconds"), nonNegativeInt(args.videoTrackIndex, "videoTrackIndex"), nonNegativeInt(args.audioTrackIndex, "audioTrackIndex")) || []);
-      return directMutationResult(false, { inserted: values.length, source: "path" }, "sequence_editor_host_return");
+      const context = await editorContext(false), path = await allowedPath(args.filePath, "filePath", "file");
+      const seconds = finiteNumber(args.timeSeconds, "timeSeconds", 0, 86400), videoTrackIndex = nonNegativeInt(args.videoTrackIndex, "videoTrackIndex");
+      const values = Array.from(await context.editor.insertMogrtFromPath(path, tick(seconds, "timeSeconds"), videoTrackIndex, nonNegativeInt(args.audioTrackIndex, "audioTrackIndex")) || []);
+      return mogrtPlacementResult(context, values, seconds, videoTrackIndex, "path");
     }
 
     async function insertMogrtLibrary(args) {
       assertObject(args); assertOnlyKeys(args, ["libraryName", "elementName", "timeSeconds", "videoTrackIndex", "audioTrackIndex", "confirmNonUndoable", "operationId"]);
       requireConfirmation(args.confirmNonUndoable, "MOGRT insertion is a direct SequenceEditor call without an Action boundary");
-      const context = await editorContext(false), values = Array.from(await context.editor.insertMogrtFromLibrary(boundedString(args.libraryName, "libraryName", 255), boundedString(args.elementName, "elementName", 255), tick(finiteNumber(args.timeSeconds, "timeSeconds", 0, 86400), "timeSeconds"), nonNegativeInt(args.videoTrackIndex, "videoTrackIndex"), nonNegativeInt(args.audioTrackIndex, "audioTrackIndex")) || []);
-      return directMutationResult(false, { inserted: values.length, source: "library" }, "sequence_editor_host_return");
+      const context = await editorContext(false);
+      const seconds = finiteNumber(args.timeSeconds, "timeSeconds", 0, 86400), videoTrackIndex = nonNegativeInt(args.videoTrackIndex, "videoTrackIndex");
+      const values = Array.from(await context.editor.insertMogrtFromLibrary(boundedString(args.libraryName, "libraryName", 255), boundedString(args.elementName, "elementName", 255), tick(seconds, "timeSeconds"), videoTrackIndex, nonNegativeInt(args.audioTrackIndex, "audioTrackIndex")) || []);
+      return mogrtPlacementResult(context, values, seconds, videoTrackIndex, "library");
+    }
+
+    // The SequenceEditor return value is not proof of placement (#642). Read the
+    // returned items back and look for one starting at the requested time on the
+    // requested video track, within one frame.
+    async function mogrtPlacementResult(context, values, seconds, videoTrackIndex, source) {
+      const tolerance = await oneFrameSeconds(context.sequence);
+      const placements = [];
+      for (const item of values.slice(0, 16)) {
+        let startSeconds = null, endSeconds = null;
+        try { startSeconds = tickSeconds(await item.getStartTime()); endSeconds = tickSeconds(await item.getEndTime()); } catch (_) {}
+        placements.push({ name: await maybeCall(item, "getName"), startSeconds, endSeconds });
+      }
+      const returnedAtTime = placements.some((value) => value.startSeconds !== null && Math.abs(value.startSeconds - seconds) <= tolerance);
+      const onTrack = await videoTrackHasItemAt(context.sequence, videoTrackIndex, seconds, tolerance);
+      if (onTrack === false && !returnedAtTime) {
+        throw commandError("UXP_VERIFICATION_FAILED", "Premiere reported the MOGRT insert, but no clip starts at " + seconds + " s on video track " + videoTrackIndex + " and the returned items are elsewhere or missing. Inspect the timeline before retrying.");
+      }
+      const verified = onTrack === true && returnedAtTime;
+      const result = directMutationResult(verified, {
+        inserted: values.length, source, sequenceId: guidString(context.sequence.guid),
+        requested: { timeSeconds: seconds, videoTrackIndex }, placements
+      }, verified ? "mogrt_placement_readback" : "sequence_editor_host_return");
+      if (!verified) {
+        result.note = onTrack === null
+          ? "Premiere returned the inserted items, but video track " + videoTrackIndex + " could not be read back, so the placement was not confirmed."
+          : "The placement did not fully match the request. Check placements before editing further.";
+      }
+      return result;
+    }
+
+    async function oneFrameSeconds(sequence) {
+      try {
+        const ticks = Number(typeof sequence.getTimebase === "function" ? await sequence.getTimebase() : NaN);
+        if (Number.isFinite(ticks) && ticks > 0) return ticks / 254016000000 + 0.000001;
+      } catch (_) {}
+      return 1 / 23.976;
+    }
+
+    async function videoTrackHasItemAt(sequence, trackIndex, seconds, tolerance) {
+      try {
+        if (trackIndex >= await sequence.getVideoTrackCount()) return false;
+        const track = await sequence.getVideoTrack(trackIndex), itemType = ppro.Constants && ppro.Constants.TrackItemType;
+        if (!track || !itemType || itemType.CLIP == null || typeof track.getTrackItems !== "function") return null;
+        const items = Array.from(await track.getTrackItems(itemType.CLIP, false) || []);
+        for (const item of items.slice(0, MAX_TRACK_ITEMS_FOR_PLACEMENT)) {
+          const start = tickSeconds(await item.getStartTime());
+          if (start !== null && Math.abs(start - seconds) <= tolerance) return true;
+        }
+        return false;
+      } catch (_) {
+        return null;
+      }
     }
 
     async function inspectSequences(args) {
