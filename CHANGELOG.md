@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [1.18.5] - 2026-09-28
+
 ### Fixed
 
 - `unnest_sequence` refuses before any change when the nest is trimmed, speed-changed or reversed, a target track is locked, or the target range already holds a clip. It now overwrites each nested clip's exact source range in place instead of inserting it, which pushed later clips down the track and ignored each clip's in and out. It reads every clip back afterwards and reports "The timeline changed … Use Undo" on any mismatch. Effects, keyframes, and transitions inside the nest are not carried over; the description says so. (#642)
@@ -22,6 +24,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - `get_unused_media` and `get_duplicate_media` page their output with `offset`, `limit` (1-500, default 100), and a case-insensitive `contains` name filter, and return `total`, `returned`, `truncated`, and `nextOffset`. Large projects no longer return unbounded lists. (#642)
 - `get_duplicate_media` no longer groups different After Effects compositions imported from the same `.aep` or `.aepx` as duplicates. The same composition imported twice is still reported. (#642)
 - `get_project_panel_metadata` caps the returned XML at `max_chars` (256-200000, default 20000) and reports `truncated` and `totalChars`. Truncated XML is marked as unsafe to pass back to `set_project_panel_metadata`. (#642)
+
+### Verification scope
+
+- Automated checks validate package behavior. These changes follow live reports from Premiere 26.5.1 but have not been re-verified on a licensed Premiere host. The `unnest_sequence` and `replace_clip` overwrite path (`Track.overwriteClip` with source In/Out marks) has only been exercised against test fakes; its readback reports any host difference as a failure.
 
 ## [1.18.4] - 2026-09-28
 
