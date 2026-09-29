@@ -409,6 +409,22 @@ describe("advanced stable Premiere UXP workflows", () => {
     })).resolves.toMatchObject({ created: true, outcome: "verified", item: { name: "Selects" } });
   });
 
+  it("verifies project-item removal from the tree even when the removed item is still selected (#642)", async () => {
+    const value = advancedHost();
+    await expect(value.registry.dispatch("bins.remove", {
+      projectItemId: "clip-1", expectedName: "Interview.mov", operationId: "remove-clip",
+    })).resolves.toMatchObject({ removed: true, outcome: "verified", item: { id: "clip-1" } });
+    expect(value.bin.children).toEqual([]);
+  });
+
+  it("refuses project-item removal without an explicit projectItemId", async () => {
+    const value = advancedHost();
+    await expect(value.registry.dispatch("bins.remove", { expectedName: "Interview.mov" }))
+      .rejects.toMatchObject({ code: "UXP_INVALID_ARGUMENT", message: expect.stringMatching(/projectItemId is required/) });
+    expect(value.project.executeTransaction).not.toHaveBeenCalled();
+    expect(value.bin.children).toHaveLength(1);
+  });
+
   it("walks the native Project root in deterministic bounded order without reading beyond the requested tree", async () => {
     const value = advancedHost();
     await expect(value.registry.dispatch("projectTree.inspect", { maxItems: 2, maxDepth: 2 })).resolves.toMatchObject({
@@ -1939,7 +1955,8 @@ describe("advanced stable Premiere UXP workflows", () => {
       confirmExternalWrite: true, operationId: "encode-sequence",
     })).resolves.toMatchObject({
       queued: true, kind: "sequence", outcome: "committed_unverified", verified: false,
-      verificationBoundary: "encoder_host_return",
+      verificationBoundary: "encoder_host_return", ameQueueStarted: "unknown",
+      note: expect.stringMatching(/does not start it for you/),
       encodeJob: { jobId: "encode-sequence", state: "accepted", terminal: false },
     });
     expect(value.manager.exportSequence).toHaveBeenCalledWith(
@@ -1954,6 +1971,13 @@ describe("advanced stable Premiere UXP workflows", () => {
       timedOut: false,
       job: { state: "completed", terminal: true, verificationBoundary: "encoder_terminal_event_only" },
     });
+    const immediate = await value.registry.dispatch("encoder.sequence", {
+      sequenceId: "sequence-1", exportType: "immediately",
+      outputFile: "D:/Approved/now.mp4", presetFile: "D:/Approved/h264.epr",
+      confirmExternalWrite: true, operationId: "encode-now",
+    });
+    expect(immediate).toMatchObject({ queued: true, outcome: "committed_unverified" });
+    expect(immediate).not.toHaveProperty("ameQueueStarted");
 
     const noProject = advancedHost();
     noProject.ppro.Project.getActiveProject.mockResolvedValue(null);

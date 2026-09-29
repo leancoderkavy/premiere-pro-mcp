@@ -3,7 +3,7 @@
   "evidenceScope": "source_catalog_may_include_unreleased_work",
   "sourceVersion": "1.18.4",
   "sourcePath": "docs/supported-actions.md",
-  "sourceSha256": "2ece573898d87e05ee2f70513e15eabd8f687e25441397fbda515c60706624f9",
+  "sourceSha256": "7a41fdfc4e61959bdaa8d7effdb6615687b5fc87f53f61a2592c837287e505de",
   "hostVerification": "not_established_by_catalogs",
   "counts": {
     "default": 382,
@@ -735,7 +735,7 @@
       "name": "export_frame_uxp",
       "surface": "uxp",
       "modes": "Single operation",
-      "description": "Export a sequence frame through Premiere's supported UXP Exporter and verify the output file in the host panel."
+      "description": "Export a sequence frame through Premiere's supported UXP Exporter, then check in the host panel that the PNG exists. Returns outcome verified when a new file is found, committed_unverified when UXP storage cannot check or the file already existed, and fails when no file was written."
     },
     {
       "name": "export_interchange_uxp",
@@ -1863,7 +1863,7 @@
       "name": "organize_project_items_uxp",
       "surface": "uxp",
       "modes": "inspect_bin, create_bin, create_smart_bin, rename, move, set_color, remove",
-      "description": "Inspect a bin or transactionally create, rename, move, color-label, and remove project items with stable-ID guards."
+      "description": "Inspect a bin or transactionally create, rename, move, color-label, and remove project items with stable-ID guards. Remove requires project_item_id (it never uses the Project panel selection) and verifies the item is gone from the project tree."
     },
     {
       "name": "overwrite_clip",
@@ -2151,7 +2151,7 @@
       "name": "refresh_media",
       "surface": "default",
       "modes": "Single operation",
-      "description": "Refresh a project item to pick up changes to the source file"
+      "description": "Refresh a project item to pick up changes to the source file. The interpreted frame rate is read before and after; if the refresh leaves an implausible rate (seen on stills, e.g. 29.97 becoming 2.75e-8), the previous rate is restored and read back. Reports frameRateBefore, frameRateAfter and repaired."
     },
     {
       "name": "relink_media",

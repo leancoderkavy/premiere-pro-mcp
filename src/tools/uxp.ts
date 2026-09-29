@@ -989,7 +989,7 @@ export function getUxpTools(bridge: UxpWebSocketBridge) {
       }),
     },
     export_frame_uxp: {
-      description: "Export a sequence frame through Premiere's supported UXP Exporter and verify the output file in the host panel.",
+      description: "Export a sequence frame through Premiere's supported UXP Exporter, then check in the host panel that the PNG exists. Returns outcome verified when a new file is found, committed_unverified when UXP storage cannot check or the file already existed, and fails when no file was written.",
       parameters: {
         type: "object" as const,
         properties: {

@@ -87,10 +87,12 @@ describe("UXP bridge protocol", () => {
     expect(restoreAt).toBeLessThan(autoConnectAt);
     expect(panel).toContain("persistBridgeSession(configuredUrl, token)");
   });
-  it("keeps the one-extension normalization in the panel's direct frame-export path", () => {
+  it("routes the panel's frame export through the registry handler that checks the output file", () => {
     const panel = readFileSync(new URL("../../uxp-plugin/index.cjs", import.meta.url), "utf8");
-    expect(panel).toContain("const exporterFilename = Protocol.exporterFrameName(filename);");
-    expect(panel).toContain("exportSequenceFrame(sequence, position, exporterFilename, outputDirectory, width, height)");
+    expect(panel).toContain('return commandRegistry.dispatch("frame.export", args);');
+    expect(panel).not.toContain("exportSequenceFrame(");
+    const commands = readFileSync(new URL("../../uxp-plugin/commands.cjs", import.meta.url), "utf8");
+    expect(commands).toContain("const exporterFilename = Protocol.exporterFrameName(filename);");
   });
 
   it("describes verification, undo, transaction, and cancellation boundaries", () => {

@@ -350,7 +350,7 @@ export function getUxpAdvancedWorkflowTools(bridge: UxpWebSocketBridge) {
     },
 
     organize_project_items_uxp: {
-      description: "Inspect a bin or transactionally create, rename, move, color-label, and remove project items with stable-ID guards.",
+      description: "Inspect a bin or transactionally create, rename, move, color-label, and remove project items with stable-ID guards. Remove requires project_item_id (it never uses the Project panel selection) and verifies the item is gone from the project tree.",
       parameters: {
         type: "object" as const,
         additionalProperties: false,

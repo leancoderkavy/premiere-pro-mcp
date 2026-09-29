@@ -6,6 +6,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Fixed
+
+- `export_frame_uxp` checks that the PNG exists after Premiere's exporter returns. It fails when no file was written, reports the real path when the host names the file differently (with or without the `.png` extension), and reports `committed_unverified` when UXP storage cannot check or the file already existed before the export. The panel's direct frame-export path now uses the same handler. (#642)
+- `encode_media_uxp` results for jobs sent to Adobe Media Encoder carry `ameQueueStarted: "unknown"` and a note. Premiere 26.5.1 accepted UXP encodes into the Media Encoder queue without starting it. The tool does not start the queue through CEP; the note points to Media Encoder or `start_batch_encode`. (#642)
+- `organize_project_items_uxp` remove verifies absence by walking the project tree instead of checking the Project panel selection first, which could still hold the removed item and turned a successful removal into `committed_unverified`. Remove now requires `project_item_id` and never falls back to the selection. (#642)
+- `refresh_media` reads the interpreted frame rate before and after the refresh. When the refresh leaves an implausible rate (reported on stills as 29.97 becoming 2.75e-8), it restores the previous rate, reads it back, and reports `repaired: true`; if the restore does not stick, it fails with the manual fix. A real rate change from the source file is kept. (#642)
+
 ## [1.18.4] - 2026-09-28
 
 ### Fixed

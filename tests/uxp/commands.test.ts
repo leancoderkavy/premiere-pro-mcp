@@ -320,6 +320,55 @@ describe("UXP command registry", () => {
     expect(value.exportedFrames).toEqual(["frame"]);
   });
 
+  describe("frame export output check (#642)", () => {
+    function withFiles(initial: string[], written: (filename: string) => string[]) {
+      const value = host();
+      const files = new Set(initial);
+      value.exportSequenceFrame.mockImplementation(async (_sequence: unknown, _position: unknown, filename: string) => {
+        for (const path of written(filename)) files.add(path);
+        return true;
+      });
+      const fileExists = vi.fn(async (path: string) => files.has(path));
+      const registry = Commands.createCommandRegistry({ ppro: value.ppro, Protocol, fileExists });
+      return { registry, fileExists };
+    }
+
+    it("verifies the PNG exists after the export", async () => {
+      const { registry } = withFiles([], (stem) => [`C:/approved/${stem}.png`]);
+      await expect(registry.dispatch("frame.export", { outputDirectory: "C:/approved", filename: "frame.png" }))
+        .resolves.toMatchObject({
+          path: "C:/approved/frame.png", outcome: "verified", verificationBoundary: "output_file_exists",
+          operation: { verification: { status: "verified", boundary: "output_file_exists" } },
+        });
+    });
+
+    it("fails when Premiere returns true but writes no file", async () => {
+      const { registry } = withFiles([], () => []);
+      await expect(registry.dispatch("frame.export", { outputDirectory: "C:/approved", filename: "frame.png" }))
+        .rejects.toMatchObject({ code: "UXP_VERIFICATION_FAILED", message: expect.stringMatching(/no file was written at C:\/approved\/frame\.png/) });
+    });
+
+    it("reports the real path when the host does not append the extension", async () => {
+      const { registry } = withFiles([], (stem) => [`C:/approved/${stem}`]);
+      const result = await registry.dispatch("frame.export", { outputDirectory: "C:/approved", filename: "frame.png" });
+      expect(result).toMatchObject({ path: "C:/approved/frame", outcome: "verified" });
+      expect(result.warning).toMatch(/instead of C:\/approved\/frame\.png/);
+    });
+
+    it("does not count a file that existed before the export", async () => {
+      const { registry } = withFiles(["C:/approved/frame.png"], () => []);
+      const result = await registry.dispatch("frame.export", { outputDirectory: "C:/approved", filename: "frame.png" });
+      expect(result).toMatchObject({ path: "C:/approved/frame.png", outcome: "committed_unverified" });
+      expect(result.note).toMatch(/already existed/);
+    });
+
+    it("reports committed_unverified when UXP storage is unavailable", async () => {
+      const value = host();
+      await expect(value.registry.dispatch("frame.export", { outputDirectory: "C:/approved", filename: "frame.png" }))
+        .resolves.toMatchObject({ outcome: "committed_unverified", note: expect.stringMatching(/could not check/) });
+    });
+  });
+
   it("does not report a frame path when Premiere rejects the export", async () => {
     const value = host();
     value.exportSequenceFrame.mockResolvedValueOnce(false);

@@ -270,7 +270,7 @@ export function getMediaTools(bridgeOptions: BridgeOptions) {
     },
 
     refresh_media: {
-      description: "Refresh a project item to pick up changes to the source file",
+      description: "Refresh a project item to pick up changes to the source file. The interpreted frame rate is read before and after; if the refresh leaves an implausible rate (seen on stills, e.g. 29.97 becoming 2.75e-8), the previous rate is restored and read back. Reports frameRateBefore, frameRateAfter and repaired.",
       parameters: {
         type: "object" as const,
         properties: {
@@ -285,8 +285,33 @@ export function getMediaTools(bridgeOptions: BridgeOptions) {
         const script = buildToolScript(`
           var item = __findProjectItem("${escapeForExtendScript(args.item_id)}");
           if (!item) return __error("Item not found: ${escapeForExtendScript(args.item_id)}");
+          // Some hosts corrupt the interpreted frame rate of stills on refresh
+          // (#642). Snapshot it, and restore it only when the new value is not a
+          // usable rate, so a real change in the source file is kept.
+          var readRate = function () {
+            try {
+              var interp = item.getFootageInterpretation();
+              var rate = interp ? Number(interp.frameRate) : NaN;
+              return isFinite(rate) ? rate : null;
+            } catch (eRate) { return null; }
+          };
+          var usableRate = function (rate) { return rate !== null && rate >= 1 && rate <= 1000; };
+          var before = readRate();
           item.refreshMedia();
-          return __result({ refreshed: true, item: item.name });
+          var after = readRate();
+          if (!usableRate(before) || usableRate(after)) {
+            return __result({ refreshed: true, item: item.name, frameRateBefore: before, frameRateAfter: after, repaired: false });
+          }
+          try {
+            var restore = item.getFootageInterpretation();
+            restore.frameRate = before;
+            item.setFootageInterpretation(restore);
+          } catch (eRestore) {}
+          var restored = readRate();
+          if (restored === null || Math.abs(restored - before) > 0.001) {
+            return __error("refresh_media refreshed " + item.name + ", but its frame rate changed from " + before + " to " + after + " and could not be restored (read back " + restored + "). Set it with set_footage_interpretation frame_rate " + before + ".");
+          }
+          return __result({ refreshed: true, item: item.name, frameRateBefore: before, frameRateAfter: restored, frameRateAfterRefresh: after, repaired: true });
         `);
         return sendCommand(script, bridgeOptions);
       },

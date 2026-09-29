@@ -1204,10 +1204,75 @@
       const position = args.seconds == null ? await context.sequence.getPlayerPosition() : await tickTime(args.seconds, "seconds");
       const size = await context.sequence.getFrameSize();
       const width = positiveInt(args.width, size.width, "width"), height = positiveInt(args.height, size.height, "height");
+      const before = await frameOutputsBefore(outputDirectory, filename, exporterFilename);
       const returned = await ppro.Exporter.exportSequenceFrame(context.sequence, position, exporterFilename, outputDirectory, width, height);
       if (returned !== true) throw commandError("UXP_VERIFICATION_FAILED", "Premiere did not confirm frame export; no output path is reported");
-      const path = Protocol.joinPath(outputDirectory, filename);
-      return { path, width, height, seconds: position.seconds, exporterResult: returned };
+      const expectedPath = Protocol.joinPath(outputDirectory, filename);
+      const output = await locateFrameOutput(outputDirectory, filename, exporterFilename);
+      if (output.found === false) {
+        throw commandError("UXP_VERIFICATION_FAILED", "Premiere reported the frame export as done, but no file was written at " + expectedPath);
+      }
+      // A file that was already there before the export proves nothing.
+      const preexisting = output.found === true && before.indexOf(output.path) !== -1;
+      const verified = output.found === true && !preexisting;
+      const result = {
+        path: output.found === true ? output.path : expectedPath, width, height, seconds: position.seconds, exporterResult: returned,
+        outcome: verified ? "verified" : "committed_unverified",
+        verificationBoundary: verified ? "output_file_exists" : "exporter_return_value",
+        operation: operationSemantics({
+          mutatesProject: false,
+          verificationStatus: verified ? "verified" : "not_verified",
+          verificationBoundary: verified ? "output_file_exists" : "exporter_return_value",
+          verificationEvidence: verified ? [{ type: "file_exists", path: output.path }] : [{ type: "host_return", value: returned }],
+          cancellationSupported: true
+        })
+      };
+      if (output.found === true && output.path !== expectedPath) {
+        result.warning = "Premiere wrote the frame as " + output.path + " instead of " + expectedPath + "; use the reported path.";
+      }
+      if (preexisting) {
+        result.note = "A file already existed at " + output.path + " before the export, so this run could not confirm Premiere overwrote it.";
+      } else if (!verified) {
+        result.note = "UXP storage could not check the output folder on this host, so the file was not confirmed.";
+      }
+      return result;
+    }
+    async function frameOutputsBefore(outputDirectory, filename, exporterFilename) {
+      const existing = [];
+      for (const name of [filename, exporterFilename, exporterFilename + ".png.png"]) {
+        const candidatePath = Protocol.joinPath(outputDirectory, name);
+        if (await outputFileExists(candidatePath)) existing.push(candidatePath);
+      }
+      return existing;
+    }
+    // The exporter appends ".png" to the bare stem on most builds, but #642
+    // reported 26.5.1 needing the full name. Look for every name the host could
+    // have produced instead of trusting the return value.
+    async function locateFrameOutput(outputDirectory, filename, exporterFilename) {
+      for (const name of [filename, exporterFilename, exporterFilename + ".png.png"]) {
+        const candidatePath = Protocol.joinPath(outputDirectory, name);
+        const exists = await outputFileExists(candidatePath);
+        if (exists === null) return { found: null };
+        if (exists) return { found: true, path: candidatePath };
+      }
+      return { found: false };
+    }
+    async function outputFileExists(path) {
+      if (typeof deps.fileExists === "function") return !!(await deps.fileExists(path));
+      let fs = null;
+      try {
+        const uxp = require("uxp");
+        fs = uxp && uxp.storage && uxp.storage.localFileSystem;
+      } catch (_) { return null; }
+      if (!fs || typeof fs.getEntryWithUrl !== "function") return null;
+      const normalized = String(path).replace(/\\/g, "/");
+      const url = /^[A-Za-z]:\//.test(normalized) ? "file:/" + normalized : "file:" + normalized;
+      try {
+        const entry = await fs.getEntryWithUrl(url);
+        return !!(entry && !entry.isFolder);
+      } catch (_) {
+        return false;
+      }
     }
     async function liftSelection(args) {
       const input = validateLiftArgs(args), context = await activeContext(true);

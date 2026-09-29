@@ -264,12 +264,16 @@
       return items;
     }
 
-    async function findProjectItem(project, wantedId) {
+    async function findProjectItem(project, wantedId, options) {
       const id = boundedString(wantedId, "projectItemId", 512);
-      try {
-        const selected = await selectedProjectItems(project);
-        for (const item of selected) if (await projectItemId(item) === id) return item;
-      } catch (_) {}
+      // The selection is a fast path for finding a live item, but it can still
+      // hold an item that was just removed, so absence checks skip it.
+      if (!(options && options.treeOnly)) {
+        try {
+          const selected = await selectedProjectItems(project);
+          for (const item of selected) if (await projectItemId(item) === id) return item;
+        } catch (_) {}
+      }
       const root = await project.getRootItem(), queue = root ? [root] : [];
       let visited = 0;
       while (queue.length) {
@@ -778,7 +782,9 @@
 
     async function removeProjectItem(args) {
       assertObject(args); assertOnlyKeys(args, ["projectItemId", "expectedName", "operationId"]);
-      const project = await activeProject(true), item = await resolveProjectItem(project, args.projectItemId, true), before = await projectItemSnapshot(item);
+      // Removal is destructive, so it never falls back to whatever is selected.
+      if (args.projectItemId == null) throw commandError("UXP_INVALID_ARGUMENT", "projectItemId is required to remove a project item");
+      const project = await activeProject(true), item = await findProjectItem(project, args.projectItemId), before = await projectItemSnapshot(item);
       assertExpected(before.name, args.expectedName, "UXP_STALE_PROJECT_ITEM", "Project item name");
       let parent = await project.getRootItem();
       try { if (typeof item.getParentBin === "function") parent = asFolder(await item.getParentBin(), "current parent"); } catch (_) {}
@@ -786,7 +792,7 @@
         commitActions(project, "Remove project item", [parent.createRemoveItemAction(item)]);
       });
       let verified = false;
-      try { await findProjectItem(project, before.id); } catch (error) { if (error && error.code === "UXP_TARGET_NOT_FOUND") verified = true; }
+      try { await findProjectItem(project, before.id, { treeOnly: true }); } catch (error) { if (error && error.code === "UXP_TARGET_NOT_FOUND") verified = true; }
       return mutationResult(verified, { removed: true, item: before }, "project_item_absence_readback", "Remove project item");
     }
 
@@ -2007,7 +2013,7 @@
       const accepted = await runTrackedEncode(job, function () {
         return manager.exportSequence(sequence, exportType(args.exportType), output, preset, optionalBoolean(args.exportFull, true, "exportFull"));
       }, "Premiere rejected sequence export");
-      return externalWriteResult({ queued: true, kind: "sequence", sequence: await sequenceSnapshot(sequence), outputFile: output, encodeJob: accepted });
+      return withAmeQueueNote(externalWriteResult({ queued: true, kind: "sequence", sequence: await sequenceSnapshot(sequence), outputFile: output, encodeJob: accepted }), args.exportType === "queueToAme");
     }
 
     async function encodeProjectItem(args) {
@@ -2018,7 +2024,7 @@
       const accepted = await runTrackedEncode(job, function () {
         return manager.encodeProjectItem(clip, output, preset, boundedInt(args.workArea == null ? 0 : args.workArea, "workArea", 0, 16), optionalBoolean(args.removeUponCompletion, false, "removeUponCompletion"), optionalBoolean(args.startQueueImmediately, true, "startQueueImmediately"));
       }, "Premiere rejected project-item encode");
-      return externalWriteResult({ queued: true, kind: "projectItem", projectItemId: await projectItemId(clip), outputFile: output, encodeJob: accepted });
+      return withAmeQueueNote(externalWriteResult({ queued: true, kind: "projectItem", projectItemId: await projectItemId(clip), outputFile: output, encodeJob: accepted }), true);
     }
 
     async function encodeFile(args) {
@@ -2030,7 +2036,7 @@
       const accepted = await runTrackedEncode(job, function () {
         return manager.encodeFile(input, output, preset, tick(start), tick(end), boundedInt(args.workArea == null ? 0 : args.workArea, "workArea", 0, 16), optionalBoolean(args.removeUponCompletion, false, "removeUponCompletion"), optionalBoolean(args.startQueueImmediately, true, "startQueueImmediately"));
       }, "Premiere rejected file encode");
-      return externalWriteResult({ queued: true, kind: "file", outputFile: output, encodeJob: accepted });
+      return withAmeQueueNote(externalWriteResult({ queued: true, kind: "file", outputFile: output, encodeJob: accepted }), true);
     }
 
     function inspectEncoderJobs(args) {
@@ -2099,6 +2105,18 @@
     function directSequenceCreationResult(verified, values, boundary) {
       return { ...values, outcome: verified ? "verified" : "committed_unverified", verified, verificationBoundary: boundary,
         operation: operationSemantics({ mutatesProject: true, verificationStatus: verified ? "verified" : "not_verified", verificationBoundary: boundary, verificationEvidence: [{ type: boundary, verified }], undoSupported: false, cancellationSupported: false }) };
+    }
+
+    // Premiere 26.5.1 accepted UXP encode requests into the Media Encoder queue
+    // without starting it (#642). Say so instead of implying a render is running,
+    // and leave starting the queue to the caller: a UXP result must not trigger CEP.
+    function withAmeQueueNote(result, sentToAme) {
+      if (!sentToAme) return result;
+      return {
+        ...result,
+        ameQueueStarted: "unknown",
+        note: "Premiere accepted the job into the Adobe Media Encoder queue. Some Premiere builds leave that queue stopped. If encode_media_uxp action wait shows no progress, start the queue in Media Encoder or with the start_batch_encode tool. This tool does not start it for you, and the output file is not checked."
+      };
     }
 
     function externalWriteResult(values) {
