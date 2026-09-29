@@ -1770,7 +1770,7 @@ export function getTrackTargetingTools(bridgeOptions: BridgeOptions) {
 
     set_scale_width_height: {
       description:
-        "Set independent Scale Width and Scale Height on a clip (requires Uniform Scale to be OFF).",
+        "Set independent width and height scale on a clip. Turns Uniform Scale off, writes Motion > Scale Width (width) and Motion > Scale (which Premiere uses as the height once Uniform Scale is off), then reads all three back. Fails when a value does not read back.",
       parameters: {
         type: "object" as const,
         properties: {
@@ -1780,11 +1780,11 @@ export function getTrackTargetingTools(bridgeOptions: BridgeOptions) {
           },
           scale_width: {
             type: "number",
-            description: "Scale width percentage",
+            description: "Scale width percentage (0-10000)",
           },
           scale_height: {
             type: "number",
-            description: "Scale height percentage",
+            description: "Scale height percentage (0-10000). Written to Motion > Scale, which is the height when Uniform Scale is off.",
           },
         },
         required: ["node_id", "scale_width", "scale_height"],
@@ -1794,6 +1794,11 @@ export function getTrackTargetingTools(bridgeOptions: BridgeOptions) {
         scale_width: number;
         scale_height: number;
       }) => {
+        for (const [name, value] of [["scale_width", args.scale_width], ["scale_height", args.scale_height]] as const) {
+          if (typeof value !== "number" || !Number.isFinite(value) || value < 0 || value > 10000) {
+            return { success: false, error: `${name} must be a number from 0 to 10000.` };
+          }
+        }
         const script = buildToolScript(`
           var result = __findClip("${escapeForExtendScript(args.node_id)}");
           if (!result) return __error("Clip not found");
@@ -1805,22 +1810,50 @@ export function getTrackTargetingTools(bridgeOptions: BridgeOptions) {
           }
           if (!motion) return __error("Motion component not found");
 
-          // Disable uniform scale first
+          // With Uniform Scale off, Premiere keeps the height in "Scale" and the
+          // width in "Scale Width"; there is no separate "Scale Height" (#642).
+          var uniform = null, height = null, width = null;
           for (var p = 0; p < motion.properties.numItems; p++) {
-            if (motion.properties[p].displayName === "Uniform Scale") {
-              motion.properties[p].setValue(false, true);
-              break;
-            }
+            var prop = motion.properties[p];
+            if (prop.displayName === "Uniform Scale") uniform = prop;
+            else if (prop.displayName === "Scale Width") width = prop;
+            else if (prop.displayName === "Scale Height" || (prop.displayName === "Scale" && !height)) height = prop;
+          }
+          if (!uniform || !width || !height) {
+            return __error("Motion is missing Uniform Scale, Scale Width, or Scale on this Premiere build. Nothing was changed.");
           }
 
-          var setW = false, setH = false;
-          for (var p = 0; p < motion.properties.numItems; p++) {
-            var pName = motion.properties[p].displayName;
-            if (pName === "Scale Width") { motion.properties[p].setValue(${args.scale_width}, true); setW = true; }
-            if (pName === "Scale Height") { motion.properties[p].setValue(${args.scale_height}, true); setH = true; }
+          var readNumber = function (target) {
+            try { var v = Number(target.getValue()); return isFinite(v) ? v : null; } catch (eRead) { return null; }
+          };
+          var before = { uniformScale: null, scaleWidth: readNumber(width), scaleHeight: readNumber(height) };
+          try { before.uniformScale = !!uniform.getValue(); } catch (eUniform) {}
+
+          try {
+            uniform.setValue(false, true);
+            width.setValue(${args.scale_width}, true);
+            height.setValue(${args.scale_height}, true);
+          } catch (eSet) {
+            return __error("Premiere rejected the scale update: " + eSet.toString() + ". The clip may be partly changed; check it or use Undo.");
           }
 
-          return __result({ clip: clip.name, scaleWidth: ${args.scale_width}, scaleHeight: ${args.scale_height}, widthSet: setW, heightSet: setH });
+          var uniformAfter = null;
+          try { uniformAfter = !!uniform.getValue(); } catch (eUniformAfter) {}
+          var after = { uniformScale: uniformAfter, scaleWidth: readNumber(width), scaleHeight: readNumber(height) };
+          var widthOk = after.scaleWidth !== null && Math.abs(after.scaleWidth - ${args.scale_width}) <= 0.01;
+          var heightOk = after.scaleHeight !== null && Math.abs(after.scaleHeight - ${args.scale_height}) <= 0.01;
+          if (after.uniformScale !== false || !widthOk || !heightOk) {
+            return __error("The scale update did not read back: Uniform Scale " + after.uniformScale + ", width " + after.scaleWidth + " (wanted ${args.scale_width}), height " + after.scaleHeight + " (wanted ${args.scale_height}). The clip may be partly changed; check it or use Undo.");
+          }
+          return __result({
+            clip: clip.name,
+            scaleWidth: after.scaleWidth,
+            scaleHeight: after.scaleHeight,
+            uniformScale: false,
+            before: before,
+            verified: true,
+            outcome: "verified"
+          });
         `);
         return sendCommand(script, bridgeOptions);
       },

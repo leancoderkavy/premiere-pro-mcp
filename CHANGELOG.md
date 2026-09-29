@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Fixed
+
+- `set_scale_width_height` never set the height. It wrote to a "Scale Height" property that Premiere's Motion effect does not have, then reported success. With Uniform Scale off, Premiere keeps the height in Motion > Scale. The tool now writes the width to Scale Width and the height to Scale, reads all three values back, fails when any does not match, and rejects values outside 0-10000 before building a script. (#642)
+
 ### Changed
 
 - The website moved to its own repository, [leancoderkavy/premiere-pro-mcp-site](https://github.com/leancoderkavy/premiere-pro-mcp-site), and is served at `https://premiere-pro-mcp.com`. It reads versions and tool counts from the published npm package and syncs them on its own, so releases here no longer update website files.
