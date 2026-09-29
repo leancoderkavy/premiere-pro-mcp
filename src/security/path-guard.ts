@@ -57,7 +57,12 @@ export function findSymlinkedSegment(value: string): string | null {
     current = flavor.join(current, part);
     let stats;
     try { stats = lstatSync(current); } catch { return null; }
-    if (stats.isSymbolicLink() && !isSystemLink(current)) return current;
+    if (stats.isSymbolicLink()) {
+      if (!isSystemLink(current)) return current;
+      // Keep walking below /tmp, /var and /etc: lstat of later segments
+      // resolves through the calibration link and still sees user links.
+      continue;
+    }
     if (!stats.isDirectory()) return null;
   }
   return null;
