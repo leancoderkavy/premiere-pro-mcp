@@ -105,7 +105,22 @@
       fail("UXP_TARGET_UNSUPPORTED", "Could not resolve source parent; Premiere did not expose getParentBin for " + itemId);
     }
     function tick(value) { return ppro.TickTime.createWithSeconds(secs(value)); }
-    async function id(item) { if (!item) return ""; if (item.getId) return String(await item.getId()); if (item.getGuid) return String(await item.getGuid()); return ""; }
+    async function id(item) {
+      if (!item) return "";
+      let value = "";
+      if (typeof item.getId === "function") value = guidString(await item.getId());
+      if (!value && typeof item.getGuid === "function") value = guidString(await item.getGuid());
+      // Project and Sequence expose a Guid property on supported Premiere hosts.
+      return value || guidString(item.guid);
+    }
+    function guidString(value) {
+      if (value == null) return "";
+      try {
+        const text = typeof value === "string" ? value : typeof value.toString === "function" ? value.toString() : "";
+        if (typeof text !== "string" || !text.trim() || text === "[object Object]" || text === "null" || text === "undefined" || text.length > 512 || text.indexOf("\u0000") !== -1) return "";
+        return text;
+      } catch (_) { return ""; }
+    }
     async function snap(item) { return item ? { id: await id(item), name: String(item.name || "") } : null; }
     async function snaps(items) { const out = []; for (const item of items) out.push(await snap(item)); return out; }
     function partial(boundary, items, sequence, inserted) { return Promise.all([snaps(items), snap(sequence)]).then(function (x) { return receipt({ created: !!sequence, partial: true, createdSubclips: x[0], sequence: x[1], insertedProjectItemIds: inserted, originalSourcesChanged: false, renderVerified: false }, boundary); }); }
