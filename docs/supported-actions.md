@@ -101,7 +101,7 @@ operation” when the tool has no enum-based mode.
 | `create_sequence` | Default profile | Single operation | Create a new sequence in the project |
 | `create_sequence_checkpoint` | Default profile | Single operation | Clone a sequence into a named '[checkpoint]' copy before a risky edit and return a diff_sequence_snapshots-compatible snapshot of the original. Verifies the clone exists with matching track and clip counts, re-activates the original, and never deletes or overwrites anything. |
 | `create_sequence_from_clips` | Default profile | Single operation | Create a new sequence by automatically placing project items in order |
-| `create_sequence_from_preset` | Default profile | Single operation | Create a new sequence from a specific preset file (.sqpreset) |
+| `create_sequence_from_preset` | Default profile | Single operation | Create a new sequence from a specific preset file (.sqpreset). Reports success only after a new sequence ID appears in the project collection; a same-name sequence that was already active is not treated as created. |
 | `create_smart_bin` | Default profile | Single operation | Create a smart bin (search bin) in the project panel |
 | `create_subclip` | Default profile | Single operation | Create a subclip from a project item with in/out points |
 | `create_subsequence` | Default profile | Single operation | Create a separate subsequence from selected clips or a time range. This Premiere API does not replace the original timeline clips with a nested-sequence reference. |

@@ -1239,6 +1239,41 @@ describe("issue #326 — sequence creation requires project-collection readback"
     expect(script).toContain("no creation success is reported");
     expect(script).toContain("verified: true");
   });
+
+  it("applies the same new-ID readback to create_sequence_from_preset", async () => {
+    const script = await scriptFor(sequence.create_sequence_from_preset, {
+      name: "Interview", preset_path: "/tmp/sequence.sqpreset",
+    });
+    expect(script).toContain("var beforeSequenceIds = {}");
+    expect(script).toContain("if (beforeSequenceIds[sequenceId])");
+    expect(script).toContain("did not create a new sequence");
+    expect(script).toContain("var created = __findSequence(sequenceId)");
+    expect(script).toContain("no creation success is reported");
+    expect(script).toContain("verified: true");
+  });
+
+  it("fails closed when create_sequence_from_preset would claim the already-active sequence", async () => {
+    const existing = { name: "Interview", sequenceID: "seq-existing" };
+    const sequences = new Proxy({}, {
+      get: (_t, k) => (k === "numSequences" ? 1 : existing),
+    });
+    mockedSendCommand.mockImplementation(async (script: string) =>
+      JSON.parse(String(runInNewContext(`${getHelpersSource()}\n${script}`, {
+        app: {
+          enableQE() {},
+          project: { sequences, activeSequence: existing },
+        },
+        qe: { project: { newSequence() {} } },
+      }))));
+
+    await expect(sequence.create_sequence_from_preset.handler({
+      name: "Interview",
+      preset_path: "/tmp/sequence.sqpreset",
+    })).resolves.toMatchObject({
+      success: false,
+      error: expect.stringContaining("already existed before the preset request"),
+    });
+  });
 });
 
 // https://github.com/leancoderkavy/premiere-pro-mcp/issues/327
