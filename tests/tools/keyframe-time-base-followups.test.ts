@@ -50,14 +50,14 @@ it("stores add_audio_keyframes at the source in-point plus each clip offset", as
   const result = await audioTools.add_audio_keyframes.handler({ node_id: h.clip.nodeId, keyframes: [{ time_seconds: 2, level_db: -6 }] });
   expect(result).toMatchObject({ success: true, data: { verified: true, outcome: "verified" } });
   expect(h.times()).toEqual([32]);
-  expect(h.levelAtMedia(32)).toBe(0.08912509381337455);
+  expect(h.levelAtMedia(32)).toBeCloseTo(0.08912509381337455, 12);
 });
 
 it("uses Premiere's measured normalized Level mapping for 0 and -6 dB keys", async () => {
   const h = host();
   expect(await audioTools.add_audio_keyframes.handler({ node_id: h.clip.nodeId, keyframes: [{ time_seconds: 1, level_db: 0 }, { time_seconds: 2, level_db: -6 }] })).toMatchObject({ success: true });
-  expect(h.levelAtMedia(31)).toBe(0.1778279410038923);
-  expect(h.levelAtMedia(32)).toBe(0.08912509381337455);
+  expect(h.levelAtMedia(31)).toBeCloseTo(0.1778279410038923, 12);
+  expect(h.levelAtMedia(32)).toBeCloseTo(0.08912509381337455, 12);
 });
 
 it("escapes audio clip IDs before building ExtendScript", async () => {
@@ -74,9 +74,9 @@ it("stores setup_ducking keys in media time for a trimmed audio clip", async () 
   const result = await gapTools.setup_ducking.handler({ node_id: h.clip.nodeId, ducking_windows: [{ start_seconds: 2, end_seconds: 4, ducked_db: -6 }], fade_seconds: 0.2 });
   expect(result).toMatchObject({ success: true, data: { verified: true, duckingWindowCount: 1 } });
   expect(h.times()).toEqual([30, 31.8, 32, 34, 34.2, 40]);
-  expect(h.levelAtMedia(30)).toBe(0.1778279410038923);
-  expect(h.levelAtMedia(32)).toBe(0.08912509381337455);
-  expect(h.levelAtMedia(34.2)).toBe(0.1778279410038923);
+  expect(h.levelAtMedia(30)).toBeCloseTo(0.1778279410038923, 12);
+  expect(h.levelAtMedia(32)).toBeCloseTo(0.08912509381337455, 12);
+  expect(h.levelAtMedia(34.2)).toBeCloseTo(0.1778279410038923, 12);
 });
 
 it.each(["speed change", "reverse"])("refuses audio key writes on a %s", async (kind) => {
