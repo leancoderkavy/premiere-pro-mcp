@@ -492,7 +492,7 @@ export function getAudioTools(bridgeOptions: BridgeOptions) {
       handler: async (args: { node_id: string; keyframes: Array<{ time_seconds: number; level_db: number }> }) => {
         if (!Array.isArray(args.keyframes) || args.keyframes.length === 0 || args.keyframes.some((kf) =>
           !kf || !Number.isFinite(kf.time_seconds) || kf.time_seconds < 0 || !Number.isFinite(kf.level_db) || kf.level_db > PREMIERE_MAX_LEVEL_DB || !Number.isFinite(dbToPremiereLevel(kf.level_db)))) {
-          return { success: false, error: "keyframes must contain finite non-negative times and representable finite levels" };
+          return { success: false, error: "keyframes must contain finite non-negative times and level_db must be at most +15 dB (Premiere's maximum clip level)" };
         }
         // Premiere stores audio Level as amplitude ratio (0-1+), not dB.
         // Convert: amp = 10^(dB/20). Clamp very low values to a small epsilon

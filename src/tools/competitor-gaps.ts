@@ -517,13 +517,13 @@ export function getCompetitorGapTools(
         const baseDb = args.base_db ?? 0;
         const fadeSeconds = args.fade_seconds ?? 0.2;
         if (!args.node_id || !finiteNumber(baseDb) || baseDb > PREMIERE_MAX_LEVEL_DB || !Number.isFinite(dbToPremiereLevel(baseDb)) || !finiteNumber(fadeSeconds) || fadeSeconds <= 0 || !Array.isArray(args.ducking_windows) || args.ducking_windows.length > 32) {
-          return { success: false, error: "node_id, a finite base_db, 0–32 ducking windows, and a finite positive fade_seconds are required." };
+          return { success: false, error: "node_id, base_db at most +15 dB (Premiere's maximum clip level), 0–32 ducking windows, and a finite positive fade_seconds are required." };
         }
         const windows = args.ducking_windows.map((window, index) => ({ ...window, index })).sort((left, right) => left.start_seconds - right.start_seconds);
         for (let index = 0; index < windows.length; index++) {
           const window = windows[index];
           if (!finiteNonNegativeNumber(window.start_seconds) || !finiteNonNegativeNumber(window.end_seconds) || !finiteNumber(window.ducked_db) || window.ducked_db > PREMIERE_MAX_LEVEL_DB || !Number.isFinite(dbToPremiereLevel(window.ducked_db)) || window.end_seconds <= window.start_seconds) {
-            return { success: false, error: `ducking_windows[${window.index}] needs finite non-negative bounds with end_seconds greater than start_seconds, plus a finite ducked_db.` };
+            return { success: false, error: `ducking_windows[${window.index}] needs finite non-negative bounds with end_seconds greater than start_seconds and ducked_db at most +15 dB (Premiere's maximum clip level).` };
           }
           if (index > 0 && window.start_seconds < windows[index - 1].end_seconds) {
             return { success: false, error: "ducking_windows must not overlap; merge intersecting windows before applying automation." };
