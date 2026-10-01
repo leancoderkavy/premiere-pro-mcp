@@ -1,5 +1,6 @@
 import { buildToolScript, escapeForExtendScript } from "../bridge/script-builder.js";
 import { sendCommand, BridgeOptions } from "../bridge/file-bridge.js";
+import { dbToPremiereLevel, PREMIERE_MAX_LEVEL_DB } from "./audio.js";
 import type { UxpWebSocketBridge } from "../bridge/uxp-websocket-bridge.js";
 
 type BatchTimelineClip = {
@@ -491,7 +492,7 @@ export function getCompetitorGapTools(
         additionalProperties: false,
         properties: {
           node_id: { type: "string", minLength: 1, maxLength: 512, description: "Timeline audio-clip node ID." },
-          base_db: { type: "number", description: "Normal clip level in dB (defaults to 0)." },
+          base_db: { type: "number", description: "Normal clip level in dB (defaults to 0; maximum +15 dB)." },
           ducking_windows: {
             type: "array",
             minItems: 0,
@@ -503,7 +504,7 @@ export function getCompetitorGapTools(
               properties: {
                 start_seconds: { type: "number", minimum: 0, description: "Window start, relative to clip start." },
                 end_seconds: { type: "number", minimum: 0, description: "Window end, relative to clip start." },
-                ducked_db: { type: "number", description: "Level during the window, in dB." },
+                ducked_db: { type: "number", description: "Level during the window, in dB (maximum +15 dB)." },
               },
               required: ["start_seconds", "end_seconds", "ducked_db"],
             },
@@ -515,13 +516,13 @@ export function getCompetitorGapTools(
       handler: async (args: { node_id: string; base_db?: number; ducking_windows: DuckingWindow[]; fade_seconds?: number }) => {
         const baseDb = args.base_db ?? 0;
         const fadeSeconds = args.fade_seconds ?? 0.2;
-        if (!args.node_id || !finiteNumber(baseDb) || !Number.isFinite(Math.pow(10, baseDb / 20)) || !finiteNumber(fadeSeconds) || fadeSeconds <= 0 || !Array.isArray(args.ducking_windows) || args.ducking_windows.length > 32) {
+        if (!args.node_id || !finiteNumber(baseDb) || baseDb > PREMIERE_MAX_LEVEL_DB || !Number.isFinite(dbToPremiereLevel(baseDb)) || !finiteNumber(fadeSeconds) || fadeSeconds <= 0 || !Array.isArray(args.ducking_windows) || args.ducking_windows.length > 32) {
           return { success: false, error: "node_id, a finite base_db, 0–32 ducking windows, and a finite positive fade_seconds are required." };
         }
         const windows = args.ducking_windows.map((window, index) => ({ ...window, index })).sort((left, right) => left.start_seconds - right.start_seconds);
         for (let index = 0; index < windows.length; index++) {
           const window = windows[index];
-          if (!finiteNonNegativeNumber(window.start_seconds) || !finiteNonNegativeNumber(window.end_seconds) || !finiteNumber(window.ducked_db) || !Number.isFinite(Math.pow(10, window.ducked_db / 20)) || window.end_seconds <= window.start_seconds) {
+          if (!finiteNonNegativeNumber(window.start_seconds) || !finiteNonNegativeNumber(window.end_seconds) || !finiteNumber(window.ducked_db) || window.ducked_db > PREMIERE_MAX_LEVEL_DB || !Number.isFinite(dbToPremiereLevel(window.ducked_db)) || window.end_seconds <= window.start_seconds) {
             return { success: false, error: `ducking_windows[${window.index}] needs finite non-negative bounds with end_seconds greater than start_seconds, plus a finite ducked_db.` };
           }
           if (index > 0 && window.start_seconds < windows[index - 1].end_seconds) {
@@ -529,6 +530,9 @@ export function getCompetitorGapTools(
           }
         }
         const emittedWindows = windows.map((window) => `{ startSeconds: ${window.start_seconds}, endSeconds: ${window.end_seconds}, duckedDb: ${window.ducked_db} }`).join(", ");
+        const emittedLevelAmplitudes = Array.from(new Set([baseDb, ...windows.map((window) => window.ducked_db)]))
+          .map((db) => `${JSON.stringify(String(db))}: ${Math.max(dbToPremiereLevel(db), 0.0000001)}`)
+          .join(", ");
 
         const script = buildToolScript(`
           var found = __findClip("${escapeForExtendScript(args.node_id)}");
@@ -575,6 +579,7 @@ export function getCompetitorGapTools(
             putKey(window.endSeconds + ${fadeSeconds}, ${baseDb});
           }
           putKey(duration, ${baseDb});
+          var levelAmplitudes = { ${emittedLevelAmplitudes} };
           var keys = [];
           for (var rawKey in keyMap) if (keyMap.hasOwnProperty(rawKey)) keys.push(keyMap[rawKey]);
           keys.sort(function(left, right) { return left.seconds - right.seconds; });
@@ -586,7 +591,7 @@ export function getCompetitorGapTools(
           for (i = 0; i < keys.length; i++) {
             var key = keys[i];
             var time = __clipKeyTime(base, key.seconds);
-            var amplitude = Math.max(Math.pow(10, key.db / 20), 0.0000001);
+            var amplitude = levelAmplitudes[String(key.db)];
             try { level.addKey(time); } catch (addKeyError) {}
             var wrote = false;
             try { level.setValueAtKey(time, amplitude, 1); wrote = true; } catch (atKeyError) {

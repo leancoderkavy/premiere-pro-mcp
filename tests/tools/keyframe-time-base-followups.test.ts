@@ -35,7 +35,12 @@ function host(options: { speed?: number; reverse?: boolean; missingKeys?: boolea
   send.mockImplementation(async (script) => JSON.parse(String(runInNewContext(`${getHelpersSource()}\n${script}`, {
     app: { project: { activeSequence: sequence } }, Time,
   }))));
-  return { clip, prop, times: () => Array.from(values.keys()).sort((a, b) => a - b).map((ticks) => ticks / TICKS) };
+  return {
+    clip,
+    prop,
+    times: () => Array.from(values.keys()).sort((a, b) => a - b).map((ticks) => ticks / TICKS),
+    levelAtMedia: (seconds: number) => values.get(Math.round(seconds * TICKS)),
+  };
 }
 
 beforeEach(() => vi.resetAllMocks());
@@ -45,6 +50,14 @@ it("stores add_audio_keyframes at the source in-point plus each clip offset", as
   const result = await audioTools.add_audio_keyframes.handler({ node_id: h.clip.nodeId, keyframes: [{ time_seconds: 2, level_db: -6 }] });
   expect(result).toMatchObject({ success: true, data: { verified: true, outcome: "verified" } });
   expect(h.times()).toEqual([32]);
+  expect(h.levelAtMedia(32)).toBe(0.08912509381337455);
+});
+
+it("uses Premiere's measured normalized Level mapping for 0 and -6 dB keys", async () => {
+  const h = host();
+  expect(await audioTools.add_audio_keyframes.handler({ node_id: h.clip.nodeId, keyframes: [{ time_seconds: 1, level_db: 0 }, { time_seconds: 2, level_db: -6 }] })).toMatchObject({ success: true });
+  expect(h.levelAtMedia(31)).toBe(0.1778279410038923);
+  expect(h.levelAtMedia(32)).toBe(0.08912509381337455);
 });
 
 it("escapes audio clip IDs before building ExtendScript", async () => {
@@ -58,9 +71,12 @@ it("escapes audio clip IDs before building ExtendScript", async () => {
 
 it("stores setup_ducking keys in media time for a trimmed audio clip", async () => {
   const h = host();
-  const result = await gapTools.setup_ducking.handler({ node_id: h.clip.nodeId, ducking_windows: [{ start_seconds: 2, end_seconds: 4, ducked_db: -20 }], fade_seconds: 0.2 });
+  const result = await gapTools.setup_ducking.handler({ node_id: h.clip.nodeId, ducking_windows: [{ start_seconds: 2, end_seconds: 4, ducked_db: -6 }], fade_seconds: 0.2 });
   expect(result).toMatchObject({ success: true, data: { verified: true, duckingWindowCount: 1 } });
   expect(h.times()).toEqual([30, 31.8, 32, 34, 34.2, 40]);
+  expect(h.levelAtMedia(30)).toBe(0.1778279410038923);
+  expect(h.levelAtMedia(32)).toBe(0.08912509381337455);
+  expect(h.levelAtMedia(34.2)).toBe(0.1778279410038923);
 });
 
 it.each(["speed change", "reverse"])("refuses audio key writes on a %s", async (kind) => {
@@ -82,12 +98,20 @@ it.each([
   { label: "nonfinite time", keyframes: [{ time_seconds: Number.NaN, level_db: 0 }] },
   { label: "negative time", keyframes: [{ time_seconds: -1, level_db: 0 }] },
   { label: "nonfinite level", keyframes: [{ time_seconds: 2, level_db: Number.POSITIVE_INFINITY }] },
+  { label: "level above Premiere maximum", keyframes: [{ time_seconds: 2, level_db: 16 }] },
 ])("rejects $label audio key batches before dispatch", async ({ keyframes }) => {
   const h = host();
   const result = await audioTools.add_audio_keyframes.handler({ node_id: h.clip.nodeId, keyframes } as never);
   expect(result).toMatchObject({ success: false });
   expect(send).not.toHaveBeenCalled();
   expect(h.times()).toEqual([]);
+});
+
+it("rejects ducking levels above Premiere's +15 dB maximum before dispatch", async () => {
+  const h = host();
+  expect(await gapTools.setup_ducking.handler({ node_id: h.clip.nodeId, base_db: 16, ducking_windows: [] })).toMatchObject({ success: false });
+  expect(await gapTools.setup_ducking.handler({ node_id: h.clip.nodeId, ducking_windows: [{ start_seconds: 2, end_seconds: 4, ducked_db: 16 }] })).toMatchObject({ success: false });
+  expect(send).not.toHaveBeenCalled();
 });
 
 it("rejects a key beyond clip duration in the host script without writing", async () => {

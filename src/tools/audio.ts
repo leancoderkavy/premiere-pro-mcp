@@ -12,9 +12,9 @@ const FFMPEG_TIMEOUT_MS = 300_000;
 
 // Premiere stores Volume > Level as a normalized value, not a linear gain.
 // Its maximum value (1) represents +15 dB, so 0 dB is 10^(-15/20).
-const PREMIERE_MAX_LEVEL_DB = 15;
+export const PREMIERE_MAX_LEVEL_DB = 15;
 
-function dbToPremiereLevel(db: number): number {
+export function dbToPremiereLevel(db: number): number {
   return Math.pow(10, (db - PREMIERE_MAX_LEVEL_DB) / 20);
 }
 
@@ -480,7 +480,7 @@ export function getAudioTools(bridgeOptions: BridgeOptions) {
               type: "object",
               properties: {
                 time_seconds: { type: "number", description: "Time in seconds relative to clip start" },
-                level_db: { type: "number", description: "Audio level in dB" },
+                level_db: { type: "number", description: "Audio level in dB (maximum +15 dB)" },
               },
               required: ["time_seconds", "level_db"],
             },
@@ -491,7 +491,7 @@ export function getAudioTools(bridgeOptions: BridgeOptions) {
       },
       handler: async (args: { node_id: string; keyframes: Array<{ time_seconds: number; level_db: number }> }) => {
         if (!Array.isArray(args.keyframes) || args.keyframes.length === 0 || args.keyframes.some((kf) =>
-          !kf || !Number.isFinite(kf.time_seconds) || kf.time_seconds < 0 || !Number.isFinite(kf.level_db) || !Number.isFinite(Math.pow(10, kf.level_db / 20)))) {
+          !kf || !Number.isFinite(kf.time_seconds) || kf.time_seconds < 0 || !Number.isFinite(kf.level_db) || kf.level_db > PREMIERE_MAX_LEVEL_DB || !Number.isFinite(dbToPremiereLevel(kf.level_db)))) {
           return { success: false, error: "keyframes must contain finite non-negative times and representable finite levels" };
         }
         // Premiere stores audio Level as amplitude ratio (0-1+), not dB.
@@ -499,7 +499,7 @@ export function getAudioTools(bridgeOptions: BridgeOptions) {
         // so AddKey accepts them (a true 0 sometimes silently fails).
         const keyframeCode = args.keyframes
           .map((kf) => {
-            const amp = Math.max(Math.pow(10, kf.level_db / 20), 0.0000001);
+            const amp = Math.max(dbToPremiereLevel(kf.level_db), 0.0000001);
             return `
             (function() {
               var t = __clipKeyTime(base, ${kf.time_seconds});
