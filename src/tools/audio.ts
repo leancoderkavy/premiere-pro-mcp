@@ -490,6 +490,10 @@ export function getAudioTools(bridgeOptions: BridgeOptions) {
         required: ["node_id", "keyframes"],
       },
       handler: async (args: { node_id: string; keyframes: Array<{ time_seconds: number; level_db: number }> }) => {
+        if (!Array.isArray(args.keyframes) || args.keyframes.length === 0 || args.keyframes.some((kf) =>
+          !kf || !Number.isFinite(kf.time_seconds) || kf.time_seconds < 0 || !Number.isFinite(kf.level_db) || !Number.isFinite(Math.pow(10, kf.level_db / 20)))) {
+          return { success: false, error: "keyframes must contain finite non-negative times and representable finite levels" };
+        }
         // Premiere stores audio Level as amplitude ratio (0-1+), not dB.
         // Convert: amp = 10^(dB/20). Clamp very low values to a small epsilon
         // so AddKey accepts them (a true 0 sometimes silently fails).
@@ -498,15 +502,22 @@ export function getAudioTools(bridgeOptions: BridgeOptions) {
             const amp = Math.max(Math.pow(10, kf.level_db / 20), 0.0000001);
             return `
             (function() {
-              var t = new Time();
-              t.ticks = __secondsToTicks(${kf.time_seconds}).toString();
+              var t = __clipKeyTime(base, ${kf.time_seconds});
               var wrote = false;
               try { levelProp.addKey(t); } catch(e1) {}
               try { levelProp.setValueAtKey(t, ${amp}, 1); wrote = true; }
               catch(e2) { try { levelProp.setValueAtTime(t, ${amp}, 1); wrote = true; } catch(e3) {} }
               var readBack = NaN;
               try { readBack = Number(levelProp.getValueAtTime(t)); } catch(e4) {}
-              if (!wrote || isNaN(readBack) || Math.abs(readBack - ${amp}) > 0.0001) {
+              var hasKey = false;
+              try {
+                var stored = levelProp.getKeys();
+                for (var k = 0; stored && k < stored.length; k++) {
+                  if (Math.abs(Number(stored[k].ticks) - Number(t.ticks)) < 1) hasKey = true;
+                }
+              } catch (keysError) {}
+              if (hasKey) timelineChanged = true;
+              if (!wrote || !hasKey || !isFinite(readBack) || Math.abs(readBack - ${amp}) > 0.0001) {
                 verificationErrors.push("${kf.time_seconds}s requested ${amp}, read back " + readBack);
               }
             })();`;
@@ -535,15 +546,19 @@ export function getAudioTools(bridgeOptions: BridgeOptions) {
           }
 
           if (!levelProp) return __error("Could not find audio Level property");
+          var base = __clipKeyframeBase(clip);
+          if (!base.ok) return __error(base.error);
+          if (${Math.max(...args.keyframes.map((kf) => kf.time_seconds))} > base.durationSeconds) return __error("Keyframe time exceeds clip duration; nothing was changed.");
 
           var verificationErrors = [];
-          try { levelProp.setTimeVarying(true); } catch(e) {}
+          var timelineChanged = false;
+          try { levelProp.setTimeVarying(true); } catch(e) { return __jsonStringify({ success: false, error: "Could not enable keyframes; inspect the clip before retrying.", data: { outcome: "committed_unverified", verified: false } }); }
           ${keyframeCode}
 
           if (verificationErrors.length) {
-            return __error("Premiere did not apply one or more audio keyframes: " + verificationErrors.join("; ") + ". Effect-property writes are known to no-op on some Premiere Pro 26.3 installations.");
+            return __jsonStringify({ success: false, error: "Premiere did not apply one or more audio keyframes: " + verificationErrors.join("; ") + ". Inspect the clip before retrying.", data: { outcome: "committed_unverified", verified: false, timelineChanged: timelineChanged } });
           }
-          return __result({ keyframesAdded: ${args.keyframes.length}, verified: true, clipName: clip.name });
+          return __result({ keyframesAdded: ${args.keyframes.length}, verified: true, outcome: "verified", clipName: clip.name });
         `);
         return sendCommand(script, bridgeOptions);
       },

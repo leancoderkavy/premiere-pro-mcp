@@ -152,7 +152,7 @@ describe("audio tool analysis coverage", () => {
 
     await tools.add_audio_keyframes.handler({
       node_id: "clip",
-      keyframes: [{ time_seconds: 1.25, level_db: -Infinity }],
+      keyframes: [{ time_seconds: 1.25, level_db: -7000 }],
     });
     expect(mockedSendCommand.mock.calls.at(-1)?.[0]).toContain("1e-7");
 

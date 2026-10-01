@@ -697,7 +697,8 @@ describe("Tool Handler Behavior", () => {
         keyframes: [{ time_seconds: 1.5, level_db: -12 }],
       });
       const script = mockedSendCommand.mock.calls[0][0];
-      expect(script).toContain("new Time()");
+      expect(script).toContain("__clipKeyframeBase(clip)");
+      expect(script).toContain("__clipKeyTime(base, 1.5)");
       expect(script).toContain("getValueAtTime(t)");
       expect(script).toContain("verificationErrors");
     });

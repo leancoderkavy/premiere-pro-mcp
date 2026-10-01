@@ -515,13 +515,13 @@ export function getCompetitorGapTools(
       handler: async (args: { node_id: string; base_db?: number; ducking_windows: DuckingWindow[]; fade_seconds?: number }) => {
         const baseDb = args.base_db ?? 0;
         const fadeSeconds = args.fade_seconds ?? 0.2;
-        if (!args.node_id || !finiteNumber(baseDb) || !finiteNumber(fadeSeconds) || fadeSeconds <= 0 || !Array.isArray(args.ducking_windows) || args.ducking_windows.length > 32) {
+        if (!args.node_id || !finiteNumber(baseDb) || !Number.isFinite(Math.pow(10, baseDb / 20)) || !finiteNumber(fadeSeconds) || fadeSeconds <= 0 || !Array.isArray(args.ducking_windows) || args.ducking_windows.length > 32) {
           return { success: false, error: "node_id, a finite base_db, 0–32 ducking windows, and a finite positive fade_seconds are required." };
         }
         const windows = args.ducking_windows.map((window, index) => ({ ...window, index })).sort((left, right) => left.start_seconds - right.start_seconds);
         for (let index = 0; index < windows.length; index++) {
           const window = windows[index];
-          if (!finiteNonNegativeNumber(window.start_seconds) || !finiteNonNegativeNumber(window.end_seconds) || !finiteNumber(window.ducked_db) || window.end_seconds <= window.start_seconds) {
+          if (!finiteNonNegativeNumber(window.start_seconds) || !finiteNonNegativeNumber(window.end_seconds) || !finiteNumber(window.ducked_db) || !Number.isFinite(Math.pow(10, window.ducked_db / 20)) || window.end_seconds <= window.start_seconds) {
             return { success: false, error: `ducking_windows[${window.index}] needs finite non-negative bounds with end_seconds greater than start_seconds, plus a finite ducked_db.` };
           }
           if (index > 0 && window.start_seconds < windows[index - 1].end_seconds) {
@@ -535,7 +535,9 @@ export function getCompetitorGapTools(
           if (!found) return __error("Clip not found: ${escapeForExtendScript(args.node_id)}");
           if (found.trackType !== "audio") return __error("setup_ducking only supports audio timeline clips. Target the music or SFX audio clip, not its linked video clip.");
           var clip = found.clip;
-          var duration = __ticksToSeconds(clip.duration.ticks);
+          var base = __clipKeyframeBase(clip);
+          if (!base.ok) return __error(base.error);
+          var duration = base.durationSeconds;
           if (!isFinite(duration) || duration <= 0) return __error("The audio clip has no readable positive duration; no automation was written.");
           var windows = [${emittedWindows}];
           var i;
@@ -580,10 +582,10 @@ export function getCompetitorGapTools(
             return __error("Premiere could not enable Level keyframes: " + varyingError.toString());
           }
           var verified = [];
+          var timelineChanged = false;
           for (i = 0; i < keys.length; i++) {
             var key = keys[i];
-            var time = new Time();
-            time.ticks = __secondsToTicks(key.seconds).toString();
+            var time = __clipKeyTime(base, key.seconds);
             var amplitude = Math.max(Math.pow(10, key.db / 20), 0.0000001);
             try { level.addKey(time); } catch (addKeyError) {}
             var wrote = false;
@@ -592,8 +594,16 @@ export function getCompetitorGapTools(
             }
             var actual = NaN;
             try { actual = Number(level.getValueAtTime(time)); } catch (readError) {}
-            if (!wrote || isNaN(actual) || Math.abs(actual - amplitude) > 0.0001) {
-              return __error("Premiere did not verify audio keyframe " + i + " at " + key.seconds + "s. Earlier keyframes may exist; inspect Volume > Level before retrying.");
+            var hasKey = false;
+            try {
+              var stored = level.getKeys();
+              for (var k = 0; stored && k < stored.length; k++) {
+                if (Math.abs(Number(stored[k].ticks) - Number(time.ticks)) < 1) hasKey = true;
+              }
+            } catch (keysError) {}
+            if (hasKey) timelineChanged = true;
+            if (!wrote || !hasKey || !isFinite(actual) || Math.abs(actual - amplitude) > 0.0001) {
+              return __jsonStringify({ success: false, error: "Premiere did not verify audio keyframe " + i + " at " + key.seconds + "s. Earlier keyframes may exist; inspect Volume > Level before retrying.", data: { outcome: "committed_unverified", verified: false, timelineChanged: timelineChanged || verified.length > 0 } });
             }
             verified.push({ timeSeconds: key.seconds, levelDb: key.db, amplitude: actual });
           }

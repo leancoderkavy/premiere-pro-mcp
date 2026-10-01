@@ -405,23 +405,26 @@ function buildApplyScript(plan: SpotWorkflowPlan): string {
         if (__propertyNameMatches(property.displayName, "Scale", motionComponent)) { scaleProperty = property; break; }
       }
       if (!scaleProperty) return { applied: false, verified: false, reason: "Motion Scale property was not available on the placed clip" };
-      var start = __ticksToSeconds(clip.start.ticks);
-      var end = __ticksToSeconds(clip.end.ticks) - 0.1;
+      var base = __clipKeyframeBase(clip);
+      if (!base.ok) return { applied: false, verified: false, reason: base.error };
+      var start = 0;
+      var end = base.durationSeconds - 0.1;
       if (end <= start) return { applied: false, verified: false, reason: "Placed clip is too short for the requested scale motion" };
       var range = scaleRange("${plan.motion_style}", index);
+      var motionWriteAttempted = false;
       try {
-        if (!scaleProperty.isTimeVarying()) scaleProperty.setTimeVarying(true);
-        var startTime = new Time(); startTime.ticks = __secondsToTicks(start).toString();
-        var endTime = new Time(); endTime.ticks = __secondsToTicks(end).toString();
-        scaleProperty.addKey(startTime); scaleProperty.setValueAtKey(startTime, range.from, true);
-        scaleProperty.addKey(endTime); scaleProperty.setValueAtKey(endTime, range.to, true);
+        if (!scaleProperty.isTimeVarying()) { scaleProperty.setTimeVarying(true); motionWriteAttempted = true; }
+        var startTime = __clipKeyTime(base, start);
+        var endTime = __clipKeyTime(base, end);
+        scaleProperty.addKey(startTime); motionWriteAttempted = true; scaleProperty.setValueAtKey(startTime, range.from, true);
+        scaleProperty.addKey(endTime); motionWriteAttempted = true; scaleProperty.setValueAtKey(endTime, range.to, true);
         var readStart = scaleProperty.getValueAtKey(startTime);
         var readEnd = scaleProperty.getValueAtKey(endTime);
-        if (typeof readStart === "number" && Math.abs(readStart - range.from) > 0.0001) throw new Error("start keyframe readback differed");
-        if (typeof readEnd === "number" && Math.abs(readEnd - range.to) > 0.0001) throw new Error("end keyframe readback differed");
+        if (typeof readStart !== "number" || !isFinite(readStart) || Math.abs(readStart - range.from) > 0.0001) throw new Error("start keyframe readback differed");
+        if (typeof readEnd !== "number" || !isFinite(readEnd) || Math.abs(readEnd - range.to) > 0.0001) throw new Error("end keyframe readback differed");
         return { applied: true, verified: true, startSeconds: start, endSeconds: end, from: range.from, to: range.to };
       } catch (motionError) {
-        return { applied: false, verified: false, reason: String(motionError) };
+        return { applied: false, verified: false, outcome: "committed_unverified", timelineChanged: motionWriteAttempted, reason: String(motionError) };
       }
     }
     var motionResults = [];
