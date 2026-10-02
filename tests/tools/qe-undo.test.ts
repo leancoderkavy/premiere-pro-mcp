@@ -23,6 +23,13 @@ const targeting = getTrackTargetingTools(bridgeOptions);
 
 beforeEach(() => vi.clearAllMocks());
 
+it("refuses undo and redo without a current stack index", async () => {
+  await expect(project.undo.handler({})).resolves.toMatchObject({ success: false, error: expect.stringContaining("required") });
+  await expect(targeting.redo.handler({})).resolves.toMatchObject({ success: false, error: expect.stringContaining("required") });
+  await expect(targeting.multiple_undo.handler({ count: 2 })).resolves.toMatchObject({ success: false, error: expect.stringContaining("required") });
+  expect(mockedSendCommand).not.toHaveBeenCalled();
+});
+
 function run(context: Record<string, unknown>) {
   mockedSendCommand.mockImplementation(async (script: string) =>
     JSON.parse(String(runInNewContext(`${getHelpersSource()}\n${script}`, context))));
@@ -44,7 +51,7 @@ function undoHost(index: number, top: number, extra: Record<string, unknown> = {
 describe("undo, redo and multiple_undo step QE's undo stack and check its position", () => {
   it("undoes one action and reports the stack indices (live: 367 -> 366)", async () => {
     const stack = undoHost(367, 367);
-    const result = await project.undo.handler({});
+    const result = await project.undo.handler({ expected_undo_stack_index: 367 });
     expect(result).toMatchObject({
       success: true,
       data: { undone: 1, undoStackIndexBefore: 367, undoStackIndexAfter: 366, stackStatus: "stack_verified", stackVerified: true },
@@ -56,7 +63,7 @@ describe("undo, redo and multiple_undo step QE's undo stack and check its positi
 
   it("redoes one action", async () => {
     undoHost(366, 367);
-    await expect(targeting.redo.handler({})).resolves.toMatchObject({
+    await expect(targeting.redo.handler({ expected_undo_stack_index: 366 })).resolves.toMatchObject({
       success: true,
       data: { redone: 1, undoStackIndexAfter: 367, stackVerified: true },
     });
@@ -64,7 +71,7 @@ describe("undo, redo and multiple_undo step QE's undo stack and check its positi
 
   it("multiple_undo that runs out part way reports the committed steps as committed_unverified, not a plain failure", async () => {
     undoHost(2, 5);
-    await expect(targeting.multiple_undo.handler({ count: 3 })).resolves.toMatchObject({
+    await expect(targeting.multiple_undo.handler({ count: 3, expected_undo_stack_index: 2 })).resolves.toMatchObject({
       success: true,
       data: {
         undone: 2, undoStackIndexAfter: 0, stackStatus: "did_not_move", outcome: "committed_unverified", stackVerified: false,
@@ -75,7 +82,7 @@ describe("undo, redo and multiple_undo step QE's undo stack and check its positi
 
   it("reports nothing to redo when the stack is already at the top", async () => {
     undoHost(5, 5);
-    await expect(targeting.redo.handler({})).resolves.toMatchObject({
+    await expect(targeting.redo.handler({ expected_undo_stack_index: 5 })).resolves.toMatchObject({
       success: false,
       error: expect.stringContaining("Nothing to redo"),
       data: { stackStatus: "did_not_move", redone: 0 },
@@ -85,7 +92,7 @@ describe("undo, redo and multiple_undo step QE's undo stack and check its positi
   it("does not undo at all on a host without undoStackIndex", async () => {
     const undo = vi.fn();
     run({ app: { enableQE: () => {} }, qe: { project: { undo } } });
-    await expect(project.undo.handler({ count: 2 })).resolves.toMatchObject({
+    await expect(project.undo.handler({ count: 2, expected_undo_stack_index: 0 })).resolves.toMatchObject({
       success: false,
       error: expect.stringContaining("undoStackIndex"),
     });
@@ -96,7 +103,7 @@ describe("undo, redo and multiple_undo step QE's undo stack and check its positi
 describe("an undo that moves the stack unexpectedly is never reported as nothing happening", () => {
   it("a jump of two (10 -> 8) is committed_unverified and says not to retry", async () => {
     const stack = undoHost(10, 10, { undo: () => { stack.index -= 2; return true; } });
-    const result = await project.undo.handler({});
+    const result = await project.undo.handler({ expected_undo_stack_index: 10 });
     expect(result).toMatchObject({
       success: true,
       data: { outcome: "committed_unverified", stackStatus: "moved_unexpectedly", stackVerified: false, undone: 0, undoStackIndexAfter: 8, warning: expect.stringContaining("Do not retry") },
@@ -106,7 +113,7 @@ describe("an undo that moves the stack unexpectedly is never reported as nothing
 
   it("a move the wrong way is committed_unverified", async () => {
     const stack = undoHost(10, 20, { undo: () => { stack.index += 1; return true; } });
-    await expect(targeting.multiple_undo.handler({ count: 2 })).resolves.toMatchObject({
+    await expect(targeting.multiple_undo.handler({ count: 2, expected_undo_stack_index: 10 })).resolves.toMatchObject({
       success: true,
       data: { outcome: "committed_unverified", stackStatus: "moved_unexpectedly", undoStackIndexAfter: 11 },
     });
@@ -115,9 +122,9 @@ describe("an undo that moves the stack unexpectedly is never reported as nothing
   it("an index that cannot be read after the step is committed_unverified", async () => {
     let reads = 0;
     const stack = undoHost(10, 10, {
-      undoStackIndex: () => { reads += 1; if (reads > 1) throw new Error("gone"); return stack.index; },
+      undoStackIndex: () => { reads += 1; if (reads > 2) throw new Error("gone"); return stack.index; }, // SEC FORK: guard consumes read 1
     });
-    await expect(project.undo.handler({})).resolves.toMatchObject({
+    await expect(project.undo.handler({ expected_undo_stack_index: 10 })).resolves.toMatchObject({
       success: true,
       data: { outcome: "committed_unverified", stackStatus: "index_unreadable", stackVerified: false },
     });
@@ -126,7 +133,7 @@ describe("an undo that moves the stack unexpectedly is never reported as nothing
   it("a step Premiere rejects after earlier steps is committed_unverified with the count that ran", async () => {
     let calls = 0;
     const stack = undoHost(10, 10, { undo: () => { calls += 1; if (calls === 2) throw new Error("busy"); stack.index -= 1; return true; } });
-    await expect(targeting.multiple_undo.handler({ count: 3 })).resolves.toMatchObject({
+    await expect(targeting.multiple_undo.handler({ count: 3, expected_undo_stack_index: 10 })).resolves.toMatchObject({
       success: true,
       data: { stackStatus: "rejected", undone: 1, undoStackIndexAfter: 9, outcome: "committed_unverified", warning: expect.stringContaining("Do not retry") },
     });
@@ -135,7 +142,7 @@ describe("an undo that moves the stack unexpectedly is never reported as nothing
   it("a step that undoes and then throws is reported as an unexpected move, not a rejection", async () => {
     let calls = 0;
     const stack = undoHost(10, 10, { undo: () => { calls += 1; stack.index -= 1; if (calls === 2) throw new Error("busy"); return true; } });
-    await expect(targeting.multiple_undo.handler({ count: 3 })).resolves.toMatchObject({
+    await expect(targeting.multiple_undo.handler({ count: 3, expected_undo_stack_index: 10 })).resolves.toMatchObject({
       success: true,
       data: { stackStatus: "moved_unexpectedly", undone: 1, undoStackIndexAfter: 8, outcome: "committed_unverified", warning: expect.stringContaining("Do not retry") },
     });
@@ -147,7 +154,7 @@ describe("an undo that moves the stack unexpectedly is never reported as nothing
       undoStackIndex: () => { if (broken) throw new Error("gone"); return stack.index; },
       undo: () => { broken = true; throw new Error("busy"); },
     });
-    await expect(project.undo.handler({})).resolves.toMatchObject({
+    await expect(project.undo.handler({ expected_undo_stack_index: 10 })).resolves.toMatchObject({
       success: true,
       data: { stackStatus: "index_unreadable", outcome: "committed_unverified" },
     });
@@ -155,7 +162,7 @@ describe("an undo that moves the stack unexpectedly is never reported as nothing
 
   it("a first step Premiere rejects without moving the stack is a plain failure", async () => {
     undoHost(10, 10, { undo: () => { throw new Error("busy"); } });
-    await expect(project.undo.handler({})).resolves.toMatchObject({
+    await expect(project.undo.handler({ expected_undo_stack_index: 10 })).resolves.toMatchObject({
       success: false,
       data: { stackStatus: "rejected", undone: 0 },
     });

@@ -711,6 +711,9 @@ export function getAdvancedTools(bridgeOptions: BridgeOptions) {
         required: ["node_id", "new_name"],
       },
       handler: async (args: { node_id: string; new_name: string }) => {
+        if (!args.new_name.trim()) {
+          return { success: false as const, error: "new_name must not be empty or whitespace-only" };
+        }
         const script = buildToolScript(`
           var result = __findClip("${escapeForExtendScript(args.node_id)}");
           if (!result) return __error("Clip not found");

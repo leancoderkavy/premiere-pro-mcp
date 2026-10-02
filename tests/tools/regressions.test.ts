@@ -933,12 +933,17 @@ describe("issue #235 — CEP tool calls use the host's documented argument types
     mockedSendCommand.mockImplementation(async (script: string) =>
       JSON.parse(String(runInNewContext(`${getHelpersSource()}\n${script}`, { app: { project: { activeSequence: sequence } }, Time }))));
 
-    await expect(tracks.set_clip_volume.handler({ node_id: "audio-1", volume_db: -3 })).resolves.toMatchObject({ success: true });
+    await expect(tracks.set_clip_volume.handler({ node_id: "audio-1", volume_db: -3 })).resolves.toMatchObject({
+      success: true, data: { requestedVolumeDb: -3, clamped: false },
+    });
     expect(level).toBeGreaterThan(0);
     expect(level).toBeLessThan(1);
     const readback = await tracks.get_clip_volume.handler({ node_id: "audio-1" });
     expect(readback).toMatchObject({ success: true, data: { clip: "Audio" } });
     expect((readback as { data: { volumeDb: number } }).data.volumeDb).toBeCloseTo(-3, 3);
+    await expect(tracks.set_clip_volume.handler({ node_id: "audio-1", volume_db: 100 })).resolves.toMatchObject({
+      success: true, data: { requestedVolumeDb: 100, volumeDb: 15, level: 1, clamped: true },
+    });
     await expect(tracks.set_clips_volume.handler({ track_index: 0, volume_db: -6 })).resolves.toMatchObject({
       success: true, data: { applied: 1, skipped: 0 },
     });
@@ -952,6 +957,12 @@ describe("issue #235 — CEP tool calls use the host's documented argument types
     const competitor = getCompetitorGapTools(bridgeOptions);
     await expect(competitor.setup_ducking.handler({ node_id: "audio-1", ducking_windows: [] })).resolves.toMatchObject({
       success: true, data: { updated: true, verified: true },
+    });
+    property.getValue = () => { throw new Error("readback unavailable"); };
+    const unreadable = await tracks.set_clip_volume.handler({ node_id: "audio-1", volume_db: -3 });
+    expect(unreadable).toMatchObject({
+      success: true,
+      data: { outcome: "committed_unverified", requestedVolumeDb: -3, volumeDb: null },
     });
   });
 

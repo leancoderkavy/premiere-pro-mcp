@@ -199,9 +199,10 @@ export function getProjectTools(bridgeOptions: BridgeOptions) {
           expected_undo_stack_index: {
             type: "number",
             description:
-              "Optional safety guard: the undoStackIndex a tool result reported right after the call you want to reverse. The step is refused, with nothing changed, when Premiere's undo-stack position differs from it. This compares the position only: if actions were undone and new ones recorded since, the position can match again and undo would reverse the newer action.",
+              "Required safety guard: the undoStackIndex a tool result reported right after the call you want to reverse. The step is refused, with nothing changed, when Premiere's undo-stack position differs from it. The guard compares the position only; matching position cannot prove which action is on top.",
           },
         },
+        required: ["expected_undo_stack_index"],
       },
       handler: async (args: { count?: number; expected_undo_stack_index?: number }) => {
         const count = args.count ?? 1;
@@ -209,15 +210,18 @@ export function getProjectTools(bridgeOptions: BridgeOptions) {
           return { success: false, error: "count must be an integer from 1 through 100" };
         }
         const guardArg = args.expected_undo_stack_index;
-        if (guardArg !== undefined && (!Number.isInteger(guardArg) || guardArg < 0)) {
-          return { success: false, error: "expected_undo_stack_index must be a non-negative integer" };
+        if (!Number.isInteger(guardArg) || guardArg! < 0) {
+          return { success: false, error: "expected_undo_stack_index is required and must be a non-negative integer; undo was not attempted" };
         }
-        const guard = guardArg === undefined ? "null" : String(guardArg);
+        const guard = String(guardArg);
         const script = buildToolScript(`
           __undoStart = null;
           var expectedIndex = ${guard};
           if (expectedIndex !== null) {
             var currentIndex = __readUndoIndex();
+            if (currentIndex === null || typeof currentIndex === "undefined" || isNaN(Number(currentIndex))) {
+              return __jsonStringify({ success: false, error: "Premiere did not expose undoStackIndex; undo was not attempted", data: { expectedUndoStackIndex: expectedIndex } });
+            }
             if (currentIndex !== expectedIndex) {
               return __jsonStringify({ success: false, error: "Premiere's undo stack is at " + currentIndex + ", not the expected " + expectedIndex + ": the undo-stack position changed since that call (actions were undone or recorded), so undo was not attempted.", data: { undoStackIndex: currentIndex, expectedUndoStackIndex: expectedIndex } });
             }

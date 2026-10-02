@@ -171,25 +171,40 @@ function debugLog(message: string): void {
 function namingUnknownArguments(
   schema: StandardSchemaWithJSON<unknown, unknown>,
   allowed: string[] | null,
+  sourceSchema: Record<string, unknown>,
 ): StandardSchemaWithJSON<unknown, unknown> {
-  if (!allowed) return schema;
   const standard = schema["~standard"];
-  const allowedSet = new Set(allowed);
+  const allowedSet = new Set(allowed ?? []);
   return {
     "~standard": {
       ...standard,
       validate: async (value: unknown) => {
         const result = await standard.validate(value);
-        if (!("issues" in result) || !result.issues || !value || typeof value !== "object" || Array.isArray(value)) {
+        if (!("issues" in result) || !result.issues) {
           return result;
         }
-        const unknown = Object.keys(value).filter((key) => !allowedSet.has(key));
-        if (unknown.length === 0) return result;
-        const message = `unknown argument${unknown.length > 1 ? "s" : ""} ${unknown.join(", ")}; this tool accepts: ${allowed.join(", ") || "no arguments"}`;
+        const issues = result.issues.map((issue) => {
+          const message = issue.message.replace(/data([^\s,]*) must be equal to one of the allowed values/g, (original, pointer: string) => {
+          let node: unknown = sourceSchema;
+          for (const segment of pointer.split("/").slice(1)) {
+            if (!node || typeof node !== "object") break;
+            const current = node as Record<string, unknown>;
+            const key = segment.replace(/~1/g, "/").replace(/~0/g, "~");
+            node = current.type === "array" ? current.items : (current.properties as Record<string, unknown> | undefined)?.[key];
+          }
+          const values = node && typeof node === "object" ? (node as Record<string, unknown>).enum : undefined;
+          return Array.isArray(values) ? `${original}; allowed values: ${values.map((entry) => JSON.stringify(entry)).join(", ")}` : original;
+          });
+          return { ...issue, message };
+        });
+        const unknown = allowed && value && typeof value === "object" && !Array.isArray(value)
+          ? Object.keys(value).filter((key) => !allowedSet.has(key)) : [];
+        if (unknown.length === 0) return { issues };
+        const message = `unknown argument${unknown.length > 1 ? "s" : ""} ${unknown.join(", ")}; this tool accepts: ${(allowed ?? []).join(", ") || "no arguments"}`;
         return {
           issues: [
             { message },
-            ...result.issues.filter((issue) => !/additional properties/.test(issue.message)),
+            ...issues.filter((issue) => !/additional properties/.test(issue.message)),
           ],
         };
       },
@@ -231,6 +246,7 @@ function jsonSchemaToInputSchema(
   const schema = namingUnknownArguments(
     fromJsonSchema(sourceSchema as JsonSchemaType),
     sourceSchema.additionalProperties === false ? Object.keys((sourceSchema.properties ?? {}) as object) : null,
+    sourceSchema,
   );
   inputSchemaCache.set(params, schema);
   inputSchemaContentCache.set(cacheKey, schema);
