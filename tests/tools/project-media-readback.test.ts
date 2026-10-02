@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { runInNewContext } from "node:vm";
+import { basename, resolve } from "node:path";
 import { getHelpersSource } from "../../src/bridge/script-builder.js";
 import type { BridgeOptions } from "../../src/bridge/file-bridge.js";
 
@@ -34,6 +35,7 @@ const run = (tool: Tool, args: Record<string, unknown>) => tool.handler(args as 
 beforeEach(() => vi.clearAllMocks());
 
 type Item = Record<string, any>;
+const filePath = (path: string) => resolve(path);
 
 /** A project as measured on Premiere 25.2.3. Options make individual writes no-ops. */
 function host(options: { existingFiles?: string[]; ignore?: string[]; resetParOnInterp?: boolean } = {}) {
@@ -44,7 +46,7 @@ function host(options: { existingFiles?: string[]; ignore?: string[]; resetParOn
   const bin: Item = { nodeId: "bin", name: "Footage", type: 2, treePath: "\\Proj.prproj\\Footage", kids: [] as Item[] };
   const interp = { frameRate: 25, pixelAspectRatio: 1 };
   const clip: Item = {
-    nodeId: "i1", name: "a.mp4", type: 1, treePath: "\\Proj.prproj\\a.mp4", label: 2, path: "/media/a.mp4",
+    nodeId: "i1", name: "a.mp4", type: 1, treePath: "\\Proj.prproj\\a.mp4", label: 2, path: filePath("/media/a.mp4"),
     getColorLabel: () => clip.label,
     setColorLabel: (i: number) => { if (!ignored("label") && i >= 0 && i <= 15) clip.label = i; },
     getFootageInterpretation: () => ({ ...interp }),
@@ -73,7 +75,7 @@ function host(options: { existingFiles?: string[]; ignore?: string[]; resetParOn
       importFiles: (paths: string[], _suppress: boolean, target: Item) => {
         for (const p of paths) {
           if (ignored(`import:${p}`)) continue;
-          target.kids.push({ nodeId: `n${nextId++}`, name: p.split("/").pop(), type: 1, getMediaPath: () => p });
+          target.kids.push({ nodeId: `n${nextId++}`, name: basename(p), type: 1, getMediaPath: () => p });
         }
         return true;
       },
@@ -135,12 +137,12 @@ describe("project item writes read back", () => {
   });
 
   it("retains the default refusal and unverified unsafe CEP relink", async () => {
-    const { clip } = host({ existingFiles: ["/media/b.mp4"] });
-    const result = await run(media.relink_media, { item_id: "i1", new_path: "/media/b.mp4" });
+    const { clip } = host({ existingFiles: [filePath("/media/b.mp4")] });
+    const result = await run(media.relink_media, { item_id: "i1", new_path: filePath("/media/b.mp4") });
     expect(result.success).toBe(false);
     expect(mockedSendCommand).not.toHaveBeenCalled();
-    expect(clip.path).toBe("/media/a.mp4");
-    await expect(run(media.relink_media, { item_id: "i1", new_path: "/media/b.mp4", allow_unsafe_cep_relink: true })).resolves.toMatchObject({ success: true, data: { newPath: "/media/b.mp4", verified: false, outcome: "committed_unverified" } });
+    expect(clip.path).toBe(filePath("/media/a.mp4"));
+    await expect(run(media.relink_media, { item_id: "i1", new_path: filePath("/media/b.mp4"), allow_unsafe_cep_relink: true })).resolves.toMatchObject({ success: true, data: { newPath: filePath("/media/b.mp4"), verified: false, outcome: "committed_unverified" } });
   });
 
   it("move_item_to_bin refuses a non-bin target and verifies treePath", async () => {
@@ -163,24 +165,24 @@ describe("project item writes read back", () => {
 
 describe("import_media confirms new project items", () => {
   it("imports into a bin and names each new item", async () => {
-    const { bin } = host({ existingFiles: ["/m/x.wav", "/m/y.wav"] });
-    const result = await run(media.import_media, { file_paths: ["/m/x.wav", "/m/y.wav"], target_bin: "Footage" });
+    const { bin } = host({ existingFiles: [filePath("/m/x.wav"), filePath("/m/y.wav")] });
+    const result = await run(media.import_media, { file_paths: [filePath("/m/x.wav"), filePath("/m/y.wav")], target_bin: "Footage" });
     expect(result).toMatchObject({ success: true, data: { imported: 2, verified: true } });
-    expect(result.data?.items.map((item: { mediaPath: string }) => item.mediaPath)).toEqual(["/m/x.wav", "/m/y.wav"]);
+    expect(result.data?.items.map((item: { mediaPath: string }) => item.mediaPath)).toEqual([filePath("/m/x.wav"), filePath("/m/y.wav")]);
     expect(bin.kids).toHaveLength(2);
   });
 
   it("refuses missing files before importing anything", async () => {
-    const { root } = host({ existingFiles: ["/m/x.wav"] });
-    await expect(run(media.import_media, { file_paths: ["/m/x.wav", "/m/nope.wav"] })).resolves.toMatchObject({ success: false, error: expect.stringContaining("File(s) not found: /m/nope.wav") });
+    const { root } = host({ existingFiles: [filePath("/m/x.wav")] });
+    await expect(run(media.import_media, { file_paths: [filePath("/m/x.wav"), filePath("/m/nope.wav")] })).resolves.toMatchObject({ success: false, error: expect.stringContaining(`File(s) not found: ${filePath("/m/nope.wav")}`) });
     expect(root.kids).toHaveLength(2);
   });
 
   it("reports files that produced no project item", async () => {
-    host({ existingFiles: ["/m/x.wav", "/m/y.wav"], ignore: ["import:/m/y.wav"] });
-    await expect(run(media.import_media, { file_paths: ["/m/x.wav", "/m/y.wav"] })).resolves.toMatchObject({
+    host({ existingFiles: [filePath("/m/x.wav"), filePath("/m/y.wav")], ignore: [`import:${filePath("/m/y.wav")}`] });
+    await expect(run(media.import_media, { file_paths: [filePath("/m/x.wav"), filePath("/m/y.wav")] })).resolves.toMatchObject({
       success: false,
-      data: { notImported: ["/m/y.wav"], imported: [{ mediaPath: "/m/x.wav" }] },
+      data: { notImported: [filePath("/m/y.wav")], imported: [{ mediaPath: filePath("/m/x.wav") }] },
     });
   });
 });
