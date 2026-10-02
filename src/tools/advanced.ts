@@ -163,7 +163,7 @@ export function getAdvancedTools(
           }
           var target = __findClip("${escapeForExtendScript(args.node_id)}");
           if (!target) return __error("Clip not found");
-          return __runLinkedEdit(target, "${escapeForExtendScript(args.node_id)}", ${args.include_linked === false ? "false" : "true"}, __editOne, "roll");
+          return __runLinkedEdit(target, "${escapeForExtendScript(args.node_id)}", ${args.include_linked === false ? "false" : "true"}, __editOne, "roll", validatedPartners);
         `);
         return sendCommand(script, bridgeOptions);
       },
@@ -294,7 +294,7 @@ export function getAdvancedTools(
           }
           var target = __findClip("${escapeForExtendScript(args.node_id)}");
           if (!target) return __error("Clip not found");
-          return __runLinkedEdit(target, "${escapeForExtendScript(args.node_id)}", ${args.include_linked === false ? "false" : "true"}, __editOne, "slide");
+          return __runLinkedEdit(target, "${escapeForExtendScript(args.node_id)}", ${args.include_linked === false ? "false" : "true"}, __editOne, "slide", validatedPartners);
         `);
         return sendCommand(script, bridgeOptions);
       },

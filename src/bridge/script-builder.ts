@@ -1673,8 +1673,8 @@ function __clipPositionKey(nodeId) {
   return parts.join("|");
 }
 
-function __runLinkedEdit(target, nodeId, includeLinked, edit, label) {
-  var partners = includeLinked ? __linkedPartnerClips(target) : [];
+function __runLinkedEdit(target, nodeId, includeLinked, edit, label, validatedPartners) {
+  var partners = includeLinked ? (validatedPartners !== undefined ? validatedPartners : __linkedPartnerClips(target)) : [];
   // Each clip's position when it was checked. A partner is edited only if it is
   // still there when its turn comes: if Premiere moved it while writing the
   // main clip, applying the offset again would double it and still read back

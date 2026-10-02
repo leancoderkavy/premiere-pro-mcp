@@ -3,7 +3,27 @@ import { sendCommand, type BridgeOptions } from "../bridge/file-bridge.js";
 import { probeMediaDurationTicks } from "./media-evidence.js";
 
 interface SourceEntry { nodeId: string; mediaPath: string; position: string; trackType: "video" | "audio"; trackIndex: number; clipIndex: number; }
-interface SourceEvidence { projectDocumentId: string; sequenceId: string; entries: SourceEntry[]; }
+interface SourceEvidence { projectDocumentId: string; sequenceId: string; linkedNodeIds: string[]; entries: SourceEntry[]; }
+
+// Scoped to adjacent edits: unknown linkage must not silently become primary-only.
+const strictLinkedPartners = `
+  function adjacentLinkedPartners(target) {
+    var linked = target.clip.getLinkedItems();
+    if (!linked || typeof linked.numItems !== "number" || !isFinite(linked.numItems) || linked.numItems < 0 || Math.floor(linked.numItems) !== linked.numItems || linked.numItems > 256) throw new Error("Linked membership is unreadable");
+    var partners = [], seen = {};
+    for (var li = 0; li < linked.numItems; li++) {
+      var member = linked[li];
+      if (!member || typeof member.nodeId !== "string" || !member.nodeId.length) throw new Error("Linked member identity is unreadable");
+      var id = member.nodeId;
+      if (id === String(target.clip.nodeId) || seen["$" + id]) continue;
+      var found = __findClip(id);
+      if (!found) throw new Error("Linked member could not be located");
+      seen["$" + id] = true; partners.push(found);
+    }
+    partners.sort(function(a, b) { var left = String(a.clip.nodeId), right = String(b.clip.nodeId); return left < right ? -1 : left > right ? 1 : 0; });
+    return partners;
+  }
+`;
 
 /** Read every edited source before probing, then bind the mutation to that snapshot. */
 export async function prepareAdjacentMediaBounds(options: BridgeOptions, nodeId: string, includeLinked: boolean, slide: boolean) {
@@ -15,8 +35,10 @@ export async function prepareAdjacentMediaBounds(options: BridgeOptions, nodeId:
     var documentId = null;
     try { documentId = app.project.documentID; } catch (documentIdentityError) {}
     if ((typeof documentId !== "string" && typeof documentId !== "number") || String(documentId).replace(/\\s/g, "") === "") return __error("Project identity cannot be verified; nothing was changed.");
-    var targets = [target];
-    ${includeLinked ? 'var partners = __linkedPartnerClips(target); for (var pi = 0; pi < partners.length; pi++) targets.push(partners[pi]);' : ''}
+    ${strictLinkedPartners}
+    var targets = [target], linkedNodeIds = [];
+    var partners = [];
+    ${includeLinked ? 'try { partners = adjacentLinkedPartners(target); } catch (linkedError) { return __error("Linked membership could not be read; nothing was changed. " + String(linkedError)); } for (var pi = 0; pi < partners.length; pi++) { targets.push(partners[pi]); linkedNodeIds.push(String(partners[pi].clip.nodeId)); }' : ''}
     var entries = [], seen = {};
     for (var ti = 0; ti < targets.length; ti++) {
       var current = targets[ti];
@@ -41,11 +63,11 @@ export async function prepareAdjacentMediaBounds(options: BridgeOptions, nodeId:
         entries.push({ nodeId: id, mediaPath: path, position: __clipPositionKey(id), trackType: placement.trackType, trackIndex: placement.trackIndex, clipIndex: placement.clipIndex });
       }
     }
-    return __result({ projectDocumentId: String(documentId), sequenceId: String(seq.sequenceID), entries: entries });
+    return __result({ projectDocumentId: String(documentId), sequenceId: String(seq.sequenceID), linkedNodeIds: linkedNodeIds, entries: entries });
   `), options);
   if (!inspection.success) return { success: false as const, error: inspection.error || "Could not inspect edit sources; nothing was changed." };
   const data = inspection.data as SourceEvidence | undefined;
-  if (!data || typeof data.projectDocumentId !== "string" || !data.projectDocumentId.trim() || typeof data.sequenceId !== "string" || !Array.isArray(data.entries) || !data.entries.length || data.entries.length > 256 ||
+  if (!data || typeof data.projectDocumentId !== "string" || !data.projectDocumentId.trim() || typeof data.sequenceId !== "string" || !Array.isArray(data.linkedNodeIds) || data.linkedNodeIds.length > 256 || data.linkedNodeIds.some((id) => typeof id !== "string" || !id) || new Set(data.linkedNodeIds).size !== data.linkedNodeIds.length || !Array.isArray(data.entries) || !data.entries.length || data.entries.length > 256 ||
     data.entries.some((entry) => !entry || typeof entry.nodeId !== "string" || typeof entry.mediaPath !== "string" || !entry.mediaPath || typeof entry.position !== "string" || entry.position.includes("?") ||
       (entry.trackType !== "video" && entry.trackType !== "audio") || !Number.isInteger(entry.trackIndex) || entry.trackIndex < 0 || !Number.isInteger(entry.clipIndex) || entry.clipIndex < 0)) {
     return { success: false as const, error: "Physical media evidence was incomplete; nothing was changed." };
@@ -60,11 +82,19 @@ export async function prepareAdjacentMediaBounds(options: BridgeOptions, nodeId:
   }
   const entries = data.entries.map((entry) => `{"nodeId":"${escapeForExtendScript(entry.nodeId)}","mediaPath":"${escapeForExtendScript(entry.mediaPath)}","position":"${escapeForExtendScript(entry.position)}","trackType":"${entry.trackType}","trackIndex":${entry.trackIndex},"clipIndex":${entry.clipIndex},"endTicks":${durationTicks.get(entry.mediaPath)!}}`).join(",");
   return { success: true as const, script: `
+    ${strictLinkedPartners}
     var sourceEvidence = [${entries}];
     var currentDocumentId = null;
     try { currentDocumentId = app.project.documentID; } catch (documentIdentityError) {}
     if (currentDocumentId === null || currentDocumentId === undefined || String(currentDocumentId) !== "${escapeForExtendScript(data.projectDocumentId)}") return __error("Active project changed or its identity cannot be verified during media inspection; nothing was changed.");
     if (String(app.project.activeSequence.sequenceID) !== "${escapeForExtendScript(data.sequenceId)}") return __error("Active sequence changed during media inspection; nothing was changed.");
+    var validatedPartners = [];
+    ${includeLinked ? `var currentTarget = __findClip("${escapeForExtendScript(nodeId)}");
+    if (!currentTarget) return __error("Edit target disappeared; nothing was changed.");
+    try { validatedPartners = adjacentLinkedPartners(currentTarget); } catch (linkedError) { return __error("Linked membership could not be read; nothing was changed. " + String(linkedError)); }
+    var expectedLinkedIds = [${data.linkedNodeIds.map((id) => '"' + escapeForExtendScript(id) + '"').join(",")}];
+    if (validatedPartners.length !== expectedLinkedIds.length) return __error("Linked membership changed during media inspection; nothing was changed.");
+    for (var pi = 0; pi < validatedPartners.length; pi++) if (String(validatedPartners[pi].clip.nodeId) !== expectedLinkedIds[pi]) return __error("Linked membership changed during media inspection; nothing was changed.");` : ''}
     var sourceEnds = {};
     for (var ei = 0; ei < sourceEvidence.length; ei++) {
       var evidence = sourceEvidence[ei], inspected = __findClip(evidence.nodeId);

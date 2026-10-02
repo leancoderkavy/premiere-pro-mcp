@@ -623,3 +623,45 @@ describe("older normal-speed representation", () => {
     await expect(tools.slide_edit.handler({ node_id: "v1", offset_seconds: 0.5 })).resolves.toMatchObject({ success: true });
   });
 });
+
+describe("adjacent edits preserve validated linked membership", () => {
+  const edit = (operation: string) => operation === "roll"
+    ? tools.roll_edit.handler({ node_id: "v1", offset_seconds: 0.5 })
+    : tools.slide_edit.handler({ node_id: "v1", offset_seconds: -0.5 });
+  function observeWrites(clips: ReturnType<typeof makeClip>[]) {
+    return clips.flatMap((clip) => [vi.spyOn(clip, "start", "set"), vi.spyOn(clip, "end", "set"), vi.spyOn(clip, "inPoint", "set"), vi.spyOn(clip, "outPoint", "set")]);
+  }
+  it.each(["roll", "slide"])("%s refuses unreadable initial linkage before probing or writing", async (operation) => {
+    const { video, audio } = host();
+    const writes = observeWrites([...video, ...audio]);
+    video[1].getLinkedItems = () => { throw new Error("unreadable collection"); };
+    expect(await edit(operation)).toMatchObject({ success: false, error: expect.stringContaining("Linked membership could not be read") });
+    expect(probeMediaDurationTicks).not.toHaveBeenCalled();
+    for (const write of writes) expect(write).not.toHaveBeenCalled();
+  });
+  it.each(["roll", "slide"])("%s refuses unreadable second linkage before writing", async (operation) => {
+    const { video, audio } = host();
+    const writes = observeWrites([...video, ...audio]);
+    const read = video[1].getLinkedItems;
+    let calls = 0;
+    video[1].getLinkedItems = () => { if (++calls === 2) throw new Error("collection became unreadable"); return read(); };
+    expect(await edit(operation)).toMatchObject({ success: false, error: expect.stringContaining("Linked membership could not be read") });
+    expect(calls).toBe(2);
+    for (const write of writes) expect(write).not.toHaveBeenCalled();
+  });
+  it.each(["roll", "slide"])("%s refuses changed membership before writing", async (operation) => {
+    const { video, audio } = host();
+    const writes = observeWrites([...video, ...audio]);
+    vi.mocked(probeMediaDurationTicks).mockImplementation(async () => { video[1].group = [video[1]]; return 100 * TICKS; });
+    expect(await edit(operation)).toMatchObject({ success: false, error: expect.stringContaining("Linked membership changed") });
+    for (const write of writes) expect(write).not.toHaveBeenCalled();
+  });
+  it.each(["roll", "slide"])("%s applies the cached partner set without a third linkage read", async (operation) => {
+    const { video } = host();
+    const read = video[1].getLinkedItems;
+    let calls = 0;
+    video[1].getLinkedItems = () => { if (++calls > 2) throw new Error("must use validated cache"); return read(); };
+    expect(await edit(operation)).toMatchObject({ success: true, data: { linkedPartnersEdited: [{ nodeId: "a1", verified: true }] } });
+    expect(calls).toBe(2);
+  });
+});
