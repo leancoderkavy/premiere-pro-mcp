@@ -28,13 +28,13 @@ const t = (seconds: number) => ({ ticks: String(Math.round(seconds * TICKS)) });
  * transition relative to the cut, mirroring live Premiere 25.2 behavior: a
  * 1 s (25-frame) Cross Dissolve centered on the 6 s cut lands at 5.52-6.52 s.
  */
-function hostWith(place: (cutSeconds: number) => [number, number], existing: Array<[number, number]> = []) {
+function hostWith(place: (cutSeconds: number) => [number, number], existing: Array<[number, number]> = [], options: { ignoreAll?: boolean; ignoreAfterFirst?: boolean; onlyFirstAtWrongEdge?: boolean; throwAfterAdd?: boolean; readbackThrows?: boolean } = {}) {
   const clips = [[0, 6], [6, 12], [12, 18]].map(([start, end], index) => ({ nodeId: `n${index + 1}`, name: `clip${index}`, start: t(start), end: t(end) }));
   const domTransitions: Array<{ start: { ticks: string }; end: { ticks: string } }> = [];
   const domTrack = {
     clips: Object.assign({ numItems: clips.length }, clips),
     transitions: {
-      get numItems() { return domTransitions.length; },
+      get numItems() { if (options.readbackThrows && domTransitions.length) throw new Error("transition readback unavailable"); return domTransitions.length; },
     } as Record<string | number, unknown>,
   };
   for (const [start, end] of existing) {
@@ -48,11 +48,15 @@ function hostWith(place: (cutSeconds: number) => [number, number], existing: Arr
     start: clip.start,
     addTransition: () => {
       calls += 1;
+      if (options.ignoreAll) return;
+      if (options.ignoreAfterFirst && calls > 1) return;
       const cutSeconds = parseFloat(clip.start.ticks) / TICKS;
       const [start, end] = place(cutSeconds);
-      const placed = { start: t(start), end: t(end) };
+      const actual = options.onlyFirstAtWrongEdge && calls > 1 ? [cutSeconds + 1, cutSeconds + 2] as [number, number] : [start, end];
+      const placed = { start: t(actual[0]), end: t(actual[1]) };
       domTrack.transitions[domTransitions.length] = placed;
       domTransitions.push(placed);
+      if (options.throwAfterAdd) throw new Error("native write failed after mutation");
     },
   }));
   const context = {
@@ -75,6 +79,18 @@ const add = (cut: number) =>
   tools.add_transition.handler({ transition_name: "Cross Dissolve", track_index: 0, cut_point_seconds: cut, duration_seconds: 1 }) as Promise<{ success: boolean; error?: string; data?: Record<string, unknown> }>;
 
 describe("add_transition readback", () => {
+  it.each([
+    [{ track_index: -1, cut_point_seconds: 6, duration_seconds: 1 }, "track_index"],
+    [{ track_index: 0.5, cut_point_seconds: 6, duration_seconds: 1 }, "track_index"],
+    [{ track_index: 0, cut_point_seconds: Number.NaN, duration_seconds: 1 }, "cut_point_seconds"],
+    [{ track_index: 0, cut_point_seconds: 6, duration_seconds: 0 }, "duration_seconds"],
+    [{ track_index: 0, cut_point_seconds: 6, duration_seconds: Number.POSITIVE_INFINITY }, "duration_seconds"],
+  ])("refuses invalid arguments before dispatch: %j", async (args, field) => {
+    const result = await tools.add_transition.handler({ transition_name: "Cross Dissolve", ...args } as never);
+    expect(result).toMatchObject({ success: false, error: expect.stringContaining(field) });
+    expect(mockedSendCommand).not.toHaveBeenCalled();
+  });
+
   it("verifies an odd-frame dissolve that Premiere centers half a frame off the cut", async () => {
     // Live readback was 5.52000001073161-6.52000001073161 s: 12 frames before the
     // cut, 13 after, plus a few ticks of drift, so the midpoint sits just over
@@ -93,17 +109,54 @@ describe("add_transition readback", () => {
     hostWith(() => [1, 2]);
     await expect(add(6)).resolves.toMatchObject({
       success: false,
-      error: expect.stringContaining("did not find a new one at the requested cut point"),
+      data: { outcome: "committed_unverified", timelineChanged: true },
     });
+  });
+
+  it("reports an attempted mutation when transition readback becomes unreadable", async () => {
+    hostWith((cut) => [cut - 0.5, cut + 0.5], [], { readbackThrows: true });
+    await expect(add(6)).resolves.toMatchObject({ success: false, data: { outcome: "committed_unverified", verified: false, timelineChanged: null, transitionsAdded: null } });
+  });
+
+  it("reports the stored transition duration separately from the request", async () => {
+    hostWith((cut) => [cut - 0.25, cut + 0.25]);
+    await expect(add(6)).resolves.toMatchObject({ success: true, data: { requestedDurationSeconds: 1, durationSeconds: 0.5, placements: [{ durationSeconds: 0.5 }] } });
+  });
+
+  it("preserves mutation evidence when the native call throws after adding", async () => {
+    hostWith((cut) => [cut - 0.5, cut + 0.5], [], { throwAfterAdd: true });
+    await expect(add(6)).resolves.toMatchObject({ success: false, data: { outcome: "committed_unverified", verified: false, timelineChanged: true, transitionsAdded: 1 } });
+  });
+
+  it("distinguishes a transition no-op from a verified write", async () => {
+    hostWith(() => [1, 2], [], { ignoreAll: true });
+    const result = await add(6);
+    expect(result).toMatchObject({ success: false, data: { outcome: "not_applied", timelineChanged: false } });
   });
 });
 
 describe("add_transition_to_clip and batch_add_transitions readback", () => {
+  it("rejects unsupported positions and non-positive durations before dispatch", async () => {
+    const invalidPosition = await tools.add_transition_to_clip.handler({ node_id: "n2", transition_name: "Cross Dissolve", position: "end; alert(1)" });
+    expect(invalidPosition).toMatchObject({ success: false, error: expect.stringContaining("position") });
+    const invalidDuration = await tools.add_transition_to_clip.handler({ node_id: "n2", transition_name: "Cross Dissolve", duration_seconds: -1 });
+    expect(invalidDuration).toMatchObject({ success: false, error: expect.stringContaining("duration_seconds") });
+    const invalidBatchTrack = await tools.batch_add_transitions.handler({ transition_name: "Cross Dissolve", track_index: 1.25 });
+    expect(invalidBatchTrack).toMatchObject({ success: false, error: expect.stringContaining("track_index") });
+    expect(mockedSendCommand).not.toHaveBeenCalled();
+  });
+
   it("batch verifies odd-frame dissolves at every cut (live: 3 of 4 reported)", async () => {
     const drift = 2726 / TICKS;
     hostWith((cut) => [cut - (12 * FRAME) / TICKS + drift, cut + (13 * FRAME) / TICKS + drift]);
     const result = await tools.batch_add_transitions.handler({ transition_name: "Cross Dissolve", track_index: 0, duration_seconds: 1 }) as { success: boolean; error?: string };
     expect(result.success).toBe(true);
+  });
+
+  it("reports partial batch application with changed state and failed cut indexes", async () => {
+    hostWith((cut) => [cut - 0.5, cut + 0.5], [], { ignoreAfterFirst: true });
+    const result = await tools.batch_add_transitions.handler({ transition_name: "Cross Dissolve", track_index: 0, duration_seconds: 1 });
+    expect(result).toMatchObject({ success: false, data: { outcome: "committed_unverified", timelineChanged: true, added: 1, requestedCount: 2, failedCuts: [1] } });
   });
 
   it("add_transition_to_clip verifies a dissolve that covers the clip start", async () => {
@@ -142,7 +195,6 @@ describe("transition readback ignores transitions that were already there", () =
     // had nothing before, so only a new transition there may verify.
     hostWith((cut) => [cut + 5.5, cut + 6.5]);
     await expect(tools.add_transition_to_clip.handler({ node_id: "n2", transition_name: "Cross Dissolve", position: "start" }))
-      .resolves.toMatchObject({ success: false, error: expect.stringContaining("new transition at each requested clip edge") });
+      .resolves.toMatchObject({ success: false, data: { outcome: "committed_unverified", timelineChanged: true, startVerified: false } });
   });
 });
-
