@@ -385,7 +385,7 @@
       return mutationResult(verified, {
         applied: true, mediaType: input.mediaType, trackIndex: input.trackIndex, clipIndex: input.clipIndex,
         effectId: input.effectId, insertionIndex: input.insertionIndex, beforeCount: before, after,
-        renderVerified: false, verificationScope: "Component-chain count only; verify live playback or rendered frames before delivery."
+        renderVerified: false, verificationScope: "Component-chain count only; verify live playback or rendered output before delivery."
       }, "effect_chain_count_readback", "Add " + input.mediaType + " effect");
     }
 
@@ -408,7 +408,7 @@
       return mutationResult(verified, {
         removed: true, mediaType: input.mediaType, trackIndex: input.trackIndex, clipIndex: input.clipIndex,
         componentIndex: input.componentIndex, expectedEffectId: input.expectedEffectId, beforeCount: before, after,
-        renderVerified: false, verificationScope: "Component-chain count only; verify live playback or rendered frames before delivery."
+        renderVerified: false, verificationScope: "Component-chain count only; verify live playback or rendered output before delivery."
       }, "effect_chain_count_readback", "Remove " + input.mediaType + " effect");
     }
 
@@ -728,7 +728,7 @@
       return mutationResult(verified, {
         applied: prepared.length, mediaType: input.mediaType, effectId: input.effectId,
         insertionIndex: input.insertionIndex, evidence,
-        renderVerified: false, verificationScope: "Component-chain count only; verify live playback or rendered frames before delivery."
+        renderVerified: false, verificationScope: "Component-chain count only; verify live playback or rendered output before delivery."
       }, "selected_effect_chain_count_readback", "Add effect to selected clips");
     }
 
@@ -756,7 +756,7 @@
       return mutationResult(verified, {
         removed: prepared.length, mediaType: input.mediaType, componentIndex: input.componentIndex,
         expectedEffectId: input.expectedEffectId, evidence,
-        renderVerified: false, verificationScope: "Component-chain count only; verify live playback or rendered frames before delivery."
+        renderVerified: false, verificationScope: "Component-chain count only; verify live playback or rendered output before delivery."
       }, "selected_effect_chain_count_readback", "Remove effect from selected clips");
     }
 

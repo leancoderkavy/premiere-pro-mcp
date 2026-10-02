@@ -43,7 +43,7 @@ function applyEffectWithReadback(kind: "Video" | "Audio"): string {
       effect: effectName, lookupSource: lookupSource, clipName: result.clip.name,
       componentCountBefore: before.length, componentCountAfter: after ? after.length : null,
       addedComponents: added, verified: false, outcome: "committed_unverified",
-      renderVerified: false, verificationScope: "Component-list readback only; verify live playback or rendered frames before delivery."
+      renderVerified: false, verificationScope: "Component-list readback only; verify live playback or rendered output before delivery."
     };
     if (after && after.length > before.length && added.length > 0) {
       data.timelineChanged = true;

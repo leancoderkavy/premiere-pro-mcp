@@ -429,6 +429,17 @@ describe("stable Premiere UXP workflow expansion", () => {
     expect(value.audioComponents).toHaveLength(2);
   });
 
+  it("labels a successful direct effect removal as component verified but render unverified", async () => {
+    const value = stableHost();
+    await value.registry.dispatch("effects.chain.add", {
+      mediaType: "video", trackIndex: 0, clipIndex: 0, effectId: "PR.Test",
+    });
+    await expect(value.registry.dispatch("effects.chain.remove", {
+      mediaType: "video", trackIndex: 0, clipIndex: 0, componentIndex: 1, expectedEffectId: "PR.Test",
+    })).resolves.toMatchObject({ removed: true, outcome: "verified", beforeCount: 2,
+      after: { count: 1 }, verificationBoundary: "effect_chain_count_readback", renderVerified: false });
+  });
+
   it("reads one complete native track-item identity and rejects stale or incomplete snapshots", async () => {
     const value = stableHost();
     await expect(value.registry.dispatch("trackItem.identity.inspect", {
