@@ -26,7 +26,7 @@ type Placement = { item: Item; startTicks: number; inTicks?: number };
  * Source Monitor as measured on Premiere 25.2.3: opening pushes a clip,
  * closeClip shows the previously opened one, closeAllClips empties it.
  */
-function host(options: { ignoreOpen?: boolean; ignoreClose?: boolean; ignoreOverwrite?: boolean; videoTracks?: number; audioTracks?: number; playheadSeconds?: number; replaceExisting?: boolean } = {}) {
+function host(options: { ignoreOpen?: boolean; ignoreClose?: boolean; ignoreOverwrite?: boolean; videoTracks?: number; audioTracks?: number; playheadSeconds?: number; replaceExisting?: boolean; unreadablePlacement?: boolean } = {}) {
   const items: Item[] = [
     { nodeId: "a1", name: "mono-440.wav", type: 1 },
     { nodeId: "v1", name: "CCI DAY 1.mp4", type: 1 },
@@ -39,7 +39,7 @@ function host(options: { ignoreOpen?: boolean; ignoreClose?: boolean; ignoreOver
       clips: new Proxy({}, {
         get: (_t, key) => key === "numItems"
           ? placements.length
-          : (placements[Number(key)] && { projectItem: placements[Number(key)].item, start: { ticks: String(placements[Number(key)].startTicks) }, inPoint: { ticks: String(placements[Number(key)].inTicks ?? 0) } }),
+          : (placements[Number(key)] && { nodeId: `clip-${Number(key)}`, projectItem: placements[Number(key)].item, end: { ticks: String(placements[Number(key)].startTicks + 2 * TICKS) }, outPoint: { ticks: String((placements[Number(key)].inTicks ?? 0) + 2 * TICKS) }, start: { ticks: String(placements[Number(key)].startTicks) }, get inPoint() { if (options.unreadablePlacement) throw new Error("unreadable"); return { ticks: String(placements[Number(key)].inTicks ?? 0) }; } }),
       }),
     };
   };
@@ -145,6 +145,12 @@ describe("unreadable Source Monitor state", () => {
 });
 
 describe("overwrite_from_source verifies the placement", () => {
+  it("does not certify an overwrite when placement metadata cannot be read", async () => {
+    host({ unreadablePlacement: true });
+    await tools.open_in_source.handler({ item_id: "v1" });
+    await expect(tools.overwrite_from_source.handler({})).resolves.toMatchObject({ success: false, data: { outcome: "committed_unverified", verified: false, timelineChanged: null } });
+  });
+
   it("verifies a replacement of the same source at the same cut with different source timing", async () => {
     const state = host({ replaceExisting: true });
     await tools.open_in_source.handler({ item_id: "v1" });

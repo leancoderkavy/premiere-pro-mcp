@@ -275,16 +275,18 @@ export function getSourceMonitorTools(bridgeOptions: BridgeOptions) {
             for (var clipIndex = 0; clipIndex < track.clips.numItems; clipIndex++) {
               var clip = track.clips[clipIndex];
               var sourceId = "";
-              try { sourceId = clip.projectItem ? String(clip.projectItem.nodeId) : ""; } catch (sourceError) {}
+              sourceId = clip.projectItem ? String(clip.projectItem.nodeId) : "";
               if (sourceId !== wantedItemId) continue;
               var actualStartTicks = NaN;
-              try { actualStartTicks = parseFloat(clip.start.ticks); } catch (startError) {}
+              actualStartTicks = parseFloat(clip.start.ticks);
+              if (!isFinite(actualStartTicks)) throw new Error("Invalid placement start readback");
               if (!isNaN(actualStartTicks) && Math.abs(actualStartTicks - wantedStartTicks) <= frameTicks) {
-                var parts = [sourceId, String(actualStartTicks)];
-                try { parts.push(String(clip.nodeId)); } catch (identityError) {}
-                try { parts.push(String(clip.end.ticks)); } catch (endError) {}
-                try { parts.push(String(clip.inPoint.ticks)); } catch (inError) {}
-                try { parts.push(String(clip.outPoint.ticks)); } catch (outError) {}
+                if (!clip.nodeId) throw new Error("Invalid placement identity readback");
+                var endTicks = parseFloat(clip.end.ticks);
+                var inTicks = parseFloat(clip.inPoint.ticks);
+                var outTicks = parseFloat(clip.outPoint.ticks);
+                if (!isFinite(endTicks) || !isFinite(inTicks) || !isFinite(outTicks)) throw new Error("Invalid placement timing readback");
+                var parts = [sourceId, String(actualStartTicks), String(clip.nodeId), String(endTicks), String(inTicks), String(outTicks)];
                 matches.push(parts.join("|"));
               }
             }
@@ -297,8 +299,13 @@ export function getSourceMonitorTools(bridgeOptions: BridgeOptions) {
           } catch (overwriteError) {
             return __error("Sequence.overwriteClip threw after the edit was attempted: " + overwriteError.toString() + ". Inspect the timeline before retrying.", { outcome: "committed_unverified", verified: false, timelineChanged: null });
           }
-          var videoAfter = __placementState(seq.videoTracks[${vTrack}]);
-          var audioAfter = __placementState(seq.audioTracks[${aTrack}]);
+          var videoAfter = null, audioAfter = null;
+          try {
+            videoAfter = __placementState(seq.videoTracks[${vTrack}]);
+            audioAfter = __placementState(seq.audioTracks[${aTrack}]);
+          } catch (placementReadError) {
+            return __error("Overwrite was accepted but placement state could not be read. Inspect the timeline before retrying.", { outcome: "committed_unverified", verified: false, timelineChanged: null });
+          }
           var videoPlaced = videoAfter !== "";
           var audioPlaced = audioAfter !== "";
           if ((!videoPlaced || videoAfter === videoBefore) && (!audioPlaced || audioAfter === audioBefore)) {
