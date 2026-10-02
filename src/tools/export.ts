@@ -1226,8 +1226,10 @@ export function getExportTools(bridgeOptions: BridgeOptions) {
             error: "preset_path is required. Pass a .epr file; omitting it falls through to an Illegal Parameter error on this host.",
           };
         }
+        const outputPath = resolve(args.output_path);
+        const presetPath = resolve(args.preset_path);
         try {
-          inspectExportPresetFile(args.preset_path);
+          inspectExportPresetFile(presetPath);
         } catch (error) {
           return { success: false, error: error instanceof Error ? error.message : String(error) };
         }
@@ -1243,14 +1245,15 @@ export function getExportTools(bridgeOptions: BridgeOptions) {
             return __error("Save the Premiere project to a real .prproj path before AME handoff. Unsaved or scratch projects make Adobe Media Encoder resolve a Same as Project output token against a disposable folder.");
           }
           
-          encoder.launchEncoder();
-          
-          var outputFile = new File("${escapeForExtendScript(args.output_path)}");
+          var outputFile = new File("${escapeForExtendScript(outputPath)}");
           if (!outputFile.parent || !outputFile.parent.exists) {
-            return __error("The requested AME output directory does not exist: " + outputFile.parent);
+            return __error("The requested AME output directory does not exist: " + (outputFile.parent ? outputFile.parent.fsName : outputFile.fsName));
           }
           var outputPath = outputFile.fsName;
-          var presetPath = "${escapeForExtendScript(args.preset_path)}";
+          var presetFile = new File("${escapeForExtendScript(presetPath)}");
+          if (!presetFile.exists) return __error("AME preset file does not exist: " + presetFile.fsName);
+          var presetPath = presetFile.fsName;
+          encoder.launchEncoder();
           
           var jobId = encoder.encodeSequence(
             seq,
