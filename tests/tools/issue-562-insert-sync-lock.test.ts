@@ -539,7 +539,8 @@ describe("issue #562 — insert_from_source honors sync lock", () => {
     expect(result).toMatchObject({ success: false, data: {
       timelineChanged: true, outcome: "committed_unverified", verified: false,
     } });
-    expect(result.data.placements[0]).toMatchObject({ finalVerified: false, missingStreams: [missing] });
+    expect(result.data).toMatchObject({ failedPlacement: 0, missingStreams: [missing], completedPlacements: [] });
+    expect(result.error).toMatch(/did not put the clip/);
   });
 
   it("verifies batch placements against the final sequence after every insert", async () => {
