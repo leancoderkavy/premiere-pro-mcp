@@ -1,6 +1,6 @@
 import { buildToolScript, escapeForExtendScript } from "../bridge/script-builder.js";
 import { sendCommand, type BridgeOptions } from "../bridge/file-bridge.js";
-import { probeMediaDurationSeconds } from "./media-evidence.js";
+import { probeMediaDurationTicks } from "./media-evidence.js";
 
 interface SourceEntry { nodeId: string; mediaPath: string; position: string; }
 interface SourceEvidence { sequenceId: string; entries: SourceEntry[]; }
@@ -47,9 +47,8 @@ export async function prepareAdjacentMediaBounds(options: BridgeOptions, nodeId:
   const durationTicks = new Map<string, number>();
   for (const entry of data.entries) {
     if (!durationTicks.has(entry.mediaPath)) {
-      const duration = await probeMediaDurationSeconds(entry.mediaPath);
-      const endTicks = duration === null ? NaN : Math.floor(duration * 254016000000);
-      if (duration === null || !Number.isFinite(duration) || duration <= 0 || !Number.isSafeInteger(endTicks) || endTicks <= 0) return { success: false as const, error: "Physical media duration could not be verified. Install ffprobe and use readable finite media; nothing was changed." };
+      const endTicks = await probeMediaDurationTicks(entry.mediaPath);
+      if (endTicks === null || !Number.isSafeInteger(endTicks) || endTicks <= 0) return { success: false as const, error: "Physical media duration could not be verified. Install ffprobe and use readable finite media; nothing was changed." };
       durationTicks.set(entry.mediaPath, endTicks);
     }
   }

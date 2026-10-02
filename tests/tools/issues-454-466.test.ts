@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-vi.mock("../../src/tools/media-evidence.js", () => ({ probeMediaDurationSeconds: vi.fn().mockResolvedValue(100) }));
+vi.mock("../../src/tools/media-evidence.js", () => ({ probeMediaDurationTicks: vi.fn().mockResolvedValue(100 * 254016000000) }));
 
 vi.mock("../../src/bridge/file-bridge.js", () => ({
   sendCommand: vi.fn().mockResolvedValue({ success: true, data: {} }),
