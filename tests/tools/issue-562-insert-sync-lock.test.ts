@@ -544,6 +544,7 @@ describe("issue #562 — other Sequence.insertClip callers use the same helper",
     const spotScript = String(mockedSendCommand.mock.calls[0][0]);
     expect(spotScript).toContain("__insertClipHonoringSyncLock(");
     expect(spotScript).toContain("__secondsToTicks(targetStart).toString()");
+    expect(spotScript).toContain("ins.changed ? { timelineChanged: true");
     expect(spotScript).toContain('"target_tracks"');
     expect(spotScript).not.toContain('"sync_locked"');
   });
