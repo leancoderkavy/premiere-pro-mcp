@@ -4,7 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 vi.mock("../../src/tools/media-evidence.js", () => ({ probeMediaDurationTicks: vi.fn().mockResolvedValue(3600 * 254016000000) }));
 
 vi.mock("../../src/bridge/file-bridge.js", () => ({
-  sendCommand: vi.fn().mockResolvedValue({ success: true, data: { mediaPath: "/fixture/source.mp4" } }),
+  sendCommand: vi.fn().mockResolvedValue({ success: true, data: { projectId: "project", sequenceId: "seq", mediaPath: "/fixture/source.mp4" } }),
 }));
 
 import { sendCommand } from "../../src/bridge/file-bridge.js";
