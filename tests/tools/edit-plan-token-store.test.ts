@@ -11,8 +11,10 @@ vi.mock("../../src/bridge/file-bridge.js", async (importOriginal) => {
   return { ...original, ensurePrivateBridgeDirectory: vi.fn() };
 });
 
+import { fixtureEditPlanBinding } from "../helpers/static-edit-plan-token-store.js";
 import { createEditPlanTokenStore } from "../../src/tools/edit-plan-token-store.js";
 
+const binding = fixtureEditPlanBinding({ operations: [{ type: "insert_clip", item_id: "item", start_seconds: 0 }] });
 const directories: string[] = [];
 afterEach(() => {
   vi.restoreAllMocks();
@@ -28,22 +30,40 @@ describe("single-use edit-plan confirmation tokens", () => {
     const restartedServer = createEditPlanTokenStore({ tempDir });
 
     expect(() => firstServer.consume(`${digest}.${"b".repeat(32)}`, digest)).toThrow("missing or already consumed");
-    const token = firstServer.issue(digest);
+    const token = firstServer.issue(digest, binding);
     expect(token).not.toBe(digest);
     expect(() => restartedServer.consume(token, "c".repeat(64))).toThrow("does not match");
-    expect(() => restartedServer.consume(token, digest)).not.toThrow();
+    expect(restartedServer.consume(token, digest)).toEqual(binding);
     expect(() => firstServer.consume(token, digest)).toThrow("missing or already consumed");
 
-    const fresh = restartedServer.issue(digest);
+    const fresh = restartedServer.issue(digest, binding);
     expect(fresh).not.toBe(token);
     expect(() => firstServer.consume(fresh, digest)).not.toThrow();
+  });
+
+  it("rejects a persisted legacy token without a host binding and consumes it", () => {
+    const tempDir = mkdtempSync(join(tmpdir(), "premiere-plan-legacy-"));
+    directories.push(tempDir);
+    const digest = "f".repeat(64);
+    const nonce = "1".repeat(32);
+    writeFileSync(join(tempDir, `edit-plan-token-${nonce}.json`), JSON.stringify({ planDigest: digest, expiresAt: Date.now() + 60_000 }));
+    const store = createEditPlanTokenStore({ tempDir });
+    expect(() => store.consume(`${digest}.${nonce}`, digest)).toThrow("no valid host-target binding");
+    expect(() => store.consume(`${digest}.${nonce}`, digest)).toThrow("already consumed");
+  });
+
+  it("refuses issuing tokens with missing stable identities", () => {
+    const tempDir = mkdtempSync(join(tmpdir(), "premiere-plan-missing-binding-"));
+    directories.push(tempDir);
+    const store = createEditPlanTokenStore({ tempDir });
+    expect(() => store.issue("a".repeat(64), { ...binding, projectDocumentId: "" })).toThrow("host-target binding");
   });
 
   it("allows exactly one of two concurrent server processes to consume a token", async () => {
     const tempDir = mkdtempSync(join(tmpdir(), "premiere-plan-race-"));
     directories.push(tempDir);
     const digest = "e".repeat(64);
-    const token = createEditPlanTokenStore({ tempDir }).issue(digest);
+    const token = createEditPlanTokenStore({ tempDir }).issue(digest, binding);
     const source = resolve("src/tools/edit-plan-token-store.ts");
     const compiled = resolve("dist/tools/edit-plan-token-store.js");
     if (!existsSync(compiled) || statSync(compiled).mtimeMs < statSync(source).mtimeMs) {
@@ -91,8 +111,8 @@ describe("single-use edit-plan confirmation tokens", () => {
     const store = createEditPlanTokenStore({ tempDir });
     const issuedAt = Date.now();
     const clock = vi.spyOn(Date, "now").mockReturnValue(issuedAt);
-    const stillValid = store.issue(digest);
-    const expired = store.issue(digest);
+    const stillValid = store.issue(digest, binding);
+    const expired = store.issue(digest, binding);
     clock.mockReturnValue(issuedAt + 30 * 60 * 1000 - 1);
     expect(() => store.consume(stillValid, digest)).not.toThrow();
     clock.mockReturnValue(issuedAt + 31 * 60 * 1000);
@@ -102,12 +122,12 @@ describe("single-use edit-plan confirmation tokens", () => {
     expect(existsSync(claimPath)).toBe(true);
 
     clock.mockReturnValue(issuedAt);
-    const unused = store.issue(digest);
+    const unused = store.issue(digest, binding);
     const unusedPath = join(tempDir, `edit-plan-token-${unused.split(".")[1]}.json`);
     const oldTime = new Date(issuedAt - 31 * 60 * 1000);
     utimesSync(unusedPath, oldTime, oldTime);
     utimesSync(claimPath, oldTime, oldTime);
-    store.issue(digest);
+    store.issue(digest, binding);
     expect(existsSync(unusedPath)).toBe(false);
     expect(existsSync(claimPath)).toBe(false);
   });
