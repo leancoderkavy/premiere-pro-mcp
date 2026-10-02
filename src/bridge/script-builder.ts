@@ -249,7 +249,7 @@ function __isUniformScale(component) {
   if (!component || !component.properties) return false;
   for (var i = 0; i < component.properties.numItems; i++) {
     var prop = component.properties[i];
-    if (String(prop.displayName) !== "Uniform Scale") continue;
+    if (!__videoIntrinsicPropertyMatches(prop, "Uniform Scale")) continue;
     try {
       var value = prop.getValue();
       return value === true || value === 1;
@@ -258,6 +258,25 @@ function __isUniformScale(component) {
     }
   }
   return false;
+}
+// Built-in Motion/Opacity components have stable match names, but their
+// property display names are localized. These es-ES labels were measured on
+// Premiere 26.5.2 (#722); unknown labels fail closed rather than guessing an
+// ordinal or a property match name that the CEP API has not confirmed.
+function __videoIntrinsicPropertyMatches(property, wanted) {
+  if (!property) return false;
+  var actual = String(property.displayName);
+  if (actual === wanted) return true;
+  var spanish = {
+    "Opacity": "Opacidad",
+    "Position": "Posición",
+    "Scale": "Escala",
+    "Scale Height": "Altura de escala",
+    "Scale Width": "Anchura de escala",
+    "Uniform Scale": "Escala uniforme",
+    "Rotation": "Rotación"
+  };
+  return actual === spanish[wanted];
 }
 function __propertyNameMatches(actual, wanted, component) {
   actual = String(actual);
@@ -278,8 +297,8 @@ function __setMotionScale(motion, value) {
   var width = null;
   for (var i = 0; i < motion.properties.numItems; i++) {
     var name = String(motion.properties[i].displayName);
-    if (name === "Scale" || name === "Scale Height") height = motion.properties[i];
-    else if (name === "Scale Width") width = motion.properties[i];
+    if (__videoIntrinsicPropertyMatches(motion.properties[i], "Scale") || __videoIntrinsicPropertyMatches(motion.properties[i], "Scale Height")) height = motion.properties[i];
+    else if (__videoIntrinsicPropertyMatches(motion.properties[i], "Scale Width")) width = motion.properties[i];
   }
   if (!height) return { ok: false, uniform: uniform, error: "Motion has no Scale property; nothing was changed." };
   if (!uniform && !width) return { ok: false, uniform: uniform, error: "Uniform Scale is off but Motion has no Scale Width property, so the clip cannot be scaled evenly; nothing was changed." };
@@ -656,10 +675,12 @@ var __BUILT_IN_COMPONENTS = { "Opacity": true, "Motion": true, "Time Remapping":
 // 25.2.3 (#674): video "AE.ADBE Opacity", "AE.ADBE Motion"; graphics
 // "AE.ADBE Graphic Group" (Vector Motion), "AE.ADBE Text"; audio "Internal
 // Volume Mono|Stereo|5.1" and "Internal Channel Volume Stereo|5.1" (a mono clip
-// has no Channel Volume). Time Remapping and shape layers were not listed on
-// that build; their likely names are included because treating a component as
-// built-in only ever prevents a removal.
-var __BUILT_IN_MATCH_NAMES = { "AE.ADBE Motion": true, "AE.ADBE Opacity": true, "AE.ADBE Graphic Group": true, "AE.ADBE Text": true, "AE.ADBE Time Remapping": true };
+// has no Channel Volume), and shape layers "AE.ADBE Shape" (a stock lower
+// third). 25.2.3 lists no clip-level Panner, even for a mono clip on a stereo
+// track (panning is per track there). Time Remapping was not listed and cannot
+// be enabled by script; its likely name is included because treating a
+// component as built-in only ever prevents a removal.
+var __BUILT_IN_MATCH_NAMES = { "AE.ADBE Motion": true, "AE.ADBE Opacity": true, "AE.ADBE Graphic Group": true, "AE.ADBE Text": true, "AE.ADBE Shape": true, "AE.ADBE Time Remapping": true };
 
 function __componentMatchName(component) {
   try { return String(component.matchName || ""); } catch (eMatch) { return ""; }
@@ -678,7 +699,7 @@ function __isBuiltInComponent(component) {
 // means the built-ins are localized.
 function __isConfirmedBuiltInMatchName(match) {
   return match === "AE.ADBE Motion" || match === "AE.ADBE Opacity" || match === "AE.ADBE Graphic Group" ||
-    match === "AE.ADBE Text" || /^Internal /.test(match);
+    match === "AE.ADBE Text" || match === "AE.ADBE Shape" || /^Internal /.test(match);
 }
 
 // A component can only be classified when it reports a match name or carries a
@@ -697,7 +718,7 @@ function __componentClassificationProblem(clip) {
     if (__isConfirmedBuiltInMatchName(match) && !__BUILT_IN_COMPONENTS[name]) localized = name;
   }
   if (localized !== null) {
-    return "This Premiere host shows built-in components under localized names (" + localized + "). The match names of Time Remapping, Panner and shape layers are not confirmed yet, so an effect cannot be told apart from them reliably (#674).";
+    return "This Premiere host shows built-in components under localized names (" + localized + "). The match names of Time Remapping and Panner are not confirmed yet, so an effect cannot be told apart from them reliably (#674).";
   }
   return null;
 }

@@ -696,6 +696,19 @@ describe("issue #129 — effect removal uses the targeted QE component remove an
     expect(names(list)).toEqual(["Opacity", "Motion", "Vector Motion", "Text"]);
   });
 
+  it("keeps a stock lower third's shape layers by match name (live 25.2.3: AE.ADBE Shape)", async () => {
+    const lowerThird = { "Vector Motion": "AE.ADBE Graphic Group", Shape: "AE.ADBE Shape", Text: "AE.ADBE Text", Opacity: "AE.ADBE Opacity", Motion: "AE.ADBE Motion", Tint: "AE.ADBE Tint" };
+    const list = removalHost(["Opacity", "Motion", "Vector Motion", "Shape", "Text", "Shape", "Tint"], { matchNames: lowerThird });
+    await expect(advanced.remove_all_effects.handler({ node_id: "clip1" })).resolves.toMatchObject({ success: true, data: { removedEffects: ["Tint"] } });
+    expect(names(list)).toEqual(["Opacity", "Motion", "Vector Motion", "Shape", "Text", "Shape"]);
+  });
+
+  it("treats a localized shape layer as proof of a localized host", async () => {
+    const list = removalHost(["Form", "Lumetri-Farbe"], { matchNames: { Form: "AE.ADBE Shape", "Lumetri-Farbe": "AE.ADBE Lumetri" } });
+    await expect(advanced.remove_all_effects.handler({ node_id: "clip1" })).resolves.toMatchObject({ success: false, error: expect.stringContaining("localized names (Form)") });
+    expect(names(list)).toEqual(["Form", "Lumetri-Farbe"]);
+  });
+
   it("refuses, removing nothing, when a component reports no match name and a non-English name", async () => {
     const list = removalHost(["Deckkraft", "Lumetri-Farbe"], { matchNames: { Deckkraft: "", "Lumetri-Farbe": "AE.ADBE Lumetri" } });
     await expect(advanced.remove_all_effects.handler({ node_id: "clip1" })).resolves.toMatchObject({ success: false, error: expect.stringContaining("no match name") });

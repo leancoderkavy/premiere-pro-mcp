@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import { BridgeOptions, sendCommand } from "../bridge/file-bridge.js";
 import { buildToolScript, escapeForExtendScript } from "../bridge/script-builder.js";
 import { rippleDeleteScriptBody } from "./ripple-delete-script.js";
+import { createEditPlanTokenStore, EditPlanTokenStore } from "./edit-plan-token-store.js";
 import {
   AuditSink,
   CapabilityConfig,
@@ -33,6 +34,7 @@ export interface EditPlanDependencies {
   capabilities?: CapabilityConfig;
   auditSink?: AuditSink;
   operationIdFactory?: () => string;
+  tokenStore?: EditPlanTokenStore;
 }
 
 function canonicalPlan(plan: EditPlan): string {
@@ -171,6 +173,7 @@ export function getEditPlanTools(bridgeOptions: BridgeOptions, dependencies: Edi
   const capabilities = dependencies.capabilities ?? resolveCapabilities();
   const auditSink = dependencies.auditSink ?? stderrAuditSink;
   const nextId = dependencies.operationIdFactory ?? createOperationId;
+  const tokenStore = dependencies.tokenStore ?? createEditPlanTokenStore(bridgeOptions);
   const planParameter = {
     type: "object",
     description:
@@ -202,13 +205,13 @@ export function getEditPlanTools(bridgeOptions: BridgeOptions, dependencies: Edi
 
   return {
     preview_edit_plan: {
-      description: "Validate and preview a compound timeline edit without changing Premiere. Returns a confirmation token required by apply_edit_plan.",
+      description: "Validate and preview a compound timeline edit without changing Premiere. Returns a single-use confirmation token that expires after 30 minutes and is required by apply_edit_plan.",
       parameters: { type: "object" as const, properties: { plan: planParameter }, required: ["plan"] },
       handler: async (args: { plan: unknown }) => {
         const operationId = nextId();
         requireCapability(capabilities, "inspect", operationId);
         const plan = validateEditPlan(args.plan);
-        return { success: true, data: { operationId, changes: describe(plan), confirmationToken: confirmationToken(plan), applied: false } };
+        return { success: true, data: { operationId, changes: describe(plan), confirmationToken: tokenStore.issue(confirmationToken(plan)), applied: false } };
       },
     },
     apply_edit_plan: {
@@ -223,7 +226,7 @@ export function getEditPlanTools(bridgeOptions: BridgeOptions, dependencies: Edi
         try {
           requireCapability(capabilities, "edit", operationId);
           const plan = validateEditPlan(args.plan);
-          if (args.confirmation_token !== confirmationToken(plan)) throw new Error("Confirmation token does not match this edit plan; preview it again");
+          tokenStore.consume(args.confirmation_token, confirmationToken(plan));
           emitAudit(auditSink, { operationId, action: "apply_edit_plan", outcome: "started", details: { operationCount: plan.operations.length } });
           const result = await sendCommand(buildApplyScript(plan), bridgeOptions);
           emitAudit(auditSink, { operationId, action: "apply_edit_plan", outcome: result.success ? "succeeded" : "failed" });

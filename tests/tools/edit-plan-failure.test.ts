@@ -12,6 +12,7 @@ vi.mock("../../src/bridge/file-bridge.js", () => ({
 
 import { sendCommand } from "../../src/bridge/file-bridge.js";
 import { confirmationToken, getEditPlanTools } from "../../src/tools/edit-plans.js";
+import { staticEditPlanTokenStore } from "../helpers/static-edit-plan-token-store.js";
 
 const mockedSendCommand = vi.mocked(sendCommand);
 const TICKS = 254016000000;
@@ -50,7 +51,7 @@ function host(options: { failing: string; recordsUndo?: boolean }) {
   return list;
 }
 
-const tools = getEditPlanTools({}, { capabilities: { capabilities: new Set(["inspect", "edit"]), source: "explicit" }, auditSink: vi.fn(), operationIdFactory: () => "op" });
+const tools = getEditPlanTools({}, { capabilities: { capabilities: new Set(["inspect", "edit"]), source: "explicit" }, auditSink: vi.fn(), operationIdFactory: () => "op", tokenStore: staticEditPlanTokenStore });
 const apply = (plan: { operations: Array<{ type: "remove_clip"; node_id: string }> }) =>
   runWithUndoTracking(true, () => tools.apply_edit_plan.handler({ plan, confirmation_token: confirmationToken(plan) })) as Promise<Result>;
 

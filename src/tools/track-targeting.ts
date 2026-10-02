@@ -745,7 +745,7 @@ export function getTrackTargetingTools(bridgeOptions: BridgeOptions) {
 
     set_clip_position: {
       description:
-        "Set the Position property on a video clip's Motion effect. Values are in pixels.",
+        "Set the Position property on a video clip's Motion effect using English or measured Spanish built-in names, then read it back. Values are in pixels.",
       parameters: {
         type: "object" as const,
         properties: {
@@ -772,9 +772,9 @@ export function getTrackTargetingTools(bridgeOptions: BridgeOptions) {
           var clip = result.clip;
           var set = false;
           for (var i = 0; i < clip.components.numItems; i++) {
-            if (clip.components[i].displayName === "Motion") {
+            if (clip.components[i].matchName === "AE.ADBE Motion" || clip.components[i].displayName === "Motion") {
               for (var p = 0; p < clip.components[i].properties.numItems; p++) {
-                if (clip.components[i].properties[p].displayName === "Position") {
+                if (__videoIntrinsicPropertyMatches(clip.components[i].properties[p], "Position")) {
                   var pointProp = clip.components[i].properties[p];
                   var pointScale = __motionPointScale(pointProp, __sequenceFrameSize(app.project.activeSequence));
                   if (!pointScale) return __error("The sequence frame size is unreadable, so pixels cannot be converted to Premiere's normalized position; nothing was changed.");
@@ -799,7 +799,7 @@ export function getTrackTargetingTools(bridgeOptions: BridgeOptions) {
     },
 
     set_clip_scale: {
-      description: "Scale a video clip evenly through its Motion effect and read the result back. With Uniform Scale off, both Scale (height) and Scale Width are set, so the picture is not stretched; use set_scale_width_height for different values.",
+      description: "Scale a video clip evenly through its Motion effect using English or measured Spanish built-in names, and read the result back. With Uniform Scale off, both Scale (height) and Scale Width are set, so the picture is not stretched; use set_scale_width_height for different values.",
       parameters: {
         type: "object" as const,
         properties: {
@@ -836,7 +836,7 @@ export function getTrackTargetingTools(bridgeOptions: BridgeOptions) {
     },
 
     set_clip_rotation: {
-      description: "Set the Rotation property on a video clip's Motion effect.",
+      description: "Set the Rotation property on a video clip's Motion effect using English or measured Spanish built-in names, then read it back.",
       parameters: {
         type: "object" as const,
         properties: {
@@ -860,10 +860,13 @@ export function getTrackTargetingTools(bridgeOptions: BridgeOptions) {
           var clip = result.clip;
           var set = false;
           for (var i = 0; i < clip.components.numItems; i++) {
-            if (clip.components[i].displayName === "Motion") {
+            if (clip.components[i].matchName === "AE.ADBE Motion" || clip.components[i].displayName === "Motion") {
               for (var p = 0; p < clip.components[i].properties.numItems; p++) {
-                if (clip.components[i].properties[p].displayName === "Rotation") {
-                  clip.components[i].properties[p].setValue(${args.degrees}, true);
+                if (__videoIntrinsicPropertyMatches(clip.components[i].properties[p], "Rotation")) {
+                  var rotationProp = clip.components[i].properties[p];
+                  rotationProp.setValue(${args.degrees}, true);
+                  var rotationReadback = Number(rotationProp.getValue());
+                  if (!isFinite(rotationReadback) || Math.abs(rotationReadback - ${args.degrees}) > 0.0001) return __error("Premiere did not apply the requested rotation; read back " + rotationReadback + ".");
                   set = true;
                   break;
                 }
@@ -872,7 +875,7 @@ export function getTrackTargetingTools(bridgeOptions: BridgeOptions) {
             }
           }
           if (!set) return __error("Could not set rotation");
-          return __result({ degrees: ${args.degrees}, clip: clip.name });
+          return __result({ degrees: ${args.degrees}, clip: clip.name, verified: true });
         `);
         return sendCommand(script, bridgeOptions);
       },
@@ -934,7 +937,7 @@ export function getTrackTargetingTools(bridgeOptions: BridgeOptions) {
     },
 
     set_clip_opacity: {
-      description: "Set the opacity of a video clip (0-100).",
+      description: "Set the opacity of a video clip (0-100) using English or measured Spanish built-in names, then read it back.",
       parameters: {
         type: "object" as const,
         properties: {
@@ -957,10 +960,13 @@ export function getTrackTargetingTools(bridgeOptions: BridgeOptions) {
           var clip = result.clip;
           var set = false;
           for (var i = 0; i < clip.components.numItems; i++) {
-            if (clip.components[i].displayName === "Opacity") {
+            if (clip.components[i].matchName === "AE.ADBE Opacity" || clip.components[i].displayName === "Opacity") {
               for (var p = 0; p < clip.components[i].properties.numItems; p++) {
-                if (clip.components[i].properties[p].displayName === "Opacity") {
-                  clip.components[i].properties[p].setValue(${args.opacity}, true);
+                if (__videoIntrinsicPropertyMatches(clip.components[i].properties[p], "Opacity")) {
+                  var opacityProp = clip.components[i].properties[p];
+                  opacityProp.setValue(${args.opacity}, true);
+                  var opacityReadback = Number(opacityProp.getValue());
+                  if (!isFinite(opacityReadback) || Math.abs(opacityReadback - ${args.opacity}) > 0.0001) return __error("Premiere did not apply the requested opacity; read back " + opacityReadback + ".");
                   set = true;
                   break;
                 }
@@ -969,7 +975,7 @@ export function getTrackTargetingTools(bridgeOptions: BridgeOptions) {
             }
           }
           if (!set) return __error("Could not set opacity");
-          return __result({ opacity: ${args.opacity}, clip: clip.name });
+          return __result({ opacity: ${args.opacity}, clip: clip.name, verified: true });
         `);
         return sendCommand(script, bridgeOptions);
       },
