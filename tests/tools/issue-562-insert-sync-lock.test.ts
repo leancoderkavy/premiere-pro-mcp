@@ -366,6 +366,17 @@ describe("issue #562 — insert_from_source honors sync lock", () => {
     expect(rangesOf(seq.audioTracks[0])).toEqual(beforeAudio);
   });
 
+  it("refuses a subframe target cut before any QE razor changes the timeline", () => {
+    const { sandbox, seq, source: item } = issue562Host();
+    const beforeVideo = rangesOf(seq.videoTracks[0]);
+    const beforeAudio = rangesOf(seq.audioTracks[0]);
+    const result = runHelper(sandbox, seq, item, 6.01);
+    expect(result).toMatchObject({ ok: false });
+    expect(result.error).toMatch(/nothing was changed.*frame boundary/i);
+    expect(rangesOf(seq.videoTracks[0])).toEqual(beforeVideo);
+    expect(rangesOf(seq.audioTracks[0])).toEqual(beforeAudio);
+  });
+
   it("target_tracks refuses a straddling target before mutation when QE is unavailable", () => {
     const { sandbox, seq, source: item } = issue562Host({ qe: false });
     const beforeVideo = rangesOf(seq.videoTracks[0]);

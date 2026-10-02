@@ -155,7 +155,7 @@ export function getSourceMonitorTools(bridgeOptions: BridgeOptions) {
 
     insert_from_source: {
       description:
-        "Insert the clip from the Source Monitor at the playhead (insert edit). A target clip spanning the playhead is QE-razored before insertion to prevent its split tail moving to the sequence end. By default the tool also razors and shifts every QE sync-locked track, then reads the placement and target tails back. Pass scope 'target_tracks' to ripple only the named pair (this will desync other tracks).",
+        "Insert the clip from the Source Monitor at the playhead (insert edit). Experimental: a target clip spanning the playhead is QE-razored before insertion to attempt to preserve its split tail. By default the tool also razors and shifts every QE sync-locked track, then reads the placement and target tails back; a displaced tail is reported as committed_unverified. Pass scope 'target_tracks' to ripple only the named pair (this will desync other tracks).",
       parameters: {
         type: "object" as const,
         properties: {

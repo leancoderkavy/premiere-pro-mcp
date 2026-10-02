@@ -1873,6 +1873,13 @@ function __insertClipHonoringSyncLock(seq, item, timeTicks, videoTrackIndex, aud
   }
   var needRazor = razorPlan.length > 0;
   if (needRazor) {
+    // QE razor accepts a formatted frame timecode, while insertClip receives
+    // the exact ticks. Rounding a sub-frame request would cut at a different
+    // point and leave a partially changed timeline. Refuse before any cut.
+    var frameBoundary = Math.round(insertTicks / frameTicks) * frameTicks;
+    if (Math.abs(insertTicks - frameBoundary) > __TICK_MATCH_TOL) {
+      return { ok: false, error: "Insert refused; nothing was changed. The requested insertion time is not on a sequence frame boundary, so QE cannot razor the same point. Use a frame-aligned time." };
+    }
     var razorAt = null;
     try { razorAt = __qeTimecodeForTicks(seq, insertTicks); } catch (eTc) {}
     if (!razorAt || !razorAt.timecode) {
