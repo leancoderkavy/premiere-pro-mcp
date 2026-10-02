@@ -24,6 +24,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ### Fixed
 
 - `apply_edit_plan` confirmation tokens are now random, issued only by `preview_edit_plan`, valid for 30 minutes, and consumed before the host edit. The private bridge directory retains token state across server restarts, so an applied token cannot be replayed after Undo or a restart (#728).
+- `color_correct` requires Lumetri component and every requested property to read back before reporting success. Missing catalog entries, ignored QE insertion, localized or missing controls, and ignored setters fail honestly; receipts explicitly leave rendered output unverified (#720).
+
 - Audio volume tools now recognize Premiere's Spanish `Volumen` and `Nivel` labels and locale-independent `Internal Volume` component match names, including bulk track volume changes and `setup_ducking` (#710).
 - Legacy CEP `relink_media` now refuses by default because `changeMediaPath` can wedge Premiere on a valid file. Its explicit unsafe opt-in preflights the file and reports only `committed_unverified`; use `relink_offline_media_uxp` for capability checks and media-path/online readback (#729).
 - `apply_effect` and `apply_audio_effect` verify added components instead of trusting QE; missing readback returns `committed_unverified` with a warning to inspect the clip before retrying. An unchanged component count and undo index report `not_applied`, for example `Time Remapping`, which QE accepts but never adds. (#674)
