@@ -277,9 +277,9 @@ export function getTextTools(bridgeOptions: BridgeOptions) {
             ${trackIndex},
             ${trackIndex}
           ); } catch (libraryError) {
-            return __jsonStringify({ success: false, error: "Premiere could not import MOGRT '" + mogrtName + "' from library '" + libraryName + "': " + libraryError.toString() + ". Verify the library/template names, Creative Cloud sign-in and sync, and template compatibility. CEP cannot enumerate Library contents.", data: { outcome: "committed_unverified", verified: false, mutationAttempted: true, renderVerified: false, note: "Premiere may have changed the sequence before throwing. Inspect the target track before retrying." } });
+            return __error("Premiere could not import MOGRT '" + mogrtName + "' from library '" + libraryName + "': " + libraryError.toString() + ". Verify the library/template names, Creative Cloud sign-in and sync, and template compatibility. CEP cannot enumerate Library contents.", { outcome: "failed", mutationOutcome: "unknown", verified: false, mutationAttempted: true, renderVerified: false, note: "Premiere may have changed the sequence before throwing. Inspect the target track before retrying." });
           }
-          if (!hostResult) return __jsonStringify({ success: false, error: "Premiere did not confirm importing MOGRT '" + mogrtName + "' from library '" + libraryName + "'. Verify the library/template names, Creative Cloud sign-in and sync, and template compatibility; CEP cannot enumerate Library contents.", data: { outcome: "committed_unverified", verified: false, mutationAttempted: true, renderVerified: false } });
+          if (!hostResult) return __error("Premiere did not confirm importing MOGRT '" + mogrtName + "' from library '" + libraryName + "'. Verify the library/template names, Creative Cloud sign-in and sync, and template compatibility; CEP cannot enumerate Library contents.", { outcome: "failed", mutationOutcome: "unknown", verified: false, mutationAttempted: true, renderVerified: false });
           
           return __result({
             importRequested: true,

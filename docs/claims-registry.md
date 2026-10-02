@@ -35,8 +35,9 @@ itself.
 | `verified` | Premiere's readback confirmed the requested state after the call. |
 | `committed` | Premiere accepted the change; the tool does not claim a readback. |
 | `committed_unverified` | Premiere accepted the change, but readback was unavailable or incomplete, so it is not reported as verified. |
+| `requested_unverified` | The tool dispatched a host request, but cannot establish that Premiere accepted or applied the requested state. Inspect the host before retrying; this state never claims a committed change. |
 | `template_verified` | The content was verified in the file handed to Premiere (for example the text baked into a copied `.mogrt` by `add_title`), not in Premiere's own readback, because the host exposes none. Confirm rendered output separately, for example with `export_frame`. |
-| failed | A structured error with `success: false`; never reported as success. |
+| failed | A structured error with `success: false`; never reported as success. A post-call error may report `mutationAttempted:true` and `mutationOutcome:"unknown"`; failure does not imply rollback or no mutation. |
 
 The registry is not a launch checklist. Distribution and host-proof gates are
 maintained separately in [distribution-readiness.md](distribution-readiness.md).

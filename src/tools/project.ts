@@ -1021,7 +1021,7 @@ export function getProjectTools(bridgeOptions: BridgeOptions) {
     },
 
     set_transcode_on_ingest: {
-      description: "Request enabling or disabling project transcoding on ingest. Premiere exposes no getter for independent verification, so the result is committed_unverified.",
+      description: "Request enabling or disabling project transcoding on ingest. Premiere exposes no getter for independent verification, so dispatch is reported as requested_unverified.",
       parameters: {
         type: "object" as const,
         properties: {
@@ -1040,9 +1040,9 @@ export function getProjectTools(bridgeOptions: BridgeOptions) {
           var hostReturn;
           try { hostReturn = app.project.setEnableTranscodeOnIngest(${args.enabled ? 1 : 0}); }
           catch (ingestError) {
-            return __jsonStringify({ success: false, error: "Premiere threw while requesting transcode on ingest: " + ingestError.toString(), data: { outcome: "committed_unverified", verified: false, mutationAttempted: true, requestedEnabled: ${args.enabled}, note: "The setter may have changed project state before throwing. Inspect Project Settings before retrying." } });
+            return __error("Premiere threw while requesting transcode on ingest: " + ingestError.toString(), { outcome: "failed", mutationOutcome: "unknown", verified: false, mutationAttempted: true, requestedEnabled: ${args.enabled}, note: "The setter may have changed project state before throwing. Inspect Project Settings before retrying." });
           }
-          return __result({ requestedEnabled: ${args.enabled}, requestSent: true, hostReturn: hostReturn, outcome: "committed_unverified", verified: false, verificationScope: "Premiere exposes no ingest-transcode getter; check Project Settings to confirm the requested state." });
+          return __result({ requestedEnabled: ${args.enabled}, requestSent: true, hostReturn: hostReturn, outcome: "requested_unverified", verified: false, verificationScope: "Premiere exposes no ingest-transcode getter; check Project Settings to confirm the requested state." });
         `);
         return sendCommand(script, bridgeOptions);
       },

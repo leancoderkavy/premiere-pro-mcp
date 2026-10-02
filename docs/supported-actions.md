@@ -79,7 +79,7 @@ operation” when the tool has no enum-based mode.
 | `clear_sequence_in_out` | Default profile | Single operation | Clear the in and/or out points on the active sequence. |
 | `close_all_source_clips` | Default profile | Single operation | Close all clips in the Source Monitor. |
 | `close_project` | Default profile | Single operation | Close an open Premiere Pro project: the active one, or the open project at project_path. Verifies it is no longer open and reports which project is active afterwards. |
-| `close_sequence` | Default profile | Single operation | Request closing a sequence timeline tab. Premiere exposes no open-tab enumeration, so closure remains committed_unverified; the sequence stays in the project. |
+| `close_sequence` | Default profile | Single operation | Request closing a sequence timeline tab. Premiere exposes no open-tab enumeration, so dispatch is requested_unverified; the sequence stays in the project. |
 | `close_source_monitor` | Default profile | Single operation | Close the clip currently open in the Source Monitor. |
 | `color_correct` | Default profile | Single operation | Apply basic color correction through experimental QE Lumetri insertion. Requires Lumetri component and requested property readback; rendered output is not verified. |
 | `compare_cmx3600_edls` | Default profile | Single operation | Compare two local CMX 3600 EDLs by event number and report bounded added, removed, and changed editorial events. Read-only; it does not alter either interchange file or Premiere. |
@@ -389,7 +389,7 @@ operation” when the tool has no enum-based mode.
 | `set_start_time` | Default profile | Single operation | Set the start time (timecode offset) for a project item |
 | `set_target_track` | Default profile | `track_type`: `video`, `audio` | Target or untarget one video or audio track for source-patched insert/overwrite edits. Premiere allows several tracks of a type to be targeted at once, so by default (exclusive=true) targeting a track also untargets every other track of the same type. Reads back every track of that type and reports verified only when the readback matches the requested state; otherwise committed_unverified or an error. |
 | `set_time_interpolation` | Default profile | Single operation | Set time interpolation type for a clip (Frame Sampling, Frame Blending, Optical Flow). Uses QE DOM. |
-| `set_transcode_on_ingest` | Default profile | Single operation | Request enabling or disabling project transcoding on ingest. Premiere exposes no getter for independent verification, so the result is committed_unverified. |
+| `set_transcode_on_ingest` | Default profile | Single operation | Request enabling or disabling project transcoding on ingest. Premiere exposes no getter for independent verification, so dispatch is reported as requested_unverified. |
 | `set_uniform_scale` | Default profile | Single operation | Toggle uniform scale on a clip's Motion effect. When enabled, Scale Width and Scale Height are linked. |
 | `set_work_area` | Default profile | Single operation | Set the work area (bar) in and out points |
 | `set_workspace` | Default profile | Single operation | Switch to a specific workspace layout (e.g., 'Editing', 'Color', 'Audio', 'Effects', 'Graphics') |
