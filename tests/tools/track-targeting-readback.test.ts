@@ -72,6 +72,13 @@ function host(clips: FakeClip[], extra: Record<string, unknown> = {}) {
 }
 
 describe("clip parameter writes read the stored value back", () => {
+  it("retains unknown mutation state after a throwing property write", async () => {
+    const clip = clipWith("c1");
+    clip.params.opacity.setValue = () => { throw new Error("throw after possible mutation"); };
+    host([clip]);
+    await expect(run(tools.set_clip_opacity, { node_id: "c1", opacity: 40 })).resolves.toMatchObject({ success: false, data: { outcome: "failed", mutationAttempted: true, mutationOutcome: "unknown", timelineChanged: null } });
+  });
+
   it.each([null, undefined, true, "40"])("does not certify invalid numeric post-read %s", async (value) => {
     const clip = clipWith("c1");
     let written = false;

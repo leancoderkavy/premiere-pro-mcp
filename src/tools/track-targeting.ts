@@ -56,7 +56,7 @@ function clipParamScript(componentMatch: string, componentName: string, property
             var before = null;
             try { before = prop.getValue(); } catch (eBefore) {}
             try { prop.setValue(value, true); } catch (eWrite) {
-              return { read: null, readable: false, changed: null, ok: false };
+              return { read: null, readable: false, changed: null, attemptedOnly: true, ok: false };
             }
             var read = null;
             try { read = prop.getValue(); } catch (eRead) {}
@@ -926,7 +926,7 @@ export function getTrackTargetingTools(bridgeOptions: BridgeOptions) {
           if (!prop) return __error("This clip has no Motion > Rotation property; nothing was changed.");
           var write = __setParamVerified(prop, ${args.degrees}, 0.001);
           if (!write.ok) {
-            return __jsonStringify({ success: false, error: "Premiere stored Rotation " + write.read + " instead of ${args.degrees}.", data: { degrees: write.read, requestedDegrees: ${args.degrees}, timelineChanged: write.changed, outcome: write.changed === false ? "not_applied" : "committed_unverified", verified: false } });
+            return __jsonStringify({ success: false, error: "Premiere stored Rotation " + write.read + " instead of ${args.degrees}.", data: { degrees: write.read, requestedDegrees: ${args.degrees}, timelineChanged: write.changed, outcome: write.attemptedOnly ? "failed" : (write.changed === false ? "not_applied" : "committed_unverified"), mutationAttempted: true, mutationOutcome: write.attemptedOnly ? "unknown" : undefined, verified: false } });
           }
           return __result({ degrees: write.read, clip: clip.name, verified: true });
         `);
@@ -1020,7 +1020,7 @@ export function getTrackTargetingTools(bridgeOptions: BridgeOptions) {
           if (!prop) return __error("This clip has no Opacity property; nothing was changed.");
           var write = __setParamVerified(prop, ${args.opacity}, 0.001);
           if (!write.ok) {
-            return __jsonStringify({ success: false, error: "Premiere stored Opacity " + write.read + " instead of ${args.opacity}.", data: { opacity: write.read, requestedOpacity: ${args.opacity}, timelineChanged: write.changed, outcome: write.changed === false ? "not_applied" : "committed_unverified", verified: false } });
+            return __jsonStringify({ success: false, error: "Premiere stored Opacity " + write.read + " instead of ${args.opacity}.", data: { opacity: write.read, requestedOpacity: ${args.opacity}, timelineChanged: write.changed, outcome: write.attemptedOnly ? "failed" : (write.changed === false ? "not_applied" : "committed_unverified"), mutationAttempted: true, mutationOutcome: write.attemptedOnly ? "unknown" : undefined, verified: false } });
           }
           return __result({ opacity: write.read, clip: clip.name, verified: true });
         `);

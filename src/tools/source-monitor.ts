@@ -297,7 +297,7 @@ export function getSourceMonitorTools(bridgeOptions: BridgeOptions) {
           try {
             seq.overwriteClip(item, pos, ${vTrack}, ${aTrack});
           } catch (overwriteError) {
-            return __error("Sequence.overwriteClip threw after the edit was attempted: " + overwriteError.toString() + ". Inspect the timeline before retrying.", { outcome: "committed_unverified", verified: false, timelineChanged: null });
+            return __error("Sequence.overwriteClip threw after the edit was attempted: " + overwriteError.toString() + ". Inspect the timeline before retrying.", { outcome: "failed", mutationAttempted: true, mutationOutcome: "unknown", verified: false, timelineChanged: null });
           }
           var videoAfter = null, audioAfter = null;
           try {

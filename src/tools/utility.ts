@@ -415,7 +415,7 @@ export function getUtilityTools(bridgeOptions: BridgeOptions) {
 
           // Path 1 (legacy, removed in PPro 2026): qeSeq.addAdjustmentLayer(track)
           if (typeof qeSeq.addAdjustmentLayer === "function") {
-            try { qeSeq.addAdjustmentLayer(${track}); } catch (eLegacy) { return __error("Adjustment layer creation was attempted and threw: " + eLegacy.toString() + ". Inspect before retrying.", { outcome: "committed_unverified", verified: false, timelineChanged: null }); }
+            try { qeSeq.addAdjustmentLayer(${track}); } catch (eLegacy) { return __error("Adjustment layer creation was attempted and threw: " + eLegacy.toString() + ". Inspect before retrying.", { outcome: "failed", mutationAttempted: true, mutationOutcome: "unknown", verified: false, timelineChanged: null }); }
             if (!__layerAtPlayhead(null)) {
               return __jsonStringify({ success: false, error: "qeSeq.addAdjustmentLayer returned, but no new adjustment layer was found at the playhead on video track ${track}.", data: { outcome: "committed_unverified", method: "qeSeq.addAdjustmentLayer" } });
             }
@@ -433,7 +433,7 @@ export function getUtilityTools(bridgeOptions: BridgeOptions) {
           var root = app.project.rootItem;
           var before = {};
           for (var b = 0; b < __childCount(root); b++) { var existing = __childAt(root, b); if (existing) before[String(existing.nodeId)] = true; }
-          try { qe.project.newAdjustmentLayer(); } catch (eNew) { return __error("Adjustment layer creation was attempted and threw: " + eNew.toString() + ". Inspect the project before retrying.", { outcome: "committed_unverified", verified: false }); }
+          try { qe.project.newAdjustmentLayer(); } catch (eNew) { return __error("Adjustment layer creation was attempted and threw: " + eNew.toString() + ". Inspect the project before retrying.", { outcome: "failed", mutationAttempted: true, mutationOutcome: "unknown", verified: false }); }
           var adjItem = null, addedItems = 0;
           for (var c2 = __childCount(root) - 1; c2 >= 0; c2--) {
             var candidate = __childAt(root, c2);
@@ -444,7 +444,7 @@ export function getUtilityTools(bridgeOptions: BridgeOptions) {
           try {
             qeTrack[insertMethod](adjItem, String(playerTicks));
           } catch (eInsert) {
-            return __error("Adjustment layer insertion was attempted and threw: " + eInsert.toString() + ". The project or timeline may have changed; inspect before retrying.", { outcome: "committed_unverified", verified: false, timelineChanged: null, projectItem: adjItem.name });
+            return __error("Adjustment layer insertion was attempted and threw: " + eInsert.toString() + ". The project or timeline may have changed; inspect before retrying.", { outcome: "failed", mutationAttempted: true, mutationOutcome: "unknown", verified: false, timelineChanged: null, projectItem: adjItem.name });
           }
           if (!__layerAtPlayhead(String(adjItem.nodeId))) {
             return __jsonStringify({ success: false, error: "Premiere accepted the insert, but the new adjustment layer was not found at the playhead on video track ${track}.", data: { outcome: "committed_unverified", projectItem: adjItem.name, method: "qe.project.newAdjustmentLayer + insert" } });

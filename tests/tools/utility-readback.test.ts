@@ -162,7 +162,7 @@ describe("add_adjustment_layer", () => {
 
   it("does not retry insertion after a throwing mutation", async () => {
     const state = adjustmentHost({ modern: true, throwAfterInsert: true });
-    await expect(run(tools.add_adjustment_layer, {})).resolves.toMatchObject({ success: false, data: { outcome: "committed_unverified", verified: false, timelineChanged: null } });
+    await expect(run(tools.add_adjustment_layer, {})).resolves.toMatchObject({ success: false, data: { outcome: "failed", mutationAttempted: true, mutationOutcome: "unknown", verified: false, timelineChanged: null } });
     expect(state.trackClips).toHaveLength(1);
     expect(state.fallback).not.toHaveBeenCalled();
   });
