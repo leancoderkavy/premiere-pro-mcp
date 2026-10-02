@@ -63,6 +63,6 @@ describe("Spanish built-in video controls (#722)", () => {
 
   it("does not claim verified when Premiere ignores the localized write", async () => {
     spanishHost("Rotación");
-    await expect(tools.set_clip_rotation.handler({ node_id: "c1", degrees: 15 })).resolves.toMatchObject({ success: false, error: expect.stringContaining("read back") });
+    await expect(tools.set_clip_rotation.handler({ node_id: "c1", degrees: 15 })).resolves.toMatchObject({ success: false, data: { degrees: 0, requestedDegrees: 15, verified: false, timelineChanged: false } });
   });
 });
