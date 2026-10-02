@@ -42,7 +42,8 @@ function applyEffectWithReadback(kind: "Video" | "Audio"): string {
     var data = {
       effect: effectName, lookupSource: lookupSource, clipName: result.clip.name,
       componentCountBefore: before.length, componentCountAfter: after ? after.length : null,
-      addedComponents: added, verified: false, outcome: "committed_unverified"
+      addedComponents: added, verified: false, outcome: "committed_unverified",
+      renderVerified: false, verificationScope: "Component-list readback only; verify live playback or rendered frames before delivery."
     };
     if (after && after.length > before.length && added.length > 0) {
       data.timelineChanged = true;
@@ -74,7 +75,7 @@ function applyEffectWithReadback(kind: "Video" | "Audio"): string {
 export function getEffectsTools(bridgeOptions: BridgeOptions) {
   return {
     apply_effect: {
-      description: "Apply a video effect to a clip. Uses QE DOM catalog lookup, with an exact-name QE probe when Premiere's catalog enumeration is empty.",
+      description: "Apply a video effect to a clip. Experimental QE DOM catalog lookup includes an exact-name probe when enumeration is empty. A component-list readback does not verify rendered pixels.",
       parameters: {
         type: "object" as const,
         properties: {
@@ -135,7 +136,7 @@ export function getEffectsTools(bridgeOptions: BridgeOptions) {
     },
 
     apply_audio_effect: {
-      description: "Apply an audio effect to a clip. Uses QE catalog lookup, with an exact-name QE probe when enumeration is empty.",
+      description: "Apply an audio effect to a clip. Experimental QE catalog lookup includes an exact-name probe when enumeration is empty. A component-list readback does not verify rendered audio.",
       parameters: {
         type: "object" as const,
         properties: {
