@@ -134,7 +134,7 @@ export function getTimelineTools(bridgeOptions: BridgeOptions) {
           if (!item) return __error("Project item not found: ${escapeForExtendScript(args.item_id)}");
           var startTicks = __secondsToTicks(${startSeconds}).toString();
           var outcome = __insertClipHonoringSyncLock(seq, item, startTicks, ${trackIndex}, ${audioTrackIndex}, "${scope}");
-          if (!outcome.ok) return __error(outcome.error);
+          if (!outcome.ok) return __error(outcome.error, outcome.changed ? { timelineChanged: true, outcome: "committed_unverified", verified: false, displacedTails: outcome.displacedTails } : null);
           var payload = {
             added: true,
             verified: outcome.data.verified,

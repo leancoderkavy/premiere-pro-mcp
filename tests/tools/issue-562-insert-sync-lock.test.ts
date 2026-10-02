@@ -139,6 +139,7 @@ function issue562Host(options: {
   overlaySeconds?: [number, number];
   sourceDurationSeconds?: number;
   mediaKind?: "audio_only" | "video_only";
+  displaceTargetTail?: boolean;
 } = {}) {
   // Premiere's getIn/OutPoint(mediaType): 1 = video, 2 = audio, 4 = any. A missing
   // stream reads back as a zero-length span.
@@ -191,6 +192,16 @@ function issue562Host(options: {
       // Like Premiere, only a track that receives part of the item is rippled.
       if (options.mediaKind !== "audio_only") insertOnTrack(videoTracks[vTrack as 0 | 1 | 2], item, time, `ins-v-${vTrack}`);
       if (options.mediaKind !== "video_only") insertOnTrack(audioTracks[aTrack as 0 | 1 | 2], item, time, `ins-a-${aTrack}`);
+      if (options.displaceTargetTail) {
+        for (const track of [videoTracks[vTrack as 0 | 1 | 2], audioTracks[aTrack as 0 | 1 | 2]]) {
+          const tail = track._arr.find((clip) => clip.nodeId.endsWith("-right"));
+          if (tail) {
+            const duration = parseFloat(tail.end.ticks) - parseFloat(tail.start.ticks);
+            tail.start = ticksOf(24);
+            tail.end = String(parseFloat(ticksOf(24)) + duration);
+          }
+        }
+      }
     },
   };
 
@@ -325,6 +336,22 @@ describe("issue #562 — insert_from_source honors sync lock", () => {
     expect(rangesOf(seq.videoTracks[0])).toEqual([[0, 4], [4, 6], [6, 8], [8, 10], [10, 14], [14, 20]]);
     expect(rangesOf(seq.videoTracks[1])).toEqual([[8, 12]]);
     expect(rangesOf(seq.videoTracks[2])).toEqual([[2, 6], [8, 38]]);
+  });
+
+  it("refuses verified success when Premiere displaces a target split tail", async () => {
+    const { sandbox, seq, source: item } = issue562Host({ displaceTargetTail: true });
+    const result = runHelper(sandbox, seq, item, 6);
+    expect(result.ok).toBe(false);
+    expect(result.error).toMatch(/timeline changed.*tail adjacent/i);
+    expect(result.error).toContain("24s");
+  });
+
+  it("reports a displaced tail as a changed, unverified add_to_timeline result", async () => {
+    const script = await scriptFor(getTimelineTools(bridgeOptions).add_to_timeline, { item_id: "src", start_seconds: 6 });
+    const { sandbox } = issue562Host({ displaceTargetTail: true });
+    const result = runScript(script, sandbox);
+    expect(result).toMatchObject({ success: false, data: { timelineChanged: true, outcome: "committed_unverified", verified: false } });
+    expect(result.data.displacedTails[0]).toContain("24s");
   });
 
   it("refuses before mutation when a participating track is locked", async () => {

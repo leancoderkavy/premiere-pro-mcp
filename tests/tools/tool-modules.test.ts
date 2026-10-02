@@ -1024,7 +1024,7 @@ describe("Script Generation Patterns", () => {
     expect(script).not.toContain("function __jsonStringify(obj)");
     const helpers = getHelpersSource();
     expect(helpers).toContain("function __result(data)");
-    expect(helpers).toContain("function __error(msg)");
+    expect(helpers).toContain("function __error(msg, extraData)");
     expect(helpers).toContain("TICKS_PER_SECOND");
   });
 });

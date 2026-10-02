@@ -26,7 +26,7 @@ describe("buildScript", () => {
     expect(result).toContain("function __getAllClips(seq)");
     expect(result).toContain("function __jsonStringify(obj)");
     expect(result).toContain("function __result(data)");
-    expect(result).toContain("function __error(msg)");
+    expect(result).toContain("function __error(msg, extraData)");
   });
 
   it("preserves multi-line code blocks", () => {
