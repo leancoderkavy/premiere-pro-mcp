@@ -1036,7 +1036,9 @@ export function getTrackTargetingTools(bridgeOptions: BridgeOptions) {
           }
           if (!set) return __error("Could not set volume - is this an audio clip?");
           if (writeError) {
-            return __jsonStringify({ success: false, error: "Volume write threw and may have changed the clip: " + writeError + ". Inspect before retrying.", data: { outcome: "committed_unverified", verified: false, timelineChanged: appliedLevel !== null && isFinite(appliedLevel) && appliedLevel !== beforeLevel ? true : null, requestedVolumeDb: ${args.volume_db}, level: appliedLevel } });
+            var readableWriteLevel = appliedLevel !== null && isFinite(appliedLevel) && appliedLevel >= 0;
+            var unchangedAfterThrow = readableWriteLevel && Math.abs(appliedLevel - beforeLevel) <= Math.max(1e-12, Math.abs(beforeLevel) * 1e-6);
+            return __jsonStringify({ success: false, error: unchangedAfterThrow ? "Volume setter threw without changing the stored level: " + writeError : "Volume write threw and may have changed the clip: " + writeError + ". Inspect before retrying.", data: { outcome: unchangedAfterThrow ? "not_applied" : "committed_unverified", verified: false, timelineChanged: unchangedAfterThrow ? false : (readableWriteLevel ? true : null), requestedVolumeDb: ${args.volume_db}, level: appliedLevel } });
           }
           if (appliedLevel === null || !isFinite(appliedLevel) || appliedLevel < 0) {
             return __result({ outcome: "committed_unverified", verified: false, requestedVolumeDb: ${args.volume_db}, volumeDb: null, level: null, clip: clip.name, warning: "Premiere accepted the volume write but its stored level could not be read; inspect the clip before retrying." });

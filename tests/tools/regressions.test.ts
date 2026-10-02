@@ -976,6 +976,10 @@ describe("issue #235 — CEP tool calls use the host's documented argument types
       success: true,
       data: { outcome: "committed_unverified", requestedVolumeDb: -3, volumeDb: null },
     });
+    Object.assign(property, { getValue: () => level, setValue: () => { throw new Error("setter refused before write"); } });
+    await expect(tracks.set_clip_volume.handler({ node_id: "audio-1", volume_db: -12 })).resolves.toMatchObject({
+      success: false, data: { outcome: "not_applied", verified: false, timelineChanged: false, level },
+    });
     Object.assign(property, { getValue: () => level, setValue: (value: number) => { level = value; throw new Error("setter failed after write"); } });
     await expect(tracks.set_clip_volume.handler({ node_id: "audio-1", volume_db: -8 })).resolves.toMatchObject({
       success: false, data: { outcome: "committed_unverified", verified: false, timelineChanged: true },
