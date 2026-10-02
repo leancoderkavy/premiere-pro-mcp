@@ -210,15 +210,15 @@ describe("set_clip_properties verification", () => {
     expect(property.setValue).toHaveBeenCalledWith(opacity, true);
   });
 
-  it("lists every requested property whose post-write state is unreadable", async () => {
+  it.each([false, true])("lists every unreadable requested property with localized names=%s", async (localized) => {
     function property(displayName: string, value: number | number[]) {
       let written = false;
       return { displayName, getValue() { if (written) throw new Error("post-write read failed"); return value; }, setValue: vi.fn(() => { written = true; }) };
     }
-    const opacity = property("Opacity", 100);
-    const scale = property("Scale", 100);
-    const position = property("Position", [0.5, 0.5]);
-    const rotation = property("Rotation", 0);
+    const opacity = property(localized ? "Opacidad" : "Opacity", 100);
+    const scale = property(localized ? "Escala" : "Scale", 100);
+    const position = property(localized ? "Posición" : "Position", [0.5, 0.5]);
+    const rotation = property(localized ? "Rotación" : "Rotation", 0);
     const clip = { nodeId: "c1", name: "Clip", components: { numItems: 2,
       0: { displayName: "Opacity", matchName: "AE.ADBE Opacity", properties: { numItems: 1, 0: opacity } },
       1: { displayName: "Motion", matchName: "AE.ADBE Motion", properties: { numItems: 4, 0: { displayName: "Uniform Scale", getValue: () => true }, 1: scale, 2: position, 3: rotation } },

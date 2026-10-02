@@ -1382,7 +1382,7 @@ export function getTimelineTools(
             var component = clip.components[i];
             if (component.matchName === "AE.ADBE Opacity" || component.displayName === "Opacity") {
               for (var op = 0; op < component.properties.numItems; op++) {
-                if (component.properties[op].displayName === "Opacity") opacityProp = component.properties[op];
+                if (__videoIntrinsicPropertyMatches(component.properties[op], "Opacity")) opacityProp = component.properties[op];
               }
             }
             if (component.matchName === "AE.ADBE Motion" || component.displayName === "Motion") motion = component;
@@ -1403,7 +1403,6 @@ export function getTimelineTools(
           var scaleHeight = null;
           var scaleWidth = null;
           for (var sp = 0; sp < motion.properties.numItems; sp++) {
-            var scaleName = String(motion.properties[sp].displayName);
             if (__videoIntrinsicPropertyMatches(motion.properties[sp], "Scale") || __videoIntrinsicPropertyMatches(motion.properties[sp], "Scale Height")) scaleHeight = motion.properties[sp];
             else if (__videoIntrinsicPropertyMatches(motion.properties[sp], "Scale Width")) scaleWidth = motion.properties[sp];
           }
@@ -1416,7 +1415,7 @@ export function getTimelineTools(
           ` : ""}
           ${args.position_x !== undefined || args.position_y !== undefined ? `
           var positionProp = null;
-          for (var pp = 0; pp < motion.properties.numItems; pp++) if (motion.properties[pp].displayName === "Position") positionProp = motion.properties[pp];
+          for (var pp = 0; pp < motion.properties.numItems; pp++) if (__videoIntrinsicPropertyMatches(motion.properties[pp], "Position")) positionProp = motion.properties[pp];
           if (!positionProp) return __error("Position property was not found; nothing was changed.");
           var beforePosition = null;
           try { beforePosition = positionProp.getValue(); } catch (ePosition) {}
@@ -1428,7 +1427,7 @@ export function getTimelineTools(
           ` : ""}
           ${args.rotation !== undefined ? `
           var rotationProp = null;
-          for (var rp = 0; rp < motion.properties.numItems; rp++) if (motion.properties[rp].displayName === "Rotation") rotationProp = motion.properties[rp];
+          for (var rp = 0; rp < motion.properties.numItems; rp++) if (__videoIntrinsicPropertyMatches(motion.properties[rp], "Rotation")) rotationProp = motion.properties[rp];
           if (!rotationProp) return __error("Rotation property was not found; nothing was changed.");
           var beforeRotation = NaN;
           try { beforeRotation = readNumericProperty(rotationProp); } catch (eRotation) {}
