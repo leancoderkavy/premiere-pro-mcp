@@ -48,11 +48,11 @@ export async function prepareAdjacentMediaBounds(options: BridgeOptions, nodeId:
   for (const entry of data.entries) {
     if (!durations.has(entry.mediaPath)) {
       const duration = await probeMediaDurationSeconds(entry.mediaPath);
-      if (duration === null || !Number.isFinite(duration) || duration <= 0) return { success: false as const, error: "Physical media duration could not be verified. Install ffprobe and use readable finite media; nothing was changed." };
+      if (duration === null || !Number.isFinite(duration) || duration <= 0 || !Number.isFinite(duration * 254016000000)) return { success: false as const, error: "Physical media duration could not be verified. Install ffprobe and use readable finite media; nothing was changed." };
       durations.set(entry.mediaPath, duration);
     }
   }
-  const entries = data.entries.map((entry) => `{"nodeId":"${escapeForExtendScript(entry.nodeId)}","mediaPath":"${escapeForExtendScript(entry.mediaPath)}","position":"${escapeForExtendScript(entry.position)}","endTicks":${Math.round(durations.get(entry.mediaPath)! * 254016000000)}}`).join(",");
+  const entries = data.entries.map((entry) => `{"nodeId":"${escapeForExtendScript(entry.nodeId)}","mediaPath":"${escapeForExtendScript(entry.mediaPath)}","position":"${escapeForExtendScript(entry.position)}","endTicks":${durations.get(entry.mediaPath)! * 254016000000}}`).join(",");
   return { success: true as const, script: `
     var sourceEvidence = [${entries}];
     if (String(app.project.activeSequence.sequenceID) !== "${escapeForExtendScript(data.sequenceId)}") return __error("Active sequence changed during media inspection; nothing was changed.");
@@ -68,7 +68,7 @@ export async function prepareAdjacentMediaBounds(options: BridgeOptions, nodeId:
       if (speed !== 1 || reversed !== false) return __error("Clip speed changed or cannot be verified; nothing was changed.");
       sourceEnds[evidence.nodeId] = evidence.endTicks;
       var existingIn = parseFloat(inspected.clip.inPoint.ticks), existingOut = parseFloat(inspected.clip.outPoint.ticks);
-      if (!isFinite(existingIn) || !isFinite(existingOut) || existingIn < 0 || existingOut <= existingIn || existingOut > evidence.endTicks + 1) return __error("An existing source window is outside its physical media duration. Nothing was changed.");
+      if (!isFinite(existingIn) || !isFinite(existingOut) || existingIn < 0 || existingOut <= existingIn || existingOut > evidence.endTicks) return __error("An existing source window is outside its physical media duration. Nothing was changed.");
       var recordDuration = parseFloat(inspected.clip.end.ticks) - parseFloat(inspected.clip.start.ticks);
       if (!isFinite(recordDuration) || recordDuration <= 0 || Math.abs(recordDuration - (existingOut - existingIn)) > 1) return __error("An existing normal-speed clip has inconsistent timeline/source duration. Nothing was changed.");
     }

@@ -550,3 +550,15 @@ describe("physical media bounds for adjacent edits (#718/#719)", () => {
     expect(video[0].snapshot()[1]).toBe(10);
   });
 });
+
+describe("exact physical source end", () => {
+  it("does not allow a one-tick overrun under readback tolerance", async () => {
+    const { video, audio } = host();
+    vi.mocked(probeMediaDurationSeconds).mockResolvedValue(60);
+    video[1].inPoint = { ticks: String(39.5 * TICKS + 1) };
+    video[1].outPoint = { ticks: String(59.5 * TICKS + 1) };
+    const before = [...video, ...audio].map((clip) => clip.snapshot());
+    await expect(tools.roll_edit.handler({ node_id: "v1", offset_seconds: 0.5 })).resolves.toMatchObject({ success: false, error: expect.stringContaining("exceed physical media duration") });
+    expect([...video, ...audio].map((clip) => clip.snapshot())).toEqual(before);
+  });
+});

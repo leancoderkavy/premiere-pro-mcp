@@ -119,7 +119,7 @@ export function getAdvancedTools(
             var expectedOut = String(Math.round(parseFloat(beforeOut) + offsetTicks));
             var expectedIncomingIn = String(Math.round(parseFloat(beforeIncomingIn) + offsetTicks));
             if (!sourceEnds[String(result.clip.nodeId)] || !sourceEnds[String(outgoing.nodeId)]) return __editFail("Adjacent edit target changed after source inspection; nothing was changed.");
-            if (parseFloat(expectedOut) > sourceEnds[String(result.clip.nodeId)] + 1 || parseFloat(expectedIncomingIn) < 0 || parseFloat(expectedIncomingIn) >= parseFloat(outgoing.outPoint.ticks) || parseFloat(expectedOut) <= parseFloat(result.clip.inPoint.ticks)) {
+            if (parseFloat(expectedOut) > sourceEnds[String(result.clip.nodeId)] || parseFloat(expectedIncomingIn) < 0 || parseFloat(expectedIncomingIn) >= parseFloat(outgoing.outPoint.ticks) || parseFloat(expectedOut) <= parseFloat(result.clip.inPoint.ticks)) {
               return __editFail("The requested roll would exceed physical media duration or create an invalid source range. Nothing was changed.");
             }
             if (checkOnly) return __editOk({ checked: true });
@@ -220,7 +220,7 @@ export function getAdvancedTools(
             var expectedPreviousOut = Math.round(parseFloat(previous.outPoint.ticks) + deltaTicks);
             var expectedFollowingIn = Math.round(parseFloat(following.inPoint.ticks) + deltaTicks);
             if (!sourceEnds[String(previous.nodeId)] || !sourceEnds[String(following.nodeId)] || !sourceEnds[String(result.clip.nodeId)]) return __editFail("Adjacent edit target changed after source inspection; nothing was changed.");
-            if (expectedPreviousOut > sourceEnds[String(previous.nodeId)] + 1) return __editFail("The requested slide would exceed physical media duration; nothing was changed.");
+            if (expectedPreviousOut > sourceEnds[String(previous.nodeId)]) return __editFail("The requested slide would exceed physical media duration; nothing was changed.");
             if (!isFinite(expectedPreviousOut) || !isFinite(expectedFollowingIn) || expectedFollowingIn < 0 ||
               expectedPreviousOut <= parseFloat(previousIn) || expectedFollowingIn >= parseFloat(followingOut)) {
               return __editFail("The requested slide would create an invalid adjacent source range. Nothing was changed.");
