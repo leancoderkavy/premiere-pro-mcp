@@ -41,7 +41,7 @@ function tintHost(options: { rejects?: boolean } = {}) {
   };
   const amount = { displayName: "Amount to Tint", getValue: () => 100, getValueAtTime: () => 100, isTimeVarying: () => false, areKeyframesSupported: () => true };
   const tint = { displayName: "Tint", matchName: "AE.ADBE Tint", properties: { numItems: 2, 0: color, 1: amount } };
-  const clip = { nodeId: "c1", name: "Shot", start: { ticks: "0" }, end: { ticks: String(254016000000 * 10) }, inPoint: { ticks: "0" }, components: { numItems: 1, 0: tint } };
+  const clip = { nodeId: "c1", name: "Shot", start: { ticks: "0" }, end: { ticks: String(254016000000 * 10) }, inPoint: { ticks: "0" }, getSpeed: () => 1, isSpeedReversed: () => false, components: { numItems: 1, 0: tint } };
   const seq = { videoTracks: { numTracks: 1, 0: { clips: { numItems: 1, 0: clip } } }, audioTracks: { numTracks: 0 } };
   function Time(this: { seconds: number; ticks: string }) { this.seconds = 0; this.ticks = "0"; }
   run({ Time, app: { project: { activeSequence: seq, sequences: { numSequences: 1, 0: seq } } } });
