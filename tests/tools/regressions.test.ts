@@ -29,6 +29,8 @@ import { getKeyframeTools } from "../../src/tools/keyframes.js";
 import { getCaptionTools } from "../../src/tools/captions.js";
 import { getSequenceTools } from "../../src/tools/sequence.js";
 import { getPlayheadTools } from "../../src/tools/playhead.js";
+import { getAudioTools } from "../../src/tools/audio.js";
+import { getCompetitorGapTools } from "../../src/tools/competitor-gaps.js";
 
 const mockedSendCommand = vi.mocked(sendCommand);
 const bridgeOptions: BridgeOptions = { tempDir: "/tmp/test-bridge", timeoutMs: 5000 };
@@ -882,6 +884,64 @@ describe("issue #335 — pixel aspect ratio must fail closed on unsupported CEP 
 // https://github.com/leancoderkavy/premiere-pro-mcp/issues/235
 describe("issue #235 — CEP tool calls use the host's documented argument types", () => {
   const utility = getUtilityTools(bridgeOptions);
+  // #710: audio volume tools must recognize localized built-ins (es-ES
+  // Volumen / Internal Volume Stereo, property Nivel) — previously they only
+  // matched English names and failed with "is this an audio clip?".
+  it("set_clip_volume and get_clip_volume recognize localized Volume components", async () => {
+    const setScript = await scriptFor(tracks.set_clip_volume, { node_id: "clip-1", volume_db: -3 });
+    expect(setScript).toContain("Volumen");
+    expect(setScript).toContain("Internal Volume");
+    expect(setScript).toContain("Nivel");
+    const getScript = await scriptFor(tracks.get_clip_volume, { node_id: "clip-1" });
+    expect(getScript).toContain("Volumen");
+    expect(getScript).toContain("Nivel");
+  });
+
+  it.each([
+    ["localized display name", "Volumen", ""],
+    ["locale-independent match name", "Other language", "Internal Volume Stereo"],
+  ])("writes and reads audio volume through %s", async (_label, displayName, matchName) => {
+    let level = 1;
+    const keyValues = new Map<string, number>();
+    const property = {
+      displayName: "Nivel",
+      setValue(value: number) { level = value; },
+      getValue() { return level; },
+      setTimeVarying() {},
+      addKey() {},
+      setValueAtKey(time: { ticks: string }, value: number) { keyValues.set(time.ticks, value); },
+      getValueAtTime(time: { ticks: string }) { return keyValues.get(time.ticks); },
+    };
+    const component = { displayName, matchName, properties: { numItems: 1, 0: property } };
+    const clip = { nodeId: "audio-1", name: "Audio", duration: { ticks: String(3 * 254016000000) }, components: { numItems: 1, 0: component } };
+    const track = { clips: { numItems: 1, 0: clip } };
+    const sequence = { videoTracks: { numTracks: 0 }, audioTracks: { numTracks: 1, 0: track } };
+    function Time(this: { ticks: string }) { this.ticks = "0"; }
+    mockedSendCommand.mockImplementation(async (script: string) =>
+      JSON.parse(String(runInNewContext(`${getHelpersSource()}\n${script}`, { app: { project: { activeSequence: sequence } }, Time }))));
+
+    await expect(tracks.set_clip_volume.handler({ node_id: "audio-1", volume_db: -3 })).resolves.toMatchObject({ success: true });
+    expect(level).toBeGreaterThan(0);
+    expect(level).toBeLessThan(1);
+    const readback = await tracks.get_clip_volume.handler({ node_id: "audio-1" });
+    expect(readback).toMatchObject({ success: true, data: { clip: "Audio" } });
+    expect((readback as { data: { volumeDb: number } }).data.volumeDb).toBeCloseTo(-3, 3);
+    await expect(tracks.set_clips_volume.handler({ track_index: 0, volume_db: -6 })).resolves.toMatchObject({
+      success: true, data: { applied: 1, skipped: 0 },
+    });
+    const audio = getAudioTools(bridgeOptions);
+    await expect(audio.adjust_audio_levels.handler({ node_id: "audio-1", level_db: -4 })).resolves.toMatchObject({
+      success: true, data: { adjusted: true, verified: true },
+    });
+    await expect(audio.add_audio_keyframes.handler({ node_id: "audio-1", keyframes: [{ time_seconds: 1, level_db: -6 }] })).resolves.toMatchObject({
+      success: true, data: { keyframesAdded: 1, verified: true },
+    });
+    const competitor = getCompetitorGapTools(bridgeOptions);
+    await expect(competitor.setup_ducking.handler({ node_id: "audio-1", ducking_windows: [] })).resolves.toMatchObject({
+      success: true, data: { updated: true, verified: true },
+    });
+  });
+
   const tracks = getTrackTargetingTools(bridgeOptions);
   const project = getProjectTools(bridgeOptions);
 
@@ -1238,6 +1298,62 @@ describe("issue #326 — sequence creation requires project-collection readback"
     expect(script).toContain("var created = __findSequence(sequenceId)");
     expect(script).toContain("no creation success is reported");
     expect(script).toContain("verified: true");
+  });
+
+  it("applies the same new-ID readback to create_sequence_from_preset", async () => {
+    const script = await scriptFor(sequence.create_sequence_from_preset, {
+      name: "Interview", preset_path: "/tmp/sequence.sqpreset",
+    });
+    expect(script).toContain("var beforeSequenceIds = {}");
+    expect(script).toContain("if (beforeSequenceIds[sequenceId])");
+    expect(script).toContain("did not create a new sequence");
+    expect(script).toContain("var created = __findSequence(sequenceId)");
+    expect(script).toContain("no creation success is reported");
+    expect(script).toContain("verified: true");
+  });
+
+  it("fails closed when create_sequence_from_preset would claim the already-active sequence", async () => {
+    const existing = { name: "Interview", sequenceID: "seq-existing" };
+    const sequences = new Proxy({}, {
+      get: (_t, k) => (k === "numSequences" ? 1 : existing),
+    });
+    mockedSendCommand.mockImplementation(async (script: string) =>
+      JSON.parse(String(runInNewContext(`${getHelpersSource()}\n${script}`, {
+        app: {
+          enableQE() {},
+          project: { sequences, activeSequence: existing },
+        },
+        qe: { project: { newSequence() {} } },
+      }))));
+
+    await expect(sequence.create_sequence_from_preset.handler({
+      name: "Interview",
+      preset_path: "/tmp/sequence.sqpreset",
+    })).resolves.toMatchObject({
+      success: false,
+      error: expect.stringContaining("already existed before the preset request"),
+    });
+  });
+
+  it.each([false, true])("verifies a fresh active sequence only when present in the collection (%s)", async (listed) => {
+    const existing = { name: "Old", sequenceID: "seq-existing" };
+    const created = { name: "Interview", sequenceID: "seq-created" };
+    const items = [existing];
+    const project = {
+      activeSequence: existing,
+      sequences: new Proxy({}, { get: (_t, k) => k === "numSequences" ? items.length : items[Number(k)] }),
+    };
+    mockedSendCommand.mockImplementation(async (script: string) =>
+      JSON.parse(String(runInNewContext(`${getHelpersSource()}\n${script}`, {
+        app: { enableQE() {}, project },
+        qe: { project: { newSequence() { project.activeSequence = created; if (listed) items.push(created); } } },
+      }))));
+    const result = await sequence.create_sequence_from_preset.handler({ name: "Interview", preset_path: "/tmp/sequence.sqpreset" });
+    if (listed) {
+      expect(result).toMatchObject({ success: true, data: { created: true, verified: true, id: "seq-created", name: "Interview" } });
+    } else {
+      expect(result).toMatchObject({ success: false, error: expect.stringContaining("did not add the new sequence to the project collection") });
+    }
   });
 });
 

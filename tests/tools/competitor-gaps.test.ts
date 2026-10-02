@@ -1,4 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { runInNewContext } from "node:vm";
+import { getHelpersSource } from "../../src/bridge/script-builder.js";
 import type { BridgeOptions } from "../../src/bridge/file-bridge.js";
 
 vi.mock("../../src/bridge/file-bridge.js", () => ({
@@ -115,6 +117,18 @@ describe("competitor-gap default-profile tools", () => {
     expect(script).toContain("TIMELINE_GAPS");
     expect(script).toContain("readyForExport");
     expect(script).not.toContain("encodeSequence");
+  });
+
+  it("keeps exporter initialization unverified when timeline preflight passes", async () => {
+    await getCompetitorGapTools(bridgeOptions).validate_project_for_export.handler({});
+    const script = mockedSendCommand.mock.calls[0][0];
+    const encoder = vi.fn(() => { throw new Error("exporter unavailable"); });
+    const seq = { sequenceID: "seq", name: "Sequence", end: { seconds: 2 },
+      videoTracks: { numTracks: 1, 0: { clips: { numItems: 1, 0: { start: { ticks: "0" }, end: { ticks: "508032000000" } } } } },
+      audioTracks: { numTracks: 0 }, exportAsMediaDirect: encoder };
+    const result = JSON.parse(String(runInNewContext(`${getHelpersSource()}\n${script}`, { app: { project: { activeSequence: seq } } })));
+    expect(result).toMatchObject({ success: true, data: { readyForExport: true, verificationBoundary: "timeline_and_paths_only", exporterInitializationChecked: false, renderVerified: false } });
+    expect(encoder).not.toHaveBeenCalled();
   });
 
   it("makes caption-read limitations explicit instead of treating no tracks as no captions", async () => {

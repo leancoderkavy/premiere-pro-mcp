@@ -431,9 +431,11 @@ export function getAudioTools(bridgeOptions: BridgeOptions) {
           // Find the Volume component
           for (var i = 0; i < clip.components.numItems; i++) {
             var comp = clip.components[i];
-            if (comp.displayName === "Volume" || comp.matchName === "audioVolume") {
+            var __m = String(comp.matchName || "");
+            if (comp.displayName === "Volume" || comp.displayName === "Volumen" || __m.indexOf("Internal Volume") === 0 || __m === "audioVolume") {
               for (var p = 0; p < comp.properties.numItems; p++) {
-                if (comp.properties[p].displayName === "Level") {
+                var __pn = String(comp.properties[p].displayName);
+                  if (__pn === "Level" || __pn === "Nivel") {
                   var levelProp = comp.properties[p];
                   var requestedLevel = ${normalizedLevel};
                   var writeResult = levelProp.setValue(requestedLevel, true);
@@ -511,9 +513,11 @@ export function getAudioTools(bridgeOptions: BridgeOptions) {
 
           for (var i = 0; i < clip.components.numItems; i++) {
             var comp = clip.components[i];
-            if (comp.displayName === "Volume" || comp.matchName === "audioVolume") {
+            var __m = String(comp.matchName || "");
+            if (comp.displayName === "Volume" || comp.displayName === "Volumen" || __m.indexOf("Internal Volume") === 0 || __m === "audioVolume") {
               for (var p = 0; p < comp.properties.numItems; p++) {
-                if (comp.properties[p].displayName === "Level") {
+                var __pn = String(comp.properties[p].displayName);
+                  if (__pn === "Level" || __pn === "Nivel") {
                   levelProp = comp.properties[p];
                   break;
                 }

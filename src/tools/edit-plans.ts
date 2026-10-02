@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import { BridgeOptions, sendCommand } from "../bridge/file-bridge.js";
 import { buildToolScript, escapeForExtendScript } from "../bridge/script-builder.js";
 import { rippleDeleteScriptBody } from "./ripple-delete-script.js";
+import { createEditPlanTokenStore, EditPlanTokenStore } from "./edit-plan-token-store.js";
 import {
   AuditSink,
   CapabilityConfig,
@@ -33,6 +34,7 @@ export interface EditPlanDependencies {
   capabilities?: CapabilityConfig;
   auditSink?: AuditSink;
   operationIdFactory?: () => string;
+  tokenStore?: EditPlanTokenStore;
 }
 
 function canonicalPlan(plan: EditPlan): string {
@@ -124,20 +126,25 @@ function buildApplyScript(plan: EditPlan): string {
   // is never offered as a way to reverse the plan.
   const failure = `
     var planUndoStart = __readUndoIndex();
-    function __planFail(index, message) {
+    function __planFail(index, message, extraData) {
       var now = __readUndoIndex();
       var steps = planUndoStart !== null && now !== null ? now - planUndoStart : null;
-      var changed = results.length > 0 || (steps !== null && steps > 0) || /timeline changed/.test(message);
+      var changed = results.length > 0 || (extraData && extraData.timelineChanged === true) || (steps !== null && steps > 0) || /timeline changed/.test(message);
       // An operation's own "Nothing was changed" is wrong once anything was applied
       // or Premiere recorded undo entries.
       if (changed) message = String(message).replace(/\\s*Nothing was changed\\.?/g, "");
       var summary = results.length
         ? " The timeline changed: the " + results.length + " operation(s) before it were applied and were not rolled back."
-        : (changed ? (/timeline changed/.test(message) ? "" : " The timeline may have changed: Premiere recorded undo entries during the failed operation.") : (/Nothing was changed/.test(message) ? "" : " Nothing was changed."));
+        : (changed ? (/timeline changed/.test(message) ? "" : " The timeline may have changed during the failed operation and was not rolled back.") : (/Nothing was changed/.test(message) ? "" : " Nothing was changed."));
+      var data = { appliedOperations: results, timelineChanged: changed, undoSteps: steps, undoStackIndex: now,
+        undoStepsNote: "undoSteps counts only actions Premiere recorded in its undo history (QE edits such as inserts). DOM-only operations, such as clip removals, add no entry, so undoing this many steps does not necessarily reverse the plan." };
+      if (extraData) {
+        for (var field in extraData) if (extraData.hasOwnProperty(field)) data[field] = extraData[field];
+      }
+      data.timelineChanged = changed;
       return __jsonStringify({ success: false,
         error: "Operation " + index + " failed: " + message + summary,
-        data: { appliedOperations: results, timelineChanged: changed, undoSteps: steps, undoStackIndex: now,
-          undoStepsNote: "undoSteps counts only actions Premiere recorded in its undo history (QE edits such as inserts). DOM-only operations, such as clip removals, add no entry, so undoing this many steps does not necessarily reverse the plan." } });
+        data: data });
     }
   `;
 
@@ -145,7 +152,7 @@ function buildApplyScript(plan: EditPlan): string {
   plan.operations.forEach((operation, index) => {
     if (operation.type === "insert_clip") {
       validation.push(`var item${index} = __findProjectItem("${escapeForExtendScript(operation.item_id)}"); if (!item${index}) return __error("Project item not found for operation ${index}");`);
-      mutations.push(`var outcome${index} = __insertClipHonoringSyncLock(seq, item${index}, __secondsToTicks(${operation.start_seconds}).toString(), ${operation.video_track_index ?? 0}, ${operation.audio_track_index ?? 0}, "sync_locked"); if (!outcome${index}.ok) return __planFail(${index}, outcome${index}.error); results.push({index:${index}, type:"insert_clip", applied:true, verified:true, syncLockHonored: outcome${index}.data.syncLockHonored});`);
+      mutations.push(`var outcome${index} = __insertClipHonoringSyncLock(seq, item${index}, __secondsToTicks(${operation.start_seconds}).toString(), ${operation.video_track_index ?? 0}, ${operation.audio_track_index ?? 0}, "sync_locked"); if (!outcome${index}.ok) return __planFail(${index}, outcome${index}.error, outcome${index}.changed ? { timelineChanged:true, outcome:"committed_unverified", verified:false, displacedTails:outcome${index}.displacedTails } : null); results.push({index:${index}, type:"insert_clip", applied:true, verified:true, syncLockHonored: outcome${index}.data.syncLockHonored});`);
     } else {
       const nodeId = escapeForExtendScript(operation.node_id);
       validation.push(`if (!__planFindClip(seq, "${nodeId}")) return __error("Clip not found for operation ${index}");`);
@@ -166,6 +173,7 @@ export function getEditPlanTools(bridgeOptions: BridgeOptions, dependencies: Edi
   const capabilities = dependencies.capabilities ?? resolveCapabilities();
   const auditSink = dependencies.auditSink ?? stderrAuditSink;
   const nextId = dependencies.operationIdFactory ?? createOperationId;
+  const tokenStore = dependencies.tokenStore ?? createEditPlanTokenStore(bridgeOptions);
   const planParameter = {
     type: "object",
     description:
@@ -197,13 +205,13 @@ export function getEditPlanTools(bridgeOptions: BridgeOptions, dependencies: Edi
 
   return {
     preview_edit_plan: {
-      description: "Validate and preview a compound timeline edit without changing Premiere. Returns a confirmation token required by apply_edit_plan.",
+      description: "Validate and preview a compound timeline edit without changing Premiere. Returns a single-use confirmation token that expires after 30 minutes and is required by apply_edit_plan.",
       parameters: { type: "object" as const, properties: { plan: planParameter }, required: ["plan"] },
       handler: async (args: { plan: unknown }) => {
         const operationId = nextId();
         requireCapability(capabilities, "inspect", operationId);
         const plan = validateEditPlan(args.plan);
-        return { success: true, data: { operationId, changes: describe(plan), confirmationToken: confirmationToken(plan), applied: false } };
+        return { success: true, data: { operationId, changes: describe(plan), confirmationToken: tokenStore.issue(confirmationToken(plan)), applied: false } };
       },
     },
     apply_edit_plan: {
@@ -218,7 +226,7 @@ export function getEditPlanTools(bridgeOptions: BridgeOptions, dependencies: Edi
         try {
           requireCapability(capabilities, "edit", operationId);
           const plan = validateEditPlan(args.plan);
-          if (args.confirmation_token !== confirmationToken(plan)) throw new Error("Confirmation token does not match this edit plan; preview it again");
+          tokenStore.consume(args.confirmation_token, confirmationToken(plan));
           emitAudit(auditSink, { operationId, action: "apply_edit_plan", outcome: "started", details: { operationCount: plan.operations.length } });
           const result = await sendCommand(buildApplyScript(plan), bridgeOptions);
           emitAudit(auditSink, { operationId, action: "apply_edit_plan", outcome: result.success ? "succeeded" : "failed" });

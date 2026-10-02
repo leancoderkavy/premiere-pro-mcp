@@ -192,7 +192,8 @@ export function getCompetitorGapTools(
             try {
               var outcome = __insertClipHonoringSyncLock(seq, placement.item, __secondsToTicks(placement.startSeconds).toString(), placement.trackIndex, placement.audioTrackIndex, "sync_locked");
               if (!outcome.ok) {
-                return __error("Batch insertion " + i + " failed after " + results.length + " verified placement(s): " + outcome.error);
+                return __error("Batch insertion " + i + " failed after " + results.length + " verified placement(s): " + outcome.error,
+                  outcome.changed || results.length ? { timelineChanged: true, outcome: "committed_unverified", verified: false, displacedTails: outcome.displacedTails, failedPlacement: i, completedPlacements: results } : null);
               }
             } catch (insertError) {
               return __error("Batch insertion " + i + " threw after " + results.length + " verified placement(s): " + insertError.toString());
@@ -442,9 +443,11 @@ export function getCompetitorGapTools(
           var level = null;
           for (i = 0; i < clip.components.numItems; i++) {
             var component = clip.components[i];
-            if (component.displayName === "Volume" || component.matchName === "audioVolume") {
+            var volumeMatchName = String(component.matchName || "");
+            if (component.displayName === "Volume" || component.displayName === "Volumen" || volumeMatchName.indexOf("Internal Volume") === 0 || volumeMatchName === "audioVolume") {
               for (var p = 0; p < component.properties.numItems; p++) {
-                if (component.properties[p].displayName === "Level") { level = component.properties[p]; break; }
+                var propertyName = String(component.properties[p].displayName);
+                if (propertyName === "Level" || propertyName === "Nivel") { level = component.properties[p]; break; }
               }
             }
             if (level) break;
@@ -508,7 +511,7 @@ export function getCompetitorGapTools(
 
     validate_project_for_export: {
       description:
-        "Run a non-mutating export readiness audit for an active or named sequence. It reports blocking offline media, empty timelines, inaccessible preset/output paths, duration, and optional timeline gaps without queuing an export.",
+        "Run a non-mutating export preflight for an active or named sequence. It reports blocking offline media, empty timelines, inaccessible preset/output paths, duration, and optional timeline gaps without queuing an export. readyForExport means these preflight checks passed; it does not test exporter initialization, encoder availability, or whether the host can render. Require an actual output file from export_sequence and verify_delivery_file before claiming delivery.",
       parameters: {
         type: "object" as const,
         additionalProperties: false,
@@ -609,6 +612,9 @@ export function getCompetitorGapTools(
           }
           return __result({
             readyForExport: errors.length === 0,
+            verificationBoundary: "timeline_and_paths_only",
+            exporterInitializationChecked: false,
+            renderVerified: false,
             errors: errors,
             warnings: warnings,
             summary: {

@@ -14,6 +14,7 @@ import { sendCommand } from "../../src/bridge/file-bridge.js";
 import { getSourceMonitorTools } from "../../src/tools/source-monitor.js";
 import { getTimelineTools } from "../../src/tools/timeline.js";
 import { confirmationToken, getEditPlanTools } from "../../src/tools/edit-plans.js";
+import { staticEditPlanTokenStore } from "../helpers/static-edit-plan-token-store.js";
 import { getCompetitorGapTools } from "../../src/tools/competitor-gaps.js";
 import { getSpotWorkflowTools, spotWorkflowConfirmationToken } from "../../src/tools/spot-workflows.js";
 
@@ -139,6 +140,7 @@ function issue562Host(options: {
   overlaySeconds?: [number, number];
   sourceDurationSeconds?: number;
   mediaKind?: "audio_only" | "video_only";
+  displaceTargetTail?: boolean;
 } = {}) {
   // Premiere's getIn/OutPoint(mediaType): 1 = video, 2 = audio, 4 = any. A missing
   // stream reads back as a zero-length span.
@@ -179,6 +181,7 @@ function issue562Host(options: {
       delete (track as { isLocked?: unknown }).isLocked;
     });
   }
+  let insertionCount = 0;
   const seq = {
     sequenceID: options.sequenceID ?? "seq-562",
     name: options.sequenceID ?? "seq-562",
@@ -188,9 +191,20 @@ function issue562Host(options: {
     getPlayerPosition() { return { ticks: ticksOf(options.playheadSeconds ?? 8) }; },
     insertClip(item: typeof source, time: string | number, vTrack: number, aTrack: number) {
       if (options.insertNoop) return;
+      insertionCount++;
       // Like Premiere, only a track that receives part of the item is rippled.
-      if (options.mediaKind !== "audio_only") insertOnTrack(videoTracks[vTrack as 0 | 1 | 2], item, time, `ins-v-${vTrack}`);
-      if (options.mediaKind !== "video_only") insertOnTrack(audioTracks[aTrack as 0 | 1 | 2], item, time, `ins-a-${aTrack}`);
+      if (options.mediaKind !== "audio_only") insertOnTrack(videoTracks[vTrack as 0 | 1 | 2], item, time, `ins-v-${vTrack}-${insertionCount}`);
+      if (options.mediaKind !== "video_only") insertOnTrack(audioTracks[aTrack as 0 | 1 | 2], item, time, `ins-a-${aTrack}-${insertionCount}`);
+      if (options.displaceTargetTail) {
+        for (const track of [videoTracks[vTrack as 0 | 1 | 2], audioTracks[aTrack as 0 | 1 | 2]]) {
+          const tail = track._arr.find((clip) => clip.nodeId.endsWith("-right"));
+          if (tail) {
+            const duration = parseFloat(tail.end.ticks) - parseFloat(tail.start.ticks);
+            tail.start = ticksOf(24);
+            tail.end = String(parseFloat(ticksOf(24)) + duration);
+          }
+        }
+      }
     },
   };
 
@@ -327,6 +341,69 @@ describe("issue #562 — insert_from_source honors sync lock", () => {
     expect(rangesOf(seq.videoTracks[2])).toEqual([[2, 6], [8, 38]]);
   });
 
+  it("refuses verified success when Premiere displaces a target split tail", async () => {
+    const { sandbox, seq, source: item } = issue562Host({ displaceTargetTail: true });
+    const result = runHelper(sandbox, seq, item, 6);
+    expect(result.ok).toBe(false);
+    expect(result.error).toMatch(/timeline changed.*tail adjacent/i);
+    expect(result.error).toContain("24s");
+  });
+
+  it("reports a displaced tail as a changed, unverified add_to_timeline result", async () => {
+    const script = await scriptFor(getTimelineTools(bridgeOptions).add_to_timeline, { item_id: "src", start_seconds: 6 });
+    const { sandbox } = issue562Host({ displaceTargetTail: true });
+    const result = runScript(script, sandbox);
+    expect(result).toMatchObject({ success: false, data: { timelineChanged: true, outcome: "committed_unverified", verified: false } });
+    expect(result.data.displacedTails[0]).toContain("24s");
+  });
+
+  it.each([1 / 24, 4 - 1 / 24])("detects displaced one-frame boundary tails at %ss", (timeSeconds) => {
+    const { sandbox, seq, source: item } = issue562Host({ displaceTargetTail: true });
+    const result = runHelper(sandbox, seq, item, timeSeconds);
+    expect(result).toMatchObject({ ok: false, changed: true });
+    expect(result.displacedTails[0]).toContain("24s");
+  });
+
+  it.each([false, true])("preserves displaced-tail evidence in a batch (earlier placement: %s)", async (earlierPlacement) => {
+    const script = await scriptFor(getCompetitorGapTools(bridgeOptions).add_to_timeline_batch, {
+      clips: [
+        ...(earlierPlacement ? [{ item_id: "src", start_seconds: 0 }] : []),
+        { item_id: "src", start_seconds: earlierPlacement ? 7 : 6 },
+      ],
+    });
+    const { sandbox } = issue562Host({ displaceTargetTail: true });
+    const result = runScript(script, sandbox);
+    expect(result).toMatchObject({ success: false, data: {
+      timelineChanged: true, outcome: "committed_unverified", verified: false,
+      failedPlacement: earlierPlacement ? 1 : 0,
+    } });
+    expect(result.data.displacedTails[0]).toContain("24s");
+    expect(result.data.completedPlacements).toHaveLength(earlierPlacement ? 1 : 0);
+    expect(result.error).not.toContain("Nothing was changed");
+  });
+
+  it.each([false, true])("preserves displaced-tail evidence in an edit plan (earlier operation: %s)", async (earlierOperation) => {
+    const plan = { operations: [
+      ...(earlierOperation ? [{ type: "insert_clip" as const, item_id: "src", start_seconds: 0 }] : []),
+      { type: "insert_clip" as const, item_id: "src", start_seconds: earlierOperation ? 7 : 6 },
+    ] };
+    const tools = getEditPlanTools(bridgeOptions, {
+      capabilities: { capabilities: new Set(["inspect", "edit"]), source: "explicit" },
+      auditSink: vi.fn(),
+      tokenStore: staticEditPlanTokenStore,
+    });
+    const script = await scriptFor(tools.apply_edit_plan, { plan, confirmation_token: confirmationToken(plan) });
+    const { sandbox } = issue562Host({ displaceTargetTail: true });
+    const result = runScript(script, sandbox);
+    expect(result).toMatchObject({ success: false, data: {
+      timelineChanged: true, outcome: "committed_unverified", verified: false,
+      undoSteps: null,
+    } });
+    expect(result.data.displacedTails[0]).toContain("24s");
+    expect(result.data.appliedOperations).toHaveLength(earlierOperation ? 1 : 0);
+    expect(result.error).not.toContain("Nothing was changed");
+  });
+
   it("refuses before mutation when a participating track is locked", async () => {
     const script = await scriptFor(source.insert_from_source, {});
     const { sandbox, seq } = issue562Host({ lockedVideo: [1] });
@@ -449,6 +526,7 @@ describe("issue #562 — other Sequence.insertClip callers use the same helper",
     const tools = getEditPlanTools(bridgeOptions, {
       capabilities: { capabilities: new Set(["inspect", "edit"]), source: "explicit" },
       operationIdFactory: () => "apply-562",
+      tokenStore: staticEditPlanTokenStore,
     });
     await tools.apply_edit_plan.handler({ plan, confirmation_token: confirmationToken(plan) });
     expect(String(mockedSendCommand.mock.calls[0][0])).toContain("__insertClipHonoringSyncLock(");
@@ -476,6 +554,7 @@ describe("issue #562 — other Sequence.insertClip callers use the same helper",
     const spotScript = String(mockedSendCommand.mock.calls[0][0]);
     expect(spotScript).toContain("__insertClipHonoringSyncLock(");
     expect(spotScript).toContain("__secondsToTicks(targetStart).toString()");
+    expect(spotScript).toContain("ins.changed || placed.length ? { timelineChanged: true");
     expect(spotScript).toContain('"target_tracks"');
     expect(spotScript).not.toContain('"sync_locked"');
   });
@@ -507,6 +586,27 @@ describe("issue #562 — other Sequence.insertClip callers use the same helper",
     expect(result).toMatchObject({ success: true, data: { applied: true } });
     expect(rangesOf(seq.videoTracks[1])).toEqual([[0.4, 2]]);
     expect(rangesOf(seq.videoTracks[0])[0]).toEqual([0, 5]);
+  });
+
+  it("spot workflows report completed placements when a later source is invalid", async () => {
+    const spots = getSpotWorkflowTools(bridgeOptions, {
+      capabilities: { capabilities: new Set(["inspect", "edit"]), source: "explicit" },
+      auditSink: vi.fn(),
+      operationIdFactory: () => "spot-partial-730",
+    });
+    const preview = await spots.preview_motion_graphics_demo.handler({
+      sequence_id: "sequence-1", asset_item_ids: ["src", "bad"], clip_duration_seconds: 5, transition_name: "none",
+    });
+    const script = await scriptFor(spots.apply_spot_workflow_plan, {
+      plan: preview.data.plan, confirmation_token: spotWorkflowConfirmationToken(preview.data.plan),
+    });
+    const { sandbox, source } = issue562Host({ sequenceID: "sequence-1", emptyTargets: true, sourceDurationSeconds: 10 });
+    const bad = { nodeId: "bad", name: "bad", getInPoint: () => ({ ticks: ticksOf(0) }), getOutPoint: () => ({ ticks: ticksOf(0) }) };
+    (sandbox.app as { project: { rootItem: unknown } }).project.rootItem = { children: { numItems: 2, 0: source, 1: bad } };
+    const result = runScript(script, sandbox);
+    expect(result).toMatchObject({ success: false, data: { timelineChanged: true, outcome: "committed_unverified", verified: false } });
+    expect(result.data.completedPlacements).toHaveLength(1);
+    expect(result.error).toContain("Earlier placements remain");
   });
 });
 
