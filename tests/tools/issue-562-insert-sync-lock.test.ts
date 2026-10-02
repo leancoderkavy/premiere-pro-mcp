@@ -356,6 +356,13 @@ describe("issue #562 — insert_from_source honors sync lock", () => {
     expect(result.data.displacedTails[0]).toContain("24s");
   });
 
+  it.each([1 / 24, 4 - 1 / 24])("detects displaced one-frame boundary tails at %ss", (timeSeconds) => {
+    const { sandbox, seq, source: item } = issue562Host({ displaceTargetTail: true });
+    const result = runHelper(sandbox, seq, item, timeSeconds);
+    expect(result).toMatchObject({ ok: false, changed: true });
+    expect(result.displacedTails[0]).toContain("24s");
+  });
+
   it.each([false, true])("preserves displaced-tail evidence in a batch (earlier placement: %s)", async (earlierPlacement) => {
     const script = await scriptFor(getCompetitorGapTools(bridgeOptions).add_to_timeline_batch, {
       clips: [

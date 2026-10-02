@@ -1655,6 +1655,9 @@ function __insertClipHonoringSyncLock(seq, item, timeTicks, videoTrackIndex, aud
   var frameTicks = seq.timebase ? parseFloat(seq.timebase) : NaN;
   if (!frameTicks || isNaN(frameTicks)) frameTicks = TICKS_PER_SECOND / 24;
   var tol = frameTicks;
+  // Structural edge classification must be tighter than the one-frame
+  // readback tolerance, or a real one-frame head or tail is missed.
+  var edgeTol = __TICK_MATCH_TOL;
 
   var durationTicks = NaN;
   try { durationTicks = parseFloat(item.getOutPoint().ticks) - parseFloat(item.getInPoint().ticks); } catch (eDur) {}
@@ -1689,7 +1692,7 @@ function __insertClipHonoringSyncLock(seq, item, timeTicks, videoTrackIndex, aud
       var clip = track.clips[ci2];
       var start = parseFloat(clip.start.ticks);
       var end = parseFloat(clip.end.ticks);
-      if (start < insertTicks - tol && end > insertTicks + tol) {
+      if (start < insertTicks - edgeTol && end > insertTicks + edgeTol) {
         var sourceId = "";
         try { sourceId = String(clip.projectItem.nodeId); } catch (eSource) {}
         if (!sourceId || sourceId === "undefined" || sourceId === "null") return false;
@@ -1801,11 +1804,11 @@ function __insertClipHonoringSyncLock(seq, item, timeTicks, videoTrackIndex, aud
       var c = t.domTrack.clips[ci];
       var cs = parseFloat(c.start.ticks);
       var ce = parseFloat(c.end.ticks);
-      if (cs < insertTicks - tol && ce > insertTicks + tol) {
+      if (cs < insertTicks - edgeTol && ce > insertTicks + edgeTol) {
         straddlers.push({ nodeId: String(c.nodeId), start: cs, end: ce });
         continue;
       }
-      if (cs >= insertTicks - tol) {
+      if (cs >= insertTicks - edgeTol) {
         movers.push({ nodeId: String(c.nodeId), start: cs, end: ce });
       }
     }
@@ -1850,8 +1853,8 @@ function __insertClipHonoringSyncLock(seq, item, timeTicks, videoTrackIndex, aud
         var rc = shiftPlan[pi].domTrack.clips[ci];
         var rcs = parseFloat(rc.start.ticks);
         var rce = parseFloat(rc.end.ticks);
-        if (rcs < insertTicks - tol && rce > insertTicks + tol) stillSpan = true;
-        if (rcs >= insertTicks - tol) {
+        if (rcs < insertTicks - edgeTol && rce > insertTicks + edgeTol) stillSpan = true;
+        if (rcs >= insertTicks - edgeTol) {
           shiftPlan[pi].movers.push({ nodeId: String(rc.nodeId), start: rcs, end: rce });
         }
       }
@@ -1878,7 +1881,7 @@ function __insertClipHonoringSyncLock(seq, item, timeTicks, videoTrackIndex, aud
     for (ci2 = 0; ci2 < track.clips.numItems; ci2++) {
       var cs2 = parseFloat(track.clips[ci2].start.ticks);
       var ce2 = parseFloat(track.clips[ci2].end.ticks);
-      if (cs2 < insertTicks - tol && ce2 > insertTicks + tol) return 2;
+      if (cs2 < insertTicks - edgeTol && ce2 > insertTicks + edgeTol) return 2;
     }
     return 1;
   }
