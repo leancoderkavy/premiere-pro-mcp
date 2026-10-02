@@ -2,6 +2,12 @@ import { existsSync, mkdtempSync, rmSync, utimesSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
+
+vi.mock("../../src/bridge/file-bridge.js", async (importOriginal) => {
+  const original = await importOriginal<typeof import("../../src/bridge/file-bridge.js")>();
+  return { ...original, ensurePrivateBridgeDirectory: vi.fn() };
+});
+
 import { createEditPlanTokenStore } from "../../src/tools/edit-plan-token-store.js";
 
 const directories: string[] = [];

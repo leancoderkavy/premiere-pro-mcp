@@ -5,7 +5,13 @@ import { join } from "node:path";
 
 vi.mock("../src/bridge/file-bridge.js", async (importOriginal) => {
   const original = await importOriginal<typeof import("../src/bridge/file-bridge.js")>();
-  return { ...original, sendCommand: vi.fn(async () => ({ success: true, data: { applied: true } })) };
+  return {
+    ...original,
+    // Bridge ACL behavior has its own tests. These tests exercise token
+    // persistence in a temporary directory created by the test runner.
+    ensurePrivateBridgeDirectory: vi.fn(),
+    sendCommand: vi.fn(async () => ({ success: true, data: { applied: true } })),
+  };
 });
 
 import { sendCommand } from "../src/bridge/file-bridge.js";
