@@ -139,6 +139,7 @@ function issue562Host(options: {
   emptyTargets?: boolean;
   overlaySeconds?: [number, number];
   sourceDurationSeconds?: number;
+  unreadableMediaSpans?: boolean;
   mediaKind?: "audio_only" | "video_only";
   omitVideoInsert?: boolean;
   omitAudioInsert?: boolean;
@@ -168,6 +169,7 @@ function issue562Host(options: {
     name: "src",
     getInPoint() { return { ticks: ticksOf(0) }; },
     getOutPoint(mediaType?: number) {
+      if (options.unreadableMediaSpans && mediaType !== undefined && mediaType !== 4) throw new Error("unsupported overload");
       return { ticks: ticksOf(mediaType !== undefined && mediaType === missingType ? 0 : options.sourceDurationSeconds ?? 2) };
     },
   };
@@ -399,6 +401,13 @@ describe("issue #562 — insert_from_source honors sync lock", () => {
     expect(rangesOf(seq.videoTracks[0])).toEqual([[0, 4], [4, 6], [6, 8], [8, 10], [10, 14], [14, 20]]);
     expect(rangesOf(seq.videoTracks[1])).toEqual([[8, 12]]);
     expect(rangesOf(seq.videoTracks[2])).toEqual([[2, 6], [8, 38]]);
+  });
+
+  it("does not verify a missing assumed stream when media-specific span reads fail", () => {
+    const { sandbox, seq, source: item } = issue562Host({ audioElsewhere: true, unreadableMediaSpans: true });
+    const result = runHelper(sandbox, seq, item, 6);
+    expect(result.ok).toBe(false);
+    expect(result.changed).toBe(true);
   });
 
   it("pre-razors target straddlers so Premiere does not create a displaced tail during insert", () => {

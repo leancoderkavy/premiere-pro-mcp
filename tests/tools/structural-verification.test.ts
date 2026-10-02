@@ -170,6 +170,17 @@ describe("set_clip_properties verification", () => {
     expect(mockedSendCommand).not.toHaveBeenCalled();
   });
 
+  it("preflights localized Scale before invoking localized write helpers", async () => {
+    let stored = 100;
+    const scale = { displayName: "Escala", getValue: () => stored, setValue: (value: number) => { stored = value; } };
+    const clip = { nodeId: "c1", name: "Clip", components: { numItems: 1, 0: { displayName: "Movimiento", matchName: "AE.ADBE Motion", properties: { numItems: 2, 0: { displayName: "Escala uniforme", getValue: () => true }, 1: scale } } } };
+    mockedSendCommand.mockImplementationOnce(async (script) => JSON.parse(String(runInNewContext(`${getHelpersSource()}\n${script}`, {
+      app: { project: { activeSequence: { videoTracks: { numTracks: 1, 0: { clips: { numItems: 1, 0: clip } } }, audioTracks: { numTracks: 0 } } } },
+    }))));
+    await expect(timeline.set_clip_properties.handler({ node_id: "c1", scale: 110 })).resolves.toMatchObject({ success: true, data: { verified: true } });
+    expect(stored).toBe(110);
+  });
+
   it("preflights requested properties and reads them back after writing", async () => {
     await timeline.set_clip_properties.handler({ node_id: "c1", opacity: 50, scale: 110, position_x: 100, rotation: 10 });
     const script = mockedSendCommand.mock.calls[0][0];
@@ -223,6 +234,20 @@ describe("set_clip_properties verification", () => {
 });
 
 describe("duplicate_clip verification", () => {
+  it("does not claim the timeline changed when overwrite places no duplicate", async () => {
+    const ticks = (seconds: number) => String(seconds * 254016000000);
+    const item = {
+      getInPoint: () => ({ ticks: "0", seconds: 0 }),
+      getOutPoint: (type: number) => ({ ticks: ticks(type === 2 ? 0 : 2), seconds: type === 2 ? 0 : 2 }),
+      setInPoint: vi.fn(), setOutPoint: vi.fn(),
+    };
+    const clip = { nodeId: "c1", projectItem: item, start: { ticks: "0" }, end: { ticks: ticks(2) }, inPoint: { ticks: "0" } };
+    mockedSendCommand.mockImplementationOnce(async (script) => JSON.parse(String(runInNewContext(`${getHelpersSource()}\n${script}`, {
+      app: { project: { activeSequence: { videoTracks: { numTracks: 2, 0: { clips: { numItems: 1, 0: clip } }, 1: { clips: { numItems: 0 } } }, audioTracks: { numTracks: 0 }, overwriteClip: () => {} } } },
+    }))));
+    await expect(timeline.duplicate_clip.handler({ node_id: "c1" })).resolves.toMatchObject({ success: false, data: { timelineChanged: null, outcome: "committed_unverified", verified: false } });
+  });
+
   it("does not report success when a duplicate or linked partner is unverified", async () => {
     await timeline.duplicate_clip.handler({ node_id: "c1" });
     const script = mockedSendCommand.mock.calls[0][0];

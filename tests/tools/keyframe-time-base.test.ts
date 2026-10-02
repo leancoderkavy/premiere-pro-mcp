@@ -146,6 +146,19 @@ describe("keyframe removal reads the keys back", () => {
     host({ mediaKeys: [[32, 20]], ignoreRemove: true, postKeys: { value } });
     await expect(tools.remove_keyframe_range.handler({ ...target, start_seconds: 0, end_seconds: 10 })).resolves.toMatchObject({ success: false, data: { outcome: "committed_unverified", verified: false, timelineChanged: null } });
   });
+  it("targets the nearest adjacent 120fps key and verifies exact stored ticks", async () => {
+    const later = 32 + 1 / 120;
+    const state = host({ mediaKeys: [[32, 20], [later, 80]] });
+    await expect(tools.remove_keyframe.handler({ ...target, time_seconds: 2 + 1 / 120 })).resolves.toMatchObject({ success: true, data: { verified: true } });
+    expect(state.mediaKeys()).toEqual([[32, 20]]);
+  });
+
+  it("range removal preserves the adjacent key outside the range", async () => {
+    const state = host({ mediaKeys: [[32, 20], [32 + 1 / 120, 80]] });
+    await expect(tools.remove_keyframe_range.handler({ ...target, start_seconds: 2 + 1 / 120, end_seconds: 2 + 1 / 120 })).resolves.toMatchObject({ success: true, data: { verified: true } });
+    expect(state.mediaKeys()).toEqual([[32, 20]]);
+  });
+
   it("remove_keyframe removes the key at that clip time and lists the rest", async () => {
     const state = host({ mediaKeys: [[32, 20], [34, 80]] });
     await expect(tools.remove_keyframe.handler({ ...target, time_seconds: 2 }))

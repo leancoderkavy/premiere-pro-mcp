@@ -1265,7 +1265,7 @@ export function getTimelineTools(
           if (!isVideo && !partner && newVideo) { try { newVideo.remove(false, false); } catch (dropVideo) {} newVideo = null; }
 
           var primary = isVideo ? newVideo : newAudio;
-          if (!primary) return __jsonStringify({ success: false, error: "Premiere changed the timeline but did not place the duplicate on the expected track. Inspect the timeline or use Undo.", data: { outcome: "committed_unverified", verified: false, timelineChanged: true } });
+          if (!primary) return __jsonStringify({ success: false, error: "Premiere did not place the duplicate on the expected track, and the final timeline change state is unknown. Inspect the timeline before retrying.", data: { outcome: "committed_unverified", verified: false, timelineChanged: null } });
           var drift = Math.abs(parseFloat(primary.start.ticks) - startTicks) + Math.abs(parseFloat(primary.end.ticks) - endTicks);
           var inDrift = Math.abs(parseFloat(primary.inPoint.ticks) - inTicks);
           function describe(c, type, index) {
@@ -1404,8 +1404,8 @@ export function getTimelineTools(
           var scaleWidth = null;
           for (var sp = 0; sp < motion.properties.numItems; sp++) {
             var scaleName = String(motion.properties[sp].displayName);
-            if (scaleName === "Scale" || scaleName === "Scale Height") scaleHeight = motion.properties[sp];
-            else if (scaleName === "Scale Width") scaleWidth = motion.properties[sp];
+            if (__videoIntrinsicPropertyMatches(motion.properties[sp], "Scale") || __videoIntrinsicPropertyMatches(motion.properties[sp], "Scale Height")) scaleHeight = motion.properties[sp];
+            else if (__videoIntrinsicPropertyMatches(motion.properties[sp], "Scale Width")) scaleWidth = motion.properties[sp];
           }
           if (!scaleHeight || (!uniformScale && !scaleWidth)) return __error("Required Motion Scale properties were not found; nothing was changed.");
           var beforeScaleHeight = NaN;

@@ -1319,9 +1319,22 @@ function __findKeyNear(prop, time, strict) {
   try { keys = prop.getKeys(); } catch (eKeys) { if (strict) throw eKeys; }
   if (strict && keys !== 0 && (!keys || typeof keys.length !== "number" || !isFinite(keys.length) || keys.length < 0 || Math.floor(keys.length) !== keys.length)) throw new Error("Invalid key-list readback");
   if (!keys) return null;
+  var closest = null, closestDelta = TICKS_PER_SECOND * 0.01;
   for (var k = 0; k < keys.length; k++) {
     if (strict && (!keys[k] || !isFinite(parseFloat(keys[k].ticks)))) throw new Error("Invalid key-time readback");
-    if (Math.abs(parseFloat(keys[k].ticks) - parseFloat(time.ticks)) <= TICKS_PER_SECOND * 0.01) return keys[k];
+    var delta = Math.abs(parseFloat(keys[k].ticks) - parseFloat(time.ticks));
+    if (delta <= closestDelta && (closest === null || delta < closestDelta)) { closest = keys[k]; closestDelta = delta; }
+  }
+  return closest;
+}
+
+function __findKeyExact(prop, time) {
+  var keys = prop.getKeys();
+  if (keys === 0) return null;
+  if (!keys || typeof keys.length !== "number" || !isFinite(keys.length) || keys.length < 0 || Math.floor(keys.length) !== keys.length) throw new Error("Invalid key-list readback");
+  for (var k = 0; k < keys.length; k++) {
+    if (!keys[k] || !isFinite(parseFloat(keys[k].ticks))) throw new Error("Invalid key-time readback");
+    if (String(keys[k].ticks) === String(time.ticks)) return keys[k];
   }
   return null;
 }
@@ -2180,8 +2193,8 @@ function __insertClipHonoringSyncLock(seq, item, timeTicks, videoTrackIndex, aud
   // Every stream the item has must land on its requested track. Live 25.2.3:
   // a 5.1 clip inserted on a stereo track landed on a new track at the bottom,
   // and a video with 5.1 audio can land its picture correctly but not its sound.
-  var missingVideo = videoReceives && videoSpan !== null && newOnVideo === 0;
-  var missingAudio = audioReceives && audioSpan !== null && newOnAudio === 0;
+  var missingVideo = videoReceives && newOnVideo === 0;
+  var missingAudio = audioReceives && newOnAudio === 0;
   if (!insertedClips.length || missingVideo || missingAudio) {
     var elsewhere = [];
     var groupsAfter = [["video", seq.videoTracks], ["audio", seq.audioTracks]];

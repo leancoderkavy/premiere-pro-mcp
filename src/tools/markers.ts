@@ -39,8 +39,8 @@ const MARKER_READBACK = `
             if (wanted.color !== undefined) {
               var color = null;
               try { color = marker.getColorByIndex(); } catch (eColor) {}
-              if (color === null || color === undefined) __markerUnverified.push("color");
-              else if (Number(color) !== wanted.color) problems.push("color index reads back as " + color);
+              if (typeof color !== "number" || !isFinite(color)) __markerUnverified.push("color");
+              else if (color !== wanted.color) problems.push("color index reads back as " + color);
             }
             if (wanted.end !== undefined) {
               var end = parseFloat(marker.end.seconds);
