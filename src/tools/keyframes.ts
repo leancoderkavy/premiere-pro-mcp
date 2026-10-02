@@ -266,7 +266,7 @@ export function getKeyframeTools(bridgeOptions: BridgeOptions) {
 
     add_keyframe: {
       description:
-        "Add and read back a keyframe on an effect property. This verifies stored parameter data only; render/playback verification remains host-dependent.",
+        "Add and read back a keyframe on an effect property. The receipt warns when its time is outside the clip's visible range. This verifies stored parameter data only; render/playback verification remains host-dependent.",
       parameters: {
         type: "object" as const,
         properties: {
@@ -305,6 +305,12 @@ export function getKeyframeTools(bridgeOptions: BridgeOptions) {
           if (!result) return __error("Clip not found");
           
           var clip = result.clip;
+          var clipDurationTicks = NaN;
+          try { clipDurationTicks = parseFloat(clip.end.ticks) - parseFloat(clip.start.ticks); } catch(eDuration) {}
+          var requestedKeyTicks = __secondsToTicks(${args.time_seconds});
+          var outsideVisibleRange = isFinite(clipDurationTicks)
+            ? (requestedKeyTicks < 0 || requestedKeyTicks >= clipDurationTicks)
+            : null;
           var comp = null;
           for (var i = 0; i < clip.components.numItems; i++) {
             if (clip.components[i].displayName === "${escapeForExtendScript(args.effect_name)}" || clip.components[i].matchName === "${escapeForExtendScript(args.effect_name)}") {
@@ -355,7 +361,11 @@ export function getKeyframeTools(bridgeOptions: BridgeOptions) {
             property: "${escapeForExtendScript(args.property_name)}",
             time: ${args.time_seconds},
             value: ${args.value},
-            readBackValue: readBack
+            readBackValue: readBack,
+            keyframesOutsideVisibleRange: outsideVisibleRange === null ? null : (outsideVisibleRange ? 1 : 0),
+            warning: outsideVisibleRange === true
+              ? "The keyframe was stored outside the clip's visible range and will not appear during this clip. It may block later trims; inspect the clip before relying on it."
+              : (outsideVisibleRange === null ? "The clip's visible range could not be read, so keyframe visibility is unverified." : null)
           });
         `);
         return sendCommand(script, bridgeOptions);
