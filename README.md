@@ -978,6 +978,10 @@ the tables below are a shorter workflow-oriented overview.
 > or exported frames before delivery. On macOS, AME preset discovery scans each installed app
 > bundle's `Contents/MediaIO/systempresets`; prefer a Match Source preset for vertical projects.
 
+> **Host limits:** [The capability ledger](docs/host-api-limitations.md) distinguishes
+> unavailable APIs, unverified host requests, and property/structure readback.
+> A verified parameter or component does not establish rendered appearance.
+
 > **Verified track edits:** `add_track` and `add_tracks` validate requested counts and
 > return success only when the active sequence's track counts exactly match the request.
 > `overwrite_clip` validates both selected track indices and confirms the requested source

@@ -1034,7 +1034,7 @@ export function getAdvancedTools(
     },
 
     close_sequence: {
-      description: "Close a sequence tab in the timeline",
+      description: "Request closing a sequence timeline tab. Premiere exposes no open-tab enumeration, so closure remains committed_unverified; the sequence stays in the project.",
       parameters: {
         type: "object" as const,
         properties: {
@@ -1054,10 +1054,18 @@ export function getAdvancedTools(
           ${seqLookup}
           var name = seq.name;
           var sequenceId = String(seq.sequenceID);
-          seq.close();
+          try { seq.close(); }
+          catch (closeError) {
+            return __jsonStringify({ success: false, error: "Premiere threw while requesting sequence-tab closure: " + closeError.toString(), data: { outcome: "committed_unverified", verified: false, mutationAttempted: true, sequenceId: sequenceId, note: "The tab may have closed before the error. Inspect the timeline tabs before retrying." } });
+          }
+          var sequenceRetained = null;
+          try { sequenceRetained = !!__findSequence(sequenceId); } catch (retentionReadError) {}
           return __result({
             timelineTabCloseRequested: true,
-            sequenceRetainedInProject: !!__findSequence(sequenceId),
+            outcome: "committed_unverified",
+            verified: false,
+            verificationScope: "No supported open-timeline-tab enumeration is available; confirm the tab closed in Premiere.",
+            sequenceRetainedInProject: sequenceRetained,
             name: name,
             sequenceId: sequenceId,
             note: "Closing a sequence closes its timeline tab; it does not delete the sequence from the project."

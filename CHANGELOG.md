@@ -33,6 +33,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - `trim_clip` and `slip_edit` now require physical media-duration evidence from ffprobe before changing source ranges, reject out-of-media edits, and refuse unknown duration or linked partners with different unprobed media. Editable project In/Out marks are not used as media boundaries (#712).
 - CEP marker add, update, and delete attempts protect a project-document-ID undo boundary even when the QE index moves or cannot be read. Undo/redo calls refuse a count that crosses it before stepping; `acknowledge_untracked_markers: true` explicitly permits prior non-marker actions. Barriers persist in the CEP engine through MCP server/helper reloads, but do not account for unobserved UXP/manual UI/other-client marker writes or survive engine resets (#733).
 
+- Ingest-transcode, timeline-tab closure, and Creative Cloud Library MOGRT import receipts now distinguish a host request from independent verification. Native errors preserve possible mutation and Library failures include Premiere's error text and actionable causes (#641).
 - `import_media` now rejects missing paths before calling Premiere, avoiding a blocking host dialog that can wedge the CEP bridge (#713).
 - Transition edits validate inputs before dispatch, read stored placements and durations, distinguish partial writes from no-ops, and preserve mutation evidence if native writes or later readback throw. QE transition edits remain experimental. (#704)
 
