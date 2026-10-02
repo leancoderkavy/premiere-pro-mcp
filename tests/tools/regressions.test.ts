@@ -895,6 +895,27 @@ describe("issue #235 — CEP tool calls use the host's documented argument types
     expect(getScript).toContain("Nivel");
   });
 
+  it("writes and reads a Spanish Volume component across single and bulk tools", async () => {
+    let level = 1;
+    const property = { displayName: "Nivel", setValue(value: number) { level = value; }, getValue() { return level; } };
+    const component = { displayName: "Volumen", matchName: "Internal Volume Stereo", properties: { numItems: 1, 0: property } };
+    const clip = { nodeId: "audio-1", name: "Audio", components: { numItems: 1, 0: component } };
+    const track = { clips: { numItems: 1, 0: clip } };
+    const sequence = { videoTracks: { numTracks: 0 }, audioTracks: { numTracks: 1, 0: track } };
+    mockedSendCommand.mockImplementation(async (script: string) =>
+      JSON.parse(String(runInNewContext(`${getHelpersSource()}\n${script}`, { app: { project: { activeSequence: sequence } } }))));
+
+    await expect(tracks.set_clip_volume.handler({ node_id: "audio-1", volume_db: -3 })).resolves.toMatchObject({ success: true });
+    expect(level).toBeGreaterThan(0);
+    expect(level).toBeLessThan(1);
+    const readback = await tracks.get_clip_volume.handler({ node_id: "audio-1" });
+    expect(readback).toMatchObject({ success: true, data: { clip: "Audio" } });
+    expect((readback as { data: { volumeDb: number } }).data.volumeDb).toBeCloseTo(-3, 3);
+    await expect(tracks.set_clips_volume.handler({ track_index: 0, volume_db: -6 })).resolves.toMatchObject({
+      success: true, data: { applied: 1, skipped: 0 },
+    });
+  });
+
   const tracks = getTrackTargetingTools(bridgeOptions);
   const project = getProjectTools(bridgeOptions);
 

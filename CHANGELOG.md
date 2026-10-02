@@ -22,6 +22,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- Audio volume tools now recognize Premiere's Spanish `Volumen` and `Nivel` labels and locale-independent `Internal Volume` component match names, including bulk track volume changes (#710).
 - `create_sequence_from_preset` no longer reports `created: true` when QE `newSequence` leaves the already-active same-name sequence in place. It now snapshots sequence IDs first, the same way `create_sequence` does, and fails closed unless a new ID appears in the project collection.
 - `get_export_file_extension` now reports a host error when Premiere returns no extension, instead of a successful receipt with the field missing. `set_metadata` rejects unqualified project column names before a write. `add_keyframe` warns when the stored keyframe is outside the clip's visible span (#734).
 - Marker add, update, and delete receipts now report whether Premiere recorded an undo step. On hosts where marker writes leave the undo index unchanged, `undoTracked: false` warns that Undo would reverse an earlier action instead of the marker (#733).
