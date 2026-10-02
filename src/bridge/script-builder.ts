@@ -2255,8 +2255,12 @@ function __error(msg, extraData) {
   }
   data = __markerWriteReceipt(data);
   if (__markerWriteAttempted && data) {
-    data.timelineChanged = true;
-    data.outcome = "committed_unverified";
+    // A throwing DOM call may have changed the marker; an attempted write
+    // alone cannot establish that it committed. Preserve observed changes.
+    data.timelineChanged = data.timelineChanged === true ? true : null;
+    data.outcome = data.timelineChanged === true ? "committed_unverified" : "failed";
+    if (data.timelineChanged !== true) data.mutationOutcome = "unknown";
+    data.mutationAttempted = true;
     data.verified = false;
   }
   if (__undoStart !== null) {
