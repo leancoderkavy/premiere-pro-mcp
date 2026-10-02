@@ -164,6 +164,36 @@ describe("persisted preview host-target binding", () => {
     expect(result).toMatchObject({ success: false, data: { timelineChanged: null, mutationAttempted: true, mutationOutcome: "unknown", readbackComplete: false } });
     expect(result.error).not.toMatch(/nothing was changed/i);
   });
+  it.each([false, true])("accepts a fresh active sequence wrapper for post-throw readback (ripple:%s)", async (ripple) => {
+    const f = fixture(); const plan = { operations: [{ ...removal.operations[0], ripple }] };
+    const token = await preview(f.tools, plan); const remove = f.remove.getMockImplementation()!;
+    f.remove.mockImplementationOnce(() => {
+      remove(); Object.defineProperty(f.project, "activeSequence", { get: () => ({ ...f.sequence }) });
+      throw new Error("removed then threw with fresh wrappers");
+    });
+    expect(await f.restart().apply_edit_plan.handler({ plan, confirmation_token: token })).toMatchObject({ success: false, data: { timelineChanged: true, mutationOutcome: "changed", readbackComplete: true, removedClipIds: ["clip-A"] } });
+  });
+  it.each([false, true])("refuses post-throw readback from another project reusing sequence IDs (ripple:%s)", async (ripple) => {
+    const f = fixture(); const plan = { operations: [{ ...removal.operations[0], ripple }] };
+    const token = await preview(f.tools, plan); const remove = f.remove.getMockImplementation()!;
+    f.remove.mockImplementationOnce(() => { remove(); f.project.documentID = "document-B"; throw new Error("native removal switched projects"); });
+    const result = await f.restart().apply_edit_plan.handler({ plan, confirmation_token: token });
+    expect(result).toMatchObject({ success: false, data: { timelineChanged: null, mutationOutcome: "unknown", readbackComplete: false, removedClipIds: [] } });
+    expect(result.error).not.toMatch(/nothing was changed/i);
+  });
+  it.each(["tracks", "clips", "node"])("does not infer removal from malformed %s readback", async (malformed) => {
+    const f = fixture(); const token = await preview(f.tools, removal); const remove = f.remove.getMockImplementation()!;
+    f.remove.mockImplementationOnce(() => {
+      remove();
+      if (malformed === "tracks") f.sequence.audioTracks.numTracks = NaN;
+      else if (malformed === "clips") f.sequence.audioTracks[0].clips.numItems = -1;
+      else Object.assign(f.sequence.audioTracks[0], { clips: { numItems: 1, 0: { nodeId: undefined } } });
+      throw new Error("native removal threw with malformed readback");
+    });
+    const result = await f.restart().apply_edit_plan.handler({ plan: removal, confirmation_token: token });
+    expect(result).toMatchObject({ success: false, data: { timelineChanged: null, mutationOutcome: "unknown", readbackComplete: false, removedClipIds: [] } });
+    expect(result.error).not.toMatch(/nothing was changed/i);
+  });
   it.each(["source", "range", "track"])("rejects linked partner %s changes after preview", async (change) => {
     const f = linkedFixture(); const token = await preview(f.tools, removal);
     if (change === "source") f.partner.projectItem = { ...f.media, nodeId: "replacement-linked-source" };

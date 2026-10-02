@@ -194,10 +194,11 @@ export function rippleDeleteScriptBody(options: {
           `
               : `
           var failuresEarly = [];
+          var removalIdentity = __removalIdentity(seq);
           try {
             target.remove(false, false);
           } catch (removeErr) {
-            var removalReceipt = __removalThrowReceipt(["${nodeId}"], seq);
+            var removalReceipt = __removalThrowReceipt(["${nodeId}"], removalIdentity);
             return __error("Premiere threw while removing the target clip; no later clips were shifted: " + removeErr.toString() + (removalReceipt.timelineChanged === true ? " The timeline changed; inspect the timeline." : (removalReceipt.timelineChanged === null ? " Removal may have changed the timeline; readback is unavailable." : " The target remains on the timeline.")), removalReceipt);
           }
           if (__findClip("${nodeId}")) {

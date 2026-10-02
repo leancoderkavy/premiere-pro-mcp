@@ -1319,20 +1319,38 @@ function __findOpenProject(path) {
 // a linked clip), then verify every removed clip is gone. Every clip's track
 // lock and remove() are checked before anything is removed, so a partner on a
 // locked track refuses the whole removal instead of leaving its audio behind.
-function __removalThrowReceipt(ids, sequence) {
+function __removalIdentity(sequence) {
+  try {
+    var documentId = app.project.documentID, sequenceId = sequence && sequence.sequenceID;
+    var values = [documentId, sequenceId];
+    for (var vi = 0; vi < values.length; vi++) if ((typeof values[vi] !== "string" && typeof values[vi] !== "number") || (typeof values[vi] === "number" && !isFinite(values[vi])) || !/\\S/.test(String(values[vi]))) return null;
+    return { projectDocumentId:String(documentId), sequenceId:String(sequenceId) };
+  } catch (identityError) { return null; }
+}
+
+function __removalThrowReceipt(ids, identity) {
   var gone = [], remaining = [], readable = true;
   try {
-    if (!sequence || app.project.activeSequence !== sequence) throw new Error("Removal sequence is unavailable");
-    var families = [sequence.videoTracks, sequence.audioTracks];
+    var sequence = app.project.activeSequence;
+    var currentIdentity = __removalIdentity(sequence);
+    if (!identity || !currentIdentity || currentIdentity.projectDocumentId !== identity.projectDocumentId || currentIdentity.sequenceId !== identity.sequenceId) throw new Error("Removal project or sequence identity is unavailable or changed");
+    var families = [sequence.videoTracks, sequence.audioTracks], present = {};
     for (var ft = 0; ft < families.length; ft++) {
-      if (!families[ft] || typeof families[ft].numTracks !== "number") throw new Error("Track collection is unreadable");
-      for (var ti = 0; ti < families[ft].numTracks; ti++) {
+      var trackCount = families[ft] && families[ft].numTracks;
+      if (typeof trackCount !== "number" || !isFinite(trackCount) || trackCount < 0 || Math.floor(trackCount) !== trackCount) throw new Error("Track collection is unreadable");
+      for (var ti = 0; ti < trackCount; ti++) {
         var track = families[ft][ti];
-        if (!track || !track.clips || typeof track.clips.numItems !== "number") throw new Error("Clip collection is unreadable");
+        var clips = track && track.clips, clipCount = clips && clips.numItems;
+        if (typeof clipCount !== "number" || !isFinite(clipCount) || clipCount < 0 || Math.floor(clipCount) !== clipCount) throw new Error("Clip collection is unreadable");
+        for (var ci = 0; ci < clipCount; ci++) {
+          var clipId = clips[ci] && clips[ci].nodeId;
+          if ((typeof clipId !== "string" && typeof clipId !== "number") || (typeof clipId === "number" && !isFinite(clipId)) || !/\\S/.test(String(clipId))) throw new Error("Clip identity is unreadable");
+          present["$" + String(clipId)] = true;
+        }
       }
     }
     for (var ri = 0; ri < ids.length; ri++) {
-      if (__findClip(ids[ri])) remaining.push(ids[ri]); else gone.push(ids[ri]);
+      if (present["$" + ids[ri]]) remaining.push(ids[ri]); else gone.push(ids[ri]);
     }
   } catch (readError) { readable = false; }
   return { mutationAttempted:true, timelineChanged:gone.length > 0 ? true : (readable ? false : null), mutationOutcome:gone.length > 0 ? "changed" : (readable ? "unchanged" : "unknown"), verified:false, readbackComplete:readable, removedClipIds:gone, remainingClipIds:remaining };
@@ -1360,12 +1378,13 @@ function __removeClipAndPartners(result, includeLinked, validatedPartners) {
     if (typeof located.clip.remove !== "function") return __editFail("Premiere does not expose remove() for " + names[t] + " on " + label + ". Nothing was changed.");
   }
   var removed = [];
+  var removalIdentity = __removalIdentity(seq);
   for (var r = 0; r < targets.length; r++) {
     try {
       targets[r].clip.remove(false, false);
       removed.push(names[r]);
     } catch (eRemove) {
-      var receipt = __removalThrowReceipt(ids.slice(0, r + 1), seq);
+      var receipt = __removalThrowReceipt(ids.slice(0, r + 1), removalIdentity);
       var evidence = receipt.timelineChanged === true ? " The timeline changed; inspect the linked clips." : (receipt.timelineChanged === null ? " Removal may have changed the timeline; readback is unavailable. Inspect the timeline." : " The attempted removal targets remain on the timeline.");
       return __editFail("Premiere threw while removing " + names[r] + ": " + eRemove.toString() + evidence, receipt);
     }
