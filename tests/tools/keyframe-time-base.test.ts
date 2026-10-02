@@ -108,6 +108,12 @@ describe("keyframe times are seconds from the clip's start, stored as media time
     expect(state.mediaKeys()).toEqual([]);
   });
 
+  it("accepts normal speed reported as 100 percent on older hosts", async () => {
+    const state = host({ speed: 100 });
+    await expect(tools.add_keyframe.handler({ ...target, time_seconds: 2, value: 20 })).resolves.toMatchObject({ success: true });
+    expect(state.mediaKeys()).toEqual([[32, 20]]);
+  });
+
   it("refuses on a clip with a speed change or reverse, changing nothing", async () => {
     for (const options of [{ speed: 2 }, { reversed: true }]) {
       const state = host(options);
@@ -160,6 +166,12 @@ describe("keyframe removal reads the keys back", () => {
       .resolves.toMatchObject({ success: false, error: expect.stringContaining("No keyframes between 5s and 6s") });
     await expect(tools.remove_keyframe_range.handler({ ...target, start_seconds: 4, end_seconds: 2 }))
       .resolves.toMatchObject({ success: false, error: "end_seconds must not be before start_seconds." });
+  });
+
+  it("refuses a range ending past the visible clip without removing keys", async () => {
+    const state = host({ mediaKeys: [[32, 20], [34, 80]] });
+    await expect(tools.remove_keyframe_range.handler({ ...target, start_seconds: 2, end_seconds: 99 })).resolves.toMatchObject({ success: false, error: expect.stringContaining("end_seconds 99s is past the clip's end") });
+    expect(state.mediaKeys()).toEqual([[32, 20], [34, 80]]);
   });
 
   it("remove_keyframe_range reports committed_unverified when keys survive", async () => {

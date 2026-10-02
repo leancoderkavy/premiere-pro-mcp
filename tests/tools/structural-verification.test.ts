@@ -439,14 +439,14 @@ describe("track state writes verify Premiere readback", () => {
       const track = { name: "Video 1", isLocked: () => ++reads === 1 ? true : postState, setLocked: () => {} };
       return JSON.parse(String(runInNewContext(`${getHelpersSource()}\n${script}`, { app: { project: { activeSequence: { videoTracks: { numTracks: 1, 0: track } } } } })));
     });
-    await expect(tracks.lock_track.handler({ track_index: 0, locked: false })).resolves.toMatchObject({ success: false, data: { outcome: "committed_unverified", verified: false, actualLocked: null } });
+    await expect(tracks.lock_track.handler({ track_index: 0, locked: false })).resolves.toMatchObject({ success: false, data: { outcome: "committed_unverified", verified: false, timelineChanged: null, actualLocked: null } });
 
     mockedSendCommand.mockImplementationOnce(async (script) => {
       let reads = 0;
       const track = { name: "Video 1", isMuted: () => ++reads === 1 ? true : postState, setMute: () => {} };
       return JSON.parse(String(runInNewContext(`${getHelpersSource()}\n${script}`, { app: { project: { activeSequence: { videoTracks: { numTracks: 1, 0: track } } } } })));
     });
-    await expect(tracks.toggle_track_visibility.handler({ track_index: 0, visible: true })).resolves.toMatchObject({ success: false, data: { outcome: "committed_unverified", verified: false, actualMuted: null } });
+    await expect(tracks.toggle_track_visibility.handler({ track_index: 0, visible: true })).resolves.toMatchObject({ success: false, data: { outcome: "committed_unverified", verified: false, timelineChanged: null, actualMuted: null } });
   });
 });
 

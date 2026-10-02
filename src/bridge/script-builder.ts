@@ -1284,7 +1284,7 @@ function __clipKeyframeBase(clip) {
   var reversed = false;
   try { speed = Number(clip.getSpeed()); } catch (eSpeed) {}
   try { reversed = clip.isSpeedReversed() == true; } catch (eReversed) {}
-  if (reversed || !(Math.abs(speed - 1) < 0.0001)) {
+  if (reversed || !(Math.abs(speed - 1) < 0.0001 || Math.abs(speed - 100) < 0.0001)) {
     return { ok: false, error: "This clip has a speed change or is reversed, and keyframe times on such clips are not supported yet. Nothing was changed." };
   }
   var inTicks = parseFloat(clip.inPoint.ticks);

@@ -1022,20 +1022,24 @@ export function getClipboardTools(bridgeOptions: BridgeOptions) {
           if (!blendProperty) return __error("The clip's Opacity effect has no Blend Mode property; nothing was changed.");
 
           var previous = null;
-          try { previous = Number(blendProperty.getValue()); } catch (ePrevious) {}
+          try { var beforeMode = blendProperty.getValue(); if (typeof beforeMode === "number" && isFinite(beforeMode)) previous = beforeMode; } catch (ePrevious) {}
           blendProperty.setValue(${modeValue}, true);
           var stored = null;
           var readError = null;
-          try { stored = Number(blendProperty.getValue()); } catch (eStored) { readError = eStored.toString(); }
+          try {
+            var observedMode = blendProperty.getValue();
+            if (typeof observedMode !== "number" || !isFinite(observedMode)) throw new Error("Premiere did not return a finite numeric mode index");
+            stored = observedMode;
+          } catch (eStored) { readError = eStored.toString(); }
           if (stored !== ${modeValue}) {
             // setValue already ran, so the clip may have changed even though the
             // requested mode is not what Premiere stored.
-            var changed = readError !== null || stored !== previous;
+            var changed = stored !== null && previous !== null ? stored !== previous : null;
             return __jsonStringify({ success: false,
               error: (readError !== null
                 ? "The blend mode was written, but Premiere's stored mode could not be read back (" + readError + "), so ${modeName} is not verified."
-                : "Premiere stored blend mode index " + stored + " instead of ${modeValue} (${modeName})" + (changed ? "; the clip's blend mode changed." : "; the clip is unchanged.")),
-              data: { requestedModeIndex: ${modeValue}, storedModeIndex: stored, previousModeIndex: previous, timelineChanged: changed } });
+                : "Premiere stored blend mode index " + stored + " instead of ${modeValue} (${modeName})" + (changed === true ? "; the clip's blend mode changed." : (changed === false ? "; the clip is unchanged." : "; the previous mode was unreadable, so the change is unknown."))),
+              data: { outcome: changed === false ? "not_applied" : "committed_unverified", verified: false, requestedModeIndex: ${modeValue}, storedModeIndex: stored, previousModeIndex: previous, timelineChanged: changed } });
           }
           return __result({ blendMode: "${modeName}", modeIndex: ${modeValue}, previousModeIndex: previous, clip: clip.name, verified: true });
         `);

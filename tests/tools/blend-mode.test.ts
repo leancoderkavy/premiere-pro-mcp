@@ -19,11 +19,11 @@ const tools = getClipboardTools({ tempDir: "/tmp/blend-mode", timeoutMs: 5000 } 
 beforeEach(() => vi.clearAllMocks());
 
 /** A clip whose Opacity > Blend Mode clamps writes to 0-27, like Premiere 25.2.3. */
-function host(options: { ignoreWrite?: boolean; clampTo?: number; unreadable?: boolean } = {}) {
+function host(options: { ignoreWrite?: boolean; clampTo?: number; unreadable?: boolean; invalidReadback?: { value: unknown } } = {}) {
   const state = { mode: 18 };
   const blend = {
     displayName: "Blend Mode",
-    getValue: () => { if (options.unreadable && state.mode !== 18) throw new Error("unreadable"); return state.mode; },
+    getValue: () => { if (options.unreadable && state.mode !== 18) throw new Error("unreadable"); if (options.invalidReadback && state.mode !== 18) return options.invalidReadback.value; return state.mode; },
     setValue: (value: number) => { if (!options.ignoreWrite) state.mode = Math.max(0, Math.min(options.clampTo ?? 27, value)); },
   };
   const opacity = { displayName: "Opacity", matchName: "AE.ADBE Opacity", properties: { numItems: 3, 0: { displayName: "Opacity" }, 1: blend, 2: { displayName: "Blend Mode", getValue: () => 0 } } };
@@ -71,9 +71,14 @@ describe("set_blend_mode", () => {
       .resolves.toMatchObject({ success: false, error: expect.stringContaining("the clip's blend mode changed"), data: { storedModeIndex: 5, timelineChanged: true } });
   });
 
-  it("reports an unreadable stored mode as changed and unverified", async () => {
+  it("reports an unreadable stored mode with unknown change state", async () => {
     host({ unreadable: true });
     await expect(tools.set_blend_mode.handler({ node_id: "c1", blend_mode: "Screen" }))
-      .resolves.toMatchObject({ success: false, error: expect.stringContaining("could not be read back"), data: { timelineChanged: true } });
+      .resolves.toMatchObject({ success: false, error: expect.stringContaining("could not be read back"), data: { timelineChanged: null } });
+  });
+
+  it.each([{ value: null, mode: "Color" }, { value: false, mode: "Color" }, { value: "", mode: "Color" }, { value: true, mode: "Color Burn" }])("does not coerce $value into verified $mode", async ({ value, mode }) => {
+    host({ invalidReadback: { value } });
+    await expect(tools.set_blend_mode.handler({ node_id: "c1", blend_mode: mode })).resolves.toMatchObject({ success: false, data: { outcome: "committed_unverified", verified: false, storedModeIndex: null, timelineChanged: null } });
   });
 });

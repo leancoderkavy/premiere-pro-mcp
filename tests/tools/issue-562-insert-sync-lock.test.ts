@@ -873,6 +873,28 @@ describe("insert of an item with only audio or only video keeps the target pair 
 });
 
 describe("an insert Premiere places on another track", () => {
+  it("preserves the diverted stream location in a batch receipt", async () => {
+    const script = await scriptFor(getCompetitorGapTools(bridgeOptions).add_to_timeline_batch, { clips: [{ item_id: "src", start_seconds: 8 }] });
+    const { sandbox } = issue562Host({ audioElsewhere: true, unlockedVideo: [0, 1, 2] });
+    expect(runScript(script, sandbox)).toMatchObject({ success: false, data: { outcome: "committed_unverified", placedOn: [{ trackType: "audio", trackIndex: 3, nodeId: "ins-a-new", startSeconds: 8 }] } });
+  });
+
+  it("preserves the diverted stream location in an edit-plan receipt", async () => {
+    const plan = { operations: [{ type: "insert_clip" as const, item_id: "src", start_seconds: 8 }] };
+    const tools = getEditPlanTools(bridgeOptions, { capabilities: { capabilities: new Set(["inspect", "edit"]), source: "explicit" }, auditSink: vi.fn(), tokenStore: staticEditPlanTokenStore });
+    const script = await scriptFor(tools.apply_edit_plan, { plan, confirmation_token: confirmationToken(plan) });
+    const { sandbox } = issue562Host({ audioElsewhere: true, unlockedVideo: [0, 1, 2] });
+    expect(runScript(script, sandbox)).toMatchObject({ success: false, data: { outcome: "committed_unverified", placedOn: [{ trackType: "audio", trackIndex: 3, nodeId: "ins-a-new", startSeconds: 8 }] } });
+  });
+
+  it("preserves the diverted stream location in a spot-workflow receipt", async () => {
+    const spots = getSpotWorkflowTools(bridgeOptions, { capabilities: { capabilities: new Set(["inspect", "edit"]), source: "explicit" }, auditSink: vi.fn(), operationIdFactory: () => "diverted-spot" });
+    const preview = await spots.preview_motion_graphics_demo.handler({ sequence_id: "sequence-1", asset_item_ids: ["src"], clip_duration_seconds: 5, transition_name: "none" });
+    const script = await scriptFor(spots.apply_spot_workflow_plan, { plan: preview.data.plan, confirmation_token: spotWorkflowConfirmationToken(preview.data.plan) });
+    const { sandbox } = issue562Host({ sequenceID: "sequence-1", emptyTargets: true, sourceDurationSeconds: 10, audioElsewhere: true });
+    expect(runScript(script, sandbox)).toMatchObject({ success: false, data: { outcome: "committed_unverified", placedOn: [{ trackType: "audio", trackIndex: 3, nodeId: "ins-a-new", startSeconds: 0 }] } });
+  });
+
   it("says the timeline changed and names the track, instead of 'did not add a new track item' (live 25.2.3: 5.1 clip)", () => {
     const { sandbox, seq, source } = issue562Host({ mediaKind: "audio_only", insertElsewhere: true, unlockedVideo: [0, 1, 2] });
     const outcome = runHelper(sandbox, seq, source, 8);

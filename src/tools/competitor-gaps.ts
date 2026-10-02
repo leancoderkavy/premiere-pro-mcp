@@ -269,7 +269,7 @@ export function getCompetitorGapTools(
               if (!outcome.ok) {
                 var partialFailure = readFinalPlacements();
                 return __error("Batch insertion " + i + " failed after " + results.length + " completed placement(s): " + outcome.error,
-                  outcome.changed || results.length ? { timelineChanged: true, outcome: "committed_unverified", verified: false, displacedTails: outcome.displacedTails, failedPlacement: i, completedPlacements: partialFailure.placements, driftedPlacements: partialFailure.driftedPlacements } : null);
+                  outcome.changed || results.length ? { timelineChanged: true, outcome: "committed_unverified", verified: false, displacedTails: outcome.displacedTails, placedOn: outcome.placedOn, failedPlacement: i, completedPlacements: partialFailure.placements, driftedPlacements: partialFailure.driftedPlacements } : null);
               }
             } catch (insertError) {
               var partialThrow = readFinalPlacements();

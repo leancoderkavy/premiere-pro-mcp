@@ -209,7 +209,7 @@ function buildApplyScript(plan: EditPlan, binding: EditPlanHostBinding): string 
 
   plan.operations.forEach((operation, index) => {
     if (operation.type === "insert_clip") {
-      mutations.push(`var outcome${index} = __insertClipHonoringSyncLock(seq, item${index}, __secondsToTicks(${operation.start_seconds}).toString(), ${operation.video_track_index ?? 0}, ${operation.audio_track_index ?? 0}, "sync_locked"); if (!outcome${index}.ok) return __planFail(${index}, outcome${index}.error, outcome${index}.changed ? { timelineChanged:true, outcome:"committed_unverified", verified:false, displacedTails:outcome${index}.displacedTails } : null); results.push({index:${index}, type:"insert_clip", applied:true, verified:true, syncLockHonored: outcome${index}.data.syncLockHonored});`);
+      mutations.push(`var outcome${index} = __insertClipHonoringSyncLock(seq, item${index}, __secondsToTicks(${operation.start_seconds}).toString(), ${operation.video_track_index ?? 0}, ${operation.audio_track_index ?? 0}, "sync_locked"); if (!outcome${index}.ok) return __planFail(${index}, outcome${index}.error, outcome${index}.changed ? { timelineChanged:true, outcome:"committed_unverified", verified:false, displacedTails:outcome${index}.displacedTails, placedOn:outcome${index}.placedOn } : null); results.push({index:${index}, type:"insert_clip", applied:true, verified:true, syncLockHonored: outcome${index}.data.syncLockHonored});`);
     } else {
       const nodeId = escapeForExtendScript(operation.node_id);
       if (operation.ripple === true) {

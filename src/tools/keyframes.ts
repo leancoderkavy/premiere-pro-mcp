@@ -527,7 +527,7 @@ export function getKeyframeTools(bridgeOptions: BridgeOptions) {
         if (args.end_seconds < args.start_seconds) return { success: false, error: "end_seconds must not be before start_seconds." };
         const script = buildToolScript(`
           ${propertyLookupScript(args)}
-          ${keyBaseScript([["start_seconds", args.start_seconds]])}
+          ${keyBaseScript([["start_seconds", args.start_seconds], ["end_seconds", args.end_seconds]])}
 
           function __keysInRange() {
             var found = [];
