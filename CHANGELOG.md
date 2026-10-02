@@ -22,6 +22,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- `apply_edit_plan` confirmation tokens are now random, issued only by `preview_edit_plan`, valid for 30 minutes, and consumed before the host edit. The private bridge directory retains token state across server restarts, so an applied token cannot be replayed after Undo or a restart (#728).
 - `get_export_file_extension` now reports a host error when Premiere returns no extension, instead of a successful receipt with the field missing. `set_metadata` rejects unqualified project column names before a write. `add_keyframe` warns when the stored keyframe is outside the clip's visible span (#734).
 - Marker add, update, and delete receipts now report whether Premiere recorded an undo step. On hosts where marker writes leave the undo index unchanged, `undoTracked: false` warns that Undo would reverse an earlier action instead of the marker (#733).
 - `add_to_timeline` and `insert_from_source` detect a target-track split tail that Premiere moved away from the insert point. They report the changed timeline as `committed_unverified`, including the observed tail position, instead of claiming the insert was verified. The edit still needs inspection or Undo on affected hosts. (#730)

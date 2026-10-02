@@ -14,6 +14,7 @@ import { sendCommand } from "../../src/bridge/file-bridge.js";
 import { getSourceMonitorTools } from "../../src/tools/source-monitor.js";
 import { getTimelineTools } from "../../src/tools/timeline.js";
 import { confirmationToken, getEditPlanTools } from "../../src/tools/edit-plans.js";
+import { staticEditPlanTokenStore } from "../helpers/static-edit-plan-token-store.js";
 import { getCompetitorGapTools } from "../../src/tools/competitor-gaps.js";
 import { getSpotWorkflowTools, spotWorkflowConfirmationToken } from "../../src/tools/spot-workflows.js";
 
@@ -389,6 +390,7 @@ describe("issue #562 — insert_from_source honors sync lock", () => {
     const tools = getEditPlanTools(bridgeOptions, {
       capabilities: { capabilities: new Set(["inspect", "edit"]), source: "explicit" },
       auditSink: vi.fn(),
+      tokenStore: staticEditPlanTokenStore,
     });
     const script = await scriptFor(tools.apply_edit_plan, { plan, confirmation_token: confirmationToken(plan) });
     const { sandbox } = issue562Host({ displaceTargetTail: true });
@@ -524,6 +526,7 @@ describe("issue #562 — other Sequence.insertClip callers use the same helper",
     const tools = getEditPlanTools(bridgeOptions, {
       capabilities: { capabilities: new Set(["inspect", "edit"]), source: "explicit" },
       operationIdFactory: () => "apply-562",
+      tokenStore: staticEditPlanTokenStore,
     });
     await tools.apply_edit_plan.handler({ plan, confirmation_token: confirmationToken(plan) });
     expect(String(mockedSendCommand.mock.calls[0][0])).toContain("__insertClipHonoringSyncLock(");
