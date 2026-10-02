@@ -268,9 +268,13 @@ connector still need to be installed separately.
 
 - Node.js **20.19 or newer** on Windows or macOS.
 - Adobe Premiere Pro **2020–2026**. Keep Premiere, the CEP bridge, and your MCP client on the same computer for the recommended local setup.
-- Optional: [ffmpeg](https://ffmpeg.org/download.html) on `PATH` for `detect_silence`
-  (`brew install ffmpeg` on macOS or `winget install Gyan.FFmpeg` on Windows).
-  The production Docker image already includes it.
+- For `trim_clip` and `slip_edit`, install [FFmpeg](https://ffmpeg.org/download.html)
+  with `ffprobe` on `PATH` (`brew install ffmpeg` on macOS or
+  `winget install Gyan.FFmpeg` on Windows). These source-range edits are unavailable
+  without `ffprobe` and accessible media with readable timestamp clocks: they
+  refuse before mutation when physical source bounds cannot be verified.
+  FFmpeg also provides the optional `detect_silence` dependency. The production
+  Docker image already includes it.
 
 #### 1. Install
 

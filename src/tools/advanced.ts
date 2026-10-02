@@ -5,15 +5,20 @@ import {
 import { sendCommand, BridgeOptions } from "../bridge/file-bridge.js";
 import { compareMogrtText, extractMogrtText, summarizeMogrtText, validateMogrtTextMap } from "./mogrt-text.js";
 import { SPEED_UNAVAILABLE_DESCRIPTION, SPEED_UNAVAILABLE_ERROR } from "./timeline.js";
-import { probeMediaDurationSeconds } from "./media-evidence.js";
+import { probeMediaDurationTicks } from "./media-evidence.js";
 import { rippleDeleteScriptBody } from "./ripple-delete-script.js";
 
 export function getAdvancedTools(
   bridgeOptions: BridgeOptions,
-  dependencies: { probeMediaDurationSeconds?: (path: string) => Promise<number | null> } = {},
+  dependencies: { probeMediaDurationSeconds?: (path: string) => Promise<number | null>; probeMediaDurationTicks?: (path: string) => Promise<number | null> } = {},
 ) {
   // SEC FORK (#712): injectable for tests; defaults to real ffprobe evidence.
-  const probeMediaDuration = dependencies.probeMediaDurationSeconds ?? probeMediaDurationSeconds;
+  const probeMediaEndTicks = dependencies.probeMediaDurationTicks ?? (dependencies.probeMediaDurationSeconds
+    ? async (path: string) => {
+      const seconds = await dependencies.probeMediaDurationSeconds!(path);
+      return seconds === null ? null : Math.floor(seconds * 254016000000);
+    }
+    : probeMediaDurationTicks);
   return {
     ripple_delete: {
       description:
@@ -308,17 +313,12 @@ export function getAdvancedTools(
           if (evidence && evidence.success === false) return evidence;
           const evidenceData = (evidence as { data?: { mediaPath?: unknown } } | undefined)?.data;
           mediaPath = typeof evidenceData?.mediaPath === "string" ? evidenceData.mediaPath : "";
-          const duration = mediaPath ? await probeMediaDuration(mediaPath) : null;
-          if (duration !== null) mediaDurationTicks = duration * 254016000000;
+          mediaDurationTicks = mediaPath ? await probeMediaEndTicks(mediaPath) : null;
         } catch {
           mediaDurationTicks = null;
         }
-        if (mediaDurationTicks === null || !Number.isFinite(mediaDurationTicks) || mediaDurationTicks <= 0) {
-          return { success: false, error: "Physical media duration could not be verified. No edit was attempted. Install ffprobe and ensure the source media is accessible; editable project In/Out marks are not media boundaries." };
-        }
-        mediaDurationTicks = Math.floor(mediaDurationTicks);
-        if (!Number.isSafeInteger(mediaDurationTicks) || mediaDurationTicks <= 0) {
-          return { success: false, error: "Physical media end exceeds the exact tick range; no edit was attempted." };
+        if (mediaDurationTicks === null || !Number.isSafeInteger(mediaDurationTicks) || mediaDurationTicks <= 0) {
+          return { success: false, error: "Physical media duration could not be verified in the exact tick range. No edit was attempted. ffprobe must be available and source media must expose readable integer timestamp clocks; editable project In/Out marks are not media boundaries." };
         }
         // SEC FORK (#712): the whole bound line is resolved Node-side (numbers
         // embedded) so the generated script never references Node variables.
@@ -759,11 +759,6 @@ export function getAdvancedTools(
         required: ["node_id", "new_name"],
       },
       handler: async (args: { node_id: string; new_name: string }) => {
-        // SEC FORK (#725 FAM-7): Premiere's UI refuses empty clip names; the
-        // scripting path accepted them and left the clip nameless.
-        if (!args.new_name.trim()) {
-          return { success: false as const, error: "new_name must not be empty or whitespace-only" };
-        }
         const script = buildToolScript(`
           var result = __findClip("${escapeForExtendScript(args.node_id)}");
           if (!result) return __error("Clip not found");

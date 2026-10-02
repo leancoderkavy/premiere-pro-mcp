@@ -6,7 +6,7 @@ import { runInNewContext } from "node:vm";
 import { escapeForExtendScript, getHelpersSource } from "../../src/bridge/script-builder.js";
 import { BridgeOptions } from "../../src/bridge/file-bridge.js";
 
-vi.mock("../../src/tools/media-evidence.js", () => ({ probeMediaDurationSeconds: vi.fn().mockResolvedValue(3600) }));
+vi.mock("../../src/tools/media-evidence.js", () => ({ probeMediaDurationTicks: vi.fn().mockResolvedValue(3600 * 254016000000) }));
 
 vi.mock("../../src/bridge/file-bridge.js", () => ({
   sendCommand: vi.fn().mockResolvedValue({ success: true, data: { mediaPath: "/fixture/source.mp4" } }),
@@ -1607,7 +1607,7 @@ describe("#712 rework: media bound from real ffprobe duration (owner review)", (
     const tools = getTimelineTools(bridgeOptions, { probeMediaDurationSeconds: async () => 10 });
     await tools.trim_clip.handler({ node_id: "clip-1", new_out_seconds: 15 });
     const script = mockedSendCommand.mock.calls.at(-1)[0] as string;
-    expect(script).toContain("targetOut > 10");
+    expect(script).toContain("__secondsToTicks(targetOut) > 2540160000000");
     expect(script).toContain('real media duration of 10.000s (ffprobe)');
     expect(script).not.toContain("projectItem.getOutPoint()");
   });

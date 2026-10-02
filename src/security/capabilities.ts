@@ -352,7 +352,7 @@ const ACTION_CAPABILITIES: Readonly<Record<string, Readonly<Record<string, reado
 /** A conservative classification for centralized server registration. */
 export function capabilityForTool(toolName: string): Capability {
   if (UNSAFE_TOOL_NAMES.has(toolName)) return "unsafe-script";
-  if (/^(export_|validate_export_|start_batch_encode|queue_|encode_|capture_frame)/.test(toolName)) return "export";
+  if (/^(export_|validate_export_|start_batch_encode|add_to_render_queue|queue_|encode_|capture_frame)/.test(toolName)) return "export";
   if (/^(import_|relink_|create_project|open_project|save_|consolidate_)/.test(toolName)) return "filesystem";
   if (FILESYSTEM_TOOL_NAMES.has(toolName)) return "filesystem";
   if (INSPECT_TOOL_NAMES.has(toolName) || /^(get_|list_|inspect_|find_|check_|search_)/.test(toolName)) return "inspect";

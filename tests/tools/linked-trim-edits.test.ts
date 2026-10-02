@@ -3,7 +3,7 @@ import { runInNewContext } from "node:vm";
 import { getHelpersSource } from "../../src/bridge/script-builder.js";
 import type { BridgeOptions } from "../../src/bridge/file-bridge.js";
 
-vi.mock("../../src/tools/media-evidence.js", () => ({ probeMediaDurationSeconds: vi.fn().mockResolvedValue(3600) }));
+vi.mock("../../src/tools/media-evidence.js", () => ({ probeMediaDurationTicks: vi.fn().mockResolvedValue(3600 * 254016000000) }));
 
 vi.mock("../../src/bridge/file-bridge.js", () => ({
   sendCommand: vi.fn().mockResolvedValue({ success: true, data: { mediaPath: "/fixture/source.mp4" } }),
@@ -395,5 +395,25 @@ describe("source end tick precision", () => {
     await expect(timeline.trim_clip.handler({ node_id: "v0", new_out_seconds: 9 })).resolves.toMatchObject({ success: false, error: expect.stringContaining("exact tick range") });
     expect([...video, ...audio].map(clip => clip.snapshot())).toEqual(before);
     expect(mockedSendCommand).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe("exact probed tick caps", () => {
+  it("allows the exact source end and rejects one tick beyond it before changing either linked clip", async () => {
+    const { video, audio } = host();
+    const cap = 61 * TICKS;
+    const timeline = getTimelineTools(bridgeOptions, { probeMediaDurationTicks: async () => cap });
+    await expect(timeline.trim_clip.handler({ node_id: "v2", new_out_seconds: cap / TICKS })).resolves.toMatchObject({ success: true });
+    const before = [...video, ...audio].map(clip => clip.snapshot());
+    await expect(timeline.trim_clip.handler({ node_id: "v2", new_out_seconds: (cap + 1) / TICKS })).resolves.toMatchObject({ success: false, error: expect.stringContaining("real media duration") });
+    expect([...video, ...audio].map(clip => clip.snapshot())).toEqual(before);
+  });
+
+  it("slip accepts the exact tick cap without subtracting a global epsilon", async () => {
+    const { video, audio } = host();
+    const advanced = getAdvancedTools(bridgeOptions, { probeMediaDurationTicks: async () => 31 * TICKS });
+    await expect(advanced.slip_edit.handler({ node_id: "v1", offset_seconds: 1 })).resolves.toMatchObject({ success: true });
+    expect(video[1].snapshot()).toEqual([10, 30, 11, 31]);
+    expect(audio[1].snapshot()).toEqual([10, 30, 11, 31]);
   });
 });
