@@ -73,7 +73,7 @@ function host(options: { audioRejectsInPoint?: boolean; audioLocked?: boolean } 
     Time: function Time(this: { ticks: string }) { this.ticks = "0"; },
   };
   mockedSendCommand.mockImplementation(async (script: string) => JSON.parse(String(runInNewContext(`${getHelpersSource()}\n${script}`, context))));
-  return { video, audio, context };
+  return { video, audio, seq, context };
 }
 
 describe("trim edits keep linked audio in sync", () => {
@@ -554,6 +554,47 @@ describe("physical media bounds for adjacent edits (#718/#719)", () => {
     vi.mocked(probeMediaDurationTicks).mockImplementation(async () => { video[1].projectItem.getMediaPath = () => "/replacement.mp4"; return 100 * 254016000000; });
     await expect(tools.slide_edit.handler({ node_id: "v1", offset_seconds: 0.5 })).resolves.toMatchObject({ success: false, error: expect.stringContaining("Media source changed") });
     expect([...video, ...audio].map((clip) => clip.snapshot())).toEqual(before);
+  });
+  it.each(["roll_edit", "slide_edit"] as const)("refuses a same-ID project switch during probing before %s mutates", async (tool) => {
+    const { video, audio, context } = host();
+    const before = [...video, ...audio].map((clip) => clip.snapshot());
+    vi.mocked(probeMediaDurationTicks).mockImplementation(async () => {
+      context.app.project = { ...context.app.project, documentID: "different-project" };
+      return 100 * TICKS;
+    });
+    await expect(tools[tool].handler({ node_id: "v1", offset_seconds: 0.5 })).resolves.toMatchObject({ success: false, error: expect.stringContaining("Active project changed") });
+    expect([...video, ...audio].map((clip) => clip.snapshot())).toEqual(before);
+  });
+  it("refuses an unreadable project identity before probing", async () => {
+    const { video, audio, context } = host();
+    const before = [...video, ...audio].map((clip) => clip.snapshot());
+    Object.defineProperty(context.app.project, "documentID", { get: () => { throw new Error("unreadable document ID"); } });
+    await expect(tools.slide_edit.handler({ node_id: "v1", offset_seconds: 0.5 })).resolves.toMatchObject({ success: false, error: expect.stringContaining("Project identity cannot be verified") });
+    expect(probeMediaDurationTicks).not.toHaveBeenCalled();
+    expect([...video, ...audio].map((clip) => clip.snapshot())).toEqual(before);
+  });
+  it.each(["roll_edit", "slide_edit"] as const)("refuses a whole-track move during probing before %s mutates", async (tool) => {
+    const { video, audio, seq } = host();
+    const before = [...video, ...audio].map((clip) => clip.snapshot());
+    vi.mocked(probeMediaDurationTicks).mockImplementation(async () => {
+      const tracks = seq.videoTracks as typeof seq.videoTracks & Record<number, typeof seq.videoTracks[0]>;
+      tracks[1] = tracks[0]; tracks[0] = { clips: { numItems: 0 }, isLocked: () => false };
+      tracks.numTracks = 2;
+      return 100 * TICKS;
+    });
+    await expect(tools[tool].handler({ node_id: "v1", offset_seconds: 0.5 })).resolves.toMatchObject({ success: false, error: expect.stringContaining("track or collection position changed") });
+    expect([...video, ...audio].map((clip) => clip.snapshot())).toEqual(before);
+  });
+  it("refuses an unchanged clip whose collection index changed during probing", async () => {
+    const { video, audio } = host();
+    const before = [...video, ...audio].map((clip) => clip.snapshot());
+    const addition = makeClip("new-leading-clip", -2, -1, 0);
+    vi.mocked(probeMediaDurationTicks).mockImplementation(async () => {
+      if (video[0] !== addition) video.unshift(addition);
+      return 100 * TICKS;
+    });
+    await expect(tools.slide_edit.handler({ node_id: "v1", offset_seconds: 0.5 })).resolves.toMatchObject({ success: false, error: expect.stringContaining("track or collection position changed") });
+    expect([...video.slice(1), ...audio].map((clip) => clip.snapshot())).toEqual(before);
   });
   it("refuses changed placement after probing", async () => {
     const { video } = host();

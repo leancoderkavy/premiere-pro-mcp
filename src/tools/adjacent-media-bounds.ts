@@ -2,8 +2,8 @@ import { buildToolScript, escapeForExtendScript } from "../bridge/script-builder
 import { sendCommand, type BridgeOptions } from "../bridge/file-bridge.js";
 import { probeMediaDurationTicks } from "./media-evidence.js";
 
-interface SourceEntry { nodeId: string; mediaPath: string; position: string; }
-interface SourceEvidence { sequenceId: string; entries: SourceEntry[]; }
+interface SourceEntry { nodeId: string; mediaPath: string; position: string; trackType: "video" | "audio"; trackIndex: number; clipIndex: number; }
+interface SourceEvidence { projectDocumentId: string; sequenceId: string; entries: SourceEntry[]; }
 
 /** Read every edited source before probing, then bind the mutation to that snapshot. */
 export async function prepareAdjacentMediaBounds(options: BridgeOptions, nodeId: string, includeLinked: boolean, slide: boolean) {
@@ -12,6 +12,9 @@ export async function prepareAdjacentMediaBounds(options: BridgeOptions, nodeId:
     if (!target) return __error("Clip not found");
     var seq = app.project.activeSequence;
     if (!seq.sequenceID) return __error("Sequence identity cannot be verified; nothing was changed.");
+    var documentId = null;
+    try { documentId = app.project.documentID; } catch (documentIdentityError) {}
+    if ((typeof documentId !== "string" && typeof documentId !== "number") || String(documentId).replace(/\\s/g, "") === "") return __error("Project identity cannot be verified; nothing was changed.");
     var targets = [target];
     ${includeLinked ? 'var partners = __linkedPartnerClips(target); for (var pi = 0; pi < partners.length; pi++) targets.push(partners[pi]);' : ''}
     var entries = [], seen = {};
@@ -33,15 +36,18 @@ export async function prepareAdjacentMediaBounds(options: BridgeOptions, nodeId:
         try { path = String(clip.projectItem.getMediaPath() || ""); } catch (pathError) {}
         if (!path) return __error("Physical media duration cannot be verified for an edited clip; nothing was changed.");
         if (entries.length >= 256) return __error("Too many linked edit sources to inspect safely; nothing was changed.");
-        entries.push({ nodeId: id, mediaPath: path, position: __clipPositionKey(id) });
+        var placement = __findClip(id);
+        if (!placement) return __error("Edited clip placement cannot be verified; nothing was changed.");
+        entries.push({ nodeId: id, mediaPath: path, position: __clipPositionKey(id), trackType: placement.trackType, trackIndex: placement.trackIndex, clipIndex: placement.clipIndex });
       }
     }
-    return __result({ sequenceId: String(seq.sequenceID), entries: entries });
+    return __result({ projectDocumentId: String(documentId), sequenceId: String(seq.sequenceID), entries: entries });
   `), options);
   if (!inspection.success) return { success: false as const, error: inspection.error || "Could not inspect edit sources; nothing was changed." };
   const data = inspection.data as SourceEvidence | undefined;
-  if (!data || typeof data.sequenceId !== "string" || !Array.isArray(data.entries) || !data.entries.length || data.entries.length > 256 ||
-    data.entries.some((entry) => !entry || typeof entry.nodeId !== "string" || typeof entry.mediaPath !== "string" || !entry.mediaPath || typeof entry.position !== "string" || entry.position.includes("?"))) {
+  if (!data || typeof data.projectDocumentId !== "string" || !data.projectDocumentId.trim() || typeof data.sequenceId !== "string" || !Array.isArray(data.entries) || !data.entries.length || data.entries.length > 256 ||
+    data.entries.some((entry) => !entry || typeof entry.nodeId !== "string" || typeof entry.mediaPath !== "string" || !entry.mediaPath || typeof entry.position !== "string" || entry.position.includes("?") ||
+      (entry.trackType !== "video" && entry.trackType !== "audio") || !Number.isInteger(entry.trackIndex) || entry.trackIndex < 0 || !Number.isInteger(entry.clipIndex) || entry.clipIndex < 0)) {
     return { success: false as const, error: "Physical media evidence was incomplete; nothing was changed." };
   }
   const durationTicks = new Map<string, number>();
@@ -52,14 +58,18 @@ export async function prepareAdjacentMediaBounds(options: BridgeOptions, nodeId:
       durationTicks.set(entry.mediaPath, endTicks);
     }
   }
-  const entries = data.entries.map((entry) => `{"nodeId":"${escapeForExtendScript(entry.nodeId)}","mediaPath":"${escapeForExtendScript(entry.mediaPath)}","position":"${escapeForExtendScript(entry.position)}","endTicks":${durationTicks.get(entry.mediaPath)!}}`).join(",");
+  const entries = data.entries.map((entry) => `{"nodeId":"${escapeForExtendScript(entry.nodeId)}","mediaPath":"${escapeForExtendScript(entry.mediaPath)}","position":"${escapeForExtendScript(entry.position)}","trackType":"${entry.trackType}","trackIndex":${entry.trackIndex},"clipIndex":${entry.clipIndex},"endTicks":${durationTicks.get(entry.mediaPath)!}}`).join(",");
   return { success: true as const, script: `
     var sourceEvidence = [${entries}];
+    var currentDocumentId = null;
+    try { currentDocumentId = app.project.documentID; } catch (documentIdentityError) {}
+    if (currentDocumentId === null || currentDocumentId === undefined || String(currentDocumentId) !== "${escapeForExtendScript(data.projectDocumentId)}") return __error("Active project changed or its identity cannot be verified during media inspection; nothing was changed.");
     if (String(app.project.activeSequence.sequenceID) !== "${escapeForExtendScript(data.sequenceId)}") return __error("Active sequence changed during media inspection; nothing was changed.");
     var sourceEnds = {};
     for (var ei = 0; ei < sourceEvidence.length; ei++) {
       var evidence = sourceEvidence[ei], inspected = __findClip(evidence.nodeId);
       if (!inspected || __clipPositionKey(evidence.nodeId) !== evidence.position) return __error("Clip placement or source window changed during media inspection; nothing was changed.");
+      if (inspected.trackType !== evidence.trackType || inspected.trackIndex !== evidence.trackIndex || inspected.clipIndex !== evidence.clipIndex) return __error("Clip track or collection position changed during media inspection; nothing was changed.");
       var currentPath = "";
       try { currentPath = String(inspected.clip.projectItem.getMediaPath() || ""); } catch (pathError) {}
       if (currentPath !== evidence.mediaPath) return __error("Media source changed during duration inspection; nothing was changed.");

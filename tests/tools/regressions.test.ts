@@ -1240,10 +1240,10 @@ describe("issue #237 — reported mutations must be observable or fail", () => {
   const exports = getExportTools(bridgeOptions);
 
   it("makes trim tools read back their claimed changes", async () => {
-    mockedSendCommand.mockResolvedValueOnce({ success: true, data: { sequenceId: "seq", entries: [{ nodeId: "clip-1", mediaPath: "/tmp/clip.mp4", position: "0|1|0|1" }] } });
+    mockedSendCommand.mockResolvedValueOnce({ success: true, data: { projectDocumentId: "project", sequenceId: "seq", entries: [{ nodeId: "clip-1", mediaPath: "/tmp/clip.mp4", position: "0|1|0|1", trackType: "video", trackIndex: 0, clipIndex: 0 }] } });
     const slide = await scriptFor(advanced.slide_edit, { node_id: "clip-1", offset_seconds: 1 });
     const slip = await scriptFor(advanced.slip_edit, { node_id: "clip-1", offset_seconds: 1 });
-    mockedSendCommand.mockResolvedValueOnce({ success: true, data: { sequenceId: "seq", entries: [{ nodeId: "clip-1", mediaPath: "/tmp/clip.mp4", position: "0|1|0|1" }] } });
+    mockedSendCommand.mockResolvedValueOnce({ success: true, data: { projectDocumentId: "project", sequenceId: "seq", entries: [{ nodeId: "clip-1", mediaPath: "/tmp/clip.mp4", position: "0|1|0|1", trackType: "video", trackIndex: 0, clipIndex: 0 }] } });
     const roll = await scriptFor(advanced.roll_edit, { node_id: "clip-1", offset_seconds: 1 });
 
     expect(slide).toContain("The slide edit returned without an observable timeline change");
