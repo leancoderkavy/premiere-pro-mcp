@@ -675,10 +675,12 @@ var __BUILT_IN_COMPONENTS = { "Opacity": true, "Motion": true, "Time Remapping":
 // 25.2.3 (#674): video "AE.ADBE Opacity", "AE.ADBE Motion"; graphics
 // "AE.ADBE Graphic Group" (Vector Motion), "AE.ADBE Text"; audio "Internal
 // Volume Mono|Stereo|5.1" and "Internal Channel Volume Stereo|5.1" (a mono clip
-// has no Channel Volume). Time Remapping and shape layers were not listed on
-// that build; their likely names are included because treating a component as
-// built-in only ever prevents a removal.
-var __BUILT_IN_MATCH_NAMES = { "AE.ADBE Motion": true, "AE.ADBE Opacity": true, "AE.ADBE Graphic Group": true, "AE.ADBE Text": true, "AE.ADBE Time Remapping": true };
+// has no Channel Volume), and shape layers "AE.ADBE Shape" (a stock lower
+// third). 25.2.3 lists no clip-level Panner, even for a mono clip on a stereo
+// track (panning is per track there). Time Remapping was not listed and cannot
+// be enabled by script; its likely name is included because treating a
+// component as built-in only ever prevents a removal.
+var __BUILT_IN_MATCH_NAMES = { "AE.ADBE Motion": true, "AE.ADBE Opacity": true, "AE.ADBE Graphic Group": true, "AE.ADBE Text": true, "AE.ADBE Shape": true, "AE.ADBE Time Remapping": true };
 
 function __componentMatchName(component) {
   try { return String(component.matchName || ""); } catch (eMatch) { return ""; }
@@ -697,7 +699,7 @@ function __isBuiltInComponent(component) {
 // means the built-ins are localized.
 function __isConfirmedBuiltInMatchName(match) {
   return match === "AE.ADBE Motion" || match === "AE.ADBE Opacity" || match === "AE.ADBE Graphic Group" ||
-    match === "AE.ADBE Text" || /^Internal /.test(match);
+    match === "AE.ADBE Text" || match === "AE.ADBE Shape" || /^Internal /.test(match);
 }
 
 // A component can only be classified when it reports a match name or carries a
@@ -716,7 +718,7 @@ function __componentClassificationProblem(clip) {
     if (__isConfirmedBuiltInMatchName(match) && !__BUILT_IN_COMPONENTS[name]) localized = name;
   }
   if (localized !== null) {
-    return "This Premiere host shows built-in components under localized names (" + localized + "). The match names of Time Remapping, Panner and shape layers are not confirmed yet, so an effect cannot be told apart from them reliably (#674).";
+    return "This Premiere host shows built-in components under localized names (" + localized + "). The match names of Time Remapping and Panner are not confirmed yet, so an effect cannot be told apart from them reliably (#674).";
   }
   return null;
 }
