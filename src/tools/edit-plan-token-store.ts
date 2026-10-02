@@ -1,10 +1,11 @@
 import { randomBytes } from "node:crypto";
-import { readFileSync, unlinkSync, writeFileSync } from "node:fs";
+import { lstatSync, readFileSync, readdirSync, unlinkSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { BridgeOptions, ensurePrivateBridgeDirectory, getTempDir } from "../bridge/file-bridge.js";
 
 const TOKEN_LIFETIME_MS = 30 * 60 * 1000;
 const TOKEN_PATTERN = /^([0-9a-f]{64})\.([0-9a-f]{32})$/;
+const TOKEN_FILE_PATTERN = /^edit-plan-token-[0-9a-f]{32}\.json$/;
 
 export interface EditPlanTokenStore {
   issue(planDigest: string): string;
@@ -17,9 +18,23 @@ export function createEditPlanTokenStore(bridgeOptions: BridgeOptions): EditPlan
   function fileFor(nonce: string) {
     return join(directory, `edit-plan-token-${nonce}.json`);
   }
+  function pruneExpiredTokens() {
+    const cutoff = Date.now() - TOKEN_LIFETIME_MS;
+    for (const name of readdirSync(directory)) {
+      if (!TOKEN_FILE_PATTERN.test(name)) continue;
+      const path = join(directory, name);
+      try {
+        const stat = lstatSync(path);
+        if (stat.isFile() && !stat.isSymbolicLink() && stat.mtimeMs < cutoff) unlinkSync(path);
+      } catch {
+        // Another server may have consumed the file during this scan.
+      }
+    }
+  }
   return {
     issue(planDigest) {
       ensurePrivateBridgeDirectory(directory);
+      pruneExpiredTokens();
       const nonce = randomBytes(16).toString("hex");
       writeFileSync(fileFor(nonce), JSON.stringify({ planDigest, expiresAt: Date.now() + TOKEN_LIFETIME_MS }), { flag: "wx", mode: 0o600 });
       return `${planDigest}.${nonce}`;

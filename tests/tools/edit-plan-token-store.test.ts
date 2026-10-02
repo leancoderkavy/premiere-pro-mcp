@@ -1,11 +1,12 @@
-import { mkdtempSync, rmSync } from "node:fs";
+import { existsSync, mkdtempSync, rmSync, utimesSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { createEditPlanTokenStore } from "../../src/tools/edit-plan-token-store.js";
 
 const directories: string[] = [];
 afterEach(() => {
+  vi.restoreAllMocks();
   for (const directory of directories.splice(0)) rmSync(directory, { recursive: true, force: true });
 });
 
@@ -27,5 +28,25 @@ describe("single-use edit-plan confirmation tokens", () => {
     const fresh = restartedServer.issue(digest);
     expect(fresh).not.toBe(token);
     expect(() => firstServer.consume(fresh, digest)).not.toThrow();
+  });
+
+  it("rejects expired tokens and prunes unused expired previews", () => {
+    const tempDir = mkdtempSync(join(tmpdir(), "premiere-plan-expiry-"));
+    directories.push(tempDir);
+    const digest = "d".repeat(64);
+    const store = createEditPlanTokenStore({ tempDir });
+    const issuedAt = Date.now();
+    const clock = vi.spyOn(Date, "now").mockReturnValue(issuedAt);
+    const expired = store.issue(digest);
+    clock.mockReturnValue(issuedAt + 31 * 60 * 1000);
+    expect(() => store.consume(expired, digest)).toThrow("invalid or expired");
+
+    clock.mockReturnValue(issuedAt);
+    const unused = store.issue(digest);
+    const unusedPath = join(tempDir, `edit-plan-token-${unused.split(".")[1]}.json`);
+    const oldTime = new Date(issuedAt - 31 * 60 * 1000);
+    utimesSync(unusedPath, oldTime, oldTime);
+    store.issue(digest);
+    expect(existsSync(unusedPath)).toBe(false);
   });
 });
