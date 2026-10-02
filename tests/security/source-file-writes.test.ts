@@ -38,3 +38,23 @@ describe("source-range edits require filesystem authority for duration evidence"
     expect(handler).not.toHaveBeenCalled();
   });
 });
+
+describe("sequence presets and AME queue handoff require filesystem authority", () => {
+  it.each([
+    ["create_sequence", "edit"],
+    ["create_sequence_from_preset", "edit"],
+    ["add_to_render_queue", "export"],
+  ])("%s", async (name, authority) => {
+    expect(capabilitiesForToolInvocation(name, {})).toEqual([authority, "filesystem"]);
+    const handler = vi.fn().mockResolvedValue({ success: true });
+    const guarded = guardToolHandler(name, handler, resolveCapabilities(authority));
+    await expect(guarded({})).rejects.toThrow(/filesystem/);
+    expect(handler).not.toHaveBeenCalled();
+  });
+});
+
+it("AME queue handoff requires export authority even when edit and filesystem are allowed", async () => {
+  const handler = vi.fn().mockResolvedValue({ success: true });
+  await expect(guardToolHandler("add_to_render_queue", handler, resolveCapabilities("edit,filesystem"))({})).rejects.toThrow(/export/);
+  expect(handler).not.toHaveBeenCalled();
+});

@@ -149,6 +149,10 @@ const TOOL_CAPABILITY_REQUIREMENTS: Readonly<Record<string, readonly Capability[
   // Source bounds read the underlying media file through ffprobe.
   trim_clip: ["edit", "filesystem"],
   slip_edit: ["edit", "filesystem"],
+  // Preset preflight reads local files; AME queue handoff can start exports.
+  create_sequence: ["edit", "filesystem"],
+  create_sequence_from_preset: ["edit", "filesystem"],
+  add_to_render_queue: ["export", "filesystem"],
   preview_after_effects_render_handoff: ["inspect", "filesystem"],
   apply_after_effects_render_handoff: ["inspect", "edit", "filesystem"],
   verify_after_effects_connection: ["inspect"],

@@ -384,3 +384,16 @@ describe("physical source bounds fail before timeline mutation", () => {
     expect(mockedSendCommand).toHaveBeenCalledTimes(1);
   });
 });
+
+describe("source end tick precision", () => {
+  it.each([40000, 0.5 / TICKS])("refuses duration %s outside the exact positive tick range before mutation", async duration => {
+    const { video, audio } = host();
+    const before = [...video, ...audio].map(clip => clip.snapshot());
+    const advanced = getAdvancedTools(bridgeOptions, { probeMediaDurationSeconds: async () => duration });
+    const timeline = getTimelineTools(bridgeOptions, { probeMediaDurationSeconds: async () => duration });
+    await expect(advanced.slip_edit.handler({ node_id: "v0", offset_seconds: 1 })).resolves.toMatchObject({ success: false, error: expect.stringContaining("exact tick range") });
+    await expect(timeline.trim_clip.handler({ node_id: "v0", new_out_seconds: 9 })).resolves.toMatchObject({ success: false, error: expect.stringContaining("exact tick range") });
+    expect([...video, ...audio].map(clip => clip.snapshot())).toEqual(before);
+    expect(mockedSendCommand).toHaveBeenCalledTimes(2);
+  });
+});

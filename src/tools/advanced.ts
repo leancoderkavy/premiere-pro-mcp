@@ -316,6 +316,10 @@ export function getAdvancedTools(
         if (mediaDurationTicks === null || !Number.isFinite(mediaDurationTicks) || mediaDurationTicks <= 0) {
           return { success: false, error: "Physical media duration could not be verified. No edit was attempted. Install ffprobe and ensure the source media is accessible; editable project In/Out marks are not media boundaries." };
         }
+        mediaDurationTicks = Math.floor(mediaDurationTicks);
+        if (!Number.isSafeInteger(mediaDurationTicks) || mediaDurationTicks <= 0) {
+          return { success: false, error: "Physical media end exceeds the exact tick range; no edit was attempted." };
+        }
         // SEC FORK (#712): the whole bound line is resolved Node-side (numbers
         // embedded) so the generated script never references Node variables.
         const slipMediaBound = `

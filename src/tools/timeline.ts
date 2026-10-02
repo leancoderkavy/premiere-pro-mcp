@@ -478,6 +478,11 @@ export function getTimelineTools(
         if (mediaDurationSeconds === null || !Number.isFinite(mediaDurationSeconds) || mediaDurationSeconds <= 0) {
           return { success: false, error: "Physical media duration could not be verified. No edit was attempted. Install ffprobe and ensure the source media is accessible; editable project In/Out marks are not media boundaries." };
         }
+        const mediaEndTicks = Math.floor(mediaDurationSeconds * 254016000000);
+        if (!Number.isSafeInteger(mediaEndTicks) || mediaEndTicks <= 0) {
+          return { success: false, error: "Physical media end exceeds the exact tick range; no edit was attempted." };
+        }
+        mediaDurationSeconds = mediaEndTicks / 254016000000;
         // SEC FORK (#712): the whole bound line is resolved Node-side (numbers
         // embedded) so the generated script never references Node variables.
         const trimMediaBound = `
