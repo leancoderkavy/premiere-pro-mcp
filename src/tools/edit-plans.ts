@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import { BridgeOptions, sendCommand } from "../bridge/file-bridge.js";
+import { validateBridgeScriptSize } from "../bridge/script-size.js";
 import { buildToolScript, escapeForExtendScript } from "../bridge/script-builder.js";
 import { rippleDeleteScriptBody } from "./ripple-delete-script.js";
 import { createEditPlanTokenStore, EditPlanTokenStore, EditPlanHostBinding, validateEditPlanHostBinding } from "./edit-plan-token-store.js";
@@ -279,6 +280,8 @@ export function getEditPlanTools(bridgeOptions: BridgeOptions, dependencies: Edi
         if (binding.targets.length !== plan.operations.length || binding.targets.some((target, index) => target.type !== plan.operations[index].type)) {
           return { success: false, error: "Premiere returned an incomplete host-target binding; no confirmation token was issued" };
         }
+        try { validateBridgeScriptSize(buildApplyScript(plan, binding)); }
+        catch { return { success: false, error: "The bound apply command exceeds the bridge's 500KB size limit; split the plan into smaller previews. No confirmation token was issued" }; }
         return { success: true, data: { operationId, changes: describe(plan), confirmationToken: tokenStore.issue(confirmationToken(plan), binding), targetsValidated: true, applied: false } };
       },
     },
