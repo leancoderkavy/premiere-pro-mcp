@@ -54,7 +54,7 @@ function applyEffectWithReadback(kind: "Video" | "Audio"): string {
       }
     }
     var undoNow = typeof __readUndoIndex === "function" && __undoStart !== null ? __readUndoIndex() : null;
-    if (__undoStart !== null && undoNow !== null && undoNow === __undoStart && after && after.length === before.length && !addError) {
+    if (__undoStart !== null && undoNow !== null && undoNow === __undoStart && after && after.length === before.length && added.length === 0 && !addError) {
       data.outcome = "not_applied";
       return __jsonStringify({ success: false, error: "Premiere added no component for " + effectName + "; nothing was changed.", data: data });
     }

@@ -21,6 +21,7 @@ describe.each(["apply_effect", "apply_audio_effect"] as const)("%s readback", (t
         components.numItems++;
       }
       if (mode === "duplicate") { components.push(initial); components.numItems++; }
+      if (mode === "replace") components[0] = added;
       if (mode === "unreadable") Object.defineProperty(clip, "components", { get() { throw Error("DOM unavailable"); } });
       if (mode === "throw" || mode === "throw-after") throw Error("QE failed");
     });
@@ -67,6 +68,13 @@ describe.each(["apply_effect", "apply_audio_effect"] as const)("%s readback", (t
     expect(result).toMatchObject({ success: false, error: "Premiere added no component for Time Remapping; nothing was changed.", data: { outcome: "not_applied", addedComponents: [] } });
     expect(result.data).not.toHaveProperty("note");
   });
+  it("does not call a same-count component replacement a no-op", async () => {
+    host("replace");
+    expect(await tools[tool].handler({ node_id: "clip", effect_name: "Test effect" })).toMatchObject({
+      success: false,
+      data: { outcome: "committed_unverified", componentCountBefore: 1, componentCountAfter: 1, addedComponents: [{ matchName: "new-match" }] },
+    });
+  });
   it("does not claim Time Remapping was added when QE silently does nothing", async () => {
     host("unchanged", "Time Remapping");
     expect(await tools[tool].handler({ node_id: "clip", effect_name: "Time Remapping" })).toMatchObject({ success: false, data: { componentCountBefore: 1, componentCountAfter: 1, outcome: "committed_unverified" } });
@@ -82,12 +90,14 @@ describe.each(["apply_effect", "apply_audio_effect"] as const)("%s readback", (t
     expect(h.add).not.toHaveBeenCalled();
   });
   it("escapes names and node IDs in the generated ES3 script", async () => {
-    const value = 'quote"\\\n\u2028\u2029';
-    const h = host("add", value);
-    expect(await tools[tool].handler({ node_id: value, effect_name: value })).toMatchObject({ success: true });
-    expect(h.lookup).toHaveBeenCalledWith(value);
+    const nodeId = 'node"\\\n\u2028';
+    const effectName = 'effect"\\\n\u2029';
+    const h = host("add", effectName);
+    expect(await tools[tool].handler({ node_id: nodeId, effect_name: effectName })).toMatchObject({ success: true });
+    expect(h.lookup).toHaveBeenCalledWith(effectName);
     const script = send.mock.calls[0][0];
-    expect(script).toContain(escapeForExtendScript(value));
+    expect(script).toContain(escapeForExtendScript(nodeId));
+    expect(script).toContain(escapeForExtendScript(effectName));
     expect(script).not.toMatch(/\b(?:let|const)\s|=>|\.forEach\(/);
   });
 });
