@@ -20,7 +20,7 @@ const ticks = (seconds: number) => String(Math.round(seconds * TICKS));
 
 beforeEach(() => vi.clearAllMocks());
 
-type HostOptions = { speed?: number; reversed?: boolean; ignoreRemove?: boolean; mediaKeys?: Array<[number, number]> };
+type HostOptions = { speed?: number; reversed?: boolean; speedReadError?: boolean; ignoreRemove?: boolean; failReadAfterRemove?: boolean; postKeys?: { value: unknown }; mediaKeys?: Array<[number, number]> };
 
 /**
  * One clip on V1 at timeline 25-35s whose in-point is media 30s, as measured on
@@ -29,6 +29,7 @@ type HostOptions = { speed?: number; reversed?: boolean; ignoreRemove?: boolean;
 function host(options: HostOptions = {}) {
   const keys = new Map<number, number>((options.mediaKeys ?? []).map(([seconds, value]) => [Math.round(seconds * TICKS), value]));
   let timeVarying = keys.size > 0;
+  let removed = false;
   const interpolation: Record<number, number> = {};
   const sorted = () => [...keys.keys()].sort((a, b) => a - b);
   const time = (t: number) => ({ ticks: String(t), seconds: t / TICKS });
@@ -37,11 +38,11 @@ function host(options: HostOptions = {}) {
     areKeyframesSupported: () => true,
     isTimeVarying: () => timeVarying,
     setTimeVarying: (value: boolean) => { timeVarying = value; if (!value) keys.clear(); },
-    getKeys: () => sorted().map(time),
+    getKeys: () => { if (removed && options.failReadAfterRemove) throw new Error("getKeys failed"); if (removed && options.postKeys) return options.postKeys.value; return sorted().map(time); },
     addKey: (t: { ticks: string }) => { const k = Number(t.ticks); if (!keys.has(k)) keys.set(k, 100); },
     setValueAtKey: (t: { ticks: string }, value: number) => { keys.set(Number(t.ticks), value); },
     getValueAtKey: (t: { ticks: string }) => keys.get(Number(t.ticks)) ?? null,
-    removeKey: (t: { ticks: string }) => { if (!options.ignoreRemove) keys.delete(Number(t.ticks)); },
+    removeKey: (t: { ticks: string }) => { removed = true; if (!options.ignoreRemove) keys.delete(Number(t.ticks)); },
     setInterpolationTypeAtKey: (t: { ticks: string }, type: number) => { interpolation[Number(t.ticks)] = type; },
     getValueAtTime: (t: { ticks: string }) => {
       const at = Number(t.ticks);
@@ -64,7 +65,7 @@ function host(options: HostOptions = {}) {
     end: { ticks: ticks(35) },
     inPoint: { ticks: ticks(30) },
     components: { numItems: 1, 0: component },
-    getSpeed: () => options.speed ?? 1,
+    getSpeed: () => { if (options.speedReadError) throw new Error("speed failed"); return options.speed ?? 1; },
     isSpeedReversed: () => options.reversed ?? false,
   };
   const seq = { videoTracks: { numTracks: 1, 0: { clips: { numItems: 1, 0: clip } } }, audioTracks: { numTracks: 0 } };
@@ -114,6 +115,12 @@ describe("keyframe times are seconds from the clip's start, stored as media time
     expect(state.mediaKeys()).toEqual([[32, 20]]);
   });
 
+  it("refuses keyframe writes when speed cannot be read", async () => {
+    const state = host({ speedReadError: true });
+    await expect(tools.add_keyframe.handler({ ...target, time_seconds: 2, value: 20 })).resolves.toMatchObject({ success: false, error: expect.stringContaining("speed or reverse state") });
+    expect(state.mediaKeys()).toEqual([]);
+  });
+
   it("refuses on a clip with a speed change or reverse, changing nothing", async () => {
     for (const options of [{ speed: 2 }, { reversed: true }]) {
       const state = host(options);
@@ -133,6 +140,12 @@ describe("keyframe times are seconds from the clip's start, stored as media time
 });
 
 describe("keyframe removal reads the keys back", () => {
+  it.each([null, undefined, { length: 1, 0: { ticks: "unreadable" } }])("does not certify removal after invalid key readback (%s)", async (value) => {
+    host({ mediaKeys: [[32, 20]], ignoreRemove: true, postKeys: { value } });
+    await expect(tools.remove_keyframe.handler({ ...target, time_seconds: 2 })).resolves.toMatchObject({ success: false, data: { outcome: "committed_unverified", verified: false, timelineChanged: null } });
+    host({ mediaKeys: [[32, 20]], ignoreRemove: true, postKeys: { value } });
+    await expect(tools.remove_keyframe_range.handler({ ...target, start_seconds: 0, end_seconds: 10 })).resolves.toMatchObject({ success: false, data: { outcome: "committed_unverified", verified: false, timelineChanged: null } });
+  });
   it("remove_keyframe removes the key at that clip time and lists the rest", async () => {
     const state = host({ mediaKeys: [[32, 20], [34, 80]] });
     await expect(tools.remove_keyframe.handler({ ...target, time_seconds: 2 }))
@@ -151,6 +164,12 @@ describe("keyframe removal reads the keys back", () => {
     host({ mediaKeys: [[32, 20]], ignoreRemove: true });
     await expect(tools.remove_keyframe.handler({ ...target, time_seconds: 2 }))
       .resolves.toMatchObject({ success: false, data: { outcome: "committed_unverified", timelineChanged: true, remainingKeys: [2] } });
+  });
+
+  it("remove_keyframe reports committed_unverified when the post-removal read throws", async () => {
+    host({ mediaKeys: [[32, 20]], ignoreRemove: true, failReadAfterRemove: true });
+    await expect(tools.remove_keyframe.handler({ ...target, time_seconds: 2 }))
+      .resolves.toMatchObject({ success: false, error: expect.stringContaining("could not be read back"), data: { outcome: "committed_unverified", verified: false } });
   });
 
   it("remove_keyframe_range removes only the keys inside the range, inclusive", async () => {
@@ -178,6 +197,12 @@ describe("keyframe removal reads the keys back", () => {
     host({ mediaKeys: [[32, 20]], ignoreRemove: true });
     await expect(tools.remove_keyframe_range.handler({ ...target, start_seconds: 0, end_seconds: 10 }))
       .resolves.toMatchObject({ success: false, data: { outcome: "committed_unverified", remainingKeys: [2] } });
+  });
+
+  it("remove_keyframe_range reports committed_unverified when the post-removal read throws", async () => {
+    host({ mediaKeys: [[32, 20]], ignoreRemove: true, failReadAfterRemove: true });
+    await expect(tools.remove_keyframe_range.handler({ ...target, start_seconds: 0, end_seconds: 10 }))
+      .resolves.toMatchObject({ success: false, error: expect.stringContaining("could not be read back"), data: { outcome: "committed_unverified", verified: false } });
   });
 });
 

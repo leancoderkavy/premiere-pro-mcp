@@ -469,8 +469,15 @@ export function getKeyframeTools(bridgeOptions: BridgeOptions) {
           }
           var removedSeconds = __clipSecondsFromKey(keyBase, key);
           prop.removeKey(key);
-          var remaining = __clipKeySeconds(keyBase, prop);
-          if (__findKeyNear(prop, key)) {
+          var remaining = null;
+          var stillPresent = false;
+          try {
+            remaining = __clipKeySeconds(keyBase, prop, true);
+            stillPresent = !!__findKeyNear(prop, key, true);
+          } catch (readError) {
+            return __jsonStringify({ success: false, error: "Premiere accepted the keyframe removal, but the remaining keys could not be read back: " + readError.toString(), data: { outcome: "committed_unverified", timelineChanged: null, verified: false } });
+          }
+          if (stillPresent) {
             return __jsonStringify({ success: false, error: "Premiere accepted the removal, but a keyframe still reads back at " + removedSeconds + "s.", data: { outcome: "committed_unverified", timelineChanged: true, remainingKeys: remaining } });
           }
 
@@ -529,9 +536,9 @@ export function getKeyframeTools(bridgeOptions: BridgeOptions) {
           ${propertyLookupScript(args)}
           ${keyBaseScript([["start_seconds", args.start_seconds], ["end_seconds", args.end_seconds]])}
 
-          function __keysInRange() {
+          function __keysInRange(strict) {
             var found = [];
-            var all = __clipKeySeconds(keyBase, prop);
+            var all = __clipKeySeconds(keyBase, prop, strict);
             for (var k = 0; k < all.length; k++) {
               if (all[k] >= ${args.start_seconds} - 0.0005 && all[k] <= ${args.end_seconds} + 0.0005) found.push(all[k]);
             }
@@ -545,8 +552,14 @@ export function getKeyframeTools(bridgeOptions: BridgeOptions) {
             var key = __findKeyNear(prop, __clipKeyTime(keyBase, inRange[r]));
             if (key) prop.removeKey(key);
           }
-          var left = __keysInRange();
-          var remaining = __clipKeySeconds(keyBase, prop);
+          var left = null;
+          var remaining = null;
+          try {
+            left = __keysInRange(true);
+            remaining = __clipKeySeconds(keyBase, prop, true);
+          } catch (readError) {
+            return __jsonStringify({ success: false, error: "Premiere accepted keyframe removals, but the remaining keys could not be read back: " + readError.toString(), data: { outcome: "committed_unverified", timelineChanged: null, verified: false } });
+          }
           if (left.length) {
             return __jsonStringify({ success: false, error: "Premiere accepted the removal, but keyframes still read back at [" + left.join(", ") + "]s.", data: { outcome: "committed_unverified", timelineChanged: true, remainingKeys: remaining } });
           }

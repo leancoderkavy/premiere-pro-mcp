@@ -106,7 +106,7 @@ describe("minor host contract receipts", () => {
     const component = { displayName: "Opacity", matchName: "AE.ADBE Opacity", properties: { numItems: 1, 0: property } };
     const clip = {
       nodeId: "clip-1", start: { ticks: "0" }, end: { ticks: String(3 * 254016000000) },
-      inPoint: { ticks: "0" },
+      inPoint: { ticks: "0" }, getSpeed: () => 1, isSpeedReversed: () => false,
       components: { numItems: 1, 0: component },
     };
     const app = { project: { activeSequence: {

@@ -1282,8 +1282,16 @@ function __editFail(message, data) { var failure = { ok: false, error: String(me
 function __clipKeyframeBase(clip) {
   var speed = 1;
   var reversed = false;
-  try { speed = Number(clip.getSpeed()); } catch (eSpeed) {}
-  try { reversed = clip.isSpeedReversed() == true; } catch (eReversed) {}
+  try {
+    speed = clip.getSpeed();
+    if (typeof speed !== "number" || !isFinite(speed)) throw new Error("Invalid speed state");
+    var reverseState = clip.isSpeedReversed();
+    if (reverseState !== true && reverseState !== false && reverseState !== 0 && reverseState !== 1) throw new Error("Invalid reverse state");
+    reversed = reverseState === true || reverseState === 1;
+  } catch (eSpeed) {
+    return { ok: false, error: "Premiere did not report the clip's speed or reverse state. Nothing was changed." };
+  }
+  // Older hosts report normal speed as 100 percent rather than a ratio of 1.
   if (reversed || !(Math.abs(speed - 1) < 0.0001 || Math.abs(speed - 100) < 0.0001)) {
     return { ok: false, error: "This clip has a speed change or is reversed, and keyframe times on such clips are not supported yet. Nothing was changed." };
   }
@@ -1306,23 +1314,29 @@ function __clipSecondsFromKey(base, time) {
 }
 
 // The stored key within 0.01s of a time, or null.
-function __findKeyNear(prop, time) {
+function __findKeyNear(prop, time, strict) {
   var keys = null;
-  try { keys = prop.getKeys(); } catch (eKeys) {}
+  try { keys = prop.getKeys(); } catch (eKeys) { if (strict) throw eKeys; }
+  if (strict && keys !== 0 && (!keys || typeof keys.length !== "number" || !isFinite(keys.length) || keys.length < 0 || Math.floor(keys.length) !== keys.length)) throw new Error("Invalid key-list readback");
   if (!keys) return null;
   for (var k = 0; k < keys.length; k++) {
+    if (strict && (!keys[k] || !isFinite(parseFloat(keys[k].ticks)))) throw new Error("Invalid key-time readback");
     if (Math.abs(parseFloat(keys[k].ticks) - parseFloat(time.ticks)) <= TICKS_PER_SECOND * 0.01) return keys[k];
   }
   return null;
 }
 
 // Clip-relative seconds of every stored key.
-function __clipKeySeconds(base, prop) {
+function __clipKeySeconds(base, prop, strict) {
   var keys = null;
-  try { keys = prop.getKeys(); } catch (eKeys) {}
+  try { keys = prop.getKeys(); } catch (eKeys) { if (strict) throw eKeys; }
+  if (strict && keys !== 0 && (!keys || typeof keys.length !== "number" || !isFinite(keys.length) || keys.length < 0 || Math.floor(keys.length) !== keys.length)) throw new Error("Invalid key-list readback");
   var list = [];
   if (!keys) return list;
-  for (var k = 0; k < keys.length; k++) list.push(__clipSecondsFromKey(base, keys[k]));
+  for (var k = 0; k < keys.length; k++) {
+    if (strict && (!keys[k] || !isFinite(parseFloat(keys[k].ticks)))) throw new Error("Invalid key-time readback");
+    list.push(__clipSecondsFromKey(base, keys[k]));
+  }
   return list;
 }
 
