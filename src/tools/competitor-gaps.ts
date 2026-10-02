@@ -83,7 +83,7 @@ export function getCompetitorGapTools(
 
     add_to_timeline_batch: {
       description:
-        "Insert up to 32 project items with insert-edit semantics in one validated CEP request. Later inserts can ripple or split earlier placements, including across sync-locked tracks. The tool preflights items and tracks, then verifies every placement again in the final sequence; changed placements return committed_unverified with their observed final positions.",
+        "Insert up to 32 project items with insert-edit semantics in one validated CEP request. Experimental QE sync-lock handling may ripple or split earlier placements. The tool preflights items and tracks, then verifies every placement again in the final sequence; changed placements return committed_unverified with their observed final positions.",
       parameters: {
         type: "object" as const,
         additionalProperties: false,
@@ -256,12 +256,16 @@ export function getCompetitorGapTools(
             var matched = null;
             var matchedType = null;
             var insertedComponents = [];
+            var requestedTicks = parseFloat(__secondsToTicks(placement.startSeconds).toString());
+            var matchFrameTicks = parseFloat(seq.timebase);
+            if (!matchFrameTicks || isNaN(matchFrameTicks)) matchFrameTicks = TICKS_PER_SECOND / 24;
             var addedCount = 0;
             for (c = 0; c < videoTrack.clips.numItems; c++) {
               var videoClip = videoTrack.clips[c];
               if (!beforeVideoIds[videoClip.nodeId]) {
                 addedCount++;
-                if (videoClip.projectItem && videoClip.projectItem.nodeId === placement.item.nodeId) {
+                if (videoClip.projectItem && videoClip.projectItem.nodeId === placement.item.nodeId &&
+                    Math.abs(parseFloat(videoClip.start.ticks) - requestedTicks) <= matchFrameTicks) {
                   insertedComponents.push({ nodeId: String(videoClip.nodeId), itemId: String(placement.item.nodeId), type: "video", trackIndex: placement.trackIndex, startTicks: parseFloat(videoClip.start.ticks), endTicks: parseFloat(videoClip.end.ticks) });
                   if (!matched) { matched = videoClip; matchedType = "video"; }
                 }
@@ -272,7 +276,8 @@ export function getCompetitorGapTools(
                 var audioClip = audioTrack.clips[c];
                 if (!beforeAudioIds[audioClip.nodeId]) {
                   addedCount++;
-                  if (audioClip.projectItem && audioClip.projectItem.nodeId === placement.item.nodeId) {
+                  if (audioClip.projectItem && audioClip.projectItem.nodeId === placement.item.nodeId &&
+                      Math.abs(parseFloat(audioClip.start.ticks) - requestedTicks) <= matchFrameTicks) {
                     insertedComponents.push({ nodeId: String(audioClip.nodeId), itemId: String(placement.item.nodeId), type: "audio", trackIndex: placement.audioTrackIndex, startTicks: parseFloat(audioClip.start.ticks), endTicks: parseFloat(audioClip.end.ticks) });
                     if (!matched) { matched = audioClip; matchedType = "audio"; }
                   }

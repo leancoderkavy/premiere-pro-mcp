@@ -147,6 +147,7 @@ function issue562Host(options: {
   insertThrowsAfterMutation?: boolean;
   moveEarlierAudioOnSecondInsert?: boolean;
   failSecondInsertAfterMutation?: boolean;
+  sameSourceStraddler?: boolean;
 } = {}) {
   // Premiere's getIn/OutPoint(mediaType): 1 = video, 2 = audio, 4 = any. A missing
   // stream reads back as a zero-length span.
@@ -161,13 +162,13 @@ function issue562Host(options: {
   };
   const overlay = options.overlaySeconds ?? [6, 10];
   const v1 = makeTrack(options.emptyTargets ? [] : [
-    makeClip("v1a", 0, 4, "a"), makeClip("v1b", 4, 8, "b"),
+    makeClip("v1a", 0, 4, "a"), makeClip("v1b", 4, 8, options.sameSourceStraddler ? "src" : "b"),
     makeClip("v1c", 8, 12, "c"), makeClip("v1d", 12, 18, "d"),
   ]);
   const v2 = makeTrack([makeClip("v2", overlay[0], overlay[1], "cam2")]);
   const v3 = makeTrack([makeClip("v3", 2, 36, "cam3")]);
   const a1 = makeTrack(options.emptyTargets ? [] : [
-    makeClip("a1a", 0, 4, "a"), makeClip("a1b", 4, 8, "b"),
+    makeClip("a1a", 0, 4, "a"), makeClip("a1b", 4, 8, options.sameSourceStraddler ? "src" : "b"),
     makeClip("a1c", 8, 12, "c"), makeClip("a1d", 12, 18, "d"),
   ]);
   const a2 = makeTrack([makeClip("a2", overlay[0], overlay[1], "cam2")]);
@@ -537,6 +538,17 @@ describe("issue #562 — insert_from_source honors sync lock", () => {
       driftedPlacements: [{ index: 0, finalStartSeconds: 2 }],
     } });
     expect(result.data.completedPlacements[0]).toMatchObject({ actualStartSeconds: 0, finalStartSeconds: 2, finalVerified: false });
+  });
+
+  it("matches the inserted clip rather than a same-source split tail", async () => {
+    const script = await scriptFor(getCompetitorGapTools(bridgeOptions).add_to_timeline_batch, {
+      clips: [{ item_id: "src", track_index: 0, start_seconds: 6 }],
+    });
+    const { sandbox } = issue562Host({ sameSourceStraddler: true });
+    const result = runScript(script, sandbox);
+    expect(result).toMatchObject({ success: true, data: { verified: true, placements: [
+      { actualStartSeconds: 6, finalStartSeconds: 6, finalVerified: true },
+    ] } });
   });
 
   it.each([false, true])("preserves displaced-tail evidence in an edit plan (earlier operation: %s)", async (earlierOperation) => {
