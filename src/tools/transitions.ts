@@ -151,6 +151,9 @@ export function getTransitionsTools(bridgeOptions: BridgeOptions) {
           if (domTrack.transitions.numItems <= transitionCountBefore) {
             return __jsonStringify({ success: false, error: "QE clip addTransition returned without adding a transition to the track.", data: { outcome: "not_applied", verified: false, timelineChanged: false, transitionsAdded: 0 } });
           }
+          if (domTrack.transitions.numItems !== transitionCountBefore + 1) {
+            return __transitionAttemptFailure(domTrack, transitionCountBefore, "Premiere added an unexpected transition count.");
+          }
           // Only a transition this call added counts; clips without handles can
           // push it entirely to one side of the cut, so covering is enough.
           if (!__newTransitionCovers(domTrack, transitionKeysBefore, cutTicks, frameTicks)) {
@@ -289,7 +292,7 @@ export function getTransitionsTools(bridgeOptions: BridgeOptions) {
 
           try {
           var verifiedCount = domTrack.transitions.numItems - transitionCountBefore;
-          if (verifiedCount < requestedCount) {
+          if (verifiedCount !== requestedCount) {
             if (verifiedCount > 0) return __jsonStringify({ success: false, error: "Premiere added " + verifiedCount + " of " + requestedCount + " requested transition(s). Inspect the clip or use Undo.", data: { outcome: "committed_unverified", verified: false, timelineChanged: true, transitionsAdded: verifiedCount, requestedCount: requestedCount, requestedEdges: requestedEdges } });
             return __jsonStringify({ success: false, error: "Premiere added none of the requested transitions.", data: { outcome: "not_applied", verified: false, timelineChanged: false, transitionsAdded: 0, requestedCount: requestedCount, requestedEdges: requestedEdges } });
           }

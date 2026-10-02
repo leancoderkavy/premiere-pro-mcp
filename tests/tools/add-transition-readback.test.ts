@@ -28,7 +28,7 @@ const t = (seconds: number) => ({ ticks: String(Math.round(seconds * TICKS)) });
  * transition relative to the cut, mirroring live Premiere 25.2 behavior: a
  * 1 s (25-frame) Cross Dissolve centered on the 6 s cut lands at 5.52-6.52 s.
  */
-function hostWith(place: (cutSeconds: number) => [number, number], existing: Array<[number, number]> = [], options: { ignoreAll?: boolean; ignoreAfterFirst?: boolean; onlyFirstAtWrongEdge?: boolean; throwAfterAdd?: boolean; readbackThrows?: boolean } = {}) {
+function hostWith(place: (cutSeconds: number) => [number, number], existing: Array<[number, number]> = [], options: { ignoreAll?: boolean; ignoreAfterFirst?: boolean; onlyFirstAtWrongEdge?: boolean; throwAfterAdd?: boolean; readbackThrows?: boolean; addExtra?: boolean } = {}) {
   const clips = [[0, 6], [6, 12], [12, 18]].map(([start, end], index) => ({ nodeId: `n${index + 1}`, name: `clip${index}`, start: t(start), end: t(end) }));
   const domTransitions: Array<{ start: { ticks: string }; end: { ticks: string } }> = [];
   const domTrack = {
@@ -56,6 +56,11 @@ function hostWith(place: (cutSeconds: number) => [number, number], existing: Arr
       const placed = { start: t(actual[0]), end: t(actual[1]) };
       domTrack.transitions[domTransitions.length] = placed;
       domTransitions.push(placed);
+      if (options.addExtra) {
+        const extra = { start: t(cutSeconds + 1), end: t(cutSeconds + 2) };
+        domTrack.transitions[domTransitions.length] = extra;
+        domTransitions.push(extra);
+      }
       if (options.throwAfterAdd) throw new Error("native write failed after mutation");
     },
   }));
@@ -111,6 +116,11 @@ describe("add_transition readback", () => {
       success: false,
       data: { outcome: "committed_unverified", timelineChanged: true },
     });
+  });
+
+  it("refuses to verify an unexpected extra transition", async () => {
+    hostWith((cut) => [cut - 0.5, cut + 0.5], [], { addExtra: true });
+    await expect(add(6)).resolves.toMatchObject({ success: false, data: { outcome: "committed_unverified", verified: false, transitionsAdded: 2 } });
   });
 
   it("reports an attempted mutation when transition readback becomes unreadable", async () => {
