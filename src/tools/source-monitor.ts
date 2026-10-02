@@ -198,7 +198,7 @@ export function getSourceMonitorTools(bridgeOptions: BridgeOptions) {
 
           var pos = seq.getPlayerPosition().ticks;
           var outcome = __insertClipHonoringSyncLock(seq, item, pos, ${vTrack}, ${aTrack}, "${scope}");
-          if (!outcome.ok) return __error(outcome.error, outcome.changed ? { timelineChanged: true, outcome: "committed_unverified", verified: false, displacedTails: outcome.displacedTails } : null);
+          if (!outcome.ok) return __error(outcome.error, outcome.changed ? { timelineChanged: true, outcome: "committed_unverified", verified: false, displacedTails: outcome.displacedTails, placedOn: outcome.placedOn } : null);
           return __result(outcome.data);
         `);
         return sendCommand(script, bridgeOptions);

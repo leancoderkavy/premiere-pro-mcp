@@ -376,3 +376,20 @@ describe("escapeForExtendScript and ES3 line terminators", () => {
     expect(runInNewContext(`"${escaped}"`)).toBe(value);
   });
 });
+
+describe("lone surrogates", () => {
+  it("escapes lone surrogates but keeps valid pairs, in both escapers", async () => {
+    const { escapeForAfterEffects } = await import("../../src/bridge/after-effects-script-builder.js");
+    const value = "pair 🎬 ok, lone high \uD800 end, lone low \uDC00 end, U+2028 \u2028";
+    for (const escape of [escapeForExtendScript, escapeForAfterEffects]) {
+      const escaped = escape(value);
+      expect(escaped).toContain("🎬");
+      expect(escaped).toContain("\\ud800");
+      expect(escaped).toContain("\\udc00");
+      expect(escaped).toContain("\\u2028");
+      // A UTF-8 round trip (the command file) no longer loses the lone surrogates.
+      const written = Buffer.from(`"${escaped}"`, "utf8").toString("utf8");
+      expect(runInNewContext(written)).toBe(value);
+    }
+  });
+});

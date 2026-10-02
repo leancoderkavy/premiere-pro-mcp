@@ -669,8 +669,17 @@ function __qeTransitionObject(kind, entry) {
 }
 
 // Components every clip carries (and a graphic's own layers). They are not
-// effects and are never removed.
-var __BUILT_IN_COMPONENTS = { "Opacity": true, "Motion": true, "Time Remapping": true, "Volume": true, "Channel Volume": true, "Panner": true, "Vector Motion": true, "Text": true, "Shape": true };
+// effects and are never removed. English names plus es-ES names measured live
+// on Premiere 26.5.2 (#674): video Opacidad / Movimiento / Movimiento del
+// vector / Texto, audio Volumen / Volumen del canal, and Balance / Equilibrio —
+// the touched-Balance built-in appears on a clip once Balance was applied (QE
+// or UI) with matchName "Internal Audio Balance" (seen on en-US macOS 25.2.3
+// and es-ES Windows 26.5.2); its localized display name must be classified or
+// it alone trips the localized-host refusal. The remaining es-ES entries are
+// the Spanish UI vocabulary for families not yet seen live on a component
+// (Time Remapping, Panner, Shape); adding a name to this table only ever
+// prevents a removal, so vocabulary entries are fail-safe.
+var __BUILT_IN_COMPONENTS = { "Opacity": true, "Motion": true, "Time Remapping": true, "Volume": true, "Channel Volume": true, "Panner": true, "Vector Motion": true, "Text": true, "Shape": true, "Opacidad": true, "Movimiento": true, "Movimiento del vector": true, "Volumen": true, "Volumen del canal": true, "Balance": true, "Equilibrio": true, "Tiempo de reconfiguración": true, "Paneo de balance": true, "Texto": true, "Forma": true };
 // Match names do not change with the host language. Seen live on Premiere
 // 25.2.3 (#674): video "AE.ADBE Opacity", "AE.ADBE Motion"; graphics
 // "AE.ADBE Graphic Group" (Vector Motion), "AE.ADBE Text"; audio "Internal
@@ -1264,6 +1273,58 @@ function __exportStillFrame(outputPath, ticks) {
 // for each of its linked partners.
 function __editOk(data) { return { ok: true, data: data }; }
 function __editFail(message, data) { var failure = { ok: false, error: String(message) }; if (data) failure.data = data; return failure; }
+
+// Effect-parameter key times are media time: the clip's in-point plus the
+// offset into the clip. On live 25.2.3 a clip starting at 25s with its
+// in-point at 30s rendered keys stored at 32s and 34s at timeline 27s and
+// 29s. Tools take seconds from the clip's start, so convert through the
+// in-point. A speed change or reverse remaps media time, so refuse those.
+function __clipKeyframeBase(clip) {
+  var speed = 1;
+  var reversed = false;
+  try { speed = Number(clip.getSpeed()); } catch (eSpeed) {}
+  try { reversed = clip.isSpeedReversed() == true; } catch (eReversed) {}
+  if (reversed || !(Math.abs(speed - 1) < 0.0001)) {
+    return { ok: false, error: "This clip has a speed change or is reversed, and keyframe times on such clips are not supported yet. Nothing was changed." };
+  }
+  var inTicks = parseFloat(clip.inPoint.ticks);
+  var durationSeconds = __ticksToSeconds(parseFloat(clip.end.ticks) - parseFloat(clip.start.ticks));
+  if (!isFinite(inTicks) || !isFinite(durationSeconds)) {
+    return { ok: false, error: "Premiere did not report the clip's in-point and duration. Nothing was changed." };
+  }
+  return { ok: true, inTicks: inTicks, durationSeconds: durationSeconds };
+}
+
+function __clipKeyTime(base, clipSeconds) {
+  var time = new Time();
+  time.ticks = String(base.inTicks + __secondsToTicks(clipSeconds));
+  return time;
+}
+
+function __clipSecondsFromKey(base, time) {
+  return Math.round(__ticksToSeconds(parseFloat(time.ticks) - base.inTicks) * 1000000) / 1000000;
+}
+
+// The stored key within 0.01s of a time, or null.
+function __findKeyNear(prop, time) {
+  var keys = null;
+  try { keys = prop.getKeys(); } catch (eKeys) {}
+  if (!keys) return null;
+  for (var k = 0; k < keys.length; k++) {
+    if (Math.abs(parseFloat(keys[k].ticks) - parseFloat(time.ticks)) <= TICKS_PER_SECOND * 0.01) return keys[k];
+  }
+  return null;
+}
+
+// Clip-relative seconds of every stored key.
+function __clipKeySeconds(base, prop) {
+  var keys = null;
+  try { keys = prop.getKeys(); } catch (eKeys) {}
+  var list = [];
+  if (!keys) return list;
+  for (var k = 0; k < keys.length; k++) list.push(__clipSecondsFromKey(base, keys[k]));
+  return list;
+}
 
 // Colour parameters report getValue() as a packed 64-bit integer (live 25.2:
 // 0xff0014002800a0c8 for ARGB 255,20,40,160), which a JS double cannot hold
@@ -2037,6 +2098,18 @@ function __insertClipHonoringSyncLock(seq, item, timeTicks, videoTrackIndex, aud
   var beforeVideoIds = {};
   var beforeAudioIds = {};
   var i;
+  // Every clip in the sequence, so a clip Premiere places somewhere other than
+  // the requested tracks is still found (live 25.2.3: a 5.1 clip inserted on a
+  // stereo track landed on a new track at the bottom).
+  var beforeAllIds = {};
+  var groupsBefore = [seq.videoTracks, seq.audioTracks];
+  for (var gb = 0; gb < groupsBefore.length; gb++) {
+    for (var tb = 0; tb < groupsBefore[gb].numTracks; tb++) {
+      for (var cb = 0; cb < groupsBefore[gb][tb].clips.numItems; cb++) beforeAllIds[String(groupsBefore[gb][tb].clips[cb].nodeId)] = true;
+    }
+  }
+  var audioTracksBefore = seq.audioTracks.numTracks;
+  var videoTracksBefore = seq.videoTracks.numTracks;
   var beforeVideoCount = videoTrack.clips.numItems;
   var beforeAudioCount = audioTrack.clips.numItems;
   for (i = 0; i < beforeVideoCount; i++) beforeVideoIds[String(videoTrack.clips[i].nodeId)] = true;
@@ -2070,15 +2143,60 @@ function __insertClipHonoringSyncLock(seq, item, timeTicks, videoTrackIndex, aud
   }
 
   var insertedClips = [];
+  var newOnVideo = 0;
+  var newOnAudio = 0;
+  function isRequestedInsert(clip) {
+    try {
+      return !!clip.projectItem && String(clip.projectItem.nodeId) === String(item.nodeId)
+        && Math.abs(parseFloat(clip.start.ticks) - insertTicks) <= tol;
+    } catch (eRequested) { return false; }
+  }
   for (i = 0; i < afterVideoCount; i++) {
-    if (!beforeVideoIds[String(videoTrack.clips[i].nodeId)]) insertedClips.push(videoTrack.clips[i]);
+    if (!beforeVideoIds[String(videoTrack.clips[i].nodeId)]) {
+      insertedClips.push(videoTrack.clips[i]);
+      if (isRequestedInsert(videoTrack.clips[i])) newOnVideo++;
+    }
   }
   for (i = 0; i < afterAudioCount; i++) {
-    if (!beforeAudioIds[String(audioTrack.clips[i].nodeId)]) insertedClips.push(audioTrack.clips[i]);
+    if (!beforeAudioIds[String(audioTrack.clips[i].nodeId)]) {
+      insertedClips.push(audioTrack.clips[i]);
+      if (isRequestedInsert(audioTrack.clips[i])) newOnAudio++;
+    }
   }
-  if (!insertedClips.length) {
+  // Every stream the item has must land on its requested track. Live 25.2.3:
+  // a 5.1 clip inserted on a stereo track landed on a new track at the bottom,
+  // and a video with 5.1 audio can land its picture correctly but not its sound.
+  var missingVideo = videoReceives && videoSpan !== null && newOnVideo === 0;
+  var missingAudio = audioReceives && audioSpan !== null && newOnAudio === 0;
+  if (!insertedClips.length || missingVideo || missingAudio) {
+    var elsewhere = [];
+    var groupsAfter = [["video", seq.videoTracks], ["audio", seq.audioTracks]];
+    for (var ga = 0; ga < groupsAfter.length; ga++) {
+      for (var ta = 0; ta < groupsAfter[ga][1].numTracks; ta++) {
+        var clipsAfter = groupsAfter[ga][1][ta].clips;
+        for (var ca = 0; ca < clipsAfter.numItems; ca++) {
+          var candidateClip = clipsAfter[ca];
+          if (beforeAllIds[String(candidateClip.nodeId)]) continue;
+          // Only pieces of the inserted item count; a sync-lock split elsewhere does not.
+          var fromItem = false;
+          try { fromItem = !!candidateClip.projectItem && String(candidateClip.projectItem.nodeId) === String(item.nodeId); } catch (eItem) {}
+          if (!fromItem) continue;
+          if (groupsAfter[ga][0] === "video" && ta === vTrackIndex) continue;
+          if (groupsAfter[ga][0] === "audio" && ta === aTrackIndex) continue;
+          elsewhere.push({ trackType: groupsAfter[ga][0], trackIndex: ta, nodeId: String(candidateClip.nodeId), startSeconds: __ticksToSeconds(candidateClip.start.ticks) });
+        }
+      }
+    }
+    if (elsewhere.length || insertedClips.length) {
+      var newTracks = (seq.audioTracks.numTracks - audioTracksBefore) + (seq.videoTracks.numTracks - videoTracksBefore);
+      var labels = [];
+      for (var el = 0; el < elsewhere.length; el++) labels.push(elsewhere[el].trackType + " track " + (elsewhere[el].trackIndex + 1));
+      var missing = (missingVideo ? "video" : "") + (missingVideo && missingAudio ? " and " : "") + (missingAudio ? "audio" : "");
+      return { ok: false, changed: true, placedOn: elsewhere, error: "The timeline changed: Premiere did not put the clip's " + (missing || "media") + " on the requested video track " + (vTrackIndex + 1) + " / audio track " + (aTrackIndex + 1) + (labels.length ? "; it placed it on " + labels.join(", ") : "") + (newTracks > 0 ? ", adding " + newTracks + " track(s)" : "") + " (for example, 5.1 audio does not fit a stereo track). Other tracks were not shifted to match" + afterRazorNote + ". Move or remove those pieces, or target tracks that match the clip's channel layout." };
+    }
     return { ok: false, changed: true, error: "Premiere did not add a new track item at the requested insertion point" + afterRazorNote + ". The timeline may be partially changed." };
   }
+
 
   var matched = false;
   var actualDuration = durationTicks;
@@ -2285,7 +2403,10 @@ function __result(data) {
   return __jsonStringify({ success: true, data: data });
 }
 
+// extraData (optional) is merged into the failure's data, alongside any undo
+// entries the command recorded.
 function __error(msg, extraData) {
+  var message = String(msg);
   // A failure can come after the command recorded undo entries; report them
   // so the caller knows the project may have changed.
   var data = null;
@@ -2311,10 +2432,10 @@ function __error(msg, extraData) {
       data.undoSteps = recorded;
       data.undoStackIndex = undoNow;
       data.timelineChanged = true;
-      return __jsonStringify({ success: false, error: String(msg) + " Premiere recorded " + recorded + " undo entr" + (recorded === 1 ? "y" : "ies") + " during this command, so the project may have changed.", data: data });
+      message += " Premiere recorded " + recorded + " undo entr" + (recorded === 1 ? "y" : "ies") + " during this command, so the project may have changed.";
     }
   }
-  return __jsonStringify(data ? { success: false, error: String(msg), data: data } : { success: false, error: String(msg) });
+  return data ? __jsonStringify({ success: false, error: message, data: data }) : __jsonStringify({ success: false, error: message });
 }
 
 // === End MCP Bridge Helpers ===
@@ -2376,10 +2497,19 @@ export function buildScript(code: string): string {
 /**
  * Escape a string for safe embedding in ExtendScript.
  */
-// Control characters and the U+2028/U+2029 line separators, which ES3 does not
-// allow raw inside a string literal. Built from a string so no tool parses the
-// separators inside a regex literal.
-const UNSAFE_LITERAL_CHARACTERS = new RegExp("[\\u0000-\\u0008\\u000b\\u000c\\u000e-\\u001f\\u2028\\u2029]", "g");
+// Control characters, the U+2028/U+2029 line separators (which ES3 does not
+// allow raw inside a string literal), and lone surrogates (which cannot be
+// written to the UTF-8 command file and would arrive as U+FFFD). Built from a
+// string so no tool parses the separators inside a regex literal.
+const UNSAFE_LITERAL_CHARACTERS = new RegExp(
+  "[\\u0000-\\u0008\\u000b\\u000c\\u000e-\\u001f\\u2028\\u2029]|[\\ud800-\\udbff](?![\\udc00-\\udfff])|(?<![\\ud800-\\udbff])[\\udc00-\\udfff]",
+  "g",
+);
+
+/** Write characters a string literal cannot carry safely as `\uXXXX` escapes. */
+export function escapeUnsafeLiteralCharacters(value: string): string {
+  return value.replace(UNSAFE_LITERAL_CHARACTERS, (ch) => `\\u${ch.charCodeAt(0).toString(16).padStart(4, "0")}`);
+}
 
 export function escapeForExtendScript(value: string): string {
   return value
@@ -2392,7 +2522,7 @@ export function escapeForExtendScript(value: string): string {
     // ES3 treats U+2028 and U+2029 as line terminators, so a raw one inside a
     // string literal is a syntax error and Premiere rejects the whole script
     // (live 25.2.3: a marker named "Line<U+2028>break" failed with "EvalScript
-    // error"). Other control characters are escaped too.
+    // error"). Other control characters and lone surrogates are escaped too.
     .replace(UNSAFE_LITERAL_CHARACTERS, (ch) => `\\u${ch.charCodeAt(0).toString(16).padStart(4, "0")}`);
 }
 

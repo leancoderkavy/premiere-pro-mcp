@@ -1,6 +1,59 @@
 import { buildToolScript, escapeForExtendScript } from "../bridge/script-builder.js";
 import { sendCommand, BridgeOptions } from "../bridge/file-bridge.js";
 
+const CLIP_TIME = "Seconds from the clip's start on the timeline (0 is the clip's first frame)";
+
+/** Reject times and values that would otherwise be written into the generated script unchecked. */
+function keyframeArgumentError(args: Record<string, unknown>, timeNames: string[], valueName?: string): string | null {
+  for (const name of timeNames) {
+    const value = args[name];
+    if (typeof value !== "number" || !Number.isFinite(value) || value < 0) {
+      return `${name} must be a finite, non-negative number of seconds from the clip's start.`;
+    }
+  }
+  if (valueName && (typeof args[valueName] !== "number" || !Number.isFinite(args[valueName]))) {
+    return `${valueName} must be a finite number.`;
+  }
+  return null;
+}
+
+// Find the clip, its component (display or match name) and the property.
+function propertyLookupScript(args: { node_id: string; effect_name: string; property_name: string }): string {
+  return `
+          var result = __findClip("${escapeForExtendScript(args.node_id)}");
+          if (!result) return __error("Clip not found");
+          var clip = result.clip;
+          var comp = null;
+          for (var i = 0; i < clip.components.numItems; i++) {
+            if (clip.components[i].displayName === "${escapeForExtendScript(args.effect_name)}" || clip.components[i].matchName === "${escapeForExtendScript(args.effect_name)}") {
+              comp = clip.components[i];
+              break;
+            }
+          }
+          if (!comp) return __error("Effect not found");
+          var prop = null;
+          for (var p = 0; p < comp.properties.numItems; p++) {
+            if (__propertyNameMatches(comp.properties[p].displayName, "${escapeForExtendScript(args.property_name)}", comp)) {
+              prop = comp.properties[p];
+              break;
+            }
+          }
+          if (!prop) return __error("Property not found");`;
+}
+
+// Resolve the clip's key time base and refuse a time past the clip's end.
+function keyBaseScript(times: Array<[string, number]>): string {
+  return `
+          var keyBase = __clipKeyframeBase(clip);
+          if (!keyBase.ok) return __error(keyBase.error);
+          ${times
+            .map(
+              ([name, seconds]) =>
+                `if (${seconds} > keyBase.durationSeconds + 0.0005) return __error("${name} ${seconds}s is past the clip's end at " + keyBase.durationSeconds + "s. Nothing was changed.");`,
+            )
+            .join("\n          ")}`;
+}
+
 export function getKeyframeTools(bridgeOptions: BridgeOptions) {
   return {
     get_effect_properties: {
@@ -189,7 +242,7 @@ export function getKeyframeTools(bridgeOptions: BridgeOptions) {
     },
 
     get_keyframes: {
-      description: "Get all keyframes for a specific effect property on a clip",
+      description: "Get all keyframes for a specific effect property on a clip. Each key's time is in seconds from the clip's start; mediaSeconds is Premiere's stored media time.",
       parameters: {
         type: "object" as const,
         properties: {
@@ -239,6 +292,8 @@ export function getKeyframeTools(bridgeOptions: BridgeOptions) {
             return __result({ keyframes: [], isTimeVarying: false, message: "Property has no keyframes" });
           }
           
+          // Without a usable time base (speed change, reverse) only media time is reported.
+          var keyBase = __clipKeyframeBase(clip);
           var keys = prop.getKeys();
           var keyframes = [];
           if (keys) {
@@ -247,16 +302,18 @@ export function getKeyframeTools(bridgeOptions: BridgeOptions) {
               var val = null;
               try { val = prop.getValueAtKey(time); } catch(e) {}
               keyframes.push({
-                time: __ticksToSeconds(time.ticks),
+                time: keyBase.ok ? __clipSecondsFromKey(keyBase, time) : null,
+                mediaSeconds: __ticksToSeconds(time.ticks),
                 value: val
               });
             }
           }
-          
+
           return __result({
             effect: "${escapeForExtendScript(args.effect_name)}",
             property: "${escapeForExtendScript(args.property_name)}",
             isTimeVarying: true,
+            timeBase: keyBase.ok ? "time is seconds from the clip's start; mediaSeconds is Premiere's stored key time" : keyBase.error,
             keyframes: keyframes
           });
         `);
@@ -284,7 +341,7 @@ export function getKeyframeTools(bridgeOptions: BridgeOptions) {
           },
           time_seconds: {
             type: "number",
-            description: "Time in seconds relative to clip start where to add keyframe",
+            description: `${CLIP_TIME} where to add the keyframe`,
           },
           value: {
             type: "number",
@@ -300,6 +357,8 @@ export function getKeyframeTools(bridgeOptions: BridgeOptions) {
         time_seconds: number;
         value: number;
       }) => {
+        const invalid = keyframeArgumentError(args, ["time_seconds"], "value");
+        if (invalid) return { success: false, error: invalid };
         const script = buildToolScript(`
           var result = __findClip("${escapeForExtendScript(args.node_id)}");
           if (!result) return __error("Clip not found");
@@ -331,16 +390,16 @@ export function getKeyframeTools(bridgeOptions: BridgeOptions) {
           try {
             if (!prop.areKeyframesSupported()) return __error("Property does not support keyframes");
           } catch(eSupports) {}
-          
+          ${keyBaseScript([["time_seconds", args.time_seconds]])}
+
           // Enable keyframes if not already
           try {
             if (!prop.isTimeVarying()) {
               prop.setTimeVarying(true);
             }
           } catch(e) {}
-          
-          var time = new Time();
-          time.ticks = __secondsToTicks(${args.time_seconds}).toString();
+
+          var time = __clipKeyTime(keyBase, ${args.time_seconds});
           prop.addKey(time);
           prop.setValueAtKey(time, ${args.value}, true);
           var readBack = null;
@@ -360,6 +419,7 @@ export function getKeyframeTools(bridgeOptions: BridgeOptions) {
             effect: "${escapeForExtendScript(args.effect_name)}",
             property: "${escapeForExtendScript(args.property_name)}",
             time: ${args.time_seconds},
+            mediaSeconds: __ticksToSeconds(time.ticks),
             value: ${args.value},
             readBackValue: readBack,
             keyframesOutsideVisibleRange: outsideVisibleRange === null ? null : (outsideVisibleRange ? 1 : 0),
@@ -373,7 +433,7 @@ export function getKeyframeTools(bridgeOptions: BridgeOptions) {
     },
 
     remove_keyframe: {
-      description: "Remove a keyframe at a specific time from an effect property",
+      description: "Remove the keyframe at a time from an effect property and read the remaining keys back. Refuses, changing nothing, when no key is within 0.01s of that time.",
       parameters: {
         type: "object" as const,
         properties: {
@@ -391,44 +451,36 @@ export function getKeyframeTools(bridgeOptions: BridgeOptions) {
           },
           time_seconds: {
             type: "number",
-            description: "Time in seconds of the keyframe to remove",
+            description: `${CLIP_TIME} of the keyframe to remove`,
           },
         },
         required: ["node_id", "effect_name", "property_name", "time_seconds"],
       },
       handler: async (args: { node_id: string; effect_name: string; property_name: string; time_seconds: number }) => {
+        const invalid = keyframeArgumentError(args, ["time_seconds"]);
+        if (invalid) return { success: false, error: invalid };
         const script = buildToolScript(`
-          var result = __findClip("${escapeForExtendScript(args.node_id)}");
-          if (!result) return __error("Clip not found");
-          
-          var clip = result.clip;
-          var comp = null;
-          for (var i = 0; i < clip.components.numItems; i++) {
-            if (clip.components[i].displayName === "${escapeForExtendScript(args.effect_name)}" || clip.components[i].matchName === "${escapeForExtendScript(args.effect_name)}") {
-              comp = clip.components[i];
-              break;
-            }
+          ${propertyLookupScript(args)}
+          ${keyBaseScript([["time_seconds", args.time_seconds]])}
+
+          var key = __findKeyNear(prop, __clipKeyTime(keyBase, ${args.time_seconds}));
+          if (!key) {
+            return __error("No keyframe at ${args.time_seconds}s on this property; keys are at [" + __clipKeySeconds(keyBase, prop).join(", ") + "]s from the clip's start. Nothing was changed.");
           }
-          if (!comp) return __error("Effect not found");
-          
-          var prop = null;
-          for (var p = 0; p < comp.properties.numItems; p++) {
-            if (__propertyNameMatches(comp.properties[p].displayName, "${escapeForExtendScript(args.property_name)}", comp)) {
-              prop = comp.properties[p];
-              break;
-            }
+          var removedSeconds = __clipSecondsFromKey(keyBase, key);
+          prop.removeKey(key);
+          var remaining = __clipKeySeconds(keyBase, prop);
+          if (__findKeyNear(prop, key)) {
+            return __jsonStringify({ success: false, error: "Premiere accepted the removal, but a keyframe still reads back at " + removedSeconds + "s.", data: { outcome: "committed_unverified", timelineChanged: true, remainingKeys: remaining } });
           }
-          if (!prop) return __error("Property not found");
-          
-          var time = new Time();
-          time.ticks = __secondsToTicks(${args.time_seconds}).toString();
-          prop.removeKey(time);
-          
+
           return __result({
             removed: true,
+            verified: true,
             effect: "${escapeForExtendScript(args.effect_name)}",
             property: "${escapeForExtendScript(args.property_name)}",
-            time: ${args.time_seconds}
+            time: removedSeconds,
+            remainingKeys: remaining
           });
         `);
         return sendCommand(script, bridgeOptions);
@@ -436,7 +488,7 @@ export function getKeyframeTools(bridgeOptions: BridgeOptions) {
     },
 
     remove_keyframe_range: {
-      description: "Remove all keyframes in a time range from an effect property",
+      description: "Remove every keyframe in a time range (inclusive) from an effect property and read the remaining keys back. Refuses, changing nothing, when the range holds no key.",
       parameters: {
         type: "object" as const,
         properties: {
@@ -454,11 +506,11 @@ export function getKeyframeTools(bridgeOptions: BridgeOptions) {
           },
           start_seconds: {
             type: "number",
-            description: "Start of the range in seconds",
+            description: `Start of the range: ${CLIP_TIME.toLowerCase()}`,
           },
           end_seconds: {
             type: "number",
-            description: "End of the range in seconds",
+            description: "End of the range, in seconds from the clip's start; must not be before start_seconds",
           },
         },
         required: ["node_id", "effect_name", "property_name", "start_seconds", "end_seconds"],
@@ -470,40 +522,44 @@ export function getKeyframeTools(bridgeOptions: BridgeOptions) {
         start_seconds: number;
         end_seconds: number;
       }) => {
+        const invalid = keyframeArgumentError(args, ["start_seconds", "end_seconds"]);
+        if (invalid) return { success: false, error: invalid };
+        if (args.end_seconds < args.start_seconds) return { success: false, error: "end_seconds must not be before start_seconds." };
         const script = buildToolScript(`
-          var result = __findClip("${escapeForExtendScript(args.node_id)}");
-          if (!result) return __error("Clip not found");
-          
-          var clip = result.clip;
-          var comp = null;
-          for (var i = 0; i < clip.components.numItems; i++) {
-            if (clip.components[i].displayName === "${escapeForExtendScript(args.effect_name)}" || clip.components[i].matchName === "${escapeForExtendScript(args.effect_name)}") {
-              comp = clip.components[i];
-              break;
+          ${propertyLookupScript(args)}
+          ${keyBaseScript([["start_seconds", args.start_seconds]])}
+
+          function __keysInRange() {
+            var found = [];
+            var all = __clipKeySeconds(keyBase, prop);
+            for (var k = 0; k < all.length; k++) {
+              if (all[k] >= ${args.start_seconds} - 0.0005 && all[k] <= ${args.end_seconds} + 0.0005) found.push(all[k]);
             }
+            return found;
           }
-          if (!comp) return __error("Effect not found");
-          
-          var prop = null;
-          for (var p = 0; p < comp.properties.numItems; p++) {
-            if (__propertyNameMatches(comp.properties[p].displayName, "${escapeForExtendScript(args.property_name)}", comp)) {
-              prop = comp.properties[p];
-              break;
-            }
+          var inRange = __keysInRange();
+          if (!inRange.length) {
+            return __error("No keyframes between ${args.start_seconds}s and ${args.end_seconds}s; keys are at [" + __clipKeySeconds(keyBase, prop).join(", ") + "]s from the clip's start. Nothing was changed.");
           }
-          if (!prop) return __error("Property not found");
-          
-          var startTime = new Time();
-          startTime.ticks = __secondsToTicks(${args.start_seconds}).toString();
-          var endTime = new Time();
-          endTime.ticks = __secondsToTicks(${args.end_seconds}).toString();
-          prop.removeKeyRange(startTime, endTime);
-          
+          for (var r = 0; r < inRange.length; r++) {
+            var key = __findKeyNear(prop, __clipKeyTime(keyBase, inRange[r]));
+            if (key) prop.removeKey(key);
+          }
+          var left = __keysInRange();
+          var remaining = __clipKeySeconds(keyBase, prop);
+          if (left.length) {
+            return __jsonStringify({ success: false, error: "Premiere accepted the removal, but keyframes still read back at [" + left.join(", ") + "]s.", data: { outcome: "committed_unverified", timelineChanged: true, remainingKeys: remaining } });
+          }
+
           return __result({
             removed: true,
+            verified: true,
+            removedCount: inRange.length,
+            removedKeys: inRange,
             effect: "${escapeForExtendScript(args.effect_name)}",
             property: "${escapeForExtendScript(args.property_name)}",
-            range: { start: ${args.start_seconds}, end: ${args.end_seconds} }
+            range: { start: ${args.start_seconds}, end: ${args.end_seconds} },
+            remainingKeys: remaining
           });
         `);
         return sendCommand(script, bridgeOptions);
@@ -511,7 +567,7 @@ export function getKeyframeTools(bridgeOptions: BridgeOptions) {
     },
 
     set_keyframe_interpolation: {
-      description: "Set the interpolation type of a keyframe (Linear, Hold, or Bezier)",
+      description: "Set the interpolation type of an existing keyframe (Linear, Hold, or Bezier). Premiere exposes no interpolation readback, so a write is reported as committed_unverified.",
       parameters: {
         type: "object" as const,
         properties: {
@@ -529,7 +585,7 @@ export function getKeyframeTools(bridgeOptions: BridgeOptions) {
           },
           time_seconds: {
             type: "number",
-            description: "Time in seconds of the keyframe",
+            description: `${CLIP_TIME} of the keyframe`,
           },
           interpolation: {
             type: "string",
@@ -546,40 +602,31 @@ export function getKeyframeTools(bridgeOptions: BridgeOptions) {
         time_seconds: number;
         interpolation: string;
       }) => {
+        const invalid = keyframeArgumentError(args, ["time_seconds"]);
+        if (invalid) return { success: false, error: invalid };
+        // Live 25.2.3, two keys 20 -> 80 sampled at 25/50/75%: 0 gave 35/50/65
+        // (linear) and 4 held 20; 5 matches linear until its handles are moved.
         const interpMap: Record<string, number> = { linear: 0, hold: 4, bezier: 5 };
-        const interpType = interpMap[args.interpolation] ?? 0;
+        if (!Object.prototype.hasOwnProperty.call(interpMap, args.interpolation)) return { success: false, error: "interpolation must be linear, hold or bezier." };
+        const interpType = interpMap[args.interpolation];
 
         const script = buildToolScript(`
-          var result = __findClip("${escapeForExtendScript(args.node_id)}");
-          if (!result) return __error("Clip not found");
-          
-          var clip = result.clip;
-          var comp = null;
-          for (var i = 0; i < clip.components.numItems; i++) {
-            if (clip.components[i].displayName === "${escapeForExtendScript(args.effect_name)}" || clip.components[i].matchName === "${escapeForExtendScript(args.effect_name)}") {
-              comp = clip.components[i];
-              break;
-            }
+          ${propertyLookupScript(args)}
+          ${keyBaseScript([["time_seconds", args.time_seconds]])}
+
+          var key = __findKeyNear(prop, __clipKeyTime(keyBase, ${args.time_seconds}));
+          if (!key) {
+            return __error("No keyframe at ${args.time_seconds}s on this property; keys are at [" + __clipKeySeconds(keyBase, prop).join(", ") + "]s from the clip's start. Nothing was changed.");
           }
-          if (!comp) return __error("Effect not found");
-          
-          var prop = null;
-          for (var p = 0; p < comp.properties.numItems; p++) {
-            if (__propertyNameMatches(comp.properties[p].displayName, "${escapeForExtendScript(args.property_name)}", comp)) {
-              prop = comp.properties[p];
-              break;
-            }
-          }
-          if (!prop) return __error("Property not found");
-          
-          var time = new Time();
-          time.ticks = __secondsToTicks(${args.time_seconds}).toString();
-          prop.setInterpolationTypeAtKey(time, ${interpType}, true);
-          
+          prop.setInterpolationTypeAtKey(key, ${interpType}, true);
+
           return __result({
             set: true,
+            outcome: "committed_unverified",
+            verified: false,
+            verificationScope: "Premiere has no interpolation getter; sample get_value_at_time between keys to check the curve.",
             interpolation: "${args.interpolation}",
-            time: ${args.time_seconds}
+            time: __clipSecondsFromKey(keyBase, key)
           });
         `);
         return sendCommand(script, bridgeOptions);
@@ -587,7 +634,7 @@ export function getKeyframeTools(bridgeOptions: BridgeOptions) {
     },
 
     get_value_at_time: {
-      description: "Get the interpolated value of an effect property at a specific time",
+      description: "Get the interpolated value of an effect property at a time, in seconds from the clip's start",
       parameters: {
         type: "object" as const,
         properties: {
@@ -605,44 +652,27 @@ export function getKeyframeTools(bridgeOptions: BridgeOptions) {
           },
           time_seconds: {
             type: "number",
-            description: "Time in seconds to query the value at",
+            description: `${CLIP_TIME} to read the value at`,
           },
         },
         required: ["node_id", "effect_name", "property_name", "time_seconds"],
       },
       handler: async (args: { node_id: string; effect_name: string; property_name: string; time_seconds: number }) => {
+        const invalid = keyframeArgumentError(args, ["time_seconds"]);
+        if (invalid) return { success: false, error: invalid };
         const script = buildToolScript(`
-          var result = __findClip("${escapeForExtendScript(args.node_id)}");
-          if (!result) return __error("Clip not found");
-          
-          var clip = result.clip;
-          var comp = null;
-          for (var i = 0; i < clip.components.numItems; i++) {
-            if (clip.components[i].displayName === "${escapeForExtendScript(args.effect_name)}" || clip.components[i].matchName === "${escapeForExtendScript(args.effect_name)}") {
-              comp = clip.components[i];
-              break;
-            }
-          }
-          if (!comp) return __error("Effect not found");
-          
-          var prop = null;
-          for (var p = 0; p < comp.properties.numItems; p++) {
-            if (__propertyNameMatches(comp.properties[p].displayName, "${escapeForExtendScript(args.property_name)}", comp)) {
-              prop = comp.properties[p];
-              break;
-            }
-          }
-          if (!prop) return __error("Property not found");
-          
-          var time = new Time();
-          time.ticks = __secondsToTicks(${args.time_seconds}).toString();
+          ${propertyLookupScript(args)}
+          ${keyBaseScript([["time_seconds", args.time_seconds]])}
+
+          var time = __clipKeyTime(keyBase, ${args.time_seconds});
           var readableValue = __readableParamValue(prop, prop.getValueAtTime(time));
           var value = readableValue.value;
-          
+
           return __result({
             effect: "${escapeForExtendScript(args.effect_name)}",
             property: "${escapeForExtendScript(args.property_name)}",
             time: ${args.time_seconds},
+            mediaSeconds: __ticksToSeconds(time.ticks),
             value: value,
             valueType: readableValue.valueType || null,
             note: readableValue.note || undefined

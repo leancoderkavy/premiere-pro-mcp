@@ -4,6 +4,7 @@
  * assumptions from a different host in AE's long-lived ExtendScript engine.
  */
 import { createHash } from "node:crypto";
+import { escapeUnsafeLiteralCharacters } from "./script-builder.js";
 
 const HELPERS = `
 function __aeJsonStringify(value) {
@@ -53,11 +54,16 @@ export function buildAfterEffectsScript(code: string): string {
 }
 
 export function escapeForAfterEffects(value: string): string {
-  return value
-    .replace(/\\/g, "\\\\")
-    .replace(/"/g, '\\"')
-    .replace(/'/g, "\\'")
-    .replace(/\n/g, "\\n")
-    .replace(/\r/g, "\\r")
-    .replace(/\t/g, "\\t");
+  // Same gap as escapeForExtendScript: U+2028/U+2029 end an ES3 string
+  // literal, and control characters or lone surrogates do not survive the
+  // command file, so they are written as \uXXXX escapes last.
+  return escapeUnsafeLiteralCharacters(
+    value
+      .replace(/\\/g, "\\\\")
+      .replace(/"/g, '\\"')
+      .replace(/'/g, "\\'")
+      .replace(/\n/g, "\\n")
+      .replace(/\r/g, "\\r")
+      .replace(/\t/g, "\\t"),
+  );
 }

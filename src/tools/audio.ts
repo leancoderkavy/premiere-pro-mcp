@@ -423,6 +423,7 @@ export function getAudioTools(bridgeOptions: BridgeOptions) {
           };
         }
         const normalizedLevel = dbToPremiereLevel(args.level_db);
+        if (normalizedLevel <= 0) return { success: false, error: "level_db is too small to represent as a nonzero normalized level" };
         const script = buildToolScript(`
           var result = __findClip("${escapeForExtendScript(args.node_id)}");
           if (!result) return __error("Clip not found");
@@ -438,13 +439,21 @@ export function getAudioTools(bridgeOptions: BridgeOptions) {
                   if (__pn === "Level" || __pn === "Nivel") {
                   var levelProp = comp.properties[p];
                   var requestedLevel = ${normalizedLevel};
-                  var writeResult = levelProp.setValue(requestedLevel, true);
-                  var appliedLevel = Number(levelProp.getValue());
+                  var beforeLevel;
+                  try { beforeLevel = levelProp.getValue(); } catch (e) { return __error("Cannot read audio level; nothing was changed."); }
+                  if (typeof beforeLevel !== "number" || !isFinite(beforeLevel)) return __error("Cannot read audio level; nothing was changed.");
+                  var writeResult = null;
+                  var writeError = "";
+                  try { writeResult = levelProp.setValue(requestedLevel, true); } catch (e) { writeError = String(e); }
+                  var appliedLevel = NaN;
+                  try { var observedLevel = levelProp.getValue(); if (typeof observedLevel === "number") appliedLevel = observedLevel; } catch (e) {}
+                  var data = { verified: false, outcome: "committed_unverified", requestedLevel: requestedLevel, normalizedLevel: isFinite(appliedLevel) ? appliedLevel : null };
+                  if (isFinite(appliedLevel) && appliedLevel !== beforeLevel) data.timelineChanged = true;
                   var appliedDb = appliedLevel > 0 ? (20 * (Math.log(appliedLevel) / Math.LN10) + ${PREMIERE_MAX_LEVEL_DB}) : null;
-                  if (isNaN(appliedLevel) || Math.abs(appliedLevel - requestedLevel) > 0.0001 || appliedDb === null || Math.abs(appliedDb - ${args.level_db}) > 0.01) {
-                    return __error("Premiere did not apply the requested audio level (requested ${args.level_db} dB / normalized " + requestedLevel + ", read back " + appliedLevel + " / " + appliedDb + " dB). Effect-property writes are known to no-op on some Premiere Pro 26.3 installations.");
+                  if (writeError || !isFinite(appliedLevel) || Math.abs(appliedLevel - requestedLevel) > 0.0001 || appliedDb === null || Math.abs(appliedDb - ${args.level_db}) > 0.01) {
+                    return __jsonStringify({ success: false, error: "Premiere did not apply the requested audio level or could not confirm it. Inspect Volume > Level before retrying. " + writeError, data: data });
                   }
-                  return __result({ adjusted: true, verified: true, clipName: clip.name, levelDb: ${args.level_db}, normalizedLevel: appliedLevel, writeResult: writeResult });
+                  return __result({ adjusted: true, verified: true, outcome: "verified", clipName: clip.name, levelDb: ${args.level_db}, normalizedLevel: appliedLevel, writeResult: writeResult });
                 }
               }
             }
@@ -557,6 +566,9 @@ export function getAudioTools(bridgeOptions: BridgeOptions) {
         required: ["track_index", "muted"],
       },
       handler: async (args: { track_index: number; muted: boolean }) => {
+        if (!Number.isInteger(args.track_index) || args.track_index < 0 || typeof args.muted !== "boolean") {
+          return { success: false, error: "track_index must be a non-negative integer and muted must be a boolean" };
+        }
         const script = buildToolScript(`
           var seq = app.project.activeSequence;
           if (!seq) return __error("No active sequence");
@@ -564,9 +576,25 @@ export function getAudioTools(bridgeOptions: BridgeOptions) {
           if (${args.track_index} >= seq.audioTracks.numTracks) return __error("Track index out of range");
 
           var track = seq.audioTracks[${args.track_index}];
-          track.setMute(${args.muted ? 1 : 0});
-
-          return __result({ trackIndex: ${args.track_index}, muted: ${args.muted}, trackName: track.name });
+          function readMute() {
+            var state = track.isMuted();
+            if (state !== true && state !== false && state !== 0 && state !== 1) throw new Error("Unknown mute state");
+            return state === true || state === 1;
+          }
+          var before;
+          try { before = readMute(); } catch (e) { return __error("Cannot read track mute state; nothing was changed."); }
+          var writeError = "";
+          try { track.setMute(${args.muted ? 1 : 0}); } catch (e) { writeError = String(e); }
+          var after = null;
+          try { after = readMute(); } catch (e) {}
+          var data = { trackIndex: ${args.track_index}, muted: after, trackName: track.name, verified: false, outcome: "committed_unverified" };
+          if (after !== null && after !== before) data.timelineChanged = true;
+          if (after !== ${args.muted} || writeError) {
+            return __jsonStringify({ success: false, error: "Track mute could not be verified. Inspect the track before retrying. " + writeError, data: data });
+          }
+          data.verified = true;
+          data.outcome = "verified";
+          return __result(data);
         `);
         return sendCommand(script, bridgeOptions);
       },

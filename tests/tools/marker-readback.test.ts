@@ -23,7 +23,7 @@ beforeEach(() => vi.clearAllMocks());
 type FakeMarker = { name: string; comments: string; color: number; start: { ticks: string; seconds: number }; end: { seconds: number } };
 
 /** Sequence markers; options make Premiere ignore a color or end write. */
-function host(options: { ignoreColor?: boolean; ignoreEnd?: boolean; undoIndex?: number; advanceOnCreate?: boolean } = {}) {
+function host(options: { ignoreColor?: boolean; ignoreEnd?: boolean; colorUnreadable?: boolean; undoIndex?: number; advanceOnCreate?: boolean } = {}) {
   const list: FakeMarker[] = [];
   let undoIndex = options.undoIndex;
   const make = (seconds: number): FakeMarker => {
@@ -34,7 +34,8 @@ function host(options: { ignoreColor?: boolean; ignoreEnd?: boolean; undoIndex?:
       get end() { return { seconds: end }; },
       set end(value: unknown) { if (!options.ignoreEnd) end = Number(value); },
       setColorByIndex(index: number) { if (!options.ignoreColor) marker.color = index; },
-      getColorByIndex() { return marker.color; },
+      getColorByIndex() { if (options.colorUnreadable) throw new Error("no getter"); return marker.color; },
+      guid: `guid-${seconds}`,
     };
     return marker as unknown as FakeMarker;
   };
@@ -118,5 +119,20 @@ describe("add_marker and update_marker read the marker back", () => {
   ])("rejects %j before building a script", async (args, field) => {
     await expect(tools.add_marker.handler(args as never)).resolves.toMatchObject({ success: false, error: expect.stringContaining(field) });
     expect(mockedSendCommand).not.toHaveBeenCalled();
+  });
+
+  it("returns the new marker's guid", async () => {
+    host();
+    await expect(tools.add_marker.handler({ time_seconds: 6, name: "G" })).resolves.toMatchObject({ success: true, data: { guid: "guid-6", outcome: "verified" } });
+  });
+
+  it("reports committed_unverified, not verified, when the color cannot be read back", async () => {
+    host({ colorUnreadable: true });
+    await expect(tools.add_marker.handler({ time_seconds: 6, name: "C", color: 3 }))
+      .resolves.toMatchObject({ success: true, data: { verified: false, outcome: "committed_unverified", unverifiedFields: ["color"] } });
+    host({ colorUnreadable: true });
+    await tools.add_marker.handler({ time_seconds: 6, name: "C" });
+    await expect(tools.update_marker.handler({ time_seconds: 6, color: 2 }))
+      .resolves.toMatchObject({ success: true, data: { verified: false, outcome: "committed_unverified", unverifiedFields: ["color"] } });
   });
 });

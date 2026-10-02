@@ -737,6 +737,67 @@ describe("issue #129 — effect removal uses the targeted QE component remove an
     expect(names(list)).toEqual(["Volume", "Volume des canaux", "Réduction du bruit"]);
   });
 
+  // es-ES display names measured live on Premiere 26.5.2 (#674): video
+  // Opacidad / Movimiento / Movimiento del vector; audio Volumen / Volumen del
+  // canal. The localized-host refusal must no longer fire there.
+  it("removes effects on a Spanish (es-ES) host whose built-in names are measured", async () => {
+    const spanish = { Opacidad: "AE.ADBE Opacity", Movimiento: "AE.ADBE Motion", "Desenfoque gaussiano": "AE.Impact_Blur_FX" };
+    const list = removalHost(["Opacidad", "Movimiento", "Desenfoque gaussiano"], { matchNames: spanish });
+    await expect(clipboard.remove_effect_by_name.handler({ node_id: "clip1", effect_name: "Desenfoque gaussiano" })).resolves.toMatchObject({ success: true, data: { verified: true } });
+    expect(names(list)).toEqual(["Opacidad", "Movimiento"]);
+  });
+
+  it("removes effects from a Spanish mono audio clip, keeping Volumen", async () => {
+    const spanishMono = { Volumen: "Internal Volume Mono", DeEsser: "AE.ADBE DeEsser" };
+    const list = removalHost(["Volumen", "DeEsser"], { trackType: "audio", matchNames: spanishMono });
+    await expect(advanced.remove_all_effects.handler({ node_id: "clip1" })).resolves.toMatchObject({ success: true, data: { removedEffects: ["DeEsser"] } });
+    expect(names(list)).toEqual(["Volumen"]);
+  });
+
+  it("classifies a touched Balance (Equilibrio / Internal Audio Balance) as built-in, not as a localized host (live 26.5.2 es-ES)", async () => {
+    const spanishBalance = {
+      Volumen: "Internal Volume Stereo",
+      "Volumen del canal": "Internal Channel Volume Stereo",
+      Equilibrio: "Internal Audio Balance",
+      DeEsser: "AE.ADBE DeEsser",
+    };
+    const list = removalHost(["Volumen", "Volumen del canal", "Equilibrio", "DeEsser"], { trackType: "audio", matchNames: spanishBalance });
+    await expect(advanced.remove_all_effects.handler({ node_id: "clip1" })).resolves.toMatchObject({ success: true, data: { removedEffects: ["DeEsser"] } });
+    expect(names(list)).toEqual(["Volumen", "Volumen del canal", "Equilibrio"]);
+    await expect(clipboard.remove_effect_by_name.handler({ node_id: "clip1", effect_name: "Equilibrio" })).resolves.toMatchObject({ success: false, error: expect.stringContaining("built-in") });
+  });
+
+  it("classifies an English touched Balance as built-in too (live 25.2.3 en-US macOS data)", async () => {
+    // Display names and match names reported from a Premiere 25.2.3 en-US macOS
+    // host (#674): a stereo clip with Balance applied refused removal before the
+    // English name joined the table. DeEsser's real match name on that host is a
+    // GUID, encoded here to keep the fake honest.
+    const englishBalance = {
+      Volume: "Internal Volume Stereo",
+      "Channel Volume": "Internal Channel Volume Stereo",
+      Balance: "Internal Audio Balance",
+      DeEsser: "ffbe710f-cd69-4139-ad26-65603616d9d4",
+    };
+    const list = removalHost(["Volume", "Channel Volume", "Balance", "DeEsser"], { trackType: "audio", matchNames: englishBalance });
+    await expect(advanced.remove_all_effects.handler({ node_id: "clip1" })).resolves.toMatchObject({ success: true, data: { removedEffects: ["DeEsser"] } });
+    expect(names(list)).toEqual(["Volume", "Channel Volume", "Balance"]);
+    await expect(clipboard.remove_effect_by_name.handler({ node_id: "clip1", effect_name: "Balance" })).resolves.toMatchObject({ success: false, error: expect.stringContaining("built-in") });
+  });
+
+  it("keeps a Spanish graphic's layers (Movimiento del vector, Texto) while removing effects", async () => {
+    const graphicEs = { Opacidad: "AE.ADBE Opacity", Movimiento: "AE.ADBE Motion", "Movimiento del vector": "AE.ADBE Graphic Group", Texto: "AE.ADBE Text", Tinte: "AE.ADBE Tint" };
+    const list = removalHost(["Opacidad", "Movimiento", "Movimiento del vector", "Texto", "Tinte"], { matchNames: graphicEs });
+    await expect(advanced.remove_all_effects.handler({ node_id: "clip1" })).resolves.toMatchObject({ success: true, data: { removedEffects: ["Tinte"] } });
+    expect(names(list)).toEqual(["Opacidad", "Movimiento", "Movimiento del vector", "Texto"]);
+  });
+
+  it("still refuses on locales with no measured display names (Italian)", async () => {
+    const italian = { "Opacità": "AE.ADBE Opacity", Movimento: "AE.ADBE Motion", "Colore Lumetri": "AE.ADBE Lumetri" };
+    const list = removalHost(["Opacità", "Movimento", "Colore Lumetri"], { matchNames: italian });
+    await expect(advanced.remove_all_effects.handler({ node_id: "clip1" })).resolves.toMatchObject({ success: false, error: expect.stringContaining("localized names") });
+    expect(names(list)).toEqual(["Opacità", "Movimento", "Colore Lumetri"]);
+  });
+
   it("keeps a graphic's own layers (Vector Motion, Text) by match name", async () => {
     const graphic = { "Vector Motion": "AE.ADBE Graphic Group", Text: "AE.ADBE Text", Opacity: "AE.ADBE Opacity", Motion: "AE.ADBE Motion", Tint: "AE.ADBE Tint" };
     const list = removalHost(["Opacity", "Motion", "Vector Motion", "Text", "Tint"], { matchNames: graphic });

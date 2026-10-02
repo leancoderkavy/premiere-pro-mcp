@@ -26,7 +26,12 @@ function markerWanted(args: { name?: string; comments?: string; color?: number }
 }
 
 // Read a marker's fields back and list what differs from the request.
+// __markerUnverified collects fields Premiere would not let us read back.
 const MARKER_READBACK = `
+          var __markerUnverified = [];
+          function __markerGuid(marker) {
+            try { return marker.guid ? String(marker.guid) : null; } catch (eGuid) { return null; }
+          }
           function __markerMismatches(marker, wanted) {
             var problems = [];
             if (wanted.name !== undefined && String(marker.name) !== wanted.name) problems.push("name reads back as " + marker.name);
@@ -34,7 +39,8 @@ const MARKER_READBACK = `
             if (wanted.color !== undefined) {
               var color = null;
               try { color = marker.getColorByIndex(); } catch (eColor) {}
-              if (color !== null && Number(color) !== wanted.color) problems.push("color index reads back as " + color);
+              if (color === null || color === undefined) __markerUnverified.push("color");
+              else if (Number(color) !== wanted.color) problems.push("color index reads back as " + color);
             }
             if (wanted.end !== undefined) {
               var end = parseFloat(marker.end.seconds);
@@ -141,7 +147,10 @@ export function getMarkerTools(bridgeOptions: BridgeOptions) {
           }
           return __result(__markerUndoReceipt(markerUndoBefore, {
             added: true,
-            verified: true,
+            outcome: __markerUnverified.length ? "committed_unverified" : "verified",
+            verified: __markerUnverified.length === 0,
+            unverifiedFields: __markerUnverified,
+            guid: __markerGuid(marker),
             timeSeconds: ${args.time_seconds},
             endSeconds: parseFloat(marker.end.seconds),
             name: marker.name,
@@ -256,7 +265,16 @@ export function getMarkerTools(bridgeOptions: BridgeOptions) {
           if (problems.length) {
             return __jsonStringify({ success: false, error: "The marker at ${args.time_seconds}s changed, but " + problems.join("; ") + ".", data: __markerUndoReceipt(markerUndoBefore, { timelineChanged: true }) });
           }
-          return __result(__markerUndoReceipt(markerUndoBefore, { updated: true, verified: true, timeSeconds: ${args.time_seconds}, name: marker.name, comments: marker.comments }));
+          return __result(__markerUndoReceipt(markerUndoBefore, {
+            updated: true,
+            outcome: __markerUnverified.length ? "committed_unverified" : "verified",
+            verified: __markerUnverified.length === 0,
+            unverifiedFields: __markerUnverified,
+            guid: __markerGuid(marker),
+            timeSeconds: ${args.time_seconds},
+            name: marker.name,
+            comments: marker.comments
+          }));
         `);
         return sendCommand(script, bridgeOptions);
       },

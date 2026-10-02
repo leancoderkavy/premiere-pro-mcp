@@ -1,6 +1,19 @@
 import { buildToolScript, escapeForExtendScript } from "../bridge/script-builder.js";
 import { sendCommand, BridgeOptions } from "../bridge/file-bridge.js";
 
+/**
+ * Premiere's Opacity > Blend Mode index order: the modes sorted alphabetically,
+ * then Subtract and Divide (added later). Mapped on Premiere 25.2.3 by rendering
+ * each index over a known background and matching the blend formulas; index 18
+ * is Normal. The old table (Normal = 1, Multiply = 4 ...) set the wrong mode.
+ */
+export const BLEND_MODES = [
+  "Color", "Color Burn", "Color Dodge", "Darken", "Darker Color", "Difference", "Dissolve", "Exclusion",
+  "Hard Light", "Hard Mix", "Hue", "Lighten", "Lighter Color", "Linear Burn", "Linear Dodge", "Linear Light",
+  "Luminosity", "Multiply", "Normal", "Overlay", "Pin Light", "Saturation", "Screen", "Soft Light",
+  "Vivid Light", "Subtract", "Divide",
+] as const;
+
 type PasteClipAttributesArgs = {
   source_node_id: string;
   target_node_id: string;
@@ -966,7 +979,9 @@ export function getClipboardTools(bridgeOptions: BridgeOptions) {
     },
 
     set_blend_mode: {
-      description: "Set the blend mode on a video clip. Uses the Opacity effect's Blend Mode property.",
+      description:
+        "Set a video clip's blend mode through its Opacity effect and read the stored mode back. " +
+        "Premiere stores the mode as an index into its modes in alphabetical order, with Subtract and Divide last (mapped on Premiere 25.2.3 by rendering every index over a known background).",
       parameters: {
         type: "object" as const,
         properties: {
@@ -976,54 +991,57 @@ export function getClipboardTools(bridgeOptions: BridgeOptions) {
           },
           blend_mode: {
             type: "string",
-            enum: [
-              "Normal", "Dissolve", "Darken", "Multiply", "Color Burn", "Linear Burn", "Darker Color",
-              "Lighten", "Screen", "Color Dodge", "Linear Dodge", "Lighter Color",
-              "Overlay", "Soft Light", "Hard Light", "Vivid Light", "Linear Light", "Pin Light", "Hard Mix",
-              "Difference", "Exclusion", "Subtract", "Divide",
-              "Hue", "Saturation", "Color", "Luminosity"
-            ],
+            enum: [...BLEND_MODES],
             description: "Blend mode name",
           },
         },
         required: ["node_id", "blend_mode"],
       },
       handler: async (args: { node_id: string; blend_mode: string }) => {
-        const blendModeMap: Record<string, number> = {
-          "Normal": 1, "Dissolve": 2, "Darken": 3, "Multiply": 4, "Color Burn": 5,
-          "Linear Burn": 6, "Darker Color": 7, "Lighten": 8, "Screen": 9, "Color Dodge": 10,
-          "Linear Dodge": 11, "Lighter Color": 12, "Overlay": 13, "Soft Light": 14,
-          "Hard Light": 15, "Vivid Light": 16, "Linear Light": 17, "Pin Light": 18,
-          "Hard Mix": 19, "Difference": 20, "Exclusion": 21, "Subtract": 22, "Divide": 23,
-          "Hue": 24, "Saturation": 25, "Color": 26, "Luminosity": 27
-        };
-        const modeValue = blendModeMap[args.blend_mode] ?? 1;
+        const modeValue = BLEND_MODES.findIndex((mode) => mode.toLowerCase() === String(args.blend_mode).toLowerCase());
+        if (modeValue < 0) {
+          return { success: false, error: `Unknown blend mode ${String(args.blend_mode)}. Use one of: ${BLEND_MODES.join(", ")}.` };
+        }
+        const modeName = BLEND_MODES[modeValue];
 
         const script = buildToolScript(`
           var result = __findClip("${escapeForExtendScript(args.node_id)}");
           if (!result) return __error("Clip not found");
 
           var clip = result.clip;
-          var set = false;
+          var blendProperty = null;
           for (var i = 0; i < clip.components.numItems; i++) {
             var comp = clip.components[i];
-            if (comp.displayName === "Opacity") {
+            if (comp.matchName === "AE.ADBE Opacity" || comp.displayName === "Opacity") {
               for (var p = 0; p < comp.properties.numItems; p++) {
-                if (comp.properties[p].displayName === "Blend Mode") {
-                  comp.properties[p].setValue(${modeValue}, true);
-                  set = true;
-                  break;
-                }
+                if (comp.properties[p].displayName === "Blend Mode") { blendProperty = comp.properties[p]; break; }
               }
               break;
             }
           }
+          if (!blendProperty) return __error("The clip's Opacity effect has no Blend Mode property; nothing was changed.");
 
-          if (!set) return __error("Could not find Blend Mode property on clip");
-          return __result({ blendMode: "${escapeForExtendScript(args.blend_mode)}", clip: clip.name });
+          var previous = null;
+          try { previous = Number(blendProperty.getValue()); } catch (ePrevious) {}
+          blendProperty.setValue(${modeValue}, true);
+          var stored = null;
+          var readError = null;
+          try { stored = Number(blendProperty.getValue()); } catch (eStored) { readError = eStored.toString(); }
+          if (stored !== ${modeValue}) {
+            // setValue already ran, so the clip may have changed even though the
+            // requested mode is not what Premiere stored.
+            var changed = readError !== null || stored !== previous;
+            return __jsonStringify({ success: false,
+              error: (readError !== null
+                ? "The blend mode was written, but Premiere's stored mode could not be read back (" + readError + "), so ${modeName} is not verified."
+                : "Premiere stored blend mode index " + stored + " instead of ${modeValue} (${modeName})" + (changed ? "; the clip's blend mode changed." : "; the clip is unchanged.")),
+              data: { requestedModeIndex: ${modeValue}, storedModeIndex: stored, previousModeIndex: previous, timelineChanged: changed } });
+          }
+          return __result({ blendMode: "${modeName}", modeIndex: ${modeValue}, previousModeIndex: previous, clip: clip.name, verified: true });
         `);
         return sendCommand(script, bridgeOptions);
       },
     },
+
   };
 }

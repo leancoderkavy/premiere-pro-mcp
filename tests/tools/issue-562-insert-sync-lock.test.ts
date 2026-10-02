@@ -151,6 +151,14 @@ function issue562Host(options: {
   failSecondInsertAfterMutation?: boolean;
   unreadableEarlierTrackAfterFailure?: boolean;
   sameSourceStraddler?: boolean;
+  /** Premiere puts the clip on a new audio track instead (live 25.2.3: a 5.1 clip on a stereo track). */
+  insertElsewhere?: boolean;
+  /** The picture lands on the requested video track but the audio goes to a new track. */
+  audioElsewhere?: boolean;
+  /** Another track gets an unrelated new piece during the insert (a sync-lock split). */
+  unrelatedNewClip?: boolean;
+  /** The requested audio track gets a split remainder, while source audio lands elsewhere. */
+  splitTargetAudioRemainder?: boolean;
 } = {}) {
   // Premiere's getIn/OutPoint(mediaType): 1 = video, 2 = audio, 4 = any. A missing
   // stream reads back as a zero-length span.
@@ -177,7 +185,8 @@ function issue562Host(options: {
   const a2 = makeTrack([makeClip("a2", overlay[0], overlay[1], "cam2")]);
   const a3 = makeTrack([makeClip("a3", 2, 36, "cam3")]);
   const videoTracks = { 0: v1, 1: v2, 2: v3, get numTracks() { return 3; } };
-  const audioTracks = { 0: a1, 1: a2, 2: a3, get numTracks() { return 3; } };
+  let extraAudioTracks = 0;
+  const audioTracks: Record<number, ReturnType<typeof makeTrack>> & { numTracks: number } = { 0: a1, 1: a2, 2: a3, get numTracks() { return 3 + extraAudioTracks; } };
   (options.lockedVideo ?? []).forEach((index) => {
     [v1, v2, v3][index]._locked = true;
     [a1, a2, a3][index]._locked = true;
@@ -204,6 +213,22 @@ function issue562Host(options: {
       insertionCount++;
       const targetTracks = [videoTracks[vTrack as 0 | 1 | 2], audioTracks[aTrack as 0 | 1 | 2]];
       const beforeIds = targetTracks.map((track) => new Set(track._arr.map((clip) => clip.nodeId)));
+      if (options.unrelatedNewClip) {
+        v3._arr.push(makeClip("split-piece", 30, 36, "cam3"));
+        v3._reindex();
+      }
+      if (options.insertElsewhere || options.audioElsewhere) {
+        if (options.splitTargetAudioRemainder) {
+          audioTracks[aTrack]._arr.push(makeClip("a-split-remainder", 10, 14, "c"));
+          audioTracks[aTrack]._reindex();
+        }
+        const added = makeTrack([]);
+        audioTracks[3] = added;
+        extraAudioTracks = 1;
+        insertOnTrack(added, item, time, "ins-a-new");
+        if (options.audioElsewhere) insertOnTrack(videoTracks[vTrack as 0 | 1 | 2], item, time, `ins-v-${vTrack}`);
+        return;
+      }
       // Like Premiere, only a track that receives part of the item is rippled.
       if (options.mediaKind !== "audio_only" && !options.omitVideoInsert) insertOnTrack(videoTracks[vTrack as 0 | 1 | 2], item, time, `ins-v-${vTrack}-${insertionCount}`);
       if (options.mediaKind !== "video_only" && !options.omitAudioInsert) insertOnTrack(audioTracks[aTrack as 0 | 1 | 2], item, time, `ins-a-${aTrack}-${insertionCount}`);
@@ -844,5 +869,48 @@ describe("insert of an item with only audio or only video keeps the target pair 
     const s = seq as unknown as { videoTracks: Record<number, ReturnType<typeof makeTrack>>; audioTracks: Record<number, ReturnType<typeof makeTrack>> };
     expect(rangesOf(s.videoTracks[0])).toEqual([[0, 4], [4, 8], [8, 10], [10, 14], [14, 20]]);
     expect(rangesOf(s.audioTracks[0])).toEqual([[0, 4], [4, 8], [10, 14], [14, 20]]);
+  });
+});
+
+describe("an insert Premiere places on another track", () => {
+  it("says the timeline changed and names the track, instead of 'did not add a new track item' (live 25.2.3: 5.1 clip)", () => {
+    const { sandbox, seq, source } = issue562Host({ mediaKind: "audio_only", insertElsewhere: true, unlockedVideo: [0, 1, 2] });
+    const outcome = runHelper(sandbox, seq, source, 8);
+    expect(outcome).toMatchObject({ ok: false, changed: true, placedOn: [{ trackType: "audio", trackIndex: 3, nodeId: "ins-a-new", startSeconds: 8 }] });
+    expect(outcome.error).toMatch(/^The timeline changed: .*placed it on audio track 4, adding 1 track/);
+  });
+
+  it("fails, instead of reporting verified, when the picture lands but the audio goes elsewhere", () => {
+    const { sandbox, seq, source } = issue562Host({ audioElsewhere: true, unlockedVideo: [0, 1, 2] });
+    const outcome = runHelper(sandbox, seq, source, 8);
+    expect(outcome).toMatchObject({ ok: false, changed: true, placedOn: [{ trackType: "audio", trackIndex: 3 }] });
+    expect(outcome.error).toContain("did not put the clip's audio on the requested");
+  });
+
+  it("does not mistake a target audio split remainder for the requested audio stream", () => {
+    const { sandbox, seq, source } = issue562Host({ audioElsewhere: true, splitTargetAudioRemainder: true, unlockedVideo: [0, 1, 2] });
+    const outcome = runHelper(sandbox, seq, source, 8);
+    expect(outcome).toMatchObject({ ok: false, changed: true, placedOn: [{ trackType: "audio", trackIndex: 3 }] });
+    expect(outcome.error).toContain("did not put the clip's audio on the requested");
+  });
+
+  it("does not count an unrelated new piece on another track as the clip's placement", () => {
+    const { sandbox, seq, source } = issue562Host({ mediaKind: "audio_only", insertElsewhere: true, unrelatedNewClip: true, unlockedVideo: [0, 1, 2] });
+    const outcome = runHelper(sandbox, seq, source, 8);
+    expect(outcome.placedOn).toEqual([{ trackType: "audio", trackIndex: 3, nodeId: "ins-a-new", startSeconds: 8 }]);
+  });
+});
+
+describe("__error with extra data", () => {
+  it("merges the extra fields with the undo entries the command recorded", () => {
+    const run = (code: string) => JSON.parse(String(runInNewContext(`${getHelpersSource()}\n__undoStart = 4; ${code}`, {
+      app: { enableQE: () => {} }, qe: { project: { undoStackIndex: () => 6 } },
+    })));
+    expect(run('__error("moved", { placedOn: [1] })')).toEqual({
+      success: false,
+      error: "moved Premiere recorded 2 undo entries during this command, so the project may have changed.",
+      data: { placedOn: [1], undoSteps: 2, undoStackIndex: 6, timelineChanged: true },
+    });
+    expect(JSON.parse(String(runInNewContext(`${getHelpersSource()}\n__error("plain", null)`, {})))).toEqual({ success: false, error: "plain" });
   });
 });

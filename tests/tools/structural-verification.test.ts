@@ -395,6 +395,61 @@ describe("track creation verification", () => {
   });
 });
 
+describe("track state writes verify Premiere readback", () => {
+  it("validates lock and visibility arguments before dispatch", async () => {
+    for (const result of [
+      await tracks.lock_track.handler({ track_index: -1, locked: true }),
+      await tracks.lock_track.handler({ track_index: 0.5, locked: true }),
+      await tracks.toggle_track_visibility.handler({ track_index: 0, visible: "yes" as never }),
+      await tracks.delete_track.handler({ track_type: "subtitle", track_index: 0 }),
+    ]) expect(result.success).toBe(false);
+    expect(mockedSendCommand).not.toHaveBeenCalled();
+  });
+
+  it("uses Premiere's numeric mute contract and returns readback state", async () => {
+    await tracks.toggle_track_visibility.handler({ track_index: 0, visible: true });
+    const visibilityScript = mockedSendCommand.mock.calls[0][0];
+    expect(visibilityScript).toContain("track.setMute(0)");
+    expect(visibilityScript).toContain("track.isMuted()");
+    expect(visibilityScript).toContain('outcome: "verified"');
+    expect(visibilityScript).toContain("timelineChanged: beforeMuted !== actualMuted");
+
+    vi.clearAllMocks();
+    await tracks.toggle_track_visibility.handler({ track_index: 0, visible: false });
+    expect(mockedSendCommand.mock.calls[0][0]).toContain("track.setMute(1)");
+  });
+
+  it("reports lock and visibility mismatch as not_applied or committed_unverified", async () => {
+    await tracks.lock_track.handler({ track_index: 0, locked: true });
+    const lockScript = mockedSendCommand.mock.calls[0][0];
+    expect(lockScript).toContain("track.setLocked(1)");
+    expect(lockScript).toContain("track.isLocked()");
+    expect(lockScript).toContain('outcome: beforeLocked !== actualLocked ? "committed_unverified" : "not_applied"');
+
+    vi.clearAllMocks();
+    await tracks.toggle_track_visibility.handler({ track_index: 0, visible: false });
+    const visibilityScript = mockedSendCommand.mock.calls[0][0];
+    expect(visibilityScript).toContain('outcome: beforeMuted !== actualMuted ? "committed_unverified" : "not_applied"');
+    expect(visibilityScript).toContain("actualMuted: actualMuted");
+  });
+
+  it.each([undefined, null, 0, 1, "false"])("does not verify a non-boolean post-write track state (%s)", async (postState) => {
+    mockedSendCommand.mockImplementationOnce(async (script) => {
+      let reads = 0;
+      const track = { name: "Video 1", isLocked: () => ++reads === 1 ? true : postState, setLocked: () => {} };
+      return JSON.parse(String(runInNewContext(`${getHelpersSource()}\n${script}`, { app: { project: { activeSequence: { videoTracks: { numTracks: 1, 0: track } } } } })));
+    });
+    await expect(tracks.lock_track.handler({ track_index: 0, locked: false })).resolves.toMatchObject({ success: false, data: { outcome: "committed_unverified", verified: false, actualLocked: null } });
+
+    mockedSendCommand.mockImplementationOnce(async (script) => {
+      let reads = 0;
+      const track = { name: "Video 1", isMuted: () => ++reads === 1 ? true : postState, setMute: () => {} };
+      return JSON.parse(String(runInNewContext(`${getHelpersSource()}\n${script}`, { app: { project: { activeSequence: { videoTracks: { numTracks: 1, 0: track } } } } })));
+    });
+    await expect(tracks.toggle_track_visibility.handler({ track_index: 0, visible: true })).resolves.toMatchObject({ success: false, data: { outcome: "committed_unverified", verified: false, actualMuted: null } });
+  });
+});
+
 describe("overwrite_clip verification", () => {
   it("rejects invalid indices locally before they can be interpolated into ExtendScript", async () => {
     const result = await advanced.overwrite_clip.handler({

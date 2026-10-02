@@ -90,9 +90,9 @@ describe("minor host contract receipts", () => {
     }
   });
 
-  it("warns when a stored keyframe falls beyond the clip's visible span", async () => {
+  it("warns when a stored keyframe is at the clip's first invisible frame", async () => {
     const script = await scriptFor(getKeyframeTools(bridgeOptions).add_keyframe, {
-      node_id: "clip-1", effect_name: "Opacity", property_name: "Opacity", time_seconds: 99, value: 50,
+      node_id: "clip-1", effect_name: "Opacity", property_name: "Opacity", time_seconds: 3, value: 50,
     });
     const property = {
       displayName: "Opacity",
@@ -101,10 +101,12 @@ describe("minor host contract receipts", () => {
       addKey: vi.fn(),
       setValueAtKey: vi.fn(),
       getValueAtKey: () => 50,
+      getKeys: () => [{ ticks: String(3 * 254016000000) }],
     };
     const component = { displayName: "Opacity", matchName: "AE.ADBE Opacity", properties: { numItems: 1, 0: property } };
     const clip = {
       nodeId: "clip-1", start: { ticks: "0" }, end: { ticks: String(3 * 254016000000) },
+      inPoint: { ticks: "0" },
       components: { numItems: 1, 0: component },
     };
     const app = { project: { activeSequence: {
