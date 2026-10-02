@@ -1290,7 +1290,7 @@ export function getUtilityTools(bridgeOptions: BridgeOptions) {
     },
 
     add_marker_to_project_item: {
-      description: "Add a marker to a project item (source clip marker).",
+      description: "Add a marker to a project item (source clip marker). EXPERIMENTAL QE: records an observed marker boundary for guarded Undo/Redo; crossing it is refused by default, and unreadable history records unknown protection. This boundary does not verify native marker reversal.",
       parameters: {
         type: "object" as const,
         properties: {
