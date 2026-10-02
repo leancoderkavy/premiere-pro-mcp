@@ -39,7 +39,7 @@ describe("single-use edit-plan confirmation tokens", () => {
     expect(() => firstServer.consume(fresh, digest)).not.toThrow();
   });
 
-  if (process.platform !== "win32") it("allows exactly one of two concurrent server processes to consume a token", async () => {
+  it("allows exactly one of two concurrent server processes to consume a token", async () => {
     const tempDir = mkdtempSync(join(tmpdir(), "premiere-plan-race-"));
     directories.push(tempDir);
     const digest = "e".repeat(64);
@@ -57,7 +57,9 @@ describe("single-use edit-plan confirmation tokens", () => {
       const { createEditPlanTokenStore } = await import(moduleUrl);
       writeFileSync(ready, "ready");
       while (!existsSync(go)) await new Promise((done) => setTimeout(done, 5));
-      try { createEditPlanTokenStore({ tempDir }).consume(token, digest); process.stdout.write("consumed"); }
+      // Directory ACLs are covered separately; contend on the same real files
+      // and exclusive claim primitive on every supported operating system.
+      try { createEditPlanTokenStore({ tempDir }, { ensureDirectory: () => {} }).consume(token, digest); process.stdout.write("consumed"); }
       catch { process.stdout.write("rejected"); }
     `;
     const workers = [0, 1].map((index) => {
@@ -96,13 +98,17 @@ describe("single-use edit-plan confirmation tokens", () => {
     clock.mockReturnValue(issuedAt + 31 * 60 * 1000);
     expect(() => store.consume(expired, digest)).toThrow("invalid or expired");
     expect(() => store.consume(expired, digest)).toThrow("missing or already consumed");
+    const claimPath = join(tempDir, `edit-plan-token-${expired.split(".")[1]}.claimed`);
+    expect(existsSync(claimPath)).toBe(true);
 
     clock.mockReturnValue(issuedAt);
     const unused = store.issue(digest);
     const unusedPath = join(tempDir, `edit-plan-token-${unused.split(".")[1]}.json`);
     const oldTime = new Date(issuedAt - 31 * 60 * 1000);
     utimesSync(unusedPath, oldTime, oldTime);
+    utimesSync(claimPath, oldTime, oldTime);
     store.issue(digest);
     expect(existsSync(unusedPath)).toBe(false);
+    expect(existsSync(claimPath)).toBe(false);
   });
 });
