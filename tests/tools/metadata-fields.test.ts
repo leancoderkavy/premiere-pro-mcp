@@ -61,4 +61,24 @@ describe("CEP field-level metadata inspect and update", () => {
     expect(script).toContain("field_value_readback");
     expect(script).not.toContain("item.setProjectMetadata");
   });
+
+  it("rejects an unqualified project field before sending a write", async () => {
+    const result = await metadata.set_metadata.handler({
+      item_id: "clip-1",
+      field_name: "Description",
+      value: "Updated clip",
+    });
+    expect(result).toEqual(expect.objectContaining({
+      success: false,
+      error: expect.stringContaining("Column.PropertyText.Description"),
+    }));
+    expect(mockedSendCommand).not.toHaveBeenCalled();
+
+    const script = await scriptFor(metadata.set_metadata, {
+      item_id: "clip-1",
+      field_name: "Column.PropertyText.Description",
+      value: "Updated clip",
+    });
+    expect(script).toContain("item.setProjectMetadata");
+  });
 });

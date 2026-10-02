@@ -216,7 +216,7 @@ Examples:
     },
 
     list_clip_effects: {
-      description: "List all effects/components on a clip with their properties and current values. Essential for debugging effect issues.",
+      description: "List effects/components exposed by the clip's standard DOM collection, with properties and current values. Some hosts omit QE-applied effects from this collection; absence here does not prove an effect is absent. get_effect_properties uses the same collection. Inspect Premiere's Effect Controls UI when complete QE effect presence must be confirmed.",
       parameters: {
         type: "object" as const,
         properties: {
@@ -265,6 +265,8 @@ Examples:
             trackType: result.trackType,
             trackIndex: result.trackIndex,
             componentCount: components.length,
+            enumerationScope: "standard_dom_components",
+            qeEffectsComplete: false,
             components: components
           });
         `);
