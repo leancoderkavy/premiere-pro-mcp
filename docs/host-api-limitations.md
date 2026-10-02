@@ -35,4 +35,14 @@ Known component match names and the measured English/es-ES built-in names are pr
 
 Guarded refusal, dispatch receipts and component readback do not demonstrate that the underlying Adobe behaviors are fixed.
 
-Issue #641 remains the host-observation tracker. Close a specific defect only with evidence for its actual acceptance criteria. Automated VM tests prove receipt handling and refusal behavior, not Premiere compatibility.
+## Backlog dispositions
+
+This ledger retains the original host reports when their issues are closed. Closure of an unsupported host behavior is an administrative disposition, not evidence that Adobe repaired it. Automated VM tests prove package receipt handling and refusal behavior, not Premiere compatibility.
+
+- **#641:** the capability and host-observation tracker is retained here, including unsupported operations and manual checks.
+- **#729:** default CEP relink refuses before the blocking native call, satisfying the report's fail-fast alternative. Successful relink and the affected Adobe native hang remain unverified.
+- **#674:** known English/es-ES and Shape built-ins are protected; additional locales and unmeasured component match names remain unsupported until measured safely.
+- **#687:** the contributor demonstrated the CEP AME queue/start route. Direct scripted export initialization on the reported host remains unsupported; accepted queue requests do not prove completed renders.
+- **#735:** verified rendering of the affected QE effects on the reported host remains unsupported. Component and property presence cannot establish the requested pixels.
+
+Reopen the applicable report when new affected-host evidence, a supported API, or a reproducible bridge-side repair becomes available. Preserve the original environment and render evidence when doing so.
