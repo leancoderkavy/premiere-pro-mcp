@@ -665,3 +665,37 @@ describe("adjacent edits preserve validated linked membership", () => {
     expect(calls).toBe(2);
   });
 });
+
+
+describe("trim/slip default linked coverage fails closed", () => {
+  const edit = (operation: string, includeLinked = true) => operation === "trim"
+    ? getTimelineTools(bridgeOptions).trim_clip.handler({ node_id: "v1", new_out_seconds: 29, include_linked: includeLinked })
+    : tools.slip_edit.handler({ node_id: "v1", offset_seconds: 1, include_linked: includeLinked });
+  const unreadable = [
+    { name: "throwing accessor", read: () => { throw new Error("unreadable linkage"); } },
+    { name: "null collection", read: () => null },
+    { name: "missing count", read: () => ({}) },
+    { name: "fractional count", read: () => ({ numItems: 1.5 }) },
+    { name: "missing member", read: () => ({ numItems: 1 }) },
+    { name: "missing member identity", read: () => ({ numItems: 1, 0: {} }) },
+    { name: "unlocated member", read: () => ({ numItems: 1, 0: { nodeId: "missing" } }) },
+  ];
+  for (const operation of ["trim", "slip"]) {
+    it.each(unreadable)(operation + " refuses $name with zero native writes", async ({ read }) => {
+      const { video, audio } = host();
+      const writes = [...video, ...audio].flatMap((clip) => [vi.spyOn(clip, "start", "set"), vi.spyOn(clip, "end", "set"), vi.spyOn(clip, "inPoint", "set"), vi.spyOn(clip, "outPoint", "set")]);
+      video[1].getLinkedItems = read as typeof video[1]["getLinkedItems"];
+      expect(await edit(operation)).toMatchObject({ success: false, error: expect.stringContaining("Linked membership could not be verified") });
+      for (const write of writes) expect(write).not.toHaveBeenCalled();
+    });
+    it(operation + " keeps explicit include_linked false usable despite unreadable linkage", async () => {
+      const { video, audio } = host();
+      const beforeAudio = audio[1].snapshot();
+      const read = vi.fn(() => { throw new Error("unreadable linkage"); });
+      video[1].getLinkedItems = read;
+      expect(await edit(operation, false)).toMatchObject({ success: true, data: { linkedPartnersEdited: [] } });
+      expect(read).not.toHaveBeenCalled();
+      expect(audio[1].snapshot()).toEqual(beforeAudio);
+    });
+  }
+});

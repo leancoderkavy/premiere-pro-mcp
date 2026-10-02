@@ -1674,7 +1674,27 @@ function __clipPositionKey(nodeId) {
 }
 
 function __runLinkedEdit(target, nodeId, includeLinked, edit, label, validatedPartners) {
-  var partners = includeLinked ? (validatedPartners !== undefined ? validatedPartners : __linkedPartnerClips(target)) : [];
+  var partners = [];
+  if (includeLinked) {
+    if (validatedPartners !== undefined) partners = validatedPartners;
+    else {
+      try {
+        var linked = target.clip.getLinkedItems();
+        if (!linked || typeof linked.numItems !== "number" || !isFinite(linked.numItems) || linked.numItems < 0 || Math.floor(linked.numItems) !== linked.numItems || linked.numItems > 256) throw new Error("Linked collection is unreadable");
+        var linkedSeen = {};
+        for (var li = 0; li < linked.numItems; li++) {
+          var member = linked[li];
+          if (!member || typeof member.nodeId !== "string" || !member.nodeId.length) throw new Error("Linked member identity is unreadable");
+          var linkedId = member.nodeId;
+          if (linkedId === String(target.clip.nodeId) || linkedSeen["$" + linkedId]) continue;
+          var located = __findClip(linkedId);
+          if (!located) throw new Error("Linked member could not be located");
+          linkedSeen["$" + linkedId] = true;
+          partners.push(located);
+        }
+      } catch (eLinkedRead) { return __error("Linked membership could not be verified; nothing was changed. " + String(eLinkedRead)); }
+    }
+  }
   // Each clip's position when it was checked. A partner is edited only if it is
   // still there when its turn comes: if Premiere moved it while writing the
   // main clip, applying the offset again would double it and still read back
