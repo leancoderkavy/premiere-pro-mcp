@@ -12,7 +12,8 @@ export function getMediaTools(bridgeOptions: BridgeOptions) {
         properties: {
           file_paths: {
             type: "array",
-            items: { type: "string" },
+            minItems: 1,
+            items: { type: "string", minLength: 1 },
             description: "Array of file paths to import",
           },
           target_bin: {
@@ -29,7 +30,7 @@ export function getMediaTools(bridgeOptions: BridgeOptions) {
       handler: async (args: { file_paths: string[]; target_bin?: string; suppress_ui?: boolean }) => {
         // SEC FORK (#725 FAM-5): an empty array used to fall through to a vague
         // "Import failed"; require at least one real path.
-        if (!Array.isArray(args.file_paths) || args.file_paths.length === 0 || args.file_paths.some((p) => !p || !p.trim())) {
+        if (!Array.isArray(args.file_paths) || args.file_paths.length === 0 || args.file_paths.some((p) => typeof p !== "string" || !p.trim())) {
           return { success: false as const, error: "file_paths must contain at least one non-empty path" };
         }
         // importFiles with a nonexistent path opens a blocking modal in Premiere
@@ -37,11 +38,11 @@ export function getMediaTools(bridgeOptions: BridgeOptions) {
         // hand the host native separators.
         const resolvedPaths = args.file_paths.map((p) => resolve(p));
         const missing: string[] = [];
-        const directories: string[] = [];
+        const nonFiles: string[] = [];
         for (const p of resolvedPaths) {
           try {
             if (!existsSync(p)) missing.push(p);
-            else if (statSync(p).isDirectory()) directories.push(p);
+            else if (!statSync(p).isFile()) nonFiles.push(p);
           } catch {
             return { success: false as const, error: `Could not inspect import path: ${p} — nothing was imported.` };
           }
@@ -52,10 +53,10 @@ export function getMediaTools(bridgeOptions: BridgeOptions) {
             error: `File(s) not found: ${missing.join(", ")} — nothing was imported. importFiles with a missing path opens a blocking dialog in Premiere.`,
           };
         }
+        if (nonFiles.length > 0) {
+          return { success: false as const, error: `file_paths must contain files, not directories or special paths: ${nonFiles.join(", ")}. Use import_folder for a directory; nothing was imported.` };
+        }
         const paths = resolvedPaths.map((p) => `"${escapeForExtendScript(p)}"`).join(", ");
-        const directoryNote = directories.length > 0
-          ? `, importedFolders: ${JSON.stringify(directories)}, note: "Folders import as bins; files lists only real files"`
-          : "";
         const suppress = args.suppress_ui !== false ? "true" : "false";
         const binLookup = args.target_bin
           ? `var targetBin = __findProjectItem("${escapeForExtendScript(args.target_bin)}");
@@ -67,7 +68,7 @@ export function getMediaTools(bridgeOptions: BridgeOptions) {
           var filePaths = [${paths}];
           var importSuccess = app.project.importFiles(filePaths, ${suppress}, targetBin, false);
           if (!importSuccess) return __error("Import failed");
-          return __result({ imported: filePaths.length, files: filePaths${directoryNote} });
+          return __result({ imported: filePaths.length, files: filePaths });
         `);
         return sendCommand(script, bridgeOptions);
       },
@@ -86,10 +87,17 @@ export function getMediaTools(bridgeOptions: BridgeOptions) {
         required: ["folder_path"],
       },
       handler: async (args: { folder_path: string }) => {
-        // Reject a missing folder before contacting Premiere.
+        // Reject an invalid folder before contacting Premiere.
+        if (typeof args.folder_path !== "string" || !args.folder_path.trim()) {
+          return { success: false as const, error: "folder_path must be a non-empty directory path" };
+        }
         const resolvedFolder = resolve(args.folder_path);
-        if (!existsSync(resolvedFolder)) {
-          return { success: false as const, error: `Folder not found: ${resolvedFolder} — nothing was imported.` };
+        try {
+          if (!existsSync(resolvedFolder) || !statSync(resolvedFolder).isDirectory()) {
+            return { success: false as const, error: `Folder not found or not a directory: ${resolvedFolder} — nothing was imported.` };
+          }
+        } catch {
+          return { success: false as const, error: `Could not inspect folder: ${resolvedFolder} — nothing was imported.` };
         }
         const script = buildToolScript(`
           var folder = new Folder("${escapeForExtendScript(resolvedFolder)}");

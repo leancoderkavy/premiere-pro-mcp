@@ -1050,17 +1050,25 @@ describe("issue #237 — reported mutations must be observable or fail", () => {
       success: false,
       error: expect.stringContaining("File(s) not found"),
     });
+    expect(mockedSendCommand).not.toHaveBeenCalled();
   });
 
-  it("refuses an empty path array and reports folders honestly (#725 FAM-5)", async () => {
+  it("rejects empty arrays and directories before host contact (#725 FAM-5)", async () => {
+    expect(media.import_media.parameters.properties.file_paths).toMatchObject({ minItems: 1, items: { minLength: 1 } });
     await expect(media.import_media.handler({ file_paths: [] })).resolves.toMatchObject({
       success: false,
       error: expect.stringContaining("at least one non-empty path"),
     });
     const dir = join(process.cwd());
     const dirForward = dir.split(sep).join("/");
-    const script = await scriptFor(media.import_media, { file_paths: [dirForward] });
-    expect(script).toContain("importedFolders");
+    await expect(media.import_media.handler({ file_paths: [dirForward] })).resolves.toMatchObject({
+      success: false, error: expect.stringContaining("Use import_folder"),
+    });
+    expect(mockedSendCommand).not.toHaveBeenCalled();
+    await expect(media.import_folder.handler({ folder_path: join(process.cwd(), "package.json") })).resolves.toMatchObject({
+      success: false, error: expect.stringContaining("not a directory"),
+    });
+    expect(mockedSendCommand).not.toHaveBeenCalled();
   });
 
   it("resolves forward-slash import paths to native separators before embedding them", async () => {
