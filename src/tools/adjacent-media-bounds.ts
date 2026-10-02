@@ -25,7 +25,7 @@ export async function prepareAdjacentMediaBounds(options: BridgeOptions, nodeId:
         if (!clip) return __error("Required adjacent clip is missing; nothing was changed.");
         var speed = null, reversed = null;
         try { speed = Number(clip.getSpeed()); reversed = clip.isSpeedReversed(); } catch (speedError) {}
-        if (speed !== 1 || reversed !== false) return __error("Only verified forward, normal-speed clips support this source-bound edit; nothing was changed.");
+        if ((speed !== 1 && speed !== 100) || reversed !== false) return __error("Only verified forward, normal-speed clips support this source-bound edit; nothing was changed.");
         var id = String(clip.nodeId);
         if (seen[id]) continue;
         seen[id] = true;
@@ -65,7 +65,7 @@ export async function prepareAdjacentMediaBounds(options: BridgeOptions, nodeId:
       if (currentPath !== evidence.mediaPath) return __error("Media source changed during duration inspection; nothing was changed.");
       var speed = null, reversed = null;
       try { speed = Number(inspected.clip.getSpeed()); reversed = inspected.clip.isSpeedReversed(); } catch (speedError) {}
-      if (speed !== 1 || reversed !== false) return __error("Clip speed changed or cannot be verified; nothing was changed.");
+      if ((speed !== 1 && speed !== 100) || reversed !== false) return __error("Clip speed changed or cannot be verified; nothing was changed.");
       sourceEnds[evidence.nodeId] = evidence.endTicks;
       var existingIn = parseFloat(inspected.clip.inPoint.ticks), existingOut = parseFloat(inspected.clip.outPoint.ticks);
       if (!isFinite(existingIn) || !isFinite(existingOut) || existingIn < 0 || existingOut <= existingIn || existingOut > evidence.endTicks) return __error("An existing source window is outside its physical media duration. Nothing was changed.");

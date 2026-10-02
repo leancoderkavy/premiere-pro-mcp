@@ -122,7 +122,7 @@ export function getAdvancedTools(
             if (parseFloat(expectedOut) > sourceEnds[String(result.clip.nodeId)] || parseFloat(expectedIncomingIn) < 0 || parseFloat(expectedIncomingIn) >= parseFloat(outgoing.outPoint.ticks) || parseFloat(expectedOut) <= parseFloat(result.clip.inPoint.ticks)) {
               return __editFail("The requested roll would exceed physical media duration or create an invalid source range. Nothing was changed.");
             }
-            if (checkOnly) return __editOk({ checked: true });
+            if (checkOnly) return __editOk({ checked: true, affectedNodeIds: [String(result.clip.nodeId), String(outgoing.nodeId)] });
 
             var newCut = new Time();
             newCut.ticks = String(Math.round(newCutTicks));
@@ -231,6 +231,7 @@ export function getAdvancedTools(
               return __editFail("The requested slide offset would create a zero- or negative-duration adjacent clip.");
             }
             return __editOk({ previous: previous, following: following, beforeStart: beforeStart, beforeEnd: beforeEnd, deltaTicks: deltaTicks, newStartTicks: newStartTicks, newEndTicks: newEndTicks,
+              affectedNodeIds: [String(result.clip.nodeId), String(previous.nodeId), String(following.nodeId)],
               centerIn: centerIn, centerOut: centerOut, previousIn: previousIn, followingOut: followingOut,
               previousStart: String(previous.start.ticks), followingEnd: String(following.end.ticks) });
           }

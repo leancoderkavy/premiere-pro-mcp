@@ -490,6 +490,10 @@ describe("slide failure receipts (#719)", () => {
     const result = await tools.slide_edit.handler({ node_id: "v1", offset_seconds: 0.5 }) as Result;
     expect(result).toMatchObject({ success: false, data: { verified: false, outcome: "committed_unverified", timelineChanged: true, rollbackPerformed: false, linkedPartnersEdited: [] } });
     expect(result.error).toContain("Do not retry");
+    expect(result.data?.affectedPlacements).toEqual(expect.arrayContaining([
+      expect.objectContaining({ nodeId: "v0", before: expect.any(String), after: expect.any(String) }),
+      expect.objectContaining({ nodeId: "v1" }), expect.objectContaining({ nodeId: "v2" }),
+    ]));
     expect(video[0].snapshot()[1]).toBe(10.5);
     expect(audio[0].snapshot()[1]).toBe(10);
   });
@@ -560,5 +564,13 @@ describe("exact physical source end", () => {
     const before = [...video, ...audio].map((clip) => clip.snapshot());
     await expect(tools.roll_edit.handler({ node_id: "v1", offset_seconds: 0.5 })).resolves.toMatchObject({ success: false, error: expect.stringContaining("exceed physical media duration") });
     expect([...video, ...audio].map((clip) => clip.snapshot())).toEqual(before);
+  });
+});
+
+describe("older normal-speed representation", () => {
+  it("accepts 100 percent as normal speed", async () => {
+    const { video, audio } = host();
+    for (const clip of [...video, ...audio]) clip.getSpeed = () => 100;
+    await expect(tools.slide_edit.handler({ node_id: "v1", offset_seconds: 0.5 })).resolves.toMatchObject({ success: true });
   });
 });

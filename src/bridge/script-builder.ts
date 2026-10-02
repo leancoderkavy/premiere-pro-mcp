@@ -1679,16 +1679,32 @@ function __runLinkedEdit(target, nodeId, includeLinked, edit, label) {
   // still there when its turn comes: if Premiere moved it while writing the
   // main clip, applying the offset again would double it and still read back
   // as the requested target.
-  var checkedAt = {};
+  var checkedAt = {}, affectedIds = [];
+  function rememberAffected(check, fallbackId) {
+    var ids = check && check.data && check.data.affectedNodeIds ? check.data.affectedNodeIds : [fallbackId];
+    for (var ai = 0; ai < ids.length; ai++) {
+      var affectedId = String(ids[ai]);
+      var seen = false;
+      for (var prior = 0; prior < affectedIds.length; prior++) if (affectedIds[prior] === affectedId) seen = true;
+      if (!seen) { affectedIds.push(affectedId); checkedAt[affectedId] = __clipPositionKey(affectedId); }
+    }
+  }
+  function affectedPlacements() {
+    var observed = [];
+    for (var ai = 0; ai < affectedIds.length; ai++) observed.push({ nodeId: affectedIds[ai], before: checkedAt[affectedIds[ai]], after: __clipPositionKey(affectedIds[ai]) });
+    return observed;
+  }
   checkedAt[nodeId] = __clipPositionKey(nodeId);
   var check;
   try { check = edit(target, nodeId, true); } catch (eCheck) { check = __editFail(eCheck.toString()); }
   if (!check.ok) return __error(check.error);
+  rememberAffected(check, nodeId);
   var p;
   for (p = 0; p < partners.length; p++) {
     var partnerCheck;
     try { partnerCheck = edit(partners[p], String(partners[p].clip.nodeId), true); } catch (ePartnerCheck) { partnerCheck = __editFail(ePartnerCheck.toString()); }
     checkedAt[String(partners[p].clip.nodeId)] = __clipPositionKey(String(partners[p].clip.nodeId));
+    rememberAffected(partnerCheck, String(partners[p].clip.nodeId));
     if (!partnerCheck.ok) {
       return __error("The linked " + partners[p].trackType + " clip on track " + (partners[p].trackIndex + 1) + " cannot follow the " + label + ": " + partnerCheck.error + " Nothing was changed; fix that clip or pass include_linked false (this desyncs picture and sound).");
     }
@@ -1700,7 +1716,7 @@ function __runLinkedEdit(target, nodeId, includeLinked, edit, label) {
     error: main.error + " The " + label + " mutation was attempted and may have changed the timeline. Do not retry; inspect the clip and adjacent cuts before continuing.",
     data: { verified: false, outcome: "committed_unverified", timelineChanged: true,
       beforePosition: checkedAt[nodeId], afterPosition: __clipPositionKey(nodeId),
-      linkedPartnersEdited: [], rollbackPerformed: false }
+      linkedPartnersEdited: [], affectedPlacements: affectedPlacements(), rollbackPerformed: false }
   });
   var verified = main.data.verified !== false;
   var edited = [];
@@ -1717,7 +1733,7 @@ function __runLinkedEdit(target, nodeId, includeLinked, edit, label) {
       return __jsonStringify({
         success: false,
         error: "The " + label + " was applied to the clip" + (edited.length ? " and " + edited.length + " of its linked partner(s)" : "") + " but not to its linked " + partner.trackType + " clip on track " + (partner.trackIndex + 1) + " (" + outcome.error + "). The timeline changed and was not rolled back: picture and sound are now out of sync. Inspect those clips and fix the partner by hand.",
-        data: { verified: false, outcome: "committed_unverified", timelineChanged: true, rollbackPerformed: false, clipEdited: main.data, linkedPartnersEdited: edited, failedPartner: { nodeId: String(partner.clip.nodeId), trackType: partner.trackType, trackIndex: partner.trackIndex } }
+        data: { verified: false, outcome: "committed_unverified", timelineChanged: true, rollbackPerformed: false, affectedPlacements: affectedPlacements(), clipEdited: main.data, linkedPartnersEdited: edited, failedPartner: { nodeId: String(partner.clip.nodeId), trackType: partner.trackType, trackIndex: partner.trackIndex } }
       });
     }
     var partnerVerified = !!outcome.data && outcome.data.verified !== false;
