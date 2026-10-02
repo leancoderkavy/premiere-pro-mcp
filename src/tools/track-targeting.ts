@@ -1013,8 +1013,16 @@ export function getTrackTargetingTools(bridgeOptions: BridgeOptions) {
               for (var p = 0; p < clip.components[i].properties.numItems; p++) {
                 var __pn2 = String(clip.components[i].properties[p].displayName);
                   if (__pn2 === "Level" || __pn2 === "Nivel") {
+                  // Capture the old value to distinguish silent no-ops from partial writes.
+                  var beforeLevel = null;
+                  try {
+                    var oldLevel = clip.components[i].properties[p].getValue();
+                    if (typeof oldLevel === "number" || (typeof oldLevel === "string" && oldLevel.replace(/\\s/g, "") !== "")) beforeLevel = Number(oldLevel);
+                  } catch (beforeReadError) {}
+                  if (beforeLevel === null || !isFinite(beforeLevel) || beforeLevel < 0) return __jsonStringify({ success: false, error: "Volume level could not be read before the write; nothing was changed.", data: { outcome: "not_applied", verified: false, timelineChanged: false } });
                   // normalised 0..1, NOT dB - see dbToPremiereLevel()
-                  clip.components[i].properties[p].setValue(${level}, true);
+                  var writeError = null;
+                  try { clip.components[i].properties[p].setValue(${level}, true); } catch (volumeWriteError) { writeError = volumeWriteError.toString(); }
                   try {
                     var storedLevel = clip.components[i].properties[p].getValue();
                     if (typeof storedLevel === "number" || (typeof storedLevel === "string" && storedLevel.replace(/\\s/g, "") !== "")) appliedLevel = Number(storedLevel);
@@ -1027,10 +1035,17 @@ export function getTrackTargetingTools(bridgeOptions: BridgeOptions) {
             }
           }
           if (!set) return __error("Could not set volume - is this an audio clip?");
+          if (writeError) {
+            return __jsonStringify({ success: false, error: "Volume write threw and may have changed the clip: " + writeError + ". Inspect before retrying.", data: { outcome: "committed_unverified", verified: false, timelineChanged: appliedLevel !== null && isFinite(appliedLevel) && appliedLevel !== beforeLevel ? true : null, requestedVolumeDb: ${args.volume_db}, level: appliedLevel } });
+          }
           if (appliedLevel === null || !isFinite(appliedLevel) || appliedLevel < 0) {
             return __result({ outcome: "committed_unverified", verified: false, requestedVolumeDb: ${args.volume_db}, volumeDb: null, level: null, clip: clip.name, warning: "Premiere accepted the volume write but its stored level could not be read; inspect the clip before retrying." });
           }
           var appliedDb = appliedLevel > 0 ? (20 * (Math.log(appliedLevel) / Math.LN10) + ${PREMIERE_MAX_LEVEL_DB}) : null;
+          if (Math.abs(appliedLevel - ${level}) > Math.max(1e-12, Math.abs(${level}) * 1e-6)) {
+            var unchanged = Math.abs(appliedLevel - beforeLevel) <= Math.max(1e-12, Math.abs(beforeLevel) * 1e-6);
+            return __jsonStringify({ success: false, error: unchanged ? "Premiere did not apply the requested volume level; the stored level is unchanged." : "Premiere stored a different volume level; inspect the clip before retrying.", data: { outcome: unchanged ? "not_applied" : "committed_unverified", verified: false, timelineChanged: !unchanged, requestedVolumeDb: ${args.volume_db}, volumeDb: appliedDb, level: appliedLevel } });
+          }
           return __result({ outcome: "verified", verified: true, requestedVolumeDb: ${args.volume_db}, volumeDb: appliedDb, level: appliedLevel, clamped: appliedDb === null || Math.abs(appliedDb - ${args.volume_db}) > 0.001, clip: clip.name });
         `);
         return sendCommand(script, bridgeOptions);

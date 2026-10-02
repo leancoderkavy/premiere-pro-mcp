@@ -958,15 +958,27 @@ describe("issue #235 — CEP tool calls use the host's documented argument types
     await expect(competitor.setup_ducking.handler({ node_id: "audio-1", ducking_windows: [] })).resolves.toMatchObject({
       success: true, data: { updated: true, verified: true },
     });
-    Object.assign(property, { getValue: () => true });
+    const originalSetter = property.setValue;
+    Object.assign(property, { setValue: () => {} });
+    await expect(tracks.set_clip_volume.handler({ node_id: "audio-1", volume_db: -20 })).resolves.toMatchObject({
+      success: false, data: { outcome: "not_applied", verified: false, timelineChanged: false },
+    });
+    property.setValue = originalSetter;
+    let invalidReads = 0;
+    Object.assign(property, { getValue: () => ++invalidReads === 1 ? level : true });
     await expect(tracks.set_clip_volume.handler({ node_id: "audio-1", volume_db: 15 })).resolves.toMatchObject({
       success: true, data: { outcome: "committed_unverified", verified: false, level: null },
     });
-    property.getValue = () => { throw new Error("readback unavailable"); };
+    let throwingReads = 0;
+    property.getValue = () => { if (++throwingReads > 1) throw new Error("readback unavailable"); return level; };
     const unreadable = await tracks.set_clip_volume.handler({ node_id: "audio-1", volume_db: -3 });
     expect(unreadable).toMatchObject({
       success: true,
       data: { outcome: "committed_unverified", requestedVolumeDb: -3, volumeDb: null },
+    });
+    Object.assign(property, { getValue: () => level, setValue: (value: number) => { level = value; throw new Error("setter failed after write"); } });
+    await expect(tracks.set_clip_volume.handler({ node_id: "audio-1", volume_db: -8 })).resolves.toMatchObject({
+      success: false, data: { outcome: "committed_unverified", verified: false, timelineChanged: true },
     });
   });
 

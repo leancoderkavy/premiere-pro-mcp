@@ -612,3 +612,10 @@ describe("isToolPermitted", () => {
     expect(isToolPermitted("trim_clip", config)).toBe(true);
   });
 });
+
+ it("reports edit-plan previews as requiring CEP host inspection", () => {
+  expect(deriveToolOperationalCapability("preview_edit_plan", { description: "Inspect edit targets" }, resolveCapabilities("inspect"))).toMatchObject({
+    backend: "CEP/ExtendScript", backends: ["cep", "extendscript"], verificationBoundary: "host_response", hostVerificationRequired: true,
+    authority: { required: "inspect", enabled: true },
+  });
+});
