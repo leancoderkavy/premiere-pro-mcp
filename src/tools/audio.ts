@@ -18,6 +18,33 @@ export function dbToPremiereLevel(db: number): number {
   return Math.pow(10, (db - PREMIERE_MAX_LEVEL_DB) / 20);
 }
 
+/** ES3 key storage readback shared by audio automation tools. */
+export const AUDIO_KEYFRAME_READBACK = `
+  function audioTick(value) {
+    if (typeof value !== "number" && (typeof value !== "string" || !/^[0-9]+$/.test(value))) throw new Error("Unreadable key clock");
+    var tick = Number(value);
+    if (!isFinite(tick) || tick < 0 || tick > 9007199254740991 || Math.floor(tick) !== tick) throw new Error("Unsafe key clock");
+    return tick;
+  }
+  function audioKeys(prop) {
+    var keys = prop.getKeys();
+    if (keys === 0) return [];
+    if (!keys || typeof keys.length !== "number" || !isFinite(keys.length) || keys.length < 0 || Math.floor(keys.length) !== keys.length) throw new Error("Unreadable key storage");
+    var ticks = [];
+    for (var k = 0; k < keys.length; k++) ticks.push(audioTick(keys[k].ticks));
+    return ticks;
+  }
+  function audioVerify(prop, time, expected) {
+    var ticks = audioKeys(prop);
+    var target = audioTick(time.ticks);
+    var found = false;
+    for (var k = 0; k < ticks.length; k++) if (ticks[k] === target) found = true;
+    var actual = prop.getValueAtTime(time);
+    if (!found || typeof actual !== "number" || !isFinite(actual) || Math.abs(actual - expected) > expected * 0.000001) throw new Error("Stored audio key or Level differed");
+    return actual;
+  }
+`;
+
 export interface SilenceInterval {
   start: number;
   end: number;
@@ -476,11 +503,12 @@ export function getAudioTools(bridgeOptions: BridgeOptions) {
           },
           keyframes: {
             type: "array",
+            minItems: 1,
             items: {
               type: "object",
               properties: {
-                time_seconds: { type: "number", description: "Time in seconds relative to clip start" },
-                level_db: { type: "number", description: "Audio level in dB (maximum +15 dB)" },
+                time_seconds: { type: "number", minimum: 0, description: "Time in seconds relative to clip start" },
+                level_db: { type: "number", maximum: 15, description: "Audio level in dB (maximum +15 dB)" },
               },
               required: ["time_seconds", "level_db"],
             },
@@ -491,38 +519,12 @@ export function getAudioTools(bridgeOptions: BridgeOptions) {
       },
       handler: async (args: { node_id: string; keyframes: Array<{ time_seconds: number; level_db: number }> }) => {
         if (!Array.isArray(args.keyframes) || args.keyframes.length === 0 || args.keyframes.some((kf) =>
-          !kf || !Number.isFinite(kf.time_seconds) || kf.time_seconds < 0 || !Number.isFinite(kf.level_db) || kf.level_db > PREMIERE_MAX_LEVEL_DB || !Number.isFinite(dbToPremiereLevel(kf.level_db)))) {
+          !kf || !Number.isFinite(kf.time_seconds) || kf.time_seconds < 0 || !Number.isFinite(kf.level_db) || kf.level_db > PREMIERE_MAX_LEVEL_DB || !Number.isFinite(dbToPremiereLevel(kf.level_db)) || dbToPremiereLevel(kf.level_db) <= 0 || !Number.isSafeInteger(Math.round(kf.time_seconds * 254016000000)))) {
           return { success: false, error: "keyframes must contain finite non-negative times and level_db must be at most +15 dB (Premiere's maximum clip level)" };
         }
-        // Premiere stores audio Level as amplitude ratio (0-1+), not dB.
-        // Convert: amp = 10^(dB/20). Clamp very low values to a small epsilon
-        // so AddKey accepts them (a true 0 sometimes silently fails).
-        const keyframeCode = args.keyframes
-          .map((kf) => {
-            const amp = Math.max(dbToPremiereLevel(kf.level_db), 0.0000001);
-            return `
-            (function() {
-              var t = __clipKeyTime(base, ${kf.time_seconds});
-              var wrote = false;
-              try { levelProp.addKey(t); } catch(e1) {}
-              try { levelProp.setValueAtKey(t, ${amp}, 1); wrote = true; }
-              catch(e2) { try { levelProp.setValueAtTime(t, ${amp}, 1); wrote = true; } catch(e3) {} }
-              var readBack = NaN;
-              try { readBack = Number(levelProp.getValueAtTime(t)); } catch(e4) {}
-              var hasKey = false;
-              try {
-                var stored = levelProp.getKeys();
-                for (var k = 0; stored && k < stored.length; k++) {
-                  if (Math.abs(Number(stored[k].ticks) - Number(t.ticks)) < 1) hasKey = true;
-                }
-              } catch (keysError) {}
-              if (hasKey) timelineChanged = true;
-              if (!wrote || !hasKey || !isFinite(readBack) || Math.abs(readBack - ${amp}) > 0.0001) {
-                verificationErrors.push("${kf.time_seconds}s requested ${amp}, read back " + readBack);
-              }
-            })();`;
-          })
-          .join("\n");
+        const offsets = args.keyframes.map((kf) => Math.round(kf.time_seconds * 254016000000));
+        if (new Set(offsets).size !== offsets.length) return { success: false, error: "keyframe times must be distinct in Premiere ticks" };
+        const plannedKeys = args.keyframes.map((kf, index) => `{ offset: ${offsets[index]}, amplitude: ${dbToPremiereLevel(kf.level_db)} }`).join(",");
 
         const script = buildToolScript(`
           var result = __findClip("${escapeForExtendScript(args.node_id)}");
@@ -550,15 +552,31 @@ export function getAudioTools(bridgeOptions: BridgeOptions) {
           if (!base.ok) return __error(base.error);
           if (${Math.max(...args.keyframes.map((kf) => kf.time_seconds))} > base.durationSeconds) return __error("Keyframe time exceeds clip duration; nothing was changed.");
 
-          var verificationErrors = [];
-          var timelineChanged = false;
-          try { levelProp.setTimeVarying(true); } catch(e) { return __jsonStringify({ success: false, error: "Could not enable keyframes; inspect the clip before retrying.", data: { outcome: "committed_unverified", verified: false } }); }
-          ${keyframeCode}
-
-          if (verificationErrors.length) {
-            return __jsonStringify({ success: false, error: "Premiere did not apply one or more audio keyframes: " + verificationErrors.join("; ") + ". Inspect the clip before retrying.", data: { outcome: "committed_unverified", verified: false, timelineChanged: timelineChanged } });
+          ${AUDIO_KEYFRAME_READBACK}
+          var keys = [${plannedKeys}];
+          try {
+            audioKeys(levelProp);
+            var inTicks = audioTick(base.inTicks);
+            var durationTicks = audioTick(clip.end.ticks) - audioTick(clip.start.ticks);
+            for (var k = 0; k < keys.length; k++) {
+              if (keys[k].offset > durationTicks) throw new Error("Key exceeds clip duration");
+              keys[k].time = new Time();
+              keys[k].time.ticks = String(audioTick(inTicks + keys[k].offset));
+            }
+          } catch (preflightError) { return __error("Audio keyframe storage or clock could not be read; nothing was changed. " + String(preflightError)); }
+          try {
+            levelProp.setTimeVarying(true);
+            for (var k = 0; k < keys.length; k++) {
+              var key = keys[k];
+              try { levelProp.addKey(key.time); } catch (addError) {}
+              try { levelProp.setValueAtKey(key.time, key.amplitude, 1); }
+              catch (writeError) { levelProp.setValueAtTime(key.time, key.amplitude, 1); }
+            }
+            for (var k = 0; k < keys.length; k++) audioVerify(levelProp, keys[k].time, keys[k].amplitude);
+          } catch (verificationError) {
+            return __jsonStringify({ success: false, error: "Audio keyframes could not be verified; inspect the clip before retrying. " + String(verificationError), data: { outcome: "committed_unverified", verified: false, mutationAttempted: true, timelineChanged: null } });
           }
-          return __result({ keyframesAdded: ${args.keyframes.length}, verified: true, outcome: "verified", clipName: clip.name });
+          return __result({ keyframesAdded: ${args.keyframes.length}, verified: true, renderVerified: false, outcome: "verified", clipName: clip.name });
         `);
         return sendCommand(script, bridgeOptions);
       },

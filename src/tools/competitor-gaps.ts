@@ -1,6 +1,6 @@
 import { buildToolScript, escapeForExtendScript } from "../bridge/script-builder.js";
 import { sendCommand, BridgeOptions } from "../bridge/file-bridge.js";
-import { dbToPremiereLevel, PREMIERE_MAX_LEVEL_DB } from "./audio.js";
+import { AUDIO_KEYFRAME_READBACK, dbToPremiereLevel, PREMIERE_MAX_LEVEL_DB } from "./audio.js";
 import type { UxpWebSocketBridge } from "../bridge/uxp-websocket-bridge.js";
 
 type BatchTimelineClip = {
@@ -516,13 +516,13 @@ export function getCompetitorGapTools(
       handler: async (args: { node_id: string; base_db?: number; ducking_windows: DuckingWindow[]; fade_seconds?: number }) => {
         const baseDb = args.base_db ?? 0;
         const fadeSeconds = args.fade_seconds ?? 0.2;
-        if (!args.node_id || !finiteNumber(baseDb) || baseDb > PREMIERE_MAX_LEVEL_DB || !Number.isFinite(dbToPremiereLevel(baseDb)) || !finiteNumber(fadeSeconds) || fadeSeconds <= 0 || !Array.isArray(args.ducking_windows) || args.ducking_windows.length > 32) {
+        if (!args.node_id || !finiteNumber(baseDb) || baseDb > PREMIERE_MAX_LEVEL_DB || (!Number.isFinite(dbToPremiereLevel(baseDb)) || dbToPremiereLevel(baseDb) <= 0) || !finiteNumber(fadeSeconds) || fadeSeconds <= 0 || !Array.isArray(args.ducking_windows) || args.ducking_windows.length > 32) {
           return { success: false, error: "node_id, base_db at most +15 dB (Premiere's maximum clip level), 0–32 ducking windows, and a finite positive fade_seconds are required." };
         }
         const windows = args.ducking_windows.map((window, index) => ({ ...window, index })).sort((left, right) => left.start_seconds - right.start_seconds);
         for (let index = 0; index < windows.length; index++) {
           const window = windows[index];
-          if (!finiteNonNegativeNumber(window.start_seconds) || !finiteNonNegativeNumber(window.end_seconds) || !finiteNumber(window.ducked_db) || window.ducked_db > PREMIERE_MAX_LEVEL_DB || !Number.isFinite(dbToPremiereLevel(window.ducked_db)) || window.end_seconds <= window.start_seconds) {
+          if (!finiteNonNegativeNumber(window.start_seconds) || !finiteNonNegativeNumber(window.end_seconds) || !finiteNumber(window.ducked_db) || window.ducked_db > PREMIERE_MAX_LEVEL_DB || (!Number.isFinite(dbToPremiereLevel(window.ducked_db)) || dbToPremiereLevel(window.ducked_db) <= 0) || window.end_seconds <= window.start_seconds) {
             return { success: false, error: `ducking_windows[${window.index}] needs finite non-negative bounds with end_seconds greater than start_seconds and ducked_db at most +15 dB (Premiere's maximum clip level).` };
           }
           if (index > 0 && window.start_seconds < windows[index - 1].end_seconds) {
@@ -531,7 +531,7 @@ export function getCompetitorGapTools(
         }
         const emittedWindows = windows.map((window) => `{ startSeconds: ${window.start_seconds}, endSeconds: ${window.end_seconds}, duckedDb: ${window.ducked_db} }`).join(", ");
         const emittedLevelAmplitudes = Array.from(new Set([baseDb, ...windows.map((window) => window.ducked_db)]))
-          .map((db) => `${JSON.stringify(String(db))}: ${Math.max(dbToPremiereLevel(db), 0.0000001)}`)
+          .map((db) => `${JSON.stringify(String(db))}: ${dbToPremiereLevel(db)}`)
           .join(", ");
 
         const script = buildToolScript(`
@@ -546,7 +546,7 @@ export function getCompetitorGapTools(
           var windows = [${emittedWindows}];
           var i;
           for (i = 0; i < windows.length; i++) {
-            if (windows[i].endSeconds > duration + 0.0001) {
+            if (windows[i].endSeconds > duration) {
               return __error("Ducking window " + i + " ends at " + windows[i].endSeconds + "s but the clip duration is " + duration + "s. No automation was written.");
             }
           }
@@ -564,11 +564,17 @@ export function getCompetitorGapTools(
           }
           if (!level) return __error("Could not find the audio Volume > Level property. No automation was written.");
 
+          ${AUDIO_KEYFRAME_READBACK}
+          var durationTicks;
+          var inTicks;
+          try { audioKeys(level); inTicks = audioTick(base.inTicks); durationTicks = audioTick(clip.end.ticks) - audioTick(clip.start.ticks); audioTick(inTicks + durationTicks); }
+          catch (preflightError) { return __error("Audio key storage or clock could not be read; no automation was written."); }
           var keyMap = {};
           function putKey(seconds, db) {
             var bounded = Math.max(0, Math.min(duration, seconds));
-            var key = String(Math.round(bounded * 1000) / 1000);
-            keyMap[key] = { seconds: Number(key), db: db };
+            var offset = Math.min(durationTicks, Math.round(bounded * 254016000000));
+            var key = String(offset);
+            keyMap[key] = { seconds: offset / 254016000000, offset: offset, db: db };
           }
           putKey(0, ${baseDb});
           for (i = 0; i < windows.length; i++) {
@@ -583,34 +589,24 @@ export function getCompetitorGapTools(
           var keys = [];
           for (var rawKey in keyMap) if (keyMap.hasOwnProperty(rawKey)) keys.push(keyMap[rawKey]);
           keys.sort(function(left, right) { return left.seconds - right.seconds; });
-          try { level.setTimeVarying(true); } catch (varyingError) {
-            return __error("Premiere could not enable Level keyframes: " + varyingError.toString());
-          }
           var verified = [];
-          var timelineChanged = false;
-          for (i = 0; i < keys.length; i++) {
-            var key = keys[i];
-            var time = __clipKeyTime(base, key.seconds);
-            var amplitude = levelAmplitudes[String(key.db)];
-            try { level.addKey(time); } catch (addKeyError) {}
-            var wrote = false;
-            try { level.setValueAtKey(time, amplitude, 1); wrote = true; } catch (atKeyError) {
-              try { level.setValueAtTime(time, amplitude, 1); wrote = true; } catch (atTimeError) {}
+          try {
+            level.setTimeVarying(true);
+            for (i = 0; i < keys.length; i++) {
+              var key = keys[i];
+              key.time = new Time(); key.time.ticks = String(inTicks + key.offset);
+              var amplitude = levelAmplitudes[String(key.db)];
+              try { level.addKey(key.time); } catch (addKeyError) {}
+              try { level.setValueAtKey(key.time, amplitude, 1); }
+              catch (atKeyError) { level.setValueAtTime(key.time, amplitude, 1); }
             }
-            var actual = NaN;
-            try { actual = Number(level.getValueAtTime(time)); } catch (readError) {}
-            var hasKey = false;
-            try {
-              var stored = level.getKeys();
-              for (var k = 0; stored && k < stored.length; k++) {
-                if (Math.abs(Number(stored[k].ticks) - Number(time.ticks)) < 1) hasKey = true;
-              }
-            } catch (keysError) {}
-            if (hasKey) timelineChanged = true;
-            if (!wrote || !hasKey || !isFinite(actual) || Math.abs(actual - amplitude) > 0.0001) {
-              return __jsonStringify({ success: false, error: "Premiere did not verify audio keyframe " + i + " at " + key.seconds + "s. Earlier keyframes may exist; inspect Volume > Level before retrying.", data: { outcome: "committed_unverified", verified: false, timelineChanged: timelineChanged || verified.length > 0 } });
+            for (i = 0; i < keys.length; i++) {
+              var key = keys[i];
+              var actual = audioVerify(level, key.time, levelAmplitudes[String(key.db)]);
+              verified.push({ timeSeconds: key.seconds, levelDb: key.db, amplitude: actual });
             }
-            verified.push({ timeSeconds: key.seconds, levelDb: key.db, amplitude: actual });
+          } catch (verificationError) {
+            return __jsonStringify({ success: false, error: "Audio keyframes could not be verified; inspect Volume > Level before retrying. " + String(verificationError), data: { outcome: "committed_unverified", verified: false, mutationAttempted: true, timelineChanged: null } });
           }
           return __result({
             updated: true,

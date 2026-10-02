@@ -134,3 +134,64 @@ it("reports setup_ducking readback mismatches", async () => {
   const result = await gapTools.setup_ducking.handler({ node_id: h.clip.nodeId, ducking_windows: [{ start_seconds: 2, end_seconds: 4, ducked_db: -20 }] });
   expect(result).toMatchObject({ success: false, data: { outcome: "committed_unverified", verified: false } });
 });
+
+
+it.each([null, false, "", "0", NaN, 0])("does not verify quiet audio from a nonmatching Level readback %s", async (value) => {
+  const h = host();
+  h.prop.getValueAtTime = () => value as number;
+  const result = await audioTools.add_audio_keyframes.handler({ node_id: h.clip.nodeId, keyframes: [{ time_seconds: 2, level_db: -140 }] });
+  expect(result.success).toBe(false);
+  expect(result.data).toMatchObject({ verified: false, mutationAttempted: true, timelineChanged: null });
+});
+
+it("rejects duplicate quantized key times before invoking the host", async () => {
+  const h = host();
+  const result = await audioTools.add_audio_keyframes.handler({ node_id: h.clip.nodeId, keyframes: [{ time_seconds: 2, level_db: 0 }, { time_seconds: 2, level_db: -6 }] });
+  expect(result.success).toBe(false);
+  expect(send).not.toHaveBeenCalled();
+});
+
+it("rechecks early audio keys after the entire batch is written", async () => {
+  const h = host();
+  const write = h.prop.setValueAtKey;
+  h.prop.setValueAtKey = (time, value) => {
+    write(time, value);
+    if (Number(time.ticks) === 33 * TICKS) write({ ticks: toTicks(32) }, 0);
+  };
+  const result = await audioTools.add_audio_keyframes.handler({ node_id: h.clip.nodeId, keyframes: [{ time_seconds: 2, level_db: -6 }, { time_seconds: 3, level_db: 0 }] });
+  expect(result.success).toBe(false);
+});
+
+it("refuses unreadable initial key storage without changing Level", async () => {
+  const h = host();
+  h.prop.getKeys = () => null as never;
+  const mutate = vi.spyOn(h.prop, "setTimeVarying");
+  const result = await audioTools.add_audio_keyframes.handler({ node_id: h.clip.nodeId, keyframes: [{ time_seconds: 2, level_db: 0 }] });
+  expect(result.success).toBe(false);
+  expect(mutate).not.toHaveBeenCalled();
+});
+
+it("reports uncertainty when enabling keyframes throws after mutation", async () => {
+  const h = host();
+  h.prop.setTimeVarying = () => { throw new Error("host threw after changing mode"); };
+  const result = await gapTools.setup_ducking.handler({ node_id: h.clip.nodeId, ducking_windows: [{ start_seconds: 2, end_seconds: 4, ducked_db: -12 }] });
+  expect(result.success).toBe(false);
+  expect(result.data).toMatchObject({ mutationAttempted: true, timelineChanged: null });
+});
+
+it("keeps ducking endpoint keys within a fractional tick duration", async () => {
+  const h = host();
+  const durationTicks = Math.round(0.123789 * TICKS);
+  h.clip.end.ticks = String(25 * TICKS + durationTicks);
+  h.clip.outPoint.ticks = String(30 * TICKS + durationTicks);
+  const result = await gapTools.setup_ducking.handler({ node_id: h.clip.nodeId, ducking_windows: [] });
+  expect(result.success).toBe(true);
+  expect(h.prop.getKeys().map((key) => Number(key.ticks))).toEqual([30 * TICKS, 30 * TICKS + durationTicks]);
+});
+
+it("rejects normalized Level underflow without a bridge write", async () => {
+  const h = host();
+  const result = await audioTools.add_audio_keyframes.handler({ node_id: h.clip.nodeId, keyframes: [{ time_seconds: 2, level_db: -10000 }] });
+  expect(result.success).toBe(false);
+  expect(send).not.toHaveBeenCalled();
+});

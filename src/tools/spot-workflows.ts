@@ -1,3 +1,4 @@
+import { AUDIO_KEYFRAME_READBACK } from "./audio.js";
 import { createHash } from "node:crypto";
 import { existsSync } from "node:fs";
 import path from "node:path";
@@ -411,20 +412,31 @@ function buildApplyScript(plan: SpotWorkflowPlan): string {
       var end = base.durationSeconds - 0.1;
       if (end <= start) return { applied: false, verified: false, reason: "Placed clip is too short for the requested scale motion" };
       var range = scaleRange("${plan.motion_style}", index);
+      ${AUDIO_KEYFRAME_READBACK}
       var motionWriteAttempted = false;
       try {
-        if (!scaleProperty.isTimeVarying()) { scaleProperty.setTimeVarying(true); motionWriteAttempted = true; }
+        audioKeys(scaleProperty);
+        var varying = scaleProperty.isTimeVarying();
+        if (varying !== true && varying !== false && varying !== 0 && varying !== 1) throw new Error("Unknown keyframe mode");
+        if (!varying) { motionWriteAttempted = true; scaleProperty.setTimeVarying(true); }
         var startTime = __clipKeyTime(base, start);
         var endTime = __clipKeyTime(base, end);
-        scaleProperty.addKey(startTime); motionWriteAttempted = true; scaleProperty.setValueAtKey(startTime, range.from, true);
-        scaleProperty.addKey(endTime); motionWriteAttempted = true; scaleProperty.setValueAtKey(endTime, range.to, true);
+        motionWriteAttempted = true; scaleProperty.addKey(startTime); scaleProperty.setValueAtKey(startTime, range.from, true);
+        motionWriteAttempted = true; scaleProperty.addKey(endTime); scaleProperty.setValueAtKey(endTime, range.to, true);
+        var storedTicks = audioKeys(scaleProperty);
+        var startFound = false; var endFound = false;
+        for (var k = 0; k < storedTicks.length; k++) {
+          if (storedTicks[k] === audioTick(startTime.ticks)) startFound = true;
+          if (storedTicks[k] === audioTick(endTime.ticks)) endFound = true;
+        }
+        if (!startFound || !endFound) throw new Error("Motion keys were not stored at the requested media times");
         var readStart = scaleProperty.getValueAtKey(startTime);
         var readEnd = scaleProperty.getValueAtKey(endTime);
         if (typeof readStart !== "number" || !isFinite(readStart) || Math.abs(readStart - range.from) > 0.0001) throw new Error("start keyframe readback differed");
         if (typeof readEnd !== "number" || !isFinite(readEnd) || Math.abs(readEnd - range.to) > 0.0001) throw new Error("end keyframe readback differed");
-        return { applied: true, verified: true, startSeconds: start, endSeconds: end, from: range.from, to: range.to };
+        return { applied: true, verified: true, renderVerified: false, startSeconds: start, endSeconds: end, from: range.from, to: range.to };
       } catch (motionError) {
-        return { applied: false, verified: false, outcome: "committed_unverified", timelineChanged: motionWriteAttempted, reason: String(motionError) };
+        return { applied: false, verified: false, outcome: "committed_unverified", mutationAttempted: motionWriteAttempted, timelineChanged: motionWriteAttempted ? null : false, reason: String(motionError) };
       }
     }
     var motionResults = [];

@@ -150,11 +150,13 @@ describe("audio tool analysis coverage", () => {
     // Premiere's Volume > Level uses +15 dB as its normalized maximum.
     expect(mockedSendCommand.mock.calls.at(-1)?.[0]).toContain("0.08912509381337455");
 
-    await tools.add_audio_keyframes.handler({
+    const callsBefore = mockedSendCommand.mock.calls.length;
+    const underflow = await tools.add_audio_keyframes.handler({
       node_id: "clip",
       keyframes: [{ time_seconds: 1.25, level_db: -7000 }],
     });
-    expect(mockedSendCommand.mock.calls.at(-1)?.[0]).toContain("1e-7");
+    expect(underflow.success).toBe(false);
+    expect(mockedSendCommand.mock.calls.length).toBe(callsBefore);
 
     await tools.mute_track.handler({ track_index: 3, muted: false });
     expect(mockedSendCommand.mock.calls.at(-1)?.[0]).toContain("track.setMute(0)");

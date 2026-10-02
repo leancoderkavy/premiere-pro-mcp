@@ -137,6 +137,7 @@ function addMotionScale(clip: ReturnType<typeof makeClip>, readbackMismatch = fa
     setTimeVarying: () => {},
     addKey: (time: { ticks: string }) => { if (!values.has(Number(time.ticks))) values.set(Number(time.ticks), 100); },
     setValueAtKey: (time: { ticks: string }, value: number) => { values.set(Number(time.ticks), value); },
+    getKeys: () => Array.from(values.keys()).map((ticks) => ({ ticks: String(ticks) })),
     getValueAtKey: (time: { ticks: string }) => readbackMismatch ? undefined : values.get(Number(time.ticks)),
   };
   clip.components = Object.assign([{ displayName: "Motion", matchName: "AE.ADBE Motion", properties: Object.assign([property], { numItems: 1 }) }], { numItems: 1 });
@@ -920,7 +921,7 @@ describe("issue #562 — other Sequence.insertClip callers use the same helper",
     const script = String(mockedSendCommand.mock.calls[0][0]);
     const { sandbox } = issue562Host({ sequenceID: "sequence-1", emptyTargets: true, sourceDurationSeconds: 10, sourceInPointSeconds: 30, addMotion: true, motionReadbackMismatch: true });
     const result = runScript(script, sandbox);
-    expect(result).toMatchObject({ success: true, data: { motion: [{ applied: false, verified: false, outcome: "committed_unverified", timelineChanged: true }] } });
+    expect(result).toMatchObject({ success: true, data: { motion: [{ applied: false, verified: false, outcome: "committed_unverified", mutationAttempted: true, timelineChanged: null }] } });
   });
 });
 
