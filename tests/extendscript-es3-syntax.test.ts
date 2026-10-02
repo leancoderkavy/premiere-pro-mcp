@@ -8,6 +8,7 @@ vi.mock("../src/bridge/after-effects-bridge.js", async (orig) => ({ ...(await or
 import { sendCommand, sendRawCommand } from "../src/bridge/file-bridge.js";
 import { sendAfterEffectsCommand } from "../src/bridge/after-effects-bridge.js";
 import * as acorn from "acorn";
+import { getCompetitorGapTools } from "../src/tools/competitor-gaps.js";
 import { createServer } from "../src/server.js";
 import { getHelpersSource } from "../src/bridge/script-builder.js";
 import { getAfterEffectsHelpersSource } from "../src/bridge/after-effects-script-builder.js";
@@ -69,3 +70,14 @@ it("every generated ExtendScript parses as ECMAScript 3", async () => {
   expect(scanned).toBeGreaterThan(250);
   expect(report).toEqual([]);
 }, 300000);
+
+// Schema sampling may refuse a compound batch before dispatch; exercise a valid
+// batch explicitly so its preflight and final-state receipt remain ES3 parsable.
+it("batch insertion preflight and receipt script parse as ECMAScript 3", async () => {
+  vi.mocked(sendCommand).mockClear();
+  await getCompetitorGapTools({ timeoutMs: 50 }).add_to_timeline_batch.handler({
+    clips: [{ item_id: "source", track_index: 0, start_seconds: 0, audio_track_index: 0 }],
+  });
+  expect(sendCommand).toHaveBeenCalledOnce();
+  acorn.parse(String(vi.mocked(sendCommand).mock.calls[0][0]), { ecmaVersion: 3, allowReturnOutsideFunction: true });
+});

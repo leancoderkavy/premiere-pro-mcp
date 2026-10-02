@@ -160,6 +160,13 @@ export function getCompetitorGapTools(
           var placements = [${emittedClips}];
           var i;
 
+          function expectedStream(item, mediaType) {
+            try {
+              var span = parseFloat(item.getOutPoint(mediaType).ticks) - parseFloat(item.getInPoint(mediaType).ticks);
+              return !isFinite(span) || span !== 0;
+            } catch (eStreamSpan) { return true; }
+          }
+
           // Preflight every mutable dependency before the first insert. This
           // avoids the common partial batch caused by a typo late in the list.
           for (i = 0; i < placements.length; i++) {
@@ -174,14 +181,8 @@ export function getCompetitorGapTools(
             if (!preflight.item) {
               return __error("Project item not found for placement " + i + ": " + preflight.itemId + ". No placement was attempted.");
             }
-            function expectedStream(mediaType) {
-              try {
-                var span = parseFloat(preflight.item.getOutPoint(mediaType).ticks) - parseFloat(preflight.item.getInPoint(mediaType).ticks);
-                return !isFinite(span) || span !== 0;
-              } catch (eStreamSpan) { return true; }
-            }
-            preflight.expectedVideo = expectedStream(1);
-            preflight.expectedAudio = expectedStream(2);
+            preflight.expectedVideo = expectedStream(preflight.item, 1);
+            preflight.expectedAudio = expectedStream(preflight.item, 2);
           }
 
           var results = [];
