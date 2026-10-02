@@ -1,6 +1,76 @@
 import { buildToolScript, escapeForExtendScript } from "../bridge/script-builder.js";
 import { sendCommand, BridgeOptions } from "../bridge/file-bridge.js";
 
+/** Shared ES3 readback for the two QE effect-add paths. */
+function applyEffectWithReadback(kind: "Video" | "Audio"): string {
+  return `
+    var before = [];
+    function readComponents() {
+      var components = result.clip.components;
+      var count = components && components.numItems;
+      if (typeof count !== "number" || !isFinite(count) || count < 0 || Math.floor(count) !== count) {
+        throw new Error("Component count is unavailable");
+      }
+      var snapshot = [];
+      for (var c = 0; c < count; c++) {
+        snapshot.push({ displayName: String(components[c].displayName || ""), matchName: String(components[c].matchName || "") });
+      }
+      return snapshot;
+    }
+    try { before = readComponents(); }
+    catch (beforeError) { return __error("Cannot read components before adding the effect; nothing was changed."); }
+    var addError = "";
+    try { qeClip.add${kind}Effect(qeEffect); }
+    catch (effectError) { addError = String(effectError); }
+    var after = null;
+    var added = [];
+    try {
+      after = readComponents();
+      var matched = [];
+      for (var a = 0; a < after.length; a++) {
+        var found = false;
+        for (var b = 0; b < before.length; b++) {
+          if (!matched[b] && before[b].displayName === after[a].displayName && before[b].matchName === after[a].matchName) {
+            matched[b] = true;
+            found = true;
+            break;
+          }
+        }
+        if (!found) added.push(after[a]);
+      }
+    } catch (readError) { after = null; }
+    var data = {
+      effect: effectName, lookupSource: lookupSource, clipName: result.clip.name,
+      componentCountBefore: before.length, componentCountAfter: after ? after.length : null,
+      addedComponents: added, verified: false, outcome: "committed_unverified"
+    };
+    if (after && after.length > before.length && added.length > 0) {
+      data.timelineChanged = true;
+      if (!addError) {
+        data.applied = true;
+        data.verified = true;
+        data.outcome = "verified";
+        return __result(data);
+      }
+    }
+    var undoNow = typeof __readUndoIndex === "function" && __undoStart !== null ? __readUndoIndex() : null;
+    if (__undoStart !== null && undoNow !== null && undoNow === __undoStart && after && after.length === before.length && !addError) {
+      data.outcome = "not_applied";
+      return __jsonStringify({ success: false, error: "Premiere added no component for " + effectName + "; nothing was changed.", data: data });
+    }
+    data.note = "Do not retry blindly: QE may have added the effect even when it is missing from the DOM component list. Inspect the clip before retrying.";
+    if (addError) data.hostError = addError;
+    if (typeof __readUndoIndex === "function" && __undoStart !== null) {
+      if (undoNow !== null && undoNow > __undoStart) {
+        data.undoSteps = undoNow - __undoStart;
+        data.undoStackIndex = undoNow;
+        data.timelineChanged = true;
+      }
+    }
+    return __jsonStringify({ success: false, error: "Effect addition could not be verified. " + data.note, data: data });
+  `;
+}
+
 export function getEffectsTools(bridgeOptions: BridgeOptions) {
   return {
     apply_effect: {
@@ -58,8 +128,7 @@ export function getEffectsTools(bridgeOptions: BridgeOptions) {
             }
           }
           if (!qeEffect) return __error("Effect not found: " + effectName);
-          qeClip.addVideoEffect(qeEffect);
-          return __result({ applied: true, effect: effectName, lookupSource: lookupSource, clipName: result.clip.name });
+          ${applyEffectWithReadback("Video")}
         `);
         return sendCommand(script, bridgeOptions);
       },
@@ -113,8 +182,7 @@ export function getEffectsTools(bridgeOptions: BridgeOptions) {
             }
           }
           if (!qeEffect) return __error("Audio effect not found: " + effectName);
-          qeClip.addAudioEffect(qeEffect);
-          return __result({ applied: true, effect: effectName, lookupSource: lookupSource });
+          ${applyEffectWithReadback("Audio")}
         `);
         return sendCommand(script, bridgeOptions);
       },
