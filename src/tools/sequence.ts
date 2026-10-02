@@ -1,7 +1,8 @@
 import { buildToolScript, escapeForExtendScript } from "../bridge/script-builder.js";
 import { sendCommand, BridgeOptions } from "../bridge/file-bridge.js";
 import { existsSync, readdirSync, statSync } from "node:fs";
-import { join } from "node:path";
+import { basename, dirname, extname, join, win32 } from "node:path";
+import { describePresetFolder } from "./encoder-formats.js";
 
 /**
  * Find a default .sqpreset on this machine for create_sequence without preset_path.
@@ -818,7 +819,7 @@ export function getSequenceTools(bridgeOptions: BridgeOptions) {
     },
 
     get_export_file_extension: {
-      description: "Get the file extension that would be used when exporting the active sequence with a given preset",
+      description: "Get the export file extension from Premiere. If Premiere returns none, infer it only for an existing .epr in a recognized Adobe Media Encoder format folder; that fallback is marked unconfirmed and should be checked before delivery.",
       parameters: {
         type: "object" as const,
         properties: {
@@ -836,12 +837,35 @@ export function getSequenceTools(bridgeOptions: BridgeOptions) {
           var ext = null;
           try { ext = seq.getExportFileExtension("${escapeForExtendScript(args.preset_path)}"); }
           catch (extensionError) { return __error("Premiere could not determine the export extension for this preset: " + extensionError.toString()); }
-          if (ext === null || ext === undefined || !String(ext).replace(/\\s/g, "")) {
-            return __error("Premiere did not provide an export extension for this preset on this host. Inspect the preset or choose an output path explicitly before exporting.");
-          }
-          return __result({ sequenceName: seq.name, presetPath: "${escapeForExtendScript(args.preset_path)}", extension: String(ext) });
+          return __result({ sequenceName: seq.name, presetPath: "${escapeForExtendScript(args.preset_path)}", extension: ext === null || ext === undefined ? null : String(ext) });
         `);
-        return sendCommand(script, bridgeOptions);
+        const result = await sendCommand(script, bridgeOptions);
+        if (!result.success) return result;
+        const data = result.data as { sequenceName?: string; presetPath?: string; extension?: string | null };
+        const hostExtension = typeof data?.extension === "string" ? data.extension.trim() : "";
+        if (hostExtension) {
+          return { success: true, data: { ...data, extension: hostExtension.startsWith(".") ? hostExtension : `.${hostExtension}`, extensionSource: "premiere", hostConfirmed: true } };
+        }
+
+        const presetPath = args.preset_path;
+        const pathApi = presetPath.includes("\\") ? win32 : { basename, dirname, extname };
+        let usablePreset = false;
+        try {
+          const presetStats = statSync(presetPath);
+          usablePreset = pathApi.extname(presetPath).toLowerCase() === ".epr" && presetStats.isFile() && presetStats.size > 0;
+        } catch { /* unavailable */ }
+        const format = usablePreset ? describePresetFolder(pathApi.basename(pathApi.dirname(presetPath))) : null;
+        if (!format?.extension) {
+          return { success: false, error: "Premiere did not provide an export extension for this preset on this host, and its .epr format folder cannot establish one. Inspect the preset or choose an output path explicitly before exporting." };
+        }
+        return { success: true, data: {
+          ...data,
+          extension: `.${format.extension}`,
+          extensionSource: "preset_folder",
+          hostConfirmed: false,
+          formatCode: format.formatCode,
+          warning: "Premiere did not report an extension. This is inferred from the Adobe Media Encoder preset folder, not confirmed by an export. Check the output path before delivery.",
+        } };
       },
     },
   };

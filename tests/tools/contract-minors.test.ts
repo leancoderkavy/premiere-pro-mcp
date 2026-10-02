@@ -1,4 +1,7 @@
 import { runInNewContext } from "node:vm";
+import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { getHelpersSource } from "../../src/bridge/script-builder.js";
 
@@ -27,25 +30,47 @@ function execute(script: string, app: unknown, extras: Record<string, unknown> =
 beforeEach(() => vi.clearAllMocks());
 
 describe("minor host contract receipts", () => {
-  it("reports an unavailable export extension as an error rather than a successful missing field", async () => {
-    const script = await scriptFor(getSequenceTools(bridgeOptions).get_export_file_extension, {
-      preset_path: "/tmp/preset.epr",
-    });
-    const unavailable = execute(script, { project: { activeSequence: {
-      name: "Sequence", getExportFileExtension: () => undefined,
-    } } });
-    expect(unavailable).toEqual(expect.objectContaining({
-      success: false,
-      error: expect.stringContaining("did not provide an export extension"),
-    }));
+  it("uses the host extension when available and an explicitly inferred AME folder extension otherwise", async () => {
+    const root = mkdtempSync(join(tmpdir(), "ame-extension-"));
+    try {
+      const formatFolder = join(root, "3F3F3F3F_4D6F6F56");
+      mkdirSync(formatFolder);
+      const presetPath = join(formatFolder, "H264 Match Source - High bitrate.epr");
+      writeFileSync(presetPath, "<preset />");
+      const tool = getSequenceTools(bridgeOptions).get_export_file_extension;
+      mockedSendCommand.mockImplementation(async (script: string) => execute(script, { project: { activeSequence: {
+        name: "Sequence", getExportFileExtension: () => undefined,
+      } } }));
+      await expect(tool.handler({ preset_path: presetPath })).resolves.toMatchObject({
+        success: true,
+        data: { extension: ".mov", extensionSource: "preset_folder", hostConfirmed: false, formatCode: "MooV", warning: expect.stringContaining("not confirmed") },
+      });
+      mockedSendCommand.mockImplementation(async (script: string) => execute(script, { project: { activeSequence: {
+        name: "Sequence", getExportFileExtension: () => ".mp4",
+      } } }));
+      await expect(tool.handler({ preset_path: presetPath })).resolves.toMatchObject({
+        success: true, data: { extension: ".mp4", extensionSource: "premiere", hostConfirmed: true },
+      });
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
 
-    const available = execute(script, { project: { activeSequence: {
-      name: "Sequence", getExportFileExtension: () => ".mov",
-    } } });
-    expect(available).toEqual(expect.objectContaining({
-      success: true,
-      data: expect.objectContaining({ extension: ".mov" }),
-    }));
+  it("does not infer an extension from an unrecognized or missing preset", async () => {
+    const root = mkdtempSync(join(tmpdir(), "ame-extension-"));
+    try {
+      const presetPath = join(root, "preset.epr");
+      writeFileSync(presetPath, "<preset />");
+      const tool = getSequenceTools(bridgeOptions).get_export_file_extension;
+      mockedSendCommand.mockImplementation(async (script: string) => execute(script, { project: { activeSequence: {
+        name: "Sequence", getExportFileExtension: () => undefined,
+      } } }));
+      await expect(tool.handler({ preset_path: presetPath })).resolves.toMatchObject({ success: false, error: expect.stringContaining("did not provide") });
+      rmSync(presetPath);
+      await expect(tool.handler({ preset_path: presetPath })).resolves.toMatchObject({ success: false, error: expect.stringContaining("did not provide") });
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
   });
 
   it("warns when a stored keyframe falls beyond the clip's visible span", async () => {
