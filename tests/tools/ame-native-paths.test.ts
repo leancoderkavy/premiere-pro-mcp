@@ -46,4 +46,14 @@ describe("AME handoff native paths", () => {
     expect(encoder.launchEncoder).not.toHaveBeenCalled();
     expect(encoder.encodeSequence).not.toHaveBeenCalled();
   });
+
+  it("rejects an output file without a parent before launching encoder", async () => {
+    const { script } = await prepare();
+    const encoder = { launchEncoder: vi.fn(), encodeSequence: vi.fn() };
+    function File(this: any, path: string) { this.fsName = path; this.exists = false; this.parent = null; }
+    const result = JSON.parse(String(runInNewContext(`${getHelpersSource()}\n${script}`, { File, app: { project: { activeSequence: {}, path: "saved.prproj" }, encoder } })));
+    expect(result).toMatchObject({ success: false });
+    expect(result.error).toContain("The requested AME output directory does not exist:");
+    expect(encoder.launchEncoder).not.toHaveBeenCalled();
+  });
 });

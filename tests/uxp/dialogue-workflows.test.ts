@@ -9,7 +9,7 @@ describe("UXP dialogue command module", () => {
     expect(definitions["dialogue.deriveSequence"]).toMatchObject({ destructive: true, undoable: false, idempotent: true, minHostVersion: "26.3.0" });
     expect(definitions["dialogue.deriveSequence"].probe()).toBe(false);
   });
-  it.each(["method", "guid_string", "guid_object", "empty_methods", "invalid_methods"])("creates linked subclips with %s project identity and structural-only proof", async (identity) => {
+  it.each(["method", "guid_string", "guid_object", "empty_methods", "invalid_methods", "throwing_getid", "throwing_methods"])("creates linked subclips with %s project identity and structural-only proof", async (identity) => {
     const children: any[] = [];
     const parent = { name: "Media", getId: async () => "bin", getItems: async () => children };
     const source = { name: "Source", getId: async () => "clip", getParentBin: async () => parent, isMulticamClip: async () => false,
@@ -19,6 +19,8 @@ describe("UXP dialogue command module", () => {
     const project = { ...(identity === "method" ? { getGuid: async () => "project" } : { guid: identity === "guid_object" ? { toString: () => "project" } : "project" }),
       ...(identity === "empty_methods" ? { getId: async () => null, getGuid: async () => undefined } : {}), getRootItem: async () => root, getSequences: async () => createdSequences,
       ...(identity === "invalid_methods" ? { getId: async () => ({}), getGuid: async () => ({ toString: () => null }) } : {}),
+      ...(identity === "throwing_getid" ? { getId: async () => { throw new Error("getId unavailable"); }, getGuid: async () => "project" } : {}),
+      ...(identity === "throwing_methods" ? { getId: async () => { throw new Error("getId unavailable"); }, getGuid: async () => { throw new Error("getGuid unavailable"); } } : {}),
       lockedAccess: (fn: () => void) => fn(), executeTransaction: (fn: (compound: any) => void) => { fn({ addAction: (action: any) => { action.apply(); return true; } }); return true; },
       createSequenceFromMedia: async (name: string) => { const sequence = { name, guid: { toString: () => "sequence" } }; createdSequences.push(sequence); return sequence; } };
     const ppro = { Project: { getActiveProject: async () => project }, ClipProjectItem: { cast: (item: any) => item.createSubClipAction ? item : null }, FolderItem: { cast: (item: any) => item.getItems ? item : null },
@@ -44,6 +46,15 @@ describe("UXP dialogue command module", () => {
   ])("rejects $label project GUID before mutation", async ({ guid }) => {
     const mutate = vi.fn();
     const project = { guid, lockedAccess: mutate, executeTransaction: mutate, createSequenceFromMedia: mutate };
+    const command = api.createDialogueWorkflowDefinitions({ ppro: { Project: { getActiveProject: async () => project } } })["dialogue.deriveSequence"];
+    await expect(command.handler({ operationId: "stale", plan: { schema_version: 1, project_guid: "project", mode: "talking_head", sequence_name: "Reviewed", segments: [
+      { id: "one", source_project_item_id: "clip", source_start_seconds: 0, source_end_seconds: 1 },
+    ], output_duration_seconds: 1, original_sources_unchanged: true, render_verified: false } })).rejects.toMatchObject({ code: "UXP_STALE_PROJECT" });
+    expect(mutate).not.toHaveBeenCalled();
+  });
+  it("rejects an unreadable guid property before mutation", async () => {
+    const mutate = vi.fn();
+    const project = { get guid() { throw new Error("guid unavailable"); }, lockedAccess: mutate, executeTransaction: mutate, createSequenceFromMedia: mutate };
     const command = api.createDialogueWorkflowDefinitions({ ppro: { Project: { getActiveProject: async () => project } } })["dialogue.deriveSequence"];
     await expect(command.handler({ operationId: "stale", plan: { schema_version: 1, project_guid: "project", mode: "talking_head", sequence_name: "Reviewed", segments: [
       { id: "one", source_project_item_id: "clip", source_start_seconds: 0, source_end_seconds: 1 },

@@ -108,10 +108,11 @@
     async function id(item) {
       if (!item) return "";
       let value = "";
-      if (typeof item.getId === "function") value = guidString(await item.getId());
-      if (!value && typeof item.getGuid === "function") value = guidString(await item.getGuid());
+      try { if (typeof item.getId === "function") value = guidString(await item.getId()); } catch (_) {}
+      try { if (!value && typeof item.getGuid === "function") value = guidString(await item.getGuid()); } catch (_) {}
       // Project and Sequence expose a Guid property on supported Premiere hosts.
-      return value || guidString(item.guid);
+      if (value) return value;
+      try { return guidString(item.guid); } catch (_) { return ""; }
     }
     function guidString(value) {
       if (value == null) return "";
