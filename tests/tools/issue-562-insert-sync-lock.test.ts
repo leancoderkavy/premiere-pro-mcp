@@ -140,7 +140,17 @@ function issue562Host(options: {
   overlaySeconds?: [number, number];
   sourceDurationSeconds?: number;
   mediaKind?: "audio_only" | "video_only";
+  omitVideoInsert?: boolean;
+  omitAudioInsert?: boolean;
   displaceTargetTail?: boolean;
+  displacePreRazoredTail?: boolean;
+  noAudioRazor?: boolean;
+  razorThrowsAfterCut?: boolean;
+  insertThrowsAfterMutation?: boolean;
+  moveEarlierAudioOnSecondInsert?: boolean;
+  failSecondInsertAfterMutation?: boolean;
+  unreadableEarlierTrackAfterFailure?: boolean;
+  sameSourceStraddler?: boolean;
 } = {}) {
   // Premiere's getIn/OutPoint(mediaType): 1 = video, 2 = audio, 4 = any. A missing
   // stream reads back as a zero-length span.
@@ -155,13 +165,13 @@ function issue562Host(options: {
   };
   const overlay = options.overlaySeconds ?? [6, 10];
   const v1 = makeTrack(options.emptyTargets ? [] : [
-    makeClip("v1a", 0, 4, "a"), makeClip("v1b", 4, 8, "b"),
+    makeClip("v1a", 0, 4, "a"), makeClip("v1b", 4, 8, options.sameSourceStraddler ? "src" : "b"),
     makeClip("v1c", 8, 12, "c"), makeClip("v1d", 12, 18, "d"),
   ]);
   const v2 = makeTrack([makeClip("v2", overlay[0], overlay[1], "cam2")]);
   const v3 = makeTrack([makeClip("v3", 2, 36, "cam3")]);
   const a1 = makeTrack(options.emptyTargets ? [] : [
-    makeClip("a1a", 0, 4, "a"), makeClip("a1b", 4, 8, "b"),
+    makeClip("a1a", 0, 4, "a"), makeClip("a1b", 4, 8, options.sameSourceStraddler ? "src" : "b"),
     makeClip("a1c", 8, 12, "c"), makeClip("a1d", 12, 18, "d"),
   ]);
   const a2 = makeTrack([makeClip("a2", overlay[0], overlay[1], "cam2")]);
@@ -192,18 +202,40 @@ function issue562Host(options: {
     insertClip(item: typeof source, time: string | number, vTrack: number, aTrack: number) {
       if (options.insertNoop) return;
       insertionCount++;
+      const targetTracks = [videoTracks[vTrack as 0 | 1 | 2], audioTracks[aTrack as 0 | 1 | 2]];
+      const beforeIds = targetTracks.map((track) => new Set(track._arr.map((clip) => clip.nodeId)));
       // Like Premiere, only a track that receives part of the item is rippled.
-      if (options.mediaKind !== "audio_only") insertOnTrack(videoTracks[vTrack as 0 | 1 | 2], item, time, `ins-v-${vTrack}-${insertionCount}`);
-      if (options.mediaKind !== "video_only") insertOnTrack(audioTracks[aTrack as 0 | 1 | 2], item, time, `ins-a-${aTrack}-${insertionCount}`);
-      if (options.displaceTargetTail) {
-        for (const track of [videoTracks[vTrack as 0 | 1 | 2], audioTracks[aTrack as 0 | 1 | 2]]) {
-          const tail = track._arr.find((clip) => clip.nodeId.endsWith("-right"));
+      if (options.mediaKind !== "audio_only" && !options.omitVideoInsert) insertOnTrack(videoTracks[vTrack as 0 | 1 | 2], item, time, `ins-v-${vTrack}-${insertionCount}`);
+      if (options.mediaKind !== "video_only" && !options.omitAudioInsert) insertOnTrack(audioTracks[aTrack as 0 | 1 | 2], item, time, `ins-a-${aTrack}-${insertionCount}`);
+      if (options.displaceTargetTail || options.displacePreRazoredTail) {
+        targetTracks.forEach((track, index) => {
+          const tail = track._arr.find((clip) => clip.nodeId.endsWith("-right") &&
+            (options.displacePreRazoredTail || !beforeIds[index].has(clip.nodeId)));
           if (tail) {
             const duration = parseFloat(tail.end.ticks) - parseFloat(tail.start.ticks);
             tail.start = ticksOf(24);
             tail.end = String(parseFloat(ticksOf(24)) + duration);
           }
+        });
+      }
+      if (options.insertThrowsAfterMutation) throw new Error("insert threw after changing a track");
+      if (options.moveEarlierAudioOnSecondInsert && insertionCount === 2) {
+        const earlierAudio = a1._arr.find((clip) => clip.nodeId === "ins-a-0-1");
+        if (earlierAudio) {
+          earlierAudio.start = ticksOf(2);
+          earlierAudio.end = ticksOf(4);
         }
+      }
+      if (options.failSecondInsertAfterMutation && insertionCount === 2) {
+        const earlierVideo = v1._arr.find((clip) => clip.nodeId === "ins-v-0-1");
+        if (earlierVideo) {
+          earlierVideo.start = ticksOf(2);
+          earlierVideo.end = ticksOf(4);
+        }
+        if (options.unreadableEarlierTrackAfterFailure) {
+          Object.defineProperty(v1, "clips", { get() { throw new Error("track readback unavailable"); } });
+        }
+        throw new Error("host insert failed after mutation");
       }
     },
   };
@@ -229,11 +261,13 @@ function issue562Host(options: {
         }
         track._arr.push(...spawned);
         track._reindex();
+        if (options.razorThrowsAfterCut) throw new Error("razor threw after changing a track");
       },
     };
     if (!options.omitIsLocked) {
       qeTrack.isLocked = () => track._locked;
     }
+    if (options.noAudioRazor && [a1, a2, a3].includes(track)) delete (qeTrack as { razor?: unknown }).razor;
     return qeTrack;
   }
 
@@ -342,8 +376,69 @@ describe("issue #562 — insert_from_source honors sync lock", () => {
     expect(rangesOf(seq.videoTracks[2])).toEqual([[2, 6], [8, 38]]);
   });
 
-  it("refuses verified success when Premiere displaces a target split tail", async () => {
+  it("pre-razors target straddlers so Premiere does not create a displaced tail during insert", () => {
     const { sandbox, seq, source: item } = issue562Host({ displaceTargetTail: true });
+    const result = runHelper(sandbox, seq, item, 6);
+    expect(result).toMatchObject({ ok: true, data: { verified: true } });
+    expect(rangesOf(seq.videoTracks[0])).toContainEqual([8, 10]);
+    expect(rangesOf(seq.audioTracks[0])).toContainEqual([8, 10]);
+  });
+
+  it("preflights every target razor before changing either target track", () => {
+    const { sandbox, seq, source: item } = issue562Host({ noAudioRazor: true });
+    const beforeVideo = rangesOf(seq.videoTracks[0]);
+    const beforeAudio = rangesOf(seq.audioTracks[0]);
+    const result = runHelper(sandbox, seq, item, 6);
+    expect(result).toMatchObject({ ok: false });
+    expect(result.error).toMatch(/nothing was changed.*audio track 0.*razor/i);
+    expect(rangesOf(seq.videoTracks[0])).toEqual(beforeVideo);
+    expect(rangesOf(seq.audioTracks[0])).toEqual(beforeAudio);
+  });
+
+  it("refuses a subframe target cut before any QE razor changes the timeline", () => {
+    const { sandbox, seq, source: item } = issue562Host();
+    const beforeVideo = rangesOf(seq.videoTracks[0]);
+    const beforeAudio = rangesOf(seq.audioTracks[0]);
+    const result = runHelper(sandbox, seq, item, 6.01);
+    expect(result).toMatchObject({ ok: false });
+    expect(result.error).toMatch(/nothing was changed.*frame boundary/i);
+    expect(rangesOf(seq.videoTracks[0])).toEqual(beforeVideo);
+    expect(rangesOf(seq.audioTracks[0])).toEqual(beforeAudio);
+  });
+
+  it("marks a throwing QE razor as changed even on its first attempted cut", () => {
+    const { sandbox, seq, source: item } = issue562Host({ razorThrowsAfterCut: true });
+    const result = runHelper(sandbox, seq, item, 6);
+    expect(result).toMatchObject({ ok: false, changed: true });
+    expect(result.error).toMatch(/timeline may be partially changed/i);
+  });
+
+  it("marks an insert that throws after mutation as changed without a QE cut", () => {
+    const { sandbox, seq, source: item } = issue562Host({ emptyTargets: true, insertThrowsAfterMutation: true });
+    const result = runHelper(sandbox, seq, item, 0);
+    expect(result).toMatchObject({ ok: false, changed: true });
+    expect(result.error).toMatch(/timeline may be partially changed/i);
+  });
+
+  it("target_tracks refuses a straddling target before mutation when QE is unavailable", () => {
+    const { sandbox, seq, source: item } = issue562Host({ qe: false });
+    const beforeVideo = rangesOf(seq.videoTracks[0]);
+    const result = runHelper(sandbox, seq, item, 6, "target_tracks");
+    expect(result).toMatchObject({ ok: false });
+    expect(result.error).toMatch(/QE.*razor it in Premiere/i);
+    expect(rangesOf(seq.videoTracks[0])).toEqual(beforeVideo);
+  });
+
+  it("target_tracks pre-razors a straddling target when QE is available", () => {
+    const { sandbox, seq, source: item } = issue562Host({ displaceTargetTail: true });
+    const result = runHelper(sandbox, seq, item, 6, "target_tracks");
+    expect(result).toMatchObject({ ok: true, data: { verified: true, syncLockHonored: false } });
+    expect(rangesOf(seq.videoTracks[0])).toContainEqual([8, 10]);
+    expect(rangesOf(seq.videoTracks[1])).toEqual([[6, 10]]);
+  });
+
+  it("refuses verified success when Premiere still displaces a pre-razored target tail", () => {
+    const { sandbox, seq, source: item } = issue562Host({ displacePreRazoredTail: true });
     const result = runHelper(sandbox, seq, item, 6);
     expect(result.ok).toBe(false);
     expect(result.error).toMatch(/timeline changed.*tail adjacent/i);
@@ -352,14 +447,14 @@ describe("issue #562 — insert_from_source honors sync lock", () => {
 
   it("reports a displaced tail as a changed, unverified add_to_timeline result", async () => {
     const script = await scriptFor(getTimelineTools(bridgeOptions).add_to_timeline, { item_id: "src", start_seconds: 6 });
-    const { sandbox } = issue562Host({ displaceTargetTail: true });
+    const { sandbox } = issue562Host({ displacePreRazoredTail: true });
     const result = runScript(script, sandbox);
     expect(result).toMatchObject({ success: false, data: { timelineChanged: true, outcome: "committed_unverified", verified: false } });
     expect(result.data.displacedTails[0]).toContain("24s");
   });
 
   it.each([1 / 24, 4 - 1 / 24])("detects displaced one-frame boundary tails at %ss", (timeSeconds) => {
-    const { sandbox, seq, source: item } = issue562Host({ displaceTargetTail: true });
+    const { sandbox, seq, source: item } = issue562Host({ displacePreRazoredTail: true });
     const result = runHelper(sandbox, seq, item, timeSeconds);
     expect(result).toMatchObject({ ok: false, changed: true });
     expect(result.displacedTails[0]).toContain("24s");
@@ -372,7 +467,7 @@ describe("issue #562 — insert_from_source honors sync lock", () => {
         { item_id: "src", start_seconds: earlierPlacement ? 7 : 6 },
       ],
     });
-    const { sandbox } = issue562Host({ displaceTargetTail: true });
+    const { sandbox } = issue562Host({ displacePreRazoredTail: true });
     const result = runScript(script, sandbox);
     expect(result).toMatchObject({ success: false, data: {
       timelineChanged: true, outcome: "committed_unverified", verified: false,
@@ -381,6 +476,115 @@ describe("issue #562 — insert_from_source honors sync lock", () => {
     expect(result.data.displacedTails[0]).toContain("24s");
     expect(result.data.completedPlacements).toHaveLength(earlierPlacement ? 1 : 0);
     expect(result.error).not.toContain("Nothing was changed");
+  });
+
+  it("does not verify a batch when a later sync-locked insert moves an earlier placement", async () => {
+    const script = await scriptFor(getCompetitorGapTools(bridgeOptions).add_to_timeline_batch, {
+      clips: [
+        { item_id: "src", track_index: 0, start_seconds: 0 },
+        { item_id: "src", track_index: 1, start_seconds: 0 },
+      ],
+    });
+    const { sandbox, seq } = issue562Host({ emptyTargets: true, mediaKind: "video_only" });
+    const result = runScript(script, sandbox);
+    expect(result).toMatchObject({ success: false, data: {
+      timelineChanged: true, outcome: "committed_unverified", verified: false,
+      driftedPlacements: [{ index: 0, finalStartSeconds: 2 }],
+    } });
+    expect(result.data.placements[0]).toMatchObject({ requestedStartSeconds: 0, actualStartSeconds: 0, finalStartSeconds: 2, finalVerified: false });
+    expect(rangesOf(seq.videoTracks[0])).toEqual([[2, 4]]);
+  });
+
+  it.each(["audio", "video"] as const)("does not verify an A/V batch when the host drops %s", async (missing) => {
+    const script = await scriptFor(getCompetitorGapTools(bridgeOptions).add_to_timeline_batch, {
+      clips: [{ item_id: "src", track_index: 0, start_seconds: 0 }],
+    });
+    const { sandbox } = issue562Host({ emptyTargets: true,
+      omitAudioInsert: missing === "audio", omitVideoInsert: missing === "video" });
+    const result = runScript(script, sandbox);
+    expect(result).toMatchObject({ success: false, data: {
+      timelineChanged: true, outcome: "committed_unverified", verified: false,
+    } });
+    expect(result.data.placements[0]).toMatchObject({ finalVerified: false, missingStreams: [missing] });
+  });
+
+  it("verifies batch placements against the final sequence after every insert", async () => {
+    const script = await scriptFor(getCompetitorGapTools(bridgeOptions).add_to_timeline_batch, {
+      clips: [
+        { item_id: "src", track_index: 0, start_seconds: 0 },
+        { item_id: "src", track_index: 0, start_seconds: 4 },
+      ],
+    });
+    const { sandbox } = issue562Host({ emptyTargets: true, mediaKind: "video_only" });
+    const result = runScript(script, sandbox);
+    expect(result).toMatchObject({ success: true, data: {
+      verified: true, placements: [
+        { finalStartSeconds: 0, finalEndSeconds: 2, finalVerified: true },
+        { finalStartSeconds: 4, finalEndSeconds: 6, finalVerified: true },
+      ],
+    } });
+  });
+
+  it("does not verify an A/V batch when only an earlier inserted audio component moves", async () => {
+    const script = await scriptFor(getCompetitorGapTools(bridgeOptions).add_to_timeline_batch, {
+      clips: [
+        { item_id: "src", track_index: 0, start_seconds: 0 },
+        { item_id: "src", track_index: 1, start_seconds: 4 },
+      ],
+    });
+    const { sandbox } = issue562Host({ emptyTargets: true, moveEarlierAudioOnSecondInsert: true });
+    const result = runScript(script, sandbox);
+    expect(result).toMatchObject({ success: false, data: {
+      outcome: "committed_unverified", timelineChanged: true,
+      driftedPlacements: [{ index: 0 }],
+    } });
+    expect(result.data.placements[0]).toMatchObject({ finalVerified: false, finalComponents: [
+      { type: "video", finalVerified: true },
+      { type: "audio", finalStartSeconds: 2, finalVerified: false },
+    ] });
+  });
+
+  it("re-reads earlier placements when a later insert throws after mutation", async () => {
+    const script = await scriptFor(getCompetitorGapTools(bridgeOptions).add_to_timeline_batch, {
+      clips: [
+        { item_id: "src", track_index: 0, start_seconds: 0 },
+        { item_id: "src", track_index: 1, start_seconds: 0 },
+      ],
+    });
+    const { sandbox } = issue562Host({ emptyTargets: true, mediaKind: "video_only", failSecondInsertAfterMutation: true });
+    const result = runScript(script, sandbox);
+    expect(result).toMatchObject({ success: false, data: {
+      outcome: "committed_unverified", timelineChanged: true, failedPlacement: 1,
+      driftedPlacements: [{ index: 0, finalStartSeconds: 2 }],
+    } });
+    expect(result.data.completedPlacements[0]).toMatchObject({ actualStartSeconds: 0, finalStartSeconds: 2, finalVerified: false });
+  });
+
+  it("keeps an unverified partial receipt when the prior track is no longer readable", async () => {
+    const script = await scriptFor(getCompetitorGapTools(bridgeOptions).add_to_timeline_batch, {
+      clips: [
+        { item_id: "src", track_index: 0, start_seconds: 0 },
+        { item_id: "src", track_index: 1, start_seconds: 0 },
+      ],
+    });
+    const { sandbox } = issue562Host({ emptyTargets: true, mediaKind: "video_only",
+      failSecondInsertAfterMutation: true, unreadableEarlierTrackAfterFailure: true });
+    const result = runScript(script, sandbox);
+    expect(result).toMatchObject({ success: false, data: {
+      outcome: "committed_unverified", timelineChanged: true, failedPlacement: 1,
+      driftedPlacements: [{ index: 0, finalStartSeconds: null }],
+    } });
+  });
+
+  it.each([2, 1 / 24])("matches the inserted clip rather than a same-source split tail at duration %s", async (duration) => {
+    const script = await scriptFor(getCompetitorGapTools(bridgeOptions).add_to_timeline_batch, {
+      clips: [{ item_id: "src", track_index: 0, start_seconds: 6 }],
+    });
+    const { sandbox } = issue562Host({ sameSourceStraddler: true, sourceDurationSeconds: duration });
+    const result = runScript(script, sandbox);
+    expect(result).toMatchObject({ success: true, data: { verified: true, placements: [
+      { actualStartSeconds: 6, finalStartSeconds: 6, finalVerified: true },
+    ] } });
   });
 
   it.each([false, true])("preserves displaced-tail evidence in an edit plan (earlier operation: %s)", async (earlierOperation) => {
@@ -395,7 +599,7 @@ describe("issue #562 — insert_from_source honors sync lock", () => {
     });
     staticEditPlanTokenStore.issue(confirmationToken(plan), fixtureEditPlanBinding(plan, "seq-562"));
     const script = await scriptFor(tools.apply_edit_plan, { plan, confirmation_token: confirmationToken(plan) });
-    const { sandbox } = issue562Host({ displaceTargetTail: true });
+    const { sandbox } = issue562Host({ displacePreRazoredTail: true });
     const result = runScript(script, sandbox);
     expect(result).toMatchObject({ success: false, data: {
       timelineChanged: true, outcome: "committed_unverified", verified: false,
@@ -499,7 +703,7 @@ describe("issue #562 — insert_from_source honors sync lock", () => {
     const { sandbox, seq, source: item } = issue562Host({ insertNoop: true });
     const beforeV3 = rangesOf(seq.videoTracks[2]);
     const result = runHelper(sandbox, seq, item, 8);
-    expect(result.ok).toBe(false);
+    expect(result).toMatchObject({ ok: false, changed: true });
     expect(result.error).toMatch(/razored|partially changed/i);
     expect(rangesOf(seq.videoTracks[2])).not.toEqual(beforeV3);
   });

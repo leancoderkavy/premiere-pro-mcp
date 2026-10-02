@@ -62,6 +62,16 @@ describe("capability profiles", () => {
     expect(capabilityForTool("trim_clip")).toBe("edit");
   });
 
+  it("requires filesystem authority before an export-extension lookup can inspect a local preset", async () => {
+    expect(capabilitiesForToolInvocation("get_export_file_extension", { preset_path: "/tmp/preset.epr" }))
+      .toEqual(["inspect", "filesystem"]);
+    const handler = vi.fn(async () => "ok");
+    const guarded = guardToolHandler("get_export_file_extension", handler, resolveCapabilities("inspect"), () => "preset-op");
+    await expect(guarded({ preset_path: "/tmp/preset.epr" })).rejects.toMatchObject({ code: "CAPABILITY_DENIED", capability: "filesystem" });
+    expect(handler).not.toHaveBeenCalled();
+    expect(isToolPermitted("get_export_file_extension", resolveCapabilities("inspect"))).toBe(false);
+  });
+
   it("enforces inspect and edit profiles instead of only guarding unsafe tools", async () => {
     const handler = vi.fn(async () => "ok");
     await expect(
