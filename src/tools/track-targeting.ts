@@ -29,6 +29,51 @@ export function premiereLevelToDb(level: number): number | null {
 }
 
 /**
+ * ES3 lookup of a clip parameter. The component is matched by its match name
+ * (the same in every host language) or its English name; the property by its
+ * English name. Then a write helper that reads the value back, because
+ * setValue() returns true even when Premiere clamps the value (live 25.2.3:
+ * Opacity 150 stores 100, Level 2.0 stores 1.0).
+ */
+function clipParamScript(componentMatch: string, componentName: string, propertyName: string): string {
+  return `
+          function __clipParam(clip) {
+            for (var ci = 0; ci < clip.components.numItems; ci++) {
+              var component = clip.components[ci];
+              var match = "";
+              try { match = String(component.matchName || ""); } catch (eMatch) {}
+              if (match.indexOf("${componentMatch}") !== 0 && String(component.displayName) !== "${componentName}" && !("${componentMatch}" === "Internal Volume" && String(component.displayName) === "Volumen")) continue;
+              for (var pi = 0; pi < component.properties.numItems; pi++) {
+                var property = component.properties[pi];
+                if ("${componentMatch}" === "Internal Volume") {
+                  if (String(property.displayName) === "Level" || String(property.displayName) === "Nivel") return property;
+                } else if (__videoIntrinsicPropertyMatches(property, "${propertyName}")) return property;
+              }
+            }
+            return null;
+          }
+          function __setParamVerified(prop, value, tolerance) {
+            var before = null;
+            try { before = prop.getValue(); } catch (eBefore) {}
+            try { prop.setValue(value, true); } catch (eWrite) {
+              return { read: null, readable: false, changed: null, ok: false };
+            }
+            var read = null;
+            try { read = prop.getValue(); } catch (eRead) {}
+            var readable = typeof read === "number" && isFinite(read);
+            return { read: readable ? read : null, readable: readable, changed: readable && typeof before === "number" && isFinite(before) ? Math.abs(read - before) > tolerance : null, ok: readable && Math.abs(read - value) <= tolerance };
+          }`;
+}
+
+/** Refuse dB values Premiere's Level cannot hold instead of clamping them. */
+function volumeDbError(name: string, db: unknown): string | null {
+  if (typeof db !== "number" || !Number.isFinite(db) || db > PREMIERE_MAX_LEVEL_DB) {
+    return `${name} must be a finite value at or below +${PREMIERE_MAX_LEVEL_DB} dB (Premiere's maximum clip level).`;
+  }
+  return null;
+}
+
+/**
  * ES3 helper that reads isTargeted() for every track in a collection.
  * states[i] is true/false, or null when the host threw while reading it.
  */
@@ -278,6 +323,7 @@ export function getTrackTargetingTools(bridgeOptions: BridgeOptions) {
         track_index: number;
         name: string;
       }) => {
+        if (!Number.isSafeInteger(args.track_index) || args.track_index < 0) return { success: false, error: "track_index must be a non-negative integer." };
         const script = buildToolScript(`
           var seq = app.project.activeSequence;
           if (!seq) return __error("No active sequence");
@@ -288,8 +334,11 @@ export function getTrackTargetingTools(bridgeOptions: BridgeOptions) {
           var track = tracks[${args.track_index}];
           var oldName = track.name;
           track.name = "${escapeForExtendScript(args.name)}";
+          if (String(track.name) !== "${escapeForExtendScript(args.name)}") {
+            return __error("Premiere kept the track name " + track.name + " instead of the requested name.");
+          }
 
-          return __result({ oldName: oldName, newName: track.name, trackType: "${args.track_type}", trackIndex: ${args.track_index} });
+          return __result({ oldName: oldName, newName: track.name, trackType: "${args.track_type}", trackIndex: ${args.track_index}, verified: true });
         `);
         return sendCommand(script, bridgeOptions);
       },
@@ -549,10 +598,23 @@ export function getTrackTargetingTools(bridgeOptions: BridgeOptions) {
           var item = __findProjectItem("${escapeForExtendScript(args.item_id)}");
           if (!item) return __error("Item not found");
 
-          ${clearIn ? `item.clearInPoint();` : ""}
-          ${clearOut ? `item.clearOutPoint();` : ""}
+          // A cleared In reads 0 and a cleared Out reads the full media
+          // length (live 25.2.3), so the Out can only grow.
+          function __markSeconds(time) { return time && typeof time.seconds === "number" && isFinite(time.seconds) ? time.seconds : NaN; }
+          var outBefore = __markSeconds(item.getOutPoint(4));
+          var inAfter = NaN, outAfter = NaN;
+          try {
+            ${clearIn ? `item.clearInPoint();` : ""}
+            ${clearOut ? `item.clearOutPoint();` : ""}
+            inAfter = __markSeconds(item.getInPoint(4));
+            outAfter = __markSeconds(item.getOutPoint(4));
+          } catch (markError) {
+            return __error("Mark clearing was attempted but the result could not be read. Inspect the marks before retrying.", { outcome: "committed_unverified", verified: false, marksChanged: null });
+          }
+          ${clearIn ? `if (!(Math.abs(inAfter) < 0.0005)) return __error("Premiere kept the In point at " + inAfter + "s after clearing it.");` : ""}
+          ${clearOut ? `if (!(outAfter >= outBefore - 0.0005)) return __error("Premiere moved the Out point from " + outBefore + "s to " + outAfter + "s instead of clearing it.");` : ""}
 
-          return __result({ item: item.name, clearedIn: ${clearIn}, clearedOut: ${clearOut} });
+          ${clearOut ? `return __error("Out point clearing was attempted, but its stored value does not independently prove the full media duration. Inspect the marks before retrying.", { item: item.name, clearedIn: ${clearIn}, clearedOut: false, inSeconds: inAfter, outSeconds: outAfter, outcome: "committed_unverified", verified: false, marksChanged: null });` : `return __result({ item: item.name, clearedIn: ${clearIn}, clearedOut: false, inSeconds: inAfter, outSeconds: outAfter, verified: true });`}
         `);
         return sendCommand(script, bridgeOptions);
       },
@@ -853,29 +915,20 @@ export function getTrackTargetingTools(bridgeOptions: BridgeOptions) {
         required: ["node_id", "degrees"],
       },
       handler: async (args: { node_id: string; degrees: number }) => {
+        if (typeof args.degrees !== "number" || !Number.isFinite(args.degrees)) return { success: false, error: "degrees must be a finite number." };
         const script = buildToolScript(`
           var result = __findClip("${escapeForExtendScript(args.node_id)}");
           if (!result) return __error("Clip not found");
+          ${clipParamScript("AE.ADBE Motion", "Motion", "Rotation")}
 
           var clip = result.clip;
-          var set = false;
-          for (var i = 0; i < clip.components.numItems; i++) {
-            if (clip.components[i].matchName === "AE.ADBE Motion" || clip.components[i].displayName === "Motion") {
-              for (var p = 0; p < clip.components[i].properties.numItems; p++) {
-                if (__videoIntrinsicPropertyMatches(clip.components[i].properties[p], "Rotation")) {
-                  var rotationProp = clip.components[i].properties[p];
-                  rotationProp.setValue(${args.degrees}, true);
-                  var rotationReadback = Number(rotationProp.getValue());
-                  if (!isFinite(rotationReadback) || Math.abs(rotationReadback - ${args.degrees}) > 0.0001) return __error("Premiere did not apply the requested rotation; read back " + rotationReadback + ".");
-                  set = true;
-                  break;
-                }
-              }
-              break;
-            }
+          var prop = __clipParam(clip);
+          if (!prop) return __error("This clip has no Motion > Rotation property; nothing was changed.");
+          var write = __setParamVerified(prop, ${args.degrees}, 0.001);
+          if (!write.ok) {
+            return __jsonStringify({ success: false, error: "Premiere stored Rotation " + write.read + " instead of ${args.degrees}.", data: { degrees: write.read, requestedDegrees: ${args.degrees}, timelineChanged: write.changed, outcome: "committed_unverified", verified: false } });
           }
-          if (!set) return __error("Could not set rotation");
-          return __result({ degrees: ${args.degrees}, clip: clip.name, verified: true });
+          return __result({ degrees: write.read, clip: clip.name, verified: true });
         `);
         return sendCommand(script, bridgeOptions);
       },
@@ -953,29 +1006,23 @@ export function getTrackTargetingTools(bridgeOptions: BridgeOptions) {
         required: ["node_id", "opacity"],
       },
       handler: async (args: { node_id: string; opacity: number }) => {
+        // Premiere clamps silently (live 25.2.3: 150 stores 100, -10 stores 0).
+        if (typeof args.opacity !== "number" || !Number.isFinite(args.opacity) || args.opacity < 0 || args.opacity > 100) {
+          return { success: false, error: "opacity must be a number from 0 to 100." };
+        }
         const script = buildToolScript(`
           var result = __findClip("${escapeForExtendScript(args.node_id)}");
           if (!result) return __error("Clip not found");
+          ${clipParamScript("AE.ADBE Opacity", "Opacity", "Opacity")}
 
           var clip = result.clip;
-          var set = false;
-          for (var i = 0; i < clip.components.numItems; i++) {
-            if (clip.components[i].matchName === "AE.ADBE Opacity" || clip.components[i].displayName === "Opacity") {
-              for (var p = 0; p < clip.components[i].properties.numItems; p++) {
-                if (__videoIntrinsicPropertyMatches(clip.components[i].properties[p], "Opacity")) {
-                  var opacityProp = clip.components[i].properties[p];
-                  opacityProp.setValue(${args.opacity}, true);
-                  var opacityReadback = Number(opacityProp.getValue());
-                  if (!isFinite(opacityReadback) || Math.abs(opacityReadback - ${args.opacity}) > 0.0001) return __error("Premiere did not apply the requested opacity; read back " + opacityReadback + ".");
-                  set = true;
-                  break;
-                }
-              }
-              break;
-            }
+          var prop = __clipParam(clip);
+          if (!prop) return __error("This clip has no Opacity property; nothing was changed.");
+          var write = __setParamVerified(prop, ${args.opacity}, 0.001);
+          if (!write.ok) {
+            return __jsonStringify({ success: false, error: "Premiere stored Opacity " + write.read + " instead of ${args.opacity}.", data: { opacity: write.read, requestedOpacity: ${args.opacity}, timelineChanged: write.changed, outcome: "committed_unverified", verified: false } });
           }
-          if (!set) return __error("Could not set opacity");
-          return __result({ opacity: ${args.opacity}, clip: clip.name, verified: true });
+          return __result({ opacity: write.read, clip: clip.name, verified: true });
         `);
         return sendCommand(script, bridgeOptions);
       },
@@ -1124,6 +1171,12 @@ export function getTrackTargetingTools(bridgeOptions: BridgeOptions) {
         volume_db: number;
         clip_indices?: number[];
       }) => {
+        const invalid = volumeDbError("volume_db", args.volume_db);
+        if (invalid) return { success: false, error: invalid };
+        if (!Number.isSafeInteger(args.track_index) || args.track_index < 0) return { success: false, error: "track_index must be a non-negative integer." };
+        if (args.clip_indices !== undefined && (!Array.isArray(args.clip_indices) || args.clip_indices.some((index) => !Number.isSafeInteger(index) || index < 0))) {
+          return { success: false, error: "clip_indices must be non-negative integers." };
+        }
         const level = dbToPremiereLevel(args.volume_db);
         const only = Array.isArray(args.clip_indices)
           ? JSON.stringify(args.clip_indices)
@@ -1133,38 +1186,42 @@ export function getTrackTargetingTools(bridgeOptions: BridgeOptions) {
           if (!seq) return __error("No active sequence");
           if (${args.track_index} >= seq.audioTracks.numTracks)
             return __error("Track index out of range");
+          ${clipParamScript("Internal Volume", "Volume", "Level")}
 
           var track = seq.audioTracks[${args.track_index}];
           var only = ${only};
           var wanted = {};
-          if (only) { for (var w = 0; w < only.length; w++) wanted[only[w]] = true; }
+          if (only) {
+            for (var w = 0; w < only.length; w++) {
+              if (only[w] >= track.clips.numItems) return __error("Clip index " + only[w] + " is out of range: the track has " + track.clips.numItems + " clip(s). Nothing was changed.");
+              wanted[only[w]] = true;
+            }
+          }
 
-          var applied = 0, skipped = 0;
+          var applied = 0, skipped = 0, mismatched = [];
           for (var c = 0; c < track.clips.numItems; c++) {
             if (only && !wanted[c]) continue;
-            var clip = track.clips[c], set = false;
-            for (var i = 0; i < clip.components.numItems; i++) {
-              var __cmB = String(clip.components[i].matchName || "");
-              if (clip.components[i].displayName !== "Volume" && clip.components[i].displayName !== "Volumen" && __cmB.indexOf("Internal Volume") !== 0) continue;
-              for (var p = 0; p < clip.components[i].properties.numItems; p++) {
-                var __pn2 = String(clip.components[i].properties[p].displayName);
-                  if (__pn2 === "Level" || __pn2 === "Nivel") {
-                  clip.components[i].properties[p].setValue(${level}, true);
-                  set = true;
-                  break;
-                }
-              }
-              break;
-            }
-            if (set) applied++; else skipped++;
+            var clip = track.clips[c];
+            var prop = __clipParam(clip);
+            if (!prop) { skipped++; continue; }
+            var write = __setParamVerified(prop, ${level}, ${level} * 0.0001 + 1e-9);
+            if (write.ok) applied++; else mismatched.push({ clipIndex: c, clip: clip.name, level: write.read });
           }
-          return __result({
+          var data = {
             trackIndex: ${args.track_index},
             volumeDb: ${args.volume_db},
             level: ${level},
             applied: applied,
-            skipped: skipped
-          });
+            skipped: skipped,
+            mismatched: mismatched,
+            verified: mismatched.length === 0
+          };
+          if (mismatched.length) {
+            data.timelineChanged = applied > 0 ? true : null;
+            data.outcome = "committed_unverified";
+            return __jsonStringify({ success: false, error: mismatched.length + " clip(s) did not read back the requested level.", data: data });
+          }
+          return __result(data);
         `);
         return sendCommand(script, bridgeOptions);
       },
@@ -1281,6 +1338,7 @@ export function getTrackTargetingTools(bridgeOptions: BridgeOptions) {
 
           var track = tracks[${args.track_index}];
           var renamed = 0;
+          var failed = [];
           var num = ${startNum};
           var pattern = "${escapeForExtendScript(args.pattern)}";
 
@@ -1303,15 +1361,16 @@ export function getTrackTargetingTools(bridgeOptions: BridgeOptions) {
             var paddedSequenceNumber = sequenceNumber;
             while (paddedSequenceNumber.length < 2) paddedSequenceNumber = "0" + paddedSequenceNumber;
             var newName = pattern.split("{n}").join(sequenceNumber).split("##").join(paddedSequenceNumber).split("{name}").join(clip.name);
-            try {
-              var qeClip = targets[t].qeClip;
-              qeClip.setName(newName);
-              renamed++;
-            } catch(e) {}
+            try { targets[t].qeClip.setName(newName); } catch(e) {}
+            if (String(clip.name) === newName) renamed++;
+            else failed.push({ clip: clip.name, wanted: newName });
             num++;
           }
 
-          return __result({ renamed: renamed, pattern: pattern });
+          if (failed.length) {
+            return __jsonStringify({ success: false, error: failed.length + " clip(s) did not take the new name.", data: { renamed: renamed, failed: failed, pattern: pattern, timelineChanged: renamed > 0 } });
+          }
+          return __result({ renamed: renamed, pattern: pattern, verified: true });
         `);
         return sendCommand(script, bridgeOptions);
       },
@@ -1423,14 +1482,21 @@ export function getTrackTargetingTools(bridgeOptions: BridgeOptions) {
           collect(seq.videoTracks);
           collect(seq.audioTracks);
 
+          if (!toRemove.length) return __error("No clips are selected; nothing was removed.");
+          var ids = [];
+          for (var n = 0; n < toRemove.length; n++) ids.push(String(toRemove[n].nodeId));
           for (var i = 0; i < toRemove.length; i++) {
-            try {
-              toRemove[i].remove(${args.ripple ? "true" : "false"}, true);
-              removed++;
-            } catch(e) {}
+            try { toRemove[i].remove(${args.ripple ? "true" : "false"}, true); } catch(e) {}
+          }
+          var remaining = [];
+          for (var r = 0; r < ids.length; r++) {
+            if (__findClip(ids[r])) remaining.push(ids[r]); else removed++;
+          }
+          if (remaining.length) {
+            return __jsonStringify({ success: false, error: remaining.length + " selected clip(s) are still on the timeline.", data: { removed: removed, remainingNodeIds: remaining, timelineChanged: removed > 0 } });
           }
 
-          return __result({ removed: removed, ripple: ${args.ripple ? "true" : "false"} });
+          return __result({ removed: removed, ripple: ${args.ripple ? "true" : "false"}, verified: true });
         `);
         return sendCommand(script, bridgeOptions);
       },
@@ -1771,18 +1837,27 @@ export function getTrackTargetingTools(bridgeOptions: BridgeOptions) {
           if (!targetBin || targetBin.type !== 2) return __error("Target bin not found: ${escapeForExtendScript(args.target_bin)}");
 
           var ids = ${idsJson};
-          var moved = 0;
+          var items = [];
+          var missing = [];
           for (var i = 0; i < ids.length; i++) {
-            var item = __findProjectItem(ids[i]);
-            if (item) {
-              try {
-                item.moveBin(targetBin);
-                moved++;
-              } catch(e) {}
-            }
+            var found = __findProjectItem(ids[i]);
+            if (found) items.push(found); else missing.push(ids[i]);
+          }
+          if (missing.length) return __error("Project item(s) not found: " + missing.join(", ") + ". Nothing was moved.");
+
+          // treePath names the containing bin (live 25.2.3: "\\Project.prproj\\Bin\\item").
+          var moved = 0;
+          var notMoved = [];
+          for (var m = 0; m < items.length; m++) {
+            try { items[m].moveBin(targetBin); } catch(e) {}
+            if (String(items[m].treePath) === String(targetBin.treePath) + "\\\\" + items[m].name) moved++;
+            else notMoved.push(items[m].name);
+          }
+          if (notMoved.length) {
+            return __jsonStringify({ success: false, error: notMoved.length + " item(s) did not move to " + targetBin.name + ": " + notMoved.join(", ") + ".", data: { moved: moved, notMoved: notMoved, total: ids.length } });
           }
 
-          return __result({ moved: moved, total: ids.length, targetBin: targetBin.name });
+          return __result({ moved: moved, total: ids.length, targetBin: targetBin.name, verified: true });
         `);
         return sendCommand(script, bridgeOptions);
       },
@@ -1862,26 +1937,21 @@ export function getTrackTargetingTools(bridgeOptions: BridgeOptions) {
         required: ["node_id", "uniform"],
       },
       handler: async (args: { node_id: string; uniform: boolean }) => {
+        if (typeof args.uniform !== "boolean") return { success: false, error: "uniform must be true or false." };
         const script = buildToolScript(`
           var result = __findClip("${escapeForExtendScript(args.node_id)}");
           if (!result) return __error("Clip not found");
+          ${clipParamScript("AE.ADBE Motion", "Motion", "Uniform Scale")}
 
           var clip = result.clip;
-          var set = false;
-          for (var i = 0; i < clip.components.numItems; i++) {
-            if (clip.components[i].displayName === "Motion") {
-              for (var p = 0; p < clip.components[i].properties.numItems; p++) {
-                if (clip.components[i].properties[p].displayName === "Uniform Scale") {
-                  clip.components[i].properties[p].setValue(${args.uniform}, true);
-                  set = true;
-                  break;
-                }
-              }
-              break;
-            }
-          }
-          if (!set) return __error("Uniform Scale property not found");
-          return __result({ clip: clip.name, uniformScale: ${args.uniform} });
+          var prop = __clipParam(clip);
+          if (!prop) return __error("Uniform Scale property not found");
+          prop.setValue(${args.uniform}, true);
+          var read = null;
+          try { read = prop.getValue(); } catch (eRead) {}
+          if (typeof read !== "boolean") return __error("Uniform Scale was written but the stored checkbox state is unreadable. Inspect before retrying.", { outcome: "committed_unverified", verified: false, timelineChanged: null });
+          if (read !== ${args.uniform}) return __error("Premiere kept Uniform Scale at " + read + ".");
+          return __result({ clip: clip.name, uniformScale: read, verified: true });
         `);
         return sendCommand(script, bridgeOptions);
       },

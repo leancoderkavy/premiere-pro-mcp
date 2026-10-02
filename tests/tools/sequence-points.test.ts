@@ -27,7 +27,7 @@ beforeEach(() => vi.clearAllMocks());
  * Mirrors Premiere Pro 25.2: in/out and work-area getters return seconds as
  * strings, -400000 means unset, and scripted work-area writes are ignored.
  */
-function sequence(options: { inSeconds?: number; outSeconds?: number; workAreaWritable?: boolean } = {}) {
+function sequence(options: { inSeconds?: number; outSeconds?: number; workAreaWritable?: boolean; ignorePlayer?: boolean } = {}) {
   let inPoint = options.inSeconds ?? -400000;
   let outPoint = options.outSeconds ?? -400000;
   let workIn = 0;
@@ -43,14 +43,16 @@ function sequence(options: { inSeconds?: number; outSeconds?: number; workAreaWr
     getInPoint: () => String(inPoint),
     getOutPoint: () => String(outPoint),
     setInPoint: (seconds: number) => { inPoint = seconds; },
-    setOutPoint: (seconds: number) => { outPoint = seconds; },
+    // Live 25.2.3: an out-point before the in-point clears the in-point.
+    setOutPoint: (seconds: number) => { outPoint = seconds; if (inPoint > -399999 && seconds < inPoint) inPoint = -400000; },
     getWorkAreaInPoint: () => String(workIn),
     getWorkAreaOutPoint: () => String(workOut),
     setWorkAreaInPoint: (seconds: number) => { if (options.workAreaWritable) workIn = Number(seconds); },
     setWorkAreaOutPoint: (seconds: number) => { if (options.workAreaWritable) workOut = Number(seconds); },
     isWorkAreaEnabled: () => false,
     getPlayerPosition: () => ({ ticks: String(player) }),
-    setPlayerPosition: (ticks: string) => { player = parseFloat(ticks); },
+    // Live 25.2.3 ignores a negative position.
+    setPlayerPosition: (ticks: string) => { if (!options.ignorePlayer && parseFloat(ticks) >= 0) player = parseFloat(ticks); },
   };
 }
 
@@ -139,5 +141,63 @@ describe("navigate_playhead to sequence points", () => {
     host(sequence({ inSeconds: 5 }));
     const result = await editor.navigate_playhead.handler({ action: "in_point" } as never) as Result;
     expect(result.data?.toSeconds).toBe(5);
+  });
+});
+
+describe("set_playhead_position reads the position back", () => {
+  it("moves the playhead and reports the observed position", async () => {
+    const seq = sequence();
+    host(seq);
+    await expect(playhead.set_playhead_position.handler({ time_seconds: 30 })).resolves.toMatchObject({ success: true, data: { positionSeconds: 30, verified: true } });
+    expect(parseFloat(seq.getPlayerPosition().ticks) / TICKS).toBe(30);
+  });
+
+  it("clamps a time past the sequence end and verifies its stored position", async () => {
+    const seq = sequence();
+    host(seq);
+    await expect(playhead.set_playhead_position.handler({ time_seconds: 10000 })).resolves.toMatchObject({ success: true, data: { positionSeconds: 121.6, clamped: true, verified: true } });
+    expect(Number(seq.getPlayerPosition().ticks) / TICKS).toBe(121.6);
+  });
+
+  it("refuses a negative time before building a script", async () => {
+    await expect(playhead.set_playhead_position.handler({ time_seconds: -5 })).resolves.toMatchObject({ success: false, error: expect.stringContaining("non-negative") });
+    expect(mockedSendCommand).not.toHaveBeenCalled();
+  });
+
+  it("reports where the playhead is when Premiere ignores the move", async () => {
+    host(sequence({ ignorePlayer: true }));
+    await expect(playhead.set_playhead_position.handler({ time_seconds: 12 })).resolves.toMatchObject({ success: true, data: { positionSeconds: 0, verified: false, outcome: "committed_unverified" } });
+  });
+});
+
+describe("set_sequence_in_out_points", () => {
+  it("sets and verifies the points", async () => {
+    host(sequence());
+    await expect(playhead.set_sequence_in_out_points.handler({ in_seconds: 25, out_seconds: 29 })).resolves.toMatchObject({ success: true, data: { inSeconds: 25, outSeconds: 29, verified: true } });
+  });
+
+  it("refuses an out-point before the in-point, keeping the existing points", async () => {
+    const seq = sequence({ inSeconds: 5, outSeconds: 9 });
+    host(seq);
+    await expect(playhead.set_sequence_in_out_points.handler({ in_seconds: 29, out_seconds: 25 })).resolves.toMatchObject({ success: false, error: "out_seconds must be after in_seconds. Nothing was changed." });
+    expect([seq.getInPoint(), seq.getOutPoint()]).toEqual(["5", "9"]);
+  });
+
+  it("refuses negative points and an out-point past the sequence end", async () => {
+    const seq = sequence({ inSeconds: 5, outSeconds: 9 });
+    host(seq);
+    await expect(playhead.set_sequence_in_out_points.handler({ in_seconds: -3, out_seconds: 4 })).resolves.toMatchObject({ success: false, error: expect.stringContaining("non-negative") });
+    await expect(playhead.set_sequence_in_out_points.handler({ in_seconds: 5, out_seconds: 10000 })).resolves.toMatchObject({ success: false, error: expect.stringContaining("sequence end") });
+    expect([seq.getInPoint(), seq.getOutPoint()]).toEqual(["5", "9"]);
+  });
+
+  it("reports the points Premiere left when a write does not stick", async () => {
+    const seq = sequence({ inSeconds: 5, outSeconds: 9 });
+    seq.setInPoint = () => {};
+    host(seq);
+    await expect(playhead.set_sequence_in_out_points.handler({ in_seconds: 6, out_seconds: 8 })).resolves.toMatchObject({
+      success: false,
+      data: { inSeconds: 5, outSeconds: 8, previousInSeconds: 5, previousOutSeconds: 9 },
+    });
   });
 });

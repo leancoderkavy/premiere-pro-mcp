@@ -563,7 +563,8 @@ export function getProjectTools(bridgeOptions: BridgeOptions) {
           if (bin.type !== 2) return __error("Item is not a bin");
           var oldName = bin.name;
           bin.renameBin("${escapeForExtendScript(args.new_name)}");
-          return __result({ renamed: true, oldName: oldName, newName: "${escapeForExtendScript(args.new_name)}" });
+          if (String(bin.name) !== "${escapeForExtendScript(args.new_name)}") return __error("Premiere kept the bin name " + bin.name + ".");
+          return __result({ renamed: true, verified: true, oldName: oldName, newName: bin.name });
         `);
         return sendCommand(script, bridgeOptions);
       },
@@ -1172,7 +1173,10 @@ export function getProjectTools(bridgeOptions: BridgeOptions) {
       handler: async (args: { luminance: number }) => {
         const script = buildToolScript(`
           app.project.setGraphicsWhiteLuminance(${args.luminance});
-          return __result({ set: true, graphicsWhiteLuminance: ${args.luminance} });
+          var observed = null;
+          try { observed = app.project.getGraphicsWhiteLuminance(); } catch (eRead) {}
+          if (observed !== ${args.luminance}) return __error("Premiere's graphics white luminance reads " + observed + " instead of ${args.luminance}.");
+          return __result({ set: true, verified: true, graphicsWhiteLuminance: observed });
         `);
         return sendCommand(script, bridgeOptions);
       },
