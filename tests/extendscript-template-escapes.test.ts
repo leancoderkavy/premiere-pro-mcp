@@ -4,7 +4,7 @@ import { fileURLToPath } from "node:url";
 import * as ts from "typescript";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
-const singleBackslashRegexEscape = /(?<!\\)(?:\\\\)*\\([sdwSDWbB.()\[\]{}\/+*?|^-]|\$(?!\{))/g;
+const singleBackslashRegexEscape = /(?<!\\)(?:\\\\)*\\([sdwSDWbBxuc.()\[\]{}\/+*?|^-]|\$(?!\{))/g;
 
 type EscapeFinding = { file: string; line: number; escape: string };
 
@@ -55,7 +55,10 @@ function sourceFiles(): string[] {
   const bridge = readdirSync(join(root, "src", "bridge"))
     .filter((name) => name.endsWith(".ts"))
     .map((name) => join(root, "src", "bridge", name));
-  return [...tools, ...bridge];
+  const resources = readdirSync(join(root, "src", "resources"))
+    .filter((name) => name.endsWith(".ts"))
+    .map((name) => join(root, "src", "resources", name));
+  return [...tools, ...bridge, ...resources];
 }
 
 describe("ExtendScript template regex escapes", () => {
@@ -76,11 +79,18 @@ describe("ExtendScript template regex escapes", () => {
   it("catches backspace-producing word boundaries and other lost regex escapes", () => {
     expect(findLostRegexEscapes("fixture.ts", 'const SCRIPT = `if (/\\bword/.test(x)) {}`;')).toHaveLength(1);
     expect(findLostRegexEscapes("fixture.ts", 'const SCRIPT = `var bad = /\\(/;`;')).toHaveLength(1);
+    expect(findLostRegexEscapes("fixture.ts", 'const SCRIPT = `var bad = /\\x2e/;`;')).toHaveLength(1);
+    expect(findLostRegexEscapes("fixture.ts", 'const SCRIPT = `var bad = /\\u002e/;`;')).toHaveLength(1);
+    expect(findLostRegexEscapes("fixture.ts", 'const SCRIPT = `var bad = /\\cA/;`;')).toHaveLength(1);
   });
 
   it("allows escaped template interpolation but catches an escaped dollar before text", () => {
     expect(findLostRegexEscapes("fixture.ts", 'const OK = `\\${literal}`;')).toHaveLength(0);
     expect(findLostRegexEscapes("fixture.ts", 'const BAD = `\\$x`;')).toHaveLength(1);
+  });
+
+  it("includes the live-context resource that builds ExtendScript", () => {
+    expect(sourceFiles()).toContain(join(root, "src", "resources", "live-context-resources.ts"));
   });
 
   it("finds no regex escapes that a TypeScript template would consume", () => {
