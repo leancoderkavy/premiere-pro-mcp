@@ -3,8 +3,10 @@ import { runInNewContext } from "node:vm";
 import { getHelpersSource } from "../../src/bridge/script-builder.js";
 import type { BridgeOptions } from "../../src/bridge/file-bridge.js";
 
+vi.mock("../../src/tools/media-evidence.js", () => ({ probeMediaDurationTicks: vi.fn().mockResolvedValue(3600 * 254016000000) }));
+
 vi.mock("../../src/bridge/file-bridge.js", () => ({
-  sendCommand: vi.fn().mockResolvedValue({ success: true, data: {} }),
+  sendCommand: vi.fn().mockResolvedValue({ success: true, data: { mediaPath: "/fixture/source.mp4" } }),
   sendRawCommand: vi.fn().mockResolvedValue({ success: true, data: {} }),
   getTempDir: vi.fn().mockReturnValue("/tmp/test"),
   cleanupTempDir: vi.fn(),
@@ -66,11 +68,11 @@ function host(options: { audioRejectsInPoint?: boolean; audioLocked?: boolean } 
     audioTracks: { numTracks: 1, 0: { clips: collection(audio), isLocked: () => options.audioLocked === true } },
   };
   const context = {
-    app: { project: { activeSequence: seq, sequences: { numSequences: 1, 0: seq } } },
+    app: { project: { documentID: "project", activeSequence: seq, sequences: { numSequences: 1, 0: seq } } },
     Time: function Time(this: { ticks: string }) { this.ticks = "0"; },
   };
   mockedSendCommand.mockImplementation(async (script: string) => JSON.parse(String(runInNewContext(`${getHelpersSource()}\n${script}`, context))));
-  return { video, audio };
+  return { video, audio, context };
 }
 
 describe("trim edits keep linked audio in sync", () => {
@@ -354,3 +356,101 @@ describe("a partner Premiere moves while the main clip is written", () => {
   });
 });
 
+
+describe("physical source bounds fail before timeline mutation", () => {
+  it.each([39, 10.02])("rejects source out %s beyond physical duration without frame tolerance and leaves linked clips unchanged", async newOut => {
+    const { video, audio } = host();
+    const before = [...video, ...audio].map(clip => clip.snapshot());
+    const timeline = getTimelineTools(bridgeOptions, { probeMediaDurationSeconds: async () => 10 });
+    const advanced = getAdvancedTools(bridgeOptions, { probeMediaDurationSeconds: async () => 10 });
+    await expect(timeline.trim_clip.handler({ node_id: "v0", new_out_seconds: newOut })).resolves.toMatchObject({ success: false, error: expect.stringContaining("real media duration") });
+    await expect(advanced.slip_edit.handler({ node_id: "v0", offset_seconds: 2 })).resolves.toMatchObject({ success: false, error: expect.stringContaining("real media duration") });
+    expect([...video, ...audio].map(clip => clip.snapshot())).toEqual(before);
+  });
+
+  it("refuses different linked media before applying either clip", async () => {
+    const { video, audio } = host();
+    audio[1].projectItem.getMediaPath = () => "/unprobed/audio.wav";
+    const before = [...video, ...audio].map(clip => clip.snapshot());
+    const advanced = getAdvancedTools(bridgeOptions, { probeMediaDurationSeconds: async () => 3600 });
+    await expect(advanced.slip_edit.handler({ node_id: "v1", offset_seconds: 1 })).resolves.toMatchObject({ success: false, error: expect.stringContaining("without the preflight duration evidence") });
+    expect([...video, ...audio].map(clip => clip.snapshot())).toEqual(before);
+  });
+
+  it.each([null, NaN, Infinity, -1, 0])("refuses unknown or invalid physical duration %s without sending a mutation", async duration => {
+    host();
+    const advanced = getAdvancedTools(bridgeOptions, { probeMediaDurationSeconds: async () => duration });
+    await expect(advanced.slip_edit.handler({ node_id: "v1", offset_seconds: 1 })).resolves.toMatchObject({ success: false, error: expect.stringContaining("Physical media duration") });
+    expect(mockedSendCommand).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("source end tick precision", () => {
+  it.each([40000, 0.5 / TICKS])("refuses duration %s outside the exact positive tick range before mutation", async duration => {
+    const { video, audio } = host();
+    const before = [...video, ...audio].map(clip => clip.snapshot());
+    const advanced = getAdvancedTools(bridgeOptions, { probeMediaDurationSeconds: async () => duration });
+    const timeline = getTimelineTools(bridgeOptions, { probeMediaDurationSeconds: async () => duration });
+    await expect(advanced.slip_edit.handler({ node_id: "v0", offset_seconds: 1 })).resolves.toMatchObject({ success: false, error: expect.stringContaining("exact tick range") });
+    await expect(timeline.trim_clip.handler({ node_id: "v0", new_out_seconds: 9 })).resolves.toMatchObject({ success: false, error: expect.stringContaining("exact tick range") });
+    expect([...video, ...audio].map(clip => clip.snapshot())).toEqual(before);
+    expect(mockedSendCommand).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe("exact probed tick caps", () => {
+  it("allows the exact source end and rejects one tick beyond it before changing either linked clip", async () => {
+    const { video, audio } = host();
+    const cap = 61 * TICKS;
+    const timeline = getTimelineTools(bridgeOptions, { probeMediaDurationTicks: async () => cap });
+    await expect(timeline.trim_clip.handler({ node_id: "v2", new_out_seconds: cap / TICKS })).resolves.toMatchObject({ success: true });
+    const before = [...video, ...audio].map(clip => clip.snapshot());
+    const beforeTicks = [...video, ...audio].map(clip => [clip.inPoint.ticks, clip.outPoint.ticks, clip.start.ticks, clip.end.ticks]);
+    await expect(timeline.trim_clip.handler({ node_id: "v2", new_out_seconds: (cap + 1) / TICKS })).resolves.toMatchObject({ success: false, error: expect.stringContaining("real media duration") });
+    expect([...video, ...audio].map(clip => clip.snapshot())).toEqual(before);
+    expect([...video, ...audio].map(clip => [clip.inPoint.ticks, clip.outPoint.ticks, clip.start.ticks, clip.end.ticks])).toEqual(beforeTicks);
+  });
+
+  it("slip accepts the exact tick cap without subtracting a global epsilon", async () => {
+    const { video, audio } = host();
+    const advanced = getAdvancedTools(bridgeOptions, { probeMediaDurationTicks: async () => 31 * TICKS });
+    await expect(advanced.slip_edit.handler({ node_id: "v1", offset_seconds: 1 })).resolves.toMatchObject({ success: true });
+    expect(video[1].snapshot()).toEqual([10, 30, 11, 31]);
+    expect(audio[1].snapshot()).toEqual([10, 30, 11, 31]);
+  });
+});
+
+
+describe("physical evidence stays bound to project and sequence context", () => {
+  it.each(["trim", "slip"])("%s refuses a copied project reusing clip and sequence IDs", async (operation) => {
+    const { video, audio, context } = host();
+    const before = [...video, ...audio].map((clip) => clip.snapshot());
+    const writes = [...video, ...audio].flatMap((clip) => [vi.spyOn(clip, "inPoint", "set"), vi.spyOn(clip, "outPoint", "set"), vi.spyOn(clip, "start", "set"), vi.spyOn(clip, "end", "set")]);
+    const probe = async () => {
+      context.app.project = { ...context.app.project, documentID: "copied-project" };
+      return 3600 * TICKS;
+    };
+    const result = operation === "trim"
+      ? await getTimelineTools(bridgeOptions, { probeMediaDurationTicks: probe }).trim_clip.handler({ node_id: "v1", new_out_seconds: 29 })
+      : await getAdvancedTools(bridgeOptions, { probeMediaDurationTicks: probe }).slip_edit.handler({ node_id: "v1", offset_seconds: 1 });
+    expect(result).toMatchObject({ success: false, error: expect.stringContaining("changed after media preflight") });
+    expect([...video, ...audio].map((clip) => clip.snapshot())).toEqual(before);
+    for (const write of writes) expect(write).not.toHaveBeenCalled();
+  });
+
+  it.each(["trim", "slip"])("%s refuses an active sequence switch reusing clip IDs and media", async (operation) => {
+    const { video, audio, context } = host();
+    const before = [...video, ...audio].map((clip) => clip.snapshot());
+    const writes = [...video, ...audio].flatMap((clip) => [vi.spyOn(clip, "inPoint", "set"), vi.spyOn(clip, "outPoint", "set"), vi.spyOn(clip, "start", "set"), vi.spyOn(clip, "end", "set")]);
+    const probe = async () => {
+      context.app.project.activeSequence = { ...context.app.project.activeSequence, sequenceID: "copied-sequence" };
+      return 3600 * TICKS;
+    };
+    const result = operation === "trim"
+      ? await getTimelineTools(bridgeOptions, { probeMediaDurationTicks: probe }).trim_clip.handler({ node_id: "v1", new_out_seconds: 29 })
+      : await getAdvancedTools(bridgeOptions, { probeMediaDurationTicks: probe }).slip_edit.handler({ node_id: "v1", offset_seconds: 1 });
+    expect(result).toMatchObject({ success: false, error: expect.stringContaining("changed after media preflight") });
+    expect([...video, ...audio].map((clip) => clip.snapshot())).toEqual(before);
+    for (const write of writes) expect(write).not.toHaveBeenCalled();
+  });
+});

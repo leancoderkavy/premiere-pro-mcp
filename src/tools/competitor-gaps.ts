@@ -83,7 +83,7 @@ export function getCompetitorGapTools(
 
     add_to_timeline_batch: {
       description:
-        "Insert up to 32 project items in one validated CEP request. All items and target tracks are preflighted before the first insertion; every requested placement is read back, and the tool fails closed if Premiere cannot verify one.",
+        "Insert up to 32 project items with insert-edit semantics in one validated CEP request. Experimental QE sync-lock handling may ripple or split earlier placements. The tool preflights items and tracks, then verifies every placement again in the final sequence; changed placements return committed_unverified with their observed final positions.",
       parameters: {
         type: "object" as const,
         additionalProperties: false,
@@ -143,8 +143,8 @@ export function getCompetitorGapTools(
           clips.push({ item_id: item.item_id, track_index: trackIndex, start_seconds: startSeconds, audio_track_index: audioTrackIndex });
         }
 
-        // Ascending positions preserve the requested locations under insert-edit
-        // semantics: a later insert does not shift an earlier one.
+        // Ascending positions reduce shifting on the same track, but inserts on
+        // other sync-locked tracks can still split or move earlier placements.
         clips.sort((left, right) => left.start_seconds - right.start_seconds);
         const emittedClips = clips.map((item) => `
           {
@@ -160,6 +160,13 @@ export function getCompetitorGapTools(
           var placements = [${emittedClips}];
           var i;
 
+          function expectedStream(item, mediaType) {
+            try {
+              var span = parseFloat(item.getOutPoint(mediaType).ticks) - parseFloat(item.getInPoint(mediaType).ticks);
+              return !isFinite(span) || span !== 0;
+            } catch (eStreamSpan) { return true; }
+          }
+
           // Preflight every mutable dependency before the first insert. This
           // avoids the common partial batch caused by a typo late in the list.
           for (i = 0; i < placements.length; i++) {
@@ -174,9 +181,77 @@ export function getCompetitorGapTools(
             if (!preflight.item) {
               return __error("Project item not found for placement " + i + ": " + preflight.itemId + ". No placement was attempted.");
             }
+            preflight.expectedVideo = expectedStream(preflight.item, 1);
+            preflight.expectedAudio = expectedStream(preflight.item, 2);
           }
 
           var results = [];
+          var placementSnapshots = [];
+          function readFinalPlacements() {
+            var finalPlacements = [];
+            var driftedPlacements = [];
+            for (var ri = 0; ri < placementSnapshots.length; ri++) {
+              var snapshot = placementSnapshots[ri];
+              var finalComponents = [];
+              var allVerified = snapshot.components.length > 0;
+              var verifiedVideo = false;
+              var verifiedAudio = false;
+              for (var rj = 0; rj < snapshot.components.length; rj++) {
+                var component = snapshot.components[rj];
+                var finalTrack = null;
+                var finalClip = null;
+                try {
+                  finalTrack = component.type === "video" ? seq.videoTracks[component.trackIndex] : seq.audioTracks[component.trackIndex];
+                  for (var rk = 0; finalTrack && rk < finalTrack.clips.numItems; rk++) {
+                    if (String(finalTrack.clips[rk].nodeId) === component.nodeId) { finalClip = finalTrack.clips[rk]; break; }
+                  }
+                } catch (eFinalTrack) {
+                  finalClip = null;
+                }
+                var finalStartTicks = NaN;
+                var finalEndTicks = NaN;
+                try { if (finalClip) { finalStartTicks = parseFloat(finalClip.start.ticks); finalEndTicks = parseFloat(finalClip.end.ticks); } } catch (eFinalSpan) {}
+                var finalSourceId = "";
+                try { finalSourceId = String(finalClip.projectItem.nodeId); } catch (eFinalSource) {}
+                var componentVerified = !!finalClip && finalSourceId === component.itemId &&
+                  isFinite(component.startTicks) && isFinite(component.endTicks) &&
+                  isFinite(finalStartTicks) && isFinite(finalEndTicks) &&
+                  Math.abs(finalStartTicks - component.startTicks) <= __TICK_MATCH_TOL &&
+                  Math.abs(finalEndTicks - component.endTicks) <= __TICK_MATCH_TOL;
+                if (!componentVerified) allVerified = false;
+                else if (component.type === "video") verifiedVideo = true;
+                else if (component.type === "audio") verifiedAudio = true;
+                finalComponents.push({
+                  type: component.type, trackIndex: component.trackIndex, nodeId: component.nodeId,
+                  finalStartSeconds: finalClip && isFinite(finalStartTicks) ? __ticksToSeconds(finalStartTicks) : null,
+                  finalEndSeconds: finalClip && isFinite(finalEndTicks) ? __ticksToSeconds(finalEndTicks) : null,
+                  finalVerified: componentVerified
+                });
+              }
+              var missingStreams = [];
+              if (snapshot.expectedVideo && !verifiedVideo) missingStreams.push("video");
+              if (snapshot.expectedAudio && !verifiedAudio) missingStreams.push("audio");
+              if (missingStreams.length) allVerified = false;
+              var primary = finalComponents[0] || null;
+              var finalPlacement = {
+                item: results[ri].item, itemId: results[ri].itemId,
+                videoTrackIndex: results[ri].videoTrackIndex,
+                audioTrackIndex: results[ri].audioTrackIndex,
+                verifiedTrackType: results[ri].verifiedTrackType,
+                requestedStartSeconds: results[ri].requestedStartSeconds,
+                actualStartSeconds: results[ri].actualStartSeconds,
+                finalStartSeconds: primary ? primary.finalStartSeconds : null,
+                finalEndSeconds: primary ? primary.finalEndSeconds : null,
+                insertedTrackItems: results[ri].insertedTrackItems,
+                finalComponents: finalComponents,
+                missingStreams: missingStreams,
+                finalVerified: allVerified
+              };
+              finalPlacements.push(finalPlacement);
+              if (!allVerified) driftedPlacements.push({ index: ri, item: results[ri].item, finalStartSeconds: finalPlacement.finalStartSeconds, finalEndSeconds: finalPlacement.finalEndSeconds, finalComponents: finalComponents });
+            }
+            return { placements: finalPlacements, driftedPlacements: driftedPlacements };
+          }
           for (i = 0; i < placements.length; i++) {
             var placement = placements[i];
             var videoTrack = seq.videoTracks[placement.trackIndex];
@@ -192,20 +267,32 @@ export function getCompetitorGapTools(
             try {
               var outcome = __insertClipHonoringSyncLock(seq, placement.item, __secondsToTicks(placement.startSeconds).toString(), placement.trackIndex, placement.audioTrackIndex, "sync_locked");
               if (!outcome.ok) {
-                return __error("Batch insertion " + i + " failed after " + results.length + " verified placement(s): " + outcome.error,
-                  outcome.changed || results.length ? { timelineChanged: true, outcome: "committed_unverified", verified: false, displacedTails: outcome.displacedTails, failedPlacement: i, completedPlacements: results } : null);
+                var partialFailure = readFinalPlacements();
+                return __error("Batch insertion " + i + " failed after " + results.length + " completed placement(s): " + outcome.error,
+                  outcome.changed || results.length ? { timelineChanged: true, outcome: "committed_unverified", verified: false, displacedTails: outcome.displacedTails, failedPlacement: i, completedPlacements: partialFailure.placements, driftedPlacements: partialFailure.driftedPlacements } : null);
               }
             } catch (insertError) {
-              return __error("Batch insertion " + i + " threw after " + results.length + " verified placement(s): " + insertError.toString());
+              var partialThrow = readFinalPlacements();
+              return __error("Batch insertion " + i + " threw after " + results.length + " completed placement(s): " + insertError.toString(),
+                { timelineChanged: true, outcome: "committed_unverified", verified: false, failedPlacement: i, completedPlacements: partialThrow.placements, driftedPlacements: partialThrow.driftedPlacements });
             }
 
             var matched = null;
+            var matchedType = null;
+            var insertedComponents = [];
+            var requestedTicks = parseFloat(__secondsToTicks(placement.startSeconds).toString());
+            var matchFrameTicks = parseFloat(seq.timebase);
+            if (!matchFrameTicks || isNaN(matchFrameTicks)) matchFrameTicks = TICKS_PER_SECOND / 24;
             var addedCount = 0;
             for (c = 0; c < videoTrack.clips.numItems; c++) {
               var videoClip = videoTrack.clips[c];
               if (!beforeVideoIds[videoClip.nodeId]) {
                 addedCount++;
-                if (videoClip.projectItem && videoClip.projectItem.nodeId === placement.item.nodeId) matched = videoClip;
+                if (videoClip.projectItem && videoClip.projectItem.nodeId === placement.item.nodeId &&
+                    Math.abs(parseFloat(videoClip.start.ticks) - requestedTicks) < matchFrameTicks) {
+                  insertedComponents.push({ nodeId: String(videoClip.nodeId), itemId: String(placement.item.nodeId), type: "video", trackIndex: placement.trackIndex, startTicks: parseFloat(videoClip.start.ticks), endTicks: parseFloat(videoClip.end.ticks) });
+                  if (!matched) { matched = videoClip; matchedType = "video"; }
+                }
               }
             }
             if (audioTrack) {
@@ -213,30 +300,47 @@ export function getCompetitorGapTools(
                 var audioClip = audioTrack.clips[c];
                 if (!beforeAudioIds[audioClip.nodeId]) {
                   addedCount++;
-                  if (!matched && audioClip.projectItem && audioClip.projectItem.nodeId === placement.item.nodeId) matched = audioClip;
+                  if (audioClip.projectItem && audioClip.projectItem.nodeId === placement.item.nodeId &&
+                      Math.abs(parseFloat(audioClip.start.ticks) - requestedTicks) < matchFrameTicks) {
+                    insertedComponents.push({ nodeId: String(audioClip.nodeId), itemId: String(placement.item.nodeId), type: "audio", trackIndex: placement.audioTrackIndex, startTicks: parseFloat(audioClip.start.ticks), endTicks: parseFloat(audioClip.end.ticks) });
+                    if (!matched) { matched = audioClip; matchedType = "audio"; }
+                  }
                 }
               }
             }
             if (!matched) {
-              return __error("Batch insertion " + i + " did not produce the requested project item after " + results.length + " verified placement(s). The batch is not reported as verified.");
+              var missingPartial = readFinalPlacements();
+              return __error("Batch insertion " + i + " did not produce the requested project item after " + results.length + " completed placement(s). The batch is not reported as verified.",
+                { timelineChanged: true, outcome: "committed_unverified", verified: false, failedPlacement: i, completedPlacements: missingPartial.placements, driftedPlacements: missingPartial.driftedPlacements });
             }
             var frameTicks = parseFloat(seq.timebase);
             if (!frameTicks || isNaN(frameTicks)) frameTicks = TICKS_PER_SECOND / 24;
             var tolerance = __ticksToSeconds(frameTicks);
             var actualStart = __ticksToSeconds(matched.start.ticks);
             if (Math.abs(actualStart - placement.startSeconds) > tolerance) {
-              return __error("Batch insertion " + i + " landed at " + actualStart + "s instead of " + placement.startSeconds + "s after " + results.length + " verified placement(s). The batch is not reported as verified.");
+              var wrongStartPartial = readFinalPlacements();
+              return __error("Batch insertion " + i + " landed at " + actualStart + "s instead of " + placement.startSeconds + "s after " + results.length + " completed placement(s). The batch is not reported as verified.",
+                { timelineChanged: true, outcome: "committed_unverified", verified: false, failedPlacement: i, completedPlacements: wrongStartPartial.placements, driftedPlacements: wrongStartPartial.driftedPlacements });
             }
+            placementSnapshots.push({ components: insertedComponents, expectedVideo: placement.expectedVideo, expectedAudio: placement.expectedAudio });
             results.push({
               item: placement.item.name,
               itemId: placement.item.nodeId,
               videoTrackIndex: placement.trackIndex,
+              audioTrackIndex: placement.audioTrackIndex,
+              verifiedTrackType: matchedType,
               requestedStartSeconds: placement.startSeconds,
               actualStartSeconds: actualStart,
               insertedTrackItems: addedCount
             });
           }
-          return __result({ inserted: true, verified: true, placementCount: results.length, placements: results });
+
+          var finalReadback = readFinalPlacements();
+          if (finalReadback.driftedPlacements.length) {
+            return __error("Batch inserts changed " + finalReadback.driftedPlacements.length + " earlier placement(s) after their initial readback. The timeline changed; inspect the final sequence and use Undo if needed.",
+              { timelineChanged: true, outcome: "committed_unverified", verified: false, placementCount: results.length, placements: finalReadback.placements, driftedPlacements: finalReadback.driftedPlacements });
+          }
+          return __result({ inserted: true, verified: true, placementCount: results.length, placements: finalReadback.placements });
         `);
         return sendCommand(script, bridgeOptions);
       },

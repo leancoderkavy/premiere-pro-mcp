@@ -1,7 +1,8 @@
 import { buildToolScript, escapeForExtendScript } from "../bridge/script-builder.js";
 import { sendCommand, BridgeOptions } from "../bridge/file-bridge.js";
 import { existsSync, readdirSync, statSync } from "node:fs";
-import { join } from "node:path";
+import { basename, dirname, extname, join, resolve, win32 } from "node:path";
+import { describePresetFolder } from "./encoder-formats.js";
 
 /**
  * Find a default .sqpreset on this machine for create_sequence without preset_path.
@@ -99,6 +100,13 @@ export function getSequenceTools(bridgeOptions: BridgeOptions) {
               "creating a sequence without a preset opens a modal dialog in Premiere 26+, which would freeze scripting.",
           };
         }
+        // QE's newSequence silently ignores forward-slash preset paths on Windows
+        // (#714, same root cause as #691): resolve to native separators, and give
+        // a missing file its own precise error instead of the bare QE failure.
+        const resolvedPresetPath = resolve(presetPath);
+        if (!existsSync(resolvedPresetPath)) {
+          return { success: false as const, error: `Preset file not found: ${resolvedPresetPath}` };
+        }
 
         const script = buildToolScript(`
           var beforeSequenceIds = {};
@@ -106,7 +114,7 @@ export function getSequenceTools(bridgeOptions: BridgeOptions) {
             beforeSequenceIds[String(app.project.sequences[i].sequenceID)] = true;
           }
           app.enableQE();
-          qe.project.newSequence("${escapeForExtendScript(args.name)}", "${escapeForExtendScript(presetPath)}");
+          qe.project.newSequence("${escapeForExtendScript(args.name)}", "${escapeForExtendScript(resolvedPresetPath)}");
           var seq = app.project.activeSequence;
           if (!seq || seq.name !== "${escapeForExtendScript(args.name)}") {
             return __error("Failed to create sequence from preset: ${escapeForExtendScript(presetPath)}");
@@ -701,16 +709,25 @@ export function getSequenceTools(bridgeOptions: BridgeOptions) {
       },
       handler: async (args: { name: string; preset_path: string }) => {
         // createNewSequenceFromPreset is not a real API (missing in 26.x) — use QE.
+        // QE's newSequence silently ignores forward-slash preset paths on Windows
+        // (#691): the call does not throw but the previous sequence stays active,
+        // so the name check below would report a bare "Failed to create" error.
+        // resolve() normalizes to native separators; a missing file gets its own
+        // precise error instead of leaking into the generic one.
+        const presetPath = resolve(args.preset_path);
+        if (!existsSync(presetPath)) {
+          return { success: false as const, error: `Preset file not found: ${presetPath}` };
+        }
         const script = buildToolScript(`
           var beforeSequenceIds = {};
           for (var i = 0; i < app.project.sequences.numSequences; i++) {
             beforeSequenceIds[String(app.project.sequences[i].sequenceID)] = true;
           }
           app.enableQE();
-          qe.project.newSequence("${escapeForExtendScript(args.name)}", "${escapeForExtendScript(args.preset_path)}");
+          qe.project.newSequence("${escapeForExtendScript(args.name)}", "${escapeForExtendScript(presetPath)}");
           var seq = app.project.activeSequence;
           if (!seq || seq.name !== "${escapeForExtendScript(args.name)}") {
-            return __error("Failed to create sequence from preset: ${escapeForExtendScript(args.preset_path)}");
+            return __error("Failed to create sequence from preset: ${escapeForExtendScript(presetPath)}");
           }
           var sequenceId = String(seq.sequenceID);
           if (beforeSequenceIds[sequenceId]) {
@@ -720,7 +737,7 @@ export function getSequenceTools(bridgeOptions: BridgeOptions) {
           if (!created || String(created.sequenceID) !== sequenceId) {
             return __error("Premiere did not add the new sequence to the project collection; no creation success is reported.");
           }
-          return __result({ created: true, verified: true, name: created.name, id: sequenceId, presetUsed: "${escapeForExtendScript(args.preset_path)}" });
+          return __result({ created: true, verified: true, name: created.name, id: sequenceId, presetUsed: "${escapeForExtendScript(presetPath)}" });
         `);
         return sendCommand(script, bridgeOptions);
       },
@@ -818,7 +835,15 @@ export function getSequenceTools(bridgeOptions: BridgeOptions) {
     },
 
     get_export_file_extension: {
-      description: "Get the file extension that would be used when exporting the active sequence with a given preset",
+      description: "Get the export file extension from Premiere. If Premiere returns none, infer it only for an existing .epr in a recognized Adobe Media Encoder format folder; that fallback is marked unconfirmed and should be checked before delivery.",
+      operationalCapability: {
+        backend: "local + CEP/ExtendScript" as const,
+        backends: ["local" as const, "cep" as const, "extendscript" as const],
+        authority: "filesystem" as const,
+        verificationBoundary: "local_and_host_response" as const,
+        hostVerificationRequired: true,
+        notes: ["Requires inspect and filesystem authority. The preset-folder fallback reads the local .epr file's existence and size; it does not verify an export."],
+      },
       parameters: {
         type: "object" as const,
         properties: {
@@ -836,12 +861,35 @@ export function getSequenceTools(bridgeOptions: BridgeOptions) {
           var ext = null;
           try { ext = seq.getExportFileExtension("${escapeForExtendScript(args.preset_path)}"); }
           catch (extensionError) { return __error("Premiere could not determine the export extension for this preset: " + extensionError.toString()); }
-          if (ext === null || ext === undefined || !String(ext).replace(/\\s/g, "")) {
-            return __error("Premiere did not provide an export extension for this preset on this host. Inspect the preset or choose an output path explicitly before exporting.");
-          }
-          return __result({ sequenceName: seq.name, presetPath: "${escapeForExtendScript(args.preset_path)}", extension: String(ext) });
+          return __result({ sequenceName: seq.name, presetPath: "${escapeForExtendScript(args.preset_path)}", extension: ext === null || ext === undefined ? null : String(ext) });
         `);
-        return sendCommand(script, bridgeOptions);
+        const result = await sendCommand(script, bridgeOptions);
+        if (!result.success) return result;
+        const data = result.data as { sequenceName?: string; presetPath?: string; extension?: string | null };
+        const hostExtension = typeof data?.extension === "string" ? data.extension.trim() : "";
+        if (hostExtension) {
+          return { success: true, data: { ...data, extensionSource: "premiere", hostConfirmed: true } };
+        }
+
+        const presetPath = args.preset_path;
+        const pathApi = presetPath.includes("\\") ? win32 : { basename, dirname, extname };
+        let usablePreset = false;
+        try {
+          const presetStats = statSync(presetPath);
+          usablePreset = pathApi.extname(presetPath).toLowerCase() === ".epr" && presetStats.isFile() && presetStats.size > 0;
+        } catch { /* unavailable */ }
+        const format = usablePreset ? describePresetFolder(pathApi.basename(pathApi.dirname(presetPath))) : null;
+        if (!format?.extension) {
+          return { success: false, error: "Premiere did not provide an export extension for this preset on this host, and its .epr format folder cannot establish one. Inspect the preset or choose an output path explicitly before exporting." };
+        }
+        return { success: true, data: {
+          ...data,
+          extension: `.${format.extension}`,
+          extensionSource: "preset_folder",
+          hostConfirmed: false,
+          formatCode: format.formatCode,
+          warning: "Premiere did not report an extension. This is inferred from the Adobe Media Encoder preset folder, not confirmed by an export. Check the output path before delivery.",
+        } };
       },
     },
   };

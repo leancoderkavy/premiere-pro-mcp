@@ -1204,7 +1204,7 @@ export function getExportTools(bridgeOptions: BridgeOptions) {
 
     add_to_render_queue: {
       description:
-        "Request an Adobe Media Encoder render-queue handoff for the active sequence. Requires a saved project and an .epr preset_path. Same as Project presets are refused before Premiere is contacted because AME encodes from a scratch project copy.",
+        "Request an Adobe Media Encoder render-queue handoff for the active sequence. Requires a saved project and an .epr preset_path. Same as Project presets are refused before Premiere is contacted because AME encodes from a scratch project copy. Optional start_batch requests processing of every ready AME queue job, including unrelated jobs.",
       parameters: {
         type: "object" as const,
         properties: {
@@ -1216,10 +1216,14 @@ export function getExportTools(bridgeOptions: BridgeOptions) {
             type: "string",
             description: "Required path to an AME preset file (.epr). Omitting this raises an Illegal Parameter error on current Premiere hosts.",
           },
+          start_batch: {
+            type: "boolean",
+            description: "Opt in to start the entire ready Adobe Media Encoder queue after this handoff, including unrelated jobs. Default false (enqueue only). A successful call does not verify that any render started or completed.",
+          },
         },
         required: ["output_path", "preset_path"],
       },
-      handler: async (args: { output_path: string; preset_path?: string }) => {
+      handler: async (args: { output_path: string; preset_path?: string; start_batch?: boolean }) => {
         if (typeof args.preset_path !== "string" || !args.preset_path.trim()) {
           return {
             success: false,
@@ -1264,6 +1268,16 @@ export function getExportTools(bridgeOptions: BridgeOptions) {
           );
           if (!jobId || String(jobId) === "0") return __error("Adobe Media Encoder did not queue the sequence export.");
           
+          var batchStartOutcome = "not_requested";
+          if (${args.start_batch === true ? "true" : "false"}) {
+            try {
+              var startBatchAccepted = app.encoder.startBatch();
+              batchStartOutcome = (startBatchAccepted === true || startBatchAccepted === 1) ? "requested" : "rejected";
+            } catch (startBatchError) {
+              batchStartOutcome = "unavailable: " + (startBatchError && startBatchError.message ? startBatchError.message : startBatchError);
+            }
+          }
+          
           return __result({
             accepted: true,
             verified: false,
@@ -1271,7 +1285,10 @@ export function getExportTools(bridgeOptions: BridgeOptions) {
             jobId: String(jobId),
             outputPath: outputPath,
             savedProjectPath: savedProjectPath,
-            verificationScope: "Premiere returned an AME job ID. Queue presence and output-file creation are not verified by this tool."
+            queueBatchStart: batchStartOutcome,
+            verificationScope: batchStartOutcome === "requested"
+              ? "Premiere returned an AME job ID and accepted a request to start all ready AME jobs. Batch startup and output-file creation are not verified by this tool."
+              : "Premiere returned an AME job ID. Batch startup and output-file creation are not verified by this tool."
           });
         `);
         return sendCommand(script, bridgeOptions);

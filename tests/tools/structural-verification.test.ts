@@ -1,8 +1,10 @@
 import { runInNewContext } from "node:vm";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+vi.mock("../../src/tools/media-evidence.js", () => ({ probeMediaDurationTicks: vi.fn().mockResolvedValue(3600 * 254016000000) }));
+
 vi.mock("../../src/bridge/file-bridge.js", () => ({
-  sendCommand: vi.fn().mockResolvedValue({ success: true, data: {} }),
+  sendCommand: vi.fn().mockResolvedValue({ success: true, data: { projectId: "project", sequenceId: "seq", mediaPath: "/fixture/source.mp4" } }),
 }));
 
 import { sendCommand } from "../../src/bridge/file-bridge.js";
@@ -40,7 +42,7 @@ describe("trim_clip verification", () => {
 
   it("compares the read-back in point against the requested value", async () => {
     await timeline.trim_clip.handler({ node_id: "abc", new_in_seconds: 2 });
-    const script = mockedSendCommand.mock.calls[0][0];
+    const script = mockedSendCommand.mock.calls.at(-1)[0];
     expect(script).toContain("var actualIn = after.inPoint");
     expect(script).toContain("Math.abs(actualIn - requestedIn) > tolerance");
     expect(script).toContain("var __trimDeltaTicks = __secondsToTicks(2) - parseFloat(target.clip.inPoint.ticks)");
@@ -50,14 +52,14 @@ describe("trim_clip verification", () => {
 
   it("compares the read-back out point against the requested value", async () => {
     await timeline.trim_clip.handler({ node_id: "abc", new_out_seconds: 8 });
-    const script = mockedSendCommand.mock.calls[0][0];
+    const script = mockedSendCommand.mock.calls.at(-1)[0];
     expect(script).toContain("Math.abs(actualOut - requestedOut) > tolerance");
     expect(script).toContain("var __trimDeltaTicks = __secondsToTicks(8) - parseFloat(target.clip.outPoint.ticks)");
   });
 
   it("only writes the edge that was actually requested", async () => {
     await timeline.trim_clip.handler({ node_id: "abc", new_in_seconds: 2 });
-    const script = mockedSendCommand.mock.calls[0][0];
+    const script = mockedSendCommand.mock.calls.at(-1)[0];
     // Head trim: the start edge and the in point move together; the tail is untouched.
     expect(script).toContain("var trimInTicks = parseFloat(originalInPointTicks) + __trimDeltaTicks;");
     expect(script).toContain("clip.start = trimStart;");
@@ -68,7 +70,7 @@ describe("trim_clip verification", () => {
 
   it("derives its tolerance from the sequence timebase so frame snapping is not a failure", async () => {
     await timeline.trim_clip.handler({ node_id: "abc", new_in_seconds: 2 });
-    const script = mockedSendCommand.mock.calls[0][0];
+    const script = mockedSendCommand.mock.calls.at(-1)[0];
     expect(script).toContain("seq.timebase");
     expect(script).toContain("TICKS_PER_SECOND / 24");
     expect(script).toContain("var tolerance = __ticksToSeconds(frameTicks)");
@@ -86,7 +88,7 @@ describe("trim_clip verification", () => {
 
   it("verifies the visible timeline geometry as well as source metadata", async () => {
     await timeline.trim_clip.handler({ node_id: "abc", new_out_seconds: 8 });
-    const script = mockedSendCommand.mock.calls[0][0];
+    const script = mockedSendCommand.mock.calls.at(-1)[0];
     expect(script).toContain("var afterResult = __findClip(nodeId)");
     expect(script).toContain("return __runLinkedEdit(target, \"abc\", true, __editOne, \"trim\")");
     expect(script).toContain("var expectedStart = before.start");
@@ -98,7 +100,7 @@ describe("trim_clip verification", () => {
 
   it("fails closed for retimed clips and unhandled out-of-range keyframes", async () => {
     await timeline.trim_clip.handler({ node_id: "abc", new_out_seconds: 8 });
-    const script = mockedSendCommand.mock.calls[0][0];
+    const script = mockedSendCommand.mock.calls.at(-1)[0];
     expect(script).toContain("does not support retimed or otherwise non-1x clips");
     expect(script).toContain("__findOutOfRangeKeyframes");
     expect(script).toContain("keyframe_policy: preserve");
@@ -111,7 +113,7 @@ describe("trim_clip verification", () => {
       new_out_seconds: 8,
       keyframe_policy: "preserve",
     });
-    const script = mockedSendCommand.mock.calls[0][0];
+    const script = mockedSendCommand.mock.calls.at(-1)[0];
     expect(script).toContain('keyframePolicy: "preserve"');
     expect(script).toContain("keyframesVerified:");
   });
@@ -133,7 +135,7 @@ describe("split_clip verification", () => {
 
   it("requires a clip to span the requested cut before attempting QE razor", async () => {
     await timeline.split_clip.handler({ time_seconds: 4, track_type: "audio" });
-    const script = mockedSendCommand.mock.calls[0][0];
+    const script = mockedSendCommand.mock.calls.at(-1)[0];
     expect(script).toContain("function __eligibleClips");
     expect(script).toContain("if (!eligibleBefore.length)");
     expect(script).toContain("no razor was attempted");
@@ -141,7 +143,7 @@ describe("split_clip verification", () => {
 
   it("verifies each left and right segment, not only a count increase", async () => {
     await timeline.split_clip.handler({ time_seconds: 4 });
-    const script = mockedSendCommand.mock.calls[0][0];
+    const script = mockedSendCommand.mock.calls.at(-1)[0];
     expect(script).toContain("var expectedClipCount = clipCountBefore + eligibleBefore.length");
     expect(script).toContain("function __hasSegment");
     expect(script).toContain("left segment");
@@ -153,7 +155,7 @@ describe("split_clip verification", () => {
 describe("move_clip verification", () => {
   it("re-finds the clip after the move rather than trusting a stale reference", async () => {
     await timeline.move_clip.handler({ node_id: "abc", new_start_seconds: 5 });
-    const script = mockedSendCommand.mock.calls[0][0];
+    const script = mockedSendCommand.mock.calls.at(-1)[0];
     expect(script).toContain('var after = __findClip("abc")');
     expect(script).toContain("Math.abs(actualStart - 5) > tolerance");
     expect(script).toContain("verified: true");
@@ -165,7 +167,7 @@ describe("move_clip verification", () => {
       new_start_seconds: 5,
       new_track_index: 99,
     });
-    const script = mockedSendCommand.mock.calls[0][0];
+    const script = mockedSendCommand.mock.calls.at(-1)[0];
     expect(script).toContain("is out of range");
     expect(script).toContain("targetTracks.numTracks");
   });
@@ -176,7 +178,7 @@ describe("move_clip verification", () => {
       new_start_seconds: 5,
       new_track_index: 1,
     });
-    const script = mockedSendCommand.mock.calls[0][0];
+    const script = mockedSendCommand.mock.calls.at(-1)[0];
     const trackMoveAt = script.indexOf("qeClip.moveToTrack");
     const startWriteAt = script.indexOf("__writeClipSpan(clip, newStartTicks, newEndTicks)");
     expect(trackMoveAt).toBeGreaterThan(-1);
@@ -190,7 +192,7 @@ describe("move_clip verification", () => {
 
   it("writes both timeline edges and verifies duration and source in/out (#550)", async () => {
     await timeline.move_clip.handler({ node_id: "abc", new_start_seconds: 5 });
-    const script = mockedSendCommand.mock.calls[0][0];
+    const script = mockedSendCommand.mock.calls.at(-1)[0];
     expect(script).not.toContain("clip.start = __secondsToTicks");
     expect(script).toContain("var newEndTicks = newStartTicks + spanTicks");
     expect(script).toContain("__writeClipSpan(clip, newStartTicks, newEndTicks)");
@@ -203,7 +205,7 @@ describe("move_clip verification", () => {
 
   it("does not rewrite the original range onto the new track after a failed combined move", async () => {
     await timeline.move_clip.handler({ node_id: "abc", new_start_seconds: 5, new_track_index: 1 });
-    const script = mockedSendCommand.mock.calls[0][0];
+    const script = mockedSendCommand.mock.calls.at(-1)[0];
     expect(script).not.toContain("__writeClipSpan(after.clip, originalStartTicks, originalEndTicks)");
     expect(script).toContain("its original range is not rewritten automatically");
     // moveToTrack may corrupt end on its own; the span is re-asserted first.
@@ -217,7 +219,7 @@ describe("move_clip verification", () => {
       new_start_seconds: 5,
       new_track_index: 1,
     });
-    const script = mockedSendCommand.mock.calls[0][0];
+    const script = mockedSendCommand.mock.calls.at(-1)[0];
     expect(script).toContain('String(cand.type) !== "Clip"');
     expect(script).not.toContain("getItemAt(result.clipIndex)");
   });
@@ -228,14 +230,14 @@ describe("move_clip verification", () => {
       new_start_seconds: 5,
       new_track_index: 1,
     });
-    const script = mockedSendCommand.mock.calls[0][0];
+    const script = mockedSendCommand.mock.calls.at(-1)[0];
     expect(script).toContain("after.trackIndex !== 1");
     expect(script).toContain("qeClip.moveToTrack(videoDelta, audioDelta, \"0\", false)");
   });
 
   it("does not emit any track-move code when no track change was requested", async () => {
     await timeline.move_clip.handler({ node_id: "abc", new_start_seconds: 5 });
-    const script = mockedSendCommand.mock.calls[0][0];
+    const script = mockedSendCommand.mock.calls.at(-1)[0];
     expect(script).not.toContain("moveToTrack");
     expect(script).not.toContain("after.trackIndex !==");
   });
@@ -244,14 +246,14 @@ describe("move_clip verification", () => {
 describe("razor_all_tracks verification", () => {
   it("counts tracks whose clip count actually changed, not razor attempts", async () => {
     await trackTargeting.razor_all_tracks.handler({ time_seconds: 7 });
-    const script = mockedSendCommand.mock.calls[0][0];
+    const script = mockedSendCommand.mock.calls.at(-1)[0];
     expect(script).toContain("domTrack.clips.numItems > before");
     expect(script).toContain("verified: true");
   });
 
   it("treats only tracks with a clip spanning the cut point as eligible", async () => {
     await trackTargeting.razor_all_tracks.handler({ time_seconds: 7 });
-    const script = mockedSendCommand.mock.calls[0][0];
+    const script = mockedSendCommand.mock.calls.at(-1)[0];
     expect(script).toContain("function __spansPoint");
     expect(script).toContain("if (v > s && v < e) return true");
     expect(script).toContain("if (wasEligible) eligible++");
@@ -259,7 +261,7 @@ describe("razor_all_tracks verification", () => {
 
   it("errors when any eligible track did not split", async () => {
     await trackTargeting.razor_all_tracks.handler({ time_seconds: 7 });
-    const script = mockedSendCommand.mock.calls[0][0];
+    const script = mockedSendCommand.mock.calls.at(-1)[0];
     expect(script).toContain("eligible > 0 && razored < eligible");
     expect(script).toContain("only partially applied");
     expect(script).toContain("no-op on some Premiere Pro 26.x");
@@ -267,7 +269,7 @@ describe("razor_all_tracks verification", () => {
 
   it("surfaces per-track razor exceptions rather than swallowing them", async () => {
     await trackTargeting.razor_all_tracks.handler({ time_seconds: 7 });
-    const script = mockedSendCommand.mock.calls[0][0];
+    const script = mockedSendCommand.mock.calls.at(-1)[0];
     expect(script).toContain("failures.push");
     expect(script).toContain("failures: failures");
   });
@@ -281,7 +283,7 @@ describe("move_clip_to_track verification", () => {
       node_id: "abc",
       target_track_index: 1,
     });
-    const script = mockedSendCommand.mock.calls[0][0];
+    const script = mockedSendCommand.mock.calls.at(-1)[0];
     expect(script).not.toContain("getItemAt(result.clipIndex)");
     expect(script).toContain('String(cand.type) !== "Clip"');
     expect(script).toContain("Math.abs(parseFloat(cand.start.ticks) - wantStart) < 1");
@@ -292,7 +294,7 @@ describe("move_clip_to_track verification", () => {
       node_id: "abc",
       target_track_index: 99,
     });
-    const script = mockedSendCommand.mock.calls[0][0];
+    const script = mockedSendCommand.mock.calls.at(-1)[0];
     expect(script).toContain("is out of range");
     expect(script).toContain("targetTracks.numTracks");
   });
@@ -302,7 +304,7 @@ describe("move_clip_to_track verification", () => {
       node_id: "abc",
       target_track_index: 1,
     });
-    const script = mockedSendCommand.mock.calls[0][0];
+    const script = mockedSendCommand.mock.calls.at(-1)[0];
     expect(script).toContain("alreadyOnTrack: true");
   });
 
@@ -311,7 +313,7 @@ describe("move_clip_to_track verification", () => {
       node_id: "abc",
       target_track_index: 1,
     });
-    const script = mockedSendCommand.mock.calls[0][0];
+    const script = mockedSendCommand.mock.calls.at(-1)[0];
     expect(script).toContain('var after = __findClip("abc")');
     expect(script).toContain("after.trackIndex !== 1");
     expect(script).toContain("verified: true");
@@ -324,7 +326,7 @@ describe("move_clip_to_track verification", () => {
       node_id: "abc",
       target_track_index: 1,
     });
-    const script = mockedSendCommand.mock.calls[0][0];
+    const script = mockedSendCommand.mock.calls.at(-1)[0];
     expect(script).toContain("__writeClipSpan(after.clip, beforeMoveStartTicks, beforeMoveEndTicks)");
     expect(script).toContain("Premiere changed the clip duration during the track move");
     expect(script).toContain("Premiere changed the clip's source in/out points during the track move");
@@ -337,7 +339,7 @@ describe("move_clip_to_track verification", () => {
       node_id: "abc",
       target_track_index: 1,
     });
-    const script = mockedSendCommand.mock.calls[0][0];
+    const script = mockedSendCommand.mock.calls.at(-1)[0];
     expect(script).toContain("catch (moveErr)");
     expect(script).toContain("The clip was left untouched");
     expect(script).toContain("overwriteClip");
@@ -355,7 +357,7 @@ describe("track creation verification", () => {
 
   it("uses a bounded QE fallback only after a public add_track failure with no mutation", async () => {
     await tracks.add_track.handler({ track_type: "audio", count: 2 });
-    const script = mockedSendCommand.mock.calls[0][0];
+    const script = mockedSendCommand.mock.calls.at(-1)[0];
 
     expect(script).toContain('typeof seq.insertAudioTrackAt !== "function"');
     expect(script).toContain("afterPublic !== expected && afterPublic !== before");
@@ -372,7 +374,7 @@ describe("track creation verification", () => {
       audio_mono_tracks: 1,
       audio_51_tracks: 1,
     });
-    const script = mockedSendCommand.mock.calls[0][0];
+    const script = mockedSendCommand.mock.calls.at(-1)[0];
 
     expect(script).toContain("var beforeVideo = seq.videoTracks.numTracks");
     expect(script).toContain("var expectedAudio = beforeAudio + 4");
@@ -412,7 +414,7 @@ describe("overwrite_clip verification", () => {
       audio_track_index: 2,
       start_seconds: 5,
     });
-    const script = mockedSendCommand.mock.calls[0][0];
+    const script = mockedSendCommand.mock.calls.at(-1)[0];
     const videoCheck = script.indexOf("Video track index 1 is out of range");
     const audioCheck = script.indexOf("Audio track index 2 is out of range");
     const call = script.indexOf("seq.overwriteClip(item");
@@ -425,7 +427,7 @@ describe("overwrite_clip verification", () => {
 
   it("proves the requested source landed on a target track and errors on no new placement", async () => {
     await advanced.overwrite_clip.handler({ item_id: "source-1", start_seconds: 5 });
-    const script = mockedSendCommand.mock.calls[0][0];
+    const script = mockedSendCommand.mock.calls.at(-1)[0];
 
     expect(script).toContain("clip.projectItem ? String(clip.projectItem.nodeId)");
     expect(script).toContain("Math.abs(actualStartTicks - wantedStartTicks) <= frameTicks");

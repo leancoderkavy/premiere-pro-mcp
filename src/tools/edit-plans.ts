@@ -1,8 +1,9 @@
 import { createHash } from "node:crypto";
 import { BridgeOptions, sendCommand } from "../bridge/file-bridge.js";
+import { validateBridgeScriptSize } from "../bridge/script-size.js";
 import { buildToolScript, escapeForExtendScript } from "../bridge/script-builder.js";
 import { rippleDeleteScriptBody } from "./ripple-delete-script.js";
-import { createEditPlanTokenStore, EditPlanTokenStore } from "./edit-plan-token-store.js";
+import { createEditPlanTokenStore, EditPlanTokenStore, EditPlanHostBinding, validateEditPlanHostBinding } from "./edit-plan-token-store.js";
 import {
   AuditSink,
   CapabilityConfig,
@@ -93,33 +94,89 @@ function describe(plan: EditPlan) {
   }));
 }
 
-function buildApplyScript(plan: EditPlan): string {
-  // Removals go through __findClip and the ripple-delete script, which work on
-  // the active sequence, so a named target sequence is activated first.
+/** Resolve and snapshot every target without activating a sequence or editing the host. */
+function hostBindingScript(plan: EditPlan): string {
   const sequence = plan.sequence_id
-    ? `var seq = __findSequence("${escapeForExtendScript(plan.sequence_id)}"); if (!seq) return __error("Sequence not found");
-       if (!app.project.activeSequence || String(app.project.activeSequence.sequenceID) !== String(seq.sequenceID)) {
-         app.project.activeSequence = seq;
-         if (!app.project.activeSequence || String(app.project.activeSequence.sequenceID) !== String(seq.sequenceID)) return __error("Could not activate the plan's sequence; nothing was changed");
-       }`
+    ? `var seq = __findSequence("${escapeForExtendScript(plan.sequence_id)}"); if (!seq) return __error("Sequence not found");`
     : `var seq = app.project.activeSequence; if (!seq) return __error("No active sequence");`;
-  const validation: string[] = [];
-  const mutations: string[] = [];
-
-  const needsClipLookup = plan.operations.some((operation) => operation.type === "remove_clip");
-  const clipLookup = needsClipLookup ? `
-    function __planFindClip(sequence, nodeId) {
+  const checks = plan.operations.map((operation, index) => {
+    if (operation.type === "insert_clip") {
+      const video = operation.video_track_index ?? 0;
+      const audio = operation.audio_track_index ?? 0;
+      return `var item${index} = __findProjectItem("${escapeForExtendScript(operation.item_id)}"); if (!item${index}) return __error("Project item not found for operation ${index}");
+        if (!seq.videoTracks || ${video} >= seq.videoTracks.numTracks) return __error("video track not found for operation ${index}");
+        if (!seq.audioTracks || ${audio} >= seq.audioTracks.numTracks) return __error("audio track not found for operation ${index}");
+        targets.push({type:"insert_clip",targetId:__bindingIdentity(item${index}.nodeId),videoTrackIndex:${video},audioTrackIndex:${audio}});`;
+    }
+    return `var located${index} = __planLocateClip(seq, "${escapeForExtendScript(operation.node_id)}"); if (!located${index}) return __error("Clip not found for operation ${index}");
+      var removal${index} = __planClipBinding(located${index});
+      var validatedPartners${index} = [];
+      var boundRemoval${index} = {type:"remove_clip",targetId:removal${index}.targetId,sourceProjectItemId:removal${index}.sourceProjectItemId,trackType:removal${index}.trackType,trackIndex:removal${index}.trackIndex,startTicks:removal${index}.startTicks,endTicks:removal${index}.endTicks,inTicks:removal${index}.inTicks,outTicks:removal${index}.outTicks,linkedPartners: ${operation.ripple === true || operation.include_linked !== false ? `__planLinkedBindings(seq, located${index}, validatedPartners${index})` : "[]"}};
+      targets.push(boundRemoval${index});`;
+  });
+  return `${sequence}
+    if (!__isCurrentProjectSequence(seq)) return __error("Sequence is not in the current project");
+    function __bindingIdentity(value) {
+      if ((typeof value !== "string" && typeof value !== "number") || String(value).replace(/\\s/g, "") === "") throw new Error("Premiere did not expose stable target identities; preview cannot be bound safely");
+      return String(value);
+    }
+    function __planLocateClip(sequence, nodeId) {
       var groups = [sequence.videoTracks, sequence.audioTracks];
       for (var g = 0; g < groups.length; g++) {
+        if (!groups[g]) continue;
         for (var t = 0; t < groups[g].numTracks; t++) {
           for (var c = 0; c < groups[g][t].clips.numItems; c++) {
-            if (String(groups[g][t].clips[c].nodeId) === String(nodeId)) return groups[g][t].clips[c];
+            var clip = groups[g][t].clips[c];
+            if (String(clip.nodeId) === String(nodeId)) return {clip:clip,trackType:g === 0 ? "video" : "audio",trackIndex:t};
           }
         }
       }
       return null;
     }
-  ` : "";
+    function __planClipBinding(located) {
+      var clip = located.clip;
+      return {targetId:__bindingIdentity(clip.nodeId),sourceProjectItemId:__bindingIdentity(clip.projectItem && clip.projectItem.nodeId),trackType:located.trackType,trackIndex:located.trackIndex,startTicks:__bindingIdentity(clip.start && clip.start.ticks),endTicks:__bindingIdentity(clip.end && clip.end.ticks),inTicks:__bindingIdentity(clip.inPoint && clip.inPoint.ticks),outTicks:__bindingIdentity(clip.outPoint && clip.outPoint.ticks)};
+    }
+    function __planLinkedBindings(sequence, located, validatedPartners) {
+      if (typeof located.clip.getLinkedItems !== "function") throw new Error("Premiere cannot expose linked removal targets; preview cannot be bound safely");
+      var linked = null;
+      try { linked = located.clip.getLinkedItems(); }
+      catch (linkageError) { throw new Error("Linked removal targets could not be read; nothing was changed: " + linkageError.toString()); }
+      if (linked !== null && (!linked || typeof linked !== "object" || typeof linked.numItems !== "number" || linked.numItems < 0 || linked.numItems > 256 || Math.floor(linked.numItems) !== linked.numItems)) throw new Error("Linked removal targets cannot be enumerated safely");
+      var partners = [], seen = {};
+      for (var li = 0; linked && li < linked.numItems; li++) {
+        var id = __bindingIdentity(linked[li] && linked[li].nodeId);
+        if (id === String(located.clip.nodeId) || seen[id]) continue;
+        var partner = __planLocateClip(sequence, id);
+        if (!partner) throw new Error("A linked removal target is no longer in the inspected sequence");
+        // Match __linkedPartnerClips: same-track group members are not removed.
+        if (partner.trackType === located.trackType && partner.trackIndex === located.trackIndex) continue;
+        seen[id] = true;
+        validatedPartners.push(partner);
+        partners.push(__planClipBinding(partner));
+      }
+      partners.sort(function (left, right) { return left.targetId < right.targetId ? -1 : (left.targetId > right.targetId ? 1 : 0); });
+      return partners;
+    }
+    function __planFindClip(sequence, nodeId) { var located = __planLocateClip(sequence, nodeId); return located ? located.clip : null; }
+    var projectDocumentId = __bindingIdentity(app.project.documentID);
+    var sequenceId = __bindingIdentity(seq.sequenceID);
+    var targets = [];
+    ${checks.join("\n")}
+    var hostBinding = {version:1,projectDocumentId:projectDocumentId,sequenceId:sequenceId,targets:targets};`;
+}
+
+function buildPreviewScript(plan: EditPlan): string {
+  return buildToolScript(`${hostBindingScript(plan)}\nreturn __result({targetsValidated:true, hostBinding:hostBinding, applied:false});`);
+}
+
+function buildApplyScript(plan: EditPlan, binding: EditPlanHostBinding): string {
+  const activation = plan.sequence_id ? `
+    if (!app.project.activeSequence || String(app.project.activeSequence.sequenceID) !== String(seq.sequenceID)) {
+      app.project.activeSequence = seq;
+      if (!app.project.activeSequence || String(app.project.activeSequence.sequenceID) !== String(seq.sequenceID)) return __error("Could not activate the plan's sequence; no timeline edits were attempted");
+    }` : "";
+  const mutations: string[] = [];
   // A failure part-way through leaves earlier operations applied; report them.
   // undoSteps (EXPERIMENTAL, QE undoStackIndex) is data only: it counts
   // QE-recorded actions and misses DOM-only operations such as removals, so it
@@ -129,19 +186,20 @@ function buildApplyScript(plan: EditPlan): string {
     function __planFail(index, message, extraData) {
       var now = __readUndoIndex();
       var steps = planUndoStart !== null && now !== null ? now - planUndoStart : null;
+      var unknown = extraData && extraData.mutationOutcome === "unknown";
       var changed = results.length > 0 || (extraData && extraData.timelineChanged === true) || (steps !== null && steps > 0) || /timeline changed/.test(message);
       // An operation's own "Nothing was changed" is wrong once anything was applied
       // or Premiere recorded undo entries.
-      if (changed) message = String(message).replace(/\\s*Nothing was changed\\.?/g, "");
+      if (changed || unknown) message = String(message).replace(/\\s*Nothing was changed\\.?/g, "");
       var summary = results.length
         ? " The timeline changed: the " + results.length + " operation(s) before it were applied and were not rolled back."
-        : (changed ? (/timeline changed/.test(message) ? "" : " The timeline may have changed during the failed operation and was not rolled back.") : (/Nothing was changed/.test(message) ? "" : " Nothing was changed."));
+        : (changed ? (/timeline changed/.test(message) ? "" : " The timeline may have changed during the failed operation and was not rolled back.") : (unknown ? " The mutation outcome is unknown; inspect the timeline before retrying." : (/Nothing was changed/.test(message) ? "" : " Nothing was changed.")));
       var data = { appliedOperations: results, timelineChanged: changed, undoSteps: steps, undoStackIndex: now,
         undoStepsNote: "undoSteps counts only actions Premiere recorded in its undo history (QE edits such as inserts). DOM-only operations, such as clip removals, add no entry, so undoing this many steps does not necessarily reverse the plan." };
       if (extraData) {
         for (var field in extraData) if (extraData.hasOwnProperty(field)) data[field] = extraData[field];
       }
-      data.timelineChanged = changed;
+      data.timelineChanged = changed ? true : (unknown ? null : false);
       return __jsonStringify({ success: false,
         error: "Operation " + index + " failed: " + message + summary,
         data: data });
@@ -151,22 +209,22 @@ function buildApplyScript(plan: EditPlan): string {
 
   plan.operations.forEach((operation, index) => {
     if (operation.type === "insert_clip") {
-      validation.push(`var item${index} = __findProjectItem("${escapeForExtendScript(operation.item_id)}"); if (!item${index}) return __error("Project item not found for operation ${index}");`);
       mutations.push(`var outcome${index} = __insertClipHonoringSyncLock(seq, item${index}, __secondsToTicks(${operation.start_seconds}).toString(), ${operation.video_track_index ?? 0}, ${operation.audio_track_index ?? 0}, "sync_locked"); if (!outcome${index}.ok) return __planFail(${index}, outcome${index}.error, outcome${index}.changed ? { timelineChanged:true, outcome:"committed_unverified", verified:false, displacedTails:outcome${index}.displacedTails } : null); results.push({index:${index}, type:"insert_clip", applied:true, verified:true, syncLockHonored: outcome${index}.data.syncLockHonored});`);
     } else {
       const nodeId = escapeForExtendScript(operation.node_id);
-      validation.push(`if (!__planFindClip(seq, "${nodeId}")) return __error("Clip not found for operation ${index}");`);
       if (operation.ripple === true) {
-        const body = rippleDeleteScriptBody({ nodeId, scope: "sync_locked", rangeDelete: false, dryRun: false });
+        const body = rippleDeleteScriptBody({ nodeId, scope: "sync_locked", rangeDelete: false, dryRun: false, validatedPartnersExpression: `validatedPartners${index}` });
         // __result/__error are shadowed so the body hands back a plain object.
-        mutations.push(`var ripple${index} = (function () { var __result = function (d) { return { success: true, data: d }; }; var __error = function (m) { return { success: false, error: String(m) }; }; ${body} })(); if (!ripple${index}.success) return __planFail(${index}, ripple${index}.error); results.push({index:${index}, type:"remove_clip", ripple:true, applied:true, verified:true, gapClosedSeconds: ripple${index}.data.gapClosedSeconds, clipsShifted: ripple${index}.data.clipsShifted});`);
+        mutations.push(`var ripple${index} = (function () { var __result = function (d) { return { success: true, data: d }; }; var __error = function (m, d) { return { success: false, error: String(m), data: d }; }; ${body} })(); if (!ripple${index}.success) return __planFail(${index}, ripple${index}.error, ripple${index}.data); results.push({index:${index}, type:"remove_clip", ripple:true, applied:true, verified:true, gapClosedSeconds: ripple${index}.data.gapClosedSeconds, clipsShifted: ripple${index}.data.clipsShifted});`);
       } else {
-        mutations.push(`var found${index} = __findClip("${nodeId}"); if (!found${index}) return __planFail(${index}, "clip ${nodeId} is no longer on the timeline"); var removed${index} = __removeClipAndPartners(found${index}, ${operation.include_linked !== false}); if (!removed${index}.ok) return __planFail(${index}, removed${index}.error); results.push({index:${index}, type:"remove_clip", ripple:false, applied:true, verified:true, linkedPartnersRemoved: removed${index}.data.linkedPartnersRemoved});`);
+        mutations.push(`var found${index} = __findClip("${nodeId}"); if (!found${index}) return __planFail(${index}, "clip ${nodeId} is no longer on the timeline"); var removed${index} = __removeClipAndPartners(found${index}, ${operation.include_linked !== false}, validatedPartners${index}); if (!removed${index}.ok) return __planFail(${index}, removed${index}.error, removed${index}.data); results.push({index:${index}, type:"remove_clip", ripple:false, applied:true, verified:true, linkedPartnersRemoved: removed${index}.data.linkedPartnersRemoved});`);
       }
     }
   });
 
-  return buildToolScript(`${sequence}\n${clipLookup}\n${validation.join("\n")}\nvar results = [];\n${failure}\n${mutations.join("\n")}\nreturn __result({applied:true, sequence: seq.name, operations:results});`);
+  return buildToolScript(`${hostBindingScript(plan)}
+    if (__jsonStringify(hostBinding) !== "${escapeForExtendScript(JSON.stringify(binding))}") return __error("Edit-plan host targets changed since preview; preview the edit again. No sequence activation or mutation was attempted.");
+    ${activation}\nvar results = [];\n${failure}\n${mutations.join("\n")}\nreturn __result({applied:true, sequence: seq.name, operations:results});`);
 }
 
 export function getEditPlanTools(bridgeOptions: BridgeOptions, dependencies: EditPlanDependencies = {}) {
@@ -205,17 +263,30 @@ export function getEditPlanTools(bridgeOptions: BridgeOptions, dependencies: Edi
 
   return {
     preview_edit_plan: {
-      description: "Validate and preview a compound timeline edit without changing Premiere. Returns a single-use confirmation token that expires after 30 minutes and is required by apply_edit_plan.",
+      description: "Inspect sequence, project item, clip and requested track targets before previewing a compound timeline edit without changing Premiere. Returns a single-use confirmation token bound to stable project, sequence and target identities; it expires after 30 minutes and is required by apply_edit_plan.",
       parameters: { type: "object" as const, properties: { plan: planParameter }, required: ["plan"] },
       handler: async (args: { plan: unknown }) => {
         const operationId = nextId();
         requireCapability(capabilities, "inspect", operationId);
         const plan = validateEditPlan(args.plan);
-        return { success: true, data: { operationId, changes: describe(plan), confirmationToken: tokenStore.issue(confirmationToken(plan)), applied: false } };
+        const inspected = await sendCommand(buildPreviewScript(plan), bridgeOptions);
+        if (!inspected.success) return inspected;
+        if ((inspected.data as { targetsValidated?: boolean } | undefined)?.targetsValidated !== true) {
+          return { success: false, error: "Premiere did not verify the preview targets; no confirmation token was issued" };
+        }
+        let binding: EditPlanHostBinding;
+        try { binding = validateEditPlanHostBinding((inspected.data as { hostBinding?: unknown }).hostBinding); }
+        catch { return { success: false, error: "Premiere did not expose a valid host-target binding; no confirmation token was issued" }; }
+        if (binding.targets.length !== plan.operations.length || binding.targets.some((target, index) => target.type !== plan.operations[index].type)) {
+          return { success: false, error: "Premiere returned an incomplete host-target binding; no confirmation token was issued" };
+        }
+        try { validateBridgeScriptSize(buildApplyScript(plan, binding)); }
+        catch { return { success: false, error: "The bound apply command exceeds the bridge's 500KB size limit; split the plan into smaller previews. No confirmation token was issued" }; }
+        return { success: true, data: { operationId, changes: describe(plan), confirmationToken: tokenStore.issue(confirmationToken(plan), binding), targetsValidated: true, applied: false } };
       },
     },
     apply_edit_plan: {
-      description: "Apply a previously previewed compound edit after revalidating every target. Requires the edit capability and exact preview confirmation token.",
+      description: "Apply a previously previewed compound edit after revalidating stable project, sequence and target identities before activation or mutation. Requires the edit capability and exact preview confirmation token; changed targets require a fresh preview.",
       parameters: {
         type: "object" as const,
         properties: { plan: planParameter, confirmation_token: { type: "string", description: "Exact token returned by preview_edit_plan" } },
@@ -226,9 +297,9 @@ export function getEditPlanTools(bridgeOptions: BridgeOptions, dependencies: Edi
         try {
           requireCapability(capabilities, "edit", operationId);
           const plan = validateEditPlan(args.plan);
-          tokenStore.consume(args.confirmation_token, confirmationToken(plan));
+          const binding = validateEditPlanHostBinding(tokenStore.consume(args.confirmation_token, confirmationToken(plan)));
           emitAudit(auditSink, { operationId, action: "apply_edit_plan", outcome: "started", details: { operationCount: plan.operations.length } });
-          const result = await sendCommand(buildApplyScript(plan), bridgeOptions);
+          const result = await sendCommand(buildApplyScript(plan, binding), bridgeOptions);
           emitAudit(auditSink, { operationId, action: "apply_edit_plan", outcome: result.success ? "succeeded" : "failed" });
           return result.success ? { ...result, data: { ...(result.data as object), operationId } } : { ...result, error: `${result.error ?? "Edit plan failed"} (operation ${operationId})` };
         } catch (error) {

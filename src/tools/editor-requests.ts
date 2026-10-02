@@ -133,7 +133,7 @@ export function getEditorRequestTools(bridgeOptions: BridgeOptions) {
   return {
     add_markers_batch: {
       description:
-        "Add up to 200 sequence or clip markers in one verified CEP request (beat grids, chapters, silence reviews, client notes). Every marker is validated and range-checked before the first write; the tool reads back the marker count and each created marker's time and fails closed on any mismatch.",
+        "Add up to 200 sequence or clip markers in one verified CEP request (beat grids, chapters, silence reviews, client notes). Every marker is validated and range-checked before the first write; the tool reads back the marker count and each created marker's time and fails closed on any mismatch. EXPERIMENTAL QE: records an observed marker boundary for guarded Undo/Redo; crossing it is refused by default, and unreadable history records unknown protection. This boundary does not verify native marker reversal.",
       parameters: {
         type: "object" as const,
         additionalProperties: false,
@@ -242,6 +242,10 @@ export function getEditorRequestTools(bridgeOptions: BridgeOptions) {
               }
             }
             if (near) skipped.push({ timeSeconds: requested[i].t, name: requested[i].n }); else toWrite.push(requested[i]);
+          }
+          if (toWrite.length) {
+            var markerBarrier = __rememberMarkerUndoBarrier(__readUndoIndex());
+          if (!markerBarrier.ok) return __error(markerBarrier.error);
           }
           var created = [];
           for (i = 0; i < toWrite.length; i++) {

@@ -1,13 +1,15 @@
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, resolve, sep } from "node:path";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { runInNewContext } from "node:vm";
-import { getHelpersSource } from "../../src/bridge/script-builder.js";
+import { escapeForExtendScript, getHelpersSource } from "../../src/bridge/script-builder.js";
 import { BridgeOptions } from "../../src/bridge/file-bridge.js";
 
+vi.mock("../../src/tools/media-evidence.js", () => ({ probeMediaDurationTicks: vi.fn().mockResolvedValue(3600 * 254016000000) }));
+
 vi.mock("../../src/bridge/file-bridge.js", () => ({
-  sendCommand: vi.fn().mockResolvedValue({ success: true, data: {} }),
+  sendCommand: vi.fn().mockResolvedValue({ success: true, data: { projectId: "project", sequenceId: "seq", mediaPath: "/fixture/source.mp4" } }),
   sendRawCommand: vi.fn().mockResolvedValue({ success: true, data: {} }),
   getTempDir: vi.fn().mockReturnValue("/tmp/test"),
   cleanupTempDir: vi.fn(),
@@ -59,7 +61,7 @@ async function scriptFor(tool: { handler: (args: never) => Promise<unknown> }, a
   mockedSendCommand.mockClear();
   await tool.handler(args as never);
   expect(mockedSendCommand).toHaveBeenCalled();
-  return mockedSendCommand.mock.calls[0][0] as string;
+  return mockedSendCommand.mock.calls.at(-1)[0] as string; // SEC #712: trim/slip send evidence+script
 }
 
 /**
@@ -80,9 +82,38 @@ async function executePixelAspectRatioScript(sequence: unknown, ratio = "1.4222"
   })));
 }
 
-beforeEach(() => vi.clearAllMocks());
+beforeEach(() => { vi.clearAllMocks(); mockedSendCommand.mockResolvedValue({ success: true, data: { projectId: "project", sequenceId: "seq", mediaPath: "/fixture/source.mp4" } }); });
 
 describe("real-host social sequence regressions", () => {
+  // #691: QE's newSequence silently ignores forward-slash preset paths on
+  // Windows, so the handler must hand the host native separators and give a
+  // missing file its own precise error.
+  it("normalizes forward-slash preset_path to native separators before the QE call", async () => {
+    const realFile = join(process.cwd(), "package.json");
+    const forwardSlashed = realFile.split(sep).join("/");
+    const script = await scriptFor(sequence.create_sequence_from_preset, { name: "PresetPathTest", preset_path: forwardSlashed });
+    expect(script).toContain(escapeForExtendScript(resolve(forwardSlashed)));
+    if (process.platform === "win32") {
+      // en Windows los separadores nativos difieren del original: el script no
+      // debe llevar el path forward-slashed (falla silenciosa de QE, #691)
+      expect(script).not.toContain(escapeForExtendScript(forwardSlashed));
+    }
+  });
+
+  it("create_sequence also normalizes preset_path and reports missing files (#714)", async () => {
+    const forwardReal = join(process.cwd(), "package.json").split(sep).join("/");
+    const script = await scriptFor(sequence.create_sequence, { name: "Create714", preset_path: forwardReal });
+    expect(script).toContain(escapeForExtendScript(resolve(forwardReal)));
+    await expect(sequence.create_sequence.handler({ name: "X", preset_path: "C:/no/such.sqpreset" })).resolves.toMatchObject({ success: false, error: expect.stringContaining("Preset file not found") });
+  });
+
+  it("reports a missing preset file precisely instead of a bare QE failure", async () => {
+    await expect(sequence.create_sequence_from_preset.handler({
+      name: "PresetPathTest",
+      preset_path: join(process.cwd(), "no-such-dir", "no-such-preset.sqpreset"),
+    })).resolves.toMatchObject({ success: false, error: expect.stringContaining("Preset file not found") });
+  });
+
   const sequence = getSequenceTools(bridgeOptions);
   const playhead = getPlayheadTools(bridgeOptions);
   const utility = getUtilityTools(bridgeOptions);
@@ -303,6 +334,20 @@ describe("issue #9 — frame export uses the QE DOM and verifies the file landed
 
 // Defects found while reviewing PR #3 (repair 6 broken tools on Premiere Pro 2026).
 describe("PR #3 follow-ups — color_correct and export_sequence", () => {
+  // #712: trim_clip and slip_edit must refuse source windows past the media's
+  // own end (Premiere would otherwise extend the clip over nonexistent frames
+  // and report verified: true).
+  it("trim_clip and slip_edit scripts carry the ffprobe media-duration guard", async () => {
+    vi.mocked(sendCommand).mockResolvedValueOnce({ success: true, data: { projectId: "project", sequenceId: "seq", mediaPath: "C:/media/clip.mp4" } } as never);
+    const trim = await scriptFor(getTimelineTools(bridgeOptions, { probeMediaDurationSeconds: async () => 5 }).trim_clip, { node_id: "clip-1", new_out_seconds: 39 });
+    expect(trim).not.toContain("projectItem.getOutPoint()");
+    expect(trim).toContain("real media duration of 5.000s (ffprobe)");
+    vi.mocked(sendCommand).mockResolvedValueOnce({ success: true, data: { projectId: "project", sequenceId: "seq", mediaPath: "C:/media/clip.mp4" } } as never);
+    const slip = await scriptFor(getAdvancedTools(bridgeOptions, { probeMediaDurationSeconds: async () => 10 }).slip_edit, { node_id: "clip-1", offset_seconds: 2 });
+    expect(slip).toContain("past this clip's real media duration of 10.000s (ffprobe)");
+  });
+
+
   const effects = getEffectsTools(bridgeOptions);
   const exportTools = getExportTools(bridgeOptions);
 
@@ -358,6 +403,9 @@ describe("PR #3 follow-ups — color_correct and export_sequence", () => {
 
   it("treats a missing or unchanged export file as failure, not success", async () => {
     const advanced = getAdvancedTools(bridgeOptions);
+
+
+
     const projectScript = await scriptFor(advanced.export_as_project, { output_path: "/tmp/export.prproj" });
     const xmlScript = await scriptFor(exportTools.export_as_fcp_xml, { output_path: "/tmp/export.xml" });
     const sequenceScript = await scriptFor(exportTools.export_sequence, {
@@ -696,6 +744,19 @@ describe("issue #129 — effect removal uses the targeted QE component remove an
     expect(names(list)).toEqual(["Opacity", "Motion", "Vector Motion", "Text"]);
   });
 
+  it("keeps a stock lower third's shape layers by match name (live 25.2.3: AE.ADBE Shape)", async () => {
+    const lowerThird = { "Vector Motion": "AE.ADBE Graphic Group", Shape: "AE.ADBE Shape", Text: "AE.ADBE Text", Opacity: "AE.ADBE Opacity", Motion: "AE.ADBE Motion", Tint: "AE.ADBE Tint" };
+    const list = removalHost(["Opacity", "Motion", "Vector Motion", "Shape", "Text", "Shape", "Tint"], { matchNames: lowerThird });
+    await expect(advanced.remove_all_effects.handler({ node_id: "clip1" })).resolves.toMatchObject({ success: true, data: { removedEffects: ["Tint"] } });
+    expect(names(list)).toEqual(["Opacity", "Motion", "Vector Motion", "Shape", "Text", "Shape"]);
+  });
+
+  it("treats a localized shape layer as proof of a localized host", async () => {
+    const list = removalHost(["Form", "Lumetri-Farbe"], { matchNames: { Form: "AE.ADBE Shape", "Lumetri-Farbe": "AE.ADBE Lumetri" } });
+    await expect(advanced.remove_all_effects.handler({ node_id: "clip1" })).resolves.toMatchObject({ success: false, error: expect.stringContaining("localized names (Form)") });
+    expect(names(list)).toEqual(["Form", "Lumetri-Farbe"]);
+  });
+
   it("refuses, removing nothing, when a component reports no match name and a non-English name", async () => {
     const list = removalHost(["Deckkraft", "Lumetri-Farbe"], { matchNames: { Deckkraft: "", "Lumetri-Farbe": "AE.ADBE Lumetri" } });
     await expect(advanced.remove_all_effects.handler({ node_id: "clip1" })).resolves.toMatchObject({ success: false, error: expect.stringContaining("no match name") });
@@ -920,12 +981,17 @@ describe("issue #235 — CEP tool calls use the host's documented argument types
     mockedSendCommand.mockImplementation(async (script: string) =>
       JSON.parse(String(runInNewContext(`${getHelpersSource()}\n${script}`, { app: { project: { activeSequence: sequence } }, Time }))));
 
-    await expect(tracks.set_clip_volume.handler({ node_id: "audio-1", volume_db: -3 })).resolves.toMatchObject({ success: true });
+    await expect(tracks.set_clip_volume.handler({ node_id: "audio-1", volume_db: -3 })).resolves.toMatchObject({
+      success: true, data: { requestedVolumeDb: -3, clamped: false },
+    });
     expect(level).toBeGreaterThan(0);
     expect(level).toBeLessThan(1);
     const readback = await tracks.get_clip_volume.handler({ node_id: "audio-1" });
     expect(readback).toMatchObject({ success: true, data: { clip: "Audio" } });
     expect((readback as { data: { volumeDb: number } }).data.volumeDb).toBeCloseTo(-3, 3);
+    await expect(tracks.set_clip_volume.handler({ node_id: "audio-1", volume_db: 100 })).resolves.toMatchObject({
+      success: true, data: { requestedVolumeDb: 100, volumeDb: 15, level: 1, clamped: true },
+    });
     await expect(tracks.set_clips_volume.handler({ track_index: 0, volume_db: -6 })).resolves.toMatchObject({
       success: true, data: { applied: 1, skipped: 0 },
     });
@@ -939,6 +1005,32 @@ describe("issue #235 — CEP tool calls use the host's documented argument types
     const competitor = getCompetitorGapTools(bridgeOptions);
     await expect(competitor.setup_ducking.handler({ node_id: "audio-1", ducking_windows: [] })).resolves.toMatchObject({
       success: true, data: { updated: true, verified: true },
+    });
+    const originalSetter = property.setValue;
+    Object.assign(property, { setValue: () => {} });
+    await expect(tracks.set_clip_volume.handler({ node_id: "audio-1", volume_db: -20 })).resolves.toMatchObject({
+      success: false, data: { outcome: "not_applied", verified: false, timelineChanged: false },
+    });
+    property.setValue = originalSetter;
+    let invalidReads = 0;
+    Object.assign(property, { getValue: () => ++invalidReads === 1 ? level : true });
+    await expect(tracks.set_clip_volume.handler({ node_id: "audio-1", volume_db: 15 })).resolves.toMatchObject({
+      success: true, data: { outcome: "committed_unverified", verified: false, level: null },
+    });
+    let throwingReads = 0;
+    property.getValue = () => { if (++throwingReads > 1) throw new Error("readback unavailable"); return level; };
+    const unreadable = await tracks.set_clip_volume.handler({ node_id: "audio-1", volume_db: -3 });
+    expect(unreadable).toMatchObject({
+      success: true,
+      data: { outcome: "committed_unverified", requestedVolumeDb: -3, volumeDb: null },
+    });
+    Object.assign(property, { getValue: () => level, setValue: () => { throw new Error("setter refused before write"); } });
+    await expect(tracks.set_clip_volume.handler({ node_id: "audio-1", volume_db: -12 })).resolves.toMatchObject({
+      success: false, data: { outcome: "not_applied", verified: false, timelineChanged: false, level },
+    });
+    Object.assign(property, { getValue: () => level, setValue: (value: number) => { level = value; throw new Error("setter failed after write"); } });
+    await expect(tracks.set_clip_volume.handler({ node_id: "audio-1", volume_db: -8 })).resolves.toMatchObject({
+      success: false, data: { outcome: "committed_unverified", verified: false, timelineChanged: true },
     });
   });
 
@@ -1041,6 +1133,49 @@ describe("issue #237 — reported mutations must be observable or fail", () => {
   const project = getProjectTools(bridgeOptions);
   const tracks = getTrackTargetingTools(bridgeOptions);
   const media = getMediaTools(bridgeOptions);
+
+  // #713: a missing import path must fail fast in the handler — importFiles
+  // with a nonexistent path opens a blocking modal in Premiere that wedges the
+  // CEP bridge until a restart.
+  it("refuses import_media with missing paths before Premiere is contacted", async () => {
+    await expect(media.import_media.handler({ file_paths: ["C:/no/existe.mp4"] })).resolves.toMatchObject({
+      success: false,
+      error: expect.stringContaining("File(s) not found"),
+    });
+    expect(mockedSendCommand).not.toHaveBeenCalled();
+  });
+
+  it("refuses import_folder with a nonexistent folder before Premiere is contacted", async () => {
+    const missing = join(process.cwd(), "__missing_import_folder_713__");
+    await expect(media.import_folder.handler({ folder_path: missing })).resolves.toMatchObject({
+      success: false, error: expect.stringContaining("not found"),
+    });
+    expect(mockedSendCommand).not.toHaveBeenCalled();
+  });
+
+  it("rejects empty arrays and directories before host contact (#725 FAM-5)", async () => {
+    expect(media.import_media.parameters.properties.file_paths).toMatchObject({ minItems: 1, items: { minLength: 1 } });
+    await expect(media.import_media.handler({ file_paths: [] })).resolves.toMatchObject({
+      success: false,
+      error: expect.stringContaining("at least one non-empty path"),
+    });
+    const dir = join(process.cwd());
+    const dirForward = dir.split(sep).join("/");
+    await expect(media.import_media.handler({ file_paths: [dirForward] })).resolves.toMatchObject({
+      success: false, error: expect.stringContaining("Use import_folder"),
+    });
+    expect(mockedSendCommand).not.toHaveBeenCalled();
+    await expect(media.import_folder.handler({ folder_path: join(process.cwd(), "package.json") })).resolves.toMatchObject({
+      success: false, error: expect.stringContaining("not a directory"),
+    });
+    expect(mockedSendCommand).not.toHaveBeenCalled();
+  });
+
+  it("resolves forward-slash import paths to native separators before embedding them", async () => {
+    const forward = join(process.cwd(), "package.json").split(sep).join("/");
+    const script = await scriptFor(media.import_media, { file_paths: [forward] });
+    expect(script).toContain(escapeForExtendScript(resolve(forward)));
+  });
   const exports = getExportTools(bridgeOptions);
 
   it("makes trim tools read back their claimed changes", async () => {
@@ -1121,7 +1256,11 @@ describe("issue #238 — AME uses canonical paths and documented encodeFile posi
 
     expect(queued).toContain("var outputFile = new File");
     expect(queued).toContain("var jobId = encoder.encodeSequence");
-    expect(queued).toContain("Queue presence and output-file creation are not verified");
+    // Queueing remains an unverified handoff. Batch start is opt-in because it
+    // affects every ready AME job, including jobs unrelated to this call.
+    expect(queued).toContain("Batch startup and output-file creation are not verified by this tool");
+    expect(queued).toContain("if (false)");
+    expect(queued).toContain("app.encoder.startBatch()");
     expect(projectItem).toContain("outputFile.fsName");
     expect(projectItem).toContain("var jobId = app.encoder.encodeProjectItem");
   });
@@ -1289,7 +1428,7 @@ describe("issue #326 — sequence creation requires project-collection readback"
 
   it("does not report a QE-active sequence as created unless it is discoverable", async () => {
     const script = await scriptFor(sequence.create_sequence, {
-      name: "Verified Sequence", preset_path: "/tmp/sequence.sqpreset",
+      name: "Verified Sequence", preset_path: join(process.cwd(), "package.json"),
     });
     expect(script).toContain("var beforeSequenceIds = {}");
     expect(script).toContain("var sequenceId = String(seq.sequenceID)");
@@ -1302,7 +1441,7 @@ describe("issue #326 — sequence creation requires project-collection readback"
 
   it("applies the same new-ID readback to create_sequence_from_preset", async () => {
     const script = await scriptFor(sequence.create_sequence_from_preset, {
-      name: "Interview", preset_path: "/tmp/sequence.sqpreset",
+      name: "Interview", preset_path: join(process.cwd(), "package.json"),
     });
     expect(script).toContain("var beforeSequenceIds = {}");
     expect(script).toContain("if (beforeSequenceIds[sequenceId])");
@@ -1328,7 +1467,7 @@ describe("issue #326 — sequence creation requires project-collection readback"
 
     await expect(sequence.create_sequence_from_preset.handler({
       name: "Interview",
-      preset_path: "/tmp/sequence.sqpreset",
+      preset_path: join(process.cwd(), "package.json"),
     })).resolves.toMatchObject({
       success: false,
       error: expect.stringContaining("already existed before the preset request"),
@@ -1348,7 +1487,7 @@ describe("issue #326 — sequence creation requires project-collection readback"
         app: { enableQE() {}, project },
         qe: { project: { newSequence() { project.activeSequence = created; if (listed) items.push(created); } } },
       }))));
-    const result = await sequence.create_sequence_from_preset.handler({ name: "Interview", preset_path: "/tmp/sequence.sqpreset" });
+    const result = await sequence.create_sequence_from_preset.handler({ name: "Interview", preset_path: join(process.cwd(), "package.json") });
     if (listed) {
       expect(result).toMatchObject({ success: true, data: { created: true, verified: true, id: "seq-created", name: "Interview" } });
     } else {
@@ -1490,5 +1629,47 @@ describe("sequence settings setters verify their readback", () => {
     await expect(utility.set_sequence_field_type.handler({ field_type: 7 })).resolves.toMatchObject({ success: false });
     await expect(utility.set_sequence_display_format.handler({})).resolves.toMatchObject({ success: false });
     expect(mockedSendCommand).not.toHaveBeenCalled();
+  });
+});
+
+describe("#712 rework: media bound from real ffprobe duration (owner review)", () => {
+  it("the media bound comes from ffprobe duration, not the editable source Out mark", async () => {
+    vi.mocked(sendCommand).mockResolvedValueOnce({ success: true, data: { projectId: "project", sequenceId: "seq", mediaPath: "C:/media/clip.mp4" } } as never);
+    const tools = getTimelineTools(bridgeOptions, { probeMediaDurationSeconds: async () => 10 });
+    await tools.trim_clip.handler({ node_id: "clip-1", new_out_seconds: 15 });
+    const script = mockedSendCommand.mock.calls.at(-1)[0] as string;
+    expect(script).toContain("__secondsToTicks(targetOut) > 2540160000000");
+    expect(script).toContain('real media duration of 10.000s (ffprobe)');
+    expect(script).not.toContain("projectItem.getOutPoint()");
+  });
+
+  it("does not infer unlimited still media from an image filename when duration is unknown", async () => {
+    vi.mocked(sendCommand).mockResolvedValueOnce({ success: true, data: { projectId: "project", sequenceId: "seq", mediaPath: "C:/media/still.png" } } as never);
+    const tools = getTimelineTools(bridgeOptions, { probeMediaDurationSeconds: async () => null });
+    await expect(tools.trim_clip.handler({ node_id: "clip-1", new_out_seconds: 15 })).resolves.toMatchObject({ success: false, error: expect.stringContaining("Physical media duration") });
+    expect(mockedSendCommand).toHaveBeenCalledTimes(1);
+  });
+
+  it("slip_edit carries the same ffprobe-evidence bound", async () => {
+    vi.mocked(sendCommand).mockResolvedValueOnce({ success: true, data: { projectId: "project", sequenceId: "seq", mediaPath: "C:/media/clip.mp4" } } as never);
+    const tools = getAdvancedTools(bridgeOptions, { probeMediaDurationSeconds: async () => 10 });
+    await tools.slip_edit.handler({ node_id: "clip-1", offset_seconds: 2 });
+    const script = mockedSendCommand.mock.calls.at(-1)[0] as string;
+    expect(script).toContain("past this clip's real media duration of 10.000s (ffprobe)");
+  });
+});
+
+describe("source evidence preserves lookup failures", () => {
+  it.each(["trim", "slip"])("%s preserves a missing-clip error and never probes or mutates", async operation => {
+    const failure = { success: false, error: "Clip not found" };
+    mockedSendCommand.mockResolvedValueOnce(failure);
+    const probe = vi.fn().mockResolvedValue(10);
+    const tool = operation === "trim"
+      ? getTimelineTools(bridgeOptions, { probeMediaDurationSeconds: probe }).trim_clip
+      : getAdvancedTools(bridgeOptions, { probeMediaDurationSeconds: probe }).slip_edit;
+    const args = operation === "trim" ? { node_id: "missing", new_out_seconds: 12 } : { node_id: "missing", offset_seconds: 2 };
+    await expect(tool.handler(args as never)).resolves.toEqual(failure);
+    expect(probe).not.toHaveBeenCalled();
+    expect(mockedSendCommand).toHaveBeenCalledTimes(1);
   });
 });

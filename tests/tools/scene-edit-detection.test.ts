@@ -59,7 +59,7 @@ function host(detectedSourceSeconds: number[], existing: number[] = [], cutsAdde
     },
   };
   mockedSendCommand.mockImplementation(async (script: string) =>
-    JSON.parse(String(runInNewContext(`${getHelpersSource()}\n${script}`, { app: { project: { activeSequence: seq } } }))));
+    JSON.parse(String(runInNewContext(`${getHelpersSource()}\n${script}`, { $: { global: {} }, app: { project: { activeSequence: seq } } }))));
   return list;
 }
 

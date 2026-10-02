@@ -1,5 +1,5 @@
-import { describe, expect, it } from "vitest";
-import { capabilitiesForToolInvocation } from "../../src/security/capabilities.js";
+import { describe, expect, it, vi } from "vitest";
+import { capabilitiesForToolInvocation, guardToolHandler, resolveCapabilities } from "../../src/security/capabilities.js";
 
 // Premiere writes XMP changes into the source media file on disk. Live testing
 // rewrote a user's MP4 metadata block through set_xmp_metadata, so these calls
@@ -24,4 +24,37 @@ describe("tools that change the project and write files need edit and filesystem
   it.each(["add_title", "set_project_scratch_disk", "set_scratch_disk_path"])("%s", (name) => {
     expect(capabilitiesForToolInvocation(name, {})).toEqual(["edit", "filesystem"]);
   });
+});
+
+// Physical source bounds require reading the media file with ffprobe.
+describe("source-range edits require filesystem authority for duration evidence", () => {
+  it.each(["trim_clip", "slip_edit"])("%s", name => {
+    expect(capabilitiesForToolInvocation(name, {})).toEqual(["edit", "filesystem"]);
+  });
+  it.each(["trim_clip", "slip_edit"])("%s refuses before file or host reads without filesystem authority", async name => {
+    const handler = vi.fn().mockResolvedValue({ success: true });
+    const guarded = guardToolHandler(name, handler, resolveCapabilities("edit"));
+    await expect(guarded({})).rejects.toThrow(/filesystem/);
+    expect(handler).not.toHaveBeenCalled();
+  });
+});
+
+describe("sequence presets and AME queue handoff require filesystem authority", () => {
+  it.each([
+    ["create_sequence", "edit"],
+    ["create_sequence_from_preset", "edit"],
+    ["add_to_render_queue", "export"],
+  ])("%s", async (name, authority) => {
+    expect(capabilitiesForToolInvocation(name, {})).toEqual([authority, "filesystem"]);
+    const handler = vi.fn().mockResolvedValue({ success: true });
+    const guarded = guardToolHandler(name, handler, resolveCapabilities(authority));
+    await expect(guarded({})).rejects.toThrow(/filesystem/);
+    expect(handler).not.toHaveBeenCalled();
+  });
+});
+
+it("AME queue handoff requires export authority even when edit and filesystem are allowed", async () => {
+  const handler = vi.fn().mockResolvedValue({ success: true });
+  await expect(guardToolHandler("add_to_render_queue", handler, resolveCapabilities("edit,filesystem"))({})).rejects.toThrow(/export/);
+  expect(handler).not.toHaveBeenCalled();
 });

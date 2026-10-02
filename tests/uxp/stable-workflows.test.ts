@@ -407,25 +407,37 @@ describe("stable Premiere UXP workflow expansion", () => {
     });
     await expect(value.registry.dispatch("effects.chain.add", {
       mediaType: "video", trackIndex: 0, clipIndex: 0, effectId: "PR.Test",
-    })).resolves.toMatchObject({ applied: true, outcome: "verified", beforeCount: 1, after: { count: 2 } });
+    })).resolves.toMatchObject({ applied: true, outcome: "verified", beforeCount: 1, after: { count: 2 },
+      verificationBoundary: "effect_chain_count_readback", renderVerified: false });
     await expect(value.registry.dispatch("effects.chain.add", {
       mediaType: "audio", trackIndex: 0, clipIndex: 0, effectId: "Test Audio Effect",
-    })).resolves.toMatchObject({ applied: true, outcome: "verified", beforeCount: 1, after: { count: 2 } });
+    })).resolves.toMatchObject({ applied: true, outcome: "verified", beforeCount: 1, after: { count: 2 }, renderVerified: false });
     await expect(value.registry.dispatch("selection.inspect", {})).resolves.toMatchObject({
       count: 1, items: [{ mediaType: "video", trackIndex: 0, clipIndex: 0 }],
     });
     await expect(value.registry.dispatch("effects.selection.add", {
       mediaType: "video", effectId: "PR.Test",
-    })).resolves.toMatchObject({ applied: 1, outcome: "verified" });
+    })).resolves.toMatchObject({ applied: 1, outcome: "verified", renderVerified: false });
     await expect(value.registry.dispatch("effects.selection.remove", {
       mediaType: "video", componentIndex: 2, expectedEffectId: "PR.Test",
-    })).resolves.toMatchObject({ removed: 1, outcome: "verified" });
+    })).resolves.toMatchObject({ removed: 1, outcome: "verified", renderVerified: false });
     await expect(value.registry.dispatch("effects.chain.remove", {
       mediaType: "video", trackIndex: 0, clipIndex: 0, componentIndex: 1, expectedEffectId: "PR.Other",
     })).rejects.toMatchObject({ code: "UXP_STALE_EFFECT_CHAIN" });
     expect(value.project.executeTransaction).toHaveBeenCalledTimes(4);
     expect(value.components).toHaveLength(2);
     expect(value.audioComponents).toHaveLength(2);
+  });
+
+  it("labels a successful direct effect removal as component verified but render unverified", async () => {
+    const value = stableHost();
+    await value.registry.dispatch("effects.chain.add", {
+      mediaType: "video", trackIndex: 0, clipIndex: 0, effectId: "PR.Test",
+    });
+    await expect(value.registry.dispatch("effects.chain.remove", {
+      mediaType: "video", trackIndex: 0, clipIndex: 0, componentIndex: 1, expectedEffectId: "PR.Test",
+    })).resolves.toMatchObject({ removed: true, outcome: "verified", beforeCount: 2,
+      after: { count: 1 }, verificationBoundary: "effect_chain_count_readback", renderVerified: false });
   });
 
   it("reads one complete native track-item identity and rejects stale or incomplete snapshots", async () => {

@@ -5,9 +5,20 @@ import {
 import { sendCommand, BridgeOptions } from "../bridge/file-bridge.js";
 import { compareMogrtText, extractMogrtText, summarizeMogrtText, validateMogrtTextMap } from "./mogrt-text.js";
 import { SPEED_UNAVAILABLE_DESCRIPTION, SPEED_UNAVAILABLE_ERROR } from "./timeline.js";
+import { probeMediaDurationTicks } from "./media-evidence.js";
 import { rippleDeleteScriptBody } from "./ripple-delete-script.js";
 
-export function getAdvancedTools(bridgeOptions: BridgeOptions) {
+export function getAdvancedTools(
+  bridgeOptions: BridgeOptions,
+  dependencies: { probeMediaDurationSeconds?: (path: string) => Promise<number | null>; probeMediaDurationTicks?: (path: string) => Promise<number | null> } = {},
+) {
+  // SEC FORK (#712): injectable for tests; defaults to real ffprobe evidence.
+  const probeMediaEndTicks = dependencies.probeMediaDurationTicks ?? (dependencies.probeMediaDurationSeconds
+    ? async (path: string) => {
+      const seconds = await dependencies.probeMediaDurationSeconds!(path);
+      return seconds === null ? null : Math.floor(seconds * 254016000000);
+    }
+    : probeMediaDurationTicks);
   return {
     ripple_delete: {
       description:
@@ -80,6 +91,7 @@ export function getAdvancedTools(bridgeOptions: BridgeOptions) {
         if (!Number.isFinite(args.offset_seconds) || args.offset_seconds === 0) {
           return { success: false, error: "offset_seconds must be a finite, non-zero number" };
         }
+
         const script = buildToolScript(`
           function __editOne(result, nodeId, checkOnly) {
             var track = result.trackType === "video"
@@ -260,7 +272,7 @@ export function getAdvancedTools(bridgeOptions: BridgeOptions) {
 
     slip_edit: {
       description:
-        "Perform a verified slip edit on a clip using public source in/out properties. Linked audio/video partners get the same edit by default (include_linked); every clip is checked before any is changed.",
+        "Perform a verified slip edit on a clip using public source in/out properties. Requires accessible physical media duration from ffprobe; unknown duration or linked partners using different source files refuse before mutation. Linked audio/video partners get the same edit by default (include_linked); every clip is checked before any is changed.",
       parameters: {
         type: "object" as const,
         properties: {
@@ -284,8 +296,53 @@ export function getAdvancedTools(bridgeOptions: BridgeOptions) {
         if (!Number.isFinite(args.offset_seconds) || args.offset_seconds === 0) {
           return { success: false, error: "offset_seconds must be a finite, non-zero number" };
         }
+        // SEC FORK (#712 review): slip bound uses REAL media duration (ffprobe
+        // on the clip's media file), never the editable source Out mark. Two
+        // phases like trim_clip; missing evidence refuses before mutation.
+        const evidenceScript = buildToolScript(`
+          var projectId; var sequenceId;
+          try { projectId = app.project.documentID; sequenceId = app.project.activeSequence.sequenceID; } catch (contextError) {}
+          if (typeof projectId !== "string" || !projectId.length || typeof sequenceId !== "string" || !sequenceId.length) return __error("Project and sequence identities could not be read; no edit was attempted.");
+          var result = __findClip("${escapeForExtendScript(args.node_id)}");
+          if (!result) return __error("Clip not found");
+          var mp = "";
+          try { mp = String(result.clip.projectItem.getMediaPath() || ""); } catch (eMediaPath) {}
+          return __result({ mediaPath: mp, projectId: projectId, sequenceId: sequenceId });
+        `);
+        let mediaDurationTicks: number | null = null;
+        let mediaPath = "";
+        let projectId = "";
+        let sequenceId = "";
+        try {
+          const evidence = await sendCommand(evidenceScript, bridgeOptions);
+          if (evidence && evidence.success === false) return evidence;
+          const evidenceData = (evidence as { data?: { mediaPath?: unknown; projectId?: unknown; sequenceId?: unknown } } | undefined)?.data;
+          mediaPath = typeof evidenceData?.mediaPath === "string" ? evidenceData.mediaPath : "";
+          projectId = typeof evidenceData?.projectId === "string" ? evidenceData.projectId : "";
+          sequenceId = typeof evidenceData?.sequenceId === "string" ? evidenceData.sequenceId : "";
+          if (!projectId || !sequenceId) return { success: false, error: "Project and sequence identities could not be read; no edit was attempted." };
+          mediaDurationTicks = mediaPath ? await probeMediaEndTicks(mediaPath) : null;
+        } catch {
+          mediaDurationTicks = null;
+        }
+        if (mediaDurationTicks === null || !Number.isSafeInteger(mediaDurationTicks) || mediaDurationTicks <= 0) {
+          return { success: false, error: "Physical media duration could not be verified in the exact tick range. No edit was attempted. ffprobe must be available and source media must expose readable integer timestamp clocks; editable project In/Out marks are not media boundaries." };
+        }
+        // SEC FORK (#712): the whole bound line is resolved Node-side (numbers
+        // embedded) so the generated script never references Node variables.
+        const slipMediaBound = `
+            if (newOutTicks > ${mediaDurationTicks}) {
+              return __editFail("The requested slip offset would move the source out point to " + (newOutTicks / TICKS_PER_SECOND) + "s, past this clip's real media duration of ${(mediaDurationTicks / 254016000000).toFixed(3)}s (ffprobe); slip was not attempted.");
+            }`;
         const script = buildToolScript(`
+          var currentProjectId; var currentSequenceId;
+          try { currentProjectId = app.project.documentID; currentSequenceId = app.project.activeSequence.sequenceID; } catch (contextError) {}
+          if (currentProjectId !== "${escapeForExtendScript(projectId)}" || currentSequenceId !== "${escapeForExtendScript(sequenceId)}") return __error("Project or active sequence changed after media preflight; no edit was attempted.");
           function __editOne(result, nodeId, checkOnly) {
+            var currentMediaPath = "";
+            try { currentMediaPath = String(result.clip.projectItem.getMediaPath() || ""); } catch (eBoundPath) {}
+            if (currentMediaPath !== "${escapeForExtendScript(mediaPath)}") return __editFail("This clip or linked partner uses media without the preflight duration evidence; no edit was attempted.");
+
             var beforeStart = String(result.clip.start.ticks);
             var beforeEnd = String(result.clip.end.ticks);
             var beforeIn = String(result.clip.inPoint.ticks);
@@ -294,6 +351,8 @@ export function getAdvancedTools(bridgeOptions: BridgeOptions) {
             var newInTicks = parseFloat(beforeIn) + deltaTicks;
             var newOutTicks = parseFloat(beforeOut) + deltaTicks;
             if (newInTicks < 0 || newOutTicks <= newInTicks) return __editFail("The requested slip offset would create an invalid source range.");
+            // SEC FORK (#712): upper bound from REAL media duration (ffprobe,
+            // probed Node-side and embedded exactly), never the editable mark.${slipMediaBound}
             if (checkOnly) return __editOk({ checked: true });
             var newIn = new Time();
             newIn.ticks = String(Math.round(newInTicks));
@@ -711,6 +770,9 @@ export function getAdvancedTools(bridgeOptions: BridgeOptions) {
         required: ["node_id", "new_name"],
       },
       handler: async (args: { node_id: string; new_name: string }) => {
+        if (!args.new_name.trim()) {
+          return { success: false as const, error: "new_name must not be empty or whitespace-only" };
+        }
         const script = buildToolScript(`
           var result = __findClip("${escapeForExtendScript(args.node_id)}");
           if (!result) return __error("Clip not found");
@@ -1088,7 +1150,7 @@ export function getAdvancedTools(bridgeOptions: BridgeOptions) {
 
     scene_edit_detection: {
       description:
-        "Perform Premiere's scene edit detection on the selected clips in the active sequence (it analyses the footage and can take minutes on long clips). CreateMarkers (default) puts Segmentation markers on the selected clips' source project items (shared by every sequence that uses them), removes duplicates this run created (markers that were already there are never deleted), and reports each detected cut in source and timeline seconds; it is verified only when at least one new marker was added. ApplyCuts razors the selected clips and verifies the clip count grew.",
+        "Perform Premiere's scene edit detection on the selected clips in the active sequence (it analyses the footage and can take minutes on long clips). CreateMarkers (default) puts Segmentation markers on the selected clips' source project items (shared by every sequence that uses them), removes duplicates this run created (markers that were already there are never deleted), and reports each detected cut in source and timeline seconds; it is verified only when at least one new marker was added. ApplyCuts razors the selected clips and verifies the clip count grew. EXPERIMENTAL QE: CreateMarkers records an observed marker boundary for guarded Undo/Redo; crossing it is refused by default, and unreadable history records unknown protection. This boundary does not verify native marker reversal.",
       parameters: {
         type: "object" as const,
         properties: {
@@ -1180,6 +1242,10 @@ export function getAdvancedTools(bridgeOptions: BridgeOptions) {
           }
           var clipsBefore = countClips();
 
+          if ("${action}" === "CreateMarkers") {
+            var markerBarrier = __rememberMarkerUndoBarrier(__readUndoIndex());
+          if (!markerBarrier.ok) return __error(markerBarrier.error);
+          }
           var detected = seq.performSceneEditDetectionOnSelection(
             "${action}",
             ${applyCutsToLinkedAudio},

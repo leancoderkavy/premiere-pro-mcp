@@ -120,7 +120,7 @@ const operationId = {
 export function getUxpWorkflowTools(bridge: UxpWebSocketBridge) {
   return {
     manage_clip_effects_uxp: {
-      description: "List native audio/video effects, inspect one clip's component chain, or add/remove one effect in a locked Premiere UXP transaction.",
+      description: "List native audio/video effects, inspect one clip's component chain, or add/remove one effect in a locked Premiere UXP transaction. Mutation verification covers the component chain only; inspect playback or exported output to confirm rendering.",
       parameters: {
         type: "object" as const,
         additionalProperties: false,
@@ -175,7 +175,7 @@ export function getUxpWorkflowTools(bridge: UxpWebSocketBridge) {
     },
 
     batch_selected_clips_uxp: {
-      description: "Inspect the current timeline selection or apply one native effect add/remove across up to 64 same-type selected clips as a single compound transaction.",
+      description: "Inspect the current timeline selection or apply one native effect add/remove across up to 64 same-type selected clips as a single compound transaction. Effect readback verifies component-chain changes only, not rendered output.",
       parameters: {
         type: "object" as const,
         additionalProperties: false,

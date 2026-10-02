@@ -10,24 +10,24 @@ vi.mock("../src/bridge/file-bridge.js", async (importOriginal) => {
     // Bridge ACL behavior has its own tests. These tests exercise token
     // persistence in a temporary directory created by the test runner.
     ensurePrivateBridgeDirectory: vi.fn(),
-    sendCommand: vi.fn(async () => ({ success: true, data: { applied: true } })),
+    sendCommand: vi.fn(async () => ({ success: true, data: { applied: true, targetsValidated: true, hostBinding: { version: 1, projectDocumentId: "test-project", sequenceId: "seq", targets: [{ type: "insert_clip", targetId: "clip-1", videoTrackIndex: 0, audioTrackIndex: 0 }] } } })),
   };
 });
 
 import { sendCommand } from "../src/bridge/file-bridge.js";
 import { confirmationToken, getEditPlanTools, validateEditPlan } from "../src/tools/edit-plans.js";
-import { staticEditPlanTokenStore } from "./helpers/static-edit-plan-token-store.js";
+import { staticEditPlanTokenStore, fixtureEditPlanBinding } from "./helpers/static-edit-plan-token-store.js";
 
 const plan = { operations: [{ type: "insert_clip" as const, item_id: "clip-1", start_seconds: 2 }] };
 
 describe("edit plans", () => {
   beforeEach(() => vi.clearAllMocks());
 
-  it("previews without contacting Premiere", async () => {
+  it("inspects preview targets without applying the plan", async () => {
     const tools = getEditPlanTools({}, { capabilities: { capabilities: new Set(["inspect"]), source: "explicit" }, operationIdFactory: () => "preview-1", tokenStore: staticEditPlanTokenStore });
     const result = await tools.preview_edit_plan.handler({ plan });
     expect(result.data).toMatchObject({ operationId: "preview-1", applied: false, confirmationToken: confirmationToken(plan) });
-    expect(sendCommand).not.toHaveBeenCalled();
+    expect(sendCommand).toHaveBeenCalledOnce();
   });
 
   it("requires the edit capability before apply", async () => {
@@ -40,6 +40,7 @@ describe("edit plans", () => {
     const auditSink = vi.fn();
     const tools = getEditPlanTools({}, { capabilities: { capabilities: new Set(["inspect", "edit"]), source: "explicit" }, auditSink, operationIdFactory: () => "apply-2", tokenStore: staticEditPlanTokenStore });
     await expect(tools.apply_edit_plan.handler({ plan: { ...plan, sequence_id: "different" }, confirmation_token: confirmationToken(plan) })).rejects.toThrow("does not match");
+    staticEditPlanTokenStore.issue(confirmationToken(plan), fixtureEditPlanBinding(plan));
     const result = await tools.apply_edit_plan.handler({ plan, confirmation_token: confirmationToken(plan) });
     expect(result).toMatchObject({ success: true, data: { applied: true, operationId: "apply-2" } });
     expect(sendCommand).toHaveBeenCalledOnce();
@@ -62,7 +63,7 @@ describe("edit plans", () => {
       const restartedServer = getEditPlanTools({ tempDir }, dependencies);
       await expect(restartedServer.apply_edit_plan.handler({ plan, confirmation_token: token })).resolves.toMatchObject({ success: true });
       await expect(firstServer.apply_edit_plan.handler({ plan, confirmation_token: token })).rejects.toThrow("already consumed");
-      expect(sendCommand).toHaveBeenCalledOnce();
+      expect(sendCommand).toHaveBeenCalledTimes(2);
     } finally {
       rmSync(tempDir, { recursive: true, force: true });
     }
@@ -85,7 +86,7 @@ describe("edit plans", () => {
       vi.mocked(sendCommand).mockRejectedValueOnce(new Error("bridge failed"));
       await expect(restartedServer.apply_edit_plan.handler({ plan, confirmation_token: failedToken })).rejects.toThrow("bridge failed");
       await expect(firstServer.apply_edit_plan.handler({ plan, confirmation_token: failedToken })).rejects.toThrow("already consumed");
-      expect(sendCommand).toHaveBeenCalledTimes(2);
+      expect(sendCommand).toHaveBeenCalledTimes(4);
     } finally {
       rmSync(tempDir, { recursive: true, force: true });
     }

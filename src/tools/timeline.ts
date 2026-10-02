@@ -1,3 +1,4 @@
+import { probeMediaDurationTicks } from "./media-evidence.js";
 import { rippleDeleteScriptBody } from "./ripple-delete-script.js";
 import { buildToolScript, escapeForExtendScript } from "../bridge/script-builder.js";
 import { sendCommand, BridgeOptions } from "../bridge/file-bridge.js";
@@ -74,11 +75,21 @@ const KEYFRAME_SCAN_HELPERS = `
           }
 `;
 
-export function getTimelineTools(bridgeOptions: BridgeOptions) {
+export function getTimelineTools(
+  bridgeOptions: BridgeOptions,
+  dependencies: { probeMediaDurationSeconds?: (path: string) => Promise<number | null>; probeMediaDurationTicks?: (path: string) => Promise<number | null> } = {},
+) {
+  // SEC FORK (#712): injectable for tests; defaults to real ffprobe evidence.
+  const probeMediaEndTicks = dependencies.probeMediaDurationTicks ?? (dependencies.probeMediaDurationSeconds
+    ? async (path: string) => {
+      const seconds = await dependencies.probeMediaDurationSeconds!(path);
+      return seconds === null ? null : Math.floor(seconds * 254016000000);
+    }
+    : probeMediaDurationTicks);
   return {
     add_to_timeline: {
       description:
-        "Insert a project item at a timeline position, ripple QE sync-locked tracks to match Premiere's insert, and verify Premiere added no unexpected same-track fragments. Pass scope 'target_tracks' to ripple only the named pair (this will desync other tracks).",
+        "Insert a project item at a timeline position. Experimental: if a target clip spans that point, QE razors it before insertion to attempt to preserve its tail; both target and sync-locked track changes are read back. A host may still displace a tail, in which case the edit is reported as committed_unverified. Pass scope 'target_tracks' to ripple only the named pair (this will desync other tracks).",
       parameters: {
         type: "object" as const,
         properties: {
@@ -378,7 +389,7 @@ export function getTimelineTools(bridgeOptions: BridgeOptions) {
 
     trim_clip: {
       description:
-        "Trim exactly one source in/out point and verify the corresponding visible timeline edge. Refuses retimed clips, extensions that would overlap the neighbouring clip on the same track, and, by default, trims that would leave effect keyframes outside the visible clip. Linked audio/video partners get the same trim by default (include_linked), applied as the same offset from each partner's own source point so a J/L cut or slipped audio stays in sync; every clip is checked before any is changed. To set a clip's timeline length or extend a still image, use set_clip_duration.",
+        "Trim exactly one source in/out point and verify the corresponding visible timeline edge. Requires accessible physical media duration from ffprobe; unknown duration or linked partners using different source files refuse before mutation. Refuses retimed clips, extensions that would overlap the neighbouring clip on the same track, and, by default, trims that would leave effect keyframes outside the visible clip. Linked audio/video partners get the same trim by default (include_linked), applied as the same offset from each partner's own source point so a J/L cut or slipped audio stays in sync; every clip is checked before any is changed. To set a clip's timeline length or extend a still image, use set_clip_duration.",
       parameters: {
         type: "object" as const,
         properties: {
@@ -446,8 +457,57 @@ export function getTimelineTools(bridgeOptions: BridgeOptions) {
           };
         }
 
+        // SEC FORK (#712 review): the media-duration bound uses REAL evidence —
+        // ffprobe on the clip's media file — not ProjectItem.getOutPoint(),
+        // which is an editable source Out mark. Two phases: read the media
+        // path, probe duration Node-side, then embed an exact bound. No
+        // missing duration evidence refuses before any mutation.
+        const evidenceScript = buildToolScript(`
+          var projectId; var sequenceId;
+          try { projectId = app.project.documentID; sequenceId = app.project.activeSequence.sequenceID; } catch (contextError) {}
+          if (typeof projectId !== "string" || !projectId.length || typeof sequenceId !== "string" || !sequenceId.length) return __error("Project and sequence identities could not be read; no edit was attempted.");
+          var result = __findClip("${escapeForExtendScript(args.node_id)}");
+          if (!result) return __error("Clip not found");
+          var mp = "";
+          try { mp = String(result.clip.projectItem.getMediaPath() || ""); } catch (eMediaPath) {}
+          return __result({ mediaPath: mp, projectId: projectId, sequenceId: sequenceId });
+        `);
+        let mediaDurationTicks: number | null = null;
+        let mediaPath = "";
+        let projectId = "";
+        let sequenceId = "";
+        try {
+          const evidence = await sendCommand(evidenceScript, bridgeOptions);
+          if (evidence && evidence.success === false) return evidence;
+          const evidenceData = (evidence as { data?: { mediaPath?: unknown; projectId?: unknown; sequenceId?: unknown } } | undefined)?.data;
+          mediaPath = typeof evidenceData?.mediaPath === "string" ? evidenceData.mediaPath : "";
+          projectId = typeof evidenceData?.projectId === "string" ? evidenceData.projectId : "";
+          sequenceId = typeof evidenceData?.sequenceId === "string" ? evidenceData.sequenceId : "";
+          if (!projectId || !sequenceId) return { success: false, error: "Project and sequence identities could not be read; no edit was attempted." };
+          mediaDurationTicks = mediaPath ? await probeMediaEndTicks(mediaPath) : null;
+        } catch {
+          mediaDurationTicks = null;
+        }
+        if (mediaDurationTicks === null || !Number.isSafeInteger(mediaDurationTicks) || mediaDurationTicks <= 0) {
+          return { success: false, error: "Physical media duration could not be verified in the exact tick range. No edit was attempted. ffprobe must be available and source media must expose readable integer timestamp clocks; editable project In/Out marks are not media boundaries." };
+        }
+        const mediaDurationSeconds = mediaDurationTicks / 254016000000;
+        // SEC FORK (#712): the whole bound line is resolved Node-side (numbers
+        // embedded) so the generated script never references Node variables.
+        const trimMediaBound = `
+            if (__secondsToTicks(targetOut) > ${mediaDurationTicks}) {
+              return __editFail("The requested source out point " + targetOut + "s exceeds this clip's real media duration of ${mediaDurationSeconds.toFixed(3)}s (ffprobe); trim was not attempted. Premiere would otherwise extend the clip past its available media.");
+            }`;
+
         const script = buildToolScript(`
+          var currentProjectId; var currentSequenceId;
+          try { currentProjectId = app.project.documentID; currentSequenceId = app.project.activeSequence.sequenceID; } catch (contextError) {}
+          if (currentProjectId !== "${escapeForExtendScript(projectId)}" || currentSequenceId !== "${escapeForExtendScript(sequenceId)}") return __error("Project or active sequence changed after media preflight; no edit was attempted.");
           function __editOne(result, nodeId, checkOnly) {
+            var currentMediaPath = "";
+            try { currentMediaPath = String(result.clip.projectItem.getMediaPath() || ""); } catch (eBoundPath) {}
+            if (currentMediaPath !== "${escapeForExtendScript(mediaPath)}") return __editFail("This clip or linked partner uses media without the preflight duration evidence; no edit was attempted.");
+
 
             var clip = result.clip;
 
@@ -513,6 +573,9 @@ export function getTimelineTools(bridgeOptions: BridgeOptions) {
             if (targetIn < 0) {
               return __editFail("The trim would move this clip's source in point to " + targetIn + "s, before the start of its media; trim was not attempted.");
             }
+            // SEC FORK (#712): upper bound from REAL media duration (ffprobe,
+            // probed Node-side and embedded exactly), never from the editable
+            // source Out mark. Unknown evidence already refused before mutation.${trimMediaBound}
             if (targetOut - targetIn < tolerance) {
               return __editFail("The requested source trim must leave at least one frame between in and out; trim was not attempted.");
             }

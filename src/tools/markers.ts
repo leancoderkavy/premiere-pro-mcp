@@ -47,6 +47,11 @@ const MARKER_READBACK = `
 const MARKER_UNDO_RECEIPT = `
           function __markerUndoReceipt(before, payload) {
             var after = __readUndoIndex();
+            var barrier = __rememberMarkerUndoBarrier(after);
+            payload.qeMarkerUndoVerified = false;
+            payload.markerUndoBarrier = barrier.ok;
+            payload.markerUndoWarning = "Marker reversal through QE is not verified. The undo tools refuse to cross this marker boundary unless you acknowledge prior non-marker QE actions.";
+            if (!barrier.ok) payload.markerUndoWarning = "The marker may have changed, but the CEP engine could not update its undo barrier. Inspect marker state before using QE undo.";
             if (before === null || after === null || after < before) {
               payload.undoTracked = null;
               payload.undoWarning = "Premiere's undo stack could not be verified for this marker write. Do not assume Undo would reverse the marker.";
@@ -65,7 +70,7 @@ const MARKER_UNDO_RECEIPT = `
 export function getMarkerTools(bridgeOptions: BridgeOptions) {
   return {
     add_marker: {
-      description: "Add a marker to the active sequence or a clip and read its name, comments, color and duration back. EXPERIMENTAL (QE DOM): the receipt probes undoStackIndex to report whether Premiere recorded an undo step; never Undo a marker write with undoTracked:false, because that reverses an earlier action.",
+      description: "Add a marker to the active sequence or a clip and read its name, comments, color and duration back. EXPERIMENTAL (QE DOM): the receipt reports undoStackIndex movement, which does not prove QE can reverse the marker. Every marker attempt protects an engine undo boundary; undoTracked:false means the marker did not observably advance the QE index.",
       parameters: {
         type: "object" as const,
         properties: {
@@ -121,6 +126,8 @@ export function getMarkerTools(bridgeOptions: BridgeOptions) {
           
           // createMarker() and the marker.end setter both take seconds, not ticks.
           var markerUndoBefore = __readUndoIndex();
+          var markerBarrier = __rememberMarkerUndoBarrier(markerUndoBefore);
+          if (!markerBarrier.ok) return __error(markerBarrier.error);
           var marker = markers.createMarker(${args.time_seconds});
 
           ${args.name ? `marker.name = "${escapeForExtendScript(args.name)}";` : ""}
@@ -146,7 +153,7 @@ export function getMarkerTools(bridgeOptions: BridgeOptions) {
     },
 
     delete_marker: {
-      description: "Delete a marker at a specific time position. EXPERIMENTAL (QE DOM): the receipt probes undoStackIndex to report whether Premiere recorded an undo step; undoTracked:false means Undo would reverse an earlier action.",
+      description: "Delete a marker at a specific time position. EXPERIMENTAL (QE DOM): the receipt reports undoStackIndex movement, which does not prove QE can reverse the marker. Every marker attempt protects an engine undo boundary; undoTracked:false means the marker did not observably advance the QE index.",
       parameters: {
         type: "object" as const,
         properties: {
@@ -184,6 +191,8 @@ export function getMarkerTools(bridgeOptions: BridgeOptions) {
           while (marker) {
             var markerTicks = parseFloat(marker.start.ticks);
             if (Math.abs(markerTicks - targetTicks) < TICKS_PER_SECOND * 0.01) {
+              var markerBarrier = __rememberMarkerUndoBarrier(markerUndoBefore);
+              if (!markerBarrier.ok) return __error(markerBarrier.error);
               markers.deleteMarker(marker);
               deleted = true;
               break;
@@ -199,7 +208,7 @@ export function getMarkerTools(bridgeOptions: BridgeOptions) {
     },
 
     update_marker: {
-      description: "Update the name, comments or color of the sequence marker at a time and read them back. EXPERIMENTAL (QE DOM): the receipt probes undoStackIndex to report whether Premiere recorded an undo step; undoTracked:false means Undo would reverse an earlier action.",
+      description: "Update the name, comments or color of the sequence marker at a time and read them back. EXPERIMENTAL (QE DOM): the receipt reports undoStackIndex movement, which does not prove QE can reverse the marker. Every marker attempt protects an engine undo boundary; undoTracked:false means the marker did not observably advance the QE index.",
       parameters: {
         type: "object" as const,
         properties: {
@@ -230,6 +239,8 @@ export function getMarkerTools(bridgeOptions: BridgeOptions) {
           while (marker) {
             var markerTicks = parseFloat(marker.start.ticks);
             if (Math.abs(markerTicks - targetTicks) < TICKS_PER_SECOND * 0.01) {
+              var markerBarrier = __rememberMarkerUndoBarrier(markerUndoBefore);
+              if (!markerBarrier.ok) return __error(markerBarrier.error);
               ${args.name ? `marker.name = "${escapeForExtendScript(args.name)}";` : ""}
               ${args.comments ? `marker.comments = "${escapeForExtendScript(args.comments)}";` : ""}
               ${args.color !== undefined ? `marker.setColorByIndex(${args.color});` : ""}

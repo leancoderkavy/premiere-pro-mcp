@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { runInNewContext } from "node:vm";
+import { createContext, runInContext } from "node:vm";
 import { getHelpersSource } from "../../src/bridge/script-builder.js";
 import type { BridgeOptions } from "../../src/bridge/file-bridge.js";
 
@@ -44,11 +44,13 @@ function host(options: { ignoreColor?: boolean; ignoreEnd?: boolean; undoIndex?:
     getNextMarker: (m: FakeMarker) => list[list.indexOf(m) + 1] ?? null,
     deleteMarker: (m: FakeMarker) => { list.splice(list.indexOf(m), 1); },
   };
+  const context = createContext({
+    $: { global: {} },
+    app: { enableQE() {}, project: { documentID: "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa", activeSequence: { markers } } },
+    qe: { project: { undoStackIndex: () => undoIndex } },
+  });
   mockedSendCommand.mockImplementation(async (script: string) =>
-    JSON.parse(String(runInNewContext(`${getHelpersSource()}\n${script}`, {
-      app: { enableQE() {}, project: { activeSequence: { markers } } },
-      qe: { project: { undoStackIndex: () => undoIndex } },
-    }))));
+    JSON.parse(String(runInContext(`${getHelpersSource()}\n${script}`, context))));
   return list;
 }
 

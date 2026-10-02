@@ -146,6 +146,14 @@ const FILESYSTEM_TOOL_NAMES = new Set([
 // inferred safely from their names. Keep them explicit: a preview reads an
 // approved folder, authoring mutates a saved AE project and exports a file.
 const TOOL_CAPABILITY_REQUIREMENTS: Readonly<Record<string, readonly Capability[]>> = {
+  // Source bounds read the underlying media file through ffprobe.
+  trim_clip: ["edit", "filesystem"],
+  slip_edit: ["edit", "filesystem"],
+  // Preset preflight reads local files; AME queue handoff can start exports.
+  create_sequence: ["edit", "filesystem"],
+  create_sequence_from_preset: ["edit", "filesystem"],
+  add_to_render_queue: ["export", "filesystem"],
+  get_export_file_extension: ["inspect", "filesystem"],
   preview_after_effects_render_handoff: ["inspect", "filesystem"],
   apply_after_effects_render_handoff: ["inspect", "edit", "filesystem"],
   verify_after_effects_connection: ["inspect"],
@@ -345,7 +353,7 @@ const ACTION_CAPABILITIES: Readonly<Record<string, Readonly<Record<string, reado
 /** A conservative classification for centralized server registration. */
 export function capabilityForTool(toolName: string): Capability {
   if (UNSAFE_TOOL_NAMES.has(toolName)) return "unsafe-script";
-  if (/^(export_|validate_export_|start_batch_encode|queue_|encode_|capture_frame)/.test(toolName)) return "export";
+  if (/^(export_|validate_export_|start_batch_encode|add_to_render_queue|queue_|encode_|capture_frame)/.test(toolName)) return "export";
   if (/^(import_|relink_|create_project|open_project|save_|consolidate_)/.test(toolName)) return "filesystem";
   if (FILESYSTEM_TOOL_NAMES.has(toolName)) return "filesystem";
   if (INSPECT_TOOL_NAMES.has(toolName) || /^(get_|list_|inspect_|find_|check_|search_)/.test(toolName)) return "inspect";

@@ -48,7 +48,7 @@ describe.each(["apply_effect", "apply_audio_effect"] as const)("%s readback", (t
   it("verifies growth and reports the newly inserted component's names", async () => {
     const h = host();
     const result = await tools[tool].handler({ node_id: "clip", effect_name: "Test effect" });
-    expect(result).toMatchObject({ success: true, data: { applied: true, verified: true, outcome: "verified", componentCountBefore: 1, componentCountAfter: 2, addedComponents: [h.added] } });
+    expect(result).toMatchObject({ success: true, data: { applied: true, verified: true, outcome: "verified", componentCountBefore: 1, componentCountAfter: 2, addedComponents: [h.added], renderVerified: false } });
     expect(h.add).toHaveBeenCalledTimes(1);
   });
   it("recognizes another instance of an existing effect", async () => {
