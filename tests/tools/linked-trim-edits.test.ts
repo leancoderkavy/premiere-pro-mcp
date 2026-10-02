@@ -159,7 +159,7 @@ describe("remove_from_timeline takes linked partners and verifies", () => {
         };
       }
     }
-    return { video, audio, context };
+    return { video, audio };
   };
 
   it("removes the shot's audio with it by default (live: plan remove left the audio behind)", async () => {

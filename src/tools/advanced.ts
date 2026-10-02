@@ -93,9 +93,6 @@ export function getAdvancedTools(
         }
 
         const script = buildToolScript(`
-          var currentProjectId; var currentSequenceId;
-          try { currentProjectId = app.project.documentID; currentSequenceId = app.project.activeSequence.sequenceID; } catch (contextError) {}
-          if (currentProjectId !== "${escapeForExtendScript(projectId)}" || currentSequenceId !== "${escapeForExtendScript(sequenceId)}") return __error("Project or active sequence changed after media preflight; no edit was attempted.");
           function __editOne(result, nodeId, checkOnly) {
             var track = result.trackType === "video"
               ? app.project.activeSequence.videoTracks[result.trackIndex]
@@ -338,6 +335,9 @@ export function getAdvancedTools(
               return __editFail("The requested slip offset would move the source out point to " + (newOutTicks / TICKS_PER_SECOND) + "s, past this clip's real media duration of ${(mediaDurationTicks / 254016000000).toFixed(3)}s (ffprobe); slip was not attempted.");
             }`;
         const script = buildToolScript(`
+          var currentProjectId; var currentSequenceId;
+          try { currentProjectId = app.project.documentID; currentSequenceId = app.project.activeSequence.sequenceID; } catch (contextError) {}
+          if (currentProjectId !== "${escapeForExtendScript(projectId)}" || currentSequenceId !== "${escapeForExtendScript(sequenceId)}") return __error("Project or active sequence changed after media preflight; no edit was attempted.");
           function __editOne(result, nodeId, checkOnly) {
             var currentMediaPath = "";
             try { currentMediaPath = String(result.clip.projectItem.getMediaPath() || ""); } catch (eBoundPath) {}
