@@ -58,14 +58,25 @@ export function getProjectTools(bridgeOptions: BridgeOptions) {
           }
           var existedBefore = !!outputFile.exists;
           var lengthBefore = existedBefore ? Number(outputFile.length) : -1;
-          var modifiedBefore = "";
-          try { if (existedBefore) modifiedBefore = String(outputFile.modified); } catch (eSnap) {}
+          if (existedBefore && !isFinite(lengthBefore)) return __error("Cannot read the existing output size; Save As was not attempted.");
+          function readModified(file) {
+            try {
+              var modified = file.modified;
+              var stamp = modified && typeof modified.valueOf === "function" ? modified.valueOf() : null;
+              return typeof stamp === "number" && isFinite(stamp) ? stamp : null;
+            } catch (eModified) { return null; }
+          }
+          var modifiedBefore = existedBefore ? readModified(outputFile) : null;
           project.saveAs("${target}");
-          if (!outputFile.exists || !(outputFile.length > 0)) return __error("Premiere did not write ${target}; the current project is unchanged.");
-          var modifiedAfter = "";
-          try { modifiedAfter = String(outputFile.modified); } catch (eAfter) {}
-          if (existedBefore && Number(outputFile.length) === lengthBefore && modifiedAfter === modifiedBefore) {
-            return __error("Premiere did not write a new project file at ${target} (the existing output was unchanged).");
+          if (!outputFile.exists || !(outputFile.length > 0)) return __error("Premiere did not write a non-empty project file at ${target}; inspect the active project before retrying.");
+          var modifiedAfter = readModified(outputFile);
+          if (existedBefore && Number(outputFile.length) === lengthBefore) {
+            if (modifiedBefore === null || modifiedAfter === null) {
+              return __error("Cannot verify a new project file at ${target}: the size is unchanged and a modification timestamp is unreadable. Inspect the active project before retrying.");
+            }
+            if (modifiedAfter === modifiedBefore) {
+              return __error("Premiere did not write a new project file at ${target} (the existing output was unchanged).");
+            }
           }
           var activePath = app.project ? String(app.project.path || "") : "";
           var switched = __normProjectPath(activePath) === __normProjectPath("${target}");

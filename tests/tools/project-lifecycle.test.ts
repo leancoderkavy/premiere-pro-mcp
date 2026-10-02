@@ -32,12 +32,13 @@ type Proj = {
  * openSequence brings its project to the front unless that timeline already
  * has focus (a new empty project keeps the previous project's timeline focused).
  */
-function host(options: { saveAsNoop?: boolean } = {}) {
-  const files = new Map<string, { length: number; modified: string }>([
-    ["/p/Main.prproj", { length: 100, modified: "t0" }],
-    ["/p/Other.prproj", { length: 80, modified: "t0" }],
-    ["/p/Backup.prproj", { length: 50, modified: "old" }],
+function host(options: { saveAsNoop?: boolean; missingOutput?: boolean; emptyOutput?: boolean; missingParent?: boolean; modifiedUnavailable?: "before" | "after" | "both"; sameSizeRewrite?: boolean } = {}) {
+  const files = new Map<string, { length: number; modified: number }>([
+    ["/p/Main.prproj", { length: 100, modified: 1000 }],
+    ["/p/Other.prproj", { length: 80, modified: 1000 }],
+    ["/p/Backup.prproj", { length: 50, modified: 1000 }],
   ]);
+  let saveCalls = 0;
   const state = { focusedSequence: "" };
   const open: Proj[] = [];
   const app: Record<string, unknown> = {};
@@ -49,8 +50,10 @@ function host(options: { saveAsNoop?: boolean } = {}) {
       activeSequence: seqs[0] ?? null,
       sequences: Object.assign({ numSequences: seqs.length }, seqs),
       saveAs: (target: string) => {
+        saveCalls++;
         if (options.saveAsNoop) return;
-        files.set(target, { length: 120, modified: "t1" });
+        if (options.missingOutput) { files.delete(target); return; }
+        files.set(target, { length: options.emptyOutput ? 0 : options.sameSizeRewrite ? 50 : 120, modified: 1001 });
         const copy = makeProject(target, sequenceNames);
         open.splice(open.indexOf(project), 1, copy);
         app.project = copy;
@@ -81,13 +84,16 @@ function host(options: { saveAsNoop?: boolean } = {}) {
     Object.defineProperties(this, {
       exists: { get: () => files.has(path) },
       length: { get: () => files.get(path)?.length ?? 0 },
-      modified: { get: () => files.get(path)?.modified ?? "" },
+      modified: { get: () => {
+        if (options.modifiedUnavailable === "both" || options.modifiedUnavailable === (saveCalls ? "after" : "before")) throw new Error("timestamp unavailable");
+        return new Date(files.get(path)?.modified ?? 0);
+      } },
     });
-    this.parent = { exists: true };
+    this.parent = { exists: !options.missingParent };
   }
   mockedSendCommand.mockImplementation(async (script: string) =>
     JSON.parse(String(runInNewContext(`${getHelpersSource()}\n${script}`, { app, File }))));
-  return { app, open, main };
+  return { app, open, main, saveCalls: () => saveCalls };
 }
 
 describe("project lifecycle tools", () => {
@@ -131,6 +137,39 @@ describe("project lifecycle tools", () => {
       data: { saved: true, verified: true, activeProjectPath: "/p/Backup.prproj" },
     });
     expect((app.project as Proj).path).toBe("/p/Backup.prproj");
+  });
+
+  it.each(["before", "after", "both"] as const)("refuses unchanged size when the %s timestamp is unreadable", async (modifiedUnavailable) => {
+    host({ saveAsNoop: true, modifiedUnavailable });
+    await tools.open_project.handler({ path: "/p/Main.prproj" });
+    await expect(tools.save_project_as.handler({ path: "/p/Backup.prproj" })).resolves.toMatchObject({
+      success: false, error: expect.stringContaining("timestamp is unreadable"),
+    });
+  });
+
+  it("verifies same-size rewrites using millisecond timestamp precision", async () => {
+    host({ sameSizeRewrite: true });
+    await tools.open_project.handler({ path: "/p/Main.prproj" });
+    await expect(tools.save_project_as.handler({ path: "/p/Backup.prproj" })).resolves.toMatchObject({
+      success: true, data: { saved: true, verified: true },
+    });
+  });
+
+  it.each(["missingOutput", "emptyOutput"] as const)("refuses %s after Save As", async (option) => {
+    host({ [option]: true });
+    await tools.open_project.handler({ path: "/p/Main.prproj" });
+    await expect(tools.save_project_as.handler({ path: "/p/Backup.prproj" })).resolves.toMatchObject({
+      success: false, error: expect.stringContaining("non-empty project file"),
+    });
+  });
+
+  it("refuses a missing parent before Save As", async () => {
+    const h = host({ missingParent: true });
+    await tools.open_project.handler({ path: "/p/Main.prproj" });
+    await expect(tools.save_project_as.handler({ path: "/p/Backup.prproj" })).resolves.toMatchObject({
+      success: false, error: expect.stringContaining("directory does not exist"),
+    });
+    expect(h.saveCalls()).toBe(0);
   });
 
   it("closes a background project by path and leaves the active one alone", async () => {
