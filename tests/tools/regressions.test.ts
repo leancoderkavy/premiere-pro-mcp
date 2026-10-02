@@ -1,6 +1,6 @@
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, resolve, sep } from "node:path";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { runInNewContext } from "node:vm";
 import { escapeForExtendScript, getHelpersSource } from "../../src/bridge/script-builder.js";
@@ -85,6 +85,35 @@ async function executePixelAspectRatioScript(sequence: unknown, ratio = "1.4222"
 beforeEach(() => { vi.clearAllMocks(); mockedSendCommand.mockResolvedValue({ success: true, data: { mediaPath: "/fixture/source.mp4" } }); });
 
 describe("real-host social sequence regressions", () => {
+  // #691: QE's newSequence silently ignores forward-slash preset paths on
+  // Windows, so the handler must hand the host native separators and give a
+  // missing file its own precise error.
+  it("normalizes forward-slash preset_path to native separators before the QE call", async () => {
+    const realFile = join(process.cwd(), "package.json");
+    const forwardSlashed = realFile.split(sep).join("/");
+    const script = await scriptFor(sequence.create_sequence_from_preset, { name: "PresetPathTest", preset_path: forwardSlashed });
+    expect(script).toContain(escapeForExtendScript(resolve(forwardSlashed)));
+    if (process.platform === "win32") {
+      // en Windows los separadores nativos difieren del original: el script no
+      // debe llevar el path forward-slashed (falla silenciosa de QE, #691)
+      expect(script).not.toContain(escapeForExtendScript(forwardSlashed));
+    }
+  });
+
+  it("create_sequence also normalizes preset_path and reports missing files (#714)", async () => {
+    const forwardReal = join(process.cwd(), "package.json").split(sep).join("/");
+    const script = await scriptFor(sequence.create_sequence, { name: "Create714", preset_path: forwardReal });
+    expect(script).toContain(escapeForExtendScript(resolve(forwardReal)));
+    await expect(sequence.create_sequence.handler({ name: "X", preset_path: "C:/no/such.sqpreset" })).resolves.toMatchObject({ success: false, error: expect.stringContaining("Preset file not found") });
+  });
+
+  it("reports a missing preset file precisely instead of a bare QE failure", async () => {
+    await expect(sequence.create_sequence_from_preset.handler({
+      name: "PresetPathTest",
+      preset_path: join(process.cwd(), "no-such-dir", "no-such-preset.sqpreset"),
+    })).resolves.toMatchObject({ success: false, error: expect.stringContaining("Preset file not found") });
+  });
+
   const sequence = getSequenceTools(bridgeOptions);
   const playhead = getPlayheadTools(bridgeOptions);
   const utility = getUtilityTools(bridgeOptions);
@@ -1308,7 +1337,7 @@ describe("issue #326 — sequence creation requires project-collection readback"
 
   it("does not report a QE-active sequence as created unless it is discoverable", async () => {
     const script = await scriptFor(sequence.create_sequence, {
-      name: "Verified Sequence", preset_path: "/tmp/sequence.sqpreset",
+      name: "Verified Sequence", preset_path: join(process.cwd(), "package.json"),
     });
     expect(script).toContain("var beforeSequenceIds = {}");
     expect(script).toContain("var sequenceId = String(seq.sequenceID)");
@@ -1321,7 +1350,7 @@ describe("issue #326 — sequence creation requires project-collection readback"
 
   it("applies the same new-ID readback to create_sequence_from_preset", async () => {
     const script = await scriptFor(sequence.create_sequence_from_preset, {
-      name: "Interview", preset_path: "/tmp/sequence.sqpreset",
+      name: "Interview", preset_path: join(process.cwd(), "package.json"),
     });
     expect(script).toContain("var beforeSequenceIds = {}");
     expect(script).toContain("if (beforeSequenceIds[sequenceId])");
@@ -1347,7 +1376,7 @@ describe("issue #326 — sequence creation requires project-collection readback"
 
     await expect(sequence.create_sequence_from_preset.handler({
       name: "Interview",
-      preset_path: "/tmp/sequence.sqpreset",
+      preset_path: join(process.cwd(), "package.json"),
     })).resolves.toMatchObject({
       success: false,
       error: expect.stringContaining("already existed before the preset request"),
@@ -1367,7 +1396,7 @@ describe("issue #326 — sequence creation requires project-collection readback"
         app: { enableQE() {}, project },
         qe: { project: { newSequence() { project.activeSequence = created; if (listed) items.push(created); } } },
       }))));
-    const result = await sequence.create_sequence_from_preset.handler({ name: "Interview", preset_path: "/tmp/sequence.sqpreset" });
+    const result = await sequence.create_sequence_from_preset.handler({ name: "Interview", preset_path: join(process.cwd(), "package.json") });
     if (listed) {
       expect(result).toMatchObject({ success: true, data: { created: true, verified: true, id: "seq-created", name: "Interview" } });
     } else {
