@@ -1673,46 +1673,116 @@ function __clipPositionKey(nodeId) {
   return parts.join("|");
 }
 
-function __runLinkedEdit(target, nodeId, includeLinked, edit, label) {
-  var partners = includeLinked ? __linkedPartnerClips(target) : [];
+function __runLinkedEdit(target, nodeId, includeLinked, edit, label, validatedPartners) {
+  var partners = [];
+  if (includeLinked) {
+    if (validatedPartners !== undefined) partners = validatedPartners;
+    else {
+      try {
+        var linked = target.clip.getLinkedItems();
+        if (!linked || typeof linked.numItems !== "number" || !isFinite(linked.numItems) || linked.numItems < 0 || Math.floor(linked.numItems) !== linked.numItems || linked.numItems > 256) throw new Error("Linked collection is unreadable");
+        var linkedSeen = {};
+        for (var li = 0; li < linked.numItems; li++) {
+          var member = linked[li];
+          if (!member || typeof member.nodeId !== "string" || !member.nodeId.length) throw new Error("Linked member identity is unreadable");
+          var linkedId = member.nodeId;
+          if (linkedId === String(target.clip.nodeId) || linkedSeen["$" + linkedId]) continue;
+          var located = __findClip(linkedId);
+          if (!located) throw new Error("Linked member could not be located");
+          linkedSeen["$" + linkedId] = true;
+          partners.push(located);
+        }
+      } catch (eLinkedRead) { return __error("Linked membership could not be verified; nothing was changed. " + String(eLinkedRead)); }
+    }
+  }
   // Each clip's position when it was checked. A partner is edited only if it is
   // still there when its turn comes: if Premiere moved it while writing the
   // main clip, applying the offset again would double it and still read back
   // as the requested target.
-  var checkedAt = {};
-  checkedAt[nodeId] = __clipPositionKey(nodeId);
+  function editContext() {
+    try {
+      var projectId = app.project.documentID, sequenceId = app.project.activeSequence.sequenceID;
+      if ((typeof projectId !== "string" && typeof projectId !== "number") || (typeof sequenceId !== "string" && typeof sequenceId !== "number") || !String(projectId).length || !String(sequenceId).length) return null;
+      return { projectId: String(projectId), sequenceId: String(sequenceId) };
+    } catch (eContext) { return null; }
+  }
+  var beforeContext = editContext();
+  function position(nodeId) { try { return __clipPositionKey(nodeId); } catch (ePosition) { return null; } }
+  var checkedAt = {}, affectedIds = [];
+  function rememberAffected(check, fallbackId) {
+    var ids = check && check.data && check.data.affectedNodeIds ? check.data.affectedNodeIds : [fallbackId];
+    for (var ai = 0; ai < ids.length; ai++) {
+      var affectedId = String(ids[ai]);
+      var seen = false;
+      for (var prior = 0; prior < affectedIds.length; prior++) if (affectedIds[prior] === affectedId) seen = true;
+      if (!seen) { affectedIds.push(affectedId); checkedAt[affectedId] = position(affectedId); }
+    }
+  }
+  function affectedPlacements() {
+    var observed = [];
+    for (var ai = 0; ai < affectedIds.length; ai++) observed.push({ nodeId: affectedIds[ai], before: checkedAt[affectedIds[ai]], after: position(affectedIds[ai]) });
+    return observed;
+  }
+  function failedMutation(message, edited, mainData, failedPartner) {
+    var observations = affectedPlacements(), afterContext = editContext();
+    var stable = beforeContext && afterContext && beforeContext.projectId === afterContext.projectId && beforeContext.sequenceId === afterContext.sequenceId;
+    var changed = false, readable = !!stable && observations.length > 0;
+    var primaryAfter = null;
+    for (var oi = 0; oi < observations.length; oi++) {
+      var observation = observations[oi];
+      if (observation.nodeId === nodeId) primaryAfter = observation.after;
+      var before = typeof observation.before === "string" ? observation.before.split("|") : [];
+      var after = typeof observation.after === "string" ? observation.after.split("|") : [];
+      if (before.length !== 4 || after.length !== 4) readable = false;
+      for (var fi = 0; fi < 4; fi++) {
+        var known = before[fi] !== undefined && after[fi] !== undefined && /^-?\\d+$/.test(before[fi]) && /^-?\\d+$/.test(after[fi]);
+        if (!known) readable = false;
+        else if (stable && before[fi] !== after[fi]) changed = true;
+      }
+    }
+    var data = { verified: false, mutationAttempted: true, rollbackPerformed: false,
+      outcome: changed ? "committed_unverified" : (readable ? "not_applied" : "failed"),
+      timelineChanged: changed ? true : (readable ? false : null),
+      beforePosition: checkedAt[nodeId], afterPosition: primaryAfter, linkedPartnersEdited: edited,
+      affectedPlacements: observations, contextStable: !!stable };
+    if (!changed && !readable) data.mutationOutcome = "unknown";
+    if (mainData) data.clipEdited = mainData;
+    if (failedPartner) data.failedPartner = failedPartner;
+    return __jsonStringify({ success: false,
+      error: message + " The " + label + " mutation was attempted. Do not retry; inspect the clip and adjacent cuts before continuing.", data: data });
+  }
+  checkedAt[nodeId] = position(nodeId);
   var check;
   try { check = edit(target, nodeId, true); } catch (eCheck) { check = __editFail(eCheck.toString()); }
   if (!check.ok) return __error(check.error);
+  rememberAffected(check, nodeId);
   var p;
   for (p = 0; p < partners.length; p++) {
     var partnerCheck;
     try { partnerCheck = edit(partners[p], String(partners[p].clip.nodeId), true); } catch (ePartnerCheck) { partnerCheck = __editFail(ePartnerCheck.toString()); }
-    checkedAt[String(partners[p].clip.nodeId)] = __clipPositionKey(String(partners[p].clip.nodeId));
+    checkedAt[String(partners[p].clip.nodeId)] = position(String(partners[p].clip.nodeId));
+    rememberAffected(partnerCheck, String(partners[p].clip.nodeId));
     if (!partnerCheck.ok) {
       return __error("The linked " + partners[p].trackType + " clip on track " + (partners[p].trackIndex + 1) + " cannot follow the " + label + ": " + partnerCheck.error + " Nothing was changed; fix that clip or pass include_linked false (this desyncs picture and sound).");
     }
   }
   var main;
   try { main = edit(target, nodeId, false); } catch (eMain) { main = __editFail(eMain.toString()); }
-  if (!main.ok) return __error(main.error);
+  if (!main.ok) return failedMutation(main.error, [], null, null);
   var verified = main.data.verified !== false;
   var edited = [];
   for (p = 0; p < partners.length; p++) {
     var partner = partners[p];
     var partnerId = String(partner.clip.nodeId);
     var outcome;
-    if (__clipPositionKey(partnerId) !== checkedAt[partnerId]) {
+    if (position(partnerId) !== checkedAt[partnerId]) {
       outcome = __editFail("Premiere moved it while the main clip was written, so the " + label + " was not applied to it again");
     } else {
       try { outcome = edit(partner, partnerId, false); } catch (ePartner) { outcome = __editFail(ePartner.toString()); }
     }
     if (!outcome.ok) {
-      return __jsonStringify({
-        success: false,
-        error: "The " + label + " was applied to the clip" + (edited.length ? " and " + edited.length + " of its linked partner(s)" : "") + " but not to its linked " + partner.trackType + " clip on track " + (partner.trackIndex + 1) + " (" + outcome.error + "). The timeline changed and was not rolled back: picture and sound are now out of sync. Inspect those clips and fix the partner by hand.",
-        data: { timelineChanged: true, clipEdited: main.data, linkedPartnersEdited: edited, failedPartner: { nodeId: String(partner.clip.nodeId), trackType: partner.trackType, trackIndex: partner.trackIndex } }
-      });
+      return failedMutation("The " + label + " failed for its linked " + partner.trackType + " clip on track " + (partner.trackIndex + 1) + ": " + outcome.error, edited, main.data,
+        { nodeId: String(partner.clip.nodeId), trackType: partner.trackType, trackIndex: partner.trackIndex });
     }
     var partnerVerified = !!outcome.data && outcome.data.verified !== false;
     if (!partnerVerified) verified = false;

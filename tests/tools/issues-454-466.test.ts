@@ -1,5 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+vi.mock("../../src/tools/media-evidence.js", () => ({ probeMediaDurationTicks: vi.fn().mockResolvedValue(100 * 254016000000) }));
+
 vi.mock("../../src/bridge/file-bridge.js", () => ({
   sendCommand: vi.fn().mockResolvedValue({ success: true, data: {} }),
 }));
@@ -27,8 +29,8 @@ const trackTargeting = getTrackTargetingTools(bridgeOptions);
 async function scriptFor(tool: { handler: (args: any) => Promise<unknown> }, args: unknown) {
   mockedSendCommand.mockClear();
   await tool.handler(args);
-  expect(mockedSendCommand).toHaveBeenCalledTimes(1);
-  return String(mockedSendCommand.mock.calls[0][0]);
+  expect(mockedSendCommand).toHaveBeenCalled();
+  return String(mockedSendCommand.mock.calls[mockedSendCommand.mock.calls.length - 1][0]);
 }
 
 beforeEach(() => vi.clearAllMocks());
@@ -36,6 +38,7 @@ beforeEach(() => vi.clearAllMocks());
 // https://github.com/leancoderkavy/premiere-pro-mcp/issues/457
 describe("issue #457 — roll_edit must move source in/out with the visible cut", () => {
   it("writes the matching outPoint and inPoint alongside the rolled edges", async () => {
+    mockedSendCommand.mockResolvedValueOnce({ success: true, data: { projectDocumentId: "project", sequenceId: "seq", linkedNodeIds: [], entries: [{ nodeId: "clip-1", mediaPath: "/tmp/clip.mp4", position: "0|1|0|1", trackType: "video", trackIndex: 0, clipIndex: 0 }] } });
     const script = await scriptFor(advanced.roll_edit, { node_id: "clip-1", offset_seconds: 1 });
 
     expect(script).toContain("result.clip.outPoint = expectedOut;");
@@ -44,6 +47,7 @@ describe("issue #457 — roll_edit must move source in/out with the visible cut"
   });
 
   it("fails when the source in/out metadata does not follow the visible cut", async () => {
+    mockedSendCommand.mockResolvedValueOnce({ success: true, data: { projectDocumentId: "project", sequenceId: "seq", linkedNodeIds: [], entries: [{ nodeId: "clip-1", mediaPath: "/tmp/clip.mp4", position: "0|1|0|1", trackType: "video", trackIndex: 0, clipIndex: 0 }] } });
     const script = await scriptFor(advanced.roll_edit, { node_id: "clip-1", offset_seconds: 1 });
 
     expect(script).toContain("afterOut !== expectedOut || afterIncomingIn !== expectedIncomingIn");

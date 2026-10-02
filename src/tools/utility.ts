@@ -367,7 +367,7 @@ export function getUtilityTools(bridgeOptions: BridgeOptions) {
 
     add_adjustment_layer: {
       description:
-        "Add an adjustment layer to the active sequence via QE DOM. The layer is added at the playhead position on the specified track.",
+        "EXPERIMENTAL (QE DOM): add an adjustment layer at the playhead on the specified track. Refuses when the host lacks the QE APIs; verifies a new public TrackItem using isAdjustmentLayer and placement readback.",
       parameters: {
         type: "object" as const,
         properties: {
@@ -379,61 +379,77 @@ export function getUtilityTools(bridgeOptions: BridgeOptions) {
       },
       handler: async (args: { track_index?: number }) => {
         const track = args.track_index ?? 0;
+        if (!Number.isSafeInteger(track) || track < 0) return { success: false, error: "track_index must be a non-negative integer." };
         const script = buildToolScript(`
           var seq = app.project.activeSequence;
           if (!seq) return __error("No active sequence");
+          if (${track} >= seq.videoTracks.numTracks) return __error("Video track index ${track} is out of range: the sequence has " + seq.videoTracks.numTracks + " video track(s).");
 
           app.enableQE();
           var qeSeq = qe.project.getActiveSequence();
           if (!qeSeq) return __error("No active QE sequence");
 
-          // Path 1 (legacy, removed in PPro 2026): qeSeq.addAdjustmentLayer(track)
-          try {
-            if (qeSeq.addAdjustmentLayer) {
-              qeSeq.addAdjustmentLayer(${track});
-              return __result({ added: true, trackIndex: ${track}, method: "qeSeq.addAdjustmentLayer" });
+          var playerTicks = parseFloat(seq.getPlayerPosition().ticks);
+          if (!isFinite(playerTicks) || playerTicks < 0) return __error("Cannot read a valid playhead position; nothing was added.");
+          var domTrack = seq.videoTracks[${track}];
+          var beforeClipIds = {};
+          for (var bc = 0; bc < domTrack.clips.numItems; bc++) {
+            var beforeClip = domTrack.clips[bc];
+            if (!beforeClip.nodeId) return __error("Cannot read clip identities before adding an adjustment layer; nothing was added.");
+            beforeClipIds[String(beforeClip.nodeId)] = true;
+          }
+          function __layerAtPlayhead(matchId) {
+            for (var c = 0; c < domTrack.clips.numItems; c++) {
+              var clip = domTrack.clips[c];
+              if (!clip.nodeId || beforeClipIds[String(clip.nodeId)]) continue;
+              var clipStart = NaN;
+              try { clipStart = parseFloat(clip.start.ticks); } catch (eStart) {}
+              if (!isFinite(clipStart) || Math.abs(clipStart - playerTicks) > TICKS_PER_SECOND / 100) continue;
+              var itemId = "";
+              try { itemId = String(clip.projectItem.nodeId); } catch (eItem) {}
+              if (matchId && itemId !== matchId) continue;
+              try { if (clip.isAdjustmentLayer() === true) return clip; } catch (eLayer) {}
             }
-          } catch(eLegacy) {}
-
-          // Path 2 (PPro 2026): create a project-level adjustment layer matching
-          // the active sequence, then insert into the requested track at the
-          // playhead. qe.project.newAdjustmentLayer() returns a QE project item.
-          try {
-            var adjQE = qe.project.newAdjustmentLayer ? qe.project.newAdjustmentLayer() : null;
-            if (adjQE) {
-              // Find the matching public ProjectItem to insert.
-              var rootChildren = app.project.rootItem.children;
-              var adjItem = null;
-              for (var c = rootChildren.numItems - 1; c >= 0; c--) {
-                var it = rootChildren[c];
-                if (it && it.name && it.name.toLowerCase().indexOf("adjustment") !== -1) {
-                  adjItem = it;
-                  break;
-                }
-              }
-              if (!adjItem) return __error("Adjustment layer item not found in project after creation");
-
-              var qeTrack = qeSeq.getVideoTrackAt(${track});
-              if (!qeTrack) return __error("Video track " + ${track} + " not found");
-
-              var playerTicks;
-              try { playerTicks = seq.getPlayerPosition().ticks.toString(); }
-              catch(eP) { playerTicks = "0"; }
-
-              try {
-                qeTrack.insert(adjItem, playerTicks);
-              } catch(eIns1) {
-                // Older signature: qeTrack.insertClip(item, ticks)
-                try { qeTrack.insertClip(adjItem, playerTicks); }
-                catch(eIns2) { return __error("Failed to insert adjustment layer: " + eIns2.toString()); }
-              }
-              return __result({ added: true, trackIndex: ${track}, method: "qe.project.newAdjustmentLayer + insert" });
-            }
-          } catch(eNew) {
-            return __error("Failed to create adjustment layer: " + eNew.toString());
+            return null;
           }
 
-          return __error("No supported adjustment-layer API found in this Premiere version");
+          // Path 1 (legacy, removed in PPro 2026): qeSeq.addAdjustmentLayer(track)
+          if (typeof qeSeq.addAdjustmentLayer === "function") {
+            try { qeSeq.addAdjustmentLayer(${track}); } catch (eLegacy) { return __error("Adjustment layer creation was attempted and threw: " + eLegacy.toString() + ". Inspect before retrying.", { outcome: "failed", mutationAttempted: true, mutationOutcome: "unknown", verified: false, timelineChanged: null }); }
+            if (!__layerAtPlayhead(null)) {
+              return __jsonStringify({ success: false, error: "qeSeq.addAdjustmentLayer returned, but no new adjustment layer was found at the playhead on video track ${track}.", data: { outcome: "committed_unverified", method: "qeSeq.addAdjustmentLayer" } });
+            }
+            return __result({ added: true, verified: true, trackIndex: ${track}, method: "qeSeq.addAdjustmentLayer" });
+          }
+
+          // Path 2 (PPro 2026): create a project-level adjustment layer, then
+          // insert it at the playhead. The new item is found by node ID, not by
+          // name, so an older adjustment layer in the project is never used.
+          if (!qe.project.newAdjustmentLayer) return __error("No supported adjustment-layer API found in this Premiere version (Premiere 25.2.3 has neither qeSeq.addAdjustmentLayer nor qe.project.newAdjustmentLayer).");
+          var qeTrack = qeSeq.getVideoTrackAt(${track});
+          if (!qeTrack) return __error("QE video track ${track} not found; nothing was added.");
+          var insertMethod = typeof qeTrack.insert === "function" ? "insert" : (typeof qeTrack.insertClip === "function" ? "insertClip" : null);
+          if (!insertMethod) return __error("No QE insertion API is available; nothing was added.");
+          var root = app.project.rootItem;
+          var before = {};
+          for (var b = 0; b < __childCount(root); b++) { var existing = __childAt(root, b); if (existing) before[String(existing.nodeId)] = true; }
+          try { qe.project.newAdjustmentLayer(); } catch (eNew) { return __error("Adjustment layer creation was attempted and threw: " + eNew.toString() + ". Inspect the project before retrying.", { outcome: "failed", mutationAttempted: true, mutationOutcome: "unknown", verified: false }); }
+          var adjItem = null, addedItems = 0;
+          for (var c2 = __childCount(root) - 1; c2 >= 0; c2--) {
+            var candidate = __childAt(root, c2);
+            if (candidate && !before[String(candidate.nodeId)]) { adjItem = candidate; addedItems++; }
+          }
+          if (!adjItem || addedItems !== 1) return __error("Adjustment layer creation produced no uniquely identifiable project item. Inspect the project before retrying.", { outcome: "committed_unverified", verified: false });
+
+          try {
+            qeTrack[insertMethod](adjItem, String(playerTicks));
+          } catch (eInsert) {
+            return __error("Adjustment layer insertion was attempted and threw: " + eInsert.toString() + ". The project or timeline may have changed; inspect before retrying.", { outcome: "failed", mutationAttempted: true, mutationOutcome: "unknown", verified: false, timelineChanged: null, projectItem: adjItem.name });
+          }
+          if (!__layerAtPlayhead(String(adjItem.nodeId))) {
+            return __jsonStringify({ success: false, error: "Premiere accepted the insert, but the new adjustment layer was not found at the playhead on video track ${track}.", data: { outcome: "committed_unverified", projectItem: adjItem.name, method: "qe.project.newAdjustmentLayer + insert" } });
+          }
+          return __result({ added: true, verified: true, trackIndex: ${track}, projectItem: adjItem.name, nodeId: String(adjItem.nodeId), method: "qe.project.newAdjustmentLayer + insert" });
         `);
         return sendCommand(script, bridgeOptions);
       },
@@ -481,12 +497,30 @@ export function getUtilityTools(bridgeOptions: BridgeOptions) {
           var res = __exportStillFrame("${escapeForExtendScript(args.output_path)}", timeTicks);
           if (!res.ok) return __error(res.error + " [" + res.notes.join("; ") + "]");
 
-          // Import back
-          app.project.importFiles([res.path], false, app.project.rootItem, false);
+          // Import back and find the new project item by node ID.
+          var root = app.project.rootItem;
+          var before = {};
+          for (var b = 0; b < __childCount(root); b++) { var existing = __childAt(root, b); if (existing) before[String(existing.nodeId)] = true; }
+          app.project.importFiles([res.path], true, root, false);
+          var imported = null;
+          for (var a = 0; a < __childCount(root); a++) {
+            var child = __childAt(root, a);
+            if (!child || before[String(child.nodeId)]) continue;
+            var childPath = "";
+            try { childPath = String(child.getMediaPath()); } catch (ePath) {}
+            if (new File(childPath).fsName === new File(res.path).fsName) { imported = child; break; }
+          }
+          if (!imported) {
+            return __jsonStringify({ success: false, error: "The frame was exported to " + res.path + " but Premiere did not import it as a project item.", data: { exported: true, path: res.path, imported: false } });
+          }
 
           return __result({
             exported: true,
+            imported: true,
+            verified: true,
             path: res.path,
+            nodeId: String(imported.nodeId),
+            itemName: imported.name,
             method: res.method,
             atSeconds: __ticksToSeconds(timeTicks),
             note: "Frame exported and imported. Add to timeline with add_to_timeline."
@@ -1336,11 +1370,25 @@ export function getUtilityTools(bridgeOptions: BridgeOptions) {
         type?: string;
         color_index?: number;
       }) => {
+        if (typeof args.time_seconds !== "number" || !Number.isFinite(args.time_seconds) || args.time_seconds < 0) {
+          return { success: false, error: "time_seconds must be a finite, non-negative number of seconds." };
+        }
+        if (args.duration_seconds !== undefined && (typeof args.duration_seconds !== "number" || !Number.isFinite(args.duration_seconds) || args.duration_seconds < 0)) {
+          return { success: false, error: "duration_seconds must be a finite, non-negative number of seconds." };
+        }
+        if (args.color_index !== undefined && (!Number.isInteger(args.color_index) || args.color_index < 0 || args.color_index > 7)) {
+          return { success: false, error: "color_index must be an integer from 0 to 7." };
+        }
+        if (args.type !== undefined && !["Comment", "Chapter", "Segmentation", "WebLink"].includes(args.type)) {
+          return { success: false, error: "type must be Comment, Chapter, Segmentation or WebLink." };
+        }
+        const endSeconds = args.duration_seconds ? args.time_seconds + args.duration_seconds : undefined;
         const script = buildToolScript(`
           var item = __findProjectItem("${escapeForExtendScript(args.item_id)}");
           if (!item) return __error("Item not found");
 
           var markers = item.getMarkers();
+          if (!markers) return __error("This project item has no marker collection.");
           var markerBarrier = __rememberMarkerUndoBarrier(__readUndoIndex());
           if (!markerBarrier.ok) return __error(markerBarrier.error);
           var marker = markers.createMarker(${args.time_seconds});
@@ -1348,18 +1396,22 @@ export function getUtilityTools(bridgeOptions: BridgeOptions) {
           ${args.name ? `marker.name = "${escapeForExtendScript(args.name)}";` : ""}
           ${args.comments ? `marker.comments = "${escapeForExtendScript(args.comments)}";` : ""}
           ${args.type ? `marker.type = "${escapeForExtendScript(args.type)}";` : ""}
-          ${
-            args.duration_seconds !== undefined
-              ? `
-          var endTime = new Time();
-          endTime.seconds = ${args.time_seconds + args.duration_seconds};
-          marker.end = endTime;
-          `
-              : ""
-          }
+          // The end setter takes seconds; a Time object throws "Illegal
+          // Parameter type" on 25.2.3, after the marker already exists.
+          ${endSeconds !== undefined ? `marker.end = ${endSeconds};` : ""}
           ${args.color_index !== undefined ? `marker.setColorByIndex(${args.color_index});` : ""}
 
-          return __result({ added: true, item: item.name, timeSeconds: ${args.time_seconds} });
+          var problems = [], unverifiedFields = [];
+          ${args.name ? `if (String(marker.name) !== "${escapeForExtendScript(args.name)}") problems.push("name reads back as " + marker.name);` : ""}
+          ${args.comments ? `if (String(marker.comments) !== "${escapeForExtendScript(args.comments)}") problems.push("comments read back as " + marker.comments);` : ""}
+          ${args.type ? `if (String(marker.type) !== "${args.type}") problems.push("type reads back as " + marker.type);` : ""}
+          ${endSeconds !== undefined ? `if (!(Math.abs(parseFloat(marker.end.seconds) - ${endSeconds}) < 0.01)) problems.push("end reads back as " + marker.end.seconds + "s");` : ""}
+          ${args.color_index !== undefined ? `var color = null; try { color = marker.getColorByIndex(); } catch (eColor) {} if (typeof color !== "number" || !isFinite(color)) unverifiedFields.push("color"); else if (color !== ${args.color_index}) problems.push("color index reads back as " + color);` : ""}
+          if (problems.length) {
+            return __error("The marker was created at ${args.time_seconds}s on " + item.name + ", but " + problems.join("; ") + ".", { markerCreated: true, timelineChanged: true, verified: false, outcome: "committed_unverified", unverifiedFields: unverifiedFields });
+          }
+
+          return __result({ added: true, verified: unverifiedFields.length === 0, outcome: unverifiedFields.length ? "committed_unverified" : "verified", unverifiedFields: unverifiedFields, item: item.name, timeSeconds: ${args.time_seconds}, endSeconds: parseFloat(marker.end.seconds), name: marker.name, type: marker.type });
         `);
         return sendCommand(script, bridgeOptions);
       },
@@ -1601,8 +1653,12 @@ export function getUtilityTools(bridgeOptions: BridgeOptions) {
           if (found === null) return __error("No " + "${direction}" + " edit point found");
 
           seq.setPlayerPosition("" + found);
+          var observed = parseFloat(seq.getPlayerPosition().ticks);
+          if (!(Math.abs(observed - found) <= TICKS_PER_SECOND * 0.001)) {
+            return __error("Premiere left the playhead at " + __ticksToSeconds("" + observed) + "s instead of the edit at " + __ticksToSeconds("" + found) + "s.");
+          }
 
-          return __result({ movedTo: __ticksToSeconds("" + found), direction: "${direction}" });
+          return __result({ movedTo: __ticksToSeconds("" + observed), direction: "${direction}", verified: true });
         `);
         return sendCommand(script, bridgeOptions);
       },

@@ -782,7 +782,9 @@ describe("Tool Handler Behavior", () => {
       expect(clipScript).toContain("startVerified");
       expect(clipScript).toContain("endVerified");
       expect(clipScript).toContain("__newTransitionCovers(domTrack, transitionKeysBefore, clipStartTicks, frameTicks)");
-      expect(clipScript).toContain("the request was partially applied");
+      expect(clipScript).toContain('outcome: "committed_unverified"');
+      expect(clipScript).toContain("timelineChanged: true");
+      expect(clipScript).toContain("completedEdges: completedEdges");
 
       vi.clearAllMocks();
       await (tools.batch_add_transitions.handler as any)({ transition_name: "Cross Dissolve" });

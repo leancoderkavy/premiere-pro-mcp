@@ -102,7 +102,7 @@ export function getMarkerTools(bridgeOptions: BridgeOptions) {
           },
           node_id: {
             type: "string",
-            description: "Optional clip node ID to add marker to clip instead of sequence",
+            description: "Optional clip node ID to add the marker to that clip instead of the sequence. Premiere 25.2.3 timeline clips have no marker collection, so this refuses there and names the source time to use with add_marker_to_project_item.",
           },
         },
         required: ["time_seconds"],
@@ -121,7 +121,17 @@ export function getMarkerTools(bridgeOptions: BridgeOptions) {
         const markerTarget = args.node_id
           ? `var clipResult = __findClip("${escapeForExtendScript(args.node_id)}");
              if (!clipResult) return __error("Clip not found");
-             var markers = clipResult.clip.markers;`
+             var markers = clipResult.clip.markers;
+             if (!markers || typeof markers.createMarker !== "function") {
+               var sourceIn = NaN, sourceSpeed = null, sourceReverse = null;
+               try {
+                 sourceIn = __ticksToSeconds(clipResult.clip.inPoint.ticks);
+                 sourceSpeed = clipResult.clip.getSpeed();
+                 sourceReverse = clipResult.clip.isSpeedReversed();
+               } catch (eIn) {}
+               if (!isFinite(sourceIn) || (sourceSpeed !== 1 && sourceSpeed !== 100) || sourceReverse !== false) return __error("Timeline clips have no marker collection on this Premiere host. Nothing was changed. Use add_marker_to_project_item after inspecting the source clock; this clip's timing or speed cannot establish a simple clip-to-source time conversion.");
+               return __error("Timeline clips have no marker collection on this Premiere host; clip markers belong to the source project item and appear on every use of that media. Nothing was changed. Use add_marker_to_project_item with the source time instead: this clip's in-point is " + sourceIn + "s, so clip time t is source time t + " + sourceIn + "s.");
+             }`
           : `var seq = app.project.activeSequence;
              if (!seq) return __error("No active sequence");
              var markers = seq.markers;`;
@@ -172,7 +182,7 @@ export function getMarkerTools(bridgeOptions: BridgeOptions) {
           },
           node_id: {
             type: "string",
-            description: "Optional clip node ID (deletes from sequence if omitted)",
+            description: "Optional clip node ID (deletes from sequence if omitted). Premiere 25.2.3 timeline clips have no marker collection, so this refuses there.",
           },
         },
         required: ["time_seconds"],
@@ -183,7 +193,17 @@ export function getMarkerTools(bridgeOptions: BridgeOptions) {
         const markerTarget = args.node_id
           ? `var clipResult = __findClip("${escapeForExtendScript(args.node_id)}");
              if (!clipResult) return __error("Clip not found");
-             var markers = clipResult.clip.markers;`
+             var markers = clipResult.clip.markers;
+             if (!markers || typeof markers.getFirstMarker !== "function") {
+               var sourceIn = NaN, sourceSpeed = null, sourceReverse = null;
+               try {
+                 sourceIn = __ticksToSeconds(clipResult.clip.inPoint.ticks);
+                 sourceSpeed = clipResult.clip.getSpeed();
+                 sourceReverse = clipResult.clip.isSpeedReversed();
+               } catch (eIn) {}
+               if (!isFinite(sourceIn) || (sourceSpeed !== 1 && sourceSpeed !== 100) || sourceReverse !== false) return __error("Timeline clips have no marker collection on this Premiere host. Nothing was changed. Use add_marker_to_project_item after inspecting the source clock; this clip's timing or speed cannot establish a simple clip-to-source time conversion.");
+               return __error("Timeline clips have no marker collection on this Premiere host; clip markers belong to the source project item and appear on every use of that media. Nothing was changed. Use add_marker_to_project_item with the source time instead: this clip's in-point is " + sourceIn + "s, so clip time t is source time t + " + sourceIn + "s.");
+             }`
           : `var seq = app.project.activeSequence;
              if (!seq) return __error("No active sequence");
              var markers = seq.markers;`;

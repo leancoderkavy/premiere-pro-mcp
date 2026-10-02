@@ -1,6 +1,14 @@
 import { buildToolScript, escapeForExtendScript } from "../bridge/script-builder.js";
 import { sendCommand, BridgeOptions } from "../bridge/file-bridge.js";
 
+function nonNegativeSecondsError(args: Record<string, unknown>, names: string[]): string | null {
+  for (const name of names) {
+    const value = args[name];
+    if (typeof value !== "number" || !Number.isFinite(value) || value < 0) return `${name} must be a finite, non-negative number of seconds.`;
+  }
+  return null;
+}
+
 export function getPlayheadTools(bridgeOptions: BridgeOptions) {
   return {
     get_playhead_position: {
@@ -28,7 +36,7 @@ export function getPlayheadTools(bridgeOptions: BridgeOptions) {
         properties: {
           time_seconds: {
             type: "number",
-            description: "Time position in seconds to move the playhead to",
+            description: "Time position in seconds to move the playhead to (0 to the sequence end)",
           },
         },
         required: ["time_seconds"],
@@ -122,35 +130,47 @@ export function getPlayheadTools(bridgeOptions: BridgeOptions) {
     },
 
     set_sequence_in_out_points: {
-      description: "Set the sequence in and out points (for export range, etc.)",
+      description: "Set the sequence in and out points (for an export range, etc.) and read them back. out_seconds must be after in_seconds and not past the sequence end.",
       parameters: {
         type: "object" as const,
         properties: {
           in_seconds: {
             type: "number",
-            description: "In-point in seconds",
+            description: "In-point in seconds (0 or later)",
           },
           out_seconds: {
             type: "number",
-            description: "Out-point in seconds",
+            description: "Out-point in seconds; after in_seconds and not past the sequence end",
           },
         },
         required: ["in_seconds", "out_seconds"],
       },
       handler: async (args: { in_seconds: number; out_seconds: number }) => {
+        const invalid = nonNegativeSecondsError(args, ["in_seconds", "out_seconds"]);
+        if (invalid) return { success: false, error: invalid };
+        // Live 25.2.3: an out-point before the in-point clears the in-point,
+        // so refuse before writing anything.
+        if (!(args.out_seconds > args.in_seconds)) return { success: false, error: "out_seconds must be after in_seconds. Nothing was changed." };
         const script = buildToolScript(`
           var seq = app.project.activeSequence;
           if (!seq) return __error("No active sequence");
           
+          var frameSeconds = seq.timebase ? __ticksToSeconds(seq.timebase) : 1 / 24;
+          var endSeconds = __ticksToSeconds(seq.end);
+          if (isFinite(endSeconds) && ${args.out_seconds} > endSeconds + frameSeconds / 2) {
+            return __error("out_seconds ${args.out_seconds}s is past the sequence end at " + endSeconds + "s. Nothing was changed.");
+          }
+          var previousIn = __sequencePointSeconds(seq.getInPoint());
+          var previousOut = __sequencePointSeconds(seq.getOutPoint());
           seq.setInPoint(${args.in_seconds});
           seq.setOutPoint(${args.out_seconds});
-          var observedIn = Number(seq.getInPoint());
-          var observedOut = Number(seq.getOutPoint());
+          var observedIn = __sequencePointSeconds(seq.getInPoint());
+          var observedOut = __sequencePointSeconds(seq.getOutPoint());
           var tolerance = 0.001;
-          if (!isFinite(observedIn) || !isFinite(observedOut) ||
+          if (observedIn === null || observedOut === null ||
               Math.abs(observedIn - ${args.in_seconds}) > tolerance ||
               Math.abs(observedOut - ${args.out_seconds}) > tolerance) {
-            return __error("Premiere did not apply the requested sequence in/out points; observed " + observedIn + " to " + observedOut + " seconds");
+            return __jsonStringify({ success: false, error: "Premiere did not apply the requested sequence in/out points; they now read " + observedIn + " to " + observedOut + " seconds (unset reads as null).", data: { inSeconds: observedIn, outSeconds: observedOut, previousInSeconds: previousIn, previousOutSeconds: previousOut } });
           }
           return __result({ inSeconds: observedIn, outSeconds: observedOut, verified: true });
         `);

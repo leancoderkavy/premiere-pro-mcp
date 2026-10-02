@@ -71,7 +71,8 @@ function qeItem(type: string, startSeconds: number, dom?: DomClip, options: { ig
     type,
     name: dom ? dom.name : "",
     start: { ticks: String(startSeconds * TICKS) },
-    setName: vi.fn(),
+    // Live 25.2.3: a QE rename shows on the DOM clip at once.
+    setName: vi.fn((name: string) => { if (dom) dom.name = name; }),
     removeEffects: vi.fn(),
     setFrameBlend: vi.fn(),
     setTimeInterpolationType: vi.fn(),

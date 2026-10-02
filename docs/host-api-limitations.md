@@ -1,0 +1,48 @@
+# Host and API limitation ledger
+
+This ledger tracks the surfaces reported in [issue #641](https://github.com/leancoderkavy/premiere-pro-mcp/issues/641). The original report was a live-host observation on Premiere Pro 26.5.1 / macOS with MCP 1.18.1 and local patches. The entries below describe current source contracts, not a new live-host validation. No licensed Premiere host was available during this source audit.
+
+A registered tool or a successful API return is not evidence that a host can perform the requested operation. `verified` applies only to the stated readback; component or parameter readback never establishes rendered pixels. `committed_unverified` means Premiere accepted a change but independent readback is unavailable or incomplete. `requested_unverified` means a request was dispatched without evidence of acceptance or application: inspect Premiere before retrying. A failed call with `mutationOutcome:"unknown"` may also have changed state; neither receipt claims rollback. An error after a native call can also leave a partial mutation.
+
+| Surface | Current source contract | Remaining host boundary |
+| --- | --- | --- |
+| `configure_encoder_uxp` | Runtime probe gates the EncoderManager surface. Accepted launch, XMP and start-batch requests return `committed_unverified`. | No independent queue/configuration readback. The reported 26.5.1 start-batch no-op remains a host observation; no silent CEP fallback follows a UXP failure. |
+| `get_render_queue_status` | Requires a callable `app.encoder.isRunning` and a Boolean result; otherwise returns a named capability error. | Most reported hosts expose no queue-status accessor. Check AME directly. |
+| `set_poster_frame` | Refuses before a bridge call; no supported setter is exposed. | Set the poster frame in the Project panel. The original issue's “settable” wording does not describe this current contract. |
+| `set_transcode_on_ingest` | Checks the setter exists and reports only the requested state with `verified:false` / `requested_unverified`. Native throws preserve possible mutation. | No independent ingest-transcode getter. Confirm Project Settings manually. |
+| `multiple_undo` | Experimental QE stack-position readback, required expected index and a protected boundary for marker writes observed by this CEP bridge. Refuses unreadable history or crossing that boundary; successful steps report `stackVerified`, not timeline verification. | A matching stack position alone cannot identify the action being undone or establish marker reversal. Manual UI, other clients and UXP marker writes are outside the observed boundary; see [#733](https://github.com/leancoderkavy/premiere-pro-mcp/issues/733). |
+| `auto_reframe_sequence` | Reads resulting dimensions, attempts explicit requested dimensions when Premiere keeps source height, then reads settings back. A failed resize reports the created sequence. | Dimension readback does not verify the Auto Reframe effect or rendered composition. Source changes do not invalidate the original host report. |
+| `close_sequence` | Reports a tab-close request as `requested_unverified`; retaining the project sequence is separately observed. | No supported open-tab enumeration verifies closure. |
+| `replace_clip_media` | Refuses the unsafe legacy overwrite route without mutation. | Cannot prove trim, placement, linked audio and adjacent-clip preservation through that route. |
+| `add_adjustment_layer` | Experimental QE paths are host-dependent. A supported documented creation route is not established. | QE acceptance alone is not layer/placement/render verification. Inspect the layer and rendered composition; native throws must not justify a blind retry. |
+| `add_text_overlay` | Refuses unsupported direct raw-text caption creation before mutation. | Use a stock title/MOGRT for titles or import subtitle media and create a caption track. |
+| `list_available_audio_transitions` | Fails for unavailable or empty QE catalog; nonempty catalog readback identifies its source. | No transition availability is invented from an empty list. UXP catalog support depends on its capability probe. |
+| `import_fcp_xml` / `import_edl` | XML opens a new project using a nonexisting destination; exact open project path and output-file evidence bound verification. EDL refuses blocking UI import and suggests conversion to FCP7 XML. | Neither contract promises merging into the current project. Inspect imported timeline/content separately. |
+| `import_mogrt_from_library` | Reports host acceptance as `committed_unverified`; native error text and likely sign-in/sync/name/compatibility causes are preserved. No automatic retry. | CEP cannot enumerate Creative Cloud Library contents. Inserted identity and appearance are not independently verified. |
+| `create_mogrt_batch` | Requires an approved workspace and one-time preview. AE source project must be saved inside that workspace; exports are serial and file/ZIP-header checks bound verification. | Workspace refusal is intentional. Completed earlier exports are not rolled back; `visualVerified:false` remains explicit. |
+| UXP filesystem | Server-side filesystem checks enforce symlink confinement before host dispatch. Project Save As checks existence with `getEntryWithUrl` rather than trusting `Project.isProject` alone. | Reported UXP stat/Dirent limitations are not repaired inside Adobe. Missing existence probes retain conservative overwrite handling. |
+| Stereo Balance/Pan | Searches exposed audio properties; refuses missing writable Balance/Pan and reads the stored numeric value after setting. | Clips without that property remain unsupported. Property readback does not establish channel routing or audible results. |
+
+## Localized effect removal
+
+Known component match names and the measured English/es-ES built-in names are protected. The Spanish removal fix has contributor live evidence on Premiere 26.5.2; Shape protection was measured on 25.2.3. This does not establish support for every locale. Unrecognized localization remains a refusal until its built-ins can be classified safely. Time Remapping and Panner still lack confirmed component match names in the reported capture states; see [#674](https://github.com/leancoderkavy/premiere-pro-mcp/issues/674). Do not infer those match names or remove an unknown built-in.
+
+## Separate live-host gaps
+
+- **Export initialization ([#687](https://github.com/leancoderkavy/premiere-pro-mcp/issues/687)):** export preflight qualifies readiness as timeline and path checks only (`exporterInitializationChecked:false`, `renderVerified:false`). The reporter demonstrated a CEP AME queue/start-batch delivery route; starting the entire AME queue is now an explicit opt-in. A queue job or accepted start is not a completed render. The reported `exportAsMediaDirect` initialization failure is unresolved on the affected host even when the same sequence renders through the UI.
+- **CEP relink ([#729](https://github.com/leancoderkavy/premiere-pro-mcp/issues/729)):** the default CEP route refuses with the named host-hang cause before calling `changeMediaPath`. Missing paths also refuse before dispatch. This satisfies the reported fail-fast alternative without claiming successful relink. The unsafe opt-in can still hang; a separately capability-gated UXP route has path/online readback but lacks a new affected-host validation.
+- **Rendered effects ([#735](https://github.com/leancoderkavy/premiere-pro-mcp/issues/735)):** component/property receipts explicitly retain `renderVerified:false`. On the reported 26.5.2 host, an effect can exist in the component chain while the renderer ignores it. Generic component readback cannot detect or repair that pixel-level failure. Inspect playback or the actual exported output before delivery; a new applicable host render is still needed.
+
+Guarded refusal, dispatch receipts and component readback do not demonstrate that the underlying Adobe behaviors are fixed.
+
+## Backlog dispositions
+
+This ledger retains the original host reports when their issues are closed. Closure of an unsupported host behavior is an administrative disposition, not evidence that Adobe repaired it. Automated VM tests prove package receipt handling and refusal behavior, not Premiere compatibility.
+
+- **#641:** the capability and host-observation tracker is retained here, including unsupported operations and manual checks.
+- **#729:** default CEP relink refuses before the blocking native call, satisfying the report's fail-fast alternative. Successful relink and the affected Adobe native hang remain unverified.
+- **#674:** known English/es-ES and Shape built-ins are protected; additional locales and unmeasured component match names remain unsupported until measured safely.
+- **#687:** the contributor demonstrated the CEP AME queue/start route. Direct scripted export initialization on the reported host remains unsupported; accepted queue requests do not prove completed renders.
+- **#735:** verified rendering of the affected QE effects on the reported host remains unsupported. Component and property presence cannot establish the requested pixels.
+
+Reopen the applicable report when new affected-host evidence, a supported API, or a reproducible bridge-side repair becomes available. Preserve the original environment and render evidence when doing so.

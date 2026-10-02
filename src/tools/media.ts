@@ -6,7 +6,7 @@ import { resolve } from "node:path";
 export function getMediaTools(bridgeOptions: BridgeOptions) {
   return {
     import_media: {
-      description: "Import media files into the project",
+      description: "Import media files into the project and confirm a new project item for each file",
       parameters: {
         type: "object" as const,
         properties: {
@@ -66,9 +66,38 @@ export function getMediaTools(bridgeOptions: BridgeOptions) {
         const script = buildToolScript(`
           ${binLookup}
           var filePaths = [${paths}];
+          var missing = [];
+          for (var m = 0; m < filePaths.length; m++) if (!new File(filePaths[m]).exists) missing.push(filePaths[m]);
+          if (missing.length) return __error("No file exists at: " + missing.join(", ") + ". Nothing was imported.");
+          function __childIds() {
+            var ids = {};
+            var count = __childCount(targetBin);
+            for (var c = 0; c < count; c++) { var child = __childAt(targetBin, c); if (child) ids[String(child.nodeId)] = true; }
+            return ids;
+          }
+          var before = __childIds();
           var importSuccess = app.project.importFiles(filePaths, ${suppress}, targetBin, false);
-          if (!importSuccess) return __error("Import failed");
-          return __result({ imported: filePaths.length, files: filePaths });
+          // Match new items in the target bin to the requested paths.
+          var added = [];
+          var count = __childCount(targetBin);
+          for (var c = 0; c < count; c++) {
+            var child = __childAt(targetBin, c);
+            if (!child || before[String(child.nodeId)]) continue;
+            var mediaPath = "";
+            try { mediaPath = String(child.getMediaPath()); } catch (ePath) {}
+            added.push({ nodeId: String(child.nodeId), name: child.name, mediaPath: mediaPath });
+          }
+          var notImported = [];
+          for (var f = 0; f < filePaths.length; f++) {
+            var found = false;
+            var wantedPath = new File(filePaths[f]).fsName;
+            for (var a = 0; a < added.length; a++) if (added[a].mediaPath && new File(added[a].mediaPath).fsName === wantedPath) { found = true; break; }
+            if (!found) notImported.push(filePaths[f]);
+          }
+          if (notImported.length) {
+            return __jsonStringify({ success: false, error: notImported.length + " file(s) produced no new project item: " + notImported.join(", "), data: { importReturned: !!importSuccess, imported: added, notImported: notImported } });
+          }
+          return __result({ imported: filePaths.length, verified: true, items: added, files: filePaths });
         `);
         return sendCommand(script, bridgeOptions);
       },
@@ -254,7 +283,7 @@ export function getMediaTools(bridgeOptions: BridgeOptions) {
     },
 
     move_item_to_bin: {
-      description: "Move a project item to a different bin",
+      description: "Move a project item to a different bin and confirm where it landed",
       parameters: {
         type: "object" as const,
         properties: {
@@ -276,9 +305,14 @@ export function getMediaTools(bridgeOptions: BridgeOptions) {
           
           var targetBin = __findProjectItem("${escapeForExtendScript(args.target_bin)}");
           if (!targetBin) return __error("Target bin not found: ${escapeForExtendScript(args.target_bin)}");
+          if (!__isBinItem(targetBin)) return __error(targetBin.name + " is not a bin; nothing was moved.");
           
           item.moveBin(targetBin);
-          return __result({ moved: true, item: item.name, toBin: targetBin.name });
+          // treePath names the containing bin (live 25.2.3).
+          if (String(item.treePath) !== String(targetBin.treePath) + "\\\\" + item.name) {
+            return __error("Premiere did not move " + item.name + " into " + targetBin.name + "; it is at " + item.treePath + ".");
+          }
+          return __result({ moved: true, verified: true, item: item.name, toBin: targetBin.name });
         `);
         return sendCommand(script, bridgeOptions);
       },
@@ -505,7 +539,7 @@ export function getMediaTools(bridgeOptions: BridgeOptions) {
     },
 
     set_override_frame_rate: {
-      description: "Override the frame rate of a project item (useful for image sequences or misinterpreted media)",
+      description: "Override the frame rate of a project item (useful for image sequences or misinterpreted media) and read it back",
       parameters: {
         type: "object" as const,
         properties: {
@@ -521,18 +555,27 @@ export function getMediaTools(bridgeOptions: BridgeOptions) {
         required: ["item_id", "frame_rate"],
       },
       handler: async (args: { item_id: string; frame_rate: number }) => {
+        // A rate of 0 reset an item to ~0 fps on Premiere 25.2.
+        if (typeof args.frame_rate !== "number" || !Number.isFinite(args.frame_rate) || args.frame_rate <= 0) {
+          return { success: false, error: "frame_rate must be a positive number." };
+        }
         const script = buildToolScript(`
           var item = __findProjectItem("${escapeForExtendScript(args.item_id)}");
           if (!item) return __error("Item not found");
           item.setOverrideFrameRate(${args.frame_rate});
-          return __result({ set: true, item: item.name, frameRate: ${args.frame_rate} });
+          var interp = null;
+          try { interp = item.getFootageInterpretation(); } catch (eRead) {}
+          var observed = interp && typeof interp.frameRate === "number" ? interp.frameRate : NaN;
+          if (!isFinite(observed)) return __error("Frame rate was written but the stored interpretation is unreadable. Inspect before retrying.", { outcome: "committed_unverified", verified: false });
+          if (!(Math.abs(observed - ${args.frame_rate}) < 0.001)) return __error("Premiere's frame rate reads " + observed + " fps instead of ${args.frame_rate}.");
+          return __result({ set: true, verified: true, item: item.name, frameRate: observed });
         `);
         return sendCommand(script, bridgeOptions);
       },
     },
 
     set_override_pixel_aspect_ratio: {
-      description: "Override the pixel aspect ratio of a project item",
+      description: "Override the pixel aspect ratio of a project item and read it back",
       parameters: {
         type: "object" as const,
         properties: {
@@ -552,11 +595,19 @@ export function getMediaTools(bridgeOptions: BridgeOptions) {
         required: ["item_id", "numerator", "denominator"],
       },
       handler: async (args: { item_id: string; numerator: number; denominator: number }) => {
+        if (!Number.isSafeInteger(args.numerator) || args.numerator <= 0 || !Number.isSafeInteger(args.denominator) || args.denominator <= 0) {
+          return { success: false, error: "numerator and denominator must be positive integers." };
+        }
         const script = buildToolScript(`
           var item = __findProjectItem("${escapeForExtendScript(args.item_id)}");
           if (!item) return __error("Item not found");
           item.setOverridePixelAspectRatio(${args.numerator}, ${args.denominator});
-          return __result({ set: true, item: item.name, par: "${args.numerator}:${args.denominator}" });
+          var interp = null;
+          try { interp = item.getFootageInterpretation(); } catch (eRead) {}
+          var observed = interp && typeof interp.pixelAspectRatio === "number" ? interp.pixelAspectRatio : NaN;
+          if (!isFinite(observed)) return __error("Pixel aspect was written but the stored interpretation is unreadable. Inspect before retrying.", { outcome: "committed_unverified", verified: false });
+          if (!(Math.abs(observed - ${args.numerator / args.denominator}) < 0.0001)) return __error("Premiere's pixel aspect ratio reads " + observed + " instead of ${args.numerator}:${args.denominator}.");
+          return __result({ set: true, verified: true, item: item.name, par: "${args.numerator}:${args.denominator}", pixelAspectRatio: observed });
         `);
         return sendCommand(script, bridgeOptions);
       },
