@@ -37,9 +37,13 @@ describe("single-use edit-plan confirmation tokens", () => {
     const store = createEditPlanTokenStore({ tempDir });
     const issuedAt = Date.now();
     const clock = vi.spyOn(Date, "now").mockReturnValue(issuedAt);
+    const stillValid = store.issue(digest);
     const expired = store.issue(digest);
+    clock.mockReturnValue(issuedAt + 30 * 60 * 1000 - 1);
+    expect(() => store.consume(stillValid, digest)).not.toThrow();
     clock.mockReturnValue(issuedAt + 31 * 60 * 1000);
     expect(() => store.consume(expired, digest)).toThrow("invalid or expired");
+    expect(() => store.consume(expired, digest)).toThrow("missing or already consumed");
 
     clock.mockReturnValue(issuedAt);
     const unused = store.issue(digest);
