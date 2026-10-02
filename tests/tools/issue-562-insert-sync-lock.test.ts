@@ -180,6 +180,7 @@ function issue562Host(options: {
       delete (track as { isLocked?: unknown }).isLocked;
     });
   }
+  let insertionCount = 0;
   const seq = {
     sequenceID: options.sequenceID ?? "seq-562",
     name: options.sequenceID ?? "seq-562",
@@ -189,9 +190,10 @@ function issue562Host(options: {
     getPlayerPosition() { return { ticks: ticksOf(options.playheadSeconds ?? 8) }; },
     insertClip(item: typeof source, time: string | number, vTrack: number, aTrack: number) {
       if (options.insertNoop) return;
+      insertionCount++;
       // Like Premiere, only a track that receives part of the item is rippled.
-      if (options.mediaKind !== "audio_only") insertOnTrack(videoTracks[vTrack as 0 | 1 | 2], item, time, `ins-v-${vTrack}`);
-      if (options.mediaKind !== "video_only") insertOnTrack(audioTracks[aTrack as 0 | 1 | 2], item, time, `ins-a-${aTrack}`);
+      if (options.mediaKind !== "audio_only") insertOnTrack(videoTracks[vTrack as 0 | 1 | 2], item, time, `ins-v-${vTrack}-${insertionCount}`);
+      if (options.mediaKind !== "video_only") insertOnTrack(audioTracks[aTrack as 0 | 1 | 2], item, time, `ins-a-${aTrack}-${insertionCount}`);
       if (options.displaceTargetTail) {
         for (const track of [videoTracks[vTrack as 0 | 1 | 2], audioTracks[aTrack as 0 | 1 | 2]]) {
           const tail = track._arr.find((clip) => clip.nodeId.endsWith("-right"));
@@ -352,6 +354,45 @@ describe("issue #562 — insert_from_source honors sync lock", () => {
     const result = runScript(script, sandbox);
     expect(result).toMatchObject({ success: false, data: { timelineChanged: true, outcome: "committed_unverified", verified: false } });
     expect(result.data.displacedTails[0]).toContain("24s");
+  });
+
+  it.each([false, true])("preserves displaced-tail evidence in a batch (earlier placement: %s)", async (earlierPlacement) => {
+    const script = await scriptFor(getCompetitorGapTools(bridgeOptions).add_to_timeline_batch, {
+      clips: [
+        ...(earlierPlacement ? [{ item_id: "src", start_seconds: 0 }] : []),
+        { item_id: "src", start_seconds: earlierPlacement ? 7 : 6 },
+      ],
+    });
+    const { sandbox } = issue562Host({ displaceTargetTail: true });
+    const result = runScript(script, sandbox);
+    expect(result).toMatchObject({ success: false, data: {
+      timelineChanged: true, outcome: "committed_unverified", verified: false,
+      failedPlacement: earlierPlacement ? 1 : 0,
+    } });
+    expect(result.data.displacedTails[0]).toContain("24s");
+    expect(result.data.completedPlacements).toHaveLength(earlierPlacement ? 1 : 0);
+    expect(result.error).not.toContain("Nothing was changed");
+  });
+
+  it.each([false, true])("preserves displaced-tail evidence in an edit plan (earlier operation: %s)", async (earlierOperation) => {
+    const plan = { operations: [
+      ...(earlierOperation ? [{ type: "insert_clip" as const, item_id: "src", start_seconds: 0 }] : []),
+      { type: "insert_clip" as const, item_id: "src", start_seconds: earlierOperation ? 7 : 6 },
+    ] };
+    const tools = getEditPlanTools(bridgeOptions, {
+      capabilities: { capabilities: new Set(["inspect", "edit"]), source: "explicit" },
+      auditSink: vi.fn(),
+    });
+    const script = await scriptFor(tools.apply_edit_plan, { plan, confirmation_token: confirmationToken(plan) });
+    const { sandbox } = issue562Host({ displaceTargetTail: true });
+    const result = runScript(script, sandbox);
+    expect(result).toMatchObject({ success: false, data: {
+      timelineChanged: true, outcome: "committed_unverified", verified: false,
+      undoSteps: null,
+    } });
+    expect(result.data.displacedTails[0]).toContain("24s");
+    expect(result.data.appliedOperations).toHaveLength(earlierOperation ? 1 : 0);
+    expect(result.error).not.toContain("Nothing was changed");
   });
 
   it("refuses before mutation when a participating track is locked", async () => {
