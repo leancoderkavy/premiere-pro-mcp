@@ -1169,7 +1169,11 @@ describe("issue #238 — AME uses canonical paths and documented encodeFile posi
 
     expect(queued).toContain("var outputFile = new File");
     expect(queued).toContain("var jobId = encoder.encodeSequence");
-    expect(queued).toContain("Queue presence and output-file creation are not verified");
+    // Queueing remains an unverified handoff. Batch start is opt-in because it
+    // affects every ready AME job, including jobs unrelated to this call.
+    expect(queued).toContain("Batch startup and output-file creation are not verified by this tool");
+    expect(queued).toContain("if (false)");
+    expect(queued).toContain("app.encoder.startBatch()");
     expect(projectItem).toContain("outputFile.fsName");
     expect(projectItem).toContain("var jobId = app.encoder.encodeProjectItem");
   });
