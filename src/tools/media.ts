@@ -277,7 +277,7 @@ export function getMediaTools(bridgeOptions: BridgeOptions) {
     },
 
     relink_media: {
-      description: "Relink an offline media item to a new file path",
+      description: "Legacy CEP relink can block Premiere indefinitely, even for an existing file on Premiere 26.5.2. Prefer relink_offline_media_uxp, which checks capability and reads the result back. This CEP route refuses by default; allow_unsafe_cep_relink must be explicitly true to attempt it, and its result is never reported as verified.",
       parameters: {
         type: "object" as const,
         properties: {
@@ -289,16 +289,35 @@ export function getMediaTools(bridgeOptions: BridgeOptions) {
             type: "string",
             description: "New file path for the media",
           },
+          allow_unsafe_cep_relink: {
+            type: "boolean",
+            description: "Explicitly permit the legacy CEP changeMediaPath call. It can wedge Premiere even when the target file exists; prefer relink_offline_media_uxp.",
+          },
         },
         required: ["item_id", "new_path"],
       },
-      handler: async (args: { item_id: string; new_path: string }) => {
+      handler: async (args: { item_id: string; new_path: string; allow_unsafe_cep_relink?: boolean }) => {
+        if (args.allow_unsafe_cep_relink !== true) {
+          return { success: false as const, error: "CEP relink_media is disabled by default because changeMediaPath can block Premiere indefinitely on a valid path (#729). Use relink_offline_media_uxp, or explicitly set allow_unsafe_cep_relink: true if you accept that host risk." };
+        }
+        if (!args.new_path || !args.new_path.trim()) {
+          return { success: false as const, error: "new_path must be a non-empty file path." };
+        }
+        const path = resolve(args.new_path);
+        try {
+          if (!existsSync(path) || !statSync(path).isFile()) {
+            return { success: false as const, error: `Relink target is not an existing file: ${path}. Nothing was sent to Premiere.` };
+          }
+        } catch {
+          return { success: false as const, error: `Relink target could not be inspected: ${path}. Nothing was sent to Premiere.` };
+        }
         const script = buildToolScript(`
           var item = __findProjectItem("${escapeForExtendScript(args.item_id)}");
           if (!item) return __error("Item not found: ${escapeForExtendScript(args.item_id)}");
           
-          var success = item.changeMediaPath("${escapeForExtendScript(args.new_path)}", true);
-          return __result({ relinked: success, item: item.name, newPath: "${escapeForExtendScript(args.new_path)}" });
+          var success = item.changeMediaPath("${escapeForExtendScript(path)}", true);
+          if (success !== true && success !== 0) return __error("Premiere did not confirm the CEP relink. The item may have changed; inspect it before continuing and do not retry automatically.", { outcome: "committed_unverified", item: item.name, newPath: "${escapeForExtendScript(path)}" });
+          return __result({ relinked: true, outcome: "committed_unverified", verified: false, item: item.name, newPath: "${escapeForExtendScript(path)}", warning: "Legacy CEP relink has no path/online readback here. Inspect the item before continuing; do not retry automatically." });
         `);
         return sendCommand(script, bridgeOptions);
       },
