@@ -44,10 +44,28 @@ const MARKER_READBACK = `
           }
 `;
 
+const MARKER_UNDO_RECEIPT = `
+          function __markerUndoReceipt(before, payload) {
+            var after = __readUndoIndex();
+            if (before === null || after === null || after < before) {
+              payload.undoTracked = null;
+              payload.undoWarning = "Premiere's undo stack could not be verified for this marker write. Do not assume Undo would reverse the marker.";
+            } else if (after === before) {
+              payload.undoTracked = false;
+              payload.undoWarning = "Premiere did not record this marker write in its undo stack. Undo would reverse an earlier action, not this marker.";
+            } else {
+              payload.undoTracked = true;
+              payload.undoSteps = after - before;
+              payload.undoStackIndex = after;
+            }
+            return payload;
+          }
+`;
+
 export function getMarkerTools(bridgeOptions: BridgeOptions) {
   return {
     add_marker: {
-      description: "Add a marker to the active sequence or a clip and read its name, comments, color and duration back.",
+      description: "Add a marker to the active sequence or a clip and read its name, comments, color and duration back. The receipt reports whether Premiere recorded an undo step; never Undo a marker write with undoTracked:false, because that reverses an earlier action.",
       parameters: {
         type: "object" as const,
         properties: {
@@ -99,8 +117,10 @@ export function getMarkerTools(bridgeOptions: BridgeOptions) {
 
         const script = buildToolScript(`
           ${markerTarget}
+          ${MARKER_UNDO_RECEIPT}
           
           // createMarker() and the marker.end setter both take seconds, not ticks.
+          var markerUndoBefore = __readUndoIndex();
           var marker = markers.createMarker(${args.time_seconds});
 
           ${args.name ? `marker.name = "${escapeForExtendScript(args.name)}";` : ""}
@@ -112,21 +132,21 @@ export function getMarkerTools(bridgeOptions: BridgeOptions) {
           if (problems.length) {
             return __jsonStringify({ success: false, error: "The marker was created at ${args.time_seconds}s, but " + problems.join("; ") + ".", data: { timelineChanged: true } });
           }
-          return __result({
+          return __result(__markerUndoReceipt(markerUndoBefore, {
             added: true,
             verified: true,
             timeSeconds: ${args.time_seconds},
             endSeconds: parseFloat(marker.end.seconds),
             name: marker.name,
             comments: marker.comments
-          });
+          }));
         `);
         return sendCommand(script, bridgeOptions);
       },
     },
 
     delete_marker: {
-      description: "Delete a marker at a specific time position",
+      description: "Delete a marker at a specific time position. The receipt reports whether Premiere recorded an undo step; undoTracked:false means Undo would reverse an earlier action.",
       parameters: {
         type: "object" as const,
         properties: {
@@ -154,8 +174,10 @@ export function getMarkerTools(bridgeOptions: BridgeOptions) {
 
         const script = buildToolScript(`
           ${markerTarget}
+          ${MARKER_UNDO_RECEIPT}
           
           var targetTicks = __secondsToTicks(${args.time_seconds});
+          var markerUndoBefore = __readUndoIndex();
           var marker = markers.getFirstMarker();
           var deleted = false;
           
@@ -170,14 +192,14 @@ export function getMarkerTools(bridgeOptions: BridgeOptions) {
           }
           
           if (!deleted) return __error("No marker found at " + ${args.time_seconds} + "s");
-          return __result({ deleted: true, timeSeconds: ${args.time_seconds} });
+          return __result(__markerUndoReceipt(markerUndoBefore, { deleted: true, timeSeconds: ${args.time_seconds} }));
         `);
         return sendCommand(script, bridgeOptions);
       },
     },
 
     update_marker: {
-      description: "Update the name, comments or color of the sequence marker at a time and read them back.",
+      description: "Update the name, comments or color of the sequence marker at a time and read them back. The receipt reports whether Premiere recorded an undo step; undoTracked:false means Undo would reverse an earlier action.",
       parameters: {
         type: "object" as const,
         properties: {
@@ -198,8 +220,10 @@ export function getMarkerTools(bridgeOptions: BridgeOptions) {
         const script = buildToolScript(`
           var seq = app.project.activeSequence;
           if (!seq) return __error("No active sequence");
+          ${MARKER_UNDO_RECEIPT}
           
           var targetTicks = __secondsToTicks(${args.time_seconds});
+          var markerUndoBefore = __readUndoIndex();
           var marker = seq.markers.getFirstMarker();
           var found = false;
           
@@ -221,7 +245,7 @@ export function getMarkerTools(bridgeOptions: BridgeOptions) {
           if (problems.length) {
             return __jsonStringify({ success: false, error: "The marker at ${args.time_seconds}s changed, but " + problems.join("; ") + ".", data: { timelineChanged: true } });
           }
-          return __result({ updated: true, verified: true, timeSeconds: ${args.time_seconds}, name: marker.name, comments: marker.comments });
+          return __result(__markerUndoReceipt(markerUndoBefore, { updated: true, verified: true, timeSeconds: ${args.time_seconds}, name: marker.name, comments: marker.comments }));
         `);
         return sendCommand(script, bridgeOptions);
       },

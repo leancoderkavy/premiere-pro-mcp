@@ -23,7 +23,7 @@ beforeEach(() => vi.clearAllMocks());
 type FakeMarker = { name: string; comments: string; color: number; start: { ticks: string; seconds: number }; end: { seconds: number } };
 
 /** Sequence markers; options make Premiere ignore a color or end write. */
-function host(options: { ignoreColor?: boolean; ignoreEnd?: boolean } = {}) {
+function host(options: { ignoreColor?: boolean; ignoreEnd?: boolean; undoIndex?: number } = {}) {
   const list: FakeMarker[] = [];
   const make = (seconds: number): FakeMarker => {
     let end = seconds;
@@ -44,7 +44,10 @@ function host(options: { ignoreColor?: boolean; ignoreEnd?: boolean } = {}) {
     deleteMarker: (m: FakeMarker) => { list.splice(list.indexOf(m), 1); },
   };
   mockedSendCommand.mockImplementation(async (script: string) =>
-    JSON.parse(String(runInNewContext(`${getHelpersSource()}\n${script}`, { app: { project: { activeSequence: { markers } } } }))));
+    JSON.parse(String(runInNewContext(`${getHelpersSource()}\n${script}`, {
+      app: { enableQE() {}, project: { activeSequence: { markers } } },
+      qe: { project: { undoStackIndex: () => options.undoIndex } },
+    }))));
   return list;
 }
 
@@ -54,6 +57,17 @@ describe("add_marker and update_marker read the marker back", () => {
     await expect(tools.add_marker.handler({ time_seconds: 3, name: 'Say "hi" ', comments: "c2", color: 1, duration_seconds: 1.5 }))
       .resolves.toMatchObject({ success: true, data: { verified: true, endSeconds: 4.5, name: 'Say "hi" ' } });
     expect(list[0]).toMatchObject({ comments: "c2", color: 1 });
+  });
+
+  it("warns when marker writes do not enter Premiere's undo stack", async () => {
+    host({ undoIndex: 52 });
+    const added = await tools.add_marker.handler({ time_seconds: 2, name: "Marker" }) as Result;
+    expect(added).toMatchObject({ success: true, data: { undoTracked: false, undoWarning: expect.stringContaining("earlier action") } });
+    expect(added.data).not.toHaveProperty("undoSteps");
+    const updated = await tools.update_marker.handler({ time_seconds: 2, name: "Updated" }) as Result;
+    expect(updated).toMatchObject({ success: true, data: { undoTracked: false } });
+    const deleted = await tools.delete_marker.handler({ time_seconds: 2 }) as Result;
+    expect(deleted).toMatchObject({ success: true, data: { undoTracked: false } });
   });
 
   it("says the marker was created when Premiere ignores part of the request", async () => {

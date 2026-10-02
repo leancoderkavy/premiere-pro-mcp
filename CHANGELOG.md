@@ -22,6 +22,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- Marker add, update, and delete receipts now report whether Premiere recorded an undo step. On hosts where marker writes leave the undo index unchanged, `undoTracked: false` warns that Undo would reverse an earlier action instead of the marker (#733).
 - `add_to_timeline` and `insert_from_source` detect a target-track split tail that Premiere moved away from the insert point. They report the changed timeline as `committed_unverified`, including the observed tail position, instead of claiming the insert was verified. The edit still needs inspection or Undo on affected hosts. (#730)
 - Dialogue UXP apply accepts the documented Project/Sequence `guid` property when identity methods are unavailable, while still refusing changed or unreadable project identities before mutation (#685).
 - AME queue handoff normalizes output/preset paths to native separators and checks both host paths before launching the encoder (#711). A job ID remains an unverified handoff.

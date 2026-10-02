@@ -163,7 +163,7 @@ export function getProjectTools(bridgeOptions: BridgeOptions) {
     undo: {
       description:
         "EXPERIMENTAL (undocumented QE DOM: qe.project.undo / undoStackIndex). Undo the most recent Premiere project action(s) through QE, checked step by step against Premiere's undo-stack position (stackVerified; the timeline itself is not read back). Undo history is project-wide." +
-        " Only actions Premiere records are undoable: QE edits such as razor, insert, lift and extract report undoSteps (and undoStackIndex) in their results; pass that undoSteps as count to reverse exactly that call. Only CEP tool results carry undoSteps: a CEP result without it (most property, marker and keyframe writes) recorded nothing. UXP tools and workflows that send several commands are not counted, so always pass expected_undo_stack_index to make sure undo reverses the action you expect.",
+        " Only actions Premiere records are undoable: QE edits such as razor, insert, lift and extract report undoSteps (and undoStackIndex) in their results; pass that undoSteps as count to reverse exactly that call. A marker receipt with undoTracked:false recorded no undo step: calling Undo for it would reverse an earlier action. Only CEP tool results carry undoSteps; UXP tools and workflows that send several commands are not counted. Always pass expected_undo_stack_index to check the stack position, but matching position alone does not prove which action is on top.",
       parameters: {
         type: "object" as const,
         properties: {
