@@ -1001,9 +1001,11 @@ export function getTrackTargetingTools(bridgeOptions: BridgeOptions) {
           var clip = result.clip;
           var set = false;
           for (var i = 0; i < clip.components.numItems; i++) {
-            if (clip.components[i].displayName === "Volume") {
+            var __cm = String(clip.components[i].matchName || "");
+            if (clip.components[i].displayName === "Volume" || clip.components[i].displayName === "Volumen" || __cm.indexOf("Internal Volume") === 0) {
               for (var p = 0; p < clip.components[i].properties.numItems; p++) {
-                if (clip.components[i].properties[p].displayName === "Level") {
+                var __pn2 = String(clip.components[i].properties[p].displayName);
+                  if (__pn2 === "Level" || __pn2 === "Nivel") {
                   // normalised 0..1, NOT dB - see dbToPremiereLevel()
                   clip.components[i].properties[p].setValue(${level}, true);
                   set = true;
@@ -1041,9 +1043,11 @@ export function getTrackTargetingTools(bridgeOptions: BridgeOptions) {
           var clip = result.clip;
           var level = null;
           for (var i = 0; i < clip.components.numItems; i++) {
-            if (clip.components[i].displayName === "Volume") {
+            var __cm = String(clip.components[i].matchName || "");
+            if (clip.components[i].displayName === "Volume" || clip.components[i].displayName === "Volumen" || __cm.indexOf("Internal Volume") === 0) {
               for (var p = 0; p < clip.components[i].properties.numItems; p++) {
-                if (clip.components[i].properties[p].displayName === "Level") {
+                var __pn2 = String(clip.components[i].properties[p].displayName);
+                  if (__pn2 === "Level" || __pn2 === "Nivel") {
                   level = clip.components[i].properties[p].getValue();
                   break;
                 }
@@ -1108,9 +1112,11 @@ export function getTrackTargetingTools(bridgeOptions: BridgeOptions) {
             if (only && !wanted[c]) continue;
             var clip = track.clips[c], set = false;
             for (var i = 0; i < clip.components.numItems; i++) {
-              if (clip.components[i].displayName !== "Volume") continue;
+              var __cmB = String(clip.components[i].matchName || "");
+              if (clip.components[i].displayName !== "Volume" && clip.components[i].displayName !== "Volumen" && __cmB.indexOf("Internal Volume") !== 0) continue;
               for (var p = 0; p < clip.components[i].properties.numItems; p++) {
-                if (clip.components[i].properties[p].displayName === "Level") {
+                var __pn2 = String(clip.components[i].properties[p].displayName);
+                  if (__pn2 === "Level" || __pn2 === "Nivel") {
                   clip.components[i].properties[p].setValue(${level}, true);
                   set = true;
                   break;
