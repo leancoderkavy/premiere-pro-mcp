@@ -551,7 +551,7 @@ describe("issue #562 — other Sequence.insertClip callers use the same helper",
     const spotScript = String(mockedSendCommand.mock.calls[0][0]);
     expect(spotScript).toContain("__insertClipHonoringSyncLock(");
     expect(spotScript).toContain("__secondsToTicks(targetStart).toString()");
-    expect(spotScript).toContain("ins.changed ? { timelineChanged: true");
+    expect(spotScript).toContain("ins.changed || placed.length ? { timelineChanged: true");
     expect(spotScript).toContain('"target_tracks"');
     expect(spotScript).not.toContain('"sync_locked"');
   });
@@ -583,6 +583,27 @@ describe("issue #562 — other Sequence.insertClip callers use the same helper",
     expect(result).toMatchObject({ success: true, data: { applied: true } });
     expect(rangesOf(seq.videoTracks[1])).toEqual([[0.4, 2]]);
     expect(rangesOf(seq.videoTracks[0])[0]).toEqual([0, 5]);
+  });
+
+  it("spot workflows report completed placements when a later source is invalid", async () => {
+    const spots = getSpotWorkflowTools(bridgeOptions, {
+      capabilities: { capabilities: new Set(["inspect", "edit"]), source: "explicit" },
+      auditSink: vi.fn(),
+      operationIdFactory: () => "spot-partial-730",
+    });
+    const preview = await spots.preview_motion_graphics_demo.handler({
+      sequence_id: "sequence-1", asset_item_ids: ["src", "bad"], clip_duration_seconds: 5, transition_name: "none",
+    });
+    const script = await scriptFor(spots.apply_spot_workflow_plan, {
+      plan: preview.data.plan, confirmation_token: spotWorkflowConfirmationToken(preview.data.plan),
+    });
+    const { sandbox, source } = issue562Host({ sequenceID: "sequence-1", emptyTargets: true, sourceDurationSeconds: 10 });
+    const bad = { nodeId: "bad", name: "bad", getInPoint: () => ({ ticks: ticksOf(0) }), getOutPoint: () => ({ ticks: ticksOf(0) }) };
+    (sandbox.app as { project: { rootItem: unknown } }).project.rootItem = { children: { numItems: 2, 0: source, 1: bad } };
+    const result = runScript(script, sandbox);
+    expect(result).toMatchObject({ success: false, data: { timelineChanged: true, outcome: "committed_unverified", verified: false } });
+    expect(result.data.completedPlacements).toHaveLength(1);
+    expect(result.error).toContain("Earlier placements remain");
   });
 });
 
