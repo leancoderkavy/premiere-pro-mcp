@@ -1655,6 +1655,9 @@ function __insertClipHonoringSyncLock(seq, item, timeTicks, videoTrackIndex, aud
   var frameTicks = seq.timebase ? parseFloat(seq.timebase) : NaN;
   if (!frameTicks || isNaN(frameTicks)) frameTicks = TICKS_PER_SECOND / 24;
   var tol = frameTicks;
+  // Structural edge classification must be tighter than the one-frame
+  // readback tolerance, or a real one-frame head or tail is missed.
+  var edgeTol = __TICK_MATCH_TOL;
 
   var durationTicks = NaN;
   try { durationTicks = parseFloat(item.getOutPoint().ticks) - parseFloat(item.getInPoint().ticks); } catch (eDur) {}
@@ -1678,6 +1681,30 @@ function __insertClipHonoringSyncLock(seq, item, timeTicks, videoTrackIndex, aud
   var audioSpan = mediaSpan(2);
   var videoReceives = !(videoSpan !== null && !isNaN(videoSpan) && !(videoSpan > 0));
   var audioReceives = !(audioSpan !== null && !isNaN(audioSpan) && !(audioSpan > 0));
+
+  // Premiere may move a split target-track tail to the sequence end while
+  // reporting the requested insert as successful. Snapshot those tails before
+  // any razor or insert so a misplaced remainder cannot receive a verified receipt.
+  var targetTails = [];
+  function captureTargetTails(track, type) {
+    var ci2;
+    for (ci2 = 0; ci2 < track.clips.numItems; ci2++) {
+      var clip = track.clips[ci2];
+      var start = parseFloat(clip.start.ticks);
+      var end = parseFloat(clip.end.ticks);
+      if (start < insertTicks - edgeTol && end > insertTicks + edgeTol) {
+        var sourceId = "";
+        try { sourceId = String(clip.projectItem.nodeId); } catch (eSource) {}
+        if (!sourceId || sourceId === "undefined" || sourceId === "null") return false;
+        targetTails.push({ track: track, type: type, sourceId: sourceId, tailDuration: end - insertTicks });
+      }
+    }
+    return true;
+  }
+  if ((videoReceives && !captureTargetTails(videoTrack, "video")) ||
+      (audioReceives && !captureTargetTails(audioTrack, "audio"))) {
+    return { ok: false, error: "Insert refused; nothing was changed. A target-track clip spans the insert point but its source identity is unreadable, so its split tail cannot be verified." };
+  }
 
   function domTrackFor(type, idx) {
     return type === "video" ? seq.videoTracks[idx] : seq.audioTracks[idx];
@@ -1777,11 +1804,11 @@ function __insertClipHonoringSyncLock(seq, item, timeTicks, videoTrackIndex, aud
       var c = t.domTrack.clips[ci];
       var cs = parseFloat(c.start.ticks);
       var ce = parseFloat(c.end.ticks);
-      if (cs < insertTicks - tol && ce > insertTicks + tol) {
+      if (cs < insertTicks - edgeTol && ce > insertTicks + edgeTol) {
         straddlers.push({ nodeId: String(c.nodeId), start: cs, end: ce });
         continue;
       }
-      if (cs >= insertTicks - tol) {
+      if (cs >= insertTicks - edgeTol) {
         movers.push({ nodeId: String(c.nodeId), start: cs, end: ce });
       }
     }
@@ -1826,8 +1853,8 @@ function __insertClipHonoringSyncLock(seq, item, timeTicks, videoTrackIndex, aud
         var rc = shiftPlan[pi].domTrack.clips[ci];
         var rcs = parseFloat(rc.start.ticks);
         var rce = parseFloat(rc.end.ticks);
-        if (rcs < insertTicks - tol && rce > insertTicks + tol) stillSpan = true;
-        if (rcs >= insertTicks - tol) {
+        if (rcs < insertTicks - edgeTol && rce > insertTicks + edgeTol) stillSpan = true;
+        if (rcs >= insertTicks - edgeTol) {
           shiftPlan[pi].movers.push({ nodeId: String(rc.nodeId), start: rcs, end: rce });
         }
       }
@@ -1854,7 +1881,7 @@ function __insertClipHonoringSyncLock(seq, item, timeTicks, videoTrackIndex, aud
     for (ci2 = 0; ci2 < track.clips.numItems; ci2++) {
       var cs2 = parseFloat(track.clips[ci2].start.ticks);
       var ce2 = parseFloat(track.clips[ci2].end.ticks);
-      if (cs2 < insertTicks - tol && ce2 > insertTicks + tol) return 2;
+      if (cs2 < insertTicks - edgeTol && ce2 > insertTicks + edgeTol) return 2;
     }
     return 1;
   }
@@ -1907,6 +1934,29 @@ function __insertClipHonoringSyncLock(seq, item, timeTicks, videoTrackIndex, aud
     return { ok: false, error: "Premiere changed the target track but the requested project item was not found after insertion" + afterRazorNote + "." };
   }
   if (!(actualDuration > 0)) actualDuration = durationTicks;
+
+  var displacedTails = [];
+  for (i = 0; i < targetTails.length; i++) {
+    var tail = targetTails[i];
+    var expectedStart = insertTicks + actualDuration;
+    var expectedEnd = expectedStart + tail.tailDuration;
+    var adjacent = false;
+    var observed = [];
+    for (var ti2 = 0; ti2 < tail.track.clips.numItems; ti2++) {
+      var candidate = tail.track.clips[ti2];
+      var candidateId = "";
+      try { candidateId = String(candidate.projectItem.nodeId); } catch (eCandidate) {}
+      if (candidateId !== tail.sourceId) continue;
+      var candidateStart = parseFloat(candidate.start.ticks);
+      var candidateEnd = parseFloat(candidate.end.ticks);
+      if (Math.abs(candidateStart - expectedStart) <= tol && Math.abs(candidateEnd - expectedEnd) <= tol) adjacent = true;
+      if (Math.abs((candidateEnd - candidateStart) - tail.tailDuration) <= tol) observed.push(__ticksToSeconds(candidateStart) + "s");
+    }
+    if (!adjacent) displacedTails.push(tail.type + " tail expected at " + __ticksToSeconds(expectedStart) + "s; matching remainder starts at " + (observed.length ? observed.join(", ") : "no readable position"));
+  }
+  if (displacedTails.length) {
+    return { ok: false, changed: true, displacedTails: displacedTails, error: "The timeline changed, but Premiere did not leave a split target-track tail adjacent to the inserted clip. " + displacedTails.join("; ") + ". The insert is not verified; inspect the sequence and undo if needed." };
+  }
 
   var moved = 0;
   var failures = [];
@@ -2058,17 +2108,26 @@ function __result(data) {
   return __jsonStringify({ success: true, data: data });
 }
 
-function __error(msg) {
+function __error(msg, extraData) {
   // A failure can come after the command recorded undo entries; report them
   // so the caller knows the project may have changed.
+  var data = null;
+  if (extraData && typeof extraData === "object") {
+    data = {};
+    for (var key in extraData) if (extraData.hasOwnProperty(key)) data[key] = extraData[key];
+  }
   if (__undoStart !== null) {
     var undoNow = __readUndoIndex();
     if (undoNow !== null && undoNow > __undoStart) {
       var recorded = undoNow - __undoStart;
-      return __jsonStringify({ success: false, error: String(msg) + " Premiere recorded " + recorded + " undo entr" + (recorded === 1 ? "y" : "ies") + " during this command, so the project may have changed.", data: { undoSteps: recorded, undoStackIndex: undoNow, timelineChanged: true } });
+      if (!data) data = {};
+      data.undoSteps = recorded;
+      data.undoStackIndex = undoNow;
+      data.timelineChanged = true;
+      return __jsonStringify({ success: false, error: String(msg) + " Premiere recorded " + recorded + " undo entr" + (recorded === 1 ? "y" : "ies") + " during this command, so the project may have changed.", data: data });
     }
   }
-  return __jsonStringify({ success: false, error: String(msg) });
+  return __jsonStringify(data ? { success: false, error: String(msg), data: data } : { success: false, error: String(msg) });
 }
 
 // === End MCP Bridge Helpers ===

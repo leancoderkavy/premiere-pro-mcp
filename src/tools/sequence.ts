@@ -820,8 +820,13 @@ export function getSequenceTools(bridgeOptions: BridgeOptions) {
         const script = buildToolScript(`
           var seq = app.project.activeSequence;
           if (!seq) return __error("No active sequence");
-          var ext = seq.getExportFileExtension("${escapeForExtendScript(args.preset_path)}");
-          return __result({ sequenceName: seq.name, presetPath: "${escapeForExtendScript(args.preset_path)}", extension: ext });
+          var ext = null;
+          try { ext = seq.getExportFileExtension("${escapeForExtendScript(args.preset_path)}"); }
+          catch (extensionError) { return __error("Premiere could not determine the export extension for this preset: " + extensionError.toString()); }
+          if (ext === null || ext === undefined || !String(ext).replace(/\\s/g, "")) {
+            return __error("Premiere did not provide an export extension for this preset on this host. Inspect the preset or choose an output path explicitly before exporting.");
+          }
+          return __result({ sequenceName: seq.name, presetPath: "${escapeForExtendScript(args.preset_path)}", extension: String(ext) });
         `);
         return sendCommand(script, bridgeOptions);
       },
