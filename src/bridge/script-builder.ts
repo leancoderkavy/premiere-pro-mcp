@@ -2219,7 +2219,10 @@ function __insertClipHonoringSyncLock(seq, item, timeTicks, videoTrackIndex, aud
       var labels = [];
       for (var el = 0; el < elsewhere.length; el++) labels.push(elsewhere[el].trackType + " track " + (elsewhere[el].trackIndex + 1));
       var missing = (missingVideo ? "video" : "") + (missingVideo && missingAudio ? " and " : "") + (missingAudio ? "audio" : "");
-      return { ok: false, changed: true, placedOn: elsewhere, missingStreams: missingVideo && missingAudio ? ["video", "audio"] : missingVideo ? ["video"] : missingAudio ? ["audio"] : [], error: "The timeline changed: Premiere did not put the clip's " + (missing || "media") + " on the requested video track " + (vTrackIndex + 1) + " / audio track " + (aTrackIndex + 1) + (labels.length ? "; it placed it on " + labels.join(", ") : "") + (newTracks > 0 ? ", adding " + newTracks + " track(s)" : "") + " (for example, 5.1 audio does not fit a stereo track). Other tracks were not shifted to match" + afterRazorNote + ". Move or remove those pieces, or target tracks that match the clip's channel layout." };
+      var missingStreams = [];
+      if (missingVideo) missingStreams.push("video");
+      if (missingAudio) missingStreams.push("audio");
+      return { ok: false, changed: true, placedOn: elsewhere, missingStreams: missingStreams, error: "The timeline changed: Premiere did not put the clip's " + (missing || "media") + " on the requested video track " + (vTrackIndex + 1) + " / audio track " + (aTrackIndex + 1) + (labels.length ? "; it placed it on " + labels.join(", ") : "") + (newTracks > 0 ? ", adding " + newTracks + " track(s)" : "") + " (for example, 5.1 audio does not fit a stereo track). Other tracks were not shifted to match" + afterRazorNote + ". Move or remove those pieces, or target tracks that match the clip's channel layout." };
     }
     return { ok: false, changed: true, error: "Premiere did not add a new track item at the requested insertion point" + afterRazorNote + ". The timeline may be partially changed." };
   }
