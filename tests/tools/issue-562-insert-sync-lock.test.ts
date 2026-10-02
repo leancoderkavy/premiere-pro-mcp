@@ -147,6 +147,7 @@ function issue562Host(options: {
   insertThrowsAfterMutation?: boolean;
   moveEarlierAudioOnSecondInsert?: boolean;
   failSecondInsertAfterMutation?: boolean;
+  unreadableEarlierTrackAfterFailure?: boolean;
   sameSourceStraddler?: boolean;
 } = {}) {
   // Premiere's getIn/OutPoint(mediaType): 1 = video, 2 = audio, 4 = any. A missing
@@ -228,6 +229,9 @@ function issue562Host(options: {
         if (earlierVideo) {
           earlierVideo.start = ticksOf(2);
           earlierVideo.end = ticksOf(4);
+        }
+        if (options.unreadableEarlierTrackAfterFailure) {
+          Object.defineProperty(v1, "clips", { get() { throw new Error("track readback unavailable"); } });
         }
         throw new Error("host insert failed after mutation");
       }
@@ -538,6 +542,22 @@ describe("issue #562 — insert_from_source honors sync lock", () => {
       driftedPlacements: [{ index: 0, finalStartSeconds: 2 }],
     } });
     expect(result.data.completedPlacements[0]).toMatchObject({ actualStartSeconds: 0, finalStartSeconds: 2, finalVerified: false });
+  });
+
+  it("keeps an unverified partial receipt when the prior track is no longer readable", async () => {
+    const script = await scriptFor(getCompetitorGapTools(bridgeOptions).add_to_timeline_batch, {
+      clips: [
+        { item_id: "src", track_index: 0, start_seconds: 0 },
+        { item_id: "src", track_index: 1, start_seconds: 0 },
+      ],
+    });
+    const { sandbox } = issue562Host({ emptyTargets: true, mediaKind: "video_only",
+      failSecondInsertAfterMutation: true, unreadableEarlierTrackAfterFailure: true });
+    const result = runScript(script, sandbox);
+    expect(result).toMatchObject({ success: false, data: {
+      outcome: "committed_unverified", timelineChanged: true, failedPlacement: 1,
+      driftedPlacements: [{ index: 0, finalStartSeconds: null }],
+    } });
   });
 
   it.each([2, 1 / 24])("matches the inserted clip rather than a same-source split tail at duration %s", async (duration) => {
