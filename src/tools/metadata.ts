@@ -242,6 +242,9 @@ export function getMetadataTools(bridgeOptions: BridgeOptions) {
           if (packet !== "project" && packet !== "xmp") {
             return { success: false, error: "packet must be project or xmp." };
           }
+          if (packet === "project" && !/^Column\.[^.]+\.[^.]+$/.test(args.field_name!)) {
+            return { success: false, error: "Project field_name must be a qualified column path, for example Column.PropertyText.Description. Use get_metadata to inspect available field names." };
+          }
           if (packet === "xmp" && !(args.field_namespace && args.field_namespace.trim())) {
             return { success: false, error: "field_namespace is required for xmp packet updates." };
           }

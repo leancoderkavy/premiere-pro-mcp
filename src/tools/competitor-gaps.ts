@@ -192,7 +192,8 @@ export function getCompetitorGapTools(
             try {
               var outcome = __insertClipHonoringSyncLock(seq, placement.item, __secondsToTicks(placement.startSeconds).toString(), placement.trackIndex, placement.audioTrackIndex, "sync_locked");
               if (!outcome.ok) {
-                return __error("Batch insertion " + i + " failed after " + results.length + " verified placement(s): " + outcome.error);
+                return __error("Batch insertion " + i + " failed after " + results.length + " verified placement(s): " + outcome.error,
+                  outcome.changed || results.length ? { timelineChanged: true, outcome: "committed_unverified", verified: false, displacedTails: outcome.displacedTails, failedPlacement: i, completedPlacements: results } : null);
               }
             } catch (insertError) {
               return __error("Batch insertion " + i + " threw after " + results.length + " verified placement(s): " + insertError.toString());

@@ -38,7 +38,8 @@ describe("undo descriptions do not overclaim", () => {
     const multiple = getTrackTargetingTools(bridgeOptions).multiple_undo.description;
     for (const description of [undo, multiple]) {
       expect(description).toContain("Only CEP tool results carry undoSteps");
-      expect(description).toContain("always pass expected_undo_stack_index");
+      expect(description).toContain("Always pass expected_undo_stack_index");
+      expect(description).toContain("undoTracked:false");
       expect(description).not.toContain("added nothing to the undo history");
     }
   });
