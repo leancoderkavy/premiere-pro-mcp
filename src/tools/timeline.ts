@@ -211,7 +211,7 @@ export function getTimelineTools(
     },
 
     move_clip: {
-      description: "Move a clip to a new position on the timeline",
+      description: "EXPERIMENTAL (undocumented QE DOM for track changes): Move a clip to a new position on the timeline; optional track moves use Premiere's QE API and may not work on every version.",
       parameters: {
         type: "object" as const,
         properties: {
@@ -231,6 +231,12 @@ export function getTimelineTools(
         required: ["node_id", "new_start_seconds"],
       },
       handler: async (args: { node_id: string; new_start_seconds: number; new_track_index?: number }) => {
+        if (!Number.isFinite(args.new_start_seconds) || args.new_start_seconds < 0) {
+          return { success: false, error: "new_start_seconds must be finite and non-negative timeline seconds." };
+        }
+        if (args.new_track_index !== undefined && (!Number.isInteger(args.new_track_index) || args.new_track_index < 0)) {
+          return { success: false, error: "new_track_index must be a non-negative integer." };
+        }
         const nodeId = escapeForExtendScript(args.node_id);
         const script = buildToolScript(`
           var result = __findClip("${nodeId}");
@@ -1017,7 +1023,7 @@ export function getTimelineTools(
 
     split_clip: {
       description:
-        "Split every clip on one track that spans a timeline time, then verify both resulting boundaries. Requires QE DOM; effect-keyframe redistribution remains unverified.",
+        "EXPERIMENTAL (undocumented QE DOM): Split every clip on one track that spans a timeline time, then verify both resulting boundaries. Effect-keyframe redistribution remains unverified.",
       parameters: {
         type: "object" as const,
         properties: {
@@ -1121,7 +1127,8 @@ export function getTimelineTools(
           var clipCountAfter = domTrack.clips.numItems;
           var expectedClipCount = clipCountBefore + eligibleBefore.length;
           if (clipCountAfter !== expectedClipCount) {
-            return __error("Premiere razor changed the track clip count from " + clipCountBefore + " to " + clipCountAfter + ", expected " + expectedClipCount + " for " + eligibleBefore.length + " spanning clip(s). The timeline may be partially changed, but the split is not reported as verified. Structural QE edits are known to no-op on some Premiere Pro 26.x installations.");
+            if (clipCountAfter === clipCountBefore) return __jsonStringify({ success: false, error: "Premiere razor did not add the expected clip segments. The timeline appears unchanged, and the split is not reported as verified. Structural QE edits are known to no-op on some Premiere Pro 26.x installations.", data: { outcome: "not_applied", verified: false, timelineChanged: false, clipCountBefore: clipCountBefore, clipCountAfter: clipCountAfter } });
+            return __jsonStringify({ success: false, error: "Premiere razor changed the track clip count from " + clipCountBefore + " to " + clipCountAfter + ", expected " + expectedClipCount + " for " + eligibleBefore.length + " spanning clip(s). Inspect the affected track and use Undo if needed.", data: { outcome: "committed_unverified", verified: false, timelineChanged: true, clipCountBefore: clipCountBefore, clipCountAfter: clipCountAfter } });
           }
 
           var missingSegments = [];
@@ -1131,7 +1138,7 @@ export function getTimelineTools(
             if (!__hasSegment(domTrack, cutTicks, before.end)) missingSegments.push(before.name + " right segment");
           }
           if (missingSegments.length) {
-            return __error("Premiere razor changed the clip count but did not create the requested cut boundary for " + missingSegments.join(", ") + ". The timeline may be partially changed, but the split is not reported as verified.");
+            return __jsonStringify({ success: false, error: "Premiere razor changed the clip count but did not create the requested cut boundary for " + missingSegments.join(", ") + ". Inspect the affected track and use Undo if needed.", data: { outcome: "committed_unverified", verified: false, timelineChanged: true, clipCountBefore: clipCountBefore, clipCountAfter: clipCountAfter, missingSegments: missingSegments } });
           }
           return __result({
             split: true,
@@ -1151,7 +1158,7 @@ export function getTimelineTools(
 
     duplicate_clip: {
       description:
-        "Duplicate a timeline clip, with its linked audio/video partner, onto the first tracks above it that are empty for the clip's time range. The copy keeps the clip's source in point and visible duration, is placed with an overwrite edit (nothing ripples), and is read back. Fails without changes when no free track is available; add one with add_tracks.",
+        "EXPERIMENTAL: Duplicate a timeline clip, with its linked audio/video partner, onto the first tracks above it that are empty for the clip's time range. The copy keeps the clip's source in point and visible duration, is placed with an overwrite edit (nothing ripples), and is read back. A post-write mismatch is committed_unverified; inspect the timeline or use Undo. Fails without changes when no free track is available; add one with add_tracks.",
       parameters: {
         type: "object" as const,
         properties: {
@@ -1258,18 +1265,30 @@ export function getTimelineTools(
           if (!isVideo && !partner && newVideo) { try { newVideo.remove(false, false); } catch (dropVideo) {} newVideo = null; }
 
           var primary = isVideo ? newVideo : newAudio;
-          if (!primary) return __error("Premiere did not place the duplicate on the expected track; inspect the timeline or use Undo.");
+          if (!primary) return __jsonStringify({ success: false, error: "Premiere changed the timeline but did not place the duplicate on the expected track. Inspect the timeline or use Undo.", data: { outcome: "committed_unverified", verified: false, timelineChanged: true } });
           var drift = Math.abs(parseFloat(primary.start.ticks) - startTicks) + Math.abs(parseFloat(primary.end.ticks) - endTicks);
           var inDrift = Math.abs(parseFloat(primary.inPoint.ticks) - inTicks);
           function describe(c, type, index) {
             return c ? { nodeId: String(c.nodeId), trackType: type, trackIndex: index, startSeconds: __ticksToSeconds(c.start.ticks), endSeconds: __ticksToSeconds(c.end.ticks), inSeconds: __ticksToSeconds(c.inPoint.ticks) } : null;
           }
-          return __result({
-            duplicated: true,
-            verified: drift <= 2 * frameTicks && inDrift <= frameTicks,
+          var duplicateVerified = drift <= 2 * frameTicks && inDrift <= frameTicks && (!partner || !!(isVideo ? newAudio : newVideo));
+          if (!duplicateVerified) return __jsonStringify({ success: false, error: "Premiere placed a duplicate, but its timing, source in-point, or linked partner did not verify. Inspect the timeline or use Undo.", data: {
+            duplicated: false,
+            verified: false,
+            outcome: "committed_unverified",
+            timelineChanged: true,
             clipName: clip.name,
             copy: describe(primary, result.trackType, isVideo ? videoTarget : audioTarget),
             linkedCopy: isVideo ? describe(newAudio, "audio", audioTarget) : describe(newVideo, "video", videoTarget)
+          } });
+          return __result({
+            duplicated: true,
+            verified: true,
+            outcome: "verified",
+            clipName: clip.name,
+            copy: describe(primary, result.trackType, isVideo ? videoTarget : audioTarget),
+            linkedCopy: isVideo ? describe(newAudio, "audio", audioTarget) : describe(newVideo, "video", videoTarget),
+            timelineChanged: true
           });
         `);
         return sendCommand(script, bridgeOptions);
@@ -1309,38 +1328,20 @@ export function getTimelineTools(
 
     set_clip_properties: {
       description:
-        "Set supported clip properties (opacity, scale, position, rotation). Clip speed is unsupported and fails before mutation; use set_clip_duration to change a clip's timeline length.",
+        "Set supported clip properties (opacity, scale, position, rotation) and read each requested value back. Clip speed is unsupported and fails before mutation; use set_clip_duration to change a clip's timeline length.",
       parameters: {
         type: "object" as const,
         properties: {
-          node_id: {
-            type: "string",
-            description: "Node ID of the clip",
-          },
-          opacity: {
-            type: "number",
-            description: "Opacity value (0-100)",
-          },
+          node_id: { type: "string", description: "Node ID of the clip" },
+          opacity: { type: "number", minimum: 0, maximum: 100, description: "Opacity value (0-100)" },
           speed: {
             type: "number",
             description: "Unsupported by Premiere's documented scripting APIs. Supplying this returns an actionable error without mutating the clip; use set_clip_duration to change timeline length.",
           },
-          scale: {
-            type: "number",
-            description: "Scale percentage (100 = original size)",
-          },
-          position_x: {
-            type: "number",
-            description: "Horizontal position in sequence pixels",
-          },
-          position_y: {
-            type: "number",
-            description: "Vertical position in sequence pixels",
-          },
-          rotation: {
-            type: "number",
-            description: "Rotation in degrees",
-          },
+          scale: { type: "number", minimum: 0, maximum: 10000, description: "Scale percentage (0-10000; 100 = original size)" },
+          position_x: { type: "number", description: "Horizontal position in sequence pixels" },
+          position_y: { type: "number", description: "Vertical position in sequence pixels" },
+          rotation: { type: "number", description: "Rotation in degrees" },
         },
         required: ["node_id"],
       },
@@ -1353,77 +1354,152 @@ export function getTimelineTools(
         position_y?: number;
         rotation?: number;
       }) => {
-        if (args.speed !== undefined) {
-          return {
-            success: false,
-            error:
-              SPEED_UNAVAILABLE_ERROR,
-          };
+        if (args.speed !== undefined) return { success: false, error: SPEED_UNAVAILABLE_ERROR };
+        if (args.opacity !== undefined && (!Number.isFinite(args.opacity) || args.opacity < 0 || args.opacity > 100)) {
+          return { success: false, error: "opacity must be finite and between 0 and 100." };
         }
+        if (args.scale !== undefined && (!Number.isFinite(args.scale) || args.scale < 0 || args.scale > 10000)) {
+          return { success: false, error: "scale must be finite and between 0 and 10000." };
+        }
+        for (const value of [args.position_x, args.position_y, args.rotation]) {
+          if (value !== undefined && !Number.isFinite(value)) return { success: false, error: "position and rotation values must be finite numbers." };
+        }
+        if (args.opacity === undefined && args.scale === undefined && args.position_x === undefined && args.position_y === undefined && args.rotation === undefined) {
+          return { success: false, error: "Supply at least one supported property to change." };
+        }
+
         const script = buildToolScript(`
           var result = __findClip("${escapeForExtendScript(args.node_id)}");
           if (!result) return __error("Clip not found: ${escapeForExtendScript(args.node_id)}");
-          
           var clip = result.clip;
-          var changes = {};
-          
+          function readNumericProperty(prop) {
+            var value = prop.getValue();
+            return typeof value === "number" && isFinite(value) ? value : NaN;
+          }
+          var opacityProp = null;
+          var motion = null;
+          for (var i = 0; i < clip.components.numItems; i++) {
+            var component = clip.components[i];
+            if (component.matchName === "AE.ADBE Opacity" || component.displayName === "Opacity") {
+              for (var op = 0; op < component.properties.numItems; op++) {
+                if (component.properties[op].displayName === "Opacity") opacityProp = component.properties[op];
+              }
+            }
+            if (component.matchName === "AE.ADBE Motion" || component.displayName === "Motion") motion = component;
+          }
           ${args.opacity !== undefined ? `
-          // Set opacity via Motion component
-          for (var i = 0; i < clip.components.numItems; i++) {
-            var comp = clip.components[i];
-            if (comp.matchName === "AE.ADBE Opacity" || comp.displayName === "Opacity") {
-              for (var p = 0; p < comp.properties.numItems; p++) {
-                if (comp.properties[p].displayName === "Opacity") {
-                  comp.properties[p].setValue(${args.opacity}, true);
-                  changes.opacity = ${args.opacity};
-                }
-              }
-            }
-          }
+          if (!opacityProp) return __error("Opacity property was not found; nothing was changed.");
           ` : ""}
-          
-          ${args.scale !== undefined ? `
-          // Even scaling reads Uniform Scale first: with it off, "Scale" is the height alone.
-          var scaleMotion = null;
-          for (var sm = 0; sm < clip.components.numItems; sm++) {
-            if (clip.components[sm].matchName === "AE.ADBE Motion" || clip.components[sm].displayName === "Motion") { scaleMotion = clip.components[sm]; break; }
-          }
-          if (!scaleMotion) return __error("The clip has no Motion component, so scale was not set.");
-          var scaledClip = __setMotionScale(scaleMotion, ${args.scale});
-          if (!scaledClip.ok) return __error(scaledClip.error);
-          changes.scale = ${args.scale};` : ""}
-
           ${args.scale !== undefined || args.position_x !== undefined || args.position_y !== undefined || args.rotation !== undefined ? `
-          for (var i = 0; i < clip.components.numItems; i++) {
-            var comp = clip.components[i];
-            if (comp.matchName === "AE.ADBE Motion" || comp.displayName === "Motion") {
-              for (var p = 0; p < comp.properties.numItems; p++) {
-                var prop = comp.properties[p];
-                ${args.scale !== undefined ? `
-` : ""}
-                ${args.position_x !== undefined || args.position_y !== undefined ? `
-                if (prop.displayName === "Position") {
-                  var posVal = prop.getValue();
-                  var px = posVal && typeof posVal === "object" && posVal.length >= 2 ? posVal[0] : 0;
-                  var py = posVal && typeof posVal === "object" && posVal.length >= 2 ? posVal[1] : 0;
-                  // position_x/y are sequence pixels; Premiere 25.2 stores Position normalized.
-                  var posScale = __motionPointScale(prop, __sequenceFrameSize(app.project.activeSequence));
-                  if (!posScale) return __error("The sequence frame size is unreadable, so position pixels cannot be converted; nothing was changed.");
-                  ${args.position_x !== undefined ? `px = ${args.position_x} * posScale.x; changes.position_x = ${args.position_x};` : ""}
-                  ${args.position_y !== undefined ? `py = ${args.position_y} * posScale.y; changes.position_y = ${args.position_y};` : ""}
-                  prop.setValue([px, py], true);
-                }` : ""}
-                ${args.rotation !== undefined ? `
-                if (prop.displayName === "Rotation") {
-                  prop.setValue(${args.rotation}, true);
-                  changes.rotation = ${args.rotation};
-                }` : ""}
-              }
-            }
-          }
+          if (!motion) return __error("Motion component was not found; nothing was changed.");
           ` : ""}
-          
-          return __result({ updated: true, clipName: clip.name, changes: changes });
+          ${args.opacity !== undefined ? `
+          var beforeOpacity = NaN;
+          try { beforeOpacity = readNumericProperty(opacityProp); } catch (e) {}
+          if (!isFinite(beforeOpacity)) return __error("Opacity value could not be read before mutation; nothing was changed.");
+          ` : ""}
+          ${args.scale !== undefined ? `
+          var uniformScale = __isUniformScale(motion);
+          var scaleHeight = null;
+          var scaleWidth = null;
+          for (var sp = 0; sp < motion.properties.numItems; sp++) {
+            var scaleName = String(motion.properties[sp].displayName);
+            if (scaleName === "Scale" || scaleName === "Scale Height") scaleHeight = motion.properties[sp];
+            else if (scaleName === "Scale Width") scaleWidth = motion.properties[sp];
+          }
+          if (!scaleHeight || (!uniformScale && !scaleWidth)) return __error("Required Motion Scale properties were not found; nothing was changed.");
+          var beforeScaleHeight = NaN;
+          var beforeScaleWidth = NaN;
+          try { beforeScaleHeight = readNumericProperty(scaleHeight); } catch (eScaleHeight) {}
+          try { beforeScaleWidth = uniformScale ? beforeScaleHeight : readNumericProperty(scaleWidth); } catch (eScaleWidth) {}
+          if (!isFinite(beforeScaleHeight) || !isFinite(beforeScaleWidth)) return __error("Motion Scale values could not be read before mutation; nothing was changed.");
+          ` : ""}
+          ${args.position_x !== undefined || args.position_y !== undefined ? `
+          var positionProp = null;
+          for (var pp = 0; pp < motion.properties.numItems; pp++) if (motion.properties[pp].displayName === "Position") positionProp = motion.properties[pp];
+          if (!positionProp) return __error("Position property was not found; nothing was changed.");
+          var beforePosition = null;
+          try { beforePosition = positionProp.getValue(); } catch (ePosition) {}
+          if (!beforePosition || typeof beforePosition !== "object" || beforePosition.length < 2 || typeof beforePosition[0] !== "number" || typeof beforePosition[1] !== "number" || !isFinite(beforePosition[0]) || !isFinite(beforePosition[1])) return __error("Position value could not be read before mutation; nothing was changed.");
+          var positionScale = __motionPointScale(positionProp, __sequenceFrameSize(app.project.activeSequence));
+          if (!positionScale) return __error("The sequence frame size is unreadable, so position pixels cannot be converted; nothing was changed.");
+          var wantedPositionX = ${args.position_x !== undefined ? `${args.position_x} * positionScale.x` : "Number(beforePosition[0])"};
+          var wantedPositionY = ${args.position_y !== undefined ? `${args.position_y} * positionScale.y` : "Number(beforePosition[1])"};
+          ` : ""}
+          ${args.rotation !== undefined ? `
+          var rotationProp = null;
+          for (var rp = 0; rp < motion.properties.numItems; rp++) if (motion.properties[rp].displayName === "Rotation") rotationProp = motion.properties[rp];
+          if (!rotationProp) return __error("Rotation property was not found; nothing was changed.");
+          var beforeRotation = NaN;
+          try { beforeRotation = readNumericProperty(rotationProp); } catch (eRotation) {}
+          if (!isFinite(beforeRotation)) return __error("Rotation value could not be read before mutation; nothing was changed.");
+          ` : ""}
+
+          var writeErrors = [];
+          ${args.opacity !== undefined ? `
+          try { opacityProp.setValue(${args.opacity}, true); } catch (eOpacityWrite) { writeErrors.push("Opacity: " + String(eOpacityWrite)); }
+          ` : ""}
+          ${args.scale !== undefined ? `
+          try { var scaleWrite = __setMotionScale(motion, ${args.scale}); if (!scaleWrite.ok) writeErrors.push(scaleWrite.error); } catch (eScaleWrite) { writeErrors.push("Scale: " + String(eScaleWrite)); }
+          ` : ""}
+          ${args.position_x !== undefined || args.position_y !== undefined ? `
+          try { positionProp.setValue([wantedPositionX, wantedPositionY], true); } catch (ePositionWrite) { writeErrors.push("Position: " + String(ePositionWrite)); }
+          ` : ""}
+          ${args.rotation !== undefined ? `
+          try { rotationProp.setValue(${args.rotation}, true); } catch (eRotationWrite) { writeErrors.push("Rotation: " + String(eRotationWrite)); }
+          ` : ""}
+
+          var mismatches = [];
+          var changedProperties = [];
+          var unverifiedProperties = [];
+          var readback = {};
+          var timelineChanged = false;
+          ${args.opacity !== undefined ? `
+          var actualOpacity = NaN;
+          try { actualOpacity = readNumericProperty(opacityProp); } catch (eOpacityRead) {}
+          if (!isFinite(actualOpacity)) unverifiedProperties.push("opacity");
+          readback.opacity = isFinite(actualOpacity) ? actualOpacity : null;
+          if (isFinite(actualOpacity) && actualOpacity !== beforeOpacity) { timelineChanged = true; changedProperties.push("opacity"); }
+          if (!isFinite(actualOpacity) || Math.abs(actualOpacity - ${args.opacity}) > 0.01) mismatches.push("opacity did not match the requested value");
+          ` : ""}
+          ${args.scale !== undefined ? `
+          var actualScaleHeight = NaN;
+          var actualScaleWidth = NaN;
+          try { actualScaleHeight = readNumericProperty(scaleHeight); } catch (eScaleHeightRead) {}
+          try { actualScaleWidth = uniformScale ? actualScaleHeight : readNumericProperty(scaleWidth); } catch (eScaleWidthRead) {}
+          if (!isFinite(actualScaleHeight) || !isFinite(actualScaleWidth)) unverifiedProperties.push("scale");
+          readback.scale = { height: isFinite(actualScaleHeight) ? actualScaleHeight : null, width: isFinite(actualScaleWidth) ? actualScaleWidth : null };
+          if ((isFinite(actualScaleHeight) && actualScaleHeight !== beforeScaleHeight) || (isFinite(actualScaleWidth) && actualScaleWidth !== beforeScaleWidth)) { timelineChanged = true; changedProperties.push("scale"); }
+          if (!isFinite(actualScaleHeight) || !isFinite(actualScaleWidth) || Math.abs(actualScaleHeight - ${args.scale}) > 0.01 || Math.abs(actualScaleWidth - ${args.scale}) > 0.01) mismatches.push("scale did not match the requested value");
+          ` : ""}
+          ${args.position_x !== undefined || args.position_y !== undefined ? `
+          var actualPosition = null;
+          try { actualPosition = positionProp.getValue(); } catch (ePositionRead) {}
+          var actualPositionX = actualPosition && actualPosition.length > 1 && typeof actualPosition[0] === "number" ? actualPosition[0] : NaN;
+          var actualPositionY = actualPosition && actualPosition.length > 1 && typeof actualPosition[1] === "number" ? actualPosition[1] : NaN;
+          if (!isFinite(actualPositionX) || !isFinite(actualPositionY)) unverifiedProperties.push("position");
+          readback.position = isFinite(actualPositionX) && isFinite(actualPositionY) ? [actualPositionX, actualPositionY] : null;
+          if ((isFinite(actualPositionX) && actualPositionX !== Number(beforePosition[0])) || (isFinite(actualPositionY) && actualPositionY !== Number(beforePosition[1]))) { timelineChanged = true; changedProperties.push("position"); }
+          if (!isFinite(actualPositionX) || !isFinite(actualPositionY) || Math.abs(actualPositionX - wantedPositionX) > 0.00001 || Math.abs(actualPositionY - wantedPositionY) > 0.00001) mismatches.push("position did not match the requested value");
+          ` : ""}
+          ${args.rotation !== undefined ? `
+          var actualRotation = NaN;
+          try { actualRotation = readNumericProperty(rotationProp); } catch (eRotationRead) {}
+          if (!isFinite(actualRotation)) unverifiedProperties.push("rotation");
+          readback.rotation = isFinite(actualRotation) ? actualRotation : null;
+          if (isFinite(actualRotation) && actualRotation !== beforeRotation) { timelineChanged = true; changedProperties.push("rotation"); }
+          if (!isFinite(actualRotation) || Math.abs(actualRotation - ${args.rotation}) > 0.01) mismatches.push("rotation did not match the requested value");
+          ` : ""}
+          if (writeErrors.length || mismatches.length) {
+            return __jsonStringify({ success: false, error: "Premiere did not verify requested clip properties: " + writeErrors.concat(mismatches).join("; ") + ". Inspect the clip before retrying.", data: { outcome: timelineChanged || unverifiedProperties.length ? "committed_unverified" : "not_applied", verified: false, timelineChanged: timelineChanged ? true : (unverifiedProperties.length ? null : false), changedProperties: changedProperties, unverifiedProperties: unverifiedProperties, readback: readback } });
+          }
+          var changes = {};
+          ${args.opacity !== undefined ? `changes.opacity = ${args.opacity};` : ""}
+          ${args.scale !== undefined ? `changes.scale = ${args.scale};` : ""}
+          ${args.position_x !== undefined ? `changes.position_x = ${args.position_x};` : ""}
+          ${args.position_y !== undefined ? `changes.position_y = ${args.position_y};` : ""}
+          ${args.rotation !== undefined ? `changes.rotation = ${args.rotation};` : ""}
+          return __result({ updated: true, verified: true, outcome: "verified", clipName: clip.name, changes: changes, readback: readback });
         `);
         return sendCommand(script, bridgeOptions);
       },
