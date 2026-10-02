@@ -143,6 +143,8 @@ function issue562Host(options: {
   displaceTargetTail?: boolean;
   displacePreRazoredTail?: boolean;
   noAudioRazor?: boolean;
+  razorThrowsAfterCut?: boolean;
+  insertThrowsAfterMutation?: boolean;
 } = {}) {
   // Premiere's getIn/OutPoint(mediaType): 1 = video, 2 = audio, 4 = any. A missing
   // stream reads back as a zero-length span.
@@ -210,6 +212,7 @@ function issue562Host(options: {
           }
         });
       }
+      if (options.insertThrowsAfterMutation) throw new Error("insert threw after changing a track");
     },
   };
 
@@ -234,6 +237,7 @@ function issue562Host(options: {
         }
         track._arr.push(...spawned);
         track._reindex();
+        if (options.razorThrowsAfterCut) throw new Error("razor threw after changing a track");
       },
     };
     if (!options.omitIsLocked) {
@@ -375,6 +379,20 @@ describe("issue #562 — insert_from_source honors sync lock", () => {
     expect(result.error).toMatch(/nothing was changed.*frame boundary/i);
     expect(rangesOf(seq.videoTracks[0])).toEqual(beforeVideo);
     expect(rangesOf(seq.audioTracks[0])).toEqual(beforeAudio);
+  });
+
+  it("marks a throwing QE razor as changed even on its first attempted cut", () => {
+    const { sandbox, seq, source: item } = issue562Host({ razorThrowsAfterCut: true });
+    const result = runHelper(sandbox, seq, item, 6);
+    expect(result).toMatchObject({ ok: false, changed: true });
+    expect(result.error).toMatch(/timeline may be partially changed/i);
+  });
+
+  it("marks an insert that throws after mutation as changed without a QE cut", () => {
+    const { sandbox, seq, source: item } = issue562Host({ emptyTargets: true, insertThrowsAfterMutation: true });
+    const result = runHelper(sandbox, seq, item, 0);
+    expect(result).toMatchObject({ ok: false, changed: true });
+    expect(result.error).toMatch(/timeline may be partially changed/i);
   });
 
   it("target_tracks refuses a straddling target before mutation when QE is unavailable", () => {

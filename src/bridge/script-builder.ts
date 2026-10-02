@@ -1906,7 +1906,7 @@ function __insertClipHonoringSyncLock(seq, item, timeTicks, videoTrackIndex, aud
         qeTrackFor(razorPart.type, razorPart.index).razor(razorAt.timecode);
         razored.push(razorPart.type + " " + razorPart.index);
       } catch (razorErr) {
-        return { ok: false, changed: razored.length > 0, error: "QE razor failed on " + razorPart.type + " track " + razorPart.index + (razored.length ? " after already razoring " + razored.join(", ") : "") + ": " + razorErr.toString() };
+        return { ok: false, changed: true, error: "QE razor failed on " + razorPart.type + " track " + razorPart.index + (razored.length ? " after already razoring " + razored.join(", ") : "") + ". The timeline may be partially changed: " + razorErr.toString() };
       }
       if (razorPart.shiftEntry) razorPart.shiftEntry.movers = [];
       var stillSpan = false;
@@ -1955,7 +1955,7 @@ function __insertClipHonoringSyncLock(seq, item, timeTicks, videoTrackIndex, aud
   try {
     seq.insertClip(item, String(timeTicks), vTrackIndex, aTrackIndex);
   } catch (insErr) {
-    return { ok: false, changed: needRazor, error: "Premiere rejected Sequence.insertClip" + afterRazorNote + ": " + insErr.toString() };
+    return { ok: false, changed: true, error: "Premiere rejected Sequence.insertClip" + afterRazorNote + ". The timeline may be partially changed: " + insErr.toString() };
   }
 
   var afterVideoCount = videoTrack.clips.numItems;
@@ -1972,7 +1972,7 @@ function __insertClipHonoringSyncLock(seq, item, timeTicks, videoTrackIndex, aud
     if (!beforeAudioIds[String(audioTrack.clips[i].nodeId)]) insertedClips.push(audioTrack.clips[i]);
   }
   if (!insertedClips.length) {
-    return { ok: false, changed: needRazor, error: "Premiere did not add a new track item at the requested insertion point" + afterRazorNote + "." };
+    return { ok: false, changed: true, error: "Premiere did not add a new track item at the requested insertion point" + afterRazorNote + ". The timeline may be partially changed." };
   }
 
   var matched = false;
