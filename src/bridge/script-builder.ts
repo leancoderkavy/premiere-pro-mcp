@@ -1370,6 +1370,11 @@ function __markerUndoState(create) {
       if ($.global.__premiereMcpMarkerUndoBarrierV1 !== state) return null;
     }
     if (state && (!(state.entries instanceof Array) || typeof state.unknownProject !== "boolean")) return null;
+    if (state) for (var si = 0; si < state.entries.length; si++) {
+      var saved = state.entries[si];
+      if (!saved || typeof saved.projectId !== "string" || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(saved.projectId) ||
+        (saved.index !== null && (typeof saved.index !== "number" || !isFinite(saved.index) || saved.index < 0 || Math.floor(saved.index) !== saved.index))) return null;
+    }
     return state || { unknownProject: false, entries: [] };
   } catch (barrierReadError) { return null; }
 }

@@ -98,6 +98,25 @@ describe("persistent CEP marker undo boundary (#733)", () => {
     await expect(markersTool.add_marker.handler({ time_seconds: 2 })).resolves.toMatchObject({ success: false, error: expect.stringContaining("persist") });
     expect(state.list).toHaveLength(0);
   });
+  it("refuses marker writes and undo when retained barrier state is corrupt", async () => {
+    const state = host();
+    await markersTool.add_marker.handler({ time_seconds: 2 });
+    const retained = state.global as Record<string, any>;
+    retained.__premiereMcpMarkerUndoBarrierV1.entries[0].index = "unknown";
+    await expect(markersTool.add_marker.handler({ time_seconds: 3 })).resolves.toMatchObject({ success: false, error: expect.stringContaining("persist") });
+    await expect(projectTools.undo.handler({ expected_undo_stack_index: 52 })).resolves.toMatchObject({ success: false });
+    expect(state.list).toHaveLength(1);
+    expect(state.undo).not.toHaveBeenCalled();
+  });
+  it("refuses redo across the protected boundary unless deliberately acknowledged", async () => {
+    const state = host();
+    await markersTool.add_marker.handler({ time_seconds: 2 });
+    await projectTools.undo.handler({ expected_undo_stack_index: 52, acknowledge_untracked_markers: true });
+    await expect(targeting.redo.handler({ expected_undo_stack_index: 51 })).resolves.toMatchObject({ success: false });
+    expect(state.redo).not.toHaveBeenCalled();
+    await expect(targeting.redo.handler({ expected_undo_stack_index: 51, acknowledge_untracked_markers: true })).resolves.toMatchObject({ success: true });
+    expect(state.redo).toHaveBeenCalledTimes(1);
+  });
   it("protects a marker that was created before its API threw", async () => {
     const state = host({ throwingMarker: true });
     await expect(markersTool.add_marker.handler({ time_seconds: 2 })).resolves.toMatchObject({ success: false });
