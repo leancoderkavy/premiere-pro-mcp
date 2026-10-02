@@ -93,6 +93,9 @@ export function getAdvancedTools(
         }
 
         const script = buildToolScript(`
+          var currentProjectId; var currentSequenceId;
+          try { currentProjectId = app.project.documentID; currentSequenceId = app.project.activeSequence.sequenceID; } catch (contextError) {}
+          if (currentProjectId !== "${escapeForExtendScript(projectId)}" || currentSequenceId !== "${escapeForExtendScript(sequenceId)}") return __error("Project or active sequence changed after media preflight; no edit was attempted.");
           function __editOne(result, nodeId, checkOnly) {
             var track = result.trackType === "video"
               ? app.project.activeSequence.videoTracks[result.trackIndex]
@@ -300,19 +303,27 @@ export function getAdvancedTools(
         // on the clip's media file), never the editable source Out mark. Two
         // phases like trim_clip; missing evidence refuses before mutation.
         const evidenceScript = buildToolScript(`
+          var projectId; var sequenceId;
+          try { projectId = app.project.documentID; sequenceId = app.project.activeSequence.sequenceID; } catch (contextError) {}
+          if (typeof projectId !== "string" || !projectId.length || typeof sequenceId !== "string" || !sequenceId.length) return __error("Project and sequence identities could not be read; no edit was attempted.");
           var result = __findClip("${escapeForExtendScript(args.node_id)}");
           if (!result) return __error("Clip not found");
           var mp = "";
           try { mp = String(result.clip.projectItem.getMediaPath() || ""); } catch (eMediaPath) {}
-          return __result({ mediaPath: mp });
+          return __result({ mediaPath: mp, projectId: projectId, sequenceId: sequenceId });
         `);
         let mediaDurationTicks: number | null = null;
         let mediaPath = "";
+        let projectId = "";
+        let sequenceId = "";
         try {
           const evidence = await sendCommand(evidenceScript, bridgeOptions);
           if (evidence && evidence.success === false) return evidence;
-          const evidenceData = (evidence as { data?: { mediaPath?: unknown } } | undefined)?.data;
+          const evidenceData = (evidence as { data?: { mediaPath?: unknown; projectId?: unknown; sequenceId?: unknown } } | undefined)?.data;
           mediaPath = typeof evidenceData?.mediaPath === "string" ? evidenceData.mediaPath : "";
+          projectId = typeof evidenceData?.projectId === "string" ? evidenceData.projectId : "";
+          sequenceId = typeof evidenceData?.sequenceId === "string" ? evidenceData.sequenceId : "";
+          if (!projectId || !sequenceId) return { success: false, error: "Project and sequence identities could not be read; no edit was attempted." };
           mediaDurationTicks = mediaPath ? await probeMediaEndTicks(mediaPath) : null;
         } catch {
           mediaDurationTicks = null;

@@ -9,7 +9,7 @@ import { BridgeOptions } from "../../src/bridge/file-bridge.js";
 vi.mock("../../src/tools/media-evidence.js", () => ({ probeMediaDurationTicks: vi.fn().mockResolvedValue(3600 * 254016000000) }));
 
 vi.mock("../../src/bridge/file-bridge.js", () => ({
-  sendCommand: vi.fn().mockResolvedValue({ success: true, data: { mediaPath: "/fixture/source.mp4" } }),
+  sendCommand: vi.fn().mockResolvedValue({ success: true, data: { projectId: "project", sequenceId: "seq", mediaPath: "/fixture/source.mp4" } }),
   sendRawCommand: vi.fn().mockResolvedValue({ success: true, data: {} }),
   getTempDir: vi.fn().mockReturnValue("/tmp/test"),
   cleanupTempDir: vi.fn(),
@@ -82,7 +82,7 @@ async function executePixelAspectRatioScript(sequence: unknown, ratio = "1.4222"
   })));
 }
 
-beforeEach(() => { vi.clearAllMocks(); mockedSendCommand.mockResolvedValue({ success: true, data: { mediaPath: "/fixture/source.mp4" } }); });
+beforeEach(() => { vi.clearAllMocks(); mockedSendCommand.mockResolvedValue({ success: true, data: { projectId: "project", sequenceId: "seq", mediaPath: "/fixture/source.mp4" } }); });
 
 describe("real-host social sequence regressions", () => {
   // #691: QE's newSequence silently ignores forward-slash preset paths on
@@ -338,11 +338,11 @@ describe("PR #3 follow-ups — color_correct and export_sequence", () => {
   // own end (Premiere would otherwise extend the clip over nonexistent frames
   // and report verified: true).
   it("trim_clip and slip_edit scripts carry the ffprobe media-duration guard", async () => {
-    vi.mocked(sendCommand).mockResolvedValueOnce({ success: true, data: { mediaPath: "C:/media/clip.mp4" } } as never);
+    vi.mocked(sendCommand).mockResolvedValueOnce({ success: true, data: { projectId: "project", sequenceId: "seq", mediaPath: "C:/media/clip.mp4" } } as never);
     const trim = await scriptFor(getTimelineTools(bridgeOptions, { probeMediaDurationSeconds: async () => 5 }).trim_clip, { node_id: "clip-1", new_out_seconds: 39 });
     expect(trim).not.toContain("projectItem.getOutPoint()");
     expect(trim).toContain("real media duration of 5.000s (ffprobe)");
-    vi.mocked(sendCommand).mockResolvedValueOnce({ success: true, data: { mediaPath: "C:/media/clip.mp4" } } as never);
+    vi.mocked(sendCommand).mockResolvedValueOnce({ success: true, data: { projectId: "project", sequenceId: "seq", mediaPath: "C:/media/clip.mp4" } } as never);
     const slip = await scriptFor(getAdvancedTools(bridgeOptions, { probeMediaDurationSeconds: async () => 10 }).slip_edit, { node_id: "clip-1", offset_seconds: 2 });
     expect(slip).toContain("past this clip's real media duration of 10.000s (ffprobe)");
   });
@@ -1603,7 +1603,7 @@ describe("sequence settings setters verify their readback", () => {
 
 describe("#712 rework: media bound from real ffprobe duration (owner review)", () => {
   it("the media bound comes from ffprobe duration, not the editable source Out mark", async () => {
-    vi.mocked(sendCommand).mockResolvedValueOnce({ success: true, data: { mediaPath: "C:/media/clip.mp4" } } as never);
+    vi.mocked(sendCommand).mockResolvedValueOnce({ success: true, data: { projectId: "project", sequenceId: "seq", mediaPath: "C:/media/clip.mp4" } } as never);
     const tools = getTimelineTools(bridgeOptions, { probeMediaDurationSeconds: async () => 10 });
     await tools.trim_clip.handler({ node_id: "clip-1", new_out_seconds: 15 });
     const script = mockedSendCommand.mock.calls.at(-1)[0] as string;
@@ -1613,14 +1613,14 @@ describe("#712 rework: media bound from real ffprobe duration (owner review)", (
   });
 
   it("does not infer unlimited still media from an image filename when duration is unknown", async () => {
-    vi.mocked(sendCommand).mockResolvedValueOnce({ success: true, data: { mediaPath: "C:/media/still.png" } } as never);
+    vi.mocked(sendCommand).mockResolvedValueOnce({ success: true, data: { projectId: "project", sequenceId: "seq", mediaPath: "C:/media/still.png" } } as never);
     const tools = getTimelineTools(bridgeOptions, { probeMediaDurationSeconds: async () => null });
     await expect(tools.trim_clip.handler({ node_id: "clip-1", new_out_seconds: 15 })).resolves.toMatchObject({ success: false, error: expect.stringContaining("Physical media duration") });
     expect(mockedSendCommand).toHaveBeenCalledTimes(1);
   });
 
   it("slip_edit carries the same ffprobe-evidence bound", async () => {
-    vi.mocked(sendCommand).mockResolvedValueOnce({ success: true, data: { mediaPath: "C:/media/clip.mp4" } } as never);
+    vi.mocked(sendCommand).mockResolvedValueOnce({ success: true, data: { projectId: "project", sequenceId: "seq", mediaPath: "C:/media/clip.mp4" } } as never);
     const tools = getAdvancedTools(bridgeOptions, { probeMediaDurationSeconds: async () => 10 });
     await tools.slip_edit.handler({ node_id: "clip-1", offset_seconds: 2 });
     const script = mockedSendCommand.mock.calls.at(-1)[0] as string;

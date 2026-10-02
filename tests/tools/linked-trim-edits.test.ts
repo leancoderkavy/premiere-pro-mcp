@@ -68,11 +68,11 @@ function host(options: { audioRejectsInPoint?: boolean; audioLocked?: boolean } 
     audioTracks: { numTracks: 1, 0: { clips: collection(audio), isLocked: () => options.audioLocked === true } },
   };
   const context = {
-    app: { project: { activeSequence: seq, sequences: { numSequences: 1, 0: seq } } },
+    app: { project: { documentID: "project", activeSequence: seq, sequences: { numSequences: 1, 0: seq } } },
     Time: function Time(this: { ticks: string }) { this.ticks = "0"; },
   };
   mockedSendCommand.mockImplementation(async (script: string) => JSON.parse(String(runInNewContext(`${getHelpersSource()}\n${script}`, context))));
-  return { video, audio };
+  return { video, audio, context };
 }
 
 describe("trim edits keep linked audio in sync", () => {
@@ -159,7 +159,7 @@ describe("remove_from_timeline takes linked partners and verifies", () => {
         };
       }
     }
-    return { video, audio };
+    return { video, audio, context };
   };
 
   it("removes the shot's audio with it by default (live: plan remove left the audio behind)", async () => {
@@ -417,5 +417,40 @@ describe("exact probed tick caps", () => {
     await expect(advanced.slip_edit.handler({ node_id: "v1", offset_seconds: 1 })).resolves.toMatchObject({ success: true });
     expect(video[1].snapshot()).toEqual([10, 30, 11, 31]);
     expect(audio[1].snapshot()).toEqual([10, 30, 11, 31]);
+  });
+});
+
+
+describe("physical evidence stays bound to project and sequence context", () => {
+  it.each(["trim", "slip"])("%s refuses a copied project reusing clip and sequence IDs", async (operation) => {
+    const { video, audio, context } = host();
+    const before = [...video, ...audio].map((clip) => clip.snapshot());
+    const writes = [...video, ...audio].flatMap((clip) => [vi.spyOn(clip, "inPoint", "set"), vi.spyOn(clip, "outPoint", "set"), vi.spyOn(clip, "start", "set"), vi.spyOn(clip, "end", "set")]);
+    const probe = async () => {
+      context.app.project = { ...context.app.project, documentID: "copied-project" };
+      return 3600 * TICKS;
+    };
+    const result = operation === "trim"
+      ? await getTimelineTools(bridgeOptions, { probeMediaDurationTicks: probe }).trim_clip.handler({ node_id: "v1", new_out_seconds: 29 })
+      : await getAdvancedTools(bridgeOptions, { probeMediaDurationTicks: probe }).slip_edit.handler({ node_id: "v1", offset_seconds: 1 });
+    expect(result).toMatchObject({ success: false, error: expect.stringContaining("changed after media preflight") });
+    expect([...video, ...audio].map((clip) => clip.snapshot())).toEqual(before);
+    for (const write of writes) expect(write).not.toHaveBeenCalled();
+  });
+
+  it.each(["trim", "slip"])("%s refuses an active sequence switch reusing clip IDs and media", async (operation) => {
+    const { video, audio, context } = host();
+    const before = [...video, ...audio].map((clip) => clip.snapshot());
+    const writes = [...video, ...audio].flatMap((clip) => [vi.spyOn(clip, "inPoint", "set"), vi.spyOn(clip, "outPoint", "set"), vi.spyOn(clip, "start", "set"), vi.spyOn(clip, "end", "set")]);
+    const probe = async () => {
+      context.app.project.activeSequence = { ...context.app.project.activeSequence, sequenceID: "copied-sequence" };
+      return 3600 * TICKS;
+    };
+    const result = operation === "trim"
+      ? await getTimelineTools(bridgeOptions, { probeMediaDurationTicks: probe }).trim_clip.handler({ node_id: "v1", new_out_seconds: 29 })
+      : await getAdvancedTools(bridgeOptions, { probeMediaDurationTicks: probe }).slip_edit.handler({ node_id: "v1", offset_seconds: 1 });
+    expect(result).toMatchObject({ success: false, error: expect.stringContaining("changed after media preflight") });
+    expect([...video, ...audio].map((clip) => clip.snapshot())).toEqual(before);
+    for (const write of writes) expect(write).not.toHaveBeenCalled();
   });
 });
