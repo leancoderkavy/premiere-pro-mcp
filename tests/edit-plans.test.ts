@@ -10,7 +10,7 @@ vi.mock("../src/bridge/file-bridge.js", async (importOriginal) => {
     // Bridge ACL behavior has its own tests. These tests exercise token
     // persistence in a temporary directory created by the test runner.
     ensurePrivateBridgeDirectory: vi.fn(),
-    sendCommand: vi.fn(async () => ({ success: true, data: { applied: true } })),
+    sendCommand: vi.fn(async () => ({ success: true, data: { applied: true, targetsValidated: true } })),
   };
 });
 
@@ -23,11 +23,11 @@ const plan = { operations: [{ type: "insert_clip" as const, item_id: "clip-1", s
 describe("edit plans", () => {
   beforeEach(() => vi.clearAllMocks());
 
-  it("previews without contacting Premiere", async () => {
+  it("inspects preview targets without applying the plan", async () => {
     const tools = getEditPlanTools({}, { capabilities: { capabilities: new Set(["inspect"]), source: "explicit" }, operationIdFactory: () => "preview-1", tokenStore: staticEditPlanTokenStore });
     const result = await tools.preview_edit_plan.handler({ plan });
     expect(result.data).toMatchObject({ operationId: "preview-1", applied: false, confirmationToken: confirmationToken(plan) });
-    expect(sendCommand).not.toHaveBeenCalled();
+    expect(sendCommand).toHaveBeenCalledOnce();
   });
 
   it("requires the edit capability before apply", async () => {
@@ -62,7 +62,7 @@ describe("edit plans", () => {
       const restartedServer = getEditPlanTools({ tempDir }, dependencies);
       await expect(restartedServer.apply_edit_plan.handler({ plan, confirmation_token: token })).resolves.toMatchObject({ success: true });
       await expect(firstServer.apply_edit_plan.handler({ plan, confirmation_token: token })).rejects.toThrow("already consumed");
-      expect(sendCommand).toHaveBeenCalledOnce();
+      expect(sendCommand).toHaveBeenCalledTimes(2);
     } finally {
       rmSync(tempDir, { recursive: true, force: true });
     }
@@ -85,7 +85,7 @@ describe("edit plans", () => {
       vi.mocked(sendCommand).mockRejectedValueOnce(new Error("bridge failed"));
       await expect(restartedServer.apply_edit_plan.handler({ plan, confirmation_token: failedToken })).rejects.toThrow("bridge failed");
       await expect(firstServer.apply_edit_plan.handler({ plan, confirmation_token: failedToken })).rejects.toThrow("already consumed");
-      expect(sendCommand).toHaveBeenCalledTimes(2);
+      expect(sendCommand).toHaveBeenCalledTimes(4);
     } finally {
       rmSync(tempDir, { recursive: true, force: true });
     }

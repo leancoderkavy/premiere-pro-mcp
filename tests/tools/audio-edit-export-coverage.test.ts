@@ -189,6 +189,7 @@ describe("edit plan validation and apply coverage", () => {
       tokenStore: staticEditPlanTokenStore,
     });
 
+    mockedSendCommand.mockResolvedValueOnce({ success: true, data: { targetsValidated: true } });
     const result = await tools.preview_edit_plan.handler({ plan });
     expect(result).toMatchObject({
       success: true,

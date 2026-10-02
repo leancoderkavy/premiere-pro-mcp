@@ -185,15 +185,15 @@ function namingUnknownArguments(
         }
         const issues = result.issues.map((issue) => {
           const message = issue.message.replace(/data([^\s,]*) must be equal to one of the allowed values/g, (original, pointer: string) => {
-          let node: unknown = sourceSchema;
-          for (const segment of pointer.split("/").slice(1)) {
-            if (!node || typeof node !== "object") break;
-            const current = node as Record<string, unknown>;
-            const key = segment.replace(/~1/g, "/").replace(/~0/g, "~");
-            node = current.type === "array" ? current.items : (current.properties as Record<string, unknown> | undefined)?.[key];
-          }
-          const values = node && typeof node === "object" ? (node as Record<string, unknown>).enum : undefined;
-          return Array.isArray(values) ? `${original}; allowed values: ${values.map((entry) => JSON.stringify(entry)).join(", ")}` : original;
+            let node: unknown = sourceSchema;
+            for (const segment of pointer.split("/").slice(1)) {
+              if (!node || typeof node !== "object") break;
+              const current = node as Record<string, unknown>;
+              const key = segment.replace(/~1/g, "/").replace(/~0/g, "~");
+              node = current.type === "array" ? current.items : (current.properties as Record<string, unknown> | undefined)?.[key];
+            }
+            const values = node && typeof node === "object" ? (node as Record<string, unknown>).enum : undefined;
+            return Array.isArray(values) ? `${original}; allowed values: ${values.map((entry) => JSON.stringify(entry)).join(", ")}` : original;
           });
           return { ...issue, message };
         });

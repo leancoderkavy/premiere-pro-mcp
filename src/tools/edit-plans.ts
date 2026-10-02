@@ -93,6 +93,37 @@ function describe(plan: EditPlan) {
   }));
 }
 
+function buildPreviewScript(plan: EditPlan): string {
+  const sequence = plan.sequence_id
+    ? `var seq = __findSequence("${escapeForExtendScript(plan.sequence_id)}"); if (!seq) return __error("Sequence not found");`
+    : `var seq = app.project.activeSequence; if (!seq) return __error("No active sequence");`;
+  const checks = plan.operations.map((operation, index) => {
+    if (operation.type === "insert_clip") {
+      const tracks = (["video", "audio"] as const).flatMap((kind) => {
+        const track = operation[`${kind}_track_index`];
+        return track === undefined ? [] : [`if (!seq.${kind}Tracks || ${track} >= seq.${kind}Tracks.numTracks) return __error("${kind} track not found for operation ${index}");`];
+      });
+      return `if (!__findProjectItem("${escapeForExtendScript(operation.item_id)}")) return __error("Project item not found for operation ${index}");\n${tracks.join("\n")}`;
+    }
+    return `if (!__previewHasClip(seq, "${escapeForExtendScript(operation.node_id)}")) return __error("Clip not found for operation ${index}");`;
+  });
+  return buildToolScript(`${sequence}
+    if (!__isCurrentProjectSequence(seq)) return __error("Sequence is not in the current project");
+    function __previewHasClip(sequence, nodeId) {
+      var groups = [sequence.videoTracks, sequence.audioTracks];
+      for (var g = 0; g < groups.length; g++) {
+        for (var t = 0; t < groups[g].numTracks; t++) {
+          for (var c = 0; c < groups[g][t].clips.numItems; c++) {
+            if (String(groups[g][t].clips[c].nodeId) === String(nodeId)) return true;
+          }
+        }
+      }
+      return false;
+    }
+    ${checks.join("\n")}
+    return __result({targetsValidated:true, applied:false});`);
+}
+
 function buildApplyScript(plan: EditPlan): string {
   // Removals go through __findClip and the ripple-delete script, which work on
   // the active sequence, so a named target sequence is activated first.
@@ -205,13 +236,18 @@ export function getEditPlanTools(bridgeOptions: BridgeOptions, dependencies: Edi
 
   return {
     preview_edit_plan: {
-      description: "Validate and preview a compound timeline edit without changing Premiere. Returns a single-use confirmation token that expires after 30 minutes and is required by apply_edit_plan.",
+      description: "Inspect sequence, project item, clip and requested track targets before previewing a compound timeline edit without changing Premiere. Returns a single-use confirmation token that expires after 30 minutes and is required by apply_edit_plan.",
       parameters: { type: "object" as const, properties: { plan: planParameter }, required: ["plan"] },
       handler: async (args: { plan: unknown }) => {
         const operationId = nextId();
         requireCapability(capabilities, "inspect", operationId);
         const plan = validateEditPlan(args.plan);
-        return { success: true, data: { operationId, changes: describe(plan), confirmationToken: tokenStore.issue(confirmationToken(plan)), applied: false } };
+        const inspected = await sendCommand(buildPreviewScript(plan), bridgeOptions);
+        if (!inspected.success) return inspected;
+        if ((inspected.data as { targetsValidated?: boolean } | undefined)?.targetsValidated !== true) {
+          return { success: false, error: "Premiere did not verify the preview targets; no confirmation token was issued" };
+        }
+        return { success: true, data: { operationId, changes: describe(plan), confirmationToken: tokenStore.issue(confirmationToken(plan)), targetsValidated: true, applied: false } };
       },
     },
     apply_edit_plan: {
