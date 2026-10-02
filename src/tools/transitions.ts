@@ -292,13 +292,17 @@ export function getTransitionsTools(bridgeOptions: BridgeOptions) {
 
           try {
           var verifiedCount = domTrack.transitions.numItems - transitionCountBefore;
+          var completedEdges = [];
+          for (var edgeIndex = 0; edgeIndex < requestedEdges.length; edgeIndex++) {
+            if (__newTransitionCovers(domTrack, transitionKeysBefore, requestedEdges[edgeIndex].ticks, frameTicks)) completedEdges.push(requestedEdges[edgeIndex].edge);
+          }
           if (verifiedCount !== requestedCount) {
-            if (verifiedCount > 0) return __jsonStringify({ success: false, error: "Premiere added " + verifiedCount + " of " + requestedCount + " requested transition(s). Inspect the clip or use Undo.", data: { outcome: "committed_unverified", verified: false, timelineChanged: true, transitionsAdded: verifiedCount, requestedCount: requestedCount, requestedEdges: requestedEdges } });
-            return __jsonStringify({ success: false, error: "Premiere added none of the requested transitions.", data: { outcome: "not_applied", verified: false, timelineChanged: false, transitionsAdded: 0, requestedCount: requestedCount, requestedEdges: requestedEdges } });
+            if (verifiedCount > 0) return __jsonStringify({ success: false, error: "Premiere added " + verifiedCount + " of " + requestedCount + " requested transition(s). Inspect the clip or use Undo.", data: { outcome: "committed_unverified", verified: false, timelineChanged: true, transitionsAdded: verifiedCount, requestedCount: requestedCount, requestedEdges: requestedEdges, completedEdges: completedEdges } });
+            return __jsonStringify({ success: false, error: "Premiere added none of the requested transitions.", data: { outcome: "not_applied", verified: false, timelineChanged: false, transitionsAdded: 0, requestedCount: requestedCount, requestedEdges: requestedEdges, completedEdges: completedEdges } });
           }
           var startVerified = (position !== "start" && position !== "both") || __newTransitionCovers(domTrack, transitionKeysBefore, clipStartTicks, frameTicks);
           var endVerified = (position !== "end" && position !== "both") || __newTransitionCovers(domTrack, transitionKeysBefore, clipEndTicks, frameTicks);
-          if (!startVerified || !endVerified) return __jsonStringify({ success: false, error: "Premiere added transitions, but DOM readback did not find each requested clip edge. Inspect the clip or use Undo.", data: { outcome: "committed_unverified", verified: false, timelineChanged: true, transitionsAdded: verifiedCount, requestedCount: requestedCount, startVerified: startVerified, endVerified: endVerified } });
+          if (!startVerified || !endVerified) return __jsonStringify({ success: false, error: "Premiere added transitions, but DOM readback did not find each requested clip edge. Inspect the clip or use Undo.", data: { outcome: "committed_unverified", verified: false, timelineChanged: true, transitionsAdded: verifiedCount, requestedCount: requestedCount, startVerified: startVerified, endVerified: endVerified, requestedEdges: requestedEdges, completedEdges: completedEdges } });
           
           return __result({
             added: true,
@@ -310,7 +314,8 @@ export function getTransitionsTools(bridgeOptions: BridgeOptions) {
             placements: __transitionReadbacks(domTrack, transitionKeysBefore),
             outcome: "verified",
             transitionsAdded: verifiedCount,
-            requestedEdges: requestedEdges
+            requestedEdges: requestedEdges,
+            completedEdges: completedEdges
           });
           } catch (transitionReadbackError) {
             return __transitionAttemptFailure(domTrack, transitionCountBefore, "Transition readback failed: " + transitionReadbackError.toString());

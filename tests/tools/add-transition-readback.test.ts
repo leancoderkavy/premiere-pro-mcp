@@ -163,6 +163,11 @@ describe("add_transition_to_clip and batch_add_transitions readback", () => {
     expect(result.success).toBe(true);
   });
 
+  it("identifies the completed edge when the second clip edge silently no-ops", async () => {
+    hostWith((cut) => [cut - 0.5, cut + 0.5], [], { ignoreAfterFirst: true });
+    await expect(tools.add_transition_to_clip.handler({ node_id: "n2", transition_name: "Cross Dissolve", position: "both" })).resolves.toMatchObject({ success: false, data: { outcome: "committed_unverified", transitionsAdded: 1, completedEdges: ["start"] } });
+  });
+
   it("reports partial batch application with changed state and failed cut indexes", async () => {
     hostWith((cut) => [cut - 0.5, cut + 0.5], [], { ignoreAfterFirst: true });
     const result = await tools.batch_add_transitions.handler({ transition_name: "Cross Dissolve", track_index: 0, duration_seconds: 1 });
