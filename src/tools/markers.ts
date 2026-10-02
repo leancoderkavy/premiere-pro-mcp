@@ -65,7 +65,7 @@ const MARKER_UNDO_RECEIPT = `
 export function getMarkerTools(bridgeOptions: BridgeOptions) {
   return {
     add_marker: {
-      description: "Add a marker to the active sequence or a clip and read its name, comments, color and duration back. The receipt reports whether Premiere recorded an undo step; never Undo a marker write with undoTracked:false, because that reverses an earlier action.",
+      description: "Add a marker to the active sequence or a clip and read its name, comments, color and duration back. EXPERIMENTAL (QE DOM): the receipt probes undoStackIndex to report whether Premiere recorded an undo step; never Undo a marker write with undoTracked:false, because that reverses an earlier action.",
       parameters: {
         type: "object" as const,
         properties: {
@@ -130,7 +130,7 @@ export function getMarkerTools(bridgeOptions: BridgeOptions) {
           ${MARKER_READBACK}
           var problems = __markerMismatches(marker, ${wanted});
           if (problems.length) {
-            return __jsonStringify({ success: false, error: "The marker was created at ${args.time_seconds}s, but " + problems.join("; ") + ".", data: { timelineChanged: true } });
+            return __jsonStringify({ success: false, error: "The marker was created at ${args.time_seconds}s, but " + problems.join("; ") + ".", data: __markerUndoReceipt(markerUndoBefore, { timelineChanged: true }) });
           }
           return __result(__markerUndoReceipt(markerUndoBefore, {
             added: true,
@@ -146,7 +146,7 @@ export function getMarkerTools(bridgeOptions: BridgeOptions) {
     },
 
     delete_marker: {
-      description: "Delete a marker at a specific time position. The receipt reports whether Premiere recorded an undo step; undoTracked:false means Undo would reverse an earlier action.",
+      description: "Delete a marker at a specific time position. EXPERIMENTAL (QE DOM): the receipt probes undoStackIndex to report whether Premiere recorded an undo step; undoTracked:false means Undo would reverse an earlier action.",
       parameters: {
         type: "object" as const,
         properties: {
@@ -199,7 +199,7 @@ export function getMarkerTools(bridgeOptions: BridgeOptions) {
     },
 
     update_marker: {
-      description: "Update the name, comments or color of the sequence marker at a time and read them back. The receipt reports whether Premiere recorded an undo step; undoTracked:false means Undo would reverse an earlier action.",
+      description: "Update the name, comments or color of the sequence marker at a time and read them back. EXPERIMENTAL (QE DOM): the receipt probes undoStackIndex to report whether Premiere recorded an undo step; undoTracked:false means Undo would reverse an earlier action.",
       parameters: {
         type: "object" as const,
         properties: {
@@ -243,7 +243,7 @@ export function getMarkerTools(bridgeOptions: BridgeOptions) {
           ${MARKER_READBACK}
           var problems = __markerMismatches(marker, ${wanted});
           if (problems.length) {
-            return __jsonStringify({ success: false, error: "The marker at ${args.time_seconds}s changed, but " + problems.join("; ") + ".", data: { timelineChanged: true } });
+            return __jsonStringify({ success: false, error: "The marker at ${args.time_seconds}s changed, but " + problems.join("; ") + ".", data: __markerUndoReceipt(markerUndoBefore, { timelineChanged: true }) });
           }
           return __result(__markerUndoReceipt(markerUndoBefore, { updated: true, verified: true, timeSeconds: ${args.time_seconds}, name: marker.name, comments: marker.comments }));
         `);
