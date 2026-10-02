@@ -405,8 +405,10 @@ describe("exact probed tick caps", () => {
     const timeline = getTimelineTools(bridgeOptions, { probeMediaDurationTicks: async () => cap });
     await expect(timeline.trim_clip.handler({ node_id: "v2", new_out_seconds: cap / TICKS })).resolves.toMatchObject({ success: true });
     const before = [...video, ...audio].map(clip => clip.snapshot());
+    const beforeTicks = [...video, ...audio].map(clip => [clip.inPoint.ticks, clip.outPoint.ticks, clip.start.ticks, clip.end.ticks]);
     await expect(timeline.trim_clip.handler({ node_id: "v2", new_out_seconds: (cap + 1) / TICKS })).resolves.toMatchObject({ success: false, error: expect.stringContaining("real media duration") });
     expect([...video, ...audio].map(clip => clip.snapshot())).toEqual(before);
+    expect([...video, ...audio].map(clip => [clip.inPoint.ticks, clip.outPoint.ticks, clip.start.ticks, clip.end.ticks])).toEqual(beforeTicks);
   });
 
   it("slip accepts the exact tick cap without subtracting a global epsilon", async () => {
