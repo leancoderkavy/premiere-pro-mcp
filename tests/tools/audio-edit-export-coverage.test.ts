@@ -28,6 +28,7 @@ vi.mock("../../src/bridge/file-bridge.js", () => ({
 import { sendCommand } from "../../src/bridge/file-bridge.js";
 import { getAudioTools } from "../../src/tools/audio.js";
 import { confirmationToken, getEditPlanTools, validateEditPlan } from "../../src/tools/edit-plans.js";
+import { staticEditPlanTokenStore } from "../helpers/static-edit-plan-token-store.js";
 import {
   getExportTools,
   inspectExportPresetFile,
@@ -185,6 +186,7 @@ describe("edit plan validation and apply coverage", () => {
     const tools = getEditPlanTools(bridgeOptions, {
       capabilities: { capabilities: new Set(["inspect"]), source: "explicit" },
       operationIdFactory: () => "preview-mixed",
+      tokenStore: staticEditPlanTokenStore,
     });
 
     const result = await tools.preview_edit_plan.handler({ plan });
@@ -216,6 +218,7 @@ describe("edit plan validation and apply coverage", () => {
       capabilities: { capabilities: new Set(["inspect", "edit"]), source: "explicit" },
       auditSink,
       operationIdFactory: () => "apply-remove",
+      tokenStore: staticEditPlanTokenStore,
     });
 
     const result = await tools.apply_edit_plan.handler({
