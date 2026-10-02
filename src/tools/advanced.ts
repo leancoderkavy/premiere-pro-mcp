@@ -1,3 +1,4 @@
+import { prepareAdjacentMediaBounds } from "./adjacent-media-bounds.js";
 import {
   buildToolScript,
   escapeForExtendScript,
@@ -67,7 +68,7 @@ export function getAdvancedTools(
 
     roll_edit: {
       description:
-        "Perform a verified roll edit at the outgoing cut of a clip using the public timeline DOM, moving both visible edges and their source in/out points and verifying all four. Linked audio/video partners get the same edit by default (include_linked); every clip is checked before any is changed.",
+        "Perform a verified roll edit at the outgoing cut of a clip using the public timeline DOM, moving both visible edges and their source in/out points and verifying all four. Linked audio/video partners get the same edit by default (include_linked); every clip is checked before any is changed. Requires readable finite media and ffprobe duration evidence for every edited source; refuses unknown duration, stills, and nonunit/reversed speed before mutation.",
       parameters: {
         type: "object" as const,
         properties: {
@@ -92,7 +93,10 @@ export function getAdvancedTools(
           return { success: false, error: "offset_seconds must be a finite, non-zero number" };
         }
 
+        const bounds = await prepareAdjacentMediaBounds(bridgeOptions, args.node_id, args.include_linked !== false, false);
+        if (!bounds.success) return bounds;
         const script = buildToolScript(`
+          ${bounds.script}
           function __editOne(result, nodeId, checkOnly) {
             var track = result.trackType === "video"
               ? app.project.activeSequence.videoTracks[result.trackIndex]
@@ -114,6 +118,10 @@ export function getAdvancedTools(
             var beforeIncomingIn = String(outgoing.inPoint.ticks);
             var expectedOut = String(Math.round(parseFloat(beforeOut) + offsetTicks));
             var expectedIncomingIn = String(Math.round(parseFloat(beforeIncomingIn) + offsetTicks));
+            if (!sourceEnds[String(result.clip.nodeId)] || !sourceEnds[String(outgoing.nodeId)]) return __editFail("Adjacent edit target changed after source inspection; nothing was changed.");
+            if (parseFloat(expectedOut) > sourceEnds[String(result.clip.nodeId)] + 1 || parseFloat(expectedIncomingIn) < 0 || parseFloat(expectedIncomingIn) >= parseFloat(outgoing.outPoint.ticks) || parseFloat(expectedOut) <= parseFloat(result.clip.inPoint.ticks)) {
+              return __editFail("The requested roll would exceed physical media duration or create an invalid source range. Nothing was changed.");
+            }
             if (checkOnly) return __editOk({ checked: true });
 
             var newCut = new Time();
@@ -163,7 +171,7 @@ export function getAdvancedTools(
 
     slide_edit: {
       description:
-        "Perform a verified slide edit on a clip using adjacent clips from the public timeline DOM. Linked audio/video partners get the same edit by default (include_linked); every clip is checked before any is changed.",
+        "Perform a verified slide edit on a clip using adjacent clips from the public timeline DOM. Linked audio/video partners get the same edit by default (include_linked); every clip is checked before any is changed. Requires readable finite media and ffprobe duration evidence for every edited source; refuses unknown duration, stills, and nonunit/reversed speed before mutation.",
       parameters: {
         type: "object" as const,
         properties: {
@@ -187,7 +195,10 @@ export function getAdvancedTools(
         if (!Number.isFinite(args.offset_seconds) || args.offset_seconds === 0) {
           return { success: false, error: "offset_seconds must be a finite, non-zero number" };
         }
+        const bounds = await prepareAdjacentMediaBounds(bridgeOptions, args.node_id, args.include_linked !== false, true);
+        if (!bounds.success) return bounds;
         const script = buildToolScript(`
+          ${bounds.script}
           // Everything a slide needs, checked without changing the timeline, so the
           // clip and all its linked partners are validated before any of them move
           // (live: the video slid, then its audio partner was refused at a gap).
@@ -204,12 +215,24 @@ export function getAdvancedTools(
               return __editFail("A slide edit requires no gaps at either adjacent cut.");
             }
             var deltaTicks = __secondsToTicks(${args.offset_seconds});
+            var centerIn = String(result.clip.inPoint.ticks), centerOut = String(result.clip.outPoint.ticks);
+            var previousIn = String(previous.inPoint.ticks), followingOut = String(following.outPoint.ticks);
+            var expectedPreviousOut = Math.round(parseFloat(previous.outPoint.ticks) + deltaTicks);
+            var expectedFollowingIn = Math.round(parseFloat(following.inPoint.ticks) + deltaTicks);
+            if (!sourceEnds[String(previous.nodeId)] || !sourceEnds[String(following.nodeId)] || !sourceEnds[String(result.clip.nodeId)]) return __editFail("Adjacent edit target changed after source inspection; nothing was changed.");
+            if (expectedPreviousOut > sourceEnds[String(previous.nodeId)] + 1) return __editFail("The requested slide would exceed physical media duration; nothing was changed.");
+            if (!isFinite(expectedPreviousOut) || !isFinite(expectedFollowingIn) || expectedFollowingIn < 0 ||
+              expectedPreviousOut <= parseFloat(previousIn) || expectedFollowingIn >= parseFloat(followingOut)) {
+              return __editFail("The requested slide would create an invalid adjacent source range. Nothing was changed.");
+            }
             var newStartTicks = parseFloat(beforeStart) + deltaTicks;
             var newEndTicks = parseFloat(beforeEnd) + deltaTicks;
             if (newStartTicks <= parseFloat(previous.start.ticks) || newEndTicks >= parseFloat(following.end.ticks)) {
               return __editFail("The requested slide offset would create a zero- or negative-duration adjacent clip.");
             }
-            return __editOk({ previous: previous, following: following, beforeStart: beforeStart, beforeEnd: beforeEnd, deltaTicks: deltaTicks, newStartTicks: newStartTicks, newEndTicks: newEndTicks });
+            return __editOk({ previous: previous, following: following, beforeStart: beforeStart, beforeEnd: beforeEnd, deltaTicks: deltaTicks, newStartTicks: newStartTicks, newEndTicks: newEndTicks,
+              centerIn: centerIn, centerOut: centerOut, previousIn: previousIn, followingOut: followingOut,
+              previousStart: String(previous.start.ticks), followingEnd: String(following.end.ticks) });
           }
           function __editOne(result, nodeId, checkOnly) {
             var checked = __slideCheck(result);
@@ -247,6 +270,13 @@ export function getAdvancedTools(
             }
             var after = __findClip(nodeId);
             if (!after) return __editFail("Clip could not be found after the slide edit");
+            if (String(after.clip.start.ticks) !== String(Math.round(newStartTicks)) ||
+                String(after.clip.end.ticks) !== String(Math.round(newEndTicks)) ||
+                String(after.clip.inPoint.ticks) !== checked.data.centerIn || String(after.clip.outPoint.ticks) !== checked.data.centerOut ||
+                String(previous.start.ticks) !== checked.data.previousStart || String(following.end.ticks) !== checked.data.followingEnd ||
+                String(previous.inPoint.ticks) !== checked.data.previousIn || String(following.outPoint.ticks) !== checked.data.followingOut) {
+              return __editFail("Premiere did not read back the requested slide placement and preserved source windows; the slide is unverified.");
+            }
             if (String(after.clip.start.ticks) === beforeStart && String(after.clip.end.ticks) === beforeEnd) {
               return __editFail("The slide edit returned without an observable timeline change; no successful edit is reported.");
             }

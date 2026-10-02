@@ -1695,7 +1695,13 @@ function __runLinkedEdit(target, nodeId, includeLinked, edit, label) {
   }
   var main;
   try { main = edit(target, nodeId, false); } catch (eMain) { main = __editFail(eMain.toString()); }
-  if (!main.ok) return __error(main.error);
+  if (!main.ok) return __jsonStringify({
+    success: false,
+    error: main.error + " The " + label + " mutation was attempted and may have changed the timeline. Do not retry; inspect the clip and adjacent cuts before continuing.",
+    data: { verified: false, outcome: "committed_unverified", timelineChanged: true,
+      beforePosition: checkedAt[nodeId], afterPosition: __clipPositionKey(nodeId),
+      linkedPartnersEdited: [], rollbackPerformed: false }
+  });
   var verified = main.data.verified !== false;
   var edited = [];
   for (p = 0; p < partners.length; p++) {
@@ -1711,7 +1717,7 @@ function __runLinkedEdit(target, nodeId, includeLinked, edit, label) {
       return __jsonStringify({
         success: false,
         error: "The " + label + " was applied to the clip" + (edited.length ? " and " + edited.length + " of its linked partner(s)" : "") + " but not to its linked " + partner.trackType + " clip on track " + (partner.trackIndex + 1) + " (" + outcome.error + "). The timeline changed and was not rolled back: picture and sound are now out of sync. Inspect those clips and fix the partner by hand.",
-        data: { timelineChanged: true, clipEdited: main.data, linkedPartnersEdited: edited, failedPartner: { nodeId: String(partner.clip.nodeId), trackType: partner.trackType, trackIndex: partner.trackIndex } }
+        data: { verified: false, outcome: "committed_unverified", timelineChanged: true, rollbackPerformed: false, clipEdited: main.data, linkedPartnersEdited: edited, failedPartner: { nodeId: String(partner.clip.nodeId), trackType: partner.trackType, trackIndex: partner.trackIndex } }
       });
     }
     var partnerVerified = !!outcome.data && outcome.data.verified !== false;
