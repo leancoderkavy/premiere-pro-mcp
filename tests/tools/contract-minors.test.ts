@@ -30,6 +30,12 @@ function execute(script: string, app: unknown, extras: Record<string, unknown> =
 beforeEach(() => vi.clearAllMocks());
 
 describe("minor host contract receipts", () => {
+  it("labels the mixed local and CEP extension lookup", () => {
+    expect(getSequenceTools(bridgeOptions).get_export_file_extension.operationalCapability).toMatchObject({
+      backend: "local + CEP/ExtendScript", authority: "filesystem", verificationBoundary: "local_and_host_response",
+    });
+  });
+
   it("uses the host extension when available and an explicitly inferred AME folder extension otherwise", async () => {
     const root = mkdtempSync(join(tmpdir(), "ame-extension-"));
     try {
@@ -51,6 +57,12 @@ describe("minor host contract receipts", () => {
       await expect(tool.handler({ preset_path: presetPath })).resolves.toMatchObject({
         success: true, data: { extension: ".mp4", extensionSource: "premiere", hostConfirmed: true },
       });
+      mockedSendCommand.mockImplementation(async (script: string) => execute(script, { project: { activeSequence: {
+        name: "Sequence", getExportFileExtension: () => "mp4",
+      } } }));
+      await expect(tool.handler({ preset_path: presetPath })).resolves.toMatchObject({
+        success: true, data: { extension: "mp4", extensionSource: "premiere", hostConfirmed: true },
+      });
     } finally {
       rmSync(root, { recursive: true, force: true });
     }
@@ -59,13 +71,18 @@ describe("minor host contract receipts", () => {
   it("does not infer an extension from an unrecognized or missing preset", async () => {
     const root = mkdtempSync(join(tmpdir(), "ame-extension-"));
     try {
-      const presetPath = join(root, "preset.epr");
+      const recognizedFolder = join(root, "3F3F3F3F_4D6F6F56");
+      mkdirSync(recognizedFolder);
+      const presetPath = join(recognizedFolder, "preset.epr");
       writeFileSync(presetPath, "<preset />");
       const tool = getSequenceTools(bridgeOptions).get_export_file_extension;
       mockedSendCommand.mockImplementation(async (script: string) => execute(script, { project: { activeSequence: {
         name: "Sequence", getExportFileExtension: () => undefined,
       } } }));
-      await expect(tool.handler({ preset_path: presetPath })).resolves.toMatchObject({ success: false, error: expect.stringContaining("did not provide") });
+      await expect(tool.handler({ preset_path: presetPath })).resolves.toMatchObject({ success: true, data: { extension: ".mov", hostConfirmed: false } });
+      const unknownPreset = join(root, "unknown.epr");
+      writeFileSync(unknownPreset, "<preset />");
+      await expect(tool.handler({ preset_path: unknownPreset })).resolves.toMatchObject({ success: false, error: expect.stringContaining("did not provide") });
       rmSync(presetPath);
       await expect(tool.handler({ preset_path: presetPath })).resolves.toMatchObject({ success: false, error: expect.stringContaining("did not provide") });
     } finally {

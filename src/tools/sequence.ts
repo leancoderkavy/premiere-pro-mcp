@@ -820,6 +820,14 @@ export function getSequenceTools(bridgeOptions: BridgeOptions) {
 
     get_export_file_extension: {
       description: "Get the export file extension from Premiere. If Premiere returns none, infer it only for an existing .epr in a recognized Adobe Media Encoder format folder; that fallback is marked unconfirmed and should be checked before delivery.",
+      operationalCapability: {
+        backend: "local + CEP/ExtendScript" as const,
+        backends: ["local" as const, "cep" as const, "extendscript" as const],
+        authority: "filesystem" as const,
+        verificationBoundary: "local_and_host_response" as const,
+        hostVerificationRequired: true,
+        notes: ["Requires inspect and filesystem authority. The preset-folder fallback reads the local .epr file's existence and size; it does not verify an export."],
+      },
       parameters: {
         type: "object" as const,
         properties: {
@@ -844,7 +852,7 @@ export function getSequenceTools(bridgeOptions: BridgeOptions) {
         const data = result.data as { sequenceName?: string; presetPath?: string; extension?: string | null };
         const hostExtension = typeof data?.extension === "string" ? data.extension.trim() : "";
         if (hostExtension) {
-          return { success: true, data: { ...data, extension: hostExtension.startsWith(".") ? hostExtension : `.${hostExtension}`, extensionSource: "premiere", hostConfirmed: true } };
+          return { success: true, data: { ...data, extensionSource: "premiere", hostConfirmed: true } };
         }
 
         const presetPath = args.preset_path;
