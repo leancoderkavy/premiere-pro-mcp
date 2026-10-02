@@ -1358,6 +1358,60 @@ function __removeClipAndPartners(result, includeLinked) {
   return __editOk({ removed: true, clipName: names[0], removedClipIds: ids, linkedPartnersRemoved: ids.length - 1 });
 }
 
+// Marker writes may use a different undo surface than QE. Keep a conservative
+// barrier in the persistent CEP engine, scoped by documented project.documentID.
+function __markerUndoState(create) {
+  try {
+    if (typeof $ === "undefined" || !$.global) return null;
+    var state = $.global.__premiereMcpMarkerUndoBarrierV1;
+    if (!state && create) {
+      state = { unknownProject: false, entries: [] };
+      $.global.__premiereMcpMarkerUndoBarrierV1 = state;
+      if ($.global.__premiereMcpMarkerUndoBarrierV1 !== state) return null;
+    }
+    if (state && (!(state.entries instanceof Array) || typeof state.unknownProject !== "boolean")) return null;
+    return state || { unknownProject: false, entries: [] };
+  } catch (barrierReadError) { return null; }
+}
+function __markerUndoProjectId() {
+  try {
+    var id = String(app.project.documentID || "");
+    return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id) ? id.toLowerCase() : null;
+  } catch (identityError) { return null; }
+}
+function __rememberMarkerUndoBarrier(index) {
+  var state = __markerUndoState(true);
+  if (!state) return { ok: false, error: "The CEP engine cannot persist a marker undo barrier; no marker write was attempted." };
+  var projectId = __markerUndoProjectId();
+  if (!projectId) { state.unknownProject = true; return { ok: true }; }
+  var safeIndex = typeof index === "number" && isFinite(index) && index >= 0 && Math.floor(index) === index ? index : null;
+  for (var i = 0; i < state.entries.length; i++) {
+    var entry = state.entries[i];
+    if (entry.projectId === projectId) {
+      entry.index = entry.index === null || safeIndex === null ? null : Math.max(entry.index, safeIndex);
+      return { ok: true };
+    }
+  }
+  if (state.entries.length >= 128) { state.unknownProject = true; return { ok: true }; }
+  state.entries.push({ projectId: projectId, index: safeIndex });
+  return { ok: true };
+}
+function __markerUndoBarrier(direction, count, index, acknowledged) {
+  var state = __markerUndoState(false);
+  if (!state) return { ok: false, error: "The CEP marker undo barrier could not be read; no " + direction + " was attempted." };
+  var projectId = __markerUndoProjectId(), blocked = state.unknownProject;
+  for (var i = 0; i < state.entries.length; i++) {
+    var entry = state.entries[i];
+    if (entry.projectId !== projectId && projectId !== null) continue;
+    if (entry.index === null || projectId === null ||
+      (direction === "undo" && index - count < entry.index) ||
+      (direction === "redo" && index < entry.index && index + count >= entry.index)) blocked = true;
+  }
+  if (!blocked) return { ok: true };
+  if (acknowledged) return { ok: true, warning: "Marker reversal through QE is not verified. You acknowledged reversing or restoring prior non-marker QE actions; inspect markers separately." };
+  return { ok: false, error: "A marker write occurred at this undo boundary, but QE cannot verify that its steps reverse the marker. No " + direction + " was attempted. Inspect markers separately; pass acknowledge_untracked_markers:true only to deliberately reverse or restore prior non-marker QE actions." };
+}
+
 // EXPERIMENTAL (undocumented QE DOM). Step Premiere's project undo stack with
 // QE and check every step against qe.project.undoStackIndex(), which moved by
 // exactly one per undone or redone action in live 25.2 testing. The check is
@@ -1367,7 +1421,7 @@ function __removeClipAndPartners(result, includeLinked) {
 // different amount or the wrong way), "index_unreadable" (a step ran but the
 // index could not be read), or "rejected" (Premiere threw). The last three may
 // have changed the project and must not be treated as "nothing happened".
-function __qeUndoSteps(direction, count) {
+function __qeUndoSteps(direction, count, acknowledgeMarkers) {
   app.enableQE();
   var stack = null;
   try { stack = qe.project; } catch (eQe) {}
@@ -1377,6 +1431,8 @@ function __qeUndoSteps(direction, count) {
   };
   var start = readIndex();
   if (start === null) return { ok: false, status: "unavailable", error: "This Premiere host does not expose qe.project.undoStackIndex(), so " + direction + " cannot be checked. No " + direction + " was attempted.", done: 0 };
+  var markerBarrier = __markerUndoBarrier(direction, count, start, acknowledgeMarkers === true);
+  if (!markerBarrier.ok) return { ok: false, status: "marker_boundary", error: markerBarrier.error, done: 0, startIndex: start, index: start };
   var step = direction === "undo" ? -1 : 1;
   var done = 0;
   var index = start;
@@ -1421,7 +1477,7 @@ function __qeUndoSteps(direction, count) {
       done: done, startIndex: start, index: index
     };
   }
-  return { ok: true, status: "stack_verified", done: done, startIndex: start, index: index };
+  return { ok: true, status: "stack_verified", markerWarning: markerBarrier.warning || null, done: done, startIndex: start, index: index };
 }
 
 // Result of an undo/redo tool from a __qeUndoSteps outcome. An unexpected or
@@ -1431,6 +1487,7 @@ function __undoStepsResult(outcome, doneKey) {
   var summary = { undoStackIndexBefore: outcome.startIndex, undoStackIndexAfter: outcome.index, stackStatus: outcome.status,
     scope: "Premiere's undo history is project-wide: this steps the most recent project actions, whichever sequence they touched." };
   summary[doneKey] = outcome.done;
+  if (outcome.markerWarning) { summary.markerUndoWarning = outcome.markerWarning; summary.untrackedMarkersAcknowledged = true; }
   // Anything that may have moved the stack, including a run that stopped part
   // way after undoing some steps, is committed_unverified with a do-not-retry
   // warning, so an agent does not undo more of the user's work.

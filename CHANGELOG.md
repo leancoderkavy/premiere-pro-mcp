@@ -24,6 +24,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- CEP marker add, update, and delete attempts protect a project-document-ID undo boundary even when the QE index moves or cannot be read. Undo/redo calls refuse a count that crosses it before stepping; `acknowledge_untracked_markers: true` explicitly permits prior non-marker actions. Barriers persist in the CEP engine through MCP server/helper reloads, but do not account for unobserved marker writes or survive engine resets (#733).
+
 - `import_media` now rejects missing paths before calling Premiere, avoiding a blocking host dialog that can wedge the CEP bridge (#713).
 - `apply_edit_plan` confirmation tokens are now random, issued only by `preview_edit_plan`, valid for 30 minutes, and consumed before the host edit. The private bridge directory retains token state across server restarts, so an applied token cannot be replayed after Undo or a restart (#728).
 - `color_correct` requires Lumetri component and every requested property to read back before reporting success. Missing catalog entries, ignored QE insertion, localized or missing controls, and ignored setters fail honestly; receipts explicitly leave rendered output unverified (#720).

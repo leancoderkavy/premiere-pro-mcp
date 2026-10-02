@@ -32,7 +32,7 @@ it("refuses undo and redo without a current stack index", async () => {
 
 function run(context: Record<string, unknown>) {
   mockedSendCommand.mockImplementation(async (script: string) =>
-    JSON.parse(String(runInNewContext(`${getHelpersSource()}\n${script}`, context))));
+    JSON.parse(String(runInNewContext(`${getHelpersSource()}\n${script}`, { $: { global: {} }, ...context }))));
 }
 
 /** Live 25.2: undo()/redo() return true and move undoStackIndex() by one; at the ends nothing moves. */
