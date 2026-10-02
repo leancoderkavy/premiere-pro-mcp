@@ -117,7 +117,7 @@ describe("trim edits keep linked audio in sync", () => {
     host({ audioRejectsInPoint: true });
     const result = await tools.slip_edit.handler({ node_id: "v1", offset_seconds: 1 }) as Result;
     expect(result.success).toBe(false);
-    expect(result.error).toMatch(/slip was applied to the clip but not to its linked audio clip on track 1.*timeline changed and was not rolled back/);
+    expect(result.error).toMatch(/slip failed for its linked audio clip on track 1/);
     expect(result.data).toMatchObject({ timelineChanged: true, failedPartner: { nodeId: "a1" } });
   });
 });
@@ -698,4 +698,45 @@ describe("trim/slip default linked coverage fails closed", () => {
       expect(audio[1].snapshot()).toEqual(beforeAudio);
     });
   }
+});
+
+
+describe("native adjacent failure evidence classification", () => {
+  it.each(["roll_edit", "slide_edit"] as const)("%s reports throw-before-first-write as not applied", async (operation) => {
+    const { video } = host();
+    const first = operation === "roll_edit" ? video[1] : video[0];
+    const getter = Object.getOwnPropertyDescriptor(first, "end")!.get!;
+    Object.defineProperty(first, "end", { get: getter, set: () => { throw new Error("before first write"); } });
+    const result = await tools[operation].handler({ node_id: "v1", offset_seconds: 0.5 }) as Result;
+    expect(result).toMatchObject({ success: false, data: { mutationAttempted: true, outcome: "not_applied", timelineChanged: false, contextStable: true, rollbackPerformed: false } });
+    expect(result.error).toContain("before first write");
+  });
+
+  it.each(["roll_edit", "slide_edit"] as const)("%s retains an observed first edge write before a throw", async (operation) => {
+    const { video } = host();
+    const first = operation === "roll_edit" ? video[1] : video[0];
+    const property = Object.getOwnPropertyDescriptor(first, "end")!;
+    Object.defineProperty(first, "end", { get: property.get, set(value: unknown) { property.set!.call(first, value); throw new Error("after edge write"); } });
+    const result = await tools[operation].handler({ node_id: "v1", offset_seconds: 0.5 }) as Result;
+    expect(result).toMatchObject({ success: false, data: { mutationAttempted: true, outcome: "committed_unverified", timelineChanged: true, contextStable: true, rollbackPerformed: false } });
+    expect(result.data?.affectedPlacements).toEqual(expect.arrayContaining([expect.objectContaining({ nodeId: first.nodeId, before: expect.any(String), after: expect.any(String) })]));
+    expect(first.snapshot()[1]).toBe(operation === "roll_edit" ? 30.5 : 10.5);
+  });
+
+  it.each(["roll_edit", "slide_edit"] as const)("%s reports unreadable post-attempt clocks as unknown", async (operation) => {
+    const { video } = host();
+    const first = operation === "roll_edit" ? video[1] : video[0];
+    const getter = Object.getOwnPropertyDescriptor(first, "end")!.get!;
+    let attempted = false;
+    Object.defineProperty(first, "end", { get() { if (attempted) throw new Error("clock unavailable"); return getter.call(first); }, set() { attempted = true; throw new Error("native attempt failed"); } });
+    await expect(tools[operation].handler({ node_id: "v1", offset_seconds: 0.5 })).resolves.toMatchObject({ success: false, data: { mutationAttempted: true, outcome: "failed", mutationOutcome: "unknown", timelineChanged: null, contextStable: true } });
+  });
+
+  it.each(["roll_edit", "slide_edit"] as const)("%s reports a project switch during a throwing write as unknown", async (operation) => {
+    const { video, context } = host();
+    const first = operation === "roll_edit" ? video[1] : video[0];
+    const getter = Object.getOwnPropertyDescriptor(first, "end")!.get!;
+    Object.defineProperty(first, "end", { get: getter, set() { context.app.project = { ...context.app.project, documentID: "other-project" }; throw new Error("project switched during native write"); } });
+    await expect(tools[operation].handler({ node_id: "v1", offset_seconds: 0.5 })).resolves.toMatchObject({ success: false, data: { mutationAttempted: true, outcome: "failed", mutationOutcome: "unknown", timelineChanged: null, contextStable: false } });
+  });
 });
