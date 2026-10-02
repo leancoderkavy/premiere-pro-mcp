@@ -1263,7 +1263,7 @@ function __exportStillFrame(outputPath, ticks) {
 // Result helpers for per-clip edit functions that run once for a clip and once
 // for each of its linked partners.
 function __editOk(data) { return { ok: true, data: data }; }
-function __editFail(message) { return { ok: false, error: String(message) }; }
+function __editFail(message, data) { var failure = { ok: false, error: String(message) }; if (data) failure.data = data; return failure; }
 
 // Colour parameters report getValue() as a packed 64-bit integer (live 25.2:
 // 0xff0014002800a0c8 for ARGB 255,20,40,160), which a JS double cannot hold
@@ -1319,10 +1319,47 @@ function __findOpenProject(path) {
 // a linked clip), then verify every removed clip is gone. Every clip's track
 // lock and remove() are checked before anything is removed, so a partner on a
 // locked track refuses the whole removal instead of leaving its audio behind.
-function __removeClipAndPartners(result, includeLinked) {
+function __removalIdentity(sequence) {
+  try {
+    var documentId = app.project.documentID, sequenceId = sequence && sequence.sequenceID;
+    var values = [documentId, sequenceId];
+    for (var vi = 0; vi < values.length; vi++) if ((typeof values[vi] !== "string" && typeof values[vi] !== "number") || (typeof values[vi] === "number" && !isFinite(values[vi])) || !/\\S/.test(String(values[vi]))) return null;
+    return { projectDocumentId:String(documentId), sequenceId:String(sequenceId) };
+  } catch (identityError) { return null; }
+}
+
+function __removalThrowReceipt(ids, identity) {
+  var gone = [], remaining = [], readable = true;
+  try {
+    var sequence = app.project.activeSequence;
+    var currentIdentity = __removalIdentity(sequence);
+    if (!identity || !currentIdentity || currentIdentity.projectDocumentId !== identity.projectDocumentId || currentIdentity.sequenceId !== identity.sequenceId) throw new Error("Removal project or sequence identity is unavailable or changed");
+    var families = [sequence.videoTracks, sequence.audioTracks], present = {};
+    for (var ft = 0; ft < families.length; ft++) {
+      var trackCount = families[ft] && families[ft].numTracks;
+      if (typeof trackCount !== "number" || !isFinite(trackCount) || trackCount < 0 || Math.floor(trackCount) !== trackCount) throw new Error("Track collection is unreadable");
+      for (var ti = 0; ti < trackCount; ti++) {
+        var track = families[ft][ti];
+        var clips = track && track.clips, clipCount = clips && clips.numItems;
+        if (typeof clipCount !== "number" || !isFinite(clipCount) || clipCount < 0 || Math.floor(clipCount) !== clipCount) throw new Error("Clip collection is unreadable");
+        for (var ci = 0; ci < clipCount; ci++) {
+          var clipId = clips[ci] && clips[ci].nodeId;
+          if ((typeof clipId !== "string" && typeof clipId !== "number") || (typeof clipId === "number" && !isFinite(clipId)) || !/\\S/.test(String(clipId))) throw new Error("Clip identity is unreadable");
+          present["$" + String(clipId)] = true;
+        }
+      }
+    }
+    for (var ri = 0; ri < ids.length; ri++) {
+      if (present["$" + ids[ri]]) remaining.push(ids[ri]); else gone.push(ids[ri]);
+    }
+  } catch (readError) { readable = false; }
+  return { mutationAttempted:true, timelineChanged:gone.length > 0 ? true : (readable ? false : null), mutationOutcome:gone.length > 0 ? "changed" : (readable ? "unchanged" : "unknown"), verified:false, readbackComplete:readable, removedClipIds:gone, remainingClipIds:remaining };
+}
+
+function __removeClipAndPartners(result, includeLinked, validatedPartners) {
   var targets = [result];
   if (includeLinked) {
-    var partners = __linkedPartnerClips(result);
+    var partners = validatedPartners !== undefined ? validatedPartners : __linkedPartnerClips(result);
     for (var p = 0; p < partners.length; p++) targets.push(partners[p]);
   }
   var seq = app.project.activeSequence;
@@ -1341,12 +1378,15 @@ function __removeClipAndPartners(result, includeLinked) {
     if (typeof located.clip.remove !== "function") return __editFail("Premiere does not expose remove() for " + names[t] + " on " + label + ". Nothing was changed.");
   }
   var removed = [];
+  var removalIdentity = __removalIdentity(seq);
   for (var r = 0; r < targets.length; r++) {
     try {
       targets[r].clip.remove(false, false);
       removed.push(names[r]);
     } catch (eRemove) {
-      return __editFail((removed.length ? "The timeline changed: " + removed.join(", ") + " was removed, but " : "") + "Premiere could not remove " + names[r] + ": " + eRemove.toString() + (removed.length ? ". The linked clips are now out of sync; inspect the timeline." : ". Nothing was changed."));
+      var receipt = __removalThrowReceipt(ids.slice(0, r + 1), removalIdentity);
+      var evidence = receipt.timelineChanged === true ? " The timeline changed; inspect the linked clips." : (receipt.timelineChanged === null ? " Removal may have changed the timeline; readback is unavailable. Inspect the timeline." : " The attempted removal targets remain on the timeline.");
+      return __editFail("Premiere threw while removing " + names[r] + ": " + eRemove.toString() + evidence, receipt);
     }
   }
   var left = [];
@@ -1358,6 +1398,66 @@ function __removeClipAndPartners(result, includeLinked) {
   return __editOk({ removed: true, clipName: names[0], removedClipIds: ids, linkedPartnersRemoved: ids.length - 1 });
 }
 
+// Marker writes may use a different undo surface than QE. Keep a conservative
+// barrier in the persistent CEP engine, scoped by documented project.documentID.
+function __markerUndoState(create) {
+  try {
+    if (typeof $ === "undefined" || !$.global) return null;
+    var state = $.global.__premiereMcpMarkerUndoBarrierV1;
+    if (!state && create) {
+      state = { unknownProject: false, entries: [] };
+      $.global.__premiereMcpMarkerUndoBarrierV1 = state;
+      if ($.global.__premiereMcpMarkerUndoBarrierV1 !== state) return null;
+    }
+    if (state && (!(state.entries instanceof Array) || typeof state.unknownProject !== "boolean")) return null;
+    if (state) for (var si = 0; si < state.entries.length; si++) {
+      var saved = state.entries[si];
+      if (!saved || typeof saved.projectId !== "string" || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(saved.projectId) ||
+        (saved.index !== null && (typeof saved.index !== "number" || !isFinite(saved.index) || saved.index < 0 || Math.floor(saved.index) !== saved.index))) return null;
+    }
+    return state || { unknownProject: false, entries: [] };
+  } catch (barrierReadError) { return null; }
+}
+function __markerUndoProjectId() {
+  try {
+    var id = String(app.project.documentID || "");
+    return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id) ? id.toLowerCase() : null;
+  } catch (identityError) { return null; }
+}
+function __rememberMarkerUndoBarrier(index) {
+  var state = __markerUndoState(true);
+  if (!state) return { ok: false, error: "The CEP engine cannot persist a marker undo barrier; no marker write was attempted." };
+  __markerWriteAttempted = true;
+  var projectId = __markerUndoProjectId();
+  if (!projectId) { state.unknownProject = true; return { ok: true }; }
+  var safeIndex = typeof index === "number" && isFinite(index) && index >= 0 && Math.floor(index) === index ? index : null;
+  for (var i = 0; i < state.entries.length; i++) {
+    var entry = state.entries[i];
+    if (entry.projectId === projectId) {
+      entry.index = entry.index === null || safeIndex === null ? null : Math.max(entry.index, safeIndex);
+      return { ok: true };
+    }
+  }
+  if (state.entries.length >= 128) { state.unknownProject = true; return { ok: true }; }
+  state.entries.push({ projectId: projectId, index: safeIndex });
+  return { ok: true };
+}
+function __markerUndoBarrier(direction, count, index, acknowledged) {
+  var state = __markerUndoState(false);
+  if (!state) return { ok: false, error: "The CEP marker undo barrier could not be read; no " + direction + " was attempted." };
+  var projectId = __markerUndoProjectId(), blocked = state.unknownProject;
+  for (var i = 0; i < state.entries.length; i++) {
+    var entry = state.entries[i];
+    if (entry.projectId !== projectId && projectId !== null) continue;
+    if (entry.index === null || projectId === null ||
+      (direction === "undo" && index - count < entry.index) ||
+      (direction === "redo" && index < entry.index && index + count >= entry.index)) blocked = true;
+  }
+  if (!blocked) return { ok: true };
+  if (acknowledged) return { ok: true, warning: "Marker reversal through QE is not verified. You acknowledged reversing or restoring prior non-marker QE actions; inspect markers separately." };
+  return { ok: false, error: "A marker write occurred at this undo boundary, but QE cannot verify that its steps reverse the marker. No " + direction + " was attempted. Inspect markers separately; pass acknowledge_untracked_markers:true only to deliberately reverse or restore prior non-marker QE actions." };
+}
+
 // EXPERIMENTAL (undocumented QE DOM). Step Premiere's project undo stack with
 // QE and check every step against qe.project.undoStackIndex(), which moved by
 // exactly one per undone or redone action in live 25.2 testing. The check is
@@ -1367,7 +1467,7 @@ function __removeClipAndPartners(result, includeLinked) {
 // different amount or the wrong way), "index_unreadable" (a step ran but the
 // index could not be read), or "rejected" (Premiere threw). The last three may
 // have changed the project and must not be treated as "nothing happened".
-function __qeUndoSteps(direction, count) {
+function __qeUndoSteps(direction, count, acknowledgeMarkers) {
   app.enableQE();
   var stack = null;
   try { stack = qe.project; } catch (eQe) {}
@@ -1377,6 +1477,8 @@ function __qeUndoSteps(direction, count) {
   };
   var start = readIndex();
   if (start === null) return { ok: false, status: "unavailable", error: "This Premiere host does not expose qe.project.undoStackIndex(), so " + direction + " cannot be checked. No " + direction + " was attempted.", done: 0 };
+  var markerBarrier = __markerUndoBarrier(direction, count, start, acknowledgeMarkers === true);
+  if (!markerBarrier.ok) return { ok: false, status: "marker_boundary", error: markerBarrier.error, done: 0, startIndex: start, index: start };
   var step = direction === "undo" ? -1 : 1;
   var done = 0;
   var index = start;
@@ -1421,7 +1523,7 @@ function __qeUndoSteps(direction, count) {
       done: done, startIndex: start, index: index
     };
   }
-  return { ok: true, status: "stack_verified", done: done, startIndex: start, index: index };
+  return { ok: true, status: "stack_verified", markerWarning: markerBarrier.warning || null, done: done, startIndex: start, index: index };
 }
 
 // Result of an undo/redo tool from a __qeUndoSteps outcome. An unexpected or
@@ -1431,6 +1533,7 @@ function __undoStepsResult(outcome, doneKey) {
   var summary = { undoStackIndexBefore: outcome.startIndex, undoStackIndexAfter: outcome.index, stackStatus: outcome.status,
     scope: "Premiere's undo history is project-wide: this steps the most recent project actions, whichever sequence they touched." };
   summary[doneKey] = outcome.done;
+  if (outcome.markerWarning) { summary.markerUndoWarning = outcome.markerWarning; summary.untrackedMarkersAcknowledged = true; }
   // Anything that may have moved the stack, including a run that stopped part
   // way after undoing some steps, is committed_unverified with a do-not-retry
   // warning, so an agent does not undo more of the user's work.
@@ -1707,7 +1810,7 @@ function __insertClipHonoringSyncLock(seq, item, timeTicks, videoTrackIndex, aud
   // reporting the requested insert as successful. Snapshot those tails before
   // any razor or insert so a misplaced remainder cannot receive a verified receipt.
   var targetTails = [];
-  function captureTargetTails(track, type) {
+  function captureTargetTails(track, type, index) {
     var ci2;
     for (ci2 = 0; ci2 < track.clips.numItems; ci2++) {
       var clip = track.clips[ci2];
@@ -1717,14 +1820,31 @@ function __insertClipHonoringSyncLock(seq, item, timeTicks, videoTrackIndex, aud
         var sourceId = "";
         try { sourceId = String(clip.projectItem.nodeId); } catch (eSource) {}
         if (!sourceId || sourceId === "undefined" || sourceId === "null") return false;
-        targetTails.push({ track: track, type: type, sourceId: sourceId, tailDuration: end - insertTicks });
+        targetTails.push({ track: track, type: type, index: index, sourceId: sourceId, tailDuration: end - insertTicks });
       }
     }
     return true;
   }
-  if ((videoReceives && !captureTargetTails(videoTrack, "video")) ||
-      (audioReceives && !captureTargetTails(audioTrack, "audio"))) {
+  if ((videoReceives && !captureTargetTails(videoTrack, "video", vTrackIndex)) ||
+      (audioReceives && !captureTargetTails(audioTrack, "audio", aTrackIndex))) {
     return { ok: false, error: "Insert refused; nothing was changed. A target-track clip spans the insert point but its source identity is unreadable, so its split tail cannot be verified." };
+  }
+
+  // Premiere 26.5.2 can move a target straddler's tail to the sequence end
+  // when insertClip performs the split itself (#730). Pre-razor that target
+  // before insertion so insertClip sees an existing boundary. Target-only
+  // calls need QE for this case too; otherwise refuse before mutation.
+  var needsTargetRazor = targetTails.length > 0;
+  if (targetOnly && needsTargetRazor) {
+    var activeTarget = null;
+    try { activeTarget = app.project.activeSequence; } catch (eActiveTarget) {}
+    var targetId = "";
+    var activeTargetId = "";
+    try { targetId = String(seq.sequenceID); } catch (eTargetId) {}
+    try { activeTargetId = String(activeTarget.sequenceID); } catch (eActiveTargetId) {}
+    if (!targetId || targetId !== activeTargetId) {
+      return { ok: false, error: "Insert refused; nothing was changed. A target clip spans the insert point, but QE can only razor the active sequence. Activate the target sequence first." };
+    }
   }
 
   function domTrackFor(type, idx) {
@@ -1732,18 +1852,22 @@ function __insertClipHonoringSyncLock(seq, item, timeTicks, videoTrackIndex, aud
   }
 
   var qeSeq = null;
-  if (!targetOnly) {
+  if (!targetOnly || needsTargetRazor) {
+    var qeUnavailableReason = needsTargetRazor ? "a target clip cannot be pre-razored" : "sync-lock state cannot be read";
+    var qeUnavailableAdvice = needsTargetRazor
+      ? " A target clip spans the insert point; razor it in Premiere before inserting."
+      : " Pass scope 'target_tracks' to ripple only the named tracks (this will desync other tracks).";
     try {
       if (typeof app === "undefined" || typeof app.enableQE !== "function") {
-        return { ok: false, error: "QE is unavailable, so sync-lock state cannot be read and the insert was not attempted. Pass scope 'target_tracks' to ripple only the named tracks (this will desync other tracks)." };
+        return { ok: false, error: "QE is unavailable, so " + qeUnavailableReason + " and the insert was not attempted." + qeUnavailableAdvice };
       }
       app.enableQE();
     } catch (eQE) {
-      return { ok: false, error: "Premiere could not enable QE, so sync-lock state cannot be read and the insert was not attempted. Pass scope 'target_tracks' to ripple only the named tracks (this will desync other tracks)." };
+      return { ok: false, error: "Premiere could not enable QE, so " + qeUnavailableReason + " and the insert was not attempted." + qeUnavailableAdvice };
     }
     try { qeSeq = (typeof qe !== "undefined" && qe.project) ? qe.project.getActiveSequence() : null; } catch (eSeq) { qeSeq = null; }
     if (!qeSeq) {
-      return { ok: false, error: "No active sequence (QE); cannot read sync-lock state, so the insert was not attempted. Pass scope 'target_tracks' to ripple only the named tracks (this will desync other tracks)." };
+      return { ok: false, error: "No active sequence (QE); " + qeUnavailableReason + " and the insert was not attempted." + qeUnavailableAdvice };
     }
   }
 
@@ -1836,56 +1960,77 @@ function __insertClipHonoringSyncLock(seq, item, timeTicks, videoTrackIndex, aud
     shiftPlan.push({ type: t.type, index: t.index, domTrack: t.domTrack, movers: movers, straddlers: straddlers });
   }
 
-  var needRazor = false;
-  for (pi = 0; pi < shiftPlan.length; pi++) {
-    if (shiftPlan[pi].straddlers.length) needRazor = true;
+  var razorPlan = [];
+  if (needsTargetRazor) {
+    if (videoReceives) {
+      for (pi = 0; pi < targetTails.length; pi++) {
+        if (targetTails[pi].type === "video") { razorPlan.push({ type: "video", index: vTrackIndex, domTrack: videoTrack, shiftEntry: null }); break; }
+      }
+    }
+    if (audioReceives) {
+      for (pi = 0; pi < targetTails.length; pi++) {
+        if (targetTails[pi].type === "audio") { razorPlan.push({ type: "audio", index: aTrackIndex, domTrack: audioTrack, shiftEntry: null }); break; }
+      }
+    }
   }
+  for (pi = 0; pi < shiftPlan.length; pi++) {
+    if (shiftPlan[pi].straddlers.length) razorPlan.push({ type: shiftPlan[pi].type, index: shiftPlan[pi].index, domTrack: shiftPlan[pi].domTrack, shiftEntry: shiftPlan[pi] });
+  }
+  var needRazor = razorPlan.length > 0;
   if (needRazor) {
+    // QE razor accepts a formatted frame timecode, while insertClip receives
+    // the exact ticks. Rounding a sub-frame request would cut at a different
+    // point and leave a partially changed timeline. Refuse before any cut.
+    var frameBoundary = Math.round(insertTicks / frameTicks) * frameTicks;
+    if (Math.abs(insertTicks - frameBoundary) > __TICK_MATCH_TOL) {
+      return { ok: false, error: "Insert refused; nothing was changed. The requested insertion time is not on a sequence frame boundary, so QE cannot razor the same point. Use a frame-aligned time." };
+    }
     var razorAt = null;
     try { razorAt = __qeTimecodeForTicks(seq, insertTicks); } catch (eTc) {}
     if (!razorAt || !razorAt.timecode) {
       return { ok: false, error: "Insert refused; nothing was changed. Could not format a QE razor timecode for the insert point." };
     }
-    for (pi = 0; pi < shiftPlan.length; pi++) {
-      if (!shiftPlan[pi].straddlers.length) continue;
+    // Resolve every QE razor route before changing any track. A missing audio
+    // razor must not leave a video track cut with a "nothing changed" receipt.
+    for (pi = 0; pi < razorPlan.length; pi++) {
       var razorTrack = null;
-      try { razorTrack = qeTrackFor(shiftPlan[pi].type, shiftPlan[pi].index); } catch (eProbe) {}
+      try { razorTrack = qeTrackFor(razorPlan[pi].type, razorPlan[pi].index); } catch (eProbe) {}
       if (!razorTrack || typeof razorTrack.razor !== "function") {
-        return { ok: false, error: "Insert refused; nothing was changed. Sync-locked " + shiftPlan[pi].type + " track " + shiftPlan[pi].index + " has a clip spanning the insert point and QE razor is unavailable, so those tracks cannot be rippled without slicing through them. Razor them first or pass scope 'target_tracks' (which will desync other tracks)." };
+        return { ok: false, error: "Insert refused; nothing was changed. " + razorPlan[pi].type + " track " + razorPlan[pi].index + " has a clip spanning the insert point and QE razor is unavailable. Razor it first in Premiere." };
       }
     }
     var razoredTracks = {};
-    for (pi = 0; pi < shiftPlan.length; pi++) {
-      if (shiftPlan[pi].straddlers.length) razoredTracks[shiftPlan[pi].type + ":" + shiftPlan[pi].index] = true;
+    for (pi = 0; pi < razorPlan.length; pi++) {
+      razoredTracks[razorPlan[pi].type + ":" + razorPlan[pi].index] = true;
     }
     var insertLinkGroups = __captureLinkGroupsAt(seq, insertTicks, razoredTracks);
     var razored = [];
-    for (pi = 0; pi < shiftPlan.length; pi++) {
-      if (!shiftPlan[pi].straddlers.length) continue;
+    for (pi = 0; pi < razorPlan.length; pi++) {
+      var razorPart = razorPlan[pi];
       try {
-        qeTrackFor(shiftPlan[pi].type, shiftPlan[pi].index).razor(razorAt.timecode);
-        razored.push(shiftPlan[pi].type + " " + shiftPlan[pi].index);
+        qeTrackFor(razorPart.type, razorPart.index).razor(razorAt.timecode);
+        razored.push(razorPart.type + " " + razorPart.index);
       } catch (razorErr) {
-        return { ok: false, error: "QE razor failed on " + shiftPlan[pi].type + " track " + shiftPlan[pi].index + (razored.length ? " after already razoring " + razored.join(", ") : "") + ", so the timeline is partially changed: " + razorErr.toString() };
+        return { ok: false, changed: true, error: "QE razor failed on " + razorPart.type + " track " + razorPart.index + (razored.length ? " after already razoring " + razored.join(", ") : "") + ". The timeline may be partially changed: " + razorErr.toString() };
       }
-      shiftPlan[pi].movers = [];
+      if (razorPart.shiftEntry) razorPart.shiftEntry.movers = [];
       var stillSpan = false;
-      for (ci = 0; ci < shiftPlan[pi].domTrack.clips.numItems; ci++) {
-        var rc = shiftPlan[pi].domTrack.clips[ci];
+      for (ci = 0; ci < razorPart.domTrack.clips.numItems; ci++) {
+        var rc = razorPart.domTrack.clips[ci];
         var rcs = parseFloat(rc.start.ticks);
         var rce = parseFloat(rc.end.ticks);
         if (rcs < insertTicks - edgeTol && rce > insertTicks + edgeTol) stillSpan = true;
-        if (rcs >= insertTicks - edgeTol) {
-          shiftPlan[pi].movers.push({ nodeId: String(rc.nodeId), start: rcs, end: rce });
+        if (razorPart.shiftEntry && rcs >= insertTicks - edgeTol) {
+          razorPart.shiftEntry.movers.push({ nodeId: String(rc.nodeId), start: rcs, end: rce });
         }
       }
       if (stillSpan) {
-        return { ok: false, error: "QE razor did not split a spanning clip on " + shiftPlan[pi].type + " track " + shiftPlan[pi].index + ", so the timeline is partially changed. Razor that track at the insert point or pass scope 'target_tracks' (which will desync other tracks)." };
+        return { ok: false, changed: true, error: "QE razor did not split a spanning clip on " + razorPart.type + " track " + razorPart.index + ", so the timeline may be partially changed. Inspect that track or use Undo." };
       }
     }
     var insertRelink = __relinkRazoredPieces(seq, insertTicks, insertLinkGroups);
     if (insertRelink.failures.length) {
-      return { ok: false, error: "QE razored the sync-locked tracks but did not keep " + insertRelink.failures.length + " linked video/audio group(s) linked (" + insertRelink.failures.join("; ") + "), so the timeline is partially changed. Relink them with link_selection or use Undo." };
+      return { ok: false, changed: true, error: "QE razored tracks but did not keep " + insertRelink.failures.length + " linked video/audio group(s) linked (" + insertRelink.failures.join("; ") + "), so the timeline is partially changed. Relink them with link_selection or use Undo." };
     }
   }
 
@@ -1915,13 +2060,13 @@ function __insertClipHonoringSyncLock(seq, item, timeTicks, videoTrackIndex, aud
   try {
     seq.insertClip(item, String(timeTicks), vTrackIndex, aTrackIndex);
   } catch (insErr) {
-    return { ok: false, error: "Premiere rejected Sequence.insertClip" + afterRazorNote + ": " + insErr.toString() };
+    return { ok: false, changed: true, error: "Premiere rejected Sequence.insertClip" + afterRazorNote + ". The timeline may be partially changed: " + insErr.toString() };
   }
 
   var afterVideoCount = videoTrack.clips.numItems;
   var afterAudioCount = audioTrack.clips.numItems;
   if (afterVideoCount > beforeVideoCount + expectedVideoAdded || afterAudioCount > beforeAudioCount + expectedAudioAdded) {
-    return { ok: false, error: "Premiere inserted more clips on a targeted track than a split-plus-insert accounts for" + afterRazorNote + ". This can leave a residual frame fragment at an exact boundary; the insertion is not reported as verified." };
+    return { ok: false, changed: true, error: "Premiere inserted more clips on a targeted track than a split-plus-insert accounts for" + afterRazorNote + ". This can leave a residual frame fragment at an exact boundary; the insertion is not reported as verified." };
   }
 
   var insertedClips = [];
@@ -1932,7 +2077,7 @@ function __insertClipHonoringSyncLock(seq, item, timeTicks, videoTrackIndex, aud
     if (!beforeAudioIds[String(audioTrack.clips[i].nodeId)]) insertedClips.push(audioTrack.clips[i]);
   }
   if (!insertedClips.length) {
-    return { ok: false, error: "Premiere did not add a new track item at the requested insertion point" + afterRazorNote + "." };
+    return { ok: false, changed: true, error: "Premiere did not add a new track item at the requested insertion point" + afterRazorNote + ". The timeline may be partially changed." };
   }
 
   var matched = false;
@@ -1952,7 +2097,7 @@ function __insertClipHonoringSyncLock(seq, item, timeTicks, videoTrackIndex, aud
     }
   }
   if (!matched) {
-    return { ok: false, error: "Premiere changed the target track but the requested project item was not found after insertion" + afterRazorNote + "." };
+    return { ok: false, changed: true, error: "Premiere changed the target track but the requested project item was not found after insertion" + afterRazorNote + "." };
   }
   if (!(actualDuration > 0)) actualDuration = durationTicks;
 
@@ -2026,7 +2171,7 @@ function __insertClipHonoringSyncLock(seq, item, timeTicks, videoTrackIndex, aud
   }
 
   if (failures.length || verifyProblems.length) {
-    return { ok: false, error: "The clip was inserted on the named tracks but sync-locked tracks were not rippled cleanly, so the timeline is now partially desynced and needs checking. " + failures.concat(verifyProblems).join("; ") + "." };
+    return { ok: false, changed: true, error: "The clip was inserted on the named tracks but sync-locked tracks were not rippled cleanly, so the timeline is now partially desynced and needs checking. " + failures.concat(verifyProblems).join("; ") + "." };
   }
 
   var tracksAffected = [];
@@ -2108,6 +2253,7 @@ function __jsonStringify(obj) {
 // none. __result reports how many entries the command added so an agent can
 // undo exactly that call.
 var __undoStart = null;
+var __markerWriteAttempted = false;
 function __readUndoIndex() {
   try {
     app.enableQE();
@@ -2118,7 +2264,17 @@ function __readUndoIndex() {
   }
 }
 
+function __markerWriteReceipt(data) {
+  if (!__markerWriteAttempted) return data;
+  if (!data || typeof data !== "object" || data instanceof Array) data = {};
+  var barrier = __rememberMarkerUndoBarrier(__readUndoIndex());
+  data.qeMarkerUndoVerified = false;
+  data.markerUndoBarrier = barrier.ok;
+  if (!data.markerUndoWarning) data.markerUndoWarning = "Marker reversal through QE is not verified. The undo tools protect this observed marker boundary; inspect markers separately.";
+  return data;
+}
 function __result(data) {
+  data = __markerWriteReceipt(data);
   if (__undoStart !== null && data && typeof data === "object" && !(data instanceof Array)) {
     var undoNow = __readUndoIndex();
     if (undoNow !== null && undoNow > __undoStart) {
@@ -2136,6 +2292,16 @@ function __error(msg, extraData) {
   if (extraData && typeof extraData === "object") {
     data = {};
     for (var key in extraData) if (extraData.hasOwnProperty(key)) data[key] = extraData[key];
+  }
+  data = __markerWriteReceipt(data);
+  if (__markerWriteAttempted && data) {
+    // A throwing DOM call may have changed the marker; an attempted write
+    // alone cannot establish that it committed. Preserve observed changes.
+    data.timelineChanged = data.timelineChanged === true ? true : null;
+    data.outcome = data.timelineChanged === true ? "committed_unverified" : "failed";
+    if (data.timelineChanged !== true) data.mutationOutcome = "unknown";
+    data.mutationAttempted = true;
+    data.verified = false;
   }
   if (__undoStart !== null) {
     var undoNow = __readUndoIndex();
@@ -2199,6 +2365,7 @@ export function buildScript(code: string): string {
   return `(function() {
   try {
     ${undoStart}
+    __markerWriteAttempted = false;
     ${code}
   } catch(e) {
     return __error(e.toString());

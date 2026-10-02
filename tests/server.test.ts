@@ -18,6 +18,17 @@ const { getDiscoveryTools } = vi.hoisted(() => ({
       },
       handler: vi.fn().mockResolvedValue({ success: true, data: { found: true } }),
     },
+    mock_enum_tool: {
+      description: "Enum validation fixture",
+      parameters: {
+        type: "object",
+        properties: {
+          mode: { type: "string", enum: ["normal", "multiply"] },
+          operations: { type: "array", items: { type: "object", properties: { type: { type: "string", enum: ["insert_clip", "remove_clip"] } } } },
+        },
+      },
+      handler: vi.fn().mockResolvedValue({ success: true, data: {} }),
+    },
     // Report whether scripts built during the call would track Premiere's undo stack.
     get_mock_undo_tracking: {
       description: "Read-only mock",
@@ -191,6 +202,21 @@ describe("SERVER_VERSION", () => {
 });
 
 describe("unknown tool arguments", () => {
+  it("lists enum choices for top-level and nested array fields", async () => {
+    const server = createServer({});
+    const client = new Client({ name: "enum-test", version: "1.0.0" });
+    const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
+    await Promise.all([server.connect(serverTransport), client.connect(clientTransport)]);
+    try {
+      const outcome = await client.callTool({ name: "mock_enum_tool", arguments: { mode: "invalid", operations: [{ type: "invalid" }] } })
+        .then((result) => (result.content as Array<{ text?: string }>).map((entry) => entry.text ?? "").join("\n"), (error: Error) => error.message);
+      expect(outcome).toContain('allowed values: "normal", "multiply"');
+      expect(outcome).toContain('allowed values: "insert_clip", "remove_clip"');
+    } finally {
+      await client.close();
+      await server.close();
+    }
+  });
   it("rejects a misspelled argument by name instead of silently using defaults", async () => {
     const server = createServer({});
     const client = new Client({ name: "unknown-arg-test", version: "1.0.0" });

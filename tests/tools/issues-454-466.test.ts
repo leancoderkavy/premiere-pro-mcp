@@ -105,7 +105,7 @@ describe("issue #460 — attach_custom_property verifies the XMP packet", () => 
 // and qe.project.undoStackIndex() verifies them (live 25.2): see qe-undo.test.ts.
 describe("issue #462 — undo and redo never use app.project.undo", () => {
   it("steps QE's undo stack instead of app.project.undo", async () => {
-    await project.undo.handler({});
+    await project.undo.handler({ expected_undo_stack_index: 0 });
     const script = mockedSendCommand.mock.calls[0][0] as string;
     expect(script).toContain('__qeUndoSteps("undo"');
     expect(script).not.toContain("app.project.undo");
@@ -118,7 +118,7 @@ describe("issue #462 — undo and redo never use app.project.undo", () => {
   });
 
   it("redoes through QE with undo-stack verification", async () => {
-    await trackTargeting.redo.handler({});
+    await trackTargeting.redo.handler({ expected_undo_stack_index: 0 });
     const script = mockedSendCommand.mock.calls[0][0] as string;
     expect(script).toContain('__qeUndoSteps("redo"');
   });

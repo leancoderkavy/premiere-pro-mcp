@@ -89,7 +89,7 @@ export function getTimelineTools(
   return {
     add_to_timeline: {
       description:
-        "Insert a project item at a timeline position, ripple QE sync-locked tracks to match Premiere's insert, and verify Premiere added no unexpected same-track fragments. Pass scope 'target_tracks' to ripple only the named pair (this will desync other tracks).",
+        "Insert a project item at a timeline position. Experimental: if a target clip spans that point, QE razors it before insertion to attempt to preserve its tail; both target and sync-locked track changes are read back. A host may still displace a tail, in which case the edit is reported as committed_unverified. Pass scope 'target_tracks' to ripple only the named pair (this will desync other tracks).",
       parameters: {
         type: "object" as const,
         properties: {

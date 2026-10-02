@@ -28,7 +28,7 @@ vi.mock("../../src/bridge/file-bridge.js", () => ({
 import { sendCommand } from "../../src/bridge/file-bridge.js";
 import { getAudioTools } from "../../src/tools/audio.js";
 import { confirmationToken, getEditPlanTools, validateEditPlan } from "../../src/tools/edit-plans.js";
-import { staticEditPlanTokenStore } from "../helpers/static-edit-plan-token-store.js";
+import { staticEditPlanTokenStore, fixtureEditPlanBinding } from "../helpers/static-edit-plan-token-store.js";
 import {
   getExportTools,
   inspectExportPresetFile,
@@ -189,6 +189,7 @@ describe("edit plan validation and apply coverage", () => {
       tokenStore: staticEditPlanTokenStore,
     });
 
+    mockedSendCommand.mockResolvedValueOnce({ success: true, data: { targetsValidated: true, hostBinding: fixtureEditPlanBinding(plan) } });
     const result = await tools.preview_edit_plan.handler({ plan });
     expect(result).toMatchObject({
       success: true,
@@ -221,6 +222,7 @@ describe("edit plan validation and apply coverage", () => {
       tokenStore: staticEditPlanTokenStore,
     });
 
+    staticEditPlanTokenStore.issue(confirmationToken(plan), fixtureEditPlanBinding(plan));
     const result = await tools.apply_edit_plan.handler({
       plan,
       confirmation_token: confirmationToken(plan),

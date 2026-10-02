@@ -153,6 +153,7 @@ const TOOL_CAPABILITY_REQUIREMENTS: Readonly<Record<string, readonly Capability[
   create_sequence: ["edit", "filesystem"],
   create_sequence_from_preset: ["edit", "filesystem"],
   add_to_render_queue: ["export", "filesystem"],
+  get_export_file_extension: ["inspect", "filesystem"],
   preview_after_effects_render_handoff: ["inspect", "filesystem"],
   apply_after_effects_render_handoff: ["inspect", "edit", "filesystem"],
   verify_after_effects_connection: ["inspect"],

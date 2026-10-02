@@ -22,7 +22,7 @@ export function getPlayheadTools(bridgeOptions: BridgeOptions) {
     },
 
     set_playhead_position: {
-      description: "Set the playhead (CTI) position in the active sequence",
+      description: "Set the playhead (CTI) position, clamp it to the active sequence's end, and read the stored position back.",
       parameters: {
         type: "object" as const,
         properties: {
@@ -34,14 +34,24 @@ export function getPlayheadTools(bridgeOptions: BridgeOptions) {
         required: ["time_seconds"],
       },
       handler: async (args: { time_seconds: number }) => {
+        if (!Number.isFinite(args.time_seconds) || args.time_seconds < 0) {
+          return { success: false as const, error: "time_seconds must be a finite, non-negative number of seconds" };
+        }
         const script = buildToolScript(`
           var seq = app.project.activeSequence;
           if (!seq) return __error("No active sequence");
           
-          var ticks = __secondsToTicks(${args.time_seconds}).toString();
-          seq.setPlayerPosition(ticks);
-          
-          return __result({ positionSeconds: ${args.time_seconds} });
+          var requestedTicks = __secondsToTicks(${args.time_seconds});
+          var endTicks = parseFloat(seq.end);
+          if (!isFinite(endTicks) || endTicks < 0) return __error("Premiere did not expose a valid sequence end; the playhead was not moved.");
+          var targetTicks = Math.min(requestedTicks, endTicks);
+          seq.setPlayerPosition(String(Math.round(targetTicks)));
+          var observed = null;
+          try { observed = parseFloat(seq.getPlayerPosition().ticks); } catch (readError) {}
+          if (observed === null || !isFinite(observed)) return __result({ outcome: "committed_unverified", requestedSeconds: ${args.time_seconds}, positionSeconds: null, warning: "The playhead was moved but its position could not be read back." });
+          var frameTicks = parseFloat(seq.timebase);
+          var verified = Math.abs(observed - targetTicks) <= (isFinite(frameTicks) && frameTicks > 0 ? frameTicks : 1);
+          return __result({ requestedSeconds: ${args.time_seconds}, positionSeconds: __ticksToSeconds(observed), clamped: targetTicks !== requestedTicks, verified: verified, outcome: verified ? "verified" : "committed_unverified" });
         `);
         return sendCommand(script, bridgeOptions);
       },

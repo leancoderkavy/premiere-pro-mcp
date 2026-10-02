@@ -981,12 +981,17 @@ describe("issue #235 — CEP tool calls use the host's documented argument types
     mockedSendCommand.mockImplementation(async (script: string) =>
       JSON.parse(String(runInNewContext(`${getHelpersSource()}\n${script}`, { app: { project: { activeSequence: sequence } }, Time }))));
 
-    await expect(tracks.set_clip_volume.handler({ node_id: "audio-1", volume_db: -3 })).resolves.toMatchObject({ success: true });
+    await expect(tracks.set_clip_volume.handler({ node_id: "audio-1", volume_db: -3 })).resolves.toMatchObject({
+      success: true, data: { requestedVolumeDb: -3, clamped: false },
+    });
     expect(level).toBeGreaterThan(0);
     expect(level).toBeLessThan(1);
     const readback = await tracks.get_clip_volume.handler({ node_id: "audio-1" });
     expect(readback).toMatchObject({ success: true, data: { clip: "Audio" } });
     expect((readback as { data: { volumeDb: number } }).data.volumeDb).toBeCloseTo(-3, 3);
+    await expect(tracks.set_clip_volume.handler({ node_id: "audio-1", volume_db: 100 })).resolves.toMatchObject({
+      success: true, data: { requestedVolumeDb: 100, volumeDb: 15, level: 1, clamped: true },
+    });
     await expect(tracks.set_clips_volume.handler({ track_index: 0, volume_db: -6 })).resolves.toMatchObject({
       success: true, data: { applied: 1, skipped: 0 },
     });
@@ -1000,6 +1005,32 @@ describe("issue #235 — CEP tool calls use the host's documented argument types
     const competitor = getCompetitorGapTools(bridgeOptions);
     await expect(competitor.setup_ducking.handler({ node_id: "audio-1", ducking_windows: [] })).resolves.toMatchObject({
       success: true, data: { updated: true, verified: true },
+    });
+    const originalSetter = property.setValue;
+    Object.assign(property, { setValue: () => {} });
+    await expect(tracks.set_clip_volume.handler({ node_id: "audio-1", volume_db: -20 })).resolves.toMatchObject({
+      success: false, data: { outcome: "not_applied", verified: false, timelineChanged: false },
+    });
+    property.setValue = originalSetter;
+    let invalidReads = 0;
+    Object.assign(property, { getValue: () => ++invalidReads === 1 ? level : true });
+    await expect(tracks.set_clip_volume.handler({ node_id: "audio-1", volume_db: 15 })).resolves.toMatchObject({
+      success: true, data: { outcome: "committed_unverified", verified: false, level: null },
+    });
+    let throwingReads = 0;
+    property.getValue = () => { if (++throwingReads > 1) throw new Error("readback unavailable"); return level; };
+    const unreadable = await tracks.set_clip_volume.handler({ node_id: "audio-1", volume_db: -3 });
+    expect(unreadable).toMatchObject({
+      success: true,
+      data: { outcome: "committed_unverified", requestedVolumeDb: -3, volumeDb: null },
+    });
+    Object.assign(property, { getValue: () => level, setValue: () => { throw new Error("setter refused before write"); } });
+    await expect(tracks.set_clip_volume.handler({ node_id: "audio-1", volume_db: -12 })).resolves.toMatchObject({
+      success: false, data: { outcome: "not_applied", verified: false, timelineChanged: false, level },
+    });
+    Object.assign(property, { getValue: () => level, setValue: (value: number) => { level = value; throw new Error("setter failed after write"); } });
+    await expect(tracks.set_clip_volume.handler({ node_id: "audio-1", volume_db: -8 })).resolves.toMatchObject({
+      success: false, data: { outcome: "committed_unverified", verified: false, timelineChanged: true },
     });
   });
 

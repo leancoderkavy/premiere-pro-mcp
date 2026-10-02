@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { randomUUID } from "node:crypto";
 import { execFileSync } from "node:child_process";
 import { getHelpersSource, helpersFileName, buildBootstrap } from "./script-builder.js";
+import { validateBridgeScriptSize } from "./script-size.js";
 
 export function getDarwinUserTempDirectory(): string | null {
   try {
@@ -571,10 +572,7 @@ ${script}`, "utf-8");
 }
 
 function validateScript(script: string, allowUnsafe = false): void {
-  const MAX_SCRIPT_SIZE = 500 * 1024; // 500KB
-  if (Buffer.byteLength(script, "utf-8") > MAX_SCRIPT_SIZE) {
-    throw new Error("Script exceeds 500KB size limit");
-  }
+  validateBridgeScriptSize(script);
 
   if (allowUnsafe) return;
 

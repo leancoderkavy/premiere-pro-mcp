@@ -770,6 +770,9 @@ export function getAdvancedTools(
         required: ["node_id", "new_name"],
       },
       handler: async (args: { node_id: string; new_name: string }) => {
+        if (!args.new_name.trim()) {
+          return { success: false as const, error: "new_name must not be empty or whitespace-only" };
+        }
         const script = buildToolScript(`
           var result = __findClip("${escapeForExtendScript(args.node_id)}");
           if (!result) return __error("Clip not found");
@@ -1147,7 +1150,7 @@ export function getAdvancedTools(
 
     scene_edit_detection: {
       description:
-        "Perform Premiere's scene edit detection on the selected clips in the active sequence (it analyses the footage and can take minutes on long clips). CreateMarkers (default) puts Segmentation markers on the selected clips' source project items (shared by every sequence that uses them), removes duplicates this run created (markers that were already there are never deleted), and reports each detected cut in source and timeline seconds; it is verified only when at least one new marker was added. ApplyCuts razors the selected clips and verifies the clip count grew.",
+        "Perform Premiere's scene edit detection on the selected clips in the active sequence (it analyses the footage and can take minutes on long clips). CreateMarkers (default) puts Segmentation markers on the selected clips' source project items (shared by every sequence that uses them), removes duplicates this run created (markers that were already there are never deleted), and reports each detected cut in source and timeline seconds; it is verified only when at least one new marker was added. ApplyCuts razors the selected clips and verifies the clip count grew. EXPERIMENTAL QE: CreateMarkers records an observed marker boundary for guarded Undo/Redo; crossing it is refused by default, and unreadable history records unknown protection. This boundary does not verify native marker reversal.",
       parameters: {
         type: "object" as const,
         properties: {
@@ -1239,6 +1242,10 @@ export function getAdvancedTools(
           }
           var clipsBefore = countClips();
 
+          if ("${action}" === "CreateMarkers") {
+            var markerBarrier = __rememberMarkerUndoBarrier(__readUndoIndex());
+          if (!markerBarrier.ok) return __error(markerBarrier.error);
+          }
           var detected = seq.performSceneEditDetectionOnSelection(
             "${action}",
             ${applyCutsToLinkedAudio},

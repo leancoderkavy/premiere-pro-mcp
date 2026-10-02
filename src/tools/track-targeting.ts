@@ -1006,14 +1006,27 @@ export function getTrackTargetingTools(bridgeOptions: BridgeOptions) {
 
           var clip = result.clip;
           var set = false;
+          var appliedLevel = null;
           for (var i = 0; i < clip.components.numItems; i++) {
             var __cm = String(clip.components[i].matchName || "");
             if (clip.components[i].displayName === "Volume" || clip.components[i].displayName === "Volumen" || __cm.indexOf("Internal Volume") === 0) {
               for (var p = 0; p < clip.components[i].properties.numItems; p++) {
                 var __pn2 = String(clip.components[i].properties[p].displayName);
                   if (__pn2 === "Level" || __pn2 === "Nivel") {
+                  // Capture the old value to distinguish silent no-ops from partial writes.
+                  var beforeLevel = null;
+                  try {
+                    var oldLevel = clip.components[i].properties[p].getValue();
+                    if (typeof oldLevel === "number" || (typeof oldLevel === "string" && oldLevel.replace(/\\s/g, "") !== "")) beforeLevel = Number(oldLevel);
+                  } catch (beforeReadError) {}
+                  if (beforeLevel === null || !isFinite(beforeLevel) || beforeLevel < 0) return __jsonStringify({ success: false, error: "Volume level could not be read before the write; nothing was changed.", data: { outcome: "not_applied", verified: false, timelineChanged: false } });
                   // normalised 0..1, NOT dB - see dbToPremiereLevel()
-                  clip.components[i].properties[p].setValue(${level}, true);
+                  var writeError = null;
+                  try { clip.components[i].properties[p].setValue(${level}, true); } catch (volumeWriteError) { writeError = volumeWriteError.toString(); }
+                  try {
+                    var storedLevel = clip.components[i].properties[p].getValue();
+                    if (typeof storedLevel === "number" || (typeof storedLevel === "string" && storedLevel.replace(/\\s/g, "") !== "")) appliedLevel = Number(storedLevel);
+                  } catch (readError) {}
                   set = true;
                   break;
                 }
@@ -1022,7 +1035,20 @@ export function getTrackTargetingTools(bridgeOptions: BridgeOptions) {
             }
           }
           if (!set) return __error("Could not set volume - is this an audio clip?");
-          return __result({ volumeDb: ${args.volume_db}, level: ${level}, clip: clip.name });
+          if (writeError) {
+            var readableWriteLevel = appliedLevel !== null && isFinite(appliedLevel) && appliedLevel >= 0;
+            var unchangedAfterThrow = readableWriteLevel && Math.abs(appliedLevel - beforeLevel) <= Math.max(1e-12, Math.abs(beforeLevel) * 1e-6);
+            return __jsonStringify({ success: false, error: unchangedAfterThrow ? "Volume setter threw without changing the stored level: " + writeError : "Volume write threw and may have changed the clip: " + writeError + ". Inspect before retrying.", data: { outcome: unchangedAfterThrow ? "not_applied" : "committed_unverified", verified: false, timelineChanged: unchangedAfterThrow ? false : (readableWriteLevel ? true : null), requestedVolumeDb: ${args.volume_db}, level: appliedLevel } });
+          }
+          if (appliedLevel === null || !isFinite(appliedLevel) || appliedLevel < 0) {
+            return __result({ outcome: "committed_unverified", verified: false, requestedVolumeDb: ${args.volume_db}, volumeDb: null, level: null, clip: clip.name, warning: "Premiere accepted the volume write but its stored level could not be read; inspect the clip before retrying." });
+          }
+          var appliedDb = appliedLevel > 0 ? (20 * (Math.log(appliedLevel) / Math.LN10) + ${PREMIERE_MAX_LEVEL_DB}) : null;
+          if (Math.abs(appliedLevel - ${level}) > Math.max(1e-12, Math.abs(${level}) * 1e-6)) {
+            var unchanged = Math.abs(appliedLevel - beforeLevel) <= Math.max(1e-12, Math.abs(beforeLevel) * 1e-6);
+            return __jsonStringify({ success: false, error: unchanged ? "Premiere did not apply the requested volume level; the stored level is unchanged." : "Premiere stored a different volume level; inspect the clip before retrying.", data: { outcome: unchanged ? "not_applied" : "committed_unverified", verified: false, timelineChanged: !unchanged, requestedVolumeDb: ${args.volume_db}, volumeDb: appliedDb, level: appliedLevel } });
+          }
+          return __result({ outcome: "verified", verified: true, requestedVolumeDb: ${args.volume_db}, volumeDb: appliedDb, level: appliedLevel, clamped: appliedDb === null || Math.abs(appliedDb - ${args.volume_db}) > 0.001, clip: clip.name });
         `);
         return sendCommand(script, bridgeOptions);
       },
@@ -1574,7 +1600,7 @@ export function getTrackTargetingTools(bridgeOptions: BridgeOptions) {
 
     redo: {
       description:
-        "EXPERIMENTAL (undocumented QE DOM: qe.project.redo / undoStackIndex). Redo the most recently undone Premiere project action(s) through QE, checked step by step against Premiere's undo-stack position (stackVerified; the timeline itself is not read back). To restore a tool call undone with undo, pass the same count.",
+        "EXPERIMENTAL (undocumented QE DOM: qe.project.redo / undoStackIndex). Redo the most recently undone Premiere project action(s) through QE, checked step by step against Premiere's undo-stack position (stackVerified; the timeline itself is not read back). To restore a tool call undone with undo, pass the same count. Observed marker boundaries refuse before any step; acknowledge_untracked_markers:true permits prior non-marker actions, without proving marker reversal.",
       parameters: {
         type: "object" as const,
         properties: {
@@ -1582,33 +1608,41 @@ export function getTrackTargetingTools(bridgeOptions: BridgeOptions) {
             type: "number",
             description: "Number of redo steps (default: 1)",
           },
+          acknowledge_untracked_markers: {
+            type: "boolean",
+            description: "Explicitly acknowledge that QE steps reverse or restore prior non-marker actions, because marker reversal is not verified. Default false; marker boundaries refuse the entire request before any step.",
+          },
           expected_undo_stack_index: {
             type: "number",
             description:
-              "Optional safety guard: the undoStackIndexAfter reported by the undo you want to redo. The step is refused, with nothing changed, when Premiere's undo-stack position differs from it. This compares the position only: if other actions were undone and redone, or new ones recorded, since, the position can match again and redo would re-apply a different action than the one you undid (a new action also clears Premiere's redo history).",
+              "Required safety guard: the undoStackIndexAfter reported by the undo you want to redo. The step is refused, with nothing changed, when Premiere's undo-stack position differs from it. The guard compares the position only; matching position cannot prove which action is on top.",
           },
         },
+        required: ["expected_undo_stack_index"],
       },
-      handler: async (args: { count?: number; expected_undo_stack_index?: number } = {}) => {
+      handler: async (args: { count?: number; expected_undo_stack_index?: number; acknowledge_untracked_markers?: boolean } = {}) => {
         const count = args.count ?? 1;
         if (!Number.isInteger(count) || count < 1 || count > 100) {
           return { success: false, error: "count must be an integer from 1 through 100" };
         }
         const guardArg = args.expected_undo_stack_index;
-        if (guardArg !== undefined && (!Number.isInteger(guardArg) || guardArg < 0)) {
-          return { success: false, error: "expected_undo_stack_index must be a non-negative integer" };
+        if (!Number.isInteger(guardArg) || guardArg! < 0) {
+          return { success: false, error: "expected_undo_stack_index is required and must be a non-negative integer; redo was not attempted" };
         }
-        const guard = guardArg === undefined ? "null" : String(guardArg);
+        const guard = String(guardArg);
         const script = buildToolScript(`
           __undoStart = null;
           var expectedIndex = ${guard};
           if (expectedIndex !== null) {
             var currentIndex = __readUndoIndex();
+            if (currentIndex === null || typeof currentIndex === "undefined" || isNaN(Number(currentIndex))) {
+              return __jsonStringify({ success: false, error: "Premiere did not expose undoStackIndex; redo was not attempted", data: { expectedUndoStackIndex: expectedIndex } });
+            }
             if (currentIndex !== expectedIndex) {
               return __jsonStringify({ success: false, error: "Premiere's undo stack is at " + currentIndex + ", not the expected " + expectedIndex + ": the undo-stack position changed since that call (actions were undone or recorded), so redo was not attempted.", data: { undoStackIndex: currentIndex, expectedUndoStackIndex: expectedIndex } });
             }
           }
-          var outcome = __qeUndoSteps("redo", ${count});
+          var outcome = __qeUndoSteps("redo", ${count}, ${args.acknowledge_untracked_markers === true ? "true" : "false"});
           return __undoStepsResult(outcome, "redone");
         `);
         return sendCommand(script, bridgeOptions);
@@ -1617,7 +1651,7 @@ export function getTrackTargetingTools(bridgeOptions: BridgeOptions) {
 
     multiple_undo: {
       description: "EXPERIMENTAL (undocumented QE DOM: qe.project.undo / undoStackIndex). Undo several Premiere project actions through QE, checking each step against Premiere's undo-stack position (stackVerified; the timeline itself is not read back) and reporting how many were undone." +
-        " Only actions Premiere records are undoable: QE edits such as razor, insert, lift and extract report undoSteps (and undoStackIndex) in their results; pass that undoSteps as count to reverse exactly that call. A marker receipt with undoTracked:false recorded no undo step: calling Undo for it would reverse an earlier action. Only CEP tool results carry undoSteps; UXP tools and workflows that send several commands are not counted. Always pass expected_undo_stack_index to check the stack position, but matching position alone does not prove which action is on top.",
+        " Only actions Premiere records are undoable: QE edits such as razor, insert, lift and extract report undoSteps (and undoStackIndex) in their results; pass that undoSteps as count to reverse exactly that call. A marker receipt with undoTracked:false recorded no undo step: calling Undo for it would reverse an earlier action. Only CEP tool results carry undoSteps; UXP tools and workflows that send several commands are not counted. Always pass expected_undo_stack_index to check the stack position, but matching position alone does not prove which action is on top. Observed marker boundaries refuse the entire request before any step unless acknowledge_untracked_markers:true explicitly permits prior non-marker actions. The barrier persists through server/helper reloads while the CEP engine remains alive; it cannot account for marker writes before observation, after an engine reset, or through UXP, the manual UI, or other clients. Matching the QE index verifies stack position only.",
       parameters: {
         type: "object" as const,
         properties: {
@@ -1625,33 +1659,41 @@ export function getTrackTargetingTools(bridgeOptions: BridgeOptions) {
             type: "number",
             description: "Number of undo steps (default: 1)",
           },
+          acknowledge_untracked_markers: {
+            type: "boolean",
+            description: "Explicitly acknowledge that QE steps reverse or restore prior non-marker actions, because marker reversal is not verified. Default false; marker boundaries refuse the entire request before any step.",
+          },
           expected_undo_stack_index: {
             type: "number",
             description:
-              "Optional safety guard: the undoStackIndex a tool result reported right after the call you want to reverse. The step is refused, with nothing changed, when Premiere's undo-stack position differs from it. This compares the position only: if actions were undone and new ones recorded since, the position can match again and undo would reverse the newer action.",
+              "Required safety guard: the undoStackIndex a tool result reported right after the call you want to reverse. The step is refused, with nothing changed, when Premiere's undo-stack position differs from it. The guard compares the position only; matching position cannot prove which action is on top.",
           },
         },
+        required: ["expected_undo_stack_index"],
       },
-      handler: async (args: { count?: number; expected_undo_stack_index?: number }) => {
+      handler: async (args: { count?: number; expected_undo_stack_index?: number; acknowledge_untracked_markers?: boolean }) => {
         const count = args.count ?? 1;
         if (!Number.isInteger(count) || count < 1 || count > 100) {
           return { success: false, error: "count must be an integer from 1 through 100" };
         }
         const guardArg = args.expected_undo_stack_index;
-        if (guardArg !== undefined && (!Number.isInteger(guardArg) || guardArg < 0)) {
-          return { success: false, error: "expected_undo_stack_index must be a non-negative integer" };
+        if (!Number.isInteger(guardArg) || guardArg! < 0) {
+          return { success: false, error: "expected_undo_stack_index is required and must be a non-negative integer; undo was not attempted" };
         }
-        const guard = guardArg === undefined ? "null" : String(guardArg);
+        const guard = String(guardArg);
         const script = buildToolScript(`
           __undoStart = null;
           var expectedIndex = ${guard};
           if (expectedIndex !== null) {
             var currentIndex = __readUndoIndex();
+            if (currentIndex === null || typeof currentIndex === "undefined" || isNaN(Number(currentIndex))) {
+              return __jsonStringify({ success: false, error: "Premiere did not expose undoStackIndex; undo was not attempted", data: { expectedUndoStackIndex: expectedIndex } });
+            }
             if (currentIndex !== expectedIndex) {
               return __jsonStringify({ success: false, error: "Premiere's undo stack is at " + currentIndex + ", not the expected " + expectedIndex + ": the undo-stack position changed since that call (actions were undone or recorded), so undo was not attempted.", data: { undoStackIndex: currentIndex, expectedUndoStackIndex: expectedIndex } });
             }
           }
-          var outcome = __qeUndoSteps("undo", ${count});
+          var outcome = __qeUndoSteps("undo", ${count}, ${args.acknowledge_untracked_markers === true ? "true" : "false"});
           return __undoStepsResult(outcome, "undone");
         `);
         return sendCommand(script, bridgeOptions);
