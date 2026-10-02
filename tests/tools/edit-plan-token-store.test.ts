@@ -1,6 +1,9 @@
-import { existsSync, mkdtempSync, rmSync, utimesSync } from "node:fs";
+import { spawn } from "node:child_process";
+import { execFileSync } from "node:child_process";
+import { existsSync, mkdtempSync, rmSync, statSync, utimesSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
+import { pathToFileURL } from "node:url";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("../../src/bridge/file-bridge.js", async (importOriginal) => {
@@ -35,6 +38,49 @@ describe("single-use edit-plan confirmation tokens", () => {
     expect(fresh).not.toBe(token);
     expect(() => firstServer.consume(fresh, digest)).not.toThrow();
   });
+
+  if (process.platform !== "win32") it("allows exactly one of two concurrent server processes to consume a token", async () => {
+    const tempDir = mkdtempSync(join(tmpdir(), "premiere-plan-race-"));
+    directories.push(tempDir);
+    const digest = "e".repeat(64);
+    const token = createEditPlanTokenStore({ tempDir }).issue(digest);
+    const source = resolve("src/tools/edit-plan-token-store.ts");
+    const compiled = resolve("dist/tools/edit-plan-token-store.js");
+    if (!existsSync(compiled) || statSync(compiled).mtimeMs < statSync(source).mtimeMs) {
+      execFileSync(process.execPath, [resolve("node_modules/typescript/bin/tsc")]);
+    }
+    const moduleUrl = pathToFileURL(compiled).href;
+    const go = join(tempDir, "go");
+    const script = `
+      import { existsSync, writeFileSync } from "node:fs";
+      const [moduleUrl, tempDir, token, digest, ready, go] = process.argv.slice(1);
+      const { createEditPlanTokenStore } = await import(moduleUrl);
+      writeFileSync(ready, "ready");
+      while (!existsSync(go)) await new Promise((done) => setTimeout(done, 5));
+      try { createEditPlanTokenStore({ tempDir }).consume(token, digest); process.stdout.write("consumed"); }
+      catch { process.stdout.write("rejected"); }
+    `;
+    const workers = [0, 1].map((index) => {
+      const ready = join(tempDir, `ready-${index}`);
+      const child = spawn(process.execPath, ["--input-type=module", "-e", script, moduleUrl, tempDir, token, digest, ready, go], { stdio: ["ignore", "pipe", "pipe"] });
+      let output = "";
+      child.stdout.on("data", (chunk: Buffer) => { output += chunk.toString(); });
+      child.stderr.on("data", (chunk: Buffer) => { output += chunk.toString(); });
+      return { child, ready, result: new Promise<{ code: number | null; output: string }>((done) => child.on("close", (code) => done({ code, output }))) };
+    });
+    const deadline = Date.now() + 10_000;
+    while (workers.some(({ ready }) => !existsSync(ready)) && Date.now() < deadline) {
+      await new Promise((done) => setTimeout(done, 10));
+    }
+    if (!workers.every(({ ready }) => existsSync(ready))) {
+      workers.forEach(({ child }) => child.kill());
+      throw new Error("Token consumers did not reach the start barrier");
+    }
+    writeFileSync(go, "go");
+    const outcomes = await Promise.all(workers.map(({ result }) => result));
+    expect(outcomes.map(({ code }) => code)).toEqual([0, 0]);
+    expect(outcomes.map(({ output }) => output).sort()).toEqual(["consumed", "rejected"]);
+  }, 20_000);
 
   it("rejects expired tokens and prunes unused expired previews", () => {
     const tempDir = mkdtempSync(join(tmpdir(), "premiere-plan-expiry-"));

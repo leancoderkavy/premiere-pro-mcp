@@ -67,4 +67,27 @@ describe("edit plans", () => {
       rmSync(tempDir, { recursive: true, force: true });
     }
   });
+
+  it("consumes the real token before a partial failure or bridge exception", async () => {
+    const tempDir = mkdtempSync(join(tmpdir(), "premiere-edit-plan-failure-"));
+    try {
+      const dependencies = { capabilities: { capabilities: new Set(["inspect", "edit"]), source: "explicit" as const }, auditSink: vi.fn() };
+      const firstServer = getEditPlanTools({ tempDir }, dependencies);
+      const restartedServer = getEditPlanTools({ tempDir }, dependencies);
+      const partialToken = String((await firstServer.preview_edit_plan.handler({ plan })).data.confirmationToken);
+      vi.mocked(sendCommand).mockResolvedValueOnce({ success: false, error: "partial edit", data: { timelineChanged: true } });
+      await expect(firstServer.apply_edit_plan.handler({ plan, confirmation_token: partialToken })).resolves.toMatchObject({
+        success: false, data: { timelineChanged: true },
+      });
+      await expect(restartedServer.apply_edit_plan.handler({ plan, confirmation_token: partialToken })).rejects.toThrow("already consumed");
+
+      const failedToken = String((await restartedServer.preview_edit_plan.handler({ plan })).data.confirmationToken);
+      vi.mocked(sendCommand).mockRejectedValueOnce(new Error("bridge failed"));
+      await expect(restartedServer.apply_edit_plan.handler({ plan, confirmation_token: failedToken })).rejects.toThrow("bridge failed");
+      await expect(firstServer.apply_edit_plan.handler({ plan, confirmation_token: failedToken })).rejects.toThrow("already consumed");
+      expect(sendCommand).toHaveBeenCalledTimes(2);
+    } finally {
+      rmSync(tempDir, { recursive: true, force: true });
+    }
+  });
 });
