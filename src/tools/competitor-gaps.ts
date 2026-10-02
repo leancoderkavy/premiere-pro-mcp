@@ -187,13 +187,19 @@ export function getCompetitorGapTools(
               var allVerified = snapshot.components.length > 0;
               for (var rj = 0; rj < snapshot.components.length; rj++) {
                 var component = snapshot.components[rj];
-                var finalTrack = component.type === "video" ? seq.videoTracks[component.trackIndex] : seq.audioTracks[component.trackIndex];
+                var finalTrack = null;
                 var finalClip = null;
-                for (var rk = 0; finalTrack && rk < finalTrack.clips.numItems; rk++) {
-                  if (String(finalTrack.clips[rk].nodeId) === component.nodeId) { finalClip = finalTrack.clips[rk]; break; }
+                try {
+                  finalTrack = component.type === "video" ? seq.videoTracks[component.trackIndex] : seq.audioTracks[component.trackIndex];
+                  for (var rk = 0; finalTrack && rk < finalTrack.clips.numItems; rk++) {
+                    if (String(finalTrack.clips[rk].nodeId) === component.nodeId) { finalClip = finalTrack.clips[rk]; break; }
+                  }
+                } catch (eFinalTrack) {
+                  finalClip = null;
                 }
-                var finalStartTicks = finalClip ? parseFloat(finalClip.start.ticks) : NaN;
-                var finalEndTicks = finalClip ? parseFloat(finalClip.end.ticks) : NaN;
+                var finalStartTicks = NaN;
+                var finalEndTicks = NaN;
+                try { if (finalClip) { finalStartTicks = parseFloat(finalClip.start.ticks); finalEndTicks = parseFloat(finalClip.end.ticks); } } catch (eFinalSpan) {}
                 var finalSourceId = "";
                 try { finalSourceId = String(finalClip.projectItem.nodeId); } catch (eFinalSource) {}
                 var componentVerified = !!finalClip && finalSourceId === component.itemId &&
