@@ -40,6 +40,12 @@ describe("color_correct verified receipts (#720)", () => {
     await expect(tool.handler({ node_id: "c1", exposure: 0.5 })).resolves.toMatchObject({ success: false, data: { colorCorrected: false, errors: { exposure: expect.any(String) } } });
     expect(state.property.setValue).not.toHaveBeenCalled();
   });
+  it("reports no mutation when existing Lumetri has none of the requested controls", async () => {
+    const state = host({ existing: true, localized: true });
+    await expect(tool.handler({ node_id: "c1", exposure: 0.5 })).resolves.toMatchObject({ success: false, data: { colorCorrected: false, timelineChanged: false, outcome: "not_applied" } });
+    expect(state.add).not.toHaveBeenCalled();
+    expect(state.property.setValue).not.toHaveBeenCalled();
+  });
   it("fails readback when a setter silently ignores a requested value", async () => {
     host({ existing: true, ignoredWrite: true });
     await expect(tool.handler({ node_id: "c1", exposure: 0.5 })).resolves.toMatchObject({ success: false, data: { timelineChanged: true, colorCorrected: false } });

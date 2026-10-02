@@ -439,10 +439,13 @@ export function getEffectsTools(bridgeOptions: BridgeOptions) {
           ${controls.map((control) => `if (!taken.${control.key} && !errors.${control.key}) errors.${control.key} = "Requested Lumetri property was not found or writable";`).join("\n")}
           for (var changedKey in changes) if (changes.hasOwnProperty(changedKey)) changeCount++;
           if (changeCount !== ${controls.length} || qeAddError) {
+            var mutationAttempted = qeAttempted || writeAttempted;
             return __jsonStringify({ success: false,
-              error: "Lumetri Color did not read back every requested value; the timeline may have changed. Inspect the clip before retrying.",
+              error: mutationAttempted
+                ? "Lumetri Color did not read back every requested value; the timeline may have changed. Inspect the clip before retrying."
+                : "No requested Lumetri control was found or writable; nothing was changed.",
               data: { colorCorrected: false, verified: false, renderVerified: false,
-                timelineChanged: qeAttempted || writeAttempted, outcome: "committed_unverified",
+                timelineChanged: mutationAttempted, outcome: mutationAttempted ? "committed_unverified" : "not_applied",
                 clipName: clip.name, changes: changes, errors: errors, hostError: qeAddError } });
           }
           return __result({ colorCorrected: true, verified: true, renderVerified: false,
