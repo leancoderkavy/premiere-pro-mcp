@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { runInNewContext } from "node:vm";
-import { escapeForExtendScript, getHelpersSource } from "../../src/bridge/script-builder.js";
+import { getHelpersSource } from "../../src/bridge/script-builder.js";
 import { BridgeOptions } from "../../src/bridge/file-bridge.js";
 
 vi.mock("../../src/bridge/file-bridge.js", () => ({
@@ -29,6 +29,8 @@ import { getKeyframeTools } from "../../src/tools/keyframes.js";
 import { getCaptionTools } from "../../src/tools/captions.js";
 import { getSequenceTools } from "../../src/tools/sequence.js";
 import { getPlayheadTools } from "../../src/tools/playhead.js";
+import { getAudioTools } from "../../src/tools/audio.js";
+import { getCompetitorGapTools } from "../../src/tools/competitor-gaps.js";
 
 const mockedSendCommand = vi.mocked(sendCommand);
 const bridgeOptions: BridgeOptions = { tempDir: "/tmp/test-bridge", timeoutMs: 5000 };
@@ -895,15 +897,28 @@ describe("issue #235 — CEP tool calls use the host's documented argument types
     expect(getScript).toContain("Nivel");
   });
 
-  it("writes and reads a Spanish Volume component across single and bulk tools", async () => {
+  it.each([
+    ["localized display name", "Volumen", ""],
+    ["locale-independent match name", "Other language", "Internal Volume Stereo"],
+  ])("writes and reads audio volume through %s", async (_label, displayName, matchName) => {
     let level = 1;
-    const property = { displayName: "Nivel", setValue(value: number) { level = value; }, getValue() { return level; } };
-    const component = { displayName: "Volumen", matchName: "Internal Volume Stereo", properties: { numItems: 1, 0: property } };
-    const clip = { nodeId: "audio-1", name: "Audio", components: { numItems: 1, 0: component } };
+    const keyValues = new Map<string, number>();
+    const property = {
+      displayName: "Nivel",
+      setValue(value: number) { level = value; },
+      getValue() { return level; },
+      setTimeVarying() {},
+      addKey() {},
+      setValueAtKey(time: { ticks: string }, value: number) { keyValues.set(time.ticks, value); },
+      getValueAtTime(time: { ticks: string }) { return keyValues.get(time.ticks); },
+    };
+    const component = { displayName, matchName, properties: { numItems: 1, 0: property } };
+    const clip = { nodeId: "audio-1", name: "Audio", duration: { ticks: String(3 * 254016000000) }, components: { numItems: 1, 0: component } };
     const track = { clips: { numItems: 1, 0: clip } };
     const sequence = { videoTracks: { numTracks: 0 }, audioTracks: { numTracks: 1, 0: track } };
+    function Time(this: { ticks: string }) { this.ticks = "0"; }
     mockedSendCommand.mockImplementation(async (script: string) =>
-      JSON.parse(String(runInNewContext(`${getHelpersSource()}\n${script}`, { app: { project: { activeSequence: sequence } } }))));
+      JSON.parse(String(runInNewContext(`${getHelpersSource()}\n${script}`, { app: { project: { activeSequence: sequence } }, Time }))));
 
     await expect(tracks.set_clip_volume.handler({ node_id: "audio-1", volume_db: -3 })).resolves.toMatchObject({ success: true });
     expect(level).toBeGreaterThan(0);
@@ -913,6 +928,17 @@ describe("issue #235 — CEP tool calls use the host's documented argument types
     expect((readback as { data: { volumeDb: number } }).data.volumeDb).toBeCloseTo(-3, 3);
     await expect(tracks.set_clips_volume.handler({ track_index: 0, volume_db: -6 })).resolves.toMatchObject({
       success: true, data: { applied: 1, skipped: 0 },
+    });
+    const audio = getAudioTools(bridgeOptions);
+    await expect(audio.adjust_audio_levels.handler({ node_id: "audio-1", level_db: -4 })).resolves.toMatchObject({
+      success: true, data: { adjusted: true, verified: true },
+    });
+    await expect(audio.add_audio_keyframes.handler({ node_id: "audio-1", keyframes: [{ time_seconds: 1, level_db: -6 }] })).resolves.toMatchObject({
+      success: true, data: { keyframesAdded: 1, verified: true },
+    });
+    const competitor = getCompetitorGapTools(bridgeOptions);
+    await expect(competitor.setup_ducking.handler({ node_id: "audio-1", ducking_windows: [] })).resolves.toMatchObject({
+      success: true, data: { updated: true, verified: true },
     });
   });
 

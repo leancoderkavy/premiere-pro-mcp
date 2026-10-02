@@ -443,9 +443,11 @@ export function getCompetitorGapTools(
           var level = null;
           for (i = 0; i < clip.components.numItems; i++) {
             var component = clip.components[i];
-            if (component.displayName === "Volume" || component.matchName === "audioVolume") {
+            var volumeMatchName = String(component.matchName || "");
+            if (component.displayName === "Volume" || component.displayName === "Volumen" || volumeMatchName.indexOf("Internal Volume") === 0 || volumeMatchName === "audioVolume") {
               for (var p = 0; p < component.properties.numItems; p++) {
-                if (component.properties[p].displayName === "Level") { level = component.properties[p]; break; }
+                var propertyName = String(component.properties[p].displayName);
+                if (propertyName === "Level" || propertyName === "Nivel") { level = component.properties[p]; break; }
               }
             }
             if (level) break;
