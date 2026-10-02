@@ -508,7 +508,7 @@ export function getCompetitorGapTools(
 
     validate_project_for_export: {
       description:
-        "Run a non-mutating export readiness audit for an active or named sequence. It reports blocking offline media, empty timelines, inaccessible preset/output paths, duration, and optional timeline gaps without queuing an export.",
+        "Run a non-mutating export preflight for an active or named sequence. It reports blocking offline media, empty timelines, inaccessible preset/output paths, duration, and optional timeline gaps without queuing an export. readyForExport means these preflight checks passed; it does not test exporter initialization, encoder availability, or whether the host can render. Require an actual output file from export_sequence and verify_delivery_file before claiming delivery.",
       parameters: {
         type: "object" as const,
         additionalProperties: false,
@@ -609,6 +609,9 @@ export function getCompetitorGapTools(
           }
           return __result({
             readyForExport: errors.length === 0,
+            verificationBoundary: "timeline_and_paths_only",
+            exporterInitializationChecked: false,
+            renderVerified: false,
             errors: errors,
             warnings: warnings,
             summary: {

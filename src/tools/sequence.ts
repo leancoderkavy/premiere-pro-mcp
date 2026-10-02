@@ -684,7 +684,7 @@ export function getSequenceTools(bridgeOptions: BridgeOptions) {
 
     create_sequence_from_preset: {
       description:
-        "Create a new sequence from a specific preset file (.sqpreset). Reports success only after a new sequence ID appears in the project collection; a same-name sequence that was already active is not treated as created.",
+        "EXPERIMENTAL (undocumented QE DOM): create a new sequence from a specific preset file (.sqpreset) using qe.project.newSequence. Reports success only after a new sequence ID appears in the project collection; a same-name sequence that was already active is not treated as created.",
       parameters: {
         type: "object" as const,
         properties: {

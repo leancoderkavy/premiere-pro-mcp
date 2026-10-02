@@ -1274,6 +1274,27 @@ describe("issue #326 — sequence creation requires project-collection readback"
       error: expect.stringContaining("already existed before the preset request"),
     });
   });
+
+  it.each([false, true])("verifies a fresh active sequence only when present in the collection (%s)", async (listed) => {
+    const existing = { name: "Old", sequenceID: "seq-existing" };
+    const created = { name: "Interview", sequenceID: "seq-created" };
+    const items = [existing];
+    const project = {
+      activeSequence: existing,
+      sequences: new Proxy({}, { get: (_t, k) => k === "numSequences" ? items.length : items[Number(k)] }),
+    };
+    mockedSendCommand.mockImplementation(async (script: string) =>
+      JSON.parse(String(runInNewContext(`${getHelpersSource()}\n${script}`, {
+        app: { enableQE() {}, project },
+        qe: { project: { newSequence() { project.activeSequence = created; if (listed) items.push(created); } } },
+      }))));
+    const result = await sequence.create_sequence_from_preset.handler({ name: "Interview", preset_path: "/tmp/sequence.sqpreset" });
+    if (listed) {
+      expect(result).toMatchObject({ success: true, data: { created: true, verified: true, id: "seq-created", name: "Interview" } });
+    } else {
+      expect(result).toMatchObject({ success: false, error: expect.stringContaining("did not add the new sequence to the project collection") });
+    }
+  });
 });
 
 // https://github.com/leancoderkavy/premiere-pro-mcp/issues/327
