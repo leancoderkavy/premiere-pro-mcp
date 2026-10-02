@@ -145,6 +145,8 @@ function issue562Host(options: {
   noAudioRazor?: boolean;
   razorThrowsAfterCut?: boolean;
   insertThrowsAfterMutation?: boolean;
+  moveEarlierAudioOnSecondInsert?: boolean;
+  failSecondInsertAfterMutation?: boolean;
 } = {}) {
   // Premiere's getIn/OutPoint(mediaType): 1 = video, 2 = audio, 4 = any. A missing
   // stream reads back as a zero-length span.
@@ -213,6 +215,21 @@ function issue562Host(options: {
         });
       }
       if (options.insertThrowsAfterMutation) throw new Error("insert threw after changing a track");
+      if (options.moveEarlierAudioOnSecondInsert && insertionCount === 2) {
+        const earlierAudio = a1._arr.find((clip) => clip.nodeId === "ins-a-0-1");
+        if (earlierAudio) {
+          earlierAudio.start = ticksOf(2);
+          earlierAudio.end = ticksOf(4);
+        }
+      }
+      if (options.failSecondInsertAfterMutation && insertionCount === 2) {
+        const earlierVideo = v1._arr.find((clip) => clip.nodeId === "ins-v-0-1");
+        if (earlierVideo) {
+          earlierVideo.start = ticksOf(2);
+          earlierVideo.end = ticksOf(4);
+        }
+        throw new Error("host insert failed after mutation");
+      }
     },
   };
 
@@ -485,6 +502,41 @@ describe("issue #562 — insert_from_source honors sync lock", () => {
         { finalStartSeconds: 4, finalEndSeconds: 6, finalVerified: true },
       ],
     } });
+  });
+
+  it("does not verify an A/V batch when only an earlier inserted audio component moves", async () => {
+    const script = await scriptFor(getCompetitorGapTools(bridgeOptions).add_to_timeline_batch, {
+      clips: [
+        { item_id: "src", track_index: 0, start_seconds: 0 },
+        { item_id: "src", track_index: 1, start_seconds: 4 },
+      ],
+    });
+    const { sandbox } = issue562Host({ emptyTargets: true, moveEarlierAudioOnSecondInsert: true });
+    const result = runScript(script, sandbox);
+    expect(result).toMatchObject({ success: false, data: {
+      outcome: "committed_unverified", timelineChanged: true,
+      driftedPlacements: [{ index: 0 }],
+    } });
+    expect(result.data.placements[0]).toMatchObject({ finalVerified: false, finalComponents: [
+      { type: "video", finalVerified: true },
+      { type: "audio", finalStartSeconds: 2, finalVerified: false },
+    ] });
+  });
+
+  it("re-reads earlier placements when a later insert throws after mutation", async () => {
+    const script = await scriptFor(getCompetitorGapTools(bridgeOptions).add_to_timeline_batch, {
+      clips: [
+        { item_id: "src", track_index: 0, start_seconds: 0 },
+        { item_id: "src", track_index: 1, start_seconds: 0 },
+      ],
+    });
+    const { sandbox } = issue562Host({ emptyTargets: true, mediaKind: "video_only", failSecondInsertAfterMutation: true });
+    const result = runScript(script, sandbox);
+    expect(result).toMatchObject({ success: false, data: {
+      outcome: "committed_unverified", timelineChanged: true, failedPlacement: 1,
+      driftedPlacements: [{ index: 0, finalStartSeconds: 2 }],
+    } });
+    expect(result.data.completedPlacements[0]).toMatchObject({ actualStartSeconds: 0, finalStartSeconds: 2, finalVerified: false });
   });
 
   it.each([false, true])("preserves displaced-tail evidence in an edit plan (earlier operation: %s)", async (earlierOperation) => {
