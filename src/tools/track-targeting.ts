@@ -1017,7 +1017,7 @@ export function getTrackTargetingTools(bridgeOptions: BridgeOptions) {
                   clip.components[i].properties[p].setValue(${level}, true);
                   try {
                     var storedLevel = clip.components[i].properties[p].getValue();
-                    if (storedLevel !== null && typeof storedLevel !== "undefined") appliedLevel = Number(storedLevel);
+                    if (typeof storedLevel === "number" || (typeof storedLevel === "string" && storedLevel.replace(/\\s/g, "") !== "")) appliedLevel = Number(storedLevel);
                   } catch (readError) {}
                   set = true;
                   break;
