@@ -265,7 +265,7 @@ export function getCompetitorGapTools(
               if (!beforeVideoIds[videoClip.nodeId]) {
                 addedCount++;
                 if (videoClip.projectItem && videoClip.projectItem.nodeId === placement.item.nodeId &&
-                    Math.abs(parseFloat(videoClip.start.ticks) - requestedTicks) <= matchFrameTicks) {
+                    Math.abs(parseFloat(videoClip.start.ticks) - requestedTicks) < matchFrameTicks) {
                   insertedComponents.push({ nodeId: String(videoClip.nodeId), itemId: String(placement.item.nodeId), type: "video", trackIndex: placement.trackIndex, startTicks: parseFloat(videoClip.start.ticks), endTicks: parseFloat(videoClip.end.ticks) });
                   if (!matched) { matched = videoClip; matchedType = "video"; }
                 }
@@ -277,7 +277,7 @@ export function getCompetitorGapTools(
                 if (!beforeAudioIds[audioClip.nodeId]) {
                   addedCount++;
                   if (audioClip.projectItem && audioClip.projectItem.nodeId === placement.item.nodeId &&
-                      Math.abs(parseFloat(audioClip.start.ticks) - requestedTicks) <= matchFrameTicks) {
+                      Math.abs(parseFloat(audioClip.start.ticks) - requestedTicks) < matchFrameTicks) {
                     insertedComponents.push({ nodeId: String(audioClip.nodeId), itemId: String(placement.item.nodeId), type: "audio", trackIndex: placement.audioTrackIndex, startTicks: parseFloat(audioClip.start.ticks), endTicks: parseFloat(audioClip.end.ticks) });
                     if (!matched) { matched = audioClip; matchedType = "audio"; }
                   }

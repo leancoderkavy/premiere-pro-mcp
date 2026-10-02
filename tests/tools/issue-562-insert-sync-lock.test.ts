@@ -540,11 +540,11 @@ describe("issue #562 — insert_from_source honors sync lock", () => {
     expect(result.data.completedPlacements[0]).toMatchObject({ actualStartSeconds: 0, finalStartSeconds: 2, finalVerified: false });
   });
 
-  it("matches the inserted clip rather than a same-source split tail", async () => {
+  it.each([2, 1 / 24])("matches the inserted clip rather than a same-source split tail at duration %s", async (duration) => {
     const script = await scriptFor(getCompetitorGapTools(bridgeOptions).add_to_timeline_batch, {
       clips: [{ item_id: "src", track_index: 0, start_seconds: 6 }],
     });
-    const { sandbox } = issue562Host({ sameSourceStraddler: true });
+    const { sandbox } = issue562Host({ sameSourceStraddler: true, sourceDurationSeconds: duration });
     const result = runScript(script, sandbox);
     expect(result).toMatchObject({ success: true, data: { verified: true, placements: [
       { actualStartSeconds: 6, finalStartSeconds: 6, finalVerified: true },
