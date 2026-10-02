@@ -1271,8 +1271,8 @@ export function getExportTools(bridgeOptions: BridgeOptions) {
           var batchStartOutcome = "not_requested";
           if (${args.start_batch === true ? "true" : "false"}) {
             try {
-              app.encoder.startBatch();
-              batchStartOutcome = "requested";
+              var startBatchAccepted = app.encoder.startBatch();
+              batchStartOutcome = (startBatchAccepted === true || startBatchAccepted === 1) ? "requested" : "rejected";
             } catch (startBatchError) {
               batchStartOutcome = "unavailable: " + (startBatchError && startBatchError.message ? startBatchError.message : startBatchError);
             }

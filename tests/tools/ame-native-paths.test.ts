@@ -36,14 +36,23 @@ describe("AME handoff native paths", () => {
     expect(encoder.startBatch).not.toHaveBeenCalled();
   });
 
-  it("starts every ready AME job only with explicit opt-in and reports an unverified request", async () => {
+  it.each([true, 1])("starts every ready AME job only with opt-in and accepting host return %s", async accepted => {
     const { script } = await prepare(true);
-    const encoder = { launchEncoder: vi.fn(), encodeSequence: vi.fn(() => "job"), startBatch: vi.fn() };
+    const encoder = { launchEncoder: vi.fn(), encodeSequence: vi.fn(() => "job"), startBatch: vi.fn(() => accepted) };
     function File(this: any, path: string) { this.fsName = path; this.exists = true; this.parent = { exists: true, fsName: "parent" }; }
     const result = JSON.parse(String(runInNewContext(`${getHelpersSource()}\n${script}`, { File, app: { project: { activeSequence: {}, path: "saved.prproj" }, encoder } })));
     expect(encoder.startBatch).toHaveBeenCalledOnce();
     expect(result).toMatchObject({ success: true, data: { queueBatchStart: "requested", outcome: "committed_unverified", verified: false } });
     expect(result.data.verificationScope).toContain("all ready AME jobs");
+  });
+
+  it.each([false, 0, undefined])("preserves queue handoff without claiming batch acceptance for %s", async accepted => {
+    const { script } = await prepare(true);
+    const encoder = { launchEncoder: vi.fn(), encodeSequence: vi.fn(() => "job"), startBatch: vi.fn(() => accepted) };
+    function File(this: any, path: string) { this.fsName = path; this.exists = true; this.parent = { exists: true, fsName: "parent" }; }
+    const result = JSON.parse(String(runInNewContext(`${getHelpersSource()}\n${script}`, { File, app: { project: { activeSequence: {}, path: "saved.prproj" }, encoder } })));
+    expect(result).toMatchObject({ success: true, data: { accepted: true, queueBatchStart: "rejected", outcome: "committed_unverified" } });
+    expect(result.data.verificationScope).not.toContain("accepted a request to start");
   });
 
   it("preserves the queue handoff when batch startup is unavailable", async () => {
