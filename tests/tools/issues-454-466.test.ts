@@ -38,7 +38,7 @@ beforeEach(() => vi.clearAllMocks());
 // https://github.com/leancoderkavy/premiere-pro-mcp/issues/457
 describe("issue #457 — roll_edit must move source in/out with the visible cut", () => {
   it("writes the matching outPoint and inPoint alongside the rolled edges", async () => {
-    mockedSendCommand.mockResolvedValueOnce({ success: true, data: { projectDocumentId: "project", sequenceId: "seq", entries: [{ nodeId: "clip-1", mediaPath: "/tmp/clip.mp4", position: "0|1|0|1", trackType: "video", trackIndex: 0, clipIndex: 0 }] } });
+    mockedSendCommand.mockResolvedValueOnce({ success: true, data: { projectDocumentId: "project", sequenceId: "seq", linkedNodeIds: [], entries: [{ nodeId: "clip-1", mediaPath: "/tmp/clip.mp4", position: "0|1|0|1", trackType: "video", trackIndex: 0, clipIndex: 0 }] } });
     const script = await scriptFor(advanced.roll_edit, { node_id: "clip-1", offset_seconds: 1 });
 
     expect(script).toContain("result.clip.outPoint = expectedOut;");
@@ -47,7 +47,7 @@ describe("issue #457 — roll_edit must move source in/out with the visible cut"
   });
 
   it("fails when the source in/out metadata does not follow the visible cut", async () => {
-    mockedSendCommand.mockResolvedValueOnce({ success: true, data: { projectDocumentId: "project", sequenceId: "seq", entries: [{ nodeId: "clip-1", mediaPath: "/tmp/clip.mp4", position: "0|1|0|1", trackType: "video", trackIndex: 0, clipIndex: 0 }] } });
+    mockedSendCommand.mockResolvedValueOnce({ success: true, data: { projectDocumentId: "project", sequenceId: "seq", linkedNodeIds: [], entries: [{ nodeId: "clip-1", mediaPath: "/tmp/clip.mp4", position: "0|1|0|1", trackType: "video", trackIndex: 0, clipIndex: 0 }] } });
     const script = await scriptFor(advanced.roll_edit, { node_id: "clip-1", offset_seconds: 1 });
 
     expect(script).toContain("afterOut !== expectedOut || afterIncomingIn !== expectedIncomingIn");

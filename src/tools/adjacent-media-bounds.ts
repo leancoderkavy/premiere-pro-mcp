@@ -20,7 +20,7 @@ const strictLinkedPartners = `
       if (!found) throw new Error("Linked member could not be located");
       seen["$" + id] = true; partners.push(found);
     }
-    partners.sort(function(a, b) { var left = String(a.clip.nodeId), right = String(b.clip.nodeId); return left < right ? -1 : left > right ? 1 : 0; });
+    partners.sort(function(a, b) { var left = String(a.clip.nodeId), right = String(b.clip.nodeId); if (left < right) return -1; if (left > right) return 1; return 0; });
     return partners;
   }
 `;
