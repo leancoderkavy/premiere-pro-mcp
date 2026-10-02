@@ -540,6 +540,14 @@ describe("physical media bounds for adjacent edits (#718/#719)", () => {
     expect(mockedSendCommand).toHaveBeenCalledTimes(1);
     expect([...video, ...audio].map((clip) => clip.snapshot())).toEqual(before);
   });
+  it.each(["roll_edit", "slide_edit"] as const)("refuses unsafe physical tick bounds before %s", async (tool) => {
+    const { video, audio } = host();
+    vi.mocked(probeMediaDurationSeconds).mockResolvedValue(40000);
+    const before = [...video, ...audio].map((clip) => clip.snapshot());
+    await expect(tools[tool].handler({ node_id: "v1", offset_seconds: 0.5 })).resolves.toMatchObject({ success: false, error: expect.stringContaining("duration could not be verified") });
+    expect(mockedSendCommand).toHaveBeenCalledTimes(1);
+    expect([...video, ...audio].map((clip) => clip.snapshot())).toEqual(before);
+  });
   it("refuses source replacement after probing", async () => {
     const { video, audio } = host();
     const before = [...video, ...audio].map((clip) => clip.snapshot());

@@ -44,15 +44,16 @@ export async function prepareAdjacentMediaBounds(options: BridgeOptions, nodeId:
     data.entries.some((entry) => !entry || typeof entry.nodeId !== "string" || typeof entry.mediaPath !== "string" || !entry.mediaPath || typeof entry.position !== "string" || entry.position.includes("?"))) {
     return { success: false as const, error: "Physical media evidence was incomplete; nothing was changed." };
   }
-  const durations = new Map<string, number>();
+  const durationTicks = new Map<string, number>();
   for (const entry of data.entries) {
-    if (!durations.has(entry.mediaPath)) {
+    if (!durationTicks.has(entry.mediaPath)) {
       const duration = await probeMediaDurationSeconds(entry.mediaPath);
-      if (duration === null || !Number.isFinite(duration) || duration <= 0 || !Number.isFinite(duration * 254016000000)) return { success: false as const, error: "Physical media duration could not be verified. Install ffprobe and use readable finite media; nothing was changed." };
-      durations.set(entry.mediaPath, duration);
+      const endTicks = duration === null ? NaN : Math.floor(duration * 254016000000);
+      if (duration === null || !Number.isFinite(duration) || duration <= 0 || !Number.isSafeInteger(endTicks) || endTicks <= 0) return { success: false as const, error: "Physical media duration could not be verified. Install ffprobe and use readable finite media; nothing was changed." };
+      durationTicks.set(entry.mediaPath, endTicks);
     }
   }
-  const entries = data.entries.map((entry) => `{"nodeId":"${escapeForExtendScript(entry.nodeId)}","mediaPath":"${escapeForExtendScript(entry.mediaPath)}","position":"${escapeForExtendScript(entry.position)}","endTicks":${durations.get(entry.mediaPath)! * 254016000000}}`).join(",");
+  const entries = data.entries.map((entry) => `{"nodeId":"${escapeForExtendScript(entry.nodeId)}","mediaPath":"${escapeForExtendScript(entry.mediaPath)}","position":"${escapeForExtendScript(entry.position)}","endTicks":${durationTicks.get(entry.mediaPath)!}}`).join(",");
   return { success: true as const, script: `
     var sourceEvidence = [${entries}];
     if (String(app.project.activeSequence.sequenceID) !== "${escapeForExtendScript(data.sequenceId)}") return __error("Active sequence changed during media inspection; nothing was changed.");
