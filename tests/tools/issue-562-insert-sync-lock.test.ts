@@ -140,6 +140,8 @@ function issue562Host(options: {
   overlaySeconds?: [number, number];
   sourceDurationSeconds?: number;
   mediaKind?: "audio_only" | "video_only";
+  omitVideoInsert?: boolean;
+  omitAudioInsert?: boolean;
   displaceTargetTail?: boolean;
   displacePreRazoredTail?: boolean;
   noAudioRazor?: boolean;
@@ -203,8 +205,8 @@ function issue562Host(options: {
       const targetTracks = [videoTracks[vTrack as 0 | 1 | 2], audioTracks[aTrack as 0 | 1 | 2]];
       const beforeIds = targetTracks.map((track) => new Set(track._arr.map((clip) => clip.nodeId)));
       // Like Premiere, only a track that receives part of the item is rippled.
-      if (options.mediaKind !== "audio_only") insertOnTrack(videoTracks[vTrack as 0 | 1 | 2], item, time, `ins-v-${vTrack}-${insertionCount}`);
-      if (options.mediaKind !== "video_only") insertOnTrack(audioTracks[aTrack as 0 | 1 | 2], item, time, `ins-a-${aTrack}-${insertionCount}`);
+      if (options.mediaKind !== "audio_only" && !options.omitVideoInsert) insertOnTrack(videoTracks[vTrack as 0 | 1 | 2], item, time, `ins-v-${vTrack}-${insertionCount}`);
+      if (options.mediaKind !== "video_only" && !options.omitAudioInsert) insertOnTrack(audioTracks[aTrack as 0 | 1 | 2], item, time, `ins-a-${aTrack}-${insertionCount}`);
       if (options.displaceTargetTail || options.displacePreRazoredTail) {
         targetTracks.forEach((track, index) => {
           const tail = track._arr.find((clip) => clip.nodeId.endsWith("-right") &&
@@ -490,6 +492,19 @@ describe("issue #562 — insert_from_source honors sync lock", () => {
     } });
     expect(result.data.placements[0]).toMatchObject({ requestedStartSeconds: 0, actualStartSeconds: 0, finalStartSeconds: 2, finalVerified: false });
     expect(rangesOf(seq.videoTracks[0])).toEqual([[2, 4]]);
+  });
+
+  it.each(["audio", "video"] as const)("does not verify an A/V batch when the host drops %s", async (missing) => {
+    const script = await scriptFor(getCompetitorGapTools(bridgeOptions).add_to_timeline_batch, {
+      clips: [{ item_id: "src", track_index: 0, start_seconds: 0 }],
+    });
+    const { sandbox } = issue562Host({ emptyTargets: true,
+      omitAudioInsert: missing === "audio", omitVideoInsert: missing === "video" });
+    const result = runScript(script, sandbox);
+    expect(result).toMatchObject({ success: false, data: {
+      timelineChanged: true, outcome: "committed_unverified", verified: false,
+    } });
+    expect(result.data.placements[0]).toMatchObject({ finalVerified: false, missingStreams: [missing] });
   });
 
   it("verifies batch placements against the final sequence after every insert", async () => {

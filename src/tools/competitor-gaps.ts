@@ -174,6 +174,14 @@ export function getCompetitorGapTools(
             if (!preflight.item) {
               return __error("Project item not found for placement " + i + ": " + preflight.itemId + ". No placement was attempted.");
             }
+            function expectedStream(mediaType) {
+              try {
+                var span = parseFloat(preflight.item.getOutPoint(mediaType).ticks) - parseFloat(preflight.item.getInPoint(mediaType).ticks);
+                return !isFinite(span) || span > 0;
+              } catch (eStreamSpan) { return true; }
+            }
+            preflight.expectedVideo = expectedStream(1);
+            preflight.expectedAudio = expectedStream(2);
           }
 
           var results = [];
@@ -185,6 +193,8 @@ export function getCompetitorGapTools(
               var snapshot = placementSnapshots[ri];
               var finalComponents = [];
               var allVerified = snapshot.components.length > 0;
+              var verifiedVideo = false;
+              var verifiedAudio = false;
               for (var rj = 0; rj < snapshot.components.length; rj++) {
                 var component = snapshot.components[rj];
                 var finalTrack = null;
@@ -208,6 +218,8 @@ export function getCompetitorGapTools(
                   Math.abs(finalStartTicks - component.startTicks) <= __TICK_MATCH_TOL &&
                   Math.abs(finalEndTicks - component.endTicks) <= __TICK_MATCH_TOL;
                 if (!componentVerified) allVerified = false;
+                else if (component.type === "video") verifiedVideo = true;
+                else if (component.type === "audio") verifiedAudio = true;
                 finalComponents.push({
                   type: component.type, trackIndex: component.trackIndex, nodeId: component.nodeId,
                   finalStartSeconds: finalClip && isFinite(finalStartTicks) ? __ticksToSeconds(finalStartTicks) : null,
@@ -215,6 +227,10 @@ export function getCompetitorGapTools(
                   finalVerified: componentVerified
                 });
               }
+              var missingStreams = [];
+              if (snapshot.expectedVideo && !verifiedVideo) missingStreams.push("video");
+              if (snapshot.expectedAudio && !verifiedAudio) missingStreams.push("audio");
+              if (missingStreams.length) allVerified = false;
               var primary = finalComponents[0] || null;
               var finalPlacement = {
                 item: results[ri].item, itemId: results[ri].itemId,
@@ -227,6 +243,7 @@ export function getCompetitorGapTools(
                 finalEndSeconds: primary ? primary.finalEndSeconds : null,
                 insertedTrackItems: results[ri].insertedTrackItems,
                 finalComponents: finalComponents,
+                missingStreams: missingStreams,
                 finalVerified: allVerified
               };
               finalPlacements.push(finalPlacement);
@@ -304,7 +321,7 @@ export function getCompetitorGapTools(
               return __error("Batch insertion " + i + " landed at " + actualStart + "s instead of " + placement.startSeconds + "s after " + results.length + " completed placement(s). The batch is not reported as verified.",
                 { timelineChanged: true, outcome: "committed_unverified", verified: false, failedPlacement: i, completedPlacements: wrongStartPartial.placements, driftedPlacements: wrongStartPartial.driftedPlacements });
             }
-            placementSnapshots.push({ components: insertedComponents });
+            placementSnapshots.push({ components: insertedComponents, expectedVideo: placement.expectedVideo, expectedAudio: placement.expectedAudio });
             results.push({
               item: placement.item.name,
               itemId: placement.item.nodeId,
