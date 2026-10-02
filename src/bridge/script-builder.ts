@@ -249,7 +249,7 @@ function __isUniformScale(component) {
   if (!component || !component.properties) return false;
   for (var i = 0; i < component.properties.numItems; i++) {
     var prop = component.properties[i];
-    if (String(prop.displayName) !== "Uniform Scale") continue;
+    if (!__videoIntrinsicPropertyMatches(prop, "Uniform Scale")) continue;
     try {
       var value = prop.getValue();
       return value === true || value === 1;
@@ -258,6 +258,25 @@ function __isUniformScale(component) {
     }
   }
   return false;
+}
+// Built-in Motion/Opacity components have stable match names, but their
+// property display names are localized. These es-ES labels were measured on
+// Premiere 26.5.2 (#722); unknown labels fail closed rather than guessing an
+// ordinal or a property match name that the CEP API has not confirmed.
+function __videoIntrinsicPropertyMatches(property, wanted) {
+  if (!property) return false;
+  var actual = String(property.displayName);
+  if (actual === wanted) return true;
+  var spanish = {
+    "Opacity": "Opacidad",
+    "Position": "Posición",
+    "Scale": "Escala",
+    "Scale Height": "Altura de escala",
+    "Scale Width": "Anchura de escala",
+    "Uniform Scale": "Escala uniforme",
+    "Rotation": "Rotación"
+  };
+  return actual === spanish[wanted];
 }
 function __propertyNameMatches(actual, wanted, component) {
   actual = String(actual);
@@ -278,8 +297,8 @@ function __setMotionScale(motion, value) {
   var width = null;
   for (var i = 0; i < motion.properties.numItems; i++) {
     var name = String(motion.properties[i].displayName);
-    if (name === "Scale" || name === "Scale Height") height = motion.properties[i];
-    else if (name === "Scale Width") width = motion.properties[i];
+    if (__videoIntrinsicPropertyMatches(motion.properties[i], "Scale") || __videoIntrinsicPropertyMatches(motion.properties[i], "Scale Height")) height = motion.properties[i];
+    else if (__videoIntrinsicPropertyMatches(motion.properties[i], "Scale Width")) width = motion.properties[i];
   }
   if (!height) return { ok: false, uniform: uniform, error: "Motion has no Scale property; nothing was changed." };
   if (!uniform && !width) return { ok: false, uniform: uniform, error: "Uniform Scale is off but Motion has no Scale Width property, so the clip cannot be scaled evenly; nothing was changed." };
