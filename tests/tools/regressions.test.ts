@@ -1053,6 +1053,14 @@ describe("issue #237 — reported mutations must be observable or fail", () => {
     expect(mockedSendCommand).not.toHaveBeenCalled();
   });
 
+  it("refuses import_folder with a nonexistent folder before Premiere is contacted", async () => {
+    const missing = join(process.cwd(), "__missing_import_folder_713__");
+    await expect(media.import_folder.handler({ folder_path: missing })).resolves.toMatchObject({
+      success: false, error: expect.stringContaining("not found"),
+    });
+    expect(mockedSendCommand).not.toHaveBeenCalled();
+  });
+
   it("rejects empty arrays and directories before host contact (#725 FAM-5)", async () => {
     expect(media.import_media.parameters.properties.file_paths).toMatchObject({ minItems: 1, items: { minLength: 1 } });
     await expect(media.import_media.handler({ file_paths: [] })).resolves.toMatchObject({
