@@ -1341,6 +1341,8 @@ export function getUtilityTools(bridgeOptions: BridgeOptions) {
           if (!item) return __error("Item not found");
 
           var markers = item.getMarkers();
+          var markerBarrier = __rememberMarkerUndoBarrier(__readUndoIndex());
+          if (!markerBarrier.ok) return __error(markerBarrier.error);
           var marker = markers.createMarker(${args.time_seconds});
 
           ${args.name ? `marker.name = "${escapeForExtendScript(args.name)}";` : ""}

@@ -1387,6 +1387,7 @@ function __markerUndoProjectId() {
 function __rememberMarkerUndoBarrier(index) {
   var state = __markerUndoState(true);
   if (!state) return { ok: false, error: "The CEP engine cannot persist a marker undo barrier; no marker write was attempted." };
+  __markerWriteAttempted = true;
   var projectId = __markerUndoProjectId();
   if (!projectId) { state.unknownProject = true; return { ok: true }; }
   var safeIndex = typeof index === "number" && isFinite(index) && index >= 0 && Math.floor(index) === index ? index : null;
@@ -2212,6 +2213,7 @@ function __jsonStringify(obj) {
 // none. __result reports how many entries the command added so an agent can
 // undo exactly that call.
 var __undoStart = null;
+var __markerWriteAttempted = false;
 function __readUndoIndex() {
   try {
     app.enableQE();
@@ -2222,7 +2224,17 @@ function __readUndoIndex() {
   }
 }
 
+function __markerWriteReceipt(data) {
+  if (!__markerWriteAttempted) return data;
+  if (!data || typeof data !== "object" || data instanceof Array) data = {};
+  var barrier = __rememberMarkerUndoBarrier(__readUndoIndex());
+  data.qeMarkerUndoVerified = false;
+  data.markerUndoBarrier = barrier.ok;
+  if (!data.markerUndoWarning) data.markerUndoWarning = "Marker reversal through QE is not verified. The undo tools protect this observed marker boundary; inspect markers separately.";
+  return data;
+}
 function __result(data) {
+  data = __markerWriteReceipt(data);
   if (__undoStart !== null && data && typeof data === "object" && !(data instanceof Array)) {
     var undoNow = __readUndoIndex();
     if (undoNow !== null && undoNow > __undoStart) {
@@ -2241,6 +2253,7 @@ function __error(msg, extraData) {
     data = {};
     for (var key in extraData) if (extraData.hasOwnProperty(key)) data[key] = extraData[key];
   }
+  data = __markerWriteReceipt(data);
   if (__undoStart !== null) {
     var undoNow = __readUndoIndex();
     if (undoNow !== null && undoNow > __undoStart) {
@@ -2303,6 +2316,7 @@ export function buildScript(code: string): string {
   return `(function() {
   try {
     ${undoStart}
+    __markerWriteAttempted = false;
     ${code}
   } catch(e) {
     return __error(e.toString());

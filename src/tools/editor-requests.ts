@@ -243,6 +243,10 @@ export function getEditorRequestTools(bridgeOptions: BridgeOptions) {
             }
             if (near) skipped.push({ timeSeconds: requested[i].t, name: requested[i].n }); else toWrite.push(requested[i]);
           }
+          if (toWrite.length) {
+            var markerBarrier = __rememberMarkerUndoBarrier(__readUndoIndex());
+          if (!markerBarrier.ok) return __error(markerBarrier.error);
+          }
           var created = [];
           for (i = 0; i < toWrite.length; i++) {
             var spec = toWrite[i];

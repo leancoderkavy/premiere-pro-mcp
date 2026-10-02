@@ -1183,6 +1183,10 @@ export function getAdvancedTools(bridgeOptions: BridgeOptions) {
           }
           var clipsBefore = countClips();
 
+          if ("${action}" === "CreateMarkers") {
+            var markerBarrier = __rememberMarkerUndoBarrier(__readUndoIndex());
+          if (!markerBarrier.ok) return __error(markerBarrier.error);
+          }
           var detected = seq.performSceneEditDetectionOnSelection(
             "${action}",
             ${applyCutsToLinkedAudio},
