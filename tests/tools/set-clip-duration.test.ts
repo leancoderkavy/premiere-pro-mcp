@@ -83,6 +83,7 @@ class MockClip {
   }
   get inPoint() { return { ticks: "0" }; }
   get outPoint() { return { ticks: String(parseFloat(this._end) - parseFloat(this._start)) }; }
+  getLinkedItems() { return { numItems: 0 }; }
   getSpeed() { return 1; }
   isSpeedReversed() { return 0; }
 }
