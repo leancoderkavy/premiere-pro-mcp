@@ -31,6 +31,7 @@ function host(options: { failing: string; recordsUndo?: boolean }) {
       name: `shot ${id}`,
       start: { ticks: String(start * TICKS) },
       end: { ticks: String((start + 10) * TICKS) },
+      inPoint: { ticks: "0" }, outPoint: { ticks: String(10 * TICKS) },
       getLinkedItems: () => null,
       remove: () => {
         if (id === options.failing) {

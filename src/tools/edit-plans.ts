@@ -108,8 +108,9 @@ function hostBindingScript(plan: EditPlan): string {
         targets.push({type:"insert_clip",targetId:__bindingIdentity(item${index}.nodeId),videoTrackIndex:${video},audioTrackIndex:${audio}});`;
     }
     return `var located${index} = __planLocateClip(seq, "${escapeForExtendScript(operation.node_id)}"); if (!located${index}) return __error("Clip not found for operation ${index}");
-      var clip${index} = located${index}.clip;
-      targets.push({type:"remove_clip",targetId:__bindingIdentity(clip${index}.nodeId),sourceProjectItemId:__bindingIdentity(clip${index}.projectItem && clip${index}.projectItem.nodeId),trackType:located${index}.trackType,trackIndex:located${index}.trackIndex,startTicks:__bindingIdentity(clip${index}.start && clip${index}.start.ticks),endTicks:__bindingIdentity(clip${index}.end && clip${index}.end.ticks)});`;
+      var removal${index} = __planClipBinding(located${index});
+      var boundRemoval${index} = {type:"remove_clip",targetId:removal${index}.targetId,sourceProjectItemId:removal${index}.sourceProjectItemId,trackType:removal${index}.trackType,trackIndex:removal${index}.trackIndex,startTicks:removal${index}.startTicks,endTicks:removal${index}.endTicks,inTicks:removal${index}.inTicks,outTicks:removal${index}.outTicks,linkedPartners: ${operation.ripple === true || operation.include_linked !== false ? `__planLinkedBindings(seq, located${index})` : "[]"}};
+      targets.push(boundRemoval${index});`;
   });
   return `${sequence}
     if (!__isCurrentProjectSequence(seq)) return __error("Sequence is not in the current project");
@@ -129,6 +130,30 @@ function hostBindingScript(plan: EditPlan): string {
         }
       }
       return null;
+    }
+    function __planClipBinding(located) {
+      var clip = located.clip;
+      return {targetId:__bindingIdentity(clip.nodeId),sourceProjectItemId:__bindingIdentity(clip.projectItem && clip.projectItem.nodeId),trackType:located.trackType,trackIndex:located.trackIndex,startTicks:__bindingIdentity(clip.start && clip.start.ticks),endTicks:__bindingIdentity(clip.end && clip.end.ticks),inTicks:__bindingIdentity(clip.inPoint && clip.inPoint.ticks),outTicks:__bindingIdentity(clip.outPoint && clip.outPoint.ticks)};
+    }
+    function __planLinkedBindings(sequence, located) {
+      if (typeof located.clip.getLinkedItems !== "function") throw new Error("Premiere cannot expose linked removal targets; preview cannot be bound safely");
+      var linked = null;
+      try { linked = located.clip.getLinkedItems(); }
+      catch (linkageError) { throw new Error("Linked removal targets could not be read; nothing was changed: " + linkageError.toString()); }
+      if (linked !== null && (!linked || typeof linked !== "object" || typeof linked.numItems !== "number" || linked.numItems < 0 || linked.numItems > 256 || Math.floor(linked.numItems) !== linked.numItems)) throw new Error("Linked removal targets cannot be enumerated safely");
+      var partners = [], seen = {};
+      for (var li = 0; linked && li < linked.numItems; li++) {
+        var id = __bindingIdentity(linked[li] && linked[li].nodeId);
+        if (id === String(located.clip.nodeId) || seen[id]) continue;
+        var partner = __planLocateClip(sequence, id);
+        if (!partner) throw new Error("A linked removal target is no longer in the inspected sequence");
+        // Match __linkedPartnerClips: same-track group members are not removed.
+        if (partner.trackType === located.trackType && partner.trackIndex === located.trackIndex) continue;
+        seen[id] = true;
+        partners.push(__planClipBinding(partner));
+      }
+      partners.sort(function (left, right) { return left.targetId < right.targetId ? -1 : (left.targetId > right.targetId ? 1 : 0); });
+      return partners;
     }
     function __planFindClip(sequence, nodeId) { var located = __planLocateClip(sequence, nodeId); return located ? located.clip : null; }
     var projectDocumentId = __bindingIdentity(app.project.documentID);

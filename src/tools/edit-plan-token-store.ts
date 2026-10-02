@@ -8,9 +8,19 @@ const TOKEN_PATTERN = /^([0-9a-f]{64})\.([0-9a-f]{32})$/;
 const TOKEN_FILE_PATTERN = /^edit-plan-token-[0-9a-f]{32}\.json$/;
 const TOKEN_CLAIM_PATTERN = /^edit-plan-token-[0-9a-f]{32}\.claimed$/;
 
+export interface EditPlanBoundClip {
+  targetId: string;
+  sourceProjectItemId: string;
+  trackType: "video" | "audio";
+  trackIndex: number;
+  startTicks: string;
+  endTicks: string;
+  inTicks: string;
+  outTicks: string;
+}
 export type EditPlanHostTarget =
   | { type: "insert_clip"; targetId: string; videoTrackIndex: number; audioTrackIndex: number }
-  | { type: "remove_clip"; targetId: string; sourceProjectItemId: string; trackType: "video" | "audio"; trackIndex: number; startTicks: string; endTicks: string };
+  | ({ type: "remove_clip"; linkedPartners: EditPlanBoundClip[] } & EditPlanBoundClip);
 export interface EditPlanHostBinding {
   version: 1;
   projectDocumentId: string;
@@ -26,13 +36,17 @@ export function validateEditPlanHostBinding(value: unknown): EditPlanHostBinding
   const identity = (id: unknown) => typeof id === "string" && id.trim().length > 0;
   const index = (n: unknown) => typeof n === "number" && Number.isInteger(n) && n >= 0;
   if (binding.version !== 1 || !identity(binding.projectDocumentId) || !identity(binding.sequenceId) || !Array.isArray(binding.targets) || !binding.targets.length || binding.targets.length > 100) return fail();
+  const clipBinding = (clip: EditPlanBoundClip): EditPlanBoundClip => {
+    if (!clip || !identity(clip.targetId) || !identity(clip.sourceProjectItemId) || (clip.trackType !== "video" && clip.trackType !== "audio") || !index(clip.trackIndex) || !identity(clip.startTicks) || !identity(clip.endTicks) || !identity(clip.inTicks) || !identity(clip.outTicks)) return fail();
+    return { targetId: clip.targetId, sourceProjectItemId: clip.sourceProjectItemId, trackType: clip.trackType, trackIndex: clip.trackIndex, startTicks: clip.startTicks, endTicks: clip.endTicks, inTicks: clip.inTicks, outTicks: clip.outTicks };
+  };
   const targets = binding.targets.map((target): EditPlanHostTarget => {
     if (!target || !identity(target.targetId)) return fail();
     if (target.type === "insert_clip" && index(target.videoTrackIndex) && index(target.audioTrackIndex)) {
       return { type: target.type, targetId: target.targetId, videoTrackIndex: target.videoTrackIndex, audioTrackIndex: target.audioTrackIndex };
     }
-    if (target.type === "remove_clip" && identity(target.sourceProjectItemId) && (target.trackType === "video" || target.trackType === "audio") && index(target.trackIndex) && identity(target.startTicks) && identity(target.endTicks)) {
-      return { type: target.type, targetId: target.targetId, sourceProjectItemId: target.sourceProjectItemId, trackType: target.trackType, trackIndex: target.trackIndex, startTicks: target.startTicks, endTicks: target.endTicks };
+    if (target.type === "remove_clip" && Array.isArray(target.linkedPartners) && target.linkedPartners.length <= 256) {
+      return { type: target.type, ...clipBinding(target), linkedPartners: target.linkedPartners.map(clipBinding) };
     }
     return fail();
   });

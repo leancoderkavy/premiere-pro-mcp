@@ -10,7 +10,7 @@ describe("edit-plan preview target inspection", () => {
   const issue = vi.fn(() => "token");
   const tools = getEditPlanTools({}, { capabilities: { capabilities: new Set(["inspect"]), source: "explicit" }, tokenStore: { issue, consume: vi.fn() } });
   function host() {
-    const target = { sequenceID: "target", name: "Target", videoTracks: { numTracks: 1, 0: { clips: { numItems: 1, 0: { nodeId: "clip", projectItem: { nodeId: "media" }, start: { ticks: "0" }, end: { ticks: "1" } } } } }, audioTracks: { numTracks: 1, 0: { clips: { numItems: 0 } } } };
+    const target = { sequenceID: "target", name: "Target", videoTracks: { numTracks: 1, 0: { clips: { numItems: 1, 0: { nodeId: "clip", projectItem: { nodeId: "media" }, start: { ticks: "0" }, end: { ticks: "1" }, inPoint: { ticks: "0" }, outPoint: { ticks: "1" }, getLinkedItems: () => null } } } }, audioTracks: { numTracks: 1, 0: { clips: { numItems: 0 } } } };
     const active = { ...target, sequenceID: "active" };
     const project = { documentID: "test-project", activeSequence: active, sequences: { numSequences: 2, 0: active, 1: target }, rootItem: { children: { numItems: 1, 0: { nodeId: "media", name: "Media", type: 1 } } } };
     vi.mocked(sendCommand).mockImplementation(async (script) => JSON.parse(String(runInNewContext(`${getHelpersSource()}\n${script}`, { app: { project } }))));

@@ -20,7 +20,7 @@ function fixture() {
   const media = { nodeId: "source-A", name: "Source", type: 1 };
   const list: Array<Record<string, unknown>> = [];
   const remove = vi.fn(() => { list.splice(0, 1); return 0; });
-  const clip = { nodeId: "clip-A", name: "Clip", projectItem: media, start: { ticks: "0" }, end: { ticks: "254016000000" }, getLinkedItems: () => null, remove };
+  const clip = { nodeId: "clip-A", name: "Clip", projectItem: media, start: { ticks: "0" }, end: { ticks: "254016000000" }, inPoint: { ticks: "0" }, outPoint: { ticks: "254016000000" }, getLinkedItems: () => null, remove };
   list.push(clip);
   const clips = new Proxy({}, { get: (_target, key) => key === "numItems" ? list.length : list[Number(key)] });
   const sequence = { sequenceID: "sequence-A", name: "Target", videoTracks: { numTracks: 1, 0: { clips, isLocked: () => false } }, audioTracks: { numTracks: 1, 0: { clips: { numItems: 0 } } } };
@@ -39,6 +39,21 @@ function fixture() {
   }))));
   const dependencies = { capabilities: { capabilities: new Set(["inspect", "edit"]), source: "explicit" as const }, auditSink: vi.fn() };
   return { tools: getEditPlanTools({ tempDir }, dependencies), restart: () => getEditPlanTools({ tempDir }, dependencies), project, sequence, other, media, clip, remove, activation };
+}
+function linkedFixture() {
+  const f = fixture();
+  const partnerRemove = vi.fn();
+  const partner = { ...f.clip, nodeId: "linked-B", projectItem: { ...f.media, nodeId: "source-B" }, remove: partnerRemove };
+  const additionalRemove = vi.fn();
+  const additional = { ...partner, nodeId: "linked-C", projectItem: { ...f.media, nodeId: "source-C" }, remove: additionalRemove };
+  const audio = [partner, additional];
+  partnerRemove.mockImplementation(() => { audio.splice(audio.indexOf(partner), 1); return 0; });
+  additionalRemove.mockImplementation(() => { audio.splice(audio.indexOf(additional), 1); return 0; });
+  f.sequence.audioTracks[0].clips = new Proxy({ numItems: 2 }, { get: (_target, key) => key === "numItems" ? audio.length : audio[Number(key)] });
+  (f.sequence.audioTracks[0] as typeof f.sequence.audioTracks[0] & { isLocked: () => boolean }).isLocked = () => false;
+  const linkage = [partner];
+  (f.clip as unknown as { getLinkedItems: () => unknown }).getLinkedItems = () => new Proxy({ numItems: 0 }, { get: (_target, key) => key === "numItems" ? linkage.length : linkage[Number(key)] });
+  return { ...f, partner, additional, partnerRemove, additionalRemove, audio, linkage };
 }
 const insert = { operations: [{ type: "insert_clip" as const, item_id: "Source", start_seconds: 0 }] };
 const removal = { operations: [{ type: "remove_clip" as const, node_id: "clip-A" }] };
@@ -94,6 +109,54 @@ describe("persisted preview host-target binding", () => {
     f.project.activeSequence = f.other; f.activation.mockClear();
     expect(await f.tools.apply_edit_plan.handler({ plan, confirmation_token: token })).toMatchObject({ success: true, data: { applied: true } });
     expect(f.activation).toHaveBeenCalledExactlyOnceWith(f.sequence); expect(f.remove).toHaveBeenCalledOnce();
+  });
+  it.each([false, true])("rejects newly linked removal partners before mutation (ripple:%s)", async (ripple) => {
+    const f = linkedFixture();
+    const plan = { operations: [{ ...removal.operations[0], ripple, ...(ripple ? { include_linked: false } : {}) }] };
+    const token = await preview(f.tools, plan);
+    f.linkage.push(f.additional);
+    const result = await f.restart().apply_edit_plan.handler({ plan, confirmation_token: token });
+    expect(result).toMatchObject({ success: false, error: expect.stringContaining("host targets changed") });
+    expect(f.remove).not.toHaveBeenCalled(); expect(f.partnerRemove).not.toHaveBeenCalled(); expect(f.additionalRemove).not.toHaveBeenCalled(); expect(f.activation).not.toHaveBeenCalled();
+  });
+  it("applies unchanged linked targets after restart despite linkage enumeration order", async () => {
+    const f = linkedFixture(); f.linkage.push(f.additional);
+    const token = await preview(f.tools, removal); f.linkage.reverse();
+    vi.mocked(sendCommand).mockClear();
+    const applied = await f.restart().apply_edit_plan.handler({ plan: removal, confirmation_token: token });
+    expect(applied.error).toBeUndefined();
+    expect(applied).toMatchObject({ success: true, data: { applied: true } });
+    expect(sendCommand).toHaveBeenCalledOnce(); expect(f.remove).toHaveBeenCalledOnce();
+    expect(f.partnerRemove).toHaveBeenCalledOnce(); expect(f.additionalRemove).toHaveBeenCalledOnce(); expect(f.audio).toHaveLength(0);
+  });
+  it.each(["source", "range", "track"])("rejects linked partner %s changes after preview", async (change) => {
+    const f = linkedFixture(); const token = await preview(f.tools, removal);
+    if (change === "source") f.partner.projectItem = { ...f.media, nodeId: "replacement-linked-source" };
+    else if (change === "range") f.partner.inPoint = { ticks: "100" };
+    else {
+      const tracks = f.sequence.audioTracks as typeof f.sequence.audioTracks & Record<number, typeof f.sequence.audioTracks[0]>;
+      tracks[1] = tracks[0]; tracks[0] = { clips: { numItems: 0 } }; tracks.numTracks = 2;
+    }
+    expect(await f.tools.apply_edit_plan.handler({ plan: removal, confirmation_token: token })).toMatchObject({ success: false, error: expect.stringContaining("host targets changed") });
+    expect(f.remove).not.toHaveBeenCalled(); expect(f.partnerRemove).not.toHaveBeenCalled(); expect(f.activation).not.toHaveBeenCalled();
+  });
+  it("refuses linked removal when linkage becomes unreadable", async () => {
+    const f = linkedFixture(); const token = await preview(f.tools, removal);
+    f.clip.getLinkedItems = () => { throw new Error("linkage accessor unavailable"); };
+    expect(await f.tools.apply_edit_plan.handler({ plan: removal, confirmation_token: token })).toMatchObject({ success: false, error: expect.stringContaining("could not be read") });
+    expect(f.remove).not.toHaveBeenCalled(); expect(f.partnerRemove).not.toHaveBeenCalled();
+  });
+  it("refuses a preview whose linkage result is undefined", async () => {
+    const f = fixture(); (f.clip as unknown as { getLinkedItems: () => unknown }).getLinkedItems = () => undefined;
+    expect(await f.tools.preview_edit_plan.handler({ plan: removal })).toMatchObject({ success: false, error: expect.stringContaining("cannot be enumerated safely") });
+    expect(f.remove).not.toHaveBeenCalled();
+  });
+  it("keeps explicit unlinked removal usable without reading or deleting partners", async () => {
+    const f = linkedFixture(); f.clip.getLinkedItems = () => { throw new Error("unreadable but not requested"); };
+    const plan = { operations: [{ ...removal.operations[0], include_linked: false }] };
+    const token = await preview(f.tools, plan);
+    expect(await f.tools.apply_edit_plan.handler({ plan, confirmation_token: token })).toMatchObject({ success: true, data: { applied: true } });
+    expect(f.remove).toHaveBeenCalledOnce(); expect(f.partnerRemove).not.toHaveBeenCalled(); expect(f.additionalRemove).not.toHaveBeenCalled();
   });
   it("persists the exact binding across restart and applies in one host command", async () => {
     const f = fixture(); const token = await preview(f.tools, removal);
