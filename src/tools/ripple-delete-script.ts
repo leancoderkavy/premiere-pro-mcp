@@ -197,7 +197,8 @@ export function rippleDeleteScriptBody(options: {
           try {
             target.remove(false, false);
           } catch (removeErr) {
-            return __error("Could not remove the target clip, so nothing was shifted: " + removeErr.toString());
+            var removalReceipt = __removalThrowReceipt(["${nodeId}"], seq);
+            return __error("Premiere threw while removing the target clip; no later clips were shifted: " + removeErr.toString() + (removalReceipt.timelineChanged === true ? " The timeline changed; inspect the timeline." : (removalReceipt.timelineChanged === null ? " Removal may have changed the timeline; readback is unavailable." : " The target remains on the timeline.")), removalReceipt);
           }
           if (__findClip("${nodeId}")) {
             return __error("Premiere did not remove the target clip, so nothing was shifted; the timeline is unchanged.");
@@ -228,7 +229,7 @@ export function rippleDeleteScriptBody(options: {
             }
           }
           if (failuresEarly.length) {
-            return __error("The target clip was removed but the in-range clips on other tracks could not all be removed, so nothing was shifted and the timeline is partially changed: " + failuresEarly.join("; ") + ".");
+            return __error("The target clip was removed but the in-range clips on other tracks could not all be removed, so nothing was shifted and the timeline is partially changed: " + failuresEarly.join("; ") + ".", {timelineChanged:true,mutationAttempted:true,mutationOutcome:"changed",verified:false});
           }
 
           // Shift in ascending start order so a moved clip never lands on its
@@ -280,7 +281,7 @@ export function rippleDeleteScriptBody(options: {
           }
 
           if (failures.length || verifyProblems.length) {
-            return __error("The clip was removed but the gap was not closed cleanly, so the timeline is now in a partially-rippled state and needs checking. " + failures.concat(verifyProblems).join("; ") + ".");
+            return __error("The clip was removed but the gap was not closed cleanly, so the timeline is now in a partially-rippled state and needs checking. " + failures.concat(verifyProblems).join("; ") + ".", {timelineChanged:true,mutationAttempted:true,mutationOutcome:"changed",verified:false});
           }
 
           return __result({

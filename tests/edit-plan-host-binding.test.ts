@@ -143,6 +143,27 @@ describe("persisted preview host-target binding", () => {
     expect(readLinkage).toHaveBeenCalledOnce();
     expect(f.remove).toHaveBeenCalledOnce(); expect(f.partnerRemove).toHaveBeenCalledOnce(); expect(f.audio).toHaveLength(0);
   });
+  it.each([false, true])("reports first removal that deletes then throws as changed (ripple:%s)", async (ripple) => {
+    const f = linkedFixture(); f.audio.splice(1, 1);
+    const plan = { operations: [{ ...removal.operations[0], ripple }] };
+    const token = await preview(f.tools, plan);
+    const remove = f.remove.getMockImplementation()!;
+    f.remove.mockImplementationOnce(() => { remove(); throw new Error("native removal threw after deletion"); });
+    const result = await f.restart().apply_edit_plan.handler({ plan, confirmation_token: token });
+    expect(result).toMatchObject({ success: false, data: { timelineChanged: true, mutationAttempted: true, mutationOutcome: "changed", readbackComplete: true, removedClipIds: ["clip-A"] } });
+    expect(result.error).not.toMatch(/nothing was changed/i); expect(f.partnerRemove).not.toHaveBeenCalled();
+  });
+  it.each([false, true])("reports unreadable readback after throwing removal as unknown (ripple:%s)", async (ripple) => {
+    const f = fixture(); const plan = { operations: [{ ...removal.operations[0], ripple }] };
+    const token = await preview(f.tools, plan);
+    const clips = f.sequence.videoTracks[0].clips; let unreadable = false;
+    f.sequence.videoTracks[0].clips = new Proxy(clips, { get: (target, key) => { if (unreadable) throw new Error("readback unavailable"); return Reflect.get(target, key); } });
+    const remove = f.remove.getMockImplementation()!;
+    f.remove.mockImplementationOnce(() => { remove(); unreadable = true; throw new Error("native removal threw"); });
+    const result = await f.restart().apply_edit_plan.handler({ plan, confirmation_token: token });
+    expect(result).toMatchObject({ success: false, data: { timelineChanged: null, mutationAttempted: true, mutationOutcome: "unknown", readbackComplete: false } });
+    expect(result.error).not.toMatch(/nothing was changed/i);
+  });
   it.each(["source", "range", "track"])("rejects linked partner %s changes after preview", async (change) => {
     const f = linkedFixture(); const token = await preview(f.tools, removal);
     if (change === "source") f.partner.projectItem = { ...f.media, nodeId: "replacement-linked-source" };

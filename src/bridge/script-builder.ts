@@ -1263,7 +1263,7 @@ function __exportStillFrame(outputPath, ticks) {
 // Result helpers for per-clip edit functions that run once for a clip and once
 // for each of its linked partners.
 function __editOk(data) { return { ok: true, data: data }; }
-function __editFail(message) { return { ok: false, error: String(message) }; }
+function __editFail(message, data) { var failure = { ok: false, error: String(message) }; if (data) failure.data = data; return failure; }
 
 // Colour parameters report getValue() as a packed 64-bit integer (live 25.2:
 // 0xff0014002800a0c8 for ARGB 255,20,40,160), which a JS double cannot hold
@@ -1319,6 +1319,25 @@ function __findOpenProject(path) {
 // a linked clip), then verify every removed clip is gone. Every clip's track
 // lock and remove() are checked before anything is removed, so a partner on a
 // locked track refuses the whole removal instead of leaving its audio behind.
+function __removalThrowReceipt(ids, sequence) {
+  var gone = [], remaining = [], readable = true;
+  try {
+    if (!sequence || app.project.activeSequence !== sequence) throw new Error("Removal sequence is unavailable");
+    var families = [sequence.videoTracks, sequence.audioTracks];
+    for (var ft = 0; ft < families.length; ft++) {
+      if (!families[ft] || typeof families[ft].numTracks !== "number") throw new Error("Track collection is unreadable");
+      for (var ti = 0; ti < families[ft].numTracks; ti++) {
+        var track = families[ft][ti];
+        if (!track || !track.clips || typeof track.clips.numItems !== "number") throw new Error("Clip collection is unreadable");
+      }
+    }
+    for (var ri = 0; ri < ids.length; ri++) {
+      if (__findClip(ids[ri])) remaining.push(ids[ri]); else gone.push(ids[ri]);
+    }
+  } catch (readError) { readable = false; }
+  return { mutationAttempted:true, timelineChanged:gone.length > 0 ? true : (readable ? false : null), mutationOutcome:gone.length > 0 ? "changed" : (readable ? "unchanged" : "unknown"), verified:false, readbackComplete:readable, removedClipIds:gone, remainingClipIds:remaining };
+}
+
 function __removeClipAndPartners(result, includeLinked, validatedPartners) {
   var targets = [result];
   if (includeLinked) {
@@ -1346,7 +1365,9 @@ function __removeClipAndPartners(result, includeLinked, validatedPartners) {
       targets[r].clip.remove(false, false);
       removed.push(names[r]);
     } catch (eRemove) {
-      return __editFail((removed.length ? "The timeline changed: " + removed.join(", ") + " was removed, but " : "") + "Premiere could not remove " + names[r] + ": " + eRemove.toString() + (removed.length ? ". The linked clips are now out of sync; inspect the timeline." : ". Nothing was changed."));
+      var receipt = __removalThrowReceipt(ids.slice(0, r + 1), seq);
+      var evidence = receipt.timelineChanged === true ? " The timeline changed; inspect the linked clips." : (receipt.timelineChanged === null ? " Removal may have changed the timeline; readback is unavailable. Inspect the timeline." : " The attempted removal targets remain on the timeline.");
+      return __editFail("Premiere threw while removing " + names[r] + ": " + eRemove.toString() + evidence, receipt);
     }
   }
   var left = [];

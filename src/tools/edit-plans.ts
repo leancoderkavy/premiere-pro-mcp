@@ -185,19 +185,20 @@ function buildApplyScript(plan: EditPlan, binding: EditPlanHostBinding): string 
     function __planFail(index, message, extraData) {
       var now = __readUndoIndex();
       var steps = planUndoStart !== null && now !== null ? now - planUndoStart : null;
+      var unknown = extraData && extraData.mutationOutcome === "unknown";
       var changed = results.length > 0 || (extraData && extraData.timelineChanged === true) || (steps !== null && steps > 0) || /timeline changed/.test(message);
       // An operation's own "Nothing was changed" is wrong once anything was applied
       // or Premiere recorded undo entries.
-      if (changed) message = String(message).replace(/\\s*Nothing was changed\\.?/g, "");
+      if (changed || unknown) message = String(message).replace(/\\s*Nothing was changed\\.?/g, "");
       var summary = results.length
         ? " The timeline changed: the " + results.length + " operation(s) before it were applied and were not rolled back."
-        : (changed ? (/timeline changed/.test(message) ? "" : " The timeline may have changed during the failed operation and was not rolled back.") : (/Nothing was changed/.test(message) ? "" : " Nothing was changed."));
+        : (changed ? (/timeline changed/.test(message) ? "" : " The timeline may have changed during the failed operation and was not rolled back.") : (unknown ? " The mutation outcome is unknown; inspect the timeline before retrying." : (/Nothing was changed/.test(message) ? "" : " Nothing was changed.")));
       var data = { appliedOperations: results, timelineChanged: changed, undoSteps: steps, undoStackIndex: now,
         undoStepsNote: "undoSteps counts only actions Premiere recorded in its undo history (QE edits such as inserts). DOM-only operations, such as clip removals, add no entry, so undoing this many steps does not necessarily reverse the plan." };
       if (extraData) {
         for (var field in extraData) if (extraData.hasOwnProperty(field)) data[field] = extraData[field];
       }
-      data.timelineChanged = changed;
+      data.timelineChanged = changed ? true : (unknown ? null : false);
       return __jsonStringify({ success: false,
         error: "Operation " + index + " failed: " + message + summary,
         data: data });
@@ -213,9 +214,9 @@ function buildApplyScript(plan: EditPlan, binding: EditPlanHostBinding): string 
       if (operation.ripple === true) {
         const body = rippleDeleteScriptBody({ nodeId, scope: "sync_locked", rangeDelete: false, dryRun: false, validatedPartnersExpression: `validatedPartners${index}` });
         // __result/__error are shadowed so the body hands back a plain object.
-        mutations.push(`var ripple${index} = (function () { var __result = function (d) { return { success: true, data: d }; }; var __error = function (m) { return { success: false, error: String(m) }; }; ${body} })(); if (!ripple${index}.success) return __planFail(${index}, ripple${index}.error); results.push({index:${index}, type:"remove_clip", ripple:true, applied:true, verified:true, gapClosedSeconds: ripple${index}.data.gapClosedSeconds, clipsShifted: ripple${index}.data.clipsShifted});`);
+        mutations.push(`var ripple${index} = (function () { var __result = function (d) { return { success: true, data: d }; }; var __error = function (m, d) { return { success: false, error: String(m), data: d }; }; ${body} })(); if (!ripple${index}.success) return __planFail(${index}, ripple${index}.error, ripple${index}.data); results.push({index:${index}, type:"remove_clip", ripple:true, applied:true, verified:true, gapClosedSeconds: ripple${index}.data.gapClosedSeconds, clipsShifted: ripple${index}.data.clipsShifted});`);
       } else {
-        mutations.push(`var found${index} = __findClip("${nodeId}"); if (!found${index}) return __planFail(${index}, "clip ${nodeId} is no longer on the timeline"); var removed${index} = __removeClipAndPartners(found${index}, ${operation.include_linked !== false}, validatedPartners${index}); if (!removed${index}.ok) return __planFail(${index}, removed${index}.error); results.push({index:${index}, type:"remove_clip", ripple:false, applied:true, verified:true, linkedPartnersRemoved: removed${index}.data.linkedPartnersRemoved});`);
+        mutations.push(`var found${index} = __findClip("${nodeId}"); if (!found${index}) return __planFail(${index}, "clip ${nodeId} is no longer on the timeline"); var removed${index} = __removeClipAndPartners(found${index}, ${operation.include_linked !== false}, validatedPartners${index}); if (!removed${index}.ok) return __planFail(${index}, removed${index}.error, removed${index}.data); results.push({index:${index}, type:"remove_clip", ripple:false, applied:true, verified:true, linkedPartnersRemoved: removed${index}.data.linkedPartnersRemoved});`);
       }
     }
   });
