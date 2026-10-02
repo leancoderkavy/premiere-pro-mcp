@@ -83,7 +83,7 @@ export function getCompetitorGapTools(
 
     add_to_timeline_batch: {
       description:
-        "Insert up to 32 project items in one validated CEP request. All items and target tracks are preflighted before the first insertion; every requested placement is read back, and the tool fails closed if Premiere cannot verify one.",
+        "Insert up to 32 project items with insert-edit semantics in one validated CEP request. Later inserts can ripple or split earlier placements, including across sync-locked tracks. The tool preflights items and tracks, then verifies every placement again in the final sequence; changed placements return committed_unverified with their observed final positions.",
       parameters: {
         type: "object" as const,
         additionalProperties: false,
@@ -143,8 +143,8 @@ export function getCompetitorGapTools(
           clips.push({ item_id: item.item_id, track_index: trackIndex, start_seconds: startSeconds, audio_track_index: audioTrackIndex });
         }
 
-        // Ascending positions preserve the requested locations under insert-edit
-        // semantics: a later insert does not shift an earlier one.
+        // Ascending positions reduce shifting on the same track, but inserts on
+        // other sync-locked tracks can still split or move earlier placements.
         clips.sort((left, right) => left.start_seconds - right.start_seconds);
         const emittedClips = clips.map((item) => `
           {
@@ -177,6 +177,7 @@ export function getCompetitorGapTools(
           }
 
           var results = [];
+          var placementSnapshots = [];
           for (i = 0; i < placements.length; i++) {
             var placement = placements[i];
             var videoTrack = seq.videoTracks[placement.trackIndex];
@@ -192,20 +193,22 @@ export function getCompetitorGapTools(
             try {
               var outcome = __insertClipHonoringSyncLock(seq, placement.item, __secondsToTicks(placement.startSeconds).toString(), placement.trackIndex, placement.audioTrackIndex, "sync_locked");
               if (!outcome.ok) {
-                return __error("Batch insertion " + i + " failed after " + results.length + " verified placement(s): " + outcome.error,
+                return __error("Batch insertion " + i + " failed after " + results.length + " completed placement(s): " + outcome.error,
                   outcome.changed || results.length ? { timelineChanged: true, outcome: "committed_unverified", verified: false, displacedTails: outcome.displacedTails, failedPlacement: i, completedPlacements: results } : null);
               }
             } catch (insertError) {
-              return __error("Batch insertion " + i + " threw after " + results.length + " verified placement(s): " + insertError.toString());
+              return __error("Batch insertion " + i + " threw after " + results.length + " completed placement(s): " + insertError.toString(),
+                { timelineChanged: true, outcome: "committed_unverified", verified: false, failedPlacement: i, completedPlacements: results });
             }
 
             var matched = null;
+            var matchedType = null;
             var addedCount = 0;
             for (c = 0; c < videoTrack.clips.numItems; c++) {
               var videoClip = videoTrack.clips[c];
               if (!beforeVideoIds[videoClip.nodeId]) {
                 addedCount++;
-                if (videoClip.projectItem && videoClip.projectItem.nodeId === placement.item.nodeId) matched = videoClip;
+                if (videoClip.projectItem && videoClip.projectItem.nodeId === placement.item.nodeId) { matched = videoClip; matchedType = "video"; }
               }
             }
             if (audioTrack) {
@@ -213,30 +216,77 @@ export function getCompetitorGapTools(
                 var audioClip = audioTrack.clips[c];
                 if (!beforeAudioIds[audioClip.nodeId]) {
                   addedCount++;
-                  if (!matched && audioClip.projectItem && audioClip.projectItem.nodeId === placement.item.nodeId) matched = audioClip;
+                  if (!matched && audioClip.projectItem && audioClip.projectItem.nodeId === placement.item.nodeId) { matched = audioClip; matchedType = "audio"; }
                 }
               }
             }
             if (!matched) {
-              return __error("Batch insertion " + i + " did not produce the requested project item after " + results.length + " verified placement(s). The batch is not reported as verified.");
+              return __error("Batch insertion " + i + " did not produce the requested project item after " + results.length + " completed placement(s). The batch is not reported as verified.",
+                { timelineChanged: true, outcome: "committed_unverified", verified: false, failedPlacement: i, completedPlacements: results });
             }
             var frameTicks = parseFloat(seq.timebase);
             if (!frameTicks || isNaN(frameTicks)) frameTicks = TICKS_PER_SECOND / 24;
             var tolerance = __ticksToSeconds(frameTicks);
             var actualStart = __ticksToSeconds(matched.start.ticks);
             if (Math.abs(actualStart - placement.startSeconds) > tolerance) {
-              return __error("Batch insertion " + i + " landed at " + actualStart + "s instead of " + placement.startSeconds + "s after " + results.length + " verified placement(s). The batch is not reported as verified.");
+              return __error("Batch insertion " + i + " landed at " + actualStart + "s instead of " + placement.startSeconds + "s after " + results.length + " completed placement(s). The batch is not reported as verified.",
+                { timelineChanged: true, outcome: "committed_unverified", verified: false, failedPlacement: i, completedPlacements: results });
             }
+            placementSnapshots.push({
+              nodeId: String(matched.nodeId), itemId: String(placement.item.nodeId),
+              type: matchedType, trackIndex: matchedType === "video" ? placement.trackIndex : placement.audioTrackIndex,
+              startTicks: parseFloat(matched.start.ticks), endTicks: parseFloat(matched.end.ticks)
+            });
             results.push({
               item: placement.item.name,
               itemId: placement.item.nodeId,
               videoTrackIndex: placement.trackIndex,
+              audioTrackIndex: placement.audioTrackIndex,
+              verifiedTrackType: matchedType,
               requestedStartSeconds: placement.startSeconds,
               actualStartSeconds: actualStart,
               insertedTrackItems: addedCount
             });
           }
-          return __result({ inserted: true, verified: true, placementCount: results.length, placements: results });
+
+          var finalPlacements = [];
+          var driftedPlacements = [];
+          for (i = 0; i < placementSnapshots.length; i++) {
+            var snapshot = placementSnapshots[i];
+            var finalTrack = snapshot.type === "video" ? seq.videoTracks[snapshot.trackIndex] : seq.audioTracks[snapshot.trackIndex];
+            var finalClip = null;
+            for (var fi = 0; finalTrack && fi < finalTrack.clips.numItems; fi++) {
+              if (String(finalTrack.clips[fi].nodeId) === snapshot.nodeId) { finalClip = finalTrack.clips[fi]; break; }
+            }
+            var finalStartTicks = finalClip ? parseFloat(finalClip.start.ticks) : NaN;
+            var finalEndTicks = finalClip ? parseFloat(finalClip.end.ticks) : NaN;
+            var finalSourceId = "";
+            try { finalSourceId = String(finalClip.projectItem.nodeId); } catch (eFinalSource) {}
+            var finalVerified = !!finalClip && finalSourceId === snapshot.itemId &&
+              isFinite(snapshot.startTicks) && isFinite(snapshot.endTicks) &&
+              isFinite(finalStartTicks) && isFinite(finalEndTicks) &&
+              Math.abs(finalStartTicks - snapshot.startTicks) <= __TICK_MATCH_TOL &&
+              Math.abs(finalEndTicks - snapshot.endTicks) <= __TICK_MATCH_TOL;
+            var finalPlacement = {
+              item: results[i].item, itemId: results[i].itemId,
+              videoTrackIndex: results[i].videoTrackIndex,
+              audioTrackIndex: results[i].audioTrackIndex,
+              verifiedTrackType: results[i].verifiedTrackType,
+              requestedStartSeconds: results[i].requestedStartSeconds,
+              actualStartSeconds: results[i].actualStartSeconds,
+              finalStartSeconds: finalClip && isFinite(finalStartTicks) ? __ticksToSeconds(finalStartTicks) : null,
+              finalEndSeconds: finalClip && isFinite(finalEndTicks) ? __ticksToSeconds(finalEndTicks) : null,
+              insertedTrackItems: results[i].insertedTrackItems,
+              finalVerified: finalVerified
+            };
+            finalPlacements.push(finalPlacement);
+            if (!finalVerified) driftedPlacements.push({ index: i, item: results[i].item, finalStartSeconds: finalPlacement.finalStartSeconds, finalEndSeconds: finalPlacement.finalEndSeconds });
+          }
+          if (driftedPlacements.length) {
+            return __error("Batch inserts changed " + driftedPlacements.length + " earlier placement(s) after their initial readback. The timeline changed; inspect the final sequence and use Undo if needed.",
+              { timelineChanged: true, outcome: "committed_unverified", verified: false, placementCount: results.length, placements: finalPlacements, driftedPlacements: driftedPlacements });
+          }
+          return __result({ inserted: true, verified: true, placementCount: results.length, placements: finalPlacements });
         `);
         return sendCommand(script, bridgeOptions);
       },

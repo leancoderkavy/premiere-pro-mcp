@@ -453,6 +453,40 @@ describe("issue #562 — insert_from_source honors sync lock", () => {
     expect(result.error).not.toContain("Nothing was changed");
   });
 
+  it("does not verify a batch when a later sync-locked insert moves an earlier placement", async () => {
+    const script = await scriptFor(getCompetitorGapTools(bridgeOptions).add_to_timeline_batch, {
+      clips: [
+        { item_id: "src", track_index: 0, start_seconds: 0 },
+        { item_id: "src", track_index: 1, start_seconds: 0 },
+      ],
+    });
+    const { sandbox, seq } = issue562Host({ emptyTargets: true, mediaKind: "video_only" });
+    const result = runScript(script, sandbox);
+    expect(result).toMatchObject({ success: false, data: {
+      timelineChanged: true, outcome: "committed_unverified", verified: false,
+      driftedPlacements: [{ index: 0, finalStartSeconds: 2 }],
+    } });
+    expect(result.data.placements[0]).toMatchObject({ requestedStartSeconds: 0, actualStartSeconds: 0, finalStartSeconds: 2, finalVerified: false });
+    expect(rangesOf(seq.videoTracks[0])).toEqual([[2, 4]]);
+  });
+
+  it("verifies batch placements against the final sequence after every insert", async () => {
+    const script = await scriptFor(getCompetitorGapTools(bridgeOptions).add_to_timeline_batch, {
+      clips: [
+        { item_id: "src", track_index: 0, start_seconds: 0 },
+        { item_id: "src", track_index: 0, start_seconds: 4 },
+      ],
+    });
+    const { sandbox } = issue562Host({ emptyTargets: true, mediaKind: "video_only" });
+    const result = runScript(script, sandbox);
+    expect(result).toMatchObject({ success: true, data: {
+      verified: true, placements: [
+        { finalStartSeconds: 0, finalEndSeconds: 2, finalVerified: true },
+        { finalStartSeconds: 4, finalEndSeconds: 6, finalVerified: true },
+      ],
+    } });
+  });
+
   it.each([false, true])("preserves displaced-tail evidence in an edit plan (earlier operation: %s)", async (earlierOperation) => {
     const plan = { operations: [
       ...(earlierOperation ? [{ type: "insert_clip" as const, item_id: "src", start_seconds: 0 }] : []),
