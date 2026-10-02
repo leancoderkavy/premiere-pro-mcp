@@ -1705,7 +1705,7 @@ function __insertClipHonoringSyncLock(seq, item, timeTicks, videoTrackIndex, aud
   // reporting the requested insert as successful. Snapshot those tails before
   // any razor or insert so a misplaced remainder cannot receive a verified receipt.
   var targetTails = [];
-  function captureTargetTails(track, type) {
+  function captureTargetTails(track, type, index) {
     var ci2;
     for (ci2 = 0; ci2 < track.clips.numItems; ci2++) {
       var clip = track.clips[ci2];
@@ -1715,14 +1715,31 @@ function __insertClipHonoringSyncLock(seq, item, timeTicks, videoTrackIndex, aud
         var sourceId = "";
         try { sourceId = String(clip.projectItem.nodeId); } catch (eSource) {}
         if (!sourceId || sourceId === "undefined" || sourceId === "null") return false;
-        targetTails.push({ track: track, type: type, sourceId: sourceId, tailDuration: end - insertTicks });
+        targetTails.push({ track: track, type: type, index: index, sourceId: sourceId, tailDuration: end - insertTicks });
       }
     }
     return true;
   }
-  if ((videoReceives && !captureTargetTails(videoTrack, "video")) ||
-      (audioReceives && !captureTargetTails(audioTrack, "audio"))) {
+  if ((videoReceives && !captureTargetTails(videoTrack, "video", vTrackIndex)) ||
+      (audioReceives && !captureTargetTails(audioTrack, "audio", aTrackIndex))) {
     return { ok: false, error: "Insert refused; nothing was changed. A target-track clip spans the insert point but its source identity is unreadable, so its split tail cannot be verified." };
+  }
+
+  // Premiere 26.5.2 can move a target straddler's tail to the sequence end
+  // when insertClip performs the split itself (#730). Pre-razor that target
+  // before insertion so insertClip sees an existing boundary. Target-only
+  // calls need QE for this case too; otherwise refuse before mutation.
+  var needsTargetRazor = targetTails.length > 0;
+  if (targetOnly && needsTargetRazor) {
+    var activeTarget = null;
+    try { activeTarget = app.project.activeSequence; } catch (eActiveTarget) {}
+    var targetId = "";
+    var activeTargetId = "";
+    try { targetId = String(seq.sequenceID); } catch (eTargetId) {}
+    try { activeTargetId = String(activeTarget.sequenceID); } catch (eActiveTargetId) {}
+    if (!targetId || targetId !== activeTargetId) {
+      return { ok: false, error: "Insert refused; nothing was changed. A target clip spans the insert point, but QE can only razor the active sequence. Activate the target sequence first." };
+    }
   }
 
   function domTrackFor(type, idx) {
@@ -1730,18 +1747,22 @@ function __insertClipHonoringSyncLock(seq, item, timeTicks, videoTrackIndex, aud
   }
 
   var qeSeq = null;
-  if (!targetOnly) {
+  if (!targetOnly || needsTargetRazor) {
+    var qeUnavailableReason = needsTargetRazor ? "a target clip cannot be pre-razored" : "sync-lock state cannot be read";
+    var qeUnavailableAdvice = needsTargetRazor
+      ? " A target clip spans the insert point; razor it in Premiere before inserting."
+      : " Pass scope 'target_tracks' to ripple only the named tracks (this will desync other tracks).";
     try {
       if (typeof app === "undefined" || typeof app.enableQE !== "function") {
-        return { ok: false, error: "QE is unavailable, so sync-lock state cannot be read and the insert was not attempted. Pass scope 'target_tracks' to ripple only the named tracks (this will desync other tracks)." };
+        return { ok: false, error: "QE is unavailable, so " + qeUnavailableReason + " and the insert was not attempted." + qeUnavailableAdvice };
       }
       app.enableQE();
     } catch (eQE) {
-      return { ok: false, error: "Premiere could not enable QE, so sync-lock state cannot be read and the insert was not attempted. Pass scope 'target_tracks' to ripple only the named tracks (this will desync other tracks)." };
+      return { ok: false, error: "Premiere could not enable QE, so " + qeUnavailableReason + " and the insert was not attempted." + qeUnavailableAdvice };
     }
     try { qeSeq = (typeof qe !== "undefined" && qe.project) ? qe.project.getActiveSequence() : null; } catch (eSeq) { qeSeq = null; }
     if (!qeSeq) {
-      return { ok: false, error: "No active sequence (QE); cannot read sync-lock state, so the insert was not attempted. Pass scope 'target_tracks' to ripple only the named tracks (this will desync other tracks)." };
+      return { ok: false, error: "No active sequence (QE); " + qeUnavailableReason + " and the insert was not attempted." + qeUnavailableAdvice };
     }
   }
 
@@ -1834,56 +1855,70 @@ function __insertClipHonoringSyncLock(seq, item, timeTicks, videoTrackIndex, aud
     shiftPlan.push({ type: t.type, index: t.index, domTrack: t.domTrack, movers: movers, straddlers: straddlers });
   }
 
-  var needRazor = false;
-  for (pi = 0; pi < shiftPlan.length; pi++) {
-    if (shiftPlan[pi].straddlers.length) needRazor = true;
+  var razorPlan = [];
+  if (needsTargetRazor) {
+    if (videoReceives) {
+      for (pi = 0; pi < targetTails.length; pi++) {
+        if (targetTails[pi].type === "video") { razorPlan.push({ type: "video", index: vTrackIndex, domTrack: videoTrack, shiftEntry: null }); break; }
+      }
+    }
+    if (audioReceives) {
+      for (pi = 0; pi < targetTails.length; pi++) {
+        if (targetTails[pi].type === "audio") { razorPlan.push({ type: "audio", index: aTrackIndex, domTrack: audioTrack, shiftEntry: null }); break; }
+      }
+    }
   }
+  for (pi = 0; pi < shiftPlan.length; pi++) {
+    if (shiftPlan[pi].straddlers.length) razorPlan.push({ type: shiftPlan[pi].type, index: shiftPlan[pi].index, domTrack: shiftPlan[pi].domTrack, shiftEntry: shiftPlan[pi] });
+  }
+  var needRazor = razorPlan.length > 0;
   if (needRazor) {
     var razorAt = null;
     try { razorAt = __qeTimecodeForTicks(seq, insertTicks); } catch (eTc) {}
     if (!razorAt || !razorAt.timecode) {
       return { ok: false, error: "Insert refused; nothing was changed. Could not format a QE razor timecode for the insert point." };
     }
-    for (pi = 0; pi < shiftPlan.length; pi++) {
-      if (!shiftPlan[pi].straddlers.length) continue;
+    // Resolve every QE razor route before changing any track. A missing audio
+    // razor must not leave a video track cut with a "nothing changed" receipt.
+    for (pi = 0; pi < razorPlan.length; pi++) {
       var razorTrack = null;
-      try { razorTrack = qeTrackFor(shiftPlan[pi].type, shiftPlan[pi].index); } catch (eProbe) {}
+      try { razorTrack = qeTrackFor(razorPlan[pi].type, razorPlan[pi].index); } catch (eProbe) {}
       if (!razorTrack || typeof razorTrack.razor !== "function") {
-        return { ok: false, error: "Insert refused; nothing was changed. Sync-locked " + shiftPlan[pi].type + " track " + shiftPlan[pi].index + " has a clip spanning the insert point and QE razor is unavailable, so those tracks cannot be rippled without slicing through them. Razor them first or pass scope 'target_tracks' (which will desync other tracks)." };
+        return { ok: false, error: "Insert refused; nothing was changed. " + razorPlan[pi].type + " track " + razorPlan[pi].index + " has a clip spanning the insert point and QE razor is unavailable. Razor it first in Premiere." };
       }
     }
     var razoredTracks = {};
-    for (pi = 0; pi < shiftPlan.length; pi++) {
-      if (shiftPlan[pi].straddlers.length) razoredTracks[shiftPlan[pi].type + ":" + shiftPlan[pi].index] = true;
+    for (pi = 0; pi < razorPlan.length; pi++) {
+      razoredTracks[razorPlan[pi].type + ":" + razorPlan[pi].index] = true;
     }
     var insertLinkGroups = __captureLinkGroupsAt(seq, insertTicks, razoredTracks);
     var razored = [];
-    for (pi = 0; pi < shiftPlan.length; pi++) {
-      if (!shiftPlan[pi].straddlers.length) continue;
+    for (pi = 0; pi < razorPlan.length; pi++) {
+      var razorPart = razorPlan[pi];
       try {
-        qeTrackFor(shiftPlan[pi].type, shiftPlan[pi].index).razor(razorAt.timecode);
-        razored.push(shiftPlan[pi].type + " " + shiftPlan[pi].index);
+        qeTrackFor(razorPart.type, razorPart.index).razor(razorAt.timecode);
+        razored.push(razorPart.type + " " + razorPart.index);
       } catch (razorErr) {
-        return { ok: false, error: "QE razor failed on " + shiftPlan[pi].type + " track " + shiftPlan[pi].index + (razored.length ? " after already razoring " + razored.join(", ") : "") + ", so the timeline is partially changed: " + razorErr.toString() };
+        return { ok: false, changed: razored.length > 0, error: "QE razor failed on " + razorPart.type + " track " + razorPart.index + (razored.length ? " after already razoring " + razored.join(", ") : "") + ": " + razorErr.toString() };
       }
-      shiftPlan[pi].movers = [];
+      if (razorPart.shiftEntry) razorPart.shiftEntry.movers = [];
       var stillSpan = false;
-      for (ci = 0; ci < shiftPlan[pi].domTrack.clips.numItems; ci++) {
-        var rc = shiftPlan[pi].domTrack.clips[ci];
+      for (ci = 0; ci < razorPart.domTrack.clips.numItems; ci++) {
+        var rc = razorPart.domTrack.clips[ci];
         var rcs = parseFloat(rc.start.ticks);
         var rce = parseFloat(rc.end.ticks);
         if (rcs < insertTicks - edgeTol && rce > insertTicks + edgeTol) stillSpan = true;
-        if (rcs >= insertTicks - edgeTol) {
-          shiftPlan[pi].movers.push({ nodeId: String(rc.nodeId), start: rcs, end: rce });
+        if (razorPart.shiftEntry && rcs >= insertTicks - edgeTol) {
+          razorPart.shiftEntry.movers.push({ nodeId: String(rc.nodeId), start: rcs, end: rce });
         }
       }
       if (stillSpan) {
-        return { ok: false, error: "QE razor did not split a spanning clip on " + shiftPlan[pi].type + " track " + shiftPlan[pi].index + ", so the timeline is partially changed. Razor that track at the insert point or pass scope 'target_tracks' (which will desync other tracks)." };
+        return { ok: false, changed: true, error: "QE razor did not split a spanning clip on " + razorPart.type + " track " + razorPart.index + ", so the timeline may be partially changed. Inspect that track or use Undo." };
       }
     }
     var insertRelink = __relinkRazoredPieces(seq, insertTicks, insertLinkGroups);
     if (insertRelink.failures.length) {
-      return { ok: false, error: "QE razored the sync-locked tracks but did not keep " + insertRelink.failures.length + " linked video/audio group(s) linked (" + insertRelink.failures.join("; ") + "), so the timeline is partially changed. Relink them with link_selection or use Undo." };
+      return { ok: false, changed: true, error: "QE razored tracks but did not keep " + insertRelink.failures.length + " linked video/audio group(s) linked (" + insertRelink.failures.join("; ") + "), so the timeline is partially changed. Relink them with link_selection or use Undo." };
     }
   }
 
@@ -1913,13 +1948,13 @@ function __insertClipHonoringSyncLock(seq, item, timeTicks, videoTrackIndex, aud
   try {
     seq.insertClip(item, String(timeTicks), vTrackIndex, aTrackIndex);
   } catch (insErr) {
-    return { ok: false, error: "Premiere rejected Sequence.insertClip" + afterRazorNote + ": " + insErr.toString() };
+    return { ok: false, changed: needRazor, error: "Premiere rejected Sequence.insertClip" + afterRazorNote + ": " + insErr.toString() };
   }
 
   var afterVideoCount = videoTrack.clips.numItems;
   var afterAudioCount = audioTrack.clips.numItems;
   if (afterVideoCount > beforeVideoCount + expectedVideoAdded || afterAudioCount > beforeAudioCount + expectedAudioAdded) {
-    return { ok: false, error: "Premiere inserted more clips on a targeted track than a split-plus-insert accounts for" + afterRazorNote + ". This can leave a residual frame fragment at an exact boundary; the insertion is not reported as verified." };
+    return { ok: false, changed: true, error: "Premiere inserted more clips on a targeted track than a split-plus-insert accounts for" + afterRazorNote + ". This can leave a residual frame fragment at an exact boundary; the insertion is not reported as verified." };
   }
 
   var insertedClips = [];
@@ -1930,7 +1965,7 @@ function __insertClipHonoringSyncLock(seq, item, timeTicks, videoTrackIndex, aud
     if (!beforeAudioIds[String(audioTrack.clips[i].nodeId)]) insertedClips.push(audioTrack.clips[i]);
   }
   if (!insertedClips.length) {
-    return { ok: false, error: "Premiere did not add a new track item at the requested insertion point" + afterRazorNote + "." };
+    return { ok: false, changed: needRazor, error: "Premiere did not add a new track item at the requested insertion point" + afterRazorNote + "." };
   }
 
   var matched = false;
@@ -1950,7 +1985,7 @@ function __insertClipHonoringSyncLock(seq, item, timeTicks, videoTrackIndex, aud
     }
   }
   if (!matched) {
-    return { ok: false, error: "Premiere changed the target track but the requested project item was not found after insertion" + afterRazorNote + "." };
+    return { ok: false, changed: true, error: "Premiere changed the target track but the requested project item was not found after insertion" + afterRazorNote + "." };
   }
   if (!(actualDuration > 0)) actualDuration = durationTicks;
 
@@ -2024,7 +2059,7 @@ function __insertClipHonoringSyncLock(seq, item, timeTicks, videoTrackIndex, aud
   }
 
   if (failures.length || verifyProblems.length) {
-    return { ok: false, error: "The clip was inserted on the named tracks but sync-locked tracks were not rippled cleanly, so the timeline is now partially desynced and needs checking. " + failures.concat(verifyProblems).join("; ") + "." };
+    return { ok: false, changed: true, error: "The clip was inserted on the named tracks but sync-locked tracks were not rippled cleanly, so the timeline is now partially desynced and needs checking. " + failures.concat(verifyProblems).join("; ") + "." };
   }
 
   var tracksAffected = [];

@@ -78,7 +78,7 @@ export function getTimelineTools(bridgeOptions: BridgeOptions) {
   return {
     add_to_timeline: {
       description:
-        "Insert a project item at a timeline position, ripple QE sync-locked tracks to match Premiere's insert, and verify Premiere added no unexpected same-track fragments. Pass scope 'target_tracks' to ripple only the named pair (this will desync other tracks).",
+        "Insert a project item at a timeline position. If a target clip spans that point, QE razors it before insertion so Premiere does not move its tail to the sequence end; both target and sync-locked track changes are read back. Pass scope 'target_tracks' to ripple only the named pair (this will desync other tracks).",
       parameters: {
         type: "object" as const,
         properties: {
