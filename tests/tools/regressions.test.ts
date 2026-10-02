@@ -1033,9 +1033,10 @@ describe("issue #235 — CEP tool calls use the host's documented argument types
       addKey() {},
       setValueAtKey(time: { ticks: string }, value: number) { keyValues.set(time.ticks, value); },
       getValueAtTime(time: { ticks: string }) { return keyValues.get(time.ticks); },
+      getKeys() { return Array.from(keyValues.keys()).map((ticks) => ({ ticks })); },
     };
     const component = { displayName, matchName, properties: { numItems: 1, 0: property } };
-    const clip = { nodeId: "audio-1", name: "Audio", duration: { ticks: String(3 * 254016000000) }, components: { numItems: 1, 0: component } };
+    const clip = { nodeId: "audio-1", name: "Audio", getSpeed: () => 1, isSpeedReversed: () => false, inPoint: { ticks: "0" }, start: { ticks: "0" }, end: { ticks: String(3 * 254016000000) }, duration: { ticks: String(3 * 254016000000) }, components: { numItems: 1, 0: component } };
     const track = { clips: { numItems: 1, 0: clip } };
     const sequence = { videoTracks: { numTracks: 0 }, audioTracks: { numTracks: 1, 0: track } };
     function Time(this: { ticks: string }) { this.ticks = "0"; }

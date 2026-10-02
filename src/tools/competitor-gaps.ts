@@ -567,7 +567,7 @@ export function getCompetitorGapTools(
           ${AUDIO_KEYFRAME_READBACK}
           var durationTicks;
           var inTicks;
-          try { audioKeys(level); inTicks = audioTick(base.inTicks); durationTicks = audioTick(clip.end.ticks) - audioTick(clip.start.ticks); audioTick(inTicks + durationTicks); }
+          try { audioKeys(level); inTicks = audioTick(clip.inPoint.ticks); durationTicks = audioTick(clip.end.ticks) - audioTick(clip.start.ticks); audioTick(inTicks + durationTicks); }
           catch (preflightError) { return __error("Audio key storage or clock could not be read; no automation was written."); }
           var keyMap = {};
           function putKey(seconds, db) {

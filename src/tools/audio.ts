@@ -556,7 +556,7 @@ export function getAudioTools(bridgeOptions: BridgeOptions) {
           var keys = [${plannedKeys}];
           try {
             audioKeys(levelProp);
-            var inTicks = audioTick(base.inTicks);
+            var inTicks = audioTick(clip.inPoint.ticks);
             var durationTicks = audioTick(clip.end.ticks) - audioTick(clip.start.ticks);
             for (var k = 0; k < keys.length; k++) {
               if (keys[k].offset > durationTicks) throw new Error("Key exceeds clip duration");

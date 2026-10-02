@@ -698,9 +698,9 @@ describe("Tool Handler Behavior", () => {
       });
       const script = mockedSendCommand.mock.calls[0][0];
       expect(script).toContain("__clipKeyframeBase(clip)");
-      expect(script).toContain("__clipKeyTime(base, 1.5)");
-      expect(script).toContain("getValueAtTime(t)");
-      expect(script).toContain("verificationErrors");
+      expect(script).toContain("offset: 381024000000");
+      expect(script).toContain("getValueAtTime(time)");
+      expect(script).toContain("audioVerify(levelProp, keys[k].time, keys[k].amplitude)");
     });
 
     it("verifies ripple delete and passes QE razor a sequence timecode", async () => {
