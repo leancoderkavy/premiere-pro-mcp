@@ -683,7 +683,8 @@ export function getSequenceTools(bridgeOptions: BridgeOptions) {
     },
 
     create_sequence_from_preset: {
-      description: "Create a new sequence from a specific preset file (.sqpreset)",
+      description:
+        "EXPERIMENTAL (undocumented QE DOM): create a new sequence from a specific preset file (.sqpreset) using qe.project.newSequence. Reports success only after a new sequence ID appears in the project collection; a same-name sequence that was already active is not treated as created.",
       parameters: {
         type: "object" as const,
         properties: {
@@ -701,13 +702,25 @@ export function getSequenceTools(bridgeOptions: BridgeOptions) {
       handler: async (args: { name: string; preset_path: string }) => {
         // createNewSequenceFromPreset is not a real API (missing in 26.x) — use QE.
         const script = buildToolScript(`
+          var beforeSequenceIds = {};
+          for (var i = 0; i < app.project.sequences.numSequences; i++) {
+            beforeSequenceIds[String(app.project.sequences[i].sequenceID)] = true;
+          }
           app.enableQE();
           qe.project.newSequence("${escapeForExtendScript(args.name)}", "${escapeForExtendScript(args.preset_path)}");
           var seq = app.project.activeSequence;
           if (!seq || seq.name !== "${escapeForExtendScript(args.name)}") {
             return __error("Failed to create sequence from preset: ${escapeForExtendScript(args.preset_path)}");
           }
-          return __result({ created: true, name: seq.name, id: seq.sequenceID });
+          var sequenceId = String(seq.sequenceID);
+          if (beforeSequenceIds[sequenceId]) {
+            return __error("Premiere did not create a new sequence; the active sequence already existed before the preset request.");
+          }
+          var created = __findSequence(sequenceId);
+          if (!created || String(created.sequenceID) !== sequenceId) {
+            return __error("Premiere did not add the new sequence to the project collection; no creation success is reported.");
+          }
+          return __result({ created: true, verified: true, name: created.name, id: sequenceId, presetUsed: "${escapeForExtendScript(args.preset_path)}" });
         `);
         return sendCommand(script, bridgeOptions);
       },
