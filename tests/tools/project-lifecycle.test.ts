@@ -23,7 +23,7 @@ type Seq = { name: string; sequenceID: string };
 type Proj = {
   name: string; path: string; activeSequence: Seq | null;
   sequences: Record<string | number, unknown> & { numSequences: number };
-  saveAs: (p: string) => void; closeDocument: () => boolean; openSequence: (id: string) => boolean;
+  save: () => void; saveAs: (p: string) => void; closeDocument: () => boolean; openSequence: (id: string) => boolean;
 };
 
 /**
@@ -32,7 +32,7 @@ type Proj = {
  * openSequence brings its project to the front unless that timeline already
  * has focus (a new empty project keeps the previous project's timeline focused).
  */
-function host(options: { saveAsNoop?: boolean; missingOutput?: boolean; emptyOutput?: boolean; missingParent?: boolean; modifiedUnavailable?: "before" | "after" | "both"; sameSizeRewrite?: boolean } = {}) {
+function host(options: { saveAsNoop?: boolean; saveNoop?: boolean; emptySave?: boolean; untitled?: boolean; missingOutput?: boolean; emptyOutput?: boolean; missingParent?: boolean; modifiedUnavailable?: "before" | "after" | "both"; sameSizeRewrite?: boolean } = {}) {
   const files = new Map<string, { length: number; modified: number }>([
     ["/p/Main.prproj", { length: 100, modified: 1000 }],
     ["/p/Other.prproj", { length: 80, modified: 1000 }],
@@ -49,6 +49,12 @@ function host(options: { saveAsNoop?: boolean; missingOutput?: boolean; emptyOut
       path,
       activeSequence: seqs[0] ?? null,
       sequences: Object.assign({ numSequences: seqs.length }, seqs),
+      save: () => {
+        saveCalls++;
+        if (options.saveNoop) return;
+        if (!project.path) return;
+        files.set(project.path, { length: options.emptySave ? 0 : 140, modified: 1002 });
+      },
       saveAs: (target: string) => {
         saveCalls++;
         if (options.saveAsNoop) return;
@@ -74,7 +80,7 @@ function host(options: { saveAsNoop?: boolean; missingOutput?: boolean; emptyOut
     return project;
   };
   const main = makeProject("/p/Main.prproj", ["Edit", "Selects"]);
-  const scratch = makeProject("/p/Other.prproj", []);
+  const scratch = makeProject(options.untitled ? "" : "/p/Other.prproj", []);
   open.push(main, scratch);
   state.focusedSequence = main.activeSequence!.sequenceID;
   app.project = scratch;
@@ -105,6 +111,41 @@ describe("project lifecycle tools", () => {
       data: { alreadyOpen: true, activatedVia: "openSequence:Selects>Edit", activeSequence: "Edit", verified: true },
     });
     expect(app.project).toBe(main);
+  });
+
+  it("saves the open project and verifies a non-empty file", async () => {
+    const h = host();
+    await expect(tools.save_project.handler()).resolves.toMatchObject({
+      success: true,
+      data: { saved: true, verified: true, path: "/p/Other.prproj" },
+    });
+    expect(h.saveCalls()).toBe(1);
+  });
+
+  it("refuses untitled save_project before Premiere can open a Save dialog", async () => {
+    const h = host({ untitled: true });
+    await expect(tools.save_project.handler()).resolves.toMatchObject({
+      success: false,
+      error: expect.stringContaining("no saved path"),
+    });
+    expect(h.saveCalls()).toBe(0);
+  });
+
+  it("refuses save_project when the project directory is missing", async () => {
+    const h = host({ missingParent: true });
+    await expect(tools.save_project.handler()).resolves.toMatchObject({
+      success: false,
+      error: expect.stringContaining("project directory does not exist"),
+    });
+    expect(h.saveCalls()).toBe(0);
+  });
+
+  it("fails when save leaves an empty project file", async () => {
+    host({ emptySave: true });
+    await expect(tools.save_project.handler()).resolves.toMatchObject({
+      success: false,
+      error: expect.stringContaining("non-empty project file"),
+    });
   });
 
   it("reports that save_project_as switched Premiere to the copy", async () => {

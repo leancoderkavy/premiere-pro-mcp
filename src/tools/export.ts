@@ -685,7 +685,7 @@ export function getExportTools(bridgeOptions: BridgeOptions) {
 
     export_sequence: {
       description:
-        "Export the active sequence directly (Premiere renders it; blocks until done) with an Adobe Media Encoder preset. The output extension must match what the preset writes (an H.264 preset in AME's QuickTime folder writes .mov); a missing extension is added. Refuses an output_path that already exists unless overwrite is true. Fails if Premiere rejects the render, and verifies a non-empty file was written (for an overwrite, that the file changed).",
+        "Export the active sequence directly (Premiere renders it; blocks until done) with an Adobe Media Encoder preset. The output extension must match what the preset writes (an H.264 preset in AME's QuickTime folder writes .mov); a missing extension is added. Refuses an output_path that already exists unless overwrite is true. Fails if Premiere rejects the render, and verifies a non-empty file was written (for an overwrite, that the file changed). range 'work_area' fails closed unless the work area is enabled and covers only part of the sequence — otherwise Premiere would encode the entire timeline.",
       parameters: {
         type: "object" as const,
         properties: {
@@ -701,7 +701,7 @@ export function getExportTools(bridgeOptions: BridgeOptions) {
             type: "string",
             enum: ["entire", "in_to_out", "work_area"],
             description:
-              "What to render: the entire sequence (default), the sequence in/out range (set_sequence_in_out_points), or the work area. Scripts cannot set the work area on current Premiere builds, so prefer in_to_out for a ranged export.",
+              "What to render: the entire sequence (default), the sequence in/out range (set_sequence_in_out_points), or the work area. work_area requires an enabled work area around part of the sequence; unset or full-sequence work areas are refused instead of encoding everything. Scripts cannot set the work area on current Premiere builds, so prefer in_to_out for a ranged export.",
           },
           work_area_only: {
             type: "boolean",
@@ -768,9 +768,15 @@ export function getExportTools(bridgeOptions: BridgeOptions) {
           }
           rangeStart = markIn; rangeEnd = markOut;` : ""}
           ${range === "work_area" ? `
+          if (typeof seq.isWorkAreaEnabled === "function" && seq.isWorkAreaEnabled() !== true) {
+            return __error("range 'work_area' needs the work area enabled (is_work_area_enabled); nothing was exported.");
+          }
           var workIn = __workAreaSeconds(seq.getWorkAreaInPoint());
           var workOut = __workAreaSeconds(seq.getWorkAreaOutPoint());
-          if (workIn !== null && workOut !== null && workOut > workIn) { rangeStart = workIn; rangeEnd = workOut; }` : ""}
+          if (workIn === null || workOut === null || workOut <= workIn || (workIn <= 0 && Math.abs(workOut - rangeEnd) < 0.001)) {
+            return __error("range 'work_area' needs a work area around part of the sequence; nothing was exported. Scripts cannot set the work area on current Premiere builds — use range 'in_to_out' after set_sequence_in_out_points.");
+          }
+          rangeStart = workIn; rangeEnd = workOut;` : ""}
 
           // A file already at output_path must not pass the written-file check below.
           var existing = new File(outputPath);

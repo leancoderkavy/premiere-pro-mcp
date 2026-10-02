@@ -23,13 +23,13 @@ type Result = { success: boolean; error?: string; data?: Record<string, unknown>
 beforeEach(() => vi.clearAllMocks());
 
 /** QuickTime-folder preset: Premiere reports ".mov" and writes a MOV whatever the path says (live 25.2). */
-function host(options: { writes?: boolean; marks?: [number, number]; returns?: unknown; existing?: string[] } = {}) {
+function host(options: { writes?: boolean; marks?: [number, number]; workArea?: [number, number] | "disabled" | "missing"; returns?: unknown; existing?: string[] } = {}) {
   const written: string[] = [];
   const modes: number[] = [];
   // Files on disk: path -> [size, mtime]. A pre-existing file starts at 2048 bytes.
   const disk = new Map<string, [number, number]>((options.existing ?? []).map((path) => [path, [2048, 1000]]));
   let clock = 2000;
-  const seq = {
+  const seq: Record<string, unknown> = {
     end: String(121.6 * 254016000000),
     getInPoint: () => options.marks?.[0] ?? 0,
     getOutPoint: () => options.marks?.[1] ?? 121.6,
@@ -40,6 +40,13 @@ function host(options: { writes?: boolean; marks?: [number, number]; returns?: u
       return options.returns ?? "";
     },
   };
+  if (options.workArea !== "missing") {
+    const enabled = options.workArea !== "disabled";
+    const bounds = Array.isArray(options.workArea) ? options.workArea : [0, 121.6];
+    seq.isWorkAreaEnabled = () => enabled;
+    seq.getWorkAreaInPoint = () => bounds[0];
+    seq.getWorkAreaOutPoint = () => bounds[1];
+  }
   function File(this: { exists: boolean; length: number; modified: { getTime: () => number } | null }, path: string) {
     const entry = disk.get(path);
     this.exists = !!entry;
@@ -87,6 +94,42 @@ describe("export_sequence", () => {
   it("refuses in_to_out without marks instead of rendering the whole sequence", async () => {
     const written = host();
     await expect(tools.export_sequence.handler({ output_path: "/out/welcome.mov", preset_path: preset, range: "in_to_out" })).resolves.toMatchObject({ success: false, error: expect.stringContaining("needs sequence in/out points") });
+    expect(written.modes).toEqual([]);
+  });
+
+  it("renders a partial work area and reports its expected duration", async () => {
+    const written = host({ workArea: [24.4, 34.9] });
+    await expect(tools.export_sequence.handler({ output_path: "/out/welcome.mov", preset_path: preset, range: "work_area" })).resolves.toMatchObject({
+      success: true,
+      data: { range: "work_area", rangeStartSeconds: 24.4, expectedDurationSeconds: 10.5, verified: true },
+    });
+    expect(written.modes).toEqual([2]);
+  });
+
+  it("refuses work_area when the bar is disabled instead of rendering the whole sequence", async () => {
+    const written = host({ workArea: "disabled" });
+    await expect(tools.export_sequence.handler({ output_path: "/out/welcome.mov", preset_path: preset, range: "work_area" })).resolves.toMatchObject({
+      success: false,
+      error: expect.stringContaining("needs the work area enabled"),
+    });
+    expect(written.modes).toEqual([]);
+  });
+
+  it("refuses work_area when the bar spans the whole sequence", async () => {
+    const written = host({ workArea: [0, 121.6] });
+    await expect(tools.export_sequence.handler({ output_path: "/out/welcome.mov", preset_path: preset, range: "work_area" })).resolves.toMatchObject({
+      success: false,
+      error: expect.stringContaining("needs a work area around part of the sequence"),
+    });
+    expect(written.modes).toEqual([]);
+  });
+
+  it("refuses work_area when the host cannot read the bar", async () => {
+    const written = host({ workArea: "missing" });
+    await expect(tools.export_sequence.handler({ output_path: "/out/welcome.mov", preset_path: preset, range: "work_area" })).resolves.toMatchObject({
+      success: false,
+      error: expect.stringMatching(/needs a work area|getWorkAreaInPoint/),
+    });
     expect(written.modes).toEqual([]);
   });
 

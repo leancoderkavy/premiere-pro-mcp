@@ -13,14 +13,26 @@ const PROJECT_PANEL_METADATA_DEFAULT_CHARS = 20000;
 export function getProjectTools(bridgeOptions: BridgeOptions) {
   return {
     save_project: {
-      description: "Save the current Premiere Pro project",
+      description:
+        "Save the current Premiere Pro project to its existing path. Fails when the project has never been saved (use save_project_as) or when Premiere writes no non-empty file.",
       parameters: {},
       handler: async () => {
         const script = buildToolScript(`
           var project = app.project;
           if (!project) return __error("No project is open");
+          var projectPath = String(project.path || "");
+          if (!projectPath) {
+            return __error("This project has no saved path; use save_project_as. Premiere was not asked to save.");
+          }
+          var outputFile = new File(projectPath);
+          if (!outputFile.parent || !outputFile.parent.exists) {
+            return __error("The project directory does not exist: " + outputFile.parent + "; Premiere was not asked to save.");
+          }
           project.save();
-          return __result({ saved: true, name: project.name, path: project.path });
+          if (!outputFile.exists || !(outputFile.length > 0)) {
+            return __error("Premiere did not write a non-empty project file at " + projectPath + "; inspect the project before retrying.");
+          }
+          return __result({ saved: true, verified: true, name: project.name, path: projectPath });
         `);
         return sendCommand(script, bridgeOptions);
       },
