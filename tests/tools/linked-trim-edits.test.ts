@@ -456,6 +456,24 @@ describe("physical evidence stays bound to project and sequence context", () => 
   });
 });
 
+describe("slide edge write order (#719)", () => {
+  it("extends the center end before moving its start past the old end", async () => {
+    const { video, audio } = host();
+    for (const list of [video, audio]) {
+      list[1].end = { ticks: String(11 * TICKS) }; list[1].outPoint = { ticks: String(11 * TICKS) };
+      list[2].start = { ticks: String(11 * TICKS) }; list[2].inPoint = { ticks: String(11 * TICKS) };
+      const start = Object.getOwnPropertyDescriptor(list[1], "start")!;
+      Object.defineProperty(list[1], "start", {
+        get: start.get,
+        set(value: unknown) { if (ticksOf(value) < ticksOf(list[1].end)) start.set!.call(list[1], value); },
+      });
+    }
+    await expect(tools.slide_edit.handler({ node_id: "v1", offset_seconds: 3 })).resolves.toMatchObject({ success: true, data: { verified: true } });
+    expect(video[1].snapshot()).toEqual([13, 14, 10, 11]);
+    expect(audio[1].snapshot()).toEqual(video[1].snapshot());
+  });
+});
+
 describe("slide failure receipts (#719)", () => {
   it("refuses a negative adjacent source in point before touching any clip", async () => {
     const { video, audio } = host();

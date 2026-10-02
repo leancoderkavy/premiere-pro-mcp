@@ -256,8 +256,7 @@ export function getAdvancedTools(
             var expectedPreviousOut = String(Math.round(parseFloat(previous.outPoint.ticks) + slideTicks));
             var expectedFollowingIn = String(Math.round(parseFloat(following.inPoint.ticks) + slideTicks));
             previous.end = newStart;
-            result.clip.start = newStart;
-            result.clip.end = newEnd;
+            __writeClipSpan(result.clip, newStart.ticks, newEnd.ticks);
             following.start = newEnd;
             try {
               previous.outPoint = expectedPreviousOut;
