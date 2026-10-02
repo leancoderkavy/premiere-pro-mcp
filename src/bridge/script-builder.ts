@@ -2254,6 +2254,11 @@ function __error(msg, extraData) {
     for (var key in extraData) if (extraData.hasOwnProperty(key)) data[key] = extraData[key];
   }
   data = __markerWriteReceipt(data);
+  if (__markerWriteAttempted && data) {
+    data.timelineChanged = true;
+    data.outcome = "committed_unverified";
+    data.verified = false;
+  }
   if (__undoStart !== null) {
     var undoNow = __readUndoIndex();
     if (undoNow !== null && undoNow > __undoStart) {

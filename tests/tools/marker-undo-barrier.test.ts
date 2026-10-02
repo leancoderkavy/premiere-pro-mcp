@@ -131,7 +131,7 @@ describe("persistent CEP marker undo boundary (#733)", () => {
   });
   it("protects a marker that was created before its API threw", async () => {
     const state = host({ throwingMarker: true });
-    await expect(markersTool.add_marker.handler({ time_seconds: 2 })).resolves.toMatchObject({ success: false });
+    await expect(markersTool.add_marker.handler({ time_seconds: 2 })).resolves.toMatchObject({ success: false, data: { timelineChanged: true, outcome: "committed_unverified", verified: false, markerUndoBarrier: true } });
     expect(state.list).toHaveLength(1);
     await expect(projectTools.undo.handler({ expected_undo_stack_index: 52 })).resolves.toMatchObject({ success: false });
     expect(state.undo).not.toHaveBeenCalled();
