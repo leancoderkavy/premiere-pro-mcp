@@ -416,11 +416,14 @@ function buildApplyScript(plan: SpotWorkflowPlan): string {
       var motionWriteAttempted = false;
       try {
         audioKeys(scaleProperty);
+        var inTicks = audioTick(clip.inPoint.ticks);
+        var durationTicks = audioTick(clip.end.ticks) - audioTick(clip.start.ticks);
+        if (durationTicks <= 25401600000) throw new Error("Unreadable motion duration");
+        var startTime = new Time(); startTime.ticks = String(inTicks);
+        var endTime = new Time(); endTime.ticks = String(audioTick(inTicks + durationTicks - 25401600000));
         var varying = scaleProperty.isTimeVarying();
         if (varying !== true && varying !== false && varying !== 0 && varying !== 1) throw new Error("Unknown keyframe mode");
         if (!varying) { motionWriteAttempted = true; scaleProperty.setTimeVarying(true); }
-        var startTime = __clipKeyTime(base, start);
-        var endTime = __clipKeyTime(base, end);
         motionWriteAttempted = true; scaleProperty.addKey(startTime); scaleProperty.setValueAtKey(startTime, range.from, true);
         motionWriteAttempted = true; scaleProperty.addKey(endTime); scaleProperty.setValueAtKey(endTime, range.to, true);
         var storedTicks = audioKeys(scaleProperty);

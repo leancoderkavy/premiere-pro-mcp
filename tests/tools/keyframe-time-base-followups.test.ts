@@ -195,3 +195,13 @@ it("rejects normalized Level underflow without a bridge write", async () => {
   expect(result.success).toBe(false);
   expect(send).not.toHaveBeenCalled();
 });
+
+
+it("does not accept a partially numeric source In clock", async () => {
+  const h = host();
+  h.clip.inPoint.ticks = toTicks(30) + "bad";
+  const mutate = vi.spyOn(h.prop, "setTimeVarying");
+  const result = await audioTools.add_audio_keyframes.handler({ node_id: h.clip.nodeId, keyframes: [{ time_seconds: 2, level_db: 0 }] });
+  expect(result.success).toBe(false);
+  expect(mutate).not.toHaveBeenCalled();
+});
