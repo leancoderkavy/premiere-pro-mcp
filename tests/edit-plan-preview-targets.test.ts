@@ -10,7 +10,7 @@ describe("edit-plan preview target inspection", () => {
   const issue = vi.fn(() => "token");
   const tools = getEditPlanTools({}, { capabilities: { capabilities: new Set(["inspect"]), source: "explicit" }, tokenStore: { issue, consume: vi.fn() } });
   function host() {
-    const target = { sequenceID: "target", name: "Target", videoTracks: { numTracks: 1, 0: { clips: { numItems: 1, 0: { nodeId: "clip" } } } }, audioTracks: { numTracks: 0 } };
+    const target = { sequenceID: "target", name: "Target", videoTracks: { numTracks: 1, 0: { clips: { numItems: 1, 0: { nodeId: "clip" } } } }, audioTracks: { numTracks: 1, 0: { clips: { numItems: 0 } } } };
     const active = { ...target, sequenceID: "active" };
     const project = { activeSequence: active, sequences: { numSequences: 2, 0: active, 1: target }, rootItem: { children: { numItems: 1, 0: { nodeId: "media", name: "Media", type: 1 } } } };
     vi.mocked(sendCommand).mockImplementation(async (script) => JSON.parse(String(runInNewContext(`${getHelpersSource()}\n${script}`, { app: { project } }))));
@@ -32,6 +32,12 @@ describe("edit-plan preview target inspection", () => {
     await expect(tools.preview_edit_plan.handler({ plan: { sequence_id: "target", operations: [{ type: "remove_clip", node_id: "clip" }, { type: "insert_clip", item_id: "media", start_seconds: 0 }] } })).resolves.toMatchObject({ success: true, data: { applied: false, targetsValidated: true, confirmationToken: "token" } });
     expect(project.activeSequence).toBe(active);
     expect(issue).toHaveBeenCalledOnce();
+  });
+  it("checks omitted track indices against the effective defaults", async () => {
+    const { project } = host();
+    project.activeSequence.audioTracks.numTracks = 0;
+    await expect(tools.preview_edit_plan.handler({ plan: { operations: [{ type: "insert_clip", item_id: "media", start_seconds: 0 }] } })).resolves.toMatchObject({ success: false, error: expect.stringContaining("audio track") });
+    expect(issue).not.toHaveBeenCalled();
   });
   it("refuses an incomplete inspection receipt", async () => {
     vi.mocked(sendCommand).mockResolvedValue({ success: true, data: {} });

@@ -100,8 +100,8 @@ function buildPreviewScript(plan: EditPlan): string {
   const checks = plan.operations.map((operation, index) => {
     if (operation.type === "insert_clip") {
       const tracks = (["video", "audio"] as const).flatMap((kind) => {
-        const track = operation[`${kind}_track_index`];
-        return track === undefined ? [] : [`if (!seq.${kind}Tracks || ${track} >= seq.${kind}Tracks.numTracks) return __error("${kind} track not found for operation ${index}");`];
+        const track = operation[`${kind}_track_index`] ?? 0;
+        return [`if (!seq.${kind}Tracks || ${track} >= seq.${kind}Tracks.numTracks) return __error("${kind} track not found for operation ${index}");`];
       });
       return `if (!__findProjectItem("${escapeForExtendScript(operation.item_id)}")) return __error("Project item not found for operation ${index}");\n${tracks.join("\n")}`;
     }

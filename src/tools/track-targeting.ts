@@ -1028,10 +1028,10 @@ export function getTrackTargetingTools(bridgeOptions: BridgeOptions) {
           }
           if (!set) return __error("Could not set volume - is this an audio clip?");
           if (appliedLevel === null || !isFinite(appliedLevel) || appliedLevel < 0) {
-            return __result({ outcome: "committed_unverified", requestedVolumeDb: ${args.volume_db}, volumeDb: null, level: null, clip: clip.name, warning: "Premiere accepted the volume write but its stored level could not be read; inspect the clip before retrying." });
+            return __result({ outcome: "committed_unverified", verified: false, requestedVolumeDb: ${args.volume_db}, volumeDb: null, level: null, clip: clip.name, warning: "Premiere accepted the volume write but its stored level could not be read; inspect the clip before retrying." });
           }
           var appliedDb = appliedLevel > 0 ? (20 * (Math.log(appliedLevel) / Math.LN10) + ${PREMIERE_MAX_LEVEL_DB}) : null;
-          return __result({ requestedVolumeDb: ${args.volume_db}, volumeDb: appliedDb, level: appliedLevel, clamped: appliedDb === null || Math.abs(appliedDb - ${args.volume_db}) > 0.001, clip: clip.name });
+          return __result({ outcome: "verified", verified: true, requestedVolumeDb: ${args.volume_db}, volumeDb: appliedDb, level: appliedLevel, clamped: appliedDb === null || Math.abs(appliedDb - ${args.volume_db}) > 0.001, clip: clip.name });
         `);
         return sendCommand(script, bridgeOptions);
       },
