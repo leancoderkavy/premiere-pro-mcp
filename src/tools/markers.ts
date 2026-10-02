@@ -70,7 +70,7 @@ const MARKER_UNDO_RECEIPT = `
 export function getMarkerTools(bridgeOptions: BridgeOptions) {
   return {
     add_marker: {
-      description: "Add a marker to the active sequence or a clip and read its name, comments, color and duration back. EXPERIMENTAL (QE DOM): the receipt reports undoStackIndex movement, which does not prove QE can reverse the marker. Every marker attempt protects an engine undo boundary; undoTracked:false means Undo would reverse an earlier action.",
+      description: "Add a marker to the active sequence or a clip and read its name, comments, color and duration back. EXPERIMENTAL (QE DOM): the receipt reports undoStackIndex movement, which does not prove QE can reverse the marker. Every marker attempt protects an engine undo boundary; undoTracked:false means the marker did not observably advance the QE index.",
       parameters: {
         type: "object" as const,
         properties: {
@@ -153,7 +153,7 @@ export function getMarkerTools(bridgeOptions: BridgeOptions) {
     },
 
     delete_marker: {
-      description: "Delete a marker at a specific time position. EXPERIMENTAL (QE DOM): the receipt reports undoStackIndex movement, which does not prove QE can reverse the marker. Every marker attempt protects an engine undo boundary; undoTracked:false means Undo would reverse an earlier action.",
+      description: "Delete a marker at a specific time position. EXPERIMENTAL (QE DOM): the receipt reports undoStackIndex movement, which does not prove QE can reverse the marker. Every marker attempt protects an engine undo boundary; undoTracked:false means the marker did not observably advance the QE index.",
       parameters: {
         type: "object" as const,
         properties: {
@@ -208,7 +208,7 @@ export function getMarkerTools(bridgeOptions: BridgeOptions) {
     },
 
     update_marker: {
-      description: "Update the name, comments or color of the sequence marker at a time and read them back. EXPERIMENTAL (QE DOM): the receipt reports undoStackIndex movement, which does not prove QE can reverse the marker. Every marker attempt protects an engine undo boundary; undoTracked:false means Undo would reverse an earlier action.",
+      description: "Update the name, comments or color of the sequence marker at a time and read them back. EXPERIMENTAL (QE DOM): the receipt reports undoStackIndex movement, which does not prove QE can reverse the marker. Every marker attempt protects an engine undo boundary; undoTracked:false means the marker did not observably advance the QE index.",
       parameters: {
         type: "object" as const,
         properties: {
