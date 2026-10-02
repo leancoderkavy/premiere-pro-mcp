@@ -177,7 +177,7 @@ export function getCompetitorGapTools(
             function expectedStream(mediaType) {
               try {
                 var span = parseFloat(preflight.item.getOutPoint(mediaType).ticks) - parseFloat(preflight.item.getInPoint(mediaType).ticks);
-                return !isFinite(span) || span > 0;
+                return !isFinite(span) || span !== 0;
               } catch (eStreamSpan) { return true; }
             }
             preflight.expectedVideo = expectedStream(1);
