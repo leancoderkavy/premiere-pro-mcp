@@ -109,7 +109,8 @@ function hostBindingScript(plan: EditPlan): string {
     }
     return `var located${index} = __planLocateClip(seq, "${escapeForExtendScript(operation.node_id)}"); if (!located${index}) return __error("Clip not found for operation ${index}");
       var removal${index} = __planClipBinding(located${index});
-      var boundRemoval${index} = {type:"remove_clip",targetId:removal${index}.targetId,sourceProjectItemId:removal${index}.sourceProjectItemId,trackType:removal${index}.trackType,trackIndex:removal${index}.trackIndex,startTicks:removal${index}.startTicks,endTicks:removal${index}.endTicks,inTicks:removal${index}.inTicks,outTicks:removal${index}.outTicks,linkedPartners: ${operation.ripple === true || operation.include_linked !== false ? `__planLinkedBindings(seq, located${index})` : "[]"}};
+      var validatedPartners${index} = [];
+      var boundRemoval${index} = {type:"remove_clip",targetId:removal${index}.targetId,sourceProjectItemId:removal${index}.sourceProjectItemId,trackType:removal${index}.trackType,trackIndex:removal${index}.trackIndex,startTicks:removal${index}.startTicks,endTicks:removal${index}.endTicks,inTicks:removal${index}.inTicks,outTicks:removal${index}.outTicks,linkedPartners: ${operation.ripple === true || operation.include_linked !== false ? `__planLinkedBindings(seq, located${index}, validatedPartners${index})` : "[]"}};
       targets.push(boundRemoval${index});`;
   });
   return `${sequence}
@@ -135,7 +136,7 @@ function hostBindingScript(plan: EditPlan): string {
       var clip = located.clip;
       return {targetId:__bindingIdentity(clip.nodeId),sourceProjectItemId:__bindingIdentity(clip.projectItem && clip.projectItem.nodeId),trackType:located.trackType,trackIndex:located.trackIndex,startTicks:__bindingIdentity(clip.start && clip.start.ticks),endTicks:__bindingIdentity(clip.end && clip.end.ticks),inTicks:__bindingIdentity(clip.inPoint && clip.inPoint.ticks),outTicks:__bindingIdentity(clip.outPoint && clip.outPoint.ticks)};
     }
-    function __planLinkedBindings(sequence, located) {
+    function __planLinkedBindings(sequence, located, validatedPartners) {
       if (typeof located.clip.getLinkedItems !== "function") throw new Error("Premiere cannot expose linked removal targets; preview cannot be bound safely");
       var linked = null;
       try { linked = located.clip.getLinkedItems(); }
@@ -150,6 +151,7 @@ function hostBindingScript(plan: EditPlan): string {
         // Match __linkedPartnerClips: same-track group members are not removed.
         if (partner.trackType === located.trackType && partner.trackIndex === located.trackIndex) continue;
         seen[id] = true;
+        validatedPartners.push(partner);
         partners.push(__planClipBinding(partner));
       }
       partners.sort(function (left, right) { return left.targetId < right.targetId ? -1 : (left.targetId > right.targetId ? 1 : 0); });
@@ -209,11 +211,11 @@ function buildApplyScript(plan: EditPlan, binding: EditPlanHostBinding): string 
     } else {
       const nodeId = escapeForExtendScript(operation.node_id);
       if (operation.ripple === true) {
-        const body = rippleDeleteScriptBody({ nodeId, scope: "sync_locked", rangeDelete: false, dryRun: false });
+        const body = rippleDeleteScriptBody({ nodeId, scope: "sync_locked", rangeDelete: false, dryRun: false, validatedPartnersExpression: `validatedPartners${index}` });
         // __result/__error are shadowed so the body hands back a plain object.
         mutations.push(`var ripple${index} = (function () { var __result = function (d) { return { success: true, data: d }; }; var __error = function (m) { return { success: false, error: String(m) }; }; ${body} })(); if (!ripple${index}.success) return __planFail(${index}, ripple${index}.error); results.push({index:${index}, type:"remove_clip", ripple:true, applied:true, verified:true, gapClosedSeconds: ripple${index}.data.gapClosedSeconds, clipsShifted: ripple${index}.data.clipsShifted});`);
       } else {
-        mutations.push(`var found${index} = __findClip("${nodeId}"); if (!found${index}) return __planFail(${index}, "clip ${nodeId} is no longer on the timeline"); var removed${index} = __removeClipAndPartners(found${index}, ${operation.include_linked !== false}); if (!removed${index}.ok) return __planFail(${index}, removed${index}.error); results.push({index:${index}, type:"remove_clip", ripple:false, applied:true, verified:true, linkedPartnersRemoved: removed${index}.data.linkedPartnersRemoved});`);
+        mutations.push(`var found${index} = __findClip("${nodeId}"); if (!found${index}) return __planFail(${index}, "clip ${nodeId} is no longer on the timeline"); var removed${index} = __removeClipAndPartners(found${index}, ${operation.include_linked !== false}, validatedPartners${index}); if (!removed${index}.ok) return __planFail(${index}, removed${index}.error); results.push({index:${index}, type:"remove_clip", ripple:false, applied:true, verified:true, linkedPartnersRemoved: removed${index}.data.linkedPartnersRemoved});`);
       }
     }
   });

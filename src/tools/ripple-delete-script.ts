@@ -9,6 +9,8 @@ export function rippleDeleteScriptBody(options: {
   scope: "sync_locked" | "own_track";
   rangeDelete: boolean;
   dryRun: boolean;
+  /** Internal edit-plan reference to partners already checked against its token. */
+  validatedPartnersExpression?: string;
 }): string {
   const { nodeId, scope, rangeDelete, dryRun } = options;
   return `
@@ -17,7 +19,7 @@ export function rippleDeleteScriptBody(options: {
           // The clip's own linked partners (its synced audio/video) are part of
           // the edit, exactly as in Premiere's ripple delete of a linked clip.
           var linkedPartnerIds = {};
-          var linkedPartners = __linkedPartnerClips(result);
+          var linkedPartners = ${options.validatedPartnersExpression ?? "__linkedPartnerClips(result)"};
           for (var lpi = 0; lpi < linkedPartners.length; lpi++) linkedPartnerIds[String(linkedPartners[lpi].clip.nodeId)] = true;
 
           var seq = app.project.activeSequence;

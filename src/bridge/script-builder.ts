@@ -1319,10 +1319,10 @@ function __findOpenProject(path) {
 // a linked clip), then verify every removed clip is gone. Every clip's track
 // lock and remove() are checked before anything is removed, so a partner on a
 // locked track refuses the whole removal instead of leaving its audio behind.
-function __removeClipAndPartners(result, includeLinked) {
+function __removeClipAndPartners(result, includeLinked, validatedPartners) {
   var targets = [result];
   if (includeLinked) {
-    var partners = __linkedPartnerClips(result);
+    var partners = validatedPartners !== undefined ? validatedPartners : __linkedPartnerClips(result);
     for (var p = 0; p < partners.length; p++) targets.push(partners[p]);
   }
   var seq = app.project.activeSequence;

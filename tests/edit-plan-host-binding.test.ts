@@ -35,7 +35,8 @@ function fixture() {
     rootItem: { children: { numItems: 1, 0: media } },
   };
   vi.mocked(sendCommand).mockImplementation(async (script) => JSON.parse(String(runInNewContext(`${getHelpersSource()}\n${script}`, {
-    app: { project }, Time: function () { this.ticks = "0"; },
+    app: { project, enableQE: () => {} }, Time: function () { this.ticks = "0"; },
+    qe: { project: { getActiveSequence: () => ({ getVideoTrackAt: () => ({ isSyncLocked: () => false }), getAudioTrackAt: () => ({ isSyncLocked: () => false }) }) } },
   }))));
   const dependencies = { capabilities: { capabilities: new Set(["inspect", "edit"]), source: "explicit" as const }, auditSink: vi.fn() };
   return { tools: getEditPlanTools({ tempDir }, dependencies), restart: () => getEditPlanTools({ tempDir }, dependencies), project, sequence, other, media, clip, remove, activation };
@@ -128,6 +129,19 @@ describe("persisted preview host-target binding", () => {
     expect(applied).toMatchObject({ success: true, data: { applied: true } });
     expect(sendCommand).toHaveBeenCalledOnce(); expect(f.remove).toHaveBeenCalledOnce();
     expect(f.partnerRemove).toHaveBeenCalledOnce(); expect(f.additionalRemove).toHaveBeenCalledOnce(); expect(f.audio).toHaveLength(0);
+  });
+  it.each([false, true])("reuses validated partners when a second linkage read would fail (ripple:%s)", async (ripple) => {
+    const f = linkedFixture(); f.audio.splice(1, 1);
+    const plan = { operations: [{ ...removal.operations[0], ripple }] };
+    const token = await preview(f.tools, plan);
+    const readLinkage = vi.fn(() => {
+      if (readLinkage.mock.calls.length > 1) throw new Error("second linkage read unavailable");
+      return { numItems: 1, 0: f.partner };
+    });
+    (f.clip as unknown as { getLinkedItems: () => unknown }).getLinkedItems = readLinkage;
+    expect(await f.restart().apply_edit_plan.handler({ plan, confirmation_token: token })).toMatchObject({ success: true, data: { applied: true } });
+    expect(readLinkage).toHaveBeenCalledOnce();
+    expect(f.remove).toHaveBeenCalledOnce(); expect(f.partnerRemove).toHaveBeenCalledOnce(); expect(f.audio).toHaveLength(0);
   });
   it.each(["source", "range", "track"])("rejects linked partner %s changes after preview", async (change) => {
     const f = linkedFixture(); const token = await preview(f.tools, removal);
