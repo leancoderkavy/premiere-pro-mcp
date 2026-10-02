@@ -234,7 +234,7 @@ export function getEditPlanTools(bridgeOptions: BridgeOptions, dependencies: Edi
 
   return {
     preview_edit_plan: {
-      description: "Inspect sequence, project item, clip and requested track targets before previewing a compound timeline edit without changing Premiere. Returns a single-use confirmation token that expires after 30 minutes and is required by apply_edit_plan.",
+      description: "Inspect sequence, project item, clip and requested track targets before previewing a compound timeline edit without changing Premiere. Returns a single-use confirmation token bound to stable project, sequence and target identities; it expires after 30 minutes and is required by apply_edit_plan.",
       parameters: { type: "object" as const, properties: { plan: planParameter }, required: ["plan"] },
       handler: async (args: { plan: unknown }) => {
         const operationId = nextId();
@@ -255,7 +255,7 @@ export function getEditPlanTools(bridgeOptions: BridgeOptions, dependencies: Edi
       },
     },
     apply_edit_plan: {
-      description: "Apply a previously previewed compound edit after revalidating every target. Requires the edit capability and exact preview confirmation token.",
+      description: "Apply a previously previewed compound edit after revalidating stable project, sequence and target identities before activation or mutation. Requires the edit capability and exact preview confirmation token; changed targets require a fresh preview.",
       parameters: {
         type: "object" as const,
         properties: { plan: planParameter, confirmation_token: { type: "string", description: "Exact token returned by preview_edit_plan" } },
