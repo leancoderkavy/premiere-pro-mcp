@@ -23,14 +23,14 @@ type Result = { success: boolean; error?: string; data?: Record<string, unknown>
 beforeEach(() => vi.clearAllMocks());
 
 /** QuickTime-folder preset: Premiere reports ".mov" and writes a MOV whatever the path says (live 25.2). */
-function host(options: { writes?: boolean; marks?: [number, number]; workArea?: [number, number] | "disabled" | "missing"; returns?: unknown; existing?: string[] } = {}) {
+function host(options: { writes?: boolean; marks?: [number, number]; workArea?: [number | string, number | string] | "disabled" | "missing"; enabledState?: unknown; missingEnabled?: boolean; enabledThrows?: boolean; sequenceEnd?: string; returns?: unknown; existing?: string[] } = {}) {
   const written: string[] = [];
   const modes: number[] = [];
   // Files on disk: path -> [size, mtime]. A pre-existing file starts at 2048 bytes.
   const disk = new Map<string, [number, number]>((options.existing ?? []).map((path) => [path, [2048, 1000]]));
   let clock = 2000;
   const seq: Record<string, unknown> = {
-    end: String(121.6 * 254016000000),
+    end: options.sequenceEnd ?? String(121.6 * 254016000000),
     getInPoint: () => options.marks?.[0] ?? 0,
     getOutPoint: () => options.marks?.[1] ?? 121.6,
     getExportFileExtension: () => ".mov",
@@ -43,7 +43,7 @@ function host(options: { writes?: boolean; marks?: [number, number]; workArea?: 
   if (options.workArea !== "missing") {
     const enabled = options.workArea !== "disabled";
     const bounds = Array.isArray(options.workArea) ? options.workArea : [0, 121.6];
-    seq.isWorkAreaEnabled = () => enabled;
+    if (!options.missingEnabled) seq.isWorkAreaEnabled = () => { if (options.enabledThrows) throw new Error("unreadable"); return "enabledState" in options ? options.enabledState : enabled; };
     seq.getWorkAreaInPoint = () => bounds[0];
     seq.getWorkAreaOutPoint = () => bounds[1];
   }
@@ -128,8 +128,34 @@ describe("export_sequence", () => {
     const written = host({ workArea: "missing" });
     await expect(tools.export_sequence.handler({ output_path: "/out/welcome.mov", preset_path: preset, range: "work_area" })).resolves.toMatchObject({
       success: false,
-      error: expect.stringMatching(/needs a work area|getWorkAreaInPoint/),
+      error: expect.stringMatching(/needs (?:a work area|the work area enabled)|getWorkAreaInPoint/),
     });
+    expect(written.modes).toEqual([]);
+  });
+
+  it.each([
+    { missingEnabled: true }, { enabledState: 1 }, { enabledState: "true" }, { enabledState: null }, { enabledThrows: true },
+  ])("refuses unverified enabled state %j with valid partial bounds", async (option) => {
+    const written = host({ workArea: [20, 30], ...option });
+    await expect(tools.export_sequence.handler({ output_path: "/out/partial.mov", preset_path: preset, range: "work_area" })).resolves.toMatchObject({ success: false });
+    expect(written.modes).toEqual([]);
+  });
+
+  it.each<[number, number]>([[-5, 200], [-1, 30], [20, 122], [30, 20], [20, Infinity], [NaN, 30]])("refuses out-of-bounds work area %s..%s", async (start, end) => {
+    const written = host({ workArea: [start, end] });
+    await expect(tools.export_sequence.handler({ output_path: "/out/partial.mov", preset_path: preset, range: "work_area" })).resolves.toMatchObject({ success: false });
+    expect(written.modes).toEqual([]);
+  });
+
+  it.each<[number | string, number | string]>([["20bad", 30], [20, "30bad"], ["", 30]])("refuses malformed work-area bounds %s..%s", async (start, end) => {
+    const written = host({ workArea: [start, end] });
+    await expect(tools.export_sequence.handler({ output_path: "/out/partial.mov", preset_path: preset, range: "work_area" })).resolves.toMatchObject({ success: false });
+    expect(written.modes).toEqual([]);
+  });
+
+  it.each(["NaN", "Infinity", "", "-1", "30888345600000garbage"])("refuses work area with invalid sequence end %s", async (sequenceEnd) => {
+    const written = host({ workArea: [20, 30], sequenceEnd });
+    await expect(tools.export_sequence.handler({ output_path: "/out/partial.mov", preset_path: preset, range: "work_area" })).resolves.toMatchObject({ success: false });
     expect(written.modes).toEqual([]);
   });
 

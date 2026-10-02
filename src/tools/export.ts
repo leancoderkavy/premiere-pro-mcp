@@ -701,7 +701,7 @@ export function getExportTools(bridgeOptions: BridgeOptions) {
             type: "string",
             enum: ["entire", "in_to_out", "work_area"],
             description:
-              "What to render: the entire sequence (default), the sequence in/out range (set_sequence_in_out_points), or the work area. work_area requires an enabled work area around part of the sequence; unset or full-sequence work areas are refused instead of encoding everything. Scripts cannot set the work area on current Premiere builds, so prefer in_to_out for a ranged export.",
+              "What to render: the entire sequence (default), the sequence in/out range (set_sequence_in_out_points), or the work area. work_area requires an enabled work area around part of the sequence; unset or full-sequence work areas are refused instead of encoding everything. Set and read back a valid work area where the host supports it, or use in_to_out for a ranged export.",
           },
           work_area_only: {
             type: "boolean",
@@ -768,13 +768,27 @@ export function getExportTools(bridgeOptions: BridgeOptions) {
           }
           rangeStart = markIn; rangeEnd = markOut;` : ""}
           ${range === "work_area" ? `
-          if (typeof seq.isWorkAreaEnabled === "function" && seq.isWorkAreaEnabled() !== true) {
+          rangeEnd = Number(seq.end) / TICKS_PER_SECOND;
+          var workAreaEnabled = null;
+          try { if (typeof seq.isWorkAreaEnabled === "function") workAreaEnabled = seq.isWorkAreaEnabled(); } catch (eWorkAreaEnabled) {}
+          if (workAreaEnabled !== true) {
             return __error("range 'work_area' needs the work area enabled (is_work_area_enabled); nothing was exported.");
           }
-          var workIn = __workAreaSeconds(seq.getWorkAreaInPoint());
-          var workOut = __workAreaSeconds(seq.getWorkAreaOutPoint());
-          if (workIn === null || workOut === null || workOut <= workIn || (workIn <= 0 && Math.abs(workOut - rangeEnd) < 0.001)) {
-            return __error("range 'work_area' needs a work area around part of the sequence; nothing was exported. Scripts cannot set the work area on current Premiere builds — use range 'in_to_out' after set_sequence_in_out_points.");
+          function readWorkAreaSeconds(value) {
+            if (typeof value !== "number" && typeof value !== "string") return null;
+            if (typeof value === "string" && !/\\S/.test(value)) return null;
+            var number = Number(value);
+            if (!isFinite(number)) return null;
+            return number > 1000000 ? number / TICKS_PER_SECOND : number;
+          }
+          var workIn = null;
+          var workOut = null;
+          try {
+            if (typeof seq.getWorkAreaInPoint === "function") workIn = readWorkAreaSeconds(seq.getWorkAreaInPoint());
+            if (typeof seq.getWorkAreaOutPoint === "function") workOut = readWorkAreaSeconds(seq.getWorkAreaOutPoint());
+          } catch (eWorkAreaBounds) {}
+          if (workIn === null || workOut === null || !isFinite(rangeEnd) || rangeEnd <= 0 || workIn < 0 || workOut <= workIn || workOut > rangeEnd || (workIn === 0 && Math.abs(workOut - rangeEnd) < 0.001)) {
+            return __error("range 'work_area' needs a work area around part of the sequence; nothing was exported. Set and read back a valid work area where supported, or use range 'in_to_out' after set_sequence_in_out_points.");
           }
           rangeStart = workIn; rangeEnd = workOut;` : ""}
 

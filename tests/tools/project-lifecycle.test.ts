@@ -32,7 +32,7 @@ type Proj = {
  * openSequence brings its project to the front unless that timeline already
  * has focus (a new empty project keeps the previous project's timeline focused).
  */
-function host(options: { saveAsNoop?: boolean; saveNoop?: boolean; emptySave?: boolean; untitled?: boolean; missingOutput?: boolean; emptyOutput?: boolean; missingParent?: boolean; modifiedUnavailable?: "before" | "after" | "both"; sameSizeRewrite?: boolean } = {}) {
+function host(options: { saveAsNoop?: boolean; saveNoop?: boolean; emptySave?: boolean; saveSameSize?: boolean; saveThrows?: "before" | "after"; untitled?: boolean; missingOutput?: boolean; emptyOutput?: boolean; missingParent?: boolean; modifiedUnavailable?: "before" | "after" | "both"; sameSizeRewrite?: boolean } = {}) {
   const files = new Map<string, { length: number; modified: number }>([
     ["/p/Main.prproj", { length: 100, modified: 1000 }],
     ["/p/Other.prproj", { length: 80, modified: 1000 }],
@@ -51,9 +51,11 @@ function host(options: { saveAsNoop?: boolean; saveNoop?: boolean; emptySave?: b
       sequences: Object.assign({ numSequences: seqs.length }, seqs),
       save: () => {
         saveCalls++;
+        if (options.saveThrows === "before") throw new Error("save failed before write");
         if (options.saveNoop) return;
         if (!project.path) return;
-        files.set(project.path, { length: options.emptySave ? 0 : 140, modified: 1002 });
+        files.set(project.path, { length: options.emptySave ? 0 : options.saveSameSize ? 80 : 140, modified: 1002 });
+        if (options.saveThrows === "after") throw new Error("save failed after write");
       },
       saveAs: (target: string) => {
         saveCalls++;
@@ -120,6 +122,33 @@ describe("project lifecycle tools", () => {
       data: { saved: true, verified: true, path: "/p/Other.prproj" },
     });
     expect(h.saveCalls()).toBe(1);
+  });
+
+  it.each([undefined, "before", "after", "both"] as const)("does not verify a stale file with %s timestamp access", async (modifiedUnavailable) => {
+    const h = host({ saveNoop: true, modifiedUnavailable });
+    await expect(tools.save_project.handler()).resolves.toMatchObject({ success: true, data: { saved: null, saveRequested: true, verified: false, outcome: "committed_unverified" } });
+    expect(h.saveCalls()).toBe(1);
+  });
+
+  it("verifies a same-size save using fresh modification evidence", async () => {
+    host({ saveSameSize: true });
+    await expect(tools.save_project.handler()).resolves.toMatchObject({ success: true, data: { saved: true, verified: true } });
+  });
+
+  it("reports a same-size save with unreadable timestamps as unverified", async () => {
+    host({ saveSameSize: true, modifiedUnavailable: "both" });
+    await expect(tools.save_project.handler()).resolves.toMatchObject({ success: true, data: { saved: null, verified: false, outcome: "committed_unverified" } });
+  });
+
+  it("reports a throwing save before a write as attempted with unknown mutation", async () => {
+    const h = host({ saveThrows: "before" });
+    await expect(tools.save_project.handler()).resolves.toMatchObject({ success: false, data: { mutationAttempted: true, mutationOutcome: "unknown", timelineChanged: null, verified: false } });
+    expect(h.saveCalls()).toBe(1);
+  });
+
+  it("retains verified disk evidence when save throws after a fresh write", async () => {
+    host({ saveThrows: "after" });
+    await expect(tools.save_project.handler()).resolves.toMatchObject({ success: true, data: { saved: true, verified: true, outcome: "verified", warning: expect.stringContaining("threw after a fresh disk write") } });
   });
 
   it("refuses untitled save_project before Premiere can open a Save dialog", async () => {

@@ -14,7 +14,7 @@ export function getProjectTools(bridgeOptions: BridgeOptions) {
   return {
     save_project: {
       description:
-        "Save the current Premiere Pro project to its existing path. Fails when the project has never been saved (use save_project_as) or when Premiere writes no non-empty file.",
+        "Save the current Premiere Pro project to its existing path. Fails when the project has never been saved (use save_project_as) or when Premiere writes no non-empty file. Fresh disk metadata verifies a save; unchanged or unreadable metadata reports committed_unverified.",
       parameters: {},
       handler: async () => {
         const script = buildToolScript(`
@@ -28,11 +28,31 @@ export function getProjectTools(bridgeOptions: BridgeOptions) {
           if (!outputFile.parent || !outputFile.parent.exists) {
             return __error("The project directory does not exist: " + outputFile.parent + "; Premiere was not asked to save.");
           }
-          project.save();
-          if (!outputFile.exists || !(outputFile.length > 0)) {
-            return __error("Premiere did not write a non-empty project file at " + projectPath + "; inspect the project before retrying.");
+          function saveFileEvidence(file) {
+            try {
+              var exists = !!file.exists;
+              var length = file.length;
+              var stamp = null;
+              try {
+                var modified = file.modified;
+                var value = modified && typeof modified.valueOf === "function" ? modified.valueOf() : null;
+                if (typeof value === "number" && isFinite(value)) stamp = value;
+              } catch (eModified) {}
+              return { exists: exists, length: typeof length === "number" && isFinite(length) ? length : null, modified: stamp };
+            } catch (eEvidence) { return null; }
           }
-          return __result({ saved: true, verified: true, name: project.name, path: projectPath });
+          var beforeSave = saveFileEvidence(outputFile);
+          var saveError = null;
+          try { project.save(); } catch (eSave) { saveError = String(eSave); }
+          outputFile = new File(projectPath);
+          var afterSave = saveFileEvidence(outputFile);
+          if (!afterSave || afterSave.length === null) return __result({ saved: null, saveRequested: true, verified: false, outcome: "committed_unverified", name: project.name, path: projectPath, warning: "Save was requested, but disk evidence is unreadable; inspect the project before retrying." });
+          if (!afterSave.exists || !(afterSave.length > 0)) {
+            return __error("Premiere did not write a non-empty project file at " + projectPath + "; inspect the project before retrying.", { mutationAttempted: true, mutationOutcome: "unknown", timelineChanged: null, verified: false });
+          }
+          var fresh = beforeSave && (!beforeSave.exists || (beforeSave.length !== null && afterSave.length !== beforeSave.length) || (beforeSave.modified !== null && afterSave.modified !== null && afterSave.modified > beforeSave.modified));
+          if (saveError && !fresh) return __error("Premiere save threw: " + saveError + "; disk evidence cannot confirm a fresh write. Inspect before retrying.", { mutationAttempted: true, mutationOutcome: "unknown", timelineChanged: null, verified: false });
+          return __result({ saved: fresh ? true : null, saveRequested: true, verified: !!fresh, outcome: fresh ? "verified" : "committed_unverified", name: project.name, path: projectPath, warning: fresh ? (saveError ? "Premiere save threw after a fresh disk write was observed: " + saveError : null) : "Save was requested, but the existing file does not prove a fresh write; inspect the project before retrying." });
         `);
         return sendCommand(script, bridgeOptions);
       },
