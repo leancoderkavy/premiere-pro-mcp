@@ -46,6 +46,7 @@ export function getProjectTools(bridgeOptions: BridgeOptions) {
           try { project.save(); } catch (eSave) { saveError = String(eSave); }
           outputFile = new File(projectPath);
           var afterSave = saveFileEvidence(outputFile);
+          if (saveError && (!afterSave || afterSave.length === null)) return __error("Premiere save threw: " + saveError + "; disk evidence is unreadable. Inspect before retrying.", { mutationAttempted: true, mutationOutcome: "unknown", timelineChanged: null, verified: false });
           if (!afterSave || afterSave.length === null) return __result({ saved: null, saveRequested: true, verified: false, outcome: "committed_unverified", name: project.name, path: projectPath, warning: "Save was requested, but disk evidence is unreadable; inspect the project before retrying." });
           if (!afterSave.exists || !(afterSave.length > 0)) {
             return __error("Premiere did not write a non-empty project file at " + projectPath + "; inspect the project before retrying.", { mutationAttempted: true, mutationOutcome: "unknown", timelineChanged: null, verified: false });

@@ -32,7 +32,7 @@ type Proj = {
  * openSequence brings its project to the front unless that timeline already
  * has focus (a new empty project keeps the previous project's timeline focused).
  */
-function host(options: { saveAsNoop?: boolean; saveNoop?: boolean; emptySave?: boolean; saveSameSize?: boolean; saveThrows?: "before" | "after"; untitled?: boolean; missingOutput?: boolean; emptyOutput?: boolean; missingParent?: boolean; modifiedUnavailable?: "before" | "after" | "both"; sameSizeRewrite?: boolean } = {}) {
+function host(options: { saveAsNoop?: boolean; saveNoop?: boolean; emptySave?: boolean; saveSameSize?: boolean; saveThrows?: "before" | "after"; lengthUnavailableAfterSave?: boolean; untitled?: boolean; missingOutput?: boolean; emptyOutput?: boolean; missingParent?: boolean; modifiedUnavailable?: "before" | "after" | "both"; sameSizeRewrite?: boolean } = {}) {
   const files = new Map<string, { length: number; modified: number }>([
     ["/p/Main.prproj", { length: 100, modified: 1000 }],
     ["/p/Other.prproj", { length: 80, modified: 1000 }],
@@ -91,7 +91,10 @@ function host(options: { saveAsNoop?: boolean; saveNoop?: boolean; emptySave?: b
   function File(this: { parent: { exists: boolean } }, path: string) {
     Object.defineProperties(this, {
       exists: { get: () => files.has(path) },
-      length: { get: () => files.get(path)?.length ?? 0 },
+      length: { get: () => {
+        if (saveCalls && options.lengthUnavailableAfterSave) throw new Error("disk readback failed");
+        return files.get(path)?.length ?? 0;
+      } },
       modified: { get: () => {
         if (options.modifiedUnavailable === "both" || options.modifiedUnavailable === (saveCalls ? "after" : "before")) throw new Error("timestamp unavailable");
         return new Date(files.get(path)?.modified ?? 0);
@@ -144,6 +147,15 @@ describe("project lifecycle tools", () => {
     const h = host({ saveThrows: "before" });
     await expect(tools.save_project.handler()).resolves.toMatchObject({ success: false, data: { mutationAttempted: true, mutationOutcome: "unknown", timelineChanged: null, verified: false } });
     expect(h.saveCalls()).toBe(1);
+  });
+
+  it("preserves the native error when a throwing save also leaves disk evidence unreadable", async () => {
+    host({ saveThrows: "after", lengthUnavailableAfterSave: true });
+    await expect(tools.save_project.handler()).resolves.toMatchObject({
+      success: false,
+      error: expect.stringContaining("save failed after write"),
+      data: { mutationAttempted: true, mutationOutcome: "unknown", timelineChanged: null, verified: false },
+    });
   });
 
   it("retains verified disk evidence when save throws after a fresh write", async () => {
