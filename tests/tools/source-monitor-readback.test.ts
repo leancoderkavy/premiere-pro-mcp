@@ -113,7 +113,7 @@ describe("open and close read the Source Monitor back", () => {
 });
 
 describe("unreadable Source Monitor state", () => {
-  it.each([false, undefined, ""])("does not certify an invalid empty-monitor state %s", async (value) => {
+  it.each([false, ""])("does not certify an invalid empty-monitor state %s", async (value) => {
     const state = host();
     state.sourceMonitor.getProjectItem = (() => value) as typeof state.sourceMonitor.getProjectItem;
     await expect(tools.close_all_source_clips.handler()).resolves.toMatchObject({ success: false, data: { outcome: "committed_unverified", verified: false } });

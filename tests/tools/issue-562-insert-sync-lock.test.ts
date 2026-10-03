@@ -639,6 +639,21 @@ describe("issue #562 — insert_from_source honors sync lock", () => {
     } });
   });
 
+  it("reports inserted streams separately from a same-source split tail", () => {
+    const { sandbox, seq, source } = issue562Host({ sameSourceStraddler: true });
+    const insert = seq.insertClip;
+    seq.insertClip = (...args: Parameters<typeof insert>) => {
+      const result = insert(...args);
+      const track = seq.audioTracks[0];
+      const tail = track._arr.find(clip => clip.projectItem.nodeId === source.nodeId && Number(clip.start.ticks) === 8 * TICKS);
+      if (!tail) throw new Error("Missing split tail");
+      tail.nodeId = "fresh-tail";
+      track._reindex();
+      return result;
+    };
+    expect(runHelper(sandbox, seq, source, 6)).toMatchObject({ ok: true, data: { insertedTrackItems: 2, splitRemainders: 1 } });
+  });
+
   it.each([2, 1 / 24])("matches the inserted clip rather than a same-source split tail at duration %s", async (duration) => {
     const script = await scriptFor(getCompetitorGapTools(bridgeOptions).add_to_timeline_batch, {
       clips: [{ item_id: "src", track_index: 0, start_seconds: 6 }],

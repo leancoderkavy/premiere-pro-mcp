@@ -153,7 +153,8 @@ export function getTimelineTools(
             item: outcome.data.item,
             trackIndex: ${trackIndex},
             startSeconds: ${startSeconds},
-            insertedTrackItems: outcome.data.insertedTrackItems
+            insertedTrackItems: outcome.data.insertedTrackItems,
+            splitRemainders: outcome.data.splitRemainders
           };
           if (outcome.data.warning) payload.warning = outcome.data.warning;
           return __result(payload);

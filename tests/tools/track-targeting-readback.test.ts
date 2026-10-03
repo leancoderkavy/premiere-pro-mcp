@@ -205,6 +205,6 @@ describe("track, timeline and project writes read back", () => {
     await expect(run(tools.clear_item_in_out, { item_id: "i1", clear_in: false })).resolves.toMatchObject({ success: false, data: { verified: false, outcome: "committed_unverified", outSeconds: 3 } });
     inS = 2;
     item.clearInPoint = () => {};
-    await expect(run(tools.clear_item_in_out, { item_id: "i1", clear_out: false })).resolves.toMatchObject({ success: false, error: expect.stringContaining("kept the In point at 2s") });
+    await expect(run(tools.clear_item_in_out, { item_id: "i1", clear_out: false })).resolves.toMatchObject({ success: false, error: expect.stringContaining("kept the In point at 2 s") });
   });
 });

@@ -598,9 +598,23 @@ export function getTrackTargetingTools(bridgeOptions: BridgeOptions) {
           var item = __findProjectItem("${escapeForExtendScript(args.item_id)}");
           if (!item) return __error("Item not found");
 
-          // A cleared In reads 0 and a cleared Out reads the full media
-          // length (live 25.2.3), so the Out can only grow.
           function __markSeconds(time) { return time && typeof time.seconds === "number" && isFinite(time.seconds) ? time.seconds : NaN; }
+          var mediaDuration = NaN;
+          var durationTolerance = 0.001;
+          try {
+            var packet = item.getProjectMetadata();
+            var durationMatch = typeof packet === "string" ? /<premierePrivateProjectMetaData:Column.Intrinsic.MediaDuration[^>]*>([^<]+)<\\/premierePrivateProjectMetaData:Column.Intrinsic.MediaDuration>/.exec(packet) : null;
+            var parts = durationMatch ? durationMatch[1].split(":") : [];
+            if (parts.length === 4 && /^\\d{2}$/.test(parts[0]) && /^\\d{2}$/.test(parts[1]) && /^\\d{2}$/.test(parts[2]) && /^\\d+$/.test(parts[3]) && Number(parts[1]) < 60 && Number(parts[2]) < 60) {
+              var rate = NaN;
+              var timebaseMatch = /<premierePrivateProjectMetaData:Column.Intrinsic.MediaTimebase[^>]*>([0-9]+(?:\\.[0-9]+)?)\\s+(Hz|fps)<\\/premierePrivateProjectMetaData:Column.Intrinsic.MediaTimebase>/.exec(packet);
+              if (timebaseMatch && ((parts[3].length === 2 && timebaseMatch[2] === "fps") || (parts[3].length >= 4 && timebaseMatch[2] === "Hz"))) {
+                rate = Number(timebaseMatch[1]);
+                if (isFinite(rate) && rate > 0) durationTolerance = 1 / rate;
+              }
+              if (isFinite(rate) && rate > 0 && Number(parts[3]) < rate) mediaDuration = Number(parts[0]) * 3600 + Number(parts[1]) * 60 + Number(parts[2]) + Number(parts[3]) / rate;
+            }
+          } catch (durationReadError) {}
           var outBefore = __markSeconds(item.getOutPoint(4));
           var inAfter = NaN, outAfter = NaN;
           try {
@@ -611,10 +625,15 @@ export function getTrackTargetingTools(bridgeOptions: BridgeOptions) {
           } catch (markError) {
             return __error("Mark clearing was attempted but the result could not be read. Inspect the marks before retrying.", { outcome: "committed_unverified", verified: false, marksChanged: null });
           }
-          ${clearIn ? `if (!(Math.abs(inAfter) < 0.0005)) return __error("Premiere kept the In point at " + inAfter + "s after clearing it.");` : ""}
-          ${clearOut ? `if (!(outAfter >= outBefore - 0.0005)) return __error("Premiere moved the Out point from " + outBefore + "s to " + outAfter + "s instead of clearing it.");` : ""}
-
-          ${clearOut ? `return __error("Out point clearing was attempted, but its stored value does not independently prove the full media duration. Inspect the marks before retrying.", { item: item.name, clearedIn: ${clearIn}, clearedOut: false, inSeconds: inAfter, outSeconds: outAfter, outcome: "committed_unverified", verified: false, marksChanged: null });` : `return __result({ item: item.name, clearedIn: ${clearIn}, clearedOut: false, inSeconds: inAfter, outSeconds: outAfter, verified: true });`}
+          var unverifiedFields = [];
+          var messages = [];
+          ${clearIn ? `if (!(Math.abs(inAfter) < 0.0005)) unverifiedFields.push("inPoint");
+          messages.push(!isFinite(inAfter) ? "In could not be independently verified" : Math.abs(inAfter) < 0.0005 ? "In cleared to 0 s" : "Premiere kept the In point at " + inAfter + " s");` : ""}
+          ${clearOut ? `var outVerified = isFinite(outAfter) && isFinite(mediaDuration) && Math.abs(outAfter - mediaDuration) <= durationTolerance;
+          if (!outVerified) unverifiedFields.push("outPoint");
+          messages.push(outVerified ? "Out cleared to " + outAfter + " s" : "Out could not be independently verified against MediaDuration and MediaTimebase");` : ""}
+          if (unverifiedFields.length) return __error(messages.join("; ") + "; inspect the marks before retrying.", { item: item.name, inSeconds: inAfter, outSeconds: outAfter, outcome: "committed_unverified", verified: false, marksChanged: null, unverifiedFields: unverifiedFields });
+          return __result({ item: item.name, clearedIn: ${clearIn}, clearedOut: ${clearOut}, inSeconds: inAfter, outSeconds: outAfter, verified: true });
         `);
         return sendCommand(script, bridgeOptions);
       },

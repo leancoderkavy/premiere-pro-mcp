@@ -41,11 +41,11 @@ describe("play_source_monitor guards (#642)", () => {
     expect(play).toHaveBeenCalledWith(2);
   });
 
-  it("still requests playback on hosts without getProjectItem", async () => {
+  it("refuses playback on hosts without getProjectItem", async () => {
     const play = vi.fn();
     const result = await playSource({}, { play });
-    expect(result).toMatchObject({ success: true, data: { clip: null } });
-    expect(play).toHaveBeenCalledWith(1);
+    expect(result).toMatchObject({ success: false, error: expect.stringContaining("Cannot confirm Source Monitor state") });
+    expect(play).not.toHaveBeenCalled();
   });
 
   it("rejects a speed that is not a usable number before building a script", async () => {

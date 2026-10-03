@@ -2408,7 +2408,8 @@ function __insertClipHonoringSyncLock(seq, item, timeTicks, videoTrackIndex, aud
     clipsShifted: moved,
     tracksAffected: tracksAffected,
     scope: targetOnly ? "target_tracks" : "sync_locked",
-    insertedTrackItems: insertedClips.length
+    insertedTrackItems: newOnVideo + newOnAudio,
+    splitRemainders: insertedClips.length - newOnVideo - newOnAudio
   };
   if (targetOnly) {
     data.warning = "Only the named tracks were rippled. Other tracks were left in place and may be out of sync. This will desync any sync-locked neighbours.";

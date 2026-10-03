@@ -47,7 +47,7 @@ export function getSourceMonitorTools(bridgeOptions: BridgeOptions) {
           try { after = app.sourceMonitor.getProjectItem(); } catch (eAfter) {
             return __error("Source Monitor close was attempted but its current clip could not be read. Do not retry without inspecting it.", { outcome: "committed_unverified", verified: false, sourceMonitorChanged: null });
           }
-          if (after !== null && (!after || typeof after !== "object" || !after.nodeId)) return __error("Source Monitor close was attempted but the stored clip state is invalid. Inspect before retrying.", { outcome: "committed_unverified", verified: false, sourceMonitorChanged: null });
+          if (after !== null && after !== undefined && (!after || typeof after !== "object" || !after.nodeId)) return __error("Source Monitor close was attempted but the stored clip state is invalid. Inspect before retrying.", { outcome: "committed_unverified", verified: false, sourceMonitorChanged: null });
           // Premiere shows the previously opened clip after a close (live 25.2.3).
           if (after && String(after.nodeId) === String(before.nodeId)) {
             return __error("Premiere still shows " + closedName + " in the Source Monitor after closing it.");
@@ -68,7 +68,7 @@ export function getSourceMonitorTools(bridgeOptions: BridgeOptions) {
           try { after = app.sourceMonitor.getProjectItem(); } catch (eAfter) {
             return __error("Source Monitor close was attempted but its current clip could not be read. Do not retry without inspecting it.", { outcome: "committed_unverified", verified: false, sourceMonitorChanged: null });
           }
-          if (after !== null && (!after || typeof after !== "object" || !after.nodeId)) return __error("Source Monitor close was attempted but the stored clip state is invalid. Inspect before retrying.", { outcome: "committed_unverified", verified: false, sourceMonitorChanged: null });
+          if (after !== null && after !== undefined && (!after || typeof after !== "object" || !after.nodeId)) return __error("Source Monitor close was attempted but the stored clip state is invalid. Inspect before retrying.", { outcome: "committed_unverified", verified: false, sourceMonitorChanged: null });
           if (after) return __error("Premiere still shows " + after.name + " in the Source Monitor after closing all clips.");
           return __result({ closed: true, verified: true });
         `);

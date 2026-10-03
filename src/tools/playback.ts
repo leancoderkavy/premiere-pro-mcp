@@ -74,12 +74,11 @@ export function getPlaybackTools(bridgeOptions: BridgeOptions) {
         }
         const script = buildToolScript(`
           // Premiere accepts play() with nothing loaded and does nothing (#642).
-          var loaded = null;
-          try {
-            if (typeof app.sourceMonitor.getProjectItem === "function") loaded = app.sourceMonitor.getProjectItem();
-            else loaded = undefined;
-          } catch (eLoaded) { loaded = undefined; }
-          if (loaded === null) return __error("No clip is loaded in the Source Monitor. Open one with open_in_source first.");
+          if (typeof app.sourceMonitor.getProjectItem !== "function") return __error("Cannot confirm Source Monitor state; nothing was played.");
+          var loaded;
+          try { loaded = app.sourceMonitor.getProjectItem(); }
+          catch (eLoaded) { return __error("Cannot read Source Monitor state; nothing was played."); }
+          if (loaded === null || loaded === undefined) return __error("No clip is loaded in the Source Monitor. Open one with open_in_source first.");
           app.sourceMonitor.play(${speed});
           return __result({
             playbackRequested: true,
