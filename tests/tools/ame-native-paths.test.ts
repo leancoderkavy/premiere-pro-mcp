@@ -86,3 +86,64 @@ describe("AME handoff native paths", () => {
     expect(encoder.launchEncoder).not.toHaveBeenCalled();
   });
 });
+
+describe("AME encode handoffs do not start the ready queue by default", () => {
+  const projectItem = { nodeId: "item-1", name: "Clip", type: 1 };
+  const project = {
+    path: "saved.prproj",
+    rootItem: { children: { numItems: 1, 0: projectItem } },
+  };
+
+  async function encodeScript(
+    tool: "encode_project_item" | "encode_file" | "manage_proxies",
+    startBatch?: boolean,
+  ) {
+    const dir = mkdtempSync(join(tmpdir(), "ame-encode-")); dirs.push(dir);
+    vi.mocked(sendCommand).mockResolvedValue({ success: true, data: {} });
+    const tools = getExportTools({ tempDir: dir, timeoutMs: 5000 });
+    if (tool === "encode_project_item") {
+      await tools.encode_project_item.handler({
+        item_id: "item-1", output_path: "/tmp/render.mp4", preset_path: "/tmp/preset.epr", start_batch: startBatch,
+      });
+    } else if (tool === "encode_file") {
+      await tools.encode_file.handler({
+        input_path: "/tmp/source.mov", output_path: "/tmp/render.mp4", preset_path: "/tmp/preset.epr", start_batch: startBatch,
+      });
+    } else {
+      await tools.manage_proxies.handler({
+        item_id: "item-1", action: "create", output_path: "/tmp/proxy.mov", preset_path: "/tmp/proxy.epr", start_batch: startBatch,
+      });
+    }
+    return vi.mocked(sendCommand).mock.calls.at(-1)![0] as string;
+  }
+
+  function runEncode(script: string, encoder: { startBatch: ReturnType<typeof vi.fn> }) {
+    function Time(this: { seconds: number }) { this.seconds = 0; }
+    function File(this: { exists: boolean; fsName: string; parent: { exists: boolean } }, path: string) {
+      this.exists = true;
+      this.fsName = path;
+      this.parent = { exists: true };
+    }
+    return JSON.parse(String(runInNewContext(`${getHelpersSource()}\n${script}`, {
+      Time, File,
+      app: { project, encoder },
+    })));
+  }
+
+  it.each(["encode_project_item", "encode_file", "manage_proxies"] as const)(
+    "%s enqueues only unless start_batch is true",
+    async (tool) => {
+      const idle = { launchEncoder: vi.fn(), encodeProjectItem: vi.fn(() => "job"), encodeFile: vi.fn(() => "job"), startBatch: vi.fn() };
+      const queued = runEncode(await encodeScript(tool), idle);
+      expect(idle.startBatch).not.toHaveBeenCalled();
+      expect(queued).toMatchObject({ success: true, data: { accepted: true, verified: false, outcome: "committed_unverified", queueBatchStart: "not_requested" } });
+      expect(queued.data.verificationScope).not.toContain("all ready AME jobs");
+
+      const started = { launchEncoder: vi.fn(), encodeProjectItem: vi.fn(() => "job"), encodeFile: vi.fn(() => "job"), startBatch: vi.fn(() => true) };
+      const requested = runEncode(await encodeScript(tool, true), started);
+      expect(started.startBatch).toHaveBeenCalledOnce();
+      expect(requested).toMatchObject({ success: true, data: { queueBatchStart: "requested", outcome: "committed_unverified", verified: false } });
+      expect(requested.data.verificationScope).toContain("all ready AME jobs");
+    },
+  );
+});

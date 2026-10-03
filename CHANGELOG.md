@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Fixed
+
+- `encode_project_item`, `encode_file`, and `manage_proxies` `create` no longer call `app.encoder.startBatch()` after queueing. That API starts every ready Adobe Media Encoder job, including unrelated jobs already in the queue. Batch start is now opt-in with `start_batch: true`, matching `add_to_render_queue`. Use `start_batch_encode` to start the queue later.
+
 ## [1.19.0] - 2026-10-02
 
 ### Added
