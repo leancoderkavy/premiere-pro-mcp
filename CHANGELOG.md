@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [1.19.0] - 2026-10-02
+
 ### Added
 
 - EXPERIMENTAL (QE DOM): `undo`, `redo`, and `multiple_undo` step Premiere's undo stack and verify each step against `undoStackIndex`. They stop when the stack stops moving, refuse on a host without `undoStackIndex`, and refuse when the stack has moved past `expected_undo_stack_index`. A step that moves the stack unexpectedly or leaves the index unreadable is reported as `committed_unverified` with a "Do not retry" warning. (#654)
@@ -34,6 +36,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - A CEP command whose busy file stops changing now fails with "CEP panel appears stuck; reload it in Premiere" once its timeout passes; the busy file is never deleted automatically. (#648)
 
 ### Fixed
+
+- UXP point and color parameter reads normalize host arrays and native objects before guarded inspection and write readback. RGB arrays use opaque alpha; absent values report `UXP_VALUE_UNAVAILABLE`, while scalar and malformed values fail with type-specific host errors. Client write/snapshot schemas remain strict objects (#765).
+- CEP enabled-state readers use the TrackItem `disabled` property with a legacy method fallback; this release includes the source fix absent from npm 1.18.6 (#764).
 
 - `trim_clip` and `slip_edit` now require physical media-duration evidence from ffprobe before changing source ranges, reject out-of-media edits, and refuse unknown duration or linked partners with different unprobed media. Editable project In/Out marks are not used as media boundaries (#712).
 - CEP marker add, update, and delete attempts protect a project-document-ID undo boundary even when the QE index moves or cannot be read. Undo/redo calls refuse a count that crosses it before stepping; `acknowledge_untracked_markers: true` explicitly permits prior non-marker actions. Barriers persist in the CEP engine through MCP server/helper reloads, but do not account for unobserved UXP/manual UI/other-client marker writes or survive engine resets (#733).

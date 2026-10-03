@@ -1018,7 +1018,7 @@
     async function pointParameterSnapshot(context) {
       const projectId = guidString(context.project && context.project.guid), sequenceId = guidString(context.sequence && context.sequence.guid);
       if (!projectId || !sequenceId) throw commandError("UXP_INVALID_HOST_STATE", "Premiere did not provide stable project and sequence identities for the PointF parameter");
-      const point = pointValue(keyframeValue(await context.param.getStartValue()), "Premiere parameter start value");
+      const point = hostParameterValue(keyframeValue(await context.param.getStartValue()), "point");
       return {
         projectId, sequenceId, mediaType: context.mediaType, trackIndex: context.trackIndex, clipIndex: context.clipIndex,
         componentIndex: context.componentIndex, componentId: context.componentId, paramIndex: context.paramIndex,
@@ -1200,7 +1200,7 @@
     async function colorParameterSnapshot(context) {
       const projectId = guidString(context.project && context.project.guid), sequenceId = guidString(context.sequence && context.sequence.guid);
       if (!projectId || !sequenceId) throw commandError("UXP_INVALID_HOST_STATE", "Premiere did not provide stable project and sequence identities for the Color parameter");
-      const color = colorValue(keyframeValue(await context.param.getStartValue()), "Premiere parameter start value");
+      const color = hostParameterValue(keyframeValue(await context.param.getStartValue()), "color");
       return {
         projectId, sequenceId, mediaType: context.mediaType, trackIndex: context.trackIndex, clipIndex: context.clipIndex,
         componentIndex: context.componentIndex, componentId: context.componentId, paramIndex: context.paramIndex,
@@ -2355,6 +2355,25 @@
     function settingMatches(after, key, value) { if (key === "videoWidth") return after.videoFrame && numbersEqual(after.videoFrame.width, value); if (key === "videoHeight") return after.videoFrame && numbersEqual(after.videoFrame.height, value); return valuesEqual(after[key], value); }
     function keyframeValue(value) { return value && value.value && Object.prototype.hasOwnProperty.call(value.value, "value") ? value.value.value : value && value.value !== undefined ? value.value : null; }
     function scalarValue(value) { if (typeof value !== "number" && typeof value !== "string" && typeof value !== "boolean") throw commandError("UXP_INVALID_ARGUMENT", "value must be a number, string, or boolean"); if (typeof value === "number" && !Number.isFinite(value)) throw commandError("UXP_INVALID_ARGUMENT", "value must be finite"); if (typeof value === "string" && value.length > 4000) throw commandError("UXP_INVALID_ARGUMENT", "value string exceeds 4000 characters"); return value; }
+    // Host reads may expose arrays or native objects. Keep client input validation separate.
+    function hostParameterValue(value, kind) {
+      if (value == null) throw commandError("UXP_VALUE_UNAVAILABLE", "Premiere did not expose a " + kind + " parameter start value");
+      const fields = kind === "point" ? ["x", "y"] : ["red", "green", "blue", "alpha"];
+      if (typeof value !== "object") throw commandError("UXP_TARGET_UNSUPPORTED", "Premiere parameter does not expose a " + kind + " value");
+      if (Array.isArray(value) && value.length !== fields.length && !(kind === "color" && value.length === 3)) {
+        throw commandError("UXP_INVALID_HOST_STATE", "Premiere returned an invalid " + kind + " value length");
+      }
+      const normalized = {};
+      for (let index = 0; index < fields.length; index += 1) {
+        const component = Array.isArray(value) ? (kind === "color" && index === 3 && value.length === 3 ? 1 : value[index]) : value[fields[index]];
+        if (typeof component !== "number" || !Number.isFinite(component) || component < -1000000 || component > 1000000) {
+          throw commandError("UXP_INVALID_HOST_STATE", "Premiere returned an unreadable " + kind + " component: " + fields[index]);
+        }
+        normalized[fields[index]] = component;
+      }
+      return normalized;
+    }
+
     function pointValue(value, label) {
       assertObject(value); assertOnlyKeys(value, ["x", "y"]);
       return {

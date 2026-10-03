@@ -1094,6 +1094,62 @@ describe("advanced stable Premiere UXP workflows", () => {
     expect(value.project.executeTransaction).toHaveBeenCalledTimes(1);
   });
 
+  it.each([
+    ["point", [0.5, 0.5], { x: 0.5, y: 0.5 }, { x: 0.75, y: 0.25 }],
+    ["color", [0.1, 0.2, 0.3], { red: 0.1, green: 0.2, blue: 0.3, alpha: 1 }, { red: 0.9, green: 0.8, blue: 0.7, alpha: 0.6 }],
+    ["color", [0.1, 0.2, 0.3, 0.4], { red: 0.1, green: 0.2, blue: 0.3, alpha: 0.4 }, { red: 0.9, green: 0.8, blue: 0.7, alpha: 0.6 }],
+  ] as const)("normalizes host %s arrays before inspection and guarded write readback", async (kind, initial, normalized, update) => {
+    const value = advancedHost();
+    value.parameterState.value = initial;
+    const target = { mediaType: "video", trackIndex: 0, clipIndex: 0, componentIndex: 0, paramIndex: 0, expectedComponentId: "ADBE Opacity", expectedParamName: "Opacity" };
+    // Native constructors are still used for writes; this host serializes their readback as arrays.
+    value.parameter.getStartValue.mockImplementation(async () => {
+      const stored = value.parameterState.value;
+      return { value: Array.isArray(stored) ? { value: stored } : { value: kind === "point"
+        ? [(stored as { x: number }).x, (stored as { y: number }).y]
+        : [(stored as { red: number }).red, (stored as { green: number }).green, (stored as { blue: number }).blue, (stored as { alpha: number }).alpha] } };
+    });
+    const expectedSnapshot = await value.registry.dispatch(`parameters.${kind}.inspect`, target);
+    expect(expectedSnapshot[kind]).toEqual(normalized);
+    const input = { ...target, expectedSnapshot, [kind]: update, [kind === "point" ? "confirmSetPoint" : "confirmSetColor"]: true, operationId: `array-${kind}-${initial.length}` };
+    await expect(value.registry.dispatch(`parameters.${kind}.set`, input)).resolves.toMatchObject({ outcome: "verified", after: { [kind]: update } });
+    expect(value.parameter.createKeyframe).toHaveBeenCalledWith(expect.objectContaining(update));
+    expect(value.project.executeTransaction).toHaveBeenCalledTimes(1);
+    await expect(value.registry.dispatch(`parameters.${kind}.set`, { ...input, operationId: "bad-array-input", [kind]: initial })).rejects.toMatchObject({ code: "UXP_INVALID_ARGUMENT" });
+    await expect(value.registry.dispatch(`parameters.${kind}.set`, { ...input, operationId: "bad-array-snapshot", expectedSnapshot: { ...expectedSnapshot, [kind]: initial } })).rejects.toMatchObject({ code: "UXP_INVALID_ARGUMENT" });
+    expect(value.project.executeTransaction).toHaveBeenCalledTimes(1);
+  });
+
+  it.each([
+    ["point", null, "UXP_VALUE_UNAVAILABLE"],
+    ["color", null, "UXP_VALUE_UNAVAILABLE"],
+    ["point", 50, "UXP_TARGET_UNSUPPORTED"],
+    ["color", 50, "UXP_TARGET_UNSUPPORTED"],
+    ["point", [1], "UXP_INVALID_HOST_STATE"],
+    ["point", [1, 2, 3], "UXP_INVALID_HOST_STATE"],
+    ["point", [NaN, 2], "UXP_INVALID_HOST_STATE"],
+    ["point", [null, 2], "UXP_INVALID_HOST_STATE"],
+    ["point", ["1", 2], "UXP_INVALID_HOST_STATE"],
+    ["color", [1, 2], "UXP_INVALID_HOST_STATE"],
+    ["color", [1, 2, 3, 4, 5], "UXP_INVALID_HOST_STATE"],
+    ["color", [1, 2, 3, Infinity], "UXP_INVALID_HOST_STATE"],
+    ["color", { red: 1, green: 2, blue: 3 }, "UXP_INVALID_HOST_STATE"],
+  ])("rejects unreadable host %s values before mutation", async (kind, hostValue, code) => {
+    const value = advancedHost();
+    value.parameterState.value = hostValue;
+    const target = { mediaType: "video", trackIndex: 0, clipIndex: 0, componentIndex: 0, paramIndex: 0, expectedComponentId: "ADBE Opacity", expectedParamName: "Opacity" };
+    await expect(value.registry.dispatch(`parameters.${kind}.inspect`, target)).rejects.toMatchObject({ code });
+    expect(value.project.executeTransaction).not.toHaveBeenCalled();
+  });
+
+  it("still rejects changing host array values during double-read inspection", async () => {
+    const value = advancedHost();
+    const target = { mediaType: "video", trackIndex: 0, clipIndex: 0, componentIndex: 0, paramIndex: 0, expectedComponentId: "ADBE Opacity", expectedParamName: "Opacity" };
+    value.parameter.getStartValue.mockResolvedValueOnce({ value: [0.5, 0.5] }).mockResolvedValueOnce({ value: [0.6, 0.5] });
+    await expect(value.registry.dispatch("parameters.point.inspect", target)).rejects.toMatchObject({ code: "UXP_STALE_POINT_PARAMETER" });
+    expect(value.project.executeTransaction).not.toHaveBeenCalled();
+  });
+
   it("fails closed on stale, animated, unavailable, or changing Color parameter state", async () => {
     const value = advancedHost();
     value.parameterState.value = { red: 0.1, green: 0.2, blue: 0.3, alpha: 1 };

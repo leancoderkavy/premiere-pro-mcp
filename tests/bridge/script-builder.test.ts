@@ -239,6 +239,9 @@ describe("helpers execute correctly in an ES3-like engine", () => {
     const run = (clip: unknown) => runInNewContext(getHelpersSource() + "\n__isClipDisabled(clip);", { clip });
     expect(run({ disabled: true })).toBe(true);
     expect(run({ disabled: false })).toBe(false);
+    expect(run({ disabled: 1 })).toBe(true);
+    expect(run({ disabled: 0 })).toBe(false);
+    expect(run({ disabled: true, isDisabled: () => false })).toBe(true);
     expect(run({ isDisabled: () => true })).toBe(true);
     expect(run({})).toBe(false);
   });
