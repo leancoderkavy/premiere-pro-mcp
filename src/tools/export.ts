@@ -745,6 +745,10 @@ export function getExportTools(bridgeOptions: BridgeOptions) {
                if (!presetPath) return __error("Could not locate a default H.264 preset. Pass preset_path explicitly.");`
           }
 
+          // Premiere's native exporters on Windows reject URI-style paths that File accepts.
+          outputPath = new File(outputPath).fsName;
+          presetPath = new File(presetPath).fsName;
+
           var presetExtension = "";
           try { presetExtension = String(seq.getExportFileExtension(presetPath) || "").replace(/^\\./, "").toLowerCase(); } catch (eExt) {}
           var slash = Math.max(outputPath.lastIndexOf("/"), outputPath.lastIndexOf(String.fromCharCode(92)));

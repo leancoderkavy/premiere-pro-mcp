@@ -47,7 +47,8 @@ function host(options: { writes?: boolean; marks?: [number, number]; workArea?: 
     seq.getWorkAreaInPoint = () => bounds[0];
     seq.getWorkAreaOutPoint = () => bounds[1];
   }
-  function File(this: { exists: boolean; length: number; modified: { getTime: () => number } | null }, path: string) {
+  function File(this: { fsName: string; exists: boolean; length: number; modified: { getTime: () => number } | null }, path: string) {
+    this.fsName = path;
     const entry = disk.get(path);
     this.exists = !!entry;
     this.length = entry ? entry[0] : 0;
@@ -62,6 +63,35 @@ const preset = join(mkdtempSync(join(tmpdir(), "epr-")), "H264 Match Source - Hi
 writeFileSync(preset, "<PremiereData><ExporterFileType>1299148630</ExporterFileType></PremiereData>");
 
 describe("export_sequence", () => {
+  it.each(["C:/Exports/final", "C:/Exports/final.mp4"])("passes native paths to Windows direct export for %s", async (outputPath) => {
+    const nativePreset = "C:\\Presets\\H264.epr";
+    const nativeOutput = "C:\\Exports\\final.mp4";
+    const extension = vi.fn((path: string) => path === nativePreset ? "mp4" : undefined);
+    let written = false;
+    const render = vi.fn((output: string, preset: string) => {
+      written = output === nativeOutput && preset === nativePreset;
+      return written;
+    });
+    function File(this: { fsName: string; exists: boolean; length: number; modified: null }, path: string) {
+      // Model ExtendScript accepting URI paths while native Premiere requires fsName.
+      this.fsName = path === preset ? nativePreset : path.replace(/\//g, "\\");
+      this.exists = written && this.fsName === nativeOutput;
+      this.length = this.exists ? 4096 : 0;
+      this.modified = null;
+    }
+    mockedSendCommand.mockImplementation(async (script: string) => JSON.parse(String(runInNewContext(
+      `${getHelpersSource()}\n${script}`,
+      { File, app: { project: { activeSequence: { end: String(24 * 254016000000), getExportFileExtension: extension, exportAsMediaDirect: render } }, encoder: { ENCODE_ENTIRE: 0 } } },
+    ))));
+
+    await expect(tools.export_sequence.handler({ output_path: outputPath, preset_path: preset })).resolves.toMatchObject({
+      success: true,
+      data: { outputPath: nativeOutput, presetUsed: nativePreset, extension: "mp4", verified: true, sizeBytes: 4096 },
+    });
+    expect(extension).toHaveBeenCalledWith(nativePreset);
+    expect(render).toHaveBeenCalledWith(nativeOutput, nativePreset, 0);
+  });
+
   it("refuses a .mp4 path for a preset that writes .mov (live: mislabeled QuickTime file)", async () => {
     const written = host();
     const result = await tools.export_sequence.handler({ output_path: "/out/full.mp4", preset_path: preset }) as Result;
