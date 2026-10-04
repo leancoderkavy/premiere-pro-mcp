@@ -74,12 +74,13 @@ describe("issue #455 — a committed slip that lands wrong is not reported as a 
     const failure = await host.registry.dispatch("trackItem.slip", {
       mediaType: "video", trackIndex: 0, clipIndex: 0,
       expectedSnapshot: slipSnapshot, slipBySeconds: 1, confirmSlip: true, operationId: "slip-1",
-    }).catch((error: Error & { code?: string }) => error);
+    });
 
-    expect(failure).toMatchObject({ code: "UXP_COMMITTED_UNVERIFIED" });
-    expect((failure as Error).message).toContain("the project has already changed");
-    expect((failure as Error).message).toContain("the timeline position moved (start 10s -> 11s, end 20s -> 21s)");
-    expect((failure as Error).message).toContain("Do not retry this call");
+    expect(failure).toMatchObject({ outcome: "committed_unverified", committed: true, verified: false,
+      timelineChanged: true, rollbackPerformed: false, after: { startSeconds: 11, endSeconds: 21 } });
+    expect(failure.readbackError).toContain("the project has already changed");
+    expect(failure.readbackError).toContain("the timeline position moved (start 10s -> 11s, end 20s -> 21s)");
+    expect(failure.readbackError).toContain("Do not retry this call");
     expect(host.state).toEqual({ start: 11, end: 21, inPoint: 31, outPoint: 41 });
   });
 

@@ -582,7 +582,7 @@ export function getKeyframeTools(bridgeOptions: BridgeOptions) {
     },
 
     set_keyframe_interpolation: {
-      description: "Set the interpolation type of an existing keyframe (Linear, Hold, or Bezier). Premiere exposes no interpolation readback, so a write is reported as committed_unverified.",
+      description: "Set the interpolation type of an existing keyframe (Linear, Hold, or Bezier). Premiere exposes no interpolation readback, so a write is reported as committed_unverified. Stored curves do not establish rendering; Premiere 26.5.2 es-ES Windows is reported to render linear, hold and bezier identically.",
       parameters: {
         type: "object" as const,
         properties: {
@@ -639,7 +639,9 @@ export function getKeyframeTools(bridgeOptions: BridgeOptions) {
             set: true,
             outcome: "committed_unverified",
             verified: false,
-            verificationScope: "Premiere has no interpolation getter; sample get_value_at_time between keys to check the curve.",
+            verificationScope: "Premiere has no interpolation getter; get_value_at_time samples stored property values only, not rendered pixels.",
+            renderVerified: false,
+            renderHonesty: "Premiere 26.5.2 es-ES Windows is reported to ignore stored temporal curves on CEP and UXP write paths. Inspect playback or exported pixels before delivery.",
             interpolation: "${args.interpolation}",
             time: __clipSecondsFromKey(keyBase, key)
           });

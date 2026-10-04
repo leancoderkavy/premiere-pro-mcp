@@ -96,31 +96,43 @@
         // Resolve by coordinate again rather than trusting the retained object.
         // An action may have committed even when this verification fails, so
         // callers must inspect before issuing another edit after that error.
-        const afterContext = await activeTarget(target, true);
-        if (afterContext.projectGuid !== before.projectGuid || afterContext.sequenceId !== before.sequenceId) {
-          throw commandError("UXP_VERIFICATION_FAILED", "Premiere changed the active project or sequence during the committed slip");
+        let after = null;
+        try {
+          const afterContext = await activeTarget(target, true);
+          if (afterContext.projectGuid !== before.projectGuid || afterContext.sequenceId !== before.sequenceId) {
+            throw commandError("UXP_VERIFICATION_FAILED", "Premiere changed the active project or sequence during the committed slip");
+          }
+          after = await slipSnapshot(afterContext);
+          if (!sameSlipResult(before, after, desired)) {
+            // The transaction already committed, so this is not a "nothing
+            // happened" failure. Say what actually landed and forbid a retry:
+            // re-issuing the slip would apply a second offset to a moved item.
+            throw commandError(
+              "UXP_COMMITTED_UNVERIFIED",
+              "Premiere committed the slip transaction, so the project has already changed, but the result is not the requested source-only slip: " +
+                describeSlipDivergence(before, after, desired) +
+                ". Do not retry this call. Inspect the item and undo the edit in Premiere if the result is unwanted."
+            );
+          }
+          return {
+            slipped: true,
+            before,
+            after,
+            slipBySeconds: requestedOffset,
+            outcome: "verified",
+            verificationBoundary: "track_item_source_and_timeline_readback",
+            undoLabel: "Slip timeline item source"
+          };
+        } catch (error) {
+          return {
+            slipped: false, committed: true, verified: false, partial: true,
+            outcome: "committed_unverified", before, after, slipBySeconds: requestedOffset,
+            timelineChanged: after ? !sameSnapshot(before, after) : null, rollbackPerformed: false,
+            verificationBoundary: "committed_transaction_with_failed_readback",
+            readbackError: error && error.message ? error.message : String(error),
+            nextStep: "Inspect the affected track and linked audio before any retry. The committed slip was not rolled back; use Premiere Undo only after reviewing the change."
+          };
         }
-        const after = await slipSnapshot(afterContext);
-        if (!sameSlipResult(before, after, desired)) {
-          // The transaction already committed, so this is not a "nothing
-          // happened" failure. Say what actually landed and forbid a retry:
-          // re-issuing the slip would apply a second offset to a moved item.
-          throw commandError(
-            "UXP_COMMITTED_UNVERIFIED",
-            "Premiere committed the slip transaction, so the project has already changed, but the result is not the requested source-only slip: " +
-              describeSlipDivergence(before, after, desired) +
-              ". Do not retry this call. Inspect the item and undo the edit in Premiere if the result is unwanted."
-          );
-        }
-        return {
-          slipped: true,
-          before,
-          after,
-          slipBySeconds: requestedOffset,
-          outcome: "verified",
-          verificationBoundary: "track_item_source_and_timeline_readback",
-          undoLabel: "Slip timeline item source"
-        };
       });
     }
 

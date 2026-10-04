@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { runInNewContext } from "node:vm";
 import { createRequire } from "node:module";
 import { describe, expect, it, vi } from "vitest";
 
@@ -120,6 +122,7 @@ describe("next-wave UXP event workflows", () => {
     };
     const definitions = NextWorkflows.createNextWorkflowDefinitions({
       ppro,
+      fileExists: vi.fn(async () => false),
       events: Events.createEventJournal({ capacity: 16 }),
       workspace: { assertPathAllowed: vi.fn(async (path: string) => path) },
     });
@@ -171,6 +174,57 @@ describe("next-wave UXP event workflows", () => {
     await expect(definitions["project.sessions.saveAs"].handler({
       path: "C:/work/existing.prproj", expectedPath: "C:/work/new-branch.prproj", confirmExternalWrite: true,
     })).rejects.toMatchObject({ code: "UXP_CONFIRMATION_REQUIRED" });
+  });
+
+  it.each([null, undefined, "false", "permission", "unsupported"])("refuses Save As with unknown existence (%s), even when isProject returns false", async (existence) => {
+    const project = { guid: "project-1", path: "C:/work/source.prproj", saveAs: vi.fn() };
+    const fileExists = vi.fn(async () => {
+      if (existence === "permission" || existence === "unsupported") throw Object.assign(new Error("storage unavailable"), { code: "EACCES" });
+      return existence;
+    });
+    const definitions = NextWorkflows.createNextWorkflowDefinitions({
+      ppro: { Project: { getActiveProject: async () => project, isProject: async () => false } },
+      workspace: { assertPathAllowed: async (path: string) => path }, fileExists,
+    });
+    await expect(definitions["project.sessions.saveAs"].handler({
+      path: "C:/work/destination.prproj", expectedPath: project.path, confirmExternalWrite: true,
+    })).rejects.toMatchObject({ code: "UXP_CONFIRMATION_REQUIRED", message: expect.stringContaining("existence could not be verified") });
+    expect(project.saveAs).not.toHaveBeenCalled();
+  });
+
+  it("accepts explicit missing-file errors but does not treat arbitrary storage exceptions as absence", async () => {
+    const project = { guid: "project-1", path: "C:/work/source.prproj",
+      saveAs: vi.fn(async (path: string) => { project.path = path; return true; }) };
+    const definitions = NextWorkflows.createNextWorkflowDefinitions({
+      ppro: { Project: { getActiveProject: async () => project } },
+      workspace: { assertPathAllowed: async (path: string) => path },
+      fileExists: async () => { throw Object.assign(new Error("missing"), { code: "ENOENT" }); },
+    });
+    await expect(definitions["project.sessions.saveAs"].handler({ path: "C:/work/new.prproj",
+      expectedPath: project.path, confirmExternalWrite: true })).resolves.toMatchObject({ outcome: "verified" });
+  });
+
+  it.each(["found", "ENOENT", "NotFoundError", "EACCES", "unsupported", "empty"])("preserves overwrite safety for native UXP storage response %s", async (response) => {
+    const project = { guid: "project-1", path: "C:/work/source.prproj",
+      saveAs: vi.fn(async (path: string) => { project.path = path; return true; }) };
+    const getEntryWithUrl = vi.fn(async () => {
+      if (response === "found") return {};
+      if (response === "empty") return null;
+      throw Object.assign(new Error("storage failure"), { code: response });
+    });
+    const module = { exports: {} as typeof NextWorkflows };
+    runInNewContext(readFileSync(new URL("../../uxp-plugin/next-workflows.cjs", import.meta.url), "utf8"), {
+      module, require: () => ({ storage: { localFileSystem: { getEntryWithUrl } } }),
+    });
+    const definitions = module.exports.createNextWorkflowDefinitions({
+      ppro: { Project: { getActiveProject: async () => project } },
+      workspace: { assertPathAllowed: async (path: string) => path },
+    });
+    const call = definitions["project.sessions.saveAs"].handler({ path: "C:\\work\\new.prproj",
+      expectedPath: project.path, confirmExternalWrite: true });
+    if (["ENOENT", "NotFoundError"].includes(response)) await expect(call).resolves.toMatchObject({ outcome: "verified" });
+    else await expect(call).rejects.toMatchObject({ code: "UXP_CONFIRMATION_REQUIRED" });
+    expect(getEntryWithUrl).toHaveBeenCalledWith("file:/C:/work/new.prproj");
   });
 
   it("bounds growing-media pauses with a persisted lease and resumes on disposal", async () => {

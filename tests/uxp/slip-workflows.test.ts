@@ -154,6 +154,26 @@ describe("guarded documented UXP track-item slip workflow", () => {
     expect(value.state).toEqual({ start: 10, end: 20, inPoint: 31, outPoint: 41 });
   });
 
+  it.each(["unreadable", "sequence changed", "divergent"])("retains and replays a committed slip receipt when readback is %s", async (failure) => {
+    const value = slipHost();
+    value.project.executeTransaction.mockImplementationOnce((callback) => {
+      callback({ addAction: (action: { apply: () => void }) => { action.apply(); return true; } });
+      if (failure === "unreadable") value.item.getStartTime.mockRejectedValue(new Error("host read failed"));
+      if (failure === "sequence changed") value.project.getActiveSequence.mockResolvedValue({ guid: "other" } as never);
+      if (failure === "divergent") { value.state.start += 1; value.state.end += 1; }
+      return true;
+    });
+    const args = { ...target, expectedSnapshot, slipBySeconds: 1, confirmSlip: true, operationId: "partial-slip" };
+    const result = await value.registry.dispatch("trackItem.slip", args);
+    expect(result).toMatchObject({ slipped: false, committed: true, verified: false, partial: true,
+      outcome: "committed_unverified", rollbackPerformed: false, before: expectedSnapshot,
+      nextStep: expect.stringContaining("linked audio") });
+    if (failure === "divergent") expect(result.after).toMatchObject({ startSeconds: 11, inSeconds: 31 });
+    else expect(result.after).toBeNull();
+    await expect(value.registry.dispatch("trackItem.slip", args)).resolves.toMatchObject({ ...result, replayed: true });
+    expect(value.project.executeTransaction).toHaveBeenCalledTimes(1);
+  });
+
   it("serializes different operation IDs through preflight, action creation, and readback so a stale later snapshot cannot slip the wrong source", async () => {
     const value = slipHost({ pauseFirstSnapshot: true });
     const first = value.registry.dispatch("trackItem.slip", {

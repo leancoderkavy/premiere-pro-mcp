@@ -223,7 +223,7 @@ describe("set_keyframe_interpolation", () => {
   it("sets the measured code on the stored key and does not claim verification", async () => {
     const state = host({ mediaKeys: [[32, 20], [34, 80]] });
     await expect(tools.set_keyframe_interpolation.handler({ ...target, time_seconds: 2, interpolation: "hold" }))
-      .resolves.toMatchObject({ success: true, data: { outcome: "committed_unverified", verified: false, time: 2 } });
+      .resolves.toMatchObject({ success: true, data: { outcome: "committed_unverified", verified: false, time: 2, renderVerified: false, renderHonesty: expect.stringContaining("CEP and UXP") } });
     expect(state.interpolation).toEqual({ [Math.round(32 * TICKS)]: 4 });
   });
 

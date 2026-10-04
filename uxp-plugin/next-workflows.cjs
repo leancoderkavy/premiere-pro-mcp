@@ -1737,7 +1737,12 @@
     // Premiere 26.5.1's Project.isProject(path) is true for any *.prproj path,
     // even a missing one (#642), so check the file itself when UXP storage can.
     async function destinationFileExists(path) {
-      if (typeof deps.fileExists === "function") return !!(await deps.fileExists(path));
+      if (typeof deps.fileExists === "function") {
+        try {
+          const result = await deps.fileExists(path);
+          return typeof result === "boolean" ? result : null;
+        } catch (error) { return isMissingFileError(error) ? false : null; }
+      }
       let fs = null;
       try {
         const uxp = require("uxp");
@@ -1748,18 +1753,26 @@
       const url = /^[A-Za-z]:\//.test(normalized) ? "file:/" + normalized : "file:" + normalized;
       try {
         const entry = await fs.getEntryWithUrl(url);
-        return !!entry;
-      } catch (_) {
-        return false;
+        return entry ? true : null;
+      } catch (error) {
+        // Permission/unsupported-storage errors do not prove absence.
+        return isMissingFileError(error) ? false : null;
       }
+    }
+
+    function isMissingFileError(error) {
+      const code = error && error.code;
+      return code === "ENOENT" || code === "NotFoundError" ||
+        (error && error.name === "NotFoundError");
     }
 
     async function rejectExistingProject(path, confirmation) {
       if (confirmation === true) return;
       const exists = await destinationFileExists(path);
-      const existing = exists === null ? ppro.Project.isProject(path) : exists;
-      if (existing) {
-        throw commandError("UXP_CONFIRMATION_REQUIRED", "confirmOverwrite is required when the destination file already exists");
+      if (exists !== false) {
+        throw commandError("UXP_CONFIRMATION_REQUIRED", exists === true
+          ? "confirmOverwrite is required when the destination file already exists"
+          : "Destination existence could not be verified; inspect the destination before confirming confirmOverwrite");
       }
     }
 
