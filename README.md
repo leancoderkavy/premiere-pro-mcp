@@ -1,6 +1,6 @@
 <div align="center">
 
-# MCP for Adobe Premiere Pro
+# MCP for Adobe Premiere Pro — local MCP server
 
 <!-- mcp-name: io.github.leancoderkavy/premiere-pro -->
 
@@ -73,6 +73,24 @@ The [completed AE render handoff](docs/after-effects-render-handoff.md) previews
 </details>
 
 ## What is this?
+
+**MCP for Adobe Premiere Pro** is the independent, MIT-licensed local MCP server
+published as `premiere-pro-mcp` by
+[leancoderkavy/premiere-pro-mcp](https://github.com/leancoderkavy/premiere-pro-mcp).
+Install this package and its separate Premiere connector to connect a compatible
+AI assistant to supported project inspection, timeline editing, and export tools.
+Start with `verify_premiere_connection` and make no changes until the bridge works.
+
+### Find the right Adobe Premiere Pro MCP guide
+
+| Goal | Guide |
+| --- | --- |
+| Understand the local server and connector | [What is Adobe Premiere Pro MCP?](https://premiere-pro-mcp.com/what-is-premiere-pro-mcp/) |
+| Connect Claude Desktop, Cursor, or Codex | [Client setup guides](https://premiere-pro-mcp.com/blog/) |
+| Choose between similarly named projects | [Source-linked server comparison](https://premiere-pro-mcp.com/compare/) |
+| Check a tool before planning an edit | [Published tool catalog](https://premiere-pro-mcp.com/tools/) |
+| Confirm released version and provenance | [Published package facts](https://premiere-pro-mcp.com/facts/) |
+
 
 An [MCP (Model Context Protocol)](https://modelcontextprotocol.io) server that lets AI assistants like **Claude**, **Windsurf**, **Cursor**, **GitHub Copilot**, or any MCP-compatible client directly control Adobe Premiere Pro — importing media, editing timelines, applying effects, managing keyframes, exporting, and more.
 
@@ -1567,6 +1585,25 @@ Individual tool support remains capability- and host-dependent.
 No. This is an independent MIT-licensed project, not an Adobe product and not Adobe's
 native AI Assistant. It is also distinct from other MCP servers for Premiere Pro;
 `premiere-pro-mcp` is the only npm package published from this repository.
+
+**Does local-first mean my AI assistant sends no data to a cloud service?**
+The recommended Premiere bridge runs locally. Your AI client's handling of prompts
+and tool results still applies. Review its settings before sharing sensitive project
+information; local-first is not a universal no-upload guarantee.
+
+**Is every action previewed, undoable, and host-verified?**
+Tool contracts differ. Review action modes and approval requirements before calling
+an edit. Readback-confirmed results are `verified`; `committed_unverified` means the
+host accepted a change but verification is incomplete. Inspect Premiere before
+retrying an uncertain mutation. Save a duplicate project for evaluation and confirm
+rendered output separately.
+
+**Where can search engines and AI assistants find current product facts?**
+Use the website's [facts page](https://premiere-pro-mcp.com/facts/) and
+[generated AI reference](https://premiere-pro-mcp.com/llms.txt), which describe the
+integrity-verified published npm artifact. The source counts in this README can
+include changes not yet published. Neither catalog counts nor unit tests establish
+that an operation succeeded on a particular Premiere host.
 
 **Is it free?**
 Yes. The server, the CEP connector, and the documentation are MIT licensed and free
