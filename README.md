@@ -86,8 +86,9 @@ Start with `verify_premiere_connection` and make no changes until the bridge wor
 | Goal | Guide |
 | --- | --- |
 | Understand the local server and connector | [What is Adobe Premiere Pro MCP?](https://premiere-pro-mcp.com/what-is-premiere-pro-mcp/) |
-| Connect Claude Desktop, Cursor, or Codex | [Client setup guides](https://premiere-pro-mcp.com/blog/) |
+| Connect Claude Desktop, Cursor, or Codex | [Claude Desktop](https://premiere-pro-mcp.com/blog/claude-desktop-premiere-pro-mcp-setup/) · [Cursor](https://premiere-pro-mcp.com/blog/cursor-premiere-pro-mcp-setup/) · [Codex](https://premiere-pro-mcp.com/blog/codex-premiere-pro-mcp-setup/) |
 | Choose between similarly named projects | [Source-linked server comparison](https://premiere-pro-mcp.com/compare/) |
+| Match a repeatable task to a tool and verification step | [Adobe Premiere Pro automation guide](https://premiere-pro-mcp.com/blog/premiere-pro-workflow-automation/) |
 | Check a tool before planning an edit | [Published tool catalog](https://premiere-pro-mcp.com/tools/) |
 | Confirm released version and provenance | [Published package facts](https://premiere-pro-mcp.com/facts/) |
 
@@ -1600,6 +1601,14 @@ an edit. Readback-confirmed results are `verified`; `committed_unverified` means
 host accepted a change but verification is incomplete. Inspect Premiere before
 retrying an uncertain mutation. Save a duplicate project for evaluation and confirm
 rendered output separately.
+
+**Which Adobe Premiere Pro tasks are good first automation candidates?**
+Start with a read-only project and timeline inventory. Then evaluate one bounded
+workflow on a duplicate project: approved media imports, bin organization, marker
+preparation, or review-frame exports. The [automation guide](https://premiere-pro-mcp.com/blog/premiere-pro-workflow-automation/)
+links exact tool contracts and explains what evidence to check. A still-frame export
+does not prove playback or audio; a local delivery QC scan does not prove every
+platform requirement.
 
 **Where can search engines and AI assistants find current product facts?**
 Use the website's [facts page](https://premiere-pro-mcp.com/facts/) and
