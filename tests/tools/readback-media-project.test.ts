@@ -14,7 +14,8 @@ const send = vi.mocked(sendCommand);
 const options = { tempDir: "/tmp/tests", timeoutMs: 1000 };
 const media = getMediaTools(options);
 const project = getProjectTools(options);
-const folder = mkdtempSync(join(tmpdir(), 'readback-"folder-'));
+// A double quote exercises escaping but is not a legal Windows filename character.
+const folder = mkdtempSync(join(tmpdir(), process.platform === "win32" ? "readback-folder-" : 'readback-"folder-'));
 afterAll(() => rmSync(folder, { recursive: true }));
 beforeEach(() => vi.clearAllMocks());
 function children(items: any[]) { return Object.assign(items, { numItems: items.length }); }
