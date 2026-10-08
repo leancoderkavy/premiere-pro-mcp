@@ -91,7 +91,7 @@
           encoding: "utf8",
           windowsHide: true,
           stdio: ["ignore", "pipe", "pipe"],
-          timeout: 5000,
+          timeout: 30000,
           maxBuffer: 64 * 1024,
           env: commandEnvironment,
         }

@@ -306,7 +306,7 @@ describe.each(pluginDirectories)("%s bridge directory security", (pluginDirector
     expect(executable).toBe("powershell.exe");
     expect(args).not.toContain(directory);
     expect(options.env.PREMIERE_MCP_ACL_PATH).toBe(directory);
-    expect(options).toMatchObject({ timeout: 5000, maxBuffer: 64 * 1024 });
+    expect(options).toMatchObject({ timeout: 30_000, maxBuffer: 64 * 1024 });
     expect(options.env.PREMIERE_MCP_ACL_INITIALIZE).toBe("0");
   });
 
