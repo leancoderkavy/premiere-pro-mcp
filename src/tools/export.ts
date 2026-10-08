@@ -1671,7 +1671,7 @@ export function getExportTools(bridgeOptions: BridgeOptions) {
     },
 
     create_subclip: {
-      description: "Create a subclip from a project item with in/out points",
+      description: "Create a subclip from a project item with in/out points. Returns the new item's nodeId and reads its stored range back from Premiere project metadata: outcome verified when the observed in/out seconds are within one media frame of the request, otherwise committed_unverified.",
       parameters: {
         type: "object" as const,
         properties: {
@@ -1695,13 +1695,18 @@ export function getExportTools(bridgeOptions: BridgeOptions) {
         required: ["item_id", "name", "in_seconds", "out_seconds"],
       },
       handler: async (args: { item_id: string; name: string; in_seconds: number; out_seconds: number }) => {
+        if (!Number.isFinite(args.in_seconds) || !Number.isFinite(args.out_seconds) || args.in_seconds < 0 || args.out_seconds <= args.in_seconds) {
+          return { success: false, error: "in_seconds and out_seconds must be finite, in_seconds must be non-negative, and out_seconds must be after in_seconds." };
+        }
         const script = buildToolScript(`
           var item = __findProjectItem("${escapeForExtendScript(args.item_id)}");
           if (!item) return __error("Item not found");
-          
-          var inTicks = __secondsToTicks(${args.in_seconds}).toString();
-          var outTicks = __secondsToTicks(${args.out_seconds}).toString();
-          
+
+          var requestedInSeconds = ${args.in_seconds};
+          var requestedOutSeconds = ${args.out_seconds};
+          var inTicks = __secondsToTicks(requestedInSeconds).toString();
+          var outTicks = __secondsToTicks(requestedOutSeconds).toString();
+
           var subclip = item.createSubClip(
             "${escapeForExtendScript(args.name)}",
             inTicks,
@@ -1710,9 +1715,80 @@ export function getExportTools(bridgeOptions: BridgeOptions) {
             1, // takeVideo
             1  // takeAudio
           );
-          
+
           if (!subclip) return __error("Failed to create subclip");
-          return __result({ created: true, name: "${escapeForExtendScript(args.name)}", source: item.name });
+
+          // A soft-boundary subclip's getInPoint/getOutPoint read the whole media
+          // on Premiere 26.5, so read the stored range from project metadata.
+          // Each point holds an rdf:value timecode and a frame_rate child in
+          // ticks per frame; the Out timecode names the last frame (inclusive).
+          function __subclipTimecodeFrames(timecode, frameTicks) {
+            var parts = String(timecode).match(/^\\s*(\\d+)[:;.](\\d+)[:;.](\\d+)([:;.])(\\d+)\\s*$/);
+            if (!parts) return NaN;
+            var nominal = Math.round(TICKS_PER_SECOND / frameTicks);
+            var hours = parseInt(parts[1], 10);
+            var minutes = parseInt(parts[2], 10);
+            var frames = ((hours * 60 + minutes) * 60 + parseInt(parts[3], 10)) * nominal + parseInt(parts[5], 10);
+            if (parts[4] === ";" && (nominal === 30 || nominal === 60)) {
+              var totalMinutes = hours * 60 + minutes;
+              frames -= (nominal / 15) * (totalMinutes - Math.floor(totalMinutes / 10));
+            }
+            return frames;
+          }
+          function __subclipPoint(xml, column) {
+            var tagName = "Column.Intrinsic." + column;
+            var openStart = xml.indexOf(tagName);
+            if (openStart < 0) return null;
+            var openEnd = xml.indexOf(">", openStart);
+            if (openEnd < 0 || xml.charAt(openEnd - 1) === "/") return null;
+            var closeStart = xml.indexOf(tagName, openEnd);
+            if (closeStart < 0) return null;
+            var body = xml.substring(openEnd + 1, closeStart);
+            var value = body.match(/<rdf:value>\\s*([^<]*?)\\s*<\\/rdf:value>/);
+            var rate = body.match(/frame_rate>\\s*(\\d+)\\s*</);
+            if (!value || !rate) return null;
+            var frameTicks = parseFloat(rate[1]);
+            if (!isFinite(frameTicks) || frameTicks <= 0) return null;
+            var frames = __subclipTimecodeFrames(value[1], frameTicks);
+            if (!isFinite(frames)) return null;
+            return { frames: frames, frameTicks: frameTicks, timecode: value[1] };
+          }
+
+          var nodeId = null;
+          try { nodeId = subclip.nodeId ? String(subclip.nodeId) : null; } catch (nodeIdError) {}
+          var receipt = {
+            created: true,
+            nodeId: nodeId,
+            name: "${escapeForExtendScript(args.name)}",
+            source: item.name,
+            requestedInSeconds: requestedInSeconds,
+            requestedOutSeconds: requestedOutSeconds,
+            observedInSeconds: null,
+            observedOutSeconds: null,
+            outcome: "committed_unverified",
+            verified: false
+          };
+          try { if (subclip.name) receipt.name = String(subclip.name); } catch (nameError) {}
+          var metadata = null;
+          try { metadata = subclip.getProjectMetadata ? String(subclip.getProjectMetadata()) : null; } catch (metadataError) {}
+          var inPoint = metadata ? __subclipPoint(metadata, "VideoInPoint") : null;
+          var outPoint = metadata ? __subclipPoint(metadata, "VideoOutPoint") : null;
+          if (!inPoint || !outPoint) {
+            receipt.note = "Premiere created the subclip, but its stored in/out range could not be read from project metadata.";
+            return __result(receipt);
+          }
+          receipt.observedInSeconds = __ticksToSeconds(inPoint.frames * inPoint.frameTicks);
+          receipt.observedOutSeconds = __ticksToSeconds((outPoint.frames + 1) * outPoint.frameTicks);
+          receipt.observedInTimecode = inPoint.timecode;
+          receipt.observedOutTimecode = outPoint.timecode;
+          var tolerance = __ticksToSeconds(Math.max(inPoint.frameTicks, outPoint.frameTicks)) + 0.000001;
+          if (Math.abs(receipt.observedInSeconds - requestedInSeconds) <= tolerance && Math.abs(receipt.observedOutSeconds - requestedOutSeconds) <= tolerance) {
+            receipt.outcome = "verified";
+            receipt.verified = true;
+          } else {
+            receipt.note = "Premiere stored a subclip range more than one media frame from the request.";
+          }
+          return __result(receipt);
         `);
         return sendCommand(script, bridgeOptions);
       },
@@ -2063,7 +2139,10 @@ export function getExportTools(bridgeOptions: BridgeOptions) {
 
     manage_proxies: {
       description:
-        "Create, attach, or toggle proxies for a project item. " +
+        "Create or attach proxies for a project item, or set Premiere's proxy display. " +
+        "'toggle' is application-wide, not per item: it changes app.getEnableProxies()/setEnableProxies() for every sequence and monitor, " +
+        "and item_id is only checked to exist. Pass enabled: true or false to set a known state; omitting enabled flips the current state, " +
+        "so two calls undo each other. The result reports previousEnabled and proxiesEnabled read back from Premiere. " +
         "Note: 'create' only requests a proxy encode from Adobe Media Encoder and returns an unverified handoff. " +
         "Independently verify the AME queue or output file before calling this tool again with action 'attach' " +
         "and proxy_path set to the output_path you passed here. Optional start_batch requests processing of every ready AME queue job, including unrelated jobs. " +
@@ -2100,6 +2179,12 @@ export function getExportTools(bridgeOptions: BridgeOptions) {
             type: "boolean",
             description: AME_START_BATCH_DESCRIPTION,
           },
+          enabled: {
+            type: "boolean",
+            description:
+              "For 'toggle' only: sets the application-wide proxy display to this state (true shows proxies, false shows full-resolution media) " +
+              "and verifies it by reading app.getEnableProxies() back. Omit to flip the current state, which is discouraged because the outcome depends on a state you have not read.",
+          },
         },
         required: ["item_id", "action"],
       },
@@ -2110,7 +2195,14 @@ export function getExportTools(bridgeOptions: BridgeOptions) {
         output_path?: string;
         preset_path?: string;
         start_batch?: boolean;
+        enabled?: boolean;
       }) => {
+        if (!["create", "attach", "toggle"].includes(args.action)) {
+          return { success: false, error: "action must be create, attach, or toggle. Nothing was changed." };
+        }
+        if (args.enabled !== undefined && typeof args.enabled !== "boolean") {
+          return { success: false, error: "enabled must be a boolean" };
+        }
         let presetPath = args.preset_path;
         const skippedPresets: string[] = [];
         if (args.action === "create" && args.output_path && !presetPath) {
@@ -2200,11 +2292,27 @@ export function getExportTools(bridgeOptions: BridgeOptions) {
             if (typeof app.getEnableProxies !== "function" || typeof app.setEnableProxies !== "function") {
               return __error("This Premiere build does not expose app.getEnableProxies/setEnableProxies; toggle proxies in the Program Monitor.");
             }
+            var requestedEnabled = ${args.enabled === undefined ? "null" : args.enabled ? "true" : "false"};
             var wasEnabled = Number(app.getEnableProxies()) === 1;
-            app.setEnableProxies(wasEnabled ? 0 : 1);
+            var targetEnabled = requestedEnabled === null ? !wasEnabled : requestedEnabled;
+            if (targetEnabled !== wasEnabled) app.setEnableProxies(targetEnabled ? 1 : 0);
             var nowEnabled = Number(app.getEnableProxies()) === 1;
-            if (nowEnabled === wasEnabled) return __error("Premiere did not change the proxy display setting.");
-            return __result({ action: "toggle", proxiesEnabled: nowEnabled, verified: true, scope: "application-wide proxy display" });
+            if (nowEnabled !== targetEnabled) {
+              return __error(
+                "Premiere did not apply the proxy display setting: requested " + (targetEnabled ? "enabled" : "disabled") + ", read back " + (nowEnabled ? "enabled" : "disabled") + ".",
+                { action: "toggle", previousEnabled: wasEnabled, requestedEnabled: targetEnabled, proxiesEnabled: nowEnabled, verified: false, outcome: "failed", scope: "application-wide proxy display" }
+              );
+            }
+            return __result({
+              action: "toggle",
+              mode: requestedEnabled === null ? "flip" : "set",
+              previousEnabled: wasEnabled,
+              proxiesEnabled: nowEnabled,
+              changed: nowEnabled !== wasEnabled,
+              verified: true,
+              outcome: "verified",
+              scope: "application-wide proxy display"
+            });
           }
 
           return __error("Unknown proxy action: " + action);

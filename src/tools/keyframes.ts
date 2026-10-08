@@ -134,7 +134,7 @@ export function getKeyframeTools(bridgeOptions: BridgeOptions) {
 
     set_effect_property: {
       description:
-        "Set one effect property. Duplicate names require property_index from get_effect_properties. Colour values use [alpha, red, green, blue] and the lossless colour API; keyframed colour writes are refused.",
+        "Set one effect property. Duplicate names require property_index from get_effect_properties. Colour values use [alpha, red, green, blue] and the lossless colour API; keyframed writes are refused. Readback reports verified, failed or committed_unverified; unreadable values are never reported as applied.",
       parameters: {
         type: "object" as const,
         properties: {
@@ -216,10 +216,16 @@ export function getKeyframeTools(bridgeOptions: BridgeOptions) {
             try { prop.setColorValue(requestedValue[0], requestedValue[1], requestedValue[2], requestedValue[3], true); }
             catch (colorWriteError) { return __error("Premiere could not set the requested colour property: " + colorWriteError.toString()); }
             var colorReadback = __readColorValue(prop);
-            if (!colorReadback) return __error("Premiere accepted the colour write but did not provide a lossless colour readback.");
+            if (!colorReadback) return __result({ set: null, valueType: "color_argb", effect: "${escapeForExtendScript(args.effect_name)}", property: "${escapeForExtendScript(args.property_name)}", propertyIndex: resolvedProperty.index, value: null, requestedValue: requestedValue, appliedValue: null, readbackVerified: false, verified: false, outcome: "committed_unverified", verification: "Colour write returned but lossless readback is unavailable; verify rendered output before delivery." });
             var colorVerified = true;
             for (var colorReadIndex = 0; colorReadIndex < 4; colorReadIndex++) if (Math.abs(colorReadback[colorReadIndex] - requestedValue[colorReadIndex]) > 1) colorVerified = false;
-            return __result({ set: true, effect: "${escapeForExtendScript(args.effect_name)}", property: "${escapeForExtendScript(args.property_name)}", propertyIndex: resolvedProperty.index, value: colorReadback, valueType: "color_argb", readbackVerified: colorVerified, verification: "Premiere parameter readback only; verify rendered output before delivery." });
+            var colorData = { set: colorVerified, effect: "${escapeForExtendScript(args.effect_name)}", property: "${escapeForExtendScript(args.property_name)}", propertyIndex: resolvedProperty.index, value: colorReadback, requestedValue: requestedValue, appliedValue: colorReadback, valueType: "color_argb", readbackVerified: colorVerified, verified: colorVerified, outcome: colorVerified ? "verified" : "failed", verification: "Premiere parameter readback only; verify rendered output before delivery." };
+            if (!colorVerified) return __error("Premiere colour readback does not match the requested value.", colorData);
+            return __result(colorData);
+          }
+          if (typeof prop.isTimeVarying === "function") {
+            try { if (prop.isTimeVarying()) return __error("Keyframed parameters require a time-specific keyframe tool; nothing was changed."); }
+            catch (animationReadError) { return __error("Parameter animation state could not be read; nothing was changed."); }
           }
           try {
             prop.setValue(requestedValue, true);
@@ -231,6 +237,7 @@ export function getKeyframeTools(bridgeOptions: BridgeOptions) {
           var readbackAvailable = true;
           try {
             readbackValue = prop.getValue();
+            if (readbackValue === undefined || readbackValue === null || (typeof readbackValue === "number" && !isFinite(readbackValue))) readbackAvailable = false;
           } catch (eReadback) {
             readbackAvailable = false;
           }
@@ -254,18 +261,24 @@ export function getKeyframeTools(bridgeOptions: BridgeOptions) {
             }
             return actual === expected;
           }
-          return __result({
-            set: true,
+          var parameterVerified = readbackAvailable && __sameParameterValue(readbackValue, requestedValue);
+          var parameterData = {
+            set: readbackAvailable ? parameterVerified : null,
+            verified: parameterVerified,
+            outcome: !readbackAvailable ? "committed_unverified" : (parameterVerified ? "verified" : "failed"),
+            appliedValue: readbackAvailable ? readbackValue : null,
             effect: "${escapeForExtendScript(args.effect_name)}",
             property: "${escapeForExtendScript(args.property_name)}",
             propertyIndex: resolvedProperty.index,
-            value: readbackAvailable ? readbackValue : requestedValue,
+            value: readbackAvailable ? readbackValue : null,
             requestedValue: requestedValue,
             readbackVerified: readbackAvailable && __sameParameterValue(readbackValue, requestedValue),
             verification: readbackAvailable
               ? "Premiere parameter readback only; verify playback or exported frames before delivery."
               : "Premiere accepted the parameter write, but this property did not expose a readback value. Verify playback or exported frames before delivery."
-          });
+          };
+          if (readbackAvailable && !parameterVerified) return __error("Premiere parameter readback does not match the requested value.", parameterData);
+          return __result(parameterData);
         `);
         return sendCommand(script, bridgeOptions);
       },

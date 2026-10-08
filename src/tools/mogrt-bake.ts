@@ -1,5 +1,5 @@
 import { createHash, randomUUID } from "node:crypto";
-import { existsSync, mkdirSync, readFileSync, renameSync, statSync, writeFileSync } from "node:fs";
+import { existsSync, lstatSync, mkdirSync, readFileSync, readdirSync, renameSync, statSync, unlinkSync, utimesSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { deflateRawSync, gunzipSync, gzipSync, inflateRawSync } from "node:zlib";
@@ -231,6 +231,29 @@ export function defaultTitleDir(env: NodeJS.ProcessEnv = process.env, platform: 
   return join(homedir(), ".premiere-pro-mcp", "titles");
 }
 
+const TITLE_CACHE_FILE = /^[A-Za-z0-9._-]*-[0-9a-f]{16}[.]mogrt$/;
+const TITLE_CACHE_LIMIT = 50;
+
+/** Prune only regular baked-title cache files, leaving other directory entries intact. */
+export function pruneTitleCache(outDir: string): void {
+  try {
+    if (!lstatSync(outDir).isDirectory()) return;
+    const entries = readdirSync(outDir).filter((name) => TITLE_CACHE_FILE.test(name)).flatMap((name) => {
+      try {
+        const path = join(outDir, name), stat = lstatSync(path);
+        return stat.isFile() ? [{ path, mtimeMs: stat.mtimeMs, ino: stat.ino }] : [];
+      } catch { return []; }
+    });
+    entries.sort((a, b) => b.mtimeMs - a.mtimeMs || a.path.localeCompare(b.path));
+    for (const entry of entries.slice(TITLE_CACHE_LIMIT)) {
+      try {
+        const current = lstatSync(entry.path);
+        if (current.isFile() && current.ino === entry.ino && current.mtimeMs === entry.mtimeMs) unlinkSync(entry.path);
+      } catch { /* Cache cleanup must not prevent importing a verified title. */ }
+    }
+  } catch { /* An inaccessible cache does not change the title import receipt. */ }
+}
+
 export interface BakeCheck {
   index: number;
   expected: string;
@@ -307,7 +330,10 @@ export function bakePremiereTitle(
   };
   if (existsSync(outPath)) {
     const checks = verify();
-    if (checks.every((check) => check.actual === check.expected)) return { path: outPath, reused: true, checks };
+    if (checks.every((check) => check.actual === check.expected)) {
+      try { if (lstatSync(outPath).isFile()) { const now = new Date(); utimesSync(outPath, now, now); pruneTitleCache(outDir); } } catch { /* Keep the verified copy available when its timestamp cannot be refreshed. */ }
+      return { path: outPath, reused: true, checks };
+    }
   }
 
   let rewritten = "";
@@ -348,5 +374,7 @@ export function bakePremiereTitle(
   const staging = `${outPath}.${process.pid}.tmp`;
   writeFileSync(staging, writeZip(output), { mode: 0o600 });
   renameSync(staging, outPath);
-  return { path: outPath, reused: false, checks: verify() };
+  const checks = verify();
+  pruneTitleCache(outDir);
+  return { path: outPath, reused: false, checks };
 }

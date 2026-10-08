@@ -1,3 +1,4 @@
+import { setProjectItemStartTime } from "./project-item-start-time.js";
 import { buildToolScript, escapeForExtendScript } from "../bridge/script-builder.js";
 import { sendCommand, BridgeOptions } from "../bridge/file-bridge.js";
 import { existsSync, statSync } from "node:fs";
@@ -110,7 +111,7 @@ export function getMediaTools(bridgeOptions: BridgeOptions) {
     },
 
     import_folder: {
-      description: "Import an entire folder of media into the project",
+      description: "Import the media files directly inside a folder and read the destination tree back. Reports observed new media items; unreadable or unmatched imports are committed_unverified.",
       parameters: {
         type: "object" as const,
         properties: {
@@ -129,6 +130,9 @@ export function getMediaTools(bridgeOptions: BridgeOptions) {
         // Reject an invalid folder before contacting Premiere.
         if (typeof args.folder_path !== "string" || !args.folder_path.trim()) {
           return { success: false as const, error: "folder_path must be a non-empty directory path" };
+        }
+        if (args.target_bin !== undefined && (typeof args.target_bin !== "string" || !args.target_bin.trim())) {
+          return { success: false as const, error: "target_bin must be a non-empty string when provided" };
         }
         const resolvedFolder = resolve(args.folder_path);
         try {
@@ -157,9 +161,48 @@ export function getMediaTools(bridgeOptions: BridgeOptions) {
           
           if (filePaths.length === 0) return __error("No files found in folder");
           
+          function folderTreeItems(parent, entries) {
+            var children = parent.children;
+            if (!children || typeof children.numItems !== "number") throw new Error("Destination children are unreadable");
+            for (var c = 0; c < children.numItems; c++) {
+              var child = children[c];
+              if (!child || child.nodeId === undefined || child.nodeId === null) throw new Error("Destination item identity is unreadable");
+              var mediaPath = "";
+              try { mediaPath = String(child.getMediaPath() || ""); } catch (ePath) {}
+              entries.push({ nodeId: String(child.nodeId), name: child.name, mediaPath: mediaPath });
+              if (child.type === 2 && child.children) folderTreeItems(child, entries);
+            }
+          }
+          var before = [], after = [], treeReadable = true;
+          try { folderTreeItems(targetBin, before); } catch (eBefore) { treeReadable = false; }
           var importSuccess = app.project.importFiles(filePaths, true, targetBin, false);
-          if (!importSuccess) return __error("Import failed");
-          return __result({ imported: filePaths.length, folder: "${escapeForExtendScript(args.folder_path)}", targetBin: targetBin.name });
+          try { folderTreeItems(targetBin, after); } catch (eAfter) { treeReadable = false; }
+          var added = [], observedFiles = [], missingFiles = [];
+          if (treeReadable) {
+            for (var a = 0; a < after.length; a++) {
+              var existed = false;
+              for (var b = 0; b < before.length; b++) if (before[b].nodeId === after[a].nodeId) { existed = true; break; }
+              if (!existed) added.push(after[a]);
+            }
+            for (var f = 0; f < filePaths.length; f++) {
+              var matched = false;
+              for (var n = 0; n < added.length; n++) {
+                if (added[n].mediaPath && new File(added[n].mediaPath).fsName === new File(filePaths[f]).fsName) { matched = true; break; }
+              }
+              if (matched) observedFiles.push(filePaths[f]); else missingFiles.push(filePaths[f]);
+            }
+          }
+          var verified = treeReadable && missingFiles.length === 0;
+          var receipt = { imported: treeReadable ? observedFiles.length : null, requestedCount: filePaths.length,
+            observedNewItemCount: treeReadable ? added.length : null, items: added, notImported: missingFiles,
+            importReturned: importSuccess, verified: verified, outcome: verified ? "verified" : "committed_unverified",
+            folder: "${escapeForExtendScript(args.folder_path)}", targetBin: targetBin.name };
+          if (treeReadable && added.length === 0) {
+            receipt.outcome = "failed";
+            return __error("Premiere produced no new destination items for the requested folder.", receipt);
+          }
+          if (!verified) receipt.verificationScope = "New destination items could not be matched to every requested file; the requested count is not an imported count.";
+          return __result(receipt);
         `);
         return sendCommand(script, bridgeOptions);
       },
@@ -532,7 +575,7 @@ export function getMediaTools(bridgeOptions: BridgeOptions) {
     },
 
     detach_proxy: {
-      description: "Detach/remove the proxy from a project item",
+      description: "Detach/remove the proxy from a project item and read hasProxy back; unavailable readback reports committed_unverified.",
       parameters: {
         type: "object" as const,
         properties: {
@@ -544,11 +587,16 @@ export function getMediaTools(bridgeOptions: BridgeOptions) {
         required: ["item_id"],
       },
       handler: async (args: { item_id: string }) => {
+        if (typeof args.item_id !== "string" || !args.item_id.trim()) return { success: false as const, error: "item_id must be non-empty" };
         const script = buildToolScript(`
           var item = __findProjectItem("${escapeForExtendScript(args.item_id)}");
           if (!item) return __error("Item not found");
           item.detachProxy();
-          return __result({ detached: true, item: item.name });
+          var hasProxy = null;
+          try { var proxyReadback = item.hasProxy(); if (proxyReadback === true || proxyReadback === 1) hasProxy = true; else if (proxyReadback === false || proxyReadback === 0) hasProxy = false; } catch (eRead) {}
+          if (hasProxy === true) return __error("Premiere kept the proxy attached.", { detached: false, item: item.name, hasProxy: true, verified: false, outcome: "failed" });
+          return __result({ detached: hasProxy === false ? true : null, item: item.name, hasProxy: hasProxy,
+            verified: hasProxy === false, outcome: hasProxy === false ? "verified" : "committed_unverified" });
         `);
         return sendCommand(script, bridgeOptions);
       },
@@ -788,22 +836,7 @@ export function getMediaTools(bridgeOptions: BridgeOptions) {
         },
         required: ["item_id", "start_seconds"],
       },
-      handler: async (args: { item_id: string; start_seconds: number }) => {
-        const script = buildToolScript(`
-          var item = __findProjectItem("${escapeForExtendScript(args.item_id)}");
-          if (!item) return __error("Item not found");
-          
-          var ticks = __secondsToTicks(${args.start_seconds}).toString();
-          item.setStartTime(ticks);
-          var observedStart = NaN;
-          try { observedStart = Number(item.startTime().seconds); } catch (startReadError) {}
-          if (!isFinite(observedStart) || Math.abs(observedStart - ${args.start_seconds}) > 0.001) {
-            return __error("Premiere did not apply the start time; read back " + observedStart + " s.");
-          }
-          return __result({ set: true, verified: true, item: item.name, startSeconds: observedStart });
-        `);
-        return sendCommand(script, bridgeOptions);
-      },
+      handler: (args: { item_id: string; start_seconds: number }) => setProjectItemStartTime(args, bridgeOptions),
     },
   };
 }

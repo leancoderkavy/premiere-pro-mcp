@@ -235,7 +235,7 @@ export function getStockTitleTools(bridgeOptions: BridgeOptions, catalog: () => 
 
     add_title: {
       description:
-        "Add an on-screen title from plain text using a stock Essential Graphics template that ships with Premiere (default: Basic Title). Pass text for one line, or lines to fill the template's text fields in order (for example a lower third's name and role). Premiere-built templates (kind 'premiere') get the text baked into a verified copy before import, because Premiere exposes no writable text for them (textVerification 'template_verified'; confirm the render with export_frame). The baked copy path is returned as templateFile and saved under the application support premiere-pro-mcp/titles folder (macOS: ~/Library/Application Support/premiere-pro-mcp/titles). Do not delete copies automatically; remove one manually only after confirming no project references it. After Effects-built templates (kind 'after_effects') are imported and their text fields written by position and read back from Premiere (textVerification 'verified', 'mismatch', 'missing_property', or 'committed_unverified'). The graphic is trimmed to duration_seconds and its length read back. Use list_stock_titles to see templates, their kind, and how many lines each takes.",
+        "Add an on-screen title from plain text using a stock Essential Graphics template that ships with Premiere (default: Basic Title). Pass text for one line, or lines to fill the template's text fields in order (for example a lower third's name and role). Premiere-built templates (kind 'premiere') get the text baked into a verified copy before import, because Premiere exposes no writable text for them (textVerification 'template_verified'; confirm the render with export_frame). The baked copy path is returned as templateFile and saved under the application support premiere-pro-mcp/titles folder (macOS: ~/Library/Application Support/premiere-pro-mcp/titles). The cache keeps the newest 50 baked copies by modification time; export or copy templates elsewhere if a project needs older copies retained. After Effects-built templates (kind 'after_effects') are imported and their text fields written by position and read back from Premiere (textVerification 'verified', 'mismatch', 'missing_property', or 'committed_unverified'). The graphic is trimmed to duration_seconds and its length read back. Use list_stock_titles to see templates, their kind, and how many lines each takes.",
       parameters: {
         type: "object" as const,
         properties: {
@@ -363,24 +363,35 @@ export function getStockTitleTools(bridgeOptions: BridgeOptions, catalog: () => 
             ${writes}
           }
           var durationCheck = __mogrtSetDuration(clip, ${trackIndex}, ${durationSeconds});
+          var appliedStartSeconds = null;
+          try {
+            var appliedStartTicks = parseFloat(clip.start.ticks);
+            if (isFinite(appliedStartTicks)) appliedStartSeconds = __ticksToSeconds(appliedStartTicks);
+          } catch (startReadError) {}
           return __result({
             clipName: clip.name,
             nodeId: clip.nodeId ? String(clip.nodeId) : null,
             textReadback: textReadback,
             textWriteError: textWriteError,
-            duration: durationCheck
+            duration: durationCheck,
+            appliedStartSeconds: appliedStartSeconds
           });
         `);
 
         const result = await sendCommand(script, bridgeOptions);
         if (!result.success) return result;
-        const { textReadback, textWriteError, duration, ...data } = (result.data ?? {}) as Record<string, unknown>;
+        const { textReadback, textWriteError, duration, appliedStartSeconds, ...data } = (result.data ?? {}) as Record<string, unknown>;
+        // Premiere snaps the placed graphic to the sequence frame grid, so report
+        // the start it stored rather than the one requested.
+        const appliedStart = typeof appliedStartSeconds === "number" && Number.isFinite(appliedStartSeconds) ? appliedStartSeconds : null;
         const base = {
           ...data,
           template: template.name,
           category: template.category,
           trackIndex,
-          startSeconds,
+          startSeconds: appliedStart ?? startSeconds,
+          requestedStartSeconds: startSeconds,
+          appliedStartSeconds: appliedStart,
           durationSeconds,
           duration,
         };
