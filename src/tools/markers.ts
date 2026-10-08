@@ -232,23 +232,51 @@ export function getMarkerTools(bridgeOptions: BridgeOptions) {
           
           var targetTicks = __secondsToTicks(${args.time_seconds});
           var markerUndoBefore = __readUndoIndex();
-          var marker = markers.getFirstMarker();
-          var deleted = false;
-          
-          while (marker) {
-            var markerTicks = parseFloat(marker.start.ticks);
-            if (Math.abs(markerTicks - targetTicks) < TICKS_PER_SECOND * 0.01) {
-              var markerBarrier = __rememberMarkerUndoBarrier(markerUndoBefore);
-              if (!markerBarrier.ok) return __error(markerBarrier.error);
-              markers.deleteMarker(marker);
-              deleted = true;
-              break;
+          function deletionSnapshot() {
+            var snapshot = [], marker = markers.getFirstMarker();
+            while (marker) {
+              var guid = null;
+              try { guid = marker.guid ? String(marker.guid) : null; } catch (guidReadError) {}
+              snapshot.push({ marker: marker, guid: guid, ticks: parseFloat(marker.start.ticks) });
+              marker = markers.getNextMarker(marker);
             }
-            marker = markers.getNextMarker(marker);
+            return snapshot;
           }
-          
-          if (!deleted) return __error("No marker found at " + ${args.time_seconds} + "s");
-          return __result(__markerUndoReceipt(markerUndoBefore, { deleted: true, timeSeconds: ${args.time_seconds} }));
+          var before = deletionSnapshot(), target = -1;
+          for (var i = 0; i < before.length; i++) {
+            if (Math.abs(before[i].ticks - targetTicks) < TICKS_PER_SECOND * 0.01) { target = i; break; }
+          }
+          if (target < 0) return __error("No marker found at " + ${args.time_seconds} + "s");
+          var markerBarrier = __rememberMarkerUndoBarrier(markerUndoBefore);
+          if (!markerBarrier.ok) return __error(markerBarrier.error);
+          markers.deleteMarker(before[target].marker);
+          var after = null;
+          try { after = deletionSnapshot(); } catch (deletionReadError) {}
+          var verified = false, mismatch = false, identitiesReadable = true;
+          if (after !== null) {
+            mismatch = after.length !== before.length - 1;
+            for (var i = 0; i < before.length; i++) {
+              if (!before[i].guid) { identitiesReadable = false; continue; }
+              var matches = 0;
+              for (var j = 0; j < after.length; j++) {
+                if (!after[j].guid) identitiesReadable = false;
+                if (after[j].guid === before[i].guid) matches++;
+              }
+              if (matches !== (i === target ? 0 : 1)) mismatch = true;
+            }
+            verified = !mismatch && identitiesReadable;
+          }
+          var receipt = __markerUndoReceipt(markerUndoBefore, {
+            deleted: verified ? true : (mismatch ? false : null),
+            timeSeconds: ${args.time_seconds},
+            requestedDeleted: 1,
+            appliedDeleted: after === null ? null : before.length - after.length,
+            verified: verified,
+            outcome: mismatch ? "failed" : (verified ? "verified" : "committed_unverified"),
+            timelineChanged: true
+          });
+          if (mismatch) return __jsonStringify({ success: false, error: "Premiere did not delete only the requested marker; inspect the marker collection before retrying.", data: receipt });
+          return __result(receipt);
         `);
         return sendCommand(script, bridgeOptions);
       },
@@ -309,7 +337,8 @@ export function getMarkerTools(bridgeOptions: BridgeOptions) {
             verified: __markerUnverified.length === 0,
             unverifiedFields: __markerUnverified,
             guid: __markerGuid(marker),
-            timeSeconds: ${args.time_seconds},
+            timeSeconds: __ticksToSeconds(marker.start.ticks),
+            requestedSeconds: ${args.time_seconds},
             name: marker.name,
             comments: marker.comments
           }));

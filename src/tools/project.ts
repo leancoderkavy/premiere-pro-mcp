@@ -604,7 +604,7 @@ export function getProjectTools(bridgeOptions: BridgeOptions) {
     },
 
     create_smart_bin: {
-      description: "Create a smart bin (search bin) in the project panel",
+      description: "Create a smart bin (search bin) and inspect its new identity and name. The stored search query has no getter, so creation reports committed_unverified with identity verification separately.",
       parameters: {
         type: "object" as const,
         properties: {
@@ -620,9 +620,33 @@ export function getProjectTools(bridgeOptions: BridgeOptions) {
         required: ["name", "query"],
       },
       handler: async (args: { name: string; query: string }) => {
+        if (typeof args.name !== "string" || !args.name.trim() || typeof args.query !== "string" || !args.query.trim()) {
+          return { success: false as const, error: "name and query must be non-empty strings" };
+        }
         const script = buildToolScript(`
-          app.project.rootItem.createSmartBin("${escapeForExtendScript(args.name)}", "${escapeForExtendScript(args.query)}");
-          return __result({ created: true, name: "${escapeForExtendScript(args.name)}", query: "${escapeForExtendScript(args.query)}" });
+          var root = app.project.rootItem, before = {}, readable = true;
+          try {
+            if (!root.children || typeof root.children.numItems !== "number") throw new Error("Children unreadable");
+            for (var b = 0; b < root.children.numItems; b++) {
+              if (!root.children[b] || root.children[b].nodeId === undefined) throw new Error("Identity unreadable");
+              before[String(root.children[b].nodeId)] = true;
+            }
+          } catch (eBefore) { readable = false; }
+          root.createSmartBin("${escapeForExtendScript(args.name)}", "${escapeForExtendScript(args.query)}");
+          var found = null;
+          try {
+            if (!root.children || typeof root.children.numItems !== "number") throw new Error("Children unreadable");
+            for (var c = 0; c < root.children.numItems; c++) {
+              var child = root.children[c];
+              if (!child || child.nodeId === undefined) throw new Error("Identity unreadable");
+              if (!before[String(child.nodeId)] && String(child.name) === "${escapeForExtendScript(args.name)}") found = child;
+            }
+          } catch (eAfter) { readable = false; }
+          if (readable && !found) return __error("Premiere produced no new smart bin with the requested name.", { created: false, verified: false, outcome: "failed" });
+          return __result({ created: readable && found ? true : null, name: found ? found.name : null,
+            requestedName: "${escapeForExtendScript(args.name)}", query: "${escapeForExtendScript(args.query)}",
+            nodeId: found ? String(found.nodeId) : null, identityVerified: !!(readable && found), verified: false,
+            outcome: "committed_unverified", verificationScope: "Only new item identity and name can be read back; the stored smart-bin query cannot be verified." });
         `);
         return sendCommand(script, bridgeOptions);
       },

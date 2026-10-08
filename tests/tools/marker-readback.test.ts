@@ -111,6 +111,15 @@ describe("add_marker and update_marker read the marker back", () => {
     await expect(tools.update_marker.handler({ time_seconds: 2, color: 6 })).resolves.toMatchObject({ success: false, data: { timelineChanged: true, undoTracked: false } });
   });
 
+  it("update_marker reports the stored marker start, not the requested time", async () => {
+    const list = host();
+    const storedTicks = Math.round(7.5075 * TICKS);
+    list.push({ name: "Old", comments: "", color: 0, start: { ticks: String(storedTicks), seconds: 7.5075 }, end: { seconds: 7.5075 }, setColorByIndex() {}, getColorByIndex: () => 0, guid: "g-7" } as unknown as FakeMarker);
+    const result = await tools.update_marker.handler({ time_seconds: 7.5, name: "New" }) as Result;
+    expect(result).toMatchObject({ success: true, data: { verified: true, requestedSeconds: 7.5, name: "New" } });
+    expect(result.data?.timeSeconds).toBeCloseTo(7.5075, 9);
+  });
+
   it.each([
     [{ time_seconds: -1 }, "time_seconds"],
     [{ time_seconds: 1, color: 9 }, "color"],

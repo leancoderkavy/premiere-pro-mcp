@@ -169,9 +169,12 @@ interface FakeClipOptions {
   defaultSeconds?: number;
   ignoreEndWrite?: boolean;
   noMgt?: boolean;
+  snapFrameTicks?: number;
+  unreadableStart?: boolean;
 }
 
-function fakeClip(opts: FakeClipOptions, startSeconds: number) {
+function fakeClip(opts: FakeClipOptions, requestedSeconds: number) {
+  const startSeconds = opts.snapFrameTicks ? Math.round(requestedSeconds * TICKS / opts.snapFrameTicks) * opts.snapFrameTicks / TICKS : requestedSeconds;
   const props = (opts.textDefaults ?? ["Your Title Here"]).map((text, i) => ({
     displayName: "TextLayer",
     value: textJson(text) as unknown,
@@ -185,7 +188,7 @@ function fakeClip(opts: FakeClipOptions, startSeconds: number) {
   const clip = {
     name: "Graphic",
     nodeId: "node-1",
-    start: { ticks: String(startSeconds * TICKS) },
+    get start() { if (opts.unreadableStart) throw new Error("start unreadable"); return { ticks: String(startSeconds * TICKS) }; },
     get end() { return { ticks: String(endTicks) }; },
     set end(value: unknown) {
       if (opts.ignoreEndWrite) return;
@@ -239,7 +242,7 @@ describe("add_title", () => {
   it("documents the baked-copy location and preserves the path in the result", () => {
     expect(tools.add_title.description).toContain("~/Library/Application Support/premiere-pro-mcp/titles");
     expect(tools.add_title.description).toContain("templateFile");
-    expect(tools.add_title.description).toContain("Do not delete copies automatically");
+    expect(tools.add_title.description).toContain("newest 50 baked copies");
   });
 
   it("imports the default template on V2, writes the text, trims to duration, and verifies both", async () => {
@@ -260,6 +263,20 @@ describe("add_title", () => {
     expect(state.clip!.props.map((p) => JSON.parse(String(p.value)).textEditValue)).toEqual(["Director", "Ada Lovelace"]);
     expect(state.imported?.[1]).toBe(String(2 * TICKS));
     expect(result.data.duration.actualSeconds).toBe(3);
+  });
+
+  it("reports the frame-snapped start Premiere stored alongside the requested start", async () => {
+    hostWith({ snapFrameTicks: TICKS * 1001 / 30000 });
+    const result = await tools.add_title.handler({ text: "T", start_seconds: 5 }) as TitleResult;
+    expect(result.data).toMatchObject({ requestedStartSeconds: 5 });
+    expect(result.data.appliedStartSeconds).toBeCloseTo(5.005, 9);
+    expect(result.data.startSeconds).toBeCloseTo(5.005, 9);
+  });
+
+  it("falls back to the requested start when the placed clip start cannot be read", async () => {
+    hostWith({ unreadableStart: true });
+    const result = await tools.add_title.handler({ text: "T", start_seconds: 2 }) as TitleResult;
+    expect(result.data).toMatchObject({ startSeconds: 2, requestedStartSeconds: 2, appliedStartSeconds: null });
   });
 
   it("reports a mismatch when Premiere ignores a text write", async () => {

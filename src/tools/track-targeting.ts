@@ -1,3 +1,4 @@
+import { setProjectItemStartTime } from "./project-item-start-time.js";
 import {
   buildToolScript,
   escapeForExtendScript,
@@ -581,7 +582,7 @@ export function getTrackTargetingTools(bridgeOptions: BridgeOptions) {
 
     set_clip_start_time: {
       description:
-        "Set the start time (timecode offset) of a project item. This shifts where timecode begins for the source media.",
+        "Alias of set_start_time: set and verify the source project item start timecode offset.",
       parameters: {
         type: "object" as const,
         properties: {
@@ -596,28 +597,12 @@ export function getTrackTargetingTools(bridgeOptions: BridgeOptions) {
         },
         required: ["item_id", "start_seconds"],
       },
-      handler: async (args: { item_id: string; start_seconds: number }) => {
-        const script = buildToolScript(`
-          var item = __findProjectItem("${escapeForExtendScript(args.item_id)}");
-          if (!item) return __error("Item not found");
-
-          var t = new Time();
-          t.seconds = ${args.start_seconds};
-          item.setStartTime(t.ticks);
-          var observedStart = NaN;
-          try { observedStart = Number(item.startTime().seconds); } catch (startReadError) {}
-          if (!isFinite(observedStart) || Math.abs(observedStart - ${args.start_seconds}) > 0.001) {
-            return __error("Premiere did not apply the start time; read back " + observedStart + " s.");
-          }
-          return __result({ item: item.name, startSeconds: observedStart, verified: true });
-        `);
-        return sendCommand(script, bridgeOptions);
-      },
+      handler: (args: { item_id: string; start_seconds: number }) => setProjectItemStartTime(args, bridgeOptions),
     },
 
     clear_item_in_out: {
       description:
-        "Clear in and/or out points on a project item (reset to full duration).",
+        "Clear in and/or out points on a project item (reset to full duration). Still-image Out is independently verified only when its own duration is readable; otherwise the result explains that limit.",
       parameters: {
         type: "object" as const,
         properties: {
@@ -649,9 +634,12 @@ export function getTrackTargetingTools(bridgeOptions: BridgeOptions) {
 
           function __markSeconds(time) { return time && typeof time.seconds === "number" && isFinite(time.seconds) ? time.seconds : NaN; }
           var mediaDuration = NaN;
+          var stillImage = false;
           var durationTolerance = 0.001;
           try {
             var packet = item.getProjectMetadata();
+            var typeMatch = typeof packet === "string" ? /<premierePrivateProjectMetaData:Column.Intrinsic.MediaType[^>]*>([\\s\\S]*?)<\\/premierePrivateProjectMetaData:Column.Intrinsic.MediaType>/.exec(packet) : null;
+            stillImage = !!typeMatch && typeMatch[1].replace(/<[^>]*>/g, "").replace(/^\\s+|\\s+$/g, "") === "Still Image";
             var durationMatch = typeof packet === "string" ? /<premierePrivateProjectMetaData:Column.Intrinsic.MediaDuration[^>]*>([^<]+)<\\/premierePrivateProjectMetaData:Column.Intrinsic.MediaDuration>/.exec(packet) : null;
             // MediaDuration is timecode at the nominal rate: 00:02:55:04 at "23.98 fps"
             // is 4204 frames of 1001/24000 s, and 29.97 media can use drop-frame
@@ -703,9 +691,9 @@ export function getTrackTargetingTools(bridgeOptions: BridgeOptions) {
           messages.push(!isFinite(inAfter) ? "In could not be independently verified" : Math.abs(inAfter) < 0.0005 ? "In cleared to 0 s" : "Premiere kept the In point at " + inAfter + " s");` : ""}
           ${clearOut ? `var outVerified = isFinite(outAfter) && isFinite(mediaDuration) && Math.abs(outAfter - mediaDuration) <= durationTolerance;
           if (!outVerified) unverifiedFields.push("outPoint");
-          messages.push(outVerified ? "Out cleared to " + outAfter + " s" : "Out could not be independently verified against MediaDuration and MediaTimebase");` : ""}
-          if (unverifiedFields.length) return __error(messages.join("; ") + "; inspect the marks before retrying.", { item: item.name, inSeconds: inAfter, outSeconds: outAfter, outcome: "committed_unverified", verified: false, marksChanged: null, unverifiedFields: unverifiedFields });
-          return __result({ item: item.name, clearedIn: ${clearIn}, clearedOut: ${clearOut}, inSeconds: inAfter, outSeconds: outAfter, verified: true });
+          messages.push(outVerified ? "Out cleared to " + outAfter + " s" : (stillImage ? (isFinite(mediaDuration) ? "Premiere kept the still-image Out at " + outAfter + " s instead of its full duration " + mediaDuration + " s" : "Still-image Out cannot be independently verified: this item exposes no readable still duration") : "Out could not be independently verified against MediaDuration and MediaTimebase"));` : ""}
+          if (unverifiedFields.length) return __error(messages.join("; ") + "; inspect the marks before retrying.", { item: item.name, inSeconds: inAfter, outSeconds: outAfter, outcome: "committed_unverified", verified: false, marksChanged: null, unverifiedFields: unverifiedFields, stillImage: stillImage });
+          return __result({ item: item.name, clearedIn: ${clearIn}, clearedOut: ${clearOut}, inSeconds: inAfter, outSeconds: outAfter, stillImage: stillImage, verified: true });
         `);
         return sendCommand(script, bridgeOptions);
       },
@@ -1557,18 +1545,20 @@ export function getTrackTargetingTools(bridgeOptions: BridgeOptions) {
     },
 
     remove_selected_clips: {
-      description: "Remove all currently selected clips from the timeline.",
+      description: "Remove all currently selected clips and verify their absence. Ripple requests are refused because the CEP removal call cannot reliably close gaps; use a guarded ripple-range tool instead.",
       parameters: {
         type: "object" as const,
         properties: {
           ripple: {
             type: "boolean",
             description:
-              "If true, close the gap after removing (ripple delete). Default: false",
+              "Ripple removal is unsupported and refused before editing. Default: false",
           },
         },
       },
       handler: async (args: { ripple?: boolean }) => {
+        if (args.ripple !== undefined && typeof args.ripple !== "boolean") return { success: false, error: "ripple must be a boolean" };
+        if (args.ripple) return { success: false, error: "CEP selected-clip removal cannot reliably ripple. Nothing was removed; use a guarded ripple-range tool.", data: { removed: 0, ripple: false, requestedRipple: true, verified: false, outcome: "not_applied", timelineChanged: false } };
         const script = buildToolScript(`
           var seq = app.project.activeSequence;
           if (!seq) return __error("No active sequence");
@@ -1599,10 +1589,10 @@ export function getTrackTargetingTools(bridgeOptions: BridgeOptions) {
             if (__findClip(ids[r])) remaining.push(ids[r]); else removed++;
           }
           if (remaining.length) {
-            return __jsonStringify({ success: false, error: remaining.length + " selected clip(s) are still on the timeline.", data: { removed: removed, remainingNodeIds: remaining, timelineChanged: removed > 0 } });
+            return __jsonStringify({ success: false, error: remaining.length + " selected clip(s) are still on the timeline.", data: { removed: removed, remainingNodeIds: remaining, timelineChanged: removed > 0, verified: false, outcome: "failed", requestedRipple: false, ripple: false } });
           }
 
-          return __result({ removed: removed, ripple: ${args.ripple ? "true" : "false"}, verified: true });
+          return __result({ removed: removed, ripple: false, requestedRipple: false, verified: true, outcome: "verified" });
         `);
         return sendCommand(script, bridgeOptions);
       },

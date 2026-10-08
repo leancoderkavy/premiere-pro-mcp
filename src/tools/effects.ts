@@ -616,7 +616,7 @@ export function getEffectsTools(bridgeOptions: BridgeOptions) {
     },
 
     stabilize_clip: {
-      description: "Apply the Warp Stabilizer effect to a clip for video stabilization. Uses QE DOM.",
+      description: "Apply Warp Stabilizer using the experimental QE DOM. Verifies component addition and readable parameter values, never analysis completion. Numeric or unreadable Method popup values remain unverified because no documented label mapping is available.",
       parameters: {
         type: "object" as const,
         properties: {
@@ -637,6 +637,8 @@ export function getEffectsTools(bridgeOptions: BridgeOptions) {
         required: ["node_id"],
       },
       handler: async (args: { node_id: string; smoothness?: number; method?: string }) => {
+        if (args.smoothness !== undefined && (!Number.isFinite(args.smoothness) || args.smoothness < 0 || args.smoothness > 100)) return { success: false, error: "smoothness must be a finite percentage from 0 to 100" };
+        if (args.method !== undefined && !["Subspace Warp", "Position", "Position, Scale, Rotation"].includes(args.method)) return { success: false, error: "Unsupported stabilization method" };
         const script = buildToolScript(`
           app.enableQE();
           var qeSeq = qe.project.getActiveSequence();
@@ -654,6 +656,8 @@ export function getEffectsTools(bridgeOptions: BridgeOptions) {
           var qeClip = __findQeClipByDomClip(qeTrack, result.clip);
           if (!qeClip) return __error("Could not match the QE clip for " + result.clip.name + " by timeline start; nothing was changed.");
 
+          var componentCountBefore = result.clip.components.numItems;
+          if (typeof componentCountBefore !== "number" || !isFinite(componentCountBefore)) return __error("Cannot read clip components; nothing was changed.");
           // Find and apply Warp Stabilizer
           var effectCatalog = __getQeEffectCatalog("video");
           if (!effectCatalog.ok) return __error(effectCatalog.error);
@@ -669,32 +673,59 @@ export function getEffectsTools(bridgeOptions: BridgeOptions) {
           
           if (!found) return __error("Warp Stabilizer effect not found");
           
-          // Set properties if specified
           var clip = result.clip;
-          var changes = { stabilized: true };
-          ${args.smoothness !== undefined || args.method !== undefined ? `
-          for (var i = 0; i < clip.components.numItems; i++) {
-            var comp = clip.components[i];
-            if (comp.displayName === "Warp Stabilizer") {
-              for (var p = 0; p < comp.properties.numItems; p++) {
-                var prop = comp.properties[p];
-                ${args.smoothness !== undefined ? `
-                if (prop.displayName === "Smoothness") {
-                  prop.setValue(${args.smoothness}, true);
-                  changes.smoothness = ${args.smoothness};
-                }` : ""}
-                ${args.method !== undefined ? `
-                if (prop.displayName === "Method") {
-                  prop.setValue("${escapeForExtendScript(args.method)}", true);
-                  changes.method = "${escapeForExtendScript(args.method)}";
-                }` : ""}
+          var afterCount = null;
+          var stabilizer = null;
+          try {
+            afterCount = clip.components.numItems;
+            if (typeof afterCount !== "number" || !isFinite(afterCount)) afterCount = null;
+            if (afterCount !== null) {
+              for (var componentIndex = componentCountBefore; componentIndex < afterCount; componentIndex++) {
+                if (clip.components[componentIndex].displayName === "Warp Stabilizer") stabilizer = clip.components[componentIndex];
               }
-              break;
             }
+          } catch (componentReadError) { afterCount = null; }
+          var changes = { stabilized: false };
+          var data = { clipName: clip.name, changes: changes, requested: { smoothness: ${args.smoothness === undefined ? "null" : args.smoothness}, method: ${args.method === undefined ? "null" : `"${escapeForExtendScript(args.method)}"`} }, applied: { smoothness: null, method: null }, componentCountBefore: componentCountBefore, componentCountAfter: afterCount, verified: false, outcome: "committed_unverified", analysisStatus: "unknown", info: "Effect and parameter readback only; analysis completion and rendered stabilization require separate inspection." };
+          if (afterCount !== null && afterCount <= componentCountBefore) { data.outcome = "failed"; return __error("Premiere did not add Warp Stabilizer.", data); }
+          if (!stabilizer) return __result(data);
+          changes.stabilized = true;
+          var parameterVerified = true;
+          var parameterMismatch = false;
+          var warnings = [];
+          function setStabilizerParameter(name, requested, field) {
+            if (requested === null) return;
+            var property = null;
+            var matches = 0;
+            for (var propertyIndex = 0; propertyIndex < stabilizer.properties.numItems; propertyIndex++) {
+              if (stabilizer.properties[propertyIndex].displayName === name) { property = stabilizer.properties[propertyIndex]; matches++; }
+            }
+            if (matches !== 1) { parameterVerified = false; warnings.push(name + " property is unavailable or ambiguous."); return; }
+            try {
+              if (name === "Method") {
+                var currentMethod = property.getValue();
+                if (typeof currentMethod !== "string" || (currentMethod !== "Subspace Warp" && currentMethod !== "Position" && currentMethod !== "Position, Scale, Rotation")) {
+                  parameterVerified = false;
+                  warnings.push("Method popup mapping is unavailable; method was not changed.");
+                  return;
+                }
+              }
+              property.setValue(requested, true);
+              var actual = property.getValue();
+              if (actual === undefined || actual === null || (typeof actual === "number" && !isFinite(actual))) { parameterVerified = false; return; }
+              data.applied[field] = actual;
+              changes[field] = actual;
+              var same = typeof actual === "number" && typeof requested === "number" ? Math.abs(actual - requested) <= 0.0001 : actual === requested;
+              if (!same) { parameterMismatch = true; parameterVerified = false; }
+            } catch (parameterError) { parameterVerified = false; warnings.push(name + " write or readback unavailable: " + String(parameterError)); }
           }
-          ` : ""}
-          
-          return __result({ clipName: clip.name, info: "Warp Stabilizer applied. Analysis will begin automatically.", changes: changes });
+          setStabilizerParameter("Smoothness", data.requested.smoothness, "smoothness");
+          setStabilizerParameter("Method", data.requested.method, "method");
+          data.warnings = warnings;
+          data.verified = parameterVerified;
+          data.outcome = parameterMismatch ? "failed" : (parameterVerified ? "verified" : "committed_unverified");
+          if (parameterMismatch) return __error("Warp Stabilizer parameter readback does not match the requested value.", data);
+          return __result(data);
         `);
         return sendCommand(script, bridgeOptions);
       },

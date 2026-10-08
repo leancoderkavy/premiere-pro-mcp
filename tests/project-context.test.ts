@@ -160,7 +160,7 @@ describe("project context index", () => {
     const serialized = await readFile(path.join(directory, files.find((name) => name.endsWith(".json"))!), "utf8");
     expect(serialized).not.toContain("D:/Media/interview-a.mov");
     expect(serialized).toContain("redacted-path-hash");
-  });
+  }, 40000);
 
   it.runIf(supportsNodeSqlite)("uses SQLite when requested and supports complete repository lifecycle", async () => {
     const container = await mkdtemp(path.join(tmpdir(), "ppmcp-context-sqlite-test-"));

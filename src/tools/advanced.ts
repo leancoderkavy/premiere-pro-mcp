@@ -936,7 +936,7 @@ export function getAdvancedTools(
     },
 
     set_clip_selection: {
-      description: "Select or deselect a clip in the active sequence",
+      description: "Select or deselect a clip in the active sequence and read its selection state back.",
       parameters: {
         type: "object" as const,
         properties: {
@@ -952,12 +952,17 @@ export function getAdvancedTools(
         required: ["node_id", "selected"],
       },
       handler: async (args: { node_id: string; selected: boolean }) => {
+        if (typeof args.selected !== "boolean") return { success: false, error: "selected must be a boolean" };
         const script = buildToolScript(`
           var result = __findClip("${escapeForExtendScript(args.node_id)}");
           if (!result) return __error("Clip not found");
-          
           result.clip.setSelected(${args.selected ? 1 : 0}, true);
-          return __result({ selected: ${args.selected}, clipName: result.clip.name });
+          var applied = null;
+          try { var observed = result.clip.isSelected(); if (typeof observed === "boolean" || observed === 0 || observed === 1) applied = !!observed; } catch (readError) {}
+          var verified = applied === ${args.selected};
+          var receipt = { selected: applied, requestedSelected: ${args.selected}, clipName: result.clip.name, verified: verified, outcome: applied === null ? "committed_unverified" : (verified ? "verified" : "failed") };
+          if (applied !== null && !verified) return __jsonStringify({ success: false, error: "Premiere did not apply the requested clip selection.", data: receipt });
+          return __result(receipt);
         `);
         return sendCommand(script, bridgeOptions);
       },
@@ -1149,7 +1154,7 @@ export function getAdvancedTools(
 
     create_sequence_from_clips: {
       description:
-        "Create a new sequence by automatically placing project items in order",
+        "Create a new sequence from project items, then verify its registered identity, name and source-item placements. clipCount reports observed track items; requestedClipCount reports requested source items.",
       parameters: {
         type: "object" as const,
         properties: {
@@ -1167,6 +1172,7 @@ export function getAdvancedTools(
         required: ["name", "item_ids"],
       },
       handler: async (args: { name: string; item_ids: string[] }) => {
+        if (!args.name || !Array.isArray(args.item_ids) || !args.item_ids.length || args.item_ids.some((id) => typeof id !== "string" || !id)) return { success: false, error: "name and at least one non-empty item_id are required" };
         const itemLookups = args.item_ids
           .map(
             (id, i) =>
@@ -1178,9 +1184,48 @@ export function getAdvancedTools(
           var items = [];
           ${itemLookups}
           
+          var beforeIds = {};
+          for (var b = 0; b < app.project.sequences.numSequences; b++) beforeIds[String(app.project.sequences[b].sequenceID)] = true;
           var seq = app.project.createNewSequenceFromClips("${escapeForExtendScript(args.name)}", items);
           if (!seq) return __error("Failed to create sequence from clips");
-          return __result({ created: true, name: seq.name, id: seq.sequenceID, clipCount: items.length });
+          var registered = null;
+          for (var r = 0; r < app.project.sequences.numSequences; r++) if (String(app.project.sequences[r].sequenceID) === String(seq.sequenceID)) registered = app.project.sequences[r];
+          var observedItems = [], appliedCount = 0, readable = true;
+          try {
+            if (!registered || !String(seq.sequenceID)) readable = false;
+            else {
+              var groups = [registered.videoTracks, registered.audioTracks];
+              for (var g = 0; g < groups.length; g++) {
+                var tracks = groups[g];
+                if (!tracks || typeof tracks.numTracks !== "number") { readable = false; continue; }
+                for (var t = 0; t < tracks.numTracks; t++) {
+                  for (var c = 0; c < tracks[t].clips.numItems; c++) {
+                    var clip = tracks[t].clips[c];
+                    appliedCount++;
+                    if (!clip.projectItem || !clip.projectItem.nodeId || !clip.start || !isFinite(Number(clip.start.ticks))) { readable = false; continue; }
+                    observedItems.push({ id: String(clip.projectItem.nodeId), start: Number(clip.start.ticks), kind: g });
+                  }
+                }
+              }
+            }
+          } catch (readError) { readable = false; }
+          var placementVerified = readable;
+          var lastStart = -1;
+          var used = {};
+          for (var i = 0; i < items.length && readable; i++) {
+            var match = -1;
+            for (var k = 0; k < observedItems.length; k++) {
+              if (!used[k] && observedItems[k].id === String(items[i].nodeId) && observedItems[k].start >= lastStart && (match < 0 || observedItems[k].start < observedItems[match].start)) match = k;
+            }
+            if (match < 0) { placementVerified = false; break; }
+            lastStart = observedItems[match].start;
+            for (var u = 0; u < observedItems.length; u++) if (observedItems[u].id === observedItems[match].id && observedItems[u].start === lastStart) used[u] = true;
+          }
+          var identityVerified = !!registered && !!String(seq.sequenceID) && !beforeIds[String(seq.sequenceID)] && registered.name === "${escapeForExtendScript(args.name)}";
+          var verified = identityVerified && placementVerified;
+          var receipt = { created: !!registered, name: registered ? registered.name : null, id: seq.sequenceID, clipCount: readable ? appliedCount : null, requestedClipCount: items.length, verified: verified, outcome: !readable ? "committed_unverified" : (verified ? "verified" : "failed"), verification: "Sequence identity, name and ordered source placements only; playback and persistence remain unverified." };
+          if (readable && !verified) return __jsonStringify({ success: false, error: "Created sequence did not match the requested identity, name or source placements.", data: receipt });
+          return __result(receipt);
         `);
         return sendCommand(script, bridgeOptions);
       },
