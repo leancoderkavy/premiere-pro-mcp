@@ -279,6 +279,10 @@ export const WINDOWS_BRIDGE_ACL_SCRIPT = [
   '[pscustomobject]@{ ownerSid = $owner; currentUserSid = $current; unsafeWriteAces = $unsafe; unsafeAncestorEntries = $unsafeAncestors } | ConvertTo-Json -Compress',
 ].join("\n");
 
+// Starting powershell.exe can take several seconds on a loaded Windows machine (CI runners
+// with coverage timed out at 5 s). A timeout still fails closed: the caller throws.
+const WINDOWS_ACL_CHECK_TIMEOUT_MS = 30_000;
+
 export function inspectWindowsBridgeDirectoryAcl(
   directory: string,
   initialize: boolean,
@@ -301,7 +305,7 @@ export function inspectWindowsBridgeDirectoryAcl(
       encoding: "utf8",
       windowsHide: true,
       stdio: ["ignore", "pipe", "pipe"],
-      timeout: 5000,
+      timeout: WINDOWS_ACL_CHECK_TIMEOUT_MS,
       maxBuffer: 64 * 1024,
       env: {
         ...process.env,

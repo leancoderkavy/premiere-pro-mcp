@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Fixed
+
+- The Windows private-directory ACL check waits up to 30 seconds for `powershell.exe` instead of 5, in the server and in both CEP panels. On a loaded machine (including CI runners with coverage) PowerShell could take longer than 5 seconds to start, which made the check throw and blocked the bridge. A timeout still fails closed: the directory is not used unless the ACL check succeeds.
+
 ## [1.21.0] - 2026-10-07
 
 ### Fixed
