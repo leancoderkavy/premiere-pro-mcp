@@ -145,6 +145,10 @@ describe("unnest_sequence refuses unsafe unnests and verifies placements (#642)"
   function fixture(options: { nestOutSeconds?: number } = {}) {
     const itemA = new FakeItem("item-a", "A", 10);
     const itemB = new FakeItem("item-b", "B", 10);
+    // Video-only sources: footage with sound is refused because Track.overwriteClip
+    // would also place audio on the matching track (live 26.5.2).
+    itemA.marks[2] = { in: 0, out: 0 };
+    itemB.marks[2] = { in: 0, out: 0 };
     const nestItem = new FakeItem("nest-item", "Nest", 2);
     const nestedV0 = new FakeTrack("video");
     const nestedV1 = new FakeTrack("video");
@@ -201,6 +205,17 @@ describe("unnest_sequence refuses unsafe unnests and verifies placements (#642)"
     expect(result.error).toContain("nothing was changed");
     expect(parentV[0].items).toEqual([nestClip]);
     expect(parentV[1].items).toEqual([blocker]);
+  });
+
+  it("refuses a nested A/V item before removing the nest", async () => {
+    const { app, parentV, nestClip, itemA } = fixture();
+    itemA.marks[2] = { in: 0, out: t(10) };
+    const result = await unnest(app);
+    expect(result.success).toBe(false);
+    expect(result.error).toMatch(/^Unnest refused; nothing was changed\. A also has audio/);
+    expect(result.error).toContain("Track.overwriteClip");
+    expect(parentV[0].items).toEqual([nestClip]);
+    expect(parentV[1].items).toHaveLength(0);
   });
 
   it("refuses when a nested clip's source range is not accepted, before removing the nest", async () => {
