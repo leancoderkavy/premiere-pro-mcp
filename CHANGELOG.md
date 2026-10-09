@@ -10,6 +10,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 - `unnest_sequence` now refuses, before removing the nested clip, any inner item that also carries the other media type. Premiere 26.5.2's `Track.overwriteClip` places that media on the matching track and overwrites the clips there. Same guard as `replace_clip`. Unnest a nest of video-only or audio-only items, or use Premiere's Unnest command.
 - Shared project-item mark restore after `replace_clip`, `unnest_sequence`, and other `Track.overwriteClip` helpers now writes the quarter-frame-biased seconds from `__itemMarksForRestore`. Writing the exact tick boundary as seconds can floor one media frame early on Premiere 26.5.2 (a soft-subclip Out of `00:00:29:22` stored as `00:00:29:21`), shrinking the source item. `duplicate_clip` and `set_item_in_out` already used those seconds.
+- `export_sequence` without `preset_path` no longer exports at proxy resolution when Media Encoder is not installed. Preset discovery only searched Premiere's `Settings/IngestPresets`, so the default became `IngestPresets/Proxy/00_1024x540 H.264.epr` and a 1080x1920 sequence was exported at 1024x540 while reporting `verified: true` (Premiere 24.0, macOS). Preset discovery now also searches Premiere's own `MediaIO/systempresets` when no Media Encoder presets exist, and the default never comes from `IngestPresets`; if no other H.264 preset is found, the tool asks for `preset_path`.
 
 ## [1.22.0] - 2026-10-08
 
