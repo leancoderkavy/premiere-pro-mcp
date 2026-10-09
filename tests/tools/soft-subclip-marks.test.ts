@@ -81,6 +81,28 @@ describe("soft subclip restore marks", () => {
     expect(source.getInPoint().seconds).toBe(20); expect(source.getOutPoint().seconds).toBeCloseTo(30.04, 6);
     expect(overwrite).toHaveBeenCalledOnce();
   });
+  it("writes the quarter-frame-biased restore seconds so a 26.5.2-style floor cannot drop a frame", () => {
+    // Live 26.5.2: a value exactly on the media-frame boundary can store one
+    // frame early (00:00:29:22 -> 00:00:29:21). Treat an exact boundary as
+    // slightly under, matching that host, so restore must write past it.
+    const source = item();
+    source.setInPoint = vi.fn((seconds: number) => { source.getInPoint = () => ({ ticks: String(Math.round(Math.floor(seconds * 25 - 1e-12) * (T / 25))), seconds }); });
+    source.setOutPoint = vi.fn((seconds: number) => { source.getOutPoint = () => ({ ticks: String(Math.round(Math.floor(seconds * 25 - 1e-12) * (T / 25))), seconds }); });
+    const overwrite = vi.fn();
+    expect(run(`__overwriteRangeOnTrack(track, item, "0", "${22*T}", "${24*T}", 1, ${T / 25})`, { item: source, track: { overwriteClip: overwrite }, Time })).toMatchObject({ ok: true, marksRestored: true });
+    expect(Number(source.getInPoint().ticks)).toBe(20 * T);
+    expect(Number(source.getOutPoint().ticks)).toBe(30 * T + T / 25);
+    expect(source.setInPoint).toHaveBeenLastCalledWith(expect.closeTo(20.01, 6), 1);
+    expect(source.setOutPoint).toHaveBeenLastCalledWith(expect.closeTo(30.05, 6), 1);
+  });
+  it("restores the biased private range after a preflight that Premiere rejects", () => {
+    const source = item();
+    source.setInPoint = vi.fn((seconds: number) => { source.getInPoint = () => ({ ticks: String(Math.round(Math.floor(seconds * 25 - 1e-12) * (T / 25))), seconds }); });
+    source.setOutPoint = vi.fn((seconds: number) => { source.getOutPoint = () => ({ ticks: String(Math.round(Math.floor(seconds * 25 - 1e-12) * (T / 25))), seconds }); });
+    expect(run(`__itemAcceptsRange(item, "${40*T}", "${50*T}", 1)`, { item: source })).toMatchObject({ ok: false, marksRestored: true });
+    expect(Number(source.getInPoint().ticks)).toBe(20 * T);
+    expect(Number(source.getOutPoint().ticks)).toBe(30 * T + T / 25);
+  });
   it.each(["source", "project"])("restores private marks after a failed %s mark write", async (kind) => {
     const source = item(metadata(), true);
     sent.mockImplementation(async (script) => JSON.parse(String(run(script, { Time, app: { sourceMonitor: { getProjectItem: () => source }, project: { rootItem: { children: { numItems: 1, 0: source } } } } }))));

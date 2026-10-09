@@ -232,6 +232,25 @@ function __setItemMarks(item, wantIn, wantOut, mediaType, tolerance) {
     Math.abs(parseFloat(item.getOutPoint(mediaType).ticks) - parseFloat(wantOut)) <= tol;
 }
 
+// Put private source marks back using the quarter-frame-biased seconds from
+// __itemMarksForRestore. Writing the exact tick boundary as seconds can floor
+// one media frame early on 26.5.2 (00:00:29:22 -> 00:00:29:21). duplicate_clip
+// and set_item_in_out already write those seconds; the shared overwrite
+// helpers must do the same or a soft subclip shrinks after replace/unnest.
+function __restoreItemMarks(item, original, mediaType, tolerance) {
+  var tol = tolerance > __TICK_MATCH_TOL ? tolerance : __TICK_MATCH_TOL;
+  var currentOut = parseFloat(item.getOutPoint(mediaType).ticks);
+  if (parseFloat(original.inTicks) >= currentOut) {
+    item.setOutPoint(original.outSeconds, mediaType);
+    item.setInPoint(original.inSeconds, mediaType);
+  } else {
+    item.setInPoint(original.inSeconds, mediaType);
+    item.setOutPoint(original.outSeconds, mediaType);
+  }
+  return Math.abs(parseFloat(item.getInPoint(mediaType).ticks) - Number(original.inTicks)) <= tol &&
+    Math.abs(parseFloat(item.getOutPoint(mediaType).ticks) - Number(original.outTicks)) <= tol;
+}
+
 // Live 26.5.2: a project item's video marks are floored to the media's own
 // frame grid (a 23.976 clip in a 29.97 sequence loses up to 1.25 sequence
 // frames) and audio marks to the sample grid. Returns the most a mark can
@@ -264,7 +283,7 @@ function __itemAcceptsRange(item, inTicks, outTicks, mediaType, tolerance) {
   var accepted = false;
   try { accepted = __setItemMarks(item, inTicks, outTicks, mediaType, tolerance); } catch (eSet) { accepted = false; }
   var restored = false;
-  try { restored = __setItemMarks(item, original.inTicks, original.outTicks, mediaType); } catch (eRestore) { restored = false; }
+  try { restored = __restoreItemMarks(item, original, mediaType); } catch (eRestore) { restored = false; }
   return {
     ok: accepted,
     marksRestored: restored,
@@ -285,7 +304,7 @@ function __overwriteRangeOnTrack(track, item, startTicks, inTicks, outTicks, med
     return { ok: false, attempted: false, marksRestored: true, error: "Could not reliably read the project item's In/Out marks; nothing was changed" };
   }
   function restore() {
-    try { return __setItemMarks(item, original.inTicks, original.outTicks, mediaType); } catch (eRestore) { return false; }
+    try { return __restoreItemMarks(item, original, mediaType); } catch (eRestore) { return false; }
   }
   var applied = false;
   try { applied = __setItemMarks(item, inTicks, outTicks, mediaType, tolerance); } catch (eSet) { applied = false; }
