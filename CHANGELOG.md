@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Fixed
+
+- `unnest_sequence` now refuses, before removing the nested clip, any inner item that also carries the other media type. Premiere 26.5.2's `Track.overwriteClip` places that media on the matching track and overwrites the clips there. Same guard as `replace_clip`. Unnest a nest of video-only or audio-only items, or use Premiere's Unnest command.
+
 ## [1.22.0] - 2026-10-08
 
 ### Fixed
