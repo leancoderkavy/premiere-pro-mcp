@@ -55,6 +55,8 @@ project state, make only requested changes, and verify the timeline after mutati
 
 ## Apply changes safely
 
+For multi-project CEP sessions, pass optional expected_project_path with the intended saved project path. Every generated CEP command checks it before the tool body and refuses a different or unsaved active project. It does not select projects or verify media identity. Omit it for local-only tools; UXP and After Effects commands refuse this CEP-only guard. Use UXP expected_snapshot identities instead.
+
 For compound insert or removal operations:
 
 1. Construct one exact edit plan.

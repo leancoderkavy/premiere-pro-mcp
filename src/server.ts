@@ -5,6 +5,7 @@ import {
   type StandardSchemaWithJSON,
 } from "@modelcontextprotocol/server";
 import { BridgeOptions } from "./bridge/file-bridge.js";
+import { runWithExpectedProject } from "./bridge/project-guard.js";
 import { runWithUndoTracking } from "./bridge/undo-tracking.js";
 import { getDiscoveryTools } from "./tools/discovery.js";
 import { getProjectTools } from "./tools/project.js";
@@ -476,7 +477,16 @@ export function createServer(
       continue;
     }
 
-    const inputSchema = jsonSchemaToInputSchema(tool.parameters);
+    const inputSchema = jsonSchemaToInputSchema({
+      ...tool.parameters,
+      properties: {
+        ...(tool.parameters as { properties?: Record<string, unknown> }).properties,
+        expected_project_path: {
+          type: "string", minLength: 1, maxLength: 4096,
+          description: "Optional absolute saved-project path. Every generated CEP command refuses before its body when the active project differs or is unsaved. UXP commands refuse this CEP-only guard; local-only tools do not inspect Premiere. Omit to keep existing behavior.",
+        },
+      },
+    });
     const guardedHandler = guardToolHandler(name, withFrameRateDefaultWarning(tool), capabilities);
 
     const annotations = annotationsForTool(name);
@@ -497,7 +507,9 @@ export function createServer(
           // export tools such as import_*, relink_*, consolidate_* that add
           // project items). Only inspect-only calls skip it.
           const tracksUndo = capabilitiesForToolInvocation(name, args).some((capability) => capability !== "inspect");
-          const result = await runWithUndoTracking(tracksUndo, () => guardedHandler(args as Record<string, unknown>));
+          const { expected_project_path, ...toolArgs } = args as Record<string, unknown>;
+          const result = await runWithExpectedProject(expected_project_path,
+            () => runWithUndoTracking(tracksUndo, () => guardedHandler(toolArgs)));
           telemetry.capture("mcp_tool_call", {
             tool: name,
             outcome: result.success ? "succeeded" : "failed",

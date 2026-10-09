@@ -33,7 +33,7 @@ const { getDiscoveryTools } = vi.hoisted(() => ({
     get_mock_undo_tracking: {
       description: "Read-only mock",
       parameters: { type: "object", properties: {} },
-      handler: async () => ({ success: true, data: { tracking: (await import("../src/bridge/undo-tracking.js")).undoTrackingEnabled() } }),
+      handler: async (args: Record<string, unknown>) => ({ success: true, data: { tracking: (await import("../src/bridge/undo-tracking.js")).undoTrackingEnabled(), guard: (await import("../src/bridge/project-guard.js")).expectedProjectPath(), args } }),
     },
     import_mock_undo_tracking: {
       description: "Filesystem-class mock (import_* tools add project items)",
@@ -217,6 +217,22 @@ describe("unknown tool arguments", () => {
       await server.close();
     }
   });
+  it("scopes the common project guard without passing it into module arguments", async () => {
+    const server = createServer({});
+    const client = new Client({ name: "project-guard-test", version: "1.0.0" });
+    const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
+    await Promise.all([server.connect(serverTransport), client.connect(clientTransport)]);
+    try {
+      const listed = await client.listTools();
+      expect(listed.tools.find((tool) => tool.name === "get_mock_undo_tracking")?.inputSchema.properties)
+        .toHaveProperty("expected_project_path");
+      const result = await client.callTool({ name: "get_mock_undo_tracking", arguments: { expected_project_path: "/target.prproj" } });
+      expect(JSON.parse((result.content as { text: string }[])[0].text)).toMatchObject({ guard: "/target.prproj", args: {} });
+    } finally {
+      await client.close(); await server.close();
+    }
+  });
+
   it("rejects a misspelled argument by name instead of silently using defaults", async () => {
     const server = createServer({});
     const client = new Client({ name: "unknown-arg-test", version: "1.0.0" });

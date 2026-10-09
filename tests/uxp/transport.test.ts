@@ -1,3 +1,4 @@
+import { runWithExpectedProject } from "../../src/bridge/project-guard.js";
 import { once } from "node:events";
 import { afterEach, describe, expect, it } from "vitest";
 import { WebSocket } from "ws";
@@ -116,6 +117,17 @@ describe("UXP WebSocket bridge", () => {
     await expect(bridge.request("frame.export")).rejects.toMatchObject({
       code: "UXP_COMMAND_UNSUPPORTED",
     });
+    client.close();
+  });
+
+  it("refuses a CEP project guard without sending a UXP command", async () => {
+    const bridge = await createBridge();
+    const client = await connectHost(bridge, { "frame.export": { supported: true } });
+    const sent: string[] = [];
+    client.on("message", (data) => sent.push(String(data)));
+    await expect(runWithExpectedProject("/target.prproj", () => bridge.request("frame.export")))
+      .rejects.toMatchObject({ code: "UXP_PROJECT_GUARD_UNSUPPORTED" });
+    expect(sent).toEqual([]);
     client.close();
   });
 

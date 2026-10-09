@@ -3,6 +3,7 @@
  * All generated code must be ES3-compatible (var, no arrow functions, no let/const).
  */
 import { createHash } from "node:crypto";
+import { expectedProjectPath } from "./project-guard.js";
 import { undoTrackingEnabled } from "./undo-tracking.js";
 
 const HELPERS = `
@@ -232,6 +233,25 @@ function __setItemMarks(item, wantIn, wantOut, mediaType, tolerance) {
     Math.abs(parseFloat(item.getOutPoint(mediaType).ticks) - parseFloat(wantOut)) <= tol;
 }
 
+// Put private source marks back using the quarter-frame-biased seconds from
+// __itemMarksForRestore. Writing the exact tick boundary as seconds can floor
+// one media frame early on 26.5.2 (00:00:29:22 -> 00:00:29:21). duplicate_clip
+// and set_item_in_out already write those seconds; the shared overwrite
+// helpers must do the same or a soft subclip shrinks after replace/unnest.
+function __restoreItemMarks(item, original, mediaType, tolerance) {
+  var tol = tolerance > __TICK_MATCH_TOL ? tolerance : __TICK_MATCH_TOL;
+  var currentOut = parseFloat(item.getOutPoint(mediaType).ticks);
+  if (parseFloat(original.inTicks) >= currentOut) {
+    item.setOutPoint(original.outSeconds, mediaType);
+    item.setInPoint(original.inSeconds, mediaType);
+  } else {
+    item.setInPoint(original.inSeconds, mediaType);
+    item.setOutPoint(original.outSeconds, mediaType);
+  }
+  return Math.abs(parseFloat(item.getInPoint(mediaType).ticks) - Number(original.inTicks)) <= tol &&
+    Math.abs(parseFloat(item.getOutPoint(mediaType).ticks) - Number(original.outTicks)) <= tol;
+}
+
 // Live 26.5.2: a project item's video marks are floored to the media's own
 // frame grid (a 23.976 clip in a 29.97 sequence loses up to 1.25 sequence
 // frames) and audio marks to the sample grid. Returns the most a mark can
@@ -264,7 +284,7 @@ function __itemAcceptsRange(item, inTicks, outTicks, mediaType, tolerance) {
   var accepted = false;
   try { accepted = __setItemMarks(item, inTicks, outTicks, mediaType, tolerance); } catch (eSet) { accepted = false; }
   var restored = false;
-  try { restored = __setItemMarks(item, original.inTicks, original.outTicks, mediaType); } catch (eRestore) { restored = false; }
+  try { restored = __restoreItemMarks(item, original, mediaType); } catch (eRestore) { restored = false; }
   return {
     ok: accepted,
     marksRestored: restored,
@@ -285,7 +305,7 @@ function __overwriteRangeOnTrack(track, item, startTicks, inTicks, outTicks, med
     return { ok: false, attempted: false, marksRestored: true, error: "Could not reliably read the project item's In/Out marks; nothing was changed" };
   }
   function restore() {
-    try { return __setItemMarks(item, original.inTicks, original.outTicks, mediaType); } catch (eRestore) { return false; }
+    try { return __restoreItemMarks(item, original, mediaType); } catch (eRestore) { return false; }
   }
   var applied = false;
   try { applied = __setItemMarks(item, inTicks, outTicks, mediaType, tolerance); } catch (eSet) { applied = false; }
@@ -1176,13 +1196,19 @@ function __collectAllPresets() {
   var roots = [];
 
   var ame = __adobeAppFolders("Adobe Media Encoder");
+  var ameFound = false;
   for (var i = 0; i < ame.length; i++) {
-    roots.push(__adobeApplicationResourceFolder(ame[i], "MediaIO/systempresets"));
+    var ameRoot = __adobeApplicationResourceFolder(ame[i], "MediaIO/systempresets");
+    if (ameRoot.exists) ameFound = true;
+    roots.push(ameRoot);
   }
 
   var ppro = __adobeAppFolders("Adobe Premiere Pro");
   for (var j = 0; j < ppro.length; j++) {
     roots.push(__adobeApplicationResourceFolder(ppro[j], "Settings/IngestPresets"));
+    // Without Media Encoder, the only export presets on disk are the ones
+    // Premiere ships for its own Export dialog (live 24.0 on macOS).
+    if (!ameFound) roots.push(__adobeApplicationResourceFolder(ppro[j], "MediaIO/systempresets"));
   }
 
   // User-saved presets live under the Documents tree on both platforms.
@@ -1219,6 +1245,9 @@ function __findH264Preset() {
   var presets = __collectAllPresets();
   var candidates = [];
   for (var i = 0; i < presets.length; i++) {
+    // IngestPresets are proxy/ingest transcodes ("00_1024x540 H.264"), never a
+    // delivery default: one exported a 1080x1920 sequence at 1024x540.
+    if (String(presets[i].path).replace(/\\\\/g, "/").toLowerCase().indexOf("/ingestpresets/") !== -1) continue;
     var haystack = (presets[i].name + " " + presets[i].format).toLowerCase();
     if (haystack.indexOf("h264") !== -1 || haystack.indexOf("h.264") !== -1 || haystack.indexOf("48323634") !== -1) {
       candidates.push(presets[i]);
@@ -2822,6 +2851,18 @@ export function buildBootstrap(helpersPath: string): string {
  * Helper functions are loaded by the bootstrap the file bridge prepends.
  */
 export function buildScript(code: string): string {
+  const expected = expectedProjectPath();
+  const projectGuard = expected === undefined ? "" : `
+    var __expectedProjectPath = new File("${escapeForExtendScript(expected)}").fsName;
+    var __activeProjectPath = app.project && app.project.path;
+    if (!__activeProjectPath) return __error("Expected project guard refused: active project is missing or unsaved; nothing was changed.");
+    __activeProjectPath = new File(__activeProjectPath).fsName;
+    if (String($.os).toLowerCase().indexOf("windows") !== -1) {
+      __expectedProjectPath = __expectedProjectPath.toLowerCase();
+      __activeProjectPath = __activeProjectPath.toLowerCase();
+    }
+    if (__activeProjectPath !== __expectedProjectPath) return __error("Expected project guard refused: active project differs; nothing was changed.");
+  `;
   // Helpers live in a long-lived engine, so __undoStart is always reset: set
   // for tools that change the project, cleared for everything else.
   const undoStart = undoTrackingEnabled()
@@ -2829,6 +2870,7 @@ export function buildScript(code: string): string {
     : `__undoStart = null;`;
   return `(function() {
   try {
+    ${projectGuard}
     ${undoStart}
     __markerWriteAttempted = false;
     ${code}

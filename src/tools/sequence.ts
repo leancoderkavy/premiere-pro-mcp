@@ -404,7 +404,7 @@ export function getSequenceTools(bridgeOptions: BridgeOptions) {
     unnest_sequence: {
       description:
         "Unnest a nested sequence clip, replacing it with the nested sequence's clips at their exact source in/out and timeline positions. " +
-        "Refuses without changing anything when the nest is trimmed, retimed, linked to a partner clip, or when the destination range is occupied or locked. " +
+        "Refuses without changing anything when the nest is trimmed, retimed, linked to a partner clip, contains items that also carry the other media type (Premiere's Track.overwriteClip would place that media on the matching track and overwrite the clips there), or when the destination range is occupied or locked. " +
         "Re-reads every placed clip and reports failure with Undo guidance if any start or source range differs. Nested clips are re-placed from their project items, so effects, keyframes, and transitions inside the nest are not carried over.",
       parameters: {
         type: "object" as const,
@@ -595,7 +595,18 @@ export function getSequenceTools(bridgeOptions: BridgeOptions) {
           }
 
           // Check every source range is accepted before removing the nested clip.
+          // Live 26.5.2: Track.overwriteClip with an item that also has the other
+          // media type places that media too, on the matching track (or a new
+          // one if it is locked), overwriting whatever is there.
           for (var pf = 0; pf < planned.length; pf++) {
+            var otherType = mediaType === 1 ? 2 : 1;
+            var otherSpan = NaN;
+            try { otherSpan = parseFloat(planned[pf].projectItem.getOutPoint(otherType).ticks) - parseFloat(planned[pf].projectItem.getInPoint(otherType).ticks); } catch (eOther) {}
+            if (!isFinite(otherSpan) || otherSpan < 0) return __error("Unnest refused; other-media timing is unreadable, so Track.overwriteClip cannot be safely preflighted. Nothing was changed; use Premiere's Unnest command.");
+            if (otherSpan > __TICK_MATCH_TOL) {
+              var otherLabel = otherType === 2 ? "audio" : "video";
+              return __error("Unnest refused; nothing was changed. " + planned[pf].name + " also has " + otherLabel + ", and Premiere's Track.overwriteClip would place that " + otherLabel + " on the matching " + otherLabel + " track too, overwriting the clips there. Unnest a nest of " + reference.mediaType + "-only items, or use Premiere's Unnest command.");
+            }
             var check = __itemAcceptsRange(planned[pf].projectItem, planned[pf].inTicks, planned[pf].outTicks, mediaType);
             if (!check.marksRestored) markWarnings.push(planned[pf].projectItem.name);
             if (!check.ok) return __error("Unnest refused; nothing was changed. " + check.error + "." + markNote());

@@ -213,6 +213,16 @@ handshake only; leave it unset (or `auto`) for modern MCP capabilities.
 
 ---
 
+### Guarding multi-project CEP sessions
+
+Every registered tool accepts optional `expected_project_path`, an absolute path to the intended saved Premiere project. Generated CEP scripts compare the active project's host-normalized file path before the tool body; a different, missing or unsaved project refuses without running that body. The guard is scoped to the request and checked for every generated command in a multi-command tool. Omitting it preserves existing behavior.
+
+```json
+{"name":"get_project_info","arguments":{"expected_project_path":"/Projects/Film.prproj"}}
+```
+
+This protects against accidental active-project switches, not deliberate project switching inside unsafe scripts. It does not select a project or prove media identity. Paths remain in request context and are not telemetry. UXP and After Effects commands refuse this CEP-only guard; UXP workflows use their `expected_snapshot` identity contracts. Local-only tools do not inspect Premiere. Filesystem aliases are not resolved as a claim of project identity.
+
 ## For editors evaluating an AI workflow
 
 Before an assistant changes an active project, use the

@@ -87,3 +87,55 @@ describe("export_sequence extension and default preset", () => {
     expect(chosen).toBe("/ame/4E49434B_48323634/Match Source - High bitrate.epr");
   });
 });
+
+describe("export_sequence default preset never uses an ingest/proxy preset", () => {
+  const ppro = "/Applications/Adobe Premiere Pro 2024/Adobe Premiere Pro 2024.app/Contents";
+
+  it("skips IngestPresets/Proxy and picks Premiere's own Match Source preset", () => {
+    const presets = [
+      { name: "00_1024x540 H.264", path: `${ppro}/Settings/IngestPresets/Proxy/00_1024x540 H.264.epr`, format: "Proxy" },
+      { name: "01 - Match Source - High bitrate", path: `${ppro}/MediaIO/systempresets/4E49434B_48323634/01 - Match Source - High bitrate.epr`, format: "4E49434B_48323634" },
+    ];
+    const chosen = runInNewContext(`${getHelpersSource()}\n__collectAllPresets = function () { return presets; };\n__findH264Preset();`, { presets });
+    expect(chosen).toBe(`${ppro}/MediaIO/systempresets/4E49434B_48323634/01 - Match Source - High bitrate.epr`);
+  });
+
+  it("skips mixed-case Windows ingest paths", () => {
+    const presets = [{ name: "H.264", path: "C:\\Adobe\\settings\\INGESTPRESETS\\proxy\\small.epr", format: "Proxy" }];
+    expect(runInNewContext(`${getHelpersSource()}
+__collectAllPresets = function () { return presets; };
+__findH264Preset();`, { presets })).toBe("");
+  });
+
+  it("returns no default when only ingest presets exist, so export_sequence asks for preset_path", () => {
+    const presets = [
+      { name: "00_1024x540 H.264", path: `${ppro}/Settings/IngestPresets/Proxy/00_1024x540 H.264.epr`, format: "Proxy" },
+    ];
+    const chosen = runInNewContext(`${getHelpersSource()}\n__collectAllPresets = function () { return presets; };\n__findH264Preset();`, { presets });
+    expect(chosen).toBe("");
+  });
+
+  it("searches Premiere's MediaIO/systempresets when Media Encoder is not installed", () => {
+    const searched = runInNewContext(`${getHelpersSource()}
+      var searched = [];
+      __adobeAppFolders = function (prefix) { return prefix === "Adobe Media Encoder" ? [] : [{ fsName: "PPRO" }]; };
+      __adobeApplicationResourceFolder = function (app, rel) { return { fsName: app.fsName + "/" + rel, exists: true }; };
+      __collectEprFiles = function (folder, out) { searched.push(folder.fsName); return out; };
+      Folder.myDocuments = { fsName: "/nowhere" };
+      __collectAllPresets();
+      searched;`, { Folder: function Folder() { return { exists: false }; } });
+    expect(searched).toEqual(["PPRO/Settings/IngestPresets", "PPRO/MediaIO/systempresets"]);
+  });
+
+  it("does not add Premiere's systempresets when Media Encoder provides them", () => {
+    const searched = runInNewContext(`${getHelpersSource()}
+      var searched = [];
+      __adobeAppFolders = function (prefix) { return [{ fsName: prefix === "Adobe Media Encoder" ? "AME" : "PPRO" }]; };
+      __adobeApplicationResourceFolder = function (app, rel) { return { fsName: app.fsName + "/" + rel, exists: true }; };
+      __collectEprFiles = function (folder, out) { searched.push(folder.fsName); return out; };
+      Folder.myDocuments = { fsName: "/nowhere" };
+      __collectAllPresets();
+      searched;`, { Folder: function Folder() { return { exists: false }; } });
+    expect(searched).toEqual(["AME/MediaIO/systempresets", "PPRO/Settings/IngestPresets"]);
+  });
+});

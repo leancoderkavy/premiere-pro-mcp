@@ -1,3 +1,4 @@
+import { expectedProjectPath } from "./project-guard.js";
 import { randomUUID, timingSafeEqual } from "node:crypto";
 import { EventEmitter } from "node:events";
 import { createServer, type Server } from "node:http";
@@ -198,6 +199,9 @@ export class UxpWebSocketBridge extends EventEmitter {
     args: Record<string, unknown> = {},
     requestOptions: UxpRequestOptions = {},
   ): Promise<unknown> {
+    if (expectedProjectPath() !== undefined) {
+      throw new UxpBridgeError("UXP_PROJECT_GUARD_UNSUPPORTED", "expected_project_path is a CEP-only guard; use the UXP workflow expected_snapshot identity guard instead");
+    }
     const socket = this.socket;
     let hello = this.hello;
     if (!socket || socket.readyState !== WebSocket.OPEN || !hello) {
