@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Fixed
+
+- `export_sequence` without `preset_path` no longer exports at proxy resolution when Media Encoder is not installed. Preset discovery only searched Premiere's `Settings/IngestPresets`, so the default became `IngestPresets/Proxy/00_1024x540 H.264.epr` and a 1080x1920 sequence was exported at 1024x540 while reporting `verified: true` (Premiere 24.0, macOS). Preset discovery now also searches Premiere's own `MediaIO/systempresets` when no Media Encoder presets exist, and the default never comes from `IngestPresets`; if no other H.264 preset is found, the tool asks for `preset_path`.
+
 ## [1.22.0] - 2026-10-08
 
 ### Fixed
