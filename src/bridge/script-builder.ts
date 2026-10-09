@@ -1176,13 +1176,19 @@ function __collectAllPresets() {
   var roots = [];
 
   var ame = __adobeAppFolders("Adobe Media Encoder");
+  var ameFound = false;
   for (var i = 0; i < ame.length; i++) {
-    roots.push(__adobeApplicationResourceFolder(ame[i], "MediaIO/systempresets"));
+    var ameRoot = __adobeApplicationResourceFolder(ame[i], "MediaIO/systempresets");
+    if (ameRoot.exists) ameFound = true;
+    roots.push(ameRoot);
   }
 
   var ppro = __adobeAppFolders("Adobe Premiere Pro");
   for (var j = 0; j < ppro.length; j++) {
     roots.push(__adobeApplicationResourceFolder(ppro[j], "Settings/IngestPresets"));
+    // Without Media Encoder, the only export presets on disk are the ones
+    // Premiere ships for its own Export dialog (live 24.0 on macOS).
+    if (!ameFound) roots.push(__adobeApplicationResourceFolder(ppro[j], "MediaIO/systempresets"));
   }
 
   // User-saved presets live under the Documents tree on both platforms.
@@ -1219,6 +1225,9 @@ function __findH264Preset() {
   var presets = __collectAllPresets();
   var candidates = [];
   for (var i = 0; i < presets.length; i++) {
+    // IngestPresets are proxy/ingest transcodes ("00_1024x540 H.264"), never a
+    // delivery default: one exported a 1080x1920 sequence at 1024x540.
+    if (presets[i].path.indexOf("IngestPresets") !== -1) continue;
     var haystack = (presets[i].name + " " + presets[i].format).toLowerCase();
     if (haystack.indexOf("h264") !== -1 || haystack.indexOf("h.264") !== -1 || haystack.indexOf("48323634") !== -1) {
       candidates.push(presets[i]);
