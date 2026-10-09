@@ -9,6 +9,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ### Fixed
 
 - `unnest_sequence` now refuses, before removing the nested clip, any inner item that also carries the other media type. Premiere 26.5.2's `Track.overwriteClip` places that media on the matching track and overwrites the clips there. Same guard as `replace_clip`. Unnest a nest of video-only or audio-only items, or use Premiere's Unnest command.
+- Shared project-item mark restore after `replace_clip`, `unnest_sequence`, and other `Track.overwriteClip` helpers now writes the quarter-frame-biased seconds from `__itemMarksForRestore`. Writing the exact tick boundary as seconds can floor one media frame early on Premiere 26.5.2 (a soft-subclip Out of `00:00:29:22` stored as `00:00:29:21`), shrinking the source item. `duplicate_clip` and `set_item_in_out` already used those seconds.
 
 ## [1.22.0] - 2026-10-08
 
