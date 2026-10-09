@@ -1247,7 +1247,7 @@ function __findH264Preset() {
   for (var i = 0; i < presets.length; i++) {
     // IngestPresets are proxy/ingest transcodes ("00_1024x540 H.264"), never a
     // delivery default: one exported a 1080x1920 sequence at 1024x540.
-    if (presets[i].path.indexOf("IngestPresets") !== -1) continue;
+    if (String(presets[i].path).replace(/\\\\/g, "/").toLowerCase().indexOf("/ingestpresets/") !== -1) continue;
     var haystack = (presets[i].name + " " + presets[i].format).toLowerCase();
     if (haystack.indexOf("h264") !== -1 || haystack.indexOf("h.264") !== -1 || haystack.indexOf("48323634") !== -1) {
       candidates.push(presets[i]);

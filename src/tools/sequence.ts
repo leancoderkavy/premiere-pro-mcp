@@ -600,8 +600,9 @@ export function getSequenceTools(bridgeOptions: BridgeOptions) {
           // one if it is locked), overwriting whatever is there.
           for (var pf = 0; pf < planned.length; pf++) {
             var otherType = mediaType === 1 ? 2 : 1;
-            var otherSpan = 0;
+            var otherSpan = NaN;
             try { otherSpan = parseFloat(planned[pf].projectItem.getOutPoint(otherType).ticks) - parseFloat(planned[pf].projectItem.getInPoint(otherType).ticks); } catch (eOther) {}
+            if (!isFinite(otherSpan) || otherSpan < 0) return __error("Unnest refused; other-media timing is unreadable, so Track.overwriteClip cannot be safely preflighted. Nothing was changed; use Premiere's Unnest command.");
             if (otherSpan > __TICK_MATCH_TOL) {
               var otherLabel = otherType === 2 ? "audio" : "video";
               return __error("Unnest refused; nothing was changed. " + planned[pf].name + " also has " + otherLabel + ", and Premiere's Track.overwriteClip would place that " + otherLabel + " on the matching " + otherLabel + " track too, overwriting the clips there. Unnest a nest of " + reference.mediaType + "-only items, or use Premiere's Unnest command.");

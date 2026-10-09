@@ -100,6 +100,13 @@ describe("export_sequence default preset never uses an ingest/proxy preset", () 
     expect(chosen).toBe(`${ppro}/MediaIO/systempresets/4E49434B_48323634/01 - Match Source - High bitrate.epr`);
   });
 
+  it("skips mixed-case Windows ingest paths", () => {
+    const presets = [{ name: "H.264", path: "C:\\Adobe\\settings\\INGESTPRESETS\\proxy\\small.epr", format: "Proxy" }];
+    expect(runInNewContext(`${getHelpersSource()}
+__collectAllPresets = function () { return presets; };
+__findH264Preset();`, { presets })).toBe("");
+  });
+
   it("returns no default when only ingest presets exist, so export_sequence asks for preset_path", () => {
     const presets = [
       { name: "00_1024x540 H.264", path: `${ppro}/Settings/IngestPresets/Proxy/00_1024x540 H.264.epr`, format: "Proxy" },

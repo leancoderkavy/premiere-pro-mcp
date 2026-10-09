@@ -1,6 +1,6 @@
 /** Instructions shared by MCP initialization and the on-demand resource. */
 export function buildPremiereInstructions(registeredTools: ReadonlySet<string>): string {
-  const routes: string[] = [];
+  const routes: string[] = ["- For multi-project CEP sessions, pass optional expected_project_path with the intended saved project path. Every generated CEP command checks it before the tool body and refuses a different or unsaved active project. It does not select projects or verify media identity. Omit it for local-only tools; UXP and After Effects commands refuse this CEP-only guard. Use UXP expected_snapshot identities instead."];
   const route = (names: string[], guidance: string) => {
     if (names.every((name) => registeredTools.has(name))) {
       routes.push(`- ${names.join(" -> ")}: ${guidance}`);

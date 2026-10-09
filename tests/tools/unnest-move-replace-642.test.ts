@@ -207,6 +207,17 @@ describe("unnest_sequence refuses unsafe unnests and verifies placements (#642)"
     expect(parentV[1].items).toEqual([blocker]);
   });
 
+  it("refuses unreadable other-media timing before removing the nest", async () => {
+    const { app, parentV, nestClip, itemA } = fixture();
+    const original = itemA.getOutPoint.bind(itemA);
+    itemA.getOutPoint = (type: number) => { if (type === 2) throw new Error("unreadable"); return original(type); };
+    const result = await unnest(app);
+    expect(result.success).toBe(false);
+    expect(result.error).toContain("other-media timing is unreadable");
+    expect(parentV[0].items).toEqual([nestClip]);
+    expect(parentV[1].items).toHaveLength(0);
+  });
+
   it("refuses a nested A/V item before removing the nest", async () => {
     const { app, parentV, nestClip, itemA } = fixture();
     itemA.marks[2] = { in: 0, out: t(10) };
