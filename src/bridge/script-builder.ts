@@ -3,6 +3,7 @@
  * All generated code must be ES3-compatible (var, no arrow functions, no let/const).
  */
 import { createHash } from "node:crypto";
+import { expectedProjectPath } from "./project-guard.js";
 import { undoTrackingEnabled } from "./undo-tracking.js";
 
 const HELPERS = `
@@ -2822,6 +2823,18 @@ export function buildBootstrap(helpersPath: string): string {
  * Helper functions are loaded by the bootstrap the file bridge prepends.
  */
 export function buildScript(code: string): string {
+  const expected = expectedProjectPath();
+  const projectGuard = expected === undefined ? "" : `
+    var __expectedProjectPath = new File("${escapeForExtendScript(expected)}").fsName;
+    var __activeProjectPath = app.project && app.project.path;
+    if (!__activeProjectPath) return __error("Expected project guard refused: active project is missing or unsaved; nothing was changed.");
+    __activeProjectPath = new File(__activeProjectPath).fsName;
+    if (String($.os).toLowerCase().indexOf("windows") !== -1) {
+      __expectedProjectPath = __expectedProjectPath.toLowerCase();
+      __activeProjectPath = __activeProjectPath.toLowerCase();
+    }
+    if (__activeProjectPath !== __expectedProjectPath) return __error("Expected project guard refused: active project differs; nothing was changed.");
+  `;
   // Helpers live in a long-lived engine, so __undoStart is always reset: set
   // for tools that change the project, cleared for everything else.
   const undoStart = undoTrackingEnabled()
@@ -2829,6 +2842,7 @@ export function buildScript(code: string): string {
     : `__undoStart = null;`;
   return `(function() {
   try {
+    ${projectGuard}
     ${undoStart}
     __markerWriteAttempted = false;
     ${code}
