@@ -216,18 +216,43 @@ function __itemMarksForRestore(item, mediaType) {
 // empty first; overwrite never shifts neighbours but would replace them.
 // Returns { ok, attempted, marksRestored, error }. attempted=true means the
 // overwrite call ran (or threw), so the timeline may have changed.
+// Media/sample grid for a project-item mark write. Video uses footage fps;
+// audio uses 48 kHz when the host does not expose a rate. Fallback 24 fps is
+// smaller than one frame at 23.976–60 and still larger than float ulp.
+function __mediaGridTicks(item, mediaType) {
+  if (mediaType !== 2) {
+    try {
+      var fps = parseFloat(item.getFootageInterpretation().frameRate);
+      if (fps > 0) return TICKS_PER_SECOND / fps;
+    } catch (eInterp) {}
+    return TICKS_PER_SECOND / 24;
+  }
+  return TICKS_PER_SECOND / 48000;
+}
+
+function __biasedMarkSeconds(ticks, gridTicks) {
+  var grid = parseFloat(gridTicks);
+  if (!isFinite(grid) || !(grid > 0)) grid = TICKS_PER_SECOND / 24;
+  return (parseFloat(ticks) + grid / 4) / TICKS_PER_SECOND;
+}
+
 // Set a project item's In/Out marks, ordering the writes so the In never
 // passes the current Out, and report whether both read back within tolerance
-// ticks (default: exact).
+// ticks (default: exact). Write a quarter grid past the tick boundary: the
+// same 26.5.2 floor that shrinks restored soft-subclip marks also shortens
+// the temporary overwrite range (unnest/replace) when exact seconds are used.
 function __setItemMarks(item, wantIn, wantOut, mediaType, tolerance) {
   var tol = tolerance > __TICK_MATCH_TOL ? tolerance : __TICK_MATCH_TOL;
+  var grid = __mediaGridTicks(item, mediaType);
+  var inSeconds = __biasedMarkSeconds(wantIn, grid);
+  var outSeconds = __biasedMarkSeconds(wantOut, grid);
   var currentOut = parseFloat(item.getOutPoint(mediaType).ticks);
   if (parseFloat(wantIn) >= currentOut) {
-    item.setOutPoint(__ticksToSeconds(wantOut), mediaType);
-    item.setInPoint(__ticksToSeconds(wantIn), mediaType);
+    item.setOutPoint(outSeconds, mediaType);
+    item.setInPoint(inSeconds, mediaType);
   } else {
-    item.setInPoint(__ticksToSeconds(wantIn), mediaType);
-    item.setOutPoint(__ticksToSeconds(wantOut), mediaType);
+    item.setInPoint(inSeconds, mediaType);
+    item.setOutPoint(outSeconds, mediaType);
   }
   return Math.abs(parseFloat(item.getInPoint(mediaType).ticks) - parseFloat(wantIn)) <= tol &&
     Math.abs(parseFloat(item.getOutPoint(mediaType).ticks) - parseFloat(wantOut)) <= tol;
