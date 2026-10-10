@@ -1722,13 +1722,15 @@ export function getTimelineTools(
             if (Math.abs(parseFloat(cand.start.ticks) - oldStart) > __TICK_MATCH_TOL) continue;
             replacement = cand;
           }
-          // The item's Out mark can land up to one media frame early, and
-          // overwriteClip can place a clip a frame short (live 26.5.2). Extend
-          // the end into the empty remainder of the original span.
+          // The item's Out mark can land up to one media frame off the 25 fps
+          // span (early without write bias, or one media frame long when the
+          // closer media frame is past the tick boundary). Pull the placed end
+          // back onto the original span when the drift is within one media
+          // frame plus one sequence frame.
           var endCorrected = false;
           if (replacement) {
             var endGap = oldEnd - parseFloat(replacement.end.ticks);
-            if (endGap > __TICK_MATCH_TOL && endGap <= markTolerance + __sequenceFrameTicks(seq)) {
+            if (Math.abs(endGap) > __TICK_MATCH_TOL && Math.abs(endGap) <= markTolerance + __sequenceFrameTicks(seq)) {
               var endTime = new Time();
               endTime.ticks = String(oldEnd);
               try { replacement.end = endTime; endCorrected = true; } catch (eEnd) {}

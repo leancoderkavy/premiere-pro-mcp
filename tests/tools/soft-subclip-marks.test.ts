@@ -19,6 +19,7 @@ function item(xml = metadata(), rejectRequested = false) {
   const mark = (ticks: number) => ({ ticks: String(Math.round(ticks)), seconds: ticks / T });
   return { nodeId: 'soft"item', name: "Soft", type: 1,
     getProjectMetadata: () => xml,
+    getFootageInterpretation: () => ({ frameRate: 25 }),
     getInPoint: (_type?: number) => mark(left), getOutPoint: (_type?: number) => mark(right),
     // Live 26.5.2 floors written marks to the media frame grid (25 fps here).
     setInPoint: vi.fn((seconds: number) => { if (!(rejectRequested && seconds === 40)) left = Math.floor(seconds * 25 + 1e-9) * (T / 25); }),
@@ -95,10 +96,34 @@ describe("soft subclip restore marks", () => {
     expect(source.setInPoint).toHaveBeenLastCalledWith(expect.closeTo(20.01, 6), 1);
     expect(source.setOutPoint).toHaveBeenLastCalledWith(expect.closeTo(30.05, 6), 1);
   });
-  it("restores the biased private range after a preflight that Premiere rejects", () => {
+  it("places the requested overwrite range when the host floors exact boundary seconds", () => {
+    // unnest_sequence calls __overwriteRangeOnTrack without a one-frame
+    // tolerance. Exact tick seconds floor one media frame early on 26.5.2, so
+    // the 16-tick default check refused a valid nest (or placed a short clip
+    // after the nest was already removed).
     const source = item();
     source.setInPoint = vi.fn((seconds: number) => { source.getInPoint = () => ({ ticks: String(Math.round(Math.floor(seconds * 25 - 1e-12) * (T / 25))), seconds }); });
     source.setOutPoint = vi.fn((seconds: number) => { source.getOutPoint = () => ({ ticks: String(Math.round(Math.floor(seconds * 25 - 1e-12) * (T / 25))), seconds }); });
+    const placed = { inTicks: 0, outTicks: 0 };
+    const overwrite = vi.fn(() => {
+      placed.inTicks = Number(source.getInPoint().ticks);
+      placed.outTicks = Number(source.getOutPoint().ticks);
+    });
+    expect(run(`__overwriteRangeOnTrack(track, item, "0", "${22*T}", "${24*T}", 1)`, { item: source, track: { overwriteClip: overwrite }, Time })).toMatchObject({ ok: true, attempted: true, marksRestored: true });
+    expect(overwrite).toHaveBeenCalledOnce();
+    expect(placed).toEqual({ inTicks: 22 * T, outTicks: 24 * T });
+    expect(source.setInPoint).toHaveBeenNthCalledWith(1, expect.closeTo(22.01, 6), 1);
+    expect(source.setOutPoint).toHaveBeenNthCalledWith(1, expect.closeTo(24.01, 6), 1);
+  });
+  it("restores the biased private range after a preflight that Premiere rejects", () => {
+    // Live 26.5.2: Premiere ignores an Out past the media length. The 40-50s
+    // request is not a floor miss — the host leaves Out unchanged.
+    const source = item();
+    source.setInPoint = vi.fn((seconds: number) => { source.getInPoint = () => ({ ticks: String(Math.round(Math.floor(seconds * 25 - 1e-12) * (T / 25))), seconds }); });
+    source.setOutPoint = vi.fn((seconds: number) => {
+      if (seconds > 35) return;
+      source.getOutPoint = () => ({ ticks: String(Math.round(Math.floor(seconds * 25 - 1e-12) * (T / 25))), seconds });
+    });
     expect(run(`__itemAcceptsRange(item, "${40*T}", "${50*T}", 1)`, { item: source })).toMatchObject({ ok: false, marksRestored: true });
     expect(Number(source.getInPoint().ticks)).toBe(20 * T);
     expect(Number(source.getOutPoint().ticks)).toBe(30 * T + T / 25);

@@ -37,17 +37,26 @@ class FakeItem {
   getOutPoint(mediaType: number) {
     return { ticks: String(this.marks[mediaType].out), seconds: this.marks[mediaType].out / TPS };
   }
-  setInPoint(seconds: number, mediaType: number) { this.marks[mediaType].in = Math.round(seconds * TPS); }
   // Live 26.5.2: Premiere ignores an Out mark past the media's length (a still or a short clip).
   maxOutTicks: number | null = null;
   // Live 26.5.2: video marks are floored to the media's own frame grid.
   mediaFps: number | null = null;
   getFootageInterpretation() { return { frameRate: this.mediaFps ?? 25 }; }
+  snapTicks(ticks: number) {
+    const fps = this.mediaFps ?? 25;
+    const frame = TPS / fps;
+    return Math.floor(ticks / frame + 1e-9) * frame;
+  }
+  setInPoint(seconds: number, mediaType: number) {
+    // 25 fps floor so a quarter-frame write bias still lands on the requested
+    // In. Out uses the media grid (mediaFps), matching live 26.5.2 replace.
+    const frame = TPS / 25;
+    this.marks[mediaType].in = Math.floor(Math.round(seconds * TPS) / frame + 1e-9) * frame;
+  }
   setOutPoint(seconds: number, mediaType: number) {
     let ticks = Math.round(seconds * TPS);
     if (this.maxOutTicks !== null && ticks > this.maxOutTicks) return;
-    if (this.mediaFps && mediaType === 1) ticks = Math.floor(ticks / (TPS / this.mediaFps) + 1e-9) * Math.round(TPS / this.mediaFps);
-    this.marks[mediaType].out = ticks;
+    this.marks[mediaType].out = this.snapTicks(ticks);
   }
 }
 
