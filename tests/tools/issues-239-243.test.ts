@@ -172,6 +172,54 @@ describe("project-item source range units", () => {
     expect(item.setInPoint).not.toHaveBeenCalledWith(expect.anything(), 4);
   });
 
+  it.each([
+    ["one frame late", 1],
+    ["one frame early", -1],
+  ])("refuses a mark Premiere stores %s, even though it is within one frame of the request", async (_label, shift) => {
+    // 0.04165 s on 24 fps media floors to frame 0; a host that stores frame 1 (or -1) must not verify.
+    const fps = 24;
+    const tool = getTrackTargetingTools(bridgeOptions).set_item_in_out;
+    const script = await scriptFor(tool, { item_id: "media", in_seconds: 0.04165 + (shift < 0 ? 1 / fps : 0) });
+    const marks = { in: 0, out: 100 };
+    const item = {
+      nodeId: "media", name: "Media",
+      getFootageInterpretation: () => ({ frameRate: fps }),
+      setInPoint: (seconds: number) => { marks.in = (Math.floor(seconds * fps + 1e-9) + shift) / fps; },
+      setOutPoint: (seconds: number) => { marks.out = seconds; },
+      getInPoint: () => ({ seconds: marks.in, ticks: String(Math.round(marks.in * 254016000000)) }),
+      getOutPoint: () => ({ seconds: marks.out, ticks: String(Math.round(marks.out * 254016000000)) }),
+    };
+    function Time(this: { seconds: number }) { this.seconds = 0; }
+    const result = JSON.parse(runInNewContext(getHelpersSource() + "\n" + script, {
+      Time,
+      app: { project: { rootItem: { children: { 0: item, numItems: 1 } } } },
+    }));
+    expect(result).toMatchObject({ success: false, error: expect.stringContaining("did not apply the requested project-item in point") });
+  });
+
+  it("verifies a just-below-boundary request on the frame it floors to, not the next frame", async () => {
+    // Review note on #856: 0.04165 s at 24 fps is 0.9996 frames and must floor to frame 0.
+    const fps = 24;
+    const tool = getTrackTargetingTools(bridgeOptions).set_item_in_out;
+    const script = await scriptFor(tool, { item_id: "media", in_seconds: 0.04165 });
+    const marks = { in: 0.5, out: 100 };
+    const item = {
+      nodeId: "media", name: "Media",
+      getFootageInterpretation: () => ({ frameRate: fps }),
+      setInPoint: vi.fn((seconds: number) => { marks.in = Math.floor(seconds * fps * (1 - 1e-12)) / fps; }),
+      setOutPoint: (seconds: number) => { marks.out = seconds; },
+      getInPoint: () => ({ seconds: marks.in, ticks: String(Math.round(marks.in * 254016000000)) }),
+      getOutPoint: () => ({ seconds: marks.out, ticks: String(Math.round(marks.out * 254016000000)) }),
+    };
+    function Time(this: { seconds: number }) { this.seconds = 0; }
+    const result = JSON.parse(runInNewContext(getHelpersSource() + "\n" + script, {
+      Time,
+      app: { project: { rootItem: { children: { 0: item, numItems: 1 } } } },
+    }));
+    expect(item.setInPoint).toHaveBeenCalledWith(0.04165, 4);
+    expect(result).toMatchObject({ success: true, data: { verified: true, appliedInSeconds: 0 } });
+  });
+
   it("still fails when Premiere keeps a mark more than a media frame away", async () => {
     const tool = getTrackTargetingTools(bridgeOptions).set_item_in_out;
     const script = await scriptFor(tool, { item_id: "media", in_seconds: 0.5 });

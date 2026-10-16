@@ -307,6 +307,29 @@ function __requestedMarkToleranceSeconds(item, mediaType) {
   return frameTicks > 0 ? frameTicks / TICKS_PER_SECOND : 0.0005;
 }
 
+// Seconds Premiere should store for a caller's requested video mark: the
+// request floored to the item's frame grid, with exact boundaries (within
+// floating-point error) kept on their own frame. Null when the item has no
+// usable frame grid, so callers fall back to __requestedMarkToleranceSeconds.
+function __requestedMarkExpectedSeconds(item, mediaType, seconds) {
+  var frameTicks = __requestedMarkFrameTicks(item, mediaType);
+  if (!(frameTicks > 0)) return null;
+  var frames = seconds * TICKS_PER_SECOND / frameTicks;
+  var nearest = Math.round(frames);
+  var boundaryTolerance = 16 * 2.220446049250313e-16 * Math.max(1, Math.abs(frames));
+  var whole = Math.abs(frames - nearest) <= boundaryTolerance ? nearest : Math.floor(frames);
+  return whole * frameTicks / TICKS_PER_SECOND;
+}
+
+// A stored mark matches a request when it sits on the frame the request
+// floors to (within a quarter frame), not merely within one frame of it.
+function __requestedMarkMatches(item, mediaType, observed, requestedSeconds) {
+  if (!observed || !isFinite(Number(observed.seconds))) return false;
+  var expected = __requestedMarkExpectedSeconds(item, mediaType, requestedSeconds);
+  if (expected === null) return Math.abs(Number(observed.seconds) - requestedSeconds) < __requestedMarkToleranceSeconds(item, mediaType);
+  return Math.abs(Number(observed.seconds) - expected) < __requestedMarkFrameTicks(item, mediaType) / 4 / TICKS_PER_SECOND;
+}
+
 // Seconds to write for a caller's requested mark. 26.5.2 floors an exact frame
 // (or sample) boundary one frame early (0.5005 s, frame 12 on 23.976 media, reads back as
 // frame 11), so a request on a boundary is written a quarter frame late.

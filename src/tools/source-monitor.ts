@@ -139,11 +139,10 @@ export function getSourceMonitorTools(bridgeOptions: BridgeOptions) {
           }
 
           // Live 26.5.2: Premiere floors video marks to the media's own frame
-          // grid (0.5 s on 23.976 media reads back as 0.4588 s), so accept a
-          // mark within one media frame.
-          var markToleranceSeconds = __requestedMarkToleranceSeconds(item, markMediaType);
+          // grid (0.5 s on 23.976 media reads back as 0.4588 s), so a mark
+          // verifies on the frame the request floors to.
           function markMatches(observed, requestedSeconds) {
-            return !!observed && isFinite(Number(observed.seconds)) && Math.abs(Number(observed.seconds) - requestedSeconds) < markToleranceSeconds;
+            return __requestedMarkMatches(item, markMediaType, observed, requestedSeconds);
           }
 
           ${args.in_seconds !== undefined ? `

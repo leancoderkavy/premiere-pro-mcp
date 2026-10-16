@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Fixed
+
+- `set_item_in_out` and `set_source_in_out` only report `verified` when Premiere stores the mark on the frame the request floors to (an exact boundary keeps its own frame). They used to accept any stored mark within one whole media frame of the request, so a mark that landed on the next frame still read as verified. Audio items and items without a usable frame grid keep the existing half-millisecond tolerance.
+
 ## [1.24.1] - 2026-10-16
 
 ### Fixed
