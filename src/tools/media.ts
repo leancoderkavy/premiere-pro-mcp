@@ -804,7 +804,7 @@ export function getMediaTools(bridgeOptions: BridgeOptions) {
     },
 
     select_item: {
-      description: "Select a project item in the Project panel",
+      description: "Select a project item and verify its node ID in the current Project-panel selection. Missing or unreadable selection readback remains committed_unverified.",
       parameters: {
         type: "object" as const,
         properties: {
@@ -819,8 +819,23 @@ export function getMediaTools(bridgeOptions: BridgeOptions) {
         const script = buildToolScript(`
           var item = __findProjectItem("${escapeForExtendScript(args.item_id)}");
           if (!item) return __error("Item not found");
-          item.select();
-          return __result({ selected: true, item: item.name });
+          var accepted = item.select();
+          if (accepted === false) return __error("Premiere rejected project-item selection.", { selected: false, item: item.name, verified: false, outcome: "failed" });
+          var selection = null, readable = false, found = false;
+          try {
+            if (typeof app.getCurrentProjectViewSelection === "function") selection = app.getCurrentProjectViewSelection();
+            if (selection && typeof selection.length === "number" && selection.length >= 0 && selection.length <= 10000 && Math.floor(selection.length) === selection.length && item.nodeId !== undefined && String(item.nodeId) !== "") {
+              readable = true;
+              for (var si = 0; si < selection.length; si++) {
+                var selectedItem = selection[si];
+                if (!selectedItem || selectedItem.nodeId === undefined || String(selectedItem.nodeId) === "") { readable = false; continue; }
+                if (String(selectedItem.nodeId) === String(item.nodeId)) found = true;
+              }
+            }
+          } catch (selectionError) { readable = false; }
+          if (found) return __result({ selected: true, item: item.name, nodeId: String(item.nodeId), verified: true, outcome: "verified", verification: "project_selection_node_id" });
+          if (!readable) return __result({ selected: null, item: item.name, verified: false, outcome: "committed_unverified", limitation: "The current Project-panel selection could not be read reliably; inspect it before a selection-dependent operation." });
+          return __error("The requested item is absent from the current Project-panel selection.", { selected: false, item: item.name, verified: false, outcome: "failed" });
         `);
         return sendCommand(script, bridgeOptions);
       },

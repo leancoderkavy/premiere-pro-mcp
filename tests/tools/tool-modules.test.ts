@@ -401,7 +401,7 @@ describe("Tool Handler Behavior", () => {
       expect(mockedSendCommand).not.toHaveBeenCalled();
     });
 
-    it("merges XMP patches through AdobeXMPScript and reparses host readback", async () => {
+    it("merges XMP patches through AdobeXMPScript and compares field readback", async () => {
       const tools = getMetadataTools(bridgeOptions);
       await tools.set_xmp_metadata.handler({
         item_id: "source-1",
@@ -417,7 +417,7 @@ describe("Tool Handler Behavior", () => {
       // Regression for #611: the boolean-flag form throws "Bad argument list" in AdobeXMPScript.
       expect(script).not.toMatch(/appendProperties\([^)]*(true|false)/);
       expect(script).toContain("var writtenPacket = String(item.getXMPMetadata() || \"\")");
-      expect(script).toContain('verification: "readback_xmp_packet_reparsed"');
+      expect(script).toContain('verification: "field_value_readback"');
     });
   });
 

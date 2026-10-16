@@ -21,7 +21,7 @@ export function getWorkspaceTools(bridgeOptions: BridgeOptions) {
     },
 
     set_workspace: {
-      description: "Switch to a specific workspace layout (e.g., 'Editing', 'Color', 'Audio', 'Effects', 'Graphics')",
+      description: "Request a workspace layout. The documented API has no current-workspace getter; acceptance is committed_unverified and the visible layout must be checked in Premiere.",
       parameters: {
         type: "object" as const,
         properties: {
@@ -33,10 +33,11 @@ export function getWorkspaceTools(bridgeOptions: BridgeOptions) {
         required: ["name"],
       },
       handler: async (args: { name: string }) => {
+        if (typeof args.name !== "string" || !args.name.trim()) return { success: false, error: "name must be a non-empty workspace name." };
         const script = buildToolScript(`
           var result = app.setWorkspace("${escapeForExtendScript(args.name)}");
-          if (!result) return __error("Failed to set workspace: ${escapeForExtendScript(args.name)}");
-          return __result({ set: true, workspace: "${escapeForExtendScript(args.name)}" });
+          if (result === false) return __error("Failed to set workspace: ${escapeForExtendScript(args.name)}", { set: false, verified: false, outcome: "failed" });
+          return __result({ set: result === true ? true : null, workspace: "${escapeForExtendScript(args.name)}", requestedWorkspace: "${escapeForExtendScript(args.name)}", appliedWorkspace: null, verified: false, outcome: "committed_unverified", verification: "api-return", limitation: "The documented API has no current-workspace getter; check the visible layout in Premiere." });
         `);
         return sendCommand(script, bridgeOptions);
       },

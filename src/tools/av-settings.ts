@@ -168,7 +168,7 @@ export function getAvSettingsTools(bridgeOptions: BridgeOptions) {
 
     set_project_item_audio_channel_mapping: {
       description:
-        "Map one output audio channel of a project item to a source channel using Premiere's documented AudioChannelMapping API.",
+        "Request one output-to-source audio channel mapping using the documented API. Per-channel mapping has no documented getter, so accepted writes remain committed_unverified.",
       parameters: {
         type: "object" as const,
         properties: {
@@ -210,12 +210,15 @@ export function getAvSettingsTools(bridgeOptions: BridgeOptions) {
             return __error("This item or Premiere build does not expose AudioChannelMapping.setMappingForChannel");
           }
           var accepted = mapping.setMappingForChannel(${args.channel_index}, ${args.source_channel_index});
-          if (accepted !== true) return __error("Premiere rejected this channel mapping");
+          if (accepted !== true) return __error("Premiere rejected this channel mapping", { accepted: false, verified: false, outcome: "failed" });
           return __result({
             item: item.name,
             channelIndex: ${args.channel_index},
             sourceChannelIndex: ${args.source_channel_index},
             accepted: true,
+            verified: false,
+            outcome: "committed_unverified",
+            appliedSourceChannelIndex: null,
             verification: "api-return",
             limitation: "The documented API does not expose a per-channel mapping getter for post-write comparison."
           });

@@ -530,7 +530,7 @@ export function getMetadataTools(bridgeOptions: BridgeOptions) {
 
     set_xmp_metadata: {
       description:
-        "Merge a raw XMP XML patch into a project item's existing XMP metadata without removing unrelated fields. WARNING: Premiere writes XMP into the source media file on disk (the file's metadata block and modification time change; picture and sound are untouched). Requires the filesystem capability.",
+        "Merge a raw XMP XML patch into a project item's existing XMP metadata without removing unrelated fields. WARNING: Premiere writes XMP into the source media file on disk (the file's metadata block and modification time change; picture and sound are untouched). Each supplied leaf field is compared with host readback (maximum 256); unreadable readback remains committed_unverified. Requires the filesystem capability.",
       parameters: {
         type: "object" as const,
         properties: {
@@ -562,31 +562,58 @@ export function getMetadataTools(bridgeOptions: BridgeOptions) {
             return __error("Premiere's XMP merge APIs are unavailable; no metadata was changed.");
           }
 
+          var writeAttempted = false;
           try {
             var existingPacket = String(item.getXMPMetadata() || "");
             if (!existingPacket) return __error("The project item has no readable XMP packet; no metadata was changed.");
             var existingXmp = new XMPMeta(existingPacket);
             var patchXmp = new XMPMeta("${escapeForExtendScript(args.xmp_xml)}");
+            if (typeof patchXmp.iterator !== "function" || typeof existingXmp.getProperty !== "function" || typeof XMPConst.ITERATOR_JUST_LEAFNODES !== "number") return __error("XMP field inspection is unavailable; no metadata was changed.");
+            var patchFields = [], patchIterator = patchXmp.iterator(XMPConst.ITERATOR_JUST_LEAFNODES, "", "");
+            var patchField = patchIterator.next();
+            while (patchField) {
+              var fieldNamespace = String(patchField.namespace || ""), fieldPath = String(patchField.path || "");
+              if (!fieldNamespace || !fieldPath) return __error("The patch has an unreadable field identity; no metadata was changed.");
+              if (patchFields.length >= 256) return __error("The XMP patch exceeds 256 leaf fields; no metadata was changed.");
+              patchFields.push({ namespace: fieldNamespace, name: fieldPath, value: String(patchField.value == null ? "" : patchField.value) });
+              patchField = patchIterator.next();
+            }
+            if (!patchFields.length) return __error("The XMP patch has no readable leaf fields; no metadata was changed.");
             // Copy every supplied top-level field into the existing packet, replacing
             // only fields named by the patch and retaining unrelated metadata.
             // AdobeXMPScript signature: appendProperties(source, dest, options: Number).
             var appendOptions = XMPConst.APPEND_ALL_PROPERTIES | XMPConst.APPEND_REPLACE_OLD_VALUES;
             XMPUtils.appendProperties(patchXmp, existingXmp, appendOptions);
+            writeAttempted = true;
             item.setXMPMetadata(existingXmp.serialize());
 
             // Reparse the host readback so a malformed or rejected packet never
             // reports success. Exact serialized XML formatting is host-dependent.
             var writtenPacket = String(item.getXMPMetadata() || "");
-            if (!writtenPacket) return __error("Premiere wrote no readable XMP packet; inspect the item before retrying.");
-            new XMPMeta(writtenPacket);
+            if (!writtenPacket) return __error("Premiere wrote no readable XMP packet; inspect the item before retrying.", { updated: null, verified: false, outcome: "committed_unverified" });
+            var writtenXmp = new XMPMeta(writtenPacket), fieldChecks = [], mismatchedFieldCount = 0;
+            for (var fi = 0; fi < patchFields.length; fi++) {
+              var wantedField = patchFields[fi];
+              var observed = writtenXmp.getProperty(wantedField.namespace, wantedField.name);
+              var observedValue = observed == null ? null : String(observed.value === undefined ? observed : observed.value);
+              var matched = observedValue !== null && observedValue === wantedField.value;
+              if (!matched) mismatchedFieldCount++;
+              fieldChecks.push({ namespace: wantedField.namespace, name: wantedField.name, matched: matched });
+            }
+            if (mismatchedFieldCount) return __error("Premiere's XMP readback does not contain every requested field value.", { updated: false, merged: true, item: item.name, verified: false, outcome: "failed", checkedFieldCount: fieldChecks.length, mismatchedFieldCount: mismatchedFieldCount, fieldChecks: fieldChecks });
             return __result({
               updated: true,
               merged: true,
               item: item.name,
-              verification: "readback_xmp_packet_reparsed"
+              verified: true,
+              outcome: "verified",
+              checkedFieldCount: fieldChecks.length,
+              mismatchedFieldCount: 0,
+              fieldChecks: fieldChecks,
+              verification: "field_value_readback"
             });
           } catch (e) {
-            return __error("Premiere could not merge XMP metadata; no success is reported: " + e.toString());
+            return __error("Premiere could not merge or verify XMP metadata; inspect before retrying: " + e.toString(), { updated: null, verified: false, outcome: writeAttempted ? "committed_unverified" : "failed" });
           }
         `);
         return sendCommand(script, bridgeOptions);

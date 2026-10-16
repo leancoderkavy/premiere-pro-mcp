@@ -1610,12 +1610,13 @@ export function getAdvancedTools(
 
     delete_preview_files: {
       description:
-        "Delete all preview/render cache files for the project. Uses QE DOM.",
+        "Request preview/render cache deletion through experimental QE DOM. A false return fails; other returns remain committed_unverified because no cache-file readback is available.",
       parameters: {
         type: "object" as const,
         properties: {
           media_type: {
             type: "string",
+            enum: ["video", "audio", "all"],
             description:
               "Type of preview files to delete: 'video', 'audio', or 'all' (default: 'all')",
           },
@@ -1627,12 +1628,15 @@ export function getAdvancedTools(
           audio: '"80B8E3D5-6DCA-4195-AEFB-CB5F407AB009"',
           all: '"FFFFFFFF-FFFF-FFFF-FFFF-FFFFFFFFFFFF"',
         };
-        const mediaType = typeMap[args.media_type || "all"] || typeMap.all;
+        const requestedType = args.media_type ?? "all";
+        if (typeof requestedType !== "string" || !Object.prototype.hasOwnProperty.call(typeMap, requestedType)) return { success: false, error: "media_type must be video, audio, or all." };
+        const mediaType = typeMap[requestedType];
 
         const script = buildToolScript(`
           app.enableQE();
-          qe.project.deletePreviewFiles(${mediaType});
-          return __result({ deleted: true, mediaType: "${args.media_type || "all"}" });
+          var accepted = qe.project.deletePreviewFiles(${mediaType});
+          if (accepted === false) return __error("Premiere rejected preview-file deletion.", { deleted: false, mediaType: "${escapeForExtendScript(requestedType)}", verified: false, outcome: "failed" });
+          return __result({ deleted: null, accepted: accepted === true ? true : null, apiReturn: accepted === undefined ? null : String(accepted), mediaType: "${escapeForExtendScript(requestedType)}", verified: false, outcome: "committed_unverified", verification: "api-return", limitation: "QE provides no verified cache-file inventory here; inspect the preview files before assuming deletion completed." });
         `);
         return sendCommand(script, bridgeOptions);
       },

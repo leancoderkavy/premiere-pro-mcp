@@ -103,7 +103,7 @@ export function getTextTools(bridgeOptions: BridgeOptions) {
 
     import_mogrt: {
       description:
-        "Import a Motion Graphics Template (.mogrt) file and add it to the timeline. Pass text_values (for example { \"Headline\": \"...\" }) to write each text control explicitly after insertion and verify it by readback, so a template default or stale value is never left in place silently.",
+        "Import a Motion Graphics Template (.mogrt) file and add it to the timeline. Pass text_values (for example { \"Headline\": \"...\" }) to write each text control explicitly after insertion and verify it by readback, so a template default or stale value is never left in place silently. Placement fields contain observed start/end/track values; requested values are separate, and unreadable geometry remains committed_unverified.",
       parameters: {
         type: "object" as const,
         properties: {
@@ -145,6 +145,8 @@ export function getTextTools(bridgeOptions: BridgeOptions) {
         const trackIndex = args.track_index ?? 0;
         const startSeconds = args.start_seconds ?? 0;
         const durationSeconds = args.duration_seconds ?? 5;
+        if (!Number.isSafeInteger(trackIndex) || trackIndex < 0) return { success: false, error: "track_index must be a non-negative integer." };
+        if (typeof startSeconds !== "number" || !Number.isFinite(startSeconds) || startSeconds < 0) return { success: false, error: "start_seconds must be a finite non-negative number." };
         if (typeof durationSeconds !== "number" || !Number.isFinite(durationSeconds) || durationSeconds <= 0 || durationSeconds > 3600) {
           return { success: false, error: "duration_seconds must be a finite number greater than 0 and at most 3600." };
         }
@@ -181,16 +183,49 @@ export function getTextTools(bridgeOptions: BridgeOptions) {
           ` : ""}
           var durationCheck = __mogrtSetDuration(success, ${trackIndex}, ${durationSeconds});
 
-          return __result({
+          function __placedTicks(value) {
+            if (typeof value === "number") return isFinite(value) && value >= 0 ? value : NaN;
+            if (typeof value !== "string" || !/^\\s*\\d+\\s*$/.test(value)) return NaN;
+            var numeric = Number(value);
+            return isFinite(numeric) ? numeric : NaN;
+          }
+          var actualStart = null, actualEnd = null, actualTrack = null;
+          try { var startRead = __placedTicks(success.start.ticks); if (isFinite(startRead)) actualStart = __ticksToSeconds(startRead); } catch (startError) {}
+          try { var endRead = __placedTicks(success.end.ticks); if (isFinite(endRead)) actualEnd = __ticksToSeconds(endRead); } catch (endError) {}
+          try {
+            var importedId = success.nodeId;
+            if (importedId !== undefined && String(importedId) !== "") {
+              for (var ti = 0; ti < seq.videoTracks.numTracks; ti++) {
+                var placedClips = seq.videoTracks[ti].clips;
+                for (var ci = 0; ci < placedClips.numItems; ci++) {
+                  if (String(placedClips[ci].nodeId) === String(importedId)) actualTrack = ti;
+                }
+              }
+            }
+          } catch (trackError) { actualTrack = null; }
+          var frameTicks = parseFloat(seq.timebase);
+          var tolerance = isFinite(frameTicks) && frameTicks > 0 ? __ticksToSeconds(frameTicks / 2) : 0.0000001;
+          var placementMismatch = (actualStart !== null && Math.abs(actualStart - ${startSeconds}) > tolerance) || (actualTrack !== null && actualTrack !== ${trackIndex});
+          var geometryVerified = actualStart !== null && actualEnd !== null && actualEnd > actualStart && actualTrack !== null && !placementMismatch && durationCheck.status === "verified" && Math.abs((actualEnd - actualStart) - ${durationSeconds}) <= tolerance;
+          var receipt = {
             imported: true,
+            verified: geometryVerified,
+            outcome: geometryVerified ? "verified" : "committed_unverified",
+            requestedTrackIndex: ${trackIndex},
+            requestedStartSeconds: ${startSeconds},
+            requestedDurationSeconds: ${durationSeconds},
+            placementVerification: geometryVerified ? "verified" : "committed_unverified",
             textReadback: textReadback,
             textWriteError: textWriteError,
             mogrtPath: mogrtPath,
-            trackIndex: ${trackIndex},
-            startSeconds: ${startSeconds},
-            durationSeconds: ${durationSeconds},
+            trackIndex: actualTrack,
+            startSeconds: actualStart,
+            endSeconds: actualEnd,
+            durationSeconds: actualStart !== null && actualEnd !== null ? actualEnd - actualStart : null,
             duration: durationCheck
-          });
+          };
+          if (placementMismatch) { receipt.outcome = "failed"; receipt.placementVerification = "mismatch"; return __error("The imported graphic did not read back on the requested track and start time; inspect its observed placement before retrying.", receipt); }
+          return __result(receipt);
         `);
         const result = await sendCommand(script, bridgeOptions);
         if (!result.success) return result;
@@ -208,6 +243,8 @@ export function getTextTools(bridgeOptions: BridgeOptions) {
             data: {
               ...data,
               textVerification: "committed_unverified",
+              verified: false,
+              outcome: "committed_unverified",
               warnings: [String(textWriteError ?? "MOGRT text values could not be written or read back"), ...durationWarning],
             },
           };
@@ -223,6 +260,8 @@ export function getTextTools(bridgeOptions: BridgeOptions) {
           data: {
             ...data,
             textVerification: status,
+            verified: data.verified === true && status === "verified",
+            outcome: data.verified === true && status === "verified" ? "verified" : "committed_unverified",
             textChecks: checks,
             ...(warnings.length ? { warnings } : {}),
           },
