@@ -241,7 +241,7 @@ export function getSourceMonitorTools(bridgeOptions: BridgeOptions) {
     },
 
     overwrite_from_source: {
-      description: "Overwrite the clip from the Source Monitor at the playhead position (overwrite edit — replaces existing clips) and verify a new placement on the requested tracks. Every video/audio stream the Source Monitor item actually has must land on those tracks; a picture-only or sound-only placement is committed_unverified, not verified.",
+      description: "Overwrite the clip from the Source Monitor at the playhead position (overwrite edit — replaces existing clips) and verify a new placement on the requested tracks. Every video/audio stream the Source Monitor item actually has must land on those tracks; a picture-only or sound-only placement is committed_unverified, not verified. Video-only and audio-only items overwrite only the receiving track, so Sequence.overwriteClip cannot smash V0 or A0 for the unused kind.",
       parameters: {
         type: "object" as const,
         properties: {
@@ -310,10 +310,10 @@ export function getSourceMonitorTools(bridgeOptions: BridgeOptions) {
           }
           var videoBefore = __placementState(seq.videoTracks[${vTrack}]);
           var audioBefore = __placementState(seq.audioTracks[${aTrack}]);
-          try {
-            seq.overwriteClip(item, pos, ${vTrack}, ${aTrack});
-          } catch (overwriteError) {
-            return __error("Sequence.overwriteClip threw after the edit was attempted: " + overwriteError.toString() + ". Inspect the timeline before retrying.", { outcome: "failed", mutationAttempted: true, mutationOutcome: "unknown", verified: false, timelineChanged: null });
+          var placed = __overwriteItemOnRequestedTracks(seq, item, pos, ${vTrack}, ${aTrack}, videoReceives, audioReceives);
+          if (!placed.ok) {
+            if (placed.attempted) return __error(placed.error + ". Inspect the timeline before retrying.", { outcome: "failed", mutationAttempted: true, mutationOutcome: "unknown", verified: false, timelineChanged: null });
+            return __error(placed.error);
           }
           var videoAfter = null, audioAfter = null;
           try {

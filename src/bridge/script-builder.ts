@@ -442,6 +442,40 @@ function __overwriteRangeOnTrack(track, item, startTicks, inTicks, outTicks, med
   return { ok: true, attempted: true, marksRestored: restore(), error: "" };
 }
 
+// Sequence.overwriteClip treats every index as a real track. A still or
+// audio-only item still receives V0/A0 (default 0), so that unused kind
+// overwrites whatever is already there. Single-kind items use
+// Track.overwriteClip on the receiving track only. A/V items keep
+// Sequence.overwriteClip with both requested indices.
+function __overwriteItemOnRequestedTracks(seq, item, startTicks, videoTrackIndex, audioTrackIndex, videoReceives, audioReceives) {
+  if (!videoReceives && !audioReceives) {
+    return { ok: false, attempted: false, error: "The project item has no video or audio stream to overwrite" };
+  }
+  if (videoReceives && audioReceives) {
+    if (!seq || typeof seq.overwriteClip !== "function") {
+      return { ok: false, attempted: false, error: "Sequence.overwriteClip is unavailable on this Premiere build." };
+    }
+    try {
+      seq.overwriteClip(item, String(startTicks), videoTrackIndex, audioTrackIndex);
+    } catch (eOverwrite) {
+      return { ok: false, attempted: true, error: "Sequence.overwriteClip failed: " + eOverwrite.toString() };
+    }
+    return { ok: true, attempted: true, error: "" };
+  }
+  var track = videoReceives ? seq.videoTracks[videoTrackIndex] : seq.audioTracks[audioTrackIndex];
+  if (!track || typeof track.overwriteClip !== "function") {
+    return { ok: false, attempted: false, error: "Track.overwriteClip is unavailable on this Premiere build" };
+  }
+  var at = new Time();
+  at.ticks = String(startTicks);
+  try {
+    track.overwriteClip(item, at);
+  } catch (eTrackOverwrite) {
+    return { ok: false, attempted: true, error: "Track.overwriteClip failed: " + eTrackOverwrite.toString() };
+  }
+  return { ok: true, attempted: true, error: "" };
+}
+
 function __ticksToTimecode(ticks, fps) {
   // Count whole frames from ticks first. Deriving frames from fractional
   // seconds floors float error: 121.6 s at 25 fps gave frame 14 instead of 15.

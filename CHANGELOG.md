@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Fixed
+
+- `overwrite_clip` and `overwrite_from_source` no longer smash V0 or A0 when the item has only one media kind. `Sequence.overwriteClip` treats every index as a real track, so a still or WAV with the default unused-kind index `0` overwrote that track and still reported `verified: true`. Single-kind overwrites now use `Track.overwriteClip` on the receiving track only; linked A/V items still use `Sequence.overwriteClip` with both requested indices.
+
 ## [1.24.1] - 2026-10-16
 
 ### Fixed

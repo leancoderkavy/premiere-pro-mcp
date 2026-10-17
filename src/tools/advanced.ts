@@ -1039,7 +1039,7 @@ export function getAdvancedTools(
 
     overwrite_clip: {
       description:
-        "Overwrite a project item onto validated timeline tracks and verify a new source placement at the requested time. Every video/audio stream the item actually has must land on the requested tracks; a picture-only or sound-only placement (for example 5.1 audio that does not fit a stereo track) is committed_unverified, not verified.",
+        "Overwrite a project item onto validated timeline tracks and verify a new source placement at the requested time. Every video/audio stream the item actually has must land on the requested tracks; a picture-only or sound-only placement (for example 5.1 audio that does not fit a stereo track) is committed_unverified, not verified. Video-only and audio-only items overwrite only the receiving track, so Sequence.overwriteClip cannot smash V0 or A0 for the unused kind.",
       parameters: {
         type: "object" as const,
         properties: {
@@ -1091,10 +1091,6 @@ export function getAdvancedTools(
           if (${audioTrackIndex} >= seq.audioTracks.numTracks) {
             return __error("Audio track index ${audioTrackIndex} is out of range: the sequence has " + seq.audioTracks.numTracks + " audio track(s).");
           }
-          if (typeof seq.overwriteClip !== "function") {
-            return __error("Sequence.overwriteClip is unavailable on this Premiere build.");
-          }
-
           var item = __findProjectItem("${escapeForExtendScript(args.item_id)}");
           if (!item) return __error("Project item not found: ${escapeForExtendScript(args.item_id)}");
 
@@ -1129,10 +1125,10 @@ export function getAdvancedTools(
 
           var videoWasPlaced = __isPlacedOn(seq.videoTracks[${trackIndex}]);
           var audioWasPlaced = __isPlacedOn(seq.audioTracks[${audioTrackIndex}]);
-          try {
-            seq.overwriteClip(item, startTicks, ${trackIndex}, ${audioTrackIndex});
-          } catch (overwriteError) {
-            return __error("Sequence.overwriteClip failed: " + overwriteError.toString());
+          var placed = __overwriteItemOnRequestedTracks(seq, item, startTicks, ${trackIndex}, ${audioTrackIndex}, videoReceives, audioReceives);
+          if (!placed.ok) {
+            if (placed.attempted) return __error(placed.error + " Inspect the timeline before retrying.", { outcome: "committed_unverified", verified: false, timelineChanged: null });
+            return __error(placed.error);
           }
 
           // The call can return without adding anything on Premiere 26.x. Read

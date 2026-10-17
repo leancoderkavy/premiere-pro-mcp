@@ -764,7 +764,7 @@ describe("overwrite_clip verification", () => {
     expect(mockedSendCommand).not.toHaveBeenCalled();
   });
 
-  it("checks both target tracks and host capability before calling overwriteClip", async () => {
+  it("checks both target tracks before overwriting, and routes through the unused-kind helper", async () => {
     await advanced.overwrite_clip.handler({
       item_id: "source-1",
       track_index: 1,
@@ -774,12 +774,13 @@ describe("overwrite_clip verification", () => {
     const script = mockedSendCommand.mock.calls.at(-1)[0];
     const videoCheck = script.indexOf("Video track index 1 is out of range");
     const audioCheck = script.indexOf("Audio track index 2 is out of range");
-    const call = script.indexOf("seq.overwriteClip(item");
+    const call = script.lastIndexOf("__overwriteItemOnRequestedTracks(seq, item, startTicks");
 
     expect(videoCheck).toBeGreaterThan(-1);
     expect(audioCheck).toBeGreaterThan(-1);
     expect(call).toBeGreaterThan(audioCheck);
-    expect(script).toContain('typeof seq.overwriteClip !== "function"');
+    expect(getHelpersSource()).toContain('typeof seq.overwriteClip !== "function"');
+    expect(getHelpersSource()).toContain("Track.overwriteClip is unavailable on this Premiere build");
   });
 
   it("proves the requested source landed on a target track and errors on no new placement", async () => {
@@ -802,26 +803,46 @@ describe("overwrite_clip verification", () => {
       getInPoint: () => ({ ticks: "0" }),
       getOutPoint: (type: number) => ({ ticks: ticks(type === 2 ? options.audioSpan : options.videoSpan) }),
     };
-    const videoClips: Array<{ nodeId: string; projectItem: typeof item; start: { ticks: string } }> = [];
-    const audioClips: Array<{ nodeId: string; projectItem: typeof item; start: { ticks: string } }> = [];
-    const track = (clips: typeof videoClips) => ({
+    const occupant = { nodeId: "keep", projectItem: { nodeId: "keep" }, start: { ticks: ticks(5) } };
+    const videoClips: Array<{ nodeId: string; projectItem: { nodeId: string }; start: { ticks: string } }> = [];
+    const audioClips: Array<{ nodeId: string; projectItem: { nodeId: string }; start: { ticks: string } }> = [];
+    if (options.audioSpan === 0) audioClips.push(occupant);
+    if (options.videoSpan === 0) videoClips.push(occupant);
+    const startFrom = (time: string | { ticks: string }) => typeof time === "string" ? time : time.ticks;
+    const placeOn = (clips: typeof videoClips, nodeId: string, startTicks: string) => {
+      clips.push({ nodeId, projectItem: item, start: { ticks: startTicks } });
+    };
+    const smashOccupant = (clips: typeof videoClips) => {
+      const index = clips.indexOf(occupant);
+      if (index >= 0) clips.splice(index, 1);
+    };
+    const track = (clips: typeof videoClips, kind: "video" | "audio") => ({
       clips: new Proxy({}, {
         get: (_t, key) => key === "numItems" ? clips.length : clips[Number(key)],
       }),
+      overwriteClip: (_placed: unknown, time: string | { ticks: string }) => {
+        if (kind === "video" && !options.dropVideo) placeOn(videoClips, "v-copy", startFrom(time));
+        if (kind === "audio" && !options.dropAudio) placeOn(audioClips, "a-copy", startFrom(time));
+      },
+    });
+    const seqOverwrite = vi.fn((_placed: unknown, startTicks: string) => {
+      smashOccupant(videoClips);
+      smashOccupant(audioClips);
+      if (!options.dropVideo) placeOn(videoClips, "v-copy", startTicks);
+      if (!options.dropAudio) placeOn(audioClips, "a-copy", startTicks);
     });
     const seq = {
       timebase: String(254016000000 / 24),
-      videoTracks: Object.assign({ numTracks: 1 }, [track(videoClips)]),
-      audioTracks: Object.assign({ numTracks: 1 }, [track(audioClips)]),
-      overwriteClip: (_placed: unknown, startTicks: string) => {
-        if (!options.dropVideo) videoClips.push({ nodeId: "v-copy", projectItem: item, start: { ticks: startTicks } });
-        if (!options.dropAudio) audioClips.push({ nodeId: "a-copy", projectItem: item, start: { ticks: startTicks } });
-      },
+      videoTracks: Object.assign({ numTracks: 1 }, [track(videoClips, "video")]),
+      audioTracks: Object.assign({ numTracks: 1 }, [track(audioClips, "audio")]),
+      overwriteClip: seqOverwrite,
     };
+    class Time { ticks = "0"; }
     mockedSendCommand.mockImplementationOnce(async (script) => JSON.parse(String(runInNewContext(`${getHelpersSource()}\n${script}`, {
+      Time,
       app: { project: { rootItem: { children: Object.assign({ numItems: 1 }, [item]) }, activeSequence: seq } },
     }))));
-    return { videoClips, audioClips };
+    return { videoClips, audioClips, occupant, seqOverwrite };
   }
 
   it("does not verify an A/V overwrite that lands picture without sound", async () => {
@@ -839,6 +860,24 @@ describe("overwrite_clip verification", () => {
       success: true,
       data: { overwritten: true, verified: true, placedOnVideoTrack: true, placedOnAudioTrack: false },
     });
+  });
+
+  it.each([
+    { kind: "video-only", videoSpan: 2, audioSpan: 0, smash: "audio" as const },
+    { kind: "audio-only", videoSpan: 0, audioSpan: 2, smash: "video" as const },
+  ])("does not overwrite $smash track 0 when overwriting a $kind item", async ({ videoSpan, audioSpan, smash }) => {
+    const host = overwriteHost({ videoSpan, audioSpan, dropAudio: smash === "audio", dropVideo: smash === "video" });
+    await expect(advanced.overwrite_clip.handler({ item_id: "source-1", start_seconds: 5 })).resolves.toMatchObject({
+      success: true,
+      data: {
+        overwritten: true,
+        verified: true,
+        placedOnVideoTrack: smash !== "video",
+        placedOnAudioTrack: smash !== "audio",
+      },
+    });
+    expect(host.seqOverwrite).not.toHaveBeenCalled();
+    expect(smash === "audio" ? host.audioClips : host.videoClips).toContain(host.occupant);
   });
 });
 

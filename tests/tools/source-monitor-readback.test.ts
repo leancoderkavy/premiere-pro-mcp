@@ -44,8 +44,17 @@ function host(options: { ignoreOpen?: boolean; ignoreClose?: boolean; ignoreOver
   const opened: Item[] = [];
   const track = () => {
     const placements: Placement[] = [];
+    const place = (item: Item, startTicks: number, inTicks?: number) => {
+      if (options.replaceExisting && placements.length) placements[0] = { item, startTicks, inTicks: inTicks ?? 2 * TICKS };
+      else placements.push({ item, startTicks, inTicks });
+    };
     return {
       placements,
+      place,
+      overwriteClip: (item: Item, time: string | { ticks: string }) => {
+        if (options.ignoreOverwrite) return;
+        place(item, Number(typeof time === "string" ? time : time.ticks));
+      },
       clips: new Proxy({}, {
         get: (_t, key) => key === "numItems"
           ? placements.length
@@ -63,14 +72,11 @@ function host(options: { ignoreOpen?: boolean; ignoreClose?: boolean; ignoreOver
     getPlayerPosition: () => ({ ticks: String(playerTicks) }),
     overwriteClip: (item: Item, ticks: string, v: number, a: number) => {
       if (options.ignoreOverwrite) return;
-      const place = (track: ReturnType<typeof track>, inTicks?: number) => {
-        if (options.replaceExisting && track.placements.length) track.placements[0] = { item, startTicks: Number(ticks), inTicks: inTicks ?? 2 * TICKS };
-        else track.placements.push({ item, startTicks: Number(ticks), inTicks });
-      };
-      place(video[v]);
-      if (!options.dropAudio) place(audio[a]);
+      video[v].place(item, Number(ticks));
+      if (!options.dropAudio) audio[a].place(item, Number(ticks));
     },
   };
+  function Time(this: { ticks: string }) { this.ticks = "0"; }
   const sourceMonitor = {
     openProjectItem: (item: Item) => { if (!item) throw new Error("crash"); if (!options.ignoreOpen) opened.push(item); return true; },
     getProjectItem: () => opened[opened.length - 1] ?? null,
@@ -79,7 +85,7 @@ function host(options: { ignoreOpen?: boolean; ignoreClose?: boolean; ignoreOver
   };
   const rootItem = { children: Object.assign({ numItems: items.length }, items) };
   mockedSendCommand.mockImplementation(async (script: string) =>
-    JSON.parse(String(runInNewContext(`${getHelpersSource()}\n${script}`, { app: { project: { rootItem, activeSequence: seq }, sourceMonitor } }))));
+    JSON.parse(String(runInNewContext(`${getHelpersSource()}\n${script}`, { Time, app: { project: { rootItem, activeSequence: seq }, sourceMonitor } }))));
   return { opened, video, audio, sourceMonitor };
 }
 
@@ -204,5 +210,18 @@ describe("overwrite_from_source verifies the placement", () => {
     await expect(tools.overwrite_from_source.handler({ audio_track_index: 3 })).resolves.toMatchObject({ success: false, error: expect.stringContaining("Audio track index 3 is out of range") });
     await expect(tools.overwrite_from_source.handler({ video_track_index: 1.5 })).resolves.toMatchObject({ success: false, error: expect.stringContaining("non-negative integers") });
     expect(state.video[0].placements).toHaveLength(0);
+  });
+
+  it("does not overwrite V0 when the Source Monitor item is audio-only", async () => {
+    const state = host();
+    const keep = { nodeId: "keep", name: "title.png", type: 1 } as Item;
+    state.video[0].placements.push({ item: keep, startTicks: 5 * TICKS });
+    await tools.open_in_source.handler({ item_id: "a1" });
+    await expect(tools.overwrite_from_source.handler({})).resolves.toMatchObject({
+      success: true,
+      data: { verified: true, placedOnVideoTrack: false, placedOnAudioTrack: true },
+    });
+    expect(state.video[0].placements).toEqual([expect.objectContaining({ item: expect.objectContaining({ nodeId: "keep" }) })]);
+    expect(state.audio[0].placements).toHaveLength(1);
   });
 });
