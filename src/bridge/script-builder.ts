@@ -1702,6 +1702,36 @@ function __clipKeyframeBase(clip) {
   return { ok: true, inTicks: inTicks, durationSeconds: durationSeconds };
 }
 
+// Marker setters accept seconds on some hosts; Time getters may be detached.
+function __markerStoredTicks(marker, field) {
+  try {
+    var text = String(marker[field].ticks).replace(/^\\s+|\\s+$/g, "");
+    if (!/^\\d+$/.test(text)) return null;
+    return text.replace(/^0+/, "") || "0";
+  } catch (readMarkerTimeError) { return null; }
+}
+function __setMarkerTick(marker, field, ticks) {
+  var numeric = Number(ticks);
+  if (!isFinite(numeric) || numeric < 0) return false;
+  var wanted = Math.round(numeric).toFixed(0);
+  if (__markerStoredTicks(marker, field) === wanted) return true;
+  try { marker[field].ticks = wanted; } catch (markerTickWriteError) {}
+  if (__markerStoredTicks(marker, field) === wanted) return true;
+  // One quarter of a tick avoids seconds-to-ticks flooring a boundary early.
+  // Readback, not setter acceptance, decides whether this fallback worked.
+  try { marker[field] = (Number(wanted) + 0.25) / TICKS_PER_SECOND; } catch (markerSecondsWriteError) {}
+  return __markerStoredTicks(marker, field) === wanted;
+}
+function __setMarkerRangeTicks(marker, startTicks, endTicks) {
+  var ok;
+  if (Number(__markerStoredTicks(marker, "end")) < Number(startTicks)) {
+    ok = __setMarkerTick(marker, "end", endTicks) && __setMarkerTick(marker, "start", startTicks);
+  } else {
+    ok = __setMarkerTick(marker, "start", startTicks) && __setMarkerTick(marker, "end", endTicks);
+  }
+  return { ok: ok, startTicks: __markerStoredTicks(marker, "start"), endTicks: __markerStoredTicks(marker, "end") };
+}
+
 function __clipKeyTime(base, clipSeconds) {
   var time = new Time();
   time.ticks = String(base.inTicks + __secondsToTicks(clipSeconds));

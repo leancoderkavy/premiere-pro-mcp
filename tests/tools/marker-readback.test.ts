@@ -20,7 +20,7 @@ type Result = { success: boolean; error?: string; data?: Record<string, unknown>
 
 beforeEach(() => vi.clearAllMocks());
 
-type FakeMarker = { name: string; comments: string; color: number; start: { ticks: string; seconds: number }; end: { seconds: number } };
+type FakeMarker = { name: string; comments: string; color: number; start: { ticks: string; seconds: number }; end: { seconds: number; ticks: string } };
 
 /** Sequence markers; options make Premiere ignore a color or end write. */
 function host(options: { ignoreColor?: boolean; ignoreEnd?: boolean; colorUnreadable?: boolean; colorReadback?: { value: unknown }; undoIndex?: number; advanceOnCreate?: boolean } = {}) {
@@ -31,8 +31,8 @@ function host(options: { ignoreColor?: boolean; ignoreEnd?: boolean; colorUnread
     const marker = {
       name: "", comments: "", color: 0,
       start: { ticks: String(Math.round(seconds * TICKS)), seconds },
-      get end() { return { seconds: end }; },
-      set end(value: unknown) { if (!options.ignoreEnd) end = Number(value); },
+      get end() { return { seconds: end, ticks: String(Math.round(end * TICKS)) }; },
+      set end(value: unknown) { if (!options.ignoreEnd) end = Math.floor(Number(value) * TICKS) / TICKS; },
       setColorByIndex(index: number) { if (!options.ignoreColor) marker.color = index; },
       getColorByIndex() { if (options.colorUnreadable) throw new Error("no getter"); return options.colorReadback ? options.colorReadback.value : marker.color; },
       guid: `guid-${seconds}`,
@@ -98,7 +98,7 @@ describe("add_marker and update_marker read the marker back", () => {
   it("reports an ignored duration", async () => {
     host({ ignoreEnd: true });
     await expect(tools.add_marker.handler({ time_seconds: 3, duration_seconds: 2 }))
-      .resolves.toMatchObject({ success: false, error: expect.stringContaining("end reads back as 3s") });
+      .resolves.toMatchObject({ success: false, error: expect.stringContaining("exact tick range") });
   });
 
   it("update_marker verifies what it changed", async () => {

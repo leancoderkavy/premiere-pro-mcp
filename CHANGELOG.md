@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Fixed
+
+- Marker creation and batch/source marker ranges now retain exact integer ticks when floating seconds would store a boundary one tick early. Time writes are read back exactly, and receipts expose requested and stored clocks; keyframe inspection also returns native tick strings.
+
 ## [1.24.1] - 2026-10-16
 
 ### Fixed

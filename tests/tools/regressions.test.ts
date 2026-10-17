@@ -214,10 +214,10 @@ describe("issue #6 — markers must use seconds, not ticks", () => {
     expect(script).not.toMatch(/createMarker\(parseFloat/);
   });
 
-  it("add_marker sets marker.end in seconds when given a duration", async () => {
+  it("add_marker verifies exact start and end ticks when given a duration", async () => {
     const script = await scriptFor(markers.add_marker, { time_seconds: 2.0, duration_seconds: 3.0 });
 
-    expect(script).toContain("marker.end = __ticksToSeconds(appliedMarkerEndTicks)");
+    expect(script).toContain("__setMarkerRangeTicks(marker, appliedMarkerTicks, exactEndTicks)");
     expect(script).not.toMatch(/marker\.end = __secondsToTicks/);
   });
 

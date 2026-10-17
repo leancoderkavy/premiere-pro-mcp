@@ -1456,7 +1456,7 @@ export function getUtilityTools(bridgeOptions: BridgeOptions) {
     },
 
     add_marker_to_project_item: {
-      description: "Add a marker to a project item (source clip marker). EXPERIMENTAL QE: records an observed marker boundary for guarded Undo/Redo; crossing it is refused by default, and unreadable history records unknown protection. This boundary does not verify native marker reversal.",
+      description: "Add a marker to a project item (source clip marker). EXPERIMENTAL QE: records an observed marker boundary for guarded Undo/Redo; crossing it is refused by default, and unreadable history records unknown protection. This boundary does not verify native marker reversal. Marker start and end storage are compared at exact integer ticks; unsupported time writes remain unverified with the created marker identity when available.",
       parameters: {
         type: "object" as const,
         properties: {
@@ -1523,14 +1523,17 @@ export function getUtilityTools(bridgeOptions: BridgeOptions) {
           if (!markers) return __error("This project item has no marker collection.");
           var markerBarrier = __rememberMarkerUndoBarrier(__readUndoIndex());
           if (!markerBarrier.ok) return __error(markerBarrier.error);
+          var requestedMarkerTicks = __secondsToTicks(${args.time_seconds});
+          var requestedMarkerEndTicks = __secondsToTicks(${endSeconds ?? args.time_seconds});
+          if (!isFinite(requestedMarkerTicks) || !isFinite(requestedMarkerEndTicks)) return __error("Marker time exceeds the finite tick range; no marker was created.");
           var marker = markers.createMarker(${args.time_seconds});
+          if (!marker) return __error("Premiere did not return a source marker after creation; inspect before retrying.", { outcome: "committed_unverified", timelineChanged: null, verified: false });
+          var markerClock = __setMarkerRangeTicks(marker, requestedMarkerTicks, requestedMarkerEndTicks);
+          if (!markerClock.ok) return __error("The source marker was created but its exact tick range could not be verified; inspect before retrying.", { markerCreated: true, timelineChanged: true, verified: false, outcome: "committed_unverified", guid: marker.guid ? String(marker.guid) : null, requestedTicks: String(requestedMarkerTicks), storedTicks: markerClock.startTicks, storedEndTicks: markerClock.endTicks });
 
           ${args.name ? `marker.name = "${escapeForExtendScript(args.name)}";` : ""}
           ${args.comments ? `marker.comments = "${escapeForExtendScript(args.comments)}";` : ""}
           ${args.type ? `marker.type = "${escapeForExtendScript(args.type)}";` : ""}
-          // The end setter takes seconds; a Time object throws "Illegal
-          // Parameter type" on 25.2.3, after the marker already exists.
-          ${endSeconds !== undefined ? `marker.end = ${endSeconds};` : ""}
           ${args.color_index !== undefined ? `marker.setColorByIndex(${args.color_index});` : ""}
 
           var problems = [], unverifiedFields = [];
@@ -1543,7 +1546,7 @@ export function getUtilityTools(bridgeOptions: BridgeOptions) {
             return __error("The marker was created at ${args.time_seconds}s on " + item.name + ", but " + problems.join("; ") + ".", { markerCreated: true, timelineChanged: true, verified: false, outcome: "committed_unverified", unverifiedFields: unverifiedFields });
           }
 
-          return __result({ added: true, verified: unverifiedFields.length === 0, outcome: unverifiedFields.length ? "committed_unverified" : "verified", unverifiedFields: unverifiedFields, item: item.name, timeSeconds: ${args.time_seconds}, endSeconds: parseFloat(marker.end.seconds), name: marker.name, type: marker.type });
+          return __result({ added: true, verified: unverifiedFields.length === 0, outcome: unverifiedFields.length ? "committed_unverified" : "verified", unverifiedFields: unverifiedFields, item: item.name, requestedTicks: String(requestedMarkerTicks), storedTicks: markerClock.startTicks, storedEndTicks: markerClock.endTicks, timeSeconds: __ticksToSeconds(marker.start.ticks), endSeconds: parseFloat(marker.end.seconds), name: marker.name, type: marker.type });
         `);
         return sendCommand(script, bridgeOptions);
       },

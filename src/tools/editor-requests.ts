@@ -133,7 +133,7 @@ export function getEditorRequestTools(bridgeOptions: BridgeOptions) {
   return {
     add_markers_batch: {
       description:
-        "Add up to 200 sequence or clip markers in one verified CEP request (beat grids, chapters, silence reviews, client notes). Every marker is validated and range-checked before the first write; the tool reads back the marker count and each created marker's time and fails closed on any mismatch. EXPERIMENTAL QE: records an observed marker boundary for guarded Undo/Redo; crossing it is refused by default, and unreadable history records unknown protection. This boundary does not verify native marker reversal.",
+        "Add up to 200 sequence or clip markers in one verified CEP request (beat grids, chapters, silence reviews, client notes). Every marker is validated and range-checked before the first write; the tool reads back the marker count and each created marker's time and fails closed on any mismatch. EXPERIMENTAL QE: records an observed marker boundary for guarded Undo/Redo; crossing it is refused by default, and unreadable history records unknown protection. This boundary does not verify native marker reversal. Marker start and end storage are compared at exact integer ticks; unsupported time writes remain unverified with the created marker identity when available.",
       parameters: {
         type: "object" as const,
         additionalProperties: false,
@@ -232,10 +232,12 @@ export function getEditorRequestTools(bridgeOptions: BridgeOptions) {
             var requestedStartTicks = __secondsToTicks(snapSpec.t);
             var appliedStartTicks = targetKind === "clip" ? requestedStartTicks : __snapSequenceTicks(seq, requestedStartTicks);
             snapSpec.t = __ticksToSeconds(appliedStartTicks);
+            snapSpec.startTicks = String(appliedStartTicks); snapSpec.endTicks = String(appliedStartTicks);
             if (snapSpec.d > 0) {
               snapSpec.requestedEnd = snapSpec.requestedT + snapSpec.d;
               var appliedEndTicks = targetKind === "clip" ? __secondsToTicks(snapSpec.requestedEnd) : __snapSequenceTicks(seq, __secondsToTicks(snapSpec.requestedEnd));
               snapSpec.d = __ticksToSeconds(appliedEndTicks - appliedStartTicks);
+              snapSpec.endTicks = String(appliedEndTicks);
             }
           }
           var allowBeyondEnd = ${args.allow_beyond_end ? "true" : "false"};
@@ -286,7 +288,8 @@ export function getEditorRequestTools(bridgeOptions: BridgeOptions) {
               if (spec.n !== null) marker.name = spec.n;
               if (spec.c !== null) marker.comments = spec.c;
               if (spec.k !== null) marker.setColorByIndex(spec.k);
-              if (spec.d > 0) marker.end = spec.t + spec.d;
+              var markerClock = __setMarkerRangeTicks(marker, spec.startTicks, spec.endTicks);
+              if (!markerClock.ok) return __batchFailure("Marker " + i + " did not retain its exact tick range (GUID " + String(marker.guid || "") + "); inspect it before retrying.", true);
             } catch (assignError) {
               return __batchFailure("Premiere created marker " + i + " but rejected its properties: " + assignError.toString(), true);
             }
@@ -304,7 +307,7 @@ export function getEditorRequestTools(bridgeOptions: BridgeOptions) {
             if (spec.k !== null && (typeof actualColor !== "number" || !isFinite(actualColor))) unverifiedFields.push({ markerIndex: i, field: "color" });
             else if (spec.k !== null && actualColor !== spec.k) fieldProblems.push("color index reads back as " + actualColor);
             if (fieldProblems.length) return __batchFailure("Marker " + i + " at " + spec.t + "s was created, but " + fieldProblems.join("; ") + ".", true);
-            var createdMarker = { timeSeconds: actualStart, name: marker.name, comments: marker.comments, endSeconds: actualEnd, color: typeof actualColor === "number" && isFinite(actualColor) ? actualColor : null };
+            var createdMarker = { requestedTicks: String(__secondsToTicks(spec.requestedT)), appliedTicks: spec.startTicks, storedTicks: markerClock.startTicks, storedEndTicks: markerClock.endTicks, timeSeconds: actualStart, name: marker.name, comments: marker.comments, endSeconds: actualEnd, color: typeof actualColor === "number" && isFinite(actualColor) ? actualColor : null };
             if (Math.abs(actualStart - spec.requestedT) > frameSeconds / 1000) { createdMarker.requestedSeconds = spec.requestedT; createdMarker.appliedSeconds = actualStart; }
             if (spec.requestedEnd !== undefined && Math.abs(actualEnd - spec.requestedEnd) > frameSeconds / 1000) { createdMarker.requestedEndSeconds = spec.requestedEnd; createdMarker.appliedEndSeconds = actualEnd; }
             created.push(createdMarker);

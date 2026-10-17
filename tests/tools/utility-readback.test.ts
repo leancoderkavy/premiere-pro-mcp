@@ -46,9 +46,9 @@ describe("add_marker_to_project_item", () => {
         let type = "Comment";
         const marker: Record<string, any> = {
           name: "", comments: "", color: 0,
-          start: { seconds },
-          get end() { return { seconds: end }; },
-          set end(value: unknown) { if (typeof value !== "number") throw new Error("Illegal Parameter type"); end = value; },
+          start: { seconds, ticks: String(Math.floor(seconds * TICKS)) },
+          get end() { return { seconds: end, ticks: String(Math.floor(end * TICKS)) }; },
+          set end(value: unknown) { if (typeof value !== "number") throw new Error("Illegal Parameter type"); end = Math.floor(value * TICKS) / TICKS; },
           get type() { return type; },
           set type(value: string) { if (!options.ignoreType) type = value; },
           setColorByIndex(index: number) { marker.color = index; },

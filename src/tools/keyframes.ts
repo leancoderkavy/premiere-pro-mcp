@@ -285,7 +285,7 @@ export function getKeyframeTools(bridgeOptions: BridgeOptions) {
     },
 
     get_keyframes: {
-      description: "Get all keyframes for a specific effect property on a clip. Each key's time is in seconds from the clip's start; mediaSeconds is Premiere's stored media time.",
+      description: "Get all keyframes for a specific effect property on a clip. Each key's time is in seconds from the clip's start; mediaSeconds is Premiere's stored media time. mediaTicks returns each native key time as a tick string.",
       parameters: {
         type: "object" as const,
         properties: {
@@ -347,6 +347,7 @@ export function getKeyframeTools(bridgeOptions: BridgeOptions) {
               keyframes.push({
                 time: keyBase.ok ? __clipSecondsFromKey(keyBase, time) : null,
                 mediaSeconds: __ticksToSeconds(time.ticks),
+                mediaTicks: String(time.ticks),
                 value: val
               });
             }

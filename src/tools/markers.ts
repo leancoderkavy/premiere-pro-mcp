@@ -76,7 +76,7 @@ const MARKER_UNDO_RECEIPT = `
 export function getMarkerTools(bridgeOptions: BridgeOptions) {
   return {
     add_marker: {
-      description: "Add a marker to the active sequence or a clip and read its name, comments, color and duration back. EXPERIMENTAL (QE DOM): the receipt reports undoStackIndex movement, which does not prove QE can reverse the marker. Every marker attempt protects an engine undo boundary; undoTracked:false means the marker did not observably advance the QE index.",
+      description: "Add a marker to the active sequence or a clip and read its name, comments, color and duration back. EXPERIMENTAL (QE DOM): the receipt reports undoStackIndex movement, which does not prove QE can reverse the marker. Every marker attempt protects an engine undo boundary; undoTracked:false means the marker did not observably advance the QE index. Marker start and end storage are compared at exact integer ticks; unsupported time writes remain unverified with the created marker identity when available.",
       parameters: {
         type: "object" as const,
         properties: {
@@ -147,11 +147,17 @@ export function getMarkerTools(bridgeOptions: BridgeOptions) {
           if (!isFinite(markerFrameTicks)) return __error("The active sequence frame grid could not be read; no marker was created.");
           var appliedMarkerTicks = ${args.node_id ? "requestedMarkerTicks" : "__snapSequenceTicks(markerSeq, requestedMarkerTicks)"};
           var appliedMarkerSeconds = __ticksToSeconds(appliedMarkerTicks);
-          // createMarker() and the marker.end setter both take seconds, not ticks.
+          var requestedEndTicks = __secondsToTicks(${args.time_seconds + (args.duration_seconds ?? 0)});
+          var exactEndTicks = ${args.node_id ? "requestedEndTicks" : "__snapSequenceTicks(markerSeq, requestedEndTicks)"};
+          if (!isFinite(appliedMarkerTicks) || !isFinite(exactEndTicks)) return __error("Marker time exceeds the finite tick range; no marker was created.");
+          // Creation takes seconds; exact Time ticks are corrected and read back below.
           var markerUndoBefore = __readUndoIndex();
           var markerBarrier = __rememberMarkerUndoBarrier(markerUndoBefore);
           if (!markerBarrier.ok) return __error(markerBarrier.error);
           var marker = markers.createMarker(appliedMarkerSeconds);
+          if (!marker) return __error("Premiere did not return a marker after creation; inspect before retrying.", { outcome: "committed_unverified", timelineChanged: null, verified: false });
+          var markerClock = __setMarkerRangeTicks(marker, appliedMarkerTicks, exactEndTicks);
+          if (!markerClock.ok) return __jsonStringify({ success: false, error: "Premiere created the marker but did not retain its exact tick range; inspect it before retrying.", data: __markerUndoReceipt(markerUndoBefore, { timelineChanged: true, outcome: "committed_unverified", verified: false, guid: marker.guid ? String(marker.guid) : null, requestedTicks: String(requestedMarkerTicks), appliedTicks: String(appliedMarkerTicks), storedTicks: markerClock.startTicks, storedEndTicks: markerClock.endTicks }) });
           var observedMarkerTicks = NaN;
           try { observedMarkerTicks = parseFloat(marker.start.ticks); } catch (markerStartReadError) {}
           if (!isFinite(observedMarkerTicks) || Math.abs(observedMarkerTicks - appliedMarkerTicks) > markerFrameTicks / 1000 ||
@@ -162,7 +168,7 @@ export function getMarkerTools(bridgeOptions: BridgeOptions) {
           ${args.name ? `marker.name = "${escapeForExtendScript(args.name)}";` : ""}
           ${args.comments ? `marker.comments = "${escapeForExtendScript(args.comments)}";` : ""}
           ${args.color !== undefined ? `marker.setColorByIndex(${args.color});` : ""}
-          ${args.duration_seconds ? `requestedMarkerEndTicks = __secondsToTicks(${args.time_seconds + args.duration_seconds}); appliedMarkerEndTicks = ${args.node_id ? "requestedMarkerEndTicks" : "__snapSequenceTicks(markerSeq, requestedMarkerEndTicks)"}; marker.end = __ticksToSeconds(appliedMarkerEndTicks);` : ""}
+          ${args.duration_seconds ? `requestedMarkerEndTicks = __secondsToTicks(${args.time_seconds + args.duration_seconds}); appliedMarkerEndTicks = exactEndTicks;` : ""}
           ${MARKER_READBACK}
           var problems = __markerMismatches(marker, ${args.duration_seconds ? `{ ${args.name ? `name: "${escapeForExtendScript(args.name)}",` : ""} ${args.comments ? `comments: "${escapeForExtendScript(args.comments)}",` : ""} ${args.color !== undefined ? `color: ${args.color},` : ""} end: __ticksToSeconds(appliedMarkerEndTicks) }` : wanted});
           ${args.duration_seconds ? `if (Math.abs(parseFloat(marker.end.seconds) - __ticksToSeconds(appliedMarkerEndTicks)) > __ticksToSeconds(markerFrameTicks) / 1000) problems.push("end is off the active sequence frame grid");` : ""}
@@ -175,8 +181,9 @@ export function getMarkerTools(bridgeOptions: BridgeOptions) {
             verified: __markerUnverified.length === 0,
             unverifiedFields: __markerUnverified,
             guid: __markerGuid(marker),
-            timeSeconds: appliedMarkerSeconds,
-            endSeconds: parseFloat(marker.end.seconds),
+            timeSeconds: __ticksToSeconds(marker.start.ticks),
+            requestedTicks: String(requestedMarkerTicks), appliedTicks: String(appliedMarkerTicks), storedTicks: __markerStoredTicks(marker, "start"), storedEndTicks: __markerStoredTicks(marker, "end"),
+            endSeconds: __ticksToSeconds(marker.end.ticks),
             name: marker.name,
             comments: marker.comments,
             requestedSeconds: Math.abs(appliedMarkerTicks - requestedMarkerTicks) > markerFrameTicks / 1000 ? __ticksToSeconds(requestedMarkerTicks) : undefined,
@@ -339,6 +346,7 @@ export function getMarkerTools(bridgeOptions: BridgeOptions) {
             guid: __markerGuid(marker),
             timeSeconds: __ticksToSeconds(marker.start.ticks),
             requestedSeconds: ${args.time_seconds},
+            requestedTicks: String(targetTicks), storedTicks: __markerStoredTicks(marker, "start"), storedEndTicks: __markerStoredTicks(marker, "end"),
             name: marker.name,
             comments: marker.comments
           }));
