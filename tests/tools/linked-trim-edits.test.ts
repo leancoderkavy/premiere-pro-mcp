@@ -904,3 +904,51 @@ describe("native adjacent failure evidence classification", () => {
     await expect(tools[operation].handler({ node_id: "v1", offset_seconds: 0.5 })).resolves.toMatchObject({ success: false, data: { mutationAttempted: true, outcome: "failed", mutationOutcome: "unknown", timelineChanged: null, contextStable: false } });
   });
 });
+
+describe("existing terminal frame padding", () => {
+  function padded(over = 0.015) {
+    const h = host({ frameTicks: TICKS * 1001 / 30000 });
+    for (const clips of [h.video, h.audio]) {
+      const edges = [0, 3.003, 5.005, 15 + over];
+      clips.forEach((clip, k) => {
+        clip.start = { ticks: String(Math.round(edges[k] * TICKS)) };
+        clip.end = { ticks: String(Math.round(edges[k + 1] * TICKS)) };
+        clip.inPoint = { ticks: String(Math.round(edges[k] * TICKS)) };
+        clip.outPoint = { ticks: String(Math.round(edges[k + 1] * TICKS)) };
+      });
+    }
+    vi.mocked(probeMediaDurationTicks).mockResolvedValue(15 * TICKS);
+    return h;
+  }
+  it("rolls a neighbour of a padded media end without extending that end", async () => {
+    const h = padded();
+    expect(await tools.roll_edit.handler({ node_id: "v1", offset_seconds: 0.5005 })).toMatchObject({ success: true });
+    expect(ticksOf(h.video[2].outPoint)).toBe(3814050240000);
+  });
+  it.each(["slip", "trim", "duration"])("allows %s to shorten inside the existing padding", async kind => {
+    padded(); const timeline = getTimelineTools(bridgeOptions);
+    const r = kind === "slip" ? await tools.slip_edit.handler({ node_id: "v2", offset_seconds: -0.5005 }) : kind === "trim" ? await timeline.trim_clip.handler({ node_id: "v2", new_in_seconds: 5.5055 }) : await timeline.set_clip_duration.handler({ node_id: "v2", duration_seconds: 9.009 });
+    expect(r, JSON.stringify(r)).toMatchObject({ success: true });
+  });
+  it("slides next to padding without increasing the following Out", async () => {
+    const h = padded();
+    expect(await tools.slide_edit.handler({ node_id: "v1", offset_seconds: 0.5005 })).toMatchObject({ success: true });
+    expect(ticksOf(h.video[2].outPoint)).toBe(3814050240000);
+  });
+  it.each([1001 / 30000, 2 * 1001 / 30000])("refuses an existing overshoot of %s seconds before any edit", async over => {
+    const h = padded(over), before = h.video.map(c => c.snapshot());
+    const r = await tools.roll_edit.handler({ node_id: "v1", offset_seconds: 0.5005 });
+    expect(r).toMatchObject({ success: false, error: expect.stringMatching(/existing.*over.*ticks/i) });
+    expect(h.video.map(c => c.snapshot())).toEqual(before);
+  });
+  it.each(["slip", "trim", "duration"])("refuses a %s proposal beyond the host's existing Out", async kind => {
+    const h = padded(), before = h.video.map(c => c.snapshot()), timeline = getTimelineTools(bridgeOptions);
+    const r = kind === "slip" ? await tools.slip_edit.handler({ node_id: "v2", offset_seconds: 1001 / 30000 }) : kind === "trim" ? await timeline.trim_clip.handler({ node_id: "v2", new_out_seconds: 15.015 + 1001 / 30000 }) : await timeline.set_clip_duration.handler({ node_id: "v2", duration_seconds: 10.01 + 1001 / 30000 });
+    expect(r).toMatchObject({ success: false, error: expect.stringMatching(/proposed.*over.*ticks/i) });
+    expect(h.video.map(c => c.snapshot())).toEqual(before);
+  });
+  it("refuses padding when the sequence frame grid is unreadable", async () => {
+    const h = padded(); h.seq.timebase = "unreadable";
+    expect(await tools.roll_edit.handler({ node_id: "v1", offset_seconds: 0.5005 })).toMatchObject({ success: false, error: expect.stringMatching(/frame grid/i) });
+  });
+});

@@ -1,6 +1,8 @@
 import { runInNewContext } from "node:vm";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+vi.mock("../../src/tools/media-evidence.js", () => ({ probeMediaDurationTicks: vi.fn().mockResolvedValue(100 * 254016000000) }));
+
 vi.mock("../../src/bridge/file-bridge.js", () => ({
   sendCommand: vi.fn().mockResolvedValue({ success: true, data: {} }),
 }));
@@ -25,7 +27,7 @@ const TPS = 254016000000;
 const FRAME = TPS / 25;
 const sec = (s: number) => String(Math.round(s * TPS));
 
-beforeEach(() => vi.clearAllMocks());
+beforeEach(() => { vi.clearAllMocks(); mockedSendCommand.mockResolvedValue({ success: true, data: {} }); });
 
 type EndWriter = (requestedTicks: number, clip: MockClip) => number;
 
@@ -97,6 +99,7 @@ function listOf<T>(items: T[]) {
 function sequenceWith(clips: MockClip[]) {
   const track = { clips: listOf(clips) };
   return {
+    sequenceID: "seq",
     timebase: String(FRAME),
     videoTracks: { numTracks: 1, 0: track },
     audioTracks: { numTracks: 0 },
@@ -105,15 +108,10 @@ function sequenceWith(clips: MockClip[]) {
 
 async function run(args: Record<string, unknown>, clips: MockClip[]) {
   mockedSendCommand.mockClear();
-  await timeline.set_clip_duration.handler(args as never);
-  expect(mockedSendCommand).toHaveBeenCalledTimes(1);
-  const script = mockedSendCommand.mock.calls[0][0] as string;
   function Time(this: { ticks: string }) { this.ticks = "0"; }
-  const output = runInNewContext(`${getHelpersSource()}\n${script}`, {
-    app: { project: { activeSequence: sequenceWith(clips) } },
-    Time,
-  });
-  return JSON.parse(String(output));
+  const context = { app: { project: { documentID: "project", activeSequence: sequenceWith(clips) } }, Time };
+  mockedSendCommand.mockImplementation(async script => JSON.parse(String(runInNewContext(`${getHelpersSource()}\n${script}`, context))));
+  return timeline.set_clip_duration.handler(args as never) as Promise<any>;
 }
 
 describe("set_clip_duration validation (#592)", () => {
@@ -261,7 +259,7 @@ describe("set_clip_duration host behavior", () => {
     const tooShort = await run({ node_id: "c1", end_seconds: 5.01 }, [clip]);
     expect(tooShort.error).toContain("at least one frame");
     const missing = await run({ node_id: "nope", duration_seconds: 3 }, [clip]);
-    expect(missing.error).toContain("Clip not found: nope");
+    expect(missing.error).toContain("Clip not found");
     expect(clip.writes).toEqual([]);
   });
 });

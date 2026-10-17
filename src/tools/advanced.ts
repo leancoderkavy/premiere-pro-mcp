@@ -108,7 +108,7 @@ export function getAdvancedTools(
 
     roll_edit: {
       description:
-        "Perform a verified roll edit at the outgoing cut of a clip using the public timeline DOM, moving both visible edges and their source in/out points and verifying all four. Linked audio/video partners get the same edit by default (include_linked); every clip is checked before any is changed. Requires readable finite media and ffprobe duration evidence for every edited source; refuses unknown duration, stills, and nonunit/reversed speed before mutation.",
+        "Perform a verified roll edit at the outgoing cut of a clip using the public timeline DOM, moving both visible edges and their source in/out points and verifying all four. Linked audio/video partners get the same edit by default (include_linked); every clip is checked before any is changed. Requires readable finite media and ffprobe duration evidence for every edited source; refuses unknown duration, stills, and nonunit/reversed speed before mutation. Existing host Out padding below one sequence frame may be preserved or reduced, but never used to create additional padding.",
       parameters: {
         type: "object" as const,
         properties: {
@@ -163,9 +163,8 @@ export function getAdvancedTools(
             var expectedOut = String(Math.round(parseFloat(beforeOut) + offsetTicks));
             var expectedIncomingIn = String(Math.round(parseFloat(beforeIncomingIn) + offsetTicks));
             if (!sourceEnds[String(result.clip.nodeId)] || !sourceEnds[String(outgoing.nodeId)]) return __editFail("Adjacent edit target changed after source inspection; nothing was changed.");
-            if (parseFloat(expectedOut) > sourceEnds[String(result.clip.nodeId)] || parseFloat(expectedIncomingIn) < 0 || parseFloat(expectedIncomingIn) >= parseFloat(outgoing.outPoint.ticks) || parseFloat(expectedOut) <= parseFloat(result.clip.inPoint.ticks)) {
-              return __editFail("The requested roll would exceed physical media duration or create an invalid source range. Nothing was changed.");
-            }
+            var rollWindowError = __sourceWindowError(result.clip, sourcePhysicalEnds[String(result.clip.nodeId)], parseFloat(result.clip.inPoint.ticks), parseFloat(expectedOut), "roll target") || __sourceWindowError(outgoing, sourcePhysicalEnds[String(outgoing.nodeId)], parseFloat(expectedIncomingIn), parseFloat(outgoing.outPoint.ticks), "roll neighbour");
+            if (rollWindowError) return __editFail(rollWindowError);
             if (checkOnly) return __editOk({ checked: true, affectedNodeIds: [String(result.clip.nodeId), String(outgoing.nodeId)] });
 
             var newCut = new Time();
@@ -221,7 +220,7 @@ export function getAdvancedTools(
 
     slide_edit: {
       description:
-        "Perform a verified slide edit on a clip using adjacent clips from the public timeline DOM. Linked audio/video partners get the same edit by default (include_linked); every clip is checked before any is changed. Requires readable finite media and ffprobe duration evidence for every edited source; refuses unknown duration, stills, and nonunit/reversed speed before mutation.",
+        "Perform a verified slide edit on a clip using adjacent clips from the public timeline DOM. Linked audio/video partners get the same edit by default (include_linked); every clip is checked before any is changed. Requires readable finite media and ffprobe duration evidence for every edited source; refuses unknown duration, stills, and nonunit/reversed speed before mutation. Existing host Out padding below one sequence frame may be preserved or reduced, but never used to create additional padding.",
       parameters: {
         type: "object" as const,
         properties: {
@@ -274,7 +273,8 @@ export function getAdvancedTools(
             var expectedPreviousOut = Math.round(parseFloat(previous.outPoint.ticks) + deltaTicks);
             var expectedFollowingIn = Math.round(parseFloat(following.inPoint.ticks) + deltaTicks);
             if (!sourceEnds[String(previous.nodeId)] || !sourceEnds[String(following.nodeId)] || !sourceEnds[String(result.clip.nodeId)]) return __editFail("Adjacent edit target changed after source inspection; nothing was changed.");
-            if (expectedPreviousOut > sourceEnds[String(previous.nodeId)]) return __editFail("The requested slide would exceed physical media duration; nothing was changed.");
+            var slideWindowError = __sourceWindowError(previous, sourcePhysicalEnds[String(previous.nodeId)], parseFloat(previousIn), expectedPreviousOut, "slide previous") || __sourceWindowError(following, sourcePhysicalEnds[String(following.nodeId)], expectedFollowingIn, parseFloat(followingOut), "slide following");
+            if (slideWindowError) return __editFail(slideWindowError);
             if (!isFinite(expectedPreviousOut) || !isFinite(expectedFollowingIn) || expectedFollowingIn < 0 ||
               expectedPreviousOut <= parseFloat(previousIn) || expectedFollowingIn >= parseFloat(followingOut)) {
               return __editFail("The requested slide would create an invalid adjacent source range. Nothing was changed.");
@@ -364,7 +364,7 @@ export function getAdvancedTools(
 
     slip_edit: {
       description:
-        "Perform a verified slip edit on a clip using public source in/out properties. Requires accessible physical media duration from ffprobe; unknown duration or linked partners using different source files refuse before mutation. Linked audio/video partners get the same edit by default (include_linked); every clip is checked before any is changed.",
+        "Perform a verified slip edit on a clip using public source in/out properties. Requires accessible physical media duration from ffprobe; unknown duration or linked partners using different source files refuse before mutation. Linked audio/video partners get the same edit by default (include_linked); every clip is checked before any is changed. Existing host Out padding below one sequence frame may be preserved or reduced, but never used to create additional padding.",
       parameters: {
         type: "object" as const,
         properties: {
@@ -423,9 +423,8 @@ export function getAdvancedTools(
         // SEC FORK (#712): the whole bound line is resolved Node-side (numbers
         // embedded) so the generated script never references Node variables.
         const slipMediaBound = `
-            if (newOutTicks > ${mediaDurationTicks}) {
-              return __editFail("The requested slip offset would move the source out point to " + (newOutTicks / TICKS_PER_SECOND) + "s, past this clip's real media duration of ${(mediaDurationTicks / 254016000000).toFixed(3)}s (ffprobe); slip was not attempted.");
-            }`;
+            var slipWindowError = __sourceWindowError(result.clip, ${mediaDurationTicks}, newInTicks, newOutTicks, "slip");
+            if (slipWindowError) return __editFail(slipWindowError);`;
         const script = buildToolScript(`
           var currentProjectId; var currentSequenceId;
           try { currentProjectId = app.project.documentID; currentSequenceId = app.project.activeSequence.sequenceID; } catch (contextError) {}

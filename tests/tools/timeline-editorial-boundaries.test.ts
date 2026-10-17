@@ -134,3 +134,21 @@ describe("camera tool session and token boundaries", () => {
     send.mockResolvedValueOnce(no("offline") as any); await expect(tools.inspect_timeline_snapshot.handler({ sequence_id: "s" })).rejects.toThrow("offline"); send.mockResolvedValueOnce(ok({ frame_duration_ticks: "0" }) as any); await expect(tools.inspect_timeline_snapshot.handler({ sequence_id: "s" })).rejects.toThrow("frame grid");
   });
 });
+
+
+describe("compound trim keeps existing terminal padding", () => {
+  function paddedPlan() {
+    const s = snapshot(); s.frame_rate = { numerator: 30000, denominator: 1001 };
+    Object.assign(s.clips[0], { in_ticks: sec(5.005), out_ticks: sec(15.015), end_ticks: sec(10.01), source_duration_ticks: sec(15) }); revise(s);
+    return { project_path: "/project.prproj", snapshot: s, steps: [{ tool: "trim_clip", clip_id: "clip", args: { node_id: "clip", new_in_seconds: 5.5055, include_linked: false } }] };
+  }
+  it("allows a trim inside the padded existing Out", () => { expect(() => validateExtendedEditPlan(paddedPlan())).not.toThrow(); });
+  it("refuses extending farther beyond the physical end", () => {
+    const p = paddedPlan(); p.steps[0].args = { node_id: "clip", new_out_seconds: 15.015 + 1001 / 30000, include_linked: false } as any;
+    expect(() => validateExtendedEditPlan(p)).toThrow("SOURCE_HANDLE_BOUNDARY");
+  });
+  it("refuses one full frame of existing padding", () => {
+    const p = paddedPlan(); p.snapshot.clips[0].out_ticks = sec(15 + 1001 / 30000); revise(p.snapshot);
+    expect(() => validateExtendedEditPlan(p)).toThrow(/exceeds source duration/);
+  });
+});

@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Fixed
+
+- Timeline roll, slide, slip, trim and duration edits retain Premiere’s existing terminal padding below one sequence frame without treating it as a new source handle. Existing padding of a full frame or more, unreadable grids and proposals beyond the existing padded end are refused before mutation, with exact overrun diagnostics.
+
 ## [1.24.1] - 2026-10-16
 
 ### Fixed

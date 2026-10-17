@@ -351,10 +351,10 @@ describe("PR #3 follow-ups — color_correct and export_sequence", () => {
     vi.mocked(sendCommand).mockResolvedValueOnce({ success: true, data: { projectId: "project", sequenceId: "seq", mediaPath: "C:/media/clip.mp4" } } as never);
     const trim = await scriptFor(getTimelineTools(bridgeOptions, { probeMediaDurationSeconds: async () => 5 }).trim_clip, { node_id: "clip-1", new_out_seconds: 39 });
     expect(trim).not.toContain("projectItem.getOutPoint()");
-    expect(trim).toContain("real media duration of 5.000s (ffprobe)");
+    expect(trim).toContain("__sourceWindowError(clip, 1270080000000,");
     vi.mocked(sendCommand).mockResolvedValueOnce({ success: true, data: { projectId: "project", sequenceId: "seq", mediaPath: "C:/media/clip.mp4" } } as never);
     const slip = await scriptFor(getAdvancedTools(bridgeOptions, { probeMediaDurationSeconds: async () => 10 }).slip_edit, { node_id: "clip-1", offset_seconds: 2 });
-    expect(slip).toContain("past this clip's real media duration of 10.000s (ffprobe)");
+    expect(slip).toContain("__sourceWindowError(result.clip, 2540160000000,");
   });
 
 
@@ -1771,8 +1771,8 @@ describe("#712 rework: media bound from real ffprobe duration (owner review)", (
     const tools = getTimelineTools(bridgeOptions, { probeMediaDurationSeconds: async () => 10 });
     await tools.trim_clip.handler({ node_id: "clip-1", new_out_seconds: 15 });
     const script = mockedSendCommand.mock.calls.at(-1)[0] as string;
-    expect(script).toContain("__secondsToTicks(targetOut) > 2540160000000");
-    expect(script).toContain('real media duration of 10.000s (ffprobe)');
+    expect(script).toContain("__sourceWindowError(clip, 2540160000000,");
+    expect(script).toContain('if (trimWindowError) return __editFail(trimWindowError)');
     expect(script).not.toContain("projectItem.getOutPoint()");
   });
 
@@ -1788,7 +1788,7 @@ describe("#712 rework: media bound from real ffprobe duration (owner review)", (
     const tools = getAdvancedTools(bridgeOptions, { probeMediaDurationSeconds: async () => 10 });
     await tools.slip_edit.handler({ node_id: "clip-1", offset_seconds: 2 });
     const script = mockedSendCommand.mock.calls.at(-1)[0] as string;
-    expect(script).toContain("past this clip's real media duration of 10.000s (ffprobe)");
+    expect(script).toContain("__sourceWindowError(result.clip, 2540160000000,");
   });
 });
 

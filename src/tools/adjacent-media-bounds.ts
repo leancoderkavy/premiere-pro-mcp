@@ -28,7 +28,7 @@ const strictLinkedPartners = `
 `;
 
 /** Read every edited source before probing, then bind the mutation to that snapshot. */
-export async function prepareAdjacentMediaBounds(options: BridgeOptions, nodeId: string, includeLinked: boolean, slide: boolean) {
+export async function prepareAdjacentMediaBounds(options: BridgeOptions, nodeId: string, includeLinked: boolean, slide: boolean, single = false) {
   const inspection = await sendCommand(buildToolScript(`
     var target = __findClip("${escapeForExtendScript(nodeId)}");
     if (!target) return __error("Clip not found");
@@ -45,7 +45,7 @@ export async function prepareAdjacentMediaBounds(options: BridgeOptions, nodeId:
     for (var ti = 0; ti < targets.length; ti++) {
       var current = targets[ti];
       var track = current.trackType === "video" ? seq.videoTracks[current.trackIndex] : seq.audioTracks[current.trackIndex];
-      var clips = [current.clip, track.clips[current.clipIndex + 1]];
+      var clips = ${single ? "[current.clip]" : "[current.clip, track.clips[current.clipIndex + 1]]"};
       ${slide ? 'clips.push(track.clips[current.clipIndex - 1]);' : ''}
       for (var ci = 0; ci < clips.length; ci++) {
         var clip = clips[ci];
@@ -78,6 +78,8 @@ export async function prepareAdjacentMediaBounds(options: BridgeOptions, nodeId:
   const durationTicks = new Map<string, number>();
   for (const entry of data.entries) {
     if (!durationTicks.has(entry.mediaPath)) {
+      const still = single && /\.(png|jpe?g|tiff?|psd|gif|bmp|tga|webp|heic|heif|exr|dpx|ai|eps)$/i.test(entry.mediaPath);
+      if (still) { durationTicks.set(entry.mediaPath, 0); continue; }
       const endTicks = await probeMediaDurationTicks(entry.mediaPath);
       if (endTicks === null || !Number.isSafeInteger(endTicks) || endTicks <= 0) return { success: false as const, error: "Physical media duration could not be verified. Install ffprobe and use readable finite media; nothing was changed." };
       durationTicks.set(entry.mediaPath, endTicks);
@@ -98,7 +100,7 @@ export async function prepareAdjacentMediaBounds(options: BridgeOptions, nodeId:
     var expectedLinkedIds = [${data.linkedNodeIds.map((id) => '"' + escapeForExtendScript(id) + '"').join(",")}];
     if (validatedPartners.length !== expectedLinkedIds.length) return __error("Linked membership changed during media inspection; nothing was changed.");
     for (var pi = 0; pi < validatedPartners.length; pi++) if (String(validatedPartners[pi].clip.nodeId) !== expectedLinkedIds[pi]) return __error("Linked membership changed during media inspection; nothing was changed.");` : ''}
-    var sourceEnds = {}, sourceDurationDrifts = [];
+    var sourceEnds = {}, sourcePhysicalEnds = {}, sourceDurationDrifts = [];
     for (var ei = 0; ei < sourceEvidence.length; ei++) {
       var evidence = sourceEvidence[ei], inspected = __findClip(evidence.nodeId);
       if (!inspected || __clipPositionKey(evidence.nodeId) !== evidence.position) return __error("Clip placement or source window changed during media inspection; nothing was changed.");
@@ -109,9 +111,12 @@ export async function prepareAdjacentMediaBounds(options: BridgeOptions, nodeId:
       var speed = null, reversed = null;
       try { speed = Number(inspected.clip.getSpeed()); reversed = inspected.clip.isSpeedReversed(); } catch (speedError) {}
       if ((speed !== 1 && speed !== 100) || (reversed !== false && reversed !== 0)) return __error("Clip speed changed or cannot be verified; nothing was changed.");
-      sourceEnds[evidence.nodeId] = evidence.endTicks;
+      sourcePhysicalEnds[evidence.nodeId] = evidence.endTicks;
+      ${single ? "if (evidence.endTicks === 0) { sourceEnds[evidence.nodeId] = null; continue; }" : ""}
       var existingIn = parseFloat(inspected.clip.inPoint.ticks), existingOut = parseFloat(inspected.clip.outPoint.ticks);
-      if (!isFinite(existingIn) || !isFinite(existingOut) || existingIn < 0 || existingOut <= existingIn || existingOut > evidence.endTicks) return __error("An existing source window is outside its physical media duration. Nothing was changed.");
+      var windowError = __sourceWindowError(inspected.clip, evidence.endTicks, null, null, "existing");
+      if (windowError) return __error(windowError);
+      sourceEnds[evidence.nodeId] = Math.max(evidence.endTicks, existingOut);
       var recordDuration = parseFloat(inspected.clip.end.ticks) - parseFloat(inspected.clip.start.ticks);
       var durationDriftTicks = recordDuration - (existingOut - existingIn);
       var durationDriftAllowed = Math.abs(durationDriftTicks) <= 1;
@@ -119,7 +124,7 @@ export async function prepareAdjacentMediaBounds(options: BridgeOptions, nodeId:
       if (!isFinite(durationFrameTicks)) return __error("The active sequence frame grid could not be read; no slide was attempted.");
       durationDriftAllowed = Math.abs(durationDriftTicks) <= durationFrameTicks / 2 || Math.abs(Math.abs(durationDriftTicks) - durationFrameTicks) <= 1;
       if (Math.abs(durationDriftTicks) > 1) sourceDurationDrifts.push({ nodeId: evidence.nodeId, timelineMinusSourceTicks: durationDriftTicks, timelineMinusSourceSeconds: __ticksToSeconds(durationDriftTicks), timelineMinusSourceFrames: durationDriftTicks / durationFrameTicks });` : ""}
-      if (!isFinite(recordDuration) || recordDuration <= 0 || !durationDriftAllowed) return __error("An existing normal-speed clip has inconsistent timeline/source duration. Nothing was changed.");
+      if (!isFinite(recordDuration) || recordDuration <= 0 || (!${single ? "true" : "false"} && !durationDriftAllowed)) return __error("An existing normal-speed clip has inconsistent timeline/source duration. Nothing was changed.");
     }
   ` };
 }

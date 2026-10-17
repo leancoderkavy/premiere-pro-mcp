@@ -52,7 +52,12 @@ export function validateSnapshot(value: unknown): TimelineSnapshot {
     const c = boundedObject(entry, ["id", "source_id", "track_id", "start_ticks", "end_ticks", "in_ticks", "out_ticks", "source_duration_ticks", "speed", "reversed", "enabled", "linked_ids", "identity", "effects", "nested"], "clip");
     for (const field of ["start_ticks", "end_ticks", "in_ticks", "out_ticks"]) ticks(c[field], field);
     if (ticks(c.end_ticks) <= ticks(c.start_ticks) || ticks(c.out_ticks) <= ticks(c.in_ticks) || ticks(c.start_ticks) < 0n || ticks(c.in_ticks) < 0n) throw new Error("clip ranges must be positive exclusive-end intervals");
-    if (c.source_duration_ticks !== null && ticks(c.source_duration_ticks) < ticks(c.out_ticks)) throw new Error("clip exceeds source duration");
+    if (c.source_duration_ticks !== null && ticks(c.source_duration_ticks) < ticks(c.out_ticks)) {
+      const padding = ticks(c.out_ticks) - ticks(c.source_duration_ticks);
+      const frame = ticks(frameToTicks("1", rate(raw.frame_rate as RationalRate)));
+      const speed = rate(c.speed as RationalRate);
+      if (raw.backend !== "cep" || c.identity !== "host" || c.reversed !== false || c.nested !== false || speed.numerator !== speed.denominator || ticks(c.in_ticks) >= ticks(c.source_duration_ticks) || padding >= frame) throw new Error(`Existing source window exceeds source duration by ${padding} ticks; only host padding below one sequence frame is allowed`);
+    }
     if (!["host", "synthetic"].includes(String(c.identity))) throw new Error("clip identity must be host or synthetic");
     const effects = array(c.effects, 256, "effects").map((effect): EffectDescriptor => {
       const e = boundedObject(effect, ["identity", "match_name", "display_name", "built_in", "parameters"], "effect");
@@ -102,8 +107,12 @@ export function sourceHandlePreflight(snapshot: TimelineSnapshot, clip: Timeline
   const i = ticks(proposedIn), o = ticks(proposedOut), s = ticks(proposedStart), e = ticks(proposedEnd);
   if (clip.source_duration_ticks === null && requireSourceDuration) throw new Error("SOURCE_DURATION_UNKNOWN: inserted or overwritten source ranges need a known source duration; inspect physical source handles before planning");
   if (clip.source_duration_ticks === null && (i < ticks(clip.in_ticks) || o > ticks(clip.out_ticks))) throw new Error("SOURCE_DURATION_UNKNOWN: a source duration is needed only to extend beyond the clip's current source range; inspect physical source handles before planning");
-  const sourceLimit = clip.source_duration_ticks === null ? ticks(clip.out_ticks) : ticks(clip.source_duration_ticks);
-  if (i < 0n || o > sourceLimit || o <= i || s < 0n || e <= s || e - s !== o - i) throw new Error("SOURCE_HANDLE_BOUNDARY: proposed range exceeds source or has inconsistent duration");
+  const physicalEnd = clip.source_duration_ticks === null ? null : ticks(clip.source_duration_ticks);
+  const originalOut = ticks(clip.out_ticks);
+  const frameTicks = ticks(frameToTicks("1", snapshot.frame_rate));
+  if (physicalEnd !== null && originalOut - physicalEnd >= frameTicks) throw new Error(`SOURCE_HANDLE_BOUNDARY: existing source window is over physical end by ${originalOut - physicalEnd} ticks, at least one sequence frame`);
+  const sourceLimit = physicalEnd === null || (!requireSourceDuration && originalOut > physicalEnd) ? originalOut : physicalEnd;
+  if (i < 0n || (physicalEnd !== null && i >= physicalEnd) || o > sourceLimit || o <= i || s < 0n || e <= s || e - s !== o - i) throw new Error("SOURCE_HANDLE_BOUNDARY: proposed range exceeds source or has inconsistent duration");
   if (snapshot.tracks.find(track => track.id === clip.track_id)?.type === "video" && e - s < ticks(frameToTicks("1", snapshot.frame_rate))) throw new Error("MINIMUM_VISIBLE_DURATION: edit would create a subframe video sliver");
   if (snapshot.clips.some(other => other.id !== clip.id && other.track_id === clip.track_id && ticks(other.start_ticks) < e && ticks(other.end_ticks) > s)) throw new Error("NEIGHBOR_OCCUPIED: edit would overlap another clip");
 }

@@ -75,6 +75,22 @@ function __sequenceFrameTicks(sequence) {
   return isFinite(ticks) && ticks > 0 ? ticks : NaN;
 }
 
+// Host padding at an existing media end is not an additional source handle.
+function __sourceWindowError(clip, physicalEnd, proposedIn, proposedOut, label) {
+  var frame = __sequenceFrameTicks(app.project.activeSequence);
+  if (!isFinite(frame)) return "The active sequence frame grid is unreadable; no source-window edit was attempted.";
+  var inside = parseFloat(clip.inPoint.ticks), outside = parseFloat(clip.outPoint.ticks);
+  var over = outside - physicalEnd;
+  if (!isFinite(physicalEnd) || physicalEnd <= 0 || !isFinite(inside) || !isFinite(outside) || inside < 0 || outside <= inside || inside >= physicalEnd) return "An existing source window for " + String(clip.nodeId) + " is invalid or unreadable; nothing was changed.";
+  if (over >= frame) return "An existing source window for " + String(clip.nodeId) + " is over its physical media end by " + over + " ticks (" + __ticksToSeconds(over) + "s), at least one sequence frame (" + frame + " ticks). Nothing was changed.";
+  var limit = Math.max(physicalEnd, outside);
+  if (proposedIn === null) proposedIn = inside;
+  if (proposedOut === null) proposedOut = outside;
+  if (!isFinite(proposedIn) || !isFinite(proposedOut) || proposedIn < 0 || proposedIn >= physicalEnd || proposedOut <= proposedIn) return "Proposed " + label + " source window is invalid (invalid adjacent source range); nothing was changed.";
+  if (proposedOut > limit) return "Proposed " + label + " source window would exceed physical media duration (real media duration limit), over its physical end by " + (proposedOut - physicalEnd) + " ticks (" + __ticksToSeconds(proposedOut - physicalEnd) + "s), exceeding existing padding by " + (proposedOut - limit) + " ticks. Nothing was changed.";
+  return null;
+}
+
 function __snapSequenceTicks(sequence, ticks) {
   var frameTicks = __sequenceFrameTicks(sequence);
   if (!isFinite(frameTicks)) throw new Error("the active sequence frame grid could not be read");
