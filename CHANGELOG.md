@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [Unreleased]
+
+### Fixed
+
+- Direct sequence exports now measure output duration before reporting verification; OMF exports reject empty output files, and still capture refuses stale destinations that cannot be removed.
+
 ## [1.24.1] - 2026-10-16
 
 ### Fixed

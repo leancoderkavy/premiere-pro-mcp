@@ -1,0 +1,13 @@
+import {beforeEach,expect,it,vi} from "vitest";
+vi.mock("../../src/bridge/file-bridge.js",()=>({sendCommand:vi.fn()}));
+vi.mock("../../src/tools/media-evidence.js",()=>({probeMediaDurationSeconds:vi.fn()}));
+import {sendCommand} from "../../src/bridge/file-bridge.js";
+import {probeMediaDurationSeconds} from "../../src/tools/media-evidence.js";
+import {getExportTools} from "../../src/tools/export.js";
+const tools=getExportTools({});
+beforeEach(()=>{vi.clearAllMocks();vi.mocked(sendCommand).mockResolvedValue({success:true,data:{exported:true,verified:true,outputPath:'/tmp/name "quoted".mov',expectedDurationSeconds:10,frameDurationSeconds:0.04}});});
+it('checks the exact host-returned file duration after direct export',async()=>{vi.mocked(probeMediaDurationSeconds).mockResolvedValue(10);const result=await tools.export_sequence.handler({output_path:'/tmp/request.mov'});expect(probeMediaDurationSeconds).toHaveBeenCalledWith('/tmp/name "quoted".mov');expect(result).toMatchObject({success:true,data:{durationVerified:true,actualDurationSeconds:10}});});
+it('never reports a truncated render as verified',async()=>{vi.mocked(probeMediaDurationSeconds).mockResolvedValue(2);expect(await tools.export_sequence.handler({output_path:'/tmp/request.mov'})).toMatchObject({success:false,error:expect.stringContaining('duration'),data:{exported:true,verified:false,durationVerified:false,outcome:'committed_unverified'}});});
+it('keeps a written artifact distinct from an unavailable duration probe',async()=>{vi.mocked(probeMediaDurationSeconds).mockResolvedValue(null);expect(await tools.export_sequence.handler({output_path:'/tmp/request.mov'})).toMatchObject({success:false,data:{exported:true,verified:false,durationVerified:false}});});
+it('does not probe a rejected host export',async()=>{vi.mocked(sendCommand).mockResolvedValue({success:false,error:'no file'});expect(await tools.export_sequence.handler({output_path:'/tmp/request.mov'})).toMatchObject({success:false});expect(probeMediaDurationSeconds).not.toHaveBeenCalled();});
+it('rejects an invalid expected duration receipt',async()=>{vi.mocked(sendCommand).mockResolvedValue({success:true,data:{exported:true,outputPath:'/tmp/out.mov',expectedDurationSeconds:-1}});expect(await tools.export_sequence.handler({output_path:'/tmp/request.mov'})).toMatchObject({success:false});});

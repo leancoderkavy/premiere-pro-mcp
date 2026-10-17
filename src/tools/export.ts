@@ -7,6 +7,7 @@ import { extname, join, resolve } from "node:path";
 import { tmpdir } from "node:os";
 import { promisify } from "node:util";
 import { gunzipSync } from "node:zlib";
+import { probeMediaDurationSeconds } from "./media-evidence.js";
 import { parseEbur128Summary } from "./audio.js";
 
 /**
@@ -953,7 +954,7 @@ export function getExportTools(bridgeOptions: BridgeOptions) {
 
     export_sequence: {
       description:
-        "Export the active sequence directly (Premiere renders it; blocks until done) with an Adobe Media Encoder preset. The output extension must match what the preset writes (an H.264 preset in AME's QuickTime folder writes .mov); a missing extension is added. Refuses an output_path that already exists unless overwrite is true. Fails if Premiere rejects the render, and verifies a non-empty file was written (for an overwrite, that the file changed). range 'work_area' fails closed unless the work area is enabled and covers only part of the sequence — otherwise Premiere would encode the entire timeline.",
+        "Export the active sequence directly (Premiere renders it; blocks until done) with an Adobe Media Encoder preset. The output extension must match what the preset writes (an H.264 preset in AME's QuickTime folder writes .mov); a missing extension is added. Refuses an output_path that already exists unless overwrite is true. Fails if Premiere rejects the render, verifies a non-empty file was written (for an overwrite, that the file changed), and checks its duration with ffprobe within one sequence frame. An unavailable or mismatched duration leaves a written artifact unverified. range 'work_area' fails closed unless the work area is enabled and covers only part of the sequence — otherwise Premiere would encode the entire timeline.",
       parameters: {
         type: "object" as const,
         properties: {
@@ -1097,10 +1098,23 @@ export function getExportTools(bridgeOptions: BridgeOptions) {
             extension: presetExtension || givenExtension, presetUsed: presetPath,
             range: "${range}",
             rangeStartSeconds: Math.round(rangeStart * 1000) / 1000,
-            expectedDurationSeconds: Math.round((rangeEnd - rangeStart) * 1000) / 1000
+            expectedDurationSeconds: Math.round((rangeEnd - rangeStart) * 1000) / 1000,
+            frameDurationSeconds: Number(seq.timebase) / TICKS_PER_SECOND
           });
         `);
-        return sendCommand(script, { ...bridgeOptions, timeoutMs: timeoutMinutes * 60000 });
+        const result = await sendCommand(script, { ...bridgeOptions, timeoutMs: timeoutMinutes * 60000 });
+        if (!result.success) return result;
+        const data = result.data as Record<string, unknown> | undefined;
+        const expected = data?.expectedDurationSeconds;
+        const frame = data?.frameDurationSeconds;
+        const tolerance = typeof frame === "number" && Number.isFinite(frame) && frame > 0 && frame <= 1 ? frame : null;
+        const actual = typeof data?.outputPath === "string" ? await probeMediaDurationSeconds(data.outputPath) : null;
+        const verified = typeof expected === "number" && Number.isFinite(expected) && expected > 0 && actual !== null && tolerance !== null && Math.abs(actual - expected) <= tolerance + 0.001;
+        return {
+          ...result, success: verified,
+          ...(verified ? {} : { error: "Export file duration could not be verified against the requested sequence range; inspect the written artifact before using it." }),
+          data: { ...data, verified, durationVerified: verified, actualDurationSeconds: actual, durationToleranceSeconds: tolerance === null ? null : tolerance + 0.001, outcome: verified ? "verified" : "committed_unverified" },
+        };
       },
     },
 
@@ -1990,7 +2004,7 @@ export function getExportTools(bridgeOptions: BridgeOptions) {
             ${args.handle_frames ?? 1000},
             ${args.include_pan === true ? 1 : 0}
           );
-          if (!outputFile.exists) return __error("Premiere did not write the requested OMF file.");
+          if (!outputFile.exists || !(outputFile.length > 0)) return __error("Premiere did not write the requested OMF file (non-empty output required).");
           
           return __result({ exported: true, outputPath: outputFile.fsName, format: "OMF", verified: true });
         `);

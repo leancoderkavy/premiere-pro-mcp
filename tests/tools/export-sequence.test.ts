@@ -6,6 +6,7 @@ import { runInNewContext } from "node:vm";
 import { getHelpersSource } from "../../src/bridge/script-builder.js";
 import type { BridgeOptions } from "../../src/bridge/file-bridge.js";
 
+vi.mock("../../src/tools/media-evidence.js", () => ({probeMediaDurationSeconds: vi.fn()}));
 vi.mock("../../src/bridge/file-bridge.js", () => ({
   sendCommand: vi.fn().mockResolvedValue({ success: true, data: {} }),
   sendRawCommand: vi.fn().mockResolvedValue({ success: true, data: {} }),
@@ -13,6 +14,7 @@ vi.mock("../../src/bridge/file-bridge.js", () => ({
   cleanupTempDir: vi.fn(),
 }));
 
+import { probeMediaDurationSeconds } from "../../src/tools/media-evidence.js";
 import { sendCommand } from "../../src/bridge/file-bridge.js";
 import { getExportTools } from "../../src/tools/export.js";
 
@@ -26,12 +28,14 @@ beforeEach(() => vi.clearAllMocks());
 
 /** QuickTime-folder preset: Premiere reports ".mov" and writes a MOV whatever the path says (live 25.2). */
 function host(options: { writes?: boolean; marks?: [number, number]; workArea?: [number | string, number | string] | "disabled" | "missing"; enabledState?: unknown; missingEnabled?: boolean; enabledThrows?: boolean; sequenceEnd?: string; returns?: unknown; existing?: string[] } = {}) {
+  vi.mocked(probeMediaDurationSeconds).mockImplementation(async () => options.marks ? options.marks[1] - options.marks[0] : Array.isArray(options.workArea) ? Number(options.workArea[1])-Number(options.workArea[0]) : 121.6);
   const written: string[] = [];
   const modes: number[] = [];
   // Files on disk: path -> [size, mtime]. A pre-existing file starts at 2048 bytes.
   const disk = new Map<string, [number, number]>((options.existing ?? []).map((path) => [path, [2048, 1000]]));
   let clock = 2000;
   const seq: Record<string, unknown> = {
+    timebase: String(254016000000 / 25),
     end: options.sequenceEnd ?? String(121.6 * 254016000000),
     getInPoint: () => options.marks?.[0] ?? 0,
     getOutPoint: () => options.marks?.[1] ?? 121.6,
@@ -66,6 +70,7 @@ writeFileSync(preset, "<PremiereData><ExporterFileType>1299148630</ExporterFileT
 
 describe("export_sequence", () => {
   it.each(["C:/Exports/final", "C:/Exports/final.mp4"])("passes native paths to Windows direct export for %s", async (outputPath) => {
+    vi.mocked(probeMediaDurationSeconds).mockResolvedValue(24);
     const nativePreset = "C:\\Presets\\H264.epr";
     const nativeOutput = "C:\\Exports\\final.mp4";
     const extension = vi.fn((path: string) => path === nativePreset ? "mp4" : undefined);
@@ -83,7 +88,7 @@ describe("export_sequence", () => {
     }
     mockedSendCommand.mockImplementation(async (script: string) => JSON.parse(String(runInNewContext(
       `${getHelpersSource()}\n${script}`,
-      { File, app: { project: { activeSequence: { end: String(24 * 254016000000), getExportFileExtension: extension, exportAsMediaDirect: render } }, encoder: { ENCODE_ENTIRE: 0 } } },
+      { File, app: { project: { activeSequence: { timebase: String(254016000000 / 25), end: String(24 * 254016000000), getExportFileExtension: extension, exportAsMediaDirect: render } }, encoder: { ENCODE_ENTIRE: 0 } } },
     ))));
 
     await expect(tools.export_sequence.handler({ output_path: outputPath, preset_path: preset })).resolves.toMatchObject({

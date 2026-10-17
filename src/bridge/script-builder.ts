@@ -1526,7 +1526,10 @@ function __exportStillFrame(outputPath, ticks) {
 
   // Clear any stale file (under either name) so that a file existing afterwards proves we wrote it.
   var stale = new File(outputPath);
-  if (stale.exists) { try { stale.remove(); } catch (e) {} }
+  if (stale.exists) {
+    try { stale.remove(); } catch (e) {}
+    if (new File(outputPath).exists) return { ok: false, error: "Could not remove the existing still output; no new frame was exported", notes: notes };
+  }
   var staleQe = new File(qePath);
   if (staleQe.exists) { try { staleQe.remove(); } catch (e) {} }
 
