@@ -4,6 +4,7 @@ import { getHelpersSource } from "../../src/bridge/script-builder.js";
 import type { BridgeOptions } from "../../src/bridge/file-bridge.js";
 
 vi.mock("../../src/bridge/file-bridge.js", () => ({
+  withBridgeWorkflow: (_options: unknown, work: () => unknown) => work(),
   sendCommand: vi.fn().mockResolvedValue({ success: true, data: {} }),
   sendRawCommand: vi.fn().mockResolvedValue({ success: true, data: {} }),
   getTempDir: vi.fn().mockReturnValue("/tmp/test"),

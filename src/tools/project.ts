@@ -3,7 +3,9 @@ import {
   buildToolScript,
   escapeForExtendScript,
 } from "../bridge/script-builder.js";
-import { sendCommand, BridgeOptions } from "../bridge/file-bridge.js";
+import { runWithExpectedProject, runWithExpectedHostTarget } from "../bridge/project-guard.js";
+import { runWithUndoTracking } from "../bridge/undo-tracking.js";
+import { sendCommand, withBridgeWorkflow, BridgeOptions } from "../bridge/file-bridge.js";
 import { applyScratchDisks } from "./scratch-disks.js";
 
 const PROJECT_PANEL_METADATA_MIN_CHARS = 256;
@@ -398,7 +400,7 @@ export function getProjectTools(bridgeOptions: BridgeOptions) {
 
     close_project: {
       description:
-        "Close an open Premiere Pro project: the active one, or the open project at project_path. Verifies it is no longer open and reports which project is active afterwards.",
+        "Close an open Premiere Pro project: the active one, or the open project at project_path. Captures the close reply without reading torn-down project objects, then verifies closure and the active project in a separate read-only call. An unreadable verification remains committed_unverified; a native close that never returns remains unknown.",
       parameters: {
         type: "object" as const,
         properties: {
@@ -419,25 +421,46 @@ export function getProjectTools(bridgeOptions: BridgeOptions) {
           : `var project = app.project; if (!project) return __error("No project is open");`;
         const script = buildToolScript(`
           ${lookup}
-          var name = project.name;
+          var name = String(project.name || "");
           var path = String(project.path || "");
-          // Closing leaves a different (or no) project active; no undo count applies.
+          var documentId = String(project.documentID || "");
+          if (!path && !documentId) return __error("Project identity is unreadable; nothing was closed.");
+          // No project-scoped object may be read after closeDocument returns.
           __undoStart = null;
           var closed = project.closeDocument(${save ? "1" : "0"}, 0);
-          if (__findOpenProject(path)) {
-            return __error("Premiere did not close " + path + (closed === false ? " (closeDocument returned false)" : "") + ".");
-          }
-          return __result({
-            closed: true,
-            verified: true,
-            name: name,
-            path: path,
-            saved: ${save},
-            activeProjectPath: app.project ? String(app.project.path || "") : null,
-            openProjects: __openProjectPaths()
-          });
+          return __jsonStringify({ success: true, data: { closeRequested: true, closed: null,
+            verified: false, outcome: "committed_unverified", name: name, path: path,
+            documentId: documentId, saved: ${save}, closeAccepted: closed === true ? true : (closed === false ? false : null) } });
         `);
-        return sendCommand(script, bridgeOptions);
+        return withBridgeWorkflow(bridgeOptions, async () => {
+          const result = await sendCommand(script, { ...bridgeOptions, mutating: true, mutationOnTimeout: true });
+          if (!result.success) return result;
+          const data = result.data as { closeRequested?: boolean; path?: string; documentId?: string };
+          if (data?.closeRequested !== true || typeof data.path !== "string" || typeof data.documentId !== "string") return result;
+          // Closure deliberately changes the active project. Only this read-only
+          // observation clears the old active-project and target guards.
+          const verification = runWithExpectedProject(undefined, () => runWithExpectedHostTarget(undefined, () => runWithUndoTracking(false, () => buildToolScript(`
+            var targetPath = "${escapeForExtendScript(data.path!)}", targetId = "${escapeForExtendScript(data.documentId!)}";
+            var projects = app.projects;
+            if (!projects || typeof projects.numProjects !== "number" || !isFinite(projects.numProjects) || projects.numProjects < 0 || Math.floor(projects.numProjects) !== projects.numProjects || projects.numProjects > 256) return __error("Open project collection is unreadable");
+            var paths = [], stillOpen = false;
+            for (var i = 0; i < projects.numProjects; i++) {
+              var candidate = projects[i], candidatePath = String(candidate.path || ""), candidateId = String(candidate.documentID || "");
+              paths.push(candidatePath);
+              if ((targetPath && __normProjectPath(candidatePath) === __normProjectPath(targetPath)) || (targetId && candidateId === targetId)) stillOpen = true;
+            }
+            var active = app.project;
+            return __result({ closed: !stillOpen, activeProjectPath: active ? String(active.path || "") : null, openProjects: paths });
+          `))));
+          let observed;
+          try { observed = await sendCommand(verification, { ...bridgeOptions, mutating: false, mutationOnTimeout: false, timeoutMs: Math.min(bridgeOptions.timeoutMs || 5000, 5000) }); }
+          catch (error) { observed = { success: false, error: String(error) }; }
+          if (!observed.success) return { success: true, data: { ...data, closed: null, verified: false, outcome: "committed_unverified", verificationError: observed.error || "Independent close verification unavailable" } };
+          const state = observed.data as { closed?: boolean; activeProjectPath?: string | null; openProjects?: string[] };
+          if (state?.closed !== true && state?.closed !== false) return { success: true, data: { ...data, closed: null, verified: false, outcome: "committed_unverified", verificationError: "Independent close verification returned no closure state" } };
+          const receipt = { ...data, ...state, verified: state.closed === true, outcome: state.closed ? "verified" : "failed" };
+          return state.closed ? { success: true, data: receipt } : { success: false, error: "Premiere still reports the requested project open.", data: receipt };
+        });
       },
     },
 

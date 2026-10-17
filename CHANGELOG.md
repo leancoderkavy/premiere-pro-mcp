@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Fixed
+
+- Project close replies no longer inspect project objects after closing them. Closure is verified in a separate bounded read-only call; unavailable verification reports an unknown closed state rather than treating a native return value as proof. The connector publishes replies before updating panel elements that may disappear during close.
+
 ## [1.24.1] - 2026-10-16
 
 ### Fixed

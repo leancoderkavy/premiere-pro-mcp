@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { BridgeOptions } from "../../src/bridge/file-bridge.js";
 
 vi.mock("../../src/bridge/file-bridge.js", () => ({
+  withBridgeWorkflow: (_options: unknown, work: () => unknown) => work(),
   sendCommand: vi.fn().mockResolvedValue({ success: true, data: { covered: true } }),
   sendRawCommand: vi.fn().mockResolvedValue({ success: true, data: { covered: true } }),
 }));

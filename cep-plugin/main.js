@@ -337,7 +337,6 @@ function processOneCommand(cmdFileName) {
     clearInterval(busyTimer);
     deleteFile(busyFilePath);
     commandCount++;
-    document.getElementById("cmdCount").textContent = commandCount;
 
     var response;
     try {
@@ -346,7 +345,6 @@ function processOneCommand(cmdFileName) {
         // Check if it's already valid JSON
         var parsed = JSON.parse(result);
         response = JSON.stringify(parsed);
-        log("Result: OK", "ok");
       } else {
         // An empty result means evalScript gave us nothing back. That is a bridge
         // failure, not a successful command with no data — reporting it as "OK" is
@@ -359,7 +357,6 @@ function processOneCommand(cmdFileName) {
             "). The script may not have run. If every command does this, the CEP panel is stale — " +
             "close and reopen it (a reload is not enough), or reinstall the extension.",
         });
-        log("Result: EMPTY — evalScript returned nothing (see response file)", "err");
       }
     } catch (e) {
       // If result isn't JSON, wrap it
@@ -372,15 +369,22 @@ function processOneCommand(cmdFileName) {
             ? "Premiere could not run the generated script (" + result + "). No result was produced; treat the command as failed."
             : result,
         });
-        log("Result: " + result, "err");
       } else {
         response = JSON.stringify({ success: true, data: result });
-        log("Result: OK (raw)", "ok");
       }
     }
 
-    writeResponseFile(resFilePath, response);
-    commandInFlight = false;
+    // Publish the reply before touching panel UI that may disappear on close.
+    try {
+      writeResponseFile(resFilePath, response);
+    } finally {
+      commandInFlight = false;
+    }
+    try {
+      var countElement = document.getElementById("cmdCount");
+      if (countElement) countElement.textContent = commandCount;
+      log("Result received", "ok");
+    } catch (panelUiError) {}
     // Continue without waiting for the next poll interval, preserving FIFO
     // ordering while minimizing queue handoff latency.
     if (bridgeRunning) processCommands();
