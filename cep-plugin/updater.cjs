@@ -9,7 +9,7 @@
 
   var CURRENT_VERSION = "1.24.3";
   var PACKAGE_NAME = "premiere-pro-mcp";
-  var LATEST_PACKAGE_API = "https://registry.npmjs.org/" + PACKAGE_NAME;
+  var LATEST_PACKAGE_API = "https://registry.npmjs.org/" + PACKAGE_NAME + "/latest";
   var LATEST_RELEASE_API =
     "https://api.github.com/repos/leancoderkavy/premiere-pro-mcp/releases/latest";
   var RELEASES_URL =
@@ -40,7 +40,7 @@
       throw new Error("The npm registry returned an invalid package record.");
     }
     var tags = record["dist-tags"];
-    var latest = tags && tags.latest;
+    var latest = (tags && tags.latest) || record.version;
     var version = normalizeVersion(latest);
     if (!version || !/^\d+\.\d+\.\d+$/.test(version)) {
       throw new Error("The npm registry did not provide a valid latest version.");
