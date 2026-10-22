@@ -41,12 +41,18 @@ describe("CEP connector updater", () => {
       "dist-tags": { latest: "v1.14.8" },
     });
 
-    expect(updater.LATEST_PACKAGE_API).toBe("https://registry.npmjs.org/premiere-pro-mcp");
+    expect(updater.LATEST_PACKAGE_API).toBe("https://registry.npmjs.org/premiere-pro-mcp/latest");
     expect(update).toEqual({
       currentVersion: "1.14.7",
       latestVersion: "1.14.8",
       updateAvailable: true,
     });
+    expect(updater.updateStateFromPackageRecord("1.14.8", { version: "1.14.8" })).toEqual({
+      currentVersion: "1.14.8",
+      latestVersion: "1.14.8",
+      updateAvailable: false,
+    });
+    expect(() => updater.latestPackageVersion({ version: "nightly" })).toThrow("valid latest version");
     expect(() => updater.latestPackageVersion({ "dist-tags": { latest: "nightly" } }))
       .toThrow("valid latest version");
   });
