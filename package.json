@@ -227,12 +227,12 @@
     "node": ">=20.19.0"
   },
   "dependencies": {
-    "@posthog/core": "1.58.1",
-    "@posthog/types": "1.415.3",
+    "@posthog/core": "1.59.1",
+    "@posthog/types": "1.416.0",
     "@modelcontextprotocol/node": "^2.1.0",
     "@modelcontextprotocol/server": "^2.0.0",
     "jose": "^6.2.10",
-    "posthog-node": "5.55.3",
+    "posthog-node": "5.56.2",
     "ws": "^8.22.0",
     "zod": "^4.4.3"
   },
