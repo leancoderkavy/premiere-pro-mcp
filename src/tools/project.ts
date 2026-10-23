@@ -569,7 +569,7 @@ export function getProjectTools(bridgeOptions: BridgeOptions) {
 
     delete_bin: {
       description:
-        "Delete a bin (folder) and everything inside it from the project panel, and read back that it is gone. Deleting a bin also removes its media's clips from every sequence, so a bin whose contents are used on a timeline is refused unless confirm_remove_from_sequences is true; the refusal lists the sequences and tracks (see find_item_usages). Bins holding offline media are refused unless allow_offline is true.",
+        "Delete a bin (folder) and everything inside it from the project panel, and read back that it is gone. Deleting a bin also removes its media's clips from every sequence and deletes sequences stored in the bin, so a bin whose contents are used on a timeline — including a Sequences bin whose media lives elsewhere — is refused unless confirm_remove_from_sequences is true; the refusal lists the sequences and tracks (see find_item_usages). Bins holding offline media are refused unless allow_offline is true.",
       parameters: {
         type: "object" as const,
         properties: {
