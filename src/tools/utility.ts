@@ -233,7 +233,7 @@ export function getUtilityTools(bridgeOptions: BridgeOptions) {
       description:
         "Delete a project item (bin, sequence, clip or file) from the project panel and read back that it is gone. " +
         "organize_project_items_uxp with action 'remove' (authenticated UXP bridge) is the preferred, documented route. This CEP fallback deletes a clip or file by moving it into a temporary bin and deleting that bin, which cannot be undone here. " +
-        "Deleting media also removes its clips from every sequence, so an item (or a bin whose contents are) used on a timeline is refused unless confirm_remove_from_sequences is true.",
+        "Deleting media also removes its clips from every sequence, so an item (or a bin whose contents are) used on a timeline is refused unless confirm_remove_from_sequences is true. A sequence nested on another timeline is refused the same way.",
       parameters: {
         type: "object" as const,
         properties: {
@@ -272,14 +272,16 @@ export function getUtilityTools(bridgeOptions: BridgeOptions) {
           }
 
           var usage = { clips: 0, sequences: [] };
-          if (!sequence && (item.type === 1 || item.type === 2 || item.type === 4)) {
+          if (item.type === 1 || item.type === 2 || item.type === 4) {
             usage = __projectItemUsage(item);
             if (usage.clips > 0 && ${args.confirm_remove_from_sequences === true ? "false" : "true"}) {
               return __jsonStringify({ success: false, error: name + (item.type === 2 ? " holds media used by " : " is used by ") + usage.clips + " timeline clip(s) in " + usage.sequences.join(", ") + ". Deleting it would remove those clips too, and this cannot be undone here, so nothing was deleted. Remove the clips first, or pass confirm_remove_from_sequences: true.", data: { code: "ITEM_IN_USE", usages: usage.details } });
             }
-            var offline = __offlineItemsIn(item);
-            if (offline.length > 0 && ${args.allow_offline === true ? "false" : "true"}) {
-              return __jsonStringify({ success: false, error: (item.type === 2 ? name + " holds offline media: " : "Offline media: ") + offline.join(", ") + ". Premiere can open a modal while deleting missing media, which blocks the bridge, so nothing was deleted. Use organize_project_items_uxp with action 'remove', delete it in the Project panel, or pass allow_offline: true.", data: { code: "ITEM_OFFLINE", offlineItems: offline } });
+            if (!sequence) {
+              var offline = __offlineItemsIn(item);
+              if (offline.length > 0 && ${args.allow_offline === true ? "false" : "true"}) {
+                return __jsonStringify({ success: false, error: (item.type === 2 ? name + " holds offline media: " : "Offline media: ") + offline.join(", ") + ". Premiere can open a modal while deleting missing media, which blocks the bridge, so nothing was deleted. Use organize_project_items_uxp with action 'remove', delete it in the Project panel, or pass allow_offline: true.", data: { code: "ITEM_OFFLINE", offlineItems: offline } });
+              }
             }
           }
           if (item.type === 2) {
@@ -308,7 +310,7 @@ export function getUtilityTools(bridgeOptions: BridgeOptions) {
 
     find_item_usages: {
       description:
-        "Read-only: list where project items are used on timelines, as sequence name/ID, track type/index and clip count. A bin counts everything inside it, because deleting a bin deletes its contents and their timeline clips. Run this before deleting or reorganizing bins, especially after import_fcp_xml, which can reuse existing project items for its sequences. Also reports offline (missing-media) items inside each target.",
+        "Read-only: list where project items are used on timelines, as sequence name/ID, track type/index and clip count. A bin counts everything inside it, including sequences stored there (every clip on those timelines), because deleting a bin deletes those sequences even when their media lives in another bin. Run this before deleting or reorganizing bins, especially after import_fcp_xml, which can reuse existing project items for its sequences. Also reports offline (missing-media) items inside each target.",
       parameters: {
         type: "object" as const,
         properties: {
@@ -357,7 +359,7 @@ export function getUtilityTools(bridgeOptions: BridgeOptions) {
       description:
         "Delete several project items (bins, sequences, clips or files) and read back that each is gone. Every item is checked before any is deleted. " +
         "organize_project_items_uxp with action 'remove' (authenticated UXP bridge) is the preferred, documented route; this CEP fallback deletes clips and files through a temporary bin, which cannot be undone here. " +
-        "Items (or bins whose contents are) used on a timeline are refused unless confirm_remove_from_sequences is true.",
+        "Items (or bins whose contents are) used on a timeline are refused unless confirm_remove_from_sequences is true. Nested sequences count as in use on the parent timeline.",
       parameters: {
         type: "object" as const,
         properties: {
@@ -402,14 +404,16 @@ export function getUtilityTools(bridgeOptions: BridgeOptions) {
                 "No project items were deleted; use organize_project_items_uxp with action 'remove' for generic project-item deletion."
               );
             }
-            if (!sequence) {
+            if (item.type === 2 || item.type === 1 || item.type === 4) {
               var itemUsage = __projectItemUsage(item);
               if (itemUsage.clips > 0 && ${args.confirm_remove_from_sequences === true ? "false" : "true"}) {
                 return __jsonStringify({ success: false, error: item.name + (item.type === 2 ? " holds media used by " : " is used by ") + itemUsage.clips + " timeline clip(s) in " + itemUsage.sequences.join(", ") + ". Deleting it would remove those clips too, and this cannot be undone here. No project items were deleted; pass confirm_remove_from_sequences: true to delete anyway.", data: { code: "ITEM_IN_USE", item: String(item.name), usages: itemUsage.details } });
               }
-              var offlineItems = __offlineItemsIn(item);
-              if (offlineItems.length > 0 && ${args.allow_offline === true ? "false" : "true"}) {
-                return __jsonStringify({ success: false, error: "Offline media in " + item.name + ": " + offlineItems.join(", ") + ". Premiere can open a modal while deleting missing media, which blocks the bridge. No project items were deleted; use organize_project_items_uxp with action 'remove', the Project panel, or pass allow_offline: true.", data: { code: "ITEM_OFFLINE", item: String(item.name), offlineItems: offlineItems } });
+              if (!sequence) {
+                var offlineItems = __offlineItemsIn(item);
+                if (offlineItems.length > 0 && ${args.allow_offline === true ? "false" : "true"}) {
+                  return __jsonStringify({ success: false, error: "Offline media in " + item.name + ": " + offlineItems.join(", ") + ". Premiere can open a modal while deleting missing media, which blocks the bridge. No project items were deleted; use organize_project_items_uxp with action 'remove', the Project panel, or pass allow_offline: true.", data: { code: "ITEM_OFFLINE", item: String(item.name), offlineItems: offlineItems } });
+                }
               }
             }
             planned.push({ nodeId: String(item.nodeId), name: item.name, item: item, sequence: sequence });

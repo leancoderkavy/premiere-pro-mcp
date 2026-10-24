@@ -22,7 +22,7 @@ type Result = { success: boolean; error?: string; data?: Record<string, unknown>
 beforeEach(() => vi.clearAllMocks());
 
 /** Project with a root bin holding a used clip (on a timeline) and an unused Bars item. */
-function project(options: { startTimeWritable?: boolean; existingBin?: string; deleteBinNoop?: boolean; frameTicks?: number; offlineBars?: boolean; usedInBin?: boolean } = {}) {
+function project(options: { startTimeWritable?: boolean; existingBin?: string; deleteBinNoop?: boolean; frameTicks?: number; offlineBars?: boolean; usedInBin?: boolean; sequenceInBin?: boolean; nestSequence?: boolean } = {}) {
   let startTicks = 0;
   type Node = { nodeId: string; name: string; type: number; children?: { numItems: number; [i: number]: Node }; parent?: Node };
   const makeBin = (nodeId: string, name: string): Node => ({ nodeId, name, type: 2, children: { numItems: 0 } });
@@ -52,9 +52,24 @@ function project(options: { startTimeWritable?: boolean; existingBin?: string; d
   };
   if (options.existingBin) add(root, makeBin("user-bin", options.existingBin));
   const timelineClip = { projectItem: used, name: used.name };
-  const seq = { name: "Edit", timebase: String(options.frameTicks ?? 254016000000 / 25), videoTracks: { numTracks: 1, 0: { clips: { numItems: 1, 0: timelineClip } } }, audioTracks: { numTracks: 0 }, projectItem: { nodeId: "seqitem" } };
+  const seqItem = { nodeId: "seqitem", name: "Edit", type: 1, isSequence: () => true } as Node & Record<string, unknown>;
+  if (options.sequenceInBin) {
+    const sequencesBin = makeBin("seqbin", "Sequences") as Node & Record<string, unknown>;
+    sequencesBin.deleteBin = () => remove(root, sequencesBin);
+    add(root, sequencesBin);
+    add(sequencesBin, seqItem);
+  } else if (options.nestSequence) {
+    add(root, seqItem);
+  }
+  const seq = { name: "Edit", sequenceID: "edit-seq", timebase: String(options.frameTicks ?? 254016000000 / 25), videoTracks: { numTracks: 1, 0: { clips: { numItems: 1, 0: timelineClip } } }, audioTracks: { numTracks: 0 }, projectItem: seqItem };
+  const sequences: { numSequences: number; [i: number]: typeof seq } = { numSequences: 1, 0: seq };
+  if (options.nestSequence) {
+    const nestClip = { projectItem: seqItem, name: "Edit" };
+    sequences[1] = { name: "Master", sequenceID: "master-seq", timebase: seq.timebase, videoTracks: { numTracks: 1, 0: { clips: { numItems: 1, 0: nestClip } } }, audioTracks: { numTracks: 0 }, projectItem: { nodeId: "masteritem" } };
+    sequences.numSequences = 2;
+  }
   mockedSendCommand.mockImplementation(async (script: string) => JSON.parse(String(runInNewContext(`${getHelpersSource()}\n${script}`, {
-    app: { project: { rootItem: root, sequences: { numSequences: 1, 0: seq }, activeSequence: seq } },
+    app: { project: { rootItem: root, sequences, activeSequence: seq } },
     // A fixed clock, so the temporary bin name ("mcp-delete-1000") is predictable.
     Date: function FixedDate(this: { getTime: () => number }) { this.getTime = () => 1000; },
     Time: function Time(this: { ticks: string; seconds: number }) { let s = 0; Object.defineProperty(this, "seconds", { get: () => s, set: (v: number) => { s = v; } }); Object.defineProperty(this, "ticks", { get: () => String(Math.round(s * 254016000000)) }); },
@@ -175,6 +190,32 @@ describe("timeline-usage and offline guards", () => {
     await expect(getProjectTools(bridgeOptions).delete_bin.handler({ bin_id: "Old Bin", confirm_remove_from_sequences: true }))
       .resolves.toMatchObject({ success: true, data: { deleted: true, verified: true, timelineClipsRemoved: 1, sequencesChanged: ["Edit"] } });
     expect(names()).not.toContain("Old Bin");
+  });
+
+  it("delete_bin refuses a Sequences bin whose media lives in another bin", async () => {
+    const { names } = project({ sequenceInBin: true });
+    const listed = await getUtilityTools(bridgeOptions).find_item_usages.handler({ item_ids: ["Sequences"] }) as Result;
+    expect(listed).toMatchObject({
+      success: true,
+      data: { usedItems: 1, safeToDelete: false, items: [{ name: "Sequences", used: true, timelineClips: 1, sequences: [{ sequence: "Edit" }] }] },
+    });
+    const result = await getProjectTools(bridgeOptions).delete_bin.handler({ bin_id: "Sequences" }) as Result;
+    expect(result.success).toBe(false);
+    expect(result.error).toMatch(/holds media used by 1 timeline clip\(s\) in Edit/);
+    expect(result.data).toMatchObject({ code: "ITEM_IN_USE", usages: [{ sequence: "Edit", tracks: [{ type: "video", index: 0 }] }] });
+    expect(names()).toContain("Sequences");
+  });
+
+  it("delete_project_item refuses a sequence nested on another timeline", async () => {
+    const { names } = project({ nestSequence: true });
+    const result = await getUtilityTools(bridgeOptions).delete_project_item.handler({ item_id: "seqitem" }) as Result;
+    expect(result.success).toBe(false);
+    expect(result.error).toMatch(/used by 1 timeline clip\(s\) in Master/);
+    expect(result.data).toMatchObject({ code: "ITEM_IN_USE" });
+    expect(names()).toContain("Edit");
+    await expect(getUtilityTools(bridgeOptions).delete_multiple_project_items.handler({ item_ids: ["bars", "seqitem"] }))
+      .resolves.toMatchObject({ success: false, error: expect.stringContaining("No project items were deleted") });
+    expect(names()).toEqual(expect.arrayContaining(["Interview A.mp4", "Bars 1080p", "Edit"]));
   });
 
   it("refuses offline media unless allow_offline is true", async () => {

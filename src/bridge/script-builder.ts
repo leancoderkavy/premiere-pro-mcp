@@ -797,10 +797,19 @@ function __projectItemUsage(item) {
     }
   };
   collect(item);
+  var queryId = String(item.nodeId);
   var usage = { clips: 0, sequences: [], details: [] };
   for (var sq = 0; sq < app.project.sequences.numSequences; sq++) {
     var sequenceInUse = app.project.sequences[sq];
     var detail = { sequence: String(sequenceInUse.name), sequenceId: String(sequenceInUse.sequenceID), clips: 0, tracks: [] };
+    var sequenceItemId = "";
+    try {
+      if (sequenceInUse.projectItem) sequenceItemId = String(sequenceInUse.projectItem.nodeId);
+    } catch (eSeqItem) {}
+    // A sequence stored in the queried bin is deleted with the bin, including
+    // every clip on it. Those clips usually point at media in another bin, so
+    // matching only wanted media node IDs would miss the entire timeline.
+    var countAllClips = sequenceItemId !== "" && wanted[sequenceItemId] && sequenceItemId !== queryId;
     var groups = [sequenceInUse.videoTracks, sequenceInUse.audioTracks];
     for (var g = 0; g < groups.length; g++) {
       for (var t = 0; t < groups[g].numTracks; t++) {
@@ -808,7 +817,8 @@ function __projectItemUsage(item) {
         var onTrack = 0;
         for (var c = 0; c < trackClips.numItems; c++) {
           try {
-            if (trackClips[c].projectItem && wanted[String(trackClips[c].projectItem.nodeId)]) onTrack++;
+            if (countAllClips) onTrack++;
+            else if (trackClips[c].projectItem && wanted[String(trackClips[c].projectItem.nodeId)]) onTrack++;
           } catch (eUse) {}
         }
         if (onTrack > 0) {

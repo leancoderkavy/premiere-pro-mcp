@@ -9,6 +9,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ### Fixed
 
 - MCP Registry publication preflight looks up the exact server's latest record instead of depending on registry-wide search. Published npm identity checks, bounded retries and the workflow's separate immutable-version verification remain required.
+- `delete_bin` and `find_item_usages` now treat a sequence stored in the target bin as in use when that sequence has clips, even if the media lives in another bin. The previous usage walk only matched clip `projectItem` node IDs, so a Sequences bin could be deleted and take every timeline with it. `delete_project_item` and `delete_multiple_project_items` also refuse a sequence that is nested on another timeline unless `confirm_remove_from_sequences` is true.
 
 ## [1.24.3] - 2026-10-21
 

@@ -56,8 +56,10 @@ project state, make only requested changes, and verify the timeline after mutati
   is still running or already succeeded.
 - Before deleting or reorganizing bins, run `find_item_usages`. After
   `import_fcp_xml` into an open project, check its `reusedItems`: the new
-  sequences may use items in an old bin. Delete tools refuse used or offline
-  media; pass `confirm_remove_from_sequences` or `allow_offline` only with the
+  sequences may use items in an old bin. A Sequences bin is in use when the
+  sequences inside it have clips, even if the media lives elsewhere. Delete
+  tools refuse used or offline media, contained sequences, and nested
+  sequences; pass `confirm_remove_from_sequences` or `allow_offline` only with the
   user's explicit approval.
 
 ## Apply changes safely
