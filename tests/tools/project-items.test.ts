@@ -15,6 +15,7 @@ import { getTrackTargetingTools } from "../../src/tools/track-targeting.js";
 import { getMediaTools } from "../../src/tools/media.js";
 import { getUtilityTools } from "../../src/tools/utility.js";
 import { getProjectTools } from "../../src/tools/project.js";
+import { getSequenceTools } from "../../src/tools/sequence.js";
 
 const mockedSendCommand = vi.mocked(sendCommand);
 const bridgeOptions: BridgeOptions = { tempDir: "/tmp/project-items", timeoutMs: 5000 };
@@ -68,8 +69,16 @@ function project(options: { startTimeWritable?: boolean; existingBin?: string; d
     sequences[1] = { name: "Master", sequenceID: "master-seq", timebase: seq.timebase, videoTracks: { numTracks: 1, 0: { clips: { numItems: 1, 0: nestClip } } }, audioTracks: { numTracks: 0 }, projectItem: { nodeId: "masteritem" } };
     sequences.numSequences = 2;
   }
+  const deleteSequence = (target: typeof seq) => {
+    const remaining: Array<typeof seq> = [];
+    for (let i = 0; i < sequences.numSequences; i++) if (sequences[i] !== target) remaining.push(sequences[i]);
+    for (let i = 0; i < sequences.numSequences; i++) delete sequences[i];
+    remaining.forEach((entry, index) => { sequences[index] = entry; });
+    sequences.numSequences = remaining.length;
+    return true;
+  };
   mockedSendCommand.mockImplementation(async (script: string) => JSON.parse(String(runInNewContext(`${getHelpersSource()}\n${script}`, {
-    app: { project: { rootItem: root, sequences, activeSequence: seq } },
+    app: { project: { rootItem: root, sequences, activeSequence: seq, deleteSequence } },
     // A fixed clock, so the temporary bin name ("mcp-delete-1000") is predictable.
     Date: function FixedDate(this: { getTime: () => number }) { this.getTime = () => 1000; },
     Time: function Time(this: { ticks: string; seconds: number }) { let s = 0; Object.defineProperty(this, "seconds", { get: () => s, set: (v: number) => { s = v; } }); Object.defineProperty(this, "ticks", { get: () => String(Math.round(s * 254016000000)) }); },
@@ -216,6 +225,21 @@ describe("timeline-usage and offline guards", () => {
     await expect(getUtilityTools(bridgeOptions).delete_multiple_project_items.handler({ item_ids: ["bars", "seqitem"] }))
       .resolves.toMatchObject({ success: false, error: expect.stringContaining("No project items were deleted") });
     expect(names()).toEqual(expect.arrayContaining(["Interview A.mp4", "Bars 1080p", "Edit"]));
+  });
+
+  it("delete_sequence refuses a nested sequence and deletes an unused one", async () => {
+    const nested = project({ nestSequence: true });
+    const refused = await getSequenceTools(bridgeOptions).delete_sequence.handler({ sequence_id: "Edit" }) as Result;
+    expect(refused.success).toBe(false);
+    expect(refused.error).toMatch(/used by 1 timeline clip\(s\) in Master/);
+    expect(refused.data).toMatchObject({ code: "ITEM_IN_USE", usages: [{ sequence: "Master", tracks: [{ type: "video", index: 0 }] }] });
+    expect(nested.names()).toContain("Edit");
+    await expect(getSequenceTools(bridgeOptions).delete_sequence.handler({ sequence_id: "Edit", confirm_remove_from_sequences: true }))
+      .resolves.toMatchObject({ success: true, data: { deleted: true, verified: true, timelineClipsRemoved: 1, sequencesChanged: ["Master"] } });
+
+    project();
+    await expect(getSequenceTools(bridgeOptions).delete_sequence.handler({ sequence_id: "edit-seq" }))
+      .resolves.toMatchObject({ success: true, data: { deleted: true, verified: true, name: "Edit", id: "edit-seq", timelineClipsRemoved: 0 } });
   });
 
   it("refuses offline media unless allow_offline is true", async () => {

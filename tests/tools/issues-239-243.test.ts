@@ -492,6 +492,8 @@ describe("issue #240 — legacy structural tools verify or refuse the operation"
 
     const sequenceScript = await scriptFor(sequence.delete_sequence, { sequence_id: "sequence-1" });
     expect(sequenceScript).toContain("var seq = __findSequence");
+    expect(sequenceScript).toContain("__projectItemUsage(item)");
+    expect(sequenceScript).toContain("confirm_remove_from_sequences");
     expect(sequenceScript).toContain("if (__findSequence(sequenceId))");
   });
 

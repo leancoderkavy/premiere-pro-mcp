@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Fixed
+
+- `delete_sequence` now refuses a sequence nested on another timeline unless `confirm_remove_from_sequences` is true, matching `delete_project_item`. The previous handler called `project.deleteSequence` immediately, so cleaning up an old cut that was still nested on a master timeline dropped or orphaned those clips with no warning.
+
 ## [1.24.4] - 2026-10-23
 
 ### Fixed
