@@ -179,9 +179,10 @@ describe("create_source_freeze_frame", () => {
   it("escapes the item id and paths in the generated scripts", async () => {
     const { scripts } = host();
     const { run } = tool();
-    await run({ source_item_id: 'Interview "A".mov', source_time_seconds: 0, output_path: join(dir, 'q"uote.png') });
+    await run({ source_item_id: 'Interview "A".mov', source_time_seconds: 0, output_path: join(dir, "q'uote.png") });
     expect(scripts[0]).toContain('Interview \\"A\\".mov');
-    expect(scripts[1]).toContain('q\\"uote.png');
+    // An apostrophe, not a double quote: Windows file names cannot contain ".
+    expect(scripts[1]).toContain("q\\'uote.png");
     expect(scripts[1]).not.toMatch(/=>|\blet\b|\bconst\b|`/);
   });
 

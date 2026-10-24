@@ -188,7 +188,7 @@ describe("retime_caption_file: edit_cue", () => {
     expect((await run({ operation: "edit_cue", content: SRT, cue_index: 1 })).error).toMatch(/at least one/);
     expect((await run({ operation: "edit_cue", content: SRT, cue_index: 1, end_seconds: 0.5 })).error).toMatch(/must end after it starts/);
     expect((await run({ operation: "edit_cue", content: SRT, cue_index: 1, text: "a\n\nb" })).error).toMatch(/blank lines/);
-    expect((await run({ operation: "edit_cue", content: SRT, cue_index: 1, text: "a --> b" })).error).toMatch(/-->/);
+    expect((await run({ operation: "edit_cue", content: SRT, cue_index: 1, text: "a --> b" })).error).toContain("-->");
     expect((await run({ operation: "edit_cue", content: SRT, cue_index: 1, text: "   " })).error).toMatch(/non-blank/);
     expect((await run({ operation: "edit_cue", content: SRT, cue_index: 1, text: "x".repeat(2001) })).error).toMatch(/at most 2000/);
     expect((await run({ operation: "edit_cue", content: SRT, cue_index: 1, text: 5 })).error).toMatch(/text must be a string/);
