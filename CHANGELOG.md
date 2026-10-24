@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [1.25.0] - 2026-10-24
+
 ### Added
 
 - Every state-changing tool accepts an optional `idempotency_key` (1-128 chars of `A-Z a-z 0-9 . _ : -`). Retrying the same tool with the same key and arguments no longer applies the edit twice: while the first call runs the retry fails with `IDEMPOTENCY_IN_PROGRESS` and its operation sequence; after it finished the retry returns the original outcome with `idempotency.replayed: true`. Only a definite `not_applied` failure runs again; an `unknown` or partly committed outcome is replayed, never retried blindly. The same key with different arguments fails with `IDEMPOTENCY_KEY_REUSED`. Keys are scoped per tool and per MCP session (stdio process or HTTP session) and kept in memory only (200 keys, 1-hour idle expiry, LRU eviction; lost on restart). The server stores a SHA-256 of the key and of the canonical arguments, never either in raw form, plus the original response when it is at most 16 KiB (1 MiB total). `get_last_operations` entries add `idempotencyKeyHash`, a 12-character hash prefix. Read-only calls are never deduplicated (#880).
