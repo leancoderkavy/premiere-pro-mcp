@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+
+- `audit_project_structure` audits the Project panel against explicit layout rules: allowed root names (exact or `*`/`?` globs), extension-to-bin placement (for example `{".wav": "Audio/SFX"}`), a sequences bin, maximum bin depth, and empty bins. The audit is read-only, walks at most 5,000 items, reports truncation, identifies items by node ID, and returns up to 200 proposed moves with a `planToken`. `apply: true` needs edit authority and that token; it re-reads the project and refuses if the plan changed, the walk was truncated, or a target bin name is duplicated at any level. It then creates missing target bins, moves only the planned items, and reads back each item's parent bin, reporting `verified`, `partial` or `failed` per item. It never deletes, renames or moves bins (#880).
+
 ## [1.24.4] - 2026-10-23
 
 ### Fixed

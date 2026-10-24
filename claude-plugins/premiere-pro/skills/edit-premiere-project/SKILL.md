@@ -61,6 +61,12 @@ project state, make only requested changes, and verify the timeline after mutati
   tools refuse used or offline media, contained sequences, and nested
   sequences; pass `confirm_remove_from_sequences` or `allow_offline` only with the
   user's explicit approval.
+- To check Project-panel layout rules, run `audit_project_structure` without
+  `apply` first and show its violations and proposed moves. Apply only after the
+  user approves, with the same `rules` and the returned `planToken` as
+  `plan_token`. It refuses stale plans, truncated walks, and ambiguous target
+  bins, never deletes or renames, and is `verified` only when every move reads
+  back; treat `partial` or `failed` as unfinished and audit again.
 
 ## Apply changes safely
 

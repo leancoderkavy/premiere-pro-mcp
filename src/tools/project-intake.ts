@@ -4,9 +4,11 @@ import {
   buildProjectIntakeReport,
   MAX_PROJECT_INTAKE_ITEMS,
 } from "../intake/project-intake.js";
+import { getProjectStructureAuditTools, type ProjectStructureAuditDependencies } from "./project-structure-audit.js";
 
 export interface ProjectIntakeToolDependencies {
   captureSnapshot?: (maxItems: number) => Promise<CommandResult>;
+  structureAudit?: ProjectStructureAuditDependencies;
 }
 
 function boundedMaxItems(value: unknown): number {
@@ -98,6 +100,7 @@ export function getProjectIntakeTools(
     ?? ((maxItems: number) => sendCommand(projectIntakeCaptureScript(maxItems), bridgeOptions));
 
   return {
+    ...getProjectStructureAuditTools(bridgeOptions, dependencies.structureAudit),
     preview_project_intake: {
       description: "Inspect a bounded Premiere project against an explicit facility intake template and return a path-redacted report plus a non-mutating organization proposal. It never changes Premiere or persists the template.",
       parameters: {
