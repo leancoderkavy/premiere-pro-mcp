@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+
+- `trim_clip` accepts `keyframe_policy: "hold_last_value"` (#880). Before the trim it samples every animated parameter at the edge (in media time, as the keyframe tools do). Trimming into an animation adds a key at the new edge with the value it had there; extending past hidden keys adds keys at the old and new edge with the old edge value so the revealed range stays flat. Keys beyond the new edge are kept and other keys are not touched. It refuses before any change when keys sit in the range an extension would reveal, when a value cannot be sampled, or when a colour or non-numeric parameter would need a key (non-numeric parameters that need none are listed under `keyframeHold.skipped`). Every held value is read back at the new edge; if the trim verifies but a key does not, the result is `committed_unverified`. Linked partners hold their own animation. The extended edit-plan validator accepts the new value.
+
 ## [1.24.4] - 2026-10-23
 
 ### Fixed
