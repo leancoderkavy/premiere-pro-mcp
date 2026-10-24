@@ -14,6 +14,8 @@ export interface OperationLogEntry {
   startedAt: string;
   finishedAt: string | null;
   durationMs: number | null;
+  /** Short SHA-256 prefix of the call's idempotency_key, or null; the raw key is never kept. */
+  idempotencyKeyHash: string | null;
 }
 
 export const OPERATION_LOG_LIMIT = 50;
@@ -22,7 +24,7 @@ const entries: OperationLogEntry[] = [];
 const active = new Map<number, OperationLogEntry>();
 let nextSequence = 1;
 
-export function beginOperation(tool: string, now = Date.now()): OperationLogEntry {
+export function beginOperation(tool: string, now = Date.now(), idempotencyKeyHash: string | null = null): OperationLogEntry {
   const entry: OperationLogEntry = {
     sequence: nextSequence++,
     tool,
@@ -31,6 +33,7 @@ export function beginOperation(tool: string, now = Date.now()): OperationLogEntr
     startedAt: new Date(now).toISOString(),
     finishedAt: null,
     durationMs: null,
+    idempotencyKeyHash,
   };
   active.set(entry.sequence, entry);
   entries.push(entry);

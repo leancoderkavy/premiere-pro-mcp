@@ -54,6 +54,12 @@ project state, make only requested changes, and verify the timeline after mutati
   unknown. Never blindly replay a confirmation token. A client-side timeout does
   not stop the server: call `get_last_operations`, check `running` and `runningOperations` even when recent history omits the call, and do not resend a call that
   is still running or already succeeded.
+- Pass a fresh `idempotency_key` with each intended edit and reuse it only when
+  retrying that same edit. The server then refuses a duplicate that is still
+  running (`IDEMPOTENCY_IN_PROGRESS`), replays a finished one instead of
+  applying it twice (`replayed: true`), and refuses the key with different
+  arguments (`IDEMPOTENCY_KEY_REUSED`). Only a `not_applied` failure runs again.
+  Keys live in server memory (200 keys, 1 hour) and are lost on restart.
 - Before deleting or reorganizing bins, run `find_item_usages`. After
   `import_fcp_xml` into an open project, check its `reusedItems`: the new
   sequences may use items in an old bin. A Sequences bin is in use when the

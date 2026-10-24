@@ -433,6 +433,22 @@ export function capabilitiesForToolInvocation(toolName: string, args: unknown): 
 }
 
 /**
+ * Whether any invocation of a tool can need more than inspect authority. Used
+ * to decide which tool schemas advertise the server-wide idempotency_key; the
+ * per-call decision still comes from capabilitiesForToolInvocation.
+ */
+export function toolMayChangeState(toolName: string): boolean {
+  // Argument-dependent escalations handled specially above.
+  if (toolName === "export_interchange_uxp" || toolName === "prepare_transcript_workflow" || toolName === "set_metadata") return true;
+  const actionMap = ACTION_CAPABILITIES[toolName];
+  const candidates: (readonly Capability[])[] = actionMap
+    ? [...Object.values(actionMap), [capabilityForTool(toolName)]]
+    : [TOOL_CAPABILITY_REQUIREMENTS[toolName] ?? [capabilityForTool(toolName)]];
+  if (toolName === "encode_media_uxp") candidates.push(["inspect", "filesystem"]);
+  return candidates.some((required) => required.some((capability) => capability !== "inspect"));
+}
+
+/**
  * Tools that stay advertised under every profile, because they are how an
  * operator diagnoses a profile that is too narrow: get_capabilities reports the
  * active authority, and ping proves the bridge is alive. Withholding them makes

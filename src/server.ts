@@ -1,4 +1,5 @@
 import {
+  type CallToolResult,
   fromJsonSchema,
   McpServer,
   type JsonSchemaType,
@@ -85,7 +86,7 @@ import {
   isToolPermitted,
   resolveCapabilities,
 } from "./security/index.js";
-import { capabilitiesForToolInvocation } from "./security/capabilities.js";
+import { capabilitiesForToolInvocation, toolMayChangeState } from "./security/capabilities.js";
 import { EXTENDSCRIPT_REFERENCE } from "./resources/extendscript-reference.js";
 import { getLiveContextResources } from "./resources/live-context-resources.js";
 import { PROJECT_CONTEXT_RESOURCE } from "./context/project-context-resource.js";
@@ -102,7 +103,8 @@ import {
 } from "./workflows/tool-packs.js";
 import { getTelemetry, telemetryErrorType, type Telemetry } from "./telemetry.js";
 import { currentInvocation, withInvocationContext, reportProgress } from "./workflows/invocation-context.js";
-import { beginOperation, finishOperation } from "./workflows/operation-log.js";
+import { beginOperation, finishOperation, type OperationLogEntry } from "./workflows/operation-log.js";
+import { claimIdempotencyKey, completeIdempotencyKey, idempotencyResponse, IDEMPOTENCY_KEY_SCHEMA, type IdempotencyClaim } from "./workflows/idempotency.js";
 import { mutationReceipt } from "./workflows/mutation-receipt.js";
 import { argumentDiagnostics, strictDeclaredObjects } from "./workflows/strict-schema.js";
 import { recordPerformance } from "./workflows/performance-diagnostics.js";
@@ -171,6 +173,11 @@ const toolResultOutputSchema = fromJsonSchema({
     receipt: {
       type: "object",
       description: "Versioned common mutation receipt; success never implies rendered verification.",
+      additionalProperties: true,
+    },
+    idempotency: {
+      type: "object",
+      description: "Present when idempotency_key deduplicated this call: replayed is true when the original outcome was returned instead of running again.",
       additionalProperties: true,
     },
   },
@@ -511,10 +518,14 @@ export function createServer(
       continue;
     }
 
+    // Only tools that can change state advertise idempotency_key. A key sent
+    // with a read-only action of a multi-action tool is accepted and ignored.
+    const acceptsIdempotencyKey = toolMayChangeState(name);
     const inputSchema = jsonSchemaToInputSchema({
       ...tool.parameters,
       properties: {
         ...(tool.parameters as { properties?: Record<string, unknown> }).properties,
+        ...(acceptsIdempotencyKey ? { idempotency_key: IDEMPOTENCY_KEY_SCHEMA } : {}),
         expected_project_path: {
           type: "string", minLength: 1, maxLength: 4096,
           description: "Optional absolute saved-project path. Every generated CEP command refuses before its body when the active project differs or is unsaved. UXP commands refuse this CEP-only guard; local-only tools do not inspect Premiere. Omit to keep existing behavior.",
@@ -568,126 +579,148 @@ export function createServer(
         notify: ctx.mcpReq.notify,
       }, async () => {
         const startedAt = Date.now();
-        const mutating = capabilitiesForToolInvocation(name, args).some(capability => capability !== "inspect");
-        const logEntry = mutating ? beginOperation(name, startedAt) : null;
-        const structured = (success: boolean, data?: unknown, error?: string) => {
-          const receipt = mutating ? mutationReceipt(success, data, currentInvocation()) : undefined;
-          if (logEntry && receipt) finishOperation(logEntry, success, receipt.outcome);
-          return {
-            ...structuredToolResult(name, success, data, error),
-            ...(receipt ? { receipt } : {}),
+        const { idempotency_key: idempotencyKey, ...callArgs } = (args ?? {}) as Record<string, unknown>;
+        const mutating = capabilitiesForToolInvocation(name, callArgs).some(capability => capability !== "inspect");
+        // Claim synchronously, before any await, so two concurrent retries
+        // cannot both start. Read-only invocations are never deduplicated.
+        const operation: { entry: OperationLogEntry | null } = { entry: null };
+        const claim: IdempotencyClaim | null = mutating && typeof idempotencyKey === "string"
+          ? claimIdempotencyKey(name, idempotencyKey, callArgs, () => (operation.entry = beginOperation(name, startedAt)).sequence, startedAt)
+          : null;
+        if (claim && claim.kind !== "new") return idempotencyResponse(name, claim) as CallToolResult;
+        if (claim && operation.entry) operation.entry.idempotencyKeyHash = claim.record.keyHashPrefix;
+        else if (mutating) operation.entry = beginOperation(name, startedAt);
+        const logEntry = operation.entry;
+        const run = async () => {
+          const structured = (success: boolean, data?: unknown, error?: string) => {
+            const receipt = mutating ? mutationReceipt(success, data, currentInvocation()) : undefined;
+            if (logEntry && receipt) finishOperation(logEntry, success, receipt.outcome);
+            return {
+              ...structuredToolResult(name, success, data, error),
+              ...(receipt ? { receipt } : {}),
+            };
           };
-        };
-        try {
-          await reportProgress(0, 1, "Tool started; host completion remains unverified.");
-          // Every call that may change the project records the undo position:
-          // anything that needs more than inspect (edit, and also filesystem or
-          // export tools such as import_*, relink_*, consolidate_* that add
-          // project items). Only inspect-only calls skip it.
-          const tracksUndo = capabilitiesForToolInvocation(name, args).some((capability) => capability !== "inspect");
-          const { expected_project_path, expected_cep_target, ...toolArgs } = args as Record<string, unknown>;
-          const work = () => runWithExpectedHostTarget(expected_cep_target,
-            () => runWithUndoTracking(tracksUndo, () => guardedHandler(toolArgs)));
-          const usesHost = deriveToolOperationalCapability(name, tool, capabilities).backends.some(backend => ["cep", "extendscript", "qe", "uxp"].includes(backend));
-          const protectedHostWork = async () => {
-            try {
-              const result = await work();
-              if (currentInvocation()?.dispatched && mutationReceipt(result.success, result.data, currentInvocation()).outcome === "unknown") {
-                markHostRecovery(getTempDir(bridgeOptions), "unknown_command_outcome");
+          try {
+            await reportProgress(0, 1, "Tool started; host completion remains unverified.");
+            // Every call that may change the project records the undo position:
+            // anything that needs more than inspect (edit, and also filesystem or
+            // export tools such as import_*, relink_*, consolidate_* that add
+            // project items). Only inspect-only calls skip it.
+            const tracksUndo = capabilitiesForToolInvocation(name, callArgs).some((capability) => capability !== "inspect");
+            const { expected_project_path, expected_cep_target, ...toolArgs } = callArgs;
+            const work = () => runWithExpectedHostTarget(expected_cep_target,
+              () => runWithUndoTracking(tracksUndo, () => guardedHandler(toolArgs)));
+            const usesHost = deriveToolOperationalCapability(name, tool, capabilities).backends.some(backend => ["cep", "extendscript", "qe", "uxp"].includes(backend));
+            const protectedHostWork = async () => {
+              try {
+                const result = await work();
+                if (currentInvocation()?.dispatched && mutationReceipt(result.success, result.data, currentInvocation()).outcome === "unknown") {
+                  markHostRecovery(getTempDir(bridgeOptions), "unknown_command_outcome");
+                }
+                return result;
+              } catch (error) {
+                // An earlier command may have written before a later readback or
+                // cancellation failed. Persist uncertainty before releasing the
+                // workflow lease so another backend cannot race the next edit.
+                if (currentInvocation()?.dispatched) markHostRecovery(getTempDir(bridgeOptions), "unknown_command_outcome");
+                throw error;
               }
-              return result;
-            } catch (error) {
-              // An earlier command may have written before a later readback or
-              // cancellation failed. Persist uncertainty before releasing the
-              // workflow lease so another backend cannot race the next edit.
-              if (currentInvocation()?.dispatched) markHostRecovery(getTempDir(bridgeOptions), "unknown_command_outcome");
-              throw error;
-            }
-          };
-          const result = await runWithExpectedProject(expected_project_path,
-            () => mutating && usesHost && name !== "acknowledge_operation_recovery" ? withBridgeWorkflow(bridgeOptions, protectedHostWork) : work());
-          let payloadBytes: number | null = null;
-          try { payloadBytes = Buffer.byteLength(JSON.stringify(result.data ?? null)); } catch { /* non-JSON diagnostic */ }
-          recordPerformance({ durationMs: Date.now() - startedAt, payloadBytes, stages: currentInvocation()?.stages ?? {}, cacheHit: (result.data as { analysisCache?: { hit?: boolean } } | undefined)?.analysisCache?.hit ?? null });
-          telemetry.capture("mcp_tool_call", {
-            tool: name,
-            outcome: result.success ? "succeeded" : "failed",
-            duration_ms: Date.now() - startedAt,
-          });
-          if (result.success) {
-            // Special handling for capture_frame: return image content block
-            const data = result.data as Record<string, unknown> | undefined;
-            if (
-              data &&
-              data.mimeType === "image/png" &&
-              typeof data.base64 === "string"
-            ) {
+            };
+            const result = await runWithExpectedProject(expected_project_path,
+              () => mutating && usesHost && name !== "acknowledge_operation_recovery" ? withBridgeWorkflow(bridgeOptions, protectedHostWork) : work());
+            let payloadBytes: number | null = null;
+            try { payloadBytes = Buffer.byteLength(JSON.stringify(result.data ?? null)); } catch { /* non-JSON diagnostic */ }
+            recordPerformance({ durationMs: Date.now() - startedAt, payloadBytes, stages: currentInvocation()?.stages ?? {}, cacheHit: (result.data as { analysisCache?: { hit?: boolean } } | undefined)?.analysisCache?.hit ?? null });
+            telemetry.capture("mcp_tool_call", {
+              tool: name,
+              outcome: result.success ? "succeeded" : "failed",
+              duration_ms: Date.now() - startedAt,
+            });
+            if (result.success) {
+              // Special handling for capture_frame: return image content block
+              const data = result.data as Record<string, unknown> | undefined;
+              if (
+                data &&
+                data.mimeType === "image/png" &&
+                typeof data.base64 === "string"
+              ) {
+                return {
+                  structuredContent: structured(true, Object.fromEntries(Object.entries(data).filter(([key]) => key !== "base64"))),
+                  content: [
+                    {
+                      type: "image" as const,
+                      data: data.base64 as string,
+                      mimeType: "image/png" as const,
+                    },
+                    {
+                      type: "text" as const,
+                      text: "Frame captured successfully.",
+                    },
+                  ],
+                };
+              }
               return {
-                structuredContent: structured(true, Object.fromEntries(Object.entries(data).filter(([key]) => key !== "base64"))),
+                structuredContent: structured(true, result.data),
                 content: [
                   {
-                    type: "image" as const,
-                    data: data.base64 as string,
-                    mimeType: "image/png" as const,
-                  },
-                  {
                     type: "text" as const,
-                    text: "Frame captured successfully.",
+                    text: JSON.stringify(result.data, null, 2),
                   },
                 ],
               };
+            } else {
+              const failureData = (result as { data?: unknown }).data;
+              return {
+                structuredContent: structured(
+                  false,
+                  failureData,
+                  result.error,
+                ),
+                content: [
+                  {
+                    type: "text" as const,
+                    text: failureData === undefined || failureData === null
+                      ? `Error: ${result.error}`
+                      : `Error: ${result.error}\nDetails: ${JSON.stringify(failureData, null, 2)}`,
+                  },
+                ],
+                isError: true,
+              };
             }
-            return {
-              structuredContent: structured(true, result.data),
-              content: [
-                {
-                  type: "text" as const,
-                  text: JSON.stringify(result.data, null, 2),
-                },
-              ],
-            };
-          } else {
-            const failureData = (result as { data?: unknown }).data;
+          } catch (err) {
+            telemetry.capture("mcp_tool_call", {
+              tool: name,
+              outcome: "failed",
+              duration_ms: Date.now() - startedAt,
+              error_type: telemetryErrorType(err),
+            });
             return {
               structuredContent: structured(
                 false,
-                failureData,
-                result.error,
+                undefined,
+                err instanceof Error ? err.message : String(err),
               ),
               content: [
                 {
                   type: "text" as const,
-                  text: failureData === undefined || failureData === null
-                    ? `Error: ${result.error}`
-                    : `Error: ${result.error}\nDetails: ${JSON.stringify(failureData, null, 2)}`,
+                  text: `Error: ${err instanceof Error ? err.message : String(err)}`,
                 },
               ],
               isError: true,
             };
+          } finally {
+            await reportProgress(1, 1, "Tool returned; inspect its receipt for evidence and partial outcomes.");
           }
-        } catch (err) {
-          telemetry.capture("mcp_tool_call", {
-            tool: name,
-            outcome: "failed",
-            duration_ms: Date.now() - startedAt,
-            error_type: telemetryErrorType(err),
-          });
-          return {
-            structuredContent: structured(
-              false,
-              undefined,
-              err instanceof Error ? err.message : String(err),
-            ),
-            content: [
-              {
-                type: "text" as const,
-                text: `Error: ${err instanceof Error ? err.message : String(err)}`,
-              },
-            ],
-            isError: true,
-          };
+        };
+        if (!claim) return run();
+        let response: Awaited<ReturnType<typeof run>> | undefined;
+        try {
+          response = await run();
+          return response;
         } finally {
-          await reportProgress(1, 1, "Tool returned; inspect its receipt for evidence and partial outcomes.");
+          // A call that ended without a recorded receipt keeps an unknown outcome
+          // and is never retried blindly under the same key.
+          completeIdempotencyKey(claim.record, logEntry?.status === "succeeded", logEntry && logEntry.status !== "running" ? logEntry.outcome : null, response);
         }
       }),
     );
