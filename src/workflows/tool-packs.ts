@@ -100,6 +100,7 @@ export const WORKFLOW_TOOL_PACKS: readonly WorkflowToolPack[] = [
       "get_render_queue_status",
       "diff_sequence_snapshots",
       "audit_timeline_health",
+      "audit_project_structure",
       "list_sequence_checkpoints",
     ],
   },
@@ -194,7 +195,7 @@ export const WORKFLOW_TOOL_PACKS: readonly WorkflowToolPack[] = [
     description: "Session-scoped watched-folder monitoring, path-redacted proposals, deliberate import, and project inspection.",
     tools: [
       "verify_premiere_connection", "manage_media_watch", "preview_watched_media_import",
-      "import_project_media_uxp", "get_project_info", "get_premiere_state",
+      "import_project_media_uxp", "get_project_info", "get_premiere_state", "audit_project_structure",
       "search_workflow_recipes", "preview_workflow_recipe",
     ],
   },

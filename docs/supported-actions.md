@@ -10,11 +10,11 @@ source catalog may include unreleased actions.
 
 | Surface | Count | Availability |
 | --- | ---: | --- |
-| Registered core actions | 436 | CEP/local server catalog; host and authority checks still apply |
-| Default-profile core actions | 434 | Advertised with `inspect,edit,export,filesystem` |
+| Registered core actions | 437 | CEP/local server catalog; host and authority checks still apply |
+| Default-profile core actions | 435 | Advertised with `inspect,edit,export,filesystem` |
 | Restricted core actions | 2 | Require explicit `unsafe-script` authority |
 | Authenticated UXP additions | 96 | Advertised only while a compatible authenticated UXP panel is connected |
-| Default profile with UXP | 530 | 434 core plus 96 UXP tools |
+| Default profile with UXP | 531 | 435 core plus 96 UXP tools |
 
 ## How to read support
 
@@ -69,6 +69,7 @@ operation” when the tool has no enum-based mode.
 | `apply_spot_workflow_plan` | Default profile | Single operation | Apply one exact previewed motion-demo, product-spot, or brand-spot plan. Requires edit authority, requires filesystem authority for a MOGRT, and only targets empty explicitly named tracks. Host readback is not playback or render verification. |
 | `apply_stacked_camera_edit` | Default profile | Single operation | Apply one single-use reviewed ordinary stacked-camera plan to a newly cloned sequence. Reads actual track locks, linked partners, source identity, forward1x speed and nest/reverse state before clone and before writes; unavailable getters refuse. Verifies exact enabled states and master-audio ranges. Sequential partial completion is reported; no rollback or audible sync claim. |
 | `attach_custom_property` | Default profile | Single operation | Attach a custom property (key/value pair) to the active sequence and confirm it against the sequence project item's XMP packet. Reports failure when the property never lands in XMP. |
+| `audit_project_structure` | Default profile | Single operation | Audit the Project panel against explicit layout rules (allowed root names, extension-to-bin placement, a sequences bin, maximum bin depth, empty bins) and report violations by node ID. Read-only by default (inspect authority): walks up to 5000 items, reports truncation, and returns at most 200 proposed moves plus a plan_token bound to the project, rules, and those exact moves. With apply: true (edit authority) it requires that plan_token, re-reads the project and refuses if the plan changed, the walk was truncated, or any target path is ambiguous (two bins with one name at a level). It then creates missing target bins and moves only the planned items, reading back each item's parent bin; outcome is verified only when every move is verified, otherwise partial or failed with per-item details. It never deletes, renames, or moves bins; root-name, depth, and empty-bin findings are report-only. |
 | `audit_timeline_health` | Default profile | Single operation | Audit one sequence snapshot for flash frames, gaps, overlaps, disabled clips, repeated shots, video without audio, extreme speed, invalid times, empty tracks, leading black, and trailing gaps; returns a 0..100 score, findings with timecodes, and fix routes. Local-only; never changes Premiere. |
 | `auto_reframe_sequence` | Default profile | `motion_preset`: `slower`, `default`, `faster` | Auto-reframe a sequence into a new sequence of target_width x target_height. Premiere derives the new sequence from the source height (a 1080p source at 9:16 comes out 607x1080), so the tool then sets the requested frame size and verifies it; the Auto Reframe effect refits to the new size. |
 | `batch_add_transitions` | Default profile | Single operation | EXPERIMENTAL (undocumented QE DOM): Add the same video transition at each eligible cut point on a track and report per-cut readback. |

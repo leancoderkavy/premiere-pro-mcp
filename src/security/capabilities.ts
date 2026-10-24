@@ -189,6 +189,8 @@ const TOOL_CAPABILITY_REQUIREMENTS: Readonly<Record<string, readonly Capability[
   acknowledge_operation_recovery: ["inspect", "edit"],
   apply_extended_edit_plan: ["inspect", "edit", "filesystem"],
   prepare_transcript_workflow: ["inspect"],
+  // Audit is read-only; apply: true adds edit (see capabilitiesForToolInvocation).
+  audit_project_structure: ["inspect"],
   preview_scene_review_workflow: ["inspect", "filesystem"],
   apply_scene_review_workflow: ["inspect", "edit", "filesystem"],
   // Source bounds read the underlying media file through ffprobe.
@@ -412,6 +414,7 @@ export function capabilityForTool(toolName: string): Capability {
 /** Resolve authority at the action level for consolidated multi-action tools. */
 export function capabilitiesForToolInvocation(toolName: string, args: unknown): readonly Capability[] {
   if (toolName === "export_interchange_uxp" && args && typeof args === "object" && (args as Record<string, unknown>).verify_artifact === true) return ["export", "filesystem"];
+  if (toolName === "audit_project_structure" && args && typeof args === "object" && (args as Record<string, unknown>).apply === true) return ["inspect", "edit"];
   if (toolName === "prepare_transcript_workflow" && args && typeof args === "object" && (args as Record<string, unknown>).start_if_missing === true) return ["inspect", "edit"];
   const actionMap = ACTION_CAPABILITIES[toolName];
   if (toolName === "set_metadata" && args && typeof args === "object" && (args as Record<string, unknown>).packet === "xmp") {
