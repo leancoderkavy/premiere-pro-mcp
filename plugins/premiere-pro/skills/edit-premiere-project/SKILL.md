@@ -168,6 +168,11 @@ never replace a complete metadata packet just to apply a facility table.
   with the next clip, and reports verified or restored results. Clip speed has no
   documented scripting setter: `speed_change` and `set_clip_speed_qe` always fail
   before mutation, so retime in the Speed/Duration dialog or pre-render the media.
+- For a freeze frame from a source-media time (not a sequence time), use
+  `create_source_freeze_frame` when it is registered. It decodes the frame with
+  local ffmpeg, never overwrites an existing file or an occupied timeline range,
+  and can add Motion Scale/Position punch-in keyframes. Check its `completed` and
+  `unverified` lists; an imported still remains if a later step fails.
 
 ## Clip metadata and XMP
 

@@ -5,6 +5,7 @@ import {
 import { sendCommand, BridgeOptions } from "../bridge/file-bridge.js";
 import { applyScratchDisks } from "./scratch-disks.js";
 import { readScratchDisks } from "./project-file.js";
+import { createSourceFreezeFrameTool, type SourceFreezeFrameDependencies } from "./source-freeze-frame.js";
 
 // Shared set-up for lift/extract: resolve the sequence in/out range, refuse a
 // range that spans the whole sequence (Premiere reports cleared marks as
@@ -227,7 +228,7 @@ export function sequenceFrameTicks(frameRate: number): { ticks: number; ntsc: bo
   return { ticks, ntsc: false, exactFrameRate: TICKS_PER_SECOND_EXACT / ticks };
 }
 
-export function getUtilityTools(bridgeOptions: BridgeOptions) {
+export function getUtilityTools(bridgeOptions: BridgeOptions, dependencies: SourceFreezeFrameDependencies = {}) {
   return {
     delete_project_item: {
       description:
@@ -587,7 +588,7 @@ export function getUtilityTools(bridgeOptions: BridgeOptions) {
 
     freeze_frame: {
       description:
-        "Create a freeze frame from a clip at a specific time. Exports the frame, imports it back as a still image, and sets the still's Out mark to duration_seconds so add_to_timeline places it at that length (snapped to the still's frame grid, then to the sequence frame). It does not place the still on the timeline.",
+        "Create a freeze frame from a clip at a specific SEQUENCE time (for a source-media time, use create_source_freeze_frame). Exports the frame, imports it back as a still image, and sets the still's Out mark to duration_seconds so add_to_timeline places it at that length (snapped to the still's frame grid, then to the sequence frame). It does not place the still on the timeline.",
       parameters: {
         type: "object" as const,
         properties: {
@@ -683,6 +684,8 @@ export function getUtilityTools(bridgeOptions: BridgeOptions) {
         return sendCommand(script, bridgeOptions);
       },
     },
+
+    create_source_freeze_frame: createSourceFreezeFrameTool(bridgeOptions, dependencies),
 
     set_sequence_frame_rate: {
       description: "Change the frame rate of the active sequence and verify it. Premiere re-snaps every clip to the new frame grid, so clips off that grid move by up to a frame; the result lists them (clipsMoved, movedClips) and changing back does not restore them.",

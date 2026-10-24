@@ -10,11 +10,11 @@ source catalog may include unreleased actions.
 
 | Surface | Count | Availability |
 | --- | ---: | --- |
-| Registered core actions | 438 | CEP/local server catalog; host and authority checks still apply |
-| Default-profile core actions | 436 | Advertised with `inspect,edit,export,filesystem` |
+| Registered core actions | 441 | CEP/local server catalog; host and authority checks still apply |
+| Default-profile core actions | 439 | Advertised with `inspect,edit,export,filesystem` |
 | Restricted core actions | 2 | Require explicit `unsafe-script` authority |
 | Authenticated UXP additions | 96 | Advertised only while a compatible authenticated UXP panel is connected |
-| Default profile with UXP | 532 | 436 core plus 96 UXP tools |
+| Default profile with UXP | 535 | 439 core plus 96 UXP tools |
 
 ## How to read support
 
@@ -114,6 +114,7 @@ operation” when the tool has no enum-based mode.
 | `create_sequence_from_clips` | Default profile | Single operation | Create a new sequence from project items, then verify its registered identity, name and source-item placements. clipCount reports observed track items; requestedClipCount reports requested source items. |
 | `create_sequence_from_preset` | Default profile | Single operation | EXPERIMENTAL (undocumented QE DOM): create a new sequence from a specific preset file (.sqpreset) using qe.project.newSequence. Reports success only after a new sequence ID appears in the project collection; a same-name sequence that was already active is not treated as created. |
 | `create_smart_bin` | Default profile | Single operation | Create a smart bin (search bin) and inspect its new identity and name. The stored search query has no getter, so creation reports committed_unverified with identity verification separately. |
+| `create_source_freeze_frame` | Default profile | Single operation | Create a freeze frame from a project item at a SOURCE-media time (not a sequence time; for a sequence time use freeze_frame). Decodes the frame with ffmpeg from the item's media file (requires ffmpeg/ffprobe on PATH; no Source Monitor or QE state is used), refuses to overwrite an existing output file, imports the still and sets its Out mark to duration_seconds. Optional place puts it on an empty range of one video track (refuses an occupied or locked range rather than overwriting); optional zoom (requires place) adds Motion Scale and optional Position keyframes at the clip's first and last frame for a punch-in. Every step is read back; partial success reports which steps were committed but not verified. Refuses before any change when the item has no readable local media, the time is past the media end, or the item's interpreted frame rate differs from the file's. |
 | `create_subclip` | Default profile | Single operation | Create a subclip from a project item with in/out points. Returns the new item's nodeId and reads its stored range back from Premiere project metadata: outcome verified when the observed in/out seconds are within one media frame of the request, otherwise committed_unverified. |
 | `create_subsequence` | Default profile | Single operation | Create a separate subsequence from selected clips or a time range. This Premiere API does not replace the original timeline clips with a nested-sequence reference. |
 | `crop_clip` | Default profile | Single operation | Apply or update Premiere's Crop effect on one video clip and read back every requested value. Adding Crop uses the legacy QE catalog only when the clip does not already contain it. |
@@ -159,7 +160,7 @@ operation” when the tool has no enum-based mode.
 | `find_item_usages` | Default profile | Single operation | Read-only: list where project items are used on timelines, as sequence name/ID, track type/index and clip count. A bin counts everything inside it, including sequences stored there (every clip on those timelines), because deleting a bin deletes those sequences even when their media lives in another bin. Run this before deleting or reorganizing bins, especially after import_fcp_xml, which can reuse existing project items for its sequences. Also reports offline (missing-media) items inside each target. |
 | `find_items_by_media_path` | Default profile | Single operation | Find project items whose media path contains the given search string |
 | `find_project_item_by_name` | Default profile | Single operation | Find a project item by name (searches recursively through bins) |
-| `freeze_frame` | Default profile | Single operation | Create a freeze frame from a clip at a specific time. Exports the frame, imports it back as a still image, and sets the still's Out mark to duration_seconds so add_to_timeline places it at that length (snapped to the still's frame grid, then to the sequence frame). It does not place the still on the timeline. |
+| `freeze_frame` | Default profile | Single operation | Create a freeze frame from a clip at a specific SEQUENCE time (for a source-media time, use create_source_freeze_frame). Exports the frame, imports it back as a still image, and sets the still's Out mark to duration_seconds so add_to_timeline places it at that length (snapped to the still's frame grid, then to the sequence frame). It does not place the still on the timeline. |
 | `generate_media_contact_sheet` | Default profile | Single operation | Generate a new, disk-verified PNG contact sheet from evenly sampled source frames. Refuses to overwrite an existing output and does not modify Premiere or the source. |
 | `get_active_sequence` | Default profile | `track_type`: `video`, `audio`, `both` | Get bounded, paged information about the currently active sequence (50 clips by default). Follow pagination.nextOffset for more |
 | `get_advanced_feature_support` | Default profile | `backend`: `cep`, `uxp` | Report public-API support, prerequisites, entitlements, and user-assisted boundaries for Premiere collaboration and AI features |
