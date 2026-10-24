@@ -6,10 +6,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [1.24.4] - 2026-10-23
+
 ### Fixed
 
-- MCP Registry publication preflight looks up the exact server's latest record instead of depending on registry-wide search. Published npm identity checks, bounded retries and the workflow's separate immutable-version verification remain required.
 - `delete_bin` and `find_item_usages` now treat a sequence stored in the target bin as in use when that sequence has clips, even if the media lives in another bin. The previous usage walk only matched clip `projectItem` node IDs, so a Sequences bin could be deleted and take every timeline with it. `delete_project_item` and `delete_multiple_project_items` also refuse a sequence that is nested on another timeline unless `confirm_remove_from_sequences` is true.
+- The CEP panel's "Check for updates" no longer always fails with "npm returned an unexpectedly large package record". It now reads the bounded `latest` manifest (`registry.npmjs.org/premiere-pro-mcp/latest`, about 11 KB) instead of the full package record, which had grown past the panel's 64 KB response cap. Thanks @jameslashmar (#891, #892).
+- `get_last_operations` keeps counting calls that are still running after they fall out of the 50-entry history window, and adds `runningOperations` and `runningOperationsTruncated`, so a busy session can no longer report `running: 0` while an edit is still in flight.
+- MCP Registry publication preflight looks up the exact server's latest record instead of depending on registry-wide search. Published npm identity checks, bounded retries and the workflow's separate immutable-version verification remain required.
 
 ## [1.24.3] - 2026-10-21
 

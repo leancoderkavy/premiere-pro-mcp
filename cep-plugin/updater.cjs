@@ -7,7 +7,7 @@
 })(this, function () {
   "use strict";
 
-  var CURRENT_VERSION = "1.24.3";
+  var CURRENT_VERSION = "1.24.4";
   var PACKAGE_NAME = "premiere-pro-mcp";
   var LATEST_PACKAGE_API = "https://registry.npmjs.org/" + PACKAGE_NAME + "/latest";
   var LATEST_RELEASE_API =
