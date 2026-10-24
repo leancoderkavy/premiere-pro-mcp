@@ -191,6 +191,8 @@ const TOOL_CAPABILITY_REQUIREMENTS: Readonly<Record<string, readonly Capability[
   prepare_transcript_workflow: ["inspect"],
   preview_scene_review_workflow: ["inspect", "filesystem"],
   apply_scene_review_workflow: ["inspect", "edit", "filesystem"],
+  // Decodes the source file with ffmpeg, writes a new still, then imports/places it.
+  create_source_freeze_frame: ["inspect", "edit", "filesystem"],
   // Source bounds read the underlying media file through ffprobe.
   trim_clip: ["edit", "filesystem"],
   slip_edit: ["edit", "filesystem"],

@@ -40,6 +40,8 @@ export function buildPremiereInstructions(registeredTools: ReadonlySet<string>):
     "Hesitation-sound removal needs a transcript that preserves disfluencies, such as Premiere transcription or verbatim ASR; Whisper's default output omits 'um' and 'uh'. Check transcript provenance before treating an empty match as evidence that no hesitation sounds occurred.");
   route(["set_clip_duration"],
     "Set a placed clip's timeline length or extend a still image by moving only its end; it refuses overlaps with the next clip and restores the original end if Premiere clamps. Clip speed has no documented scripting setter, so speed_change and set_clip_speed_qe always fail before mutation; use set_clip_duration for timing, or the Speed/Duration UI to retime.");
+  route(["freeze_frame", "create_source_freeze_frame"],
+    "freeze_frame captures a SEQUENCE time and only imports the still. For a source-media time (a project item plus seconds from its first frame), use create_source_freeze_frame: it decodes the frame with local ffmpeg, refuses an existing output file, and can place the still on an empty, unlocked video range (it never overwrites) and add Motion Scale/Position punch-in keyframes. Read its completed and unverified step lists; committed_unverified means a step landed but did not read back, and an imported still stays in the project after a later step fails.");
   route(["capture_frame"],
     "Inspect the returned image when composition, text, or visual continuity matters. A path or a successful capture alone is not visual verification.");
   route(["compute_mask_fit_motion", "set_clip_scale", "set_clip_position", "capture_frame"],

@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+
+- `create_source_freeze_frame` makes a freeze frame from a project item at a source-media time (#880). Premiere has no documented source-time still exporter, so the frame is decoded with local ffmpeg from the item's media file (no Source Monitor or QE state). It refuses an existing output file, a past-the-end time, offline or non-file items, and an interpreted frame rate that differs from the file before any change. Optional `place` puts the still on an empty, unlocked video track range (occupied ranges are refused, never overwritten; occupancy is re-checked before the edit) and optional `zoom` adds Motion Scale and Position keyframes at the clip's first and last frame. Import, still length, placement and keyframe values are each read back; the result lists `completed` and `unverified` steps, and `bezier` easing is always reported unverified because Premiere has no interpolation getter. Tested with a mocked bridge only; not yet verified in a live Premiere host.
+
 ## [1.24.4] - 2026-10-23
 
 ### Fixed
