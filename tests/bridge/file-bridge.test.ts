@@ -782,7 +782,7 @@ describe("sendCommand", () => {
 
     expect(result).toMatchObject({
       success: false,
-      error: "Premiere is busy or blocked by an earlier command (for example an export or a dialog). This command was not run; retry when Premiere is responsive.",
+      error: "Premiere is busy or blocked by an earlier command (for example an export or a dialog). This command was not run; retry when Premiere is responsive. Call get_bridge_telemetry (read-only; it sends no command) and read its blocking.state to see whether a dialog is blocking Premiere before you retry.",
       data: { mutationOutcome: "not_applied", timelineChanged: false },
     });
   });
@@ -807,7 +807,7 @@ describe("sendCommand", () => {
 
     expect(result).toMatchObject({
       success: false,
-      error: "Premiere is busy or blocked by an earlier command (for example an export or a dialog). This command was not run; retry when Premiere is responsive.",
+      error: "Premiere is busy or blocked by an earlier command (for example an export or a dialog). This command was not run; retry when Premiere is responsive. Call get_bridge_telemetry (read-only; it sends no command) and read its blocking.state to see whether a dialog is blocking Premiere before you retry.",
       data: { mutationOutcome: "not_applied", timelineChanged: false },
     });
     expect(mockedRenameSync).toHaveBeenCalledWith(expect.stringMatching(/cmd_.*\.jsx$/), expect.stringMatching(/cmd_.*\.jsx\.cancelled$/));
@@ -831,7 +831,7 @@ describe("sendCommand", () => {
 
     expect(result).toMatchObject({
       success: false,
-      error: "Premiere is busy or blocked by an earlier command (for example an export or a dialog). This command was not run; retry when Premiere is responsive.",
+      error: "Premiere is busy or blocked by an earlier command (for example an export or a dialog). This command was not run; retry when Premiere is responsive. Call get_bridge_telemetry (read-only; it sends no command) and read its blocking.state to see whether a dialog is blocking Premiere before you retry.",
       data: { mutationOutcome: "not_applied", timelineChanged: false },
     });
   });
