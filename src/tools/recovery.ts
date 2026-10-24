@@ -15,10 +15,13 @@ import {
   getTempDir,
   getBridgeLiveness,
   getBridgeCompatibility,
+  diagnoseBridgeBlocking,
   sendCommand,
+  type BridgeBlockingInput,
   type BridgeOptions,
   type CommandResult,
 } from "../bridge/file-bridge.js";
+import { OPERATION_LOG_LIMIT, runningOperations } from "../workflows/operation-log.js";
 
 const MAX_CANDIDATES = 50;
 const DEFAULT_PROJECT_BACKUP_MAX_BYTES = 2 * 1024 * 1024 * 1024;
@@ -258,6 +261,7 @@ export function discoverAdjacentRecoveryCandidates(
 export function collectBridgeTelemetry(
   bridgeOptions: BridgeOptions,
   nowMs = Date.now(),
+  blockingInput: BridgeBlockingInput = {},
 ) {
   const directory = getTempDir(bridgeOptions);
   const heartbeat = getBridgeLiveness(bridgeOptions, nowMs);
@@ -298,6 +302,10 @@ export function collectBridgeTelemetry(
       heartbeat.state === "running" &&
       counts.busyOperations === 0 &&
       (oldestPendingAgeMs === null || oldestPendingAgeMs < 30_000),
+    blocking: diagnoseBridgeBlocking(bridgeOptions, nowMs, {
+      ...blockingInput,
+      runningToolCalls: blockingInput.runningToolCalls ?? runningOperations(OPERATION_LOG_LIMIT).operations,
+    }),
     privacy:
       "Aggregate local bridge state only; no paths, filenames, script contents, project names, or media names are returned.",
   };
@@ -398,12 +406,30 @@ export function getRecoveryTools(bridgeOptions: BridgeOptions) {
 
     get_bridge_telemetry: {
       description:
-        "Inspect privacy-preserving aggregate bridge health: pending command/response counts, busy operations, queue age, and CEP heartbeat state without returning project or personal data.",
-      parameters: {},
-      handler: async () => ({
-        success: true,
-        data: collectBridgeTelemetry(bridgeOptions),
-      }),
+        "Read-only, sends no command: inspect privacy-preserving aggregate bridge health (pending command/response counts, busy operations, queue age, CEP heartbeat state) and diagnose whether the CEP bridge is blocked. Use it after a timeout or before retrying: a modal dialog such as Missing Media blocks Premiere's scripting engine, so a probe script cannot run. blocking.state is idle, busy, likely_blocked_by_dialog, stuck, connector_not_running, or unknown, with reason, ages in ms, queued counts, the running tool name when known, and nextSteps. It reads only heartbeat and busy-marker timing; no OS window probe is performed (macOS needs Accessibility permission and window titles can name media), and no dialog is dismissed. Returns no paths, file names, or script contents.",
+      annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+      parameters: {
+        type: "object" as const,
+        additionalProperties: false,
+        properties: {
+          expected_command_ms: {
+            type: "integer",
+            minimum: 1000,
+            maximum: 3_600_000,
+            description: "How long the in-flight command is expected to take, in ms (default: the bridge timeout, 30000). A command still running past this while the panel is alive is reported as likely_blocked_by_dialog. Raise it for long exports.",
+          },
+        },
+      },
+      handler: async (args: { expected_command_ms?: number } = {}) => {
+        const expected = args?.expected_command_ms;
+        if (expected !== undefined && (!Number.isInteger(expected) || expected < 1000 || expected > 3_600_000)) {
+          return { success: false, error: "expected_command_ms must be an integer from 1000 through 3600000" };
+        }
+        return {
+          success: true,
+          data: collectBridgeTelemetry(bridgeOptions, Date.now(), { expectedCommandMs: expected }),
+        };
+      },
     },
   };
 }

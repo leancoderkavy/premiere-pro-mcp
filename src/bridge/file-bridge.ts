@@ -1,4 +1,4 @@
-import { mkdirSync, writeFileSync, readFileSync, unlinkSync, existsSync, readdirSync, renameSync, statSync, lstatSync, realpathSync, chmodSync, watch, FSWatcher } from "node:fs";
+import { mkdirSync, writeFileSync, readFileSync, unlinkSync, existsSync, readdirSync, renameSync, statSync, lstatSync, realpathSync, chmodSync, watch, FSWatcher, type Stats } from "node:fs";
 import { basename, dirname, isAbsolute, join } from "node:path";
 import { tmpdir } from "node:os";
 import { randomUUID } from "node:crypto";
@@ -532,7 +532,8 @@ function heartbeatFailure(liveness: BridgeLiveness, hostLabel = "Premiere Pro", 
     return {
       success: false,
       error:
-        `The CEP connector heartbeat is stale. Reopen Window > Extensions > MCP Bridge in ${hostLabel}, dismiss any blocking dialog, and retry once after it reports running.`,
+        `The CEP connector heartbeat is stale. Reopen Window > Extensions > MCP Bridge in ${hostLabel}, dismiss any blocking dialog, and retry once after it reports running.` +
+        (hostLabel === "Premiere Pro" ? ` ${BRIDGE_BLOCKING_HINT}` : ""),
     };
   }
   if (requireHeartbeat && liveness.state === "unknown") {
@@ -732,6 +733,8 @@ ${script}`, "utf-8");
 
 /** A busy file unchanged for this long past the deadline means the CEP panel is stuck. */
 const STUCK_BUSY_MS = 10_000;
+export const BRIDGE_BLOCKING_HINT =
+  "Call get_bridge_telemetry (read-only; it sends no command) and read its blocking.state to see whether a dialog is blocking Premiere before you retry.";
 
 async function pollForResponse(
   resFile: string,
@@ -780,6 +783,11 @@ async function pollForResponse(
       stopWatching();
       resolve(result);
     };
+    // Point Premiere clients at the no-command blocking diagnosis. Companion
+    // hosts (After Effects) use their own bridge, which that tool does not read.
+    const finishTimedOut = (result: CommandResult) => finish(
+      hostLabel === "Premiere Pro" ? { ...result, error: `${result.error} ${BRIDGE_BLOCKING_HINT}` } : result,
+    );
 
     const scheduleFallback = () => {
       if (!settled) {
@@ -833,7 +841,7 @@ async function pollForResponse(
           return;
         }
         if (busy === "stuck") {
-          finish({
+          finishTimedOut({
             success: false,
             ...(mutationOnTimeout ? { data: { mutationOutcome: "unknown", timelineChanged: null } } : {}),
             error: mutationOnTimeout
@@ -853,7 +861,7 @@ async function pollForResponse(
         const cmdFile = join(dirname(resFile), basename(resFile).replace(/^res_/, "cmd_").replace(/\.json$/, ".jsx"));
         const queuedState = cancelQueuedBehindLivePanel(cmdFile, busyFile, hardCapMs);
         const panelHostName = hostLabel === "Premiere Pro" ? "Premiere" : hostLabel;
-        finish({
+        finishTimedOut({
           success: false,
           ...(mutationOnTimeout && sawBusy ? { data: { mutationOutcome: "unknown", timelineChanged: null } } : {}),
           error: sawBusy
@@ -926,6 +934,235 @@ function cancelQueuedBehindLivePanel(
   } catch {
     return "none";
   }
+}
+
+export type BridgeBlockingState =
+  | "idle"
+  | "busy"
+  | "likely_blocked_by_dialog"
+  | "stuck"
+  | "connector_not_running"
+  | "unknown";
+
+export interface BridgeBlockingDiagnosis {
+  state: BridgeBlockingState;
+  reason: string;
+  summary: string;
+  commandSent: false;
+  heartbeat: BridgeLiveness;
+  activeCommand: {
+    markerAgeMs: number;
+    elapsedMs: number | null;
+    expectedMs: number;
+    tool: string | null;
+  } | null;
+  counts: {
+    queuedCommands: number;
+    oldestQueuedAgeMs: number | null;
+    busyMarkers: number;
+    freshBusyMarkers: number;
+    stalledBusyMarkers: number;
+  };
+  runningToolCalls: { tool: string; ageMs: number }[];
+  thresholds: { heartbeatStaleMs: number; stuckBusyMs: number; expectedCommandMs: number };
+  windowProbe: { performed: false; reason: string };
+  nextSteps: string[];
+}
+
+export interface BridgeBlockingInput {
+  /** A command running longer than this while the panel is alive is treated as likely blocked. */
+  expectedCommandMs?: number;
+  /** In-process running tool calls (tool name and start time only). */
+  runningToolCalls?: readonly { tool: string; startedAt: string }[];
+  /** Test seams for the POSIX owner check. */
+  myUid?: number;
+  platform?: NodeJS.Platform;
+}
+
+const MAX_BUSY_MARKER_BYTES = 256;
+const MAX_REPORTED_TOOL_CALLS = 5;
+const WINDOW_PROBE_SKIPPED =
+  "No operating-system window probe is performed: on macOS it needs Accessibility permission, and window titles can contain project or media names. The diagnosis uses only bridge heartbeat and busy-marker timing.";
+
+/** Read the panel-reported elapsed time from a busy marker; never returns its id. */
+function readBusyElapsedMs(file: string): number | null {
+  try {
+    if (statSync(file).size > MAX_BUSY_MARKER_BYTES) return null;
+    const value = JSON.parse(readFileSync(file, "utf-8")) as { elapsedMs?: unknown } | null;
+    const elapsed = value?.elapsedMs;
+    return typeof elapsed === "number" && Number.isFinite(elapsed) && elapsed >= 0 ? Math.round(elapsed) : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Diagnose whether the CEP bridge is blocked (for example by a modal dialog)
+ * without sending a command. A modal blocks Premiere's scripting engine, so a
+ * probe script could never run. This reads only file timing in the private
+ * bridge directory: the 1 s panel heartbeat, `busy_<id>.json` markers (written
+ * every 2 s by the panel while evalScript is in flight, starting 2 s in), and
+ * queued `cmd_<id>.jsx` files. It never creates, deletes, or renames files and
+ * never returns paths, file names, command ids, or command contents.
+ */
+export function diagnoseBridgeBlocking(
+  options?: BridgeOptions,
+  nowMs = Date.now(),
+  input: BridgeBlockingInput = {},
+): BridgeBlockingDiagnosis {
+  const directory = getTempDir(options);
+  const expectedMs = input.expectedCommandMs ?? options?.timeoutMs ?? DEFAULT_TIMEOUT_MS;
+  const runningToolCalls = (input.runningToolCalls ?? [])
+    .map((call) => ({ tool: call.tool, ageMs: Math.max(0, nowMs - Date.parse(call.startedAt)) }))
+    .filter((call) => Number.isFinite(call.ageMs))
+    .slice(0, MAX_REPORTED_TOOL_CALLS);
+  const counts = { queuedCommands: 0, oldestQueuedAgeMs: null as number | null, busyMarkers: 0, freshBusyMarkers: 0, stalledBusyMarkers: 0 };
+  const result = (
+    state: BridgeBlockingState,
+    reason: string,
+    summary: string,
+    nextSteps: string[],
+    heartbeat: BridgeLiveness,
+    activeCommand: BridgeBlockingDiagnosis["activeCommand"] = null,
+  ): BridgeBlockingDiagnosis => ({
+    state,
+    reason,
+    summary,
+    commandSent: false,
+    heartbeat,
+    activeCommand,
+    counts,
+    runningToolCalls,
+    thresholds: { heartbeatStaleMs: BRIDGE_HEARTBEAT_STALE_MS, stuckBusyMs: STUCK_BUSY_MS, expectedCommandMs: expectedMs },
+    windowProbe: { performed: false, reason: WINDOW_PROBE_SKIPPED },
+    nextSteps,
+  });
+  const recheck = "Then call get_bridge_telemetry again; it sends no command.";
+  const openPanel = "In Premiere Pro, open Window > Extensions > MCP Bridge and make sure it reports running.";
+  const sameUser = "Check that the MCP server and Premiere Pro run as the same user.";
+  const noHeartbeat: BridgeLiveness = { state: "unknown", ageMs: null };
+
+  let directoryStats: Stats;
+  try {
+    if (!existsSync(directory)) {
+      return result("connector_not_running", "bridge_directory_missing",
+        "The bridge directory does not exist yet, so the CEP connector has not started for this server.",
+        [openPanel, recheck], noHeartbeat);
+    }
+    directoryStats = lstatSync(directory);
+  } catch {
+    return result("unknown", "bridge_directory_unreadable", "The bridge directory could not be inspected.", [sameUser, recheck], noHeartbeat);
+  }
+  const platform = input.platform ?? process.platform;
+  const myUid = input.myUid ?? (typeof process.getuid === "function" ? process.getuid() : undefined);
+  if (directoryStats.isSymbolicLink() || !directoryStats.isDirectory() || (platform !== "win32" && myUid !== undefined && directoryStats.uid !== myUid)) {
+    return result("unknown", "bridge_directory_untrusted",
+      "The bridge path is not a private directory owned by this user, so its markers were not read.",
+      ["Remove the bridge directory or set PREMIERE_TEMP_DIR to a path only you control, then restart the connector.", recheck],
+      noHeartbeat);
+  }
+
+  const heartbeat = getBridgeLiveness(options, nowMs);
+  let freshest: { markerAgeMs: number; elapsedMs: number | null } | null = null;
+  let stalest: { markerAgeMs: number; elapsedMs: number | null } | null = null;
+  try {
+    for (const name of readdirSync(directory)) {
+      const queued = /^cmd_.+\.jsx$/.test(name);
+      if (!queued && !/^busy_.+\.json$/.test(name)) continue;
+      const file = join(directory, name);
+      let ageMs: number;
+      try {
+        const entry = lstatSync(file);
+        if (!entry.isFile()) continue;
+        ageMs = Math.max(0, nowMs - entry.mtimeMs);
+      } catch {
+        continue; // claimed or finished between listing and stat
+      }
+      if (queued) {
+        counts.queuedCommands++;
+        counts.oldestQueuedAgeMs = Math.max(counts.oldestQueuedAgeMs ?? 0, ageMs);
+        continue;
+      }
+      counts.busyMarkers++;
+      const marker = { markerAgeMs: ageMs, elapsedMs: readBusyElapsedMs(file) };
+      if (ageMs < STUCK_BUSY_MS) {
+        counts.freshBusyMarkers++;
+        if (!freshest || (marker.elapsedMs ?? -1) > (freshest.elapsedMs ?? -1)) freshest = marker;
+      } else {
+        counts.stalledBusyMarkers++;
+        if (!stalest || ageMs > stalest.markerAgeMs) stalest = marker;
+      }
+    }
+  } catch {
+    return result("unknown", "bridge_directory_unreadable", "The bridge directory could not be listed.", [sameUser, recheck], heartbeat);
+  }
+
+  // The panel runs one command at a time and host work is serialized, so a
+  // single running tool call is the one the marker belongs to.
+  const tool = runningToolCalls.length === 1 ? runningToolCalls[0].tool : null;
+  const dismiss = "Bring Premiere Pro to the front and dismiss any open dialog (for example Missing Media, Save, or an alert).";
+  const noReplay = "Do not resend edits: call get_last_operations and read the timeline back first.";
+
+  if (freshest) {
+    const activeCommand = { ...freshest, expectedMs, tool };
+    if (freshest.elapsedMs !== null && freshest.elapsedMs >= expectedMs) {
+      return result("likely_blocked_by_dialog", "command_exceeded_expected_time",
+        `Premiere Pro accepted a command ${Math.round(freshest.elapsedMs / 1000)} s ago and the panel is alive, but the scripting engine has not returned. A modal dialog is the usual cause; a long export or analysis looks the same.`,
+        [dismiss, "If no dialog is visible, wait for any long export or analysis to finish.", noReplay, recheck],
+        heartbeat, activeCommand);
+    }
+    return result("busy", "command_executing",
+      "Premiere Pro is executing a command and the panel is refreshing its busy marker.",
+      ["Wait for the running command to return before sending another edit.", recheck], heartbeat, activeCommand);
+  }
+
+  if (stalest) {
+    const activeCommand = { ...stalest, expectedMs, tool };
+    if (heartbeat.state === "running" || heartbeat.state === "waiting") {
+      return result("stuck", "busy_marker_orphaned",
+        "A busy marker stopped refreshing while the panel heartbeat is live: the panel that ran that command was reloaded or crashed, and its result will not arrive.",
+        [noReplay, "Reload the panel (Window > Extensions > MCP Bridge) if commands keep timing out.", recheck],
+        heartbeat, activeCommand);
+    }
+    return result("stuck", "panel_frozen_with_command_in_flight",
+      "The panel heartbeat and the busy marker both stopped refreshing while a command was in flight. A modal dialog, a long export that blocks the panel, or a crashed panel causes this.",
+      [dismiss, "If Premiere Pro is not open or shows no dialog, reload the panel (Window > Extensions > MCP Bridge).", noReplay, recheck],
+      heartbeat, activeCommand);
+  }
+
+  if (heartbeat.state === "stale") {
+    return result("connector_not_running", "heartbeat_stale",
+      "The CEP panel heartbeat stopped refreshing: the panel is closed, Premiere Pro quit, or a dialog is freezing the panel.",
+      [dismiss, `If no dialog is visible: ${openPanel}`, recheck], heartbeat);
+  }
+  if (heartbeat.state === "waiting") {
+    return result("connector_not_running", "connector_stopped",
+      "The CEP panel is open but its connector is stopped.",
+      ["In the MCP Bridge panel, click Start Bridge.", recheck], heartbeat);
+  }
+  if (heartbeat.state === "unknown") {
+    return existsSync(join(directory, BRIDGE_HEARTBEAT_FILE))
+      ? result("unknown", "heartbeat_unreadable",
+        "The heartbeat file is present but unreadable or from an unsupported connector version.",
+        ["Install the CEP panel that matches this server (npm run install-cep), then restart it.", recheck], heartbeat)
+      : result("connector_not_running", "no_heartbeat",
+        "No connector heartbeat exists: the panel has not started, or it predates heartbeat support.",
+        [openPanel, recheck], heartbeat);
+  }
+
+  if (counts.queuedCommands > 0 && (counts.oldestQueuedAgeMs ?? 0) >= STUCK_BUSY_MS) {
+    return result("unknown", "queue_not_draining",
+      "The panel heartbeat is live, but queued commands are not being picked up.",
+      ["Reload the panel (Window > Extensions > MCP Bridge).", recheck], heartbeat);
+  }
+  if (counts.queuedCommands > 0) {
+    return result("busy", "command_starting",
+      "A command is queued and the panel is live; it should start within a second.",
+      [recheck], heartbeat);
+  }
+  return result("idle", "panel_idle",
+    "The panel heartbeat is live and no command is in flight.",
+    ["The bridge is ready. If an earlier call timed out, check get_last_operations before retrying it."], heartbeat);
 }
 
 function safeUnlink(path: string): void {

@@ -6,6 +6,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+
+- `get_bridge_telemetry` now returns a `blocking` diagnosis that tells a client whether the CEP bridge is blocked, without sending a command (a modal dialog such as Missing Media blocks Premiere's scripting engine, so a probe script cannot run). `blocking.state` is `idle`, `busy`, `likely_blocked_by_dialog`, `stuck`, `connector_not_running`, or `unknown`, with a `reason`, heartbeat and busy-marker ages, queued-command counts, the running tool name from this server's operation log when known, and `nextSteps`. An optional `expected_command_ms` sets when a still-running command counts as likely blocked (default: the bridge timeout). It reads only heartbeat and busy-marker timing and returns no paths, file names, or script contents. It does not probe OS windows or dismiss dialogs (#880).
+- Premiere CEP timeout, stuck-panel, and stale-heartbeat errors now point clients at `get_bridge_telemetry` before they retry.
+
 ## [1.24.4] - 2026-10-23
 
 ### Fixed

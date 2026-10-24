@@ -54,6 +54,11 @@ project state, make only requested changes, and verify the timeline after mutati
   unknown. Never blindly replay a confirmation token. A client-side timeout does
   not stop the server: call `get_last_operations`, check `running` and `runningOperations` even when recent history omits the call, and do not resend a call that
   is still running or already succeeded.
+- When CEP calls keep timing out, call `get_bridge_telemetry`. It sends no
+  command; `blocking.state` (`idle`, `busy`, `likely_blocked_by_dialog`,
+  `stuck`, `connector_not_running`, `unknown`) and `nextSteps` show whether a
+  modal dialog such as Missing Media is blocking Premiere. Ask the user to
+  dismiss the dialog; the server cannot.
 - Before deleting or reorganizing bins, run `find_item_usages`. After
   `import_fcp_xml` into an open project, check its `reusedItems`: the new
   sequences may use items in an old bin. A Sequences bin is in use when the
