@@ -150,6 +150,7 @@ export const WORKFLOW_TOOL_PACKS: readonly WorkflowToolPack[] = [
       "export_sequence_clip_review_frames",
       "build_caption_artifact",
       "check_caption_safe_zone",
+      "retime_caption_file",
       "plan_reaction_captions",
       "plan_short_subscribe_cta",
       "plan_short_export_folder",

@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { existsSync, realpathSync, statSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync, realpathSync, statSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import {
   buildCaptionArtifact,
@@ -30,6 +30,22 @@ import {
   SAFE_ZONE_ROUTES,
 } from "../ai/caption-authoring.js";
 import { WORD_TIMELINE_PARAMETER } from "../ai/word-timeline.js";
+import {
+  MAX_CUE_TEXT_CHARACTERS,
+  MAX_RETIME_FPS,
+  MAX_RETIME_RANGES,
+  MAX_RETIME_SECONDS,
+  MIN_RETIME_FPS,
+  RETIME_OPERATIONS,
+  RETIME_STRADDLE_POLICIES,
+  contentDigest,
+  parseCaptionFile,
+  retimeCaptionBlocks,
+  serializeCaptionFile,
+  type CaptionFileFormat,
+  type RetimeRequest,
+} from "../ai/caption-retime.js";
+import { MAX_CAPTION_ARTIFACT_CHARACTERS } from "../ai/caption-timing.js";
 
 export const MAX_INLINE_ARTIFACT_BYTES = 512 * 1024;
 const MAX_PATH_LENGTH = 4096;
@@ -126,6 +142,50 @@ export function resolveContainedOutputPath(workspace: unknown, output: unknown):
   if (existsSync(resolved)) throw new Error(`output_path already exists and will not be overwritten: ${resolved}`);
   return resolved;
 }
+
+/** Largest caption file read from input_path (bytes). */
+export const MAX_CAPTION_INPUT_BYTES = 2 * 1024 * 1024;
+
+/**
+ * Resolves an existing caption file contained inside the approved workspace.
+ * Containment is checked on the realpath of the file itself, so a symlink that
+ * points outside the workspace is refused.
+ */
+export function resolveContainedInputPath(workspace: unknown, input: unknown): string {
+  const workspacePath = absolutePath(workspace, "approved_workspace_path");
+  const inputPath = absolutePath(input, "input_path");
+  let root: string;
+  try {
+    root = realpathSync(workspacePath);
+  } catch {
+    throw new Error("approved_workspace_path must be an existing directory");
+  }
+  if (!statSync(root).isDirectory()) throw new Error("approved_workspace_path must be an existing directory");
+  let resolved: string;
+  try {
+    resolved = realpathSync(inputPath);
+  } catch {
+    throw new Error(`input_path does not exist: ${inputPath}`);
+  }
+  const relative = path.relative(root, resolved);
+  if (!relative || relative === ".." || relative.startsWith(`..${path.sep}`) || path.isAbsolute(relative)) throw new Error("input_path must be contained within approved_workspace_path");
+  const stats = statSync(resolved);
+  if (!stats.isFile()) throw new Error("input_path must be a regular file");
+  if (stats.size > MAX_CAPTION_INPUT_BYTES) throw new Error(`input_path is ${stats.size} bytes, above the ${MAX_CAPTION_INPUT_BYTES}-byte caption file limit`);
+  return resolved;
+}
+
+function captionExtension(file: string, label: string): CaptionFileFormat {
+  const extension = path.extname(file).toLocaleLowerCase();
+  if (extension === ".srt") return "srt";
+  if (extension === ".vtt") return "vtt";
+  throw new Error(`${label} must end in .srt or .vtt`);
+}
+
+const RETIME_REQUEST_KEYS = [
+  "operation", "fps", "offset_seconds", "offset_frames", "from_seconds", "ranges", "at_seconds",
+  "duration_seconds", "duration_frames", "straddle_policy", "cue_index", "text", "start_seconds", "end_seconds",
+] as const;
 
 export function getCaptionAuthoringTools() {
   return {
@@ -313,6 +373,114 @@ export function getCaptionAuthoringTools() {
               mutation_refused: "This tool provides guidance only. MCP for Adobe Premiere Pro does not expose a CaptionTrack style mutation API because Premiere does not expose one through documented ExtendScript, QE DOM, or UXP surfaces. Apply caption styles manually in Premiere's Properties panel (or Essential Graphics) and save them as a Track Style.",
               safe_zones: presetStyle?.safe_zone_recommendation ?? captionSafeZoneRecommendation(),
               routes: [...CAPTION_AUTHORING_ROUTES, ...SAFE_ZONE_ROUTES, ...CAPTION_STYLE_VERIFY_ROUTES],
+            },
+          };
+        } catch (error) {
+          return { success: false, error: error instanceof Error ? error.message : String(error) };
+        }
+      },
+    },
+    retime_caption_file: {
+      description:
+        "Retime a local SRT/VTT file after ripple edits; Premiere captions do not follow ripple_remove_timeline_ranges or insert_from_source. Operations: shift, ripple_remove_ranges, ripple_insert, edit_cue. Keeps VTT header/NOTE/STYLE, cue settings, karaoke stamps; renumbers SRT. Local-only, never changes Premiere: re-import via create_caption_track, then reapply styling (get_caption_style_guidance).",
+      parameters: {
+        type: "object" as const,
+        additionalProperties: false,
+        properties: {
+          operation: { type: "string", enum: [...RETIME_OPERATIONS], description: "shift, ripple_remove_ranges, ripple_insert, or edit_cue." },
+          input_path: { type: "string", maxLength: MAX_PATH_LENGTH, description: `Absolute path of an existing .srt or .vtt file inside approved_workspace_path (realpath-checked, at most ${MAX_CAPTION_INPUT_BYTES} bytes). Provide exactly one of input_path or content.` },
+          content: { type: "string", minLength: 1, maxLength: MAX_CAPTION_ARTIFACT_CHARACTERS, description: "Inline SRT or VTT text. Provide exactly one of input_path or content. A UTF-8 BOM and CRLF line endings are accepted." },
+          input_format: { type: "string", enum: ["srt", "vtt"], description: "Syntax of the input. Defaults to the input_path extension, else VTT when content starts with WEBVTT, else SRT." },
+          output_format: { type: "string", enum: ["srt", "vtt"], description: "Format of the result (default: the output_path extension, else the input format). SRT output drops VTT header/NOTE/STYLE/REGION blocks, cue settings, identifiers, and karaoke timestamps, with warnings." },
+          output_path: { type: "string", maxLength: MAX_PATH_LENGTH, description: "Optional absolute .srt/.vtt path to write the result to. Requires approved_workspace_path; the parent must exist inside it and the file must not already exist (never overwritten)." },
+          approved_workspace_path: { type: "string", maxLength: MAX_PATH_LENGTH, description: "Absolute existing directory that must contain input_path and output_path. Required when either path is given." },
+          return_content: { type: "boolean", description: "Also return the retimed text inline when output_path is set (default false). Inline text is always returned without output_path, up to 512 KiB." },
+          fps: { type: "number", minimum: MIN_RETIME_FPS, maximum: MAX_RETIME_FPS, description: "Optional sequence frame rate (e.g. 23.976, 25, 29.97). When set, every output time and every removal range snaps to the nearest frame, matching ripple_remove_timeline_ranges; otherwise times round to milliseconds. Required for offset_frames and duration_frames." },
+          offset_seconds: { type: "number", minimum: -MAX_RETIME_SECONDS, maximum: MAX_RETIME_SECONDS, description: "shift: seconds to add (negative moves earlier). Cues ending at or before 0 are removed; cues crossing 0 are trimmed. Use exactly one of offset_seconds or offset_frames." },
+          offset_frames: { type: "integer", description: "shift: whole frames to add at fps (negative moves earlier)." },
+          from_seconds: { type: "number", minimum: 0, maximum: MAX_RETIME_SECONDS, description: "shift: only shift cues whose start is at or after this time; earlier cues stay put." },
+          ranges: {
+            type: "array",
+            minItems: 1,
+            maxItems: MAX_RETIME_RANGES,
+            description: "ripple_remove_ranges: removed timeline ranges in seconds, sorted and non-overlapping (the same ranges passed to ripple_remove_timeline_ranges; overlapping ranges are rejected, not merged).",
+            items: {
+              type: "object",
+              additionalProperties: false,
+              required: ["start", "end"],
+              properties: {
+                start: { type: "number", minimum: 0, description: "Range start in seconds." },
+                end: { type: "number", minimum: 0, description: "Range end in seconds; must be greater than start." },
+              },
+            },
+          },
+          at_seconds: { type: "number", minimum: 0, maximum: MAX_RETIME_SECONDS, description: "ripple_insert: timeline time of the insert; cues starting at or after it move right." },
+          duration_seconds: { type: "number", minimum: 0, maximum: MAX_RETIME_SECONDS, description: "ripple_insert: inserted duration in seconds. Use exactly one of duration_seconds or duration_frames." },
+          duration_frames: { type: "integer", minimum: 1, description: "ripple_insert: inserted duration in whole frames at fps." },
+          straddle_policy: { type: "string", enum: [...RETIME_STRADDLE_POLICIES], description: "ripple_insert: a cue spanning at_seconds is split into two cues around the gap (split, default) or stretched across it (extend)." },
+          cue_index: { type: "integer", minimum: 1, description: "edit_cue: 1-based cue position in file order (SRT numbers are ignored)." },
+          text: { type: "string", minLength: 1, maxLength: MAX_CUE_TEXT_CHARACTERS, description: "edit_cue: replacement cue text; separate lines with a newline. Blank lines and \"-->\" are rejected." },
+          start_seconds: { type: "number", minimum: 0, maximum: MAX_RETIME_SECONDS, description: "edit_cue: new cue start in seconds." },
+          end_seconds: { type: "number", minimum: 0, maximum: MAX_RETIME_SECONDS, description: "edit_cue: new cue end in seconds; must be after the start." },
+        },
+        required: ["operation"],
+      },
+      handler: async (args: Record<string, unknown>) => {
+        try {
+          if (!args || typeof args !== "object" || Array.isArray(args)) throw new Error("arguments must be an object");
+          if ((args.input_path === undefined) === (args.content === undefined)) throw new Error("provide exactly one of input_path or content");
+          const usesPath = args.input_path !== undefined || args.output_path !== undefined;
+          if (usesPath && args.approved_workspace_path === undefined) throw new Error("approved_workspace_path is required with input_path or output_path");
+          if (!usesPath && args.approved_workspace_path !== undefined) throw new Error("approved_workspace_path is only accepted together with input_path or output_path");
+          for (const key of ["input_format", "output_format"] as const) {
+            if (args[key] !== undefined && args[key] !== "srt" && args[key] !== "vtt") throw new Error(`${key} must be srt or vtt`);
+          }
+          if (args.return_content !== undefined && typeof args.return_content !== "boolean") throw new Error("return_content must be a boolean");
+          let source: string | null = null;
+          let content: unknown = args.content;
+          let hint = args.input_format as CaptionFileFormat | undefined;
+          if (args.input_path !== undefined) {
+            source = resolveContainedInputPath(args.approved_workspace_path, args.input_path);
+            hint ??= captionExtension(source, "input_path");
+            content = readFileSync(source, "utf8");
+          }
+          const target = args.output_path !== undefined ? resolveContainedOutputPath(args.approved_workspace_path, args.output_path) : null;
+          const targetFormat = target ? captionExtension(target, "output_path") : undefined;
+          const parsed = parseCaptionFile(content, hint);
+          const outputFormat = (args.output_format as CaptionFileFormat | undefined) ?? targetFormat ?? parsed.format;
+          if (targetFormat && targetFormat !== outputFormat) throw new Error(`output_path extension does not match output_format ${outputFormat}`);
+          const request: Record<string, unknown> = {};
+          for (const key of RETIME_REQUEST_KEYS) if (args[key] !== undefined) request[key] = args[key];
+          const result = retimeCaptionBlocks(parsed, request as unknown as RetimeRequest);
+          const warnings = [...result.warnings];
+          const text = serializeCaptionFile(result.blocks, outputFormat, parsed.format, warnings);
+          const bytes = Buffer.byteLength(text, "utf8");
+          const wantInline = !target || args.return_content === true;
+          if (wantInline && bytes > MAX_INLINE_ARTIFACT_BYTES) throw new Error(`retimed caption file is ${bytes} bytes, above the ${MAX_INLINE_ARTIFACT_BYTES}-byte inline limit; ${target ? "omit return_content" : "pass output_path and approved_workspace_path"}`);
+          if (target) writeFileSync(target, text, { encoding: "utf8", flag: "wx" });
+          return {
+            success: true,
+            data: {
+              operation: result.summary.operation,
+              input: source ? { path: source, format: parsed.format } : { format: parsed.format, inline: true },
+              output: { format: outputFormat, bytes, sha256: contentDigest(text), ...(target ? { path: target, written: true } : { written: false }) },
+              ...(wantInline ? { content: text } : {}),
+              summary: result.summary,
+              changes: result.changes,
+              changes_truncated: result.changes_truncated,
+              range_adjustments: result.range_adjustments,
+              warnings,
+              applied_to_premiere: false,
+              host_limitations: [
+                "Premiere caption track items do not follow ripple edits, and no documented ExtendScript, QE DOM, or UXP API can move or retime them; this tool only rewrites the caption file.",
+                "Re-importing creates a new caption track. Caption styling is host-locked and is not carried over, so reapply the saved Track Style in Premiere.",
+              ],
+              next_steps: [
+                target ? `Import ${target} with import_media.` : "Save the content to a .srt or .vtt file (or rerun with output_path and approved_workspace_path), then import it with import_media.",
+                "Call create_caption_track with action import, the imported item_id, and start_seconds 0 (cue times are already sequence-relative).",
+                "Disable or delete the stale caption track in Premiere, then call read_sequence_captions to confirm the new track.",
+                "Reapply caption styling by hand in Premiere; call get_caption_style_guidance for Track Style steps.",
+              ],
             },
           };
         } catch (error) {

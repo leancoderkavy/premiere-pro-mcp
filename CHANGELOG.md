@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+
+- `retime_caption_file` retimes a local SRT or VTT caption file after ripple edits, because Premiere caption track items do not move with `ripple_remove_timeline_ranges` or `insert_from_source` and no host API can retime them (#880). Operations: `shift`, `ripple_remove_ranges` (takes the same sorted, non-overlapping ranges; deletes cues inside, trims straddling cues, closes gaps), `ripple_insert` (splits or extends a straddling cue), and `edit_cue`. Optional `fps` snaps output times and ranges to frames. It keeps VTT headers, NOTE/STYLE/REGION blocks, cue settings, and karaoke timestamps, renumbers SRT, and can convert between formats. Files are read and written only inside an approved workspace and never overwritten. It never touches Premiere: re-import the result with `create_caption_track` and reapply caption styling in Premiere.
+
 ## [1.24.4] - 2026-10-23
 
 ### Fixed

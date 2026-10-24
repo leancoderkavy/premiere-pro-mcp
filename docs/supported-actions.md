@@ -10,11 +10,11 @@ source catalog may include unreleased actions.
 
 | Surface | Count | Availability |
 | --- | ---: | --- |
-| Registered core actions | 436 | CEP/local server catalog; host and authority checks still apply |
-| Default-profile core actions | 434 | Advertised with `inspect,edit,export,filesystem` |
+| Registered core actions | 437 | CEP/local server catalog; host and authority checks still apply |
+| Default-profile core actions | 435 | Advertised with `inspect,edit,export,filesystem` |
 | Restricted core actions | 2 | Require explicit `unsafe-script` authority |
 | Authenticated UXP additions | 96 | Advertised only while a compatible authenticated UXP panel is connected |
-| Default profile with UXP | 530 | 434 core plus 96 UXP tools |
+| Default profile with UXP | 531 | 435 core plus 96 UXP tools |
 
 ## How to read support
 
@@ -361,6 +361,7 @@ operation” when the tool has no enum-based mode.
 | `rename_track` | Default profile | `track_type`: `video`, `audio` | Rename a video or audio track. |
 | `replace_clip` | Default profile | Single operation | Replace one timeline clip with a different project item on the same track, keeping the exact timeline start and end. The replacement plays from its own In mark for the original clip's duration; neighbouring clips do not ripple, and a linked partner clip on another track is left in place. The replacement must carry only the track's media type (for example a still or video-only item on a video track): Premiere's overwrite would also place an item's other media on another track. Checks the replacement accepts the source range before removing anything. Refuses without changing anything when the track is locked. Reads the track back: verified when the new clip covers the same span, committed_unverified when the span holds but the source In point cannot be confirmed, otherwise failure with Undo guidance. |
 | `replace_clip_media` | Default profile | Single operation | Unavailable by design: the legacy ExtendScript overwrite route cannot prove that replacing media preserves the original clip's trim, position, linked audio, or adjacent clips, so this tool performs no mutation. |
+| `retime_caption_file` | Default profile | `operation`: `shift`, `ripple_remove_ranges`, `ripple_insert`, `edit_cue`; `input_format`: `srt`, `vtt`; `output_format`: `srt`, `vtt`; `straddle_policy`: `split`, `extend` | Retime a local SRT/VTT file after ripple edits; Premiere captions do not follow ripple_remove_timeline_ranges or insert_from_source. Operations: shift, ripple_remove_ranges, ripple_insert, edit_cue. Keeps VTT header/NOTE/STYLE, cue settings, karaoke stamps; renumbers SRT. Local-only, never changes Premiere: re-import via create_caption_track, then reapply styling (get_caption_style_guidance). |
 | `reverse_clip` | Default profile | Single operation | Unavailable: Premiere does not expose a supported scripting API for reversing a timeline clip's playback direction. |
 | `review_broll_placements` | Default profile | Single operation | Review caller-proposed owned-footage B-roll picks with matched quote, reason, alternatives, source/sequence revisions and explicit decisions. Reject overlapping approved placements. Does not infer visual content, search stock, inspect track occupancy or insert clips. |
 | `review_dialogue_candidates` | Default profile | Single operation | Review revision-bound dialogue candidates with surrounding words, silence padding, explicit keep/reject decisions and unioned source-time removal duration. Recomputed review revisions reject stale selections. Local-only; no timeline mapping, transcription or mutation. |
