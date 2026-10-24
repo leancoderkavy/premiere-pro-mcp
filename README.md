@@ -1051,7 +1051,12 @@ call. It refuses retimed clips because CEP cannot prove their source-to-timeline
 reads both source points and visible timeline start/end/duration before reporting success. The
 default `keyframe_policy: "reject"` stops before a trim that would leave effect keyframes beyond
 the visible clip; `keyframe_policy: "preserve"` is an explicit opt-in and reports the remaining
-count. `split_clip` verifies a spanning clip, the expected count increase, and the left/right
+count. `keyframe_policy: "hold_last_value"` also keeps them, and makes each animated numeric
+parameter hold its edge value: a trim into an animation keys the new edge with the value sampled
+there, and an extension past hidden keys anchors the old and new edge at the old edge value. It
+refuses before mutation when keys would be revealed or a value cannot be sampled or written
+losslessly, and reads every value back at the new edge (`committed_unverified` if one differs). Only edge values are verified; a Bezier segment next to an added key can
+reshape between keys. `split_clip` verifies a spanning clip, the expected count increase, and the left/right
 cut boundaries. Its QE path cannot prove effect-keyframe redistribution, so a successful result
 labels those semantics `unverified`. These are CEP contract checks, not validation in a licensed
 Premiere Pro 26.x host.

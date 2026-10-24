@@ -77,6 +77,191 @@ const KEYFRAME_SCAN_HELPERS = `
           }
 `;
 
+/**
+ * ES3 helpers for trim_clip keyframe_policy "hold_last_value". Key times are
+ * media (source) ticks, matching __clipKeyframeBase in the keyframe tools.
+ * `outward` is -1 for the in edge and +1 for the out edge.
+ */
+const HOLD_LAST_VALUE_HELPERS = `
+          function __holdTime(ticks) {
+            var holdTimeValue = new Time();
+            holdTimeValue.ticks = String(Math.round(ticks));
+            return holdTimeValue;
+          }
+          function __holdValueKind(property, value) {
+            if (typeof value === "number") {
+              if (!isFinite(value)) return "unreadable";
+              if (value >= 4294967296) {
+                var colorProbe = null;
+                try { if (typeof property.getColorValue === "function") colorProbe = property.getColorValue(); } catch (colorProbeError) {}
+                if (colorProbe && colorProbe.length === 4) return "color";
+              }
+              return "number";
+            }
+            if (value === null || value === undefined) return "unreadable";
+            if (typeof value === "object" && typeof value.length === "number") {
+              if (value.length < 1 || value.length > 16) return "other";
+              for (var vi = 0; vi < value.length; vi++) {
+                if (typeof value[vi] !== "number" || !isFinite(value[vi])) return "other";
+              }
+              return "array";
+            }
+            return "other";
+          }
+          function __holdCopy(value) {
+            if (typeof value === "number") return value;
+            var copied = [];
+            for (var ci = 0; ci < value.length; ci++) copied.push(Number(value[ci]));
+            return copied;
+          }
+          function __holdClose(expected, actual) {
+            return typeof actual === "number" && isFinite(actual) && Math.abs(actual - expected) <= Math.max(0.0001, Math.abs(expected) * 0.000001);
+          }
+          function __holdMatches(expected, actual) {
+            if (typeof expected === "number") return __holdClose(expected, actual);
+            if (actual === null || actual === undefined || typeof actual.length !== "number" || actual.length !== expected.length) return false;
+            for (var mi = 0; mi < expected.length; mi++) {
+              if (!__holdClose(expected[mi], actual[mi])) return false;
+            }
+            return true;
+          }
+          function __holdReadable(property, value) {
+            var kind = __holdValueKind(property, value);
+            if (kind === "number" || kind === "array") return __holdCopy(value);
+            return value === null || value === undefined ? null : String(value);
+          }
+          // Sample every time-varying parameter before the trim and decide the
+          // smallest key write that holds the edge value. Nothing is written
+          // here; any error makes the caller refuse before mutation.
+          function __planHoldKeyframes(item, oldEdgeTicks, newEdgeTicks, outward, frameTicks) {
+            var plan = { params: [], skipped: [], errors: [], extending: (newEdgeTicks - oldEdgeTicks) * outward > 0 };
+            var eps = frameTicks / 100;
+            var inspected = 0;
+            try {
+              for (var ci = 0; ci < item.components.numItems; ci++) {
+                var component = item.components[ci];
+                for (var pi = 0; pi < component.properties.numItems; pi++) {
+                  var property = component.properties[pi];
+                  var label = String(component.displayName) + " / " + String(property.displayName);
+                  var timeVarying = false;
+                  try { timeVarying = property.isTimeVarying(); } catch (holdVaryingError) {
+                    plan.errors.push(label + ": time-varying state unreadable");
+                    continue;
+                  }
+                  if (!timeVarying) continue;
+                  var keys;
+                  try { keys = property.getKeys(); } catch (holdKeysError) {
+                    plan.errors.push(label + ": keyframes unreadable");
+                    continue;
+                  }
+                  if (!keys || typeof keys.length !== "number" || !isFinite(keys.length)) {
+                    plan.errors.push(label + ": keyframes unreadable");
+                    continue;
+                  }
+                  var between = 0, past = 0, atNewEdge = false, badKey = false;
+                  for (var ki = 0; ki < keys.length; ki++) {
+                    inspected++;
+                    if (inspected > 10000) {
+                      plan.errors.push("more than 10000 keyframes; refusing an unbounded inspection");
+                      return plan;
+                    }
+                    var keyTicks = NaN;
+                    try { keyTicks = parseFloat(keys[ki].ticks); } catch (holdKeyTimeError) {}
+                    if (!isFinite(keyTicks)) { badKey = true; continue; }
+                    var beyondNew = (keyTicks - newEdgeTicks) * outward;
+                    if (Math.abs(keyTicks - newEdgeTicks) <= eps) atNewEdge = true;
+                    if (beyondNew > eps) past++;
+                    if (plan.extending && (keyTicks - oldEdgeTicks) * outward > eps && beyondNew <= eps) between++;
+                  }
+                  if (badKey) { plan.errors.push(label + ": a keyframe time is unreadable"); continue; }
+                  var mode;
+                  if (plan.extending) {
+                    if (between) {
+                      plan.errors.push(label + ": " + between + " keyframe(s) sit in the range the extension would reveal, so the edge value cannot be held without removing them");
+                      continue;
+                    }
+                    mode = past ? "anchor_old_and_new_edge" : "already_held";
+                  } else {
+                    mode = atNewEdge ? "already_keyed" : (past ? "key_new_edge" : "already_held");
+                  }
+                  var sampleTicks = plan.extending ? oldEdgeTicks : newEdgeTicks;
+                  var sampled;
+                  try { sampled = property.getValueAtTime(__holdTime(sampleTicks)); } catch (holdSampleError) {
+                    plan.errors.push(label + ": value at the edge could not be sampled");
+                    continue;
+                  }
+                  var kind = __holdValueKind(property, sampled);
+                  if (kind === "unreadable") {
+                    plan.errors.push(label + ": value at the edge could not be sampled");
+                    continue;
+                  }
+                  var needsWrite = mode === "key_new_edge" || mode === "anchor_old_and_new_edge";
+                  if (kind !== "number" && kind !== "array") {
+                    if (needsWrite) {
+                      plan.errors.push(label + ": " + (kind === "color" ? "colour" : "non-numeric") + " value cannot be held losslessly through CEP");
+                      continue;
+                    }
+                    plan.skipped.push({ component: ci, property: pi, effect: String(component.displayName), name: String(property.displayName), mode: mode, reason: kind === "color" ? "colour value is not compared" : "non-numeric value is not compared" });
+                    continue;
+                  }
+                  if (needsWrite) {
+                    var supported = true;
+                    try { supported = property.areKeyframesSupported() !== false; } catch (holdSupportError) {}
+                    if (!supported) {
+                      plan.errors.push(label + ": keyframes are not supported");
+                      continue;
+                    }
+                  }
+                  plan.params.push({ component: ci, property: pi, effect: String(component.displayName), name: String(property.displayName), mode: mode, value: __holdCopy(sampled) });
+                }
+              }
+            } catch (holdScanError) {
+              plan.errors.push(holdScanError.toString());
+            }
+            return plan;
+          }
+          // Write only the keys the plan needs, then read the value back at the
+          // new edge (and at the old edge for an anchored extension).
+          function __applyHoldKeyframes(item, plan, oldEdgeTicks, newEdgeTicks) {
+            var results = [];
+            for (var hi = 0; hi < plan.params.length; hi++) {
+              var planned = plan.params[hi];
+              var outcome = { component: planned.component, property: planned.property, effect: planned.effect, name: planned.name, mode: planned.mode, expected: planned.value, keysWritten: 0, verified: false };
+              try {
+                var target = item.components[planned.component].properties[planned.property];
+                if (!target || String(target.displayName) !== planned.name) throw new Error("parameter identity changed during the trim");
+                if (planned.mode === "anchor_old_and_new_edge") {
+                  target.addKey(__holdTime(oldEdgeTicks));
+                  target.setValueAtKey(__holdTime(oldEdgeTicks), planned.value, true);
+                  outcome.keysWritten++;
+                }
+                if (planned.mode === "anchor_old_and_new_edge" || planned.mode === "key_new_edge") {
+                  target.addKey(__holdTime(newEdgeTicks));
+                  target.setValueAtKey(__holdTime(newEdgeTicks), planned.value, true);
+                  outcome.keysWritten++;
+                }
+                var atNew = target.getValueAtTime(__holdTime(newEdgeTicks));
+                outcome.actual = __holdReadable(target, atNew);
+                var matches = __holdMatches(planned.value, atNew);
+                if (!matches) outcome.reason = "value at the new edge does not match the held value";
+                if (matches && planned.mode === "anchor_old_and_new_edge") {
+                  var atOld = target.getValueAtTime(__holdTime(oldEdgeTicks));
+                  if (!__holdMatches(planned.value, atOld)) {
+                    matches = false;
+                    outcome.reason = "value at the old edge changed after anchoring";
+                    outcome.actualAtOldEdge = __holdReadable(target, atOld);
+                  }
+                }
+                outcome.verified = matches;
+              } catch (holdWriteError) {
+                outcome.error = holdWriteError.toString();
+              }
+              results.push(outcome);
+            }
+            return results;
+          }
+`;
+
 export function getTimelineTools(
   bridgeOptions: BridgeOptions,
   dependencies: { probeMediaDurationSeconds?: (path: string) => Promise<number | null>; probeMediaDurationTicks?: (path: string) => Promise<number | null> } = {},
@@ -448,9 +633,9 @@ export function getTimelineTools(
           },
           keyframe_policy: {
             type: "string",
-            enum: ["reject", "preserve"],
+            enum: ["reject", "preserve", "hold_last_value"],
             description:
-              "How to handle effect keyframes beyond the trimmed visible range: reject (default) leaves the timeline unchanged; preserve explicitly keeps them and reports their count.",
+              "How to handle effect keyframes beyond the trimmed visible range: reject (default) leaves the timeline unchanged; preserve explicitly keeps them and reports their count; hold_last_value keeps them too but makes every animated numeric parameter hold the value it had at the edge. Trimming into an animation adds a key at the new edge with the value sampled there before the trim; extending past keyframes adds keys at the old and new edge with the old edge's value so the revealed range stays flat. It refuses before mutation if keyframes would be revealed, a value cannot be sampled, or a non-numeric/colour parameter would need a key. Each parameter is read back at the new edge; key writes that do not verify report committed_unverified.",
           },
           include_linked: {
             type: "boolean",
@@ -463,7 +648,7 @@ export function getTimelineTools(
         node_id: string;
         new_in_seconds?: number;
         new_out_seconds?: number;
-        keyframe_policy?: "reject" | "preserve";
+        keyframe_policy?: "reject" | "preserve" | "hold_last_value";
         include_linked?: boolean;
       }) => {
         // The schema permits both optional edit points. Applying both requires
@@ -487,12 +672,14 @@ export function getTimelineTools(
         }
 
         const keyframePolicy = args.keyframe_policy ?? "reject";
-        if (keyframePolicy !== "reject" && keyframePolicy !== "preserve") {
+        if (keyframePolicy !== "reject" && keyframePolicy !== "preserve" && keyframePolicy !== "hold_last_value") {
           return {
             success: false,
-            error: "keyframe_policy must be reject or preserve.",
+            error: "keyframe_policy must be reject, preserve or hold_last_value.",
           };
         }
+        const holdLastValue = keyframePolicy === "hold_last_value";
+        const trimEdgeIsIn = args.new_in_seconds !== undefined;
 
         // SEC FORK (#712 review): the media-duration bound uses REAL evidence —
         // ffprobe on the clip's media file — not ProjectItem.getOutPoint(),
@@ -557,6 +744,7 @@ export function getTimelineTools(
             var tolerance = __ticksToSeconds(frameTicks);
 
   ${KEYFRAME_SCAN_HELPERS}
+  ${holdLastValue ? HOLD_LAST_VALUE_HELPERS : ""}
             function __snapshotTrimGeometry(item) {
               return {
                 inPoint: __trimSeconds(item.inPoint),
@@ -624,6 +812,17 @@ export function getTimelineTools(
             if (beforeKeyframes.outside.length && "${keyframePolicy}" === "reject") {
               return __editFail("Refusing trim before mutation: " + beforeKeyframes.outside.length + " effect keyframe(s) would remain outside the visible clip. Use keyframe_policy: preserve only if retaining those keyframes is intentional, or adjust them explicitly with the keyframe tools.");
             }
+            ${holdLastValue ? `
+            // Effect keys are stored in media (source) time, so both edges are
+            // source ticks. The out edge is the last visible frame, not the
+            // exclusive out point, so the held key stays inside the clip.
+            var holdOutward = ${trimEdgeIsIn ? "-1" : "1"};
+            var holdOldEdgeTicks = ${trimEdgeIsIn ? "parseFloat(clip.inPoint.ticks)" : "parseFloat(clip.outPoint.ticks) - frameTicks"};
+            var holdNewEdgeTicks = holdOldEdgeTicks + __trimDeltaTicks;
+            var holdPlan = __planHoldKeyframes(clip, holdOldEdgeTicks, holdNewEdgeTicks, holdOutward, frameTicks);
+            if (holdPlan.errors.length) {
+              return __editFail("Refusing keyframe_policy hold_last_value before mutation: " + holdPlan.errors.join("; ") + ". Nothing was changed.");
+            }` : ""}
 
             // Moving an edge outwards must not run into a neighbour on the same
             // track (Premiere's start/end setters would overlap or overwrite it).
@@ -765,6 +964,13 @@ export function getTimelineTools(
               }
             }
 
+            ${holdLastValue ? `
+            // The trim itself verified. Only now write the hold keys, then read
+            // every parameter back at the new edge (and the old edge when the
+            // extension was anchored there).
+            var holdResults = __applyHoldKeyframes(afterResult.clip, holdPlan, holdOldEdgeTicks, holdNewEdgeTicks);
+            var holdFailures = 0;
+            for (var hr = 0; hr < holdResults.length; hr++) if (!holdResults[hr].verified) holdFailures++;` : ""}
             var afterKeyframes = __findOutOfRangeKeyframes(afterResult.clip, after.end - after.start);
             if (afterKeyframes.errors.length && "${keyframePolicy}" === "reject") {
               return __editFail("The timeline trim may have applied, but keyframes could not be fully read back (" + afterKeyframes.errors.join("; ") + "). It is not reported as verified; inspect the clip or use Undo.");
@@ -786,6 +992,22 @@ export function getTimelineTools(
               keyframesOutsideVisibleRange: afterKeyframes.outside.length,
               keyframesVerified: afterKeyframes.errors.length === 0 && afterKeyframes.outside.length === 0
             };
+            ${holdLastValue ? `
+            trimPayload.keyframeHold = {
+              edge: "${trimEdgeIsIn ? "in" : "out"}",
+              operation: holdPlan.extending ? "extend" : "trim_into",
+              oldEdgeSourceSeconds: __ticksToSeconds(holdOldEdgeTicks),
+              newEdgeSourceSeconds: __ticksToSeconds(holdNewEdgeTicks),
+              params: holdResults,
+              skipped: holdPlan.skipped,
+              verified: holdFailures === 0
+            };
+            trimPayload.keyframesVerified = holdFailures === 0;
+            if (holdFailures) {
+              trimPayload.verified = false;
+              trimPayload.outcome = "committed_unverified";
+              trimPayload.warning = "The trim verified, but " + holdFailures + " held keyframe value(s) did not read back at the new edge. Inspect keyframeHold.params or use Undo.";
+            }` : ""}
             if (Math.abs(__trimDeltaTicks - requestedTrimDeltaTicks) > trimFrameTicks / 1000) {
               trimPayload[${args.new_in_seconds !== undefined ? '"requestedInSeconds"' : '"requestedOutSeconds"'}] = ${args.new_in_seconds ?? args.new_out_seconds};
               trimPayload[${args.new_in_seconds !== undefined ? '"appliedInSeconds"' : '"appliedOutSeconds"'}] = ${args.new_in_seconds !== undefined ? 'actualIn' : 'actualOut'};

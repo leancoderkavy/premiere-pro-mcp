@@ -34,7 +34,7 @@ export function validateExtendedEditPlan(input: unknown): Plan {
     boundedObject(step.args, KEYS[step.tool], `step${index}.args`);
     for (const field of ["new_in_seconds", "new_out_seconds", "new_start_seconds", "time_seconds"]) if (step.args[field] !== undefined && (typeof step.args[field] !== "number" || !Number.isFinite(step.args[field]) || Number(step.args[field]) < 0)) throw new Error(`${field} requires finite nonnegative seconds`);
     if (step.args.include_linked !== undefined && typeof step.args.include_linked !== "boolean") throw new Error("include_linked must be boolean");
-    if (step.args.keyframe_policy !== undefined && !["reject", "preserve"].includes(String(step.args.keyframe_policy))) throw new Error("unsupported keyframe_policy");
+    if (step.args.keyframe_policy !== undefined && !["reject", "preserve", "hold_last_value"].includes(String(step.args.keyframe_policy))) throw new Error("unsupported keyframe_policy");
     if (step.tool !== "split_clip" && step.args.node_id !== clip.id) throw new Error("step node_id differs from bound clip_id");
     if (step.tool === "enable_disable_clip") { if (typeof step.args.enabled !== "boolean") throw new Error("enabled must be boolean"); }
     else if (step.tool === "move_clip") {
