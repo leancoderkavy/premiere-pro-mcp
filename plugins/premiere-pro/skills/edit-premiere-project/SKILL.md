@@ -69,9 +69,9 @@ project state, make only requested changes, and verify the timeline after mutati
   `import_fcp_xml` into an open project, check its `reusedItems`: the new
   sequences may use items in an old bin. A Sequences bin is in use when the
   sequences inside it have clips, even if the media lives elsewhere. Delete
-  tools refuse used or offline media, contained sequences, and nested
-  sequences; pass `confirm_remove_from_sequences` or `allow_offline` only with the
-  user's explicit approval.
+  tools, including `delete_sequence`, refuse used or offline media, contained
+  sequences, and nested sequences; pass `confirm_remove_from_sequences` or
+  `allow_offline` only with the user's explicit approval.
 - To check Project-panel layout rules, run `audit_project_structure` without
   `apply` first and show its violations and proposed moves. Apply only after the
   user approves, with the same `rules` and the returned `planToken` as

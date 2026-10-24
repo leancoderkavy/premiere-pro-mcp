@@ -169,7 +169,8 @@ export function getSequenceTools(bridgeOptions: BridgeOptions) {
     },
 
     delete_sequence: {
-      description: "Delete a sequence from the project",
+      description:
+        "Delete a sequence from the project and read back that it is gone. A sequence nested on another timeline is refused unless confirm_remove_from_sequences is true, matching delete_project_item; deleting it would remove or orphan those nested clips.",
       parameters: {
         type: "object" as const,
         properties: {
@@ -177,22 +178,39 @@ export function getSequenceTools(bridgeOptions: BridgeOptions) {
             type: "string",
             description: "Sequence name or ID to delete",
           },
+          confirm_remove_from_sequences: {
+            type: "boolean",
+            description: "Delete even when this sequence is nested on another timeline, which also removes those nested clips (default: false).",
+          },
         },
         required: ["sequence_id"],
       },
-      handler: async (args: { sequence_id: string }) => {
+      handler: async (args: { sequence_id: string; confirm_remove_from_sequences?: boolean }) => {
         const script = buildToolScript(`
           var project = app.project;
           var seq = __findSequence("${escapeForExtendScript(args.sequence_id)}");
           if (!seq) return __error("Sequence not found: ${escapeForExtendScript(args.sequence_id)}");
           var sequenceId = String(seq.sequenceID);
           var name = seq.name;
+          var usage = { clips: 0, sequences: [], details: [] };
+          var item = null;
+          try { item = seq.projectItem; } catch (eItem) {}
+          if (!item) {
+            if (${args.confirm_remove_from_sequences === true ? "false" : "true"}) {
+              return __jsonStringify({ success: false, error: name + " has no readable project item, so nested timeline usage could not be checked. Nothing was deleted. Inspect find_item_usages or pass confirm_remove_from_sequences: true.", data: { code: "ITEM_USAGE_UNKNOWN" } });
+            }
+          } else {
+            usage = __projectItemUsage(item);
+            if (usage.clips > 0 && ${args.confirm_remove_from_sequences === true ? "false" : "true"}) {
+              return __jsonStringify({ success: false, error: name + " is used by " + usage.clips + " timeline clip(s) in " + usage.sequences.join(", ") + ". Deleting it would remove those nested clips too, and this cannot be undone here, so nothing was deleted. Remove the nested clips first, or pass confirm_remove_from_sequences: true.", data: { code: "ITEM_IN_USE", usages: usage.details } });
+            }
+          }
           var accepted = project.deleteSequence(seq);
           if (accepted === false) return __error("Premiere rejected deletion of sequence: " + name);
           if (__findSequence(sequenceId)) {
             return __error("Premiere did not remove sequence: " + name + ". The deletion is not reported as successful.");
           }
-          return __result({ deleted: true, verified: true, name: name, id: sequenceId });
+          return __result({ deleted: true, verified: true, name: name, id: sequenceId, timelineClipsRemoved: usage.clips, sequencesChanged: usage.sequences });
         `);
         return sendCommand(script, bridgeOptions);
       },
