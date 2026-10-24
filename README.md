@@ -1231,12 +1231,13 @@ evidence behind these tools and their verification boundaries.
 | `rank_short_form_candidates` | Rank sentence-aligned windows as short-form candidates with explainable hook, completeness, density, evidence, and duration-fit scores |
 | `plan_chapter_markers` | Lexical-cohesion chapter segmentation with titles, YouTube timestamps, and ready Chapter marker payloads |
 
-### Caption Authoring (2)
+### Caption Authoring (3)
 
 | Tool | Description |
 | :--- | :---------- |
 | `build_caption_artifact` | Word-grouped SRT/VTT captions with karaoke timestamps, emphasis markup, speaker prefixes, and style presets, written inside an approved workspace |
 | `check_caption_safe_zone` | Overlap check for caption and graphic rectangles against approximate platform UI zones, with a suggested clear position |
+| `retime_caption_file` | Local SRT/VTT retimer for after ripple edits: shift, ripple-remove ranges, ripple-insert a gap, or edit one cue; re-import with `create_caption_track` |
 
 ### Reaction Shorts (3)
 

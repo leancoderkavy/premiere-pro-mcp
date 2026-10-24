@@ -114,6 +114,7 @@ const INSPECT_TOOL_NAMES = new Set([
   "plan_word_mute_ranges",
   "detect_repeated_takes",
   "check_caption_safe_zone",
+  "retime_caption_file",
   "rank_short_form_candidates",
   "plan_chapter_markers",
   "plan_emphasis_zoom_keyframes",
@@ -416,6 +417,9 @@ export function capabilitiesForToolInvocation(toolName: string, args: unknown): 
   if (toolName === "export_interchange_uxp" && args && typeof args === "object" && (args as Record<string, unknown>).verify_artifact === true) return ["export", "filesystem"];
   if (toolName === "audit_project_structure" && args && typeof args === "object" && (args as Record<string, unknown>).apply === true) return ["inspect", "edit"];
   if (toolName === "prepare_transcript_workflow" && args && typeof args === "object" && (args as Record<string, unknown>).start_if_missing === true) return ["inspect", "edit"];
+  // Inline caption retiming is pure computation; reading input_path or writing
+  // output_path touches the local filesystem and needs that authority too.
+  if (toolName === "retime_caption_file" && args && typeof args === "object" && ((args as Record<string, unknown>).input_path !== undefined || (args as Record<string, unknown>).output_path !== undefined)) return ["inspect", "filesystem"];
   const actionMap = ACTION_CAPABILITIES[toolName];
   if (toolName === "set_metadata" && args && typeof args === "object" && (args as Record<string, unknown>).packet === "xmp") {
     // XMP field writes land in the source media file, not just the project.

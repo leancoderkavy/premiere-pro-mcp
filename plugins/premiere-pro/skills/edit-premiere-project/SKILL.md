@@ -199,6 +199,20 @@ Premiere metadata is several surfaces. Do not dump packets or mix them up.
 5. Treat GPS, camera serials, and similar EXIF as sensitive. After a failed UXP
    metadata write, inspect; never silently retry through CEP.
 
+## Captions after ripple edits
+
+Caption track items do not move with `ripple_remove_timeline_ranges` or
+`insert_from_source`, and no host API can retime them.
+
+1. Keep the caption track's source SRT/VTT inside an approved workspace.
+2. Call `retime_caption_file` with the same `ranges` you removed
+   (`ripple_remove_ranges`) or the insert point and duration (`ripple_insert`),
+   plus the sequence `fps`. Use `shift` and `edit_cue` for other fixes.
+3. Import the new file with `import_media`, then call `create_caption_track`
+   with action `import` and `start_seconds` 0. Remove the stale track.
+4. Caption styling is host-locked. Reapply the saved Track Style in Premiere
+   (`get_caption_style_guidance`), then confirm with `read_sequence_captions`.
+
 ## Reaction Shorts
 
 Use the Premiere MCP planners before styling captions in the host UI.

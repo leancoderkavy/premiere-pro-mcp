@@ -30,8 +30,8 @@ function assertSchema(schema: Schema, path: string) {
 const tools = getCaptionAuthoringTools();
 
 describe("caption authoring tool schemas", () => {
-  it("exposes exactly the three expected tools", () => {
-    expect(Object.keys(tools).sort()).toEqual(["build_caption_artifact", "check_caption_safe_zone", "get_caption_style_guidance"]);
+  it("exposes exactly the four expected tools", () => {
+    expect(Object.keys(tools).sort()).toEqual(["build_caption_artifact", "check_caption_safe_zone", "get_caption_style_guidance", "retime_caption_file"]);
   });
 
   it.each(Object.entries(tools))("%s has a bounded, fully described schema", (name, tool) => {
