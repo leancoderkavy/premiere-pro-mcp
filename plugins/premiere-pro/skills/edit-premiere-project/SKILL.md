@@ -114,6 +114,11 @@ For other mutations:
 3. Save only after successful verification when the user requested persistent changes.
 4. For exports, validate the active sequence, destination, filename, and preset before
    calling `export_sequence`; then verify and report the returned artifact path.
+   For long renders that may outlast a client request timeout (full episodes),
+   use `export_sequence_job_start`, then poll `get_export_job_status` until it
+   reports `completed`, `failed`, or `cancelled`. Report `completed` as verified
+   only when `verified` is true; `unknown` (for example `server_restarted`) is
+   not success.
 5. Report completed, skipped, and failed work separately. Include any remaining
    verification that requires playback or human visual judgment.
 

@@ -9,6 +9,7 @@ import { promisify } from "node:util";
 import { gunzipSync } from "node:zlib";
 import { probeMediaDurationSeconds } from "./media-evidence.js";
 import { parseEbur128Summary } from "./audio.js";
+import { exportJobCapacityError, lookupExportJob, MAX_EXPORT_JOBS, registerExportJob, type ExportJobObservation, type ExportJobRecord, type ExportJobStatus } from "./export-job-store.js";
 
 /**
  * Whether a PNG header declares an alpha channel (colour type 4 or 6), or null when
@@ -617,6 +618,223 @@ async function audioLayout(path: string): Promise<{ channels: number; sampleRate
   }
 }
 
+/**
+ * ES3 guard: derive the extension the preset writes and reconcile output_path
+ * with it. Expects `seq`, `outputPath`, and `presetPath`; defines
+ * `presetExtension` and `givenExtension`.
+ */
+function presetExtensionGuardScript(): string {
+  return `
+          var presetExtension = "";
+          try { presetExtension = String(seq.getExportFileExtension(presetPath) || "").replace(/^\\./, "").toLowerCase(); } catch (eExt) {}
+          var slash = Math.max(outputPath.lastIndexOf("/"), outputPath.lastIndexOf(String.fromCharCode(92)));
+          var dot = outputPath.lastIndexOf(".");
+          var givenExtension = dot > slash ? outputPath.substring(dot + 1).toLowerCase() : "";
+          if (presetExtension) {
+            if (!givenExtension) {
+              outputPath = outputPath + "." + presetExtension;
+            } else if (givenExtension !== presetExtension && !(givenExtension === "m4v" && presetExtension === "mp4")) {
+              return __error("The preset writes ." + presetExtension + " files but output_path ends in ." + givenExtension + "; nothing was exported. Use ." + presetExtension + " or pick a preset for ." + givenExtension + " (get_encoder_presets lists each preset's extension).");
+            }
+          }`;
+}
+
+/**
+ * ES3 guard: resolve the requested sequence range and fail closed when in/out
+ * points or the work area would silently encode the whole timeline. Expects
+ * `seq`; defines `rangeStart` and `rangeEnd` (seconds).
+ */
+function sequenceRangeGuardScript(range: "entire" | "in_to_out" | "work_area"): string {
+  return `
+          var rangeStart = 0;
+          var rangeEnd = parseFloat(seq.end) / TICKS_PER_SECOND;
+          ${range === "in_to_out" ? `
+          var markIn = __sequencePointSeconds(seq.getInPoint());
+          var markOut = __sequencePointSeconds(seq.getOutPoint());
+          if (markIn === null || markOut === null || markOut <= markIn || (markIn <= 0 && Math.abs(markOut - rangeEnd) < 0.001)) {
+            return __error("range 'in_to_out' needs sequence in/out points around part of the sequence (set_sequence_in_out_points); nothing was exported.");
+          }
+          rangeStart = markIn; rangeEnd = markOut;` : ""}
+          ${range === "work_area" ? `
+          rangeEnd = Number(seq.end) / TICKS_PER_SECOND;
+          var workAreaEnabled = null;
+          try { if (typeof seq.isWorkAreaEnabled === "function") workAreaEnabled = seq.isWorkAreaEnabled(); } catch (eWorkAreaEnabled) {}
+          if (workAreaEnabled !== true) {
+            return __error("range 'work_area' needs the work area enabled (is_work_area_enabled); nothing was exported.");
+          }
+          function readWorkAreaSeconds(value) {
+            if (typeof value !== "number" && typeof value !== "string") return null;
+            if (typeof value === "string" && !/\\S/.test(value)) return null;
+            var number = Number(value);
+            if (!isFinite(number)) return null;
+            return number > 1000000 ? number / TICKS_PER_SECOND : number;
+          }
+          var workIn = null;
+          var workOut = null;
+          try {
+            if (typeof seq.getWorkAreaInPoint === "function") workIn = readWorkAreaSeconds(seq.getWorkAreaInPoint());
+            if (typeof seq.getWorkAreaOutPoint === "function") workOut = readWorkAreaSeconds(seq.getWorkAreaOutPoint());
+          } catch (eWorkAreaBounds) {}
+          if (workIn === null || workOut === null || !isFinite(rangeEnd) || rangeEnd <= 0 || workIn < 0 || workOut <= workIn || workOut > rangeEnd || (workIn === 0 && Math.abs(workOut - rangeEnd) < 0.001)) {
+            return __error("range 'work_area' needs a work area around part of the sequence; nothing was exported. Set and read back a valid work area where supported, or use range 'in_to_out' after set_sequence_in_out_points.");
+          }
+          rangeStart = workIn; rangeEnd = workOut;` : ""}`;
+}
+
+const AME_JOB_ID_PATTERN = /^[A-Za-z0-9._:-]{1,128}$/;
+
+function observeExportOutput(path: string): ExportJobObservation {
+  const observedAt = Date.now();
+  try {
+    const stats = statSync(path);
+    if (!stats.isFile()) return { exists: false, sizeBytes: null, modifiedMs: null, observedAt };
+    return { exists: true, sizeBytes: stats.size, modifiedMs: stats.mtimeMs, observedAt };
+  } catch {
+    return { exists: false, sizeBytes: null, modifiedMs: null, observedAt };
+  }
+}
+
+function sameObservation(left: ExportJobObservation | undefined, right: ExportJobObservation): boolean {
+  return Boolean(left && left.exists && right.exists && left.sizeBytes === right.sizeBytes && left.modifiedMs === right.modifiedMs);
+}
+
+function comparablePath(path: string): string {
+  const normalizedPath = resolve(path).replace(/\\/g, "/");
+  return process.platform === "linux" ? normalizedPath : normalizedPath.toLowerCase();
+}
+
+/** AME reports progress as a fraction on some hosts and a percentage on others. */
+function ameProgressPercent(value: unknown): number | null {
+  if (typeof value !== "number" || !Number.isFinite(value) || value < 0) return null;
+  const percent = value <= 1 ? value * 100 : value;
+  return percent > 100 ? null : Math.round(percent * 10) / 10;
+}
+
+async function describeExportJob(
+  job: ExportJobRecord,
+  host: { success: boolean; data?: unknown; error?: string },
+  before: ExportJobObservation,
+  after: ExportJobObservation,
+  previous: ExportJobObservation | undefined,
+  windowMs: number,
+  elapsedSeconds: number,
+) {
+  const hostData = host.success && host.data && typeof host.data === "object" ? host.data as Record<string, unknown> : null;
+  const tracked = hostData?.tracked === true;
+  const hostState = tracked && typeof hostData?.state === "string" ? hostData.state : null;
+  // A tracked entry that no event ever touched proves only that the job was queued.
+  const eventsObserved = tracked && typeof hostData?.updatedAt === "number";
+  const progressPercent = eventsObserved ? ameProgressPercent(hostData?.progress) : null;
+  const nonEmpty = after.exists && (after.sizeBytes ?? 0) > 0;
+  const stableAcrossWindow = nonEmpty && sameObservation(before, after);
+  const stableSincePreviousPoll = nonEmpty && sameObservation(previous, after);
+  const eventOutputPath = typeof hostData?.eventOutputPath === "string" && hostData.eventOutputPath ? hostData.eventOutputPath : null;
+  const verificationIssues: string[] = [];
+  if (eventOutputPath && comparablePath(eventOutputPath) !== comparablePath(job.outputPath)) verificationIssues.push("ame_reported_a_different_output_path");
+
+  let status: ExportJobStatus;
+  let terminal = false;
+  let reason: string | undefined;
+  let duration: Record<string, unknown> | null = null;
+  let verified = false;
+
+  if (hostState === "error") {
+    status = "failed"; terminal = true;
+    reason = `Adobe Media Encoder reported a job error${typeof hostData?.error === "string" && hostData.error ? `: ${hostData.error.slice(0, 512)}` : ""}. Inspect or delete any partial file before retrying.`;
+  } else if (hostState === "cancelled") {
+    status = "cancelled"; terminal = true;
+    reason = "Adobe Media Encoder reported the job as cancelled. Any file at output_path may be partial.";
+  } else if (hostState === "complete" || (stableAcrossWindow && stableSincePreviousPoll && (!eventsObserved || (hostState === "encoding" && progressPercent === 100)))) {
+    const completionEvent = hostState === "complete";
+    if (!nonEmpty) {
+      status = "failed";
+      reason = "Adobe Media Encoder reported completion, but no non-empty file exists at output_path (the preset may have redirected the output). This is re-checked on the next poll.";
+    } else if (!stableAcrossWindow) {
+      status = "finalizing";
+      reason = "Adobe Media Encoder reported completion and the output file is still changing; poll again.";
+    } else {
+      status = "completed";
+      const actual = await probeMediaDurationSeconds(job.outputPath);
+      const expected = job.expectedDurationSeconds;
+      const tolerance = job.frameDurationSeconds !== null && job.frameDurationSeconds <= 1 ? job.frameDurationSeconds + 0.001 : null;
+      const durationVerified = actual !== null && expected !== null && tolerance !== null && Math.abs(actual - expected) <= tolerance;
+      if (actual !== null && expected !== null && !durationVerified) verificationIssues.push("duration_mismatch");
+      if (actual === null) verificationIssues.push("duration_probe_unavailable");
+      if (!completionEvent) verificationIssues.push("no_ame_completion_event_observed");
+      duration = { expectedSeconds: expected, actualSeconds: actual, toleranceSeconds: tolerance, verified: durationVerified };
+      verified = completionEvent && durationVerified && verificationIssues.length === 0;
+      // Without a completion event a paused encode can look stable, so keep polling allowed.
+      terminal = completionEvent;
+      reason = completionEvent
+        ? undefined
+        : "No Adobe Media Encoder completion event was observed (events may not reach this ExtendScript engine); the file is non-empty and unchanged across two polls. A paused encode can look the same, so confirm in AME or with verify_delivery_file before delivery.";
+    }
+  } else if (nonEmpty) {
+    status = "encoding";
+  } else if (!host.success) {
+    status = "unknown";
+    reason = `Premiere could not be asked for AME job events (${(host.error ?? "no response").slice(0, 300)}) and no output file exists yet. Unknown is not success; poll again.`;
+  } else if (hostData?.eventStore === "absent" || (hostData?.eventStore === "present" && !tracked)) {
+    status = "unknown";
+    reason = "Premiere no longer holds this job's AME event record (Premiere or its scripting engine restarted, or the record was evicted) and no output file exists. The render may still be queued in Adobe Media Encoder; check AME directly.";
+  } else {
+    status = eventsObserved && hostState === "encoding" ? "encoding" : "queued";
+    if (status === "queued" && hostData?.encoderRunning === false && job.queueBatchStart !== "requested") {
+      reason = "Adobe Media Encoder is not running its queue; start it (start_batch_encode or in AME) for this job to render.";
+    }
+  }
+
+  const evidenceSources = [
+    ...(eventsObserved ? ["ame_job_events"] : []),
+    ...(nonEmpty ? ["output_file_observation"] : []),
+    ...(duration?.actualSeconds !== undefined && duration.actualSeconds !== null ? ["ffprobe_duration"] : []),
+  ];
+  const data: Record<string, unknown> = {
+    jobId: job.id,
+    ameJobId: job.ameJobId,
+    status,
+    terminal,
+    verified,
+    ...(status === "completed" ? { outcome: verified ? "verified" : "committed_unverified" } : {}),
+    ...(reason ? { reason } : {}),
+    progressPercent,
+    progressSource: progressPercent === null ? null : "ame_job_progress_event",
+    elapsedSeconds,
+    range: job.range,
+    queueBatchStart: job.queueBatchStart,
+    evidenceSources,
+    evidence: {
+      hostEvents: host.success
+        ? {
+          available: true,
+          eventStore: hostData?.eventStore ?? null,
+          eventsBound: hostData?.eventsBound === true,
+          tracked,
+          eventsObserved,
+          state: hostState,
+          queuedEvent: hostData?.queuedEvent === true,
+          encoderRunning: typeof hostData?.encoderRunning === "boolean" ? hostData.encoderRunning : null,
+          ...(eventOutputPath ? { eventOutputPath } : {}),
+        }
+        : { available: false, error: (host.error ?? "no response").slice(0, 300) },
+      outputFile: {
+        path: job.outputPath,
+        exists: after.exists,
+        sizeBytes: after.sizeBytes,
+        modifiedAt: after.modifiedMs === null ? null : new Date(after.modifiedMs).toISOString(),
+        stableAcrossWindow,
+        stableSincePreviousPoll,
+        stabilityWindowMs: windowMs,
+      },
+      ...(duration ? { duration } : {}),
+    },
+    verificationIssues,
+    verificationScope: "Completion evidence is Adobe Media Encoder job events recorded in Premiere's ExtendScript engine plus local output-file size/mtime stability and an ffprobe duration check. It does not prove visual quality, audio correctness, or editorial approval.",
+  };
+  if (terminal) job.terminal = { status, data };
+  return { success: true, data };
+}
+
 export function getExportTools(bridgeOptions: BridgeOptions) {
   return {
     validate_export_preset: {
@@ -1019,52 +1237,8 @@ export function getExportTools(bridgeOptions: BridgeOptions) {
           outputPath = new File(outputPath).fsName;
           presetPath = new File(presetPath).fsName;
 
-          var presetExtension = "";
-          try { presetExtension = String(seq.getExportFileExtension(presetPath) || "").replace(/^\\./, "").toLowerCase(); } catch (eExt) {}
-          var slash = Math.max(outputPath.lastIndexOf("/"), outputPath.lastIndexOf(String.fromCharCode(92)));
-          var dot = outputPath.lastIndexOf(".");
-          var givenExtension = dot > slash ? outputPath.substring(dot + 1).toLowerCase() : "";
-          if (presetExtension) {
-            if (!givenExtension) {
-              outputPath = outputPath + "." + presetExtension;
-            } else if (givenExtension !== presetExtension && !(givenExtension === "m4v" && presetExtension === "mp4")) {
-              return __error("The preset writes ." + presetExtension + " files but output_path ends in ." + givenExtension + "; nothing was exported. Use ." + presetExtension + " or pick a preset for ." + givenExtension + " (get_encoder_presets lists each preset's extension).");
-            }
-          }
-
-          var rangeStart = 0;
-          var rangeEnd = parseFloat(seq.end) / TICKS_PER_SECOND;
-          ${range === "in_to_out" ? `
-          var markIn = __sequencePointSeconds(seq.getInPoint());
-          var markOut = __sequencePointSeconds(seq.getOutPoint());
-          if (markIn === null || markOut === null || markOut <= markIn || (markIn <= 0 && Math.abs(markOut - rangeEnd) < 0.001)) {
-            return __error("range 'in_to_out' needs sequence in/out points around part of the sequence (set_sequence_in_out_points); nothing was exported.");
-          }
-          rangeStart = markIn; rangeEnd = markOut;` : ""}
-          ${range === "work_area" ? `
-          rangeEnd = Number(seq.end) / TICKS_PER_SECOND;
-          var workAreaEnabled = null;
-          try { if (typeof seq.isWorkAreaEnabled === "function") workAreaEnabled = seq.isWorkAreaEnabled(); } catch (eWorkAreaEnabled) {}
-          if (workAreaEnabled !== true) {
-            return __error("range 'work_area' needs the work area enabled (is_work_area_enabled); nothing was exported.");
-          }
-          function readWorkAreaSeconds(value) {
-            if (typeof value !== "number" && typeof value !== "string") return null;
-            if (typeof value === "string" && !/\\S/.test(value)) return null;
-            var number = Number(value);
-            if (!isFinite(number)) return null;
-            return number > 1000000 ? number / TICKS_PER_SECOND : number;
-          }
-          var workIn = null;
-          var workOut = null;
-          try {
-            if (typeof seq.getWorkAreaInPoint === "function") workIn = readWorkAreaSeconds(seq.getWorkAreaInPoint());
-            if (typeof seq.getWorkAreaOutPoint === "function") workOut = readWorkAreaSeconds(seq.getWorkAreaOutPoint());
-          } catch (eWorkAreaBounds) {}
-          if (workIn === null || workOut === null || !isFinite(rangeEnd) || rangeEnd <= 0 || workIn < 0 || workOut <= workIn || workOut > rangeEnd || (workIn === 0 && Math.abs(workOut - rangeEnd) < 0.001)) {
-            return __error("range 'work_area' needs a work area around part of the sequence; nothing was exported. Set and read back a valid work area where supported, or use range 'in_to_out' after set_sequence_in_out_points.");
-          }
-          rangeStart = workIn; rangeEnd = workOut;` : ""}
+${presetExtensionGuardScript()}
+${sequenceRangeGuardScript(range)}
 
           // A file already at output_path must not pass the written-file check below.
           var existing = new File(outputPath);
@@ -1664,6 +1838,252 @@ export function getExportTools(bridgeOptions: BridgeOptions) {
           });
         `);
         return sendCommand(script, bridgeOptions);
+      },
+    },
+
+    export_sequence_job_start: {
+      description:
+        "Start an asynchronous Adobe Media Encoder export of the active sequence and return a job id at once, so long renders (such as full episodes) do not hold the MCP call open. Poll get_export_job_status until it reports completed or failed. Requires a saved project, an .epr preset_path (Same as Project presets are refused), an existing output folder, and an output_path with no file yet (existing files are always refused; AME may otherwise rename or overwrite). The output extension must match the preset; a missing extension is added. range follows export_sequence: in_to_out and work_area fail closed instead of encoding the whole timeline. start_batch (default true) asks AME to start every ready queue job, including unrelated ones. Success means AME accepted the job (committed_unverified); render completion and the file are verified later by get_export_job_status. Jobs are tracked only by this server process.",
+      parameters: {
+        type: "object" as const,
+        properties: {
+          output_path: {
+            type: "string",
+            description: "Full output file path that does not exist yet, in an existing folder (e.g., '/Users/me/exports/episode-12.mp4')",
+          },
+          preset_path: {
+            type: "string",
+            description: "Required path to an Adobe Media Encoder preset file (.epr) with an explicit output location (not Same as Project)",
+          },
+          range: {
+            type: "string",
+            enum: ["entire", "in_to_out", "work_area"],
+            description: "What to render: the entire sequence (default), the sequence in/out range, or an enabled work area around part of the sequence. Ranged modes are refused when they would encode the whole timeline.",
+          },
+          start_batch: {
+            type: "boolean",
+            description: "Ask Adobe Media Encoder to start its queue after queuing this job (default true). This starts every ready AME job, including unrelated ones. Pass false to only queue it; the job then stays queued until the AME queue is started (start_batch_encode).",
+          },
+        },
+        required: ["output_path", "preset_path"],
+      },
+      handler: async (args: { output_path: string; preset_path?: string; range?: "entire" | "in_to_out" | "work_area"; start_batch?: boolean }) => {
+        if (typeof args.output_path !== "string" || !args.output_path.trim()) return { success: false, error: "output_path is required; nothing was queued." };
+        if (typeof args.preset_path !== "string" || !args.preset_path.trim()) {
+          return { success: false, error: "preset_path is required. Pass a .epr file with an explicit output location; nothing was queued." };
+        }
+        const range = args.range ?? "entire";
+        if (!["entire", "in_to_out", "work_area"].includes(range)) return { success: false, error: "range must be entire, in_to_out, or work_area; nothing was queued." };
+        const outputPath = resolve(args.output_path);
+        const presetPath = resolve(args.preset_path);
+        try {
+          inspectExportPresetFile(presetPath);
+        } catch (error) {
+          return { success: false, error: error instanceof Error ? error.message : String(error) };
+        }
+        if (existsSync(outputPath)) {
+          return { success: false, error: `A file already exists at ${outputPath}; nothing was queued. Choose a new output_path (async jobs never overwrite, so completion evidence cannot come from an older file).` };
+        }
+        const capacityError = exportJobCapacityError();
+        if (capacityError) return { success: false, error: capacityError };
+        const startBatch = args.start_batch !== false;
+        const script = buildToolScript(`
+          var seq = app.project.activeSequence;
+          if (!seq) return __error("No active sequence");
+          var encoder = app.encoder;
+          if (!encoder || typeof encoder.encodeSequence !== "function") return __error("Adobe Media Encoder is not available; nothing was queued.");
+          var savedProjectPath = "";
+          try { savedProjectPath = String(app.project.path || ""); } catch (projectPathError) { savedProjectPath = ""; }
+          if (!savedProjectPath || savedProjectPath === "undefined") {
+            return __error("Save the Premiere project to a real .prproj path before an AME export job; nothing was queued.");
+          }
+          var outputFile = new File("${escapeForExtendScript(outputPath)}");
+          if (!outputFile.parent || !outputFile.parent.exists) {
+            return __error("The requested output folder does not exist: " + (outputFile.parent ? outputFile.parent.fsName : outputFile.fsName) + "; nothing was queued.");
+          }
+          var outputPath = outputFile.fsName;
+          var presetFile = new File("${escapeForExtendScript(presetPath)}");
+          if (!presetFile.exists) return __error("AME preset file does not exist: " + presetFile.fsName);
+          var presetPath = presetFile.fsName;
+${presetExtensionGuardScript()}
+${sequenceRangeGuardScript(range)}
+          if (new File(outputPath).exists) return __error("A file already exists at " + outputPath + "; nothing was queued. Choose a new output_path.");
+          var encodeMode = ${range === "in_to_out" ? "encoder.ENCODE_IN_TO_OUT" : range === "work_area" ? "encoder.ENCODE_WORKAREA" : "encoder.ENCODE_ENTIRE"};
+          if (typeof encodeMode !== "number") return __error("Premiere does not expose the requested encode range mode; nothing was queued.");
+
+          // AME job events are recorded in an engine-global store so a later
+          // get_export_job_status call can read them. Handlers ignore jobs this
+          // server did not start, and the store is capped.
+          var jobStore = (typeof $ !== "undefined" && $.global) ? $.global.__premiereMcpAmeExportJobsV1 : null;
+          if (!jobStore || typeof jobStore !== "object" || !jobStore.jobs) {
+            jobStore = { version: 1, jobs: {}, order: [], bound: false, bindError: "" };
+            if (typeof $ !== "undefined" && $.global) $.global.__premiereMcpAmeExportJobsV1 = jobStore;
+          }
+          if (jobStore.bound !== true && typeof encoder.bind === "function") {
+            var makeJobEventHandler = function (kind) {
+              return function (jobID, detail) {
+                try {
+                  var store = $.global.__premiereMcpAmeExportJobsV1;
+                  if (!store || !store.jobs) return;
+                  var entry = store.jobs[String(jobID)];
+                  if (!entry) return;
+                  entry.updatedAt = new Date().getTime();
+                  var finished = entry.state === "complete" || entry.state === "error" || entry.state === "cancelled";
+                  if (kind === "queued") {
+                    entry.queuedEvent = true;
+                  } else if (kind === "progress") {
+                    var value = Number(detail);
+                    if (isFinite(value)) entry.progress = value;
+                    if (!finished) entry.state = "encoding";
+                  } else {
+                    entry.state = kind;
+                    if (kind === "complete") entry.eventOutputPath = String(detail || "");
+                    if (kind === "error") entry.error = String(detail || "").substring(0, 512);
+                  }
+                } catch (eventError) {}
+              };
+            };
+            try {
+              encoder.bind("onEncoderJobComplete", makeJobEventHandler("complete"));
+              encoder.bind("onEncoderJobError", makeJobEventHandler("error"));
+              encoder.bind("onEncoderJobProgress", makeJobEventHandler("progress"));
+              encoder.bind("onEncoderJobQueued", makeJobEventHandler("queued"));
+              encoder.bind("onEncoderJobCanceled", makeJobEventHandler("cancelled"));
+              jobStore.bound = true;
+            } catch (bindError) {
+              jobStore.bindError = String(bindError && bindError.message ? bindError.message : bindError).substring(0, 200);
+            }
+          }
+
+          if (typeof encoder.launchEncoder === "function") encoder.launchEncoder();
+          var jobId = encoder.encodeSequence(seq, outputPath, presetPath, encodeMode, true);
+          if (!jobId || String(jobId) === "0") return __error("Adobe Media Encoder did not queue the sequence export; nothing was queued.");
+          var jobKey = String(jobId);
+          jobStore.jobs[jobKey] = { state: "queued", progress: null, error: "", eventOutputPath: "", queuedEvent: false, updatedAt: null };
+          jobStore.order.push(jobKey);
+          while (jobStore.order.length > ${MAX_EXPORT_JOBS}) {
+            var evicted = jobStore.order.shift();
+            delete jobStore.jobs[evicted];
+          }
+${ameQueueBatchStartScript(startBatch)}
+
+          return __result({
+            accepted: true,
+            verified: false,
+            outcome: "committed_unverified",
+            ameJobId: jobKey,
+            outputPath: outputPath,
+            presetUsed: presetPath,
+            extension: presetExtension || givenExtension,
+            range: "${range}",
+            rangeStartSeconds: Math.round(rangeStart * 1000) / 1000,
+            expectedDurationSeconds: Math.round((rangeEnd - rangeStart) * 1000) / 1000,
+            frameDurationSeconds: Number(seq.timebase) / TICKS_PER_SECOND,
+            eventsBound: jobStore.bound === true,
+            eventBindError: jobStore.bindError || null,
+            ${ameQueueBatchStartFields()}
+          });
+        `);
+        const result = await sendCommand(script, bridgeOptions);
+        if (!result.success) return result;
+        const data = (result.data ?? {}) as Record<string, unknown>;
+        const ameJobId = typeof data.ameJobId === "string" && AME_JOB_ID_PATTERN.test(data.ameJobId) ? data.ameJobId : null;
+        const hostOutputPath = typeof data.outputPath === "string" && data.outputPath ? data.outputPath : null;
+        if (!ameJobId || !hostOutputPath) {
+          return { success: false, error: "Premiere returned an AME job receipt without a usable job id or output path; the job may be queued in Adobe Media Encoder but cannot be tracked. Inspect the AME queue before retrying.", data: { ...data, outcome: "unknown" } };
+        }
+        const finite = (value: unknown) => typeof value === "number" && Number.isFinite(value) && value > 0 ? value : null;
+        let job;
+        try {
+          job = registerExportJob({
+            ameJobId,
+            outputPath: hostOutputPath,
+            presetPath: typeof data.presetUsed === "string" ? data.presetUsed : presetPath,
+            range,
+            expectedDurationSeconds: finite(data.expectedDurationSeconds),
+            frameDurationSeconds: finite(data.frameDurationSeconds),
+            queueBatchStart: typeof data.queueBatchStart === "string" ? data.queueBatchStart : "unknown",
+            eventsBound: data.eventsBound === true,
+          });
+        } catch (error) {
+          return { success: false, error: `${error instanceof Error ? error.message : String(error)} AME job ${ameJobId} was queued but is not tracked here; watch it in Adobe Media Encoder.`, data: { ...data, outcome: "committed_unverified" } };
+        }
+        return {
+          success: true,
+          data: {
+            ...data,
+            jobId: job.id,
+            status: "queued",
+            nextStep: data.queueBatchStart === "requested"
+              ? "Poll get_export_job_status with this jobId (for example every 15-30 s) until status is completed, failed, or cancelled."
+              : "The AME queue was not started by this call; start it (start_batch_encode or in Adobe Media Encoder), then poll get_export_job_status with this jobId.",
+          },
+        };
+      },
+    },
+
+    get_export_job_status: {
+      description:
+        "Read the status of an export job started by export_sequence_job_start: queued, encoding (with AME-reported progress when events arrive), finalizing, completed, failed, cancelled, or unknown. Evidence is reported separately: Adobe Media Encoder job events recorded inside Premiere's ExtendScript engine, and Node-side observation of the output file (exists, non-empty, size and modification time unchanged across stability_window_ms and since the previous poll). completed is verified only when AME reported completion, the file is stable and non-empty, and ffprobe confirms its duration within one frame; without an AME completion event a stable file is reported as completed but unverified. Jobs started by an earlier server process report unknown (server_restarted). Read-only: it never starts, cancels, or retries a render.",
+      parameters: {
+        type: "object" as const,
+        properties: {
+          job_id: {
+            type: "string",
+            description: "jobId returned by export_sequence_job_start",
+          },
+          stability_window_ms: {
+            type: "number",
+            minimum: 250,
+            maximum: 10000,
+            description: "How long to wait between the two output-file size checks in this call (default 2000 ms)",
+          },
+        },
+        required: ["job_id"],
+      },
+      handler: async (args: { job_id: string; stability_window_ms?: number }) => {
+        const windowMs = args.stability_window_ms ?? 2000;
+        if (!Number.isFinite(windowMs) || windowMs < 250 || windowMs > 10000) return { success: false, error: "stability_window_ms must be between 250 and 10000" };
+        const lookup = lookupExportJob(args.job_id);
+        if (!lookup.found) {
+          return { success: false, error: lookup.message, data: { jobId: typeof args.job_id === "string" ? args.job_id.slice(0, 128) : null, status: "unknown", reason: lookup.reason, verified: false } };
+        }
+        const job = lookup.job;
+        const elapsedSeconds = Math.round((Date.now() - job.startedAt) / 1000);
+        if (job.terminal) return { success: true, data: { ...job.terminal.data, cached: true, elapsedSeconds } };
+
+        const hostScript = buildToolScript(`
+          var store = (typeof $ !== "undefined" && $.global) ? $.global.__premiereMcpAmeExportJobsV1 : null;
+          var encoderRunning = null;
+          try {
+            if (app.encoder && typeof app.encoder.isRunning === "function") {
+              var running = app.encoder.isRunning();
+              if (typeof running === "boolean") encoderRunning = running;
+            }
+          } catch (runningError) {}
+          if (!store || typeof store !== "object" || !store.jobs) return __result({ eventStore: "absent", tracked: false, encoderRunning: encoderRunning });
+          var entry = store.jobs["${escapeForExtendScript(job.ameJobId)}"];
+          if (!entry) return __result({ eventStore: "present", eventsBound: store.bound === true, tracked: false, encoderRunning: encoderRunning });
+          return __result({
+            eventStore: "present",
+            eventsBound: store.bound === true,
+            tracked: true,
+            state: String(entry.state),
+            progress: (typeof entry.progress === "number" && isFinite(entry.progress)) ? entry.progress : null,
+            error: String(entry.error || ""),
+            eventOutputPath: String(entry.eventOutputPath || ""),
+            queuedEvent: entry.queuedEvent === true,
+            updatedAt: typeof entry.updatedAt === "number" ? entry.updatedAt : null,
+            encoderRunning: encoderRunning
+          });
+        `);
+        const before = observeExportOutput(job.outputPath);
+        const host = await sendCommand(hostScript, { ...bridgeOptions, timeoutMs: Math.min(bridgeOptions.timeoutMs ?? 15000, 15000), mutating: false });
+        await new Promise(done => setTimeout(done, windowMs));
+        const after = observeExportOutput(job.outputPath);
+        const previous = job.lastObservation;
+        job.lastObservation = after;
+        return describeExportJob(job, host, before, after, previous, windowMs, elapsedSeconds);
       },
     },
 

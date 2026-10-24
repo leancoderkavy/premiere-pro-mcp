@@ -7,7 +7,7 @@ import { getHelpersSource, helpersFileName, buildBootstrap } from "./script-buil
 import { validateBridgeScriptSize } from "./script-size.js";
 import { withHostLease, ownsHostLease, inspectHostRecovery, markHostRecovery, HostLeaseError } from "./host-lease.js";
 import { undoTrackingEnabled } from "./undo-tracking.js";
-import { assertInvocationNotCancelled, markHostDispatch, measureStage, measureStageSync, startStage } from "../workflows/invocation-context.js";
+import { assertInvocationNotCancelled, currentInvocation, markHostDispatch, measureStage, measureStageSync, reportHostHeartbeat, startStage } from "../workflows/invocation-context.js";
 import { AsyncResource } from "node:async_hooks";
 
 export function getDarwinUserTempDirectory(): string | null {
@@ -735,6 +735,8 @@ ${script}`, "utf-8");
 const STUCK_BUSY_MS = 10_000;
 export const BRIDGE_BLOCKING_HINT =
   "Call get_bridge_telemetry (read-only; it sends no command) and read its blocking.state to see whether a dialog is blocking Premiere before you retry.";
+/** How often a live (fresh busy marker) CEP command emits a progress heartbeat. */
+export const HOST_HEARTBEAT_INTERVAL_MS = 10_000;
 
 async function pollForResponse(
   resFile: string,
@@ -754,6 +756,24 @@ async function pollForResponse(
   let sawBusy = false;
   let busyAgeMs = 0;
   let lastResponseParseError: string | undefined;
+  // Captured here: the shared response watcher can call check() from another
+  // invocation's async context, which must never receive this command's heartbeat.
+  const invocation = currentInvocation();
+  let lastHeartbeatAt = start;
+  const heartbeat = (elapsed: number) => {
+    if (!invocation?.notify || invocation.progressToken === undefined) return;
+    const now = Date.now();
+    if (now - lastHeartbeatAt < HOST_HEARTBEAT_INTERVAL_MS) return;
+    lastHeartbeatAt = now;
+    // Only a busy marker the panel refreshed recently proves the host is still
+    // running this command; a queued, stuck, or vanished command gets no heartbeat.
+    try {
+      if (!existsSync(busyFile) || now - statSync(busyFile).mtimeMs >= STUCK_BUSY_MS) return;
+    } catch {
+      return;
+    }
+    void reportHostHeartbeat(elapsed, invocation);
+  };
 
   // fresh: refreshed within STUCK_BUSY_MS; stuck: present but unchanged for
   // longer (a crashed panel leaves its busy file behind); absent/unknown: gone,
@@ -831,6 +851,7 @@ async function pollForResponse(
       }
 
       const elapsed = Date.now() - start;
+      heartbeat(elapsed);
       if (elapsed >= timeoutMs) {
         // Keep waiting (up to the hard cap) only while the panel keeps
         // refreshing its busy file. One that has not changed for STUCK_BUSY_MS

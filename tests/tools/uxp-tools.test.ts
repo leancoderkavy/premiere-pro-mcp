@@ -685,7 +685,7 @@ describe("UXP MCP tools", () => {
       // Guarded Speech-to-Text start (transcribe_clip_uxp, is_language_pack_available_uxp)
       // and caption style guidance (get_caption_style_guidance) add three more tools; paste_clip_attributes, set_clip_duration, and compute_mask_fit_motion each add one core tool.
       // Premiere 26.5 WorkAreaUtils adds manage_work_area_uxp.
-        expect(tools.tools).toHaveLength(531);
+        expect(tools.tools).toHaveLength(532);
     } finally {
       await client.close();
       await server.close();
