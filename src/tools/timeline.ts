@@ -30,10 +30,13 @@ const KEYFRAME_SCAN_HELPERS = `
             try { return __ticksToSeconds(timeValue.ticks); } catch(e) { return NaN; }
           }
 
-          // ComponentParam keyframe times are relative to the clip start in
-          // this CEP interface. A bounded scan lets the default reject a trim
-          // before it creates keyframes that remain beyond the visible range.
-          function __findOutOfRangeKeyframes(item, visibleDuration) {
+          // ComponentParam keyframe times are media time: the clip's source
+          // in-point plus the offset into the clip (measured live on 25.2.3;
+          // see __clipKeyframeBase). The visible window is therefore
+          // [visibleStart, visibleStart + visibleDuration] in media seconds.
+          // A bounded scan lets the default reject a trim before it leaves
+          // keyframes outside that window.
+          function __findOutOfRangeKeyframes(item, visibleStart, visibleDuration) {
             var scan = { outside: [], errors: [], inspected: 0 };
             var limit = 10000;
             try {
@@ -64,7 +67,7 @@ const KEYFRAME_SCAN_HELPERS = `
                       scan.errors.push("component " + ci + " property " + pi + " key " + ki + " has no readable time");
                       continue;
                     }
-                    if (keySeconds > visibleDuration + tolerance) {
+                    if (keySeconds < visibleStart - tolerance || keySeconds > visibleStart + visibleDuration + tolerance) {
                       scan.outside.push({ component: ci, property: pi, seconds: keySeconds });
                     }
                   }
@@ -805,7 +808,7 @@ export function getTimelineTools(
             }
 
             var prospectiveDuration = targetOut - targetIn;
-            var beforeKeyframes = __findOutOfRangeKeyframes(clip, prospectiveDuration);
+            var beforeKeyframes = __findOutOfRangeKeyframes(clip, targetIn, prospectiveDuration);
             if (beforeKeyframes.errors.length && "${keyframePolicy}" === "reject") {
               return __editFail("Could not inspect every time-varying effect property before trim (" + beforeKeyframes.errors.join("; ") + "); trim was not attempted so keyframe behavior is not guessed.");
             }
@@ -971,7 +974,7 @@ export function getTimelineTools(
             var holdResults = __applyHoldKeyframes(afterResult.clip, holdPlan, holdOldEdgeTicks, holdNewEdgeTicks);
             var holdFailures = 0;
             for (var hr = 0; hr < holdResults.length; hr++) if (!holdResults[hr].verified) holdFailures++;` : ""}
-            var afterKeyframes = __findOutOfRangeKeyframes(afterResult.clip, after.end - after.start);
+            var afterKeyframes = __findOutOfRangeKeyframes(afterResult.clip, after.inPoint, after.end - after.start);
             if (afterKeyframes.errors.length && "${keyframePolicy}" === "reject") {
               return __editFail("The timeline trim may have applied, but keyframes could not be fully read back (" + afterKeyframes.errors.join("; ") + "). It is not reported as verified; inspect the clip or use Undo.");
             }
@@ -1160,7 +1163,7 @@ export function getTimelineTools(
             var newDurationSeconds = __ticksToSeconds(targetEndTicks - startTicks);
             var shortening = targetEndTicks < endTicks;
             if (shortening && "${keyframePolicy}" === "reject") {
-              var beforeKeys = __findOutOfRangeKeyframes(clip, newDurationSeconds);
+              var beforeKeys = __findOutOfRangeKeyframes(clip, __trimSeconds(clip.inPoint), newDurationSeconds);
               if (beforeKeys.errors.length) {
                 return __editFail("Could not inspect every time-varying effect property before shortening (" + beforeKeys.errors.join("; ") + "); no change was attempted.");
               }
@@ -1278,7 +1281,7 @@ export function getTimelineTools(
             var durationSnap = __frameSnapReceipt(${mode === "duration" ? "durationRequestTicks" : "__secondsToTicks(" + requested + ")"}, ${mode === "duration" ? "durationAppliedTicks" : "targetEndTicks"}, frameTicks, "requestedSeconds", "appliedSeconds");
             if (durationSnap.requestedSeconds !== undefined) { payload.requestedSeconds = durationSnap.requestedSeconds; payload.appliedSeconds = durationSnap.appliedSeconds; }
             if (shortening) {
-              var afterKeys = __findOutOfRangeKeyframes(after.clip, __ticksToSeconds(afterEnd - afterStart));
+              var afterKeys = __findOutOfRangeKeyframes(after.clip, __trimSeconds(after.clip.inPoint), __ticksToSeconds(afterEnd - afterStart));
               payload.keyframesOutsideVisibleRange = afterKeys.outside.length;
               if (afterKeys.errors.length || (afterKeys.outside.length && "${keyframePolicy}" === "reject")) {
                 payload.outcome = "committed_unverified";

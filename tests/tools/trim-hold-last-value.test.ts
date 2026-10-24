@@ -228,3 +228,32 @@ describe("trim_clip keyframe_policy hold_last_value", () => {
     await expect(timeline.trim_clip.handler({ node_id: "v0", new_in_seconds: 15, keyframe_policy: "hold" as never })).resolves.toMatchObject({ success: false, error: expect.stringContaining("hold_last_value") });
   });
 });
+
+describe("trim_clip keyframe_policy reject uses media-time keyframes", () => {
+  // Clip v0 has source in 10 s, so its keys at 12 s and 20 s are media time.
+  it("allows a trim that keeps every key inside the visible media window", async () => {
+    const opacity = param("Opacity", [[12, 0], [20, 100]]);
+    const { video } = host([[opacity]]);
+    const result = await timeline.trim_clip.handler({ node_id: "v0", new_out_seconds: 25, include_linked: false }) as Result;
+    expect(result.success, result.error).toBe(true);
+    expect(video[0].snapshot()).toEqual([10, 25, 10, 25]);
+  });
+
+  it("refuses a trim that leaves a key after the new out point", async () => {
+    const opacity = param("Opacity", [[12, 0], [20, 100]]);
+    const { video } = host([[opacity]]);
+    const result = await timeline.trim_clip.handler({ node_id: "v0", new_out_seconds: 18, include_linked: false }) as Result;
+    expect(result.success).toBe(false);
+    expect(result.error).toMatch(/1 effect keyframe\(s\) would remain outside/);
+    expect(video[0].snapshot()).toEqual([10, 30, 10, 30]);
+  });
+
+  it("refuses a trim that leaves a key before the new in point", async () => {
+    const opacity = param("Opacity", [[12, 0], [20, 100]]);
+    const { video } = host([[opacity]]);
+    const result = await timeline.trim_clip.handler({ node_id: "v0", new_in_seconds: 15, include_linked: false }) as Result;
+    expect(result.success).toBe(false);
+    expect(result.error).toMatch(/1 effect keyframe\(s\) would remain outside/);
+    expect(video[0].snapshot()).toEqual([10, 30, 10, 30]);
+  });
+});
