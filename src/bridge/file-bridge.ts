@@ -1137,7 +1137,14 @@ export function diagnoseBridgeBlocking(
       ["Wait for the running command to return before sending another edit.", recheck], heartbeat, activeCommand);
   }
 
-  if (stalest) {
+  // Nothing removes a busy marker whose panel was reloaded or crashed. With no
+  // call of this server still running, such a marker is history, not a block:
+  // ignore it once the heartbeat is live again, or once it is older than any
+  // command this server would still wait for, so the other states stay reachable.
+  const heartbeatLive = heartbeat.state === "running" || heartbeat.state === "waiting";
+  const orphaned = stalest !== null && runningToolCalls.length === 0
+    && (heartbeatLive || stalest.markerAgeMs > expectedMs + STUCK_BUSY_MS);
+  if (stalest && !orphaned) {
     const activeCommand = { ...stalest, expectedMs, tool };
     if (heartbeat.state === "running" || heartbeat.state === "waiting") {
       return result("stuck", "busy_marker_orphaned",

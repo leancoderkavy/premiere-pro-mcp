@@ -703,10 +703,14 @@ function comparablePath(path: string): string {
   return process.platform === "linux" ? normalizedPath : normalizedPath.toLowerCase();
 }
 
-/** AME reports progress as a fraction on some hosts and a percentage on others. */
-function ameProgressPercent(value: unknown): number | null {
+/**
+ * AME reports progress as a fraction on some hosts and a percentage on others.
+ * A value of 0-1 is ambiguous (1 can be 100 % or 1 %) until the job has reported
+ * a value above 1, so it is read as a fraction only while the scale is unknown.
+ */
+function ameProgressPercent(value: unknown, reportedAsPercent: boolean): number | null {
   if (typeof value !== "number" || !Number.isFinite(value) || value < 0) return null;
-  const percent = value <= 1 ? value * 100 : value;
+  const percent = reportedAsPercent || value > 1 ? value : value * 100;
   return percent > 100 ? null : Math.round(percent * 10) / 10;
 }
 
@@ -724,7 +728,12 @@ async function describeExportJob(
   const hostState = tracked && typeof hostData?.state === "string" ? hostData.state : null;
   // A tracked entry that no event ever touched proves only that the job was queued.
   const eventsObserved = tracked && typeof hostData?.updatedAt === "number";
-  const progressPercent = eventsObserved ? ameProgressPercent(hostData?.progress) : null;
+  const rawProgress = eventsObserved ? hostData?.progress : undefined;
+  if (typeof rawProgress === "number" && Number.isFinite(rawProgress) && rawProgress > 1 && rawProgress <= 100) job.progressReportedAsPercent = true;
+  const progressPercent = eventsObserved ? ameProgressPercent(rawProgress, job.progressReportedAsPercent === true) : null;
+  // Progress alone counts toward completion only on a host proven to report percent:
+  // on a fraction host a reported 1 could be 1 %, and the completion event decides.
+  const progressComplete = job.progressReportedAsPercent === true && progressPercent === 100;
   const nonEmpty = after.exists && (after.sizeBytes ?? 0) > 0;
   const stableAcrossWindow = nonEmpty && sameObservation(before, after);
   const stableSincePreviousPoll = nonEmpty && sameObservation(previous, after);
@@ -744,7 +753,7 @@ async function describeExportJob(
   } else if (hostState === "cancelled") {
     status = "cancelled"; terminal = true;
     reason = "Adobe Media Encoder reported the job as cancelled. Any file at output_path may be partial.";
-  } else if (hostState === "complete" || (stableAcrossWindow && stableSincePreviousPoll && (!eventsObserved || (hostState === "encoding" && progressPercent === 100)))) {
+  } else if (hostState === "complete" || (stableAcrossWindow && stableSincePreviousPoll && (!eventsObserved || (hostState === "encoding" && progressComplete)))) {
     const completionEvent = hostState === "complete";
     if (!nonEmpty) {
       status = "failed";

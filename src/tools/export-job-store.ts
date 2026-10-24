@@ -29,6 +29,8 @@ export interface ExportJobRecord {
   eventsBound: boolean;
   startedAt: number;
   lastObservation?: ExportJobObservation;
+  /** Set once AME reports a progress value above 1, proving this host reports percent, not a fraction. */
+  progressReportedAsPercent?: boolean;
   /** A terminal report is cached so later polls do not re-render a decision. */
   terminal?: { status: ExportJobStatus; data: Record<string, unknown> };
 }

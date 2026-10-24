@@ -181,6 +181,28 @@ describe("get_export_job_status", () => {
     expect(mockedSend.mock.calls.length).toBe(calls);
   });
 
+  it("never reads an ambiguous progress of 1 as 100 % or completes a stable file on it", async () => {
+    const host = makeHost();
+    const jobId = ((await start()).data as { jobId: string }).jobId;
+    writeFileSync(join(workDir, "episode.mp4"), "header");
+    host.handlers.onEncoderJobProgress("ame-7", 2);
+    expect(await status(jobId)).toMatchObject({ data: { status: "encoding", progressPercent: 2 } });
+    // This host has now shown it reports percent, so 1 means 1 %, not done,
+    // even though the file did not change across two polls.
+    host.handlers.onEncoderJobProgress("ame-7", 1);
+    expect(await status(jobId)).toMatchObject({ data: { status: "encoding", progressPercent: 1, terminal: false } });
+    expect(await status(jobId)).toMatchObject({ data: { status: "encoding", terminal: false } });
+  });
+
+  it("does not complete on progress alone while the progress scale is unknown", async () => {
+    const host = makeHost();
+    const jobId = ((await start()).data as { jobId: string }).jobId;
+    writeFileSync(join(workDir, "episode.mp4"), "header");
+    host.handlers.onEncoderJobProgress("ame-7", 1);
+    expect(await status(jobId)).toMatchObject({ data: { status: "encoding", terminal: false } });
+    expect(await status(jobId)).toMatchObject({ data: { status: "encoding", terminal: false } });
+  });
+
   it("does not verify a completed render whose duration is wrong or cannot be probed", async () => {
     const host = makeHost();
     const jobId = ((await start()).data as { jobId: string }).jobId;

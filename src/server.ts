@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import {
   type CallToolResult,
   fromJsonSchema,
@@ -445,6 +446,9 @@ export function createServer(
   bridgeOptions: BridgeOptions,
   serverOptions: ServerOptions = {},
 ): McpServer {
+  // Idempotency keys are scoped to this server instance: one per stdio process,
+  // one per HTTP session.
+  const idempotencyNamespace = randomUUID();
 
   const capabilities = resolveCapabilities();
   const toolPacks = serverOptions.toolPacks === undefined
@@ -585,7 +589,7 @@ export function createServer(
         // cannot both start. Read-only invocations are never deduplicated.
         const operation: { entry: OperationLogEntry | null } = { entry: null };
         const claim: IdempotencyClaim | null = mutating && typeof idempotencyKey === "string"
-          ? claimIdempotencyKey(name, idempotencyKey, callArgs, () => (operation.entry = beginOperation(name, startedAt)).sequence, startedAt)
+          ? claimIdempotencyKey(name, idempotencyKey, callArgs, () => (operation.entry = beginOperation(name, startedAt)).sequence, startedAt, idempotencyNamespace)
           : null;
         if (claim && claim.kind !== "new") return idempotencyResponse(name, claim) as CallToolResult;
         if (claim && operation.entry) operation.entry.idempotencyKeyHash = claim.record.keyHashPrefix;

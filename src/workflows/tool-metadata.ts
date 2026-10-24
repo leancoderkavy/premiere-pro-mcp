@@ -42,7 +42,6 @@ const READ_ONLY_TOOLS = new Set([
   "plan_word_mute_ranges",
   "detect_repeated_takes",
   "check_caption_safe_zone",
-  "retime_caption_file",
   "rank_short_form_candidates",
   "plan_chapter_markers",
   "plan_emphasis_zoom_keyframes",

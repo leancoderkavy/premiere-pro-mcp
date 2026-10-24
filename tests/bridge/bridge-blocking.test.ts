@@ -147,12 +147,26 @@ describe("diagnoseBridgeBlocking", () => {
     heartbeat(directory, "running");
     busyMarker(directory, 4_000, 20_000);
     busyMarker(directory, 2_000, 15_000, "older");
-    expect(diagnose(directory)).toMatchObject({
+    const running = [{ tool: "roll_edit", startedAt: new Date(NOW - 25_000).toISOString() }];
+    expect(diagnose(directory, { runningToolCalls: running })).toMatchObject({
       state: "stuck",
       reason: "busy_marker_orphaned",
       activeCommand: { markerAgeMs: 20_000 },
       counts: { stalledBusyMarkers: 2, freshBusyMarkers: 0 },
     });
+  });
+
+  it("ignores an orphaned marker once no call of this server is running", () => {
+    const live = bridgeDirectory();
+    heartbeat(live, "running");
+    busyMarker(live, 4_000, 20_000);
+    expect(diagnose(live)).toMatchObject({ state: "idle", counts: { stalledBusyMarkers: 1 } });
+
+    // Panel closed long after its last command: report the closed connector, not a frozen command.
+    const closed = bridgeDirectory();
+    heartbeat(closed, "running", 600_000);
+    busyMarker(closed, 4_000, 300_000);
+    expect(diagnose(closed)).toMatchObject({ state: "connector_not_running", reason: "heartbeat_stale" });
   });
 
   it("reports stuck with a frozen panel when heartbeat and marker both stopped", () => {

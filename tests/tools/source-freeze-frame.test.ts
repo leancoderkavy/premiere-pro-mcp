@@ -13,6 +13,7 @@ vi.mock("../../src/bridge/file-bridge.js", () => ({
   cleanupTempDir: vi.fn(),
 }));
 
+import { mutationReceipt } from "../../src/workflows/mutation-receipt.js";
 import { sendCommand } from "../../src/bridge/file-bridge.js";
 import { getUtilityTools } from "../../src/tools/utility.js";
 import { capabilitiesForToolInvocation } from "../../src/security/capabilities.js";
@@ -208,8 +209,11 @@ describe("create_source_freeze_frame", () => {
   it("reports an ffmpeg failure without touching Premiere", async () => {
     host();
     const { run } = tool({ extract: async () => { throw Object.assign(new Error("spawn ffmpeg ENOENT"), { code: "ENOENT" }); } });
-    await expect(run({ source_item_id: "src-1", source_time_seconds: 1, output_path: join(dir, "f.png") })).resolves.toMatchObject({ success: false, error: expect.stringContaining("not found on PATH") });
+    const result = await run({ source_item_id: "src-1", source_time_seconds: 1, output_path: join(dir, "f.png") });
+    expect(result).toMatchObject({ success: false, error: expect.stringContaining("not found on PATH") });
     expect(mockedSendCommand).toHaveBeenCalledTimes(1);
+    // The read-only preflight was dispatched, but nothing changed: the receipt must not demand host recovery.
+    expect(mutationReceipt(false, (result as { data?: unknown }).data, { dispatched: true }).outcome).toBe("not_applied");
   });
 
   it("refuses an occupied placement range before writing any file", async () => {

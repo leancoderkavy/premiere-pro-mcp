@@ -74,6 +74,15 @@ beforeEach(() => { resetIdempotencyStore(); resetOperationLog(); fixture.calls =
 afterEach(async () => { fixture.release?.(); for (const cleanup of cleanups.splice(0)) await cleanup(); });
 
 describe("idempotency_key over MCP", () => {
+  it("keeps keys separate between server instances (MCP sessions)", async () => {
+    const first = await connected();
+    const second = await connected();
+    await first("set_idempotency_fixture", { mode: "ok", idempotency_key: "edit-1" });
+    const other = await second("set_idempotency_fixture", { mode: "ok", idempotency_key: "edit-1" });
+    expect(other.structuredContent).not.toHaveProperty("idempotency");
+    expect(fixture.calls).toEqual(["ok", "ok"]);
+  });
+
   it("runs the first call and replays a successful retry without running it again", async () => {
     const call = await connected();
     const first = await call("set_idempotency_fixture", { mode: "ok", idempotency_key: "edit-1" });
@@ -152,6 +161,15 @@ describe("idempotency_key over MCP", () => {
     const retry = await call("set_idempotency_fixture", { mode: "big", idempotency_key: "b-1" });
     expect(retry.structuredContent).toMatchObject({ ok: true, data: { replayed: true, originalResultRetained: false }, idempotency: { replayed: true, outcome: "verified" } });
     expect(fixture.calls).toEqual(["big"]);
+  });
+
+  it("advertises the key on every tool whose authority escalates with its arguments", async () => {
+    const { readFileSync } = await import("node:fs");
+    const source = readFileSync(new URL("../../src/security/capabilities.ts", import.meta.url), "utf8");
+    const body = source.slice(source.indexOf("export function capabilitiesForToolInvocation"), source.indexOf("export function toolMayChangeState"));
+    const special = [...new Set([...body.matchAll(/toolName === "([a-z0-9_]+)"/g)].map((match) => match[1]))];
+    expect(special).toEqual(expect.arrayContaining(["audit_project_structure", "retime_caption_file"]));
+    for (const name of special) expect(toolMayChangeState(name), name).toBe(true);
   });
 
   it("advertises the key only on tools that can change state and ignores it on read-only actions", async () => {

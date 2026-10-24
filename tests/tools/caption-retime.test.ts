@@ -361,8 +361,8 @@ describe("retime_caption_file: files and path guards", () => {
 });
 
 describe("retime_caption_file: registration and authority", () => {
-  it("is read-only for Premiere and in the captions pack", () => {
-    expect(annotationsForTool("retime_caption_file")).toMatchObject({ readOnlyHint: true, destructiveHint: false });
+  it("is not advertised as read-only (it can write a file) and is in the captions pack", () => {
+    expect(annotationsForTool("retime_caption_file")).toMatchObject({ readOnlyHint: false, destructiveHint: false, idempotentHint: false });
     expect(TOOL_PACKS.find((pack) => pack.name === "captions")?.tools).toContain("retime_caption_file");
   });
 

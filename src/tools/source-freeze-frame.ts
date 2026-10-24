@@ -6,6 +6,11 @@ import { buildToolScript, escapeForExtendScript } from "../bridge/script-builder
 import { sendCommand, BridgeOptions } from "../bridge/file-bridge.js";
 import { currentInvocation } from "../workflows/invocation-context.js";
 
+/** Failures before the import step change nothing in Premiere; say so, so the receipt is not_applied and host recovery is not demanded. */
+function notApplied<T extends { success: boolean; error?: string; data?: Record<string, any> }>(result: T): T {
+  return { ...result, data: { ...(result.data ?? {}), outcome: "failed", mutationOutcome: "not_applied" } };
+}
+
 /**
  * create_source_freeze_frame (#880 item 13).
  *
@@ -259,42 +264,42 @@ export function createSourceFreezeFrameTool(bridgeOptions: BridgeOptions, depend
           }
           return __result({ nodeId: String(item.nodeId), itemName: item.name, mediaPath: mediaPath, interpretedFps: interpretedFps, placement: placement });
         `), bridgeOptions) as { success: boolean; error?: string; data?: Record<string, any> };
-      if (!preflight.success) return preflight;
+      if (!preflight.success) return notApplied(preflight);
       const source = preflight.data ?? {};
       const mediaPath = typeof source.mediaPath === "string" ? source.mediaPath : "";
       if (!mediaPath || !existsSync(mediaPath) || !statSync(mediaPath).isFile()) {
-        return { success: false, error: `The source media for ${String(source.itemName)} is not a readable local file (${mediaPath || "no path"}). Nothing was changed.` };
+        return notApplied({ success: false, error: `The source media for ${String(source.itemName)} is not a readable local file (${mediaPath || "no path"}). Nothing was changed.` });
       }
       if (zoom && (fromPosition || toPosition) && !(Number(source.placement?.frameWidth) > 0 && Number(source.placement?.frameHeight) > 0)) {
-        return { success: false, error: "The sequence frame size is unreadable, so zoom positions cannot be converted. Nothing was changed." };
+        return notApplied({ success: false, error: "The sequence frame size is unreadable, so zoom positions cannot be converted. Nothing was changed." });
       }
 
       // ---- Step 2: probe and decode the source frame with ffmpeg. ----
       let probe: SourceVideoProbe;
       try { probe = await probeSourceVideo(mediaPath); } catch (error) {
-        return { success: false, error: `ffprobe ${failureDetail(error)}. The source frame was not extracted; nothing was changed.` };
+        return notApplied({ success: false, error: `ffprobe ${failureDetail(error)}. The source frame was not extracted; nothing was changed.` });
       }
       if (!(probe.durationSeconds > 0) || !(probe.frameRate > 0) || !Number.isFinite(probe.frameRate)) {
-        return { success: false, error: "ffprobe did not report a positive duration and frame rate for the source video. Nothing was changed." };
+        return notApplied({ success: false, error: "ffprobe did not report a positive duration and frame rate for the source video. Nothing was changed." });
       }
       const interpreted = typeof source.interpretedFps === "number" ? source.interpretedFps : null;
       if (interpreted !== null && Math.abs(interpreted - probe.frameRate) > 0.01) {
-        return { success: false, error: `The project item is interpreted at ${interpreted} fps but its file plays at ${probe.frameRate.toFixed(3)} fps, so a source time is ambiguous. Reset the footage interpretation or use freeze_frame on a sequence. Nothing was changed.` };
+        return notApplied({ success: false, error: `The project item is interpreted at ${interpreted} fps but its file plays at ${probe.frameRate.toFixed(3)} fps, so a source time is ambiguous. Reset the footage interpretation or use freeze_frame on a sequence. Nothing was changed.` });
       }
       const fps = interpreted ?? probe.frameRate;
       const frameIndex = Math.floor(sourceTime * fps + 1e-6);
       const frameSeconds = frameIndex / fps;
       if (frameSeconds >= probe.durationSeconds) {
-        return { success: false, error: `source_time_seconds ${sourceTime} is at or past the source media end (${probe.durationSeconds}s). Nothing was changed.` };
+        return notApplied({ success: false, error: `source_time_seconds ${sourceTime} is at or past the source media end (${probe.durationSeconds}s). Nothing was changed.` });
       }
       // Seek a quarter frame early: ffmpeg drops frames before the seek point, so
       // the previous frame is discarded and this frame survives float rounding.
       const seekSeconds = Math.max(0, frameSeconds - 0.25 / fps);
       try { await extractSourceFrame(mediaPath, seekSeconds, outputPath); } catch (error) {
-        return { success: false, error: `ffmpeg ${failureDetail(error)}. Premiere was not changed.`, data: { outputPath, exported: existsSync(outputPath) } };
+        return notApplied({ success: false, error: `ffmpeg ${failureDetail(error)}. Premiere was not changed.`, data: { outputPath, exported: existsSync(outputPath) } });
       }
       if (!existsSync(outputPath) || !statSync(outputPath).isFile() || statSync(outputPath).size < 1) {
-        return { success: false, error: "ffmpeg finished without writing a non-empty frame file. Premiere was not changed.", data: { outputPath, exported: false } };
+        return notApplied({ success: false, error: "ffmpeg finished without writing a non-empty frame file. Premiere was not changed.", data: { outputPath, exported: false } });
       }
       const extraction = {
         mediaPath,

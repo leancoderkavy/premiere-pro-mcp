@@ -53,6 +53,10 @@ describe("shared mutation receipts", () => {
     expect(mutationReceipt(false,{}, { dispatched:true })).toMatchObject({ dispatch:"unknown",outcome:"unknown" });
     expect(mutationReceipt(true,{}, { dispatched:true }).outcome).toBe("committed_unverified");
     expect(mutationReceipt(false,null).outcome).toBe("not_applied");
+    // A dispatched read-only preflight followed by a refusal must not demand host recovery.
+    expect(mutationReceipt(false,{ outcome:"failed", mutationOutcome:"not_applied" }, { dispatched:true }).outcome).toBe("not_applied");
+    expect(mutationReceipt(false,{ outcome:"failed", mutationOutcome:"unknown" }, { dispatched:true }).outcome).toBe("unknown");
+    expect(mutationReceipt(false,{ outcome:"failed" }, { dispatched:true }).outcome).toBe("unknown");
     expect(mutationReceipt(true,{backend:"uxp",result:{outcome:"verified",verificationScope:"exact ranges",steps:[1],targets:[2],artifact:{hash:"x"}}})).toMatchObject({outcome:"verified",partialSteps:[1],affectedTargets:[2],outputEvidence:{hash:"x"}});
     expect(mutationReceipt(true,{accepted:true}, {dispatched:true}).dispatch).toBe("accepted");
     expect(mutationReceipt(false,{stateUnknown:true}).nextSafeAction).toContain("do not replay");

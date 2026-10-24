@@ -449,7 +449,7 @@ export function capabilitiesForToolInvocation(toolName: string, args: unknown): 
  */
 export function toolMayChangeState(toolName: string): boolean {
   // Argument-dependent escalations handled specially above.
-  if (toolName === "export_interchange_uxp" || toolName === "prepare_transcript_workflow" || toolName === "set_metadata") return true;
+  if (toolName === "export_interchange_uxp" || toolName === "prepare_transcript_workflow" || toolName === "set_metadata" || toolName === "audit_project_structure" || toolName === "retime_caption_file") return true;
   const actionMap = ACTION_CAPABILITIES[toolName];
   const candidates: (readonly Capability[])[] = actionMap
     ? [...Object.values(actionMap), [capabilityForTool(toolName)]]

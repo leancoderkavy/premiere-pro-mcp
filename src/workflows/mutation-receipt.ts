@@ -14,7 +14,9 @@ export interface MutationReceipt {
 export function mutationReceipt(success: boolean, value: unknown, context?: Pick<InvocationContext, "dispatched">): MutationReceipt {
   const outer = value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {};
   const data = outer.result && typeof outer.result === "object" && !Array.isArray(outer.result) ? outer.result as Record<string, unknown> : outer;
-  const raw = data.outcome ?? data.mutationOutcome;
+  // A generic "failed" says nothing about host state; the more specific
+  // mutationOutcome (for example not_applied on a refusal) decides then.
+  const raw = data.outcome === "failed" && data.mutationOutcome !== undefined ? data.mutationOutcome : data.outcome ?? data.mutationOutcome;
   const dispatched = context?.dispatched === true;
   const unknown = raw === "unknown" || raw === "unknown_outcome" || data.recoveryRequired === true || data.stateUnknown === true;
   const outcome: MutationReceipt["outcome"] = unknown ? "unknown"
