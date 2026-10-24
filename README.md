@@ -16,7 +16,7 @@ Free, MIT licensed, local-first, and published to npm as [`premiere-pro-mcp`](ht
 
 [Website](https://premiere-pro-mcp.com/) · [Recorded demo](https://premiere-pro-mcp.com/demo/) · [Compare servers](https://premiere-pro-mcp.com/compare/) · [Setup guides](https://premiere-pro-mcp.com/blog/how-to-set-up-premiere-pro-mcp/) · [Search tools](https://premiere-pro-mcp.com/tools/) · [Troubleshooting](https://premiere-pro-mcp.com/docs/troubleshooting/) · [Release facts](https://premiere-pro-mcp.com/facts/)
 
-Development source: 436 core tools across 67 modules, 4 resources, and 29 guided workflows. A connected UXP host adds 96 capability-gated tools.
+Development source: 438 core tools across 67 modules, 4 resources, and 29 guided workflows. A connected UXP host adds 96 capability-gated tools.
 
 The [completed AE render handoff](docs/after-effects-render-handoff.md) previews and confirms importing one finished render into an existing Premiere bin, with host and file rechecks and an import receipt.
 
@@ -127,7 +127,7 @@ and repository before configuring a client. The new
 VS Code, or Codex settings that point directly to this installation. It is a
 feature included in v1.15.1 and later.
 
-The current source exposes 436 core tools for supported workflow steps spanning the supported ExtendScript, QE DOM, local media and interchange analysis, revisioned project-context retrieval, safe edit-planning, project-intake preview, review handoff, connection verification, and guarded After Effects MOGRT authoring, batch, library, render-queue, inspection, and Premiere-handoff workflows. A compatible, authenticated UXP panel adds 96 documented, capability-gated tools without replacing the production CEP bridge.
+The current source exposes 438 core tools for supported workflow steps spanning the supported ExtendScript, QE DOM, local media and interchange analysis, revisioned project-context retrieval, safe edit-planning, project-intake preview, review handoff, connection verification, and guarded After Effects MOGRT authoring, batch, library, render-queue, inspection, and Premiere-handoff workflows. A compatible, authenticated UXP panel adds 96 documented, capability-gated tools without replacing the production CEP bridge.
 
 <a id="latest-release"></a>
 
@@ -959,7 +959,7 @@ Reviewed assistant-editing tools now provide dialogue candidate decisions, quote
 See [Filmcraft improvement ledger](docs/filmcraft-improvements.md) for exact-time
 planning, recovery, job observation, temporal evidence and facility workflows.
 
-## Tools (436 core total; 434 under the default profile; 530 with a connected UXP bridge)
+## Tools (438 core total; 436 under the default profile; 532 with a connected UXP bridge)
 
 The [complete supported-actions catalog](docs/supported-actions.md) lists every
 registered core tool, the two tools restricted behind explicit `unsafe-script`
@@ -1098,11 +1098,12 @@ adjusted. This is a CEP contract check, not validation in a licensed Premiere Pr
 | `get_value_at_time` | Query interpolated value at any time |
 | `set_color_value` | Set color properties on effects |
 
-### Export & Encoding (17)
+### Export & Encoding (19)
 
 | Tool | Description |
 | :--- | :---------- |
 | `export_sequence` | Export via Adobe Media Encoder |
+| `export_sequence_job_start` / `get_export_job_status` | Asynchronous AME export job for long renders: returns a job id at once, then reports queued, encoding, completed, or failed with event and output-file evidence |
 | `validate_export_preset` | Validate an `.epr` file and resolve its output extension in Premiere |
 | `verify_delivery_file` | Verify output size and calculate SHA-256/SHA-512 checksums |
 | `capture_frame` | Export frame as PNG, return as base64 image |
@@ -1450,7 +1451,7 @@ premiere-pro-mcp/
 ├── src/
 │   ├── index.ts                 # Entry point — stdio transport setup
 │   ├── http-server.ts           # Entry point — HTTP/SSE transport (Fly.io / remote)
-│   ├── server.ts                # MCP server — registers 436 tools, filtered by authority profile
+│   ├── server.ts                # MCP server — registers 438 tools, filtered by authority profile
 │   ├── bridge/
 │   │   ├── file-bridge.ts       # File-based IPC (write .jsx, poll .json)
 │   │   └── script-builder.ts    # ExtendScript generator with ES3 helpers

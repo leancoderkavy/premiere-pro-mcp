@@ -6,6 +6,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+
+- `export_sequence_job_start` and read-only `get_export_job_status` run a sequence export as an asynchronous Adobe Media Encoder job, so long renders such as full episodes no longer hold one MCP call open for minutes (#880). The start call keeps `export_sequence`'s guards (saved project, `.epr` preset without Same as Project output, extension match, fail-closed in/out and work-area ranges) and always refuses an existing output file. Status reports `queued`, `encoding` (with AME-reported progress), `finalizing`, `completed`, `failed`, `cancelled`, or `unknown`. A completion is `verified` only when an AME completion event was recorded, the output file is non-empty and unchanged across two size checks, and ffprobe confirms its duration within one frame. Without an AME event, a stable file is reported as completed but unverified. Jobs live in the server process only; a restarted server reports `unknown` with `server_restarted`.
+
+### Changed
+
+- While a CEP command is still running (its busy marker is fresh), the server now sends an MCP progress notification about every 10 seconds with the elapsed time and "outcome unverified", so clients that reset their request timeout on progress keep long calls alive. Heartbeats are sent only when the request carries a progress token and never imply success.
+
 ## [1.24.4] - 2026-10-23
 
 ### Fixed

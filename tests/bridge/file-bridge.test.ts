@@ -983,6 +983,93 @@ describe("sendCommand", () => {
       sendCommand(largeScript, { tempDir: "/tmp/test-bridge" })
     ).rejects.toThrow("500KB size limit");
   });
+
+  describe("host heartbeats", () => {
+    let finished = false;
+    let busyPresent = true;
+    beforeEach(() => {
+      finished = false;
+      busyPresent = true;
+      vi.setSystemTime(new Date(100_000));
+      mockedExistsSync.mockImplementation((path) => {
+        const value = String(path);
+        if (value.endsWith("bridge-heartbeat.json")) return false;
+        if (value.includes("res_")) return finished;
+        if (value.includes("busy_")) return busyPresent;
+        return true;
+      });
+      // The panel refreshes its busy marker every ~2 s while evalScript runs.
+      mockedStatSync.mockImplementation(((path: unknown) => String(path).includes("busy_")
+        ? { uid: myUid, mode: 0o600, mtimeMs: Date.now() - 1_000, size: 10 }
+        : { uid: myUid, mode: 0o700, size: 40 }) as unknown as typeof statSync);
+      mockedReadFileSync.mockReturnValue('{"success":true,"data":{"rendered":true}}');
+    });
+
+    it("emits periodic progress heartbeats while a fresh busy marker shows the command is still running", async () => {
+      const notify = vi.fn().mockResolvedValue(undefined);
+      const promise = withInvocationContext({ progressToken: "render-1", notify }, () =>
+        sendCommand("render()", { tempDir: "/tmp/test-bridge", timeoutMs: 600_000 }));
+      await vi.advanceTimersByTimeAsync(9_000);
+      expect(notify).not.toHaveBeenCalled();
+      await vi.advanceTimersByTimeAsync(2_000);
+      expect(notify).toHaveBeenCalledTimes(1);
+      await vi.advanceTimersByTimeAsync(20_000);
+      expect(notify).toHaveBeenCalledTimes(3);
+      const params = notify.mock.calls.map(([notification]) => notification.params);
+      expect(params[0]).toMatchObject({ progressToken: "render-1", message: expect.stringMatching(/Host still working \(1\d s elapsed\); outcome unverified\./) });
+      expect(params.every((entry) => entry.total === undefined)).toBe(true);
+      expect(params[1].progress).toBeGreaterThan(params[0].progress);
+      expect(params[2].progress).toBeGreaterThan(params[1].progress);
+      expect(params[2].progress).toBeLessThan(1);
+      finished = true;
+      await vi.advanceTimersByTimeAsync(500);
+      await expect(promise).resolves.toMatchObject({ success: true, data: { rendered: true } });
+      const count = notify.mock.calls.length;
+      await vi.advanceTimersByTimeAsync(30_000);
+      expect(notify).toHaveBeenCalledTimes(count);
+    });
+
+    it("is a no-op without a progress token", async () => {
+      const notify = vi.fn().mockResolvedValue(undefined);
+      const promise = withInvocationContext({ notify }, () =>
+        sendCommand("render()", { tempDir: "/tmp/test-bridge", timeoutMs: 600_000 }));
+      await vi.advanceTimersByTimeAsync(35_000);
+      finished = true;
+      await vi.advanceTimersByTimeAsync(500);
+      await promise;
+      expect(notify).not.toHaveBeenCalled();
+    });
+
+    it("sends no heartbeat while the command has no live busy marker (queued, stuck, or gone)", async () => {
+      busyPresent = false;
+      const notify = vi.fn().mockResolvedValue(undefined);
+      const promise = withInvocationContext({ progressToken: 7, notify }, () =>
+        sendCommand("render()", { tempDir: "/tmp/test-bridge", timeoutMs: 600_000 }));
+      await vi.advanceTimersByTimeAsync(25_000);
+      expect(notify).not.toHaveBeenCalled();
+      busyPresent = true;
+      mockedStatSync.mockImplementation(((path: unknown) => String(path).includes("busy_")
+        ? { uid: myUid, mode: 0o600, mtimeMs: Date.now() - 60_000, size: 10 }
+        : { uid: myUid, mode: 0o700, size: 40 }) as unknown as typeof statSync);
+      await vi.advanceTimersByTimeAsync(25_000);
+      expect(notify).not.toHaveBeenCalled();
+      finished = true;
+      await vi.advanceTimersByTimeAsync(500);
+      await promise;
+    });
+
+    it("keeps heartbeats on the invoking request's progress token and survives a failed notification", async () => {
+      const notify = vi.fn().mockRejectedValue(new Error("client gone"));
+      const promise = withInvocationContext({ progressToken: "mine", notify }, () =>
+        sendCommand("render()", { tempDir: "/tmp/test-bridge", timeoutMs: 600_000 }));
+      await vi.advanceTimersByTimeAsync(21_000);
+      expect(notify).toHaveBeenCalledTimes(2);
+      expect(notify.mock.calls.every(([notification]) => notification.params.progressToken === "mine")).toBe(true);
+      finished = true;
+      await vi.advanceTimersByTimeAsync(500);
+      await expect(promise).resolves.toMatchObject({ success: true });
+    });
+  });
 });
 
 describe("getBridgeLiveness", () => {
