@@ -263,11 +263,28 @@ describe("ripple_remove_timeline_ranges", () => {
     expect(host.run(rippleRemoveRangesScript(args, true, "", "finish", operationId))).toMatchObject({ success: false, error: expect.stringContaining("recovery state is unavailable") });
   });
 
+  it("clears saved razor state when the per-batch fingerprint no longer matches", () => {
+    const host = fakeTimeline({ clips: [{ id: "a", start: 0, end: 20 }, { id: "b", start: 20, end: 40 }] });
+    const args = { ranges: [{ start: 2, end: 3 }, { start: 22, end: 23 }], scope: "sync_locked" as const, range_content: "delete" as const };
+    const preview = host.run(rippleRemoveRangesScript(args, false));
+    const operationId = "fingerprint-mismatch";
+    const first = host.run(rippleRemoveRangesScript(args, true, String(preview.data?.timelineFingerprint), "razor", operationId, 1));
+    expect(first).toMatchObject({ success: true, data: { complete: false } });
+    const victim = host.list.find((clip) => clip.nodeId === "b")!;
+    victim.end = (victim.end as number) + 1;
+    const changed = host.run(rippleRemoveRangesScript(args, true, String(preview.data?.timelineFingerprint), "razor", operationId, 1));
+    expect(changed).toMatchObject({ success: false, error: expect.stringContaining("Timeline changed during the saved ripple operation") });
+    expect(host.run(rippleRemoveRangesScript(args, true, "", "finish", operationId))).toMatchObject({ success: false, error: expect.stringContaining("recovery state is unavailable") });
+  });
+
   it("resolves QE batch sizes from the environment with safe bounds", () => {
     expect(resolveQeBatchSize(undefined, { PREMIERE_MCP_QE_BATCH_SIZE: "4" })).toBe(4);
     expect(resolveQeBatchSize(undefined, { PREMIERE_MCP_QE_BATCH_SIZE: "500" })).toBe(32);
     expect(resolveQeBatchSize(undefined, { PREMIERE_MCP_QE_BATCH_SIZE: "0" })).toBe(1);
     expect(resolveQeBatchSize(16, { PREMIERE_MCP_QE_BATCH_SIZE: "4" })).toBe(16);
+    expect(resolveQeBatchSize(undefined, { PREMIERE_MCP_QE_BATCH_SIZE: "" })).toBe(8);
+    expect(resolveQeBatchSize(undefined, { PREMIERE_MCP_QE_BATCH_SIZE: "   " })).toBe(8);
+    expect(resolveQeBatchSize(undefined, {})).toBe(8);
   });
 
   it("runs the generated script against 1,500 fake clips and 50 ranges, moving each survivor once to reference positions", () => {

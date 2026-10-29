@@ -167,7 +167,7 @@ export function rippleRemoveRangesScript(args: Args, mutate: boolean, expectedFi
     for (fi = 0; fi < fingerprintText.length; fi++) fingerprint = (fingerprint ^ fingerprintText.charCodeAt(fi)) * 16777619;
     fingerprint = String(fingerprint >>> 0);
     if (${mutate}) {
-      if (__rippleOperation && __rippleOperation.batchFingerprint !== batchFingerprint) return __error("Timeline changed during the saved ripple operation; no further edit was applied. Inspect the timeline before retrying.", { mutationOutcome:"unknown", timelineChanged:true, mutationAttempted:true, verified:false });
+      if (__rippleOperation && __rippleOperation.batchFingerprint !== batchFingerprint) { delete __rippleStore["${escapeForExtendScript(operationId)}"]; __rippleOperation = null; return __error("Timeline changed during the saved ripple operation; no further edit was applied. Inspect the timeline before retrying.", { mutationOutcome:"unknown", timelineChanged:true, mutationAttempted:true, verified:false }); }
       if ("${phase}" !== "finish" && !__rippleOperation && "${escapeForExtendScript(expectedFingerprint ?? "")}" && fingerprint !== "${escapeForExtendScript(expectedFingerprint ?? "")}") return __error("Timeline changed since preview; no edit was applied. Preview the ranges again.", { mutationOutcome:"not_applied", timelineChanged:false });
     }
     var participating = {};

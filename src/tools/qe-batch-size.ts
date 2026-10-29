@@ -5,7 +5,8 @@ export const MIN_QE_BATCH_SIZE = 1;
 export const MAX_QE_BATCH_SIZE = 32;
 
 export function resolveQeBatchSize(override?: number, env: NodeJS.ProcessEnv = process.env): number {
-  const requested = override ?? Number(env[QE_BATCH_SIZE_ENV]);
+  const raw = env[QE_BATCH_SIZE_ENV];
+  const requested = override ?? (raw === undefined || raw.trim() === "" ? Number.NaN : Number(raw));
   if (!Number.isFinite(requested)) return DEFAULT_QE_BATCH_SIZE;
   return Math.min(MAX_QE_BATCH_SIZE, Math.max(MIN_QE_BATCH_SIZE, Math.floor(requested)));
 }
