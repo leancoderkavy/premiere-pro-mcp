@@ -7,6 +7,11 @@ export interface TimelineRange { start: number; end: number }
 export interface RangeClip { nodeId: string; start: number; end: number }
 export interface PlannedClip extends RangeClip { removed: boolean; shift: number }
 
+// QE structural calls can exhaust Premiere's native ExtendScript stack before
+// JavaScript's try/catch receives control. Keep each evalScript below this
+// small bound; the next bridge command starts with a fresh native invocation.
+export const RIPPLE_RAZORS_PER_COMMAND = 8;
+
 /** Shared by preview and apply: one ordered sweep over ranges per clip. */
 export function planRangeClip(clip: RangeClip, ranges: TimelineRange[], tolerance: number): PlannedClip {
   let shift = 0;
@@ -64,7 +69,7 @@ function consume(token: string | undefined, args: Args): string | null {
 }
 
 /** Single generated-script helper owns preflight, razors, moves, and readback. */
-export function rippleRemoveRangesScript(args: Args, mutate: boolean, expectedFingerprint?: string): string {
+export function rippleRemoveRangesScript(args: Args, mutate: boolean, expectedFingerprint?: string, phase: "all" | "razor" | "finish" = "all", operationId = "", maxRazors = RIPPLE_RAZORS_PER_COMMAND): string {
   const ranges = args.ranges.map((r) => `({ start: Math.round(__secondsToTicks(${r.start})), end: Math.round(__secondsToTicks(${r.end})) })`).join(",");
   const sequence = args.sequence_id ? `var seq = __findSequence("${escapeForExtendScript(args.sequence_id)}"); if (!seq) return __error("Sequence not found");` : "var seq = app.project.activeSequence;";
   return buildToolScript(`
@@ -141,7 +146,7 @@ export function rippleRemoveRangesScript(args: Args, mutate: boolean, expectedFi
     var fingerprint = 2166136261;
     for (fi = 0; fi < fingerprintText.length; fi++) fingerprint = (fingerprint ^ fingerprintText.charCodeAt(fi)) * 16777619;
     fingerprint = String(fingerprint >>> 0);
-    if (${mutate} && fingerprint !== "${escapeForExtendScript(expectedFingerprint ?? "")}") return __error("Timeline changed since preview; no edit was applied. Preview the ranges again.", { mutationOutcome:"not_applied", timelineChanged:false });
+    if (${mutate} && "${phase}" !== "finish" && "${escapeForExtendScript(expectedFingerprint ?? "")}" && fingerprint !== "${escapeForExtendScript(expectedFingerprint ?? "")}") return __error("Timeline changed since preview; no edit was applied. Preview the ranges again.", { mutationOutcome:"not_applied", timelineChanged:false });
     var participating = {};
     for (ci2 = 0; ci2 < plan.length; ci2++) if (plan[ci2].removed || plan[ci2].shift > 0) participating[plan[ci2].type+":"+plan[ci2].track] = true;
     for (ci2 = 0; ci2 < clips.length; ci2++) for (ri2 = 0; ri2 < ranges.length; ri2++) if (clips[ci2].start < ranges[ri2].end-tol && clips[ci2].end > ranges[ri2].start+tol) participating[clips[ci2].type+":"+clips[ci2].track] = true;
@@ -189,34 +194,66 @@ export function rippleRemoveRangesScript(args: Args, mutate: boolean, expectedFi
     summary.dryRun = ${!mutate};
     summary.adjustments = adjustments;
     summary.timelineFingerprint = fingerprint;
-    if (${mutate} && summary.clipsShifted > 400 && ${args.allow_large_ripple !== true}) return __error("Large ripple refused before mutation: "+summary.clipsShifted+" clips would move (estimated "+summary.estimatedSeconds+" seconds). Pass allow_large_ripple: true to proceed.", { movers:summary.clipsShifted, estimatedSeconds:summary.estimatedSeconds, mutationOutcome:"not_applied", timelineChanged:false });
+    if (${mutate} && "${phase}" !== "finish" && summary.clipsShifted > 400 && ${args.allow_large_ripple !== true}) return __error("Large ripple refused before mutation: "+summary.clipsShifted+" clips would move (estimated "+summary.estimatedSeconds+" seconds). Pass allow_large_ripple: true to proceed.", { movers:summary.clipsShifted, estimatedSeconds:summary.estimatedSeconds, mutationOutcome:"not_applied", timelineChanged:false });
     if (!${mutate}) return __result(summary);
-    // Preflight and all mutations are in this one host command. Razor cuts then
-    // recapture IDs: Premiere replaces TrackItems at each split.
+    // Each command repeats preflight; bounded razor commands then recapture IDs
+    // in the final command because Premiere replaces TrackItems at each split.
     var undoBefore = __readUndoIndex();
     // Live 26.5.2: pieces that move after the per-track razors come back unlinked
     // from their audio/video partners. Record each clip's link group (its sorted
     // linked node IDs) by track span so the moved pieces can be relinked.
     // The preflight snapshot already holds each clip, so this needs no extra DOM reads.
+    var __rippleStore = $.global.__premiereMcpRippleOperations;
+    if (!__rippleStore) { __rippleStore = {}; $.global.__premiereMcpRippleOperations = __rippleStore; }
+    var __rippleOperation = __rippleStore["${escapeForExtendScript(operationId)}"];
     var origins = [];
-    for (ci2 = 0; ci2 < clips.length; ci2++) {
-      if (!participating[clips[ci2].type+":"+clips[ci2].track]) continue;
-      var linkedIds = [], linked = null, snapshotClip = clips[ci2].obj;
-      try { linked = snapshotClip && typeof snapshotClip.getLinkedItems === "function" ? snapshotClip.getLinkedItems() : null; } catch (linkReadErr) { linked = null; }
-      if (linked && linked.numItems > 1) {
-        for (var li = 0; li < linked.numItems; li++) linkedIds.push(String(linked[li].nodeId));
-        linkedIds.sort();
-        origins.push({ type:clips[ci2].type, track:clips[ci2].track, start:clips[ci2].start, end:clips[ci2].end, group:linkedIds.join(",") });
+    if (("${phase}" === "finish" || "${phase}" === "razor") && __rippleOperation) {
+      origins = __rippleOperation.origins || [];
+    } else {
+      for (ci2 = 0; ci2 < clips.length; ci2++) {
+        if (!participating[clips[ci2].type+":"+clips[ci2].track]) continue;
+        var linkedIds = [], linked = null, snapshotClip = clips[ci2].obj;
+        try { linked = snapshotClip && typeof snapshotClip.getLinkedItems === "function" ? snapshotClip.getLinkedItems() : null; } catch (linkReadErr) { linked = null; }
+        if (linked && linked.numItems > 1) {
+          for (var li = 0; li < linked.numItems; li++) linkedIds.push(String(linked[li].nodeId));
+          linkedIds.sort();
+          origins.push({ type:clips[ci2].type, track:clips[ci2].track, start:clips[ci2].start, end:clips[ci2].end, group:linkedIds.join(",") });
+        }
+      }
+      if ("${phase}" === "razor") {
+        __rippleOperation = { origins: origins, razorCutIndex: 0, razorTrackIndex: 0 };
+        __rippleStore["${escapeForExtendScript(operationId)}"] = __rippleOperation;
       }
     }
-    for (qi = 0; qi < uniqueCuts.length; qi++) {
+    if ("${phase}" === "finish" && !__rippleOperation) return __error("Ripple range removal recovery state is unavailable after razoring; inspect the timeline before retrying.", { mutationOutcome:"unknown", timelineChanged:true, mutationAttempted:true, verified:false });
+    if (!__rippleOperation) __rippleOperation = { razorCutIndex: 0, razorTrackIndex: 0 };
+    var razorCalls = 0;
+    // Resume from the precise cut/track boundary saved by the prior bridge
+    // command. A cut can touch several tracks, so a cut index alone is not
+    // sufficient to keep each command under the QE-call bound.
+    var razorCutIndex = __rippleOperation ? (__rippleOperation.razorCutIndex || 0) : 0;
+    var razorTrackIndex = __rippleOperation ? (__rippleOperation.razorTrackIndex || 0) : 0;
+    if ("${phase}" !== "finish") for (qi = razorCutIndex; qi < uniqueCuts.length; qi++) {
       var cut = uniqueCuts[qi], tc = __qeTimecodeForTicks(seq, cut).timecode;
-      for (tr = 0; tr < tracks.length; tr++) {
+      for (tr = qi === razorCutIndex ? razorTrackIndex : 0; tr < tracks.length; tr++) {
         t = tracks[tr];
         if (!participating[t.type+":"+t.index]) continue;
         if (!spanningByCut[qi][t.type+":"+t.index]) continue;
         try { t.qe.razor(tc); } catch (razorErr) { return __error("Razor failed after mutation began; timeline state is unknown. Inspect before retrying: "+razorErr.toString(), { mutationOutcome:"unknown", timelineChanged:null, mutationAttempted:true, verified:false }); }
+        razorCalls++;
+        __rippleOperation.razorCutIndex = qi;
+        __rippleOperation.razorTrackIndex = tr + 1;
+        if ("${phase}" === "razor" && razorCalls >= ${Math.max(1, Math.floor(maxRazors))}) {
+          var undoDuringRazors = __readUndoIndex();
+          return __result({ complete:false, razorCalls:razorCalls, undoSteps:undoBefore !== null && undoDuringRazors !== null && undoDuringRazors > undoBefore ? undoDuringRazors - undoBefore : 0 });
+        }
       }
+      __rippleOperation.razorCutIndex = qi + 1;
+      __rippleOperation.razorTrackIndex = 0;
+    }
+    if ("${phase}" === "razor") {
+      var undoAfterRazors = __readUndoIndex();
+      return __result({ complete:true, razorCalls:razorCalls, undoSteps:undoBefore !== null && undoAfterRazors !== null && undoAfterRazors > undoBefore ? undoAfterRazors - undoBefore : 0 });
     }
     // Re-read live clips after splits, then classify against snapped intervals.
     var live = [];
@@ -276,6 +313,7 @@ export function rippleRemoveRangesScript(args: Args, mutate: boolean, expectedFi
     summary.dryRun=false; summary.verified=true; summary.clipsRemoved=remove.length; summary.clipsShifted=move.length;
     var undoAfter = __readUndoIndex();
     if (undoBefore !== null && undoAfter !== null && undoAfter > undoBefore) { summary.undoSteps = undoAfter - undoBefore; summary.undoStackIndex = undoAfter; }
+    if ("${phase}" === "finish") delete __rippleStore["${escapeForExtendScript(operationId)}"];
     return __result(summary);
   `);
 }
@@ -284,7 +322,7 @@ export function getRippleRemoveRangesTools(bridgeOptions: BridgeOptions, depende
   const capabilities = dependencies.capabilities ?? resolveCapabilities();
   return {
     ripple_remove_timeline_ranges: {
-      description: "Refuses attached transitions or unreadable transition collections before structural edits; inspect transitionsAffected and use remove_transition first. Preview or apply a single-pass ripple removal for up to 50 sorted, non-overlapping timeline ranges on all unlocked, sync-locked tracks. Requires a preview confirmation token to apply. Integer frame rates only. The preview returns per-track counts and at most 50 planned-clip samples; clips fully inside ranges are removed. Kept pieces cut from one linked audio/video clip are relinked and read back after the move. Large edits need allow_large_ripple: true.",
+      description: "Refuses attached transitions or unreadable transition collections before structural edits; inspect transitionsAffected and use remove_transition first. Preview or apply a single-pass ripple removal for up to 50 sorted, non-overlapping timeline ranges on all unlocked, sync-locked tracks. Requires a preview confirmation token to apply. Supports integer and fractional sequence frame rates (including 29.97) by snapping ranges to sequence frames. The preview returns per-track counts and at most 50 planned-clip samples; clips fully inside ranges are removed. Kept pieces cut from one linked audio/video clip are relinked and read back after the move. Large edits need allow_large_ripple: true.",
       parameters: { type: "object" as const, properties: {
         sequence_id: { type: "string", description: "Sequence name or ID; defaults to the active sequence. It must be the active sequence, because the edit runs through QE; another sequence is refused without changes." },
         ranges: { type: "array", minItems: 1, maxItems: 50, items: { type: "object", properties: { start: { type: "number", minimum: 0, description: "Range start in timeline seconds." }, end: { type: "number", exclusiveMinimum: 0, description: "Range end in timeline seconds." } }, required: ["start", "end"], additionalProperties: false }, description: "Sorted, non-overlapping timeline intervals to remove." },
@@ -304,7 +342,32 @@ export function getRippleRemoveRangesTools(bridgeOptions: BridgeOptions, depende
           if (!preview.success) return preview;
           const counts = preview.data as { clipsShifted?: number } | undefined;
           const timeoutMs = Math.max(bridgeOptions.timeoutMs ?? 30000, Math.min(900000, 30000 + (counts?.clipsShifted ?? 0) * 400));
-          return sendCommand(rippleRemoveRangesScript(args, true, expectedFingerprint), { ...bridgeOptions, timeoutMs, mutationOnTimeout: true });
+          const commandOptions = { ...bridgeOptions, timeoutMs, mutationOnTimeout: true };
+          const operationId = randomBytes(16).toString("hex");
+          let fingerprint = expectedFingerprint;
+          let undoSteps = 0;
+          // Do not keep an unbounded number of QE razors in one evalScript.
+          // Stack-overrun is native and bypasses ExtendScript catch blocks.
+          for (let batches = 0; batches < 1000; batches++) {
+            const batch = await sendCommand(
+              rippleRemoveRangesScript(args, true, fingerprint, "razor", operationId),
+              commandOptions,
+            );
+            const batchData = batch.data as { complete?: boolean; undoSteps?: number } | undefined;
+            undoSteps += batchData?.undoSteps ?? 0;
+            if (!batch.success) {
+              if (undoSteps > 0) batch.data = { ...(batchData ?? {}), undoSteps, timelineChanged: true };
+              return batch;
+            }
+            if (batchData?.complete === true) break;
+            fingerprint = "";
+            if (batches === 999) return { success: false, error: "Ripple range removal exceeded its bounded razor batch limit; inspect the timeline before retrying.", data: { outcome: "committed_unverified", undoSteps, timelineChanged: undoSteps > 0 } };
+          }
+          const result = await sendCommand(rippleRemoveRangesScript(args, true, "", "finish", operationId), commandOptions);
+          const resultData = result.data as { undoSteps?: number; [key: string]: unknown } | undefined;
+          const totalUndoSteps = undoSteps + (resultData?.undoSteps ?? 0);
+          if (totalUndoSteps > 0) result.data = { ...(resultData ?? {}), undoSteps: totalUndoSteps, timelineChanged: result.success ? resultData?.timelineChanged : true };
+          return result;
         } else requireCapability(capabilities, "edit", "ripple_remove_timeline_ranges");
         const result = await sendCommand(rippleRemoveRangesScript(args, false), bridgeOptions);
         if (result.success) {

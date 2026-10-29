@@ -80,6 +80,29 @@ describe("undo, redo and multiple_undo step QE's undo stack and check its positi
     });
   });
 
+  it("splits 41 undo steps into bounded bridge commands", async () => {
+    const stack = undoHost(41, 41);
+    await expect(targeting.multiple_undo.handler({ count: 41, expected_undo_stack_index: 41 })).resolves.toMatchObject({
+      success: true,
+      data: { undone: 41, undoStackIndexBefore: 41, undoStackIndexAfter: 0, stackVerified: true },
+    });
+    expect(mockedSendCommand).toHaveBeenCalledTimes(6);
+    expect(stack.index).toBe(0);
+    for (const [script] of mockedSendCommand.mock.calls.slice(0, 5)) expect(script).toContain('__qeUndoSteps("undo", 8');
+    expect(mockedSendCommand.mock.calls[5][0]).toContain('__qeUndoSteps("undo", 1');
+  });
+
+  it("keeps completed undo accounting when a later batch fails", async () => {
+    let calls = 0;
+    let stack: ReturnType<typeof undoHost>;
+    stack = undoHost(41, 41, { undo: () => { calls += 1; if (calls === 18) throw new Error("busy"); stack.index -= 1; return true; } });
+    await expect(targeting.multiple_undo.handler({ count: 41, expected_undo_stack_index: 41 })).resolves.toMatchObject({
+      success: true,
+      data: { undone: 17, outcome: "committed_unverified", stackVerified: false },
+    });
+    expect(mockedSendCommand).toHaveBeenCalledTimes(3);
+  });
+
   it("reports nothing to redo when the stack is already at the top", async () => {
     undoHost(5, 5);
     await expect(targeting.redo.handler({ expected_undo_stack_index: 5 })).resolves.toMatchObject({

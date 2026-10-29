@@ -100,7 +100,7 @@ function fakeTimeline(options: { clips: Array<{ id: string; start: number; end: 
   };
   const qeSequence = { getVideoTrackAt: () => qeTrack, getAudioTrackAt: () => qeTrack, getUndoStackIndex: () => undoIndex };
   const otherSequence = { sequenceID: "other-sequence", name: "Other" };
-  const context = { app: { project: { activeSequence: options.otherActive ? otherSequence : sequence, sequences: { numSequences: 1, 0: Object.assign(sequence, { name: "Target" }) } }, enableQE() {} }, qe: { project: { getActiveSequence: () => qeSequence, undoStackIndex: () => undoIndex } }, Time: class { ticks = "0"; getFormatted(frameRate: { ticks: string }, displayFormat: number) { return fakeTimecode(Math.floor(Number(this.ticks) / Number(frameRate.ticks) + 0.000001), Number(frameRate.ticks), displayFormat); } } };
+  const context = { $: { global: {} }, app: { project: { activeSequence: options.otherActive ? otherSequence : sequence, sequences: { numSequences: 1, 0: Object.assign(sequence, { name: "Target" }) } }, enableQE() {} }, qe: { project: { getActiveSequence: () => qeSequence, undoStackIndex: () => undoIndex } }, Time: class { ticks = "0"; getFormatted(frameRate: { ticks: string }, displayFormat: number) { return fakeTimecode(Math.floor(Number(this.ticks) / Number(frameRate.ticks) + 0.000001), Number(frameRate.ticks), displayFormat); } } };
   const run = (script: string) => JSON.parse(String(runInNewContext(`${getHelpersSource()}\n${script}`, context))) as { success: boolean; data?: Record<string, any>; error?: string };
   return { run, moveCalls, list, original, fromTicks, razorCalls, get clipReads() { return clipReads; } };
 }
@@ -187,7 +187,7 @@ function linkedFakeTimeline(options: { pairs: Array<{ id: string; start: number;
   };
   const videoQe = qeTrack("video"), audioQe = qeTrack("audio");
   const qeSequence = { getVideoTrackAt: () => videoQe, getAudioTrackAt: () => audioQe, getUndoStackIndex: () => undoIndex };
-  const context = { app: { project: { activeSequence: sequence, sequences: { numSequences: 1, 0: sequence } }, enableQE() {} }, qe: { project: { getActiveSequence: () => qeSequence, undoStackIndex: () => undoIndex } }, Time: class { ticks = "0"; getFormatted(frameRate: { ticks: string }, displayFormat: number) { return fakeTimecode(Math.floor(Number(this.ticks) / Number(frameRate.ticks) + 0.000001), Number(frameRate.ticks), displayFormat); } } };
+  const context = { $: { global: {} }, app: { project: { activeSequence: sequence, sequences: { numSequences: 1, 0: sequence } }, enableQE() {} }, qe: { project: { getActiveSequence: () => qeSequence, undoStackIndex: () => undoIndex } }, Time: class { ticks = "0"; getFormatted(frameRate: { ticks: string }, displayFormat: number) { return fakeTimecode(Math.floor(Number(this.ticks) / Number(frameRate.ticks) + 0.000001), Number(frameRate.ticks), displayFormat); } } };
   const run = (script: string) => JSON.parse(String(runInNewContext(`${getHelpersSource()}\n${script}`, context))) as { success: boolean; data?: Record<string, any>; error?: string };
   const span = (clip: LinkedFakeClip) => `${Number(clip.start.ticks) / TICKS}-${Number(clip.end.ticks) / TICKS}`;
   const partners = (clip: LinkedFakeClip) => {
@@ -195,6 +195,25 @@ function linkedFakeTimeline(options: { pairs: Array<{ id: string; start: number;
     return linked ? Array.from(linked as LinkedFakeClip[], span).sort() : null;
   };
   return { run, lists, live, span, partners };
+}
+
+// Match the Node handler: every fake evalScript drives one bounded razor batch.
+function runBatchedRipple(host: { run(script: string): { success: boolean; data?: Record<string, any>; error?: string } }, args: Parameters<typeof rippleRemoveRangesScript>[0], fingerprint: string, afterCommand?: () => void) {
+  const operationId = "fake-ripple-operation";
+  let undoSteps = 0;
+  for (let batch = 0; batch < 1000; batch++) {
+    const result = host.run(rippleRemoveRangesScript(args, true, batch === 0 ? fingerprint : "", "razor", operationId));
+    afterCommand?.();
+    undoSteps += result.data?.undoSteps ?? 0;
+    if (!result.success) return result;
+    if (result.data?.complete) {
+      const finish = host.run(rippleRemoveRangesScript(args, true, "", "finish", operationId));
+      afterCommand?.();
+      if (finish.data) finish.data.undoSteps = undoSteps + (finish.data.undoSteps ?? 0);
+      return finish;
+    }
+  }
+  throw new Error("Fake-host razor batching did not complete");
 }
 
 describe("ripple_remove_timeline_ranges", () => {
@@ -225,7 +244,7 @@ describe("ripple_remove_timeline_ranges", () => {
     const preview = host.run(rippleRemoveRangesScript(args, false));
     expect(preview.success).toBe(true);
     const fingerprint = String(preview.data?.timelineFingerprint);
-    const applied = host.run(rippleRemoveRangesScript(args, true, fingerprint));
+    const applied = runBatchedRipple(host, args, fingerprint);
     expect(applied.success).toBe(true);
     expect(applied.data?.verified).toBe(true);
     expect(Math.max(...host.moveCalls.values())).toBe(1);
@@ -249,10 +268,15 @@ describe("ripple_remove_timeline_ranges", () => {
     const args = { ranges: testRanges, scope: "sync_locked" as const, range_content: "delete" as const, allow_large_ripple: true };
     const preview = host.run(rippleRemoveRangesScript(args, false));
     expect(preview.success).toBe(true);
-    const beforeApplyReads = host.clipReads;
-    const applied = host.run(rippleRemoveRangesScript(args, true, String(preview.data?.timelineFingerprint)));
+    let previousReads = host.clipReads;
+    const readsPerCommand: number[] = [];
+    const applied = runBatchedRipple(host, args, String(preview.data?.timelineFingerprint), () => {
+      readsPerCommand.push(host.clipReads - previousReads);
+      previousReads = host.clipReads;
+    });
     expect(applied.success).toBe(true);
-    expect(host.clipReads - beforeApplyReads).toBeLessThanOrEqual(5000);
+    expect(readsPerCommand).toHaveLength(14);
+    expect(Math.max(...readsPerCommand)).toBeLessThanOrEqual(5000);
   });
 
   it.each([
@@ -265,7 +289,7 @@ describe("ripple_remove_timeline_ranges", () => {
     const args = { ranges: [{ start: rangeStart, end: rangeEnd }], scope: "sync_locked" as const, range_content: "delete" as const };
     const preview = host.run(rippleRemoveRangesScript(args, false));
     expect(preview.success).toBe(true);
-    const applied = host.run(rippleRemoveRangesScript(args, true, String(preview.data?.timelineFingerprint)));
+    const applied = runBatchedRipple(host, args, String(preview.data?.timelineFingerprint));
     expect(applied.success).toBe(true);
     expect(applied.data?.verified).toBe(true);
     expect(host.list).toHaveLength(2);
@@ -278,7 +302,7 @@ describe("ripple_remove_timeline_ranges", () => {
     const host = fakeTimeline({ clips: [{ id: "clip", start: 0, end: 4 }], frameRate: 29.97, displayFormat: 102, razorOffsetFrames: 1 });
     const args = { ranges: [{ start: 1, end: 2 }], scope: "sync_locked" as const, range_content: "delete" as const };
     const preview = host.run(rippleRemoveRangesScript(args, false));
-    const applied = host.run(rippleRemoveRangesScript(args, true, String(preview.data?.timelineFingerprint)));
+    const applied = runBatchedRipple(host, args, String(preview.data?.timelineFingerprint));
     expect(applied.success).toBe(false);
     expect(applied.error).toContain("still straddles a snapped range edge");
     expect(applied.data?.mutationOutcome).toBe("unknown");
@@ -301,7 +325,7 @@ describe("ripple_remove_timeline_ranges", () => {
     expect(preview.data?.plannedClipsTruncated).toBe(true);
     expect(preview.data?.plannedClipsTotal).toBeGreaterThan(50);
     expect(preview.data?.trackCounts).toHaveProperty("video:0");
-    const applied = host.run(rippleRemoveRangesScript(args, true, String(preview.data?.timelineFingerprint)));
+    const applied = runBatchedRipple(host, args, String(preview.data?.timelineFingerprint));
     expect(applied.success).toBe(true);
     expect(applied.data?.undoSteps).toBeGreaterThan(0);
     expect(applied.data?.undoStackIndex).toBe(applied.data?.undoSteps);
@@ -317,7 +341,7 @@ describe("ripple_remove_timeline_ranges", () => {
     const host = fakeTimeline({ clips: [{ id: "whole", start: 0, end: 2 }, { id: "after", start: 2, end: 3 }] });
     const args = { ranges: [{ start: 0, end: 1 }, { start: 1, end: 2 }], scope: "sync_locked" as const, range_content: "delete" as const };
     const preview = host.run(rippleRemoveRangesScript(args, false));
-    const applied = host.run(rippleRemoveRangesScript(args, true, String(preview.data?.timelineFingerprint)));
+    const applied = runBatchedRipple(host, args, String(preview.data?.timelineFingerprint));
     expect(applied.success).toBe(true);
     expect(host.list.map((clip) => clip.nodeId)).toEqual(["after"]);
     expect(host.fromTicks(host.list[0].start)).toBeCloseTo(0, 5);
@@ -357,7 +381,7 @@ describe("ripple_remove_timeline_ranges", () => {
     const args = { ranges: [{ start: 2, end: 3 }], scope: "sync_locked" as const, range_content: "delete" as const };
     const preview = host.run(rippleRemoveRangesScript(args, false));
     expect(preview.success).toBe(true);
-    const applied = host.run(rippleRemoveRangesScript(args, true, String(preview.data?.timelineFingerprint)));
+    const applied = runBatchedRipple(host, args, String(preview.data?.timelineFingerprint));
     expect(applied.success).toBe(true);
     expect(applied.data?.verified).toBe(true);
     expect(applied.data?.relinkedGroups).toBe(1);
@@ -372,7 +396,7 @@ describe("ripple_remove_timeline_ranges", () => {
     const host = linkedFakeTimeline({ pairs: [{ id: "clip", start: 0, end: 8 }], linkSelectionWorks: false });
     const args = { ranges: [{ start: 2, end: 3 }], scope: "sync_locked" as const, range_content: "delete" as const };
     const preview = host.run(rippleRemoveRangesScript(args, false));
-    const applied = host.run(rippleRemoveRangesScript(args, true, String(preview.data?.timelineFingerprint)));
+    const applied = runBatchedRipple(host, args, String(preview.data?.timelineFingerprint));
     expect(applied.success).toBe(false);
     expect(applied.error).toMatch(/could not be relinked/);
     expect(applied.data).toMatchObject({ outcome: "committed_unverified", timelineChanged: true, relinkedGroups: 0 });
@@ -404,10 +428,11 @@ describe("ripple_remove_timeline_ranges", () => {
     expect(sendCommand).not.toHaveBeenCalled();
   });
 
-  it("returns a full dry-run plan and applies only once with fingerprint and scaled timeout", async () => {
+  it("returns a full dry-run plan and applies bounded razor batches with a scaled timeout", async () => {
     vi.mocked(sendCommand).mockResolvedValueOnce({ success: true, data: { timelineFingerprint: "fingerprint", plannedClips: [{ nodeId: "clip" }], clipsShifted: 1500 } });
     vi.mocked(sendCommand).mockResolvedValueOnce({ success: true, data: { timelineFingerprint: "fingerprint", clipsShifted: 1500 } });
-    vi.mocked(sendCommand).mockResolvedValueOnce({ success: true, data: { verified: true } });
+    vi.mocked(sendCommand).mockResolvedValueOnce({ success: true, data: { complete: true, undoSteps: 8 } });
+    vi.mocked(sendCommand).mockResolvedValueOnce({ success: true, data: { verified: true, undoSteps: 2 } });
     const tool = getRippleRemoveRangesTools(bridge).ripple_remove_timeline_ranges;
     const args = { ranges: [{ start: 1, end: 2 }], scope: "sync_locked" as const, range_content: "delete" as const, allow_large_ripple: true };
     const preview = await tool.handler(args);
@@ -415,8 +440,25 @@ describe("ripple_remove_timeline_ranges", () => {
     expect((preview.data as { plannedClips: unknown[] }).plannedClips).toHaveLength(1);
     const applied = await tool.handler({ ...args, dry_run: false, confirmation_token: token, allow_large_ripple: true });
     expect(applied.success).toBe(true);
-    expect(sendCommand).toHaveBeenCalledTimes(3);
+    expect(sendCommand).toHaveBeenCalledTimes(4);
+    expect(vi.mocked(sendCommand).mock.calls[2][0]).toContain('razorCalls >= 8');
+    expect(vi.mocked(sendCommand).mock.calls[3][0]).toContain('"finish"');
     expect(vi.mocked(sendCommand).mock.calls[2][1]).toMatchObject({ timeoutMs: 630000, mutationOnTimeout: true });
+    expect(applied.data).toMatchObject({ undoSteps: 10 });
     await expect(tool.handler({ ...args, dry_run: false, confirmation_token: token, allow_large_ripple: true })).resolves.toMatchObject({ success: false });
+  });
+
+  it("drives 41 razors through bounded batches and preserves prior undo accounting on failure", async () => {
+    vi.mocked(sendCommand)
+      .mockResolvedValueOnce({ success: true, data: { timelineFingerprint: "fingerprint", clipsShifted: 0 } })
+      .mockResolvedValueOnce({ success: true, data: { timelineFingerprint: "fingerprint", clipsShifted: 0 } });
+    for (let i = 0; i < 5; i++) vi.mocked(sendCommand).mockResolvedValueOnce({ success: true, data: { complete: false, undoSteps: 8 } });
+    vi.mocked(sendCommand).mockResolvedValueOnce({ success: false, error: "Stack overrun", data: { undoSteps: 1 } });
+    const tool = getRippleRemoveRangesTools(bridge).ripple_remove_timeline_ranges;
+    const args = { ranges: [{ start: 1, end: 2 }], scope: "sync_locked" as const, range_content: "delete" as const };
+    const preview = await tool.handler(args);
+    const result = await tool.handler({ ...args, dry_run: false, confirmation_token: (preview.data as { confirmationToken: string }).confirmationToken });
+    expect(result).toMatchObject({ success: false, error: "Stack overrun", data: { undoSteps: 41, timelineChanged: true } });
+    expect(sendCommand).toHaveBeenCalledTimes(8);
   });
 });
