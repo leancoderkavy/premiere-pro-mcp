@@ -18,6 +18,61 @@ const mockedSendCommand = vi.mocked(sendCommand);
 afterEach(() => vi.clearAllMocks());
 
 describe("health connection diagnostics", () => {
+  it("selects connected UXP by default and reports it as active", async () => {
+    const request = vi.fn().mockResolvedValue({ projectOpen: true, sequenceOpen: true });
+    const uxpBridge = {
+      request,
+      getState: () => ({ status: "connected", connected: true }),
+    } as any;
+    const tools = getHealthTools(
+      { tempDir: "/tmp/health" }, undefined, () => ({}), { uxpBridge },
+    );
+
+    await expect(tools.verify_premiere_connection.handler({})).resolves.toMatchObject({
+      success: true,
+      data: { backend: "uxp", bridgeSelection: { active: "uxp", checked: "uxp" } },
+    });
+    await expect(tools.get_capabilities.handler({})).resolves.toMatchObject({
+      success: true,
+      data: { bridge: { mode: "auto", active: "uxp", fallbackToCep: false } },
+    });
+    expect(mockedSendCommand).not.toHaveBeenCalled();
+  });
+
+  it("forces CEP through configuration while keeping UXP connected", async () => {
+    mockedSendCommand.mockResolvedValueOnce({ success: true, data: { projectOpen: true, sequenceOpen: true } });
+    const uxpBridge = {
+      request: vi.fn(),
+      getState: () => ({ status: "connected", connected: true }),
+    } as any;
+    const result = await getHealthTools(
+      { tempDir: "/tmp/health" }, undefined, undefined, { uxpBridge, bridgeMode: "cep" },
+    ).verify_premiere_connection.handler({});
+
+    expect(result).toMatchObject({
+      success: true,
+      data: { backend: "cep", bridgeSelection: { mode: "cep", active: "cep", checked: "cep" } },
+    });
+    expect(uxpBridge.request).not.toHaveBeenCalled();
+  });
+
+  it("falls back to CEP when the automatic read-only UXP probe disconnects", async () => {
+    mockedSendCommand.mockResolvedValueOnce({ success: true, data: { projectOpen: true, sequenceOpen: true } });
+    const uxpBridge = {
+      request: vi.fn().mockRejectedValue(new Error("panel disconnected")),
+      getState: () => ({ status: "connected", connected: true }),
+    } as any;
+    const result = await getHealthTools(
+      { tempDir: "/tmp/health" }, undefined, undefined, { uxpBridge },
+    ).verify_premiere_connection.handler({});
+
+    expect(result).toMatchObject({
+      success: true,
+      data: { backend: "cep", bridgeSelection: { requested: "auto", checked: "cep" } },
+    });
+    expect(mockedSendCommand).toHaveBeenCalledOnce();
+  });
+
   it("returns an explicit local feature-support report and safely surfaces invalid version input", async () => {
     const tools = getHealthTools(
       { tempDir: "/tmp/health" },

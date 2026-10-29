@@ -79,7 +79,7 @@ export function buildPremiereInstructions(registeredTools: ReadonlySet<string>):
 START AND DISCOVER:
 - Start with get_capabilities using tool_query with a few task keywords and tool_limit: 10 for a compact capability overview and relevant operations. Search returns descriptions, backend/authority requirements, and registered status. Read the actual tool schema before calling it.
 - Search results default to registered tools. available_only: false diagnoses withheld operations; it never enables them. Tool packs and authority are separate. Never invent missing tools or enable unsafe-script to work around a missing operation.
-- Before host work, verify the intended backend: use verify_premiere_connection if registered (backend: cep or uxp), or ping for CEP. A static capability report is not a live connection check. Do not switch backends silently after a failed probe.
+- Before host work, call verify_premiere_connection without a backend to use connected UXP by default and CEP when UXP is unavailable. Pass backend: cep or uxp for an explicit no-fallback diagnostic; ping remains CEP-only. A static capability report is not a live connection check. Never retry a failed UXP mutation through CEP.
 - Inspect the current project and target sequence with the narrowest registered state tools. Resolve current item, clip, track, and sequence IDs before planning mutations.
 
 PLAN AND EXECUTE:

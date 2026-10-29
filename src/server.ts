@@ -83,6 +83,7 @@ import { getMogrtAuthoringTools } from "./tools/mogrt-authoring.js";
 import { getMogrtStudioTools } from "./tools/mogrt-studio.js";
 import { getRenderHandoffTools } from "./tools/render-handoff.js";
 import type { UxpWebSocketBridge } from "./bridge/uxp-websocket-bridge.js";
+import type { PremiereBridgeMode } from "./bridge/transport-selection.js";
 import {
   guardToolHandler,
   isToolPermitted,
@@ -298,6 +299,7 @@ function collectStaticTools(
   const cached = toolCatalogCache.get(cacheKey);
   if (cached) return cached;
 
+  const selectedUxpBridge = bridgeMode === "cep" ? undefined : uxpBridge;
   const tools: Record<string, ToolDef> = {
     ...getDiscoveryTools(bridgeOptions),
     ...getProjectTools(bridgeOptions),
@@ -370,6 +372,7 @@ export function collectTools(
   toolPacks?: ToolPackSelection,
   projectContextRepository = new ProjectContextRepository(),
   mediaWatchRegistry = new MediaWatchRegistry(),
+  bridgeMode: PremiereBridgeMode = "auto",
 ): Record<string, ToolDef> {
   // Streamable HTTP creates an independent McpServer for every request. Most
   // tool definitions are immutable, while context, telemetry, and UXP tools
@@ -380,11 +383,11 @@ export function collectTools(
     ...getProjectContextTools(bridgeOptions, { repository: projectContextRepository }),
     ...getEditorialContextPackTools({ repository: projectContextRepository }),
     ...getFilmEditorialTools({ repository: projectContextRepository }),
-    ...getEditorialPlanTools({ repository: projectContextRepository, uxpBridge }),
-    ...getCompetitorGapTools(bridgeOptions, uxpBridge),
+    ...getEditorialPlanTools({ repository: projectContextRepository, uxpBridge: selectedUxpBridge }),
+    ...getCompetitorGapTools(bridgeOptions, selectedUxpBridge),
     ...getMediaWatchTools(mediaWatchRegistry),
-    ...getOperationRecoveryTools(uxpBridge, bridgeOptions),
-    ...(uxpBridge ? getUxpTools(uxpBridge) : {}),
+    ...getOperationRecoveryTools(selectedUxpBridge, bridgeOptions),
+    ...(selectedUxpBridge ? getUxpTools(selectedUxpBridge) : {}),
   };
   // Compositions use the same schema and authority boundary as external calls.
   // A plan token or a discovered tool name is never authority to bypass it.
@@ -400,11 +403,12 @@ export function collectTools(
   Object.assign(
     tools,
     getTimelineEditorialTools(bridgeOptions, { getToolCatalog: getCompositionCatalog, capabilities }),
-    getExecutionWorkflowTools(bridgeOptions, { getToolCatalog: getCompositionCatalog, capabilities, uxpBridge }),
+    getExecutionWorkflowTools(bridgeOptions, { getToolCatalog: getCompositionCatalog, capabilities, uxpBridge: selectedUxpBridge }),
     getHealthTools(bridgeOptions, capabilities, () => tools, {
       telemetry,
       uxpBridge,
       toolPacks,
+      bridgeMode,
     }),
   );
   // Clone definitions: cached static tools must not retain another caller's authority.
@@ -428,6 +432,8 @@ export interface ServerOptions {
   mediaWatchRegistry?: MediaWatchRegistry;
   /** Overrides PREMIERE_MCP_TOOL_PACKS for this server instance. */
   toolPacks?: string;
+  /** Selects connected UXP by default, or forces the CEP compatibility bridge. */
+  bridgeMode?: PremiereBridgeMode;
 }
 
 /**
@@ -480,6 +486,7 @@ export function createServer(
     toolPacks,
     projectContextRepository,
     mediaWatchRegistry,
+    serverOptions.bridgeMode ?? "auto",
   );
 
   const premiereInstructions = buildPremiereInstructions(new Set(
