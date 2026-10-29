@@ -278,14 +278,14 @@ their bins, media rules, and organization rules before a facility uses one.
 > npm view premiere-pro-mcp homepage repository.url
 > ```
 >
-> Then continue with `--install-cep`, `--doctor`, and the read-only `verify_premiere_connection` prompt.
+> On Premiere 25.6+, install the UXP `.ccx` connector first, configure its token, then run the read-only `verify_premiere_connection` prompt. Keep `--install-cep` as the compatibility path for older hosts and operations not yet available through UXP.
 
 ### Easiest supported path: Claude Desktop
 
 1. Download the current [Claude Desktop bundle (`.mcpb`)](https://github.com/leancoderkavy/premiere-pro-mcp/releases/download/v1.25.0/premiere-pro-mcp-1.25.0.mcpb).
 2. In Claude Desktop, open **Settings > Extensions > Advanced settings > Install Extension**, select the downloaded bundle, and restart Claude Desktop.
-3. Download the separate [signed Premiere connector (`.zxp`)](https://github.com/leancoderkavy/premiere-pro-mcp/releases/download/v1.25.0/MCPBridgeCEP.zxp). Open it with your trusted ZXP installer. If your computer has no ZXP installer, use the npm connector installer in **Advanced setup** below.
-4. Restart Premiere, open a project, then open **Window > Extensions > MCP for Adobe Premiere Pro**.
+3. On Premiere 25.6+, install the release's UXP `.ccx` connector and configure the same `PREMIERE_UXP_TOKEN` in the server and panel. See [UXP installation](uxp-plugin/DISTRIBUTION.md). Install the [signed CEP connector (`.zxp`)](https://github.com/leancoderkavy/premiere-pro-mcp/releases/download/v1.25.0/MCPBridgeCEP.zxp) too when you need compatibility-only tools or an older Premiere host.
+4. Restart Premiere, open a project, then open **Window > UXP Plugins > MCP for Adobe Premiere Pro**. For CEP compatibility, use **Window > Extensions > MCP for Adobe Premiere Pro**.
 5. In Claude, enter: `Safely check my Premiere connection with verify_premiere_connection. Make no changes.`
 
 The Claude bundle contains the local MCP server, so this route does not require Node.js. The Premiere connector is a separate required install. The first prompt is read-only and reports whether the server is installed, configured, connected, and live-verified.
@@ -318,7 +318,7 @@ connector still need to be installed separately.
 #### Before you begin
 
 - Node.js **20.19 or newer** on Windows or macOS.
-- Adobe Premiere Pro **2020–2026**. Keep Premiere, the CEP bridge, and your MCP client on the same computer for the recommended local setup.
+- Adobe Premiere Pro **2020–2026**. Prefer the UXP bridge on Premiere 25.6+; use CEP for older hosts and compatibility-only operations. Keep Premiere, installed bridges, and your MCP client on the same computer.
 - For `trim_clip` and `slip_edit`, install [FFmpeg](https://ffmpeg.org/download.html)
   with `ffprobe` on `PATH` (`brew install ffmpeg` on macOS or
   `winget install Gyan.FFmpeg` on Windows). These source-range edits are unavailable
@@ -344,7 +344,11 @@ npm install
 npm run build
 ```
 
-#### 2. Install the CEP plugin
+#### 2. Install the Premiere bridge
+
+For Premiere 25.6+, install the UXP `.ccx` connector using [the UXP distribution instructions](uxp-plugin/DISTRIBUTION.md), then set the same secret (at least 16 characters) as `PREMIERE_UXP_TOKEN` in the MCP server and UXP panel. UXP is selected automatically when connected.
+
+Install CEP as the compatibility bridge for older Premiere versions and tools without a documented UXP route:
 
 **If installed via npm:**
 
@@ -358,7 +362,7 @@ premiere-pro-mcp --install-cep
 npm run install-cep
 ```
 
-This installs the plugin into Premiere Pro's per-user extensions folder and enables debug mode.
+This installs the CEP compatibility plugin into Premiere Pro's per-user extensions folder and enables debug mode. Set `PREMIERE_BRIDGE_MODE=cep` only when you need to force CEP even while UXP is connected.
 
 #### 3. Check the setup
 
@@ -573,7 +577,7 @@ Add to your VS Code MCP server configuration:
 1. Open (or restart) Premiere Pro
 2. The bridge starts automatically using the default temp directory (or its previously saved setting)
 3. Optionally go to **Window > Extensions > MCP for Adobe Premiere Pro** to confirm the green "Running" status or change the **Temp Directory** to match your MCP client config
-4. Ask your AI assistant to run `get_capabilities`, then `ping`, with Premiere open.
+4. Ask your AI assistant to run `get_capabilities`, then `verify_premiere_connection`, with Premiere open. Both report the active bridge; `ping` remains the CEP-specific probe.
 5. For a safe first request, ask: *"What is my current Premiere Pro project and active sequence? Do not make changes."*
 
 The default bridge directory is derived from the operating system on both sides, so most local setups should not set `PREMIERE_TEMP_DIR`. On macOS, the server resolves the per-user system temporary directory even when a GUI-launched client strips `TMPDIR`, keeping it aligned with Premiere's CEP panel. If you override it, use the same absolute path in the MCP server and CEP panel; Windows and macOS paths are not interchangeable.
@@ -680,8 +684,8 @@ Premiere mutations serialized and preview before apply. See
 
 | Surface | Windows | macOS | Verification boundary |
 | :------ | :------ | :---- | :-------------------- |
-| CEP production bridge | Premiere Pro 2020–2026 | Premiere Pro 2020–2026 | Run `get_capabilities`, then `ping` with Premiere open |
-| UXP preview bridge | Premiere Pro 25.6+ | Premiere Pro 25.6+ | Live loopback WebSocket and host API verification required |
+| UXP preferred bridge | Premiere Pro 25.6+ | Premiere Pro 25.6+ | Live loopback WebSocket and host API verification required |
+| CEP compatibility bridge | Premiere Pro 2020–2026 | Premiere Pro 2020–2026 | Run `get_capabilities`, then `ping` with Premiere open |
 | npm CEP installer | Copies plugin and verifies `REG_SZ` debug keys | Copies plugin and verifies the installed manifest/debug settings | Restart Premiere after installation |
 | AE MOGRT authoring CEP bridge | After Effects 2018+ | After Effects 2018+ | Opens only a saved, workspace-contained AE project; a local ZIP check is not import, playback, or visual verification |
 | CI build and unit tests | Node 20, 22, and 24 | Node 20, 22, and 24 | GitHub-hosted OS runners; no Adobe host is available in CI |
@@ -839,13 +843,15 @@ complete review-and-route workflow.
 
 ### Authenticated UXP connection
 
-The MCP server can accept a local UXP panel connection and invoke the UXP commands that are currently implemented:
+The MCP server prefers a connected local UXP panel and invokes the UXP commands that are currently implemented. If UXP is not connected, new automatic bridge selections fall back to CEP:
 
 ```bash
 PREMIERE_UXP_TOKEN="replace-with-a-long-random-secret" premiere-pro-mcp
 ```
 
 Generate that secret yourself and enter the same value in the UXP panel (**Window → UXP Plugins**, not the CEP Connector). CEP-only setups do not use a token. The listener binds only to `127.0.0.1:7777`, authenticates the WebSocket upgrade, requires a versioned capability handshake, correlates concurrent requests, and fails pending work on timeout or disconnect. Set `PREMIERE_UXP_PORT` to use another loopback port.
+
+`PREMIERE_BRIDGE_MODE=auto` is the default. Set `PREMIERE_BRIDGE_MODE=cep` to force CEP. `get_capabilities` and `verify_premiere_connection` report configured mode, active bridge, UXP connection state, and whether CEP fallback is active. Selection happens before dispatch; a failed UXP mutation is never retried through CEP.
 
 When enabled, MCP discovery includes 96 capability-gated UXP additions. The first expansion covers effects, deterministic timeline selection, selection batches, scene detection, proxy/ingest, relink, metadata, color conformance, read-only Premiere/After Effects environment inspection, Source Monitor audition, storage, and least-privilege workspace access. The second adds Project-panel selection, marker CRUD, single-transaction undoable beat-grid marker application, bin organization, sequence settings, imports, typed effect parameters/keyframes, track-item transforms, atomic J/L split edits, SequenceEditor timeline edits, sequence lifecycle, and AME encoding. The third wave begins with a redacted event journal, conservative AME terminal receipts, explicit host-readiness gates, safe multi-project sessions, lease-based growing-media control, namespaced workflow checkpoints, bounded media-health maintenance, caption-aware track mute state, transactional source trim/framing, guarded sequence-range updates, guarded source-media start timing, and guarded source-media frame-rate/pixel-aspect overrides documented in [the third-wave workflow matrix](docs/third-wave-uxp-workflows.md). The bounded migration surface also includes a non-ripple selected-item lift, native video-transition listing and guarded transactions, native active and explicit-GUID sequence timing inspection, opt-in installed-MOGRT directory inspection without filesystem enumeration, bounded native timeline structure inspection with opt-in source IDs, classification, and broad content category, guarded sequence display-format updates, a capped native Project-panel tree, a double-read Project-panel insertion-bin snapshot, guarded empty/default sequence creation, bounded native Project-panel schema/item-column metadata inspection, guarded direct Project-panel metadata replacements with exact state/readback guards, guarded typed Project metadata schema-field creation with non-field-level readback, guarded direct updates to three named application preferences, guarded transcript JSON replacement for one exact source clip, direct active-track-item identity readback, guarded source-only slips, guarded contiguous three-item slides, guarded append-only timeline duplicates, guarded contiguous same-track ripple deletes, guarded source-project-item color labels resolved from one timeline coordinate, guarded explicit-sequence preview-frame rectangle updates, explicit opt-in source-media provenance paths with bounded double resolution, bounded source-proxy readiness with an explicit attached-path disclosure, guarded static effect-parameter PointF x/y updates, bounded effect-parameter descriptor catalogs, bounded project/sequence Object Mask audits, native FrameRate/TickTime frame-alignment inspection with caller-owned inputs and tick readback, and native TickTime arithmetic over caller-owned canonical tick strings; it does not claim direct empty-track create/delete, global redo support, playback proof, Object Mask counts or visual validity, an atomic Project-panel metadata compare-and-set, app-preference Undo, installed-template availability or compatibility, imported transcript persistence, override-presence/clear semantics, path existence, source lineage or rights, proxy compatibility, general or keyframed effect-parameter value readback, rendered-frame correctness, linked-item sync, or licensed-host validation. A separate [hybrid benchmark gate](docs/uxp-hybrid-benchmark.md) keeps native acceleration disabled until reproducible cross-platform evidence exists. See also [the first stable workflow matrix](docs/uxp-stable-workflows.md), [the next-ten workflow matrix](docs/uxp-next-ten-workflows.md), [the guarded-slip workflow notes](docs/uxp-slip-workflows.md), [the guarded-slide workflow notes](docs/uxp-slide-workflows.md), [the guarded-duplicate workflow notes](docs/uxp-clone-workflows.md), and [the guarded-ripple-delete workflow notes](docs/uxp-ripple-delete-workflows.md). Commands are advertised only while the authenticated local UXP bridge is connected; the host capability handshake remains the authority for support in the running Premiere build. A failed UXP command is never silently retried through CEP because the first operation may have partially succeeded. UXP edits require a matching command-schema/receipt version, durable panel ledger storage and native cryptographic entropy; older unversioned panels remain read-only until the matching panel is installed.
 
@@ -1520,7 +1526,7 @@ premiere-pro-mcp/
 
 ### CEP and UXP backends
 
-CEP remains the production backend because it provides broad ExtendScript access and the undocumented **QE DOM** used for effects, ripple deletes, and advanced trims across Premiere Pro 2020–2026. The packaged `uxp-plugin` is a Premiere 25.6+ preview backend for supported frame export, capability discovery, and state events. It does not silently retry failed UXP mutations through CEP.
+UXP is the preferred bridge when a compatible Premiere 25.6+ panel is connected. CEP remains the compatibility backend because it provides broader ExtendScript access and the undocumented **QE DOM** used for effects, ripple deletes, and advanced trims across Premiere Pro 2020–2026. Automatic selection uses CEP when UXP is unavailable; it never retries a failed UXP mutation through CEP.
 
 ### ExtendScript Compatibility
 
