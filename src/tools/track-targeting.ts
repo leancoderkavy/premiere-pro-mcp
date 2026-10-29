@@ -7,10 +7,11 @@ import {
 import { sendCommand, BridgeOptions } from "../bridge/file-bridge.js";
 import { describePresetFolder } from "./encoder-formats.js";
 import { rippleTimeoutMs } from "./ripple-timeout.js";
+import { DEFAULT_QE_BATCH_SIZE, QE_BATCH_SIZE_ENV, resolveQeBatchSize } from "./qe-batch-size.js";
 
 // QE undo can hit the same native ExtendScript stack limit as structural QE
 // edits. Each bridge command gets a fresh native invocation.
-export const QE_UNDO_STEPS_PER_COMMAND = 8;
+export const QE_UNDO_STEPS_PER_COMMAND = DEFAULT_QE_BATCH_SIZE;
 
 /**
  * Premiere's audio `Volume > Level` property is NOT in decibels. It is a
@@ -1877,6 +1878,12 @@ export function getTrackTargetingTools(bridgeOptions: BridgeOptions) {
             type: "number",
             description: "Number of undo steps (default: 1)",
           },
+          batch_size: {
+            type: "number",
+            minimum: 1,
+            maximum: 32,
+            description: `QE undo calls per bridge command (default: ${QE_BATCH_SIZE_ENV} or ${DEFAULT_QE_BATCH_SIZE}; clamped to 1-32).`,
+          },
           acknowledge_untracked_markers: {
             type: "boolean",
             description: "Explicitly acknowledge that QE steps reverse or restore prior non-marker actions, because marker reversal is not verified. Default false; marker boundaries refuse the entire request before any step.",
@@ -1889,7 +1896,7 @@ export function getTrackTargetingTools(bridgeOptions: BridgeOptions) {
         },
         required: ["expected_undo_stack_index"],
       },
-      handler: async (args: { count?: number; expected_undo_stack_index?: number; acknowledge_untracked_markers?: boolean }) => {
+      handler: async (args: { count?: number; batch_size?: number; expected_undo_stack_index?: number; acknowledge_untracked_markers?: boolean }) => {
         const count = args.count ?? 1;
         if (!Number.isInteger(count) || count < 1 || count > 100) {
           return { success: false, error: "count must be an integer from 1 through 100" };
@@ -1902,8 +1909,9 @@ export function getTrackTargetingTools(bridgeOptions: BridgeOptions) {
         let undone = 0;
         let firstIndex: number | undefined;
         let lastResult: { success: boolean; data?: unknown; error?: string } | undefined;
-        for (let remaining = count; remaining > 0; remaining -= QE_UNDO_STEPS_PER_COMMAND) {
-          const batchCount = Math.min(QE_UNDO_STEPS_PER_COMMAND, remaining);
+        const batchSize = resolveQeBatchSize(args.batch_size);
+        for (let remaining = count; remaining > 0; remaining -= batchSize) {
+          const batchCount = Math.min(batchSize, remaining);
           const script = buildToolScript(`
           __undoStart = null;
           var expectedIndex = ${String(expectedIndex)};

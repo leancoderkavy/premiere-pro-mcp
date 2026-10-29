@@ -2,6 +2,7 @@ import { describe, expect, it, vi, beforeEach } from "vitest";
 import { runInNewContext } from "node:vm";
 import { getHelpersSource } from "../../src/bridge/script-builder.js";
 import { planRangeClip, rippleRemoveRangesScript, getRippleRemoveRangesTools, TimelineRange } from "../../src/tools/ripple-remove-ranges.js";
+import { resolveQeBatchSize } from "../../src/tools/qe-batch-size.js";
 import { BridgeOptions, sendCommand } from "../../src/bridge/file-bridge.js";
 
 vi.mock("../../src/bridge/file-bridge.js", () => ({ sendCommand: vi.fn(), getTempDir: vi.fn(() => "/tmp/test") }));
@@ -32,7 +33,7 @@ function fakeTimecode(frame: number, timebase: number, displayFormat: number) {
   return [hh, mm, ss, ff].map(pad).join(separator);
 }
 
-function fakeTimeline(options: { clips: Array<{ id: string; start: number; end: number }>; locked?: boolean; frameRate?: number; displayFormat?: number; razorOffsetFrames?: number; otherActive?: boolean }) {
+function fakeTimeline(options: { clips: Array<{ id: string; start: number; end: number }>; locked?: boolean; frameRate?: number; displayFormat?: number; razorOffsetFrames?: number; otherActive?: boolean; razorFails?: boolean }) {
   let nextId = 0;
   let undoIndex = 0;
   const moveCalls = new Map<string, number>();
@@ -69,6 +70,7 @@ function fakeTimeline(options: { clips: Array<{ id: string; start: number; end: 
     isLocked: () => options.locked === true,
     isSyncLocked: () => true,
     razor(timecode: string) {
+      if (options.razorFails) throw new Error("razor failed");
       razorCalls.push(timecode);
       const [hh, mm, ss, ff] = timecode.split(/[:;]/).map(Number);
       const nominal = Math.round(TICKS / frameDuration);
@@ -238,6 +240,36 @@ describe("ripple_remove_timeline_ranges", () => {
     expect(Math.max(...moveCalls.values())).toBe(1);
   });
 
+  it("does not reapply the large-ripple guard after a saved razor batch starts", () => {
+    const host = fakeTimeline({ clips: Array.from({ length: 401 }, (_, i) => ({ id: `clip-${i}`, start: 0, end: 100 })) });
+    const ranges = Array.from({ length: 10 }, (_, i) => ({ start: 2 + i * 4, end: 3 + i * 4 }));
+    const allowed = { ranges, scope: "sync_locked" as const, range_content: "delete" as const, allow_large_ripple: true };
+    const preview = host.run(rippleRemoveRangesScript(allowed, false));
+    const operationId = "large-ripple-regression";
+    const first = host.run(rippleRemoveRangesScript(allowed, true, String(preview.data?.timelineFingerprint), "razor", operationId, 1));
+    expect(first).toMatchObject({ success: true, data: { complete: false } });
+    // This mimics a later handler batch: state exists and razors already changed
+    // clip topology. Before KAV-312's fix, this was refused as not_applied.
+    const resumed = host.run(rippleRemoveRangesScript({ ...allowed, allow_large_ripple: false }, true, String(preview.data?.timelineFingerprint), "razor", operationId, 1));
+    expect(resumed).toMatchObject({ success: true, data: { complete: false } });
+  });
+
+  it("clears saved razor state when a razor batch fails", () => {
+    const host = fakeTimeline({ clips: [{ id: "clip", start: 0, end: 4 }], razorFails: true });
+    const args = { ranges: [{ start: 1, end: 2 }], scope: "sync_locked" as const, range_content: "delete" as const };
+    const preview = host.run(rippleRemoveRangesScript(args, false));
+    const operationId = "failed-razor";
+    expect(host.run(rippleRemoveRangesScript(args, true, String(preview.data?.timelineFingerprint), "razor", operationId, 1))).toMatchObject({ success: false, data: { mutationAttempted: true } });
+    expect(host.run(rippleRemoveRangesScript(args, true, "", "finish", operationId))).toMatchObject({ success: false, error: expect.stringContaining("recovery state is unavailable") });
+  });
+
+  it("resolves QE batch sizes from the environment with safe bounds", () => {
+    expect(resolveQeBatchSize(undefined, { PREMIERE_MCP_QE_BATCH_SIZE: "4" })).toBe(4);
+    expect(resolveQeBatchSize(undefined, { PREMIERE_MCP_QE_BATCH_SIZE: "500" })).toBe(32);
+    expect(resolveQeBatchSize(undefined, { PREMIERE_MCP_QE_BATCH_SIZE: "0" })).toBe(1);
+    expect(resolveQeBatchSize(16, { PREMIERE_MCP_QE_BATCH_SIZE: "4" })).toBe(16);
+  });
+
   it("runs the generated script against 1,500 fake clips and 50 ranges, moving each survivor once to reference positions", () => {
     const host = fakeTimeline({ clips: Array.from({ length: 1500 }, (_, i) => ({ id: `clip-${i}`, start: i, end: i + 1 })) });
     const args = { ranges, scope: "sync_locked" as const, range_content: "delete" as const, allow_large_ripple: true };
@@ -276,7 +308,8 @@ describe("ripple_remove_timeline_ranges", () => {
     });
     expect(applied.success).toBe(true);
     expect(readsPerCommand).toHaveLength(14);
-    expect(Math.max(...readsPerCommand)).toBeLessThanOrEqual(5000);
+    // Every saved razor batch fingerprints its current timeline before resuming.
+    expect(Math.max(...readsPerCommand)).toBeLessThanOrEqual(6500);
   });
 
   it.each([

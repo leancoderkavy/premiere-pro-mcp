@@ -92,6 +92,17 @@ describe("undo, redo and multiple_undo step QE's undo stack and check its positi
     expect(mockedSendCommand.mock.calls[5][0]).toContain('__qeUndoSteps("undo", 1');
   });
 
+  it("uses the requested QE batch size for multiple_undo", async () => {
+    const stack = undoHost(41, 41);
+    await expect(targeting.multiple_undo.handler({ count: 41, batch_size: 4, expected_undo_stack_index: 41 })).resolves.toMatchObject({
+      success: true, data: { undone: 41, undoStackIndexAfter: 0, stackVerified: true },
+    });
+    expect(mockedSendCommand).toHaveBeenCalledTimes(11);
+    for (const [script] of mockedSendCommand.mock.calls.slice(0, 10)) expect(script).toContain('__qeUndoSteps("undo", 4');
+    expect(mockedSendCommand.mock.calls[10][0]).toContain('__qeUndoSteps("undo", 1');
+    expect(stack.index).toBe(0);
+  });
+
   it("keeps completed undo accounting when a later batch fails", async () => {
     let calls = 0;
     let stack: ReturnType<typeof undoHost>;
