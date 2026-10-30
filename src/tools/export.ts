@@ -8,6 +8,7 @@ import { tmpdir } from "node:os";
 import { promisify } from "node:util";
 import { gunzipSync } from "node:zlib";
 import { probeMediaDurationSeconds } from "./media-evidence.js";
+import { inspectAudioSignal, type AudioSignalEvidence } from "./audio-signal-evidence.js";
 import { parseEbur128Summary } from "./audio.js";
 import { exportJobCapacityError, lookupExportJob, MAX_EXPORT_JOBS, registerExportJob, type ExportJobObservation, type ExportJobRecord, type ExportJobStatus } from "./export-job-store.js";
 
@@ -1181,7 +1182,7 @@ export function getExportTools(bridgeOptions: BridgeOptions) {
 
     export_sequence: {
       description:
-        "Export the active sequence directly (Premiere renders it; blocks until done) with an Adobe Media Encoder preset. The output extension must match what the preset writes (an H.264 preset in AME's QuickTime folder writes .mov); a missing extension is added. Refuses an output_path that already exists unless overwrite is true. Fails if Premiere rejects the render, verifies a non-empty file was written (for an overwrite, that the file changed), and checks its duration with ffprobe within one sequence frame. An unavailable or mismatched duration leaves a written artifact unverified. range 'work_area' fails closed unless the work area is enabled and covers only part of the sequence — otherwise Premiere would encode the entire timeline.",
+        "Export the active sequence directly (Premiere renders it; blocks until done) with an Adobe Media Encoder preset. The output extension must match what the preset writes (an H.264 preset in AME's QuickTime folder writes .mov); a missing extension is added. Refuses an output_path that already exists unless overwrite is true. Fails if Premiere rejects the render, verifies a non-empty file was written (for an overwrite, that the file changed), and checks its duration with ffprobe within one sequence frame. An unavailable or mismatched duration leaves a written artifact unverified. Optional audio_check reports decoded signal, silence, absent audio or an unavailable check; expect_signal makes a silent or absent stream fail verification. Signal does not establish audibility, sync or sound quality. range 'work_area' fails closed unless the work area is enabled and covers only part of the sequence — otherwise Premiere would encode the entire timeline.",
       parameters: {
         type: "object" as const,
         properties: {
@@ -1213,10 +1214,16 @@ export function getExportTools(bridgeOptions: BridgeOptions) {
             maximum: 240,
             description: "How long to wait for the render (default: 15; long sequences such as full podcast episodes may need more)",
           },
+          audio_check: {
+            type: "string",
+            enum: ["report", "expect_signal"],
+            description: "Optional full-file first-audio-stream decode via ffprobe/FFmpeg, with a separate 5-minute decode timeout. report only classifies signal/silence/absence; expect_signal marks a silent or absent stream as a failed check, or unavailable evidence as unverified. Omit for the existing duration-only behavior. Even noise or inaudibly quiet samples count as signal; does not check speech, synchronization or audible quality.",
+          },
         },
         required: ["output_path"],
       },
-      handler: async (args: { output_path: string; preset_path?: string; range?: "entire" | "in_to_out" | "work_area"; work_area_only?: boolean; overwrite?: boolean; timeout_minutes?: number }) => {
+      handler: async (args: { output_path: string; preset_path?: string; range?: "entire" | "in_to_out" | "work_area"; work_area_only?: boolean; overwrite?: boolean; timeout_minutes?: number; audio_check?: "report" | "expect_signal" }) => {
+        if (args.audio_check !== undefined && args.audio_check !== "report" && args.audio_check !== "expect_signal") return { success: false, error: "audio_check must be report or expect_signal; no command was sent" };
         if (args.range !== undefined && args.work_area_only !== undefined && (args.work_area_only !== (args.range === "work_area"))) return { success: false, error: "CONTRADICTORY_RANGE: range and work_area_only disagree; no command was sent" };
         const range = args.range ?? (args.work_area_only ? "work_area" : "entire");
         if (args.preset_path) {
@@ -1298,12 +1305,18 @@ ${sequenceRangeGuardScript(range)}
         const actual = typeof data?.outputPath === "string" ? await probeMediaDurationSeconds(data.outputPath) : null;
         const expectedValid = typeof expected === "number" && Number.isFinite(expected) && expected > 0;
         const probeAvailable = actual !== null;
-        const verified = expectedValid && probeAvailable && tolerance !== null && Math.abs(actual - expected) <= tolerance + 0.001;
-        const durationMismatch = probeAvailable && !verified;
+        const durationVerified = expectedValid && probeAvailable && tolerance !== null && Math.abs(actual - expected) <= tolerance + 0.001;
+        const durationMismatch = probeAvailable && !durationVerified;
+        const audioSignal: AudioSignalEvidence | undefined = args.audio_check
+          ? typeof data?.outputPath === "string" ? await inspectAudioSignal(data.outputPath) : { status: "unavailable", peakDbfs: null, reason: "Premiere did not return an output path" }
+          : undefined;
+        const audioFailure = args.audio_check === "expect_signal" && (audioSignal?.status === "silent" || audioSignal?.status === "no_audio_stream");
+        const audioVerified = args.audio_check !== "expect_signal" || audioSignal?.status === "signal_detected";
+        const verified = durationVerified && audioVerified;
         return {
-          ...result, success: expectedValid && !durationMismatch,
-          ...(!expectedValid ? { error: "Premiere returned an invalid expected export duration; inspect the written artifact before using it." } : durationMismatch ? { error: "Export file duration does not match the requested sequence range; inspect the written artifact before using it." } : {}),
-          data: { ...data, verified, durationVerified: verified, actualDurationSeconds: actual, durationToleranceSeconds: tolerance === null ? null : tolerance + 0.001, outcome: verified ? "verified" : "committed_unverified" },
+          ...result, success: expectedValid && !durationMismatch && !audioFailure,
+          ...(!expectedValid ? { error: "Premiere returned an invalid expected export duration; inspect the written artifact before using it." } : durationMismatch ? { error: "Export file duration does not match the requested sequence range; inspect the written artifact before using it." } : audioFailure ? { error: "Export was written, but the expected audio signal was silent or absent; inspect the written artifact and sequence routing." } : {}),
+          data: { ...data, verified, durationVerified, actualDurationSeconds: actual, durationToleranceSeconds: tolerance === null ? null : tolerance + 0.001, ...(audioSignal ? { audioSignal, audioCheck: args.audio_check, audioVerificationScope: "First decoded audio stream signal only; does not establish audibility, speech, synchronization or editorial quality." } : {}), outcome: verified ? "verified" : "committed_unverified" },
         };
       },
     },

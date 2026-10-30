@@ -134,7 +134,7 @@ export function getSequenceTools(bridgeOptions: BridgeOptions) {
     },
 
     duplicate_sequence: {
-      description: "Duplicate an existing sequence",
+      description: "Duplicate an existing sequence and identify the new copy. Readback verifies the copy's identity only; audio track-to-master routing is not verified. Before relying on a duplicate's sound, test an export with export_sequence audio_check=expect_signal when sound is expected.",
       parameters: {
         type: "object" as const,
         properties: {
@@ -162,7 +162,7 @@ export function getSequenceTools(bridgeOptions: BridgeOptions) {
             if (!existingIds[String(candidate.sequenceID)]) { copy = candidate; break; }
           }
           if (!copy) return __error("Premiere did not create a copy of " + seq.name);
-          return __result({ duplicated: true, verified: true, originalName: seq.name, originalId: seq.sequenceID, name: copy.name, id: copy.sequenceID });
+          return __result({ duplicated: true, verified: true, originalName: seq.name, originalId: seq.sequenceID, name: copy.name, id: copy.sequenceID, audioRoutingVerified: false, verificationScope: "Sequence copy identity only; audio track-to-master routing was not verified." });
         `);
         return sendCommand(script, bridgeOptions);
       },
