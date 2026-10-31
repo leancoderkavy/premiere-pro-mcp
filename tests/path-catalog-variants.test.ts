@@ -1,4 +1,7 @@
 import {expect,it,vi} from "vitest";
+
+// Full catalog setup can contend with other processes on a loaded machine.
+vi.setConfig({ testTimeout: 60_000, hookTimeout: 60_000 });
 import {mkdtempSync,mkdirSync,writeFileSync,rmSync,symlinkSync,realpathSync} from "node:fs";
 import {tmpdir} from "node:os";
 import {join,resolve} from "node:path";

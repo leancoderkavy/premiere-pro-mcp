@@ -224,6 +224,20 @@ Caption track items do not move with `ripple_remove_timeline_ranges` or
 4. Caption styling is host-locked. Reapply the saved Track Style in Premiere
    (`get_caption_style_guidance`), then confirm with `read_sequence_captions`.
 
+## Branded captions
+
+Premiere exposes no documented API for caption Track Styles, per-word caption
+colour, or Graphics and Titles > Upgrade Caption to Graphic.
+
+1. Import the reviewed SRT/VTT with `create_caption_track`. The track uses
+   Premiere's default look (`styleApplied: false`).
+2. Call `get_caption_style_guidance` with the brand look and any
+   `keyword_highlight` words. Hand the returned steps to the editor.
+3. For editable graphic clips, the editor runs Upgrade Caption to Graphic by
+   hand after the Track Style is set. The graphics land on the top video track.
+4. Still-frame exports can omit caption tracks. Verify with playback or a short
+   burn-in `export_sequence` (see `render_verification`).
+
 ## Reaction Shorts
 
 Use the Premiere MCP planners before styling captions in the host UI.

@@ -381,7 +381,7 @@ function trackStyleSaveSteps(name: string): string[] {
     "Scrub through the track and confirm that the other captions show the new style.",
     `Reuse: select a caption on the caption track in another sequence and pick "${name}" from the Track Style dropdown.`,
     `The style is a project item in the Project panel. Move "${name}" into a shared bin (for example "Caption Styles") so other sequences and projects can reuse it.`,
-    "Verify the rendered look with export_frame or export_sequence_review_frames.",
+    "Verify the rendered look with a short burn-in export or playback (see render_verification); still-frame exports can omit caption tracks.",
   ];
 }
 
@@ -446,9 +446,69 @@ export const CAPTION_TRACK_STYLE_GUIDANCE = {
   limitations: [
     "Premiere Pro exposes no documented ExtendScript, QE DOM, or UXP API that creates, edits, or applies caption styles, so these steps must be performed in the Premiere UI.",
     "These steps target Premiere Pro 2024 and later. Earlier versions lack the Track Style workflow described here and were not checked; panel labels can also differ between versions and UI languages.",
-    "Verify the rendered result with export_frame or export_sequence_review_frames; this tool cannot read the applied style back.",
+    "This tool cannot read the applied style back. Still-frame exports can omit caption tracks, so they are not caption render evidence; follow render_verification.",
   ],
 } as const;
+
+/**
+ * Graphics and Titles > Upgrade Caption to Graphic is a Premiere menu command.
+ * Adobe documents no ExtendScript, QE DOM, or UXP call that runs it, and the
+ * UXP CaptionTrack API (25.6-26.5) has no caption item text or style access.
+ */
+export const CAPTION_GRAPHIC_UPGRADE_GUIDANCE = {
+  menu_path: "Graphics and Titles > Upgrade Caption to Graphic",
+  available_through_mcp: false,
+  steps: [
+    "Apply the Track Style first; upgrading copies the current caption look into each graphic.",
+    "In the Timeline, select the captions to upgrade (one, several, or Cmd/Ctrl+A on the caption track). The Timeline or Properties panel must have focus; the command is disabled without a caption selection.",
+    "Choose Graphics and Titles > Upgrade Caption to Graphic.",
+    "Each caption becomes an editable text graphic clip on the top video track (a new track is added on collisions). Edit text, per-word colour, and layout in the Program Monitor and Properties panel.",
+    "Keep or mute the original caption track deliberately: upgraded graphics no longer export as sidecar captions, and edits to the graphics do not flow back to the caption track.",
+  ],
+  limitations: [
+    "MCP for Adobe Premiere Pro cannot run Upgrade Caption to Graphic: Premiere exposes no documented menu-command API, and the UXP caption API has no caption item text or style access.",
+    "After an upgrade, the graphics are ordinary video-track clips, so timeline inspection tools can read their placement. Their text and per-word styling have no documented edit API.",
+  ],
+} as const;
+
+export const CAPTION_RENDER_VERIFICATION_GUIDANCE = {
+  frame_exports_render_caption_tracks: false,
+  still_frames: "Premiere's Export Frame path has omitted caption tracks since about 25.6 (community reports through 26.x; also seen on 26.5.2). Treat export_frame, capture_frame, and export_sequence_*_review_frames images as missing captions, not as proof of caption absence or appearance.",
+  burn_in_export: "For rendered evidence, set sequence In/Out around a few captions, then call export_sequence with range in_to_out and a preset_path (.epr) saved from Export settings with Captions set to Burn Captions Into Video. Inspect frames decoded from that file. Burn-in through presets is host-dependent; confirm the captions are present in the file before relying on it.",
+  upgraded_graphics: "Captions upgraded to graphics are video-track clips. Confirm with one still that your Premiere version renders them before using still-frame tools as evidence.",
+  playback: "Playback review in Premiere remains the direct check for timing, line breaks, and readability.",
+} as const;
+
+export const MAX_HIGHLIGHT_WORDS = 24;
+const MAX_HIGHLIGHT_WORD_LENGTH = 64;
+
+export type CaptionKeywordHighlight = { words: string[]; color: string };
+
+export function validateKeywordHighlight(value: unknown): CaptionKeywordHighlight {
+  const raw = plainObject(value, "keyword_highlight", ["words", "color"]);
+  if (!Array.isArray(raw.words) || raw.words.length < 1 || raw.words.length > MAX_HIGHLIGHT_WORDS) fail(`keyword_highlight.words must be an array of 1 to ${MAX_HIGHLIGHT_WORDS} words`);
+  const words: string[] = [];
+  raw.words.forEach((word, index) => {
+    const text = boundedText(word, `keyword_highlight.words[${index}]`, MAX_HIGHLIGHT_WORD_LENGTH);
+    if (/[\u0000-\u001f\u007f]/.test(text)) fail(`keyword_highlight.words[${index}] must not contain control characters`);
+    if (!words.some((existing) => existing.toLocaleLowerCase() === text.toLocaleLowerCase())) words.push(text);
+  });
+  return { words, color: hexColor(raw.color, "keyword_highlight.color") };
+}
+
+/** Manual per-word highlight steps. Premiere has no API for per-word caption styling. */
+export function buildKeywordHighlightSteps(highlight: CaptionKeywordHighlight): string[] {
+  const list = highlight.words.map((word) => `"${word}"`).join(", ");
+  return numbered([
+    "Finish and apply the Track Style first. Applying a Track Style or whole-caption style later overwrites per-word colour.",
+    `Find each caption containing ${list} (search the Text panel's Captions tab, or read_sequence_captions for the track structure).`,
+    "Optional: upgrade those captions to graphics first (graphic_upgrade) if the editor wants them as editable graphic clips; the per-word steps are the same.",
+    "Move the playhead onto the caption, double-click the caption text in the Program Monitor, and select only the keyword.",
+    `In the Properties panel (or Essential Graphics > Edit), set Appearance > Fill to ${highlight.color} for the selection only.`,
+    "Repeat for each occurrence; there is no find-and-style command.",
+    "Verify with playback or a burn-in export (render_verification).",
+  ]);
+}
 
 export function captionSafeZoneRecommendation(): Record<SafeZonePlatform, { x: number; y: number }> {
   return safeZoneRecommendation();

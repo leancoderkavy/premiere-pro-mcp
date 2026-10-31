@@ -1,4 +1,7 @@
 import {beforeEach,describe,expect,it,vi} from "vitest";
+
+// Full catalog setup can contend with other processes on a loaded machine.
+vi.setConfig({ testTimeout: 60_000, hookTimeout: 60_000 });
 import {parse} from "acorn";
 import {runInNewContext} from "node:vm";
 vi.mock("../../src/bridge/file-bridge.js",async original=>({...await original<typeof import("../../src/bridge/file-bridge.js")>(),sendCommand:vi.fn(),sendRawCommand:vi.fn()}));

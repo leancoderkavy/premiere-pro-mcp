@@ -1033,6 +1033,10 @@ export function getCompetitorGapTools(
               try { if (prior.rotation) prior.rotation.setValue(prior.old.rotation, true); } catch (restoreRotationError) {}
             }
           }
+          function numericReadbackMatches(actual, expected) {
+            return typeof actual === "number" && isFinite(actual) &&
+              typeof expected === "number" && isFinite(expected) && Math.abs(actual - expected) <= 0.0001;
+          }
           for (i = 0; i < prepared.length; i++) {
             var update = prepared[i];
             var spec = update.spec;
@@ -1050,18 +1054,18 @@ export function getCompetitorGapTools(
               return __error("Premiere rejected batch item " + i + "; a best-effort restore was attempted: " + writeError.toString());
             }
             var mismatch = false;
-            try { if (update.opacity && Math.abs(Number(update.opacity.getValue()) - Number(spec.opacity)) > 0.0001) mismatch = true; } catch (readOpacityError) { mismatch = true; }
-            try { if (update.scale && Math.abs(Number(update.scale.getValue()) - Number(spec.scale)) > 0.0001) mismatch = true; } catch (readScaleError) { mismatch = true; }
-            try { if (update.scaleWidth && Math.abs(Number(update.scaleWidth.getValue()) - Number(spec.scale)) > 0.0001) mismatch = true; } catch (readScaleWidthError) { mismatch = true; }
+            try { if (update.opacity && !numericReadbackMatches(update.opacity.getValue(), spec.opacity)) mismatch = true; } catch (readOpacityError) { mismatch = true; }
+            try { if (update.scale && !numericReadbackMatches(update.scale.getValue(), spec.scale)) mismatch = true; } catch (readScaleError) { mismatch = true; }
+            try { if (update.scaleWidth && !numericReadbackMatches(update.scaleWidth.getValue(), spec.scale)) mismatch = true; } catch (readScaleWidthError) { mismatch = true; }
             try {
               if (update.position) {
                 var actualPosition = update.position.getValue();
                 var expectedX = spec.positionX === null ? update.old.position[0] : spec.positionX * update.positionScale.x;
                 var expectedY = spec.positionY === null ? update.old.position[1] : spec.positionY * update.positionScale.y;
-                if (!actualPosition || Math.abs(Number(actualPosition[0]) - Number(expectedX)) > 0.0001 || Math.abs(Number(actualPosition[1]) - Number(expectedY)) > 0.0001) mismatch = true;
+                if (Object.prototype.toString.call(actualPosition) !== "[object Array]" || actualPosition.length !== 2 || !numericReadbackMatches(actualPosition[0], expectedX) || !numericReadbackMatches(actualPosition[1], expectedY)) mismatch = true;
               }
             } catch (readPositionError) { mismatch = true; }
-            try { if (update.rotation && Math.abs(Number(update.rotation.getValue()) - Number(spec.rotation)) > 0.0001) mismatch = true; } catch (readRotationError) { mismatch = true; }
+            try { if (update.rotation && !numericReadbackMatches(update.rotation.getValue(), spec.rotation)) mismatch = true; } catch (readRotationError) { mismatch = true; }
             if (mismatch) {
               restoreAll();
               return __error("Premiere did not verify batch item " + i + "; a best-effort restore was attempted. No partial batch is reported as verified.");

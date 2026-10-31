@@ -694,8 +694,11 @@ export function getAdvancedTools(
           // 25.2 (Lumetri stayed while this tool reported removed: true), so
           // remove each effect individually and verify.
           var removal = __removeClipComponents(result, function () { return true; });
-          if (removal.unsupported) return __error("Capability error: " + removal.unsupported + " Nothing was removed; remove effects in Effect Controls.");
-          if (removal.failures.length && removal.nothingRemoved) return __error("Capability error: Premiere exposes neither Component.remove() nor a matching QE component for " + removal.failures.join(", ") + ". No effects were removed; remove them in Effect Controls.");
+          var failureReceipt = removal.mutationAttempted === false
+            ? { mutationOutcome: "not_applied", timelineChanged: false }
+            : { mutationOutcome: "unknown", timelineChanged: null };
+          if (removal.unsupported) return __error("Capability error: " + removal.unsupported + " Nothing was removed; remove effects in Effect Controls.", failureReceipt);
+          if (removal.failures.length && removal.nothingRemoved) return __error(removal.mutationAttempted === false ? "Capability error: Premiere exposes neither Component.remove() nor a matching QE component for " + removal.failures.join(", ") + ". No effects were removed; remove them in Effect Controls." : "A removal was attempted, but Premiere did not confirm completion. Inspect the component stack before any retry.", failureReceipt);
           if (removal.failures.length) return __error("The clip changed: Premiere removed " + removal.removed.join(", ") + " but not " + removal.failures.join(", ") + ". Inspect Effect Controls.");
           if (!removal.verified) return __error((removal.remaining.join("|") === removal.before.join("|") ? "Premiere's removal did not take effect: the clip still has " : "Premiere's removal did not take effect as expected: the clip's components read back as ") + removal.remaining.join(", ") + ". Inspect Effect Controls.");
           return __result({ removed: true, verified: true, clipName: result.clip.name, removedEffects: removal.removed, remaining: removal.remaining });
@@ -1038,7 +1041,7 @@ export function getAdvancedTools(
 
     overwrite_clip: {
       description:
-        "Overwrite a project item onto validated timeline tracks and verify a new source placement at the requested time. Every video/audio stream the item actually has must land on the requested tracks; a picture-only or sound-only placement (for example 5.1 audio that does not fit a stereo track) is committed_unverified, not verified. Video-only and audio-only items overwrite only the receiving track, so Sequence.overwriteClip cannot smash V0 or A0 for the unused kind.",
+        "Overwrite a project item onto validated timeline tracks and verify a new source placement at the requested time. Every video/audio stream the item actually has must land on the requested tracks; a picture-only or sound-only placement (for example 5.1 audio that does not fit a stereo track) is committed_unverified, not verified. Video-only and audio-only items overwrite only the receiving track, so Sequence.overwriteClip cannot smash V0 or A0 for the unused kind. When Premiere moves the source In to a sequence frame (an audio subclip cut between frames), the receipt reports sourceInShift and a note so the shift can be corrected with slip_edit.",
       parameters: {
         type: "object" as const,
         properties: {
@@ -1138,7 +1141,7 @@ export function getAdvancedTools(
             audioTrackIndex = audioTrackChosen;
           }
 
-          function __isPlacedOn(track) {
+          function __placedClipOn(track) {
             for (var clipIndex = 0; clipIndex < track.clips.numItems; clipIndex++) {
               var clip = track.clips[clipIndex];
               var sourceId = "";
@@ -1146,10 +1149,11 @@ export function getAdvancedTools(
               if (sourceId !== wantedItemId) continue;
               var actualStartTicks = NaN;
               try { actualStartTicks = parseFloat(clip.start.ticks); } catch (startError) {}
-              if (!isNaN(actualStartTicks) && Math.abs(actualStartTicks - wantedStartTicks) <= frameTicks) return true;
+              if (!isNaN(actualStartTicks) && Math.abs(actualStartTicks - wantedStartTicks) <= frameTicks) return clip;
             }
-            return false;
+            return null;
           }
+          function __isPlacedOn(track) { return __placedClipOn(track) !== null; }
 
           var videoWasPlaced = __isPlacedOn(seq.videoTracks[${trackIndex}]);
           var audioWasPlaced = __isPlacedOn(seq.audioTracks[audioTrackIndex]);
@@ -1180,7 +1184,7 @@ export function getAdvancedTools(
             return __error("overwrite_clip produced no verifiable new placement: project item " + item.name + " was already present at ${startSeconds}s on the requested track(s).");
           }
 
-          return __result({
+          var receipt = {
             overwritten: true,
             verified: true,
             item: item.name,
@@ -1190,7 +1194,32 @@ export function getAdvancedTools(
             startSeconds: ${startSeconds},
             placedOnVideoTrack: videoPlaced,
             placedOnAudioTrack: audioPlaced
-          });
+          };
+          // Timeline clips start on sequence frames, so Premiere moves a source In
+          // that falls between frames (an audio subclip cut on a sample) to the
+          // frame before it without saying so: live 26.5.2 placed a 112.2797 s In
+          // at 112.25 s, 30 ms early against the picture. Compare the placed
+          // clip's source In with the In the item stores and report any shift.
+          var storedRange = null;
+          try { storedRange = item.getProjectMetadata ? __subclipStoredRange(String(item.getProjectMetadata())) : null; } catch (storedRangeError) {}
+          if (storedRange) {
+            var shiftChecks = [[audioPlaced, seq.audioTracks[audioTrackIndex], "audio"], [videoPlaced, seq.videoTracks[${trackIndex}], "video"]];
+            for (var sc = 0; sc < shiftChecks.length; sc++) {
+              if (!shiftChecks[sc][0]) continue;
+              var placedClip = __placedClipOn(shiftChecks[sc][1]);
+              var placedInTicks = NaN;
+              try { placedInTicks = placedClip ? parseFloat(placedClip.inPoint.ticks) : NaN; } catch (placedInError) {}
+              if (isNaN(placedInTicks)) continue;
+              var placedInSeconds = __ticksToSeconds(placedInTicks);
+              var shift = placedInSeconds - storedRange.inSeconds;
+              if (Math.abs(shift) > 0.001) {
+                receipt.sourceInShift = { stream: shiftChecks[sc][2], storedInSeconds: storedRange.inSeconds, placedInSeconds: placedInSeconds, shiftSeconds: shift };
+                receipt.note = "Premiere placed the " + shiftChecks[sc][2] + " with its source In " + Math.round(Math.abs(shift) * 1000) + " ms " + (shift < 0 ? "earlier" : "later") + " than the item's stored In, because timeline clips start on sequence frames. Linked picture and sound may now be out of sync by that much; slip_edit moves the clip by whole frames.";
+                break;
+              }
+            }
+          }
+          return __result(receipt);
         `);
         return sendCommand(script, bridgeOptions);
       },

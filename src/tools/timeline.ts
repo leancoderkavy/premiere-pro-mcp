@@ -414,6 +414,27 @@ export function getTimelineTools(
           if (!result) return __error("Clip not found: ${nodeId}");
           var outcome = __removeClipAndPartners(result, ${args.include_linked !== false});
           if (!outcome.ok) return __error(outcome.error);
+          try {
+            var removalTracks = [app.project.activeSequence.videoTracks, app.project.activeSequence.audioTracks];
+            var inspectedClips = 0;
+            for (var kind = 0; kind < removalTracks.length; kind++) {
+              var tracks = removalTracks[kind];
+              if (!tracks || typeof tracks.numTracks !== "number" || !isFinite(tracks.numTracks) || tracks.numTracks < 0 || Math.floor(tracks.numTracks) !== tracks.numTracks || tracks.numTracks > 10000) throw new Error("Unreadable track count");
+              for (var ti = 0; ti < tracks.numTracks; ti++) {
+                var clips = tracks[ti].clips;
+                if (!clips || typeof clips.numItems !== "number" || !isFinite(clips.numItems) || clips.numItems < 0 || Math.floor(clips.numItems) !== clips.numItems || clips.numItems > 100000 - inspectedClips) throw new Error("Unreadable clip count");
+                inspectedClips += clips.numItems;
+                for (var ci = 0; ci < clips.numItems; ci++) {
+                  if (!clips[ci] || !clips[ci].nodeId) throw new Error("Unreadable clip identity");
+                  for (var ri = 0; ri < outcome.data.removedClipIds.length; ri++) {
+                    if (String(clips[ci].nodeId) === outcome.data.removedClipIds[ri]) throw new Error("A removal target is still present");
+                  }
+                }
+              }
+            }
+          } catch (removalReadbackError) {
+            return __error("Removal was attempted, but the remaining timeline could not be read reliably. Inspect before retrying.", { outcome: "committed_unverified", verified: false });
+          }
           outcome.data.verified = true;
           return __result(outcome.data);
         `);

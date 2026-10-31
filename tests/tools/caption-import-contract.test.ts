@@ -104,6 +104,31 @@ describe("caption import input and readback contract", () => {
     expect(create).toHaveBeenCalledTimes(1);
   });
 
+  it("adds manual styling notes to a successful import receipt", async () => {
+    host();
+    const result = await tool.handler({ item_id: itemId, start_seconds: 2 });
+    expect(result).toMatchObject({ success: true, data: { verified: true, styleApplied: false, renderVerified: false } });
+    const styling = (result.data as { styling: string[] }).styling.join(" ");
+    expect(styling).toContain("default caption style");
+    expect(styling).toContain("Upgrade Caption to Graphic");
+    expect(styling).toContain("the MCP cannot run it");
+    expect(styling).toContain("Still-frame exports can omit caption tracks");
+    expect(tool.description).toContain("Upgrade Caption to Graphic stay manual");
+  });
+
+  it("leaves failed import receipts without styling notes", async () => {
+    host({ after: 2 });
+    const result = await tool.handler({ item_id: itemId, start_seconds: 2 });
+    expect(result.success).toBe(false);
+    expect(result.data).not.toHaveProperty("styling");
+    expect(result.data).not.toHaveProperty("styleApplied");
+  });
+
+  it("passes non-object success data through unchanged", async () => {
+    vi.mocked(sendCommand).mockResolvedValueOnce({ success: true, data: "accepted" });
+    expect(await tool.handler({ item_id: itemId, start_seconds: 2 })).toEqual({ success: true, data: "accepted" });
+  });
+
   it("requires edit authority for caption import", async () => {
     const create = host();
     const guarded = guardToolHandler("create_caption_track", tool.handler, resolveCapabilities("inspect"));

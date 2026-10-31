@@ -1,7 +1,7 @@
 {
   "name": "premiere-pro-mcp",
   "mcpName": "io.github.leancoderkavy/premiere-pro",
-  "version": "1.26.0",
+  "version": "1.27.0",
   "description": "MCP server for Adobe Premiere Pro with 444 core AI video editing tools, a guarded After Effects MOGRT studio, and a capability-aware UXP bridge for supported Premiere workflows.",
   "main": "dist/index.js",
   "types": "./dist/index.d.ts",
@@ -227,12 +227,12 @@
     "node": ">=20.19.0"
   },
   "dependencies": {
-    "@posthog/core": "1.59.1",
-    "@posthog/types": "1.416.0",
+    "@posthog/core": "1.61.0",
+    "@posthog/types": "1.416.1",
     "@modelcontextprotocol/node": "^2.1.0",
     "@modelcontextprotocol/server": "^2.0.0",
     "jose": "^6.2.10",
-    "posthog-node": "5.56.2",
+    "posthog-node": "5.57.2",
     "ws": "^8.22.0",
     "zod": "^4.4.3"
   },

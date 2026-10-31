@@ -134,7 +134,8 @@ export function getSequenceTools(bridgeOptions: BridgeOptions) {
     },
 
     duplicate_sequence: {
-      description: "Duplicate an existing sequence",
+      description:
+        "Duplicate an existing sequence and report the new copy's sequence ID (id) and, when Premiere exposes it, its project item node ID (projectItemNodeId). Project-item tools accept either.",
       parameters: {
         type: "object" as const,
         properties: {
@@ -162,7 +163,11 @@ export function getSequenceTools(bridgeOptions: BridgeOptions) {
             if (!existingIds[String(candidate.sequenceID)]) { copy = candidate; break; }
           }
           if (!copy) return __error("Premiere did not create a copy of " + seq.name);
-          return __result({ duplicated: true, verified: true, originalName: seq.name, originalId: seq.sequenceID, name: copy.name, id: copy.sequenceID });
+          // The copy's project item has its own node ID. Report it so project-item
+          // tools (rename, move, delete) can address the copy without a name lookup.
+          var copyItemNodeId = "";
+          try { copyItemNodeId = __nodeIdOf(copy.projectItem); } catch (eCopyItem) {}
+          return __result({ duplicated: true, verified: true, originalName: seq.name, originalId: seq.sequenceID, name: copy.name, id: copy.sequenceID, projectItemNodeId: copyItemNodeId || undefined });
         `);
         return sendCommand(script, bridgeOptions);
       },

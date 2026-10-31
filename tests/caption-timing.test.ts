@@ -144,7 +144,7 @@ describe("guided lecture-caption action", () => {
       "create_caption_track",
       "create_caption_track",
       "read_sequence_captions",
-      "export_sequence_review_frames",
+      "export_sequence",
     ]);
   });
 
