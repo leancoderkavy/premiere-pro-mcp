@@ -236,7 +236,8 @@ colour, or Graphics and Titles > Upgrade Caption to Graphic.
 3. For editable graphic clips, the editor runs Upgrade Caption to Graphic by
    hand after the Track Style is set. The graphics land on the top video track.
 4. Still-frame exports can omit caption tracks. Verify with playback or a short
-   burn-in `export_sequence` (see `render_verification`).
+   burn-in `export_sequence` (see `render_verification`). Save sequence In/Out
+   before setting the test range and restore them afterwards.
 
 ## Reaction Shorts
 

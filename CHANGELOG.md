@@ -6,6 +6,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Fixed
+
+- `create_subclip` and the `overwrite_clip` `sourceInShift` check read the media start from `Column.Intrinsic.MediaStart` when the stored points carry no offset child, and handle time-of-day ranges that pass midnight, so a camera clip at 01:00:00:00 no longer reports a range (or shift) off by an hour. An unreadable MediaStart leaves the range unverified instead of assuming zero (#920 follow-up).
+- `overwrite_clip` no longer says `slip_edit` can correct a `sourceInShift`: slip_edit snaps to whole sequence frames, so it cannot correct a shift smaller than one frame (#920 follow-up).
+- `import_media`, `import_folder`, `import_ae_comps` and `import_fcp_xml` resolve `target_bin` through the bin-only lookup, so a sequence ID, clip ID or clip name is refused as "not a bin" before Premiere is asked to import. Every `item_id` parameter that resolves a sequence ID now says so in its schema (#921 follow-up).
+- `get_caption_style_guidance` no longer lists `export_sequence_review_frames` among its routes (still frames omit caption tracks), and its burn-in recipe saves sequence In/Out before setting the test range and restores them afterwards only if they still match, because `export_sequence` does not restore marks (#922 follow-up).
+- Audio effect scale annotations follow the values Premiere returns: `parameterScale.kind` is `normalized_0_1`, `host_raw_unknown`, `mixed` or `unknown`, and an effect with raw values gets a warning not to send normalized values instead of the normalized-scale summary. `set_effect_property` bases `valueScale` on the returned value and adds `requestedValueScale` when the request differs, so a refused or clamped 80 no longer labels a returned 0.25 as raw. Volume Level reports dB for the es-ES `Nivel` label and the `audioVolume` / `AE.ADBE Volume` match names, and Panner, Volume and Channel Volume under their `audio*` / `AE.ADBE` match names stay intrinsic on localized hosts, so a raw pan is not refused as a normalized effect value (#923, #930 follow-up).
+- The `captions` and `assistant-edit` tool packs include `multiple_undo` and `manage_track_state_uxp`, the reversal tools caption-import results point to, and the client instructions mention each reversal route only when its tool is registered (#931 follow-up).
+
 ## [1.27.0] - 2026-10-31
 
 ### Added

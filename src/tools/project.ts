@@ -507,7 +507,7 @@ export function getProjectTools(bridgeOptions: BridgeOptions) {
         }
         const aePath = escapeForExtendScript(args.ae_project_path);
         const binLookup = args.target_bin
-          ? `var targetBin = __findProjectItem("${escapeForExtendScript(args.target_bin)}"); if (!targetBin) return __error("Bin not found");`
+          ? `var targetBin = __findBin("${escapeForExtendScript(args.target_bin)}"); if (!targetBin) return __error(__findProjectItem("${escapeForExtendScript(args.target_bin)}") ? "${escapeForExtendScript(args.target_bin)} is not a bin; nothing was imported." : "Bin not found");`
           : `var targetBin = app.project.rootItem;`;
         // The After Effects import calls report nothing observable, so the file must
         // exist before the call and the target bin must actually gain items after it.
@@ -1025,8 +1025,8 @@ export function getProjectTools(bridgeOptions: BridgeOptions) {
         }
         if (args.mode === "into_open_project") {
           const binLookup = args.target_bin
-            ? `var targetBin = __findProjectItem("${escapeForExtendScript(args.target_bin)}");
-               if (!targetBin) return __error("Bin not found: ${escapeForExtendScript(args.target_bin)}");`
+            ? `var targetBin = __findBin("${escapeForExtendScript(args.target_bin)}");
+               if (!targetBin) return __error(__findProjectItem("${escapeForExtendScript(args.target_bin)}") ? "${escapeForExtendScript(args.target_bin)} is not a bin; nothing was imported." : "Bin not found: ${escapeForExtendScript(args.target_bin)}");`
             : `var targetBin = app.project.rootItem;`;
           const intoScript = buildToolScript(`
             var xmlFile = new File("${escapeForExtendScript(args.path)}");

@@ -147,6 +147,8 @@ export const WORKFLOW_TOOL_PACKS: readonly WorkflowToolPack[] = [
       "Caption-track creation, supported caption readback, sequence structure, and review-frame evidence.",
     tools: [
       "create_caption_track",
+      "multiple_undo",
+      "manage_track_state_uxp",
       "read_sequence_captions",
       "get_active_sequence",
       "get_sequence_structure",
@@ -170,7 +172,7 @@ export const WORKFLOW_TOOL_PACKS: readonly WorkflowToolPack[] = [
       "verify_premiere_connection", "get_clip_transcript_uxp", "search_clip_transcript_uxp",
       "review_dialogue_candidates", "review_quote_paper_edit", "review_text_changes", "review_sync_evidence", "review_broll_placements",
       "detect_silence", "analyze_dialogue_edit_candidates", "preview_derived_dialogue_sequence_uxp",
-      "apply_derived_dialogue_sequence_uxp", "create_caption_track", "auto_reframe_sequence",
+      "apply_derived_dialogue_sequence_uxp", "create_caption_track", "multiple_undo", "manage_track_state_uxp", "auto_reframe_sequence",
       "get_sequence_structure", "inspect_sequence_review_report",
       "plan_filler_word_removal",
       "plan_pause_tightening",

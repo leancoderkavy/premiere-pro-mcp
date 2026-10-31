@@ -2141,7 +2141,7 @@ ${ameQueueBatchStartScript(startBatch)}
         properties: {
           item_id: {
             type: "string",
-            description: "Node ID or name of the source project item",
+            description: "Node ID or name of the source project item, or the sequence ID of a sequence",
           },
           name: {
             type: "string",
@@ -2429,7 +2429,7 @@ ${ameQueueBatchStartScript(startBatch)}
         properties: {
           item_id: {
             type: "string",
-            description: "Node ID or name of the project item to encode",
+            description: "Node ID or name of the project item to encode, or the sequence ID of a sequence",
           },
           output_path: {
             type: "string",
@@ -2613,7 +2613,7 @@ ${ameQueueBatchStartScript(startBatch)}
         properties: {
           item_id: {
             type: "string",
-            description: "Node ID or name of the project item",
+            description: "Node ID or name of the project item, or the sequence ID of a sequence",
           },
           action: {
             type: "string",

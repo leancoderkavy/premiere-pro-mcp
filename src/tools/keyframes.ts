@@ -66,7 +66,7 @@ export function getKeyframeTools(bridgeOptions: BridgeOptions) {
   return {
     get_effect_properties: {
       description:
-        "List all properties of a specific effect on a clip, including current values. Values are what Premiere's scripting API returns, not necessarily the units shown in Effect Controls. Effects on audio clips (anything other than the built-in Volume, Channel Volume, Panner and Balance) use normalized 0-1 values: those properties report valueScale normalized_0_1 and the result carries a warning, because Adobe does not document the mapping to Hz, dB or ms. Calibrate audio effect changes by rendering. Volume > Level also reports displayValue in dB.",
+        "List all properties of a specific effect on a clip, including current values. Values are what Premiere's scripting API returns, not necessarily the units shown in Effect Controls. Effects on audio clips (anything other than the built-in Volume, Channel Volume, Panner and Balance) usually use normalized 0-1 values. Each numeric property reports valueScale (normalized_0_1 or host_raw_unknown), parameterScale summarises the values seen (normalized_0_1, host_raw_unknown, mixed or unknown), and the result carries a warning, because Adobe does not document the mapping to Hz, dB or ms. Calibrate audio effect changes by rendering. Volume > Level also reports displayValue in dB.",
       parameters: {
         type: "object" as const,
         properties: {
@@ -141,7 +141,7 @@ export function getKeyframeTools(bridgeOptions: BridgeOptions) {
 
     set_effect_property: {
       description:
-        "Set one effect property. Duplicate names require property_index from get_effect_properties. Colour values use [alpha, red, green, blue] and the lossless colour API; keyframed writes are refused. Readback reports verified, failed or committed_unverified; unreadable values are never reported as applied. Audio effect parameters (effects on audio clips other than built-in Volume, Channel Volume, Panner and Balance) take Premiere's normalized 0-1 value, not Hz, dB or ms; a number outside 0-1 is refused before the write when the current value is inside 0-1, unless allow_out_of_range_audio_value is true. Calibrate audio changes by rendering.",
+        "Set one effect property. Duplicate names require property_index from get_effect_properties. Colour values use [alpha, red, green, blue] and the lossless colour API; keyframed writes are refused. Readback reports verified, failed or committed_unverified; unreadable values are never reported as applied. Audio effect parameters (effects on audio clips other than built-in Volume, Channel Volume, Panner and Balance) take Premiere's normalized 0-1 value, not Hz, dB or ms; a number outside 0-1 is refused before the write when the current value is inside 0-1, unless allow_out_of_range_audio_value is true. valueScale describes the returned value; requestedValueScale is added when the request was on a different scale. Calibrate audio changes by rendering.",
       parameters: {
         type: "object" as const,
         properties: {
