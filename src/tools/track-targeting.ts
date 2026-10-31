@@ -7,6 +7,11 @@ import {
 import { sendCommand, BridgeOptions } from "../bridge/file-bridge.js";
 import { describePresetFolder } from "./encoder-formats.js";
 import { rippleTimeoutMs } from "./ripple-timeout.js";
+import { DEFAULT_QE_BATCH_SIZE, QE_BATCH_SIZE_ENV, resolveQeBatchSize } from "./qe-batch-size.js";
+
+// QE undo can hit the same native ExtendScript stack limit as structural QE
+// edits. Each bridge command gets a fresh native invocation.
+export const QE_UNDO_STEPS_PER_COMMAND = DEFAULT_QE_BATCH_SIZE;
 
 /**
  * Premiere's audio `Volume > Level` property is NOT in decibels. It is a
@@ -1873,6 +1878,12 @@ export function getTrackTargetingTools(bridgeOptions: BridgeOptions) {
             type: "number",
             description: "Number of undo steps (default: 1)",
           },
+          batch_size: {
+            type: "number",
+            minimum: 1,
+            maximum: 32,
+            description: `QE undo calls per bridge command (default: ${QE_BATCH_SIZE_ENV} or ${DEFAULT_QE_BATCH_SIZE}; clamped to 1-32).`,
+          },
           acknowledge_untracked_markers: {
             type: "boolean",
             description: "Explicitly acknowledge that QE steps reverse or restore prior non-marker actions, because marker reversal is not verified. Default false; marker boundaries refuse the entire request before any step.",
@@ -1885,7 +1896,7 @@ export function getTrackTargetingTools(bridgeOptions: BridgeOptions) {
         },
         required: ["expected_undo_stack_index"],
       },
-      handler: async (args: { count?: number; expected_undo_stack_index?: number; acknowledge_untracked_markers?: boolean }) => {
+      handler: async (args: { count?: number; batch_size?: number; expected_undo_stack_index?: number; acknowledge_untracked_markers?: boolean }) => {
         const count = args.count ?? 1;
         if (!Number.isInteger(count) || count < 1 || count > 100) {
           return { success: false, error: "count must be an integer from 1 through 100" };
@@ -1894,10 +1905,16 @@ export function getTrackTargetingTools(bridgeOptions: BridgeOptions) {
         if (!Number.isInteger(guardArg) || guardArg! < 0) {
           return { success: false, error: "expected_undo_stack_index is required and must be a non-negative integer; undo was not attempted" };
         }
-        const guard = String(guardArg);
-        const script = buildToolScript(`
+        let expectedIndex = guardArg;
+        let undone = 0;
+        let firstIndex: number | undefined;
+        let lastResult: { success: boolean; data?: unknown; error?: string } | undefined;
+        const batchSize = resolveQeBatchSize(args.batch_size);
+        for (let remaining = count; remaining > 0; remaining -= batchSize) {
+          const batchCount = Math.min(batchSize, remaining);
+          const script = buildToolScript(`
           __undoStart = null;
-          var expectedIndex = ${guard};
+          var expectedIndex = ${String(expectedIndex)};
           if (expectedIndex !== null) {
             var currentIndex = __readUndoIndex();
             if (currentIndex === null || typeof currentIndex === "undefined" || isNaN(Number(currentIndex))) {
@@ -1907,10 +1924,29 @@ export function getTrackTargetingTools(bridgeOptions: BridgeOptions) {
               return __jsonStringify({ success: false, error: "Premiere's undo stack is at " + currentIndex + ", not the expected " + expectedIndex + ": the undo-stack position changed since that call (actions were undone or recorded), so undo was not attempted.", data: { undoStackIndex: currentIndex, expectedUndoStackIndex: expectedIndex, mutationOutcome: "not_applied", timelineChanged: false } });
             }
           }
-          var outcome = __qeUndoSteps("undo", ${count}, ${args.acknowledge_untracked_markers === true ? "true" : "false"});
+          var outcome = __qeUndoSteps("undo", ${batchCount}, ${args.acknowledge_untracked_markers === true ? "true" : "false"});
           return __undoStepsResult(outcome, "undone");
         `);
-        return sendCommand(script, bridgeOptions);
+          const result = await sendCommand(script, bridgeOptions);
+          lastResult = result;
+          const data = result.data as { undone?: number; undoStackIndexBefore?: number; undoStackIndexAfter?: number; stackVerified?: boolean; [key: string]: unknown } | undefined;
+          if (firstIndex === undefined && typeof data?.undoStackIndexBefore === "number") firstIndex = data.undoStackIndexBefore;
+          undone += data?.undone ?? 0;
+          if (!result.success || data?.stackVerified !== true) {
+            if (undone === 0) return result;
+            return {
+              success: true,
+              data: {
+                ...(data ?? {}), undone, undoStackIndexBefore: firstIndex, outcome: "committed_unverified", stackVerified: false,
+                warning: `${result.error ?? (data?.warning as string | undefined) ?? "Undo stopped"} ${undone} step(s) were undone. Do not retry the whole count; inspect the project first.`,
+              },
+            };
+          }
+          if (typeof data.undoStackIndexAfter !== "number") return { success: true, data: { ...data, undone, undoStackIndexBefore: firstIndex, outcome: "committed_unverified", stackVerified: false, warning: "Premiere did not return the undo-stack position after a batch. Do not retry the whole count; inspect the project first." } };
+          expectedIndex = data.undoStackIndexAfter;
+        }
+        const data = lastResult?.data as { [key: string]: unknown } | undefined;
+        return { ...(lastResult ?? { success: false, error: "Undo was not attempted" }), data: { ...(data ?? {}), undone, undoStackIndexBefore: firstIndex } };
       },
     },
 
