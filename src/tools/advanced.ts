@@ -1047,7 +1047,7 @@ export function getAdvancedTools(
         properties: {
           item_id: {
             type: "string",
-            description: "Node ID or name of the project item to add",
+            description: "Node ID or name of the project item to add, or the sequence ID of a sequence",
           },
           start_seconds: {
             type: "number",

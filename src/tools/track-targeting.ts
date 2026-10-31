@@ -594,7 +594,7 @@ export function getTrackTargetingTools(bridgeOptions: BridgeOptions) {
         properties: {
           item_id: {
             type: "string",
-            description: "Node ID or name of the project item",
+            description: "Node ID or name of the project item, or the sequence ID of a sequence",
           },
           start_seconds: {
             type: "number",
@@ -614,7 +614,7 @@ export function getTrackTargetingTools(bridgeOptions: BridgeOptions) {
         properties: {
           item_id: {
             type: "string",
-            description: "Node ID or name of the project item",
+            description: "Node ID or name of the project item, or the sequence ID of a sequence",
           },
           clear_in: {
             type: "boolean",
@@ -713,7 +713,7 @@ export function getTrackTargetingTools(bridgeOptions: BridgeOptions) {
         properties: {
           item_id: {
             type: "string",
-            description: "Node ID or name of the project item",
+            description: "Node ID or name of the project item, or the sequence ID of a sequence",
           },
           in_seconds: {
             type: "number",
@@ -2005,7 +2005,7 @@ export function getTrackTargetingTools(bridgeOptions: BridgeOptions) {
           item_ids: {
             type: "array",
             items: { type: "string" },
-            description: "Array of node IDs or names of items to move",
+            description: "Array of node IDs or names of items to move, or sequence IDs of sequences",
           },
           target_bin: {
             type: "string",

@@ -286,7 +286,7 @@ export function getTimelineTools(
         properties: {
           item_id: {
             type: "string",
-            description: "Node ID or name of the project item to add",
+            description: "Node ID or name of the project item to add, or the sequence ID of a sequence",
           },
           track_index: {
             type: "number",
@@ -1949,7 +1949,7 @@ export function getTimelineTools(
           },
           new_item_id: {
             type: "string",
-            description: "Node ID or name of the new project item to replace with",
+            description: "Node ID or name of the new project item to replace with, or the sequence ID of a sequence",
           },
         },
         required: ["node_id", "new_item_id"],
