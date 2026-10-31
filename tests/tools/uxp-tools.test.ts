@@ -664,6 +664,7 @@ describe("UXP MCP tools", () => {
           "slide_track_item_uxp",
           "duplicate_track_item_uxp",
           "unnest_sequence_uxp",
+          "copy_clips_between_sequences_uxp",
           "ripple_delete_track_item_uxp",
           "manage_timeline_source_label_uxp",
           "apply_editorial_organization_plan",
@@ -690,7 +691,8 @@ describe("UXP MCP tools", () => {
       // and caption style guidance (get_caption_style_guidance) add three more tools; paste_clip_attributes, set_clip_duration, and compute_mask_fit_motion each add one core tool.
       // Premiere 26.5 WorkAreaUtils adds manage_work_area_uxp.
       // Clone-based unnest adds unnest_sequence_uxp.
-        expect(tools.tools).toHaveLength(539);
+      // Clone-based copy between sequences adds copy_clips_between_sequences_uxp.
+        expect(tools.tools).toHaveLength(540);
     } finally {
       await client.close();
       await server.close();
