@@ -57,7 +57,9 @@ The plan does not authorize a mutation. Follow its steps separately:
    `create_caption_track` with `action: "import"`, the imported `item_id`, and
    an intentional `start_seconds` value.
 4. Call `read_sequence_captions` for structural track readback.
-5. Review beginning/middle/end frames and play those ranges in Premiere.
+5. Play the beginning/middle/end ranges in Premiere. For a rendered check,
+   export a short range with `export_sequence` and a preset that burns captions
+   into video. Still-frame exports can omit caption tracks on recent releases.
 6. Treat final rendered output review as a separate delivery gate.
 
 ## Evidence boundary
@@ -66,7 +68,7 @@ The plan does not authorize a mutation. Follow its steps separately:
 | --- | --- | --- |
 | Local timing plan | SRT/VTT syntax, non-overlap, supplied timing assumptions, and a deterministic preview | That any caption file was changed or that Premiere agrees with the plan |
 | Caption-track readback | A host-exposed structural track result | Synchronization in playback, line breaks, safe area, or accessibility quality |
-| Review frames | A sampled visual artifact | Temporal playback behavior or exported delivery quality |
+| Burn-in range export | A sampled rendered artifact with captions | Temporal playback behavior or full delivery quality |
 | Playback/render review | A human-reviewed output at its stated scope | General compatibility for all Premiere, client, or caption versions |
 
 The workflow is a guide and returns `not_run` for structural, playback, and

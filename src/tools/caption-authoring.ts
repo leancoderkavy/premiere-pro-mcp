@@ -4,12 +4,15 @@ import path from "node:path";
 import {
   buildCaptionArtifact,
   CAPTION_AUTHORING_ROUTES,
+  CAPTION_GRAPHIC_UPGRADE_GUIDANCE,
+  CAPTION_RENDER_VERIFICATION_GUIDANCE,
   CAPTION_SHADOW_DEFAULTS,
   CAPTION_STROKE_PLACEMENTS,
   CAPTION_STYLE_PRESETS,
   CAPTION_TRACK_STYLE_GUIDANCE,
   CAPTION_ZONES,
   buildCustomCaptionStyleSteps,
+  buildKeywordHighlightSteps,
   buildPresetCaptionStyleSteps,
   captionSafeZoneRecommendation,
   checkCaptionSafeZone,
@@ -18,7 +21,9 @@ import {
   DEFAULT_TRACK_STYLE_NAME,
   describeCaptionStyle,
   MAX_CAPTION_STROKES,
+  MAX_HIGHLIGHT_WORDS,
   validateCustomCaptionStyle,
+  validateKeywordHighlight,
   type CaptionStylePreset,
   MAX_EMPHASIS_WORDS,
   MAX_FILLER_TOKENS,
@@ -49,7 +54,7 @@ import { MAX_CAPTION_ARTIFACT_CHARACTERS } from "../ai/caption-timing.js";
 
 export const MAX_INLINE_ARTIFACT_BYTES = 512 * 1024;
 const MAX_PATH_LENGTH = 4096;
-const CAPTION_STYLE_VERIFY_ROUTES = ["export_frame", "export_sequence_review_frames"] as const;
+const CAPTION_STYLE_VERIFY_ROUTES = ["export_sequence"] as const;
 
 const HEX_COLOR_PATTERN = "^#[0-9A-Fa-f]{6}$";
 const LIMITS = CUSTOM_CAPTION_STYLE_LIMITS;
@@ -326,7 +331,7 @@ export function getCaptionAuthoringTools() {
     },
     get_caption_style_guidance: {
       description:
-        "Read-only caption style guidance: a preset (clean, bold_pop, karaoke, podcast, lecture) and/or a custom_style spec (font, size, fill, up to 3 strokes, shadow, zone, offsets) turned into Premiere 2024+ Properties-panel steps that save a reusable whole-track Track Style. NEVER modifies caption tracks; Premiere has no caption style API.",
+        "Read-only caption style guidance: a preset and/or custom_style turned into Premiere 2024+ Properties-panel Track Style steps, plus keyword_highlight per-word steps, manual Upgrade Caption to Graphic steps, and render-verification routes. NEVER modifies captions: Premiere has no caption style, per-word, or upgrade API.",
       parameters: {
         type: "object" as const,
         additionalProperties: false,
@@ -334,6 +339,22 @@ export function getCaptionAuthoringTools() {
         properties: {
           preset: { type: "string", enum: [...CAPTION_STYLE_PRESETS], description: "Style preset to describe (default clean when custom_style is omitted)." },
           custom_style: CUSTOM_STYLE_PARAMETER,
+          keyword_highlight: {
+            type: "object",
+            additionalProperties: false,
+            description: "Optional words to colour inside captions. Returns manual Program Monitor steps; nothing is applied, because Premiere has no per-word caption styling API.",
+            properties: {
+              words: {
+                type: "array",
+                minItems: 1,
+                maxItems: MAX_HIGHLIGHT_WORDS,
+                items: { type: "string", minLength: 1, maxLength: 64, description: "Keyword exactly as it appears in the captions (case-insensitive duplicates are dropped)." },
+                description: `Keywords to highlight, at most ${MAX_HIGHLIGHT_WORDS}.`,
+              },
+              color: { type: "string", pattern: HEX_COLOR_PATTERN, description: "Highlight fill colour as #RRGGBB." },
+            },
+            required: ["words", "color"],
+          },
         },
       },
       handler: async (args: Record<string, unknown>) => {
@@ -343,6 +364,7 @@ export function getCaptionAuthoringTools() {
             throw new Error(`preset must be one of: ${CAPTION_STYLE_PRESETS.join(", ")}`);
           }
           const custom = args.custom_style === undefined ? undefined : validateCustomCaptionStyle(args.custom_style);
+          const highlight = args.keyword_highlight === undefined ? undefined : validateKeywordHighlight(args.keyword_highlight);
           const preset = (args.preset ?? (custom ? undefined : "clean")) as CaptionStylePreset | undefined;
           const presetStyle = preset ? describeCaptionStyle(preset) : undefined;
           const style = custom
@@ -359,8 +381,12 @@ export function getCaptionAuthoringTools() {
                 "Step 3: Call create_caption_track with action:import and the imported item_id",
                 "Step 4: Inspect the track with read_sequence_captions or inspect_caption_tracks_uxp",
                 "Step 5: Style one caption in Premiere's Properties panel and save it as a Track Style (premiere_ui_steps); it applies to the whole caption track",
+                ...(highlight ? ["Step 6: Colour the keywords by hand in the Program Monitor (keyword_highlight_steps)"] : []),
+                `Optional: for editable graphic clips, run ${CAPTION_GRAPHIC_UPGRADE_GUIDANCE.menu_path} in Premiere (graphic_upgrade); the MCP cannot run it`,
+                "Verify with playback or a short burn-in export (render_verification); still-frame exports can omit caption tracks",
               ],
               premiere_ui_steps: premiereUiSteps,
+              ...(highlight ? { keyword_highlight: highlight, keyword_highlight_steps: buildKeywordHighlightSteps(highlight) } : {}),
               track_style: {
                 name: custom?.track_style_name ?? (custom ? DEFAULT_TRACK_STYLE_NAME : `${preset} captions`),
                 scope: CAPTION_TRACK_STYLE_GUIDANCE.scope,
@@ -369,8 +395,15 @@ export function getCaptionAuthoringTools() {
               },
               limitations: [...CAPTION_TRACK_STYLE_GUIDANCE.limitations],
               warnings: custom ? customCaptionStyleWarnings(custom) : [],
+              graphic_upgrade: {
+                menu_path: CAPTION_GRAPHIC_UPGRADE_GUIDANCE.menu_path,
+                available_through_mcp: CAPTION_GRAPHIC_UPGRADE_GUIDANCE.available_through_mcp,
+                steps: [...CAPTION_GRAPHIC_UPGRADE_GUIDANCE.steps],
+                limitations: [...CAPTION_GRAPHIC_UPGRADE_GUIDANCE.limitations],
+              },
+              render_verification: { ...CAPTION_RENDER_VERIFICATION_GUIDANCE },
               applied: false,
-              mutation_refused: "This tool provides guidance only. MCP for Adobe Premiere Pro does not expose a CaptionTrack style mutation API because Premiere does not expose one through documented ExtendScript, QE DOM, or UXP surfaces. Apply caption styles manually in Premiere's Properties panel (or Essential Graphics) and save them as a Track Style.",
+              mutation_refused: "This tool provides guidance only. MCP for Adobe Premiere Pro does not expose a CaptionTrack style mutation API because Premiere does not expose one through documented ExtendScript, QE DOM, or UXP surfaces. Apply caption styles manually in Premiere's Properties panel (or Essential Graphics) and save them as a Track Style. Per-word colour and Upgrade Caption to Graphic are also manual.",
               safe_zones: presetStyle?.safe_zone_recommendation ?? captionSafeZoneRecommendation(),
               routes: [...CAPTION_AUTHORING_ROUTES, ...SAFE_ZONE_ROUTES, ...CAPTION_STYLE_VERIFY_ROUTES],
             },

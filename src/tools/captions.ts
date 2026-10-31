@@ -1,5 +1,5 @@
 import { buildToolScript, escapeForExtendScript } from "../bridge/script-builder.js";
-import { sendCommand, BridgeOptions } from "../bridge/file-bridge.js";
+import { sendCommand, BridgeOptions, type CommandResult } from "../bridge/file-bridge.js";
 import {
   buildCaptionTimingPlan,
   MAX_CAPTION_ARTIFACT_CHARACTERS,
@@ -56,6 +56,22 @@ function captionReversal(data: Record<string, unknown>) {
   };
 }
 
+/**
+ * Styling notes attached to a successful import receipt. Premiere imports SRT/VTT
+ * with its default caption look; no documented API styles caption tracks, colours
+ * words, or runs Graphics and Titles > Upgrade Caption to Graphic.
+ */
+export const CAPTION_IMPORT_STYLING_NOTES = [
+  "The track uses Premiere's default caption style; this import does not apply fonts, colours, background, or position.",
+  "Call get_caption_style_guidance for Track Style steps, keyword_highlight per-word steps, and Graphics and Titles > Upgrade Caption to Graphic (manual menu command; the MCP cannot run it).",
+  "Still-frame exports can omit caption tracks. Verify with playback or a short export_sequence burn-in export (see get_caption_style_guidance render_verification).",
+] as const;
+
+function withStylingNotes(result: CommandResult): CommandResult {
+  if (!result.success || !result.data || typeof result.data !== "object" || Array.isArray(result.data)) return result;
+  return { ...result, data: { ...(result.data as Record<string, unknown>), styleApplied: false, styling: [...CAPTION_IMPORT_STYLING_NOTES] } };
+}
+
 function lectureCaptionWorkflow(plan: ReturnType<typeof buildCaptionTimingPlan>) {
   return {
     id: "guided_lecture_caption_workflow",
@@ -93,9 +109,9 @@ function lectureCaptionWorkflow(plan: ReturnType<typeof buildCaptionTimingPlan>)
       {
         id: "review_beginning_middle_end",
         mutatesProject: false,
-        route: "export_sequence_review_frames",
-        instruction: "Review frames around the plan's beginning, middle, and end samples and play the same ranges in Premiere before delivery.",
-        verification: "Review frames and playback establish different evidence levels; rendered output remains a separate delivery check.",
+        route: "export_sequence",
+        instruction: "Play the plan's beginning, middle, and end samples in Premiere. For a rendered check, export a short range around them with export_sequence and a preset that burns captions into video; still-frame exports can omit caption tracks.",
+        verification: "Playback and a burn-in export establish different evidence levels; still frames are not caption evidence, and full rendered output remains a separate delivery check.",
       },
     ],
     verification: {
@@ -111,7 +127,7 @@ export function getCaptionTools(bridgeOptions: BridgeOptions) {
   return {
     create_caption_track: {
       description:
-        "Import an already reviewed caption artifact into the active sequence, or create a local lecture-caption timing and review workflow plan. Import rejects unsupported formats before host dispatch and reports structural success only when valid count readback shows exactly one new caption track. Unreadable or unexpected results preserve committed_unverified diagnostics; inspect before retrying. The planning action never contacts Premiere or changes an artifact. Caption tracks render in export_sequence by default; CEP cannot remove or hide them. Import results include observed undoSteps (null when unavailable) and reversal guidance for guarded experimental QE multiple_undo or caption mute through a capable UXP panel.",
+        "Import an already reviewed caption artifact into the active sequence, or create a local lecture-caption timing and review workflow plan. Import rejects unsupported formats before host dispatch and reports structural success only when valid count readback shows exactly one new caption track. Unreadable or unexpected results preserve committed_unverified diagnostics; inspect before retrying. Captions import with Premiere's default style; styling, per-word colour, and Upgrade Caption to Graphic stay manual (get_caption_style_guidance). The planning action never contacts Premiere or changes an artifact. Caption tracks render in export_sequence by default; CEP cannot remove or hide them. Import results include observed undoSteps (null when unavailable) and reversal guidance for guarded experimental QE multiple_undo or caption mute through a capable UXP panel.",
       parameters: {
         type: "object" as const,
         additionalProperties: false,
@@ -269,8 +285,8 @@ export function getCaptionTools(bridgeOptions: BridgeOptions) {
           const response = await sendCommand(script, bridgeOptions);
           if (!response.data || typeof response.data !== "object" || Array.isArray(response.data)) return response;
           const data = response.data as Record<string, unknown>;
-          if (!Object.prototype.hasOwnProperty.call(data, "beforeTrackCount")) return response;
-          return { ...response, data: { ...data, ...captionReversal(data) } };
+          if (!Object.prototype.hasOwnProperty.call(data, "beforeTrackCount")) return withStylingNotes(response);
+          return withStylingNotes({ ...response, data: { ...data, ...captionReversal(data) } });
         } catch (error) {
           return { success: false, error: error instanceof Error ? error.message : String(error) };
         }
