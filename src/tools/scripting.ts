@@ -30,7 +30,7 @@ Available helpers (auto-prepended):
 - __ticksToSeconds(ticks) / __secondsToTicks(seconds) — time conversion
 - __ticksToTimecode(ticks, fps) — timecode string
 - __findSequence(idOrName) — find sequence by name or ID
-- __findProjectItem(nodeIdOrName) — find project item recursively
+- __findProjectItem(nodeIdOrName) — find project item recursively (a sequence ID resolves to its project item)
 - __findClip(nodeId) — find clip in active sequence, returns {clip, trackIndex, clipIndex, trackType}
 - __getAllClips(seq) — get all clips in a sequence
 - __result(data) — return success with data (MUST call this or __error)

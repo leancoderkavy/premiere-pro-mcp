@@ -9,6 +9,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ### Fixed
 
 - Full-server registration and catalog test files allow 60 seconds for tests and setup hooks on loaded machines, while retaining the global 10-second default and existing longer explicit test limits.
+- Project-item tools resolve a sequence ID (the GUID returned by `create_sequence`, `duplicate_sequence` and `list_sequences`) to that sequence's project item after node-ID and name matches fail, so `rename_project_item`, `move_item_to_bin`, `delete_project_item` and similar tools accept the ID a sequence tool just reported. `duplicate_sequence` also reports the copy's `projectItemNodeId`.
 
 ## [1.26.0] - 2026-10-27
 

@@ -977,7 +977,14 @@ function __nodeIdOf(item) {
   }
 }
 
+// Match a project item by node ID or exact name anywhere in the tree. When the
+// whole project is searched and nothing matches, a sequence ID (the GUID that
+// create_sequence, duplicate_sequence and list_sequences report) resolves to
+// that sequence's project item. A sequence's project item has its own node ID,
+// so without this fallback the ID a sequence tool just returned was "not found"
+// by every project-item tool.
 function __findProjectItem(nodeIdOrName, rootItem) {
+  var wholeProject = !rootItem;
   if (!rootItem) rootItem = app.project.rootItem;
   var wantedId = String(nodeIdOrName);
   var count = __childCount(rootItem);
@@ -991,6 +998,34 @@ function __findProjectItem(nodeIdOrName, rootItem) {
       var found = __findProjectItem(nodeIdOrName, item);
       if (found) return found;
     }
+  }
+  return wholeProject ? __findSequenceProjectItem(wantedId) : null;
+}
+
+// Resolve an exact sequence ID to the project item Premiere shows in the
+// Project panel. Returns the tree item (found again by its node ID) so callers
+// get the same object a node-ID lookup would; null when the ID matches no
+// sequence or its project item cannot be read.
+function __findSequenceProjectItem(sequenceId) {
+  var wanted = String(sequenceId);
+  if (!wanted) return null;
+  var sequences = null;
+  var total = 0;
+  try {
+    sequences = app.project.sequences;
+    total = sequences ? Number(sequences.numSequences) || 0 : 0;
+  } catch (eSequences) {
+    return null;
+  }
+  for (var i = 0; i < total; i++) {
+    var seq = null;
+    var seqId = "";
+    try { seq = sequences[i]; seqId = seq ? String(seq.sequenceID) : ""; } catch (eSeq) { continue; }
+    if (seqId !== wanted) continue;
+    var seqItem = null;
+    try { seqItem = seq.projectItem; } catch (eItem) { return null; }
+    var itemId = __nodeIdOf(seqItem);
+    return itemId ? __findProjectItemByNodeId(itemId) : null;
   }
   return null;
 }

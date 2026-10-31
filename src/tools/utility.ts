@@ -454,7 +454,7 @@ export function getUtilityTools(bridgeOptions: BridgeOptions, dependencies: Sour
         properties: {
           item_id: {
             type: "string",
-            description: "Node ID or name of the project item",
+            description: "Node ID or name of the project item, or the sequence ID of a sequence",
           },
           new_name: {
             type: "string",
