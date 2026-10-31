@@ -13,8 +13,8 @@ source catalog may include unreleased actions.
 | Registered core actions | 444 | CEP/local server catalog; host and authority checks still apply |
 | Default-profile core actions | 442 | Advertised with `inspect,edit,export,filesystem` |
 | Restricted core actions | 2 | Require explicit `unsafe-script` authority |
-| Authenticated UXP additions | 96 | Advertised only while a compatible authenticated UXP panel is connected |
-| Default profile with UXP | 538 | 442 core plus 96 UXP tools |
+| Authenticated UXP additions | 97 | Advertised only while a compatible authenticated UXP panel is connected |
+| Default profile with UXP | 539 | 442 core plus 97 UXP tools |
 
 ## How to read support
 
@@ -583,6 +583,7 @@ authenticated and the connected host advertises the required command capabilitie
 | `slip_track_item_uxp` | Connected UXP | `inspect`, `apply` | Inspect or perform one guarded source-only slip on an audio or video timeline item. Apply requires the complete inspected snapshot, explicit confirmation, and an operation ID; it serializes slip operations per target, creates the documented source in/out actions in one undoable transaction, and reads back unchanged timeline timing plus the exact shifted source range. It supports only forward 1x clips, does not infer available media handles, and does not prove rendered frames, playback, linked-item sync, persistence, or Undo behavior. |
 | `transcribe_clip_uxp` | Connected UXP | Single operation | Start Adobe Speech-to-Text transcription for one exact source clip through documented Premiere 26.3+ UXP APIs. Requires exact project_item_id (or name), explicit confirmation, and operation_id. This is a guarded, privacy-aware transcript-start boundary; it does not claim transcript completion, playback, or licensed-host verification. Transcription may use Adobe cloud services per host preferences; verify data-handling policies before use. |
 | `transform_track_item_uxp` | Connected UXP | `inspect`, `update` | Inspect or atomically move, trim, rename, and enable/disable one audio or video track item with stale-position guards and readback. |
+| `unnest_sequence_uxp` | Connected UXP | `inspect`, `apply` | Inspect or apply an unnest of a nested sequence clip in the active sequence by cloning the nested clips into the parent with documented UXP SequenceEditor actions. Unlike the legacy CEP unnest_sequence, which re-places clips from their project items and cannot carry effects, a clone keeps each clip's effects (including Lumetri curves and LUTs), keyframes, enabled state and source range. A nest placed with picture and sound (one video and one audio clip of the same nested sequence at the same position) is handled as one pair. Inspect returns the full plan: the nest references, the tick offset, and every clone with its destination track and timing. It refuses a trimmed, retimed or ambiguous nest, a missing destination track, and any destination range occupied by another clip. Apply requires that unchanged plan, confirm_unnest: true and an operation_id; it removes the nest and clones every clip in one locked undoable transaction (one Undo restores the nest) and reads back each clone's start, source range, project item and enabled state. It does not prove rendered frames, playback or persistence. |
 | `wait_for_host_readiness_uxp` | Connected UXP | `snapshot`, `analysis`, `operation` | Capture a pre-dispatch readiness revision or wait, without retrying, for video-effect analysis or one documented operation-completion receipt. |
 
 ## Maintenance
