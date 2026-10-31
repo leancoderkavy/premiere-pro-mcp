@@ -226,7 +226,7 @@ function __itemMarksForRestore(item, mediaType) {
     var hz = audio && timebase && (/Hz/i.test(timebase) || parseFloat(timebase) > 240) ? parseFloat(timebase) : NaN;
     if (audio && isFinite(hz) && hz > 0) {
       if (match[6] === ";" || last >= hz || Math.floor(hz) !== hz) return null;
-      return { ticks: Math.round(((hours * 3600 + minutes * 60 + seconds) * hz + last) * TICKS_PER_SECOND / hz), frameTicks: TICKS_PER_SECOND / hz };
+      return { ticks: Math.round(((hours * 3600 + minutes * 60 + seconds) * hz + last) * TICKS_PER_SECOND / hz), frameTicks: TICKS_PER_SECOND / hz, dayTicks: 86400 * TICKS_PER_SECOND };
     }
     var frameTicks = rateText !== null ? Number(rateText) : NaN;
     if (rateText !== null && (!isFinite(frameTicks) || frameTicks <= 0)) return null;
@@ -244,6 +244,7 @@ function __itemMarksForRestore(item, mediaType) {
     var actualRate = TICKS_PER_SECOND / frameTicks, nominal = Math.round(actualRate);
     if (nominal < 1 || nominal > 240 || last >= nominal) return null;
     var frames = (hours * 3600 + minutes * 60 + seconds) * nominal + last;
+    var framesPerDay = 86400 * nominal;
     if (match[6] === ";") {
       var dropped = 0;
       if (nominal === 30) dropped = 2;
@@ -251,8 +252,9 @@ function __itemMarksForRestore(item, mediaType) {
       if (!dropped || Math.abs(actualRate - nominal * 1000 / 1001) > 0.01 || (minutes % 10 !== 0 && seconds === 0 && last < dropped)) return null;
       var totalMinutes = hours * 60 + minutes;
       frames -= dropped * (totalMinutes - Math.floor(totalMinutes / 10));
+      framesPerDay -= dropped * (1440 - 144);
     }
-    return { ticks: Math.round(frames * frameTicks), frameTicks: frameTicks };
+    return { ticks: Math.round(frames * frameTicks), frameTicks: frameTicks, dayTicks: Math.round(framesPerDay * frameTicks) };
   }
   var kind = mediaType === 2 ? "Audio" : "Video";
   var inBlock = field("Column.Intrinsic." + kind + "InPoint", xml), outBlock = field("Column.Intrinsic." + kind + "OutPoint", xml);
@@ -283,6 +285,10 @@ function __itemMarksForRestore(item, mediaType) {
     }
     left.ticks -= mediaStart.ticks;
     right.ticks -= mediaStart.ticks;
+    // Time-of-day timecode wraps at midnight: a camera started at 22:52:31:00
+    // that ran two hours has a private Out of 00:51:07:23 (live 26.0.2).
+    if (left.ticks < 0) left.ticks += left.dayTicks;
+    if (right.ticks < left.ticks) right.ticks += right.dayTicks;
   }
   // The private Out names the last frame or sample (inclusive): a subclip made
   // with an exclusive Out at frame 719 shows 00:00:29:22 (frame 718) on 26.5.2,
