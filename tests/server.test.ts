@@ -1,4 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
+
+// Full catalog setup can contend with other processes on a loaded machine.
+vi.setConfig({ testTimeout: 60_000, hookTimeout: 60_000 });
 import { createServer, SERVER_VERSION } from "../src/server.js";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";

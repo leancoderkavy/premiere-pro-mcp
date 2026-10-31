@@ -118,10 +118,10 @@ export function getDiscoveryTools(bridgeOptions: BridgeOptions) {
     },
 
     get_active_sequence: {
-      description: "Get bounded, paged information about the currently active sequence (50 clips by default). Follow pagination.nextOffset for more",
+      description: "Get bounded, paged information about the currently active sequence (50 clips by default). Audio and video clips include source In/Out seconds. Follow pagination.nextOffset for more. Bounded source-alignment diagnostics include separate picture/sound offsets and media-pair group inconsistencies, with limited group context outside this page; they do not verify playback sync.",
       parameters: { type: "object" as const, properties: sequenceReadProperties },
       handler: async (args: SequenceReadArgs = {}) => {
-        const bounds = sequenceReadScript(args);
+        const bounds = sequenceReadScript(args, true);
         const script = buildToolScript(`
           ${bounds}
           var seq = __getCurrentActiveSequence();
@@ -164,6 +164,8 @@ export function getDiscoveryTools(bridgeOptions: BridgeOptions) {
                 name: clip.name,
                 start: __ticksToSeconds(clip.start.ticks),
                 end: __ticksToSeconds(clip.end.ticks),
+                inPoint: __ticksToSeconds(clip.inPoint.ticks),
+                outPoint: __ticksToSeconds(clip.outPoint.ticks),
                 duration: __ticksToSeconds(clip.duration.ticks)
               });
             }

@@ -417,7 +417,9 @@ export function getUtilityTools(bridgeOptions: BridgeOptions, dependencies: Sour
                 }
               }
             }
-            planned.push({ nodeId: String(item.nodeId), name: item.name, item: item, sequence: sequence });
+            var itemNodeId = item.nodeId;
+            if (typeof itemNodeId !== "string" || itemNodeId.length === 0) return __error("A project item has no readable node ID. No project items were deleted.", { mutationOutcome: "not_applied", verified: false, projectChanged: false });
+            planned.push({ nodeId: itemNodeId, name: item.name, item: item, sequence: sequence });
           }
           for (var p = 0; p < planned.length; p++) {
             var target = planned[p];
@@ -434,9 +436,37 @@ export function getUtilityTools(bridgeOptions: BridgeOptions, dependencies: Sour
               if (!viaBin.ok) return __error(viaBin.error + (p || viaBin.changed ? " The project changed: " + p + " item(s) before this one were deleted." : " No project items were deleted."));
             }
           }
+          var remainingIds = {};
+          try {
+            var pendingBins = [app.project.rootItem];
+            var walkedItems = 0;
+            while (pendingBins.length) {
+              var parent = pendingBins.pop();
+              if (!parent || !parent.children) throw new Error("A project bin has no readable children collection.");
+              var children = parent.children;
+              var childCount = children.numItems;
+              if (typeof childCount !== "number" || !isFinite(childCount) || childCount < 0 || Math.floor(childCount) !== childCount) throw new Error("A project bin has an unreadable item count.");
+              walkedItems += childCount;
+              if (walkedItems > 100000) throw new Error("The project tree exceeds the 100000-item readback limit.");
+              for (var childIndex = 0; childIndex < childCount; childIndex++) {
+                var child = children[childIndex];
+                if (!child) throw new Error("A project item could not be read.");
+                var childId = child.nodeId;
+                if (typeof childId !== "string" || childId.length === 0) throw new Error("A project item has no readable node ID.");
+                if (remainingIds["$" + childId]) throw new Error("A project item node ID occurred more than once during readback.");
+                remainingIds["$" + childId] = true;
+                var childType = child.type;
+                if (childType !== 1 && childType !== 2 && childType !== 4) throw new Error("A project item has an unreadable type.");
+                if (childType === 2) pendingBins.push(child);
+              }
+              if (children.numItems !== childCount) throw new Error("A project bin changed during readback.");
+            }
+          } catch (treeReadError) {
+            return __error("Deletion was attempted, but the final project tree could not be read reliably. Inspect the Project panel before retrying. " + String(treeReadError), { verified: false, outcome: "committed_unverified", projectChanged: null });
+          }
           var deleted = [];
           for (var q = 0; q < planned.length; q++) {
-            if (__findProjectItem(planned[q].nodeId)) {
+            if (remainingIds["$" + planned[q].nodeId]) {
               return __error("Premiere did not remove project item: " + planned[q].name + ". The batch is not reported as successful.");
             }
             deleted.push({ nodeId: planned[q].nodeId, name: planned[q].name });
@@ -454,7 +484,7 @@ export function getUtilityTools(bridgeOptions: BridgeOptions, dependencies: Sour
         properties: {
           item_id: {
             type: "string",
-            description: "Node ID or name of the project item",
+            description: "Node ID or name of the project item, or the sequence ID of a sequence",
           },
           new_name: {
             type: "string",

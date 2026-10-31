@@ -71,6 +71,7 @@ function makeTrack(clips: ReturnType<typeof makeClip>[], syncLocked = true, lock
   };
   reindex();
   const track = {
+    transitions: { numItems: 0 },
     clips: clipsCol,
     isLocked() { return track._locked; },
     _arr: arr,

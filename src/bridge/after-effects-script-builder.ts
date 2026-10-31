@@ -5,8 +5,10 @@
  */
 import { createHash } from "node:crypto";
 import { escapeUnsafeLiteralCharacters } from "./script-builder.js";
+import { HOST_PATH_HELPERS } from "./host-paths.js";
 
 const HELPERS = `
+${HOST_PATH_HELPERS}
 function __aeJsonStringify(value) {
   if (value === null) return "null";
   if (value === undefined) return "null";

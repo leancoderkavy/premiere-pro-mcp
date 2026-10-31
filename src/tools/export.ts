@@ -1245,6 +1245,10 @@ export function getExportTools(bridgeOptions: BridgeOptions) {
           // Premiere's native exporters on Windows reject URI-style paths that File accepts.
           outputPath = new File(outputPath).fsName;
           presetPath = new File(presetPath).fsName;
+          // Premiere reports a missing folder only from inside the render (live 26.5.2:
+          // "OutputFilePath is in a folder that doesn't exist!"), so check it first.
+          var outputFolder = new File(outputPath).parent;
+          if (outputFolder && !outputFolder.exists) return __error("Output folder does not exist: " + outputFolder.fsName + "; nothing was exported. Create the folder or choose an existing one.", { mutationOutcome: "not_applied", timelineChanged: false });
 
 ${presetExtensionGuardScript()}
 ${sequenceRangeGuardScript(range)}
@@ -1328,6 +1332,7 @@ ${sequenceRangeGuardScript(range)}
             : "null"};
 
           var res = __exportStillFrame(outputPath, ticks);
+          if (!res.ok && res.notApplied) return __error(res.error, { mutationOutcome: "not_applied", timelineChanged: false });
           if (!res.ok) return __error(res.error + " [" + res.notes.join("; ") + "]");
 
           return __result({ exported: true, outputPath: res.path, method: res.method, renderVerified: false, verificationScope: "Output file exists only; a single still does not establish motion over time, playback or audio." });
@@ -1908,7 +1913,7 @@ ${sequenceRangeGuardScript(range)}
           }
           var outputFile = new File("${escapeForExtendScript(outputPath)}");
           if (!outputFile.parent || !outputFile.parent.exists) {
-            return __error("The requested output folder does not exist: " + (outputFile.parent ? outputFile.parent.fsName : outputFile.fsName) + "; nothing was queued.");
+            return __error("The requested output folder does not exist: " + (outputFile.parent ? outputFile.parent.fsName : outputFile.fsName) + "; nothing was queued.", { mutationOutcome: "not_applied", timelineChanged: false });
           }
           var outputPath = outputFile.fsName;
           var presetFile = new File("${escapeForExtendScript(presetPath)}");
@@ -2130,7 +2135,7 @@ ${ameQueueBatchStartScript(startBatch)}
     },
 
     create_subclip: {
-      description: "Create a subclip from a project item with in/out points. Returns the new item's nodeId and reads its stored range back from Premiere project metadata: outcome verified when the observed in/out seconds are within one media frame of the request, otherwise committed_unverified.",
+      description: "Create a subclip from a project item with in/out points (seconds from the start of the file, even when the media carries a start timecode). Returns the new item's nodeId and reads its stored range back from Premiere project metadata: outcome verified when each observed in/out point is within half a media frame (or audio sample) of the request, so a whole-frame miss is committed_unverified. Points are snapped to the nearest media frame and sent a quarter frame past it so Premiere stores that frame. A media start timecode is reported as mediaStartSeconds.",
       parameters: {
         type: "object" as const,
         properties: {
@@ -2163,8 +2168,15 @@ ${ameQueueBatchStartScript(startBatch)}
 
           var requestedInSeconds = ${args.in_seconds};
           var requestedOutSeconds = ${args.out_seconds};
-          var inTicks = __secondsToTicks(requestedInSeconds).toString();
-          var outTicks = __secondsToTicks(requestedOutSeconds).toString();
+          // Bias each point onto the intended media frame (see __subclipWriteTicks).
+          var sourceGridTicks = __subclipSourceGridTicks(item);
+          var inTicksValue = __subclipWriteTicks(requestedInSeconds, sourceGridTicks);
+          var outTicksValue = __subclipWriteTicks(requestedOutSeconds, sourceGridTicks);
+          // A range shorter than one frame can snap both points to one frame;
+          // keep at least one frame so Premiere gets a nonempty range.
+          if (sourceGridTicks > 0 && outTicksValue <= inTicksValue) outTicksValue = inTicksValue + Math.round(sourceGridTicks);
+          var inTicks = inTicksValue.toString();
+          var outTicks = outTicksValue.toString();
 
           var subclip = item.createSubClip(
             "${escapeForExtendScript(args.name)}",
@@ -2176,62 +2188,6 @@ ${ameQueueBatchStartScript(startBatch)}
           );
 
           if (!subclip) return __error("Failed to create subclip");
-
-          // A soft-boundary subclip's getInPoint/getOutPoint read the whole media
-          // on Premiere 26.5, so read the stored range from project metadata.
-          // Each point holds an rdf:value timecode and a frame_rate child in
-          // ticks per frame; the Out timecode names the last frame (or sample)
-          // and is inclusive.
-          function __subclipTimecodeFrames(timecode, frameTicks) {
-            var parts = String(timecode).match(/^\\s*(\\d+)[:;.](\\d+)[:;.](\\d+)([:;.])(\\d+)\\s*$/);
-            if (!parts) return NaN;
-            var nominal = Math.round(TICKS_PER_SECOND / frameTicks);
-            var hours = parseInt(parts[1], 10);
-            var minutes = parseInt(parts[2], 10);
-            var frames = ((hours * 60 + minutes) * 60 + parseInt(parts[3], 10)) * nominal + parseInt(parts[5], 10);
-            if (parts[4] === ";" && (nominal === 30 || nominal === 60)) {
-              var totalMinutes = hours * 60 + minutes;
-              frames -= (nominal / 15) * (totalMinutes - Math.floor(totalMinutes / 10));
-            }
-            return frames;
-          }
-          function __subclipPoint(xml, column) {
-            var tagName = "Column.Intrinsic." + column;
-            var openStart = xml.indexOf(tagName);
-            if (openStart < 0) return null;
-            var openEnd = xml.indexOf(">", openStart);
-            if (openEnd < 0 || xml.charAt(openEnd - 1) === "/") return null;
-            var closeStart = xml.indexOf(tagName, openEnd);
-            if (closeStart < 0) return null;
-            var body = xml.substring(openEnd + 1, closeStart);
-            var value = body.match(/<rdf:value>\\s*([^<]*?)\\s*<\\/rdf:value>/);
-            var rate = body.match(/frame_rate>\\s*(\\d+)\\s*</);
-            if (!value || !rate) return null;
-            var frameTicks = parseFloat(rate[1]);
-            if (!isFinite(frameTicks) || frameTicks <= 0) return null;
-            var frames = __subclipTimecodeFrames(value[1], frameTicks);
-            if (!isFinite(frames)) return null;
-            return { frames: frames, frameTicks: frameTicks, timecode: value[1] };
-          }
-          // Audio-only subclips keep empty Video points; their Audio points count
-          // samples in the last field (00:00:04:00191) and the frame_rate child is
-          // only the 25 fps display rate, so the sample rate comes from MediaTimebase.
-          function __subclipAudioPoint(xml, column) {
-            var base = xml.match(/Column\\.Intrinsic\\.MediaTimebase>\\s*([0-9.]+)\\s*Hz\\s*</);
-            var hz = base ? parseFloat(base[1]) : NaN;
-            if (!isFinite(hz) || hz <= 0 || Math.floor(hz) !== hz) return null;
-            var tagName = "Column.Intrinsic." + column;
-            var openStart = xml.indexOf(tagName);
-            if (openStart < 0) return null;
-            var openEnd = xml.indexOf(">", openStart);
-            if (openEnd < 0 || xml.charAt(openEnd - 1) === "/") return null;
-            var closeStart = xml.indexOf(tagName, openEnd);
-            if (closeStart < 0) return null;
-            var value = xml.substring(openEnd + 1, closeStart).match(/<rdf:value>\\s*(\\d+):(\\d{2}):(\\d{2}):(\\d+)\\s*<\\/rdf:value>/);
-            if (!value || parseInt(value[4], 10) >= hz) return null;
-            var samples = ((parseInt(value[1], 10) * 60 + parseInt(value[2], 10)) * 60 + parseInt(value[3], 10)) * hz + parseInt(value[4], 10);
-            return { frames: samples, frameTicks: TICKS_PER_SECOND / hz, timecode: value[1] + ":" + value[2] + ":" + value[3] + ":" + value[4] };
-          }
 
           var nodeId = null;
           try { nodeId = subclip.nodeId ? String(subclip.nodeId) : null; } catch (nodeIdError) {}
@@ -2250,26 +2206,26 @@ ${ameQueueBatchStartScript(startBatch)}
           try { if (subclip.name) receipt.name = String(subclip.name); } catch (nameError) {}
           var metadata = null;
           try { metadata = subclip.getProjectMetadata ? String(subclip.getProjectMetadata()) : null; } catch (metadataError) {}
-          var inPoint = metadata ? __subclipPoint(metadata, "VideoInPoint") : null;
-          var outPoint = metadata ? __subclipPoint(metadata, "VideoOutPoint") : null;
-          if (metadata && !inPoint && !outPoint) {
-            inPoint = __subclipAudioPoint(metadata, "AudioInPoint");
-            outPoint = __subclipAudioPoint(metadata, "AudioOutPoint");
-          }
-          if (!inPoint || !outPoint) {
+          var stored = __subclipStoredRange(metadata);
+          if (!stored) {
             receipt.note = "Premiere created the subclip, but its stored in/out range could not be read from project metadata.";
             return __result(receipt);
           }
-          receipt.observedInSeconds = __ticksToSeconds(inPoint.frames * inPoint.frameTicks);
-          receipt.observedOutSeconds = __ticksToSeconds((outPoint.frames + 1) * outPoint.frameTicks);
-          receipt.observedInTimecode = inPoint.timecode;
-          receipt.observedOutTimecode = outPoint.timecode;
-          var tolerance = __ticksToSeconds(Math.max(inPoint.frameTicks, outPoint.frameTicks)) + 0.000001;
-          if (Math.abs(receipt.observedInSeconds - requestedInSeconds) <= tolerance && Math.abs(receipt.observedOutSeconds - requestedOutSeconds) <= tolerance) {
+          receipt.observedInSeconds = stored.inSeconds;
+          receipt.observedOutSeconds = stored.outSeconds;
+          receipt.observedInTimecode = stored.inTimecode;
+          receipt.observedOutTimecode = stored.outTimecode;
+          if (stored.mediaStartSeconds !== 0) receipt.mediaStartSeconds = stored.mediaStartSeconds;
+          // Half a media frame (or sample) per point: the nearest frame to the
+          // request passes, and a whole-frame miss (a black flash at a cut, or
+          // picture a frame out of sync with sound) does not.
+          var inTolerance = stored.inFrameSeconds / 2 + 0.000000001;
+          var outTolerance = stored.outFrameSeconds / 2 + 0.000000001;
+          if (Math.abs(receipt.observedInSeconds - requestedInSeconds) <= inTolerance && Math.abs(receipt.observedOutSeconds - requestedOutSeconds) <= outTolerance) {
             receipt.outcome = "verified";
             receipt.verified = true;
           } else {
-            receipt.note = "Premiere stored a subclip range more than one media frame from the request.";
+            receipt.note = "Premiere stored a subclip range more than half a media frame from the request.";
           }
           return __result(receipt);
         `);
@@ -2301,6 +2257,7 @@ ${ameQueueBatchStartScript(startBatch)}
             : "null"};
 
           var res = __exportStillFrame(outputPath, ticks);
+          if (!res.ok && res.notApplied) return __error(res.error, { mutationOutcome: "not_applied", timelineChanged: false });
           if (!res.ok) return __error(res.error + " [" + res.notes.join("; ") + "]");
 
           var seq = app.project.activeSequence;

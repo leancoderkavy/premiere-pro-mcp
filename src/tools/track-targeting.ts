@@ -1,3 +1,4 @@
+import { pointUnitsError } from "./point-units.js";
 import { setProjectItemStartTime } from "./project-item-start-time.js";
 import {
   buildToolScript,
@@ -6,6 +7,11 @@ import {
 import { sendCommand, BridgeOptions } from "../bridge/file-bridge.js";
 import { describePresetFolder } from "./encoder-formats.js";
 import { rippleTimeoutMs } from "./ripple-timeout.js";
+import { DEFAULT_QE_BATCH_SIZE, QE_BATCH_SIZE_ENV, resolveQeBatchSize } from "./qe-batch-size.js";
+
+// QE undo can hit the same native ExtendScript stack limit as structural QE
+// edits. Each bridge command gets a fresh native invocation.
+export const QE_UNDO_STEPS_PER_COMMAND = DEFAULT_QE_BATCH_SIZE;
 
 /**
  * Premiere's audio `Volume > Level` property is NOT in decibels. It is a
@@ -894,26 +900,29 @@ export function getTrackTargetingTools(bridgeOptions: BridgeOptions) {
 
     set_clip_position: {
       description:
-        "Set the Position property on a video clip's Motion effect using English or measured Spanish built-in names, then read it back. Values are in pixels.",
+        "Set the Position property on a video clip's Motion effect using English or measured Spanish built-in names, then read it back. Values default to pixels; explicit normalized values are fractions from 0 to 1. Omitted units with a 0–1 pair keeps pixels and adds a warning.",
       parameters: {
         type: "object" as const,
         properties: {
+          units: { type: "string", enum: ["pixels", "normalized"], description: "Coordinate units; defaults to pixels for compatibility. normalized means 0–1 fractions of the sequence frame for Position or source frame for Anchor Point." },
           node_id: {
             type: "string",
             description: "Node ID of the clip",
           },
           x: {
             type: "number",
-            description: "X position in sequence pixels (converted to Premiere's normalized Position when the host stores it that way)",
+            description: "X position in the selected units: sequence pixels by default, or normalized 0–1 fractions.",
           },
           y: {
             type: "number",
-            description: "Y position in sequence pixels (converted to Premiere's normalized Position when the host stores it that way)",
+            description: "Y position in the selected units: sequence pixels by default, or normalized 0–1 fractions.",
           },
         },
         required: ["node_id", "x", "y"],
       },
-      handler: async (args: { node_id: string; x: number; y: number }) => {
+      handler: async (args: { node_id: string; x: number; y: number; units?: "pixels" | "normalized" }) => {
+        const invalid = pointUnitsError(args.units, args.x, args.y);
+        if (invalid) return { success: false, error: invalid };
         const script = buildToolScript(`
           var result = __findClip("${escapeForExtendScript(args.node_id)}");
           if (!result) return __refuse("Clip not found");
@@ -925,13 +934,13 @@ export function getTrackTargetingTools(bridgeOptions: BridgeOptions) {
               for (var p = 0; p < clip.components[i].properties.numItems; p++) {
                 if (__videoIntrinsicPropertyMatches(clip.components[i].properties[p], "Position")) {
                   var pointProp = clip.components[i].properties[p];
-                  var pointScale = __motionPointScale(pointProp, __sequenceFrameSize(app.project.activeSequence));
+                  var pointScale = __motionPointScale(pointProp, __sequenceFrameSize(app.project.activeSequence), "${escapeForExtendScript(args.units ?? "pixels")}");
                   if (!pointScale) return __error("The sequence frame size is unreadable, so pixels cannot be converted to Premiere's normalized position; nothing was changed.");
                   var written = [${args.x} * pointScale.x, ${args.y} * pointScale.y];
                   pointProp.setValue(written, true);
                   var readBack = pointProp.getValue();
-                  if (!readBack || readBack.length < 2 || Math.abs(readBack[0] - written[0]) > 1e-4 * (pointScale.normalized ? 1 : 1000) || Math.abs(readBack[1] - written[1]) > 1e-4 * (pointScale.normalized ? 1 : 1000)) {
-                    return __error("Premiere did not apply the requested position; read back " + readBack + ".");
+                  if (!readBack || readBack.length < 2 || typeof readBack[0] !== "number" || typeof readBack[1] !== "number" || !isFinite(readBack[0]) || !isFinite(readBack[1]) || Math.abs(readBack[0] - written[0]) > 1e-4 * (pointScale.normalized ? 1 : 1000) || Math.abs(readBack[1] - written[1]) > 1e-4 * (pointScale.normalized ? 1 : 1000)) {
+                    return __error("Premiere did not apply the requested position; read back " + readBack + ". Inspect before retrying.", { verified: false, outcome: "committed_unverified", timelineChanged: null, mutationAttempted: true });
                   }
                   set = { normalized: pointScale.normalized, value: [readBack[0], readBack[1]] };
                   break;
@@ -941,7 +950,7 @@ export function getTrackTargetingTools(bridgeOptions: BridgeOptions) {
             }
           }
           if (!set) return __error("Could not set position");
-          return __result({ x: ${args.x}, y: ${args.y}, clip: clip.name, verified: true, hostValue: set.value, hostNormalized: set.normalized });
+          return __result({ x: ${args.x}, y: ${args.y}, clip: clip.name, verified: true, hostValue: set.value, hostNormalized: set.normalized, units: "${escapeForExtendScript(args.units ?? "pixels")}", warning: __pointUnitsWarning(${args.x}, ${args.y}, ${args.units !== undefined}, app.project.activeSequence) });
         `);
         return sendCommand(script, bridgeOptions);
       },
@@ -1023,26 +1032,29 @@ export function getTrackTargetingTools(bridgeOptions: BridgeOptions) {
 
     set_clip_anchor_point: {
       description:
-        "Set the Anchor Point property on a video clip's Motion effect.",
+        "Set and read back Motion Anchor Point in source-frame pixels by default, or explicit normalized 0–1 source-frame fractions. Omitted units with a 0–1 pair keeps pixels and adds a warning.",
       parameters: {
         type: "object" as const,
         properties: {
+          units: { type: "string", enum: ["pixels", "normalized"], description: "Coordinate units; defaults to pixels for compatibility. normalized means 0–1 fractions of the sequence frame for Position or source frame for Anchor Point." },
           node_id: {
             type: "string",
             description: "Node ID of the clip",
           },
           x: {
             type: "number",
-            description: "Anchor point X in pixels",
+            description: "Anchor point X in selected units: source-frame pixels by default or normalized 0–1 fractions.",
           },
           y: {
             type: "number",
-            description: "Anchor point Y in pixels",
+            description: "Anchor point Y in selected units: source-frame pixels by default or normalized 0–1 fractions.",
           },
         },
         required: ["node_id", "x", "y"],
       },
-      handler: async (args: { node_id: string; x: number; y: number }) => {
+      handler: async (args: { node_id: string; x: number; y: number; units?: "pixels" | "normalized" }) => {
+        const invalid = pointUnitsError(args.units, args.x, args.y);
+        if (invalid) return { success: false, error: invalid };
         const script = buildToolScript(`
           var result = __findClip("${escapeForExtendScript(args.node_id)}");
           if (!result) return __refuse("Clip not found");
@@ -1050,17 +1062,17 @@ export function getTrackTargetingTools(bridgeOptions: BridgeOptions) {
           var clip = result.clip;
           var set = false;
           for (var i = 0; i < clip.components.numItems; i++) {
-            if (clip.components[i].displayName === "Motion") {
+            if (clip.components[i].matchName === "AE.ADBE Motion" || clip.components[i].displayName === "Motion") {
               for (var p = 0; p < clip.components[i].properties.numItems; p++) {
-                if (clip.components[i].properties[p].displayName === "Anchor Point") {
+                if (__videoIntrinsicPropertyMatches(clip.components[i].properties[p], "Anchor Point")) {
                   var pointProp = clip.components[i].properties[p];
-                  var pointScale = __motionPointScale(pointProp, __clipSourceFrameSize(clip, app.project.activeSequence));
+                  var pointScale = __motionPointScale(pointProp, __clipSourceFrameSize(clip, app.project.activeSequence), "${escapeForExtendScript(args.units ?? "pixels")}");
                   if (!pointScale) return __error("The source frame size is unreadable, so pixels cannot be converted to Premiere's normalized anchor point; nothing was changed.");
                   var written = [${args.x} * pointScale.x, ${args.y} * pointScale.y];
                   pointProp.setValue(written, true);
                   var readBack = pointProp.getValue();
-                  if (!readBack || readBack.length < 2 || Math.abs(readBack[0] - written[0]) > 1e-4 * (pointScale.normalized ? 1 : 1000) || Math.abs(readBack[1] - written[1]) > 1e-4 * (pointScale.normalized ? 1 : 1000)) {
-                    return __error("Premiere did not apply the requested anchor point; read back " + readBack + ".");
+                  if (!readBack || readBack.length < 2 || typeof readBack[0] !== "number" || typeof readBack[1] !== "number" || !isFinite(readBack[0]) || !isFinite(readBack[1]) || Math.abs(readBack[0] - written[0]) > 1e-4 * (pointScale.normalized ? 1 : 1000) || Math.abs(readBack[1] - written[1]) > 1e-4 * (pointScale.normalized ? 1 : 1000)) {
+                    return __error("Premiere did not apply the requested anchor point; read back " + readBack + ". Inspect before retrying.", { verified: false, outcome: "committed_unverified", timelineChanged: null, mutationAttempted: true });
                   }
                   set = { normalized: pointScale.normalized, value: [readBack[0], readBack[1]] };
                   break;
@@ -1070,7 +1082,7 @@ export function getTrackTargetingTools(bridgeOptions: BridgeOptions) {
             }
           }
           if (!set) return __error("Could not set anchor point");
-          return __result({ x: ${args.x}, y: ${args.y}, clip: clip.name, verified: true, hostValue: set.value, hostNormalized: set.normalized });
+          return __result({ x: ${args.x}, y: ${args.y}, clip: clip.name, verified: true, hostValue: set.value, hostNormalized: set.normalized, units: "${escapeForExtendScript(args.units ?? "pixels")}", warning: __pointUnitsWarning(${args.x}, ${args.y}, ${args.units !== undefined}, app.project.activeSequence) });
         `);
         return sendCommand(script, bridgeOptions);
       },
@@ -1843,10 +1855,10 @@ export function getTrackTargetingTools(bridgeOptions: BridgeOptions) {
           if (expectedIndex !== null) {
             var currentIndex = __readUndoIndex();
             if (currentIndex === null || typeof currentIndex === "undefined" || isNaN(Number(currentIndex))) {
-              return __jsonStringify({ success: false, error: "Premiere did not expose undoStackIndex; redo was not attempted", data: { expectedUndoStackIndex: expectedIndex } });
+              return __jsonStringify({ success: false, error: "Premiere did not expose undoStackIndex; redo was not attempted", data: { expectedUndoStackIndex: expectedIndex, mutationOutcome: "not_applied", timelineChanged: false } });
             }
             if (currentIndex !== expectedIndex) {
-              return __jsonStringify({ success: false, error: "Premiere's undo stack is at " + currentIndex + ", not the expected " + expectedIndex + ": the undo-stack position changed since that call (actions were undone or recorded), so redo was not attempted.", data: { undoStackIndex: currentIndex, expectedUndoStackIndex: expectedIndex } });
+              return __jsonStringify({ success: false, error: "Premiere's undo stack is at " + currentIndex + ", not the expected " + expectedIndex + ": the undo-stack position changed since that call (actions were undone or recorded), so redo was not attempted.", data: { undoStackIndex: currentIndex, expectedUndoStackIndex: expectedIndex, mutationOutcome: "not_applied", timelineChanged: false } });
             }
           }
           var outcome = __qeUndoSteps("redo", ${count}, ${args.acknowledge_untracked_markers === true ? "true" : "false"});
@@ -1866,6 +1878,12 @@ export function getTrackTargetingTools(bridgeOptions: BridgeOptions) {
             type: "number",
             description: "Number of undo steps (default: 1)",
           },
+          batch_size: {
+            type: "number",
+            minimum: 1,
+            maximum: 32,
+            description: `QE undo calls per bridge command (default: ${QE_BATCH_SIZE_ENV} or ${DEFAULT_QE_BATCH_SIZE}; clamped to 1-32).`,
+          },
           acknowledge_untracked_markers: {
             type: "boolean",
             description: "Explicitly acknowledge that QE steps reverse or restore prior non-marker actions, because marker reversal is not verified. Default false; marker boundaries refuse the entire request before any step.",
@@ -1878,7 +1896,7 @@ export function getTrackTargetingTools(bridgeOptions: BridgeOptions) {
         },
         required: ["expected_undo_stack_index"],
       },
-      handler: async (args: { count?: number; expected_undo_stack_index?: number; acknowledge_untracked_markers?: boolean }) => {
+      handler: async (args: { count?: number; batch_size?: number; expected_undo_stack_index?: number; acknowledge_untracked_markers?: boolean }) => {
         const count = args.count ?? 1;
         if (!Number.isInteger(count) || count < 1 || count > 100) {
           return { success: false, error: "count must be an integer from 1 through 100" };
@@ -1887,23 +1905,48 @@ export function getTrackTargetingTools(bridgeOptions: BridgeOptions) {
         if (!Number.isInteger(guardArg) || guardArg! < 0) {
           return { success: false, error: "expected_undo_stack_index is required and must be a non-negative integer; undo was not attempted" };
         }
-        const guard = String(guardArg);
-        const script = buildToolScript(`
+        let expectedIndex = guardArg;
+        let undone = 0;
+        let firstIndex: number | undefined;
+        let lastResult: { success: boolean; data?: unknown; error?: string } | undefined;
+        const batchSize = resolveQeBatchSize(args.batch_size);
+        for (let remaining = count; remaining > 0; remaining -= batchSize) {
+          const batchCount = Math.min(batchSize, remaining);
+          const script = buildToolScript(`
           __undoStart = null;
-          var expectedIndex = ${guard};
+          var expectedIndex = ${String(expectedIndex)};
           if (expectedIndex !== null) {
             var currentIndex = __readUndoIndex();
             if (currentIndex === null || typeof currentIndex === "undefined" || isNaN(Number(currentIndex))) {
-              return __jsonStringify({ success: false, error: "Premiere did not expose undoStackIndex; undo was not attempted", data: { expectedUndoStackIndex: expectedIndex } });
+              return __jsonStringify({ success: false, error: "Premiere did not expose undoStackIndex; undo was not attempted", data: { expectedUndoStackIndex: expectedIndex, mutationOutcome: "not_applied", timelineChanged: false } });
             }
             if (currentIndex !== expectedIndex) {
-              return __jsonStringify({ success: false, error: "Premiere's undo stack is at " + currentIndex + ", not the expected " + expectedIndex + ": the undo-stack position changed since that call (actions were undone or recorded), so undo was not attempted.", data: { undoStackIndex: currentIndex, expectedUndoStackIndex: expectedIndex } });
+              return __jsonStringify({ success: false, error: "Premiere's undo stack is at " + currentIndex + ", not the expected " + expectedIndex + ": the undo-stack position changed since that call (actions were undone or recorded), so undo was not attempted.", data: { undoStackIndex: currentIndex, expectedUndoStackIndex: expectedIndex, mutationOutcome: "not_applied", timelineChanged: false } });
             }
           }
-          var outcome = __qeUndoSteps("undo", ${count}, ${args.acknowledge_untracked_markers === true ? "true" : "false"});
+          var outcome = __qeUndoSteps("undo", ${batchCount}, ${args.acknowledge_untracked_markers === true ? "true" : "false"});
           return __undoStepsResult(outcome, "undone");
         `);
-        return sendCommand(script, bridgeOptions);
+          const result = await sendCommand(script, bridgeOptions);
+          lastResult = result;
+          const data = result.data as { undone?: number; undoStackIndexBefore?: number; undoStackIndexAfter?: number; stackVerified?: boolean; [key: string]: unknown } | undefined;
+          if (firstIndex === undefined && typeof data?.undoStackIndexBefore === "number") firstIndex = data.undoStackIndexBefore;
+          undone += data?.undone ?? 0;
+          if (!result.success || data?.stackVerified !== true) {
+            if (undone === 0) return result;
+            return {
+              success: true,
+              data: {
+                ...(data ?? {}), undone, undoStackIndexBefore: firstIndex, outcome: "committed_unverified", stackVerified: false,
+                warning: `${result.error ?? (data?.warning as string | undefined) ?? "Undo stopped"} ${undone} step(s) were undone. Do not retry the whole count; inspect the project first.`,
+              },
+            };
+          }
+          if (typeof data.undoStackIndexAfter !== "number") return { success: true, data: { ...data, undone, undoStackIndexBefore: firstIndex, outcome: "committed_unverified", stackVerified: false, warning: "Premiere did not return the undo-stack position after a batch. Do not retry the whole count; inspect the project first." } };
+          expectedIndex = data.undoStackIndexAfter;
+        }
+        const data = lastResult?.data as { [key: string]: unknown } | undefined;
+        return { ...(lastResult ?? { success: false, error: "Undo was not attempted" }), data: { ...(data ?? {}), undone, undoStackIndexBefore: firstIndex } };
       },
     },
 

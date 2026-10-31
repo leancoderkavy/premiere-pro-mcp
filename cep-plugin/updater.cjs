@@ -7,9 +7,12 @@
 })(this, function () {
   "use strict";
 
-  var CURRENT_VERSION = "1.25.0";
+  var CURRENT_VERSION = "1.27.0";
   var PACKAGE_NAME = "premiere-pro-mcp";
   var LATEST_PACKAGE_API = "https://registry.npmjs.org/" + PACKAGE_NAME + "/latest";
+  // The /latest endpoint serves only full JSON: it answers HTTP 406 to the abbreviated
+  // "application/vnd.npm.install-v1+json" type that the full packument accepts.
+  var LATEST_PACKAGE_ACCEPT = "application/json";
   var LATEST_RELEASE_API =
     "https://api.github.com/repos/leancoderkavy/premiere-pro-mcp/releases/latest";
   var RELEASES_URL =
@@ -190,6 +193,7 @@
     CURRENT_VERSION: CURRENT_VERSION,
     PACKAGE_NAME: PACKAGE_NAME,
     LATEST_PACKAGE_API: LATEST_PACKAGE_API,
+    LATEST_PACKAGE_ACCEPT: LATEST_PACKAGE_ACCEPT,
     LATEST_RELEASE_API: LATEST_RELEASE_API,
     RELEASES_URL: RELEASES_URL,
     normalizeVersion: normalizeVersion,

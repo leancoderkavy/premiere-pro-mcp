@@ -1,3 +1,4 @@
+import { pointUnitsError } from "./point-units.js";
 import { prepareAdjacentMediaBounds } from "./adjacent-media-bounds.js";
 import { probeMediaDurationTicks } from "./media-evidence.js";
 import { rippleDeleteScriptBody } from "./ripple-delete-script.js";
@@ -413,6 +414,27 @@ export function getTimelineTools(
           if (!result) return __error("Clip not found: ${nodeId}");
           var outcome = __removeClipAndPartners(result, ${args.include_linked !== false});
           if (!outcome.ok) return __error(outcome.error);
+          try {
+            var removalTracks = [app.project.activeSequence.videoTracks, app.project.activeSequence.audioTracks];
+            var inspectedClips = 0;
+            for (var kind = 0; kind < removalTracks.length; kind++) {
+              var tracks = removalTracks[kind];
+              if (!tracks || typeof tracks.numTracks !== "number" || !isFinite(tracks.numTracks) || tracks.numTracks < 0 || Math.floor(tracks.numTracks) !== tracks.numTracks || tracks.numTracks > 10000) throw new Error("Unreadable track count");
+              for (var ti = 0; ti < tracks.numTracks; ti++) {
+                var clips = tracks[ti].clips;
+                if (!clips || typeof clips.numItems !== "number" || !isFinite(clips.numItems) || clips.numItems < 0 || Math.floor(clips.numItems) !== clips.numItems || clips.numItems > 100000 - inspectedClips) throw new Error("Unreadable clip count");
+                inspectedClips += clips.numItems;
+                for (var ci = 0; ci < clips.numItems; ci++) {
+                  if (!clips[ci] || !clips[ci].nodeId) throw new Error("Unreadable clip identity");
+                  for (var ri = 0; ri < outcome.data.removedClipIds.length; ri++) {
+                    if (String(clips[ci].nodeId) === outcome.data.removedClipIds[ri]) throw new Error("A removal target is still present");
+                  }
+                }
+              }
+            }
+          } catch (removalReadbackError) {
+            return __error("Removal was attempted, but the remaining timeline could not be read reliably. Inspect before retrying.", { outcome: "committed_unverified", verified: false });
+          }
           outcome.data.verified = true;
           return __result(outcome.data);
         `);
@@ -421,7 +443,7 @@ export function getTimelineTools(
     },
 
     move_clip: {
-      description: "EXPERIMENTAL (undocumented QE DOM for track changes): Move a clip to a new position on the timeline; optional track moves use Premiere's QE API and may not work on every version.",
+      description: "Refuses attached transitions or unreadable transition collections before structural edits; inspect transitionsAffected and use remove_transition first. EXPERIMENTAL (undocumented QE DOM for track changes): Move a clip to a new position on the timeline; optional track moves use Premiere's QE API and may not work on every version.",
       parameters: {
         type: "object" as const,
         properties: {
@@ -475,6 +497,15 @@ export function getTimelineTools(
               Math.abs(spanTicks / frameTicks - Math.round(spanTicks / frameTicks)) > 0.001) {
             return __error("The clip's existing start, end or duration is off the active sequence frame grid. Repair it in Premiere before moving; no change was attempted.");
           }
+
+          var requestedStartTicks = __secondsToTicks(${args.new_start_seconds});
+          var newStartTicks = __snapSequenceTicks(seq, requestedStartTicks);
+          var newEndTicks = newStartTicks + spanTicks;
+          var transitionFailure = __transitionEditGuard(seq, [
+            { type: result.trackType, index: result.trackIndex, start: Number(clip.start.ticks), end: Number(clip.end.ticks) },
+            { type: result.trackType, index: ${args.new_track_index ?? "result.trackIndex"}, start: newStartTicks, end: newEndTicks }
+          ]);
+          if (transitionFailure) return transitionFailure;
 
           ${args.new_track_index !== undefined ? `
           // The track change is attempted before the start time is written, so
@@ -543,9 +574,6 @@ export function getTimelineTools(
           // Writing start alone leaves end in place on Premiere Pro 26.x, which
           // stretches (earlier move) or trims (later move) the clip instead of
           // moving it. Write both edges in the order that keeps start < end.
-          var requestedStartTicks = __secondsToTicks(${args.new_start_seconds});
-          var newStartTicks = __snapSequenceTicks(seq, requestedStartTicks);
-          var newEndTicks = newStartTicks + spanTicks;
           try {
             __writeClipSpan(clip, newStartTicks, newEndTicks);
           } catch (moveWriteErr) {
@@ -596,6 +624,7 @@ export function getTimelineTools(
           ` : ""}
 
           var movePayload = {
+            transitionsAffected: [],
             moved: true,
             verified: true,
             clipName: clipName,
@@ -614,7 +643,7 @@ export function getTimelineTools(
 
     trim_clip: {
       description:
-        "Trim exactly one source in/out point and verify the corresponding visible timeline edge. Requires accessible physical media duration from ffprobe; unknown duration or linked partners using different source files refuse before mutation. Refuses retimed clips, extensions that would overlap the neighbouring clip on the same track, and, by default, trims that would leave effect keyframes outside the visible clip. Linked audio/video partners get the same trim by default (include_linked), applied as the same offset from each partner's own source point so a J/L cut or slipped audio stays in sync; every clip is checked before any is changed. To set a clip's timeline length or extend a still image, use set_clip_duration. Existing host Out padding below one sequence frame may be preserved or reduced, but never used to create additional padding.",
+        "Refuses attached transitions or unreadable transition collections before structural edits; inspect transitionsAffected and use remove_transition first. Trim exactly one source in/out point and verify the corresponding visible timeline edge. Requires accessible physical media duration from ffprobe; unknown duration or linked partners using different source files refuse before mutation. Refuses retimed clips, extensions that would overlap the neighbouring clip on the same track, and, by default, trims that would leave effect keyframes outside the visible clip. Linked audio/video partners get the same trim by default (include_linked), applied as the same offset from each partner's own source point so a J/L cut or slipped audio stays in sync; every clip is checked before any is changed. To set a clip's timeline length or extend a still image, use set_clip_duration. Existing host Out padding below one sequence frame may be preserved or reduced, but never used to create additional padding.",
       parameters: {
         type: "object" as const,
         properties: {
@@ -1036,7 +1065,7 @@ export function getTimelineTools(
 
     set_clip_duration: {
       description:
-        "Set one timeline clip's visible duration by moving only its timeline end (TrackItem.end) while keeping its start fixed. Pass exactly one of duration_seconds or end_seconds. Works for extending still images past their import length. Refuses to overlap the next clip on the same track, rejects shortening that would strand effect keyframes unless keyframe_policy is preserve, reads start/end back, and restores the original end if Premiere clamps or ignores the write (for example when video media has no handle left). Linked audio/video partners get the same change by default (include_linked), applied as the same end offset so partners with a J/L cut keep their offset; every clip is checked before any is changed. Use this instead of speed changes, which Premiere does not expose to scripting. Existing host Out padding below one sequence frame may be preserved or reduced, but never used to create additional padding. Non-still sources require readable ffprobe duration evidence and a readable sequence frame grid.",
+        "Refuses attached transitions or unreadable transition collections before structural edits; inspect transitionsAffected and use remove_transition first. Set one timeline clip's visible duration by moving only its timeline end (TrackItem.end) while keeping its start fixed. Pass exactly one of duration_seconds or end_seconds. Works for extending still images past their import length. Refuses to overlap the next clip on the same track, rejects shortening that would strand effect keyframes unless keyframe_policy is preserve, reads start/end back, and restores the original end if Premiere clamps or ignores the write (for example when video media has no handle left). Linked audio/video partners get the same change by default (include_linked), applied as the same end offset so partners with a J/L cut keep their offset; every clip is checked before any is changed. Use this instead of speed changes, which Premiere does not expose to scripting. Existing host Out padding below one sequence frame may be preserved or reduced, but never used to create additional padding. Non-still sources require readable ffprobe duration evidence and a readable sequence frame grid.",
       parameters: {
         type: "object" as const,
         properties: {
@@ -1436,7 +1465,7 @@ export function getTimelineTools(
 
     duplicate_clip: {
       description:
-        "EXPERIMENTAL: Duplicate a timeline clip, with its linked audio/video partner, onto the first tracks above it that are empty for the clip's time range. The copy keeps the clip's source in point and visible duration, is placed with an overwrite edit (nothing ripples), and is read back. A post-write mismatch is committed_unverified; inspect the timeline or use Undo. Fails without changes when no free track is available; add one with add_tracks.",
+        "EXPERIMENTAL: Duplicate a timeline clip, with its linked audio/video partner, onto the first tracks above it that are empty for the clip's time range. The copy keeps the clip's source in point and visible duration, is placed with an overwrite edit (nothing ripples), and is read back. A post-write mismatch is committed_unverified; inspect the timeline or use Undo. High-rate audio above 48 kHz refuses before writing temporary source marks unless its existing marks already match the copy range; native restore diagnostics are pending. Fails without changes when no free track is available; add one with add_tracks.",
       parameters: {
         type: "object" as const,
         properties: {
@@ -1540,14 +1569,28 @@ export function getTimelineTools(
           // reads back as sample 48047), and overwriteClip then floors the In to
           // the sequence frame, losing a whole frame. Write audio marks a quarter
           // sample late.
-          if (markMediaType === 2) markBias = __ticksToSeconds(TICKS_PER_SECOND / 48000 / 4);
+          if (markMediaType === 2) markBias = __ticksToSeconds(TICKS_PER_SECOND / __itemAudioSampleRate(item) / 4);
           var originalMarks = __itemMarksForRestore(item, markMediaType);
           if (!originalMarks) return __error("Project-item marks could not be read reliably for restoration; nothing was changed.");
-          var originalInSeconds = originalMarks.inSeconds, originalOutSeconds = originalMarks.outSeconds;
+          var reuseHighRateMarks = false;
+          if (markMediaType === 2 && __itemAudioSampleRate(item) > 48000) {
+            var savedIn = Number(originalMarks.inTicks), savedOut = Number(originalMarks.outTicks);
+            reuseHighRateMarks = Math.abs(savedIn - inTicks) <= __TICK_MATCH_TOL &&
+              Math.abs(savedOut - (inTicks + endTicks - startTicks)) <= __TICK_MATCH_TOL &&
+              Math.abs(Number(item.getInPoint(2).ticks) - savedIn) <= __TICK_MATCH_TOL &&
+              Math.abs(Number(item.getOutPoint(2).ticks) - savedOut) <= __TICK_MATCH_TOL;
+            if (!reuseHighRateMarks) return __error("SOURCE_MARK_CLOCK_UNCONFIRMED: high-rate audio duplication would temporarily rewrite source marks whose native restore clock is not confirmed. Nothing changed. Run the scratch diag_audio384 sweep before retrying; use an unchanged whole marked source range meanwhile.", {
+              code: "SOURCE_MARK_CLOCK_UNCONFIRMED", mutationOutcome: "not_applied", timelineChanged: false,
+              verified: false, marksRestored: true, survivingCopyIds: [], sampleRate: __itemAudioSampleRate(item),
+              expectedInTicks: originalMarks.inTicks, expectedOutTicks: originalMarks.outTicks
+            });
+          }
           var placeError = null;
           try {
-            item.setInPoint(copyIn + markBias, markMediaType);
-            item.setOutPoint(copyOut + markBias, markMediaType);
+            if (!reuseHighRateMarks) {
+              item.setInPoint(copyIn + markBias, markMediaType);
+              item.setOutPoint(copyOut + markBias, markMediaType);
+            }
             // Sequence.overwriteClip treats each index as a real track. Mapping a
             // missing media kind from -1 to 0 overwrites V0 or A0 (occupied or not).
             // Single-kind copies use Track.overwriteClip so the other type is untouched.
@@ -1565,15 +1608,27 @@ export function getTimelineTools(
           } catch (overwriteError) {
             placeError = overwriteError.toString();
           }
-          try { item.setInPoint(originalInSeconds, markMediaType); item.setOutPoint(originalOutSeconds, markMediaType); } catch (restoreError) {}
           var marksRestored = false;
-          try { marksRestored = Math.abs(parseFloat(item.getInPoint(markMediaType).ticks) - Number(originalMarks.inTicks)) <= __TICK_MATCH_TOL &&
-            Math.abs(parseFloat(item.getOutPoint(markMediaType).ticks) - Number(originalMarks.outTicks)) <= __TICK_MATCH_TOL; } catch (restoreReadError) {}
-          if (!marksRestored) return __error("Duplicate was attempted but the project-item marks could not be restored. Inspect the source range before retrying.", { outcome: "committed_unverified", verified: false, marksRestored: false, timelineChanged: null });
-          if (placeError) return __error("Premiere rejected the duplicate: " + placeError);
-
+          try {
+            marksRestored = reuseHighRateMarks ?
+              Math.abs(Number(item.getInPoint(markMediaType).ticks) - Number(originalMarks.inTicks)) <= __TICK_MATCH_TOL &&
+              Math.abs(Number(item.getOutPoint(markMediaType).ticks) - Number(originalMarks.outTicks)) <= __TICK_MATCH_TOL :
+              __restoreItemMarks(item, originalMarks, markMediaType);
+          } catch (restoreError) {}
           var newVideo = videoTarget >= 0 ? newClipOn(seq.videoTracks[videoTarget], beforeVideo) : null;
           var newAudio = audioTarget >= 0 ? newClipOn(seq.audioTracks[audioTarget], beforeAudio) : null;
+          var survivingCopyIds = [];
+          if (newVideo) survivingCopyIds.push(String(newVideo.nodeId));
+          if (newAudio) survivingCopyIds.push(String(newAudio.nodeId));
+          var markRestore = { expectedInTicks: originalMarks.inTicks, expectedOutTicks: originalMarks.outTicks,
+            inTicks: null, outTicks: null, mediaType: markMediaType,
+            sampleRate: markMediaType === 2 ? __itemAudioSampleRate(item) : null,
+            gridTicks: String(__mediaGridTicks(item, markMediaType)),
+            biasTicks: String(__mediaGridTicks(item, markMediaType) / 4) };
+          try { markRestore.inTicks = String(item.getInPoint(markMediaType).ticks); markRestore.outTicks = String(item.getOutPoint(markMediaType).ticks); } catch (markReadError) {}
+          if (!marksRestored) return __error("Duplicate was attempted but the project-item marks could not be restored. Inspect the source range and surviving copy IDs before retrying.", { outcome: "committed_unverified", verified: false, marksRestored: false, timelineChanged: survivingCopyIds.length ? true : null, survivingCopyIds: survivingCopyIds, markRestore: markRestore });
+          if (placeError) return __error("Premiere rejected the duplicate: " + placeError, { outcome: "committed_unverified", verified: false, marksRestored: true, timelineChanged: survivingCopyIds.length ? true : null, survivingCopyIds: survivingCopyIds, markRestore: markRestore });
+
           // Keep only what the original clip had: drop the other media kind when it had no linked partner.
           if (isVideo && !partner && newAudio) { try { newAudio.remove(false, false); } catch (dropAudio) {} newAudio = null; }
           if (!isVideo && !partner && newVideo) { try { newVideo.remove(false, false); } catch (dropVideo) {} newVideo = null; }
@@ -1593,14 +1648,16 @@ export function getTimelineTools(
           }
           correctEnd(newVideo);
           correctEnd(newAudio);
-          // A mixed-rate copy can still land its source in up to one media frame
-          // off, because the mark cannot sit between media frames. Slip it back to
-          // the original's source in when its timeline span already matches.
+          // Placement can floor source In to the sequence frame grid. Restore
+          // audio samples and mixed-rate video source In when the timeline
+          // span already matches.
           var inCorrected = false;
           function correctIn(placed) {
-            if (!placed || !mixedRate) return;
+            if (!placed || (!mixedRate && markMediaType !== 2)) return;
             var offset = inTicks - parseFloat(placed.inPoint.ticks);
-            if (!isFinite(offset) || Math.abs(offset) < frameTicks / 2 || Math.abs(offset) >= mediaFrameTicks) return;
+            var correctionTolerance = markMediaType === 2 ? TICKS_PER_SECOND / __itemAudioSampleRate(item) / 2 : frameTicks / 2;
+            var maximumCorrection = markMediaType === 2 ? frameTicks + __TICK_MATCH_TOL : mediaFrameTicks;
+            if (!isFinite(offset) || Math.abs(offset) < correctionTolerance || Math.abs(offset) >= maximumCorrection) return;
             if (Math.abs(parseFloat(placed.start.ticks) - startTicks) >= frameTicks / 2) return;
             if (Math.abs(parseFloat(placed.end.ticks) - endTicks) >= frameTicks / 2) return;
             try {
@@ -1618,8 +1675,8 @@ export function getTimelineTools(
           var linkedCopy = isVideo ? newAudio : newVideo;
           var drift = Math.max(Math.abs(parseFloat(primary.start.ticks) - startTicks), Math.abs(parseFloat(primary.end.ticks) - endTicks));
           var inDrift = Math.abs(parseFloat(primary.inPoint.ticks) - inTicks);
-          // A mixed-rate source in within half a media frame shows the same media frame.
-          var inTolerance = mixedRate ? Math.max(frameTicks, mediaFrameTicks) / 2 : frameTicks / 2;
+          // Audio source In must match within half a sample; video uses its media frame.
+          var inTolerance = markMediaType === 2 ? TICKS_PER_SECOND / __itemAudioSampleRate(item) / 2 : (mixedRate ? Math.max(frameTicks, mediaFrameTicks) / 2 : frameTicks / 2);
           var sourceIn = { requestedSeconds: __ticksToSeconds(inTicks), appliedSeconds: __ticksToSeconds(primary.inPoint.ticks), corrected: inCorrected, snappedToMediaFrame: inDrift >= frameTicks / 2 && inDrift < inTolerance };
           var linkedVerified = !partner || (!!linkedCopy && Math.abs(parseFloat(linkedCopy.end.ticks) - endTicks) < frameTicks / 2);
           function describe(c, type, index) {
@@ -1638,6 +1695,8 @@ export function getTimelineTools(
           } });
           return __result({
             duplicated: true,
+            marksRestored: true,
+            markRestore: markRestore,
             verified: true,
             outcome: "verified",
             clipName: clip.name,
@@ -1685,7 +1744,7 @@ export function getTimelineTools(
 
     set_clip_properties: {
       description:
-        "Set supported clip properties (opacity, scale, position, rotation) and read each requested value back. Clip speed is unsupported and fails before mutation; use set_clip_duration to change a clip's timeline length.",
+        "Set supported clip properties (opacity, scale, position, rotation) and read each requested value back. Position uses pixels by default or explicit normalized 0–1 fractions; an omitted-unit 0–1 pair retains pixels with a warning. Clip speed is unsupported and fails before mutation; use set_clip_duration to change a clip's timeline length.",
       parameters: {
         type: "object" as const,
         properties: {
@@ -1696,8 +1755,9 @@ export function getTimelineTools(
             description: "Unsupported by Premiere's documented scripting APIs. Supplying this returns an actionable error without mutating the clip; use set_clip_duration to change timeline length.",
           },
           scale: { type: "number", minimum: 0, maximum: 10000, description: "Scale percentage (0-10000; 100 = original size)" },
-          position_x: { type: "number", description: "Horizontal position in sequence pixels" },
-          position_y: { type: "number", description: "Vertical position in sequence pixels" },
+          units: { type: "string", enum: ["pixels", "normalized"], description: "Position units; pixels by default or normalized 0–1 sequence-frame fractions. Requires a position value." },
+          position_x: { type: "number", description: "Horizontal position in the selected units: sequence pixels by default or normalized 0–1 fractions." },
+          position_y: { type: "number", description: "Vertical position in the selected units: sequence pixels by default or normalized 0–1 fractions." },
           rotation: { type: "number", description: "Rotation in degrees" },
         },
         required: ["node_id"],
@@ -1707,10 +1767,13 @@ export function getTimelineTools(
         opacity?: number;
         speed?: number;
         scale?: number;
+        units?: "pixels" | "normalized";
         position_x?: number;
         position_y?: number;
         rotation?: number;
       }) => {
+        const invalidUnits = pointUnitsError(args.units, args.position_x, args.position_y, true);
+        if (invalidUnits) return { success: false, error: invalidUnits };
         if (args.speed !== undefined) return { success: false, error: SPEED_UNAVAILABLE_ERROR };
         if (args.opacity !== undefined && (!Number.isFinite(args.opacity) || args.opacity < 0 || args.opacity > 100)) {
           return { success: false, error: "opacity must be finite and between 0 and 100." };
@@ -1785,7 +1848,7 @@ export function getTimelineTools(
           var beforePosition = null;
           try { beforePosition = positionProp.getValue(); } catch (ePosition) {}
           if (!beforePosition || typeof beforePosition !== "object" || beforePosition.length < 2 || typeof beforePosition[0] !== "number" || typeof beforePosition[1] !== "number" || !isFinite(beforePosition[0]) || !isFinite(beforePosition[1])) return __error("Position value could not be read before mutation; nothing was changed.");
-          var positionScale = __motionPointScale(positionProp, __sequenceFrameSize(app.project.activeSequence));
+          var positionScale = __motionPointScale(positionProp, __sequenceFrameSize(app.project.activeSequence), "${escapeForExtendScript(args.units ?? "pixels")}");
           if (!positionScale) return __error("The sequence frame size is unreadable, so position pixels cannot be converted; nothing was changed.");
           var wantedPositionX = ${args.position_x !== undefined ? `${args.position_x} * positionScale.x` : "Number(beforePosition[0])"};
           var wantedPositionY = ${args.position_y !== undefined ? `${args.position_y} * positionScale.y` : "Number(beforePosition[1])"};
@@ -1865,7 +1928,7 @@ export function getTimelineTools(
           ${args.position_x !== undefined ? `changes.position_x = ${args.position_x};` : ""}
           ${args.position_y !== undefined ? `changes.position_y = ${args.position_y};` : ""}
           ${args.rotation !== undefined ? `changes.rotation = ${args.rotation};` : ""}
-          return __result({ updated: true, verified: true, outcome: "verified", clipName: clip.name, changes: changes, readback: readback });
+          return __result({ updated: true, verified: true, outcome: "verified", clipName: clip.name, changes: changes, readback: readback, units: "${escapeForExtendScript(args.units ?? "pixels")}", warning: __pointUnitsWarning(${args.position_x ?? "null"}, ${args.position_y ?? "null"}, ${args.units !== undefined}, app.project.activeSequence) });
         `);
         return sendCommand(script, bridgeOptions);
       },

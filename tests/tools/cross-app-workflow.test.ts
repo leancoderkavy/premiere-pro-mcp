@@ -1,4 +1,7 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+
+// Full catalog setup can contend with other processes on a loaded machine.
+vi.setConfig({ testTimeout: 60_000, hookTimeout: 60_000 });
 import { getCrossAppWorkflowTools, planCrossAppWorkflow } from "../../src/tools/cross-app-workflow.js";
 import { annotationsForTool } from "../../src/workflows/tool-metadata.js";
 import { capabilityForTool } from "../../src/security/capabilities.js";

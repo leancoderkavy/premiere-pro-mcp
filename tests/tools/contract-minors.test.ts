@@ -100,6 +100,7 @@ describe("minor host contract receipts", () => {
       isTimeVarying: () => true,
       addKey: vi.fn(),
       setValueAtKey: vi.fn(),
+      getValue: () => 50,
       getValueAtKey: () => 50,
       getKeys: () => [{ ticks: String(3 * 254016000000) }],
     };

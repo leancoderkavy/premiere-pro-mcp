@@ -1,3 +1,4 @@
+import { pointUnitsError } from "./point-units.js";
 import { buildToolScript, escapeForExtendScript } from "../bridge/script-builder.js";
 import { sendCommand, BridgeOptions } from "../bridge/file-bridge.js";
 import { AUDIO_KEYFRAME_READBACK, dbToPremiereLevel, PREMIERE_MAX_LEVEL_DB } from "./audio.js";
@@ -17,6 +18,7 @@ type DuckingWindow = {
 };
 
 type ClipPropertyBatchItem = {
+  units?: "pixels" | "normalized";
   node_id: string;
   opacity?: number;
   scale?: number;
@@ -886,7 +888,7 @@ export function getCompetitorGapTools(
 
     set_clip_properties_batch: {
       description:
-        "Apply Motion/Opacity values to up to 16 clips after preflighting every target property. The handler reads each requested value back and never reports a partial batch as verified.",
+        "Apply Motion/Opacity values to up to 16 clips after preflighting every target property. Position defaults to pixels or accepts explicit normalized 0–1 fractions; omitted-unit 0–1 pairs retain pixels and add per-item warnings. The handler reads each requested value back and never reports a partial batch as verified.",
       parameters: {
         type: "object" as const,
         additionalProperties: false,
@@ -903,8 +905,9 @@ export function getCompetitorGapTools(
                 node_id: { type: "string", minLength: 1, maxLength: 512, description: "Timeline clip node ID." },
                 opacity: { type: "number", minimum: 0, maximum: 100, description: "Opacity percentage." },
                 scale: { type: "number", exclusiveMinimum: 0, description: "Motion scale percentage." },
-                position_x: { type: "number", description: "Motion horizontal position in sequence pixels." },
-                position_y: { type: "number", description: "Motion vertical position in sequence pixels." },
+                units: { type: "string", enum: ["pixels", "normalized"], description: "Position units, pixels by default or normalized 0–1 sequence-frame fractions; requires a position value." },
+                position_x: { type: "number", description: "Motion horizontal position in selected units: sequence pixels by default or normalized 0–1 fractions." },
+                position_y: { type: "number", description: "Motion vertical position in selected units: sequence pixels by default or normalized 0–1 fractions." },
                 rotation: { type: "number", description: "Motion rotation in degrees." },
                 speed: { type: "number", description: "Unsupported; supplying it fails before any clip is changed." },
               },
@@ -926,6 +929,8 @@ export function getCompetitorGapTools(
           }
           if (seen.has(item.node_id)) return { success: false, error: `items contains duplicate node_id '${item.node_id}'; combine changes for each clip into one item.` };
           seen.add(item.node_id);
+          const invalidUnits = pointUnitsError(item.units, item.position_x, item.position_y, true);
+          if (invalidUnits) return { success: false, error: `items[${index}]: ${invalidUnits}` };
           if (item.speed !== undefined) {
             return { success: false, error: "Changing timeline speed is not exposed by Premiere's supported scripting APIs. No batch mutation was attempted." };
           }
@@ -944,6 +949,8 @@ export function getCompetitorGapTools(
           nodeId: "${escapeForExtendScript(item.node_id)}",
           opacity: ${item.opacity === undefined ? "null" : item.opacity},
           scale: ${item.scale === undefined ? "null" : item.scale},
+          units: "${escapeForExtendScript(item.units ?? "pixels")}",
+          unitsProvided: ${item.units !== undefined},
           positionX: ${item.position_x === undefined ? "null" : item.position_x},
           positionY: ${item.position_y === undefined ? "null" : item.position_y},
           rotation: ${item.rotation === undefined ? "null" : item.rotation}
@@ -1004,7 +1011,7 @@ export function getCompetitorGapTools(
                   if (!resolved.old.position || resolved.old.position.length < 2) return __error("Motion Position was unreadable on batch item " + i + ". No batch mutation was attempted.");
                 } catch (positionReadError) { return __error("Position could not be read on batch item " + i + ". No batch mutation was attempted."); }
                 // position_x/y are sequence pixels; Premiere 25.2 stores Position normalized.
-                resolved.positionScale = __motionPointScale(resolved.position, __sequenceFrameSize(app.project.activeSequence));
+                resolved.positionScale = __motionPointScale(resolved.position, __sequenceFrameSize(app.project.activeSequence), spec.units);
                 if (!resolved.positionScale) return __error("The sequence frame size is unreadable on batch item " + i + ". No batch mutation was attempted.");
               }
               if (spec.rotation !== null) {
@@ -1026,6 +1033,10 @@ export function getCompetitorGapTools(
               try { if (prior.rotation) prior.rotation.setValue(prior.old.rotation, true); } catch (restoreRotationError) {}
             }
           }
+          function numericReadbackMatches(actual, expected) {
+            return typeof actual === "number" && isFinite(actual) &&
+              typeof expected === "number" && isFinite(expected) && Math.abs(actual - expected) <= 0.0001;
+          }
           for (i = 0; i < prepared.length; i++) {
             var update = prepared[i];
             var spec = update.spec;
@@ -1043,23 +1054,23 @@ export function getCompetitorGapTools(
               return __error("Premiere rejected batch item " + i + "; a best-effort restore was attempted: " + writeError.toString());
             }
             var mismatch = false;
-            try { if (update.opacity && Math.abs(Number(update.opacity.getValue()) - Number(spec.opacity)) > 0.0001) mismatch = true; } catch (readOpacityError) { mismatch = true; }
-            try { if (update.scale && Math.abs(Number(update.scale.getValue()) - Number(spec.scale)) > 0.0001) mismatch = true; } catch (readScaleError) { mismatch = true; }
-            try { if (update.scaleWidth && Math.abs(Number(update.scaleWidth.getValue()) - Number(spec.scale)) > 0.0001) mismatch = true; } catch (readScaleWidthError) { mismatch = true; }
+            try { if (update.opacity && !numericReadbackMatches(update.opacity.getValue(), spec.opacity)) mismatch = true; } catch (readOpacityError) { mismatch = true; }
+            try { if (update.scale && !numericReadbackMatches(update.scale.getValue(), spec.scale)) mismatch = true; } catch (readScaleError) { mismatch = true; }
+            try { if (update.scaleWidth && !numericReadbackMatches(update.scaleWidth.getValue(), spec.scale)) mismatch = true; } catch (readScaleWidthError) { mismatch = true; }
             try {
               if (update.position) {
                 var actualPosition = update.position.getValue();
                 var expectedX = spec.positionX === null ? update.old.position[0] : spec.positionX * update.positionScale.x;
                 var expectedY = spec.positionY === null ? update.old.position[1] : spec.positionY * update.positionScale.y;
-                if (!actualPosition || Math.abs(Number(actualPosition[0]) - Number(expectedX)) > 0.0001 || Math.abs(Number(actualPosition[1]) - Number(expectedY)) > 0.0001) mismatch = true;
+                if (Object.prototype.toString.call(actualPosition) !== "[object Array]" || actualPosition.length !== 2 || !numericReadbackMatches(actualPosition[0], expectedX) || !numericReadbackMatches(actualPosition[1], expectedY)) mismatch = true;
               }
             } catch (readPositionError) { mismatch = true; }
-            try { if (update.rotation && Math.abs(Number(update.rotation.getValue()) - Number(spec.rotation)) > 0.0001) mismatch = true; } catch (readRotationError) { mismatch = true; }
+            try { if (update.rotation && !numericReadbackMatches(update.rotation.getValue(), spec.rotation)) mismatch = true; } catch (readRotationError) { mismatch = true; }
             if (mismatch) {
               restoreAll();
               return __error("Premiere did not verify batch item " + i + "; a best-effort restore was attempted. No partial batch is reported as verified.");
             }
-            applied.push({ nodeId: spec.nodeId, clipName: update.clip.name });
+            applied.push({ nodeId: spec.nodeId, clipName: update.clip.name, units: spec.units, warning: __pointUnitsWarning(spec.positionX, spec.positionY, spec.unitsProvided, app.project.activeSequence) });
           }
           return __result({ updated: true, verified: true, renderVerified: false, verificationScope: "Premiere parameter readback only; verify playback or exported frames before delivery.", items: applied });
         `);

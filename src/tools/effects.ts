@@ -208,7 +208,7 @@ export function getEffectsTools(bridgeOptions: BridgeOptions) {
             description: "Node ID of the clip",
           },
           effect_index: {
-            type: "number",
+            type: "integer",
             minimum: 0,
             description: "Index of the effect to remove (0-based). Use get_clip_properties to see effects list.",
           },
@@ -220,13 +220,16 @@ export function getEffectsTools(bridgeOptions: BridgeOptions) {
         required: ["node_id"],
       },
       handler: async (args: { node_id: string; effect_index?: number; effect_name?: string }) => {
+        if (args.effect_index !== undefined && (!Number.isSafeInteger(args.effect_index) || args.effect_index < 0)) {
+          return { success: false, error: "effect_index must be a non-negative safe integer", data: { mutationOutcome: "not_applied", timelineChanged: false } };
+        }
         const script = buildToolScript(`
           var result = __findClip("${escapeForExtendScript(args.node_id)}");
           if (!result) return __refuse("Clip not found");
           var clip = result.clip;
           ${args.effect_index !== undefined ? `
           var chosen = ${args.effect_index};
-          if (chosen < 0 || chosen >= clip.components.numItems) return __error("Effect index out of range");
+          if (chosen < 0 || chosen >= clip.components.numItems) return __error("Effect index out of range", { mutationOutcome: "not_applied", timelineChanged: false });
           var effectName = String(clip.components[chosen].displayName);
           ` : `
           var effectName = "${escapeForExtendScript(args.effect_name || "")}";
@@ -234,12 +237,15 @@ export function getEffectsTools(bridgeOptions: BridgeOptions) {
           for (var i = clip.components.numItems - 1; i >= 0; i--) {
             if (clip.components[i].displayName === effectName) { chosen = i; break; }
           }
-          if (chosen < 0) return __error("Effect not found: " + effectName);
+          if (chosen < 0) return __error("Effect not found: " + effectName, { mutationOutcome: "not_applied", timelineChanged: false });
           `}
-          if (__isBuiltInComponent(clip.components[chosen])) return __error(effectName + " is a built-in clip component, not an effect, and cannot be removed.");
+          if (__isBuiltInComponentForClip(clip.components[chosen], result.trackType)) return __error(effectName + " is a built-in clip component, not an effect, and cannot be removed.", { mutationOutcome: "not_applied", timelineChanged: false });
           var removal = __removeClipComponents(result, function (name, index) { return index === chosen; });
-          if (removal.unsupported) return __error("Capability error: " + removal.unsupported + " Nothing was removed; remove effects in Effect Controls.");
-          if (removal.failures.length && removal.nothingRemoved) return __error("Capability error: Premiere exposes neither Component.remove() nor a matching QE component for " + effectName + ". The effect was not removed; remove it in Effect Controls.");
+          var failureReceipt = removal.mutationAttempted === false
+            ? { mutationOutcome: "not_applied", timelineChanged: false }
+            : { mutationOutcome: "unknown", timelineChanged: null };
+          if (removal.unsupported) return __error("Capability error: " + removal.unsupported + " Nothing was removed; remove effects in Effect Controls.", failureReceipt);
+          if (removal.failures.length && removal.nothingRemoved) return __error(removal.mutationAttempted === false ? "Capability error: Premiere exposes neither Component.remove() nor a matching QE component for " + effectName + ". The effect was not removed; remove it in Effect Controls." : "A removal was attempted, but Premiere did not confirm completion. Inspect the component stack before any retry.", failureReceipt);
           if (removal.failures.length) return __error("Premiere could not remove " + effectName + " from this clip; it is still present. Inspect Effect Controls.");
           if (!removal.verified) return __error((removal.remaining.join("|") === removal.before.join("|") ? "Premiere's removal did not take effect: the clip still has " : "Premiere's removal did not take effect as expected: the clip's components read back as ") + removal.remaining.join(", ") + ". Inspect Effect Controls.");
           return __result({ removed: true, verified: true, effect: effectName, remaining: removal.remaining });

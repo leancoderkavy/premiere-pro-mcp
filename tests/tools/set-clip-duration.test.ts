@@ -97,7 +97,7 @@ function listOf<T>(items: T[]) {
 }
 
 function sequenceWith(clips: MockClip[]) {
-  const track = { clips: listOf(clips) };
+  const track = { transitions: { numItems: 0 }, clips: listOf(clips) };
   return {
     sequenceID: "seq",
     timebase: String(FRAME),

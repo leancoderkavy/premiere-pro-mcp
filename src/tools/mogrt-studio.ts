@@ -549,8 +549,7 @@ export function getMogrtStudioTools(bridgeOptions: BridgeOptions, dependencies: 
         if (input.confirm_enqueue !== true) throw new Error("confirm_enqueue must be true to queue the render");
         const plan = take(renderPlans, input.preview_token, "preview_token");
         const result = await sendAfterEffects(buildAfterEffectsScript(`
-          function normalizedPath(value) { return String(value).replace(/\\\\/g, "/").replace(/\\/+$/, "").toLowerCase(); }
-          function isInside(root, candidate) { var normalizedRoot = normalizedPath(root); var normalizedCandidate = normalizedPath(candidate); return normalizedCandidate === normalizedRoot || normalizedCandidate.indexOf(normalizedRoot + "/") === 0; }
+          function isInside(root, candidate) { return __hostPathIsInside(root, candidate); }
           var project = app.project;
           if (!project || !project.file) return __aeError("Open a saved After Effects project inside approved_workspace_path before queuing a render");
           if (!isInside("${escapeForAfterEffects(plan.workspace)}", project.file.fsName)) return __aeError("The open After Effects project is outside approved_workspace_path; no render was queued");

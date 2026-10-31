@@ -68,8 +68,8 @@ function host(options: { audioRejectsInPoint?: boolean; audioLocked?: boolean; f
   const seq = {
     sequenceID: "seq",
     timebase: String(frameTicks),
-    videoTracks: { numTracks: 1, 0: { clips: collection(video), isLocked: () => false } },
-    audioTracks: { numTracks: 1, 0: { clips: collection(audio), isLocked: () => options.audioLocked === true } },
+    videoTracks: { numTracks: 1, 0: { transitions: { numItems: 0 }, clips: collection(video), isLocked: () => false } },
+    audioTracks: { numTracks: 1, 0: { transitions: { numItems: 0 }, clips: collection(audio), isLocked: () => options.audioLocked === true } },
   };
   const context = {
     app: { project: { documentID: "project", activeSequence: seq, sequences: { numSequences: 1, 0: seq } } },
@@ -715,7 +715,7 @@ describe("physical media bounds for adjacent edits (#718/#719)", () => {
     const before = [...video, ...audio].map((clip) => clip.snapshot());
     vi.mocked(probeMediaDurationTicks).mockImplementation(async () => {
       const tracks = seq.videoTracks as typeof seq.videoTracks & Record<number, typeof seq.videoTracks[0]>;
-      tracks[1] = tracks[0]; tracks[0] = { clips: { numItems: 0 }, isLocked: () => false };
+      tracks[1] = tracks[0]; tracks[0] = { transitions: { numItems: 0 }, clips: { numItems: 0 }, isLocked: () => false };
       tracks.numTracks = 2;
       return 100 * TICKS;
     });

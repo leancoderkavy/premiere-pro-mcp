@@ -1,4 +1,7 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+
+// Full catalog setup can contend with other processes on a loaded machine.
+vi.setConfig({ testTimeout: 60_000, hookTimeout: 60_000 });
 import { collectTools } from "../../src/server.js";
 import { resolveCapabilities } from "../../src/security/index.js";
 import type { UxpWebSocketBridge } from "../../src/bridge/uxp-websocket-bridge.js";

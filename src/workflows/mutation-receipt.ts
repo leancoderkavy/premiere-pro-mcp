@@ -10,20 +10,29 @@ export interface MutationReceipt {
   outputEvidence: unknown | null;
   nextSafeAction: string;
 }
+// These handlers set verified only after observing their promised host postconditions.
+// Explicit outcomes and unknown-state flags always take precedence.
+const handlerReadbackTools = new Set([
+  "overwrite_clip", "set_clip_properties_batch", "setup_ducking", "copy_effects_between_clips",
+  "create_sequence", "set_sequence_frame_rate", "set_sequence_settings", "add_tracks",
+  "import_media", "add_keyframe", "remove_from_timeline", "delete_multiple_project_items", "import_ae_comps",
+]);
+
 /** Add a common envelope without promoting handler success to verified mutation. */
-export function mutationReceipt(success: boolean, value: unknown, context?: Pick<InvocationContext, "dispatched">): MutationReceipt {
+export function mutationReceipt(success: boolean, value: unknown, context?: Pick<InvocationContext, "dispatched">, toolName?: string): MutationReceipt {
   const outer = value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {};
   const data = outer.result && typeof outer.result === "object" && !Array.isArray(outer.result) ? outer.result as Record<string, unknown> : outer;
   // A generic "failed" says nothing about host state; the more specific
   // mutationOutcome (for example not_applied on a refusal) decides then.
   const raw = data.outcome === "failed" && data.mutationOutcome !== undefined ? data.mutationOutcome : data.outcome ?? data.mutationOutcome;
   const dispatched = context?.dispatched === true;
-  const unknown = raw === "unknown" || raw === "unknown_outcome" || data.recoveryRequired === true || data.stateUnknown === true;
+  const unknown = data.mutationOutcome === "unknown" || data.mutationOutcome === "unknown_outcome" || raw === "unknown" || raw === "unknown_outcome" || data.recoveryRequired === true || data.stateUnknown === true;
   const outcome: MutationReceipt["outcome"] = unknown ? "unknown"
     : raw === "verified" ? "verified"
     : raw === "committed" ? "committed"
     : raw === "committed_unverified" ? "committed_unverified"
     : raw === "not_applied" || data.dispatched === false ? "not_applied"
+    : success && data.verified === true && toolName !== undefined && handlerReadbackTools.has(toolName) && raw === undefined ? "verified"
     : success ? (dispatched ? "committed_unverified" : "not_applied")
     : dispatched ? "unknown" : "not_applied";
   const array = (candidate: unknown) => Array.isArray(candidate) ? candidate.slice(0, 100) : [];

@@ -2,10 +2,16 @@ import { createHash, randomBytes } from "node:crypto";
 import { buildToolScript, escapeForExtendScript } from "../bridge/script-builder.js";
 import { BridgeOptions, sendCommand } from "../bridge/file-bridge.js";
 import { CapabilityConfig, requireCapability, resolveCapabilities } from "../security/capabilities.js";
+import { DEFAULT_QE_BATCH_SIZE, QE_BATCH_SIZE_ENV, resolveQeBatchSize } from "./qe-batch-size.js";
 
 export interface TimelineRange { start: number; end: number }
 export interface RangeClip { nodeId: string; start: number; end: number }
 export interface PlannedClip extends RangeClip { removed: boolean; shift: number }
+
+// QE structural calls can exhaust Premiere's native ExtendScript stack before
+// JavaScript's try/catch receives control. Keep each evalScript below this
+// small bound; the next bridge command starts with a fresh native invocation.
+export const RIPPLE_RAZORS_PER_COMMAND = DEFAULT_QE_BATCH_SIZE;
 
 /** Shared by preview and apply: one ordered sweep over ranges per clip. */
 export function planRangeClip(clip: RangeClip, ranges: TimelineRange[], tolerance: number): PlannedClip {
@@ -31,6 +37,7 @@ interface Args {
   range_content: "delete";
   dry_run?: boolean;
   allow_large_ripple?: boolean;
+  batch_size?: number;
   confirmation_token?: string;
 }
 
@@ -49,7 +56,7 @@ function validate(args: Args): string | null {
 }
 
 const pending = new Map<string, { digest: string; fingerprint: string; expires: number }>();
-function digest(args: Args) { return createHash("sha256").update(JSON.stringify({ sequence_id: args.sequence_id, ranges: args.ranges, scope: args.scope, range_content: args.range_content, allow_large_ripple: args.allow_large_ripple === true })).digest("hex"); }
+function digest(args: Args) { return createHash("sha256").update(JSON.stringify({ sequence_id: args.sequence_id, ranges: args.ranges, scope: args.scope, range_content: args.range_content, allow_large_ripple: args.allow_large_ripple === true, batch_size: args.batch_size })).digest("hex"); }
 function issue(args: Args, fingerprint: string): string {
   for (const [key, value] of pending) if (value.expires < Date.now()) pending.delete(key);
   const token = randomBytes(24).toString("hex");
@@ -64,7 +71,7 @@ function consume(token: string | undefined, args: Args): string | null {
 }
 
 /** Single generated-script helper owns preflight, razors, moves, and readback. */
-export function rippleRemoveRangesScript(args: Args, mutate: boolean, expectedFingerprint?: string): string {
+export function rippleRemoveRangesScript(args: Args, mutate: boolean, expectedFingerprint?: string, phase: "all" | "razor" | "finish" = "all", operationId = "", maxRazors = resolveQeBatchSize(args.batch_size)): string {
   const ranges = args.ranges.map((r) => `({ start: Math.round(__secondsToTicks(${r.start})), end: Math.round(__secondsToTicks(${r.end})) })`).join(",");
   const sequence = args.sequence_id ? `var seq = __findSequence("${escapeForExtendScript(args.sequence_id)}"); if (!seq) return __error("Sequence not found");` : "var seq = app.project.activeSequence;";
   return buildToolScript(`
@@ -98,17 +105,39 @@ export function rippleRemoveRangesScript(args: Args, mutate: boolean, expectedFi
     }
     var trackError = addTracks("video", seq.videoTracks) || addTracks("audio", seq.audioTracks);
     if (trackError) return __error("Ripple range removal refused; nothing changed. " + trackError);
+    var transitionScopes = [];
+    for (var tsi = 0; tsi < tracks.length; tsi++) transitionScopes.push({ type: tracks[tsi].type, index: tracks[tsi].index, start: ranges[0].start, end: Number.MAX_VALUE });
+    var transitionFailure = __transitionEditGuard(seq, transitionScopes);
+    if (transitionFailure) return transitionFailure;
     var clips = [], seen = {};
     for (var tr = 0; tr < tracks.length; tr++) {
       var t = tracks[tr];
       for (var ci = 0; ci < t.dom.clips.numItems; ci++) {
         var c = t.dom.clips[ci], id = String(c.nodeId);
         if (seen[id]) continue; seen[id] = true;
-        clips.push({ id: id, type: t.type, track: t.index, start: parseFloat(c.start.ticks), end: parseFloat(c.end.ticks), name: String(c.name) });
+        clips.push({ id: id, type: t.type, track: t.index, start: parseFloat(c.start.ticks), end: parseFloat(c.end.ticks), name: String(c.name), obj: c });
       }
     }
     var fingerprintText = String(seq.sequenceID || "")+"|";
     for (var fi = 0; fi < clips.length; fi++) fingerprintText += clips[fi].id+":"+clips[fi].type+":"+clips[fi].track+":"+clips[fi].start+":"+clips[fi].end+";";
+    function __rippleBatchFingerprint() {
+      var batchText = String(seq.sequenceID || "")+"|", batchSeen = {};
+      for (var batchTrackIndex = 0; batchTrackIndex < tracks.length; batchTrackIndex++) {
+        var batchTrack = tracks[batchTrackIndex];
+        for (var batchClipIndex = 0; batchClipIndex < batchTrack.dom.clips.numItems; batchClipIndex++) {
+          var batchClip = batchTrack.dom.clips[batchClipIndex], batchId = String(batchClip.nodeId);
+          if (batchSeen[batchId]) continue; batchSeen[batchId] = true;
+          batchText += batchId+":"+batchTrack.type+":"+batchTrack.index+":"+parseFloat(batchClip.start.ticks)+":"+parseFloat(batchClip.end.ticks)+";";
+        }
+      }
+      var batchHash = 2166136261;
+      for (var batchFi = 0; batchFi < batchText.length; batchFi++) batchHash = (batchHash ^ batchText.charCodeAt(batchFi)) * 16777619;
+      return String(batchHash >>> 0);
+    }
+    var batchFingerprint = __rippleBatchFingerprint();
+    var __rippleStore = $.global.__premiereMcpRippleOperations;
+    if (!__rippleStore) { __rippleStore = {}; $.global.__premiereMcpRippleOperations = __rippleStore; }
+    var __rippleOperation = __rippleStore["${escapeForExtendScript(operationId)}"];
     var cuts = [], plan = [], errors = [];
     for (var ri = 0; ri < ranges.length; ri++) {
       cuts.push(ranges[ri].start, ranges[ri].end);
@@ -137,7 +166,10 @@ export function rippleRemoveRangesScript(args: Args, mutate: boolean, expectedFi
     var fingerprint = 2166136261;
     for (fi = 0; fi < fingerprintText.length; fi++) fingerprint = (fingerprint ^ fingerprintText.charCodeAt(fi)) * 16777619;
     fingerprint = String(fingerprint >>> 0);
-    if (${mutate} && fingerprint !== "${escapeForExtendScript(expectedFingerprint ?? "")}") return __error("Timeline changed since preview; no edit was applied. Preview the ranges again.", { mutationOutcome:"not_applied", timelineChanged:false });
+    if (${mutate}) {
+      if (__rippleOperation && __rippleOperation.batchFingerprint !== batchFingerprint) { delete __rippleStore["${escapeForExtendScript(operationId)}"]; __rippleOperation = null; return __error("Timeline changed during the saved ripple operation; no further edit was applied. Inspect the timeline before retrying.", { mutationOutcome:"unknown", timelineChanged:true, mutationAttempted:true, verified:false }); }
+      if ("${phase}" !== "finish" && !__rippleOperation && "${escapeForExtendScript(expectedFingerprint ?? "")}" && fingerprint !== "${escapeForExtendScript(expectedFingerprint ?? "")}") return __error("Timeline changed since preview; no edit was applied. Preview the ranges again.", { mutationOutcome:"not_applied", timelineChanged:false });
+    }
     var participating = {};
     for (ci2 = 0; ci2 < plan.length; ci2++) if (plan[ci2].removed || plan[ci2].shift > 0) participating[plan[ci2].type+":"+plan[ci2].track] = true;
     for (ci2 = 0; ci2 < clips.length; ci2++) for (ri2 = 0; ri2 < ranges.length; ri2++) if (clips[ci2].start < ranges[ri2].end-tol && clips[ci2].end > ranges[ri2].start+tol) participating[clips[ci2].type+":"+clips[ci2].track] = true;
@@ -167,7 +199,7 @@ export function rippleRemoveRangesScript(args: Args, mutate: boolean, expectedFi
       spanningByCut[qi] = {};
       for (tr = 0; tr < tracks.length; tr++) { spanKey = tracks[tr].type+":"+tracks[tr].index; if (spanCounts[spanKey] > 0) spanningByCut[qi][spanKey] = true; }
     }
-    var summary = { ranges: [], plannedClips: [], plannedClipsTruncated: false, plannedClipsTotal: plan.length, trackCounts: {}, clipsRemoved: 0, clipsShifted: 0, estimatedSeconds: 0, verified: false };
+    var summary = { transitionsAffected: [], ranges: [], plannedClips: [], plannedClipsTruncated: false, plannedClipsTotal: plan.length, trackCounts: {}, clipsRemoved: 0, clipsShifted: 0, estimatedSeconds: 0, verified: false };
     for (ri = 0; ri < ranges.length; ri++) summary.ranges.push({ startSeconds: __ticksToSeconds(ranges[ri].start), endSeconds: __ticksToSeconds(ranges[ri].end), removedSeconds: __ticksToSeconds(ranges[ri].end-ranges[ri].start) });
     for (ci2 = 0; ci2 < plan.length; ci2++) {
       if (plan[ci2].removed) summary.clipsRemoved++; else if (plan[ci2].shift > 0) summary.clipsShifted++;
@@ -185,29 +217,79 @@ export function rippleRemoveRangesScript(args: Args, mutate: boolean, expectedFi
     summary.dryRun = ${!mutate};
     summary.adjustments = adjustments;
     summary.timelineFingerprint = fingerprint;
-    if (${mutate} && summary.clipsShifted > 400 && ${args.allow_large_ripple !== true}) return __error("Large ripple refused before mutation: "+summary.clipsShifted+" clips would move (estimated "+summary.estimatedSeconds+" seconds). Pass allow_large_ripple: true to proceed.", { movers:summary.clipsShifted, estimatedSeconds:summary.estimatedSeconds, mutationOutcome:"not_applied", timelineChanged:false });
+    if (${mutate} && "${phase}" !== "finish" && !__rippleOperation && summary.clipsShifted > 400 && ${args.allow_large_ripple !== true}) return __error("Large ripple refused before mutation: "+summary.clipsShifted+" clips would move (estimated "+summary.estimatedSeconds+" seconds). Pass allow_large_ripple: true to proceed.", { movers:summary.clipsShifted, estimatedSeconds:summary.estimatedSeconds, mutationOutcome:"not_applied", timelineChanged:false });
     if (!${mutate}) return __result(summary);
-    // Preflight and all mutations are in this one host command. Razor cuts then
-    // recapture IDs: Premiere replaces TrackItems at each split.
+    // Each command repeats preflight; bounded razor commands then recapture IDs
+    // in the final command because Premiere replaces TrackItems at each split.
     var undoBefore = __readUndoIndex();
-    for (qi = 0; qi < uniqueCuts.length; qi++) {
+    // Live 26.5.2: pieces that move after the per-track razors come back unlinked
+    // from their audio/video partners. Record each clip's link group (its sorted
+    // linked node IDs) by track span so the moved pieces can be relinked.
+    // The preflight snapshot already holds each clip, so this needs no extra DOM reads.
+    var origins = [];
+    if (("${phase}" === "finish" || "${phase}" === "razor") && __rippleOperation) {
+      origins = __rippleOperation.origins || [];
+    } else {
+      for (ci2 = 0; ci2 < clips.length; ci2++) {
+        if (!participating[clips[ci2].type+":"+clips[ci2].track]) continue;
+        var linkedIds = [], linked = null, snapshotClip = clips[ci2].obj;
+        try { linked = snapshotClip && typeof snapshotClip.getLinkedItems === "function" ? snapshotClip.getLinkedItems() : null; } catch (linkReadErr) { linked = null; }
+        if (linked && linked.numItems > 1) {
+          for (var li = 0; li < linked.numItems; li++) linkedIds.push(String(linked[li].nodeId));
+          linkedIds.sort();
+          origins.push({ type:clips[ci2].type, track:clips[ci2].track, start:clips[ci2].start, end:clips[ci2].end, group:linkedIds.join(",") });
+        }
+      }
+      if ("${phase}" === "razor") {
+        __rippleOperation = { origins: origins, razorCutIndex: 0, razorTrackIndex: 0, batchFingerprint: batchFingerprint };
+        __rippleStore["${escapeForExtendScript(operationId)}"] = __rippleOperation;
+      }
+    }
+    if ("${phase}" === "finish" && !__rippleOperation) return __error("Ripple range removal recovery state is unavailable after razoring; inspect the timeline before retrying.", { mutationOutcome:"unknown", timelineChanged:true, mutationAttempted:true, verified:false });
+    if (!__rippleOperation) __rippleOperation = { razorCutIndex: 0, razorTrackIndex: 0 };
+    var razorCalls = 0;
+    // Resume from the precise cut/track boundary saved by the prior bridge
+    // command. A cut can touch several tracks, so a cut index alone is not
+    // sufficient to keep each command under the QE-call bound.
+    var razorCutIndex = __rippleOperation ? (__rippleOperation.razorCutIndex || 0) : 0;
+    var razorTrackIndex = __rippleOperation ? (__rippleOperation.razorTrackIndex || 0) : 0;
+    if ("${phase}" !== "finish") for (qi = razorCutIndex; qi < uniqueCuts.length; qi++) {
       var cut = uniqueCuts[qi], tc = __qeTimecodeForTicks(seq, cut).timecode;
-      for (tr = 0; tr < tracks.length; tr++) {
+      for (tr = qi === razorCutIndex ? razorTrackIndex : 0; tr < tracks.length; tr++) {
         t = tracks[tr];
         if (!participating[t.type+":"+t.index]) continue;
         if (!spanningByCut[qi][t.type+":"+t.index]) continue;
-        try { t.qe.razor(tc); } catch (razorErr) { return __error("Razor failed after mutation began; timeline state is unknown. Inspect before retrying: "+razorErr.toString(), { mutationOutcome:"unknown", timelineChanged:null, mutationAttempted:true, verified:false }); }
+        try { t.qe.razor(tc); } catch (razorErr) { delete __rippleStore["${escapeForExtendScript(operationId)}"]; return __error("Razor failed after mutation began; timeline state is unknown. Inspect before retrying: "+razorErr.toString(), { mutationOutcome:"unknown", timelineChanged:null, mutationAttempted:true, verified:false }); }
+        razorCalls++;
+        __rippleOperation.razorCutIndex = qi;
+        __rippleOperation.razorTrackIndex = tr + 1;
+        if ("${phase}" === "razor" && razorCalls >= ${Math.max(1, Math.floor(maxRazors))}) {
+          __rippleOperation.batchFingerprint = __rippleBatchFingerprint();
+          var undoDuringRazors = __readUndoIndex();
+          return __result({ complete:false, razorCalls:razorCalls, undoSteps:undoBefore !== null && undoDuringRazors !== null && undoDuringRazors > undoBefore ? undoDuringRazors - undoBefore : 0 });
+        }
       }
+      __rippleOperation.razorCutIndex = qi + 1;
+      __rippleOperation.razorTrackIndex = 0;
+    }
+    if ("${phase}" === "razor") {
+      __rippleOperation.batchFingerprint = __rippleBatchFingerprint();
+      var undoAfterRazors = __readUndoIndex();
+      return __result({ complete:true, razorCalls:razorCalls, undoSteps:undoBefore !== null && undoAfterRazors !== null && undoAfterRazors > undoBefore ? undoAfterRazors - undoBefore : 0 });
     }
     // Re-read live clips after splits, then classify against snapped intervals.
     var live = [];
     for (tr=0; tr<tracks.length; tr++) { t=tracks[tr]; for (ci=0;ci<t.dom.clips.numItems;ci++) { c=t.dom.clips[ci]; live.push({clip:c, id:String(c.nodeId), type:t.type, track:t.index, start:parseFloat(c.start.ticks), end:parseFloat(c.end.ticks)}); } }
-    var remove = [], move = [];
+    var remove = [], move = [], linkPieces = {};
     for (ci2=0;ci2<live.length;ci2++) {
       var lc=live[ci2], inRange=false, shift=0, overlap=false;
       for (ri=0;ri<ranges.length;ri++) { rg=ranges[ri]; if(lc.start>=rg.start-tol && lc.end<=rg.end+tol){inRange=true;break;} if(lc.start<rg.end-tol && lc.end>rg.start+tol) overlap=true; if(rg.end<=lc.start+tol) shift+=rg.end-rg.start; }
       if(overlap && !inRange) return __error("A clip still straddles a snapped range edge after razoring; nothing removed, timeline may contain new cuts. Inspect before retrying.",{mutationOutcome:"unknown",timelineChanged:true,mutationAttempted:true,verified:false});
       if(inRange) remove.push(lc); else if(shift>0) move.push({clip:lc.clip,id:lc.id,type:lc.type,track:lc.track,start:lc.start,end:lc.end,shift:shift});
+      if(!inRange){
+        // A kept piece belongs with the pieces cut from its linked partners over the same span.
+        for (var oi=0; oi<origins.length; oi++) { var origin=origins[oi]; if(origin.type===lc.type && origin.track===lc.track && lc.start>=origin.start-tol && lc.end<=origin.end+tol){ var pieceKey=origin.group+"@"+Math.round(lc.start)+"-"+Math.round(lc.end); if(!linkPieces[pieceKey]) linkPieces[pieceKey]=[]; linkPieces[pieceKey].push(lc.id); break; } }
+      }
     }
     for (ci2=0;ci2<remove.length;ci2++) { try { remove[ci2].clip.remove(false,false); } catch(delErr) { return __error("Removal failed after mutation began; inspect timeline before retrying: "+delErr.toString(),{mutationOutcome:"unknown",timelineChanged:true,mutationAttempted:true,verified:false}); } }
     move.sort(function(a,b){return a.start-b.start;});
@@ -219,9 +301,41 @@ export function rippleRemoveRangesScript(args: Args, mutate: boolean, expectedFi
     for(ci2=0;ci2<move.length;ci2++){var wanted=move[ci2], got=byId[wanted.id];if(!got)verify.push(wanted.id+" missing");else { var actualStart=parseFloat(got.clip.start.ticks), actualEnd=parseFloat(got.clip.end.ticks); if(Math.abs(actualStart-(wanted.start-wanted.shift))>tol)verify.push(wanted.id+" unexpected start"); if(Math.abs((actualEnd-actualStart)-(wanted.end-wanted.start))>tol)verify.push(wanted.id+" duration changed"); }}
     for(ci2=0;ci2<remove.length;ci2++)if(byId[remove[ci2].id])verify.push(remove[ci2].id+" was not removed");
     if(verify.length)return __error("Ripple ranges were applied, but readback could not verify every clip: "+verify.join(", "),{outcome:"committed_unverified",mutationOutcome:"unknown",timelineChanged:true,mutationAttempted:true,verified:false});
+    // Relink pieces of one original link group that share a span, then read links back.
+    var relinked=0, linkFailures=[];
+    var linkedTo = function (clipObj, ids) {
+      var items=null; try { items=clipObj.getLinkedItems(); } catch (linkedErr) { return false; }
+      if(!items || items.numItems!==ids.length) return false;
+      for (var lk=0; lk<items.numItems; lk++){ var found=false; for (var lj=0; lj<ids.length; lj++) if(String(items[lk].nodeId)===ids[lj]) found=true; if(!found) return false; }
+      return true;
+    };
+    var deselectAll = function () {
+      var groupsAll = [seq.videoTracks, seq.audioTracks];
+      for (var ga = 0; ga < groupsAll.length; ga++) for (var gt = 0; gt < groupsAll[ga].numTracks; gt++) for (var gc = 0; gc < groupsAll[ga][gt].clips.numItems; gc++) { try { groupsAll[ga][gt].clips[gc].setSelected(false, true); } catch (deselectErr) {} }
+    };
+    for (var pk in linkPieces) {
+      if(!linkPieces.hasOwnProperty(pk)) continue;
+      var ids=linkPieces[pk]; if(ids.length<2) continue;
+      var members=[], already=true;
+      for (var mi=0; mi<ids.length; mi++){ var entry=byId[ids[mi]]; if(!entry){ already=false; members=null; break; } members.push(entry.clip); if(!linkedTo(entry.clip, ids)) already=false; }
+      if(!members){ linkFailures.push(ids.join("+")+" missing"); continue; }
+      if(already) continue;
+      try {
+        // linkSelection links every selected clip, so clear the whole sequence first.
+        deselectAll();
+        for (mi=0; mi<members.length; mi++) members[mi].setSelected(true, true);
+        seq.linkSelection();
+        for (mi=0; mi<members.length; mi++) members[mi].setSelected(false, true);
+      } catch (linkErr) { linkFailures.push(ids.join("+")+": "+linkErr.toString()); continue; }
+      var linkedNow=true; for (mi=0; mi<members.length; mi++) if(!linkedTo(members[mi], ids)) linkedNow=false;
+      if(linkedNow) relinked++; else linkFailures.push(ids.join("+")+" did not read back linked");
+    }
+    summary.relinkedGroups=relinked;
+    if(linkFailures.length) return __error("Ripple ranges were applied and verified, but some moved audio/video pieces could not be relinked: "+linkFailures.join("; ")+". Select each pair and link it in Premiere.",{outcome:"committed_unverified",mutationOutcome:"committed_unverified",timelineChanged:true,mutationAttempted:true,verified:false,clipsRemoved:remove.length,clipsShifted:move.length,relinkedGroups:relinked});
     summary.dryRun=false; summary.verified=true; summary.clipsRemoved=remove.length; summary.clipsShifted=move.length;
     var undoAfter = __readUndoIndex();
     if (undoBefore !== null && undoAfter !== null && undoAfter > undoBefore) { summary.undoSteps = undoAfter - undoBefore; summary.undoStackIndex = undoAfter; }
+    if ("${phase}" === "finish") delete __rippleStore["${escapeForExtendScript(operationId)}"];
     return __result(summary);
   `);
 }
@@ -230,7 +344,7 @@ export function getRippleRemoveRangesTools(bridgeOptions: BridgeOptions, depende
   const capabilities = dependencies.capabilities ?? resolveCapabilities();
   return {
     ripple_remove_timeline_ranges: {
-      description: "Preview or apply a single-pass ripple removal for up to 50 sorted, non-overlapping timeline ranges on all unlocked, sync-locked tracks. Requires a preview confirmation token to apply. Integer frame rates only. The preview returns per-track counts and at most 50 planned-clip samples; clips fully inside ranges are removed. Large edits need allow_large_ripple: true.",
+      description: "Refuses attached transitions or unreadable transition collections before structural edits; inspect transitionsAffected and use remove_transition first. Preview or apply a single-pass ripple removal for up to 50 sorted, non-overlapping timeline ranges on all unlocked, sync-locked tracks. Requires a preview confirmation token to apply. Integer frame rates only. The preview returns per-track counts and at most 50 planned-clip samples; clips fully inside ranges are removed. Kept pieces cut from one linked audio/video clip are relinked and read back after the move. Large edits need allow_large_ripple: true.",
       parameters: { type: "object" as const, properties: {
         sequence_id: { type: "string", description: "Sequence name or ID; defaults to the active sequence. It must be the active sequence, because the edit runs through QE; another sequence is refused without changes." },
         ranges: { type: "array", minItems: 1, maxItems: 50, items: { type: "object", properties: { start: { type: "number", minimum: 0, description: "Range start in timeline seconds." }, end: { type: "number", exclusiveMinimum: 0, description: "Range end in timeline seconds." } }, required: ["start", "end"], additionalProperties: false }, description: "Sorted, non-overlapping timeline intervals to remove." },
@@ -238,6 +352,7 @@ export function getRippleRemoveRangesTools(bridgeOptions: BridgeOptions, depende
         range_content: { type: "string", enum: ["delete"], description: "Delete clips fully inside each removed range." },
         dry_run: { type: "boolean", description: "Return bounded read-only counts and up to 50 plan samples; default true." },
         allow_large_ripple: { type: "boolean", description: "Required when more than 400 clips will move." },
+        batch_size: { type: "number", minimum: 1, maximum: 32, description: `QE calls per bridge command (default: ${QE_BATCH_SIZE_ENV} or ${DEFAULT_QE_BATCH_SIZE}; clamped to 1-32).` },
         confirmation_token: { type: "string", description: "Single-use token from a successful dry run; required to apply." },
       }, required: ["ranges", "scope", "range_content"] },
       handler: async (args: Args) => {
@@ -250,7 +365,31 @@ export function getRippleRemoveRangesTools(bridgeOptions: BridgeOptions, depende
           if (!preview.success) return preview;
           const counts = preview.data as { clipsShifted?: number } | undefined;
           const timeoutMs = Math.max(bridgeOptions.timeoutMs ?? 30000, Math.min(900000, 30000 + (counts?.clipsShifted ?? 0) * 400));
-          return sendCommand(rippleRemoveRangesScript(args, true, expectedFingerprint), { ...bridgeOptions, timeoutMs, mutationOnTimeout: true });
+          const commandOptions = { ...bridgeOptions, timeoutMs, mutationOnTimeout: true };
+          const operationId = randomBytes(16).toString("hex");
+          let fingerprint = expectedFingerprint;
+          let undoSteps = 0;
+          // Do not keep an unbounded number of QE razors in one evalScript.
+          // Stack-overrun is native and bypasses ExtendScript catch blocks.
+          for (let batches = 0; batches < 1000; batches++) {
+            const batch = await sendCommand(
+              rippleRemoveRangesScript(args, true, fingerprint, "razor", operationId, resolveQeBatchSize(args.batch_size)),
+              commandOptions,
+            );
+            const batchData = batch.data as { complete?: boolean; undoSteps?: number } | undefined;
+            undoSteps += batchData?.undoSteps ?? 0;
+            if (!batch.success) {
+              if (undoSteps > 0) batch.data = { ...(batchData ?? {}), undoSteps, timelineChanged: true };
+              return batch;
+            }
+            if (batchData?.complete === true) break;
+            if (batches === 999) return { success: false, error: "Ripple range removal exceeded its bounded razor batch limit; inspect the timeline before retrying.", data: { outcome: "committed_unverified", undoSteps, timelineChanged: undoSteps > 0 } };
+          }
+          const result = await sendCommand(rippleRemoveRangesScript(args, true, "", "finish", operationId), commandOptions);
+          const resultData = result.data as { undoSteps?: number; [key: string]: unknown } | undefined;
+          const totalUndoSteps = undoSteps + (resultData?.undoSteps ?? 0);
+          if (totalUndoSteps > 0) result.data = { ...(resultData ?? {}), undoSteps: totalUndoSteps, timelineChanged: result.success ? resultData?.timelineChanged : true };
+          return result;
         } else requireCapability(capabilities, "edit", "ripple_remove_timeline_ranges");
         const result = await sendCommand(rippleRemoveRangesScript(args, false), bridgeOptions);
         if (result.success) {

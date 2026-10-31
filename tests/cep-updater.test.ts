@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { join, win32 } from "node:path";
 import { describe, expect, it, vi } from "vitest";
@@ -34,6 +35,14 @@ describe("CEP connector updater", () => {
   it("rejects untrusted download hosts", () => {
     expect(updater.isTrustedDownloadUrl("https://github.com/example/file.zxp")).toBe(true);
     expect(updater.isTrustedDownloadUrl("https://evil.example/file.zxp")).toBe(false);
+  });
+
+  it("asks the /latest endpoint for plain JSON, which it serves (not the abbreviated type, which it answers with 406)", () => {
+    expect(updater.LATEST_PACKAGE_API.endsWith("/latest")).toBe(true);
+    expect(updater.LATEST_PACKAGE_ACCEPT).toBe("application/json");
+    const panel = readFileSync(join(process.cwd(), "cep-plugin", "main.js"), "utf8");
+    expect(panel).toContain("Accept: MCPBridgeUpdater.LATEST_PACKAGE_ACCEPT");
+    expect(panel).not.toContain("application/vnd.npm.install-v1+json");
   });
 
   it("reads the latest global package version from the npm registry record", () => {

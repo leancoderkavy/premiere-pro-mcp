@@ -52,6 +52,51 @@ export function getTransitionsTools(bridgeOptions: BridgeOptions) {
     return null;
   };
   return {
+    remove_transition: {
+      description: "Remove one CEP track transition by exact index or a cut contained in its stored span. Uses TrackTransition.remove(false, false), verifies the complete remaining span list, and refuses ambiguous cuts. No QE fallback. Stored geometry only; rendered appearance remains a separate check.",
+      parameters: { type: "object" as const, properties: {
+        track_type: { type: "string", enum: ["video", "audio"], description: "Track kind (default video)." },
+        track_index: { type: "integer", minimum: 0, description: "Zero-based track index." },
+        transition_index: { type: "integer", minimum: 0, description: "Exact index from transitionsAffected; specify this or cut_point_seconds." },
+        cut_point_seconds: { type: "number", minimum: 0, description: "Cut inside exactly one transition's stored span; specify this or transition_index." }
+      }, required: ["track_index"] },
+      handler: async (args: { track_type?: "video" | "audio"; track_index: number; transition_index?: number; cut_point_seconds?: number }) => {
+        if (!Number.isInteger(args.track_index) || args.track_index < 0) return { success: false, error: "track_index must be a non-negative integer." };
+        if (args.track_type !== undefined && args.track_type !== "video" && args.track_type !== "audio") return { success: false, error: "track_type must be video or audio." };
+        if ((args.transition_index === undefined) === (args.cut_point_seconds === undefined)) return { success: false, error: "Specify exactly one of transition_index or cut_point_seconds." };
+        if (args.transition_index !== undefined && (!Number.isInteger(args.transition_index) || args.transition_index < 0)) return { success: false, error: "transition_index must be a non-negative integer." };
+        if (args.cut_point_seconds !== undefined && (!Number.isFinite(args.cut_point_seconds) || args.cut_point_seconds < 0)) return { success: false, error: "cut_point_seconds must be finite and non-negative." };
+        const type = args.track_type === "audio" ? "audio" : "video";
+        return sendCommand(buildToolScript(`
+          var seq = app.project && app.project.activeSequence;
+          if (!seq) return __error("No active sequence", { mutationOutcome:"not_applied", timelineChanged:false });
+          var tracks = seq.${type}Tracks;
+          if (!tracks || ${args.track_index} >= tracks.numTracks) return __error("Track index is out of range", { mutationOutcome:"not_applied", timelineChanged:false });
+          var track = tracks[${args.track_index}], before;
+          try { before = __transitionSnapshot(track); } catch (readError) { return __error("Transition readback unavailable; no removal attempted. " + String(readError), { mutationOutcome:"not_applied", timelineChanged:false }); }
+          var targetIndex = ${args.transition_index ?? -1};
+          ${args.cut_point_seconds !== undefined ? `
+          var cut = __secondsToTicks(${args.cut_point_seconds}), candidates = [];
+          for (var i = 0; i < before.length; i++) if (Number(before[i].startTicks) <= cut && Number(before[i].endTicks) >= cut) candidates.push(i);
+          if (candidates.length !== 1) return __error("Cut must identify exactly one transition; use transition_index from the candidate list.", { mutationOutcome:"not_applied", timelineChanged:false, candidateIndices:candidates });
+          targetIndex = candidates[0];` : ""}
+          if (targetIndex < 0 || targetIndex >= before.length) return __error("Transition index is out of range", { mutationOutcome:"not_applied", timelineChanged:false });
+          var selected = before[targetIndex], target = track.transitions[targetIndex];
+          if (typeof target.remove !== "function") return __error("TrackTransition.remove is unavailable; remove this transition in Premiere.", { mutationOutcome:"not_applied", timelineChanged:false });
+          var writeError = null;
+          try { target.remove(false, false); } catch (removeError) { writeError = String(removeError); }
+          var after;
+          try { after = __transitionSnapshot(track); } catch (afterError) { return __error("Removal attempted but transition readback is unavailable; inspect before retrying.", { mutationOutcome:"unknown", timelineChanged:null, outcome:"committed_unverified", verified:false, mutationAttempted:true, transitionsAffected:[selected] }); }
+          function same(a,b) { return a.startTicks===b.startTicks && a.endTicks===b.endTicks && a.nodeId===b.nodeId; }
+          var unchanged = before.length === after.length;
+          if (unchanged) for (var j=0;j<before.length;j++) if (!same(before[j],after[j])) unchanged=false;
+          var verified = after.length === before.length-1;
+          for (var k=0;k<after.length && verified;k++) if (!same(before[k < targetIndex ? k : k+1],after[k])) verified=false;
+          if (!verified || writeError) return __error("Transition removal was not fully verified. Inspect the track before retrying." + (writeError ? " " + writeError : ""), { mutationOutcome:unchanged ? "not_applied" : "changed", timelineChanged:!unchanged, outcome:unchanged ? "not_applied" : "committed_unverified", verified:false, mutationAttempted:true, transitionsAffected:[selected], transitionsBefore:before.length, transitionsAfter:after.length });
+          return __result({ outcome:"verified", verified:true, timelineChanged:true, transitionsRemoved:1, transitionsAffected:[selected], trackType:"${type}", trackIndex:${args.track_index} });
+        `), bridgeOptions);
+      },
+    },
     add_transition: {
       description: "EXPERIMENTAL (undocumented QE DOM): Add a video transition between two clips at a cut point. Reads the transition back from the sequence track.",
       parameters: {

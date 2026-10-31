@@ -18,6 +18,9 @@ function host({ ignore = false, unreadable = false } = {}) {
   const app = { get project() { return read(closed ? null : project); }, get projects() { return read(closed ? { numProjects: 0 } : { numProjects: 1, 0: project }); }, enableQE() { read(null); } };
   vi.mocked(sendCommand).mockImplementation(async (script, options) => {
     calls++; scripts.push(script);parse(script, { ecmaVersion: 3, allowReserved: "never" });
+    // Only the close itself goes to the headless engine, which survives the panel teardown.
+    if (calls === 1) expect(options).toMatchObject({ mutating: true, hostEngine: "headless" });
+    else expect(options).not.toHaveProperty("hostEngine");
     if (calls > 1) expect(options).toMatchObject({ mutating: false, mutationOnTimeout: false });
     return JSON.parse(String(runInNewContext(`${getHelpersSource()}\n${script}`, { app, File: class { fsName: string; constructor(p: string) { this.fsName = p; } }, $: { os: "Macintosh", global: {} } })));
   });

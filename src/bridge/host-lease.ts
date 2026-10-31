@@ -65,8 +65,12 @@ export async function withHostLease<T>(directory: string, timeoutMs: number, wor
         try { owner = JSON.parse(privateRead(ownerPath)); }
         catch (readError) {
           // A live owner can finish between existsSync/lstatSync/readFileSync.
-          // Retry acquisition only for disappearance; unsafe records still fail closed.
+          // Release races can surface as permission or parse errors as well as
+          // ENOENT. Confirm disappearance before retrying; a record that still
+          // exists or cannot be inspected must continue to fail closed.
           if ((readError as NodeJS.ErrnoException).code === "ENOENT") continue;
+          try { lstatSync(ownerPath); }
+          catch (statError) { if ((statError as NodeJS.ErrnoException).code === "ENOENT") continue; }
           throw new HostLeaseError("HOST_LEASE_UNSAFE", "Host owner record is unreadable; no command was dispatched");
         }
         if (owner?.version !== 1 || !Number.isInteger(owner.pid) || owner.pid <= 0 || owner.pid > 0x7fffffff || typeof owner.token !== "string" || !/^[A-Za-z0-9._:-]{1,128}$/.test(owner.token) || Object.keys(owner).some((key) => !["version", "pid", "token"].includes(key))) throw new HostLeaseError("HOST_LEASE_UNSAFE", "Invalid host owner record");

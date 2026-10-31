@@ -1,3 +1,4 @@
+import { mutationReceipt } from "../../src/workflows/mutation-receipt.js";
 import { runInNewContext } from "node:vm";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -822,10 +823,12 @@ describe("overwrite_clip verification", () => {
     };
     // A1 holds music over 0-20 s and A2 a sound effect at 6-8 s: a 2 s clip at 5 s overlaps both, so A3 is used.
     const seq = host([lists[1], lists[2], lists[3]]);
-    await expect(advanced.overwrite_clip.handler({ item_id: "nest", start_seconds: 5, audio_track_index: "auto_empty" })).resolves.toMatchObject({
+    const placed = await advanced.overwrite_clip.handler({ item_id: "nest", start_seconds: 5, audio_track_index: "auto_empty" });
+    expect(placed).toMatchObject({
       success: true,
       data: { verified: true, audioTrackIndex: 2, audioTrackAutoSelected: true },
     });
+    expect(mutationReceipt(placed.success, placed.data, { dispatched: true }, "overwrite_clip").outcome).toBe("verified");
     expect(seq.overwriteClip).toHaveBeenCalledWith(item, expect.any(String), 0, 2);
 
     host([[music]]);
@@ -839,13 +842,14 @@ describe("overwrite_clip verification", () => {
   });
 
   const ticks = (seconds: number) => String(seconds * 254016000000);
-  function overwriteHost(options: { videoSpan: number; audioSpan: number; dropAudio?: boolean; dropVideo?: boolean }) {
-    const item = {
+  function overwriteHost(options: { videoSpan: number; audioSpan: number; dropAudio?: boolean; dropVideo?: boolean; metadata?: string; placedInSeconds?: number }) {
+    const item: Record<string, unknown> = {
       nodeId: "source-1",
       name: "CCI DAY 1.mp4",
       getInPoint: () => ({ ticks: "0" }),
       getOutPoint: (type: number) => ({ ticks: ticks(type === 2 ? options.audioSpan : options.videoSpan) }),
     };
+    if (options.metadata) item.getProjectMetadata = () => options.metadata;
     const occupant = { nodeId: "keep", projectItem: { nodeId: "keep" }, start: { ticks: ticks(5) } };
     const videoClips: Array<{ nodeId: string; projectItem: { nodeId: string }; start: { ticks: string } }> = [];
     const audioClips: Array<{ nodeId: string; projectItem: { nodeId: string }; start: { ticks: string } }> = [];
@@ -853,7 +857,7 @@ describe("overwrite_clip verification", () => {
     if (options.videoSpan === 0) videoClips.push(occupant);
     const startFrom = (time: string | { ticks: string }) => typeof time === "string" ? time : time.ticks;
     const placeOn = (clips: typeof videoClips, nodeId: string, startTicks: string) => {
-      clips.push({ nodeId, projectItem: item, start: { ticks: startTicks } });
+      clips.push({ nodeId, projectItem: item as { nodeId: string }, start: { ticks: startTicks }, inPoint: { ticks: ticks(options.placedInSeconds ?? 0) } } as typeof videoClips[number]);
     };
     const smashOccupant = (clips: typeof videoClips) => {
       const index = clips.indexOf(occupant);
@@ -921,6 +925,62 @@ describe("overwrite_clip verification", () => {
     });
     expect(host.seqOverwrite).not.toHaveBeenCalled();
     expect(smash === "audio" ? host.audioClips : host.videoClips).toContain(host.occupant);
+  });
+});
+
+describe("overwrite_clip reports a source In that Premiere moved to a sequence frame", () => {
+  const ticks = (seconds: number) => String(Math.round(seconds * 254016000000));
+  // Audio subclip stored at 112.2797 s (48 kHz samples), as created live on 26.5.2.
+  const audioSubclip = `<x:xmpmeta><rdf:RDF><rdf:Description>`
+    + `<premierePrivateProjectMetaData:Column.Intrinsic.MediaTimebase>48000 Hz</premierePrivateProjectMetaData:Column.Intrinsic.MediaTimebase>`
+    + `<premierePrivateProjectMetaData:Column.Intrinsic.VideoInPoint rdf:parseType="Resource"><rdf:value/></premierePrivateProjectMetaData:Column.Intrinsic.VideoInPoint>`
+    + `<premierePrivateProjectMetaData:Column.Intrinsic.VideoOutPoint rdf:parseType="Resource"><rdf:value/></premierePrivateProjectMetaData:Column.Intrinsic.VideoOutPoint>`
+    + `<premierePrivateProjectMetaData:Column.Intrinsic.AudioInPoint rdf:parseType="Resource"><rdf:value>00:01:52:13425</rdf:value><premierePrivateProjectMetaData:frame_rate>10160640000</premierePrivateProjectMetaData:frame_rate></premierePrivateProjectMetaData:Column.Intrinsic.AudioInPoint>`
+    + `<premierePrivateProjectMetaData:Column.Intrinsic.AudioOutPoint rdf:parseType="Resource"><rdf:value>00:02:00:43424</rdf:value><premierePrivateProjectMetaData:frame_rate>10160640000</premierePrivateProjectMetaData:frame_rate></premierePrivateProjectMetaData:Column.Intrinsic.AudioOutPoint>`
+    + `</rdf:Description></rdf:RDF></x:xmpmeta>`;
+
+  function audioHost(placedInSeconds: number) {
+    const item = {
+      nodeId: "dialogue-1",
+      name: "A seg1 dialogue",
+      getInPoint: () => ({ ticks: "0" }),
+      getOutPoint: (type: number) => ({ ticks: type === 2 ? ticks(8.625) : "0" }),
+      getProjectMetadata: () => audioSubclip,
+    };
+    const audioClips: unknown[] = [];
+    const track = (clips: unknown[]) => ({
+      clips: new Proxy({}, { get: (_t, key) => key === "numItems" ? clips.length : clips[Number(key)] }),
+      overwriteClip: (_placed: unknown, time: string | { ticks: string }) => {
+        if (clips === audioClips) clips.push({ projectItem: item, start: { ticks: typeof time === "string" ? time : time.ticks }, inPoint: { ticks: ticks(placedInSeconds) } });
+      },
+    });
+    const seq = {
+      timebase: String(254016000000 / 24),
+      videoTracks: Object.assign({ numTracks: 1 }, [track([])]),
+      audioTracks: Object.assign({ numTracks: 1 }, [track(audioClips)]),
+    };
+    mockedSendCommand.mockImplementationOnce(async (script) => JSON.parse(String(runInNewContext(`${getHelpersSource()}\n${script}`, {
+      Time: class { ticks = "0"; },
+      app: { project: { rootItem: { children: Object.assign({ numItems: 1 }, [item]) }, activeSequence: seq } },
+    }))));
+  }
+
+  it("flags the 30 ms early In live 26.5.2 produced for a sample-cut audio subclip", async () => {
+    audioHost(112.25);
+    const result = await advanced.overwrite_clip.handler({ item_id: "dialogue-1", start_seconds: 2 });
+    expect(result).toMatchObject({ success: true, data: { verified: true, placedOnAudioTrack: true, sourceInShift: { stream: "audio", placedInSeconds: 112.25 } } });
+    expect(result.data.sourceInShift.storedInSeconds).toBeCloseTo(112.2796875, 6);
+    expect(result.data.sourceInShift.shiftSeconds).toBeCloseTo(-0.0296875, 6);
+    expect(result.data.note).toContain("30 ms earlier");
+    expect(result.data.note).toContain("slip_edit");
+  });
+
+  it("adds nothing when the placed In matches the stored In", async () => {
+    audioHost(112.2796875);
+    const result = await advanced.overwrite_clip.handler({ item_id: "dialogue-1", start_seconds: 2 });
+    expect(result).toMatchObject({ success: true, data: { verified: true } });
+    expect(result.data).not.toHaveProperty("sourceInShift");
+    expect(result.data).not.toHaveProperty("note");
   });
 });
 

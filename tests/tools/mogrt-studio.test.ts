@@ -313,6 +313,7 @@ describe("MOGRT studio tools", () => {
 
   it("reports the queue position of the new render item (live: RenderQueueItem has no index, result was null)", async () => {
     const vm = await import("node:vm");
+    const { HOST_PATH_HELPERS } = await import("../../src/bridge/host-paths.js");
     class CompItem { constructor(public name: string) {} }
     function File(this: { fsName: string; exists: boolean }, name: string) { this.fsName = name; this.exists = false; }
     const queue: unknown[] = [{}, {}];
@@ -321,8 +322,9 @@ describe("MOGRT studio tools", () => {
       directoryExists: () => true,
       fileExists: () => false,
       tokenFactory: () => "queue-token",
-      sendAfterEffects: async (script) => vm.runInNewContext(script, {
+      sendAfterEffects: async (script) => vm.runInNewContext(HOST_PATH_HELPERS + script, {
         CompItem, File,
+        $: { os: "Windows 11" },
         __aeResult: (data: unknown) => ({ success: true, data }),
         __aeError: (error: string) => ({ success: false, error }),
         app: { project: {

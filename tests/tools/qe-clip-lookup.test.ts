@@ -1,3 +1,4 @@
+import { mutationReceipt } from "../../src/workflows/mutation-receipt.js";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { Script, createContext, runInContext } from "node:vm";
 
@@ -273,6 +274,7 @@ describe("copy_effects_between_clips value-copy delegation", () => {
       .mockResolvedValueOnce({ success: true, data: { status: "verified", summary: { verified: 12 }, components: [{ component: "Gaussian Blur", status: "ok" }] } } as never);
     const result = await clipboard.copy_effects_between_clips.handler({ source_node_id: "b", target_node_id: "a" } as never) as any;
     expect(result).toMatchObject({ success: true, data: { status: "verified", verified: true, valuesCopied: true, copiedEffects: 1, copied: ["Gaussian Blur"], source: "Clip B", target: "Clip A", summary: { verified: 12 } } });
+    expect(mutationReceipt(result.success, result.data, { dispatched: true }, "copy_effects_between_clips").outcome).toBe("verified");
     expect(mockedSendCommand).toHaveBeenCalledTimes(2);
     expect(String(mockedSendCommand.mock.calls[0][0])).toContain('if (!seen["$" + name])');
     expect(String(mockedSendCommand.mock.calls[1][0])).toContain('__findQeClipByDomClip(');

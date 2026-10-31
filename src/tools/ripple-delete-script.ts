@@ -167,6 +167,11 @@ export function rippleDeleteScriptBody(options: {
             return __error("Ripple delete refused; nothing was changed. " + problems.join("; ") + ". Trim or move the offending clip(s) first, use range_content 'delete' to also remove clips that sit entirely inside the range, or use scope 'own_track' if desyncing other tracks is acceptable.");
           }
 
+          var transitionScopes = [];
+          for (var tsi = 0; tsi < parts.length; tsi++) transitionScopes.push({ type: parts[tsi].type, index: parts[tsi].index, start: gapStartT, end: Number.MAX_VALUE });
+          var transitionFailure = __transitionEditGuard(seq, transitionScopes);
+          if (transitionFailure) return transitionFailure;
+
           var planSummary = [];
           var totalMovers = 0;
           for (pi = 0; pi < plan.length; pi++) {
@@ -190,6 +195,7 @@ export function rippleDeleteScriptBody(options: {
             dryRun
               ? `
           return __result({
+            transitionsAffected: [],
             dryRun: true,
             rippled: false,
             clipName: targetName,
@@ -339,6 +345,7 @@ export function rippleDeleteScriptBody(options: {
           }
 
           return __result({
+            transitionsAffected: [],
             rippled: true,
             verified: true,
             clipName: targetName,

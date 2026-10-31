@@ -265,12 +265,17 @@ describe("__exportStillFrame AME fallback restores sequence in/out", () => {
     this.exists = false;
     this.length = 0;
     this.name = path.split("/").pop() || path;
-    this.parent = { exists: false, getFiles: () => [] };
+    this.parent = { exists: true, getFiles: () => [] };
     this.remove = () => undefined;
     this.rename = () => undefined;
   }
 
-  function runExport(sequence: Record<string, unknown>) {
+  function runExport(sequence: Record<string, unknown>, atTicks = TICKS * 5) {
+    if (!sequence.getSettings) sequence.getSettings = () => ({ audioSampleRate: 48000 });
+    for (const name of ["setInPoint", "setOutPoint"]) {
+      const write = sequence[name];
+      if (typeof write === "function") sequence[name] = (seconds: number) => write(seconds < 0 ? seconds : Math.floor(seconds * 48000 + 1e-9) / 48000);
+    }
     const sandbox: Record<string, unknown> = {
       File: FileStub,
       Folder: function Folder() { return {}; },
@@ -284,11 +289,37 @@ describe("__exportStillFrame AME fallback restores sequence in/out", () => {
     return runInNewContext(
       `${getHelpersSource()}
       __findStillPreset = function () { return "/tmp/still.epr"; };
-      __exportStillFrame("/tmp/frame.png", "${TICKS * 5}");`,
+      __exportStillFrame("/tmp/frame.png", "${atTicks}");`,
       sandbox,
     ) as { ok: boolean; notes?: string[]; error?: string };
   }
 
+  it("exports the requested NTSC frame after sample-grid flooring", () => {
+    let inside=10, outside=20;
+    const exported: number[][]=[];
+    runExport({ sequenceID:"sequence-1", timebase:"8475667200", getInPointAsTime:()=>({ticks:String(inside*TICKS)}), getOutPointAsTime:()=>({ticks:String(outside*TICKS)}), setInPoint:(n:number)=>{inside=n;}, setOutPoint:(n:number)=>{outside=n;}, exportAsMediaDirect:()=>{exported.push([inside,outside]);} },8475667200);
+    expect(exported).toHaveLength(1);
+    expect(exported[0][0]).toBeGreaterThanOrEqual(1001/30000);
+    expect(exported[0][1]).toBeGreaterThanOrEqual(2*1001/30000);
+    expect([inside,outside]).toEqual([10,20]);
+  });
+  it("keeps a frame just above an audio sample on or after its actual start", () => {
+    let inside=10,outside=20;
+    const frame=Math.round(TICKS/239),target=49*frame,exported:number[]=[];
+    runExport({sequenceID:"sequence-1",timebase:String(frame),getInPointAsTime:()=>({ticks:String(inside*TICKS)}),getOutPointAsTime:()=>({ticks:String(outside*TICKS)}),setInPoint:(n:number)=>{inside=n;},setOutPoint:(n:number)=>{outside=n;},exportAsMediaDirect:()=>{exported.push(inside);}},target);
+    expect(exported).toHaveLength(1);
+    expect(exported[0]*TICKS).toBeGreaterThanOrEqual(target);
+  });
+  it("does not export when the host ignores temporary range writes", () => {
+    let exports=0;
+    runExport({ sequenceID:"sequence-1", timebase:"8475667200", getInPointAsTime:()=>({ticks:String(10*TICKS)}), getOutPointAsTime:()=>({ticks:String(20*TICKS)}), setInPoint:()=>{}, setOutPoint:()=>{}, exportAsMediaDirect:()=>{exports++;} },8475667200);
+    expect(exports).toBe(0);
+  });
+  it("rejects a negative still-export boundary before writing marks", () => {
+    let writes=0;
+    runExport({ sequenceID:"sequence-1", timebase:"8475667200", getInPointAsTime:()=>({ticks:"0"}), getOutPointAsTime:()=>({ticks:String(20*TICKS)}), setInPoint:()=>{writes++;}, setOutPoint:()=>{writes++;}, exportAsMediaDirect:()=>{} },-1);
+    expect(writes).toBe(0);
+  });
   it("does not change in/out when Premiere cannot read them", () => {
     const marks = { inPoint: 10, outPoint: 20 };
     const result = runExport({
@@ -380,11 +411,11 @@ describe("__exportStillFrame AME fallback restores sequence in/out", () => {
       getOutPointAsTime() { return { ticks: String(marks.outPoint * TICKS) }; },
       setInPoint(value: number) {
         if (Math.abs(value - 10) < 0.0001) return;
-        marks.inPoint = value;
+        marks.inPoint = Math.floor(value * 48000) / 48000;
       },
       setOutPoint(value: number) {
         if (Math.abs(value - 20) < 0.0001) return;
-        marks.outPoint = value;
+        marks.outPoint = Math.floor(value * 48000) / 48000;
       },
       exportAsMediaDirect() { exportCount += 1; return true; },
     };

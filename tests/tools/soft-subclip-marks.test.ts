@@ -58,6 +58,30 @@ describe("soft subclip restore marks", () => {
     expect(marks.inTicks).toBe("0");
     expect(Number(marks.outTicks)).toBe(1932 * frame);
   });
+  it("restores marks of time-of-day media whose timecode passes midnight", () => {
+    // Live 26.0.2: a 23.976 camera started at 22:52:31:00 and ran 01:58:37:00.
+    const frame = 10594584000;
+    const base = metadata("22:52:31:00", "00:51:07:23", frame, "Video", "23.976 fps");
+    const mediaStart = `<p:Column.Intrinsic.MediaStart>22:52:31:00</p:Column.Intrinsic.MediaStart>`;
+    const xml = base.replace("</rdf:RDF>", `${mediaStart}</rdf:RDF>`);
+    const marks = run("__itemMarksForRestore(item, 1)", { item: item(xml) });
+    expect(marks).not.toBeNull();
+    expect(marks.inTicks).toBe("0");
+    // 01:58:36:23 inclusive = 170807 frames, exclusive Out one frame later.
+    expect(Number(marks.outTicks)).toBe(170808 * frame);
+  });
+
+  it("restores drop-frame time-of-day marks across midnight", () => {
+    const frame = T * 1001 / 30000;
+    const base = metadata("23:50:00;00", "00:01:00;02", frame, "Video", "29.97 fps");
+    const mediaStart = `<p:Column.Intrinsic.MediaStart>23:50:00;00</p:Column.Intrinsic.MediaStart>`;
+    const marks = run("__itemMarksForRestore(item, 1)", { item: item(base.replace("</rdf:RDF>", `${mediaStart}</rdf:RDF>`)) });
+    expect(marks).not.toBeNull();
+    expect(marks.inTicks).toBe("0");
+    // 23:50:00;00 -> 24:00:00;00 is ten DF minutes (17982 frames); 00:01:00;02 is frame 1800; inclusive Out + 1.
+    expect(Number(marks.outTicks)).toBe(Math.round((17982 + 1800 + 1) * frame));
+  });
+
   it("parses drop-frame timecode and rejects skipped labels", () => {
     const frame = T * 1001 / 30000;
     expect(run("__itemMarksForRestore(item, 1)", { item: item(metadata("00:01:00;02", "00:02:00;02", frame)) }).inTicks).toBe(String(1800 * frame));
