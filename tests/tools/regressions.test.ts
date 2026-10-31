@@ -3,6 +3,7 @@ import { tmpdir } from "node:os";
 import { join, resolve, sep } from "node:path";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { runInNewContext } from "node:vm";
+import { parse } from "acorn";
 import { escapeForExtendScript, getHelpersSource } from "../../src/bridge/script-builder.js";
 import { BridgeOptions } from "../../src/bridge/file-bridge.js";
 
@@ -639,13 +640,45 @@ describe("issue #129 — effect removal uses the targeted QE component remove an
     const seq = options.trackType === "audio"
       ? { sequenceID: "s", videoTracks: { numTracks: 0 }, audioTracks: track }
       : { sequenceID: "s", videoTracks: track, audioTracks: { numTracks: 0 } };
-    mockedSendCommand.mockImplementation(async (script: string) => JSON.parse(String(runInNewContext(`${getHelpersSource()}\n${script}`, {
-      app: { enableQE: () => {}, project: { activeSequence: seq } },
-      qe: { project: { getActiveSequence: () => ({ getVideoTrackAt: () => qeTrack, getAudioTrackAt: () => qeTrack }) } },
-    }))));
+    mockedSendCommand.mockImplementation(async (script: string) => {
+      const source = `${getHelpersSource()}\n${script}`;
+      parse(source, { ecmaVersion: 3, allowReserved: "never" });
+      return JSON.parse(String(runInNewContext(source, {
+        app: { enableQE: () => {}, project: { activeSequence: seq } },
+        qe: { project: { getActiveSequence: () => ({ getVideoTrackAt: () => qeTrack, getAudioTrackAt: () => qeTrack }) } },
+      })));
+    });
     return list;
   }
   const names = (list: Array<{ displayName: string }>) => list.map((c) => c.displayName);
+
+  const removalModes = ["index", "name", "all", "by_name"] as const;
+  async function removeMode(mode: typeof removalModes[number], effectName: string, index = 5) {
+    if (mode === "all") return advanced.remove_all_effects.handler({ node_id: "clip1" });
+    if (mode === "by_name") return clipboard.remove_effect_by_name.handler({ node_id: "clip1", effect_name: effectName });
+    return effects.remove_effect.handler(mode === "index" ? { node_id: "clip1", effect_index: index } : { node_id: "clip1", effect_name: effectName });
+  }
+  const intrinsicNames = ["Volume", "Channel Volume", "Panner", "Motion", "Opacity"];
+  const intrinsicMatches = { Volume: "Internal Volume Stereo", "Channel Volume": "Internal Channel Volume Stereo", Panner: "Internal Audio Panner", Motion: "AE.ADBE Motion", Opacity: "AE.ADBE Opacity" };
+  for (const mode of removalModes) {
+    it.each([["Highpass", "Internal Highpass"], ["Simple Parametric EQ", "Internal Parameteric EQ"], ['Highpass "quoted" \\ newline\n', "Internal Highpass"]])("removes applied Internal audio effect %s using " + mode, async (name, match) => {
+      const list = removalHost([...intrinsicNames, name], { trackType: "audio", matchNames: { ...intrinsicMatches, [name]: match } });
+      await expect(removeMode(mode, name)).resolves.toMatchObject({ success: true, data: { verified: true } });
+      expect(names(list)).toEqual(intrinsicNames);
+    });
+    it("never verifies an ignored Internal audio removal using " + mode, async () => {
+      const list = removalHost([...intrinsicNames, "Highpass"], { trackType: "audio", matchNames: { ...intrinsicMatches, Highpass: "Internal Highpass" }, qeRemoveNoop: true });
+      await expect(removeMode(mode, "Highpass")).resolves.toMatchObject({ success: false });
+      expect(names(list)).toEqual([...intrinsicNames, "Highpass"]);
+    });
+  }
+  for (const mode of ["index", "name", "by_name"] as const) {
+    it.each(intrinsicNames)("keeps true intrinsic %s on audio using " + mode, async name => {
+      const list = removalHost(intrinsicNames, { trackType: "audio", matchNames: intrinsicMatches });
+      await expect(removeMode(mode, name, intrinsicNames.indexOf(name))).resolves.toMatchObject({ success: false, error: expect.stringContaining("built-in") });
+      expect(names(list)).toEqual(intrinsicNames);
+    });
+  }
 
   it("remove_effect removes the named effect through QE and verifies", async () => {
     const list = removalHost(["Opacity", "Motion", "Gaussian Blur", "Lumetri Color"]);

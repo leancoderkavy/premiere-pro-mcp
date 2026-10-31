@@ -236,7 +236,7 @@ export function getEffectsTools(bridgeOptions: BridgeOptions) {
           }
           if (chosen < 0) return __error("Effect not found: " + effectName);
           `}
-          if (__isBuiltInComponent(clip.components[chosen])) return __error(effectName + " is a built-in clip component, not an effect, and cannot be removed.");
+          if (__isBuiltInComponentForClip(clip.components[chosen], result.trackType)) return __error(effectName + " is a built-in clip component, not an effect, and cannot be removed.");
           var removal = __removeClipComponents(result, function (name, index) { return index === chosen; });
           if (removal.unsupported) return __error("Capability error: " + removal.unsupported + " Nothing was removed; remove effects in Effect Controls.");
           if (removal.failures.length && removal.nothingRemoved) return __error("Capability error: Premiere exposes neither Component.remove() nor a matching QE component for " + effectName + ". The effect was not removed; remove it in Effect Controls.");

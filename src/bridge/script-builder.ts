@@ -1266,7 +1266,7 @@ function __isBuiltInComponent(component) {
 
 // Audio components every audio clip carries, as opposed to audio effects.
 // __isBuiltInComponent treats every "Internal ..." match name as built in,
-// which is right for removal safety but wrong here: Premiere 26.5.2 also
+// so audio removal and parameter checks use this narrower helper. Premiere 26.5.2 also
 // names effects that way ("Internal Highpass", "Internal Parameteric EQ"),
 // while others use GUIDs (DeEsser, Single-band Compressor, Hard Limiter).
 // Live intrinsics: "Internal Volume Mono|Stereo|5.1", "Internal Channel
@@ -1281,6 +1281,14 @@ function __isIntrinsicAudioComponent(component) {
   return !!__INTRINSIC_AUDIO_DISPLAY_NAMES[String(component.displayName)];
 }
 
+function __isBuiltInComponentForClip(component, trackType) {
+  if (trackType === "audio") {
+    if (__isIntrinsicAudioComponent(component)) return true;
+    if (/^Internal /.test(__componentMatchName(component))) return !!__BUILT_IN_COMPONENTS[String(component.displayName)];
+  }
+  return __isBuiltInComponent(component);
+}
+
 // Match names confirmed live (#674). Unlike the guessed entries above, these
 // prove the host language: one of them showing a non-English display name
 // means the built-ins are localized.
@@ -1293,7 +1301,7 @@ function __isConfirmedBuiltInMatchName(match) {
 // built-in's English name. On a localized host, the match names of Time
 // Remapping, Panner and shape layers are not confirmed, so an unknown match
 // name could be one of them: refuse rather than risk removing it (#674).
-function __componentClassificationProblem(clip) {
+function __componentClassificationProblem(clip, trackType) {
   var localized = null;
   for (var i = 0; i < clip.components.numItems; i++) {
     var component = clip.components[i];
@@ -1302,7 +1310,9 @@ function __componentClassificationProblem(clip) {
     if (!match && !__BUILT_IN_COMPONENTS[name]) {
       return "Premiere reports no match name for the component " + name + ", so it cannot be told apart from a built-in component reliably.";
     }
-    if (__isConfirmedBuiltInMatchName(match) && !__BUILT_IN_COMPONENTS[name]) localized = name;
+    var confirmedBuiltIn = __isConfirmedBuiltInMatchName(match);
+    if (trackType === "audio" && /^Internal /.test(match)) confirmedBuiltIn = __isIntrinsicAudioComponent(component);
+    if (confirmedBuiltIn && !__BUILT_IN_COMPONENTS[name]) localized = name;
   }
   if (localized !== null) {
     return "This Premiere host shows built-in components under localized names (" + localized + "). The match names of Time Remapping and Panner are not confirmed yet, so an effect cannot be told apart from them reliably (#674).";
@@ -1323,7 +1333,7 @@ function __removeClipComponents(result, wanted) {
   var clip = result.clip;
   var out = { removed: [], failures: [], before: [], remaining: [], verified: false, nothingRemoved: true, unsupported: null };
   var targets = [];
-  out.unsupported = __componentClassificationProblem(clip);
+  out.unsupported = __componentClassificationProblem(clip, result.trackType);
   if (out.unsupported) {
     for (var u = 0; u < clip.components.numItems; u++) out.remaining.push(String(clip.components[u].displayName));
     out.before = out.remaining.slice();
@@ -1332,7 +1342,7 @@ function __removeClipComponents(result, wanted) {
   for (var b = 0; b < clip.components.numItems; b++) out.before.push(String(clip.components[b].displayName));
   for (var i = clip.components.numItems - 1; i >= 0; i--) {
     var name = String(clip.components[i].displayName);
-    if (__isBuiltInComponent(clip.components[i])) continue;
+    if (__isBuiltInComponentForClip(clip.components[i], result.trackType)) continue;
     if (wanted(name, i)) targets.push({ index: i, name: name, component: clip.components[i] });
   }
   var qeClip = null;

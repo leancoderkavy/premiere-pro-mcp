@@ -1023,7 +1023,7 @@ export function getClipboardTools(bridgeOptions: BridgeOptions) {
           var builtIn = 0;
           for (var i = 0; i < result.clip.components.numItems; i++) {
             if (result.clip.components[i].displayName !== effectName) continue;
-            if (__isBuiltInComponent(result.clip.components[i])) builtIn++; else found++;
+            if (__isBuiltInComponentForClip(result.clip.components[i], result.trackType)) builtIn++; else found++;
           }
           if (!found && builtIn) return __error(effectName + " is a built-in clip component, not an effect, and cannot be removed.");
           if (!found) return __error("Effect not found: " + effectName);
