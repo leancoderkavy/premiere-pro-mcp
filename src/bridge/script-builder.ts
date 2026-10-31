@@ -1331,7 +1331,7 @@ function __componentClassificationProblem(clip, trackType) {
 // unsupported } where unsupported explains a refusal made before any removal.
 function __removeClipComponents(result, wanted) {
   var clip = result.clip;
-  var out = { removed: [], failures: [], before: [], remaining: [], verified: false, nothingRemoved: true, unsupported: null };
+  var out = { removed: [], failures: [], before: [], remaining: [], verified: false, nothingRemoved: true, unsupported: null, mutationAttempted: false };
   var targets = [];
   out.unsupported = __componentClassificationProblem(clip, result.trackType);
   if (out.unsupported) {
@@ -1376,10 +1376,10 @@ function __removeClipComponents(result, wanted) {
     var target = targets[t];
     var done = false;
     try {
-      if (target.path === "dom") { target.component.remove(); done = true; }
+      if (target.path === "dom") { out.mutationAttempted = true; target.component.remove(); done = true; }
       else {
         var qeComponent = qeClip.getComponentAt(target.index);
-        if (qeComponent && String(qeComponent.name) === target.name) { qeComponent.remove(); done = true; }
+        if (qeComponent && String(qeComponent.name) === target.name) { out.mutationAttempted = true; qeComponent.remove(); done = true; }
       }
     } catch (eRemove) {}
     if (done) { out.removed.push(target.name); out.nothingRemoved = false; expected.splice(target.index, 1); }
