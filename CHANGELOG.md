@@ -6,6 +6,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Fixed
+
+- `create_subclip` and the `overwrite_clip` `sourceInShift` check read the media start from `Column.Intrinsic.MediaStart` when the stored points carry no offset child, and handle time-of-day ranges that pass midnight, so a camera clip at 01:00:00:00 no longer reports a range (or shift) off by an hour. An unreadable MediaStart leaves the range unverified instead of assuming zero (#920 follow-up).
+- `overwrite_clip` no longer says `slip_edit` can correct a `sourceInShift`: slip_edit snaps to whole sequence frames, so it cannot correct a shift smaller than one frame (#920 follow-up).
+
 ## [1.27.0] - 2026-10-31
 
 ### Added

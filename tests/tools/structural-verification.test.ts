@@ -939,13 +939,13 @@ describe("overwrite_clip reports a source In that Premiere moved to a sequence f
     + `<premierePrivateProjectMetaData:Column.Intrinsic.AudioOutPoint rdf:parseType="Resource"><rdf:value>00:02:00:43424</rdf:value><premierePrivateProjectMetaData:frame_rate>10160640000</premierePrivateProjectMetaData:frame_rate></premierePrivateProjectMetaData:Column.Intrinsic.AudioOutPoint>`
     + `</rdf:Description></rdf:RDF></x:xmpmeta>`;
 
-  function audioHost(placedInSeconds: number) {
+  function audioHost(placedInSeconds: number, metadata = audioSubclip) {
     const item = {
       nodeId: "dialogue-1",
       name: "A seg1 dialogue",
       getInPoint: () => ({ ticks: "0" }),
       getOutPoint: (type: number) => ({ ticks: type === 2 ? ticks(8.625) : "0" }),
-      getProjectMetadata: () => audioSubclip,
+      getProjectMetadata: () => metadata,
     };
     const audioClips: unknown[] = [];
     const track = (clips: unknown[]) => ({
@@ -972,7 +972,24 @@ describe("overwrite_clip reports a source In that Premiere moved to a sequence f
     expect(result.data.sourceInShift.storedInSeconds).toBeCloseTo(112.2796875, 6);
     expect(result.data.sourceInShift.shiftSeconds).toBeCloseTo(-0.0296875, 6);
     expect(result.data.note).toContain("30 ms earlier");
-    expect(result.data.note).toContain("slip_edit");
+    expect(result.data.note).toContain("cannot correct a shift smaller than one frame");
+    expect(advanced.overwrite_clip.description).not.toContain("corrected with slip_edit");
+    expect(advanced.overwrite_clip.description).toContain("slip_edit snaps to whole sequence frames");
+  });
+
+  it("subtracts MediaStart when the stored points carry no offset child", async () => {
+    // A file starting at 00:01:00 stores its In as 00:02:52:13425; without MediaStart the
+    // receipt would report a bogus 60 s shift.
+    const withStart = audioSubclip
+      .replace("00:01:52:13425", "00:02:52:13425").replace("00:02:00:43424", "00:03:00:43424")
+      .replace("</rdf:Description>", "<premierePrivateProjectMetaData:Column.Intrinsic.MediaStart>00:01:00:00000</premierePrivateProjectMetaData:Column.Intrinsic.MediaStart></rdf:Description>");
+    audioHost(112.2796875, withStart);
+    let result = await advanced.overwrite_clip.handler({ item_id: "dialogue-1", start_seconds: 2 });
+    expect(result).toMatchObject({ success: true, data: { verified: true } });
+    expect(result.data).not.toHaveProperty("sourceInShift");
+    audioHost(112.25, withStart);
+    result = await advanced.overwrite_clip.handler({ item_id: "dialogue-1", start_seconds: 2 });
+    expect(result.data.sourceInShift.shiftSeconds).toBeCloseTo(-0.0296875, 6);
   });
 
   it("adds nothing when the placed In matches the stored In", async () => {

@@ -138,6 +138,53 @@ describe("create_subclip reads the stored range back", () => {
     expect((await run({ item_id: "src-1", name: "Cam", in_seconds: 2, out_seconds: 4 })).data).not.toHaveProperty("mediaStartSeconds");
   });
 
+  it("falls back to MediaStart when the points carry no offset child", async () => {
+    // Live 26.0.2 time-of-day camera metadata stores the start only in Column.Intrinsic.MediaStart.
+    const mediaStart = (body: string) => packet("01:00:02:00", "01:00:03:24", FRAME_25)
+      .replace("</rdf:Description>", `<premierePrivateProjectMetaData:Column.Intrinsic.MediaStart>${body}</premierePrivateProjectMetaData:Column.Intrinsic.MediaStart></rdf:Description>`);
+    host(() => mediaStart("01:00:00:00"));
+    let result = await run({ item_id: "src-1", name: "Cam", in_seconds: 2, out_seconds: 4 });
+    expect(result.data).toMatchObject({ outcome: "verified", verified: true, observedInSeconds: 2, mediaStartSeconds: 3600 });
+    expect(result.data?.observedOutSeconds).toBeCloseTo(4, 9);
+    // The nested rdf:value form with a matching frame_rate child reads the same start.
+    host(() => mediaStart(`<rdf:value>01:00:00:00</rdf:value><premierePrivateProjectMetaData:frame_rate>${FRAME_25}</premierePrivateProjectMetaData:frame_rate>`));
+    result = await run({ item_id: "src-1", name: "Cam", in_seconds: 2, out_seconds: 4 });
+    expect(result.data).toMatchObject({ outcome: "verified", observedInSeconds: 2, mediaStartSeconds: 3600 });
+    // A MediaStart on a different frame grid, or one that cannot be read, is never treated as zero.
+    for (const body of [`<rdf:value>01:00:00:00</rdf:value><premierePrivateProjectMetaData:frame_rate>${FRAME_24}</premierePrivateProjectMetaData:frame_rate>`, "garbage"]) {
+      host(() => mediaStart(body));
+      result = await run({ item_id: "src-1", name: "Cam", in_seconds: 2, out_seconds: 4 });
+      expect(result.data).toMatchObject({ outcome: "committed_unverified", verified: false, observedInSeconds: null });
+      expect(result.data?.note).toContain("could not be read");
+    }
+  });
+
+  it("reads a MediaStart range that passes midnight", async () => {
+    // A 25 fps camera started at 23:59:59:00; the subclip runs from 23:59:59:12 to 00:00:00:11 inclusive.
+    const xml = packet("23:59:59:12", "00:00:00:11", FRAME_25)
+      .replace("</rdf:Description>", `<premierePrivateProjectMetaData:Column.Intrinsic.MediaStart>23:59:59:00</premierePrivateProjectMetaData:Column.Intrinsic.MediaStart></rdf:Description>`);
+    host(() => xml);
+    const result = await run({ item_id: "src-1", name: "Late", in_seconds: 0.48, out_seconds: 1.48 });
+    expect(result.data).toMatchObject({ outcome: "verified", verified: true, mediaStartSeconds: 86399 });
+    expect(result.data?.observedInSeconds).toBeCloseTo(0.48, 9);
+    expect(result.data?.observedOutSeconds).toBeCloseTo(1.48, 9);
+  });
+
+  it("reads an audio MediaStart in samples when the points carry no offset child", async () => {
+    const audio = `<?xpacket begin="" id="W5M0MpCehiHzreSzNTczkc9d"?><x:xmpmeta><rdf:RDF><rdf:Description>`
+      + `<premierePrivateProjectMetaData:Column.Intrinsic.MediaTimebase>48000 Hz</premierePrivateProjectMetaData:Column.Intrinsic.MediaTimebase>`
+      + `<premierePrivateProjectMetaData:Column.Intrinsic.MediaStart>00:01:00:00000</premierePrivateProjectMetaData:Column.Intrinsic.MediaStart>`
+      + `<premierePrivateProjectMetaData:Column.Intrinsic.VideoInPoint rdf:parseType="Resource"><rdf:value/></premierePrivateProjectMetaData:Column.Intrinsic.VideoInPoint>`
+      + `<premierePrivateProjectMetaData:Column.Intrinsic.VideoOutPoint rdf:parseType="Resource"><rdf:value/></premierePrivateProjectMetaData:Column.Intrinsic.VideoOutPoint>`
+      + point("AudioInPoint", "00:01:01:00048", FRAME_25)
+      + point("AudioOutPoint", "00:01:04:00191", FRAME_25)
+      + `</rdf:Description></rdf:RDF></x:xmpmeta><?xpacket end="w"?>`;
+    host(() => audio);
+    const result = await run({ item_id: "src-1", name: "Tone", in_seconds: 1.001, out_seconds: 4.004 });
+    expect(result.data).toMatchObject({ outcome: "verified", verified: true, mediaStartSeconds: 60 });
+    expect(result.data?.observedInSeconds).toBeCloseTo(1.001, 9);
+  });
+
   it("sends each point a quarter frame past the nearest media frame so Premiere's floor lands on it", async () => {
     // Live 26.5.2, 24 fps CFR MP4: an In of 1826.8333333 s sent as exact ticks stored 1826.7916667 s.
     const calls = host(() => packet("00:30:26:20", "00:30:29:23", FRAME_24), { frameRate: 24 });

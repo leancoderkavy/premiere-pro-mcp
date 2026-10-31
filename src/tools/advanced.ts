@@ -1041,7 +1041,7 @@ export function getAdvancedTools(
 
     overwrite_clip: {
       description:
-        "Overwrite a project item onto validated timeline tracks and verify a new source placement at the requested time. Every video/audio stream the item actually has must land on the requested tracks; a picture-only or sound-only placement (for example 5.1 audio that does not fit a stereo track) is committed_unverified, not verified. Video-only and audio-only items overwrite only the receiving track, so Sequence.overwriteClip cannot smash V0 or A0 for the unused kind. When Premiere moves the source In to a sequence frame (an audio subclip cut between frames), the receipt reports sourceInShift and a note so the shift can be corrected with slip_edit.",
+        "Overwrite a project item onto validated timeline tracks and verify a new source placement at the requested time. Every video/audio stream the item actually has must land on the requested tracks; a picture-only or sound-only placement (for example 5.1 audio that does not fit a stereo track) is committed_unverified, not verified. Video-only and audio-only items overwrite only the receiving track, so Sequence.overwriteClip cannot smash V0 or A0 for the unused kind. When Premiere moves the source In to a sequence frame (an audio subclip cut between frames), the receipt reports sourceInShift and a note. slip_edit snaps to whole sequence frames, so it cannot correct a shift smaller than one frame.",
       parameters: {
         type: "object" as const,
         properties: {
@@ -1214,7 +1214,7 @@ export function getAdvancedTools(
               var shift = placedInSeconds - storedRange.inSeconds;
               if (Math.abs(shift) > 0.001) {
                 receipt.sourceInShift = { stream: shiftChecks[sc][2], storedInSeconds: storedRange.inSeconds, placedInSeconds: placedInSeconds, shiftSeconds: shift };
-                receipt.note = "Premiere placed the " + shiftChecks[sc][2] + " with its source In " + Math.round(Math.abs(shift) * 1000) + " ms " + (shift < 0 ? "earlier" : "later") + " than the item's stored In, because timeline clips start on sequence frames. Linked picture and sound may now be out of sync by that much; slip_edit moves the clip by whole frames.";
+                receipt.note = "Premiere placed the " + shiftChecks[sc][2] + " with its source In " + Math.round(Math.abs(shift) * 1000) + " ms " + (shift < 0 ? "earlier" : "later") + " than the item's stored In, because timeline clips start on sequence frames. Linked picture and sound may now be out of sync by that much. slip_edit snaps to whole sequence frames, so it cannot correct a shift smaller than one frame.";
                 break;
               }
             }
