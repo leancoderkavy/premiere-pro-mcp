@@ -14,6 +14,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- `ripple_remove_timeline_ranges` and `multiple_undo` no longer hit "InternalError: Stack overrun" on long range lists: QE razor and undo calls now run in bounded batches (default 8 per bridge call, `batch_size` or `PREMIERE_MCP_QE_BATCH_SIZE`, clamped 1-32) with timeline-fingerprint checks between batches (#925, #926).
 - Project-item mark restore handles time-of-day timecode that passes midnight, so media from a camera started late in the evening keeps its marks (#938).
 - Dependency audit: `@hono/node-server` 2.1.5 (GHSA-rmxm-3fg6-px4f) and a `minimatch` 11.0.3 override for the dev-only eslint chain (GHSA-g3hv-75wg-m249) (#932, #939).
 - Full-server registration and catalog test files allow 60 seconds for tests and setup hooks on loaded machines, while retaining the global 10-second default and existing longer explicit test limits.
