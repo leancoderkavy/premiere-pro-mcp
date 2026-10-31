@@ -1,3 +1,4 @@
+import { mutationReceipt } from "../../src/workflows/mutation-receipt.js";
 import { runInNewContext } from "node:vm";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -822,10 +823,12 @@ describe("overwrite_clip verification", () => {
     };
     // A1 holds music over 0-20 s and A2 a sound effect at 6-8 s: a 2 s clip at 5 s overlaps both, so A3 is used.
     const seq = host([lists[1], lists[2], lists[3]]);
-    await expect(advanced.overwrite_clip.handler({ item_id: "nest", start_seconds: 5, audio_track_index: "auto_empty" })).resolves.toMatchObject({
+    const placed = await advanced.overwrite_clip.handler({ item_id: "nest", start_seconds: 5, audio_track_index: "auto_empty" });
+    expect(placed).toMatchObject({
       success: true,
       data: { verified: true, audioTrackIndex: 2, audioTrackAutoSelected: true },
     });
+    expect(mutationReceipt(placed.success, placed.data, { dispatched: true }, "overwrite_clip").outcome).toBe("verified");
     expect(seq.overwriteClip).toHaveBeenCalledWith(item, expect.any(String), 0, 2);
 
     host([[music]]);

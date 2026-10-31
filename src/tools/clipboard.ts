@@ -565,16 +565,28 @@ export function getClipboardTools(bridgeOptions: BridgeOptions) {
           apply_missing_effects: true,
         });
         if (!pasted.success) return pasted;
-        const data = pasted.data as { status?: string; summary?: Record<string, number>; components?: unknown[] };
+        const data = pasted.data as {
+          status?: string; summary?: Record<string, number>; components?: unknown[];
+          verified?: boolean; outcome?: string; mutationOutcome?: string;
+          recoveryRequired?: boolean; stateUnknown?: boolean;
+        };
+        const verified = data.status === "verified" && data.verified !== false &&
+          data.recoveryRequired !== true && data.stateUnknown !== true &&
+          (data.outcome === undefined || data.outcome === "verified") &&
+          (data.mutationOutcome === undefined || data.mutationOutcome === "verified");
         return {
           success: true,
           data: {
             status: data.status,
-            verified: data.status === "verified",
+            ...(data.outcome === undefined ? {} : { outcome: data.outcome }),
+            ...(data.mutationOutcome === undefined ? {} : { mutationOutcome: data.mutationOutcome }),
+            ...(data.recoveryRequired === undefined ? {} : { recoveryRequired: data.recoveryRequired }),
+            ...(data.stateUnknown === undefined ? {} : { stateUnknown: data.stateUnknown }),
+            verified,
             requestedEffects: found.names.length,
-            copiedEffects: data.status === "verified" ? found.names.length : 0,
-            copied: data.status === "verified" ? found.names : [],
-            valuesCopied: data.status === "verified",
+            copiedEffects: verified ? found.names.length : 0,
+            copied: verified ? found.names : [],
+            valuesCopied: verified,
             source: found.source,
             target: found.target,
             summary: data.summary,

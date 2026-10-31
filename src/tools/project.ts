@@ -520,10 +520,18 @@ export function getProjectTools(bridgeOptions: BridgeOptions) {
             if (!targetBin.children) {
               return __error("The target bin does not expose a children collection, so an After Effects import cannot be verified.");
             }
-            var beforeItems = targetBin.children.numItems;
+            var beforeItems = null;
+            try { beforeItems = targetBin.children.numItems; } catch (countError) {}
+            if (typeof beforeItems !== "number" || !isFinite(beforeItems) || beforeItems < 0 || Math.floor(beforeItems) !== beforeItems) {
+              return __error("The target bin item count could not be read reliably. No compositions were imported.", { verified: false, mutationOutcome: "not_applied", projectChanged: false });
+            }
         `;
         const verify = (importedDescription: string) => `
-            var afterItems = targetBin.children.numItems;
+            var afterItems = null;
+            try { afterItems = targetBin.children.numItems; } catch (countError) {}
+            if (typeof afterItems !== "number" || !isFinite(afterItems) || afterItems < 0 || Math.floor(afterItems) !== afterItems) {
+              return __error("The import ran, but the target bin item count could not be read reliably afterwards. Inspect the bin before retrying.", { imported: null, verified: false, outcome: "committed_unverified", binItemsBefore: beforeItems, binItemsAfter: null });
+            }
             var addedItems = afterItems - beforeItems;
             if (addedItems <= 0) {
               return __error("Premiere reported no error, but the target bin gained no items, so ${importedDescription} were not imported from ${aePath}.");
@@ -549,7 +557,8 @@ export function getProjectTools(bridgeOptions: BridgeOptions) {
               addedItems: addedItems,
               binItemsBefore: beforeItems,
               binItemsAfter: afterItems,
-              verification: "Target-bin item-count increase only; composition identity and rendered content are not verified."
+              verification: "Target-bin item-count increase only; composition identity and rendered content are not verified.",
+              verificationScope: "Target-bin item-count increase only; composition identity and rendered content are not verified."
             });
           `);
           return sendCommand(script, bridgeOptions);
@@ -569,7 +578,8 @@ export function getProjectTools(bridgeOptions: BridgeOptions) {
               addedItems: addedItems,
               binItemsBefore: beforeItems,
               binItemsAfter: afterItems,
-              verification: "Target-bin item-count increase only; composition identity and rendered content are not verified."
+              verification: "Target-bin item-count increase only; composition identity and rendered content are not verified.",
+              verificationScope: "Target-bin item-count increase only; composition identity and rendered content are not verified."
             });
           `);
           return sendCommand(script, bridgeOptions);

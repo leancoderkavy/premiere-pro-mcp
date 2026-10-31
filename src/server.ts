@@ -607,7 +607,7 @@ export function createServer(
         const logEntry = operation.entry;
         const run = async () => {
           const structured = (success: boolean, data?: unknown, error?: string) => {
-            const receipt = mutating ? mutationReceipt(success, data, currentInvocation()) : undefined;
+            const receipt = mutating ? mutationReceipt(success, data, currentInvocation(), name) : undefined;
             if (logEntry && receipt) finishOperation(logEntry, success, receipt.outcome);
             return {
               ...structuredToolResult(name, success, data, error),
@@ -628,7 +628,7 @@ export function createServer(
             const protectedHostWork = async () => {
               try {
                 const result = await work();
-                if (currentInvocation()?.dispatched && mutationReceipt(result.success, result.data, currentInvocation()).outcome === "unknown") {
+                if (currentInvocation()?.dispatched && mutationReceipt(result.success, result.data, currentInvocation(), name).outcome === "unknown") {
                   markHostRecovery(getTempDir(bridgeOptions), "unknown_command_outcome");
                 }
                 return result;

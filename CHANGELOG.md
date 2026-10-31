@@ -32,6 +32,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ### Fixed
 
 - Caption style guidance no longer names `export_frame` or review-frame exports as caption render evidence. Export Frame omits caption tracks on recent Premiere releases; guidance now routes to playback or a short burn-in `export_sequence`.
+- Edit receipts honor audited handler readback for placement, properties, audio curves, effects, sequence settings, tracks, imports, keyframes and removals. Unreadable batch properties, import counts and deletion collections cannot verify a write; effect-copy wrappers preserve uncertainty and explicit partial or unknown outcomes remain unchanged.
 
 ## [1.26.0] - 2026-10-27
 

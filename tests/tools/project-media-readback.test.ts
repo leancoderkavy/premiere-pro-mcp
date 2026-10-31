@@ -22,6 +22,7 @@ import { sendCommand } from "../../src/bridge/file-bridge.js";
 import { getMediaTools } from "../../src/tools/media.js";
 import { getMetadataTools } from "../../src/tools/metadata.js";
 import { getProjectTools } from "../../src/tools/project.js";
+import { mutationReceipt } from "../../src/workflows/mutation-receipt.js";
 
 const mockedSendCommand = vi.mocked(sendCommand);
 const bridge = { tempDir: "/tmp/project-media", timeoutMs: 5000 } as BridgeOptions;
@@ -173,6 +174,7 @@ describe("import_media confirms new project items", () => {
     const { bin } = host({ existingFiles: [filePath("/m/x.wav"), filePath("/m/y.wav")] });
     const result = await run(media.import_media, { file_paths: [filePath("/m/x.wav"), filePath("/m/y.wav")], target_bin: "Footage" });
     expect(result).toMatchObject({ success: true, data: { imported: 2, verified: true } });
+    expect(mutationReceipt(result.success, result.data, { dispatched: true }, "import_media").outcome).toBe("verified");
     expect(result.data?.items.map((item: { mediaPath: string }) => item.mediaPath)).toEqual([filePath("/m/x.wav"), filePath("/m/y.wav")]);
     expect(bin.kids).toHaveLength(2);
   });
